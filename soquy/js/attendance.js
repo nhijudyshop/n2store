@@ -40,7 +40,7 @@
     let syncStatus = null;       // Sync service status
     let unsubSyncStatus = null;  // Firestore listener unsubscribe
     let showHidden = false;      // Toggle hiển thị nhân viên ẩn
-    let viewPeriod = 'month';    // 'week' or 'month' (default: month)
+    let viewPeriod = 'week';     // 'week' or 'month'
     let currentMonth = null;     // { year, month } for monthly view
     let monthRecords = [];       // Records for entire month
     let monthlyEmpData = [];     // Cached monthly calc data for detail view
@@ -118,11 +118,7 @@
         bindEvents();
         injectTestButton();
         loadEmployees().then(() => {
-            if (viewPeriod === 'month') {
-                loadMonthData();
-            } else {
-                loadWeekData();
-            }
+            loadWeekData();
         });
         listenSyncStatus();
 
@@ -950,7 +946,6 @@
         thead.innerHTML = `
             <th class="ts-col-fixed">Nhân viên</th>
             <th style="text-align:center;">Ngày công</th>
-            <th style="text-align:center;">Tổng giờ</th>
             <th style="text-align:right;">Lương CB</th>
             <th style="text-align:right;">Trừ muộn</th>
             <th style="text-align:right;">OT</th>
@@ -958,7 +953,7 @@
         `;
 
         if (employees.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:60px 20px; color:#94a3b8;">Chưa có dữ liệu</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:60px 20px; color:#94a3b8;">Chưa có dữ liệu</td></tr>`;
             return;
         }
 
@@ -970,10 +965,9 @@
         // Tính lương tháng cho từng nhân viên
         const empData = employees.map(emp => {
             const empId = String(emp.userId || emp.uid || emp.id);
-            let totalBase = 0, totalLate = 0, totalOT = 0, totalSalary = 0, workedDays = 0, totalMinutes = 0;
-            const lateDays = [];
-            const otDays = [];
-            const dailyDetails = []; // chi tiết từng ngày
+            let totalBase = 0, totalLate = 0, totalOT = 0, totalSalary = 0, workedDays = 0;
+            const lateDays = []; // chi tiết ngày bị trừ muộn
+            const otDays = []; // chi tiết ngày có OT
 
             const empRate = emp.dailyRate || SALARY.DAILY_RATE;
             for (let d = 1; d <= lastDay; d++) {
@@ -988,33 +982,9 @@
                 if (sal.totalSalary > 0) workedDays++;
                 if (sal.lateDeduction > 0) lateDays.push({ dateKey, minutes: sal.lateMinutes, amount: sal.lateDeduction });
                 if (sal.otPay > 0) otDays.push({ dateKey, minutes: sal.otMinutes, amount: sal.otPay });
-
-                // Tổng giờ làm
-                if (cellData.checkIn && cellData.checkOut) {
-                    const mins = Math.floor((cellData.checkOut - cellData.checkIn) / (1000 * 60));
-                    totalMinutes += mins;
-                }
-
-                // Chi tiết ngày (chỉ ngày có đi làm)
-                if (sal.totalSalary > 0 || cellData.status === 'incomplete') {
-                    dailyDetails.push({
-                        dateKey,
-                        checkIn: cellData.checkIn,
-                        checkOut: cellData.checkOut,
-                        status: cellData.status,
-                        baseSalary: sal.baseSalary,
-                        lateDeduction: sal.lateDeduction,
-                        lateMinutes: sal.lateMinutes,
-                        otPay: sal.otPay,
-                        otMinutes: sal.otMinutes,
-                        totalSalary: sal.totalSalary,
-                        earlyLeave: sal.earlyLeave,
-                        fullDayOverride: sal.fullDayOverride,
-                    });
-                }
             }
 
-            return { emp, empId, workedDays, totalBase, totalLate, totalOT, totalSalary, totalMinutes, lateDays, otDays, dailyDetails };
+            return { emp, empId, workedDays, totalBase, totalLate, totalOT, totalSalary, lateDays, otDays };
         });
 
         empData.sort((a, b) => b.totalSalary - a.totalSalary);
@@ -1027,14 +997,13 @@
 
         // Grand total row
         const gt = visibleData.reduce((acc, e) => {
-            acc.base += e.totalBase; acc.late += e.totalLate; acc.ot += e.totalOT; acc.total += e.totalSalary; acc.days += e.workedDays; acc.mins += e.totalMinutes;
+            acc.base += e.totalBase; acc.late += e.totalLate; acc.ot += e.totalOT; acc.total += e.totalSalary; acc.days += e.workedDays;
             return acc;
-        }, { base: 0, late: 0, ot: 0, total: 0, days: 0, mins: 0 });
+        }, { base: 0, late: 0, ot: 0, total: 0, days: 0 });
 
         html += `
             <tr style="background:#fafafa;">
                 <td class="ts-col-fixed" style="border:none; background:#fafafa;"></td>
-                <td style="border:none;"></td>
                 <td style="border:none;"></td>
                 <td style="border:none;"></td>
                 <td style="border:none;"></td>
@@ -1046,26 +1015,20 @@
         `;
 
         for (const d of visibleData) {
-            const { emp, empId, workedDays, totalBase, totalLate, totalOT, totalSalary, totalMinutes, lateDays, otDays } = d;
-            const hoursH = Math.floor(totalMinutes / 60);
-            const hoursM = totalMinutes % 60;
-            const hoursDisplay = totalMinutes > 0 ? `${hoursH}h${hoursM > 0 ? hoursM + 'p' : ''}` : '-';
-
+            const { emp, empId, workedDays, totalBase, totalLate, totalOT, totalSalary, lateDays, otDays } = d;
+            const lateId = `late_${empId}`;
+            const otId = `ot_${empId}`;
             html += `
-                <tr style="cursor:pointer;" onclick="window._attendance.toggleMonthlyExpand('${empId}')">
+                <tr>
                     ${renderEmpNameCell(emp, empId, false)}
                     <td style="text-align:center; font-weight:600;">${workedDays > 0 ? workedDays + ' ngày' : '-'}</td>
-                    <td style="text-align:center; color:#595959;">${hoursDisplay}</td>
-                    <td style="text-align:right; color:#1e293b; ${totalBase > 0 ? 'cursor:pointer; text-decoration:underline;' : ''}"
-                        ${totalBase > 0 ? `onclick="event.stopPropagation(); window._attendance.showMonthlyDetail('${empId}','base')"` : ''}>
-                        ${totalBase > 0 ? formatVND(totalBase) + 'đ' : '-'}
-                    </td>
+                    <td style="text-align:right; color:#1e293b;">${totalBase > 0 ? formatVND(totalBase) + 'đ' : '-'}</td>
                     <td style="text-align:right; color:${totalLate > 0 ? '#cf1322' : '#bfbfbf'}; ${totalLate > 0 ? 'cursor:pointer; text-decoration:underline;' : ''}"
-                        ${totalLate > 0 ? `onclick="event.stopPropagation(); window._attendance.showMonthlyDetail('${empId}','late')"` : ''}>
+                        ${totalLate > 0 ? `onclick="window._attendance.showMonthlyDetail('${empId}','late')"` : ''}>
                         ${totalLate > 0 ? '-' + formatVND(totalLate) + 'đ' : '-'}
                     </td>
                     <td style="text-align:right; color:${totalOT > 0 ? '#096dd9' : '#bfbfbf'}; ${totalOT > 0 ? 'cursor:pointer; text-decoration:underline;' : ''}"
-                        ${totalOT > 0 ? `onclick="event.stopPropagation(); window._attendance.showMonthlyDetail('${empId}','ot')"` : ''}>
+                        ${totalOT > 0 ? `onclick="window._attendance.showMonthlyDetail('${empId}','ot')"` : ''}>
                         ${totalOT > 0 ? '+' + formatVND(totalOT) + 'đ' : '-'}
                     </td>
                     <td style="text-align:right;">
@@ -1074,29 +1037,24 @@
                         </div>
                     </td>
                 </tr>
-                <tr id="expand_${empId}" style="display:none;">
-                    <td colspan="7" style="padding:0; background:#f8fafc;"></td>
-                </tr>
             `;
         }
 
         // Hidden employees
         if (hiddenData.length > 0) {
             html += `
-                <tr><td colspan="7" style="text-align:center; padding:8px; border:none;">
+                <tr><td colspan="6" style="text-align:center; padding:8px; border:none;">
                     <span onclick="window._attendance.toggleHidden()" style="cursor:pointer; color:#1890ff; font-size:12px;">
                         ${showHidden ? 'Ẩn' : 'Hiện'} ${hiddenData.length} nhân viên đã ẩn
                     </span>
                 </td></tr>
             `;
             if (showHidden) {
-                for (const { emp, empId, workedDays, totalBase, totalLate, totalOT, totalSalary, totalMinutes } of hiddenData) {
-                    const hH = Math.floor(totalMinutes / 60), hM = totalMinutes % 60;
+                for (const { emp, empId, workedDays, totalBase, totalLate, totalOT, totalSalary } of hiddenData) {
                     html += `
                         <tr style="opacity:0.5;">
                             ${renderEmpNameCell(emp, empId, true)}
                             <td style="text-align:center; color:#8c8c8c;">${workedDays > 0 ? workedDays + ' ngày' : '-'}</td>
-                            <td style="text-align:center; color:#8c8c8c;">${totalMinutes > 0 ? `${hH}h${hM > 0 ? hM + 'p' : ''}` : '-'}</td>
                             <td style="text-align:right; color:#8c8c8c;">${totalBase > 0 ? formatVND(totalBase) + 'đ' : '-'}</td>
                             <td style="text-align:right; color:#8c8c8c;">${totalLate > 0 ? '-' + formatVND(totalLate) + 'đ' : '-'}</td>
                             <td style="text-align:right; color:#8c8c8c;">${totalOT > 0 ? '+' + formatVND(totalOT) + 'đ' : '-'}</td>
@@ -1111,115 +1069,30 @@
     }
 
     /** Hiện chi tiết trừ muộn / OT theo ngày */
-    /** Toggle mở rộng hàng chi tiết từng ngày trong view tháng */
-    function toggleMonthlyExpand(empId) {
-        const row = document.getElementById(`expand_${empId}`);
-        if (!row) return;
-
-        if (row.style.display !== 'none') {
-            row.style.display = 'none';
-            return;
-        }
-
-        const data = monthlyEmpData.find(d => d.empId === String(empId));
-        if (!data || !data.dailyDetails.length) return;
-
-        const cell = row.querySelector('td');
-        let html = `<div style="padding:8px 16px;">
-            <table style="width:100%; font-size:12px; border-collapse:collapse;">
-                <thead><tr style="color:#8c8c8c; border-bottom:1px solid #e2e8f0;">
-                    <th style="text-align:left; padding:4px 8px; font-weight:500;">Ngày</th>
-                    <th style="text-align:center; padding:4px 8px; font-weight:500;">Giờ vào</th>
-                    <th style="text-align:center; padding:4px 8px; font-weight:500;">Giờ ra</th>
-                    <th style="text-align:right; padding:4px 8px; font-weight:500;">Lương CB</th>
-                    <th style="text-align:right; padding:4px 8px; font-weight:500;">Trừ muộn</th>
-                    <th style="text-align:right; padding:4px 8px; font-weight:500;">OT</th>
-                    <th style="text-align:right; padding:4px 8px; font-weight:500;">Tổng</th>
-                    <th style="text-align:center; padding:4px 8px; font-weight:500;">Ghi chú</th>
-                </tr></thead><tbody>`;
-
-        for (const day of data.dailyDetails) {
-            const d = new Date(day.dateKey);
-            const dayName = SHORT_DAY_NAMES[d.getDay()];
-            const dayNum = day.dateKey.substring(8);
-            const inTime = day.checkIn ? formatTime(day.checkIn) : '--:--';
-            const outTime = day.checkOut ? formatTime(day.checkOut) : '--:--';
-
-            let notes = [];
-            if (day.status === 'incomplete') notes.push('<span style="color:#cf1322;">Thiếu giờ ra</span>');
-            if (day.lateMinutes > 0) notes.push(`<span style="color:#d46b08;">Muộn ${day.lateMinutes}p</span>`);
-            if (day.earlyLeave) notes.push(`<span style="color:#531dab;">Về sớm${day.fullDayOverride ? ' (Full)' : ''}</span>`);
-            if (day.otMinutes > 0) {
-                const otH = Math.floor(day.otMinutes / 60), otM = day.otMinutes % 60;
-                notes.push(`<span style="color:#096dd9;">OT ${otH > 0 ? otH + 'h' : ''}${otM > 0 ? otM + 'p' : ''}</span>`);
-            }
-
-            html += `<tr style="border-bottom:1px solid #f0f0f0;">
-                <td style="padding:5px 8px;">${dayName} ${dayNum}</td>
-                <td style="padding:5px 8px; text-align:center;">${inTime}</td>
-                <td style="padding:5px 8px; text-align:center;">${outTime}</td>
-                <td style="padding:5px 8px; text-align:right;">${day.baseSalary > 0 ? formatVND(day.baseSalary) + 'đ' : '-'}</td>
-                <td style="padding:5px 8px; text-align:right; color:#cf1322;">${day.lateDeduction > 0 ? '-' + formatVND(day.lateDeduction) + 'đ' : '-'}</td>
-                <td style="padding:5px 8px; text-align:right; color:#096dd9;">${day.otPay > 0 ? '+' + formatVND(day.otPay) + 'đ' : '-'}</td>
-                <td style="padding:5px 8px; text-align:right; font-weight:600;">${day.totalSalary > 0 ? formatVND(day.totalSalary) + 'đ' : '-'}</td>
-                <td style="padding:5px 8px; text-align:center; font-size:11px;">${notes.join(', ') || '-'}</td>
-            </tr>`;
-        }
-
-        html += '</tbody></table></div>';
-        cell.innerHTML = html;
-        row.style.display = '';
-    }
-
-    /** Hiện chi tiết trừ muộn / OT / Lương CB theo ngày */
     function showMonthlyDetail(empId, type) {
         const data = monthlyEmpData.find(d => d.empId === String(empId));
         if (!data) return;
 
         const empName = data.emp.name || `User ${empId}`;
-        let items, title, color, sign;
-
-        if (type === 'base') {
-            items = data.dailyDetails.filter(d => d.baseSalary > 0);
-            title = 'Chi tiết Lương CB';
-            color = '#1e293b';
-            sign = '';
-        } else if (type === 'late') {
-            items = data.lateDays;
-            title = 'Chi tiết trừ muộn';
-            color = '#cf1322';
-            sign = '-';
-        } else {
-            items = data.otDays;
-            title = 'Chi tiết OT';
-            color = '#096dd9';
-            sign = '+';
-        }
+        const items = type === 'late' ? data.lateDays : data.otDays;
+        const title = type === 'late' ? 'Chi tiết trừ muộn' : 'Chi tiết OT';
+        const color = type === 'late' ? '#cf1322' : '#096dd9';
 
         let total = 0;
         let listHtml = items.map(item => {
+            total += item.amount;
             const d = new Date(item.dateKey);
             const dayName = SHORT_DAY_NAMES[d.getDay()];
             const dayNum = item.dateKey.split('-').reverse().join('/');
-
-            if (type === 'base') {
-                total += item.baseSalary;
-                let note = '';
-                if (item.earlyLeave) note = item.fullDayOverride ? ' (Full)' : ' (về sớm ÷2)';
-                return `<div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #f0f0f0;">
-                    <span>${dayName} ${dayNum}${note}</span>
-                    <span style="font-weight:600;">${formatVND(item.baseSalary)}đ</span>
-                </div>`;
-            } else if (type === 'late') {
-                total += item.amount;
+            if (type === 'late') {
                 return `<div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #f0f0f0;">
                     <span>${dayName} ${dayNum} — muộn ${item.minutes} phút</span>
                     <span style="color:${color}; font-weight:600;">-${formatVND(item.amount)}đ</span>
                 </div>`;
             } else {
-                total += item.amount;
-                const h = Math.floor(item.minutes / 60), mm = item.minutes % 60;
-                const display = h > 0 ? `${h}h${mm > 0 ? mm + 'p' : ''}` : `${mm}p`;
+                const h = Math.floor(item.minutes / 60);
+                const m = item.minutes % 60;
+                const display = h > 0 ? `${h}h${m > 0 ? m + 'p' : ''}` : `${m}p`;
                 return `<div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #f0f0f0;">
                     <span>${dayName} ${dayNum} — OT ${display}</span>
                     <span style="color:${color}; font-weight:600;">+${formatVND(item.amount)}đ</span>
@@ -1227,6 +1100,9 @@
             }
         }).join('');
 
+        const sign = type === 'late' ? '-' : '+';
+
+        // Show in a simple popup modal
         let modal = document.getElementById('monthlyDetailModal');
         if (modal) modal.remove();
 
@@ -1234,7 +1110,7 @@
         modal.id = 'monthlyDetailModal';
         modal.style.cssText = 'position:fixed; inset:0; z-index:10000; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.4);';
         modal.innerHTML = `
-            <div style="background:#fff; border-radius:12px; padding:20px; width:420px; max-height:80vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,0.2);">
+            <div style="background:#fff; border-radius:12px; padding:20px; width:400px; max-height:80vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,0.2);">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
                     <div>
                         <div style="font-size:15px; font-weight:600; color:#1e293b;">${title}</div>
@@ -1871,7 +1747,6 @@
         toggleHidden,
         toggleFullDay,
         showMonthlyDetail,
-        toggleMonthlyExpand,
     };
 
     // Auto-init when DOM ready

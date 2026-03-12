@@ -1836,7 +1836,7 @@ function sendDataToTab2() {
 
     // Save only metadata to localStorage (no full data - prevents quota exceeded)
     try {
-        n2store.setItem("orders_tab1_filter_data", JSON.stringify(filterMeta));
+        localStorage.setItem("orders_tab1_filter_data", JSON.stringify(filterMeta));
     } catch (e) {
         console.error('[TAB1] localStorage error:', e);
     }

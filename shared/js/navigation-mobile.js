@@ -320,7 +320,7 @@ window._navigationMobileMixin = {
      */
     getMobileGroupCollapsedState() {
         try {
-            const state = n2store.getItem('n2shop_mobile_group_collapsed');
+            const state = localStorage.getItem('n2shop_mobile_group_collapsed');
             return state ? JSON.parse(state) : {};
         } catch (e) {
             return {};
@@ -334,7 +334,7 @@ window._navigationMobileMixin = {
         try {
             const state = this.getMobileGroupCollapsedState();
             state[groupId] = isCollapsed;
-            n2store.setItem('n2shop_mobile_group_collapsed', JSON.stringify(state));
+            localStorage.setItem('n2shop_mobile_group_collapsed', JSON.stringify(state));
         } catch (e) {
             console.error('[Mobile Menu] Error saving collapsed state:', e);
         }

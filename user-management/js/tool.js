@@ -51,15 +51,15 @@ function saveFirebaseConfig() {
         appId: document.getElementById("appId").value,
     };
 
-    n2store.setItem("firebaseConfig", JSON.stringify(config));
+    localStorage.setItem("firebaseConfig", JSON.stringify(config));
     document.getElementById("configOutput").textContent =
-        "Đã lưu cấu hình Firebase vào n2store";
+        "Đã lưu cấu hình Firebase vào localStorage";
     document.getElementById("configOutput").className = "output success";
 }
 
 function connectFirebase() {
     try {
-        const savedConfig = n2store.getItem("firebaseConfig");
+        const savedConfig = localStorage.getItem("firebaseConfig");
         let config;
 
         if (savedConfig) {
@@ -490,7 +490,7 @@ document.getElementById("newUsername").addEventListener("input", function () {
 
 // Load saved config on page load
 window.addEventListener("load", () => {
-    const savedConfig = n2store.getItem("firebaseConfig");
+    const savedConfig = localStorage.getItem("firebaseConfig");
     if (savedConfig) {
         try {
             const config = JSON.parse(savedConfig);

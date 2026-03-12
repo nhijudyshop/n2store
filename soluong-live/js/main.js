@@ -758,7 +758,7 @@ function logoutUser() {
     if (confirm('Bạn có chắc muốn đăng xuất?')) {
         // Clear all auth data
         sessionStorage.removeItem('loginindex_auth');
-        n2store.removeItem('loginindex_auth');
+        localStorage.removeItem('loginindex_auth');
 
         // Redirect to home page
         window.location.href = 'https://nhijudyshop.github.io/n2store/';

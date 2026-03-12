@@ -1089,7 +1089,7 @@ const SoquyReport = (function () {
 
     function saveReportFilterState() {
         try {
-            n2store.setItem('soquy_report_filters', JSON.stringify({
+            localStorage.setItem('soquy_report_filters', JSON.stringify({
                 reportType: reportState.reportType,
                 fundType: reportState.fundType,
                 timeFilter: reportState.timeFilter,
@@ -1101,7 +1101,7 @@ const SoquyReport = (function () {
 
     function loadReportFilterState() {
         try {
-            const saved = n2store.getItem('soquy_report_filters');
+            const saved = localStorage.getItem('soquy_report_filters');
             if (!saved) return;
             const f = JSON.parse(saved);
             if (f.reportType) reportState.reportType = f.reportType;

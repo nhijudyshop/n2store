@@ -155,10 +155,10 @@ export class TokenManager {
         // Migrate old 'bearer_token_data' → 'bearer_token_data_1' if needed
         if (this.companyId === 1) {
             try {
-                const oldData = n2store.getItem('bearer_token_data');
-                if (oldData && !n2store.getItem(this.storageKey)) {
-                    n2store.setItem(this.storageKey, oldData);
-                    n2store.removeItem('bearer_token_data');
+                const oldData = localStorage.getItem('bearer_token_data');
+                if (oldData && !localStorage.getItem(this.storageKey)) {
+                    localStorage.setItem(this.storageKey, oldData);
+                    localStorage.removeItem('bearer_token_data');
                     console.log('[TOKEN] Migrated bearer_token_data → ' + this.storageKey);
                 }
             } catch (e) { /* ignore */ }
@@ -177,7 +177,7 @@ export class TokenManager {
             this.token = firebaseToken.access_token;
             this.tokenExpiry = firebaseToken.expires_at;
             try {
-                n2store.setItem(this.storageKey, JSON.stringify(firebaseToken));
+                localStorage.setItem(this.storageKey, JSON.stringify(firebaseToken));
                 console.log('[TOKEN] Valid token loaded from Firestore');
             } catch (error) {
                 console.error('[TOKEN] Error syncing Firestore token:', error);
@@ -228,11 +228,11 @@ export class TokenManager {
     }
 
     /**
-     * Load token from n2store
+     * Load token from localStorage
      */
     loadFromStorage() {
         try {
-            const stored = n2store.getItem(this.storageKey);
+            const stored = localStorage.getItem(this.storageKey);
             if (!stored) return;
 
             const data = JSON.parse(stored);
@@ -272,7 +272,7 @@ export class TokenManager {
                 dataToSave.refresh_token = tokenData.refresh_token;
             } else {
                 try {
-                    const existing = n2store.getItem(this.storageKey);
+                    const existing = localStorage.getItem(this.storageKey);
                     if (existing) {
                         const existingData = JSON.parse(existing);
                         if (existingData.refresh_token) {
@@ -282,7 +282,7 @@ export class TokenManager {
                 } catch (e) { /* ignore */ }
             }
 
-            n2store.setItem(this.storageKey, JSON.stringify(dataToSave));
+            localStorage.setItem(this.storageKey, JSON.stringify(dataToSave));
             this.token = tokenData.access_token;
             this.tokenExpiry = expiresAt;
 
@@ -317,7 +317,7 @@ export class TokenManager {
     async clearToken() {
         this.token = null;
         this.tokenExpiry = null;
-        n2store.removeItem(this.storageKey);
+        localStorage.removeItem(this.storageKey);
 
         if (this.firestoreRef) {
             try {
@@ -329,34 +329,34 @@ export class TokenManager {
     }
 
     /**
-     * Invalidate access_token but preserve refresh_token in n2store
+     * Invalidate access_token but preserve refresh_token in localStorage
      */
     invalidateAccessToken() {
         this.token = null;
         this.tokenExpiry = null;
         try {
-            const stored = n2store.getItem(this.storageKey);
+            const stored = localStorage.getItem(this.storageKey);
             if (stored) {
                 const data = JSON.parse(stored);
                 if (data.refresh_token) {
-                    n2store.setItem(this.storageKey, JSON.stringify({
+                    localStorage.setItem(this.storageKey, JSON.stringify({
                         refresh_token: data.refresh_token, expires_at: 0
                     }));
                     return;
                 }
             }
-            n2store.removeItem(this.storageKey);
+            localStorage.removeItem(this.storageKey);
         } catch (e) {
-            n2store.removeItem(this.storageKey);
+            localStorage.removeItem(this.storageKey);
         }
     }
 
     /**
-     * Read refresh_token from n2store (even if access_token expired)
+     * Read refresh_token from localStorage (even if access_token expired)
      */
     getStoredRefreshToken() {
         try {
-            const stored = n2store.getItem(this.storageKey);
+            const stored = localStorage.getItem(this.storageKey);
             if (stored) {
                 const data = JSON.parse(stored);
                 if (data.refresh_token) return data.refresh_token;
@@ -423,7 +423,7 @@ export class TokenManager {
             expires_at: expiresAt,
             issued_at: Date.now()
         };
-        try { n2store.setItem(this.storageKey, JSON.stringify(tokenData)); } catch (e) { /* ignore */ }
+        try { localStorage.setItem(this.storageKey, JSON.stringify(tokenData)); } catch (e) { /* ignore */ }
 
         this.token = data.access_token;
         this.tokenExpiry = expiresAt;

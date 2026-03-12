@@ -39,7 +39,7 @@ const database = firebase.database();
 
 async function loadSettings() {
     try {
-        const cachedSettings = n2store.getItem('soluongDisplaySettings');
+        const cachedSettings = localStorage.getItem('soluongDisplaySettings');
         if (cachedSettings) {
             const settings = JSON.parse(cachedSettings);
             displaySettings = settings;
@@ -56,7 +56,7 @@ async function loadSettings() {
         if (settings) {
             displaySettings = settings;
             itemsPerPage = settings.itemsPerPage || (settings.columns * settings.rows);
-            n2store.setItem('soluongDisplaySettings', JSON.stringify(settings));
+            localStorage.setItem('soluongDisplaySettings', JSON.stringify(settings));
         }
     } catch (error) {
         console.error('❌ Error loading settings:', error);
@@ -416,7 +416,7 @@ function setupFirebaseListeners() {
             isSyncingFromFirebase = true;
             displaySettings = settings;
             itemsPerPage = settings.itemsPerPage || (settings.columns * settings.rows);
-            n2store.setItem('soluongDisplaySettings', JSON.stringify(settings));
+            localStorage.setItem('soluongDisplaySettings', JSON.stringify(settings));
             applySettings();
             updateProductGrid();
             setTimeout(() => { isSyncingFromFirebase = false; }, 100);

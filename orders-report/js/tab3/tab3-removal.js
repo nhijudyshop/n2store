@@ -93,12 +93,12 @@
     function saveRemovals(immediate = false) {
         const saveAction = () => {
             try {
-                n2store.setItem('orders_productRemovals', JSON.stringify({
+                localStorage.setItem('orders_productRemovals', JSON.stringify({
                     removals: removals,
                     _timestamp: Date.now(),
                     _version: 1
                 }));
-                console.log('[REMOVAL-SAVE] Saved', removals.length, 'removals to n2store');
+                console.log('[REMOVAL-SAVE] Saved', removals.length, 'removals to localStorage');
             } catch (error) {
                 console.error('[REMOVAL-SAVE] Error:', error);
             }
@@ -115,11 +115,11 @@
 
     function loadRemovals() {
         try {
-            const saved = n2store.getItem('orders_productRemovals');
+            const saved = localStorage.getItem('orders_productRemovals');
             if (saved) {
                 const data = JSON.parse(saved);
                 removals = data.removals || [];
-                console.log('[REMOVAL-LOAD] Loaded', removals.length, 'removals from n2store');
+                console.log('[REMOVAL-LOAD] Loaded', removals.length, 'removals from localStorage');
             }
         } catch (error) {
             console.error('[REMOVAL-LOAD] Error:', error);

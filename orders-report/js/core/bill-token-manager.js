@@ -56,16 +56,16 @@ class BillTokenManager {
      */
     _migrateOldStorage() {
         try {
-            const oldCreds = n2store.getItem('bill_tpos_credentials');
-            if (oldCreds && !n2store.getItem('bill_tpos_credentials_1')) {
-                n2store.setItem('bill_tpos_credentials_1', oldCreds);
-                n2store.removeItem('bill_tpos_credentials');
+            const oldCreds = localStorage.getItem('bill_tpos_credentials');
+            if (oldCreds && !localStorage.getItem('bill_tpos_credentials_1')) {
+                localStorage.setItem('bill_tpos_credentials_1', oldCreds);
+                localStorage.removeItem('bill_tpos_credentials');
                 console.log('[BILL-TOKEN] Migrated bill_tpos_credentials → bill_tpos_credentials_1');
             }
-            const oldToken = n2store.getItem('bill_tpos_token');
-            if (oldToken && !n2store.getItem('bill_tpos_token_1')) {
-                n2store.setItem('bill_tpos_token_1', oldToken);
-                n2store.removeItem('bill_tpos_token');
+            const oldToken = localStorage.getItem('bill_tpos_token');
+            if (oldToken && !localStorage.getItem('bill_tpos_token_1')) {
+                localStorage.setItem('bill_tpos_token_1', oldToken);
+                localStorage.removeItem('bill_tpos_token');
                 console.log('[BILL-TOKEN] Migrated bill_tpos_token → bill_tpos_token_1');
             }
         } catch (e) { /* ignore */ }
@@ -76,26 +76,26 @@ class BillTokenManager {
     // =====================================================
 
     /**
-     * Load credentials from n2store
+     * Load credentials from localStorage
      */
     loadFromStorage() {
         try {
             // Load credentials
-            const credStr = n2store.getItem(this.storageKey);
+            const credStr = localStorage.getItem(this.storageKey);
             if (credStr) {
                 this.credentials = JSON.parse(credStr);
-                console.log('[BILL-TOKEN] Loaded credentials from n2store');
+                console.log('[BILL-TOKEN] Loaded credentials from localStorage');
             }
 
             // Load cached token
-            const tokenStr = n2store.getItem(this.tokenStorageKey);
+            const tokenStr = localStorage.getItem(this.tokenStorageKey);
             if (tokenStr) {
                 const tokenData = JSON.parse(tokenStr);
                 this.token = tokenData.access_token;
                 this.tokenExpiry = tokenData.expires_at;
 
                 if (this.isTokenValid()) {
-                    console.log('[BILL-TOKEN] Valid token loaded from n2store');
+                    console.log('[BILL-TOKEN] Valid token loaded from localStorage');
                 }
             }
         } catch (error) {
@@ -104,12 +104,12 @@ class BillTokenManager {
     }
 
     /**
-     * Save credentials to n2store
+     * Save credentials to localStorage
      */
     saveToStorage() {
         try {
             if (this.credentials) {
-                n2store.setItem(this.storageKey, JSON.stringify(this.credentials));
+                localStorage.setItem(this.storageKey, JSON.stringify(this.credentials));
             }
         } catch (error) {
             console.error('[BILL-TOKEN] Error saving to storage:', error);
@@ -117,11 +117,11 @@ class BillTokenManager {
     }
 
     /**
-     * Save token to n2store
+     * Save token to localStorage
      */
     saveTokenToStorage(tokenData) {
         try {
-            n2store.setItem(this.tokenStorageKey, JSON.stringify(tokenData));
+            localStorage.setItem(this.tokenStorageKey, JSON.stringify(tokenData));
         } catch (error) {
             console.error('[BILL-TOKEN] Error saving token to storage:', error);
         }
@@ -131,8 +131,8 @@ class BillTokenManager {
      * Clear all stored data
      */
     clearStorage() {
-        n2store.removeItem(this.storageKey);
-        n2store.removeItem(this.tokenStorageKey);
+        localStorage.removeItem(this.storageKey);
+        localStorage.removeItem(this.tokenStorageKey);
         this.credentials = null;
         this.token = null;
         this.tokenExpiry = null;
@@ -361,9 +361,9 @@ class BillTokenManager {
         // Clear old token
         this.token = null;
         this.tokenExpiry = null;
-        n2store.removeItem(this.tokenStorageKey);
+        localStorage.removeItem(this.tokenStorageKey);
 
-        // Save to n2store
+        // Save to localStorage
         this.saveToStorage();
 
         // Save to Firestore (pass refresh_token explicitly)
@@ -463,11 +463,11 @@ class BillTokenManager {
     }
 
     /**
-     * Get cached token data from n2store
+     * Get cached token data from localStorage
      */
     getCachedTokenData() {
         try {
-            const tokenStr = n2store.getItem(this.tokenStorageKey);
+            const tokenStr = localStorage.getItem(this.tokenStorageKey);
             if (tokenStr) {
                 return JSON.parse(tokenStr);
             }
@@ -575,7 +575,7 @@ class BillTokenManager {
             // Clear existing token to force fetch (MUST clear localStorage too!)
             this.token = null;
             this.tokenExpiry = null;
-            n2store.removeItem(this.tokenStorageKey); // Clear cached token including refresh_token
+            localStorage.removeItem(this.tokenStorageKey); // Clear cached token including refresh_token
 
             await this.fetchToken();
             return { success: true, message: 'Xác thực thành công!' };

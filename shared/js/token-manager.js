@@ -144,10 +144,10 @@ class TokenManager {
         // Migrate old 'bearer_token_data' → 'bearer_token_data_1' if needed
         if (this.companyId === 1) {
             try {
-                const oldData = n2store.getItem('bearer_token_data');
-                if (oldData && !n2store.getItem(this.storageKey)) {
-                    n2store.setItem(this.storageKey, oldData);
-                    n2store.removeItem('bearer_token_data');
+                const oldData = localStorage.getItem('bearer_token_data');
+                if (oldData && !localStorage.getItem(this.storageKey)) {
+                    localStorage.setItem(this.storageKey, oldData);
+                    localStorage.removeItem('bearer_token_data');
                     console.log('[TOKEN] Migrated bearer_token_data → ' + this.storageKey);
                 }
             } catch (e) { /* ignore */ }
@@ -167,7 +167,7 @@ class TokenManager {
             this.tokenExpiry = firestoreToken.expires_at;
             // Sync to localStorage for faster access next time
             try {
-                n2store.setItem(this.storageKey, JSON.stringify(firestoreToken));
+                localStorage.setItem(this.storageKey, JSON.stringify(firestoreToken));
                 console.log('[TOKEN] ✅ Valid token loaded from Firestore and synced to localStorage');
             } catch (error) {
                 console.error('[TOKEN] Error syncing Firestore token to localStorage:', error);
@@ -230,7 +230,7 @@ class TokenManager {
 
     loadFromStorage() {
         try {
-            const stored = n2store.getItem(this.storageKey);
+            const stored = localStorage.getItem(this.storageKey);
             if (!stored) {
                 console.log('[TOKEN] No token found in localStorage');
                 return;
@@ -284,7 +284,7 @@ class TokenManager {
                 dataToSave.refresh_token = tokenData.refresh_token;
             } else {
                 try {
-                    const existing = n2store.getItem(this.storageKey);
+                    const existing = localStorage.getItem(this.storageKey);
                     if (existing) {
                         const existingData = JSON.parse(existing);
                         if (existingData.refresh_token) {
@@ -295,7 +295,7 @@ class TokenManager {
             }
 
             // Save to localStorage
-            n2store.setItem(this.storageKey, JSON.stringify(dataToSave));
+            localStorage.setItem(this.storageKey, JSON.stringify(dataToSave));
 
             this.token = tokenData.access_token;
             this.tokenExpiry = expiresAt;
@@ -345,7 +345,7 @@ class TokenManager {
     async clearToken() {
         this.token = null;
         this.tokenExpiry = null;
-        n2store.removeItem(this.storageKey);
+        localStorage.removeItem(this.storageKey);
 
         // Also clear from Firestore
         if (this.firestoreRef) {
@@ -367,19 +367,19 @@ class TokenManager {
         this.token = null;
         this.tokenExpiry = null;
         try {
-            const stored = n2store.getItem(this.storageKey);
+            const stored = localStorage.getItem(this.storageKey);
             if (stored) {
                 const data = JSON.parse(stored);
                 if (data.refresh_token) {
-                    n2store.setItem(this.storageKey, JSON.stringify({
+                    localStorage.setItem(this.storageKey, JSON.stringify({
                         refresh_token: data.refresh_token, expires_at: 0
                     }));
                     return;
                 }
             }
-            n2store.removeItem(this.storageKey);
+            localStorage.removeItem(this.storageKey);
         } catch (e) {
-            n2store.removeItem(this.storageKey);
+            localStorage.removeItem(this.storageKey);
         }
     }
 
@@ -388,7 +388,7 @@ class TokenManager {
      */
     getStoredRefreshToken() {
         try {
-            const stored = n2store.getItem(this.storageKey);
+            const stored = localStorage.getItem(this.storageKey);
             if (stored) {
                 const data = JSON.parse(stored);
                 if (data.refresh_token) return data.refresh_token;
@@ -453,7 +453,7 @@ class TokenManager {
             expires_at: expiresAt,
             issued_at: Date.now()
         };
-        try { n2store.setItem(this.storageKey, JSON.stringify(tokenData)); } catch (e) { /* ignore */ }
+        try { localStorage.setItem(this.storageKey, JSON.stringify(tokenData)); } catch (e) { /* ignore */ }
 
         this.token = data.access_token;
         this.tokenExpiry = expiresAt;

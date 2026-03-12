@@ -63,7 +63,7 @@ window._navigationPermissionsMixin = {
 
         // Try to load from cache (check both localStorage AND sessionStorage)
         try {
-            const authData = n2store.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth");
+            const authData = localStorage.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth");
             if (authData) {
                 const userAuth = JSON.parse(authData);
 
@@ -91,7 +91,7 @@ window._navigationPermissionsMixin = {
 
                     // Update stored auth data with full admin permissions
                     userAuth.detailedPermissions = merged;
-                    const storage = n2store.getItem("loginindex_auth") ? n2store : sessionStorage;
+                    const storage = localStorage.getItem("loginindex_auth") ? localStorage : sessionStorage;
                     storage.setItem("loginindex_auth", JSON.stringify(userAuth));
 
                     console.log(
@@ -123,7 +123,7 @@ window._navigationPermissionsMixin = {
         // Try to load from Firebase if not in cache
         try {
             if (typeof firebase !== "undefined" && firebase.firestore) {
-                const authDataStr = n2store.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth");
+                const authDataStr = localStorage.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth");
                 const authData = authDataStr ? JSON.parse(authDataStr) : null;
 
                 if (!authData || !authData.username) {
@@ -165,7 +165,7 @@ window._navigationPermissionsMixin = {
                         authData.detailedPermissions = merged;
                         authData.roleTemplate = roleTemplate;
                         authData.isAdmin = true;
-                        n2store.setItem("loginindex_auth", JSON.stringify(authData));
+                        localStorage.setItem("loginindex_auth", JSON.stringify(authData));
 
                         console.log("[Permission Load] Admin bypass from Firebase: granted all", Object.keys(merged).length, "pages");
                         return;

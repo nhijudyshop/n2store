@@ -1145,7 +1145,7 @@ export class CustomerProfileModule {
             // Get current user name from localStorage/sessionStorage
             let createdBy = 'Hệ thống';
             try {
-                const authData = sessionStorage.getItem('loginindex_auth') || n2store.getItem('loginindex_auth');
+                const authData = sessionStorage.getItem('loginindex_auth') || localStorage.getItem('loginindex_auth');
                 if (authData) {
                     const auth = JSON.parse(authData);
                     createdBy = auth.userName || auth.userType || 'Hệ thống';

@@ -106,16 +106,13 @@
                 <div class="filter-row">
                     <div class="filter-group filter-group-supplier">
                         <label>Nhà cung cấp</label>
-                        <div class="supplier-searchable-dropdown">
-                            <div class="supplier-input-wrapper">
-                                <i data-lucide="search" class="supplier-search-icon"></i>
-                                <input type="text" id="supplierFilter" class="supplier-search-input"
-                                    placeholder="Tìm nhà cung cấp" autocomplete="off">
-                                <button type="button" class="clear-select" id="clearSupplier" style="display: none;">
-                                    <i data-lucide="x" style="width: 14px; height: 14px;"></i>
-                                </button>
-                            </div>
-                            <div class="supplier-dropdown-list" id="supplierDropdown"></div>
+                        <div class="select-wrapper">
+                            <select id="supplierFilter">
+                                <option value="">Chọn nhà cung cấp</option>
+                            </select>
+                            <button type="button" class="clear-select" id="clearSupplier" style="display: none;">
+                                <i data-lucide="x" style="width: 14px; height: 14px;"></i>
+                            </button>
                         </div>
                     </div>
 
@@ -375,9 +372,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="../shared/js/firebase-config.js"></script>
-
-    <!-- N2Store: IndexedDB storage (must load before other shared scripts) -->
-    <script src="../shared/js/indexed-db-store.js"></script>
 
     <!-- Auth Manager -->
     <script src="../shared/js/shared-auth-manager.js"></script>

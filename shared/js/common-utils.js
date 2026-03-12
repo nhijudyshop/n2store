@@ -682,7 +682,7 @@ window.updateTitleWithRoleEnhanced = updateTitleWithRoleEnhanced;
  */
 function initializePageTitle() {
     try {
-        const authData = n2store.getItem("loginindex_auth");
+        const authData = localStorage.getItem("loginindex_auth");
         if (!authData) return;
 
         const auth = JSON.parse(authData);
@@ -706,7 +706,7 @@ function initializePageTitle() {
  */
 function displayUserInfo(containerSelector = ".user-info") {
     try {
-        const authData = n2store.getItem("loginindex_auth");
+        const authData = localStorage.getItem("loginindex_auth");
         if (!authData) return;
 
         const auth = JSON.parse(authData);
@@ -1054,7 +1054,7 @@ function injectRoleStyles() {
 function updatePageTitleSimple() {
     try {
         const authData = JSON.parse(
-            n2store.getItem("loginindex_auth") || "{}",
+            localStorage.getItem("loginindex_auth") || "{}",
         );
         const titleElement = document.querySelector(
             "h1, .page-title, .header h1",

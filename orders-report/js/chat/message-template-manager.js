@@ -39,7 +39,7 @@ class MessageTemplateManager {
 
     _loadFailedOrderIds() {
         try {
-            const stored = n2store.getItem('failed_message_orders');
+            const stored = localStorage.getItem('failed_message_orders');
             if (stored) {
                 const data = JSON.parse(stored);
                 // Only keep entries from last 24 hours
@@ -64,7 +64,7 @@ class MessageTemplateManager {
                 orderId,
                 timestamp: now
             }));
-            n2store.setItem('failed_message_orders', JSON.stringify(data));
+            localStorage.setItem('failed_message_orders', JSON.stringify(data));
         } catch (e) {
             console.warn('[MESSAGE] Error saving failed order IDs:', e);
         }
@@ -106,7 +106,7 @@ class MessageTemplateManager {
 
     _loadSentOrderIds() {
         try {
-            const stored = n2store.getItem('sent_message_orders');
+            const stored = localStorage.getItem('sent_message_orders');
             if (stored) {
                 const data = JSON.parse(stored);
                 const now = Date.now();
@@ -131,7 +131,7 @@ class MessageTemplateManager {
                 timestamp: now,
                 viaComment: this.sentViaCommentIds.has(orderId)
             }));
-            n2store.setItem('sent_message_orders', JSON.stringify(data));
+            localStorage.setItem('sent_message_orders', JSON.stringify(data));
         } catch (e) {
             console.warn('[MESSAGE] Error saving sent order IDs:', e);
         }

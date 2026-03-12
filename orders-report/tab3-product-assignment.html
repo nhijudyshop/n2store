@@ -728,7 +728,7 @@
         function handleLogout() {
             if (confirm('Bạn có chắc muốn đăng xuất?')) {
                 sessionStorage.removeItem('loginindex_auth');
-                n2store.removeItem('loginindex_auth');
+                localStorage.removeItem('loginindex_auth');
                 window.location.href = '../index.html';
             }
         }

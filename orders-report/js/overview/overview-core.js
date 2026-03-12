@@ -31,7 +31,7 @@ function getAuthData() {
     try {
         let authData = sessionStorage.getItem("loginindex_auth");
         if (!authData) {
-            authData = n2store.getItem("loginindex_auth");
+            authData = localStorage.getItem("loginindex_auth");
         }
         return authData ? JSON.parse(authData) : null;
     } catch (e) {

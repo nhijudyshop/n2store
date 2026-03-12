@@ -224,9 +224,9 @@ class AuthManager {
             console.warn("[AUTH] SessionStorage read error:", e);
         }
 
-        // Then check n2store (IndexedDB-backed)
+        // Then check localStorage
         try {
-            let data = n2store.getItem("loginindex_auth");
+            let data = localStorage.getItem("loginindex_auth");
             if (data) {
                 const authData = JSON.parse(data);
                 // Migrate old session format
@@ -268,7 +268,7 @@ class AuthManager {
         } else if (isFromStorage) {
             // No explicit flag, check which storage it came from
             try {
-                const inLocalStorage = n2store.getItem("loginindex_auth");
+                const inLocalStorage = localStorage.getItem("loginindex_auth");
                 if (inLocalStorage) {
                     timeout = SESSION_TIMEOUT.REMEMBERED;
                 }
@@ -326,7 +326,7 @@ class AuthManager {
         try {
             let stored = sessionStorage.getItem("loginindex_auth");
             if (!stored) {
-                stored = n2store.getItem("loginindex_auth");
+                stored = localStorage.getItem("loginindex_auth");
             }
 
             if (stored) {
@@ -362,7 +362,7 @@ class AuthManager {
 
             // Save to appropriate storage
             if (rememberMe) {
-                n2store.setItem(
+                localStorage.setItem(
                     "loginindex_auth",
                     JSON.stringify(authObject),
                 );
@@ -375,9 +375,9 @@ class AuthManager {
                     "loginindex_auth",
                     JSON.stringify(authObject),
                 );
-                // Also remove from n2store to avoid confusion
+                // Also remove from localStorage to avoid confusion
                 try {
-                    n2store.removeItem("loginindex_auth");
+                    localStorage.removeItem("loginindex_auth");
                 } catch (e) {}
             }
 
@@ -405,7 +405,7 @@ class AuthManager {
         // Clear storage
         try {
             sessionStorage.removeItem("loginindex_auth");
-            n2store.removeItem("loginindex_auth");
+            localStorage.removeItem("loginindex_auth");
             localStorage.removeItem("remember_login_preference");
 
             // Clear legacy data

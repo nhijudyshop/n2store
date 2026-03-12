@@ -47,9 +47,6 @@
     <!-- Firebase Configuration (SHARED) -->
     <script src="../shared/js/firebase-config.js"></script>
 
-    <!-- N2Store: IndexedDB storage (must load before other shared scripts) -->
-    <script src="../shared/js/indexed-db-store.js"></script>
-
     <!-- ES Module: Shared utilities (auto-initializes authManager, notificationManager) -->
     <script type="module" src="../shared/esm/compat.js"></script>
 
@@ -181,7 +178,10 @@
                                 <i data-lucide="contact" style="width: 14px; height: 14px;"></i> Xem theo ca <i
                                     data-lucide="chevron-down" style="width: 14px; height: 14px;"></i>
                             </button>
-                            <!-- Duyệt chấm công removed -->
+                            <button class="ts-btn" id="btnShowApproval"
+                                onclick="document.getElementById('approvalModal').style.display='flex'">
+                                <i data-lucide="check-square" style="width: 14px; height: 14px;"></i> Duyệt chấm công
+                            </button>
                             <button class="ts-btn" style="padding: 6px 8px;">
                                 <i data-lucide="more-horizontal" style="width: 14px; height: 14px;"></i>
                             </button>
@@ -374,21 +374,24 @@
                             </div>
                             <select class="ts-select" id="schedPeriodSelect">
                                 <option value="week">Theo tuần</option>
-                                <option value="month" selected>Theo tháng</option>
+                                <option value="month">Theo tháng</option>
                             </select>
                             <div class="ts-pager">
                                 <button><i data-lucide="chevron-left" style="width: 14px; height: 14px;"></i></button>
                                 <span>Tuần 4 - Th. 2 2026</span>
                                 <button><i data-lucide="chevron-right" style="width: 14px; height: 14px;"></i></button>
                             </div>
-                            <button class="ts-btn" id="btnSchedNow">Tháng này</button>
+                            <button class="ts-btn" id="btnSchedNow">Tuần này</button>
                         </div>
                         <div class="ts-header-right">
                             <button class="ts-btn" id="btnSchedSwitchView">
                                 <i data-lucide="user" style="width: 14px; height: 14px;"></i> Xem theo nhân viên <i
                                     data-lucide="chevron-down" style="width: 14px; height: 14px;"></i>
                             </button>
-                            <!-- Duyệt chấm công removed -->
+                            <button class="ts-btn" id="btnSchedApproval"
+                                onclick="document.getElementById('approvalModal').style.display='flex'">
+                                <i data-lucide="check-square" style="width: 14px; height: 14px;"></i> Duyệt chấm công
+                            </button>
                             <button class="ts-btn" id="btnSchedReload" title="Tải lại dữ liệu" style="padding: 6px 8px;">
                                 <i data-lucide="refresh-cw" style="width: 14px; height: 14px;"></i>
                             </button>
@@ -1803,6 +1806,112 @@
                 <button class="btn-primary" style="background: #1890ff; border-color: #1890ff;">
                     <i data-lucide="save"></i> Cập nhật
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL: DUYỆT CHẤM CÔNG ==================== -->
+    <div class="modal" id="approvalModal" style="display: none;">
+        <div class="modal-overlay"></div>
+        <div class="modal-content k-modal" style="width: 800px; max-width: 90vw;">
+            <div class="modal-header k-modal-header" style="border-bottom: none; padding-bottom: 0;">
+                <h3 style="font-size: 18px; font-weight: 600;">Yêu cầu chờ duyệt</h3>
+                <button class="btn-icon" onclick="document.getElementById('approvalModal').style.display='none'">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+
+            <div class="approval-tabs" style="padding: 0 24px; border-bottom: 1px solid #e2e8f0; margin-top: 10px;">
+                <div class="approval-tab">Nhân viên</div>
+                <div class="approval-tab active">Chấm công</div>
+            </div>
+
+            <div class="modal-body k-modal-body" style="padding: 0; display: flex; height: 400px;">
+                <!-- Sidebar -->
+                <div
+                    style="width: 240px; border-right: 1px solid #e2e8f0; padding: 20px 16px; background: #fafafa; overflow-y: auto;">
+                    <div class="form-group k-group">
+                        <label style="font-weight: 600; color: #1e293b; margin-bottom: 8px; display: block;">Trạng thái
+                            yêu cầu</label>
+                        <label class="filter-radio-label"
+                            style="display: flex; align-items: center; margin-bottom: 8px;">
+                            <input type="radio" name="apprStatus" checked>
+                            <span class="filter-radio-custom"></span>
+                            <span class="filter-radio-text">Chưa duyệt</span>
+                        </label>
+                        <label class="filter-radio-label" style="display: flex; align-items: center;">
+                            <input type="radio" name="apprStatus">
+                            <span class="filter-radio-custom"></span>
+                            <span class="filter-radio-text">Đã duyệt</span>
+                        </label>
+                    </div>
+
+                    <div class="form-group k-group" style="margin-top: 20px;">
+                        <label style="font-weight: 600; color: #1e293b; margin-bottom: 8px; display: block;">Nhân
+                            viên</label>
+                        <input type="text" class="form-control" placeholder="Tìm kiếm nhân viên"
+                            style="font-size: 13px;">
+                    </div>
+
+                    <div class="form-group k-group" style="margin-top: 20px;">
+                        <label style="font-weight: 600; color: #1e293b; margin-bottom: 8px; display: block;">Thời
+                            gian</label>
+                        <label class="filter-radio-label"
+                            style="display: flex; align-items: center; margin-bottom: 8px; width: 100%;">
+                            <input type="radio" name="apprTime" checked>
+                            <span class="filter-radio-custom" style="margin-right: 8px;"></span>
+                            <div
+                                style="flex:1; display: flex; justify-content: space-between; align-items: center; border: 1px solid #d9d9d9; border-radius: 4px; padding: 6px 10px; background: #fff;">
+                                <span style="font-size: 13px;">Toàn thời gian</span>
+                                <i data-lucide="chevron-right" style="width: 14px; height: 14px;"></i>
+                            </div>
+                        </label>
+                        <label class="filter-radio-label" style="display: flex; align-items: center; width: 100%;">
+                            <input type="radio" name="apprTime">
+                            <span class="filter-radio-custom" style="margin-right: 8px;"></span>
+                            <div
+                                style="flex:1; display: flex; justify-content: space-between; align-items: center; border: 1px solid #d9d9d9; border-radius: 4px; padding: 6px 10px; background: #fff;">
+                                <span style="font-size: 13px;">Lựa chọn khác</span>
+                                <i data-lucide="calendar" style="width: 14px; height: 14px;"></i>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div class="form-group k-group" style="margin-top: 20px;">
+                        <label style="font-weight: 600; color: #1e293b; margin-bottom: 8px; display: block;">Chi
+                            nhánh</label>
+                        <input type="text" class="form-control" placeholder="Chọn chi nhánh" style="font-size: 13px;">
+                    </div>
+                </div>
+
+                <!-- Main Table -->
+                <div style="flex: 1; padding: 16px; display: flex; flex-direction: column; overflow: hidden;">
+                    <table class="cashbook-table timesheet-table"
+                        style="width: 100%; border-radius: 6px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+                        <thead>
+                            <tr>
+                                <th style="width: 40px; text-align: center;"><input type="checkbox"></th>
+                                <th style="text-align: left; padding: 12px 10px;">Thời gian</th>
+                                <th style="text-align: left; padding: 12px 10px;">Tên nhân viên</th>
+                                <th style="text-align: left; padding: 12px 10px;">Nội dung</th>
+                                <th style="text-align: right; padding: 12px 10px;">Xác nhận</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colspan="5"
+                                    style="text-align: center; padding: 60px 20px; color: #94a3b8; font-size: 14px; background: #fff;">
+                                    Không có kết quả phù hợp
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer k-modal-footer"
+                style="padding: 12px 24px; background: #fff; border-top: 1px solid #e2e8f0; justify-content: flex-end;">
+                <button class="k-btn-outline" style="min-width: 80px;"
+                    onclick="document.getElementById('approvalModal').style.display='none'">Xong</button>
             </div>
         </div>
     </div>

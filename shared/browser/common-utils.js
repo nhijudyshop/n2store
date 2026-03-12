@@ -337,7 +337,7 @@ export function updateTitleWithRole(titleElement, auth) {
  */
 export function initializePageTitle() {
     try {
-        const authData = n2store.getItem('loginindex_auth');
+        const authData = localStorage.getItem('loginindex_auth');
         if (!authData) return;
 
         const auth = JSON.parse(authData);
@@ -357,7 +357,7 @@ export function initializePageTitle() {
  */
 export function displayUserInfo(containerSelector = '.user-info') {
     try {
-        const authData = n2store.getItem('loginindex_auth');
+        const authData = localStorage.getItem('loginindex_auth');
         if (!authData) return;
 
         const auth = JSON.parse(authData);

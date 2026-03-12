@@ -65,7 +65,7 @@ window.TPOSClient = (function() {
 
     function loadFromStorage(companyId) {
         try {
-            const stored = n2store.getItem(storageKey(companyId));
+            const stored = localStorage.getItem(storageKey(companyId));
             if (stored) {
                 const data = JSON.parse(stored);
                 if (data.access_token && data.expires_at && Date.now() < (data.expires_at - TOKEN_BUFFER)) {
@@ -78,11 +78,11 @@ window.TPOSClient = (function() {
     }
 
     /**
-     * Try to get a refresh_token from n2store (even if access_token expired)
+     * Try to get a refresh_token from localStorage (even if access_token expired)
      */
     function getStoredRefreshToken(companyId) {
         try {
-            const stored = n2store.getItem(storageKey(companyId));
+            const stored = localStorage.getItem(storageKey(companyId));
             if (stored) {
                 const data = JSON.parse(stored);
                 if (data.refresh_token) return data.refresh_token;
@@ -129,7 +129,7 @@ window.TPOSClient = (function() {
             if (data.access_token && data.expires_at && Date.now() < (data.expires_at - TOKEN_BUFFER)) {
                 tokenStore[companyId] = data;
                 try {
-                    n2store.setItem(storageKey(companyId), JSON.stringify(data));
+                    localStorage.setItem(storageKey(companyId), JSON.stringify(data));
                 } catch (e) { /* ignore */ }
                 console.log(`[TPOS-Search] Token loaded from Firestore for company ${companyId}`);
                 return true;
@@ -153,7 +153,7 @@ window.TPOSClient = (function() {
         tokenStore[companyId] = dataToSave;
 
         try {
-            n2store.setItem(storageKey(companyId), JSON.stringify(dataToSave));
+            localStorage.setItem(storageKey(companyId), JSON.stringify(dataToSave));
         } catch (e) { /* ignore */ }
 
         // Also save to Firestore
@@ -218,7 +218,7 @@ window.TPOSClient = (function() {
         if (switchResponse.status === 401) {
             console.log('[TPOS-Search] SwitchCompany 401, forcing fresh login...');
             delete tokenStore[srcCid];
-            try { n2store.removeItem(storageKey(srcCid)); } catch (e) { /* ignore */ }
+            try { localStorage.removeItem(storageKey(srcCid)); } catch (e) { /* ignore */ }
             await loginWithPassword(srcCid);
             currentToken = tokenStore[srcCid];
 
@@ -364,7 +364,7 @@ window.TPOSClient = (function() {
                 console.log(`[TPOS-Search] No newer token available, forcing re-login...`);
                 delete tokenStore[companyId];
                 try {
-                    n2store.removeItem(storageKey(companyId));
+                    localStorage.removeItem(storageKey(companyId));
                 } catch (e) { /* ignore */ }
                 try {
                     if (window.firebase && window.firebase.firestore) {
@@ -516,13 +516,13 @@ window.TPOSClient = (function() {
 
     // Migrate old single-key storage to company-1 key
     try {
-        const oldData = n2store.getItem('bearer_token_data');
+        const oldData = localStorage.getItem('bearer_token_data');
         if (oldData) {
             const parsed = JSON.parse(oldData);
-            if (parsed.access_token && !n2store.getItem(storageKey(1))) {
-                n2store.setItem(storageKey(1), oldData);
+            if (parsed.access_token && !localStorage.getItem(storageKey(1))) {
+                localStorage.setItem(storageKey(1), oldData);
             }
-            n2store.removeItem('bearer_token_data');
+            localStorage.removeItem('bearer_token_data');
         }
     } catch (e) { /* ignore */ }
 

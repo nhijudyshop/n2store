@@ -878,8 +878,8 @@
                 bearerToken = data.access_token;
                 tokenExpiry = Date.now() + (data.expires_in * 1000);
 
-                n2store.setItem('bearerToken', bearerToken);
-                n2store.setItem('tokenExpiry', tokenExpiry.toString());
+                localStorage.setItem('bearerToken', bearerToken);
+                localStorage.setItem('tokenExpiry', tokenExpiry.toString());
 
                 console.log('✅ Đã xác thực thành công');
                 return bearerToken;
@@ -890,8 +890,8 @@
         }
 
         async function getValidToken() {
-            const storedToken = n2store.getItem('bearerToken');
-            const storedExpiry = n2store.getItem('tokenExpiry');
+            const storedToken = localStorage.getItem('bearerToken');
+            const storedExpiry = localStorage.getItem('tokenExpiry');
 
             if (storedToken && storedExpiry) {
                 const expiry = parseInt(storedExpiry);
@@ -929,8 +929,8 @@
             if (needsRetry) {
                 const reason = response.status === 401 ? '401' : '200+HTML';
                 console.log(`🔄 TPOS ${reason}, đang lấy token mới...`);
-                n2store.removeItem('bearerToken');
-                n2store.removeItem('tokenExpiry');
+                localStorage.removeItem('bearerToken');
+                localStorage.removeItem('tokenExpiry');
                 bearerToken = null;
                 tokenExpiry = null;
                 const newToken = await getAuthToken();
@@ -948,10 +948,10 @@
         function logoutUser() {
             if (confirm('Bạn có chắc muốn đăng xuất?')) {
                 // Clear all auth data
-                n2store.removeItem('bearerToken');
-                n2store.removeItem('tokenExpiry');
+                localStorage.removeItem('bearerToken');
+                localStorage.removeItem('tokenExpiry');
                 sessionStorage.removeItem('loginindex_auth');
-                n2store.removeItem('loginindex_auth');
+                localStorage.removeItem('loginindex_auth');
 
                 // Redirect to home page
                 window.location.href = 'https://nhijudyshop.github.io/n2store/';

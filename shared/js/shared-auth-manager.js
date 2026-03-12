@@ -67,7 +67,7 @@ if (typeof window !== 'undefined' && window.AuthManager) {
 
             // If not in session, try localStorage (remember me)
             if (!authDataStr) {
-                authDataStr = n2store.getItem(this.storageKey);
+                authDataStr = localStorage.getItem(this.storageKey);
                 storage = 'local';
             }
 
@@ -107,7 +107,7 @@ if (typeof window !== 'undefined' && window.AuthManager) {
             const authDataStr = JSON.stringify(dataToSave);
 
             if (rememberMe) {
-                n2store.setItem(this.storageKey, authDataStr);
+                localStorage.setItem(this.storageKey, authDataStr);
             } else {
                 sessionStorage.setItem(this.storageKey, authDataStr);
             }
@@ -212,7 +212,7 @@ if (typeof window !== 'undefined' && window.AuthManager) {
 
         // Clear both storages
         sessionStorage.removeItem(this.storageKey);
-        n2store.removeItem(this.storageKey);
+        localStorage.removeItem(this.storageKey);
 
         // Redirect to login
         if (typeof window !== 'undefined') {

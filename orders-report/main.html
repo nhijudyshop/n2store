@@ -97,7 +97,7 @@
                 };
                 window.clearAuthState = () => {
                     sessionStorage.removeItem('loginindex_auth');
-                    n2store.removeItem('loginindex_auth');
+                    localStorage.removeItem('loginindex_auth');
                 };
                 window.isAuthenticated = () => window.authManager.isAuthenticated();
                 window.hasPermission = (level) => window.authManager.hasPermission(level);
@@ -120,9 +120,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="../shared/js/firebase-config.js"></script>
-
-    <!-- N2Store: IndexedDB storage (must load before other shared scripts) -->
-    <script src="../shared/js/indexed-db-store.js"></script>
 
     <!-- Navigation Manager -->
     <script defer src="../shared/js/navigation-modern.js"></script>
@@ -751,16 +748,16 @@
             if (e.data.type === 'FILTER_CHANGED') {
                 // Tab 1 filter changed - save with quota handling
                 try {
-                    n2store.setItem('tab1_filter_data', JSON.stringify(e.data.filter));
+                    localStorage.setItem('tab1_filter_data', JSON.stringify(e.data.filter));
                 } catch (err) {
                     if (err.name === 'QuotaExceededError') {
                         console.warn(
                             '[MAIN] localStorage quota exceeded, saving lightweight data...'
                         );
-                        n2store.removeItem('tab1_filter_data');
+                        localStorage.removeItem('tab1_filter_data');
                         try {
                             const lightData = { ...e.data.filter, data: [], dataSkipped: true };
-                            n2store.setItem('tab1_filter_data', JSON.stringify(lightData));
+                            localStorage.setItem('tab1_filter_data', JSON.stringify(lightData));
                         } catch (e2) {
                             console.error('[MAIN] Failed to save lightweight data:', e2);
                         }
@@ -769,7 +766,7 @@
                 showSyncIndicator();
             } else if (e.data.type === 'REQUEST_FILTER_DATA') {
                 // Tab 2 requesting current filter data
-                const filterData = n2store.getItem('tab1_filter_data');
+                const filterData = localStorage.getItem('tab1_filter_data');
                 if (filterData) {
                     e.source.postMessage(
                         {
@@ -980,7 +977,7 @@
         function refreshStatistics() {
             const statisticsFrame = document.getElementById('statisticsFrame');
             if (statisticsFrame && statisticsFrame.contentWindow) {
-                const filterData = n2store.getItem('tab1_filter_data');
+                const filterData = localStorage.getItem('tab1_filter_data');
                 if (filterData) {
                     statisticsFrame.contentWindow.postMessage(
                         {
@@ -1006,7 +1003,7 @@
             if (confirm('Bạn có chắc muốn đăng xuất?')) {
                 // Clear ONLY auth data, preserve tokens and other data
                 sessionStorage.removeItem('loginindex_auth');
-                n2store.removeItem('loginindex_auth');
+                localStorage.removeItem('loginindex_auth');
                 window.location.href = '../index.html';
             }
         });

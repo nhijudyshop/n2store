@@ -124,7 +124,7 @@
                     // Use BaseStore's localStorage loading
                     _invoiceBaseStore._loadFromLocal();
                     // Also load sentBills from localStorage (BaseStore doesn't handle this)
-                    const saved = n2store.getItem(STORAGE_KEY);
+                    const saved = localStorage.getItem(STORAGE_KEY);
                     if (saved) {
                         try {
                             const parsed = JSON.parse(saved);
@@ -133,7 +133,7 @@
                             }
                         } catch (e) { /* ignore parse errors - BaseStore handles data */ }
                     }
-                    console.log(`[INVOICE-STATUS] Offline mode - loaded ${this._data.size} entries from n2store cache`);
+                    console.log(`[INVOICE-STATUS] Offline mode - loaded ${this._data.size} entries from localStorage cache`);
                 }
 
                 // 3. Cleanup old entries (delegated to BaseStore)
@@ -250,14 +250,14 @@
          */
         _saveToLocalStorage() {
             try {
-                n2store.setItem(STORAGE_KEY, JSON.stringify({
+                localStorage.setItem(STORAGE_KEY, JSON.stringify({
                     data: Array.from(this._data.entries()),
                     sentBills: Array.from(this._sentBills),
                     lastUpdated: Date.now(),
                     version: 1
                 }));
             } catch (e) {
-                console.error('[INVOICE-STATUS] n2store save error:', e);
+                console.error('[INVOICE-STATUS] localStorage save error:', e);
             }
         },
 
@@ -938,7 +938,7 @@
         async clearAll() {
             this._data.clear();
             this._sentBills.clear();
-            n2store.removeItem(STORAGE_KEY);
+            localStorage.removeItem(STORAGE_KEY);
 
             try {
                 await this._getDocRef().delete();

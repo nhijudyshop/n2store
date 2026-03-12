@@ -94,7 +94,7 @@ class InboxDataManager {
      */
     loadLocalState() {
         try {
-            const labels = n2store.getItem('inbox_conv_labels');
+            const labels = localStorage.getItem('inbox_conv_labels');
             if (labels) this.labelMap = JSON.parse(labels);
             console.log(`[InboxData] Loaded local state: labels`);
         } catch (e) {
@@ -107,7 +107,7 @@ class InboxDataManager {
      */
     saveLocalState() {
         try {
-            n2store.setItem('inbox_conv_labels', JSON.stringify(this.labelMap));
+            localStorage.setItem('inbox_conv_labels', JSON.stringify(this.labelMap));
         } catch (e) {
             console.warn('[InboxData] Error saving local state:', e);
         }
@@ -116,7 +116,7 @@ class InboxDataManager {
     loadGroups() {
         // Load from localStorage first (immediate, offline cache)
         try {
-            const saved = n2store.getItem('inbox_groups');
+            const saved = localStorage.getItem('inbox_groups');
             if (saved) {
                 this.groups = JSON.parse(saved).map(g => ({ note: '', ...g }));
             } else {
@@ -143,7 +143,7 @@ class InboxDataManager {
                     note: g.note || '',
                     count: 0,
                 }));
-                n2store.setItem('inbox_groups', JSON.stringify(this.groups));
+                localStorage.setItem('inbox_groups', JSON.stringify(this.groups));
                 console.log(`[InboxData] Loaded ${this.groups.length} groups from server`);
             } else {
                 // Server empty → seed defaults
@@ -160,7 +160,7 @@ class InboxDataManager {
      * Save groups to server + localStorage cache. Returns promise for feedback.
      */
     async saveGroupsToServer() {
-        n2store.setItem('inbox_groups', JSON.stringify(this.groups));
+        localStorage.setItem('inbox_groups', JSON.stringify(this.groups));
         const workerUrl = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
         try {
             const resp = await fetch(`${workerUrl}/api/realtime/inbox-groups`, {
@@ -575,7 +575,7 @@ class InboxDataManager {
 
     save() {
         try {
-            n2store.setItem('inbox_groups', JSON.stringify(this.groups));
+            localStorage.setItem('inbox_groups', JSON.stringify(this.groups));
             this.saveLocalState();
         } catch (e) {
             console.error('[InboxData] Save error:', e);

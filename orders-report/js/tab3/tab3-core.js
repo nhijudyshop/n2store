@@ -432,7 +432,7 @@
 
             const performSave = () => {
                 try {
-                    n2store.setItem('orders_productAssignments', JSON.stringify(dataWithTimestamp));
+                    localStorage.setItem('orders_productAssignments', JSON.stringify(dataWithTimestamp));
                     console.log('[SAVE] ✅ LocalStorage save success');
 
                     window.dispatchEvent(new Event('storage'));
@@ -462,7 +462,7 @@
         try {
             console.log('[INIT] 🔄 Loading assignments from LocalStorage...');
 
-            const storedData = n2store.getItem('orders_productAssignments');
+            const storedData = localStorage.getItem('orders_productAssignments');
 
             if (storedData) {
                 const parsedData = JSON.parse(storedData);

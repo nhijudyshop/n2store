@@ -96,7 +96,7 @@ const WebNotesStore = {
 
     _loadFromLocalStorage() {
         try {
-            const saved = n2store.getItem('supplierDebt_webNotes');
+            const saved = localStorage.getItem('supplierDebt_webNotes');
             if (saved) {
                 const parsed = JSON.parse(saved);
                 this._data = new Map(Object.entries(parsed));
@@ -109,7 +109,7 @@ const WebNotesStore = {
     _saveToLocalStorage() {
         try {
             const obj = Object.fromEntries(this._data);
-            n2store.setItem('supplierDebt_webNotes', JSON.stringify(obj));
+            localStorage.setItem('supplierDebt_webNotes', JSON.stringify(obj));
         } catch (e) {
             console.error('[WebNotesStore] Error saving to localStorage:', e);
         }
@@ -651,7 +651,6 @@ function applySupplierFilter() {
     } else {
         State.filteredData = [...State.data];
     }
-    State.currentPage = 1;
 }
 
 // =====================================================
@@ -793,67 +792,15 @@ function renderPagination() {
 }
 
 function populateSupplierDropdown() {
-    // Searchable dropdown - just trigger a refresh if dropdown is open
-    showSupplierDropdown();
-}
+    const select = DOM.supplierFilter;
+    select.innerHTML = '<option value="">Chọn nhà cung cấp</option>';
 
-function showSupplierDropdown() {
-    const input = DOM.supplierFilter;
-    const dropdown = document.getElementById('supplierDropdown');
-    if (!input || !dropdown) return;
-
-    const query = (input.value || '').trim().toLowerCase();
-    const suppliers = State.allSuppliers;
-
-    const filtered = query
-        ? suppliers.filter(s => {
-            const text = `[${s.Code}] ${s.PartnerName}`.toLowerCase();
-            return text.includes(query);
-        })
-        : suppliers;
-
-    if (filtered.length === 0) {
-        dropdown.innerHTML = '<div class="supplier-dropdown-empty">Không tìm thấy nhà cung cấp</div>';
-    } else {
-        dropdown.innerHTML = filtered.map(s => {
-            const fullText = `[${s.Code}] ${s.PartnerName}`;
-            let display = escapeHtml(fullText);
-            if (query) {
-                const idx = fullText.toLowerCase().indexOf(query);
-                if (idx >= 0) {
-                    const before = escapeHtml(fullText.substring(0, idx));
-                    const match = escapeHtml(fullText.substring(idx, idx + query.length));
-                    const after = escapeHtml(fullText.substring(idx + query.length));
-                    display = `${before}<span class="supplier-match">${match}</span>${after}`;
-                }
-            }
-            return `<div class="supplier-dropdown-item" data-code="${escapeHtml(s.Code)}" data-name="${escapeHtml(fullText)}">${display}</div>`;
-        }).join('');
-    }
-
-    dropdown.classList.add('show');
-
-    // Bind click events
-    dropdown.querySelectorAll('.supplier-dropdown-item').forEach(item => {
-        item.addEventListener('mousedown', (e) => {
-            e.preventDefault();
-            const code = item.dataset.code;
-            const name = item.dataset.name;
-            input.value = name;
-            input.dataset.selectedCode = code;
-            dropdown.classList.remove('show');
-            State.selectedSupplier = code;
-            DOM.clearSupplier.style.display = 'flex';
-            applySupplierFilter();
-            renderTable();
-            calculateTotals();
-        });
+    State.allSuppliers.forEach(supplier => {
+        const option = document.createElement('option');
+        option.value = supplier.Code;
+        option.textContent = `[${supplier.Code}] ${supplier.PartnerName}`;
+        select.appendChild(option);
     });
-}
-
-function hideSupplierDropdown() {
-    const dropdown = document.getElementById('supplierDropdown');
-    if (dropdown) dropdown.classList.remove('show');
 }
 
 // =====================================================
@@ -2756,38 +2703,18 @@ function initEventHandlers() {
         });
     });
 
-    // Supplier searchable dropdown
-    DOM.supplierFilter.addEventListener('focus', function() {
-        showSupplierDropdown();
-    });
-
-    DOM.supplierFilter.addEventListener('input', function() {
-        // When user types, clear the selected code (they're searching again)
-        this.dataset.selectedCode = '';
-        State.selectedSupplier = '';
-        DOM.clearSupplier.style.display = 'none';
-        showSupplierDropdown();
-    });
-
-    DOM.supplierFilter.addEventListener('blur', function() {
-        setTimeout(() => hideSupplierDropdown(), 150);
-        // If no supplier was selected from dropdown, and text doesn't match, clear
-        setTimeout(() => {
-            if (!this.dataset.selectedCode) {
-                this.value = '';
-                State.selectedSupplier = '';
-                DOM.clearSupplier.style.display = 'none';
-                applySupplierFilter();
-                renderTable();
-                calculateTotals();
-            }
-        }, 200);
+    // Supplier filter
+    DOM.supplierFilter.addEventListener('change', function() {
+        State.selectedSupplier = this.value;
+        DOM.clearSupplier.style.display = this.value ? 'flex' : 'none';
+        applySupplierFilter();
+        renderTable();
+        calculateTotals();
     });
 
     // Clear supplier
     DOM.clearSupplier.addEventListener('click', function() {
         DOM.supplierFilter.value = '';
-        DOM.supplierFilter.dataset.selectedCode = '';
         State.selectedSupplier = '';
         this.style.display = 'none';
         applySupplierFilter();

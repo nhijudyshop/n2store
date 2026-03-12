@@ -191,10 +191,10 @@ class PancakeDataManager {
                 pageIds: this.pageIds,
                 timestamp: Date.now()
             };
-            n2store.setItem('tpos_pancake_pages_cache', JSON.stringify(data));
-            console.log('[PANCAKE] ✅ Pages saved to n2store');
+            localStorage.setItem('tpos_pancake_pages_cache', JSON.stringify(data));
+            console.log('[PANCAKE] ✅ Pages saved to localStorage');
         } catch (error) {
-            console.warn('[PANCAKE] Error saving pages to n2store:', error);
+            console.warn('[PANCAKE] Error saving pages to localStorage:', error);
         }
     }
 
@@ -204,7 +204,7 @@ class PancakeDataManager {
      */
     loadPagesFromLocalStorage() {
         try {
-            const cached = n2store.getItem('tpos_pancake_pages_cache');
+            const cached = localStorage.getItem('tpos_pancake_pages_cache');
             if (!cached) return null;
 
             const data = JSON.parse(cached);
@@ -220,10 +220,10 @@ class PancakeDataManager {
                 return this.pages;
             }
 
-            console.log('[PANCAKE] n2store cache expired');
+            console.log('[PANCAKE] localStorage cache expired');
             return null;
         } catch (error) {
-            console.warn('[PANCAKE] Error loading pages from n2store:', error);
+            console.warn('[PANCAKE] Error loading pages from localStorage:', error);
             return null;
         }
     }

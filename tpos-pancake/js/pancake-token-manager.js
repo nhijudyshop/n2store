@@ -41,8 +41,8 @@ class PancakeTokenManager {
      */
     saveTokenToLocalStorage(token, expiry) {
         try {
-            n2store.setItem(this.LOCAL_STORAGE_KEYS.JWT_TOKEN, token);
-            n2store.setItem(this.LOCAL_STORAGE_KEYS.JWT_TOKEN_EXPIRY, expiry.toString());
+            localStorage.setItem(this.LOCAL_STORAGE_KEYS.JWT_TOKEN, token);
+            localStorage.setItem(this.LOCAL_STORAGE_KEYS.JWT_TOKEN_EXPIRY, expiry.toString());
             console.log('[PANCAKE-TOKEN] ✅ JWT token saved to localStorage');
         } catch (error) {
             console.error('[PANCAKE-TOKEN] Error saving token to localStorage:', error);
@@ -55,8 +55,8 @@ class PancakeTokenManager {
      */
     getTokenFromLocalStorage() {
         try {
-            const token = n2store.getItem(this.LOCAL_STORAGE_KEYS.JWT_TOKEN);
-            const expiry = n2store.getItem(this.LOCAL_STORAGE_KEYS.JWT_TOKEN_EXPIRY);
+            const token = localStorage.getItem(this.LOCAL_STORAGE_KEYS.JWT_TOKEN);
+            const expiry = localStorage.getItem(this.LOCAL_STORAGE_KEYS.JWT_TOKEN_EXPIRY);
 
             if (!token || !expiry) {
                 return null;
@@ -82,8 +82,8 @@ class PancakeTokenManager {
      */
     clearTokenFromLocalStorage() {
         try {
-            n2store.removeItem(this.LOCAL_STORAGE_KEYS.JWT_TOKEN);
-            n2store.removeItem(this.LOCAL_STORAGE_KEYS.JWT_TOKEN_EXPIRY);
+            localStorage.removeItem(this.LOCAL_STORAGE_KEYS.JWT_TOKEN);
+            localStorage.removeItem(this.LOCAL_STORAGE_KEYS.JWT_TOKEN_EXPIRY);
             console.log('[PANCAKE-TOKEN] JWT token cleared from localStorage');
         } catch (error) {
             console.error('[PANCAKE-TOKEN] Error clearing token from localStorage:', error);
@@ -97,7 +97,7 @@ class PancakeTokenManager {
     savePageAccessTokensToLocalStorage(tokens = null) {
         try {
             const data = tokens || this.pageAccessTokens;
-            n2store.setItem(this.LOCAL_STORAGE_KEYS.PAGE_ACCESS_TOKENS, JSON.stringify(data));
+            localStorage.setItem(this.LOCAL_STORAGE_KEYS.PAGE_ACCESS_TOKENS, JSON.stringify(data));
             console.log('[PANCAKE-TOKEN] ✅ Page access tokens saved to localStorage:', Object.keys(data).length);
         } catch (error) {
             console.error('[PANCAKE-TOKEN] Error saving page access tokens to localStorage:', error);
@@ -110,7 +110,7 @@ class PancakeTokenManager {
      */
     getPageAccessTokensFromLocalStorage() {
         try {
-            const data = n2store.getItem(this.LOCAL_STORAGE_KEYS.PAGE_ACCESS_TOKENS);
+            const data = localStorage.getItem(this.LOCAL_STORAGE_KEYS.PAGE_ACCESS_TOKENS);
             if (!data) {
                 return {};
             }
@@ -128,7 +128,7 @@ class PancakeTokenManager {
      */
     clearPageAccessTokensFromLocalStorage() {
         try {
-            n2store.removeItem(this.LOCAL_STORAGE_KEYS.PAGE_ACCESS_TOKENS);
+            localStorage.removeItem(this.LOCAL_STORAGE_KEYS.PAGE_ACCESS_TOKENS);
             console.log('[PANCAKE-TOKEN] Page access tokens cleared from localStorage');
         } catch (error) {
             console.error('[PANCAKE-TOKEN] Error clearing page access tokens from localStorage:', error);
@@ -190,7 +190,7 @@ class PancakeTokenManager {
         }
 
         // Load active account ID
-        this.activeAccountId = n2store.getItem(this.LOCAL_STORAGE_KEYS.JWT_ACCOUNT_ID);
+        this.activeAccountId = localStorage.getItem(this.LOCAL_STORAGE_KEYS.JWT_ACCOUNT_ID);
     }
 
     /**
@@ -230,7 +230,7 @@ class PancakeTokenManager {
             this.accounts = doc.exists ? (doc.data()?.data || {}) : {};
 
             // Load active account ID from localStorage (per-device)
-            this.activeAccountId = n2store.getItem('tpos_pancake_active_account_id');
+            this.activeAccountId = localStorage.getItem('tpos_pancake_active_account_id');
 
             // If active account is set, load its token
             if (this.activeAccountId && this.accounts[this.activeAccountId]) {
@@ -478,7 +478,7 @@ class PancakeTokenManager {
             this.currentTokenExpiry = payload.exp;
 
             // Save to localStorage (fast, synchronous) - PRIMARY STORAGE
-            n2store.setItem('tpos_pancake_active_account_id', accountId);
+            localStorage.setItem('tpos_pancake_active_account_id', accountId);
             this.saveTokenToLocalStorage(cleanedToken, payload.exp);
 
             // Save to Firestore (async, backup)
@@ -534,7 +534,7 @@ class PancakeTokenManager {
             this.currentTokenExpiry = account.exp;
 
             // Save to localStorage (per device) - fast access
-            n2store.setItem('tpos_pancake_active_account_id', accountId);
+            localStorage.setItem('tpos_pancake_active_account_id', accountId);
             this.saveTokenToLocalStorage(account.token, account.exp);
 
             console.log('[PANCAKE-TOKEN] ✅ Active account set locally (this device only):', accountId);
@@ -568,7 +568,7 @@ class PancakeTokenManager {
 
             // If deleted account was active, clear local active account
             if (this.activeAccountId === accountId) {
-                n2store.removeItem('tpos_pancake_active_account_id');
+                localStorage.removeItem('tpos_pancake_active_account_id');
                 this.activeAccountId = null;
                 this.currentToken = null;
                 this.currentTokenExpiry = null;
@@ -812,7 +812,7 @@ class PancakeTokenManager {
             }
 
             // Clear localStorage
-            n2store.removeItem('tpos_pancake_active_account_id');
+            localStorage.removeItem('tpos_pancake_active_account_id');
             this.clearTokenFromLocalStorage();
             this.clearPageAccessTokensFromLocalStorage();
             console.log('[PANCAKE-TOKEN] All tokens cleared from localStorage');

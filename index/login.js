@@ -14,7 +14,7 @@ class CacheManager {
     saveToStorage() {
         try {
             const cacheData = Array.from(this.cache.entries());
-            n2store.setItem(this.storageKey, JSON.stringify(cacheData));
+            localStorage.setItem(this.storageKey, JSON.stringify(cacheData));
             console.log(`💾 Đã lưu ${cacheData.length} items vào cache`);
         } catch (error) {
             console.warn("Không thể lưu cache:", error);
@@ -23,7 +23,7 @@ class CacheManager {
 
     loadFromStorage() {
         try {
-            const stored = n2store.getItem(this.storageKey);
+            const stored = localStorage.getItem(this.storageKey);
             if (!stored) return;
 
             const cacheData = JSON.parse(stored);
@@ -87,7 +87,7 @@ class CacheManager {
             }
         } else {
             this.cache.clear();
-            n2store.removeItem(this.storageKey);
+            localStorage.removeItem(this.storageKey);
         }
         this.stats = { hits: 0, misses: 0 };
         this.saveToStorage();
@@ -140,7 +140,7 @@ class CacheManager {
 
     getStorageSize() {
         try {
-            const stored = n2store.getItem(this.storageKey);
+            const stored = localStorage.getItem(this.storageKey);
             if (!stored) return "0 KB";
             const sizeKB = (stored.length / 1024).toFixed(2);
             return `${sizeKB} KB`;
@@ -436,7 +436,7 @@ document.addEventListener("DOMContentLoaded", function () {
             const authDataString = JSON.stringify(authData);
 
             if (rememberMe) {
-                n2store.setItem("loginindex_auth", authDataString);
+                localStorage.setItem("loginindex_auth", authDataString);
                 localStorage.setItem("remember_login_preference", "true");
                 localStorage.setItem("isLoggedIn", "true");
                 localStorage.setItem(
@@ -456,7 +456,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 );
             } else {
                 sessionStorage.setItem("loginindex_auth", authDataString);
-                n2store.removeItem("loginindex_auth");
+                localStorage.removeItem("loginindex_auth");
                 localStorage.removeItem("remember_login_preference");
                 localStorage.removeItem("isLoggedIn");
                 localStorage.removeItem("userType");
@@ -525,8 +525,8 @@ document.addEventListener("DOMContentLoaded", function () {
             return true;
         }
 
-        // Check n2store (IndexedDB-backed)
-        let authData = n2store.getItem("loginindex_auth");
+        // Check localStorage
+        let authData = localStorage.getItem("loginindex_auth");
         let isFromLocalStorage = true;
         let isRemembered =
             localStorage.getItem("remember_login_preference") === "true";
@@ -587,7 +587,7 @@ document.addEventListener("DOMContentLoaded", function () {
         authCache.clear("permissions");
 
         // Clear storage
-        n2store.removeItem("loginindex_auth");
+        localStorage.removeItem("loginindex_auth");
         localStorage.removeItem("remember_login_preference");
         sessionStorage.removeItem("loginindex_auth");
         localStorage.removeItem("isLoggedIn");
