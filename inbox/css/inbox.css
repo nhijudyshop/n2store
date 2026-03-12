@@ -1114,12 +1114,8 @@ body.col-resizing .resize-handle {
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
-    overflow-x: auto;
 }
 
-.chat-label-bar-inner::-webkit-scrollbar {
-    height: 0;
-}
 
 .chat-label-bar-title {
     font-size: 0.6875rem;
@@ -1133,6 +1129,27 @@ body.col-resizing .resize-handle {
     display: flex;
     gap: 4px;
     flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--gray-300, #ccc) transparent;
+    padding-bottom: 2px;
+}
+
+.chat-label-bar-list::-webkit-scrollbar {
+    height: 4px;
+}
+
+.chat-label-bar-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.chat-label-bar-list::-webkit-scrollbar-thumb {
+    background: var(--gray-300, #ccc);
+    border-radius: 4px;
+}
+
+.chat-label-bar-list::-webkit-scrollbar-thumb:hover {
+    background: var(--gray-400, #aaa);
 }
 
 .chat-label-btn {
