@@ -247,13 +247,37 @@
         let html = '';
         let grandTotalSalary = 0;
         let grandTotalMinutes = 0;
-        let workedDaysCount = 0;
 
-        for (const emp of employees) {
+        // Tính lương trước để sắp xếp theo lương giảm dần
+        const empData = employees.map(emp => {
             const empId = String(emp.userId || emp.uid || emp.id);
             let totalMinutes = 0;
             let weekSalary = 0;
-            let empWorkedDays = 0;
+            let workedDays = 0;
+            const dayCells = [];
+
+            for (const date of dates) {
+                const dateKey = toDateKey(date);
+                const dayRecords = weekRecords.filter(r =>
+                    String(r.deviceUserId) === empId && r.dateKey === dateKey
+                );
+                const cellData = processDayRecords(dayRecords);
+                totalMinutes += cellData.workedMinutes;
+                const daySalary = calculateDaySalary(cellData);
+                weekSalary += daySalary.totalSalary;
+                if (daySalary.totalSalary > 0) workedDays++;
+                dayCells.push({ cellData, daySalary, dateKey });
+            }
+
+            return { emp, empId, totalMinutes, weekSalary, workedDays, dayCells };
+        });
+
+        // Sắp xếp theo lương giảm dần
+        empData.sort((a, b) => b.weekSalary - a.weekSalary);
+
+        for (const { emp, empId, totalMinutes, weekSalary, workedDays, dayCells } of empData) {
+            grandTotalSalary += weekSalary;
+            grandTotalMinutes += totalMinutes;
 
             html += '<tr>';
 
@@ -266,25 +290,9 @@
             `;
 
             // 7 cột cho 7 ngày
-            for (const date of dates) {
-                const dateKey = toDateKey(date);
-                const dayRecords = weekRecords.filter(r =>
-                    String(r.deviceUserId) === empId && r.dateKey === dateKey
-                );
-
-                const cellData = processDayRecords(dayRecords);
-                totalMinutes += cellData.workedMinutes;
-
-                const daySalary = calculateDaySalary(cellData);
-                weekSalary += daySalary.totalSalary;
-                if (daySalary.totalSalary > 0) empWorkedDays++;
-
+            for (const { cellData, daySalary, dateKey } of dayCells) {
                 html += `<td>${renderDayCell(cellData, daySalary, emp, dateKey)}</td>`;
             }
-
-            grandTotalSalary += weekSalary;
-            grandTotalMinutes += totalMinutes;
-            workedDaysCount += empWorkedDays;
 
             // Cột tổng giờ
             const hours = Math.floor(totalMinutes / 60);
@@ -294,7 +302,7 @@
             html += `
                 <td style="text-align:right; vertical-align:middle;">
                     <div style="font-weight:600; font-size:13px; color:#1e293b;">${totalDisplay}</div>
-                    ${empWorkedDays > 0 ? `<div style="font-size:11px; color:#8c8c8c;">${empWorkedDays} ngày</div>` : ''}
+                    ${workedDays > 0 ? `<div style="font-size:11px; color:#8c8c8c;">${workedDays} ngày</div>` : ''}
                 </td>
             `;
 
