@@ -548,12 +548,17 @@
         const workEnd = checkOut < hour20 ? checkOut : hour20; // min(checkout, 20:00)
         const baseMinutes = Math.max(0, Math.floor((workEnd - workStart) / (1000 * 60)));
         result.baseMinutes = baseMinutes;
-        result.baseSalary = Math.round(hourlyRate * baseMinutes / 60);
 
-        // Về trước 16h → lương chia đôi (trừ khi đã check full day)
-        if (checkOut < hour16) {
-            result.earlyLeave = true;
-            if (!forceFullDay) {
+        if (forceFullDay) {
+            // Check Full → nhận đủ lương cơ bản của ngày
+            result.baseSalary = rate;
+            result.fullDayOverride = true;
+            if (checkOut < hour16) result.earlyLeave = true;
+        } else {
+            result.baseSalary = Math.round(hourlyRate * baseMinutes / 60);
+            // Về trước 16h → lương chia đôi
+            if (checkOut < hour16) {
+                result.earlyLeave = true;
                 result.baseSalary = Math.round(result.baseSalary / 2);
             }
         }
@@ -1339,18 +1344,18 @@
                 const baseM = salary.baseMinutes % 60;
                 const baseDisplay = `${baseH}h${baseM > 0 ? baseM + 'p' : ''}`;
 
-                lines.push(`Lương/giờ: ${formatVND(empRate)}đ ÷ 12 = ${formatVND(hourlyRate)}đ/h`);
-                lines.push(`Giờ cơ bản: ${baseDisplay} (8:00-20:00)`);
-                if (salary.earlyLeave) {
-                    const fullBase = Math.round(hourlyRate * salary.baseMinutes / 60);
-                    lines.push(`→ Lương CB: ${formatVND(hourlyRate)}đ/h × ${baseDisplay} = ${formatVND(fullBase)}đ`);
-                    if (fdOverride) {
-                        lines.push(`✅ Check Full → giữ nguyên: ${formatVND(salary.baseSalary)}đ`);
-                    } else {
-                        lines.push(`⚠ Về sớm (trước 16:00) → chia đôi: ${formatVND(salary.baseSalary)}đ`);
-                    }
+                if (salary.fullDayOverride) {
+                    lines.push(`✅ Check Full → Lương CB: ${formatVND(salary.baseSalary)}đ`);
                 } else {
-                    lines.push(`→ Lương CB: ${formatVND(hourlyRate)}đ/h × ${baseDisplay} = ${formatVND(salary.baseSalary)}đ`);
+                    lines.push(`Lương/giờ: ${formatVND(empRate)}đ ÷ 12 = ${formatVND(hourlyRate)}đ/h`);
+                    lines.push(`Giờ cơ bản: ${baseDisplay} (8:00-20:00)`);
+                    if (salary.earlyLeave) {
+                        const fullBase = Math.round(hourlyRate * salary.baseMinutes / 60);
+                        lines.push(`→ Lương CB: ${formatVND(hourlyRate)}đ/h × ${baseDisplay} = ${formatVND(fullBase)}đ`);
+                        lines.push(`⚠ Về sớm (trước 16:00) → chia đôi: ${formatVND(salary.baseSalary)}đ`);
+                    } else {
+                        lines.push(`→ Lương CB: ${formatVND(hourlyRate)}đ/h × ${baseDisplay} = ${formatVND(salary.baseSalary)}đ`);
+                    }
                 }
 
                 if (salary.lateMinutes > 0) {
