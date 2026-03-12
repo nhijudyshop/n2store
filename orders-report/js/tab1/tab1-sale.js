@@ -932,6 +932,30 @@ async function confirmAndPrintSale() {
         // Success notification
         window.notificationManager?.success(`Đã tạo đơn hàng ${orderNumber}`);
 
+        // For social orders: update status + store invoice BEFORE closing modal
+        // (closeSaleButtonModal override was unreliable, so handle directly here)
+        if (currentSaleOrderData?._isSocialOrder && window._lastSocialSaleOrderId) {
+            const socialOrderId = window._lastSocialSaleOrderId;
+            window._lastSocialSaleOrderId = null;
+
+            // Store invoice data in InvoiceStatusStore
+            if (window.InvoiceStatusStore && createResult) {
+                const mappedOrder = {
+                    Name: document.getElementById('saleReceiverName')?.value || '',
+                    Telephone: document.getElementById('saleReceiverPhone')?.value || '',
+                    Address: document.getElementById('saleReceiverAddress')?.value || '',
+                    Code: socialOrderId
+                };
+                window.InvoiceStatusStore.set(socialOrderId, createResult, mappedOrder);
+                console.log('[SALE-CONFIRM] Social: stored invoice for', socialOrderId, 'Number:', createResult.Number);
+            }
+
+            // Update social order status to 'order'
+            if (typeof window.updateSocialOrderAfterBillCreation === 'function') {
+                window.updateSocialOrderAfterBillCreation(socialOrderId);
+            }
+        }
+
         // Close modal after successful creation
         setTimeout(() => {
             closeSaleButtonModal(true);
