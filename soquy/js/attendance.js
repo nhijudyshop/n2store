@@ -1375,10 +1375,13 @@
                 }
 
                 try {
-                    const docId = emp.userId || emp.id;
-                    await db.collection(COLLECTIONS.deviceUsers).doc(String(docId)).update({
-                        dailyRate: newRate
-                    });
+                    const docId = String(emp.id || emp.userId);
+                    // Test employees (in-memory only) → skip Firestore
+                    if (!docId.startsWith('test_')) {
+                        await db.collection(COLLECTIONS.deviceUsers).doc(docId).update({
+                            dailyRate: newRate
+                        });
+                    }
                     emp.dailyRate = newRate;
                     modal.style.display = 'none';
                     showNotification(`Đã cập nhật lương ${emp.name}: ${formatVND(newRate)}đ/ngày`, 'success');
