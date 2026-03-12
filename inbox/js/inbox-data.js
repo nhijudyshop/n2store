@@ -493,6 +493,13 @@ class InboxDataManager {
         return [];
     }
 
+    _filterSystemMessage(text) {
+        if (!text) return '';
+        const t = text.trim();
+        if (t.startsWith('Đã thêm nhãn tự động:') || t.startsWith('Đã đặt giai đoạn')) return '';
+        return text;
+    }
+
     /**
      * Map a Pancake conversation to inbox format
      */
@@ -514,7 +521,7 @@ class InboxDataManager {
             id: conv.id,
             name: customerName,
             avatar: conv.from?.avatar || null,
-            lastMessage: (conv.snippet || conv.last_message?.text || conv.last_message?.message || '').replace(/<[^>]*>/g, ''),
+            lastMessage: this._filterSystemMessage((conv.snippet || conv.last_message?.text || conv.last_message?.message || '').replace(/<[^>]*>/g, '')),
             time: this.parseTimestamp(conv.updated_at || conv.last_message?.inserted_at) || new Date(),
             unread: conv.unread_count || 0,
             online: false,

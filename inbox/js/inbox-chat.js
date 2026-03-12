@@ -3038,7 +3038,7 @@ class InboxChatController {
 
         const existing = this.data.getConversation(conversation.id);
         if (existing) {
-            existing.lastMessage = conversation.snippet || existing.lastMessage;
+            existing.lastMessage = this.data._filterSystemMessage(conversation.snippet) || existing.lastMessage;
             existing.time = this.parseTimestamp(conversation.updated_at) || new Date();
             existing.unread = conversation.unread_count ?? existing.unread;
             if (conversation.type) existing.type = conversation.type;
@@ -3084,7 +3084,7 @@ class InboxChatController {
         const conv = this.data.getConversation(convId);
         if (conv) {
             conv.time = new Date();
-            conv.lastMessage = message.original_message || message.message || conv.lastMessage;
+            conv.lastMessage = this.data._filterSystemMessage(message.original_message || message.message) || conv.lastMessage;
             this.data.conversations.sort((a, b) => b.time - a.time);
             this.renderConversationList();
 
