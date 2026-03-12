@@ -61,10 +61,9 @@
     let selectedIds = new Set();
     let isLoading = false;
 
-    // Excel suggestion state
-    let excelProducts = [];       // product list from Excel export
-    let excelLoaded = false;
-    let excelLoadPromise = null;  // shared promise so concurrent callers can await
+    // Excel suggestion state (same pattern as soluong-live)
+    let excelProducts = [];
+    let isLoadingExcel = false;
 
     // Image cache: templateId → imageUrl
     let imageCache = {};
@@ -133,25 +132,26 @@
      * Load product data from TPOS Excel export API.
      * Used for fast client-side search suggestions.
      */
-    function loadExcelData() {
-        if (excelLoaded) return Promise.resolve();
-        // Return existing promise if already loading (callers await same request)
-        if (excelLoadPromise) return excelLoadPromise;
+    async function loadExcelData() {
+        if (isLoadingExcel || excelProducts.length > 0) return;
 
+        isLoadingExcel = true;
         console.log('[Warehouse] Loading Excel data...');
 
-        excelLoadPromise = window.tokenManager.authenticatedFetch(
-            `${PROXY_URL}/api/Product/ExportFileWithVariantPrice`,
-            {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ model: { Active: 'true' }, ids: '' })
-            }
-        ).then(response => {
+        try {
+            const response = await window.tokenManager.authenticatedFetch(
+                `${PROXY_URL}/api/Product/ExportFileWithVariantPrice`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ model: { Active: "true" }, ids: "" })
+                }
+            );
+
             if (!response.ok) throw new Error('Không thể tải dữ liệu sản phẩm');
-            return response.blob();
-        }).then(blob => blob.arrayBuffer())
-        .then(arrayBuffer => {
+
+            const blob = await response.blob();
+            const arrayBuffer = await blob.arrayBuffer();
             const workbook = XLSX.read(arrayBuffer, { type: 'array' });
             const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
             const jsonData = XLSX.utils.sheet_to_json(firstSheet);
@@ -164,14 +164,12 @@
                 image: row['Link ảnh'] || ''
             }));
 
-            excelLoaded = true;
             console.log(`[Warehouse] Excel loaded: ${excelProducts.length} products`);
-        }).catch(error => {
+        } catch (error) {
             console.error('[Warehouse] Excel load error:', error);
-            excelLoadPromise = null; // allow retry on error
-        });
-
-        return excelLoadPromise;
+        } finally {
+            isLoadingExcel = false;
+        }
     }
 
     /**
