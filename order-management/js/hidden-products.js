@@ -15,6 +15,9 @@
         let isMergeVariants = false;
         let orderIsHideEditControls = false;
 
+        // Campaign ID from localStorage (set by admin page)
+        let currentCampaignId = localStorage.getItem('om_current_campaign_id') || null;
+
         let normalizedProductNames = new Map();
 
         let searchInputDebounceTimer = null;
@@ -340,8 +343,13 @@
         }
 
         async function loadProducts() {
+            if (!currentCampaignId) {
+                console.log('⚠️ No campaign selected');
+                showEmptyState();
+                return;
+            }
             try {
-                orderProducts = await loadAllProductsFromFirebase(database);
+                orderProducts = await loadAllProductsFromFirebase(database, currentCampaignId);
                 console.log('🔥 Loaded from Firebase:', Object.keys(orderProducts).length, 'products');
 
                 if (Object.keys(orderProducts).length === 0) {
@@ -763,7 +771,7 @@
             if (newSoldQty === currentSoldQty) return;
 
             if (!isSyncingFromFirebase) {
-                updateProductQtyInFirebase(database, productId, change, orderProducts).catch(error => {
+                updateProductQtyInFirebase(database, currentCampaignId, productId, change, orderProducts).catch(error => {
                     console.error('❌ Lỗi sync products:', error);
                 });
             }
@@ -785,7 +793,7 @@
             if (newSoldQty === currentSoldQty) return;
 
             if (!isSyncingFromFirebase) {
-                updateProductQtyInFirebase(database, variantId, change, orderProducts).catch(error => {
+                updateProductQtyInFirebase(database, currentCampaignId, variantId, change, orderProducts).catch(error => {
                     console.error('❌ Lỗi sync products:', error);
                 });
             }
@@ -807,7 +815,7 @@
             product.isHidden = false;
 
             if (!isSyncingFromFirebase) {
-                updateProductVisibility(database, productId, false, orderProducts).catch(error => {
+                updateProductVisibility(database, currentCampaignId, productId, false, orderProducts).catch(error => {
                     console.error('❌ Lỗi sync products:', error);
                 });
             }
@@ -839,7 +847,7 @@
                 productIds.forEach(productId => {
                     const productKey = `product_${productId}`;
                     if (orderProducts[productKey]) {
-                        updates[`orderProducts/${productKey}/isHidden`] = false;
+                        updates[`${getProductsPath(currentCampaignId)}/${productKey}/isHidden`] = false;
                     }
                 });
                 database.ref().update(updates).catch(error => {
@@ -981,8 +989,9 @@
                 }
             });
 
-            // Products listener - USE CHILD LISTENERS
-            setupFirebaseChildListeners(database, orderProducts, {
+            // Products listener - USE CHILD LISTENERS (campaign-scoped)
+            if (currentCampaignId) {
+                setupFirebaseChildListeners(database, currentCampaignId, orderProducts, {
                 onProductAdded: (product) => {
                     if (!isSyncingFromFirebase) {
                         console.log('🔥 Product added from Firebase:', product.NameGet);
@@ -1020,6 +1029,7 @@
                     console.log('✅ Firebase listeners setup complete');
                 }
             });
+            }
 
             database.ref('orderSyncCurrentPage').on('value', (snapshot) => {
                 const page = snapshot.val();

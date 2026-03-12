@@ -120,36 +120,53 @@
         async function loadCampaigns() {
             try {
                 const firestore = firebase.firestore();
-                const snapshot = await firestore.collection('report_order_details').get();
                 const selector = document.getElementById('campaignSelector');
                 if (!selector) return;
 
                 selector.innerHTML = '<option value="">-- Chọn đợt live --</option>';
 
+                // Load campaigns from 'campaigns' collection (same source as Tab 1)
+                const campaignSnapshot = await firestore.collection('campaigns').get();
                 const campaigns = [];
-                snapshot.forEach(doc => {
+                campaignSnapshot.forEach(doc => {
                     const data = doc.data();
-                    const name = data.tableName || doc.id.replace(/_/g, ' ');
-                    const orderCount = data.totalOrders || 0;
-                    const isSavedCopy = data.isSavedCopy || false;
-                    if (!isSavedCopy) {
-                        campaigns.push({ id: doc.id, name, orderCount, fetchedAt: data.fetchedAt });
-                    }
+                    campaigns.push({
+                        id: doc.id,
+                        name: data.name || doc.id,
+                        createdAt: data.createdAt || '',
+                        customStartDate: data.customStartDate || '',
+                        customEndDate: data.customEndDate || ''
+                    });
                 });
 
-                // Sort by fetchedAt descending (newest first)
+                // Also load order counts from report_order_details for display
+                const orderCountMap = {};
+                try {
+                    const reportSnapshot = await firestore.collection('report_order_details').get();
+                    reportSnapshot.forEach(doc => {
+                        const data = doc.data();
+                        if (!data.isSavedCopy) {
+                            const name = data.tableName || doc.id.replace(/_/g, ' ');
+                            orderCountMap[name] = data.totalOrders || 0;
+                        }
+                    });
+                } catch (e) {
+                    console.warn('[CAMPAIGN] Could not load order counts:', e);
+                }
+
+                // Sort by createdAt descending (newest first)
                 campaigns.sort((a, b) => {
-                    const dateA = a.fetchedAt ? new Date(a.fetchedAt).getTime() : 0;
-                    const dateB = b.fetchedAt ? new Date(b.fetchedAt).getTime() : 0;
+                    const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                    const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
                     return dateB - dateA;
                 });
 
                 campaigns.forEach(c => {
                     const opt = document.createElement('option');
-                    // Campaign ID = sanitized name (same as overview-ledger)
-                    opt.value = c.name.replace(/[.$#\[\]\/]/g, '_');
+                    opt.value = c.id; // Use Firestore doc ID as campaign ID
                     opt.dataset.campaignName = c.name;
-                    opt.textContent = `${c.name} (${c.orderCount} đơn)`;
+                    const orderCount = orderCountMap[c.name] || 0;
+                    opt.textContent = orderCount > 0 ? `${c.name} (${orderCount} đơn)` : c.name;
                     selector.appendChild(opt);
                 });
 
@@ -162,28 +179,6 @@
                         currentCampaignId = selectedOpt.value;
                         currentCampaignName = selectedOpt.dataset.campaignName || '';
                         updateCampaignBadgeOM();
-                    }
-                }
-
-                // Also load default table name from Firestore settings
-                if (!savedCampaignId) {
-                    try {
-                        const settingsDoc = await firestore.collection('settings').doc('table_name').get();
-                        if (settingsDoc.exists) {
-                            const defaultName = settingsDoc.data().name;
-                            if (defaultName) {
-                                const defaultId = defaultName.replace(/[.$#\[\]\/]/g, '_');
-                                selector.value = defaultId;
-                                if (selector.value === defaultId) {
-                                    currentCampaignId = defaultId;
-                                    currentCampaignName = defaultName;
-                                    localStorage.setItem('om_current_campaign_id', defaultId);
-                                    updateCampaignBadgeOM();
-                                }
-                            }
-                        }
-                    } catch (e) {
-                        console.warn('[CAMPAIGN] Could not load default table name:', e);
                     }
                 }
 
@@ -203,12 +198,66 @@
                 localStorage.setItem('om_current_campaign_id', currentCampaignId);
                 updateCampaignBadgeOM();
                 console.log(`[CAMPAIGN] Selected: ${currentCampaignName} (${currentCampaignId})`);
+                // Reload products for the new campaign
+                switchToCampaign(currentCampaignId);
             } else {
                 currentCampaignId = null;
                 currentCampaignName = null;
                 localStorage.removeItem('om_current_campaign_id');
                 updateCampaignBadgeOM();
+                // Clear products when no campaign selected
+                if (firebaseListenerHandle) { firebaseListenerHandle.detach(); firebaseListenerHandle = null; }
+                orderProducts = {};
+                updateProductListPreview();
+                updateHiddenProductListPreview();
+                refreshCartHistory();
             }
+        }
+
+        let firebaseListenerHandle = null;
+
+        async function switchToCampaign(campaignId) {
+            if (!campaignId) return;
+
+            // Detach old listeners
+            if (firebaseListenerHandle) { firebaseListenerHandle.detach(); firebaseListenerHandle = null; }
+
+            // Clear current products
+            orderProducts = {};
+
+            // Load products for this campaign
+            orderProducts = await loadAllProductsFromFirebase(database, campaignId);
+            console.log(`🔥 Loaded ${Object.keys(orderProducts).length} products for campaign: ${campaignId}`);
+
+            // Setup realtime listeners for this campaign
+            firebaseListenerHandle = setupFirebaseChildListeners(database, campaignId, orderProducts, {
+                onProductAdded: (product) => {
+                    if (!isSyncingFromFirebase) {
+                        console.log('🔥 Product added from Firebase:', product.NameGet);
+                        updateProductListPreview();
+                    }
+                },
+                onProductChanged: (product) => {
+                    if (!isSyncingFromFirebase) {
+                        console.log('🔥 Product updated from Firebase:', product.NameGet);
+                        updateProductListPreview();
+                    }
+                },
+                onProductRemoved: (product) => {
+                    if (!isSyncingFromFirebase) {
+                        console.log('🔥 Product removed from Firebase:', product.NameGet);
+                        updateProductListPreview();
+                    }
+                },
+                onInitialLoadComplete: () => {
+                    console.log('✅ Firebase listeners setup complete');
+                }
+            });
+
+            updateProductListPreview();
+            updateHiddenProductListPreview();
+            updateExpandListLink();
+            refreshCartHistory();
         }
 
         function updateCampaignBadgeOM() {
@@ -226,7 +275,7 @@
             const initialCount = Object.keys(orderProducts).length;
 
             try {
-                const result = await cleanupOldProducts(database, orderProducts);
+                const result = await cleanupOldProducts(database, currentCampaignId, orderProducts);
 
                 if (result.removed > 0) {
                     console.log(`🗑️ Đã xóa ${result.removed} sản phẩm cũ hơn 7 ngày`);
@@ -248,7 +297,7 @@
 
             if (confirm(`Bạn có chắc muốn xóa tất cả ${count} sản phẩm không?`)) {
                 try {
-                    await clearAllProducts(database, orderProducts);
+                    await clearAllProducts(database, currentCampaignId, orderProducts);
                     updateProductListPreview();
                     showNotificationMessage('🗑️ Đã xóa tất cả sản phẩm');
                 } catch (error) {
@@ -299,6 +348,10 @@
          * Save current cart and refresh
          */
         async function saveCartAndRefresh() {
+            if (!currentCampaignId) {
+                showNotificationMessage('⚠️ Vui lòng chọn đợt live trước');
+                return;
+            }
             const productCount = Object.keys(orderProducts).length;
 
             if (productCount === 0) {
@@ -335,8 +388,8 @@
                     products: { ...orderProducts }
                 };
 
-                await saveCartSnapshot(database, snapshot);
-                await clearAllProducts(database, orderProducts);
+                await saveCartSnapshot(database, currentCampaignId, snapshot);
+                await clearAllProducts(database, currentCampaignId, orderProducts);
 
                 updateProductListPreview();
                 await refreshCartHistory();
@@ -354,7 +407,7 @@
          */
         async function refreshCartHistory() {
             try {
-                const snapshots = await getAllCartSnapshots(database);
+                const snapshots = await getAllCartSnapshots(database, currentCampaignId);
                 cartHistorySnapshots = snapshots;
                 renderCartHistoryList(snapshots); // Show all snapshots
             } catch (error) {
@@ -449,7 +502,7 @@
          */
         async function viewSnapshot(snapshotId) {
             try {
-                const snapshot = await getCartSnapshot(database, snapshotId);
+                const snapshot = await getCartSnapshot(database, currentCampaignId, snapshotId);
 
                 if (!snapshot) {
                     showNotificationMessage('❌ Không tìm thấy giỏ hàng này');
@@ -673,7 +726,7 @@
                         products: { ...orderProducts }
                     };
 
-                    await saveCartSnapshot(database, currentSnapshot);
+                    await saveCartSnapshot(database, currentCampaignId, currentSnapshot);
                     showNotificationMessage('✅ Đã lưu giỏ hàng hiện tại');
 
                     // Refresh history to show the new snapshot
@@ -684,7 +737,7 @@
                 showNotificationMessage('🔄 Đang tải giỏ hàng...');
 
                 console.log('DEBUG: Restoring snapshot ID:', snapshotId);
-                const snapshot = await getCartSnapshot(database, snapshotId);
+                const snapshot = await getCartSnapshot(database, currentCampaignId, snapshotId);
                 console.log('DEBUG: Snapshot loaded:', snapshot);
 
                 if (!snapshot) {
@@ -710,11 +763,11 @@
 
                 // Step 3: Clear current products
                 showNotificationMessage('🗑️ Đang xóa giỏ hàng hiện tại...');
-                await clearAllProducts(database, orderProducts);
+                await clearAllProducts(database, currentCampaignId, orderProducts);
 
                 // Step 4: Restore products from snapshot
                 showNotificationMessage('♻️ Đang khôi phục sản phẩm...');
-                await restoreProductsFromSnapshot(database, snapshot.products, orderProducts);
+                await restoreProductsFromSnapshot(database, currentCampaignId, snapshot.products, orderProducts);
 
                 // Step 5: Update UI
                 updateProductListPreview();
@@ -744,7 +797,7 @@
             }
 
             try {
-                await deleteCartSnapshot(database, snapshotId);
+                await deleteCartSnapshot(database, currentCampaignId, snapshotId);
                 await refreshCartHistory();
                 showNotificationMessage('🗑️ Đã xóa giỏ hàng đã lưu');
 
@@ -1147,7 +1200,7 @@
 
                     // Use batch add helper (only variants, no main product)
                     try {
-                        const result = await addProductsToFirebase(database, variantsToAdd, orderProducts);
+                        const result = await addProductsToFirebase(database, currentCampaignId, variantsToAdd, orderProducts);
 
                         updateProductListPreview();
 
@@ -1196,11 +1249,15 @@
         }
 
         async function addProductToList(product, showNotification = true) {
+            if (!currentCampaignId) {
+                showNotificationMessage('⚠️ Vui lòng chọn đợt live trước khi thêm sản phẩm');
+                return false;
+            }
             try {
                 const cleanProduct = cleanProductForFirebase(product);
 
                 if (!isSyncingFromFirebase) {
-                    const result = await addProductToFirebase(database, cleanProduct, orderProducts);
+                    const result = await addProductToFirebase(database, currentCampaignId, cleanProduct, orderProducts);
 
                     if (showNotification) {
                         if (result.action === 'updated') {
@@ -1376,7 +1433,7 @@
         async function unhideProduct(productId) {
             if (!isSyncingFromFirebase) {
                 try {
-                    await updateProductVisibility(database, productId, false, orderProducts);
+                    await updateProductVisibility(database, currentCampaignId, productId, false, orderProducts);
                     updateProductListPreview();
                     updateHiddenProductListPreview();
                     showNotificationMessage('👁️ Đã hiện sản phẩm');
@@ -1389,7 +1446,7 @@
         async function updateProductQty(productId, change) {
             if (!isSyncingFromFirebase) {
                 try {
-                    await updateProductQtyInFirebase(database, productId, change, orderProducts);
+                    await updateProductQtyInFirebase(database, currentCampaignId, productId, change, orderProducts);
                     updateProductListPreview();
                     updateHiddenProductListPreview();
                 } catch (error) {
@@ -1415,7 +1472,7 @@
                         product.soldQty = product.QtyAvailable;
                     }
 
-                    await database.ref(`orderProducts/${productKey}`).update({
+                    await database.ref(`${getProductsPath(currentCampaignId)}/${productKey}`).update({
                         QtyAvailable: product.QtyAvailable,
                         soldQty: product.soldQty
                     });
@@ -1442,7 +1499,7 @@
                     // Update remainingQty independently (now represents "Đã đặt" - ordered quantity)
                     product.remainingQty = newOrderedQty;
 
-                    await database.ref(`orderProducts/${productKey}`).update({
+                    await database.ref(`${getProductsPath(currentCampaignId)}/${productKey}`).update({
                         remainingQty: product.remainingQty
                     });
 
@@ -1458,7 +1515,7 @@
             if (confirm('Bạn có chắc muốn xóa sản phẩm này?')) {
                 try {
                     if (!isSyncingFromFirebase) {
-                        await removeProductFromFirebase(database, productId, orderProducts);
+                        await removeProductFromFirebase(database, currentCampaignId, productId, orderProducts);
                     }
 
                     // Re-apply search if active
@@ -1867,8 +1924,8 @@
             // If product has a template (is a variant), update all products with same template
             let updatedCount = 1;
             const updates = {};
-            updates[`orderProducts/${productKey}/imageUrl`] = newImageUrl;
-            updates[`orderProducts/${productKey}/lastRefreshed`] = timestamp;
+            updates[`${getProductsPath(currentCampaignId)}/${productKey}/imageUrl`] = newImageUrl;
+            updates[`${getProductsPath(currentCampaignId)}/${productKey}/lastRefreshed`] = timestamp;
 
             if (product.ProductTmplId) {
                 const templateId = product.ProductTmplId;
@@ -1878,8 +1935,8 @@
                     if (p.ProductTmplId === templateId && p.Id !== product.Id) {
                         p.imageUrl = newImageUrl;
                         p.lastRefreshed = timestamp;
-                        updates[`orderProducts/${key}/imageUrl`] = newImageUrl;
-                        updates[`orderProducts/${key}/lastRefreshed`] = timestamp;
+                        updates[`${getProductsPath(currentCampaignId)}/${key}/imageUrl`] = newImageUrl;
+                        updates[`${getProductsPath(currentCampaignId)}/${key}/lastRefreshed`] = timestamp;
                         updatedCount++;
                     }
                 });
@@ -2374,42 +2431,17 @@
                 }
             });
 
-            // Setup child listeners for products (realtime sync)
-            setupFirebaseChildListeners(database, orderProducts, {
-                onProductAdded: (product) => {
-                    if (!isSyncingFromFirebase) {
-                        console.log('🔥 Product added from Firebase:', product.NameGet);
-                        updateProductListPreview();
-                    }
-                },
-                onProductChanged: (product) => {
-                    if (!isSyncingFromFirebase) {
-                        console.log('🔥 Product updated from Firebase:', product.NameGet);
-                        updateProductListPreview();
-                    }
-                },
-                onProductRemoved: (product) => {
-                    if (!isSyncingFromFirebase) {
-                        console.log('🔥 Product removed from Firebase:', product.NameGet);
-                        updateProductListPreview();
-                    }
-                },
-                onInitialLoadComplete: () => {
-                    console.log('✅ Firebase listeners setup complete');
-                }
-            });
+            // Product listeners are now set up per-campaign in switchToCampaign()
         }
 
         async function loadInitialData() {
-            try {
-                orderProducts = await loadAllProductsFromFirebase(database);
-                console.log('🔥 Loaded from Firebase:', Object.keys(orderProducts).length, 'products');
-
-                updateProductListPreview();
-            } catch (error) {
-                console.error('❌ Error loading from Firebase:', error);
+            if (!currentCampaignId) {
+                console.log('⚠️ No campaign selected, skipping product load');
                 orderProducts = {};
+                updateProductListPreview();
+                return;
             }
+            await switchToCampaign(currentCampaignId);
         }
 
         window.addEventListener('load', async () => {

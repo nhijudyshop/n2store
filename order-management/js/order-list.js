@@ -15,6 +15,9 @@
         let isMergeVariants = false; // Merge variants mode disabled by default
         let orderIsHideEditControls = false; // Hide edit controls mode disabled by default
 
+        // Campaign ID from localStorage (set by admin page)
+        let currentCampaignId = localStorage.getItem('om_current_campaign_id') || null;
+
         // Optimization: Cache normalized product names for faster search
         let normalizedProductNames = new Map(); // productId -> normalized name
 
@@ -343,8 +346,13 @@
         }
 
         async function loadProducts() {
+            if (!currentCampaignId) {
+                console.log('⚠️ No campaign selected');
+                showEmptyState();
+                return;
+            }
             try {
-                orderProducts = await loadAllProductsFromFirebase(database);
+                orderProducts = await loadAllProductsFromFirebase(database, currentCampaignId);
                 console.log('🔥 Loaded from Firebase:', Object.keys(orderProducts).length, 'products');
 
                 if (Object.keys(orderProducts).length === 0) {
@@ -834,7 +842,7 @@
             // Let helper function update both local and Firebase
             // DO NOT update local here - helper will do it
             if (!isSyncingFromFirebase) {
-                updateProductQtyInFirebase(database, productId, change, orderProducts).catch(error => {
+                updateProductQtyInFirebase(database, currentCampaignId, productId, change, orderProducts).catch(error => {
                     console.error('❌ Lỗi sync products:', error);
                 });
             }
@@ -860,7 +868,7 @@
             // Let helper function update both local and Firebase
             // DO NOT update local here - helper will do it
             if (!isSyncingFromFirebase) {
-                updateProductQtyInFirebase(database, variantId, change, orderProducts).catch(error => {
+                updateProductQtyInFirebase(database, currentCampaignId, variantId, change, orderProducts).catch(error => {
                     console.error('❌ Lỗi sync products:', error);
                 });
             }
@@ -883,7 +891,7 @@
             product.isHidden = true;
 
             if (!isSyncingFromFirebase) {
-                updateProductVisibility(database, productId, true, orderProducts).catch(error => {
+                updateProductVisibility(database, currentCampaignId, productId, true, orderProducts).catch(error => {
                     console.error('❌ Lỗi sync products:', error);
                 });
             }
@@ -916,7 +924,7 @@
                 productIds.forEach(productId => {
                     const productKey = `product_${productId}`;
                     if (orderProducts[productKey]) {
-                        updates[`orderProducts/${productKey}/isHidden`] = true;
+                        updates[`${getProductsPath(currentCampaignId)}/${productKey}/isHidden`] = true;
                     }
                 });
                 database.ref().update(updates).catch(error => {
@@ -940,7 +948,7 @@
             product.isHidden = false;
 
             if (!isSyncingFromFirebase) {
-                updateProductVisibility(database, productId, false, orderProducts).catch(error => {
+                updateProductVisibility(database, currentCampaignId, productId, false, orderProducts).catch(error => {
                     console.error('❌ Lỗi sync products:', error);
                 });
             }
@@ -982,12 +990,12 @@
             if (!isSyncingFromFirebase) {
                 if (productIdsToDelete.length > 1) {
                     // Use batch deletion for multiple products
-                    removeProductsFromFirebase(database, productIdsToDelete, orderProducts).catch(error => {
+                    removeProductsFromFirebase(database, currentCampaignId, productIdsToDelete, orderProducts).catch(error => {
                         console.error('❌ Lỗi xóa sản phẩm:', error);
                     });
                 } else {
                     // Use single deletion for one product
-                    removeProductFromFirebase(database, productIdsToDelete[0], orderProducts).catch(error => {
+                    removeProductFromFirebase(database, currentCampaignId, productIdsToDelete[0], orderProducts).catch(error => {
                         console.error('❌ Lỗi xóa sản phẩm:', error);
                     });
                 }
@@ -1023,7 +1031,7 @@
 
             if (deletedCount > 0 && !isSyncingFromFirebase) {
                 // Use batch deletion for all products
-                removeProductsFromFirebase(database, productIdsToDelete, orderProducts).catch(error => {
+                removeProductsFromFirebase(database, currentCampaignId, productIdsToDelete, orderProducts).catch(error => {
                     console.error('❌ Lỗi xóa sản phẩm:', error);
                 });
             }
@@ -1053,7 +1061,7 @@
             }
 
             if (!isSyncingFromFirebase) {
-                database.ref(`orderProducts/${productKey}`).update({
+                database.ref(`${getProductsPath(currentCampaignId)}/${productKey}`).update({
                     QtyAvailable: product.QtyAvailable,
                     soldQty: product.soldQty
                 }).catch(error => {
@@ -1084,7 +1092,7 @@
             }
 
             if (!isSyncingFromFirebase) {
-                database.ref(`orderProducts/${productKey}`).update({
+                database.ref(`${getProductsPath(currentCampaignId)}/${productKey}`).update({
                     QtyAvailable: product.QtyAvailable,
                     soldQty: product.soldQty
                 }).catch(error => {
@@ -1112,7 +1120,7 @@
             product.remainingQty = newOrderedQty;
 
             if (!isSyncingFromFirebase) {
-                database.ref(`orderProducts/${productKey}`).update({
+                database.ref(`${getProductsPath(currentCampaignId)}/${productKey}`).update({
                     remainingQty: product.remainingQty
                 }).catch(error => {
                     console.error('❌ Lỗi sync products:', error);
@@ -1128,7 +1136,7 @@
 
         async function cleanupOldProductsLocal() {
             if (!isSyncingFromFirebase) {
-                const result = await cleanupOldProducts(database, orderProducts);
+                const result = await cleanupOldProducts(database, currentCampaignId, orderProducts);
                 if (result.removed > 0) {
                     console.log(`🗑️ Đã xóa ${result.removed} sản phẩm cũ hơn 7 ngày`);
 
@@ -1150,7 +1158,7 @@
 
             if (confirm(`Bạn có chắc muốn xóa tất cả ${productCount} sản phẩm không?`)) {
                 if (!isSyncingFromFirebase) {
-                    await clearAllProducts(database, orderProducts);
+                    await clearAllProducts(database, currentCampaignId, orderProducts);
                 }
                 showEmptyState();
             }
@@ -1213,7 +1221,7 @@
                 product.lastRefreshed = Date.now();
 
                 if (!isSyncingFromFirebase) {
-                    database.ref(`orderProducts/${productKey}`).update({
+                    database.ref(`${getProductsPath(currentCampaignId)}/${productKey}`).update({
                         QtyAvailable: product.QtyAvailable,
                         ListPrice: product.ListPrice,
                         PriceVariant: product.PriceVariant,
@@ -1378,8 +1386,9 @@
                 }
             });
 
-            // Products listener - USE CHILD LISTENERS
-            setupFirebaseChildListeners(database, orderProducts, {
+            // Products listener - USE CHILD LISTENERS (campaign-scoped)
+            if (currentCampaignId) {
+                setupFirebaseChildListeners(database, currentCampaignId, orderProducts, {
                 onProductAdded: (product) => {
                     if (!isSyncingFromFirebase) {
                         console.log('🔥 Product added from Firebase:', product.NameGet);
@@ -1420,6 +1429,7 @@
                     console.log('✅ Firebase listeners setup complete');
                 }
             });
+            }
 
             database.ref('orderSyncCurrentPage').on('value', (snapshot) => {
                 const page = snapshot.val();
