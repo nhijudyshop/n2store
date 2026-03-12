@@ -26,6 +26,18 @@
     var STORE_NAME = 'kv';
     var MIGRATION_FLAG = 'n2store_idb_v1';
 
+    // Critical keys: kept in BOTH localStorage AND IndexedDB (dual-write)
+    // These are read synchronously on page load BEFORE IndexedDB is ready.
+    // Without localStorage fallback, auth checks fail → user gets kicked to login.
+    var CRITICAL_KEYS = [
+        'loginindex_auth',
+        'bearer_token_data_1', 'bearer_token_data_2'
+    ];
+
+    function isCriticalKey(key) {
+        return CRITICAL_KEYS.indexOf(key) !== -1;
+    }
+
     // Keys to migrate from localStorage → IndexedDB
     var MIGRATE_KEYS = [
         // Auth & tokens
@@ -153,7 +165,7 @@
             }
         }
 
-        // Batch write to IDB then remove from localStorage
+        // Batch write to IDB then remove from localStorage (except critical keys)
         if (batch.length > 0 && this._db) {
             try {
                 var tx = this._db.transaction(STORE_NAME, 'readwrite');
@@ -163,7 +175,10 @@
                 }
                 tx.oncomplete = function() {
                     for (var j = 0; j < batch.length; j++) {
-                        localStorage.removeItem(batch[j].key);
+                        // Critical keys stay in localStorage for sync access before IDB loads
+                        if (!isCriticalKey(batch[j].key)) {
+                            localStorage.removeItem(batch[j].key);
+                        }
                     }
                     console.log('[N2Store] Migrated ' + batch.length + ' keys to IndexedDB');
                 };
@@ -216,6 +231,10 @@
                 tx.objectStore(STORE_NAME).put(value, key);
             } catch (e) {
                 try { localStorage.setItem(key, value); } catch (e2) { /* quota full */ }
+            }
+            // Critical keys: also write to localStorage for sync access before IDB loads
+            if (isCriticalKey(key)) {
+                try { localStorage.setItem(key, value); } catch (e) { /* quota full */ }
             }
         } else {
             // IDB not ready yet, backup to localStorage
@@ -321,6 +340,7 @@
 
     // List of managed keys (exposed for other modules)
     N2Store.MIGRATE_KEYS = MIGRATE_KEYS;
+    N2Store.CRITICAL_KEYS = CRITICAL_KEYS;
 
     // Initialize singleton
     var store = new N2Store();
