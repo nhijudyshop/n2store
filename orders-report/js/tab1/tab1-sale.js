@@ -766,6 +766,9 @@ async function confirmAndPrintSale() {
         const orderId = createResult.Id;
         const orderNumber = createResult.Number || orderId;
 
+        // Store result globally for social order invoice adapter
+        window._lastFastSaleCreateResult = createResult;
+
         console.log('[SALE-CONFIRM] Order created successfully:', { orderId, orderNumber });
 
         // Save to order history (Firebase)

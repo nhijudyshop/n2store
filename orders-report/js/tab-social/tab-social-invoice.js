@@ -546,6 +546,26 @@
         const order = window.SocialOrderState?.orders?.find(o => o.id === socialOrderId);
         if (!order) return;
 
+        // Store invoice data in InvoiceStatusStore (from global var set by confirmAndPrintSale)
+        const createResult = window._lastFastSaleCreateResult;
+        if (createResult && window.InvoiceStatusStore) {
+            // Build a mapped order for enrichment (customer info fallback)
+            const mappedOrder = {
+                Name: order.customerName || '',
+                Telephone: order.phone || '',
+                Address: order.address || '',
+                Code: socialOrderId
+            };
+            window.InvoiceStatusStore.set(socialOrderId, createResult, mappedOrder);
+            console.log(`[SOCIAL-INVOICE] Stored invoice data for ${socialOrderId}, Number: ${createResult.Number}`);
+        } else {
+            console.warn(`[SOCIAL-INVOICE] No createResult or InvoiceStatusStore for ${socialOrderId}`, {
+                hasCreateResult: !!createResult,
+                hasStore: !!window.InvoiceStatusStore
+            });
+        }
+        window._lastFastSaleCreateResult = null;
+
         // Change status to 'order' (Don hang)
         order.status = 'order';
 
