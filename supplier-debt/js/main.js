@@ -651,6 +651,7 @@ function applySupplierFilter() {
     } else {
         State.filteredData = [...State.data];
     }
+    State.currentPage = 1;
 }
 
 // =====================================================
