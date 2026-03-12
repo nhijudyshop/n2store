@@ -1533,19 +1533,22 @@
 
     // Inject test button vào header
     function injectTestButton() {
-        const headerRight = document.querySelector('#viewTimesheet .ts-header-right');
-        if (!headerRight) return;
+        // Inject vào cả 2 view
+        ['#viewTimesheet .ts-header-right', '#viewSchedule .ts-header-right'].forEach(sel => {
+            const headerRight = document.querySelector(sel);
+            if (!headerRight) return;
 
-        const btn = document.createElement('button');
-        btn.className = 'ts-btn';
-        btn.style.cssText = 'background:#fff7e6; color:#d46b08; border:1px solid #ffd591;';
-        btn.innerHTML = '<i data-lucide="user-plus" style="width:14px; height:14px;"></i> Test';
-        btn.title = 'Tạo nhân viên ảo để test lương';
-        btn.addEventListener('click', showTestModal);
+            const btn = document.createElement('button');
+            btn.className = 'ts-btn';
+            btn.style.cssText = 'background:#fff7e6; color:#d46b08; border:1px solid #ffd591;';
+            btn.innerHTML = '<i data-lucide="user-plus" style="width:14px; height:14px;"></i> Test';
+            btn.title = 'Tạo nhân viên ảo để test lương';
+            btn.addEventListener('click', showTestModal);
 
-        // Chèn trước nút "..."
-        const moreBtn = headerRight.querySelector('.ts-btn:last-child');
-        headerRight.insertBefore(btn, moreBtn);
+            // Chèn trước nút reload/more
+            const lastBtn = headerRight.querySelector('.ts-btn:last-child');
+            headerRight.insertBefore(btn, lastBtn);
+        });
         refreshIcons();
     }
 
