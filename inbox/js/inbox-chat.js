@@ -260,6 +260,20 @@ class InboxChatController {
             el.style.height = Math.min(el.scrollHeight, 120) + 'px';
         });
 
+        // Paste image support
+        this.elements.chatInput.addEventListener('paste', (e) => {
+            const items = e.clipboardData?.items;
+            if (!items) return;
+            for (const item of items) {
+                if (item.type.startsWith('image/')) {
+                    e.preventDefault();
+                    const file = item.getAsFile();
+                    if (file) this._sendImageFile(file);
+                    return;
+                }
+            }
+        });
+
 
 
         // Message scroll: pagination (scroll up) + scroll-to-bottom button
@@ -1418,7 +1432,13 @@ class InboxChatController {
             : `<div class="message-avatar" style="background:${gradient};">${initial}</div>`;
         let lastDate = '';
 
-        let html = conv.messages.map(msg => {
+        let html = conv.messages.filter(msg => {
+            // Hide auto-label system messages
+            const t = (msg.text || '').trim();
+            if (t.startsWith('Đã thêm nhãn tự động:') || t.startsWith('Đã đặt giai đoạn')) return false;
+            if (t === '[Tin nhắn trống]') return false;
+            return true;
+        }).map(msg => {
             const msgDate = this.formatDate(msg.time);
             let dateSeparator = '';
             if (msgDate !== lastDate) {
@@ -1961,6 +1981,47 @@ class InboxChatController {
             }
         };
         input.click();
+    }
+
+    /**
+     * Send an image File (used by paste and drag-drop)
+     */
+    async _sendImageFile(file) {
+        if (!this.activeConversationId) return;
+        const conv = this.data.getConversation(this.activeConversationId);
+        if (!conv) return;
+
+        try {
+            showToast('Đang tải ảnh lên...', 'info');
+            const pdm = window.pancakeDataManager;
+            if (!pdm) throw new Error('pancakeDataManager not available');
+
+            const sendPageId = this.currentSendPageId || conv.pageId;
+            const result = await pdm.uploadImage(sendPageId, file);
+            if (result && result.url) {
+                const pageAccessToken = await this._getPageAccessTokenWithFallback(sendPageId);
+                if (!pageAccessToken) throw new Error('Không tìm thấy page_access_token');
+                const url = window.API_CONFIG.buildUrl.pancakeOfficial(
+                    `pages/${sendPageId}/conversations/${conv.conversationId}/messages`,
+                    pageAccessToken
+                );
+                await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'reply_inbox', message: '', content_url: result.url })
+                });
+                showToast('Đã gửi ảnh', 'success');
+                this.data.markAsRead(this.activeConversationId);
+                this.renderConversationList();
+                setTimeout(() => {
+                    if (pdm) pdm.clearMessagesCache(`${conv.pageId}_${conv.conversationId}`);
+                    this.loadMessages(conv);
+                }, 2000);
+            }
+        } catch (err) {
+            console.error('[InboxChat] Paste image error:', err);
+            showToast('Lỗi tải ảnh: ' + err.message, 'error');
+        }
     }
 
     // ===== Chat Label Bar =====
