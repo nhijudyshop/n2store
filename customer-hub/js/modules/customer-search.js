@@ -175,6 +175,31 @@ export class CustomerSearchModule {
             }
         });
 
+        // Listen for wallet updates from profile modal → refresh wallet in search list
+        window.addEventListener('wallet-updated', async (e) => {
+            const phone = e.detail?.phone;
+            if (!phone || this.customers.length === 0) return;
+
+            const customer = this.customers.find(c => c.phone === phone);
+            if (!customer) return;
+
+            console.log('[CustomerSearch] Wallet updated for', phone, '- refreshing balance');
+            try {
+                const walletData = await apiService.getWalletBatch([phone]);
+                if (!walletData || !walletData[phone]) return;
+
+                const wallet = walletData[phone];
+                customer.balance = wallet.total !== undefined ? wallet.total : (wallet.balance || 0);
+                customer.virtual_balance = wallet.virtualBalance !== undefined ? wallet.virtualBalance : 0;
+                customer.real_balance = wallet.balance !== undefined ? wallet.balance : 0;
+
+                this.renderResults(this.customers);
+                console.log('[CustomerSearch] Wallet balance refreshed for', phone);
+            } catch (err) {
+                console.warn('[CustomerSearch] Failed to refresh wallet after update:', err);
+            }
+        });
+
         // Initial load - show recent customers
         this.loadRecentCustomers();
     }

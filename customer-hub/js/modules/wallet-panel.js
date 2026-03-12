@@ -251,6 +251,11 @@ export class WalletPanelModule {
 
                 close();
                 await this.loadWalletDetails();
+
+                // Notify search list to refresh wallet balance
+                window.dispatchEvent(new CustomEvent('wallet-updated', {
+                    detail: { phone: this.customerPhone, action }
+                }));
             } catch (err) {
                 errorDiv.textContent = err.message;
                 errorDiv.classList.remove('hidden');
@@ -335,6 +340,10 @@ export class WalletPanelModule {
                 if (walletData) {
                     this.renderWallet(walletData);
                     if (data.data?.transaction?.amount > 0) this._showNotification(data.data.transaction);
+                    // Notify search list to refresh wallet balance
+                    window.dispatchEvent(new CustomEvent('wallet-updated', {
+                        detail: { phone: this.customerPhone, action: 'sse_update' }
+                    }));
                 }
             } catch (e) { /* ignore parse errors */ }
         };
