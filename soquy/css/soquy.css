@@ -4678,19 +4678,16 @@
     box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
 
-.voucher-thumb-wrapper:hover .voucher-thumb-zoom {
-    display: block;
-}
-
 .voucher-thumb-zoom {
     display: none;
     position: fixed;
     z-index: 9999;
-    max-width: 90vw;
-    max-height: 90vh;
+    max-width: min(500px, 45vw);
+    max-height: min(500px, 80vh);
     object-fit: contain;
     border-radius: 8px;
     box-shadow: 0 8px 32px rgba(0,0,0,0.3);
     border: 2px solid #fff;
+    background: #fff;
     pointer-events: none;
 }
