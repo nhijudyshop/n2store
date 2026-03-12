@@ -39,6 +39,39 @@
     let weekRecords = [];        // Attendance records for current week
     let syncStatus = null;       // Sync service status
     let unsubSyncStatus = null;  // Firestore listener unsubscribe
+    let showHidden = false;      // Toggle hiển thị nhân viên ẩn
+
+    // Load hidden employees from localStorage
+    const HIDDEN_KEY = 'attendance_hidden_employees';
+    let hiddenEmployees = new Set(JSON.parse(localStorage.getItem(HIDDEN_KEY) || '[]'));
+
+    function saveHidden() {
+        localStorage.setItem(HIDDEN_KEY, JSON.stringify([...hiddenEmployees]));
+    }
+
+    function isHidden(empId) {
+        return hiddenEmployees.has(String(empId));
+    }
+
+    function hideEmployee(empId) {
+        hiddenEmployees.add(String(empId));
+        saveHidden();
+        renderTimesheet();
+        renderSchedule();
+    }
+
+    function unhideEmployee(empId) {
+        hiddenEmployees.delete(String(empId));
+        saveHidden();
+        renderTimesheet();
+        renderSchedule();
+    }
+
+    function toggleHidden() {
+        showHidden = !showHidden;
+        renderTimesheet();
+        renderSchedule();
+    }
 
     // ================================================================
     // INIT
@@ -282,7 +315,12 @@
         // Sắp xếp theo lương giảm dần
         empData.sort((a, b) => b.weekSalary - a.weekSalary);
 
-        for (const { emp, empId, totalMinutes, weekSalary, workedDays, dayCells } of empData) {
+        // Tách visible / hidden
+        const visibleData = empData.filter(d => !isHidden(d.empId));
+        const hiddenData = empData.filter(d => isHidden(d.empId));
+        const hiddenCount = hiddenData.length;
+
+        for (const { emp, empId, totalMinutes, weekSalary, workedDays, dayCells } of visibleData) {
             grandTotalSalary += weekSalary;
             grandTotalMinutes += totalMinutes;
 
@@ -291,7 +329,10 @@
             // Cột tên nhân viên
             html += `
                 <td class="ts-col-fixed">
-                    <div style="font-weight:600; color:#1e293b;">${escapeHtml(emp.name || 'N/A')}</div>
+                    <div style="display:flex; align-items:center; gap:4px;">
+                        <div style="font-weight:600; color:#1e293b; flex:1;">${escapeHtml(emp.name || 'N/A')}</div>
+                        <span onclick="window._attendance.hideEmployee('${empId}')" title="Ẩn nhân viên" style="cursor:pointer; color:#d9d9d9; font-size:14px; line-height:1;">✕</span>
+                    </div>
                     <div style="font-size:11px; color:#8c8c8c;">ID: ${empId}</div>
                 </td>
             `;
@@ -324,7 +365,7 @@
         }
 
         // Hàng tổng cộng
-        if (employees.length > 0) {
+        if (visibleData.length > 0) {
             const gtHours = Math.floor(grandTotalMinutes / 60);
             const gtMins = grandTotalMinutes % 60;
             const gtDisplay = grandTotalMinutes > 0 ? `${gtHours}h${gtMins > 0 ? gtMins + 'm' : ''}` : '-';
@@ -333,7 +374,7 @@
                 <tr style="background:#fafafa; border-top:2px solid #e2e8f0;">
                     <td class="ts-col-fixed" style="background:#fafafa;">
                         <div style="font-weight:700; color:#1e293b;">Tổng cộng</div>
-                        <div style="font-size:11px; color:#8c8c8c;">${employees.length} nhân viên</div>
+                        <div style="font-size:11px; color:#8c8c8c;">${visibleData.length} nhân viên</div>
                     </td>
                     <td colspan="7"></td>
                     <td style="text-align:right; vertical-align:middle;">
@@ -344,6 +385,43 @@
                     </td>
                 </tr>
             `;
+        }
+
+        // Hàng nhân viên đã ẩn
+        if (hiddenCount > 0) {
+            html += `
+                <tr>
+                    <td colspan="10" style="text-align:center; padding:8px; border:none;">
+                        <span onclick="window._attendance.toggleHidden()" style="cursor:pointer; color:#1890ff; font-size:12px;">
+                            ${showHidden ? 'Ẩn' : 'Hiện'} ${hiddenCount} nhân viên đã ẩn
+                        </span>
+                    </td>
+                </tr>
+            `;
+
+            if (showHidden) {
+                for (const { emp, empId, totalMinutes, weekSalary, workedDays, dayCells } of hiddenData) {
+                    html += `<tr style="opacity:0.5;">`;
+                    html += `
+                        <td class="ts-col-fixed">
+                            <div style="display:flex; align-items:center; gap:4px;">
+                                <div style="font-weight:600; color:#8c8c8c; flex:1;">${escapeHtml(emp.name || 'N/A')}</div>
+                                <span onclick="window._attendance.unhideEmployee('${empId}')" title="Bỏ ẩn" style="cursor:pointer; color:#52c41a; font-size:12px;">Hiện</span>
+                            </div>
+                            <div style="font-size:11px; color:#bfbfbf;">ID: ${empId}</div>
+                        </td>
+                    `;
+                    for (const { cellData, daySalary, dateKey } of dayCells) {
+                        html += `<td>${renderDayCell(cellData, daySalary, emp, dateKey)}</td>`;
+                    }
+                    const hours = Math.floor(totalMinutes / 60);
+                    const mins = totalMinutes % 60;
+                    const totalDisplay = totalMinutes > 0 ? `${hours}h${mins > 0 ? mins + 'm' : ''}` : '-';
+                    html += `<td style="text-align:right;"><div style="font-weight:500; color:#8c8c8c;">${totalDisplay}</div></td>`;
+                    html += `<td style="text-align:right;"><div style="font-weight:500; color:#8c8c8c;">${weekSalary > 0 ? formatVND(weekSalary) + 'đ' : '-'}</div></td>`;
+                    html += '</tr>';
+                }
+            }
         }
 
         tbody.innerHTML = html;
@@ -596,8 +674,13 @@
 
         empData.sort((a, b) => b.weekSalary - a.weekSalary);
 
+        // Tách visible / hidden
+        const visibleData = empData.filter(d => !isHidden(d.empId));
+        const hiddenData = empData.filter(d => isHidden(d.empId));
+        const hiddenCount = hiddenData.length;
+
         // Hàng tổng cộng trên đầu
-        const totalSalary = empData.reduce((s, e) => s + e.weekSalary, 0);
+        const totalSalary = visibleData.reduce((s, e) => s + e.weekSalary, 0);
         html += `
             <tr style="background:#fafafa;">
                 <td class="ts-col-fixed" style="border:none; background:#fafafa;"></td>
@@ -608,13 +691,16 @@
             </tr>
         `;
 
-        for (const { emp, empId, weekSalary, workedDays, dayCells } of empData) {
+        for (const { emp, empId, weekSalary, workedDays, dayCells } of visibleData) {
             html += '<tr>';
 
             // Tên nhân viên
             html += `
                 <td class="ts-col-fixed">
-                    <div style="font-weight:600; color:#1e293b;">${escapeHtml(emp.name || 'N/A')}</div>
+                    <div style="display:flex; align-items:center; gap:4px;">
+                        <div style="font-weight:600; color:#1e293b; flex:1;">${escapeHtml(emp.name || 'N/A')}</div>
+                        <span onclick="window._attendance.hideEmployee('${empId}')" title="Ẩn nhân viên" style="cursor:pointer; color:#d9d9d9; font-size:14px; line-height:1;">✕</span>
+                    </div>
                     <div style="font-size:11px; color:#8c8c8c;">ID: ${empId}</div>
                 </td>
             `;
@@ -635,6 +721,43 @@
             `;
 
             html += '</tr>';
+        }
+
+        // Hàng nhân viên đã ẩn
+        if (hiddenCount > 0) {
+            html += `
+                <tr>
+                    <td colspan="9" style="text-align:center; padding:8px; border:none;">
+                        <span onclick="window._attendance.toggleHidden()" style="cursor:pointer; color:#1890ff; font-size:12px;">
+                            ${showHidden ? 'Ẩn' : 'Hiện'} ${hiddenCount} nhân viên đã ẩn
+                        </span>
+                    </td>
+                </tr>
+            `;
+
+            if (showHidden) {
+                for (const { emp, empId, weekSalary, workedDays, dayCells } of hiddenData) {
+                    html += `<tr style="opacity:0.5;">`;
+                    html += `
+                        <td class="ts-col-fixed">
+                            <div style="display:flex; align-items:center; gap:4px;">
+                                <div style="font-weight:600; color:#8c8c8c; flex:1;">${escapeHtml(emp.name || 'N/A')}</div>
+                                <span onclick="window._attendance.unhideEmployee('${empId}')" title="Bỏ ẩn" style="cursor:pointer; color:#52c41a; font-size:12px;">Hiện</span>
+                            </div>
+                            <div style="font-size:11px; color:#bfbfbf;">ID: ${empId}</div>
+                        </td>
+                    `;
+                    for (const { cellData, daySalary, dateKey, date } of dayCells) {
+                        html += `<td>${renderScheduleCell(cellData, daySalary, emp, dateKey, date)}</td>`;
+                    }
+                    html += `
+                        <td style="text-align:right;">
+                            <div style="font-weight:500; color:#8c8c8c;">${weekSalary > 0 ? formatVND(weekSalary) + 'đ' : '-'}</div>
+                        </td>
+                    `;
+                    html += '</tr>';
+                }
+            }
         }
 
         tbody.innerHTML = html;
@@ -1182,6 +1305,9 @@
         sendSync: sendSyncCommand,
         reload: () => loadEmployees().then(() => loadWeekData()),
         showTestModal,
+        hideEmployee,
+        unhideEmployee,
+        toggleHidden,
     };
 
     // Auto-init when DOM ready
