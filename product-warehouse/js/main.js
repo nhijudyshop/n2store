@@ -140,7 +140,7 @@
 
         try {
             const response = await window.tokenManager.authenticatedFetch(
-                `${PROXY_URL}/ProductTemplate/ExportFileV2?Active=true&priceId=0&DefaultCodeView=&company_id=&all_company=false`,
+                `${PROXY_URL}/api/ProductTemplate/ExportFileV2?Active=true&priceId=0&DefaultCodeView=&company_id=&all_company=false`,
                 {
                     method: 'POST',
                     headers: {
