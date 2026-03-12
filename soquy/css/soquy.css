@@ -4649,3 +4649,48 @@
 .upload-progress-text.upload-error {
     color: #dc3545;
 }
+
+/* =====================================================
+   IMAGE COLUMN - THUMBNAIL & HOVER ZOOM
+   ===================================================== */
+
+.image-cell {
+    text-align: center;
+    vertical-align: middle;
+}
+
+.voucher-thumb-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.voucher-thumb {
+    width: 36px;
+    height: 36px;
+    object-fit: cover;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 1px solid #e0e0e0;
+    transition: box-shadow 0.2s ease;
+}
+
+.voucher-thumb:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
+.voucher-thumb-wrapper:hover .voucher-thumb-zoom {
+    display: block;
+}
+
+.voucher-thumb-zoom {
+    display: none;
+    position: fixed;
+    z-index: 9999;
+    max-width: 90vw;
+    max-height: 90vh;
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    border: 2px solid #fff;
+    pointer-events: none;
+}
