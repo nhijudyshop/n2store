@@ -560,7 +560,7 @@
             const otH = Math.floor(daySalary.otMinutes / 60);
             const otM = daySalary.otMinutes % 60;
             const otDisplay = otH > 0 ? `${otH}h${otM > 0 ? otM + 'p' : ''}` : `${otM}p`;
-            statusText = `OT ${otDisplay}`;
+            statusText = `OT ${otDisplay} +${formatVND(daySalary.otPay)}đ`;
             if (daySalary.lateMinutes > 0) statusText = `Muộn ${daySalary.lateMinutes}p · ${statusText}`;
             statusColor = '#096dd9';
         } else if (checkOut) {
@@ -570,7 +570,8 @@
                 // Về sớm
                 borderColor = '#722ed1';
                 bgColor = '#f9f0ff';
-                statusText = daySalary.lateMinutes > 0 ? `Muộn ${daySalary.lateMinutes}p · Về sớm` : 'Về sớm';
+                statusText = `Về sớm ${formatVND(daySalary.baseSalary)}đ`;
+                if (daySalary.lateMinutes > 0) statusText = `Muộn ${daySalary.lateMinutes}p · ${statusText}`;
                 statusColor = '#531dab';
             } else if (daySalary.lateMinutes > 0) {
                 // Đi muộn nhưng ra đúng
@@ -1061,18 +1062,52 @@
             const salary = calculateDaySalary(cellData);
 
             lines.push('');
-            lines.push('── Lương ngày ──');
-            lines.push(`Lương cơ bản: ${formatVND(salary.baseSalary)}đ`);
-            if (salary.lateMinutes > 0) {
-                lines.push(`Đi muộn ${salary.lateMinutes} phút: -${formatVND(salary.lateDeduction)}đ`);
+            lines.push('════════════════════════');
+
+            if (cellData.status === 'incomplete') {
+                lines.push('Chấm công thiếu → Không tính lương');
+            } else {
+                // Tổng giờ làm
+                const workedMs = cellData.checkOut - cellData.checkIn;
+                const workedH = Math.floor(workedMs / (1000 * 60 * 60));
+                const workedM = Math.floor((workedMs % (1000 * 60 * 60)) / (1000 * 60));
+                lines.push(`TỔNG GIỜ LÀM: ${workedH}h${workedM > 0 ? workedM + 'p' : ''}`);
+                lines.push('────────────────────────');
+
+                // Giờ ra trước/sau 16h
+                const hour16 = new Date(cellData.checkOut);
+                hour16.setHours(SALARY.WORK_END_HOUR, 0, 0, 0);
+                const hour20 = new Date(cellData.checkOut);
+                hour20.setHours(SALARY.OT_START_HOUR, 0, 0, 0);
+
+                if (cellData.checkOut < hour16) {
+                    const earlyMin = Math.floor((hour16 - cellData.checkOut) / (1000 * 60));
+                    const earlyH = Math.floor(earlyMin / 60);
+                    const earlyM = earlyMin % 60;
+                    const earlyDisplay = earlyH > 0 ? `${earlyH}h${earlyM > 0 ? earlyM + 'p' : ''}` : `${earlyM}p`;
+                    lines.push(`⚠ Về sớm ${earlyDisplay} trước 16:00`);
+                    lines.push(`→ Lương bị chia đôi: ${formatVND(salary.baseSalary)}đ (thay vì ${formatVND(SALARY.DAILY_RATE)}đ)`);
+                } else {
+                    lines.push(`Lương cơ bản: ${formatVND(salary.baseSalary)}đ (${formatVND(SALARY.HOURLY_RATE)}đ/h × 8h)`);
+                }
+
+                if (salary.lateMinutes > 0) {
+                    lines.push(`⏰ Đi muộn ${salary.lateMinutes} phút (sau 8:00)`);
+                    lines.push(`→ Trừ: ${salary.lateMinutes}p × ${formatVND(SALARY.LATE_PENALTY_PER_MIN)}đ = -${formatVND(salary.lateDeduction)}đ`);
+                }
+
+                if (salary.otMinutes > 0) {
+                    const otH = Math.floor(salary.otMinutes / 60);
+                    const otM = salary.otMinutes % 60;
+                    const otDisplay = otH > 0 ? `${otH}h${otM > 0 ? otM + 'p' : ''}` : `${otM}p`;
+                    const otRate = SALARY.HOURLY_RATE * SALARY.OT_MULTIPLIER;
+                    lines.push(`🌙 Làm thêm ${otDisplay} (sau 20:00)`);
+                    lines.push(`→ OT: ${formatVND(otRate)}đ/h × ${otDisplay} = +${formatVND(salary.otPay)}đ`);
+                }
+
+                lines.push('────────────────────────');
+                lines.push(`💰 TỔNG LƯƠNG: ${formatVND(salary.totalSalary)}đ`);
             }
-            if (salary.otMinutes > 0) {
-                const otH = Math.floor(salary.otMinutes / 60);
-                const otM = salary.otMinutes % 60;
-                const otDisplay = otH > 0 ? `${otH}h${otM > 0 ? otM + 'p' : ''}` : `${otM}p`;
-                lines.push(`Làm thêm ${otDisplay} (x2): +${formatVND(salary.otPay)}đ`);
-            }
-            lines.push(`TỔNG: ${formatVND(salary.totalSalary)}đ`);
 
             noteArea.value = lines.join('\n');
         } else if (noteArea) {
