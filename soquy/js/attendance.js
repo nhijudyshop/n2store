@@ -19,6 +19,17 @@
     const DAY_NAMES = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'];
     const SHORT_DAY_NAMES = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 
+    // Salary calculation constants
+    const SALARY = {
+        DAILY_RATE: 200000,         // VND per day
+        HOURLY_RATE: 25000,         // 200000 / 8 hours
+        LATE_PENALTY_PER_MIN: 5000, // VND per minute late after 8:00
+        WORK_START_HOUR: 8,         // 8:00
+        WORK_END_HOUR: 16,          // 16:00
+        OT_START_HOUR: 20,          // 20:00
+        OT_MULTIPLIER: 2,           // double rate for OT
+    };
+
     // ================================================================
     // STATE
     // ================================================================
@@ -206,6 +217,7 @@
             return `<th class="${todayClass}">${dayName} <span>${dayNum}</span></th>`;
         }).join('')}
             <th style="min-width:90px; text-align:right;">Tổng giờ</th>
+            <th style="min-width:110px; text-align:right;">Lương</th>
         `;
     }
 
@@ -218,7 +230,7 @@
         if (employees.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="9" style="text-align:center; padding:60px 20px; color:#94a3b8; font-size:14px;">
+                    <td colspan="10" style="text-align:center; padding:60px 20px; color:#94a3b8; font-size:14px;">
                         <div style="margin-bottom:12px;">
                             <i data-lucide="fingerprint" style="width:48px; height:48px; color:#d1d5db;"></i>
                         </div>
@@ -237,6 +249,7 @@
         for (const emp of employees) {
             const empId = String(emp.userId || emp.uid || emp.id);
             let totalMinutes = 0;
+            let weekSalary = 0;
 
             html += '<tr>';
 
@@ -258,7 +271,10 @@
                 const cellData = processDayRecords(dayRecords);
                 totalMinutes += cellData.workedMinutes;
 
-                html += `<td>${renderDayCell(cellData, emp, dateKey)}</td>`;
+                const daySalary = calculateDaySalary(cellData);
+                weekSalary += daySalary.totalSalary;
+
+                html += `<td>${renderDayCell(cellData, daySalary, emp, dateKey)}</td>`;
             }
 
             // Cột tổng giờ
@@ -269,6 +285,13 @@
             html += `
                 <td style="text-align:right;">
                     <div style="font-weight:500;">${totalDisplay}</div>
+                </td>
+            `;
+
+            // Cột lương
+            html += `
+                <td style="text-align:right;">
+                    <div style="font-weight:600; color:#1e293b;">${formatVND(weekSalary)}</div>
                 </td>
             `;
 
@@ -319,8 +342,65 @@
         return { status, checkIn, checkOut, workedMinutes, records: sorted };
     }
 
+    /**
+     * Tính lương 1 ngày dựa trên dữ liệu chấm công
+     * - Đúng giờ: vào <= 8:00, ra 16:00-20:00 → 200,000 VND
+     * - Đi muộn: sau 8:00 → trừ 5,000/phút
+     * - Về sớm: ra trước 16:00 → lương chia đôi (100,000)
+     * - Làm thêm: ra 20:00-24:00 → đủ lương + OT nhân đôi
+     */
+    function calculateDaySalary(cellData) {
+        const result = { baseSalary: 0, lateDeduction: 0, lateMinutes: 0, otPay: 0, otMinutes: 0, totalSalary: 0 };
+
+        if (cellData.status === 'absent' || cellData.status === 'incomplete') {
+            return result;
+        }
+
+        const checkIn = cellData.checkIn;
+        const checkOut = cellData.checkOut;
+        if (!checkIn || !checkOut) return result;
+
+        // --- Late penalty ---
+        const startOfDay = new Date(checkIn);
+        startOfDay.setHours(SALARY.WORK_START_HOUR, 0, 0, 0);
+        if (checkIn > startOfDay) {
+            result.lateMinutes = Math.floor((checkIn - startOfDay) / (1000 * 60));
+            result.lateDeduction = result.lateMinutes * SALARY.LATE_PENALTY_PER_MIN;
+        }
+
+        // --- Base salary based on checkout time ---
+        const endWork = new Date(checkOut);
+        const hour16 = new Date(checkOut);
+        hour16.setHours(SALARY.WORK_END_HOUR, 0, 0, 0);
+        const hour20 = new Date(checkOut);
+        hour20.setHours(SALARY.OT_START_HOUR, 0, 0, 0);
+
+        if (checkOut < hour16) {
+            // Về sớm trước 16h → lương chia đôi
+            result.baseSalary = SALARY.DAILY_RATE / 2;
+        } else if (checkOut < hour20) {
+            // Ra từ 16h-20h → đủ lương
+            result.baseSalary = SALARY.DAILY_RATE;
+        } else {
+            // Ra từ 20h-24h → đủ lương + OT nhân đôi
+            result.baseSalary = SALARY.DAILY_RATE;
+            result.otMinutes = Math.floor((checkOut - hour20) / (1000 * 60));
+            const otHours = result.otMinutes / 60;
+            result.otPay = Math.round(otHours * SALARY.HOURLY_RATE * SALARY.OT_MULTIPLIER);
+        }
+
+        result.totalSalary = Math.max(0, result.baseSalary - result.lateDeduction + result.otPay);
+        return result;
+    }
+
+    /** Format số tiền VND */
+    function formatVND(amount) {
+        if (!amount) return '-';
+        return amount.toLocaleString('vi-VN');
+    }
+
     /** Render 1 ô ngày */
-    function renderDayCell(cellData, emp, dateKey) {
+    function renderDayCell(cellData, daySalary, emp, dateKey) {
         const { status, checkIn, checkOut } = cellData;
 
         if (status === 'absent') {
@@ -342,7 +422,7 @@
             `;
         }
 
-        // Xác định màu border
+        // Xác định màu border và trạng thái
         let borderColor = '#52c41a'; // green = đúng giờ
         let statusText = 'Đúng giờ';
         let statusColor = '#52c41a';
@@ -351,16 +431,53 @@
             borderColor = '#ff4d4f';
             statusText = 'Chấm công thiếu';
             statusColor = '#ff4d4f';
+        } else {
+            // Kiểm tra đi muộn
+            if (daySalary.lateMinutes > 0) {
+                borderColor = '#722ed1';
+                statusText = `Đi muộn ${daySalary.lateMinutes}p`;
+                statusColor = '#722ed1';
+            }
+
+            // Kiểm tra về sớm (trước 16h)
+            if (checkOut) {
+                const hour16 = new Date(checkOut);
+                hour16.setHours(SALARY.WORK_END_HOUR, 0, 0, 0);
+                const hour20 = new Date(checkOut);
+                hour20.setHours(SALARY.OT_START_HOUR, 0, 0, 0);
+
+                if (checkOut < hour16) {
+                    borderColor = '#722ed1';
+                    statusText = daySalary.lateMinutes > 0 ? `Muộn ${daySalary.lateMinutes}p / Về sớm` : 'Về sớm';
+                    statusColor = '#722ed1';
+                } else if (checkOut >= hour20 && daySalary.otMinutes > 0) {
+                    // Làm thêm
+                    const otH = Math.floor(daySalary.otMinutes / 60);
+                    const otM = daySalary.otMinutes % 60;
+                    const otDisplay = otH > 0 ? `${otH}h${otM > 0 ? otM + 'p' : ''}` : `${otM}p`;
+                    statusText = daySalary.lateMinutes > 0
+                        ? `Muộn ${daySalary.lateMinutes}p / OT ${otDisplay}`
+                        : `Làm thêm ${otDisplay}`;
+                    borderColor = '#1890ff';
+                    statusColor = '#1890ff';
+                }
+            }
         }
 
         const inTime = formatTime(checkIn);
         const outTime = checkOut ? formatTime(checkOut) : '--:--';
+
+        // Hiện lương ngày nếu có
+        const salaryLine = daySalary.totalSalary > 0
+            ? `<div style="font-size:10px; color:#8c8c8c; margin-top:2px;">${formatVND(daySalary.totalSalary)}đ</div>`
+            : '';
 
         return `
             <div class="ts-block" style="border-left-color:${borderColor}; cursor:pointer;"
                  onclick="window._attendance.showDetail('${emp.userId || emp.uid || emp.id}','${dateKey}')">
                 <div class="ts-block-name" style="font-size:11px; color:#1e293b;">${inTime} - ${outTime}</div>
                 <div class="ts-block-status" style="color:${statusColor};">${statusText}</div>
+                ${salaryLine}
             </div>
         `;
     }
@@ -574,12 +691,33 @@
             timeInputs[1].value = formatTime(dayRecords[dayRecords.length - 1].time);
         }
 
-        // Hiện danh sách tất cả lần quẹt trong ngày
+        // Hiện danh sách tất cả lần quẹt + tính lương
         const noteArea = modal.querySelector('textarea');
         if (noteArea && dayRecords.length > 0) {
             const lines = dayRecords.map((r, i) =>
                 `Lần ${i + 1}: ${formatTime(r.time)} (type: ${r.type === 1 ? 'Ra' : 'Vào'})`
             );
+
+            // Tính lương cho ngày này
+            const cellData = processDayRecords(
+                weekRecords.filter(r => String(r.deviceUserId) === String(empId) && r.dateKey === dateKey)
+            );
+            const salary = calculateDaySalary(cellData);
+
+            lines.push('');
+            lines.push('── Lương ngày ──');
+            lines.push(`Lương cơ bản: ${formatVND(salary.baseSalary)}đ`);
+            if (salary.lateMinutes > 0) {
+                lines.push(`Đi muộn ${salary.lateMinutes} phút: -${formatVND(salary.lateDeduction)}đ`);
+            }
+            if (salary.otMinutes > 0) {
+                const otH = Math.floor(salary.otMinutes / 60);
+                const otM = salary.otMinutes % 60;
+                const otDisplay = otH > 0 ? `${otH}h${otM > 0 ? otM + 'p' : ''}` : `${otM}p`;
+                lines.push(`Làm thêm ${otDisplay} (x2): +${formatVND(salary.otPay)}đ`);
+            }
+            lines.push(`TỔNG: ${formatVND(salary.totalSalary)}đ`);
+
             noteArea.value = lines.join('\n');
         } else if (noteArea) {
             noteArea.value = 'Không có bản ghi chấm công';
