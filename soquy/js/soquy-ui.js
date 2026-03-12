@@ -1387,7 +1387,6 @@ const SoquyUI = (function () {
                 customStartDate: state.customStartDate,
                 customEndDate: state.customEndDate,
                 voucherTypeFilter: state.voucherTypeFilter,
-                statusFilter: state.statusFilter,
                 sourceFilter: state.sourceFilter,
                 categoryFilter: state.categoryFilter
             };
@@ -1404,7 +1403,7 @@ const SoquyUI = (function () {
             if (filters.customStartDate) state.customStartDate = filters.customStartDate;
             if (filters.customEndDate) state.customEndDate = filters.customEndDate;
             if (filters.voucherTypeFilter) state.voucherTypeFilter = filters.voucherTypeFilter;
-            if (filters.statusFilter) state.statusFilter = filters.statusFilter;
+            // statusFilter always defaults to ['paid'] on page load (not restored from localStorage)
             if (filters.sourceFilter) state.sourceFilter = filters.sourceFilter;
             if (filters.categoryFilter) state.categoryFilter = filters.categoryFilter;
         } catch (e) { /* ignore */ }
