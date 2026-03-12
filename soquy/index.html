@@ -146,7 +146,7 @@
             <div id="employeeTabContent" class="tab-content" style="height: calc(100vh - 56px);">
 
                 <!-- 1. Bảng chấm công (Xem theo ca) View -->
-                <div class="employee-view-wrapper" id="viewTimesheet" style="display: flex;">
+                <div class="employee-view-wrapper" id="viewTimesheet" style="display: none;">
                     <div class="ts-header">
                         <div class="ts-header-left">
                             <h2 class="ts-title">Bảng chấm công</h2>
@@ -355,7 +355,7 @@
                 </div>
 
                 <!-- 2. Lịch làm việc (Xem theo nhân viên) View -->
-                <div class="employee-view-wrapper" id="viewSchedule" style="display: none;">
+                <div class="employee-view-wrapper" id="viewSchedule" style="display: flex;">
                     <div class="ts-header">
                         <div class="ts-header-left">
                             <h2 class="ts-title">Lịch làm việc</h2>
@@ -378,10 +378,6 @@
                                 <i data-lucide="user" style="width: 14px; height: 14px;"></i> Xem theo nhân viên <i
                                     data-lucide="chevron-down" style="width: 14px; height: 14px;"></i>
                             </button>
-                            <button class="ts-btn"><i data-lucide="file-input" style="width: 14px; height: 14px;"></i>
-                                Import</button>
-                            <button class="ts-btn"><i data-lucide="file-output" style="width: 14px; height: 14px;"></i>
-                                Xuất file</button>
                         </div>
                     </div>
                     <div class="ts-table-container">
