@@ -1023,26 +1023,18 @@ class PancakeDataManager {
                 }
             }
 
-            // Get page_access_token for Official API (pages.fm)
-            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
-            if (!pageAccessToken) {
-                throw new Error('No page_access_token available');
+            // Get JWT token for Pancake Direct API (pancake.vn)
+            const jwtToken = await window.pancakeTokenManager?.getToken();
+            if (!jwtToken) {
+                throw new Error('No JWT token available');
             }
 
-            // Build URL: GET /pages/{pageId}/conversations/{conversationId}/messages (Official API)
-            let extraParams = '';
-            if (currentCount !== null) {
-                extraParams += `&current_count=${currentCount}`;
-            }
-            // FIX: Add customer_id to prevent "Thiếu mã khách hàng" error
-            if (customerId !== null) {
-                extraParams += `&customer_id=${customerId}`;
-            }
-
-            const url = window.API_CONFIG.buildUrl.pancakeOfficial(
-                `pages/${pageId}/conversations/${conversationId}/messages`,
-                pageAccessToken
-            ) + extraParams;
+            // Build URL: GET /pages/{pageId}/conversations/{conversationId}/messages (Pancake Direct)
+            // Reference: pancake.vn/api/v1/pages/{pageId}/conversations/{convId}/messages?customer_id={id}&access_token={JWT}
+            const endpoint = `pages/${pageId}/conversations/${conversationId}/messages`;
+            const url = window.API_CONFIG.buildUrl.pancakeDirect(endpoint, pageId, jwtToken, jwtToken)
+                + (customerId ? `&customer_id=${customerId}` : '')
+                + (currentCount !== null ? `&current_count=${currentCount}` : '');
 
             const response = await API_CONFIG.smartFetch(url, {
                 method: 'GET',
