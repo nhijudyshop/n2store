@@ -638,7 +638,9 @@ class PancakeDataManager {
             const token = await this.getToken();
 
             // Build query params - format: pages[pageId]=offset
-            const pagesParams = this.pageIds.map(pageId => `pages[${pageId}]=0`).join('&');
+            // Use cached searchable pages if available (excludes expired subscription pages)
+            const activePageIds = this._searchablePageIds || this.pageIds;
+            const pagesParams = activePageIds.map(pageId => `pages[${pageId}]=0`).join('&');
             const queryString = `${pagesParams}&unread_first=true&mode=OR&tags="ALL"&except_tags=[]&access_token=${token}&cursor_mode=true&from_platform=web`;
 
             // Use Cloudflare Worker proxy
@@ -708,7 +710,8 @@ class PancakeDataManager {
             const token = await this.getToken();
 
             // Build query: pages[pageId]=count_already_loaded (from pages_with_current_count)
-            const pagesParams = this.pageIds.map(pageId => `pages[${pageId}]=${pageCounts[pageId] || 0}`).join('&');
+            const activePageIds = this._searchablePageIds || this.pageIds;
+            const pagesParams = activePageIds.map(pageId => `pages[${pageId}]=${pageCounts[pageId] || 0}`).join('&');
             const queryString = `unread_first=true&tags="ALL"&except_tags=[]&access_token=${token}&current_count=${totalCount}&cursor_mode=true&${pagesParams}&mode=OR&from_platform=web`;
 
             const url = window.API_CONFIG.buildUrl.pancake('conversations', queryString);

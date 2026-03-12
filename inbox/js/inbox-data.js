@@ -238,7 +238,8 @@ class InboxDataManager {
             return [];
         }
 
-        const pageIds = pdm.pageIds || [];
+        // Use cached searchable pages if available (excludes expired subscription pages)
+        const pageIds = pdm._searchablePageIds || pdm.pageIds || [];
         if (pageIds.length === 0) {
             console.warn('[InboxData] No pages available');
             return [];
@@ -293,8 +294,11 @@ class InboxDataManager {
             console.log(`[InboxData] Cached searchable pages:`, workingPageIds);
         }
 
-        // Sort by updated_at descending
+        // Sort: unread first, then by updated_at descending (matches Pancake API order)
         allConversations.sort((a, b) => {
+            const aUnread = (a.unread_count || 0) > 0 ? 1 : 0;
+            const bUnread = (b.unread_count || 0) > 0 ? 1 : 0;
+            if (aUnread !== bUnread) return bUnread - aUnread;
             const ta = new Date(a.updated_at || 0).getTime();
             const tb = new Date(b.updated_at || 0).getTime();
             return tb - ta;
@@ -622,11 +626,11 @@ class InboxDataManager {
             });
         }
 
-        // Sort: customer-last (unanswered) first, then by time descending
+        // Sort: unread first, then by updated_at descending (matches Pancake API order)
         result.sort((a, b) => {
-            if (a.isCustomerLast !== b.isCustomerLast) {
-                return a.isCustomerLast ? -1 : 1;
-            }
+            const aUnread = a.unread > 0 ? 1 : 0;
+            const bUnread = b.unread > 0 ? 1 : 0;
+            if (aUnread !== bUnread) return bUnread - aUnread;
             return b.time - a.time;
         });
         return result;
