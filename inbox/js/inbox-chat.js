@@ -1388,6 +1388,27 @@ class InboxChatController {
             this.hasMoreMessages = true;
             this.messageCurrentCount = conv.messages.length;
 
+            // Update lastMessage from actual loaded messages (snippet from API may be stale)
+            if (conv.messages.length > 0) {
+                const lastVisibleMsg = [...conv.messages].reverse().find(m => {
+                    const t = (m.text || '').trim();
+                    if (t.startsWith('Đã thêm nhãn tự động:') || t.startsWith('Đã đặt giai đoạn')) return false;
+                    if (t === '[Tin nhắn trống]') return false;
+                    return true;
+                });
+                if (lastVisibleMsg) {
+                    const msgText = (lastVisibleMsg.text || '').trim();
+                    if (msgText) {
+                        conv.lastMessage = msgText;
+                    } else if (lastVisibleMsg.attachments?.length > 0) {
+                        conv.lastMessage = '[Hình ảnh]';
+                    }
+                    // Update isCustomerLast from actual last message sender
+                    conv.isCustomerLast = lastVisibleMsg.sender === 'customer';
+                    this.renderConversationList();
+                }
+            }
+
             this.renderMessages(conv);
 
             // Render customer stats bar and post info
