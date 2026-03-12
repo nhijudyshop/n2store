@@ -806,6 +806,21 @@ async function confirmAndPrintSale() {
             console.log('[SALE-CONFIRM] Storing invoice status...');
             window.InvoiceStatusStore.storeFromApiResult(result);
 
+            // For social orders: store directly by social order ID
+            // (storeFromApiResult skips orders with empty SaleOnlineIds)
+            if (currentSaleOrderData?._isSocialOrder && window._lastSocialSaleOrderId) {
+                const socialId = window._lastSocialSaleOrderId;
+                const orderData = successOrders[0];
+                if (orderData) {
+                    // Enrich with form values before storing
+                    orderData.PaymentAmount = savedWalletBalance;
+                    orderData.Discount = savedDiscount;
+                    orderData.CarrierName = savedCarrierName;
+                    window.InvoiceStatusStore.set(socialId, orderData, currentSaleOrderData);
+                    console.log('[SALE-CONFIRM] Stored invoice for social order:', socialId);
+                }
+            }
+
             // ĐƠN GIẢN HÓA: Cập nhật trực tiếp các giá trị từ form
             // Vì API response không có hoặc sai các field này
             const saleOnlineId = currentSaleOrderData?.Id;
