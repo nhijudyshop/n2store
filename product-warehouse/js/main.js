@@ -133,47 +133,31 @@
      * Used for fast client-side search suggestions.
      */
     async function loadExcelData() {
-        console.log('[Warehouse] loadExcelData called, isLoadingExcel:', isLoadingExcel, 'excelProducts.length:', excelProducts.length);
         if (isLoadingExcel || excelProducts.length > 0) return;
 
         isLoadingExcel = true;
-        console.log('[Warehouse] Starting Excel fetch...');
-        console.log('[Warehouse] XLSX available:', typeof XLSX !== 'undefined');
-        console.log('[Warehouse] tokenManager available:', !!window.tokenManager);
+        console.log('[Warehouse] Loading Excel data...');
 
         try {
-            const url = `${PROXY_URL}/api/Product/ExportFileWithVariantPrice`;
-            console.log('[Warehouse] Fetching:', url);
-            const response = await window.tokenManager.authenticatedFetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ model: { Active: "true" }, ids: "" })
-            });
+            const response = await window.tokenManager.authenticatedFetch(
+                `${PROXY_URL}/api/Product/ExportFileWithVariantPrice`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ model: { Active: "true" }, ids: "" })
+                }
+            );
 
-            console.log('[Warehouse] Response status:', response.status, response.ok);
             if (!response.ok) throw new Error('HTTP ' + response.status);
 
             const blob = await response.blob();
-            console.log('[Warehouse] Blob size:', blob.size, 'type:', blob.type);
-
             const arrayBuffer = await blob.arrayBuffer();
-            console.log('[Warehouse] ArrayBuffer size:', arrayBuffer.byteLength);
-
             const workbook = XLSX.read(arrayBuffer, { type: 'array' });
-            console.log('[Warehouse] Workbook sheets:', workbook.SheetNames);
-
             const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
             const jsonData = XLSX.utils.sheet_to_json(firstSheet);
-            console.log('[Warehouse] Rows parsed:', jsonData.length);
-
-            if (jsonData.length > 0) {
-                console.log('[Warehouse] Column names:', Object.keys(jsonData[0]));
-                console.log('[Warehouse] First row sample:', JSON.stringify(jsonData[0]).substring(0, 300));
-            }
 
             excelProducts = jsonData.map(row => {
                 const name = row['Tên sản phẩm'] || '';
-                // Code may be in 'Mã sản phẩm' column or in brackets in name like [MM435]
                 let code = row['Mã sản phẩm'] || '';
                 if (!code) {
                     const bracketMatch = name.match(/\[([^\]]+)\]/);
@@ -187,13 +171,9 @@
                 };
             });
 
-            console.log('[Warehouse] Excel loaded:', excelProducts.length, 'products');
-            if (excelProducts.length > 0) {
-                console.log('[Warehouse] First product:', JSON.stringify(excelProducts[0]));
-            }
+            console.log(`[Warehouse] Excel loaded: ${excelProducts.length} products`);
         } catch (error) {
             console.error('[Warehouse] Excel load error:', error);
-            console.error('[Warehouse] Error stack:', error.stack);
         } finally {
             isLoadingExcel = false;
         }
@@ -553,12 +533,7 @@
         else if (stockFilter === 'low-stock') filters.push('QtyAvailable gt 0 and QtyAvailable le 5');
         else if (stockFilter === 'out-of-stock') filters.push('QtyAvailable le 0');
 
-        // Search (global)
-        const searchQuery = ($('#searchInput')?.value || '').trim();
-        if (searchQuery) {
-            const escaped = searchQuery.replace(/'/g, "''");
-            filters.push(`(contains(Name,'${escaped}') or contains(DefaultCode,'${escaped}'))`);
-        }
+        // Search is handled via DefaultCode param in fetchProducts, not in $filter
 
         // Column-level filters
         const codeFilter = ($('[data-filter="code"]')?.value || '').trim();
@@ -588,16 +563,26 @@
             const odataField = SORT_FIELD_MAP[sortField] || 'DateCreated';
             const orderby = `${odataField} ${sortDirection}`;
 
-            // Build URL params
+            // Build URL params (match TPOS format)
             const params = new URLSearchParams();
+            params.set('Active', 'true');
             params.set('priceId', '0');
+
+            // Search by DefaultCode as top-level param
+            const searchQuery = ($('#searchInput')?.value || '').trim();
+            if (searchQuery) {
+                params.set('DefaultCode', searchQuery);
+            }
+
             params.set('$top', String(pageSize));
             params.set('$skip', String(skip));
             params.set('$orderby', orderby);
             params.set('$count', 'true');
 
             const filterStr = buildODataFilter();
-            if (filterStr) params.set('$filter', filterStr);
+            // Always include Active eq true in $filter
+            const fullFilter = filterStr ? `Active eq true and ${filterStr}` : 'Active eq true';
+            params.set('$filter', fullFilter);
 
             const url = API_CONFIG.buildUrl.tposOData(
                 'ProductTemplate/ODataService.GetViewV2',
@@ -855,21 +840,15 @@
         if (searchInput) {
             searchInput.addEventListener('input', (e) => {
                 const searchText = e.target.value.trim();
-                console.log('[Warehouse] Input event, text:', searchText, 'excelProducts:', excelProducts.length);
 
-                // Show suggestions from Excel data (client-side only)
                 if (searchText.length >= 2) {
                     if (excelProducts.length === 0) {
-                        console.log('[Warehouse] Excel not loaded, calling loadExcelData...');
                         loadExcelData().then(() => {
-                            console.log('[Warehouse] loadExcelData resolved, excelProducts:', excelProducts.length);
                             const results = searchProductsSuggestion(searchText);
-                            console.log('[Warehouse] Search results:', results.length);
                             displaySuggestions(results);
                         });
                     } else {
                         const results = searchProductsSuggestion(searchText);
-                        console.log('[Warehouse] Search results:', results.length);
                         displaySuggestions(results);
                     }
                 } else {
