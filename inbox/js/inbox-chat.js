@@ -2742,33 +2742,32 @@ class InboxChatController {
         if (!query || query.length < 2) return;
 
         this.isSearching = true;
-
-        // Show loading if no local results
-        const localResults = this.data.getConversations({ search: query });
-        if (localResults.length === 0) {
-            this.renderConversationList();
-        }
+        this.renderConversationList(); // Show loading state
 
         try {
             const pdm = window.pancakeDataManager;
             if (!pdm || !pdm.searchConversations) {
-                this.isSearching = false;
+                console.warn('[InboxChat] pancakeDataManager.searchConversations not available');
+                this.searchResults = [];
+                this.renderConversationList();
                 return;
             }
 
             const result = await pdm.searchConversations(query);
-            // Only update if query hasn't changed while waiting
-            if (this.searchQuery !== query) return;
+            if (this.searchQuery !== query) return; // Query changed while waiting
 
-            if (result && result.conversations) {
+            if (result && result.conversations && result.conversations.length > 0) {
                 this.searchResults = result.conversations;
+                console.log(`[InboxChat] Search found ${result.conversations.length} results for "${query}"`);
             } else {
                 this.searchResults = [];
+                console.log(`[InboxChat] Search returned 0 results for "${query}"`);
             }
 
             this.renderConversationList();
         } catch (error) {
             console.error('[InboxChat] Search error:', error);
+            if (typeof showToast === 'function') showToast('Lỗi tìm kiếm: ' + error.message, 'error');
             this.searchResults = [];
             this.renderConversationList();
         } finally {

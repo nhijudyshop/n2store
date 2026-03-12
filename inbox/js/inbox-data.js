@@ -491,15 +491,18 @@ class InboxDataManager {
 
         const pageName = this.getPageName(conv.page_id);
 
+        // Extract phone numbers from recent_phone_numbers for search
+        const phones = (conv.recent_phone_numbers || []).map(p => p.phone_number || p.captured).filter(Boolean);
+
         return {
             id: conv.id,
             name: customerName,
             avatar: conv.from?.avatar || null,
-            lastMessage: conv.snippet || conv.last_message?.text || conv.last_message?.message || '',
+            lastMessage: (conv.snippet || conv.last_message?.text || conv.last_message?.message || '').replace(/<[^>]*>/g, ''),
             time: this.parseTimestamp(conv.updated_at || conv.last_message?.inserted_at) || new Date(),
             unread: conv.unread_count || 0,
             online: false,
-            phone: '',
+            phone: phones.join(', '),
             labels: this.getLabelArray(conv.id),
             isLivestream: this.livestreamConvIdSet.has(conv.id),
             type: conv.type, // 'INBOX' or 'COMMENT'
@@ -594,12 +597,16 @@ class InboxDataManager {
 
         if (search) {
             const q = removeDiacritics(search);
-            result = result.filter(c =>
-                removeDiacritics(c.name).includes(q) ||
-                removeDiacritics(c.lastMessage).includes(q) ||
-                (c.phone && c.phone.includes(q)) ||
-                removeDiacritics(c.pageName).includes(q)
-            );
+            result = result.filter(c => {
+                if (removeDiacritics(c.name).includes(q)) return true;
+                if (removeDiacritics(c.lastMessage).includes(q)) return true;
+                if (c.phone && c.phone.includes(q)) return true;
+                if (removeDiacritics(c.pageName).includes(q)) return true;
+                // Also search in raw phone numbers (for phone search)
+                const rawPhones = c._raw?.recent_phone_numbers;
+                if (rawPhones && rawPhones.some(p => (p.phone_number || p.captured || '').includes(search))) return true;
+                return false;
+            });
         }
 
         result.sort((a, b) => b.time - a.time);
