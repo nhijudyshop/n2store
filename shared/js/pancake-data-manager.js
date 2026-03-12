@@ -317,13 +317,26 @@ class PancakeDataManager {
 
             console.log(`[PANCAKE] Searching conversations for query: "${query}"`);
 
-            const token = await this.getToken();
-            if (!token) {
+            // Collect all tokens to try: active first, then other valid accounts
+            const tokens = [];
+            const activeToken = await this.getToken();
+            if (activeToken) tokens.push(activeToken);
+
+            // Add other valid account tokens as fallback
+            if (window.pancakeTokenManager?.getValidAccountsForSending) {
+                const validAccounts = window.pancakeTokenManager.getValidAccountsForSending();
+                for (const acc of validAccounts) {
+                    if (acc.token && !tokens.includes(acc.token)) {
+                        tokens.push(acc.token);
+                    }
+                }
+            }
+
+            if (tokens.length === 0) {
                 throw new Error('No Pancake token available');
             }
 
-            // Use pageIds from parameter or default to all pageIds
-            // Filter out Instagram pages to avoid subscription errors
+            // Filter out Instagram pages
             let searchPageIds = pageIds || this.pageIds;
             searchPageIds = searchPageIds.filter(id => !id.startsWith('igo_'));
 
@@ -333,51 +346,52 @@ class PancakeDataManager {
                     console.warn('[PANCAKE] No pages found for search');
                     return { conversations: [], customerId: null };
                 }
+                searchPageIds = this.pageIds.filter(id => !id.startsWith('igo_'));
             }
 
-            // Build search URL with query parameter
-            // Format: /conversations/search?q={query}&page_ids={pageIds}&access_token={token}
-            const pageIdsParam = (searchPageIds || this.pageIds).join(',');
+            const pageIdsParam = searchPageIds.join(',');
             const encodedQuery = encodeURIComponent(query);
-            const queryString = `q=${encodedQuery}&access_token=${token}&cursor_mode=true`;
 
-            const url = window.API_CONFIG.buildUrl.pancake('conversations/search', queryString);
+            // Try each token until one works
+            for (let i = 0; i < tokens.length; i++) {
+                const token = tokens[i];
+                const queryString = `q=${encodedQuery}&access_token=${token}&cursor_mode=true`;
+                const url = window.API_CONFIG.buildUrl.pancake('conversations/search', queryString);
 
-            console.log('[PANCAKE] Search URL:', url);
+                if (i === 0) console.log('[PANCAKE] Search URL:', url);
 
-            // Need to send page_ids in request body as FormData
-            const formData = new FormData();
-            formData.append('page_ids', pageIdsParam);
+                const formData = new FormData();
+                formData.append('page_ids', pageIdsParam);
 
-            const response = await API_CONFIG.smartFetch(url, {
-                method: 'POST',
-                body: formData
-            }, 3, true); // skipFallback = true for conversation search
+                const response = await fetch(url, { method: 'POST', body: formData });
 
-            console.log('[PANCAKE] Search response status:', response.status);
+                if (!response.ok) {
+                    console.warn(`[PANCAKE] Search HTTP ${response.status} with token ${i + 1}/${tokens.length}`);
+                    continue;
+                }
 
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('[PANCAKE] Search error response:', errorText);
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                const data = await response.json();
+
+                // error_code 122 = subscription expired → try next account
+                if (data.error_code === 122 || !data.success) {
+                    console.warn(`[PANCAKE] Search failed with token ${i + 1}/${tokens.length}: ${data.message || 'unknown error'}`);
+                    continue;
+                }
+
+                console.log(`[PANCAKE] ✅ Search success with token ${i + 1}/${tokens.length}:`, data.conversations?.length, 'results');
+
+                const conversations = data.conversations || [];
+                let customerId = null;
+                if (conversations.length > 0 && conversations[0].customers?.length > 0) {
+                    customerId = conversations[0].customers[0].id;
+                }
+
+                return { conversations, customerId };
             }
 
-            const data = await response.json();
-            console.log('[PANCAKE] Search results:', data);
-
-            const conversations = data.conversations || [];
-
-            // Extract customer ID from first conversation's customers array
-            let customerId = null;
-            if (conversations.length > 0 && conversations[0].customers && conversations[0].customers.length > 0) {
-                customerId = conversations[0].customers[0].id;
-                console.log(`[PANCAKE] ✅ Found customer ID from search: ${customerId}`);
-            }
-
-            return {
-                conversations,
-                customerId
-            };
+            // All tokens failed
+            console.error('[PANCAKE] ❌ Search failed with all', tokens.length, 'tokens');
+            return { conversations: [], customerId: null };
 
         } catch (error) {
             console.error('[PANCAKE] ❌ Error searching conversations:', error);
