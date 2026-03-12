@@ -81,12 +81,7 @@ function closeSaleButtonModal(clearSelection = false) {
     currentSaleOrderData = null;
     currentSalePartnerData = null;
     currentSaleLastDeposit = null;
-
-    // Update social order status in table if needed
-    if (clearSelection && window._lastSocialSaleOrderId) {
-        updateSocialOrderAfterSale(window._lastSocialSaleOrderId);
-        window._lastSocialSaleOrderId = null;
-    }
+    // Social order status update is handled by tab-social-invoice.js override
 }
 
 function updateSocialOrderAfterSale(socialOrderId) {

@@ -608,17 +608,11 @@
     window.closeSaleButtonModal = function (clearSelection = false) {
         if (clearSelection && window._lastSocialSaleOrderId) {
             const socialOrderId = window._lastSocialSaleOrderId;
-
-            // Check if invoice was actually created (InvoiceStatusStore has data)
-            // Small delay to ensure storeFromApiResult has completed
-            setTimeout(() => {
-                const invoiceData = window.InvoiceStatusStore?.get(socialOrderId);
-                if (invoiceData) {
-                    updateSocialOrderAfterBillCreation(socialOrderId);
-                }
-            }, 500);
-
             window._lastSocialSaleOrderId = null;
+            // storeFromApiResult already ran before closeSaleButtonModal is called
+            // (confirmAndPrintSale: storeFromApiResult at T=0, closeSaleButtonModal at T=500ms)
+            // So data is already in InvoiceStatusStore - call directly, no setTimeout needed
+            updateSocialOrderAfterBillCreation(socialOrderId);
         }
 
         // Close the modal
