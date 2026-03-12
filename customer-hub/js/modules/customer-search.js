@@ -770,11 +770,18 @@ export class CustomerSearchModule {
                         <div class="truncate">${notes || '-'}</div>
                     </td>
                     <td class="px-4 py-3 text-right">
-                        <button onclick="window.openCustomerModal('${customer.phone}')"
-                            class="inline-flex items-center gap-1 px-2.5 py-1 text-sm font-medium text-primary hover:bg-primary hover:text-white border border-primary/30 hover:border-primary rounded-lg transition-all">
-                            <span class="material-symbols-outlined text-base">visibility</span>
-                            Xem
-                        </button>
+                        <div class="inline-flex items-center gap-1.5">
+                            <button onclick="window._customerSearchModule._openEditModal('${customer.phone}')"
+                                class="inline-flex items-center gap-1 px-2 py-1 text-sm font-medium text-amber-600 hover:bg-amber-500 hover:text-white border border-amber-300 hover:border-amber-500 rounded-lg transition-all"
+                                title="Chỉnh sửa thông tin">
+                                <span class="material-symbols-outlined text-base">edit</span>
+                            </button>
+                            <button onclick="window.openCustomerModal('${customer.phone}')"
+                                class="inline-flex items-center gap-1 px-2.5 py-1 text-sm font-medium text-primary hover:bg-primary hover:text-white border border-primary/30 hover:border-primary rounded-lg transition-all">
+                                <span class="material-symbols-outlined text-base">visibility</span>
+                                Xem
+                            </button>
+                        </div>
                     </td>
                 </tr>
             `;
@@ -1009,6 +1016,211 @@ export class CustomerSearchModule {
 
     // openCreateModal, closeCreateModal, submitCreateCustomer
     // => Moved to shared/js/customer-creator.js (window.CustomerCreator)
+
+    // ═══════════════════════════════════════════════════════════════
+    // Edit Customer Modal
+    // ═══════════════════════════════════════════════════════════════
+
+    _ensureEditModal() {
+        if (this._editModalEl) return;
+
+        const style = document.createElement('style');
+        style.textContent = `
+            .ce-modal { position: fixed; inset: 0; z-index: 10001; display: none; }
+            .ce-modal.show { display: block; }
+            .ce-backdrop { position: absolute; inset: 0; background: rgba(15,23,42,0.5); backdrop-filter: blur(2px); }
+            .ce-center { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; }
+            .ce-dialog { background: #fff; border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); width: 100%; max-width: 440px; overflow: hidden; }
+            .dark .ce-dialog { background: #1e293b; }
+            .ce-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #e5e7eb; }
+            .dark .ce-header { border-color: #334155; }
+            .ce-header h3 { font-size: 16px; font-weight: 600; color: #1e293b; margin: 0; display: flex; align-items: center; gap: 8px; }
+            .dark .ce-header h3 { color: #f1f5f9; }
+            .ce-header h3 .material-symbols-outlined { color: #f59e0b; }
+            .ce-close { background: none; border: none; font-size: 22px; color: #9ca3af; cursor: pointer; }
+            .ce-close:hover { color: #374151; }
+            .ce-body { padding: 20px; }
+            .ce-field { margin-bottom: 14px; }
+            .ce-field label { display: block; font-size: 13px; font-weight: 500; color: #374151; margin-bottom: 5px; }
+            .dark .ce-field label { color: #cbd5e1; }
+            .ce-field input, .ce-field select { width: 100%; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; outline: none; box-sizing: border-box; transition: border-color 0.2s, box-shadow 0.2s; }
+            .dark .ce-field input, .dark .ce-field select { background: #0f172a; border-color: #475569; color: #f1f5f9; }
+            .ce-field input:focus, .ce-field select:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59,130,246,0.1); }
+            .ce-field input:read-only { background: #f8fafc; color: #94a3b8; cursor: not-allowed; }
+            .dark .ce-field input:read-only { background: #1e293b; color: #64748b; }
+            .ce-msg { font-size: 13px; padding: 8px 12px; border-radius: 8px; margin-top: 8px; display: none; }
+            .ce-msg-error { color: #dc2626; background: #fef2f2; }
+            .ce-msg-success { color: #16a34a; background: #f0fdf4; }
+            .ce-footer { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 20px; border-top: 1px solid #e5e7eb; }
+            .dark .ce-footer { border-color: #334155; }
+            .ce-btn-cancel { padding: 8px 16px; font-size: 13px; font-weight: 500; color: #6b7280; background: #fff; border: 1px solid #d1d5db; border-radius: 8px; cursor: pointer; transition: background 0.2s; }
+            .dark .ce-btn-cancel { background: #334155; color: #cbd5e1; border-color: #475569; }
+            .ce-btn-cancel:hover { background: #f3f4f6; }
+            .ce-btn-save { padding: 8px 16px; font-size: 13px; font-weight: 500; color: #fff; background: #f59e0b; border: none; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: background 0.2s; }
+            .ce-btn-save:hover { background: #d97706; }
+            .ce-btn-save:disabled { opacity: 0.6; cursor: not-allowed; }
+        `;
+        document.head.appendChild(style);
+
+        this._editModalEl = document.createElement('div');
+        this._editModalEl.className = 'ce-modal';
+        this._editModalEl.innerHTML = `
+            <div class="ce-backdrop"></div>
+            <div class="ce-center">
+                <div class="ce-dialog">
+                    <div class="ce-header">
+                        <h3>
+                            <span class="material-symbols-outlined">edit</span>
+                            Chỉnh sửa khách hàng
+                        </h3>
+                        <button class="ce-close" data-ce-close>&times;</button>
+                    </div>
+                    <div class="ce-body">
+                        <div class="ce-field">
+                            <label>Số điện thoại</label>
+                            <input type="tel" id="ce-phone" readonly />
+                        </div>
+                        <div class="ce-field">
+                            <label>Tên khách hàng <span style="color:#ef4444">*</span></label>
+                            <input type="text" id="ce-name" placeholder="Nhập tên khách hàng" />
+                        </div>
+                        <div class="ce-field">
+                            <label>Địa chỉ</label>
+                            <input type="text" id="ce-address" placeholder="Nhập địa chỉ" />
+                        </div>
+                        <div class="ce-field">
+                            <label>Trạng thái</label>
+                            <select id="ce-status">
+                                <option value="Bình thường">Bình thường</option>
+                                <option value="VIP">VIP</option>
+                                <option value="Cảnh báo">Cảnh báo</option>
+                                <option value="Bom hàng">Bom hàng</option>
+                                <option value="Nguy hiểm">Nguy hiểm</option>
+                            </select>
+                        </div>
+                        <div id="ce-error" class="ce-msg ce-msg-error"></div>
+                        <div id="ce-success" class="ce-msg ce-msg-success"></div>
+                    </div>
+                    <div class="ce-footer">
+                        <button class="ce-btn-cancel" data-ce-close>Hủy</button>
+                        <button class="ce-btn-save" id="ce-save">
+                            <span class="material-symbols-outlined" style="font-size:16px;">save</span>
+                            Lưu thay đổi
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(this._editModalEl);
+
+        // Close handlers
+        this._editModalEl.querySelectorAll('[data-ce-close]').forEach(btn => {
+            btn.addEventListener('click', () => this._closeEditModal());
+        });
+        this._editModalEl.querySelector('.ce-backdrop').addEventListener('click', () => this._closeEditModal());
+    }
+
+    _openEditModal(phone) {
+        this._ensureEditModal();
+
+        // Find customer in current list
+        const customer = this.customers.find(c => c.phone === phone);
+        if (!customer) {
+            console.warn('[CustomerSearch] Customer not found for edit:', phone);
+            return;
+        }
+
+        this._editingCustomer = customer;
+
+        // Fill form
+        this._editModalEl.querySelector('#ce-phone').value = customer.phone || '';
+        this._editModalEl.querySelector('#ce-name').value = customer.name || '';
+        this._editModalEl.querySelector('#ce-address').value = customer.address || '';
+        this._editModalEl.querySelector('#ce-status').value = customer.status || 'Bình thường';
+
+        // Reset messages
+        this._editModalEl.querySelector('#ce-error').style.display = 'none';
+        this._editModalEl.querySelector('#ce-success').style.display = 'none';
+
+        // Reset save button
+        const saveBtn = this._editModalEl.querySelector('#ce-save');
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;">save</span> Lưu thay đổi';
+
+        // Remove old listener, add new one
+        const newSaveBtn = saveBtn.cloneNode(true);
+        saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
+        newSaveBtn.addEventListener('click', () => this._submitEditCustomer());
+
+        // Show modal
+        this._editModalEl.classList.add('show');
+        document.body.style.overflow = 'hidden';
+
+        // Focus name input
+        setTimeout(() => this._editModalEl.querySelector('#ce-name').focus(), 100);
+    }
+
+    _closeEditModal() {
+        if (!this._editModalEl) return;
+        this._editModalEl.classList.remove('show');
+        document.body.style.overflow = '';
+        this._editingCustomer = null;
+    }
+
+    async _submitEditCustomer() {
+        const name = this._editModalEl.querySelector('#ce-name').value.trim();
+        const address = this._editModalEl.querySelector('#ce-address').value.trim();
+        const status = this._editModalEl.querySelector('#ce-status').value;
+        const errorEl = this._editModalEl.querySelector('#ce-error');
+        const successEl = this._editModalEl.querySelector('#ce-success');
+        const saveBtn = this._editModalEl.querySelector('#ce-save');
+
+        errorEl.style.display = 'none';
+        successEl.style.display = 'none';
+
+        // Validate
+        if (!name) {
+            errorEl.textContent = 'Vui lòng nhập tên khách hàng';
+            errorEl.style.display = 'block';
+            return;
+        }
+
+        // Disable button
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;animation:spin 1s linear infinite;">progress_activity</span> Đang lưu...';
+
+        try {
+            await apiService.upsertCustomer({
+                phone: this._editingCustomer.phone,
+                name: name,
+                address: address,
+                status: status
+            });
+
+            // Update in-memory customer data
+            this._editingCustomer.name = name;
+            this._editingCustomer.address = address;
+            this._editingCustomer.status = status;
+
+            // Re-render table
+            this.renderResults(this.customers);
+
+            // Show success
+            successEl.textContent = 'Cập nhật thành công!';
+            successEl.style.display = 'block';
+
+            console.log('[CustomerSearch] Customer updated:', this._editingCustomer.phone, { name, address, status });
+
+            // Close after 1s
+            setTimeout(() => this._closeEditModal(), 1000);
+        } catch (error) {
+            console.error('[CustomerSearch] Edit customer failed:', error);
+            errorEl.textContent = error.message || 'Cập nhật thất bại';
+            errorEl.style.display = 'block';
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = '<span class="material-symbols-outlined" style="font-size:16px;">save</span> Lưu thay đổi';
+        }
+    }
 
     render() {
         // The UI is initialized in the constructor

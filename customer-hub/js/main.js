@@ -140,7 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'customer-search': () => {
             if (permissionHelper.hasPageAccess('customer-hub')) {
                 appContent.innerHTML = `<div id="customer-search-container"></div>`;
-                loadModule('CustomerSearchModule', 'customer-search-container');
+                window._customerSearchModule = loadModule('CustomerSearchModule', 'customer-search-container');
             } else {
                 appContent.innerHTML = `<p class="text-red-500">Bạn không có quyền truy cập chức năng này.</p>`;
             }
