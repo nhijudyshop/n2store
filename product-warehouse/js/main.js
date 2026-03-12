@@ -133,32 +133,42 @@
      * Used for fast client-side search suggestions.
      */
     async function loadExcelData() {
+        console.log('[Warehouse] loadExcelData called, isLoadingExcel:', isLoadingExcel, 'excelProducts.length:', excelProducts.length);
         if (isLoadingExcel || excelProducts.length > 0) return;
 
         isLoadingExcel = true;
-        console.log('[Warehouse] Loading Excel data...');
+        console.log('[Warehouse] Starting Excel fetch...');
+        console.log('[Warehouse] XLSX available:', typeof XLSX !== 'undefined');
+        console.log('[Warehouse] tokenManager available:', !!window.tokenManager);
 
         try {
-            const response = await window.tokenManager.authenticatedFetch(
-                `${PROXY_URL}/api/Product/ExportFileWithVariantPrice`,
-                {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ model: { Active: "true" }, ids: "" })
-                }
-            );
+            const url = `${PROXY_URL}/api/Product/ExportFileWithVariantPrice`;
+            console.log('[Warehouse] Fetching:', url);
+            const response = await window.tokenManager.authenticatedFetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model: { Active: "true" }, ids: "" })
+            });
 
-            if (!response.ok) throw new Error('Không thể tải dữ liệu sản phẩm');
+            console.log('[Warehouse] Response status:', response.status, response.ok);
+            if (!response.ok) throw new Error('HTTP ' + response.status);
 
             const blob = await response.blob();
+            console.log('[Warehouse] Blob size:', blob.size, 'type:', blob.type);
+
             const arrayBuffer = await blob.arrayBuffer();
+            console.log('[Warehouse] ArrayBuffer size:', arrayBuffer.byteLength);
+
             const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+            console.log('[Warehouse] Workbook sheets:', workbook.SheetNames);
+
             const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
             const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+            console.log('[Warehouse] Rows parsed:', jsonData.length);
 
-            // Log actual column names for debugging
             if (jsonData.length > 0) {
-                console.log('[Warehouse] Excel columns:', Object.keys(jsonData[0]));
+                console.log('[Warehouse] Column names:', Object.keys(jsonData[0]));
+                console.log('[Warehouse] First row sample:', JSON.stringify(jsonData[0]).substring(0, 300));
             }
 
             excelProducts = jsonData.map(row => ({
@@ -168,9 +178,13 @@
                 code: row['Mã sản phẩm'] || ''
             }));
 
-            console.log(`[Warehouse] Excel loaded: ${excelProducts.length} products`);
+            console.log('[Warehouse] Excel loaded:', excelProducts.length, 'products');
+            if (excelProducts.length > 0) {
+                console.log('[Warehouse] First product:', JSON.stringify(excelProducts[0]));
+            }
         } catch (error) {
             console.error('[Warehouse] Excel load error:', error);
+            console.error('[Warehouse] Error stack:', error.stack);
         } finally {
             isLoadingExcel = false;
         }
@@ -832,16 +846,21 @@
         if (searchInput) {
             searchInput.addEventListener('input', (e) => {
                 const searchText = e.target.value.trim();
+                console.log('[Warehouse] Input event, text:', searchText, 'excelProducts:', excelProducts.length);
 
                 // Show suggestions from Excel data (client-side only)
                 if (searchText.length >= 2) {
                     if (excelProducts.length === 0) {
+                        console.log('[Warehouse] Excel not loaded, calling loadExcelData...');
                         loadExcelData().then(() => {
+                            console.log('[Warehouse] loadExcelData resolved, excelProducts:', excelProducts.length);
                             const results = searchProductsSuggestion(searchText);
+                            console.log('[Warehouse] Search results:', results.length);
                             displaySuggestions(results);
                         });
                     } else {
                         const results = searchProductsSuggestion(searchText);
+                        console.log('[Warehouse] Search results:', results.length);
                         displaySuggestions(results);
                     }
                 } else {
