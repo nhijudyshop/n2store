@@ -2177,17 +2177,59 @@ class InventoryPickerDialog {
         this.searchTerm = term.toLowerCase().trim();
         this.searchMode = mode;
 
+        // Helper: lấy phần tên sau [] - VD: "[B13] B1 0603 QUẦN..." → "b1 0603 quần..."
+        const getNameWithoutBracket = (name) => {
+            const idx = name.indexOf(']');
+            return idx !== -1 ? name.substring(idx + 1).trim() : name;
+        };
+
         // Require at least 2 characters - don't show all products to avoid lag
         if (this.searchTerm.length < 2) {
             this.filteredProducts = []; // Empty - will show search instruction
         } else {
             this.filteredProducts = this.products.filter(p => {
-                const name = (p.name || '').toLowerCase();
+                const fullName = (p.name || '').toLowerCase();
                 const code = (p.code || '').toLowerCase();
 
-                if (mode === 'name') return name.includes(this.searchTerm);
+                if (mode === 'name') {
+                    // Tìm theo tên: chỉ tìm trong phần sau []
+                    const nameOnly = getNameWithoutBracket(fullName);
+                    return nameOnly.includes(this.searchTerm);
+                }
                 if (mode === 'code') return code.includes(this.searchTerm);
-                return name.includes(this.searchTerm) || code.includes(this.searchTerm);
+                return fullName.includes(this.searchTerm) || code.includes(this.searchTerm);
+            });
+
+            // Sort: exact/earlier matches first
+            const term = this.searchTerm;
+            this.filteredProducts.sort((a, b) => {
+                const aFullName = (a.name || '').toLowerCase();
+                const aCode = (a.code || '').toLowerCase();
+                const bFullName = (b.name || '').toLowerCase();
+                const bCode = (b.code || '').toLowerCase();
+
+                const scoreName = (fullName) => {
+                    const nameOnly = getNameWithoutBracket(fullName);
+                    const pos = nameOnly.indexOf(term);
+                    if (pos === -1) return 999;
+                    return pos;
+                };
+
+                const scoreCode = (code) => {
+                    if (code === term) return -2;
+                    if (code.startsWith(term)) return -1;
+                    if (code.includes(term)) return 0;
+                    return 999;
+                };
+
+                if (mode === 'name') {
+                    return scoreName(aFullName) - scoreName(bFullName);
+                } else if (mode === 'code') {
+                    return scoreCode(aCode) - scoreCode(bCode);
+                }
+                const aScore = Math.min(scoreCode(aCode), scoreName(aFullName));
+                const bScore = Math.min(scoreCode(bCode), scoreName(bFullName));
+                return aScore - bScore;
             });
         }
 
