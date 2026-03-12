@@ -354,25 +354,44 @@ class PancakeDataManager {
             if (result.errorCode === 122 && searchPageIds.length > 1 && !this._searchablePageIds) {
                 console.log('[PANCAKE] Error 122 - detecting which pages support search...');
                 const workingPages = [];
+                const delay = ms => new Promise(r => setTimeout(r, ms));
 
                 for (const pid of searchPageIds) {
                     const testResult = await this._doSearch(token, encodedQuery, [pid]);
-                    if (testResult.success || testResult.errorCode !== 122) {
+                    if (testResult.success || (testResult.errorCode !== 122 && testResult.errorCode !== 429)) {
                         workingPages.push(pid);
                         console.log(`[PANCAKE]   ✅ Page ${pid} OK`);
-                    } else {
+                    } else if (testResult.errorCode === 122) {
                         console.log(`[PANCAKE]   ❌ Page ${pid} subscription expired`);
+                    } else {
+                        // 429 or other transient error - assume page is OK
+                        workingPages.push(pid);
+                        console.log(`[PANCAKE]   ⚠️ Page ${pid} got ${testResult.errorCode}, assuming OK`);
                     }
+                    await delay(500); // Rate limit protection
                 }
 
                 if (workingPages.length > 0) {
                     this._searchablePageIds = workingPages;
                     console.log('[PANCAKE] Searchable pages cached:', workingPages);
 
+                    // Wait before retry to avoid 429
+                    await delay(1000);
+
                     // Retry with only working pages
                     const retryResult = await this._doSearch(token, encodedQuery, workingPages);
                     if (retryResult.success) {
                         return retryResult;
+                    }
+
+                    // If 429, wait longer and try once more
+                    if (retryResult.errorCode === 429) {
+                        console.log('[PANCAKE] Rate limited, waiting 3s...');
+                        await delay(3000);
+                        const finalResult = await this._doSearch(token, encodedQuery, workingPages);
+                        if (finalResult.success) {
+                            return finalResult;
+                        }
                     }
                 }
             }
@@ -395,31 +414,35 @@ class PancakeDataManager {
         const queryString = `q=${encodedQuery}&access_token=${token}&cursor_mode=true`;
         const url = window.API_CONFIG.buildUrl.pancake('conversations/search', queryString);
 
-        console.log('[PANCAKE] Search URL:', url, 'page_ids:', pageIdsParam);
+        console.log('[PANCAKE] Search page_ids:', pageIdsParam);
 
         const formData = new FormData();
         formData.append('page_ids', pageIdsParam);
 
-        const response = await fetch(url, { method: 'POST', body: formData });
+        try {
+            const response = await fetch(url, { method: 'POST', body: formData });
 
-        if (!response.ok) {
-            return { success: false, errorCode: response.status, message: `HTTP ${response.status}` };
+            if (!response.ok) {
+                return { success: false, errorCode: response.status, message: `HTTP ${response.status}` };
+            }
+
+            const data = await response.json();
+
+            if (data.error_code || !data.success) {
+                return { success: false, errorCode: data.error_code, message: data.message || 'Search failed' };
+            }
+
+            const conversations = data.conversations || [];
+            let customerId = null;
+            if (conversations.length > 0 && conversations[0].customers?.length > 0) {
+                customerId = conversations[0].customers[0].id;
+            }
+
+            console.log(`[PANCAKE] ✅ Search success:`, conversations.length, 'results');
+            return { success: true, conversations, customerId };
+        } catch (err) {
+            return { success: false, errorCode: 0, message: err.message };
         }
-
-        const data = await response.json();
-
-        if (data.error_code || !data.success) {
-            return { success: false, errorCode: data.error_code, message: data.message || 'Search failed' };
-        }
-
-        const conversations = data.conversations || [];
-        let customerId = null;
-        if (conversations.length > 0 && conversations[0].customers?.length > 0) {
-            customerId = conversations[0].customers[0].id;
-        }
-
-        console.log(`[PANCAKE] ✅ Search success:`, conversations.length, 'results');
-        return { success: true, conversations, customerId };
     }
 
     /**

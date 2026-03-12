@@ -246,6 +246,7 @@ class InboxDataManager {
 
         console.log(`[InboxData] 🔄 Fetching conversations per-page for ${pageIds.length} pages...`);
         let allConversations = [];
+        const workingPageIds = [];
 
         for (const pageId of pageIds) {
             try {
@@ -273,6 +274,7 @@ class InboxDataManager {
                     continue;
                 }
 
+                workingPageIds.push(pageId);
                 const convs = data.conversations || [];
                 // Ensure page_id is set on every conversation (per-page API may omit it)
                 for (const c of convs) {
@@ -283,6 +285,12 @@ class InboxDataManager {
             } catch (e) {
                 console.warn(`[InboxData] Page ${pageId} failed:`, e.message);
             }
+        }
+
+        // Cache working pages so search can skip expired ones immediately
+        if (workingPageIds.length > 0 && workingPageIds.length < pageIds.length) {
+            pdm._searchablePageIds = workingPageIds;
+            console.log(`[InboxData] Cached searchable pages:`, workingPageIds);
         }
 
         // Sort by updated_at descending
