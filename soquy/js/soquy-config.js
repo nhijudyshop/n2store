@@ -135,7 +135,8 @@ const COLUMN_DEFINITIONS = [
     { key: 'transferContent', label: 'Nội dung chuyển khoản', defaultVisible: false },
     { key: 'note', label: 'Ghi chú', defaultVisible: true },
     { key: 'fundType', label: 'Loại sổ quỹ', defaultVisible: false },
-    { key: 'status', label: 'Trạng thái', defaultVisible: false }
+    { key: 'status', label: 'Trạng thái', defaultVisible: false },
+    { key: 'image', label: 'Hình ảnh', defaultVisible: true }
 ];
 
 const PAGE_SIZES = [15, 30, 50, 100];

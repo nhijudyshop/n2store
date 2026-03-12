@@ -184,6 +184,24 @@ const SoquyPermissions = {
     },
 
     /**
+     * Check if current user can cancel vouchers.
+     * @returns {boolean} true if admin or has cancel_voucher permission
+     */
+    canCancelVoucher() {
+        if (PermissionHelper.isAdmin()) return true;
+        return PermissionHelper.hasPermission(this.PAGE_ID, 'cancel_voucher');
+    },
+
+    /**
+     * Check if current user can edit vouchers.
+     * @returns {boolean} true if admin or has edit_voucher permission
+     */
+    canEditVoucher() {
+        if (PermissionHelper.isAdmin()) return true;
+        return PermissionHelper.hasPermission(this.PAGE_ID, 'edit_voucher');
+    },
+
+    /**
      * Check if current user can view all transactions.
      * @returns {boolean} true if admin or has view_all_transactions permission
      */
