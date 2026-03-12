@@ -106,13 +106,16 @@
                 <div class="filter-row">
                     <div class="filter-group filter-group-supplier">
                         <label>Nhà cung cấp</label>
-                        <div class="select-wrapper">
-                            <select id="supplierFilter">
-                                <option value="">Chọn nhà cung cấp</option>
-                            </select>
-                            <button type="button" class="clear-select" id="clearSupplier" style="display: none;">
-                                <i data-lucide="x" style="width: 14px; height: 14px;"></i>
-                            </button>
+                        <div class="supplier-searchable-dropdown">
+                            <div class="supplier-input-wrapper">
+                                <i data-lucide="search" class="supplier-search-icon"></i>
+                                <input type="text" id="supplierFilter" class="supplier-search-input"
+                                    placeholder="Tìm nhà cung cấp" autocomplete="off">
+                                <button type="button" class="clear-select" id="clearSupplier" style="display: none;">
+                                    <i data-lucide="x" style="width: 14px; height: 14px;"></i>
+                                </button>
+                            </div>
+                            <div class="supplier-dropdown-list" id="supplierDropdown"></div>
                         </div>
                     </div>
 
