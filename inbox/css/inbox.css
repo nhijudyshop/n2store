@@ -1409,6 +1409,47 @@ body.col-resizing .resize-handle {
    GROUP STATS - Full-width stats cards
    ===================================================== */
 
+/* Notes Section */
+.conv-notes-section {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+.conv-notes-list {
+    max-height: 120px;
+    overflow-y: auto;
+}
+.conv-note-item {
+    padding: 4px 0;
+    border-bottom: 1px solid var(--border-light, #f0f0f0);
+}
+.conv-note-item:last-child { border-bottom: none; }
+.conv-note-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--text-tertiary);
+}
+.conv-note-author { font-weight: 600; }
+.conv-note-text {
+    font-size: 13px;
+    color: var(--text-primary);
+    margin-top: 2px;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.conv-notes-input-wrap { margin-top: 6px; }
+.conv-notes-input {
+    width: 100%;
+    padding: 6px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 13px;
+    outline: none;
+    background: var(--bg-primary);
+    box-sizing: border-box;
+}
+.conv-notes-input:focus { border-color: var(--primary-color); }
+
 .group-stats-header {
     display: flex;
     align-items: center;

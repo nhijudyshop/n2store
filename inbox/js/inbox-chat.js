@@ -274,7 +274,16 @@ class InboxChatController {
             }
         });
 
-
+        // Note input: Enter to send
+        const noteInput = document.getElementById('convNoteInput');
+        if (noteInput) {
+            noteInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    this.addNote();
+                }
+            });
+        }
 
         // Message scroll: pagination (scroll up) + scroll-to-bottom button
         this.elements.chatMessages.addEventListener('scroll', () => {
@@ -848,7 +857,8 @@ class InboxChatController {
             `<span class="conv-label ${this.getLabelClass(l)}">${this.getLabelText(l)}</span>`
         ).join('');
         const isActive = conv.id === this.activeConversationId;
-        const isUnread = conv.unread > 0;
+        // Don't show as unread if shop sent the last message (already replied)
+        const isUnread = conv.unread > 0 && conv.isCustomerLast !== false;
         const avatarHtml = this.getAvatarHtml(conv);
         const unreadBadge = isUnread ? `<span class="conv-unread-badge">${conv.unread > 9 ? '9+' : conv.unread}</span>` : '';
         const livestreamBadge = conv.isLivestream ? '<span class="conv-livestream-badge">LIVE</span>' : '';
@@ -1290,6 +1300,7 @@ class InboxChatController {
                 recent_phone_numbers: result.recent_phone_numbers || result.conv_recent_phone_numbers || [],
                 activities: result.activities || [],
                 conv_phone_numbers: result.conv_phone_numbers || [],
+                notes: result.notes || [],
             };
 
             // Detect livestream from post data
@@ -1381,6 +1392,7 @@ class InboxChatController {
             this.renderCustomerStatsBar(conv);
             this.renderPostInfo(conv);
             this.renderActivities(conv);
+            this.renderNotes(conv);
 
             // Auto-fill order form with extracted phone
             if (window.inboxOrders && conv.phone) {
@@ -2447,6 +2459,75 @@ class InboxChatController {
         `;
         banner.style.display = 'flex';
         this._debouncedCreateIcons();
+    }
+
+    // ===== Notes Section =====
+
+    renderNotes(conv) {
+        const section = document.getElementById('convNotesSection');
+        const list = document.getElementById('convNotesList');
+        if (!section || !list) return;
+
+        const notes = conv._messagesData?.notes || [];
+        if (notes.length === 0 && !this.activeConversationId) {
+            section.style.display = 'none';
+            return;
+        }
+
+        section.style.display = 'block';
+
+        if (notes.length === 0) {
+            list.innerHTML = '';
+            return;
+        }
+
+        list.innerHTML = notes.map(note => {
+            const date = new Date(note.created_at);
+            const timeStr = date.toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
+            const author = note.created_by?.fb_name || '';
+            return `
+                <div class="conv-note-item">
+                    <div class="conv-note-meta">
+                        <span class="conv-note-author">${this.escapeHtml(author)}</span>
+                        <span class="conv-note-time">${timeStr}</span>
+                    </div>
+                    <div class="conv-note-text">${this.escapeHtml(note.message)}</div>
+                </div>
+            `;
+        }).join('');
+    }
+
+    async addNote() {
+        const input = document.getElementById('convNoteInput');
+        if (!input) return;
+        const text = input.value.trim();
+        if (!text) return;
+
+        const conv = this.data.getConversation(this.activeConversationId);
+        if (!conv) return;
+
+        const customerId = conv.customerId || conv._messagesData?.customers?.[0]?.id;
+        if (!customerId) {
+            showToast('Không tìm thấy customer ID', 'warning');
+            return;
+        }
+
+        const pdm = window.pancakeDataManager;
+        if (!pdm) return;
+
+        input.disabled = true;
+        const ok = await pdm.addCustomerNote(conv.pageId, customerId, text);
+        input.disabled = false;
+
+        if (ok) {
+            input.value = '';
+            showToast('Đã thêm ghi chú', 'success');
+            // Refresh messages to get updated notes
+            pdm.clearMessagesCache(`${conv.pageId}_${conv.conversationId}`);
+            await this.loadMessages(conv);
+        } else {
+            showToast('Lỗi thêm ghi chú', 'error');
+        }
     }
 
     // ===== Activities Panel (col3 tab) =====

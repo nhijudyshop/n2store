@@ -1018,6 +1018,7 @@ class PancakeDataManager {
                         comment_count: cached.comment_count || 0,
                         recent_phone_numbers: cached.recent_phone_numbers || [],
                         conv_phone_numbers: cached.conv_phone_numbers || [],
+                        notes: cached.notes || [],
                         fromCache: true
                     };
                 }
@@ -1068,6 +1069,7 @@ class PancakeDataManager {
                 comment_count: data.comment_count || 0,
                 recent_phone_numbers: data.recent_phone_numbers || data.conv_recent_phone_numbers || [],
                 conv_phone_numbers: data.conv_phone_numbers || [],
+                notes: (data.notes || []).filter(n => !n.removed_at),
                 fromCache: false
             };
 
@@ -1084,6 +1086,7 @@ class PancakeDataManager {
                     comment_count: result.comment_count,
                     recent_phone_numbers: result.recent_phone_numbers,
                     conv_phone_numbers: result.conv_phone_numbers,
+                    notes: result.notes,
                     timestamp: Date.now()
                 });
                 console.log(`[PANCAKE] Messages cached for ${cacheKey}`);
