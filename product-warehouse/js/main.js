@@ -569,35 +569,41 @@
             const odataField = SORT_FIELD_MAP[sortField] || 'DateCreated';
             const orderby = `${odataField} ${sortDirection}`;
 
-            // Build URL params (match TPOS format)
-            const params = new URLSearchParams();
-            params.set('Active', 'true');
-            params.set('priceId', '0');
-
             // Search by DefaultCode as top-level param
             const searchQuery = ($('#searchInput')?.value || '').trim();
-            if (searchQuery) {
-                params.set('DefaultCode', searchQuery);
+
+            // Build common params
+            function buildParams(endpoint) {
+                const params = new URLSearchParams();
+                params.set('Active', 'true');
+                if (endpoint === 'ProductTemplate') {
+                    params.set('priceId', '0');
+                }
+                if (searchQuery) {
+                    params.set('DefaultCode', searchQuery);
+                }
+                params.set('$top', String(pageSize));
+                params.set('$skip', String(skip));
+                params.set('$orderby', orderby);
+                params.set('$count', 'true');
+                if (endpoint === 'ProductTemplate') {
+                    const filterStr = buildODataFilter();
+                    const fullFilter = filterStr ? `Active eq true and ${filterStr}` : 'Active eq true';
+                    params.set('$filter', fullFilter);
+                }
+                return params;
             }
 
-            params.set('$top', String(pageSize));
-            params.set('$skip', String(skip));
-            params.set('$orderby', orderby);
-            params.set('$count', 'true');
-
-            const filterStr = buildODataFilter();
-            // Always include Active eq true in $filter
-            const fullFilter = filterStr ? `Active eq true and ${filterStr}` : 'Active eq true';
-            params.set('$filter', fullFilter);
-
-            const url = API_CONFIG.buildUrl.tposOData(
+            // Try ProductTemplate first
+            const templateParams = buildParams('ProductTemplate');
+            const templateUrl = API_CONFIG.buildUrl.tposOData(
                 'ProductTemplate/ODataService.GetViewV2',
-                params.toString()
+                templateParams.toString()
             );
 
-            console.log('[Warehouse] Fetching:', url);
+            console.log('[Warehouse] Fetching:', templateUrl);
 
-            const response = await window.tokenManager.authenticatedFetch(url, {
+            const response = await window.tokenManager.authenticatedFetch(templateUrl, {
                 headers: { 'Accept': 'application/json' }
             });
 
@@ -605,8 +611,31 @@
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
 
-            const data = await response.json();
+            let data = await response.json();
             totalCount = data['@odata.count'] || 0;
+
+            // Fallback: if searching and no template results, try variant endpoint
+            if (totalCount === 0 && searchQuery) {
+                console.log('[Warehouse] No template results, fallback to variant search...');
+                const variantParams = buildParams('Product');
+                const variantUrl = API_CONFIG.buildUrl.tposOData(
+                    'Product/OdataService.GetViewV2',
+                    variantParams.toString()
+                );
+
+                console.log('[Warehouse] Variant fallback:', variantUrl);
+
+                const variantResponse = await window.tokenManager.authenticatedFetch(variantUrl, {
+                    headers: { 'Accept': 'application/json' }
+                });
+
+                if (variantResponse.ok) {
+                    data = await variantResponse.json();
+                    totalCount = data['@odata.count'] || 0;
+                    console.log('[Warehouse] Variant fallback found:', totalCount, 'results');
+                }
+            }
+
             pageProducts = (data.value || []).map(mapProduct);
 
             console.log('[Warehouse] Loaded', pageProducts.length, 'products, total:', totalCount);
