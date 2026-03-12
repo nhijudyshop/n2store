@@ -2189,6 +2189,33 @@ class InventoryPickerDialog {
                 if (mode === 'code') return code.includes(this.searchTerm);
                 return name.includes(this.searchTerm) || code.includes(this.searchTerm);
             });
+
+            // Sort: exact matches first, then starts-with, then contains
+            const term = this.searchTerm;
+            this.filteredProducts.sort((a, b) => {
+                const aName = (a.name || '').toLowerCase();
+                const aCode = (a.code || '').toLowerCase();
+                const bName = (b.name || '').toLowerCase();
+                const bCode = (b.code || '').toLowerCase();
+
+                const scoreProduct = (name, code) => {
+                    // Exact code match = highest priority
+                    if (code === term) return 0;
+                    // Code starts with search term
+                    if (code.startsWith(term)) return 1;
+                    // Exact name match
+                    if (name === term) return 2;
+                    // Name starts with search term
+                    if (name.startsWith(term)) return 3;
+                    // Code contains search term
+                    if (code.includes(term)) return 4;
+                    // Name contains search term
+                    if (name.includes(term)) return 5;
+                    return 6;
+                };
+
+                return scoreProduct(aName, aCode) - scoreProduct(bName, bCode);
+            });
         }
 
         this.updateProductsList();
