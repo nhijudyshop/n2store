@@ -232,21 +232,17 @@ async function populateDeliveryCarrierDropdown(selectedId = null) {
 
     select.onchange = function () {
         const selectedOption = this.options[this.selectedIndex];
-        let fee = parseFloat(selectedOption.dataset.fee) || 0;
-        const carrierName = selectedOption.dataset.name || '';
-
-        const finalTotal = parseFloat(document.getElementById('saleFinalTotal')?.textContent?.replace(/[^\d]/g, '')) || 0;
-        const isThanhPho = carrierName.startsWith('THÀNH PHỐ');
-        const isTinh = carrierName.includes('TỈNH');
-
-        if (isThanhPho && finalTotal > 1500000) fee = 0;
-        if (isTinh && finalTotal > 3000000) fee = 0;
+        const fee = parseFloat(selectedOption.dataset.fee) || 0;
 
         const shippingFeeInput = document.getElementById('saleShippingFee');
         if (shippingFeeInput) {
             shippingFeeInput.value = fee;
-            updateSaleCOD();
         }
+
+        // Full recalculation: discount, free shipping, COD, goods value, remaining balance
+        const totalAmount = parseFloat(document.getElementById('saleTotalAmount')?.textContent?.replace(/[^\d]/g, '')) || 0;
+        const totalQuantity = parseInt(document.getElementById('saleTotalQuantity')?.textContent) || 0;
+        updateSaleTotals(totalQuantity, totalAmount);
     };
 
     if (selectedId) {
