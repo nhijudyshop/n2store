@@ -29,9 +29,6 @@ if (typeof window !== 'undefined' && !window._sharedAuthManagerWarned) {
 if (typeof window !== 'undefined' && window.AuthManager) {
     console.log('⚠️ AuthManager already loaded, skipping redeclaration');
 } else {
-    // Fallback logger for script-tag usage (logger may not be defined)
-    var logger = (typeof window !== 'undefined' && window.logger) || console;
-
     class AuthManager {
     constructor(options = {}) {
         this.storageKey = options.storageKey || 'loginindex_auth';
