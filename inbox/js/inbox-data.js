@@ -341,12 +341,13 @@ class InboxDataManager {
                     }
                 }
             } else if (error === 122) {
-                // Subscription expired - try other accounts (multi-page first, then per-page)
-                console.log(`[InboxData] Error 122 (subscription expired), trying other accounts...`);
-                rawConversations = await this.tryOtherAccounts();
+                // Subscription expired on some page(s) - this is page-level, not account-level
+                // Go directly to per-page fetch (skips expired pages automatically)
+                console.log(`[InboxData] Error 122 (page subscription expired), fetching per-page...`);
+                rawConversations = await this.fetchConversationsPerPage();
 
                 if (rawConversations.length === 0) {
-                    console.log('[InboxData] All accounts failed multi-page, trying per-page...');
+                    console.log('[InboxData] Per-page failed, trying other accounts per-page...');
                     rawConversations = await this.tryOtherAccountsPerPage();
                 }
             } else if (rawConversations.length === 0) {
