@@ -931,9 +931,9 @@ class InboxDataManager {
                         const virtual = {
                             id: sc.conv_id,
                             name: sc.name || 'Khách hàng',
-                            avatar: sc.avatar || null,
-                            lastMessage: sc.last_message || '',
-                            time: sc.conv_time ? new Date(sc.conv_time) : new Date(sc.updated_at || 0),
+                            avatar: null,
+                            lastMessage: '', // will be updated when messages are loaded
+                            time: new Date(sc.updated_at || 0),
                             unread: 0,
                             online: false,
                             phone: '',
@@ -941,7 +941,7 @@ class InboxDataManager {
                             isLivestream: true,
                             type: sc.type || 'COMMENT',
                             pageId: sc.page_id || '',
-                            pageName: sc.page_name || '',
+                            pageName: this.getPageName(sc.page_id) || '',
                             psid: sc.psid || '',
                             customerId: sc.customer_id || null,
                             conversationId: sc.conv_id,
@@ -1018,16 +1018,11 @@ class InboxDataManager {
                 postName: conv._messagesData?.post?.message || conv._messagesData?.post?.story
                     || conv._raw?.post?.message
                     || this.livestreamPostNames[postId]
-                    // Fallback: get name from most recent activity (for INBOX conversations)
                     || (conv._messagesData?.activities?.length ? conv._messagesData.activities[conv._messagesData.activities.length - 1]?.message : null)
                     || null,
                 name: conv.name,
-                avatar: conv.avatar,
-                lastMessage: conv.lastMessage,
-                convTime: conv.time?.toISOString?.() || null,
                 type: conv.type,
                 pageId: conv.pageId,
-                pageName: conv.pageName,
                 psid: conv.psid,
                 customerId: conv.customerId
             })

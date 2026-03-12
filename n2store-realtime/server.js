@@ -515,12 +515,8 @@ class RealtimeClient {
                     saveLivestreamConversation(conversation.id, conversation.post_id, {
                         postName,
                         name: conversation.from?.name || conversation.customers?.[0]?.name,
-                        avatar: conversation.from?.avatar,
-                        lastMessage: conversation.snippet || conversation.last_message?.message,
-                        convTime: conversation.updated_at,
                         type: conversation.type,
                         pageId: conversation.page_id,
-                        pageName: null,
                         psid: customerPsid,
                         customerId: conversation.customers?.[0]?.id
                     });
@@ -551,12 +547,8 @@ class RealtimeClient {
                                         saveLivestreamConversation(conversation.id, conversation.post_id, {
                                             postName: result.postMessage || null,
                                             name: conversation.from?.name || conversation.customers?.[0]?.name,
-                                            avatar: conversation.from?.avatar,
-                                            lastMessage: conversation.snippet || conversation.last_message?.message,
-                                            convTime: conversation.updated_at,
                                             type: conversation.type,
                                             pageId: conversation.page_id,
-                                            pageName: null,
                                             psid: customerPsid,
                                             customerId: conversation.customers?.[0]?.id
                                         });
@@ -840,18 +832,14 @@ async function saveLivestreamConversation(convId, postId, data) {
     if (!dbPool || !convId || !postId) return;
     try {
         await dbPool.query(`
-            INSERT INTO livestream_conversations (conv_id, post_id, post_name, name, avatar, last_message, conv_time, type, page_id, page_name, psid, customer_id, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, CURRENT_TIMESTAMP)
+            INSERT INTO livestream_conversations (conv_id, post_id, post_name, name, type, page_id, psid, customer_id, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
             ON CONFLICT (conv_id) DO UPDATE SET
                 post_id = EXCLUDED.post_id,
                 post_name = COALESCE(EXCLUDED.post_name, livestream_conversations.post_name),
                 name = COALESCE(EXCLUDED.name, livestream_conversations.name),
-                avatar = COALESCE(EXCLUDED.avatar, livestream_conversations.avatar),
-                last_message = COALESCE(EXCLUDED.last_message, livestream_conversations.last_message),
-                conv_time = COALESCE(EXCLUDED.conv_time, livestream_conversations.conv_time),
                 type = COALESCE(EXCLUDED.type, livestream_conversations.type),
                 page_id = COALESCE(EXCLUDED.page_id, livestream_conversations.page_id),
-                page_name = COALESCE(EXCLUDED.page_name, livestream_conversations.page_name),
                 psid = COALESCE(EXCLUDED.psid, livestream_conversations.psid),
                 customer_id = COALESCE(EXCLUDED.customer_id, livestream_conversations.customer_id),
                 updated_at = CURRENT_TIMESTAMP
@@ -859,12 +847,8 @@ async function saveLivestreamConversation(convId, postId, data) {
             convId, postId,
             data.postName || null,
             data.name || null,
-            data.avatar || null,
-            data.lastMessage || null,
-            data.convTime || null,
             data.type || null,
             data.pageId || null,
-            data.pageName || null,
             data.psid || null,
             data.customerId || null
         ]);
@@ -1281,12 +1265,8 @@ app.get('/api/realtime/livestream-conversations', async (req, res) => {
             posts[row.post_id].push({
                 conv_id: row.conv_id,
                 name: row.name,
-                avatar: row.avatar,
-                last_message: row.last_message,
-                conv_time: row.conv_time,
                 type: row.type,
                 page_id: row.page_id,
-                page_name: row.page_name,
                 psid: row.psid,
                 customer_id: row.customer_id,
                 label: row.label,
@@ -1316,13 +1296,13 @@ app.put('/api/realtime/livestream-conversation', async (req, res) => {
         return res.status(503).json({ error: 'Database not available' });
     }
     try {
-        const { convId, postId, postName, name, avatar, lastMessage, convTime, type, pageId, pageName, psid, customerId, label } = req.body;
+        const { convId, postId, postName, name, type, pageId, psid, customerId, label } = req.body;
         if (!convId || !postId) {
             return res.status(400).json({ error: 'convId and postId required' });
         }
 
         await saveLivestreamConversation(convId, postId, {
-            postName, name, avatar, lastMessage, convTime, type, pageId, pageName, psid, customerId
+            postName, name, type, pageId, psid, customerId
         });
 
         // Update label if provided
