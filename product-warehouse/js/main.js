@@ -156,12 +156,16 @@
             const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
             const jsonData = XLSX.utils.sheet_to_json(firstSheet);
 
+            // Log actual column names for debugging
+            if (jsonData.length > 0) {
+                console.log('[Warehouse] Excel columns:', Object.keys(jsonData[0]));
+            }
+
             excelProducts = jsonData.map(row => ({
-                id: row['Id sản phẩm (*)'],
+                id: row['Id'] || row['Id sản phẩm (*)'],
                 name: row['Tên sản phẩm'] || '',
                 nameNoSign: removeVietnameseTones(row['Tên sản phẩm'] || ''),
-                code: row['Mã sản phẩm'] || '',
-                image: row['Link ảnh'] || ''
+                code: row['Mã sản phẩm'] || ''
             }));
 
             console.log(`[Warehouse] Excel loaded: ${excelProducts.length} products`);
@@ -234,18 +238,11 @@
             return;
         }
 
-        suggestionsDiv.innerHTML = suggestions.map(p => {
-            const imgHtml = p.image
-                ? `<img class="sugg-img" src="${escapeHtml(p.image)}" alt="" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'"><div class="sugg-img-placeholder" style="display:none">?</div>`
-                : `<div class="sugg-img-placeholder">?</div>`;
-            return `<div class="suggestion-item" data-code="${escapeHtml(p.code)}" data-name="${escapeHtml(p.name)}">
-                ${imgHtml}
-                <div class="sugg-info">
-                    <div class="sugg-code">${escapeHtml(p.code)}</div>
-                    <div class="sugg-name">${escapeHtml(p.name)}</div>
-                </div>
-            </div>`;
-        }).join('');
+        suggestionsDiv.innerHTML = suggestions.map(p => `
+            <div class="suggestion-item" data-code="${escapeHtml(p.code)}" data-name="${escapeHtml(p.name)}">
+                <strong>${escapeHtml(p.code)}</strong> - ${escapeHtml(p.name)}
+            </div>
+        `).join('');
 
         suggestionsDiv.classList.add('show');
 
