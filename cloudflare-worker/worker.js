@@ -1253,6 +1253,10 @@ export default {
         // Customers API (Render) - PostgreSQL backend
         const customersPath = pathname.replace(/^\/api\/customers\/?/, '');
         targetUrl = `https://n2store-fallback.onrender.com/api/customers/${customersPath}${url.search}`;
+      } else if (pathname.startsWith('/api/v2/')) {
+        // Customer 360 v2 unified API (Render) - balance-history, customers, wallets, tickets, analytics
+        const v2Path = pathname.replace(/^\/api\//, '');
+        targetUrl = `https://n2store-fallback.onrender.com/api/${v2Path}${url.search}`;
       } else if (pathname.match(/^\/tpos\/order\/(\d+)\/lines$/)) {
         // ========== TPOS ORDER LINES (OData API) ==========
         // Example: /tpos/order/409233/lines
