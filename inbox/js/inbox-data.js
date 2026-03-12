@@ -874,12 +874,22 @@ class InboxDataManager {
 
             let changed = false;
             for (const pending of data.customers) {
-                // Try to find matching conversation by psid
-                const conv = this.conversationByPsidMap.get(pending.psid);
-                if (conv && conv.pageId === pending.page_id) {
+                // Find matching conversations by psid + page_id (may have INBOX + COMMENT)
+                const matchingConvs = this.conversations.filter(c =>
+                    c.psid === pending.psid && c.pageId === pending.page_id
+                    && (!pending.type || c.type === pending.type)
+                );
+                for (const conv of matchingConvs) {
                     // Update unread count if server has newer data
                     if (pending.message_count > 0 && conv.unread === 0) {
                         conv.unread = pending.message_count;
+                        changed = true;
+                    }
+                    // Update preview from actual last message (pending = customer sent, not replied)
+                    const snippet = (pending.last_message_snippet || '').replace(/<[^>]*>/g, '').trim();
+                    if (snippet && snippet !== conv.lastMessage) {
+                        conv.lastMessage = this._filterSystemMessage(snippet) || conv.lastMessage;
+                        conv.isCustomerLast = true;
                         changed = true;
                     }
                 }
