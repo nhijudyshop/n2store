@@ -118,6 +118,8 @@ function applyEmployeeRanges() {
             newRanges.push({
                 id: userId,
                 name: userName,
+                userId: userId,
+                userName: userName,
                 start: range.start,
                 end: range.end
             });

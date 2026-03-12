@@ -166,8 +166,11 @@ const KPICommission = {
                 const rangesDoc = await db.collection('settings').doc('employee_ranges').get();
                 if (rangesDoc.exists) {
                     const ranges = rangesDoc.data().ranges || [];
-                    const found = ranges.find(r => r.userId === userId);
-                    if (found && found.userName) name = found.userName;
+                    const found = ranges.find(r => (r.userId || r.id) === userId);
+                    if (found) {
+                        const foundName = found.userName || found.name;
+                        if (foundName) name = foundName;
+                    }
                 }
             } catch (e) {
                 console.warn('[KPI Tab] resolveEmployeeName: employee_ranges lookup failed:', e.message);

@@ -634,10 +634,9 @@
                 });
             }
 
-            // 5. Filter by employee if specified
-            if (employeeUserId) {
-                auditLogs = auditLogs.filter(log => log.userId === employeeUserId);
-            }
+            // 5. Employee filter removed: KPI upselling counts ALL product
+            // additions to orders in an employee's STT range, regardless of
+            // who performed the action (admin, other employee, etc.).
 
             // 6. NOTE: Admin filter removed - admin's own product actions
             // should count toward KPI when admin is the BASE owner.
@@ -899,8 +898,8 @@
                                     const to = range.toSTT || range.to || range.end || Infinity;
                                     if (sttNum >= from && sttNum <= to) {
                                         return {
-                                            userId: range.userId || 'unassigned',
-                                            userName: range.userName || range.userId || 'Chưa phân'
+                                            userId: range.userId || range.id || 'unassigned',
+                                            userName: range.userName || range.name || range.userId || range.id || 'Chưa phân'
                                         };
                                     }
                                 }
@@ -944,8 +943,8 @@
                             const to = range.toSTT || range.to || range.end || Infinity;
                             if (sttNum >= from && sttNum <= to) {
                                 return {
-                                    userId: range.userId || 'unassigned',
-                                    userName: range.userName || range.userId || 'Chưa phân'
+                                    userId: range.userId || range.id || 'unassigned',
+                                    userName: range.userName || range.name || range.userId || range.id || 'Chưa phân'
                                 };
                             }
                         }
