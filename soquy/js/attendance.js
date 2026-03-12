@@ -172,6 +172,7 @@
         }
 
         renderTimesheet();
+        renderSchedule();
     }
 
     /** Lắng nghe trạng thái sync (real-time) */
@@ -519,6 +520,192 @@
         `;
     }
 
+    // ================================================================
+    // RENDERING - SCHEDULE VIEW (Lịch làm việc)
+    // ================================================================
+
+    function renderSchedule() {
+        renderScheduleHeader();
+        renderScheduleBody();
+        renderWeekLabel();
+    }
+
+    function renderScheduleHeader() {
+        const thead = document.querySelector('#scheduleGrid thead tr');
+        if (!thead) return;
+
+        const dates = getWeekDates();
+        thead.innerHTML = `
+            <th class="ts-col-fixed">Nhân viên</th>
+            ${dates.map(d => {
+                const dayName = DAY_NAMES[d.getDay()];
+                const dayNum = d.getDate();
+                const todayClass = isToday(d) ? 'ts-day-active' : '';
+                return `<th class="${todayClass}">${dayName} <span>${dayNum}</span></th>`;
+            }).join('')}
+            <th style="min-width:130px; text-align:right;">Lương tuần</th>
+        `;
+    }
+
+    function renderScheduleBody() {
+        const tbody = document.querySelector('#scheduleGrid tbody');
+        if (!tbody) return;
+
+        if (employees.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="9" style="text-align:center; padding:60px 20px; color:#94a3b8; font-size:14px;">
+                        <div style="font-weight:500;">Chưa có dữ liệu nhân viên</div>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        const dates = getWeekDates();
+        let html = '';
+        let grandTotalSalary = 0;
+
+        // Tính lương + sắp xếp giảm dần
+        const empData = employees.map(emp => {
+            const empId = String(emp.userId || emp.uid || emp.id);
+            let weekSalary = 0;
+            let workedDays = 0;
+            const dayCells = [];
+
+            for (const date of dates) {
+                const dateKey = toDateKey(date);
+                const dayRecords = weekRecords.filter(r =>
+                    String(r.deviceUserId) === empId && r.dateKey === dateKey
+                );
+                const cellData = processDayRecords(dayRecords);
+                const daySalary = calculateDaySalary(cellData);
+                weekSalary += daySalary.totalSalary;
+                if (daySalary.totalSalary > 0) workedDays++;
+                dayCells.push({ cellData, daySalary, dateKey, date });
+            }
+
+            return { emp, empId, weekSalary, workedDays, dayCells };
+        });
+
+        empData.sort((a, b) => b.weekSalary - a.weekSalary);
+
+        // Hàng tổng cộng trên đầu
+        const totalSalary = empData.reduce((s, e) => s + e.weekSalary, 0);
+        html += `
+            <tr style="background:#fafafa;">
+                <td class="ts-col-fixed" style="border:none; background:#fafafa;"></td>
+                <td colspan="7" style="border:none;"></td>
+                <td style="text-align:right; font-weight:700; font-size:15px; color:#d4380d; border:none;">
+                    ${formatVND(totalSalary)}đ
+                </td>
+            </tr>
+        `;
+
+        for (const { emp, empId, weekSalary, workedDays, dayCells } of empData) {
+            html += '<tr>';
+
+            // Tên nhân viên
+            html += `
+                <td class="ts-col-fixed">
+                    <div style="font-weight:600; color:#1e293b;">${escapeHtml(emp.name || 'N/A')}</div>
+                    <div style="font-size:11px; color:#8c8c8c;">ID: ${empId}</div>
+                </td>
+            `;
+
+            // 7 ngày - hiện block trạng thái
+            for (const { cellData, daySalary, dateKey, date } of dayCells) {
+                html += `<td>${renderScheduleCell(cellData, daySalary, emp, dateKey, date)}</td>`;
+            }
+
+            // Cột lương
+            html += `
+                <td style="text-align:right; vertical-align:middle;">
+                    <div style="font-weight:700; font-size:14px; color:${weekSalary > 0 ? '#1e293b' : '#bfbfbf'};">
+                        ${weekSalary > 0 ? formatVND(weekSalary) + 'đ' : '-'}
+                    </div>
+                    ${workedDays > 0 ? `<div style="font-size:11px; color:#8c8c8c;">${workedDays} ngày</div>` : ''}
+                </td>
+            `;
+
+            html += '</tr>';
+        }
+
+        tbody.innerHTML = html;
+    }
+
+    /** Render 1 ô ngày trong schedule view */
+    function renderScheduleCell(cellData, daySalary, emp, dateKey, date) {
+        const { status } = cellData;
+        const empId = emp.userId || emp.uid || emp.id;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // Tương lai → trống
+        if (date > today && status === 'absent') return '';
+
+        // Nghỉ
+        if (status === 'absent') {
+            return `
+                <div class="ts-block" style="border-left:3px solid #d9d9d9; background:#fafafa; cursor:pointer; text-align:center;"
+                     onclick="window._attendance.showDetail('${empId}','${dateKey}')">
+                    <div style="color:#bfbfbf; font-size:11px;">Nghỉ</div>
+                </div>
+            `;
+        }
+
+        // Xác định style
+        let bgClass, label, labelColor;
+
+        if (status === 'incomplete') {
+            bgClass = 'background:#fff2f0; border-left:3px solid #ff4d4f;';
+            label = 'Thiếu giờ ra';
+            labelColor = '#cf1322';
+        } else if (daySalary.otMinutes > 0) {
+            bgClass = 'background:#e6f7ff; border-left:3px solid #1890ff;';
+            label = 'LÀM THÊM';
+            labelColor = '#096dd9';
+        } else if (daySalary.lateMinutes > 0) {
+            const hour16 = new Date(cellData.checkOut);
+            hour16.setHours(SALARY.WORK_END_HOUR, 0, 0, 0);
+            if (cellData.checkOut < hour16) {
+                bgClass = 'background:#f9f0ff; border-left:3px solid #722ed1;';
+                label = 'MUỘN + VỀ SỚM';
+                labelColor = '#531dab';
+            } else {
+                bgClass = 'background:#fff7e6; border-left:3px solid #fa8c16;';
+                label = 'ĐI MUỘN';
+                labelColor = '#d46b08';
+            }
+        } else if (cellData.checkOut) {
+            const hour16 = new Date(cellData.checkOut);
+            hour16.setHours(SALARY.WORK_END_HOUR, 0, 0, 0);
+            if (cellData.checkOut < hour16) {
+                bgClass = 'background:#f9f0ff; border-left:3px solid #722ed1;';
+                label = 'VỀ SỚM';
+                labelColor = '#531dab';
+            } else {
+                bgClass = 'background:#f6ffed; border-left:3px solid #52c41a;';
+                label = 'ĐÚNG GIỜ';
+                labelColor = '#389e0d';
+            }
+        } else {
+            bgClass = 'background:#f6ffed; border-left:3px solid #52c41a;';
+            label = 'ĐÚNG GIỜ';
+            labelColor = '#389e0d';
+        }
+
+        const salaryText = daySalary.totalSalary > 0 ? `${formatVND(daySalary.totalSalary)}đ` : '';
+
+        return `
+            <div class="ts-block" style="${bgClass} cursor:pointer;"
+                 onclick="window._attendance.showDetail('${empId}','${dateKey}')">
+                <div style="font-weight:600; font-size:11px; color:${labelColor};">${label}</div>
+                ${salaryText ? `<div style="font-size:10px; color:#8c8c8c; margin-top:2px;">${salaryText}</div>` : ''}
+            </div>
+        `;
+    }
+
     /** Render trạng thái sync */
     function renderSyncStatus() {
         const el = document.getElementById('syncIndicator');
@@ -620,20 +807,23 @@
     function filterEmployees(keyword) {
         if (!keyword) {
             renderTimesheetBody();
+            renderScheduleBody();
             return;
         }
 
         const kw = keyword.toLowerCase();
-        const tbody = document.querySelector('#viewTimesheet .ts-grid tbody');
-        if (!tbody) return;
 
-        const rows = tbody.querySelectorAll('tr');
-        rows.forEach(row => {
-            const nameCell = row.querySelector('.ts-col-fixed div');
-            if (nameCell) {
-                const name = nameCell.textContent.toLowerCase();
-                row.style.display = name.includes(kw) ? '' : 'none';
-            }
+        // Lọc cả 2 view
+        ['#viewTimesheet .ts-grid tbody', '#scheduleGrid tbody'].forEach(sel => {
+            const tbody = document.querySelector(sel);
+            if (!tbody) return;
+            tbody.querySelectorAll('tr').forEach(row => {
+                const nameCell = row.querySelector('.ts-col-fixed div');
+                if (nameCell) {
+                    const name = nameCell.textContent.toLowerCase();
+                    row.style.display = name.includes(kw) ? '' : 'none';
+                }
+            });
         });
     }
 
