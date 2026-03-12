@@ -1132,11 +1132,15 @@
             });
         });
 
-        // Sync button on approval modal "..." button → thêm sync
+        // Sync buttons
         const moreBtn = document.querySelector('#viewTimesheet .ts-header-right .ts-btn:last-child');
         if (moreBtn) {
             moreBtn.title = 'Đồng bộ ngay';
             moreBtn.addEventListener('click', () => sendSyncCommand());
+        }
+        const btnSchedSync = document.getElementById('btnSchedSync');
+        if (btnSchedSync) {
+            btnSchedSync.addEventListener('click', () => sendSyncCommand());
         }
     }
 
