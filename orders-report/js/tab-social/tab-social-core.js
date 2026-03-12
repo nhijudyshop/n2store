@@ -195,6 +195,24 @@ async function initSocialTab() {
             setupSocialOrdersListener();
         }
 
+        // Load currentUserIdentifier from Firestore (needed for cancel order to save canceller name)
+        if (!window.currentUserIdentifier) {
+            try {
+                const auth = window.authManager?.getAuthData?.() || window.authManager?.getAuthState?.();
+                if (auth?.username && typeof firebase !== 'undefined' && firebase.firestore) {
+                    const db = firebase.firestore();
+                    const userDoc = await db.collection('users').doc(auth.username).get();
+                    if (userDoc.exists) {
+                        const userData = userDoc.data();
+                        window.currentUserIdentifier = userData.identifier || null;
+                        console.log('[Tab Social] Loaded user identifier:', window.currentUserIdentifier);
+                    }
+                }
+            } catch (e) {
+                console.warn('[Tab Social] Could not load user identifier:', e);
+            }
+        }
+
         console.log('[Tab Social] Initialized with', SocialOrderState.orders.length, 'orders');
     } catch (error) {
         console.error('[Tab Social] Init error:', error);
