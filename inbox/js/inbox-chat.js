@@ -1808,12 +1808,12 @@ class InboxChatController {
                 if (!pdm) throw new Error('pancakeDataManager not available');
 
                 const uploadResult = await pdm.uploadImage(sendPageId, imageFile);
-                if (!uploadResult?.url) throw new Error('Upload ảnh thất bại');
+                if (!uploadResult?.content_url) throw new Error('Upload ảnh thất bại');
 
                 await this._sendApi(url, {
                     action: 'reply_inbox',
                     message: '',
-                    content_url: uploadResult.url
+                    content_url: uploadResult.content_url
                 });
                 console.log('[InboxChat] Image sent successfully');
             }
