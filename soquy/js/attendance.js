@@ -512,21 +512,30 @@
             result.lateDeduction = result.lateMinutes * SALARY.LATE_PENALTY_PER_MIN;
         }
 
-        // --- Base salary based on checkout time ---
+        // --- Base salary = hourlyRate × giờ làm (8:00-20:00) ---
+        const hour8 = new Date(checkIn);
+        hour8.setHours(SALARY.WORK_START_HOUR, 0, 0, 0);
         const hour16 = new Date(checkOut);
         hour16.setHours(SALARY.WORK_END_HOUR, 0, 0, 0);
         const hour20 = new Date(checkOut);
         hour20.setHours(SALARY.OT_START_HOUR, 0, 0, 0);
 
+        const workStart = checkIn > hour8 ? checkIn : hour8; // max(checkin, 8:00)
+        const workEnd = checkOut < hour20 ? checkOut : hour20; // min(checkout, 20:00)
+        const baseMinutes = Math.max(0, Math.floor((workEnd - workStart) / (1000 * 60)));
+        result.baseMinutes = baseMinutes;
+        result.baseSalary = Math.round(hourlyRate * baseMinutes / 60);
+
+        // Về trước 16h → lương chia đôi
         if (checkOut < hour16) {
-            result.baseSalary = rate / 2;
-        } else if (checkOut < hour20) {
-            result.baseSalary = rate;
-        } else {
-            result.baseSalary = rate;
+            result.earlyLeave = true;
+            result.baseSalary = Math.round(result.baseSalary / 2);
+        }
+
+        // --- OT after 20:00 at double rate ---
+        if (checkOut > hour20) {
             result.otMinutes = Math.floor((checkOut - hour20) / (1000 * 60));
-            const otHours = result.otMinutes / 60;
-            result.otPay = Math.round(otHours * hourlyRate * SALARY.OT_MULTIPLIER);
+            result.otPay = Math.round(result.otMinutes / 60 * hourlyRate * SALARY.OT_MULTIPLIER);
         }
 
         result.totalSalary = Math.max(0, result.baseSalary - result.lateDeduction + result.otPay);
@@ -1289,24 +1298,23 @@
                 lines.push(`TỔNG GIỜ LÀM: ${workedH}h${workedM > 0 ? workedM + 'p' : ''}`);
                 lines.push('────────────────────────');
 
-                // Giờ ra trước/sau 16h
-                const hour16 = new Date(cellData.checkOut);
-                hour16.setHours(SALARY.WORK_END_HOUR, 0, 0, 0);
-                const hour20 = new Date(cellData.checkOut);
-                hour20.setHours(SALARY.OT_START_HOUR, 0, 0, 0);
+                const hourlyRate = empRate / 12;
+                const baseH = Math.floor(salary.baseMinutes / 60);
+                const baseM = salary.baseMinutes % 60;
+                const baseDisplay = `${baseH}h${baseM > 0 ? baseM + 'p' : ''}`;
 
-                if (cellData.checkOut < hour16) {
-                    const earlyMin = Math.floor((hour16 - cellData.checkOut) / (1000 * 60));
-                    const earlyH = Math.floor(earlyMin / 60);
-                    const earlyM = earlyMin % 60;
-                    const earlyDisplay = earlyH > 0 ? `${earlyH}h${earlyM > 0 ? earlyM + 'p' : ''}` : `${earlyM}p`;
-                    lines.push(`⚠ Về sớm ${earlyDisplay} trước 16:00`);
-                    lines.push(`→ Lương bị chia đôi: ${formatVND(salary.baseSalary)}đ (thay vì ${formatVND(empRate)}đ)`);
+                lines.push(`Lương/giờ: ${formatVND(empRate)}đ ÷ 12 = ${formatVND(hourlyRate)}đ/h`);
+                lines.push(`Giờ cơ bản: ${baseDisplay} (8:00-20:00)`);
+                if (salary.earlyLeave) {
+                    const fullBase = Math.round(hourlyRate * salary.baseMinutes / 60);
+                    lines.push(`→ Lương CB: ${formatVND(hourlyRate)}đ/h × ${baseDisplay} = ${formatVND(fullBase)}đ`);
+                    lines.push(`⚠ Về sớm (trước 16:00) → chia đôi: ${formatVND(salary.baseSalary)}đ`);
                 } else {
-                    lines.push(`Lương cơ bản: ${formatVND(salary.baseSalary)}đ (ca 8:00-20:00)`);
+                    lines.push(`→ Lương CB: ${formatVND(hourlyRate)}đ/h × ${baseDisplay} = ${formatVND(salary.baseSalary)}đ`);
                 }
 
                 if (salary.lateMinutes > 0) {
+                    lines.push('');
                     lines.push(`⏰ Đi muộn ${salary.lateMinutes} phút (sau 8:00)`);
                     lines.push(`→ Trừ: ${salary.lateMinutes}p × ${formatVND(SALARY.LATE_PENALTY_PER_MIN)}đ = -${formatVND(salary.lateDeduction)}đ`);
                 }
@@ -1315,8 +1323,8 @@
                     const otH = Math.floor(salary.otMinutes / 60);
                     const otM = salary.otMinutes % 60;
                     const otDisplay = otH > 0 ? `${otH}h${otM > 0 ? otM + 'p' : ''}` : `${otM}p`;
-                    const hourlyRate = empRate / 12;
                     const otRate = hourlyRate * SALARY.OT_MULTIPLIER;
+                    lines.push('');
                     lines.push(`🌙 Làm thêm ${otDisplay} (sau 20:00)`);
                     lines.push(`→ OT: ${formatVND(otRate)}đ/h × ${otDisplay} = +${formatVND(salary.otPay)}đ`);
                 }
