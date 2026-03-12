@@ -414,7 +414,35 @@
                 console.warn('[SOCIAL-INVOICE] No valid FastSaleOrder ID found, skipping TPOS cancel API');
             }
 
-            // Step 2: Save to delete store (reuse Tab 1's InvoiceStatusDeleteStore)
+            // Step 2: Ensure currentUserIdentifier is loaded before saving
+            if (!window.currentUserIdentifier) {
+                try {
+                    const auth = window.authManager?.getAuthData?.() || window.authManager?.getAuthState?.();
+                    if (auth?.username && typeof firebase !== 'undefined' && firebase.firestore) {
+                        const db = firebase.firestore();
+                        const userDoc = await db.collection('users').doc(auth.username).get();
+                        if (userDoc.exists) {
+                            window.currentUserIdentifier = userDoc.data().identifier || null;
+                            console.log('[SOCIAL-INVOICE] Loaded user identifier from Firestore:', window.currentUserIdentifier);
+                        }
+                    }
+                    // Fallback: use displayName from authManager if Firestore lookup failed
+                    if (!window.currentUserIdentifier) {
+                        const authFallback = window.authManager?.getAuthData?.();
+                        window.currentUserIdentifier = authFallback?.displayName || authFallback?.username || null;
+                        console.log('[SOCIAL-INVOICE] Using auth displayName as fallback:', window.currentUserIdentifier);
+                    }
+                } catch (e) {
+                    console.warn('[SOCIAL-INVOICE] Could not load user identifier:', e);
+                    // Last resort fallback
+                    const authFallback = window.authManager?.getAuthData?.();
+                    if (authFallback?.displayName || authFallback?.username) {
+                        window.currentUserIdentifier = authFallback.displayName || authFallback.username;
+                    }
+                }
+            }
+
+            // Save to delete store (reuse Tab 1's InvoiceStatusDeleteStore)
             if (window.InvoiceStatusDeleteStore?.add) {
                 await window.InvoiceStatusDeleteStore.add(saleOnlineId, {
                     ...invoiceData,

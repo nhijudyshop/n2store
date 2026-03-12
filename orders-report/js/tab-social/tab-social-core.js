@@ -203,10 +203,15 @@ async function initSocialTab() {
                     const db = firebase.firestore();
                     const userDoc = await db.collection('users').doc(auth.username).get();
                     if (userDoc.exists) {
-                        const userData = userDoc.data();
-                        window.currentUserIdentifier = userData.identifier || null;
+                        window.currentUserIdentifier = userDoc.data().identifier || null;
                         console.log('[Tab Social] Loaded user identifier:', window.currentUserIdentifier);
                     }
+                }
+                // Fallback: use displayName from authManager
+                if (!window.currentUserIdentifier) {
+                    const authFallback = window.authManager?.getAuthData?.();
+                    window.currentUserIdentifier = authFallback?.displayName || authFallback?.username || null;
+                    console.log('[Tab Social] Using auth displayName as fallback:', window.currentUserIdentifier);
                 }
             } catch (e) {
                 console.warn('[Tab Social] Could not load user identifier:', e);
