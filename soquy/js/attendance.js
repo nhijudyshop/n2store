@@ -21,12 +21,12 @@
 
     // Salary calculation constants
     const SALARY = {
-        DAILY_RATE: 200000,         // VND per day
-        HOURLY_RATE: 25000,         // 200000 / 8 hours
+        DAILY_RATE: 200000,         // VND per day (ca 8:00-20:00, 12h)
+        HOURLY_RATE: 200000 / 12,   // ~16,667 VND/hour
         LATE_PENALTY_PER_MIN: 5000, // VND per minute late after 8:00
         WORK_START_HOUR: 8,         // 8:00
-        WORK_END_HOUR: 16,          // 16:00
-        OT_START_HOUR: 20,          // 20:00
+        WORK_END_HOUR: 16,          // 16:00 - về trước giờ này = lương chia đôi
+        OT_START_HOUR: 20,          // 20:00 - hết ca, sau giờ này = OT
         OT_MULTIPLIER: 2,           // double rate for OT
     };
 
@@ -1312,7 +1312,7 @@
                     lines.push(`⚠ Về sớm ${earlyDisplay} trước 16:00`);
                     lines.push(`→ Lương bị chia đôi: ${formatVND(salary.baseSalary)}đ (thay vì ${formatVND(SALARY.DAILY_RATE)}đ)`);
                 } else {
-                    lines.push(`Lương cơ bản: ${formatVND(salary.baseSalary)}đ (${formatVND(SALARY.HOURLY_RATE)}đ/h × 8h)`);
+                    lines.push(`Lương cơ bản: ${formatVND(salary.baseSalary)}đ (ca 8:00-20:00)`);
                 }
 
                 if (salary.lateMinutes > 0) {
