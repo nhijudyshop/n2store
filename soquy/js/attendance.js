@@ -21,12 +21,12 @@
 
     // Salary calculation constants
     const SALARY = {
-        DAILY_RATE: 200000,         // VND per day
-        HOURLY_RATE: 25000,         // 200000 / 8 hours
+        DAILY_RATE: 200000,         // VND per day (ca 8:00-20:00, 12h)
+        HOURLY_RATE: 200000 / 12,   // ~16,667 VND/hour
         LATE_PENALTY_PER_MIN: 5000, // VND per minute late after 8:00
         WORK_START_HOUR: 8,         // 8:00
-        WORK_END_HOUR: 16,          // 16:00
-        OT_START_HOUR: 20,          // 20:00
+        WORK_END_HOUR: 16,          // 16:00 - về trước giờ này = lương chia đôi
+        OT_START_HOUR: 20,          // 20:00 - hết ca, sau giờ này = OT
         OT_MULTIPLIER: 2,           // double rate for OT
     };
 
@@ -54,6 +54,30 @@
 
     function isHidden(empId) {
         return hiddenEmployees.has(String(empId));
+    }
+
+    // Full-day salary override (skip early leave halving)
+    const FULLDAY_KEY = 'attendance_fullday_overrides';
+    let fullDayOverrides = new Set(JSON.parse(localStorage.getItem(FULLDAY_KEY) || '[]'));
+
+    function saveFullDay() {
+        localStorage.setItem(FULLDAY_KEY, JSON.stringify([...fullDayOverrides]));
+    }
+
+    function isFullDay(empId, dateKey) {
+        return fullDayOverrides.has(`${empId}_${dateKey}`);
+    }
+
+    function toggleFullDay(empId, dateKey) {
+        const key = `${empId}_${dateKey}`;
+        if (fullDayOverrides.has(key)) {
+            fullDayOverrides.delete(key);
+        } else {
+            fullDayOverrides.add(key);
+        }
+        saveFullDay();
+        renderTimesheet();
+        renderSchedule();
     }
 
     function hideEmployee(empId) {
@@ -328,6 +352,7 @@
             let workedDays = 0;
             const dayCells = [];
 
+            const empRate = emp.dailyRate || SALARY.DAILY_RATE;
             for (const date of dates) {
                 const dateKey = toDateKey(date);
                 const dayRecords = weekRecords.filter(r =>
@@ -335,7 +360,7 @@
                 );
                 const cellData = processDayRecords(dayRecords);
                 totalMinutes += cellData.workedMinutes;
-                const daySalary = calculateDaySalary(cellData);
+                const daySalary = calculateDaySalary(cellData, empRate, isFullDay(empId, dateKey));
                 weekSalary += daySalary.totalSalary;
                 if (daySalary.totalSalary > 0) workedDays++;
                 dayCells.push({ cellData, daySalary, dateKey });
@@ -358,16 +383,7 @@
 
             html += '<tr>';
 
-            // Cột tên nhân viên
-            html += `
-                <td class="ts-col-fixed">
-                    <div style="display:flex; align-items:center; gap:4px;">
-                        <div style="font-weight:600; color:#1e293b; flex:1;">${escapeHtml(emp.name || 'N/A')}</div>
-                        <span onclick="window._attendance.hideEmployee('${empId}')" title="Ẩn nhân viên" style="cursor:pointer; color:#d9d9d9; font-size:14px; line-height:1;">✕</span>
-                    </div>
-                    <div style="font-size:11px; color:#8c8c8c;">ID: ${empId}</div>
-                </td>
-            `;
+            html += renderEmpNameCell(emp, empId, false);
 
             // 7 cột cho 7 ngày
             for (const { cellData, daySalary, dateKey } of dayCells) {
@@ -434,15 +450,7 @@
             if (showHidden) {
                 for (const { emp, empId, totalMinutes, weekSalary, workedDays, dayCells } of hiddenData) {
                     html += `<tr style="opacity:0.5;">`;
-                    html += `
-                        <td class="ts-col-fixed">
-                            <div style="display:flex; align-items:center; gap:4px;">
-                                <div style="font-weight:600; color:#8c8c8c; flex:1;">${escapeHtml(emp.name || 'N/A')}</div>
-                                <span onclick="window._attendance.unhideEmployee('${empId}')" title="Bỏ ẩn" style="cursor:pointer; color:#52c41a; font-size:12px;">Hiện</span>
-                            </div>
-                            <div style="font-size:11px; color:#bfbfbf;">ID: ${empId}</div>
-                        </td>
-                    `;
+                    html += renderEmpNameCell(emp, empId, true);
                     for (const { cellData, daySalary, dateKey } of dayCells) {
                         html += `<td>${renderDayCell(cellData, daySalary, emp, dateKey)}</td>`;
                     }
@@ -507,8 +515,10 @@
      * - Về sớm: ra trước 16:00 → lương chia đôi (100,000)
      * - Làm thêm: ra 20:00-24:00 → đủ lương + OT nhân đôi
      */
-    function calculateDaySalary(cellData) {
-        const result = { baseSalary: 0, lateDeduction: 0, lateMinutes: 0, otPay: 0, otMinutes: 0, totalSalary: 0 };
+    function calculateDaySalary(cellData, dailyRate, forceFullDay) {
+        const rate = dailyRate || SALARY.DAILY_RATE;
+        const hourlyRate = rate / 12;
+        const result = { baseSalary: 0, lateDeduction: 0, lateMinutes: 0, otPay: 0, otMinutes: 0, totalSalary: 0, dailyRate: rate };
 
         if (cellData.status === 'absent' || cellData.status === 'incomplete') {
             return result;
@@ -526,29 +536,75 @@
             result.lateDeduction = result.lateMinutes * SALARY.LATE_PENALTY_PER_MIN;
         }
 
-        // --- Base salary based on checkout time ---
-        const endWork = new Date(checkOut);
+        // --- Base salary = hourlyRate × giờ làm (8:00-20:00) ---
+        const hour8 = new Date(checkIn);
+        hour8.setHours(SALARY.WORK_START_HOUR, 0, 0, 0);
         const hour16 = new Date(checkOut);
         hour16.setHours(SALARY.WORK_END_HOUR, 0, 0, 0);
         const hour20 = new Date(checkOut);
         hour20.setHours(SALARY.OT_START_HOUR, 0, 0, 0);
 
-        if (checkOut < hour16) {
-            // Về sớm trước 16h → lương chia đôi
-            result.baseSalary = SALARY.DAILY_RATE / 2;
-        } else if (checkOut < hour20) {
-            // Ra từ 16h-20h → đủ lương
-            result.baseSalary = SALARY.DAILY_RATE;
+        const workStart = checkIn > hour8 ? checkIn : hour8; // max(checkin, 8:00)
+        const workEnd = checkOut < hour20 ? checkOut : hour20; // min(checkout, 20:00)
+        const baseMinutes = Math.max(0, Math.floor((workEnd - workStart) / (1000 * 60)));
+        result.baseMinutes = baseMinutes;
+
+        if (forceFullDay) {
+            // Check Full → nhận đủ lương cơ bản của ngày
+            result.baseSalary = rate;
+            result.fullDayOverride = true;
+            if (checkOut < hour16) result.earlyLeave = true;
         } else {
-            // Ra từ 20h-24h → đủ lương + OT nhân đôi
-            result.baseSalary = SALARY.DAILY_RATE;
+            result.baseSalary = Math.round(hourlyRate * baseMinutes / 60);
+            // Về trước 16h → lương chia đôi
+            if (checkOut < hour16) {
+                result.earlyLeave = true;
+                result.baseSalary = Math.round(result.baseSalary / 2);
+            }
+        }
+
+        // --- OT after 20:00 at double rate ---
+        if (checkOut > hour20) {
             result.otMinutes = Math.floor((checkOut - hour20) / (1000 * 60));
-            const otHours = result.otMinutes / 60;
-            result.otPay = Math.round(otHours * SALARY.HOURLY_RATE * SALARY.OT_MULTIPLIER);
+            result.otPay = Math.round(result.otMinutes / 60 * hourlyRate * SALARY.OT_MULTIPLIER);
         }
 
         result.totalSalary = Math.max(0, result.baseSalary - result.lateDeduction + result.otPay);
         return result;
+    }
+
+    /** Render ô tên nhân viên (dùng chung cho cả 3 view) */
+    function renderEmpNameCell(emp, empId, isHiddenRow) {
+        const rate = emp.dailyRate || SALARY.DAILY_RATE;
+        const rateLabel = formatVND(rate) + 'đ/ngày';
+        const nameColor = isHiddenRow ? '#8c8c8c' : '#1e293b';
+        const subColor = isHiddenRow ? '#bfbfbf' : '#8c8c8c';
+
+        if (isHiddenRow) {
+            return `
+                <td class="ts-col-fixed">
+                    <div style="display:flex; align-items:center; gap:4px;">
+                        <div style="font-weight:600; color:${nameColor}; flex:1;">${escapeHtml(emp.name || 'N/A')}</div>
+                        <span onclick="window._attendance.unhideEmployee('${empId}')" title="Bỏ ẩn" style="cursor:pointer; color:#52c41a; font-size:12px;">Hiện</span>
+                    </div>
+                    <div style="font-size:11px; color:${subColor};">
+                        <span onclick="window._attendance.showSalaryModal('${empId}')" style="cursor:pointer;" title="Chỉnh lương">${rateLabel}</span>
+                    </div>
+                </td>
+            `;
+        }
+
+        return `
+            <td class="ts-col-fixed">
+                <div style="display:flex; align-items:center; gap:4px;">
+                    <div style="font-weight:600; color:${nameColor}; flex:1;">${escapeHtml(emp.name || 'N/A')}</div>
+                    <span onclick="window._attendance.hideEmployee('${empId}')" title="Ẩn nhân viên" style="cursor:pointer; color:#d9d9d9; font-size:14px; line-height:1;">✕</span>
+                </div>
+                <div style="font-size:11px; color:${subColor};">
+                    <span onclick="window._attendance.showSalaryModal('${empId}')" style="cursor:pointer; color:${rate !== SALARY.DAILY_RATE ? '#1890ff' : subColor};" title="Chỉnh lương">${rateLabel}</span>
+                </div>
+            </td>
+        `;
     }
 
     /** Format số tiền VND */
@@ -627,12 +683,18 @@
 
         const inTime = formatTime(checkIn);
         const outTime = checkOut ? formatTime(checkOut) : '--:--';
+        const checked = isFullDay(empId, dateKey);
+        const showCb = status !== 'incomplete' && checkOut;
 
         return `
             <div class="ts-block" style="border-left:3px solid ${borderColor}; background:${bgColor}; cursor:pointer;"
                  onclick="window._attendance.showDetail('${empId}','${dateKey}')">
                 <div style="font-weight:600; font-size:12px; color:#1e293b;">${inTime} - ${outTime}</div>
                 <div style="font-size:11px; color:${statusColor}; margin-top:3px;">${statusText}</div>
+                ${showCb ? `<label onclick="event.stopPropagation();" style="display:flex; align-items:center; gap:3px; margin-top:3px; cursor:pointer; font-size:10px; color:#8c8c8c;">
+                    <input type="checkbox" ${checked ? 'checked' : ''} onchange="window._attendance.toggleFullDay('${empId}','${dateKey}')" style="margin:0; cursor:pointer;">
+                    <span>Full</span>
+                </label>` : ''}
             </div>
         `;
     }
@@ -694,13 +756,14 @@
             let workedDays = 0;
             const dayCells = [];
 
+            const empRate = emp.dailyRate || SALARY.DAILY_RATE;
             for (const date of dates) {
                 const dateKey = toDateKey(date);
                 const dayRecords = weekRecords.filter(r =>
                     String(r.deviceUserId) === empId && r.dateKey === dateKey
                 );
                 const cellData = processDayRecords(dayRecords);
-                const daySalary = calculateDaySalary(cellData);
+                const daySalary = calculateDaySalary(cellData, empRate, isFullDay(empId, dateKey));
                 weekSalary += daySalary.totalSalary;
                 if (daySalary.totalSalary > 0) workedDays++;
                 dayCells.push({ cellData, daySalary, dateKey, date });
@@ -731,16 +794,7 @@
         for (const { emp, empId, weekSalary, workedDays, dayCells } of visibleData) {
             html += '<tr>';
 
-            // Tên nhân viên
-            html += `
-                <td class="ts-col-fixed">
-                    <div style="display:flex; align-items:center; gap:4px;">
-                        <div style="font-weight:600; color:#1e293b; flex:1;">${escapeHtml(emp.name || 'N/A')}</div>
-                        <span onclick="window._attendance.hideEmployee('${empId}')" title="Ẩn nhân viên" style="cursor:pointer; color:#d9d9d9; font-size:14px; line-height:1;">✕</span>
-                    </div>
-                    <div style="font-size:11px; color:#8c8c8c;">ID: ${empId}</div>
-                </td>
-            `;
+            html += renderEmpNameCell(emp, empId, false);
 
             // 7 ngày - hiện block trạng thái
             for (const { cellData, daySalary, dateKey, date } of dayCells) {
@@ -775,15 +829,7 @@
             if (showHidden) {
                 for (const { emp, empId, weekSalary, workedDays, dayCells } of hiddenData) {
                     html += `<tr style="opacity:0.5;">`;
-                    html += `
-                        <td class="ts-col-fixed">
-                            <div style="display:flex; align-items:center; gap:4px;">
-                                <div style="font-weight:600; color:#8c8c8c; flex:1;">${escapeHtml(emp.name || 'N/A')}</div>
-                                <span onclick="window._attendance.unhideEmployee('${empId}')" title="Bỏ ẩn" style="cursor:pointer; color:#52c41a; font-size:12px;">Hiện</span>
-                            </div>
-                            <div style="font-size:11px; color:#bfbfbf;">ID: ${empId}</div>
-                        </td>
-                    `;
+                    html += renderEmpNameCell(emp, empId, true);
                     for (const { cellData, daySalary, dateKey, date } of dayCells) {
                         html += `<td>${renderScheduleCell(cellData, daySalary, emp, dateKey, date)}</td>`;
                     }
@@ -862,12 +908,18 @@
         }
 
         const salaryText = daySalary.totalSalary > 0 ? `${formatVND(daySalary.totalSalary)}đ` : '';
+        const checked = isFullDay(empId, dateKey);
+        const showCheckbox = status !== 'absent' && status !== 'incomplete' && cellData.checkOut;
 
         return `
-            <div class="ts-block" style="${bgClass} cursor:pointer;"
+            <div class="ts-block" style="${bgClass} cursor:pointer; position:relative;"
                  onclick="window._attendance.showDetail('${empId}','${dateKey}')">
                 <div style="font-weight:600; font-size:11px; color:${labelColor};">${label}</div>
                 ${salaryText ? `<div style="font-size:10px; color:#8c8c8c; margin-top:2px;">${salaryText}</div>` : ''}
+                ${showCheckbox ? `<label onclick="event.stopPropagation();" style="display:flex; align-items:center; gap:3px; margin-top:3px; cursor:pointer; font-size:10px; color:#8c8c8c;">
+                    <input type="checkbox" ${checked ? 'checked' : ''} onchange="window._attendance.toggleFullDay('${empId}','${dateKey}')" style="margin:0; cursor:pointer;">
+                    <span>Full</span>
+                </label>` : ''}
             </div>
         `;
     }
@@ -914,11 +966,12 @@
             const empId = String(emp.userId || emp.uid || emp.id);
             let totalBase = 0, totalLate = 0, totalOT = 0, totalSalary = 0, workedDays = 0;
 
+            const empRate = emp.dailyRate || SALARY.DAILY_RATE;
             for (let d = 1; d <= lastDay; d++) {
                 const dateKey = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
                 const dayRecs = records.filter(r => String(r.deviceUserId) === empId && r.dateKey === dateKey);
                 const cellData = processDayRecords(dayRecs);
-                const sal = calculateDaySalary(cellData);
+                const sal = calculateDaySalary(cellData, empRate, isFullDay(empId, dateKey));
                 totalBase += sal.baseSalary;
                 totalLate += sal.lateDeduction;
                 totalOT += sal.otPay;
@@ -958,13 +1011,7 @@
         for (const { emp, empId, workedDays, totalBase, totalLate, totalOT, totalSalary } of visibleData) {
             html += `
                 <tr>
-                    <td class="ts-col-fixed">
-                        <div style="display:flex; align-items:center; gap:4px;">
-                            <div style="font-weight:600; color:#1e293b; flex:1;">${escapeHtml(emp.name || 'N/A')}</div>
-                            <span onclick="window._attendance.hideEmployee('${empId}')" title="Ẩn" style="cursor:pointer; color:#d9d9d9; font-size:14px;">✕</span>
-                        </div>
-                        <div style="font-size:11px; color:#8c8c8c;">ID: ${empId}</div>
-                    </td>
+                    ${renderEmpNameCell(emp, empId, false)}
                     <td style="text-align:center; font-weight:600;">${workedDays > 0 ? workedDays + ' ngày' : '-'}</td>
                     <td style="text-align:right; color:#1e293b;">${totalBase > 0 ? formatVND(totalBase) + 'đ' : '-'}</td>
                     <td style="text-align:right; color:${totalLate > 0 ? '#cf1322' : '#bfbfbf'};">${totalLate > 0 ? '-' + formatVND(totalLate) + 'đ' : '-'}</td>
@@ -991,12 +1038,7 @@
                 for (const { emp, empId, workedDays, totalBase, totalLate, totalOT, totalSalary } of hiddenData) {
                     html += `
                         <tr style="opacity:0.5;">
-                            <td class="ts-col-fixed">
-                                <div style="display:flex; align-items:center; gap:4px;">
-                                    <div style="font-weight:600; color:#8c8c8c; flex:1;">${escapeHtml(emp.name || 'N/A')}</div>
-                                    <span onclick="window._attendance.unhideEmployee('${empId}')" style="cursor:pointer; color:#52c41a; font-size:12px;">Hiện</span>
-                                </div>
-                            </td>
+                            ${renderEmpNameCell(emp, empId, true)}
                             <td style="text-align:center; color:#8c8c8c;">${workedDays > 0 ? workedDays + ' ngày' : '-'}</td>
                             <td style="text-align:right; color:#8c8c8c;">${totalBase > 0 ? formatVND(totalBase) + 'đ' : '-'}</td>
                             <td style="text-align:right; color:#8c8c8c;">${totalLate > 0 ? '-' + formatVND(totalLate) + 'đ' : '-'}</td>
@@ -1132,11 +1174,15 @@
             });
         });
 
-        // Sync button on approval modal "..." button → thêm sync
+        // Sync buttons
         const moreBtn = document.querySelector('#viewTimesheet .ts-header-right .ts-btn:last-child');
         if (moreBtn) {
             moreBtn.title = 'Đồng bộ ngay';
             moreBtn.addEventListener('click', () => sendSyncCommand());
+        }
+        const btnSchedSync = document.getElementById('btnSchedSync');
+        if (btnSchedSync) {
+            btnSchedSync.addEventListener('click', () => sendSyncCommand());
         }
     }
 
@@ -1244,6 +1290,12 @@
         const emp = employees.find(e => String(e.userId || e.uid || e.id) === String(empId));
         const empName = emp ? emp.name : `User ${empId}`;
 
+        // Header: tên + ngày + ca
+        const nameEl = modal.querySelector('#detailEmpName');
+        const subEl = modal.querySelector('#detailSubInfo');
+        if (nameEl) nameEl.textContent = empName;
+        if (subEl) subEl.textContent = `${dateKey} · Vân tay (DG-600)`;
+
         // Tìm records cho ngày này
         const dayRecords = weekRecords
             .filter(r => String(r.deviceUserId) === String(empId) && r.dateKey === dateKey)
@@ -1254,35 +1306,28 @@
             .filter(r => r.time)
             .sort((a, b) => a.time - b.time);
 
-        // Populate modal
-        const inputs = modal.querySelectorAll('.form-control');
-        if (inputs[0]) inputs[0].value = empName;      // Nhân viên
-        if (inputs[1]) inputs[1].value = dateKey;       // Ngày
-
         // Giờ vào / Giờ ra
         const timeInputs = modal.querySelectorAll('input[type="time"]');
-        if (dayRecords.length > 0 && timeInputs[0]) {
-            timeInputs[0].value = formatTime(dayRecords[0].time);
-        }
-        if (dayRecords.length > 1 && timeInputs[1]) {
-            timeInputs[1].value = formatTime(dayRecords[dayRecords.length - 1].time);
-        }
+        if (timeInputs[0]) timeInputs[0].value = dayRecords.length > 0 ? formatTime(dayRecords[0].time) : '';
+        if (timeInputs[1]) timeInputs[1].value = dayRecords.length > 1 ? formatTime(dayRecords[dayRecords.length - 1].time) : '';
 
         // Hiện danh sách tất cả lần quẹt + tính lương
         const noteArea = modal.querySelector('textarea');
         if (noteArea && dayRecords.length > 0) {
             const lines = dayRecords.map((r, i) =>
-                `Lần ${i + 1}: ${formatTime(r.time)} (type: ${r.type === 1 ? 'Ra' : 'Vào'})`
+                `Lần ${i + 1}: ${formatTime(r.time)} (${r.type === 1 ? 'Ra' : 'Vào'})`
             );
 
             // Tính lương cho ngày này
             const cellData = processDayRecords(
                 weekRecords.filter(r => String(r.deviceUserId) === String(empId) && r.dateKey === dateKey)
             );
-            const salary = calculateDaySalary(cellData);
+            const empRate = emp ? (emp.dailyRate || SALARY.DAILY_RATE) : SALARY.DAILY_RATE;
+            const fdOverride = isFullDay(String(empId), dateKey);
+            const salary = calculateDaySalary(cellData, empRate, fdOverride);
 
             lines.push('');
-            lines.push('════════════════════════');
+            lines.push('════════════════════════════');
 
             if (cellData.status === 'incomplete') {
                 lines.push('Chấm công thiếu → Không tính lương');
@@ -1292,26 +1337,29 @@
                 const workedH = Math.floor(workedMs / (1000 * 60 * 60));
                 const workedM = Math.floor((workedMs % (1000 * 60 * 60)) / (1000 * 60));
                 lines.push(`TỔNG GIỜ LÀM: ${workedH}h${workedM > 0 ? workedM + 'p' : ''}`);
-                lines.push('────────────────────────');
+                lines.push('────────────────────────────');
 
-                // Giờ ra trước/sau 16h
-                const hour16 = new Date(cellData.checkOut);
-                hour16.setHours(SALARY.WORK_END_HOUR, 0, 0, 0);
-                const hour20 = new Date(cellData.checkOut);
-                hour20.setHours(SALARY.OT_START_HOUR, 0, 0, 0);
+                const hourlyRate = empRate / 12;
+                const baseH = Math.floor(salary.baseMinutes / 60);
+                const baseM = salary.baseMinutes % 60;
+                const baseDisplay = `${baseH}h${baseM > 0 ? baseM + 'p' : ''}`;
 
-                if (cellData.checkOut < hour16) {
-                    const earlyMin = Math.floor((hour16 - cellData.checkOut) / (1000 * 60));
-                    const earlyH = Math.floor(earlyMin / 60);
-                    const earlyM = earlyMin % 60;
-                    const earlyDisplay = earlyH > 0 ? `${earlyH}h${earlyM > 0 ? earlyM + 'p' : ''}` : `${earlyM}p`;
-                    lines.push(`⚠ Về sớm ${earlyDisplay} trước 16:00`);
-                    lines.push(`→ Lương bị chia đôi: ${formatVND(salary.baseSalary)}đ (thay vì ${formatVND(SALARY.DAILY_RATE)}đ)`);
+                if (salary.fullDayOverride) {
+                    lines.push(`✅ Check Full → Lương CB: ${formatVND(salary.baseSalary)}đ`);
                 } else {
-                    lines.push(`Lương cơ bản: ${formatVND(salary.baseSalary)}đ (${formatVND(SALARY.HOURLY_RATE)}đ/h × 8h)`);
+                    lines.push(`Lương/giờ: ${formatVND(empRate)}đ ÷ 12 = ${formatVND(hourlyRate)}đ/h`);
+                    lines.push(`Giờ cơ bản: ${baseDisplay} (8:00-20:00)`);
+                    if (salary.earlyLeave) {
+                        const fullBase = Math.round(hourlyRate * salary.baseMinutes / 60);
+                        lines.push(`→ Lương CB: ${formatVND(hourlyRate)}đ/h × ${baseDisplay} = ${formatVND(fullBase)}đ`);
+                        lines.push(`⚠ Về sớm (trước 16:00) → chia đôi: ${formatVND(salary.baseSalary)}đ`);
+                    } else {
+                        lines.push(`→ Lương CB: ${formatVND(hourlyRate)}đ/h × ${baseDisplay} = ${formatVND(salary.baseSalary)}đ`);
+                    }
                 }
 
                 if (salary.lateMinutes > 0) {
+                    lines.push('');
                     lines.push(`⏰ Đi muộn ${salary.lateMinutes} phút (sau 8:00)`);
                     lines.push(`→ Trừ: ${salary.lateMinutes}p × ${formatVND(SALARY.LATE_PENALTY_PER_MIN)}đ = -${formatVND(salary.lateDeduction)}đ`);
                 }
@@ -1320,12 +1368,13 @@
                     const otH = Math.floor(salary.otMinutes / 60);
                     const otM = salary.otMinutes % 60;
                     const otDisplay = otH > 0 ? `${otH}h${otM > 0 ? otM + 'p' : ''}` : `${otM}p`;
-                    const otRate = SALARY.HOURLY_RATE * SALARY.OT_MULTIPLIER;
+                    const otRate = hourlyRate * SALARY.OT_MULTIPLIER;
+                    lines.push('');
                     lines.push(`🌙 Làm thêm ${otDisplay} (sau 20:00)`);
                     lines.push(`→ OT: ${formatVND(otRate)}đ/h × ${otDisplay} = +${formatVND(salary.otPay)}đ`);
                 }
 
-                lines.push('────────────────────────');
+                lines.push('────────────────────────────');
                 lines.push(`💰 TỔNG LƯƠNG: ${formatVND(salary.totalSalary)}đ`);
             }
 
@@ -1334,15 +1383,65 @@
             noteArea.value = 'Không có bản ghi chấm công';
         }
 
-        // Cập nhật text ca
-        if (inputs[2]) inputs[2].value = 'Vân tay (DG-600)';
-
         modal.style.display = 'flex';
 
         // Close button
         const closeBtn = modal.querySelector('.btn-icon');
         if (closeBtn) {
             closeBtn.onclick = () => { modal.style.display = 'none'; };
+        }
+    }
+
+    // ================================================================
+    // SALARY EDIT MODAL
+    // ================================================================
+
+    function showSalaryModal(empId) {
+        const emp = employees.find(e => String(e.userId || e.uid || e.id) === String(empId));
+        if (!emp) return;
+
+        const currentRate = emp.dailyRate || SALARY.DAILY_RATE;
+        const modal = document.getElementById('salaryModal');
+        if (!modal) return;
+
+        const nameEl = modal.querySelector('#salaryEmpName');
+        const input = modal.querySelector('#salaryRateInput');
+        const saveBtn = modal.querySelector('#btnSaveSalary');
+        const closeBtn = modal.querySelector('.btn-icon');
+
+        if (nameEl) nameEl.textContent = emp.name || `User ${empId}`;
+        if (input) input.value = currentRate;
+
+        modal.style.display = 'flex';
+
+        if (closeBtn) closeBtn.onclick = () => { modal.style.display = 'none'; };
+
+        if (saveBtn) {
+            saveBtn.onclick = async () => {
+                const newRate = parseInt(input.value);
+                if (isNaN(newRate) || newRate <= 0) {
+                    showNotification('Vui lòng nhập lương hợp lệ', 'error');
+                    return;
+                }
+
+                try {
+                    const docId = String(emp.id || emp.userId);
+                    // Test employees (in-memory only) → skip Firestore
+                    if (!docId.startsWith('test_')) {
+                        await db.collection(COLLECTIONS.deviceUsers).doc(docId).update({
+                            dailyRate: newRate
+                        });
+                    }
+                    emp.dailyRate = newRate;
+                    modal.style.display = 'none';
+                    showNotification(`Đã cập nhật lương ${emp.name}: ${formatVND(newRate)}đ/ngày`, 'success');
+                    renderTimesheet();
+                    renderSchedule();
+                } catch (err) {
+                    console.error('[Attendance] Lỗi lưu lương:', err);
+                    showNotification('Lỗi: ' + err.message, 'error');
+                }
+            };
         }
     }
 
@@ -1533,19 +1632,22 @@
 
     // Inject test button vào header
     function injectTestButton() {
-        const headerRight = document.querySelector('#viewTimesheet .ts-header-right');
-        if (!headerRight) return;
+        // Inject vào cả 2 view
+        ['#viewTimesheet .ts-header-right', '#viewSchedule .ts-header-right'].forEach(sel => {
+            const headerRight = document.querySelector(sel);
+            if (!headerRight) return;
 
-        const btn = document.createElement('button');
-        btn.className = 'ts-btn';
-        btn.style.cssText = 'background:#fff7e6; color:#d46b08; border:1px solid #ffd591;';
-        btn.innerHTML = '<i data-lucide="user-plus" style="width:14px; height:14px;"></i> Test';
-        btn.title = 'Tạo nhân viên ảo để test lương';
-        btn.addEventListener('click', showTestModal);
+            const btn = document.createElement('button');
+            btn.className = 'ts-btn';
+            btn.style.cssText = 'background:#fff7e6; color:#d46b08; border:1px solid #ffd591;';
+            btn.innerHTML = '<i data-lucide="user-plus" style="width:14px; height:14px;"></i> Test';
+            btn.title = 'Tạo nhân viên ảo để test lương';
+            btn.addEventListener('click', showTestModal);
 
-        // Chèn trước nút "..."
-        const moreBtn = headerRight.querySelector('.ts-btn:last-child');
-        headerRight.insertBefore(btn, moreBtn);
+            // Chèn trước nút reload/more
+            const lastBtn = headerRight.querySelector('.ts-btn:last-child');
+            headerRight.insertBefore(btn, lastBtn);
+        });
         refreshIcons();
     }
 
@@ -1555,6 +1657,7 @@
     window._attendance = {
         init,
         showDetail,
+        showSalaryModal,
         addDeviceUser,
         enrollFingerprint,
         sendSync: sendSyncCommand,
@@ -1563,6 +1666,7 @@
         hideEmployee,
         unhideEmployee,
         toggleHidden,
+        toggleFullDay,
     };
 
     // Auto-init when DOM ready

@@ -355,6 +355,7 @@ class PancakeTokenManager {
             this.firestoreRef = db.collection('pancake_tokens');
             this.accountsRef = this.firestoreRef.doc('accounts');
             this.pageTokensRef = this.firestoreRef.doc('page_access_tokens');
+            this.preferencesRef = this.firestoreRef.doc('preferences');
 
             // Load accounts and active account from Firestore (may update localStorage)
             await this.loadAccounts();
@@ -411,8 +412,22 @@ class PancakeTokenManager {
             const doc = await this.accountsRef.get();
             this.accounts = doc.exists ? (doc.data()?.data || {}) : {};
 
-            // Load active account ID from localStorage (per-device)
-            this.activeAccountId = localStorage.getItem('tpos_pancake_active_account_id');
+            // Load active account from Firestore preferences (per-userType)
+            let preferredAccountId = null;
+            const userType = this._getUserType();
+            if (userType && this.preferencesRef) {
+                try {
+                    const prefDoc = await this.preferencesRef.get();
+                    if (prefDoc.exists) {
+                        preferredAccountId = prefDoc.data()?.[userType]?.activeAccountId || null;
+                    }
+                } catch (e) {
+                    console.warn('[PANCAKE-TOKEN] Could not load preferences:', e.message);
+                }
+            }
+
+            // Priority: Firestore preference > localStorage
+            this.activeAccountId = preferredAccountId || localStorage.getItem('tpos_pancake_active_account_id');
 
             // If active account is set, load its token
             if (this.activeAccountId && this.accounts[this.activeAccountId]) {
@@ -421,6 +436,7 @@ class PancakeTokenManager {
                 this.currentTokenExpiry = account.exp;
 
                 // Sync to localStorage for fast access next time
+                localStorage.setItem('tpos_pancake_active_account_id', this.activeAccountId);
                 this.saveTokenToLocalStorage(account.token, account.exp);
             } else if (Object.keys(this.accounts).length > 0) {
                 // Auto-select first account if no active account set
@@ -792,7 +808,15 @@ class PancakeTokenManager {
             localStorage.setItem('tpos_pancake_active_account_id', accountId);
             this.saveTokenToLocalStorage(account.token, account.exp);
 
-            console.log('[PANCAKE-TOKEN] ✅ Active account set locally (this device only):', accountId);
+            // Save to Firestore (per-userType) - persists across devices/sessions
+            const userType = this._getUserType();
+            if (userType && this.preferencesRef) {
+                this.preferencesRef.set({
+                    [userType]: { activeAccountId: accountId, updatedAt: Date.now() }
+                }, { merge: true }).catch(e => console.warn('[PANCAKE-TOKEN] Could not save preference:', e.message));
+            }
+
+            console.log('[PANCAKE-TOKEN] ✅ Active account set:', accountId, 'for user:', userType);
             return true;
 
         } catch (error) {
@@ -842,6 +866,13 @@ class PancakeTokenManager {
             console.error('[PANCAKE-TOKEN] Error deleting account:', error);
             return false;
         }
+    }
+
+    /**
+     * Get current userType from localStorage for per-user preferences
+     */
+    _getUserType() {
+        return localStorage.getItem('userType') || null;
     }
 
     /**

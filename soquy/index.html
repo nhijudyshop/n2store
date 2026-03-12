@@ -384,12 +384,19 @@
                             <button class="ts-btn" id="btnSchedNow">Tuần này</button>
                         </div>
                         <div class="ts-header-right">
-                            <button class="ts-btn" id="btnSchedReload" title="Tải lại dữ liệu">
-                                <i data-lucide="refresh-cw" style="width: 14px; height: 14px;"></i>
-                            </button>
                             <button class="ts-btn" id="btnSchedSwitchView">
                                 <i data-lucide="user" style="width: 14px; height: 14px;"></i> Xem theo nhân viên <i
                                     data-lucide="chevron-down" style="width: 14px; height: 14px;"></i>
+                            </button>
+                            <button class="ts-btn" id="btnSchedApproval"
+                                onclick="document.getElementById('approvalModal').style.display='flex'">
+                                <i data-lucide="check-square" style="width: 14px; height: 14px;"></i> Duyệt chấm công
+                            </button>
+                            <button class="ts-btn" id="btnSchedReload" title="Tải lại dữ liệu" style="padding: 6px 8px;">
+                                <i data-lucide="refresh-cw" style="width: 14px; height: 14px;"></i>
+                            </button>
+                            <button class="ts-btn" id="btnSchedSync" title="Đồng bộ ngay" style="padding: 6px 8px;">
+                                <i data-lucide="more-horizontal" style="width: 14px; height: 14px;"></i>
                             </button>
                         </div>
                     </div>
@@ -1733,56 +1740,65 @@
     </div>
 
     <!-- ==================== MODAL: CHẤM CÔNG THỦ CÔNG ==================== -->
-    <div class="modal" id="attendanceModal" style="display: none;">
-        <div class="modal-overlay"></div>
-        <div class="modal-content k-modal">
+    <!-- MODAL: SALARY EDIT -->
+    <div class="modal" id="salaryModal" style="display: none;">
+        <div class="modal-overlay" onclick="this.parentElement.style.display='none'"></div>
+        <div class="modal-content k-modal" style="width: 400px;">
             <div class="modal-header k-modal-header">
-                <h3>Chấm công</h3>
-                <button class="btn-icon">
-                    <i data-lucide="x"></i>
-                </button>
+                <h3>Chỉnh lương cơ bản</h3>
+                <button class="btn-icon"><i data-lucide="x"></i></button>
             </div>
             <div class="modal-body k-modal-body">
                 <div class="form-group k-group">
                     <label>Nhân viên</label>
-                    <input type="text" class="form-control" value="Nguyễn Văn A" disabled>
-                </div>
-                <div class="form-row">
-                    <div class="form-group k-group">
-                        <label>Ngày</label>
-                        <input type="date" class="form-control" value="2026-03-01" disabled>
-                    </div>
-                    <div class="form-group k-group">
-                        <label>Ca</label>
-                        <input type="text" class="form-control" value="Ca sáng" disabled>
-                    </div>
+                    <div id="salaryEmpName" style="font-weight:600; font-size:15px; color:#1e293b;"></div>
                 </div>
                 <div class="form-group k-group">
-                    <label>Loại chấm công <span class="text-danger">*</span></label>
-                    <select class="form-control">
-                        <option>Đi làm</option>
-                        <option>Đi muộn</option>
-                        <option>Về sớm</option>
-                        <option>Làm thêm</option>
-                        <option>Nghỉ</option>
-                    </select>
+                    <label>Lương cơ bản (VNĐ/ngày)</label>
+                    <input type="number" id="salaryRateInput" class="form-control" step="10000" min="0" placeholder="200000">
                 </div>
-                <div class="form-row">
-                    <div class="form-group k-group">
-                        <label>Giờ vào</label>
-                        <input type="time" class="form-control">
-                    </div>
-                    <div class="form-group k-group">
-                        <label>Giờ ra</label>
-                        <input type="time" class="form-control">
-                    </div>
-                </div>
-                <div class="form-group k-group">
-                    <label>Ghi chú</label>
-                    <textarea class="form-control" rows="2" placeholder="Lý do đi muộn, về sớm..."></textarea>
+                <div style="font-size:12px; color:#8c8c8c; margin-top:4px;">
+                    Mặc định: 200.000đ/ngày (ca 8:00-20:00)
                 </div>
             </div>
             <div class="modal-footer k-modal-footer">
+                <div style="flex:1;"></div>
+                <button class="btn-primary" id="btnSaveSalary" style="background:#1890ff; border-color:#1890ff;">
+                    <i data-lucide="save"></i> Lưu
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="attendanceModal" style="display: none;">
+        <div class="modal-overlay"></div>
+        <div class="modal-content k-modal" style="width: 520px; max-width: 95vw; display: flex; flex-direction: column; max-height: 90vh;">
+            <div class="modal-header k-modal-header" style="padding: 12px 20px; border-bottom: 1px solid #f0f0f0;">
+                <div>
+                    <h3 id="detailEmpName" style="margin: 0; font-size: 16px;">Chấm công</h3>
+                    <div id="detailSubInfo" style="font-size: 12px; color: #8c8c8c; margin-top: 2px;"></div>
+                </div>
+                <button class="btn-icon">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body k-modal-body" style="flex: 1; overflow: auto; padding: 12px 20px; display: flex; flex-direction: column;">
+                <div style="display: flex; gap: 12px; margin-bottom: 12px; flex-shrink: 0;">
+                    <div style="flex: 1;">
+                        <label style="font-size: 11px; color: #8c8c8c; display: block; margin-bottom: 2px;">Giờ vào</label>
+                        <input type="time" class="form-control" style="padding: 4px 8px; font-size: 14px;">
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="font-size: 11px; color: #8c8c8c; display: block; margin-bottom: 2px;">Giờ ra</label>
+                        <input type="time" class="form-control" style="padding: 4px 8px; font-size: 14px;">
+                    </div>
+                </div>
+                <div style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
+                    <label style="font-size: 11px; color: #8c8c8c; display: block; margin-bottom: 2px;">Chi tiết lương</label>
+                    <textarea class="form-control" placeholder="..." style="font-family: monospace; font-size: 13px; flex: 1; min-height: 300px; resize: vertical; line-height: 1.5;"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer k-modal-footer" style="padding: 10px 20px;">
                 <button class="k-btn-outline" style="color: #f5222d; border-color: #f5222d;">
                     <i data-lucide="trash-2"></i> Xóa
                 </button>

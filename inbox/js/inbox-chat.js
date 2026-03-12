@@ -209,7 +209,7 @@ class InboxChatController {
                     badge.className = 'type-count';
                     btn.appendChild(badge);
                 }
-                badge.textContent = `(${count})`;
+                badge.textContent = count > 99 ? '99+' : count;
             });
         };
 
@@ -258,6 +258,20 @@ class InboxChatController {
             const el = this.elements.chatInput;
             el.style.height = 'auto';
             el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+        });
+
+        // Paste image support
+        this.elements.chatInput.addEventListener('paste', (e) => {
+            const items = e.clipboardData?.items;
+            if (!items) return;
+            for (const item of items) {
+                if (item.type.startsWith('image/')) {
+                    e.preventDefault();
+                    const file = item.getAsFile();
+                    if (file) this._sendImageFile(file);
+                    return;
+                }
+            }
         });
 
 
@@ -467,6 +481,43 @@ class InboxChatController {
             document.addEventListener('click', (e) => {
                 if (!e.target.closest('.page-selector')) {
                     this.elements.pageSelectorDropdown.style.display = 'none';
+                }
+            });
+        }
+
+        // Label bar drag-to-resize
+        const labelResize = document.getElementById('chatLabelResize');
+        if (labelResize) {
+            let startY, startHeight;
+            const labelList = this.elements.chatLabelBarList;
+
+            labelResize.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                startY = e.clientY;
+                startHeight = labelList.offsetHeight;
+                const onMove = (ev) => {
+                    const diff = startY - ev.clientY; // drag up = expand
+                    const newH = Math.max(27, startHeight + diff);
+                    labelList.style.maxHeight = newH + 'px';
+                    if (newH > 60) labelList.classList.add('expanded');
+                    else labelList.classList.remove('expanded');
+                };
+                const onUp = () => {
+                    document.removeEventListener('mousemove', onMove);
+                    document.removeEventListener('mouseup', onUp);
+                };
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
+            });
+
+            // Double-click to toggle expand/collapse
+            labelResize.addEventListener('dblclick', () => {
+                if (labelList.classList.contains('expanded')) {
+                    labelList.classList.remove('expanded');
+                    labelList.style.maxHeight = '54px';
+                } else {
+                    labelList.classList.add('expanded');
+                    labelList.style.maxHeight = '300px';
                 }
             });
         }
@@ -1381,7 +1432,13 @@ class InboxChatController {
             : `<div class="message-avatar" style="background:${gradient};">${initial}</div>`;
         let lastDate = '';
 
-        let html = conv.messages.map(msg => {
+        let html = conv.messages.filter(msg => {
+            // Hide auto-label system messages
+            const t = (msg.text || '').trim();
+            if (t.startsWith('Đã thêm nhãn tự động:') || t.startsWith('Đã đặt giai đoạn')) return false;
+            if (t === '[Tin nhắn trống]') return false;
+            return true;
+        }).map(msg => {
             const msgDate = this.formatDate(msg.time);
             let dateSeparator = '';
             if (msgDate !== lastDate) {
@@ -1924,6 +1981,47 @@ class InboxChatController {
             }
         };
         input.click();
+    }
+
+    /**
+     * Send an image File (used by paste and drag-drop)
+     */
+    async _sendImageFile(file) {
+        if (!this.activeConversationId) return;
+        const conv = this.data.getConversation(this.activeConversationId);
+        if (!conv) return;
+
+        try {
+            showToast('Đang tải ảnh lên...', 'info');
+            const pdm = window.pancakeDataManager;
+            if (!pdm) throw new Error('pancakeDataManager not available');
+
+            const sendPageId = this.currentSendPageId || conv.pageId;
+            const result = await pdm.uploadImage(sendPageId, file);
+            if (result && result.url) {
+                const pageAccessToken = await this._getPageAccessTokenWithFallback(sendPageId);
+                if (!pageAccessToken) throw new Error('Không tìm thấy page_access_token');
+                const url = window.API_CONFIG.buildUrl.pancakeOfficial(
+                    `pages/${sendPageId}/conversations/${conv.conversationId}/messages`,
+                    pageAccessToken
+                );
+                await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'reply_inbox', message: '', content_url: result.url })
+                });
+                showToast('Đã gửi ảnh', 'success');
+                this.data.markAsRead(this.activeConversationId);
+                this.renderConversationList();
+                setTimeout(() => {
+                    if (pdm) pdm.clearMessagesCache(`${conv.pageId}_${conv.conversationId}`);
+                    this.loadMessages(conv);
+                }, 2000);
+            }
+        } catch (err) {
+            console.error('[InboxChat] Paste image error:', err);
+            showToast('Lỗi tải ảnh: ' + err.message, 'error');
+        }
     }
 
     // ===== Chat Label Bar =====
@@ -2742,33 +2840,32 @@ class InboxChatController {
         if (!query || query.length < 2) return;
 
         this.isSearching = true;
-
-        // Show loading if no local results
-        const localResults = this.data.getConversations({ search: query });
-        if (localResults.length === 0) {
-            this.renderConversationList();
-        }
+        this.renderConversationList(); // Show loading state
 
         try {
             const pdm = window.pancakeDataManager;
             if (!pdm || !pdm.searchConversations) {
-                this.isSearching = false;
+                console.warn('[InboxChat] pancakeDataManager.searchConversations not available');
+                this.searchResults = [];
+                this.renderConversationList();
                 return;
             }
 
             const result = await pdm.searchConversations(query);
-            // Only update if query hasn't changed while waiting
-            if (this.searchQuery !== query) return;
+            if (this.searchQuery !== query) return; // Query changed while waiting
 
-            if (result && result.conversations) {
+            if (result && result.conversations && result.conversations.length > 0) {
                 this.searchResults = result.conversations;
+                console.log(`[InboxChat] Search found ${result.conversations.length} results for "${query}"`);
             } else {
                 this.searchResults = [];
+                console.log(`[InboxChat] Search returned 0 results for "${query}"`);
             }
 
             this.renderConversationList();
         } catch (error) {
             console.error('[InboxChat] Search error:', error);
+            if (typeof showToast === 'function') showToast('Lỗi tìm kiếm: ' + error.message, 'error');
             this.searchResults = [];
             this.renderConversationList();
         } finally {
@@ -2941,7 +3038,7 @@ class InboxChatController {
 
         const existing = this.data.getConversation(conversation.id);
         if (existing) {
-            existing.lastMessage = conversation.snippet || existing.lastMessage;
+            existing.lastMessage = this.data._filterSystemMessage(conversation.snippet) || existing.lastMessage;
             existing.time = this.parseTimestamp(conversation.updated_at) || new Date();
             existing.unread = conversation.unread_count ?? existing.unread;
             if (conversation.type) existing.type = conversation.type;
@@ -2987,7 +3084,7 @@ class InboxChatController {
         const conv = this.data.getConversation(convId);
         if (conv) {
             conv.time = new Date();
-            conv.lastMessage = message.original_message || message.message || conv.lastMessage;
+            conv.lastMessage = this.data._filterSystemMessage(message.original_message || message.message) || conv.lastMessage;
             this.data.conversations.sort((a, b) => b.time - a.time);
             this.renderConversationList();
 

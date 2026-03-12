@@ -496,6 +496,8 @@ const SoquyUI = (function () {
                 return voucher.status === config.VOUCHER_STATUS.CANCELLED
                     ? '<span class="badge-cancelled">Đã hủy</span>'
                     : '<span class="badge-paid">Đã thanh toán</span>';
+            case 'image':
+                return null; // Special rendering (thumbnail)
             default:
                 return escapeHtml(voucher[colKey] || '');
         }
@@ -581,6 +583,16 @@ const SoquyUI = (function () {
                         : db.formatCurrency(v.amount);
                     const amountClass = isPayment ? 'text-danger' : 'text-success';
                     rowHtml += `<td style="text-align: right;" class="${amountClass}">${displayAmount}</td>`;
+                } else if (col.key === 'image') {
+                    if (v.imageData) {
+                        rowHtml += `<td class="image-cell">
+                            <div class="voucher-thumb-wrapper">
+                                <img src="${v.imageData}" alt="Ảnh chứng từ" class="voucher-thumb" />
+                            </div>
+                        </td>`;
+                    } else {
+                        rowHtml += `<td class="image-cell">-</td>`;
+                    }
                 } else {
                     rowHtml += `<td>${getCellValue(v, col.key)}</td>`;
                 }
@@ -667,6 +679,63 @@ const SoquyUI = (function () {
                 openDetailModal(id);
             }));
         });
+
+        // Image thumbnail hover -> show zoomed preview
+        bindImageHoverZoom();
+    }
+
+    function bindImageHoverZoom() {
+        let zoomEl = document.getElementById('voucherThumbZoom');
+        if (!zoomEl) {
+            zoomEl = document.createElement('img');
+            zoomEl.id = 'voucherThumbZoom';
+            zoomEl.className = 'voucher-thumb-zoom';
+            document.body.appendChild(zoomEl);
+        }
+
+        document.querySelectorAll('.voucher-thumb').forEach(thumb => {
+            thumb.addEventListener('mouseenter', (e) => {
+                zoomEl.src = e.target.src;
+                zoomEl.style.display = 'block';
+                // Wait for image to load to get actual dimensions
+                zoomEl.onload = () => positionZoom(e, zoomEl);
+                positionZoom(e, zoomEl);
+            });
+            thumb.addEventListener('mousemove', (e) => {
+                positionZoom(e, zoomEl);
+            });
+            thumb.addEventListener('mouseleave', () => {
+                zoomEl.style.display = 'none';
+                zoomEl.src = '';
+            });
+            thumb.addEventListener('click', (e) => {
+                e.stopPropagation();
+                window.open(e.target.src, '_blank');
+            });
+        });
+
+        function positionZoom(e, el) {
+            const padding = 10;
+            const vw = window.innerWidth;
+            const vh = window.innerHeight;
+            const elW = el.offsetWidth || 300;
+            const elH = el.offsetHeight || 200;
+
+            // Try to place to the left of cursor (since images are on the right side of table)
+            let left = e.clientX - elW - padding;
+            let top = e.clientY - Math.round(elH / 2);
+
+            // If overflows left, place to right of cursor
+            if (left < padding) left = e.clientX + padding;
+            // If overflows right, clamp to viewport
+            if (left + elW > vw - padding) left = vw - elW - padding;
+            // Clamp top/bottom to viewport
+            if (top < padding) top = padding;
+            if (top + elH > vh - padding) top = vh - elH - padding;
+
+            el.style.left = left + 'px';
+            el.style.top = top + 'px';
+        }
     }
 
     // =====================================================
@@ -1055,12 +1124,15 @@ const SoquyUI = (function () {
         // Show/hide action buttons based on status
         const detailFooter = detailModal.querySelector('.modal-footer');
         if (detailFooter) {
+            const canCancel = typeof SoquyPermissions !== 'undefined' && SoquyPermissions.canCancelVoucher();
+            const canEdit = typeof SoquyPermissions !== 'undefined' && SoquyPermissions.canEditVoucher();
             detailFooter.innerHTML = `
                 <button class="btn-outline-secondary" id="btnCloseDetailFooter">Đóng</button>
-                ${!isCancelled ? `
+                ${!isCancelled && canCancel ? `
                 <button class="btn-outline-danger" id="btnCancelVoucher" data-id="${voucherId}">
                     <i data-lucide="x-circle"></i> Hủy phiếu
-                </button>
+                </button>` : ''}
+                ${!isCancelled && canEdit ? `
                 <button class="btn-primary" id="btnEditVoucher" data-id="${voucherId}">
                     <i data-lucide="edit-3"></i> Sửa phiếu
                 </button>` : ''}`;

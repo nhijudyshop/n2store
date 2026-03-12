@@ -503,7 +503,9 @@ const PAGES_REGISTRY = {
             create_payment: { name: "Tạo phiếu chi", icon: "minus-circle", description: "Tạo phiếu chi CN/KD" },
             manage_categories: { name: "Quản lý loại chi", icon: "tag", description: "Thêm/xóa loại chi" },
             manage_sources: { name: "Quản lý nguồn giao dịch", icon: "git-branch", description: "Thêm/xóa nguồn giao dịch" },
-            view_all_transactions: { name: "Xem toàn bộ giao dịch", icon: "eye", description: "Xem giao dịch của tất cả nhân viên" }
+            view_all_transactions: { name: "Xem toàn bộ giao dịch", icon: "eye", description: "Xem giao dịch của tất cả nhân viên" },
+            cancel_voucher: { name: "Hủy phiếu", icon: "x-circle", description: "Hủy phiếu thu/chi" },
+            edit_voucher: { name: "Sửa phiếu", icon: "edit-3", description: "Chỉnh sửa phiếu thu/chi" }
         }
     },
 

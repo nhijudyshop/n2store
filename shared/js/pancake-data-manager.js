@@ -322,8 +322,7 @@ class PancakeDataManager {
                 throw new Error('No Pancake token available');
             }
 
-            // Use pageIds from parameter or default to all pageIds
-            // Filter out Instagram pages to avoid subscription errors
+            // Filter out Instagram pages
             let searchPageIds = pageIds || this.pageIds;
             searchPageIds = searchPageIds.filter(id => !id.startsWith('igo_'));
 
@@ -333,55 +332,116 @@ class PancakeDataManager {
                     console.warn('[PANCAKE] No pages found for search');
                     return { conversations: [], customerId: null };
                 }
+                searchPageIds = this.pageIds.filter(id => !id.startsWith('igo_'));
             }
 
-            // Build search URL with query parameter
-            // Format: /conversations/search?q={query}&page_ids={pageIds}&access_token={token}
-            const pageIdsParam = (searchPageIds || this.pageIds).join(',');
+            // Use cached searchable pages if we've already detected which ones work
+            if (this._searchablePageIds && this._searchablePageIds.length > 0) {
+                searchPageIds = this._searchablePageIds;
+                console.log('[PANCAKE] Using cached searchable pages:', searchPageIds);
+            }
+
             const encodedQuery = encodeURIComponent(query);
-            const queryString = `q=${encodedQuery}&access_token=${token}&cursor_mode=true`;
 
-            const url = window.API_CONFIG.buildUrl.pancake('conversations/search', queryString);
+            // Try search with current page set
+            const result = await this._doSearch(token, encodedQuery, searchPageIds);
 
-            console.log('[PANCAKE] Search URL:', url);
-
-            // Need to send page_ids in request body as FormData
-            const formData = new FormData();
-            formData.append('page_ids', pageIdsParam);
-
-            const response = await API_CONFIG.smartFetch(url, {
-                method: 'POST',
-                body: formData
-            }, 3, true); // skipFallback = true for conversation search
-
-            console.log('[PANCAKE] Search response status:', response.status);
-
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('[PANCAKE] Search error response:', errorText);
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            if (result.success) {
+                return result;
             }
 
-            const data = await response.json();
-            console.log('[PANCAKE] Search results:', data);
+            // error_code 122 = page subscription issue, detect which pages work
+            if (result.errorCode === 122 && searchPageIds.length > 1 && !this._searchablePageIds) {
+                console.log('[PANCAKE] Error 122 - detecting which pages support search...');
+                const workingPages = [];
+                const delay = ms => new Promise(r => setTimeout(r, ms));
 
-            const conversations = data.conversations || [];
+                for (const pid of searchPageIds) {
+                    const testResult = await this._doSearch(token, encodedQuery, [pid]);
+                    if (testResult.success || (testResult.errorCode !== 122 && testResult.errorCode !== 429)) {
+                        workingPages.push(pid);
+                        console.log(`[PANCAKE]   ✅ Page ${pid} OK`);
+                    } else if (testResult.errorCode === 122) {
+                        console.log(`[PANCAKE]   ❌ Page ${pid} subscription expired`);
+                    } else {
+                        // 429 or other transient error - assume page is OK
+                        workingPages.push(pid);
+                        console.log(`[PANCAKE]   ⚠️ Page ${pid} got ${testResult.errorCode}, assuming OK`);
+                    }
+                    await delay(500); // Rate limit protection
+                }
 
-            // Extract customer ID from first conversation's customers array
-            let customerId = null;
-            if (conversations.length > 0 && conversations[0].customers && conversations[0].customers.length > 0) {
-                customerId = conversations[0].customers[0].id;
-                console.log(`[PANCAKE] ✅ Found customer ID from search: ${customerId}`);
+                if (workingPages.length > 0) {
+                    this._searchablePageIds = workingPages;
+                    console.log('[PANCAKE] Searchable pages cached:', workingPages);
+
+                    // Wait before retry to avoid 429
+                    await delay(1000);
+
+                    // Retry with only working pages
+                    const retryResult = await this._doSearch(token, encodedQuery, workingPages);
+                    if (retryResult.success) {
+                        return retryResult;
+                    }
+
+                    // If 429, wait longer and try once more
+                    if (retryResult.errorCode === 429) {
+                        console.log('[PANCAKE] Rate limited, waiting 3s...');
+                        await delay(3000);
+                        const finalResult = await this._doSearch(token, encodedQuery, workingPages);
+                        if (finalResult.success) {
+                            return finalResult;
+                        }
+                    }
+                }
             }
 
-            return {
-                conversations,
-                customerId
-            };
+            console.error('[PANCAKE] ❌ Search failed:', result.message);
+            return { conversations: [], customerId: null };
 
         } catch (error) {
             console.error('[PANCAKE] ❌ Error searching conversations:', error);
             return { conversations: [], customerId: null };
+        }
+    }
+
+    /**
+     * Execute a single search request
+     * @private
+     */
+    async _doSearch(token, encodedQuery, pageIds) {
+        const pageIdsParam = pageIds.join(',');
+        const queryString = `q=${encodedQuery}&access_token=${token}&cursor_mode=true`;
+        const url = window.API_CONFIG.buildUrl.pancake('conversations/search', queryString);
+
+        console.log('[PANCAKE] Search page_ids:', pageIdsParam);
+
+        const formData = new FormData();
+        formData.append('page_ids', pageIdsParam);
+
+        try {
+            const response = await fetch(url, { method: 'POST', body: formData });
+
+            if (!response.ok) {
+                return { success: false, errorCode: response.status, message: `HTTP ${response.status}` };
+            }
+
+            const data = await response.json();
+
+            if (data.error_code || !data.success) {
+                return { success: false, errorCode: data.error_code, message: data.message || 'Search failed' };
+            }
+
+            const conversations = data.conversations || [];
+            let customerId = null;
+            if (conversations.length > 0 && conversations[0].customers?.length > 0) {
+                customerId = conversations[0].customers[0].id;
+            }
+
+            console.log(`[PANCAKE] ✅ Search success:`, conversations.length, 'results');
+            return { success: true, conversations, customerId };
+        } catch (err) {
+            return { success: false, errorCode: 0, message: err.message };
         }
     }
 
@@ -578,7 +638,9 @@ class PancakeDataManager {
             const token = await this.getToken();
 
             // Build query params - format: pages[pageId]=offset
-            const pagesParams = this.pageIds.map(pageId => `pages[${pageId}]=0`).join('&');
+            // Use cached searchable pages if available (excludes expired subscription pages)
+            const activePageIds = this._searchablePageIds || this.pageIds;
+            const pagesParams = activePageIds.map(pageId => `pages[${pageId}]=0`).join('&');
             const queryString = `${pagesParams}&unread_first=true&mode=OR&tags="ALL"&except_tags=[]&access_token=${token}&cursor_mode=true&from_platform=web`;
 
             // Use Cloudflare Worker proxy
@@ -648,7 +710,8 @@ class PancakeDataManager {
             const token = await this.getToken();
 
             // Build query: pages[pageId]=count_already_loaded (from pages_with_current_count)
-            const pagesParams = this.pageIds.map(pageId => `pages[${pageId}]=${pageCounts[pageId] || 0}`).join('&');
+            const activePageIds = this._searchablePageIds || this.pageIds;
+            const pagesParams = activePageIds.map(pageId => `pages[${pageId}]=${pageCounts[pageId] || 0}`).join('&');
             const queryString = `unread_first=true&tags="ALL"&except_tags=[]&access_token=${token}&current_count=${totalCount}&cursor_mode=true&${pagesParams}&mode=OR&from_platform=web`;
 
             const url = window.API_CONFIG.buildUrl.pancake('conversations', queryString);
@@ -960,26 +1023,18 @@ class PancakeDataManager {
                 }
             }
 
-            // Get page_access_token for Official API (pages.fm)
-            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
-            if (!pageAccessToken) {
-                throw new Error('No page_access_token available');
+            // Get JWT token for Pancake Direct API (pancake.vn)
+            const jwtToken = await window.pancakeTokenManager?.getToken();
+            if (!jwtToken) {
+                throw new Error('No JWT token available');
             }
 
-            // Build URL: GET /pages/{pageId}/conversations/{conversationId}/messages (Official API)
-            let extraParams = '';
-            if (currentCount !== null) {
-                extraParams += `&current_count=${currentCount}`;
-            }
-            // FIX: Add customer_id to prevent "Thiếu mã khách hàng" error
-            if (customerId !== null) {
-                extraParams += `&customer_id=${customerId}`;
-            }
-
-            const url = window.API_CONFIG.buildUrl.pancakeOfficial(
-                `pages/${pageId}/conversations/${conversationId}/messages`,
-                pageAccessToken
-            ) + extraParams;
+            // Build URL: GET /pages/{pageId}/conversations/{conversationId}/messages (Pancake Direct)
+            // Reference: pancake.vn/api/v1/pages/{pageId}/conversations/{convId}/messages?customer_id={id}&access_token={JWT}
+            const endpoint = `pages/${pageId}/conversations/${conversationId}/messages`;
+            const url = window.API_CONFIG.buildUrl.pancakeDirect(endpoint, pageId, jwtToken, jwtToken)
+                + (customerId ? `&customer_id=${customerId}` : '')
+                + (currentCount !== null ? `&current_count=${currentCount}` : '');
 
             const response = await API_CONFIG.smartFetch(url, {
                 method: 'GET',

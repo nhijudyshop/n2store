@@ -238,7 +238,8 @@ class InboxDataManager {
             return [];
         }
 
-        const pageIds = pdm.pageIds || [];
+        // Use cached searchable pages if available (excludes expired subscription pages)
+        const pageIds = pdm._searchablePageIds || pdm.pageIds || [];
         if (pageIds.length === 0) {
             console.warn('[InboxData] No pages available');
             return [];
@@ -246,6 +247,7 @@ class InboxDataManager {
 
         console.log(`[InboxData] 🔄 Fetching conversations per-page for ${pageIds.length} pages...`);
         let allConversations = [];
+        const workingPageIds = [];
 
         for (const pageId of pageIds) {
             try {
@@ -273,6 +275,7 @@ class InboxDataManager {
                     continue;
                 }
 
+                workingPageIds.push(pageId);
                 const convs = data.conversations || [];
                 // Ensure page_id is set on every conversation (per-page API may omit it)
                 for (const c of convs) {
@@ -285,8 +288,17 @@ class InboxDataManager {
             }
         }
 
-        // Sort by updated_at descending
+        // Cache working pages so search can skip expired ones immediately
+        if (workingPageIds.length > 0 && workingPageIds.length < pageIds.length) {
+            pdm._searchablePageIds = workingPageIds;
+            console.log(`[InboxData] Cached searchable pages:`, workingPageIds);
+        }
+
+        // Sort: unread first, then by updated_at descending (matches Pancake API order)
         allConversations.sort((a, b) => {
+            const aUnread = (a.unread_count || 0) > 0 ? 1 : 0;
+            const bUnread = (b.unread_count || 0) > 0 ? 1 : 0;
+            if (aUnread !== bUnread) return bUnread - aUnread;
             const ta = new Date(a.updated_at || 0).getTime();
             const tb = new Date(b.updated_at || 0).getTime();
             return tb - ta;
@@ -329,12 +341,13 @@ class InboxDataManager {
                     }
                 }
             } else if (error === 122) {
-                // Subscription expired - try other accounts (multi-page first, then per-page)
-                console.log(`[InboxData] Error 122 (subscription expired), trying other accounts...`);
-                rawConversations = await this.tryOtherAccounts();
+                // Subscription expired on some page(s) - this is page-level, not account-level
+                // Go directly to per-page fetch (skips expired pages automatically)
+                console.log(`[InboxData] Error 122 (page subscription expired), fetching per-page...`);
+                rawConversations = await this.fetchConversationsPerPage();
 
                 if (rawConversations.length === 0) {
-                    console.log('[InboxData] All accounts failed multi-page, trying per-page...');
+                    console.log('[InboxData] Per-page failed, trying other accounts per-page...');
                     rawConversations = await this.tryOtherAccountsPerPage();
                 }
             } else if (rawConversations.length === 0) {
@@ -481,6 +494,13 @@ class InboxDataManager {
         return [];
     }
 
+    _filterSystemMessage(text) {
+        if (!text) return '';
+        const t = text.trim();
+        if (t.startsWith('Đã thêm nhãn tự động:') || t.startsWith('Đã đặt giai đoạn')) return '';
+        return text;
+    }
+
     /**
      * Map a Pancake conversation to inbox format
      */
@@ -491,15 +511,22 @@ class InboxDataManager {
 
         const pageName = this.getPageName(conv.page_id);
 
+        // Extract phone numbers from recent_phone_numbers for search
+        const phones = (conv.recent_phone_numbers || []).map(p => p.phone_number || p.captured).filter(Boolean);
+
+        // Check if last message was from customer (not from page/admin)
+        const lastSentById = conv.last_sent_by?.id;
+        const isCustomerLast = lastSentById && lastSentById !== conv.page_id;
+
         return {
             id: conv.id,
             name: customerName,
             avatar: conv.from?.avatar || null,
-            lastMessage: conv.snippet || conv.last_message?.text || conv.last_message?.message || '',
+            lastMessage: this._filterSystemMessage((conv.snippet || conv.last_message?.text || conv.last_message?.message || '').replace(/<[^>]*>/g, '')),
             time: this.parseTimestamp(conv.updated_at || conv.last_message?.inserted_at) || new Date(),
             unread: conv.unread_count || 0,
             online: false,
-            phone: '',
+            phone: phones.join(', '),
             labels: this.getLabelArray(conv.id),
             isLivestream: this.livestreamConvIdSet.has(conv.id),
             type: conv.type, // 'INBOX' or 'COMMENT'
@@ -508,6 +535,7 @@ class InboxDataManager {
             psid: conv.from_psid || conv.from?.id || '',
             customerId: (conv.customers && conv.customers.length > 0) ? conv.customers[0].id : null,
             conversationId: conv.id,
+            isCustomerLast, // true = customer sent last message (unanswered)
             messages: [], // Messages loaded on demand
             _raw: conv,   // Keep raw data for reference
         };
@@ -594,15 +622,25 @@ class InboxDataManager {
 
         if (search) {
             const q = removeDiacritics(search);
-            result = result.filter(c =>
-                removeDiacritics(c.name).includes(q) ||
-                removeDiacritics(c.lastMessage).includes(q) ||
-                (c.phone && c.phone.includes(q)) ||
-                removeDiacritics(c.pageName).includes(q)
-            );
+            result = result.filter(c => {
+                if (removeDiacritics(c.name).includes(q)) return true;
+                if (removeDiacritics(c.lastMessage).includes(q)) return true;
+                if (c.phone && c.phone.includes(q)) return true;
+                if (removeDiacritics(c.pageName).includes(q)) return true;
+                // Also search in raw phone numbers (for phone search)
+                const rawPhones = c._raw?.recent_phone_numbers;
+                if (rawPhones && rawPhones.some(p => (p.phone_number || p.captured || '').includes(search))) return true;
+                return false;
+            });
         }
 
-        result.sort((a, b) => b.time - a.time);
+        // Sort: unread first, then by updated_at descending (matches Pancake API order)
+        result.sort((a, b) => {
+            const aUnread = a.unread > 0 ? 1 : 0;
+            const bUnread = b.unread > 0 ? 1 : 0;
+            if (aUnread !== bUnread) return bUnread - aUnread;
+            return b.time - a.time;
+        });
         return result;
     }
 
@@ -907,6 +945,7 @@ class InboxDataManager {
                             psid: sc.psid || '',
                             customerId: sc.customer_id || null,
                             conversationId: sc.conv_id,
+                            isCustomerLast: true, // virtual entries = customer initiated
                             messages: [],
                             _raw: { post_id: postId },
                             _virtual: true, // flag for server-only entries
