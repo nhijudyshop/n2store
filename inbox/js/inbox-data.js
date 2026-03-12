@@ -502,6 +502,10 @@ class InboxDataManager {
         // Extract phone numbers from recent_phone_numbers for search
         const phones = (conv.recent_phone_numbers || []).map(p => p.phone_number || p.captured).filter(Boolean);
 
+        // Check if last message was from customer (not from page/admin)
+        const lastSentById = conv.last_sent_by?.id;
+        const isCustomerLast = lastSentById && lastSentById !== conv.page_id;
+
         return {
             id: conv.id,
             name: customerName,
@@ -519,6 +523,7 @@ class InboxDataManager {
             psid: conv.from_psid || conv.from?.id || '',
             customerId: (conv.customers && conv.customers.length > 0) ? conv.customers[0].id : null,
             conversationId: conv.id,
+            isCustomerLast, // true = customer sent last message (unanswered)
             messages: [], // Messages loaded on demand
             _raw: conv,   // Keep raw data for reference
         };
@@ -617,7 +622,13 @@ class InboxDataManager {
             });
         }
 
-        result.sort((a, b) => b.time - a.time);
+        // Sort: customer-last (unanswered) first, then by time descending
+        result.sort((a, b) => {
+            if (a.isCustomerLast !== b.isCustomerLast) {
+                return a.isCustomerLast ? -1 : 1;
+            }
+            return b.time - a.time;
+        });
         return result;
     }
 
@@ -922,6 +933,7 @@ class InboxDataManager {
                             psid: sc.psid || '',
                             customerId: sc.customer_id || null,
                             conversationId: sc.conv_id,
+                            isCustomerLast: true, // virtual entries = customer initiated
                             messages: [],
                             _raw: { post_id: postId },
                             _virtual: true, // flag for server-only entries

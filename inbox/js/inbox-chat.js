@@ -471,6 +471,43 @@ class InboxChatController {
             });
         }
 
+        // Label bar drag-to-resize
+        const labelResize = document.getElementById('chatLabelResize');
+        if (labelResize) {
+            let startY, startHeight;
+            const labelList = this.elements.chatLabelBarList;
+
+            labelResize.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                startY = e.clientY;
+                startHeight = labelList.offsetHeight;
+                const onMove = (ev) => {
+                    const diff = startY - ev.clientY; // drag up = expand
+                    const newH = Math.max(27, startHeight + diff);
+                    labelList.style.maxHeight = newH + 'px';
+                    if (newH > 60) labelList.classList.add('expanded');
+                    else labelList.classList.remove('expanded');
+                };
+                const onUp = () => {
+                    document.removeEventListener('mousemove', onMove);
+                    document.removeEventListener('mouseup', onUp);
+                };
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
+            });
+
+            // Double-click to toggle expand/collapse
+            labelResize.addEventListener('dblclick', () => {
+                if (labelList.classList.contains('expanded')) {
+                    labelList.classList.remove('expanded');
+                    labelList.style.maxHeight = '54px';
+                } else {
+                    labelList.classList.add('expanded');
+                    labelList.style.maxHeight = '300px';
+                }
+            });
+        }
+
     }
 
     // ===== Page Selector (from tpos-pancake) =====

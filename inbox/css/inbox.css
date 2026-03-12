@@ -364,24 +364,30 @@ body.col-resizing .resize-handle {
 }
 
 .col-header {
-    padding: var(--spacing-md) var(--spacing-lg);
+    padding: var(--spacing-xs) var(--spacing-md);
     border-bottom: 1px solid var(--border);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    min-height: 60px;
+    min-height: 40px;
     background: var(--surface);
 }
 
 .col-header h2 {
-    font-size: 1.125rem;
+    font-size: 1rem;
     font-weight: 700;
     color: var(--text-primary);
 }
 
+.col-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
 .btn-icon-sm {
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
     border: none;
     background: transparent;
     color: var(--text-secondary);
@@ -399,8 +405,8 @@ body.col-resizing .resize-handle {
 
 .btn-icon-sm i,
 .btn-icon-sm svg {
-    width: 18px;
-    height: 18px;
+    width: 16px;
+    height: 16px;
 }
 
 .btn-icon-sm.active {
@@ -521,15 +527,15 @@ body.col-resizing .resize-handle {
 }
 
 .type-count {
+    font-weight: 600;
+    font-size: 0.65rem;
+    color: var(--text-tertiary);
+    margin-left: 2px;
+}
+
+.type-filter-btn.active .type-count {
+    color: var(--primary);
     font-weight: 700;
-    font-size: 0.7rem;
-    background: #ef4444;
-    color: #fff;
-    padding: 0 5px;
-    border-radius: 8px;
-    min-width: 18px;
-    text-align: center;
-    line-height: 1.5;
 }
 
 /* Livestream Post Selector */
@@ -1128,28 +1134,39 @@ body.col-resizing .resize-handle {
 .chat-label-bar-list {
     display: flex;
     gap: 4px;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    scrollbar-width: thin;
-    scrollbar-color: var(--gray-300, #ccc) transparent;
-    padding-bottom: 4px;
+    flex-wrap: wrap;
+    max-height: 54px; /* ~2 rows */
+    overflow-y: hidden;
+    transition: max-height 0.2s ease;
 }
 
-.chat-label-bar-list::-webkit-scrollbar {
+.chat-label-bar-list.expanded {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+/* Drag handle to resize label bar */
+.chat-label-resize {
+    width: 100%;
     height: 6px;
+    cursor: ns-resize;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.4;
+    transition: opacity 0.2s;
 }
 
-.chat-label-bar-list::-webkit-scrollbar-track {
-    background: transparent;
+.chat-label-resize:hover {
+    opacity: 0.8;
 }
 
-.chat-label-bar-list::-webkit-scrollbar-thumb {
-    background: var(--gray-300, #ccc);
-    border-radius: 4px;
-}
-
-.chat-label-bar-list::-webkit-scrollbar-thumb:hover {
+.chat-label-resize::after {
+    content: '';
+    width: 30px;
+    height: 3px;
     background: var(--gray-400, #aaa);
+    border-radius: 2px;
 }
 
 .chat-label-btn {
