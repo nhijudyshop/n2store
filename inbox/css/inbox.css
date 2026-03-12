@@ -527,15 +527,16 @@ body.col-resizing .resize-handle {
 }
 
 .type-count {
-    font-weight: 600;
-    font-size: 0.65rem;
-    color: var(--text-tertiary);
-    margin-left: 2px;
-}
-
-.type-filter-btn.active .type-count {
-    color: var(--primary);
     font-weight: 700;
+    font-size: 0.6rem;
+    background: #ef4444;
+    color: #fff;
+    padding: 1px 5px;
+    border-radius: 9px;
+    min-width: 18px;
+    text-align: center;
+    line-height: 1.4;
+    margin-left: 3px;
 }
 
 /* Livestream Post Selector */

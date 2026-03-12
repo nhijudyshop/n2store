@@ -209,7 +209,7 @@ class InboxChatController {
                     badge.className = 'type-count';
                     btn.appendChild(badge);
                 }
-                badge.textContent = `(${count})`;
+                badge.textContent = count > 99 ? '99+' : count;
             });
         };
 
