@@ -1277,6 +1277,33 @@ body.col-resizing .resize-handle {
     max-width: 200px;
 }
 
+/* Image Preview (paste) */
+.chat-image-preview {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: var(--bg-secondary, #f7f7f8);
+    border-bottom: 1px solid var(--border-color);
+}
+.chat-image-preview img {
+    max-height: 80px;
+    max-width: 120px;
+    border-radius: 6px;
+    object-fit: cover;
+    border: 1px solid var(--border-color);
+}
+.chat-image-preview-close {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: var(--text-tertiary);
+    padding: 0 4px;
+    line-height: 1;
+}
+.chat-image-preview-close:hover { color: var(--danger-color, #ef4444); }
+
 .chat-input-wrapper {
     display: flex;
     align-items: flex-end;

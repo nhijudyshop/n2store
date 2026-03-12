@@ -260,7 +260,8 @@ class InboxChatController {
             el.style.height = Math.min(el.scrollHeight, 120) + 'px';
         });
 
-        // Paste image support
+        // Paste image: show preview, send on Enter
+        this.pendingImage = null;
         this.elements.chatInput.addEventListener('paste', (e) => {
             const items = e.clipboardData?.items;
             if (!items) return;
@@ -268,11 +269,12 @@ class InboxChatController {
                 if (item.type.startsWith('image/')) {
                     e.preventDefault();
                     const file = item.getAsFile();
-                    if (file) this._sendImageFile(file);
+                    if (file) this._showImagePreview(file);
                     return;
                 }
             }
         });
+        document.getElementById('chatImagePreviewClose')?.addEventListener('click', () => this._clearImagePreview());
 
         // Note input: Enter to send (right panel only)
         const noteInput = document.getElementById('convNoteInput');
@@ -1740,7 +1742,20 @@ class InboxChatController {
         if (!this.activeConversationId || this.isSending) return;
 
         const text = this.elements.chatInput.value.trim();
-        if (!text) return;
+        const hasPendingImage = !!this.pendingImage;
+
+        // Need either text or image
+        if (!text && !hasPendingImage) return;
+
+        // If only image (no text), send image and return
+        if (hasPendingImage) {
+            const file = this.pendingImage;
+            this._clearImagePreview();
+            this.elements.chatInput.value = '';
+            this.elements.chatInput.style.height = 'auto';
+            await this._sendImageFile(file);
+            return;
+        }
 
         const conv = this.data.getConversation(this.activeConversationId);
         if (!conv) return;
@@ -1993,6 +2008,25 @@ class InboxChatController {
             }
         };
         input.click();
+    }
+
+    _showImagePreview(file) {
+        this.pendingImage = file;
+        const preview = document.getElementById('chatImagePreview');
+        const img = document.getElementById('chatImagePreviewImg');
+        if (preview && img) {
+            img.src = URL.createObjectURL(file);
+            preview.style.display = 'flex';
+        }
+        this.elements.chatInput.focus();
+    }
+
+    _clearImagePreview() {
+        this.pendingImage = null;
+        const preview = document.getElementById('chatImagePreview');
+        const img = document.getElementById('chatImagePreviewImg');
+        if (preview) preview.style.display = 'none';
+        if (img) { URL.revokeObjectURL(img.src); img.src = ''; }
     }
 
     /**
