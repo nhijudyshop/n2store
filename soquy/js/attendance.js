@@ -328,6 +328,7 @@
             let workedDays = 0;
             const dayCells = [];
 
+            const empRate = emp.dailyRate || SALARY.DAILY_RATE;
             for (const date of dates) {
                 const dateKey = toDateKey(date);
                 const dayRecords = weekRecords.filter(r =>
@@ -335,7 +336,7 @@
                 );
                 const cellData = processDayRecords(dayRecords);
                 totalMinutes += cellData.workedMinutes;
-                const daySalary = calculateDaySalary(cellData);
+                const daySalary = calculateDaySalary(cellData, empRate);
                 weekSalary += daySalary.totalSalary;
                 if (daySalary.totalSalary > 0) workedDays++;
                 dayCells.push({ cellData, daySalary, dateKey });
@@ -358,16 +359,7 @@
 
             html += '<tr>';
 
-            // Cột tên nhân viên
-            html += `
-                <td class="ts-col-fixed">
-                    <div style="display:flex; align-items:center; gap:4px;">
-                        <div style="font-weight:600; color:#1e293b; flex:1;">${escapeHtml(emp.name || 'N/A')}</div>
-                        <span onclick="window._attendance.hideEmployee('${empId}')" title="Ẩn nhân viên" style="cursor:pointer; color:#d9d9d9; font-size:14px; line-height:1;">✕</span>
-                    </div>
-                    <div style="font-size:11px; color:#8c8c8c;">ID: ${empId}</div>
-                </td>
-            `;
+            html += renderEmpNameCell(emp, empId, false);
 
             // 7 cột cho 7 ngày
             for (const { cellData, daySalary, dateKey } of dayCells) {
@@ -434,15 +426,7 @@
             if (showHidden) {
                 for (const { emp, empId, totalMinutes, weekSalary, workedDays, dayCells } of hiddenData) {
                     html += `<tr style="opacity:0.5;">`;
-                    html += `
-                        <td class="ts-col-fixed">
-                            <div style="display:flex; align-items:center; gap:4px;">
-                                <div style="font-weight:600; color:#8c8c8c; flex:1;">${escapeHtml(emp.name || 'N/A')}</div>
-                                <span onclick="window._attendance.unhideEmployee('${empId}')" title="Bỏ ẩn" style="cursor:pointer; color:#52c41a; font-size:12px;">Hiện</span>
-                            </div>
-                            <div style="font-size:11px; color:#bfbfbf;">ID: ${empId}</div>
-                        </td>
-                    `;
+                    html += renderEmpNameCell(emp, empId, true);
                     for (const { cellData, daySalary, dateKey } of dayCells) {
                         html += `<td>${renderDayCell(cellData, daySalary, emp, dateKey)}</td>`;
                     }
@@ -507,8 +491,10 @@
      * - Về sớm: ra trước 16:00 → lương chia đôi (100,000)
      * - Làm thêm: ra 20:00-24:00 → đủ lương + OT nhân đôi
      */
-    function calculateDaySalary(cellData) {
-        const result = { baseSalary: 0, lateDeduction: 0, lateMinutes: 0, otPay: 0, otMinutes: 0, totalSalary: 0 };
+    function calculateDaySalary(cellData, dailyRate) {
+        const rate = dailyRate || SALARY.DAILY_RATE;
+        const hourlyRate = rate / 12;
+        const result = { baseSalary: 0, lateDeduction: 0, lateMinutes: 0, otPay: 0, otMinutes: 0, totalSalary: 0, dailyRate: rate };
 
         if (cellData.status === 'absent' || cellData.status === 'incomplete') {
             return result;
@@ -527,28 +513,58 @@
         }
 
         // --- Base salary based on checkout time ---
-        const endWork = new Date(checkOut);
         const hour16 = new Date(checkOut);
         hour16.setHours(SALARY.WORK_END_HOUR, 0, 0, 0);
         const hour20 = new Date(checkOut);
         hour20.setHours(SALARY.OT_START_HOUR, 0, 0, 0);
 
         if (checkOut < hour16) {
-            // Về sớm trước 16h → lương chia đôi
-            result.baseSalary = SALARY.DAILY_RATE / 2;
+            result.baseSalary = rate / 2;
         } else if (checkOut < hour20) {
-            // Ra từ 16h-20h → đủ lương
-            result.baseSalary = SALARY.DAILY_RATE;
+            result.baseSalary = rate;
         } else {
-            // Ra từ 20h-24h → đủ lương + OT nhân đôi
-            result.baseSalary = SALARY.DAILY_RATE;
+            result.baseSalary = rate;
             result.otMinutes = Math.floor((checkOut - hour20) / (1000 * 60));
             const otHours = result.otMinutes / 60;
-            result.otPay = Math.round(otHours * SALARY.HOURLY_RATE * SALARY.OT_MULTIPLIER);
+            result.otPay = Math.round(otHours * hourlyRate * SALARY.OT_MULTIPLIER);
         }
 
         result.totalSalary = Math.max(0, result.baseSalary - result.lateDeduction + result.otPay);
         return result;
+    }
+
+    /** Render ô tên nhân viên (dùng chung cho cả 3 view) */
+    function renderEmpNameCell(emp, empId, isHiddenRow) {
+        const rate = emp.dailyRate || SALARY.DAILY_RATE;
+        const rateLabel = formatVND(rate) + 'đ/ngày';
+        const nameColor = isHiddenRow ? '#8c8c8c' : '#1e293b';
+        const subColor = isHiddenRow ? '#bfbfbf' : '#8c8c8c';
+
+        if (isHiddenRow) {
+            return `
+                <td class="ts-col-fixed">
+                    <div style="display:flex; align-items:center; gap:4px;">
+                        <div style="font-weight:600; color:${nameColor}; flex:1;">${escapeHtml(emp.name || 'N/A')}</div>
+                        <span onclick="window._attendance.unhideEmployee('${empId}')" title="Bỏ ẩn" style="cursor:pointer; color:#52c41a; font-size:12px;">Hiện</span>
+                    </div>
+                    <div style="font-size:11px; color:${subColor};">
+                        <span onclick="window._attendance.showSalaryModal('${empId}')" style="cursor:pointer;" title="Chỉnh lương">${rateLabel}</span>
+                    </div>
+                </td>
+            `;
+        }
+
+        return `
+            <td class="ts-col-fixed">
+                <div style="display:flex; align-items:center; gap:4px;">
+                    <div style="font-weight:600; color:${nameColor}; flex:1;">${escapeHtml(emp.name || 'N/A')}</div>
+                    <span onclick="window._attendance.hideEmployee('${empId}')" title="Ẩn nhân viên" style="cursor:pointer; color:#d9d9d9; font-size:14px; line-height:1;">✕</span>
+                </div>
+                <div style="font-size:11px; color:${subColor};">
+                    <span onclick="window._attendance.showSalaryModal('${empId}')" style="cursor:pointer; color:${rate !== SALARY.DAILY_RATE ? '#1890ff' : subColor};" title="Chỉnh lương">${rateLabel}</span>
+                </div>
+            </td>
+        `;
     }
 
     /** Format số tiền VND */
@@ -694,13 +710,14 @@
             let workedDays = 0;
             const dayCells = [];
 
+            const empRate = emp.dailyRate || SALARY.DAILY_RATE;
             for (const date of dates) {
                 const dateKey = toDateKey(date);
                 const dayRecords = weekRecords.filter(r =>
                     String(r.deviceUserId) === empId && r.dateKey === dateKey
                 );
                 const cellData = processDayRecords(dayRecords);
-                const daySalary = calculateDaySalary(cellData);
+                const daySalary = calculateDaySalary(cellData, empRate);
                 weekSalary += daySalary.totalSalary;
                 if (daySalary.totalSalary > 0) workedDays++;
                 dayCells.push({ cellData, daySalary, dateKey, date });
@@ -731,16 +748,7 @@
         for (const { emp, empId, weekSalary, workedDays, dayCells } of visibleData) {
             html += '<tr>';
 
-            // Tên nhân viên
-            html += `
-                <td class="ts-col-fixed">
-                    <div style="display:flex; align-items:center; gap:4px;">
-                        <div style="font-weight:600; color:#1e293b; flex:1;">${escapeHtml(emp.name || 'N/A')}</div>
-                        <span onclick="window._attendance.hideEmployee('${empId}')" title="Ẩn nhân viên" style="cursor:pointer; color:#d9d9d9; font-size:14px; line-height:1;">✕</span>
-                    </div>
-                    <div style="font-size:11px; color:#8c8c8c;">ID: ${empId}</div>
-                </td>
-            `;
+            html += renderEmpNameCell(emp, empId, false);
 
             // 7 ngày - hiện block trạng thái
             for (const { cellData, daySalary, dateKey, date } of dayCells) {
@@ -775,15 +783,7 @@
             if (showHidden) {
                 for (const { emp, empId, weekSalary, workedDays, dayCells } of hiddenData) {
                     html += `<tr style="opacity:0.5;">`;
-                    html += `
-                        <td class="ts-col-fixed">
-                            <div style="display:flex; align-items:center; gap:4px;">
-                                <div style="font-weight:600; color:#8c8c8c; flex:1;">${escapeHtml(emp.name || 'N/A')}</div>
-                                <span onclick="window._attendance.unhideEmployee('${empId}')" title="Bỏ ẩn" style="cursor:pointer; color:#52c41a; font-size:12px;">Hiện</span>
-                            </div>
-                            <div style="font-size:11px; color:#bfbfbf;">ID: ${empId}</div>
-                        </td>
-                    `;
+                    html += renderEmpNameCell(emp, empId, true);
                     for (const { cellData, daySalary, dateKey, date } of dayCells) {
                         html += `<td>${renderScheduleCell(cellData, daySalary, emp, dateKey, date)}</td>`;
                     }
@@ -914,11 +914,12 @@
             const empId = String(emp.userId || emp.uid || emp.id);
             let totalBase = 0, totalLate = 0, totalOT = 0, totalSalary = 0, workedDays = 0;
 
+            const empRate = emp.dailyRate || SALARY.DAILY_RATE;
             for (let d = 1; d <= lastDay; d++) {
                 const dateKey = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
                 const dayRecs = records.filter(r => String(r.deviceUserId) === empId && r.dateKey === dateKey);
                 const cellData = processDayRecords(dayRecs);
-                const sal = calculateDaySalary(cellData);
+                const sal = calculateDaySalary(cellData, empRate);
                 totalBase += sal.baseSalary;
                 totalLate += sal.lateDeduction;
                 totalOT += sal.otPay;
@@ -958,13 +959,7 @@
         for (const { emp, empId, workedDays, totalBase, totalLate, totalOT, totalSalary } of visibleData) {
             html += `
                 <tr>
-                    <td class="ts-col-fixed">
-                        <div style="display:flex; align-items:center; gap:4px;">
-                            <div style="font-weight:600; color:#1e293b; flex:1;">${escapeHtml(emp.name || 'N/A')}</div>
-                            <span onclick="window._attendance.hideEmployee('${empId}')" title="Ẩn" style="cursor:pointer; color:#d9d9d9; font-size:14px;">✕</span>
-                        </div>
-                        <div style="font-size:11px; color:#8c8c8c;">ID: ${empId}</div>
-                    </td>
+                    ${renderEmpNameCell(emp, empId, false)}
                     <td style="text-align:center; font-weight:600;">${workedDays > 0 ? workedDays + ' ngày' : '-'}</td>
                     <td style="text-align:right; color:#1e293b;">${totalBase > 0 ? formatVND(totalBase) + 'đ' : '-'}</td>
                     <td style="text-align:right; color:${totalLate > 0 ? '#cf1322' : '#bfbfbf'};">${totalLate > 0 ? '-' + formatVND(totalLate) + 'đ' : '-'}</td>
@@ -991,12 +986,7 @@
                 for (const { emp, empId, workedDays, totalBase, totalLate, totalOT, totalSalary } of hiddenData) {
                     html += `
                         <tr style="opacity:0.5;">
-                            <td class="ts-col-fixed">
-                                <div style="display:flex; align-items:center; gap:4px;">
-                                    <div style="font-weight:600; color:#8c8c8c; flex:1;">${escapeHtml(emp.name || 'N/A')}</div>
-                                    <span onclick="window._attendance.unhideEmployee('${empId}')" style="cursor:pointer; color:#52c41a; font-size:12px;">Hiện</span>
-                                </div>
-                            </td>
+                            ${renderEmpNameCell(emp, empId, true)}
                             <td style="text-align:center; color:#8c8c8c;">${workedDays > 0 ? workedDays + ' ngày' : '-'}</td>
                             <td style="text-align:right; color:#8c8c8c;">${totalBase > 0 ? formatVND(totalBase) + 'đ' : '-'}</td>
                             <td style="text-align:right; color:#8c8c8c;">${totalLate > 0 ? '-' + formatVND(totalLate) + 'đ' : '-'}</td>
@@ -1283,7 +1273,8 @@
             const cellData = processDayRecords(
                 weekRecords.filter(r => String(r.deviceUserId) === String(empId) && r.dateKey === dateKey)
             );
-            const salary = calculateDaySalary(cellData);
+            const empRate = emp ? (emp.dailyRate || SALARY.DAILY_RATE) : SALARY.DAILY_RATE;
+            const salary = calculateDaySalary(cellData, empRate);
 
             lines.push('');
             lines.push('════════════════════════');
@@ -1310,7 +1301,7 @@
                     const earlyM = earlyMin % 60;
                     const earlyDisplay = earlyH > 0 ? `${earlyH}h${earlyM > 0 ? earlyM + 'p' : ''}` : `${earlyM}p`;
                     lines.push(`⚠ Về sớm ${earlyDisplay} trước 16:00`);
-                    lines.push(`→ Lương bị chia đôi: ${formatVND(salary.baseSalary)}đ (thay vì ${formatVND(SALARY.DAILY_RATE)}đ)`);
+                    lines.push(`→ Lương bị chia đôi: ${formatVND(salary.baseSalary)}đ (thay vì ${formatVND(empRate)}đ)`);
                 } else {
                     lines.push(`Lương cơ bản: ${formatVND(salary.baseSalary)}đ (ca 8:00-20:00)`);
                 }
@@ -1324,7 +1315,8 @@
                     const otH = Math.floor(salary.otMinutes / 60);
                     const otM = salary.otMinutes % 60;
                     const otDisplay = otH > 0 ? `${otH}h${otM > 0 ? otM + 'p' : ''}` : `${otM}p`;
-                    const otRate = SALARY.HOURLY_RATE * SALARY.OT_MULTIPLIER;
+                    const hourlyRate = empRate / 12;
+                    const otRate = hourlyRate * SALARY.OT_MULTIPLIER;
                     lines.push(`🌙 Làm thêm ${otDisplay} (sau 20:00)`);
                     lines.push(`→ OT: ${formatVND(otRate)}đ/h × ${otDisplay} = +${formatVND(salary.otPay)}đ`);
                 }
@@ -1347,6 +1339,56 @@
         const closeBtn = modal.querySelector('.btn-icon');
         if (closeBtn) {
             closeBtn.onclick = () => { modal.style.display = 'none'; };
+        }
+    }
+
+    // ================================================================
+    // SALARY EDIT MODAL
+    // ================================================================
+
+    function showSalaryModal(empId) {
+        const emp = employees.find(e => String(e.userId || e.uid || e.id) === String(empId));
+        if (!emp) return;
+
+        const currentRate = emp.dailyRate || SALARY.DAILY_RATE;
+        const modal = document.getElementById('salaryModal');
+        if (!modal) return;
+
+        const nameEl = modal.querySelector('#salaryEmpName');
+        const input = modal.querySelector('#salaryRateInput');
+        const saveBtn = modal.querySelector('#btnSaveSalary');
+        const closeBtn = modal.querySelector('.btn-icon');
+
+        if (nameEl) nameEl.textContent = emp.name || `User ${empId}`;
+        if (input) input.value = currentRate;
+
+        modal.style.display = 'flex';
+
+        if (closeBtn) closeBtn.onclick = () => { modal.style.display = 'none'; };
+
+        if (saveBtn) {
+            saveBtn.onclick = async () => {
+                const newRate = parseInt(input.value);
+                if (isNaN(newRate) || newRate <= 0) {
+                    showNotification('Vui lòng nhập lương hợp lệ', 'error');
+                    return;
+                }
+
+                try {
+                    const docId = emp.userId || emp.id;
+                    await db.collection(COLLECTIONS.deviceUsers).doc(String(docId)).update({
+                        dailyRate: newRate
+                    });
+                    emp.dailyRate = newRate;
+                    modal.style.display = 'none';
+                    showNotification(`Đã cập nhật lương ${emp.name}: ${formatVND(newRate)}đ/ngày`, 'success');
+                    renderTimesheet();
+                    renderSchedule();
+                } catch (err) {
+                    console.error('[Attendance] Lỗi lưu lương:', err);
+                    showNotification('Lỗi: ' + err.message, 'error');
+                }
+            };
         }
     }
 
@@ -1562,6 +1604,7 @@
     window._attendance = {
         init,
         showDetail,
+        showSalaryModal,
         addDeviceUser,
         enrollFingerprint,
         sendSync: sendSyncCommand,

@@ -1740,6 +1740,36 @@
     </div>
 
     <!-- ==================== MODAL: CHẤM CÔNG THỦ CÔNG ==================== -->
+    <!-- MODAL: SALARY EDIT -->
+    <div class="modal" id="salaryModal" style="display: none;">
+        <div class="modal-overlay" onclick="this.parentElement.style.display='none'"></div>
+        <div class="modal-content k-modal" style="width: 400px;">
+            <div class="modal-header k-modal-header">
+                <h3>Chỉnh lương cơ bản</h3>
+                <button class="btn-icon"><i data-lucide="x"></i></button>
+            </div>
+            <div class="modal-body k-modal-body">
+                <div class="form-group k-group">
+                    <label>Nhân viên</label>
+                    <div id="salaryEmpName" style="font-weight:600; font-size:15px; color:#1e293b;"></div>
+                </div>
+                <div class="form-group k-group">
+                    <label>Lương cơ bản (VNĐ/ngày)</label>
+                    <input type="number" id="salaryRateInput" class="form-control" step="10000" min="0" placeholder="200000">
+                </div>
+                <div style="font-size:12px; color:#8c8c8c; margin-top:4px;">
+                    Mặc định: 200.000đ/ngày (ca 8:00-20:00)
+                </div>
+            </div>
+            <div class="modal-footer k-modal-footer">
+                <div style="flex:1;"></div>
+                <button class="btn-primary" id="btnSaveSalary" style="background:#1890ff; border-color:#1890ff;">
+                    <i data-lucide="save"></i> Lưu
+                </button>
+            </div>
+        </div>
+    </div>
+
     <div class="modal" id="attendanceModal" style="display: none;">
         <div class="modal-overlay"></div>
         <div class="modal-content k-modal">
@@ -1786,7 +1816,7 @@
                 </div>
                 <div class="form-group k-group">
                     <label>Ghi chú</label>
-                    <textarea class="form-control" rows="2" placeholder="Lý do đi muộn, về sớm..."></textarea>
+                    <textarea class="form-control" rows="8" placeholder="Lý do đi muộn, về sớm..." style="font-family: monospace; font-size: 13px;"></textarea>
                 </div>
             </div>
             <div class="modal-footer k-modal-footer">
