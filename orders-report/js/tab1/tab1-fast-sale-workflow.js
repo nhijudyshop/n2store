@@ -1573,5 +1573,6 @@
     window.removeTagFromOrder = removeTagFromOrder;
     window.addTagToOrder = addTagToOrder;
     window.assignTagsToOrder = assignTagsToOrder;
+    window.logCancelOrderActivity = logCancelOrderActivity;
 
 })();
