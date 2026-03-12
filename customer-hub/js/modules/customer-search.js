@@ -261,6 +261,9 @@ export class CustomerSearchModule {
                 this.hasMore = response.data.length === this.limit;
                 await this.enrichCustomersWithWallet(response.data);
                 this.renderResults(response.data);
+
+                // Auto-enrich incomplete customers from TPOS (runs in background)
+                this.enrichCustomersFromTPOS(response.data);
             } else {
                 this.tableBody.innerHTML = `
                     <tr>
@@ -369,6 +372,9 @@ export class CustomerSearchModule {
                 this.hasMore = response.data.length === this.limit;
                 await this.enrichCustomersWithWallet(response.data);
                 this.renderResults(response.data);
+
+                // Auto-enrich incomplete customers from TPOS (runs in background)
+                this.enrichCustomersFromTPOS(response.data);
             }
 
             // If query looks like a phone number (6+ digits), also search TPOS
@@ -389,6 +395,49 @@ export class CustomerSearchModule {
                             if (newFromTpos.length > 0) {
                                 console.log('[CustomerSearch] Found', newFromTpos.length, 'TPOS customer(s) not in local DB');
                                 this._showTPOSSelectionModal(newFromTpos);
+                            }
+
+                            // Also update existing local customers with incomplete data from TPOS
+                            if (hasLocalResults) {
+                                for (const tposCustomer of tposResult.customers) {
+                                    const localCustomer = (response.data || []).find(c => c.phone === tposCustomer.phone);
+                                    if (!localCustomer) continue;
+
+                                    const hasDefaultName = !localCustomer.name || localCustomer.name === 'Khách hàng mới';
+                                    const missingAddress = !localCustomer.address;
+                                    const missingTposId = !localCustomer.tpos_id;
+
+                                    if (hasDefaultName || missingAddress || missingTposId) {
+                                        const updates = {};
+                                        if (hasDefaultName && tposCustomer.name && tposCustomer.name !== 'Khách hàng mới') {
+                                            updates.name = tposCustomer.name;
+                                        }
+                                        if (missingAddress && tposCustomer.address) {
+                                            updates.address = tposCustomer.address;
+                                        }
+                                        if (missingTposId && tposCustomer.id) {
+                                            updates.tpos_id = tposCustomer.id;
+                                        }
+
+                                        if (Object.keys(updates).length > 0) {
+                                            Object.assign(localCustomer, updates);
+                                            // Update local DB in background
+                                            apiService.upsertCustomer({
+                                                phone: localCustomer.phone,
+                                                name: updates.name || localCustomer.name,
+                                                address: updates.address || localCustomer.address || '',
+                                                status: localCustomer.status || 'Bình thường',
+                                                tpos_id: updates.tpos_id || localCustomer.tpos_id
+                                            }).then(() => {
+                                                console.log('[CustomerSearch] Updated incomplete customer from TPOS:', localCustomer.phone, updates);
+                                            }).catch(err => {
+                                                console.warn('[CustomerSearch] Failed to update customer from TPOS:', err);
+                                            });
+                                        }
+                                    }
+                                }
+                                // Re-render with updated data
+                                this.renderResults(this.customers);
                             }
                         }
                     } catch (tposErr) {
@@ -846,6 +895,94 @@ export class CustomerSearchModule {
         if (diffDays < 30) return `${Math.floor(diffDays / 7)} weeks ago`;
 
         return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+
+    /**
+     * Auto-enrich incomplete customers from TPOS
+     * If a customer has default name ("Khách hàng mới") or missing address/tpos_id,
+     * look up TPOS and update local DB + UI
+     */
+    async enrichCustomersFromTPOS(customers) {
+        if (!window.fetchTPOSCustomer) return;
+
+        // Find customers that need enrichment
+        const needsEnrichment = customers.filter(c => {
+            if (!c.phone) return false;
+            const digits = c.phone.replace(/\D/g, '');
+            if (digits.length < 10) return false;
+            const hasDefaultName = !c.name || c.name === 'Khách hàng mới';
+            const missingAddress = !c.address;
+            const missingTposId = !c.tpos_id;
+            return hasDefaultName || (missingAddress && missingTposId);
+        });
+
+        if (needsEnrichment.length === 0) return;
+
+        console.log('[CustomerSearch] Enriching', needsEnrichment.length, 'customer(s) from TPOS');
+
+        // Lookup TPOS for each incomplete customer (in parallel, max 5)
+        const enrichPromises = needsEnrichment.map(async (customer) => {
+            try {
+                const tposResult = await window.fetchTPOSCustomer(customer.phone);
+                if (!tposResult.success || tposResult.count === 0) return null;
+
+                // Find matching TPOS customer by phone
+                const tposMatch = tposResult.customers.find(tc => tc.phone === customer.phone);
+                if (!tposMatch) return null;
+
+                // Check if TPOS has better data
+                const hasDefaultName = !customer.name || customer.name === 'Khách hàng mới';
+                const updates = {};
+                let hasUpdates = false;
+
+                if (hasDefaultName && tposMatch.name && tposMatch.name !== 'Khách hàng mới') {
+                    updates.name = tposMatch.name;
+                    hasUpdates = true;
+                }
+                if (!customer.address && tposMatch.address) {
+                    updates.address = tposMatch.address;
+                    hasUpdates = true;
+                }
+                if (!customer.tpos_id && tposMatch.id) {
+                    updates.tpos_id = tposMatch.id;
+                    hasUpdates = true;
+                }
+
+                if (!hasUpdates) return null;
+
+                // Update local DB
+                const upsertData = {
+                    phone: customer.phone,
+                    name: updates.name || customer.name,
+                    address: updates.address || customer.address || '',
+                    status: customer.status || tposMatch.statusText || 'Bình thường',
+                    tpos_id: updates.tpos_id || customer.tpos_id
+                };
+                await apiService.upsertCustomer(upsertData);
+                console.log('[CustomerSearch] Enriched customer from TPOS:', customer.phone, updates);
+
+                return { customer, updates };
+            } catch (err) {
+                console.warn('[CustomerSearch] TPOS enrichment failed for', customer.phone, err);
+                return null;
+            }
+        });
+
+        const results = await Promise.all(enrichPromises);
+
+        // Update in-memory data and re-render affected rows
+        let hasChanges = false;
+        for (const result of results) {
+            if (!result) continue;
+            const { customer, updates } = result;
+            Object.assign(customer, updates);
+            hasChanges = true;
+        }
+
+        if (hasChanges) {
+            console.log('[CustomerSearch] Re-rendering with TPOS-enriched data');
+            this.renderResults(this.customers);
+        }
     }
 
     async enrichCustomersWithWallet(customers) {
