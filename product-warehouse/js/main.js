@@ -171,12 +171,21 @@
                 console.log('[Warehouse] First row sample:', JSON.stringify(jsonData[0]).substring(0, 300));
             }
 
-            excelProducts = jsonData.map(row => ({
-                id: row['Id'] || row['Id sản phẩm (*)'],
-                name: row['Tên sản phẩm'] || '',
-                nameNoSign: removeVietnameseTones(row['Tên sản phẩm'] || ''),
-                code: row['Mã sản phẩm'] || ''
-            }));
+            excelProducts = jsonData.map(row => {
+                const name = row['Tên sản phẩm'] || '';
+                // Code may be in 'Mã sản phẩm' column or in brackets in name like [MM435]
+                let code = row['Mã sản phẩm'] || '';
+                if (!code) {
+                    const bracketMatch = name.match(/\[([^\]]+)\]/);
+                    if (bracketMatch) code = bracketMatch[1];
+                }
+                return {
+                    id: row['Id sản phẩm (*)'] || row['Id'],
+                    name: name,
+                    nameNoSign: removeVietnameseTones(name),
+                    code: code
+                };
+            });
 
             console.log('[Warehouse] Excel loaded:', excelProducts.length, 'products');
             if (excelProducts.length > 0) {

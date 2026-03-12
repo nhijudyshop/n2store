@@ -65,10 +65,10 @@
     align-items: center;
     border: 1.5px solid var(--gray-300);
     border-radius: var(--radius);
-    overflow: hidden;
     background: white;
     transition: border-color 0.2s, box-shadow 0.2s;
     min-width: 280px;
+    position: relative;
 }
 
 .header-search-box:focus-within {
