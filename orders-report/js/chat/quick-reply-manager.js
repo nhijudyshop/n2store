@@ -753,8 +753,6 @@ class QuickReplyManager {
         // Filter suggestions - match with Vietnamese diacritics removed
         const queryNoDiacritics = this.removeVietnameseDiacritics(query.toLowerCase());
         this.currentSuggestions = this.replies.filter(reply => {
-            // Show all templates when query is empty (user just typed /)
-            if (query === '') return true;
             if (!reply.shortcut) return false;
             // Compare both original and diacritics-removed versions
             const shortcutLower = reply.shortcut.toLowerCase();
@@ -799,17 +797,12 @@ class QuickReplyManager {
         this.autocompleteActive = true;
         this.selectedSuggestionIndex = 0;
 
-        // Position dropdown above input (input is at bottom of page)
+        // Position dropdown below input
         const dropdown = document.getElementById('quickReplyAutocomplete');
         const inputRect = inputElement.getBoundingClientRect();
 
-        // Calculate available space above input, leave 10px margin from top
-        const availableHeight = inputRect.top - 10;
-        dropdown.style.maxHeight = Math.min(availableHeight, window.innerHeight * 0.6) + 'px';
-
         dropdown.style.left = inputRect.left + 'px';
-        dropdown.style.bottom = (window.innerHeight - inputRect.top + 4) + 'px';
-        dropdown.style.top = 'auto';
+        dropdown.style.top = (inputRect.bottom + 4) + 'px';
         dropdown.style.width = Math.max(400, inputRect.width) + 'px';
         dropdown.style.display = 'block';
 
@@ -836,7 +829,7 @@ class QuickReplyManager {
                      data-index="${index}"
                      onclick="quickReplyManager.selectAutocompleteSuggestion(${index})">
                     <div style="display: flex; align-items: center; gap: 8px;">
-                        <span style="font-weight: 600; color: #667eea; min-width: 80px;">${reply.shortcut ? '/' + this.escapeHtml(reply.shortcut) : '#' + reply.id}</span>
+                        <span style="font-weight: 600; color: #667eea; min-width: 80px;">/${this.escapeHtml(reply.shortcut)}</span>
                         ${topicHTML}
                     </div>
                     <div style="font-size: 12px; color: #6b7280; margin-top: 4px;">
