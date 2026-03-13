@@ -340,6 +340,17 @@ class RealtimeClient {
     }
 
     async start(token, userId, pageIds, cookie = null, saveCredentials = true) {
+        // Always force reconnect with fresh credentials
+        // Old connection may be zombie (heartbeat works but no data)
+        if (this.ws) {
+            console.log('[PANCAKE-WS] Closing existing connection for fresh start...');
+            this.stopHeartbeat();
+            clearTimeout(this.reconnectTimer);
+            this.ws.close();
+            this.ws = null;
+            this.isConnected = false;
+        }
+
         this.token = token;
         this.userId = userId;
         this.pageIds = pageIds.map(id => String(id));
