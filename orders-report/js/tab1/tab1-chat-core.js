@@ -2007,15 +2007,39 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
 
                         } else {
                             console.warn('[CHAT-MODAL] No INBOX conversation found');
-                            modalBody.innerHTML = `
-                                <div class="chat-error">
-                                    <i class="fas fa-info-circle"></i>
-                                    <p>Không tìm thấy tin nhắn cho khách hàng này</p>
-                                </div>`;
+
+                            // Save COMMENT conversation IDs FIRST (before auto-switching)
+                            if (commentConversations.length > 0) {
+                                let matchedCommentConvs = commentConversations;
+                                if (facebookPostId) {
+                                    const postIdParts = facebookPostId.split('_');
+                                    const postId = postIdParts.length > 1 ? postIdParts[postIdParts.length - 1] : facebookPostId;
+                                    const filtered = commentConversations.filter(conv => {
+                                        const convIdFirstPart = conv.id.split('_')[0];
+                                        return convIdFirstPart === postId;
+                                    });
+                                    if (filtered.length > 0) {
+                                        matchedCommentConvs = filtered;
+                                    }
+                                }
+                                const targetCommentConv = matchedCommentConvs[0];
+                                window.currentCommentConversationId = targetCommentConv.id;
+                                window.cachedCommentConversations = matchedCommentConvs;
+                                console.log('[CHAT-MODAL] No INBOX but found COMMENT conversations, auto-switching to COMMENT view');
+
+                                // Auto-switch to COMMENT view
+                                await window.switchConversationType('COMMENT');
+                            } else {
+                                modalBody.innerHTML = `
+                                    <div class="chat-error">
+                                        <i class="fas fa-info-circle"></i>
+                                        <p>Không tìm thấy tin nhắn cho khách hàng này</p>
+                                    </div>`;
+                            }
                         }
 
-                        // Save COMMENT conversation ID for quick switching
-                        if (commentConversations.length > 0) {
+                        // Save COMMENT conversation ID for quick switching (when INBOX was found)
+                        if (inboxConversations.length > 0 && commentConversations.length > 0) {
                             let matchedCommentConvs = commentConversations;
                             if (facebookPostId) {
                                 const postIdParts = facebookPostId.split('_');
@@ -2031,7 +2055,6 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                             const targetCommentConv = matchedCommentConvs[0];
 
                             window.currentCommentConversationId = targetCommentConv.id;
-                            // Also save all matched conversations for selector when switching
                             window.cachedCommentConversations = matchedCommentConvs;
                             console.log('[CHAT-MODAL] Found COMMENT conversationId:', window.currentCommentConversationId);
                         }
