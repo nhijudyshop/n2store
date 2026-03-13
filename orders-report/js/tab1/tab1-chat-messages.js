@@ -1163,8 +1163,7 @@ async function sendMessageInternal(messageData) {
                     const commentIds = fbCommentId.toString().split(',').map(id => id.trim());
                     const prUrl = window.API_CONFIG.buildUrl.facebookSend();
                     const prPayload = {
-                        pageId: pageId,
-                        recipient: { comment_id: commentIds[0] },
+                        commentId: commentIds[0],
                         message: { text: originalMessage },
                         pageToken: realPageToken
                     };
@@ -1177,7 +1176,8 @@ async function sendMessageInternal(messageData) {
 
                     if (prResp.ok) {
                         const prData = await prResp.json();
-                        if (prData.success !== false) {
+                        console.log(`[MESSAGE] Private Reply response:`, JSON.stringify(prData));
+                        if (prData.success === true && prData.method === 'private_reply') {
                             console.log(`[MESSAGE] Client-side Private Reply succeeded (${errorType})!`);
                             if (window.notificationManager) {
                                 window.notificationManager.show('Đã gửi tin nhắn (Private Reply) thành công!', 'success');
