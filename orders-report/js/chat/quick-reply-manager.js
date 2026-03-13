@@ -797,12 +797,17 @@ class QuickReplyManager {
         this.autocompleteActive = true;
         this.selectedSuggestionIndex = 0;
 
-        // Position dropdown below input
+        // Position dropdown above input (input is at bottom of page)
         const dropdown = document.getElementById('quickReplyAutocomplete');
         const inputRect = inputElement.getBoundingClientRect();
 
+        // Dynamic max-height: use available space above input (leave 10px top margin)
+        const availableHeight = inputRect.top - 10;
+        dropdown.style.maxHeight = Math.max(200, availableHeight) + 'px';
+
         dropdown.style.left = inputRect.left + 'px';
-        dropdown.style.top = (inputRect.bottom + 4) + 'px';
+        dropdown.style.bottom = (window.innerHeight - inputRect.top + 4) + 'px';
+        dropdown.style.top = 'auto';
         dropdown.style.width = Math.max(400, inputRect.width) + 'px';
         dropdown.style.display = 'block';
 
