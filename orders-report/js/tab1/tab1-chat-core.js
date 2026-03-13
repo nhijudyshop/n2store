@@ -1823,16 +1823,47 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                                 return match;
                             });
 
-                            // If no match, use most recent COMMENT conversation
+                            // If no match by postId, try matching by customer name from order
                             if (commentConversations.length === 0) {
-                                console.warn('[CHAT-MODAL] No match by post_id, using most recent COMMENT conversation');
-                                commentConversations = allCommentConvs;
+                                const orderName = order.Name || order.PartnerName;
+                                if (orderName) {
+                                    const nameMatched = allCommentConvs.filter(conv =>
+                                        conv.from?.name === orderName ||
+                                        conv.customers?.some(c => c.name === orderName)
+                                    );
+                                    if (nameMatched.length > 0) {
+                                        console.log('[CHAT-MODAL] No match by post_id, matched by name:', orderName, '→', nameMatched.length, 'found');
+                                        commentConversations = nameMatched;
+                                    } else {
+                                        console.warn('[CHAT-MODAL] No match by post_id or name, using most recent COMMENT conversation');
+                                        commentConversations = allCommentConvs;
+                                    }
+                                } else {
+                                    console.warn('[CHAT-MODAL] No match by post_id, no order name, using most recent COMMENT conversation');
+                                    commentConversations = allCommentConvs;
+                                }
                             }
 
                             console.log('[CHAT-MODAL] Filtered COMMENT conversations by post_id:', facebookPostId, '→', commentConversations.length, 'found');
                         } else {
-                            commentConversations = allCommentConvs;
-                            console.log('[CHAT-MODAL] No post_id or no COMMENT conversations, getting all →', commentConversations.length, 'found');
+                            // No post_id - try matching by customer name from order
+                            const orderName = order.Name || order.PartnerName;
+                            if (orderName && allCommentConvs.length > 0) {
+                                const nameMatched = allCommentConvs.filter(conv =>
+                                    conv.from?.name === orderName ||
+                                    conv.customers?.some(c => c.name === orderName)
+                                );
+                                if (nameMatched.length > 0) {
+                                    console.log('[CHAT-MODAL] Matched by name:', orderName, '→', nameMatched.length, 'found');
+                                    commentConversations = nameMatched;
+                                } else {
+                                    commentConversations = allCommentConvs;
+                                    console.log('[CHAT-MODAL] No name match, getting all →', commentConversations.length, 'found');
+                                }
+                            } else {
+                                commentConversations = allCommentConvs;
+                                console.log('[CHAT-MODAL] No post_id, getting all →', commentConversations.length, 'found');
+                            }
                         }
 
                         if (commentConversations.length > 0) {
@@ -2043,6 +2074,19 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                                         matchedCommentConvs = filtered;
                                     }
                                 }
+                                // If still multiple/no postId match, try name matching
+                                if (matchedCommentConvs.length === commentConversations.length) {
+                                    const orderName = order.Name || order.PartnerName;
+                                    if (orderName) {
+                                        const nameMatched = matchedCommentConvs.filter(conv =>
+                                            conv.from?.name === orderName ||
+                                            conv.customers?.some(c => c.name === orderName)
+                                        );
+                                        if (nameMatched.length > 0) {
+                                            matchedCommentConvs = nameMatched;
+                                        }
+                                    }
+                                }
                                 const targetCommentConv = matchedCommentConvs[0];
                                 window.currentCommentConversationId = targetCommentConv.id;
                                 window.cachedCommentConversations = matchedCommentConvs;
@@ -2071,6 +2115,19 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                                 });
                                 if (filtered.length > 0) {
                                     matchedCommentConvs = filtered;
+                                }
+                            }
+                            // If still multiple/no postId match, try name matching
+                            if (matchedCommentConvs.length === commentConversations.length) {
+                                const orderName = order.Name || order.PartnerName;
+                                if (orderName) {
+                                    const nameMatched = matchedCommentConvs.filter(conv =>
+                                        conv.from?.name === orderName ||
+                                        conv.customers?.some(c => c.name === orderName)
+                                    );
+                                    if (nameMatched.length > 0) {
+                                        matchedCommentConvs = nameMatched;
+                                    }
                                 }
                             }
                             const targetCommentConv = matchedCommentConvs[0];
