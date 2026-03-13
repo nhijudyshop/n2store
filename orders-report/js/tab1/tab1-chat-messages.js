@@ -1159,11 +1159,17 @@ async function sendMessageInternal(messageData) {
 
             if (fbPostId && fbCommentId && realPageToken && originalMessage) {
                 console.log(`[MESSAGE] Trying client-side Private Reply first (${errorType})...`);
+                // Debug: check if token looks like a real Facebook token
+                const tokenPrefix = realPageToken.substring(0, 10);
+                const isFbToken = realPageToken.startsWith('EAA');
+                console.log(`[MESSAGE] Token prefix: ${tokenPrefix}..., looks like FB token: ${isFbToken}`);
                 try {
                     const commentIds = fbCommentId.toString().split(',').map(id => id.trim());
+                    console.log(`[MESSAGE] Private Reply comment_id:`, commentIds[0], `pageId:`, pageId);
                     const prUrl = window.API_CONFIG.buildUrl.facebookSend();
                     const prPayload = {
-                        commentId: commentIds[0],
+                        pageId: pageId,
+                        recipient: { comment_id: commentIds[0] },
                         message: { text: originalMessage },
                         pageToken: realPageToken
                     };
@@ -1174,27 +1180,25 @@ async function sendMessageInternal(messageData) {
                         body: JSON.stringify(prPayload)
                     }, 1, true);
 
-                    if (prResp.ok) {
-                        const prData = await prResp.json();
-                        console.log(`[MESSAGE] Private Reply response:`, JSON.stringify(prData));
-                        if (prData.success === true && prData.method === 'private_reply') {
-                            console.log(`[MESSAGE] Client-side Private Reply succeeded (${errorType})!`);
-                            if (window.notificationManager) {
-                                window.notificationManager.show('Đã gửi tin nhắn (Private Reply) thành công!', 'success');
-                            }
-                            // Optimistic UI update
-                            const now = new Date().toISOString();
-                            window.allChatMessages.push({
-                                Id: `pr_${Date.now()}`, id: `pr_${Date.now()}`,
-                                Message: originalMessage + '\n\n[Private Reply]',
-                                CreatedTime: now, IsOwner: true, is_temp: true
-                            });
-                            renderChatMessages(window.allChatMessages, true);
-                            autoMarkAsRead(0);
-                            return; // Success - done!
+                    const prData = await prResp.json();
+                    console.log(`[MESSAGE] Private Reply response (HTTP ${prResp.status}):`, JSON.stringify(prData));
+                    if (prResp.ok && prData.success === true && prData.message_id) {
+                        console.log(`[MESSAGE] Client-side Private Reply succeeded (${errorType})!`);
+                        if (window.notificationManager) {
+                            window.notificationManager.show('Đã gửi tin nhắn (Private Reply) thành công!', 'success');
                         }
+                        // Optimistic UI update
+                        const now = new Date().toISOString();
+                        window.allChatMessages.push({
+                            Id: `pr_${Date.now()}`, id: `pr_${Date.now()}`,
+                            Message: originalMessage + '\n\n[Private Reply]',
+                            CreatedTime: now, IsOwner: true, is_temp: true
+                        });
+                        renderChatMessages(window.allChatMessages, true);
+                        autoMarkAsRead(0);
+                        return; // Success - done!
                     }
-                    console.warn('[MESSAGE] Client-side Private Reply failed, falling through to Facebook Tag...');
+                    console.warn('[MESSAGE] Client-side Private Reply failed:', JSON.stringify(prData), 'falling through to Facebook Tag...');
                 } catch (prErr) {
                     console.warn('[MESSAGE] Client-side Private Reply error:', prErr.message);
                 }

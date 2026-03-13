@@ -31,45 +31,57 @@ export async function handleFacebookSend(request, url) {
         }
 
         // === DIRECT PRIVATE REPLY MODE ===
-        // If commentId is provided, skip Send API and go straight to Private Reply
+        // If commentId is provided, use Send API with recipient.comment_id
+        // Note: /{comment-id}/private_replies was removed after Graph API v3.2
+        // Current approach: POST /{pageId}/messages with recipient: { comment_id }
         if (commentId && message && pageToken) {
-            console.log('[FACEBOOK-SEND] Direct Private Reply mode → commentId:', commentId);
+            console.log('[FACEBOOK-SEND] Direct Private Reply mode → commentId:', commentId, 'pageId:', pageId);
             const messageText = typeof message === 'string' ? message : message.text;
-            const prUrl = `${API_ENDPOINTS.FACEBOOK.GRAPH_URL}/${commentId}/private_replies`;
-            try {
-                const resp = await fetchWithRetry(
-                    `${prUrl}?access_token=${pageToken}`,
-                    {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                        body: JSON.stringify({ message: messageText }),
-                    },
-                    2, 1000, 15000
-                );
-                const result = await resp.json();
 
-                if (result.error) {
-                    console.error('[FACEBOOK-SEND] Private Reply error:', result.error.message);
+            // If pageId is available, use Send API (correct approach for v19.0+)
+            if (pageId) {
+                const sendUrl = `${API_ENDPOINTS.FACEBOOK.GRAPH_URL}/${pageId}/messages`;
+                try {
+                    const resp = await fetchWithRetry(
+                        `${sendUrl}?access_token=${pageToken}`,
+                        {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                            body: JSON.stringify({
+                                recipient: { comment_id: commentId },
+                                message: { text: messageText },
+                            }),
+                        },
+                        2, 1000, 15000
+                    );
+                    const result = await resp.json();
+                    console.log('[FACEBOOK-SEND] Direct Private Reply response:', JSON.stringify(result));
+
+                    if (result.error) {
+                        console.error('[FACEBOOK-SEND] Private Reply error:', result.error.message);
+                        return jsonResponse({
+                            success: false,
+                            error: result.error.message,
+                            error_code: result.error.code,
+                            error_subcode: result.error.error_subcode,
+                            method: 'private_reply',
+                        }, resp.status || 400);
+                    }
+
+                    console.log('[FACEBOOK-SEND] ✅ Direct Private Reply succeeded!');
                     return jsonResponse({
-                        success: false,
-                        error: result.error.message,
-                        error_code: result.error.code,
-                        error_subcode: result.error.error_subcode,
+                        success: true,
+                        recipient_id: result.recipient_id,
+                        message_id: result.message_id,
                         method: 'private_reply',
-                    }, resp.status || 400);
+                        comment_id: commentId,
+                    });
+                } catch (err) {
+                    return errorResponse('Private Reply error: ' + err.message, 500);
                 }
-
-                console.log('[FACEBOOK-SEND] ✅ Direct Private Reply succeeded!');
-                return jsonResponse({
-                    success: true,
-                    recipient_id: result.recipient_id,
-                    message_id: result.id,
-                    method: 'private_reply',
-                    comment_id: commentId,
-                });
-            } catch (err) {
-                return errorResponse('Private Reply error: ' + err.message, 500);
             }
+            // Fallback: no pageId - extract from commentId format (postId_commentId)
+            console.warn('[FACEBOOK-SEND] No pageId for Direct Private Reply, skipping to normal flow');
         }
 
         // Validate required fields
@@ -114,7 +126,9 @@ export async function handleFacebookSend(request, url) {
                 if (!baseFbBody.recipient?.comment_id) {
                     baseFbBody.messaging_type = 'RESPONSE';
                 }
+                console.log('[FACEBOOK-SEND] Sending without tag, body:', JSON.stringify(baseFbBody));
                 const { response, result } = await sendToGraph(baseFbBody);
+                console.log('[FACEBOOK-SEND] Facebook response (no-tag):', JSON.stringify(result));
                 if (result.error) return { success: false, result, status: response.status };
                 return { success: true, result, tag: null };
             }
@@ -313,21 +327,26 @@ export async function handleFacebookSend(request, url) {
             return { commentId: null, diagnostics };
         }
 
-        // Helper: Send Private Reply via Facebook Graph API
+        // Helper: Send Private Reply via Facebook Send API
+        // Uses POST /{pageId}/messages with recipient.comment_id (current approach for v19.0+)
         async function sendPrivateReply(realCommentId, messageText) {
-            const prUrl = `${API_ENDPOINTS.FACEBOOK.GRAPH_URL}/${realCommentId}/private_replies`;
-            console.log('[PRIVATE-REPLY] Sending Private Reply to comment:', realCommentId);
+            const sendUrl = `${API_ENDPOINTS.FACEBOOK.GRAPH_URL}/${pageId}/messages`;
+            console.log('[PRIVATE-REPLY] Sending Private Reply via Send API, comment:', realCommentId, 'page:', pageId);
 
             const resp = await fetchWithRetry(
-                `${prUrl}?access_token=${pageToken}`,
+                `${sendUrl}?access_token=${pageToken}`,
                 {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                    body: JSON.stringify({ message: messageText }),
+                    body: JSON.stringify({
+                        recipient: { comment_id: realCommentId },
+                        message: { text: messageText },
+                    }),
                 },
                 2, 1000, 15000
             );
             const result = await resp.json();
+            console.log('[PRIVATE-REPLY] Facebook response:', JSON.stringify(result));
 
             if (result.error) {
                 console.error('[PRIVATE-REPLY] ❌ Failed:', result.error.message);
@@ -405,11 +424,12 @@ export async function handleFacebookSend(request, url) {
 
                 if (prResult.success) {
                     console.log('[FACEBOOK-SEND] ✅ Private Reply succeeded!');
+                    const msgId = prResult.result.message_id || prResult.result.id;
                     return jsonResponse({
                         success: true,
                         recipient_id: prResult.result.recipient_id,
-                        message_id: prResult.result.id,
-                        message_ids: [prResult.result.id],
+                        message_id: msgId,
+                        message_ids: [msgId],
                         used_tag: 'PRIVATE_REPLY',
                         method: 'private_reply',
                         real_comment_id: lookup.commentId,
