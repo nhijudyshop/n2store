@@ -679,7 +679,8 @@ class PancakeDataManager {
 
     /**
      * Fetch conversations for a customer by fb_id directly
-     * API: GET /conversations/customer/{fb_id}?pages[{pageId}]=0
+     * API: GET /pages/{pageId}/customers/{fb_id}/conversations
+     * Uses single-page endpoint which returns conversations sorted by updated_at DESC (newest first)
      * @param {string} pageId - Facebook Page ID
      * @param {string} fbId - Facebook AS User ID (Facebook_ASUserId)
      * @returns {Promise<Object>} { conversations: Array, customerUuid: string|null, success: boolean }
@@ -698,11 +699,11 @@ class PancakeDataManager {
                 throw new Error('No Pancake token available');
             }
 
-            // Build URL: GET /conversations/customer/{fb_id}?pages[{pageId}]=0
-            const queryString = `pages[${pageId}]=0&access_token=${token}`;
+            // Build URL: GET /pages/{pageId}/customers/{fb_id}/conversations
+            // Single-page endpoint returns conversations sorted by updated_at DESC (newest first)
             const url = window.API_CONFIG.buildUrl.pancake(
-                `conversations/customer/${fbId}`,
-                queryString
+                `pages/${pageId}/customers/${fbId}/conversations`,
+                `access_token=${token}`
             );
 
             console.log('[PANCAKE] Fetch conversations URL:', url);
@@ -726,14 +727,23 @@ class PancakeDataManager {
             const data = await response.json();
             console.log('[PANCAKE] Conversations response:', data);
 
-            const conversations = data.conversations || [];
+            let conversations = data.conversations || [];
 
-            // DEBUG: Log first conversation structure to find real PSID field
+            // Sort by updated_at DESC (newest first) as safety net
+            conversations.sort((a, b) => {
+                const dateA = a.updated_at ? new Date(a.updated_at).getTime() : 0;
+                const dateB = b.updated_at ? new Date(b.updated_at).getTime() : 0;
+                return dateB - dateA;
+            });
+
+            // DEBUG: Log first conversation structure
             if (conversations.length > 0) {
                 const firstConv = conversations[0];
-                console.log('[PANCAKE] 🔍 DEBUG First conversation structure:', JSON.stringify({
+                console.log('[PANCAKE] First conversation (newest):', JSON.stringify({
                     id: firstConv.id,
                     type: firstConv.type,
+                    updated_at: firstConv.updated_at,
+                    snippet: firstConv.snippet?.substring(0, 50),
                     from_psid: firstConv.from_psid,
                     from: firstConv.from,
                     customers: firstConv.customers?.map(c => ({ id: c.id, fb_id: c.fb_id, name: c.name })),
@@ -745,7 +755,7 @@ class PancakeDataManager {
             let customerUuid = null;
             if (conversations.length > 0 && conversations[0].customers && conversations[0].customers.length > 0) {
                 customerUuid = conversations[0].customers[0].id;
-                console.log(`[PANCAKE] ✅ Found customer UUID: ${customerUuid}`);
+                console.log(`[PANCAKE] Found customer UUID: ${customerUuid}`);
             }
 
             return {
@@ -755,7 +765,7 @@ class PancakeDataManager {
             };
 
         } catch (error) {
-            console.error('[PANCAKE] ❌ Error fetching conversations by fb_id:', error);
+            console.error('[PANCAKE] Error fetching conversations by fb_id:', error);
             return { conversations: [], customerUuid: null, success: false };
         }
     }
