@@ -769,6 +769,8 @@ class QuickReplyManager {
         // Filter suggestions - match with Vietnamese diacritics removed
         const queryNoDiacritics = this.removeVietnameseDiacritics(query.toLowerCase());
         this.currentSuggestions = this.replies.filter(reply => {
+            // When query is empty (just "/"), show ALL replies including those without shortcut
+            if (!query) return true;
             if (!reply.shortcut) return false;
             // Compare both original and diacritics-removed versions
             const shortcutLower = reply.shortcut.toLowerCase();
