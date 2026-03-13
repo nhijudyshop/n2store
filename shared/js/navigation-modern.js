@@ -138,6 +138,14 @@ const MENU_CONFIG = [
         permissionRequired: "baocaosaleonline",
     },
     {
+        href: "../don-inbox/index.html",
+        icon: "inbox",
+        text: "Đơn Inbox",
+        shortText: "Đơn Inbox",
+        pageIdentifier: "don-inbox",
+        permissionRequired: "don-inbox",
+    },
+    {
         href: "../tpos-pancake/index.html",
         icon: "columns",
         text: "Tpos - Pancake",
@@ -1654,7 +1662,7 @@ class UnifiedNavigationManager {
                 padding-left: 32px;
             }
         `;
-        document.head.appendChild(style);
+        document.head.insertBefore(style, document.head.firstChild);
     }
 
     // =====================================================
@@ -1912,12 +1920,16 @@ class UnifiedNavigationManager {
                 cursor: pointer; z-index: 1001;
                 transition: all 200ms ease;
             }
+            .sidebar.collapsed ~ .main-content .sidebar-toggle-fixed {
+                display: flex;
+            }
             .sidebar-toggle-fixed:hover {
                 background: var(--primary-dark, #4f46e5);
                 transform: scale(1.05);
             }
         `;
-        document.head.appendChild(style);
+        // Insert at beginning of <head> so page-specific CSS takes priority
+        document.head.insertBefore(style, document.head.firstChild);
     }
 
     /**
@@ -2032,7 +2044,7 @@ class UnifiedNavigationManager {
                 padding: 3px 20px 3px 6px;
             }
         `;
-        document.head.appendChild(style);
+        document.head.insertBefore(style, document.head.firstChild);
     }
 
     renderDesktopSidebar() {
@@ -2307,13 +2319,37 @@ class UnifiedNavigationManager {
             .menu-group.collapsed .menu-group-items {
                 display: none;
             }
+            .nav-item {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                padding: 12px;
+                margin-bottom: 4px;
+                border-radius: var(--radius, 8px);
+                color: var(--gray-600, #4b5563);
+                text-decoration: none;
+                font-weight: 500;
+                transition: 0.2s;
+            }
+            .nav-item:hover {
+                background: var(--gray-100, #f3f4f6);
+                color: var(--gray-900, #111827);
+            }
+            .nav-item.active {
+                background: var(--primary, #6366f1);
+                color: white;
+            }
+            .nav-item i {
+                width: 20px;
+                height: 20px;
+            }
             .menu-group-items .nav-item {
                 padding-left: 20px;
                 font-size: 13px;
             }
 
         `;
-        document.head.appendChild(style);
+        document.head.insertBefore(style, document.head.firstChild);
     }
 
     addSettingsToNavigation(sidebarNav) {
@@ -2351,7 +2387,7 @@ class UnifiedNavigationManager {
                     color: #fbbf24;
                 }
             `;
-            document.head.appendChild(style);
+            document.head.insertBefore(style, document.head.firstChild);
         }
 
         console.log("[Unified Nav] Settings button added");
@@ -2920,7 +2956,7 @@ class UnifiedNavigationManager {
                 background: rgba(99, 102, 241, 0.2) !important;
             }
         `;
-        document.head.appendChild(style);
+        document.head.insertBefore(style, document.head.firstChild);
     }
 
     // =====================================================
@@ -3497,7 +3533,7 @@ class UnifiedNavigationManager {
                     color: #00e5ff;
                 }
             `;
-            document.head.appendChild(style);
+            document.head.insertBefore(style, document.head.firstChild);
         }
     }
 
@@ -4873,7 +4909,7 @@ class UnifiedNavigationManager {
                 }
             }
         `;
-        document.head.appendChild(style);
+        document.head.insertBefore(style, document.head.firstChild);
     }
 
     showToast(message, type = "success") {
@@ -5090,7 +5126,7 @@ class UnifiedNavigationManager {
                 box-shadow: 0 4px 20px rgba(239, 68, 68, 0.4);
             }
         `;
-        document.head.appendChild(style);
+        document.head.insertBefore(style, document.head.firstChild);
     }
 
     // =====================================================
@@ -5396,7 +5432,7 @@ class UnifiedNavigationManager {
                 }
             }
         `;
-        document.head.appendChild(style);
+        document.head.insertBefore(style, document.head.firstChild);
     }
 
     // =====================================================

@@ -57,11 +57,6 @@ const navSidebar = document.getElementById('sidebar');
 const navToggleBtn = document.getElementById('sidebarToggle');
 const navToggleFixed = document.getElementById('sidebarToggleFixed');
 
-function isNavCollapsed() {
-  return navSidebar.classList.contains('collapsed') ||
-         (window.innerWidth <= 1024 && !navSidebar.classList.contains('open'));
-}
-
 function toggleNavSidebar() {
   if (window.innerWidth <= 1024) {
     navSidebar.classList.toggle('open');

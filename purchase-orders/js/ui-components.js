@@ -140,6 +140,7 @@ class PurchaseOrderUIComponents {
         container.innerHTML = config.TAB_CONFIG.map(tab => {
             const count = counts[tab.status] || 0;
             const isActive = activeTab === tab.status;
+            const badgeHtml = tab.isSpecial ? '' : `<span class="tab-badge">${count}</span>`;
 
             return `
                 <button class="tab-btn ${isActive ? 'active' : ''}"
@@ -147,7 +148,7 @@ class PurchaseOrderUIComponents {
                         data-status="${tab.status}">
                     <i data-lucide="${tab.icon}"></i>
                     <span>${tab.label}</span>
-                    <span class="tab-badge">${count}</span>
+                    ${badgeHtml}
                 </button>
             `;
         }).join('');
@@ -249,6 +250,9 @@ class PurchaseOrderUIComponents {
                 </div>
 
                 <div class="filter-group filter-group--actions">
+                    <button id="btnReloadTable" class="btn btn-outline" title="Tải lại bảng">
+                        <i data-lucide="refresh-cw"></i>
+                    </button>
                     <button id="btnClearFilters" class="btn btn-outline" title="Xóa bộ lọc">
                         <i data-lucide="x"></i>
                         <span>Xóa lọc</span>
@@ -339,6 +343,11 @@ class PurchaseOrderUIComponents {
 
         if (clearBtn && handlers.onClear) {
             clearBtn.addEventListener('click', handlers.onClear);
+        }
+
+        const reloadBtn = container.querySelector('#btnReloadTable');
+        if (reloadBtn && handlers.onReload) {
+            reloadBtn.addEventListener('click', handlers.onReload);
         }
     }
 

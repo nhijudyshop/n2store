@@ -33,6 +33,8 @@
 
     <!-- Main Content -->
     <div class="main-content">
+        <div class="social-page-layout">
+        <div class="social-page-main">
         <!-- Header Section -->
         <div class="social-header">
             <div class="social-header-left">
@@ -56,6 +58,11 @@
                     style="background: #8b5cf6">
                     <i class="fas fa-columns"></i>
                     Cài đặt cột
+                </button>
+                <button class="btn-primary btn-tag-panel-toggle" id="btnToggleTagPanel" onclick="toggleTagPanel()"
+                    style="background: #8b5cf6">
+                    <i class="fas fa-layer-group"></i>
+                    Nhóm Tag
                 </button>
             </div>
         </div>
@@ -113,8 +120,8 @@
                 <div class="filter-item">
                     <label>Trạng thái:</label>
                     <select id="statusFilter" onchange="performTableSearch()" class="search-filter-select">
-                        <option value="all" selected>Tất cả</option>
-                        <option value="draft">Nháp</option>
+                        <option value="all">Tất cả</option>
+                        <option value="draft" selected>Nháp</option>
                         <option value="order">Đơn hàng</option>
                         <option value="processing">Đang xử lý</option>
                         <option value="completed">Hoàn thành</option>
@@ -183,6 +190,7 @@
                             <th data-column="actions">Thao tác</th>
                             <th data-column="stt">STT</th>
                             <th data-column="tag">TAG</th>
+                            <th data-column="note">Ghi chú</th>
                             <th data-column="customer">Khách hàng</th>
                             <th data-column="phone">SĐT</th>
                             <th data-column="chat">Chat</th>
@@ -197,7 +205,7 @@
                     </thead>
                     <tbody id="tableBody">
                         <tr>
-                            <td colspan="15" style="text-align: center; padding: 40px">
+                            <td colspan="16" style="text-align: center; padding: 40px">
                                 <i class="fas fa-spinner fa-spin"></i> Đang tải...
                             </td>
                         </tr>
@@ -209,6 +217,33 @@
                 <div id="pageInfo">Hiển thị 0 - 0 của 0</div>
             </div>
         </div>
+        </div><!-- /.social-page-main -->
+
+        <!-- Tag Panel (Right Side) -->
+        <div id="tagPanelOverlay" class="tag-panel-overlay" onclick="forceCloseTagPanel()"></div>
+        <aside class="tag-panel" id="tagPanel">
+            <div class="tag-panel-header">
+                <h3 class="tag-panel-title">
+                    <i class="fas fa-layer-group"></i>
+                    Nhóm Phân Loại
+                </h3>
+                <div class="tag-panel-actions">
+                    <button class="tag-panel-btn" id="btnPinPanel" onclick="togglePinTagPanel()" title="Ghim panel">
+                        <i class="fas fa-thumbtack"></i>
+                    </button>
+                    <button class="tag-panel-btn" onclick="openTagManageModal()" title="Quản lý tags">
+                        <i class="fas fa-cog"></i> Quản Lý
+                    </button>
+                    <button class="tag-panel-btn" onclick="forceCloseTagPanel()" title="Đóng panel">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="tag-panel-body" id="tagPanelBody">
+                <!-- Tag cards rendered by JS -->
+            </div>
+        </aside>
+        </div><!-- /.social-page-layout -->
     </div>
 
     <!-- Create/Edit Order Modal -->
@@ -367,6 +402,22 @@
                         <div class="form-group">
                             <textarea id="orderNote" rows="2" placeholder="Ghi chú cho đơn hàng..."></textarea>
                         </div>
+                        <!-- Note Images -->
+                        <div class="note-images-section" style="margin-top: 8px;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                                <span style="font-size: 12px; color: #6b7280;"><i class="fas fa-image"></i> Ảnh đính kèm</span>
+                                <label class="note-img-upload-btn" style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer; font-size: 12px; color: #4b5563;">
+                                    <i class="fas fa-upload"></i> Tải ảnh
+                                    <input type="file" id="noteImageFileInput" accept="image/*" multiple style="display: none;" onchange="handleNoteImageUpload(event)" />
+                                </label>
+                                <div class="note-paste-area" id="notePasteArea" tabindex="0"
+                                    style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; background: #f0f9ff; border: 1px dashed #93c5fd; border-radius: 6px; cursor: pointer; font-size: 12px; color: #3b82f6;"
+                                    title="Click vào đây rồi Ctrl+V để dán ảnh">
+                                    <i class="fas fa-paste"></i> Dán ảnh (Ctrl+V)
+                                </div>
+                            </div>
+                            <div id="noteImagesPreview" style="display: flex; flex-wrap: wrap; gap: 8px;"></div>
+                        </div>
                     </div>
 
                     <!-- Hidden fields -->
@@ -495,6 +546,10 @@
                         <span>TAG</span>
                     </label>
                     <label class="column-setting-item">
+                        <input type="checkbox" data-column="note" checked />
+                        <span>Ghi chú</span>
+                    </label>
+                    <label class="column-setting-item">
                         <input type="checkbox" data-column="customer" checked />
                         <span>Khách hàng</span>
                     </label>
@@ -558,6 +613,7 @@
 
     <!-- Shared Scripts -->
     <script src="../shared/js/firebase-config.js"></script>
+    <script src="../shared/js/indexed-db-store.js"></script>
     <script src="../shared/js/shared-auth-manager.js"></script>
     <script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});</script>
     <script src="../shared/js/notification-system.js"></script>
@@ -947,6 +1003,7 @@
     <script src="js/tab-social/tab-social-modal.js"></script>
     <script src="js/tab-social/tab-social-firebase.js"></script>
     <script src="js/tab-social/tab-social-tags.js"></script>
+    <script src="js/tab-social/tab-social-panel.js"></script>
 
     <!-- Sale Modal: adapter (must load AFTER tab-social-core for SocialOrderState) -->
     <script src="js/tab-social/tab-social-sale.js"></script>

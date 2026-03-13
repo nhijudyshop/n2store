@@ -12,7 +12,7 @@ const CONFIG = {
     API_BASE_PARTNER: 'https://chatomni-proxy.nhijudyshop.workers.dev/api',
     ENDPOINT: 'Report/PartnerDebtReport',
     RESULT_SELECTION: 'supplier',
-    DEFAULT_PAGE_SIZE: 20,
+    DEFAULT_PAGE_SIZE: 1000,
     DETAIL_PAGE_SIZE: 20,
     COLUMN_VISIBILITY_KEY: 'supplierDebt_columnVisibility',
     FIREBASE_COLLECTION: 'supplier_debt_notes'
@@ -263,15 +263,89 @@ const WebNotesStore = {
     }
 };
 
+// =====================================================
+// SUPPLIER NOTES STORAGE (Firebase) - per-supplier notes
+// =====================================================
+
+const SupplierNotesStore = {
+    _data: new Map(),
+    _unsubscribe: null,
+    _isListening: false,
+    COLLECTION: 'supplier_debt_supplier_notes',
+
+    _getDocRef() {
+        const db = window.db || (typeof getFirestore === 'function' ? getFirestore() : null);
+        if (!db) return null;
+        return db.collection(this.COLLECTION).doc('notes');
+    },
+
+    async init() {
+        // Load from localStorage cache
+        try {
+            const saved = localStorage.getItem('supplierDebt_supplierNotes');
+            if (saved) this._data = new Map(Object.entries(JSON.parse(saved)));
+        } catch (e) { /* ignore */ }
+
+        // Load from Firestore
+        const docRef = this._getDocRef();
+        if (docRef) {
+            try {
+                const doc = await docRef.get();
+                if (doc.exists && doc.data()?.notes) {
+                    this._data = new Map(Object.entries(doc.data().notes));
+                    this._saveLocal();
+                }
+            } catch (e) { console.error('[SupplierNotesStore] Firestore load error:', e); }
+
+            // Real-time listener
+            this._unsubscribe = docRef.onSnapshot((doc) => {
+                if (doc.exists && doc.data()?.notes) {
+                    this._isListening = true;
+                    this._data = new Map(Object.entries(doc.data().notes));
+                    this._saveLocal();
+                    this._isListening = false;
+                }
+            }, (err) => console.error('[SupplierNotesStore] Listener error:', err));
+        }
+        console.log('[SupplierNotesStore] Initialized with', this._data.size, 'notes');
+    },
+
+    _saveLocal() {
+        try { localStorage.setItem('supplierDebt_supplierNotes', JSON.stringify(Object.fromEntries(this._data))); } catch (e) { /* ignore */ }
+    },
+
+    get(supplierCode) {
+        return this._data.get(supplierCode) || '';
+    },
+
+    async set(supplierCode, note) {
+        if (note && note.trim()) {
+            this._data.set(supplierCode, note.trim());
+        } else {
+            this._data.delete(supplierCode);
+        }
+        this._saveLocal();
+
+        const docRef = this._getDocRef();
+        if (docRef && !this._isListening) {
+            try {
+                if (note && note.trim()) {
+                    await docRef.set({ notes: Object.fromEntries(this._data), lastUpdated: Date.now() }, { merge: true });
+                } else {
+                    await docRef.update({ [`notes.${supplierCode}`]: firebase.firestore.FieldValue.delete(), lastUpdated: Date.now() });
+                }
+            } catch (e) { console.error('[SupplierNotesStore] Save error:', e); }
+        }
+    }
+};
+
 // Column definitions for visibility toggle
 const COLUMNS = [
-    { id: 'code', index: 1, label: 'Mã khách hàng' },
-    { id: 'name', index: 2, label: 'Tên KH/Facebook' },
-    { id: 'phone', index: 3, label: 'Điện thoại' },
-    { id: 'begin', index: 4, label: 'Nợ đầu kỳ' },
-    { id: 'debit', index: 5, label: 'Phát sinh' },
-    { id: 'credit', index: 6, label: 'Thanh toán' },
-    { id: 'end', index: 7, label: 'Nợ cuối kỳ' }
+    { id: 'code', index: 1, label: 'Mã NCC' },
+    { id: 'name', index: 2, label: 'Tên NCC' },
+    { id: 'debit', index: 3, label: 'Phát sinh' },
+    { id: 'credit', index: 4, label: 'Thanh toán' },
+    { id: 'end', index: 5, label: 'Nợ cuối kỳ' }
 ];
 
 // =====================================================
@@ -296,8 +370,6 @@ const State = {
     columnVisibility: {
         code: true,
         name: true,
-        phone: true,
-        begin: true,
         debit: true,
         credit: true,
         end: true
@@ -321,7 +393,6 @@ const DOM = {
     get btnRefresh() { return document.getElementById('btnRefresh'); },
     get loadingIndicator() { return document.getElementById('loadingIndicator'); },
     get tableBody() { return document.getElementById('tableBody'); },
-    get totalBegin() { return document.getElementById('totalBegin'); },
     get totalDebit() { return document.getElementById('totalDebit'); },
     get totalCredit() { return document.getElementById('totalCredit'); },
     get totalEnd() { return document.getElementById('totalEnd'); },
@@ -332,6 +403,8 @@ const DOM = {
     get btnPrev() { return document.getElementById('btnPrev'); },
     get btnNext() { return document.getElementById('btnNext'); },
     get btnLast() { return document.getElementById('btnLast'); },
+    get btnFilterToggle() { return document.getElementById('btnFilterToggle'); },
+    get filterSection() { return document.getElementById('filterSection'); },
     get btnColumnToggle() { return document.getElementById('btnColumnToggle'); },
     get columnToggleDropdown() { return document.getElementById('columnToggleDropdown'); },
     get dataTable() { return document.getElementById('dataTable'); }
@@ -580,6 +653,7 @@ async function fetchData() {
         params.set('$top', State.pageSize);
         params.set('$skip', (State.currentPage - 1) * State.pageSize);
         params.set('$count', 'true');
+        params.set('$orderby', 'Code asc');
 
         const url = `${CONFIG.API_BASE}/${CONFIG.ENDPOINT}?${params.toString()}`;
 
@@ -651,6 +725,10 @@ function applySupplierFilter() {
     } else {
         State.filteredData = [...State.data];
     }
+    // Sort by Code A->Z with numeric sorting (B1, B2, B3... B10, MM...)
+    State.filteredData.sort((a, b) =>
+        (a.Code || '').localeCompare(b.Code || '', 'vi', { numeric: true })
+    );
 }
 
 // =====================================================
@@ -691,9 +769,15 @@ function renderTable() {
                     <button class="btn-action btn-action-expand ${isExpanded ? 'expanded' : ''}" onclick="toggleRowExpand(${partnerId}, this)" title="Mở rộng">▶</button>
                 </span>
             </td>
-            <td data-col="name">${escapeHtml(item.PartnerName || '')}</td>
-            <td data-col="phone">${escapeHtml(item.PartnerPhone || '')}</td>
-            <td data-col="begin" class="col-number">${formatNumber(item.Begin)}</td>
+            <td data-col="name">
+                <div class="supplier-name-cell">
+                    <span>${escapeHtml(item.PartnerName || '')}</span>
+                    <button class="btn-supplier-note" onclick="openSupplierNoteEdit('${escapeHtml(item.Code || '')}', '${escapeHtml((item.PartnerName || '').replace(/'/g, "\\'"))}')" title="Ghi chú">
+                        <i data-lucide="pencil" style="width: 12px; height: 12px;"></i>
+                    </button>
+                </div>
+                ${(() => { const note = SupplierNotesStore.get(item.Code || ''); return note ? `<div class="supplier-note-preview">${escapeHtml(note)}</div>` : ''; })()}
+            </td>
             <td data-col="debit" class="col-number">${formatNumber(item.Debit)}</td>
             <td data-col="credit" class="col-number">${formatNumber(item.Credit)}</td>
             <td data-col="end" class="col-number">${formatNumber(item.End)}</td>
@@ -705,7 +789,7 @@ function renderTable() {
         detailTr.className = `detail-row ${isExpanded ? 'expanded' : ''}`;
         detailTr.id = `detail-row-${partnerId}`;
         detailTr.innerHTML = `
-            <td colspan="7">
+            <td colspan="5">
                 <div class="detail-panel" id="detail-panel-${partnerId}">
                     ${isExpanded ? renderDetailPanel(partnerId) : ''}
                 </div>
@@ -728,7 +812,7 @@ function renderTable() {
 function renderEmptyState() {
     DOM.tableBody.innerHTML = `
         <tr>
-            <td colspan="7" class="empty-state">
+            <td colspan="5" class="empty-state">
                 <i data-lucide="inbox"></i>
                 <p>Không có dữ liệu</p>
             </td>
@@ -740,16 +824,14 @@ function renderEmptyState() {
 }
 
 function calculateTotals() {
-    let totalBegin = 0, totalDebit = 0, totalCredit = 0, totalEnd = 0;
+    let totalDebit = 0, totalCredit = 0, totalEnd = 0;
 
     State.filteredData.forEach(item => {
-        totalBegin += item.Begin || 0;
         totalDebit += item.Debit || 0;
         totalCredit += item.Credit || 0;
         totalEnd += item.End || 0;
     });
 
-    DOM.totalBegin.textContent = formatNumber(totalBegin);
     DOM.totalDebit.textContent = formatNumber(totalDebit);
     DOM.totalCredit.textContent = formatNumber(totalCredit);
     DOM.totalEnd.textContent = formatNumber(totalEnd);
@@ -2034,12 +2116,14 @@ function renderInvoiceDetailModal(data) {
     const paymentAmount = data.PaymentAmount || 0;
     const amountTotal = data.AmountTotal || 0;
     const residual = data.Residual || 0;
-    const totalQuantity = data.TotalQuantity || 0;
+    // Calculate total quantity from order lines
+    let totalQuantity = 0;
 
     // Build order lines table
     let orderLinesHtml = '';
     if (data.OrderLines && data.OrderLines.length > 0) {
         data.OrderLines.forEach((line, index) => {
+            totalQuantity += (line.ProductQty || 0);
             const productName = line.Name || line.ProductName || '';
             const note = line.Note || '';
             orderLinesHtml += `
@@ -2625,26 +2709,23 @@ async function exportToExcel() {
 
     try {
         // Create CSV content
-        const headers = ['Mã khách hàng', 'Tên KH/Facebook', 'Điện thoại', 'Nợ đầu kỳ', 'Phát sinh', 'Thanh toán', 'Nợ cuối kỳ'];
+        const headers = ['Mã NCC', 'Tên NCC', 'Phát sinh', 'Thanh toán', 'Nợ cuối kỳ'];
         const rows = State.filteredData.map(item => [
             item.Code || '',
             item.PartnerName || '',
-            item.PartnerPhone || '',
-            item.Begin || 0,
             item.Debit || 0,
             item.Credit || 0,
             item.End || 0
         ]);
 
         // Add totals row
-        let totalBegin = 0, totalDebit = 0, totalCredit = 0, totalEnd = 0;
+        let totalDebit = 0, totalCredit = 0, totalEnd = 0;
         State.filteredData.forEach(item => {
-            totalBegin += item.Begin || 0;
             totalDebit += item.Debit || 0;
             totalCredit += item.Credit || 0;
             totalEnd += item.End || 0;
         });
-        rows.push(['Tổng', '', '', totalBegin, totalDebit, totalCredit, totalEnd]);
+        rows.push(['Tổng', '', totalDebit, totalCredit, totalEnd]);
 
         // Build CSV
         const csvContent = [
@@ -2678,10 +2759,37 @@ async function exportToExcel() {
 }
 
 // =====================================================
+// SUPPLIER NOTE EDIT (inline prompt)
+// =====================================================
+
+function openSupplierNoteEdit(supplierCode, supplierName) {
+    const currentNote = SupplierNotesStore.get(supplierCode);
+    const newNote = prompt(`Ghi chú cho [${supplierCode}] ${supplierName}:`, currentNote);
+    if (newNote === null) return; // cancelled
+    SupplierNotesStore.set(supplierCode, newNote).then(() => {
+        renderTable();
+        if (window.lucide) window.lucide.createIcons();
+        if (window.notificationManager) {
+            window.notificationManager.success(newNote ? 'Đã lưu ghi chú' : 'Đã xóa ghi chú');
+        }
+    });
+}
+
+// =====================================================
 // EVENT HANDLERS
 // =====================================================
 
 function initEventHandlers() {
+    // Filter toggle button
+    DOM.btnFilterToggle.addEventListener('click', () => {
+        const section = DOM.filterSection;
+        const btn = DOM.btnFilterToggle;
+        const isHidden = section.style.display === 'none';
+        section.style.display = isHidden ? '' : 'none';
+        btn.classList.toggle('active', isHidden);
+        if (isHidden) lucide.createIcons({ nodes: [section] });
+    });
+
     // Search button
     DOM.btnSearch.addEventListener('click', () => {
         State.currentPage = 1;
@@ -2775,6 +2883,9 @@ async function init() {
 
     // Initialize web notes store
     await WebNotesStore.init();
+
+    // Initialize supplier notes store
+    await SupplierNotesStore.init();
 
     // Load initial data
     await fetchData();
