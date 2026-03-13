@@ -12,6 +12,8 @@ class QuickReplyManager {
         this.selectedSuggestionIndex = -1;
         this.currentSuggestions = [];
         this.db = null;
+        this._repliesLoaded = false;
+        this._repliesLoadedPromise = null;
         this.init();
     }
 
@@ -22,9 +24,17 @@ class QuickReplyManager {
         this.createTemplateInputModalDOM();
         this.createAutocompleteDOM();
         this.initFirebase();
-        this.loadReplies();
+        this._repliesLoadedPromise = this.loadReplies().then(() => {
+            this._repliesLoaded = true;
+        });
         this.attachEventListeners();
         this.setupAutocomplete();
+    }
+
+    async ensureRepliesLoaded() {
+        if (!this._repliesLoaded && this._repliesLoadedPromise) {
+            await this._repliesLoadedPromise;
+        }
     }
 
     initFirebase() {
@@ -509,10 +519,13 @@ class QuickReplyManager {
         }
     }
 
-    openModal(targetInputId) {
+    async openModal(targetInputId) {
         console.log('[QUICK-REPLY] 📂 Opening modal for input:', targetInputId);
 
         this.targetInputId = targetInputId;
+
+        // Ensure replies are loaded from IndexedDB before rendering
+        await this.ensureRepliesLoaded();
 
         const modal = document.getElementById('quickReplyModal');
         modal?.classList.add('active');
@@ -711,10 +724,13 @@ class QuickReplyManager {
         }, 1000);
     }
 
-    handleAutocompleteInput(e) {
+    async handleAutocompleteInput(e) {
         const input = e.target;
         const value = input.value;
         const cursorPos = input.selectionStart;
+
+        // Ensure replies are loaded from IndexedDB before filtering
+        await this.ensureRepliesLoaded();
 
         // Find the last / before cursor
         const textBeforeCursor = value.substring(0, cursorPos);
