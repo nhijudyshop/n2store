@@ -655,17 +655,44 @@ window.switchConversationType = async function (type) {
             setupNewMessageIndicatorListener();
 
         } else {
-            // Use cached INBOX conversation ID (already fetched when modal opened)
-            const inboxConvId = window.currentInboxConversationId;
+            // Use cached INBOX conversation ID, or re-fetch from API
+            let inboxConvId = window.currentInboxConversationId;
 
-            if (inboxConvId) {
-                window.currentConversationId = inboxConvId;
-                console.log('[CONV-TYPE] Using cached INBOX conversationId:', window.currentConversationId);
-            } else {
-                // Fallback if not cached
-                window.currentConversationId = `${window.currentChatChannelId}_${window.currentChatPSID}`;
-                console.log('[CONV-TYPE] Using fallback conversationId:', window.currentConversationId);
+            if (!inboxConvId && window.pancakeDataManager && window.currentChatPSID) {
+                // No cached INBOX ID - re-fetch conversations from API
+                console.log('[CONV-TYPE] No cached INBOX ID, re-fetching from API...');
+                const result = await window.pancakeDataManager.fetchConversationsByCustomerFbId(
+                    window.currentChatChannelId,
+                    window.currentChatPSID
+                );
+
+                if (result.success && result.conversations.length > 0) {
+                    const inboxConv = result.conversations.find(conv => conv.type === 'INBOX');
+                    if (inboxConv) {
+                        inboxConvId = inboxConv.id;
+                        window.currentInboxConversationId = inboxConvId;
+                        window.currentCustomerUUID = result.customerUuid || window.currentCustomerUUID;
+                        console.log('[CONV-TYPE] Found INBOX conversation from API:', inboxConvId);
+                    }
+                }
             }
+
+            if (!inboxConvId) {
+                console.warn('[CONV-TYPE] No INBOX conversation found');
+                modalBody.innerHTML = `
+                    <div class="chat-error">
+                        <i class="fas fa-info-circle"></i>
+                        <p>Không tìm thấy tin nhắn cho khách hàng này</p>
+                    </div>`;
+
+                // Setup infinite scroll and realtime
+                setupChatInfiniteScroll();
+                setupNewMessageIndicatorListener();
+                return;
+            }
+
+            window.currentConversationId = inboxConvId;
+            console.log('[CONV-TYPE] Using INBOX conversationId:', window.currentConversationId);
 
             // Fetch messages for INBOX conversation
             console.log('[CONV-TYPE] Fetching messages for INBOX conversation...');
@@ -679,12 +706,6 @@ window.switchConversationType = async function (type) {
 
             window.allChatMessages = response.messages || [];
             currentChatCursor = response.after;
-
-            // Update conversationId from response if available
-            if (response.conversationId) {
-                window.currentConversationId = response.conversationId;
-                console.log('[CONV-TYPE] Updated conversationId from response:', window.currentConversationId);
-            }
 
             console.log('[CONV-TYPE] Loaded', window.allChatMessages.length, 'messages');
             renderChatMessages(window.allChatMessages, true);
