@@ -151,9 +151,9 @@ router.post('/:customerId/deposit', async (req, res) => {
 
         // Log activity
         await db.query(`
-            INSERT INTO customer_activities (phone, activity_type, title, description, icon, color)
-            VALUES ($1, 'WALLET_DEPOSIT', $2, $3, 'dollar-sign', 'green')
-        `, [phone, `Nạp tiền: ${parseFloat(amount).toLocaleString()}đ`, note || '']);
+            INSERT INTO customer_activities (phone, activity_type, title, description, icon, color, created_by)
+            VALUES ($1, 'WALLET_DEPOSIT', $2, $3, 'savings', 'green', $4)
+        `, [phone, `Nạp tiền: ${parseFloat(amount).toLocaleString()}đ`, note || '', created_by || 'system']);
 
         res.json({
             success: true,
@@ -205,9 +205,9 @@ router.post('/:customerId/credit', async (req, res) => {
 
         // Log activity
         await db.query(`
-            INSERT INTO customer_activities (phone, activity_type, title, description, icon, color)
-            VALUES ($1, 'WALLET_VIRTUAL_CREDIT', $2, $3, 'gift', 'purple')
-        `, [phone, `Cấp công nợ ảo: ${parseFloat(amount).toLocaleString()}đ`, `Hết hạn: ${expiresAt.toLocaleDateString('vi-VN')}`]);
+            INSERT INTO customer_activities (phone, activity_type, title, description, icon, color, created_by)
+            VALUES ($1, 'WALLET_VIRTUAL_CREDIT', $2, $3, 'stars', 'purple', $4)
+        `, [phone, `Cấp công nợ ảo: ${parseFloat(amount).toLocaleString()}đ`, `Hết hạn: ${expiresAt.toLocaleDateString('vi-VN')}`, created_by || 'system']);
 
         res.json({
             success: true,
@@ -231,7 +231,7 @@ router.post('/:customerId/credit', async (req, res) => {
 router.post('/:customerId/withdraw', async (req, res) => {
     const db = req.app.locals.chatDb;
     const { customerId } = req.params;
-    const { amount, order_id, note } = req.body;
+    const { amount, order_id, note, created_by } = req.body;
 
     if (!amount || amount <= 0) {
         return res.status(400).json({ success: false, error: 'Invalid amount' });
@@ -252,6 +252,16 @@ router.post('/:customerId/withdraw', async (req, res) => {
 
         if (!withdrawal.success) {
             return res.status(400).json({ success: false, error: withdrawal.error_message });
+        }
+
+        // Log activity
+        try {
+            await db.query(`
+                INSERT INTO customer_activities (phone, activity_type, title, description, icon, color, created_by)
+                VALUES ($1, 'WALLET_WITHDRAW', $2, $3, 'payments', 'red', $4)
+            `, [phone, `Rút tiền: ${parseFloat(amount).toLocaleString()}đ`, note || '', created_by || 'system']);
+        } catch (actErr) {
+            console.warn('[Wallets V2] Withdraw activity logging failed:', actErr.message);
         }
 
         res.json({
@@ -480,7 +490,7 @@ router.post('/cron/process-bank', async (req, res) => {
                 // Log activity
                 await db.query(`
                     INSERT INTO customer_activities (phone, activity_type, title, description, icon, color)
-                    VALUES ($1, 'WALLET_DEPOSIT', $2, $3, 'university', 'green')
+                    VALUES ($1, 'WALLET_DEPOSIT', $2, $3, 'account_balance', 'green')
                 `, [normalizedPhone, `Nạp tiền: ${parseFloat(tx.amount).toLocaleString()}đ`, tx.description || 'Chuyển khoản ngân hàng']);
 
                 processed.push({

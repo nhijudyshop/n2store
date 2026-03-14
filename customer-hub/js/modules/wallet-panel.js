@@ -232,7 +232,7 @@ export class WalletPanelModule {
                 if (action === 'deposit') {
                     await apiService.walletDeposit(this.customerPhone, amount, { source: 'MANUAL_ADJUSTMENT', note: note || 'Nạp tiền từ Customer 360', created_by: user });
                 } else if (action === 'withdraw') {
-                    await apiService.walletWithdraw(this.customerPhone, amount, null, note || 'Rút tiền từ Customer 360');
+                    await apiService.walletWithdraw(this.customerPhone, amount, null, note || 'Rút tiền từ Customer 360', user);
                 } else if (action === 'issue_vc') {
                     await apiService.issueVirtualCredit(this.customerPhone, amount, { source_type: 'ADMIN_ISSUE', expiry_days: expiry, note: note || `Cấp công nợ ảo (${expiry} ngày)`, created_by: user });
                 }
@@ -313,13 +313,14 @@ export class WalletPanelModule {
         const date = tx.created_at ? new Date(tx.created_at).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
         const expiry = (tx.type === 'VIRTUAL_CREDIT' && tx.expires_at)
             ? `<span class="text-orange-500 ml-1">• HSD: ${new Date(tx.expires_at).toLocaleDateString('vi-VN')}</span>` : '';
+        const createdBy = tx.created_by && tx.created_by !== 'system' ? ` · <span class="font-medium text-slate-500">${this._escapeHtml(tx.created_by)}</span>` : '';
 
         return `
             <div class="flex items-center gap-3 p-3 rounded-lg ${bg}">
                 <div class="flex-1">
                     <p class="font-medium text-slate-800 dark:text-slate-200">${TYPE_LABELS[tx.type] || 'Giao dịch ví'}</p>
                     <p class="text-xs text-slate-500">${this._escapeHtml(tx.note || tx.source || '')}</p>
-                    <p class="text-xs text-slate-400">${date}${expiry}</p>
+                    <p class="text-xs text-slate-400">${date}${expiry}${createdBy}</p>
                 </div>
                 <p class="font-bold ${color}">${isCredit ? '+' : '-'}${this._formatCurrency(Math.abs(tx.amount))}</p>
             </div>`;

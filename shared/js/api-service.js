@@ -1313,12 +1313,12 @@ const ApiService = {
      * @param {string} orderId
      * @param {string} note
      */
-    async walletWithdraw(phone, amount, orderId, note) {
+    async walletWithdraw(phone, amount, orderId, note, created_by) {
         try {
             const response = await fetch(`${this.RENDER_API_URL}/v2/wallets/${phone}/withdraw`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ amount, order_id: orderId, note })
+                body: JSON.stringify({ amount, order_id: orderId, note, created_by })
             });
             if (!response.ok) {
                 const error = await response.json();

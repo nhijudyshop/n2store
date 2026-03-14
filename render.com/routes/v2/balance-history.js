@@ -349,7 +349,7 @@ router.post('/:id/reprocess-wallet', async (req, res) => {
         // 4. Log activity
         await db.query(`
             INSERT INTO customer_activities (phone, customer_id, activity_type, title, description, reference_type, reference_id, icon, color)
-            VALUES ($1, $2, 'WALLET_DEPOSIT', $3, $4, 'balance_history', $5, 'university', 'green')
+            VALUES ($1, $2, 'WALLET_DEPOSIT', $3, $4, 'balance_history', $5, 'account_balance', 'green')
         `, [
             tx.linked_customer_phone,
             tx.customer_id,
@@ -711,14 +711,15 @@ router.post('/:id/approve', async (req, res) => {
 
                 // Log activity
                 await db.query(`
-                    INSERT INTO customer_activities (phone, customer_id, activity_type, title, description, reference_type, reference_id, icon, color)
-                    VALUES ($1, $2, 'WALLET_DEPOSIT', $3, $4, 'balance_history', $5, 'university', 'green')
+                    INSERT INTO customer_activities (phone, customer_id, activity_type, title, description, reference_type, reference_id, icon, color, created_by)
+                    VALUES ($1, $2, 'WALLET_DEPOSIT', $3, $4, 'balance_history', $5, 'account_balance', 'green', $6)
                 `, [
                     tx.linked_customer_phone,
                     tx.customer_id,
                     `Nạp tiền: ${parseFloat(tx.transfer_amount).toLocaleString()}đ`,
                     `Chuyển khoản ngân hàng (${tx.code || tx.reference_code}) - Approved by ${verified_by}`,
-                    id
+                    id,
+                    verified_by || 'system'
                 ]);
 
                 console.log(`[BalanceHistory V2] ✅ Approved & wallet updated: ${tx.linked_customer_phone} +${tx.transfer_amount}`);
@@ -1916,16 +1917,33 @@ router.post('/:id/adjust', async (req, res) => {
             WHERE id = $2
         `, [reason.substring(0, 50), id]);
 
-        // 10. Log customer activities (use WALLET_WITHDRAW since WALLET_ADJUSTMENT not in CHECK constraint)
+        // 10. Log customer activities for both wrong and correct customers
+        // Log debit activity for wrong customer
         await db.query(`
-            INSERT INTO customer_activities (phone, customer_id, activity_type, title, description)
-            SELECT $1::text, id, 'WALLET_WITHDRAW'::text, $2::text, $3::text
+            INSERT INTO customer_activities (phone, customer_id, activity_type, title, description, icon, color, created_by)
+            SELECT $1::text, id, 'WALLET_WITHDRAW'::text, $2::text, $3::text, 'tune', 'red', $4::text
             FROM customers WHERE phone = $1::text
         `, [
             tx.linked_customer_phone,
             'Điều chỉnh công nợ (trừ ví sai)',
-            `Trừ ${adjustAmount.toLocaleString()}đ từ GD #${id} - ${reason}`
+            `Trừ ${adjustAmount.toLocaleString()}đ từ GD #${id} - ${reason}`,
+            performed_by || 'system'
         ]);
+
+        // Log credit activity for correct customer (if transfer_to_correct)
+        if (adjustment_type === 'transfer_to_correct') {
+            const normalizedCorrectPhone = normalizePhone(correct_customer_phone);
+            await db.query(`
+                INSERT INTO customer_activities (phone, customer_id, activity_type, title, description, icon, color, created_by)
+                SELECT $1::text, id, 'WALLET_DEPOSIT'::text, $2::text, $3::text, 'tune', 'green', $4::text
+                FROM customers WHERE phone = $1::text
+            `, [
+                normalizedCorrectPhone,
+                `Nạp tiền: ${adjustAmount.toLocaleString()}đ`,
+                `Nhận điều chỉnh từ GD #${id} - ${reason}`,
+                performed_by || 'system'
+            ]);
+        }
 
         await db.query('COMMIT');
 

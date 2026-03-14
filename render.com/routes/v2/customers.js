@@ -334,7 +334,7 @@ router.get('/:id', async (req, res) => {
 
         // Get recent activities (last 20)
         const activitiesResult = await db.query(`
-            SELECT activity_type, title, description, icon, color,
+            SELECT activity_type, title, description, icon, color, created_by,
                 (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at
             FROM customer_activities
             WHERE phone = $1
