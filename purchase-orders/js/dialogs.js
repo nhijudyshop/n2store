@@ -1689,7 +1689,12 @@ class InventoryPickerDialog {
             }
 
             const response = await window.TPOSClient.authenticatedFetch(
-                `${this.proxyUrl}/api/odata/ProductTemplate(${templateId})?$select=Id,ImageUrl,PurchasePrice,ListPrice`
+                `${this.proxyUrl}/api/odata/ProductTemplate(${templateId})/ODataService.GetDetailView?companyId=undefined&warehouseId=undefined`,
+                {
+                    headers: {
+                        'Content-Type': 'application/json;IEEE754Compatible=false;charset=utf-8'
+                    }
+                }
             );
 
             if (!response.ok) {
@@ -2529,9 +2534,28 @@ class InventoryPickerDialog {
                     if (product.name) {
                         productDetails = { ...productDetails, name: product.name };
                     }
+                    // Fallback purchasePrice from Excel if API returned 0
+                    if (!productDetails.purchasePrice && product.purchasePrice) {
+                        productDetails.purchasePrice = product.purchasePrice;
+                    }
                     this.selectedProducts.set(productIdStr, productDetails);
                 } else {
-                    this.selectedProducts.set(productIdStr, product);
+                    // No cache - fetch details for each product
+                    try {
+                        let details = await this.fetchProductDetails(product.id);
+                        if (details) {
+                            this.saveProductDetailsToCache(product.id, details);
+                            if (product.name) details.name = product.name;
+                            if (!details.purchasePrice && product.purchasePrice) {
+                                details.purchasePrice = product.purchasePrice;
+                            }
+                            this.selectedProducts.set(productIdStr, details);
+                        } else {
+                            this.selectedProducts.set(productIdStr, product);
+                        }
+                    } catch (err) {
+                        this.selectedProducts.set(productIdStr, product);
+                    }
                 }
             }
         }
