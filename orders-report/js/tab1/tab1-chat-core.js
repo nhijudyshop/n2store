@@ -701,16 +701,12 @@ window.switchConversationType = async function (type) {
             }
 
             if (!inboxConvId) {
-                console.warn('[CONV-TYPE] No INBOX conversation found');
-                modalBody.innerHTML = `
-                    <div class="chat-error">
-                        <i class="fas fa-info-circle"></i>
-                        <p>Không tìm thấy tin nhắn cho khách hàng này</p>
-                    </div>`;
-
-                // Setup infinite scroll and realtime
-                setupChatInfiniteScroll();
-                setupNewMessageIndicatorListener();
+                console.warn('[CONV-TYPE] No INBOX conversation found, auto-switching to COMMENT');
+                // Show notification and auto-switch to COMMENT tab
+                if (window.notificationManager) {
+                    window.notificationManager.show('Khách hàng chưa có tin nhắn, chuyển sang bình luận', 'info', 3000);
+                }
+                window.switchConversationType('COMMENT');
                 return;
             }
 
@@ -2186,7 +2182,10 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                                 window.cachedCommentConversations = matchedCommentConvs;
                                 console.log('[CHAT-MODAL] No INBOX but found COMMENT conversations, auto-switching to COMMENT view');
 
-                                // Auto-switch to COMMENT view
+                                // Show notification and auto-switch to COMMENT view
+                                if (window.notificationManager) {
+                                    window.notificationManager.show('Khách hàng chưa có tin nhắn, chuyển sang bình luận', 'info', 3000);
+                                }
                                 await window.switchConversationType('COMMENT');
                             } else {
                                 modalBody.innerHTML = `
