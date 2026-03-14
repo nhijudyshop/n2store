@@ -95,24 +95,42 @@ function registerRoutes(router, helpers) {
             let customerId = null;
             if (customerPhone) {
                 try {
-                    const customerResult = await getOrCreateCustomerFromTPOS(db, customerPhone, null);
+                    // Truyen customerName de dam bao ten KH duoc luu vao customers table
+                    // ngay ca khi TPOS API khong kha dung luc nay
+                    const tposHint = customerName ? { name: customerName } : null;
+                    const customerResult = await getOrCreateCustomerFromTPOS(db, customerPhone, tposHint);
                     customerId = customerResult.customerId;
+
+                    // Neu co ten tu frontend (da tim tren TPOS) nhung customer chua co ten,
+                    // cap nhat truc tiep de dam bao ten luon duoc luu
+                    if (customerName && customerId) {
+                        await db.query(`
+                            UPDATE customers
+                            SET name = $2, updated_at = CURRENT_TIMESTAMP
+                            WHERE id = $1 AND (name IS NULL OR name = 'Khách hàng mới')
+                        `, [customerId, customerName]);
+                    }
+
                     console.log('[CUSTOMER-INFO] Also synced to customers table:', {
                         phone: customerPhone,
                         customerId,
-                        created: customerResult.created
+                        created: customerResult.created,
+                        customerName: customerName || '(no name)'
                     });
 
-                    // Cap nhat balance_history.customer_id neu tim thay giao dich
+                    // Cap nhat balance_history neu tim thay giao dich da co QR code nay
+                    // Dat match_method va display_name luon de tranh race condition voi processDebtUpdate
                     if (!uniqueCode.startsWith('PHONE')) {
                         const updateResult = await db.query(`
                             UPDATE balance_history
                             SET customer_id = $1,
                                 linked_customer_phone = $2,
+                                match_method = COALESCE(match_method, 'qr_code'),
+                                display_name = COALESCE(display_name, $4),
                                 updated_at = CURRENT_TIMESTAMP
                             WHERE (content LIKE '%' || $3 || '%' OR reference_code = $3)
                               AND customer_id IS NULL
-                        `, [customerId, customerPhone, uniqueCode]);
+                        `, [customerId, customerPhone, uniqueCode, customerName || null]);
 
                         if (updateResult.rowCount > 0) {
                             console.log('[CUSTOMER-INFO] Linked', updateResult.rowCount, 'balance_history records to customer');
