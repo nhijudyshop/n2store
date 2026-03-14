@@ -1689,7 +1689,7 @@ class InventoryPickerDialog {
             }
 
             const response = await window.TPOSClient.authenticatedFetch(
-                `${this.proxyUrl}/api/odata/ProductTemplate(${templateId})/ODataService.GetDetailView?$expand=Images`
+                `${this.proxyUrl}/api/odata/ProductTemplate(${templateId})?$select=Id,ImageUrl,PurchasePrice,ListPrice`
             );
 
             if (!response.ok) {
