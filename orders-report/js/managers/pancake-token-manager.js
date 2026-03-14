@@ -24,6 +24,7 @@ class PancakeTokenManager {
         this.activeAccountId = null;
         this.accounts = {};
         this.pageAccessTokens = {}; // Cache for page_access_tokens
+        this.accountPageAccessMap = {}; // { accountId: Set<pageId> } - maps which accounts can access which pages
 
         // localStorage keys
         this.LOCAL_STORAGE_KEYS = {
@@ -685,6 +686,82 @@ class PancakeTokenManager {
      */
     getAllAccounts() {
         return this.accounts;
+    }
+
+    /**
+     * Prefetch pages for ALL accounts to build accountPageAccessMap
+     * Used for fallback: if active account can't access a page, find another account that can
+     */
+    async prefetchAllAccountPages() {
+        console.log('[PANCAKE-TOKEN] Prefetching pages for all accounts...');
+        this.accountPageAccessMap = {};
+
+        const accountEntries = Object.entries(this.accounts);
+        if (accountEntries.length === 0) {
+            console.warn('[PANCAKE-TOKEN] No accounts to prefetch');
+            return;
+        }
+
+        await Promise.allSettled(
+            accountEntries.map(async ([accountId, account]) => {
+                if (this.isTokenExpired(account.exp)) {
+                    console.log(`[PANCAKE-TOKEN] Skipping expired account: ${account.name}`);
+                    return;
+                }
+
+                try {
+                    const url = window.API_CONFIG.buildUrl.pancake('pages', `access_token=${account.token}`);
+                    const response = await fetch(url, {
+                        method: 'GET',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+
+                    const data = await response.json();
+                    if (data.success && data.categorized?.activated_page_ids) {
+                        this.accountPageAccessMap[accountId] = new Set(
+                            data.categorized.activated_page_ids.map(String)
+                        );
+                        console.log(`[PANCAKE-TOKEN] Account ${account.name}: ${data.categorized.activated_page_ids.length} pages`);
+                    }
+                } catch (error) {
+                    console.warn(`[PANCAKE-TOKEN] Failed to fetch pages for ${account.name}:`, error.message);
+                }
+            })
+        );
+
+        console.log('[PANCAKE-TOKEN] Prefetch complete:', Object.keys(this.accountPageAccessMap).length, 'accounts mapped');
+    }
+
+    /**
+     * Find a fallback account that has access to the given page
+     * @param {string} pageId - Page ID to find access for
+     * @param {string} excludeAccountId - Account ID to exclude (usually the active account that failed)
+     * @returns {Object|null} - { accountId, name, token } or null
+     */
+    findAccountWithPageAccess(pageId, excludeAccountId = null) {
+        const pageIdStr = String(pageId);
+
+        for (const [accountId, pageIds] of Object.entries(this.accountPageAccessMap)) {
+            if (accountId === excludeAccountId) continue;
+            if (pageIds.has(pageIdStr)) {
+                const account = this.accounts[accountId];
+                if (account && !this.isTokenExpired(account.exp)) {
+                    console.log(`[PANCAKE-TOKEN] Found fallback account: ${account.name} for page ${pageId}`);
+                    return {
+                        accountId,
+                        name: account.name,
+                        token: account.token
+                    };
+                }
+            }
+        }
+
+        console.warn(`[PANCAKE-TOKEN] No fallback account found for page ${pageId}`);
+        return null;
     }
 
     /**
