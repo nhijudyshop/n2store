@@ -49,19 +49,38 @@ window.PurchaseOrderHistory = (function () {
         loadDoneRows().then(() => loadPage(1));
     }
 
+    let doneUnsubscribe = null;
+
     /**
-     * Load done rows from Firestore
+     * Load done rows from Firestore with real-time sync
      */
     async function loadDoneRows() {
         if (doneLoaded) return;
         try {
             const db = firebase.firestore();
+            // Initial load
             const doc = await db.doc(DONE_DOC_PATH).get();
             if (doc.exists) {
                 const ids = doc.data().ids || [];
                 ids.forEach(id => doneRows.add(id));
             }
             doneLoaded = true;
+
+            // Real-time listener for cross-device sync
+            doneUnsubscribe = db.doc(DONE_DOC_PATH).onSnapshot((snap) => {
+                if (!snap.exists) return;
+                const ids = new Set(snap.data().ids || []);
+                // Sync: add new, remove old
+                const changed = ids.size !== doneRows.size || [...ids].some(id => !doneRows.has(id));
+                if (!changed) return;
+                doneRows.clear();
+                ids.forEach(id => doneRows.add(id));
+                // Re-render table to reflect changes
+                if (currentData.length > 0) {
+                    renderTable(currentData);
+                    renderPagination();
+                }
+            });
         } catch (e) {
             console.warn('[History] Failed to load done rows:', e);
         }
@@ -759,6 +778,11 @@ window.PurchaseOrderHistory = (function () {
         filterState = '';
         // Clear expanded state
         Object.keys(expandedRows).forEach(k => delete expandedRows[k]);
+        // Unsubscribe real-time listener
+        if (doneUnsubscribe) {
+            doneUnsubscribe();
+            doneUnsubscribe = null;
+        }
     }
 
     return {
