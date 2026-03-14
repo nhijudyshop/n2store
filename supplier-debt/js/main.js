@@ -589,6 +589,8 @@ function initDateInputs() {
         const parsed = parseVietnameseDate(this.value);
         if (parsed) {
             State.dateFrom = parsed;
+            State.currentPage = 1;
+            fetchData();
         }
     });
 
@@ -597,6 +599,8 @@ function initDateInputs() {
         if (parsed) {
             State.dateTo = parsed;
             State.dateTo.setHours(23, 59, 59, 999);
+            State.currentPage = 1;
+            fetchData();
         }
     });
 
@@ -606,6 +610,8 @@ function initDateInputs() {
             const date = new Date(this.value);
             State.dateFrom = date;
             DOM.dateFromDisplay.value = formatDate(date);
+            State.currentPage = 1;
+            fetchData();
         }
     });
 
@@ -615,6 +621,8 @@ function initDateInputs() {
             date.setHours(23, 59, 59, 999);
             State.dateTo = date;
             DOM.dateToDisplay.value = formatDate(date);
+            State.currentPage = 1;
+            fetchData();
         }
     });
 
