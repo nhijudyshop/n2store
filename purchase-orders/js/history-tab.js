@@ -115,7 +115,7 @@ window.PurchaseOrderHistory = (function () {
                         <i data-lucide="filter"></i>
                         <select id="historyStateFilter" class="filter-input">
                             <option value="">Tất cả</option>
-                            <option value="draft"${filterState === 'draft' ? ' selected' : ''}>Nhập</option>
+                            <option value="draft"${filterState === 'draft' ? ' selected' : ''}>Nháp</option>
                             <option value="open"${filterState === 'open' ? ' selected' : ''}>Đã xác nhận</option>
                             <option value="paid"${filterState === 'paid' ? ' selected' : ''}>Đã thanh toán</option>
                             <option value="cancel"${filterState === 'cancel' ? ' selected' : ''}>Huỷ bỏ</option>
@@ -340,7 +340,19 @@ window.PurchaseOrderHistory = (function () {
                             <th style="width: 120px;">Ngày đơn hàng</th>
                             <th>Số</th>
                             <th class="text-right">Tổng tiền</th>
-                            <th>Trạng thái</th>
+                            <th class="th-filter-wrap">
+                                <span>Trạng thái</span>
+                                <span class="th-filter-icon" id="thStatusFilterBtn" title="Lọc trạng thái">
+                                    <i data-lucide="filter" style="width:14px;height:14px;"></i>
+                                </span>
+                                <div class="th-filter-dropdown" id="thStatusDropdown" style="display:none;">
+                                    <div class="th-filter-option ${filterState === '' ? 'active' : ''}" data-state="">Tất cả</div>
+                                    <div class="th-filter-option ${filterState === 'draft' ? 'active' : ''}" data-state="draft">Nháp</div>
+                                    <div class="th-filter-option ${filterState === 'open' ? 'active' : ''}" data-state="open">Đã xác nhận</div>
+                                    <div class="th-filter-option ${filterState === 'paid' ? 'active' : ''}" data-state="paid">Đã thanh toán</div>
+                                    <div class="th-filter-option ${filterState === 'cancel' ? 'active' : ''}" data-state="cancel">Hủy bỏ</div>
+                                </div>
+                            </th>
                             <th>Nhân viên</th>
                             <th>Công ty</th>
                         </tr>
@@ -377,6 +389,31 @@ window.PurchaseOrderHistory = (function () {
                 saveDoneRows();
             });
         });
+
+        // Bind column header status filter dropdown
+        const filterBtn = document.getElementById('thStatusFilterBtn');
+        const filterDropdown = document.getElementById('thStatusDropdown');
+        if (filterBtn && filterDropdown) {
+            filterBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                filterDropdown.style.display = filterDropdown.style.display === 'none' ? 'block' : 'none';
+            });
+            filterDropdown.querySelectorAll('.th-filter-option').forEach(opt => {
+                opt.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    filterState = opt.dataset.state;
+                    // Sync the filter bar dropdown
+                    const sel = document.getElementById('historyStateFilter');
+                    if (sel) sel.value = filterState;
+                    filterDropdown.style.display = 'none';
+                    loadPage(1);
+                });
+            });
+            // Close dropdown when clicking outside
+            document.addEventListener('click', () => {
+                filterDropdown.style.display = 'none';
+            });
+        }
     }
 
     /**
