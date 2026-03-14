@@ -78,6 +78,19 @@ function registerRoutes(router, helpers) {
                 customerPhone
             });
 
+            // Luu vao balance_customer_info (can thiet de processDebtUpdate co the
+            // tim phone tu QR code khi giao dich den qua webhook)
+            await db.query(`
+                INSERT INTO balance_customer_info (unique_code, customer_name, customer_phone, updated_at)
+                VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+                ON CONFLICT (unique_code)
+                DO UPDATE SET
+                    customer_name = COALESCE(NULLIF($2, ''), balance_customer_info.customer_name),
+                    customer_phone = COALESCE(NULLIF($3, ''), balance_customer_info.customer_phone),
+                    updated_at = CURRENT_TIMESTAMP
+            `, [uniqueCode, customerName || null, customerPhone || null]);
+            console.log('[CUSTOMER-INFO] Saved to balance_customer_info:', uniqueCode);
+
             // PHASE 1.3: Chi tao/cap nhat customer trong bang customers (Source of Truth)
             let customerId = null;
             if (customerPhone) {
@@ -97,7 +110,7 @@ function registerRoutes(router, helpers) {
                             SET customer_id = $1,
                                 linked_customer_phone = $2,
                                 updated_at = CURRENT_TIMESTAMP
-                            WHERE (transaction_content LIKE '%' || $3 || '%' OR reference_code = $3)
+                            WHERE (content LIKE '%' || $3 || '%' OR reference_code = $3)
                               AND customer_id IS NULL
                         `, [customerId, customerPhone, uniqueCode]);
 

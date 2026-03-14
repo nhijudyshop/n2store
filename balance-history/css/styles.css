@@ -1326,6 +1326,42 @@ body {
     font-size: 0.8rem;
 }
 
+/* Phone input wrapper with TPOS result */
+.inline-qr-phone-wrap {
+    position: relative;
+}
+
+.inline-tpos-result {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    font-size: 0.75rem;
+    padding: 2px 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.3;
+    z-index: 1;
+}
+
+.inline-tpos-result.tpos-found {
+    color: #16a34a;
+}
+
+.inline-tpos-result.tpos-new {
+    color: #ea580c;
+}
+
+.inline-tpos-result.tpos-searching {
+    color: var(--text-tertiary);
+}
+
+.inline-qr-form .btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 /* Inline QR Display */
 .inline-qr-display {
     display: flex;

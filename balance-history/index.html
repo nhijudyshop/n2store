@@ -128,8 +128,11 @@
                             <div class="inline-qr-form">
                                 <input type="text" id="inlineCustomerName" class="inline-input"
                                     placeholder="Tên khách hàng" style="display: none;">
-                                <input type="tel" id="inlineCustomerPhone" class="inline-input" placeholder="SĐT">
-                                <button id="inlineGenerateQRBtn" class="btn btn-success">
+                                <div class="inline-qr-phone-wrap">
+                                    <input type="tel" id="inlineCustomerPhone" class="inline-input" placeholder="SĐT">
+                                    <div id="inlineTPOSResult" class="inline-tpos-result" style="display: none;"></div>
+                                </div>
+                                <button id="inlineGenerateQRBtn" class="btn btn-success" disabled>
                                     <i data-lucide="qr-code"></i> Tạo QR
                                 </button>
                                 <!-- Inline QR Display -->

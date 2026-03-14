@@ -441,22 +441,81 @@ const inlineQRCode = document.getElementById('inlineQRCode');
 const copyInlineQRBtn = document.getElementById('copyInlineQRBtn');
 const closeInlineQRBtn = document.getElementById('closeInlineQRBtn');
 
+const inlineTPOSResult = document.getElementById('inlineTPOSResult');
+
 // Store current QR URL for copy function
 let currentInlineQRUrl = '';
 let hasCopiedCurrentQR = false; // Track if current QR has been copied
 let currentCustomerInfo = ''; // Store customer name/phone for QR image
+let inlineTPOSCustomerName = ''; // Cached TPOS customer name for QR generation
+
+// --- Phone validation + TPOS auto-search ---
+let tposLookupTimer = null;
+
+function isValidPhone(phone) {
+    const digits = phone.replace(/\D/g, '');
+    return digits.length >= 10 && digits.length <= 11;
+}
+
+function updateQRButtonState() {
+    const phone = inlineCustomerPhone?.value?.trim() || '';
+    if (inlineGenerateQRBtn) {
+        inlineGenerateQRBtn.disabled = !isValidPhone(phone);
+    }
+}
+
+async function lookupTPOSCustomer(phone) {
+    if (!inlineTPOSResult) return;
+
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length < 10) {
+        inlineTPOSResult.style.display = 'none';
+        inlineTPOSCustomerName = '';
+        return;
+    }
+
+    // Show searching state
+    inlineTPOSResult.textContent = 'Đang tìm...';
+    inlineTPOSResult.className = 'inline-tpos-result tpos-searching';
+    inlineTPOSResult.style.display = 'block';
+
+    try {
+        const result = await window.fetchTPOSCustomer(digits);
+        if (result.success && result.customers.length > 0) {
+            const customer = result.customers[0];
+            inlineTPOSCustomerName = customer.name || '';
+            inlineTPOSResult.textContent = customer.name || 'Khách hàng (chưa có tên)';
+            inlineTPOSResult.className = 'inline-tpos-result tpos-found';
+        } else {
+            inlineTPOSCustomerName = '';
+            inlineTPOSResult.textContent = 'Khách hàng mới';
+            inlineTPOSResult.className = 'inline-tpos-result tpos-new';
+        }
+    } catch (err) {
+        inlineTPOSCustomerName = '';
+        inlineTPOSResult.textContent = 'Không thể tìm KH';
+        inlineTPOSResult.className = 'inline-tpos-result tpos-new';
+    }
+    inlineTPOSResult.style.display = 'block';
+}
+
+inlineCustomerPhone?.addEventListener('input', () => {
+    updateQRButtonState();
+    clearTimeout(tposLookupTimer);
+    const phone = inlineCustomerPhone.value.trim();
+    if (isValidPhone(phone)) {
+        tposLookupTimer = setTimeout(() => lookupTPOSCustomer(phone), 500);
+    } else {
+        if (inlineTPOSResult) inlineTPOSResult.style.display = 'none';
+        inlineTPOSCustomerName = '';
+    }
+});
 
 inlineGenerateQRBtn?.addEventListener('click', () => {
     generateDepositQRInline();
 });
 
 // Handle Enter key on inline inputs
-inlineCustomerName?.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') {
-        generateDepositQRInline();
-    }
-});
-
 inlineCustomerPhone?.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') {
         generateDepositQRInline();
@@ -550,24 +609,26 @@ async function generateDepositQRInline() {
         return;
     }
 
-    const customerName = inlineCustomerName?.value?.trim() || '';
     const customerPhone = inlineCustomerPhone?.value?.trim() || '';
 
-    // Generate QR code
-    // If phone is provided, use last 6 digits as the transfer content (addInfo/uniqueCode)
-    // Otherwise, generate a unique code
-    let qrData;
-    if (customerPhone) {
-        // Use last 6 digits of phone number as the unique code for transfer content
-        const last6Digits = customerPhone.slice(-6);
-        qrData = window.QRGenerator.regenerateQR(last6Digits, 0);
-    } else {
-        // Generate normal unique code
-        qrData = window.QRGenerator.generateDepositQR(0); // 0 = customer fills amount
+    // Bat buoc nhap SĐT 10-11 so
+    if (!isValidPhone(customerPhone)) {
+        if (window.NotificationManager) {
+            window.NotificationManager.showNotification('Vui lòng nhập SĐT khách hàng (10-11 số)', 'error');
+        }
+        inlineCustomerPhone?.focus();
+        return;
     }
 
-    // If customer info is provided, save it
-    if ((customerName || customerPhone) && window.CustomerInfoManager) {
+    // Dung ten tu TPOS lookup (da cache), hoac 'Khách hàng mới'
+    const customerName = inlineTPOSCustomerName || '';
+
+    // Generate QR code - LUON dung N2 unique code de processDebtUpdate co the
+    // tu dong match qua regex /N2[A-Z0-9]{16}/ va tim phone tu balance_customer_info
+    let qrData = window.QRGenerator.generateDepositQR(0); // 0 = customer fills amount
+
+    // Luu mapping QR code -> phone vao DB (bat buoc de auto-match khi giao dich den)
+    if (window.CustomerInfoManager) {
         await window.CustomerInfoManager.saveCustomerInfo(qrData.uniqueCode, {
             name: customerName,
             phone: customerPhone
@@ -581,16 +642,16 @@ async function generateDepositQRInline() {
         inlineQRImage.src = qrData.qrUrl;
         inlineQRCode.textContent = qrData.uniqueCode;
 
-        // Show customer name only (no phone)
+        // Show customer name + phone
         if (inlineCustomerInfoEl) {
-            const displayInfo = customerName || '';
+            const displayInfo = customerName ? `${customerName} - ${customerPhone}` : customerPhone;
             inlineCustomerInfoEl.textContent = displayInfo;
-            inlineCustomerInfoEl.title = displayInfo; // Full text on hover
-            inlineCustomerInfoEl.style.display = displayInfo ? 'inline' : 'none';
+            inlineCustomerInfoEl.title = displayInfo;
+            inlineCustomerInfoEl.style.display = 'inline';
         }
 
-        // Store customer info for QR image (name or phone)
-        currentCustomerInfo = customerName || customerPhone || '';
+        // Store customer info for QR image
+        currentCustomerInfo = customerName || customerPhone;
 
         inlineQRDisplay.style.display = 'flex';
         hasCopiedCurrentQR = false; // Reset copy tracking for new QR
@@ -602,13 +663,15 @@ async function generateDepositQRInline() {
     }
 
     // Clear the inline inputs after generating QR
-    if (inlineCustomerName) inlineCustomerName.value = '';
     if (inlineCustomerPhone) inlineCustomerPhone.value = '';
+    if (inlineTPOSResult) inlineTPOSResult.style.display = 'none';
+    inlineTPOSCustomerName = '';
+    updateQRButtonState();
 
     // Show notification
     if (window.NotificationManager) {
-        const msg = customerName ? `QR tao cho ${customerName}` : 'Da tao QR code!';
-        window.NotificationManager.showNotification(msg, 'success');
+        const displayName = customerName || 'Khách hàng mới';
+        window.NotificationManager.showNotification(`QR tạo cho ${displayName} (${customerPhone})`, 'success');
     }
 }
 
