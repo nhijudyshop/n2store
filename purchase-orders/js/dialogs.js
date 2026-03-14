@@ -2196,30 +2196,29 @@ class InventoryPickerDialog {
     async loadImagesForVisibleProducts() {
         if (!this.modalElement) return;
 
-        // Collect product IDs that don't have images yet
-        const productsNeedingImages = [];
+        // Collect product IDs that don't have full details yet (image, qty, prices)
+        const productsNeedingDetails = [];
         const rows = this.modalElement.querySelectorAll('#inventoryProductsList tr[data-product-id]');
 
         rows.forEach(row => {
             const productId = row.dataset.productId;
             const cachedDetails = this.getProductDetailsFromCache(productId);
-            const hasImage = cachedDetails?.image || this.products.find(p => String(p.id) === productId)?.image;
-            if (!hasImage) {
-                productsNeedingImages.push({ id: productId, row });
+            if (!cachedDetails) {
+                productsNeedingDetails.push({ id: productId, row });
             }
         });
 
-        if (productsNeedingImages.length === 0) return;
+        if (productsNeedingDetails.length === 0) return;
 
         // Limit concurrent fetches to avoid overwhelming the API
         const BATCH_SIZE = 5;
         const batchId = ++this._imageBatchId;
 
-        for (let i = 0; i < productsNeedingImages.length; i += BATCH_SIZE) {
+        for (let i = 0; i < productsNeedingDetails.length; i += BATCH_SIZE) {
             // Abort if a new search happened
             if (this._imageBatchId !== batchId) return;
 
-            const batch = productsNeedingImages.slice(i, i + BATCH_SIZE);
+            const batch = productsNeedingDetails.slice(i, i + BATCH_SIZE);
             const promises = batch.map(async ({ id, row }) => {
                 try {
                     // Check cache again (might have been fetched by another batch)
@@ -2231,14 +2230,16 @@ class InventoryPickerDialog {
                         }
                     }
 
-                    if (details?.image && this._imageBatchId === batchId) {
+                    if (details && this._imageBatchId === batchId) {
                         // Update image cell in-place
-                        const imgCell = row.querySelector('.inventory-image-cell');
-                        if (imgCell) {
-                            imgCell.innerHTML = `<img src="${details.image}" alt="" class="inventory-thumb" style="width: 40px; height: 40px; object-fit: cover; border-radius: 6px; border: 1px solid #e5e7eb; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;" data-product-id="${id}">`;
+                        if (details.image) {
+                            const imgCell = row.querySelector('.inventory-image-cell');
+                            if (imgCell) {
+                                imgCell.innerHTML = `<img src="${details.image}" alt="" class="inventory-thumb" style="width: 40px; height: 40px; object-fit: cover; border-radius: 6px; border: 1px solid #e5e7eb; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;" data-product-id="${id}">`;
+                            }
                         }
 
-                        // Also update row data (qty, prices) if available
+                        // Update row data (qty, prices)
                         const qtyCell = row.querySelector('td:nth-child(4)');
                         if (qtyCell && details.qtyAvailable != null) {
                             qtyCell.textContent = details.qtyAvailable;
