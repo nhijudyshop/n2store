@@ -114,8 +114,10 @@ class PurchaseOrderService {
         const validation = window.PurchaseOrderValidation;
 
         try {
-            // Validate order data
-            const validationResult = validation.validateOrder(orderData);
+            // Validate order data - relax validation for DRAFT orders
+            const isDraft = orderData.status === config.OrderStatus.DRAFT;
+            const validationOptions = isDraft ? { skipItems: true, skipFinancials: true } : {};
+            const validationResult = validation.validateOrder(orderData, validationOptions);
             if (!validationResult.isValid) {
                 throw new validation.ValidationException(validationResult.errors);
             }

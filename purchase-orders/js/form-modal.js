@@ -2678,7 +2678,7 @@ class PurchaseOrderFormModal {
                 name: this.formData.supplier,
                 code: this.formData.supplier.substring(0, 3).toUpperCase()
             },
-            orderDate: new Date(this.formData.orderDate),
+            orderDate: this.formData.orderDate ? new Date(this.formData.orderDate) : new Date(),
             invoiceAmount: parseFloat(String(this.formData.invoiceAmount).replace(/[,.]/g, '')) || 0,
             invoiceImages: this.formData.invoiceImages,
             notes: this.formData.notes,
@@ -2686,13 +2686,15 @@ class PurchaseOrderFormModal {
             shippingFee: totals.shipping,
             totalAmount: totals.totalAmount,
             finalAmount: totals.finalAmount,
-            items: this.formData.items.map(item => ({
-                ...item,
-                purchasePrice: parseFloat(String(item.purchasePrice).replace(/[,.]/g, '')) || 0,
-                sellingPrice: parseFloat(String(item.sellingPrice).replace(/[,.]/g, '')) || 0,
-                quantity: parseInt(item.quantity) || 1,
-                subtotal: (parseFloat(String(item.purchasePrice).replace(/[,.]/g, '')) || 0) * (parseInt(item.quantity) || 1)
-            }))
+            items: this.formData.items
+                .filter(item => item.productName && item.productName.trim())
+                .map(item => ({
+                    ...item,
+                    purchasePrice: parseFloat(String(item.purchasePrice).replace(/[,.]/g, '')) || 0,
+                    sellingPrice: parseFloat(String(item.sellingPrice).replace(/[,.]/g, '')) || 0,
+                    quantity: parseInt(item.quantity) || 1,
+                    subtotal: (parseFloat(String(item.purchasePrice).replace(/[,.]/g, '')) || 0) * (parseInt(item.quantity) || 1)
+                }))
         };
 
         console.log('[FormModal] getFormData - items:', result.items.map(i => ({
