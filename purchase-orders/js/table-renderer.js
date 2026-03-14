@@ -404,12 +404,12 @@ class PurchaseOrderTableRenderer {
             <td class="col-notes">
                 ${orderNotes ? `
                     <div class="notes-hover" title="${orderNotes}" style="color: #4b5563; font-style: italic;">
-                        <span class="notes-text">${this.truncate(orderNotes, 20)}</span>
+                        <span class="notes-text" style="font-weight: 700;">${orderNotes}</span>
                     </div>
                 ` : ''}
                 ${item.notes ? `
                     <div class="notes-hover" title="${item.notes}">
-                        <span class="notes-text">${this.truncate(item.notes, 20)}</span>
+                        <span class="notes-text" style="font-weight: 700;">${item.notes}</span>
                     </div>
                 ` : ''}
             </td>
