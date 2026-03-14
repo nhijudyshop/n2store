@@ -1985,7 +1985,7 @@ class InventoryPickerDialog {
                         <th style="padding: 12px 8px; text-align: right; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 100px;">Giá mua</th>
                         <th style="padding: 12px 8px; text-align: right; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 100px;">Giá bán</th>
                         <th style="padding: 12px 16px; text-align: center; font-weight: 600; color: #374151; border-bottom: 1px solid #e5e7eb; width: 50px;">
-                            <input type="checkbox" id="selectAllCheckbox" title="Chọn tất cả" style="width: 18px; height: 18px; accent-color: #3b82f6; cursor: pointer;">
+                            <input type="checkbox" id="selectAllCheckbox" title="Chọn tất cả" disabled style="width: 18px; height: 18px; accent-color: #3b82f6; cursor: not-allowed; opacity: 0.4;">
                         </th>
                     </tr>
                 </thead>
@@ -2025,11 +2025,12 @@ class InventoryPickerDialog {
                                 <td style="padding: 10px 8px; border-bottom: 1px solid #f3f4f6; text-align: right;">${this.formatPrice(purchasePrice)}</td>
                                 <td style="padding: 10px 8px; border-bottom: 1px solid #f3f4f6; text-align: right;">${this.formatPrice(sellingPrice)}</td>
                                 <td style="padding: 10px 16px; border-bottom: 1px solid #f3f4f6; text-align: center;">
-                                    <input type="checkbox" ${isSelected ? 'checked' : ''} style="
+                                    <input type="checkbox" ${isSelected ? 'checked' : ''} disabled class="product-checkbox" style="
                                         width: 18px;
                                         height: 18px;
                                         accent-color: #3b82f6;
-                                        cursor: pointer;
+                                        cursor: not-allowed;
+                                        opacity: 0.4;
                                     ">
                                 </td>
                             </tr>
@@ -2206,6 +2207,8 @@ class InventoryPickerDialog {
     async loadImagesForVisibleProducts() {
         if (!this.modalElement) return;
 
+        this._loadingDetails = true;
+
         // Collect product IDs that don't have full details yet (image, qty, prices)
         const productsNeedingDetails = [];
         const rows = this.modalElement.querySelectorAll('#inventoryProductsList tr[data-product-id]');
@@ -2218,7 +2221,11 @@ class InventoryPickerDialog {
             }
         });
 
-        if (productsNeedingDetails.length === 0) return;
+        if (productsNeedingDetails.length === 0) {
+            this._loadingDetails = false;
+            this.enableProductSelection();
+            return;
+        }
 
         // Limit concurrent fetches to avoid overwhelming the API
         const BATCH_SIZE = 5;
@@ -2270,6 +2277,29 @@ class InventoryPickerDialog {
 
             await Promise.all(promises);
         }
+
+        this._loadingDetails = false;
+        this.enableProductSelection();
+    }
+
+    /**
+     * Enable checkboxes and row selection after details are loaded
+     */
+    enableProductSelection() {
+        if (!this.modalElement) return;
+        // Enable select-all checkbox
+        const selectAllCb = this.modalElement.querySelector('#selectAllCheckbox');
+        if (selectAllCb) {
+            selectAllCb.disabled = false;
+            selectAllCb.style.cursor = 'pointer';
+            selectAllCb.style.opacity = '1';
+        }
+        // Enable all product checkboxes
+        this.modalElement.querySelectorAll('.product-checkbox').forEach(cb => {
+            cb.disabled = false;
+            cb.style.cursor = 'pointer';
+            cb.style.opacity = '1';
+        });
     }
 
     /**
@@ -2727,6 +2757,8 @@ class InventoryPickerDialog {
         this.modalElement.querySelector('#inventoryProductsList')?.addEventListener('click', (e) => {
             const row = e.target.closest('tr[data-product-id]');
             if (!row) return;
+            // Block selection until details are loaded
+            if (this._loadingDetails) return;
 
             const productId = row.dataset.productId;
             this.handleProductSelect(productId, row);
