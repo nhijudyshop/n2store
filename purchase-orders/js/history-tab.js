@@ -379,12 +379,15 @@ window.PurchaseOrderHistory = (function () {
             cb.addEventListener('change', () => {
                 const id = parseInt(cb.dataset.id, 10);
                 const row = tableContainer.querySelector(`tr.order-row[data-order-id="${id}"]`);
+                const statusTd = row?.querySelector('.td-status');
                 if (cb.checked) {
                     doneRows.add(id);
                     row?.classList.add('order-row--done');
+                    statusTd?.classList.add('td-status--done');
                 } else {
                     doneRows.delete(id);
                     row?.classList.remove('order-row--done');
+                    statusTd?.classList.remove('td-status--done');
                 }
                 saveDoneRows();
             });
