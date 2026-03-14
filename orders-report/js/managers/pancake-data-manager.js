@@ -678,10 +678,11 @@ class PancakeDataManager {
     }
 
     /**
-     * Fetch conversations for a customer by fb_id directly
-     * API: GET /pages/{pageId}/customers/{fb_id}/conversations
-     * Uses single-page endpoint which returns conversations sorted by updated_at DESC (newest first)
-     * @param {string} pageId - Facebook Page ID
+     * Fetch conversations for a customer by fb_id using both API patterns:
+     * 1. Single-page: GET /pages/{pageId}/customers/{fb_id}/conversations (sorted by updated_at DESC)
+     * 2. Multi-page: GET /conversations/customer/{fb_id}?pages[p1]=0&pages[p2]=0 (all pages)
+     * Results are merged and deduplicated.
+     * @param {string} pageId - Facebook Page ID (primary page)
      * @param {string} fbId - Facebook AS User ID (Facebook_ASUserId)
      * @returns {Promise<Object>} { conversations: Array, customerUuid: string|null, success: boolean }
      */
@@ -699,44 +700,87 @@ class PancakeDataManager {
                 throw new Error('No Pancake token available');
             }
 
-            // Build URL: GET /pages/{pageId}/customers/{fb_id}/conversations
-            // Single-page endpoint returns conversations sorted by updated_at DESC (newest first)
-            const url = window.API_CONFIG.buildUrl.pancake(
+            // Ensure pages are loaded for multi-page request
+            if (this.pageIds.length === 0) {
+                await this.fetchPages();
+            }
+
+            // 1) Single-page: GET /pages/{pageId}/customers/{fb_id}/conversations
+            const singlePageUrl = window.API_CONFIG.buildUrl.pancake(
                 `pages/${pageId}/customers/${fbId}/conversations`,
                 `access_token=${token}`
             );
 
-            console.log('[PANCAKE] Fetch conversations URL:', url);
+            // 2) Multi-page: GET /conversations/customer/{fb_id}?pages[p1]=0&pages[p2]=0&...
+            const allPageIds = this.pageIds.length > 0 ? this.pageIds : [pageId];
+            const pagesParams = allPageIds.map(pid => `pages[${pid}]=0`).join('&');
+            const multiPageUrl = window.API_CONFIG.buildUrl.pancake(
+                `conversations/customer/${fbId}`,
+                `${pagesParams}&access_token=${token}`
+            );
 
-            // Use queuedFetch with fbId-specific deduplication key
-            const response = await this.queuedFetch(url, {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            }, `fetchConvByFbId:${pageId}:${fbId}`, 3, true);
+            console.log('[PANCAKE] Single-page URL:', singlePageUrl);
+            console.log('[PANCAKE] Multi-page URL:', multiPageUrl);
 
-            console.log('[PANCAKE] Conversations response status:', response.status);
+            // Fetch both in parallel
+            const [singlePageResult, multiPageResult] = await Promise.allSettled([
+                this.queuedFetch(singlePageUrl, {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                }, `fetchConvByFbId:single:${pageId}:${fbId}`, 3, true),
+                this.queuedFetch(multiPageUrl, {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                }, `fetchConvByFbId:multi:${fbId}`, 3, true)
+            ]);
 
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('[PANCAKE] Error response:', errorText);
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            // Parse results
+            let singlePageConvs = [];
+            let multiPageConvs = [];
+
+            if (singlePageResult.status === 'fulfilled' && singlePageResult.value.ok) {
+                const data = await singlePageResult.value.json();
+                singlePageConvs = data.conversations || [];
+                console.log(`[PANCAKE] Single-page: ${singlePageConvs.length} conversations`);
+            } else {
+                console.warn('[PANCAKE] Single-page request failed:', singlePageResult.reason || singlePageResult.value?.status);
             }
 
-            const data = await response.json();
-            console.log('[PANCAKE] Conversations response:', data);
+            if (multiPageResult.status === 'fulfilled' && multiPageResult.value.ok) {
+                const data = await multiPageResult.value.json();
+                multiPageConvs = data.conversations || [];
+                console.log(`[PANCAKE] Multi-page: ${multiPageConvs.length} conversations`);
+            } else {
+                console.warn('[PANCAKE] Multi-page request failed:', multiPageResult.reason || multiPageResult.value?.status);
+            }
 
-            let conversations = data.conversations || [];
+            // Merge and deduplicate (single-page results take priority)
+            const seenIds = new Set();
+            const conversations = [];
 
-            // Sort by updated_at DESC (newest first) as safety net
+            for (const conv of singlePageConvs) {
+                if (!seenIds.has(conv.id)) {
+                    seenIds.add(conv.id);
+                    conversations.push(conv);
+                }
+            }
+            for (const conv of multiPageConvs) {
+                if (!seenIds.has(conv.id)) {
+                    seenIds.add(conv.id);
+                    conversations.push(conv);
+                }
+            }
+
+            // Sort by updated_at DESC (newest first)
             conversations.sort((a, b) => {
                 const dateA = a.updated_at ? new Date(a.updated_at).getTime() : 0;
                 const dateB = b.updated_at ? new Date(b.updated_at).getTime() : 0;
                 return dateB - dateA;
             });
 
-            // DEBUG: Log first conversation structure
+            console.log(`[PANCAKE] Merged: ${conversations.length} total conversations (deduped from ${singlePageConvs.length} + ${multiPageConvs.length})`);
+
+            // Log first conversation
             if (conversations.length > 0) {
                 const firstConv = conversations[0];
                 console.log('[PANCAKE] First conversation (newest):', JSON.stringify({
@@ -744,10 +788,9 @@ class PancakeDataManager {
                     type: firstConv.type,
                     updated_at: firstConv.updated_at,
                     snippet: firstConv.snippet?.substring(0, 50),
-                    from_psid: firstConv.from_psid,
+                    page_id: firstConv.page_id,
                     from: firstConv.from,
-                    customers: firstConv.customers?.map(c => ({ id: c.id, fb_id: c.fb_id, name: c.name })),
-                    page_id: firstConv.page_id
+                    customers: firstConv.customers?.map(c => ({ id: c.id, fb_id: c.fb_id, name: c.name }))
                 }, null, 2));
             }
 
