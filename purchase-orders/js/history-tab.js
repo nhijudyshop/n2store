@@ -30,6 +30,7 @@ window.PurchaseOrderHistory = (function () {
     let filterStartDate = null;
     let filterEndDate = null;
     let searchTerm = '';
+    let filterState = ''; // '', 'open', 'paid', 'draft', 'cancel'
 
     /**
      * Initialize with default date range (current month)
@@ -108,6 +109,19 @@ window.PurchaseOrderHistory = (function () {
                         <input type="date" id="historyEndDate" class="filter-input" value="${fmt(filterEndDate)}">
                     </div>
                 </div>
+                <div class="filter-group">
+                    <label class="filter-label">Trạng thái</label>
+                    <div class="input-icon">
+                        <i data-lucide="filter"></i>
+                        <select id="historyStateFilter" class="filter-input">
+                            <option value="">Tất cả</option>
+                            <option value="open"${filterState === 'open' ? ' selected' : ''}>Nhập</option>
+                            <option value="paid"${filterState === 'paid' ? ' selected' : ''}>Đã xác nhận</option>
+                            <option value="draft"${filterState === 'draft' ? ' selected' : ''}>Nháp</option>
+                            <option value="cancel"${filterState === 'cancel' ? ' selected' : ''}>Hủy</option>
+                        </select>
+                    </div>
+                </div>
                 <div class="filter-group filter-group--search">
                     <label class="filter-label">Tìm NCC</label>
                     <div class="input-icon">
@@ -137,11 +151,13 @@ window.PurchaseOrderHistory = (function () {
             filterStartDate = s ? new Date(s) : null;
             filterEndDate = e ? new Date(e + 'T23:59:59') : null;
             searchTerm = (document.getElementById('historySearchInput').value || '').trim();
+            filterState = document.getElementById('historyStateFilter').value;
             loadPage(1);
         };
 
         document.getElementById('btnHistoryFilter').addEventListener('click', applyFilters);
         document.getElementById('btnHistoryReload').addEventListener('click', () => loadPage(currentPage));
+        document.getElementById('historyStateFilter').addEventListener('change', applyFilters);
 
         const searchInput = document.getElementById('historySearchInput');
         searchInput.addEventListener('keydown', (e) => {
@@ -177,6 +193,9 @@ window.PurchaseOrderHistory = (function () {
         if (filterEndDate) {
             const iso = toUTCISOString(filterEndDate);
             filters.push(`DateInvoice le ${iso}`);
+        }
+        if (filterState) {
+            filters.push(`State eq '${filterState}'`);
         }
         if (searchTerm) {
             // Remove Vietnamese diacritics for PartnerNameNoSign search
@@ -695,6 +714,7 @@ window.PurchaseOrderHistory = (function () {
         currentPage = 1;
         totalCount = 0;
         searchTerm = '';
+        filterState = '';
         // Clear expanded state
         Object.keys(expandedRows).forEach(k => delete expandedRows[k]);
     }
