@@ -699,30 +699,25 @@ td:has(.mini-thumb:hover) {
     opacity: 1;
 }
 
-/* Green checkmark icon in status cell */
+/* Green checkmark in status cell */
 .td-status--done {
-    position: relative;
     opacity: 1 !important;
 }
 
-.td-status--done::after {
-    content: '✓';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 36px;
-    height: 36px;
-    line-height: 36px;
-    text-align: center;
-    font-size: 22px;
+.done-check-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    font-size: 18px;
     font-weight: 900;
     color: #22c55e;
     background: #f0fdf4;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(34, 197, 94, 0.25);
-    pointer-events: none;
-    z-index: 10;
+    border-radius: 6px;
+    box-shadow: 0 1px 4px rgba(34, 197, 94, 0.25);
+    margin-left: 6px;
+    vertical-align: middle;
 }
 
 /* Column header filter */

@@ -316,7 +316,7 @@ window.PurchaseOrderHistory = (function () {
                     </td>
                     <td><span style="font-family: monospace; font-size: 13px;">${escapeHtml(item.Number || '')}</span></td>
                     <td class="text-right"><span class="price-value">${formatMoney(item.AmountTotal)}</span></td>
-                    <td class="td-status ${isDone ? 'td-status--done' : ''}">${renderState(item.ShowState, item.State)}</td>
+                    <td class="td-status ${isDone ? 'td-status--done' : ''}">${renderState(item.ShowState, item.State)}${isDone ? '<span class="done-check-icon">✓</span>' : ''}</td>
                     <td><span style="font-size: 13px;">${escapeHtml(item.UserName || '')}</span></td>
                     <td><span style="font-size: 13px;">${escapeHtml(item.CompanyName || '')}</span></td>
                 </tr>
@@ -384,10 +384,14 @@ window.PurchaseOrderHistory = (function () {
                     doneRows.add(id);
                     row?.classList.add('order-row--done');
                     statusTd?.classList.add('td-status--done');
+                    if (statusTd && !statusTd.querySelector('.done-check-icon')) {
+                        statusTd.insertAdjacentHTML('beforeend', '<span class="done-check-icon">✓</span>');
+                    }
                 } else {
                     doneRows.delete(id);
                     row?.classList.remove('order-row--done');
                     statusTd?.classList.remove('td-status--done');
+                    statusTd?.querySelector('.done-check-icon')?.remove();
                 }
                 saveDoneRows();
             });
