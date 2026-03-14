@@ -23,7 +23,7 @@ export async function handleFacebookSend(request, url) {
 
     try {
         const body = await request.json();
-        let { pageId, psid, message, pageToken, useTag, imageUrls, recipient, postId, customerName, commentId } = body;
+        let { pageId, psid, message, pageToken, useTag, imageUrls, recipient, postId, customerName, commentId, knownCommentIds } = body;
 
         // Fallback: Get token from header if not in body
         if (!pageToken) {
@@ -412,20 +412,49 @@ export async function handleFacebookSend(request, url) {
 
         // ===== PRIVATE REPLY FALLBACK =====
         // If Send API failed (551=no inbox, 10=outside allowed window, or other errors)
-        // Try Private Reply: search customer's comments on page posts and reply privately
+        // Try Private Reply: use known comment IDs first, then search page posts
         const sendApiFailed = messageIds.length === 0 && lastError;
         if (sendApiFailed && hasTextMessage) {
             console.log('[FACEBOOK-SEND] ========================================');
             console.log(`[FACEBOOK-SEND] Send API failed (${lastError?.code}) → trying Private Reply fallback`);
 
             const messageText = typeof message === 'string' ? message : message.text;
+
+            // === STEP A: Try known comment IDs directly (from order data) ===
+            if (knownCommentIds && Array.isArray(knownCommentIds) && knownCommentIds.length > 0) {
+                console.log(`[FACEBOOK-SEND] Trying ${knownCommentIds.length} known comment IDs from order data`);
+
+                for (const knownId of knownCommentIds) {
+                    console.log(`[FACEBOOK-SEND] Trying known commentId: ${knownId}`);
+                    const prResult = await sendPrivateReply(knownId, messageText);
+
+                    if (prResult.success) {
+                        console.log('[FACEBOOK-SEND] ✅ Private Reply succeeded with known commentId!');
+                        const msgId = prResult.result.message_id || prResult.result.id;
+                        return jsonResponse({
+                            success: true,
+                            recipient_id: prResult.result.recipient_id,
+                            message_id: msgId,
+                            message_ids: [msgId],
+                            used_tag: 'PRIVATE_REPLY',
+                            method: 'private_reply_known',
+                            real_comment_id: knownId,
+                            matched_by: 'order_data',
+                        });
+                    }
+                    console.warn(`[FACEBOOK-SEND] Known commentId ${knownId} failed:`, prResult.result?.error?.message);
+                }
+                console.log('[FACEBOOK-SEND] All known comment IDs failed, falling through to search...');
+            }
+
+            // === STEP B: Search for comments on page posts ===
             const lookup = await findRealCommentId(postId, psid, customerName);
 
             if (lookup.commentId) {
                 const prResult = await sendPrivateReply(lookup.commentId, messageText);
 
                 if (prResult.success) {
-                    console.log('[FACEBOOK-SEND] ✅ Private Reply succeeded!');
+                    console.log('[FACEBOOK-SEND] ✅ Private Reply succeeded via search!');
                     const msgId = prResult.result.message_id || prResult.result.id;
                     return jsonResponse({
                         success: true,

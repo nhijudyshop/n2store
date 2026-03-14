@@ -120,15 +120,22 @@ async function sendMessageViaFacebookTag(params) {
         const facebookSendUrl = window.API_CONFIG.buildUrl.facebookSend();
         console.log('[FB-TAG-SEND] Calling:', facebookSendUrl);
 
+        // Collect known comment IDs from order data for direct Private Reply
+        const knownCommentIdStr = window.purchaseCommentId || null;
+        const knownCommentIds = knownCommentIdStr
+            ? knownCommentIdStr.split(',').map(id => id.trim()).filter(Boolean)
+            : [];
+
         const requestBody = {
             pageId: pageId,
             psid: psid,
             message: message,
             pageToken: facebookPageToken,
             useTag: true, // Use HUMAN_AGENT / POST_PURCHASE_UPDATE tag
-            imageUrls: imageUrls || [], // Include image URLs if provided
-            postId: postId || window.purchaseFacebookPostId || null, // For Private Reply fallback
-            customerName: customerName || window.currentCustomerName || null // For comment search
+            imageUrls: imageUrls || [],
+            postId: postId || window.purchaseFacebookPostId || null,
+            customerName: customerName || window.currentCustomerName || null,
+            knownCommentIds: knownCommentIds // Direct Private Reply fallback
         };
 
         const response = await fetch(facebookSendUrl, {
