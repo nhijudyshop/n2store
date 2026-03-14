@@ -54,42 +54,45 @@ window.PurchaseOrderHistory = (function () {
     /**
      * Load done rows from Firestore with real-time sync
      */
+    function getDb() {
+        return window.db || (typeof getFirestore === 'function' ? getFirestore() : null) || firebase.firestore();
+    }
+
     async function loadDoneRows() {
-        if (doneLoaded) return;
+        // Always re-subscribe if listener was destroyed
+        if (doneLoaded && doneUnsubscribe) return;
         try {
-            const db = window.db || (typeof getFirestore === 'function' ? getFirestore() : null);
-            if (!db) {
-                console.error('[History] Firebase Firestore not available');
-                return;
-            }
+            const db = getDb();
             // Initial load
-            const doc = await db.doc(DONE_DOC_PATH).get();
-            if (doc.exists) {
-                const ids = doc.data().ids || [];
-                ids.forEach(id => doneRows.add(id));
-                console.log('[History] Loaded done rows:', ids.length);
-            } else {
-                console.log('[History] No done rows doc found, will create on first save');
+            if (!doneLoaded) {
+                const doc = await db.doc(DONE_DOC_PATH).get();
+                if (doc.exists) {
+                    const ids = doc.data().ids || [];
+                    ids.forEach(id => doneRows.add(id));
+                    console.log('[History] Loaded done rows:', ids.length);
+                } else {
+                    console.log('[History] No done rows doc yet');
+                }
+                doneLoaded = true;
             }
-            doneLoaded = true;
 
             // Real-time listener for cross-device sync
-            doneUnsubscribe = db.doc(DONE_DOC_PATH).onSnapshot((snap) => {
-                if (!snap.exists) return;
-                const ids = new Set(snap.data().ids || []);
-                // Sync: add new, remove old
-                const changed = ids.size !== doneRows.size || [...ids].some(id => !doneRows.has(id));
-                if (!changed) return;
-                doneRows.clear();
-                ids.forEach(id => doneRows.add(id));
-                // Re-render table to reflect changes
-                if (currentData.length > 0) {
-                    renderTable(currentData);
-                    renderPagination();
-                }
-            });
+            if (!doneUnsubscribe) {
+                doneUnsubscribe = db.doc(DONE_DOC_PATH).onSnapshot((snap) => {
+                    if (!snap.exists) return;
+                    const ids = new Set(snap.data().ids || []);
+                    const changed = ids.size !== doneRows.size || [...ids].some(id => !doneRows.has(id));
+                    if (!changed) return;
+                    doneRows.clear();
+                    ids.forEach(id => doneRows.add(id));
+                    if (currentData.length > 0) {
+                        renderTable(currentData);
+                        renderPagination();
+                    }
+                });
+            }
         } catch (e) {
-            console.warn('[History] Failed to load done rows:', e);
+            console.error('[History] Failed to load done rows:', e);
         }
     }
 
@@ -98,9 +101,11 @@ window.PurchaseOrderHistory = (function () {
      */
     function saveDoneRows() {
         try {
-            const db = window.db || (typeof getFirestore === 'function' ? getFirestore() : firebase.firestore());
-            db.doc(DONE_DOC_PATH).set({ ids: Array.from(doneRows), lastUpdated: Date.now() })
-                .then(() => console.log('[History] Done rows saved:', doneRows.size))
+            const db = getDb();
+            const data = { ids: Array.from(doneRows), lastUpdated: Date.now() };
+            console.log('[History] Saving done rows...', data.ids.length);
+            db.doc(DONE_DOC_PATH).set(data)
+                .then(() => console.log('[History] Done rows saved OK'))
                 .catch(e => console.error('[History] Firestore save error:', e));
         } catch (e) {
             console.error('[History] Failed to save done rows:', e);
