@@ -736,6 +736,22 @@
         let currentStatusTab = 'all'; // 'all', 'visible', 'hidden'
         const billPreviewCache = new Map();
 
+        // Check if current user is admin
+        function isAdmin() {
+            if (typeof window.authManager !== 'undefined') {
+                const authState = window.authManager.getUserInfo?.() || window.authManager.getAuthState?.();
+                if (authState) {
+                    if (authState.checkLogin === 1) return true;
+                    if (authState.userType?.toLowerCase().startsWith('admin')) return true;
+                }
+            }
+            const storedUserType = localStorage.getItem('userType');
+            if (storedUserType?.toLowerCase().startsWith('admin')) return true;
+            const storedCheckLogin = localStorage.getItem('checkLogin');
+            if (storedCheckLogin === '1') return true;
+            return false;
+        }
+
         // Load saved tab state
         function loadTabState() {
             try {
@@ -812,7 +828,9 @@
                 const authState = window.authManager?.getAuthState?.() ||
                     window.authManager?.getAuthData?.();
                 const username = authState?.username || authState?.userType?.split('-')[0] || 'default';
-                const docRef = db.collection(DELETE_FIRESTORE_COLLECTION).doc(username);
+                // Use _docOwner if available (admin viewing another user's bill), otherwise current user
+                const docOwner = item._docOwner || username;
+                const docRef = db.collection(DELETE_FIRESTORE_COLLECTION).doc(docOwner);
 
                 await docRef.set({
                     data: { [key]: { hidden: item.hidden } }
@@ -874,23 +892,48 @@
                     const authState = window.authManager?.getAuthState?.() ||
                         window.authManager?.getAuthData?.();
                     const username = authState?.username || authState?.userType?.split('-')[0] || 'default';
+                    const adminMode = isAdmin();
 
-                    const docRef = db.collection(DELETE_FIRESTORE_COLLECTION).doc(username);
-                    const doc = await docRef.get();
+                    if (adminMode) {
+                        // Admin: load ALL documents from collection (all users' deleted bills)
+                        console.log('[PENDING-DELETE] Admin detected, loading ALL users data from Firestore...');
+                        const snapshot = await db.collection(DELETE_FIRESTORE_COLLECTION).get();
+                        let totalEntries = 0;
+                        snapshot.forEach(doc => {
+                            const docOwner = doc.id; // username who owns this document
+                            const firestoreData = doc.data();
+                            if (firestoreData.data) {
+                                const entries = Object.entries(firestoreData.data);
+                                entries.forEach(([key, value]) => {
+                                    const existing = dataMap.get(key);
+                                    if (!existing || (value.deletedAt > (existing.deletedAt || 0))) {
+                                        value._docOwner = docOwner; // track which Firestore doc this entry belongs to
+                                        dataMap.set(key, value);
+                                    }
+                                });
+                                totalEntries += entries.length;
+                            }
+                        });
+                        console.log(`[PENDING-DELETE] Admin loaded ${totalEntries} entries from ${snapshot.size} users, total: ${dataMap.size}`);
+                    } else {
+                        // Normal user: load only their own document
+                        const docRef = db.collection(DELETE_FIRESTORE_COLLECTION).doc(username);
+                        const doc = await docRef.get();
 
-                    if (doc.exists) {
-                        const firestoreData = doc.data();
-                        if (firestoreData.data) {
-                            const entries = Object.entries(firestoreData.data);
-                            entries.forEach(([key, value]) => {
-                                // Merge: Firestore wins for newer data
-                                const existing = dataMap.get(key);
-                                if (!existing || (value.deletedAt > (existing.deletedAt || 0))) {
-                                    dataMap.set(key, value);
-                                }
-                            });
+                        if (doc.exists) {
+                            const firestoreData = doc.data();
+                            if (firestoreData.data) {
+                                const entries = Object.entries(firestoreData.data);
+                                entries.forEach(([key, value]) => {
+                                    // Merge: Firestore wins for newer data
+                                    const existing = dataMap.get(key);
+                                    if (!existing || (value.deletedAt > (existing.deletedAt || 0))) {
+                                        dataMap.set(key, value);
+                                    }
+                                });
+                            }
+                            console.log(`[PENDING-DELETE] Merged from Firestore, total: ${dataMap.size}`);
                         }
-                        console.log(`[PENDING-DELETE] Merged from Firestore, total: ${dataMap.size}`);
                     }
                 } catch (firebaseError) {
                     console.warn('[PENDING-DELETE] Firebase load error:', firebaseError);
