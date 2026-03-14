@@ -2458,6 +2458,10 @@ class InventoryPickerDialog {
             if (basicProduct?.name) {
                 productDetails.name = basicProduct.name;
             }
+            // If API returns 0 for purchasePrice, fallback to Excel value
+            if (!productDetails.purchasePrice && basicProduct?.purchasePrice) {
+                productDetails.purchasePrice = basicProduct.purchasePrice;
+            }
             this.selectedProducts.set(productIdStr, productDetails);
         } else if (basicProduct) {
             this.selectedProducts.set(productIdStr, basicProduct);
