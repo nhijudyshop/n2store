@@ -1436,8 +1436,9 @@ class InventoryPickerDialog {
                 const code = row['Mã sản phẩm'] || row['DefaultCode'] || row['Mã SP'] || '';
                 // Find name
                 const name = row['Tên sản phẩm'] || row['NameTemplate'] || row['Tên SP'] || '';
-                // Giá mua = Purchase price (what we pay to supplier)
-                const purchasePrice = parseFloat(row['Giá mua'] || row['Giá vốn (*)'] || row['Giá vốn'] || row['StandardPrice'] || 0) || 0;
+                // Giá vốn (*) = StandardPrice = cost/purchase price
+                // Note: Excel's "Giá mua" column is average historical purchase price, NOT the standard price
+                const purchasePrice = parseFloat(row['Giá vốn (*)'] || row['Giá vốn'] || row['StandardPrice'] || 0) || 0;
                 // Giá bán = Selling price (we don't have this in Excel, will fetch from product details)
                 const sellingPrice = parseFloat(row['Giá bán'] || row['ListPrice'] || row['PriceVariant'] || 0) || 0;
 
