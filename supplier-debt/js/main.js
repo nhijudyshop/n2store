@@ -3010,7 +3010,11 @@ function initEventHandlers() {
 
     // Refresh button
     DOM.btnRefresh.addEventListener('click', () => {
-        fetchData();
+        DOM.btnRefresh.classList.add('spinning');
+        State.currentPage = 1;
+        fetchData().finally(() => {
+            DOM.btnRefresh.classList.remove('spinning');
+        });
     });
 
     // Display radio buttons
