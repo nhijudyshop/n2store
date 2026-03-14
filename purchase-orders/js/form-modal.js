@@ -1334,6 +1334,22 @@ class PurchaseOrderFormModal {
                     </div>
                 </div>
 
+                <!-- Draft Warnings Banner -->
+                <div id="draftWarningsBanner" style="display: none; padding: 12px 24px; background: #fffbeb; border-top: 1px solid #f59e0b;">
+                    <div style="display: flex; align-items: flex-start; gap: 10px;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" style="flex-shrink: 0; margin-top: 2px;">
+                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                            <line x1="12" y1="9" x2="12" y2="13"></line>
+                            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                        </svg>
+                        <div style="flex: 1;">
+                            <div style="font-size: 13px; font-weight: 600; color: #92400e; margin-bottom: 6px;">Đơn nháp đã lưu thành công, nhưng còn một số vấn đề cần hoàn thiện:</div>
+                            <ul id="draftWarningsList" style="margin: 0; padding-left: 18px; font-size: 13px; color: #92400e; line-height: 1.8;"></ul>
+                        </div>
+                        <button onclick="this.closest('#draftWarningsBanner').style.display='none'" style="background: none; border: none; cursor: pointer; padding: 4px; color: #92400e; font-size: 18px; line-height: 1;">&times;</button>
+                    </div>
+                </div>
+
                 <!-- Footer -->
                 <div style="
                     padding: 16px 24px;
@@ -2475,6 +2491,90 @@ class PurchaseOrderFormModal {
     }
 
     /**
+     * Collect draft warnings - soft validation for incomplete data
+     * @returns {Array<string>} Array of warning messages
+     */
+    collectDraftWarnings() {
+        const warnings = [];
+        const items = this.formData.items || [];
+        const validItems = items.filter(i => i.productName && i.productName.trim());
+        const emptyItems = items.length - validItems.length;
+
+        // Items warnings
+        if (validItems.length === 0) {
+            warnings.push('Chưa có sản phẩm nào trong đơn hàng');
+        } else {
+            if (emptyItems > 0) {
+                warnings.push(`${emptyItems} dòng sản phẩm trống đã bị bỏ qua (chưa có tên sản phẩm)`);
+            }
+
+            const noPrice = validItems.filter(i => {
+                const pp = parseFloat(String(i.purchasePrice).replace(/[,.]/g, ''));
+                return !pp || isNaN(pp);
+            });
+            if (noPrice.length > 0) {
+                warnings.push(`${noPrice.length} sản phẩm chưa có giá mua: ${noPrice.map(i => i.productName).join(', ')}`);
+            }
+
+            const noSellingPrice = validItems.filter(i => {
+                const sp = parseFloat(String(i.sellingPrice).replace(/[,.]/g, ''));
+                return !sp || isNaN(sp);
+            });
+            if (noSellingPrice.length > 0) {
+                warnings.push(`${noSellingPrice.length} sản phẩm chưa có giá bán: ${noSellingPrice.map(i => i.productName).join(', ')}`);
+            }
+
+            const sellingLessThanPurchase = validItems.filter(i => {
+                const pp = parseFloat(String(i.purchasePrice).replace(/[,.]/g, '')) || 0;
+                const sp = parseFloat(String(i.sellingPrice).replace(/[,.]/g, '')) || 0;
+                return pp > 0 && sp > 0 && sp <= pp;
+            });
+            if (sellingLessThanPurchase.length > 0) {
+                warnings.push(`${sellingLessThanPurchase.length} sản phẩm có giá bán ≤ giá mua: ${sellingLessThanPurchase.map(i => i.productName).join(', ')}`);
+            }
+
+            const noImages = validItems.filter(i => !i.productImages || i.productImages.length === 0);
+            if (noImages.length > 0) {
+                warnings.push(`${noImages.length} sản phẩm chưa có hình ảnh`);
+            }
+        }
+
+        // Order date
+        if (!this.formData.orderDate) {
+            warnings.push('Chưa chọn ngày đặt hàng (sẽ dùng ngày hiện tại)');
+        }
+
+        // Invoice amount
+        const invoiceAmt = parseFloat(String(this.formData.invoiceAmount).replace(/[,.]/g, ''));
+        if (!invoiceAmt || isNaN(invoiceAmt)) {
+            warnings.push('Chưa nhập số tiền hóa đơn');
+        }
+
+        return warnings;
+    }
+
+    /**
+     * Show draft warnings banner
+     * @param {Array<string>} warnings
+     */
+    showDraftWarnings(warnings) {
+        const banner = this.modalElement?.querySelector('#draftWarningsBanner');
+        const list = this.modalElement?.querySelector('#draftWarningsList');
+        if (!banner || !list) return;
+
+        if (warnings.length === 0) {
+            banner.style.display = 'none';
+            return;
+        }
+
+        list.innerHTML = warnings.map(w => `<li>${w}</li>`).join('');
+        banner.style.display = 'block';
+
+        // Scroll banner into view
+        banner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    /**
      * Handle save draft
      */
     async handleSaveDraft() {
@@ -2484,6 +2584,9 @@ class PurchaseOrderFormModal {
             this.showAlert('Vui lòng nhập tên nhà cung cấp', { title: 'Thiếu thông tin', type: 'warning' });
             return;
         }
+
+        // Collect warnings before saving
+        const warnings = this.collectDraftWarnings();
 
         // Show loading
         const btn = this.modalElement?.querySelector('#btnSaveDraft');
@@ -2506,7 +2609,16 @@ class PurchaseOrderFormModal {
             orderData.status = 'DRAFT';
 
             await this.onSubmit?.(orderData);
-            this.close();
+
+            // Show warnings if any, otherwise close
+            if (warnings.length > 0) {
+                this.showDraftWarnings(warnings);
+                if (window.notificationManager) {
+                    window.notificationManager.show('Đã lưu nháp thành công!', 'success');
+                }
+            } else {
+                this.close();
+            }
         } catch (error) {
             console.error('Save draft failed:', error);
             this.showAlert('Không thể lưu nháp: ' + error.message, { title: 'Lỗi', type: 'error' });
@@ -2678,7 +2790,7 @@ class PurchaseOrderFormModal {
                 name: this.formData.supplier,
                 code: this.formData.supplier.substring(0, 3).toUpperCase()
             },
-            orderDate: new Date(this.formData.orderDate),
+            orderDate: this.formData.orderDate ? new Date(this.formData.orderDate) : new Date(),
             invoiceAmount: parseFloat(String(this.formData.invoiceAmount).replace(/[,.]/g, '')) || 0,
             invoiceImages: this.formData.invoiceImages,
             notes: this.formData.notes,
@@ -2686,13 +2798,15 @@ class PurchaseOrderFormModal {
             shippingFee: totals.shipping,
             totalAmount: totals.totalAmount,
             finalAmount: totals.finalAmount,
-            items: this.formData.items.map(item => ({
-                ...item,
-                purchasePrice: parseFloat(String(item.purchasePrice).replace(/[,.]/g, '')) || 0,
-                sellingPrice: parseFloat(String(item.sellingPrice).replace(/[,.]/g, '')) || 0,
-                quantity: parseInt(item.quantity) || 1,
-                subtotal: (parseFloat(String(item.purchasePrice).replace(/[,.]/g, '')) || 0) * (parseInt(item.quantity) || 1)
-            }))
+            items: this.formData.items
+                .filter(item => item.productName && item.productName.trim())
+                .map(item => ({
+                    ...item,
+                    purchasePrice: parseFloat(String(item.purchasePrice).replace(/[,.]/g, '')) || 0,
+                    sellingPrice: parseFloat(String(item.sellingPrice).replace(/[,.]/g, '')) || 0,
+                    quantity: parseInt(item.quantity) || 1,
+                    subtotal: (parseFloat(String(item.purchasePrice).replace(/[,.]/g, '')) || 0) * (parseInt(item.quantity) || 1)
+                }))
         };
 
         console.log('[FormModal] getFormData - items:', result.items.map(i => ({
