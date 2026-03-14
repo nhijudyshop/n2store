@@ -561,24 +561,25 @@ export class CustomerProfileModule {
                             const icon = style.icon;
                             const date = act.created_at ? new Date(act.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
                             const createdBy = act.created_by && act.created_by !== 'system' ? act.created_by : '';
+                            const createdByUpper = createdBy ? createdBy.toUpperCase() : '';
                             const isCancelled = act.activity_type === 'ORDER_CANCELLED';
                             const isCreated = act.activity_type === 'ORDER_CREATED';
                             const isDeposit = act.activity_type === 'WALLET_DEPOSIT';
                             const isRefund = act.activity_type === 'WALLET_REFUND' || act.activity_type === 'ORDER_CANCEL_REFUND';
 
-                            // Build creator/operator label - all bold red
+                            // Build creator/operator label - all bold red, name uppercase
                             let operatorHtml = '';
-                            if (createdBy) {
+                            if (createdByUpper) {
                                 if (isCancelled) {
-                                    operatorHtml = ` · <span class="font-bold" style="color: #ef4444;">Người hủy: ${createdBy}</span>`;
+                                    operatorHtml = ` · <span class="font-bold" style="color: #ef4444;">Người hủy: ${createdByUpper}</span>`;
                                 } else if (isCreated) {
-                                    operatorHtml = ` · <span class="font-bold" style="color: #ef4444;">Người tạo: ${createdBy}</span>`;
+                                    operatorHtml = ` · <span class="font-bold" style="color: #ef4444;">Người tạo: ${createdByUpper}</span>`;
                                 } else if (isDeposit) {
-                                    operatorHtml = ` · <span class="font-bold" style="color: #ef4444;">Duyệt bởi: ${createdBy}</span>`;
+                                    operatorHtml = ` · <span class="font-bold" style="color: #ef4444;">Duyệt bởi: ${createdByUpper}</span>`;
                                 } else if (isRefund) {
-                                    operatorHtml = ` · <span class="font-bold" style="color: #ef4444;">Người hoàn: ${createdBy}</span>`;
+                                    operatorHtml = ` · <span class="font-bold" style="color: #ef4444;">Người hoàn: ${createdByUpper}</span>`;
                                 } else {
-                                    operatorHtml = ` · <span class="font-bold" style="color: #ef4444;">${createdBy}</span>`;
+                                    operatorHtml = ` · <span class="font-bold" style="color: #ef4444;">${createdByUpper}</span>`;
                                 }
                             }
 
