@@ -1641,14 +1641,19 @@ class InventoryPickerDialog {
             let image = data.ImageUrl || (data.Thumbnails && data.Thumbnails[2]) || '';
             let purchasePrice = data.PurchasePrice || 0;
 
+            console.log(`[InventoryPicker] Variant ${productId}: image=${!!image}, purchasePrice=${purchasePrice}, ProductTmplId=${data.ProductTmplId}`);
+
             // If variant has no image or no PurchasePrice, fetch from parent template
             if (data.ProductTmplId && (!image || !purchasePrice)) {
                 const templateData = await this.fetchParentTemplate(data.ProductTmplId);
+                console.log(`[InventoryPicker] Template ${data.ProductTmplId}:`, templateData ? `image=${!!templateData.ImageUrl}, PurchasePrice=${templateData.PurchasePrice}` : 'FAILED');
                 if (templateData) {
                     if (!image) image = templateData.ImageUrl || '';
                     if (!purchasePrice) purchasePrice = templateData.PurchasePrice || 0;
                 }
             }
+
+            console.log(`[InventoryPicker] Final: image=${!!image}, purchasePrice=${purchasePrice}`);
 
             // Map to our format - use original productId to preserve variant identity
             return {
@@ -1684,7 +1689,7 @@ class InventoryPickerDialog {
             }
 
             const response = await window.TPOSClient.authenticatedFetch(
-                `${this.proxyUrl}/api/odata/ProductTemplate(${templateId})/ODataService.GetDetailView`
+                `${this.proxyUrl}/api/odata/ProductTemplate(${templateId})/ODataService.GetDetailView?$expand=Images`
             );
 
             if (!response.ok) {
