@@ -1652,7 +1652,7 @@ class InventoryPickerDialog {
                 name: data.NameTemplate || data.Name || '',
                 image: image,
                 qtyAvailable: data.QtyAvailable || 0,
-                purchasePrice: data.StandardPrice || 0,
+                purchasePrice: data.PurchasePrice || 0,
                 sellingPrice: data.PriceVariant || data.ListPrice || 0,
                 variant: data.DisplayAttributeValues || '',
                 tposProductId: data.Id || null,
