@@ -742,7 +742,24 @@ async function confirmAndPrintSale() {
         const result = await response.json();
         console.log('[SALE-CONFIRM] InsertListOrderModel result:', result);
 
-        // Handle response - check for errors
+        // Check top-level Errors array (e.g. inventory errors from TPOS)
+        // API may return Success:true but with Errors[] containing inventory issues
+        if (result.Errors && result.Errors.length > 0) {
+            const hasInventoryError = result.Errors.some(e =>
+                typeof e === 'string' && e.includes('không đủ tồn kho')
+            );
+
+            if (hasInventoryError) {
+                showInventoryErrorModal(result.Errors);
+                setTimeout(() => closeSaleButtonModal(true), 500);
+                return;
+            }
+
+            // Other top-level errors
+            throw new Error(result.Errors.join('; ') || result.Error || 'Có lỗi khi tạo đơn hàng');
+        }
+
+        // Handle response - check for errors in order arrays
         const successOrders = result.OrdersSucessed || [];
         const errorOrders = result.OrdersError || [];
         const dataErrorFast = result.DataErrorFast || [];
@@ -755,21 +772,6 @@ async function confirmAndPrintSale() {
             dataErrorFast.forEach(o => {
                 if (o.Error) errorMessages.push(typeof o.Error === 'string' ? o.Error : (o.Error.Message || o.Error.message || JSON.stringify(o.Error)));
             });
-
-            // Check OrderLines for out-of-stock products
-            const outOfStockProducts = [];
-            [...errorOrders, ...dataErrorFast].forEach(o => {
-                if (o.OrderLines) {
-                    o.OrderLines.forEach(line => {
-                        if (line.IsNotEnoughInventory === true) {
-                            outOfStockProducts.push(line.ProductNameGet || line.Name || line.ProductName || line.ProductBarcode);
-                        }
-                    });
-                }
-            });
-            if (outOfStockProducts.length > 0) {
-                errorMessages.push('Thiếu hàng: ' + outOfStockProducts.join(', '));
-            }
 
             throw new Error(errorMessages.join('; ') || 'Có lỗi khi tạo đơn hàng');
         }
@@ -986,6 +988,77 @@ async function confirmAndPrintSale() {
             confirmBtn.textContent = originalText || 'Xác nhận và in (F9)';
         }
     }
+}
+
+/**
+ * Show modal when order creation fails due to insufficient inventory
+ * @param {string[]} errors - Array of error strings from result.Errors
+ */
+function showInventoryErrorModal(errors) {
+    // Extract product info from error strings
+    // Format: "Có sản phẩm không đủ tồn kho: [B115X] B6 1003 SET PHẬT TỪ NÚT TÀU VIÊN (Xanh)"
+    const productLines = [];
+    const otherLines = [];
+
+    errors.forEach(e => {
+        if (typeof e === 'string' && e.includes('không đủ tồn kho')) {
+            const colonIdx = e.indexOf(':');
+            if (colonIdx >= 0) {
+                productLines.push(e.substring(colonIdx + 1).trim());
+            } else {
+                productLines.push(e);
+            }
+        } else if (typeof e === 'string') {
+            otherLines.push(e);
+        }
+    });
+
+    // Remove existing modal if any
+    document.getElementById('inventoryErrorModal')?.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'inventoryErrorModal';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;';
+
+    const productListHtml = productLines.map(p =>
+        `<div style="padding:8px 12px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;margin-bottom:6px;color:#991b1b;font-size:13px;font-weight:500;">
+            <span style="margin-right:6px;">&#10060;</span>${p}
+        </div>`
+    ).join('');
+
+    const otherHtml = otherLines.length > 0
+        ? `<div style="color:#92400e;font-size:12px;margin-top:8px;padding:6px 10px;background:#fef3c7;border-radius:4px;">${otherLines.join('<br>')}</div>`
+        : '';
+
+    overlay.innerHTML = `
+        <div style="background:white;border-radius:12px;padding:24px;max-width:480px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+            <div style="text-align:center;margin-bottom:16px;">
+                <div style="font-size:48px;margin-bottom:8px;">&#9888;&#65039;</div>
+                <h3 style="margin:0;color:#dc2626;font-size:18px;font-weight:600;">Không đủ hàng tồn kho</h3>
+            </div>
+            <div style="margin-bottom:16px;">
+                <div style="color:#6b7280;font-size:13px;margin-bottom:10px;">Đơn hàng đã tạo dạng <strong>Nháp</strong> nhưng không thể xác nhận do các sản phẩm sau không đủ tồn kho:</div>
+                ${productListHtml}
+                ${otherHtml}
+            </div>
+            <div style="text-align:center;">
+                <button onclick="document.getElementById('inventoryErrorModal')?.remove();"
+                    style="background:#dc2626;color:white;border:none;border-radius:8px;padding:10px 32px;font-size:14px;font-weight:500;cursor:pointer;">
+                    Đóng
+                </button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    // Close on overlay click
+    overlay.addEventListener('click', (e) => {
+        if (e.target === overlay) overlay.remove();
+    });
+
+    // Notification too
+    window.notificationManager?.warning('Không đủ hàng tồn kho - đơn giữ trạng thái Nháp');
 }
 
 /**
