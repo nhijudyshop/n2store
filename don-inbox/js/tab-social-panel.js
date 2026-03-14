@@ -134,42 +134,51 @@ function renderTagPanelCards() {
     const body = document.getElementById('tagPanelBody');
     if (!body) return;
 
+    const searchInput = document.getElementById('tagPanelSearchInput');
+    const searchTerm = (searchInput?.value || '').toLowerCase().trim();
+
     const counts = getTagOrderCounts();
     const totalOrders = SocialOrderState.orders.length;
 
     let html = '';
 
-    // "All" card
-    html += `
-        <div class="tag-panel-card ${activePanelTagId === null ? 'active' : ''}"
-             onclick="filterByPanelTag(null)">
-            <div class="tag-panel-card-icon" style="background: #6b7280;">
-                <i class="fas fa-globe"></i>
+    // "All" card (show if no search or matches "tất cả")
+    if (!searchTerm || 'tất cả'.includes(searchTerm) || 'tat ca'.includes(searchTerm)) {
+        html += `
+            <div class="tag-panel-card ${activePanelTagId === null ? 'active' : ''}"
+                 onclick="filterByPanelTag(null)">
+                <div class="tag-panel-card-icon" style="background: #6b7280;">
+                    <i class="fas fa-globe"></i>
+                </div>
+                <div class="tag-panel-card-info">
+                    <div class="tag-panel-card-name">TẤT CẢ</div>
+                    <div class="tag-panel-card-count">${totalOrders} đơn hàng</div>
+                </div>
             </div>
-            <div class="tag-panel-card-info">
-                <div class="tag-panel-card-name">TẤT CẢ</div>
-                <div class="tag-panel-card-count">${totalOrders} đơn hàng</div>
-            </div>
-        </div>
-    `;
+        `;
+    }
 
     // "No tag" card
-    const noTagCount = SocialOrderState.orders.filter(o => !o.tags || o.tags.length === 0).length;
-    html += `
-        <div class="tag-panel-card ${activePanelTagId === '__no_tag__' ? 'active' : ''}"
-             onclick="filterByPanelTag('__no_tag__')">
-            <div class="tag-panel-card-icon" style="background: #d1d5db;">
-                <i class="fas fa-tag" style="color: #6b7280;"></i>
+    if (!searchTerm || 'chưa gán tag'.includes(searchTerm) || 'chua gan tag'.includes(searchTerm)) {
+        const noTagCount = SocialOrderState.orders.filter(o => !o.tags || o.tags.length === 0).length;
+        html += `
+            <div class="tag-panel-card ${activePanelTagId === '__no_tag__' ? 'active' : ''}"
+                 onclick="filterByPanelTag('__no_tag__')">
+                <div class="tag-panel-card-icon" style="background: #d1d5db;">
+                    <i class="fas fa-tag" style="color: #6b7280;"></i>
+                </div>
+                <div class="tag-panel-card-info">
+                    <div class="tag-panel-card-name">CHƯA GÁN TAG</div>
+                    <div class="tag-panel-card-count">${noTagCount} đơn hàng</div>
+                </div>
             </div>
-            <div class="tag-panel-card-info">
-                <div class="tag-panel-card-name">CHƯA GÁN TAG</div>
-                <div class="tag-panel-card-count">${noTagCount} đơn hàng</div>
-            </div>
-        </div>
-    `;
+        `;
+    }
 
-    // Tag cards
+    // Tag cards (filtered by search)
     SocialOrderState.tags.forEach(tag => {
+        if (searchTerm && !tag.name.toLowerCase().includes(searchTerm)) return;
+
         const count = counts[tag.id] || 0;
         const hoverAttrs = tag.image
             ? `onmouseenter="showTagImageHover(this, '${tag.id}')" onmouseleave="hideTagImageHover()"`
@@ -190,7 +199,16 @@ function renderTagPanelCards() {
         `;
     });
 
+    if (!html) {
+        html = '<div class="tag-panel-no-result">Không tìm thấy tag</div>';
+    }
+
     body.innerHTML = html;
+}
+
+// ===== FILTER TAG PANEL CARDS =====
+function filterTagPanelCards() {
+    renderTagPanelCards();
 }
 
 function getTagOrderCounts() {
@@ -924,3 +942,4 @@ window.initTagImagePasteListener = initTagImagePasteListener;
 window.setHoveredImageTag = setHoveredImageTag;
 window.directSaveTagImage = directSaveTagImage;
 window.directRemoveTagImage = directRemoveTagImage;
+window.filterTagPanelCards = filterTagPanelCards;
