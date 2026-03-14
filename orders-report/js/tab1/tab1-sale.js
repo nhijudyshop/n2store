@@ -755,6 +755,22 @@ async function confirmAndPrintSale() {
             dataErrorFast.forEach(o => {
                 if (o.Error) errorMessages.push(typeof o.Error === 'string' ? o.Error : (o.Error.Message || o.Error.message || JSON.stringify(o.Error)));
             });
+
+            // Check OrderLines for out-of-stock products
+            const outOfStockProducts = [];
+            [...errorOrders, ...dataErrorFast].forEach(o => {
+                if (o.OrderLines) {
+                    o.OrderLines.forEach(line => {
+                        if (line.IsNotEnoughInventory === true) {
+                            outOfStockProducts.push(line.ProductNameGet || line.Name || line.ProductName || line.ProductBarcode);
+                        }
+                    });
+                }
+            });
+            if (outOfStockProducts.length > 0) {
+                errorMessages.push('Thiếu hàng: ' + outOfStockProducts.join(', '));
+            }
+
             throw new Error(errorMessages.join('; ') || 'Có lỗi khi tạo đơn hàng');
         }
 
