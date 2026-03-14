@@ -738,17 +738,22 @@
 
         // Check if current user is admin
         function isAdmin() {
-            if (typeof window.authManager !== 'undefined') {
-                const authState = window.authManager.getUserInfo?.() || window.authManager.getAuthState?.();
-                if (authState) {
-                    if (authState.checkLogin === 1) return true;
-                    if (authState.userType?.toLowerCase().startsWith('admin')) return true;
-                }
+            // Method 1: isAdminTemplate from authManager
+            if (window.authManager?.isAdminTemplate?.()) return true;
+
+            // Method 2: Check userType (same pattern as tab1-fast-sale-invoice-status.js)
+            const authState = window.authManager?.getAuthState?.() || window.authManager?.getAuthData?.();
+            const userType = authState?.userType || localStorage.getItem('userType') || '';
+            if (userType === 'admin-admin@@' || userType.split('-')[0].toLowerCase() === 'admin') {
+                return true;
             }
-            const storedUserType = localStorage.getItem('userType');
-            if (storedUserType?.toLowerCase().startsWith('admin')) return true;
-            const storedCheckLogin = localStorage.getItem('checkLogin');
-            if (storedCheckLogin === '1') return true;
+
+            // Method 3: Check checkLogin (both string and number)
+            const checkLogin = authState?.checkLogin ?? localStorage.getItem('checkLogin');
+            if (checkLogin === 1 || checkLogin === '1') {
+                return true;
+            }
+
             return false;
         }
 
@@ -893,6 +898,7 @@
                         window.authManager?.getAuthData?.();
                     const username = authState?.username || authState?.userType?.split('-')[0] || 'default';
                     const adminMode = isAdmin();
+                    console.log(`[PENDING-DELETE] User: ${username}, isAdmin: ${adminMode}`);
 
                     if (adminMode) {
                         // Admin: load ALL documents from collection (all users' deleted bills)
