@@ -1473,6 +1473,51 @@ td[data-column].hidden {
     color: #fbbf24;
 }
 
+/* Panel search */
+.tag-panel-search {
+    position: relative;
+    padding: 10px 12px 0;
+}
+
+.tag-panel-search-icon {
+    position: absolute;
+    left: 22px;
+    top: 50%;
+    transform: translateY(-25%);
+    color: #9ca3af;
+    font-size: 13px;
+    pointer-events: none;
+}
+
+.tag-panel-search input {
+    width: 100%;
+    padding: 8px 12px 8px 32px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s;
+    background: #f9fafb;
+    box-sizing: border-box;
+}
+
+.tag-panel-search input:focus {
+    border-color: #8b5cf6;
+    background: white;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+}
+
+.tag-panel-search input::placeholder {
+    color: #9ca3af;
+}
+
+.tag-panel-no-result {
+    text-align: center;
+    color: #9ca3af;
+    padding: 20px;
+    font-size: 13px;
+}
+
 /* Panel body */
 .tag-panel-body {
     flex: 1;
