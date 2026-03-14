@@ -57,12 +57,19 @@ window.PurchaseOrderHistory = (function () {
     async function loadDoneRows() {
         if (doneLoaded) return;
         try {
-            const db = firebase.firestore();
+            const db = window.db || (typeof getFirestore === 'function' ? getFirestore() : null);
+            if (!db) {
+                console.error('[History] Firebase Firestore not available');
+                return;
+            }
             // Initial load
             const doc = await db.doc(DONE_DOC_PATH).get();
             if (doc.exists) {
                 const ids = doc.data().ids || [];
                 ids.forEach(id => doneRows.add(id));
+                console.log('[History] Loaded done rows:', ids.length);
+            } else {
+                console.log('[History] No done rows doc found, will create on first save');
             }
             doneLoaded = true;
 
@@ -91,10 +98,12 @@ window.PurchaseOrderHistory = (function () {
      */
     function saveDoneRows() {
         try {
-            const db = firebase.firestore();
-            db.doc(DONE_DOC_PATH).set({ ids: Array.from(doneRows), lastUpdated: Date.now() });
+            const db = window.db || (typeof getFirestore === 'function' ? getFirestore() : firebase.firestore());
+            db.doc(DONE_DOC_PATH).set({ ids: Array.from(doneRows), lastUpdated: Date.now() })
+                .then(() => console.log('[History] Done rows saved:', doneRows.size))
+                .catch(e => console.error('[History] Firestore save error:', e));
         } catch (e) {
-            console.warn('[History] Failed to save done rows:', e);
+            console.error('[History] Failed to save done rows:', e);
         }
     }
 
