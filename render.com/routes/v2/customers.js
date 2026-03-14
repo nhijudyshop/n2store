@@ -324,7 +324,8 @@ router.get('/:id', async (req, res) => {
 
         // Get recent tickets (last 10)
         const ticketsResult = await db.query(`
-            SELECT ticket_code, type, status, order_id, tpos_order_id, refund_amount, products, internal_note, created_at
+            SELECT ticket_code, type, status, order_id, tpos_order_id, refund_amount, products, internal_note,
+                (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at
             FROM customer_tickets
             WHERE phone = $1 AND status != 'DELETED'
             ORDER BY created_at DESC
@@ -333,7 +334,8 @@ router.get('/:id', async (req, res) => {
 
         // Get recent activities (last 20)
         const activitiesResult = await db.query(`
-            SELECT activity_type, title, description, icon, color, created_at, created_by
+            SELECT activity_type, title, description, icon, color, created_by,
+                (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at
             FROM customer_activities
             WHERE phone = $1
             ORDER BY created_at DESC
@@ -342,7 +344,8 @@ router.get('/:id', async (req, res) => {
 
         // Get notes
         const notesResult = await db.query(`
-            SELECT id, content, is_pinned, category, created_by, created_at
+            SELECT id, content, is_pinned, category, created_by,
+                (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at
             FROM customer_notes
             WHERE phone = $1
             ORDER BY is_pinned DESC, created_at DESC
@@ -517,7 +520,8 @@ router.get('/:id/activity', async (req, res) => {
         }
 
         const result = await db.query(`
-            SELECT * FROM customer_activities
+            SELECT *, (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at
+            FROM customer_activities
             WHERE phone = $1
             ORDER BY created_at DESC
             LIMIT $2 OFFSET $3
