@@ -115,10 +115,10 @@ window.PurchaseOrderHistory = (function () {
                         <i data-lucide="filter"></i>
                         <select id="historyStateFilter" class="filter-input">
                             <option value="">Tất cả</option>
-                            <option value="open"${filterState === 'open' ? ' selected' : ''}>Nhập</option>
-                            <option value="paid"${filterState === 'paid' ? ' selected' : ''}>Đã xác nhận</option>
-                            <option value="draft"${filterState === 'draft' ? ' selected' : ''}>Nháp</option>
-                            <option value="cancel"${filterState === 'cancel' ? ' selected' : ''}>Hủy</option>
+                            <option value="draft"${filterState === 'draft' ? ' selected' : ''}>Nhập</option>
+                            <option value="open"${filterState === 'open' ? ' selected' : ''}>Đã xác nhận</option>
+                            <option value="paid"${filterState === 'paid' ? ' selected' : ''}>Đã thanh toán</option>
+                            <option value="cancel"${filterState === 'cancel' ? ' selected' : ''}>Huỷ bỏ</option>
                         </select>
                     </div>
                 </div>
