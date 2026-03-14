@@ -699,46 +699,30 @@ td:has(.mini-thumb:hover) {
     opacity: 1;
 }
 
-/* Stamp in status cell */
+/* Green checkmark icon in status cell */
 .td-status--done {
     position: relative;
     opacity: 1 !important;
 }
 
-/* Double concentric circles */
-.td-status--done::before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 36px;
-    height: 36px;
-    transform: translate(-50%, -50%) rotate(-12deg);
-    border-radius: 50%;
-    border: 2px solid rgba(185, 28, 28, 0.7);
-    box-shadow: 0 0 0 3px transparent, 0 0 0 5px rgba(185, 28, 28, 0.7);
-    pointer-events: none;
-    z-index: 10;
-}
-
-/* Text banner across the middle */
 .td-status--done::after {
     content: '✓';
     position: absolute;
     top: 50%;
     left: 50%;
-    transform: translate(-50%, -50%) rotate(-12deg);
-    font-size: 16px;
+    transform: translate(-50%, -50%);
+    width: 36px;
+    height: 36px;
+    line-height: 36px;
+    text-align: center;
+    font-size: 22px;
     font-weight: 900;
-    font-family: 'Arial', sans-serif;
-    color: #fff;
-    background: rgba(185, 28, 28, 0.7);
-    padding: 0 12px;
+    color: #22c55e;
+    background: #f0fdf4;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(34, 197, 94, 0.25);
     pointer-events: none;
-    white-space: nowrap;
-    z-index: 11;
-    letter-spacing: 1px;
-    line-height: 20px;
+    z-index: 10;
 }
 
 /* Column header filter */
