@@ -618,9 +618,11 @@ function initDateInputs() {
         }
     });
 
-    // Auto-format date input
+    // Auto-format date input (only when typing, not deleting)
     [DOM.dateFromDisplay, DOM.dateToDisplay].forEach(input => {
         input.addEventListener('input', function(e) {
+            if (e.inputType && e.inputType.startsWith('delete')) return;
+            const cursor = this.selectionStart;
             let value = this.value.replace(/\D/g, '');
             if (value.length >= 2) {
                 value = value.slice(0, 2) + '/' + value.slice(2);
@@ -629,6 +631,9 @@ function initDateInputs() {
                 value = value.slice(0, 5) + '/' + value.slice(5, 9);
             }
             this.value = value;
+            // Adjust cursor if a slash was auto-inserted
+            const newCursor = (cursor === 2 || cursor === 5) ? cursor + 1 : cursor;
+            this.setSelectionRange(newCursor, newCursor);
         });
     });
 
