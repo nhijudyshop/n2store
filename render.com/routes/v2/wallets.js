@@ -296,7 +296,11 @@ router.get('/:customerId/transactions', async (req, res) => {
             return res.status(404).json({ success: false, error: 'Customer not found' });
         }
 
-        let query = `SELECT *, (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at FROM wallet_transactions WHERE phone = $1`;
+        let query = `SELECT id, phone, wallet_id, type, amount,
+            balance_before, balance_after, virtual_balance_before, virtual_balance_after,
+            source, reference_type, reference_id, note, created_by,
+            (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at
+            FROM wallet_transactions WHERE phone = $1`;
         const params = [phone];
 
         if (type) {
@@ -305,7 +309,7 @@ router.get('/:customerId/transactions', async (req, res) => {
         }
 
         // Count total
-        const countQuery = query.replace('SELECT *', 'SELECT COUNT(*)');
+        const countQuery = `SELECT COUNT(*) FROM wallet_transactions WHERE phone = $1${type ? ' AND type = $2' : ''}`;
         const countResult = await db.query(countQuery, params);
         const total = parseInt(countResult.rows[0].count);
 
