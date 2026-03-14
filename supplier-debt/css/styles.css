@@ -240,11 +240,11 @@
 .date-input-hidden {
     position: absolute;
     top: 0;
-    right: 0;
-    width: 36px;
-    height: 100%;
+    left: 0;
+    width: 0;
+    height: 0;
     opacity: 0;
-    cursor: pointer;
+    pointer-events: none;
 }
 
 .date-icon {
@@ -253,7 +253,7 @@
     width: 18px;
     height: 18px;
     color: #6b7280;
-    pointer-events: none;
+    cursor: pointer;
 }
 
 /* Radio Group */

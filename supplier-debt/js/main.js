@@ -631,6 +631,16 @@ function initDateInputs() {
             this.value = value;
         });
     });
+
+    // Click calendar icon to open date picker
+    document.querySelectorAll('.date-input-wrapper .date-icon').forEach(icon => {
+        icon.addEventListener('click', function() {
+            const hiddenInput = this.parentElement.querySelector('.date-input-hidden');
+            if (hiddenInput) {
+                hiddenInput.showPicker();
+            }
+        });
+    });
 }
 
 // =====================================================
