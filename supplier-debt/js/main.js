@@ -650,7 +650,12 @@ function initDateInputs() {
         icon.addEventListener('click', function() {
             const hiddenInput = this.parentElement.querySelector('.date-input-hidden');
             if (hiddenInput) {
+                hiddenInput.style.pointerEvents = 'auto';
                 hiddenInput.showPicker();
+                hiddenInput.addEventListener('change', function onClose() {
+                    hiddenInput.style.pointerEvents = 'none';
+                    hiddenInput.removeEventListener('change', onClose);
+                }, { once: true });
             }
         });
     });
