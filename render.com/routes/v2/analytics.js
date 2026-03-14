@@ -488,8 +488,7 @@ router.get('/activity-feed', async (req, res) => {
             (wt.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at,
             wt.amount, wt.note as description, c.name as customer_name, wt.phone as customer_phone,
             'dollar-sign' as icon,
-            CASE WHEN wt.type IN ('DEPOSIT','VIRTUAL_CREDIT') THEN 'green'
-                 WHEN wt.type IN ('WITHDRAW','VIRTUAL_DEBIT') THEN 'red' ELSE 'blue' END as color
+            'green' as color
         FROM wallet_transactions wt LEFT JOIN customers c ON c.phone = wt.phone
         ${walletWhere}
     `;
