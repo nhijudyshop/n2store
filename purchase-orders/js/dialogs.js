@@ -1639,10 +1639,15 @@ class InventoryPickerDialog {
             const data = await response.json();
 
             let image = data.ImageUrl || (data.Thumbnails && data.Thumbnails[2]) || '';
+            let purchasePrice = data.PurchasePrice || 0;
 
-            // If variant has no image, try to get parent product's image
-            if (!image && data.ProductTmplId) {
-                image = await this.fetchParentImage(data.ProductTmplId);
+            // If variant has no image or no PurchasePrice, fetch from parent template
+            if (data.ProductTmplId && (!image || !purchasePrice)) {
+                const templateData = await this.fetchParentTemplate(data.ProductTmplId);
+                if (templateData) {
+                    if (!image) image = templateData.ImageUrl || '';
+                    if (!purchasePrice) purchasePrice = templateData.PurchasePrice || 0;
+                }
             }
 
             // Map to our format - use original productId to preserve variant identity
@@ -1652,7 +1657,7 @@ class InventoryPickerDialog {
                 name: data.NameTemplate || data.Name || '',
                 image: image,
                 qtyAvailable: data.QtyAvailable || 0,
-                purchasePrice: data.PurchasePrice || 0,
+                purchasePrice: purchasePrice,
                 sellingPrice: data.PriceVariant || data.ListPrice || 0,
                 variant: data.DisplayAttributeValues || '',
                 tposProductId: data.Id || null,
@@ -1668,34 +1673,32 @@ class InventoryPickerDialog {
     }
 
     /**
-     * Fetch parent product image by ProductTmplId
-     * Uses ProductTemplate API to get the template's canonical image
-     * Logic: variant.ImageUrl → templateData.ImageUrl → ''
+     * Fetch parent product template by ProductTmplId
+     * Returns template data with ImageUrl, PurchasePrice, etc.
      */
-    async fetchParentImage(templateId) {
+    async fetchParentTemplate(templateId) {
         try {
-            if (!this._templateImageCache) this._templateImageCache = {};
-            if (this._templateImageCache[templateId] !== undefined) {
-                return this._templateImageCache[templateId];
+            if (!this._templateCache) this._templateCache = {};
+            if (this._templateCache[templateId] !== undefined) {
+                return this._templateCache[templateId];
             }
 
             const response = await window.TPOSClient.authenticatedFetch(
-                `${this.proxyUrl}/api/odata/ProductTemplate(${templateId})?$select=Id,ImageUrl`
+                `${this.proxyUrl}/api/odata/ProductTemplate(${templateId})/ODataService.GetDetailView`
             );
 
             if (!response.ok) {
-                this._templateImageCache[templateId] = '';
-                return '';
+                this._templateCache[templateId] = null;
+                return null;
             }
 
             const templateData = await response.json();
-            const img = templateData.ImageUrl || '';
-            this._templateImageCache[templateId] = img;
-            return img;
+            this._templateCache[templateId] = templateData;
+            return templateData;
         } catch (error) {
-            console.warn('[InventoryPicker] Failed to fetch template image:', error);
-            this._templateImageCache[templateId] = '';
-            return '';
+            console.warn('[InventoryPicker] Failed to fetch template:', error);
+            this._templateCache[templateId] = null;
+            return null;
         }
     }
 
