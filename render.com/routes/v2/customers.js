@@ -332,13 +332,15 @@ router.get('/:id', async (req, res) => {
             LIMIT 10
         `, [phone]);
 
-        // Get recent activities (last 20)
+        // Get recent activities (last 20) - join users to get display_name
         const activitiesResult = await db.query(`
-            SELECT activity_type, title, description, icon, color, created_by,
-                (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at
-            FROM customer_activities
-            WHERE phone = $1
-            ORDER BY created_at DESC
+            SELECT ca.activity_type, ca.title, ca.description, ca.icon, ca.color,
+                COALESCE(u.display_name, ca.created_by) as created_by,
+                (ca.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at
+            FROM customer_activities ca
+            LEFT JOIN users u ON u.username = ca.created_by
+            WHERE ca.phone = $1
+            ORDER BY ca.created_at DESC
             LIMIT 20
         `, [phone]);
 
