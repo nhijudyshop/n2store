@@ -691,10 +691,6 @@ td:has(.mini-thumb:hover) {
    HISTORY TAB - DONE WATERMARK
    ======================================== */
 
-.order-row--done {
-    position: relative;
-}
-
 .order-row--done td {
     opacity: 0.45;
 }
@@ -703,8 +699,14 @@ td:has(.mini-thumb:hover) {
     opacity: 1;
 }
 
+/* Stamp in status cell */
+.td-status--done {
+    position: relative;
+    opacity: 1 !important;
+}
+
 /* Double concentric circles */
-.order-row--done::before {
+.td-status--done::before {
     content: '';
     position: absolute;
     top: 50%;
@@ -720,7 +722,7 @@ td:has(.mini-thumb:hover) {
 }
 
 /* Text banner across the middle */
-.order-row--done::after {
+.td-status--done::after {
     content: '✓';
     position: absolute;
     top: 50%;

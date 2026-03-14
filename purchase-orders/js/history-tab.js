@@ -316,7 +316,7 @@ window.PurchaseOrderHistory = (function () {
                     </td>
                     <td><span style="font-family: monospace; font-size: 13px;">${escapeHtml(item.Number || '')}</span></td>
                     <td class="text-right"><span class="price-value">${formatMoney(item.AmountTotal)}</span></td>
-                    <td>${renderState(item.ShowState, item.State)}</td>
+                    <td class="td-status ${isDone ? 'td-status--done' : ''}">${renderState(item.ShowState, item.State)}</td>
                     <td><span style="font-size: 13px;">${escapeHtml(item.UserName || '')}</span></td>
                     <td><span style="font-size: 13px;">${escapeHtml(item.CompanyName || '')}</span></td>
                 </tr>
