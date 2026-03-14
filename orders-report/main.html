@@ -915,18 +915,20 @@ function showSyncIndicator() {
             }, 2000);
         }
 
-        // Logout handler
-        document.getElementById('btnLogout').addEventListener('click', function () {
-            if (confirm('Bạn có chắc muốn đăng xuất?')) {
-                // Clear ONLY auth data, preserve tokens and other data
-                sessionStorage.removeItem('loginindex_auth');
-                localStorage.removeItem('loginindex_auth');
-                window.location.href = '../index.html';
-            }
-        });
-
         // Tab management
         window.addEventListener('DOMContentLoaded', function () {
+            // Logout handler
+            const btnLogout = document.getElementById('btnLogout');
+            if (btnLogout) {
+                btnLogout.addEventListener('click', function () {
+                    if (confirm('Bạn có chắc muốn đăng xuất?')) {
+                        // Clear ONLY auth data, preserve tokens and other data
+                        sessionStorage.removeItem('loginindex_auth');
+                        localStorage.removeItem('loginindex_auth');
+                        window.location.href = '../index.html';
+                    }
+                });
+            }
             // Restore last active tab or default to orders
             const savedTab = localStorage.getItem('currentTab');
             if (

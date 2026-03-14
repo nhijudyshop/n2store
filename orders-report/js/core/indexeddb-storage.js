@@ -8,6 +8,11 @@
 // For ES module usage, import from '/shared/browser/indexeddb-storage.js'
 // =====================================================
 
+// Guard: skip if already declared (e.g., by shared/js/indexed-db-store.js)
+if (typeof IndexedDBStorage !== 'undefined') {
+    console.log('[IndexedDB] IndexedDBStorage already loaded, skipping duplicate');
+} else {
+
 class IndexedDBStorage {
     constructor(dbName = 'N2StoreDB', version = 1) {
         this.dbName = dbName;
@@ -341,3 +346,5 @@ window.isIndexedDBSupported = () => {
 };
 
 console.log('[IndexedDB] 📦 IndexedDB Storage Utility loaded');
+
+} // end guard: if (typeof IndexedDBStorage !== 'undefined')
