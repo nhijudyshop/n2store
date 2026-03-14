@@ -60,6 +60,28 @@ const PAGES_REGISTRY = {
         }
     },
 
+    "don-inbox": {
+        id: "don-inbox",
+        name: "Đơn Inbox",
+        shortName: "Đơn Inbox",
+        icon: "inbox",
+        href: "../don-inbox/index.html",
+        description: "Quản lý đơn hàng từ các kênh mạng xã hội",
+        adminOnly: false,
+        category: "sales",
+        detailedPermissions: {
+            view: { name: "Xem đơn hàng", icon: "eye", description: "Xem danh sách đơn hàng inbox" },
+            create: { name: "Tạo đơn mới", icon: "plus-square", description: "Tạo đơn hàng inbox mới" },
+            edit: { name: "Sửa đơn hàng", icon: "edit", description: "Chỉnh sửa thông tin đơn hàng" },
+            delete: { name: "Xóa đơn hàng", icon: "trash-2", description: "Xóa đơn hàng khỏi danh sách" },
+            manage_tags: { name: "Quản lý tag", icon: "tags", description: "Tạo, sửa, xóa và gán tag cho đơn hàng" },
+            bulk_tag: { name: "Gán tag hàng loạt", icon: "layers", description: "Gán tag cho nhiều đơn cùng lúc" },
+            column_settings: { name: "Cài đặt cột", icon: "columns", description: "Tùy chỉnh hiển thị cột trong bảng" },
+            export: { name: "Xuất dữ liệu", icon: "download", description: "Export danh sách đơn hàng" },
+            create_retail_sale: { name: "Tạo đơn bán lẻ", icon: "shopping-bag", description: "Chuyển đơn inbox sang đơn bán lẻ" }
+        }
+    },
+
     // =====================================================
     // CATEGORY: WAREHOUSE - Kho & Nhận hàng
     // =====================================================
