@@ -690,6 +690,7 @@ async function fetchData() {
 
         State.data = result.value || [];
         State.totalCount = result['@odata.count'] || 0;
+        State.expandedRows.clear();
 
         // Apply client-side filter for supplier
         applySupplierFilter();
