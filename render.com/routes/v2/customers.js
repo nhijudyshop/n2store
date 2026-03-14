@@ -333,7 +333,7 @@ router.get('/:id', async (req, res) => {
 
         // Get recent activities (last 20)
         const activitiesResult = await db.query(`
-            SELECT activity_type, title, description, icon, color, created_at
+            SELECT activity_type, title, description, icon, color, created_at, created_by
             FROM customer_activities
             WHERE phone = $1
             ORDER BY created_at DESC
