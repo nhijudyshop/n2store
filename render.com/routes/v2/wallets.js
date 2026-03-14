@@ -298,7 +298,8 @@ router.get('/:customerId/transactions', async (req, res) => {
 
         let query = `SELECT id, phone, wallet_id, type, amount,
             balance_before, balance_after, virtual_balance_before, virtual_balance_after,
-            source, reference_type, reference_id, note, created_by, created_at
+            source, reference_type, reference_id, note, created_by,
+            (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at
             FROM wallet_transactions WHERE phone = $1`;
         const params = [phone];
 
