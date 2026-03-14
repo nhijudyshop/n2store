@@ -2049,10 +2049,26 @@ class PancakeDataManager {
             let convId = conversationId;
             let customerId = null;
 
-            // Helper: extract post_id from conversation (may be in c.post_id or embedded in c.id)
+            // Helper: check if conversation matches a given postId (handles both full and partial formats)
+            // postId can be full "pageId_videoId" or just "videoId"
+            // conv.post_id can be full or partial, conv.id first part is usually the video/post ID
+            const convMatchesPostId = (c, targetPostId) => {
+                if (!targetPostId) return false;
+                const targetPure = targetPostId.split('_').pop(); // extract pure post ID
+                // Check conv.post_id field first (most reliable)
+                if (c.post_id) {
+                    if (c.post_id === targetPostId) return true;
+                    if (c.post_id.split('_').pop() === targetPure) return true;
+                }
+                // Fallback: check conv.id first part
+                if (c.id && c.id.includes('_')) {
+                    if (c.id.split('_')[0] === targetPure) return true;
+                }
+                return false;
+            };
+            // Legacy helper for compatibility
             const getConvPostId = (c) => {
                 if (c.post_id) return c.post_id;
-                // Conversation ID format: postId_commentId (e.g., "33430825583230191_1643258936832569")
                 if (c.id && c.id.includes('_')) return c.id.split('_')[0];
                 return null;
             };
@@ -2065,7 +2081,7 @@ class PancakeDataManager {
                 // Bước 1: Tìm trong conversations đã load (memory)
                 const matchingConvInMemory = this.conversations.find(conv =>
                     conv.type === 'COMMENT' &&
-                    getConvPostId(conv) === postId &&
+                    convMatchesPostId(conv, postId) &&
                     (conv.from?.id === psid ||
                      conv.from_psid === psid ||
                      conv.customers?.some(c => c.fb_id === psid))
@@ -2097,7 +2113,7 @@ class PancakeDataManager {
                             // Find conversation matching BOTH post_id AND fb_id/psid
                             const matchingConv = result.conversations.find(c =>
                                 c.type === 'COMMENT' &&
-                                getConvPostId(c) === postId &&
+                                convMatchesPostId(c, postId) &&
                                 (c.from?.id === psid ||
                                  c.from_psid === psid ||
                                  c.customers?.some(cust => cust.fb_id === psid))
@@ -2110,7 +2126,7 @@ class PancakeDataManager {
                             } else {
                                 // Fallback: chỉ match post_id nếu không tìm thấy exact match
                                 const postOnlyMatch = result.conversations.find(c =>
-                                    c.type === 'COMMENT' && getConvPostId(c) === postId
+                                    c.type === 'COMMENT' && convMatchesPostId(c, postId)
                                 );
                                 if (postOnlyMatch) {
                                     convId = postOnlyMatch.id;

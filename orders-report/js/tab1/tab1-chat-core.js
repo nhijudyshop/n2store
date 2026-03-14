@@ -1786,18 +1786,27 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                         })));
 
                         if (facebookPostId && allCommentConvs.length > 0) {
-                            // Extract POST_ID from order.Facebook_PostId (format: "PAGE_ID_POST_ID")
+                            // Extract pure POST_ID from order.Facebook_PostId (format: "PAGE_ID_POST_ID")
                             const postIdParts = facebookPostId.split('_');
-                            const postId = postIdParts.length > 1 ? postIdParts[postIdParts.length - 1] : facebookPostId;
+                            const purePostId = postIdParts.length > 1 ? postIdParts[postIdParts.length - 1] : facebookPostId;
 
-                            console.log('[CHAT-MODAL] Extracted POST_ID from order:', postId);
+                            console.log('[CHAT-MODAL] Extracted POST_ID from order:', purePostId, '(full:', facebookPostId, ')');
 
-                            // Match conversation where conversation.id starts with POST_ID
+                            // Match conversation by post_id (check both conv.post_id field and conv.id)
                             commentConversations = allCommentConvs.filter(conv => {
+                                // Method 1: Direct post_id field (most reliable)
+                                if (conv.post_id) {
+                                    if (conv.post_id === facebookPostId) return true;
+                                    // Also match partial: conv.post_id might be just the post part
+                                    const convPostParts = conv.post_id.split('_');
+                                    const convPurePostId = convPostParts.length > 1 ? convPostParts[convPostParts.length - 1] : conv.post_id;
+                                    if (convPurePostId === purePostId) return true;
+                                }
+                                // Method 2: Match via conversation ID first part
                                 const convIdFirstPart = conv.id.split('_')[0];
-                                const match = convIdFirstPart === postId;
+                                const match = convIdFirstPart === purePostId;
                                 if (match) {
-                                    console.log('[CHAT-MODAL] Match found:', conv.id, 'starts with', postId);
+                                    console.log('[CHAT-MODAL] Match found:', conv.id, 'starts with', purePostId);
                                 }
                                 return match;
                             });
@@ -2123,7 +2132,12 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                             // Filter by post_id if available
                             let targetCommentConv;
                             if (facebookPostId) {
-                                targetCommentConv = commentConversations.find(conv => conv.post_id === facebookPostId);
+                                const purePostId = facebookPostId.split('_').pop();
+                                targetCommentConv = commentConversations.find(conv => {
+                                    if (conv.post_id === facebookPostId) return true;
+                                    if (conv.post_id && conv.post_id.split('_').pop() === purePostId) return true;
+                                    return conv.id.split('_')[0] === purePostId;
+                                });
                             }
                             if (!targetCommentConv) {
                                 targetCommentConv = commentConversations[0];
