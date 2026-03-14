@@ -738,18 +738,26 @@
 
         // Check if current user is admin
         function isAdmin() {
+            const authState = window.authManager?.getAuthState?.() || window.authManager?.getAuthData?.();
+            const userType = authState?.userType || localStorage.getItem('userType') || '';
+            const roleTemplate = authState?.roleTemplate || '';
+            const checkLogin = authState?.checkLogin ?? localStorage.getItem('checkLogin');
+
+            console.log('[PENDING-DELETE] isAdmin check:', {
+                userType, roleTemplate, checkLogin,
+                isAdminTemplate: window.authManager?.isAdminTemplate?.(),
+                authStateExists: !!authState
+            });
+
             // Method 1: isAdminTemplate from authManager
             if (window.authManager?.isAdminTemplate?.()) return true;
 
             // Method 2: Check userType (same pattern as tab1-fast-sale-invoice-status.js)
-            const authState = window.authManager?.getAuthState?.() || window.authManager?.getAuthData?.();
-            const userType = authState?.userType || localStorage.getItem('userType') || '';
             if (userType === 'admin-admin@@' || userType.split('-')[0].toLowerCase() === 'admin') {
                 return true;
             }
 
             // Method 3: Check checkLogin (both string and number)
-            const checkLogin = authState?.checkLogin ?? localStorage.getItem('checkLogin');
             if (checkLogin === 1 || checkLogin === '1') {
                 return true;
             }
@@ -905,9 +913,12 @@
                         console.log('[PENDING-DELETE] Admin detected, loading ALL users data from Firestore...');
                         const snapshot = await db.collection(DELETE_FIRESTORE_COLLECTION).get();
                         let totalEntries = 0;
+                        console.log(`[PENDING-DELETE] Firestore snapshot: ${snapshot.size} documents found`);
                         snapshot.forEach(doc => {
                             const docOwner = doc.id; // username who owns this document
                             const firestoreData = doc.data();
+                            const entryCount = firestoreData.data ? Object.keys(firestoreData.data).length : 0;
+                            console.log(`[PENDING-DELETE] Doc "${docOwner}": ${entryCount} entries`);
                             if (firestoreData.data) {
                                 const entries = Object.entries(firestoreData.data);
                                 entries.forEach(([key, value]) => {
@@ -920,7 +931,7 @@
                                 totalEntries += entries.length;
                             }
                         });
-                        console.log(`[PENDING-DELETE] Admin loaded ${totalEntries} entries from ${snapshot.size} users, total: ${dataMap.size}`);
+                        console.log(`[PENDING-DELETE] Admin loaded ${totalEntries} entries from ${snapshot.size} users, total unique: ${dataMap.size}`);
                     } else {
                         // Normal user: load only their own document
                         const docRef = db.collection(DELETE_FIRESTORE_COLLECTION).doc(username);
