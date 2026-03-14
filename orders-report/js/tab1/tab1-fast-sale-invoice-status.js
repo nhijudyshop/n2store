@@ -356,7 +356,6 @@
                     this._sentBills.delete(key);
                     hasChanges = true;
                     deletedKeys.push(key);
-                    console.log(`[INVOICE-STATUS] Real-time: Entry ${key} deleted (not in server)`);
                 }
             });
 
@@ -382,7 +381,6 @@
                                 this._data.set(key, value);
                                 hasChanges = true;
                                 changedKeys.push(key);
-                                console.log(`[INVOICE-STATUS] Real-time: Entry ${key} added/updated from doc ${doc.id}`);
                             }
                         });
                     }
@@ -402,7 +400,9 @@
             // Update localStorage cache if there were changes
             if (hasChanges) {
                 this._saveToLocalStorage();
-                console.log('[INVOICE-STATUS] Real-time: localStorage cache updated');
+                if (changedKeys.length > 0 || deletedKeys.length > 0) {
+                    console.log(`[INVOICE-STATUS] Real-time: ${changedKeys.length} updated, ${deletedKeys.length} deleted`);
+                }
                 // Update UI for changed entries (add/update)
                 this._refreshInvoiceStatusUI(changedKeys);
                 // Update UI for deleted entries (show "-")
@@ -439,7 +439,6 @@
                         this._sentBills.delete(key);
                         hasChanges = true;
                         deletedKeys.push(key);
-                        console.log(`[INVOICE-STATUS] Real-time: Entry ${key} deleted (not in server)`);
                     }
                 });
 
@@ -460,7 +459,6 @@
                             this._data.set(key, value);
                             hasChanges = true;
                             changedKeys.push(key);
-                            console.log(`[INVOICE-STATUS] Real-time: Entry ${key} added/updated`);
                         }
                     });
                 }
@@ -479,7 +477,9 @@
             // Update localStorage cache if there were changes
             if (hasChanges) {
                 this._saveToLocalStorage();
-                console.log('[INVOICE-STATUS] Real-time: localStorage cache updated');
+                if (changedKeys.length > 0 || deletedKeys.length > 0) {
+                    console.log(`[INVOICE-STATUS] Real-time: ${changedKeys.length} updated, ${deletedKeys.length} deleted`);
+                }
                 // Update UI for changed entries (add/update)
                 this._refreshInvoiceStatusUI(changedKeys);
                 // Update UI for deleted entries (show "-")
@@ -498,23 +498,25 @@
             if (!changedKeys || changedKeys.length === 0) return;
             if (typeof window.renderInvoiceStatusCell !== 'function') return;
 
+            let updatedCount = 0;
             changedKeys.forEach(saleOnlineId => {
-                // Find the row with this order ID
                 const row = document.querySelector(`tr[data-order-id="${saleOnlineId}"]`);
                 if (row) {
                     const cell = row.querySelector('td[data-column="invoice-status"]');
                     if (cell) {
-                        // Get order data from displayedData or OrderStore
                         const orderData = window.OrderStore?.get(saleOnlineId) ||
                             (window.displayedData || []).find(o => String(o.Id) === String(saleOnlineId));
 
                         if (orderData) {
                             cell.innerHTML = window.renderInvoiceStatusCell(orderData);
-                            console.log(`[INVOICE-STATUS] Real-time: Updated UI for order ${saleOnlineId}`);
+                            updatedCount++;
                         }
                     }
                 }
             });
+            if (updatedCount > 0) {
+                console.log(`[INVOICE-STATUS] Real-time: Updated UI for ${updatedCount} orders`);
+            }
         },
 
         /**
@@ -524,17 +526,20 @@
         _refreshDeletedInvoiceStatusUI(deletedKeys) {
             if (!deletedKeys || deletedKeys.length === 0) return;
 
+            let clearedCount = 0;
             deletedKeys.forEach(saleOnlineId => {
-                // Find the row with this order ID
                 const row = document.querySelector(`tr[data-order-id="${saleOnlineId}"]`);
                 if (row) {
                     const cell = row.querySelector('td[data-column="invoice-status"]');
                     if (cell) {
                         cell.innerHTML = '<span style="color: #9ca3af;">−</span>';
-                        console.log(`[INVOICE-STATUS] Real-time: Cleared UI for deleted order ${saleOnlineId}`);
+                        clearedCount++;
                     }
                 }
             });
+            if (clearedCount > 0) {
+                console.log(`[INVOICE-STATUS] Real-time: Cleared UI for ${clearedCount} deleted orders`);
+            }
         },
 
         /**

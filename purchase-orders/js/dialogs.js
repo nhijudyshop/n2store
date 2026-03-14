@@ -328,12 +328,12 @@ class VariantGeneratorDialog {
      */
     async loadCSVData() {
         try {
-            // Determine base path from current page location
-            // The page is at .../purchase-orders/index.html, CSVs are in the same directory
-            const pathParts = window.location.pathname.split('/');
-            // Remove the filename (e.g., index.html) to get the directory
-            pathParts.pop();
-            const basePath = pathParts.join('/') + '/';
+            // CSVs are in the purchase-orders/ directory
+            // Auto-detect base path for cross-module reuse
+            const isPurchaseOrdersPage = window.location.pathname.includes('/purchase-orders/');
+            const basePath = isPurchaseOrdersPage
+                ? window.location.pathname.split('/').slice(0, -1).join('/') + '/'
+                : window.location.pathname.split('/').slice(0, -1).join('/') + '/../purchase-orders/';
 
             const [attrsText, valsText] = await Promise.all([
                 fetch(`${basePath}product_attributes_rows.csv`).then(r => {

@@ -18,7 +18,7 @@ window.TPOSProductCreator = (function () {
     const TPOS_INSERT_URL = `${PROXY_URL}/api/odata/ProductTemplate/ODataService.InsertV2?$expand=ProductVariants,UOM,UOMPO`;
 
     // CSV file paths — auto-detect base path for cross-module reuse
-    const _csvBase = window.location.pathname.includes('/purchase-orders/') ? '' : 'purchase-orders/';
+    const _csvBase = window.location.pathname.includes('/purchase-orders/') ? '' : '../purchase-orders/';
     const ATTR_VALUES_CSV = `${_csvBase}product_attribute_values_rows.csv`;
     const ATTR_GROUPS_CSV = `${_csvBase}product_attributes_rows.csv`;
 
