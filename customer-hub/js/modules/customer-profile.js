@@ -559,13 +559,14 @@ export class CustomerProfileModule {
                             const style = activityStyleMap[act.activity_type] || defaultActivityStyle;
                             const icon = act.icon || style.icon;
                             const date = act.created_at ? new Date(act.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+                            const createdBy = act.created_by && act.created_by !== 'system' ? act.created_by : '';
                             return `
                                 <div class="flex items-start gap-3 p-2 rounded-lg ${style.bg} dark:bg-slate-800/50">
                                     <span class="material-symbols-outlined ${style.color}" style="font-size: 20px; margin-top: 2px;">${icon}</span>
                                     <div class="flex-1 min-w-0">
                                         <p class="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">${act.title || act.activity_type}</p>
                                         ${act.description ? `<p class="text-xs text-slate-500 truncate">${act.description}</p>` : ''}
-                                        <p class="text-xs text-slate-400">${date}</p>
+                                        <p class="text-xs text-slate-400">${date}${createdBy ? ` · <span class="text-slate-500 font-medium">${createdBy}</span>` : ''}</p>
                                     </div>
                                 </div>
                             `;
