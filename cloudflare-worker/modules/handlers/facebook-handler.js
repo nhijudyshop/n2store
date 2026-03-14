@@ -233,27 +233,29 @@ export async function handleFacebookSend(request, url) {
             console.log('[PRIVATE-REPLY] ========================================');
             console.log('[PRIVATE-REPLY] PostId:', fbPostId, '| PSID:', customerAsid, '| Name:', customerName);
 
-            // === STEP 1: Try stored postId directly ===
-            const postIdVariants = [fbPostId];
-            if (fbPostId.includes('_')) {
-                postIdVariants.push(fbPostId.split('_').slice(1).join('_'));
-            }
-
+            // === STEP 1: Try stored postId directly (if available) ===
             let allFailed = true;
-            for (const pid of postIdVariants) {
-                for (const filter of ['stream', null]) {
-                    const result = await searchCommentsOnObject(pid, customerAsid, customerName, filter, diagnostics);
-                    if (result) {
-                        return { ...result, diagnostics };
+            if (fbPostId) {
+                const postIdVariants = [fbPostId];
+                if (fbPostId.includes('_')) {
+                    postIdVariants.push(fbPostId.split('_').slice(1).join('_'));
+                }
+
+                for (const pid of postIdVariants) {
+                    for (const filter of ['stream', null]) {
+                        const result = await searchCommentsOnObject(pid, customerAsid, customerName, filter, diagnostics);
+                        if (result) {
+                            return { ...result, diagnostics };
+                        }
+                        // Check if query succeeded (even with 0 comments) vs errored
+                        const lastQuery = diagnostics.queries[diagnostics.queries.length - 1];
+                        if (lastQuery && !lastQuery.error) allFailed = false;
                     }
-                    // Check if query succeeded (even with 0 comments) vs errored
-                    const lastQuery = diagnostics.queries[diagnostics.queries.length - 1];
-                    if (lastQuery && !lastQuery.error) allFailed = false;
                 }
             }
 
-            // === STEP 2: PostId invalid → search page's live videos and feed ===
-            if (allFailed) {
+            // === STEP 2: PostId invalid/missing → search page's live videos and feed ===
+            if (allFailed || !fbPostId) {
                 console.log('[PRIVATE-REPLY] Stored postId invalid → searching page content...');
 
                 // 2a: Search live_videos
@@ -409,12 +411,12 @@ export async function handleFacebookSend(request, url) {
         }
 
         // ===== PRIVATE REPLY FALLBACK =====
-        // If Send API failed (551=no inbox, or other errors like 100=invalid param/24h policy)
-        // and we have a postId, query Facebook Graph API for the real comment ID and use Private Reply
+        // If Send API failed (551=no inbox, 10=outside allowed window, or other errors)
+        // Try Private Reply: search customer's comments on page posts and reply privately
         const sendApiFailed = messageIds.length === 0 && lastError;
-        if (sendApiFailed && postId && hasTextMessage) {
+        if (sendApiFailed && hasTextMessage) {
             console.log('[FACEBOOK-SEND] ========================================');
-            console.log('[FACEBOOK-SEND] Send API failed with 551 → trying Private Reply fallback');
+            console.log(`[FACEBOOK-SEND] Send API failed (${lastError?.code}) → trying Private Reply fallback`);
 
             const messageText = typeof message === 'string' ? message : message.text;
             const lookup = await findRealCommentId(postId, psid, customerName);
@@ -454,7 +456,7 @@ export async function handleFacebookSend(request, url) {
             return jsonResponse({
                 success: false,
                 error: lastError?.message || 'Không tìm thấy comment của khách trên bài viết',
-                error_code: lastError?.code || 551,
+                error_code: lastError?.code,
                 private_reply_error: 'comment_not_found',
                 _debug: lookup.diagnostics,
             }, 400);
