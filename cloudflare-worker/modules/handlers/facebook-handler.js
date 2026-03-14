@@ -159,7 +159,8 @@ export async function handleFacebookSend(request, url) {
         }
 
         // Helper: Search comments on a single post/video for the customer
-        async function searchCommentsOnObject(objectId, customerAsid, customerName, filter, diagnostics) {
+        // Returns ALL matching comments (not just first) for retry logic
+        async function searchCommentsOnObject(objectId, customerAsid, customerName, filter, diagnostics, excludeIds = new Set()) {
             const graphUrl = `${API_ENDPOINTS.FACEBOOK.GRAPH_URL}/${objectId}/comments`;
             const params = new URLSearchParams({
                 access_token: pageToken,
@@ -181,14 +182,14 @@ export async function handleFacebookSend(request, url) {
 
                 if (data.error) {
                     diagnostics.queries.push({ query: queryKey, error: data.error.message });
-                    return null;
+                    return [];
                 }
 
                 const comments = data.data || [];
                 diagnostics.queries.push({ query: queryKey, count: comments.length });
                 console.log(`[PRIVATE-REPLY] ${queryKey} → ${comments.length} comments`);
 
-                if (comments.length === 0) return null;
+                if (comments.length === 0) return [];
 
                 // Collect commenters for diagnostics
                 const uniqueCommenters = [...new Map(
@@ -196,34 +197,45 @@ export async function handleFacebookSend(request, url) {
                 ).values()];
                 diagnostics.commentersFound = uniqueCommenters.slice(0, 20);
 
-                // Match by ID
-                let match = comments.find(c => c.from && String(c.from.id) === String(customerAsid));
-                if (match) {
-                    console.log(`[PRIVATE-REPLY] ✅ ID match: ${match.id} (${match.from.name})`);
-                    return { commentId: match.id, matchedBy: 'id', on: objectId };
-                }
+                const matches = [];
 
-                // Match by name
-                if (customerName) {
-                    const norm = customerName.trim().toLowerCase();
-                    match = comments.find(c => c.from?.name?.trim().toLowerCase() === norm);
-                    if (match) {
-                        console.log(`[PRIVATE-REPLY] ✅ Name match: ${match.id} (${match.from.name}, from.id=${match.from.id})`);
-                        return { commentId: match.id, matchedBy: 'name', on: objectId };
+                // Match by ID (all comments from this user)
+                const idMatches = comments.filter(c => c.from && String(c.from.id) === String(customerAsid));
+                for (const m of idMatches) {
+                    if (!excludeIds.has(m.id)) {
+                        matches.push({ commentId: m.id, matchedBy: 'id', on: objectId });
                     }
                 }
 
-                return null;
+                // Match by name (all comments from user with this name)
+                if (customerName) {
+                    const norm = customerName.trim().toLowerCase();
+                    const nameMatches = comments.filter(c =>
+                        c.from?.name?.trim().toLowerCase() === norm &&
+                        !idMatches.some(im => im.id === c.id) // skip already matched by ID
+                    );
+                    for (const m of nameMatches) {
+                        if (!excludeIds.has(m.id)) {
+                            matches.push({ commentId: m.id, matchedBy: 'name', on: objectId });
+                        }
+                    }
+                }
+
+                if (matches.length > 0) {
+                    console.log(`[PRIVATE-REPLY] Found ${matches.length} matching comments (excl ${excludeIds.size} already tried)`);
+                }
+
+                return matches;
             } catch (err) {
                 diagnostics.queries.push({ query: queryKey, error: err.message });
-                return null;
+                return [];
             }
         }
 
-        // Helper: Find real Facebook comment ID
-        // Step 1: Try stored postId directly
-        // Step 2: If postId is invalid, search page's live_videos and feed
-        async function findRealCommentId(fbPostId, customerAsid, customerName) {
+        // Helper: Find ALL matching Facebook comment IDs for Private Reply
+        // Returns array of {commentId, matchedBy, on} objects
+        // excludeIds: Set of comment IDs already tried (to avoid re-trying)
+        async function findAllMatchingComments(fbPostId, customerAsid, customerName, excludeIds = new Set()) {
             const diagnostics = {
                 postId: fbPostId, psid: customerAsid,
                 customerName: customerName || null,
@@ -232,6 +244,9 @@ export async function handleFacebookSend(request, url) {
 
             console.log('[PRIVATE-REPLY] ========================================');
             console.log('[PRIVATE-REPLY] PostId:', fbPostId, '| PSID:', customerAsid, '| Name:', customerName);
+            console.log('[PRIVATE-REPLY] Excluding', excludeIds.size, 'already-tried comment IDs');
+
+            const allMatches = [];
 
             // === STEP 1: Try stored postId directly (if available) ===
             let allFailed = true;
@@ -243,10 +258,8 @@ export async function handleFacebookSend(request, url) {
 
                 for (const pid of postIdVariants) {
                     for (const filter of ['stream', null]) {
-                        const result = await searchCommentsOnObject(pid, customerAsid, customerName, filter, diagnostics);
-                        if (result) {
-                            return { ...result, diagnostics };
-                        }
+                        const results = await searchCommentsOnObject(pid, customerAsid, customerName, filter, diagnostics, excludeIds);
+                        allMatches.push(...results);
                         // Check if query succeeded (even with 0 comments) vs errored
                         const lastQuery = diagnostics.queries[diagnostics.queries.length - 1];
                         if (lastQuery && !lastQuery.error) allFailed = false;
@@ -279,10 +292,8 @@ export async function handleFacebookSend(request, url) {
 
                         for (const video of lvData.data) {
                             console.log(`[PRIVATE-REPLY] Searching live video: ${video.id} (${video.title || 'untitled'})`);
-                            const result = await searchCommentsOnObject(video.id, customerAsid, customerName, 'stream', diagnostics);
-                            if (result) {
-                                return { ...result, diagnostics };
-                            }
+                            const results = await searchCommentsOnObject(video.id, customerAsid, customerName, 'stream', diagnostics, excludeIds);
+                            allMatches.push(...results);
                         }
                     } else {
                         diagnostics.queries.push({ query: `${pageId}/live_videos`, error: lvData.error?.message || 'no data' });
@@ -312,10 +323,8 @@ export async function handleFacebookSend(request, url) {
 
                         for (const post of feedData.data) {
                             console.log(`[PRIVATE-REPLY] Searching post: ${post.id} (${post.type || 'unknown'})`);
-                            const result = await searchCommentsOnObject(post.id, customerAsid, customerName, null, diagnostics);
-                            if (result) {
-                                return { ...result, diagnostics };
-                            }
+                            const results = await searchCommentsOnObject(post.id, customerAsid, customerName, null, diagnostics, excludeIds);
+                            allMatches.push(...results);
                         }
                     } else {
                         diagnostics.queries.push({ query: `${pageId}/feed`, error: feedData.error?.message || 'no data' });
@@ -325,8 +334,16 @@ export async function handleFacebookSend(request, url) {
                 }
             }
 
-            console.error('[PRIVATE-REPLY] ❌ No match found after full search');
-            return { commentId: null, diagnostics };
+            // Deduplicate by commentId
+            const seen = new Set();
+            const uniqueMatches = allMatches.filter(m => {
+                if (seen.has(m.commentId)) return false;
+                seen.add(m.commentId);
+                return true;
+            });
+
+            console.log(`[PRIVATE-REPLY] Total unique matches: ${uniqueMatches.length} (after dedup & excluding ${excludeIds.size})`);
+            return { matches: uniqueMatches, diagnostics };
         }
 
         // Helper: Send Private Reply via Facebook Send API
@@ -421,10 +438,14 @@ export async function handleFacebookSend(request, url) {
             const messageText = typeof message === 'string' ? message : message.text;
 
             // === STEP A: Try known comment IDs directly (from order data) ===
+            const triedCommentIds = new Set();
+            let allRepliedTo = false;
+
             if (knownCommentIds && Array.isArray(knownCommentIds) && knownCommentIds.length > 0) {
                 console.log(`[FACEBOOK-SEND] Trying ${knownCommentIds.length} known comment IDs from order data`);
 
                 for (const knownId of knownCommentIds) {
+                    triedCommentIds.add(knownId);
                     console.log(`[FACEBOOK-SEND] Trying known commentId: ${knownId}`);
                     const prResult = await sendPrivateReply(knownId, messageText);
 
@@ -442,52 +463,79 @@ export async function handleFacebookSend(request, url) {
                             matched_by: 'order_data',
                         });
                     }
-                    console.warn(`[FACEBOOK-SEND] Known commentId ${knownId} failed:`, prResult.result?.error?.message);
+                    const errCode = prResult.result?.error?.code;
+                    if (errCode === 10900) allRepliedTo = true;
+                    console.warn(`[FACEBOOK-SEND] Known commentId ${knownId} failed (${errCode}):`, prResult.result?.error?.message);
                 }
-                console.log('[FACEBOOK-SEND] All known comment IDs failed, falling through to search...');
+                console.log('[FACEBOOK-SEND] All known comment IDs failed, searching for more comments...');
             }
 
-            // === STEP B: Search for comments on page posts ===
-            const lookup = await findRealCommentId(postId, psid, customerName);
+            // === STEP B: Search ALL matching comments on page posts (excluding already tried) ===
+            const { matches, diagnostics } = await findAllMatchingComments(postId, psid, customerName, triedCommentIds);
 
-            if (lookup.commentId) {
-                const prResult = await sendPrivateReply(lookup.commentId, messageText);
+            if (matches.length > 0) {
+                console.log(`[FACEBOOK-SEND] Found ${matches.length} new comments to try via Private Reply`);
 
-                if (prResult.success) {
-                    console.log('[FACEBOOK-SEND] ✅ Private Reply succeeded via search!');
-                    const msgId = prResult.result.message_id || prResult.result.id;
-                    return jsonResponse({
-                        success: true,
-                        recipient_id: prResult.result.recipient_id,
-                        message_id: msgId,
-                        message_ids: [msgId],
-                        used_tag: 'PRIVATE_REPLY',
-                        method: 'private_reply',
-                        real_comment_id: lookup.commentId,
-                        matched_by: lookup.matchedBy,
-                    });
+                for (const match of matches) {
+                    console.log(`[FACEBOOK-SEND] Trying commentId: ${match.commentId} (matched by: ${match.matchedBy})`);
+                    const prResult = await sendPrivateReply(match.commentId, messageText);
+
+                    if (prResult.success) {
+                        console.log('[FACEBOOK-SEND] ✅ Private Reply succeeded via search!');
+                        const msgId = prResult.result.message_id || prResult.result.id;
+                        return jsonResponse({
+                            success: true,
+                            recipient_id: prResult.result.recipient_id,
+                            message_id: msgId,
+                            message_ids: [msgId],
+                            used_tag: 'PRIVATE_REPLY',
+                            method: 'private_reply',
+                            real_comment_id: match.commentId,
+                            matched_by: match.matchedBy,
+                        });
+                    }
+
+                    const errCode = prResult.result?.error?.code;
+                    console.warn(`[FACEBOOK-SEND] Comment ${match.commentId} failed (${errCode}):`, prResult.result?.error?.message);
+                    if (errCode === 10900) allRepliedTo = true;
                 }
+            }
 
-                // Private Reply failed
+            // All attempts failed
+            const totalTried = triedCommentIds.size + matches.length;
+            if (totalTried > 0 && allRepliedTo) {
+                // All comments have been privately replied to already
                 return jsonResponse({
                     success: false,
-                    error: prResult.result.error?.message || 'Private Reply failed',
-                    error_code: prResult.result.error?.code,
-                    error_subcode: prResult.result.error?.error_subcode,
-                    method: 'private_reply',
-                    real_comment_id: lookup.commentId,
+                    error: `Tất cả ${totalTried} comment của khách đã được reply rồi. Cần khách comment mới hoặc nhắn tin lại.`,
+                    error_code: 10900,
+                    private_reply_error: 'all_already_replied',
+                    total_tried: totalTried,
                     send_api_error: lastError?.message,
-                    _debug: lookup.diagnostics,
-                }, prResult.status || 400);
+                    _debug: diagnostics,
+                }, 400);
             }
 
-            // Could not find comment - return diagnostics so client can see why
+            if (totalTried === 0) {
+                // No comments found at all
+                return jsonResponse({
+                    success: false,
+                    error: lastError?.message || 'Không tìm thấy comment của khách trên bài viết',
+                    error_code: lastError?.code,
+                    private_reply_error: 'comment_not_found',
+                    _debug: diagnostics,
+                }, 400);
+            }
+
+            // Some comments found but failed for other reasons
             return jsonResponse({
                 success: false,
-                error: lastError?.message || 'Không tìm thấy comment của khách trên bài viết',
+                error: `Private Reply thất bại cho ${totalTried} comment`,
                 error_code: lastError?.code,
-                private_reply_error: 'comment_not_found',
-                _debug: lookup.diagnostics,
+                private_reply_error: 'all_failed',
+                total_tried: totalTried,
+                send_api_error: lastError?.message,
+                _debug: diagnostics,
             }, 400);
         }
 
