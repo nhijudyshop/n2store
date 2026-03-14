@@ -1,0 +1,49 @@
+{
+  "rules_version": "2",
+  "service": "cloud.firestore",
+  "match": {
+    "/databases/{database}/documents": {
+      "match /pancake_tokens/{document}": {
+        "allow read, write": "if request.auth != null"
+      }
+    }
+  },
+  "_schema": {
+    "pancake_tokens": {
+      "accounts": {
+        "data": {
+          "{accountId}": {
+            "token": "string - JWT token",
+            "exp": "number - Token expiry timestamp (seconds)",
+            "uid": "string - User ID from Pancake",
+            "name": "string - User display name",
+            "savedAt": "number - Date.now() when saved"
+          }
+        }
+      },
+      "page_access_tokens": {
+        "data": {
+          "{pageId}": {
+            "token": "string - Page access token (never expires)",
+            "pageId": "string - Facebook Page ID",
+            "pageName": "string - Page display name",
+            "timestamp": "number|null - Token timestamp from decoded JWT",
+            "savedAt": "number - Date.now() when saved"
+          }
+        }
+      }
+    }
+  },
+  "_localStorage_keys": {
+    "pancake_jwt_token": "JWT token string (active account)",
+    "pancake_jwt_token_expiry": "Token expiry timestamp string",
+    "tpos_pancake_active_account_id": "Active account ID (per-device)",
+    "pancake_page_access_tokens": "JSON: {pageId: {token, pageId, pageName, savedAt}}",
+    "pancake_all_accounts": "JSON: {accountId: {name, uid, exp, savedAt, token}}",
+    "tpos_pancake_pages_cache": "JSON: {pages, pageIds, timestamp} - TTL: 30 min",
+    "tagSettingsCustomData": "JSON: {tagId: 'note text'}"
+  },
+  "_sessionStorage_keys": {
+    "pancake_conversations_cache": "JSON: {conversations, lastFetchTime, timestamp} - TTL: 5 min"
+  }
+}
