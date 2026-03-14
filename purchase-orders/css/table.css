@@ -709,12 +709,12 @@ td:has(.mini-thumb:hover) {
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 60px;
-    height: 60px;
+    width: 36px;
+    height: 36px;
     transform: translate(-50%, -50%) rotate(-12deg);
     border-radius: 50%;
-    border: 3px solid rgba(185, 28, 28, 0.75);
-    box-shadow: 0 0 0 4px transparent, 0 0 0 7px rgba(185, 28, 28, 0.75);
+    border: 2px solid rgba(185, 28, 28, 0.7);
+    box-shadow: 0 0 0 3px transparent, 0 0 0 5px rgba(185, 28, 28, 0.7);
     pointer-events: none;
     z-index: 10;
 }
@@ -726,16 +726,17 @@ td:has(.mini-thumb:hover) {
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%) rotate(-12deg);
-    font-size: 22px;
+    font-size: 16px;
     font-weight: 900;
     font-family: 'Arial', sans-serif;
     color: #fff;
-    background: rgba(185, 28, 28, 0.75);
-    padding: 1px 18px;
+    background: rgba(185, 28, 28, 0.7);
+    padding: 0 12px;
     pointer-events: none;
     white-space: nowrap;
     z-index: 11;
-    letter-spacing: 2px;
+    letter-spacing: 1px;
+    line-height: 20px;
 }
 
 /* Column header filter */
