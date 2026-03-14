@@ -701,8 +701,41 @@ window.switchConversationType = async function (type) {
             }
 
             if (!inboxConvId) {
-                console.warn('[CONV-TYPE] No INBOX conversation found, auto-switching to COMMENT');
-                // Show notification and auto-switch to COMMENT tab
+                // No INBOX - enable private_replies mode to create conversation
+                const prCommentId = window.purchaseCommentId || window.currentCommentConversationId;
+                const prPostId = window.purchaseFacebookPostId || (prCommentId ?
+                    `${window.currentChatChannelId}_${prCommentId.split('_')[0]}` : null);
+                const prPsid = window.currentChatPSID;
+
+                if (prCommentId && prPostId && prPsid) {
+                    console.log('[CONV-TYPE] No INBOX - enabling private_replies mode');
+
+                    // Set conversation ID and private_replies mode
+                    window.currentConversationId = prCommentId;
+                    window.messageReplyType = 'private_replies';
+                    window.noInboxPrivateReplyMode = true;
+
+                    // Ensure purchaseCommentId/PostId are set
+                    if (!window.purchaseCommentId) window.purchaseCommentId = prCommentId;
+                    if (!window.purchaseFacebookPostId) window.purchaseFacebookPostId = prPostId;
+
+                    // Show empty inbox with message
+                    modalBody.innerHTML = `
+                        <div class="chat-empty" style="text-align: center; padding: 40px 20px;">
+                            <i class="fas fa-paper-plane" style="font-size: 48px; color: #4CAF50; margin-bottom: 16px;"></i>
+                            <p style="font-size: 15px; color: #333; margin-bottom: 8px;">Chưa có đoạn hội thoại tin nhắn</p>
+                            <p style="font-size: 13px; color: #666;">Gửi tin nhắn để tạo đoạn hội thoại mới với khách hàng</p>
+                        </div>`;
+
+                    // Setup scroll and realtime
+                    setupChatInfiniteScroll();
+                    setupNewMessageIndicatorListener();
+                    setupRealtimeMessages();
+                    return;
+                }
+
+                // No comment data for private_replies - switch to COMMENT
+                console.warn('[CONV-TYPE] No INBOX and no comment data, switching to COMMENT');
                 if (window.notificationManager) {
                     window.notificationManager.show('Khách hàng chưa có tin nhắn, chuyển sang bình luận', 'info', 3000);
                 }
@@ -2150,7 +2183,7 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                                 console.warn('[CHAT-MODAL] Direct INBOX fetch failed:', directErr.message);
                             }
 
-                            // Save COMMENT conversation IDs FIRST (before auto-switching)
+                            // Save COMMENT conversation IDs for quick switching
                             if (commentConversations.length > 0) {
                                 let matchedCommentConvs = commentConversations;
                                 if (facebookPostId) {
@@ -2180,19 +2213,68 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                                 const targetCommentConv = matchedCommentConvs[0];
                                 window.currentCommentConversationId = targetCommentConv.id;
                                 window.cachedCommentConversations = matchedCommentConvs;
-                                console.log('[CHAT-MODAL] No INBOX but found COMMENT conversations, auto-switching to COMMENT view');
+                            }
 
-                                // Show notification and auto-switch to COMMENT view
-                                if (window.notificationManager) {
-                                    window.notificationManager.show('Khách hàng chưa có tin nhắn, chuyển sang bình luận', 'info', 3000);
-                                }
-                                await window.switchConversationType('COMMENT');
-                            } else {
+                            // Show empty inbox view with private_replies enabled
+                            // Use purchaseCommentId from order, or latest comment conv as fallback
+                            const prCommentId = window.purchaseCommentId || (commentConversations.length > 0 ? commentConversations[0].id : null);
+                            const prPostId = window.purchaseFacebookPostId || (commentConversations.length > 0 ?
+                                `${channelId}_${commentConversations[0].id.split('_')[0]}` : null);
+
+                            if (prCommentId && prPostId) {
+                                console.log('[CHAT-MODAL] No INBOX - enabling private_replies to create conversation');
+                                console.log('[CHAT-MODAL] Private reply data:', { postId: prPostId, commentId: prCommentId, psid: facebookPsid });
+
+                                // Set conversation ID to comment ID (needed for sendMessage validation)
+                                window.currentConversationId = prCommentId;
+                                window.currentRealFacebookPSID = facebookPsid;
+                                window.currentCustomerFbId = facebookPsid;
+
+                                // Set private_replies mode
+                                window.messageReplyType = 'private_replies';
+                                window.noInboxPrivateReplyMode = true; // Flag for post-send state update
+
+                                // Ensure purchaseCommentId/PostId are set for sendMessage
+                                if (!window.purchaseCommentId) window.purchaseCommentId = prCommentId;
+                                if (!window.purchaseFacebookPostId) window.purchaseFacebookPostId = prPostId;
+
+                                // Show empty inbox with helpful message
                                 modalBody.innerHTML = `
-                                    <div class="chat-error">
-                                        <i class="fas fa-info-circle"></i>
-                                        <p>Không tìm thấy tin nhắn cho khách hàng này</p>
+                                    <div class="chat-empty" style="text-align: center; padding: 40px 20px;">
+                                        <i class="fas fa-paper-plane" style="font-size: 48px; color: #4CAF50; margin-bottom: 16px;"></i>
+                                        <p style="font-size: 15px; color: #333; margin-bottom: 8px;">Chưa có đoạn hội thoại tin nhắn</p>
+                                        <p style="font-size: 13px; color: #666;">Gửi tin nhắn để tạo đoạn hội thoại mới với khách hàng</p>
                                     </div>`;
+
+                                window.hideConversationSelector();
+
+                                // Initialize read state
+                                window.currentConversationReadState = {
+                                    isRead: false,
+                                    conversationId: prCommentId,
+                                    pageId: channelId,
+                                    lastMarkedAt: null,
+                                    chatType: 'message'
+                                };
+
+                                // Setup scroll and realtime
+                                setupChatInfiniteScroll();
+                                setupNewMessageIndicatorListener();
+                                setupRealtimeMessages();
+                            } else {
+                                console.log('[CHAT-MODAL] No INBOX and no comment data for private_replies, auto-switching to COMMENT');
+                                if (commentConversations.length > 0) {
+                                    if (window.notificationManager) {
+                                        window.notificationManager.show('Khách hàng chưa có tin nhắn, chuyển sang bình luận', 'info', 3000);
+                                    }
+                                    await window.switchConversationType('COMMENT');
+                                } else {
+                                    modalBody.innerHTML = `
+                                        <div class="chat-error">
+                                            <i class="fas fa-info-circle"></i>
+                                            <p>Không tìm thấy tin nhắn cho khách hàng này</p>
+                                        </div>`;
+                                }
                             }
                         }
 
@@ -2365,6 +2447,7 @@ window.closeChatModal = async function () {
 
     // Reset message reply type and hide toggle
     messageReplyType = 'reply_inbox';
+    window.noInboxPrivateReplyMode = false;
     const msgReplyToggle = document.getElementById('messageReplyTypeToggle');
     if (msgReplyToggle) {
         msgReplyToggle.style.display = 'none';

@@ -952,6 +952,20 @@ async function sendMessageInternal(messageData) {
 
             apiSuccess = true;
 
+            // If this was a private_replies to create new INBOX, switch to reply_inbox mode
+            if (messageReplyType === 'private_replies' && window.noInboxPrivateReplyMode) {
+                const newInboxId = `${channelId}_${psid || window.currentChatPSID}`;
+                console.log('[MESSAGE] Private reply succeeded - switching to reply_inbox mode, new INBOX ID:', newInboxId);
+                window.currentConversationId = newInboxId;
+                window.currentInboxConversationId = newInboxId;
+                window.messageReplyType = 'reply_inbox';
+                window.noInboxPrivateReplyMode = false;
+
+                if (window.notificationManager) {
+                    window.notificationManager.show('Đã tạo đoạn hội thoại mới thành công!', 'success', 3000);
+                }
+            }
+
             // Auto-mark as read after successful message send
             console.log('[MARK-READ] Message sent successfully');
             autoMarkAsRead(0);
