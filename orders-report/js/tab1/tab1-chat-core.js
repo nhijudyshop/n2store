@@ -655,96 +655,17 @@ window.switchConversationType = async function (type) {
             setupNewMessageIndicatorListener();
 
         } else {
-            // Use cached INBOX conversation ID, or re-fetch from API
-            let inboxConvId = window.currentInboxConversationId;
+            // Use cached INBOX conversation ID (already fetched when modal opened)
+            const inboxConvId = window.currentInboxConversationId;
 
-            if (!inboxConvId && window.pancakeDataManager && window.currentChatPSID) {
-                // No cached INBOX ID - re-fetch conversations from API
-                console.log('[CONV-TYPE] No cached INBOX ID, re-fetching from API...');
-                const result = await window.pancakeDataManager.fetchConversationsByCustomerFbId(
-                    window.currentChatChannelId,
-                    window.currentChatPSID
-                );
-
-                if (result.success && result.conversations.length > 0) {
-                    const inboxConv = result.conversations.find(conv => conv.type === 'INBOX');
-                    if (inboxConv) {
-                        inboxConvId = inboxConv.id;
-                        window.currentInboxConversationId = inboxConvId;
-                        window.currentCustomerUUID = result.customerUuid || window.currentCustomerUUID;
-                        console.log('[CONV-TYPE] Found INBOX conversation from API:', inboxConvId);
-                    }
-                }
+            if (inboxConvId) {
+                window.currentConversationId = inboxConvId;
+                console.log('[CONV-TYPE] Using cached INBOX conversationId:', window.currentConversationId);
+            } else {
+                // Fallback if not cached
+                window.currentConversationId = `${window.currentChatChannelId}_${window.currentChatPSID}`;
+                console.log('[CONV-TYPE] Using fallback conversationId:', window.currentConversationId);
             }
-
-            if (!inboxConvId) {
-                // Try direct conversation ID: {pageId}_{fbId}
-                const directId = `${window.currentChatChannelId}_${window.currentChatPSID}`;
-                console.log('[CONV-TYPE] No INBOX from API, trying direct ID:', directId);
-
-                try {
-                    const directResponse = await window.pancakeDataManager.fetchMessagesForConversation(
-                        window.currentChatChannelId,
-                        directId,
-                        null,
-                        window.currentCustomerUUID
-                    );
-
-                    if (directResponse.messages && directResponse.messages.length > 0) {
-                        console.log('[CONV-TYPE] Direct INBOX found!', directResponse.messages.length, 'messages');
-                        inboxConvId = directId;
-                        window.currentInboxConversationId = directId;
-                    }
-                } catch (err) {
-                    console.warn('[CONV-TYPE] Direct INBOX fetch failed:', err.message);
-                }
-            }
-
-            if (!inboxConvId) {
-                // No INBOX - enable private_replies mode to create conversation
-                const prCommentId = window.purchaseCommentId || window.currentCommentConversationId;
-                const prPostId = window.purchaseFacebookPostId || (prCommentId ?
-                    `${window.currentChatChannelId}_${prCommentId.split('_')[0]}` : null);
-                const prPsid = window.currentChatPSID;
-
-                if (prCommentId && prPostId && prPsid) {
-                    console.log('[CONV-TYPE] No INBOX - enabling private_replies mode');
-
-                    // Set conversation ID and private_replies mode
-                    window.currentConversationId = prCommentId;
-                    window.messageReplyType = 'private_replies';
-                    window.noInboxPrivateReplyMode = true;
-
-                    // Ensure purchaseCommentId/PostId are set
-                    if (!window.purchaseCommentId) window.purchaseCommentId = prCommentId;
-                    if (!window.purchaseFacebookPostId) window.purchaseFacebookPostId = prPostId;
-
-                    // Show empty inbox with message
-                    modalBody.innerHTML = `
-                        <div class="chat-empty" style="text-align: center; padding: 40px 20px;">
-                            <i class="fas fa-paper-plane" style="font-size: 48px; color: #4CAF50; margin-bottom: 16px;"></i>
-                            <p style="font-size: 15px; color: #333; margin-bottom: 8px;">Chưa có đoạn hội thoại tin nhắn</p>
-                            <p style="font-size: 13px; color: #666;">Gửi tin nhắn để tạo đoạn hội thoại mới với khách hàng</p>
-                        </div>`;
-
-                    // Setup scroll and realtime
-                    setupChatInfiniteScroll();
-                    setupNewMessageIndicatorListener();
-                    setupRealtimeMessages();
-                    return;
-                }
-
-                // No comment data for private_replies - switch to COMMENT
-                console.warn('[CONV-TYPE] No INBOX and no comment data, switching to COMMENT');
-                if (window.notificationManager) {
-                    window.notificationManager.show('Khách hàng chưa có tin nhắn, chuyển sang bình luận', 'info', 3000);
-                }
-                window.switchConversationType('COMMENT');
-                return;
-            }
-
-            window.currentConversationId = inboxConvId;
-            console.log('[CONV-TYPE] Using INBOX conversationId:', window.currentConversationId);
 
             // Fetch messages for INBOX conversation
             console.log('[CONV-TYPE] Fetching messages for INBOX conversation...');
@@ -758,6 +679,12 @@ window.switchConversationType = async function (type) {
 
             window.allChatMessages = response.messages || [];
             currentChatCursor = response.after;
+
+            // Update conversationId from response if available
+            if (response.conversationId) {
+                window.currentConversationId = response.conversationId;
+                console.log('[CONV-TYPE] Updated conversationId from response:', window.currentConversationId);
+            }
 
             console.log('[CONV-TYPE] Loaded', window.allChatMessages.length, 'messages');
             renderChatMessages(window.allChatMessages, true);
@@ -2183,132 +2110,26 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                                 console.warn('[CHAT-MODAL] Direct INBOX fetch failed:', directErr.message);
                             }
 
-                            // Save COMMENT conversation IDs for quick switching
-                            if (commentConversations.length > 0) {
-                                let matchedCommentConvs = commentConversations;
-                                if (facebookPostId) {
-                                    const postIdParts = facebookPostId.split('_');
-                                    const postId = postIdParts.length > 1 ? postIdParts[postIdParts.length - 1] : facebookPostId;
-                                    const filtered = commentConversations.filter(conv => {
-                                        const convIdFirstPart = conv.id.split('_')[0];
-                                        return convIdFirstPart === postId;
-                                    });
-                                    if (filtered.length > 0) {
-                                        matchedCommentConvs = filtered;
-                                    }
-                                }
-                                // If still multiple/no postId match, try name matching
-                                if (matchedCommentConvs.length === commentConversations.length) {
-                                    const orderName = order.Name || order.PartnerName;
-                                    if (orderName) {
-                                        const nameMatched = matchedCommentConvs.filter(conv =>
-                                            conv.from?.name === orderName ||
-                                            conv.customers?.some(c => c.name === orderName)
-                                        );
-                                        if (nameMatched.length > 0) {
-                                            matchedCommentConvs = nameMatched;
-                                        }
-                                    }
-                                }
-                                const targetCommentConv = matchedCommentConvs[0];
-                                window.currentCommentConversationId = targetCommentConv.id;
-                                window.cachedCommentConversations = matchedCommentConvs;
-                            }
-
-                            // Show empty inbox view with private_replies enabled
-                            // Use purchaseCommentId from order, or latest comment conv as fallback
-                            const prCommentId = window.purchaseCommentId || (commentConversations.length > 0 ? commentConversations[0].id : null);
-                            const prPostId = window.purchaseFacebookPostId || (commentConversations.length > 0 ?
-                                `${channelId}_${commentConversations[0].id.split('_')[0]}` : null);
-
-                            if (prCommentId && prPostId) {
-                                console.log('[CHAT-MODAL] No INBOX - enabling private_replies to create conversation');
-                                console.log('[CHAT-MODAL] Private reply data:', { postId: prPostId, commentId: prCommentId, psid: facebookPsid });
-
-                                // Set conversation ID to comment ID (needed for sendMessage validation)
-                                window.currentConversationId = prCommentId;
-                                window.currentRealFacebookPSID = facebookPsid;
-                                window.currentCustomerFbId = facebookPsid;
-
-                                // Set private_replies mode
-                                window.messageReplyType = 'private_replies';
-                                window.noInboxPrivateReplyMode = true; // Flag for post-send state update
-
-                                // Ensure purchaseCommentId/PostId are set for sendMessage
-                                if (!window.purchaseCommentId) window.purchaseCommentId = prCommentId;
-                                if (!window.purchaseFacebookPostId) window.purchaseFacebookPostId = prPostId;
-
-                                // Show empty inbox with helpful message
-                                modalBody.innerHTML = `
-                                    <div class="chat-empty" style="text-align: center; padding: 40px 20px;">
-                                        <i class="fas fa-paper-plane" style="font-size: 48px; color: #4CAF50; margin-bottom: 16px;"></i>
-                                        <p style="font-size: 15px; color: #333; margin-bottom: 8px;">Chưa có đoạn hội thoại tin nhắn</p>
-                                        <p style="font-size: 13px; color: #666;">Gửi tin nhắn để tạo đoạn hội thoại mới với khách hàng</p>
-                                    </div>`;
-
-                                window.hideConversationSelector();
-
-                                // Initialize read state
-                                window.currentConversationReadState = {
-                                    isRead: false,
-                                    conversationId: prCommentId,
-                                    pageId: channelId,
-                                    lastMarkedAt: null,
-                                    chatType: 'message'
-                                };
-
-                                // Setup scroll and realtime
-                                setupChatInfiniteScroll();
-                                setupNewMessageIndicatorListener();
-                                setupRealtimeMessages();
-                            } else {
-                                console.log('[CHAT-MODAL] No INBOX and no comment data for private_replies, auto-switching to COMMENT');
-                                if (commentConversations.length > 0) {
-                                    if (window.notificationManager) {
-                                        window.notificationManager.show('Khách hàng chưa có tin nhắn, chuyển sang bình luận', 'info', 3000);
-                                    }
-                                    await window.switchConversationType('COMMENT');
-                                } else {
-                                    modalBody.innerHTML = `
-                                        <div class="chat-error">
-                                            <i class="fas fa-info-circle"></i>
-                                            <p>Không tìm thấy tin nhắn cho khách hàng này</p>
-                                        </div>`;
-                                }
-                            }
+                            console.warn('[CHAT-MODAL] No INBOX conversation found');
+                            modalBody.innerHTML = `
+                                <div class="chat-error">
+                                    <i class="fas fa-info-circle"></i>
+                                    <p>Không tìm thấy tin nhắn cho khách hàng này</p>
+                                </div>`;
                         }
 
-                        // Save COMMENT conversation ID for quick switching (when INBOX was found)
-                        if (inboxConversations.length > 0 && commentConversations.length > 0) {
-                            let matchedCommentConvs = commentConversations;
+                        // Save COMMENT conversation ID for quick switching
+                        if (commentConversations.length > 0) {
+                            // Filter by post_id if available
+                            let targetCommentConv;
                             if (facebookPostId) {
-                                const postIdParts = facebookPostId.split('_');
-                                const postId = postIdParts.length > 1 ? postIdParts[postIdParts.length - 1] : facebookPostId;
-                                const filtered = commentConversations.filter(conv => {
-                                    const convIdFirstPart = conv.id.split('_')[0];
-                                    return convIdFirstPart === postId;
-                                });
-                                if (filtered.length > 0) {
-                                    matchedCommentConvs = filtered;
-                                }
+                                targetCommentConv = commentConversations.find(conv => conv.post_id === facebookPostId);
                             }
-                            // If still multiple/no postId match, try name matching
-                            if (matchedCommentConvs.length === commentConversations.length) {
-                                const orderName = order.Name || order.PartnerName;
-                                if (orderName) {
-                                    const nameMatched = matchedCommentConvs.filter(conv =>
-                                        conv.from?.name === orderName ||
-                                        conv.customers?.some(c => c.name === orderName)
-                                    );
-                                    if (nameMatched.length > 0) {
-                                        matchedCommentConvs = nameMatched;
-                                    }
-                                }
+                            if (!targetCommentConv) {
+                                targetCommentConv = commentConversations[0];
                             }
-                            const targetCommentConv = matchedCommentConvs[0];
 
                             window.currentCommentConversationId = targetCommentConv.id;
-                            window.cachedCommentConversations = matchedCommentConvs;
                             console.log('[CHAT-MODAL] Found COMMENT conversationId:', window.currentCommentConversationId);
                         }
 
@@ -2447,7 +2268,6 @@ window.closeChatModal = async function () {
 
     // Reset message reply type and hide toggle
     messageReplyType = 'reply_inbox';
-    window.noInboxPrivateReplyMode = false;
     const msgReplyToggle = document.getElementById('messageReplyTypeToggle');
     if (msgReplyToggle) {
         msgReplyToggle.style.display = 'none';
