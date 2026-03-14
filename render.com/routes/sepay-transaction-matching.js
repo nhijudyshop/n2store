@@ -512,7 +512,7 @@ async function processDebtUpdate(db, transactionId, fetchWithTimeout) {
             // QR code match: AUTO_APPROVED if setting enabled, else PENDING_VERIFICATION
             // CRITICAL: wallet_processed = TRUE ONLY if processDeposit actually succeeded
             const verificationStatus = autoApproveEnabled ? 'AUTO_APPROVED' : 'PENDING_VERIFICATION';
-            await db.query(
+            const qrUpdateResult = await db.query(
                 `UPDATE balance_history
                  SET debt_added = TRUE,
                      linked_customer_phone = $2,
@@ -525,6 +525,25 @@ async function processDebtUpdate(db, transactionId, fetchWithTimeout) {
                  WHERE id = $1 AND linked_customer_phone IS NULL`,
                 [transactionId, phone, customerId, walletProcessedSuccess, verificationStatus, customerName]
             );
+
+            // If no rows updated, phone may have been manually entered first (race condition)
+            // Upgrade match_method to 'qr_code' if the same phone was already linked
+            if (qrUpdateResult.rowCount === 0) {
+                console.log('[DEBT-UPDATE] No rows updated (linked_customer_phone already set), trying to upgrade match_method...');
+                await db.query(
+                    `UPDATE balance_history
+                     SET debt_added = TRUE,
+                         customer_id = COALESCE($3, customer_id),
+                         wallet_processed = CASE WHEN $4 = TRUE THEN TRUE ELSE wallet_processed END,
+                         verification_status = $5::text,
+                         match_method = 'qr_code',
+                         display_name = COALESCE(display_name, $6),
+                         verified_at = CASE WHEN $5::text = 'AUTO_APPROVED' THEN (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh') ELSE verified_at END
+                     WHERE id = $1 AND linked_customer_phone = $2`,
+                    [transactionId, phone, customerId, walletProcessedSuccess, verificationStatus, customerName]
+                );
+                console.log('[DEBT-UPDATE] Upgraded match_method to qr_code for already-linked transaction');
+            }
 
             console.log('[DEBT-UPDATE] Success (QR method):', {
                 transactionId,
@@ -654,7 +673,7 @@ async function processDebtUpdate(db, transactionId, fetchWithTimeout) {
         // Exact 10-digit phone: AUTO_APPROVED if setting enabled, else PENDING_VERIFICATION
         // CRITICAL: wallet_processed = TRUE ONLY if processDeposit actually succeeded
         const verificationStatusExact = autoApproveEnabled ? 'AUTO_APPROVED' : 'PENDING_VERIFICATION';
-        await db.query(
+        const exactUpdateResult = await db.query(
             `UPDATE balance_history
              SET debt_added = TRUE,
                  linked_customer_phone = $2,
@@ -667,6 +686,25 @@ async function processDebtUpdate(db, transactionId, fetchWithTimeout) {
              WHERE id = $1 AND linked_customer_phone IS NULL`,
             [transactionId, exactPhone, customerId, walletProcessedSuccess, verificationStatusExact, customerName]
         );
+
+        // If no rows updated, phone may have been manually entered first (race condition)
+        // Upgrade match_method to 'exact_phone' if the same phone was already linked
+        if (exactUpdateResult.rowCount === 0) {
+            console.log('[DEBT-UPDATE] No rows updated for exact_phone (linked_customer_phone already set), trying to upgrade match_method...');
+            await db.query(
+                `UPDATE balance_history
+                 SET debt_added = TRUE,
+                     customer_id = COALESCE($3, customer_id),
+                     wallet_processed = CASE WHEN $4 = TRUE THEN TRUE ELSE wallet_processed END,
+                     verification_status = $5::text,
+                     match_method = 'exact_phone',
+                     display_name = COALESCE(display_name, $6),
+                     verified_at = CASE WHEN $5::text = 'AUTO_APPROVED' THEN (NOW() AT TIME ZONE 'Asia/Ho_Chi_Minh') ELSE verified_at END
+                 WHERE id = $1 AND linked_customer_phone = $2`,
+                [transactionId, exactPhone, customerId, walletProcessedSuccess, verificationStatusExact, customerName]
+            );
+            console.log('[DEBT-UPDATE] Upgraded match_method to exact_phone for already-linked transaction');
+        }
 
         console.log('[DEBT-UPDATE] Success (exact phone method):', {
             transactionId,
