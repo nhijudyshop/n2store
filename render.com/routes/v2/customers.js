@@ -332,7 +332,7 @@ router.get('/:id', async (req, res) => {
             LIMIT 10
         `, [phone]);
 
-        // Get recent activities (last 20) - join users to get display_name
+        // Get recent activities (last 20) - use display_name instead of username
         const activitiesResult = await db.query(`
             SELECT ca.activity_type, ca.title, ca.description, ca.icon, ca.color,
                 COALESCE(u.display_name, ca.created_by) as created_by,
