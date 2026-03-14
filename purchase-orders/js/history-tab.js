@@ -132,10 +132,6 @@ window.PurchaseOrderHistory = (function () {
                     </div>
                 </div>
                 <div class="filter-group filter-group--actions">
-                    <button id="btnHistoryFilter" class="btn btn-primary">
-                        <i data-lucide="search"></i>
-                        <span>Tìm</span>
-                    </button>
                     <button id="btnHistoryReload" class="btn btn-outline" title="Tải lại bảng">
                         <i data-lucide="refresh-cw"></i>
                     </button>
@@ -155,9 +151,11 @@ window.PurchaseOrderHistory = (function () {
             loadPage(1);
         };
 
-        document.getElementById('btnHistoryFilter').addEventListener('click', applyFilters);
         document.getElementById('btnHistoryReload').addEventListener('click', () => loadPage(currentPage));
         document.getElementById('historyStateFilter').addEventListener('change', applyFilters);
+
+        document.getElementById('historyStartDate').addEventListener('change', applyFilters);
+        document.getElementById('historyEndDate').addEventListener('change', applyFilters);
 
         const searchInput = document.getElementById('historySearchInput');
         searchInput.addEventListener('keydown', (e) => {
