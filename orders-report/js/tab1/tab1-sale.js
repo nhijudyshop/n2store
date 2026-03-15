@@ -751,6 +751,25 @@ async function confirmAndPrintSale() {
 
             if (hasInventoryError) {
                 showInventoryErrorModal(result.Errors);
+
+                // Add "ÂM MÃ" tag to the order
+                const saleOnlineId = currentSaleOrderData?.Id;
+                if (saleOnlineId && window.findOrCreateTag && window.addTagToOrder) {
+                    try {
+                        const amMaTag = await window.findOrCreateTag('ÂM MÃ');
+                        if (amMaTag) {
+                            await window.addTagToOrder(saleOnlineId, {
+                                Id: amMaTag.Id,
+                                Name: amMaTag.Name,
+                                Color: amMaTag.Color
+                            });
+                            console.log('[SALE-CONFIRM] Added "ÂM MÃ" tag to order:', saleOnlineId);
+                        }
+                    } catch (tagErr) {
+                        console.warn('[SALE-CONFIRM] Failed to add "ÂM MÃ" tag:', tagErr);
+                    }
+                }
+
                 setTimeout(() => closeSaleButtonModal(true), 500);
                 return;
             }
