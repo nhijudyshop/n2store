@@ -1572,6 +1572,7 @@
     window.getCancelButtonHtml = getCancelButtonHtml;
     window.removeTagFromOrder = removeTagFromOrder;
     window.addTagToOrder = addTagToOrder;
+    window.findOrCreateTag = findOrCreateTag;
     window.assignTagsToOrder = assignTagsToOrder;
     window.logCancelOrderActivity = logCancelOrderActivity;
 
