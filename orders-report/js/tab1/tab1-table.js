@@ -1210,7 +1210,7 @@ function renderMultiCustomerMessages(order, columnType = 'messages') {
 
         // Create click handler - use separate modals for messages and comments
         const clickHandler = columnType === 'messages'
-            ? `openChatModal('${largestSTTOrder.id}', '${largestSTTOrder.channelId}', '${largestSTTOrder.psid}')`
+            ? `showConversationPicker('${largestSTTOrder.id}', '${largestSTTOrder.channelId}', '${largestSTTOrder.psid}', event)`
             : `openCommentModal('${largestSTTOrder.id}', '${largestSTTOrder.channelId}', '${largestSTTOrder.psid}')`;
 
         rows.push(`
@@ -1289,7 +1289,7 @@ function renderMessagesColumn(order) {
 
     // Render clickable cell with placeholder "-"
     // Badge "X MỚI" will be set by new-messages-notifier.js based on pending_customers data
-    const clickHandler = `openChatModal('${order.Id}', '${channelId}', '${psid}')`;
+    const clickHandler = `showConversationPicker('${order.Id}', '${channelId}', '${psid}', event)`;
 
     // Check if this order was already sent via bulk message
     const isSent = window.messageTemplateManager?.isOrderSent(order.Id);
@@ -1373,7 +1373,7 @@ function renderMergedMessagesColumn(order, columnType = 'messages') {
         // Create click handler
         let clickHandler = channelId && psid
             ? (columnType === 'messages'
-                ? `openChatModal('${originalOrder.Id}', '${channelId}', '${psid}')`
+                ? `showConversationPicker('${originalOrder.Id}', '${channelId}', '${psid}', event)`
                 : `openCommentModal('${originalOrder.Id}', '${channelId}', '${psid}')`)
             : '';
 
@@ -1529,7 +1529,7 @@ function renderChatColumnWithData(order, chatInfo, channelId, psid, columnType =
     const orderIdToUse = order.IsMerged && order.TargetOrderId ? order.TargetOrderId : order.Id;
     // Use separate modals: openChatModal for messages, openCommentModal for comments
     const clickHandler = columnType === 'messages'
-        ? `openChatModal('${orderIdToUse}', '${channelId}', '${psid}')`
+        ? `showConversationPicker('${orderIdToUse}', '${channelId}', '${psid}', event)`
         : `openCommentModal('${orderIdToUse}', '${channelId}', '${psid}')`;
 
     const tooltipText = columnType === 'comments'

@@ -1181,6 +1181,143 @@ function selectBestInboxConversation(conversations, psid) {
 }
 
 /**
+ * Show conversation picker dropdown BEFORE opening chat modal
+ * Flow: Click "Tin nhắn" → fetch conversations → if different names → show picker → select → open modal
+ */
+window.showConversationPicker = async function (orderId, channelId, psid, event) {
+    // Close any existing picker
+    closeConversationPicker();
+
+    // If no data, open modal directly
+    if (!channelId || !psid || !window.pancakeDataManager) {
+        window.openChatModal(orderId, channelId, psid);
+        return;
+    }
+
+    // Fetch conversations
+    console.log('[CONV-PICKER] Fetching conversations for psid:', psid);
+    const result = await window.pancakeDataManager.fetchConversationsByCustomerFbId(channelId, psid);
+
+    if (!result.success || result.conversations.length === 0) {
+        console.log('[CONV-PICKER] No conversations found, opening modal directly');
+        window.openChatModal(orderId, channelId, psid);
+        return;
+    }
+
+    // Check for different customer names
+    const { conversation: bestConv, hasDifferentNames } = selectBestInboxConversation(result.conversations, psid);
+
+    if (!hasDifferentNames) {
+        console.log('[CONV-PICKER] Same names, opening modal directly');
+        // Store conversations for modal use
+        window._pickerConversations = result;
+        window.openChatModal(orderId, channelId, psid);
+        return;
+    }
+
+    // Has saved selection in localStorage → open modal directly
+    const storageKey = 'conv_selection_' + psid;
+    const savedConvId = localStorage.getItem(storageKey);
+    if (savedConvId && result.conversations.some(c => c.id === savedConvId)) {
+        console.log('[CONV-PICKER] Using saved selection:', savedConvId);
+        window._pickerConversations = result;
+        window.openChatModal(orderId, channelId, psid);
+        return;
+    }
+
+    // Different names, no saved selection → show picker popup
+    console.log('[CONV-PICKER] Different names detected, showing picker');
+
+    // Sort conversations and get unique names
+    const sorted = [...result.conversations].sort((a, b) => {
+        const timeA = a.updated_time || a.last_message_at || 0;
+        const timeB = b.updated_time || b.last_message_at || 0;
+        return timeB - timeA;
+    });
+
+    // Group by unique customer name (show one option per name)
+    const seenNames = new Set();
+    const uniqueConversations = sorted.filter(conv => {
+        const name = getConversationCustomerName(conv);
+        if (!name || seenNames.has(name)) return false;
+        seenNames.add(name);
+        return true;
+    });
+
+    // Create popup
+    const popup = document.createElement('div');
+    popup.id = 'conversationPickerPopup';
+    popup.style.cssText = 'position:fixed;background:white;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,0.25);z-index:10000;min-width:260px;max-width:350px;overflow:hidden;border:1px solid #e5e7eb;';
+
+    // Header
+    popup.innerHTML = `<div style="padding:10px 14px;background:#f8fafc;border-bottom:1px solid #e5e7eb;font-size:12px;color:#64748b;font-weight:600;">Chọn khách hàng</div>`;
+
+    // Options
+    uniqueConversations.forEach(conv => {
+        const name = getConversationCustomerName(conv);
+        const pageName = conv.page_name || '';
+        const timeAgo = formatConversationTimeAgo(conv.updated_time || conv.last_message_at);
+        const convId = conv.id;
+
+        const option = document.createElement('div');
+        option.style.cssText = 'padding:10px 14px;cursor:pointer;border-bottom:1px solid #f3f4f6;transition:background 0.15s;';
+        option.onmouseover = () => option.style.background = '#f0f9ff';
+        option.onmouseout = () => option.style.background = 'white';
+        option.innerHTML = `
+            <div style="font-size:13px;font-weight:500;color:#1e293b;">${name}</div>
+            <div style="font-size:11px;color:#94a3b8;margin-top:2px;">${pageName}${pageName && timeAgo ? ' • ' : ''}${timeAgo}</div>
+        `;
+        option.onclick = (e) => {
+            e.stopPropagation();
+            // Save selection
+            localStorage.setItem(storageKey, convId);
+            console.log('[CONV-PICKER] Selected:', name, convId);
+            closeConversationPicker();
+            // Store conversations for modal use
+            window._pickerConversations = result;
+            window.openChatModal(orderId, channelId, psid);
+        };
+        popup.appendChild(option);
+    });
+
+    // Position popup near clicked element
+    document.body.appendChild(popup);
+    const clickTarget = event?.target?.closest('td') || event?.target;
+    if (clickTarget) {
+        const rect = clickTarget.getBoundingClientRect();
+        popup.style.top = Math.min(rect.bottom + 4, window.innerHeight - popup.offsetHeight - 10) + 'px';
+        popup.style.left = Math.min(rect.left, window.innerWidth - popup.offsetWidth - 10) + 'px';
+    } else {
+        popup.style.top = '50%';
+        popup.style.left = '50%';
+        popup.style.transform = 'translate(-50%, -50%)';
+    }
+
+    // Close on outside click (delayed to avoid immediate close)
+    setTimeout(() => {
+        document.addEventListener('click', _closePickerOnOutsideClick);
+        document.addEventListener('keydown', _closePickerOnEscape);
+    }, 50);
+};
+
+function closeConversationPicker() {
+    const popup = document.getElementById('conversationPickerPopup');
+    if (popup) popup.remove();
+    document.removeEventListener('click', _closePickerOnOutsideClick);
+    document.removeEventListener('keydown', _closePickerOnEscape);
+}
+
+function _closePickerOnOutsideClick(e) {
+    if (!e.target.closest('#conversationPickerPopup')) {
+        closeConversationPicker();
+    }
+}
+
+function _closePickerOnEscape(e) {
+    if (e.key === 'Escape') closeConversationPicker();
+}
+
+/**
  * Populate conversation selector with all matching conversations
  * Sort by most recent (updated_time) and select the most recent by default
  * @param {Array} conversations - Array of matching conversations
@@ -2013,41 +2150,26 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
             const facebookPsid = order.Facebook_ASUserId;
             const facebookPostId = order.Facebook_PostId;
 
-            console.log('[CHAT-MODAL] Fetching conversations + messages for fb_id:', facebookPsid);
+            console.log('[CHAT-MODAL] Loading INBOX messages for fb_id:', facebookPsid);
 
             if (window.pancakeDataManager && facebookPsid) {
                 try {
-                    // Parallel fetch: conversations (for names/UUID) + pageAccessToken + direct INBOX messages
                     const directInboxId = `${channelId}_${facebookPsid}`;
-                    console.log('[CHAT-MODAL] Starting parallel fetch: conversations + pageAccessToken + direct messages');
-                    const parallelStartTime = Date.now();
 
-                    const [result, preloadedPageAccessToken] = await Promise.all([
-                        window.pancakeDataManager.fetchConversationsByCustomerFbId(channelId, facebookPsid),
-                        window.pancakeTokenManager?.getOrGeneratePageAccessToken(channelId)
-                    ]);
+                    // Use pre-fetched conversations from picker (if available)
+                    const pickerResult = window._pickerConversations;
+                    window._pickerConversations = null; // consume once
 
-                    console.log(`[CHAT-MODAL] Parallel fetch completed in ${Date.now() - parallelStartTime}ms`);
+                    // Get pageAccessToken in parallel with any remaining work
+                    const preloadedPageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(channelId);
 
-                    // Save customer UUID from conversations
-                    if (result.success && result.conversations.length > 0) {
-                        window.currentCustomerUUID = result.customerUuid;
-                        console.log('[CHAT-MODAL] Found', result.conversations.length, 'conversations, customerUUID:', window.currentCustomerUUID);
-
-                        // Check ALL conversations for different customer names
-                        const allConversations = result.conversations;
-                        const { conversation: bestConv, hasDifferentNames } = selectBestInboxConversation(allConversations, psid);
-
-                        if (hasDifferentNames) {
-                            // Different names → show conversation selector
-                            window.populateConversationSelector(allConversations, bestConv?.id || allConversations[0]?.id);
-                            console.log('[CHAT-MODAL] Different customer names detected → showing selector');
-                        } else {
-                            window.hideConversationSelector();
-                        }
+                    // Use picker data for customerUUID and comment conversations
+                    if (pickerResult?.success && pickerResult.conversations.length > 0) {
+                        window.currentCustomerUUID = pickerResult.customerUuid;
+                        console.log('[CHAT-MODAL] Using picker data:', pickerResult.conversations.length, 'conversations, customerUUID:', window.currentCustomerUUID);
 
                         // Save COMMENT conversation ID for quick switching
-                        const commentConversations = allConversations.filter(conv => conv.type === 'COMMENT');
+                        const commentConversations = pickerResult.conversations.filter(conv => conv.type === 'COMMENT');
                         if (commentConversations.length > 0) {
                             let targetCommentConv;
                             if (facebookPostId) {
@@ -2063,10 +2185,10 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                             window.cachedCommentConversations = commentConversations;
                             console.log('[CHAT-MODAL] Saved COMMENT conversationId:', window.currentCommentConversationId);
                         }
-                    } else {
-                        console.warn('[CHAT-MODAL] No conversations found for fb_id:', facebookPsid);
-                        window.hideConversationSelector();
                     }
+
+                    // Hide in-modal conversation selector (picker handles selection)
+                    window.hideConversationSelector();
 
                     // Always load INBOX messages via direct ID: {channelId}_{psid}
                     window.currentConversationId = directInboxId;

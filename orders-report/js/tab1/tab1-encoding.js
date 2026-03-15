@@ -509,7 +509,7 @@ window.addEventListener('realtimeConversationUpdate', function (event) {
             // Add click event and styling
             // Use separate modals: openChatModal for messages, openCommentModal for comments
             const clickHandler = type === 'INBOX'
-                ? `openChatModal('${order.Id}', '${pageId}', '${psid}')`
+                ? `showConversationPicker('${order.Id}', '${pageId}', '${psid}', event)`
                 : `openCommentModal('${order.Id}', '${pageId}', '${psid}')`;
 
             const tooltipText = type === 'INBOX'
