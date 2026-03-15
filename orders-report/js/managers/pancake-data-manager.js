@@ -423,6 +423,10 @@ class PancakeDataManager {
                             this.pageIds = data.categorized.activated_page_ids || [];
                             this.lastPageFetchTime = Date.now();
                             console.log(`[PANCAKE] ✅ Fetched ${this.pages.length} pages`);
+                            // Log page details for debugging platform types
+                            this.pages.forEach(p => {
+                                console.log(`[PANCAKE] Page: id=${p.id}, name="${p.name}", platform=${p.platform}, type=${p.type}, page_type=${p.page_type}`);
+                            });
                             console.log('[PANCAKE] Page IDs:', this.pageIds);
 
                             // Save to localStorage for faster access on next page load
@@ -705,25 +709,49 @@ class PancakeDataManager {
                 await this.fetchPages();
             }
 
-            // Collect ALL Facebook page IDs from both activated pages and page access tokens
-            // page access tokens may include pages not in activated_page_ids (e.g. 112678138086607)
-            const allPageIds = new Set(this.pageIds);
-            if (window.pancakeTokenManager?.pageAccessTokens) {
-                Object.keys(window.pancakeTokenManager.pageAccessTokens).forEach(pid => allPageIds.add(pid));
+            // Collect Facebook page IDs - filter by platform if available
+            // The Pancake /conversations/customer API only works with Facebook pages
+            // Including non-FB pages (Zalo, etc.) can cause the API to return empty results
+            let fbPageIds = [];
+            if (this.pages && this.pages.length > 0) {
+                // Check if pages have platform info
+                const hasPlatformInfo = this.pages.some(p => p.platform || p.type || p.page_type);
+                if (hasPlatformInfo) {
+                    // Filter to Facebook pages only
+                    fbPageIds = this.pages
+                        .filter(p => {
+                            const platform = (p.platform || p.type || p.page_type || '').toLowerCase();
+                            return platform === 'facebook' || platform === 'fb' || platform === '';
+                        })
+                        .map(p => String(p.id));
+                    console.log('[PANCAKE] Filtered by platform → FB pages:', fbPageIds);
+                } else {
+                    // No platform info - use all numeric, non-igo pages
+                    fbPageIds = this.pageIds.filter(pid => !pid.startsWith('igo_') && /^\d+$/.test(pid));
+                    console.log('[PANCAKE] No platform info, using all numeric pages:', fbPageIds);
+                }
             }
+
+            // Also include pages from page_access_tokens (may have extra FB pages)
+            if (window.pancakeTokenManager?.pageAccessTokens) {
+                Object.keys(window.pancakeTokenManager.pageAccessTokens).forEach(pid => {
+                    if (/^\d+$/.test(pid) && !fbPageIds.includes(pid)) {
+                        fbPageIds.push(pid);
+                    }
+                });
+            }
+
             // Fallback: ensure at least the current pageId is included
-            if (allPageIds.size === 0) allPageIds.add(pageId);
+            if (fbPageIds.length === 0) fbPageIds.push(pageId);
 
             // Multi-page API: GET /conversations/customer/{fb_id}?pages[p1]=0&pages[p2]=0&...
-            // Filter out Instagram pages (igo_*) and non-numeric IDs
-            const fbPageIds = [...allPageIds].filter(pid => !pid.startsWith('igo_') && /^\d+$/.test(pid));
             const pagesParams = fbPageIds.map(pid => `pages[${pid}]=0`).join('&');
             const url = window.API_CONFIG.buildUrl.pancake(
                 `conversations/customer/${fbId}`,
                 `${pagesParams}&access_token=${token}`
             );
 
-            console.log('[PANCAKE] Multi-page URL:', url, `(${fbPageIds.length} FB pages from ${allPageIds.size} total)`);
+            console.log('[PANCAKE] Multi-page URL:', url, `(${fbPageIds.length} pages: ${fbPageIds.join(', ')})`);
 
             const response = await this.queuedFetch(url, {
                 method: 'GET',

@@ -134,16 +134,7 @@ export async function handlePancakeOfficial(request, url, pathname) {
  */
 export async function handlePancakeGeneric(request, url, pathname) {
     const apiPath = pathname.replace(/^\/api\/pancake\//, '');
-
-    // Strip access_token from forwarded URL - use cookie auth instead
-    // pancake.vn endpoints work with cookie auth (like browser requests)
-    // Having access_token in URL can cause issues for some endpoints
-    const forwardParams = new URLSearchParams(url.search);
-    const accessToken = forwardParams.get('access_token');
-    forwardParams.delete('access_token');
-    const forwardSearch = forwardParams.toString() ? `?${forwardParams.toString()}` : '';
-
-    const targetUrl = `https://pancake.vn/api/v1/${apiPath}${forwardSearch}`;
+    const targetUrl = `https://pancake.vn/api/v1/${apiPath}${url.search}`;
 
     console.log('[PANCAKE] Target URL:', targetUrl);
 
@@ -160,7 +151,8 @@ export async function handlePancakeGeneric(request, url, pathname) {
     headers.set('Referer', 'https://pancake.vn/multi_pages');
     headers.set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
 
-    // Set JWT cookie from access_token for cookie-based auth
+    // Also set JWT cookie from access_token for endpoints that support cookie auth
+    const accessToken = url.searchParams.get('access_token');
     if (accessToken) {
         headers.set('Cookie', `jwt=${accessToken}; locale=vi`);
     }
