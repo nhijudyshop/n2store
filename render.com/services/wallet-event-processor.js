@@ -152,7 +152,8 @@ async function processWalletEvent(db, event) {
         referenceId,
         note,
         customerId = null,
-        skipCommit = false
+        skipCommit = false,
+        transactionDate = null
     } = event;
 
     if (!phone || !type || amount === undefined) {
@@ -254,16 +255,14 @@ async function processWalletEvent(db, event) {
         const updatedWallet = updatedWalletResult.rows[0];
 
         // 4. Create transaction record
-        const txResult = await db.query(`
-            INSERT INTO wallet_transactions (
-                phone, wallet_id, type, amount,
+        const insertColumns = `phone, wallet_id, type, amount,
                 balance_before, balance_after,
                 virtual_balance_before, virtual_balance_after,
-                source, reference_type, reference_id, note
-            )
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-            RETURNING id
-        `, [
+                source, reference_type, reference_id, note${transactionDate ? ', created_at' : ''}`;
+        const insertValues = transactionDate
+            ? '$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13'
+            : '$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12';
+        const insertParams = [
             phone,
             wallet.id,
             type,
@@ -276,7 +275,15 @@ async function processWalletEvent(db, event) {
             referenceType,
             referenceId?.toString(),
             note
-        ]);
+        ];
+        if (transactionDate) {
+            insertParams.push(transactionDate);
+        }
+        const txResult = await db.query(`
+            INSERT INTO wallet_transactions (${insertColumns})
+            VALUES (${insertValues})
+            RETURNING id
+        `, insertParams);
 
         const transactionId = txResult.rows[0].id;
 
@@ -328,7 +335,7 @@ async function processWalletEvent(db, event) {
  * Process bank deposit (from balance_history link)
  * IMPORTANT: Includes idempotency check to prevent duplicate processing
  */
-async function processDeposit(db, phone, amount, balanceHistoryId, note, customerId = null) {
+async function processDeposit(db, phone, amount, balanceHistoryId, note, customerId = null, transactionDate = null) {
     // IDEMPOTENCY CHECK: Verify balance_history not already processed
     const checkResult = await db.query(
         'SELECT wallet_processed FROM balance_history WHERE id = $1',
@@ -363,7 +370,8 @@ async function processDeposit(db, phone, amount, balanceHistoryId, note, custome
         referenceType: 'balance_history',
         referenceId: balanceHistoryId,
         note: note || `Nạp từ CK ngân hàng`,
-        customerId
+        customerId,
+        transactionDate
     });
 }
 

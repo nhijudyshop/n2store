@@ -336,7 +336,8 @@ router.post('/:id/reprocess-wallet', async (req, res) => {
             tx.transfer_amount,
             id,
             `Nạp từ CK ${tx.code || tx.reference_code} (reprocess)`,
-            tx.customer_id
+            tx.customer_id,
+            tx.transaction_date
         );
 
         // 3. Mark as wallet processed
@@ -347,16 +348,21 @@ router.post('/:id/reprocess-wallet', async (req, res) => {
         `, [id]);
 
         // 4. Log activity
-        await db.query(`
-            INSERT INTO customer_activities (phone, customer_id, activity_type, title, description, reference_type, reference_id, icon, color)
-            VALUES ($1, $2, 'WALLET_DEPOSIT', $3, $4, 'balance_history', $5, 'account_balance', 'green')
-        `, [
+        const reprocessActivityParams = [
             tx.linked_customer_phone,
             tx.customer_id,
             `Nạp tiền: ${parseFloat(tx.transfer_amount).toLocaleString()}đ`,
             `Chuyển khoản ngân hàng (${tx.code || tx.reference_code}) - xử lý lại`,
             id
-        ]);
+        ];
+        let reprocessActivityQuery = `
+            INSERT INTO customer_activities (phone, customer_id, activity_type, title, description, reference_type, reference_id, icon, color${tx.transaction_date ? ', created_at' : ''})
+            VALUES ($1, $2, 'WALLET_DEPOSIT', $3, $4, 'balance_history', $5, 'account_balance', 'green'${tx.transaction_date ? ', $6' : ''})
+        `;
+        if (tx.transaction_date) {
+            reprocessActivityParams.push(tx.transaction_date);
+        }
+        await db.query(reprocessActivityQuery, reprocessActivityParams);
 
         await db.query('COMMIT');
 
@@ -699,7 +705,8 @@ router.post('/:id/approve', async (req, res) => {
                     tx.transfer_amount,
                     id,
                     `Nạp từ CK (Duyệt bởi ${verified_by})`,
-                    tx.customer_id
+                    tx.customer_id,
+                    tx.transaction_date
                 );
 
                 // Mark as wallet processed
@@ -710,17 +717,22 @@ router.post('/:id/approve', async (req, res) => {
                 `, [id]);
 
                 // Log activity
-                await db.query(`
-                    INSERT INTO customer_activities (phone, customer_id, activity_type, title, description, reference_type, reference_id, icon, color, created_by)
-                    VALUES ($1, $2, 'WALLET_DEPOSIT', $3, $4, 'balance_history', $5, 'account_balance', 'green', $6)
-                `, [
+                const activityParams = [
                     tx.linked_customer_phone,
                     tx.customer_id,
                     `Nạp tiền: ${parseFloat(tx.transfer_amount).toLocaleString()}đ`,
                     `Chuyển khoản ngân hàng (${tx.code || tx.reference_code})`,
                     id,
                     verified_by || 'system'
-                ]);
+                ];
+                let activityQuery = `
+                    INSERT INTO customer_activities (phone, customer_id, activity_type, title, description, reference_type, reference_id, icon, color, created_by${tx.transaction_date ? ', created_at' : ''})
+                    VALUES ($1, $2, 'WALLET_DEPOSIT', $3, $4, 'balance_history', $5, 'account_balance', 'green', $6${tx.transaction_date ? ', $7' : ''})
+                `;
+                if (tx.transaction_date) {
+                    activityParams.push(tx.transaction_date);
+                }
+                await db.query(activityQuery, activityParams);
 
                 console.log(`[BalanceHistory V2] ✅ Approved & wallet updated: ${tx.linked_customer_phone} +${tx.transfer_amount}`);
             } catch (walletErr) {
@@ -1251,7 +1263,8 @@ router.post('/bulk-approve', async (req, res) => {
                     tx.transfer_amount,
                     txId,
                     `Nạp từ CK ${tx.code || tx.reference_code} (bulk approve)`,
-                    tx.customer_id
+                    tx.customer_id,
+                    tx.transaction_date
                 );
 
                 // Update transaction
