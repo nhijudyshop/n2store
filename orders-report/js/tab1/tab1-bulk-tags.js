@@ -2390,7 +2390,7 @@ function closeBulkTagDeleteHistoryModal() {
 // =====================================================
 
 /**
- * Show modal to select tag to remove from selected orders
+ * Xóa tất cả tag của các đơn hàng đang chọn (confirm trước khi xóa)
  */
 function showBulkRemoveTagForSelectedModal() {
     // Check if any orders are selected
@@ -2403,157 +2403,20 @@ function showBulkRemoveTagForSelectedModal() {
         return;
     }
 
-    // Update selected count
-    document.getElementById('bulkRemoveTagSelectedCount').textContent = window.selectedOrderIds.size;
-
-    // Populate tag dropdown
-    populateBulkRemoveTagDropdown();
-
-    // Show modal
-    document.getElementById('bulkRemoveTagForSelectedModal').style.display = 'flex';
-}
-
-/**
- * Close bulk remove tag modal
- */
-function closeBulkRemoveTagForSelectedModal() {
-    document.getElementById('bulkRemoveTagForSelectedModal').style.display = 'none';
-    // Clear selected tags
-    bulkRemoveSelectedTagIds.clear();
-}
-
-// Set to store selected tag IDs for bulk remove
-let bulkRemoveSelectedTagIds = new Set();
-
-/**
- * Populate the tag dropdown with available tags (searchable list with checkboxes)
- */
-function populateBulkRemoveTagDropdown() {
-    const container = document.getElementById('bulkRemoveTagOptions');
-    const searchInput = document.getElementById('bulkRemoveTagSearchInput');
-
-    // Clear search and selection
-    if (searchInput) searchInput.value = '';
-    bulkRemoveSelectedTagIds.clear();
-    document.getElementById('bulkRemoveTagSelect').value = '';
-
-    // Get available tags from window.availableTags (loaded by tab1-tags.js)
-    const tags = window.availableTags || [];
-
-    if (tags.length === 0) {
-        container.innerHTML = '<div style="padding: 20px; text-align: center; color: #9ca3af;">Không có tag nào</div>';
+    const orderCount = window.selectedOrderIds.size;
+    const confirmMessage = `Bạn muốn xóa tất cả tag của ${orderCount} đơn đang chọn?`;
+    if (!confirm(confirmMessage)) {
         return;
     }
 
-    container.innerHTML = tags.map(tag => {
-        const color = tag.Color || '#6b7280';
-        return `
-            <div class="bulk-remove-tag-option" data-tag-id="${tag.Id}" data-tag-name="${tag.Name.toLowerCase()}"
-                onclick="toggleBulkRemoveTagOption('${tag.Id}')"
-                style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; cursor: pointer; border-bottom: 1px solid #f3f4f6; transition: background 0.15s;"
-                onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background='white'">
-                <input type="checkbox" id="bulkRemoveTag_${tag.Id}" style="cursor: pointer; width: 16px; height: 16px;">
-                <span style="width: 12px; height: 12px; border-radius: 50%; background: ${color}; flex-shrink: 0;"></span>
-                <span style="font-size: 14px; color: #374151;">${tag.Name}</span>
-            </div>
-        `;
-    }).join('');
+    // Execute removal directly
+    executeBulkRemoveAllTagsForSelected();
 }
 
 /**
- * Toggle tag selection in bulk remove modal
+ * Execute bulk remove ALL tags for selected orders
  */
-function toggleBulkRemoveTagOption(tagId) {
-    const checkbox = document.getElementById(`bulkRemoveTag_${tagId}`);
-    if (!checkbox) return;
-
-    // Toggle checkbox
-    checkbox.checked = !checkbox.checked;
-
-    if (checkbox.checked) {
-        bulkRemoveSelectedTagIds.add(String(tagId));
-    } else {
-        bulkRemoveSelectedTagIds.delete(String(tagId));
-    }
-
-    // Update hidden input with first selected tag (for single select behavior)
-    // Or all selected tags separated by comma (for multi-select)
-    document.getElementById('bulkRemoveTagSelect').value = Array.from(bulkRemoveSelectedTagIds).join(',');
-}
-
-/**
- * Filter tag options based on search input
- */
-function filterBulkRemoveTagOptions() {
-    const searchInput = document.getElementById('bulkRemoveTagSearchInput');
-    const searchTerm = (searchInput?.value || '').toLowerCase().trim();
-    const options = document.querySelectorAll('.bulk-remove-tag-option');
-
-    options.forEach(option => {
-        const tagName = option.getAttribute('data-tag-name') || '';
-        if (tagName.includes(searchTerm)) {
-            option.style.display = 'flex';
-        } else {
-            option.style.display = 'none';
-        }
-    });
-}
-
-/**
- * Select all visible tags in bulk remove modal
- */
-function selectAllBulkRemoveTags() {
-    const options = document.querySelectorAll('.bulk-remove-tag-option');
-    options.forEach(option => {
-        if (option.style.display !== 'none') {
-            const tagId = option.getAttribute('data-tag-id');
-            const checkbox = document.getElementById(`bulkRemoveTag_${tagId}`);
-            if (checkbox && !checkbox.checked) {
-                checkbox.checked = true;
-                bulkRemoveSelectedTagIds.add(String(tagId));
-            }
-        }
-    });
-    document.getElementById('bulkRemoveTagSelect').value = Array.from(bulkRemoveSelectedTagIds).join(',');
-}
-
-/**
- * Clear all selected tags in bulk remove modal
- */
-function clearBulkRemoveTags() {
-    const options = document.querySelectorAll('.bulk-remove-tag-option');
-    options.forEach(option => {
-        const tagId = option.getAttribute('data-tag-id');
-        const checkbox = document.getElementById(`bulkRemoveTag_${tagId}`);
-        if (checkbox) {
-            checkbox.checked = false;
-        }
-    });
-    bulkRemoveSelectedTagIds.clear();
-    document.getElementById('bulkRemoveTagSelect').value = '';
-}
-
-/**
- * Execute bulk remove tag for selected orders
- */
-async function executeBulkRemoveTagForSelected() {
-    // Get selected tag IDs from the Set
-    const selectedTagIds = Array.from(bulkRemoveSelectedTagIds);
-
-    if (selectedTagIds.length === 0) {
-        if (window.notificationManager) {
-            window.notificationManager.warning('Vui lòng chọn ít nhất 1 tag cần xóa', 2000);
-        }
-        return;
-    }
-
-    // Get tag names for confirmation message
-    const selectedTagNames = selectedTagIds.map(tagId => {
-        const tag = (window.availableTags || []).find(t => String(t.Id) === String(tagId));
-        return tag ? tag.Name : 'Unknown';
-    });
-
-    // Get selected order IDs
+async function executeBulkRemoveAllTagsForSelected() {
     const orderIds = Array.from(window.selectedOrderIds || []);
 
     if (orderIds.length === 0) {
@@ -2563,23 +2426,13 @@ async function executeBulkRemoveTagForSelected() {
         return;
     }
 
-    // Confirm action
-    const tagNamesDisplay = selectedTagNames.length <= 3
-        ? selectedTagNames.join(', ')
-        : `${selectedTagNames.slice(0, 3).join(', ')} và ${selectedTagNames.length - 3} tag khác`;
-    const confirmMessage = `Bạn có chắc muốn xóa ${selectedTagNames.length} tag (${tagNamesDisplay}) khỏi ${orderIds.length} đơn hàng?`;
-    if (!confirm(confirmMessage)) {
-        return;
-    }
-
-    // Close modal and show loading
-    closeBulkRemoveTagForSelectedModal();
     if (typeof showLoading === 'function') {
         showLoading(true);
     }
 
     let successCount = 0;
     let failedCount = 0;
+    const historyEntries = []; // lưu lịch sử xóa tag
 
     try {
         const headers = await window.tokenManager.getAuthHeader();
@@ -2607,18 +2460,16 @@ async function executeBulkRemoveTagForSelected() {
                     orderTags = [];
                 }
 
-                // Check if order has any of the selected tags
-                const hasAnySelectedTag = orderTags.some(t => selectedTagIds.includes(String(t.Id)));
-                if (!hasAnySelectedTag) {
-                    // None of selected tags present, skip but count as success
+                // Skip if order has no tags
+                if (orderTags.length === 0) {
                     successCount++;
                     continue;
                 }
 
-                // Filter out all selected tags
-                const newOrderTags = orderTags.filter(t => !selectedTagIds.includes(String(t.Id)));
+                // Save old tags for history before removing
+                const removedTags = orderTags.map(t => ({ Id: t.Id, Color: t.Color, Name: t.Name }));
 
-                // Call API to update tags
+                // Call API to set empty tags (remove all)
                 const response = await API_CONFIG.smartFetch(
                     'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag',
                     {
@@ -2629,7 +2480,7 @@ async function executeBulkRemoveTagForSelected() {
                             'Accept': 'application/json',
                         },
                         body: JSON.stringify({
-                            Tags: newOrderTags.map(t => ({ Id: t.Id, Color: t.Color, Name: t.Name })),
+                            Tags: [],
                             OrderId: orderId
                         })
                     }
@@ -2637,7 +2488,7 @@ async function executeBulkRemoveTagForSelected() {
 
                 if (response.ok) {
                     // Update local data
-                    const newTagsJson = JSON.stringify(newOrderTags);
+                    const newTagsJson = JSON.stringify([]);
                     if (typeof updateOrderInTable === 'function') {
                         updateOrderInTable(orderId, { Tags: newTagsJson });
                     }
@@ -2649,8 +2500,15 @@ async function executeBulkRemoveTagForSelected() {
 
                     // Emit to Firebase
                     if (typeof emitTagUpdateToFirebase === 'function') {
-                        await emitTagUpdateToFirebase(orderId, newOrderTags);
+                        await emitTagUpdateToFirebase(orderId, []);
                     }
+
+                    // Collect history entry
+                    historyEntries.push({
+                        orderId: orderId,
+                        orderNumber: order.Number || order.STT || orderId,
+                        removedTags: removedTags
+                    });
 
                     successCount++;
                 } else {
@@ -2663,14 +2521,19 @@ async function executeBulkRemoveTagForSelected() {
             }
         }
 
+        // Save history to Firebase
+        if (historyEntries.length > 0) {
+            await saveBulkRemoveAllTagsHistory(historyEntries, successCount, failedCount);
+        }
+
         // Show result notification
         if (window.notificationManager) {
             if (failedCount === 0) {
-                window.notificationManager.success(`Đã xóa ${selectedTagNames.length} tag khỏi ${successCount} đơn hàng`, 4000);
+                window.notificationManager.success(`Đã xóa tất cả tag của ${successCount} đơn hàng`, 4000);
             } else if (successCount > 0) {
                 window.notificationManager.warning(`Xóa tag: ${successCount} thành công, ${failedCount} thất bại`, 4000);
             } else {
-                window.notificationManager.error(`Không thể xóa tag khỏi ${failedCount} đơn hàng`, 4000);
+                window.notificationManager.error(`Không thể xóa tag của ${failedCount} đơn hàng`, 4000);
             }
         }
 
@@ -2688,12 +2551,121 @@ async function executeBulkRemoveTagForSelected() {
     }
 }
 
+/**
+ * Save history of bulk remove all tags to Firebase
+ */
+async function saveBulkRemoveAllTagsHistory(entries, successCount, failedCount) {
+    try {
+        const timestamp = Date.now();
+        const dateFormatted = new Date(timestamp).toLocaleString('vi-VN');
+
+        // Get username
+        let username = 'Unknown';
+        try {
+            if (currentUserIdentifier) {
+                username = currentUserIdentifier;
+            } else {
+                const tokenData = window.tokenManager?.getTokenData?.();
+                username = tokenData?.DisplayName || tokenData?.name || 'Unknown';
+            }
+        } catch (e) {
+            console.warn("[BULK-REMOVE-TAG] Could not get username:", e);
+        }
+
+        const historyEntry = {
+            timestamp: timestamp,
+            dateFormatted: dateFormatted,
+            username: username,
+            type: 'remove_all_tags',
+            orders: entries, // [{orderId, orderNumber, removedTags: [{Id, Color, Name}]}]
+            summary: {
+                totalOrders: entries.length,
+                totalSuccess: successCount,
+                totalFailed: failedCount
+            }
+        };
+
+        const historyRef = database.ref(`bulkRemoveAllTagsHistory/${timestamp}`);
+        await historyRef.set(historyEntry);
+
+        console.log("[BULK-REMOVE-TAG] History saved to Firebase:", historyEntry);
+    } catch (error) {
+        console.error("[BULK-REMOVE-TAG] Error saving history:", error);
+    }
+}
+
+/**
+ * Show history modal for bulk remove all tags
+ */
+async function showBulkRemoveAllTagsHistoryModal() {
+    const modal = document.getElementById('bulkRemoveAllTagsHistoryModal');
+    const historyBody = document.getElementById('bulkRemoveAllTagsHistoryBody');
+
+    if (!modal || !historyBody) return;
+
+    modal.style.display = 'flex';
+    historyBody.innerHTML = '<div style="text-align: center; padding: 40px; color: #9ca3af;"><i class="fas fa-spinner fa-spin" style="font-size: 24px;"></i><p>Đang tải lịch sử...</p></div>';
+
+    try {
+        const historyRef = database.ref('bulkRemoveAllTagsHistory');
+        const snapshot = await historyRef.orderByChild('timestamp').limitToLast(50).once('value');
+        const data = snapshot.val();
+
+        if (!data) {
+            historyBody.innerHTML = '<div style="text-align: center; padding: 40px; color: #9ca3af;"><i class="fas fa-inbox" style="font-size: 32px; margin-bottom: 10px;"></i><p>Chưa có lịch sử xóa tag</p></div>';
+            return;
+        }
+
+        const historyArray = Object.values(data).sort((a, b) => b.timestamp - a.timestamp);
+
+        historyBody.innerHTML = historyArray.map((entry, index) => {
+            const orderDetails = (entry.orders || []).map(o => {
+                const tagNames = (o.removedTags || []).map(t =>
+                    `<span style="display: inline-block; background: ${t.Color || '#6b7280'}; color: white; padding: 2px 8px; border-radius: 10px; font-size: 11px; margin: 2px;">${t.Name}</span>`
+                ).join('');
+                return `<div style="padding: 6px 0; border-bottom: 1px solid #f3f4f6; display: flex; align-items: center; gap: 8px;">
+                    <span style="font-weight: 500; min-width: 60px;">STT ${o.orderNumber}:</span>
+                    <span>${tagNames || '<em style="color: #9ca3af;">Không có tag</em>'}</span>
+                </div>`;
+            }).join('');
+
+            return `
+                <div style="border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 12px; overflow: hidden;">
+                    <div style="background: #fef2f2; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; cursor: pointer;"
+                         onclick="this.nextElementSibling.style.display = this.nextElementSibling.style.display === 'none' ? 'block' : 'none'">
+                        <div>
+                            <strong style="color: #991b1b;"><i class="fas fa-trash-alt" style="margin-right: 6px;"></i>Xóa tất cả tag</strong>
+                            <span style="color: #6b7280; font-size: 13px; margin-left: 10px;">${entry.dateFormatted}</span>
+                            <span style="color: #6b7280; font-size: 13px; margin-left: 10px;">bởi ${entry.username}</span>
+                        </div>
+                        <div>
+                            <span style="background: #22c55e; color: white; padding: 2px 8px; border-radius: 10px; font-size: 12px;">${entry.summary?.totalSuccess || 0} đơn</span>
+                            ${(entry.summary?.totalFailed || 0) > 0 ? `<span style="background: #ef4444; color: white; padding: 2px 8px; border-radius: 10px; font-size: 12px; margin-left: 4px;">${entry.summary.totalFailed} lỗi</span>` : ''}
+                            <i class="fas fa-chevron-down" style="margin-left: 8px; color: #9ca3af;"></i>
+                        </div>
+                    </div>
+                    <div style="display: none; padding: 12px 16px; max-height: 300px; overflow-y: auto;">
+                        <p style="font-size: 13px; color: #6b7280; margin: 0 0 8px 0;"><strong>Các tag đã xóa theo đơn:</strong></p>
+                        ${orderDetails}
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+    } catch (error) {
+        console.error('[BULK-REMOVE-TAG] Error loading history:', error);
+        historyBody.innerHTML = '<div style="text-align: center; padding: 40px; color: #ef4444;"><i class="fas fa-exclamation-circle" style="font-size: 24px; margin-bottom: 10px;"></i><p>Lỗi khi tải lịch sử</p></div>';
+    }
+}
+
+function closeBulkRemoveAllTagsHistoryModal() {
+    const modal = document.getElementById('bulkRemoveAllTagsHistoryModal');
+    if (modal) modal.style.display = 'none';
+}
+
 // Expose functions to window
 window.showBulkRemoveTagForSelectedModal = showBulkRemoveTagForSelectedModal;
-window.closeBulkRemoveTagForSelectedModal = closeBulkRemoveTagForSelectedModal;
-window.executeBulkRemoveTagForSelected = executeBulkRemoveTagForSelected;
-window.filterBulkRemoveTagOptions = filterBulkRemoveTagOptions;
-window.toggleBulkRemoveTagOption = toggleBulkRemoveTagOption;
-window.selectAllBulkRemoveTags = selectAllBulkRemoveTags;
-window.clearBulkRemoveTags = clearBulkRemoveTags;
+window.executeBulkRemoveAllTagsForSelected = executeBulkRemoveAllTagsForSelected;
+window.showBulkRemoveAllTagsHistoryModal = showBulkRemoveAllTagsHistoryModal;
+window.closeBulkRemoveAllTagsHistoryModal = closeBulkRemoveAllTagsHistoryModal;
 
