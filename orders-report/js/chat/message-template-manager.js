@@ -2468,57 +2468,20 @@ class MessageTemplateManager {
 
             const productList = formattedProducts.map(fp => fp.line).join('\n');
 
-            // Calculate shipping fee from address
-            const { fee: baseShippingFee, isProvince } = this.getShippingFeeFromAddress(orderData.address, orderData.extraAddress);
-
-            // Calculate order total (after discount if any)
-            const orderTotal = hasAnyDiscount
-                ? (orderData.totalAmount || 0) - totalDiscountAmount
-                : (orderData.totalAmount || 0);
-
-            // Check freeship conditions:
-            // 1. THÀNH PHỐ (20k/30k/35k) + total > 1.500.000đ → freeship
-            // 2. TỈNH + total > 3.000.000đ → freeship
-            let shippingFee = baseShippingFee;
-            let isFreeship = false;
-            if (!isProvince && orderTotal > 1500000) {
-                shippingFee = 0;
-                isFreeship = true;
-                this.log('🎁 FREESHIP: THÀNH PHỐ + total > 1.5tr');
-            } else if (isProvince && orderTotal > 3000000) {
-                shippingFee = 0;
-                isFreeship = true;
-                this.log('🎁 FREESHIP: TỈNH + total > 3tr');
-            }
-            this.log('📦 Shipping fee:', shippingFee, isFreeship ? '(FREESHIP)' : '');
-
-            // Format shipping line
-            const shipLine = isFreeship
-                ? `Phí ship: FREESHIP 🎁`
-                : `Phí ship: ${this.formatCurrency(shippingFee)}`;
-
-            // Format total section based on whether discounts exist
+            // Format total section based on whether discounts exist (không bao gồm phí ship)
             let totalSection;
             if (hasAnyDiscount) {
                 const originalTotal = orderData.totalAmount || 0;
                 const afterDiscount = originalTotal - totalDiscountAmount;
-                const finalTotal = afterDiscount + shippingFee;
 
                 totalSection = [
                     `Tổng : ${this.formatCurrency(originalTotal)}`,
                     `Giảm giá: ${this.formatCurrency(totalDiscountAmount)}`,
-                    `Tổng tiền: ${this.formatCurrency(afterDiscount)}`,
-                    shipLine,
-                    `Tổng thanh toán: ${this.formatCurrency(finalTotal)}`
+                    `Tổng tiền: ${this.formatCurrency(afterDiscount)}`
                 ].join('\n');
             } else {
                 const totalAmount = orderData.totalAmount || 0;
-                const finalTotal = totalAmount + shippingFee;
-                totalSection = [
-                    `Tổng tiền: ${this.formatCurrency(totalAmount)}`,
-                    shipLine,
-                    `Tổng thanh toán: ${this.formatCurrency(finalTotal)}`
-                ].join('\n');
+                totalSection = `Tổng tiền: ${this.formatCurrency(totalAmount)}`;
             }
 
             const productListWithTotal = `${productList}\n\n${totalSection}`;
@@ -2534,9 +2497,23 @@ class MessageTemplateManager {
             result = result.replace(/{order\.code}/g, '(Không có mã)');
         }
 
-        // Replace order total
+        // Replace order total (không bao gồm phí ship, có trừ giảm giá nếu có)
         if (orderData.totalAmount) {
-            result = result.replace(/{order\.total}/g, this.formatCurrency(orderData.totalAmount));
+            let totalForDisplay = orderData.totalAmount;
+            // Trừ giảm giá nếu có discount
+            if (orderData.products && Array.isArray(orderData.products) && orderData.products.length > 0) {
+                let totalDiscountForTotal = 0;
+                orderData.products.forEach(p => {
+                    const formatted = this.formatProductLineWithDiscount(p);
+                    if (formatted.hasDiscount && formatted.discountData) {
+                        totalDiscountForTotal += formatted.discountData.totalDiscount;
+                    }
+                });
+                if (totalDiscountForTotal > 0) {
+                    totalForDisplay = totalForDisplay - totalDiscountForTotal;
+                }
+            }
+            result = result.replace(/{order\.total}/g, this.formatCurrency(totalForDisplay));
         } else {
             result = result.replace(/{order\.total}/g, '0đ');
         }
