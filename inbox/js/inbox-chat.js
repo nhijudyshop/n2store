@@ -3087,17 +3087,26 @@ class InboxChatController {
 
     handleConversationUpdate(payload) {
         const conversation = payload?.conversation || payload;
-        if (!conversation || !conversation.id) return;
+        if (!conversation || !conversation.id) {
+            console.warn('[InboxChat] ⚠️ WS update_conversation: missing conversation or id', payload);
+            return;
+        }
 
-        // Filter by page_id — only process pages the inbox manages
-        const pageId = conversation.page_id || payload?.page_id;
+        // Filter by page_id — only process pages the inbox manages (use String for safe comparison)
+        const pageId = String(conversation.page_id || payload?.page_id || '');
         if (pageId) {
-            const knownPage = this.data.pages.find(p => p.id === pageId || p.page_id === pageId);
-            if (!knownPage) return;
+            const knownPage = this.data.pages.find(p => String(p.id) === pageId || String(p.page_id) === pageId);
+            if (!knownPage) {
+                console.log(`[InboxChat] WS skipped: page ${pageId} not in loaded pages [${this.data.pages.map(p => p.id).join(',')}]`);
+                return;
+            }
         }
 
         // Filter by type — only process INBOX and COMMENT (skip unknown types)
-        if (conversation.type && conversation.type !== 'INBOX' && conversation.type !== 'COMMENT') return;
+        if (conversation.type && conversation.type !== 'INBOX' && conversation.type !== 'COMMENT') {
+            console.log(`[InboxChat] WS skipped: type=${conversation.type} (not INBOX/COMMENT)`);
+            return;
+        }
 
         // Detect livestream from post data in payload
         const post = conversation.post;
@@ -3145,6 +3154,13 @@ class InboxChatController {
         this.data.conversations.sort((a, b) => b.time - a.time);
         this.renderConversationList();
         this.renderGroupStats();
+
+        // If this is the active conversation, reload messages to show new content
+        const updatedConv = this.data.getConversation(conversation.id);
+        if (this.activeConversationId === conversation.id && updatedConv) {
+            console.log('[InboxChat] Active conversation updated, reloading messages...');
+            this.loadMessages(updatedConv);
+        }
     }
 
     handleNewMessage(payload) {
