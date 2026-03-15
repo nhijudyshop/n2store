@@ -1125,6 +1125,62 @@ function formatConversationTimeAgo(timestamp) {
 }
 
 /**
+ * Get customer name from a conversation object
+ */
+function getConversationCustomerName(conv) {
+    return conv.customers?.[0]?.name || conv.from?.name || '';
+}
+
+/**
+ * Select the best INBOX conversation based on customer names and saved preference
+ * - If all conversations have the same customer name → pick most recent
+ * - If different names → check localStorage for saved choice
+ * @param {Array} conversations - Array of INBOX conversations
+ * @param {string} psid - Facebook PSID (used as localStorage key)
+ * @returns {{ conversation: Object, hasDifferentNames: boolean }}
+ */
+function selectBestInboxConversation(conversations, psid) {
+    if (!conversations || conversations.length === 0) return { conversation: null, hasDifferentNames: false };
+    if (conversations.length === 1) return { conversation: conversations[0], hasDifferentNames: false };
+
+    // Sort by updated_time descending (most recent first)
+    const sorted = [...conversations].sort((a, b) => {
+        const timeA = a.updated_time || a.last_message_at || 0;
+        const timeB = b.updated_time || b.last_message_at || 0;
+        return timeB - timeA;
+    });
+
+    // Get unique customer names
+    const names = new Set(sorted.map(c => getConversationCustomerName(c)).filter(Boolean));
+    const hasDifferentNames = names.size > 1;
+
+    console.log('[CONV-SELECT] Unique customer names:', [...names], 'hasDifferentNames:', hasDifferentNames);
+
+    // If all same name (or no names) → pick most recent
+    if (!hasDifferentNames) {
+        console.log('[CONV-SELECT] Same names → using most recent conversation');
+        return { conversation: sorted[0], hasDifferentNames: false };
+    }
+
+    // Different names → check localStorage for saved choice
+    const storageKey = 'conv_selection_' + psid;
+    const savedConvId = localStorage.getItem(storageKey);
+    if (savedConvId) {
+        const savedConv = sorted.find(c => (c.id || c.conversation_id) === savedConvId);
+        if (savedConv) {
+            console.log('[CONV-SELECT] Different names → using saved choice:', savedConvId);
+            return { conversation: savedConv, hasDifferentNames: true };
+        }
+        console.log('[CONV-SELECT] Saved choice not found in current conversations, clearing');
+        localStorage.removeItem(storageKey);
+    }
+
+    // Different names, no saved choice → use most recent, caller should show selector
+    console.log('[CONV-SELECT] Different names, no saved choice → defaulting to most recent');
+    return { conversation: sorted[0], hasDifferentNames: true };
+}
+
+/**
  * Populate conversation selector with all matching conversations
  * Sort by most recent (updated_time) and select the most recent by default
  * @param {Array} conversations - Array of matching conversations
@@ -1169,8 +1225,9 @@ window.populateConversationSelector = function (conversations, selectedConvId = 
         const preview = lastMessage.length > 30 ? lastMessage.substring(0, 30) + '...' : lastMessage;
         const pageName = conv.page_name || '';
 
-        // Label format: [Type Icon] [Time] - [Preview] (Page)
-        let label = `${typeIcon} ${convType}`;
+        // Label format: [Type Icon] [Customer Name or Type] [Time] - [Preview] (Page)
+        const customerName = getConversationCustomerName(conv);
+        let label = `${typeIcon} ${customerName || convType}`;
         if (timeAgo) label += ` • ${timeAgo}`;
         if (preview) label += ` - ${preview}`;
         if (pageName) label += ` (${pageName})`;
@@ -1211,6 +1268,13 @@ window.onChatConversationChanged = async function (conversationId) {
     const convType = selectedConv.type || 'INBOX';
     if (window.notificationManager) {
         window.notificationManager.show(`Đang tải ${convType === 'COMMENT' ? 'bình luận' : 'tin nhắn'}...`, 'info', 2000);
+    }
+
+    // Save selection to localStorage so next time it auto-selects
+    if (window.currentChatPSID) {
+        const storageKey = 'conv_selection_' + window.currentChatPSID;
+        localStorage.setItem(storageKey, conversationId);
+        console.log('[CONV-SELECTOR] Saved conversation choice to localStorage:', storageKey, '=', conversationId);
     }
 
     // Reload chat for selected conversation
@@ -1980,8 +2044,24 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                         console.log('[CHAT-MODAL] - INBOX:', inboxConversations.length, 'conversations, COMMENT:', commentConversations.length, 'conversations');
 
                         if (inboxConversations.length > 0) {
-                            // Use first INBOX conversation
-                            const inboxConv = inboxConversations[0];
+                            // Smart conversation selection based on customer names
+                            let inboxConv;
+                            if (inboxConversations.length > 1) {
+                                const { conversation: bestConv, hasDifferentNames } = selectBestInboxConversation(inboxConversations, psid);
+                                inboxConv = bestConv || inboxConversations[0];
+
+                                if (hasDifferentNames) {
+                                    // Different names → show selector (pre-select saved or most recent)
+                                    window.populateConversationSelector(inboxConversations, inboxConv.id || inboxConv.conversation_id);
+                                } else {
+                                    // Same names → hide selector, use most recent
+                                    window.hideConversationSelector();
+                                }
+                            } else {
+                                inboxConv = inboxConversations[0];
+                                window.hideConversationSelector();
+                            }
+
                             window.currentConversationId = inboxConv.id;
                             window.currentInboxConversationId = inboxConv.id;
 
@@ -2018,13 +2098,6 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                             };
                             updateReadBadge(false);
                             updateMarkButton(false);
-
-                            // Populate conversation selector if multiple INBOX conversations
-                            if (inboxConversations.length > 1) {
-                                window.populateConversationSelector(inboxConversations, window.currentConversationId);
-                            } else {
-                                window.hideConversationSelector();
-                            }
 
                             // Now fetch messages for this INBOX conversation
                             console.log('[CHAT-MODAL] Fetching messages for INBOX conversation (using preloaded token)...');
