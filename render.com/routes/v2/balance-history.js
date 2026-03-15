@@ -357,7 +357,7 @@ router.post('/:id/reprocess-wallet', async (req, res) => {
         ];
         let reprocessActivityQuery = `
             INSERT INTO customer_activities (phone, customer_id, activity_type, title, description, reference_type, reference_id, icon, color${tx.transaction_date ? ', created_at' : ''})
-            VALUES ($1, $2, 'WALLET_DEPOSIT', $3, $4, 'balance_history', $5, 'account_balance', 'green'${tx.transaction_date ? ', $6' : ''})
+            VALUES ($1, $2, 'WALLET_DEPOSIT', $3, $4, 'balance_history', $5, 'account_balance', 'green'${tx.transaction_date ? ", ($6::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh' AT TIME ZONE 'UTC')" : ''})
         `;
         if (tx.transaction_date) {
             reprocessActivityParams.push(tx.transaction_date);
@@ -727,7 +727,7 @@ router.post('/:id/approve', async (req, res) => {
                 ];
                 let activityQuery = `
                     INSERT INTO customer_activities (phone, customer_id, activity_type, title, description, reference_type, reference_id, icon, color, created_by${tx.transaction_date ? ', created_at' : ''})
-                    VALUES ($1, $2, 'WALLET_DEPOSIT', $3, $4, 'balance_history', $5, 'account_balance', 'green', $6${tx.transaction_date ? ', $7' : ''})
+                    VALUES ($1, $2, 'WALLET_DEPOSIT', $3, $4, 'balance_history', $5, 'account_balance', 'green', $6${tx.transaction_date ? ", ($7::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh' AT TIME ZONE 'UTC')" : ''})
                 `;
                 if (tx.transaction_date) {
                     activityParams.push(tx.transaction_date);
