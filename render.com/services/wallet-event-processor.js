@@ -260,7 +260,7 @@ async function processWalletEvent(db, event) {
                 virtual_balance_before, virtual_balance_after,
                 source, reference_type, reference_id, note${transactionDate ? ', created_at' : ''}`;
         const insertValues = transactionDate
-            ? '$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13'
+            ? "$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, ($13::timestamp AT TIME ZONE 'Asia/Ho_Chi_Minh' AT TIME ZONE 'UTC')"
             : '$1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12';
         const insertParams = [
             phone,
