@@ -744,6 +744,15 @@ class PancakeDataManager {
             // Fallback: ensure at least the current pageId is included
             if (fbPageIds.length === 0) fbPageIds.push(pageId);
 
+            // Pre-filter: exclude known problematic pages (cached from previous retry discoveries)
+            const allFbPageIds = [...fbPageIds]; // keep full list for retry logic
+            const cachedBadPagesPreFilter = JSON.parse(localStorage.getItem('pancake_bad_pages') || '[]');
+            if (cachedBadPagesPreFilter.length > 0 && fbPageIds.length > 1) {
+                fbPageIds = fbPageIds.filter(pid => !cachedBadPagesPreFilter.includes(pid));
+                if (fbPageIds.length === 0) fbPageIds = [pageId]; // safety fallback
+                console.log(`[PANCAKE] Pre-filtered bad pages ${cachedBadPagesPreFilter.join(',')} → ${fbPageIds.length} pages remaining`);
+            }
+
             // Multi-page API: GET /conversations/customer/{fb_id}?pages[p1]=0&pages[p2]=0&...
             const pagesParams = fbPageIds.map(pid => `pages[${pid}]=0`).join('&');
             const url = window.API_CONFIG.buildUrl.pancake(
@@ -764,6 +773,88 @@ class PancakeDataManager {
                 conversations = data.conversations || [];
             } else {
                 console.warn('[PANCAKE] Multi-page request failed:', response.status);
+            }
+
+            // Retry without problematic pages if 0 conversations returned
+            // Some pages (e.g. 193642490509664) cause the API to return empty results for ALL pages
+            if (conversations.length === 0 && allFbPageIds.length > 0) {
+                // If bad pages were pre-filtered and we still got 0, skip suspect-exclusion
+                // and go straight to individual page testing
+                const needsSuspectExclusion = fbPageIds.length > 1;
+
+                if (needsSuspectExclusion) {
+                    // Cache of known problematic page IDs
+                    const cachedBadPages = JSON.parse(localStorage.getItem('pancake_bad_pages') || '[]');
+
+                    // Try excluding suspect pages one at a time
+                    const suspectPages = [...new Set([...cachedBadPages, '193642490509664'])];
+
+                    for (const suspectId of suspectPages) {
+                        if (!fbPageIds.includes(suspectId)) continue;
+
+                        const retryPages = fbPageIds.filter(pid => pid !== suspectId);
+                        if (retryPages.length === 0) continue;
+
+                        const retryParams = retryPages.map(pid => `pages[${pid}]=0`).join('&');
+                        const retryUrl = window.API_CONFIG.buildUrl.pancake(
+                            `conversations/customer/${fbId}`,
+                            `${retryParams}&access_token=${token}`
+                        );
+
+                        console.log(`[PANCAKE] Retry WITHOUT page ${suspectId} (${retryPages.length} pages: ${retryPages.join(', ')})`);
+
+                        const retryResponse = await this.queuedFetch(retryUrl, {
+                            method: 'GET',
+                            headers: { 'Content-Type': 'application/json' }
+                        }, `fetchConvByFbId:${fbId}:retry`, 3, true);
+
+                        if (retryResponse.ok) {
+                            const retryData = await retryResponse.json();
+                            const retryConversations = retryData.conversations || [];
+                            console.log(`[PANCAKE] Retry result: ${retryConversations.length} conversations (excluded page ${suspectId})`);
+
+                            if (retryConversations.length > 0) {
+                                conversations = retryConversations;
+                                // Cache this page as problematic
+                                if (!cachedBadPages.includes(suspectId)) {
+                                    cachedBadPages.push(suspectId);
+                                    localStorage.setItem('pancake_bad_pages', JSON.stringify(cachedBadPages));
+                                    console.log(`[PANCAKE] Cached page ${suspectId} as problematic`);
+                                }
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // If still 0, try each page individually to find which ones work
+                if (conversations.length === 0) {
+                    console.log('[PANCAKE] Still 0 conversations, trying each page individually...');
+                    for (const singlePageId of allFbPageIds) {
+                        const singleUrl = window.API_CONFIG.buildUrl.pancake(
+                            `conversations/customer/${fbId}`,
+                            `pages[${singlePageId}]=0&access_token=${token}`
+                        );
+
+                        const singleResponse = await this.queuedFetch(singleUrl, {
+                            method: 'GET',
+                            headers: { 'Content-Type': 'application/json' }
+                        }, `fetchConvByFbId:${fbId}:single:${singlePageId}`, 3, true);
+
+                        if (singleResponse.ok) {
+                            const singleData = await singleResponse.json();
+                            const singleConvs = singleData.conversations || [];
+                            console.log(`[PANCAKE] Page ${singlePageId} alone: ${singleConvs.length} conversations`);
+                            if (singleConvs.length > 0) {
+                                conversations.push(...singleConvs);
+                            }
+                        }
+                    }
+
+                    if (conversations.length > 0) {
+                        console.log(`[PANCAKE] Individual page queries found ${conversations.length} total conversations`);
+                    }
+                }
             }
 
             // Enrich conversations with page_name from loaded pages data
