@@ -3003,18 +3003,26 @@ class InboxChatController {
             }
             console.log('[InboxChat] Server-mode started, checking Pancake connection status...');
 
-            // Step 1.5: Wait briefly then check if server's Pancake WS is actually connected
-            await new Promise(r => setTimeout(r, 2000));
-            try {
-                const statusUrl = `${window.API_CONFIG.WORKER_URL}/api/realtime/status`;
-                const statusRes = await fetch(statusUrl);
-                const status = await statusRes.json();
-                console.log('[InboxChat] Pancake WS status:', JSON.stringify(status));
-                if (!status.connected) {
-                    console.warn('[InboxChat] ⚠️ Server started but Pancake WS not connected yet. Proceeding anyway...');
+            // Step 1.5: Wait then check if server's Pancake WS is connected (retry for cold start)
+            let pancakeConnected = false;
+            for (let attempt = 1; attempt <= 3; attempt++) {
+                await new Promise(r => setTimeout(r, 2000 * attempt));
+                try {
+                    const statusUrl = `${window.API_CONFIG.WORKER_URL}/api/realtime/status`;
+                    const statusRes = await fetch(statusUrl);
+                    const status = await statusRes.json();
+                    console.log(`[InboxChat] Pancake WS status (attempt ${attempt}):`, JSON.stringify(status));
+                    if (status.connected) {
+                        pancakeConnected = true;
+                        break;
+                    }
+                } catch (e) {
+                    console.warn(`[InboxChat] Status check failed (attempt ${attempt}):`, e.message);
                 }
-            } catch (e) {
-                console.warn('[InboxChat] Could not check status:', e.message);
+            }
+            if (!pancakeConnected) {
+                console.warn('[InboxChat] ⚠️ Pancake WS not connected after retries. Starting polling as backup...');
+                this.startAutoRefresh();
             }
 
             // Step 2: Connect WebSocket to Render server (receives broadcasted events)
@@ -3054,6 +3062,9 @@ class InboxChatController {
         this.isSocketConnecting = false;
         this.updateSocketStatusUI(false);
 
+        // Start polling immediately as backup while reconnecting
+        this.startAutoRefresh();
+
         // Reconnect with backoff
         if (this.socketReconnectAttempts < this.socketMaxReconnectAttempts) {
             this.socketReconnectAttempts++;
@@ -3062,8 +3073,7 @@ class InboxChatController {
             console.log(`[InboxChat] Reconnecting in ${delay}ms (attempt ${this.socketReconnectAttempts}/${this.socketMaxReconnectAttempts})...`);
             this.socketReconnectTimer = setTimeout(() => this.initializeWebSocket(), delay);
         } else {
-            console.log('[InboxChat] Max reconnect attempts reached, falling back to polling');
-            this.startAutoRefresh();
+            console.log('[InboxChat] Max reconnect attempts reached, polling only');
         }
     }
 

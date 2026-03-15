@@ -570,29 +570,41 @@ initializeWebSocket()
     │
     ├── 1. Get token + decode JWT → userId
     ├── 2. POST /api/realtime/start { token, userId, pageIds, cookie }
-    ├── 3. Wait 2s → GET /api/realtime/status (check Pancake WS)
+    ├── 3. Retry check status (tối đa 3 lần, delay 2s/4s/6s)
+    │      GET /api/realtime/status → nếu vẫn chưa connected → startAutoRefresh() backup
     ├── 4. new WebSocket('wss://n2store-realtime.onrender.com')
     │
     ├── onopen:
     │   ├── isSocketConnected = true
     │   ├── resetReconnect()
     │   ├── updateSocketStatusUI(true)
-    │   └── stopAutoRefresh()
+    │   └── stopAutoRefresh() ← tắt polling khi WS OK
     │
     ├── onmessage(event):
     │   ├── Parse JSON
     │   ├── 'pages:update_conversation' → handleConversationUpdate()
+    │   │     ├── Filter page_id (String comparison để tránh type mismatch)
+    │   │     ├── Filter type (chỉ INBOX/COMMENT)
+    │   │     ├── Log khi bị filter (debug)
+    │   │     └── Auto-reload messages nếu là conversation đang mở
     │   ├── 'pages:new_message' → handleNewMessage()
     │   └── 'post_type_detected' → handlePostTypeDetected()
     │
     └── onclose:
+        ├── startAutoRefresh() ngay lập tức (polling backup trong lúc reconnect)
         ├── Reconnect (max 3 attempts):
         │   ├── Attempt 1: 3s delay
         │   ├── Attempt 2: 4.5s delay
         │   └── Attempt 3: 6.75s delay (capped 15s)
         │
-        └── After max attempts → startAutoRefresh() (polling 30s)
+        └── After max attempts → polling only (30s)
 ```
+
+### Server-side Event Forwarding (render.com/server.js)
+
+Server Pancake WS (`RealtimeClient.handleMessage()`) forward 2 event types:
+- `pages:update_conversation` → broadcast + save to PostgreSQL
+- `pages:new_message` → broadcast only (INBOX-SPECIFIC, added riêng cho inbox)
 
 ### Event Types
 
@@ -835,3 +847,25 @@ MIN_SEARCH_LENGTH = 2  // characters
 SCROLL_THRESHOLD = 100  // px from edge to trigger load
 LOAD_MORE_COOLDOWN = 2000  // ms base, * consecutive empty loads, max 10s
 ```
+
+---
+
+## 17. Changelog - Sửa Lỗi Quan Trọng
+
+### 2026-03-15: Fix Realtime Không Cập Nhật UI
+
+**Vấn đề**: Pancake nhận tin nhắn mới nhưng web inbox không cập nhật UI.
+
+**Nguyên nhân**:
+1. Page ID so sánh sai type (`123 !== "123"`) → message bị drop im lặng
+2. Server chỉ forward `pages:update_conversation`, không forward `pages:new_message`
+3. Khi nhận `update_conversation` cho conversation đang mở, không reload messages
+4. WS close → chỉ polling sau khi hết retry (mất 15-30s không nhận tin)
+5. Pancake WS status check chỉ 1 lần, Render cold start lâu hơn 2s
+
+**Sửa**:
+- **`inbox-chat.js`** `handleConversationUpdate()`: dùng `String()` so sánh page ID, thêm log khi filter
+- **`inbox-chat.js`** `handleConversationUpdate()`: auto-reload messages khi conversation đang mở nhận update
+- **`inbox-chat.js`** `initializeWebSocket()`: retry check Pancake status 3 lần (2s/4s/6s), start polling backup nếu fail
+- **`inbox-chat.js`** `onSocketClose()`: start polling ngay khi WS close (không đợi hết retry)
+- **`server.js`** `handleMessage()`: thêm block forward `pages:new_message` (INBOX-SPECIFIC, code mới không sửa code cũ)

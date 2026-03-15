@@ -450,6 +450,15 @@ class RealtimeClient {
                     .catch(err => console.error('[SERVER-WS] Failed to upsert pending:', err.message));
             }
         }
+
+        // [INBOX-SPECIFIC] Forward new_message events for real-time chat update
+        if (event === 'pages:new_message') {
+            console.log('[SERVER-WS] pages:new_message → forwarding to clients');
+            broadcastToClients({
+                type: 'pages:new_message',
+                payload: payload
+            });
+        }
     }
 }
 
