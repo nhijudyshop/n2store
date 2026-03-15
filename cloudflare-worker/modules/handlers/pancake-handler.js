@@ -151,6 +151,12 @@ export async function handlePancakeGeneric(request, url, pathname) {
     headers.set('Referer', 'https://pancake.vn/multi_pages');
     headers.set('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36');
 
+    // Set JWT cookie from access_token for endpoints that require cookie auth
+    const accessToken = url.searchParams.get('access_token');
+    if (accessToken) {
+        headers.set('Cookie', `jwt=${accessToken}; locale=vi`);
+    }
+
     try {
         const response = await fetchWithRetry(targetUrl, {
             method: request.method,
