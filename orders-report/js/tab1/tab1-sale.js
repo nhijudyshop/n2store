@@ -752,21 +752,38 @@ async function confirmAndPrintSale() {
             if (hasInventoryError) {
                 showInventoryErrorModal(result.Errors);
 
-                // Add "ÂM MÃ" tag to the order
                 const saleOnlineId = currentSaleOrderData?.Id;
-                if (saleOnlineId && window.findOrCreateTag && window.addTagToOrder) {
+                if (saleOnlineId) {
+                    // Reset order status back to "Nháp" on TPOS
+                    // (TPOS auto-changes to "Đơn hàng" even when creation fails)
                     try {
-                        const amMaTag = await window.findOrCreateTag('ÂM MÃ');
-                        if (amMaTag) {
-                            await window.addTagToOrder(saleOnlineId, {
-                                Id: amMaTag.Id,
-                                Name: amMaTag.Name,
-                                Color: amMaTag.Color
-                            });
-                            console.log('[SALE-CONFIRM] Added "ÂM MÃ" tag to order:', saleOnlineId);
+                        const headers = await window.tokenManager.getAuthHeader();
+                        const statusUrl = `${window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev'}/api/odata/SaleOnline_Order/OdataService.UpdateStatusSaleOnline?Id=${saleOnlineId}&Status=${encodeURIComponent('Nháp')}`;
+                        await API_CONFIG.smartFetch(statusUrl, {
+                            method: 'POST',
+                            headers: { ...headers, 'content-type': 'application/json;charset=utf-8' },
+                            body: null
+                        });
+                        console.log('[SALE-CONFIRM] Reset order status to Nháp:', saleOnlineId);
+                    } catch (statusErr) {
+                        console.warn('[SALE-CONFIRM] Failed to reset status to Nháp:', statusErr);
+                    }
+
+                    // Add "ÂM MÃ" tag to the order
+                    if (window.findOrCreateTag && window.addTagToOrder) {
+                        try {
+                            const amMaTag = await window.findOrCreateTag('ÂM MÃ');
+                            if (amMaTag) {
+                                await window.addTagToOrder(saleOnlineId, {
+                                    Id: amMaTag.Id,
+                                    Name: amMaTag.Name,
+                                    Color: amMaTag.Color
+                                });
+                                console.log('[SALE-CONFIRM] Added "ÂM MÃ" tag to order:', saleOnlineId);
+                            }
+                        } catch (tagErr) {
+                            console.warn('[SALE-CONFIRM] Failed to add "ÂM MÃ" tag:', tagErr);
                         }
-                    } catch (tagErr) {
-                        console.warn('[SALE-CONFIRM] Failed to add "ÂM MÃ" tag:', tagErr);
                     }
                 }
 
