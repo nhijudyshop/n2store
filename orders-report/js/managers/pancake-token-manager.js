@@ -737,6 +737,22 @@ class PancakeTokenManager {
     }
 
     /**
+     * Check if a specific account has access to a specific page
+     */
+    accountHasPageAccess(accountId, pageId) {
+        const pages = this.accountPageAccessMap[accountId];
+        return pages ? pages.has(pageId) : false;
+    }
+
+    /**
+     * Get all valid accounts that have access to a specific page
+     */
+    getAccountsWithPageAccess(pageId) {
+        const validAccounts = this.getValidAccountsForSending();
+        return validAccounts.filter(acc => this.accountHasPageAccess(acc.accountId, pageId));
+    }
+
+    /**
      * Find a fallback account that has access to the given page
      * @param {string} pageId - Page ID to find access for
      * @param {string} excludeAccountId - Account ID to exclude (usually the active account that failed)
