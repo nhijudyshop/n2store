@@ -80,14 +80,6 @@ const MENU_CONFIG = [
         permissionRequired: "hangrotxa",
     },
     {
-        href: "../ib/index.html",
-        icon: "message-circle",
-        text: "Check Inbox Khách",
-        shortText: "Inbox",
-        pageIdentifier: "ib",
-        permissionRequired: "ib",
-    },
-    {
         href: "../inbox/index.html",
         icon: "messages-square",
         text: "Inbox Chat",

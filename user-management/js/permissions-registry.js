@@ -26,23 +26,6 @@ const PAGES_REGISTRY = {
     // REMOVED: livestream (module deleted - cleanup task 9.1)
     // REMOVED: sanphamlive (module deleted - cleanup task 9.1)
 
-    ib: {
-        id: "ib",
-        name: "Check Inbox Khách",
-        shortName: "Inbox",
-        icon: "message-circle",
-        href: "../ib/index.html",
-        description: "Kiểm tra inbox và tin nhắn khách hàng",
-        adminOnly: false,
-        category: "sales",
-        detailedPermissions: {
-            view: { name: "Xem tin nhắn", icon: "eye", description: "Xem danh sách tin nhắn" },
-            reply: { name: "Trả lời tin nhắn", icon: "reply", description: "Phản hồi khách hàng" },
-            assign: { name: "Phân công", icon: "user-plus", description: "Phân công xử lý cho nhân viên" },
-            archive: { name: "Lưu trữ", icon: "archive", description: "Lưu trữ tin nhắn đã xử lý" },
-            export: { name: "Xuất dữ liệu", icon: "download", description: "Export tin nhắn" }
-        }
-    },
 
     inbox: {
         id: "inbox",
