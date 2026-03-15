@@ -354,7 +354,7 @@ router.post('/:id/reprocess-wallet', async (req, res) => {
             tx.linked_customer_phone,
             tx.customer_id,
             `Nạp tiền: ${parseFloat(tx.transfer_amount).toLocaleString()}đ`,
-            `Chuyển khoản ngân hàng (${tx.code || tx.reference_code}) - reprocess`,
+            `Chuyển khoản ngân hàng (${tx.code || tx.reference_code}) - xử lý lại`,
             id
         ]);
 
@@ -698,7 +698,7 @@ router.post('/:id/approve', async (req, res) => {
                     tx.linked_customer_phone,
                     tx.transfer_amount,
                     id,
-                    `Nạp từ CK (Approved by ${verified_by})`,
+                    `Nạp từ CK (Duyệt bởi ${verified_by})`,
                     tx.customer_id
                 );
 
@@ -717,7 +717,7 @@ router.post('/:id/approve', async (req, res) => {
                     tx.linked_customer_phone,
                     tx.customer_id,
                     `Nạp tiền: ${parseFloat(tx.transfer_amount).toLocaleString()}đ`,
-                    `Chuyển khoản ngân hàng (${tx.code || tx.reference_code}) - Approved by ${verified_by}`,
+                    `Chuyển khoản ngân hàng (${tx.code || tx.reference_code})`,
                     id,
                     verified_by || 'system'
                 ]);

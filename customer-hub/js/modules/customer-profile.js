@@ -557,16 +557,42 @@ export class CustomerProfileModule {
                     <div class="space-y-2">
                         ${activities.slice(0, 10).map(act => {
                             const style = activityStyleMap[act.activity_type] || defaultActivityStyle;
-                            const icon = act.icon || style.icon;
+                            // Always use style map icon (DB icon may be invalid for Material Symbols Outlined)
+                            const icon = style.icon;
                             const date = act.created_at ? new Date(act.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
                             const createdBy = act.created_by && act.created_by !== 'system' ? act.created_by : '';
+                            const isCancelled = act.activity_type === 'ORDER_CANCELLED';
+                            const isCreated = act.activity_type === 'ORDER_CREATED';
+                            const isDeposit = act.activity_type === 'WALLET_DEPOSIT';
+                            const isRefund = act.activity_type === 'WALLET_REFUND' || act.activity_type === 'ORDER_CANCEL_REFUND';
+
+                            // Build creator/operator label - all bold red
+                            let operatorHtml = '';
+                            if (createdBy) {
+                                if (isCancelled) {
+                                    operatorHtml = ` · <span class="font-bold" style="color: #ef4444;">Người hủy: ${createdBy}</span>`;
+                                } else if (isCreated) {
+                                    operatorHtml = ` · <span class="font-bold" style="color: #ef4444;">Người tạo: ${createdBy}</span>`;
+                                } else if (isDeposit) {
+                                    operatorHtml = ` · <span class="font-bold" style="color: #ef4444;">Duyệt bởi: ${createdBy}</span>`;
+                                } else if (isRefund) {
+                                    operatorHtml = ` · <span class="font-bold" style="color: #ef4444;">Người hoàn: ${createdBy}</span>`;
+                                } else {
+                                    operatorHtml = ` · <span class="font-bold" style="color: #ef4444;">${createdBy}</span>`;
+                                }
+                            }
+
+                            // Fix description: replace "Approved by X" with "Duyệt bởi X"
+                            let desc = act.description || '';
+                            desc = desc.replace(/Approved by\s*/gi, 'Duyệt bởi ');
+
                             return `
                                 <div class="flex items-start gap-3 p-2 rounded-lg ${style.bg} dark:bg-slate-800/50">
                                     <span class="material-symbols-outlined ${style.color}" style="font-size: 20px; margin-top: 2px;">${icon}</span>
                                     <div class="flex-1 min-w-0">
                                         <p class="text-sm font-medium text-slate-800 dark:text-slate-200 truncate">${act.title || act.activity_type}</p>
-                                        ${act.description ? `<p class="text-xs text-slate-500 truncate">${act.description}</p>` : ''}
-                                        <p class="text-xs text-slate-400">${date}${createdBy ? ` · <span class="text-slate-500 font-medium">${createdBy}</span>` : ''}</p>
+                                        ${desc ? `<p class="text-xs text-slate-500 truncate">${desc}</p>` : ''}
+                                        <p class="text-xs text-slate-400">${date}${operatorHtml}</p>
                                     </div>
                                 </div>
                             `;
