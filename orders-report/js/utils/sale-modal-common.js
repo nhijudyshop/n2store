@@ -6,6 +6,7 @@
 // REQUIRES (declared by each tab before this file loads):
 //   - currentSaleOrderData (let) - current order being edited
 //   - currentSaleLastDeposit (let) - last deposit info for note generation
+//   - currentSaleAvailableDeposits (let) - all deposits contributing to wallet balance
 //   - saveDebtToCache(phone, debt) - save debt to tab-specific cache
 //   - updateDebtCellsInTable(phone, debt) - update debt display (no-op in social)
 //   - QR_API_URL (const) - wallet API base URL
@@ -885,14 +886,20 @@ async function fetchDebtForSaleModal(phone) {
             const virtualBalance = parseFloat(result.data.virtual_balance) || 0;
             const totalBalance = realBalance + virtualBalance;
 
-            // Store last deposit info for note generation
-            if (result.data.lastDepositAmount && result.data.lastDepositDate) {
+            // Store all available deposits for note generation
+            if (result.data.availableDeposits && result.data.availableDeposits.length > 0) {
+                currentSaleAvailableDeposits = result.data.availableDeposits;
+                const last = currentSaleAvailableDeposits[currentSaleAvailableDeposits.length - 1];
+                currentSaleLastDeposit = { amount: last.amount, date: last.date };
+            } else if (result.data.lastDepositAmount && result.data.lastDepositDate) {
                 currentSaleLastDeposit = {
                     amount: parseFloat(result.data.lastDepositAmount),
                     date: result.data.lastDepositDate
                 };
+                currentSaleAvailableDeposits = [currentSaleLastDeposit];
             } else {
                 currentSaleLastDeposit = null;
+                currentSaleAvailableDeposits = [];
             }
 
             if (prepaidAmountField) {
@@ -913,6 +920,7 @@ async function fetchDebtForSaleModal(phone) {
             updateSaleRemainingBalance();
         } else {
             currentSaleLastDeposit = null;
+            currentSaleAvailableDeposits = [];
             if (prepaidAmountField) {
                 prepaidAmountField.value = 0;
                 prepaidAmountField.dataset.hasVirtualDebt = '0';
@@ -921,6 +929,7 @@ async function fetchDebtForSaleModal(phone) {
         }
     } catch (error) {
         console.error('[SALE-MODAL] Error fetching wallet balance:', error);
+        currentSaleAvailableDeposits = [];
         if (prepaidAmountField) {
             prepaidAmountField.value = 0;
             prepaidAmountField.dataset.hasVirtualDebt = '0';
@@ -941,21 +950,24 @@ function autoFillSaleNote() {
 
     const noteParts = [];
 
-    // 1. CK from wallet balance
+    // 1. CK from wallet balance - list all available deposits
     const walletBalance = parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;
     if (walletBalance > 0) {
-        let ckAmount = walletBalance;
-        let dateStr;
-        if (currentSaleLastDeposit?.amount && currentSaleLastDeposit?.date) {
-            ckAmount = currentSaleLastDeposit.amount;
-            const depositDate = new Date(currentSaleLastDeposit.date);
-            dateStr = `${String(depositDate.getDate()).padStart(2, '0')}/${String(depositDate.getMonth() + 1).padStart(2, '0')}`;
+        if (currentSaleAvailableDeposits && currentSaleAvailableDeposits.length > 0) {
+            for (const dep of currentSaleAvailableDeposits) {
+                const depAmount = parseFloat(dep.amount);
+                const depositDate = new Date(dep.date);
+                const dateStr = `${String(depositDate.getDate()).padStart(2, '0')}/${String(depositDate.getMonth() + 1).padStart(2, '0')}`;
+                const amountStr = depAmount >= 1000 ? `${Math.round(depAmount / 1000)}K` : depAmount;
+                noteParts.push(`CK ${amountStr} ACB ${dateStr}`);
+            }
         } else {
+            // Fallback: single entry with wallet balance
             const today = new Date();
-            dateStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}`;
+            const dateStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}`;
+            const amountStr = walletBalance >= 1000 ? `${Math.round(walletBalance / 1000)}K` : walletBalance;
+            noteParts.push(`CK ${amountStr} ACB ${dateStr}`);
         }
-        const amountStr = ckAmount >= 1000 ? `${Math.round(ckAmount / 1000)}K` : ckAmount;
-        noteParts.push(`CK ${amountStr} ACB ${dateStr}`);
     }
 
     // Parse order tags
@@ -999,7 +1011,7 @@ function autoFillSaleNote() {
     }
 
     if (noteParts.length > 0) {
-        noteField.value = noteParts.join(', ');
+        noteField.value = noteParts.join('\n');
     }
 }
 

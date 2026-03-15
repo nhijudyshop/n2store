@@ -89,16 +89,45 @@ router.get('/:customerId', async (req, res) => {
             ORDER BY expires_at ASC
         `, [phone]);
 
-        // Get last deposit transaction (for payment note generation)
-        const lastDepositResult = await db.query(`
+        // Get all deposit transactions (for payment note generation)
+        const depositsResult = await db.query(`
             SELECT amount, created_at
             FROM wallet_transactions
             WHERE phone = $1 AND type = 'DEPOSIT'
-            ORDER BY created_at DESC
-            LIMIT 1
+            ORDER BY created_at ASC
         `, [phone]);
 
-        const lastDeposit = lastDepositResult.rows[0] || null;
+        // Get total withdrawn to compute available deposits via FIFO
+        const withdrawnResult = await db.query(`
+            SELECT COALESCE(SUM(ABS(amount)), 0) as total
+            FROM wallet_transactions
+            WHERE phone = $1 AND type = 'WITHDRAWAL'
+        `, [phone]);
+
+        const totalWithdrawn = parseFloat(withdrawnResult.rows[0]?.total) || 0;
+        let remainingWithdrawn = totalWithdrawn;
+        const availableDeposits = [];
+
+        for (const dep of depositsResult.rows) {
+            const depAmount = parseFloat(dep.amount);
+            if (remainingWithdrawn >= depAmount) {
+                remainingWithdrawn -= depAmount;
+            } else if (remainingWithdrawn > 0) {
+                availableDeposits.push({
+                    amount: depAmount - remainingWithdrawn,
+                    date: dep.created_at
+                });
+                remainingWithdrawn = 0;
+            } else {
+                availableDeposits.push({
+                    amount: depAmount,
+                    date: dep.created_at
+                });
+            }
+        }
+
+        // Backward compat: keep lastDeposit fields from the last available deposit
+        const lastDeposit = availableDeposits.length > 0 ? availableDeposits[availableDeposits.length - 1] : null;
 
         res.json({
             success: true,
@@ -106,8 +135,9 @@ router.get('/:customerId', async (req, res) => {
                 ...wallet,
                 total: parseFloat(wallet.balance) + parseFloat(wallet.virtual_balance),
                 virtualCredits: creditsResult.rows,
-                lastDepositAmount: lastDeposit ? parseFloat(lastDeposit.amount) : null,
-                lastDepositDate: lastDeposit ? lastDeposit.created_at : null
+                availableDeposits,
+                lastDepositAmount: lastDeposit ? lastDeposit.amount : null,
+                lastDepositDate: lastDeposit ? lastDeposit.date : null
             }
         });
     } catch (error) {

@@ -11,6 +11,7 @@
 let currentSaleOrderData = null;
 let currentSalePartnerData = null;
 let currentSaleLastDeposit = null;
+let currentSaleAvailableDeposits = []; // [{ amount, date }] all deposits contributing to wallet balance
 
 // QR/wallet API URL (required by sale-modal-common.js)
 const QR_API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';

@@ -576,6 +576,7 @@ document.addEventListener('DOMContentLoaded', () => {
 let currentSaleOrderData = null;
 let currentSalePartnerData = null;
 let currentSaleLastDeposit = null; // { amount, date } from wallet API
+let currentSaleAvailableDeposits = []; // [{ amount, date }] all deposits contributing to wallet balance
 
 // =====================================================
 // DELIVERY CARRIER, SALE MODAL UI, TOTALS, etc.
