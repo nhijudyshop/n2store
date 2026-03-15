@@ -428,12 +428,6 @@
                 <span>Báo Cáo Tổng Hợp</span>
                 <i data-lucide="check" class="check-icon"></i>
             </div>
-            <div class="mobile-dropdown-item" onclick="switchMobileTab('social-orders', 'Đơn Social')"
-                data-mobile-tab="social-orders">
-                <i data-lucide="share-2"></i>
-                <span>Đơn Social</span>
-                <i data-lucide="check" class="check-icon"></i>
-            </div>
             <div class="mobile-dropdown-item" onclick="switchMobileTab('pending-delete', 'Bill Đã Xóa')"
                 data-mobile-tab="pending-delete">
                 <i data-lucide="trash-2"></i>
@@ -470,10 +464,6 @@
 <button class="tab-button" onclick="switchTab('overview')" data-tab="overview">
                     <i data-lucide="file-bar-chart" class="tab-icon"></i>
                     Báo Cáo Tổng Hợp
-                </button>
-                <button class="tab-button" onclick="switchTab('social-orders')" data-tab="social-orders">
-                    <i data-lucide="share-2" class="tab-icon"></i>
-                    Đơn Social
                 </button>
                 <button class="tab-button" onclick="switchTab('pending-delete')" data-tab="pending-delete">
                     <i data-lucide="trash-2" class="tab-icon"></i>
@@ -524,10 +514,6 @@
 
         <div id="overviewTab" class="tab-content">
             <iframe id="overviewFrame" src="tab-overview.html"></iframe>
-        </div>
-
-        <div id="socialOrdersTab" class="tab-content">
-            <iframe id="socialOrdersFrame" src="tab-social-orders.html"></iframe>
         </div>
 
         <div id="pendingDeleteTab" class="tab-content">
@@ -599,8 +585,6 @@
                 }
             } else if (tabName === 'overview') {
                 document.getElementById('overviewTab').classList.add('active');
-            } else if (tabName === 'social-orders') {
-                document.getElementById('socialOrdersTab').classList.add('active');
             } else if (tabName === 'pending-delete') {
                 document.getElementById('pendingDeleteTab').classList.add('active');
             } else if (tabName === 'kpi-commission') {
@@ -649,7 +633,6 @@
                 orders: 'Quản Lý Đơn Hàng',
                 'product-assignment': 'Gán Sản Phẩm - STT',
                 overview: 'Báo Cáo Tổng Hợp',
-                'social-orders': 'Đơn Social',
                 'pending-delete': 'Bill Đã Xóa',
                 'kpi-commission': 'KPI - HOA HỒNG',
                 'report-online': 'Báo Cáo Online',
@@ -801,18 +784,6 @@
                 if (overviewFrame && overviewFrame.contentWindow) {
                     overviewFrame.contentWindow.postMessage(e.data, '*');
                 }
-            } else if (e.data.type === 'OPEN_RETAIL_SALE_FROM_SOCIAL') {
-                // Social tab requested to open retail sale modal in Tab1
-                console.log('[MAIN] 🧾 Forwarding OPEN_RETAIL_SALE_FROM_SOCIAL to Tab1');
-                // Switch to orders tab first so user can see the modal
-                switchTab('orders');
-                // Forward to Tab1 after a small delay to ensure tab is visible
-                setTimeout(() => {
-                    const ordersFrame = document.getElementById('ordersFrame');
-                    if (ordersFrame && ordersFrame.contentWindow) {
-                        ordersFrame.contentWindow.postMessage(e.data, '*');
-                    }
-                }, 300);
             } else if (e.data.type === 'TABLE_NAME_CHANGED') {
                 // Forward table name change from Tab1 to Overview
                 const overviewFrame = document.getElementById('overviewFrame');
@@ -937,7 +908,6 @@ function showSyncIndicator() {
                     'orders',
                     'product-assignment',
                     'overview',
-                    'social-orders',
                     'pending-delete',
                     'kpi-commission',
                     'report-online',
