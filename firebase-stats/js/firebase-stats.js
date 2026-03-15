@@ -56,12 +56,6 @@ const FIRESTORE_COLLECTIONS = [
         countable: true
     },
     {
-        name: 'hangrotxa',
-        description: 'Quản lý hàng rớt xa',
-        modules: ['hangrotxa'],
-        countable: true
-    },
-    {
         name: 'ib',
         description: 'Quản lý inbox/messages',
         modules: ['ib'],

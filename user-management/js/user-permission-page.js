@@ -21,22 +21,10 @@ const AVAILABLE_PAGES = [
         description: "Quản lý việc nhận hàng từ nhà cung cấp",
     },
     {
-        id: "hangrotxa",
-        icon: "clipboard-list",
-        name: "HÀNG RỚT - XẢ",
-        description: "Quản lý hàng rớt và xả hàng",
-    },
-    {
         id: "ib",
         icon: "message-square",
         name: "CHECK INBOX KHÁCH HÀNG",
         description: "Kiểm tra và quản lý tin nhắn khách hàng",
-    },
-    {
-        id: "ck",
-        icon: "credit-card",
-        name: "THÔNG TIN CHUYỂN KHOẢN",
-        description: "Quản lý thông tin chuyển khoản",
     },
     {
         id: "hanghoan",
@@ -69,18 +57,14 @@ const PERMISSION_TEMPLATES = {
     manager: [
         "live",
         "nhanhang",
-        "hangrotxa",
         "ib",
-        "ck",
         "hanghoan",
         "bangkiemhang",
     ],
     staff: [
         "live",
         "nhanhang",
-        "hangrotxa",
         "ib",
-        "ck",
         "hanghoan",
     ],
     viewer: ["live"],

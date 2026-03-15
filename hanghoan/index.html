@@ -14,8 +14,7 @@
 
     <!-- External CSS -->
     <link rel="stylesheet" href="css/modern.css" />
-    <link rel="stylesheet" href="css/hanghoan.css" />
-    <link rel="stylesheet" href="css/trahang.css" />
+<link rel="stylesheet" href="css/trahang.css" />
     <link rel="stylesheet" href="css/banhang.css" />
     <link rel="stylesheet" href="css/doisoat.css" />
 
@@ -132,11 +131,7 @@
 
         <!-- Main Tabs Navigation -->
         <div class="main-tabs">
-            <button class="main-tab-btn active" data-tab="hangHoanTab">
-                <i data-lucide="package-x"></i>
-                <span>Hàng Hoàn</span>
-            </button>
-            <button class="main-tab-btn" data-tab="traHangTab">
+            <button class="main-tab-btn active" data-tab="traHangTab">
                 <i data-lucide="rotate-ccw"></i>
                 <span>Trả Hàng</span>
             </button>
@@ -150,187 +145,8 @@
             </button>
         </div>
 
-        <!-- Hàng Hoàn Tab Content -->
-        <div class="tab-content active" id="hangHoanTab">
-
-        <!-- Add Form Section -->
-        <section class="upload-section card" id="dataForm">
-            <div class="card-header">
-                <div class="card-title">
-                    <i data-lucide="file-plus"></i>
-                    <h2>Thêm Thông Tin Hàng Hoàn</h2>
-                </div>
-                <button class="btn-icon" id="closeForm">
-                    <i data-lucide="x"></i>
-                </button>
-            </div>
-            <div class="card-body">
-                <form id="return-product">
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>
-                                <i data-lucide="truck"></i>
-                                Kênh
-                            </label>
-                            <select id="ship" required>
-                                <option value="J&T">J&T</option>
-                                <option value="TP">TP</option>
-                                <option value="BM">BM</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>
-                                <i data-lucide="list"></i>
-                                Trường hợp
-                            </label>
-                            <select id="scenario" required>
-                                <option value="BOOM">BOOM</option>
-                                <option value="Sửa COD">Sửa COD</option>
-                                <option value="Thu về">Thu về</option>
-                                <option value="Khách gửi">Khách gửi</option>
-                                <option value="Thay đổi thông tin">
-                                    Thay đổi thông tin
-                                </option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>
-                                <i data-lucide="user"></i>
-                                Tên FB + SĐT
-                            </label>
-                            <input type="text" id="customerInfo" list="suggestionsInfo" required />
-                            <datalist id="suggestionsInfo"></datalist>
-                        </div>
-                        <div class="form-group">
-                            <label>
-                                <i data-lucide="dollar-sign"></i>
-                                Giá tiền
-                            </label>
-                            <input type="text" id="totalAmount" required />
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label>
-                            <i data-lucide="message-square"></i>
-                            Lý do
-                        </label>
-                        <input type="text" id="cause" list="suggestionsCause" required />
-                        <datalist id="suggestionsCause"></datalist>
-                    </div>
-
-                    <div class="form-actions">
-                        <button type="button" class="btn btn-secondary" id="clearDataButton">
-                            <i data-lucide="rotate-ccw"></i>
-                            Reset
-                        </button>
-                        <button type="submit" class="btn btn-primary" id="addButton">
-                            <i data-lucide="check"></i>
-                            Thêm Đơn
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </section>
-
-        <!-- Filter & Table Section -->
-        <section class="gallery-section card">
-            <div class="card-header">
-                <div class="card-title">
-                    <i data-lucide="table"></i>
-                    <h2>Danh Sách Hàng Hoàn</h2>
-                </div>
-                <div class="card-actions">
-                    <button class="btn-icon" id="btnExport" title="Xuất Excel">
-                        <i data-lucide="download"></i>
-                    </button>
-                </div>
-            </div>
-
-            <div class="card-body">
-                <!-- Filters -->
-                <div class="filter-section">
-                    <div class="filter-group">
-                        <i data-lucide="filter"></i>
-                        <select id="channelFilter">
-                            <option value="all">Tất cả kênh</option>
-                            <option value="J&T">J&T</option>
-                            <option value="TP">TP</option>
-                            <option value="BM">BM</option>
-                        </select>
-                    </div>
-
-                    <div class="filter-group">
-                        <i data-lucide="list"></i>
-                        <select id="scenarioFilter">
-                            <option value="all">Tất cả trường hợp</option>
-                            <option value="BOOM">BOOM</option>
-                            <option value="Sửa COD">Sửa COD</option>
-                            <option value="Thu về">Thu về</option>
-                            <option value="Khách gửi">Khách gửi</option>
-                            <option value="Thay đổi thông tin">
-                                Thay đổi thông tin
-                            </option>
-                        </select>
-                    </div>
-
-                    <div class="filter-group">
-                        <i data-lucide="check-circle"></i>
-                        <select id="statusFilter">
-                            <option value="all">Tất cả trạng thái</option>
-                            <option value="active">Chưa nhận</option>
-                            <option value="completed">Đã nhận</option>
-                        </select>
-                    </div>
-
-                    <div class="filter-group date-filter">
-                        <i data-lucide="calendar"></i>
-                        <input type="date" id="startDate" />
-                        <span>đến</span>
-                        <input type="date" id="endDate" />
-                    </div>
-                </div>
-
-                <!-- Table -->
-                <div class="table-responsive">
-                    <table class="modern-table">
-                        <thead>
-                            <tr>
-                                <th>STT</th>
-                                <th>Kênh</th>
-                                <th>Trường hợp</th>
-                                <th>Tên FB + SĐT</th>
-                                <th>Số tiền</th>
-                                <th>Lý do</th>
-                                <th>Đã nhận</th>
-                                <th>Ngày duyệt</th>
-                                <th>Sửa</th>
-                                <th>Xóa</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tableBody">
-                            <!-- Data rows here -->
-                        </tbody>
-                    </table>
-                </div>
-
-                <!-- Empty State -->
-                <div class="empty-state" id="emptyState">
-                    <i data-lucide="inbox"></i>
-                    <h3>Chưa có dữ liệu</h3>
-                    <p>Thêm đơn hàng hoàn đầu tiên của bạn</p>
-                </div>
-            </div>
-        </section>
-
-        </div>
-        <!-- End Hàng Hoàn Tab Content -->
-
         <!-- Trả Hàng Tab Content -->
-        <div class="tab-content" id="traHangTab">
+        <div class="tab-content active" id="traHangTab">
             <section class="trahang-section">
                 <!-- Stats -->
                 <div class="trahang-stats">
@@ -979,8 +795,7 @@
 
     <!-- Scripts -->
     <script src="../shared/js/permissions-helper.js"></script>
-    <script src="js/hanghoan.js"></script>
-    <script src="js/trahang.js"></script>
+<script src="js/trahang.js"></script>
     <script src="js/banhang.js"></script>
     <script src="js/doisoat.js"></script>
 </body>

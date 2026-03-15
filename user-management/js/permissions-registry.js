@@ -134,24 +134,6 @@ const PAGES_REGISTRY = {
         }
     },
 
-    hangrotxa: {
-        id: "hangrotxa",
-        name: "Hàng Rớt - Xả",
-        shortName: "Rớt/Xả",
-        icon: "clipboard-list",
-        href: "../hangrotxa/index.html",
-        description: "Quản lý hàng rớt và xả hàng",
-        adminOnly: false,
-        category: "warehouse",
-        detailedPermissions: {
-            view: { name: "Xem danh sách", icon: "eye", description: "Xem hàng rớt/xả" },
-            mark: { name: "Đánh dấu rớt", icon: "alert-triangle", description: "Đánh dấu hàng rớt" },
-            approve: { name: "Duyệt xả", icon: "check-square", description: "Phê duyệt xả hàng" },
-            price: { name: "Điều chỉnh giá", icon: "tag", description: "Thay đổi giá xả" },
-            delete: { name: "Xóa", icon: "trash-2", description: "Xóa khỏi danh sách" }
-        }
-    },
-
     hanghoan: {
         id: "hanghoan",
         name: "Hàng Hoàn",
@@ -223,24 +205,6 @@ const PAGES_REGISTRY = {
     // =====================================================
     // CATEGORY: ORDERS - Đơn hàng & Thanh toán
     // =====================================================
-    ck: {
-        id: "ck",
-        name: "Thông Tin Chuyển Khoản",
-        shortName: "CK",
-        icon: "credit-card",
-        href: "../ck/index.html",
-        description: "Quản lý thông tin chuyển khoản",
-        adminOnly: false,
-        category: "orders",
-        detailedPermissions: {
-            view: { name: "Xem thông tin", icon: "eye", description: "Xem danh sách chuyển khoản" },
-            verify: { name: "Xác minh", icon: "shield-check", description: "Xác minh chuyển khoản" },
-            edit: { name: "Sửa thông tin", icon: "edit", description: "Chỉnh sửa thông tin CK" },
-            export: { name: "Xuất báo cáo", icon: "file-text", description: "Export báo cáo CK" },
-            delete: { name: "Xóa giao dịch", icon: "trash-2", description: "Xóa giao dịch CK" }
-        }
-    },
-
     "order-management": {
         id: "order-management",
         name: "Quản Lý Order",

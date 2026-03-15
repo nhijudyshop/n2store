@@ -15,9 +15,7 @@ window.AuditLogApp = (function () {
         { id: 'bangkiemhang', name: 'Cân Nặng Hàng', implemented: false },
         { id: 'inventory-tracking', name: 'Theo Dõi Nhập Hàng SL', implemented: false },
         { id: 'purchase-orders', name: 'Quản Lý Đặt Hàng NCC', implemented: false },
-        { id: 'hangrotxa', name: 'Hàng Rớt - Xả', implemented: false },
         { id: 'inbox', name: 'Check Inbox Khách', implemented: false },
-        { id: 'ck', name: 'Thông Tin Chuyển Khoản', implemented: false },
         { id: 'hanghoan', name: 'Hàng Hoàn', implemented: false },
         { id: 'nhanhang', name: 'Nhận Hàng', implemented: false },
         { id: 'issue-tracking', name: 'CSKH + Hàng Hoàn Bưu Cục', implemented: true },
@@ -39,11 +37,9 @@ window.AuditLogApp = (function () {
     // Map legacy Vietnamese page names → module IDs
     // Dữ liệu cũ dùng tên tiếng Việt, dữ liệu mới dùng kebab-case ID
     var PAGE_ALIAS_MAP = {
-        'Hàng rớt - xả':           'hangrotxa',
         'Hàng hoàn':               'hanghoan',
         'Nhận Hàng':               'nhanhang',
         'Kiểm Hàng':               'bangkiemhang',
-        'Chuyển khoản':            'ck',
         'Check Inbox Khách Hàng':  'inbox',
         'inventory-tracking':      'inventory-tracking',
         'Lịch sử chỉnh sửa':      'lichsuchinhsua',
@@ -57,11 +53,9 @@ window.AuditLogApp = (function () {
         'issue-tracking': ['ticket_create', 'ticket_add_debt', 'ticket_receive_goods', 'ticket_payment', 'ticket_update'],
         'balance-history': ['transaction_assign', 'livemode_confirm_customer', 'transaction_approve', 'transaction_adjust', 'customer_info_update_bh', 'transaction_verify', 'accountant_entry_create'],
         // Legacy modules dùng action cũ: add, edit, delete, update, mark
-        'hangrotxa': ['add', 'edit', 'delete', 'update', 'mark'],
         'hanghoan': ['add', 'edit', 'delete', 'update', 'mark'],
         'nhanhang': ['add', 'edit', 'delete', 'update', 'mark'],
         'bangkiemhang': ['add', 'edit', 'delete', 'update', 'mark'],
-        'ck': ['add', 'edit', 'delete', 'update', 'mark'],
         'inbox': ['add', 'edit', 'delete', 'update', 'mark'],
         'inventory-tracking': ['add', 'edit', 'delete', 'update', 'mark'],
         'lichsuchinhsua': ['delete']

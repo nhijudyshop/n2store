@@ -72,14 +72,6 @@ const MENU_CONFIG = [
         permissionRequired: "purchase-orders",
     },
     {
-        href: "../hangrotxa/index.html",
-        icon: "clipboard-list",
-        text: "Hàng Rớt - Xả",
-        shortText: "Rớt/Xả",
-        pageIdentifier: "hangrotxa",
-        permissionRequired: "hangrotxa",
-    },
-    {
         href: "../inbox/index.html",
         icon: "messages-square",
         text: "Inbox Chat",
@@ -87,14 +79,6 @@ const MENU_CONFIG = [
         pageIdentifier: "inbox",
         permissionRequired: "inbox",
         publicAccess: true,
-    },
-    {
-        href: "../ck/index.html",
-        icon: "credit-card",
-        text: "Thông Tin Chuyển Khoản",
-        shortText: "CK",
-        pageIdentifier: "ck",
-        permissionRequired: "ck",
     },
     {
         href: "../hanghoan/index.html",
@@ -433,12 +417,12 @@ const DEFAULT_GROUPS_CONFIG = [
     {
         name: "Khách Hàng",
         icon: "users",
-        items: ["customer-hub", "ib", "ck"]
+        items: ["customer-hub", "ib"]
     },
     {
         name: "Hoàn & CSKH",
         icon: "corner-up-left",
-        items: ["hanghoan", "issue-tracking", "hangrotxa"]
+        items: ["hanghoan", "issue-tracking"]
     },
     {
         name: "Quản Trị",
