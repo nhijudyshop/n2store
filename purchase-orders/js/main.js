@@ -1225,23 +1225,10 @@ class PurchaseOrderController {
                         'success'
                     );
 
-                    // Run barcode print & Firebase update in parallel
+                    // Run Firebase update
                     const parallelTasks = [];
 
-                    // Task 1: Print barcode labels (2 TPOS API calls — slowest)
-                    if (tposResult.poId && tposResult.orderLines?.length > 0 && window.TPOSPurchase?.printBarcodeLabel) {
-                        parallelTasks.push(
-                            (async () => {
-                                this.ui.showToast('Đang tạo tem barcode...', 'info');
-                                await window.TPOSPurchase.printBarcodeLabel(tposResult.poId, tposResult.orderLines);
-                            })().catch(err => {
-                                console.warn('[Print] Barcode print failed:', err);
-                                this.ui.showToast('Không thể in tem: ' + err.message, 'warning');
-                            })
-                        );
-                    }
-
-                    // Task 2: Single combined Firebase write (TPOS data + variant codes + status)
+                    // Task 1: Single combined Firebase write (TPOS data + variant codes + status)
                     if (singleOrder.id) {
                         parallelTasks.push(
                             (async () => {
@@ -1332,6 +1319,31 @@ class PurchaseOrderController {
                     }
 
                     await Promise.allSettled(parallelTasks);
+
+                    // Open barcode selection modal with updated order data
+                    if (tposResult.orderLines?.length > 0 && window.BarcodeLabelDialog) {
+                        const updatedOrder = { ...singleOrder };
+                        updatedOrder.tposPoId = tposResult.poId || null;
+
+                        // Update items with TPOS product codes
+                        if (tposResult.orderLines && result.itemCodeMap) {
+                            const updatedItems = [...(updatedOrder.items || [])];
+                            for (let i = 0; i < tposResult.orderLines.length && i < result.itemCodeMap.length; i++) {
+                                const line = tposResult.orderLines[i];
+                                const mapping = result.itemCodeMap[i];
+                                const barcode = line.Product?.Barcode || line.Product?.DefaultCode;
+                                if (barcode && mapping.itemIndex < updatedItems.length) {
+                                    updatedItems[mapping.itemIndex] = {
+                                        ...updatedItems[mapping.itemIndex],
+                                        productCode: barcode
+                                    };
+                                }
+                            }
+                            updatedOrder.items = updatedItems;
+                        }
+
+                        window.BarcodeLabelDialog.open(updatedOrder);
+                    }
                 }
             } catch (error) {
                 console.error('[PO Preview] Submit failed:', error);
