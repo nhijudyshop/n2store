@@ -2013,12 +2013,13 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
             const facebookPsid = order.Facebook_ASUserId;
             const facebookPostId = order.Facebook_PostId;
 
-            console.log('[CHAT-MODAL] Fetching INBOX conversations by fb_id:', facebookPsid);
+            console.log('[CHAT-MODAL] Fetching conversations + messages for fb_id:', facebookPsid);
 
             if (window.pancakeDataManager && facebookPsid) {
                 try {
-                    // OPTIMIZATION: Fetch conversations AND page access token in parallel
-                    console.log('[CHAT-MODAL] Starting parallel fetch: conversations + pageAccessToken');
+                    // Parallel fetch: conversations (for names/UUID) + pageAccessToken + direct INBOX messages
+                    const directInboxId = `${channelId}_${facebookPsid}`;
+                    console.log('[CHAT-MODAL] Starting parallel fetch: conversations + pageAccessToken + direct messages');
                     const parallelStartTime = Date.now();
 
                     const [result, preloadedPageAccessToken] = await Promise.all([
@@ -2028,181 +2029,26 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
 
                     console.log(`[CHAT-MODAL] Parallel fetch completed in ${Date.now() - parallelStartTime}ms`);
 
+                    // Save customer UUID from conversations
                     if (result.success && result.conversations.length > 0) {
-                        console.log('[CHAT-MODAL] Found', result.conversations.length, 'conversations for fb_id:', facebookPsid);
-
-                        // Save customer UUID
                         window.currentCustomerUUID = result.customerUuid;
-                        console.log('[CHAT-MODAL] Got customer UUID:', window.currentCustomerUUID);
+                        console.log('[CHAT-MODAL] Found', result.conversations.length, 'conversations, customerUUID:', window.currentCustomerUUID);
 
-                        // Filter INBOX conversations
-                        const inboxConversations = result.conversations.filter(conv => conv.type === 'INBOX');
+                        // Check ALL conversations for different customer names
+                        const allConversations = result.conversations;
+                        const { conversation: bestConv, hasDifferentNames } = selectBestInboxConversation(allConversations, psid);
 
-                        // Also save COMMENT conversations for quick switching
-                        const commentConversations = result.conversations.filter(conv => conv.type === 'COMMENT');
-
-                        console.log('[CHAT-MODAL] - INBOX:', inboxConversations.length, 'conversations, COMMENT:', commentConversations.length, 'conversations');
-
-                        if (inboxConversations.length > 0) {
-                            // Smart conversation selection based on customer names
-                            let inboxConv;
-                            if (inboxConversations.length > 1) {
-                                const { conversation: bestConv, hasDifferentNames } = selectBestInboxConversation(inboxConversations, psid);
-                                inboxConv = bestConv || inboxConversations[0];
-
-                                if (hasDifferentNames) {
-                                    // Different names → show selector (pre-select saved or most recent)
-                                    window.populateConversationSelector(inboxConversations, inboxConv.id || inboxConv.conversation_id);
-                                } else {
-                                    // Same names → hide selector, use most recent
-                                    window.hideConversationSelector();
-                                }
-                            } else {
-                                inboxConv = inboxConversations[0];
-                                window.hideConversationSelector();
-                            }
-
-                            window.currentConversationId = inboxConv.id;
-                            window.currentInboxConversationId = inboxConv.id;
-
-                            // DEBUG: Log conversation structure to find real PSID field
-                            console.log('[CHAT-MODAL] DEBUG Conversation data:', JSON.stringify({
-                                id: inboxConv.id,
-                                from_psid: inboxConv.from_psid,
-                                from: inboxConv.from,
-                                customers: inboxConv.customers,
-                                page_id: inboxConv.page_id
-                            }, null, 2));
-
-                            // IMPORTANT: Save the real Facebook PSID from conversation data
-                            window.currentRealFacebookPSID = inboxConv.from_psid
-                                || inboxConv.from?.id
-                                || (inboxConv.customers && inboxConv.customers[0]?.fb_id);
-                            console.log('[CHAT-MODAL] Real Facebook PSID:', window.currentRealFacebookPSID);
-
-                            // Save customer fb_id for page switching
-                            window.currentCustomerFbId = inboxConv.customers?.[0]?.fb_id
-                                || inboxConv.from?.id
-                                || inboxConv.from_psid;
-                            console.log('[CHAT-MODAL] Customer fb_id for page switching:', window.currentCustomerFbId);
-
-                            console.log('[CHAT-MODAL] Using INBOX conversationId:', window.currentConversationId);
-
-                            // Initialize read state for INBOX
-                            window.currentConversationReadState = {
-                                isRead: false,
-                                conversationId: window.currentConversationId,
-                                pageId: channelId,
-                                lastMarkedAt: null,
-                                chatType: 'message'
-                            };
-                            updateReadBadge(false);
-                            updateMarkButton(false);
-
-                            // Now fetch messages for this INBOX conversation
-                            console.log('[CHAT-MODAL] Fetching messages for INBOX conversation (using preloaded token)...');
-
-                            const messagesResponse = await window.pancakeDataManager.fetchMessagesForConversation(
-                                channelId,
-                                window.currentConversationId,
-                                null,
-                                window.currentCustomerUUID,
-                                preloadedPageAccessToken  // Use preloaded token from parallel fetch
-                            );
-
-                            window.allChatMessages = messagesResponse.messages || [];
-                            currentChatCursor = messagesResponse.after;
-
-                            console.log('[CHAT-MODAL] Loaded', window.allChatMessages.length, 'messages');
-
-                            // Render messages
-                            renderChatMessages(window.allChatMessages, true);
-
+                        if (hasDifferentNames) {
+                            // Different names → show conversation selector
+                            window.populateConversationSelector(allConversations, bestConv?.id || allConversations[0]?.id);
+                            console.log('[CHAT-MODAL] Different customer names detected → showing selector');
                         } else {
-                            console.warn('[CHAT-MODAL] No INBOX conversation from API, trying direct ID...');
-
-                            // Try direct conversation ID: {pageId}_{fbId}
-                            const directInboxId = `${channelId}_${facebookPsid}`;
-                            console.log('[CHAT-MODAL] Trying direct INBOX conversationId:', directInboxId);
-
-                            try {
-                                const directResponse = await window.pancakeDataManager.fetchMessagesForConversation(
-                                    channelId,
-                                    directInboxId,
-                                    null,
-                                    window.currentCustomerUUID,
-                                    preloadedPageAccessToken
-                                );
-
-                                const directMessages = directResponse.messages || [];
-                                if (directMessages.length > 0) {
-                                    console.log('[CHAT-MODAL] Direct INBOX found!', directMessages.length, 'messages');
-
-                                    // INBOX exists - use it
-                                    window.currentConversationId = directInboxId;
-                                    window.currentInboxConversationId = directInboxId;
-                                    window.currentRealFacebookPSID = facebookPsid;
-                                    window.currentCustomerFbId = facebookPsid;
-
-                                    window.currentConversationReadState = {
-                                        isRead: false,
-                                        conversationId: directInboxId,
-                                        pageId: channelId,
-                                        lastMarkedAt: null,
-                                        chatType: 'message'
-                                    };
-                                    updateReadBadge(false);
-                                    updateMarkButton(false);
-                                    window.hideConversationSelector();
-
-                                    window.allChatMessages = directMessages;
-                                    currentChatCursor = directResponse.after;
-                                    renderChatMessages(window.allChatMessages, true);
-
-                                    // Also save COMMENT for switching
-                                    if (commentConversations.length > 0) {
-                                        let matchedCommentConvs = commentConversations;
-                                        if (facebookPostId) {
-                                            const postIdParts = facebookPostId.split('_');
-                                            const postId = postIdParts.length > 1 ? postIdParts[postIdParts.length - 1] : facebookPostId;
-                                            const filtered = commentConversations.filter(conv => conv.id.split('_')[0] === postId);
-                                            if (filtered.length > 0) matchedCommentConvs = filtered;
-                                        }
-                                        const orderName = order.Name || order.PartnerName;
-                                        if (orderName && matchedCommentConvs.length === commentConversations.length) {
-                                            const nameMatched = matchedCommentConvs.filter(conv =>
-                                                conv.from?.name === orderName || conv.customers?.some(c => c.name === orderName)
-                                            );
-                                            if (nameMatched.length > 0) matchedCommentConvs = nameMatched;
-                                        }
-                                        window.currentCommentConversationId = matchedCommentConvs[0].id;
-                                        window.cachedCommentConversations = matchedCommentConvs;
-                                    }
-
-                                    // Skip the fallback to COMMENT below
-                                    // Setup scroll and realtime
-                                    setupChatInfiniteScroll();
-                                    setupNewMessageIndicatorListener();
-                                    setupRealtimeMessages();
-                                    return; // Exit the try block - INBOX loaded successfully
-                                } else {
-                                    console.log('[CHAT-MODAL] Direct INBOX returned 0 messages, falling back to COMMENT');
-                                }
-                            } catch (directErr) {
-                                console.warn('[CHAT-MODAL] Direct INBOX fetch failed:', directErr.message);
-                            }
-
-                            console.warn('[CHAT-MODAL] No INBOX conversation found');
-                            modalBody.innerHTML = `
-                                <div class="chat-error">
-                                    <i class="fas fa-info-circle"></i>
-                                    <p>Không tìm thấy tin nhắn cho khách hàng này</p>
-                                </div>`;
+                            window.hideConversationSelector();
                         }
 
                         // Save COMMENT conversation ID for quick switching
+                        const commentConversations = allConversations.filter(conv => conv.type === 'COMMENT');
                         if (commentConversations.length > 0) {
-                            // Filter by post_id if available
                             let targetCommentConv;
                             if (facebookPostId) {
                                 const purePostId = facebookPostId.split('_').pop();
@@ -2212,24 +2058,59 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                                     return conv.id.split('_')[0] === purePostId;
                                 });
                             }
-                            if (!targetCommentConv) {
-                                targetCommentConv = commentConversations[0];
-                            }
-
+                            if (!targetCommentConv) targetCommentConv = commentConversations[0];
                             window.currentCommentConversationId = targetCommentConv.id;
-                            console.log('[CHAT-MODAL] Found COMMENT conversationId:', window.currentCommentConversationId);
+                            window.cachedCommentConversations = commentConversations;
+                            console.log('[CHAT-MODAL] Saved COMMENT conversationId:', window.currentCommentConversationId);
                         }
-
                     } else {
                         console.warn('[CHAT-MODAL] No conversations found for fb_id:', facebookPsid);
+                        window.hideConversationSelector();
+                    }
+
+                    // Always load INBOX messages via direct ID: {channelId}_{psid}
+                    window.currentConversationId = directInboxId;
+                    window.currentInboxConversationId = directInboxId;
+                    window.currentRealFacebookPSID = facebookPsid;
+                    window.currentCustomerFbId = facebookPsid;
+
+                    window.currentConversationReadState = {
+                        isRead: false,
+                        conversationId: directInboxId,
+                        pageId: channelId,
+                        lastMarkedAt: null,
+                        chatType: 'message'
+                    };
+                    updateReadBadge(false);
+                    updateMarkButton(false);
+
+                    console.log('[CHAT-MODAL] Fetching INBOX messages via direct ID:', directInboxId);
+
+                    const messagesResponse = await window.pancakeDataManager.fetchMessagesForConversation(
+                        channelId,
+                        directInboxId,
+                        null,
+                        window.currentCustomerUUID,
+                        preloadedPageAccessToken
+                    );
+
+                    window.allChatMessages = messagesResponse.messages || [];
+                    currentChatCursor = messagesResponse.after;
+
+                    if (window.allChatMessages.length > 0) {
+                        console.log('[CHAT-MODAL] Loaded', window.allChatMessages.length, 'messages');
+                        renderChatMessages(window.allChatMessages, true);
+                    } else {
+                        console.warn('[CHAT-MODAL] No INBOX messages found');
                         modalBody.innerHTML = `
                             <div class="chat-error">
                                 <i class="fas fa-info-circle"></i>
-                                <p>Không tìm thấy cuộc hội thoại</p>
+                                <p>Không tìm thấy tin nhắn cho khách hàng này</p>
                             </div>`;
                     }
+
                 } catch (fetchError) {
-                    console.error('[CHAT-MODAL] Error fetching INBOX conversations:', fetchError);
+                    console.error('[CHAT-MODAL] Error fetching messages:', fetchError);
                     modalBody.innerHTML = `
                         <div class="chat-error">
                             <i class="fas fa-exclamation-triangle"></i>

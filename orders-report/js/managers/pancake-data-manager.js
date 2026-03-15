@@ -700,75 +700,34 @@ class PancakeDataManager {
                 throw new Error('No Pancake token available');
             }
 
-            // Ensure pages are loaded for multi-page request
+            // Ensure pages are loaded
             if (this.pageIds.length === 0) {
                 await this.fetchPages();
             }
 
-            // 1) Single-page: GET /pages/{pageId}/customers/{fb_id}/conversations
-            const singlePageUrl = window.API_CONFIG.buildUrl.pancake(
-                `pages/${pageId}/customers/${fbId}/conversations`,
-                `access_token=${token}`
-            );
-
-            // 2) Multi-page: GET /conversations/customer/{fb_id}?pages[p1]=0&pages[p2]=0&...
-            const allPageIds = this.pageIds.length > 0 ? this.pageIds : [pageId];
-            const pagesParams = allPageIds.map(pid => `pages[${pid}]=0`).join('&');
-            const multiPageUrl = window.API_CONFIG.buildUrl.pancake(
+            // Multi-page API: GET /conversations/customer/{fb_id}?pages[p1]=0&pages[p2]=0&...
+            // Filter out Instagram pages (igo_*) which cause the API to fail
+            const fbPageIds = (this.pageIds.length > 0 ? this.pageIds : [pageId])
+                .filter(pid => !pid.startsWith('igo_'));
+            const pagesParams = fbPageIds.map(pid => `pages[${pid}]=0`).join('&');
+            const url = window.API_CONFIG.buildUrl.pancake(
                 `conversations/customer/${fbId}`,
                 `${pagesParams}&access_token=${token}`
             );
 
-            console.log('[PANCAKE] Single-page URL:', singlePageUrl);
-            console.log('[PANCAKE] Multi-page URL:', multiPageUrl);
+            console.log('[PANCAKE] Multi-page URL:', url, `(${fbPageIds.length} pages, filtered from ${this.pageIds.length})`);
 
-            // Fetch both in parallel
-            const [singlePageResult, multiPageResult] = await Promise.allSettled([
-                this.queuedFetch(singlePageUrl, {
-                    method: 'GET',
-                    headers: { 'Content-Type': 'application/json' }
-                }, `fetchConvByFbId:single:${pageId}:${fbId}`, 3, true),
-                this.queuedFetch(multiPageUrl, {
-                    method: 'GET',
-                    headers: { 'Content-Type': 'application/json' }
-                }, `fetchConvByFbId:multi:${fbId}`, 3, true)
-            ]);
+            const response = await this.queuedFetch(url, {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' }
+            }, `fetchConvByFbId:${fbId}`, 3, true);
 
-            // Parse results
-            let singlePageConvs = [];
-            let multiPageConvs = [];
-
-            if (singlePageResult.status === 'fulfilled' && singlePageResult.value.ok) {
-                const data = await singlePageResult.value.json();
-                singlePageConvs = data.conversations || [];
-                console.log(`[PANCAKE] Single-page: ${singlePageConvs.length} conversations`);
+            let conversations = [];
+            if (response.ok) {
+                const data = await response.json();
+                conversations = data.conversations || [];
             } else {
-                console.warn('[PANCAKE] Single-page request failed:', singlePageResult.reason || singlePageResult.value?.status);
-            }
-
-            if (multiPageResult.status === 'fulfilled' && multiPageResult.value.ok) {
-                const data = await multiPageResult.value.json();
-                multiPageConvs = data.conversations || [];
-                console.log(`[PANCAKE] Multi-page: ${multiPageConvs.length} conversations`);
-            } else {
-                console.warn('[PANCAKE] Multi-page request failed:', multiPageResult.reason || multiPageResult.value?.status);
-            }
-
-            // Merge and deduplicate (single-page results take priority)
-            const seenIds = new Set();
-            const conversations = [];
-
-            for (const conv of singlePageConvs) {
-                if (!seenIds.has(conv.id)) {
-                    seenIds.add(conv.id);
-                    conversations.push(conv);
-                }
-            }
-            for (const conv of multiPageConvs) {
-                if (!seenIds.has(conv.id)) {
-                    seenIds.add(conv.id);
-                    conversations.push(conv);
-                }
+                console.warn('[PANCAKE] Multi-page request failed:', response.status);
             }
 
             // Sort by updated_at DESC (newest first)
@@ -778,7 +737,7 @@ class PancakeDataManager {
                 return dateB - dateA;
             });
 
-            console.log(`[PANCAKE] Merged: ${conversations.length} total conversations (deduped from ${singlePageConvs.length} + ${multiPageConvs.length})`);
+            console.log(`[PANCAKE] Fetched ${conversations.length} conversations for fbId=${fbId}`);
 
             // Log first conversation
             if (conversations.length > 0) {
