@@ -705,17 +705,25 @@ class PancakeDataManager {
                 await this.fetchPages();
             }
 
+            // Collect ALL Facebook page IDs from both activated pages and page access tokens
+            // page access tokens may include pages not in activated_page_ids (e.g. 112678138086607)
+            const allPageIds = new Set(this.pageIds);
+            if (window.pancakeTokenManager?.pageAccessTokens) {
+                Object.keys(window.pancakeTokenManager.pageAccessTokens).forEach(pid => allPageIds.add(pid));
+            }
+            // Fallback: ensure at least the current pageId is included
+            if (allPageIds.size === 0) allPageIds.add(pageId);
+
             // Multi-page API: GET /conversations/customer/{fb_id}?pages[p1]=0&pages[p2]=0&...
-            // Filter out Instagram pages (igo_*) which cause the API to fail
-            const fbPageIds = (this.pageIds.length > 0 ? this.pageIds : [pageId])
-                .filter(pid => !pid.startsWith('igo_'));
+            // Filter out Instagram pages (igo_*) and non-numeric IDs
+            const fbPageIds = [...allPageIds].filter(pid => !pid.startsWith('igo_') && /^\d+$/.test(pid));
             const pagesParams = fbPageIds.map(pid => `pages[${pid}]=0`).join('&');
             const url = window.API_CONFIG.buildUrl.pancake(
                 `conversations/customer/${fbId}`,
                 `${pagesParams}&access_token=${token}`
             );
 
-            console.log('[PANCAKE] Multi-page URL:', url, `(${fbPageIds.length} pages, filtered from ${this.pageIds.length})`);
+            console.log('[PANCAKE] Multi-page URL:', url, `(${fbPageIds.length} FB pages from ${allPageIds.size} total)`);
 
             const response = await this.queuedFetch(url, {
                 method: 'GET',
@@ -729,6 +737,17 @@ class PancakeDataManager {
             } else {
                 console.warn('[PANCAKE] Multi-page request failed:', response.status);
             }
+
+            // Enrich conversations with page_name from loaded pages data
+            const pageNameMap = {};
+            if (this.pages && this.pages.length > 0) {
+                this.pages.forEach(p => { pageNameMap[p.id] = p.name; });
+            }
+            conversations.forEach(conv => {
+                if (conv.page_id && pageNameMap[conv.page_id]) {
+                    conv.page_name = pageNameMap[conv.page_id];
+                }
+            });
 
             // Sort by updated_at DESC (newest first)
             conversations.sort((a, b) => {

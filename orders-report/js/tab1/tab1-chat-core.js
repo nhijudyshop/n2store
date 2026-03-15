@@ -1225,12 +1225,12 @@ window.populateConversationSelector = function (conversations, selectedConvId = 
         const preview = lastMessage.length > 30 ? lastMessage.substring(0, 30) + '...' : lastMessage;
         const pageName = conv.page_name || '';
 
-        // Label format: [Type Icon] [Customer Name or Type] [Time] - [Preview] (Page)
+        // Label format: [Type Icon] [Customer Name] | [Page Name] • [Time] - [Preview]
         const customerName = getConversationCustomerName(conv);
         let label = `${typeIcon} ${customerName || convType}`;
+        if (pageName) label += ` | ${pageName}`;
         if (timeAgo) label += ` • ${timeAgo}`;
         if (preview) label += ` - ${preview}`;
-        if (pageName) label += ` (${pageName})`;
 
         const isSelected = selectedConvId ? (convId === selectedConvId) : (index === 0);
         optionsHtml += `<option value="${convId}" ${isSelected ? 'selected' : ''}>${label}</option>`;
