@@ -1050,11 +1050,11 @@ router.get('/accountant/stats', async (req, res) => {
 /**
  * GET /api/v2/balance-history/approved-today
  * Get transactions approved within a date range (default: today)
- * Supports filters: startDate, endDate, search, date (legacy)
+ * Supports filters: startDate, endDate, search, date (legacy), source, verifier, checked, adjusted
  */
 router.get('/approved-today', async (req, res) => {
     const db = req.app.locals.chatDb;
-    const { date, startDate, endDate, search, page = 1, limit = 50 } = req.query;
+    const { date, startDate, endDate, search, page = 1, limit = 50, source, verifier, checked, adjusted } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
     try {
@@ -1103,6 +1103,37 @@ router.get('/approved-today', async (req, res) => {
             paramCount++;
         }
 
+        // Source filter (match_method groups)
+        if (source) {
+            if (source === 'manual') {
+                whereConditions.push(`bh.match_method IN ('manual_entry', 'manual_link')`);
+            } else if (source === 'selected') {
+                whereConditions.push(`bh.match_method = 'pending_match'`);
+            } else if (source === 'auto') {
+                whereConditions.push(`(bh.match_method IN ('qr_code', 'exact_phone', 'single_match') OR bh.extraction_note LIKE 'MOMO:%' OR bh.extraction_note LIKE 'VCB:%')`);
+            }
+        }
+
+        // Verifier filter
+        if (verifier) {
+            whereConditions.push(`bh.verified_by = $${paramCount++}`);
+            queryParams.push(verifier);
+        }
+
+        // Checked filter (manager_reviewed)
+        if (checked === 'checked') {
+            whereConditions.push(`bh.manager_reviewed = true`);
+        } else if (checked === 'unchecked') {
+            whereConditions.push(`(bh.manager_reviewed IS NULL OR bh.manager_reviewed = false)`);
+        }
+
+        // Adjusted filter
+        if (adjusted === 'adjusted') {
+            whereConditions.push(`bh.verification_note LIKE '%[Đã điều chỉnh:%'`);
+        } else if (adjusted === 'unadjusted') {
+            whereConditions.push(`(bh.verification_note NOT LIKE '%[Đã điều chỉnh:%' OR bh.verification_note IS NULL)`);
+        }
+
         const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
 
         // Get total count
@@ -1136,9 +1167,11 @@ router.get('/approved-today', async (req, res) => {
                 bh.manager_review_note,
                 bh.reviewed_by,
                 bh.reviewed_at,
-                c.name as customer_name
+                c.name as customer_name,
+                wa.created_by as adjusted_by
             FROM balance_history bh
             LEFT JOIN customers c ON bh.customer_id = c.id
+            LEFT JOIN wallet_adjustments wa ON wa.original_transaction_id = bh.id
             ${whereClause}
             ORDER BY bh.verified_at DESC
             LIMIT $${paramCount++} OFFSET $${paramCount++}
@@ -1167,9 +1200,11 @@ router.get('/approved-today', async (req, res) => {
                         bh.manager_review_note,
                         bh.reviewed_by,
                         bh.reviewed_at,
-                        c.name as customer_name
+                        c.name as customer_name,
+                        wa.created_by as adjusted_by
                     FROM balance_history bh
                     LEFT JOIN customers c ON bh.customer_id = c.id
+                    LEFT JOIN wallet_adjustments wa ON wa.original_transaction_id = bh.id
                     ${whereClause}
                     ORDER BY bh.verified_at DESC
                     LIMIT $${paramCount++} OFFSET $${paramCount++}

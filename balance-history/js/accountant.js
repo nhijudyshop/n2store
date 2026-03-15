@@ -1632,13 +1632,17 @@
 
         showLoading(elements.approvedTableBody);
 
-        const { startDate, endDate, search } = state.filters.approved;
+        const { startDate, endDate, search, source, verifier, checked, adjusted } = state.filters.approved;
         const query = new URLSearchParams({
             page: page,
             limit: CONFIG.PAGE_SIZE,
             startDate: startDate || '',
             endDate: endDate || '',
-            search: search || ''
+            search: search || '',
+            source: source || '',
+            verifier: verifier || '',
+            checked: checked || '',
+            adjusted: adjusted || ''
         });
 
         try {
@@ -1652,43 +1656,6 @@
             }
 
             state.approvedToday = result.data;
-
-            // Client-side filtering for approved tab
-            const { source, verifier, checked, adjusted } = state.filters.approved;
-
-            if (source || verifier || checked || adjusted) {
-                state.approvedToday = state.approvedToday.filter(tx => {
-                    // Source filter
-                    if (source) {
-                        const group = typeof getStandardizedSourceGroup === 'function'
-                            ? getStandardizedSourceGroup(tx)
-                            : _fallbackSourceGroup(tx);
-                        if (group !== source) return false;
-                    }
-
-                    // Verifier filter
-                    if (verifier) {
-                        if ((tx.verified_by || '') !== verifier) return false;
-                    }
-
-                    // Check filter (manager_reviewed)
-                    if (checked) {
-                        const isReviewed = tx.manager_reviewed || false;
-                        if (checked === 'checked' && !isReviewed) return false;
-                        if (checked === 'unchecked' && isReviewed) return false;
-                    }
-
-                    // Adjust filter (verification_note contains '[Đã điều chỉnh:')
-                    if (adjusted) {
-                        const note = tx.verification_note || '';
-                        const hasAdjustment = note.includes('[Đã điều chỉnh:');
-                        if (adjusted === 'adjusted' && !hasAdjustment) return false;
-                        if (adjusted === 'unadjusted' && hasAdjustment) return false;
-                    }
-
-                    return true;
-                });
-            }
 
             // Populate verifier dropdown with unique verifiers from data
             _populateVerifierDropdown(result.data);
@@ -1714,7 +1681,7 @@
         if (state.approvedToday.length === 0) {
             elements.approvedTableBody.innerHTML = `
                 <tr>
-                    <td colspan="8" class="acc-empty-state">
+                    <td colspan="9" class="acc-empty-state">
                         <div class="empty-icon">📋</div>
                         <div class="empty-text">Chưa có giao dịch được duyệt ngày này</div>
                     </td>
@@ -1804,6 +1771,7 @@
                     </td>
                     <td>${getMatchMethodBadge(tx)}</td>
                     <td><span class="badge badge-info">${tx.verified_by || 'N/A'}</span></td>
+                    <td>${tx.adjusted_by ? `<span class="badge badge-warning">${tx.adjusted_by}</span>` : ''}</td>
                     <td>${noteHtml}</td>
                     <td class="acc-action-cell">${reviewBtnHtml} ${adjustBtnHtml}</td>
                 </tr>
