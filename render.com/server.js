@@ -419,9 +419,21 @@ class RealtimeClient {
     handleMessage(msg) {
         const [joinRef, ref, topic, event, payload] = msg;
 
+        // Debug: log all events (not just update_conversation)
+        if (event !== 'phx_reply' && event !== 'heartbeat') {
+            console.log(`[SERVER-WS][DEBUG] Event: ${event} | topic: ${topic} | payload keys: ${Object.keys(payload || {}).join(',')}`);
+        }
+
+        if (event === 'phx_reply') {
+            if (payload.status !== 'ok') {
+                console.error(`[SERVER-WS][DEBUG] Channel reply ERROR: topic=${topic}, status=${payload.status}, response=`, JSON.stringify(payload.response || {}).substring(0, 200));
+            }
+        }
+
         if (event === 'pages:update_conversation') {
             const conversation = payload.conversation;
-            console.log('[SERVER-WS] New Message/Comment:', conversation.id);
+            const clientCount = wss?.clients?.size || 0;
+            console.log(`[SERVER-WS] New Message/Comment: conv=${conversation.id}, page=${conversation.page_id}, type=${conversation.type}, from="${conversation.from?.name}", snippet="${(conversation.snippet || '').substring(0, 50)}", broadcasting to ${clientCount} clients`);
 
             // Broadcast to connected frontend clients
             broadcastToClients({
@@ -453,7 +465,9 @@ class RealtimeClient {
 
         // [INBOX-SPECIFIC] Forward new_message events for real-time chat update
         if (event === 'pages:new_message') {
-            console.log('[SERVER-WS] pages:new_message → forwarding to clients');
+            const msg = payload?.message || payload;
+            const clientCount = wss?.clients?.size || 0;
+            console.log(`[SERVER-WS] pages:new_message → conv=${msg?.conversation_id}, msg="${(msg?.message || '').substring(0, 50)}", broadcasting to ${clientCount} clients`);
             broadcastToClients({
                 type: 'pages:new_message',
                 payload: payload
@@ -826,7 +840,12 @@ app.get('/api/realtime/status', (req, res) => {
         connected: realtimeClient.isConnected,
         hasToken: !!realtimeClient.token,
         userId: realtimeClient.userId,
-        pageCount: realtimeClient.pageIds?.length || 0
+        pageCount: realtimeClient.pageIds?.length || 0,
+        pageIds: realtimeClient.pageIds || [],
+        wsState: realtimeClient.ws ? realtimeClient.ws.readyState : null,
+        reconnectAttempts: realtimeClient.reconnectAttempts,
+        connectedClients: wss?.clients?.size || 0,
+        serverUptime: Math.round(process.uptime()),
     });
 });
 
@@ -962,11 +981,15 @@ const wss = new WebSocket.Server({ server });
 
 // Broadcast function
 const broadcastToClients = (data) => {
+    let sentCount = 0;
+    let totalClients = wss.clients.size;
     wss.clients.forEach((client) => {
         if (client.readyState === WebSocket.OPEN) {
             client.send(JSON.stringify(data));
+            sentCount++;
         }
     });
+    console.log(`[SERVER-WS][DEBUG] Broadcast: type=${data.type}, sent to ${sentCount}/${totalClients} clients`);
 };
 
 // Heartbeat for Frontend Clients (Keep-Alive)
@@ -978,6 +1001,14 @@ const interval = setInterval(function ping() {
         ws.ping();
     });
 }, 30000);
+
+wss.on('connection', function connection(ws, req) {
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    console.log(`[SERVER-WS][DEBUG] Frontend client CONNECTED from ${ip}. Total clients: ${wss.clients.size}`);
+    ws.on('close', () => {
+        console.log(`[SERVER-WS][DEBUG] Frontend client DISCONNECTED from ${ip}. Total clients: ${wss.clients.size}`);
+    });
+});
 
 wss.on('close', function close() {
     clearInterval(interval);

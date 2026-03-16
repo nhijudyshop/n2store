@@ -2994,13 +2994,18 @@ class InboxChatController {
         // Try active account first, then others
         const ordered = [ptm.activeAccountId, ...accountIds.filter(id => id !== ptm.activeAccountId)].filter(Boolean);
 
+        console.log(`[InboxChat][DEBUG] _getWorkingAccountForWS: ${accountIds.length} accounts, active=${ptm.activeAccountId}, order=[${ordered.join(',')}]`);
+
         for (const accountId of ordered) {
             const account = ptm.accounts[accountId];
-            if (!account) continue;
-            if (ptm.isTokenExpired && ptm.isTokenExpired(account.exp)) continue;
+            if (!account) { console.log(`[InboxChat][DEBUG] Account ${accountId}: not found, skip`); continue; }
+            if (ptm.isTokenExpired && ptm.isTokenExpired(account.exp)) {
+                console.log(`[InboxChat][DEBUG] Account "${account.name || accountId}": JWT expired (exp=${account.exp}), skip`);
+                continue;
+            }
 
             const token = account.token;
-            if (!token) continue;
+            if (!token) { console.log(`[InboxChat][DEBUG] Account "${account.name || accountId}": no token, skip`); continue; }
 
             // Decode userId from JWT
             let userId = null;
@@ -3010,8 +3015,13 @@ class InboxChatController {
                     const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
                     userId = payload.uid || payload.user_id || payload.sub;
                 }
-            } catch (e) { continue; }
-            if (!userId) continue;
+            } catch (e) {
+                console.log(`[InboxChat][DEBUG] Account "${account.name || accountId}": JWT decode failed`, e.message);
+                continue;
+            }
+            if (!userId) { console.log(`[InboxChat][DEBUG] Account "${account.name || accountId}": no userId in JWT`); continue; }
+
+            console.log(`[InboxChat][DEBUG] Testing account "${account.name || accountId}" (uid=${userId})...`);
 
             // Quick check: try fetching conversations to see if subscription is active
             try {
@@ -3019,23 +3029,33 @@ class InboxChatController {
                 const res = await fetch(testUrl);
                 const data = await res.json();
                 if (data.error_code === 122) {
-                    console.log(`[InboxChat] Account "${account.name || accountId}" subscription expired, skipping...`);
+                    console.log(`[InboxChat][DEBUG] Account "${account.name || accountId}" subscription expired (error_code=122), skipping...`);
                     continue;
                 }
+                if (data.error) {
+                    console.log(`[InboxChat][DEBUG] Account "${account.name || accountId}" API error:`, data.error);
+                } else {
+                    console.log(`[InboxChat][DEBUG] Account "${account.name || accountId}" API OK, ${data.data?.length || 0} conversations`);
+                }
             } catch (e) {
-                // Network error → try anyway
+                console.log(`[InboxChat][DEBUG] Account "${account.name || accountId}" API check failed:`, e.message, '(trying anyway)');
             }
 
             const pageIds = (pdm.pageIds || []).map(id => String(id));
-            console.log(`[InboxChat] ✅ Using account "${account.name || accountId}" for WS`);
+            console.log(`[InboxChat] ✅ Using account "${account.name || accountId}" (uid=${userId}) for WS, pages=[${pageIds.join(',')}]`);
             return { token, userId, pageIds, cookie: `jwt=${token}` };
         }
 
+        console.error('[InboxChat][DEBUG] No working account found for WS!');
         return null;
     }
 
     async initializeWebSocket() {
-        if (this.isSocketConnected || this.isSocketConnecting) return true;
+        console.log(`[InboxChat][DEBUG] initializeWebSocket() called. isSocketConnected=${this.isSocketConnected}, isSocketConnecting=${this.isSocketConnecting}`);
+        if (this.isSocketConnected || this.isSocketConnecting) {
+            console.log(`[InboxChat][DEBUG] initializeWebSocket() skipped: already ${this.isSocketConnected ? 'connected' : 'connecting'}`);
+            return true;
+        }
 
         try {
             const ptm = window.pancakeTokenManager;
@@ -3175,8 +3195,19 @@ class InboxChatController {
 
     handleConversationUpdate(payload) {
         const conversation = payload?.conversation || payload;
+        console.log(`[InboxChat][DEBUG] handleConversationUpdate ENTER:`, {
+            hasConversation: !!conversation,
+            convId: conversation?.id,
+            pageId: conversation?.page_id,
+            type: conversation?.type,
+            snippet: (conversation?.snippet || '').substring(0, 50),
+            from: conversation?.from?.name,
+            unread: conversation?.unread_count,
+            activeConv: this.activeConversationId,
+        });
+
         if (!conversation || !conversation.id) {
-            console.warn('[InboxChat] ⚠️ WS update_conversation: missing conversation or id', payload);
+            console.warn('[InboxChat][DEBUG] ⚠️ REJECTED: missing conversation or id', JSON.stringify(payload).substring(0, 200));
             return;
         }
 
@@ -3185,14 +3216,15 @@ class InboxChatController {
         if (pageId) {
             const knownPage = this.data.pages.find(p => String(p.id) === pageId || String(p.page_id) === pageId);
             if (!knownPage) {
-                console.log(`[InboxChat] WS skipped: page ${pageId} not in loaded pages [${this.data.pages.map(p => p.id).join(',')}]`);
+                console.warn(`[InboxChat][DEBUG] ⚠️ REJECTED by page filter: page ${pageId} not in loaded pages [${this.data.pages.map(p => p.id).join(',')}]`);
                 return;
             }
+            console.log(`[InboxChat][DEBUG] ✅ Page filter passed: ${pageId}`);
         }
 
         // Filter by type — only process INBOX and COMMENT (skip unknown types)
         if (conversation.type && conversation.type !== 'INBOX' && conversation.type !== 'COMMENT') {
-            console.log(`[InboxChat] WS skipped: type=${conversation.type} (not INBOX/COMMENT)`);
+            console.warn(`[InboxChat][DEBUG] ⚠️ REJECTED by type filter: type=${conversation.type} (not INBOX/COMMENT)`);
             return;
         }
 
@@ -3208,6 +3240,7 @@ class InboxChatController {
 
         const existing = this.data.getConversation(conversation.id);
         if (existing) {
+            console.log(`[InboxChat][DEBUG] Updating EXISTING conversation ${conversation.id}: snippet="${(conversation.snippet || '').substring(0, 40)}", unread=${conversation.unread_count}`);
             existing.lastMessage = this.data._filterSystemMessage(conversation.snippet) || existing.lastMessage;
             existing.time = this.parseTimestamp(conversation.updated_at) || new Date();
             existing.unread = conversation.unread_count ?? existing.unread;
@@ -3226,6 +3259,7 @@ class InboxChatController {
             }
         } else {
             // New conversation
+            console.log(`[InboxChat][DEBUG] Adding NEW conversation ${conversation.id}: from="${conversation.from?.name}", snippet="${(conversation.snippet || '').substring(0, 40)}"`);
             const mapped = this.data.mapConversation(conversation);
             if (isLivestream) {
                 mapped.isLivestream = true;
@@ -3242,9 +3276,13 @@ class InboxChatController {
         this.data.conversations.sort((a, b) => b.time - a.time);
 
         // Smart update: only update the changed conversation item (avoid full list flicker)
+        console.log(`[InboxChat][DEBUG] About to update UI for conv ${conversation.id}...`);
         if (!this._updateSingleConversationInList(conversation.id)) {
+            console.log(`[InboxChat][DEBUG] _updateSingleConversationInList returned false → full re-render`);
             // Fallback to full re-render if filters/search active
             this.renderConversationList();
+        } else {
+            console.log(`[InboxChat][DEBUG] _updateSingleConversationInList succeeded (smart update)`);
         }
         this.renderGroupStats();
 
