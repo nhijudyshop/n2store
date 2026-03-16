@@ -900,6 +900,43 @@ class InboxChatController {
         });
     }
 
+    /**
+     * Update a single conversation in the DOM without re-rendering the entire list.
+     * Returns true if handled, false if a full re-render is needed.
+     */
+    _updateSingleConversationInList(convId) {
+        const conv = this.data.getConversation(convId);
+        if (!conv) return false;
+
+        // Check if conversation passes current filters
+        if (this.selectedPageIds.size > 0 && !this.selectedPageIds.has(conv.pageId)) return false;
+        if (this.currentTypeFilter !== 'all' && conv.type !== this.currentTypeFilter) return false;
+        if (this.searchQuery) return false; // Full re-render needed for search
+
+        const existingEl = this.elements.conversationList.querySelector(`[data-id="${conv.id}"]`);
+        const newHtml = this._buildConvItemHtml(conv);
+
+        if (existingEl) {
+            // Replace content in-place
+            const temp = document.createElement('div');
+            temp.innerHTML = newHtml;
+            const newEl = temp.firstElementChild;
+            existingEl.replaceWith(newEl);
+            // Move to top (most recent) if not already first
+            if (newEl !== this.elements.conversationList.firstElementChild) {
+                this.elements.conversationList.prepend(newEl);
+            }
+        } else {
+            // New conversation — prepend
+            const temp = document.createElement('div');
+            temp.innerHTML = newHtml;
+            this.elements.conversationList.prepend(temp.firstElementChild);
+        }
+
+        this._debouncedCreateIcons();
+        return true;
+    }
+
     // ===== Livestream Post Selector =====
 
     updateLivestreamButton(conv) {
@@ -3162,7 +3199,12 @@ class InboxChatController {
         }
 
         this.data.conversations.sort((a, b) => b.time - a.time);
-        this.renderConversationList();
+
+        // Smart update: only update the changed conversation item (avoid full list flicker)
+        if (!this._updateSingleConversationInList(conversation.id)) {
+            // Fallback to full re-render if filters/search active
+            this.renderConversationList();
+        }
         this.renderGroupStats();
 
         // If this is the active conversation, reload messages to show new content
@@ -3185,7 +3227,11 @@ class InboxChatController {
             conv.time = new Date();
             conv.lastMessage = this.data._filterSystemMessage(message.original_message || message.message) || conv.lastMessage;
             this.data.conversations.sort((a, b) => b.time - a.time);
-            this.renderConversationList();
+
+            // Smart update: only update the changed conversation item
+            if (!this._updateSingleConversationInList(convId)) {
+                this.renderConversationList();
+            }
 
             // If this is the active conversation, reload messages
             if (this.activeConversationId === convId) {
