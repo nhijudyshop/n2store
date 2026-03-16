@@ -15,6 +15,7 @@
         commands: 'attendance_commands',
         syncStatus: 'attendance_sync_status',
         fullday: 'attendance_fullday',
+        allowances: 'attendance_allowances',
     };
 
     const DAY_NAMES = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'];
@@ -41,7 +42,7 @@
     let syncStatus = null;       // Sync service status
     let unsubSyncStatus = null;  // Firestore listener unsubscribe
     let showHidden = false;      // Toggle hiển thị nhân viên ẩn
-    let viewPeriod = 'week';     // 'week' or 'month'
+    let viewPeriod = 'month';    // always 'month'
     let currentMonth = null;     // { year, month } for monthly view
     let monthRecords = [];       // Records for entire month
     let monthlyEmpData = [];     // Cached monthly calc data for detail view
@@ -98,6 +99,103 @@
         renderSchedule();
     }
 
+    // Allowances (Phụ cấp) — lưu trên Firestore theo tháng
+    // Key: empId_YYYY-MM, value: amount (VND)
+    let monthlyAllowances = {}; // { 'empId_YYYY-MM': amount }
+
+    async function loadAllowances() {
+        if (!currentMonth) return;
+        const monthKey = `${currentMonth.year}-${String(currentMonth.month).padStart(2, '0')}`;
+        try {
+            const snapshot = await db.collection(COLLECTIONS.allowances)
+                .where('monthKey', '==', monthKey)
+                .get();
+            monthlyAllowances = {};
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                monthlyAllowances[`${data.empId}_${data.monthKey}`] = data.amount || 0;
+            });
+            console.log(`[Attendance] Loaded ${Object.keys(monthlyAllowances).length} allowances for ${monthKey}`);
+        } catch (err) {
+            console.error('[Attendance] Lỗi load allowances:', err);
+        }
+    }
+
+    function getAllowance(empId) {
+        if (!currentMonth) return 0;
+        const monthKey = `${currentMonth.year}-${String(currentMonth.month).padStart(2, '0')}`;
+        return monthlyAllowances[`${empId}_${monthKey}`] || 0;
+    }
+
+    async function saveAllowance(empId, amount) {
+        if (!currentMonth) return;
+        const monthKey = `${currentMonth.year}-${String(currentMonth.month).padStart(2, '0')}`;
+        const docId = `${empId}_${monthKey}`;
+        try {
+            if (amount === 0) {
+                await db.collection(COLLECTIONS.allowances).doc(docId).delete();
+                delete monthlyAllowances[docId];
+            } else {
+                await db.collection(COLLECTIONS.allowances).doc(docId).set({
+                    empId: String(empId),
+                    monthKey: monthKey,
+                    amount: amount,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                monthlyAllowances[docId] = amount;
+            }
+            renderMonthlySchedule();
+        } catch (err) {
+            console.error('[Attendance] Lỗi lưu phụ cấp:', err);
+            showNotification('Lỗi lưu phụ cấp: ' + err.message, 'error');
+        }
+    }
+
+    function showAllowanceModal(empId) {
+        const emp = employees.find(e => String(e.userId || e.uid || e.id) === String(empId));
+        const empName = emp ? emp.name : `User ${empId}`;
+        const current = getAllowance(empId);
+
+        let modal = document.getElementById('allowanceModal');
+        if (modal) modal.remove();
+
+        modal = document.createElement('div');
+        modal.id = 'allowanceModal';
+        modal.style.cssText = 'position:fixed; inset:0; z-index:10000; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.4);';
+        modal.innerHTML = `
+            <div style="background:#fff; border-radius:12px; padding:24px; width:360px; box-shadow:0 20px 60px rgba(0,0,0,0.2);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                    <div>
+                        <div style="font-size:15px; font-weight:600; color:#1e293b;">Phụ cấp</div>
+                        <div style="font-size:12px; color:#8c8c8c;">${empName}</div>
+                    </div>
+                    <button onclick="document.getElementById('allowanceModal').remove()" style="border:none; background:none; font-size:20px; cursor:pointer; color:#8c8c8c;">✕</button>
+                </div>
+                <div style="margin-bottom:16px;">
+                    <label style="font-size:13px; color:#64748b; display:block; margin-bottom:6px;">Số tiền phụ cấp (VND)</label>
+                    <input type="number" id="allowanceInput" value="${current}" placeholder="0"
+                        style="width:100%; padding:10px 12px; border:1px solid #d1d5db; border-radius:8px; font-size:15px; box-sizing:border-box; outline:none;">
+                </div>
+                <div style="display:flex; gap:8px; justify-content:flex-end;">
+                    <button onclick="document.getElementById('allowanceModal').remove()"
+                        style="padding:8px 16px; border:1px solid #d1d5db; border-radius:8px; background:#fff; cursor:pointer; font-size:13px;">Hủy</button>
+                    <button onclick="window._attendance.saveAllowance('${empId}', parseInt(document.getElementById('allowanceInput').value) || 0); document.getElementById('allowanceModal').remove();"
+                        style="padding:8px 16px; border:none; border-radius:8px; background:#1890ff; color:#fff; cursor:pointer; font-size:13px; font-weight:600;">Lưu</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.remove();
+        });
+
+        setTimeout(() => {
+            const input = document.getElementById('allowanceInput');
+            if (input) { input.focus(); input.select(); }
+        }, 100);
+    }
+
     function hideEmployee(empId) {
         hiddenEmployees.add(String(empId));
         saveHidden();
@@ -135,7 +233,7 @@
         bindEvents();
         injectTestButton();
         Promise.all([loadEmployees(), loadFullDayOverrides()]).then(() => {
-            loadWeekData();
+            loadMonthData();
         });
         listenSyncStatus();
 
@@ -285,6 +383,7 @@
             monthRecords = [];
         }
 
+        await loadAllowances();
         renderMonthlySchedule();
     }
 
@@ -963,11 +1062,12 @@
             <th style="text-align:right;">Lương CB</th>
             <th style="text-align:right;">Trừ muộn</th>
             <th style="text-align:right;">OT</th>
+            <th style="text-align:right;">Phụ cấp</th>
             <th style="text-align:right; min-width:130px;">Tổng lương tháng</th>
         `;
 
         if (employees.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:60px 20px; color:#94a3b8;">Chưa có dữ liệu</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:60px 20px; color:#94a3b8;">Chưa có dữ liệu</td></tr>`;
             return;
         }
 
@@ -998,7 +1098,10 @@
                 if (sal.otPay > 0) otDays.push({ dateKey, minutes: sal.otMinutes, amount: sal.otPay });
             }
 
-            return { emp, empId, workedDays, totalBase, totalLate, totalOT, totalSalary, lateDays, otDays };
+            const allowance = getAllowance(empId);
+            const totalWithAllowance = totalSalary + allowance;
+
+            return { emp, empId, workedDays, totalBase, totalLate, totalOT, totalSalary: totalWithAllowance, salaryBeforeAllowance: totalSalary, allowance, lateDays, otDays };
         });
 
         empData.sort((a, b) => b.totalSalary - a.totalSalary);
@@ -1011,13 +1114,14 @@
 
         // Grand total row
         const gt = visibleData.reduce((acc, e) => {
-            acc.base += e.totalBase; acc.late += e.totalLate; acc.ot += e.totalOT; acc.total += e.totalSalary; acc.days += e.workedDays;
+            acc.base += e.totalBase; acc.late += e.totalLate; acc.ot += e.totalOT; acc.allowance += e.allowance; acc.total += e.totalSalary; acc.days += e.workedDays;
             return acc;
-        }, { base: 0, late: 0, ot: 0, total: 0, days: 0 });
+        }, { base: 0, late: 0, ot: 0, allowance: 0, total: 0, days: 0 });
 
         html += `
             <tr style="background:#fafafa;">
                 <td class="ts-col-fixed" style="border:none; background:#fafafa;"></td>
+                <td style="border:none;"></td>
                 <td style="border:none;"></td>
                 <td style="border:none;"></td>
                 <td style="border:none;"></td>
@@ -1029,7 +1133,7 @@
         `;
 
         for (const d of visibleData) {
-            const { emp, empId, workedDays, totalBase, totalLate, totalOT, totalSalary, lateDays, otDays } = d;
+            const { emp, empId, workedDays, totalBase, totalLate, totalOT, totalSalary, allowance, lateDays, otDays } = d;
             const lateId = `late_${empId}`;
             const otId = `ot_${empId}`;
             html += `
@@ -1045,6 +1149,10 @@
                         ${totalOT > 0 ? `onclick="window._attendance.showMonthlyDetail('${empId}','ot')"` : ''}>
                         ${totalOT > 0 ? '+' + formatVND(totalOT) + 'đ' : '-'}
                     </td>
+                    <td style="text-align:right; color:${allowance > 0 ? '#389e0d' : '#bfbfbf'}; cursor:pointer; text-decoration:underline;"
+                        onclick="window._attendance.showAllowanceModal('${empId}')">
+                        ${allowance > 0 ? '+' + formatVND(allowance) + 'đ' : '-'}
+                    </td>
                     <td style="text-align:right;">
                         <div style="font-weight:700; font-size:14px; color:${totalSalary > 0 ? '#1e293b' : '#bfbfbf'};">
                             ${totalSalary > 0 ? formatVND(totalSalary) + 'đ' : '-'}
@@ -1057,14 +1165,14 @@
         // Hidden employees
         if (hiddenData.length > 0) {
             html += `
-                <tr><td colspan="6" style="text-align:center; padding:8px; border:none;">
+                <tr><td colspan="7" style="text-align:center; padding:8px; border:none;">
                     <span onclick="window._attendance.toggleHidden()" style="cursor:pointer; color:#1890ff; font-size:12px;">
                         ${showHidden ? 'Ẩn' : 'Hiện'} ${hiddenData.length} nhân viên đã ẩn
                     </span>
                 </td></tr>
             `;
             if (showHidden) {
-                for (const { emp, empId, workedDays, totalBase, totalLate, totalOT, totalSalary } of hiddenData) {
+                for (const { emp, empId, workedDays, totalBase, totalLate, totalOT, totalSalary, allowance } of hiddenData) {
                     html += `
                         <tr style="opacity:0.5;">
                             ${renderEmpNameCell(emp, empId, true)}
@@ -1072,6 +1180,7 @@
                             <td style="text-align:right; color:#8c8c8c;">${totalBase > 0 ? formatVND(totalBase) + 'đ' : '-'}</td>
                             <td style="text-align:right; color:#8c8c8c;">${totalLate > 0 ? '-' + formatVND(totalLate) + 'đ' : '-'}</td>
                             <td style="text-align:right; color:#8c8c8c;">${totalOT > 0 ? '+' + formatVND(totalOT) + 'đ' : '-'}</td>
+                            <td style="text-align:right; color:#8c8c8c;">${allowance > 0 ? '+' + formatVND(allowance) + 'đ' : '-'}</td>
                             <td style="text-align:right; color:#8c8c8c;">${totalSalary > 0 ? formatVND(totalSalary) + 'đ' : '-'}</td>
                         </tr>
                     `;
@@ -1848,13 +1957,15 @@
         addDeviceUser,
         enrollFingerprint,
         sendSync: sendSyncCommand,
-        reload: () => loadEmployees().then(() => loadWeekData()),
+        reload: () => loadEmployees().then(() => loadMonthData()),
         showTestModal,
         hideEmployee,
         unhideEmployee,
         toggleHidden,
         toggleFullDay,
         showMonthlyDetail,
+        showAllowanceModal,
+        saveAllowance,
     };
 
     // Auto-init when DOM ready
