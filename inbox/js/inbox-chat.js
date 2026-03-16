@@ -3023,43 +3023,59 @@ class InboxChatController {
 
             this.isSocketConnecting = true;
 
-            // Step 1: POST to start server-side Pancake connection
-            console.log('[InboxChat] Starting server-mode realtime...');
-            const startUrl = `${window.API_CONFIG.WORKER_URL}/api/realtime/start`;
-            const startResponse = await fetch(startUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token, userId, pageIds, cookie })
-            });
-
-            const startData = await startResponse.json();
-            if (!startData.success) {
-                console.warn('[InboxChat] Server-mode start failed:', startData);
-                this.isSocketConnecting = false;
-                return false;
-            }
-            console.log('[InboxChat] Server-mode started, checking Pancake connection status...');
-
-            // Step 1.5: Wait then check if server's Pancake WS is connected (retry for cold start)
-            let pancakeConnected = false;
-            for (let attempt = 1; attempt <= 3; attempt++) {
-                await new Promise(r => setTimeout(r, 2000 * attempt));
-                try {
-                    const statusUrl = `${window.API_CONFIG.WORKER_URL}/api/realtime/status`;
-                    const statusRes = await fetch(statusUrl);
-                    const status = await statusRes.json();
-                    console.log(`[InboxChat] Pancake WS status (attempt ${attempt}):`, JSON.stringify(status));
-                    if (status.connected) {
-                        pancakeConnected = true;
-                        break;
-                    }
-                } catch (e) {
-                    console.warn(`[InboxChat] Status check failed (attempt ${attempt}):`, e.message);
+            // Step 1: Check if server already has a working Pancake WS connection
+            let serverAlreadyConnected = false;
+            try {
+                const statusUrl = `${window.API_CONFIG.WORKER_URL}/api/realtime/status`;
+                const statusRes = await fetch(statusUrl);
+                const status = await statusRes.json();
+                console.log('[InboxChat] Server Pancake WS status:', JSON.stringify(status));
+                if (status.connected && status.hasToken) {
+                    serverAlreadyConnected = true;
+                    console.log('[InboxChat] ✅ Server already connected, skipping POST /start (avoid overwrite)');
                 }
+            } catch (e) {
+                console.warn('[InboxChat] Could not check server status:', e.message);
             }
-            if (!pancakeConnected) {
-                console.warn('[InboxChat] ⚠️ Pancake WS not connected after retries. Starting polling as backup...');
-                this.startAutoRefresh();
+
+            // Only POST /start if server is NOT already connected
+            if (!serverAlreadyConnected) {
+                console.log('[InboxChat] Starting server-mode realtime...');
+                const startUrl = `${window.API_CONFIG.WORKER_URL}/api/realtime/start`;
+                const startResponse = await fetch(startUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ token, userId, pageIds, cookie })
+                });
+
+                const startData = await startResponse.json();
+                if (!startData.success) {
+                    console.warn('[InboxChat] Server-mode start failed:', startData);
+                    this.isSocketConnecting = false;
+                    return false;
+                }
+
+                // Wait for server's Pancake WS to connect (retry for cold start)
+                let pancakeConnected = false;
+                for (let attempt = 1; attempt <= 3; attempt++) {
+                    await new Promise(r => setTimeout(r, 2000 * attempt));
+                    try {
+                        const statusUrl = `${window.API_CONFIG.WORKER_URL}/api/realtime/status`;
+                        const statusRes = await fetch(statusUrl);
+                        const status = await statusRes.json();
+                        console.log(`[InboxChat] Pancake WS status (attempt ${attempt}):`, JSON.stringify(status));
+                        if (status.connected) {
+                            pancakeConnected = true;
+                            break;
+                        }
+                    } catch (e) {
+                        console.warn(`[InboxChat] Status check failed (attempt ${attempt}):`, e.message);
+                    }
+                }
+                if (!pancakeConnected) {
+                    console.warn('[InboxChat] ⚠️ Pancake WS not connected after retries. Starting polling as backup...');
+                    this.startAutoRefresh();
+                }
             }
 
             // Step 2: Connect WebSocket to Render server (receives broadcasted events)
