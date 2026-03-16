@@ -600,11 +600,14 @@ initializeWebSocket()
         └── After max attempts → polling only (30s)
 ```
 
-### Server-side Event Forwarding (render.com/server.js)
+### Server-side Event Forwarding (n2store-realtime/server.js — server chính)
 
-Server Pancake WS (`RealtimeClient.handleMessage()`) forward 2 event types:
-- `pages:update_conversation` → broadcast + save to PostgreSQL
+Server Pancake WS (`RealtimeClient.handleMessage()`) forward các event types:
+- `pages:update_conversation` → broadcast + save to PostgreSQL + livestream detection
 - `pages:new_message` → broadcast only (INBOX-SPECIFIC, added riêng cho inbox)
+- `order:tags_updated` → broadcast only
+
+**Lưu ý**: Inbox kết nối tới `wss://n2store-realtime.onrender.com` (server chính), KHÔNG phải `render.com/server.js` (server phụ/fallback).
 
 ### Event Types
 
@@ -868,4 +871,4 @@ LOAD_MORE_COOLDOWN = 2000  // ms base, * consecutive empty loads, max 10s
 - **`inbox-chat.js`** `handleConversationUpdate()`: auto-reload messages khi conversation đang mở nhận update
 - **`inbox-chat.js`** `initializeWebSocket()`: retry check Pancake status 3 lần (2s/4s/6s), start polling backup nếu fail
 - **`inbox-chat.js`** `onSocketClose()`: start polling ngay khi WS close (không đợi hết retry)
-- **`server.js`** `handleMessage()`: thêm block forward `pages:new_message` (INBOX-SPECIFIC, code mới không sửa code cũ)
+- **`n2store-realtime/server.js`** `handleMessage()`: thêm block forward `pages:new_message` (INBOX-SPECIFIC, code mới không sửa code cũ)

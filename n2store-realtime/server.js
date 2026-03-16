@@ -597,6 +597,15 @@ class RealtimeClient {
                 payload: payload
             });
         }
+
+        // [INBOX] Forward new_message events for real-time chat update
+        if (event === 'pages:new_message') {
+            console.log('[PANCAKE-WS] 💬 New Message event → forwarding to clients');
+            broadcastToClients({
+                type: 'pages:new_message',
+                payload: payload
+            });
+        }
     }
 
     async stop(disableAutoConnect = true) {
