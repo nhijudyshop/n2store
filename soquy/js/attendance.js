@@ -16,6 +16,7 @@
         syncStatus: 'attendance_sync_status',
         fullday: 'attendance_fullday',
         allowances: 'attendance_allowances',
+        payroll: 'attendance_payroll',
     };
 
     const DAY_NAMES = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'];
@@ -194,6 +195,308 @@
             const input = document.getElementById('allowanceInput');
             if (input) { input.focus(); input.select(); }
         }, 100);
+    }
+
+    // ================================================================
+    // PAYROLL DATA LAYER
+    // ================================================================
+    let payrollDataMap = {}; // { empId: { hoaHong, thuong, giamTruManual, daTra, allowances, salaryDaysOverride, otHoursOverride } }
+
+    async function loadPayrollData() {
+        if (!currentMonth) return;
+        const monthKey = `${currentMonth.year}-${String(currentMonth.month).padStart(2, '0')}`;
+        try {
+            const snapshot = await db.collection(COLLECTIONS.payroll)
+                .where('monthKey', '==', monthKey)
+                .get();
+            payrollDataMap = {};
+            snapshot.forEach(doc => {
+                const data = doc.data();
+                payrollDataMap[String(data.empId)] = data;
+            });
+            console.log(`[Attendance] Loaded ${Object.keys(payrollDataMap).length} payroll docs for ${monthKey}`);
+        } catch (err) {
+            console.error('[Attendance] Lỗi load payroll data:', err);
+            payrollDataMap = {};
+        }
+    }
+
+    function getPayrollDoc(empId) {
+        return payrollDataMap[String(empId)] || {};
+    }
+
+    async function savePayrollField(empId, field, value) {
+        if (!currentMonth) return;
+        const monthKey = `${currentMonth.year}-${String(currentMonth.month).padStart(2, '0')}`;
+        const docId = `${empId}_${monthKey}`;
+        try {
+            await db.collection(COLLECTIONS.payroll).doc(docId).set({
+                empId: String(empId),
+                monthKey: monthKey,
+                [field]: value,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+            // Update local cache
+            if (!payrollDataMap[String(empId)]) {
+                payrollDataMap[String(empId)] = { empId: String(empId), monthKey };
+            }
+            payrollDataMap[String(empId)][field] = value;
+        } catch (err) {
+            console.error(`[Attendance] Lỗi lưu payroll ${field}:`, err);
+            showNotification('Lỗi lưu: ' + err.message, 'error');
+        }
+    }
+
+    async function savePayrollAllowances(empId, items) {
+        if (!currentMonth) return;
+        const monthKey = `${currentMonth.year}-${String(currentMonth.month).padStart(2, '0')}`;
+        const docId = `${empId}_${monthKey}`;
+        try {
+            await db.collection(COLLECTIONS.payroll).doc(docId).set({
+                empId: String(empId),
+                monthKey: monthKey,
+                allowances: items,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+            if (!payrollDataMap[String(empId)]) {
+                payrollDataMap[String(empId)] = { empId: String(empId), monthKey };
+            }
+            payrollDataMap[String(empId)].allowances = items;
+        } catch (err) {
+            console.error('[Attendance] Lỗi lưu phụ cấp:', err);
+            showNotification('Lỗi lưu phụ cấp: ' + err.message, 'error');
+        }
+    }
+
+    async function savePayrollOverrides(empId, type, data) {
+        if (!currentMonth) return;
+        const monthKey = `${currentMonth.year}-${String(currentMonth.month).padStart(2, '0')}`;
+        const docId = `${empId}_${monthKey}`;
+        const field = type === 'salary' ? 'salaryDaysOverride' : 'otHoursOverride';
+        try {
+            await db.collection(COLLECTIONS.payroll).doc(docId).set({
+                empId: String(empId),
+                monthKey: monthKey,
+                [field]: data,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+            if (!payrollDataMap[String(empId)]) {
+                payrollDataMap[String(empId)] = { empId: String(empId), monthKey };
+            }
+            payrollDataMap[String(empId)][field] = data;
+        } catch (err) {
+            console.error(`[Attendance] Lỗi lưu ${field}:`, err);
+            showNotification('Lỗi lưu: ' + err.message, 'error');
+        }
+    }
+
+    // ================================================================
+    // PAYROLL CALCULATION
+    // ================================================================
+
+    /** Tính chi tiết lương chính theo loại ngày */
+    function calculateLuongChinhDetail(empId, empRate) {
+        const records = monthRecords;
+        const y = currentMonth.year;
+        const m = currentMonth.month;
+        const lastDay = new Date(y, m, 0).getDate();
+        const payDoc = getPayrollDoc(empId);
+        const overrides = payDoc.salaryDaysOverride || {};
+
+        let weekdayDays = 0, weekendDays = 0, holidayDays = 0;
+        let weekdayBase = 0, weekendBase = 0, holidayBase = 0;
+
+        for (let d = 1; d <= lastDay; d++) {
+            const dateKey = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            const dayRecs = records.filter(r => String(r.deviceUserId) === String(empId) && r.dateKey === dateKey);
+            const cellData = processDayRecords(dayRecs);
+            const sal = calculateDaySalary(cellData, empRate, isFullDay(empId, dateKey));
+
+            if (sal.baseSalary > 0) {
+                const dayOfWeek = new Date(y, m - 1, d).getDay(); // 0=CN, 6=T7
+                if (dayOfWeek === 0 || dayOfWeek === 6) {
+                    weekendDays++;
+                    weekendBase += sal.baseSalary;
+                } else {
+                    weekdayDays++;
+                    weekdayBase += sal.baseSalary;
+                }
+            }
+        }
+
+        // Calculate actual salary with overrides
+        const rows = [
+            {
+                label: 'Ngày thường',
+                subLabel: '',
+                dailyRate: empRate,
+                actualDays: weekdayDays,
+                salaryDays: overrides.weekday != null ? overrides.weekday : weekdayDays,
+                amount: 0, // calculated below
+            },
+            {
+                label: 'Ngày nghỉ',
+                subLabel: '100%',
+                dailyRate: empRate,
+                actualDays: weekendDays,
+                salaryDays: overrides.weekend != null ? overrides.weekend : weekendDays,
+                amount: 0,
+            },
+            {
+                label: 'Ngày lễ tết',
+                subLabel: '100%',
+                dailyRate: empRate,
+                actualDays: holidayDays,
+                salaryDays: overrides.holiday != null ? overrides.holiday : holidayDays,
+                amount: 0,
+            }
+        ];
+
+        rows.forEach(r => { r.amount = r.dailyRate * r.salaryDays; });
+
+        return rows;
+    }
+
+    /** Tính chi tiết làm thêm theo loại ngày */
+    function calculateLamThemDetail(empId, empRate) {
+        const records = monthRecords;
+        const y = currentMonth.year;
+        const m = currentMonth.month;
+        const lastDay = new Date(y, m, 0).getDate();
+        const hourlyRate = empRate / 12;
+        const otHourlyRate = Math.round(hourlyRate * SALARY.OT_MULTIPLIER);
+        const payDoc = getPayrollDoc(empId);
+        const overrides = payDoc.otHoursOverride || {};
+
+        let weekdayHours = 0, saturdayHours = 0, sundayHours = 0, holidayHours = 0;
+
+        for (let d = 1; d <= lastDay; d++) {
+            const dateKey = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            const dayRecs = records.filter(r => String(r.deviceUserId) === String(empId) && r.dateKey === dateKey);
+            const cellData = processDayRecords(dayRecs);
+            const sal = calculateDaySalary(cellData, empRate, isFullDay(empId, dateKey));
+
+            if (sal.otMinutes > 0) {
+                const hours = Math.round(sal.otMinutes / 60 * 100) / 100;
+                const dayOfWeek = new Date(y, m - 1, d).getDay();
+                if (dayOfWeek === 0) sundayHours += hours;
+                else if (dayOfWeek === 6) saturdayHours += hours;
+                else weekdayHours += hours;
+            }
+        }
+
+        const totalActualHours = weekdayHours + saturdayHours + sundayHours + holidayHours;
+        const totalSalaryHours =
+            (overrides.weekday != null ? overrides.weekday : weekdayHours) +
+            (overrides.saturday != null ? overrides.saturday : saturdayHours) +
+            (overrides.sunday != null ? overrides.sunday : sundayHours) +
+            (overrides.holiday != null ? overrides.holiday : holidayHours);
+
+        const rows = [
+            {
+                label: 'Ngày thường',
+                otRate: otHourlyRate,
+                actualHours: weekdayHours,
+                salaryHours: overrides.weekday != null ? overrides.weekday : weekdayHours,
+                amount: 0,
+            },
+            {
+                label: 'Thứ 7',
+                otRate: otHourlyRate,
+                actualHours: saturdayHours,
+                salaryHours: overrides.saturday != null ? overrides.saturday : saturdayHours,
+                amount: 0,
+            },
+            {
+                label: 'Chủ nhật',
+                otRate: otHourlyRate,
+                actualHours: sundayHours,
+                salaryHours: overrides.sunday != null ? overrides.sunday : sundayHours,
+                amount: 0,
+            },
+            {
+                label: 'Ngày nghỉ',
+                otRate: otHourlyRate,
+                actualHours: 0,
+                salaryHours: 0,
+                amount: 0,
+            },
+            {
+                label: 'Ngày lễ tết',
+                otRate: otHourlyRate,
+                actualHours: holidayHours,
+                salaryHours: overrides.holiday != null ? overrides.holiday : holidayHours,
+                amount: 0,
+            }
+        ];
+
+        rows.forEach(r => { r.amount = Math.round(r.otRate * r.salaryHours); });
+
+        return {
+            defaultRate: Math.round(hourlyRate),
+            totalActualHours: Math.round(totalActualHours * 100) / 100,
+            totalSalaryHours: Math.round(totalSalaryHours * 100) / 100,
+            totalAmount: rows.reduce((s, r) => s + r.amount, 0),
+            rows
+        };
+    }
+
+    /** Tính toàn bộ payroll row cho 1 nhân viên */
+    function calculatePayrollRow(emp, empId) {
+        const records = monthRecords;
+        const y = currentMonth.year;
+        const m = currentMonth.month;
+        const lastDay = new Date(y, m, 0).getDate();
+        const empRate = emp.dailyRate || SALARY.DAILY_RATE;
+        const payDoc = getPayrollDoc(empId);
+
+        let totalLate = 0, workedDays = 0;
+        const lateDays = [];
+        const otDays = [];
+
+        for (let d = 1; d <= lastDay; d++) {
+            const dateKey = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            const dayRecs = records.filter(r => String(r.deviceUserId) === empId && r.dateKey === dateKey);
+            const cellData = processDayRecords(dayRecs);
+            const sal = calculateDaySalary(cellData, empRate, isFullDay(empId, dateKey));
+            totalLate += sal.lateDeduction;
+            if (sal.totalSalary > 0) workedDays++;
+            if (sal.lateDeduction > 0) lateDays.push({ dateKey, minutes: sal.lateMinutes, amount: sal.lateDeduction });
+            if (sal.otPay > 0) otDays.push({ dateKey, minutes: sal.otMinutes, amount: sal.otPay });
+        }
+
+        // Lương chính: dùng override nếu có, ko thì dùng giá trị thực
+        const lcDetail = calculateLuongChinhDetail(empId, empRate);
+        const luongChinh = lcDetail.reduce((s, r) => s + r.amount, 0);
+
+        // Làm thêm: dùng override nếu có
+        const ltDetail = calculateLamThemDetail(empId, empRate);
+        const lamThem = ltDetail.totalAmount;
+
+        // Các field từ payroll doc
+        const hoaHong = payDoc.hoaHong || 0;
+        const thuong = payDoc.thuong || 0;
+        const giamTruManual = payDoc.giamTruManual || 0;
+        const daTra = payDoc.daTra || 0;
+
+        // Phụ cấp
+        const allowanceItems = payDoc.allowances || [];
+        const phuCap = allowanceItems.reduce((s, item) => s + (item.amount || 0), 0);
+
+        // Giảm trừ = trừ muộn + giảm trừ thêm
+        const giamTru = totalLate + giamTruManual;
+
+        // Tổng lương
+        const tongLuong = luongChinh + lamThem + hoaHong + phuCap + thuong - giamTru;
+        const conCanTra = tongLuong - daTra;
+
+        return {
+            emp, empId, workedDays, empRate,
+            luongChinh, lamThem, hoaHong, phuCap, thuong, giamTru, tongLuong, daTra, conCanTra,
+            totalLate, giamTruManual,
+            lateDays, otDays, allowanceItems,
+            lcDetail, ltDetail
+        };
     }
 
     function hideEmployee(empId) {
@@ -383,7 +686,7 @@
             monthRecords = [];
         }
 
-        await loadAllowances();
+        await Promise.all([loadAllowances(), loadPayrollData()]);
         renderMonthlySchedule();
     }
 
@@ -1055,57 +1358,35 @@
             scLabel.textContent = `${monthNames[currentMonth.month]} ${currentMonth.year}`;
         }
 
-        // Header
+        // Header - KiotViet style
         thead.innerHTML = `
-            <th class="ts-col-fixed">Nhân viên</th>
-            <th style="text-align:center;">Ngày công</th>
-            <th style="text-align:right;">Lương CB</th>
-            <th style="text-align:right;">Trừ muộn</th>
-            <th style="text-align:right;">OT</th>
-            <th style="text-align:right;">Phụ cấp</th>
-            <th style="text-align:right; min-width:130px;">Tổng lương tháng</th>
+            <th style="width:40px;"></th>
+            <th style="width:40px;">STT</th>
+            <th>Tên nhân viên</th>
+            <th>Lương chính</th>
+            <th>Làm thêm</th>
+            <th>Hoả hồng</th>
+            <th>Phụ cấp</th>
+            <th>Thưởng</th>
+            <th>Giảm trừ</th>
+            <th>Tổng lương</th>
+            <th>Đã trả NV</th>
+            <th>Còn cần trả</th>
         `;
 
         if (employees.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:60px 20px; color:#94a3b8;">Chưa có dữ liệu</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="12" style="text-align:center; padding:60px 20px; color:#94a3b8;">Chưa có dữ liệu</td></tr>`;
             return;
         }
 
-        const records = monthRecords;
-        const y = currentMonth.year;
-        const m = currentMonth.month;
-        const lastDay = new Date(y, m, 0).getDate();
-
-        // Tính lương tháng cho từng nhân viên
+        // Tính payroll cho từng nhân viên
         const empData = employees.map(emp => {
             const empId = String(emp.userId || emp.uid || emp.id);
-            let totalBase = 0, totalLate = 0, totalOT = 0, totalSalary = 0, workedDays = 0;
-            const lateDays = []; // chi tiết ngày bị trừ muộn
-            const otDays = []; // chi tiết ngày có OT
-
-            const empRate = emp.dailyRate || SALARY.DAILY_RATE;
-            for (let d = 1; d <= lastDay; d++) {
-                const dateKey = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-                const dayRecs = records.filter(r => String(r.deviceUserId) === empId && r.dateKey === dateKey);
-                const cellData = processDayRecords(dayRecs);
-                const sal = calculateDaySalary(cellData, empRate, isFullDay(empId, dateKey));
-                totalBase += sal.baseSalary;
-                totalLate += sal.lateDeduction;
-                totalOT += sal.otPay;
-                totalSalary += sal.totalSalary;
-                if (sal.totalSalary > 0) workedDays++;
-                if (sal.lateDeduction > 0) lateDays.push({ dateKey, minutes: sal.lateMinutes, amount: sal.lateDeduction });
-                if (sal.otPay > 0) otDays.push({ dateKey, minutes: sal.otMinutes, amount: sal.otPay });
-            }
-
-            const allowance = getAllowance(empId);
-            const totalWithAllowance = totalSalary + allowance;
-
-            return { emp, empId, workedDays, totalBase, totalLate, totalOT, totalSalary: totalWithAllowance, salaryBeforeAllowance: totalSalary, allowance, lateDays, otDays };
+            return calculatePayrollRow(emp, empId);
         });
 
-        empData.sort((a, b) => b.totalSalary - a.totalSalary);
-        monthlyEmpData = empData; // cache for detail view
+        empData.sort((a, b) => b.tongLuong - a.tongLuong);
+        monthlyEmpData = empData;
 
         const visibleData = empData.filter(d => !isHidden(d.empId));
         const hiddenData = empData.filter(d => isHidden(d.empId));
@@ -1114,81 +1395,216 @@
 
         // Grand total row
         const gt = visibleData.reduce((acc, e) => {
-            acc.base += e.totalBase; acc.late += e.totalLate; acc.ot += e.totalOT; acc.allowance += e.allowance; acc.total += e.totalSalary; acc.days += e.workedDays;
+            acc.luongChinh += e.luongChinh;
+            acc.lamThem += e.lamThem;
+            acc.hoaHong += e.hoaHong;
+            acc.phuCap += e.phuCap;
+            acc.thuong += e.thuong;
+            acc.giamTru += e.giamTru;
+            acc.tongLuong += e.tongLuong;
+            acc.daTra += e.daTra;
+            acc.conCanTra += e.conCanTra;
             return acc;
-        }, { base: 0, late: 0, ot: 0, allowance: 0, total: 0, days: 0 });
+        }, { luongChinh: 0, lamThem: 0, hoaHong: 0, phuCap: 0, thuong: 0, giamTru: 0, tongLuong: 0, daTra: 0, conCanTra: 0 });
 
         html += `
-            <tr style="background:#fafafa;">
-                <td class="ts-col-fixed" style="border:none; background:#fafafa;"></td>
-                <td style="border:none;"></td>
-                <td style="border:none;"></td>
-                <td style="border:none;"></td>
-                <td style="border:none;"></td>
-                <td style="border:none;"></td>
-                <td style="text-align:right; font-weight:700; font-size:15px; color:#d4380d; border:none;">
-                    ${formatVND(gt.total)}đ
-                </td>
+            <tr class="payroll-total-row">
+                <td></td>
+                <td></td>
+                <td></td>
+                <td>${formatVND(gt.luongChinh)}</td>
+                <td>${formatVND(gt.lamThem)}</td>
+                <td>${gt.hoaHong ? formatVND(gt.hoaHong) : '0'}</td>
+                <td>${formatVND(gt.phuCap)}</td>
+                <td>${gt.thuong ? formatVND(gt.thuong) : '0'}</td>
+                <td>${gt.giamTru ? formatVND(gt.giamTru) : '0'}</td>
+                <td>${formatVND(gt.tongLuong)}</td>
+                <td>${gt.daTra ? formatVND(gt.daTra) : '0'}</td>
+                <td>${formatVND(gt.conCanTra)}</td>
             </tr>
         `;
 
-        for (const d of visibleData) {
-            const { emp, empId, workedDays, totalBase, totalLate, totalOT, totalSalary, allowance, lateDays, otDays } = d;
-            const lateId = `late_${empId}`;
-            const otId = `ot_${empId}`;
+        visibleData.forEach((d, idx) => {
+            const { emp, empId, workedDays, luongChinh, lamThem, hoaHong, phuCap, thuong, giamTru, tongLuong, daTra, conCanTra } = d;
             html += `
-                <tr>
-                    ${renderEmpNameCell(emp, empId, false)}
-                    <td style="text-align:center; font-weight:600;">${workedDays > 0 ? workedDays + ' ngày' : '-'}</td>
-                    <td style="text-align:right; color:#1e293b;">${totalBase > 0 ? formatVND(totalBase) + 'đ' : '-'}</td>
-                    <td style="text-align:right; color:${totalLate > 0 ? '#cf1322' : '#bfbfbf'}; ${totalLate > 0 ? 'cursor:pointer; text-decoration:underline;' : ''}"
-                        ${totalLate > 0 ? `onclick="window._attendance.showMonthlyDetail('${empId}','late')"` : ''}>
-                        ${totalLate > 0 ? '-' + formatVND(totalLate) + 'đ' : '-'}
+                <tr data-emp-id="${empId}">
+                    <td>
+                        <button class="payroll-delete-btn" onclick="window._attendance.hideEmployee('${empId}')" title="Ẩn nhân viên">
+                            <i data-lucide="trash-2" style="width:14px;height:14px;"></i>
+                        </button>
                     </td>
-                    <td style="text-align:right; color:${totalOT > 0 ? '#096dd9' : '#bfbfbf'}; ${totalOT > 0 ? 'cursor:pointer; text-decoration:underline;' : ''}"
-                        ${totalOT > 0 ? `onclick="window._attendance.showMonthlyDetail('${empId}','ot')"` : ''}>
-                        ${totalOT > 0 ? '+' + formatVND(totalOT) + 'đ' : '-'}
+                    <td>${idx + 1}</td>
+                    <td>
+                        <span class="payroll-emp-name" onclick="window._attendance.showLuongChinhModal('${empId}')">${escapeHtml(emp.name || 'N/A')}</span>
+                        <div class="payroll-emp-days">${workedDays}</div>
                     </td>
-                    <td style="text-align:right; color:${allowance > 0 ? '#389e0d' : '#bfbfbf'}; cursor:pointer; text-decoration:underline;"
-                        onclick="window._attendance.showAllowanceModal('${empId}')">
-                        ${allowance > 0 ? '+' + formatVND(allowance) + 'đ' : '-'}
+                    <td>
+                        <span class="payroll-cell-btn" onclick="window._attendance.showLuongChinhModal('${empId}')">
+                            ${formatVND(luongChinh)}
+                        </span>
                     </td>
-                    <td style="text-align:right;">
-                        <div style="font-weight:700; font-size:14px; color:${totalSalary > 0 ? '#1e293b' : '#bfbfbf'};">
-                            ${totalSalary > 0 ? formatVND(totalSalary) + 'đ' : '-'}
-                        </div>
+                    <td>
+                        <span class="payroll-cell-btn" onclick="window._attendance.showLamThemModal('${empId}')">
+                            ${formatVND(lamThem)}
+                        </span>
                     </td>
+                    <td>
+                        <input type="text" class="payroll-cell-input" data-field="hoaHong" data-emp="${empId}"
+                            value="${hoaHong ? formatVND(hoaHong) : '0'}">
+                    </td>
+                    <td>
+                        <span class="payroll-cell-btn" onclick="window._attendance.showPhuCapModal('${empId}')">
+                            ${formatVND(phuCap)}
+                        </span>
+                    </td>
+                    <td>
+                        <input type="text" class="payroll-cell-input" data-field="thuong" data-emp="${empId}"
+                            value="${thuong ? formatVND(thuong) : '0'}">
+                    </td>
+                    <td>
+                        <input type="text" class="payroll-cell-input" data-field="giamTruManual" data-emp="${empId}"
+                            value="${d.giamTruManual ? formatVND(d.giamTruManual) : '0'}">
+                    </td>
+                    <td class="payroll-cell-total">${formatVND(tongLuong)}</td>
+                    <td>
+                        <input type="text" class="payroll-cell-input" data-field="daTra" data-emp="${empId}"
+                            value="${daTra ? formatVND(daTra) : '0'}">
+                    </td>
+                    <td class="payroll-cell-total">${formatVND(conCanTra)}</td>
                 </tr>
             `;
-        }
+        });
 
         // Hidden employees
         if (hiddenData.length > 0) {
             html += `
-                <tr><td colspan="7" style="text-align:center; padding:8px; border:none;">
+                <tr><td colspan="12" style="text-align:center; padding:8px; border:none;">
                     <span onclick="window._attendance.toggleHidden()" style="cursor:pointer; color:#1890ff; font-size:12px;">
                         ${showHidden ? 'Ẩn' : 'Hiện'} ${hiddenData.length} nhân viên đã ẩn
                     </span>
                 </td></tr>
             `;
             if (showHidden) {
-                for (const { emp, empId, workedDays, totalBase, totalLate, totalOT, totalSalary, allowance } of hiddenData) {
+                hiddenData.forEach((d, idx) => {
                     html += `
-                        <tr style="opacity:0.5;">
-                            ${renderEmpNameCell(emp, empId, true)}
-                            <td style="text-align:center; color:#8c8c8c;">${workedDays > 0 ? workedDays + ' ngày' : '-'}</td>
-                            <td style="text-align:right; color:#8c8c8c;">${totalBase > 0 ? formatVND(totalBase) + 'đ' : '-'}</td>
-                            <td style="text-align:right; color:#8c8c8c;">${totalLate > 0 ? '-' + formatVND(totalLate) + 'đ' : '-'}</td>
-                            <td style="text-align:right; color:#8c8c8c;">${totalOT > 0 ? '+' + formatVND(totalOT) + 'đ' : '-'}</td>
-                            <td style="text-align:right; color:#8c8c8c;">${allowance > 0 ? '+' + formatVND(allowance) + 'đ' : '-'}</td>
-                            <td style="text-align:right; color:#8c8c8c;">${totalSalary > 0 ? formatVND(totalSalary) + 'đ' : '-'}</td>
+                        <tr style="opacity:0.5;" data-emp-id="${d.empId}">
+                            <td></td>
+                            <td>${visibleData.length + idx + 1}</td>
+                            <td>
+                                <span style="color:#8c8c8c;">${escapeHtml(d.emp.name || 'N/A')}</span>
+                                <span onclick="window._attendance.unhideEmployee('${d.empId}')" style="cursor:pointer; color:#52c41a; font-size:12px; margin-left:8px;">Hiện</span>
+                            </td>
+                            <td style="color:#8c8c8c;">${formatVND(d.luongChinh)}</td>
+                            <td style="color:#8c8c8c;">${formatVND(d.lamThem)}</td>
+                            <td style="color:#8c8c8c;">0</td>
+                            <td style="color:#8c8c8c;">${formatVND(d.phuCap)}</td>
+                            <td style="color:#8c8c8c;">0</td>
+                            <td style="color:#8c8c8c;">0</td>
+                            <td style="color:#8c8c8c;">${formatVND(d.tongLuong)}</td>
+                            <td style="color:#8c8c8c;">0</td>
+                            <td style="color:#8c8c8c;">${formatVND(d.conCanTra)}</td>
                         </tr>
                     `;
-                }
+                });
             }
         }
 
         tbody.innerHTML = html;
+        refreshIcons();
+        bindPayrollInputs();
+    }
+
+    /** Gắn event listeners cho các input inline trong bảng payroll.
+     *  Dùng event delegation trên table container (không bị mất khi innerHTML tbody thay đổi).
+     */
+    let _payrollInputsBound = false;
+    function bindPayrollInputs() {
+        // Delegate trên .ts-table-container thay vì tbody (tbody.innerHTML bị replace mỗi lần render)
+        const container = document.querySelector('#viewSchedule .ts-table-container');
+        if (!container || _payrollInputsBound) return;
+        _payrollInputsBound = true;
+
+        container.addEventListener('focus', function (e) {
+            if (e.target.classList.contains('payroll-cell-input')) {
+                const raw = e.target.value.replace(/\./g, '').replace(/,/g, '');
+                const num = parseInt(raw) || 0;
+                e.target.value = num === 0 ? '' : num;
+                e.target.select();
+            }
+        }, true);
+
+        container.addEventListener('blur', function (e) {
+            if (e.target.classList.contains('payroll-cell-input')) {
+                const field = e.target.dataset.field;
+                const empId = e.target.dataset.emp;
+                const raw = e.target.value.replace(/\./g, '').replace(/,/g, '');
+                const num = Math.max(0, parseInt(raw) || 0); // Không cho âm
+
+                e.target.value = num ? formatVND(num) : '0';
+
+                savePayrollField(empId, field, num).then(() => {
+                    updatePayrollRowTotals(empId);
+                });
+            }
+        }, true);
+
+        container.addEventListener('keydown', function (e) {
+            if (e.target.classList.contains('payroll-cell-input') && e.key === 'Enter') {
+                e.target.blur();
+            }
+        }, true);
+    }
+
+    /** Cập nhật Tổng lương + Còn cần trả cho 1 row mà không re-render toàn bảng */
+    function updatePayrollRowTotals(empId) {
+        const row = document.querySelector(`tr[data-emp-id="${empId}"]`);
+        if (!row) return;
+
+        const emp = employees.find(e => String(e.userId || e.uid || e.id) === String(empId));
+        if (!emp) return;
+
+        const d = calculatePayrollRow(emp, empId);
+
+        // Update tổng lương (cột 10) và còn cần trả (cột 12)
+        const cells = row.querySelectorAll('td');
+        if (cells[9]) cells[9].textContent = formatVND(d.tongLuong);
+        if (cells[11]) cells[11].textContent = formatVND(d.conCanTra);
+
+        // Update grand total row
+        updateGrandTotalRow();
+    }
+
+    /** Cập nhật row tổng cộng */
+    function updateGrandTotalRow() {
+        const totalRow = document.querySelector('.payroll-total-row');
+        if (!totalRow) return;
+
+        const visibleEmps = employees.filter(emp => !isHidden(String(emp.userId || emp.uid || emp.id)));
+        const gt = visibleEmps.reduce((acc, emp) => {
+            const empId = String(emp.userId || emp.uid || emp.id);
+            const d = calculatePayrollRow(emp, empId);
+            acc.luongChinh += d.luongChinh;
+            acc.lamThem += d.lamThem;
+            acc.hoaHong += d.hoaHong;
+            acc.phuCap += d.phuCap;
+            acc.thuong += d.thuong;
+            acc.giamTru += d.giamTru;
+            acc.tongLuong += d.tongLuong;
+            acc.daTra += d.daTra;
+            acc.conCanTra += d.conCanTra;
+            return acc;
+        }, { luongChinh: 0, lamThem: 0, hoaHong: 0, phuCap: 0, thuong: 0, giamTru: 0, tongLuong: 0, daTra: 0, conCanTra: 0 });
+
+        const cells = totalRow.querySelectorAll('td');
+        if (cells[3]) cells[3].textContent = formatVND(gt.luongChinh);
+        if (cells[4]) cells[4].textContent = formatVND(gt.lamThem);
+        if (cells[5]) cells[5].textContent = gt.hoaHong ? formatVND(gt.hoaHong) : '0';
+        if (cells[6]) cells[6].textContent = formatVND(gt.phuCap);
+        if (cells[7]) cells[7].textContent = gt.thuong ? formatVND(gt.thuong) : '0';
+        if (cells[8]) cells[8].textContent = gt.giamTru ? formatVND(gt.giamTru) : '0';
+        if (cells[9]) cells[9].textContent = formatVND(gt.tongLuong);
+        if (cells[10]) cells[10].textContent = gt.daTra ? formatVND(gt.daTra) : '0';
+        if (cells[11]) cells[11].textContent = formatVND(gt.conCanTra);
     }
 
     /** Hiện chi tiết trừ muộn / OT theo ngày */
@@ -1253,6 +1669,438 @@
         modal.addEventListener('click', (e) => {
             if (e.target === modal) modal.remove();
         });
+    }
+
+    // ================================================================
+    // PAYROLL MODALS
+    // ================================================================
+
+    /** Modal: Thiết lập nhân viên */
+    let _settingsEventsBound = false;
+    function showPayrollSettingsModal() {
+        const modal = document.getElementById('payrollSettingsModal');
+        if (!modal) return;
+
+        const tbody = modal.querySelector('#payrollSettingsTable tbody');
+        if (!tbody) return;
+
+        let html = '';
+        const sortedEmps = [...employees].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'vi'));
+
+        sortedEmps.forEach(emp => {
+            const empId = String(emp.userId || emp.uid || emp.id);
+            const hidden = isHidden(empId);
+            const rate = emp.dailyRate || SALARY.DAILY_RATE;
+
+            html += `
+                <tr>
+                    <td style="text-align: center;">
+                        <label class="payroll-toggle">
+                            <input type="checkbox" ${!hidden ? 'checked' : ''} data-emp-id="${empId}" class="settings-toggle">
+                            <span class="payroll-toggle-slider"></span>
+                        </label>
+                    </td>
+                    <td>
+                        <input type="text" class="payroll-settings-input settings-name" data-emp-id="${empId}"
+                            value="${escapeHtml(emp.name || '')}" placeholder="Tên nhân viên">
+                    </td>
+                    <td>
+                        <input type="number" class="payroll-settings-input settings-salary" data-emp-id="${empId}"
+                            value="${rate}" step="10000" min="0" placeholder="200000" style="text-align:right;">
+                    </td>
+                </tr>
+            `;
+        });
+
+        tbody.innerHTML = html;
+        modal.style.display = 'flex';
+        refreshIcons();
+
+        // Event delegation trên modal (chỉ bind 1 lần)
+        if (!_settingsEventsBound) {
+            _settingsEventsBound = true;
+
+            modal.addEventListener('change', function (e) {
+                if (e.target.classList.contains('settings-toggle')) {
+                    const empId = e.target.dataset.empId;
+                    if (e.target.checked) {
+                        unhideEmployee(empId);
+                    } else {
+                        hideEmployee(empId);
+                    }
+                }
+            });
+
+            modal.addEventListener('blur', async function (e) {
+                const empId = e.target.dataset ? e.target.dataset.empId : null;
+                if (!empId) return;
+                const emp = employees.find(em => String(em.userId || em.uid || em.id) === empId);
+                if (!emp) return;
+
+                if (e.target.classList.contains('settings-name')) {
+                    const newName = e.target.value.trim();
+                    if (newName && newName !== emp.name) {
+                        try {
+                            const docId = String(emp.id || emp.userId);
+                            if (!docId.startsWith('test_')) {
+                                await db.collection(COLLECTIONS.deviceUsers).doc(docId).update({ name: newName });
+                            }
+                            emp.name = newName;
+                            showNotification(`Đã đổi tên: ${newName}`, 'success');
+                            renderMonthlySchedule();
+                        } catch (err) {
+                            showNotification('Lỗi: ' + err.message, 'error');
+                        }
+                    }
+                }
+
+                if (e.target.classList.contains('settings-salary')) {
+                    const newRate = parseInt(e.target.value) || SALARY.DAILY_RATE;
+                    if (newRate !== (emp.dailyRate || SALARY.DAILY_RATE)) {
+                        try {
+                            const docId = String(emp.id || emp.userId);
+                            if (!docId.startsWith('test_')) {
+                                await db.collection(COLLECTIONS.deviceUsers).doc(docId).update({ dailyRate: newRate });
+                            }
+                            emp.dailyRate = newRate;
+                            showNotification(`Đã cập nhật lương: ${formatVND(newRate)}đ/ngày`, 'success');
+                            renderMonthlySchedule();
+                        } catch (err) {
+                            showNotification('Lỗi: ' + err.message, 'error');
+                        }
+                    }
+                }
+            }, true);
+        }
+    }
+
+    /** Modal: Lương chính */
+    function showLuongChinhModal(empId) {
+        const emp = employees.find(e => String(e.userId || e.uid || e.id) === String(empId));
+        if (!emp) return;
+
+        const modal = document.getElementById('luongChinhModal');
+        if (!modal) return;
+
+        const empRate = emp.dailyRate || SALARY.DAILY_RATE;
+        const empName = emp.name || `User ${empId}`;
+        const rows = calculateLuongChinhDetail(empId, empRate);
+        const totalActualDays = rows.reduce((s, r) => s + r.actualDays, 0);
+        const totalSalaryDays = rows.reduce((s, r) => s + r.salaryDays, 0);
+        const totalAmount = rows.reduce((s, r) => s + r.amount, 0);
+
+        // Set header info
+        document.getElementById('lcEmpName').textContent = `Nhân viên: ${empName}`;
+        document.getElementById('lcInfo').innerHTML = `
+            <span>Loại lương: Theo ngày công chuẩn</span>
+            <span>Ngày công chuẩn: 30</span>
+            <span>Mức lương: ${formatVND(empRate * 30)}</span>
+        `;
+
+        // Build rows
+        const tbody = document.getElementById('lcBody');
+        let bodyHtml = `
+            <tr class="total-row">
+                <td></td>
+                <td></td>
+                <td style="text-align:center; font-weight:700;">${totalActualDays}</td>
+                <td style="text-align:center; font-weight:700;">${totalSalaryDays}</td>
+                <td style="text-align:right; font-weight:700;">${formatVND(totalAmount)}</td>
+            </tr>
+        `;
+
+        rows.forEach((row, i) => {
+            bodyHtml += `
+                <tr>
+                    <td>
+                        ${row.label}
+                        ${row.subLabel ? `<div class="payroll-detail-sub">${row.subLabel}</div>` : ''}
+                    </td>
+                    <td style="text-align:right;">${formatVND(row.dailyRate)}</td>
+                    <td style="text-align:center;">${row.actualDays}</td>
+                    <td style="text-align:center;">
+                        <input type="number" class="payroll-detail-input lc-days-input" data-row="${i}"
+                            value="${row.salaryDays}" min="0" step="1">
+                    </td>
+                    <td style="text-align:right; font-weight:600;">${formatVND(row.amount)}</td>
+                </tr>
+            `;
+        });
+
+        tbody.innerHTML = bodyHtml;
+        modal.style.display = 'flex';
+
+        // Recalculate on input change
+        const inputs = tbody.querySelectorAll('.lc-days-input');
+        inputs.forEach(input => {
+            input.addEventListener('input', () => {
+                recalcLuongChinhModal(empRate);
+            });
+        });
+
+        // Xong button
+        const btnApply = document.getElementById('btnLcApply');
+        btnApply.onclick = async () => {
+            const overrides = {};
+            const types = ['weekday', 'weekend', 'holiday'];
+            inputs.forEach((input, i) => {
+                const val = parseFloat(input.value);
+                overrides[types[i]] = isNaN(val) ? null : val;
+            });
+            await savePayrollOverrides(empId, 'salary', overrides);
+            modal.style.display = 'none';
+            renderMonthlySchedule();
+        };
+    }
+
+    /** Recalculate Lương chính modal khi thay đổi input */
+    function recalcLuongChinhModal(dailyRate) {
+        const tbody = document.getElementById('lcBody');
+        if (!tbody) return;
+
+        const inputs = tbody.querySelectorAll('.lc-days-input');
+        const dataRows = tbody.querySelectorAll('tr:not(.total-row)');
+        let totalDays = 0, totalAmount = 0;
+
+        inputs.forEach((input, i) => {
+            const days = parseFloat(input.value) || 0;
+            const amount = dailyRate * days;
+            totalDays += days;
+            totalAmount += amount;
+            // Update thành tiền cell
+            if (dataRows[i]) {
+                const lastTd = dataRows[i].querySelector('td:last-child');
+                if (lastTd) lastTd.textContent = formatVND(amount);
+            }
+        });
+
+        // Update total row
+        const totalRow = tbody.querySelector('.total-row');
+        if (totalRow) {
+            const cells = totalRow.querySelectorAll('td');
+            if (cells[3]) cells[3].textContent = totalDays;
+            if (cells[4]) cells[4].textContent = formatVND(totalAmount);
+        }
+    }
+
+    /** Modal: Lương làm thêm */
+    function showLamThemModal(empId) {
+        const emp = employees.find(e => String(e.userId || e.uid || e.id) === String(empId));
+        if (!emp) return;
+
+        const modal = document.getElementById('lamThemModal');
+        if (!modal) return;
+
+        const empRate = emp.dailyRate || SALARY.DAILY_RATE;
+        const empName = emp.name || `User ${empId}`;
+        const detail = calculateLamThemDetail(empId, empRate);
+
+        document.getElementById('ltEmpName').textContent = `Nhân viên: ${empName}`;
+        document.getElementById('ltInfo').innerHTML = `<span>Loại lương: Theo ngày công chuẩn</span>`;
+
+        const tbody = document.getElementById('ltBody');
+        let bodyHtml = `
+            <tr class="default-row">
+                <td>
+                    Mặc định
+                    <div class="payroll-detail-sub">${formatVND(detail.defaultRate)}/Giờ</div>
+                </td>
+                <td></td>
+                <td style="text-align:center; font-weight:700;">${Math.round(detail.totalActualHours * 100) / 100}</td>
+                <td style="text-align:center; font-weight:700;">${Math.round(detail.totalSalaryHours * 100) / 100}</td>
+                <td style="text-align:right; font-weight:700;">${formatVND(detail.totalAmount)}</td>
+            </tr>
+        `;
+
+        detail.rows.forEach((row, i) => {
+            bodyHtml += `
+                <tr>
+                    <td>${row.label}</td>
+                    <td style="text-align:right;">${formatVND(row.otRate)}</td>
+                    <td style="text-align:center;">${Math.round(row.actualHours * 100) / 100}</td>
+                    <td style="text-align:center;">
+                        <input type="number" class="payroll-detail-input lt-hours-input" data-row="${i}"
+                            value="${Math.round(row.salaryHours * 100) / 100}" min="0" step="0.01">
+                    </td>
+                    <td style="text-align:right; font-weight:600;">${formatVND(row.amount)}</td>
+                </tr>
+            `;
+        });
+
+        tbody.innerHTML = bodyHtml;
+        modal.style.display = 'flex';
+
+        // Recalculate on input change
+        const inputs = tbody.querySelectorAll('.lt-hours-input');
+        inputs.forEach(input => {
+            input.addEventListener('input', () => {
+                recalcLamThemModal(detail);
+            });
+        });
+
+        // Xong button
+        const btnApply = document.getElementById('btnLtApply');
+        btnApply.onclick = async () => {
+            const overrides = {};
+            const types = ['weekday', 'saturday', 'sunday', 'holiday', 'holiday']; // nghỉ + lễ map to same
+            const keys = ['weekday', 'saturday', 'sunday', null, 'holiday'];
+            inputs.forEach((input, i) => {
+                if (keys[i] === null) return; // skip ngày nghỉ (index 3)
+                const val = parseFloat(input.value);
+                overrides[keys[i]] = isNaN(val) ? null : val;
+            });
+            await savePayrollOverrides(empId, 'ot', overrides);
+            modal.style.display = 'none';
+            renderMonthlySchedule();
+        };
+    }
+
+    /** Recalculate Làm thêm modal khi thay đổi input */
+    function recalcLamThemModal(detail) {
+        const tbody = document.getElementById('ltBody');
+        if (!tbody) return;
+
+        const inputs = tbody.querySelectorAll('.lt-hours-input');
+        const dataRows = tbody.querySelectorAll('tr:not(.default-row)');
+        let totalHours = 0, totalAmount = 0;
+
+        inputs.forEach((input, i) => {
+            const hours = parseFloat(input.value) || 0;
+            const amount = Math.round(detail.rows[i].otRate * hours);
+            totalHours += hours;
+            totalAmount += amount;
+            if (dataRows[i]) {
+                const lastTd = dataRows[i].querySelector('td:last-child');
+                if (lastTd) lastTd.textContent = formatVND(amount);
+            }
+        });
+
+        // Update default row
+        const defaultRow = tbody.querySelector('.default-row');
+        if (defaultRow) {
+            const cells = defaultRow.querySelectorAll('td');
+            if (cells[2]) cells[2].textContent = Math.round(totalHours * 100) / 100;
+            if (cells[3]) cells[3].textContent = Math.round(totalHours * 100) / 100;
+            if (cells[4]) cells[4].textContent = formatVND(totalAmount);
+        }
+    }
+
+    /** Modal: Phụ cấp */
+    function showPhuCapModal(empId) {
+        const emp = employees.find(e => String(e.userId || e.uid || e.id) === String(empId));
+        if (!emp) return;
+
+        const modal = document.getElementById('phuCapModal');
+        if (!modal) return;
+
+        const empName = emp.name || `User ${empId}`;
+        const payDoc = getPayrollDoc(empId);
+
+        // Migrate from old allowance if no payroll allowances exist
+        let items = payDoc.allowances ? [...payDoc.allowances] : [];
+        if (items.length === 0) {
+            const oldAllowance = getAllowance(empId);
+            if (oldAllowance > 0) {
+                items = [{ name: 'Phụ cấp', amount: oldAllowance }];
+            }
+        }
+
+        document.getElementById('pcEmpName').textContent = `Nhân viên: ${empName}`;
+
+        function renderPcRows() {
+            const tbody = document.getElementById('pcBody');
+            const totalAmount = items.reduce((s, item) => s + (item.amount || 0), 0);
+
+            let html = `
+                <tr class="total-row">
+                    <td colspan="4"></td>
+                    <td style="text-align:right; font-weight:700;">${formatVND(totalAmount)}</td>
+                </tr>
+            `;
+
+            items.forEach((item, i) => {
+                html += `
+                    <tr>
+                        <td style="width:40px;">
+                            <button class="phu-cap-delete-btn" data-idx="${i}" title="Xóa">
+                                <i data-lucide="trash-2" style="width:14px;height:14px;"></i>
+                            </button>
+                        </td>
+                        <td>
+                            <input type="text" class="payroll-settings-input pc-name-input" data-idx="${i}"
+                                value="${escapeHtml(item.name || '')}" placeholder="Tên phụ cấp">
+                        </td>
+                        <td style="text-align:center;">
+                            <input type="number" class="payroll-detail-input pc-days-input" data-idx="${i}"
+                                value="${item.days || ''}" min="0" style="width:60px;" placeholder="-">
+                        </td>
+                        <td style="text-align:right;">
+                            <div style="display:flex; align-items:center; justify-content:flex-end; gap:4px;">
+                                <input type="text" class="payroll-settings-input pc-amount-input" data-idx="${i}"
+                                    value="${item.amount ? formatVND(item.amount) : ''}" placeholder="0"
+                                    style="text-align:right; width:120px;">
+                                <span style="font-size:12px; color:#8c8c8c;">/tháng</span>
+                            </div>
+                        </td>
+                        <td style="text-align:right; font-weight:600;">${item.amount ? formatVND(item.amount) : '0'}</td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = html;
+            refreshIcons();
+
+            // Delete buttons
+            tbody.querySelectorAll('.phu-cap-delete-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const idx = parseInt(btn.dataset.idx);
+                    items.splice(idx, 1);
+                    renderPcRows();
+                });
+            });
+
+            // Name/amount input sync
+            tbody.querySelectorAll('.pc-name-input').forEach(input => {
+                input.addEventListener('blur', () => {
+                    items[parseInt(input.dataset.idx)].name = input.value.trim();
+                });
+            });
+
+            tbody.querySelectorAll('.pc-amount-input').forEach(input => {
+                input.addEventListener('focus', () => {
+                    const raw = input.value.replace(/\./g, '').replace(/,/g, '');
+                    const num = parseInt(raw) || 0;
+                    input.value = num === 0 ? '' : num;
+                    input.select();
+                });
+                input.addEventListener('blur', () => {
+                    const raw = input.value.replace(/\./g, '').replace(/,/g, '');
+                    const num = parseInt(raw) || 0;
+                    items[parseInt(input.dataset.idx)].amount = num;
+                    input.value = num ? formatVND(num) : '0';
+                    // Update total and thành tiền
+                    renderPcRows();
+                });
+            });
+        }
+
+        renderPcRows();
+        modal.style.display = 'flex';
+
+        // Thêm phụ cấp khác
+        document.getElementById('pcAddLink').onclick = () => {
+            items.push({ name: '', amount: 0 });
+            renderPcRows();
+        };
+
+        // Xong button
+        document.getElementById('btnPcApply').onclick = async () => {
+            // Clean up empty items
+            const cleanItems = items.filter(item => item.name || item.amount);
+            await savePayrollAllowances(empId, cleanItems);
+            modal.style.display = 'none';
+            renderMonthlySchedule();
+        };
     }
 
     /** Render trạng thái sync */
@@ -1358,6 +2206,12 @@
             });
         }
 
+        // Settings button
+        const btnSettings = document.getElementById('btnPayrollSettings');
+        if (btnSettings) {
+            btnSettings.addEventListener('click', () => showPayrollSettingsModal());
+        }
+
         // "Chọn" button in timesheet → go to this week
         const btnChoose = document.querySelector('#viewTimesheet .ts-header-left .ts-btn');
         if (btnChoose && btnChoose.textContent.trim() === 'Chọn') {
@@ -1415,8 +2269,9 @@
         ['#viewTimesheet .ts-grid tbody', '#scheduleGrid tbody'].forEach(sel => {
             const tbody = document.querySelector(sel);
             if (!tbody) return;
-            tbody.querySelectorAll('tr').forEach(row => {
-                const nameCell = row.querySelector('.ts-col-fixed div');
+            tbody.querySelectorAll('tr[data-emp-id]').forEach(row => {
+                // Tìm tên NV trong cột thứ 2 (payroll) hoặc cột fixed (timesheet)
+                const nameCell = row.querySelector('.ts-col-fixed div') || row.querySelector('.payroll-emp-name') || row.querySelector('td:nth-child(2)');
                 if (nameCell) {
                     const name = nameCell.textContent.toLowerCase();
                     row.style.display = name.includes(kw) ? '' : 'none';
@@ -1966,6 +2821,11 @@
         showMonthlyDetail,
         showAllowanceModal,
         saveAllowance,
+        // Payroll modals
+        showPayrollSettingsModal,
+        showLuongChinhModal,
+        showLamThemModal,
+        showPhuCapModal,
     };
 
     // Auto-init when DOM ready

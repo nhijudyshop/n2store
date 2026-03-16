@@ -323,18 +323,11 @@
                     </div>
                 </div>
 
-                <!-- 2. Lịch làm việc (Xem theo nhân viên) View -->
+                <!-- 2. Cập nhật bảng tính lương (Xem theo nhân viên) View -->
                 <div class="employee-view-wrapper" id="viewSchedule" style="display: flex;">
                     <div class="ts-header">
                         <div class="ts-header-left">
-                            <h2 class="ts-title">Lịch làm việc</h2>
-                            <div class="ts-search">
-                                <i data-lucide="search"
-                                    style="width: 14px; height: 14px; color: #bfbfbf; margin-right: 4px;"></i>
-                                <input type="text" placeholder="Tìm kiếm nhân viên">
-                                <i data-lucide="chevron-down"
-                                    style="width: 14px; height: 14px; color: #bfbfbf; cursor:pointer;"></i>
-                            </div>
+                            <h2 class="ts-title">Cập nhật bảng tính lương</h2>
                             <select class="ts-select" id="schedPeriodSelect" style="display:none;">
                                 <option value="month" selected>Theo tháng</option>
                             </select>
@@ -350,20 +343,16 @@
                                 <i data-lucide="user" style="width: 14px; height: 14px;"></i> Xem theo nhân viên <i
                                     data-lucide="chevron-down" style="width: 14px; height: 14px;"></i>
                             </button>
-                            <button class="ts-btn" id="btnSchedApproval"
-                                onclick="document.getElementById('approvalModal').style.display='flex'">
-                                <i data-lucide="check-square" style="width: 14px; height: 14px;"></i> Duyệt chấm công
+                            <button class="ts-btn" id="btnPayrollSettings">
+                                <i data-lucide="settings" style="width: 14px; height: 14px;"></i> Thiết lập
                             </button>
                             <button class="ts-btn" id="btnSchedReload" title="Tải lại dữ liệu" style="padding: 6px 8px;">
                                 <i data-lucide="refresh-cw" style="width: 14px; height: 14px;"></i>
                             </button>
-                            <button class="ts-btn" id="btnSchedSync" title="Đồng bộ ngay" style="padding: 6px 8px;">
-                                <i data-lucide="more-horizontal" style="width: 14px; height: 14px;"></i>
-                            </button>
                         </div>
                     </div>
                     <div class="ts-table-container">
-                        <table class="ts-grid" id="scheduleGrid">
+                        <table class="payroll-table" id="scheduleGrid">
                             <thead>
                                 <tr></tr>
                             </thead>
@@ -1767,6 +1756,159 @@
                 <div style="flex: 1;"></div>
                 <button class="btn-primary" id="btnUpdateAttendance" style="background: #1890ff; border-color: #1890ff;">
                     <i data-lucide="save"></i> Cập nhật
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL: THIẾT LẬP NHÂN VIÊN ==================== -->
+    <div class="modal" id="payrollSettingsModal" style="display: none;">
+        <div class="modal-overlay" onclick="this.parentElement.style.display='none'"></div>
+        <div class="modal-content k-modal" style="width: 600px; max-width: 95vw;">
+            <div class="modal-header k-modal-header">
+                <h3>Thiết lập nhân viên</h3>
+                <button class="btn-icon" onclick="document.getElementById('payrollSettingsModal').style.display='none'">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body k-modal-body" style="padding: 0; max-height: 60vh; overflow-y: auto;">
+                <table class="payroll-settings-table" id="payrollSettingsTable">
+                    <thead>
+                        <tr>
+                            <th style="width: 50px; text-align: center;">Hiện</th>
+                            <th>Tên nhân viên</th>
+                            <th style="width: 160px;">Lương cơ bản</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <div class="modal-footer k-modal-footer">
+                <button class="btn-primary" onclick="document.getElementById('payrollSettingsModal').style.display='none'" style="background:#1890ff;">
+                    Đóng
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL: LƯƠNG CHÍNH ==================== -->
+    <div class="modal" id="luongChinhModal" style="display: none;">
+        <div class="modal-overlay" onclick="this.parentElement.style.display='none'"></div>
+        <div class="modal-content k-modal" style="width: 700px; max-width: 95vw;">
+            <div class="modal-header k-modal-header">
+                <div>
+                    <h3>Lương chính</h3>
+                    <div id="lcEmpName" style="font-size: 13px; color: #8c8c8c; margin-top: 2px;"></div>
+                </div>
+                <button class="btn-icon" onclick="document.getElementById('luongChinhModal').style.display='none'">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="payroll-modal-info" id="lcInfo"></div>
+            <div class="modal-body k-modal-body" style="padding: 0;">
+                <table class="payroll-detail-table" id="lcTable">
+                    <thead>
+                        <tr>
+                            <th>Ngày</th>
+                            <th style="text-align: right;">Lương mỗi ngày</th>
+                            <th style="text-align: center;">Số ngày chấm công</th>
+                            <th style="text-align: center;">Số ngày tính lương</th>
+                            <th style="text-align: right;">Thành tiền</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lcBody"></tbody>
+                </table>
+            </div>
+            <div class="modal-footer k-modal-footer">
+                <button class="k-btn-outline" onclick="document.getElementById('luongChinhModal').style.display='none'">
+                    Bỏ qua
+                </button>
+                <button class="btn-primary" id="btnLcApply" style="background:#1890ff;">
+                    Xong
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL: LƯƠNG LÀM THÊM ==================== -->
+    <div class="modal" id="lamThemModal" style="display: none;">
+        <div class="modal-overlay" onclick="this.parentElement.style.display='none'"></div>
+        <div class="modal-content k-modal" style="width: 700px; max-width: 95vw;">
+            <div class="modal-header k-modal-header">
+                <div>
+                    <h3>Lương làm thêm</h3>
+                    <div id="ltEmpName" style="font-size: 13px; color: #8c8c8c; margin-top: 2px;"></div>
+                </div>
+                <button class="btn-icon" onclick="document.getElementById('lamThemModal').style.display='none'">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="payroll-modal-info" id="ltInfo"></div>
+            <div class="modal-body k-modal-body" style="padding: 0;">
+                <table class="payroll-detail-table" id="ltTable">
+                    <thead>
+                        <tr>
+                            <th>Ca</th>
+                            <th style="text-align: right;">Mỗi giờ làm thêm</th>
+                            <th style="text-align: center;">Số giờ làm thêm</th>
+                            <th style="text-align: center;">Số giờ tính lương</th>
+                            <th style="text-align: right;">Thành tiền</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ltBody"></tbody>
+                </table>
+            </div>
+            <div class="modal-footer k-modal-footer">
+                <button class="k-btn-outline" onclick="document.getElementById('lamThemModal').style.display='none'">
+                    Bỏ qua
+                </button>
+                <button class="btn-primary" id="btnLtApply" style="background:#1890ff;">
+                    Xong
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL: PHỤ CẤP ==================== -->
+    <div class="modal" id="phuCapModal" style="display: none;">
+        <div class="modal-overlay" onclick="this.parentElement.style.display='none'"></div>
+        <div class="modal-content k-modal" style="width: 700px; max-width: 95vw;">
+            <div class="modal-header k-modal-header">
+                <div>
+                    <h3>Các khoản phụ cấp</h3>
+                    <div id="pcEmpName" style="font-size: 13px; color: #8c8c8c; margin-top: 2px;"></div>
+                </div>
+                <button class="btn-icon" onclick="document.getElementById('phuCapModal').style.display='none'">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body k-modal-body" style="padding: 0;">
+                <table class="payroll-detail-table" id="pcTable">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px;"></th>
+                            <th>Tên phụ cấp</th>
+                            <th style="text-align: center;">Số ngày</th>
+                            <th style="text-align: right;">Mức phụ cấp</th>
+                            <th style="text-align: right;">Thành tiền</th>
+                        </tr>
+                    </thead>
+                    <tbody id="pcBody"></tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="5" style="padding: 0;">
+                                <span class="phu-cap-add-link" id="pcAddLink">Thêm phụ cấp khác</span>
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            <div class="modal-footer k-modal-footer">
+                <button class="k-btn-outline" onclick="document.getElementById('phuCapModal').style.display='none'">
+                    Bỏ qua
+                </button>
+                <button class="btn-primary" id="btnPcApply" style="background:#1890ff;">
+                    Xong
                 </button>
             </div>
         </div>
