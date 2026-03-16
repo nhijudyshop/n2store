@@ -3023,23 +3023,26 @@ class InboxChatController {
 
             this.isSocketConnecting = true;
 
-            // Step 1: Check if server already has a working Pancake WS connection
-            let serverAlreadyConnected = false;
+            // Step 1: Check if server already has a working Pancake WS with SAME account
+            let skipStart = false;
             try {
                 const statusUrl = `${window.API_CONFIG.WORKER_URL}/api/realtime/status`;
                 const statusRes = await fetch(statusUrl);
                 const status = await statusRes.json();
                 console.log('[InboxChat] Server Pancake WS status:', JSON.stringify(status));
-                if (status.connected && status.hasToken) {
-                    serverAlreadyConnected = true;
-                    console.log('[InboxChat] ✅ Server already connected, skipping POST /start (avoid overwrite)');
+                // Only skip if connected AND same userId (don't overwrite another working account)
+                if (status.connected && status.hasToken && status.userId === userId) {
+                    skipStart = true;
+                    console.log('[InboxChat] ✅ Server already connected with same account, skipping POST /start');
+                } else if (status.connected && status.userId !== userId) {
+                    console.log(`[InboxChat] Server connected with different account (${status.userId}), updating to ${userId}...`);
                 }
             } catch (e) {
                 console.warn('[InboxChat] Could not check server status:', e.message);
             }
 
-            // Only POST /start if server is NOT already connected
-            if (!serverAlreadyConnected) {
+            // POST /start if server not connected or different account
+            if (!skipStart) {
                 console.log('[InboxChat] Starting server-mode realtime...');
                 const startUrl = `${window.API_CONFIG.WORKER_URL}/api/realtime/start`;
                 const startResponse = await fetch(startUrl, {
