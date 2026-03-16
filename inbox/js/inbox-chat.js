@@ -2985,6 +2985,55 @@ class InboxChatController {
 
     // ===== WebSocket Real-Time (Server Mode Proxy via Render) =====
 
+    /**
+     * Find a working Pancake account for WS (skip expired subscription accounts).
+     * Tries active account first, then falls back to others.
+     */
+    async _getWorkingAccountForWS(ptm, pdm) {
+        const accountIds = Object.keys(ptm.accounts || {});
+        // Try active account first, then others
+        const ordered = [ptm.activeAccountId, ...accountIds.filter(id => id !== ptm.activeAccountId)].filter(Boolean);
+
+        for (const accountId of ordered) {
+            const account = ptm.accounts[accountId];
+            if (!account) continue;
+            if (ptm.isTokenExpired && ptm.isTokenExpired(account.exp)) continue;
+
+            const token = account.token;
+            if (!token) continue;
+
+            // Decode userId from JWT
+            let userId = null;
+            try {
+                const parts = token.split('.');
+                if (parts.length >= 2) {
+                    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+                    userId = payload.uid || payload.user_id || payload.sub;
+                }
+            } catch (e) { continue; }
+            if (!userId) continue;
+
+            // Quick check: try fetching conversations to see if subscription is active
+            try {
+                const testUrl = `${window.API_CONFIG.WORKER_URL}/api/pancake/conversations?pages[${(pdm.pageIds || [])[0]}]=0&access_token=${token}&cursor_mode=true&from_platform=web`;
+                const res = await fetch(testUrl);
+                const data = await res.json();
+                if (data.error_code === 122) {
+                    console.log(`[InboxChat] Account "${account.name || accountId}" subscription expired, skipping...`);
+                    continue;
+                }
+            } catch (e) {
+                // Network error → try anyway
+            }
+
+            const pageIds = (pdm.pageIds || []).map(id => String(id));
+            console.log(`[InboxChat] ✅ Using account "${account.name || accountId}" for WS`);
+            return { token, userId, pageIds, cookie: `jwt=${token}` };
+        }
+
+        return null;
+    }
+
     async initializeWebSocket() {
         if (this.isSocketConnected || this.isSocketConnecting) return true;
 
@@ -2993,55 +3042,36 @@ class InboxChatController {
             const pdm = window.pancakeDataManager;
             if (!ptm || !pdm) return false;
 
-            const token = await ptm.getToken();
-            if (!token) {
-                console.warn('[InboxChat] No Pancake token for WebSocket');
+            // Find a working account (active first, then fallback to others)
+            const wsCredentials = await this._getWorkingAccountForWS(ptm, pdm);
+            if (!wsCredentials) {
+                console.warn('[InboxChat] No working Pancake account for WebSocket');
+                this.startAutoRefresh();
                 return false;
             }
 
-            // Decode token to get userId
-            let userId = null;
-            try {
-                const parts = token.split('.');
-                if (parts.length >= 2) {
-                    const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-                    userId = payload.uid || payload.user_id || payload.sub;
-                }
-            } catch (e) {
-                console.warn('[InboxChat] Failed to decode JWT:', e);
-                return false;
-            }
-
-            if (!userId) {
-                console.warn('[InboxChat] No userId from JWT');
-                return false;
-            }
+            const { token, userId, pageIds, cookie } = wsCredentials;
             this.userId = userId;
-
-            const pageIds = (pdm.pageIds || []).map(id => String(id));
-            const cookie = `jwt=${token}`;
-
             this.isSocketConnecting = true;
 
-            // Step 1: Check if server already has a working Pancake WS with SAME account
+            // Step 1: Check if server already connected with same account
             let skipStart = false;
             try {
                 const statusUrl = `${window.API_CONFIG.WORKER_URL}/api/realtime/status`;
                 const statusRes = await fetch(statusUrl);
                 const status = await statusRes.json();
                 console.log('[InboxChat] Server Pancake WS status:', JSON.stringify(status));
-                // Only skip if connected AND same userId (don't overwrite another working account)
                 if (status.connected && status.hasToken && status.userId === userId) {
                     skipStart = true;
                     console.log('[InboxChat] ✅ Server already connected with same account, skipping POST /start');
                 } else if (status.connected && status.userId !== userId) {
-                    console.log(`[InboxChat] Server connected with different account (${status.userId}), updating to ${userId}...`);
+                    console.log(`[InboxChat] Server has different account (${status.userId}), switching to ${userId}...`);
                 }
             } catch (e) {
                 console.warn('[InboxChat] Could not check server status:', e.message);
             }
 
-            // POST /start if server not connected or different account
+            // POST /start if needed
             if (!skipStart) {
                 console.log('[InboxChat] Starting server-mode realtime...');
                 const startUrl = `${window.API_CONFIG.WORKER_URL}/api/realtime/start`;
@@ -3058,26 +3088,18 @@ class InboxChatController {
                     return false;
                 }
 
-                // Wait for server's Pancake WS to connect (retry for cold start)
-                let pancakeConnected = false;
-                for (let attempt = 1; attempt <= 3; attempt++) {
-                    await new Promise(r => setTimeout(r, 2000 * attempt));
-                    try {
-                        const statusUrl = `${window.API_CONFIG.WORKER_URL}/api/realtime/status`;
-                        const statusRes = await fetch(statusUrl);
-                        const status = await statusRes.json();
-                        console.log(`[InboxChat] Pancake WS status (attempt ${attempt}):`, JSON.stringify(status));
-                        if (status.connected) {
-                            pancakeConnected = true;
-                            break;
-                        }
-                    } catch (e) {
-                        console.warn(`[InboxChat] Status check failed (attempt ${attempt}):`, e.message);
+                // Wait for server's Pancake WS to connect
+                await new Promise(r => setTimeout(r, 2000));
+                try {
+                    const statusRes = await fetch(`${window.API_CONFIG.WORKER_URL}/api/realtime/status`);
+                    const status = await statusRes.json();
+                    console.log('[InboxChat] Pancake WS status after start:', JSON.stringify(status));
+                    if (!status.connected) {
+                        console.warn('[InboxChat] ⚠️ Pancake WS not connected, starting polling backup...');
+                        this.startAutoRefresh();
                     }
-                }
-                if (!pancakeConnected) {
-                    console.warn('[InboxChat] ⚠️ Pancake WS not connected after retries. Starting polling as backup...');
-                    this.startAutoRefresh();
+                } catch (e) {
+                    console.warn('[InboxChat] Status check failed:', e.message);
                 }
             }
 
