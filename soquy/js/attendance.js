@@ -2641,7 +2641,7 @@
     body { font-family: 'Times New Roman', serif; font-size: 13px; color: #000; max-width: 700px; margin: 0 auto; padding: 20px; }
     .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
     .header-left { font-size: 12px; color: #555; }
-    .logo { font-size: 28px; font-weight: 700; color: #1890ff; letter-spacing: 1px; }
+    .logo img { height: 50px; }
     .title { text-align: center; margin: 20px 0 5px; font-size: 20px; font-weight: 700; }
     .subtitle { text-align: center; font-size: 13px; margin-bottom: 20px; }
     .info { margin-bottom: 16px; }
@@ -2663,7 +2663,7 @@
 </style></head><body>
 <div class="header">
     <div class="header-left">${dateStr}</div>
-    <div class="logo">N2STORE</div>
+    <div class="logo"><img src="${new URL('../index/logo.jpg', window.location.href).href}" alt="N2STORE"></div>
 </div>
 <div class="title">PHIẾU LƯƠNG NHÂN VIÊN</div>
 <div class="subtitle">Bảng lương tháng ${m}/${y}</div>
