@@ -4,12 +4,12 @@
    ===================================================== */
 
 const DEFAULT_GROUPS = [
-    { id: 'new', name: 'Inbox Moi', color: '#3b82f6', note: 'Tin nhan moi chua xu ly', count: 0 },
-    { id: 'processing', name: 'Dang Xu Ly', color: '#f59e0b', note: 'Dang duoc nhan vien xu ly', count: 0 },
-    { id: 'waiting', name: 'Cho Phan Hoi', color: '#f97316', note: 'Da tra loi, cho khach', count: 0 },
-    { id: 'ordered', name: 'Da Dat Hang', color: '#10b981', note: 'Khach da chot don', count: 0 },
-    { id: 'urgent', name: 'Can Gap', color: '#ef4444', note: 'Khieu nai, doi tra, loi', count: 0 },
-    { id: 'done', name: 'Hoan Tat', color: '#6b7280', note: 'Xong, khong can theo doi', count: 0 }
+    { id: 'new', name: 'Inbox Mới', color: '#3b82f6', note: 'Tin nhắn mới chưa xử lý', count: 0 },
+    { id: 'processing', name: 'Đang Xử Lý', color: '#f59e0b', note: 'Đang được nhân viên xử lý', count: 0 },
+    { id: 'waiting', name: 'Chờ Phản Hồi', color: '#f97316', note: 'Đã trả lời, chờ khách', count: 0 },
+    { id: 'ordered', name: 'Đã Đặt Hàng', color: '#10b981', note: 'Khách đã chốt đơn', count: 0 },
+    { id: 'urgent', name: 'Cần Gấp', color: '#ef4444', note: 'Khiếu nại, đổi trả, lỗi', count: 0 },
+    { id: 'done', name: 'Hoàn Tất', color: '#6b7280', note: 'Xong, không cần theo dõi', count: 0 }
 ];
 
 class InboxDataManager {
@@ -377,7 +377,7 @@ class InboxDataManager {
             const lastMsg = this.parseTimestamp(raw.last_customer_message_at);
             const diff = Date.now() - lastMsg.getTime();
             if (diff > 24 * 60 * 60 * 1000) {
-                return { within24h: false, message: 'Qua 24h ke tu tin nhan cuoi cua khach' };
+                return { within24h: false, message: 'Quá 24h kể từ tin nhắn cuối của khách' };
             }
         }
         return { within24h: true, message: 'OK' };

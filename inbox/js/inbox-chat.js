@@ -99,7 +99,7 @@ class InboxChatController {
             this.data.recalculateGroupCounts();
             this.renderConversationList();
             this.renderGroupStats();
-            showToast('Da lam moi', 'success');
+            showToast('Đã làm mới', 'success');
         });
 
         // Conversation list scroll (load more)
@@ -286,7 +286,7 @@ class InboxChatController {
             container.innerHTML = `
                 <div style="padding:2rem;text-align:center;color:var(--text-tertiary);">
                     <i data-lucide="inbox" style="width:48px;height:48px;opacity:0.3;"></i>
-                    <p style="margin-top:0.5rem;">${search ? 'Khong tim thay ket qua' : 'Chua co du lieu'}</p>
+                    <p style="margin-top:0.5rem;">${search ? 'Không tìm thấy kết quả' : 'Chưa có dữ liệu'}</p>
                 </div>`;
             if (typeof lucide !== 'undefined') lucide.createIcons({ attrs: { class: '' } });
             return;
@@ -475,7 +475,7 @@ class InboxChatController {
 
         } catch (e) {
             console.error('[INBOX-CHAT] loadMessages error:', e);
-            document.getElementById('chatMessages').innerHTML = `<div class="chat-empty-state"><p>Loi tai tin nhan: ${e.message}</p></div>`;
+            document.getElementById('chatMessages').innerHTML = `<div class="chat-empty-state"><p>Lỗi tải tin nhắn: ${e.message}</p></div>`;
         }
     }
 
@@ -543,7 +543,7 @@ class InboxChatController {
         const allMessages = [...this.messages, ...this._optimisticMessages];
 
         if (allMessages.length === 0) {
-            container.innerHTML = '<div class="chat-empty-state"><p>Chua co tin nhan</p></div>';
+            container.innerHTML = '<div class="chat-empty-state"><p>Chưa có tin nhắn</p></div>';
             return;
         }
 
@@ -575,7 +575,7 @@ class InboxChatController {
             let typeIconHtml = '';
             if (conv.type === 'COMMENT') {
                 if (msg.isPrivateReply) {
-                    typeIconHtml = '<span class="msg-type-icon type-inbox"><i data-lucide="lock"></i> Rieng</span>';
+                    typeIconHtml = '<span class="msg-type-icon type-inbox"><i data-lucide="lock"></i> Riêng</span>';
                 } else {
                     typeIconHtml = '<span class="msg-type-icon type-comment"><i data-lucide="message-square"></i> BL</span>';
                 }
@@ -610,12 +610,12 @@ class InboxChatController {
             let actionsHtml = '';
             if (!msg.isOptimistic) {
                 let actionBtns = '';
-                if (msg.canLike) actionBtns += `<button class="msg-action-btn ${msg.userLikes ? 'liked' : ''}" data-action="${msg.userLikes ? 'unlike' : 'like'}" data-msg="${msg.id}" title="${msg.userLikes ? 'Bo thich' : 'Thich'}"><i data-lucide="thumbs-up"></i></button>`;
-                if (msg.canHide) actionBtns += `<button class="msg-action-btn ${msg.isHidden ? 'active' : ''}" data-action="${msg.isHidden ? 'unhide' : 'hide'}" data-msg="${msg.id}" title="${msg.isHidden ? 'Hien' : 'An'}"><i data-lucide="${msg.isHidden ? 'eye' : 'eye-off'}"></i></button>`;
-                actionBtns += `<button class="msg-action-btn" data-action="reply" data-msg="${msg.id}" title="Tra loi"><i data-lucide="corner-up-left"></i></button>`;
+                if (msg.canLike) actionBtns += `<button class="msg-action-btn ${msg.userLikes ? 'liked' : ''}" data-action="${msg.userLikes ? 'unlike' : 'like'}" data-msg="${msg.id}" title="${msg.userLikes ? 'Bỏ thích' : 'Thích'}"><i data-lucide="thumbs-up"></i></button>`;
+                if (msg.canHide) actionBtns += `<button class="msg-action-btn ${msg.isHidden ? 'active' : ''}" data-action="${msg.isHidden ? 'unhide' : 'hide'}" data-msg="${msg.id}" title="${msg.isHidden ? 'Hiện' : 'Ẩn'}"><i data-lucide="${msg.isHidden ? 'eye' : 'eye-off'}"></i></button>`;
+                actionBtns += `<button class="msg-action-btn" data-action="reply" data-msg="${msg.id}" title="Trả lời"><i data-lucide="corner-up-left"></i></button>`;
                 actionBtns += `<button class="msg-action-btn" data-action="react" data-msg="${msg.id}" title="React"><i data-lucide="smile"></i></button>`;
-                actionBtns += `<button class="msg-action-btn" data-action="copy" data-msg="${msg.id}" title="Sao chep"><i data-lucide="copy"></i></button>`;
-                if (msg.canRemove && isOutgoing) actionBtns += `<button class="msg-action-btn danger" data-action="delete" data-msg="${msg.id}" title="Xoa"><i data-lucide="trash-2"></i></button>`;
+                actionBtns += `<button class="msg-action-btn" data-action="copy" data-msg="${msg.id}" title="Sao chép"><i data-lucide="copy"></i></button>`;
+                if (msg.canRemove && isOutgoing) actionBtns += `<button class="msg-action-btn danger" data-action="delete" data-msg="${msg.id}" title="Xóa"><i data-lucide="trash-2"></i></button>`;
                 actionsHtml = `<div class="msg-hover-actions">${actionBtns}</div>`;
             }
 
@@ -639,7 +639,7 @@ class InboxChatController {
         }
 
         if (!this.hasMoreMessages) {
-            html = '<div class="load-more-indicator">Dau cuoc hoi thoai</div>' + html;
+            html = '<div class="load-more-indicator">Đầu cuộc hội thoại</div>' + html;
         }
 
         container.innerHTML = html;
@@ -727,7 +727,7 @@ class InboxChatController {
             // Get page access token (3-step fallback)
             const pageAccessToken = await this._getPageAccessTokenWithFallback(sendPageId);
             if (!pageAccessToken) {
-                showToast('Khong co page_access_token. Vui long them trong Pancake Settings.', 'error');
+                showToast('Không có page_access_token. Vui lòng thêm trong Pancake Settings.', 'error');
                 return;
             }
 
@@ -738,7 +738,7 @@ class InboxChatController {
                     const payload = { action: 'reply_inbox', content_url: uploadResult.content_url };
                     await this.api.sendMessage(sendPageId, conv.id, payload, pageAccessToken);
                 } else {
-                    throw new Error('Upload anh that bai');
+                    throw new Error('Upload ảnh thất bại');
                 }
                 this._clearImagePreview();
             }
@@ -762,7 +762,7 @@ class InboxChatController {
 
         } catch (e) {
             console.error('[INBOX-CHAT] sendMessage error:', e);
-            showToast(`Loi gui tin nhan: ${e.message}`, 'error');
+            showToast(`Lỗi gửi tin nhắn: ${e.message}`, 'error');
         } finally {
             this._optimisticMessages = [];
         }
@@ -786,9 +786,9 @@ class InboxChatController {
                 message: text
             };
             const fbResult = await this.api.sendMessage(pageId, convId, fallbackPayload, pageAccessToken);
-            if (!fbResult.success && fbResult.error) throw new Error(fbResult.error.message || 'Gui that bai');
+            if (!fbResult.success && fbResult.error) throw new Error(fbResult.error.message || 'Gửi thất bại');
         } else if (!result.success && result.error) {
-            throw new Error(result.error.message || result.message || 'Gui that bai');
+            throw new Error(result.error.message || result.message || 'Gửi thất bại');
         }
     }
 
@@ -860,24 +860,24 @@ class InboxChatController {
         switch (action) {
             case 'like':
                 await this.api.likeComment(conv.pageId, msgId, pageAccessToken);
-                showToast('Da thich', 'success');
+                showToast('Đã thích', 'success');
                 break;
             case 'unlike':
                 await this.api.unlikeComment(conv.pageId, msgId, pageAccessToken);
-                showToast('Da bo thich', 'info');
+                showToast('Đã bỏ thích', 'info');
                 break;
             case 'hide':
                 await this.api.hideComment(conv.pageId, msgId, pageAccessToken);
-                showToast('Da an binh luan', 'success');
+                showToast('Đã ẩn bình luận', 'success');
                 break;
             case 'unhide':
                 await this.api.unhideComment(conv.pageId, msgId, pageAccessToken);
-                showToast('Da hien binh luan', 'info');
+                showToast('Đã hiện bình luận', 'info');
                 break;
             case 'delete':
-                if (confirm('Xoa binh luan nay?')) {
+                if (confirm('Xóa bình luận này?')) {
                     await this.api.deleteComment(conv.pageId, msgId, pageAccessToken);
-                    showToast('Da xoa', 'success');
+                    showToast('Đã xóa', 'success');
                 }
                 break;
             case 'reply':
@@ -891,7 +891,7 @@ class InboxChatController {
                 const copyMsg = this.messages.find(m => m.id === msgId);
                 if (copyMsg?.text) {
                     navigator.clipboard?.writeText(copyMsg.text);
-                    showToast('Da sao chep', 'success');
+                    showToast('Đã sao chép', 'success');
                 }
                 break;
         }
@@ -932,7 +932,7 @@ class InboxChatController {
                 if (!conv) return;
                 const pat = await this._getPageAccessTokenWithFallback(conv.pageId);
                 await this.api.sendReaction(conv.pageId, msgId, rb.dataset.reaction, pat);
-                showToast('Da react', 'success');
+                showToast('Đã react', 'success');
                 setTimeout(() => {
                     this.api.clearMessagesCache(conv.pageId, conv.id);
                     this.loadMessages(conv);
@@ -949,7 +949,7 @@ class InboxChatController {
         const file = e.target.files?.[0];
         if (!file) return;
         if (file.size > 25 * 1024 * 1024) {
-            showToast('File qua lon (toi da 25MB)', 'error');
+            showToast('File quá lớn (tối đa 25MB)', 'error');
             return;
         }
         this.selectedImage = file;
@@ -965,23 +965,23 @@ class InboxChatController {
         const file = e.target.files?.[0];
         if (!file) return;
         if (file.size > 25 * 1024 * 1024) {
-            showToast('File qua lon (toi da 25MB)', 'error');
+            showToast('File quá lớn (tối đa 25MB)', 'error');
             return;
         }
         const conv = this.data.getConversation(this.activeConvId);
         if (!conv) return;
 
         const pat = await this._getPageAccessTokenWithFallback(conv.pageId);
-        if (!pat) { showToast('Khong co page_access_token', 'error'); return; }
+        if (!pat) { showToast('Không có page_access_token', 'error'); return; }
 
-        showToast('Dang tai file...', 'info');
+        showToast('Đang tải file...', 'info');
         const result = await this.api.uploadMedia(conv.pageId, file, pat);
         if (result.success && result.content_url) {
             await this.api.sendMessage(conv.pageId, conv.id, { action: 'reply_inbox', content_url: result.content_url }, pat);
-            showToast('Da gui file', 'success');
+            showToast('Đã gửi file', 'success');
             setTimeout(() => this.loadMessages(conv), 2000);
         } else {
-            showToast('Tai file that bai', 'error');
+            showToast('Tải file thất bại', 'error');
         }
         e.target.value = '';
     }
@@ -1224,7 +1224,7 @@ class InboxChatController {
         el.innerHTML = connected
             ? '<i data-lucide="wifi"></i>'
             : '<i data-lucide="wifi-off"></i>';
-        el.title = connected ? 'Realtime: Da ket noi' : 'Realtime: Mat ket noi';
+        el.title = connected ? 'Realtime: Đã kết nối' : 'Realtime: Mất kết nối';
         if (typeof lucide !== 'undefined') lucide.createIcons({ attrs: { class: '' } });
     }
 
@@ -1240,7 +1240,7 @@ class InboxChatController {
             <div class="page-item active" data-page="all">
                 <div class="page-item-icon"><i data-lucide="layout-grid"></i></div>
                 <div class="page-item-info">
-                    <div class="page-item-name">Tat ca Pages</div>
+                    <div class="page-item-name">Tất cả Pages</div>
                 </div>
             </div>`;
         for (const page of this.data.pages) {
@@ -1284,7 +1284,7 @@ class InboxChatController {
         const label = document.getElementById('pageSelectorLabel');
         if (!label) return;
         if (this.selectedPageIds.length === 0) {
-            label.textContent = 'Tat ca Pages';
+            label.textContent = 'Tất cả Pages';
         } else if (this.selectedPageIds.length === 1) {
             const page = this.data.pages.find(p => p.id === this.selectedPageIds[0]);
             label.textContent = page?.name || this.selectedPageIds[0];
@@ -1367,7 +1367,7 @@ class InboxChatController {
                     </div>
                     <div class="group-stats-card-body">
                         <div class="group-stats-card-name">${this.escapeHtml(g.name)}</div>
-                        <div class="group-stats-card-count"><strong>${g.count}</strong> khach hang</div>
+                        <div class="group-stats-card-count"><strong>${g.count}</strong> khách hàng</div>
                     </div>
                     <button class="group-stats-card-help" title="${this.escapeHtml(g.note || '')}">
                         ?
@@ -1440,7 +1440,7 @@ class InboxChatController {
         if (!text || !this.activeConvId) return;
         // TODO: Save note to server
         input.value = '';
-        showToast('Da them ghi chu', 'success');
+        showToast('Đã thêm ghi chú', 'success');
     }
 
     renderNotes(conv) {
@@ -1486,10 +1486,10 @@ class InboxChatController {
                     </div>
                 </div>
                 <div class="modal-group-fields">
-                    <input type="text" class="group-name-input" value="${this.escapeHtml(g.name)}" placeholder="Ten nhom" />
-                    <textarea class="group-note-input" placeholder="Mo ta...">${this.escapeHtml(g.note || '')}</textarea>
+                    <input type="text" class="group-name-input" value="${this.escapeHtml(g.name)}" placeholder="Tên nhóm" />
+                    <textarea class="group-note-input" placeholder="Mô tả...">${this.escapeHtml(g.note || '')}</textarea>
                 </div>
-                ${defaultIds.includes(g.id) ? '' : `<button class="modal-group-delete" data-id="${g.id}" title="Xoa"><i data-lucide="trash-2"></i></button>`}
+                ${defaultIds.includes(g.id) ? '' : `<button class="modal-group-delete" data-id="${g.id}" title="Xóa"><i data-lucide="trash-2"></i></button>`}
             </div>
         `).join('');
         html += '</div>';
@@ -1497,14 +1497,14 @@ class InboxChatController {
         // Add new group section
         html += `
             <div class="modal-add-section">
-                <h4>Them nhom moi</h4>
+                <h4>Thêm nhóm mới</h4>
                 <div class="modal-add-row">
                     <div class="modal-group-color-pick" id="newGroupColor" style="background:#8b5cf6;cursor:pointer;"></div>
                     <div class="modal-add-fields">
-                        <input type="text" id="newGroupName" placeholder="Ten nhom moi" />
-                        <textarea id="newGroupNote" placeholder="Mo ta (tuy chon)"></textarea>
+                        <input type="text" id="newGroupName" placeholder="Tên nhóm mới" />
+                        <textarea id="newGroupNote" placeholder="Mô tả (tùy chọn)"></textarea>
                     </div>
-                    <button class="btn-modal-add" id="btnAddGroupConfirm">Them</button>
+                    <button class="btn-modal-add" id="btnAddGroupConfirm">Thêm</button>
                 </div>
                 <div class="modal-color-picker" id="newGroupColorPicker">
                     ${colors.map(c => `<span class="color-option" data-color="${c}" style="background:${c};"></span>`).join('')}
@@ -1547,7 +1547,7 @@ class InboxChatController {
         // Bind delete
         body.querySelectorAll('.modal-group-delete').forEach(btn => {
             btn.addEventListener('click', () => {
-                if (confirm('Xoa nhom nay?')) {
+                if (confirm('Xóa nhóm này?')) {
                     this.data.deleteGroup(btn.dataset.id);
                     this.showManageGroupsModal();
                     this.renderGroupStats();
@@ -1567,7 +1567,7 @@ class InboxChatController {
         // Add new group
         document.getElementById('btnAddGroupConfirm').onclick = () => {
             const name = document.getElementById('newGroupName')?.value?.trim();
-            if (!name) { showToast('Nhap ten nhom', 'warning'); return; }
+            if (!name) { showToast('Nhập tên nhóm', 'warning'); return; }
             const color = document.getElementById('newGroupColor')?.style.background || '#8b5cf6';
             const note = document.getElementById('newGroupNote')?.value?.trim() || '';
             this.data.addGroup(name, color, note);
@@ -1578,7 +1578,7 @@ class InboxChatController {
         // Save button
         document.getElementById('btnSaveGroups').onclick = () => {
             modal.style.display = 'none';
-            showToast('Da luu nhom', 'success');
+            showToast('Đã lưu nhóm', 'success');
         };
 
         modal.style.display = 'flex';
@@ -1595,11 +1595,11 @@ class InboxChatController {
 
         if (conv.isLivestream) {
             this.data.unmarkAsLivestream(conv.id);
-            showToast('Da bo danh dau livestream', 'info');
+            showToast('Đã bỏ đánh dấu livestream', 'info');
         } else {
             const postId = conv.postId || conv._raw?.post_id || '';
             this.data.markAsLivestream(conv.id, postId);
-            showToast('Da danh dau livestream', 'success');
+            showToast('Đã đánh dấu livestream', 'success');
         }
         this.renderConversationList();
     }
@@ -1652,7 +1652,7 @@ class InboxChatController {
         if (!post) { banner.style.display = 'none'; return; }
 
         const thumb = post.thumbnail_url || post.full_picture || '';
-        const title = post.message || post.name || 'Bai viet';
+        const title = post.message || post.name || 'Bài viết';
         const liveStatus = post.live_video_status;
         let statusBadge = '';
         if (liveStatus === 'live') statusBadge = '<span class="post-status-badge live">LIVE</span>';
@@ -1685,13 +1685,13 @@ class InboxChatController {
         if (activities.length === 0) {
             container.innerHTML = `<div style="text-align:center;color:var(--text-tertiary);padding:2rem;">
                 <i data-lucide="activity" style="width:32px;height:32px;opacity:0.5;"></i>
-                <p style="margin-top:0.5rem;">Khong co hoat dong</p>
+                <p style="margin-top:0.5rem;">Không có hoạt động</p>
             </div>`;
             if (typeof lucide !== 'undefined') lucide.createIcons({ attrs: { class: '' } });
             return;
         }
 
-        container.innerHTML = `<div class="activities-header"><h3>Hoat dong</h3></div>
+        container.innerHTML = `<div class="activities-header"><h3>Hoạt động</h3></div>
             <div class="activities-list">${activities.map(a => `
                 <div class="activity-item">
                     ${a.thumbnail_url ? `<img class="activity-thumb" src="${this.escapeHtml(a.thumbnail_url)}" alt="" />` : '<div class="activity-thumb-ph"><i data-lucide="file-text"></i></div>'}
@@ -1728,19 +1728,19 @@ class InboxChatController {
     async addAccountManual() {
         const input = document.getElementById('newAccountTokenInput');
         let token = input?.value?.trim();
-        if (!token) { showToast('Nhap JWT token', 'warning'); return; }
+        if (!token) { showToast('Nhập JWT token', 'warning'); return; }
 
         // Clean token
         token = token.replace(/^jwt=/, '').replace(/;.*$/, '').trim();
 
         try {
             await this.tm.saveTokenToFirestore(token);
-            showToast('Da them tai khoan', 'success');
+            showToast('Đã thêm tài khoản', 'success');
             input.value = '';
             document.getElementById('addAccountForm').style.display = 'none';
             this._renderAccountsList();
         } catch (e) {
-            showToast('Loi: ' + e.message, 'error');
+            showToast('Lỗi: ' + e.message, 'error');
         }
     }
 
@@ -1755,7 +1755,7 @@ class InboxChatController {
 
         const accounts = this.tm.getAllAccounts();
         if (accounts.length === 0) {
-            container.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:20px;">Chua co tai khoan nao</div>';
+            container.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:20px;">Chưa có tài khoản nào</div>';
             return;
         }
 
@@ -1766,9 +1766,9 @@ class InboxChatController {
                 <div style="display:flex;align-items:center;gap:10px;padding:8px;border-bottom:1px solid #e5e7eb;">
                     <div style="flex:1;min-width:0;">
                         <div style="font-weight:600;font-size:13px;color:#374151;">${this.escapeHtml(decoded?.name || acc.accountId || 'Unknown')}</div>
-                        <div style="font-size:11px;color:#6b7280;">UID: ${decoded?.uid || '?'} ${isExpired ? '<span style="color:#ef4444;font-weight:600;">Het han</span>' : '<span style="color:#10b981;">Con hieu luc</span>'}</div>
+                        <div style="font-size:11px;color:#6b7280;">UID: ${decoded?.uid || '?'} ${isExpired ? '<span style="color:#ef4444;font-weight:600;">Hết hạn</span>' : '<span style="color:#10b981;">Còn hiệu lực</span>'}</div>
                     </div>
-                    ${acc.isActive ? '<span style="font-size:11px;background:#10b981;color:white;padding:2px 8px;border-radius:10px;">Active</span>' : `<button onclick="window.inboxChat?.tm?.setActiveAccount?.('${acc.accountId}');window.inboxChat?._renderAccountsList?.()" style="font-size:11px;padding:2px 8px;border:1px solid #d1d5db;border-radius:6px;background:white;cursor:pointer;">Chon</button>`}
+                    ${acc.isActive ? '<span style="font-size:11px;background:#10b981;color:white;padding:2px 8px;border-radius:10px;">Active</span>' : `<button onclick="window.inboxChat?.tm?.setActiveAccount?.('${acc.accountId}');window.inboxChat?._renderAccountsList?.()" style="font-size:11px;padding:2px 8px;border:1px solid #d1d5db;border-radius:6px;background:white;cursor:pointer;">Chọn</button>`}
                     <button onclick="window.inboxChat?.tm?.deleteAccount?.('${acc.accountId}');window.inboxChat?._renderAccountsList?.()" style="padding:4px;border:none;background:transparent;cursor:pointer;color:#ef4444;"><i class="fas fa-trash"></i></button>
                 </div>`;
         }).join('');
@@ -1852,21 +1852,30 @@ class InboxChatController {
     // FORMAT UTILITIES
     // =====================================================
 
+    // Convert date to Vietnam timezone parts for comparison
+    _toVN(date) {
+        return new Date(date.toLocaleString('en-US', { timeZone: 'Asia/Ho_Chi_Minh' }));
+    }
+
     formatTime(date) {
         if (!date || !(date instanceof Date) || isNaN(date)) return '';
         const now = new Date();
         const diff = now - date;
 
-        if (diff < 60000) return 'Vua xong';
+        if (diff < 60000) return 'Vừa xong';
         if (diff < 3600000) return Math.floor(diff / 60000) + 'p';
-        if (diff < 86400000 && date.getDate() === now.getDate()) {
+
+        const vnNow = this._toVN(now);
+        const vnDate = this._toVN(date);
+
+        if (vnDate.getDate() === vnNow.getDate() && vnDate.getMonth() === vnNow.getMonth() && vnDate.getFullYear() === vnNow.getFullYear()) {
             return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' });
         }
 
         const dayDiff = Math.floor(diff / 86400000);
         if (dayDiff < 7) {
             const days = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
-            return days[date.getDay()];
+            return days[vnDate.getDay()];
         }
 
         return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' });
@@ -1874,12 +1883,13 @@ class InboxChatController {
 
     formatDate(date) {
         if (!date || !(date instanceof Date) || isNaN(date)) return '';
-        const now = new Date();
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const msgDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+        const vnNow = this._toVN(new Date());
+        const vnDate = this._toVN(date);
+        const today = new Date(vnNow.getFullYear(), vnNow.getMonth(), vnNow.getDate());
+        const msgDay = new Date(vnDate.getFullYear(), vnDate.getMonth(), vnDate.getDate());
 
-        if (msgDay.getTime() === today.getTime()) return 'Hom nay';
-        if (today - msgDay === 86400000) return 'Hom qua';
+        if (msgDay.getTime() === today.getTime()) return 'Hôm nay';
+        if (today - msgDay === 86400000) return 'Hôm qua';
         return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Ho_Chi_Minh' });
     }
 

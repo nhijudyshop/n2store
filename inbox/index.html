@@ -52,7 +52,7 @@
                         <button class="btn-icon-sm" id="btnPancakeSettings" title="Pancake Settings" data-perm="inbox:settings" data-perm-action="hide" onclick="window.inboxChat?.showPancakeSettingsModal?.()">
                             <i data-lucide="settings"></i>
                         </button>
-                        <button class="btn-icon-sm" id="btnRefreshInbox" title="Lam moi">
+                        <button class="btn-icon-sm" id="btnRefreshInbox" title="Làm mới">
                             <i data-lucide="refresh-cw"></i>
                         </button>
                     </div>
@@ -62,7 +62,7 @@
                 <div class="conversation-search">
                     <div class="search-input-wrapper">
                         <i data-lucide="search"></i>
-                        <input type="text" id="searchConversation" placeholder="Tim khach hang..." />
+                        <input type="text" id="searchConversation" placeholder="Tìm khách hàng..." />
                     </div>
                 </div>
 
@@ -70,7 +70,7 @@
                 <div class="page-selector" id="pageSelector">
                     <button class="page-selector-btn" id="pageSelectorBtn">
                         <i data-lucide="layout-grid"></i>
-                        <span id="pageSelectorLabel">Tat ca Pages</span>
+                        <span id="pageSelectorLabel">Tất cả Pages</span>
                         <i data-lucide="chevron-down" class="page-selector-arrow"></i>
                     </button>
                     <div class="page-selector-dropdown" id="pageSelectorDropdown" style="display:none;">
@@ -80,35 +80,35 @@
 
                 <!-- Filter Tabs -->
                 <div class="conversation-filters">
-                    <button class="filter-tab active" data-filter="all">Tat ca</button>
-                    <button class="filter-tab" data-filter="unread">Chua doc</button>
+                    <button class="filter-tab active" data-filter="all">Tất cả</button>
+                    <button class="filter-tab" data-filter="unread">Chưa đọc</button>
                     <button class="filter-tab" data-filter="livestream">Livestream</button>
-                    <button class="filter-tab" data-filter="inbox_my">Cua toi</button>
+                    <button class="filter-tab" data-filter="inbox_my">Của tôi</button>
                 </div>
 
                 <!-- Type Filter (comment/message) -->
                 <div class="type-filters" id="typeFilters">
-                    <button class="type-filter-btn active" data-type="all" title="Tat ca">
-                        <i data-lucide="messages-square"></i> Tat ca
+                    <button class="type-filter-btn active" data-type="all" title="Tất cả">
+                        <i data-lucide="messages-square"></i> Tất cả
                     </button>
-                    <button class="type-filter-btn" data-type="INBOX" title="Tin nhan">
-                        <i data-lucide="message-circle"></i> Tin nhan
+                    <button class="type-filter-btn" data-type="INBOX" title="Tin nhắn">
+                        <i data-lucide="message-circle"></i> Tin nhắn
                     </button>
-                    <button class="type-filter-btn" data-type="COMMENT" title="Binh luan">
-                        <i data-lucide="message-square"></i> Binh luan
+                    <button class="type-filter-btn" data-type="COMMENT" title="Bình luận">
+                        <i data-lucide="message-square"></i> Bình luận
                     </button>
                 </div>
 
                 <!-- Livestream Post Selector (only visible in Livestream tab) -->
                 <div class="livestream-post-selector" id="livestreamPostSelector" style="display:none;">
                     <select id="livestreamPostSelect">
-                        <option value="">Tat ca bai post</option>
+                        <option value="">Tất cả bài post</option>
                     </select>
-                    <button class="btn-fetch-postnames" id="btnFetchPostNames" title="Lay ten bai viet">
+                    <button class="btn-fetch-postnames" id="btnFetchPostNames" title="Lấy tên bài viết">
                         <i data-lucide="search"></i>
                     </button>
-                    <button class="btn-clear-livestream" id="btnClearLivestream" title="Xoa tat ca livestream cua bai post nay" data-perm="inbox:manage_labels" data-perm-action="hide">
-                        <i data-lucide="trash-2"></i> Xoa livestream
+                    <button class="btn-clear-livestream" id="btnClearLivestream" title="Xóa tất cả livestream của bài post này" data-perm="inbox:manage_labels" data-perm-action="hide">
+                        <i data-lucide="trash-2"></i> Xóa livestream
                     </button>
                 </div>
 
@@ -131,23 +131,23 @@
                         </div>
                         <div class="chat-user-details">
                             <div class="chat-user-name-row">
-                                <span id="chatUserName">Chon cuoc hoi thoai</span>
+                                <span id="chatUserName">Chọn cuộc hội thoại</span>
                                 <span class="chat-header-note" id="chatHeaderNote" style="display:none;"></span>
                             </div>
-                            <div class="chat-user-status" id="chatUserStatus">Chon khach hang tu danh sach ben trai</div>
+                            <div class="chat-user-status" id="chatUserStatus">Chọn khách hàng từ danh sách bên trái</div>
                         </div>
                     </div>
                     <div class="chat-header-actions">
-                        <span class="ws-status disconnected" id="wsStatus" title="Realtime: Mat ket noi">
+                        <span class="ws-status disconnected" id="wsStatus" title="Realtime: Mất kết nối">
                             <i data-lucide="wifi-off"></i>
                         </span>
-                        <button class="btn-icon-sm" id="btnMarkUnread" title="Danh dau chua doc" style="display:none;">
+                        <button class="btn-icon-sm" id="btnMarkUnread" title="Đánh dấu chưa đọc" style="display:none;">
                             <i data-lucide="mail"></i>
                         </button>
-                        <button class="btn-icon-sm" id="btnToggleLivestream" title="Dua vao Livestream" style="display:none;">
+                        <button class="btn-icon-sm" id="btnToggleLivestream" title="Đưa vào Livestream" style="display:none;">
                             <i data-lucide="radio"></i>
                         </button>
-                        <button class="btn-icon-sm" id="btnToggleRightPanel" title="Thong tin">
+                        <button class="btn-icon-sm" id="btnToggleRightPanel" title="Thông tin">
                             <i data-lucide="panel-right-open"></i>
                         </button>
                     </div>
@@ -164,10 +164,10 @@
                     <div class="chat-messages" id="chatMessages">
                         <div class="chat-empty-state">
                             <i data-lucide="message-square"></i>
-                            <p>Chon mot cuoc hoi thoai de bat dau chat</p>
+                            <p>Chọn một cuộc hội thoại để bắt đầu chat</p>
                         </div>
                     </div>
-                    <button class="btn-scroll-bottom" id="btnScrollBottom" style="display:none;" title="Xuong cuoi">
+                    <button class="btn-scroll-bottom" id="btnScrollBottom" style="display:none;" title="Xuống cuối">
                         <i data-lucide="chevron-down"></i>
                     </button>
                 </div>
@@ -175,12 +175,12 @@
                 <!-- Label Bar -->
                 <div class="chat-label-bar" id="chatLabelBar" style="display:none;" data-perm="inbox:manage_labels" data-perm-action="hide">
                     <div class="chat-label-bar-inner">
-                        <span class="chat-label-bar-title">Nhan:</span>
+                        <span class="chat-label-bar-title">Nhãn:</span>
                         <div class="chat-label-bar-list" id="chatLabelBarList">
                             <!-- Label buttons rendered by JS -->
                         </div>
                     </div>
-                    <div class="chat-label-resize" id="chatLabelResize" title="Keo de mo rong"></div>
+                    <div class="chat-label-resize" id="chatLabelResize" title="Kéo để mở rộng"></div>
                 </div>
 
                 <!-- Quick Reply Bar -->
@@ -198,7 +198,7 @@
                             <span class="reply-preview-msg" id="replyPreviewMsg"></span>
                         </div>
                     </div>
-                    <button class="reply-preview-close" id="btnCancelReply" title="Huy tra loi">
+                    <button class="reply-preview-close" id="btnCancelReply" title="Hủy trả lời">
                         <i data-lucide="x"></i>
                     </button>
                 </div>
@@ -219,28 +219,28 @@
                         <div class="send-page-selector" id="sendPageSelector" style="display:none;">
                             <label class="send-page-label">
                                 <i data-lucide="send" style="width:12px;height:12px;"></i>
-                                Gui tu:
+                                Gửi từ:
                             </label>
                             <select id="sendPageSelect" onchange="window.inboxChat?.onSendPageChanged?.(this.value)">
-                                <option value="">Trang hien tai</option>
+                                <option value="">Trang hiện tại</option>
                             </select>
                         </div>
                         <!-- Reply Type Selector (COMMENT only) -->
                         <div class="reply-type-selector" id="replyTypeSelector" style="display:none;">
                             <label class="reply-type-label">
                                 <i data-lucide="message-square" style="width:12px;height:12px;"></i>
-                                Kieu:
+                                Kiểu:
                             </label>
                             <select id="replyTypeSelect" onchange="window.inboxChat?.onReplyTypeChanged?.(this.value)">
-                                <option value="reply_comment">Binh luan (cong khai)</option>
-                                <option value="private_replies">Nhan rieng</option>
+                                <option value="reply_comment">Bình luận (công khai)</option>
+                                <option value="private_replies">Nhắn riêng</option>
                             </select>
                         </div>
                         <div class="chat-input-toolbar-btns">
-                            <button class="btn-icon-sm" title="Dinh kem anh" id="btnAttachImage">
+                            <button class="btn-icon-sm" title="Đính kèm ảnh" id="btnAttachImage">
                                 <i data-lucide="image"></i>
                             </button>
-                            <button class="btn-icon-sm" title="Gui file" id="btnAttachFile">
+                            <button class="btn-icon-sm" title="Gửi file" id="btnAttachFile">
                                 <i data-lucide="paperclip"></i>
                             </button>
                             <button class="btn-icon-sm" title="Emoji" id="btnEmoji">
@@ -251,24 +251,24 @@
                     <!-- Emoji Picker -->
                     <div class="emoji-picker" id="emojiPicker" style="display:none;">
                         <div class="emoji-categories" id="emojiCategories">
-                            <button class="emoji-cat active" data-cat="recent" title="Gan day">🕐</button>
-                            <button class="emoji-cat" data-cat="smileys" title="Mat cuoi">😊</button>
-                            <button class="emoji-cat" data-cat="gestures" title="Cu chi">👋</button>
-                            <button class="emoji-cat" data-cat="hearts" title="Trai tim">❤️</button>
-                            <button class="emoji-cat" data-cat="animals" title="Dong vat">🐱</button>
-                            <button class="emoji-cat" data-cat="food" title="Do an">🍔</button>
-                            <button class="emoji-cat" data-cat="objects" title="Do vat">💡</button>
+                            <button class="emoji-cat active" data-cat="recent" title="Gần đây">🕐</button>
+                            <button class="emoji-cat" data-cat="smileys" title="Mặt cười">😊</button>
+                            <button class="emoji-cat" data-cat="gestures" title="Cử chỉ">👋</button>
+                            <button class="emoji-cat" data-cat="hearts" title="Trái tim">❤️</button>
+                            <button class="emoji-cat" data-cat="animals" title="Động vật">🐱</button>
+                            <button class="emoji-cat" data-cat="food" title="Đồ ăn">🍔</button>
+                            <button class="emoji-cat" data-cat="objects" title="Đồ vật">💡</button>
                         </div>
                         <div class="emoji-grid" id="emojiGrid"></div>
                     </div>
                     <!-- Image Preview (paste) -->
                     <div class="chat-image-preview" id="chatImagePreview" style="display:none;">
                         <img id="chatImagePreviewImg">
-                        <button class="chat-image-preview-close" id="chatImagePreviewClose" title="Xoa anh">&times;</button>
+                        <button class="chat-image-preview-close" id="chatImagePreviewClose" title="Xóa ảnh">&times;</button>
                     </div>
                     <div class="chat-input-wrapper">
-                        <textarea id="chatInput" placeholder="Nhap tin nhan..." rows="1"></textarea>
-                        <button class="btn-send" id="btnSend" title="Gui">
+                        <textarea id="chatInput" placeholder="Nhập tin nhắn..." rows="1"></textarea>
+                        <button class="btn-send" id="btnSend" title="Gửi">
                             <i data-lucide="send"></i>
                         </button>
                     </div>
@@ -287,15 +287,15 @@
                 <div class="info-tabs">
                     <button class="info-tab active" data-tab="stats">
                         <i data-lucide="bar-chart-2"></i>
-                        <span>Phan Nhom</span>
+                        <span>Phân Nhóm</span>
                     </button>
                     <button class="info-tab" data-tab="activities">
                         <i data-lucide="activity"></i>
-                        <span>Hoat Dong</span>
+                        <span>Hoạt Động</span>
                     </button>
                     <button class="info-tab" data-tab="orders" data-perm="inbox:create_order" data-perm-action="hide">
                         <i data-lucide="shopping-bag"></i>
-                        <span>Don Hang</span>
+                        <span>Đơn Hàng</span>
                     </button>
                 </div>
 
@@ -305,15 +305,15 @@
                     <div class="conv-notes-section" id="convNotesSection" style="display:none;">
                         <div class="conv-notes-list" id="convNotesList"></div>
                         <div class="conv-notes-input-wrap">
-                            <input type="text" id="convNoteInput" class="conv-notes-input" placeholder="Nhap ghi chu (Enter de gui)">
+                            <input type="text" id="convNoteInput" class="conv-notes-input" placeholder="Nhập ghi chú (Enter để gửi)">
                         </div>
                     </div>
                     <!-- Group Stats Cards (rendered by JS) -->
                     <div class="group-stats-header">
-                        <h3>Nhom Phan Loai</h3>
+                        <h3>Nhóm Phân Loại</h3>
                         <button class="btn-manage-groups" id="btnManageGroups" data-perm="inbox:manage_labels" data-perm-action="hide">
                             <i data-lucide="settings"></i>
-                            Quan Ly
+                            Quản Lý
                         </button>
                     </div>
                     <div class="group-stats-list" id="groupStatsList">
@@ -325,7 +325,7 @@
                 <div class="info-tab-content" id="tabActivities">
                     <div style="text-align:center; color:var(--text-tertiary); padding:2rem;">
                         <i data-lucide="activity" style="width:32px;height:32px;opacity:0.5;"></i>
-                        <p style="margin-top:0.5rem;">Chon cuoc hoi thoai de xem hoat dong</p>
+                        <p style="margin-top:0.5rem;">Chọn cuộc hội thoại để xem hoạt động</p>
                     </div>
                 </div>
 
@@ -334,7 +334,7 @@
                     <div class="order-form-wrapper">
                         <h3 class="order-form-title">
                             <i data-lucide="shopping-bag"></i>
-                            Tao Don Hang
+                            Tạo Đơn Hàng
                         </h3>
 
                         <form id="orderForm" class="order-form">
@@ -342,19 +342,19 @@
                             <div class="order-section">
                                 <div class="order-section-title">
                                     <i data-lucide="user"></i>
-                                    Thong Tin Khach Hang
+                                    Thông Tin Khách Hàng
                                 </div>
                                 <div class="order-field">
-                                    <label>Ten Khach Hang</label>
-                                    <input type="text" id="orderCustomerName" placeholder="Nhap ten KH..." />
+                                    <label>Tên Khách Hàng</label>
+                                    <input type="text" id="orderCustomerName" placeholder="Nhập tên KH..." />
                                 </div>
                                 <div class="order-field">
-                                    <label>SDT</label>
-                                    <input type="tel" id="orderPhone" placeholder="Nhap so dien thoai..." />
+                                    <label>SĐT</label>
+                                    <input type="tel" id="orderPhone" placeholder="Nhập số điện thoại..." />
                                 </div>
                                 <div class="order-field">
-                                    <label>Dia Chi</label>
-                                    <textarea id="orderAddress" placeholder="Nhap dia chi giao hang..." rows="2"></textarea>
+                                    <label>Địa Chỉ</label>
+                                    <textarea id="orderAddress" placeholder="Nhập địa chỉ giao hàng..." rows="2"></textarea>
                                 </div>
                             </div>
 
@@ -362,18 +362,18 @@
                             <div class="order-section">
                                 <div class="order-section-title">
                                     <i data-lucide="package"></i>
-                                    Thong Tin San Pham
+                                    Thông Tin Sản Phẩm
                                 </div>
                                 <div id="orderProductList">
                                     <div class="order-product-item" data-index="0">
                                         <div class="order-field">
-                                            <label>Ten SP</label>
-                                            <input type="text" class="product-name" placeholder="Ten san pham..." />
+                                            <label>Tên SP</label>
+                                            <input type="text" class="product-name" placeholder="Tên sản phẩm..." />
                                         </div>
                                         <div class="order-field-row">
                                             <div class="order-field">
-                                                <label>Phan Loai</label>
-                                                <input type="text" class="product-variant" placeholder="Mau/Size..." />
+                                                <label>Phân Loại</label>
+                                                <input type="text" class="product-variant" placeholder="Màu/Size..." />
                                             </div>
                                             <div class="order-field">
                                                 <label>SL</label>
@@ -381,14 +381,14 @@
                                             </div>
                                         </div>
                                         <div class="order-field">
-                                            <label>Gia (VND)</label>
+                                            <label>Giá (VND)</label>
                                             <input type="text" class="product-price" placeholder="0" />
                                         </div>
                                     </div>
                                 </div>
                                 <button type="button" class="btn-add-product" id="btnAddProduct">
                                     <i data-lucide="plus-circle"></i>
-                                    Them San Pham
+                                    Thêm Sản Phẩm
                                 </button>
                             </div>
 
@@ -396,50 +396,50 @@
                             <div class="order-section">
                                 <div class="order-section-title">
                                     <i data-lucide="truck"></i>
-                                    Van Chuyen & Thanh Toan
+                                    Vận Chuyển & Thanh Toán
                                 </div>
                                 <div class="order-field">
-                                    <label>Phi Ship (VND)</label>
+                                    <label>Phí Ship (VND)</label>
                                     <input type="text" id="orderShippingFee" placeholder="0" />
                                 </div>
                                 <div class="order-field">
-                                    <label>Giam Gia (VND)</label>
+                                    <label>Giảm Giá (VND)</label>
                                     <input type="text" id="orderDiscount" placeholder="0" />
                                 </div>
                                 <div class="order-field">
-                                    <label>Hinh Thuc Thanh Toan</label>
+                                    <label>Hình Thức Thanh Toán</label>
                                     <select id="orderPaymentMethod">
-                                        <option value="cod">COD - Thanh toan khi nhan</option>
-                                        <option value="transfer">Chuyen khoan</option>
-                                        <option value="partial">Dat coc mot phan</option>
+                                        <option value="cod">COD - Thanh toán khi nhận</option>
+                                        <option value="transfer">Chuyển khoản</option>
+                                        <option value="partial">Đặt cọc một phần</option>
                                     </select>
                                 </div>
                                 <div class="order-field" id="depositField" style="display:none;">
-                                    <label>So Tien Dat Coc (VND)</label>
+                                    <label>Số Tiền Đặt Cọc (VND)</label>
                                     <input type="text" id="orderDeposit" placeholder="0" />
                                 </div>
                                 <div class="order-field">
-                                    <label>Ghi Chu</label>
-                                    <textarea id="orderNote" placeholder="Ghi chu don hang..." rows="2"></textarea>
+                                    <label>Ghi Chú</label>
+                                    <textarea id="orderNote" placeholder="Ghi chú đơn hàng..." rows="2"></textarea>
                                 </div>
                             </div>
 
                             <!-- Order Summary -->
                             <div class="order-summary">
                                 <div class="order-summary-row">
-                                    <span>Tam tinh:</span>
+                                    <span>Tạm tính:</span>
                                     <span id="orderSubtotal">0d</span>
                                 </div>
                                 <div class="order-summary-row">
-                                    <span>Phi ship:</span>
+                                    <span>Phí ship:</span>
                                     <span id="orderShipDisplay">0d</span>
                                 </div>
                                 <div class="order-summary-row discount">
-                                    <span>Giam gia:</span>
+                                    <span>Giảm giá:</span>
                                     <span id="orderDiscountDisplay">-0d</span>
                                 </div>
                                 <div class="order-summary-row total">
-                                    <span>Tong cong:</span>
+                                    <span>Tổng cộng:</span>
                                     <span id="orderTotal">0d</span>
                                 </div>
                             </div>
@@ -448,11 +448,11 @@
                             <div class="order-actions">
                                 <button type="button" class="btn-order-reset" id="btnResetOrder">
                                     <i data-lucide="rotate-ccw"></i>
-                                    Lam lai
+                                    Làm lại
                                 </button>
                                 <button type="submit" class="btn-order-submit" id="btnSubmitOrder">
                                     <i data-lucide="check-circle"></i>
-                                    Tao Don
+                                    Tạo Đơn
                                 </button>
                             </div>
                         </form>
@@ -475,17 +475,17 @@
                     <div style="margin-bottom: 20px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                             <h4 style="margin: 0; font-size: 15px; color: #374151;">
-                                <i class="fas fa-users"></i> Danh sach tai khoan
+                                <i class="fas fa-users"></i> Danh sách tài khoản
                             </h4>
                             <button id="btnAddAccount" onclick="window.inboxChat?.showAddAccountForm?.()"
                                 style="padding: 6px 12px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
-                                <i class="fas fa-plus"></i> Them tai khoan
+                                <i class="fas fa-plus"></i> Thêm tài khoản
                             </button>
                         </div>
                         <div id="pancakeAccountsList"
                             style="background: #f9fafb; border-radius: 8px; padding: 12px; max-height: 300px; overflow-y: auto;">
                             <div style="text-align: center; color: #9ca3af; padding: 20px;">
-                                Dang tai...
+                                Đang tải...
                             </div>
                         </div>
                     </div>
@@ -495,7 +495,7 @@
                         style="display: none; margin-bottom: 20px; padding: 16px; background: #f3f4f6; border-radius: 8px; border: 2px solid #3b82f6;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
                             <h4 style="margin: 0; font-size: 14px; color: #374151;">
-                                <i class="fas fa-user-plus"></i> Them tai khoan moi
+                                <i class="fas fa-user-plus"></i> Thêm tài khoản mới
                             </h4>
                             <button onclick="document.getElementById('addAccountForm').style.display='none'"
                                 style="padding: 4px 8px; background: transparent; border: none; cursor: pointer; font-size: 16px; color: #6b7280;">
@@ -508,24 +508,24 @@
                             <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: #374151;">
                                 JWT Token:
                             </label>
-                            <textarea id="newAccountTokenInput" placeholder="Nhap JWT token tu cookie pancake.vn..."
+                            <textarea id="newAccountTokenInput" placeholder="Nhập JWT token từ cookie pancake.vn..."
                                 style="width: 100%; min-height: 100px; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-family: monospace; font-size: 11px; resize: vertical;"></textarea>
                             <div style="margin-top: 6px; font-size: 11px; color: #6b7280;">
-                                Token se duoc tu dong lam sach (xoa khoang trang, prefix "jwt=", v.v.)
+                                Token sẽ được tự động làm sạch (xóa khoảng trắng, prefix "jwt=", v.v.)
                             </div>
                         </div>
 
                         <!-- Instructions -->
                         <div style="padding: 10px; background: #fef3c7; border-left: 3px solid #f59e0b; border-radius: 4px; margin-bottom: 12px;">
                             <div style="font-size: 12px; color: #92400e; font-weight: 500; margin-bottom: 6px;">
-                                Cach lay JWT token:
+                                Cách lấy JWT token:
                             </div>
                             <ol style="margin: 0; padding-left: 18px; font-size: 11px; color: #92400e;">
-                                <li>Mo tab moi: <a href="https://pancake.vn" target="_blank" style="color: #d97706;">https://pancake.vn</a></li>
-                                <li>Dang nhap vao tai khoan Pancake</li>
-                                <li>Mo DevTools (F12) → Console tab</li>
-                                <li>Go: <code style="background: #fff; padding: 2px 4px; border-radius: 3px;">document.cookie.split(';').find(c => c.includes('jwt'))</code></li>
-                                <li>Copy gia tri sau "jwt=" va paste vao o tren</li>
+                                <li>Mở tab mới: <a href="https://pancake.vn" target="_blank" style="color: #d97706;">https://pancake.vn</a></li>
+                                <li>Đăng nhập vào tài khoản Pancake</li>
+                                <li>Mở DevTools (F12) → Console tab</li>
+                                <li>Gõ: <code style="background: #fff; padding: 2px 4px; border-radius: 3px;">document.cookie.split(';').find(c => c.includes('jwt'))</code></li>
+                                <li>Copy giá trị sau "jwt=" và paste vào ô trên</li>
                             </ol>
                         </div>
 
@@ -533,7 +533,7 @@
                         <div style="display: flex; gap: 8px;">
                             <button class="tag-btn-save" onclick="window.inboxChat?.addAccountManual?.()"
                                 style="flex: 1; background: #3b82f6; font-size: 13px;">
-                                <i class="fas fa-save"></i> Them Token
+                                <i class="fas fa-save"></i> Thêm Token
                             </button>
                         </div>
                     </div>
@@ -546,7 +546,7 @@
                             </h4>
                             <button id="btnAddPageToken" onclick="window.inboxChat?.showAddPageTokenForm?.()"
                                 style="padding: 6px 12px; background: #8b5cf6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
-                                <i class="fas fa-plus"></i> Them Page Token
+                                <i class="fas fa-plus"></i> Thêm Page Token
                             </button>
                         </div>
 
@@ -555,14 +555,14 @@
                             style="background: #f9fafb; border-radius: 8px; padding: 12px; max-height: 200px; overflow-y: auto; margin-bottom: 12px;">
                             <div style="text-align: center; color: #9ca3af; padding: 20px;">
                                 <i class="fas fa-key" style="font-size: 24px; margin-bottom: 8px;"></i>
-                                <div>Chua co page token nao</div>
+                                <div>Chưa có page token nào</div>
                             </div>
                         </div>
                     </div>
                 </div>
                 <div class="tag-modal-footer">
                     <button class="tag-btn-cancel" onclick="window.inboxChat?.closePancakeSettingsModal?.()">
-                        Dong
+                        Đóng
                     </button>
                 </div>
             </div>
@@ -573,14 +573,14 @@
             <div class="modal-content">
                 <div class="modal-title">
                     <i data-lucide="settings"></i>
-                    Quan Ly Nhom Phan Loai
+                    Quản Lý Nhóm Phân Loại
                 </div>
                 <div class="modal-body" id="manageGroupsBody">
                     <!-- Populated by JS -->
                 </div>
                 <div class="modal-footer">
-                    <button class="btn-modal-cancel" id="btnCloseManageGroups">Dong</button>
-                    <button class="btn-modal-confirm" id="btnSaveGroups">Luu</button>
+                    <button class="btn-modal-cancel" id="btnCloseManageGroups">Đóng</button>
+                    <button class="btn-modal-confirm" id="btnSaveGroups">Lưu</button>
                 </div>
             </div>
         </div>

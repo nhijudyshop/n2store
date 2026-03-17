@@ -161,14 +161,14 @@ async function initInboxApp() {
         // Show loading state
         const convList = document.getElementById('conversationList');
         if (convList) {
-            convList.innerHTML = '<div class="conv-loading"><div class="spinner"></div><span>Dang tai hoi thoai...</span></div>';
+            convList.innerHTML = '<div class="conv-loading"><div class="spinner"></div><span>Đang tải hội thoại...</span></div>';
         }
 
         await dataManager.init();
         console.log(`[Inbox] Data loaded: ${dataManager.conversations.length} conversations, ${dataManager.pages.length} pages`);
     } catch (err) {
         console.error('[Inbox] Data init failed:', err);
-        showToast('Khong the tai du lieu. Vui long thu lai.', 'error');
+        showToast('Không thể tải dữ liệu. Vui lòng thử lại.', 'error');
         // Still continue - UI can work in degraded mode
     }
 

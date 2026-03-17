@@ -241,18 +241,18 @@ class InboxTokenManager {
         if (clean.toLowerCase().startsWith('jwt=')) clean = clean.substring(4).trim();
         clean = clean.replace(/^["']|["']$/g, '').replace(/\s+/g, '').replace(/[;,]+$/g, '');
 
-        if (!clean) throw new Error('Token trong sau khi lam sach');
+        if (!clean) throw new Error('Token trống sau khi làm sạch');
         const parts = clean.split('.');
-        if (parts.length !== 3) throw new Error(`Token khong dung dinh dang JWT (co ${parts.length} phan, can 3)`);
+        if (parts.length !== 3) throw new Error(`Token không đúng định dạng JWT (có ${parts.length} phần, cần 3)`);
 
         const payload = this.decodeToken(clean);
-        if (!payload) throw new Error('Khong the giai ma token');
+        if (!payload) throw new Error('Không thể giải mã token');
         if (this._isExpired(payload.exp)) {
-            throw new Error(`Token da het han vao ${new Date(payload.exp * 1000).toLocaleString('vi-VN')}`);
+            throw new Error(`Token đã hết hạn vào ${new Date(payload.exp * 1000).toLocaleString('vi-VN')}`);
         }
 
         const accountId = await this.saveTokenToFirestore(clean);
-        if (!accountId) throw new Error('Khong the luu token');
+        if (!accountId) throw new Error('Không thể lưu token');
         return accountId;
     }
 
