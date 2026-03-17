@@ -1970,6 +1970,26 @@
         </div>
     </div>
 
+    <!-- ==================== MODAL: PHIẾU LƯƠNG ==================== -->
+    <div class="modal" id="payslipModal" style="display: none;">
+        <div class="modal-overlay" onclick="this.parentElement.style.display='none'"></div>
+        <div class="modal-content k-modal" style="width: 780px; max-width: 95vw;">
+            <div class="modal-header k-modal-header">
+                <h3 id="payslipTitle">Phiếu lương nhân viên</h3>
+                <button class="btn-icon" onclick="document.getElementById('payslipModal').style.display='none'">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body k-modal-body" style="padding: 0;">
+                <div id="payslipContent" style="padding: 20px; font-family: 'Times New Roman', serif; font-size: 13px;"></div>
+            </div>
+            <div class="modal-footer k-modal-footer">
+                <button class="k-btn-outline" onclick="document.getElementById('payslipModal').style.display='none'">Đóng</button>
+                <button class="k-btn-primary" id="payslipPrintBtn">In phiếu lương</button>
+            </div>
+        </div>
+    </div>
+
     <!-- ==================== MODAL: CÁC KHOẢN THƯỞNG ==================== -->
     <div class="modal" id="thuongModal" style="display: none;">
         <div class="modal-overlay" onclick="this.parentElement.style.display='none'"></div>

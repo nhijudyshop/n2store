@@ -2590,11 +2590,16 @@
         // Thu nhập
         const thuNhap = d.luongChinh + d.lamThem + d.phuCap + d.thuong;
 
+        const cellSt = 'border:1px solid #333; padding:6px 10px;';
+        const tdIdx = `style="width:40px; text-align:center; ${cellSt}"`;
+        const tdName = `style="${cellSt}"`;
+        const tdAmt = `style="text-align:right; width:150px; ${cellSt}"`;
+
         // Build phụ cấp sub-items
         let phuCapRows = '';
         if (d.allowanceItems && d.allowanceItems.length > 0) {
             d.allowanceItems.forEach(item => {
-                phuCapRows += `<tr><td></td><td style="padding-left:40px;">${item.name || 'Phụ cấp'}</td><td class="amt">${fmtNum(item.amount || 0)}</td></tr>`;
+                phuCapRows += `<tr><td ${tdIdx}></td><td style="padding-left:40px; ${cellSt}">${item.name || 'Phụ cấp'}</td><td ${tdAmt}>${fmtNum(item.amount || 0)}</td></tr>`;
             });
         }
 
@@ -2602,19 +2607,19 @@
         let thuongRows = '';
         if (d.thuongItems && d.thuongItems.length > 0) {
             d.thuongItems.forEach(item => {
-                thuongRows += `<tr><td></td><td style="padding-left:40px;">${item.name || 'Thưởng'}</td><td class="amt">${fmtNum(item.amount || 0)}</td></tr>`;
+                thuongRows += `<tr><td ${tdIdx}></td><td style="padding-left:40px; ${cellSt}">${item.name || 'Thưởng'}</td><td ${tdAmt}>${fmtNum(item.amount || 0)}</td></tr>`;
             });
         }
 
         // Build giảm trừ sub-items
         let giamTruRows = '';
         if (d.totalLate > 0) {
-            giamTruRows += `<tr><td>1</td><td>Đi trễ</td><td class="amt">${fmtNum(d.totalLate)}</td></tr>`;
+            giamTruRows += `<tr><td ${tdIdx}>1</td><td ${tdName}>Đi trễ</td><td ${tdAmt}>${fmtNum(d.totalLate)}</td></tr>`;
         }
         if (d.giamTruItems && d.giamTruItems.length > 0) {
             let idx = d.totalLate > 0 ? 2 : 1;
             d.giamTruItems.forEach(item => {
-                giamTruRows += `<tr><td>${idx}</td><td>${item.name || 'Giảm trừ khác'}</td><td class="amt">${fmtNum(item.amount || 0)}</td></tr>`;
+                giamTruRows += `<tr><td ${tdIdx}>${idx}</td><td ${tdName}>${item.name || 'Giảm trừ khác'}</td><td ${tdAmt}>${fmtNum(item.amount || 0)}</td></tr>`;
                 idx++;
             });
         }
@@ -2623,10 +2628,10 @@
         let daTraRows = '';
         if (d.daTraItems && d.daTraItems.length > 0) {
             d.daTraItems.forEach((item, i) => {
-                daTraRows += `<tr><td>${i + 1}</td><td>${item.name || 'Đã trả'}</td><td class="amt">${fmtNum(item.amount || 0)}</td></tr>`;
+                daTraRows += `<tr><td ${tdIdx}>${i + 1}</td><td ${tdName}>${item.name || 'Đã trả'}</td><td ${tdAmt}>${fmtNum(item.amount || 0)}</td></tr>`;
             });
         } else if (d.daTra > 0) {
-            daTraRows = `<tr><td>1</td><td>Đã trả nhân viên</td><td class="amt">${fmtNum(d.daTra)}</td></tr>`;
+            daTraRows = `<tr><td ${tdIdx}>1</td><td ${tdName}>Đã trả nhân viên</td><td ${tdAmt}>${fmtNum(d.daTra)}</td></tr>`;
         }
 
         const now = new Date();
@@ -2634,83 +2639,58 @@
 
         function fmtNum(n) { return n.toLocaleString('vi-VN'); }
 
-        const html = `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>Phiếu lương - ${empName}</title>
-<style>
-    @page { size: A4; margin: 20mm; }
-    body { font-family: 'Times New Roman', serif; font-size: 13px; color: #000; max-width: 700px; margin: 0 auto; padding: 20px; }
-    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
-    .header-left { font-size: 12px; color: #555; }
-    .logo { display: flex; align-items: center; gap: 8px; }
-    .logo img { height: 50px; }
-    .logo-text { font-size: 24px; font-weight: 700; color: #5b6abf; letter-spacing: 1px; }
-    .title { text-align: center; margin: 20px 0 5px; font-size: 20px; font-weight: 700; }
-    .subtitle { text-align: center; font-size: 13px; margin-bottom: 20px; }
-    .info { margin-bottom: 16px; }
-    .info-row { display: flex; margin-bottom: 4px; }
-    .info-label { width: 120px; font-weight: 400; }
-    .info-value { font-weight: 700; }
-    table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
-    table td, table th { padding: 6px 10px; border: 1px solid #333; font-size: 13px; }
-    td:first-child { width: 40px; text-align: center; }
-    .amt { text-align: right; width: 150px; }
-    .section-header td { font-weight: 700; }
-    .section-total td { font-weight: 700; border-top: 2px solid #333; }
-    .footer-stats { margin-top: 16px; font-size: 12px; }
-    .footer-stats .row { display: flex; margin-bottom: 3px; }
-    .footer-stats .label { width: 200px; }
-    .footer-stats .value { font-weight: 400; }
-    .note-section { margin-top: 12px; font-style: italic; font-size: 12px; }
-    .print-btn-wrap { text-align: center; margin: 30px 0; }
-    .print-btn { padding: 10px 32px; font-size: 15px; font-weight: 600; color: #fff; background: #1890ff; border: none; border-radius: 6px; cursor: pointer; }
-    .print-btn:hover { background: #096dd9; }
-    @media print { body { padding: 0; } .print-btn-wrap { display: none; } @page { size: A4; margin: 15mm 20mm; } }
-</style></head><body>
-<div class="header">
-    <div class="header-left">${dateStr}</div>
-    <div class="logo"><img src="${new URL('../index/logo.jpg', window.location.href).href}" alt="N2STORE"><div class="logo-text">N2STORE</div></div>
-</div>
-<div class="title">PHIẾU LƯƠNG NHÂN VIÊN</div>
-<div class="subtitle">Bảng lương tháng ${m}/${y}</div>
+        const logoUrl = new URL('../index/logo.jpg', window.location.href).href;
 
-<div class="info">
-    <div class="info-row"><span class="info-label">Nhân viên:</span><span class="info-value">${empName}</span></div>
-    <div class="info-row"><span class="info-label">Mức lương:</span><span class="info-value">${fmtNum(empRate * 30)}</span></div>
+        const content = `
+<div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;">
+    <div style="font-size:12px; color:#555;">${dateStr}</div>
+    <div style="display:flex; align-items:center; gap:8px;">
+        <img src="${logoUrl}" alt="N2STORE" style="height:50px;">
+        <span style="font-size:24px; font-weight:700; color:#5b6abf; letter-spacing:1px;">N2STORE</span>
+    </div>
 </div>
-
-<table>
-    <tr class="section-header"><td>I</td><td>Các khoản thu nhập</td><td class="amt">${fmtNum(thuNhap)}</td></tr>
-    <tr><td>1</td><td>Lương chính</td><td class="amt">${fmtNum(d.luongChinh)}</td></tr>
-    <tr><td>2</td><td>Lương làm thêm giờ</td><td class="amt">${fmtNum(d.lamThem)}</td></tr>
-    <tr><td>3</td><td>Phụ cấp</td><td class="amt">${fmtNum(d.phuCap)}</td></tr>
+<div style="text-align:center; margin:20px 0 5px; font-size:20px; font-weight:700;">PHIẾU LƯƠNG NHÂN VIÊN</div>
+<div style="text-align:center; font-size:13px; margin-bottom:20px;">Bảng lương tháng ${m}/${y}</div>
+<div style="margin-bottom:16px;">
+    <div style="display:flex; margin-bottom:4px;"><span style="width:120px;">Nhân viên:</span><span style="font-weight:700;">${empName}</span></div>
+    <div style="display:flex; margin-bottom:4px;"><span style="width:120px;">Mức lương:</span><span style="font-weight:700;">${fmtNum(empRate * 30)}</span></div>
+</div>
+<table style="width:100%; border-collapse:collapse; margin-bottom:16px;">
+    <tr style="font-weight:700;"><td style="width:40px; text-align:center; border:1px solid #333; padding:6px 10px;">I</td><td style="border:1px solid #333; padding:6px 10px;">Các khoản thu nhập</td><td style="text-align:right; width:150px; border:1px solid #333; padding:6px 10px;">${fmtNum(thuNhap)}</td></tr>
+    <tr><td style="width:40px; text-align:center; border:1px solid #333; padding:6px 10px;">1</td><td style="border:1px solid #333; padding:6px 10px;">Lương chính</td><td style="text-align:right; width:150px; border:1px solid #333; padding:6px 10px;">${fmtNum(d.luongChinh)}</td></tr>
+    <tr><td style="width:40px; text-align:center; border:1px solid #333; padding:6px 10px;">2</td><td style="border:1px solid #333; padding:6px 10px;">Lương làm thêm giờ</td><td style="text-align:right; width:150px; border:1px solid #333; padding:6px 10px;">${fmtNum(d.lamThem)}</td></tr>
+    <tr><td style="width:40px; text-align:center; border:1px solid #333; padding:6px 10px;">3</td><td style="border:1px solid #333; padding:6px 10px;">Phụ cấp</td><td style="text-align:right; width:150px; border:1px solid #333; padding:6px 10px;">${fmtNum(d.phuCap)}</td></tr>
     ${phuCapRows}
-    <tr><td>4</td><td>Thưởng</td><td class="amt">${fmtNum(d.thuong)}</td></tr>
+    <tr><td style="width:40px; text-align:center; border:1px solid #333; padding:6px 10px;">4</td><td style="border:1px solid #333; padding:6px 10px;">Thưởng</td><td style="text-align:right; width:150px; border:1px solid #333; padding:6px 10px;">${fmtNum(d.thuong)}</td></tr>
     ${thuongRows}
-
-    <tr class="section-header"><td>II</td><td>Các khoản giảm trừ</td><td class="amt">${fmtNum(d.giamTru)}</td></tr>
-    ${giamTruRows || '<tr><td>1</td><td>Đi trễ</td><td class="amt">0</td></tr>'}
-
-    <tr class="section-total"><td>III</td><td>Tổng lương (I) - (II)</td><td class="amt">${fmtNum(d.tongLuong)}</td></tr>
-
-    <tr class="section-header"><td>IV</td><td>Thanh toán lương</td><td class="amt"></td></tr>
-    ${daTraRows || '<tr><td>1</td><td>Đã trả nhân viên</td><td class="amt">0</td></tr>'}
-    <tr><td>${(d.daTraItems && d.daTraItems.length > 0) ? d.daTraItems.length + 1 : 2}</td><td>Còn cần trả</td><td class="amt" style="font-weight:700;">${fmtNum(d.conCanTra)}</td></tr>
+    <tr style="font-weight:700;"><td style="width:40px; text-align:center; border:1px solid #333; padding:6px 10px;">II</td><td style="border:1px solid #333; padding:6px 10px;">Các khoản giảm trừ</td><td style="text-align:right; width:150px; border:1px solid #333; padding:6px 10px;">${fmtNum(d.giamTru)}</td></tr>
+    ${giamTruRows || '<tr><td style="width:40px; text-align:center; border:1px solid #333; padding:6px 10px;">1</td><td style="border:1px solid #333; padding:6px 10px;">Đi trễ</td><td style="text-align:right; width:150px; border:1px solid #333; padding:6px 10px;">0</td></tr>'}
+    <tr style="font-weight:700;"><td style="width:40px; text-align:center; border:1px solid #333; border-top:2px solid #333; padding:6px 10px;">III</td><td style="border:1px solid #333; border-top:2px solid #333; padding:6px 10px;">Tổng lương (I) - (II)</td><td style="text-align:right; width:150px; border:1px solid #333; border-top:2px solid #333; padding:6px 10px;">${fmtNum(d.tongLuong)}</td></tr>
+    <tr style="font-weight:700;"><td style="width:40px; text-align:center; border:1px solid #333; padding:6px 10px;">IV</td><td style="border:1px solid #333; padding:6px 10px;">Thanh toán lương</td><td style="text-align:right; width:150px; border:1px solid #333; padding:6px 10px;"></td></tr>
+    ${daTraRows || '<tr><td style="width:40px; text-align:center; border:1px solid #333; padding:6px 10px;">1</td><td style="border:1px solid #333; padding:6px 10px;">Đã trả nhân viên</td><td style="text-align:right; width:150px; border:1px solid #333; padding:6px 10px;">0</td></tr>'}
+    <tr><td style="width:40px; text-align:center; border:1px solid #333; padding:6px 10px;">${(d.daTraItems && d.daTraItems.length > 0) ? d.daTraItems.length + 1 : 2}</td><td style="border:1px solid #333; padding:6px 10px;">Còn cần trả</td><td style="text-align:right; width:150px; border:1px solid #333; padding:6px 10px; font-weight:700;">${fmtNum(d.conCanTra)}</td></tr>
 </table>
-
-<div class="footer-stats">
-    <div class="row"><span class="label">Ngày công chuẩn:</span><span class="value">${lastDay}.00</span></div>
-    <div class="row"><span class="label">Số ngày tính lương:</span><span class="value">${d.workedDays}.00</span></div>
+<div style="font-size:12px;">
+    <div style="display:flex; margin-bottom:3px;"><span style="width:200px;">Ngày công chuẩn:</span><span>${lastDay}.00</span></div>
+    <div style="display:flex; margin-bottom:3px;"><span style="width:200px;">Số ngày tính lương:</span><span>${d.workedDays}.00</span></div>
 </div>
+${d.ghiChu ? `<div style="margin-top:12px; font-style:italic; font-size:12px;"><strong>Ghi chú:</strong> ${d.ghiChu}</div>` : '<div style="margin-top:12px; font-style:italic; font-size:12px;"><strong>Ghi chú:</strong></div>'}`;
 
-${d.ghiChu ? `<div class="note-section"><strong>Ghi chú:</strong> ${d.ghiChu}</div>` : '<div class="note-section"><strong>Ghi chú:</strong></div>'}
+        // Show modal
+        const modal = document.getElementById('payslipModal');
+        document.getElementById('payslipTitle').textContent = `Phiếu lương - ${empName}`;
+        document.getElementById('payslipContent').innerHTML = content;
+        modal.style.display = '';
 
-<div class="print-btn-wrap"><button class="print-btn" onclick="window.print()">In phiếu lương</button></div>
-</body></html>`;
-
-        const blob = new Blob([html], { type: 'text/html; charset=utf-8' });
-        const url = URL.createObjectURL(blob);
-        const win = window.open(url, '_blank');
-        win.onafterprint = () => URL.revokeObjectURL(url);
+        // Print button
+        document.getElementById('payslipPrintBtn').onclick = function () {
+            const printWin = window.open('', '_blank');
+            printWin.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Phiếu lương - ${empName}</title>
+<style>@page{size:A4;margin:15mm 20mm}body{font-family:'Times New Roman',serif;font-size:13px;color:#000;max-width:700px;margin:0 auto;padding:20px}table{border-collapse:collapse}@media print{body{padding:0}}</style>
+</head><body>${content}</body></html>`);
+            printWin.document.close();
+            printWin.onload = function () { printWin.print(); };
+        };
     }
 
     /** Modal: Chi tiết chấm công tháng */
