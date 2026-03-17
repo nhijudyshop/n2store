@@ -2641,9 +2641,9 @@
     body { font-family: 'Times New Roman', serif; font-size: 13px; color: #000; max-width: 700px; margin: 0 auto; padding: 20px; }
     .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
     .header-left { font-size: 12px; color: #555; }
-    .logo { text-align: center; }
-    .logo img { height: 50px; display: block; margin: 0 0 4px auto; }
-    .logo-text { font-size: 12px; font-weight: 700; color: #333; letter-spacing: 1px; }
+    .logo { display: flex; align-items: center; gap: 8px; }
+    .logo img { height: 50px; }
+    .logo-text { font-size: 24px; font-weight: 700; color: #5b6abf; letter-spacing: 1px; }
     .title { text-align: center; margin: 20px 0 5px; font-size: 20px; font-weight: 700; }
     .subtitle { text-align: center; font-size: 13px; margin-bottom: 20px; }
     .info { margin-bottom: 16px; }
