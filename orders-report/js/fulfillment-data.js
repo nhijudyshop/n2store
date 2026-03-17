@@ -344,8 +344,33 @@
                 });
             }
 
-            // Add cancel entries
+            // Add cancel entries - each cancel also had a corresponding create event
             cancelHistory.forEach(entry => {
+                // Add the original create event (from when the invoice was first created before being cancelled)
+                const createTimestamp = entry.DateInvoice ? new Date(entry.DateInvoice).getTime()
+                    : (entry.timestamp || 0);
+                if (createTimestamp) {
+                    events.push({
+                        type: 'create',
+                        label: 'Tạo phiếu bán hàng',
+                        timestamp: createTimestamp,
+                        userName: entry.UserName || '',
+                        number: entry.Number || '',
+                        showState: entry.ShowState || '',
+                        paymentAmount: entry.PaymentAmount || 0,
+                        discount: entry.Discount || 0,
+                        deliveryPrice: entry.DeliveryPrice,
+                        comment: entry.Comment || entry.DeliveryNote || '',
+                        amountTotal: entry.AmountTotal || 0,
+                        cashOnDelivery: entry.CashOnDelivery || 0,
+                        carrierName: entry.CarrierName || '',
+                        liveCampaignId: entry.LiveCampaignId || '',
+                        orderLines: entry.OrderLines || [],
+                        raw: entry
+                    });
+                }
+
+                // Add the cancel event
                 events.push({
                     type: 'cancel',
                     label: 'Hủy đơn',
