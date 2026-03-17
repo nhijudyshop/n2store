@@ -78,20 +78,10 @@
                     <i data-lucide="menu"></i>
                 </button>
                 <div class="tab-header-navigation">
-                    <div class="nav-dropdown-wrapper">
-                        <button class="tab-header-btn" data-tab="employee" id="tabEmployeeBtn">
-                            <i data-lucide="users"></i>
-                            <span>Nhân viên</span>
-                        </button>
-                        <div class="nav-dropdown-menu" id="navEmployeeDropdown">
-                            <a href="#" class="nav-dropdown-item">Danh sách nhân viên</a>
-                            <a href="#" id="navLinkSchedule" class="nav-dropdown-item">Bảng tính lương</a>
-                            <a href="#" id="navLinkTimesheet" class="nav-dropdown-item active">Bảng chấm công</a>
-                            <a href="#" class="nav-dropdown-item">Bảng lương</a>
-                            <a href="#" class="nav-dropdown-item">Bảng hoa hồng</a>
-                            <a href="#" class="nav-dropdown-item">Thiết lập nhân viên</a>
-                        </div>
-                    </div>
+                    <button class="tab-header-btn" data-tab="employee" id="tabEmployeeBtn">
+                        <i data-lucide="users"></i>
+                        <span>Nhân viên</span>
+                    </button>
                     <button class="tab-header-btn active" data-tab="cashbook" id="tabCashBookBtn">
                         <i data-lucide="wallet"></i>
                         <span>Sổ Quỹ</span>
@@ -2095,34 +2085,8 @@
     <script src="js/soquy-main.js"></script>
     <script src="js/attendance.js"></script>
     <script>
-        // Employee views switching logic
-        document.addEventListener('DOMContentLoaded', () => {
-            const btnTsSwitchView = document.getElementById('btnTsSwitchView');
-            const btnSchedSwitchView = document.getElementById('btnSchedSwitchView');
-            const navLinkTimesheet = document.getElementById('navLinkTimesheet');
-            const navLinkSchedule = document.getElementById('navLinkSchedule');
-            const viewTimesheet = document.getElementById('viewTimesheet');
-            const viewSchedule = document.getElementById('viewSchedule');
-
-            function showView(viewName) {
-                if (viewName === 'timesheet') {
-                    viewTimesheet.style.display = 'flex';
-                    viewSchedule.style.display = 'none';
-                    navLinkTimesheet.classList.add('active');
-                    navLinkSchedule.classList.remove('active');
-                } else if (viewName === 'schedule') {
-                    viewTimesheet.style.display = 'none';
-                    viewSchedule.style.display = 'flex';
-                    navLinkSchedule.classList.add('active');
-                    navLinkTimesheet.classList.remove('active');
-                }
-            }
-
-            if (btnTsSwitchView) btnTsSwitchView.addEventListener('click', () => showView('schedule'));
-            if (btnSchedSwitchView) btnSchedSwitchView.addEventListener('click', () => showView('timesheet'));
-            if (navLinkTimesheet) navLinkTimesheet.addEventListener('click', (e) => { e.preventDefault(); showView('timesheet'); });
-            if (navLinkSchedule) navLinkSchedule.addEventListener('click', (e) => { e.preventDefault(); showView('schedule'); });
-        });
+        // Employee views - both visible by default (timesheet shown, schedule hidden)
+        // No switching logic needed - tab click goes directly to #employee
     </script>
 
     <!-- ==================== MODAL: CONFIRM DELETE ==================== -->
