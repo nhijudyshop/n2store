@@ -5108,3 +5108,130 @@
 .payroll-modal-info span {
     margin-right: 16px;
 }
+
+/* =====================================================
+   ATTENDANCE DETAIL MODAL - Chi tiết chấm công tháng
+   ===================================================== */
+
+.ad-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    margin-top: 8px;
+}
+
+.ad-grid-header {
+    padding: 8px 4px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: #94a3b8;
+}
+
+.ad-grid-header.weekend {
+    color: #ef4444;
+}
+
+.ad-day {
+    border: 1px solid #f1f5f9;
+    border-radius: 6px;
+    padding: 6px;
+    min-height: 60px;
+    cursor: default;
+    transition: background 0.15s;
+}
+
+.ad-day:hover {
+    background: #f8fafc;
+}
+
+.ad-day.empty {
+    border-color: transparent;
+    min-height: 0;
+}
+
+.ad-day.today {
+    border-color: #1890ff;
+    background: #f0f7ff;
+}
+
+.ad-day.weekend {
+    background: #fafafa;
+}
+
+.ad-day-num {
+    font-size: 12px;
+    font-weight: 600;
+    color: #334155;
+    margin-bottom: 4px;
+}
+
+.ad-day.weekend .ad-day-num {
+    color: #ef4444;
+}
+
+.ad-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 4px;
+    vertical-align: middle;
+}
+
+.ad-dot--ontime { background: #1890ff; }
+.ad-dot--late { background: #a855f7; }
+.ad-dot--incomplete { background: #ef4444; }
+.ad-dot--absent { background: #d1d5db; }
+
+.ad-day-status {
+    font-size: 10px;
+    color: #64748b;
+    line-height: 1.4;
+    margin-top: 2px;
+}
+
+.ad-day-time {
+    font-size: 10px;
+    color: #94a3b8;
+}
+
+.ad-summary {
+    display: flex;
+    gap: 24px;
+    padding: 12px 0 4px;
+    flex-wrap: wrap;
+}
+
+.ad-summary-item {
+    font-size: 13px;
+    color: #64748b;
+}
+
+.ad-summary-item strong {
+    color: #334155;
+    font-weight: 600;
+}
+
+/* Click to open detail modal from payroll table */
+.payroll-emp-detail-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border: none;
+    background: none;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 0;
+    margin-left: 4px;
+    vertical-align: middle;
+    border-radius: 4px;
+    transition: color 0.15s, background 0.15s;
+}
+
+.payroll-emp-detail-btn:hover {
+    color: #1890ff;
+    background: #e6f4ff;
+}

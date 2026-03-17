@@ -1444,6 +1444,9 @@
                     <td>${idx + 1}</td>
                     <td>
                         <span class="payroll-emp-name" onclick="window._attendance.showLuongChinhModal('${empId}')">${escapeHtml(emp.name || 'N/A')}</span>
+                        <button class="payroll-emp-detail-btn" onclick="window._attendance.showAttendanceDetailModal('${empId}')" title="Chi tiết chấm công">
+                            <i data-lucide="calendar-days" style="width:14px;height:14px;"></i>
+                        </button>
                         <div class="payroll-emp-days">${workedDays}</div>
                     </td>
                     <td>
@@ -2372,6 +2375,128 @@
         };
     }
 
+    /** Modal: Chi tiết chấm công tháng */
+    function showAttendanceDetailModal(empId) {
+        const emp = employees.find(e => String(e.userId || e.uid || e.id) === String(empId));
+        if (!emp) return;
+
+        const modal = document.getElementById('attendanceDetailModal');
+        if (!modal) return;
+
+        const empName = emp.name || `User ${empId}`;
+        const empRate = emp.dailyRate || SALARY.DAILY_RATE;
+        const y = currentMonth.year;
+        const m = currentMonth.month;
+        const lastDay = new Date(y, m, 0).getDate();
+        const firstDow = new Date(y, m - 1, 1).getDay(); // 0=CN, 1=T2...
+        const today = new Date();
+        const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+        const monthNames = ['', 'Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6',
+            'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
+
+        document.getElementById('adTitle').textContent = `Chi tiết chấm công - ${empName}`;
+        document.getElementById('adSubtitle').textContent = `${monthNames[m]} ${y}`;
+
+        // Process each day
+        let totalWorked = 0, totalLate = 0, totalOT = 0, lateCount = 0, absentCount = 0, incompleteCount = 0;
+        const dayData = [];
+
+        for (let d = 1; d <= lastDay; d++) {
+            const dateKey = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            const dayRecs = monthRecords.filter(r => String(r.deviceUserId) === String(empId) && r.dateKey === dateKey);
+            const cellData = processDayRecords(dayRecs);
+            const sal = calculateDaySalary(cellData, empRate, isFullDay(empId, dateKey));
+            const dow = new Date(y, m - 1, d).getDay();
+
+            let statusClass = 'absent';
+            let statusText = '';
+            let timeText = '';
+
+            if (cellData.status === 'absent') {
+                absentCount++;
+                statusText = 'Nghỉ';
+            } else if (cellData.status === 'incomplete') {
+                incompleteCount++;
+                statusClass = 'incomplete';
+                statusText = 'Thiếu';
+                if (cellData.checkIn) {
+                    timeText = `${cellData.checkIn.getHours()}:${String(cellData.checkIn.getMinutes()).padStart(2, '0')}`;
+                }
+            } else {
+                totalWorked++;
+                if (sal.lateMinutes > 0) {
+                    lateCount++;
+                    statusClass = 'late';
+                    statusText = `Muộn ${sal.lateMinutes}p`;
+                } else {
+                    statusClass = 'ontime';
+                    statusText = 'Đúng giờ';
+                }
+
+                if (cellData.checkIn && cellData.checkOut) {
+                    const inH = cellData.checkIn.getHours();
+                    const inM = String(cellData.checkIn.getMinutes()).padStart(2, '0');
+                    const outH = cellData.checkOut.getHours();
+                    const outM = String(cellData.checkOut.getMinutes()).padStart(2, '0');
+                    timeText = `${inH}:${inM} - ${outH}:${outM}`;
+                }
+
+                totalLate += sal.lateDeduction;
+                totalOT += sal.otPay;
+            }
+
+            dayData.push({ day: d, dateKey, dow, statusClass, statusText, timeText, sal, cellData });
+        }
+
+        // Build grid
+        let html = '';
+
+        // Summary
+        html += `<div class="ad-summary">
+            <div class="ad-summary-item"><strong>${totalWorked}</strong> ngày công</div>
+            <div class="ad-summary-item"><strong>${lateCount}</strong> lần muộn</div>
+            <div class="ad-summary-item"><strong>${incompleteCount}</strong> thiếu</div>
+            <div class="ad-summary-item"><strong>${absentCount}</strong> nghỉ</div>
+            ${totalLate > 0 ? `<div class="ad-summary-item">Trừ muộn: <strong style="color:#ef4444;">-${formatVND(totalLate)}</strong></div>` : ''}
+            ${totalOT > 0 ? `<div class="ad-summary-item">OT: <strong style="color:#1890ff;">+${formatVND(totalOT)}</strong></div>` : ''}
+        </div>`;
+
+        // Calendar grid header
+        html += '<div class="ad-grid">';
+        const dayHeaders = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+        dayHeaders.forEach((dh, i) => {
+            html += `<div class="ad-grid-header${i === 0 ? ' weekend' : ''}">${dh}</div>`;
+        });
+
+        // Empty cells before first day
+        for (let i = 0; i < firstDow; i++) {
+            html += '<div class="ad-day empty"></div>';
+        }
+
+        // Day cells
+        dayData.forEach(dd => {
+            const isToday = dd.dateKey === todayKey;
+            const isWeekend = dd.dow === 0 || dd.dow === 6;
+            let cls = 'ad-day';
+            if (isToday) cls += ' today';
+            if (isWeekend) cls += ' weekend';
+
+            html += `<div class="${cls}">
+                <div class="ad-day-num">${dd.day}</div>
+                <div><span class="ad-dot ad-dot--${dd.statusClass}"></span>
+                    <span class="ad-day-status">${dd.statusText}</span>
+                </div>
+                ${dd.timeText ? `<div class="ad-day-time">${dd.timeText}</div>` : ''}
+            </div>`;
+        });
+
+        html += '</div>';
+
+        document.getElementById('adContent').innerHTML = html;
+        modal.style.display = 'flex';
+    }
+
     /** Render trạng thái sync */
     function renderSyncStatus() {
         const el = document.getElementById('syncIndicator');
@@ -3097,6 +3222,7 @@
         showPhuCapModal,
         showThuongModal,
         showGiamTruModal,
+        showAttendanceDetailModal,
     };
 
     // Auto-init when DOM ready
