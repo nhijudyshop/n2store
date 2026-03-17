@@ -135,7 +135,7 @@ function renderTagPanelCards() {
     if (!body) return;
 
     const searchInput = document.getElementById('tagPanelSearchInput');
-    const searchTerm = (searchInput?.value || '').toLowerCase().trim();
+    const searchTerm = removeDiacritics((searchInput?.value || '').trim());
 
     const counts = getTagOrderCounts();
     const totalOrders = SocialOrderState.orders.length;
@@ -143,7 +143,7 @@ function renderTagPanelCards() {
     let html = '';
 
     // "All" card (show if no search or matches "tất cả")
-    if (!searchTerm || 'tất cả'.includes(searchTerm) || 'tat ca'.includes(searchTerm)) {
+    if (!searchTerm || removeDiacritics('tất cả').includes(searchTerm) || 'tat ca'.includes(searchTerm)) {
         html += `
             <div class="tag-panel-card ${activePanelTagId === null ? 'active' : ''}"
                  onclick="filterByPanelTag(null)">
@@ -159,7 +159,7 @@ function renderTagPanelCards() {
     }
 
     // "No tag" card
-    if (!searchTerm || 'chưa gán tag'.includes(searchTerm) || 'chua gan tag'.includes(searchTerm)) {
+    if (!searchTerm || removeDiacritics('chưa gán tag').includes(searchTerm) || 'chua gan tag'.includes(searchTerm)) {
         const noTagCount = SocialOrderState.orders.filter(o => !o.tags || o.tags.length === 0).length;
         html += `
             <div class="tag-panel-card ${activePanelTagId === '__no_tag__' ? 'active' : ''}"
@@ -177,7 +177,7 @@ function renderTagPanelCards() {
 
     // Tag cards (filtered by search)
     SocialOrderState.tags.forEach(tag => {
-        if (searchTerm && !tag.name.toLowerCase().includes(searchTerm)) return;
+        if (searchTerm && !removeDiacritics(tag.name).includes(searchTerm)) return;
 
         const count = counts[tag.id] || 0;
         const hoverAttrs = tag.image
@@ -255,7 +255,7 @@ function performTableSearchWithNoTag() {
     const statusFilter = document.getElementById('statusFilter');
     const sourceFilter = document.getElementById('sourceFilter');
 
-    const searchTerm = (searchInput?.value || '').toLowerCase().trim();
+    const searchTerm = removeDiacritics((searchInput?.value || '').trim());
     const statusValue = statusFilter?.value || 'all';
     const sourceValue = sourceFilter?.value || 'all';
 
@@ -284,10 +284,12 @@ function performTableSearchWithNoTag() {
         if (sourceValue !== 'all' && order.source !== sourceValue) return false;
         // No tag filter
         if (order.tags && order.tags.length > 0) return false;
-        // Search filter
+        // Search filter (accent-insensitive)
         if (searchTerm) {
-            const searchFields = [order.id, order.customerName, order.phone, order.address, order.note]
-                .filter(Boolean).join(' ').toLowerCase();
+            const searchFields = removeDiacritics(
+                [order.id, order.customerName, order.phone, order.address, order.note]
+                    .filter(Boolean).join(' ')
+            );
             if (!searchFields.includes(searchTerm)) return false;
         }
         return true;

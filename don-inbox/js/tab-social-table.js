@@ -3,6 +3,11 @@
  * Table rendering, filtering, search
  */
 
+function removeDiacritics(str) {
+    if (!str) return '';
+    return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
+}
+
 // ===== TABLE RENDERING =====
 function renderTable() {
     const tbody = document.getElementById('tableBody');
@@ -367,7 +372,7 @@ function performTableSearch() {
     const sourceFilter = document.getElementById('sourceFilter');
     const tagFilter = document.getElementById('tagFilter');
 
-    const searchTerm = (searchInput?.value || '').toLowerCase().trim();
+    const searchTerm = removeDiacritics((searchInput?.value || '').trim());
     const statusValue = statusFilter?.value || 'all';
     const sourceValue = sourceFilter?.value || 'all';
     const tagValue = tagFilter?.value || 'all';
@@ -415,18 +420,19 @@ function performTableSearch() {
             if (!hasTag) return false;
         }
 
-        // Search filter
+        // Search filter (accent-insensitive)
         if (searchTerm) {
-            const searchFields = [
-                order.id,
-                order.customerName,
-                order.phone,
-                order.address,
-                order.note,
-            ]
-                .filter(Boolean)
-                .join(' ')
-                .toLowerCase();
+            const searchFields = removeDiacritics(
+                [
+                    order.id,
+                    order.customerName,
+                    order.phone,
+                    order.address,
+                    order.note,
+                ]
+                    .filter(Boolean)
+                    .join(' ')
+            );
 
             if (!searchFields.includes(searchTerm)) {
                 return false;
