@@ -85,7 +85,7 @@
                         </button>
                         <div class="nav-dropdown-menu" id="navEmployeeDropdown">
                             <a href="#" class="nav-dropdown-item">Danh sách nhân viên</a>
-                            <a href="#" id="navLinkSchedule" class="nav-dropdown-item">Lịch làm việc</a>
+                            <a href="#" id="navLinkSchedule" class="nav-dropdown-item">Bảng tính lương</a>
                             <a href="#" id="navLinkTimesheet" class="nav-dropdown-item active">Bảng chấm công</a>
                             <a href="#" class="nav-dropdown-item">Bảng lương</a>
                             <a href="#" class="nav-dropdown-item">Bảng hoa hồng</a>
@@ -115,7 +115,7 @@
             <div id="employeeTabContent" class="tab-content" style="height: calc(100vh - 56px);">
 
                 <!-- 1. Bảng chấm công (Xem theo ca) View -->
-                <div class="employee-view-wrapper" id="viewTimesheet" style="display: none;">
+                <div class="employee-view-wrapper" id="viewTimesheet" style="display: flex;">
                     <div class="ts-header">
                         <div class="ts-header-left">
                             <h2 class="ts-title">Bảng chấm công</h2>
@@ -320,7 +320,7 @@
                 </div>
 
                 <!-- 2. Cập nhật bảng tính lương (Xem theo nhân viên) View -->
-                <div class="employee-view-wrapper" id="viewSchedule" style="display: flex;">
+                <div class="employee-view-wrapper" id="viewSchedule" style="display: none;">
                     <div class="ts-header">
                         <div class="ts-header-left">
                             <h2 class="ts-title">Cập nhật bảng tính lương</h2>
@@ -335,10 +335,6 @@
                             <button class="ts-btn" id="btnSchedNow">Tháng này</button>
                         </div>
                         <div class="ts-header-right">
-                            <button class="ts-btn" id="btnSchedSwitchView">
-                                <i data-lucide="user" style="width: 14px; height: 14px;"></i> Xem theo nhân viên <i
-                                    data-lucide="chevron-down" style="width: 14px; height: 14px;"></i>
-                            </button>
                             <button class="ts-btn" id="btnPayrollSettings">
                                 <i data-lucide="settings" style="width: 14px; height: 14px;"></i> Thiết lập
                             </button>
