@@ -87,7 +87,7 @@ const PTAG_PIN_KEY = 'ptagPanelPinned';
 // [C] API CRUD (PostgreSQL + SSE)
 // =====================================================
 
-const PTAG_API_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime';
+const PTAG_API_BASE = 'https://n2store-fallback.onrender.com/api/realtime';
 
 function _ptagApiUrl(path) {
     return `${PTAG_API_BASE}/${path}`;
