@@ -507,6 +507,31 @@
         </div>
     </div>
 
+    <!-- Confirm Delete Tag Modal -->
+    <div class="modal-overlay" id="confirmDeleteTagModal">
+        <div class="modal-content" style="max-width: 420px">
+            <div class="modal-header">
+                <h3>
+                    <i class="fas fa-exclamation-triangle" style="color: #ef4444"></i> Xác nhận xóa Tag
+                </h3>
+                <button class="modal-close" onclick="closeConfirmDeleteTagModal()">&times;</button>
+            </div>
+            <div class="modal-body" style="text-align: center; padding: 24px">
+                <div id="confirmDeleteTagInfo" style="margin-bottom: 16px;"></div>
+                <p id="confirmDeleteTagMessage" style="color: #6b7280; font-size: 14px;"></p>
+            </div>
+            <div class="modal-footer" style="justify-content: center">
+                <button type="button" class="btn-secondary" onclick="closeConfirmDeleteTagModal()">
+                    Hủy
+                </button>
+                <button type="button" class="btn-primary" style="background: #ef4444" onclick="confirmDeleteTag()">
+                    <i class="fas fa-trash"></i>
+                    Xóa Tag
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Facebook Post Selection Modal -->
     <div class="modal-overlay" id="postSelectionModal">
         <div class="modal-content modal-large post-selection-modal">

@@ -570,34 +570,77 @@ function updateTagColor(tagId, newColor) {
     if (tag) tag.color = newColor;
 }
 
+// ===== DELETE TAG WITH CONFIRMATION MODAL =====
+let _pendingDeleteTagId = null;
+
 function deleteTag(tagId) {
     const tag = SocialOrderState.tags.find(t => t.id === tagId);
     if (!tag) return;
 
-    if (!confirm(`Bạn có chắc muốn xóa tag "${tag.name}"?`)) return;
+    _pendingDeleteTagId = tagId;
+
+    // Count affected orders
+    const affectedCount = SocialOrderState.orders.filter(o =>
+        o.tags && o.tags.some(t => t.id === tagId)
+    ).length;
+
+    // Build tag preview HTML
+    const tagImage = tag.image
+        ? `<img src="${tag.image}" style="width: 40px; height: 40px; border-radius: 6px; object-fit: cover; margin-bottom: 8px;">`
+        : '';
+    const tagInfoHtml = `
+        ${tagImage}
+        <div style="display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 8px; background: ${tag.color}; color: #fff; font-weight: 600; font-size: 16px;">
+            ${tag.name}
+        </div>
+    `;
+
+    const messageHtml = affectedCount > 0
+        ? `Tag này đang được gán cho <strong>${affectedCount} đơn hàng</strong>. Tag sẽ bị gỡ khỏi tất cả đơn hàng.`
+        : `Tag này chưa được gán cho đơn hàng nào.`;
+
+    // Populate modal
+    document.getElementById('confirmDeleteTagInfo').innerHTML = tagInfoHtml;
+    document.getElementById('confirmDeleteTagMessage').innerHTML = messageHtml;
+
+    // Show modal
+    document.getElementById('confirmDeleteTagModal').classList.add('show');
+}
+
+function closeConfirmDeleteTagModal() {
+    document.getElementById('confirmDeleteTagModal').classList.remove('show');
+    _pendingDeleteTagId = null;
+}
+
+function confirmDeleteTag() {
+    const tagId = _pendingDeleteTagId;
+    if (!tagId) return;
+
+    const tag = SocialOrderState.tags.find(t => t.id === tagId);
+    const tagName = tag ? tag.name : 'Unknown';
+
+    // Close modal immediately
+    closeConfirmDeleteTagModal();
 
     // Remove from tag list
     SocialOrderState.tags = SocialOrderState.tags.filter(t => t.id !== tagId);
 
-    // Remove from all orders
+    // Remove from all orders (local state only, batch Firestore update below)
+    const affectedOrderIds = [];
     SocialOrderState.orders.forEach(order => {
-        if (order.tags) {
+        if (order.tags && order.tags.some(t => t.id === tagId)) {
             order.tags = order.tags.filter(t => t.id !== tagId);
-            // Fire-and-forget: sync to Firestore
-            if (typeof updateSocialOrderTags === 'function') {
-                updateSocialOrderTags(order.id, order.tags);
-            }
+            order.updatedAt = Date.now();
+            affectedOrderIds.push(order.id);
         }
     });
 
-    // Save
+    // Save local storage + show notification IMMEDIATELY (optimistic UI)
     saveSocialOrdersToStorage();
     saveSocialTagsToStorage();
-    if (typeof saveSocialTagsToFirebase === 'function') {
-        saveSocialTagsToFirebase(SocialOrderState.tags);
-    }
+    showNotification(`Đã xóa tag "${tagName}"`, 'success');
 
-    // Update UI
+    // Update UI immediately
     renderTagManageList();
     populateTagFilter();
     performTableSearch();
@@ -608,11 +651,17 @@ function deleteTag(tagId) {
         activePanelTagId = null;
     }
 
-    showNotification(`Đã xóa tag "${tag.name}"`, 'success');
+    // Fire-and-forget: sync to Firestore in background
+    if (typeof saveSocialTagsToFirebase === 'function') {
+        saveSocialTagsToFirebase(SocialOrderState.tags);
+    }
+    if (affectedOrderIds.length > 0 && typeof bulkUpdateSocialOrderTags === 'function') {
+        bulkUpdateSocialOrderTags(affectedOrderIds, tagId);
+    }
 }
 
 function updateTagInOrders(tagId, newName, newColor, newImage) {
-    let changed = false;
+    const affectedOrders = [];
     SocialOrderState.orders.forEach(order => {
         if (order.tags) {
             const tag = order.tags.find(t => t.id === tagId);
@@ -624,18 +673,19 @@ function updateTagInOrders(tagId, newName, newColor, newImage) {
                 } else {
                     delete tag.image;
                 }
-                changed = true;
-                // Fire-and-forget: sync to Firestore
-                if (typeof updateSocialOrderTags === 'function') {
-                    updateSocialOrderTags(order.id, order.tags);
-                }
+                order.updatedAt = Date.now();
+                affectedOrders.push(order);
             }
         }
     });
 
-    if (changed) {
+    if (affectedOrders.length > 0) {
         saveSocialOrdersToStorage();
         performTableSearch();
+        // Batch sync affected orders to Firestore
+        if (typeof bulkUpdateSocialOrderTagsData === 'function') {
+            bulkUpdateSocialOrderTagsData(affectedOrders.map(o => ({ id: o.id, tags: o.tags })));
+        }
     }
 }
 
@@ -933,6 +983,8 @@ window.cancelTagEdit = cancelTagEdit;
 window.saveTagEdit = saveTagEdit;
 window.updateTagColor = updateTagColor;
 window.deleteTag = deleteTag;
+window.closeConfirmDeleteTagModal = closeConfirmDeleteTagModal;
+window.confirmDeleteTag = confirmDeleteTag;
 window.selectPresetColor = selectPresetColor;
 window.triggerTagImageUpload = triggerTagImageUpload;
 window.handleTagImageFileSelect = handleTagImageFileSelect;

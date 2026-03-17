@@ -16,6 +16,7 @@ let _socialOrdersUnsubscribe = null;
 let _socialTagsUnsubscribe = null;
 let _firestoreAvailable = null; // null = unknown, true/false after check
 let _lastOrdersSnapshotHash = null; // Track data hash to skip redundant re-renders
+let _suppressSnapshotRerender = false; // Skip re-render when we just wrote to Firestore
 
 // ===== FIRESTORE HELPER =====
 function _getFirestoreDB() {
@@ -314,6 +315,69 @@ async function updateSocialOrderTags(orderId, tags) {
     return updateSocialOrder(orderId, { tags });
 }
 
+// ===== BULK UPDATE ORDER TAGS (for tag deletion) =====
+/**
+ * Remove a deleted tag from affected orders using Firestore batch writes.
+ * Much faster than individual updates (max 500 per batch).
+ * @param {Array<string>} orderIds - Order IDs that had the tag
+ * @param {string} deletedTagId - Tag ID that was removed
+ */
+async function bulkUpdateSocialOrderTags(orderIds, deletedTagId) {
+    const db = _getFirestoreDB();
+    if (!db || orderIds.length === 0) return;
+
+    try {
+        _suppressSnapshotRerender = true; // Prevent listener from re-rendering
+        const BATCH_SIZE = 500;
+        for (let i = 0; i < orderIds.length; i += BATCH_SIZE) {
+            const chunk = orderIds.slice(i, i + BATCH_SIZE);
+            const batch = db.batch();
+            chunk.forEach(orderId => {
+                const order = SocialOrderState.orders.find(o => o.id === orderId);
+                if (order) {
+                    batch.update(db.collection(SOCIAL_ORDERS_COLLECTION).doc(orderId), {
+                        tags: order.tags || [],
+                        updatedAt: Date.now()
+                    });
+                }
+            });
+            await batch.commit();
+        }
+        console.log('[SocialFirebase] Batch updated tags for', orderIds.length, 'orders');
+    } catch (e) {
+        console.error('[SocialFirebase] Error batch updating tags:', e);
+    }
+}
+
+/**
+ * Batch update tags data for multiple orders using Firestore batch writes.
+ * Used when editing a tag (name/color/image change).
+ * @param {Array<{id: string, tags: Array}>} orderTagsData - Array of {id, tags}
+ */
+async function bulkUpdateSocialOrderTagsData(orderTagsData) {
+    const db = _getFirestoreDB();
+    if (!db || orderTagsData.length === 0) return;
+
+    try {
+        _suppressSnapshotRerender = true; // Prevent listener from re-rendering
+        const BATCH_SIZE = 500;
+        for (let i = 0; i < orderTagsData.length; i += BATCH_SIZE) {
+            const chunk = orderTagsData.slice(i, i + BATCH_SIZE);
+            const batch = db.batch();
+            chunk.forEach(({ id, tags }) => {
+                batch.update(db.collection(SOCIAL_ORDERS_COLLECTION).doc(id), {
+                    tags: tags,
+                    updatedAt: Date.now()
+                });
+            });
+            await batch.commit();
+        }
+        console.log('[SocialFirebase] Batch updated tag data for', orderTagsData.length, 'orders');
+    } catch (e) {
+        console.error('[SocialFirebase] Error batch updating tag data:', e);
+    }
+}
+
 // ===== GET SINGLE ORDER =====
 /**
  * Get a single order by ID from Firestore
@@ -370,6 +434,16 @@ function setupSocialOrdersListener() {
                     return;
                 }
                 _lastOrdersSnapshotHash = snapshotHash;
+
+                // Skip re-render if we just wrote to Firestore (self-triggered snapshot)
+                if (_suppressSnapshotRerender) {
+                    _suppressSnapshotRerender = false;
+                    console.log('[SocialFirebase] Real-time: self-triggered, updating state only (' + orders.length + ' orders)');
+                    SocialOrderState.orders = orders;
+                    SocialOrderState.filteredOrders = [...orders];
+                    saveSocialOrdersToStorage();
+                    return;
+                }
 
                 // Update state
                 SocialOrderState.orders = orders;
@@ -490,6 +564,8 @@ window.updateSocialOrder = updateSocialOrder;
 window.deleteSocialOrder = deleteSocialOrder;
 window.bulkDeleteSocialOrders = bulkDeleteSocialOrders;
 window.updateSocialOrderTags = updateSocialOrderTags;
+window.bulkUpdateSocialOrderTags = bulkUpdateSocialOrderTags;
+window.bulkUpdateSocialOrderTagsData = bulkUpdateSocialOrderTagsData;
 window.getSocialOrderById = getSocialOrderById;
 window.setupSocialOrdersListener = setupSocialOrdersListener;
 window.setupSocialTagsListener = setupSocialTagsListener;
