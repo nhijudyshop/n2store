@@ -349,8 +349,9 @@ ${labelsHTML}
                 var w = svg.getAttribute('width');
                 var h = svg.getAttribute('height');
                 svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
-                svg.removeAttribute('width');
-                svg.removeAttribute('height');
+                svg.setAttribute('preserveAspectRatio', 'none');
+                svg.setAttribute('width', '85%');
+                svg.setAttribute('height', '7.5mm');
             } catch(e) {
                 console.warn('Barcode error for:', code, e);
             }
