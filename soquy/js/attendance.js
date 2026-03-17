@@ -2661,7 +2661,10 @@
     .footer-stats .label { width: 200px; }
     .footer-stats .value { font-weight: 400; }
     .note-section { margin-top: 12px; font-style: italic; font-size: 12px; }
-    @media print { body { padding: 0; } @page { size: A4; margin: 15mm 20mm; } }
+    .print-btn-wrap { text-align: center; margin: 30px 0; }
+    .print-btn { padding: 10px 32px; font-size: 15px; font-weight: 600; color: #fff; background: #1890ff; border: none; border-radius: 6px; cursor: pointer; }
+    .print-btn:hover { background: #096dd9; }
+    @media print { body { padding: 0; } .print-btn-wrap { display: none; } @page { size: A4; margin: 15mm 20mm; } }
 </style></head><body>
 <div class="header">
     <div class="header-left">${dateStr}</div>
@@ -2701,7 +2704,7 @@
 
 ${d.ghiChu ? `<div class="note-section"><strong>Ghi chú:</strong> ${d.ghiChu}</div>` : '<div class="note-section"><strong>Ghi chú:</strong></div>'}
 
-<script>window.onload = function() { window.print(); }</script>
+<div class="print-btn-wrap"><button class="print-btn" onclick="window.print()">In phiếu lương</button></div>
 </body></html>`;
 
         const blob = new Blob([html], { type: 'text/html; charset=utf-8' });
