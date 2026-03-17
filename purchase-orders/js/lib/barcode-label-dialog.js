@@ -291,7 +291,7 @@ window.BarcodeLabelDialog = (function () {
     }
 
     .label-barcode svg {
-        width: 85%;
+        width: 70%;
         height: 100%;
     }
 
@@ -350,7 +350,7 @@ ${labelsHTML}
                 var h = svg.getAttribute('height');
                 svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
                 svg.setAttribute('preserveAspectRatio', 'none');
-                svg.setAttribute('width', '85%');
+                svg.setAttribute('width', '70%');
                 svg.setAttribute('height', '7.5mm');
             } catch(e) {
                 console.warn('Barcode error for:', code, e);
