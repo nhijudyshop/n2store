@@ -263,7 +263,7 @@ window.BarcodeLabelDialog = (function () {
     .label {
         width: 33mm;
         height: 21mm;
-        padding: 0.5mm 1mm;
+        padding: 3mm 1.5mm;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -271,11 +271,11 @@ window.BarcodeLabelDialog = (function () {
     }
 
     .label-name {
-        font-size: 7.5pt;
+        font-size: 6pt;
         font-weight: bold;
         text-align: center;
         line-height: 1.2;
-        max-height: 5.5mm;
+        max-height: 5mm;
         overflow: hidden;
         width: 100%;
         word-break: break-word;
@@ -293,7 +293,7 @@ window.BarcodeLabelDialog = (function () {
     }
 
     .label-barcode svg {
-        width: 90%;
+        width: 85%;
         height: 100%;
     }
 
@@ -301,17 +301,17 @@ window.BarcodeLabelDialog = (function () {
         text-align: center;
         width: 100%;
         font-weight: bold;
-        line-height: 1.1;
+        line-height: 1.15;
         flex-shrink: 0;
     }
 
     .label-code {
-        font-size: 7pt;
+        font-size: 6pt;
         font-weight: bold;
     }
 
     .label-price {
-        font-size: 7pt;
+        font-size: 6pt;
         font-weight: bold;
     }
 
@@ -343,8 +343,8 @@ ${labelsHTML}
             try {
                 JsBarcode(svg, code, {
                     format: 'CODE128',
-                    width: 1.2,
-                    height: 35,
+                    width: 1,
+                    height: 30,
                     displayValue: false,
                     margin: 0
                 });
