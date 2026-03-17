@@ -8,74 +8,75 @@ const express = require('express');
 const router = express.Router();
 
 // All manageable tables grouped by category (from actual DB)
+// usedBy: which frontend pages consume this table's data
 const TABLE_GROUPS = {
     'Customers': [
-        { name: 'customers', label: 'Customers', pk: 'id' },
-        { name: 'customer_activities', label: 'Customer Activities', pk: 'id' },
-        { name: 'customer_notes', label: 'Customer Notes', pk: 'id' },
-        { name: 'pending_customer_matches', label: 'Pending Customer Matches', pk: 'id' },
-        { name: 'pending_customers', label: 'Pending Customers', pk: 'id' },
-        { name: 'tpos_saved_customers', label: 'TPOS Saved Customers', pk: 'id' }
+        { name: 'customers', label: 'Customers', pk: 'id', usedBy: 'customer-hub, orders-report, balance-history, issue-tracking' },
+        { name: 'customer_activities', label: 'Customer Activities', pk: 'id', usedBy: 'customer-hub (timeline), orders-report' },
+        { name: 'customer_notes', label: 'Customer Notes', pk: 'id', usedBy: 'customer-hub (ghi chú KH)' },
+        { name: 'pending_customer_matches', label: 'Pending Customer Matches', pk: 'id', usedBy: 'balance-history (xác minh chuyển khoản)' },
+        { name: 'pending_customers', label: 'Pending Customers', pk: 'id', usedBy: 'don-inbox (KH mới từ Facebook)' },
+        { name: 'tpos_saved_customers', label: 'TPOS Saved Customers', pk: 'id', usedBy: 'customer-hub, orders-report (cache TPOS)' }
     ],
     'Wallet & Transactions': [
-        { name: 'customer_wallets', label: 'Customer Wallets', pk: 'id' },
-        { name: 'wallet_transactions', label: 'Wallet Transactions', pk: 'id' },
-        { name: 'virtual_credits', label: 'Virtual Credits', pk: 'id' },
-        { name: 'wallet_adjustments', label: 'Wallet Adjustments', pk: 'id' },
-        { name: 'pending_wallet_withdrawals', label: 'Pending Withdrawals', pk: 'id' }
+        { name: 'customer_wallets', label: 'Customer Wallets', pk: 'id', usedBy: 'customer-hub (ví KH), balance-history, orders-report' },
+        { name: 'wallet_transactions', label: 'Wallet Transactions', pk: 'id', usedBy: 'customer-hub (lịch sử GD), balance-history (kế toán)' },
+        { name: 'virtual_credits', label: 'Virtual Credits', pk: 'id', usedBy: 'customer-hub (tín dụng ảo), orders-report' },
+        { name: 'wallet_adjustments', label: 'Wallet Adjustments', pk: 'id', usedBy: 'balance-history (điều chỉnh thủ công)' },
+        { name: 'pending_wallet_withdrawals', label: 'Pending Withdrawals', pk: 'id', usedBy: 'balance-history, customer-hub (rút tiền chờ xử lý)' }
     ],
     'Balance & SePay': [
-        { name: 'balance_history', label: 'Balance History', pk: 'id' },
-        { name: 'balance_customer_info', label: 'Balance Customer Info', pk: 'id' },
-        { name: 'sepay_webhook_logs', label: 'SePay Webhook Logs', pk: 'id' },
-        { name: 'recent_transfer_phones', label: 'Recent Transfer Phones', pk: 'phone' },
-        { name: 'transfer_stats', label: 'Transfer Stats', pk: 'id' }
+        { name: 'balance_history', label: 'Balance History', pk: 'id', usedBy: 'balance-history (lịch sử biến động số dư chính)' },
+        { name: 'balance_customer_info', label: 'Balance Customer Info', pk: 'id', usedBy: 'balance-history (thông tin KH khi xác minh)' },
+        { name: 'sepay_webhook_logs', label: 'SePay Webhook Logs', pk: 'id', usedBy: 'balance-history (log webhook thanh toán)' },
+        { name: 'recent_transfer_phones', label: 'Recent Transfer Phones', pk: 'phone', usedBy: 'balance-history (gợi ý SĐT chuyển khoản)' },
+        { name: 'transfer_stats', label: 'Transfer Stats', pk: 'id', usedBy: 'balance-history (thống kê chuyển khoản)' }
     ],
     'Support Tickets': [
-        { name: 'customer_tickets', label: 'Customer Tickets', pk: 'id' }
+        { name: 'customer_tickets', label: 'Customer Tickets', pk: 'id', usedBy: 'customer-hub (ticket CSKH), issue-tracking' }
     ],
     'Inbox & Conversations': [
-        { name: 'inbox_groups', label: 'Inbox Groups', pk: 'id' },
-        { name: 'conversation_labels', label: 'Conversation Labels', pk: 'conv_id' },
-        { name: 'livestream_conversations', label: 'Livestream Conversations', pk: 'conv_id' }
+        { name: 'inbox_groups', label: 'Inbox Groups', pk: 'id', usedBy: 'don-inbox (nhóm hội thoại)' },
+        { name: 'conversation_labels', label: 'Conversation Labels', pk: 'conv_id', usedBy: 'don-inbox (nhãn hội thoại)' },
+        { name: 'livestream_conversations', label: 'Livestream Conversations', pk: 'conv_id', usedBy: 'don-inbox (comment livestream)' }
     ],
     'Realtime Data': [
-        { name: 'realtime_credentials', label: 'Realtime Credentials', pk: 'id' },
-        { name: 'realtime_updates', label: 'Realtime Updates', pk: 'id' },
-        { name: 'realtime_kv', label: 'Realtime KV Store', pk: 'key' }
+        { name: 'realtime_credentials', label: 'Realtime Credentials', pk: 'id', usedBy: 'Server (auto-reconnect Pancake/TPOS WebSocket)' },
+        { name: 'realtime_updates', label: 'Realtime Updates', pk: 'id', usedBy: 'orders-report, soluong-live (SSE realtime)' },
+        { name: 'realtime_kv', label: 'Realtime KV Store', pk: 'key', usedBy: 'orders-report (KPI state), soluong-live' }
     ],
     'KPI & Orders': [
-        { name: 'kpi_base', label: 'KPI Base', pk: 'id' },
-        { name: 'kpi_statistics', label: 'KPI Statistics', pk: 'id' },
-        { name: 'report_order_details', label: 'Report Order Details', pk: 'table_name' },
-        { name: 'return_orders', label: 'Return Orders', pk: 'id' }
+        { name: 'kpi_base', label: 'KPI Base', pk: 'id', usedBy: 'orders-report Tab 1 (KPI hoa hồng)' },
+        { name: 'kpi_statistics', label: 'KPI Statistics', pk: 'id', usedBy: 'orders-report Tab KPI (thống kê hiệu suất)' },
+        { name: 'report_order_details', label: 'Report Order Details', pk: 'table_name', usedBy: 'orders-report Tab 1+3, order-management' },
+        { name: 'return_orders', label: 'Return Orders', pk: 'id', usedBy: 'orders-report (đơn hoàn), order-management' }
     ],
     'Products & Tags': [
-        { name: 'held_products', label: 'Held Products', pk: null, compositePk: ['order_id', 'product_id', 'user_id'] },
-        { name: 'dropped_products', label: 'Dropped Products', pk: 'id' },
-        { name: 'tag_updates', label: 'Tag Updates', pk: 'id' },
-        { name: 'note_snapshots', label: 'Note Snapshots', pk: 'order_id' },
-        { name: 'soluong_products', label: 'Soluong Products', pk: 'id' },
-        { name: 'soluong_meta', label: 'Soluong Meta', pk: 'key' }
+        { name: 'held_products', label: 'Held Products', pk: null, compositePk: ['order_id', 'product_id', 'user_id'], usedBy: 'orders-report Tab 1 (SP đang giữ), order-management' },
+        { name: 'dropped_products', label: 'Dropped Products', pk: 'id', usedBy: 'orders-report Tab 1 (SP bị hủy)' },
+        { name: 'tag_updates', label: 'Tag Updates', pk: 'id', usedBy: 'orders-report Tab 1 (cập nhật tag đơn)' },
+        { name: 'note_snapshots', label: 'Note Snapshots', pk: 'order_id', usedBy: 'orders-report Tab 1 (ghi chú đơn hàng)' },
+        { name: 'soluong_products', label: 'Soluong Products', pk: 'id', usedBy: 'soluong-live (quản lý số lượng SP)' },
+        { name: 'soluong_meta', label: 'Soluong Meta', pk: 'key', usedBy: 'soluong-live (metadata số lượng)' }
     ],
     'Config & Admin': [
-        { name: 'admin_settings', label: 'Admin Settings', pk: 'id' },
-        { name: 'rfm_config', label: 'RFM Config', pk: 'id' }
+        { name: 'admin_settings', label: 'Admin Settings', pk: 'id', usedBy: 'balance-history (cài đặt auto-approve), orders-report' },
+        { name: 'rfm_config', label: 'RFM Config', pk: 'id', usedBy: 'customer-hub (cấu hình phân khúc RFM)' }
     ],
     'Views (read-only)': [
-        { name: 'balance_statistics', label: 'Balance Statistics', pk: null, isView: true },
-        { name: 'customer_360_summary', label: 'Customer 360 Summary', pk: null, isView: true },
-        { name: 'customer_activity_summary', label: 'Customer Activity Summary', pk: null, isView: true },
-        { name: 'customer_by_carrier', label: 'Customer By Carrier', pk: null, isView: true },
-        { name: 'customer_statistics', label: 'Customer Statistics', pk: null, isView: true },
-        { name: 'daily_wallet_summary', label: 'Daily Wallet Summary', pk: null, isView: true },
-        { name: 'return_orders_by_date', label: 'Return Orders By Date', pk: null, isView: true },
-        { name: 'return_orders_statistics', label: 'Return Orders Statistics', pk: null, isView: true },
-        { name: 'rfm_segment_distribution', label: 'RFM Segment Distribution', pk: null, isView: true },
-        { name: 'rfm_segment_mapping', label: 'RFM Segment Mapping', pk: null, isView: true },
-        { name: 'ticket_resolution_metrics', label: 'Ticket Resolution Metrics', pk: null, isView: true },
-        { name: 'ticket_statistics', label: 'Ticket Statistics', pk: null, isView: true },
-        { name: 'wallet_statistics', label: 'Wallet Statistics', pk: null, isView: true }
+        { name: 'balance_statistics', label: 'Balance Statistics', pk: null, isView: true, usedBy: 'balance-history (thống kê tổng hợp)' },
+        { name: 'customer_360_summary', label: 'Customer 360 Summary', pk: null, isView: true, usedBy: 'customer-hub (tổng quan KH)' },
+        { name: 'customer_activity_summary', label: 'Customer Activity Summary', pk: null, isView: true, usedBy: 'customer-hub (tóm tắt hoạt động)' },
+        { name: 'customer_by_carrier', label: 'Customer By Carrier', pk: null, isView: true, usedBy: 'customer-hub (KH theo nhà vận chuyển)' },
+        { name: 'customer_statistics', label: 'Customer Statistics', pk: null, isView: true, usedBy: 'customer-hub (thống kê KH)' },
+        { name: 'daily_wallet_summary', label: 'Daily Wallet Summary', pk: null, isView: true, usedBy: 'balance-history (tổng hợp ví hàng ngày)' },
+        { name: 'return_orders_by_date', label: 'Return Orders By Date', pk: null, isView: true, usedBy: 'orders-report (đơn hoàn theo ngày)' },
+        { name: 'return_orders_statistics', label: 'Return Orders Statistics', pk: null, isView: true, usedBy: 'orders-report (thống kê đơn hoàn)' },
+        { name: 'rfm_segment_distribution', label: 'RFM Segment Distribution', pk: null, isView: true, usedBy: 'customer-hub (phân bố RFM)' },
+        { name: 'rfm_segment_mapping', label: 'RFM Segment Mapping', pk: null, isView: true, usedBy: 'customer-hub (mapping phân khúc)' },
+        { name: 'ticket_resolution_metrics', label: 'Ticket Resolution Metrics', pk: null, isView: true, usedBy: 'customer-hub (hiệu suất xử lý ticket)' },
+        { name: 'ticket_statistics', label: 'Ticket Statistics', pk: null, isView: true, usedBy: 'customer-hub (thống kê ticket)' },
+        { name: 'wallet_statistics', label: 'Wallet Statistics', pk: null, isView: true, usedBy: 'customer-hub (thống kê ví)' }
     ]
 };
 

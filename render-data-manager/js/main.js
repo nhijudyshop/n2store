@@ -63,10 +63,13 @@ function renderTableList(groups, filter = '') {
             </div>
             <div class="group-items">
                 ${filteredTables.map(t => `
-                    <div class="table-item ${!t.exists ? 'not-exists' : ''} ${currentTable === t.name ? 'active' : ''}"
+                    <div class="table-item ${!t.exists ? 'not-exists' : ''} ${t.isView ? 'is-view' : ''} ${currentTable === t.name ? 'active' : ''}"
                          onclick="${t.exists ? `selectTable('${t.name}')` : ''}"
-                         title="${t.name}${!t.exists ? ' (not exists)' : ''}">
-                        <span>${t.label}</span>
+                         title="${t.usedBy || t.name}">
+                        <span class="table-item-info">
+                            <span class="table-item-name">${t.label}${t.isView ? ' <em class="view-tag">VIEW</em>' : ''}</span>
+                            ${t.usedBy ? `<span class="table-item-used">${t.usedBy}</span>` : ''}
+                        </span>
                         <span class="row-count">${t.exists ? formatCount(t.rowCount) : '-'}</span>
                     </div>
                 `).join('')}
