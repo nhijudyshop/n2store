@@ -41,6 +41,26 @@
         let bearerToken = null;
         let tokenExpiry = null;
 
+        function cleanProductForFirebase(product) {
+            const cleanProduct = {
+                Id: typeof product.Id === 'object' ? product.Id?.Id : product.Id,
+                NameGet: String(product.NameGet || ''),
+                QtyAvailable: Number(product.QtyAvailable) || 0,
+                soldQty: Number(product.soldQty) || 0,
+                remainingQty: Number(product.remainingQty) || 0,
+                imageUrl: product.imageUrl ? String(product.imageUrl) : null,
+                ProductTmplId: typeof product.ProductTmplId === 'object' ? product.ProductTmplId?.Id : product.ProductTmplId,
+                ListPrice: Number(product.ListPrice) || 0,
+                PriceVariant: Number(product.PriceVariant) || 0,
+                addedAt: product.addedAt || Date.now(),
+                isHidden: product.isHidden || false,
+                lastRefreshed: product.lastRefreshed || null,
+                campaignId: product.campaignId || currentCampaignId || null,
+                campaignName: product.campaignName || currentCampaignName || null
+            };
+            return cleanProduct;
+        }
+
         async function getAuthToken() {
             try {
                 const response = await fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/token', {
