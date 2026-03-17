@@ -246,14 +246,16 @@ async function checkFirebaseStatus() {
  * @returns {string|null} - User ID or null
  */
 function getCurrentUserId() {
-    // Try Firebase auth first
+    // Try Firebase Auth first (if Auth SDK is loaded)
     if (typeof firebase !== 'undefined' && firebase.auth) {
-        const user = firebase.auth().currentUser;
-        if (user) return user.uid;
+        try {
+            const user = firebase.auth().currentUser;
+            if (user) return user.uid;
+        } catch (e) { /* Auth SDK not loaded */ }
     }
-    // Fallback: localStorage
+    // Fallback: use same localStorage key as Tab1 (orders_campaign_user_id)
     try {
-        const stored = localStorage.getItem('firebase_user_id');
+        const stored = localStorage.getItem('orders_campaign_user_id');
         if (stored) return stored;
     } catch (e) { }
     return null;
