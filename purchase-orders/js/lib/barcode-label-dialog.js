@@ -275,20 +275,18 @@ window.BarcodeLabelDialog = (function () {
         font-weight: bold;
         text-align: center;
         line-height: 1.2;
-        max-height: 5mm;
+        height: 3mm;
         overflow: hidden;
         width: 100%;
         word-break: break-word;
-        flex-shrink: 0;
     }
 
     .label-barcode {
-        flex: 1;
+        height: 7.5mm;
         display: flex;
         align-items: center;
         justify-content: center;
         width: 100%;
-        min-height: 0;
         overflow: hidden;
     }
 
@@ -298,11 +296,11 @@ window.BarcodeLabelDialog = (function () {
     }
 
     .label-footer {
+        height: 4.5mm;
         text-align: center;
         width: 100%;
         font-weight: bold;
         line-height: 1.15;
-        flex-shrink: 0;
     }
 
     .label-code {
