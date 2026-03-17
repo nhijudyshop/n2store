@@ -110,28 +110,45 @@ async function discoverPageIds(token) {
     try {
         const res = await fetch(`https://pancake.vn/api/v1/pages?access_token=${encodeURIComponent(token)}`, {
             headers: {
+                'Accept': 'application/json, text/plain, */*',
+                'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8',
                 'Origin': 'https://pancake.vn',
-                'Referer': 'https://pancake.vn/',
-                'User-Agent': 'Mozilla/5.0'
+                'Referer': 'https://pancake.vn/multi_pages',
+                'Cookie': `jwt=${token}; locale=vi`,
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36',
+                'sec-ch-ua': '"Google Chrome";v="143", "Chromium";v="143"',
+                'sec-ch-ua-mobile': '?0',
+                'sec-ch-ua-platform': '"macOS"',
+                'sec-fetch-dest': 'empty',
+                'sec-fetch-mode': 'cors',
+                'sec-fetch-site': 'same-origin'
             }
         });
 
         if (!res.ok) {
-            console.error(`[PANCAKE-API] Failed to fetch pages: ${res.status}`);
-            return [];
+            console.error(`[PANCAKE-API] Failed to fetch pages: ${res.status} ${res.statusText}`);
+            return { pageIds: [], pages: [] };
         }
 
         const data = await res.json();
-        const pages = data.pages || data.data || data;
 
-        if (!Array.isArray(pages)) return [];
+        if (!data.success || !data.categorized) {
+            console.error('[PANCAKE-API] Unexpected response:', JSON.stringify(data).substring(0, 200));
+            return { pageIds: [], pages: [] };
+        }
 
-        const pageIds = pages.map(p => String(p.fb_page_id || p.id)).filter(Boolean);
-        console.log(`[PANCAKE-API] Discovered ${pageIds.length} pages`);
-        return pageIds;
+        const allPages = data.categorized.activated || [];
+        const allPageIds = data.categorized.activated_page_ids || [];
+
+        // Filter out Instagram pages (igo_) to avoid subscription errors
+        const pageIds = allPageIds.filter(id => !id.startsWith('igo_'));
+        const pages = allPages.filter(p => !String(p.id).startsWith('igo_'));
+
+        console.log(`[PANCAKE-API] Discovered ${pageIds.length} pages: ${pages.map(p => p.name || p.id).join(', ')}`);
+        return { pageIds, pages };
     } catch (err) {
         console.error('[PANCAKE-API] Discover pages error:', err.message);
-        return [];
+        return { pageIds: [], pages: [] };
     }
 }
 
@@ -423,11 +440,31 @@ async function startClient(token, userId, name, cookie) {
 
     // Discover pageIds from Pancake API
     console.log(`[MANAGER] Discovering pages for ${name}...`);
-    const pageIds = await discoverPageIds(token);
+    const { pageIds, pages } = await discoverPageIds(token);
 
     if (pageIds.length === 0) {
         console.warn(`[MANAGER] No pages found for ${name}, skipping`);
         return null;
+    }
+
+    // Save to DB for future use
+    if (db) {
+        try {
+            await db.query(`
+                INSERT INTO realtime_credentials (client_type, token, user_id, page_ids, cookie, is_active, updated_at)
+                VALUES ($1, $2, $3, $4, $5, TRUE, NOW())
+                ON CONFLICT (client_type, user_id) DO UPDATE SET
+                    token = EXCLUDED.token,
+                    page_ids = EXCLUDED.page_ids,
+                    cookie = EXCLUDED.cookie,
+                    is_active = TRUE,
+                    updated_at = NOW()
+            `, [`pancake_${name}`, token, userId, JSON.stringify(pageIds), cookie]);
+            console.log(`[MANAGER] Saved credentials for ${name} to DB`);
+        } catch (e) {
+            // Ignore if table structure doesn't support composite key
+            console.log(`[MANAGER] Could not save to DB: ${e.message}`);
+        }
     }
 
     console.log(`[MANAGER] Starting client: ${name} (${userId}) with ${pageIds.length} pages`);
