@@ -225,6 +225,31 @@
         return payrollDataMap[String(empId)] || {};
     }
 
+    /** Lấy danh sách tên gợi ý từ tất cả NV cho 1 loại items */
+    function getPayrollNameSuggestions(itemsField) {
+        const names = new Set();
+        Object.values(payrollDataMap).forEach(doc => {
+            const items = doc[itemsField];
+            if (Array.isArray(items)) {
+                items.forEach(item => {
+                    if (item.name && item.name.trim()) names.add(item.name.trim());
+                });
+            }
+        });
+        return Array.from(names).sort();
+    }
+
+    /** Tạo hoặc cập nhật datalist với id và danh sách tên */
+    function updateDatalist(listId, names) {
+        let dl = document.getElementById(listId);
+        if (!dl) {
+            dl = document.createElement('datalist');
+            dl.id = listId;
+            document.body.appendChild(dl);
+        }
+        dl.innerHTML = names.map(n => `<option value="${escapeHtml(n)}">`).join('');
+    }
+
     async function savePayrollField(empId, field, value) {
         if (!currentMonth) return;
         const monthKey = `${currentMonth.year}-${String(currentMonth.month).padStart(2, '0')}`;
@@ -2048,7 +2073,7 @@
                         </td>
                         <td>
                             <input type="text" class="payroll-settings-input pc-name-input" data-idx="${i}"
-                                value="${escapeHtml(item.name || '')}" placeholder="Tên phụ cấp">
+                                value="${escapeHtml(item.name || '')}" placeholder="Tên phụ cấp" list="dlPhuCap">
                         </td>
                         <td style="text-align:center;">
                             <input type="number" class="payroll-detail-input pc-days-input" data-idx="${i}"
@@ -2104,6 +2129,7 @@
             });
         }
 
+        updateDatalist('dlPhuCap', getPayrollNameSuggestions('allowances'));
         renderPcRows();
         modal.style.display = 'flex';
 
@@ -2161,7 +2187,7 @@
                                 <i data-lucide="trash-2" style="width:14px;height:14px;"></i>
                             </button>
                             <input type="text" class="payroll-settings-input thuong-name-input" data-idx="${i}"
-                                value="${escapeHtml(item.name || '')}" placeholder="Tên khoản thưởng" style="flex:1;">
+                                value="${escapeHtml(item.name || '')}" placeholder="Tên khoản thưởng" style="flex:1;" list="dlThuong">
                         </td>
                         <td style="text-align:right;">
                             <input type="text" class="payroll-settings-input thuong-amount-input" data-idx="${i}"
@@ -2234,6 +2260,7 @@
             });
         }
 
+        updateDatalist('dlThuong', getPayrollNameSuggestions('thuongItems'));
         renderThuongRows();
         modal.style.display = 'flex';
 
@@ -2294,7 +2321,7 @@
                                 <i data-lucide="trash-2" style="width:14px;height:14px;"></i>
                             </button>
                             <input type="text" class="payroll-settings-input giamtru-name-input" data-idx="${i}"
-                                value="${escapeHtml(item.name || '')}" placeholder="Tên khoản giảm trừ" style="flex:1;">
+                                value="${escapeHtml(item.name || '')}" placeholder="Tên khoản giảm trừ" style="flex:1;" list="dlGiamTru">
                         </td>
                         <td style="text-align:right;">
                             <input type="text" class="payroll-settings-input giamtru-amount-input" data-idx="${i}"
@@ -2367,6 +2394,7 @@
             });
         }
 
+        updateDatalist('dlGiamTru', getPayrollNameSuggestions('giamTruItems'));
         renderGiamTruRows();
         modal.style.display = 'flex';
 
@@ -2417,7 +2445,7 @@
                                 <i data-lucide="trash-2" style="width:14px;height:14px;"></i>
                             </button>
                             <input type="text" class="payroll-settings-input datra-name-input" data-idx="${i}"
-                                value="${escapeHtml(item.name || '')}" placeholder="Nội dung" style="flex:1;">
+                                value="${escapeHtml(item.name || '')}" placeholder="Nội dung" style="flex:1;" list="dlDaTra">
                         </td>
                         <td style="text-align:right;">
                             <input type="text" class="payroll-settings-input datra-amount-input" data-idx="${i}"
@@ -2464,6 +2492,7 @@
             });
         }
 
+        updateDatalist('dlDaTra', getPayrollNameSuggestions('daTraItems'));
         renderDaTraRows();
         modal.style.display = 'flex';
 
