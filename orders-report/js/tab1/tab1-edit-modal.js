@@ -181,9 +181,14 @@ function updateOrderInfo(field, value) {
 function renderProductsTab(data) {
     const inlineSearchHTML = `
         <div class="product-search-inline">
-            <div class="search-input-wrapper">
-                <i class="fas fa-search search-icon"></i>
-                <input type="text" id="inlineProductSearch" class="inline-search-input" placeholder="Tìm sản phẩm theo tên hoặc mã..." autocomplete="off">
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <div class="search-input-wrapper" style="flex: 1;">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" id="inlineProductSearch" class="inline-search-input" placeholder="Tìm sản phẩm theo tên hoặc mã..." autocomplete="off">
+                </div>
+                <button onclick="reloadExcelProducts()" id="btnReloadExcel" class="btn-reload-excel" title="Tải lại kho sản phẩm từ TPOS">
+                    <i class="fas fa-sync-alt"></i> Tải lại
+                </button>
             </div>
             <div id="inlineSearchResults" class="inline-search-results"></div>
         </div>`;
@@ -1072,6 +1077,26 @@ function initInlineSearchAfterRender() {
         // 🔄 Refresh inline search UI when switching to products tab
         refreshInlineSearchUI();
     }, 100);
+}
+
+async function reloadExcelProducts() {
+    const btn = document.getElementById("btnReloadExcel");
+    if (!btn || btn.disabled) return;
+    btn.disabled = true;
+    btn.querySelector("i").className = "fas fa-sync-alt fa-spin";
+    try {
+        await window.productSearchManager.fetchExcelProducts(true);
+        // Re-run current search if there's a query
+        const searchInput = document.getElementById("inlineProductSearch");
+        if (searchInput && searchInput.value.trim().length >= 2) {
+            await performInlineSearch(searchInput.value.trim());
+        }
+    } catch (error) {
+        console.error("Reload Excel failed:", error);
+    } finally {
+        btn.disabled = false;
+        btn.querySelector("i").className = "fas fa-sync-alt";
+    }
 }
 
 function initInlineProductSearch() {
