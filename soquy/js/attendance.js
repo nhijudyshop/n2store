@@ -1475,6 +1475,9 @@
                         <button class="payroll-emp-detail-btn" onclick="window._attendance.showAttendanceDetailModal('${empId}')" title="Chi tiết chấm công">
                             <i data-lucide="calendar-days" style="width:14px;height:14px;"></i>
                         </button>
+                        <button class="payroll-emp-detail-btn" onclick="window._attendance.printPayslip('${empId}')" title="In phiếu lương">
+                            <i data-lucide="printer" style="width:14px;height:14px;"></i>
+                        </button>
                         <div class="payroll-emp-days">${workedDays}</div>
                     </td>
                     <td>
@@ -2511,6 +2514,140 @@
         };
     }
 
+    /** In phiếu lương nhân viên */
+    function printPayslip(empId) {
+        const emp = employees.find(e => String(e.userId || e.uid || e.id) === String(empId));
+        if (!emp) return;
+
+        const empName = emp.name || `User ${empId}`;
+        const empRate = emp.dailyRate || SALARY.DAILY_RATE;
+        const d = calculatePayrollRow(emp, empId);
+        const y = currentMonth.year;
+        const m = currentMonth.month;
+        const monthNames = ['', 'Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6',
+            'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'];
+        const lastDay = new Date(y, m, 0).getDate();
+
+        // Thu nhập
+        const thuNhap = d.luongChinh + d.lamThem + d.phuCap + d.thuong;
+
+        // Build phụ cấp sub-items
+        let phuCapRows = '';
+        if (d.allowanceItems && d.allowanceItems.length > 0) {
+            d.allowanceItems.forEach(item => {
+                phuCapRows += `<tr><td></td><td style="padding-left:40px;">${item.name || 'Phụ cấp'}</td><td class="amt">${fmtNum(item.amount || 0)}</td></tr>`;
+            });
+        }
+
+        // Build thưởng sub-items
+        let thuongRows = '';
+        if (d.thuongItems && d.thuongItems.length > 0) {
+            d.thuongItems.forEach(item => {
+                thuongRows += `<tr><td></td><td style="padding-left:40px;">${item.name || 'Thưởng'}</td><td class="amt">${fmtNum(item.amount || 0)}</td></tr>`;
+            });
+        }
+
+        // Build giảm trừ sub-items
+        let giamTruRows = '';
+        if (d.totalLate > 0) {
+            giamTruRows += `<tr><td>1</td><td>Đi trễ</td><td class="amt">${fmtNum(d.totalLate)}</td></tr>`;
+        }
+        if (d.giamTruItems && d.giamTruItems.length > 0) {
+            let idx = d.totalLate > 0 ? 2 : 1;
+            d.giamTruItems.forEach(item => {
+                giamTruRows += `<tr><td>${idx}</td><td>${item.name || 'Giảm trừ khác'}</td><td class="amt">${fmtNum(item.amount || 0)}</td></tr>`;
+                idx++;
+            });
+        }
+
+        // Build đã trả sub-items
+        let daTraRows = '';
+        if (d.daTraItems && d.daTraItems.length > 0) {
+            d.daTraItems.forEach((item, i) => {
+                daTraRows += `<tr><td>${i + 1}</td><td>${item.name || 'Đã trả'}</td><td class="amt">${fmtNum(item.amount || 0)}</td></tr>`;
+            });
+        } else if (d.daTra > 0) {
+            daTraRows = `<tr><td>1</td><td>Đã trả nhân viên</td><td class="amt">${fmtNum(d.daTra)}</td></tr>`;
+        }
+
+        const now = new Date();
+        const dateStr = `${now.getDate()}/${now.getMonth() + 1}/${now.getFullYear()}`;
+
+        function fmtNum(n) { return n.toLocaleString('vi-VN'); }
+
+        const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Phiếu lương - ${empName}</title>
+<style>
+    @page { size: A4; margin: 20mm; }
+    body { font-family: 'Times New Roman', serif; font-size: 13px; color: #000; max-width: 700px; margin: 0 auto; padding: 20px; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+    .header-left { font-size: 12px; color: #555; }
+    .logo { font-size: 28px; font-weight: 700; color: #1890ff; letter-spacing: 1px; }
+    .title { text-align: center; margin: 20px 0 5px; font-size: 20px; font-weight: 700; }
+    .subtitle { text-align: center; font-size: 13px; margin-bottom: 20px; }
+    .info { margin-bottom: 16px; }
+    .info-row { display: flex; margin-bottom: 4px; }
+    .info-label { width: 120px; font-weight: 400; }
+    .info-value { font-weight: 700; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+    table td, table th { padding: 6px 10px; border: 1px solid #333; font-size: 13px; }
+    td:first-child { width: 40px; text-align: center; }
+    .amt { text-align: right; width: 150px; }
+    .section-header td { font-weight: 700; }
+    .section-total td { font-weight: 700; border-top: 2px solid #333; }
+    .footer-stats { margin-top: 16px; font-size: 12px; }
+    .footer-stats .row { display: flex; margin-bottom: 3px; }
+    .footer-stats .label { width: 200px; }
+    .footer-stats .value { font-weight: 400; }
+    .note-section { margin-top: 12px; font-style: italic; font-size: 12px; }
+    @media print { body { padding: 0; } }
+</style></head><body>
+<div class="header">
+    <div class="header-left">${dateStr}</div>
+    <div class="logo">N2STORE</div>
+</div>
+<div class="title">PHIẾU LƯƠNG NHÂN VIÊN</div>
+<div class="subtitle">Bảng lương tháng ${m}/${y}</div>
+
+<div class="info">
+    <div class="info-row"><span class="info-label">Nhân viên:</span><span class="info-value">${empName}</span></div>
+    <div class="info-row"><span class="info-label">Mức lương:</span><span class="info-value">${fmtNum(empRate * 30)}</span></div>
+</div>
+
+<table>
+    <tr class="section-header"><td>I</td><td>Các khoản thu nhập</td><td class="amt">${fmtNum(thuNhap)}</td></tr>
+    <tr><td>1</td><td>Lương chính</td><td class="amt">${fmtNum(d.luongChinh)}</td></tr>
+    <tr><td>2</td><td>Lương làm thêm giờ</td><td class="amt">${fmtNum(d.lamThem)}</td></tr>
+    <tr><td>3</td><td>Phụ cấp</td><td class="amt">${fmtNum(d.phuCap)}</td></tr>
+    ${phuCapRows}
+    <tr><td>4</td><td>Thưởng</td><td class="amt">${fmtNum(d.thuong)}</td></tr>
+    ${thuongRows}
+
+    <tr class="section-header"><td>II</td><td>Các khoản giảm trừ</td><td class="amt">${fmtNum(d.giamTru)}</td></tr>
+    ${giamTruRows || '<tr><td>1</td><td>Đi trễ</td><td class="amt">0</td></tr>'}
+
+    <tr class="section-total"><td>III</td><td>Tổng lương (I) - (II)</td><td class="amt">${fmtNum(d.tongLuong)}</td></tr>
+
+    <tr class="section-header"><td>IV</td><td>Thanh toán lương</td><td class="amt"></td></tr>
+    ${daTraRows || '<tr><td>1</td><td>Đã trả nhân viên</td><td class="amt">0</td></tr>'}
+    <tr><td>${(d.daTraItems && d.daTraItems.length > 0) ? d.daTraItems.length + 1 : 2}</td><td>Còn cần trả</td><td class="amt" style="font-weight:700;">${fmtNum(d.conCanTra)}</td></tr>
+</table>
+
+<div class="footer-stats">
+    <div class="row"><span class="label">Ngày công chuẩn:</span><span class="value">${lastDay}.00</span></div>
+    <div class="row"><span class="label">Số ngày tính lương:</span><span class="value">${d.workedDays}.00</span></div>
+</div>
+
+${d.ghiChu ? `<div class="note-section"><strong>Ghi chú:</strong> ${d.ghiChu}</div>` : '<div class="note-section"><strong>Ghi chú:</strong></div>'}
+
+<script>window.onload = function() { window.print(); }</script>
+</body></html>`;
+
+        const win = window.open('', '_blank');
+        win.document.write(html);
+        win.document.close();
+    }
+
     /** Modal: Chi tiết chấm công tháng */
     function showAttendanceDetailModal(empId) {
         const emp = employees.find(e => String(e.userId || e.uid || e.id) === String(empId));
@@ -3360,6 +3497,7 @@
         showGiamTruModal,
         showDaTraModal,
         showAttendanceDetailModal,
+        printPayslip,
     };
 
     // Auto-init when DOM ready
