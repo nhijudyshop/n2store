@@ -5235,3 +5235,223 @@
     color: #1890ff;
     background: #e6f4ff;
 }
+
+/* ============================================ */
+/* ATTENDANCE EDIT MODAL (Chấm công)            */
+/* ============================================ */
+
+/* Make calendar day cells clickable */
+.ad-day:not(.empty) {
+    cursor: pointer;
+}
+.ad-day:not(.empty):hover {
+    background: #e6f4ff;
+    border-color: #91caff;
+}
+.ad-day.today:hover {
+    background: #d6eaff;
+}
+
+/* Status badge */
+.att-status-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    background: #f3e8ff;
+    color: #7c3aed;
+    border: 1px solid #ddd6fe;
+}
+.att-status-badge.badge-ontime {
+    background: #e6f4ff;
+    color: #1890ff;
+    border-color: #91caff;
+}
+.att-status-badge.badge-absent {
+    background: #f5f5f5;
+    color: #8c8c8c;
+    border-color: #d9d9d9;
+}
+.att-status-badge.badge-incomplete {
+    background: #fff2f0;
+    color: #ff4d4f;
+    border-color: #ffccc7;
+}
+
+/* Labels */
+.att-label {
+    display: block;
+    font-size: 13px;
+    color: #8c8c8c;
+    margin-bottom: 4px;
+}
+
+/* Tabs */
+.att-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+.att-tab {
+    padding: 10px 16px;
+    font-size: 13px;
+    color: #8c8c8c;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+    white-space: nowrap;
+}
+.att-tab:hover {
+    color: #262626;
+}
+.att-tab.active {
+    color: #1890ff;
+    border-bottom-color: #1890ff;
+    font-weight: 500;
+}
+
+/* Tab content */
+.att-tab-content {
+    display: none;
+}
+.att-tab-content.active {
+    display: block;
+}
+
+/* Radio buttons */
+.att-radio {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    color: #262626;
+    cursor: pointer;
+    margin-right: 16px;
+}
+.att-radio input[type="radio"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border: 2px solid #d9d9d9;
+    border-radius: 50%;
+    position: relative;
+    cursor: pointer;
+    transition: border-color 0.15s;
+    flex-shrink: 0;
+}
+.att-radio input[type="radio"]:checked {
+    border-color: #4f6ef7;
+}
+.att-radio input[type="radio"]:checked::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #4f6ef7;
+}
+
+/* Checkbox groups */
+.att-checkbox-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    color: #262626;
+    cursor: pointer;
+    min-width: 70px;
+}
+.att-checkbox-group input[type="checkbox"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border: 2px solid #d9d9d9;
+    border-radius: 4px;
+    position: relative;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    flex-shrink: 0;
+}
+.att-checkbox-group input[type="checkbox"]:checked {
+    background: #4f6ef7;
+    border-color: #4f6ef7;
+}
+.att-checkbox-group input[type="checkbox"]:checked::after {
+    content: '';
+    position: absolute;
+    top: 1px;
+    left: 4px;
+    width: 6px;
+    height: 10px;
+    border: solid #fff;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+/* Time input row */
+.att-time-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid #f5f5f5;
+}
+.att-time-row:last-child {
+    border-bottom: none;
+}
+
+/* Time input with clock icon */
+.att-time-input-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #fff;
+    border: 1px solid #d9d9d9;
+    border-radius: 6px;
+    padding: 6px 10px;
+    min-width: 90px;
+}
+.att-time-input {
+    border: none;
+    outline: none;
+    font-size: 14px;
+    font-family: monospace;
+    width: 50px;
+    background: transparent;
+}
+
+/* Three dots separator */
+.att-time-dots {
+    display: flex;
+    align-items: center;
+    cursor: default;
+}
+
+/* Duration inputs (hours/minutes) */
+.att-duration-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #595959;
+}
+.att-duration-input {
+    width: 50px;
+    padding: 6px 8px;
+    border: 1px solid #d9d9d9;
+    border-radius: 6px;
+    font-size: 14px;
+    text-align: center;
+    outline: none;
+    transition: border-color 0.15s;
+}
+.att-duration-input:focus {
+    border-color: #4f6ef7;
+}

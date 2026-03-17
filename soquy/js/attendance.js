@@ -2801,7 +2801,7 @@ ${d.ghiChu ? `<div style="margin-top:12px; font-style:italic; font-size:12px;"><
             if (isToday) cls += ' today';
             if (isWeekend) cls += ' weekend';
 
-            html += `<div class="${cls}">
+            html += `<div class="${cls}" data-datekey="${dd.dateKey}">
                 <div class="ad-day-num">${dd.day}</div>
                 <div><span class="ad-dot ad-dot--${dd.statusClass}"></span>
                     <span class="ad-day-status">${dd.statusText}</span>
@@ -2814,6 +2814,16 @@ ${d.ghiChu ? `<div style="margin-top:12px; font-style:italic; font-size:12px;"><
 
         document.getElementById('adContent').innerHTML = html;
         modal.style.display = 'flex';
+
+        // Click on day cell → open edit modal
+        document.querySelectorAll('#adContent .ad-day:not(.empty)').forEach(el => {
+            el.addEventListener('click', () => {
+                const dateKey = el.getAttribute('data-datekey');
+                if (dateKey) {
+                    showDetail(empId, dateKey);
+                }
+            });
+        });
     }
 
     /** Render trạng thái sync */
@@ -3059,16 +3069,14 @@ ${d.ghiChu ? `<div style="margin-top:12px; font-style:italic; font-size:12px;"><
 
         const emp = employees.find(e => String(e.userId || e.uid || e.id) === String(empId));
         const empName = emp ? emp.name : `User ${empId}`;
+        const empCode = emp ? (emp.empCode || `NV${String(emp.userId || emp.uid || emp.id).padStart(6, '0')}`) : '';
 
-        // Header: tên + ngày + ca
-        const nameEl = modal.querySelector('#detailEmpName');
-        const subEl = modal.querySelector('#detailSubInfo');
-        if (nameEl) nameEl.textContent = empName;
-        if (subEl) subEl.textContent = `${dateKey} · Vân tay (DG-600)`;
-
-        // Tìm records cho ngày này
-        const dayRecords = weekRecords
-            .filter(r => String(r.deviceUserId) === String(empId) && r.dateKey === dateKey)
+        // Tìm records cho ngày này (ưu tiên monthRecords, fallback weekRecords)
+        const allRecords = monthRecords.length > 0 ? monthRecords : weekRecords;
+        const rawDayRecords = allRecords.filter(r =>
+            String(r.deviceUserId) === String(empId) && r.dateKey === dateKey
+        );
+        const dayRecords = rawDayRecords
             .map(r => ({
                 ...r,
                 time: r.checkTime ? (r.checkTime.toDate ? r.checkTime.toDate() : new Date(r.checkTime)) : null
@@ -3076,112 +3084,232 @@ ${d.ghiChu ? `<div style="margin-top:12px; font-style:italic; font-size:12px;"><
             .filter(r => r.time)
             .sort((a, b) => a.time - b.time);
 
-        // Giờ vào / Giờ ra (24h)
+        // Calculate salary & status
+        const cellData = processDayRecords(rawDayRecords);
+        const empRate = emp ? (emp.dailyRate || SALARY.DAILY_RATE) : SALARY.DAILY_RATE;
+        const startHour = (emp && emp.workStart != null) ? emp.workStart : SALARY.WORK_START_HOUR;
+        const endHour = (emp && emp.workEnd != null) ? emp.workEnd : SALARY.OT_START_HOUR;
+        const empSched = emp ? { workStart: emp.workStart, workEnd: emp.workEnd } : {};
+        const fdOverride = isFullDay(String(empId), dateKey);
+        const salary = calculateDaySalary(cellData, empRate, fdOverride, empSched);
+
+        // Determine status badge
+        const badge = modal.querySelector('#detailStatusBadge');
+        let badgeText = '';
+        let badgeCls = '';
+        if (cellData.status === 'absent') {
+            badgeText = 'Nghỉ';
+            badgeCls = 'badge-absent';
+        } else if (cellData.status === 'incomplete') {
+            badgeText = 'Chấm công thiếu';
+            badgeCls = 'badge-incomplete';
+        } else if (salary.lateMinutes > 0 || (cellData.checkOut && cellData.checkOut.getHours() < endHour)) {
+            const parts = [];
+            if (salary.lateMinutes > 0) parts.push('Đi muộn');
+            if (cellData.checkOut) {
+                const earlyRef = new Date(cellData.checkOut);
+                earlyRef.setHours(endHour, 0, 0, 0);
+                if (cellData.checkOut < earlyRef) parts.push('Về sớm');
+            }
+            badgeText = parts.join(' / ') || 'Đúng giờ';
+            badgeCls = parts.length > 0 ? '' : 'badge-ontime';
+        } else {
+            badgeText = 'Đúng giờ';
+            badgeCls = 'badge-ontime';
+        }
+
+        // Header
+        const nameEl = modal.querySelector('#detailEmpName');
+        const codeEl = modal.querySelector('#detailEmpCode');
+        if (nameEl) nameEl.textContent = empName;
+        if (codeEl) codeEl.textContent = empCode;
+        if (badge) {
+            badge.textContent = badgeText;
+            badge.className = 'att-status-badge';
+            if (badgeCls) badge.classList.add(badgeCls);
+            badge.style.display = badgeText ? '' : 'none';
+        }
+
+        // Date & shift info
+        const dateParts = dateKey.split('-').map(Number);
+        const dateObj = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
+        const dayName = DAY_NAMES[dateObj.getDay()];
+        const dateText = `${dayName}, ${String(dateParts[2]).padStart(2, '0')}/${String(dateParts[1]).padStart(2, '0')}/${dateParts[0]}`;
+        const dateEl = modal.querySelector('#detailDateText');
+        if (dateEl) dateEl.textContent = dateText;
+
+        const shiftName = emp && emp.shiftName ? emp.shiftName : 'CA BÌNH THƯỜNG';
+        const shiftText = `${shiftName} (${String(startHour).padStart(2, '0')}:00 - ${String(endHour).padStart(2, '0')}:00)`;
+        const shiftEl = modal.querySelector('#detailShiftText');
+        if (shiftEl) shiftEl.textContent = shiftText;
+
+        // Notes
+        const noteArea = modal.querySelector('#detailNote');
+        if (noteArea) noteArea.value = '';
+
+        // Tabs setup
+        const tabs = modal.querySelectorAll('.att-tab');
+        const tabContents = modal.querySelectorAll('.att-tab-content');
+        tabs.forEach(tab => {
+            tab.onclick = () => {
+                tabs.forEach(t => t.classList.remove('active'));
+                tabContents.forEach(tc => { tc.classList.remove('active'); tc.style.display = 'none'; });
+                tab.classList.add('active');
+                const tabId = tab.getAttribute('data-atttab');
+                const target = modal.querySelector(`#attTab${tabId.charAt(0).toUpperCase() + tabId.slice(1)}`);
+                if (target) { target.classList.add('active'); target.style.display = 'block'; }
+            };
+        });
+        // Reset to first tab
+        tabs.forEach(t => t.classList.remove('active'));
+        tabContents.forEach(tc => { tc.classList.remove('active'); tc.style.display = 'none'; });
+        if (tabs[0]) tabs[0].classList.add('active');
+        if (tabContents[0]) { tabContents[0].classList.add('active'); tabContents[0].style.display = 'block'; }
+
+        // Attendance type radio
+        const radios = modal.querySelectorAll('input[name="attType"]');
+        radios.forEach(r => { r.checked = r.value === 'working'; });
+        if (cellData.status === 'absent') {
+            const unpaid = modal.querySelector('input[name="attType"][value="unpaid_leave"]');
+            if (unpaid) unpaid.checked = true;
+        }
+
+        // Check-in / check-out
         const checkInInput = document.getElementById('detailCheckIn');
         const checkOutInput = document.getElementById('detailCheckOut');
-        if (checkInInput) checkInInput.value = dayRecords.length > 0 ? formatTime(dayRecords[0].time) : '';
-        if (checkOutInput) checkOutInput.value = dayRecords.length > 1 ? formatTime(dayRecords[dayRecords.length - 1].time) : '';
+        const checkInEnabled = document.getElementById('attCheckInEnabled');
+        const checkOutEnabled = document.getElementById('attCheckOutEnabled');
 
-        // Hiện danh sách tất cả lần quẹt + tính lương
-        const noteArea = modal.querySelector('textarea');
-        if (noteArea && dayRecords.length > 0) {
-            const lines = dayRecords.map((r, i) =>
-                `Lần ${i + 1}: ${formatTime(r.time)} (${r.type === 1 ? 'Ra' : 'Vào'})`
-            );
+        const hasCheckIn = dayRecords.length > 0;
+        const hasCheckOut = dayRecords.length > 1;
+        if (checkInInput) checkInInput.value = hasCheckIn ? formatTime(dayRecords[0].time) : '';
+        if (checkOutInput) checkOutInput.value = hasCheckOut ? formatTime(dayRecords[dayRecords.length - 1].time) : '';
+        if (checkInEnabled) checkInEnabled.checked = hasCheckIn;
+        if (checkOutEnabled) checkOutEnabled.checked = hasCheckOut;
 
-            // Tính lương cho ngày này
-            const cellData = processDayRecords(
-                weekRecords.filter(r => String(r.deviceUserId) === String(empId) && r.dateKey === dateKey)
-            );
-            const empRate = emp ? (emp.dailyRate || SALARY.DAILY_RATE) : SALARY.DAILY_RATE;
-            const fdOverride = isFullDay(String(empId), dateKey);
-            const empSched = emp ? { workStart: emp.workStart, workEnd: emp.workEnd } : {};
-            const salary = calculateDaySalary(cellData, empRate, fdOverride, empSched);
-
-            lines.push('');
-            lines.push('════════════════════════════');
-
-            if (cellData.status === 'incomplete') {
-                lines.push('Chấm công thiếu → Không tính lương');
-            } else {
-                // Tổng giờ làm
-                const workedMs = cellData.checkOut - cellData.checkIn;
-                const workedH = Math.floor(workedMs / (1000 * 60 * 60));
-                const workedM = Math.floor((workedMs % (1000 * 60 * 60)) / (1000 * 60));
-                lines.push(`TỔNG GIỜ LÀM: ${workedH}h${workedM > 0 ? workedM + 'p' : ''}`);
-                lines.push('────────────────────────────');
-
-                const hourlyRate = empRate / 12;
-                const baseH = Math.floor(salary.baseMinutes / 60);
-                const baseM = salary.baseMinutes % 60;
-                const baseDisplay = `${baseH}h${baseM > 0 ? baseM + 'p' : ''}`;
-
-                if (salary.fullDayOverride) {
-                    lines.push(`✅ Check Full → Lương CB: ${formatVND(salary.baseSalary)}đ`);
-                } else {
-                    lines.push(`Lương/giờ: ${formatVND(empRate)}đ ÷ 12 = ${formatVND(hourlyRate)}đ/h`);
-                    lines.push(`Giờ cơ bản: ${baseDisplay} (8:00-20:00)`);
-                    lines.push(`→ Lương CB: ${formatVND(hourlyRate)}đ/h × ${baseDisplay} = ${formatVND(salary.baseSalary)}đ`);
-                }
-
-                if (salary.lateMinutes > 0) {
-                    lines.push('');
-                    lines.push(`⏰ Đi muộn ${salary.lateMinutes} phút (sau 8:00)`);
-                    lines.push(`→ Trừ: ${salary.lateMinutes}p × ${formatVND(SALARY.LATE_PENALTY_PER_MIN)}đ = -${formatVND(salary.lateDeduction)}đ`);
-                }
-
-                if (salary.otMinutes > 0) {
-                    const otH = Math.floor(salary.otMinutes / 60);
-                    const otM = salary.otMinutes % 60;
-                    const otDisplay = otH > 0 ? `${otH}h${otM > 0 ? otM + 'p' : ''}` : `${otM}p`;
-                    const otRate = hourlyRate * SALARY.OT_MULTIPLIER;
-                    lines.push('');
-                    lines.push(`🌙 Làm thêm ${otDisplay} (sau 20:00)`);
-                    lines.push(`→ OT: ${formatVND(otRate)}đ/h × ${otDisplay} = +${formatVND(salary.otPay)}đ`);
-                }
-
-                lines.push('────────────────────────────');
-                lines.push(`💰 TỔNG LƯƠNG: ${formatVND(salary.totalSalary)}đ`);
+        // Overtime (Làm thêm) - time before shift start
+        const otEnabled = document.getElementById('attOtEnabled');
+        const otHours = document.getElementById('attOtHours');
+        const otMinutes = document.getElementById('attOtMinutes');
+        let otTotalMin = 0;
+        if (cellData.checkIn) {
+            const shiftStart = new Date(cellData.checkIn);
+            shiftStart.setHours(startHour, 0, 0, 0);
+            if (cellData.checkIn < shiftStart) {
+                otTotalMin = Math.floor((shiftStart - cellData.checkIn) / (1000 * 60));
             }
+        }
+        // Also add OT after shift end
+        if (salary.otMinutes > 0) {
+            otTotalMin += salary.otMinutes;
+        }
+        if (otEnabled) otEnabled.checked = otTotalMin > 0;
+        if (otHours) otHours.value = Math.floor(otTotalMin / 60);
+        if (otMinutes) otMinutes.value = otTotalMin % 60;
 
-            noteArea.value = lines.join('\n');
-        } else if (noteArea) {
-            noteArea.value = 'Không có bản ghi chấm công';
+        // Early leave (Về sớm) - shift end - checkout
+        const earlyEnabled = document.getElementById('attEarlyEnabled');
+        const earlyHours = document.getElementById('attEarlyHours');
+        const earlyMinutes = document.getElementById('attEarlyMinutes');
+        let earlyTotalMin = 0;
+        if (cellData.checkOut) {
+            const shiftEnd = new Date(cellData.checkOut);
+            shiftEnd.setHours(endHour, 0, 0, 0);
+            if (cellData.checkOut < shiftEnd) {
+                earlyTotalMin = Math.floor((shiftEnd - cellData.checkOut) / (1000 * 60));
+            }
+        }
+        if (earlyEnabled) earlyEnabled.checked = earlyTotalMin > 0;
+        if (earlyHours) earlyHours.value = Math.floor(earlyTotalMin / 60);
+        if (earlyMinutes) earlyMinutes.value = earlyTotalMin % 60;
+
+        // Lịch sử chấm công tab
+        const historyEl = document.getElementById('attHistoryContent');
+        if (historyEl) {
+            if (dayRecords.length > 0) {
+                historyEl.innerHTML = dayRecords.map((r, i) =>
+                    `<div style="padding:6px 0; border-bottom:1px solid #f5f5f5; display:flex; justify-content:space-between;">
+                        <span>Lần ${i + 1}: ${formatTime(r.time)}</span>
+                        <span style="color:#8c8c8c;">${r.type === 1 ? 'Ra' : 'Vào'}${r.source === 'manual_edit' ? ' (sửa tay)' : ''}</span>
+                    </div>`
+                ).join('');
+            } else {
+                historyEl.innerHTML = '<div style="color:#8c8c8c;">Không có bản ghi chấm công</div>';
+            }
         }
 
         modal.style.display = 'flex';
+        refreshIcons();
 
         // Close button
-        const closeBtn = modal.querySelector('.btn-icon');
+        const closeBtn = document.getElementById('attModalCloseBtn');
         if (closeBtn) {
             closeBtn.onclick = () => { modal.style.display = 'none'; };
         }
 
-        // Update button
+        // Skip button (Bỏ qua = close)
+        const skipBtn = document.getElementById('btnSkipAttendance');
+        if (skipBtn) {
+            skipBtn.onclick = () => { modal.style.display = 'none'; };
+        }
+
+        // Overlay close
+        const overlay = modal.querySelector('.modal-overlay');
+        if (overlay) {
+            overlay.onclick = () => { modal.style.display = 'none'; };
+        }
+
+        // Save button (Lưu)
         const updateBtn = document.getElementById('btnUpdateAttendance');
         if (updateBtn) {
             updateBtn.onclick = async () => {
+                const attType = modal.querySelector('input[name="attType"]:checked');
+                const type = attType ? attType.value : 'working';
+
+                // Nghỉ có phép / không phép → xóa records cũ
+                if (type !== 'working') {
+                    try {
+                        const existing = allRecords.filter(r =>
+                            String(r.deviceUserId) === String(empId) && r.dateKey === dateKey
+                        );
+                        for (const rec of existing) {
+                            if (!String(rec.id).startsWith('test_')) {
+                                await db.collection(COLLECTIONS.records).doc(rec.id).delete();
+                            }
+                        }
+                        // Remove from both arrays
+                        weekRecords = weekRecords.filter(r =>
+                            !(String(r.deviceUserId) === String(empId) && r.dateKey === dateKey)
+                        );
+                        monthRecords = monthRecords.filter(r =>
+                            !(String(r.deviceUserId) === String(empId) && r.dateKey === dateKey)
+                        );
+                        modal.style.display = 'none';
+                        renderTimesheet();
+                        renderSchedule();
+                        showNotification(`Đã lưu: ${type === 'paid_leave' ? 'Nghỉ có phép' : 'Nghỉ không phép'}`, 'success');
+                    } catch (err) {
+                        showNotification('Lỗi: ' + err.message, 'error');
+                    }
+                    return;
+                }
+
+                // Đi làm → save check-in/out
                 const newIn = checkInInput ? checkInInput.value.trim() : '';
                 const newOut = checkOutInput ? checkOutInput.value.trim() : '';
+                const inOn = checkInEnabled ? checkInEnabled.checked : true;
+                const outOn = checkOutEnabled ? checkOutEnabled.checked : true;
 
-                if (!newIn) {
+                if (inOn && !newIn) {
                     showNotification('Vui lòng nhập giờ vào', 'error');
                     return;
                 }
 
                 try {
-                    const [inH, inM] = newIn.split(':').map(Number);
-                    const dateParts = dateKey.split('-').map(Number);
-                    const checkInDate = new Date(dateParts[0], dateParts[1] - 1, dateParts[2], inH, inM, 0, 0);
-
-                    let checkOutDate = null;
-                    if (newOut) {
-                        const [outH, outM] = newOut.split(':').map(Number);
-                        checkOutDate = new Date(dateParts[0], dateParts[1] - 1, dateParts[2], outH, outM, 0, 0);
-                    }
+                    const dp = dateKey.split('-').map(Number);
 
                     // Xóa records cũ
-                    const existing = weekRecords.filter(r =>
+                    const existing = allRecords.filter(r =>
                         String(r.deviceUserId) === String(empId) && r.dateKey === dateKey
                     );
                     for (const rec of existing) {
@@ -3192,19 +3320,30 @@ ${d.ghiChu ? `<div style="margin-top:12px; font-style:italic; font-size:12px;"><
                     weekRecords = weekRecords.filter(r =>
                         !(String(r.deviceUserId) === String(empId) && r.dateKey === dateKey)
                     );
+                    monthRecords = monthRecords.filter(r =>
+                        !(String(r.deviceUserId) === String(empId) && r.dateKey === dateKey)
+                    );
 
                     // Tạo record check-in mới
-                    const inDoc = await db.collection(COLLECTIONS.records).add({
-                        deviceUserId: String(empId),
-                        dateKey: dateKey,
-                        checkTime: checkInDate,
-                        type: 0,
-                        source: 'manual_edit'
-                    });
-                    weekRecords.push({ id: inDoc.id, deviceUserId: String(empId), dateKey, checkTime: checkInDate, type: 0, source: 'manual_edit' });
+                    if (inOn && newIn) {
+                        const [inH, inM] = newIn.split(':').map(Number);
+                        const checkInDate = new Date(dp[0], dp[1] - 1, dp[2], inH, inM, 0, 0);
+                        const inDoc = await db.collection(COLLECTIONS.records).add({
+                            deviceUserId: String(empId),
+                            dateKey: dateKey,
+                            checkTime: checkInDate,
+                            type: 0,
+                            source: 'manual_edit'
+                        });
+                        const rec = { id: inDoc.id, deviceUserId: String(empId), dateKey, checkTime: checkInDate, type: 0, source: 'manual_edit' };
+                        weekRecords.push(rec);
+                        monthRecords.push(rec);
+                    }
 
                     // Tạo record check-out mới
-                    if (checkOutDate) {
+                    if (outOn && newOut) {
+                        const [outH, outM] = newOut.split(':').map(Number);
+                        const checkOutDate = new Date(dp[0], dp[1] - 1, dp[2], outH, outM, 0, 0);
                         const outDoc = await db.collection(COLLECTIONS.records).add({
                             deviceUserId: String(empId),
                             dateKey: dateKey,
@@ -3212,7 +3351,9 @@ ${d.ghiChu ? `<div style="margin-top:12px; font-style:italic; font-size:12px;"><
                             type: 1,
                             source: 'manual_edit'
                         });
-                        weekRecords.push({ id: outDoc.id, deviceUserId: String(empId), dateKey, checkTime: checkOutDate, type: 1, source: 'manual_edit' });
+                        const rec = { id: outDoc.id, deviceUserId: String(empId), dateKey, checkTime: checkOutDate, type: 1, source: 'manual_edit' };
+                        weekRecords.push(rec);
+                        monthRecords.push(rec);
                     }
 
                     modal.style.display = 'none';
@@ -3226,14 +3367,14 @@ ${d.ghiChu ? `<div style="margin-top:12px; font-style:italic; font-size:12px;"><
             };
         }
 
-        // Delete button
+        // Delete button (Hủy)
         const deleteBtn = document.getElementById('btnDeleteAttendance');
         if (deleteBtn) {
             deleteBtn.onclick = async () => {
                 if (!confirm(`Xóa chấm công ${empName} ngày ${dateKey}?`)) return;
 
                 try {
-                    const existing = weekRecords.filter(r =>
+                    const existing = allRecords.filter(r =>
                         String(r.deviceUserId) === String(empId) && r.dateKey === dateKey
                     );
                     for (const rec of existing) {
@@ -3242,6 +3383,9 @@ ${d.ghiChu ? `<div style="margin-top:12px; font-style:italic; font-size:12px;"><
                         }
                     }
                     weekRecords = weekRecords.filter(r =>
+                        !(String(r.deviceUserId) === String(empId) && r.dateKey === dateKey)
+                    );
+                    monthRecords = monthRecords.filter(r =>
                         !(String(r.deviceUserId) === String(empId) && r.dateKey === dateKey)
                     );
 

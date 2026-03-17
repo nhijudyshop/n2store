@@ -1705,39 +1705,148 @@
 
     <div class="modal" id="attendanceModal" style="display: none;">
         <div class="modal-overlay"></div>
-        <div class="modal-content k-modal" style="width: 520px; max-width: 95vw; display: flex; flex-direction: column; max-height: 90vh;">
-            <div class="modal-header k-modal-header" style="padding: 12px 20px; border-bottom: 1px solid #f0f0f0;">
+        <div class="modal-content k-modal" style="width: 720px; max-width: 95vw; display: flex; flex-direction: column; max-height: 90vh;">
+            <!-- Header -->
+            <div class="modal-header k-modal-header" style="padding: 16px 24px; border-bottom: 1px solid #f0f0f0;">
                 <div>
-                    <h3 id="detailEmpName" style="margin: 0; font-size: 16px;">Chấm công</h3>
-                    <div id="detailSubInfo" style="font-size: 12px; color: #8c8c8c; margin-top: 2px;"></div>
+                    <h3 style="margin: 0; font-size: 18px; font-weight: 600;">Chấm công</h3>
+                    <div id="detailSubInfo" style="display: flex; align-items: center; gap: 8px; margin-top: 6px; font-size: 13px; color: #595959;">
+                        <span id="detailEmpName" style="font-weight: 600;"></span>
+                        <span id="detailEmpCode" style="color: #8c8c8c;"></span>
+                        <span id="detailStatusBadge" class="att-status-badge"></span>
+                    </div>
                 </div>
-                <button class="btn-icon">
+                <button class="btn-icon" id="attModalCloseBtn">
                     <i data-lucide="x"></i>
                 </button>
             </div>
-            <div class="modal-body k-modal-body" style="flex: 1; overflow: auto; padding: 12px 20px; display: flex; flex-direction: column;">
-                <div style="display: flex; gap: 12px; margin-bottom: 12px; flex-shrink: 0;">
-                    <div style="flex: 1;">
-                        <label style="font-size: 11px; color: #8c8c8c; display: block; margin-bottom: 2px;">Giờ vào</label>
-                        <input type="text" id="detailCheckIn" class="form-control" placeholder="HH:MM" maxlength="5" style="padding: 4px 8px; font-size: 14px; font-family: monospace;">
+
+            <!-- Body -->
+            <div class="modal-body k-modal-body" style="flex: 1; overflow: auto; padding: 0;">
+                <!-- Date & Shift info -->
+                <div style="padding: 16px 24px; display: flex; gap: 24px; flex-wrap: wrap;">
+                    <div>
+                        <label class="att-label">Thời gian</label>
+                        <div id="detailDateText" style="font-size: 14px; color: #262626;"></div>
                     </div>
-                    <div style="flex: 1;">
-                        <label style="font-size: 11px; color: #8c8c8c; display: block; margin-bottom: 2px;">Giờ ra</label>
-                        <input type="text" id="detailCheckOut" class="form-control" placeholder="HH:MM" maxlength="5" style="padding: 4px 8px; font-size: 14px; font-family: monospace;">
+                    <div>
+                        <label class="att-label">Ca làm việc <i data-lucide="info" style="width:12px;height:12px;color:#bfbfbf;vertical-align:middle;cursor:help;" id="detailShiftInfo"></i></label>
+                        <div id="detailShiftText" style="font-size: 14px; color: #262626;"></div>
                     </div>
                 </div>
-                <div style="flex: 1; display: flex; flex-direction: column; min-height: 0;">
-                    <label style="font-size: 11px; color: #8c8c8c; display: block; margin-bottom: 2px;">Chi tiết lương</label>
-                    <textarea class="form-control" placeholder="..." style="font-family: monospace; font-size: 13px; flex: 1; min-height: 300px; resize: vertical; line-height: 1.5;"></textarea>
+
+                <!-- Notes -->
+                <div style="padding: 0 24px 16px;">
+                    <label class="att-label">Ghi chú</label>
+                    <textarea id="detailNote" class="form-control" placeholder="" rows="3"
+                        style="font-size: 13px; resize: vertical; min-height: 60px; border-radius: 8px;"></textarea>
+                </div>
+
+                <!-- Tabs -->
+                <div class="att-tabs" style="padding: 0 24px;">
+                    <button class="att-tab active" data-atttab="chamcong">Chấm công</button>
+                    <button class="att-tab" data-atttab="lichsu">Lịch sử chấm công</button>
+                    <button class="att-tab" data-atttab="phat">Phạt vi phạm</button>
+                    <button class="att-tab" data-atttab="thuong">Thưởng</button>
+                </div>
+
+                <!-- Tab: Chấm công -->
+                <div class="att-tab-content active" id="attTabChamcong" style="padding: 20px 24px;">
+                    <!-- Attendance type radio -->
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 20px;">
+                        <label class="att-label" style="margin-bottom: 0; min-width: 80px;">Chấm công</label>
+                        <label class="att-radio">
+                            <input type="radio" name="attType" value="working" checked>
+                            <span class="att-radio-dot"></span> Đi làm
+                        </label>
+                        <label class="att-radio">
+                            <input type="radio" name="attType" value="paid_leave">
+                            <span class="att-radio-dot"></span> Nghỉ có phép
+                            <i data-lucide="info" style="width:13px;height:13px;color:#bfbfbf;margin-left:2px;cursor:help;" title="Nghỉ có phép - được tính lương"></i>
+                        </label>
+                        <label class="att-radio">
+                            <input type="radio" name="attType" value="unpaid_leave">
+                            <span class="att-radio-dot"></span> Nghỉ không phép
+                            <i data-lucide="info" style="width:13px;height:13px;color:#bfbfbf;margin-left:2px;cursor:help;" title="Nghỉ không phép - không tính lương"></i>
+                        </label>
+                    </div>
+
+                    <!-- Check-in row -->
+                    <div class="att-time-row">
+                        <label class="att-checkbox-group">
+                            <input type="checkbox" id="attCheckInEnabled" checked>
+                            <span>Vào</span>
+                        </label>
+                        <div class="att-time-input-wrap">
+                            <input type="text" id="detailCheckIn" class="att-time-input" placeholder="HH:MM" maxlength="5">
+                            <i data-lucide="clock" style="width:14px;height:14px;color:#bfbfbf;"></i>
+                        </div>
+                        <div class="att-time-dots">
+                            <i data-lucide="more-vertical" style="width:16px;height:16px;color:#bfbfbf;"></i>
+                        </div>
+                        <label class="att-checkbox-group">
+                            <input type="checkbox" id="attOtEnabled">
+                            <span>Làm thêm</span>
+                        </label>
+                        <div class="att-duration-group">
+                            <input type="number" id="attOtHours" class="att-duration-input" value="0" min="0">
+                            <span>giờ</span>
+                            <input type="number" id="attOtMinutes" class="att-duration-input" value="0" min="0" max="59">
+                            <span>phút</span>
+                        </div>
+                    </div>
+
+                    <!-- Check-out row -->
+                    <div class="att-time-row">
+                        <label class="att-checkbox-group">
+                            <input type="checkbox" id="attCheckOutEnabled" checked>
+                            <span>Ra</span>
+                        </label>
+                        <div class="att-time-input-wrap">
+                            <input type="text" id="detailCheckOut" class="att-time-input" placeholder="HH:MM" maxlength="5">
+                            <i data-lucide="clock" style="width:14px;height:14px;color:#bfbfbf;"></i>
+                        </div>
+                        <div class="att-time-dots">
+                            <i data-lucide="more-vertical" style="width:16px;height:16px;color:#bfbfbf;"></i>
+                        </div>
+                        <label class="att-checkbox-group">
+                            <input type="checkbox" id="attEarlyEnabled">
+                            <span>Về sớm</span>
+                        </label>
+                        <div class="att-duration-group">
+                            <input type="number" id="attEarlyHours" class="att-duration-input" value="0" min="0">
+                            <span>giờ</span>
+                            <input type="number" id="attEarlyMinutes" class="att-duration-input" value="0" min="0" max="59">
+                            <span>phút</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Lịch sử chấm công -->
+                <div class="att-tab-content" id="attTabLichsu" style="padding: 20px 24px; display:none;">
+                    <div id="attHistoryContent" style="font-size: 13px; color: #595959;">Chưa có lịch sử</div>
+                </div>
+
+                <!-- Tab: Phạt vi phạm -->
+                <div class="att-tab-content" id="attTabPhat" style="padding: 20px 24px; display:none;">
+                    <div style="font-size: 13px; color: #8c8c8c;">Chưa có phạt vi phạm</div>
+                </div>
+
+                <!-- Tab: Thưởng -->
+                <div class="att-tab-content" id="attTabThuong" style="padding: 20px 24px; display:none;">
+                    <div style="font-size: 13px; color: #8c8c8c;">Chưa có thưởng</div>
                 </div>
             </div>
-            <div class="modal-footer k-modal-footer" style="padding: 10px 20px;">
-                <button class="k-btn-outline" id="btnDeleteAttendance" style="color: #f5222d; border-color: #f5222d;">
-                    <i data-lucide="trash-2"></i> Xóa
+
+            <!-- Footer -->
+            <div class="modal-footer k-modal-footer" style="padding: 12px 24px; border-top: 1px solid #f0f0f0;">
+                <button class="k-btn-outline" id="btnDeleteAttendance" style="color: #f5222d; border-color: transparent; display: flex; align-items: center; gap: 4px;">
+                    <i data-lucide="trash-2" style="width:14px;height:14px;"></i> Hủy
                 </button>
                 <div style="flex: 1;"></div>
-                <button class="btn-primary" id="btnUpdateAttendance" style="background: #1890ff; border-color: #1890ff;">
-                    <i data-lucide="save"></i> Cập nhật
+                <button class="k-btn-outline" id="btnSkipAttendance" style="margin-right: 8px;">Bỏ qua</button>
+                <button class="btn-primary" id="btnUpdateAttendance" style="background: #4f6ef7; border-color: #4f6ef7; padding: 8px 28px; border-radius: 8px; font-weight: 600;">
+                    Lưu
                 </button>
             </div>
         </div>
