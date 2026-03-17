@@ -17,6 +17,12 @@
 
         // Campaign ID from localStorage (set by admin page)
         let currentCampaignId = localStorage.getItem('om_current_campaign_id') || null;
+        let currentCampaignName = null;
+
+        // Add product data
+        let productsData = [];
+        let isLoadingExcel = false;
+        let autoAddVariants = true;
 
         // Optimization: Cache normalized product names for faster search
         let normalizedProductNames = new Map(); // productId -> normalized name
@@ -493,12 +499,8 @@
             // Filter out hidden products first
             const visibleProducts = Object.values(orderProducts).filter(p => !p.isHidden);
 
-            // Use filtered products if searching, otherwise use all visible products
-            // Note: filteredProducts are already merged if merge mode is enabled
-            let baseProducts = searchKeyword ? filteredProducts.filter(p => !p.isHidden) : visibleProducts;
-
-            // Use merged products if merge mode is enabled (only when not searching)
-            const displayProducts = (isMergeVariants && !searchKeyword) ? mergeProductsByTemplate(baseProducts) : baseProducts;
+            // Always show all products (search now jumps to product instead of filtering)
+            const displayProducts = isMergeVariants ? mergeProductsByTemplate(visibleProducts) : visibleProducts;
 
             const totalPages = Math.ceil(displayProducts.length / itemsPerPage);
             const startIndex = (currentPage - 1) * itemsPerPage;
@@ -646,12 +648,8 @@
         }
 
         function changePage(direction) {
-            // Use filtered products if searching, otherwise use all products
-            // Note: filteredProducts are already merged if merge mode is enabled
-            let baseProducts = searchKeyword ? filteredProducts : Object.values(orderProducts);
-
-            // Use merged products if merge mode is enabled (only when not searching)
-            const displayProducts = (isMergeVariants && !searchKeyword) ? mergeProductsByTemplate(baseProducts) : baseProducts;
+            const visibleProducts = Object.values(orderProducts).filter(p => !p.isHidden);
+            const displayProducts = isMergeVariants ? mergeProductsByTemplate(visibleProducts) : visibleProducts;
             const totalPages = Math.ceil(displayProducts.length / itemsPerPage);
 
             if (direction === 'prev' && currentPage > 1) {
@@ -713,22 +711,18 @@
         function performSearch(keyword, syncToFirebase = true) {
             searchKeyword = keyword.trim();
 
-            if (!searchKeyword) {
-                // Clear search - restore to page before search
-                filteredProducts = [];
-                currentPage = pageBeforeSearch;
-                updateProductGrid();
+            // Remove previous highlight
+            document.querySelectorAll('.grid-item.search-highlight').forEach(el => {
+                el.classList.remove('search-highlight');
+            });
 
-                // Sync empty search to Firebase if in sync mode (with debounce)
+            if (!searchKeyword) {
+                filteredProducts = [];
+                updateProductGrid();
                 if (isSyncMode && syncToFirebase && !isSyncingFromFirebase) {
                     syncSearchKeywordToFirebase('');
                 }
                 return;
-            }
-
-            // Save current page before searching (only on first search)
-            if (!filteredProducts.length) {
-                pageBeforeSearch = currentPage;
             }
 
             const searchLower = searchKeyword.toLowerCase();
@@ -736,76 +730,57 @@
 
             // Filter out hidden products first
             const visibleProducts = Object.values(orderProducts).filter(p => !p.isHidden);
+            const displayProducts = isMergeVariants ? mergeProductsByTemplate(visibleProducts) : visibleProducts;
 
-            // Apply merge first if enabled, then search on merged products
-            const productsToSearch = isMergeVariants ? mergeProductsByTemplate(visibleProducts) : visibleProducts;
-
-            // Optimization: Build cache if needed (only once per search)
+            // Build cache if needed
             if (normalizedProductNames.size === 0) {
-                buildNormalizedCache(productsToSearch);
+                buildNormalizedCache(displayProducts);
             }
 
-            // Filter products that match
-            const matchedProducts = productsToSearch.filter(product => {
-                // Optimization: Use cached normalized name
+            // Find matching product (best match)
+            let bestMatch = null;
+            let bestMatchIndex = -1;
+
+            for (let i = 0; i < displayProducts.length; i++) {
+                const product = displayProducts[i];
                 const nameNoSign = getNormalizedName(product);
                 const matchName = nameNoSign.includes(searchNoSign);
-
-                // Match in original name (lowercase, for special chars like [Q5X1])
                 const matchNameOriginal = product.NameGet && product.NameGet.toLowerCase().includes(searchLower);
 
-                return matchName || matchNameOriginal;
-            });
-
-            // Sort by priority: match in [] first, then by name alphabetically
-            matchedProducts.sort((a, b) => {
-                // Extract text within [] brackets
-                const extractBracket = (name) => {
-                    const match = name?.match(/\[([^\]]+)\]/);
-                    return match ? match[1].toLowerCase().trim() : '';
-                };
-
-                const aBracket = extractBracket(a.NameGet);
-                const bBracket = extractBracket(b.NameGet);
-
-                // Check if search term matches in brackets
-                const aMatchInBracket = aBracket && aBracket.includes(searchLower);
-                const bMatchInBracket = bBracket && bBracket.includes(searchLower);
-
-                // Priority 1: Match in brackets
-                if (aMatchInBracket && !bMatchInBracket) return -1;
-                if (!aMatchInBracket && bMatchInBracket) return 1;
-
-                // Priority 2: When both match in brackets,
-                // prioritize exact match in bracket code (e.g., [Q5] before [Q5X1])
-                if (aMatchInBracket && bMatchInBracket) {
-                    const aExactMatch = aBracket === searchLower;
-                    const bExactMatch = bBracket === searchLower;
-                    if (aExactMatch && !bExactMatch) return -1;
-                    if (!aExactMatch && bExactMatch) return 1;
-
-                    // If both exact or both not exact, sort by bracket content length (shorter first)
-                    if (aBracket.length !== bBracket.length) {
-                        return aBracket.length - bBracket.length;
+                if (matchName || matchNameOriginal) {
+                    // Prioritize bracket match
+                    const bracketMatch = product.NameGet?.match(/\[([^\]]+)\]/);
+                    const bracket = bracketMatch ? bracketMatch[1].toLowerCase().trim() : '';
+                    if (bracket && bracket.includes(searchLower)) {
+                        bestMatch = product;
+                        bestMatchIndex = i;
+                        break; // Bracket match is highest priority
                     }
-
-                    // If same length, sort alphabetically
-                    return aBracket.localeCompare(bBracket);
+                    if (!bestMatch) {
+                        bestMatch = product;
+                        bestMatchIndex = i;
+                    }
                 }
-
-                // Priority 3: Sort alphabetically by product name
-                return a.NameGet.localeCompare(b.NameGet);
-            });
-
-            filteredProducts = matchedProducts;
-
-            // Adjust current page if it exceeds total pages of search results
-            const totalPages = Math.ceil(filteredProducts.length / itemsPerPage);
-            if (currentPage > totalPages && totalPages > 0) {
-                currentPage = totalPages;
             }
 
-            updateProductGrid();
+            if (bestMatch && bestMatchIndex >= 0) {
+                // Navigate to the page containing this product
+                const targetPage = Math.floor(bestMatchIndex / itemsPerPage) + 1;
+                if (currentPage !== targetPage) {
+                    currentPage = targetPage;
+                    updateProductGrid();
+                    updateHashUrl();
+                }
+
+                // Highlight the product after DOM update
+                setTimeout(() => {
+                    const productEl = document.querySelector(`.grid-item[data-product-id="${bestMatch.Id}"]`);
+                    if (productEl) {
+                        productEl.classList.add('search-highlight');
+                        productEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }, 100);
+            }
 
             // Sync search keyword to Firebase if in sync mode (with debounce)
             if (isSyncMode && syncToFirebase && !isSyncingFromFirebase) {
@@ -842,8 +817,10 @@
             document.getElementById('searchInput').value = '';
             document.getElementById('searchClear').classList.remove('show');
 
-            // Restore to page before search
-            currentPage = pageBeforeSearch;
+            // Remove highlight
+            document.querySelectorAll('.grid-item.search-highlight').forEach(el => {
+                el.classList.remove('search-highlight');
+            });
 
             updateProductGrid();
 
@@ -871,12 +848,7 @@
                 });
             }
 
-            // Update UI after helper updates local (helper updates synchronously)
-            if (searchKeyword) {
-                performSearch(searchKeyword, false);
-            } else {
-                updateProductGrid();
-            }
+            updateProductGrid();
         }
 
         function updateVariantQty(variantId, change) {
@@ -897,12 +869,7 @@
                 });
             }
 
-            // Update UI after helper updates local (helper updates synchronously)
-            if (searchKeyword) {
-                performSearch(searchKeyword, false);
-            } else {
-                updateProductGrid();
-            }
+            updateProductGrid();
         }
 
         function hideProduct(productId) {
@@ -920,11 +887,7 @@
                 });
             }
 
-            if (searchKeyword) {
-                performSearch(searchKeyword, false);
-            } else {
-                updateProductGrid();
-            }
+            updateProductGrid();
             console.log(`👁️ Đã ẩn sản phẩm: ${product.NameGet}`);
         }
 
@@ -956,11 +919,7 @@
                 });
             }
 
-            if (searchKeyword) {
-                performSearch(searchKeyword, false);
-            } else {
-                updateProductGrid();
-            }
+            updateProductGrid();
             console.log(`👁️ Đã ẩn ${hiddenCount} biến thể`);
         }
 
@@ -977,11 +936,7 @@
                 });
             }
 
-            if (searchKeyword) {
-                performSearch(searchKeyword, false);
-            } else {
-                updateProductGrid();
-            }
+            updateProductGrid();
             console.log(`👁️ Đã hiện sản phẩm: ${product.NameGet}`);
         }
 
@@ -1026,11 +981,7 @@
             }
 
             // Update UI
-            if (searchKeyword) {
-                performSearch(searchKeyword, false);
-            } else {
-                updateProductGrid();
-            }
+            updateProductGrid();
 
             const deletedCount = variantsToDelete.length;
             console.log(`🗑️ Đã xóa ${isMergedProduct ? `${deletedCount} biến thể của sản phẩm gộp` : 'sản phẩm'}: ${product.NameGet}`);
@@ -1061,11 +1012,7 @@
             }
 
             // Update UI
-            if (searchKeyword) {
-                performSearch(searchKeyword, false);
-            } else {
-                updateProductGrid();
-            }
+            updateProductGrid();
             console.log(`🗑️ Đã xóa ${deletedCount} biến thể`);
         }
 
@@ -1093,11 +1040,7 @@
                 });
             }
 
-            if (searchKeyword) {
-                performSearch(searchKeyword, false);
-            } else {
-                updateProductGrid();
-            }
+            updateProductGrid();
         }
 
         function updateProductTotalInput(productId, newValue) {
@@ -1124,11 +1067,7 @@
                 });
             }
 
-            if (searchKeyword) {
-                performSearch(searchKeyword, false);
-            } else {
-                updateProductGrid();
-            }
+            updateProductGrid();
         }
 
         function updateProductOrderedInput(productId, newValue) {
@@ -1151,11 +1090,7 @@
                 });
             }
 
-            if (searchKeyword) {
-                performSearch(searchKeyword, false);
-            } else {
-                updateProductGrid();
-            }
+            updateProductGrid();
         }
 
         function updateProductDepositInput(productId, newValue) {
@@ -1177,11 +1112,7 @@
                 });
             }
 
-            if (searchKeyword) {
-                performSearch(searchKeyword, false);
-            } else {
-                updateProductGrid();
-            }
+            updateProductGrid();
         }
 
         async function cleanupOldProductsLocal() {
@@ -1282,12 +1213,7 @@
                     });
                 }
 
-                // Fix: If searching, re-run search to update filteredProducts
-                if (searchKeyword) {
-                    performSearch(searchKeyword, false); // Don't sync to Firebase, just update UI
-                } else {
-                    updateProductGrid();
-                }
+                updateProductGrid();
 
                 console.log(`✅ Đã cập nhật sản phẩm ${product.NameGet}:`, {
                     oldTotal: oldQtyAvailable,
@@ -1446,37 +1372,22 @@
                 onProductAdded: (product) => {
                     if (!isSyncingFromFirebase) {
                         console.log('🔥 Product added from Firebase:', product.NameGet);
-                        // Rebuild normalized cache
                         buildNormalizedCache(Object.values(orderProducts));
-                        if (searchKeyword) {
-                            performSearch(searchKeyword, false);
-                        } else {
-                            updateProductGrid();
-                        }
+                        updateProductGrid();
                     }
                 },
                 onProductChanged: (product) => {
                     if (!isSyncingFromFirebase) {
                         console.log('🔥 Product updated from Firebase:', product.NameGet);
-                        // Rebuild normalized cache
                         buildNormalizedCache(Object.values(orderProducts));
-                        if (searchKeyword) {
-                            performSearch(searchKeyword, false);
-                        } else {
-                            updateProductGrid();
-                        }
+                        updateProductGrid();
                     }
                 },
                 onProductRemoved: (product) => {
                     if (!isSyncingFromFirebase) {
                         console.log('🔥 Product removed from Firebase:', product.NameGet);
-                        // Rebuild normalized cache
                         buildNormalizedCache(Object.values(orderProducts));
-                        if (searchKeyword) {
-                            performSearch(searchKeyword, false);
-                        } else {
-                            updateProductGrid();
-                        }
+                        updateProductGrid();
                     }
                 },
                 onInitialLoadComplete: () => {
@@ -1728,4 +1639,356 @@
                     }
                 });
             }
+
+            // === Campaign Selector ===
+            loadCampaignsOL();
+
+            // === Add Product Input ===
+            const addProductInput = document.getElementById('addProductInput');
+            const addProductContainer = document.getElementById('addProductContainer');
+            const addProductSuggestions = document.getElementById('addProductSuggestions');
+            let addProductDebounceTimer = null;
+
+            if (addProductInput) {
+                addProductInput.addEventListener('focus', () => {
+                    addProductContainer.classList.add('active');
+                    if (!productsData.length) loadExcelDataOL();
+                });
+
+                addProductInput.addEventListener('input', (e) => {
+                    const value = e.target.value.trim();
+                    addProductContainer.classList.add('active');
+
+                    if (addProductDebounceTimer) clearTimeout(addProductDebounceTimer);
+
+                    if (!value || value.length < 2) {
+                        addProductSuggestions.classList.remove('show');
+                        return;
+                    }
+
+                    addProductDebounceTimer = setTimeout(() => {
+                        const results = searchProductsOL(value);
+                        displayAddProductSuggestions(results);
+                    }, 300);
+                });
+
+                addProductInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        if (addProductDebounceTimer) clearTimeout(addProductDebounceTimer);
+                        const value = e.target.value.trim();
+                        if (value.length >= 2) {
+                            const results = searchProductsOL(value);
+                            if (results.length === 1) {
+                                loadProductDetailsOL(results[0].id);
+                                addProductSuggestions.classList.remove('show');
+                                addProductInput.value = '';
+                            } else {
+                                displayAddProductSuggestions(results);
+                            }
+                        }
+                    }
+                });
+
+                addProductInput.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape') {
+                        addProductSuggestions.classList.remove('show');
+                        addProductInput.value = '';
+                        addProductContainer.classList.remove('active');
+                    }
+                });
+
+                // Close suggestions when clicking outside
+                document.addEventListener('click', (e) => {
+                    if (!addProductContainer.contains(e.target)) {
+                        addProductSuggestions.classList.remove('show');
+                    }
+                });
+            }
         });
+
+        // === Campaign Functions ===
+        async function loadCampaignsOL() {
+            try {
+                const firestore = firebase.firestore();
+                const selector = document.getElementById('campaignSelector');
+                if (!selector) return;
+
+                selector.innerHTML = '<option value="">-- Chọn đợt live --</option>';
+
+                const campaignSnapshot = await firestore.collection('campaigns').get();
+                const campaigns = [];
+                campaignSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    campaigns.push({
+                        id: doc.id,
+                        name: data.name || doc.id,
+                        createdAt: data.createdAt || ''
+                    });
+                });
+
+                // Load order counts
+                const orderCountMap = {};
+                try {
+                    const reportSnapshot = await firestore.collection('report_order_details').get();
+                    reportSnapshot.forEach(doc => {
+                        const data = doc.data();
+                        if (!data.isSavedCopy) {
+                            const name = data.tableName || doc.id.replace(/_/g, ' ');
+                            orderCountMap[name] = data.totalOrders || 0;
+                        }
+                    });
+                } catch (e) { /* ignore */ }
+
+                campaigns.sort((a, b) => {
+                    const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                    const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+                    return dateB - dateA;
+                });
+
+                campaigns.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c.id;
+                    opt.dataset.campaignName = c.name;
+                    const orderCount = orderCountMap[c.name] || 0;
+                    opt.textContent = orderCount > 0 ? `${c.name} (${orderCount} đơn)` : c.name;
+                    selector.appendChild(opt);
+                });
+
+                // Restore last selected
+                const savedCampaignId = localStorage.getItem('om_current_campaign_id');
+                if (savedCampaignId) {
+                    selector.value = savedCampaignId;
+                    const selectedOpt = selector.options[selector.selectedIndex];
+                    if (selectedOpt && selectedOpt.value) {
+                        currentCampaignId = selectedOpt.value;
+                        currentCampaignName = selectedOpt.dataset.campaignName || '';
+                    }
+                }
+            } catch (error) {
+                console.error('[CAMPAIGN-OL] Error loading campaigns:', error);
+            }
+        }
+
+        function handleCampaignChangeOL() {
+            const selector = document.getElementById('campaignSelector');
+            const selectedOpt = selector.options[selector.selectedIndex];
+
+            if (selectedOpt && selectedOpt.value) {
+                currentCampaignId = selectedOpt.value;
+                currentCampaignName = selectedOpt.dataset.campaignName || '';
+                localStorage.setItem('om_current_campaign_id', currentCampaignId);
+                // Reload page to switch campaign
+                window.location.reload();
+            }
+        }
+
+        // === Add Product Functions ===
+        function removeVietnameseTonesOL(str) {
+            if (!str) return '';
+            str = str.toLowerCase();
+            str = str.replace(/à|á|ạ|ả|ã|â|ầ|ấ|ậ|ẩ|ẫ|ă|ằ|ắ|ặ|ẳ|ẵ/g, 'a');
+            str = str.replace(/è|é|ẹ|ẻ|ẽ|ê|ề|ế|ệ|ể|ễ/g, 'e');
+            str = str.replace(/ì|í|ị|ỉ|ĩ/g, 'i');
+            str = str.replace(/ò|ó|ọ|ỏ|õ|ô|ồ|ố|ộ|ổ|ỗ|ơ|ờ|ớ|ợ|ở|ỡ/g, 'o');
+            str = str.replace(/ù|ú|ụ|ủ|ũ|ư|ừ|ứ|ự|ử|ữ/g, 'u');
+            str = str.replace(/ỳ|ý|ỵ|ỷ|ỹ/g, 'y');
+            str = str.replace(/đ/g, 'd');
+            return str;
+        }
+
+        async function loadExcelDataOL() {
+            if (isLoadingExcel || productsData.length > 0) return;
+            isLoadingExcel = true;
+
+            try {
+                const response = await authenticatedFetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/Product/ExportFileWithVariantPrice', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ model: { Active: "true" }, ids: "" })
+                });
+
+                if (!response.ok) throw new Error('Không thể tải dữ liệu sản phẩm');
+
+                const blob = await response.blob();
+                const arrayBuffer = await blob.arrayBuffer();
+                const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+
+                productsData = jsonData.map(row => ({
+                    id: row['Id sản phẩm (*)'],
+                    name: row['Tên sản phẩm'],
+                    nameNoSign: removeVietnameseTonesOL(row['Tên sản phẩm'] || ''),
+                    code: row['Mã sản phẩm']
+                }));
+
+                console.log(`[ADD-PRODUCT] Loaded ${productsData.length} products from Excel`);
+            } catch (error) {
+                console.error('[ADD-PRODUCT] Error loading Excel:', error);
+            } finally {
+                isLoadingExcel = false;
+            }
+        }
+
+        function searchProductsOL(searchText) {
+            if (!searchText || searchText.length < 2) return [];
+
+            const searchLower = searchText.toLowerCase();
+            const searchNoSign = removeVietnameseTonesOL(searchText);
+
+            const matched = productsData.filter(product => {
+                const matchName = product.nameNoSign.includes(searchNoSign);
+                const matchNameOriginal = product.name && product.name.toLowerCase().includes(searchLower);
+                const matchCode = product.code && product.code.toLowerCase().includes(searchLower);
+                return matchName || matchNameOriginal || matchCode;
+            });
+
+            // Sort: bracket match first, then code, then name
+            matched.sort((a, b) => {
+                const extractBracket = (name) => {
+                    const match = name?.match(/\[([^\]]+)\]/);
+                    return match ? match[1].toLowerCase().trim() : '';
+                };
+                const aBracket = extractBracket(a.name);
+                const bBracket = extractBracket(b.name);
+                const aMatch = aBracket && aBracket.includes(searchLower);
+                const bMatch = bBracket && bBracket.includes(searchLower);
+                if (aMatch && !bMatch) return -1;
+                if (!aMatch && bMatch) return 1;
+                return a.name.localeCompare(b.name);
+            });
+
+            return matched.slice(0, 10);
+        }
+
+        function displayAddProductSuggestions(suggestions) {
+            const suggestionsDiv = document.getElementById('addProductSuggestions');
+            if (suggestions.length === 0) {
+                suggestionsDiv.classList.remove('show');
+                return;
+            }
+
+            suggestionsDiv.innerHTML = suggestions.map(product => `
+                <div class="suggestion-item" data-id="${product.id}">
+                    <strong>${product.code || ''}</strong> - ${product.name}
+                </div>
+            `).join('');
+
+            suggestionsDiv.classList.add('show');
+
+            suggestionsDiv.querySelectorAll('.suggestion-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const productId = item.dataset.id;
+                    loadProductDetailsOL(productId);
+                    suggestionsDiv.classList.remove('show');
+                    document.getElementById('addProductInput').value = '';
+                });
+            });
+        }
+
+        function sortVariantsOL(variants) {
+            const sizeOrder = ['S', 'M', 'L', 'XL', 'XXL', 'XXXL'];
+            return [...variants].sort((a, b) => {
+                const nameA = a.NameGet || '';
+                const nameB = b.NameGet || '';
+                const numberMatchA = nameA.match(/\((\d+)\)/);
+                const numberMatchB = nameB.match(/\((\d+)\)/);
+                if (numberMatchA && numberMatchB) return parseInt(numberMatchA[1]) - parseInt(numberMatchB[1]);
+                const sizeMatchA = nameA.match(/\((S|M|L|XL|XXL|XXXL)\)/i);
+                const sizeMatchB = nameB.match(/\((S|M|L|XL|XXL|XXXL)\)/i);
+                if (sizeMatchA && sizeMatchB) {
+                    const indexA = sizeOrder.indexOf(sizeMatchA[1].toUpperCase());
+                    const indexB = sizeOrder.indexOf(sizeMatchB[1].toUpperCase());
+                    if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+                }
+                return nameA.localeCompare(nameB);
+            });
+        }
+
+        async function loadProductDetailsOL(productId) {
+            try {
+                const response = await authenticatedFetch(
+                    `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Product(${productId})?$expand=UOM,Categ,UOMPO,POSCateg,AttributeValues`
+                );
+                if (!response.ok) throw new Error('Không thể tải thông tin sản phẩm');
+
+                const productData = await response.json();
+                let imageUrl = productData.ImageUrl;
+                let templateData = null;
+
+                if (productData.ProductTmplId) {
+                    try {
+                        const templateResponse = await authenticatedFetch(
+                            `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/ProductTemplate(${productData.ProductTmplId})?$expand=UOM,UOMCateg,Categ,UOMPO,POSCateg,Taxes,SupplierTaxes,Product_Teams,Images,UOMView,Distributor,Importer,Producer,OriginCountry,ProductVariants($expand=UOM,Categ,UOMPO,POSCateg,AttributeValues)`
+                        );
+                        if (templateResponse.ok) {
+                            templateData = await templateResponse.json();
+                            if (!imageUrl) imageUrl = templateData.ImageUrl;
+                        }
+                    } catch (e) { console.error('Error loading template:', e); }
+                }
+
+                if (autoAddVariants && templateData && templateData.ProductVariants && templateData.ProductVariants.length > 0) {
+                    const activeVariants = templateData.ProductVariants.filter(v => v.Active === true);
+                    const sortedVariants = sortVariantsOL(activeVariants);
+
+                    if (sortedVariants.length === 0) {
+                        await addSingleProductOL(productData, imageUrl);
+                        return;
+                    }
+
+                    const variantsToAdd = sortedVariants.map(variant => {
+                        const tposQty = variant.QtyAvailable || 0;
+                        const userInput = prompt(`Nhập số lượng tồn kho cho ${variant.NameGet}:`, tposQty);
+                        const qtyAvailable = userInput !== null ? parseInt(userInput) || 0 : tposQty;
+                        return cleanProductForFirebase({
+                            Id: variant.Id,
+                            NameGet: variant.NameGet,
+                            QtyAvailable: qtyAvailable,
+                            ProductTmplId: productData.ProductTmplId,
+                            ListPrice: variant.ListPrice || 0,
+                            PriceVariant: variant.PriceVariant || 0,
+                            imageUrl: variant.ImageUrl || imageUrl,
+                            soldQty: 0,
+                            remainingQty: 0,
+                            isHidden: false
+                        });
+                    });
+
+                    const result = await addProductsToFirebase(database, currentCampaignId, variantsToAdd, orderProducts);
+                    updateProductGrid();
+                    alert(`✅ Đã thêm ${result.added} biến thể${result.updated ? `, cập nhật ${result.updated}` : ''}`);
+                } else {
+                    await addSingleProductOL(productData, imageUrl);
+                }
+            } catch (error) {
+                console.error('Error loading product:', error);
+                alert('❌ Lỗi: ' + error.message);
+            }
+        }
+
+        async function addSingleProductOL(productData, imageUrl) {
+            if (!currentCampaignId) {
+                alert('⚠️ Vui lòng chọn đợt live trước khi thêm sản phẩm');
+                return;
+            }
+            const tposQty = productData.QtyAvailable || 0;
+            const userInput = prompt(`Nhập số lượng tồn kho cho ${productData.NameGet}:`, tposQty);
+            const qtyAvailable = userInput !== null ? parseInt(userInput) || 0 : tposQty;
+
+            const cleanProduct = cleanProductForFirebase({
+                Id: productData.Id,
+                NameGet: productData.NameGet,
+                QtyAvailable: qtyAvailable,
+                ProductTmplId: productData.ProductTmplId,
+                ListPrice: productData.ListPrice || 0,
+                PriceVariant: productData.PriceVariant || 0,
+                imageUrl: imageUrl,
+                soldQty: 0,
+                remainingQty: 0
+            });
+
+            await addProductToFirebase(database, currentCampaignId, cleanProduct, orderProducts);
+            updateProductGrid();
+            alert('✅ Đã thêm sản phẩm vào danh sách');
+        }

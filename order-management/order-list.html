@@ -15,6 +15,9 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
+    <!-- XLSX for product Excel data -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
     <!-- Firebase Configuration (SHARED) -->
     <script src="../shared/js/firebase-config.js"></script>
     <script src="../shared/js/indexed-db-store.js"></script>
@@ -106,6 +109,18 @@
             border-color: #667eea;
             box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
             transform: translateY(-3px);
+        }
+
+        .grid-item.search-highlight {
+            border-color: #2196f3;
+            border-width: 4px;
+            box-shadow: 0 0 20px rgba(33, 150, 243, 0.6);
+            animation: highlightPulse 2s ease-in-out 3;
+        }
+
+        @keyframes highlightPulse {
+            0%, 100% { box-shadow: 0 0 20px rgba(33, 150, 243, 0.6); }
+            50% { box-shadow: 0 0 35px rgba(33, 150, 243, 0.9); }
         }
 
         .btn-refresh {
@@ -767,20 +782,164 @@
             opacity: 1;
         }
 
-        /* Search Box Styles */
-        .search-hover-area {
+        /* Campaign Selector */
+        .campaign-selector-area {
+            position: fixed;
+            top: 0;
+            left: calc(50% - 300px);
+            transform: translateX(-50%);
+            width: 200px;
+            height: 60px;
+            z-index: 999;
+        }
+
+        .campaign-selector-area:hover ~ .campaign-selector-container {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+        }
+
+        .campaign-selector-container {
+            position: fixed;
+            top: 10px;
+            left: calc(50% - 300px);
+            transform: translateX(-50%);
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .campaign-selector-container:hover {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+        }
+
+        .campaign-selector-container label {
+            color: rgba(255,255,255,0.9);
+            font-weight: 600;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
+        .campaign-selector-container select {
+            padding: 6px 12px;
+            border: 2px solid rgba(255,255,255,0.5);
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: 600;
+            background: rgba(255,255,255,0.15);
+            color: white;
+            min-width: 160px;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+        }
+
+        .campaign-selector-container select option {
+            background: #333;
+            color: white;
+        }
+
+        /* Add Product Input */
+        .add-product-hover-area {
             position: fixed;
             top: 0;
             left: 50%;
             transform: translateX(-50%);
             width: 100%;
-            height: 120px;
+            height: 80px;
+            z-index: 998;
+        }
+
+        .add-product-container {
+            position: fixed;
+            top: 65px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 500px;
+            z-index: 999;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: all 0.3s ease;
+        }
+
+        .add-product-hover-area:hover ~ .add-product-container,
+        .add-product-container:hover,
+        .add-product-container.active {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+        }
+
+        .add-product-container .search-input {
+            border-color: #ff9800;
+            background: rgba(255, 248, 225, 0.98);
+        }
+
+        .add-product-container .search-input:focus {
+            border-color: #e65100;
+            box-shadow: 0 5px 25px rgba(255, 152, 0, 0.5);
+        }
+
+        .add-product-container .search-icon {
+            color: #ff9800;
+        }
+
+        .add-product-suggestions {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border-radius: 12px;
+            margin-top: 4px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            max-height: 300px;
+            overflow-y: auto;
+            display: none;
+            z-index: 1001;
+        }
+
+        .add-product-suggestions.show {
+            display: block;
+        }
+
+        .add-product-suggestions .suggestion-item {
+            padding: 10px 16px;
+            cursor: pointer;
+            border-bottom: 1px solid #eee;
+            font-size: 13px;
+            transition: background 0.2s;
+        }
+
+        .add-product-suggestions .suggestion-item:hover {
+            background: #fff3e0;
+        }
+
+        .add-product-suggestions .suggestion-item:last-child {
+            border-bottom: none;
+        }
+
+        /* Search Box Styles */
+        .search-hover-area {
+            position: fixed;
+            bottom: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100%;
+            height: 80px;
             z-index: 998;
         }
 
         .search-hint {
             position: fixed;
-            top: 60px;
+            bottom: 80px;
             left: 50%;
             transform: translateX(-50%);
             color: rgba(255, 255, 255, 0.7);
@@ -801,7 +960,7 @@
 
         .search-container {
             position: fixed;
-            top: 65px;
+            bottom: 80px;
             left: 50%;
             transform: translateX(-50%);
             width: 500px;
@@ -812,10 +971,14 @@
             transition: all 0.3s ease;
         }
 
-        /* Hide search when edit controls are hidden */
+        /* Hide search and add-product when edit controls are hidden */
         body.hide-edit-controls .search-hover-area,
         body.hide-edit-controls .search-hint,
-        body.hide-edit-controls .search-container {
+        body.hide-edit-controls .search-container,
+        body.hide-edit-controls .add-product-hover-area,
+        body.hide-edit-controls .add-product-container,
+        body.hide-edit-controls .campaign-selector-area,
+        body.hide-edit-controls .campaign-selector-container {
             display: none !important;
         }
 
@@ -1196,6 +1359,15 @@
     <div class="nav-hover-area right"></div>
     <button class="btn-nav" id="btnNext">Sau ▼</button>
 
+    <!-- Campaign Selector -->
+    <div class="campaign-selector-area"></div>
+    <div class="campaign-selector-container" id="campaignSelectorContainer">
+        <label>🎯 Đợt Live:</label>
+        <select id="campaignSelector" onchange="handleCampaignChangeOL()">
+            <option value="">-- Chọn đợt live --</option>
+        </select>
+    </div>
+
     <div class="sync-hover-area" style="left: calc(50% - 150px); transform: translateX(0);"></div>
     <button class="btn-sync-toggle" id="btnMergeVariants" onclick="toggleMergeVariants()" style="left: calc(50% - 150px); transform: translateX(0); background: rgba(156, 39, 176, 0.9); border-color: #9c27b0;">📦 Gộp biến thể</button>
 
@@ -1205,12 +1377,22 @@
     <div class="sync-hover-area" style="left: calc(50%); transform: translateX(0);"></div>
     <button class="btn-sync-toggle" id="btnToggleEdit" onclick="toggleHideEditControls()" style="left: calc(50%); transform: translateX(0); background: rgba(255, 152, 0, 0.9); border-color: #ff9800;">👁️ Ẩn chỉnh sửa</button>
 
-    <!-- Search Box -->
+    <!-- Add Product Input (top) -->
+    <div class="add-product-hover-area"></div>
+    <div class="add-product-container" id="addProductContainer">
+        <div class="search-input-wrapper">
+            <input type="text" class="search-input" id="addProductInput" placeholder="📦 Nhập sản phẩm thêm vào bảng..." autocomplete="off">
+            <span class="search-icon">📦</span>
+        </div>
+        <div class="add-product-suggestions" id="addProductSuggestions"></div>
+    </div>
+
+    <!-- Search Box (bottom) -->
     <div class="search-hover-area"></div>
     <span class="search-hint">🔍 Hover để tìm kiếm</span>
     <div class="search-container" id="searchContainer">
         <div class="search-input-wrapper">
-            <input type="text" class="search-input" id="searchInput" placeholder="🔍 Tìm kiếm sản phẩm..." autocomplete="off">
+            <input type="text" class="search-input" id="searchInput" placeholder="🔍 Tìm kiếm sản phẩm trong bảng..." autocomplete="off">
             <button class="search-clear" id="searchClear" onclick="clearSearch()">×</button>
             <span class="search-icon">🔍</span>
         </div>
