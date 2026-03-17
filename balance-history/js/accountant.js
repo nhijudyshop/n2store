@@ -1744,13 +1744,13 @@
 
             // Add manager note with orange styling if exists
             if (managerNote) {
-                noteHtml += `<span class="acc-manager-note" title="Quản lý: ${reviewedBy} lúc ${reviewedAt}">QL: ${managerNote}</span>`;
+                noteHtml += `<span class="acc-manager-note" title="${reviewedBy} lúc ${reviewedAt}">QL: ${reviewedBy}${managerNote !== 'Đã kiểm tra' ? ' - ' + managerNote : ' đã kiểm tra'}</span>`;
             }
             noteHtml += '</div>';
 
             // Review button - show different state based on reviewed status
             const reviewBtnHtml = isReviewed
-                ? `<span class="acc-reviewed-label" title="Đã kiểm tra bởi ${reviewedBy} lúc ${reviewedAt}">ĐÃ KIỂM TRA</span>`
+                ? `<span class="acc-reviewed-label" title="Đã kiểm tra lúc ${reviewedAt}">ĐÃ KIỂM TRA</span>`
                 : `<button class="acc-review-btn" data-id="${tx.id}" title="Kiểm tra giao dịch">✓</button>`;
 
             // Nút Điều chỉnh - disable nếu đã có adjustment
