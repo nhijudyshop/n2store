@@ -6,23 +6,16 @@
 // =====================================================
 
 /**
- * Extract date from campaign name
- * Supports: "Live 30/12/2025" → "30/12/2025", "DŨNG DŨNG 15/03" → "15/03/2026"
+ * Extract date (dd/mm/yyyy) from campaign name
+ * Example: "Live 30/12/2025" → "30/12/2025"
  * @param {string} campaignName - Campaign name
- * @returns {string|null} - Date string dd/mm/yyyy or null if not found
+ * @returns {string|null} - Date string or null if not found
  */
 function extractDateFromCampaignName(campaignName) {
     if (!campaignName) return null;
-    // First try dd/mm/yyyy (full date)
-    const fullMatch = campaignName.match(/(\d{1,2}\/\d{1,2}\/\d{4})/);
-    if (fullMatch) return fullMatch[1];
-    // Then try dd/mm (short date without year) - append current year
-    const shortMatch = campaignName.match(/(\d{1,2}\/\d{1,2})(?!\d)/);
-    if (shortMatch) {
-        const currentYear = new Date().getFullYear();
-        return `${shortMatch[1]}/${currentYear}`;
-    }
-    return null;
+    // Match dd/mm/yyyy pattern
+    const match = campaignName.match(/(\d{1,2}\/\d{1,2}\/\d{4})/);
+    return match ? match[1] : null;
 }
 
 /**
@@ -113,37 +106,22 @@ async function fetchCampaignsFromTPOS(dateFilter) {
 async function getCurrentSessionCampaigns() {
     console.log('[REPORT] 🔍 getCurrentSessionCampaigns() called');
 
-    // Helper: extract short date (dd/mm) for TPOS name filter
-    function extractShortDate(name) {
-        if (!name) return null;
-        // Match dd/mm (with or without /yyyy)
-        const match = name.match(/(\d{1,2}\/\d{1,2})(?:\/\d{4})?/);
-        return match ? match[1] : null;
-    }
-
-    // Helper: try fetching campaigns using a campaign name as filter
-    async function tryFetchByName(campaignName) {
-        // Use short date (dd/mm) for TPOS filter since campaign names may not have year
-        const shortDate = extractShortDate(campaignName);
-        if (shortDate) {
-            console.log('[REPORT] 📅 Using short date filter for TPOS:', shortDate);
-            try {
-                return await fetchCampaignsFromTPOS(shortDate);
-            } catch (error) {
-                console.error('[REPORT] ❌ Error fetching campaigns:', error);
-            }
-        }
-        return null;
-    }
-
     // Load campaign info from Firebase (independent of Tab1)
     const campaignInfo = await loadActiveCampaignFromFirebase();
 
     if (!campaignInfo?.activeCampaign) {
         // Fallback: try extracting date from currentTableName
         if (currentTableName) {
-            const result = await tryFetchByName(currentTableName);
-            if (result && result.length > 0) return result;
+            const dateFilter = extractDateFromCampaignName(currentTableName);
+            if (dateFilter) {
+                console.log('[REPORT] 📅 Using date from currentTableName:', dateFilter);
+                try {
+                    return await fetchCampaignsFromTPOS(dateFilter);
+                } catch (error) {
+                    console.error('[REPORT] ❌ Error fetching campaigns:', error);
+                    return [];
+                }
+            }
         }
         console.warn('[REPORT] ⚠️ No campaign info available');
         return [];
@@ -152,27 +130,38 @@ async function getCurrentSessionCampaigns() {
     const activeCampaign = campaignInfo.activeCampaign;
     console.log('[REPORT] 📋 activeCampaign:', `"${activeCampaign.name}"`);
 
-    // Try fetching by campaign name (uses short date dd/mm for broader match)
-    const result = await tryFetchByName(activeCampaign.name);
-    if (result && result.length > 0) return result;
+    // Extract date from campaign name (e.g., "Live 30/12/2025" → "30/12/2025")
+    const dateFilter = extractDateFromCampaignName(activeCampaign.name);
 
-    // Fallback: try to extract from customStartDate
-    if (activeCampaign.customStartDate) {
-        const isoDate = activeCampaign.customStartDate.split('T')[0];
-        const [year, month, day] = isoDate.split('-');
-        const fallbackDate = `${day}/${month}`;
-        console.log('[REPORT] 📅 Using fallback date from customStartDate:', fallbackDate);
+    if (!dateFilter) {
+        console.warn('[REPORT] ⚠️ Could not extract date from campaign name:', activeCampaign.name);
 
-        try {
-            return await fetchCampaignsFromTPOS(fallbackDate);
-        } catch (error) {
-            console.error('[REPORT] ❌ Error fetching campaigns with fallback date:', error);
-            return [];
+        // Fallback: try to extract from customStartDate
+        if (activeCampaign.customStartDate) {
+            const isoDate = activeCampaign.customStartDate.split('T')[0];
+            const [year, month, day] = isoDate.split('-');
+            const fallbackDate = `${day}/${month}/${year}`;
+            console.log('[REPORT] 📅 Using fallback date from customStartDate:', fallbackDate);
+
+            try {
+                return await fetchCampaignsFromTPOS(fallbackDate);
+            } catch (error) {
+                console.error('[REPORT] ❌ Error fetching campaigns with fallback date:', error);
+                return [];
+            }
         }
+
+        return [];
     }
 
-    console.warn('[REPORT] ⚠️ Could not extract date from campaign:', activeCampaign.name);
-    return [];
+    console.log(`[REPORT] 📅 Extracted date from campaign name: ${dateFilter}`);
+
+    try {
+        return await fetchCampaignsFromTPOS(dateFilter);
+    } catch (error) {
+        console.error('[REPORT] ❌ Error fetching campaigns from TPOS:', error);
+        return [];
+    }
 }
 
 /**
