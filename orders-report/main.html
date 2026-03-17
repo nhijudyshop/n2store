@@ -702,12 +702,27 @@
                     // Request orders data from tab1
                     ordersFrame.contentWindow.postMessage({ type: 'REQUEST_ORDERS_DATA' }, '*');
                 }
+            } else if (e.data.type === 'REQUEST_ORDERS_DATA_FROM_OVERVIEW') {
+                // Overview tab requesting orders data - forward directly to Tab1
+                const ordersFrame = document.getElementById('ordersFrame');
+                if (ordersFrame && ordersFrame.contentWindow) {
+                    ordersFrame.contentWindow.postMessage(
+                        { type: 'REQUEST_ORDERS_DATA_FROM_OVERVIEW' },
+                        '*'
+                    );
+                }
             } else if (e.data.type === 'ORDERS_DATA_RESPONSE_TAB3') {
                 // Forward orders data from Tab 1 to Tab 3 ONLY
                 const productAssignmentFrame =
                     document.getElementById('productAssignmentFrame');
                 if (productAssignmentFrame && productAssignmentFrame.contentWindow) {
                     productAssignmentFrame.contentWindow.postMessage(e.data, '*');
+                }
+            } else if (e.data.type === 'ORDERS_DATA_RESPONSE_OVERVIEW') {
+                // Forward orders data from Tab 1 to Overview ONLY
+                const overviewFrame = document.getElementById('overviewFrame');
+                if (overviewFrame && overviewFrame.contentWindow) {
+                    overviewFrame.contentWindow.postMessage(e.data, '*');
                 }
             } else if (e.data.type === 'FETCH_CONVERSATIONS_FOR_ORDERS') {
                 // Forward request from Overview to Tab1 to fetch conversations
@@ -752,6 +767,23 @@
             } else if (e.data.type === 'CAMPAIGN_STATUS_UPDATE') {
                 // Update campaign badge from overview tab
                 updateCampaignBadge(e.data);
+            } else if (e.data.type === 'REQUEST_TOKEN_FROM_OVERVIEW') {
+                // Overview tab requesting token - forward to Tab1
+                console.log('[MAIN] 🔑 Forwarding token request to Tab1');
+                const ordersFrame = document.getElementById('ordersFrame');
+                if (ordersFrame && ordersFrame.contentWindow) {
+                    ordersFrame.contentWindow.postMessage(
+                        { type: 'REQUEST_TOKEN', requestId: e.data.requestId },
+                        '*'
+                    );
+                }
+            } else if (e.data.type === 'TOKEN_RESPONSE') {
+                // Forward token response from Tab1 to Overview
+                console.log('[MAIN] 🔑 Forwarding token response to Overview');
+                const overviewFrame = document.getElementById('overviewFrame');
+                if (overviewFrame && overviewFrame.contentWindow) {
+                    overviewFrame.contentWindow.postMessage(e.data, '*');
+                }
             } else if (e.data.type === 'TABLE_NAME_CHANGED') {
                 // Forward table name change from Tab1 to Overview
                 const overviewFrame = document.getElementById('overviewFrame');
@@ -761,6 +793,34 @@
                         '[MAIN] 📡 Forwarded TABLE_NAME_CHANGED to overview:',
                         e.data.tableName
                     );
+                }
+            } else if (e.data.type === 'REQUEST_EMPLOYEE_RANGES') {
+                // Forward request from Overview to Tab1 for employee ranges
+                console.log('[MAIN] 📨 Forwarding REQUEST_EMPLOYEE_RANGES to Tab1');
+                const ordersFrame = document.getElementById('ordersFrame');
+                if (ordersFrame && ordersFrame.contentWindow) {
+                    ordersFrame.contentWindow.postMessage(e.data, '*');
+                }
+            } else if (e.data.type === 'EMPLOYEE_RANGES_RESPONSE') {
+                // Forward employee ranges response from Tab1 to Overview
+                console.log('[MAIN] 📨 Forwarding EMPLOYEE_RANGES_RESPONSE to Overview');
+                const overviewFrame = document.getElementById('overviewFrame');
+                if (overviewFrame && overviewFrame.contentWindow) {
+                    overviewFrame.contentWindow.postMessage(e.data, '*');
+                }
+            } else if (e.data.type === 'REQUEST_CAMPAIGN_INFO') {
+                // Forward request from Overview to Tab1 for campaign info
+                console.log('[MAIN] 📨 Forwarding REQUEST_CAMPAIGN_INFO to Tab1');
+                const ordersFrame = document.getElementById('ordersFrame');
+                if (ordersFrame && ordersFrame.contentWindow) {
+                    ordersFrame.contentWindow.postMessage(e.data, '*');
+                }
+            } else if (e.data.type === 'CAMPAIGN_INFO_RESPONSE') {
+                // Forward campaign info response from Tab1 to Overview
+                console.log('[MAIN] 📨 Forwarding CAMPAIGN_INFO_RESPONSE to Overview');
+                const overviewFrame = document.getElementById('overviewFrame');
+                if (overviewFrame && overviewFrame.contentWindow) {
+                    overviewFrame.contentWindow.postMessage(e.data, '*');
                 }
             }
         });

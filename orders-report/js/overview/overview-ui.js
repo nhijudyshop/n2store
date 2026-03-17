@@ -32,35 +32,42 @@ function switchMainTab(tabName) {
     }
 }
 
+// =====================================================
+// REQUEST DATA FROM TAB1
+// =====================================================
+function requestDataFromTab1() {
+    console.log('[REPORT] Requesting data from tab1...');
+
+    dataReceivedFromTab1 = false; // Reset flag before request
+    setRefreshLoading(true);
+
+    window.parent.postMessage({
+        type: 'REQUEST_ORDERS_DATA_FROM_OVERVIEW'
+    }, '*');
+}
+
+function setRefreshLoading(loading) {
+    // Button removed - function kept for compatibility
+}
+
 /**
  * Refresh all data - called by "Làm mới danh sách" button
- * Reloads from Firebase independently (no Tab1 dependency)
+ * This requests fresh data from Tab1 AND reloads the table list from Firebase
  */
-async function refreshAllData() {
+function refreshAllData() {
     console.log('[REPORT] 🔄 Refreshing all data...');
 
-    // Reset flag to allow fresh data
+    // Reset flags to allow fresh data
     userManuallySelectedTable = false;
+    justReceivedFromTab1 = false;
 
-    // 1. Reload campaign info from Firebase
-    const campaignInfo = await loadActiveCampaignFromFirebase();
-    if (campaignInfo?.activeCampaign?.name) {
-        currentTableName = campaignInfo.activeCampaign.name;
-    }
+    // Request fresh data from Tab1
+    requestDataFromTab1();
 
-    // 2. Reload table list + data from Firebase
-    await loadAvailableTables();
-    await loadTableDataFromFirebase(currentTableName);
-
-    // 3. If no data → show modal
-    const hasData = cachedOrderDetails[currentTableName]?.orders?.length > 0;
-    if (!hasData) {
-        openDataSourceModal();
-    }
-
-    // 4. Render all
-    updateStats();
-    renderStatistics();
+    // Also reload table list from Firebase (after a short delay to avoid race condition)
+    setTimeout(() => {
+        loadAvailableTables();
+    }, 500);
 }
 
 // =====================================================
@@ -173,10 +180,15 @@ async function executeExcelFetch() {
     }
 }
 
-// ⚡ Execute API Fetch - Self-fetch order list from TPOS (no Tab1 dependency)
+// ⚡ NEW: Execute API Fetch
 async function executeAPIFetch() {
     if (isFetching) {
         alert('Đang trong quá trình tải, vui lòng đợi...');
+        return;
+    }
+
+    if (allOrders.length === 0) {
+        alert('❌ Chưa có dữ liệu từ Tab1. Vui lòng chọn chiến dịch ở Tab1 trước.');
         return;
     }
 
@@ -201,58 +213,16 @@ async function executeAPIFetch() {
     try {
         btn.disabled = true;
         btn.classList.remove('highlight-pulse');
-        btn.innerHTML = '<i class="fas fa-spinner spinning"></i> Đang lấy danh sách đơn...';
+        btn.innerHTML = '<i class="fas fa-spinner spinning"></i> Đang tải từ API...';
 
         // Hide helper message during fetch
         document.getElementById('tableHelperMessage').style.display = 'none';
-
-        // Step 1: Self-fetch order list from TPOS API
-        const campaigns = await getCurrentSessionCampaigns();
-        if (!campaigns || campaigns.length === 0) {
-            alert('❌ Không tìm thấy chiến dịch nào. Vui lòng kiểm tra lại.');
-            resetButtonState();
-            return;
-        }
-
-        // Fetch order IDs from all campaigns
-        const token = await getToken();
-        const WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
-        let orderIds = [];
-
-        for (const campaign of campaigns) {
-            const url = `${WORKER_URL}/api/odata/SaleOnline_Order?$filter=LiveCampaignId eq ${campaign.id}&$select=Id,SessionIndex,Tags&$top=1000&$orderby=SessionIndex desc`;
-            const resp = await fetch(url, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json',
-                    'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.12.29.1'
-                }
-            });
-            if (resp.ok) {
-                const data = await resp.json();
-                const items = (data.value || []).map(o => ({
-                    orderId: o.Id,
-                    SessionIndex: o.SessionIndex,
-                    Tags: o.Tags
-                }));
-                orderIds = orderIds.concat(items);
-                console.log(`[REPORT] 📋 Campaign ${campaign.name}: ${items.length} orders`);
-            }
-        }
-
-        if (orderIds.length === 0) {
-            alert('❌ Không tìm thấy đơn hàng nào từ các chiến dịch.');
-            resetButtonState();
-            return;
-        }
-
-        btn.innerHTML = '<i class="fas fa-spinner spinning"></i> Đang tải chi tiết...';
 
         // Show progress
         progressContainer.style.display = 'block';
 
         const fetchedOrders = [];
-        const total = orderIds.length;
+        const total = allOrders.length;
         let completed = 0;
         let errors = 0;
 
@@ -260,15 +230,20 @@ async function executeAPIFetch() {
 
         // Process in batches of BATCH_SIZE
         for (let i = 0; i < total; i += BATCH_SIZE) {
-            const batch = orderIds.slice(i, i + BATCH_SIZE);
+            const batch = allOrders.slice(i, i + BATCH_SIZE);
 
             // Fetch batch in parallel
             const promises = batch.map(async (order) => {
                 try {
                     const detail = await fetchOrderData(order.orderId);
-                    // Preserve Tags and SessionIndex
-                    if (order.Tags) detail.Tags = order.Tags;
-                    if (order.SessionIndex) detail.SessionIndex = order.SessionIndex;
+                    // Merge Tags from allOrders (Tab1) into fetched data
+                    if (order.Tags) {
+                        detail.Tags = order.Tags;
+                    }
+                    // Also preserve SessionIndex (STT)
+                    if (order.stt) {
+                        detail.SessionIndex = order.stt;
+                    }
                     return { success: true, orderId: order.orderId, data: detail };
                 } catch (error) {
                     console.error(`[REPORT] Error fetching order ${order.orderId}:`, error);
@@ -316,6 +291,9 @@ async function executeAPIFetch() {
 
         // Save to Firebase
         const firebaseSaved = await saveToFirebase(currentTableName, cacheData);
+
+        // Request and save employee ranges from Tab1
+        await requestAndSaveEmployeeRanges();
 
         // Reset button state
         resetButtonState();
@@ -832,15 +810,10 @@ function openCachedOrderDetail(index) {
 // UPDATE STATISTICS
 // =====================================================
 function updateStats() {
-    const orders = getActiveOrders();
-    const totalOrders = orders.length;
-    const totalAmount = orders.reduce((sum, o) => sum + (o.TotalAmount || o.totalAmount || 0), 0);
-    const totalProducts = orders.reduce((sum, o) => {
-        if (o.QuantityTotal) return sum + o.QuantityTotal;
-        if (o.Details) return sum + o.Details.reduce((s, d) => s + (d.Quantity || 0), 0);
-        return sum + (o.quantity || 0);
-    }, 0);
-    const uniqueCustomers = new Set(orders.map(o => o.Telephone || o.Phone || o.phone).filter(Boolean));
+    const totalOrders = allOrders.length;
+    const totalAmount = allOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+    const totalProducts = allOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
+    const uniqueCustomers = new Set(allOrders.map(order => order.phone).filter(Boolean));
 
     document.getElementById('statTotalOrders').textContent = totalOrders.toLocaleString('vi-VN');
     document.getElementById('statTotalAmount').textContent = formatCurrency(totalAmount);
@@ -864,7 +837,7 @@ function formatCurrency(amount) {
 async function openOrderDetail(orderId, index) {
     const modal = document.getElementById('orderDetailModal');
     const modalBody = document.getElementById('modalBody');
-    const order = getActiveOrders()[index];
+    const order = allOrders[index];
 
     modal.classList.add('show');
     modalBody.innerHTML = `
@@ -1060,9 +1033,8 @@ function closeOrderDetailModal() {
 
 // Function để mở modal chi tiết đơn hàng chỉ với orderId (cho discount stats UI)
 async function openOrderDetailById(orderId) {
-    // Tìm order trong getActiveOrders()
-    const orders = getActiveOrders();
-    const index = orders.findIndex(o => o.orderId === orderId || o.Id === orderId);
+    // Tìm order trong allOrders
+    const index = allOrders.findIndex(o => o.orderId === orderId || o.Id === orderId);
 
     if (index >= 0) {
         // Tìm thấy trong cache, gọi function cũ
@@ -1479,7 +1451,7 @@ async function deleteReport(safeTableName, displayName, isSavedCopy) {
 let isSyncingData = false;
 
 /**
- * Sync specific fields from TPOS API to Firebase cache
+ * Sync specific fields from Tab1 (allData) to Firebase cache
  * Only updates: Tags, TotalAmount, Status, Quantity (SL)
  * Preserves all other data in cache
  */
@@ -1495,7 +1467,8 @@ async function syncAllDataFromTab1() {
         return;
     }
 
-    const confirmMsg = `Sẽ cập nhật 4 trường dữ liệu cho ${currentData.orders.length} đơn hàng từ TPOS API:\n\n✅ Tags\n✅ Tổng tiền (TotalAmount)\n✅ Trạng thái (Status)\n✅ Số lượng (SL)\n\nGiữ nguyên: Tất cả dữ liệu khác\n\nBạn có muốn tiếp tục?`;
+    // Confirm before syncing
+    const confirmMsg = `Sẽ cập nhật 4 trường dữ liệu cho ${currentData.orders.length} đơn hàng từ Tab Quản lý đơn hàng:\n\n✅ Tags\n✅ Tổng tiền (TotalAmount)\n✅ Trạng thái (Status)\n✅ Số lượng (SL)\n\nGiữ nguyên: Tất cả dữ liệu khác\n\nBạn có muốn tiếp tục?`;
     if (!confirm(confirmMsg)) {
         return;
     }
@@ -1507,36 +1480,29 @@ async function syncAllDataFromTab1() {
         btn.disabled = true;
         btn.innerHTML = '<i class="fas fa-spinner spinning"></i> Đang đồng bộ...';
 
-        console.log('[REPORT] 🔄 Starting selective data sync from TPOS API...');
+        console.log('[REPORT] 🔄 Starting selective data sync from Tab1...');
 
-        // Fetch fresh order data from TPOS API
-        const campaigns = await getCurrentSessionCampaigns();
-        const token = await getToken();
-        const WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        // Request fresh data from Tab1
+        await requestFreshDataFromTab1();
+
+        // Wait a bit for data to arrive
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        // Now allOrders should have fresh data from Tab1
+        if (allOrders.length === 0) {
+            throw new Error('Không nhận được dữ liệu từ Tab Quản lý đơn hàng. Vui lòng đảm bảo tab này đang mở.');
+        }
+
+        // Build a map of orderId -> order data from allOrders (Tab1)
         const ordersMap = new Map();
-
-        for (const campaign of campaigns) {
-            const url = `${WORKER_URL}/api/odata/SaleOnline_Order?$filter=LiveCampaignId eq ${campaign.id}&$select=Id,Tags,TotalAmount,Status,StatusText,SessionIndex&$top=1000`;
-            const resp = await fetch(url, {
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json',
-                    'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.12.29.1'
-                }
-            });
-            if (resp.ok) {
-                const data = await resp.json();
-                (data.value || []).forEach(order => {
-                    ordersMap.set(order.Id, order);
-                });
+        allOrders.forEach(order => {
+            const orderId = order.orderId || order.Id;
+            if (orderId) {
+                ordersMap.set(orderId, order);
             }
-        }
+        });
 
-        if (ordersMap.size === 0) {
-            throw new Error('Không nhận được dữ liệu từ TPOS API.');
-        }
-
-        console.log(`[REPORT] 🔄 Built orders map with ${ordersMap.size} entries from TPOS API`);
+        console.log(`[REPORT] 🔄 Built orders map with ${ordersMap.size} entries from Tab1`);
 
         // Update ONLY specific fields in cachedOrderDetails
         let updatedCount = 0;
@@ -1603,6 +1569,18 @@ async function syncAllDataFromTab1() {
     }
 }
 
+// Request fresh data from Tab1
+function requestFreshDataFromTab1() {
+    return new Promise((resolve) => {
+        console.log('[REPORT] 🔄 Requesting fresh data from Tab1...');
+        window.parent.postMessage({
+            type: 'REQUEST_ORDERS_DATA_FROM_OVERVIEW'
+        }, '*');
+
+        // Resolve after a timeout (data will arrive via message listener)
+        setTimeout(resolve, 500);
+    });
+}
 
 // =====================================================
 // REFRESH STANDARD PRICE CACHE
