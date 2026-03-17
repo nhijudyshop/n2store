@@ -474,7 +474,10 @@
         const lamThem = ltDetail.totalAmount;
 
         // Các field từ payroll doc
-        const daTra = payDoc.daTra || 0;
+        const daTraItems = payDoc.daTraItems || [];
+        const daTra = daTraItems.length > 0
+            ? daTraItems.reduce((s, item) => s + (item.amount || 0), 0)
+            : (payDoc.daTra || 0);
         const ghiChu = payDoc.ghiChu || '';
 
         // Phụ cấp
@@ -502,7 +505,7 @@
             emp, empId, workedDays, empRate,
             luongChinh, lamThem, phuCap, thuong, giamTru, tongLuong, daTra, conCanTra,
             totalLate, giamTruManualTotal, ghiChu,
-            thuongItems, giamTruItems,
+            thuongItems, giamTruItems, daTraItems,
             lateDays, otDays, allowanceItems,
             lcDetail, ltDetail
         };
@@ -1476,8 +1479,9 @@
                     </td>
                     <td class="payroll-cell-total">${formatVND(tongLuong)}</td>
                     <td>
-                        <input type="text" class="payroll-cell-input" data-field="daTra" data-emp="${empId}"
-                            value="${daTra ? formatVND(daTra) : '0'}">
+                        <span class="payroll-cell-btn" onclick="window._attendance.showDaTraModal('${empId}')">
+                            ${formatVND(daTra)}
+                        </span>
                     </td>
                     <td class="payroll-cell-total">${formatVND(conCanTra)}</td>
                     <td>
@@ -2375,6 +2379,109 @@
         };
     }
 
+    /** Modal: Đã trả nhân viên */
+    function showDaTraModal(empId) {
+        const emp = employees.find(e => String(e.userId || e.uid || e.id) === String(empId));
+        if (!emp) return;
+
+        const modal = document.getElementById('daTraModal');
+        if (!modal) return;
+
+        const empName = emp.name || `User ${empId}`;
+        const payDoc = getPayrollDoc(empId);
+
+        // Load items: migrate from legacy daTra number
+        let items = payDoc.daTraItems ? [...payDoc.daTraItems] : [];
+        if (items.length === 0 && (payDoc.daTra || 0) > 0) {
+            items = [{ name: 'Đã trả', amount: payDoc.daTra }];
+        }
+
+        document.getElementById('daTraEmpName').textContent = `Nhân viên: ${empName}`;
+
+        function renderDaTraRows() {
+            const tbody = document.getElementById('daTraBody');
+            const totalAmount = items.reduce((s, item) => s + (item.amount || 0), 0);
+
+            let html = `
+                <tr class="total-row">
+                    <td></td>
+                    <td style="text-align:right; font-weight:700;">${formatVND(totalAmount)}</td>
+                </tr>
+            `;
+
+            items.forEach((item, i) => {
+                html += `
+                    <tr>
+                        <td style="display:flex; align-items:center; gap:8px;">
+                            <button class="phu-cap-delete-btn datra-delete-btn" data-idx="${i}" title="Xóa">
+                                <i data-lucide="trash-2" style="width:14px;height:14px;"></i>
+                            </button>
+                            <input type="text" class="payroll-settings-input datra-name-input" data-idx="${i}"
+                                value="${escapeHtml(item.name || '')}" placeholder="Nội dung" style="flex:1;">
+                        </td>
+                        <td style="text-align:right;">
+                            <input type="text" class="payroll-settings-input datra-amount-input" data-idx="${i}"
+                                value="${item.amount ? formatVND(item.amount) : '0'}" placeholder="0"
+                                style="text-align:right; width:150px;">
+                        </td>
+                    </tr>
+                `;
+            });
+
+            tbody.innerHTML = html;
+            refreshIcons();
+
+            // Delete buttons
+            tbody.querySelectorAll('.datra-delete-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    items.splice(parseInt(btn.dataset.idx), 1);
+                    renderDaTraRows();
+                });
+            });
+
+            // Name inputs
+            tbody.querySelectorAll('.datra-name-input').forEach(input => {
+                input.addEventListener('blur', () => {
+                    items[parseInt(input.dataset.idx)].name = input.value.trim();
+                });
+            });
+
+            // Amount inputs
+            tbody.querySelectorAll('.datra-amount-input').forEach(input => {
+                input.addEventListener('focus', () => {
+                    const raw = input.value.replace(/\./g, '').replace(/,/g, '');
+                    const num = parseInt(raw) || 0;
+                    input.value = num === 0 ? '' : num;
+                    input.select();
+                });
+                input.addEventListener('blur', () => {
+                    const raw = input.value.replace(/\./g, '').replace(/,/g, '');
+                    const num = Math.max(0, parseInt(raw) || 0);
+                    items[parseInt(input.dataset.idx)].amount = num;
+                    input.value = num ? formatVND(num) : '0';
+                    renderDaTraRows();
+                });
+            });
+        }
+
+        renderDaTraRows();
+        modal.style.display = 'flex';
+
+        // Thêm khoản trả
+        document.getElementById('daTraAddLink').onclick = () => {
+            items.push({ name: '', amount: 0 });
+            renderDaTraRows();
+        };
+
+        // Xong button
+        document.getElementById('btnDaTraApply').onclick = async () => {
+            const cleanItems = items.filter(item => item.name || item.amount);
+            await savePayrollField(empId, 'daTraItems', cleanItems);
+            modal.style.display = 'none';
+            renderMonthlySchedule();
+        };
+    }
+
     /** Modal: Chi tiết chấm công tháng */
     function showAttendanceDetailModal(empId) {
         const emp = employees.find(e => String(e.userId || e.uid || e.id) === String(empId));
@@ -3222,6 +3329,7 @@
         showPhuCapModal,
         showThuongModal,
         showGiamTruModal,
+        showDaTraModal,
         showAttendanceDetailModal,
     };
 

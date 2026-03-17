@@ -105,7 +105,7 @@
             <div id="employeeTabContent" class="tab-content" style="height: calc(100vh - 56px);">
 
                 <!-- 1. Bảng chấm công (Xem theo ca) View -->
-                <div class="employee-view-wrapper" id="viewTimesheet" style="display: flex;">
+                <div class="employee-view-wrapper" id="viewTimesheet" style="display: none;">
                     <div class="ts-header">
                         <div class="ts-header-left">
                             <h2 class="ts-title">Bảng chấm công</h2>
@@ -310,7 +310,7 @@
                 </div>
 
                 <!-- 2. Cập nhật bảng tính lương (Xem theo nhân viên) View -->
-                <div class="employee-view-wrapper" id="viewSchedule" style="display: none;">
+                <div class="employee-view-wrapper" id="viewSchedule" style="display: flex;">
                     <div class="ts-header">
                         <div class="ts-header-left">
                             <h2 class="ts-title">Cập nhật bảng tính lương</h2>
@@ -1890,6 +1890,48 @@
                     Bỏ qua
                 </button>
                 <button class="btn-primary" id="btnPcApply" style="background:#1890ff;">
+                    Xong
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL: ĐÃ TRẢ NHÂN VIÊN ==================== -->
+    <div class="modal" id="daTraModal" style="display: none;">
+        <div class="modal-overlay" onclick="this.parentElement.style.display='none'"></div>
+        <div class="modal-content k-modal" style="width: 650px; max-width: 95vw;">
+            <div class="modal-header k-modal-header">
+                <div>
+                    <h3>Đã trả nhân viên</h3>
+                    <div id="daTraEmpName" style="font-size: 13px; color: #8c8c8c; margin-top: 2px;"></div>
+                </div>
+                <button class="btn-icon" onclick="document.getElementById('daTraModal').style.display='none'">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body k-modal-body" style="padding: 0;">
+                <table class="payroll-detail-table" id="daTraTable">
+                    <thead>
+                        <tr>
+                            <th>Nội dung</th>
+                            <th style="text-align: right; width: 200px;">Số tiền</th>
+                        </tr>
+                    </thead>
+                    <tbody id="daTraBody"></tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="2" style="padding: 0;">
+                                <span class="phu-cap-add-link" id="daTraAddLink">Thêm khoản trả</span>
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+            <div class="modal-footer k-modal-footer">
+                <button class="k-btn-outline" onclick="document.getElementById('daTraModal').style.display='none'">
+                    Bỏ qua
+                </button>
+                <button class="btn-primary" id="btnDaTraApply" style="background:#1890ff;">
                     Xong
                 </button>
             </div>
