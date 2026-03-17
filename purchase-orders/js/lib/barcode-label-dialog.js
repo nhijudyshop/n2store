@@ -84,7 +84,7 @@ window.BarcodeLabelDialog = (function () {
                     <input type="checkbox" class="bld-item-check" data-index="${i}" checked style="width:15px;height:15px;cursor:pointer;">
                 </td>
                 <td style="padding:6px;">
-                    <span style="font-weight:500;">${item.name}</span>
+                    <span style="font-weight:500;">${stripBrackets(item.name)}</span>
                     ${variantText}
                 </td>
                 <td style="padding:6px;font-family:monospace;font-size:12px;">${item.code}</td>
@@ -184,7 +184,7 @@ window.BarcodeLabelDialog = (function () {
         for (const item of items) {
             for (let i = 0; i < item.quantity; i++) {
                 labels.push({
-                    name: item.name,
+                    name: stripBrackets(item.name),
                     code: item.code,
                     price: item.price
                 });
@@ -272,11 +272,11 @@ window.BarcodeLabelDialog = (function () {
     }
 
     .label-name {
-        font-size: 7pt;
+        font-size: 8pt;
         font-weight: bold;
         text-align: center;
         line-height: 1.15;
-        max-height: 6mm;
+        max-height: 8mm;
         overflow: hidden;
         width: 100%;
         word-break: break-word;
@@ -294,7 +294,7 @@ window.BarcodeLabelDialog = (function () {
 
     .label-barcode svg {
         width: 100%;
-        max-height: 10mm;
+        max-height: 7mm;
     }
 
     .label-footer {
@@ -343,7 +343,7 @@ ${labelsHTML}
                 JsBarcode(svg, code, {
                     format: 'CODE128',
                     width: 1,
-                    height: 30,
+                    height: 22,
                     displayValue: false,
                     margin: 0
                 });
@@ -394,6 +394,10 @@ ${labelsHTML}
     function formatPrice(price) {
         const num = parseInt(price) || 0;
         return num.toLocaleString('de-DE');
+    }
+
+    function stripBrackets(str) {
+        return (str || '').replace(/\[[^\]]*\]\s*/g, '').trim();
     }
 
     function escapeHtml(str) {
