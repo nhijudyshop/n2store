@@ -1,0 +1,53 @@
+WhatsApp > WhatsApp Calling
+A guide on how to use the WhatsApp calling feature directly on Pancake.
+Pancake and Meta are testing the integration of WhatsApp Calls. This feature enables your WhatsApp Business page to receive or make calls with customers directly within Pancake.
+1. What are WhatsApp Calls?
+The WhatsApp Calling feature allows your business to receive incoming calls or make outgoing calls directly to customers on Pancake. It helps you:
+	•	Support customers instantly in urgent situations (delivery, reservations, complaints).
+	•	Build trust, as customers know they can reach you directly.
+	•	Reduce reliance on external call centers by using WhatsApp as your main contact channel.
+https://statics.pancake.vn/pancake-docs/2025/9/22/d7e97e24-e62b-42d8-ad64-ed33c6006f63_image.png
+2. Who can use this feature? What's the limitation?
+👉  Requirements:
+	•	Business want to use initiated calling must NOT in the following countries: USA - Canada - Turkey - Egypt - Vietnam - Nigeria
+	•	The phone number registered with WhatsApp Business API must have at least 1,000 business-initiated conversations within the last 24 hours (or higher)
+👉  Limitations
+	•	You can only initiated total 10 calls within 24hrs to your clients.
+	•	With each clients, your business is limited to send 1 call request per 24 hours and 2 call requests per 7 days. This limit will reset once a successful call connection occurs.
+3. Receive incoming calls on Pancake
+Go to Call Settings in Pancake → Select WhatsApp.
+https://statics.pancake.vn/pancake-docs/2025/11/18/e59ae418-1759-4462-bb38-0161c885ac9d_Screenshot 2025-11-18 at 15.49.28.png
+You can specify when your business is available for calls. People can not call you outside call hours. Advanced features, refer to 
+When a customer calls, the screen will display with a ringing bell icon. At this point, you can either tap the green icon to connect immediately or click on the customer’s name to open the call management interface.
+https://statics.pancake.vn/pancake-docs/2025/10/10/1385b928-5d2d-4330-9f55-750e2e01d09f_image_a0f3fce9-dbf3-43b9-945c-1bb288aba704.png
+There is an incoming call
+https://statics.pancake.vn/pancake-docs/2024/11/11/View%20Ho%CC%A3%CC%82i%20thoa%CC%A3i2.png
+There are multiple incoming calls
+Each live agent can only be connected to one call at a time. To make or receive another call, the current call must be ended first.
+The call management interface provides several functions and tools:
+https://statics.pancake.vn/pancake-docs/2024/11/11/Frame%201000006189.png
+Functions on the management dashboard
+https://statics.pancake.vn/pancake-docs/2024/10/19/Screenshot%202024-10-19%20at%2008.29.39.png
+Collapsed management interface
+4. Initiated a call to buyer
+If you want to start a call to a WhatsApp user, your business must first receive the customer’s permission. 
+✅ Within 24hrs windows
+When the chat is inside the 24-hour window (counting from the customer’s last message) → you can send a freeform or template message to request a call.
+✅ Outside 24hrs windows 
+When the chat window is outside the 24-hour window (counting from the customer’s last message) → you must send a template message to request a call.
+How to create a template message with a call request?
+	•	Choose the appropriate template type:
+	•	Utility (Recommended): Used for customer support purposes, such as confirming orders, table reservations, or resolving complaints.
+	•	Marketing: Use only if the message includes promotional or advertising content.
+2. Required component in the template message:
+	•	Body: The main message content where you request the call.
+Example: “We would like to call you to confirm your order. Do you agree?”
+Note: 
+- Keep the message short and neutral - avoid greetings or promotional tones. Do not use words like “allow”, “please tap”, or “permission.”
+- Make it clear that this is a response or confirmation to an existing request (Meta only classifies it as a Utility message if it represents a “next step” in an ongoing process).
+- Do not use emojis, exclamation marks, or special characters. You may use one line break, but avoid writing more than two lines in total.
+	•	Header/Footer: Optional — you can include them to provide additional clarification if needed.
+5. Pricing with business initiated calling
+You will be charged based on the clients's location. 
+Example, if your business is in Indonesia, but you call to a client in Argentina, you will be charged 0.0119 USD/minute. See the pricing below
+6. FAQs

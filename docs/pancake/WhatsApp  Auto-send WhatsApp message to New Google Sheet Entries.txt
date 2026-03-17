@@ -1,0 +1,102 @@
+WhatsApp > Auto-send WhatsApp message to New Google Sheet Entries
+You can combine Botcake and Google Sheets to automatically send a template to the customer's WhatsApp number. Here's how:
+Note: This is a very complex integration which involves a lot of steps. Please contact Pancake team if you need help.
+1. Preparation
+Please double-check the following conditions to make sure your account is ready for setup:
+1.1 Google Sheet
+On your Google Sheet account, create a spreadsheet that you will later use to save your customers' information. You can create as many columns as you need to save the data.
+https://statics.pancake.vn/pancake-docs/2025/5/17/imagecab5a4e7-d4dc-4a8a-9214-eac4acc94ad7.png
+In this example, the customer's information will contain 4 fields: Name, Phone number, Email, and Registration date.
+The spreadsheet MUST contain a Phone number column to determine the customer's WhatsApp number. The phone number MUST contain the country code as WhatsApp can send messages worldwide. 
+Example:
+- Vietnam: 84963848416 - country code 84 
+- India: 919369081825 - country code 91 
+- Indonesia: 6287861820636 - country code 62 
+- Colombia: 573156912137 - country code 57
+1.2 Botcake
+On Botcake, create custom fields to synchronize the data from Google Sheets.
+https://statics.pancake.vn/pancake-docs/2025/5/17/image407988a8-cc76-4d2b-84fd-f9c4f1755e20.png
+If you have 4 data columns in Google Sheets, you must create 4 custom fields accordingly:
+https://statics.pancake.vn/pancake-docs/2025/5/17/image4be7a872-a093-4c25-bd0f-d6e79b98ecb3.png
+2. Setting up the platforms:
+✅ Step 1: Integrate your account Google Account to Botcake and create a webhook URL
+First go to Botcake's setting section and click on Integrations → Click the connect button for Google API integration.
+https://statics.pancake.vn/pancake-docs/2025/5/17/imageef95b083-18ad-4482-a554-6a71654ef90c.png
+You will be redirected to the Google Login page. Please log in to the correct account (which contains the Sheet you want to integrate) and provide all the necessary permissions.
+https://statics.pancake.vn/pancake-docs/2025/5/17/imagef75fdda3-bb1d-431d-bb01-78bb9252cf74.png
+Once done, the interface should look like this. Continue to map the data by clicking the "Connect" Button on the Google Sheet Connect Webhooks.
+https://statics.pancake.vn/pancake-docs/2025/5/17/image28a678c8-1695-49e8-aeb3-802808490946.png
+Choose the correct spreadsheet that you want to get the information form. The worksheet is the exact name of the sheet where the information is. The lookup column is
+https://statics.pancake.vn/pancake-docs/2025/5/17/imageb4644639-2db0-4a42-954d-d752f83e6ab6.png
+After clicking OK, you will get a webhook link like this. We will use this on the second step.
+https://statics.pancake.vn/pancake-docs/2025/5/17/image813df99d-4ce1-4272-a201-e4b2aa9d7fb3.png
+✅ Step 2: Configure the Google Sheet
+1. Install AppSheet and AppSheet Events Add-ons
+In order to trigger events to send data back to Botcake, you will need to use 2 add-on extensions on the Spreadsheet: AppSheet and AppSheet Events.
+On the spreadsheet, click on Extensions → Add-ons → Get add-ons
+https://statics.pancake.vn/pancake-docs/2025/5/17/image7783f290-4088-4bf6-a9f0-5dbf56a2a6c2.png
+Search for AppSheet and AppSheet Events - both provided by Google and install them.
+https://statics.pancake.vn/pancake-docs/2025/5/17/imagebd3ea6c3-0f40-4c7b-b77e-ce9e077fa29f.png
+https://statics.pancake.vn/pancake-docs/2025/5/17/image070eb6ff-8451-4237-8659-b7b8897c04c5.png
+Turn on the event for the Sheet.
+https://statics.pancake.vn/pancake-docs/2025/5/17/imagec580c55e-b2fd-489d-a9b4-2b892fb28416.png
+2. Create a webhook bot
+Next, click on Extensions → AppSheet → Create an app.
+https://statics.pancake.vn/pancake-docs/2025/5/17/image01489a88-b137-42b0-b753-9ede200a2d9f.png
+Click on automation and Create a bot.
+https://statics.pancake.vn/pancake-docs/2025/5/17/image2b49c9fb-7e63-4e07-a0e0-25184c7b8b9b.png
+Give the bot a name.
+https://statics.pancake.vn/pancake-docs/2025/5/17/image8361aac7-8230-4a4d-9d65-dfb2ad19fb6d.png
+Click on Configure event.
+https://statics.pancake.vn/pancake-docs/2025/5/17/imaged8a24160-e0a5-4043-8bcf-fe8a56ebb873.png
+Select the event of "A Customer Data record is created or updated."
+https://statics.pancake.vn/pancake-docs/2025/5/17/image2375ee0a-65f9-4228-afa0-a4f73c19ce40.png
+Make sure the Data change type is correct. You there are 2 options you can choose:
+	•	Adds: The message will be sent every time new data is added to the spreadsheet.
+	•	Updates: The message will be sent every time data is updated.
+If you choose both options, the message will be sent for both cases.
+https://statics.pancake.vn/pancake-docs/2025/5/17/imagea98b4155-62fc-4c5b-8379-4807523ca0e0.png
+Next, click on "Add a step."
+https://statics.pancake.vn/pancake-docs/2025/5/17/imageb6751a9c-70ca-49c2-8e49-bd4d2d7aa3f2.png
+Give this step a name: Call webhook
+https://statics.pancake.vn/pancake-docs/2025/5/17/imagee5a53464-a059-480a-a006-0b49874e73e3.png
+Remember the URL created in step 1? It's time to use it!
+In the settings section, select "Call a webhook" and paste the webhook URL in the URL box.
+https://statics.pancake.vn/pancake-docs/2025/5/17/image0baf77f8-283e-4589-98d8-a7c98ff9370f.png
+After that, please don't forget to save the app.
+Next, click on the Data section and check the KEY and REQUIRE? box for the Phone Number field. Make sure the Phone number is the ONLY KEY in the list.
+https://statics.pancake.vn/pancake-docs/2025/5/17/image2fa8de4f-a335-46f6-9a1e-f0bc2e49f7c6.png
+Since the data are already mapped within the app you created:
+- You can not change the columns' names and criteria. Any changes in the columns will result in the disconnection of the data, and you will need to recreate the app again. 
+- If you add other columns to the sheet, it will not affect the app's operation, but the data will not be synchronized. If you want to synchronize it, recreate the app. 
+- The most important column is the Phone number. If you change the name of this column, ALL DATA WILL NOT BE SYNCHRONIZED.
+Lastly, go to the Deploy section and click on Move app to Deployed state.
+https://statics.pancake.vn/pancake-docs/2025/5/17/image769f5ec2-001e-4b23-910f-e7ac923f2b5b.png
+From now on, when you have a lead on the Google Sheet, it will automatically be synchronized to Botcake as "Google Sheet leads". The information will be saved according to the user custom fields that you have set up in section 1.
+✅ Step 3: Create a flow and a rule in Botcake
+Go back to Botcake and create a new flow. This flow will contain the template that you want to send to the client.
+For the variables in the template, please select the correct Custom Fields that you have created in Section 1.2. The information synchronized from the Google Sheet is stored here.
+https://statics.pancake.vn/pancake-docs/2025/5/17/image59ab909b-8cdf-40ed-bcac-f39a9ca633b3.png
+After selecting the fields, it should look like this.
+https://statics.pancake.vn/pancake-docs/2025/5/17/image75fb4a95-59bc-46ed-8e16-21d216d08c9d.png
+Click Ok and Save the Flow.
+https://statics.pancake.vn/pancake-docs/2025/5/17/image580f37b3-c1c1-4917-8951-043c0b5f76e2.png
+Next, go to the "Rules" section in Automation, and Create a new Rule.
+https://statics.pancake.vn/pancake-docs/2025/5/17/image5165965d-2336-4cd9-9ea0-802c779f22d1.png
+Set the trigger to "New Subscriber"
+https://statics.pancake.vn/pancake-docs/2025/5/17/imagece1f2e27-6aca-464c-96a7-32e03e147515.png
+If you only want to send the message to the leads from Google Sheet, please add the "Source" condition and filter for GOOGLE_SHEET.
+https://statics.pancake.vn/pancake-docs/2025/5/17/image37224307-5bf3-40c5-90fe-e13f6404bb70.png
+https://statics.pancake.vn/pancake-docs/2025/5/17/imagebdd74dee-cb76-4604-8e90-5fc0c709f1b6.png
+After choosing the filter by source, the Botcake view should look like this. Next, click on Action
+https://statics.pancake.vn/pancake-docs/2025/5/17/image587982e3-c6fa-4a56-aec9-fb99071436e7.png
+Select the "Start a Flow" option.
+https://statics.pancake.vn/pancake-docs/2025/5/17/image58c62e84-b8b4-4692-9cff-ae2b262f00c1.png
+Select the flow you prepared.
+https://statics.pancake.vn/pancake-docs/2025/5/17/image1be70a0c-4428-4104-96a5-8acb9922a5c7.png
+Double check the condition and the action, and save.
+https://statics.pancake.vn/pancake-docs/2025/5/17/image80a8fe24-8fc2-4efb-b580-59da8406afa7.png
+Go back to the Rules section, and Turn on the rule you just created.
+https://statics.pancake.vn/pancake-docs/2025/5/17/image76f8c022-9df9-4519-a1ec-d69862e9cf82.png
+✅ Step 4: Testing the integration
+After everything is done, simply insert a new data to the Google Sheet, and watch the magic happen!

@@ -1,0 +1,12 @@
+Connect Pancake with Platforms > Activate Page 
+After connecting to Facebook, Instagram, WhatsApp, or in certain situations, you will need to activate the page.
+1. Pending Activation Connection
+If you don't find your connection on the dashboard after connecting, it may be waiting for activation. You need to activate the page to start using it.
+https://statics.pancake.vn/pancake-docs/2025/7/14/Ảnh màn hình 2025-07-14 lúc 15.07.38.png
+Connection is currently awaiting activation
+Select the desired pages from the list, then click to "Activate" button to enable their use. To activate multiple connections at once, select all applicable pages before proceeding.
+https://statics.pancake.vn/pancake-docs/2025/7/14/Ảnh màn hình 2025-07-14 lúc 15.03.56.png
+Depending on the amount of data on your connection, the activation process may take a few minutes.
+2. Hidden connection
+If you have previously hidden a connection from the dashboard, you can reactivate it from the "Hidden Connection" tab.
+https://statics.pancake.vn/pancake-docs/2025/7/14/Ảnh màn hình 2025-07-14 lúc 15.04.45.png

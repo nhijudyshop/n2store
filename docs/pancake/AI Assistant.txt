@@ -1,0 +1,37 @@
+AI Assistant
+The AI Assistant suite is designed to empower sales and customer support teams, helping them save time and boost work efficiency. 
+What is Pancake AI Assistant?
+What is the difference between Botcake AI and Pancake AI Assistant? 
+
+1. Botcake AI automatically replies to customers based on predefined scenarios and trained data. 
+2. Pancake AI Assistant does NOT automatically reply to customers. Instead, it is a suite of AI features designed to assist consultants and managers in their work.
+Pancake’s AI Assistant suite is designed to empower sales and customer support teams, helping you save time and boost work efficiency. Key features include: automatic reply suggestions, real-time customer sentiment detection, and instant notifications when a customer becomes angry or negative.
+https://statics.pancake.vn/pancake-docs/2025/10/7/2460b54c-0c7a-4d4c-9861-cc61b9c5abb5_image.png
+What can Pancake AI Assistant do?
+1. Smart Auto-Reply Suggestions: Every time a customer sends a message, the AI instantly suggests optimal responses tailored for each scenario. Agents can easily cycle through suggestions using the Tab key and hit Enter to send the most appropriate reply.
+https://statics.pancake.vn/pancake-docs/2025/10/7/2460b54c-0c7a-4d4c-9861-cc61b9c5abb5_image.png
+2. Real-Time Emotion Detection: Leveraging incoming customer messages, the AI detects customer emotions—helping agents adapt their approach for better engagement. 
+
+If customer anger is detected, an automatic tag is added to the conversation so managers stay informed in real time. Integrations with Pancake CRM or Botcake allow management to access comprehensive customer info instantly.
+https://statics.pancake.vn/pancake-docs/2025/10/7/d319a06f-02a9-4269-9807-3bd3c5750649_Screenshot 2025-10-07 at 12.40.41.png
+How to set up Pancake AI Assistant
+To set up Pancake AI Assistant, follow these steps:
+Step 1: Enable AI Assistant
+	•	Go to the Settings section of the page you wish to enable the feature on.
+	•	Select AI Assistant.
+	•	Turn on AI Assistant and select the model you want to use.
+https://statics.pancake.vn/pancake-docs/2025/10/7/d1117ded-5c9d-414c-a1cd-ac1bf26787f4_Screenshot 2025-10-07 at 12.42.30.png
+For best performance, after topping up, use 20–200 conversations to train the AI for your team’s context. Details in the 3rd step below
+Step 2: Add Funds to Your Pancake Wallet
+To access Pancake’s AI Assistant, a Pancake Wallet with funds is required to pay your chosen AI Model provider. If your account already has an eligible wallet balance, you’re ready to use the Assistant.
+https://statics.pancake.vn/pancake-docs/2025/10/7/d1117ded-5c9d-414c-a1cd-ac1bf26787f4_Screenshot%202025-10-07%20at%2012.42.30.png
+	•	Pancake AI Assistant operates using USD in your Pancake Wallet, so please ensure you top up with USD.
+	•	Each AI Assistant action draws a small fee from your wallet. View your payment history at 
+	•	Advanced AI models may incur higher fees per use.
+Pricing
+Step 3: Enable and Customize Your Assistant’s Features
+After crediting your wallet, you can activate reply suggestions, emotion detection, and other AI features as needed.
+For best results, we recommend training your AI Assistant before regular use—this helps ensure highly accurate response suggestions.
+https://statics.pancake.vn/pancake-docs/2025/10/7/d1edd15d-794c-4e37-b51b-80a1369c86fb_Screenshot 2025-10-07 at 11.51.20.png
+https://statics.pancake.vn/pancake-docs/2025/10/7/debcf2c0-563d-4fd0-af63-5f258b7758c4_Screenshot 2025-10-07 at 11.51.55.png
+Each Pancake page is assigned to one dedicated AI Assistant, connected to the first account to enable AI features. The wallet for AI Assistant fees will be linked to this account. Only the owner of this account can change the wallet. Pancake will offer more flexible options in the future.

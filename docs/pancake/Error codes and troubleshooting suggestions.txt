@@ -1,0 +1,5 @@
+Error codes and troubleshooting suggestions
+List of common error codes and how to handle them
+Below is a list of error codes you may encounter while using Pancake and suggestions for solutions.
+Facebook Messenger
+WhatsApp 

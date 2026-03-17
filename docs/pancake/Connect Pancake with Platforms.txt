@@ -1,0 +1,6 @@
+Connect Pancake with Platforms
+How to connect Pancake to Facebook, Instagram, TikTok, Shopee, Lazada, Google Messaging, WhatsApp, personal Zalo, Zalo OA, and Line...
+Which Platforms Can Pancake Connect To?
+Pancake can connect to a wide range of platforms: Facebook, Instagram, TikTok, Shopee, Lazada, Google Messaging, WhatsApp, personal Zalo, Zalo OA, Line, Tokopedia, Website chat plugin, and more.
+https://statics.pancake.vn/pancake-docs/2025/1/14/Screenshot 2025-01-14 at 17.59.56.png
+Connecting Pancake to Various Platforms

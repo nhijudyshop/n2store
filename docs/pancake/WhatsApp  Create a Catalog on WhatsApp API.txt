@@ -1,0 +1,83 @@
+WhatsApp > Create a Catalog on WhatsApp API
+Businesses can activate the Catalog to share products with customers via multi-product messages (Multi-Product) or single-product messages (Single-Product). At the same time, they can showcase products and services directly on WhatsApp, allowing customers to add products to their cart without leaving the conversation, providing a seamless and convenient shopping experience.
+1. How to Create a Catalog
+First, go to Search in Business Manager to find the Commerce Manager tool.
+https://statics.pancake.vn/pancake-docs/2025/2/18/iScreen%20Shoter%20-%20Google%20Chrome%20-%20250218143249.jpg
+Then, search for "Commerce Manager" and click on the Commerce Manager page under the Tools section.
+https://statics.pancake.vn/pancake-docs/2025/2/18/iScreen%20Shoter%20-%20Google%20Chrome%20-%20250218145315.jpg
+After accessing the page, click on Add Product to continue creating the catalog.
+https://statics.pancake.vn/pancake-docs/2025/2/18/iScreen%20Shoter%20-%20Google%20Chrome%20-%20250218145932.jpg
+Step 1: Fill in the Catalog Information
+Choose the appropriate Product Category for your business. Additionally, you can connect with other platforms.
+https://statics.pancake.vn/pancake-docs/2025/2/18/Screenshot%202025-02-18%20at%2016.34.14.png
+Select the Business Profile to run ads and enter the Catalog Name. Then, click Next to proceed to the next step.
+https://statics.pancake.vn/pancake-docs/2025/2/18/Screenshot%202025-02-18%20at%2016.13.45.png
+Step 2: Connect with Tracking Features
+In this step, you can choose to use Meta Pixel or SDK to track the products that people interact with on your website/app, then click Next.
+https://statics.pancake.vn/pancake-docs/2025/2/18/Screenshot%202025-02-18%20at%2017.01.44.png
+Step 3: Set Catalog Permissions
+Here, you can set access permissions (including: View, Edit, or Delete) for the Catalog for Everyone or Partners. Then, click Next to proceed to the next step.
+https://statics.pancake.vn/pancake-docs/2025/2/18/Screenshot%202025-02-18%20at%2017.18.40.png
+https://statics.pancake.vn/pancake-docs/2025/2/19/Screenshot%202025-02-19%20at%2015.47.30.png
+Step 4: Upload Products
+https://statics.pancake.vn/pancake-docs/2025/2/18/Screenshot%202025-02-18%20at%2017.31.47.png
+There are 2 ways to upload products to the Catalog:
+✅ Connect with a Data Source: This will use spreadsheets or files to automatically add and update products.
+Choose the Data Feed Format for the platform and select how to upload the file.
+https://statics.pancake.vn/pancake-docs/2025/2/19/Screenshot%202025-02-19%20at%2015.49.23.png
+Next, confirm the settings by entering the Name and Default Currency you want to set for your products. Then, click Upload to the Product Catalog that you just created.
+https://statics.pancake.vn/pancake-docs/2025/2/19/Screenshot%202025-02-19%20at%2015.50.19.png
+After successfully uploading the product catalog, the following screen will be displayed:
+https://statics.pancake.vn/pancake-docs/2025/2/19/Screenshot%202025-02-19%20at%2016.28.20.png
+✅ Add products manually: Fill out the form to add products and services to the catalog manually. This method makes it easier for users to access and view the items.
+Enter the information to describe the product. Then, click "Upload Item" to add the item to the catalog you just created.
+https://statics.pancake.vn/pancake-docs/2025/2/19/Screenshot%202025-02-19%20at%2015.34.53.png
+You have now completed the first step in creating the product catalog on Business Manager.
+After successfully uploading the product catalog, the following screen will be displayed:
+https://statics.pancake.vn/pancake-docs/2025/2/19/Screenshot%202025-02-19%20at%2015.38.08.png
+To view the details of your business's product catalogs, please check the Catalog List and then select the Data Source of the catalog for more details.
+https://statics.pancake.vn/pancake-docs/2025/2/19/iScreen%20Shoter%20-%20Google%20Chrome%20-%20250219164510.jpg
+2. How to Connect the Catalog to the WhatsApp Business Account
+To connect the product catalog to your WhatsApp Business Account:
+First, go to your WhatsApp Account, then select WhatsApp Manager.
+https://statics.pancake.vn/pancake-docs/2025/2/19/iScreen%20Shoter%20-%20Google%20Chrome%20-%20250219175606.jpg
+Then, select "Catalog" under the Tools section in the account and click "Select Catalog" to connect to the catalog you want.
+https://statics.pancake.vn/pancake-docs/2025/2/20/iScreen%20Shoter%20-%20Google%20Chrome%20-%20250220092852.jpg
+Then, click "Connect Catalog" to link the catalog with your WhatsApp Account.
+https://statics.pancake.vn/pancake-docs/2025/2/20/iScreen%20Shoter%20-%20Google%20Chrome%20-%20250220093556.jpg
+Here, you can choose and change your Business Phone Number.
+If you want to disconnect the selected product catalog, you can choose Disconnect Catalog to cancel the connection.
+https://statics.pancake.vn/pancake-docs/2025/2/20/iScreen%20Shoter%20-%20Google%20Chrome%20-%20250220094006.jpg
+As shown on the screen above, the product catalog Catalog_Products has been successfully connected to the WhatsApp Account Dieulinh12345, with the phone number +84 35701 3723.
+3. How to Connect the Product Catalog with Botcake
+Sending product Catalog messages via Botcake makes the process of sending messages quicker and more convenient than ever. Before using this feature, you need to connect the product catalog with Botcake to send messages effectively.
+Please visit your business's Botcake website, then click on Configuration.
+Select Catalog Configuration under the WhatsApp section
+https://statics.pancake.vn/pancake-docs/2025/2/20/iScreen%20Shoter%20-%20Google%20Chrome%20-%20250220101027.jpg
+Then, select Message Flow → Create New to create a new message flow.
+https://statics.pancake.vn/pancake-docs/2025/2/20/iScreen%20Shoter%20-%20Google%20Chrome%20-%20250220101413.jpg
+Enter the Message Flow Name and click Agree.
+https://statics.pancake.vn/pancake-docs/2025/2/20/Screenshot%202025-02-20%20at%2010.17.15.png
+Select Create Message Flow here as "Message".
+https://statics.pancake.vn/pancake-docs/2025/2/20/iScreen%20Shoter%20-%20Google%20Chrome%20-%20250220101841.jpg
+Enter the message content and then select E-commerce to attach the catalog.
+https://statics.pancake.vn/pancake-docs/2025/2/20/iScreen%20Shoter%20-%20Google%20Chrome%20-%20250220102203.jpg
+Then, select the Catalog you want to connect → click "Complete" to proceed to the next step.
+https://statics.pancake.vn/pancake-docs/2025/2/20/Screenshot%202025-02-20%20at%2017.04.38.png
+On the screen, you will see a preview of the catalog you just added. Make sure to click "Save".
+https://statics.pancake.vn/pancake-docs/2025/2/20/iScreen%20Shoter%20-%20Google%20Chrome%20-%20250220170834.jpg
+Next, select Care Script under the "Automation" section → Click "New Script" → Create a name for the Care Script.
+https://statics.pancake.vn/pancake-docs/2025/2/20/iScreen%20Shoter%20-%20Google%20Chrome%20-%20250220171156.jpg
+After creating the script, click on the script you just created → This view will appear → Select "This Button".
+https://statics.pancake.vn/pancake-docs/2025/2/20/iScreen%20Shoter%20-%20Google%20Chrome%20-%20250220171637.jpg
+Next, select "Choose from the existing list" that you created in the previous steps.
+https://statics.pancake.vn/pancake-docs/2025/2/20/iScreen%20Shoter%20-%20Google%20Chrome%20-%20250220171905.jpg
+Here, you will see the catalogs you have created. Select the catalog you want to connect → Click Confirm to proceed.
+https://statics.pancake.vn/pancake-docs/2025/2/20/iScreen%20Shoter%20-%20Google%20Chrome%20-%20250220171957.jpg
+After adding the script, click "Activate" to get started.
+https://statics.pancake.vn/pancake-docs/2025/2/20/iScreen%20Shoter%20-%20Google%20Chrome%20-%20250220172300.jpg
+The next step is to go to your Pancake Business Account to start using this feature.
+Select the Quick Message Feature from Botcake. Then, choose the Catalog you created and click Send.
+https://statics.pancake.vn/pancake-docs/2025/2/20/Screenshot%202025-02-20%20at%2017.28.20.png
+Make sure that you have created a Wallet and preloaded funds to ensure a smooth and seamless process when sending messages to customers.
+This is the entire process for setting up and connecting the product catalog, which will help you easily send messages to customers efficiently.

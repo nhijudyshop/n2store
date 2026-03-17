@@ -1,0 +1,23 @@
+Pancake Subscription > Creat new Pancake Subscription
+How to create a new Pancake subscription according to your needs:
+	•	Step 1: Go to the Pancake Account Management page at 
+	•	Step 2: Select Create
+https://statics.pancake.vn/pancake-docs/2025/10/24/df0eaf7b-f54f-4ef6-96a2-f278817e2455_Screenshot 2025-10-24 at 09.11.15.png
+On the subscription management screen, click "Create"
+	•	Step 3: Choose a suitable pre-made subscription, or select Create custom plan to tailor a plan to your needs.
+https://statics.pancake.vn/pancake-docs/2025/10/24/6e643849-2617-4af7-b8a0-e64a3cc5bf0c_Screenshot 2025-10-24 at 09.12.47.png
+Pick an available Pancake subscription plan or create one customized for you
+	•	Step 4: Once you’ve chosen your plan, click Create Subscription to proceed.
+https://statics.pancake.vn/pancake-docs/2025/10/24/edcbc893-32af-4d7a-af13-1d8ebaa9e562_Screenshot 2025-10-24 at 09.15.18.png
+Click "Create subscription" to create your Pancake package.
+	•	Step 5: Enter electronic invoice information as required. Once completed, click Save and get QR code for payment.
+https://statics.pancake.vn/pancake-docs/2025/10/24/f26e09f4-7e91-460f-bff9-bb71f5dd32f1_Screenshot 2025-10-24 at 09.20.47.png
+Enter electronic invoice information
+	•	Step 6: Make payment by scanning the QR code displayed on the screen. 
+https://statics.pancake.vn/pancake-docs/2025/10/24/cd35474d-ca97-4095-b5ce-e62ed81f840f_Screenshot 2025-10-24 at 09.23.50.png
+Pay for your Pancake subscription
+- After your transfer is successfully processed, the system will activate your subscription within a few minutes. 
+- If you entered incorrect information or your subscription isn't activated automatically, please contact us
+https://statics.pancake.vn/pancake-docs/2025/10/24/4be1532e-4fac-4d2c-a604-dca1de06878d_Screenshot 2025-10-24 at 09.34.48-Photoroom.png
+Payment Successful
+Once your subscription plan is activated, you can add staff members and platforms to start using Pancake.

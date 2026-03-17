@@ -1,0 +1,32 @@
+WhatsApp > Send OTP on WhatsApp via Botcake API
+You can send custom OTP codes from your system to the customer's WhatsApp using Botcake's API. Here's how:
+https://statics.pancake.vn/pancake-docs/2025/7/21/image44752404-1a7e-4c9f-9eab-16e514f7c951.png
+1. Create an 'Authentication' template for your code.
+In WhatsApp Manager, create an 'Authentication' template for the One-time Passcode
+https://statics.pancake.vn/pancake-docs/2025/7/21/image4f84c2a8-9eaf-44dd-af07-4c73da1bea86.png
+Fill in the information needed and choose the Code delivery setup. There are 3 options to choose from:
+	•	Zero-tap autofill: Automatically send code without requiring your customer to tap a button. An autofill or copy code message will be sent if zero-tap and autofill aren’t possible.
+	•	One-tap autofill: The code sends to your app when customers tap the button. A copy code message will be sent if autofill isn’t possible. (App setup required)
+	•	Copy code (Recommended): Basic authentication with quick setup. Your customers copy and paste the code into your app. This is the most basic yet most reliable way to setup your code.
+https://statics.pancake.vn/pancake-docs/2025/7/21/imagee3404080-890c-438b-bdb1-e72a6937c6df.png
+You can also customize the button text and set the validity period for the template.
+https://statics.pancake.vn/pancake-docs/2025/7/21/image3b64495f-5822-472b-82dd-497e760b9b4e.png
+2. Set up the flow in Botcake
+Go to Botcake and create a new flow.
+https://statics.pancake.vn/pancake-docs/2025/7/21/image79185a47-6c1a-4112-b0a6-e706c78df997.png
+In the flow, clear the existing content and select 'Templates'.
+https://statics.pancake.vn/pancake-docs/2025/7/21/image4c3a9278-52ec-49fa-a0c2-796cb9f7d71c.png
+Fill the parameters in the template with the parameter name in your system. Make sure it's between the curly brackets, for example: {{code}}
+https://statics.pancake.vn/pancake-docs/2025/7/21/imagefd686a6a-7f02-4df0-80d0-20dcd95e52f4.png
+Your flow should look like this. Please remember to save the flow after finishing.
+https://statics.pancake.vn/pancake-docs/2025/7/21/image33a4adf0-de36-4069-a031-584382bcc445.png
+3. Calling the Botcake API
+3.1. Get the Public token:
+https://statics.pancake.vn/pancake-docs/2025/7/21/image33e34415-e68d-450c-931a-c8d11c4d3680.png
+3.2. Get the Page and Flow ID:
+https://statics.pancake.vn/pancake-docs/2025/7/21/image893cbc95-6cbd-4224-ba25-bde939c92009.png
+3.3. Send the flow to your client
+Trigger the following API to send the template message to your client. Replace the parameter with the OTP generated from your system.
+Send Flow to Customer
+Headers
+Request Body

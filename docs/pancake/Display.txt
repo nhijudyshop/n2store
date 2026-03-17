@@ -1,0 +1,20 @@
+Display
+Instructions for configuring the display for your Page. For personal display settings, please refer to the Account Settings section.
+https://statics.pancake.vn/pancake-docs/2025/7/31/Ảnh màn hình 2025-07-31 lúc 09.35.16.png
+Page display settings
+Display settings
+1. Display Main Assigned Account
+Show the main assigned account in the conversation list: When this option is enabled, the account assigned as the main handler for the conversation will be displayed in the conversation list, as shown in the highlighted area below.
+https://statics.pancake.vn/pancake-docs/2025/7/31/Ảnh màn hình 2025-07-31 lúc 09.35.35.png
+Main asssigned account in the conversation list
+2. Display account currently viewing the message
+Show the account currently viewing the message in the conversation list: When this option is enabled, you will see which account is currently viewing the message in the conversation list, as shown in the highlighted area below.
+https://statics.pancake.vn/pancake-docs/2025/7/31/Ảnh màn hình 2025-07-31 lúc 09.37.18.png
+3. Page color
+Page color will help you quickly distinguish messages from different pages when using the merged pages mode. The selected color will appear in two places:
+	•	In the page list
+	•	In the conversation list, before each conversation
+https://statics.pancake.vn/pancake-docs/2025/7/31/Ảnh màn hình 2025-07-31 lúc 09.43.03.png
+Color displayed in the page list
+https://statics.pancake.vn/pancake-docs/2025/7/31/Ảnh màn hình 2025-07-31 lúc 09.43.15.png
+Color displayed in the conversation list

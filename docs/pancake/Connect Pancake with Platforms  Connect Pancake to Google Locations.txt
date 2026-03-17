@@ -1,0 +1,28 @@
+Connect Pancake with Platforms > Connect Pancake to Google Locations
+Instructions for connecting Pancake with Google Locations, which are managed in Google Business Profile
+What is google location?
+Google Locations are verified places on Google Maps, managed through Google Business Profile ().
+What is the purpose of connecting Pancake with Google Locations?
+When you connect Pancake with Google Locations, you can manage and respond to customer reviews about your business locations directly within the platform.
+https://statics.pancake.vn/pancake-docs/2025/7/7/Ảnh màn hình 2025-07-07 lúc 10.05.33.png
+Steps to Connect Pancake with Google Locations
+Before you begin:
+You need a Gmail account that manages your business locations on Google.
+Step 1: Go to the Connect section
+	•	From the Dashboard, select Connect
+	•	Choose Google.
+https://statics.pancake.vn/pancake-docs/2025/7/7/Ảnh màn hình 2025-07-07 lúc 09.54.01.png
+Step 2: Create a Google Locations Page
+	•	Create a Connection Name and a Display Name to help distinguish this page from others in your Pancake Dashboard.
+Example: The Display Name is highlighted in red, and the Connection Name is highlighted in green, as shown in the image below.
+https://statics.pancake.vn/pancake-docs/2024/8/24/image5af9df4e-bfa6-4100-8181-5f449ab68032?url=https%3A%2F%2F4078023836-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252FYnoXIEwev8YlAw6px2sv%252Fuploads%252FeLHcxxyAPH0ClPTJkjUU%252Fimage.png%3Falt%3Dmedia%26token%3Df48fe1ef-a7dc-4a3b-bc7f-d1d0532e2eba&width=300&dpr=4&quality=100&sign=f60b984d&sv=1
+	•	Add an image for your Google Locations page.
+https://statics.pancake.vn/pancake-docs/2025/7/7/Ảnh màn hình 2025-07-07 lúc 09.55.45.png
+	•	Click Connect with Google Account to continue.
+Step 3: Sign in to the Gmail account that manages your business locations, then grant Pancake the necessary permissions to access your data.
+https://statics.pancake.vn/pancake-docs/2025/7/7/Ảnh màn hình 2025-07-07 lúc 09.59.05.png
+https://statics.pancake.vn/pancake-docs/2025/7/7/Ảnh màn hình 2025-07-07 lúc 09.59.37.png
+Step 4: Select the locations you want to connect to Pancake for managing reviews, then click Save Locations.
+- You can connect up to 30 locations to a single Google Locations page on Pancake. --- Pancake syncs customer reviews every 6 hours, so you may not see new reviews immediately.
+If you don’t manage any locations, you may encounter an error like the one shown below. Please start over and make sure to log in with the correct Gmail account that manages the business locations.
+https://statics.pancake.vn/pancake-docs/2025/7/7/Ảnh màn hình 2025-07-07 lúc 10.00.50.png

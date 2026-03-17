@@ -1,0 +1,31 @@
+WhatsApp > Mass Broadcast / Blasting on WhatsApp API > Broadcast with the customer's name from an Excel file
+You can broadcast the information you already have in an Excel file format
+Using WhatsApp API, you can broadcast mass messages to the client's WhatsApp number.
+Note: While broadcasting via WhatsApp may seem convenient, it's crucial to adhere to best practices. Your WhatsApp API number may be blocked if clients report or block your broadcasts. Avoid spamming clients, refrain from sending inappropriate content, and always provide an option for clients to unsubscribe from your broadcast stream.
+1. Preparation
+To do a proper broadcast, please ensure that your WhatsApp number is working properly on Botcake. If you do not see your number appear here, please click the "Add new page" button and connect it.
+https://statics.pancake.vn/pancake-docs/2025/3/24/imagee8dee4c4-9636-496b-9948-943df63009f1.png
+Next, prepare an Excel file with 2 columns: Phone number and Full name. In this Excel file, the first column must always be the client's phone number with the country code.
+https://statics.pancake.vn/pancake-docs/2025/3/25/image15183f28-f708-4a8c-ba16-c374b1e5f9dc.png
+Finally, head to WhatsApp Manager to create a template with 1 variable to automatically fill the name.
+If you do not know how to create a template, 
+https://statics.pancake.vn/pancake-docs/2025/3/25/image6d118bb1-d08a-4a70-950b-06c4a9940426.png
+Please double-check the template's content, and save it before moving to Botcake.
+2. Broadcast away!
+To create a broadcast campaign, choose “Broadcasts” on the toolbar → “+ New message”
+https://statics.pancake.vn/pancake-docs/2025/3/25/image592e71fb-a8fb-43c2-9997-bcb36dce4c00.png
+On the “New messages”, delete the default content and choose “Templates”.
+https://statics.pancake.vn/pancake-docs/2025/3/25/imagec777d903-55d1-49de-97c8-77753fa086f5.png
+Choose the approved template that you prepared from the list. Then, fill in the column name in the corresponding parameters (variables). Please remember to copy the EXACT column name, and keep it between two braces {{ }}
+https://statics.pancake.vn/pancake-docs/2025/3/25/image6c989e8b-9881-4b31-8d93-c7142f0867a2.png
+Sending templates means opening a new 24h conversation, you’ll be charged once the templates are sent successfully, and the fee depends on the type of your template. More pricing details are here.
+After the setting is complete, it should look like this. Please check the template's content carefully, then click “Settings” or “Next step”.
+https://statics.pancake.vn/pancake-docs/2025/3/25/image3e2137c9-09c0-4903-9268-9917b305c3c6.png
+On the Broadcast setting tab, choose the third option and upload the excel file you prepared. Please double-check the file to make sure the phone numbers include the country code, and the information you want to broadcast is correct.
+https://statics.pancake.vn/pancake-docs/2025/3/25/imagebf69abb1-5b26-48b3-b455-8237ae1d473c.png
+For the “Number of customers” and “Maximum frequency of sending” sections you can use the default settings.
+https://statics.pancake.vn/pancake-docs/2025/3/25/imagedbe2ff1d-dad8-4003-83db-3359f86f3b80.png
+Finally, choose “Send now” to send mass messages to your customers.
+https://statics.pancake.vn/pancake-docs/2025/3/25/image6be17e61-22d3-4ec6-81f2-e5d4f811a379.png
+The template will be sent directly to the recipients in the excel file.
+Congratulation! You have just completed a broadcast campaign on Botcake!

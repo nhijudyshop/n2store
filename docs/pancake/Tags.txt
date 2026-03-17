@@ -1,0 +1,35 @@
+Tags
+Conversation tags help you label and organize chats, such as marking them as “VIP Customer” or “Order Confirmed.” The system also tracks how often each tag is used, shows which tags are used the most, and lets you export the data to Excel for easy review and analysis.
+1. What are Conversation Tags?
+1.1 Definition
+Tags are labels that you or staff can add to each conversation to help organize, track, and report them easily.
+🧠 Example: VIP Customer, Work, Waiting for Reply,..
+Using tags helps you quickly understand the status of a conversation, analyze customer service performance, and manage team tasks more effectively.
+1.2 Purpose
+You can use conversation tags to:
+	•	See which tags are used the most
+	•	Track how tags change over time
+	•	Export reports to Excel for analysis and recordkeeping
+2. Date range
+To view data relevant to your needs, you need to choose the desired time.
+You can select your desired period (by day, week, month, year, etc.). This helps filter the data according to your specific analysis goals.
+https://statics.pancake.vn/pancake-docs/2025/4/27/iScreen Shoter - Google Chrome - 250427181253.jpg
+🧠 Example: The statistics in the Tags will be filtered for this month, specifically from April 1, 2025, to April 27, 2025.
+The time frame selected in the "Overview" section may differ from that in the "Tags" section. Please double-check to ensure you're viewing the correct data.
+3. Analytics charts
+After selecting a date range, you will see visual charts displaying tag usage performance, including: Top 5 - Most pinned tag and Ratio of being pinned tag.
+https://statics.pancake.vn/pancake-docs/2025/4/27/iScreen Shoter - Google Chrome - 250427181358.jpg
+🔹 Top 5 productive buddies: Displays the 5 tags with the highest total number of times they were added.
+	•	Formula: Pinned tag = Pinned times - Unpinned times
+🔹 Ratio of being pinned tag: Displays the percentage of the most frequently used tags out of the total number of taggings, counting only tags that have been used at least once.
+	•	Formula: Ratio of being pinned tag = (Number of messages + comments made by Staff A) / (Total number of messages + comments made by all staff)
+🧠 Example: In the chart shown, the tag "KH quay lại" was tracked for usage in this month:
+	•	Top 5 productive buddies: This tag was pinned 11 times, with 0 unpinned.
+	•	Ratio of being pinned tag: The tag accounts for 9,6% out of a total of 115 taggings.
+🔍 To understand the definitions of each metric in more detail, please refer to the Detail tag  Statistics section below the chart.
+4. Detail tag statistics
+This chart provides detailed information about the number of Pinned times, Unpinned times, and the total Pinned tag within the selected time period.
+https://statics.pancake.vn/pancake-docs/2025/4/27/iScreen Shoter - Google Chrome - 250427181449.jpg
+You can view detailed daily statistics for the selected time range, including Today. The system also clearly displays the specific times during the day when each tag was added or removed.
+Note: The system records the date based on when you performed the action, not the time of the conversation.
+The detailed statistics table helps you closely monitor the number of pin/unpin for each tag by day and specific time, allowing you to evaluate the effectiveness of tag usage during customer care activities.

@@ -1,0 +1,24 @@
+Connect Pancake with Platforms > Connect Pancake to Youtube
+Guide to Connecting Pancake with YouTube to Manage Comments and Videos on Your Channel
+Check Connection Permissions
+Your Gmail account must be the owner of the YouTube channel to connect it with Pancake. Users with the Manager role cannot connect. Follow the steps below to check:
+Step 1: Go to the YouTube channel you want to connect to Pancake.
+On the YouTube interface, navigate to the channel you wish to connect, then click Customize Channel.
+https://statics.pancake.vn/pancake-docs/2025/7/14/Ảnh màn hình 2025-07-14 lúc 14.40.24.png
+Step 2: Go to Settings and select the Permissions tab.
+Here, you will see the Gmail account listed with the Owner role. This is the Gmail account that has the required permissions to connect Pancake with the YouTube channel.
+https://statics.pancake.vn/pancake-docs/2025/7/14/Ảnh màn hình 2025-07-14 lúc 14.35.05.png
+Steps to Connect Pancake with Your YouTube Channel
+The following guide will help you connect Pancake with your YouTube channel to manage comments on your videos.
+Step 1: Log in to Pancake and go to the Connect section.
+Step 2: Select Connect with YouTube.
+https://statics.pancake.vn/pancake-docs/2025/7/8/Ảnh màn hình 2025-07-08 lúc 09.30.53.png
+Step 3: In the popup window, sign in with the Gmail account that is the Owner of the YouTube channel.
+If you own multiple YouTube channels, you can select the desired one during this step. By default, each Gmail account is usually linked to at least one YouTube channel.
+https://statics.pancake.vn/pancake-docs/2025/7/14/Ảnh màn hình 2025-07-14 lúc 14.44.27.png
+https://statics.pancake.vn/pancake-docs/2025/7/14/Ảnh màn hình 2025-07-14 lúc 14.44.37.png
+Step 4: Grant Pancake permission to access the selected YouTube channel.
+You need to check the option that allows Pancake to:
+View, edit, and permanently delete your YouTube videos, ratings, comments, and captions.
+https://statics.pancake.vn/pancake-docs/2025/7/14/Ảnh màn hình 2025-07-14 lúc 14.44.50.png
+Step 5: Click "Continue" to complete

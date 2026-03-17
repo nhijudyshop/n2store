@@ -1,0 +1,66 @@
+Engagement
+The Engagement and Order Report on Pancake helps you track how well your staff are performing, how many customer engagements they’ve had, how many orders they’ve closed, and the conversion rates. This helps you easily evaluate staff performance and make informed decisions.
+SUMMARY OF TERMS & FORMULAS
+1. Selecting Data
+Before checking any stats, you need to choose the staff and period you want to view. This helps filter out exactly what you need.
+https://statics.pancake.vn/pancake-docs/2025/4/27/iScreen Shoter - Google Chrome - 250427171659.jpg
+✅ Step 1: Choose "Customer engagement"
+	•	Start by choosing the User (that means it's Staff )  whose engagement data you want to check.
+	•	You can choose one, all, or multiple staff members (Hold Command + Click to select more than one).
+✅ Step 2: Choose "Date Range"
+Next, select the date or period you want to analyze.
+You can view detailed data by hour, day, week, month, or year, depending on your needs.
+🧠 Example: The statistics in the Engagement will be filtered for this month, specifically from April 1, 2025, to April 27, 2025.
+ The time range in the "Overview" section might be different from the one in "Engagement". Make sure to double-check so you’re looking at the correct data.
+2. Analytics charts
+2.1 Customer Engagements
+The "Customer Engagements" chart shows how many times staff engaged with customers
+→ Letting you compare it to the previous period.
+https://statics.pancake.vn/pancake-docs/2025/4/27/iScreen Shoter - Google Chrome - 250427171742.jpg
+- Formula: 
+Total Engagements = Engagements with New Customers + Engagements with Old Customers
+- Engagements include 2 types: 
+Engagement via message and Engagement via comment
+🧠 Example: The chart above shows the total customer engagements by all staff members in this month (based on the current date: April 27, 2025), as follows:
+🔄 Compared to the last month (from March 01, 2025 to March 31, 2025):
+🔍 For a more detailed view of the engagement statistics, please scroll down to section 3.1 – “Customer Engagement” below.
+2.2 Orders created
+The Order chart displays order data from both Pancake and POS systems. It helps you compare and evaluate the difference in the number of confirmed orders between the current and previous periods. 
+Note: Order from Pancake
+- The order will count for you if you are the one assigned to the order.
+- In case an order has been counted as an  order (order's status different from New), then "Cancelled" or "Refunded", the system will automatically reduce the  order statistics.
+- Because the formula for determining "order" is different between Pancake and POS systems. So the statistics between the two systems may not be consistent.
+Details: 
+- Total number of orders = Orders from new customers + Orders from existing customers. 
+- Based on the number of orders and customer interactions, you can calculate: The conversion rate from new customers and the conversion rate from old customers.
+🧠 Example: The chart above shows the number of confirmed orders by all staff in this month (as of the current date: 27/04/2025) from both Pancake and POS systems:
+🔄  Compared to the last month (from March 01, 2025 to March 31, 2025):
+🔍 To view more detailed statistics on interactions, please scroll down to section 3.2 – “Orders created.”
+3. Detail engagement statistics
+This chart provides detailed information on engagement by time (day and hour) and by staff.
+	•	By time: Engagement is displayed by day for the staff selected above.
+	•	By staff: Engagement is shown for each staff member within the selected time range.
+3.1 Customer engagement
+The statistics in the "Customer engagement" table include:
+	•	Engagement with old Customers: The number of times staff engage with old customers (customers who had been previously engaged) via both messages and comments.
+	•	Engagement with New Customers: The number of times staff engage with new customers (customers who had not been previously engaged by any staff) via both messages and comments.
+	•	Total Interaction with Old and New Customers: The total number of engagements staff had with customers (both new and old) via either comments or messages.
+=>Total engagement = Engagement with Old Customers + Engagement with New Customers
+	•	Messages: Total number of times staff engage with customers (new + old) via messages.
+	•	Comments: Total number of times staff engage with customers (new + old) via comments.
+	•	New Message Conversations: Customers who engage via a message conversation for the first time (even if they had previously engaged via comments).
+All staff interactions must be performed via the Pancake system. If an engagement is sent outside of Pancake → it will not be counted in the statistics.
+3.2 Confirmed Orders
+When you filter order statistics from Pancake or POS, the detailed table below will automatically update accordingly.
+The "Orders created" table includes the following metrics:
+	•	New Customers: Number of orders created from new customers on that day.
+	•	Old Customers: Number of orders created from returning customers on that day.
+	•	Total Confirmed Orders (New + Old): The total of orders created from both new and old customers.
+=> Total Orders created = Orders from New Customers + Orders from Old Customers
+Note:
+- If a new customer engages and creates an order on the same day → it counts as a New Customer Order.
+- If a new customer engaged the previous day but creates an order the next day → it is counted as an Old customer Order.
+	•	New customer order ratio: Created orders from new customers/ Total engagement with new customers.
+	•	Old customer order ratio: Created orders from old customers/ Total engagement with old customers.
+=> Average Conversion Rate = Total created orders/ Total customer engagement (both New + Old).
+From these data points, you can easily assess your team’s performance in engaging with customers and the number of created orders they've completed.

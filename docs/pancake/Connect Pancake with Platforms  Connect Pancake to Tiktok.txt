@@ -1,0 +1,22 @@
+Connect Pancake with Platforms > Connect Pancake to Tiktok
+On Pancake, in order to connect with TikTok Account, we have 3 options TikTok Business Messaging and TikTok Livestream AIO.
+1. TikTok Business Messaging
+1.1 What is TikTok Business?
+TikTok Business is an upgraded account type converted from a regular (personal) TikTok account. It is designed for individuals or organizations engaging in business activities. With a TikTok Business account, you are eligible to run TikTok Messaging Ads.
+1.2 What is the TikTok Business Messaging API?
+TikTok Business Messaging API is a tool that allows businesses to manage their TikTok Direct Messages through the Pancake platform.
+Pancake is currently the exclusive partner in Vietnam and one of the global partners of TikTok Business Messaging.
+Through Pancake, TikTok users can easily manage conversations across their TikTok Business accounts in one centralized place.
+- A regular TikTok account and a TikTok Business account are not significantly different, and there is no fee for switching to a Business account.
+ 
+- A TikTok Business account allows you to run Click-to-Message ads — a feature that is not available for regular accounts.
+1.3 How to convert a regular TikTok account to a TikTok Business account?
+	•	✅ Step 1: Go to 
+	•	✅ Step 2: Fill in the required information about your business category, then click "Become a Business" to complete the process.
+https://statics.pancake.vn/pancake-docs/2024/9/9/image875fc1df-e348-4031-9f2b-1c090bf51889.png
+After successfully converting your personal TikTok account into a TikTok Business account. To continue connecting TikTok Business with Pancake, please check the detailed guide .
+2. TikTok Livestream AIO
+This is an exclusive, UNOFFICIAL SOLUTION by Pancake, allowing users to manage conversations on personal TikTok accounts and TikTok Shop—including automated order closing on live streams and more.
+To continue connecting TikTok Livestream AIO with Pancake, please check the detailed guide 
+3. Feature Comparison
+The table below compares the features of the three TikTok-related solutions currently offered by Pancake. You may connect one TikTok account to two solutions at the same time.

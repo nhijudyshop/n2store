@@ -1,0 +1,30 @@
+WhatsApp > MMlite - Marketing Message Lite
+MM API for WhatsApp is our next-generation marketing solution built to enhance the customer experience and deliver the right message to more of the right people.
+Marketing Messages API for WhatsApp (formerly known as Marketing Messages Lite API) is now generally available.
+Key benefits
+Boost and measure business results: 
+With our automatic delivery optimizations, you can reach more of the people who will find your messages valuable and may drive more reads and clicks. You can also access exclusive measurement insights:
+Enhance customer experience and engagement: 
+MM API for WhatsApp helps deliver more relevant and timely marketing messages to customers with exclusive features like:
+Upgrade easily, with consistent reliability and security: 
+MM API for WhatsApp is easy-to-use, reliable, and secure. It offers a similar technical schema and same billing model as Cloud API, and businesses can use existing phone numbers and MM templates.
+Onboarding to MMlite
+Step 1: Accept the Terms of Service
+You'll need someone with full control of the business portfolio (BM) to accept the Terms of Service and onboard MM API for WhatsApp via WhatsApp Manager.
+
+https://statics.pancake.vn/pancake-docs/2025/12/31/558926094_1235414315279342_7583244811951760368_n.jpg?stp=dst-jpg_s2048x2048_tt6&_nc_cat=109&ccb=1-7&_nc_sid=b07905&_nc_ohc=T3E8mFFzcZkQ7kNvwE0zJaq&_nc_oc=Admq90Y15fWoy5ML2wuMMZ2CJqKwTRRjBETfklHZq7YJHkkwjoDMvGeQ0B7pTd0gneihhnidycxq5o-tjDrd15tG&_nc_zt=23&_nc_ht=scontent.fthd2-1.fna&_nc_gid=KJ135tIj2wnAoRogktdjqw&oh=00_AfkLCm4XSDJ5FLz4MWpa0pTFVOlm2trNyeDn-s3BTGuG4w&oe=695ADB66
+Watch the video
+	•	Open WhatsApp Manager > Overview.
+In the Alerts section, click Accept terms to get started with Marketing Messages API for WhatsApp.
+Follow the steps to complete the MM API for WhatsApp Terms of Service.
+You are now ready to start sending messages via MM API for WhatsApp.
+If you are unable to access your WhatsApp Manager, .
+Step 2: Turn on Marketing Message signals for Ads Optimization
+	•	Go to your BM > WhatsApp Account
+	•	Choose the WhatsApp Account
+	•	Turn on all options in the Privacy and data sharing
+https://statics.pancake.vn/pancake-docs/2026/3/17/e31751a6-9a6e-4276-bc53-40fec7007ede_Screenshot 2026-03-17 at 12.03.19.png
+Step 3: Check the onboarding status
+	•	Go to your WhatsApp on Pancake > Settings
+	•	Scroll to the bottom of General settings. Make sure the MMlite Status shows Onboarded
+https://statics.pancake.vn/pancake-docs/2026/3/17/1bee0570-e1fd-4c68-b883-79750ad3da98_Screenshot 2026-03-17 at 12.09.06.png

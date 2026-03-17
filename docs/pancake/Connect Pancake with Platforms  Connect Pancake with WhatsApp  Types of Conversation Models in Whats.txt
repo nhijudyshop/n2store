@@ -1,0 +1,41 @@
+Connect Pancake with Platforms > Connect Pancake with WhatsApp > Types of Conversation Models in WhatsApp API 
+In WhatsApp API, a conversation can be divided into the following types:
+In WhatsApp API, a conversation can be divided into four types of message templates as follows:
+	•	Marketing: This type of message serves various marketing purposes, including increasing brand awareness, announcing discounts, promoting new products or features, and remarketing,.v.v. to customers.
+	•	Utility: These messages provide updates, order status notifications, account information, surveys, and more.
+	•	Authentication: These messages are used to send OTP codes to customers for verification.
+	•	Service: These are response messages sent to customers when they initiate contact first, and they are free of charge.
+For more examples of message template classifications, please .
+For the types of messages mentioned above, Service messages are free of charge, while the other three types—Marketing, Utility, and Authentication—will incur charges.
+2. Introduction to WhatsApp API Conversation Model
+WhatsApp API charges based on a conversation model, where the system charges for a 24-hour message thread rather than for individual messages.
+Each conversation on WhatsApp API lasts 24 hours, starting from when the customer receives the first message from you.
+When businesses want to send proactive messages to customers, they need to use pre-approved Message Templates created in Meta Management, which include Marketing, Utility, and Authentication.
+1. When the customer initiates the conversation: 
+- If you reply with a regular message (Service) → The conversation will be free of charge. 
+- If you reply with a template (Marketing, Utility, Authentication) → The conversation will be charged based on the number of template messages sent. 
+2. When you initiate the conversation with a template message, Pancake will temporarily deduct the cost from your wallet when the message is successfully sent. 
+- If the customer replies, and you respond with a regular message (Service), there will be no extra charge. 
+- If you reply with a different template message (other than the one you originally sent), an extra charge will apply. 
+- If the message is free based on Webhook data, the amount will be refunded after the customer receives the message. 
+Note:  
+- This is a pre-paid system. So, if you want to send 1,000 template messages, make sure your wallet has enough funds to cover the cost. 
+- Your account must have at least $5 to use Message Templates.
+To better understand the types of conversations, please see the following examples:
+Example 1: The business proactively sends a Marketing template message, charged once.
+https://statics.pancake.vn/pancake-docs/2025/3/27/LOGIC MỚI - TH1 eng.png
+In Example 1, you are only charged once (at T0) when sending a Marketing template to the customer.
+Within 24 hours, before the customer replies, you cannot send any other free messages. However, you can continue to follow up with the customer using other Marketing templates without incurring additional charges.
+Although sending messages with the same template type does not incur additional charges, you should still consider this carefully before sending more. Sending too many messages may cause the customer to block or report your messages as spam, which could affect the quality of your number and lead to restrictions in the future.
+Example 2: The business proactively sends 2 template messages, one Marketing and one Utility, charged twice.
+https://statics.pancake.vn/pancake-docs/2025/3/27/LOGIC MỚI - TH2 eng.png
+In Example 2, when the Marketing message is successfully sent, you will be charged for opening the Marketing conversation. Then, when you send a Utility template message to the customer, a Utility conversation will be opened in parallel with the previous Marketing conversation once the Utility message is successfully delivered.
+As a result, you will be charged twice: once for the Marketing conversation and once for the Utility conversation.
+Example 3: The business replies to the customer's message, and the conversation is free of charge.
+https://statics.pancake.vn/pancake-docs/2025/3/27/LOGIC MỚI - TH3 (2).png
+In Example 3, as soon as you receive a message from the customer, the Service conversation begins, and you will not be charged.
+Example 4: The business replies to the customer's message, then sends a different template message, and will be charged twice.
+https://statics.pancake.vn/pancake-docs/2025/3/27/LOGIC MỚI - TH4 (2).png
+In Example 4, the business will not be charged for the Service conversation when replying to the customer's message. However, if the business sends an additional Marketing template message during the conversation, a new Marketing conversation will be opened, and an additional charge will apply for this conversation.
+3. Pricing Table for WhatsApp API Conversations on Pancake and Botcake
+To view the detailed Pricing for each template type by country, click .

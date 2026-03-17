@@ -1,0 +1,28 @@
+Pancake Subscription > Upgrade Pancake Subscription
+When you need to increase the number of connections or users, you can upgrade your Pancake subscription.
+The remaining time on your old subscription will be converted into a specific monetary value and deducted from the price of your new subscription.
+	•	Step 1: Select the Upgrade option.
+https://statics.pancake.vn/pancake-docs/2025/10/24/0a95889a-3b32-427c-8742-d5eecb49e189_Screenshot 2025-10-24 at 10.57.58.png
+Upgrade Pancake subscription
+Step 2: Choose from the suggested subscriptions available or select Create custom plan
+- The upgraded subscription must be of higher value than your current subscription. 
+- Subscriptions with less than one day remaining cannot be upgraded. Instead of upgrading, you can create a new subscription.
+https://statics.pancake.vn/pancake-docs/2025/10/24/0eb0a7ec-b159-484d-b1af-e4202e76f3ef_Screenshot 2025-10-24 at 10.59.10 1.png
+Pancake subscription upgrade options
+	•	Step 3: Review your subscription options, then click Create Subscription
+https://statics.pancake.vn/pancake-docs/2025/10/24/f7386319-2f6f-4896-82da-1d8a2ec30915_Screenshot 2025-10-24 at 11.00.30.png
+Review upgraded subscription information
+Your previous subscription information is shown above the new options. The remaining value of your current subscription will be credited and subtracted from the price of your new subscription.
+Step 4: Enter electronic invoice information as required. Once complete, click Save and get QR code to create a payment code.
+- If you haven't provided electronic invoice info for your current subscription, please update and complete it as required. Select either Individual or Business to create an invoice. 
+- You only need to enter this information once; future creation, upgrades, or renewals will not require you to re-enter it.
+https://statics.pancake.vn/pancake-docs/2025/10/24/35d3086a-7fed-48f4-ba7d-a5b3efc8a2c2_Screenshot 2025-10-24 at 11.01.40.png
+Enter electronic invoice information
+	•	Step 5: Pay for your upgraded subscription by scanning the QR code.
+https://statics.pancake.vn/pancake-docs/2025/10/24/e016365b-4b54-4fef-b39d-35e026a23371_Screenshot 2025-10-24 at 11.02.32.png
+Pay for your upgraded Pancake subscription
+- After your bank transfer is successfully processed, your subscription will be automatically activated within a few minutes. 
+- If you enter incorrect information or your subscription is not activated automatically, please contact us
+https://statics.pancake.vn/pancake-docs/2025/10/24/a6fab233-a837-400c-82a2-6be861b3b48a_Screenshot 2025-10-24 at 10.52.20-Photoroom.png
+Payment Successful
+Once payment is successful, your upgraded Pancake subscription will be activated.

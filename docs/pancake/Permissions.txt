@@ -1,0 +1,55 @@
+Permissions
+Instructions for Managing Staff Permissions on Pancake
+Note: 
+- You can only assign permissions to others if you are an Admin. Facebook and Instagram (connected via your Facebook login) do not support assigning permissions through this method. 
+- You must assign permissions directly on the Facebook Page. 
+- If you connect Instagram directly to Pancake, you can assign permissions directly within Pancake.
+What is Staff Permission in Pancake?
+Staff permission in Pancake allows you to manage each staff member’s access to specific pages or features within the system.
+You can edit a staff member’s permissions by ticking or unticking the corresponding options for that staff.
+The "Add New" button is not displayed for Facebook pages because you need to assign staff permissions directly on Facebook.
+https://statics.pancake.vn/pancake-docs/2025/7/31/Ảnh màn hình 2025-07-31 lúc 14.45.22.png
+Permission Groups in Pancake
+Pancake divides permission levels into 3 main groups: Admin, Editor, Moderator, Revoked (this group includes staff who have temporarily lost access to the page)
+Feature Groups in Pancake
+Corresponding to the permission groups, Pancake also allows you to grant access to different feature groups, including:
+	•	Posts: Access to the Posts section and the ability to download phone numbers or download comments
+	•	Backup: Access to the backup feature for messages, calls, etc.
+	•	Settings: Access to key settings. If you grant Round Robin mode access to a staff member, they will have Admin-level permissions.
+	•	Statistics: Access to the entire statistics section
+	•	Media & Files: Access to syncing and managing uploaded files
+Example: In the image below, although both users are Editors, Khanh Huyen has the Round Robin Mode permission enabled, so she will have Admin-level access.
+https://statics.pancake.vn/pancake-docs/2025/7/31/Ảnh màn hình 2025-07-31 lúc 14.46.53.png
+How to Assign Staff Permissions on Pancake
+This guide shows you how to assign permissions on Pancake for Facebook and other platforms below.
+1. How to Assign Facebook Permissions on Pancake
+For Facebook, you need to assign permissions to staff directly on the Facebook Page first.
+After that, the staff member logs into Pancake. At this point, the staff’s permissions on Pancake will automatically match their permissions on Facebook.
+Assign Permissions Directly on Facebook
+You need to select the specific permissions to assign to each staff member.
+The Full Control permission on Facebook corresponds to the Admin role on Pancake.
+After sending the invitation successfully, the staff member needs to access the page link to accept page management.
+Assigning Permissions via Business Manager (BM)
+You need to select the specific permissions to assign to each staff member. The Full Control permission corresponds to the Admin role on Pancake.
+After sending the invitation successfully, the staff member needs to access their email to accept page management via Business Manager (BM).
+2. For other platforms: TikTok, WhatsApp, Shopee, etc.
+For platforms other than Facebook, such as WhatsApp, TikTok, Instagram — after successfully connecting them to Pancake and having Admin rights — you can assign permissions for staff to access Pancake features.
+Add New Staff
+	•	Make sure you have Admin rights.
+	•	Access the page where you want to assign permissions.
+	•	Go to Settings => Permissions
+	•	Select Add New.
+https://statics.pancake.vn/pancake-docs/2025/7/31/Ảnh màn hình 2025-07-31 lúc 14.41.24.png
+In the pop-up window, there are 2 ways to add users to the page as follows:
+Method 1: Add users directly on Pancake.
+This method requires the person you want to add to have already logged into Pancake.
+Method 2: Add by generating a connection code. Send this link to the staff member. After logging in, the staff just needs to click the link and will automatically be assigned the correct role you selected.
+Note: With method 2, make sure you do not expose this link, as anyone with a Pancake account who clicks the link will be able to access your page. Hỏi ChatGPTChỉnh sửa quyền nhân viên
+You can edit each staff member’s access to specific features by checking or unchecking the corresponding options.
+https://statics.pancake.vn/pancake-docs/2025/7/31/Ảnh màn hình 2025-07-31 lúc 14.46.53.png
+You can also change the permission group of a staff member by hovering over the pencil icon next to their name.
+https://statics.pancake.vn/pancake-docs/2025/7/31/Ảnh màn hình 2025-07-31 lúc 14.43.35.png
+Remove Staff
+To remove a staff member, hover over the pencil icon next to their name and select Remove this person.
+https://statics.pancake.vn/pancake-docs/2025/7/31/Ảnh màn hình 2025-07-31 lúc 14.43.35.png
+This is the guide for assigning permissions on Pancake. If you have any questions, feel free to contact the Pancake support team for assistance.

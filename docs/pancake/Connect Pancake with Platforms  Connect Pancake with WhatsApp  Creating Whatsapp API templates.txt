@@ -1,0 +1,43 @@
+Connect Pancake with Platforms > Connect Pancake with WhatsApp > Creating Whatsapp API templates
+To start conversations with customers. You must first create templates in the WhatsApp Manager.
+1. Create templates on Whatsapp Manager
+On the Business settings site, choose “Whatsapp Accounts” → “Whatsapp Manager”
+https://statics.pancake.vn/pancake-docs/2025/3/27/iScreen Shoter - Google Chrome - 250327151949.jpg
+On the Whatsapp Manager site , choose “Account tools” → “Message templates” → “Create template”
+https://statics.pancake.vn/pancake-docs/2025/3/27/iScreen Shoter - Google Chrome - 250327152217.jpg
+In this example, Pancake will select "Marketing" - "Custom" mode. Then, select "Next".
+https://statics.pancake.vn/pancake-docs/2025/3/27/iScreen Shoter - Google Chrome - 250327152312.jpg
+	•	In "Template Name and Language", you will be required to set a name and select a language for your message template.
+https://statics.pancake.vn/pancake-docs/2025/3/27/iScreen Shoter - Google Chrome - 250327152554.jpg
+	•	"Content" will include:
+	•	Variables: You need to select variables like "Name" or "Number."
+	•	Header (Optional): You can attach an image, video, document, location, or simply a sentence.
+	•	Content: Enter the content you want to send to the customer.
+	•	Footer (Optional): This is a small line at the end of the message where you can add links or notes about your product.
+https://statics.pancake.vn/pancake-docs/2025/3/27/iScreen Shoter - Google Chrome - 250327153400.jpg
+"Button" (Optional): There are several types of buttons you can add below your message template.
+https://statics.pancake.vn/pancake-docs/2025/3/27/Screenshot 2025-03-27 at 15.37.00.png
+Once you have filled in all the fields, you can preview the template on the right side of your webpage.
+If the template is complete, click "Submit for review" to send the message to WhatsApp for approval.
+After submission, the template will be displayed as "Pending Approval." The approval process is automatic and will take up to 15 minutes.
+Once your template is approved, you can synchronize it with Pancake or Botcake to reply to customer messages.
+https://statics.pancake.vn/pancake-docs/2025/9/26/73ea53fd-b50b-4d2c-a1a7-45289d3d2490_iScreen Shoter - Google Chrome - 250926152212.jpg
+Please wait until your message template is approved by Meta (as shown in the illustration below).
+https://statics.pancake.vn/pancake-docs/2025/9/26/96454a83-8b7d-41c1-8466-7f3a11678bf8_iScreen Shoter - Google Chrome - 250926153449.jpg
+❌ Note: When creating a Message Template with a Header
+After your Template is approved by Meta, you need to re-enter the Header in the system, just as you did when you first created it on Meta. 
+👉 Reason: Meta only checks if the template has a Header, but does not save the actual Header content.
+Steps:
+	•	Go to Settings → Message Templates
+	•	Select the approved Message Template
+	•	Re-enter the Header
+Once completed, the Message Template can be used in the system to send to customers.
+https://statics.pancake.vn/pancake-docs/2025/9/26/6eb192be-e24e-4e41-af8c-564421bd17d4_iScreen Shoter - Google Chrome - 250926163604.jpg
+Settings → “Message Templates”
+https://statics.pancake.vn/pancake-docs/2025/9/26/c904552b-4706-4688-8769-35507a18050a_iScreen Shoter - Google Chrome - 250926163958.jpg
+Attach “Header” to the Message Template
+The Message Template can only be sent successfully after you add the Title. If the variable is not attached, the system will show an error, as illustrated below.
+https://statics.pancake.vn/pancake-docs/2025/9/26/ca693bc4-c786-4721-9531-7b0aa879ef08_iScreen Shoter - Google Chrome - 250926153717.jpg
+Send failed because the header was not attached to the Message Template
+https://statics.pancake.vn/pancake-docs/2025/9/26/3fe87367-c97b-4ff3-b197-c39a56cb400d_iScreen Shoter - Google Chrome - 250926154217.jpg
+Message Template sent successfully

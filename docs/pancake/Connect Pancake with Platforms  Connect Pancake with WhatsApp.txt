@@ -1,0 +1,11 @@
+Connect Pancake with Platforms > Connect Pancake with WhatsApp
+Pancake supports integration with various types of WhatsApp platforms, helping businesses automate customer care and sales processes. Before getting started, it's important to understand the differences between WhatsApp Personal, WhatsApp Business API, and WhatsApp API Co-existence to choose the solution that best fits your needs.
+WhatsApp Type Classification
+Currently, Pancake offers multiple ways to connect with WhatsApp, allowing you to choose the solution that best fits your business needs. Check out the comparison table below to find the most suitable option for your business!
+Special Features
+	•	Entry Points to Access the WhatsApp API: 
+	•	Click-to-WhatsApp Advertising (CTWA):
+	•	WhatsApp Manager Dashboard: 
+	•	Create a Catalog on WhatsApp API: 
+	•	WA migration from another BSP to Pancake: 
+	•	Mass broadcast/ Blasting on WhatsApp API:

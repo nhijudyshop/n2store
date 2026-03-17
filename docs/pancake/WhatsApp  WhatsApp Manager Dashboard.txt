@@ -1,0 +1,51 @@
+WhatsApp > WhatsApp Manager Dashboard
+After successfully registering for Whatsapp API, you’ll gain access to “Whatsapp Manager,” - which manages your Whatsapp API provided by Meta.
+https://statics.pancake.vn/pancake-docs/2025/3/27/iScreen%20Shoter%20-%20Google%20Chrome%20-%20250327151949.jpg
+After accessing the "WhatsApp Manager", you will see a menu on the left that displays categories with various features to help enhance the management of your WhatsApp account.
+https://statics.pancake.vn/pancake-docs/2025/3/28/iScreen Shoter - Google Chrome - 250328120331.jpg
+1. Message template:
+The message template consists of all of the templates created.
+The column “Status” of the templates needs checking on a regular basis. The status will change if the block/report rate from your recipients rises. If too many templates are reported, your WA number will be marked as spam.
+https://statics.pancake.vn/pancake-docs/2025/3/28/iScreen Shoter - Google Chrome - 250328121033.jpg
+2. Phone number:
+In terms of “Phone number”, you’ll be provided an overview of your WA API phone number. Choose “Setting” to see more details of your number.
+https://statics.pancake.vn/pancake-docs/2025/3/28/iScreen Shoter - Google Chrome - 250328121318.jpg
+2.1. Phone number details:
+https://statics.pancake.vn/pancake-docs/2025/3/28/iScreen Shoter - Google Chrome - 250328121416.jpg
+After clicking on Settings, in the Details section, you will see the limit on the number of conversations initiated by your business within 24 hours.
+As shown in the example, this phone number has 1000 conversations = contact 1000 different phone numbers within 24 hours.
+Below are the conditions that allow you to increase the conversation limit to 10000. If you meet these conditions, WhatsApp's system will automatically raise the limit, allowing you to send messages to more people.
+This is an automated process, and there is no way to increase the limit other than by meeting the conditions below.
+Below, you will see two sections: Conversation Details and Phone Number Quality in the Last 30 Days.
+	•	Conversation Details will provide a detailed breakdown of the total number of conversations for each type, including: All conversations, free conversations, paid conversations, and Approximate charges.
+	•	Phone Number Quality in the Last 30 Days helps you monitor the quality of your phone number, minimizing the risk of your number being blocked.
+Phone number quality is a metric that you need to pay special attention to to avoid having your number blocked, which could impact your workflow.
+https://statics.pancake.vn/pancake-docs/2025/3/28/iScreen Shoter - Google Chrome - 250328154228.jpg
+There are 3 phone number quality levels: High, Average, and Low. 
+- WhatsApp does not provide detailed information about the number of customers who have blocked or reported your number; it is only reflected through the phone number quality level. 
+- When many customers block or report your number on WhatsApp, the phone number quality will drop by one level. In this case, you should minimize further blocking by stopping messages to customers who have never interacted with you and focus on engaging with existing customers. The phone number quality will be restored when the block rate/conversation rate decreases. At that point, you can resume messaging new customers.
+2.2 Profile
+In the phone number profile section, you can customize the personal page displayed to customers when they want to view your business information via WhatsApp. You can freely customize details such as Profile picture, Display name, Description, Contact information, and Official business account.
+https://statics.pancake.vn/pancake-docs/2025/3/28/Screenshot 2025-03-28 at 16.04.21.png
+Especially in the Official Business Account section.
+https://statics.pancake.vn/pancake-docs/2025/3/28/iScreen Shoter - Google Chrome - 250328160703.jpg
+Here, you have the option to get the green tick for your business phone number. This process is NOT MANDATORY, and your phone number will still function normally even without the green tick. However, obtaining the green tick offers the following benefits:
+	•	When messaging customers, WhatsApp will display your BUSINESS NAME WITH THE GREEN TICK, instead of just showing the phone number. → This increases the credibility of your business and reduces the likelihood of your phone number being blocked.
+	•	Verification of message templates or support requests from WhatsApp will be processed faster.
+https://statics.pancake.vn/pancake-docs/2025/2/17/image65da54da-24f1-4353-9ac6-590231979931?url=https%3A%2F%2F2679988593-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252FlQRrf93LkPNVQN4b41t4%252Fuploads%252FOgXEbd72f3aB8Iv0foMN%252Fimage.png%3Falt%3Dmedia%26token%3Db6287cd5-cf30-4883-bae5-ba7cae83ae36&width=768&dpr=4&quality=100&sign=b9b24d31&sv=2
+Nevertheless, Official Business Account will only be provided for those businesses that are considered verified and significant. The approval will be completely controlled by WA and can’t be interfered with by any other third parties.
+To get the green checkmark, the account must meet these conditions:
+	•	✅Business verification is complete.
+	•	✅The profile display name is approved.
+	•	✅Two-step verification is turned on.
+https://statics.pancake.vn/pancake-docs/2025/3/28/imageacb16e19-4633-49bb-bc33-329e4247e048.png
+After that, the information below is required to be provided to request WA:
+	•	Business website.
+	•	Reasons why you need verifying.
+	•	Primary country of operation.
+	•	Primary language (optional).
+	•	Parent business or brand (optional).
+	•	5 supporting links. These are usually articles written about your business in your country. This one is optional, yet essential for the Meta team to decide if your business is verified and significant or not.
+https://statics.pancake.vn/pancake-docs/2025/2/17/image39c2ada3-ec8d-4478-95ce-ad5f23dc788c?url=https%3A%2F%2F2679988593-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252FlQRrf93LkPNVQN4b41t4%252Fuploads%252FylRdTb4wGLog6ThqtnLf%252Fimage.png%3Falt%3Dmedia%26token%3D7e052da4-59a8-45c7-85ec-756a38fcc8dc&width=768&dpr=4&quality=100&sign=d26c7b02&sv=2
+The approval process takes 3 to 4 working days. If you are declined, you must wait another 30 days to re-request.
+You can refer to the detailed process provided officially by Meta .

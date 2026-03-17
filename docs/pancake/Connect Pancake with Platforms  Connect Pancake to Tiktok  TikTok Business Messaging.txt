@@ -1,0 +1,79 @@
+Connect Pancake with Platforms > Connect Pancake to Tiktok > TikTok Business Messaging
+Guide to Connecting Pancake with TikTok Business for Managing TikTok Direct Messages
+Pancake is a global partner of TikTok and one of the first partners integrated with the TikTok Business Messaging API for managing TikTok messages.
+What is a TikTok Business Account?
+TikTok Business (TikTok Business Account) is a type of account upgraded from a normal TikTok (personal) account, designed for individual entrepreneurs or businesses. With a TikTok Business account, you can use TikTok Messaging Ads
+Free Upgrade: Switching from a personal TikTok account to a TikTok Business account does NOT cost anything. 
+
+How to switch to a TikTok Business account: You can see the detailed instructions in [Step 4](https://pke.gg/03woag5e) below.
+
+Messaging Ads: Only TikTok Business accounts can run TikTok Messaging Ads (Click to TikTok Direct Message). If you don't have a TikTok Ads account, sign up here
+
+Check account settings: Make sure your TikTok account is set to allow Messages and Comments from Everyone. Also, turn off all message and comment filters to ensure every message is fully synced with Pancake. You can follow the instructions in the image below to update these settings.\ \ **TikTok’s official guide:* *****
+https://statics.pancake.vn/pancake-docs/2025/1/15/Untitled design (2).gif
+What is the TikTok Business Messaging API?
+The TikTok Business Messaging API is a tool that enables businesses to manage TikTok Direct Messages through the Pancake platform.
+The following steps will guide you through the login and setup process for TikTok Business Messaging. You will also be guided on how to convert a regular (personal) TikTok account into a TikTok Business account.
+Step-by-Step Guide to Integrating Pancake with TikTok Business Messaging
+✅ Step 1: Go to the Connections section
+	•	From the dashboard, select Connect.
+https://statics.pancake.vn/pancake-docs/2025/7/8/Ảnh màn hình 2025-07-08 lúc 08.51.58.png
+	•	Select the TikTok platform, choose TikTok Business Messaging → then click the Connect to TikTok Account button.
+https://statics.pancake.vn/pancake-docs/2025/7/8/Ảnh màn hình 2025-07-08 lúc 09.18.03.png
+✅  Step 2: Log in to TikTok
+Log in to the TikTok account you want to connect to Pancake in the newly opened window.
+https://statics.pancake.vn/pancake-docs/2024/8/24/image3bc23de0-194e-4f1c-a8dc-0f3575bd8d99?url=https%3A%2F%2F4078023836-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252FYnoXIEwev8YlAw6px2sv%252Fuploads%252FxoeRcbpcKLgiJx48lA4U%252FScreenshot%25202024-04-08%2520at%252019.52.53.png%3Falt%3Dmedia%26token%3Db31d23e2-18e3-4164-8867-e5f5656f281f&width=768&dpr=4&quality=100&sign=92034536&sv=1
+Occasionally, you may encounter an error when scanning the QR code. If this happens, close the current window, click "Connect to TikTok Account" again, and rescan the code.
+✅ Step 3: Log in to the TikTok account you want to connect to Pancake in the newly opened window.
+Do not disable any of the options in this window. These permissions are required for the Pancake application to function properly.
+https://statics.pancake.vn/pancake-docs/2024/8/24/imagef4be40c0-0d7a-43a0-8700-dd221ff26aac?url=https%3A%2F%2F4078023836-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252FYnoXIEwev8YlAw6px2sv%252Fuploads%252F6R4G2gl9ZevNpCWolc2X%252FScreenshot%25202024-04-08%2520at%252019.55.36.png%3Falt%3Dmedia%26token%3D625966b2-57a8-402a-8a2d-dfc968e9fbe6&width=768&dpr=4&quality=100&sign=78590937&sv=1
+https://statics.pancake.vn/pancake-docs/2024/8/24/imagee9e81cc1-07ba-4019-bab4-04b1ae49e240?url=https%3A%2F%2F4078023836-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252FYnoXIEwev8YlAw6px2sv%252Fuploads%252FPg5Jvl5GxN5GMY88Q6SD%252FScreenshot%25202024-04-08%2520at%252019.56.07.png%3Falt%3Dmedia%26token%3Da09e00d9-b36f-4693-8ab9-7a1c1ba04e04&width=768&dpr=4&quality=100&sign=890dad22&sv=1
+After this step, you may encounter a FAILED error. If so, please refer to Step 4 below.
+✅  Step 4: Check the Connection
+Case 1:  Your account is not currently a TikTok Business account.
+If your TikTok account is not yet a Business account, you will see the notification below.
+You must switch to a Business account to proceed. Please follow the steps below to complete the conversion:
+https://statics.pancake.vn/pancake-docs/2024/8/24/imagec59257ce-c5ff-4191-af84-ab74a2f84175?url=https%3A%2F%2F4078023836-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252FYnoXIEwev8YlAw6px2sv%252Fuploads%252FybBi4JKgo6vFfcA8UL0M%252FScreenshot%25202024-04-08%2520at%252019.57.45.png%3Falt%3Dmedia%26token%3D8bccfcde-8165-4607-95be-6d3478629b83&width=768&dpr=4&quality=100&sign=528f922a&sv=1
+	•	Turn off this notification → Then open a new tab/page → After that, go to: 
+https://statics.pancake.vn/pancake-docs/2024/8/24/image29293c41-1763-417a-9ebd-358f21ce1eb0?url=https%3A%2F%2F4078023836-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252FYnoXIEwev8YlAw6px2sv%252Fuploads%252FUM1a5Y7nbRvmUMic4NwP%252FScreenshot%25202024-04-09%2520at%252010.50.27.png%3Falt%3Dmedia%26token%3D5c6e33f1-2303-429b-96ac-9eed6aae81ff&width=768&dpr=4&quality=100&sign=de8dc80e&sv=1
+Case 2: Your Account Is a TikTok Business Account
+You will be redirected directly to the conversation management screen on Pancake
+https://statics.pancake.vn/pancake-docs/2025/7/8/Ảnh màn hình 2025-07-08 lúc 09.19.28.png
+At this point, the connection process is complete.
+- Once connected successfully, the system will sync up to the 100 most recent conversations to Pancake. 
+✅ Step 5: Connect to Your TikTok Ads Account
+Case 1: Your TikTok account is already connected to an ad account. 
+If you use TikTok Direct Message ads, you can see which ad a customer came from through the Ads Preview message.
+https://statics.pancake.vn/pancake-docs/2025/7/15/Ảnh màn hình 2025-07-15 lúc 17.07.13.png
+Ad Display Demo on the Pancake Interface
+Case 2: Your TikTok account is not connected to an ad account.
+If you have not yet connected your Titok Ads account, you will receive a notification as shown in the image below.
+https://statics.pancake.vn/pancake-docs/2025/7/15/Ảnh màn hình 2025-07-15 lúc 17.07.34.png
+Ads will not be displayed if your TikTok Ads account is not connected.
+	•	Step 1: Open a new tag and log in to 
+https://statics.pancake.vn/pancake-docs/2024/8/24/image17ed1f69-55c6-441d-a570-3f23d1402bb5?url=https%3A%2F%2F4078023836-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252FYnoXIEwev8YlAw6px2sv%252Fuploads%252FKCOZachqOPIAzR1G275M%252FScreenshot%25202024-06-28%2520at%252014.13.52.png%3Falt%3Dmedia%26token%3D90d0b738-51a3-49e3-bb62-3970d928160e&width=768&dpr=4&quality=100&sign=88b54c30&sv=1
+	•	Step 2: Go to Settings → Select Tools of the TikTok page you have just connected to Pancake → Then select Connect.
+https://statics.pancake.vn/pancake-docs/2025/7/15/Ảnh màn hình 2025-07-15 lúc 17.08.28.png
+	•	Step 3: In the window that appears, click Authorize.
+https://statics.pancake.vn/pancake-docs/2024/8/24/image71ad4d16-6898-431c-8907-30a4d33b7223?url=https%3A%2F%2F4078023836-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252FYnoXIEwev8YlAw6px2sv%252Fuploads%252F704ifmkZqwwavminIuWL%252Fimage.png%3Falt%3Dmedia%26token%3Dcfa063e1-ac1b-497a-a023-9d342e7fc857&width=768&dpr=4&quality=100&sign=bc66e4e0&sv=1
+In the window that appears, verify that the account you are about to authorize for Pancake is the correct one with permission to manage the TikTok Ads account.
+Situation 1: If the account is incorrect, select Switch Account and log in again with the correct TikTok Ads account.
+https://statics.pancake.vn/pancake-docs/2024/8/24/image67d5e8cf-23c6-4fe5-b137-e7ad2332db52?url=https%3A%2F%2F4078023836-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252FYnoXIEwev8YlAw6px2sv%252Fuploads%252F6RlLgqN4TDBiJiMtbcsu%252FScreenshot%25202024-06-28%2520at%252014.07.15.png%3Falt%3Dmedia%26token%3D4f943344-f705-4667-b275-b6a9b2fd3a01&width=768&dpr=4&quality=100&sign=80bdc5c5&sv=1
+Situation 2: If the account is correct, click Confirm to authorize.
+https://statics.pancake.vn/pancake-docs/2024/8/24/image67d5e8cf-23c6-4fe5-b137-e7ad2332db52?url=https%3A%2F%2F4078023836-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252FYnoXIEwev8YlAw6px2sv%252Fuploads%252F6RlLgqN4TDBiJiMtbcsu%252FScreenshot%25202024-06-28%2520at%252014.07.15.png%3Falt%3Dmedia%26token%3D4f943344-f705-4667-b275-b6a9b2fd3a01&width=768&dpr=4&quality=100&sign=80bdc5c5&sv=1
+From the moment authorization is successfully granted, new conversations from the TikTok Ads accounts you have authorized will begin to appear.
+https://statics.pancake.vn/pancake-docs/2025/7/15/Ảnh màn hình 2025-07-15 lúc 17.07.13.png
+https://statics.pancake.vn/pancake-docs/2024/8/24/image8289cfc6-240d-4a81-8c4c-adee3e0191f9?url=https%3A%2F%2F4078023836-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252FYnoXIEwev8YlAw6px2sv%252Fuploads%252F9pzA1PLSFsOUghEiNM3N%252Fimage.png%3Falt%3Dmedia%26token%3Daf702857-addc-4394-b7ae-78f4e05211e9&width=768&dpr=4&quality=100&sign=d3acb133&sv=1
+Tips: You can also filter conversations from a specific Ad ID by following these steps: 
+1. Select the conversation filter by Source. 
+2. Choose "By Ad ID". 
+3. Enter the Ad ID you want to filter by, then click FILTER.
+https://statics.pancake.vn/pancake-docs/2025/7/15/Ảnh màn hình 2025-07-15 lúc 17.15.02.png
+Tips: Using Botcake for TikTok Business Messaging automation
+Botcake can connect to TikTok for Business accounts and perform actions such as:
+Default reply: Ensure custmers always receive a response, even for unexpected questions. You can set a cycle for how often this message should be sent.
+Keywords: Define keywords or phrases customers might say. Every time a customer sends a message to the page with content that matches a keyword, Botcake will automatically respond and attach an action to it. For instance, "price" could trigger information on product costs.
+Sequences: Sequences are like mini-conversations where the bot sends pre-created messages in a specific order. This is perfect for guiding users through processes like placing orders or booking appointments.
+Rules: Set rules based on keywords, user info, or conversation history. If a condition is met, the bot takes action, like sending a specific message or connecting the user to a live agent.
+You can explore more about Botcake at this link:
+

@@ -1,0 +1,6 @@
+Google > Google Message Ads - WhatsApp
+Pancake and Google just introduced a new solution to help businesses track and manage customers from Google Message Ads across platforms like Messenger and WhatsApp. 
+This guideline will help you walk throught steps by steps on how to setup the connection between Pancake and  Google to optimize the Google Message
+Pre-require (for WhatsApp setup)
+	•	You need a Google Ads Account with Message Ads enabled.
+	•	You need 

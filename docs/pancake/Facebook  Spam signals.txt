@@ -1,0 +1,11 @@
+Facebook > Spam signals
+Report spam will trigger an event to Meta to optimize your ads performance
+You can optimize your ads by using report spam feature. This will help to reduce the ads delivery to the low quality clients, who are similar to the clients you reported.
+This feature is only available on Facebook, and APAC countries.
+The steps below will show you how to perform this action on Pancake UI
+	•	Open the SPAM conversation on Pancake.
+	•	Click the button to open the right panel with advanced features for the conversation
+	•	You will see the Report spam button. Click on that
+https://statics.pancake.vn/pancake-docs/2025/12/19/3064b4dd-e81c-4bef-8665-860da7295b67_Screenshot 2025-12-19 at 10.55.42.png
+Confirm to send the signals/event to Facebook. Done
+https://statics.pancake.vn/pancake-docs/2025/12/19/5a96369a-2c5b-4760-b788-0f2bfb3db854_Screenshot 2025-12-19 at 10.56.37.png

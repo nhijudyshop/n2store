@@ -1,0 +1,15 @@
+WhatsApp > Ads that Click-to-WhatsApp
+Click-to-WhatsApp advertisements are a type of Meta advertising campaign that allows businesses to connect with their customers directly through WhatsApp. This type of ad allows users to click on the advertisement and initiate a conversation with the business via WhatsApp rather than being directed to a website or landing page.
+Temporary charge for CTWA conversations
+https://statics.pancake.vn/pancake-docs/2025/3/29/image02d04a2d-16c8-407a-9f33-14197d8737f6.png
+The system operates on a prepaid basis and relies on the information returned from the Webhook from WhatsApp. When a message starts a conversation on WhatsApp, the business will be charged according to the pricing plan. If WhatsApp confirms that the conversation is free, the system will automatically refund the amount to your wallet immediately.
+For customers from CTWA ads, the process is as follows:
+Step 1: The customer starts a conversation from their phone number after clicking on "Send Message" on the ad → At this point, the 72-hour free chat window opens. However, the system does not immediately determine whether this conversation is chargeable or not.
+Step 2: When the business receives a response, the system will temporarily deduct the money from your wallet at time (T+1) and check with WhatsApp whether this conversation is chargeable.
+Step 3: If WhatsApp confirms that the conversation is free → The system will immediately refund the money to your wallet at time (T+2).
+Important points to note:
+- The 72-hour free chat window conversation is opened if  you respond within 24 hours. If you do not respond within 24 hours, a free entry point conversation is not opened and you must use a template to message the customer, which opens a marketing, utility, or authentication conversation, per the category of the template.
+
+- WhatsApp will update free conversations every 24 hours (i.e., the conversation will be checked and updated once every 24 hours), so we need to regularly check with WhatsApp, including conversations started from CTWA ads.
+
+- Refunds are based on information received from WhatsApp. The refund process usually takes a few seconds but may take up to 30 days. The system guarantees a refund within this period.

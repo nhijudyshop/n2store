@@ -1,0 +1,25 @@
+Connect Pancake with Platforms > Connect Pancake to Instagram > Instagram Unified Onboarding
+Instagram Unified Onboarding is a way to connect your Meta business account with your Instagram account. Pancake will simultaneously connect one or more Instagram accounts linked to the Meta business account.
+1. Connection instructions
+Step 1: Press the connect button from the Control Panel
+https://statics.pancake.vn/pancake-docs/2025/12/25/2841da57-49a1-4831-b35e-47f26dfd33c1_image.png
+Step 2: Go to Instagram and select the Unified Onboarding button
+https://statics.pancake.vn/pancake-docs/2025/12/25/e7c81a87-c782-44dc-8f18-e0f173bcf0b3_image.png
+Step 3: In the Meta business login view, select Log in with Instagram
+https://statics.pancake.vn/pancake-docs/2025/12/25/20a3fc5e-9905-4cb6-97fc-5e54c54ba03f_image.png
+Step 4: Log in to your Instagram account. Make sure the correct account you want to connect to
+https://statics.pancake.vn/pancake-docs/2025/12/25/ea9b2c7b-e7b1-483b-bbd0-b08c3ed83ae2_image.png
+https://statics.pancake.vn/pancake-docs/2025/12/25/f6d16cb9-1c4c-429c-8ab3-1a11c9856b7e_image.png
+Step 5: Select Business Portfolio, Instagram Accounts and Ad Accounts (optional). Then click Continue to complete the connection.
+Note: All Instagram accounts you want to connect need to be selected. If you are connecting multiple Instagram accounts
+https://statics.pancake.vn/pancake-docs/2025/12/25/8c10872e-a7ad-4728-afea-76a2e491ad22_image.png
+2. Instagram Unified Onboarding connection conditions
+	•	Instagram account needs to be converted to a Professional account
+https://statics.pancake.vn/pancake-docs/2025/12/25/06815a4a-751b-481a-bc73-f5330024e986_image.png
+Set routing on Meta Business Settings
+	•	Pancake settings are the default application in the  account routing settings
+https://statics.pancake.vn/pancake-docs/2025/12/25/372f6eb2-ebe6-4241-a650-9dbcfd991267_image.png
+Routing settings in Facebook page settings (FB page linked IG)
+	•	With the account linked to the Facebook Page. Need to check at page settings
+	•	Step 1: Switch to the Facebook page profile
+	•	Step 2: Go to Page Setup → 

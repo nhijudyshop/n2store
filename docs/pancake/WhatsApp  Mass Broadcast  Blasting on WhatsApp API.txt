@@ -1,0 +1,8 @@
+WhatsApp > Mass Broadcast / Blasting on WhatsApp API
+Broadcast WITHOUT variables in the template.
+After connecting the WhatsApp API in Pancake, the WhatsApp number will be automatically synced to Botcake. If the number doesn’t appear, click on “Add New Page” → Select the WhatsApp platform → Activate the page.
+https://statics.pancake.vn/pancake-docs/2025/3/24/image869b318e-9c07-4269-b067-628bffe91be4.png
+With the WhatsApp API, you can use Botcake's automation features such as: Default Messages, Keywords, Care Flows and Rules, as well as set up messaging flows ranging from simple to complex within Botcake.
+You can check out the user guide for Botcake’s basic features 
+https://statics.pancake.vn/pancake-docs/2025/3/24/imageea0648ae-9a13-4db8-8ac7-841895cad614.png
+Specifically for the WhatsApp API, certain features are exclusive to this platform. You can learn more on the following page.

@@ -1,0 +1,35 @@
+Connect Pancake with Platforms > Connect Pancake to Facebook
+Instructions for Connecting Pancake with Instagram.
+Requirement:
+ 
+To connect a Facebook Page to Pancake, you must have the correct permissions on that Page (such as Admin or Standard access with publishing rights). 
+If the Page is managed under a Facebook Business Manager, make sure your account has been properly assigned access within that Business Manager.
+ 
+📚 Helpful guides (clear and step-by-step):
+ 
+1️⃣ What is Facebook Business Manager? It’s a tool that helps you manage Pages, ad accounts, and people in one place. 👉 Learn about Business Manager
+ 
+2️⃣ How to create a new Business Manager: 👉 See guide here
+ 
+3️⃣ How to add your Page to Business Manager: If your Page is not yet in Business Manager, you’ll need to add it. 👉 See guide here
+ 
+4️⃣How to assign or change Page roles in Business Manager: If you don’t have the required permissions, an Admin can assign them to you. 👉 See guide here
+
+ 5️⃣ How to add people to your Business Manager: If you’re not yet part of the Business Manager, ask an Admin to add your account. 👉 See guide here
+
+✅ Step 1: From the Pancake homepage → Click “Sign In”
+https://statics.pancake.vn/pancake-docs/2025/7/2/iScreen Shoter - Google Chrome - 250702110535.jpg
+✅ Step 2: Select the business management processes you are currently managing.
+Recommended: Choose "Opt in to all current and future Pages"
+https://statics.pancake.vn/pancake-docs/2025/7/2/iScreen Shoter - Google Chrome - 250702113416.jpg
+✅ Step 3: Select the Facebook Pages you want to connect to Pancake.
+Recommended: Choose "Opt in to all current and future Pages"
+https://statics.pancake.vn/pancake-docs/2025/7/2/iScreen Shoter - Google Chrome - 250702112228.jpg
+✅ Step 4: Confirm Pancake’s access to your Pages
+https://statics.pancake.vn/pancake-docs/2025/7/2/iScreen Shoter - Google Chrome - 250702112305.jpg
+At this point, you have successfully connected your Facebook Pages to Pancake.
+You will be redirected to Pancake’s dashboard, where the Pages you just connected will now appear.
+https://statics.pancake.vn/pancake-docs/2025/7/2/iScreen Shoter - Google Chrome - 250702112609.jpg
+✅ Step 5: Activate the Page
+If you don’t see your Facebook Page on the dashboard, please check the connection and activate the Page to start using it. See the guide:
+Pancake will sync conversations from the past 14 days.

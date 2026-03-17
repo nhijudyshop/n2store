@@ -1,0 +1,54 @@
+Call
+The Call feature lets you make and receive calls directly on Pancake, including from both Messenger and WhatsApp. This way, you don’t need to switch between apps and can keep your entire contact history and customer support in one place.
+https://statics.pancake.vn/pancake-docs/2025/9/25/ae60d66d-cadd-430f-b9dd-e3855cc23306_iScreen Shoter - Google Chrome - 250925121704.jpg
+A. Set up and use calls on Messenger
+To enable the Call feature in conversations, go to Settings → Calls. Here, depending on your Page, the Messenger Call feature may or may not be available.
+	•	Case 1: If your Page is not supported, the screen will display a message: “Your Page does not support the call feature” (see example below).
+https://statics.pancake.vn/pancake-docs/2025/9/25/bec47d14-03ed-4a44-9a25-12b5bc18a65c_iScreen Shoter - Google Chrome - 250925121944.jpg
+	•	Case 2: If your Page is supported, you will see the option to set up the call feature (as shown in the example below).
+https://statics.pancake.vn/pancake-docs/2025/9/25/8138bc7c-2e8a-4fa9-9a82-4a81f1e7fead_iScreen Shoter - Google Chrome - 250925122044.jpg
+Here, you can choose to make calls using either Pancake or Meta Business Suite. The details of how each option works will be explained in the sections below.
+1. Make calls from Pancake
+When you set up calls in Pancake, you can either make a direct call or send a call request. You’ll also have access to advanced options such as setting available call hours, assigning staff, or adding automatic tags.
+1.1 Call settings
+https://statics.pancake.vn/pancake-docs/2025/9/25/4add7a54-a460-4f9f-8e77-ee61cc344d9f_iScreen Shoter - Google Chrome - 250925150655.jpg
+Here, you can set up outgoing calls in 2 ways:
+	•	Sent call request: When you press the Call button, the system will always send the call request to the customer. The customer can then either accept or decline your request.
+https://statics.pancake.vn/pancake-docs/2025/9/25/2b218f22-d42e-42d1-9083-9dab1840cb40_iScreen Shoter - Google Chrome - 250925150720.jpg
+Setting "Send call request"
+https://statics.pancake.vn/pancake-docs/2025/9/12/5926e189-9eaa-4f3e-a1c2-1df8681bb6cd_iScreen Shoter - Google Chrome - 250912143244.jpg
+Image showing a “Call Request” sent to the customer and the customer’s “Allow” response
+Note:
+- You can send a maximum of 2 call requests per day to the same customer. 
+- If the customer calls you first or has already accepted a call request, you can make direct calls to them for the next 7 days without sending another request. 
+=> Once the customer has accepted, switch to the direct call feature instead of sending additional requests.
+	•	Initiate a call: When you press the Call button, the system will start a direct call to the customer. If the customer has not previously given permission, the system will automatically send a call request before making the connection.
+https://statics.pancake.vn/pancake-docs/2025/9/25/47a59e25-d6cc-4f33-bf18-09e778faa344_iScreen Shoter - Google Chrome - 250925151855.jpg
+Setting "Initiate a call"
+https://statics.pancake.vn/pancake-docs/2025/9/12/bb9b649a-cf76-4e8f-b9c1-b2ea0251537d_iScreen Shoter - Google Chrome - 250912154731.jpg
+Image showing a “Initiate Call” to the customer when the customer has not yet granted permission
+	•	Additionally, you can set the time frame for receiving incoming calls.
+https://statics.pancake.vn/pancake-docs/2025/9/25/07e68a24-baf9-4585-b672-33a158841f2b_iScreen Shoter - Google Chrome - 250925152328.jpg
+1.2 Advanced features
+In this section, you can use some advanced call features:
+	•	Call routing: When a call comes in, the system can prioritize ringing for: Priority for assigned account/ Ring all accounts/ Selected account.
+	•	Auto add tags to conversation: You can set up automatic tagging for conversations when: After receiving incoming call success and After having a missed call. This helps you easily track and manage customers for better follow-up and support.
+https://statics.pancake.vn/pancake-docs/2025/9/25/62cb80f4-f38d-4273-9cba-f3d9eed0e916_iScreen Shoter - Google Chrome - 250925153056.jpg
+2. Making calls from Meta Business Suite
+When setting up calls through Meta Business Suite, you can only make calls using the Sent call request option. Advanced features are not available in this mode.
+https://statics.pancake.vn/pancake-docs/2025/9/25/b1af042f-b5c0-475a-bdda-1434a2728319_iScreen Shoter - Google Chrome - 250925153632.jpg
+B. Set up and use calls on WhatsApp
+1. Calls setting
+To set up the “Call” feature in a conversation, go to Settings → Calls, then select WhatsApp to start using it.
+Note:
+Some countries may not support WhatsApp calls. Check the details for more information here
+	•	Case 1: If your Page is not supported, the screen will display: “Your Page does not support the call feature” (see example below).
+https://statics.pancake.vn/pancake-docs/2025/9/25/879b959a-394d-423a-8336-08ed85c534f7_iScreen Shoter - Google Chrome - 250925154718.jpg
+	•	Case 2:  If your Page is supported, you will see the option to set up the call feature and can set the time frame for receiving incoming calls (see example below).
+https://statics.pancake.vn/pancake-docs/2025/9/25/321b29e0-8981-4f8f-a5ab-5e2d8212ebed_iScreen Shoter - Google Chrome - 250925154955.jpg
+2. Advanced features
+In this section, you can use some advanced call features:
+https://statics.pancake.vn/pancake-docs/2025/9/25/0b87997c-a3db-4da3-82cb-f2c1bb3d12fe_iScreen Shoter - Google Chrome - 250925155317.jpg
+	•	Call routing: When a call comes in, the system can prioritize ringing for: Priority for assigned account/ Ring all accounts/ Selected account.
+	•	Auto add tags to conversation: You can set up automatic tagging for conversations when: After receiving incoming call success and After having a missed call. This helps you easily track and manage customers for better follow-up and support.
+With the steps above, you can easily manage and use the Call feature on both Messenger and WhatsApp, making customer support more centralized and efficient.

@@ -1,0 +1,39 @@
+Connect Pancake with Platforms > Connect Pancake to LineOA > Connect Pancake to LineOA with using Pancake extension
+Guide to connecting Pancake to LineOA with using Pancake extension.
+Requirements: 
+- You must have a Line OA account and be the Admin of that account. 
+- You must have a Pancake account. 
+- You must have installed the Pancake v2 extension (refer to the guide on how to install the Pancake v2 extension).
+Step 1: Log in to LineOA account here
+https://statics.pancake.vn/pancake-docs/2024/8/24/imagec55ca1f4-4562-40c0-88d6-6a5d24db5be7?url=https%3A%2F%2F4078023836-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252FYnoXIEwev8YlAw6px2sv%252Fuploads%252Frz9midvEwF32JQ0iHUmO%252Fimage.png%3Falt%3Dmedia%26token%3Dd6326bb4-fe73-4ed2-821e-ef7e9c8b2e5f&width=768&dpr=4&quality=100&sign=bbcfc3e&sv=1
+Step 2: Choose LineOA account you want to connect to Pancake
+https://statics.pancake.vn/pancake-docs/2024/8/24/image0e8e5106-66e9-488a-9403-b395fa181dff?url=https%3A%2F%2F4078023836-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252FYnoXIEwev8YlAw6px2sv%252Fuploads%252Fspb5AqMDTXTIpup1t3LZ%252Fimage.png%3Falt%3Dmedia%26token%3D4b017419-9a7d-45dc-b0c7-80d6d3970cc0&width=768&dpr=4&quality=100&sign=2300f29a&sv=1
+Step 3: Select Setting > Messaging API > Enable Messaging API
+https://statics.pancake.vn/pancake-docs/2024/8/24/image340e97dd-cb69-4e6d-9dea-1af648de70b1?url=https%3A%2F%2F4078023836-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252FYnoXIEwev8YlAw6px2sv%252Fuploads%252FjwjUSbkQOOsVG0DneMA3%252Fimage.png%3Falt%3Dmedia%26token%3D0dd93639-a516-469d-a7cb-c0226f740ca7&width=768&dpr=4&quality=100&sign=53bb0470&sv=1
+Step 4: Fill in the required information, click OK or Agree
+https://statics.pancake.vn/pancake-docs/2024/8/24/image27033bc6-8d9f-488d-b9b7-2d3a8dcca58f?url=https%3A%2F%2F4078023836-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252FYnoXIEwev8YlAw6px2sv%252Fuploads%252FyvjekWuhaQBSHxk0AZLT%252Fimage.png%3Falt%3Dmedia%26token%3D4b2a8011-edce-4242-9d21-e041802f2fa0&width=768&dpr=4&quality=100&sign=5f2baea8&sv=1
+Step 5: Go to Response Settings
+Enable all three chat options: Greeting Message, Auto-response, and Webhooks.
+https://statics.pancake.vn/pancake-docs/2024/8/24/imagef50f1126-26bf-42be-a3e0-2abc67dd16e3?url=https%3A%2F%2F4078023836-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252FYnoXIEwev8YlAw6px2sv%252Fuploads%252FhHXdokB2pMsvI7bBBovd%252Fimage.png%3Falt%3Dmedia%26token%3D86e43ff0-089a-495c-bc1f-7e77317947fd&width=768&dpr=4&quality=100&sign=32522ae2&sv=1
+Step 6: Copy your link LineOA
+Your Line OA link will appear in the following format: https://manager.line.biz/account/.
+
+ For example: https://manager.line.biz/account/@277zlyfr 
+Please copy the exact link, as you will need it in the next step.
+https://statics.pancake.vn/pancake-docs/2024/8/24/image5594ca1b-4197-46c6-9e5b-52cff29b4132?url=https%3A%2F%2F4078023836-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252FYnoXIEwev8YlAw6px2sv%252Fuploads%252Fd4LSugyJysGzEUaph5UM%252Fimage.png%3Falt%3Dmedia%26token%3D0a9be56c-f490-4c0d-90af-8089e2674f84&width=768&dpr=4&quality=100&sign=ea40b31c&sv=1
+Step 7: Log in o to Pancake, select "connect" button to add a new platform.
+https://statics.pancake.vn/pancake-docs/2024/8/24/imageb4fa5765-2e08-4bcf-8c4d-f609af97300e?url=https%3A%2F%2F4078023836-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252FYnoXIEwev8YlAw6px2sv%252Fuploads%252FlproumXtCRVOCbSSHwep%252Fimage.png%3Falt%3Dmedia%26token%3Da6ebf38a-c6b3-4840-8d63-25ad8798c216&width=768&dpr=4&quality=100&sign=7b6b1b7c&sv=1
+Step 8: Choose Line platform, scroll down to the Connect via link
+https://statics.pancake.vn/pancake-docs/2024/8/24/image720afeda-8010-4039-8be1-54f91cca8862?url=https%3A%2F%2F4078023836-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252FYnoXIEwev8YlAw6px2sv%252Fuploads%252FGq5NSGS7yQZacS6Jvx36%252FScreenshot%25202024-06-04%2520at%252012.03.40.png%3Falt%3Dmedia%26token%3D05d67cdd-73e2-4f6c-a027-ed801e764ef2&width=768&dpr=4&quality=100&sign=8cb72ad5&sv=1
+Step 9: Paste your link LineOA in step 6, tap Fetch information
+Note:
+- Based on your Line OA link, the system will automatically populate the following information: Line OA Name, Channel ID, Channel Secret when you click the “Fetch Information” button. 
+- You must have the Pancake v2 extension installed in order to perform this action.
+https://statics.pancake.vn/pancake-docs/2024/8/24/image52511dad-9720-42fe-ab60-cfe9e7911422?url=https%3A%2F%2F4078023836-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252FYnoXIEwev8YlAw6px2sv%252Fuploads%252FVSC6gjvpzDQFJuHfwGoy%252FScreenshot%25202024-06-04%2520at%252012.06.44.png%3Falt%3Dmedia%26token%3D4f3b1044-6a97-4e8e-9272-120b6290b718&width=768&dpr=4&quality=100&sign=e40eae61&sv=1
+Step 10: If the information has been filled in, click “Connect” to initiate the connection.
+https://statics.pancake.vn/pancake-docs/2024/8/24/image82c4a5d3-4142-4ed7-ad69-2aadaeeeab55?url=https%3A%2F%2F4078023836-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252FYnoXIEwev8YlAw6px2sv%252Fuploads%252Fa8q4RAzs9T07mfEkE2dm%252Fimage.png%3Falt%3Dmedia%26token%3Dd98e958d-94a9-4bd0-80e8-5419895dc8c7&width=768&dpr=4&quality=100&sign=a75adfbc&sv=1
+At this point, you have successfully connected LineOA to Pancake
+Some Notes on Using Line OA with Pancake: 
+- The number of messages in Pancake is calculated based on the number of broadcast messages sent via Line. Therefore, after the 1,000 free broadcast messages per month, customers must purchase a broadcast plan on Line to continue sending messages through Pancake. 
+- After connecting to Line OA, messages will only be received in Pancake starting from the time of connection. Currently, Line does not support syncing past messages. 
+- Once connected, the admin should only use Pancake to respond to customers. If you actively send messages to customers via the Line OA app (not through Pancake), those messages will not appear in Pancake.

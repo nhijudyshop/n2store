@@ -1,0 +1,34 @@
+WhatsApp > WhatsApp API entry points
+Entry points are gateways to WhatsApp conversations. There are many ways to lead your customers to your WhatsApp number and engage in a conversation.
+1. Whatsapp Discover Businesses
+https://statics.pancake.vn/pancake-docs/2025/2/11/AD_4nXcL41q9hAIKdft9M5aMV-kYkBrg2RBIQfSJ09yrCdPAaK_axhvIVXV40EJuuUjxsJlIXRe3sgKCAHP8Zx7PnqTfTrt1r1fK0e00eZSeAY60Zo9mWbN7nAKYAwye0OHN_E4gooOm2w?key=LBMeE69SFxQglr1AIQHvHdqA
+The most simple way to guide your customer to chat with you through WhatsApp is the Discover Businesses search. Customers can directly search for your business within the app.
+Business search results will match in full or in part the text the user has entered. When you search for businesses, search terms are processed in a de-identified way that will not be linked back to your account. For example, when searching for a bakery in your area, search terms such as “bakeries near me”, “cake”, or “custom cupcakes” will not be associated with your WhatsApp account or phone number.
+The results displayed will only show businesses registered in your customer's country. For example, if your phone number starts with +44 for the UK, they will only see results with the same country code.
+See more about WhatsApp Discover Businesses 
+2. WhatsApp Link
+https://statics.pancake.vn/pancake-docs/2025/2/11/AD_4nXefxjAZLpZLTFeS79CrGrPDRcu4upl9PZEdybruQfNj1irqTtoN0ketdaD381i50gQQvQvy8g5dwzR2xwmIeYdNK09ON-XnRu29WM5Cr5T30VrbY5c4XmXgNLjyf4eQycBW-nJM?key=LBMeE69SFxQglr1AIQHvHdqA
+WhatsApp link is a flexible way to get customers to contact you on WhatsApp. You can attach this link anywhere: Instagram profile, Facebook Page, Website, Advertisements,...
+	•	Just create a link with the following format, and replace the "6285155094560" part with your business's phone number (don't forget the country code):
+Example: 
+https://statics.pancake.vn/pancake-docs/2025/2/11/iScreen%20Shoter%20-%2020250211161859253.jpg
+2. Or you can elevate this by adding a whole sentence to the greeting message on this link:
+	•	Replace the phone number in the link with your business WhatsApp number.
+	•	Replace the greeting "Hi, I want to know more about Pancake" with the greeting you want to insert, remembering to use + as a space.
+Example:  
+https://statics.pancake.vn/pancake-docs/2025/2/11/iScreen%20Shoter%20-%20Google%20Chrome%20-%20250211162821.jpg
+If you don't want a long link, just use a link shortener like .
+3. QR code
+A QR code can serve as a good entry point on your printed receipt, products, or simply on the promotion picture.
+https://statics.pancake.vn/pancake-docs/2025/2/11/AD_4nXfw-dB0PZkVmQQAUdLa3lnbBmreostW0QcQ1IsP818ucMtLZoS5ssX4HwwTce_kHDI5gWAcb8JXduJaol0UVUmTF0BcCTujkShQlQb5n1IqJqer16zQ19sGIC5DebdZEhKKBs4Q1w?key=LBMeE69SFxQglr1AIQHvHdqA
+Once you generated a WhatsApp link in section two, search for a QR code generator and create it. When the customer scans it with their phone, they will be redirected to WhatsApp.
+4. Paid entry points: Click to WhatsApp Ads (CTWA)
+While setting up the ads, you can choose the destination for the Call-to-action button. When the client clicks on the button, they will be redirected directly to your business' WhatsApp number.
+https://statics.pancake.vn/pancake-docs/2025/2/11/iScreen%20Shoter%20-%20Google%20Chrome%20-%20250211173134.jpg
+https://statics.pancake.vn/pancake-docs/2025/2/11/AD_4nXeaUQlnlnfNhu4-VeqWJv_zhqY1o4a3dEIhe9jOJv67MtWjCiyaAXbwF1mE8LiHYwP-Nn9_A29YwvP6luPwqvr7EGB8sqzXQKquQ38L7ehKDAuKsvdtD-MhVz6CyUK_vblLdPvE?key=LBMeE69SFxQglr1AIQHvHdqA
+After the customer clicks on the ad, they will be redirected to the WhatsApp app on their phone and begin a conversation with the customer.
+https://statics.pancake.vn/pancake-docs/2025/2/11/AD_4nXdwc3pnM2O9waYIgrfyareCvWdL0OSmr3ruVbrh367N8mhIJ11U4_KMroK8C6ZmwnpUvSnb9tVCWSUDaYSvUPn9l7qx4dZFftTt2lhas_Atm2RnI5pSnGpl9Y4WRxt9t5uyxz9DBg?key=LBMeE69SFxQglr1AIQHvHdqA
+Conversations initiated from these ads won't incur charges for the first 72 hours, regardless of the type of template or conversation, if you respond within 24 hours.
+If you do not respond within 24 hours, a free entry point conversation is not opened and you must use a template to message the customer, which opens a marketing, utility, or authentication conversation, per the category of the template.
+
+ After this free 72h period, regular conversation fees apply. Each conversation originating from click-to-WhatsApp ads will have a unique Advertisement ID and can be tailored to automate responses based on each ad.

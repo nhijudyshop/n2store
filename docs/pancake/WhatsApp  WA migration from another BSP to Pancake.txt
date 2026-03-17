@@ -1,0 +1,32 @@
+WhatsApp > WA migration from another BSP to Pancake
+In short, this process is to migrate the WA API number from a WABA in the old BSP to our platforms (the new BSP).
+1. Noticable points
+	•	Downtime: Your WA API number does not need to be deactivated for the BSP switching process. Before moving, your number can still be used as usual in the old BSP. After successful migration, the number can be used immediately in the new BSP without any waiting period.
+	•	Templates: All templates with approval and high quality will be moved to the new BSP.
+	•	Conversation Limit: remains the same.
+	•	Chat History: All the chat history from the old BSP will be lost.
+	•	Official Business Account Badge (green tick): Goes through a re-verification process and will be granted if the information remains the same as the old BSP
+2. Preparations (in the old WhatsApp Business Account - WABA)
+Comment
+In the WA Manager of the old BSP, choose "Account tools" → "Phone number" → "Settings
+https://statics.pancake.vn/pancake-docs/2025/2/17/imagee5faa384-3d86-4f0d-8c73-110d977e80ab?url=https%3A%2F%2F2998122138-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252F-LYisMHJzh51uTgCQPZF-1703796690%252Fuploads%252Fvh9YLsWP6u5oMpcva1rb%252FScreenshot%25202024-12-19%2520at%252008.46.57.png%3Falt%3Dmedia%26token%3Daf7cd869-714c-4ea1-9757-814806cb79af&width=768&dpr=4&quality=100&sign=7f73a1f3&sv=2
+https://statics.pancake.vn/pancake-docs/2025/2/17/imagea33fbc47-7e4c-4a16-98d2-a222fb094e0d?url=https%3A%2F%2F2998122138-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252F-LYisMHJzh51uTgCQPZF-1703796690%252Fuploads%252FLHpMI6IPmGrHjwrhgddQ%252FScreenshot%25202024-12-19%2520at%252008.49.45.png%3Falt%3Dmedia%26token%3Da48a3005-9a5f-493b-849f-ca1be546cc25&width=768&dpr=4&quality=100&sign=7512f1c5&sv=2
+Next, click on the "More" button and select "Two-step verification" and turn it off.
+https://statics.pancake.vn/pancake-docs/2025/2/17/imagec8a20f77-6481-40ce-9b5e-3425c381f52f?url=https%3A%2F%2F2998122138-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252F-LYisMHJzh51uTgCQPZF-1703796690%252Fuploads%252FLjtrUXiNcLKlL31bfP39%252FScreenshot%25202024-12-19%2520at%252008.50.41.png%3Falt%3Dmedia%26token%3D637c0bdf-dfc8-47fd-ad0a-ea5202e59aff&width=768&dpr=4&quality=100&sign=210d0f9d&sv=2
+3. Migration
+Before migrating the number, make sure you have already turned off the Two-step verification mentioned above. The migration process will not work if this has not been turned off. 
+To initiate the process, go to Pancake and click Connect → WhatsApp → Connect WhatsApp API
+https://statics.pancake.vn/pancake-docs/2025/2/17/image0e08484f-2708-4f60-9fb6-4ab29ccfd831?url=https%3A%2F%2F2998122138-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252F-LYisMHJzh51uTgCQPZF-1703796690%252Fuploads%252FFzjUPWqwCdzavwRu4m05%252FScreenshot%25202024-12-19%2520at%252008.54.41.png%3Falt%3Dmedia%26token%3Dea978809-0e95-4884-bd02-bc7e71d6dd92&width=768&dpr=4&quality=100&sign=9552b67&sv=2
+https://statics.pancake.vn/pancake-docs/2025/2/17/imagefe3cfee0-c685-49d9-b00d-09c3f1e608e2?url=https%3A%2F%2F2998122138-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252F-LYisMHJzh51uTgCQPZF-1703796690%252Fuploads%252FwU4YdXUbOZKLvi9cPLBV%252FScreenshot%25202024-12-19%2520at%252008.56.31.png%3Falt%3Dmedia%26token%3D466d94ee-677f-421f-8563-ca698b5dbbb7&width=768&dpr=4&quality=100&sign=1cceb8ca&sv=2
+Go through the embedded sign-up process as usual.
+https://statics.pancake.vn/pancake-docs/2025/2/17/imageeb8bdefb-ed91-4633-b765-679ca530c9df?url=https%3A%2F%2F2998122138-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252F-LYisMHJzh51uTgCQPZF-1703796690%252Fuploads%252Fj6l0oNsPc6W2r3AdQG6H%252FScreenshot%25202024-12-19%2520at%252008.58.08.png%3Falt%3Dmedia%26token%3D156858d3-4847-47ae-bcb7-8a3646d63128&width=768&dpr=4&quality=100&sign=7d42d4ae&sv=2
+Make sure you choose the correct BM
+Choose this option to create a new WABA that is connected directly to Pancake.
+https://statics.pancake.vn/pancake-docs/2025/2/17/image61fd65a5-d883-4583-9862-c8702e82a0f1?url=https%3A%2F%2F2998122138-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252F-LYisMHJzh51uTgCQPZF-1703796690%252Fuploads%252FyfZBDEnFjEFnE06vLntp%252FScreenshot%25202024-12-19%2520at%252008.59.07.png%3Falt%3Dmedia%26token%3D75cab1c4-3a24-42a8-a6c9-168115b64fcc&width=768&dpr=4&quality=100&sign=d8382ea&sv=2
+Register the account EXACTLY as the information on the old WABA.
+If the phone number already has the Green Verified Badge, WhatsApp will review the information again before reissuing it and may deny the badge if there is any mismatch.
+https://statics.pancake.vn/pancake-docs/2025/2/17/image808e8219-83cc-420a-a110-668ad5287740?url=https%3A%2F%2F2998122138-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252F-LYisMHJzh51uTgCQPZF-1703796690%252Fuploads%252FEXEkTsFMK2lFWahm4Lwl%252FScreenshot%25202024-12-19%2520at%252009.00.25.png%3Falt%3Dmedia%26token%3D3a2f8163-6835-4726-b62f-625dea0b1d46&width=768&dpr=4&quality=100&sign=c65aa168&sv=2
+Input the phone number you wish to migrate, and you will receive a notification that the number will be migrated from another BSP. Click Next to initiate the process, then input the OTP sent to the number.
+https://statics.pancake.vn/pancake-docs/2025/2/17/imagefc2e59db-77dc-42fd-9ebd-ecfce90f4f2f?url=https%3A%2F%2F2998122138-files.gitbook.io%2F%7E%2Ffiles%2Fv0%2Fb%2Fgitbook-x-prod.appspot.com%2Fo%2Fspaces%252F-LYisMHJzh51uTgCQPZF-1703796690%252Fuploads%252FTk4Lh19dPK1HhAR9lFnd%252Fimage.png%3Falt%3Dmedia%26token%3Dc296925e-7b46-4823-87fd-99af8f1939c2&width=768&dpr=4&quality=100&sign=88d90ffe&sv=2
+That's it! Your number will be automatically connected to Pancake after this.
+If you encounter any problems during the migration process, please contact Pancake support for further assistance. Thank you!

@@ -1,0 +1,6 @@
+Connect Pancake with Platforms > Connect Pancake with Livechat/Chat Plugin website
+Learn how to connect your website with Pancake. What's Pancake Chat Plugin?
+A Pancake Chat plugin is a live chat widget that can be embedded into your website. By adding the Pancake Chat Plugin to your site, you can chat directly with visitors on your website through Pancake.
+https://statics.pancake.vn/pancake-docs/2025/1/14/Screenshot 2025-01-14 at 16.50.01.png
+Websites use chat plugins to support customers
+Next Steps: Create Pancake Chat Plugin

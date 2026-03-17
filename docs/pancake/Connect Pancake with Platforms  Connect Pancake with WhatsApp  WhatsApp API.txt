@@ -1,0 +1,56 @@
+Connect Pancake with Platforms > Connect Pancake with WhatsApp > WhatsApp API
+Requirements to connect and use the WhatsApp API:
+✅ Your Business Manager (BM) account must be verified: If it's not verified, the number of daily conversations will be limited.
+✅ The WhatsApp number must not be connected to a personal WhatsApp account: If the number was previously registered with regular WhatsApp, you’ll need to delete that account and wait for 3-5 mins before connecting it to the WhatsApp API.
+✅ The account used to register for the WhatsApp API must have ADMIN access to the Business Manager.
+Connect Pancake with your WhatsApp API Account
+Step 1: Go to connect section
+	•	Please log in to Pancake, then click on “Connect” button
+https://statics.pancake.vn/pancake-docs/2025/11/18/c900b772-79ad-4568-9d5c-bb31e3cfdab5_Screenshot%202025-11-18%20at%2015.08.00.png
+Then select “WhatsApp” → “Connect with WhatsApp Business”
+https://statics.pancake.vn/pancake-docs/2025/11/18/7b6db3fe-3e78-4065-97b6-098a04eb24e6_Screenshot 2025-11-18 at 14.27.27.png
+Check the box then click Continue
+https://statics.pancake.vn/pancake-docs/2025/11/18/186310cb-9e0c-4de4-bf8d-9c7c7882012d_Screenshot 2025-11-18 at 14.27.51.png
+Step 2: Go through the Embedded Signup flow
+A window will pop up, and you will be transferred to Meta’s Embedded Signup
+Choose “Continue as …” to log into your FB account.
+https://statics.pancake.vn/pancake-docs/2025/11/18/4579022d-a0c0-42ee-a9df-250b6942744d_Screenshot 2025-11-18 at 15.05.53.png
+Click "Continue"
+https://statics.pancake.vn/pancake-docs/2025/11/18/250561b5-f232-4355-8ae4-232464542305_Screenshot 2025-11-18 at 14.29.28.png
+Choose the Business Portfolio. You should choose the verified one.
+Choose "Create new WhatsApp Business Account" or select the existing one.
+https://statics.pancake.vn/pancake-docs/2025/11/18/aa7c4adc-c7db-42bf-8ff1-223bcb6350c4_Screenshot%202025-11-18%20at%2014.30.23.png
+1️⃣  Create new WhatsApp Business Account
+Select the “Create new WhatsApp Business Account" then click "Next"
+https://statics.pancake.vn/pancake-docs/2025/11/19/31e85723-6ee8-4080-861f-2df9797d15a9_Screenshot 2025-11-19 at 16.39.48.png
+Fill your business information
+WhatsApp Business Account Name: This is your internal WhatsApp name that appears in Business Manager to help you differentiate between accounts. It will not be visible to your customers. But you should put the similar name as the display name (This is the name shown on your WhatsApp profile — it's what your customers will see.)
+Category: Choose the product or service category that best matches your business.
+Website: Put your ACCESSIBLE website address. It's better if the domain name include your brand name.
+Please note that WEBSITE is very important. You should fill the eligible - accessible address. If you don't have website, you can put your business Facebook Page link or the Instagram link. Example: 
+https://www.facebook.com/Pancake.vn
+https://www.instagram.com/pancakephilippines/
+There are also additional (optional) fields such as Time zone, Business description.
+Click Next
+https://statics.pancake.vn/pancake-docs/2025/11/19/6b319489-7304-460a-afcd-2514bed56ba6_Screenshot 2025-11-19 at 16.39.24.png
+You may see the option to use a display name only. But you should not choose this. Add your new phone number instead.
+Add a phone number and verify via the OTP to register your number and attach to your WhatsApp Business Account
+https://statics.pancake.vn/pancake-docs/2025/11/19/d6da3627-6411-42f0-b99a-10468c28af91_Screenshot 2025-11-19 at 17.02.50.png
+You may be prompted to “Confirm" what you will share with Pancake
+https://statics.pancake.vn/pancake-docs/2025/11/18/26ce8491-19b5-4c7a-a8d1-fd7d114b47ab_Screenshot 2025-11-18 at 14.53.56.png
+Waiting for the connecting process complete. Click "Finish"
+https://statics.pancake.vn/pancake-docs/2025/11/18/f03930b1-c8a7-4e1f-81b0-db7caa9d7532_Screenshot 2025-11-18 at 14.54.59.png
+You should wait for 1-2 mins to be redirected to the conversation management screen. Please keep calm, refresh the page and try once again if you have any issue.
+2️⃣  Choose the existing one
+You can choose the existing WhatsApp Business Account in your Business Portfolio to connect with Pancake
+https://statics.pancake.vn/pancake-docs/2025/11/18/aa7c4adc-c7db-42bf-8ff1-223bcb6350c4_Screenshot%202025-11-18%20at%2014.30.23.png
+Add a new phone number or choose the existing phone number to connect
+https://statics.pancake.vn/pancake-docs/2025/11/19/d61fb7d0-8212-4138-b148-5aa5489fba4e_Screenshot 2025-11-19 at 17.18.07.png
+Even choose the existing phone number or add a new one, verify the OTP to complete the flow
+https://statics.pancake.vn/pancake-docs/2025/11/19/c8a59bc5-e5df-4875-b1e2-00478af55520_Screenshot 2025-11-19 at 17.18.58.png
+You may be prompted to “Confirm" what you will share with Pancake
+https://statics.pancake.vn/pancake-docs/2025/11/18/26ce8491-19b5-4c7a-a8d1-fd7d114b47ab_Screenshot 2025-11-18 at 14.53.56.png
+Waiting for the connecting process complete. Click "Finish"
+https://statics.pancake.vn/pancake-docs/2025/11/18/f03930b1-c8a7-4e1f-81b0-db7caa9d7532_Screenshot 2025-11-18 at 14.54.59.png
+You should wait for 1-2 mins to be redirected to the conversation management screen. Please keep calm, refresh the page and try once again if you have any issue.
+Next, once you've successfully connected to the WhatsApp API,  to ensure a smooth experience when using Template Messages to send messages
