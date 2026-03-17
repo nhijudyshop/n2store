@@ -5240,6 +5240,11 @@
 /* ATTENDANCE EDIT MODAL (Chấm công)            */
 /* ============================================ */
 
+/* Attendance edit modal: higher z-index to overlay calendar detail modal */
+#attendanceModal {
+    z-index: 2000;
+}
+
 /* Make calendar day cells clickable */
 .ad-day:not(.empty) {
     cursor: pointer;
