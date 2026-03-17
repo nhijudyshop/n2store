@@ -136,31 +136,99 @@ function initInfoTabs() {
    INIT APP
    ===================================================== */
 
-function initInboxApp() {
-    // Initialize Lucide icons
+async function initInboxApp() {
+    console.log('[Inbox] Initializing app...');
+
+    // 1. Initialize Lucide icons
     if (typeof lucide !== 'undefined') {
         lucide.createIcons();
     }
 
-    // Initialize column resizer
+    // 2. Initialize column resizer
     initColumnResizer();
 
-    // Initialize info tabs
+    // 3. Initialize info tabs
     initInfoTabs();
 
-    // Initialize order controller if available
-    if (typeof InboxOrderController !== 'undefined') {
-        const orderController = new InboxOrderController();
-        orderController.init();
-        window.inboxOrders = orderController;
+    // 4. Initialize data manager (token + pages + conversations)
+    let dataManager = null;
+    let chatController = null;
+
+    try {
+        dataManager = new InboxDataManager();
+        window.inboxData = dataManager;
+
+        // Show loading state
+        const convList = document.getElementById('conversationList');
+        if (convList) {
+            convList.innerHTML = '<div class="conv-loading"><div class="spinner"></div><span>Dang tai hoi thoai...</span></div>';
+        }
+
+        await dataManager.init();
+        console.log(`[Inbox] Data loaded: ${dataManager.conversations.length} conversations, ${dataManager.pages.length} pages`);
+    } catch (err) {
+        console.error('[Inbox] Data init failed:', err);
+        showToast('Khong the tai du lieu. Vui long thu lai.', 'error');
+        // Still continue - UI can work in degraded mode
     }
 
-    // Apply permission-based UI restrictions
+    // 5. Initialize chat controller
+    try {
+        chatController = new InboxChatController(dataManager);
+        chatController.init();
+        window.inboxChat = chatController;
+        console.log('[Inbox] Chat controller initialized');
+    } catch (err) {
+        console.error('[Inbox] Chat controller init failed:', err);
+    }
+
+    // 6. Initialize order controller
+    if (typeof InboxOrderController !== 'undefined') {
+        try {
+            const orderController = new InboxOrderController();
+            orderController.init();
+            window.inboxOrders = orderController;
+            console.log('[Inbox] Order controller initialized');
+        } catch (err) {
+            console.error('[Inbox] Order controller init failed:', err);
+        }
+    }
+
+    // 7. Initialize WebSocket for real-time updates
+    if (chatController) {
+        try {
+            chatController.initializeWebSocket();
+        } catch (err) {
+            console.error('[Inbox] WebSocket init failed:', err);
+        }
+
+        // 8. Update page unread counts
+        try {
+            chatController.updatePageUnreadCounts();
+        } catch (err) {
+            console.error('[Inbox] Unread counts failed:', err);
+        }
+    }
+
+    // 9. Fetch pending customers from server
+    if (dataManager) {
+        try {
+            await dataManager.fetchPendingFromServer();
+            // Re-render conversation list after merging pending
+            if (chatController) {
+                chatController.renderConversationList();
+            }
+        } catch (err) {
+            console.error('[Inbox] Pending fetch failed:', err);
+        }
+    }
+
+    // 10. Apply permission-based UI restrictions
     if (typeof PermissionHelper !== 'undefined') {
         PermissionHelper.applyUIRestrictions('inbox');
     }
 
-    console.log('[Inbox] App initialized (clean slate - messaging removed)');
+    console.log('[Inbox] App fully initialized');
 }
 
 // Wait for DOM ready

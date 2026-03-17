@@ -1,6 +1,6 @@
 <!--
   Inbox - N2STORE
-  Trang này sẽ được làm lại toàn bộ chức năng nhắn tin.
+  Giao dien chat 3 cot tich hop Pancake API
 -->
 <!doctype html>
 <html lang="vi">
@@ -46,9 +46,27 @@
                 <div class="col-header">
                     <h2>Inbox</h2>
                     <div class="col-header-actions">
+                        <span class="ws-status-indicator" id="wsStatusIndicator" title="WebSocket">
+                            <i data-lucide="wifi-off"></i>
+                        </span>
+                        <button class="btn-icon-sm" id="btnPancakeSettings" title="Pancake Settings" data-perm="inbox:settings" data-perm-action="hide">
+                            <i data-lucide="settings"></i>
+                        </button>
                         <button class="btn-icon-sm" id="btnRefreshInbox" title="Lam moi">
                             <i data-lucide="refresh-cw"></i>
                         </button>
+                    </div>
+                </div>
+
+                <!-- Page Selector -->
+                <div class="page-selector-wrapper" id="pageSelectorWrapper">
+                    <button class="page-selector-btn" id="pageSelectorBtn">
+                        <i data-lucide="layers"></i>
+                        <span id="pageSelectorLabel">Tat ca Pages</span>
+                        <i data-lucide="chevron-down" class="page-selector-arrow"></i>
+                    </button>
+                    <div class="page-selector-dropdown" id="pageSelectorDropdown" style="display:none;">
+                        <!-- Populated by JS -->
                     </div>
                 </div>
 
@@ -60,12 +78,25 @@
                     </div>
                 </div>
 
+                <!-- Filter Tabs -->
+                <div class="conversation-filters" id="conversationFilters">
+                    <button class="conv-filter-btn active" data-filter="all">Tat ca</button>
+                    <button class="conv-filter-btn" data-filter="unread">Chua doc</button>
+                    <button class="conv-filter-btn" data-filter="inbox_my">Cua toi</button>
+                    <button class="conv-filter-btn" data-filter="livestream">Livestream</button>
+                </div>
+
                 <!-- Conversation List -->
                 <div class="conversation-list" id="conversationList">
-                    <div style="padding: 2rem; text-align: center; color: var(--text-tertiary);">
-                        <i data-lucide="inbox" style="width:48px;height:48px;opacity:0.3;"></i>
-                        <p style="margin-top:0.5rem;">Chua co du lieu</p>
+                    <div class="conv-loading" id="convLoading">
+                        <div class="loading-spinner"></div>
+                        <p>Dang tai...</p>
                     </div>
+                </div>
+
+                <!-- Load More Indicator -->
+                <div class="conv-load-more" id="convLoadMore" style="display:none;">
+                    <div class="loading-spinner small"></div>
                 </div>
             </div>
 
@@ -77,7 +108,7 @@
                 <!-- Chat Header -->
                 <div class="chat-header" id="chatHeader">
                     <div class="chat-header-info">
-                        <div class="chat-avatar">
+                        <div class="chat-avatar" id="chatHeaderAvatar">
                             <i data-lucide="user"></i>
                         </div>
                         <div class="chat-user-details">
@@ -86,10 +117,26 @@
                         </div>
                     </div>
                     <div class="chat-header-actions">
+                        <button class="btn-icon-sm" id="btnToggleRead" title="Doc/Chua doc" style="display:none;">
+                            <i data-lucide="eye"></i>
+                        </button>
+                        <button class="btn-icon-sm" id="btnLivestreamToggle" title="Livestream" style="display:none;" data-perm="inbox:manage_labels" data-perm-action="hide">
+                            <i data-lucide="radio"></i>
+                        </button>
                         <button class="btn-icon-sm" id="btnToggleRightPanel" title="Thong tin">
                             <i data-lucide="panel-right-open"></i>
                         </button>
                     </div>
+                </div>
+
+                <!-- Customer Stats Bar -->
+                <div class="customer-stats-bar" id="customerStatsBar" style="display:none;">
+                    <!-- Populated by JS -->
+                </div>
+
+                <!-- Post Info Banner -->
+                <div class="post-info-banner" id="postInfoBanner" style="display:none;">
+                    <!-- Populated by JS -->
                 </div>
 
                 <!-- Chat Messages -->
@@ -102,14 +149,87 @@
                     </div>
                 </div>
 
+                <!-- Label Bar -->
+                <div class="chat-label-bar" id="chatLabelBar" style="display:none;" data-perm="inbox:manage_labels" data-perm-action="hide">
+                    <!-- Populated by JS -->
+                </div>
+
+                <!-- Reply Preview -->
+                <div class="reply-preview-bar" id="replyPreviewBar" style="display:none;">
+                    <div class="reply-preview-content">
+                        <i data-lucide="corner-up-left"></i>
+                        <span id="replyPreviewText"></span>
+                    </div>
+                    <button class="btn-icon-sm" id="btnCancelReply" title="Huy tra loi">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+
+                <!-- Image Preview -->
+                <div class="image-preview-bar" id="imagePreviewBar" style="display:none;">
+                    <img id="imagePreviewImg" src="" alt="Preview" />
+                    <button class="btn-icon-sm" id="btnCancelImage" title="Huy anh">
+                        <i data-lucide="x"></i>
+                    </button>
+                </div>
+
                 <!-- Chat Input -->
                 <div class="chat-input-area" id="chatInputArea">
+                    <!-- Send Page Selector + Reply Type -->
+                    <div class="chat-input-options" id="chatInputOptions" style="display:none;">
+                        <select id="sendPageSelector" class="input-option-select" title="Gui tu page">
+                            <!-- Populated by JS -->
+                        </select>
+                        <select id="replyTypeSelector" class="input-option-select" title="Kieu tra loi" style="display:none;">
+                            <option value="reply_comment">Binh luan cong khai</option>
+                            <option value="private_replies">Nhan rieng</option>
+                        </select>
+                    </div>
                     <div class="chat-input-wrapper">
+                        <div class="chat-input-actions-left">
+                            <button class="btn-icon-sm" id="btnAttachImage" title="Dinh kem anh">
+                                <i data-lucide="image"></i>
+                            </button>
+                            <button class="btn-icon-sm" id="btnAttachFile" title="Dinh kem file">
+                                <i data-lucide="paperclip"></i>
+                            </button>
+                            <button class="btn-icon-sm" id="btnEmojiToggle" title="Emoji">
+                                <i data-lucide="smile"></i>
+                            </button>
+                        </div>
                         <textarea id="chatInput" placeholder="Nhap tin nhan..." rows="1"></textarea>
                         <button class="btn-send" id="btnSend" title="Gui">
                             <i data-lucide="send"></i>
                         </button>
                     </div>
+                    <!-- Hidden file inputs -->
+                    <input type="file" id="imageFileInput" accept="image/*" style="display:none;" />
+                    <input type="file" id="attachFileInput" style="display:none;" />
+                </div>
+
+                <!-- Emoji Picker -->
+                <div class="emoji-picker" id="emojiPicker" style="display:none;">
+                    <div class="emoji-categories" id="emojiCategories">
+                        <button class="emoji-cat-btn active" data-category="smileys">😀</button>
+                        <button class="emoji-cat-btn" data-category="people">👋</button>
+                        <button class="emoji-cat-btn" data-category="animals">🐶</button>
+                        <button class="emoji-cat-btn" data-category="food">🍔</button>
+                        <button class="emoji-cat-btn" data-category="objects">💡</button>
+                        <button class="emoji-cat-btn" data-category="symbols">❤️</button>
+                    </div>
+                    <div class="emoji-grid" id="emojiGrid">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Reaction Picker (floating) -->
+                <div class="reaction-picker" id="reactionPicker" style="display:none;">
+                    <button class="reaction-btn" data-reaction="LIKE">👍</button>
+                    <button class="reaction-btn" data-reaction="LOVE">❤️</button>
+                    <button class="reaction-btn" data-reaction="HAHA">😂</button>
+                    <button class="reaction-btn" data-reaction="WOW">😮</button>
+                    <button class="reaction-btn" data-reaction="SAD">😢</button>
+                    <button class="reaction-btn" data-reaction="ANGRY">😡</button>
                 </div>
             </div>
 
@@ -150,9 +270,16 @@
 
                 <!-- Tab 2: Activities -->
                 <div class="info-tab-content" id="tabActivities">
-                    <div style="text-align:center; color:var(--text-tertiary); padding:2rem;">
-                        <i data-lucide="activity" style="width:32px;height:32px;opacity:0.5;"></i>
-                        <p style="margin-top:0.5rem;">Chon cuoc hoi thoai de xem hoat dong</p>
+                    <div id="activitiesContent">
+                        <div style="text-align:center; color:var(--text-tertiary); padding:2rem;">
+                            <i data-lucide="activity" style="width:32px;height:32px;opacity:0.5;"></i>
+                            <p style="margin-top:0.5rem;">Chon cuoc hoi thoai de xem hoat dong</p>
+                        </div>
+                    </div>
+                    <!-- Notes Section -->
+                    <div class="notes-section" id="notesSection" style="display:none;">
+                        <h4>Ghi chu</h4>
+                        <div id="notesContent"></div>
                     </div>
                 </div>
 
@@ -288,10 +415,45 @@
             </div>
         </main>
 
+        <!-- Manage Groups Modal -->
+        <div class="modal-overlay" id="manageGroupsModal" style="display:none;">
+            <div class="modal-content modal-manage-groups">
+                <div class="modal-header">
+                    <h3>Quan Ly Nhom Phan Loai</h3>
+                    <button class="btn-icon-sm" id="btnCloseManageGroups"><i data-lucide="x"></i></button>
+                </div>
+                <div class="modal-body" id="manageGroupsBody">
+                    <!-- Populated by JS -->
+                </div>
+                <div class="modal-footer">
+                    <button class="btn-primary" id="btnAddNewGroup"><i data-lucide="plus"></i> Them nhom moi</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Livestream Post Selector -->
+        <div class="livestream-post-selector" id="livestreamPostSelector" style="display:none;">
+            <div class="livestream-post-header">
+                <h4>Chon bai post livestream</h4>
+                <button class="btn-icon-sm" id="btnCloseLivestreamSelector"><i data-lucide="x"></i></button>
+            </div>
+            <div class="livestream-post-list" id="livestreamPostList">
+                <!-- Populated by JS -->
+            </div>
+            <div class="livestream-post-actions">
+                <button class="btn-danger-sm" id="btnClearLivestream" data-perm="inbox:manage_labels" data-perm-action="hide">
+                    <i data-lucide="trash-2"></i> Xoa tat ca livestream cho post nay
+                </button>
+            </div>
+        </div>
+
         <!-- Toast notification -->
         <div id="toastContainer" class="toast-container"></div>
 
-        <!-- JavaScript -->
+        <!-- JavaScript (order matters) -->
+        <script src="js/inbox-pancake-api.js"></script>
+        <script src="js/inbox-data.js"></script>
+        <script src="js/inbox-chat.js"></script>
         <script src="js/permissions-helper.js"></script>
         <script src="js/shop-config.js"></script>
         <script src="js/goong-places.js"></script>
