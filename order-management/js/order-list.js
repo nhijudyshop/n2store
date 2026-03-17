@@ -440,6 +440,13 @@
                         qty: v.remainingQty || 0
                     }));
 
+                    // Create list of deposit quantities for each variant
+                    const depositQtyList = variants.map(v => ({
+                        id: v.Id,
+                        name: v.NameGet,
+                        qty: v.depositQty || 0
+                    }));
+
                     // Get the most recent addedAt timestamp from all variants
                     const mostRecentAddedAt = Math.max(...variants.map(v => v.addedAt || 0));
 
@@ -452,6 +459,7 @@
                         remainingQty: 0, // Not used for merged products
                         soldQtyList: soldQtyList, // List of sold qty for each variant
                         remainingQtyList: remainingQtyList, // List of remaining qty for each variant
+                        depositQtyList: depositQtyList, // List of deposit qty for each variant
                         addedAt: mostRecentAddedAt, // Use most recent timestamp for sorting
                         isMerged: true,
                         variantCount: variants.length,
@@ -588,6 +596,22 @@
                                         <div class="grid-stat-value">${product.soldQty || 0}</div>
                                         <button class="qty-btn" onclick="updateProductQty(${product.Id}, 1)" ${product.soldQty >= product.QtyAvailable || isMerged ? 'disabled' : ''} ${disableEdit}>+</button>
                                     </div>
+                                `}
+                            </div>
+                            <div class="grid-stat grid-stat-deposit">
+                                <div class="grid-stat-label">💰 CHỜ CỌC</div>
+                                ${isMerged && product.depositQtyList ? `
+                                    <div class="remaining-qty-list">
+                                        ${product.depositQtyList.map(item => {
+                                            return `
+                                                <div class="remaining-qty-item">
+                                                    <input type="number" class="remaining-qty-item-value" value="${item.qty}" onchange="updateProductDepositInput(${item.id}, this.value)" min="0">
+                                                </div>
+                                            `;
+                                        }).join('')}
+                                    </div>
+                                ` : `
+                                    <input type="number" class="grid-stat-value editable-input" value="${product.depositQty || 0}" onchange="updateProductDepositInput(${product.Id}, this.value)" ${disableEdit} min="0">
                                 `}
                             </div>
                             <div class="grid-stat grid-stat-remaining">
@@ -1124,6 +1148,32 @@
                     remainingQty: product.remainingQty
                 }).catch(error => {
                     console.error('❌ Lỗi sync products:', error);
+                });
+            }
+
+            if (searchKeyword) {
+                performSearch(searchKeyword, false);
+            } else {
+                updateProductGrid();
+            }
+        }
+
+        function updateProductDepositInput(productId, newValue) {
+            const productKey = `product_${productId}`;
+            const product = orderProducts[productKey];
+            if (!product) return;
+
+            const newDepositQty = Math.max(0, parseInt(newValue) || 0);
+
+            if (newDepositQty === product.depositQty) return;
+
+            product.depositQty = newDepositQty;
+
+            if (!isSyncingFromFirebase) {
+                database.ref(`${getProductsPath(currentCampaignId)}/${productKey}`).update({
+                    depositQty: product.depositQty
+                }).catch(error => {
+                    console.error('❌ Lỗi sync deposit qty:', error);
                 });
             }
 
