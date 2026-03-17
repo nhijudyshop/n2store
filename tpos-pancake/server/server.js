@@ -1,298 +1,307 @@
-/**
- * TPOS-Pancake Server
- * Backend API for TPOS-Pancake integration
- */
+// =====================================================
+// N2STORE FACEBOOK WEBHOOK SERVER
+// Nhận tin nhắn Facebook Page realtime qua Webhook
+// Deploy trên Render.com (service: n2store-tpos-pancake)
+// =====================================================
 
 require('dotenv').config();
 const express = require('express');
-const cors = require('cors');
-const { Pool } = require('pg');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Database connection
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+const VERIFY_TOKEN = process.env.VERIFY_TOKEN || 'n2store_webhook_token';
+const APP_SECRET = process.env.APP_SECRET || '';
+
+// =====================================================
+// MIDDLEWARE
+// =====================================================
+
+// Parse JSON body - cần rawBody để verify signature
+app.use(express.json({
+    verify: (req, res, buf) => {
+        req.rawBody = buf.toString();
+    }
+}));
+
+// Request logging
+app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    next();
 });
 
-// Middleware
-app.use(cors());
-app.use(express.json());
+// =====================================================
+// DEDUPLICATION - tránh xử lý trùng message
+// =====================================================
 
-// Make db available to routes
-app.locals.db = pool;
+const processedMids = new Set();
+const MAX_CACHE_SIZE = 5000;
+
+function isDuplicate(mid) {
+    if (!mid) return false;
+    if (processedMids.has(mid)) return true;
+    processedMids.add(mid);
+    // Giữ cache không quá lớn
+    if (processedMids.size > MAX_CACHE_SIZE) {
+        const first = processedMids.values().next().value;
+        processedMids.delete(first);
+    }
+    return false;
+}
+
+// =====================================================
+// SIGNATURE VERIFICATION
+// =====================================================
+
+function verifySignature(req) {
+    if (!APP_SECRET) return true; // Bỏ qua nếu chưa cấu hình
+
+    const signature = req.headers['x-hub-signature-256'];
+    if (!signature) {
+        console.warn('[FB-WEBHOOK] ⚠️ Missing X-Hub-Signature-256 header');
+        return false;
+    }
+
+    const expectedHash = crypto
+        .createHmac('sha256', APP_SECRET)
+        .update(req.rawBody || JSON.stringify(req.body))
+        .digest('hex');
+
+    const valid = signature === `sha256=${expectedHash}`;
+    if (!valid) {
+        console.warn('[FB-WEBHOOK] ⚠️ Invalid signature');
+    }
+    return valid;
+}
+
+// =====================================================
+// EVENT HANDLERS
+// =====================================================
+
+function handleMessage(event, pageId) {
+    const senderId = event.sender.id;
+    const message = event.message;
+    const timestamp = new Date(event.timestamp).toISOString();
+
+    if (isDuplicate(message.mid)) {
+        console.log(`[FB-WEBHOOK] ⏭️ Duplicate message skipped: ${message.mid}`);
+        return;
+    }
+
+    // Text message
+    if (message.text) {
+        console.log(`[FB-WEBHOOK] 💬 TEXT`);
+        console.log(`  Page: ${pageId}`);
+        console.log(`  From: ${senderId}`);
+        console.log(`  Text: ${message.text}`);
+        console.log(`  MID:  ${message.mid}`);
+        console.log(`  Time: ${timestamp}`);
+    }
+
+    // Quick reply
+    if (message.quick_reply) {
+        console.log(`[FB-WEBHOOK] ⚡ QUICK REPLY`);
+        console.log(`  Payload: ${message.quick_reply.payload}`);
+    }
+
+    // Reply to specific message
+    if (message.reply_to) {
+        console.log(`[FB-WEBHOOK] ↩️ REPLY TO: ${message.reply_to.mid}`);
+    }
+
+    // Attachments (image, video, audio, file, sticker)
+    if (message.attachments) {
+        message.attachments.forEach((att, i) => {
+            console.log(`[FB-WEBHOOK] 📎 ATTACHMENT ${i + 1}`);
+            console.log(`  Type: ${att.type}`);
+            if (att.payload?.url) {
+                console.log(`  URL:  ${att.payload.url}`);
+            }
+            if (att.payload?.sticker_id) {
+                console.log(`  Sticker ID: ${att.payload.sticker_id}`);
+            }
+        });
+    }
+
+    // Referral (from ads, shops)
+    if (message.referral) {
+        console.log(`[FB-WEBHOOK] 🔗 REFERRAL`);
+        console.log(`  Ad ID: ${message.referral.ad_id || 'N/A'}`);
+        console.log(`  Source: ${message.referral.source || 'N/A'}`);
+    }
+
+    console.log('');
+}
+
+function handlePostback(event, pageId) {
+    const senderId = event.sender.id;
+    const postback = event.postback;
+    const timestamp = new Date(event.timestamp).toISOString();
+
+    console.log(`[FB-WEBHOOK] 🔘 POSTBACK`);
+    console.log(`  Page:    ${pageId}`);
+    console.log(`  From:    ${senderId}`);
+    console.log(`  Title:   ${postback.title}`);
+    console.log(`  Payload: ${postback.payload}`);
+    console.log(`  Time:    ${timestamp}`);
+
+    if (postback.referral) {
+        console.log(`  Referral: ${JSON.stringify(postback.referral)}`);
+    }
+    console.log('');
+}
+
+function handleDelivery(event, pageId) {
+    const delivery = event.delivery;
+    console.log(`[FB-WEBHOOK] ✅ DELIVERED`);
+    console.log(`  Page: ${pageId}`);
+    console.log(`  MIDs: ${delivery.mids?.join(', ') || 'N/A'}`);
+    console.log(`  Watermark: ${new Date(delivery.watermark).toISOString()}`);
+    console.log('');
+}
+
+function handleRead(event, pageId) {
+    const read = event.read;
+    console.log(`[FB-WEBHOOK] 👁️ READ`);
+    console.log(`  Page: ${pageId}`);
+    console.log(`  From: ${event.sender.id}`);
+    console.log(`  Watermark: ${new Date(read.watermark).toISOString()}`);
+    console.log('');
+}
+
+function handleEcho(event, pageId) {
+    const message = event.message;
+
+    if (isDuplicate(message.mid)) return;
+
+    console.log(`[FB-WEBHOOK] 🔄 ECHO (Page sent message)`);
+    console.log(`  Page: ${pageId}`);
+    console.log(`  To:   ${event.recipient.id}`);
+    console.log(`  MID:  ${message.mid}`);
+    console.log(`  App:  ${message.app_id || 'Page Inbox'}`);
+    if (message.text) console.log(`  Text: ${message.text}`);
+    if (message.metadata) console.log(`  Meta: ${message.metadata}`);
+    console.log('');
+}
+
+function handleReaction(event, pageId) {
+    const reaction = event.reaction;
+    console.log(`[FB-WEBHOOK] ${reaction.action === 'react' ? '😀' : '😶'} REACTION`);
+    console.log(`  Page:     ${pageId}`);
+    console.log(`  From:     ${event.sender.id}`);
+    console.log(`  Action:   ${reaction.action}`);
+    console.log(`  Reaction: ${reaction.reaction}`);
+    console.log(`  Emoji:    ${reaction.emoji || 'N/A'}`);
+    console.log(`  On MID:   ${reaction.mid}`);
+    console.log('');
+}
+
+// =====================================================
+// ROUTES
+// =====================================================
 
 // Health check
-app.get('/health', (req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+app.get('/ping', (req, res) => {
+    res.json({
+        success: true,
+        service: 'n2store-fb-webhook',
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString()
+    });
 });
 
-// Database debug endpoint
-app.get('/api/debug/db', async (req, res) => {
-    try {
-        // Test connection
-        const connResult = await pool.query('SELECT NOW() as time');
+// GET /webhook - Facebook Verification
+app.get('/webhook', (req, res) => {
+    const mode = req.query['hub.mode'];
+    const token = req.query['hub.verify_token'];
+    const challenge = req.query['hub.challenge'];
 
-        // Check if table exists
-        const tableCheck = await pool.query(`
-            SELECT EXISTS (
-                SELECT FROM information_schema.tables
-                WHERE table_name = 'tpos_saved_customers'
-            ) as table_exists
-        `);
+    if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+        console.log('[FB-WEBHOOK] ✅ Webhook verified successfully!');
+        return res.status(200).send(challenge);
+    }
 
-        // Count rows if table exists
-        let rowCount = 0;
-        if (tableCheck.rows[0].table_exists) {
-            const countResult = await pool.query('SELECT COUNT(*) as count FROM tpos_saved_customers');
-            rowCount = parseInt(countResult.rows[0].count);
+    console.warn(`[FB-WEBHOOK] ❌ Verification failed - mode: ${mode}, token: ${token}`);
+    res.sendStatus(403);
+});
+
+// POST /webhook - Nhận events từ Facebook
+app.post('/webhook', (req, res) => {
+    // Response 200 ngay lập tức (Facebook yêu cầu < 5 giây)
+    res.status(200).send('EVENT_RECEIVED');
+
+    // Verify signature
+    if (!verifySignature(req)) {
+        console.error('[FB-WEBHOOK] ❌ Signature verification failed, ignoring event');
+        return;
+    }
+
+    const body = req.body;
+
+    if (body.object !== 'page') {
+        console.warn(`[FB-WEBHOOK] ⚠️ Unknown object type: ${body.object}`);
+        return;
+    }
+
+    console.log('[FB-WEBHOOK] ========================================');
+    console.log(`[FB-WEBHOOK] 📥 Received webhook at ${new Date().toISOString()}`);
+
+    body.entry.forEach(entry => {
+        const pageId = entry.id;
+
+        // Messaging events (messages, postbacks, deliveries, reads)
+        if (entry.messaging) {
+            entry.messaging.forEach(event => {
+                if (event.message?.is_echo) {
+                    handleEcho(event, pageId);
+                } else if (event.message) {
+                    handleMessage(event, pageId);
+                } else if (event.postback) {
+                    handlePostback(event, pageId);
+                } else if (event.delivery) {
+                    handleDelivery(event, pageId);
+                } else if (event.read) {
+                    handleRead(event, pageId);
+                } else if (event.reaction) {
+                    handleReaction(event, pageId);
+                } else {
+                    console.log(`[FB-WEBHOOK] ❓ Unknown event type:`);
+                    console.log(JSON.stringify(event, null, 2));
+                }
+            });
         }
+    });
 
-        res.json({
-            success: true,
-            database: {
-                connected: true,
-                time: connResult.rows[0].time,
-                hasTable: tableCheck.rows[0].table_exists,
-                rowCount: rowCount
-            },
-            env: {
-                hasDbUrl: !!process.env.DATABASE_URL,
-                nodeEnv: process.env.NODE_ENV
-            }
-        });
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            error: error.message,
-            env: {
-                hasDbUrl: !!process.env.DATABASE_URL,
-                nodeEnv: process.env.NODE_ENV
-            }
-        });
-    }
+    console.log('[FB-WEBHOOK] ========================================');
 });
 
-// Initialize table endpoint (run once to create table)
-app.post('/api/init-table', async (req, res) => {
-    try {
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS tpos_saved_customers (
-                id SERIAL PRIMARY KEY,
-                customer_id VARCHAR(100) NOT NULL,
-                customer_name VARCHAR(255) NOT NULL,
-                page_id VARCHAR(100),
-                page_name VARCHAR(255),
-                saved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                saved_by VARCHAR(100),
-                notes TEXT,
-                UNIQUE(customer_id)
-            )
-        `);
-
-        // Create indexes
-        await pool.query(`CREATE INDEX IF NOT EXISTS idx_tpos_saved_customers_customer_id ON tpos_saved_customers(customer_id)`);
-        await pool.query(`CREATE INDEX IF NOT EXISTS idx_tpos_saved_customers_page_id ON tpos_saved_customers(page_id)`);
-
-        res.json({
-            success: true,
-            message: 'Table tpos_saved_customers created/verified successfully'
-        });
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            error: error.message
-        });
-    }
+// Root - info page
+app.get('/', (req, res) => {
+    res.json({
+        service: 'N2Store Facebook Webhook Server',
+        status: 'running',
+        endpoints: {
+            'GET /ping': 'Health check',
+            'GET /webhook': 'Facebook verification',
+            'POST /webhook': 'Receive Facebook events'
+        }
+    });
 });
 
 // =====================================================
-// TPOS SAVED CUSTOMERS API
+// START SERVER
 // =====================================================
 
-/**
- * GET /api/tpos-saved
- * Get all saved customers
- */
-app.get('/api/tpos-saved', async (req, res) => {
-    try {
-        const { page_id, limit = 100 } = req.query;
-
-        let query = `
-            SELECT id, customer_id, customer_name, page_id, page_name, saved_at, saved_by, notes
-            FROM tpos_saved_customers
-        `;
-        const params = [];
-
-        if (page_id) {
-            query += ` WHERE page_id = $1`;
-            params.push(page_id);
-        }
-
-        query += ` ORDER BY saved_at DESC LIMIT $${params.length + 1}`;
-        params.push(parseInt(limit) || 100);
-
-        const result = await pool.query(query, params);
-
-        res.json({
-            success: true,
-            data: result.rows,
-            count: result.rows.length
-        });
-    } catch (error) {
-        console.error('[TPOS-SAVED] Error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi khi lấy danh sách',
-            error: error.message
-        });
-    }
-});
-
-/**
- * GET /api/tpos-saved/ids
- * Get list of all saved customer IDs (for filtering)
- */
-app.get('/api/tpos-saved/ids', async (req, res) => {
-    try {
-        const result = await pool.query('SELECT customer_id FROM tpos_saved_customers');
-        const ids = result.rows.map(r => r.customer_id);
-
-        res.json({
-            success: true,
-            data: ids,
-            count: ids.length
-        });
-    } catch (error) {
-        console.error('[TPOS-SAVED] Error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi khi lấy danh sách ID',
-            error: error.message
-        });
-    }
-});
-
-/**
- * POST /api/tpos-saved
- * Save a customer
- */
-app.post('/api/tpos-saved', async (req, res) => {
-    try {
-        const { customerId, customerName, pageId, pageName, savedBy, notes } = req.body;
-
-        if (!customerId || !customerName) {
-            return res.status(400).json({
-                success: false,
-                message: 'customerId và customerName là bắt buộc'
-            });
-        }
-
-        const query = `
-            INSERT INTO tpos_saved_customers (customer_id, customer_name, page_id, page_name, saved_by, notes)
-            VALUES ($1, $2, $3, $4, $5, $6)
-            ON CONFLICT (customer_id)
-            DO UPDATE SET
-                customer_name = EXCLUDED.customer_name,
-                page_id = EXCLUDED.page_id,
-                page_name = EXCLUDED.page_name,
-                saved_at = CURRENT_TIMESTAMP
-            RETURNING *
-        `;
-
-        const result = await pool.query(query, [
-            customerId,
-            customerName,
-            pageId || null,
-            pageName || null,
-            savedBy || null,
-            notes || null
-        ]);
-
-        console.log(`[TPOS-SAVED] Saved: ${customerId} - ${customerName}`);
-
-        res.json({
-            success: true,
-            data: result.rows[0],
-            message: `Đã lưu ${customerName}`
-        });
-    } catch (error) {
-        console.error('[TPOS-SAVED] Error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi khi lưu',
-            error: error.message
-        });
-    }
-});
-
-/**
- * DELETE /api/tpos-saved/:customerId
- * Remove a customer from saved list
- */
-app.delete('/api/tpos-saved/:customerId', async (req, res) => {
-    try {
-        const { customerId } = req.params;
-
-        const result = await pool.query(
-            'DELETE FROM tpos_saved_customers WHERE customer_id = $1 RETURNING *',
-            [customerId]
-        );
-
-        if (result.rows.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: 'Không tìm thấy'
-            });
-        }
-
-        console.log(`[TPOS-SAVED] Removed: ${customerId}`);
-
-        res.json({
-            success: true,
-            message: 'Đã xóa',
-            data: result.rows[0]
-        });
-    } catch (error) {
-        console.error('[TPOS-SAVED] Error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi khi xóa',
-            error: error.message
-        });
-    }
-});
-
-/**
- * GET /api/tpos-saved/check/:customerId
- * Check if a customer is saved
- */
-app.get('/api/tpos-saved/check/:customerId', async (req, res) => {
-    try {
-        const { customerId } = req.params;
-        const result = await pool.query(
-            'SELECT customer_id FROM tpos_saved_customers WHERE customer_id = $1',
-            [customerId]
-        );
-
-        res.json({
-            success: true,
-            isSaved: result.rows.length > 0
-        });
-    } catch (error) {
-        console.error('[TPOS-SAVED] Error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Lỗi',
-            error: error.message
-        });
-    }
-});
-
-// Start server
 app.listen(PORT, () => {
-    console.log(`[TPOS-PANCAKE] Server running on port ${PORT}`);
-    console.log(`[TPOS-PANCAKE] Health check: http://localhost:${PORT}/health`);
+    console.log('');
+    console.log('=====================================================');
+    console.log(' N2STORE FACEBOOK WEBHOOK SERVER');
+    console.log('=====================================================');
+    console.log(`  Port:         ${PORT}`);
+    console.log(`  Verify Token: ${VERIFY_TOKEN}`);
+    console.log(`  App Secret:   ${APP_SECRET ? '***configured***' : '⚠️ NOT SET'}`);
+    console.log(`  Webhook URL:  http://localhost:${PORT}/webhook`);
+    console.log('=====================================================');
+    console.log('');
 });

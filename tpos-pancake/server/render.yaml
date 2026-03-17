@@ -1,15 +1,18 @@
 # Render.com deployment configuration
-# https://render.com/docs/blueprint-spec
+# Service: n2store-tpos-pancake (repurposed for Facebook Webhook)
 
 services:
   - type: web
-    name: tpos-pancake-api
+    name: n2store-tpos-pancake
     env: node
     plan: free
+    rootDir: tpos-pancake/server
     buildCommand: npm install
     startCommand: npm start
     envVars:
-      - key: DATABASE_URL
-        sync: false  # Set manually in Render dashboard
       - key: NODE_ENV
         value: production
+      - key: VERIFY_TOKEN
+        sync: false
+      - key: APP_SECRET
+        sync: false
