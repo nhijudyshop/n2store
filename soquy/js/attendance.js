@@ -2641,7 +2641,9 @@
     body { font-family: 'Times New Roman', serif; font-size: 13px; color: #000; max-width: 700px; margin: 0 auto; padding: 20px; }
     .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
     .header-left { font-size: 12px; color: #555; }
-    .logo img { height: 50px; }
+    .logo { text-align: center; }
+    .logo img { height: 50px; display: block; margin: 0 0 4px auto; }
+    .logo-text { font-size: 12px; font-weight: 700; color: #333; letter-spacing: 1px; }
     .title { text-align: center; margin: 20px 0 5px; font-size: 20px; font-weight: 700; }
     .subtitle { text-align: center; font-size: 13px; margin-bottom: 20px; }
     .info { margin-bottom: 16px; }
@@ -2659,11 +2661,11 @@
     .footer-stats .label { width: 200px; }
     .footer-stats .value { font-weight: 400; }
     .note-section { margin-top: 12px; font-style: italic; font-size: 12px; }
-    @media print { body { padding: 0; } }
+    @media print { body { padding: 0; } @page { size: A4; margin: 15mm 20mm; } }
 </style></head><body>
 <div class="header">
     <div class="header-left">${dateStr}</div>
-    <div class="logo"><img src="${new URL('../index/logo.jpg', window.location.href).href}" alt="N2STORE"></div>
+    <div class="logo"><img src="${new URL('../index/logo.jpg', window.location.href).href}" alt="N2STORE"><div class="logo-text">N2STORE</div></div>
 </div>
 <div class="title">PHIẾU LƯƠNG NHÂN VIÊN</div>
 <div class="subtitle">Bảng lương tháng ${m}/${y}</div>
@@ -2702,9 +2704,10 @@ ${d.ghiChu ? `<div class="note-section"><strong>Ghi chú:</strong> ${d.ghiChu}</
 <script>window.onload = function() { window.print(); }</script>
 </body></html>`;
 
-        const win = window.open('', '_blank');
-        win.document.write(html);
-        win.document.close();
+        const blob = new Blob([html], { type: 'text/html; charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const win = window.open(url, '_blank');
+        win.onafterprint = () => URL.revokeObjectURL(url);
     }
 
     /** Modal: Chi tiết chấm công tháng */
