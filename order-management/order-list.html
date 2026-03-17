@@ -61,7 +61,7 @@
             width: 100vw;
             overflow: auto;
             display: flex;
-            align-items: flex-start;
+            align-items: center;
             justify-content: center;
             margin: 0;
             padding: 0;
@@ -79,11 +79,13 @@
         .product-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: repeat(2, 1fr);
             gap: 15px;
             width: 100%;
             max-width: 1900px;
             touch-action: pan-y pinch-zoom;
             user-select: none;
+            aspect-ratio: 4/2;
         }
 
         .grid-item {
@@ -620,12 +622,12 @@
 
         .btn-nav {
             position: fixed;
-            top: 50%;
-            transform: translateY(-50%);
+            left: 50%;
+            transform: translateX(-50%);
             background: rgba(255, 255, 255, 0.9);
             color: #667eea;
             border: 2px solid #667eea;
-            padding: 20px 12px;
+            padding: 12px 20px;
             border-radius: 8px;
             cursor: pointer;
             font-size: 14px;
@@ -633,8 +635,6 @@
             transition: all 0.3s ease;
             z-index: 1000;
             box-shadow: 0 3px 15px rgba(0,0,0,0.2);
-            writing-mode: vertical-rl;
-            text-orientation: mixed;
             opacity: 0;
             visibility: hidden;
             pointer-events: none;
@@ -644,7 +644,7 @@
         .btn-nav.active:not(:disabled) {
             background: #667eea;
             color: white;
-            transform: translateY(-50%) scale(1.05);
+            transform: translateX(-50%) scale(1.05);
             box-shadow: 0 5px 20px rgba(102, 126, 234, 0.5);
             opacity: 1;
             visibility: visible;
@@ -660,27 +660,27 @@
 
         .nav-hover-area {
             position: fixed;
-            top: 0;
-            bottom: 0;
-            width: 80px;
+            left: 0;
+            right: 0;
+            height: 80px;
             z-index: 999;
             pointer-events: none;
         }
 
         .nav-hover-area.left {
-            left: 0;
+            top: 0;
         }
 
         .nav-hover-area.right {
-            right: 0;
+            bottom: 0;
         }
 
         #btnPrev {
-            left: 10px;
+            top: 10px;
         }
 
         #btnNext {
-            right: 10px;
+            bottom: 10px;
         }
 
         .btn-sync-toggle {
@@ -1181,9 +1181,9 @@
     </div>
 
     <div class="nav-hover-area left"></div>
-    <button class="btn-nav" id="btnPrev">◀ Trước</button>
+    <button class="btn-nav" id="btnPrev">▲ Trước</button>
     <div class="nav-hover-area right"></div>
-    <button class="btn-nav" id="btnNext">Sau ▶</button>
+    <button class="btn-nav" id="btnNext">Sau ▼</button>
 
     <div class="sync-hover-area" style="left: calc(50% - 150px); transform: translateX(0);"></div>
     <button class="btn-sync-toggle" id="btnMergeVariants" onclick="toggleMergeVariants()" style="left: calc(50% - 150px); transform: translateX(0); background: rgba(156, 39, 176, 0.9); border-color: #9c27b0;">📦 Gộp biến thể</button>

@@ -319,6 +319,7 @@
         function applySettings() {
             const productGrid = document.getElementById('productGrid');
             productGrid.style.gridTemplateColumns = `repeat(${displaySettings.columns}, 1fr)`;
+            productGrid.style.gridTemplateRows = `repeat(${displaySettings.rows}, 1fr)`;
             productGrid.style.gap = `${displaySettings.gap}px`;
 
             // Apply Frame Layout CSS Variables
@@ -477,9 +478,9 @@
             const btnPrev = document.getElementById('btnPrev');
             const btnNext = document.getElementById('btnNext');
 
-            btnPrev.style.display = 'none';
-            btnNext.style.display = 'none';
-            pageInfo.style.display = 'none';
+            btnPrev.style.display = 'block';
+            btnNext.style.display = 'block';
+            pageInfo.style.display = 'block';
 
             // Filter out hidden products first
             const visibleProducts = Object.values(orderProducts).filter(p => !p.isHidden);
@@ -491,8 +492,10 @@
             // Use merged products if merge mode is enabled (only when not searching)
             const displayProducts = (isMergeVariants && !searchKeyword) ? mergeProductsByTemplate(baseProducts) : baseProducts;
 
-            // Show all products with vertical scrolling (no pagination)
-            const currentProducts = displayProducts;
+            const totalPages = Math.ceil(displayProducts.length / itemsPerPage);
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+            const currentProducts = displayProducts.slice(startIndex, endIndex);
 
             productGrid.innerHTML = currentProducts.map(product => {
                 // Add cache-busting version to image URL (only for HTTP URLs, not base64)
@@ -612,7 +615,10 @@
                 `;
             }).join('');
 
-            // No pagination needed - vertical scroll mode
+            const searchInfo = searchKeyword ? ` - 🔍 "${searchKeyword}"` : '';
+            pageInfo.textContent = `Trang ${currentPage}/${totalPages || 1} (${displayProducts.length} sản phẩm${isMergeVariants ? ' đã gộp' : ''})${searchInfo}`;
+            btnPrev.disabled = currentPage === 1;
+            btnNext.disabled = currentPage >= totalPages;
         }
 
         function changePage(direction) {
@@ -1264,36 +1270,71 @@
         document.getElementById('btnNext').addEventListener('click', () => changePage('next'));
 
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'ArrowLeft') {
+            if (e.key === 'ArrowUp') {
+                e.preventDefault();
                 changePage('prev');
-            } else if (e.key === 'ArrowRight') {
+            } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
                 changePage('next');
             } else if (e.key === 'Escape') {
                 window.location.href = 'index.html';
             }
         });
 
+        // Scroll wheel to change pages
+        let scrollCooldown = false;
+        document.addEventListener('wheel', (e) => {
+            if (scrollCooldown) return;
+            if (e.deltaY > 0) {
+                changePage('next');
+            } else if (e.deltaY < 0) {
+                changePage('prev');
+            }
+            scrollCooldown = true;
+            setTimeout(() => { scrollCooldown = false; }, 300);
+        }, { passive: true });
+
+        // Touch swipe up/down to change pages
+        let touchStartY = 0;
+        let touchEndY = 0;
         const productGrid = document.getElementById('productGrid');
+
+        productGrid.addEventListener('touchstart', (e) => {
+            touchStartY = e.changedTouches[0].screenY;
+        }, { passive: true });
+
+        productGrid.addEventListener('touchend', (e) => {
+            touchEndY = e.changedTouches[0].screenY;
+            const swipeDistance = Math.abs(touchEndY - touchStartY);
+            if (swipeDistance > 50) {
+                if (touchEndY < touchStartY) {
+                    changePage('next'); // Swipe up = next
+                } else {
+                    changePage('prev'); // Swipe down = prev
+                }
+            }
+        }, { passive: true });
+
         const btnPrev = document.getElementById('btnPrev');
         const btnNext = document.getElementById('btnNext');
 
         // Use mouse position tracking instead of hover areas to avoid blocking input clicks
-        let mouseX = 0;
+        let mouseY = 0;
         const edgeThreshold = 80; // Distance from edge to show buttons
 
         document.addEventListener('mousemove', (e) => {
-            mouseX = e.clientX;
-            const windowWidth = window.innerWidth;
+            mouseY = e.clientY;
+            const windowHeight = window.innerHeight;
 
-            // Check if mouse is near left edge
-            if (mouseX < edgeThreshold && !btnPrev.disabled) {
+            // Check if mouse is near top edge
+            if (mouseY < edgeThreshold && !btnPrev.disabled) {
                 btnPrev.classList.add('active');
             } else {
                 btnPrev.classList.remove('active');
             }
 
-            // Check if mouse is near right edge
-            if (mouseX > windowWidth - edgeThreshold && !btnNext.disabled) {
+            // Check if mouse is near bottom edge
+            if (mouseY > windowHeight - edgeThreshold && !btnNext.disabled) {
                 btnNext.classList.add('active');
             } else {
                 btnNext.classList.remove('active');
@@ -1310,10 +1351,10 @@
 
             btn.addEventListener('mouseleave', () => {
                 // Recheck mouse position after leaving button
-                const windowWidth = window.innerWidth;
-                if (btn === btnPrev && mouseX >= edgeThreshold) {
+                const windowHeight = window.innerHeight;
+                if (btn === btnPrev && mouseY >= edgeThreshold) {
                     btn.classList.remove('active');
-                } else if (btn === btnNext && mouseX <= windowWidth - edgeThreshold) {
+                } else if (btn === btnNext && mouseY <= windowHeight - edgeThreshold) {
                     btn.classList.remove('active');
                 }
             });
