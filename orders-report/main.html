@@ -136,6 +136,16 @@
         });
     </script>
 
+    <!-- Fulfillment Data (shared between tabs) -->
+    <script src="js/fulfillment-data.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            if (window.FulfillmentData) {
+                window.FulfillmentData.init();
+            }
+        });
+    </script>
+
     <!-- Lucide Icons -->
     <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 

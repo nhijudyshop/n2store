@@ -19,7 +19,7 @@
 
     const STORAGE_KEY = 'invoiceStatusStore_v2';
     const FIRESTORE_COLLECTION = 'invoice_status_v2';
-    const MAX_AGE_DAYS = 14; // Auto cleanup after 14 days
+    const MAX_AGE_DAYS = 60; // Auto cleanup after 60 days
 
     // =====================================================
     // CARRIER MAPPING (for auto-detect when CarrierName is empty)
@@ -2245,6 +2245,10 @@
         window.printAndSendBillFromPreview = printAndSendBillFromPreview;
         // Delete invoice function
         window.deleteInvoiceFromStore = deleteInvoiceFromStore;
+        // Fulfillment (Ra đơn) functions
+        window.renderFulfillmentCell = renderFulfillmentCell;
+        window.openFulfillmentModal = openFulfillmentModal;
+        window.closeFulfillmentModal = closeFulfillmentModal;
 
         // Hook showFastSaleResultsModal
         if (!hookShowFastSaleResultsModal()) {
@@ -2252,8 +2256,159 @@
             setTimeout(hookShowFastSaleResultsModal, 500);
         }
 
+        // Listen for FulfillmentData changes to update fulfillment cells
+        const fd = window.parent?.FulfillmentData;
+        if (fd) {
+            fd.onChange(() => {
+                // Update all fulfillment cells in the table
+                document.querySelectorAll('td[data-column="fulfillment"]').forEach(cell => {
+                    const row = cell.closest('tr');
+                    const orderIdMatch = row?.querySelector('[data-order-id]');
+                    if (orderIdMatch) {
+                        const orderId = orderIdMatch.getAttribute('data-order-id');
+                        const order = { Id: orderId, Code: '' };
+                        cell.innerHTML = renderFulfillmentCell(order);
+                    }
+                });
+            });
+        }
+
         console.log('[INVOICE-STATUS] Module initialized successfully');
     }
+
+    // =====================================================
+    // FULFILLMENT CELL & MODAL (Ra đơn column)
+    // Uses parent FulfillmentData module for shared data
+    // =====================================================
+
+    const FULFILLMENT_COLORS = {
+        da_ra_don: { bg: '#d1fae5', color: '#065f46', border: '#6ee7b7' },
+        cho_ra_don: { bg: '#fef3c7', color: '#92400e', border: '#fcd34d' },
+        huy_cho_ra_don: { bg: '#fee2e2', color: '#991b1b', border: '#fca5a5' }
+    };
+
+    /**
+     * Render fulfillment status cell for orders table
+     * @param {Object} order - SaleOnlineOrder object
+     * @returns {string} HTML string
+     */
+    function renderFulfillmentCell(order) {
+        const fd = window.parent?.FulfillmentData || window.FulfillmentData;
+        if (!fd || !fd.isReady()) {
+            return '<span style="color: #9ca3af; font-size: 11px;">...</span>';
+        }
+
+        const orderId = order.Id || order.id;
+        if (!orderId) return '<span style="color: #9ca3af;">−</span>';
+
+        const { status, label, createCount, cancelCount } = fd.getStatus(orderId);
+        const colors = FULFILLMENT_COLORS[status] || FULFILLMENT_COLORS.cho_ra_don;
+
+        const countInfo = createCount > 0 ? ` (${createCount}/${cancelCount})` : '';
+
+        return `<span class="fulfillment-badge"
+            style="background: ${colors.bg}; color: ${colors.color}; border: 1px solid ${colors.border};
+                   font-size: 11px; padding: 2px 8px; border-radius: 4px; cursor: pointer;
+                   font-weight: 500; white-space: nowrap; display: inline-block;"
+            onclick="window.openFulfillmentModal('${orderId}', '${(order.Code || '').replace(/'/g, "\\'")}'); event.stopPropagation();"
+            title="Click xem lịch sử ra đơn">${label}${countInfo}</span>`;
+    }
+
+    /**
+     * Open fulfillment history modal
+     */
+    function openFulfillmentModal(orderId, orderCode) {
+        const fd = window.parent?.FulfillmentData || window.FulfillmentData;
+        if (!fd) return;
+
+        const { status, label, createCount, cancelCount } = fd.getStatus(orderId);
+        const timeline = fd.getTimeline(orderId);
+        const colors = FULFILLMENT_COLORS[status] || FULFILLMENT_COLORS.cho_ra_don;
+
+        let html = `
+            <div style="margin-bottom: 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                <span style="background: ${colors.bg}; color: ${colors.color}; border: 1px solid ${colors.border};
+                    padding: 4px 12px; border-radius: 6px; font-weight: 600; font-size: 14px;">${label}</span>
+                <span style="color: #6b7280; font-size: 13px;">Tạo: ${createCount} lần | Hủy: ${cancelCount} lần</span>
+            </div>
+        `;
+
+        if (timeline.length === 0) {
+            html += '<div style="text-align: center; color: #9ca3af; padding: 32px;">Chưa có lịch sử ra đơn</div>';
+        } else {
+            html += '<div class="fulfillment-timeline">';
+            timeline.forEach((event, index) => {
+                const isCreate = event.type === 'create';
+                const eventColor = isCreate ? '#059669' : '#dc2626';
+                const eventBg = isCreate ? '#ecfdf5' : '#fef2f2';
+                const eventIcon = isCreate ? '✓' : '✕';
+                const timeStr = event.timestamp ? new Date(event.timestamp).toLocaleString('vi-VN') : 'N/A';
+
+                html += `
+                    <div style="border-left: 3px solid ${eventColor}; background: ${eventBg};
+                        padding: 12px 16px; margin-bottom: 8px; border-radius: 0 8px 8px 0;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                            <span style="color: ${eventColor}; font-weight: 600; font-size: 13px;">
+                                ${eventIcon} ${event.label}
+                            </span>
+                            <span style="color: #6b7280; font-size: 11px;">${timeStr}</span>
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 6px; font-size: 12px;">
+                            ${event.userName ? `<div><strong>Người thực hiện:</strong> ${event.userName}</div>` : ''}
+                            ${event.number ? `<div><strong>Số phiếu:</strong> ${event.number}</div>` : ''}
+                            ${event.showState ? `<div><strong>Trạng thái phiếu:</strong> ${event.showState}</div>` : ''}
+                            ${event.carrierName ? `<div><strong>Đơn vị VC:</strong> ${event.carrierName}</div>` : ''}
+                            ${event.amountTotal ? `<div><strong>Tổng tiền:</strong> ${Number(event.amountTotal).toLocaleString('vi-VN')}đ</div>` : ''}
+                            ${event.paymentAmount > 0 ? `<div><strong>Công nợ (trả trước):</strong> <span style="color: #2563eb;">${Number(event.paymentAmount).toLocaleString('vi-VN')}đ</span></div>` : ''}
+                            ${event.discount > 0 ? `<div><strong>Giảm giá:</strong> <span style="color: #dc2626;">-${Number(event.discount).toLocaleString('vi-VN')}đ</span></div>` : ''}
+                            ${event.deliveryPrice === 0 || event.deliveryPrice === '0' ? `<div><strong>Vận chuyển:</strong> <span style="background: #dbeafe; color: #2563eb; padding: 1px 6px; border-radius: 3px; font-size: 10px;">FREESHIP</span></div>` : event.deliveryPrice ? `<div><strong>Phí ship:</strong> ${Number(event.deliveryPrice).toLocaleString('vi-VN')}đ</div>` : ''}
+                            ${event.cashOnDelivery ? `<div><strong>COD:</strong> ${Number(event.cashOnDelivery).toLocaleString('vi-VN')}đ</div>` : ''}
+                        </div>
+                        ${event.comment ? `<div style="margin-top: 6px; font-size: 12px; color: #4b5563;"><strong>Ghi chú:</strong> ${event.comment}</div>` : ''}
+                        ${event.cancelReason ? `<div style="margin-top: 6px; font-size: 12px; color: #dc2626;"><strong>Lý do hủy:</strong> ${event.cancelReason}</div>` : ''}
+                    </div>
+                `;
+            });
+            html += '</div>';
+        }
+
+        // Create modal if not exists
+        let modal = document.getElementById('fulfillmentHistoryModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'fulfillmentHistoryModal';
+            modal.innerHTML = `
+                <div style="position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 10000;
+                    display: flex; align-items: center; justify-content: center; padding: 16px;"
+                    onclick="if(event.target===this) closeFulfillmentModal();">
+                    <div style="background: white; border-radius: 12px; width: 95%; max-width: 650px;
+                        max-height: 85vh; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+                        <div style="display: flex; justify-content: space-between; align-items: center;
+                            padding: 16px 20px; border-bottom: 1px solid #e5e7eb;">
+                            <h3 id="fulfillmentModalTitle" style="margin: 0; font-size: 16px; color: #111827;"></h3>
+                            <button onclick="closeFulfillmentModal()" style="background: none; border: none;
+                                font-size: 24px; cursor: pointer; color: #6b7280; padding: 0 4px;">&times;</button>
+                        </div>
+                        <div id="fulfillmentModalBody" style="padding: 20px; overflow-y: auto;"></div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        modal.style.display = 'block';
+        document.getElementById('fulfillmentModalTitle').textContent = `Lịch sử ra đơn - ${orderCode || orderId}`;
+        document.getElementById('fulfillmentModalBody').innerHTML = html;
+    }
+
+    function closeFulfillmentModal() {
+        const modal = document.getElementById('fulfillmentHistoryModal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    // =====================================================
+    // INITIALIZATION
+    // =====================================================
 
     // Initialize
     if (document.readyState === 'loading') {

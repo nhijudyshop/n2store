@@ -20,7 +20,7 @@
 
     const DELETE_STORAGE_KEY = 'invoiceStatusDelete_v2';
     const DELETE_FIRESTORE_COLLECTION = 'invoice_status_delete_v2';
-    const DELETE_MAX_AGE_DAYS = 14; // Auto cleanup after 14 days
+    const DELETE_MAX_AGE_DAYS = 60; // Auto cleanup after 60 days
 
     const _deleteBaseStore = new BaseStore({
         collectionPath: DELETE_FIRESTORE_COLLECTION,
