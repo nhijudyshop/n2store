@@ -474,10 +474,10 @@
         const lamThem = ltDetail.totalAmount;
 
         // Các field từ payroll doc
-        const hoaHong = payDoc.hoaHong || 0;
         const thuong = payDoc.thuong || 0;
         const giamTruManual = payDoc.giamTruManual || 0;
         const daTra = payDoc.daTra || 0;
+        const ghiChu = payDoc.ghiChu || '';
 
         // Phụ cấp
         const allowanceItems = payDoc.allowances || [];
@@ -487,13 +487,13 @@
         const giamTru = totalLate + giamTruManual;
 
         // Tổng lương
-        const tongLuong = luongChinh + lamThem + hoaHong + phuCap + thuong - giamTru;
+        const tongLuong = luongChinh + lamThem + phuCap + thuong - giamTru;
         const conCanTra = tongLuong - daTra;
 
         return {
             emp, empId, workedDays, empRate,
-            luongChinh, lamThem, hoaHong, phuCap, thuong, giamTru, tongLuong, daTra, conCanTra,
-            totalLate, giamTruManual,
+            luongChinh, lamThem, phuCap, thuong, giamTru, tongLuong, daTra, conCanTra,
+            totalLate, giamTruManual, ghiChu,
             lateDays, otDays, allowanceItems,
             lcDetail, ltDetail
         };
@@ -1365,13 +1365,13 @@
             <th>Tên nhân viên</th>
             <th>Lương chính</th>
             <th>Làm thêm</th>
-            <th>Hoả hồng</th>
             <th>Phụ cấp</th>
             <th>Thưởng</th>
             <th>Giảm trừ</th>
             <th>Tổng lương</th>
             <th>Đã trả NV</th>
             <th>Còn cần trả</th>
+            <th>Ghi chú</th>
         `;
 
         if (employees.length === 0) {
@@ -1397,7 +1397,6 @@
         const gt = visibleData.reduce((acc, e) => {
             acc.luongChinh += e.luongChinh;
             acc.lamThem += e.lamThem;
-            acc.hoaHong += e.hoaHong;
             acc.phuCap += e.phuCap;
             acc.thuong += e.thuong;
             acc.giamTru += e.giamTru;
@@ -1405,7 +1404,7 @@
             acc.daTra += e.daTra;
             acc.conCanTra += e.conCanTra;
             return acc;
-        }, { luongChinh: 0, lamThem: 0, hoaHong: 0, phuCap: 0, thuong: 0, giamTru: 0, tongLuong: 0, daTra: 0, conCanTra: 0 });
+        }, { luongChinh: 0, lamThem: 0, phuCap: 0, thuong: 0, giamTru: 0, tongLuong: 0, daTra: 0, conCanTra: 0 });
 
         html += `
             <tr class="payroll-total-row">
@@ -1414,18 +1413,18 @@
                 <td></td>
                 <td>${formatVND(gt.luongChinh)}</td>
                 <td>${formatVND(gt.lamThem)}</td>
-                <td>${gt.hoaHong ? formatVND(gt.hoaHong) : '0'}</td>
                 <td>${formatVND(gt.phuCap)}</td>
                 <td>${gt.thuong ? formatVND(gt.thuong) : '0'}</td>
                 <td>${gt.giamTru ? formatVND(gt.giamTru) : '0'}</td>
                 <td>${formatVND(gt.tongLuong)}</td>
                 <td>${gt.daTra ? formatVND(gt.daTra) : '0'}</td>
                 <td>${formatVND(gt.conCanTra)}</td>
+                <td></td>
             </tr>
         `;
 
         visibleData.forEach((d, idx) => {
-            const { emp, empId, workedDays, luongChinh, lamThem, hoaHong, phuCap, thuong, giamTru, tongLuong, daTra, conCanTra } = d;
+            const { emp, empId, workedDays, luongChinh, lamThem, phuCap, thuong, giamTru, tongLuong, daTra, conCanTra, ghiChu } = d;
             html += `
                 <tr data-emp-id="${empId}">
                     <td>
@@ -1449,10 +1448,6 @@
                         </span>
                     </td>
                     <td>
-                        <input type="text" class="payroll-cell-input" data-field="hoaHong" data-emp="${empId}"
-                            value="${hoaHong ? formatVND(hoaHong) : '0'}">
-                    </td>
-                    <td>
                         <span class="payroll-cell-btn" onclick="window._attendance.showPhuCapModal('${empId}')">
                             ${formatVND(phuCap)}
                         </span>
@@ -1471,6 +1466,10 @@
                             value="${daTra ? formatVND(daTra) : '0'}">
                     </td>
                     <td class="payroll-cell-total">${formatVND(conCanTra)}</td>
+                    <td>
+                        <input type="text" class="payroll-note-input" data-emp="${empId}"
+                            value="${escapeHtml(ghiChu || '')}" placeholder="...">
+                    </td>
                 </tr>
             `;
         });
@@ -1496,13 +1495,13 @@
                             </td>
                             <td style="color:#8c8c8c;">${formatVND(d.luongChinh)}</td>
                             <td style="color:#8c8c8c;">${formatVND(d.lamThem)}</td>
-                            <td style="color:#8c8c8c;">0</td>
                             <td style="color:#8c8c8c;">${formatVND(d.phuCap)}</td>
                             <td style="color:#8c8c8c;">0</td>
                             <td style="color:#8c8c8c;">0</td>
                             <td style="color:#8c8c8c;">${formatVND(d.tongLuong)}</td>
                             <td style="color:#8c8c8c;">0</td>
                             <td style="color:#8c8c8c;">${formatVND(d.conCanTra)}</td>
+                            <td style="color:#8c8c8c;">${escapeHtml(d.ghiChu || '')}</td>
                         </tr>
                     `;
                 });
@@ -1546,6 +1545,11 @@
                     updatePayrollRowTotals(empId);
                 });
             }
+            if (e.target.classList.contains('payroll-note-input')) {
+                const empId = e.target.dataset.emp;
+                const val = e.target.value.trim();
+                savePayrollField(empId, 'ghiChu', val);
+            }
         }, true);
 
         container.addEventListener('keydown', function (e) {
@@ -1565,10 +1569,10 @@
 
         const d = calculatePayrollRow(emp, empId);
 
-        // Update tổng lương (cột 10) và còn cần trả (cột 12)
+        // Update tổng lương (cột 9) và còn cần trả (cột 11)
         const cells = row.querySelectorAll('td');
-        if (cells[9]) cells[9].textContent = formatVND(d.tongLuong);
-        if (cells[11]) cells[11].textContent = formatVND(d.conCanTra);
+        if (cells[8]) cells[8].textContent = formatVND(d.tongLuong);
+        if (cells[10]) cells[10].textContent = formatVND(d.conCanTra);
 
         // Update grand total row
         updateGrandTotalRow();
@@ -1585,7 +1589,6 @@
             const d = calculatePayrollRow(emp, empId);
             acc.luongChinh += d.luongChinh;
             acc.lamThem += d.lamThem;
-            acc.hoaHong += d.hoaHong;
             acc.phuCap += d.phuCap;
             acc.thuong += d.thuong;
             acc.giamTru += d.giamTru;
@@ -1593,18 +1596,17 @@
             acc.daTra += d.daTra;
             acc.conCanTra += d.conCanTra;
             return acc;
-        }, { luongChinh: 0, lamThem: 0, hoaHong: 0, phuCap: 0, thuong: 0, giamTru: 0, tongLuong: 0, daTra: 0, conCanTra: 0 });
+        }, { luongChinh: 0, lamThem: 0, phuCap: 0, thuong: 0, giamTru: 0, tongLuong: 0, daTra: 0, conCanTra: 0 });
 
         const cells = totalRow.querySelectorAll('td');
         if (cells[3]) cells[3].textContent = formatVND(gt.luongChinh);
         if (cells[4]) cells[4].textContent = formatVND(gt.lamThem);
-        if (cells[5]) cells[5].textContent = gt.hoaHong ? formatVND(gt.hoaHong) : '0';
-        if (cells[6]) cells[6].textContent = formatVND(gt.phuCap);
-        if (cells[7]) cells[7].textContent = gt.thuong ? formatVND(gt.thuong) : '0';
-        if (cells[8]) cells[8].textContent = gt.giamTru ? formatVND(gt.giamTru) : '0';
-        if (cells[9]) cells[9].textContent = formatVND(gt.tongLuong);
-        if (cells[10]) cells[10].textContent = gt.daTra ? formatVND(gt.daTra) : '0';
-        if (cells[11]) cells[11].textContent = formatVND(gt.conCanTra);
+        if (cells[5]) cells[5].textContent = formatVND(gt.phuCap);
+        if (cells[6]) cells[6].textContent = gt.thuong ? formatVND(gt.thuong) : '0';
+        if (cells[7]) cells[7].textContent = gt.giamTru ? formatVND(gt.giamTru) : '0';
+        if (cells[8]) cells[8].textContent = formatVND(gt.tongLuong);
+        if (cells[9]) cells[9].textContent = gt.daTra ? formatVND(gt.daTra) : '0';
+        if (cells[10]) cells[10].textContent = formatVND(gt.conCanTra);
     }
 
     /** Hiện chi tiết trừ muộn / OT theo ngày */
