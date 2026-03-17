@@ -16,7 +16,7 @@ import { matchRoute } from './modules/config/routes.js';
 import { handleTokenRequest } from './modules/handlers/token-handler.js';
 import { handleImageProxy, handleFacebookAvatar, handlePancakeAvatar, handleImgbbUpload } from './modules/handlers/image-proxy-handler.js';
 import { handleFacebookSend, handleFacebookLiveVideos, handleFacebookGraph } from './modules/handlers/facebook-handler.js';
-import { handlePancakeDirect, handlePancakeOfficial, handlePancakeGeneric } from './modules/handlers/pancake-handler.js';
+import { handlePancakeDirect, handlePancakeOfficial, handlePancakeOfficialV2, handlePancakeGeneric } from './modules/handlers/pancake-handler.js';
 import {
     handleTposExportProductV2,
     handleTposExportStandardPrice,
@@ -81,6 +81,8 @@ export default {
                 // Pancake
                 case 'PANCAKE_DIRECT':
                     return handlePancakeDirect(request, url, pathname);
+                case 'PANCAKE_OFFICIAL_V2':
+                    return handlePancakeOfficialV2(request, url, pathname);
                 case 'PANCAKE_OFFICIAL':
                     return handlePancakeOfficial(request, url, pathname);
                 case 'PANCAKE':

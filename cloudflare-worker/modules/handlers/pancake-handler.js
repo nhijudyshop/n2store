@@ -125,6 +125,59 @@ export async function handlePancakeOfficial(request, url, pathname) {
 }
 
 /**
+ * Handle /api/pancake-official-v2/*
+ * Pancake Official API v2 (pages.fm Public API v2)
+ * Used for conversations listing with page_access_token
+ * @param {Request} request
+ * @param {URL} url
+ * @param {string} pathname
+ * @returns {Promise<Response>}
+ */
+export async function handlePancakeOfficialV2(request, url, pathname) {
+    const apiPath = pathname.replace(/^\/api\/pancake-official-v2\//, '');
+    const targetUrl = `https://pages.fm/api/public_api/v2/${apiPath}${url.search}`;
+
+    console.log('[PANCAKE-OFFICIAL-V2] Target URL:', targetUrl);
+
+    // Build headers for pages.fm (same as v1)
+    const headers = new Headers();
+    headers.set('Accept', 'application/json, text/plain, */*');
+    headers.set('Accept-Language', 'en-US,en;q=0.9,vi;q=0.8');
+    headers.set('Origin', 'https://pages.fm');
+    headers.set('Referer', 'https://pages.fm/');
+    headers.set('User-Agent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36');
+    headers.set('sec-ch-ua', '"Google Chrome";v="143", "Chromium";v="143", "Not A(Brand";v="24"');
+    headers.set('sec-ch-ua-mobile', '?0');
+    headers.set('sec-ch-ua-platform', '"macOS"');
+    headers.set('sec-fetch-dest', 'empty');
+    headers.set('sec-fetch-mode', 'cors');
+    headers.set('sec-fetch-site', 'same-origin');
+
+    const contentType = request.headers.get('Content-Type');
+    if (contentType) {
+        headers.set('Content-Type', contentType);
+    }
+
+    try {
+        const response = await fetchWithRetry(targetUrl, {
+            method: request.method,
+            headers: headers,
+            body: request.method !== 'GET' && request.method !== 'HEAD'
+                ? await request.arrayBuffer()
+                : null,
+        }, 3, 1000, 15000);
+
+        console.log('[PANCAKE-OFFICIAL-V2] Response status:', response.status);
+
+        return proxyResponseWithCors(response);
+
+    } catch (error) {
+        console.error('[PANCAKE-OFFICIAL-V2] Error:', error.message);
+        return errorResponse('Pancake Official API v2 failed: ' + error.message, 500);
+    }
+}
+
+/**
  * Handle /api/pancake/*
  * Generic Pancake API proxy
  * @param {Request} request

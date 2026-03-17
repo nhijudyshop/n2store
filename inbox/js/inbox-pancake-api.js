@@ -8,29 +8,28 @@
 // =====================================================
 
 const INBOX_WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
-const INBOX_WS_URL = 'wss://n2store-realtime.onrender.com';
 
 const InboxApiConfig = {
     WORKER_URL: INBOX_WORKER_URL,
-    WS_URL: INBOX_WS_URL,
 
     buildUrl: {
+        // User API (pages.fm/api/v1) - needs access_token
         pancake(endpoint, params = '') {
             const base = `${INBOX_WORKER_URL}/api/pancake/${endpoint}`;
             return params ? `${base}?${params}` : base;
         },
-        pancakeDirect(endpoint, pageId, jwt, accessToken) {
-            const p = new URLSearchParams();
-            p.set('page_id', pageId);
-            p.set('jwt', jwt);
-            p.set('access_token', accessToken);
-            return `${INBOX_WORKER_URL}/api/pancake-direct/${endpoint}?${p.toString()}`;
-        },
+        // Public API v1 (pages.fm/api/public_api/v1) - needs page_access_token
         pancakeOfficial(endpoint, pageAccessToken) {
             const base = `${INBOX_WORKER_URL}/api/pancake-official/${endpoint}`;
             return pageAccessToken ? `${base}?page_access_token=${pageAccessToken}` : base;
         },
-        realtimeApi(path) {
+        // Public API v2 (pages.fm/api/public_api/v2) - needs page_access_token
+        pancakeOfficialV2(endpoint, pageAccessToken) {
+            const base = `${INBOX_WORKER_URL}/api/pancake-official-v2/${endpoint}`;
+            return pageAccessToken ? `${base}?page_access_token=${pageAccessToken}` : base;
+        },
+        // Data persistence API (groups, labels, livestream, pending)
+        dataApi(path) {
             return `${INBOX_WORKER_URL}/api/realtime/${path}`;
         }
     }
@@ -304,7 +303,7 @@ class InboxTokenManager {
     async getOrGeneratePageAccessToken(pageId) {
         const cached = this.getPageAccessToken(pageId);
         if (cached) return cached;
-        return null; // Admin must add manually
+        return await this.generatePageAccessToken(pageId);
     }
 
     getAllPageAccessTokens() {
@@ -514,7 +513,7 @@ class InboxPancakeAPI {
         this.tm = tokenManager;
         this.pages = [];
         this.pageIds = [];
-        this.pagesWithCurrentCount = {};
+        this._lastConvId = {};          // cursor per page for pagination
         this._searchablePageIds = null;
         this.CACHE_DURATION = 5 * 60 * 1000;
         this.MSG_CACHE_DURATION = 2 * 60 * 1000;
@@ -574,86 +573,112 @@ class InboxPancakeAPI {
         }
     }
 
-    // --- Fetch Conversations (multi-page) ---
+    // --- Fetch Conversations (per-page via Public API v2) ---
     async fetchConversations(pageIds = null) {
         try {
             if (this.pageIds.length === 0) await this.fetchPages();
             const ids = pageIds || this._searchablePageIds || this.pageIds;
             if (ids.length === 0) return { conversations: [], error: null };
 
-            const token = await this.tm.getToken();
-            if (!token) throw new Error('No token');
+            const allConvs = [];
+            const errors = [];
 
-            const pagesParams = ids.map(id => `pages[${id}]=0`).join('&');
-            const qs = `${pagesParams}&unread_first=true&mode=OR&tags="ALL"&except_tags=[]&access_token=${token}&cursor_mode=true&from_platform=web`;
-            const url = InboxApiConfig.buildUrl.pancake('conversations', qs);
+            for (const pageId of ids) {
+                let pat = this.tm.getPageAccessToken(pageId);
+                if (!pat) pat = await this.tm.generatePageAccessToken(pageId);
+                if (!pat) { errors.push({ pageId, code: 'NO_TOKEN' }); continue; }
 
-            const res = await fetch(url, { headers: { 'Content-Type': 'application/json' } });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const url = InboxApiConfig.buildUrl.pancakeOfficialV2(
+                    `pages/${pageId}/conversations`, pat
+                ) + '&unread_first=true';
 
-            const data = await res.json();
-            if (data.error_code) {
-                return { conversations: [], error: { code: data.error_code, message: data.message } };
+                try {
+                    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                    if (!res.ok) { errors.push({ pageId, code: res.status }); continue; }
+                    const data = await res.json();
+                    if (data.conversations) {
+                        allConvs.push(...data.conversations);
+                        const convs = data.conversations;
+                        if (convs.length > 0) {
+                            this._lastConvId[pageId] = convs[convs.length - 1].id;
+                        }
+                    }
+                } catch (e) { errors.push({ pageId, message: e.message }); }
             }
 
-            this.pagesWithCurrentCount = data.pages_with_current_count || {};
-            return { conversations: data.conversations || [], error: null };
+            return { conversations: allConvs, error: errors.length > 0 ? errors : null };
         } catch (e) {
             console.error('[INBOX-API] fetchConversations error:', e);
             return { conversations: [], error: { code: 0, message: e.message } };
         }
     }
 
-    // --- Fetch Conversations Per Page (fallback) ---
+    // --- Fetch Conversations For Single Page (Public API v2) ---
     async fetchConversationsForPage(pageId) {
         try {
-            const token = await this.tm.getToken();
-            if (!token) return { conversations: [], error: null };
+            let pat = this.tm.getPageAccessToken(pageId);
+            if (!pat) pat = await this.tm.generatePageAccessToken(pageId);
+            if (!pat) return { conversations: [], error: { code: 'NO_TOKEN' } };
 
-            const qs = `unread_first=true&mode=OR&tags="ALL"&except_tags=[]&access_token=${token}&cursor_mode=true`;
-            const url = InboxApiConfig.buildUrl.pancake(`pages/${pageId}/conversations`, qs);
+            const url = InboxApiConfig.buildUrl.pancakeOfficialV2(
+                `pages/${pageId}/conversations`, pat
+            ) + '&unread_first=true';
 
-            const res = await fetch(url, { headers: { 'Content-Type': 'application/json' } });
+            const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
             if (!res.ok) return { conversations: [], error: { code: res.status } };
 
             const data = await res.json();
             if (data.error_code) return { conversations: [], error: { code: data.error_code, message: data.message } };
 
-            return { conversations: data.conversations || [], error: null };
+            const convs = data.conversations || [];
+            if (convs.length > 0) {
+                this._lastConvId[pageId] = convs[convs.length - 1].id;
+            }
+            return { conversations: convs, error: null };
         } catch (e) {
             return { conversations: [], error: { code: 0, message: e.message } };
         }
     }
 
-    // --- Fetch More Conversations (pagination) ---
+    // --- Fetch More Conversations (cursor pagination via last_conversation_id) ---
     async fetchMoreConversations(pageIds = null) {
         try {
             const ids = pageIds || this._searchablePageIds || this.pageIds;
             if (ids.length === 0) return [];
 
-            const token = await this.tm.getToken();
-            if (!token) return [];
+            const allMore = [];
 
-            const counts = this.pagesWithCurrentCount || {};
-            const total = Object.values(counts).reduce((s, c) => s + c, 0);
+            for (const pageId of ids) {
+                const cursor = this._lastConvId[pageId];
+                if (!cursor) continue;
 
-            const pagesParams = ids.map(id => `pages[${id}]=${counts[id] || 0}`).join('&');
-            const qs = `unread_first=true&tags="ALL"&except_tags=[]&access_token=${token}&current_count=${total}&cursor_mode=true&${pagesParams}&mode=OR&from_platform=web`;
-            const url = InboxApiConfig.buildUrl.pancake('conversations', qs);
+                let pat = this.tm.getPageAccessToken(pageId);
+                if (!pat) pat = await this.tm.generatePageAccessToken(pageId);
+                if (!pat) continue;
 
-            const res = await fetch(url, { headers: { 'Content-Type': 'application/json' } });
-            if (!res.ok) return [];
+                const url = InboxApiConfig.buildUrl.pancakeOfficialV2(
+                    `pages/${pageId}/conversations`, pat
+                ) + `&last_conversation_id=${cursor}&unread_first=true`;
 
-            const data = await res.json();
-            if (data.pages_with_current_count) this.pagesWithCurrentCount = data.pages_with_current_count;
-            return data.conversations || [];
+                try {
+                    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                    if (!res.ok) continue;
+                    const data = await res.json();
+                    if (data.conversations?.length > 0) {
+                        allMore.push(...data.conversations);
+                        this._lastConvId[pageId] = data.conversations[data.conversations.length - 1].id;
+                    }
+                } catch (e) { console.error(`[INBOX-API] fetchMore page ${pageId}:`, e.message); }
+            }
+
+            return allMore;
         } catch (e) {
             console.error('[INBOX-API] fetchMore error:', e);
             return [];
         }
     }
 
-    // --- Fetch Messages ---
+    // --- Fetch Messages (Public API v1 with page_access_token) ---
     async fetchMessages(pageId, conversationId, currentCount = null, customerId = null, forceRefresh = false) {
         const cacheKey = `${pageId}_${conversationId}`;
         if (!forceRefresh && currentCount === null) {
@@ -663,15 +688,16 @@ class InboxPancakeAPI {
             }
         }
         try {
-            const jwt = await this.tm.getToken();
-            if (!jwt) throw new Error('No token');
+            let pat = this.tm.getPageAccessToken(pageId);
+            if (!pat) pat = await this.tm.generatePageAccessToken(pageId);
+            if (!pat) throw new Error('No page_access_token');
 
             const endpoint = `pages/${pageId}/conversations/${conversationId}/messages`;
-            let url = InboxApiConfig.buildUrl.pancakeDirect(endpoint, pageId, jwt, jwt);
+            let url = InboxApiConfig.buildUrl.pancakeOfficial(endpoint, pat);
             if (customerId) url += `&customer_id=${customerId}`;
             if (currentCount !== null) url += `&current_count=${currentCount}`;
 
-            const res = await fetch(url, { headers: { 'Content-Type': 'application/json' } });
+            const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
             const data = await res.json();
@@ -726,13 +752,13 @@ class InboxPancakeAPI {
         }
     }
 
-    // --- Upload Media ---
+    // --- Upload Media (Public API v1 - upload_contents) ---
     async uploadMedia(pageId, file, pageAccessToken) {
         try {
             const formData = new FormData();
             formData.append('file', file);
 
-            const url = InboxApiConfig.buildUrl.pancakeOfficial(`pages/${pageId}/media`, pageAccessToken);
+            const url = InboxApiConfig.buildUrl.pancakeOfficial(`pages/${pageId}/upload_contents`, pageAccessToken);
             const res = await fetch(url, { method: 'POST', body: formData });
             const data = await res.json();
             return data;
@@ -797,14 +823,14 @@ class InboxPancakeAPI {
         }
     }
 
-    // --- Mark Read/Unread ---
+    // --- Mark Read/Unread (Public API v1 with page_access_token) ---
     async markAsRead(pageId, conversationId) {
         try {
-            const token = await this.tm.getToken();
-            if (!token) return false;
-            const url = InboxApiConfig.buildUrl.pancakeDirect(
-                `pages/${pageId}/conversations/${conversationId}/read`,
-                pageId, token, token
+            let pat = this.tm.getPageAccessToken(pageId);
+            if (!pat) pat = await this.tm.generatePageAccessToken(pageId);
+            if (!pat) return false;
+            const url = InboxApiConfig.buildUrl.pancakeOfficial(
+                `pages/${pageId}/conversations/${conversationId}/read`, pat
             );
             await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
             return true;
@@ -813,11 +839,11 @@ class InboxPancakeAPI {
 
     async markAsUnread(pageId, conversationId) {
         try {
-            const token = await this.tm.getToken();
-            if (!token) return false;
-            const url = InboxApiConfig.buildUrl.pancakeDirect(
-                `pages/${pageId}/conversations/${conversationId}/unread`,
-                pageId, token, token
+            let pat = this.tm.getPageAccessToken(pageId);
+            if (!pat) pat = await this.tm.generatePageAccessToken(pageId);
+            if (!pat) return false;
+            const url = InboxApiConfig.buildUrl.pancakeOfficial(
+                `pages/${pageId}/conversations/${conversationId}/unread`, pat
             );
             await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' } });
             return true;
@@ -865,13 +891,14 @@ class InboxPancakeAPI {
         } catch (e) { return { success: false }; }
     }
 
-    // --- Fetch Tags ---
+    // --- Fetch Tags (Public API v1 with page_access_token) ---
     async fetchTags(pageId) {
         try {
-            const token = await this.tm.getToken();
-            if (!token) return [];
-            const url = InboxApiConfig.buildUrl.pancake(`pages/${pageId}/tags`, `access_token=${token}`);
-            const res = await fetch(url, { headers: { 'Content-Type': 'application/json' } });
+            let pat = this.tm.getPageAccessToken(pageId);
+            if (!pat) pat = await this.tm.generatePageAccessToken(pageId);
+            if (!pat) return [];
+            const url = InboxApiConfig.buildUrl.pancakeOfficial(`pages/${pageId}/tags`, pat);
+            const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
             if (!res.ok) return [];
             const data = await res.json();
             return data.tags || data.data || [];

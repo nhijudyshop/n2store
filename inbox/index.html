@@ -13,17 +13,6 @@
         <!-- External CSS -->
         <link rel="stylesheet" href="css/inbox.css" />
 
-        <!-- ES Module: Shared utilities -->
-        <script type="module" src="../shared/esm/compat.js"></script>
-
-        <!-- Fallback for file:// protocol -->
-        <script>
-            if (window.location.protocol === 'file:') {
-                document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
-                document.write('<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>');
-            }
-        </script>
-
         <script defer src="../shared/js/navigation-modern.js"></script>
 
         <!-- Lucide Icons CDN -->
@@ -32,10 +21,9 @@
         <!-- Font Awesome (for Pancake Settings modal) -->
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
-        <!-- Firebase SDKs -->
+        <!-- Firebase SDKs (Firestore for token storage) -->
         <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
         <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-        <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 
         <!-- Firebase Configuration (SHARED) -->
         <script src="../shared/js/firebase-config.js"></script>

@@ -3,6 +3,201 @@
    Render, events, send, WebSocket, search, etc.
    ===================================================== */
 
+// =====================================================
+// PANCAKE PHOENIX WEBSOCKET - Direct connection
+// =====================================================
+
+class PancakePhoenixSocket {
+    constructor({ accessToken, userId, pageIds, onEvent, onStatusChange }) {
+        this.url = 'wss://pancake.vn/socket/websocket?vsn=2.0.0';
+        this.accessToken = accessToken;
+        this.userId = userId;
+        this.pageIds = pageIds;
+        this.onEvent = onEvent;
+        this.onStatusChange = onStatusChange;
+
+        this.ws = null;
+        this.ref = 0;
+        this.heartbeatTimer = null;
+        this.heartbeatTimeout = null;
+        this.reconnectTimer = null;
+        this.reconnectAttempts = 0;
+        this.maxReconnect = 10;
+        this.isConnected = false;
+        this.joinedChannels = new Set();
+
+        this.clientSession = crypto.getRandomValues(new Uint8Array(32))
+            .reduce((s, b) => s + b.toString(36).padStart(2, '0'), '').slice(0, 64);
+    }
+
+    connect() {
+        if (this.ws) this.disconnect();
+        console.log('[PHOENIX] Connecting to', this.url);
+
+        try {
+            this.ws = new WebSocket(this.url);
+            this.ws.onopen = () => this._onOpen();
+            this.ws.onclose = (e) => this._onClose(e);
+            this.ws.onmessage = (e) => this._onMessage(e);
+            this.ws.onerror = (e) => console.error('[PHOENIX] WS error:', e);
+        } catch (e) {
+            console.error('[PHOENIX] Connect error:', e);
+            this._scheduleReconnect();
+        }
+    }
+
+    disconnect() {
+        this._stopHeartbeat();
+        if (this.reconnectTimer) {
+            clearTimeout(this.reconnectTimer);
+            this.reconnectTimer = null;
+        }
+        if (this.ws) {
+            this.ws.onopen = null;
+            this.ws.onclose = null;
+            this.ws.onmessage = null;
+            this.ws.onerror = null;
+            this.ws.close();
+            this.ws = null;
+        }
+        this.isConnected = false;
+        this.joinedChannels.clear();
+        this.onStatusChange(false);
+    }
+
+    _onOpen() {
+        console.log('[PHOENIX] Connected, joining channels...');
+        this.reconnectAttempts = 0;
+
+        // Join users:{userId}
+        this._joinChannel(`users:${this.userId}`, {
+            accessToken: this.accessToken,
+            userId: this.userId,
+            platform: 'web'
+        });
+
+        // Join multiple_pages:{userId}
+        this._joinChannel(`multiple_pages:${this.userId}`, {
+            accessToken: this.accessToken,
+            userId: this.userId,
+            clientSession: this.clientSession,
+            pageIds: this.pageIds,
+            platform: 'web'
+        });
+
+        this._startHeartbeat();
+    }
+
+    _onClose(e) {
+        console.log('[PHOENIX] Disconnected, code:', e.code, 'reason:', e.reason);
+        this.isConnected = false;
+        this.joinedChannels.clear();
+        this._stopHeartbeat();
+        this.onStatusChange(false);
+        this._scheduleReconnect();
+    }
+
+    _onMessage(e) {
+        try {
+            const data = JSON.parse(e.data);
+            if (!Array.isArray(data) || data.length < 5) return;
+
+            const [joinRef, ref, topic, event, payload] = data;
+
+            // Handle join replies
+            if (event === 'phx_reply') {
+                const status = payload?.status;
+                if (status === 'ok') {
+                    this.joinedChannels.add(topic);
+                    console.log('[PHOENIX] Joined:', topic);
+                    // Mark connected when at least one channel joined
+                    if (!this.isConnected && this.joinedChannels.size > 0) {
+                        this.isConnected = true;
+                        this.onStatusChange(true);
+                    }
+                } else if (status === 'error') {
+                    console.warn('[PHOENIX] Join error:', topic, payload?.response?.reason || payload);
+                }
+                return;
+            }
+
+            // Handle heartbeat reply
+            if (topic === 'phoenix' && event === 'phx_reply') {
+                if (this.heartbeatTimeout) {
+                    clearTimeout(this.heartbeatTimeout);
+                    this.heartbeatTimeout = null;
+                }
+                return;
+            }
+
+            // Handle phx_error (channel crashed)
+            if (event === 'phx_error') {
+                console.warn('[PHOENIX] Channel error:', topic);
+                this.joinedChannels.delete(topic);
+                return;
+            }
+
+            // Handle phx_close (channel closed)
+            if (event === 'phx_close') {
+                this.joinedChannels.delete(topic);
+                return;
+            }
+
+            // Dispatch app events
+            if (this.onEvent) {
+                this.onEvent(event, payload);
+            }
+        } catch (e) {
+            console.error('[PHOENIX] Message parse error:', e);
+        }
+    }
+
+    _joinChannel(topic, payload) {
+        const joinRef = String(++this.ref);
+        this._send([joinRef, joinRef, topic, 'phx_join', payload]);
+    }
+
+    _send(data) {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify(data));
+        }
+    }
+
+    _startHeartbeat() {
+        this._stopHeartbeat();
+        this.heartbeatTimer = setInterval(() => {
+            const ref = String(++this.ref);
+            this._send([null, ref, 'phoenix', 'heartbeat', {}]);
+
+            // If no reply in 10s, connection is dead
+            this.heartbeatTimeout = setTimeout(() => {
+                console.warn('[PHOENIX] Heartbeat timeout, closing...');
+                if (this.ws) this.ws.close();
+            }, 10000);
+        }, 30000);
+    }
+
+    _stopHeartbeat() {
+        if (this.heartbeatTimer) { clearInterval(this.heartbeatTimer); this.heartbeatTimer = null; }
+        if (this.heartbeatTimeout) { clearTimeout(this.heartbeatTimeout); this.heartbeatTimeout = null; }
+    }
+
+    _scheduleReconnect() {
+        if (this.reconnectAttempts >= this.maxReconnect) {
+            console.warn('[PHOENIX] Max reconnect attempts reached');
+            return;
+        }
+        const delay = Math.min(2000 * Math.pow(2, this.reconnectAttempts), 60000);
+        this.reconnectAttempts++;
+        console.log(`[PHOENIX] Reconnecting in ${delay / 1000}s (attempt ${this.reconnectAttempts}/${this.maxReconnect})`);
+        this.reconnectTimer = setTimeout(() => this.connect(), delay);
+    }
+}
+
+// =====================================================
+// INBOX CHAT CONTROLLER
+// =====================================================
+
 const AVATAR_GRADIENTS = [
     'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
     'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
@@ -34,12 +229,9 @@ class InboxChatController {
         this.replyingTo = null;
         this.selectedImage = null;
 
-        // WebSocket
-        this.socket = null;
+        // WebSocket (Phoenix direct)
+        this.phoenixSocket = null;
         this.isSocketConnected = false;
-        this.socketReconnectAttempts = 0;
-        this.socketMaxReconnectAttempts = 3;
-        this.socketReconnectDelay = 3000;
         this.autoRefreshInterval = null;
 
         // Optimistic messages
@@ -1045,43 +1237,30 @@ class InboxChatController {
                 return;
             }
 
-            const userId = payload.uid;
-            const pageIds = this.data.pageIds;
-            const cookie = `jwt=${token}; locale=vi`;
-
-            // Step 1: Start server-side Pancake WS
-            await fetch(InboxApiConfig.buildUrl.realtimeApi('start'), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ token, userId, pageIds, cookie })
-            });
-
-            // Step 2: Check status with retry
-            let connected = false;
-            for (let i = 0; i < 3; i++) {
-                await new Promise(r => setTimeout(r, 2000 * (i + 1)));
-                try {
-                    const statusRes = await fetch(InboxApiConfig.buildUrl.realtimeApi('status'));
-                    const status = await statusRes.json();
-                    if (status.pancakeConnected || status.connected) {
-                        connected = true;
-                        break;
+            this.phoenixSocket = new PancakePhoenixSocket({
+                accessToken: token,
+                userId: payload.uid,
+                pageIds: this.data.pageIds,
+                onEvent: (event, payload) => this._onPhoenixEvent(event, payload),
+                onStatusChange: (connected) => {
+                    this.isSocketConnected = connected;
+                    this.updateSocketStatusUI(connected);
+                    if (connected) {
+                        this.stopAutoRefresh();
+                    } else {
+                        this.startAutoRefresh();
                     }
-                } catch (e) {}
-            }
+                }
+            });
+            this.phoenixSocket.connect();
 
-            if (!connected) {
-                console.warn('[INBOX-CHAT] Pancake WS not connected, using polling');
-                this.startAutoRefresh();
-            }
-
-            // Step 3: Connect client WebSocket
-            this.socket = new WebSocket(InboxApiConfig.WS_URL);
-
-            this.socket.onopen = () => this._onSocketOpen();
-            this.socket.onclose = (e) => this._onSocketClose(e);
-            this.socket.onmessage = (e) => this._onSocketMessage(e);
-            this.socket.onerror = (e) => console.error('[INBOX-CHAT] WS error:', e);
+            // Fallback: if not connected after 15s, ensure polling is active
+            setTimeout(() => {
+                if (!this.isSocketConnected) {
+                    console.warn('[INBOX-CHAT] Phoenix WS not connected after 15s, polling active');
+                    this.startAutoRefresh();
+                }
+            }, 15000);
 
         } catch (e) {
             console.error('[INBOX-CHAT] initializeWebSocket error:', e);
@@ -1089,41 +1268,29 @@ class InboxChatController {
         }
     }
 
-    _onSocketOpen() {
-        this.isSocketConnected = true;
-        this.socketReconnectAttempts = 0;
-        this.updateSocketStatusUI(true);
-        this.stopAutoRefresh();
-        console.log('[INBOX-CHAT] WebSocket connected');
-    }
-
-    _onSocketClose(event) {
-        this.isSocketConnected = false;
-        this.updateSocketStatusUI(false);
-        console.log('[INBOX-CHAT] WebSocket closed:', event.code);
-        this.startAutoRefresh();
-
-        if (this.socketReconnectAttempts < this.socketMaxReconnectAttempts) {
-            this.socketReconnectAttempts++;
-            const delay = Math.min(this.socketReconnectDelay * Math.pow(1.5, this.socketReconnectAttempts - 1), 15000);
-            setTimeout(() => this.initializeWebSocket(), delay);
+    _onPhoenixEvent(event, payload) {
+        switch (event) {
+            case 'pages:update_conversation':
+                this.handleConversationUpdate(payload);
+                break;
+            case 'pages:new_message':
+                this.handleNewMessage(payload);
+                break;
+            case 'order:tags_updated':
+            case 'tags_updated':
+                this._handleTagsUpdated(payload);
+                break;
         }
     }
 
-    _onSocketMessage(event) {
-        try {
-            const data = JSON.parse(event.data);
-            const type = data.type || data.event;
-
-            if (type === 'pages:update_conversation') {
-                this.handleConversationUpdate(data.payload || data);
-            } else if (type === 'pages:new_message') {
-                this.handleNewMessage(data.payload || data);
-            } else if (type === 'post_type_detected') {
-                this._handlePostTypeDetected(data.payload || data);
-            }
-        } catch (e) {
-            console.error('[INBOX-CHAT] WS message parse error:', e);
+    _handleTagsUpdated(payload) {
+        const convId = payload.conversation_id;
+        const tags = payload.tags;
+        if (!convId) return;
+        const conv = this.data.getConversation(convId);
+        if (conv && tags) {
+            conv.tags = tags;
+            this.renderConversationList();
         }
     }
 
@@ -1213,7 +1380,7 @@ class InboxChatController {
     }
 
     closeWebSocket() {
-        if (this.socket) { this.socket.close(); this.socket = null; }
+        if (this.phoenixSocket) { this.phoenixSocket.disconnect(); this.phoenixSocket = null; }
         this.stopAutoRefresh();
     }
 

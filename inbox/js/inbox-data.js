@@ -78,61 +78,29 @@ class InboxDataManager {
         this._isLoading = true;
 
         try {
-            // Step 1: Try multi-page endpoint
+            // Per-page fetch via Public API v2 (page_access_token)
             const result = await this.api.fetchConversations();
 
+            if (result.conversations.length > 0) {
+                this.conversations = result.conversations.map(c => this.mapConversation(c));
+                this.buildMaps();
+
+                if (result.error) {
+                    console.warn('[INBOX-DATA] Partial errors:', result.error);
+                }
+                return;
+            }
+
+            // No results from current account → try other accounts
             if (result.error) {
-                const code = result.error.code;
+                console.warn('[INBOX-DATA] All pages failed:', result.error);
+            }
 
-                if (code === 105) {
-                    // No permission → try per-page
-                    console.log('[INBOX-DATA] Error 105, trying per-page...');
-                    const perPage = await this._fetchPerPage();
-                    if (perPage.length > 0) {
-                        this.conversations = perPage.map(c => this.mapConversation(c));
-                        this.buildMaps();
-                        return;
-                    }
-                    // Try other accounts
-                    const other = await this._tryOtherAccounts();
-                    if (other.length > 0) {
-                        this.conversations = other.map(c => this.mapConversation(c));
-                        this.buildMaps();
-                        return;
-                    }
-                }
-
-                if (code === 122) {
-                    // Subscription expired → per-page (skip expired)
-                    console.log('[INBOX-DATA] Error 122, trying per-page...');
-                    const perPage = await this._fetchPerPage();
-                    if (perPage.length > 0) {
-                        this.conversations = perPage.map(c => this.mapConversation(c));
-                        this.buildMaps();
-                        return;
-                    }
-                    const other = await this._tryOtherAccountsPerPage();
-                    if (other.length > 0) {
-                        this.conversations = other.map(c => this.mapConversation(c));
-                        this.buildMaps();
-                        return;
-                    }
-                }
-            } else {
-                const convs = result.conversations;
-                if (convs.length > 0) {
-                    this.conversations = convs.map(c => this.mapConversation(c));
-                    this.buildMaps();
-                    return;
-                }
-
-                // 0 results → try other accounts
-                const other = await this._tryOtherAccounts();
-                if (other.length > 0) {
-                    this.conversations = other.map(c => this.mapConversation(c));
-                    this.buildMaps();
-                    return;
-                }
+            const other = await this._tryOtherAccounts();
+            if (other.length > 0) {
+                this.conversations = other.map(c => this.mapConversation(c));
+                this.buildMaps();
+                return;
             }
 
             console.warn('[INBOX-DATA] No conversations loaded from any source');
@@ -143,20 +111,6 @@ class InboxDataManager {
         }
     }
 
-    async _fetchPerPage() {
-        const allConvs = [];
-        const working = [];
-        for (const pageId of this.pageIds) {
-            const result = await this.api.fetchConversationsForPage(pageId);
-            if (!result.error) {
-                allConvs.push(...(result.conversations || []));
-                working.push(pageId);
-            }
-        }
-        this.workingPageIds = working;
-        return allConvs;
-    }
-
     async _tryOtherAccounts() {
         const accounts = this.tm.getValidAccounts();
         const currentId = this.tm.getActiveAccountId();
@@ -165,33 +119,15 @@ class InboxDataManager {
             if (acc.accountId === currentId) continue;
             console.log(`[INBOX-DATA] Trying account: ${acc.name}`);
             await this.tm.setActiveAccount(acc.accountId);
+
+            // Re-fetch pages + generate page_access_tokens for new account
+            await this.api.fetchPages(true);
             const result = await this.api.fetchConversations();
-            if (!result.error && result.conversations.length > 0) {
+            if (result.conversations.length > 0) {
                 return result.conversations;
             }
         }
         // Restore original account
-        if (currentId) await this.tm.setActiveAccount(currentId);
-        return [];
-    }
-
-    async _tryOtherAccountsPerPage() {
-        const accounts = this.tm.getValidAccounts();
-        const currentId = this.tm.getActiveAccountId();
-
-        for (const acc of accounts) {
-            if (acc.accountId === currentId) continue;
-            await this.tm.setActiveAccount(acc.accountId);
-
-            // Re-fetch pages for this account
-            const pages = await this.api.fetchPages(true);
-            const allConvs = [];
-            for (const page of pages) {
-                const result = await this.api.fetchConversationsForPage(page.id);
-                if (!result.error) allConvs.push(...(result.conversations || []));
-            }
-            if (allConvs.length > 0) return allConvs;
-        }
         if (currentId) await this.tm.setActiveAccount(currentId);
         return [];
     }
@@ -408,7 +344,7 @@ class InboxDataManager {
     async _markRepliedOnServer(psid, pageId) {
         if (!psid || !pageId) return;
         try {
-            await fetch(InboxApiConfig.buildUrl.realtimeApi('mark-replied'), {
+            await fetch(InboxApiConfig.buildUrl.dataApi('mark-replied'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ psid, page_id: pageId })
@@ -456,7 +392,7 @@ class InboxDataManager {
 
     async loadGroupsFromServer() {
         try {
-            const res = await fetch(InboxApiConfig.buildUrl.realtimeApi('inbox-groups'));
+            const res = await fetch(InboxApiConfig.buildUrl.dataApi('inbox-groups'));
             if (!res.ok) return;
             const data = await res.json();
             if (Array.isArray(data) && data.length > 0) {
@@ -474,7 +410,7 @@ class InboxDataManager {
     async saveGroupsToServer() {
         localStorage.setItem('inbox_groups', JSON.stringify(this.groups));
         try {
-            await fetch(InboxApiConfig.buildUrl.realtimeApi('inbox-groups'), {
+            await fetch(InboxApiConfig.buildUrl.dataApi('inbox-groups'), {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ groups: this.groups })
@@ -555,7 +491,7 @@ class InboxDataManager {
 
     async _saveLabelToServer(convId, labels) {
         try {
-            await fetch(InboxApiConfig.buildUrl.realtimeApi('conversation-label'), {
+            await fetch(InboxApiConfig.buildUrl.dataApi('conversation-label'), {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ conv_id: convId, labels: JSON.stringify(labels) })
@@ -572,7 +508,7 @@ class InboxDataManager {
 
         // Fetch server
         try {
-            const res = await fetch(InboxApiConfig.buildUrl.realtimeApi('conversation-labels'));
+            const res = await fetch(InboxApiConfig.buildUrl.dataApi('conversation-labels'));
             if (!res.ok) return;
             const data = await res.json();
 
@@ -606,7 +542,7 @@ class InboxDataManager {
                 const items = Object.entries(localOnlyLabels).map(([conv_id, labels]) => ({
                     conv_id, labels: JSON.stringify(labels)
                 }));
-                fetch(InboxApiConfig.buildUrl.realtimeApi('conversation-labels/bulk'), {
+                fetch(InboxApiConfig.buildUrl.dataApi('conversation-labels/bulk'), {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ items })
@@ -638,7 +574,7 @@ class InboxDataManager {
 
     async fetchLivestreamFromServer() {
         try {
-            const res = await fetch(InboxApiConfig.buildUrl.realtimeApi('livestream-conversations'));
+            const res = await fetch(InboxApiConfig.buildUrl.dataApi('livestream-conversations'));
             if (!res.ok) return;
             const data = await res.json();
             if (Array.isArray(data)) {
@@ -671,7 +607,7 @@ class InboxDataManager {
 
         // Save to server
         try {
-            await fetch(InboxApiConfig.buildUrl.realtimeApi('livestream-conversation'), {
+            await fetch(InboxApiConfig.buildUrl.dataApi('livestream-conversation'), {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -695,7 +631,7 @@ class InboxDataManager {
                 conv.livestreamPostId = postId;
                 this.livestreamPostMap[conv.id] = { postId, name: conv.name, type: conv.type, pageId: conv.pageId };
                 try {
-                    fetch(InboxApiConfig.buildUrl.realtimeApi('livestream-conversation'), {
+                    fetch(InboxApiConfig.buildUrl.dataApi('livestream-conversation'), {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -715,7 +651,7 @@ class InboxDataManager {
         conv.livestreamPostId = null;
         delete this.livestreamPostMap[convId];
         // Delete from server
-        fetch(InboxApiConfig.buildUrl.realtimeApi(`livestream-conversations?conv_id=${convId}`), {
+        fetch(InboxApiConfig.buildUrl.dataApi(`livestream-conversations?conv_id=${convId}`), {
             method: 'DELETE'
         }).catch(() => {});
     }
@@ -726,7 +662,7 @@ class InboxDataManager {
 
     async fetchPendingFromServer() {
         try {
-            const res = await fetch(InboxApiConfig.buildUrl.realtimeApi('pending-customers?limit=500'));
+            const res = await fetch(InboxApiConfig.buildUrl.dataApi('pending-customers?limit=500'));
             if (!res.ok) return;
             const data = await res.json();
             if (Array.isArray(data)) {

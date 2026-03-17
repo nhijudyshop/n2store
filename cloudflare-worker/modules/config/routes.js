@@ -28,6 +28,7 @@ export const ROUTES = {
 
     // Pancake
     PANCAKE_DIRECT: { pattern: '/api/pancake-direct/*' },
+    PANCAKE_OFFICIAL_V2: { pattern: '/api/pancake-official-v2/*' },
     PANCAKE_OFFICIAL: { pattern: '/api/pancake-official/*' },
     PANCAKE: { pattern: '/api/pancake/*' },
 
@@ -90,6 +91,7 @@ export function matchRoute(pathname) {
     // Pattern matches
     if (pathname.startsWith('/api/upload/')) return 'UPLOAD';
     if (pathname.startsWith('/api/pancake-direct/')) return 'PANCAKE_DIRECT';
+    if (pathname.startsWith('/api/pancake-official-v2/')) return 'PANCAKE_OFFICIAL_V2';
     if (pathname.startsWith('/api/pancake-official/')) return 'PANCAKE_OFFICIAL';
     if (pathname.startsWith('/api/pancake/')) return 'PANCAKE';
 
