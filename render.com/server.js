@@ -200,6 +200,7 @@ const goongPlacesRoutes = require('./routes/goong-places');
 const realtimeSseRoutes = require('./routes/realtime-sse');
 const realtimeDbRoutes = require('./routes/realtime-db');
 const adminMigrationRoutes = require('./routes/admin-migration');
+const adminDataRoutes = require('./routes/admin-data');
 
 // === ROUTES MERGED FROM /api ===
 const uploadRoutes = require('./routes/upload.routes');
@@ -237,6 +238,7 @@ app.use('/api/realtime', realtimeSseRoutes);
 app.use('/api/realtime', realtimeDbRoutes);
 // Admin migration endpoint
 app.use('/api/admin', adminMigrationRoutes);
+app.use('/api/admin/data', adminDataRoutes);
 
 // Initialize SSE notifiers in realtime-db routes
 const { initializeNotifiers } = require('./routes/realtime-db');

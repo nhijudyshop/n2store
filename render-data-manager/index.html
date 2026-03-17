@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Render Data Manager</title>
+
+    <!-- ES Module: Shared utilities -->
+    <script type="module" src="../shared/esm/compat.js"></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body>
+    <div class="main-content" id="mainContent">
+        <div class="page-header">
+            <h1><i data-lucide="database"></i> Render Data Manager</h1>
+            <div class="header-actions">
+                <button class="btn btn-outline" onclick="refreshAllTables()">
+                    <i data-lucide="refresh-cw"></i> Refresh
+                </button>
+            </div>
+        </div>
+
+        <div class="layout">
+            <!-- Sidebar - Table Groups -->
+            <aside class="sidebar-tables" id="sidebarTables">
+                <div class="sidebar-search">
+                    <input type="text" id="tableSearch" placeholder="Tim table..." oninput="filterTables(this.value)">
+                </div>
+                <div id="tableGroups" class="table-groups">
+                    <div class="loading-placeholder">Loading tables...</div>
+                </div>
+            </aside>
+
+            <!-- Main Content Area -->
+            <main class="data-area">
+                <div id="welcomePanel" class="welcome-panel">
+                    <i data-lucide="database" class="welcome-icon"></i>
+                    <h2>Chon table de xem du lieu</h2>
+                    <p>Chon table tu sidebar ben trai</p>
+                </div>
+
+                <div id="dataPanel" class="data-panel" style="display:none;">
+                    <!-- Table Header -->
+                    <div class="data-header">
+                        <div class="data-title">
+                            <h2 id="currentTableName">-</h2>
+                            <span id="currentTableCount" class="badge">0 rows</span>
+                        </div>
+                        <div class="data-actions">
+                            <input type="text" id="dataSearch" placeholder="Tim kiem..."
+                                   oninput="searchData(this.value)" class="search-input">
+                            <button class="btn btn-danger-outline" onclick="confirmTruncate()">
+                                <i data-lucide="trash-2"></i> Xoa tat ca
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Data Table -->
+                    <div class="table-wrapper">
+                        <table class="data-table" id="dataTable">
+                            <thead id="dataTableHead"></thead>
+                            <tbody id="dataTableBody"></tbody>
+                        </table>
+                        <div id="emptyState" class="empty-state" style="display:none;">
+                            <i data-lucide="inbox"></i>
+                            <p>Khong co du lieu</p>
+                        </div>
+                        <div id="loadingState" class="loading-state" style="display:none;">
+                            <div class="spinner"></div>
+                            <p>Dang tai...</p>
+                        </div>
+                    </div>
+
+                    <!-- Pagination -->
+                    <div class="pagination" id="pagination"></div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Confirm Delete Modal -->
+    <div class="modal-overlay" id="confirmModal" style="display:none;">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 id="modalTitle">Xac nhan</h3>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                Ban co chac chan muon xoa?
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal()">Huy</button>
+                <button class="btn btn-danger" id="modalConfirmBtn" onclick="executeDelete()">Xoa</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Row Detail Modal -->
+    <div class="modal-overlay" id="detailModal" style="display:none;">
+        <div class="modal modal-lg">
+            <div class="modal-header">
+                <h3>Chi tiet row</h3>
+                <button class="modal-close" onclick="closeDetailModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="detailModalBody"></div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Navigation (deferred) -->
+    <script defer src="../shared/js/navigation-modern.js"></script>
+
+    <!-- Main JS -->
+    <script src="js/main.js"></script>
+    <script>lucide.createIcons();</script>
+</body>
+
+</html>

@@ -221,6 +221,15 @@ const MENU_CONFIG = [
         pageIdentifier: "lichsuchinhsua",
         publicAccess: true,
     },
+    {
+        href: "../render-data-manager/index.html",
+        icon: "database",
+        text: "Render Data Manager",
+        shortText: "DB Data",
+        pageIdentifier: "render-data-manager",
+        adminOnly: true,
+        permissionRequired: "render-data-manager",
+    },
 ];
 
 /**
