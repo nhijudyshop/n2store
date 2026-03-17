@@ -319,7 +319,6 @@
         function applySettings() {
             const productGrid = document.getElementById('productGrid');
             productGrid.style.gridTemplateColumns = `repeat(${displaySettings.columns}, 1fr)`;
-            productGrid.style.gridTemplateRows = `repeat(${displaySettings.rows}, 1fr)`;
             productGrid.style.gap = `${displaySettings.gap}px`;
 
             // Apply Frame Layout CSS Variables
@@ -478,9 +477,9 @@
             const btnPrev = document.getElementById('btnPrev');
             const btnNext = document.getElementById('btnNext');
 
-            btnPrev.style.display = 'block';
-            btnNext.style.display = 'block';
-            pageInfo.style.display = 'block';
+            btnPrev.style.display = 'none';
+            btnNext.style.display = 'none';
+            pageInfo.style.display = 'none';
 
             // Filter out hidden products first
             const visibleProducts = Object.values(orderProducts).filter(p => !p.isHidden);
@@ -492,10 +491,8 @@
             // Use merged products if merge mode is enabled (only when not searching)
             const displayProducts = (isMergeVariants && !searchKeyword) ? mergeProductsByTemplate(baseProducts) : baseProducts;
 
-            const totalPages = Math.ceil(displayProducts.length / itemsPerPage);
-            const startIndex = (currentPage - 1) * itemsPerPage;
-            const endIndex = startIndex + itemsPerPage;
-            const currentProducts = displayProducts.slice(startIndex, endIndex);
+            // Show all products with vertical scrolling (no pagination)
+            const currentProducts = displayProducts;
 
             productGrid.innerHTML = currentProducts.map(product => {
                 // Add cache-busting version to image URL (only for HTTP URLs, not base64)
@@ -615,10 +612,7 @@
                 `;
             }).join('');
 
-            const searchInfo = searchKeyword ? ` - 🔍 "${searchKeyword}"` : '';
-            pageInfo.textContent = `Trang ${currentPage}/${totalPages || 1} (${displayProducts.length} sản phẩm${isMergeVariants ? ' đã gộp' : ''})${searchInfo}`;
-            btnPrev.disabled = currentPage === 1;
-            btnNext.disabled = currentPage >= totalPages;
+            // No pagination needed - vertical scroll mode
         }
 
         function changePage(direction) {
@@ -1279,38 +1273,7 @@
             }
         });
 
-        let touchStartX = 0;
-        let touchEndX = 0;
-        let touchStartY = 0;
-        let touchEndY = 0;
-
         const productGrid = document.getElementById('productGrid');
-
-        productGrid.addEventListener('touchstart', (e) => {
-            touchStartX = e.changedTouches[0].screenX;
-            touchStartY = e.changedTouches[0].screenY;
-        }, { passive: true });
-
-        productGrid.addEventListener('touchend', (e) => {
-            touchEndX = e.changedTouches[0].screenX;
-            touchEndY = e.changedTouches[0].screenY;
-            handleSwipe();
-        }, { passive: true });
-
-        function handleSwipe() {
-            const swipeThreshold = 50;
-            const horizontalSwipe = Math.abs(touchEndX - touchStartX);
-            const verticalSwipe = Math.abs(touchEndY - touchStartY);
-
-            if (horizontalSwipe > verticalSwipe && horizontalSwipe > swipeThreshold) {
-                if (touchEndX < touchStartX) {
-                    changePage('next');
-                } else if (touchEndX > touchStartX) {
-                    changePage('prev');
-                }
-            }
-        }
-
         const btnPrev = document.getElementById('btnPrev');
         const btnNext = document.getElementById('btnNext');
 

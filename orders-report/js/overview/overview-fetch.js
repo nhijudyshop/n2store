@@ -5,9 +5,6 @@
 // TPOS EXCEL AUTO-FETCH FUNCTIONS
 // =====================================================
 
-// Store campaign info received from Tab1
-let campaignInfoFromTab1 = null;
-
 /**
  * Extract date (dd/mm/yyyy) from campaign name
  * Example: "Live 30/12/2025" → "30/12/2025"
@@ -22,42 +19,22 @@ function extractDateFromCampaignName(campaignName) {
 }
 
 /**
- * ⚡ NEW: Request authentication token from Tab1 via postMessage
- * This solves the cross-origin security error when accessing window.parent.tokenManager
+ * Get authentication token independently (no Tab1 dependency)
+ * Uses window.tokenManager or falls back to localStorage
  * @returns {Promise<string>} - Authentication token
- * @throws {Error} - If token request fails or times out
  */
-function requestTokenFromTab1() {
-    return new Promise((resolve, reject) => {
-        const requestId = Date.now() + '_' + Math.random();
-
-        const messageHandler = (event) => {
-            if (event.data.type === 'TOKEN_RESPONSE' && event.data.requestId === requestId) {
-                window.removeEventListener('message', messageHandler);
-                if (event.data.error) {
-                    reject(new Error(event.data.error));
-                } else {
-                    resolve(event.data.token);
-                }
-            }
-        };
-
-        window.addEventListener('message', messageHandler);
-
-        // Send request via parent (main.html will route to Tab1)
-        window.parent.postMessage({
-            type: 'REQUEST_TOKEN_FROM_OVERVIEW',
-            requestId: requestId
-        }, '*');
-
-        console.log('[REPORT] 🔑 Requesting token from Tab1 via postMessage...');
-
-        // Timeout after 5 seconds
-        setTimeout(() => {
-            window.removeEventListener('message', messageHandler);
-            reject(new Error('Token request timeout after 5 seconds'));
-        }, 5000);
-    });
+async function getToken() {
+    if (window.tokenManager) {
+        return await window.tokenManager.getToken();
+    }
+    // Fallback: read directly from localStorage
+    const companyId = window.ShopConfig?.getConfig?.()?.CompanyId || 1;
+    const stored = localStorage.getItem(`bearer_token_data_${companyId}`);
+    if (stored) {
+        const data = JSON.parse(stored);
+        return data.access_token;
+    }
+    throw new Error('No token available');
 }
 
 /**
@@ -68,10 +45,9 @@ function requestTokenFromTab1() {
 async function fetchCampaignsFromTPOS(dateFilter) {
     const WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
 
-    // ⚡ FIXED: Get token via postMessage to avoid cross-origin security error
     let token;
     try {
-        token = await requestTokenFromTab1();
+        token = await getToken();
     } catch (error) {
         console.error('[REPORT] ❌ Error getting token for campaigns fetch:', error);
         throw new Error('Could not get authentication token: ' + error.message);
@@ -118,40 +94,10 @@ async function fetchCampaignsFromTPOS(dateFilter) {
 }
 
 /**
- * Request campaign info from Tab1 via postMessage
- * @returns {Promise<Object>} - Campaign manager data from Tab1
- */
-function requestCampaignInfoFromTab1() {
-    return new Promise((resolve) => {
-        const timeout = setTimeout(() => {
-            console.warn('[REPORT] ⚠️ Timeout waiting for campaign info from Tab1');
-            resolve(null);
-        }, 3000);
-
-        const handler = (event) => {
-            if (event.data.type === 'CAMPAIGN_INFO_RESPONSE') {
-                clearTimeout(timeout);
-                window.removeEventListener('message', handler);
-                campaignInfoFromTab1 = event.data.campaignInfo;
-                console.log('[REPORT] ✅ Received campaign info from Tab1:', campaignInfoFromTab1);
-                resolve(event.data.campaignInfo);
-            }
-        };
-
-        window.addEventListener('message', handler);
-
-        // Request campaign info from Tab1 via parent
-        window.parent.postMessage({
-            type: 'REQUEST_CAMPAIGN_INFO'
-        }, '*');
-    });
-}
-
-/**
  * Get all campaignIds for the current session from TPOS API
  * Flow:
- * 1. Get active campaign name from Tab1 (e.g., "Live 30/12/2025")
- * 2. Extract date from name (e.g., "30/12/2025")
+ * 1. Load active campaign from Firebase (independent, no Tab1)
+ * 2. Extract date from campaign name (e.g., "30/12/2025")
  * 3. Call TPOS API to get campaigns with that date in name
  * 4. Return campaigns with TPOS Id (number) for ExportFile API
  *
@@ -160,45 +106,45 @@ function requestCampaignInfoFromTab1() {
 async function getCurrentSessionCampaigns() {
     console.log('[REPORT] 🔍 getCurrentSessionCampaigns() called');
 
-    // First, try to get campaign info from Tab1
-    if (!campaignInfoFromTab1) {
-        console.log('[REPORT] 📡 Requesting campaign info from Tab1...');
-        await requestCampaignInfoFromTab1();
-    }
+    // Load campaign info from Firebase (independent of Tab1)
+    const campaignInfo = await loadActiveCampaignFromFirebase();
 
-    console.log('[REPORT] 📋 campaignInfoFromTab1:', campaignInfoFromTab1 ? 'exists' : 'null');
-
-    if (!campaignInfoFromTab1) {
-        console.warn('[REPORT] ⚠️ campaignManager not available from Tab1');
+    if (!campaignInfo?.activeCampaign) {
+        // Fallback: try extracting date from currentTableName
+        if (currentTableName) {
+            const dateFilter = extractDateFromCampaignName(currentTableName);
+            if (dateFilter) {
+                console.log('[REPORT] 📅 Using date from currentTableName:', dateFilter);
+                try {
+                    return await fetchCampaignsFromTPOS(dateFilter);
+                } catch (error) {
+                    console.error('[REPORT] ❌ Error fetching campaigns:', error);
+                    return [];
+                }
+            }
+        }
+        console.warn('[REPORT] ⚠️ No campaign info available');
         return [];
     }
 
-    const activeCampaign = campaignInfoFromTab1.activeCampaign;
-    console.log('[REPORT] 📋 activeCampaign:', activeCampaign ? `"${activeCampaign.name}"` : 'null');
-
-    if (!activeCampaign) {
-        console.warn('[REPORT] ⚠️ No active campaign found');
-        return [];
-    }
+    const activeCampaign = campaignInfo.activeCampaign;
+    console.log('[REPORT] 📋 activeCampaign:', `"${activeCampaign.name}"`);
 
     // Extract date from campaign name (e.g., "Live 30/12/2025" → "30/12/2025")
     const dateFilter = extractDateFromCampaignName(activeCampaign.name);
 
     if (!dateFilter) {
         console.warn('[REPORT] ⚠️ Could not extract date from campaign name:', activeCampaign.name);
-        console.log('[REPORT] Trying to use customStartDate as fallback...');
 
         // Fallback: try to extract from customStartDate
         if (activeCampaign.customStartDate) {
-            // Convert ISO date "2025-12-30T10:00:00.000Z" to "30/12/2025"
-            const isoDate = activeCampaign.customStartDate.split('T')[0]; // "2025-12-30"
+            const isoDate = activeCampaign.customStartDate.split('T')[0];
             const [year, month, day] = isoDate.split('-');
-            const fallbackDate = `${day}/${month}/${year}`; // "30/12/2025"
+            const fallbackDate = `${day}/${month}/${year}`;
             console.log('[REPORT] 📅 Using fallback date from customStartDate:', fallbackDate);
 
             try {
-                const campaigns = await fetchCampaignsFromTPOS(fallbackDate);
-                return campaigns;
+                return await fetchCampaignsFromTPOS(fallbackDate);
             } catch (error) {
                 console.error('[REPORT] ❌ Error fetching campaigns with fallback date:', error);
                 return [];
@@ -210,10 +156,8 @@ async function getCurrentSessionCampaigns() {
 
     console.log(`[REPORT] 📅 Extracted date from campaign name: ${dateFilter}`);
 
-    // Fetch campaigns from TPOS API
     try {
-        const campaigns = await fetchCampaignsFromTPOS(dateFilter);
-        return campaigns;
+        return await fetchCampaignsFromTPOS(dateFilter);
     } catch (error) {
         console.error('[REPORT] ❌ Error fetching campaigns from TPOS:', error);
         return [];
@@ -229,10 +173,9 @@ async function fetchOrdersFromTPOS(campaignId) {
     const WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
     const endpoint = `/api/SaleOnline_Order/ExportFile?campaignId=${campaignId}&sort=date`;
 
-    // ⚡ FIXED: Get token via postMessage to avoid cross-origin security error
     let token;
     try {
-        token = await requestTokenFromTab1();
+        token = await getToken();
     } catch (error) {
         console.error('[REPORT] ❌ Error getting token:', error);
         throw new Error('Could not get authentication token: ' + error.message);

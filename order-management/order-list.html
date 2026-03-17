@@ -61,7 +61,7 @@
             width: 100vw;
             overflow: auto;
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             justify-content: center;
             margin: 0;
             padding: 0;
@@ -79,13 +79,11 @@
         .product-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            grid-template-rows: repeat(2, 1fr);
             gap: 15px;
             width: 100%;
             max-width: 1900px;
             touch-action: pan-y pinch-zoom;
             user-select: none;
-            aspect-ratio: 4/2;
         }
 
         .grid-item {

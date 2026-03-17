@@ -76,12 +76,15 @@ async function loadAvailableTables() {
             let optionExists = tableMetadata[currentTableName] !== undefined;
 
             // If current table not in Firebase yet, add it to dropdown
-            if (!optionExists && allOrders.length > 0) {
-                const newOption = document.createElement('option');
-                newOption.value = currentTableName;
-                newOption.textContent = `${currentTableName} (${allOrders.length} đơn - hiện tại)`;
-                selector.appendChild(newOption);
-                console.log(`[REPORT] ➕ Added current table "${currentTableName}" to dropdown (not in Firebase yet)`);
+            if (!optionExists) {
+                const currentOrders = getActiveOrders();
+                if (currentOrders.length > 0) {
+                    const newOption = document.createElement('option');
+                    newOption.value = currentTableName;
+                    newOption.textContent = `${currentTableName} (${currentOrders.length} đơn - hiện tại)`;
+                    selector.appendChild(newOption);
+                    console.log(`[REPORT] ➕ Added current table "${currentTableName}" to dropdown (not in Firebase yet)`);
+                }
             }
 
             selector.value = currentTableName;
@@ -99,8 +102,6 @@ async function loadAvailableTables() {
                 renderCachedDetailsTab();
             }
 
-            // Reset the flag
-            justReceivedFromTab1 = false;
         }
     } catch (error) {
         console.error('[REPORT] ❌ Error loading tables:', error);
@@ -109,18 +110,15 @@ async function loadAvailableTables() {
     }
 }
 
-// Populate cache from already-loaded Firebase data
-// NOTE: This function ONLY updates cachedOrderDetails for "Chi tiết đã tải" tab
-// It does NOT touch allOrders - allOrders comes from Tab1 only
+// Populate cache from already-loaded Firebase data (unified data source)
 function populateCacheFromFirebaseData(tableName, firebaseData) {
     if (!firebaseData) {
         console.log(`[REPORT] ⚠️ No Firebase data to populate for: ${tableName}`);
         return;
     }
 
-    console.log(`[REPORT] 📦 Populating cache (Chi tiết đã tải) for "${tableName}" with ${firebaseData.orders?.length || 0} orders`);
+    console.log(`[REPORT] 📦 Populating cache for "${tableName}" with ${firebaseData.orders?.length || 0} orders`);
 
-    // Update cache for "Chi tiết đã tải" tab ONLY
     cachedOrderDetails[tableName] = {
         tableName: firebaseData.tableName || tableName,
         orders: firebaseData.orders || [],
@@ -130,10 +128,6 @@ function populateCacheFromFirebaseData(tableName, firebaseData) {
         errorCount: firebaseData.errorCount
     };
 
-    // DO NOT set allOrders here - allOrders comes from Tab1 only!
-    // allOrders is for "Tổng quan" tab
-    // cachedOrderDetails is for "Chi tiết đã tải" tab
-
     // Update Firebase status
     firebaseTableName = tableName;
     firebaseDataFetchedAt = firebaseData.fetchedAt;
@@ -141,12 +135,10 @@ function populateCacheFromFirebaseData(tableName, firebaseData) {
     // Hide helper - data exists in Firebase
     updateTableHelperUI(false);
 
-    console.log(`[REPORT] ✅ Cache populated (Chi tiết đã tải): ${cachedOrderDetails[tableName]?.orders?.length || 0} orders`);
+    console.log(`[REPORT] ✅ Cache populated: ${cachedOrderDetails[tableName]?.orders?.length || 0} orders`);
 }
 
-// Handle table selection change
-// NOTE: This only affects Chi tiết đã tải tab, NOT Tổng quan tab
-// Tổng quan always shows data from Tab1 (allOrders)
+// Handle table selection change (affects all tabs via unified data)
 async function handleTableChange() {
     const selector = document.getElementById('tableSelector');
     const selectedTable = selector.value;
@@ -165,12 +157,11 @@ async function handleTableChange() {
     await loadTableDataFromFirebase(selectedTable);
 }
 
-// Load table data from Firebase (for "Chi tiết đã tải" tab ONLY)
-// NOTE: This does NOT affect allOrders - allOrders comes from Tab1
+// Load table data from Firebase (unified data source for all tabs)
 async function loadTableDataFromFirebase(tableName) {
-    if (!tableName) return;
+    if (!tableName) return false;
 
-    console.log(`[REPORT] 📥 Loading Firebase data for table: ${tableName} (Chi tiết đã tải)`);
+    console.log(`[REPORT] 📥 Loading Firebase data for table: ${tableName}`);
 
     // Show loading indicator immediately
     showCachedDetailsLoading();
@@ -179,27 +170,27 @@ async function loadTableDataFromFirebase(tableName) {
     const firebaseData = await loadFromFirebase(tableName);
 
     if (firebaseData) {
-        // Use the common function to populate cache (Chi tiết đã tải only)
         populateCacheFromFirebaseData(tableName, firebaseData);
         console.log(`[REPORT] ✅ Loaded ${firebaseData.orders?.length || 0} orders from Firebase for: ${tableName}`);
     } else {
         console.log(`[REPORT] ⚠️ No Firebase data for table: ${tableName} - need to fetch`);
-        // Clear cache for this table (Chi tiết đã tải will show empty message)
         delete cachedOrderDetails[tableName];
 
-        // Update Firebase status - show helper that this campaign needs fetching
         firebaseTableName = null;
         firebaseDataFetchedAt = null;
         updateTableHelperUI(true);
     }
 
-    // Update UI for Chi tiết đã tải tab
+    // Update all UI from unified data
     updateCachedCountBadge();
     renderCachedDetailsTab();
+    updateStats();
 
-    // Update statistics
+    // Load employee ranges from Firebase and render statistics
     await loadEmployeeRanges();
     renderStatistics();
+
+    return !!(firebaseData?.orders?.length);
 }
 
 // Save cached data to localStorage (only metadata, not full orders)

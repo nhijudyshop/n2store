@@ -6,7 +6,6 @@
 // =====================================================
 // GLOBAL STATE
 // =====================================================
-let allOrders = [];
 let cachedOrderDetails = {}; // { tableName: { orders: [], fetchedAt: timestamp } }
 let currentCampaignName = null;
 let currentTableName = null; // Table name from tab1-orders
@@ -14,9 +13,15 @@ let database = null;
 let isFetching = false;
 let isLoadingTables = false; // Flag to prevent multiple simultaneous table loads
 let userManuallySelectedTable = false; // Flag to track if user manually selected a table from dropdown
-let justReceivedFromTab1 = false; // Flag to prevent auto-load from Firebase when just received data from tab1
-let dataReceivedFromTab1 = false; // Flag to track if data was received from Tab1 (for retry logic)
 let currentProductFilter = ''; // Product search filter for detail list
+
+/**
+ * Get active orders from cachedOrderDetails (unified data source)
+ * Replaces the old allOrders global that depended on Tab1
+ */
+function getActiveOrders() {
+    return cachedOrderDetails[currentTableName]?.orders || [];
+}
 
 const STORAGE_KEY = 'report_order_details_by_table';
 const FIREBASE_PATH = 'report_order_details';
@@ -77,7 +82,7 @@ const conversationFetchRequestedFor = new Set();
 // =====================================================
 // STATISTICS STATE
 // =====================================================
-let employeeRanges = []; // Employee assignment ranges from Tab1
+let employeeRanges = []; // Employee assignment ranges from Firebase
 let availableTags = []; // Tags from TPOS
 let trackedTags = []; // Tags currently being tracked for statistics
 

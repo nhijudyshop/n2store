@@ -238,3 +238,86 @@ async function checkFirebaseStatus() {
 }
 
 // =====================================================
+// CAMPAIGN & USER - Independent from Tab1
+// =====================================================
+
+/**
+ * Get current Firebase user ID
+ * @returns {string|null} - User ID or null
+ */
+function getCurrentUserId() {
+    // Try Firebase auth first
+    if (typeof firebase !== 'undefined' && firebase.auth) {
+        const user = firebase.auth().currentUser;
+        if (user) return user.uid;
+    }
+    // Fallback: localStorage
+    try {
+        const stored = localStorage.getItem('firebase_user_id');
+        if (stored) return stored;
+    } catch (e) { }
+    return null;
+}
+
+/**
+ * Load active campaign info from Firebase (independent of Tab1)
+ * Reads user_preferences and campaigns collection
+ * @returns {Promise<{activeCampaignId: string, activeCampaign: Object}|null>}
+ */
+async function loadActiveCampaignFromFirebase() {
+    if (!database) {
+        console.log('[REPORT] Firestore not available for loading campaign');
+        return null;
+    }
+
+    try {
+        const userId = getCurrentUserId();
+
+        // 1. Try to get active campaign from user_preferences
+        let activeCampaignId = null;
+
+        if (userId) {
+            const prefDoc = await database.collection('user_preferences').doc(userId).get();
+            if (prefDoc.exists) {
+                const prefs = prefDoc.data();
+                activeCampaignId = prefs.activeCampaignId || null;
+                console.log('[REPORT] ✅ Loaded user preference activeCampaignId:', activeCampaignId);
+            }
+        }
+
+        // 2. If no user preference, try shared settings
+        if (!activeCampaignId) {
+            const settingsDoc = await database.collection('settings').doc('active_campaign').get();
+            if (settingsDoc.exists) {
+                const settings = settingsDoc.data();
+                activeCampaignId = settings.campaignId || null;
+            }
+        }
+
+        // 3. Load campaign details
+        if (activeCampaignId) {
+            const campaignDoc = await database.collection('campaigns').doc(activeCampaignId).get();
+            if (campaignDoc.exists) {
+                const campaign = campaignDoc.data();
+                console.log('[REPORT] ✅ Loaded active campaign from Firebase:', campaign.name);
+                return {
+                    activeCampaignId,
+                    activeCampaign: {
+                        name: campaign.name,
+                        customStartDate: campaign.customStartDate || null,
+                        customEndDate: campaign.customEndDate || null
+                    }
+                };
+            }
+        }
+
+        // 4. Fallback: use currentTableName or default table name
+        console.log('[REPORT] ⚠️ No active campaign in Firebase, using table name fallback');
+        return null;
+    } catch (error) {
+        console.error('[REPORT] ❌ Error loading active campaign from Firebase:', error);
+        return null;
+    }
+}
+
+// =====================================================

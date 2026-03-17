@@ -114,54 +114,6 @@ async function saveTrackedTags() {
     }
 }
 
-/**
- * Request employee ranges from Tab1 and save to Firebase
- */
-async function requestAndSaveEmployeeRanges() {
-    return new Promise((resolve) => {
-        console.log('[REPORT] 📡 Requesting employee ranges from Tab1...');
-
-        // Set up one-time listener for response
-        const handler = async (event) => {
-            if (event.data.type === 'EMPLOYEE_RANGES_RESPONSE') {
-                window.removeEventListener('message', handler);
-
-                const ranges = event.data.ranges || [];
-                console.log('[REPORT] ✅ Received employee ranges:', ranges.length);
-
-                if (ranges.length > 0 && database && currentTableName) {
-                    try {
-                        // Save to campaign-specific path using Firestore
-                        const safeName = currentTableName.replace(/[.$#\[\]\/]/g, '_');
-                        await database.collection('settings').doc('employee_ranges_by_campaign').set(
-                            { [safeName]: ranges },
-                            { merge: true }
-                        );
-                        console.log('[REPORT] ✅ Saved employee ranges to Firebase for:', currentTableName);
-                    } catch (error) {
-                        console.error('[REPORT] ❌ Error saving employee ranges:', error);
-                    }
-                }
-
-                resolve(ranges);
-            }
-        };
-
-        window.addEventListener('message', handler);
-
-        // Request employee ranges from Tab1
-        window.parent.postMessage({
-            type: 'REQUEST_EMPLOYEE_RANGES'
-        }, '*');
-
-        // Timeout after 5 seconds
-        setTimeout(() => {
-            window.removeEventListener('message', handler);
-            console.log('[REPORT] ⏱️ Employee ranges request timed out');
-            resolve([]);
-        }, 5000);
-    });
-}
 
 /**
  * Get employee name by STT
@@ -963,56 +915,10 @@ function showDuplicateOrdersModal(title, duplicateOrders) {
 }
 
 /**
- * Render all statistics
- */
-/**
- * ⚡ NEW: Render statistics from allOrders (Tab1 data) - Single source of truth
- * This is now the primary function for rendering statistics in "Tổng quan" tab
- */
-function renderStatisticsFromAllOrders() {
-    const orders = allOrders || [];
-
-    const statsContainer = document.getElementById('statisticsContainer');
-    const emptyState = document.getElementById('statsEmptyState');
-
-    if (orders.length === 0) {
-        statsContainer.style.display = 'none';
-        emptyState.style.display = 'block';
-        console.log('[REPORT] ℹ️ No orders from Tab1, showing empty state');
-        return;
-    }
-
-    statsContainer.style.display = 'block';
-    emptyState.style.display = 'none';
-
-    // Calculate all stats
-    const tagStats = calculateTagStats(orders);
-    const employeeStats = calculateEmployeeTagStats(orders);
-
-    // Render tag stats
-    renderTagStatsTable(tagStats, orders.length);
-
-    // Render employee stats
-    renderEmployeeStats(employeeStats, orders);
-
-    // Calculate and render empty cart reasons
-    const emptyCartReasons = calculateEmptyCartReasons(orders);
-    renderEmptyCartReasons(emptyCartReasons);
-
-    // Calculate and render discount statistics
-    renderDiscountStatistics(orders);
-
-    console.log('[REPORT] ✅ Statistics rendered from allOrders (' + orders.length + ' orders)');
-}
-
-/**
- * ⚠️ LEGACY: Render statistics from cachedOrderDetails (Firebase data)
- * This is now only used for "Chi tiết đã tải" tab, NOT for "Tổng quan"
- * "Tổng quan" uses renderStatisticsFromAllOrders() instead
+ * Render all statistics using unified data source (getActiveOrders)
  */
 function renderStatistics() {
-    const cached = cachedOrderDetails[currentTableName];
-    const orders = cached?.orders || [];
+    const orders = getActiveOrders();
 
     const statsContainer = document.getElementById('statisticsContainer');
     const emptyState = document.getElementById('statsEmptyState');
@@ -1043,7 +949,7 @@ function renderStatistics() {
     // Calculate and render discount statistics
     renderDiscountStatistics(orders);
 
-    console.log('[REPORT] ✅ Statistics rendered from cachedOrderDetails');
+    console.log('[REPORT] ✅ Statistics rendered (' + orders.length + ' orders)');
 }
 
 /**
