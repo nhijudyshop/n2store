@@ -1,4 +1,0 @@
-Conversation tags
-Conversation tags are used to distinguish different conversations or customers. Below is the guide and explanation of the settings related to conversation tags.
-https://statics.pancake.vn/pancake-docs/2025/7/21/Ảnh màn hình 2025-07-21 lúc 09.44.32.png
-Thẻ hội thoại trên Pancake
