@@ -28,7 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function loadTableList() {
     const container = document.getElementById('tableGroups');
-    container.innerHTML = '<div class="loading-placeholder"><div class="spinner" style="margin:0 auto 8px;"></div>Loading...</div>';
+    container.innerHTML = '<div class="loading-placeholder"><div class="spinner" style="margin:0 auto 8px;"></div>Đang tải...</div>';
 
     try {
         const resp = await fetch(`${API_BASE}/tables`);
@@ -39,7 +39,7 @@ async function loadTableList() {
         tableData = data.groups;
         renderTableList(data.groups);
     } catch (err) {
-        container.innerHTML = `<div class="loading-placeholder" style="color:var(--danger);">Loi: ${err.message}</div>`;
+        container.innerHTML = `<div class="loading-placeholder" style="color:var(--danger);">Lỗi: ${err.message}</div>`;
         console.error('[DATA-MANAGER] Load tables error:', err);
     }
 }
@@ -74,7 +74,7 @@ function renderTableList(groups, filter = '') {
         </div>`;
     }
 
-    container.innerHTML = html || '<div class="loading-placeholder">Khong tim thay table nao</div>';
+    container.innerHTML = html || '<div class="loading-placeholder">Không tìm thấy table nào</div>';
 }
 
 function filterTables(value) {
@@ -168,11 +168,11 @@ async function loadData() {
             return `<tr>
                 <td class="cell-actions">
                     <button class="btn-icon btn-icon-view" onclick='viewRow(${JSON.stringify(row).replace(/'/g, "\\'")})'
-                            title="Xem chi tiet">
+                            title="Xem chi tiết">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                     </button>
                     <button class="btn-icon" onclick='confirmDeleteRow(${JSON.stringify(pkValue).replace(/'/g, "\\'")})'
-                            title="Xoa row">
+                            title="Xóa row">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
                     </button>
                 </td>
@@ -185,7 +185,7 @@ async function loadData() {
     } catch (err) {
         loadingEl.style.display = 'none';
         emptyEl.style.display = 'flex';
-        emptyEl.querySelector('p').textContent = `Loi: ${err.message}`;
+        emptyEl.querySelector('p').textContent = `Lỗi: ${err.message}`;
         console.error('[DATA-MANAGER] Load data error:', err);
     }
 
@@ -295,7 +295,7 @@ function goToPage(page) {
 function confirmDeleteRow(pkInfo) {
     pendingDeleteAction = { type: 'row', pkInfo };
     const modal = document.getElementById('confirmModal');
-    document.getElementById('modalTitle').textContent = 'Xac nhan xoa row';
+    document.getElementById('modalTitle').textContent = 'Xác nhận xóa row';
     let desc = '';
     if (pkInfo.compositePk) {
         desc = Object.entries(pkInfo.pkValues).map(([k, v]) => `${k} = ${v}`).join(', ');
@@ -303,8 +303,8 @@ function confirmDeleteRow(pkInfo) {
         desc = `${pkInfo.pk} = ${pkInfo.value}`;
     }
     document.getElementById('modalBody').innerHTML =
-        `Ban co chac chan muon xoa row nay?<br><strong>${escapeHtml(desc)}</strong><br><br>` +
-        `<span style="color:var(--danger);font-size:0.8rem;">Hanh dong nay khong the hoan tac!</span>`;
+        `Bạn có chắc chắn muốn xóa row này?<br><strong>${escapeHtml(desc)}</strong><br><br>` +
+        `<span style="color:var(--danger);font-size:0.8rem;">Hành động này không thể hoàn tác!</span>`;
     modal.style.display = 'flex';
 }
 
@@ -312,10 +312,10 @@ function confirmTruncate() {
     if (!currentTable) return;
     pendingDeleteAction = { type: 'truncate' };
     const modal = document.getElementById('confirmModal');
-    document.getElementById('modalTitle').textContent = 'Xoa tat ca du lieu';
+    document.getElementById('modalTitle').textContent = 'Xóa tất cả dữ liệu';
     document.getElementById('modalBody').innerHTML =
-        `Ban co chac chan muon xoa <strong>TAT CA</strong> du lieu trong table <strong>${currentTable}</strong>?<br><br>` +
-        `<span style="color:var(--danger);font-weight:600;">Hanh dong nay se xoa toan bo rows va KHONG THE hoan tac!</span>`;
+        `Bạn có chắc chắn muốn xóa <strong>TẤT CẢ</strong> dữ liệu trong table <strong>${currentTable}</strong>?<br><br>` +
+        `<span style="color:var(--danger);font-weight:600;">Hành động này sẽ xóa toàn bộ rows và KHÔNG THỂ hoàn tác!</span>`;
     modal.style.display = 'flex';
 }
 
@@ -337,7 +337,7 @@ async function executeDelete() {
             });
             const data = await resp.json();
             if (!data.success) throw new Error(data.error);
-            showToast('Xoa row thanh cong', 'success');
+            showToast('Xóa row thành công', 'success');
 
         } else if (pendingDeleteAction.type === 'truncate') {
             const resp = await fetch(`${API_BASE}/truncate/${currentTable}`, {
@@ -345,7 +345,7 @@ async function executeDelete() {
             });
             const data = await resp.json();
             if (!data.success) throw new Error(data.error);
-            showToast(`Xoa ${data.deletedRows} rows thanh cong`, 'success');
+            showToast(`Đã xóa ${data.deletedRows} rows thành công`, 'success');
         }
 
         // Refresh
@@ -353,7 +353,7 @@ async function executeDelete() {
         loadTableList();
 
     } catch (err) {
-        showToast('Loi: ' + err.message, 'error');
+        showToast('Lỗi: ' + err.message, 'error');
         console.error('[DATA-MANAGER] Delete error:', err);
     }
 
@@ -448,5 +448,5 @@ function showToast(message, type = 'info') {
 function refreshAllTables() {
     loadTableList();
     if (currentTable) loadData();
-    showToast('Refreshed', 'info');
+    showToast('Đã làm mới', 'info');
 }
