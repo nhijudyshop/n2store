@@ -1,6 +1,7 @@
 // =====================================================
-// N2STORE PANCAKE WEBSOCKET CLIENT
+// N2STORE PANCAKE WEBSOCKET CLIENT (Multi-Account)
 // Nhận tin nhắn Facebook Page realtime qua Pancake Phoenix WebSocket
+// Tự động load tokens từ Firebase Firestore
 // Deploy trên Render.com (service: n2store-tpos-pancake)
 // =====================================================
 
@@ -34,23 +35,124 @@ if (process.env.DATABASE_URL) {
 }
 
 // =====================================================
+// FIREBASE (read Pancake tokens from Firestore)
+// =====================================================
+
+let firestore = null;
+
+function initFirebase() {
+    const projectId = process.env.FIREBASE_PROJECT_ID;
+    const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+    const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+
+    if (!projectId || !clientEmail || !privateKey) {
+        console.log('[FIREBASE] Not configured (missing env vars)');
+        return;
+    }
+
+    try {
+        const admin = require('firebase-admin');
+        admin.initializeApp({
+            credential: admin.credential.cert({ projectId, clientEmail, privateKey })
+        });
+        firestore = admin.firestore();
+        console.log('[FIREBASE] Initialized');
+    } catch (err) {
+        console.error('[FIREBASE] Init error:', err.message);
+    }
+}
+
+initFirebase();
+
+async function loadTokensFromFirebase() {
+    if (!firestore) return [];
+
+    try {
+        const doc = await firestore.collection('pancake_tokens').doc('accounts').get();
+        if (!doc.exists) {
+            console.log('[FIREBASE] No pancake_tokens/accounts document found');
+            return [];
+        }
+
+        const data = doc.data()?.data;
+        if (!data) return [];
+
+        const accounts = Object.entries(data)
+            .filter(([, info]) => info.token && info.uid)
+            .filter(([, info]) => {
+                // Skip expired tokens
+                if (info.exp && info.exp < Date.now() / 1000) {
+                    console.log(`[FIREBASE] Skipping expired token: ${info.name} (exp: ${new Date(info.exp * 1000).toISOString()})`);
+                    return false;
+                }
+                return true;
+            })
+            .map(([uid, info]) => ({
+                userId: info.uid || uid,
+                token: info.token,
+                name: info.name || 'unknown',
+                cookie: info.cookie || `jwt=${info.token}`
+            }));
+
+        console.log(`[FIREBASE] Loaded ${accounts.length} accounts: ${accounts.map(a => a.name).join(', ')}`);
+        return accounts;
+    } catch (err) {
+        console.error('[FIREBASE] Load error:', err.message);
+        return [];
+    }
+}
+
+// =====================================================
+// PANCAKE API - Auto-discover pageIds
+// =====================================================
+
+async function discoverPageIds(token) {
+    try {
+        const res = await fetch(`https://pancake.vn/api/v1/pages?access_token=${encodeURIComponent(token)}`, {
+            headers: {
+                'Origin': 'https://pancake.vn',
+                'Referer': 'https://pancake.vn/',
+                'User-Agent': 'Mozilla/5.0'
+            }
+        });
+
+        if (!res.ok) {
+            console.error(`[PANCAKE-API] Failed to fetch pages: ${res.status}`);
+            return [];
+        }
+
+        const data = await res.json();
+        const pages = data.pages || data.data || data;
+
+        if (!Array.isArray(pages)) return [];
+
+        const pageIds = pages.map(p => String(p.fb_page_id || p.id)).filter(Boolean);
+        console.log(`[PANCAKE-API] Discovered ${pageIds.length} pages`);
+        return pageIds;
+    } catch (err) {
+        console.error('[PANCAKE-API] Discover pages error:', err.message);
+        return [];
+    }
+}
+
+// =====================================================
 // IN-MEMORY EVENT STORE
 // =====================================================
 
 const eventStore = [];
 let eventIdCounter = 0;
 
-function storeEvent(type, payload) {
+function storeEvent(type, payload, accountName) {
     const event = {
         id: ++eventIdCounter,
         type,
+        account: accountName,
         timestamp: new Date().toISOString(),
         payload
     };
 
     eventStore.push(event);
 
-    // Trim oldest events when exceeding limit
     while (eventStore.length > MAX_EVENTS) {
         eventStore.shift();
     }
@@ -60,11 +162,11 @@ function storeEvent(type, payload) {
 
 // =====================================================
 // PANCAKE WEBSOCKET CLIENT (Phoenix Protocol v2)
-// Adapted from render.com/server.js RealtimeClient
 // =====================================================
 
 class PancakeWebSocketClient {
-    constructor() {
+    constructor(name = 'default') {
+        this.name = name;
         this.ws = null;
         this.url = 'wss://pancake.vn/socket/websocket?vsn=2.0.0';
         this.isConnected = false;
@@ -74,20 +176,19 @@ class PancakeWebSocketClient {
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 10;
 
-        // Credentials
         this.token = null;
         this.userId = null;
         this.pageIds = [];
         this.cookie = null;
 
-        // Stats
         this.connectedAt = null;
         this.eventsReceived = 0;
+        this.joinErrors = [];
     }
 
-    makeRef() {
-        return String(this.refCounter++);
-    }
+    tag() { return `[WS:${this.name}]`; }
+
+    makeRef() { return String(this.refCounter++); }
 
     generateClientSession() {
         const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -104,26 +205,28 @@ class PancakeWebSocketClient {
         this.pageIds = pageIds.map(id => String(id));
         this.cookie = cookie;
         this.reconnectAttempts = 0;
+        this.maxReconnectAttempts = 10;
+        this.joinErrors = [];
         this.connect();
     }
 
     stop() {
         clearTimeout(this.reconnectTimer);
         this.stopHeartbeat();
-        this.maxReconnectAttempts = 0; // Prevent reconnection
+        this.maxReconnectAttempts = 0;
         if (this.ws) {
             this.ws.close();
             this.ws = null;
         }
         this.isConnected = false;
         this.connectedAt = null;
-        console.log('[PANCAKE-WS] Stopped');
+        console.log(`${this.tag()} Stopped`);
     }
 
     connect() {
         if (this.isConnected || !this.token) return;
 
-        console.log(`[PANCAKE-WS] Connecting to Pancake... (attempt ${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})`);
+        console.log(`${this.tag()} Connecting... (attempt ${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})`);
 
         const headers = {
             'Origin': 'https://pancake.vn',
@@ -140,7 +243,7 @@ class PancakeWebSocketClient {
         this.ws = new WebSocket(this.url, { headers });
 
         this.ws.on('open', () => {
-            console.log('[PANCAKE-WS] Connected!');
+            console.log(`${this.tag()} Connected!`);
             this.isConnected = true;
             this.connectedAt = new Date().toISOString();
             this.reconnectAttempts = 0;
@@ -148,8 +251,8 @@ class PancakeWebSocketClient {
             this.joinChannels();
         });
 
-        this.ws.on('close', (code, reason) => {
-            console.log(`[PANCAKE-WS] Closed (code: ${code})`);
+        this.ws.on('close', (code) => {
+            console.log(`${this.tag()} Closed (code: ${code})`);
             this.isConnected = false;
             this.connectedAt = null;
             this.stopHeartbeat();
@@ -157,24 +260,23 @@ class PancakeWebSocketClient {
             if (this.reconnectAttempts < this.maxReconnectAttempts) {
                 const delay = Math.min(2000 * Math.pow(2, this.reconnectAttempts), 60000);
                 this.reconnectAttempts++;
-                console.log(`[PANCAKE-WS] Reconnecting in ${delay / 1000}s... (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+                console.log(`${this.tag()} Reconnecting in ${delay / 1000}s...`);
                 clearTimeout(this.reconnectTimer);
                 this.reconnectTimer = setTimeout(() => this.connect(), delay);
             } else {
-                console.error('[PANCAKE-WS] Max reconnect attempts reached. Call POST /api/reconnect to retry.');
+                console.error(`${this.tag()} Max reconnect attempts reached.`);
             }
         });
 
         this.ws.on('error', (err) => {
-            console.error('[PANCAKE-WS] Error:', err.message);
+            console.error(`${this.tag()} Error: ${err.message}`);
         });
 
         this.ws.on('message', (data) => {
             try {
-                const msg = JSON.parse(data);
-                this.handleMessage(msg);
+                this.handleMessage(JSON.parse(data));
             } catch (e) {
-                console.error('[PANCAKE-WS] Parse error:', e.message);
+                console.error(`${this.tag()} Parse error: ${e.message}`);
             }
         });
     }
@@ -183,8 +285,7 @@ class PancakeWebSocketClient {
         this.stopHeartbeat();
         this.heartbeatInterval = setInterval(() => {
             if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-                const ref = this.makeRef();
-                this.ws.send(JSON.stringify([null, ref, 'phoenix', 'heartbeat', {}]));
+                this.ws.send(JSON.stringify([null, this.makeRef(), 'phoenix', 'heartbeat', {}]));
             }
         }, 30000);
     }
@@ -199,15 +300,13 @@ class PancakeWebSocketClient {
     joinChannels() {
         if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
 
-        // 1. Join User Channel
         const userRef = this.makeRef();
         this.ws.send(JSON.stringify([
             userRef, userRef, `users:${this.userId}`, 'phx_join',
             { accessToken: this.token, userId: this.userId, platform: 'web' }
         ]));
-        console.log(`[PANCAKE-WS] Joining users:${this.userId}`);
+        console.log(`${this.tag()} Joining users:${this.userId}`);
 
-        // 2. Join Multiple Pages Channel
         const pagesRef = this.makeRef();
         this.ws.send(JSON.stringify([
             pagesRef, pagesRef, `multiple_pages:${this.userId}`, 'phx_join',
@@ -219,9 +318,8 @@ class PancakeWebSocketClient {
                 platform: 'web'
             }
         ]));
-        console.log(`[PANCAKE-WS] Joining multiple_pages:${this.userId} with ${this.pageIds.length} pages`);
+        console.log(`${this.tag()} Joining multiple_pages with ${this.pageIds.length} pages: [${this.pageIds.join(', ')}]`);
 
-        // 3. Get Online Status
         setTimeout(() => {
             if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
             const statusRef = this.makeRef();
@@ -234,34 +332,30 @@ class PancakeWebSocketClient {
     handleMessage(msg) {
         const [joinRef, ref, topic, event, payload] = msg;
 
-        // Channel join replies
         if (event === 'phx_reply') {
             if (payload.status === 'ok') {
                 if (topic.startsWith('users:')) {
-                    console.log('[PANCAKE-WS] Joined users channel');
+                    console.log(`${this.tag()} Joined users channel`);
                 } else if (topic.startsWith('multiple_pages:')) {
-                    console.log('[PANCAKE-WS] Joined multiple_pages channel');
+                    console.log(`${this.tag()} Joined multiple_pages channel`);
                 }
             } else if (payload.status === 'error') {
-                console.error(`[PANCAKE-WS] Join ERROR: topic=${topic}`, JSON.stringify(payload.response || {}).substring(0, 200));
+                const errMsg = JSON.stringify(payload.response || {}).substring(0, 200);
+                console.error(`${this.tag()} Join ERROR: topic=${topic} ${errMsg}`);
+                this.joinErrors.push({ topic, error: payload.response, time: new Date().toISOString() });
             }
             return;
         }
 
-        // Skip heartbeat replies
         if (topic === 'phoenix') return;
-
-        // =====================================================
-        // EVENT HANDLERS
-        // =====================================================
 
         if (event === 'pages:update_conversation') {
             this.eventsReceived++;
             const conv = payload.conversation;
-            const stored = storeEvent('update_conversation', payload);
+            const stored = storeEvent('update_conversation', payload, this.name);
 
-            console.log('[PANCAKE-WS] ========================================');
-            console.log(`[PANCAKE-WS] #${stored.id} UPDATE_CONVERSATION`);
+            console.log(`${this.tag()} ========================================`);
+            console.log(`${this.tag()} #${stored.id} UPDATE_CONVERSATION`);
             console.log(`  Page:    ${conv.page_id}`);
             console.log(`  Type:    ${conv.type}`);
             console.log(`  From:    ${conv.from?.name || 'unknown'} (${conv.from?.id || ''})`);
@@ -272,50 +366,35 @@ class PancakeWebSocketClient {
             if (conv.customers?.length) {
                 console.log(`  Customer: ${conv.customers[0].name} (${conv.customers[0].fb_id})`);
             }
-            console.log('[PANCAKE-WS] ========================================');
-            console.log('');
+            console.log(`${this.tag()} ========================================`);
             return;
         }
 
         if (event === 'pages:new_message') {
             this.eventsReceived++;
             const message = payload.message || payload;
-            const stored = storeEvent('new_message', payload);
-
-            console.log(`[PANCAKE-WS] #${stored.id} NEW_MESSAGE`);
-            console.log(`  ConvID:  ${message.conversation_id || ''}`);
-            console.log(`  From:    ${message.from?.name || 'unknown'}`);
-            console.log(`  Text:    ${(message.message || '').substring(0, 100)}`);
-            console.log('');
+            const stored = storeEvent('new_message', payload, this.name);
+            console.log(`${this.tag()} #${stored.id} NEW_MESSAGE | from=${message.from?.name || 'unknown'} | "${(message.message || '').substring(0, 80)}"`);
             return;
         }
 
         if (event === 'order:tags_updated' || event === 'tags_updated') {
             this.eventsReceived++;
-            storeEvent('tags_updated', payload);
-            console.log(`[PANCAKE-WS] TAGS_UPDATED: conv=${payload.conversation_id}, tags=${JSON.stringify(payload.tags || [])}`);
+            storeEvent('tags_updated', payload, this.name);
+            console.log(`${this.tag()} TAGS_UPDATED: conv=${payload.conversation_id}`);
             return;
         }
 
-        if (event === 'online_status') {
-            // Skip logging online status (too noisy)
-            return;
-        }
+        if (event === 'online_status' || event === 'presence_state' || event === 'presence_diff') return;
 
-        if (event === 'presence_state' || event === 'presence_diff') {
-            return;
-        }
-
-        // Unknown event - log for debugging
         this.eventsReceived++;
-        storeEvent(event, payload);
-        console.log(`[PANCAKE-WS] UNKNOWN EVENT: ${event} | topic: ${topic}`);
-        console.log(`  Payload keys: ${Object.keys(payload || {}).join(', ')}`);
-        console.log('');
+        storeEvent(event, payload, this.name);
+        console.log(`${this.tag()} EVENT: ${event} | keys: ${Object.keys(payload || {}).join(', ')}`);
     }
 
     getStatus() {
         return {
+            name: this.name,
             connected: this.isConnected,
             connectedAt: this.connectedAt,
             uptime: this.connectedAt ? Math.round((Date.now() - new Date(this.connectedAt).getTime()) / 1000) : 0,
@@ -325,52 +404,82 @@ class PancakeWebSocketClient {
             eventsReceived: this.eventsReceived,
             reconnectAttempts: this.reconnectAttempts,
             wsState: this.ws ? this.ws.readyState : null,
-            eventStoreSize: eventStore.length
+            joinErrors: this.joinErrors
         };
     }
 }
 
 // =====================================================
-// INITIALIZE CLIENT
+// MULTI-CLIENT MANAGER
 // =====================================================
 
-const client = new PancakeWebSocketClient();
+const clients = new Map(); // userId → PancakeWebSocketClient
+
+async function startClient(token, userId, name, cookie) {
+    // Stop existing client for this userId
+    if (clients.has(userId)) {
+        clients.get(userId).stop();
+    }
+
+    // Discover pageIds from Pancake API
+    console.log(`[MANAGER] Discovering pages for ${name}...`);
+    const pageIds = await discoverPageIds(token);
+
+    if (pageIds.length === 0) {
+        console.warn(`[MANAGER] No pages found for ${name}, skipping`);
+        return null;
+    }
+
+    console.log(`[MANAGER] Starting client: ${name} (${userId}) with ${pageIds.length} pages`);
+    const client = new PancakeWebSocketClient(name);
+    client.start(token, userId, pageIds, cookie);
+    clients.set(userId, client);
+    return client;
+}
 
 // =====================================================
-// LOAD CREDENTIALS FROM DATABASE
+// STARTUP - Load tokens from Firebase + DB
 // =====================================================
 
-async function loadCredentialsAndConnect() {
+async function autoConnect() {
+    console.log('[STARTUP] Auto-connecting...');
+
+    // 1. Try Firebase first
+    const firebaseAccounts = await loadTokensFromFirebase();
+
+    if (firebaseAccounts.length > 0) {
+        for (const account of firebaseAccounts) {
+            // Stagger connections to avoid rate limiting
+            await startClient(account.token, account.userId, account.name, account.cookie);
+            await new Promise(r => setTimeout(r, 2000));
+        }
+        console.log(`[STARTUP] Started ${clients.size} clients from Firebase`);
+        return;
+    }
+
+    // 2. Fallback to PostgreSQL
     if (!db) {
-        console.log('[STARTUP] No DATABASE_URL configured. Use POST /api/start to connect manually.');
+        console.log('[STARTUP] No Firebase or DB configured. Use POST /api/start to connect manually.');
         return;
     }
 
     try {
         const result = await db.query(
-            `SELECT token, user_id, page_ids, cookie FROM realtime_credentials WHERE client_type = 'pancake' AND is_active = TRUE LIMIT 1`
+            `SELECT token, user_id, page_ids, cookie FROM realtime_credentials WHERE client_type = 'pancake' AND is_active = TRUE`
         );
 
-        if (result.rows.length === 0) {
-            console.log('[STARTUP] No active Pancake credentials found in DB. Use POST /api/start to connect manually.');
-            return;
+        for (const row of result.rows) {
+            const pageIds = typeof row.page_ids === 'string' ? JSON.parse(row.page_ids) : row.page_ids;
+            if (!row.token || !row.user_id || !pageIds?.length) continue;
+
+            const client = new PancakeWebSocketClient(row.user_id.substring(0, 8));
+            client.start(row.token, row.user_id, pageIds, row.cookie);
+            clients.set(row.user_id, client);
+            await new Promise(r => setTimeout(r, 2000));
         }
-
-        const row = result.rows[0];
-        const token = row.token;
-        const userId = row.user_id;
-        const pageIds = typeof row.page_ids === 'string' ? JSON.parse(row.page_ids) : row.page_ids;
-        const cookie = row.cookie;
-
-        if (!token || !userId || !pageIds?.length) {
-            console.log('[STARTUP] Incomplete credentials in DB. Use POST /api/start to connect manually.');
-            return;
-        }
-
-        console.log(`[STARTUP] Loaded credentials: userId=${userId}, pages=${pageIds.length}`);
-        client.start(token, userId, pageIds, cookie);
+        console.log(`[STARTUP] Started ${clients.size} clients from DB`);
     } catch (err) {
-        console.error('[STARTUP] Failed to load credentials:', err.message);
+        console.error('[STARTUP] DB load error:', err.message);
     }
 }
 
@@ -389,46 +498,57 @@ app.use((req, res, next) => {
 // ROUTES
 // =====================================================
 
-// Root - server info
 app.get('/', (req, res) => {
+    const connectedCount = [...clients.values()].filter(c => c.isConnected).length;
     res.json({
         service: 'N2Store Pancake WebSocket Client',
-        version: '2.0.0',
-        status: client.isConnected ? 'connected' : 'disconnected',
+        version: '3.0.0',
+        accounts: `${connectedCount}/${clients.size} connected`,
+        firebase: firestore ? 'configured' : 'not configured',
         endpoints: {
             'GET /ping': 'Health check',
-            'GET /api/status': 'WebSocket connection status',
-            'GET /api/events': 'Query events (?since=ISO&type=update_conversation&limit=50)',
+            'GET /api/status': 'All clients status',
+            'GET /api/events': 'Query events (?since=ISO&type=...&limit=50&account=...)',
             'GET /api/events/latest': 'Latest events (?limit=20)',
-            'POST /api/start': 'Start with credentials { token, userId, pageIds, cookie }',
-            'POST /api/reconnect': 'Force reconnect',
-            'POST /api/stop': 'Stop WebSocket connection'
+            'POST /api/start': 'Start client { token, userId, name, cookie }',
+            'POST /api/reconnect': 'Reconnect all clients',
+            'POST /api/stop': 'Stop all clients',
+            'POST /api/reload': 'Reload tokens from Firebase'
         }
     });
 });
 
-// Health check
 app.get('/ping', (req, res) => {
+    const connectedCount = [...clients.values()].filter(c => c.isConnected).length;
+    const totalEvents = [...clients.values()].reduce((sum, c) => sum + c.eventsReceived, 0);
     res.json({
         success: true,
         service: 'n2store-pancake-ws',
-        websocket: client.isConnected ? 'connected' : 'disconnected',
+        accounts: { total: clients.size, connected: connectedCount },
         uptime: process.uptime(),
-        eventsReceived: client.eventsReceived,
+        eventsReceived: totalEvents,
         eventStoreSize: eventStore.length,
         timestamp: new Date().toISOString()
     });
 });
 
-// Detailed status
 app.get('/api/status', (req, res) => {
-    res.json(client.getStatus());
+    const statuses = {};
+    for (const [userId, client] of clients) {
+        statuses[client.name] = client.getStatus();
+    }
+    res.json({
+        totalClients: clients.size,
+        connectedClients: [...clients.values()].filter(c => c.isConnected).length,
+        eventStoreSize: eventStore.length,
+        clients: statuses
+    });
 });
 
-// Query events
 app.get('/api/events', (req, res) => {
     const since = req.query.since;
     const type = req.query.type;
+    const account = req.query.account;
     const limit = parseInt(req.query.limit || '50');
     const offset = parseInt(req.query.offset || '0');
 
@@ -438,63 +558,72 @@ app.get('/api/events', (req, res) => {
         const sinceDate = new Date(since);
         filtered = filtered.filter(e => new Date(e.timestamp) > sinceDate);
     }
-
-    if (type) {
-        filtered = filtered.filter(e => e.type === type);
-    }
+    if (type) filtered = filtered.filter(e => e.type === type);
+    if (account) filtered = filtered.filter(e => e.account === account);
 
     const total = filtered.length;
     const results = filtered.slice(offset, offset + limit);
 
-    res.json({
-        total,
-        offset,
-        limit,
-        events: results
-    });
+    res.json({ total, offset, limit, events: results });
 });
 
-// Latest events
 app.get('/api/events/latest', (req, res) => {
     const limit = parseInt(req.query.limit || '20');
     const events = eventStore.slice(-limit).reverse();
     res.json({ count: events.length, events });
 });
 
-// Manual start
-app.post('/api/start', (req, res) => {
-    const { token, userId, pageIds, cookie } = req.body;
+app.post('/api/start', async (req, res) => {
+    const { token, userId, name, cookie } = req.body;
 
-    if (!token || !userId || !pageIds?.length) {
-        return res.status(400).json({ error: 'Missing required: token, userId, pageIds[]' });
+    if (!token || !userId) {
+        return res.status(400).json({ error: 'Missing required: token, userId' });
     }
 
-    client.start(token, userId, pageIds, cookie);
-    res.json({ success: true, message: 'WebSocket client started', pageCount: pageIds.length });
+    const client = await startClient(token, userId, name || userId.substring(0, 8), cookie || `jwt=${token}`);
+    if (!client) {
+        return res.status(400).json({ error: 'No pages found for this account' });
+    }
+    res.json({ success: true, message: `Client ${client.name} started`, pageCount: client.pageIds.length, pageIds: client.pageIds });
 });
 
-// Force reconnect
 app.post('/api/reconnect', (req, res) => {
-    if (!client.token) {
-        return res.status(400).json({ error: 'No credentials. Use POST /api/start first.' });
+    let count = 0;
+    for (const client of clients.values()) {
+        if (client.token) {
+            client.reconnectAttempts = 0;
+            client.maxReconnectAttempts = 10;
+            if (client.ws) client.ws.close();
+            else client.connect();
+            count++;
+        }
     }
-
-    client.reconnectAttempts = 0;
-    client.maxReconnectAttempts = 10;
-
-    if (client.ws) {
-        client.ws.close();
-    } else {
-        client.connect();
-    }
-
-    res.json({ success: true, message: 'Reconnecting...' });
+    res.json({ success: true, message: `Reconnecting ${count} clients` });
 });
 
-// Stop connection
 app.post('/api/stop', (req, res) => {
-    client.stop();
-    res.json({ success: true, message: 'WebSocket client stopped' });
+    for (const client of clients.values()) {
+        client.stop();
+    }
+    clients.clear();
+    res.json({ success: true, message: 'All clients stopped' });
+});
+
+app.post('/api/reload', async (req, res) => {
+    // Stop all existing clients
+    for (const client of clients.values()) {
+        client.stop();
+    }
+    clients.clear();
+
+    // Reload from Firebase
+    await autoConnect();
+    const connectedCount = [...clients.values()].filter(c => c.isConnected).length;
+    res.json({
+        success: true,
+        message: `Reloaded: ${clients.size} accounts, ${connectedCount} connecting`,
+        accounts: [...clients.values()].map(c => ({ name: c.name, userId: c.userId, pages: c.pageIds.length }))
+    });
 });
 
 // =====================================================
@@ -504,17 +633,16 @@ app.post('/api/stop', (req, res) => {
 app.listen(PORT, () => {
     console.log('');
     console.log('=====================================================');
-    console.log(' N2STORE PANCAKE WEBSOCKET CLIENT');
+    console.log(' N2STORE PANCAKE WEBSOCKET CLIENT v3.0');
+    console.log(' Multi-Account + Firebase Integration');
     console.log('=====================================================');
     console.log(`  Port:          ${PORT}`);
     console.log(`  Max Events:    ${MAX_EVENTS}`);
     console.log(`  Database:      ${db ? 'configured' : 'NOT SET'}`);
+    console.log(`  Firebase:      ${firestore ? 'configured' : 'NOT SET'}`);
     console.log(`  Server URL:    http://localhost:${PORT}`);
     console.log('=====================================================');
     console.log('');
 
-    // Auto-connect after server starts (delay for DB readiness)
-    setTimeout(() => {
-        loadCredentialsAndConnect();
-    }, 2000);
+    setTimeout(() => autoConnect(), 2000);
 });

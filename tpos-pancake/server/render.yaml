@@ -1,5 +1,5 @@
 # Render.com deployment configuration
-# Service: n2store-tpos-pancake (Pancake WebSocket Client)
+# Service: n2store-tpos-pancake (Pancake WebSocket Client - Multi-Account)
 
 services:
   - type: web
@@ -12,6 +12,12 @@ services:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
+        sync: false
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+      - key: FIREBASE_CLIENT_EMAIL
+        sync: false
+      - key: FIREBASE_PRIVATE_KEY
         sync: false
       - key: MAX_EVENTS
         value: 1000
