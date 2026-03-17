@@ -91,16 +91,16 @@ router.get('/tables', async (req, res) => {
         // Get all existing tables with row counts
         const result = await db.query(`
             SELECT
-                schemaname, tablename,
+                schemaname, relname as table_name,
                 n_live_tup as row_count
             FROM pg_stat_user_tables
             WHERE schemaname = 'public'
-            ORDER BY tablename
+            ORDER BY relname
         `);
 
         const existingTables = {};
         for (const row of result.rows) {
-            existingTables[row.tablename] = parseInt(row.row_count) || 0;
+            existingTables[row.table_name] = parseInt(row.row_count) || 0;
         }
 
         // Build response grouped
