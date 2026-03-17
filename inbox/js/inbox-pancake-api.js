@@ -149,8 +149,18 @@ class InboxTokenManager {
         return Math.floor(Date.now() / 1000) >= (exp - 3600);
     }
 
+    isTokenExpired(exp) {
+        return this._isExpired(exp);
+    }
+
     // --- Multi-Account ---
-    getAllAccounts() { return this.accounts; }
+    getAllAccounts() {
+        return Object.entries(this.accounts).map(([id, acc]) => ({
+            ...acc,
+            accountId: id,
+            isActive: id === this.activeAccountId
+        }));
+    }
 
     getActiveAccountId() { return this.activeAccountId; }
 

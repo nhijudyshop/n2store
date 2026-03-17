@@ -1,12 +1,12 @@
 <!--
-  Inbox - N2STORE
+  Inbox Chat - N2STORE
   Giao dien chat 3 cot tich hop Pancake API
 -->
 <!doctype html>
 <html lang="vi">
     <head>
         <meta charset="UTF-8" />
-        <title>Inbox - N2STORE</title>
+        <title>Inbox Chat - N2STORE</title>
         <meta http-equiv="Cache-Control" content="public, max-age=31536000" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
@@ -29,6 +29,9 @@
         <!-- Lucide Icons CDN -->
         <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
 
+        <!-- Font Awesome (for Pancake Settings modal) -->
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
         <!-- Firebase SDKs -->
         <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
         <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
@@ -46,10 +49,7 @@
                 <div class="col-header">
                     <h2>Inbox</h2>
                     <div class="col-header-actions">
-                        <span class="ws-status-indicator" id="wsStatusIndicator" title="WebSocket">
-                            <i data-lucide="wifi-off"></i>
-                        </span>
-                        <button class="btn-icon-sm" id="btnPancakeSettings" title="Pancake Settings" data-perm="inbox:settings" data-perm-action="hide">
+                        <button class="btn-icon-sm" id="btnPancakeSettings" title="Pancake Settings" data-perm="inbox:settings" data-perm-action="hide" onclick="window.inboxChat?.showPancakeSettingsModal?.()">
                             <i data-lucide="settings"></i>
                         </button>
                         <button class="btn-icon-sm" id="btnRefreshInbox" title="Lam moi">
@@ -58,19 +58,7 @@
                     </div>
                 </div>
 
-                <!-- Page Selector -->
-                <div class="page-selector-wrapper" id="pageSelectorWrapper">
-                    <button class="page-selector-btn" id="pageSelectorBtn">
-                        <i data-lucide="layers"></i>
-                        <span id="pageSelectorLabel">Tat ca Pages</span>
-                        <i data-lucide="chevron-down" class="page-selector-arrow"></i>
-                    </button>
-                    <div class="page-selector-dropdown" id="pageSelectorDropdown" style="display:none;">
-                        <!-- Populated by JS -->
-                    </div>
-                </div>
-
-                <!-- Search -->
+                <!-- Search & Filter -->
                 <div class="conversation-search">
                     <div class="search-input-wrapper">
                         <i data-lucide="search"></i>
@@ -78,25 +66,55 @@
                     </div>
                 </div>
 
+                <!-- Page Selector -->
+                <div class="page-selector" id="pageSelector">
+                    <button class="page-selector-btn" id="pageSelectorBtn">
+                        <i data-lucide="layout-grid"></i>
+                        <span id="pageSelectorLabel">Tat ca Pages</span>
+                        <i data-lucide="chevron-down" class="page-selector-arrow"></i>
+                    </button>
+                    <div class="page-selector-dropdown" id="pageSelectorDropdown" style="display:none;">
+                        <!-- Page items rendered by JS -->
+                    </div>
+                </div>
+
                 <!-- Filter Tabs -->
-                <div class="conversation-filters" id="conversationFilters">
-                    <button class="conv-filter-btn active" data-filter="all">Tat ca</button>
-                    <button class="conv-filter-btn" data-filter="unread">Chua doc</button>
-                    <button class="conv-filter-btn" data-filter="inbox_my">Cua toi</button>
-                    <button class="conv-filter-btn" data-filter="livestream">Livestream</button>
+                <div class="conversation-filters">
+                    <button class="filter-tab active" data-filter="all">Tat ca</button>
+                    <button class="filter-tab" data-filter="unread">Chua doc</button>
+                    <button class="filter-tab" data-filter="livestream">Livestream</button>
+                    <button class="filter-tab" data-filter="inbox_my">Cua toi</button>
+                </div>
+
+                <!-- Type Filter (comment/message) -->
+                <div class="type-filters" id="typeFilters">
+                    <button class="type-filter-btn active" data-type="all" title="Tat ca">
+                        <i data-lucide="messages-square"></i> Tat ca
+                    </button>
+                    <button class="type-filter-btn" data-type="INBOX" title="Tin nhan">
+                        <i data-lucide="message-circle"></i> Tin nhan
+                    </button>
+                    <button class="type-filter-btn" data-type="COMMENT" title="Binh luan">
+                        <i data-lucide="message-square"></i> Binh luan
+                    </button>
+                </div>
+
+                <!-- Livestream Post Selector (only visible in Livestream tab) -->
+                <div class="livestream-post-selector" id="livestreamPostSelector" style="display:none;">
+                    <select id="livestreamPostSelect">
+                        <option value="">Tat ca bai post</option>
+                    </select>
+                    <button class="btn-fetch-postnames" id="btnFetchPostNames" title="Lay ten bai viet">
+                        <i data-lucide="search"></i>
+                    </button>
+                    <button class="btn-clear-livestream" id="btnClearLivestream" title="Xoa tat ca livestream cua bai post nay" data-perm="inbox:manage_labels" data-perm-action="hide">
+                        <i data-lucide="trash-2"></i> Xoa livestream
+                    </button>
                 </div>
 
                 <!-- Conversation List -->
                 <div class="conversation-list" id="conversationList">
-                    <div class="conv-loading" id="convLoading">
-                        <div class="loading-spinner"></div>
-                        <p>Dang tai...</p>
-                    </div>
-                </div>
-
-                <!-- Load More Indicator -->
-                <div class="conv-load-more" id="convLoadMore" style="display:none;">
-                    <div class="loading-spinner small"></div>
+                    <!-- Conversations will be rendered by JS -->
                 </div>
             </div>
 
@@ -112,15 +130,21 @@
                             <i data-lucide="user"></i>
                         </div>
                         <div class="chat-user-details">
-                            <span id="chatUserName">Chon cuoc hoi thoai</span>
+                            <div class="chat-user-name-row">
+                                <span id="chatUserName">Chon cuoc hoi thoai</span>
+                                <span class="chat-header-note" id="chatHeaderNote" style="display:none;"></span>
+                            </div>
                             <div class="chat-user-status" id="chatUserStatus">Chon khach hang tu danh sach ben trai</div>
                         </div>
                     </div>
                     <div class="chat-header-actions">
-                        <button class="btn-icon-sm" id="btnToggleRead" title="Doc/Chua doc" style="display:none;">
-                            <i data-lucide="eye"></i>
+                        <span class="ws-status disconnected" id="wsStatus" title="Realtime: Mat ket noi">
+                            <i data-lucide="wifi-off"></i>
+                        </span>
+                        <button class="btn-icon-sm" id="btnMarkUnread" title="Danh dau chua doc" style="display:none;">
+                            <i data-lucide="mail"></i>
                         </button>
-                        <button class="btn-icon-sm" id="btnLivestreamToggle" title="Livestream" style="display:none;" data-perm="inbox:manage_labels" data-perm-action="hide">
+                        <button class="btn-icon-sm" id="btnToggleLivestream" title="Dua vao Livestream" style="display:none;">
                             <i data-lucide="radio"></i>
                         </button>
                         <button class="btn-icon-sm" id="btnToggleRightPanel" title="Thong tin">
@@ -129,15 +153,11 @@
                     </div>
                 </div>
 
-                <!-- Customer Stats Bar -->
-                <div class="customer-stats-bar" id="customerStatsBar" style="display:none;">
-                    <!-- Populated by JS -->
-                </div>
+                <!-- Customer Stats Bar (phone, comments, orders) -->
+                <div class="customer-stats-bar" id="customerStatsBar" style="display:none;"></div>
 
-                <!-- Post Info Banner -->
-                <div class="post-info-banner" id="postInfoBanner" style="display:none;">
-                    <!-- Populated by JS -->
-                </div>
+                <!-- Post Info Banner (livestream post thumbnail + title) -->
+                <div class="post-info-banner" id="postInfoBanner" style="display:none;"></div>
 
                 <!-- Chat Messages -->
                 <div class="chat-messages-wrapper" style="position:relative;flex:1;display:flex;flex-direction:column;overflow:hidden;">
@@ -147,56 +167,106 @@
                             <p>Chon mot cuoc hoi thoai de bat dau chat</p>
                         </div>
                     </div>
+                    <button class="btn-scroll-bottom" id="btnScrollBottom" style="display:none;" title="Xuong cuoi">
+                        <i data-lucide="chevron-down"></i>
+                    </button>
                 </div>
 
                 <!-- Label Bar -->
                 <div class="chat-label-bar" id="chatLabelBar" style="display:none;" data-perm="inbox:manage_labels" data-perm-action="hide">
-                    <!-- Populated by JS -->
+                    <div class="chat-label-bar-inner">
+                        <span class="chat-label-bar-title">Nhan:</span>
+                        <div class="chat-label-bar-list" id="chatLabelBarList">
+                            <!-- Label buttons rendered by JS -->
+                        </div>
+                    </div>
+                    <div class="chat-label-resize" id="chatLabelResize" title="Keo de mo rong"></div>
                 </div>
 
-                <!-- Reply Preview -->
+                <!-- Quick Reply Bar -->
+                <div class="quick-reply-bar" id="quickReplyBar" style="display:none;">
+                    <div class="quick-reply-row" id="quickReplyRow1"></div>
+                    <div class="quick-reply-row" id="quickReplyRow2"></div>
+                </div>
+
+                <!-- Reply Preview Bar -->
                 <div class="reply-preview-bar" id="replyPreviewBar" style="display:none;">
                     <div class="reply-preview-content">
-                        <i data-lucide="corner-up-left"></i>
-                        <span id="replyPreviewText"></span>
+                        <div class="reply-preview-indicator"></div>
+                        <div class="reply-preview-text">
+                            <span class="reply-preview-sender" id="replyPreviewSender"></span>
+                            <span class="reply-preview-msg" id="replyPreviewMsg"></span>
+                        </div>
                     </div>
-                    <button class="btn-icon-sm" id="btnCancelReply" title="Huy tra loi">
+                    <button class="reply-preview-close" id="btnCancelReply" title="Huy tra loi">
                         <i data-lucide="x"></i>
                     </button>
                 </div>
 
-                <!-- Image Preview -->
-                <div class="image-preview-bar" id="imagePreviewBar" style="display:none;">
-                    <img id="imagePreviewImg" src="" alt="Preview" />
-                    <button class="btn-icon-sm" id="btnCancelImage" title="Huy anh">
-                        <i data-lucide="x"></i>
-                    </button>
+                <!-- Reaction Picker (floating, positioned near message) -->
+                <div class="reaction-picker" id="reactionPicker" style="display:none;">
+                    <button class="reaction-emoji" data-reaction="LIKE">👍</button>
+                    <button class="reaction-emoji" data-reaction="LOVE">❤️</button>
+                    <button class="reaction-emoji" data-reaction="HAHA">😆</button>
+                    <button class="reaction-emoji" data-reaction="WOW">😮</button>
+                    <button class="reaction-emoji" data-reaction="SAD">😢</button>
+                    <button class="reaction-emoji" data-reaction="ANGRY">😠</button>
                 </div>
 
                 <!-- Chat Input -->
                 <div class="chat-input-area" id="chatInputArea">
-                    <!-- Send Page Selector + Reply Type -->
-                    <div class="chat-input-options" id="chatInputOptions" style="display:none;">
-                        <select id="sendPageSelector" class="input-option-select" title="Gui tu page">
-                            <!-- Populated by JS -->
-                        </select>
-                        <select id="replyTypeSelector" class="input-option-select" title="Kieu tra loi" style="display:none;">
-                            <option value="reply_comment">Binh luan cong khai</option>
-                            <option value="private_replies">Nhan rieng</option>
-                        </select>
-                    </div>
-                    <div class="chat-input-wrapper">
-                        <div class="chat-input-actions-left">
-                            <button class="btn-icon-sm" id="btnAttachImage" title="Dinh kem anh">
+                    <div class="chat-input-toolbar">
+                        <div class="send-page-selector" id="sendPageSelector" style="display:none;">
+                            <label class="send-page-label">
+                                <i data-lucide="send" style="width:12px;height:12px;"></i>
+                                Gui tu:
+                            </label>
+                            <select id="sendPageSelect" onchange="window.inboxChat?.onSendPageChanged?.(this.value)">
+                                <option value="">Trang hien tai</option>
+                            </select>
+                        </div>
+                        <!-- Reply Type Selector (COMMENT only) -->
+                        <div class="reply-type-selector" id="replyTypeSelector" style="display:none;">
+                            <label class="reply-type-label">
+                                <i data-lucide="message-square" style="width:12px;height:12px;"></i>
+                                Kieu:
+                            </label>
+                            <select id="replyTypeSelect" onchange="window.inboxChat?.onReplyTypeChanged?.(this.value)">
+                                <option value="reply_comment">Binh luan (cong khai)</option>
+                                <option value="private_replies">Nhan rieng</option>
+                            </select>
+                        </div>
+                        <div class="chat-input-toolbar-btns">
+                            <button class="btn-icon-sm" title="Dinh kem anh" id="btnAttachImage">
                                 <i data-lucide="image"></i>
                             </button>
-                            <button class="btn-icon-sm" id="btnAttachFile" title="Dinh kem file">
+                            <button class="btn-icon-sm" title="Gui file" id="btnAttachFile">
                                 <i data-lucide="paperclip"></i>
                             </button>
-                            <button class="btn-icon-sm" id="btnEmojiToggle" title="Emoji">
+                            <button class="btn-icon-sm" title="Emoji" id="btnEmoji">
                                 <i data-lucide="smile"></i>
                             </button>
                         </div>
+                    </div>
+                    <!-- Emoji Picker -->
+                    <div class="emoji-picker" id="emojiPicker" style="display:none;">
+                        <div class="emoji-categories" id="emojiCategories">
+                            <button class="emoji-cat active" data-cat="recent" title="Gan day">🕐</button>
+                            <button class="emoji-cat" data-cat="smileys" title="Mat cuoi">😊</button>
+                            <button class="emoji-cat" data-cat="gestures" title="Cu chi">👋</button>
+                            <button class="emoji-cat" data-cat="hearts" title="Trai tim">❤️</button>
+                            <button class="emoji-cat" data-cat="animals" title="Dong vat">🐱</button>
+                            <button class="emoji-cat" data-cat="food" title="Do an">🍔</button>
+                            <button class="emoji-cat" data-cat="objects" title="Do vat">💡</button>
+                        </div>
+                        <div class="emoji-grid" id="emojiGrid"></div>
+                    </div>
+                    <!-- Image Preview (paste) -->
+                    <div class="chat-image-preview" id="chatImagePreview" style="display:none;">
+                        <img id="chatImagePreviewImg">
+                        <button class="chat-image-preview-close" id="chatImagePreviewClose" title="Xoa anh">&times;</button>
+                    </div>
+                    <div class="chat-input-wrapper">
                         <textarea id="chatInput" placeholder="Nhap tin nhan..." rows="1"></textarea>
                         <button class="btn-send" id="btnSend" title="Gui">
                             <i data-lucide="send"></i>
@@ -205,31 +275,6 @@
                     <!-- Hidden file inputs -->
                     <input type="file" id="imageFileInput" accept="image/*" style="display:none;" />
                     <input type="file" id="attachFileInput" style="display:none;" />
-                </div>
-
-                <!-- Emoji Picker -->
-                <div class="emoji-picker" id="emojiPicker" style="display:none;">
-                    <div class="emoji-categories" id="emojiCategories">
-                        <button class="emoji-cat-btn active" data-category="smileys">😀</button>
-                        <button class="emoji-cat-btn" data-category="people">👋</button>
-                        <button class="emoji-cat-btn" data-category="animals">🐶</button>
-                        <button class="emoji-cat-btn" data-category="food">🍔</button>
-                        <button class="emoji-cat-btn" data-category="objects">💡</button>
-                        <button class="emoji-cat-btn" data-category="symbols">❤️</button>
-                    </div>
-                    <div class="emoji-grid" id="emojiGrid">
-                        <!-- Populated by JS -->
-                    </div>
-                </div>
-
-                <!-- Reaction Picker (floating) -->
-                <div class="reaction-picker" id="reactionPicker" style="display:none;">
-                    <button class="reaction-btn" data-reaction="LIKE">👍</button>
-                    <button class="reaction-btn" data-reaction="LOVE">❤️</button>
-                    <button class="reaction-btn" data-reaction="HAHA">😂</button>
-                    <button class="reaction-btn" data-reaction="WOW">😮</button>
-                    <button class="reaction-btn" data-reaction="SAD">😢</button>
-                    <button class="reaction-btn" data-reaction="ANGRY">😡</button>
                 </div>
             </div>
 
@@ -254,8 +299,16 @@
                     </button>
                 </div>
 
-                <!-- Tab 1: Stats / Group Labels -->
+                <!-- Tab 1: Stats / Group Labels - Full-width cards -->
                 <div class="info-tab-content active" id="tabStats">
+                    <!-- Notes Section -->
+                    <div class="conv-notes-section" id="convNotesSection" style="display:none;">
+                        <div class="conv-notes-list" id="convNotesList"></div>
+                        <div class="conv-notes-input-wrap">
+                            <input type="text" id="convNoteInput" class="conv-notes-input" placeholder="Nhap ghi chu (Enter de gui)">
+                        </div>
+                    </div>
+                    <!-- Group Stats Cards (rendered by JS) -->
                     <div class="group-stats-header">
                         <h3>Nhom Phan Loai</h3>
                         <button class="btn-manage-groups" id="btnManageGroups" data-perm="inbox:manage_labels" data-perm-action="hide">
@@ -264,22 +317,15 @@
                         </button>
                     </div>
                     <div class="group-stats-list" id="groupStatsList">
-                        <!-- Group stats cards rendered by JS -->
+                        <!-- Full-width stats cards rendered by JS -->
                     </div>
                 </div>
 
                 <!-- Tab 2: Activities -->
                 <div class="info-tab-content" id="tabActivities">
-                    <div id="activitiesContent">
-                        <div style="text-align:center; color:var(--text-tertiary); padding:2rem;">
-                            <i data-lucide="activity" style="width:32px;height:32px;opacity:0.5;"></i>
-                            <p style="margin-top:0.5rem;">Chon cuoc hoi thoai de xem hoat dong</p>
-                        </div>
-                    </div>
-                    <!-- Notes Section -->
-                    <div class="notes-section" id="notesSection" style="display:none;">
-                        <h4>Ghi chu</h4>
-                        <div id="notesContent"></div>
+                    <div style="text-align:center; color:var(--text-tertiary); padding:2rem;">
+                        <i data-lucide="activity" style="width:32px;height:32px;opacity:0.5;"></i>
+                        <p style="margin-top:0.5rem;">Chon cuoc hoi thoai de xem hoat dong</p>
                     </div>
                 </div>
 
@@ -415,35 +461,127 @@
             </div>
         </main>
 
+        <!-- Pancake Settings Modal -->
+        <div class="tag-modal" id="pancakeSettingsModal" style="display: none;">
+            <div class="tag-modal-content" style="max-width: 800px;">
+                <div class="tag-modal-header">
+                    <h3><i class="fas fa-cog"></i> Pancake Accounts</h3>
+                    <button class="tag-modal-close" onclick="window.inboxChat?.closePancakeSettingsModal?.()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="tag-modal-body">
+                    <!-- Accounts List -->
+                    <div style="margin-bottom: 20px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <h4 style="margin: 0; font-size: 15px; color: #374151;">
+                                <i class="fas fa-users"></i> Danh sach tai khoan
+                            </h4>
+                            <button id="btnAddAccount" onclick="window.inboxChat?.showAddAccountForm?.()"
+                                style="padding: 6px 12px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                                <i class="fas fa-plus"></i> Them tai khoan
+                            </button>
+                        </div>
+                        <div id="pancakeAccountsList"
+                            style="background: #f9fafb; border-radius: 8px; padding: 12px; max-height: 300px; overflow-y: auto;">
+                            <div style="text-align: center; color: #9ca3af; padding: 20px;">
+                                Dang tai...
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Add Account Form (Hidden by default) -->
+                    <div id="addAccountForm"
+                        style="display: none; margin-bottom: 20px; padding: 16px; background: #f3f4f6; border-radius: 8px; border: 2px solid #3b82f6;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <h4 style="margin: 0; font-size: 14px; color: #374151;">
+                                <i class="fas fa-user-plus"></i> Them tai khoan moi
+                            </h4>
+                            <button onclick="document.getElementById('addAccountForm').style.display='none'"
+                                style="padding: 4px 8px; background: transparent; border: none; cursor: pointer; font-size: 16px; color: #6b7280;">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+
+                        <!-- Token Input -->
+                        <div style="margin-bottom: 12px;">
+                            <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: #374151;">
+                                JWT Token:
+                            </label>
+                            <textarea id="newAccountTokenInput" placeholder="Nhap JWT token tu cookie pancake.vn..."
+                                style="width: 100%; min-height: 100px; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-family: monospace; font-size: 11px; resize: vertical;"></textarea>
+                            <div style="margin-top: 6px; font-size: 11px; color: #6b7280;">
+                                Token se duoc tu dong lam sach (xoa khoang trang, prefix "jwt=", v.v.)
+                            </div>
+                        </div>
+
+                        <!-- Instructions -->
+                        <div style="padding: 10px; background: #fef3c7; border-left: 3px solid #f59e0b; border-radius: 4px; margin-bottom: 12px;">
+                            <div style="font-size: 12px; color: #92400e; font-weight: 500; margin-bottom: 6px;">
+                                Cach lay JWT token:
+                            </div>
+                            <ol style="margin: 0; padding-left: 18px; font-size: 11px; color: #92400e;">
+                                <li>Mo tab moi: <a href="https://pancake.vn" target="_blank" style="color: #d97706;">https://pancake.vn</a></li>
+                                <li>Dang nhap vao tai khoan Pancake</li>
+                                <li>Mo DevTools (F12) → Console tab</li>
+                                <li>Go: <code style="background: #fff; padding: 2px 4px; border-radius: 3px;">document.cookie.split(';').find(c => c.includes('jwt'))</code></li>
+                                <li>Copy gia tri sau "jwt=" va paste vao o tren</li>
+                            </ol>
+                        </div>
+
+                        <!-- Actions -->
+                        <div style="display: flex; gap: 8px;">
+                            <button class="tag-btn-save" onclick="window.inboxChat?.addAccountManual?.()"
+                                style="flex: 1; background: #3b82f6; font-size: 13px;">
+                                <i class="fas fa-save"></i> Them Token
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Page Access Tokens Section -->
+                    <div style="margin-top: 24px; padding-top: 20px; border-top: 2px solid #e5e7eb;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <h4 style="margin: 0; font-size: 15px; color: #374151;">
+                                <i class="fas fa-key"></i> Page Access Tokens
+                            </h4>
+                            <button id="btnAddPageToken" onclick="window.inboxChat?.showAddPageTokenForm?.()"
+                                style="padding: 6px 12px; background: #8b5cf6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                                <i class="fas fa-plus"></i> Them Page Token
+                            </button>
+                        </div>
+
+                        <!-- Page Tokens List -->
+                        <div id="pageAccessTokensList"
+                            style="background: #f9fafb; border-radius: 8px; padding: 12px; max-height: 200px; overflow-y: auto; margin-bottom: 12px;">
+                            <div style="text-align: center; color: #9ca3af; padding: 20px;">
+                                <i class="fas fa-key" style="font-size: 24px; margin-bottom: 8px;"></i>
+                                <div>Chua co page token nao</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="tag-modal-footer">
+                    <button class="tag-btn-cancel" onclick="window.inboxChat?.closePancakeSettingsModal?.()">
+                        Dong
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <!-- Manage Groups Modal -->
         <div class="modal-overlay" id="manageGroupsModal" style="display:none;">
-            <div class="modal-content modal-manage-groups">
-                <div class="modal-header">
-                    <h3>Quan Ly Nhom Phan Loai</h3>
-                    <button class="btn-icon-sm" id="btnCloseManageGroups"><i data-lucide="x"></i></button>
+            <div class="modal-content">
+                <div class="modal-title">
+                    <i data-lucide="settings"></i>
+                    Quan Ly Nhom Phan Loai
                 </div>
                 <div class="modal-body" id="manageGroupsBody">
                     <!-- Populated by JS -->
                 </div>
                 <div class="modal-footer">
-                    <button class="btn-primary" id="btnAddNewGroup"><i data-lucide="plus"></i> Them nhom moi</button>
+                    <button class="btn-modal-cancel" id="btnCloseManageGroups">Dong</button>
+                    <button class="btn-modal-confirm" id="btnSaveGroups">Luu</button>
                 </div>
-            </div>
-        </div>
-
-        <!-- Livestream Post Selector -->
-        <div class="livestream-post-selector" id="livestreamPostSelector" style="display:none;">
-            <div class="livestream-post-header">
-                <h4>Chon bai post livestream</h4>
-                <button class="btn-icon-sm" id="btnCloseLivestreamSelector"><i data-lucide="x"></i></button>
-            </div>
-            <div class="livestream-post-list" id="livestreamPostList">
-                <!-- Populated by JS -->
-            </div>
-            <div class="livestream-post-actions">
-                <button class="btn-danger-sm" id="btnClearLivestream" data-perm="inbox:manage_labels" data-perm-action="hide">
-                    <i data-lucide="trash-2"></i> Xoa tat ca livestream cho post nay
-                </button>
             </div>
         </div>
 

@@ -24,6 +24,7 @@ class InboxChatController {
         this.activeConvId = null;
         this.messages = [];
         this.currentFilter = localStorage.getItem('inbox_current_filter') || 'all';
+        this.currentTypeFilter = 'all';
         this.selectedPageIds = [];
         this.groupFilters = [];
         this.isSearching = false;
@@ -72,9 +73,22 @@ class InboxChatController {
         }
 
         // Filter tabs
-        document.querySelectorAll('.conv-filter-btn').forEach(btn => {
+        document.querySelectorAll('.filter-tab').forEach(btn => {
             btn.addEventListener('click', () => {
                 this._setActiveFilter(btn.dataset.filter);
+                // Show/hide livestream post selector
+                const lps = document.getElementById('livestreamPostSelector');
+                if (lps) lps.style.display = btn.dataset.filter === 'livestream' ? 'flex' : 'none';
+                this.renderConversationList();
+            });
+        });
+
+        // Type filters
+        document.querySelectorAll('.type-filter-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.type-filter-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                this.currentTypeFilter = btn.dataset.type;
                 this.renderConversationList();
             });
         });
@@ -96,11 +110,20 @@ class InboxChatController {
             }
         });
 
-        // Chat messages scroll (load older)
-        document.getElementById('chatMessages')?.addEventListener('scroll', (e) => {
+        // Chat messages scroll (load older + scroll-to-bottom button)
+        const chatMsgs = document.getElementById('chatMessages');
+        chatMsgs?.addEventListener('scroll', (e) => {
             if (e.target.scrollTop < 100 && this.activeConvId) {
                 this.loadMoreMessages();
             }
+            const btnScroll = document.getElementById('btnScrollBottom');
+            if (btnScroll) {
+                const atBottom = e.target.scrollHeight - e.target.scrollTop - e.target.clientHeight < 100;
+                btnScroll.style.display = atBottom ? 'none' : 'flex';
+            }
+        });
+        document.getElementById('btnScrollBottom')?.addEventListener('click', () => {
+            if (chatMsgs) chatMsgs.scrollTop = chatMsgs.scrollHeight;
         });
 
         // Send message
@@ -112,45 +135,74 @@ class InboxChatController {
             }
         });
 
+        // Auto-resize textarea
+        document.getElementById('chatInput')?.addEventListener('input', (e) => {
+            e.target.style.height = 'auto';
+            e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+        });
+
         // Image/File attach
         document.getElementById('btnAttachImage')?.addEventListener('click', () => document.getElementById('imageFileInput')?.click());
         document.getElementById('imageFileInput')?.addEventListener('change', (e) => this.attachImage(e));
         document.getElementById('btnAttachFile')?.addEventListener('click', () => document.getElementById('attachFileInput')?.click());
         document.getElementById('attachFileInput')?.addEventListener('change', (e) => this.attachFile(e));
-        document.getElementById('btnCancelImage')?.addEventListener('click', () => this._clearImagePreview());
+        document.getElementById('chatImagePreviewClose')?.addEventListener('click', () => this._clearImagePreview());
 
         // Reply cancel
         document.getElementById('btnCancelReply')?.addEventListener('click', () => this.cancelReply());
 
         // Emoji picker
-        document.getElementById('btnEmojiToggle')?.addEventListener('click', () => {
+        document.getElementById('btnEmoji')?.addEventListener('click', () => {
             const picker = document.getElementById('emojiPicker');
             if (picker) {
-                picker.style.display = picker.style.display === 'none' ? 'block' : 'none';
-                if (picker.style.display === 'block') this.renderEmojiGrid('smileys');
+                picker.style.display = picker.style.display === 'none' ? 'flex' : 'none';
+                if (picker.style.display === 'flex') this.renderEmojiGrid('smileys');
             }
         });
-        document.querySelectorAll('.emoji-cat-btn').forEach(btn => {
+        document.querySelectorAll('.emoji-cat').forEach(btn => {
             btn.addEventListener('click', () => {
-                document.querySelectorAll('.emoji-cat-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.emoji-cat').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
-                this.renderEmojiGrid(btn.dataset.category);
+                this.renderEmojiGrid(btn.dataset.cat);
             });
         });
 
+        // Paste image
+        document.getElementById('chatInput')?.addEventListener('paste', (e) => {
+            const items = e.clipboardData?.items;
+            if (!items) return;
+            for (const item of items) {
+                if (item.type.startsWith('image/')) {
+                    e.preventDefault();
+                    const file = item.getAsFile();
+                    this.selectedImage = file;
+                    const reader = new FileReader();
+                    reader.onload = (re) => {
+                        document.getElementById('chatImagePreviewImg').src = re.target.result;
+                        document.getElementById('chatImagePreview').style.display = 'flex';
+                    };
+                    reader.readAsDataURL(file);
+                    break;
+                }
+            }
+        });
+
         // Toggle read/unread
-        document.getElementById('btnToggleRead')?.addEventListener('click', () => {
+        document.getElementById('btnMarkUnread')?.addEventListener('click', () => {
             if (this.activeConvId) this.toggleReadUnread(this.activeConvId);
         });
 
         // Livestream toggle
-        document.getElementById('btnLivestreamToggle')?.addEventListener('click', () => this.toggleLivestreamStatus());
+        document.getElementById('btnToggleLivestream')?.addEventListener('click', () => this.toggleLivestreamStatus());
 
         // Manage groups
         document.getElementById('btnManageGroups')?.addEventListener('click', () => this.showManageGroupsModal());
         document.getElementById('btnCloseManageGroups')?.addEventListener('click', () => {
             document.getElementById('manageGroupsModal').style.display = 'none';
         });
+
+        // Label bar resize
+        this._initLabelBarResize();
 
         // Page selector
         document.getElementById('pageSelectorBtn')?.addEventListener('click', () => {
@@ -160,33 +212,52 @@ class InboxChatController {
 
         // Close dropdowns on outside click
         document.addEventListener('click', (e) => {
-            if (!e.target.closest('#pageSelectorWrapper')) {
-                document.getElementById('pageSelectorDropdown').style.display = 'none';
+            if (!e.target.closest('#pageSelector') && !e.target.closest('#pageSelectorBtn')) {
+                const dd = document.getElementById('pageSelectorDropdown');
+                if (dd) dd.style.display = 'none';
             }
-            if (!e.target.closest('#emojiPicker') && !e.target.closest('#btnEmojiToggle')) {
-                document.getElementById('emojiPicker').style.display = 'none';
+            if (!e.target.closest('#emojiPicker') && !e.target.closest('#btnEmoji')) {
+                const ep = document.getElementById('emojiPicker');
+                if (ep) ep.style.display = 'none';
             }
-            if (!e.target.closest('#reactionPicker') && !e.target.closest('.msg-action-react')) {
-                document.getElementById('reactionPicker').style.display = 'none';
+            if (!e.target.closest('#reactionPicker') && !e.target.closest('.msg-action-btn[data-action="react"]')) {
+                const rp = document.getElementById('reactionPicker');
+                if (rp) rp.style.display = 'none';
             }
         });
 
         // Toggle right panel
         document.getElementById('btnToggleRightPanel')?.addEventListener('click', () => {
             const col3 = document.getElementById('col3');
-            if (col3) col3.style.display = col3.style.display === 'none' ? '' : 'none';
+            if (col3) {
+                col3.classList.toggle('hidden');
+            }
         });
 
-        // Reply type / send page selectors
-        document.getElementById('sendPageSelector')?.addEventListener('change', (e) => this._onSendPageChanged(e.target.value));
-        document.getElementById('replyTypeSelector')?.addEventListener('change', () => {});
+        // Notes input
+        document.getElementById('convNoteInput')?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                this._addNote();
+            }
+        });
     }
 
     _setActiveFilter(filter) {
         this.currentFilter = filter;
         localStorage.setItem('inbox_current_filter', filter);
-        document.querySelectorAll('.conv-filter-btn').forEach(btn => {
+        document.querySelectorAll('.filter-tab').forEach(btn => {
             btn.classList.toggle('active', btn.dataset.filter === filter);
+        });
+    }
+
+    _initLabelBarResize() {
+        const handle = document.getElementById('chatLabelResize');
+        const list = document.getElementById('chatLabelBarList');
+        if (!handle || !list) return;
+
+        handle.addEventListener('click', () => {
+            list.classList.toggle('expanded');
         });
     }
 
@@ -199,12 +270,17 @@ class InboxChatController {
         if (!container) return;
 
         const search = document.getElementById('searchConversation')?.value?.trim() || '';
-        const convs = this.data.getConversations({
+        let convs = this.data.getConversations({
             search,
             filter: this.currentFilter,
             groupFilters: this.groupFilters,
             selectedPageIds: this.selectedPageIds.length > 0 ? this.selectedPageIds : null
         });
+
+        // Apply type filter
+        if (this.currentTypeFilter !== 'all') {
+            convs = convs.filter(c => c.type === this.currentTypeFilter);
+        }
 
         if (convs.length === 0) {
             container.innerHTML = `
@@ -216,46 +292,84 @@ class InboxChatController {
             return;
         }
 
+        // Update type filter counts
+        this._updateTypeFilterCounts();
+
         container.innerHTML = convs.map(c => this._buildConvItemHtml(c)).join('');
 
         // Bind click events
-        container.querySelectorAll('.conv-item').forEach(el => {
+        container.querySelectorAll('.conversation-item').forEach(el => {
             el.addEventListener('click', () => this.selectConversation(el.dataset.id));
         });
 
         if (typeof lucide !== 'undefined') lucide.createIcons({ attrs: { class: '' } });
     }
 
+    _updateTypeFilterCounts() {
+        const allConvs = this.data.conversations;
+        const inboxCount = allConvs.filter(c => c.type === 'INBOX' && c.unread > 0).length;
+        const commentCount = allConvs.filter(c => c.type === 'COMMENT' && c.unread > 0).length;
+
+        document.querySelectorAll('.type-filter-btn').forEach(btn => {
+            const type = btn.dataset.type;
+            let countEl = btn.querySelector('.type-count');
+            if (type === 'INBOX' && inboxCount > 0) {
+                if (!countEl) { countEl = document.createElement('span'); countEl.className = 'type-count'; btn.appendChild(countEl); }
+                countEl.textContent = inboxCount;
+            } else if (type === 'COMMENT' && commentCount > 0) {
+                if (!countEl) { countEl = document.createElement('span'); countEl.className = 'type-count'; btn.appendChild(countEl); }
+                countEl.textContent = commentCount;
+            } else if (countEl) {
+                countEl.remove();
+            }
+        });
+    }
+
     _buildConvItemHtml(conv) {
         const isActive = conv.id === this.activeConvId;
         const labels = this.data.getLabelArray(conv.id);
-        const labelDots = labels.filter(l => l !== 'new').map(l => {
+
+        // Labels
+        const labelHtml = labels.filter(l => l !== 'new').map(l => {
             const group = this.data.groups.find(g => g.id === l);
-            return group ? `<span class="label-dot" style="background:${group.color};" title="${group.name}"></span>` : '';
+            if (!group) return '';
+            return `<span class="conv-label label-${l}" style="background:${group.color}15;color:${group.color};">
+                <span class="conv-label-dot" style="width:6px;height:6px;border-radius:50%;display:inline-block;flex-shrink:0;background:${group.color};"></span>${this.escapeHtml(group.name)}
+            </span>`;
         }).join('');
 
-        const unreadBadge = conv.unread > 0 ? `<span class="unread-badge">${conv.unread}</span>` : '';
-        const typeIcon = conv.type === 'COMMENT' ? '<i data-lucide="message-circle" class="type-icon comment"></i>' : '';
-        const livestreamIcon = conv.isLivestream ? '<i data-lucide="radio" class="type-icon livestream"></i>' : '';
+        // Tags
+        const tagsHtml = (conv.tags || []).slice(0, 2).map(t => {
+            const colorMap = { red: 'tag-red', green: 'tag-green', blue: 'tag-blue', orange: 'tag-orange', purple: 'tag-purple', pink: 'tag-pink', teal: 'tag-teal' };
+            const cls = colorMap[t.color] || '';
+            return `<span class="conv-tag ${cls}">${this.escapeHtml(t.name || '')}</span>`;
+        }).join('');
+
+        // Badges
+        const unreadBadge = conv.unread > 0 ? `<span class="conv-unread-badge">${conv.unread > 9 ? '9+' : conv.unread}</span>` : '';
+        const livestreamBadge = conv.isLivestream ? '<span class="conv-livestream-badge">LIVE</span>' : '';
+        const typeBadge = conv.type === 'COMMENT' ? '<span class="conv-type-badge comment">BL</span>' : '';
 
         const timeStr = this.formatTime(conv.time);
         const snippet = this.escapeHtml(conv.snippet || '').substring(0, 60);
 
         return `
-            <div class="conv-item ${isActive ? 'active' : ''} ${conv.unread > 0 ? 'unread' : ''}" data-id="${conv.id}">
-                <div class="conv-avatar">${this.getAvatarHtml(conv, 40)}</div>
-                <div class="conv-info">
-                    <div class="conv-top">
+            <div class="conversation-item ${isActive ? 'active' : ''} ${conv.unread > 0 ? 'unread' : ''}" data-id="${conv.id}">
+                <div class="conv-avatar-wrap">${this.getAvatarHtml(conv, 44)}${unreadBadge}</div>
+                <div class="conv-content">
+                    <div class="conv-header">
                         <span class="conv-name">${this.escapeHtml(conv.name)}</span>
                         <span class="conv-time">${timeStr}</span>
                     </div>
-                    <div class="conv-bottom">
-                        <span class="conv-snippet">${snippet}</span>
-                        <div class="conv-badges">
-                            ${typeIcon}${livestreamIcon}${labelDots}${unreadBadge}
+                    <div class="conv-preview ${conv.unread > 0 ? '' : ''}">${snippet}</div>
+                    <div class="conv-footer">
+                        <div class="conv-footer-left">
+                            ${labelHtml}${tagsHtml}${livestreamBadge}${typeBadge}
                         </div>
+                        <span class="conv-type-icon">
+                            ${conv.type === 'COMMENT' ? '<i data-lucide="message-square"></i>' : '<i data-lucide="message-circle"></i>'}
+                        </span>
                     </div>
-                    <div class="conv-page-name">${this.escapeHtml(conv.pageName)}</div>
                 </div>
             </div>`;
     }
@@ -273,16 +387,16 @@ class InboxChatController {
         document.getElementById('chatHeaderAvatar').innerHTML = this.getAvatarHtml(conv, 32);
         document.getElementById('chatUserName').textContent = conv.name;
         document.getElementById('chatUserStatus').textContent = `${conv.type} - ${conv.pageName}`;
-        document.getElementById('btnToggleRead').style.display = '';
-        document.getElementById('btnLivestreamToggle').style.display = '';
-        document.getElementById('chatInputOptions').style.display = 'flex';
+        document.getElementById('btnMarkUnread').style.display = '';
+        document.getElementById('btnToggleLivestream').style.display = '';
 
-        // Populate send page selector
+        // Show send selectors
+        document.getElementById('sendPageSelector').style.display = 'flex';
         this._populateSendPageSelector(conv);
         this._populateReplyTypeSelector(conv);
 
         // Update active state in list
-        document.querySelectorAll('.conv-item').forEach(el => {
+        document.querySelectorAll('.conversation-item').forEach(el => {
             el.classList.toggle('active', el.dataset.id === convId);
         });
 
@@ -290,13 +404,16 @@ class InboxChatController {
         this.data.markAsRead(convId);
 
         // Show loading
-        document.getElementById('chatMessages').innerHTML = '<div class="chat-loading"><div class="loading-spinner"></div></div>';
+        document.getElementById('chatMessages').innerHTML = '<div style="padding:2rem;text-align:center;color:var(--text-tertiary);"><div class="loading-spinner"></div></div>';
 
         // Load messages
         await this.loadMessages(conv);
 
         // Render label bar
         this.renderChatLabelBar(conv);
+
+        // Show notes section
+        this._showNotesSection(conv);
 
         // Fill order form
         if (window.inboxOrders) window.inboxOrders.fillCustomerInfo(conv);
@@ -358,13 +475,15 @@ class InboxChatController {
 
         } catch (e) {
             console.error('[INBOX-CHAT] loadMessages error:', e);
-            document.getElementById('chatMessages').innerHTML = `<div class="chat-error">Loi tai tin nhan: ${e.message}</div>`;
+            document.getElementById('chatMessages').innerHTML = `<div class="chat-empty-state"><p>Loi tai tin nhan: ${e.message}</p></div>`;
         }
     }
 
     _mapMessage(m, conv) {
         const fromId = m.from?.id || m.from_id || '';
         const isShop = (m.from?.is_page === true) || (String(fromId) === String(conv.pageId));
+        const msgType = m.type || (conv.type === 'COMMENT' ? 'comment' : 'inbox');
+        const isPrivateReply = m.is_private_reply || m.action === 'private_replies';
 
         return {
             id: m.id,
@@ -383,6 +502,8 @@ class InboxChatController {
             canRemove: conv.type === 'COMMENT',
             canLike: conv.type === 'COMMENT',
             phoneInfo: m.phone_info || null,
+            msgType,
+            isPrivateReply,
             _raw: m
         };
     }
@@ -432,53 +553,85 @@ class InboxChatController {
         for (const msg of allMessages) {
             const dateStr = this.formatDate(msg.time);
             if (dateStr !== lastDate) {
-                html += `<div class="chat-date-divider"><span>${dateStr}</span></div>`;
+                html += `<div class="chat-date-separator"><span>${dateStr}</span></div>`;
                 lastDate = dateStr;
             }
 
-            const isShop = msg.sender === 'shop';
-            const bubbleClass = isShop ? 'msg-bubble shop' : 'msg-bubble customer';
-            const hiddenClass = msg.isHidden ? 'msg-hidden' : '';
-            const optimisticClass = msg.isOptimistic ? 'msg-optimistic' : '';
+            const isOutgoing = msg.sender === 'shop';
+            const direction = isOutgoing ? 'outgoing' : 'incoming';
+
+            // Extra classes
+            let extraClasses = '';
+            if (msg.msgType === 'comment' || conv.type === 'COMMENT') extraClasses += ' is-comment';
+            if (msg.isPrivateReply) extraClasses += ' is-private-reply';
+            if (msg.isHidden) extraClasses += ' hidden-msg';
+            if (msg.isRemoved) extraClasses += ' removed';
 
             const text = msg.text ? this.formatMessageText(msg.text) : '';
             const attachHtml = msg.attachments?.length ? this.renderAttachments(msg.attachments) : '';
             const timeStr = this.formatMessageTime(msg.time);
 
+            // Message type icon
+            let typeIconHtml = '';
+            if (conv.type === 'COMMENT') {
+                if (msg.isPrivateReply) {
+                    typeIconHtml = '<span class="msg-type-icon type-inbox"><i data-lucide="lock"></i> Rieng</span>';
+                } else {
+                    typeIconHtml = '<span class="msg-type-icon type-comment"><i data-lucide="message-square"></i> BL</span>';
+                }
+            }
+
             // Reactions
             let reactionsHtml = '';
             if (msg.reactions?.length > 0) {
-                const emojis = msg.reactions.map(r => this._reactionEmoji(r.type || r)).join('');
-                reactionsHtml = `<div class="msg-reactions">${emojis}</div>`;
+                const badges = {};
+                msg.reactions.forEach(r => {
+                    const t = r.type || r;
+                    badges[t] = (badges[t] || 0) + 1;
+                });
+                reactionsHtml = '<div class="message-reaction-summary">' +
+                    Object.entries(badges).map(([t, c]) =>
+                        `<span class="reaction-badge">${this._reactionEmoji(t)}${c > 1 ? ' ' + c : ''}</span>`
+                    ).join('') + '</div>';
             }
 
-            // Actions (for COMMENT type)
+            // Phone info tag
+            let phoneHtml = '';
+            if (msg.phoneInfo) {
+                phoneHtml = `<div class="msg-phone-tag"><i data-lucide="phone"></i> ${this.escapeHtml(msg.phoneInfo)}</div>`;
+            }
+
+            // Status indicators
+            let statusHtml = '';
+            if (msg.isHidden) statusHtml = '<span class="msg-status-indicator hidden-msg"><i data-lucide="eye-off"></i></span>';
+            if (msg.isRemoved) statusHtml = '<span class="msg-status-indicator removed"><i data-lucide="trash-2"></i></span>';
+
+            // Hover actions
             let actionsHtml = '';
-            if (conv.type === 'COMMENT' && !msg.isOptimistic) {
-                actionsHtml = `
-                    <div class="msg-actions">
-                        ${msg.canLike ? `<button class="msg-action-btn" data-action="${msg.userLikes ? 'unlike' : 'like'}" data-msg="${msg.id}" title="${msg.userLikes ? 'Bo thich' : 'Thich'}"><i data-lucide="thumbs-up"></i></button>` : ''}
-                        ${msg.canHide ? `<button class="msg-action-btn" data-action="${msg.isHidden ? 'unhide' : 'hide'}" data-msg="${msg.id}" title="${msg.isHidden ? 'Hien' : 'An'}"><i data-lucide="${msg.isHidden ? 'eye' : 'eye-off'}"></i></button>` : ''}
-                        <button class="msg-action-btn" data-action="reply" data-msg="${msg.id}" title="Tra loi"><i data-lucide="corner-up-left"></i></button>
-                        <button class="msg-action-btn msg-action-react" data-action="react" data-msg="${msg.id}" title="React"><i data-lucide="smile"></i></button>
-                        <button class="msg-action-btn" data-action="copy" data-msg="${msg.id}" title="Sao chep"><i data-lucide="copy"></i></button>
-                        ${msg.canRemove && isShop ? `<button class="msg-action-btn" data-action="delete" data-msg="${msg.id}" title="Xoa"><i data-lucide="trash-2"></i></button>` : ''}
-                    </div>`;
-            } else if (!msg.isOptimistic) {
-                actionsHtml = `
-                    <div class="msg-actions">
-                        <button class="msg-action-btn" data-action="reply" data-msg="${msg.id}" title="Tra loi"><i data-lucide="corner-up-left"></i></button>
-                        <button class="msg-action-btn" data-action="copy" data-msg="${msg.id}" title="Sao chep"><i data-lucide="copy"></i></button>
-                    </div>`;
+            if (!msg.isOptimistic) {
+                let actionBtns = '';
+                if (msg.canLike) actionBtns += `<button class="msg-action-btn ${msg.userLikes ? 'liked' : ''}" data-action="${msg.userLikes ? 'unlike' : 'like'}" data-msg="${msg.id}" title="${msg.userLikes ? 'Bo thich' : 'Thich'}"><i data-lucide="thumbs-up"></i></button>`;
+                if (msg.canHide) actionBtns += `<button class="msg-action-btn ${msg.isHidden ? 'active' : ''}" data-action="${msg.isHidden ? 'unhide' : 'hide'}" data-msg="${msg.id}" title="${msg.isHidden ? 'Hien' : 'An'}"><i data-lucide="${msg.isHidden ? 'eye' : 'eye-off'}"></i></button>`;
+                actionBtns += `<button class="msg-action-btn" data-action="reply" data-msg="${msg.id}" title="Tra loi"><i data-lucide="corner-up-left"></i></button>`;
+                actionBtns += `<button class="msg-action-btn" data-action="react" data-msg="${msg.id}" title="React"><i data-lucide="smile"></i></button>`;
+                actionBtns += `<button class="msg-action-btn" data-action="copy" data-msg="${msg.id}" title="Sao chep"><i data-lucide="copy"></i></button>`;
+                if (msg.canRemove && isOutgoing) actionBtns += `<button class="msg-action-btn danger" data-action="delete" data-msg="${msg.id}" title="Xoa"><i data-lucide="trash-2"></i></button>`;
+                actionsHtml = `<div class="msg-hover-actions">${actionBtns}</div>`;
             }
 
             html += `
-                <div class="msg-wrapper ${isShop ? 'shop' : 'customer'} ${hiddenClass} ${optimisticClass}" data-msg-id="${msg.id}">
-                    <div class="${bubbleClass}">
-                        ${!isShop ? `<div class="msg-sender-name">${this.escapeHtml(msg.senderName)}</div>` : ''}
-                        ${text ? `<div class="msg-text">${text}</div>` : ''}
+                <div class="message-row ${direction}${extraClasses}" data-msg-id="${msg.id}">
+                    ${!isOutgoing ? `<div class="message-avatar" style="background:${AVATAR_GRADIENTS[Math.abs(this._hashCode(msg.senderName || '')) % AVATAR_GRADIENTS.length]};">${(msg.senderName || '?')[0].toUpperCase()}</div>` : ''}
+                    <div class="message-bubble">
+                        ${!isOutgoing && msg.senderName ? `<div class="message-sender">${this.escapeHtml(msg.senderName)}</div>` : ''}
+                        ${statusHtml}
+                        ${text ? `<div class="message-text">${text}</div>` : ''}
                         ${attachHtml}
-                        <div class="msg-time">${timeStr}</div>
+                        ${phoneHtml}
+                        <div class="message-meta">
+                            <span class="message-time">${timeStr}</span>
+                            ${typeIconHtml}
+                        </div>
                         ${reactionsHtml}
                     </div>
                     ${actionsHtml}
@@ -486,7 +639,7 @@ class InboxChatController {
         }
 
         if (!this.hasMoreMessages) {
-            html = '<div class="chat-start-marker">Dau cuoc hoi thoai</div>' + html;
+            html = '<div class="load-more-indicator">Dau cuoc hoi thoai</div>' + html;
         }
 
         container.innerHTML = html;
@@ -512,22 +665,25 @@ class InboxChatController {
             const url = att.url || att.src || att.payload?.url || '';
             if (!url) return '';
 
-            if (type.includes('image') || type === 'photo' || type === 'sticker') {
-                return `<div class="msg-attachment-img"><img src="${this.escapeHtml(url)}" alt="Image" loading="lazy" onclick="window.open('${this.escapeHtml(url)}','_blank')" /></div>`;
+            if (type.includes('image') || type === 'photo') {
+                return `<div class="message-media"><img src="${this.escapeHtml(url)}" alt="Image" loading="lazy" onclick="window.open('${this.escapeHtml(url)}','_blank')" /></div>`;
+            }
+            if (type === 'sticker') {
+                return `<img src="${this.escapeHtml(url)}" class="message-sticker" alt="Sticker" loading="lazy" />`;
             }
             if (type.includes('video') || type === 'video') {
-                return `<div class="msg-attachment-video"><video src="${this.escapeHtml(url)}" controls preload="metadata"></video></div>`;
+                return `<div class="message-media"><video src="${this.escapeHtml(url)}" controls preload="metadata"></video></div>`;
             }
             if (type.includes('audio') || type === 'audio') {
-                return `<div class="msg-attachment-audio"><audio src="${this.escapeHtml(url)}" controls></audio></div>`;
+                return `<div class="message-media"><audio src="${this.escapeHtml(url)}" controls></audio></div>`;
             }
             const name = att.name || att.filename || 'File';
-            return `<div class="msg-attachment-file"><a href="${this.escapeHtml(url)}" target="_blank"><i data-lucide="file"></i> ${this.escapeHtml(name)}</a></div>`;
+            return `<div class="message-file"><a href="${this.escapeHtml(url)}" target="_blank"><i data-lucide="file"></i> ${this.escapeHtml(name)}</a></div>`;
         }).join('');
     }
 
     _reactionEmoji(type) {
-        const map = { LIKE: '👍', LOVE: '❤️', HAHA: '😂', WOW: '😮', SAD: '😢', ANGRY: '😡' };
+        const map = { LIKE: '👍', LOVE: '❤️', HAHA: '😆', WOW: '😮', SAD: '😢', ANGRY: '😠' };
         return map[type] || type;
     }
 
@@ -544,10 +700,10 @@ class InboxChatController {
         if (!text && !this.selectedImage) return;
 
         // Clear input
-        if (input) input.value = '';
+        if (input) { input.value = ''; input.style.height = 'auto'; }
 
         // Get send page
-        const sendPageId = document.getElementById('sendPageSelector')?.value || conv.pageId;
+        const sendPageId = document.getElementById('sendPageSelect')?.value || conv.pageId;
 
         // 24h window check (warning only)
         const windowCheck = this.data.check24hWindow(conv.id);
@@ -592,7 +748,7 @@ class InboxChatController {
                 if (conv.type === 'INBOX') {
                     await this._sendInbox(sendPageId, conv.id, text, conv, replyData, pageAccessToken);
                 } else {
-                    const replyType = document.getElementById('replyTypeSelector')?.value || 'reply_comment';
+                    const replyType = document.getElementById('replyTypeSelect')?.value || 'reply_comment';
                     await this._sendComment(sendPageId, conv.id, text, conv, replyData, replyType, pageAccessToken);
                 }
             }
@@ -618,7 +774,6 @@ class InboxChatController {
 
         const result = await this.api.sendMessage(pageId, convId, payload, pageAccessToken);
 
-        // Check for 24h error → fallback to private_replies
         if (result.error_code === 10 || result.error_code === 551 ||
             (result.error?.code === 10 && result.error?.error_subcode === 2018278)) {
             console.log('[INBOX-CHAT] 24h expired, trying private_replies...');
@@ -644,7 +799,6 @@ class InboxChatController {
             const result = await this.api.sendMessage(pageId, convId, payload, pageAccessToken);
 
             if (!result.success) {
-                // Fallback to private_replies
                 const raw = conv._raw || {};
                 const fallback = {
                     action: 'private_replies',
@@ -656,7 +810,6 @@ class InboxChatController {
                 await this.api.sendMessage(pageId, convId, fallback, pageAccessToken);
             }
         } else {
-            // private_replies
             const raw = conv._raw || {};
             const commentId = replyData?.id || this.messages[this.messages.length - 1]?.id;
             const payload = {
@@ -669,7 +822,6 @@ class InboxChatController {
             const result = await this.api.sendMessage(pageId, convId, payload, pageAccessToken);
 
             if (!result.success) {
-                // Fallback to reply_inbox
                 const fallback = { action: 'reply_inbox', message: text };
                 await this.api.sendMessage(pageId, convId, fallback, pageAccessToken);
             }
@@ -677,18 +829,15 @@ class InboxChatController {
     }
 
     async _getPageAccessTokenWithFallback(pageId) {
-        // 1. Cache
         let token = this.tm.getPageAccessToken(pageId);
         if (token) return token;
 
-        // 2. Generate with current JWT
         const jwt = await this.tm.getToken();
         if (jwt) {
             token = await this.tm.generatePageAccessToken(pageId, jwt);
             if (token) return token;
         }
 
-        // 3. Try other accounts
         const other = this.tm.findAccountWithPageAccess(pageId);
         if (other) {
             token = await this.tm.generatePageAccessToken(pageId, other.token);
@@ -747,7 +896,6 @@ class InboxChatController {
                 break;
         }
 
-        // Reload messages after action
         if (['like', 'unlike', 'hide', 'unhide', 'delete'].includes(action)) {
             setTimeout(() => {
                 this.api.clearMessagesCache(conv.pageId, conv.id);
@@ -756,9 +904,10 @@ class InboxChatController {
         }
     }
 
-    setReplyingTo(msg, conv) {
+    setReplyingTo(msg) {
         this.replyingTo = { id: msg.id, text: msg.text, senderName: msg.senderName };
-        document.getElementById('replyPreviewText').textContent = `${msg.senderName}: ${(msg.text || '').substring(0, 80)}`;
+        document.getElementById('replyPreviewSender').textContent = msg.senderName || '';
+        document.getElementById('replyPreviewMsg').textContent = (msg.text || '').substring(0, 80);
         document.getElementById('replyPreviewBar').style.display = 'flex';
         document.getElementById('chatInput')?.focus();
     }
@@ -776,7 +925,7 @@ class InboxChatController {
         picker.style.left = rect.left + 'px';
         picker.style.display = 'flex';
 
-        picker.querySelectorAll('.reaction-btn').forEach(rb => {
+        picker.querySelectorAll('.reaction-emoji').forEach(rb => {
             rb.onclick = async () => {
                 picker.style.display = 'none';
                 const conv = this.data.getConversation(this.activeConvId);
@@ -806,8 +955,8 @@ class InboxChatController {
         this.selectedImage = file;
         const reader = new FileReader();
         reader.onload = (re) => {
-            document.getElementById('imagePreviewImg').src = re.target.result;
-            document.getElementById('imagePreviewBar').style.display = 'flex';
+            document.getElementById('chatImagePreviewImg').src = re.target.result;
+            document.getElementById('chatImagePreview').style.display = 'flex';
         };
         reader.readAsDataURL(file);
     }
@@ -839,8 +988,8 @@ class InboxChatController {
 
     _clearImagePreview() {
         this.selectedImage = null;
-        document.getElementById('imagePreviewBar').style.display = 'none';
-        document.getElementById('imagePreviewImg').src = '';
+        document.getElementById('chatImagePreview').style.display = 'none';
+        document.getElementById('chatImagePreviewImg').src = '';
         document.getElementById('imageFileInput').value = '';
     }
 
@@ -850,9 +999,7 @@ class InboxChatController {
 
     async loadMoreConversations() {
         if (this.data.isLoading || !this.data.hasMore || this.isSearching) return;
-        document.getElementById('convLoadMore').style.display = 'flex';
         const more = await this.data.loadMoreConversations();
-        document.getElementById('convLoadMore').style.display = 'none';
         if (more.length > 0) this.renderConversationList();
     }
 
@@ -866,7 +1013,6 @@ class InboxChatController {
 
         const result = await this.api.searchConversations(query);
         if (result.conversations?.length > 0) {
-            // Map and merge with local
             const mapped = result.conversations.map(c => this.data.mapConversation(c));
             const existingIds = new Set(this.data.conversations.map(c => c.id));
             for (const conv of mapped) {
@@ -955,15 +1101,11 @@ class InboxChatController {
         this.isSocketConnected = false;
         this.updateSocketStatusUI(false);
         console.log('[INBOX-CHAT] WebSocket closed:', event.code);
-
-        // Start polling immediately as backup
         this.startAutoRefresh();
 
-        // Try to reconnect
         if (this.socketReconnectAttempts < this.socketMaxReconnectAttempts) {
             this.socketReconnectAttempts++;
             const delay = Math.min(this.socketReconnectDelay * Math.pow(1.5, this.socketReconnectAttempts - 1), 15000);
-            console.log(`[INBOX-CHAT] Reconnecting in ${delay}ms (attempt ${this.socketReconnectAttempts})`);
             setTimeout(() => this.initializeWebSocket(), delay);
         }
     }
@@ -992,15 +1134,12 @@ class InboxChatController {
         const pageId = String(convData.page_id || '');
         const type = convData.type;
 
-        // Filter by page
         if (this.data.pageIds.length > 0 && !this.data.pageIds.some(id => String(id) === pageId)) {
             return;
         }
 
-        // Filter type
         if (type && type !== 'INBOX' && type !== 'COMMENT') return;
 
-        // Find or create conversation
         const convId = convData.id;
         let conv = this.data.getConversation(convId);
 
@@ -1020,7 +1159,6 @@ class InboxChatController {
         this.data.recalculateGroupCounts();
         this.renderGroupStats();
 
-        // Auto-reload messages if this is the active conversation
         if (convId === this.activeConvId) {
             this.api.clearMessagesCache(pageId, convId);
             this.loadMessages(conv);
@@ -1071,25 +1209,22 @@ class InboxChatController {
         if (this.autoRefreshInterval) {
             clearInterval(this.autoRefreshInterval);
             this.autoRefreshInterval = null;
-            console.log('[INBOX-CHAT] Auto-refresh stopped');
         }
     }
 
     closeWebSocket() {
-        if (this.socket) {
-            this.socket.close();
-            this.socket = null;
-        }
+        if (this.socket) { this.socket.close(); this.socket = null; }
         this.stopAutoRefresh();
     }
 
     updateSocketStatusUI(connected) {
-        const indicator = document.getElementById('wsStatusIndicator');
-        if (!indicator) return;
-        indicator.innerHTML = connected
-            ? '<i data-lucide="wifi" style="color:var(--success);"></i>'
-            : '<i data-lucide="wifi-off" style="color:var(--text-tertiary);"></i>';
-        indicator.title = connected ? 'Real-time: Connected' : 'Real-time: Disconnected';
+        const el = document.getElementById('wsStatus');
+        if (!el) return;
+        el.className = connected ? 'ws-status connected' : 'ws-status disconnected';
+        el.innerHTML = connected
+            ? '<i data-lucide="wifi"></i>'
+            : '<i data-lucide="wifi-off"></i>';
+        el.title = connected ? 'Realtime: Da ket noi' : 'Realtime: Mat ket noi';
         if (typeof lucide !== 'undefined') lucide.createIcons({ attrs: { class: '' } });
     }
 
@@ -1101,21 +1236,43 @@ class InboxChatController {
         const dropdown = document.getElementById('pageSelectorDropdown');
         if (!dropdown) return;
 
-        let html = `<label class="page-option"><input type="checkbox" value="all" checked /> Tat ca Pages</label>`;
+        let html = `
+            <div class="page-item active" data-page="all">
+                <div class="page-item-icon"><i data-lucide="layout-grid"></i></div>
+                <div class="page-item-info">
+                    <div class="page-item-name">Tat ca Pages</div>
+                </div>
+            </div>`;
         for (const page of this.data.pages) {
-            html += `<label class="page-option"><input type="checkbox" value="${page.id}" /> ${this.escapeHtml(page.name || page.id)}</label>`;
+            const avatar = page.avatar
+                ? `<img class="page-item-avatar" src="${this.escapeHtml(page.avatar)}" onerror="this.style.display='none'" />`
+                : `<div class="page-item-avatar-ph">${(page.name || '?')[0].toUpperCase()}</div>`;
+            html += `
+                <div class="page-item" data-page="${page.id}">
+                    ${avatar}
+                    <div class="page-item-info">
+                        <div class="page-item-name">${this.escapeHtml(page.name || page.id)}</div>
+                    </div>
+                    <span class="page-unread-badge" id="pageUnread_${page.id}" style="display:none;"></span>
+                </div>`;
         }
         dropdown.innerHTML = html;
 
-        dropdown.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-            cb.addEventListener('change', () => {
-                if (cb.value === 'all') {
-                    dropdown.querySelectorAll('input').forEach(c => c.checked = cb.checked);
+        dropdown.querySelectorAll('.page-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const pageId = item.dataset.page;
+                if (pageId === 'all') {
                     this.selectedPageIds = [];
+                    dropdown.querySelectorAll('.page-item').forEach(i => i.classList.remove('active'));
+                    item.classList.add('active');
                 } else {
-                    dropdown.querySelector('input[value="all"]').checked = false;
-                    this.selectedPageIds = [...dropdown.querySelectorAll('input:checked')]
-                        .filter(c => c.value !== 'all').map(c => c.value);
+                    dropdown.querySelector('.page-item[data-page="all"]')?.classList.remove('active');
+                    item.classList.toggle('active');
+                    this.selectedPageIds = [...dropdown.querySelectorAll('.page-item.active')]
+                        .filter(i => i.dataset.page !== 'all').map(i => i.dataset.page);
+                    if (this.selectedPageIds.length === 0) {
+                        dropdown.querySelector('.page-item[data-page="all"]')?.classList.add('active');
+                    }
                 }
                 this._updatePageSelectorLabel();
                 this.renderConversationList();
@@ -1137,7 +1294,7 @@ class InboxChatController {
     }
 
     _populateSendPageSelector(conv) {
-        const sel = document.getElementById('sendPageSelector');
+        const sel = document.getElementById('sendPageSelect');
         if (!sel) return;
         sel.innerHTML = this.data.pages.map(p =>
             `<option value="${p.id}" ${p.id === conv.pageId ? 'selected' : ''}>${this.escapeHtml(p.name || p.id)}</option>`
@@ -1147,17 +1304,33 @@ class InboxChatController {
     _populateReplyTypeSelector(conv) {
         const sel = document.getElementById('replyTypeSelector');
         if (!sel) return;
-        sel.style.display = conv.type === 'COMMENT' ? '' : 'none';
+        sel.style.display = conv.type === 'COMMENT' ? 'flex' : 'none';
     }
 
-    _onSendPageChanged(pageId) {
-        // Could pre-validate page access token here
+    onSendPageChanged(pageId) {
+        // Could pre-validate page access token
+    }
+
+    onReplyTypeChanged(type) {
+        // Store for use in sendMessage
     }
 
     async updatePageUnreadCounts() {
-        const counts = await this.api.fetchPagesUnreadCount();
-        // Could update UI badges on page selector
-        return counts;
+        const result = await this.api.fetchPagesUnreadCount();
+        if (Array.isArray(result)) {
+            for (const item of result) {
+                const badge = document.getElementById(`pageUnread_${item.page_id}`);
+                if (badge) {
+                    if (item.unread_conv_count > 0) {
+                        badge.textContent = item.unread_conv_count > 99 ? '99+' : item.unread_conv_count;
+                        badge.style.display = '';
+                    } else {
+                        badge.style.display = 'none';
+                    }
+                }
+            }
+        }
+        return result;
     }
 
     toggleReadUnread(convId) {
@@ -1179,18 +1352,34 @@ class InboxChatController {
         const container = document.getElementById('groupStatsList');
         if (!container) return;
 
+        const groupIcons = {
+            new: 'inbox', processing: 'loader', waiting: 'clock',
+            ordered: 'check-circle', urgent: 'alert-triangle', done: 'check-check'
+        };
+
         container.innerHTML = this.data.groups.map(g => {
             const isActive = this.groupFilters.includes(g.id);
+            const icon = groupIcons[g.id] || 'tag';
             return `
-                <div class="group-stat-card ${isActive ? 'active' : ''}" data-group="${g.id}" style="border-left:4px solid ${g.color};">
-                    <div class="group-stat-name">${this.escapeHtml(g.name)}</div>
-                    <div class="group-stat-count">${g.count}</div>
+                <div class="group-stats-card ${isActive ? 'active' : ''}" data-group-id="${g.id}">
+                    <div class="group-stats-card-color" style="background:${g.color};">
+                        <i data-lucide="${icon}"></i>
+                    </div>
+                    <div class="group-stats-card-body">
+                        <div class="group-stats-card-name">${this.escapeHtml(g.name)}</div>
+                        <div class="group-stats-card-count"><strong>${g.count}</strong> khach hang</div>
+                    </div>
+                    <button class="group-stats-card-help" title="${this.escapeHtml(g.note || '')}">
+                        ?
+                        <div class="stats-tooltip">${this.escapeHtml(g.note || g.name)}</div>
+                    </button>
                 </div>`;
         }).join('');
 
-        container.querySelectorAll('.group-stat-card').forEach(card => {
-            card.addEventListener('click', () => {
-                const gid = card.dataset.group;
+        container.querySelectorAll('.group-stats-card').forEach(card => {
+            card.addEventListener('click', (e) => {
+                if (e.target.closest('.group-stats-card-help')) return;
+                const gid = card.dataset.groupId;
                 if (this.groupFilters.includes(gid)) {
                     this.groupFilters = this.groupFilters.filter(g => g !== gid);
                 } else {
@@ -1200,6 +1389,8 @@ class InboxChatController {
                 this.renderConversationList();
             });
         });
+
+        if (typeof lucide !== 'undefined') lucide.createIcons({ attrs: { class: '' } });
     }
 
     // =====================================================
@@ -1208,18 +1399,22 @@ class InboxChatController {
 
     renderChatLabelBar(conv) {
         const bar = document.getElementById('chatLabelBar');
-        if (!bar) return;
+        const list = document.getElementById('chatLabelBarList');
+        if (!bar || !list) return;
         if (!conv) { bar.style.display = 'none'; return; }
 
-        bar.style.display = 'flex';
+        bar.style.display = '';
         const labels = this.data.getLabelArray(conv.id);
 
-        bar.innerHTML = this.data.groups.map(g => {
+        list.innerHTML = this.data.groups.map(g => {
             const isActive = labels.includes(g.id);
-            return `<button class="label-btn ${isActive ? 'active' : ''}" data-label="${g.id}" style="--label-color:${g.color};">${this.escapeHtml(g.name)}</button>`;
+            return `<button class="chat-label-btn ${isActive ? 'active' : ''}" data-label="${g.id}" style="${isActive ? 'background:' + g.color + ';border-color:' + g.color + ';' : ''}">
+                <span class="chat-label-dot" style="background:${g.color};"></span>
+                ${this.escapeHtml(g.name)}
+            </button>`;
         }).join('');
 
-        bar.querySelectorAll('.label-btn').forEach(btn => {
+        list.querySelectorAll('.chat-label-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 this.data.toggleConversationLabel(conv.id, btn.dataset.label);
                 this.renderChatLabelBar(conv);
@@ -1227,6 +1422,47 @@ class InboxChatController {
                 this.renderConversationList();
             });
         });
+    }
+
+    // =====================================================
+    // NOTES
+    // =====================================================
+
+    _showNotesSection(conv) {
+        const section = document.getElementById('convNotesSection');
+        if (!section) return;
+        section.style.display = conv ? '' : 'none';
+    }
+
+    _addNote() {
+        const input = document.getElementById('convNoteInput');
+        const text = input?.value?.trim();
+        if (!text || !this.activeConvId) return;
+        // TODO: Save note to server
+        input.value = '';
+        showToast('Da them ghi chu', 'success');
+    }
+
+    renderNotes(conv) {
+        const section = document.getElementById('convNotesSection');
+        const list = document.getElementById('convNotesList');
+        if (!section || !list) return;
+
+        const notes = conv?._notes || [];
+        if (notes.length === 0) {
+            list.innerHTML = '';
+            return;
+        }
+
+        list.innerHTML = notes.map(n => `
+            <div class="conv-note-item">
+                <div class="conv-note-meta">
+                    <span class="conv-note-author">${this.escapeHtml(n.user_name || '')}</span>
+                    <span>${n.created_at ? this.formatTime(this.data.parseTimestamp(n.created_at)) : ''}</span>
+                </div>
+                <div class="conv-note-text">${this.escapeHtml(n.message || n.content || '')}</div>
+            </div>
+        `).join('');
     }
 
     // =====================================================
@@ -1239,27 +1475,56 @@ class InboxChatController {
         if (!modal || !body) return;
 
         const colors = ['#3b82f6', '#f59e0b', '#f97316', '#10b981', '#ef4444', '#6b7280', '#8b5cf6', '#ec4899', '#14b8a6', '#f43f5e'];
+        const defaultIds = ['new', 'processing', 'waiting', 'ordered', 'urgent', 'done'];
 
-        body.innerHTML = this.data.groups.map(g => `
-            <div class="manage-group-item" data-id="${g.id}">
-                <input type="text" class="group-name-input" value="${this.escapeHtml(g.name)}" />
-                <div class="color-picker">
-                    ${colors.map(c => `<span class="color-swatch ${c === g.color ? 'active' : ''}" data-color="${c}" style="background:${c};"></span>`).join('')}
+        let html = '<div class="modal-group-list">';
+        html += this.data.groups.map(g => `
+            <div class="modal-group-item" data-id="${g.id}">
+                <div class="modal-group-color-pick" style="background:${g.color};position:relative;" onclick="this.querySelector('.color-popover').style.display=this.querySelector('.color-popover').style.display==='none'?'flex':'none'">
+                    <div class="color-popover" style="display:none;">
+                        ${colors.map(c => `<span class="color-option ${c === g.color ? 'selected' : ''}" data-color="${c}" style="background:${c};" onclick="event.stopPropagation()"></span>`).join('')}
+                    </div>
                 </div>
-                <input type="text" class="group-note-input" value="${this.escapeHtml(g.note || '')}" placeholder="Ghi chu..." />
-                ${['new', 'processing', 'waiting', 'ordered', 'urgent', 'done'].includes(g.id) ? '' :
-                    `<button class="btn-delete-group" data-id="${g.id}"><i data-lucide="trash-2"></i></button>`}
+                <div class="modal-group-fields">
+                    <input type="text" class="group-name-input" value="${this.escapeHtml(g.name)}" placeholder="Ten nhom" />
+                    <textarea class="group-note-input" placeholder="Mo ta...">${this.escapeHtml(g.note || '')}</textarea>
+                </div>
+                ${defaultIds.includes(g.id) ? '' : `<button class="modal-group-delete" data-id="${g.id}" title="Xoa"><i data-lucide="trash-2"></i></button>`}
             </div>
         `).join('');
+        html += '</div>';
 
-        // Bind color swatches
-        body.querySelectorAll('.color-swatch').forEach(sw => {
-            sw.addEventListener('click', () => {
-                const item = sw.closest('.manage-group-item');
-                item.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
-                sw.classList.add('active');
+        // Add new group section
+        html += `
+            <div class="modal-add-section">
+                <h4>Them nhom moi</h4>
+                <div class="modal-add-row">
+                    <div class="modal-group-color-pick" id="newGroupColor" style="background:#8b5cf6;cursor:pointer;"></div>
+                    <div class="modal-add-fields">
+                        <input type="text" id="newGroupName" placeholder="Ten nhom moi" />
+                        <textarea id="newGroupNote" placeholder="Mo ta (tuy chon)"></textarea>
+                    </div>
+                    <button class="btn-modal-add" id="btnAddGroupConfirm">Them</button>
+                </div>
+                <div class="modal-color-picker" id="newGroupColorPicker">
+                    ${colors.map(c => `<span class="color-option" data-color="${c}" style="background:${c};"></span>`).join('')}
+                </div>
+            </div>`;
+
+        body.innerHTML = html;
+
+        // Bind color popovers
+        body.querySelectorAll('.modal-group-item .color-option').forEach(opt => {
+            opt.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const item = opt.closest('.modal-group-item');
                 const gid = item.dataset.id;
-                this.data.updateGroup(gid, { color: sw.dataset.color });
+                const colorPick = item.querySelector('.modal-group-color-pick');
+                colorPick.style.background = opt.dataset.color;
+                colorPick.querySelector('.color-popover').style.display = 'none';
+                item.querySelectorAll('.color-option').forEach(o => o.classList.remove('selected'));
+                opt.classList.add('selected');
+                this.data.updateGroup(gid, { color: opt.dataset.color });
                 this.renderGroupStats();
             });
         });
@@ -1267,20 +1532,20 @@ class InboxChatController {
         // Bind name/note changes
         body.querySelectorAll('.group-name-input').forEach(input => {
             input.addEventListener('change', () => {
-                const gid = input.closest('.manage-group-item').dataset.id;
+                const gid = input.closest('.modal-group-item').dataset.id;
                 this.data.updateGroup(gid, { name: input.value });
                 this.renderGroupStats();
             });
         });
         body.querySelectorAll('.group-note-input').forEach(input => {
             input.addEventListener('change', () => {
-                const gid = input.closest('.manage-group-item').dataset.id;
+                const gid = input.closest('.modal-group-item').dataset.id;
                 this.data.updateGroup(gid, { note: input.value });
             });
         });
 
         // Bind delete
-        body.querySelectorAll('.btn-delete-group').forEach(btn => {
+        body.querySelectorAll('.modal-group-delete').forEach(btn => {
             btn.addEventListener('click', () => {
                 if (confirm('Xoa nhom nay?')) {
                     this.data.deleteGroup(btn.dataset.id);
@@ -1290,14 +1555,30 @@ class InboxChatController {
             });
         });
 
+        // New group color picker
+        document.getElementById('newGroupColorPicker')?.querySelectorAll('.color-option').forEach(opt => {
+            opt.addEventListener('click', () => {
+                document.getElementById('newGroupColor').style.background = opt.dataset.color;
+                document.getElementById('newGroupColorPicker').querySelectorAll('.color-option').forEach(o => o.classList.remove('selected'));
+                opt.classList.add('selected');
+            });
+        });
+
         // Add new group
-        document.getElementById('btnAddNewGroup').onclick = () => {
-            const name = prompt('Ten nhom moi:');
-            if (name) {
-                this.data.addGroup(name, '#8b5cf6');
-                this.showManageGroupsModal();
-                this.renderGroupStats();
-            }
+        document.getElementById('btnAddGroupConfirm').onclick = () => {
+            const name = document.getElementById('newGroupName')?.value?.trim();
+            if (!name) { showToast('Nhap ten nhom', 'warning'); return; }
+            const color = document.getElementById('newGroupColor')?.style.background || '#8b5cf6';
+            const note = document.getElementById('newGroupNote')?.value?.trim() || '';
+            this.data.addGroup(name, color, note);
+            this.showManageGroupsModal();
+            this.renderGroupStats();
+        };
+
+        // Save button
+        document.getElementById('btnSaveGroups').onclick = () => {
+            modal.style.display = 'none';
+            showToast('Da luu nhom', 'success');
         };
 
         modal.style.display = 'flex';
@@ -1340,20 +1621,21 @@ class InboxChatController {
             return;
         }
 
-        let html = '';
+        let leftHtml = '';
+        let rightHtml = '';
+
         if (phones.length > 0) {
-            html += `<span class="stat-tag"><i data-lucide="phone"></i> ${phones.join(', ')}</span>`;
+            leftHtml += `<span class="phone-badge"><i data-lucide="phone"></i> ${phones.join(', ')}</span>`;
         }
         if (commentCount > 0) {
-            html += `<span class="stat-tag"><i data-lucide="message-circle"></i> ${commentCount} binh luan</span>`;
+            rightHtml += `<span class="stat-badge comment"><i data-lucide="message-circle"></i> ${commentCount}</span>`;
         }
         for (const [phone, report] of Object.entries(reports)) {
-            if (report.total_orders) {
-                html += `<span class="stat-tag"><i data-lucide="package"></i> ${report.total_orders} don | ${report.success_orders || 0} TC | ${report.return_orders || 0} hoan</span>`;
-            }
+            if (report.success_orders > 0) rightHtml += `<span class="stat-badge success"><i data-lucide="check"></i> ${report.success_orders} TC</span>`;
+            if (report.return_orders > 0) rightHtml += `<span class="stat-badge return"><i data-lucide="undo-2"></i> ${report.return_orders} hoan</span>`;
         }
 
-        bar.innerHTML = html;
+        bar.innerHTML = `<div class="stats-left">${leftHtml}</div><div class="stats-right">${rightHtml}</div>`;
         bar.style.display = 'flex';
         if (typeof lucide !== 'undefined') lucide.createIcons({ attrs: { class: '' } });
     }
@@ -1371,12 +1653,22 @@ class InboxChatController {
 
         const thumb = post.thumbnail_url || post.full_picture || '';
         const title = post.message || post.name || 'Bai viet';
+        const liveStatus = post.live_video_status;
+        let statusBadge = '';
+        if (liveStatus === 'live') statusBadge = '<span class="post-status-badge live">LIVE</span>';
+        else if (liveStatus === 'vod') statusBadge = '<span class="post-status-badge vod">VOD</span>';
+        else if (post.type === 'video') statusBadge = '<span class="post-status-badge video">VIDEO</span>';
+
+        const pageName = this.data.getPageName(conv.pageId);
 
         banner.innerHTML = `
-            ${thumb ? `<img src="${this.escapeHtml(thumb)}" class="post-thumbnail" alt="" />` : ''}
-            <div class="post-info-text">
-                <span class="post-info-title">${this.escapeHtml(title.substring(0, 100))}</span>
-                ${post.type === 'livestream' || post.live_video_status ? '<span class="post-live-badge">LIVE</span>' : ''}
+            ${thumb ? `<img src="${this.escapeHtml(thumb)}" class="post-thumbnail" alt="" onclick="window.open('${this.escapeHtml(thumb)}','_blank')" />` : ''}
+            <div class="post-info-content">
+                <div class="post-info-header">
+                    ${statusBadge}
+                    <span class="post-page-name">${this.escapeHtml(pageName)}</span>
+                </div>
+                <div class="post-info-title">${this.escapeHtml(title.substring(0, 100))}</div>
             </div>`;
         banner.style.display = 'flex';
     }
@@ -1386,7 +1678,7 @@ class InboxChatController {
     // =====================================================
 
     renderActivities(conv) {
-        const container = document.getElementById('activitiesContent');
+        const container = document.getElementById('tabActivities');
         if (!container) return;
 
         const activities = conv?._activities || [];
@@ -1399,33 +1691,87 @@ class InboxChatController {
             return;
         }
 
-        container.innerHTML = activities.map(a => `
-            <div class="activity-item">
-                <div class="activity-title">${this.escapeHtml(a.title || a.message || '')}</div>
-                <div class="activity-time">${a.created_at ? this.formatTime(this.data.parseTimestamp(a.created_at)) : ''}</div>
-            </div>
-        `).join('');
+        container.innerHTML = `<div class="activities-header"><h3>Hoat dong</h3></div>
+            <div class="activities-list">${activities.map(a => `
+                <div class="activity-item">
+                    ${a.thumbnail_url ? `<img class="activity-thumb" src="${this.escapeHtml(a.thumbnail_url)}" alt="" />` : '<div class="activity-thumb-ph"><i data-lucide="file-text"></i></div>'}
+                    <div class="activity-content">
+                        <div class="activity-title">${this.escapeHtml(a.title || a.message || '')}</div>
+                        <div class="activity-time">${a.created_at ? this.formatTime(this.data.parseTimestamp(a.created_at)) : ''}</div>
+                    </div>
+                </div>`).join('')}
+            </div>`;
+        if (typeof lucide !== 'undefined') lucide.createIcons({ attrs: { class: '' } });
     }
 
     // =====================================================
-    // NOTES PANEL
+    // PANCAKE SETTINGS MODAL
     // =====================================================
 
-    renderNotes(conv) {
-        const section = document.getElementById('notesSection');
-        const content = document.getElementById('notesContent');
-        if (!section || !content) return;
+    showPancakeSettingsModal() {
+        const modal = document.getElementById('pancakeSettingsModal');
+        if (modal) {
+            modal.style.display = 'flex';
+            this._renderAccountsList();
+        }
+    }
 
-        const notes = conv?._notes || [];
-        if (notes.length === 0) { section.style.display = 'none'; return; }
+    closePancakeSettingsModal() {
+        const modal = document.getElementById('pancakeSettingsModal');
+        if (modal) modal.style.display = 'none';
+    }
 
-        section.style.display = 'block';
-        content.innerHTML = notes.map(n => `
-            <div class="note-item">
-                <div class="note-text">${this.escapeHtml(n.message || n.content || '')}</div>
-                <div class="note-meta">${n.user_name || ''} - ${n.created_at ? this.formatTime(this.data.parseTimestamp(n.created_at)) : ''}</div>
-            </div>
-        `).join('');
+    showAddAccountForm() {
+        document.getElementById('addAccountForm').style.display = 'block';
+    }
+
+    async addAccountManual() {
+        const input = document.getElementById('newAccountTokenInput');
+        let token = input?.value?.trim();
+        if (!token) { showToast('Nhap JWT token', 'warning'); return; }
+
+        // Clean token
+        token = token.replace(/^jwt=/, '').replace(/;.*$/, '').trim();
+
+        try {
+            await this.tm.saveTokenToFirestore(token);
+            showToast('Da them tai khoan', 'success');
+            input.value = '';
+            document.getElementById('addAccountForm').style.display = 'none';
+            this._renderAccountsList();
+        } catch (e) {
+            showToast('Loi: ' + e.message, 'error');
+        }
+    }
+
+    showAddPageTokenForm() {
+        const section = document.getElementById('addPageTokenForm');
+        if (section) section.style.display = section.style.display === 'none' ? 'block' : 'none';
+    }
+
+    _renderAccountsList() {
+        const container = document.getElementById('pancakeAccountsList');
+        if (!container) return;
+
+        const accounts = this.tm.getAllAccounts();
+        if (accounts.length === 0) {
+            container.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:20px;">Chua co tai khoan nao</div>';
+            return;
+        }
+
+        container.innerHTML = accounts.map(acc => {
+            const decoded = this.tm.decodeToken(acc.token);
+            const isExpired = decoded?.exp ? this.tm.isTokenExpired(decoded.exp) : false;
+            return `
+                <div style="display:flex;align-items:center;gap:10px;padding:8px;border-bottom:1px solid #e5e7eb;">
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-weight:600;font-size:13px;color:#374151;">${this.escapeHtml(decoded?.name || acc.accountId || 'Unknown')}</div>
+                        <div style="font-size:11px;color:#6b7280;">UID: ${decoded?.uid || '?'} ${isExpired ? '<span style="color:#ef4444;font-weight:600;">Het han</span>' : '<span style="color:#10b981;">Con hieu luc</span>'}</div>
+                    </div>
+                    ${acc.isActive ? '<span style="font-size:11px;background:#10b981;color:white;padding:2px 8px;border-radius:10px;">Active</span>' : `<button onclick="window.inboxChat?.tm?.setActiveAccount?.('${acc.accountId}');window.inboxChat?._renderAccountsList?.()" style="font-size:11px;padding:2px 8px;border:1px solid #d1d5db;border-radius:6px;background:white;cursor:pointer;">Chon</button>`}
+                    <button onclick="window.inboxChat?.tm?.deleteAccount?.('${acc.accountId}');window.inboxChat?._renderAccountsList?.()" style="padding:4px;border:none;background:transparent;cursor:pointer;color:#ef4444;"><i class="fas fa-trash"></i></button>
+                </div>`;
+        }).join('');
     }
 
     // =====================================================
@@ -1437,16 +1783,17 @@ class InboxChatController {
         if (!grid) return;
 
         const emojis = {
-            smileys: ['😀','😃','😄','😁','😆','😅','🤣','😂','🙂','😊','😇','🥰','😍','🤩','😘','😗','😚','😙','🥲','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🫢','🤫','🤔','🫡','🤐','🤨','😐','😑','😶','🫥','😏','😒','🙄','😬','🤥','😌','😔','😪','🤤','😴','😷','🤒','🤕','🤢','🤮','🥵','🥶','🥴','😵','🤯','🤠','🥳','🥸','😎','🤓','🧐','😕','🫤','😟','🙁','😮','😯','😲','😳','🥺','🥹','😦','😧','😨','😰','😥','😢','😭','😱','😖','😣','😞','😓','😩','😫','🥱','😤','😡','😠','🤬','😈','👿','💀','☠️','💩','🤡','👹','👺','👻','👽','👾','🤖'],
-            people: ['👋','🤚','🖐️','✋','🖖','🫱','🫲','🫳','🫴','👌','🤌','🤏','✌️','🤞','🫰','🤟','🤘','🤙','👈','👉','👆','🖕','👇','☝️','🫵','👍','👎','✊','👊','🤛','🤜','👏','🙌','🫶','👐','🤲','🤝','🙏','✍️','💅','🤳','💪','🦾','🦿','🦵','🦶','👂','🦻','👃','🧠','🫀','🫁','🦷','🦴','👀','👁️','👅','👄'],
-            animals: ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐻‍❄️','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🙈','🙉','🙊','🐒','🐔','🐧','🐦','🐤','🐣','🐥','🦆','🦅','🦉','🦇','🐺','🐗','🐴','🦄','🐝','🪱','🐛','🦋','🐌','🐞','🐜','🪰','🪲','🪳','🦟','🦗','🕷️','🦂','🐢','🐍','🦎','🦖','🦕','🐙','🦑','🦐','🦞','🦀','🐡','🐠','🐟','🐬','🐳','🐋','🦈','🐊'],
-            food: ['🍏','🍎','🍐','🍊','🍋','🍌','🍉','🍇','🍓','🫐','🍈','🍒','🍑','🥭','🍍','🥥','🥝','🍅','🍆','🥑','🥦','🥬','🥒','🌶️','🫑','🌽','🥕','🧄','🧅','🥔','🍠','🥐','🥯','🍞','🥖','🥨','🧀','🥚','🍳','🧈','🥞','🧇','🥓','🥩','🍗','🍖','🦴','🌭','🍔','🍟','🍕','🫓','🥪','🥙','🧆','🌮','🌯','🫔','🥗','🥘','🫕','🥫','🍝','🍜','🍲','🍛','🍣','🍱','🥟','🦪','🍤','🍙','🍚','🍘','🍥','🥠','🥮','🍢','🍡','🍧','🍨','🍦','🥧','🧁','🍰','🎂','🍮','🍭','🍬','🍫','🍿','🍩','🍪','🌰','🥜','🍯','🥛','🍼','🫖','☕','🍵','🧃','🥤','🧋','🍶','🍺','🍻','🥂','🍷','🥃','🍸','🍹','🧉','🍾','🧊','🥄','🍴','🍽️'],
-            objects: ['💡','🔦','🕯️','💰','💵','💴','💶','💷','🪙','💳','💎','⚖️','🪜','🧰','🪛','🔧','🔨','⚒️','🛠️','⛏️','🪚','🔩','⚙️','🪤','🧲','🔫','💣','🧨','🪓','🔪','🗡️','⚔️','🛡️','🚬','⚰️','🪦','⚱️','🏺','🔮','📿','🧿','🪬','💈','⚗️','🔭','🔬','🕳️','🩹','🩺','🩻','💊','💉','🩸','🧬','🦠','🧫','🧪','🌡️','🧹','🪠','🧺','🧻','🚽','🚰','🚿','🛁','🛀','🧼','🪥','🪒','🧽','🪣','🧴','🛎️','🔑','🗝️','🚪','🪑','🛋️','🛏️','🛌','🧸','🪆','🖼️','🪞','🪟','🛍️','🛒','🎁','🎈','🎏','🎀','🪄','🪅','🎊','🎉','🎎','🏮','🎐','🧧','✉️','📩','📨','📧','💌','📥','📤','📦','🏷️','🪧','📪','📫','📬','📭','📮','📯','📜','📃','📄','📑','🧾','📊','📈','📉','🗒️','🗓️','📆','📅','🗑️','📇','🗃️','🗳️','🗄️','📋','📁','📂','🗂️','🗞️','📰','📓','📔','📒','📕','📗','📘','📙','📚','📖','🔖','🧷','🔗','📎','🖇️','📐','📏','🧮','📌','📍','✂️','🖊️','🖋️','✒️','🖌️','🖍️','📝','✏️','🔍','🔎','🔏','🔐','🔒','🔓'],
-            symbols: ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❤️‍🔥','❤️‍🩹','❣️','💕','💞','💓','💗','💖','💘','💝','💟','☮️','✝️','☪️','🕉️','☸️','✡️','🔯','🕎','☯️','☦️','🛐','⛎','♈','♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓','🆔','⚛️','🉑','☢️','☣️','📴','📳','🈶','🈚','🈸','🈺','🈷️','✴️','🆚','💮','🉐','㊙️','㊗️','🈴','🈵','🈹','🈲','🅰️','🅱️','🆎','🆑','🅾️','🆘','❌','⭕','🛑','⛔','📛','🚫','💯','💢','♨️','🚷','🚯','🚳','🚱','🔞','📵','🚭','❗','❕','❓','❔','‼️','⁉️','🔅','🔆','〽️','⚠️','🚸','🔱','⚜️','🔰','♻️','✅','🈯','💹','❇️','✳️','❎','🌐','💠','Ⓜ️','🌀','💤','🏧','🚾','♿','🅿️','🛗','🈳','🈂️','🛂','🛃','🛄','🛅','🚹','🚺','🚻','🚼','🚮','🎦','📶','🈁','🔣','ℹ️','🔤','🔡','🔠','🆖','🆗','🆙','🆒','🆕','🆓','0️⃣','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟','🔢','#️⃣','*️⃣','⏏️','▶️','⏸️','⏯️','⏹️','⏺️','⏭️','⏮️','⏩','⏪','⏫','⏬','◀️','🔼','🔽','➡️','⬅️','⬆️','⬇️','↗️','↘️','↙️','↖️','↕️','↔️','↪️','↩️','⤴️','⤵️','🔀','🔁','🔂','🔄','🔃','🎵','🎶','➕','➖','➗','✖️','🟰','♾️','💲','💱','™️','©️','®️','👁️‍🗨️','🔚','🔙','🔛','🔝','🔜','〰️','➰','➿','✔️','☑️','🔘','🔴','🟠','🟡','🟢','🔵','🟣','⚫','⚪','🟤','🔺','🔻','🔸','🔹','🔶','🔷','🔳','🔲','▪️','▫️','◾','◽','◼️','◻️','🟥','🟧','🟨','🟩','🟦','🟪','⬛','⬜','🟫','🔈','🔇','🔉','🔊','🔔','🔕','📣','📢']
+            recent: ['😀','😂','❤️','👍','😊','🥰','😍','🤩','😘','😎','🥳','🤗','😇','🤣','😅','😆'],
+            smileys: ['😀','😃','😄','😁','😆','😅','🤣','😂','🙂','😊','😇','🥰','😍','🤩','😘','😗','😚','😙','🥲','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🫢','🤫','🤔','🫡','🤐','🤨','😐','😑','😶','🫥','😏','😒','🙄','😬','🤥','😌','😔','😪','🤤','😴','😷','🤒','🤕','🤢','🤮','🥵','🥶','🥴','😵','🤯','🤠','🥳','🥸','😎','🤓','🧐','😕','🫤','😟','🙁','😮','😯','😲','😳','🥺','🥹','😦','😧','😨','😰','😥','😢','😭','😱','😖','😣','😞','😓','😩','😫','🥱','😤','😡','😠','🤬','😈','👿','💀','💩','🤡','👹','👺','👻','👽','👾','🤖'],
+            gestures: ['👋','🤚','🖐️','✋','🖖','🫱','🫲','👌','🤌','🤏','✌️','🤞','🫰','🤟','🤘','🤙','👈','👉','👆','🖕','👇','☝️','🫵','👍','👎','✊','👊','🤛','🤜','👏','🙌','🫶','👐','🤲','🤝','🙏','✍️','💅','🤳','💪','🦾','🦿','🦵','🦶'],
+            hearts: ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❤️‍🔥','❤️‍🩹','❣️','💕','💞','💓','💗','💖','💘','💝','💟','♥️','💌','💋','😘','😍','🥰','😻','💏','💑'],
+            animals: ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐻‍❄️','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🙈','🙉','🙊','🐒','🐔','🐧','🐦','🐤','🦆','🦅','🦉','🦇','🐺','🐗','🐴','🦄','🐝','🐛','🦋','🐌','🐞','🐜','🕷️','🐢','🐍','🦎','🐙','🦑','🦐','🦞','🦀','🐡','🐠','🐟','🐬','🐳','🐋','🦈','🐊'],
+            food: ['🍏','🍎','🍐','🍊','🍋','🍌','🍉','🍇','🍓','🫐','🍈','🍒','🍑','🥭','🍍','🥥','🥝','🍅','🍆','🥑','🥦','🥒','🌶️','🌽','🥕','🍠','🥐','🍞','🧀','🥚','🍳','🥞','🥓','🥩','🍗','🍖','🌭','🍔','🍟','🍕','🥪','🌮','🌯','🥗','🍝','🍜','🍲','🍛','🍣','🍱','🥟','🍤','🍙','🍚','🍘','🍥','🥠','🍢','🍡','🍧','🍨','🍦','🥧','🧁','🍰','🎂','🍮','🍭','🍬','🍫','🍿','🍩','🍪','☕','🍵','🥤','🍺','🍻','🥂','🍷','🍸','🍹','🍾'],
+            objects: ['💡','🔦','💰','💵','💳','💎','🔧','🔨','🛠️','🔩','⚙️','🔫','💣','🔪','🔮','💊','💉','🧬','🔬','🔭','📱','💻','⌨️','🖥️','🖨️','🖱️','💾','💿','📷','📹','📺','📻','🎵','🎶','🎤','🎧','🎷','🎸','🎹','🎺','🎻','🥁','📞','📧','📦','🏷️','📌','📍','✂️','📝','✏️','🔍','🔎','🔒','🔓','🔑','🗝️']
         };
 
         const list = emojis[category] || emojis.smileys;
-        grid.innerHTML = list.map(e => `<span class="emoji-item">${e}</span>`).join('');
+        grid.innerHTML = list.map(e => `<button class="emoji-item">${e}</button>`).join('');
 
         grid.querySelectorAll('.emoji-item').forEach(el => {
             el.addEventListener('click', () => {
@@ -1455,6 +1802,13 @@ class InboxChatController {
                     input.value += el.textContent;
                     input.focus();
                 }
+                // Save to recent
+                const recent = JSON.parse(localStorage.getItem('inbox_recent_emojis') || '[]');
+                const emoji = el.textContent;
+                const idx = recent.indexOf(emoji);
+                if (idx > -1) recent.splice(idx, 1);
+                recent.unshift(emoji);
+                localStorage.setItem('inbox_recent_emojis', JSON.stringify(recent.slice(0, 16)));
             });
         });
     }
@@ -1464,10 +1818,9 @@ class InboxChatController {
     // =====================================================
 
     getAvatarHtml(conv, size = 40) {
-        if (!conv) return `<div class="avatar-placeholder" style="width:${size}px;height:${size}px;"><i data-lucide="user"></i></div>`;
+        if (!conv) return `<div class="conv-avatar-ph" style="width:${size}px;height:${size}px;"><i data-lucide="user"></i></div>`;
 
-        // Try direct avatar URL
-        const avatarUrl = this.api.getAvatarUrl(
+        const avatarUrl = this.api?.getAvatarUrl?.(
             conv.customerFbId || conv.psid,
             conv.pageId,
             null,
@@ -1475,15 +1828,15 @@ class InboxChatController {
         );
 
         if (conv.avatar && (conv.avatar.includes('content.pancake.vn') || conv.avatar.startsWith('http'))) {
-            return `<img src="${this.escapeHtml(conv.avatar)}" class="avatar-img" style="width:${size}px;height:${size}px;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" /><div class="avatar-placeholder" style="width:${size}px;height:${size}px;display:none;background:${AVATAR_GRADIENTS[Math.abs(this._hashCode(conv.name || '')) % AVATAR_GRADIENTS.length]};">${(conv.name || '?')[0].toUpperCase()}</div>`;
+            return `<img src="${this.escapeHtml(conv.avatar)}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" /><div class="conv-avatar-ph" style="width:${size}px;height:${size}px;display:none;background:${AVATAR_GRADIENTS[Math.abs(this._hashCode(conv.name || '')) % AVATAR_GRADIENTS.length]};">${(conv.name || '?')[0].toUpperCase()}</div>`;
         }
 
-        if (conv.customerFbId || conv.psid) {
-            return `<img src="${this.escapeHtml(avatarUrl)}" class="avatar-img" style="width:${size}px;height:${size}px;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" /><div class="avatar-placeholder" style="width:${size}px;height:${size}px;display:none;background:${AVATAR_GRADIENTS[Math.abs(this._hashCode(conv.name || '')) % AVATAR_GRADIENTS.length]};">${(conv.name || '?')[0].toUpperCase()}</div>`;
+        if ((conv.customerFbId || conv.psid) && avatarUrl) {
+            return `<img src="${this.escapeHtml(avatarUrl)}" style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;" onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" /><div class="conv-avatar-ph" style="width:${size}px;height:${size}px;display:none;background:${AVATAR_GRADIENTS[Math.abs(this._hashCode(conv.name || '')) % AVATAR_GRADIENTS.length]};">${(conv.name || '?')[0].toUpperCase()}</div>`;
         }
 
         const gradient = AVATAR_GRADIENTS[Math.abs(this._hashCode(conv.name || '')) % AVATAR_GRADIENTS.length];
-        return `<div class="avatar-placeholder" style="width:${size}px;height:${size}px;background:${gradient};">${(conv.name || '?')[0].toUpperCase()}</div>`;
+        return `<div class="conv-avatar-ph" style="width:${size}px;height:${size}px;background:${gradient};">${(conv.name || '?')[0].toUpperCase()}</div>`;
     }
 
     _hashCode(str) {
@@ -1538,9 +1891,7 @@ class InboxChatController {
     formatMessageText(text) {
         if (!text) return '';
         let escaped = this.escapeHtml(text);
-        // Linkify URLs
         escaped = escaped.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
-        // Newlines
         escaped = escaped.replace(/\n/g, '<br>');
         return escaped;
     }
