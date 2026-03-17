@@ -343,6 +343,61 @@ CREATE TRIGGER update_note_snapshots_timestamp
 -- - conversation_post_types
 -- =====================================================
 
+-- =====================================================
+-- 11. Processing Tags (Tag Xử Lý) - Quy trình chốt đơn
+-- Replaces: firebase.database().ref('processing_tags')
+-- =====================================================
+CREATE TABLE IF NOT EXISTS processing_tags (
+    id SERIAL PRIMARY KEY,
+    order_id VARCHAR(255) NOT NULL,
+    campaign_id VARCHAR(255) NOT NULL,
+    tag_key VARCHAR(100) NOT NULL,
+    tag_category INTEGER,
+    note TEXT DEFAULT '',
+    assigned_by VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(order_id, tag_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_ptag_order ON processing_tags(order_id);
+CREATE INDEX IF NOT EXISTS idx_ptag_campaign ON processing_tags(campaign_id);
+CREATE INDEX IF NOT EXISTS idx_ptag_key ON processing_tags(tag_key);
+CREATE INDEX IF NOT EXISTS idx_ptag_updated ON processing_tags(updated_at DESC);
+
+COMMENT ON TABLE processing_tags IS 'Processing tags for order workflow (chốt đơn)';
+COMMENT ON COLUMN processing_tags.tag_key IS 'Tag identifier (e.g., DI_DON, CHO_HANG)';
+COMMENT ON COLUMN processing_tags.tag_category IS 'Category: 1=OKE, 2=XỬ LÝ, 3=KHÔNG CẦN CHỐT, 4=KHÁCH XÃ SAU CHỐT';
+
+-- Processing Tag Definitions (custom tags per campaign)
+CREATE TABLE IF NOT EXISTS processing_tag_definitions (
+    id SERIAL PRIMARY KEY,
+    campaign_id VARCHAR(255) NOT NULL,
+    tag_key VARCHAR(100) NOT NULL,
+    label VARCHAR(200) NOT NULL,
+    color VARCHAR(7) DEFAULT '#6b7280',
+    category INTEGER NOT NULL,
+    sort_order INTEGER DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(campaign_id, tag_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_ptag_def_campaign ON processing_tag_definitions(campaign_id);
+
+COMMENT ON TABLE processing_tag_definitions IS 'Custom tag definitions per campaign for processing tags';
+
+-- Triggers for processing tags
+DROP TRIGGER IF EXISTS update_processing_tags_timestamp ON processing_tags;
+CREATE TRIGGER update_processing_tags_timestamp
+    BEFORE UPDATE ON processing_tags
+    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+DROP TRIGGER IF EXISTS update_processing_tag_defs_timestamp ON processing_tag_definitions;
+CREATE TRIGGER update_processing_tag_defs_timestamp
+    BEFORE UPDATE ON processing_tag_definitions
+    FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
 -- 12. Bảng lưu post_type của conversation (livestream detection)
 -- Khi load messages, post.type được lưu lại để filter livestream nhanh
 CREATE TABLE IF NOT EXISTS conversation_post_types (

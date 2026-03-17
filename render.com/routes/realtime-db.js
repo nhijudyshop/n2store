@@ -942,6 +942,319 @@ router.delete('/note-snapshots/cleanup', async (req, res) => {
 });
 
 // =====================================================
+// PROCESSING TAGS API (Tag Xử Lý - Quy trình chốt đơn)
+// =====================================================
+
+/**
+ * GET /api/realtime/processing-tags/:campaignId
+ * Load all processing tags for a campaign
+ * Returns: { orderId: [{ key, category, note, assignedBy, assignedAt }] }
+ */
+router.get('/processing-tags/:campaignId', async (req, res) => {
+    try {
+        const { campaignId } = req.params;
+        const pool = req.app.locals.chatDb;
+
+        if (!pool) {
+            return res.status(500).json({ error: 'Database not available' });
+        }
+
+        const result = await pool.query(
+            'SELECT order_id, tag_key, tag_category, note, assigned_by, created_at FROM processing_tags WHERE campaign_id = $1 ORDER BY created_at ASC',
+            [campaignId]
+        );
+
+        // Group by orderId → array of tags
+        const orderTags = {};
+        result.rows.forEach(row => {
+            if (!orderTags[row.order_id]) orderTags[row.order_id] = [];
+            orderTags[row.order_id].push({
+                key: row.tag_key,
+                category: row.tag_category,
+                note: row.note || '',
+                assignedBy: row.assigned_by,
+                assignedAt: new Date(row.created_at).getTime(),
+            });
+        });
+
+        res.json({ success: true, data: orderTags, count: result.rowCount });
+    } catch (error) {
+        console.error('[REALTIME-DB] GET /processing-tags error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * PUT /api/realtime/processing-tags/:campaignId/:orderId
+ * Assign a processing tag to an order
+ * Body: { tagKey, category, note, assignedBy }
+ */
+router.put('/processing-tags/:campaignId/:orderId', async (req, res) => {
+    try {
+        const { campaignId, orderId } = req.params;
+        const { tagKey, category, note, assignedBy } = req.body;
+        const pool = req.app.locals.chatDb;
+
+        if (!pool) {
+            return res.status(500).json({ error: 'Database not available' });
+        }
+
+        if (!tagKey) {
+            return res.status(400).json({ error: 'tagKey is required' });
+        }
+
+        await pool.query(`
+            INSERT INTO processing_tags (order_id, campaign_id, tag_key, tag_category, note, assigned_by)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            ON CONFLICT (order_id, tag_key) DO NOTHING
+        `, [orderId, campaignId, tagKey, category || null, note || '', assignedBy || null]);
+
+        // Notify SSE clients
+        if (notifyClientsWildcard) {
+            notifyClientsWildcard(`processing_tags/${campaignId}`, {
+                action: 'assign',
+                orderId,
+                tagKey,
+                category,
+                note,
+                assignedBy,
+                timestamp: Date.now()
+            }, 'update');
+        }
+
+        console.log(`[REALTIME-DB] Processing tag assigned: ${orderId}/${tagKey} by ${assignedBy}`);
+        res.json({ success: true, orderId, tagKey });
+    } catch (error) {
+        console.error('[REALTIME-DB] PUT /processing-tags error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * DELETE /api/realtime/processing-tags/:campaignId/:orderId/:tagKey
+ * Remove a specific processing tag from an order
+ */
+router.delete('/processing-tags/:campaignId/:orderId/:tagKey', async (req, res) => {
+    try {
+        const { campaignId, orderId, tagKey } = req.params;
+        const pool = req.app.locals.chatDb;
+
+        if (!pool) {
+            return res.status(500).json({ error: 'Database not available' });
+        }
+
+        const result = await pool.query(
+            'DELETE FROM processing_tags WHERE order_id = $1 AND campaign_id = $2 AND tag_key = $3 RETURNING *',
+            [orderId, campaignId, tagKey]
+        );
+
+        // Notify SSE clients
+        if (notifyClientsWildcard) {
+            notifyClientsWildcard(`processing_tags/${campaignId}`, {
+                action: 'remove',
+                orderId,
+                tagKey,
+                timestamp: Date.now()
+            }, 'update');
+        }
+
+        console.log(`[REALTIME-DB] Processing tag removed: ${orderId}/${tagKey}`);
+        res.json({ success: true, deleted: result.rowCount > 0, orderId, tagKey });
+    } catch (error) {
+        console.error('[REALTIME-DB] DELETE /processing-tags/:tagKey error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * DELETE /api/realtime/processing-tags/:campaignId/:orderId
+ * Clear all processing tags from an order
+ */
+router.delete('/processing-tags/:campaignId/:orderId', async (req, res) => {
+    try {
+        const { campaignId, orderId } = req.params;
+        const pool = req.app.locals.chatDb;
+
+        if (!pool) {
+            return res.status(500).json({ error: 'Database not available' });
+        }
+
+        const result = await pool.query(
+            'DELETE FROM processing_tags WHERE order_id = $1 AND campaign_id = $2 RETURNING *',
+            [orderId, campaignId]
+        );
+
+        // Notify SSE clients
+        if (notifyClientsWildcard) {
+            notifyClientsWildcard(`processing_tags/${campaignId}`, {
+                action: 'clear',
+                orderId,
+                timestamp: Date.now()
+            }, 'update');
+        }
+
+        console.log(`[REALTIME-DB] Processing tags cleared for order: ${orderId} (${result.rowCount} removed)`);
+        res.json({ success: true, deletedCount: result.rowCount, orderId });
+    } catch (error) {
+        console.error('[REALTIME-DB] DELETE /processing-tags/:orderId error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * POST /api/realtime/processing-tags/:campaignId/bulk
+ * Bulk assign tags to multiple orders
+ * Body: { assignments: [{ orderId, tagKey, category, note }], assignedBy }
+ */
+router.post('/processing-tags/:campaignId/bulk', async (req, res) => {
+    try {
+        const { campaignId } = req.params;
+        const { assignments, assignedBy } = req.body;
+        const pool = req.app.locals.chatDb;
+
+        if (!pool) {
+            return res.status(500).json({ error: 'Database not available' });
+        }
+
+        if (!assignments || !Array.isArray(assignments) || assignments.length === 0) {
+            return res.status(400).json({ error: 'assignments array is required' });
+        }
+
+        const client = await pool.connect();
+        let insertedCount = 0;
+
+        try {
+            await client.query('BEGIN');
+
+            for (const a of assignments) {
+                const result = await client.query(`
+                    INSERT INTO processing_tags (order_id, campaign_id, tag_key, tag_category, note, assigned_by)
+                    VALUES ($1, $2, $3, $4, $5, $6)
+                    ON CONFLICT (order_id, tag_key) DO NOTHING
+                `, [a.orderId, campaignId, a.tagKey, a.category || null, a.note || '', assignedBy || null]);
+                insertedCount += result.rowCount;
+            }
+
+            await client.query('COMMIT');
+        } catch (e) {
+            await client.query('ROLLBACK');
+            throw e;
+        } finally {
+            client.release();
+        }
+
+        // Notify SSE clients
+        if (notifyClientsWildcard) {
+            notifyClientsWildcard(`processing_tags/${campaignId}`, {
+                action: 'bulk',
+                count: insertedCount,
+                assignedBy,
+                timestamp: Date.now()
+            }, 'update');
+        }
+
+        console.log(`[REALTIME-DB] Bulk processing tags: ${insertedCount} assigned for campaign ${campaignId}`);
+        res.json({ success: true, insertedCount });
+    } catch (error) {
+        console.error('[REALTIME-DB] POST /processing-tags/bulk error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * GET /api/realtime/processing-tag-defs/:campaignId
+ * Load tag definitions for a campaign
+ */
+router.get('/processing-tag-defs/:campaignId', async (req, res) => {
+    try {
+        const { campaignId } = req.params;
+        const pool = req.app.locals.chatDb;
+
+        if (!pool) {
+            return res.status(500).json({ error: 'Database not available' });
+        }
+
+        const result = await pool.query(
+            'SELECT tag_key, label, color, category, sort_order FROM processing_tag_definitions WHERE campaign_id = $1 ORDER BY category ASC, sort_order ASC',
+            [campaignId]
+        );
+
+        const definitions = result.rows.map(row => ({
+            key: row.tag_key,
+            label: row.label,
+            color: row.color,
+            category: row.category,
+        }));
+
+        res.json({ success: true, definitions, count: result.rowCount });
+    } catch (error) {
+        console.error('[REALTIME-DB] GET /processing-tag-defs error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * PUT /api/realtime/processing-tag-defs/:campaignId
+ * Save all tag definitions for a campaign (replace all)
+ * Body: { definitions: [{ key, label, color, category }] }
+ */
+router.put('/processing-tag-defs/:campaignId', async (req, res) => {
+    try {
+        const { campaignId } = req.params;
+        const { definitions } = req.body;
+        const pool = req.app.locals.chatDb;
+
+        if (!pool) {
+            return res.status(500).json({ error: 'Database not available' });
+        }
+
+        if (!definitions || !Array.isArray(definitions)) {
+            return res.status(400).json({ error: 'definitions array is required' });
+        }
+
+        const client = await pool.connect();
+
+        try {
+            await client.query('BEGIN');
+
+            // Delete existing definitions for this campaign
+            await client.query('DELETE FROM processing_tag_definitions WHERE campaign_id = $1', [campaignId]);
+
+            // Insert new definitions
+            for (let i = 0; i < definitions.length; i++) {
+                const d = definitions[i];
+                await client.query(`
+                    INSERT INTO processing_tag_definitions (campaign_id, tag_key, label, color, category, sort_order)
+                    VALUES ($1, $2, $3, $4, $5, $6)
+                `, [campaignId, d.key, d.label, d.color || '#6b7280', d.category, i]);
+            }
+
+            await client.query('COMMIT');
+        } catch (e) {
+            await client.query('ROLLBACK');
+            throw e;
+        } finally {
+            client.release();
+        }
+
+        // Notify SSE clients
+        if (notifyClientsWildcard) {
+            notifyClientsWildcard(`processing_tag_defs/${campaignId}`, {
+                action: 'update',
+                count: definitions.length,
+                timestamp: Date.now()
+            }, 'update');
+        }
+
+        console.log(`[REALTIME-DB] Processing tag definitions saved: ${definitions.length} for campaign ${campaignId}`);
+        res.json({ success: true, count: definitions.length });
+    } catch (error) {
+        console.error('[REALTIME-DB] PUT /processing-tag-defs error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// =====================================================
 // EXPORTS
 // =====================================================
 

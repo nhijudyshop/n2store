@@ -5,7 +5,7 @@
  * ╠══════════════════════════════════════════════════════════════════════════════╣
  * ║  [A] CONSTANTS & DEFAULTS                                                   ║
  * ║  [B] STATE MANAGEMENT                                                        ║
- * ║  [C] FIREBASE CRUD                                                           ║
+ * ║  [C] API CRUD (PostgreSQL + SSE)                                              ║
  * ║  [D] PANEL RENDERING                                                         ║
  * ║  [E] TABLE CELL RENDERING                                                    ║
  * ║  [F] TAG ASSIGN DROPDOWN                                                     ║
@@ -72,29 +72,25 @@ const DEFAULT_PROCESSING_TAGS = [
 
 const ProcessingTagState = {
     _orderTags: new Map(),      // orderId -> [{ key, category, note, assignedAt }]
-    _tagDefinitions: [],        // Custom tag list (loaded from Firebase or defaults)
+    _tagDefinitions: [],        // Custom tag list (loaded from API or defaults)
     _panelOpen: false,
     _panelPinned: false,
     _activeFilter: null,        // null | tagKey | '__no_tag__'
     _activeCategory: null,      // null | categoryId
     _campaignId: null,
-    _listeners: [],             // Firebase listener refs for cleanup
+    _sseSource: null,           // SSE EventSource for realtime updates
 };
 
 const PTAG_PIN_KEY = 'ptagPanelPinned';
 
 // =====================================================
-// [C] FIREBASE CRUD
+// [C] API CRUD (PostgreSQL + SSE)
 // =====================================================
 
-function _ptagDbRef() {
-    if (!ProcessingTagState._campaignId) return null;
-    try {
-        return firebase.database().ref(`processing_tags/${ProcessingTagState._campaignId}`);
-    } catch (e) {
-        console.error('[PTAG] Firebase ref error:', e);
-        return null;
-    }
+const PTAG_API_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/realtime';
+
+function _ptagApiUrl(path) {
+    return `${PTAG_API_BASE}/${path}`;
 }
 
 /**
@@ -104,18 +100,12 @@ async function loadProcessingTags(campaignId) {
     ProcessingTagState._campaignId = campaignId;
     ProcessingTagState._orderTags.clear();
 
-    const ref = _ptagDbRef();
-    if (!ref) return;
-
     try {
-        const snap = await ref.child('orders').once('value');
-        const data = snap.val();
-        if (data) {
-            Object.keys(data).forEach(orderId => {
-                const entry = data[orderId];
-                if (entry && entry.tags) {
-                    ProcessingTagState._orderTags.set(orderId, entry.tags);
-                }
+        const resp = await fetch(_ptagApiUrl(`processing-tags/${campaignId}`));
+        const json = await resp.json();
+        if (json.success && json.data) {
+            Object.keys(json.data).forEach(orderId => {
+                ProcessingTagState._orderTags.set(orderId, json.data[orderId]);
             });
         }
         console.log(`[PTAG] Loaded processing tags for ${ProcessingTagState._orderTags.size} orders`);
@@ -130,17 +120,11 @@ async function loadProcessingTags(campaignId) {
 async function loadTagDefinitions(campaignId) {
     ProcessingTagState._campaignId = campaignId;
 
-    const ref = _ptagDbRef();
-    if (!ref) {
-        ProcessingTagState._tagDefinitions = [...DEFAULT_PROCESSING_TAGS];
-        return;
-    }
-
     try {
-        const snap = await ref.child('config/tags').once('value');
-        const data = snap.val();
-        if (data && Array.isArray(data) && data.length > 0) {
-            ProcessingTagState._tagDefinitions = data;
+        const resp = await fetch(_ptagApiUrl(`processing-tag-defs/${campaignId}`));
+        const json = await resp.json();
+        if (json.success && json.definitions && json.definitions.length > 0) {
+            ProcessingTagState._tagDefinitions = json.definitions;
         } else {
             ProcessingTagState._tagDefinitions = [...DEFAULT_PROCESSING_TAGS];
         }
@@ -159,7 +143,6 @@ async function assignProcessingTag(orderId, tagKey, note) {
     if (!tagDef) return;
 
     const existing = ProcessingTagState._orderTags.get(orderId) || [];
-    // Check duplicate
     if (existing.some(t => t.key === tagKey)) return;
 
     const newTag = {
@@ -176,18 +159,20 @@ async function assignProcessingTag(orderId, tagKey, note) {
     _ptagUpdateCellDOM(orderId);
     _ptagRenderPanelCards();
 
-    // Save to Firebase
-    const ref = _ptagDbRef();
-    if (ref) {
-        try {
-            await ref.child(`orders/${orderId}`).set({
-                tags: updatedTags,
-                updatedBy: _ptagGetCurrentUser(),
-                updatedAt: firebase.database.ServerValue.TIMESTAMP,
-            });
-        } catch (e) {
-            console.error('[PTAG] Error saving tag:', e);
-        }
+    // Save to API
+    try {
+        await fetch(_ptagApiUrl(`processing-tags/${ProcessingTagState._campaignId}/${orderId}`), {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                tagKey,
+                category: tagDef.category,
+                note: note || '',
+                assignedBy: _ptagGetCurrentUser(),
+            }),
+        });
+    } catch (e) {
+        console.error('[PTAG] Error saving tag:', e);
     }
 }
 
@@ -208,22 +193,13 @@ async function removeProcessingTag(orderId, tagKey) {
     _ptagUpdateCellDOM(orderId);
     _ptagRenderPanelCards();
 
-    // Save to Firebase
-    const ref = _ptagDbRef();
-    if (ref) {
-        try {
-            if (updatedTags.length === 0) {
-                await ref.child(`orders/${orderId}`).remove();
-            } else {
-                await ref.child(`orders/${orderId}`).set({
-                    tags: updatedTags,
-                    updatedBy: _ptagGetCurrentUser(),
-                    updatedAt: firebase.database.ServerValue.TIMESTAMP,
-                });
-            }
-        } catch (e) {
-            console.error('[PTAG] Error removing tag:', e);
-        }
+    // Delete from API
+    try {
+        await fetch(_ptagApiUrl(`processing-tags/${ProcessingTagState._campaignId}/${orderId}/${tagKey}`), {
+            method: 'DELETE',
+        });
+    } catch (e) {
+        console.error('[PTAG] Error removing tag:', e);
     }
 }
 
@@ -235,91 +211,102 @@ async function clearProcessingTags(orderId) {
     _ptagUpdateCellDOM(orderId);
     _ptagRenderPanelCards();
 
-    const ref = _ptagDbRef();
-    if (ref) {
-        try {
-            await ref.child(`orders/${orderId}`).remove();
-        } catch (e) {
-            console.error('[PTAG] Error clearing tags:', e);
-        }
+    try {
+        await fetch(_ptagApiUrl(`processing-tags/${ProcessingTagState._campaignId}/${orderId}`), {
+            method: 'DELETE',
+        });
+    } catch (e) {
+        console.error('[PTAG] Error clearing tags:', e);
     }
 }
 
 /**
- * Setup Firebase realtime listeners
+ * Setup SSE realtime listeners for processing tags
  */
 function setupProcessingTagRealtimeListeners(campaignId) {
-    // Cleanup old listeners
     _ptagCleanupListeners();
-
     ProcessingTagState._campaignId = campaignId;
-    const ref = _ptagDbRef();
-    if (!ref) return;
 
-    const ordersRef = ref.child('orders');
+    try {
+        const sseUrl = _ptagApiUrl(`sse?keys=processing_tags/${campaignId},processing_tag_defs/${campaignId}`);
+        const source = new EventSource(sseUrl);
 
-    const onChildChanged = ordersRef.on('child_changed', snap => {
-        const orderId = snap.key;
-        const data = snap.val();
-        if (data && data.tags) {
-            ProcessingTagState._orderTags.set(orderId, data.tags);
-        } else {
-            ProcessingTagState._orderTags.delete(orderId);
-        }
-        _ptagUpdateCellDOM(orderId);
-        _ptagRenderPanelCards();
-    });
+        source.addEventListener('update', (event) => {
+            try {
+                const payload = JSON.parse(event.data);
+                const key = payload.key || '';
+                const data = payload.data;
 
-    const onChildAdded = ordersRef.on('child_added', snap => {
-        const orderId = snap.key;
-        const data = snap.val();
-        if (data && data.tags) {
-            ProcessingTagState._orderTags.set(orderId, data.tags);
-            _ptagUpdateCellDOM(orderId);
-            _ptagRenderPanelCards();
-        }
-    });
+                if (key.startsWith('processing_tag_defs/')) {
+                    // Tag definitions changed - reload
+                    loadTagDefinitions(campaignId).then(() => {
+                        _ptagRenderPanelCards();
+                    });
+                    return;
+                }
 
-    const onChildRemoved = ordersRef.on('child_removed', snap => {
-        const orderId = snap.key;
-        ProcessingTagState._orderTags.delete(orderId);
-        _ptagUpdateCellDOM(orderId);
-        _ptagRenderPanelCards();
-    });
+                if (key.startsWith('processing_tags/') && data) {
+                    // Processing tag changed - reload full data for consistency
+                    _ptagReloadFromApi(campaignId);
+                }
+            } catch (e) {
+                console.error('[PTAG] SSE parse error:', e);
+            }
+        });
 
-    // Also listen for tag definition changes
-    const configRef = ref.child('config/tags');
-    const onConfigChanged = configRef.on('value', snap => {
-        const data = snap.val();
-        if (data && Array.isArray(data) && data.length > 0) {
-            ProcessingTagState._tagDefinitions = data;
-        }
-    });
+        source.onerror = () => {
+            console.warn('[PTAG] SSE connection error, will auto-reconnect');
+        };
 
-    ProcessingTagState._listeners = [
-        { ref: ordersRef, event: 'child_changed', callback: onChildChanged },
-        { ref: ordersRef, event: 'child_added', callback: onChildAdded },
-        { ref: ordersRef, event: 'child_removed', callback: onChildRemoved },
-        { ref: configRef, event: 'value', callback: onConfigChanged },
-    ];
-}
-
-function _ptagCleanupListeners() {
-    ProcessingTagState._listeners.forEach(l => {
-        try { l.ref.off(l.event, l.callback); } catch (e) { /* ignore */ }
-    });
-    ProcessingTagState._listeners = [];
+        ProcessingTagState._sseSource = source;
+        console.log('[PTAG] SSE realtime listener connected');
+    } catch (e) {
+        console.error('[PTAG] SSE setup error:', e);
+    }
 }
 
 /**
- * Save tag definitions to Firebase
+ * Reload all processing tags from API (used by SSE handler)
+ */
+async function _ptagReloadFromApi(campaignId) {
+    try {
+        const resp = await fetch(_ptagApiUrl(`processing-tags/${campaignId}`));
+        const json = await resp.json();
+        if (json.success && json.data) {
+            ProcessingTagState._orderTags.clear();
+            Object.keys(json.data).forEach(orderId => {
+                ProcessingTagState._orderTags.set(orderId, json.data[orderId]);
+            });
+            // Update all visible cells
+            ProcessingTagState._orderTags.forEach((_, orderId) => _ptagUpdateCellDOM(orderId));
+            _ptagRenderPanelCards();
+        }
+    } catch (e) {
+        console.error('[PTAG] Error reloading from API:', e);
+    }
+}
+
+function _ptagCleanupListeners() {
+    if (ProcessingTagState._sseSource) {
+        ProcessingTagState._sseSource.close();
+        ProcessingTagState._sseSource = null;
+    }
+}
+
+/**
+ * Save tag definitions to API
  */
 async function saveTagDefinitions() {
-    const ref = _ptagDbRef();
-    if (!ref) return;
+    if (!ProcessingTagState._campaignId) return;
 
     try {
-        await ref.child('config/tags').set(ProcessingTagState._tagDefinitions);
+        await fetch(_ptagApiUrl(`processing-tag-defs/${ProcessingTagState._campaignId}`), {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                definitions: ProcessingTagState._tagDefinitions,
+            }),
+        });
         console.log('[PTAG] Tag definitions saved');
     } catch (e) {
         console.error('[PTAG] Error saving tag definitions:', e);
@@ -848,7 +835,7 @@ function _ptagDeleteTag(tagKey) {
     ProcessingTagState._tagDefinitions = ProcessingTagState._tagDefinitions.filter(t => t.key !== tagKey);
     saveTagDefinitions();
 
-    // Remove from all orders
+    // Remove from all orders (API calls for each affected order)
     ProcessingTagState._orderTags.forEach((tags, orderId) => {
         const filtered = tags.filter(t => t.key !== tagKey);
         if (filtered.length !== tags.length) {
@@ -857,19 +844,10 @@ function _ptagDeleteTag(tagKey) {
             } else {
                 ProcessingTagState._orderTags.set(orderId, filtered);
             }
-            // Update Firebase for this order
-            const ref = _ptagDbRef();
-            if (ref) {
-                if (filtered.length === 0) {
-                    ref.child(`orders/${orderId}`).remove();
-                } else {
-                    ref.child(`orders/${orderId}`).set({
-                        tags: filtered,
-                        updatedBy: _ptagGetCurrentUser(),
-                        updatedAt: firebase.database.ServerValue.TIMESTAMP,
-                    });
-                }
-            }
+            // Remove tag via API
+            fetch(_ptagApiUrl(`processing-tags/${ProcessingTagState._campaignId}/${orderId}/${tagKey}`), {
+                method: 'DELETE',
+            }).catch(e => console.error('[PTAG] Error deleting tag from order:', e));
             _ptagUpdateCellDOM(orderId);
         }
     });
@@ -1026,20 +1004,46 @@ async function savePtagBulk() {
         return;
     }
 
-    // Assign tags
-    let assignedCount = 0;
+    // Build bulk assignments
+    const assignments = [];
     for (const order of matchingOrders) {
         for (const tagKey of selectedKeys) {
             const existing = ProcessingTagState._orderTags.get(order.Id) || [];
             if (!existing.some(t => t.key === tagKey)) {
-                await assignProcessingTag(order.Id, tagKey, '');
-                assignedCount++;
+                const tagDef = ProcessingTagState._tagDefinitions.find(t => t.key === tagKey);
+                assignments.push({
+                    orderId: order.Id,
+                    tagKey,
+                    category: tagDef ? tagDef.category : null,
+                    note: '',
+                });
+                // Optimistic UI update
+                const newTag = { key: tagKey, category: tagDef?.category, note: '', assignedAt: Date.now() };
+                const updatedTags = [...existing, newTag];
+                ProcessingTagState._orderTags.set(order.Id, updatedTags);
+                _ptagUpdateCellDOM(order.Id);
             }
         }
     }
 
+    // Send bulk API call
+    if (assignments.length > 0) {
+        try {
+            await fetch(_ptagApiUrl(`processing-tags/${ProcessingTagState._campaignId}/bulk`), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    assignments,
+                    assignedBy: _ptagGetCurrentUser(),
+                }),
+            });
+        } catch (e) {
+            console.error('[PTAG] Bulk assign error:', e);
+        }
+    }
+
     closePtagBulkModal();
-    alert(`Đã gán ${selectedKeys.length} tag cho ${matchingOrders.length} đơn (${assignedCount} thao tác mới)`);
+    alert(`Đã gán ${selectedKeys.length} tag cho ${matchingOrders.length} đơn (${assignments.length} thao tác mới)`);
 
     _ptagRenderPanelCards();
 }
