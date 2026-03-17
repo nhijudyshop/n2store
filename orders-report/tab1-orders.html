@@ -21,6 +21,7 @@
     <link rel="stylesheet" href="css/tab1-sale-modal.css" />
     <link rel="stylesheet" href="css/tab1-bill-settings.css" />
     <link rel="stylesheet" href="css/order-history.css" />
+    <link rel="stylesheet" href="css/tab1-processing-tags.css" />
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="js/utils/decoding-utility.js"></script>
@@ -350,6 +351,9 @@
                     <button class="btn-column-settings" id="columnSettingsBtn" onclick="openColumnSettingsModal()">
                         <i class="fas fa-columns"></i> Cài đặt cột
                     </button>
+                    <button class="ptag-toggle-btn" id="ptagToggleBtn" onclick="toggleProcessingTagPanel()">
+                        <i class="fas fa-tasks"></i> Tag Xử Lý
+                    </button>
                 </div>
             </div>
             <!-- Active Filters Display -->
@@ -391,6 +395,7 @@
                             <th data-column="stt">STT</th>
                             <th data-column="employee" style="width: 90px;">Nhân viên</th>
                             <th data-column="tag">TAG</th>
+                            <th data-column="processing-tag" style="min-width: 120px;">Tag Xử Lý</th>
                             <th data-column="order-code">Mã ĐH</th>
                             <th data-column="customer">Khách hàng</th>
                             <th data-column="phone">SĐT</th>
@@ -409,7 +414,7 @@
                     </thead>
                     <tbody id="tableBody">
                         <tr>
-                            <td colspan="18" style="text-align: center; padding: 40px">
+                            <td colspan="19" style="text-align: center; padding: 40px">
                                 Vui lòng chọn chiến dịch và bấm Tìm kiếm
                             </td>
                         </tr>
@@ -632,6 +637,10 @@
                     <label class="column-setting-item">
                         <input type="checkbox" data-column="tag" checked />
                         <span>TAG</span>
+                    </label>
+                    <label class="column-setting-item">
+                        <input type="checkbox" data-column="processing-tag" checked />
+                        <span>Tag Xử Lý</span>
                     </label>
                     <label class="column-setting-item">
                         <input type="checkbox" data-column="order-code" />
@@ -1419,6 +1428,9 @@
 
     <!-- 6. Bulk Tags: Bulk tag add/delete (lines 2855-5240) -->
     <script src="js/tab1/tab1-bulk-tags.js"></script>
+
+    <!-- 6b. Processing Tags: Tag Xử Lý system -->
+    <script src="js/tab1/tab1-processing-tags.js"></script>
 
     <!-- 7. Search: Table search, campaign loading (lines 5241-6814) -->
     <script src="js/tab1/tab1-search.js"></script>
@@ -3569,6 +3581,75 @@
 
     <!-- Order History JS -->
     <script src="js/tab1/tab1-order-history.js"></script>
+
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <!-- Processing Tag Panel (Right sidebar) -->
+    <!-- ═══════════════════════════════════════════════════════════════ -->
+    <div class="ptag-panel-overlay" id="ptagPanelOverlay" onclick="closeProcessingTagPanel()"></div>
+    <aside class="ptag-panel" id="ptagPanel">
+        <div class="ptag-panel-header">
+            <h3><i class="fas fa-tasks" style="margin-right:6px;"></i>Tag Xử Lý</h3>
+            <div class="ptag-panel-header-actions">
+                <button id="ptagPinBtn" onclick="togglePinProcessingTagPanel()" title="Ghim panel">
+                    <i class="fas fa-thumbtack"></i>
+                </button>
+                <button onclick="openPtagManageModal()" title="Quản lý tag">
+                    <i class="fas fa-cog"></i>
+                </button>
+                <button onclick="openPtagBulkModal()" title="Gán tag hàng loạt">
+                    <i class="fas fa-layer-group"></i>
+                </button>
+                <button onclick="closeProcessingTagPanel(true)" title="Đóng">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+        <div class="ptag-panel-search">
+            <input type="text" id="ptagPanelSearch" placeholder="Tìm tag..." oninput="ptagFilterPanelSearch()" />
+        </div>
+        <div class="ptag-panel-body" id="ptagPanelBody">
+            <!-- Panel cards rendered by JS -->
+        </div>
+    </aside>
+
+    <!-- Processing Tag Management Modal -->
+    <div class="ptag-manage-modal" id="ptagManageModal">
+        <div class="ptag-manage-modal-content">
+            <div class="ptag-manage-modal-header">
+                <h3><i class="fas fa-cog" style="margin-right:6px;"></i>Quản lý Tag Xử Lý</h3>
+                <button class="ptag-manage-modal-close" onclick="closePtagManageModal()">×</button>
+            </div>
+            <div class="ptag-manage-modal-body" id="ptagManageBody">
+                <!-- Rendered by JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Processing Tag Bulk Assignment Modal -->
+    <div class="ptag-bulk-modal" id="ptagBulkModal">
+        <div class="ptag-bulk-modal-content" style="background:white; border-radius:12px; width:500px; max-width:95vw; max-height:85vh; display:flex; flex-direction:column; box-shadow:0 20px 60px rgba(0,0,0,0.2);">
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid #e5e7eb;">
+                <h3 style="margin:0; font-size:16px; font-weight:600;"><i class="fas fa-layer-group" style="margin-right:6px;"></i>Gán Tag Xử Lý Hàng Loạt</h3>
+                <button onclick="closePtagBulkModal()" style="background:none; border:none; font-size:20px; color:#6b7280; cursor:pointer;">×</button>
+            </div>
+            <div style="flex:1; overflow-y:auto; padding:16px 20px;">
+                <div style="margin-bottom:16px;">
+                    <label style="font-size:13px; font-weight:600; color:#374151; display:block; margin-bottom:6px;">Nhập STT (ví dụ: 1, 5-10, 15)</label>
+                    <input type="text" id="ptagBulkSTT" placeholder="1, 5-10, 15, 20-30" style="width:100%; padding:8px 12px; border:1px solid #d1d5db; border-radius:8px; font-size:13px; outline:none;" />
+                </div>
+                <div>
+                    <label style="font-size:13px; font-weight:600; color:#374151; display:block; margin-bottom:6px;">Chọn Tag Xử Lý</label>
+                    <div id="ptagBulkTagList">
+                        <!-- Rendered by JS -->
+                    </div>
+                </div>
+            </div>
+            <div style="padding:12px 20px; border-top:1px solid #e5e7eb; display:flex; justify-content:flex-end; gap:8px;">
+                <button onclick="closePtagBulkModal()" style="padding:8px 16px; background:#f3f4f6; border:1px solid #d1d5db; border-radius:8px; cursor:pointer; font-size:13px;">Hủy</button>
+                <button onclick="savePtagBulk()" style="padding:8px 16px; background:#667eea; color:white; border:none; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600;">Gán Tag</button>
+            </div>
+        </div>
+    </div>
 
     <!-- Goong Places: attach autocomplete to saleReceiverAddress -->
     <script>

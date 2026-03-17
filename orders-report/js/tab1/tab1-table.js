@@ -323,7 +323,7 @@ function renderTable() {
 
         const tbody = document.getElementById("tableBody");
         tbody.innerHTML =
-            '<tr><td colspan="17" style="text-align: center; padding: 40px;">Không có dữ liệu</td></tr>';
+            '<tr><td colspan="18" style="text-align: center; padding: 40px;">Không có dữ liệu</td></tr>';
         return;
     }
 
@@ -508,7 +508,7 @@ const VirtualTable = {
     renderStandard() {
         const orders = displayedData;
         if (orders.length === 0) {
-            this.tbody.innerHTML = '<tr><td colspan="17" style="text-align: center; padding: 40px;">Không có dữ liệu</td></tr>';
+            this.tbody.innerHTML = '<tr><td colspan="18" style="text-align: center; padding: 40px;">Không có dữ liệu</td></tr>';
             return;
         }
 
@@ -523,7 +523,7 @@ const VirtualTable = {
     renderVisibleRows() {
         const orders = displayedData;
         if (orders.length === 0) {
-            this.tbody.innerHTML = '<tr><td colspan="17" style="text-align: center; padding: 40px;">Không có dữ liệu</td></tr>';
+            this.tbody.innerHTML = '<tr><td colspan="18" style="text-align: center; padding: 40px;">Không có dữ liệu</td></tr>';
             return;
         }
 
@@ -555,7 +555,7 @@ const VirtualTable = {
 
         // Top spacer (giữ scroll position)
         if (topPadding > 0) {
-            html += `<tr class="virtual-spacer-top" style="height:${topPadding}px"><td colspan="17"></td></tr>`;
+            html += `<tr class="virtual-spacer-top" style="height:${topPadding}px"><td colspan="18"></td></tr>`;
         }
 
         // Visible rows
@@ -563,7 +563,7 @@ const VirtualTable = {
 
         // Bottom spacer
         if (bottomPadding > 0) {
-            html += `<tr class="virtual-spacer-bottom" style="height:${bottomPadding}px"><td colspan="17"></td></tr>`;
+            html += `<tr class="virtual-spacer-bottom" style="height:${bottomPadding}px"><td colspan="18"></td></tr>`;
         }
 
         this.tbody.innerHTML = html;
@@ -814,7 +814,7 @@ function loadMoreRows() {
     if (renderedCount < displayedData.length) {
         const newSpacer = document.createElement('tr');
         newSpacer.id = 'table-spacer';
-        newSpacer.innerHTML = `<td colspan="17" style="text-align: center; padding: 20px; color: #6b7280;">
+        newSpacer.innerHTML = `<td colspan="18" style="text-align: center; padding: 20px; color: #6b7280;">
             <i class="fas fa-spinner fa-spin"></i> Đang tải thêm...
         </td>`;
         tbody.appendChild(newSpacer);
@@ -960,6 +960,7 @@ function renderByEmployee() {
                                 <th data-column="stt">STT</th>
                                 <th data-column="employee" style="width: 90px;">Nhân viên</th>
                                 <th data-column="tag">TAG</th>
+                                <th data-column="processing-tag" style="min-width: 120px;">Tag Xử Lý</th>
                                 <th data-column="order-code">Mã ĐH</th>
                                 <th data-column="customer">Khách hàng</th>
                                 <th data-column="phone">SĐT</th>
@@ -1115,6 +1116,7 @@ function createRowHTML(order) {
                     <div style="display: flex; flex-wrap: wrap; gap: 4px; align-items: center;">${tagsHTML}</div>
                 </div>
             </td>
+            <td data-column="processing-tag">${typeof renderProcessingTagCell === 'function' ? renderProcessingTagCell(order.Id, order.Code) : ''}</td>
             <td data-column="order-code">
                 <span>${highlight(order.Code)}</span>
             </td>

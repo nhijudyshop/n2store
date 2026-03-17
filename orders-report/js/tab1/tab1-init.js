@@ -596,6 +596,21 @@ async function continueAfterCampaignSelect(campaignId) {
             console.warn('[APP] loadEmployeeRangesForCampaign function not available');
         }
 
+        // ⭐ PROCESSING TAGS: Load tag definitions & data for this campaign
+        if (typeof loadProcessingTags === 'function') {
+            console.log('[APP] 🏷️ Loading processing tags for campaign:', campaignId);
+            await Promise.all([
+                loadTagDefinitions(campaignId),
+                loadProcessingTags(campaignId),
+            ]);
+            if (typeof setupProcessingTagRealtimeListeners === 'function') {
+                setupProcessingTagRealtimeListeners(campaignId);
+            }
+            if (typeof initProcessingTagPanel === 'function') {
+                initProcessingTagPanel();
+            }
+        }
+
         // ⭐ FETCH ORDERS (1 lần duy nhất)
         console.log('[APP] ⭐ Fetching orders...');
         await handleSearch();

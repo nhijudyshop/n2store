@@ -307,6 +307,12 @@ function performTableSearch() {
         console.log(`[FILTER] Excluded ${excludedTags.length} tags, remaining orders: ${tempData.length}`);
     }
 
+    // Apply Processing Tag (Tag Xử Lý) filter
+    if (typeof window.orderPassesProcessingTagFilter === 'function' && window.getActiveProcessingTagFilter && window.getActiveProcessingTagFilter()) {
+        tempData = tempData.filter(order => window.orderPassesProcessingTagFilter(order.Id));
+        console.log(`[FILTER] Applied processing tag filter, remaining orders: ${tempData.length}`);
+    }
+
     filteredData = tempData;
 
     // Priority sorting: STT → Phone → Name
