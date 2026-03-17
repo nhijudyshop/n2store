@@ -346,6 +346,11 @@ ${labelsHTML}
                     displayValue: false,
                     margin: 0
                 });
+                var w = svg.getAttribute('width');
+                var h = svg.getAttribute('height');
+                svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+                svg.removeAttribute('width');
+                svg.removeAttribute('height');
             } catch(e) {
                 console.warn('Barcode error for:', code, e);
             }
