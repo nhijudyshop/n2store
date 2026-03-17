@@ -5069,6 +5069,34 @@
     color: #ef4444;
 }
 
+/* Thưởng/Giảm trừ category rows */
+.thuong-category-row td {
+    padding: 14px 16px !important;
+    color: #334155;
+    font-size: 14px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.thuong-category-row .phu-cap-add-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    font-size: 20px;
+    font-weight: 600;
+    color: #1890ff;
+    border: 1px solid #1890ff;
+    border-radius: 50%;
+    text-decoration: none;
+}
+
+.thuong-category-row .phu-cap-add-link:hover {
+    background: #e6f4ff;
+    text-decoration: none;
+}
+
 /* Modal info line */
 .payroll-modal-info {
     padding: 12px 24px;

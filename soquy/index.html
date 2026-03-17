@@ -1910,6 +1910,76 @@
         </div>
     </div>
 
+    <!-- ==================== MODAL: CÁC KHOẢN THƯỞNG ==================== -->
+    <div class="modal" id="thuongModal" style="display: none;">
+        <div class="modal-overlay" onclick="this.parentElement.style.display='none'"></div>
+        <div class="modal-content k-modal" style="width: 650px; max-width: 95vw;">
+            <div class="modal-header k-modal-header">
+                <div>
+                    <h3>Các khoản thưởng</h3>
+                    <div id="thuongEmpName" style="font-size: 13px; color: #8c8c8c; margin-top: 2px;"></div>
+                </div>
+                <button class="btn-icon" onclick="document.getElementById('thuongModal').style.display='none'">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body k-modal-body" style="padding: 0;">
+                <table class="payroll-detail-table" id="thuongTable">
+                    <thead>
+                        <tr>
+                            <th>Loại thưởng</th>
+                            <th style="text-align: right; width: 200px;">Tiền thưởng</th>
+                        </tr>
+                    </thead>
+                    <tbody id="thuongBody"></tbody>
+                </table>
+            </div>
+            <div class="modal-footer k-modal-footer">
+                <button class="k-btn-outline" onclick="document.getElementById('thuongModal').style.display='none'">
+                    Bỏ qua
+                </button>
+                <button class="btn-primary" id="btnThuongApply" style="background:#1890ff;">
+                    Xong
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== MODAL: CÁC KHOẢN GIẢM TRỪ ==================== -->
+    <div class="modal" id="giamTruModal" style="display: none;">
+        <div class="modal-overlay" onclick="this.parentElement.style.display='none'"></div>
+        <div class="modal-content k-modal" style="width: 650px; max-width: 95vw;">
+            <div class="modal-header k-modal-header">
+                <div>
+                    <h3>Các khoản giảm trừ</h3>
+                    <div id="giamTruEmpName" style="font-size: 13px; color: #8c8c8c; margin-top: 2px;"></div>
+                </div>
+                <button class="btn-icon" onclick="document.getElementById('giamTruModal').style.display='none'">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="modal-body k-modal-body" style="padding: 0;">
+                <table class="payroll-detail-table" id="giamTruTable">
+                    <thead>
+                        <tr>
+                            <th>Loại giảm trừ</th>
+                            <th style="text-align: right; width: 200px;">Tiền giảm trừ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="giamTruBody"></tbody>
+                </table>
+            </div>
+            <div class="modal-footer k-modal-footer">
+                <button class="k-btn-outline" onclick="document.getElementById('giamTruModal').style.display='none'">
+                    Bỏ qua
+                </button>
+                <button class="btn-primary" id="btnGiamTruApply" style="background:#1890ff;">
+                    Xong
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- ==================== MODAL: DUYỆT CHẤM CÔNG ==================== -->
     <div class="modal" id="approvalModal" style="display: none;">
         <div class="modal-overlay"></div>

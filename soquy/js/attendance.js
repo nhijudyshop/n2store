@@ -200,7 +200,7 @@
     // ================================================================
     // PAYROLL DATA LAYER
     // ================================================================
-    let payrollDataMap = {}; // { empId: { hoaHong, thuong, giamTruManual, daTra, allowances, salaryDaysOverride, otHoursOverride } }
+    let payrollDataMap = {}; // { empId: { thuongItems, giamTruItems, daTra, allowances, ghiChu, salaryDaysOverride, otHoursOverride } }
 
     async function loadPayrollData() {
         if (!currentMonth) return;
@@ -474,8 +474,6 @@
         const lamThem = ltDetail.totalAmount;
 
         // Các field từ payroll doc
-        const thuong = payDoc.thuong || 0;
-        const giamTruManual = payDoc.giamTruManual || 0;
         const daTra = payDoc.daTra || 0;
         const ghiChu = payDoc.ghiChu || '';
 
@@ -483,8 +481,18 @@
         const allowanceItems = payDoc.allowances || [];
         const phuCap = allowanceItems.reduce((s, item) => s + (item.amount || 0), 0);
 
-        // Giảm trừ = trừ muộn + giảm trừ thêm
-        const giamTru = totalLate + giamTruManual;
+        // Thưởng: items array hoặc legacy single number
+        const thuongItems = payDoc.thuongItems || [];
+        const thuong = thuongItems.length > 0
+            ? thuongItems.reduce((s, item) => s + (item.amount || 0), 0)
+            : (payDoc.thuong || 0);
+
+        // Giảm trừ: trừ muộn (auto) + items array hoặc legacy giamTruManual
+        const giamTruItems = payDoc.giamTruItems || [];
+        const giamTruManualTotal = giamTruItems.length > 0
+            ? giamTruItems.reduce((s, item) => s + (item.amount || 0), 0)
+            : (payDoc.giamTruManual || 0);
+        const giamTru = totalLate + giamTruManualTotal;
 
         // Tổng lương
         const tongLuong = luongChinh + lamThem + phuCap + thuong - giamTru;
@@ -493,7 +501,8 @@
         return {
             emp, empId, workedDays, empRate,
             luongChinh, lamThem, phuCap, thuong, giamTru, tongLuong, daTra, conCanTra,
-            totalLate, giamTruManual, ghiChu,
+            totalLate, giamTruManualTotal, ghiChu,
+            thuongItems, giamTruItems,
             lateDays, otDays, allowanceItems,
             lcDetail, ltDetail
         };
@@ -1453,12 +1462,14 @@
                         </span>
                     </td>
                     <td>
-                        <input type="text" class="payroll-cell-input" data-field="thuong" data-emp="${empId}"
-                            value="${thuong ? formatVND(thuong) : '0'}">
+                        <span class="payroll-cell-btn" onclick="window._attendance.showThuongModal('${empId}')">
+                            ${formatVND(thuong)}
+                        </span>
                     </td>
                     <td>
-                        <input type="text" class="payroll-cell-input" data-field="giamTruManual" data-emp="${empId}"
-                            value="${d.giamTruManual ? formatVND(d.giamTruManual) : '0'}">
+                        <span class="payroll-cell-btn" onclick="window._attendance.showGiamTruModal('${empId}')">
+                            ${formatVND(giamTru)}
+                        </span>
                     </td>
                     <td class="payroll-cell-total">${formatVND(tongLuong)}</td>
                     <td>
@@ -2100,6 +2111,262 @@
             // Clean up empty items
             const cleanItems = items.filter(item => item.name || item.amount);
             await savePayrollAllowances(empId, cleanItems);
+            modal.style.display = 'none';
+            renderMonthlySchedule();
+        };
+    }
+
+    /** Modal: Các khoản thưởng */
+    function showThuongModal(empId) {
+        const emp = employees.find(e => String(e.userId || e.uid || e.id) === String(empId));
+        if (!emp) return;
+
+        const modal = document.getElementById('thuongModal');
+        if (!modal) return;
+
+        const empName = emp.name || `User ${empId}`;
+        const payDoc = getPayrollDoc(empId);
+
+        // Load items: migrate from legacy thuong number
+        let items = payDoc.thuongItems ? [...payDoc.thuongItems] : [];
+        if (items.length === 0 && (payDoc.thuong || 0) > 0) {
+            items = [{ name: 'Thưởng', amount: payDoc.thuong }];
+        }
+
+        document.getElementById('thuongEmpName').textContent = `Nhân viên: ${empName}`;
+
+        function renderThuongRows() {
+            const tbody = document.getElementById('thuongBody');
+            const totalAmount = items.reduce((s, item) => s + (item.amount || 0), 0);
+
+            let html = `
+                <tr class="total-row">
+                    <td></td>
+                    <td style="text-align:right; font-weight:700;">${formatVND(totalAmount)}</td>
+                </tr>
+            `;
+
+            items.forEach((item, i) => {
+                html += `
+                    <tr>
+                        <td style="display:flex; align-items:center; gap:8px;">
+                            <button class="phu-cap-delete-btn thuong-delete-btn" data-idx="${i}" title="Xóa">
+                                <i data-lucide="trash-2" style="width:14px;height:14px;"></i>
+                            </button>
+                            <input type="text" class="payroll-settings-input thuong-name-input" data-idx="${i}"
+                                value="${escapeHtml(item.name || '')}" placeholder="Tên khoản thưởng" style="flex:1;">
+                        </td>
+                        <td style="text-align:right;">
+                            <input type="text" class="payroll-settings-input thuong-amount-input" data-idx="${i}"
+                                value="${item.amount ? formatVND(item.amount) : '0'}" placeholder="0"
+                                style="text-align:right; width:150px;">
+                        </td>
+                    </tr>
+                `;
+            });
+
+            // Category rows
+            html += `
+                <tr class="thuong-category-row">
+                    <td>Thưởng theo ngày làm việc</td>
+                    <td style="text-align:right;">
+                        <span class="phu-cap-add-link thuong-add-btn" data-cat="ngaylv" style="cursor:pointer;">+</span>
+                    </td>
+                </tr>
+                <tr class="thuong-category-row">
+                    <td>Thưởng khác</td>
+                    <td style="text-align:right;">
+                        <span class="phu-cap-add-link thuong-add-btn" data-cat="khac" style="cursor:pointer;">+</span>
+                    </td>
+                </tr>
+            `;
+
+            tbody.innerHTML = html;
+            refreshIcons();
+
+            // Delete buttons
+            tbody.querySelectorAll('.thuong-delete-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    items.splice(parseInt(btn.dataset.idx), 1);
+                    renderThuongRows();
+                });
+            });
+
+            // Name inputs
+            tbody.querySelectorAll('.thuong-name-input').forEach(input => {
+                input.addEventListener('blur', () => {
+                    items[parseInt(input.dataset.idx)].name = input.value.trim();
+                });
+            });
+
+            // Amount inputs
+            tbody.querySelectorAll('.thuong-amount-input').forEach(input => {
+                input.addEventListener('focus', () => {
+                    const raw = input.value.replace(/\./g, '').replace(/,/g, '');
+                    const num = parseInt(raw) || 0;
+                    input.value = num === 0 ? '' : num;
+                    input.select();
+                });
+                input.addEventListener('blur', () => {
+                    const raw = input.value.replace(/\./g, '').replace(/,/g, '');
+                    const num = Math.max(0, parseInt(raw) || 0);
+                    items[parseInt(input.dataset.idx)].amount = num;
+                    input.value = num ? formatVND(num) : '0';
+                    renderThuongRows();
+                });
+            });
+
+            // Add buttons
+            tbody.querySelectorAll('.thuong-add-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const cat = btn.dataset.cat;
+                    const name = cat === 'ngaylv' ? 'Thưởng theo ngày làm việc' : '';
+                    items.push({ name, amount: 0, category: cat });
+                    renderThuongRows();
+                });
+            });
+        }
+
+        renderThuongRows();
+        modal.style.display = 'flex';
+
+        // Xong button
+        document.getElementById('btnThuongApply').onclick = async () => {
+            const cleanItems = items.filter(item => item.name || item.amount);
+            await savePayrollField(empId, 'thuongItems', cleanItems);
+            modal.style.display = 'none';
+            renderMonthlySchedule();
+        };
+    }
+
+    /** Modal: Các khoản giảm trừ */
+    function showGiamTruModal(empId) {
+        const emp = employees.find(e => String(e.userId || e.uid || e.id) === String(empId));
+        if (!emp) return;
+
+        const modal = document.getElementById('giamTruModal');
+        if (!modal) return;
+
+        const empName = emp.name || `User ${empId}`;
+        const payDoc = getPayrollDoc(empId);
+        const empRate = emp.dailyRate || SALARY.DAILY_RATE;
+
+        // Tính trừ muộn auto từ attendance
+        const d = calculatePayrollRow(emp, empId);
+        const totalLateAuto = d.totalLate;
+
+        // Load items: migrate from legacy giamTruManual
+        let items = payDoc.giamTruItems ? [...payDoc.giamTruItems] : [];
+        if (items.length === 0 && (payDoc.giamTruManual || 0) > 0) {
+            items = [{ name: 'Giảm trừ khác', amount: payDoc.giamTruManual }];
+        }
+
+        document.getElementById('giamTruEmpName').textContent = `Nhân viên: ${empName}`;
+
+        function renderGiamTruRows() {
+            const tbody = document.getElementById('giamTruBody');
+            const itemsTotal = items.reduce((s, item) => s + (item.amount || 0), 0);
+            const grandTotal = totalLateAuto + itemsTotal;
+
+            let html = `
+                <tr class="total-row">
+                    <td></td>
+                    <td style="text-align:right; font-weight:700;">${formatVND(grandTotal)}</td>
+                </tr>
+                <tr>
+                    <td>Giảm trừ đi muộn, về sớm, cố định</td>
+                    <td style="text-align:right; color:#1890ff; font-weight:600;">${formatVND(totalLateAuto)}</td>
+                </tr>
+            `;
+
+            items.forEach((item, i) => {
+                html += `
+                    <tr>
+                        <td style="display:flex; align-items:center; gap:8px;">
+                            <button class="phu-cap-delete-btn giamtru-delete-btn" data-idx="${i}" title="Xóa">
+                                <i data-lucide="trash-2" style="width:14px;height:14px;"></i>
+                            </button>
+                            <input type="text" class="payroll-settings-input giamtru-name-input" data-idx="${i}"
+                                value="${escapeHtml(item.name || '')}" placeholder="Tên khoản giảm trừ" style="flex:1;">
+                        </td>
+                        <td style="text-align:right;">
+                            <input type="text" class="payroll-settings-input giamtru-amount-input" data-idx="${i}"
+                                value="${item.amount ? formatVND(item.amount) : '0'}" placeholder="0"
+                                style="text-align:right; width:150px;">
+                        </td>
+                    </tr>
+                `;
+            });
+
+            // Category rows
+            html += `
+                <tr class="thuong-category-row">
+                    <td>Phạt vi phạm theo ngày</td>
+                    <td style="text-align:right;">
+                        <span class="phu-cap-add-link giamtru-add-btn" data-cat="phat" style="cursor:pointer;">+</span>
+                    </td>
+                </tr>
+                <tr class="thuong-category-row">
+                    <td>Giảm trừ khác</td>
+                    <td style="text-align:right;">
+                        <span class="phu-cap-add-link giamtru-add-btn" data-cat="khac" style="cursor:pointer;">+</span>
+                    </td>
+                </tr>
+            `;
+
+            tbody.innerHTML = html;
+            refreshIcons();
+
+            // Delete buttons
+            tbody.querySelectorAll('.giamtru-delete-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    items.splice(parseInt(btn.dataset.idx), 1);
+                    renderGiamTruRows();
+                });
+            });
+
+            // Name inputs
+            tbody.querySelectorAll('.giamtru-name-input').forEach(input => {
+                input.addEventListener('blur', () => {
+                    items[parseInt(input.dataset.idx)].name = input.value.trim();
+                });
+            });
+
+            // Amount inputs
+            tbody.querySelectorAll('.giamtru-amount-input').forEach(input => {
+                input.addEventListener('focus', () => {
+                    const raw = input.value.replace(/\./g, '').replace(/,/g, '');
+                    const num = parseInt(raw) || 0;
+                    input.value = num === 0 ? '' : num;
+                    input.select();
+                });
+                input.addEventListener('blur', () => {
+                    const raw = input.value.replace(/\./g, '').replace(/,/g, '');
+                    const num = Math.max(0, parseInt(raw) || 0);
+                    items[parseInt(input.dataset.idx)].amount = num;
+                    input.value = num ? formatVND(num) : '0';
+                    renderGiamTruRows();
+                });
+            });
+
+            // Add buttons
+            tbody.querySelectorAll('.giamtru-add-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const cat = btn.dataset.cat;
+                    const name = cat === 'phat' ? 'Phạt vi phạm theo ngày' : '';
+                    items.push({ name, amount: 0, category: cat });
+                    renderGiamTruRows();
+                });
+            });
+        }
+
+        renderGiamTruRows();
+        modal.style.display = 'flex';
+
+        // Xong button
+        document.getElementById('btnGiamTruApply').onclick = async () => {
+            const cleanItems = items.filter(item => item.name || item.amount);
+            await savePayrollField(empId, 'giamTruItems', cleanItems);
             modal.style.display = 'none';
             renderMonthlySchedule();
         };
@@ -2828,6 +3095,8 @@
         showLuongChinhModal,
         showLamThemModal,
         showPhuCapModal,
+        showThuongModal,
+        showGiamTruModal,
     };
 
     // Auto-init when DOM ready
