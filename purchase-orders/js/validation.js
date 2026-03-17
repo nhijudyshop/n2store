@@ -586,7 +586,10 @@ const DEFAULT_VALIDATION_SETTINGS = {
     enableRequireAtLeastOneItem: true,
 
     // Auto-generate product code
-    autoGenerateCode: true
+    autoGenerateCode: true,
+
+    // Duplicate code check
+    enableRequireDuplicateCodeCheck: false
 };
 
 // ========================================
@@ -686,6 +689,46 @@ function validateItemsWithSettings(items, settings) {
                 invalidFields.push(`Dòng ${num}: Thiếu hình ảnh sản phẩm`);
             }
         });
+
+        // Rule 8: Duplicate product code check
+        if (settings.enableRequireDuplicateCodeCheck) {
+            const codeGroups = new Map();
+            items.forEach((item, index) => {
+                if (!item.productCode || !item.productCode.trim()) return;
+                if (!item.productName || !item.productName.trim()) return;
+                const code = item.productCode.trim();
+                if (!codeGroups.has(code)) codeGroups.set(code, []);
+                codeGroups.set(code, [...codeGroups.get(code), { index, variant: (item.variant || '').trim(), name: item.productName.trim() }]);
+            });
+
+            codeGroups.forEach((rows, code) => {
+                if (rows.length < 2) return;
+
+                // Check: same code, no variant on any duplicate
+                const noVariantRows = rows.filter(r => !r.variant);
+                if (noVariantRows.length >= 2) {
+                    const lines = noVariantRows.map(r => r.index + 1).join(', ');
+                    invalidFields.push(`Mã "${code}" trùng ở dòng ${lines} nhưng không có biến thể`);
+                }
+
+                // Check: same code + same variant but different product name
+                const variantMap = new Map();
+                rows.forEach(r => {
+                    if (!r.variant) return;
+                    const key = r.variant;
+                    if (!variantMap.has(key)) variantMap.set(key, []);
+                    variantMap.get(key).push(r);
+                });
+                variantMap.forEach((vRows, variant) => {
+                    if (vRows.length < 2) return;
+                    const names = new Set(vRows.map(r => r.name));
+                    if (names.size > 1) {
+                        const lines = vRows.map(r => r.index + 1).join(', ');
+                        invalidFields.push(`Mã "${code}" biến thể "${variant}" ở dòng ${lines} có tên sản phẩm khác nhau`);
+                    }
+                });
+            });
+        }
     }
 
     return {

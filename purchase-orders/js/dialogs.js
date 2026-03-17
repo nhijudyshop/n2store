@@ -987,6 +987,7 @@ class SettingsDialog {
             { id: 'enableRequirePositiveSellingPrice', label: 'Giá bán phải > 0', checked: s.enableRequirePositiveSellingPrice },
             { id: 'enableRequireSellingGreaterThanPurchase', label: 'Giá bán phải > Giá mua', checked: s.enableRequireSellingGreaterThanPurchase },
             { id: 'enableRequireAtLeastOneItem', label: 'Phải có ít nhất 1 sản phẩm', checked: s.enableRequireAtLeastOneItem },
+            { id: 'enableRequireDuplicateCodeCheck', label: 'Kiểm tra trùng mã SP (cùng mã không biến thể / cùng mã+biến thể khác tên)', checked: s.enableRequireDuplicateCodeCheck },
         ];
 
         const checkboxHTML = checkboxes.map(cb => `
@@ -1141,7 +1142,7 @@ class SettingsDialog {
         const boolFields = [
             'enableRequireProductName', 'enableRequireProductCode', 'enableRequireProductImages',
             'enableRequirePositivePurchasePrice', 'enableRequirePositiveSellingPrice',
-            'enableRequireSellingGreaterThanPurchase', 'enableRequireAtLeastOneItem', 'autoGenerateCode'
+            'enableRequireSellingGreaterThanPurchase', 'enableRequireAtLeastOneItem', 'enableRequireDuplicateCodeCheck', 'autoGenerateCode'
         ];
         boolFields.forEach(f => {
             const input = this.modalElement.querySelector('#' + f);
@@ -1302,6 +1303,7 @@ class SettingsDialog {
             enableRequirePositiveSellingPrice: el.querySelector('#enableRequirePositiveSellingPrice')?.checked ?? true,
             enableRequireSellingGreaterThanPurchase: el.querySelector('#enableRequireSellingGreaterThanPurchase')?.checked ?? true,
             enableRequireAtLeastOneItem: el.querySelector('#enableRequireAtLeastOneItem')?.checked ?? true,
+            enableRequireDuplicateCodeCheck: el.querySelector('#enableRequireDuplicateCodeCheck')?.checked ?? false,
             autoGenerateCode: el.querySelector('#autoGenerateCode')?.checked ?? true
         };
     }
