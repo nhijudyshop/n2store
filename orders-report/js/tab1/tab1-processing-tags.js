@@ -79,6 +79,7 @@ const ProcessingTagState = {
     _activeCategory: null,      // null | categoryId
     _campaignId: null,
     _sseSource: null,           // SSE EventSource for realtime updates
+    _pollInterval: null,        // Polling fallback interval
 };
 
 const PTAG_PIN_KEY = 'ptagPanelPinned';
@@ -221,12 +222,13 @@ async function clearProcessingTags(orderId) {
 }
 
 /**
- * Setup SSE realtime listeners for processing tags
+ * Setup realtime listeners: SSE + polling fallback
  */
 function setupProcessingTagRealtimeListeners(campaignId) {
     _ptagCleanupListeners();
     ProcessingTagState._campaignId = campaignId;
 
+    // SSE for instant updates
     try {
         const sseUrl = _ptagApiUrl(`sse?keys=processing_tags/${campaignId},processing_tag_defs/${campaignId}`);
         const source = new EventSource(sseUrl);
@@ -235,18 +237,13 @@ function setupProcessingTagRealtimeListeners(campaignId) {
             try {
                 const payload = JSON.parse(event.data);
                 const key = payload.key || '';
-                const data = payload.data;
 
                 if (key.startsWith('processing_tag_defs/')) {
-                    // Tag definitions changed - reload
-                    loadTagDefinitions(campaignId).then(() => {
-                        _ptagRenderPanelCards();
-                    });
+                    loadTagDefinitions(campaignId).then(() => _ptagRenderPanelCards());
                     return;
                 }
 
-                if (key.startsWith('processing_tags/') && data) {
-                    // Processing tag changed - reload full data for consistency
+                if (key.startsWith('processing_tags/')) {
                     _ptagReloadFromApi(campaignId);
                 }
             } catch (e) {
@@ -263,22 +260,37 @@ function setupProcessingTagRealtimeListeners(campaignId) {
     } catch (e) {
         console.error('[PTAG] SSE setup error:', e);
     }
+
+    // Polling fallback every 15s (SSE can be unreliable on Render)
+    ProcessingTagState._pollInterval = setInterval(() => {
+        _ptagReloadFromApi(campaignId);
+    }, 15000);
 }
 
 /**
- * Reload all processing tags from API (used by SSE handler)
+ * Reload all processing tags from API
+ * Correctly handles deleted orders by tracking old vs new keys
  */
 async function _ptagReloadFromApi(campaignId) {
     try {
         const resp = await fetch(_ptagApiUrl(`processing-tags/${campaignId}`));
         const json = await resp.json();
-        if (json.success && json.data) {
+        if (json.success) {
+            // Save old order IDs before clearing
+            const oldOrderIds = new Set(ProcessingTagState._orderTags.keys());
+
+            // Rebuild from server data
             ProcessingTagState._orderTags.clear();
-            Object.keys(json.data).forEach(orderId => {
-                ProcessingTagState._orderTags.set(orderId, json.data[orderId]);
+            const newData = json.data || {};
+            Object.keys(newData).forEach(orderId => {
+                ProcessingTagState._orderTags.set(orderId, newData[orderId]);
             });
-            // Update all visible cells
-            ProcessingTagState._orderTags.forEach((_, orderId) => _ptagUpdateCellDOM(orderId));
+
+            // Update cells for ALL affected orders (old + new)
+            const newOrderIds = new Set(Object.keys(newData));
+            const allAffected = new Set([...oldOrderIds, ...newOrderIds]);
+            allAffected.forEach(orderId => _ptagUpdateCellDOM(orderId));
+
             _ptagRenderPanelCards();
         }
     } catch (e) {
@@ -290,6 +302,10 @@ function _ptagCleanupListeners() {
     if (ProcessingTagState._sseSource) {
         ProcessingTagState._sseSource.close();
         ProcessingTagState._sseSource = null;
+    }
+    if (ProcessingTagState._pollInterval) {
+        clearInterval(ProcessingTagState._pollInterval);
+        ProcessingTagState._pollInterval = null;
     }
 }
 
