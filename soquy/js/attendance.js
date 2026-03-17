@@ -320,7 +320,7 @@
     // ================================================================
 
     /** Tính chi tiết lương chính theo loại ngày */
-    function calculateLuongChinhDetail(empId, empRate) {
+    function calculateLuongChinhDetail(empId, empRate, empSched) {
         const records = monthRecords;
         const y = currentMonth.year;
         const m = currentMonth.month;
@@ -335,7 +335,7 @@
             const dateKey = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
             const dayRecs = records.filter(r => String(r.deviceUserId) === String(empId) && r.dateKey === dateKey);
             const cellData = processDayRecords(dayRecs);
-            const sal = calculateDaySalary(cellData, empRate, isFullDay(empId, dateKey));
+            const sal = calculateDaySalary(cellData, empRate, isFullDay(empId, dateKey), empSched);
 
             if (sal.baseSalary > 0) {
                 const dayOfWeek = new Date(y, m - 1, d).getDay(); // 0=CN, 6=T7
@@ -383,12 +383,15 @@
     }
 
     /** Tính chi tiết làm thêm theo loại ngày */
-    function calculateLamThemDetail(empId, empRate) {
+    function calculateLamThemDetail(empId, empRate, empSched) {
         const records = monthRecords;
         const y = currentMonth.year;
         const m = currentMonth.month;
         const lastDay = new Date(y, m, 0).getDate();
-        const hourlyRate = empRate / 12;
+        const ws = (empSched && empSched.workStart != null) ? empSched.workStart : SALARY.WORK_START_HOUR;
+        const we = (empSched && empSched.workEnd != null) ? empSched.workEnd : SALARY.OT_START_HOUR;
+        const workHours = we - ws;
+        const hourlyRate = empRate / workHours;
         const otHourlyRate = Math.round(hourlyRate * SALARY.OT_MULTIPLIER);
         const payDoc = getPayrollDoc(empId);
         const overrides = payDoc.otHoursOverride || {};
@@ -399,7 +402,7 @@
             const dateKey = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
             const dayRecs = records.filter(r => String(r.deviceUserId) === String(empId) && r.dateKey === dateKey);
             const cellData = processDayRecords(dayRecs);
-            const sal = calculateDaySalary(cellData, empRate, isFullDay(empId, dateKey));
+            const sal = calculateDaySalary(cellData, empRate, isFullDay(empId, dateKey), empSched);
 
             if (sal.otMinutes > 0) {
                 const hours = Math.round(sal.otMinutes / 60 * 100) / 100;
@@ -474,6 +477,7 @@
         const lastDay = new Date(y, m, 0).getDate();
         const empRate = emp.dailyRate || SALARY.DAILY_RATE;
         const payDoc = getPayrollDoc(empId);
+        const empSched = { workStart: emp.workStart, workEnd: emp.workEnd };
 
         let totalLate = 0, workedDays = 0;
         const lateDays = [];
@@ -483,7 +487,7 @@
             const dateKey = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
             const dayRecs = records.filter(r => String(r.deviceUserId) === empId && r.dateKey === dateKey);
             const cellData = processDayRecords(dayRecs);
-            const sal = calculateDaySalary(cellData, empRate, isFullDay(empId, dateKey));
+            const sal = calculateDaySalary(cellData, empRate, isFullDay(empId, dateKey), empSched);
             totalLate += sal.lateDeduction;
             if (sal.totalSalary > 0) workedDays++;
             if (sal.lateDeduction > 0) lateDays.push({ dateKey, minutes: sal.lateMinutes, amount: sal.lateDeduction });
@@ -491,11 +495,11 @@
         }
 
         // Lương chính: dùng override nếu có, ko thì dùng giá trị thực
-        const lcDetail = calculateLuongChinhDetail(empId, empRate);
+        const lcDetail = calculateLuongChinhDetail(empId, empRate, empSched);
         const luongChinh = lcDetail.reduce((s, r) => s + r.amount, 0);
 
         // Làm thêm: dùng override nếu có
-        const ltDetail = calculateLamThemDetail(empId, empRate);
+        const ltDetail = calculateLamThemDetail(empId, empRate, empSched);
         const lamThem = ltDetail.totalAmount;
 
         // Các field từ payroll doc
@@ -817,7 +821,8 @@
                 );
                 const cellData = processDayRecords(dayRecords);
                 totalMinutes += cellData.workedMinutes;
-                const daySalary = calculateDaySalary(cellData, empRate, isFullDay(empId, dateKey));
+                const empSched = { workStart: emp.workStart, workEnd: emp.workEnd };
+                const daySalary = calculateDaySalary(cellData, empRate, isFullDay(empId, dateKey), empSched);
                 weekSalary += daySalary.totalSalary;
                 if (daySalary.totalSalary > 0) workedDays++;
                 dayCells.push({ cellData, daySalary, dateKey });
@@ -971,9 +976,12 @@
      * - Đi muộn: sau 8:00 → trừ 5,000/phút
      * - Làm thêm: ra sau 20:00 → đủ lương + OT nhân đôi
      */
-    function calculateDaySalary(cellData, dailyRate, forceFullDay) {
+    function calculateDaySalary(cellData, dailyRate, forceFullDay, empSchedule) {
         const rate = dailyRate || SALARY.DAILY_RATE;
-        const hourlyRate = rate / 12;
+        const startHour = (empSchedule && empSchedule.workStart != null) ? empSchedule.workStart : SALARY.WORK_START_HOUR;
+        const endHour = (empSchedule && empSchedule.workEnd != null) ? empSchedule.workEnd : SALARY.OT_START_HOUR;
+        const workHours = endHour - startHour;
+        const hourlyRate = rate / workHours;
         const result = { baseSalary: 0, lateDeduction: 0, lateMinutes: 0, otPay: 0, otMinutes: 0, totalSalary: 0, dailyRate: rate };
 
         if (cellData.status === 'absent' || cellData.status === 'incomplete') {
@@ -986,17 +994,17 @@
 
         // --- Late penalty ---
         const startOfDay = new Date(checkIn);
-        startOfDay.setHours(SALARY.WORK_START_HOUR, 0, 0, 0);
+        startOfDay.setHours(startHour, 0, 0, 0);
         if (checkIn > startOfDay) {
             result.lateMinutes = Math.floor((checkIn - startOfDay) / (1000 * 60));
             result.lateDeduction = result.lateMinutes * SALARY.LATE_PENALTY_PER_MIN;
         }
 
-        // --- Base salary = hourlyRate × giờ làm (8:00-20:00) ---
+        // --- Base salary = hourlyRate × giờ làm ---
         const hour8 = new Date(checkIn);
-        hour8.setHours(SALARY.WORK_START_HOUR, 0, 0, 0);
+        hour8.setHours(startHour, 0, 0, 0);
         const hour20 = new Date(checkOut);
-        hour20.setHours(SALARY.OT_START_HOUR, 0, 0, 0);
+        hour20.setHours(endHour, 0, 0, 0);
 
         const workStart = checkIn > hour8 ? checkIn : hour8; // max(checkin, 8:00)
         let workEnd = checkOut < hour20 ? checkOut : hour20; // min(checkout, 20:00)
@@ -1217,7 +1225,8 @@
                     String(r.deviceUserId) === empId && r.dateKey === dateKey
                 );
                 const cellData = processDayRecords(dayRecords);
-                const daySalary = calculateDaySalary(cellData, empRate, isFullDay(empId, dateKey));
+                const empSched = { workStart: emp.workStart, workEnd: emp.workEnd };
+                const daySalary = calculateDaySalary(cellData, empRate, isFullDay(empId, dateKey), empSched);
                 weekSalary += daySalary.totalSalary;
                 if (daySalary.totalSalary > 0) workedDays++;
                 dayCells.push({ cellData, daySalary, dateKey, date });
@@ -1739,6 +1748,8 @@
             const empId = String(emp.userId || emp.uid || emp.id);
             const hidden = isHidden(empId);
             const rate = emp.dailyRate || SALARY.DAILY_RATE;
+            const workStart = emp.workStart != null ? emp.workStart : SALARY.WORK_START_HOUR;
+            const workEnd = emp.workEnd != null ? emp.workEnd : SALARY.OT_START_HOUR;
 
             html += `
                 <tr>
@@ -1755,6 +1766,14 @@
                     <td>
                         <input type="number" class="payroll-settings-input settings-salary" data-emp-id="${empId}"
                             value="${rate}" step="10000" min="0" placeholder="200000" style="text-align:right;">
+                    </td>
+                    <td style="text-align:center;">
+                        <input type="number" class="payroll-settings-input settings-work-start" data-emp-id="${empId}"
+                            value="${workStart}" min="0" max="23" step="1" style="text-align:center; width:55px;">
+                    </td>
+                    <td style="text-align:center;">
+                        <input type="number" class="payroll-settings-input settings-work-end" data-emp-id="${empId}"
+                            value="${workEnd}" min="0" max="23" step="1" style="text-align:center; width:55px;">
                     </td>
                 </tr>
             `;
@@ -1818,6 +1837,44 @@
                         }
                     }
                 }
+
+                if (e.target.classList.contains('settings-work-start')) {
+                    const val = parseInt(e.target.value);
+                    const newStart = isNaN(val) ? SALARY.WORK_START_HOUR : Math.max(0, Math.min(23, val));
+                    e.target.value = newStart;
+                    if (newStart !== (emp.workStart != null ? emp.workStart : SALARY.WORK_START_HOUR)) {
+                        try {
+                            const docId = String(emp.id || emp.userId);
+                            if (!docId.startsWith('test_')) {
+                                await db.collection(COLLECTIONS.deviceUsers).doc(docId).update({ workStart: newStart });
+                            }
+                            emp.workStart = newStart;
+                            showNotification(`Giờ vào: ${newStart}:00`, 'success');
+                            renderMonthlySchedule();
+                        } catch (err) {
+                            showNotification('Lỗi: ' + err.message, 'error');
+                        }
+                    }
+                }
+
+                if (e.target.classList.contains('settings-work-end')) {
+                    const val = parseInt(e.target.value);
+                    const newEnd = isNaN(val) ? SALARY.OT_START_HOUR : Math.max(0, Math.min(23, val));
+                    e.target.value = newEnd;
+                    if (newEnd !== (emp.workEnd != null ? emp.workEnd : SALARY.OT_START_HOUR)) {
+                        try {
+                            const docId = String(emp.id || emp.userId);
+                            if (!docId.startsWith('test_')) {
+                                await db.collection(COLLECTIONS.deviceUsers).doc(docId).update({ workEnd: newEnd });
+                            }
+                            emp.workEnd = newEnd;
+                            showNotification(`Giờ ra: ${newEnd}:00`, 'success');
+                            renderMonthlySchedule();
+                        } catch (err) {
+                            showNotification('Lỗi: ' + err.message, 'error');
+                        }
+                    }
+                }
             }, true);
         }
     }
@@ -1832,7 +1889,8 @@
 
         const empRate = emp.dailyRate || SALARY.DAILY_RATE;
         const empName = emp.name || `User ${empId}`;
-        const rows = calculateLuongChinhDetail(empId, empRate);
+        const empSched = { workStart: emp.workStart, workEnd: emp.workEnd };
+        const rows = calculateLuongChinhDetail(empId, empRate, empSched);
         const totalActualDays = rows.reduce((s, r) => s + r.actualDays, 0);
         const totalSalaryDays = rows.reduce((s, r) => s + r.salaryDays, 0);
         const totalAmount = rows.reduce((s, r) => s + r.amount, 0);
@@ -1941,7 +1999,8 @@
 
         const empRate = emp.dailyRate || SALARY.DAILY_RATE;
         const empName = emp.name || `User ${empId}`;
-        const detail = calculateLamThemDetail(empId, empRate);
+        const empSched = { workStart: emp.workStart, workEnd: emp.workEnd };
+        const detail = calculateLamThemDetail(empId, empRate, empSched);
 
         document.getElementById('ltEmpName').textContent = `Nhân viên: ${empName}`;
         document.getElementById('ltInfo').innerHTML = `<span>Loại lương: Theo ngày công chuẩn</span>`;
@@ -2658,6 +2717,7 @@ ${d.ghiChu ? `<div class="note-section"><strong>Ghi chú:</strong> ${d.ghiChu}</
 
         const empName = emp.name || `User ${empId}`;
         const empRate = emp.dailyRate || SALARY.DAILY_RATE;
+        const empSched = { workStart: emp.workStart, workEnd: emp.workEnd };
         const y = currentMonth.year;
         const m = currentMonth.month;
         const lastDay = new Date(y, m, 0).getDate();
@@ -2679,7 +2739,7 @@ ${d.ghiChu ? `<div class="note-section"><strong>Ghi chú:</strong> ${d.ghiChu}</
             const dateKey = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
             const dayRecs = monthRecords.filter(r => String(r.deviceUserId) === String(empId) && r.dateKey === dateKey);
             const cellData = processDayRecords(dayRecs);
-            const sal = calculateDaySalary(cellData, empRate, isFullDay(empId, dateKey));
+            const sal = calculateDaySalary(cellData, empRate, isFullDay(empId, dateKey), empSched);
             const dow = new Date(y, m - 1, d).getDay();
 
             let statusClass = 'absent';
@@ -3049,7 +3109,8 @@ ${d.ghiChu ? `<div class="note-section"><strong>Ghi chú:</strong> ${d.ghiChu}</
             );
             const empRate = emp ? (emp.dailyRate || SALARY.DAILY_RATE) : SALARY.DAILY_RATE;
             const fdOverride = isFullDay(String(empId), dateKey);
-            const salary = calculateDaySalary(cellData, empRate, fdOverride);
+            const empSched = emp ? { workStart: emp.workStart, workEnd: emp.workEnd } : {};
+            const salary = calculateDaySalary(cellData, empRate, fdOverride, empSched);
 
             lines.push('');
             lines.push('════════════════════════════');
