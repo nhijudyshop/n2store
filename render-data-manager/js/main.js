@@ -2,7 +2,9 @@
 // RENDER DATA MANAGER - Main JS
 // =====================================================
 
-const API_BASE = 'https://n2store-chat.onrender.com/api/admin/data';
+const API_BASE = window.location.hostname === 'localhost'
+    ? 'http://localhost:3000/api/admin/data'
+    : 'https://n2store-fallback.onrender.com/api/admin/data';
 
 // State
 let currentTable = null;
