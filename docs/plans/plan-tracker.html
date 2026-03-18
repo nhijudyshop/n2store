@@ -6,22 +6,22 @@
     <title>N2Store — Plan Implementation Tracker</title>
     <style>
         :root {
-            --bg: #0f172a;
-            --surface: #1e293b;
-            --surface2: #334155;
-            --border: #475569;
-            --text: #e2e8f0;
-            --text-muted: #94a3b8;
-            --green: #10b981;
-            --green-bg: rgba(16,185,129,0.12);
-            --amber: #f59e0b;
-            --amber-bg: rgba(245,158,11,0.12);
-            --red: #ef4444;
-            --red-bg: rgba(239,68,68,0.12);
-            --blue: #3b82f6;
-            --blue-bg: rgba(59,130,246,0.12);
-            --purple: #8b5cf6;
-            --purple-bg: rgba(139,92,246,0.12);
+            --bg: #f0f4ff;
+            --surface: #ffffff;
+            --surface2: #f1f5f9;
+            --border: #cbd5e1;
+            --text: #1e293b;
+            --text-muted: #64748b;
+            --green: #059669;
+            --green-bg: rgba(5,150,105,0.1);
+            --amber: #d97706;
+            --amber-bg: rgba(217,119,6,0.1);
+            --red: #dc2626;
+            --red-bg: rgba(220,38,38,0.1);
+            --blue: #2563eb;
+            --blue-bg: rgba(37,99,235,0.1);
+            --purple: #7c3aed;
+            --purple-bg: rgba(124,58,237,0.1);
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body {
@@ -38,12 +38,13 @@
             text-align: center;
             padding: 30px 20px;
             margin-bottom: 30px;
-            background: linear-gradient(135deg, var(--surface), var(--surface2));
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #fff;
             border-radius: 16px;
             border: 1px solid var(--border);
         }
         .header h1 { font-size: 24px; margin-bottom: 8px; }
-        .header .subtitle { color: var(--text-muted); font-size: 14px; }
+        .header .subtitle { color: rgba(255,255,255,0.85); font-size: 14px; }
 
         /* Progress Bar */
         .progress-section {
@@ -52,6 +53,7 @@
             padding: 20px;
             margin-bottom: 24px;
             border: 1px solid var(--border);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
         }
         .progress-header {
             display: flex;
@@ -75,7 +77,7 @@
         }
         .progress-bar-fill {
             height: 100%;
-            background: linear-gradient(90deg, var(--green), var(--blue));
+            background: linear-gradient(90deg, #10b981, #3b82f6);
             border-radius: 5px;
             transition: width 0.4s ease;
         }
@@ -100,15 +102,15 @@
             align-items: center;
             gap: 6px;
         }
-        .sprint-tab:hover { border-color: var(--blue); color: var(--text); }
-        .sprint-tab.active { background: var(--blue-bg); border-color: var(--blue); color: var(--blue); }
+        .sprint-tab:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-bg); }
+        .sprint-tab.active { background: var(--blue); border-color: var(--blue); color: #fff; }
         .sprint-tab .tab-badge {
             font-size: 11px;
             padding: 1px 6px;
             border-radius: 10px;
             background: var(--surface2);
         }
-        .sprint-tab.active .tab-badge { background: rgba(59,130,246,0.25); }
+        .sprint-tab.active .tab-badge { background: rgba(255,255,255,0.25); color: #fff; }
 
         /* Sprint Section */
         .sprint-section {
@@ -117,6 +119,7 @@
             margin-bottom: 16px;
             border: 1px solid var(--border);
             overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
         }
         .sprint-section.hidden { display: none; }
         .sprint-header {
@@ -172,7 +175,7 @@
             margin-top: 4px;
             width: 18px;
             height: 18px;
-            accent-color: var(--green);
+            accent-color: #10b981;
             cursor: pointer;
             flex-shrink: 0;
         }
@@ -210,7 +213,8 @@
             color: var(--text-muted);
             font-family: 'Cascadia Code', 'Fira Code', monospace;
         }
-        .file-tag.new { background: var(--green-bg); color: var(--green); }
+        .file-tag { border: 1px solid var(--border); }
+        .file-tag.new { background: var(--green-bg); color: var(--green); border-color: var(--green); }
 
         /* Summary table */
         .summary-table {
@@ -261,7 +265,7 @@
 
         /* Dependency graph */
         .dep-graph {
-            background: var(--surface2);
+            background: #1e293b;
             padding: 16px;
             border-radius: 8px;
             font-family: 'Cascadia Code', 'Fira Code', monospace;
@@ -269,7 +273,7 @@
             white-space: pre;
             overflow-x: auto;
             line-height: 1.8;
-            color: var(--text-muted);
+            color: #94a3b8;
         }
 
         @media (max-width: 768px) {
