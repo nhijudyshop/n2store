@@ -6,7 +6,7 @@
 // Firebase paths:
 // - live_ledger/{campaignId}/products/{productId}
 // - live_ledger/{campaignId}/metadata
-// - orderProducts/product_{id} — order-management (Duyên, 2-way sync)
+// - orderProducts/{tposCampaignId}/product_{id} — order-management (Duyên, 2-way sync)
 // =====================================================
 
 (function () {
@@ -16,6 +16,7 @@
     let orderManagementListener = null;
     let ledgerListener = null;
     let _syncingFromSave = false;
+    let _tposCampaignId = null; // TPOS campaign ID for orderProducts path
 
     function getDb() {
         return window.firebase ? window.firebase.database() : null;
@@ -30,6 +31,56 @@
 
     function getCampaignName() {
         return (typeof currentTableName !== 'undefined' ? currentTableName : '') || '';
+    }
+
+    /**
+     * Get TPOS campaign ID for orderProducts path.
+     * This is the actual TPOS campaign ID (number), different from the sanitized table name.
+     * orderProducts are stored at: orderProducts/{tposCampaignId}/product_{productId}
+     */
+    async function getTposCampaignId() {
+        // Return cached value if available
+        if (_tposCampaignId) return _tposCampaignId;
+
+        // Try to get from campaignInfoFromTab1 (set by overview-fetch.js)
+        if (typeof campaignInfoFromTab1 !== 'undefined' && campaignInfoFromTab1) {
+            const id = campaignInfoFromTab1.activeCampaignId;
+            if (id) {
+                _tposCampaignId = String(id);
+                console.log('[LEDGER] Got TPOS campaign ID from Tab1:', _tposCampaignId);
+                return _tposCampaignId;
+            }
+        }
+
+        // Fallback: request from Tab1 via postMessage
+        try {
+            const info = await new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => {
+                    window.removeEventListener('message', handler);
+                    reject(new Error('Timeout'));
+                }, 3000);
+
+                const handler = (event) => {
+                    if (event.data.type === 'CAMPAIGN_INFO_RESPONSE') {
+                        clearTimeout(timeout);
+                        window.removeEventListener('message', handler);
+                        resolve(event.data.campaignInfo);
+                    }
+                };
+                window.addEventListener('message', handler);
+                window.parent.postMessage({ type: 'REQUEST_CAMPAIGN_INFO' }, '*');
+            });
+
+            if (info && info.activeCampaignId) {
+                _tposCampaignId = String(info.activeCampaignId);
+                console.log('[LEDGER] Got TPOS campaign ID via postMessage:', _tposCampaignId);
+                return _tposCampaignId;
+            }
+        } catch (e) {
+            console.warn('[LEDGER] Could not get TPOS campaign ID:', e.message);
+        }
+
+        return null;
     }
 
     // =====================================================
@@ -105,7 +156,11 @@
                 (Array.isArray(orders) ? orders : Object.values(orders)).forEach(item => {
                     const order = item.order || item;
                     (order.Details || []).forEach(detail => {
+                        // FIX BUG 5: Skip details without valid ProductId (Excel source has null)
+                        if (!detail.ProductId && detail.ProductId !== 0) return;
                         const pid = String(detail.ProductId);
+                        if (pid === 'null' || pid === 'undefined' || pid === '') return;
+
                         qtyMap[pid] = (qtyMap[pid] || 0) + (detail.Quantity || 0);
                         if (!productInfoMap[pid]) {
                             productInfoMap[pid] = {
@@ -118,92 +173,111 @@
             }
 
             // Step 2: Pull order-management data (Duyên's soldQty + product info)
-            const omSnapshot = await db.ref('orderProducts').once('value');
-            const orderProducts = omSnapshot.val() || {};
+            // FIX BUG 1 & 3: Read from correct campaign-scoped path
+            const tposCampaignId = await getTposCampaignId();
             const duyenQtyMap = {};
             const nccMap = {};
-            const omProductInfoMap = {}; // Product info from order-management
-            const omStockMap = {}; // QtyAvailable from order-management
+            const omProductInfoMap = {};
+            const omStockMap = {};
 
-            // Check current campaign ID for filtering
-            const currentCampaignForFilter = campaignId;
+            if (tposCampaignId) {
+                const omSnapshot = await db.ref(`orderProducts/${tposCampaignId}`).once('value');
+                const orderProducts = omSnapshot.val() || {};
 
-            Object.entries(orderProducts).forEach(([key, product]) => {
-                if (!product || !product.Id) return;
-                const pid = String(product.Id);
+                Object.entries(orderProducts).forEach(([key, product]) => {
+                    if (!product || !product.Id) return;
+                    const pid = String(product.Id);
 
-                // Filter by campaign if product has campaignId tag
-                if (product.campaignId && product.campaignId !== currentCampaignForFilter) {
-                    return; // Skip products from other campaigns
-                }
+                    duyenQtyMap[pid] = product.soldQty || 0;
 
-                duyenQtyMap[pid] = product.soldQty || 0;
+                    // Extract NCC from NameGet pattern
+                    const ncc = extractNccName(product);
+                    if (ncc) nccMap[pid] = ncc;
 
-                // Extract NCC from NameGet pattern: "[CODE] NCC ..."
-                const ncc = extractNccName(product);
-                if (ncc) nccMap[pid] = ncc;
+                    // Extract product code and name from NameGet
+                    const code = extractProductCode(product);
+                    const name = extractProductName(product);
+                    if (code || name) {
+                        omProductInfoMap[pid] = {
+                            productCode: code,
+                            productName: name,
+                        };
+                    }
 
-                // Extract product code and name from NameGet
-                const code = extractProductCode(product);
-                const name = extractProductName(product);
-                if (code || name) {
-                    omProductInfoMap[pid] = {
-                        productCode: code,
-                        productName: name,
-                    };
-                }
+                    // FIX BUG 6: Stock from QtyAvailable - always update (including 0)
+                    if (product.QtyAvailable != null) {
+                        omStockMap[pid] = product.QtyAvailable;
+                    }
+                });
 
-                // Stock from QtyAvailable
-                if (product.QtyAvailable > 0) {
-                    omStockMap[pid] = product.QtyAvailable;
-                }
-            });
+                console.log('[LEDGER] Loaded orderProducts from TPOS campaign:', tposCampaignId, 'products:', Object.keys(duyenQtyMap).length);
+            } else {
+                console.warn('[LEDGER] No TPOS campaign ID available - Duyên order data will not be synced');
+            }
 
             // Step 3: Load existing ledger data from Firebase
             const ledgerSnapshot = await db.ref(`live_ledger/${campaignId}/products`).once('value');
             const existingLedger = ledgerSnapshot.val() || {};
 
-            // Step 4: Merge all product IDs
-            const allPids = new Set([
+            // Step 4: Build product set from CURRENT data sources only
+            // FIX BUG 7: Only include products from current data sources, not stale existingLedger
+            const currentPids = new Set([
                 ...Object.keys(qtyMap),
-                ...Object.keys(duyenQtyMap),
-                ...Object.keys(existingLedger)
+                ...Object.keys(duyenQtyMap)
             ]);
 
-            // Step 5: Build updates — preserve manual edits, enrich from order-management
+            // Also keep existing ledger products that have manual edits (nccDeliveredQty > 0 or notes)
+            Object.entries(existingLedger).forEach(([pid, data]) => {
+                if (data && (data.nccDeliveredQty > 0 || (data.notes && data.notes.trim()))) {
+                    currentPids.add(pid);
+                }
+            });
+
+            // Step 5: Build updates — use current data, preserve manual edits only
             const updates = {};
-            allPids.forEach(pid => {
+            currentPids.forEach(pid => {
                 const existing = existingLedger[pid] || {};
                 const omInfo = omProductInfoMap[pid] || {};
                 const custInfo = productInfoMap[pid] || {};
 
-                // Priority: existing > order-management > customer orders
+                // FIX BUG 4: Use explicit checks instead of || for numeric values
+                // customerOrderQty: always use current data (0 if not in current orders)
+                const customerOrderQty = pid in qtyMap ? qtyMap[pid] : 0;
+                // duyenOrderQty: use order-management data if available, else keep existing manual value
+                const duyenOrderQty = pid in duyenQtyMap ? duyenQtyMap[pid] : (existing.duyenOrderQty || 0);
+                // stockQty: use order-management data if available, else keep existing
+                const stockQty = pid in omStockMap ? omStockMap[pid] : (existing.stockQty || 0);
+
+                // Priority for product info: order-management > customer orders > existing
                 updates[pid] = {
-                    productCode: existing.productCode || omInfo.productCode || custInfo.productCode || '',
-                    productName: existing.productName || omInfo.productName || custInfo.productName || '',
-                    nccName: existing.nccName || nccMap[pid] || '',
-                    customerOrderQty: qtyMap[pid] || existing.customerOrderQty || 0,
-                    duyenOrderQty: duyenQtyMap[pid] || existing.duyenOrderQty || 0,
+                    productCode: omInfo.productCode || custInfo.productCode || existing.productCode || '',
+                    productName: omInfo.productName || custInfo.productName || existing.productName || '',
+                    nccName: nccMap[pid] || existing.nccName || '',
+                    customerOrderQty: customerOrderQty,
+                    duyenOrderQty: duyenOrderQty,
                     nccDeliveredQty: existing.nccDeliveredQty || 0,
-                    stockQty: omStockMap[pid] || existing.stockQty || 0,
+                    stockQty: stockQty,
                     notes: existing.notes || '',
                     lastUpdated: Date.now()
                 };
             });
 
-            // Step 6: Save to Firebase
-            if (Object.keys(updates).length > 0) {
-                await db.ref(`live_ledger/${campaignId}/products`).update(updates);
-                await db.ref(`live_ledger/${campaignId}/metadata`).set({
-                    campaignName: campaignName,
-                    date: new Date().toISOString().split('T')[0],
-                    lastUpdated: Date.now()
-                });
-            }
+            // Step 6: Save to Firebase — use .set() to replace stale data completely
+            await db.ref(`live_ledger/${campaignId}/products`).set(
+                Object.keys(updates).length > 0 ? updates : null
+            );
+            await db.ref(`live_ledger/${campaignId}/metadata`).set({
+                campaignName: campaignName,
+                tposCampaignId: tposCampaignId || null,
+                date: new Date().toISOString().split('T')[0],
+                lastUpdated: Date.now()
+            });
 
             // Step 7: Setup realtime listeners
             setupLedgerListener(campaignId);
-            setupOrderManagementSync(campaignId);
+            if (tposCampaignId) {
+                setupOrderManagementSync(campaignId, tposCampaignId);
+            }
 
             console.log('[LEDGER] ✓ Refreshed', Object.keys(updates).length, 'products from cached data');
 
@@ -230,25 +304,25 @@
         });
     }
 
-    function setupOrderManagementSync(campaignId) {
+    function setupOrderManagementSync(campaignId, tposCampaignId) {
         const db = getDb();
-        if (!db) return;
+        if (!db || !tposCampaignId) return;
 
         if (orderManagementListener) {
-            db.ref('orderProducts').off('value', orderManagementListener);
+            // Detach previous listener using correct path
+            db.ref(`orderProducts/${orderManagementListener._tposCampaignId}`).off('value', orderManagementListener._handler);
         }
 
-        orderManagementListener = db.ref('orderProducts').on('value', (snapshot) => {
+        // FIX BUG 1: Listen to correct campaign-scoped path
+        const omRef = db.ref(`orderProducts/${tposCampaignId}`);
+        const handler = (snapshot) => {
             if (_syncingFromSave) return;
 
             const orderProducts = snapshot.val() || {};
             let updated = false;
 
-            Object.values(orderProducts).forEach(product => {
+            Object.entries(orderProducts).forEach(([key, product]) => {
                 if (!product || !product.Id) return;
-
-                // Filter by campaign if product has campaignId tag
-                if (product.campaignId && product.campaignId !== campaignId) return;
 
                 const pid = String(product.Id);
                 const soldQty = product.soldQty || 0;
@@ -272,9 +346,12 @@
                         const ncc = extractNccName(product);
                         if (ncc) db.ref(`live_ledger/${campaignId}/products/${pid}/nccName`).set(ncc);
                     }
-                    // Update stock from QtyAvailable
-                    if (product.QtyAvailable > 0 && ledgerProducts[pid].stockQty === 0) {
-                        db.ref(`live_ledger/${campaignId}/products/${pid}/stockQty`).set(product.QtyAvailable);
+                    // FIX BUG 6: Always update stock from QtyAvailable
+                    if (product.QtyAvailable != null) {
+                        const currentStock = ledgerProducts[pid].stockQty || 0;
+                        if (currentStock !== product.QtyAvailable) {
+                            db.ref(`live_ledger/${campaignId}/products/${pid}/stockQty`).set(product.QtyAvailable);
+                        }
                     }
                 } else if (soldQty > 0) {
                     db.ref(`live_ledger/${campaignId}/products/${pid}`).set({
@@ -293,7 +370,11 @@
             });
 
             if (updated) console.log('[LEDGER] Synced soldQty from order-management');
-        });
+        };
+
+        omRef.on('value', handler);
+        // Store reference for cleanup
+        orderManagementListener = { _tposCampaignId: tposCampaignId, _handler: handler };
     }
 
     // =====================================================
@@ -311,9 +392,10 @@
         db.ref(`live_ledger/${campaignId}/products/${productId}/${field}`).set(numValue);
         db.ref(`live_ledger/${campaignId}/products/${productId}/lastUpdated`).set(Date.now());
 
-        if (field === 'duyenOrderQty') {
+        // FIX BUG 2: Write to correct campaign-scoped path in orderProducts
+        if (field === 'duyenOrderQty' && _tposCampaignId) {
             _syncingFromSave = true;
-            db.ref(`orderProducts/product_${productId}/soldQty`).set(numValue);
+            db.ref(`orderProducts/${_tposCampaignId}/product_${productId}/soldQty`).set(numValue);
             setTimeout(() => { _syncingFromSave = false; }, 500);
         }
     }
@@ -476,7 +558,7 @@
             ledgerListener = null;
         }
         if (orderManagementListener && db) {
-            db.ref('orderProducts').off('value', orderManagementListener);
+            db.ref(`orderProducts/${orderManagementListener._tposCampaignId}`).off('value', orderManagementListener._handler);
             orderManagementListener = null;
         }
     }
