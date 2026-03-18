@@ -751,18 +751,28 @@ class PancakeDataManager {
                 `${pagesParams}&access_token=${token}`
             );
 
-            console.log('[PANCAKE] Multi-page URL:', url, `(${fbPageIds.length} pages: ${fbPageIds.join(', ')})`);
+            console.log('[PANCAKE-DEBUG] fetchConvByFbId URL:', url);
+            console.log(`[PANCAKE-DEBUG] fetchConvByFbId token: ${token ? token.substring(0, 20) + '...' : 'NULL'}`);
+            console.log(`[PANCAKE-DEBUG] fetchConvByFbId pages (${fbPageIds.length}):`, fbPageIds);
 
             const response = await this.queuedFetch(url, {
                 method: 'GET',
                 headers: { 'Content-Type': 'application/json' }
             }, `fetchConvByFbId:${fbId}`, 3, true);
 
+            console.log(`[PANCAKE-DEBUG] fetchConvByFbId response status: ${response.status}`);
+
             let conversations = [];
             if (response.ok) {
                 const data = await response.json();
                 conversations = data.conversations || [];
+                console.log(`[PANCAKE-DEBUG] fetchConvByFbId found ${conversations.length} conversations, keys:`, Object.keys(data));
+                if (conversations.length > 0) {
+                    console.log(`[PANCAKE-DEBUG] First conversation:`, JSON.stringify(conversations[0]).substring(0, 300));
+                }
             } else {
+                const errorBody = await response.text();
+                console.error(`[PANCAKE-DEBUG] fetchConvByFbId ERROR body: ${errorBody}`);
                 console.warn('[PANCAKE] Multi-page request failed:', response.status);
             }
 
@@ -1321,6 +1331,9 @@ class PancakeDataManager {
                 pageAccessToken
             ) + extraParams;
 
+            console.log(`[PANCAKE-DEBUG] fetchMessages URL: ${url}`);
+            console.log(`[PANCAKE-DEBUG] pageAccessToken: ${pageAccessToken ? pageAccessToken.substring(0, 20) + '...' : 'NULL'}`);
+
             // Use queuedFetch with conversation-specific deduplication key
             const response = await this.queuedFetch(url, {
                 method: 'GET',
@@ -1329,12 +1342,17 @@ class PancakeDataManager {
                 }
             }, `fetchMessages:${pageId}:${conversationId}`, 3, true);
 
+            console.log(`[PANCAKE-DEBUG] fetchMessages response status: ${response.status}`);
+
             if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                const errorBody = await response.text();
+                console.error(`[PANCAKE-DEBUG] fetchMessages ERROR body: ${errorBody}`);
+                throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorBody}`);
             }
 
             const data = await response.json();
             console.log(`[PANCAKE] Fetched ${data.messages?.length || 0} messages`);
+            console.log(`[PANCAKE-DEBUG] fetchMessages full response keys:`, Object.keys(data));
 
             // Extract customer_id from customers array if available
             const customers = data.customers || data.conv_customers || [];

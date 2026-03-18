@@ -2116,11 +2116,13 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                         }
 
                     } else {
-                        console.warn('[CHAT-MODAL] No conversations found for fb_id:', facebookPsid);
+                        console.warn('[CHAT-MODAL-DEBUG] No conversations found for fb_id:', facebookPsid);
+                        console.warn('[CHAT-MODAL-DEBUG] result:', JSON.stringify(result));
                         modalBody.innerHTML = `
                             <div class="chat-error">
                                 <i class="fas fa-info-circle"></i>
                                 <p>Không tìm thấy cuộc hội thoại</p>
+                                <p style="font-size:11px;color:#9ca3af;margin-top:8px;">Debug: fb_id=${facebookPsid}, channelId=${channelId}</p>
                             </div>`;
                     }
                 } catch (fetchError) {
@@ -2206,7 +2208,9 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                     updateReadBadge(false);
                     updateMarkButton(false);
 
-                    console.log('[CHAT-MODAL] Fetching INBOX messages via direct ID:', directInboxId);
+                    console.log('[CHAT-MODAL-DEBUG] Fetching INBOX messages via direct ID:', directInboxId);
+                    console.log('[CHAT-MODAL-DEBUG] channelId:', channelId, 'psid:', facebookPsid, 'customerUUID:', window.currentCustomerUUID);
+                    console.log('[CHAT-MODAL-DEBUG] pageAccessToken:', preloadedPageAccessToken ? preloadedPageAccessToken.substring(0, 20) + '...' : 'NULL');
 
                     const messagesResponse = await window.pancakeDataManager.fetchMessagesForConversation(
                         channelId,
@@ -2216,6 +2220,8 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                         preloadedPageAccessToken
                     );
 
+                    console.log('[CHAT-MODAL-DEBUG] messagesResponse:', JSON.stringify(messagesResponse).substring(0, 500));
+
                     window.allChatMessages = messagesResponse.messages || [];
                     currentChatCursor = messagesResponse.after;
 
@@ -2223,11 +2229,12 @@ window.openChatModal = async function (orderId, channelId, psid, type = 'message
                         console.log('[CHAT-MODAL] Loaded', window.allChatMessages.length, 'messages');
                         renderChatMessages(window.allChatMessages, true);
                     } else {
-                        console.warn('[CHAT-MODAL] No INBOX messages found');
+                        console.warn('[CHAT-MODAL-DEBUG] No INBOX messages found. Full response:', JSON.stringify(messagesResponse));
                         modalBody.innerHTML = `
                             <div class="chat-error">
                                 <i class="fas fa-info-circle"></i>
                                 <p>Không tìm thấy tin nhắn cho khách hàng này</p>
+                                <p style="font-size:11px;color:#9ca3af;margin-top:8px;">Debug: convId=${directInboxId}, channelId=${channelId}, psid=${facebookPsid}</p>
                             </div>`;
                     }
 
