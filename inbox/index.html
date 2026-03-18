@@ -14,6 +14,17 @@
         <link rel="stylesheet" href="css/inbox.css" />
         <link rel="stylesheet" href="css/quick-reply-modal.css" />
 
+        <!-- ES Module: Shared utilities (needed by navigation-modern.js) -->
+        <script type="module" src="../shared/esm/compat.js"></script>
+
+        <!-- Fallback for file:// protocol -->
+        <script>
+            if (window.location.protocol === 'file:') {
+                document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
+                document.write('<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>');
+            }
+        </script>
+
         <script defer src="../shared/js/navigation-modern.js"></script>
 
         <!-- Lucide Icons CDN -->
