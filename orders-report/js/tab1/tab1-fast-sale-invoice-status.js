@@ -178,63 +178,37 @@
          */
         async _loadFromFirestore() {
             try {
-                const isAdmin = this._isAdmin();
-
                 // CLEAR old data - Firestore là source of truth
                 this._data.clear();
                 this._sentBills.clear();
 
-                if (isAdmin) {
-                    // Admin: load ALL documents from invoice_status collection
-                    console.log('[INVOICE-STATUS] Admin detected, loading ALL users data from Firestore...');
-                    const db = firebase.firestore();
-                    const snapshot = await db.collection(FIRESTORE_COLLECTION).get();
+                // Load ALL documents from invoice_status collection (all users)
+                console.log('[INVOICE-STATUS] Loading ALL users data from Firestore...');
+                const db = firebase.firestore();
+                const snapshot = await db.collection(FIRESTORE_COLLECTION).get();
 
-                    let totalEntries = 0;
-                    snapshot.forEach(doc => {
-                        const firestoreData = doc.data();
+                let totalEntries = 0;
+                snapshot.forEach(doc => {
+                    const firestoreData = doc.data();
 
-                        // Load data từ Firestore (REPLACE, not merge)
-                        if (firestoreData.data) {
-                            const entries = Array.isArray(firestoreData.data)
-                                ? firestoreData.data
-                                : Object.entries(firestoreData.data);
-                            entries.forEach(([key, value]) => {
-                                this._data.set(key, value);
-                                totalEntries++;
-                            });
-                        }
-
-                        // Load sent bills
-                        if (firestoreData.sentBills && Array.isArray(firestoreData.sentBills)) {
-                            firestoreData.sentBills.forEach(id => this._sentBills.add(id));
-                        }
-                    });
-
-                    console.log(`[INVOICE-STATUS] Admin loaded ${totalEntries} entries from ${snapshot.size} users (Firestore = source of truth)`);
-                } else {
-                    // Normal user: load only their own document
-                    const doc = await this._getDocRef().get();
-                    if (doc.exists) {
-                        const firestoreData = doc.data();
-
-                        // Load data từ Firestore (REPLACE, not merge)
-                        if (firestoreData.data) {
-                            const entries = Array.isArray(firestoreData.data)
-                                ? firestoreData.data
-                                : Object.entries(firestoreData.data);
-                            entries.forEach(([key, value]) => {
-                                this._data.set(key, value);
-                            });
-                        }
-
-                        // Load sent bills
-                        if (firestoreData.sentBills && Array.isArray(firestoreData.sentBills)) {
-                            firestoreData.sentBills.forEach(id => this._sentBills.add(id));
-                        }
+                    // Load data từ Firestore (REPLACE, not merge)
+                    if (firestoreData.data) {
+                        const entries = Array.isArray(firestoreData.data)
+                            ? firestoreData.data
+                            : Object.entries(firestoreData.data);
+                        entries.forEach(([key, value]) => {
+                            this._data.set(key, value);
+                            totalEntries++;
+                        });
                     }
-                    console.log(`[INVOICE-STATUS] Loaded ${this._data.size} entries from Firestore (source of truth)`);
-                }
+
+                    // Load sent bills
+                    if (firestoreData.sentBills && Array.isArray(firestoreData.sentBills)) {
+                        firestoreData.sentBills.forEach(id => this._sentBills.add(id));
+                    }
+                });
+
+                console.log(`[INVOICE-STATUS] Loaded ${totalEntries} entries from ${snapshot.size} users (Firestore = source of truth)`);
 
                 // Cache to localStorage
                 this._saveToLocalStorage();
@@ -304,28 +278,16 @@
                 return;
             }
 
-            const isAdmin = this._isAdmin();
             const db = firebase.firestore();
 
-            if (isAdmin) {
-                // Admin: Listen to ALL documents in the collection
-                console.log('[INVOICE-STATUS] Setting up real-time listener for ALL users (admin mode)...');
-                this._unsubscribe = db.collection(FIRESTORE_COLLECTION)
-                    .onSnapshot((snapshot) => {
-                        this._handleCollectionSnapshot(snapshot);
-                    }, (error) => {
-                        console.error('[INVOICE-STATUS] Real-time listener error:', error);
-                    });
-            } else {
-                // Normal user: Listen only to their own document
-                console.log('[INVOICE-STATUS] Setting up real-time listener for current user...');
-                this._unsubscribe = this._getDocRef()
-                    .onSnapshot((doc) => {
-                        this._handleDocSnapshot(doc);
-                    }, (error) => {
-                        console.error('[INVOICE-STATUS] Real-time listener error:', error);
-                    });
-            }
+            // Listen to ALL documents in the collection (all users)
+            console.log('[INVOICE-STATUS] Setting up real-time listener for ALL users...');
+            this._unsubscribe = db.collection(FIRESTORE_COLLECTION)
+                .onSnapshot((snapshot) => {
+                    this._handleCollectionSnapshot(snapshot);
+                }, (error) => {
+                    console.error('[INVOICE-STATUS] Real-time listener error:', error);
+                });
         },
 
         /**

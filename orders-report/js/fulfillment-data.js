@@ -43,44 +43,28 @@
 
     async function _loadInvoiceStatus() {
         const db = firebase.firestore();
-        const { username, isAdmin } = _getAuthInfo();
 
         invoiceStatusMap.clear();
 
-        if (isAdmin) {
-            const snapshot = await db.collection(INVOICE_COLLECTION).get();
-            snapshot.forEach(doc => {
-                const firestoreData = doc.data();
-                if (firestoreData.data) {
-                    const entries = Array.isArray(firestoreData.data)
-                        ? firestoreData.data
-                        : Object.entries(firestoreData.data);
-                    entries.forEach(([key, value]) => {
-                        invoiceStatusMap.set(String(key), value);
-                    });
-                }
-            });
-        } else {
-            const doc = await db.collection(INVOICE_COLLECTION).doc(username).get();
-            if (doc.exists) {
-                const firestoreData = doc.data();
-                if (firestoreData.data) {
-                    const entries = Array.isArray(firestoreData.data)
-                        ? firestoreData.data
-                        : Object.entries(firestoreData.data);
-                    entries.forEach(([key, value]) => {
-                        invoiceStatusMap.set(String(key), value);
-                    });
-                }
+        // Load ALL documents from all users
+        const snapshot = await db.collection(INVOICE_COLLECTION).get();
+        snapshot.forEach(doc => {
+            const firestoreData = doc.data();
+            if (firestoreData.data) {
+                const entries = Array.isArray(firestoreData.data)
+                    ? firestoreData.data
+                    : Object.entries(firestoreData.data);
+                entries.forEach(([key, value]) => {
+                    invoiceStatusMap.set(String(key), value);
+                });
             }
-        }
+        });
 
         console.log(`[FULFILLMENT] Loaded ${invoiceStatusMap.size} invoice status entries`);
     }
 
     async function _loadInvoiceDeletes() {
         const db = firebase.firestore();
-        const { username, isAdmin } = _getAuthInfo();
 
         invoiceDeleteMap.clear();
 
@@ -97,18 +81,12 @@
             });
         };
 
-        if (isAdmin) {
-            const snapshot = await db.collection(DELETE_COLLECTION).get();
-            snapshot.forEach(doc => {
-                const firestoreData = doc.data();
-                processEntries(firestoreData.data);
-            });
-        } else {
-            const doc = await db.collection(DELETE_COLLECTION).doc(username).get();
-            if (doc.exists) {
-                processEntries(doc.data().data);
-            }
-        }
+        // Load ALL documents from all users
+        const snapshot = await db.collection(DELETE_COLLECTION).get();
+        snapshot.forEach(doc => {
+            const firestoreData = doc.data();
+            processEntries(firestoreData.data);
+        });
 
         console.log(`[FULFILLMENT] Loaded delete entries for ${invoiceDeleteMap.size} orders`);
     }
@@ -119,87 +97,45 @@
 
     function _setupListeners() {
         const db = firebase.firestore();
-        const { username, isAdmin } = _getAuthInfo();
 
-        // Listener for invoice_status_v2
-        if (isAdmin) {
-            _unsubscribeStatus = db.collection(INVOICE_COLLECTION).onSnapshot(snapshot => {
-                if (!_initialized) return;
-                invoiceStatusMap.clear();
-                snapshot.forEach(doc => {
-                    const firestoreData = doc.data();
-                    if (firestoreData.data) {
-                        const entries = Array.isArray(firestoreData.data)
-                            ? firestoreData.data
-                            : Object.entries(firestoreData.data);
-                        entries.forEach(([key, value]) => {
-                            invoiceStatusMap.set(String(key), value);
-                        });
-                    }
-                });
-                _notifyChange();
-            });
-        } else {
-            _unsubscribeStatus = db.collection(INVOICE_COLLECTION).doc(username).onSnapshot(doc => {
-                if (!_initialized) return;
-                invoiceStatusMap.clear();
-                if (doc.exists) {
-                    const firestoreData = doc.data();
-                    if (firestoreData.data) {
-                        const entries = Array.isArray(firestoreData.data)
-                            ? firestoreData.data
-                            : Object.entries(firestoreData.data);
-                        entries.forEach(([key, value]) => {
-                            invoiceStatusMap.set(String(key), value);
-                        });
-                    }
+        // Listener for invoice_status_v2 - ALL users
+        _unsubscribeStatus = db.collection(INVOICE_COLLECTION).onSnapshot(snapshot => {
+            if (!_initialized) return;
+            invoiceStatusMap.clear();
+            snapshot.forEach(doc => {
+                const firestoreData = doc.data();
+                if (firestoreData.data) {
+                    const entries = Array.isArray(firestoreData.data)
+                        ? firestoreData.data
+                        : Object.entries(firestoreData.data);
+                    entries.forEach(([key, value]) => {
+                        invoiceStatusMap.set(String(key), value);
+                    });
                 }
-                _notifyChange();
             });
-        }
+            _notifyChange();
+        });
 
-        // Listener for invoice_status_delete_v2
-        if (isAdmin) {
-            _unsubscribeDelete = db.collection(DELETE_COLLECTION).onSnapshot(snapshot => {
-                if (!_initialized) return;
-                invoiceDeleteMap.clear();
-                snapshot.forEach(doc => {
-                    const firestoreData = doc.data();
-                    if (firestoreData.data) {
-                        const entries = Object.entries(firestoreData.data);
-                        entries.forEach(([key, value]) => {
-                            const saleOnlineId = String(value.SaleOnlineId || '');
-                            if (!saleOnlineId) return;
-                            if (!invoiceDeleteMap.has(saleOnlineId)) {
-                                invoiceDeleteMap.set(saleOnlineId, []);
-                            }
-                            invoiceDeleteMap.get(saleOnlineId).push(value);
-                        });
-                    }
-                });
-                _notifyChange();
-            });
-        } else {
-            _unsubscribeDelete = db.collection(DELETE_COLLECTION).doc(username).onSnapshot(doc => {
-                if (!_initialized) return;
-                invoiceDeleteMap.clear();
-                if (doc.exists) {
-                    const data = doc.data().data;
-                    if (data) {
-                        const entries = Object.entries(data);
-                        entries.forEach(([key, value]) => {
-                            const saleOnlineId = String(value.SaleOnlineId || '');
-                            if (!saleOnlineId) return;
-                            if (!invoiceDeleteMap.has(saleOnlineId)) {
-                                invoiceDeleteMap.set(saleOnlineId, []);
-                            }
-                            invoiceDeleteMap.get(saleOnlineId).push(value);
-                        });
-                    }
+        // Listener for invoice_status_delete_v2 - ALL users
+        _unsubscribeDelete = db.collection(DELETE_COLLECTION).onSnapshot(snapshot => {
+            if (!_initialized) return;
+            invoiceDeleteMap.clear();
+            snapshot.forEach(doc => {
+                const firestoreData = doc.data();
+                if (firestoreData.data) {
+                    const entries = Object.entries(firestoreData.data);
+                    entries.forEach(([key, value]) => {
+                        const saleOnlineId = String(value.SaleOnlineId || '');
+                        if (!saleOnlineId) return;
+                        if (!invoiceDeleteMap.has(saleOnlineId)) {
+                            invoiceDeleteMap.set(saleOnlineId, []);
+                        }
+                        invoiceDeleteMap.get(saleOnlineId).push(value);
+                    });
                 }
-                _notifyChange();
             });
-        }
+            _notifyChange();
+        });
     }
 
     function _notifyChange() {
