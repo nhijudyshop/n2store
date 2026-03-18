@@ -104,6 +104,28 @@
         </main>
     </div>
 
+    <!-- Error handler - catch silent module failures -->
+    <script>
+        window.addEventListener('error', function(e) {
+            console.error('Global error:', e.error || e.message);
+            var el = document.getElementById('tab-dashboard');
+            if (el && !el.innerHTML.trim()) {
+                el.innerHTML = '<div style="padding:2rem;color:#ef4444;background:#fef2f2;border-radius:8px;margin:1rem 0;">' +
+                    '<strong>JS Error:</strong> ' + (e.message || 'Unknown error') +
+                    '<br><small>' + (e.filename || '') + ':' + (e.lineno || '') + '</small></div>';
+            }
+        });
+        // Fallback: if after 5s still empty, show message
+        setTimeout(function() {
+            var el = document.getElementById('tab-dashboard');
+            if (el && !el.innerHTML.trim()) {
+                el.innerHTML = '<div style="padding:2rem;text-align:center;color:#94a3b8;">' +
+                    '<p style="font-size:1.1rem;font-weight:600;">Module JS chưa load được</p>' +
+                    '<p style="margin-top:0.5rem;">Kiểm tra Console (F12) để xem lỗi chi tiết</p></div>';
+            }
+        }, 5000);
+    </script>
+
     <!-- Main JS -->
     <script type="module" src="./js/main.js"></script>
 </body>

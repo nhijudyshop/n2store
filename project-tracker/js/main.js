@@ -185,6 +185,21 @@ class ProjectTracker {
 
 // Init when DOM ready
 document.addEventListener('DOMContentLoaded', () => {
-    const app = new ProjectTracker();
-    app.init().catch(err => console.error('ProjectTracker init failed:', err));
+    console.log('[ProjectTracker] DOMContentLoaded fired');
+    try {
+        const app = new ProjectTracker();
+        app.init().catch(err => {
+            console.error('ProjectTracker init failed:', err);
+            const el = document.getElementById('tab-dashboard');
+            if (el) el.innerHTML = `<div style="padding:2rem;color:#ef4444;background:#fef2f2;border-radius:8px;margin:1rem 0;">
+                <strong>Init Error:</strong> ${err.message}<br><pre style="margin-top:0.5rem;font-size:0.75rem;overflow:auto;">${err.stack || ''}</pre></div>`;
+        });
+    } catch (err) {
+        console.error('ProjectTracker constructor failed:', err);
+        const el = document.getElementById('tab-dashboard');
+        if (el) el.innerHTML = `<div style="padding:2rem;color:#ef4444;background:#fef2f2;border-radius:8px;margin:1rem 0;">
+            <strong>Constructor Error:</strong> ${err.message}</div>`;
+    }
 });
+
+console.log('[ProjectTracker] main.js module loaded successfully');
