@@ -108,27 +108,42 @@ async function saveToFirebase(tableName, data) {
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
 
-            // Delete old chunks first
+            // Use batched writes for better performance (fewer round-trips)
+            // Split into multiple batches to stay under Firestore 10MB batch size limit
+            // Each chunk doc ~700KB (100 orders × ~7KB), so max ~10 writes per batch
+            const BATCH_MAX_WRITES = 10;
             const chunksCollection = docRef.collection('order_chunks');
             const oldChunks = await chunksCollection.get();
-            const deletePromises = oldChunks.docs.map(doc => doc.ref.delete());
-            await Promise.all(deletePromises);
 
-            // Save orders in chunks
-            const chunkPromises = [];
+            // Phase 1: Delete old chunks in one batch (deletes are small, no size concern)
+            if (oldChunks.size > 0) {
+                const deleteBatch = database.batch();
+                oldChunks.docs.forEach(doc => deleteBatch.delete(doc.ref));
+                await deleteBatch.commit();
+            }
+
+            // Phase 2: Write new chunks in size-safe batches
+            const allChunks = [];
             for (let i = 0; i < totalOrders; i += ORDERS_CHUNK_SIZE) {
                 const chunkIndex = Math.floor(i / ORDERS_CHUNK_SIZE);
-                const chunk = sanitizedOrders.slice(i, i + ORDERS_CHUNK_SIZE);
-
-                chunkPromises.push(
-                    chunksCollection.doc(`chunk_${chunkIndex}`).set({
-                        orders: chunk,
-                        chunkIndex: chunkIndex,
-                        orderCount: chunk.length
-                    })
-                );
+                allChunks.push({
+                    index: chunkIndex,
+                    data: sanitizedOrders.slice(i, i + ORDERS_CHUNK_SIZE)
+                });
             }
-            await Promise.all(chunkPromises);
+
+            for (let b = 0; b < allChunks.length; b += BATCH_MAX_WRITES) {
+                const writeBatch = database.batch();
+                const batchSlice = allChunks.slice(b, b + BATCH_MAX_WRITES);
+                batchSlice.forEach(c => {
+                    writeBatch.set(chunksCollection.doc(`chunk_${c.index}`), {
+                        orders: c.data,
+                        chunkIndex: c.index,
+                        orderCount: c.data.length
+                    });
+                });
+                await writeBatch.commit();
+            }
 
             console.log(`[REPORT] ✅ Saved ${totalOrders} orders in ${Math.ceil(totalOrders / ORDERS_CHUNK_SIZE)} chunks`);
         } else {
