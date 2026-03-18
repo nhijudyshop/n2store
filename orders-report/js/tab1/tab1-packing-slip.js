@@ -331,8 +331,8 @@ function generatePackingSlipHTML(waitingIndices, notes = {}) {
                 <td style="border:1px solid #000; padding:5px 4px; text-align:center; font-size:15px;">
                     ${isWaiting ? '<b style="color:#c00;">✗</b>' : ''}
                 </td>
-                <td style="border:1px solid #000; padding:5px 4px; text-align:left; word-break:break-word;">
-                    ${productName}${note ? `<br/><i style="font-size:11px; color:#555;">Ghi chú: ${note}</i>` : ''}
+                <td style="border:1px solid #000; padding:5px 4px; text-align:left; word-break:break-word; font-size:7px; font-weight:bold;">
+                    ${productName}${note ? `<br/><b style="font-size:7px;">${note}</b>` : ''}
                 </td>
                 <td style="border:1px solid #000; padding:5px 4px; text-align:center;">${qty}</td>
                 <td style="border:1px solid #000; padding:5px 4px; text-align:right; font-size:11px;">${priceShort}</td>
