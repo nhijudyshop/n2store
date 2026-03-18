@@ -2338,16 +2338,26 @@ class InboxChatController {
         const replies = window.quickReplyManager.replies || [];
         if (replies.length === 0) { bar.style.display = 'none'; return; }
 
+        // Color rotation for quick reply buttons
+        const colors = ['qr-blue', 'qr-green', 'qr-purple', 'qr-red', 'qr-teal', 'qr-orange', 'qr-pink'];
+
         bar.style.display = '';
         const half = Math.ceil(replies.length / 2);
-        const first = replies.slice(0, Math.min(half, 6));
-        const second = replies.slice(Math.min(half, 6), Math.min(replies.length, 12));
+        const first = replies.slice(0, Math.min(half, 7));
+        const second = replies.slice(Math.min(half, 7), Math.min(replies.length, 14));
 
-        row1.innerHTML = first.map(r => `<button class="quick-reply-chip" data-id="${r.id}" style="${r.topicColor ? 'border-color:' + r.topicColor : ''}">${this.escapeHtml(r.shortcut || r.topic || '...')}</button>`).join('') +
-            `<button class="quick-reply-chip qr-more" onclick="quickReplyManager.openModal('chatInput')">+</button>`;
-        row2.innerHTML = second.map(r => `<button class="quick-reply-chip" data-id="${r.id}" style="${r.topicColor ? 'border-color:' + r.topicColor : ''}">${this.escapeHtml(r.shortcut || r.topic || '...')}</button>`).join('');
+        row1.innerHTML = first.map((r, i) => {
+            const colorCls = colors[i % colors.length];
+            return `<button class="qr-btn ${colorCls}" data-id="${r.id}" data-template="${this.escapeHtml(r.message || '')}">${this.escapeHtml(r.shortcut || r.topic || '...')}</button>`;
+        }).join('') + `<button class="qr-btn qr-purple" onclick="window.quickReplyManager?.openModal?.('chatInput')">+</button>`;
 
-        bar.querySelectorAll('.quick-reply-chip[data-id]').forEach(btn => {
+        row2.innerHTML = second.map((r, i) => {
+            const colorCls = colors[(i + first.length) % colors.length];
+            return `<button class="qr-btn ${colorCls}" data-id="${r.id}" data-template="${this.escapeHtml(r.message || '')}">${this.escapeHtml(r.shortcut || r.topic || '...')}</button>`;
+        }).join('');
+
+        // Click handler via event delegation (already bound in bindEvents for .qr-btn)
+        bar.querySelectorAll('.qr-btn[data-id]').forEach(btn => {
             btn.addEventListener('click', () => {
                 const id = parseInt(btn.dataset.id);
                 window.quickReplyManager.selectReply(id);
