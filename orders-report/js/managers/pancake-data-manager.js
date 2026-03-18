@@ -765,11 +765,11 @@ class PancakeDataManager {
             let conversations = [];
             if (response.ok) {
                 const data = await response.json();
-                conversations = data.conversations || [];
-                console.log(`[PANCAKE-DEBUG] fetchConvByFbId found ${conversations.length} conversations, keys:`, Object.keys(data));
-                if (conversations.length > 0) {
-                    console.log(`[PANCAKE-DEBUG] First conversation:`, JSON.stringify(conversations[0]).substring(0, 300));
+                console.log(`[PANCAKE-DEBUG] fetchConvByFbId FULL response:`, JSON.stringify(data).substring(0, 800));
+                if (data.success === false || data.error_code) {
+                    console.error(`[PANCAKE-DEBUG] ❌ fetchConvByFbId API ERROR: code=${data.error_code}, message=${data.message}, errors=${JSON.stringify(data.errors)}`);
                 }
+                conversations = data.conversations || [];
             } else {
                 const errorBody = await response.text();
                 console.error(`[PANCAKE-DEBUG] fetchConvByFbId ERROR body: ${errorBody}`);
@@ -1351,8 +1351,11 @@ class PancakeDataManager {
             }
 
             const data = await response.json();
+            console.log(`[PANCAKE-DEBUG] fetchMessages FULL response:`, JSON.stringify(data).substring(0, 800));
+            if (data.success === false || data.error_code) {
+                console.error(`[PANCAKE-DEBUG] ❌ fetchMessages API ERROR: code=${data.error_code}, message=${data.message}`);
+            }
             console.log(`[PANCAKE] Fetched ${data.messages?.length || 0} messages`);
-            console.log(`[PANCAKE-DEBUG] fetchMessages full response keys:`, Object.keys(data));
 
             // Extract customer_id from customers array if available
             const customers = data.customers || data.conv_customers || [];
