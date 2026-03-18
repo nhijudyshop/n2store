@@ -6,36 +6,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Theo Dõi Dự Án - N2Store</title>
     <link rel="icon" type="image/svg+xml" href="../shared/images/favicon.svg">
-    <!-- Fonts -->
     <link href="https://fonts.googleapis.com" rel="preconnect">
     <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Material Icons -->
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
-        rel="stylesheet">
-    <!-- Lucide Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
     <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
-    <!-- Tailwind CSS (CDN play) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="../shared/css/modern.css">
     <link rel="stylesheet" href="./css/style.css">
 
-    <!-- ES Module: Shared utilities -->
     <script type="module" src="../shared/esm/compat.js"></script>
-
-    <!-- Fallback for file:// protocol -->
     <script>
         if (window.location.protocol === 'file:') {
             document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
             document.write('<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>');
         }
     </script>
-
-    <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
     <script src="../shared/js/firebase-config.js"></script>
-    <!-- Navigation -->
     <script defer src="../shared/js/navigation-modern.js"></script>
 </head>
 
@@ -44,21 +33,21 @@
         <main class="flex-1 max-w-[1440px] w-full mx-auto px-4 sm:px-6 py-4">
 
             <!-- Header -->
-            <div class="mb-6">
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-3">
+            <div style="margin-bottom:24px">
+                <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+                    <div style="display:flex;align-items:center;gap:12px">
                         <button class="btn-icon md:hidden" id="menuToggle">
                             <span class="material-symbols-outlined">menu</span>
                         </button>
                         <div>
-                            <h1 class="text-xl sm:text-2xl font-bold text-slate-800 flex items-center gap-2">
-                                <span class="material-symbols-outlined text-purple-600">dashboard</span>
+                            <h1 style="font-size:1.5rem;font-weight:700;color:#1e293b;display:flex;align-items:center;gap:8px">
+                                <span class="material-symbols-outlined" style="color:#7c3aed">dashboard</span>
                                 Theo Dõi Dự Án
                             </h1>
-                            <p class="text-sm text-slate-500 mt-0.5">N2Store - Hệ thống quản lý bán hàng</p>
+                            <p style="font-size:0.875rem;color:#64748b;margin-top:2px">N2Store - Hệ thống quản lý bán hàng</p>
                         </div>
                     </div>
-                    <div class="flex items-center gap-2">
+                    <div style="display:flex;align-items:center;gap:8px">
                         <button id="btnSyncMd" style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:#7c3aed;color:white;border-radius:8px;font-size:0.875rem;font-weight:500;border:none;cursor:pointer">
                             <span class="material-symbols-outlined" style="font-size:18px">sync</span>
                             Đồng bộ từ MD
@@ -72,23 +61,19 @@
             </div>
 
             <!-- Tab Navigation -->
-            <div class="mb-6">
-                <nav class="flex space-x-1 border-b border-slate-200 overflow-x-auto" aria-label="Tabs">
-                    <button class="tab-btn active flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 border-purple-600 text-purple-700" data-tab="dashboard">
-                        <span class="material-symbols-outlined text-[18px]">bar_chart</span>
-                        Dashboard
+            <div style="margin-bottom:24px">
+                <nav style="display:flex;gap:4px;border-bottom:1px solid #e2e8f0;overflow-x:auto" aria-label="Tabs">
+                    <button class="tab-btn active" data-tab="dashboard" style="display:flex;align-items:center;gap:6px;padding:10px 16px;font-size:0.875rem;font-weight:500;white-space:nowrap;border:none;border-bottom:2px solid #7c3aed;color:#6d28d9;background:none;cursor:pointer">
+                        <span class="material-symbols-outlined" style="font-size:18px">bar_chart</span> Dashboard
                     </button>
-                    <button class="tab-btn flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 border-transparent text-slate-500 hover:text-slate-700" data-tab="feature-catalog">
-                        <span class="material-symbols-outlined text-[18px]">list_alt</span>
-                        Mục Lục Tính Năng
+                    <button class="tab-btn" data-tab="feature-catalog" style="display:flex;align-items:center;gap:6px;padding:10px 16px;font-size:0.875rem;font-weight:500;white-space:nowrap;border:none;border-bottom:2px solid transparent;color:#64748b;background:none;cursor:pointer">
+                        <span class="material-symbols-outlined" style="font-size:18px">list_alt</span> Mục Lục Tính Năng
                     </button>
-                    <button class="tab-btn flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 border-transparent text-slate-500 hover:text-slate-700" data-tab="todo-system">
-                        <span class="material-symbols-outlined text-[18px]">checklist</span>
-                        Kế Hoạch & Todo
+                    <button class="tab-btn" data-tab="todo-system" style="display:flex;align-items:center;gap:6px;padding:10px 16px;font-size:0.875rem;font-weight:500;white-space:nowrap;border:none;border-bottom:2px solid transparent;color:#64748b;background:none;cursor:pointer">
+                        <span class="material-symbols-outlined" style="font-size:18px">checklist</span> Kế Hoạch & Todo
                     </button>
-                    <button class="tab-btn flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 border-transparent text-slate-500 hover:text-slate-700" data-tab="module-map">
-                        <span class="material-symbols-outlined text-[18px]">account_tree</span>
-                        Sơ Đồ Module
+                    <button class="tab-btn" data-tab="module-map" style="display:flex;align-items:center;gap:6px;padding:10px 16px;font-size:0.875rem;font-weight:500;white-space:nowrap;border:none;border-bottom:2px solid transparent;color:#64748b;background:none;cursor:pointer">
+                        <span class="material-symbols-outlined" style="font-size:18px">account_tree</span> Sơ Đồ Module
                     </button>
                 </nav>
             </div>
@@ -102,385 +87,7 @@
         </main>
     </div>
 
-    <!-- All-in-one inline script (no ES modules) -->
-    <script>
-    (function() {
-        'use strict';
-        console.log('[PT] Inline script start');
-
-        // ============================================
-        // DATA STORE
-        // ============================================
-        var storeData = {
-            modules: [], features: [], plans: [], goals: [], tasks: [],
-            meta: { syncVersion: 0, lastMdSync: null }
-        };
-
-        function loadFromLocal() {
-            try {
-                var saved = localStorage.getItem('project_tracker_data');
-                if (saved) storeData = JSON.parse(saved);
-            } catch(e) {}
-        }
-
-        function saveToLocal() {
-            try {
-                localStorage.setItem('project_tracker_data', JSON.stringify(storeData));
-            } catch(e) {}
-        }
-
-        function getStats() {
-            var t = storeData.tasks, f = storeData.features;
-            return {
-                modules: storeData.modules.length,
-                totalFeatures: f.length,
-                completedFeatures: f.filter(function(x) { return x.status === 'done'; }).length,
-                totalTasks: t.length,
-                completedTasks: t.filter(function(x) { return x.status === 'done-manual' || x.status === 'done-auto'; }).length,
-                inProgressTasks: t.filter(function(x) { return x.status === 'in-progress'; }).length,
-            };
-        }
-
-        // ============================================
-        // MD PARSER (simplified)
-        // ============================================
-        function parseMd(mdText) {
-            var lines = mdText.split('\n');
-            var result = { modules: [], features: [], plans: [], goals: [], tasks: [] };
-            var curModule = null, curPlan = null, curGoal = null;
-            var curSection = null, curSubSection = null;
-            var featOrder = 0, taskOrder = 0;
-            var catMap = { AUTH:'auth', WAREHOUSE:'warehouse', LIVE:'live', SALES:'sales', CUSTOMER:'customer', RETURNS:'returns', FINANCE:'finance', ADMIN:'admin', SYSTEM:'system', INTEGRATION:'integration', REPORT:'report' };
-
-            for (var i = 0; i < lines.length; i++) {
-                var line = lines[i].trim();
-
-                // Module header
-                var mm = line.match(/^###\s+\[([A-Z]+)\]\s+(.+?)\s*\{#([\w-]+)\}/);
-                if (mm) {
-                    curSection = 'module'; curSubSection = null; curPlan = null; curGoal = null; featOrder = 0;
-                    curModule = { id: mm[3], name: mm[2].trim(), category: catMap[mm[1]] || mm[1].toLowerCase(), status: 'planned', completionPercent: 0, dependencies: [], order: result.modules.length };
-                    result.modules.push(curModule);
-                    continue;
-                }
-
-                // Module metadata
-                if (curModule && curSection === 'module') {
-                    var meta = line.match(/^\-\s+\*\*Module\*\*:\s*`([^`]*)`\s*\|\s*\*\*Status\*\*:\s*(\w[\w-]*)\s*\|\s*\*\*Completion\*\*:\s*(\d+)%/);
-                    if (meta) { curModule.folder = meta[1]; curModule.status = meta[2]; curModule.completionPercent = parseInt(meta[3]); continue; }
-                    var dep = line.match(/^\-\s+\*\*Dependencies\*\*:\s*(.+)/);
-                    if (dep) { var d = dep[1].trim(); if (d !== 'none') curModule.dependencies = d.split(',').map(function(s){return s.trim();}); continue; }
-                }
-
-                // Plan header
-                var pm = line.match(/^###\s+Phase:\s+(.+?)\s*\{#([\w-]+)\}/);
-                if (pm) {
-                    curModule = null; curSection = 'plans'; curGoal = null; taskOrder = 0;
-                    curPlan = { id: pm[2], name: pm[1].trim(), status: 'planned', target: null, order: result.plans.length };
-                    result.plans.push(curPlan);
-                    continue;
-                }
-
-                // Plan metadata
-                if (curPlan && !curGoal) {
-                    var pMeta = line.match(/^\-\s+\*\*Status\*\*:\s*(\w[\w-]*)\s*\|\s*\*\*Target\*\*:\s*(.+)/);
-                    if (pMeta) { curPlan.status = pMeta[1]; curPlan.target = pMeta[2].trim(); continue; }
-                }
-
-                // Goal header
-                var gm = line.match(/^####\s+Goal:\s+(.+?)\s*\{#([\w-]+)\}/);
-                if (gm && curPlan) {
-                    taskOrder = 0;
-                    curGoal = { id: gm[2], name: gm[1].trim(), planId: curPlan.id, order: result.goals.length };
-                    result.goals.push(curGoal);
-                    continue;
-                }
-
-                // Features section
-                if (line.match(/^####\s+Features\s*$/i) && curModule) { curSection = 'features'; curSubSection = null; continue; }
-                var sub = line.match(/^#{5,6}\s+(.+)/);
-                if (sub && curModule && curSection === 'features') { curSubSection = sub[1].trim(); continue; }
-
-                // Checkbox line
-                var cb = line.match(/^-\s+\[([ x~✓])\]\s+(.+)/);
-                if (cb) {
-                    var check = cb[1], rest = cb[2];
-                    var name = rest.replace(/\{[^}]*\}/g,'').replace(/<!--.*?-->/g,'').trim();
-                    var priMatch = rest.match(/\{priority:(high|medium|low)\}/);
-                    var pri = priMatch ? priMatch[1] : null;
-
-                    if (curGoal) {
-                        var ts = 'todo';
-                        if (check==='x') ts='done-manual'; else if (check==='✓') ts='done-auto'; else if (check==='~') ts='in-progress';
-                        result.tasks.push({ id: curGoal.id+'_task_'+taskOrder, name: name, goalId: curGoal.id, status: ts, priority: pri, order: taskOrder++ });
-                    } else if (curModule) {
-                        var fs = 'planned';
-                        if (check==='x'||check==='✓') fs='done'; else if (check==='~') fs='in-progress';
-                        result.features.push({ id: curModule.id+'_feat_'+featOrder, name: name, moduleId: curModule.id, status: fs, priority: pri, section: curSubSection, autoChecked: check==='✓', order: featOrder++ });
-                    }
-                }
-            }
-            return result;
-        }
-
-        // ============================================
-        // RENDERERS
-        // ============================================
-        var activeTab = 'dashboard';
-
-        function renderDashboard() {
-            var el = document.getElementById('tab-dashboard');
-            if (!el) return;
-            var stats = getStats();
-            var modules = storeData.modules.slice().sort(function(a,b){ return (a.order||0)-(b.order||0); });
-            var total = modules.length > 0 ? Math.round(modules.reduce(function(s,m){return s+(m.completionPercent||0);},0)/modules.length) : 0;
-
-            var catLabels = { sales:'Bán Hàng', warehouse:'Kho & Nhập Hàng', admin:'Quản Trị', system:'Hệ Thống', live:'Live', customer:'Khách Hàng', finance:'Tài Chính', returns:'Hoàn & CSKH', integration:'Tích Hợp', auth:'Xác Thực', report:'Báo Cáo', other:'Khác' };
-            var groups = {};
-            modules.forEach(function(m) { var c = m.category||'other'; if(!groups[c]) groups[c]=[]; groups[c].push(m); });
-
-            var modHtml = '';
-            Object.keys(groups).forEach(function(cat) {
-                modHtml += '<div class="category-header">'+(catLabels[cat]||cat)+'</div>';
-                groups[cat].forEach(function(m) {
-                    var pct = m.completionPercent||0;
-                    var badgeCls = 'badge-'+(m.status||'planned');
-                    modHtml += '<div class="module-row"><div style="flex:1;min-width:0"><div style="display:flex;align-items:center;gap:8px"><span style="font-weight:500;font-size:0.875rem;color:#1e293b">'+(m.name||m.id)+'</span><span class="badge '+badgeCls+'">'+(m.status||'planned')+'</span></div><div style="font-size:0.75rem;color:#94a3b8;margin-top:2px">'+m.id+'/</div></div><div style="display:flex;align-items:center;gap:12px;flex-shrink:0"><span style="font-size:0.75rem;font-weight:600;color:#7c3aed">'+pct+'%</span><div class="progress-bar" style="width:80px"><div class="progress-fill" style="width:'+pct+'%;background:#7c3aed"></div></div></div></div>';
-                });
-            });
-
-            el.innerHTML = '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:24px">' +
-                '<div class="stat-card"><div class="stat-value" style="color:#7c3aed">'+stats.modules+'</div><div class="stat-label">Modules</div></div>' +
-                '<div class="stat-card"><div class="stat-value" style="color:#16a34a">'+stats.completedFeatures+'</div><div class="stat-label">Features hoàn thành</div></div>' +
-                '<div class="stat-card"><div class="stat-value" style="color:#2563eb">'+stats.totalTasks+'</div><div class="stat-label">Tổng Tasks</div></div>' +
-                '<div class="stat-card"><div class="stat-value" style="color:#d97706">'+stats.inProgressTasks+'</div><div class="stat-label">Đang làm</div></div>' +
-                '</div>' +
-                '<div style="background:white;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:24px">' +
-                '<div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="font-size:0.875rem;font-weight:600;color:#334155">Tiến độ tổng thể</span><span style="font-size:0.875rem;font-weight:700;color:#7c3aed">'+total+'%</span></div>' +
-                '<div class="progress-bar"><div class="progress-fill" style="width:'+total+'%;background:#7c3aed"></div></div></div>' +
-                '<div style="background:white;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden">' +
-                '<div style="padding:12px 16px;border-bottom:1px solid #f1f5f9"><h3 style="font-size:0.875rem;font-weight:600;color:#334155">Modules theo nhóm</h3></div>' +
-                (modHtml || '<div style="padding:16px;font-size:0.875rem;color:#94a3b8">Không có modules</div>') +
-                '</div>' +
-                (modules.length === 0 ? '<div class="empty-state" style="margin-top:32px"><span class="material-symbols-outlined">sync</span><p style="font-size:1.1rem;font-weight:600">Chưa có dữ liệu</p><p style="font-size:0.875rem;margin-top:4px">Bấm "Đồng bộ từ MD" để tải dữ liệu từ file PROJECT-TRACKER.md</p></div>' : '');
-
-            console.log('[PT] Dashboard rendered, modules:', modules.length);
-        }
-
-        function renderFeatureCatalog() {
-            var el = document.getElementById('tab-feature-catalog');
-            if (!el) return;
-            var modules = storeData.modules.slice().sort(function(a,b){ return (a.order||0)-(b.order||0); });
-            var features = storeData.features;
-
-            var html = '<div style="background:white;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden">';
-            if (modules.length === 0) {
-                html += '<div class="empty-state"><span class="material-symbols-outlined">category</span><p style="font-size:1.1rem;font-weight:600">Chưa có tính năng</p><p style="font-size:0.875rem;margin-top:4px">Đồng bộ từ MD để tải danh mục tính năng</p></div>';
-            } else {
-                modules.forEach(function(mod) {
-                    var mf = features.filter(function(f){ return f.moduleId === mod.id; });
-                    var done = mf.filter(function(f){ return f.status === 'done'; }).length;
-                    var pct = mod.completionPercent || 0;
-                    html += '<div class="accordion-header" style="border-bottom:1px solid #f1f5f9">' +
-                        '<div style="display:flex;align-items:center;gap:8px"><span style="font-weight:600;font-size:0.875rem;color:#1e293b">'+(mod.name||mod.id)+'</span><span class="badge badge-'+(mod.status||'planned')+'">'+(mod.status||'planned')+'</span><span style="font-size:0.75rem;color:#94a3b8">'+done+'/'+mf.length+'</span></div>' +
-                        '<span style="font-size:0.75rem;font-weight:600;color:#7c3aed">'+pct+'%</span></div>';
-                    mf.forEach(function(f) {
-                        var icon = f.status==='done' ? '✅' : f.status==='in-progress' ? '🔄' : '⬜';
-                        html += '<div style="padding:4px 16px 4px 40px;font-size:0.85rem;color:#475569;border-bottom:1px solid #f8fafc">'+icon+' '+f.name+'</div>';
-                    });
-                });
-            }
-            html += '</div>';
-            el.innerHTML = html;
-        }
-
-        function renderTodoSystem() {
-            var el = document.getElementById('tab-todo-system');
-            if (!el) return;
-            var plans = storeData.plans, goals = storeData.goals, tasks = storeData.tasks;
-            var done = tasks.filter(function(t){ return t.status==='done-manual'||t.status==='done-auto'; }).length;
-            var pct = tasks.length > 0 ? Math.round(done/tasks.length*100) : 0;
-
-            var html = '<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:24px">' +
-                '<div class="stat-card"><div class="stat-value" style="color:#2563eb">'+tasks.length+'</div><div class="stat-label">Tổng Tasks</div></div>' +
-                '<div class="stat-card"><div class="stat-value" style="color:#16a34a">'+done+'</div><div class="stat-label">Hoàn thành</div></div></div>' +
-                '<div style="background:white;border-radius:12px;border:1px solid #e2e8f0;padding:16px;margin-bottom:24px">' +
-                '<div style="display:flex;justify-content:space-between;margin-bottom:8px"><span style="font-size:0.875rem;font-weight:600;color:#334155">Tiến độ Tasks</span><span style="font-size:0.875rem;font-weight:700;color:#16a34a">'+pct+'%</span></div>' +
-                '<div class="progress-bar"><div class="progress-fill" style="width:'+pct+'%;background:#16a34a"></div></div></div>';
-
-            if (plans.length === 0) {
-                html += '<div class="empty-state"><span class="material-symbols-outlined">checklist</span><p style="font-size:1.1rem;font-weight:600">Chưa có kế hoạch</p><p style="font-size:0.875rem;margin-top:4px">Đồng bộ từ MD để tải kế hoạch và tasks</p></div>';
-            } else {
-                plans.forEach(function(plan) {
-                    var pg = goals.filter(function(g){ return g.planId === plan.id; });
-                    var pt = tasks.filter(function(t){ return pg.some(function(g){ return g.id === t.goalId; }); });
-                    var pd = pt.filter(function(t){ return t.status==='done-manual'||t.status==='done-auto'; }).length;
-                    var pp = pt.length > 0 ? Math.round(pd/pt.length*100) : 0;
-                    html += '<div style="background:white;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden;margin-bottom:12px">' +
-                        '<div class="accordion-header"><div style="display:flex;align-items:center;gap:8px"><span class="material-symbols-outlined" style="color:#7c3aed;font-size:20px">event_note</span><span style="font-weight:600;font-size:0.875rem;color:#1e293b">'+(plan.name||plan.id)+'</span></div>' +
-                        '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:0.75rem;color:#94a3b8">'+pd+'/'+pt.length+'</span><span style="font-size:0.75rem;font-weight:600;color:#7c3aed">'+pp+'%</span></div></div>';
-                    pg.forEach(function(goal) {
-                        var gt = tasks.filter(function(t){ return t.goalId === goal.id; });
-                        html += '<div style="padding:8px 16px 4px 32px;font-size:0.85rem;font-weight:600;color:#334155">🎯 '+(goal.name||goal.id)+'</div>';
-                        gt.forEach(function(t) {
-                            var icon = t.status==='done-manual' ? '✅' : t.status==='done-auto' ? '🤖' : t.status==='in-progress' ? '🔄' : '⬜';
-                            html += '<div style="padding:3px 16px 3px 48px;font-size:0.825rem;color:#475569">'+icon+' '+t.name+'</div>';
-                        });
-                    });
-                    html += '</div>';
-                });
-            }
-            el.innerHTML = html;
-        }
-
-        function renderModuleMap() {
-            var el = document.getElementById('tab-module-map');
-            if (!el) return;
-            var modules = storeData.modules;
-            if (modules.length === 0) {
-                el.innerHTML = '<div class="empty-state"><span class="material-symbols-outlined">hub</span><p style="font-size:1.1rem;font-weight:600">Chưa có dữ liệu module</p><p style="font-size:0.875rem;margin-top:4px">Đồng bộ từ MD để tạo sơ đồ</p></div>';
-                return;
-            }
-            var catLabels = { sales:'Bán Hàng', warehouse:'Kho & Nhập Hàng', admin:'Quản Trị', system:'Hệ Thống', live:'Live', customer:'Khách Hàng', finance:'Tài Chính', returns:'Hoàn & CSKH', integration:'Tích Hợp', auth:'Xác Thực', report:'Báo Cáo', other:'Khác' };
-            var groups = {};
-            modules.forEach(function(m) { var c = m.category||'other'; if(!groups[c]) groups[c]=[]; groups[c].push(m); });
-
-            var html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px">';
-            Object.keys(groups).forEach(function(cat) {
-                html += '<div style="background:white;border-radius:12px;border:1px solid #e2e8f0;overflow:hidden">' +
-                    '<div style="padding:10px 16px;background:#f8fafc;border-bottom:1px solid #e2e8f0;font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#64748b">'+(catLabels[cat]||cat)+'</div>';
-                groups[cat].forEach(function(m) {
-                    var pct = m.completionPercent||0;
-                    var color = pct >= 90 ? '#16a34a' : pct >= 50 ? '#d97706' : '#3b82f6';
-                    html += '<div style="padding:8px 16px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center">' +
-                        '<span style="font-size:0.85rem;color:#334155">'+(m.name||m.id)+'</span>' +
-                        '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:0.75rem;font-weight:600;color:'+color+'">'+pct+'%</span>' +
-                        '<div class="progress-bar" style="width:48px"><div class="progress-fill" style="width:'+pct+'%;background:'+color+'"></div></div></div></div>';
-                });
-                html += '</div>';
-            });
-            html += '</div>';
-            el.innerHTML = html;
-        }
-
-        // ============================================
-        // TAB SWITCHING
-        // ============================================
-        function switchTab(tab) {
-            activeTab = tab;
-            localStorage.setItem('project-tracker-tab', tab);
-            document.querySelectorAll('.tab-btn').forEach(function(btn) {
-                var isActive = btn.getAttribute('data-tab') === tab;
-                btn.classList.toggle('active', isActive);
-                btn.style.borderColor = isActive ? '#7c3aed' : 'transparent';
-                btn.style.color = isActive ? '#6d28d9' : '#64748b';
-            });
-            document.querySelectorAll('.tab-content').forEach(function(el) {
-                el.style.display = (el.id === 'tab-' + tab) ? 'block' : 'none';
-            });
-            renderTab(tab);
-        }
-
-        function renderTab(tab) {
-            if (tab === 'dashboard') renderDashboard();
-            else if (tab === 'feature-catalog') renderFeatureCatalog();
-            else if (tab === 'todo-system') renderTodoSystem();
-            else if (tab === 'module-map') renderModuleMap();
-        }
-
-        // ============================================
-        // SYNC BUTTONS
-        // ============================================
-        function syncFromMd() {
-            var btn = document.getElementById('btnSyncMd');
-            if (btn) btn.textContent = 'Đang tải...';
-            fetch('../docs/PROJECT-TRACKER.md')
-                .then(function(resp) {
-                    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-                    return resp.text();
-                })
-                .then(function(mdText) {
-                    var parsed = parseMd(mdText);
-                    storeData.modules = parsed.modules;
-                    storeData.features = parsed.features;
-                    storeData.plans = parsed.plans;
-                    storeData.goals = parsed.goals;
-                    storeData.tasks = parsed.tasks;
-                    storeData.meta.syncVersion++;
-                    storeData.meta.lastMdSync = new Date().toISOString();
-                    saveToLocal();
-
-                    // Save to Firestore if available
-                    if (typeof firebase !== 'undefined' && firebase.firestore) {
-                        var db = firebase.firestore();
-                        var batch = db.batch();
-                        batch.set(db.collection('project_tracker').doc('_meta'), storeData.meta);
-                        ['modules','features','plans','goals','tasks'].forEach(function(col) {
-                            storeData[col].forEach(function(item) {
-                                batch.set(db.collection('project_tracker').doc('data').collection(col).doc(item.id), item);
-                            });
-                        });
-                        batch.commit().then(function() {
-                            console.log('[PT] Firestore saved');
-                        }).catch(function(err) {
-                            console.warn('[PT] Firestore save failed:', err);
-                        });
-                    }
-
-                    renderTab(activeTab);
-                    showToast('Đồng bộ thành công! ' + parsed.modules.length + ' modules, ' + parsed.features.length + ' features', 'success');
-                })
-                .catch(function(err) {
-                    console.error('[PT] Sync failed:', err);
-                    showToast('Lỗi đồng bộ: ' + err.message, 'error');
-                })
-                .finally(function() {
-                    if (btn) btn.innerHTML = '<span class="material-symbols-outlined text-[18px]">sync</span> Đồng bộ từ MD';
-                });
-        }
-
-        function showToast(msg, type) {
-            var bg = type === 'success' ? '#16a34a' : type === 'error' ? '#ef4444' : '#3b82f6';
-            var toast = document.createElement('div');
-            toast.style.cssText = 'position:fixed;bottom:16px;right:16px;background:'+bg+';color:white;padding:10px 16px;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,0.15);font-size:0.875rem;font-weight:500;z-index:9999;transition:opacity 0.3s';
-            toast.textContent = msg;
-            document.body.appendChild(toast);
-            setTimeout(function() { toast.style.opacity = '0'; setTimeout(function() { toast.remove(); }, 300); }, 3000);
-        }
-
-        // ============================================
-        // INIT
-        // ============================================
-        function init() {
-            console.log('[PT] init()');
-            loadFromLocal();
-
-            // Tab buttons
-            document.querySelectorAll('.tab-btn').forEach(function(btn) {
-                btn.addEventListener('click', function() {
-                    switchTab(btn.getAttribute('data-tab'));
-                });
-            });
-
-            // Sync buttons
-            var btnSync = document.getElementById('btnSyncMd');
-            if (btnSync) btnSync.addEventListener('click', syncFromMd);
-
-            // Restore saved tab or default
-            var saved = localStorage.getItem('project-tracker-tab');
-            switchTab(saved || 'dashboard');
-
-            console.log('[PT] init done, modules:', storeData.modules.length);
-        }
-
-        // Run on DOMContentLoaded or immediately if already loaded
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', init);
-        } else {
-            init();
-        }
-    })();
-    </script>
+    <script src="./js/app.js"></script>
 </body>
 
 </html>

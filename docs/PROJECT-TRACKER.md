@@ -1239,36 +1239,36 @@ BP8: Check IB ← BP7: CSKH ← BP6: Đóng đơn & Giao shipper ← BP5: Đi ch
 ## Kế Hoạch Phát Triển
 
 ### Phase: Project Tracker {#plan-tracker}
-- **Status**: planned | **Target**: 2026-04-01
+- **Status**: in-progress | **Target**: 2026-04-01
 
 #### Goal: Module skeleton + tích hợp {#goal-skeleton}
-- [ ] Tạo project-tracker/index.html
-- [ ] Tạo css/style.css + js/main.js (4 tab routing)
-- [ ] Thêm MENU_CONFIG + PAGES_REGISTRY entry
+- [✓] Tạo project-tracker/index.html <!-- auto:claude-code:2026-03-18 -->
+- [✓] Tạo css/style.css + js/app.js (4 tab routing) <!-- auto:claude-code:2026-03-19 -->
+- [✓] Thêm MENU_CONFIG + PAGES_REGISTRY entry <!-- auto:claude-code:2026-03-18 -->
 
 #### Goal: Data layer + MD {#goal-data}
-- [ ] Tạo js/stores/project-store.js
-- [ ] Tạo js/utils/md-parser.js + md-serializer.js
-- [ ] Tạo docs/PROJECT-TRACKER.md (file này)
-- [ ] Nút "Đồng bộ từ MD" + "Xuất ra MD"
+- [✓] Tạo js/stores/project-store.js <!-- auto:claude-code:2026-03-18 -->
+- [✓] Tạo js/utils/md-parser.js + md-serializer.js <!-- auto:claude-code:2026-03-18 -->
+- [✓] Tạo docs/PROJECT-TRACKER.md (file này) <!-- auto:claude-code:2026-03-18 -->
+- [✓] Nút "Đồng bộ từ MD" + "Xuất ra MD" <!-- auto:claude-code:2026-03-19 -->
 
 #### Goal: Dashboard {#goal-dashboard}
-- [ ] Summary cards + progress bars
-- [ ] Per-module status list
+- [✓] Summary cards + progress bars <!-- auto:claude-code:2026-03-19 -->
+- [✓] Per-module status list (click to jump to Feature Catalog) <!-- auto:claude-code:2026-03-19 -->
 
 #### Goal: Feature Catalog {#goal-catalog}
-- [ ] Bảng phân cấp expand/collapse
-- [ ] Filter bar + inline status editing
+- [✓] Bảng phân cấp expand/collapse <!-- auto:claude-code:2026-03-19 -->
+- [✓] Filter bar (module, status, search) + inline status editing <!-- auto:claude-code:2026-03-19 -->
 
 #### Goal: Todo System {#goal-todo}
-- [ ] Plan/Goal/Task accordion
-- [ ] Checkbox manual + auto-check display
-- [ ] CRUD inline + due date handling
+- [✓] Plan/Goal/Task accordion <!-- auto:claude-code:2026-03-19 -->
+- [✓] Checkbox manual + auto-check display (click to cycle status) <!-- auto:claude-code:2026-03-19 -->
+- [~] CRUD inline + due date handling
 
 #### Goal: Module Map {#goal-map}
-- [ ] Mermaid.js dependency graph
-- [ ] Click-to-navigate
+- [✓] Category grid with progress bars + dependencies <!-- auto:claude-code:2026-03-19 -->
+- [~] Click-to-navigate (module → feature catalog)
 
 #### Goal: Polish {#goal-polish}
-- [ ] Responsive mobile
+- [~] Responsive mobile
 - [ ] Permission checks trên CRUD
