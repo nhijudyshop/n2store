@@ -1,24 +1,5 @@
 # Project Instructions for Claude Code
 
-## Plan Implementation Tracker
-
-> **Khi user gõ "đọc claude.md plan-implementation-tracker" hoặc "tiếp tục plan" hoặc "làm tiếp":**
-
-1. Đọc `docs/plans/progress-log.md` — biết task nào đã xong, task nào đang dở, ghi chú kỹ thuật
-2. Đọc `docs/plans/plan-implementation-tracker.md` — chi tiết plan 5 phase, 9 tuần, 58 tasks
-3. Đọc file code liên quan được ghi trong progress log
-4. Tiếp tục hiện thực task tiếp theo
-5. **Sau khi xong mỗi task**: cập nhật `docs/plans/progress-log.md` theo format trong file đó
-
-### Project Overview
-- N2Store: hệ thống quản lý nội bộ shop thời trang nữ online, bán hàng qua livestream
-- Modules: `orders-report/` (Sale), `order-management/` (Duyên), `inbox/` (Chat), `soquy/` (Sổ quỹ), `shared/` (Thư viện chung)
-- Tech: Vanilla HTML/JS/CSS, Firebase (Realtime DB + Firestore), TPOS OData API, Pancake API, PostgreSQL + SSE
-- Quy trình nghiệp vụ: `quy-trinh/quy-trinh-chuan.md`
-- Web tracking tiến độ: `docs/plans/plan-tracker.html`
-
----
-
 ## Documentation to Read
 
 When working on this project, always reference the documentation in `/docs` folder for understanding the project structure and conventions.
@@ -207,3 +188,20 @@ Xem `docs/architecture/DATA-SYNCHRONIZATION.md` để hiểu thêm về:
 - Firebase as Source of Truth + Real-time Listener pattern
 - Strategy: `merge:true` cho add/update, `FieldValue.delete()` cho delete
 - Best practices
+
+---
+
+## Plan Implementation Tracker
+
+> **CHỈ ĐỌC PHẦN NÀY KHI USER GÕ: "đọc claude.md plan-implementation-tracker"**
+> Nếu user không gõ lệnh trên, BỎ QUA toàn bộ section này.
+
+### Workflow khi được kích hoạt:
+1. Đọc `docs/plans/progress-log.md` — xem trạng thái hiện tại và task tiếp theo
+2. Đọc `docs/plans/plan-implementation-tracker.md` — chi tiết plan với checklist
+3. Đọc các file code liên quan được ghi trong progress-log
+4. Tiếp tục hiện thực task tiếp theo
+5. Sau khi hoàn thành task, cập nhật:
+   - `docs/plans/progress-log.md` — thêm log entry mới
+   - `docs/plans/plan-implementation-tracker.md` — đánh dấu checkbox
+   - Commit & push
