@@ -1798,84 +1798,112 @@
                 }
             });
 
-            modal.addEventListener('blur', async function (e) {
-                const empId = e.target.dataset ? e.target.dataset.empId : null;
+            // Helper: save 1 field cho 1 employee
+            async function saveSettingsField(input) {
+                const empId = input.dataset ? input.dataset.empId : null;
                 if (!empId) return;
                 const emp = employees.find(em => String(em.userId || em.uid || em.id) === empId);
                 if (!emp) return;
 
-                if (e.target.classList.contains('settings-name')) {
-                    const newName = e.target.value.trim();
+                const docId = String(emp.id || emp.userId);
+                const isTest = docId.startsWith('test_');
+
+                if (input.classList.contains('settings-name')) {
+                    const newName = input.value.trim();
                     if (newName && newName !== emp.name) {
+                        const oldName = emp.name;
+                        emp.name = newName;
                         try {
-                            const docId = String(emp.id || emp.userId);
-                            if (!docId.startsWith('test_')) {
+                            if (!isTest) {
                                 await db.collection(COLLECTIONS.deviceUsers).doc(docId).update({ name: newName });
                             }
-                            emp.name = newName;
                             showNotification(`Đã đổi tên: ${newName}`, 'success');
                             renderMonthlySchedule();
                         } catch (err) {
-                            showNotification('Lỗi: ' + err.message, 'error');
+                            emp.name = oldName;
+                            showNotification('Lỗi đổi tên: ' + err.message, 'error');
                         }
                     }
                 }
 
-                if (e.target.classList.contains('settings-salary')) {
-                    const newRate = parseInt(e.target.value) || SALARY.DAILY_RATE;
+                if (input.classList.contains('settings-salary')) {
+                    const newRate = parseInt(input.value) || SALARY.DAILY_RATE;
                     if (newRate !== (emp.dailyRate || SALARY.DAILY_RATE)) {
+                        const oldRate = emp.dailyRate;
+                        emp.dailyRate = newRate;
                         try {
-                            const docId = String(emp.id || emp.userId);
-                            if (!docId.startsWith('test_')) {
+                            if (!isTest) {
                                 await db.collection(COLLECTIONS.deviceUsers).doc(docId).update({ dailyRate: newRate });
                             }
-                            emp.dailyRate = newRate;
                             showNotification(`Đã cập nhật lương: ${formatVND(newRate)}đ/ngày`, 'success');
                             renderMonthlySchedule();
                         } catch (err) {
+                            emp.dailyRate = oldRate;
                             showNotification('Lỗi: ' + err.message, 'error');
                         }
                     }
                 }
 
-                if (e.target.classList.contains('settings-work-start')) {
-                    const val = parseInt(e.target.value);
+                if (input.classList.contains('settings-work-start')) {
+                    const val = parseInt(input.value);
                     const newStart = isNaN(val) ? SALARY.WORK_START_HOUR : Math.max(0, Math.min(23, val));
-                    e.target.value = newStart;
+                    input.value = newStart;
                     if (newStart !== (emp.workStart != null ? emp.workStart : SALARY.WORK_START_HOUR)) {
+                        const oldStart = emp.workStart;
+                        emp.workStart = newStart;
                         try {
-                            const docId = String(emp.id || emp.userId);
-                            if (!docId.startsWith('test_')) {
+                            if (!isTest) {
                                 await db.collection(COLLECTIONS.deviceUsers).doc(docId).update({ workStart: newStart });
                             }
-                            emp.workStart = newStart;
                             showNotification(`Giờ vào: ${newStart}:00`, 'success');
                             renderMonthlySchedule();
                         } catch (err) {
+                            emp.workStart = oldStart;
                             showNotification('Lỗi: ' + err.message, 'error');
                         }
                     }
                 }
 
-                if (e.target.classList.contains('settings-work-end')) {
-                    const val = parseInt(e.target.value);
+                if (input.classList.contains('settings-work-end')) {
+                    const val = parseInt(input.value);
                     const newEnd = isNaN(val) ? SALARY.OT_START_HOUR : Math.max(0, Math.min(23, val));
-                    e.target.value = newEnd;
+                    input.value = newEnd;
                     if (newEnd !== (emp.workEnd != null ? emp.workEnd : SALARY.OT_START_HOUR)) {
+                        const oldEnd = emp.workEnd;
+                        emp.workEnd = newEnd;
                         try {
-                            const docId = String(emp.id || emp.userId);
-                            if (!docId.startsWith('test_')) {
+                            if (!isTest) {
                                 await db.collection(COLLECTIONS.deviceUsers).doc(docId).update({ workEnd: newEnd });
                             }
-                            emp.workEnd = newEnd;
                             showNotification(`Giờ ra: ${newEnd}:00`, 'success');
                             renderMonthlySchedule();
                         } catch (err) {
+                            emp.workEnd = oldEnd;
                             showNotification('Lỗi: ' + err.message, 'error');
                         }
                     }
                 }
+            }
+
+            // Blur: save từng field khi rời input
+            modal.addEventListener('blur', function (e) {
+                if (e.target.classList.contains('payroll-settings-input')) {
+                    saveSettingsField(e.target);
+                }
             }, true);
+
+            // Close: save tất cả thay đổi trước khi đóng
+            const closeButtons = modal.querySelectorAll('[data-close-modal]');
+            closeButtons.forEach(btn => {
+                btn.addEventListener('click', async function () {
+                    // Save all pending changes
+                    const inputs = modal.querySelectorAll('.payroll-settings-input');
+                    for (const input of inputs) {
+                        await saveSettingsField(input);
+                    }
+                    modal.style.display = 'none';
+                });
+            });
         }
     }
 

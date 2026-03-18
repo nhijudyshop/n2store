@@ -1854,11 +1854,11 @@
 
     <!-- ==================== MODAL: THIẾT LẬP NHÂN VIÊN ==================== -->
     <div class="modal" id="payrollSettingsModal" style="display: none;">
-        <div class="modal-overlay" onclick="this.parentElement.style.display='none'"></div>
+        <div class="modal-overlay" data-close-modal></div>
         <div class="modal-content k-modal" style="width: 750px; max-width: 95vw;">
             <div class="modal-header k-modal-header">
                 <h3>Thiết lập nhân viên</h3>
-                <button class="btn-icon" onclick="document.getElementById('payrollSettingsModal').style.display='none'">
+                <button class="btn-icon" data-close-modal>
                     <i data-lucide="x"></i>
                 </button>
             </div>
@@ -1877,7 +1877,7 @@
                 </table>
             </div>
             <div class="modal-footer k-modal-footer">
-                <button class="btn-primary" onclick="document.getElementById('payrollSettingsModal').style.display='none'" style="background:#1890ff;">
+                <button class="btn-primary" data-close-modal style="background:#1890ff;">
                     Đóng
                 </button>
             </div>
