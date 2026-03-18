@@ -1430,9 +1430,18 @@ class PancakeTokenManager {
             return cached;
         }
 
-        // NO auto-generation - return null if no cached token
-        // Admin must manually add tokens via "Quản lý Pancake Accounts" modal
-        console.log('[PANCAKE-TOKEN] ⚠️ No cached token for page:', pageId);
+        // Auto-generate if no cached token
+        console.log('[PANCAKE-TOKEN] ⚠️ No cached token for page:', pageId, '→ auto-generating...');
+        try {
+            const generated = await this.generatePageAccessToken(pageId);
+            if (generated) {
+                console.log('[PANCAKE-TOKEN] ✅ Auto-generated page_access_token for page:', pageId);
+                return generated;
+            }
+        } catch (err) {
+            console.warn('[PANCAKE-TOKEN] Auto-generate failed:', err.message);
+        }
+
         console.log('[PANCAKE-TOKEN] 💡 Admin cần thêm Page Access Token thủ công qua modal "Quản lý Pancake Accounts"');
         return null;
     }
