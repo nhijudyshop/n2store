@@ -97,6 +97,7 @@
         set _data(val) { _invoiceBaseStore._data = val; },
 
         _sentBills: new Set(),
+        _myKeys: new Set(),        // Keys that belong to the current user (for saving)
         /** @returns {boolean} Whether store is initialized (delegated to BaseStore) */
         get _initialized() { return _invoiceBaseStore._initialized; },
         set _initialized(val) { _invoiceBaseStore._initialized = val; },
@@ -181,6 +182,12 @@
                 // CLEAR old data - Firestore là source of truth
                 this._data.clear();
                 this._sentBills.clear();
+                this._myKeys.clear();
+
+                // Get current username to track own keys
+                const authState = window.authManager?.getAuthState();
+                const userType = authState?.userType || localStorage.getItem('userType') || '';
+                const myUsername = authState?.username || userType.split('-')[0] || 'default';
 
                 // Load ALL documents from invoice_status collection (all users)
                 console.log('[INVOICE-STATUS] Loading ALL users data from Firestore...');
@@ -190,6 +197,7 @@
                 let totalEntries = 0;
                 snapshot.forEach(doc => {
                     const firestoreData = doc.data();
+                    const isMyDoc = doc.id === myUsername;
 
                     // Load data từ Firestore (REPLACE, not merge)
                     if (firestoreData.data) {
@@ -199,6 +207,10 @@
                         entries.forEach(([key, value]) => {
                             this._data.set(key, value);
                             totalEntries++;
+                            // Track keys that belong to the current user
+                            if (isMyDoc) {
+                                this._myKeys.add(key);
+                            }
                         });
                     }
 
@@ -208,10 +220,9 @@
                     }
                 });
 
-                console.log(`[INVOICE-STATUS] Loaded ${totalEntries} entries from ${snapshot.size} users (Firestore = source of truth)`);
+                console.log(`[INVOICE-STATUS] Loaded ${totalEntries} entries from ${snapshot.size} users (my keys: ${this._myKeys.size})`);
 
-                // Cache to localStorage
-                this._saveToLocalStorage();
+                // Don't cache to localStorage - too much data from all users
                 return true;
             } catch (e) {
                 console.error('[INVOICE-STATUS] Firestore load error:', e);
@@ -224,14 +235,21 @@
          */
         _saveToLocalStorage() {
             try {
+                // Only cache current user's entries to avoid QuotaExceeded
+                const myEntries = [];
+                this._myKeys.forEach(key => {
+                    const value = this._data.get(key);
+                    if (value) myEntries.push([key, value]);
+                });
                 localStorage.setItem(STORAGE_KEY, JSON.stringify({
-                    data: Array.from(this._data.entries()),
+                    data: myEntries,
                     sentBills: Array.from(this._sentBills),
                     lastUpdated: Date.now(),
                     version: 1
                 }));
             } catch (e) {
-                console.error('[INVOICE-STATUS] localStorage save error:', e);
+                // If still too big, just skip localStorage caching
+                console.warn('[INVOICE-STATUS] localStorage save skipped (quota)');
             }
         },
 
@@ -244,12 +262,18 @@
             clearTimeout(this._syncTimeout);
             this._syncTimeout = setTimeout(async () => {
                 try {
+                    // Only save entries that belong to the current user (not all merged data)
+                    const myData = {};
+                    this._myKeys.forEach(key => {
+                        const value = this._data.get(key);
+                        if (value) myData[key] = value;
+                    });
                     await this._getDocRef().set({
-                        data: Object.fromEntries(this._data),
+                        data: myData,
                         sentBills: Array.from(this._sentBills),
                         lastUpdated: Date.now()
                     }, { merge: true });
-                    console.log('[INVOICE-STATUS] Synced to Firestore');
+                    console.log(`[INVOICE-STATUS] Synced ${Object.keys(myData).length} entries to Firestore`);
                 } catch (e) {
                     console.error('[INVOICE-STATUS] Firestore save error:', e);
                 }
@@ -298,18 +322,30 @@
             // Set flag to prevent save loops
             this._isListening = true;
 
+            // Get current username to track own keys
+            const authState = window.authManager?.getAuthState();
+            const userType = authState?.userType || localStorage.getItem('userType') || '';
+            const myUsername = authState?.username || userType.split('-')[0] || 'default';
+
             let hasChanges = false;
             const changedKeys = [];
             const deletedKeys = [];
 
             // Build a set of all keys currently in Firestore (across all docs)
             const allServerKeys = new Set();
+            const myServerKeys = new Set();
             snapshot.docs.forEach(doc => {
                 const firestoreData = doc.data();
                 if (firestoreData.data) {
-                    Object.keys(firestoreData.data).forEach(key => allServerKeys.add(key));
+                    Object.keys(firestoreData.data).forEach(key => {
+                        allServerKeys.add(key);
+                        if (doc.id === myUsername) myServerKeys.add(key);
+                    });
                 }
             });
+
+            // Update _myKeys from server (source of truth)
+            this._myKeys = myServerKeys;
 
             // Check for deleted entries (in local but not in any server doc)
             this._data.forEach((value, key) => {
@@ -554,7 +590,9 @@
             const showState = isFullyPaid ? 'Đã thanh toán' : (invoiceData.ShowState || 'Nháp');
             const state = isFullyPaid ? 'paid' : (invoiceData.State || 'draft');
 
-            this._data.set(String(saleOnlineId), {
+            const entryKey = String(saleOnlineId);
+            this._myKeys.add(entryKey);
+            this._data.set(entryKey, {
                 Id: invoiceData.Id,
                 Number: billNumber,  // Use complete bill number (never null)
                 Reference: invoiceData.Reference || order?.Code || '',
@@ -861,48 +899,34 @@
             const existed = this._data.has(key);
 
             if (existed) {
-                // Remove from local _data
+                // Remove from local _data and _myKeys
                 this._data.delete(key);
+                this._myKeys.delete(key);
                 this._sentBills.delete(key);
                 this._saveToLocalStorage();
 
-                // Delete from Firestore
+                // Delete from Firestore - scan ALL user docs since entry could be in any user's doc
                 try {
-                    if (this._isAdmin()) {
-                        // Admin: entry may exist in ANY user's doc (since admin loads all docs)
-                        // → scan all docs and delete from every doc that contains the entry
-                        const db = firebase.firestore();
-                        const snapshot = await db.collection(FIRESTORE_COLLECTION).get();
-                        const batch = db.batch();
-                        let batchCount = 0;
-                        snapshot.forEach(doc => {
-                            const docData = doc.data();
-                            if (docData.data && key in docData.data) {
-                                batch.update(doc.ref, {
-                                    [`data.${key}`]: firebase.firestore.FieldValue.delete(),
-                                    lastUpdated: Date.now()
-                                });
-                                batchCount++;
-                            }
-                        });
-                        if (batchCount > 0) {
-                            await batch.commit();
-                            console.log(`[INVOICE-STATUS] Admin deleted invoice ${key} from ${batchCount} user doc(s)`);
-                        } else {
-                            console.log(`[INVOICE-STATUS] Admin: invoice ${key} not found in any Firestore doc`);
+                    const db = firebase.firestore();
+                    const snapshot = await db.collection(FIRESTORE_COLLECTION).get();
+                    const batch = db.batch();
+                    let batchCount = 0;
+                    snapshot.forEach(doc => {
+                        const docData = doc.data();
+                        if (docData.data && key in docData.data) {
+                            batch.update(doc.ref, {
+                                [`data.${key}`]: firebase.firestore.FieldValue.delete(),
+                                lastUpdated: Date.now()
+                            });
+                            batchCount++;
                         }
-                    } else {
-                        // Normal user: delete from own doc only
-                        await this._getDocRef().update({
-                            [`data.${key}`]: firebase.firestore.FieldValue.delete(),
-                            lastUpdated: Date.now()
-                        });
-                        console.log(`[INVOICE-STATUS] Deleted invoice for order ${saleOnlineId} from Firestore`);
+                    });
+                    if (batchCount > 0) {
+                        await batch.commit();
+                        console.log(`[INVOICE-STATUS] Deleted invoice ${key} from ${batchCount} user doc(s)`);
                     }
                 } catch (e) {
                     console.error('[INVOICE-STATUS] Firestore delete error:', e);
-                    // Fallback: save entire document if update fails (e.g., document doesn't exist)
-                    this._saveToFirestore();
                 }
             }
 
@@ -914,6 +938,7 @@
          */
         async clearAll() {
             this._data.clear();
+            this._myKeys.clear();
             this._sentBills.clear();
             localStorage.removeItem(STORAGE_KEY);
 
