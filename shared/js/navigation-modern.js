@@ -230,6 +230,15 @@ const MENU_CONFIG = [
         adminOnly: true,
         permissionRequired: "render-data-manager",
     },
+    {
+        href: "../project-tracker/index.html",
+        icon: "list-checks",
+        text: "Theo Dõi Dự Án",
+        shortText: "Dự Án",
+        pageIdentifier: "project-tracker",
+        adminOnly: true,
+        permissionRequired: "project-tracker",
+    },
 ];
 
 /**
@@ -436,7 +445,7 @@ const DEFAULT_GROUPS_CONFIG = [
     {
         name: "Quản Trị",
         icon: "settings",
-        items: ["user-management", "balance-history", "soquy", "invoice-compare", "quy-trinh", "lichsuchinhsua"]
+        items: ["user-management", "balance-history", "soquy", "invoice-compare", "quy-trinh", "lichsuchinhsua", "project-tracker"]
     },
     {
         name: "Khác",

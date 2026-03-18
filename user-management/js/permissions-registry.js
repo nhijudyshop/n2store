@@ -492,6 +492,24 @@ const PAGES_REGISTRY = {
             view: { name: "Xem lịch sử", icon: "eye", description: "Xem lịch sử chỉnh sửa" },
             export: { name: "Xuất dữ liệu", icon: "download", description: "Export lịch sử ra file" }
         }
+    },
+
+    "project-tracker": {
+        id: "project-tracker",
+        name: "Theo Dõi Dự Án",
+        shortName: "Dự Án",
+        icon: "list-checks",
+        href: "../project-tracker/index.html",
+        description: "Theo dõi tiến độ phát triển dự án, tính năng và kế hoạch",
+        adminOnly: true,
+        category: "admin",
+        detailedPermissions: {
+            view: { name: "Xem dashboard", icon: "eye", description: "Xem dashboard và tiến độ dự án" },
+            edit_features: { name: "Sửa tính năng", icon: "edit-3", description: "Cập nhật trạng thái tính năng" },
+            manage_plans: { name: "Quản lý kế hoạch", icon: "calendar", description: "Tạo/sửa/xóa kế hoạch và mục tiêu" },
+            manage_tasks: { name: "Quản lý tasks", icon: "check-square", description: "Tạo/sửa/xóa và check tasks" },
+            sync_md: { name: "Đồng bộ MD", icon: "refresh-cw", description: "Đồng bộ dữ liệu từ/ra file Markdown" }
+        }
     }
 };
 

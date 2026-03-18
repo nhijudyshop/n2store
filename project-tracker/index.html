@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html class="light" lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Theo Dõi Dự Án - N2Store</title>
+    <link rel="icon" type="image/svg+xml" href="../shared/images/favicon.svg">
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com" rel="preconnect">
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Material Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+        rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
+    <!-- Mermaid.js for Module Map -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <!-- Tailwind CSS -->
+    <link rel="stylesheet" href="../shared/css/modern.css">
+    <link rel="stylesheet" href="./css/style.css">
+
+    <!-- ES Module: Shared utilities -->
+    <script type="module" src="../shared/esm/compat.js"></script>
+
+    <!-- Fallback for file:// protocol -->
+    <script>
+        if (window.location.protocol === 'file:') {
+            document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
+            document.write('<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>');
+        }
+    </script>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="../shared/js/firebase-config.js"></script>
+    <!-- Navigation -->
+    <script defer src="../shared/js/navigation-modern.js"></script>
+</head>
+
+<body class="bg-slate-50 font-display text-slate-900 min-h-screen flex flex-col">
+    <div class="main-content">
+        <main class="flex-1 max-w-[1440px] w-full mx-auto px-4 sm:px-6 py-4">
+
+            <!-- Header -->
+            <div class="mb-6">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <button class="btn-icon md:hidden" id="menuToggle">
+                            <span class="material-symbols-outlined">menu</span>
+                        </button>
+                        <div>
+                            <h1 class="text-xl sm:text-2xl font-bold text-slate-800 flex items-center gap-2">
+                                <span class="material-symbols-outlined text-purple-600">dashboard</span>
+                                Theo Dõi Dự Án
+                            </h1>
+                            <p class="text-sm text-slate-500 mt-0.5">N2Store - Hệ thống quản lý bán hàng</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button id="btnSyncMd" class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 text-white rounded-lg text-sm font-medium hover:bg-purple-700 transition-colors">
+                            <span class="material-symbols-outlined text-[18px]">sync</span>
+                            Đồng bộ từ MD
+                        </button>
+                        <button id="btnExportMd" class="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium hover:bg-slate-200 transition-colors border border-slate-200">
+                            <span class="material-symbols-outlined text-[18px]">download</span>
+                            Xuất ra MD
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab Navigation -->
+            <div class="mb-6">
+                <nav class="flex space-x-1 border-b border-slate-200 overflow-x-auto" aria-label="Tabs">
+                    <button class="tab-btn active flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 border-purple-600 text-purple-700" data-tab="dashboard">
+                        <span class="material-symbols-outlined text-[18px]">bar_chart</span>
+                        Dashboard
+                    </button>
+                    <button class="tab-btn flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 border-transparent text-slate-500 hover:text-slate-700" data-tab="feature-catalog">
+                        <span class="material-symbols-outlined text-[18px]">list_alt</span>
+                        Mục Lục Tính Năng
+                    </button>
+                    <button class="tab-btn flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 border-transparent text-slate-500 hover:text-slate-700" data-tab="todo-system">
+                        <span class="material-symbols-outlined text-[18px]">checklist</span>
+                        Kế Hoạch & Todo
+                    </button>
+                    <button class="tab-btn flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 border-transparent text-slate-500 hover:text-slate-700" data-tab="module-map">
+                        <span class="material-symbols-outlined text-[18px]">account_tree</span>
+                        Sơ Đồ Module
+                    </button>
+                </nav>
+            </div>
+
+            <!-- Tab Content -->
+            <div id="tab-dashboard" class="tab-content"></div>
+            <div id="tab-feature-catalog" class="tab-content hidden"></div>
+            <div id="tab-todo-system" class="tab-content hidden"></div>
+            <div id="tab-module-map" class="tab-content hidden"></div>
+
+        </main>
+    </div>
+
+    <!-- Main JS -->
+    <script type="module" src="./js/main.js"></script>
+</body>
+
+</html>
