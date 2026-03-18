@@ -342,6 +342,17 @@
                         <option value="Confirmed">Đơn hàng</option>
                     </select>
                 </div>
+
+                <!-- Fulfillment (Ra đơn) Filter -->
+                <div class="search-filter-dropdown" style="display: flex; align-items: center; gap: 6px;">
+                    <label style="font-size: 12px; font-weight: 500; color: #6b7280;">Ra đơn:</label>
+                    <select id="fulfillmentFilter" onchange="performTableSearch()" class="search-filter-select">
+                        <option value="all" selected>Tất cả</option>
+                        <option value="da_ra_don">Đã ra đơn</option>
+                        <option value="cho_ra_don">Chờ ra đơn</option>
+                        <option value="huy_cho_ra_don">Hủy chờ ra đơn</option>
+                    </select>
+                </div>
             </div>
             <div class="search-info">
                 <div>

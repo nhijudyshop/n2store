@@ -266,6 +266,20 @@ function performTableSearch() {
         });
     }
 
+    // Apply Fulfillment (Ra đơn) Filter
+    const fulfillmentFilter = document.getElementById('fulfillmentFilter')?.value || 'all';
+    if (fulfillmentFilter !== 'all') {
+        const fd = window.parent?.FulfillmentData || window.FulfillmentData;
+        if (fd && fd.isReady()) {
+            tempData = tempData.filter(order => {
+                const orderId = order.Id || order.id;
+                if (!orderId) return false;
+                const { status } = fd.getStatus(orderId);
+                return status === fulfillmentFilter;
+            });
+        }
+    }
+
     // Apply TAG filter (Multi-select)
     const selectedTags = window.getSelectedTagFilters ? window.getSelectedTagFilters() : [];
 
