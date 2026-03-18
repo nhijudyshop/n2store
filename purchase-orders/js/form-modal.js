@@ -2432,8 +2432,8 @@ class PurchaseOrderFormModal {
                                     const first = products[0];
                                     item.productName = first.name || '';
                                     item.productCode = first.code || '';
-                                    item.purchasePrice = first.purchasePrice || 0;
-                                    item.sellingPrice = first.sellingPrice || 0;
+                                    item.purchasePrice = (first.purchasePrice || 0).toLocaleString('vi-VN');
+                                    item.sellingPrice = (first.sellingPrice || 0).toLocaleString('vi-VN');
                                     if (first.image) {
                                         item.productImages = [first.image];
                                     }
@@ -2450,8 +2450,8 @@ class PurchaseOrderFormModal {
                                         const newItem = formModal.addItem();
                                         newItem.productName = product.name || '';
                                         newItem.productCode = product.code || '';
-                                        newItem.purchasePrice = product.purchasePrice || 0;
-                                        newItem.sellingPrice = product.sellingPrice || 0;
+                                        newItem.purchasePrice = (product.purchasePrice || 0).toLocaleString('vi-VN');
+                                        newItem.sellingPrice = (product.sellingPrice || 0).toLocaleString('vi-VN');
                                         if (product.image) {
                                             newItem.productImages = [product.image];
                                         }
