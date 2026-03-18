@@ -281,6 +281,70 @@ function updateSaleRemainingBalance() {
     }
 }
 
+// =====================================================
+// CHECK PREPAID EXCESS AND TOGGLE FIELD
+// =====================================================
+// Khi công nợ > tổng bill: cho phép nhân viên chỉnh sửa số tiền muốn trừ
+function checkPrepaidExcessAndToggle() {
+    const prepaidField = document.getElementById('salePrepaidAmount');
+    const warningDiv = document.getElementById('prepaidExcessWarning');
+    if (!prepaidField) return;
+
+    // Admin đã được enable sẵn từ modal opener, không cần can thiệp
+    const isAdmin = window.authManager?.isAdminTemplate?.() || false;
+    if (isAdmin) {
+        // Vẫn hiện warning nếu wallet > COD (để admin biết)
+        const originalBalance = parseFloat(prepaidField.dataset.originalBalance) || 0;
+        const codValue = parseFloat(document.getElementById('saleCOD')?.value) || 0;
+        if (originalBalance > codValue && codValue > 0 && warningDiv) {
+            warningDiv.style.display = 'block';
+        } else if (warningDiv) {
+            warningDiv.style.display = 'none';
+        }
+        return;
+    }
+
+    const originalBalance = parseFloat(prepaidField.dataset.originalBalance) || 0;
+    const codValue = parseFloat(document.getElementById('saleCOD')?.value) || 0;
+
+    if (originalBalance > codValue && codValue > 0) {
+        // Wallet > bill: enable editing
+        prepaidField.disabled = false;
+        prepaidField.style.background = '#ffffff';
+        prepaidField.style.border = '2px solid #dc2626';
+        prepaidField.max = codValue;
+        prepaidField.min = 0;
+        // Clamp value to max (COD)
+        if (parseFloat(prepaidField.value) > codValue) {
+            prepaidField.value = codValue;
+        }
+        if (warningDiv) warningDiv.style.display = 'block';
+        // Update remaining when user types
+        prepaidField.oninput = function () {
+            let val = parseFloat(this.value) || 0;
+            const maxVal = Math.min(
+                parseFloat(this.dataset.originalBalance) || 0,
+                parseFloat(document.getElementById('saleCOD')?.value) || 0
+            );
+            if (val > maxVal) { this.value = maxVal; val = maxVal; }
+            if (val < 0) { this.value = 0; }
+            updateSaleRemainingBalance();
+        };
+    } else {
+        // Normal case: disable field
+        prepaidField.disabled = true;
+        prepaidField.style.background = '#f3f4f6';
+        prepaidField.style.border = '';
+        // Reset value to original balance (clamped to COD)
+        if (originalBalance > 0) {
+            prepaidField.value = Math.min(originalBalance, codValue || originalBalance);
+        }
+        if (warningDiv) warningDiv.style.display = 'none';
+    }
+    updateSaleRemainingBalance();
+}
+
+window.checkPrepaidExcessAndToggle = checkPrepaidExcessAndToggle;
 window.updateSaleRemainingBalance = updateSaleRemainingBalance;
 window.fetchDeliveryCarriers = fetchDeliveryCarriers;
 window.populateDeliveryCarrierDropdown = populateDeliveryCarrierDropdown;
@@ -828,6 +892,7 @@ function updateSaleTotals(quantity, amount) {
     document.getElementById('saleGoodsValue').value = finalTotal;
 
     updateSaleRemainingBalance();
+    checkPrepaidExcessAndToggle();
 }
 
 // =====================================================
@@ -904,6 +969,7 @@ async function fetchDebtForSaleModal(phone) {
 
             if (prepaidAmountField) {
                 prepaidAmountField.value = totalBalance > 0 ? totalBalance : 0;
+                prepaidAmountField.dataset.originalBalance = totalBalance.toString();
             }
 
             const oldDebtField = document.getElementById('saleOldDebt');
@@ -918,14 +984,17 @@ async function fetchDebtForSaleModal(phone) {
             saveDebtToCache(normalizedPhone, totalBalance);
             updateDebtCellsInTable(normalizedPhone, totalBalance);
             updateSaleRemainingBalance();
+            checkPrepaidExcessAndToggle();
         } else {
             currentSaleLastDeposit = null;
             currentSaleAvailableDeposits = [];
             if (prepaidAmountField) {
                 prepaidAmountField.value = 0;
                 prepaidAmountField.dataset.hasVirtualDebt = '0';
+                prepaidAmountField.dataset.originalBalance = '0';
             }
             updateSaleRemainingBalance();
+            checkPrepaidExcessAndToggle();
         }
     } catch (error) {
         console.error('[SALE-MODAL] Error fetching wallet balance:', error);

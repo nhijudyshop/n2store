@@ -49,6 +49,57 @@ async function getCustomerPhone(db, customerId) {
 // =====================================================
 
 /**
+ * GET /api/v2/wallets/:phone/available-balance
+ * Get wallet balance minus pending withdrawals
+ * Used to re-verify wallet at order creation time (race condition protection)
+ */
+router.get('/:phone/available-balance', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { phone } = req.params;
+
+    try {
+        const normalizedPhone = normalizePhone(phone);
+        if (!normalizedPhone) {
+            return res.status(400).json({ success: false, error: 'Invalid phone number' });
+        }
+
+        const result = await db.query(`
+            SELECT
+                cw.balance,
+                cw.virtual_balance,
+                COALESCE(
+                    (SELECT SUM(pw.amount) FROM pending_wallet_withdrawals pw
+                     WHERE pw.phone = cw.phone AND pw.status IN ('PENDING', 'PROCESSING')),
+                    0
+                ) as pending_amount
+            FROM customer_wallets cw
+            WHERE cw.phone = $1
+        `, [normalizedPhone]);
+
+        if (result.rows.length === 0) {
+            return res.json({
+                success: true,
+                data: { balance: 0, virtual_balance: 0, pending_amount: 0, available_balance: 0 }
+            });
+        }
+
+        const row = result.rows[0];
+        const balance = parseFloat(row.balance) || 0;
+        const virtualBalance = parseFloat(row.virtual_balance) || 0;
+        const pendingAmount = parseFloat(row.pending_amount) || 0;
+        const availableBalance = Math.max(0, balance + virtualBalance - pendingAmount);
+
+        res.json({
+            success: true,
+            data: { balance, virtual_balance: virtualBalance, pending_amount: pendingAmount, available_balance: availableBalance }
+        });
+    } catch (error) {
+        console.error('[WALLET] Error getting available balance:', error.message);
+        res.status(500).json({ success: false, error: 'Failed to get available balance' });
+    }
+});
+
+/**
  * GET /api/v2/wallets/:customerId
  * Get wallet summary with active virtual credits
  */

@@ -698,6 +698,37 @@ async function confirmAndPrintSale() {
             throw new Error(`Sản phẩm chưa có mã trên TPOS: ${names || 'Không xác định'}. Vui lòng chọn sản phẩm từ Kho SP hoặc tìm kiếm trong ô tìm kiếm.`);
         }
 
+        // Re-verify wallet balance at order creation time (race condition protection)
+        const customerPhone = document.getElementById('saleReceiverPhone')?.value;
+        const prepaidAmountForVerify = parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;
+
+        if (prepaidAmountForVerify > 0 && customerPhone) {
+            const normalizedPhoneVerify = normalizePhoneForQR(customerPhone);
+            if (normalizedPhoneVerify) {
+                try {
+                    const QR_API = window.QR_API_URL || 'https://n2store-fallback.onrender.com';
+                    const verifyRes = await fetch(`${QR_API}/api/v2/wallets/${encodeURIComponent(normalizedPhoneVerify)}/available-balance`);
+                    const verifyData = await verifyRes.json();
+
+                    if (verifyData.success && prepaidAmountForVerify > verifyData.data.available_balance) {
+                        const availStr = verifyData.data.available_balance.toLocaleString('vi-VN');
+                        const wantStr = prepaidAmountForVerify.toLocaleString('vi-VN');
+                        alert(`Ví khách hàng đã thay đổi!\n\nSố dư khả dụng: ${availStr}đ\nBạn đang muốn trừ: ${wantStr}đ\n\nVui lòng đóng modal và tạo lại.`);
+                        if (confirmBtn) {
+                            confirmBtn.disabled = false;
+                            confirmBtn.textContent = originalText || 'Xác nhận và in (F9)';
+                        }
+                        return;
+                    }
+                    console.log('[SALE-CONFIRM] Wallet re-verify OK:', verifyData.data);
+                } catch (verifyErr) {
+                    // Nếu không verify được (network error), vẫn cho tạo đơn
+                    // pending-withdrawal sẽ fail nếu không đủ tiền
+                    console.warn('[SALE-CONFIRM] Wallet re-verify failed (non-blocking):', verifyErr.message);
+                }
+            }
+        }
+
         // Build request body (same as fastSaleModal's "Lưu xác nhận")
         const requestBody = {
             is_approve: true,

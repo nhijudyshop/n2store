@@ -158,9 +158,15 @@ async function openSaleModalInSocialTab(orderId) {
     const receiverNoteEl = document.getElementById('saleReceiverNote');
     if (receiverNoteEl) receiverNoteEl.value = '';
     const prepaidEl = document.getElementById('salePrepaidAmount');
-    if (prepaidEl) prepaidEl.value = 0;
+    if (prepaidEl) {
+        prepaidEl.value = 0;
+        prepaidEl.dataset.originalBalance = '';
+        prepaidEl.style.border = '';
+    }
     const prepaidDateEl = document.getElementById('salePrepaidDate');
     if (prepaidDateEl) prepaidDateEl.value = '';
+    const prepaidWarning = document.getElementById('prepaidExcessWarning');
+    if (prepaidWarning) prepaidWarning.style.display = 'none';
 
     // Show modal
     const modal = document.getElementById('saleButtonModal');
@@ -195,6 +201,7 @@ async function openSaleModalInSocialTab(orderId) {
         } else {
             prepaidAmountField.disabled = true;
             prepaidAmountField.style.background = '#f3f4f6';
+            prepaidAmountField.style.border = '';
             if (confirmDebtBtn) confirmDebtBtn.style.display = 'none';
         }
         prepaidAmountField.oninput = function () { updateSaleRemainingBalance(); };
