@@ -7,11 +7,9 @@
     'use strict';
 
     const STORAGE_KEY = 'last_realtime_check';
-    // Use n2store-realtime server (has WebSocket + Database + pending-customers API)
-    const SERVER_URL = 'https://n2store-realtime.onrender.com';
-    // Fallback to n2store-fallback if realtime server is down
-    const FALLBACK_URL = 'https://n2store-fallback.onrender.com';
-    // Cloudflare Worker fallback
+    // Use tpos-pancake server (REST API for events)
+    const SERVER_URL = 'https://n2store-tpos-pancake.onrender.com';
+    // Cloudflare Worker proxy (routes /api/realtime/* to tpos-pancake)
     const WORKER_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
 
     /**
@@ -38,7 +36,7 @@
      */
     async function markMessagesAsSeen(timestamp) {
         try {
-            const response = await fetch(`${SERVER_URL}/api/realtime/mark-seen`, {
+            const response = await fetch(`${WORKER_URL}/api/realtime/mark-seen`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ before: timestamp })
@@ -60,8 +58,8 @@
      */
     async function fetchNewMessages(since) {
         const urls = [
-            `${SERVER_URL}/api/realtime/summary?since=${since}`,
-            `${WORKER_URL}/api/realtime/summary?since=${since}`
+            `${WORKER_URL}/api/realtime/summary?since=${since}`,
+            `${SERVER_URL}/api/realtime/summary?since=${since}`
         ];
 
         for (const url of urls) {
@@ -90,8 +88,8 @@
      */
     async function fetchPendingCustomers() {
         const urls = [
-            `${SERVER_URL}/api/realtime/pending-customers?limit=1500`,
-            `${FALLBACK_URL}/api/realtime/pending-customers?limit=1500`
+            `${WORKER_URL}/api/realtime/pending-customers?limit=1500`,
+            `${SERVER_URL}/api/realtime/pending-customers?limit=1500`
         ];
 
         for (const url of urls) {
@@ -124,8 +122,8 @@
      */
     async function markRepliedOnServer(psid, pageId) {
         const urls = [
-            `${SERVER_URL}/api/realtime/mark-replied`,
-            `${FALLBACK_URL}/api/realtime/mark-replied`
+            `${WORKER_URL}/api/realtime/mark-replied`,
+            `${SERVER_URL}/api/realtime/mark-replied`
         ];
 
         for (const url of urls) {

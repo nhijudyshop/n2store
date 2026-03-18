@@ -901,7 +901,66 @@ class PancakeDataManager {
     }
 
     /**
-     * Lấy danh sách conversations từ Pancake API
+     * Lấy conversations cho 1 page từ Pancake Public API v2
+     * GET /pages/{page_id}/conversations?page_access_token={token}
+     * @param {string} pageId - Page ID
+     * @param {string} pageAccessToken - Page access token
+     * @returns {Promise<Array>} conversations for this page
+     */
+    async fetchConversationsForPage(pageId, pageAccessToken) {
+        const maxRetries = 3;
+        let lastError = null;
+
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                // Build URL using Public API v2 (documented endpoint)
+                const extraParams = 'unread_first=true&order_by=updated_at';
+                const url = window.API_CONFIG.buildUrl.pancakeOfficialV2(
+                    `pages/${pageId}/conversations`,
+                    pageAccessToken,
+                    extraParams
+                );
+
+                const response = await this.queuedFetch(url, {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                }, `fetchConversations:${pageId}`);
+
+                if (response.status === 429) {
+                    const backoffMs = Math.min(2000 * Math.pow(2, attempt - 1), 10000);
+                    console.warn(`[PANCAKE] Rate limited (429) for page ${pageId}, attempt ${attempt}/${maxRetries}. Waiting ${backoffMs}ms...`);
+                    await new Promise(r => setTimeout(r, backoffMs));
+                    continue;
+                }
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error(`[PANCAKE] Error fetching conversations for page ${pageId}:`, errorText);
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                const conversations = data.conversations || [];
+                console.log(`[PANCAKE] Page ${pageId}: fetched ${conversations.length} conversations`);
+                return conversations;
+
+            } catch (fetchError) {
+                lastError = fetchError;
+                if (attempt < maxRetries) {
+                    const backoffMs = 2000 * Math.pow(2, attempt - 1);
+                    console.warn(`[PANCAKE] Fetch error for page ${pageId}, attempt ${attempt}/${maxRetries}. Waiting ${backoffMs}ms...`, fetchError.message);
+                    await new Promise(r => setTimeout(r, backoffMs));
+                }
+            }
+        }
+
+        console.error(`[PANCAKE] ❌ All retries failed for page ${pageId}:`, lastError?.message);
+        return [];
+    }
+
+    /**
+     * Lấy danh sách conversations từ Pancake Public API v2
+     * Gọi per-page với page_access_token theo documented API
      * @param {boolean} forceRefresh - Bắt buộc refresh
      * @returns {Promise<Array>}
      */
@@ -938,80 +997,50 @@ class PancakeDataManager {
             }
 
             this.isLoading = true;
-            console.log('[PANCAKE] Fetching conversations from API via Cloudflare...');
+            console.log('[PANCAKE] Fetching conversations via Public API v2 (per-page with page_access_token)...');
 
             // Store promise for singleton pattern
             this._fetchConversationsPromise = (async () => {
                 try {
-                    const token = await this.getToken();
+                    // Fetch conversations for each page using page_access_token
+                    const allConversations = [];
+                    const errors = [];
 
-                    // Build query params - format: pages[pageId]=offset
-                    const pagesParams = this.pageIds.map(pageId => `pages[${pageId}]=0`).join('&');
-                    const queryString = `${pagesParams}&unread_first=true&mode=OR&tags="ALL"&except_tags=[]&access_token=${token}&cursor_mode=true&from_platform=web`;
-
-                    // Use Cloudflare Worker proxy
-                    const url = window.API_CONFIG.buildUrl.pancake('conversations', queryString);
-
-                    console.log('[PANCAKE] Conversations URL:', url);
-
-                    // Retry with exponential backoff for 429 errors
-                    const maxRetries = 3;
-                    let lastError = null;
-
-                    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+                    // Process pages sequentially to avoid rate limiting
+                    for (const pageId of this.pageIds) {
                         try {
-                            // Use queuedFetch with deduplication key
-                            const response = await this.queuedFetch(url, {
-                                method: 'GET',
-                                headers: {
-                                    'Content-Type': 'application/json'
-                                }
-                            }, 'fetchConversations');
-
-                            console.log('[PANCAKE] Conversations response status:', response.status);
-
-                            if (response.status === 429) {
-                                // Rate limited - wait and retry with exponential backoff
-                                const backoffMs = Math.min(2000 * Math.pow(2, attempt - 1), 10000); // 2s, 4s, 8s (max 10s)
-                                console.warn(`[PANCAKE] Rate limited (429), attempt ${attempt}/${maxRetries}. Waiting ${backoffMs}ms...`);
-                                await new Promise(r => setTimeout(r, backoffMs));
+                            // Get page_access_token for this page
+                            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+                            if (!pageAccessToken) {
+                                console.warn(`[PANCAKE] No page_access_token for page ${pageId}, skipping`);
+                                errors.push({ pageId, error: 'No page_access_token' });
                                 continue;
                             }
 
-                            if (!response.ok) {
-                                const errorText = await response.text();
-                                console.error('[PANCAKE] Error response:', errorText);
-                                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                            }
-
-                            const data = await response.json();
-                            console.log('[PANCAKE] Conversations response data:', data);
-
-                            this.conversations = data.conversations || [];
-                            this.lastFetchTime = Date.now();
-
-                            // Build conversation map
-                            this.buildConversationMap();
-
-                            // Save to sessionStorage for page refresh
-                            this.saveConversationsToSessionStorage();
-
-                            console.log(`[PANCAKE] ✅ Fetched ${this.conversations.length} conversations`);
-
-                            return this.conversations;
-
-                        } catch (fetchError) {
-                            lastError = fetchError;
-                            if (attempt < maxRetries) {
-                                const backoffMs = 2000 * Math.pow(2, attempt - 1);
-                                console.warn(`[PANCAKE] Fetch error, attempt ${attempt}/${maxRetries}. Waiting ${backoffMs}ms...`, fetchError.message);
-                                await new Promise(r => setTimeout(r, backoffMs));
-                            }
+                            const conversations = await this.fetchConversationsForPage(pageId, pageAccessToken);
+                            allConversations.push(...conversations);
+                        } catch (pageError) {
+                            console.error(`[PANCAKE] Error fetching page ${pageId}:`, pageError.message);
+                            errors.push({ pageId, error: pageError.message });
                         }
                     }
 
-                    // All retries failed
-                    throw lastError || new Error('Failed after all retries');
+                    if (errors.length > 0) {
+                        console.warn(`[PANCAKE] ⚠️ ${errors.length} pages had errors:`, errors);
+                    }
+
+                    this.conversations = allConversations;
+                    this.lastFetchTime = Date.now();
+
+                    // Build conversation map
+                    this.buildConversationMap();
+
+                    // Save to sessionStorage for page refresh
+                    this.saveConversationsToSessionStorage();
+
+                    console.log(`[PANCAKE] ✅ Fetched ${this.conversations.length} conversations from ${this.pageIds.length} pages`);
+
+                    return this.conversations;
                 } finally {
                     this.isLoading = false;
                     this._fetchConversationsPromise = null; // Clear singleton promise
@@ -2482,8 +2511,8 @@ class PancakeDataManager {
 
     /**
      * Upload image to Pancake API
-     * Uses Internal API (pancake.vn/api/v1) for full response with content_url
-     * POST /pages/{page_id}/contents
+     * Uses Official API v1 (pages.fm/api/public_api/v1) with page_access_token
+     * POST /pages/{page_id}/upload_contents (docs §3.4)
      * @param {string} pageId
      * @param {File} file
      * @param {boolean} allowFallback - If true, fallback to imgbb when Pancake fails (default: true)
@@ -2497,30 +2526,28 @@ class PancakeDataManager {
             const fileType = file.type || 'image/jpeg';
             console.log(`[PANCAKE] Uploading image: ${fileName}, size: ${file.size}, type: ${fileType}`);
 
-            // Get JWT access_token for Internal API (pancake.vn)
-            const accessToken = await this.getToken();
-            if (!accessToken) throw new Error('No Pancake access_token available');
+            // Get page_access_token for Official API v1
+            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            if (!pageAccessToken) throw new Error('No page_access_token available for upload');
 
-            // Internal API: POST /pages/{page_id}/contents
+            // Official API v1: POST /pages/{page_id}/upload_contents (docs §3.4)
             // Content-Type: multipart/form-data
-            // Body: file=@image.jpg
-            // Response includes: content_url, content_id, content_preview_url, fb_id, image_data
-            const url = window.API_CONFIG.buildUrl.pancake(
-                `pages/${pageId}/contents`,
-                `access_token=${accessToken}`
+            // Body: file={binary}
+            // Response: { success: true, id: "content_id", attachment_type: "PHOTO" }
+            const url = window.API_CONFIG.buildUrl.pancakeOfficial(
+                `pages/${pageId}/upload_contents`,
+                pageAccessToken
             );
 
             const formData = new FormData();
-            // ⭐ IMPORTANT: Add filename for Blob objects (compressed images)
-            // Pancake API needs filename to generate content_url
             const filename = file.name || 'image.jpg';
             formData.append('file', file, filename);
 
-            console.log('[PANCAKE] Uploading to Internal API:', url.replace(/access_token=[^&]+/, 'access_token=***'));
+            console.log('[PANCAKE] Uploading to Official API v1:', url.replace(/page_access_token=[^&]+/, 'page_access_token=***'));
             const response = await API_CONFIG.smartFetch(url, {
                 method: 'POST',
                 body: formData
-            }, 3, true); // skipFallback = true for image upload
+            }, 3, true);
 
             if (!response.ok) {
                 const errorText = await response.text();
@@ -2533,61 +2560,9 @@ class PancakeDataManager {
             const data = await response.json();
             console.log('[PANCAKE] Upload response:', JSON.stringify(data, null, 2));
 
-            // Handle session expired error (error_code 103) - retry with fresh token
-            if (data.error_code === 103 || data.message?.includes('session expired')) {
-                console.warn('[PANCAKE] ⚠️ Session expired, clearing token and retrying...');
-                // Clear cached token
-                if (window.pancakeTokenManager) {
-                    window.pancakeTokenManager.clearTokenFromLocalStorage();
-                    window.pancakeTokenManager._jwtToken = null;
-                    window.pancakeTokenManager._jwtExpiry = null;
-                }
-                // Retry once with fresh token
-                const newAccessToken = await this.getToken();
-                if (newAccessToken) {
-                    const retryUrl = window.API_CONFIG.buildUrl.pancake(
-                        `pages/${pageId}/contents`,
-                        `access_token=${newAccessToken}`
-                    );
-                    const retryFormData = new FormData();
-                    retryFormData.append('file', file, file.name || 'image.jpg');
-                    console.log('[PANCAKE] 🔄 Retrying upload with fresh token...');
-                    const retryResponse = await API_CONFIG.smartFetch(retryUrl, {
-                        method: 'POST',
-                        body: retryFormData
-                    }, 3, true);
-                    if (retryResponse.ok) {
-                        const retryData = await retryResponse.json();
-                        console.log('[PANCAKE] Retry response:', JSON.stringify(retryData, null, 2));
-                        if (retryData.data?.[0]?.id) {
-                            const retryContentData = retryData.data[0];
-                            return {
-                                content_url: retryContentData.content_url || null,
-                                content_id: retryContentData.id,
-                                id: retryContentData.id,
-                                content_preview_url: retryContentData.content_preview_url || null,
-                                fb_id: retryContentData.fb_id || null,
-                                width: retryContentData.image_data?.width || null,
-                                height: retryContentData.image_data?.height || null
-                            };
-                        }
-                    }
-                }
-                pancakeError = new Error('Session expired and retry failed');
-                throw pancakeError;
-            }
-
-            // Pancake API response format (wrapped in data array):
-            // {
-            //   "data": [{
-            //     "id": "b673ed56-02f6-4626-b7a2-7901d536f8a1",  // UUID - this is content_id
-            //     "content_url": "https://content.pancake.vn/.../image.jpg",
-            //     "content_preview_url": "https://content.pancake.vn/..._thumb.jpg",
-            //     "image_data": { "height": 2400, "width": 800 },
-            //     "name": "image.png"
-            //   }],
-            //   "success": true
-            // }
+            // Official API v1 response format (docs §3.4):
+            // { "success": true, "id": "content_id", "attachment_type": "PHOTO" }
+            // Also supports legacy wrapped format: { "data": [{ "id": "...", ... }], "success": true }
             // Handle both wrapped format (data.data[0]) and flat format (data.*)
             const contentData = data.data?.[0] || data;
             const result = {

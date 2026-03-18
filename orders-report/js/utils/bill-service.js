@@ -1328,41 +1328,38 @@ ${orderComment ? `
                 };
             }
 
-            // Send via Internal API (pancake.vn) with FormData - same as chat modal for images
-            // Ref: tab1-chat.js line 4148-4176
-            const accessToken = await window.pancakeDataManager?.getToken();
-            if (!accessToken) {
-                throw new Error('No Pancake access_token available. Vui lòng đăng nhập Pancake.');
+            // Send via Official API v1 (page_access_token) with JSON
+            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            if (!pageAccessToken) {
+                throw new Error('No page_access_token available. Vui lòng kiểm tra cài đặt Pancake.');
             }
 
-            // Build URL using Internal API (pancake.vn)
-            const sendUrl = window.API_CONFIG?.buildUrl?.pancake
-                ? window.API_CONFIG.buildUrl.pancake(
-                    `pages/${pageId}/conversations/${convId}/messages`,
-                    `access_token=${accessToken}`
-                )
-                : `https://pancake.vn/api/v1/pages/${pageId}/conversations/${convId}/messages?access_token=${accessToken}`;
+            // Build URL using Official API v1 (pages.fm/api/public_api/v1/)
+            const sendUrl = window.API_CONFIG.buildUrl.pancakeOfficial(
+                `pages/${pageId}/conversations/${convId}/messages`,
+                pageAccessToken
+            );
 
-            // Build FormData - same format as chat modal
-            // Note: Only send image, no text message (user preference)
-            const formData = new FormData();
-            formData.append('action', 'reply_inbox');
-            formData.append('message', '');  // Empty message - send image only
-            formData.append('content_id', contentId || '');
-            formData.append('content_url', contentUrl || '');
-            formData.append('send_by_platform', 'web');
+            // Build JSON payload - send image via content_ids (Official API docs §3.3)
+            const billPayload = {
+                action: 'reply_inbox',
+                content_ids: contentId ? [contentId] : []
+            };
 
-            console.log('[BILL-SERVICE] Sending via Internal API (pancake.vn)');
-            console.log('[BILL-SERVICE] URL:', sendUrl.replace(/access_token=[^&]+/, 'access_token=***'));
+            console.log('[BILL-SERVICE] Sending via Official API v1 (page_access_token)');
+            console.log('[BILL-SERVICE] URL:', sendUrl.replace(/page_access_token=[^&]+/, 'page_access_token=***'));
             console.log('[BILL-SERVICE] content_id:', contentId);
 
             // Fire additional messages in parallel (fire and forget - don't wait)
-            sendAdditionalBillMessages(pageId, convId, accessToken);
+            sendAdditionalBillMessages(pageId, convId, pageAccessToken);
 
             const sendResponse = await fetch(sendUrl, {
                 method: 'POST',
-                body: formData
-                // Don't set Content-Type header - browser will set it with boundary
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(billPayload)
             });
 
             if (!sendResponse.ok) {
@@ -1567,39 +1564,39 @@ ${orderComment ? `
     /**
      * Send additional messages after bill send (image + thank you message)
      * Fires in parallel with bill send - fire and forget
+     * Uses Official API v1 with page_access_token
      * @param {string} pageId - Facebook Page ID
      * @param {string} convId - Conversation ID
-     * @param {string} accessToken - Pancake access token
+     * @param {string} pageAccessToken - Page access token
      */
-    function sendAdditionalBillMessages(pageId, convId, accessToken) {
+    function sendAdditionalBillMessages(pageId, convId, pageAccessToken) {
         console.log('[BILL-SERVICE] [ADDITIONAL] Sending additional messages...');
 
-        // Use Cloudflare proxy (same as main bill send)
-        const baseUrl = window.API_CONFIG?.buildUrl?.pancake
-            ? window.API_CONFIG.buildUrl.pancake(
-                `pages/${pageId}/conversations/${convId}/messages`,
-                `access_token=${accessToken}`
-            )
-            : `https://pancake.vn/api/v1/pages/${pageId}/conversations/${convId}/messages?access_token=${accessToken}`;
+        // Build URL using Official API v1 (page_access_token)
+        const baseUrl = window.API_CONFIG.buildUrl.pancakeOfficial(
+            `pages/${pageId}/conversations/${convId}/messages`,
+            pageAccessToken
+        );
 
-        // Message 1: Send image from Pancake CDN (uploaded 2026-01-29)
-        const formData1 = new FormData();
-        formData1.append('action', 'reply_inbox');
-        formData1.append('message', '');
-        formData1.append('content_id', '4d0b73b0-8d3f-4dfa-bb9b-11a82096734d');
-        formData1.append('content_url', 'https://content.pancake.vn/2-2601/2026/1/29/402e8fd15439d66430ab886e2c122ef15a918cc0.jpg');
-        formData1.append('width', '1920');
-        formData1.append('height', '1008');
-        formData1.append('send_by_platform', 'web');
+        const jsonHeaders = {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        };
+
+        // Message 1: Send image via content_ids (Official API docs §3.3)
+        const imagePayload = {
+            action: 'reply_inbox',
+            content_ids: ['4d0b73b0-8d3f-4dfa-bb9b-11a82096734d']
+        };
 
         // Message 2: Send thank you text
-        const formData2 = new FormData();
-        formData2.append('action', 'reply_inbox');
-        formData2.append('message', 'Dạ hàng của mình đã được lên bill , cám ơn chị yêu đã ủng hộ shop ạ ❤️');
-        formData2.append('send_by_platform', 'web');
+        const textPayload = {
+            action: 'reply_inbox',
+            message: 'Dạ hàng của mình đã được lên bill , cám ơn chị yêu đã ủng hộ shop ạ ❤️'
+        };
 
         // Fire both requests without waiting (fire and forget)
-        fetch(baseUrl, { method: 'POST', body: formData1 })
+        fetch(baseUrl, { method: 'POST', headers: jsonHeaders, body: JSON.stringify(imagePayload) })
             .then(response => {
                 if (!response.ok) {
                     console.warn('[BILL-SERVICE] [ADDITIONAL] Image message HTTP error:', response.status);
@@ -1615,7 +1612,7 @@ ${orderComment ? `
                 console.warn('[BILL-SERVICE] [ADDITIONAL] Image message error:', error.message);
             });
 
-        fetch(baseUrl, { method: 'POST', body: formData2 })
+        fetch(baseUrl, { method: 'POST', headers: jsonHeaders, body: JSON.stringify(textPayload) })
             .then(response => {
                 if (!response.ok) {
                     console.warn('[BILL-SERVICE] [ADDITIONAL] Thank you message HTTP error:', response.status);

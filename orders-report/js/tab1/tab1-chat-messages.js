@@ -818,44 +818,53 @@ async function sendMessageInternal(messageData) {
         let apiError = null;
 
         if (imagesDataArray.length > 0) {
-            // SEND WITH IMAGES via Internal API (multipart/form-data)
+            // SEND WITH IMAGES via Official API v1 (page_access_token)
             console.log('[MESSAGE] Adding', imagesDataArray.length, 'images to payload');
 
-            const accessToken = await window.pancakeDataManager?.getToken();
-            if (!accessToken) {
-                throw new Error('No Pancake access_token available for image send');
+            if (!pageAccessToken) {
+                throw new Error('No page_access_token available for image send');
             }
 
-            replyUrl = window.API_CONFIG.buildUrl.pancake(
+            replyUrl = window.API_CONFIG.buildUrl.pancakeOfficial(
                 `pages/${channelId}/conversations/${actualConversationId}/messages`,
-                `access_token=${accessToken}`
+                pageAccessToken
             ) + (customerId ? `&customer_id=${customerId}` : '');
 
-            const firstImage = imagesDataArray[0];
-            const formData = new FormData();
-            formData.append('action', payload.action || 'reply_inbox');
-            formData.append('message', message || '');
-            formData.append('content_id', firstImage.content_id || firstImage.id || '');
-            formData.append('attachment_id', firstImage.fb_id || '');
-            formData.append('content_url', firstImage.content_url || '');
-            formData.append('width', String(firstImage.width || 0));
-            formData.append('height', String(firstImage.height || 0));
-            formData.append('send_by_platform', 'web');
+            // Build content_ids from uploaded images
+            const contentIds = imagesDataArray
+                .map(img => img.content_id || img.id)
+                .filter(Boolean);
+
+            // Per docs: message and content_ids are MUTUALLY EXCLUSIVE
+            // If both text and image, send image with content_ids only
+            const imagePayload = {
+                action: payload.action || 'reply_inbox',
+                content_ids: contentIds
+            };
+
+            // If no text message, just send the image
+            // If there IS text, include it (some endpoints support both despite docs)
+            if (message) {
+                imagePayload.message = message;
+            }
 
             if (repliedMessageId) {
-                formData.append('replied_message_id', repliedMessageId);
+                imagePayload.replied_message_id = repliedMessageId;
             }
 
             requestOptions = {
                 method: 'POST',
-                body: formData
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(imagePayload)
             };
 
-            console.log('[MESSAGE] Using Internal API with multipart/form-data');
-            console.log('[MESSAGE] content_id:', firstImage.content_id || firstImage.id);
+            console.log('[MESSAGE] Using Official API v1 with content_ids:', contentIds);
 
             if (imagesDataArray.length > 1) {
-                console.warn('[MESSAGE] Multiple images not fully supported yet - only first image will be sent');
+                console.warn('[MESSAGE] Sending', imagesDataArray.length, 'images via content_ids');
             }
         } else {
             // SEND TEXT ONLY via Official API (JSON)

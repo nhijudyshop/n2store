@@ -14,6 +14,11 @@ class RealtimeManager {
         this.token = null;
         this.pageIds = [];
         this.isConnecting = false;
+
+        // Server mode REST polling
+        this.pollingInterval = null;
+        this.lastEventTimestamp = null;
+        this.consecutiveErrors = 0;
     }
 
     /**
@@ -74,7 +79,9 @@ class RealtimeManager {
     }
 
     /**
-     * Connect via Server Mode
+     * Connect via Server Mode (REST Polling)
+     * tpos-pancake server auto-connects to Pancake WS on startup via Firebase tokens.
+     * Frontend polls GET /api/events for new events.
      */
     async connectServerMode() {
         if (this.isConnected || this.isConnecting) {
@@ -82,98 +89,53 @@ class RealtimeManager {
             return;
         }
 
-        console.log('[REALTIME] Server Mode Active. Requesting backend to start WebSocket...');
+        console.log('[REALTIME] Server Mode Active. Starting REST polling...');
         this.isConnecting = true;
 
-        // Get dependencies
-        if (!window.pancakeTokenManager || !window.pancakeDataManager) {
-            console.warn('[REALTIME] Dependencies not ready, retrying in 1s...');
-            setTimeout(() => this.connectServerMode(), 1000);
-            return;
-        }
-
-        const token = await window.pancakeTokenManager.getToken();
-        let tokenInfo = window.pancakeTokenManager.getTokenInfo();
-
-        // Fallback: if tokenInfo is null (accounts not loaded yet), decode from token directly
-        if (!tokenInfo && token && window.pancakeTokenManager.decodeToken) {
-            const decoded = window.pancakeTokenManager.decodeToken(token);
-            if (decoded) {
-                tokenInfo = { uid: decoded.uid, name: decoded.name };
-                console.log('[REALTIME] Decoded userId from token:', decoded.uid);
-            }
-        }
-
-        const userId = tokenInfo ? tokenInfo.uid : null;
-
-        if (window.pancakeDataManager.pageIds.length === 0) {
-            await window.pancakeDataManager.fetchPages();
-        }
-        const pageIds = window.pancakeDataManager.pageIds;
-
-        if (!token || !userId) {
-            console.error('[REALTIME] Missing token or userId for Server Mode');
-            return;
-        }
-
-        // Construct cookie string from token
-        // Note: Pancake might require other cookies like _fbp, but jwt is the most critical.
-        // If the user provided a full cookie string in settings, we should use that, but currently we only store the token.
-        const cookie = `jwt=${token}`;
-
-        // Call Render Server API
-        // Determine URL based on mode
-        // Default to Cloudflare Worker to avoid CORS
+        // Determine server base URL
+        // Default to Cloudflare Worker proxy to avoid CORS
         let serverBaseUrl = 'https://chatomni-proxy.nhijudyshop.workers.dev';
-
-        // Check if localhost mode is selected
         const mode = window.chatAPISettings ? window.chatAPISettings.getRealtimeMode() : 'server';
         if (mode === 'localhost') {
             serverBaseUrl = 'http://localhost:3000';
         }
 
-        const serverUrl = `${serverBaseUrl}/api/realtime/start`;
-
         try {
-            console.log('[REALTIME] Sending start request to server:', serverUrl);
-            const response = await fetch(serverUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    token,
-                    userId,
-                    pageIds,
-                    cookie // Pass cookie to server
-                })
-            });
+            // Check server status first
+            const statusUrl = mode === 'localhost'
+                ? `${serverBaseUrl}/api/status`
+                : `${serverBaseUrl}/api/realtime/status`;
 
+            console.log('[REALTIME] Checking server status:', statusUrl);
+            const response = await fetch(statusUrl);
             const data = await response.json();
-            if (data.success) {
-                console.log('[REALTIME] Server successfully started WebSocket client');
+
+            const connected = data.connectedClients || 0;
+            const total = data.totalClients || 0;
+
+            if (connected > 0) {
+                console.log(`[REALTIME] Server alive: ${connected}/${total} accounts connected`);
                 if (window.notificationManager) {
-                    window.notificationManager.show('✅ Server đã bắt đầu nhận tin nhắn 24/7', 'success');
+                    window.notificationManager.show(
+                        `✅ Server đang chạy (${connected}/${total} accounts kết nối)`, 'success'
+                    );
                 }
-
-                // Connect to Proxy WebSocket to receive updates
-                // If using Cloudflare, we still need to connect WS to Render directly or via a WS-compatible proxy
-                // Cloudflare Workers don't easily proxy WebSockets without specific setup.
-                // For now, let's connect WS directly to Render (since WS doesn't have same CORS issues as fetch)
-                const wsUrl = mode === 'localhost'
-                    ? 'ws://localhost:3000'
-                    : 'wss://n2store-realtime.onrender.com';
-
-                this.connectToProxyServer(wsUrl);
-
             } else {
-                console.error('[REALTIME] Server failed to start:', data.error);
+                console.warn('[REALTIME] Server alive but no accounts connected');
                 if (window.notificationManager) {
-                    window.notificationManager.show('❌ Server khởi động thất bại: ' + data.error, 'error');
+                    window.notificationManager.show(
+                        '⚠️ Server đang chạy nhưng chưa có account kết nối', 'warning'
+                    );
                 }
             }
+
+            // Start REST polling for events
+            this.startServerPolling(serverBaseUrl, mode);
+            this.isConnected = true;
+            this.consecutiveErrors = 0;
+
         } catch (error) {
-            console.error('[REALTIME] Error calling server:', error);
+            console.error('[REALTIME] Error connecting to server:', error);
             if (window.notificationManager) {
                 window.notificationManager.show('❌ Không thể kết nối tới Server', 'error');
             }
@@ -183,53 +145,86 @@ class RealtimeManager {
     }
 
     /**
-     * Connect to Proxy Server WebSocket
+     * Start REST polling for server events
      */
-    connectToProxyServer(url) {
-        if (this.proxyWs) {
-            this.proxyWs.close();
+    startServerPolling(serverBaseUrl, mode) {
+        // Clear any existing polling
+        if (this.pollingInterval) {
+            clearInterval(this.pollingInterval);
         }
 
-        console.log('[REALTIME] Connecting to Proxy Server:', url);
-        this.proxyWs = new WebSocket(url);
+        // Track last event timestamp for incremental fetching
+        this.lastEventTimestamp = new Date().toISOString();
 
-        this.proxyWs.onopen = () => {
-            console.log('[REALTIME] Connected to Proxy Server');
-            this.isConnected = true; // Mark as connected for UI
-        };
+        const eventsUrl = mode === 'localhost'
+            ? `${serverBaseUrl}/api/events`
+            : `${serverBaseUrl}/api/realtime/events`;
 
-        this.proxyWs.onclose = () => {
-            console.log('[REALTIME] Disconnected from Proxy Server');
-            this.isConnected = false;
+        console.log('[REALTIME] Starting REST polling every 5s:', eventsUrl);
 
-            // Auto reconnect logic
-            if (window.chatAPISettings &&
-                window.chatAPISettings.isRealtimeEnabled() &&
-                window.chatAPISettings.getRealtimeMode() !== 'browser') {
+        // Poll immediately once, then every 5 seconds
+        this.pollServerEvents(eventsUrl);
+        this.pollingInterval = setInterval(() => {
+            this.pollServerEvents(eventsUrl);
+        }, 5000);
+    }
 
-                console.log('[REALTIME] Reconnecting to Server Mode in 3s...');
-                setTimeout(() => {
-                    // Call connectServerMode instead of just connectToProxyServer
-                    // This ensures we re-send the POST /start command in case the server restarted
-                    this.connectServerMode();
-                }, 3000);
-            }
-        };
+    /**
+     * Poll server for new events since last timestamp
+     */
+    async pollServerEvents(eventsUrl) {
+        try {
+            const url = `${eventsUrl}?since=${encodeURIComponent(this.lastEventTimestamp)}&limit=50`;
+            const response = await fetch(url);
 
-        this.proxyWs.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                if (data.type === 'pages:update_conversation') {
-                    console.log('[REALTIME] Received update from Proxy:', data.payload);
-                    this.handleUpdateConversation(data.payload);
-                } else if (data.type === 'order:tags_updated') {
-                    console.log('[REALTIME] Received tag update from Proxy:', data.payload);
-                    this.handleOrderTagsUpdate(data.payload);
+            if (!response.ok) {
+                this.consecutiveErrors++;
+                console.warn(`[REALTIME] Poll failed (${this.consecutiveErrors}):`, response.status);
+
+                // After 5 consecutive errors, show notification and stop polling
+                if (this.consecutiveErrors >= 5) {
+                    console.error('[REALTIME] Too many poll errors, stopping...');
+                    this.disconnect();
+                    if (window.notificationManager) {
+                        window.notificationManager.show('❌ Mất kết nối Server, đã dừng polling', 'error');
+                    }
                 }
-            } catch (e) {
-                console.error('[REALTIME] Error parsing proxy message:', e);
+                return;
             }
-        };
+
+            this.consecutiveErrors = 0;
+            const data = await response.json();
+            const events = data.events || data || [];
+
+            if (events.length > 0) {
+                console.log(`[REALTIME] Received ${events.length} events from server`);
+
+                for (const event of events) {
+                    // Update last timestamp for incremental fetching
+                    if (event.timestamp && event.timestamp > this.lastEventTimestamp) {
+                        this.lastEventTimestamp = event.timestamp;
+                    }
+
+                    // Process based on event type
+                    if (event.type === 'update_conversation' || event.type === 'pages:update_conversation') {
+                        this.handleUpdateConversation(event.payload);
+                    } else if (event.type === 'tags_updated' || event.type === 'order:tags_updated') {
+                        this.handleOrderTagsUpdate(event.payload);
+                    }
+                }
+            }
+        } catch (error) {
+            this.consecutiveErrors++;
+            console.warn(`[REALTIME] Poll error (${this.consecutiveErrors}):`, error.message);
+
+            if (this.consecutiveErrors >= 5) {
+                console.error('[REALTIME] Too many poll errors, stopping...');
+                this.disconnect();
+                if (window.notificationManager) {
+                    window.notificationManager.show('❌ Mất kết nối Server, đã dừng polling', 'error');
+                }
+            }
+        }
     }
 
     /**
@@ -345,7 +340,14 @@ class RealtimeManager {
             this.proxyWs = null;
         }
 
+        if (this.pollingInterval) {
+            console.log('[REALTIME] Stopping REST polling...');
+            clearInterval(this.pollingInterval);
+            this.pollingInterval = null;
+        }
+
         this.isConnected = false;
+        this.consecutiveErrors = 0;
     }
 
     /**

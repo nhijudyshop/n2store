@@ -188,7 +188,7 @@ export async function handleUploadProxy(request, url, pathname) {
  */
 export async function handleRealtimeProxy(request, url, pathname) {
     const realtimePath = pathname.replace(/^\/api\/realtime\//, '');
-    const targetUrl = `https://n2store-fallback.onrender.com/api/realtime/${realtimePath}${url.search}`;
+    const targetUrl = `https://n2store-tpos-pancake.onrender.com/api/${realtimePath}${url.search}`;
 
     console.log('[REALTIME-PROXY] Forwarding to:', targetUrl);
 

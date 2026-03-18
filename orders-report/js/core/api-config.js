@@ -66,15 +66,33 @@ const API_CONFIG = {
         },
 
         /**
-         * Build Pancake Official API URL (pages.fm Public API)
+         * Build Pancake Official API v1 URL (pages.fm Public API v1)
          * Uses page_access_token (from Settings → Tools, never expires)
+         * Routes: messages, tags, customers, posts, users, upload_contents, read/unread
          * @param {string} endpoint - e.g., "pages/123/conversations/456/messages"
          * @param {string} pageAccessToken - Page access token (from Pancake Settings → Tools)
-         * @returns {string} - Full URL via worker
+         * @returns {string} - Full URL via worker → pages.fm/api/public_api/v1/
          */
         pancakeOfficial: (endpoint, pageAccessToken) => {
             const baseUrl = `${WORKER_URL}/api/pancake-official/${endpoint}`;
             return pageAccessToken ? `${baseUrl}?page_access_token=${pageAccessToken}` : baseUrl;
+        },
+
+        /**
+         * Build Pancake Official API v2 URL (pages.fm Public API v2)
+         * Uses page_access_token - specifically for conversations listing
+         * @param {string} endpoint - e.g., "pages/123/conversations"
+         * @param {string} pageAccessToken - Page access token
+         * @param {string} extraParams - Additional query params (optional)
+         * @returns {string} - Full URL via worker → pages.fm/api/public_api/v2/
+         */
+        pancakeOfficialV2: (endpoint, pageAccessToken, extraParams = '') => {
+            const baseUrl = `${WORKER_URL}/api/pancake-official-v2/${endpoint}`;
+            let url = pageAccessToken ? `${baseUrl}?page_access_token=${pageAccessToken}` : baseUrl;
+            if (extraParams) {
+                url += pageAccessToken ? `&${extraParams}` : `?${extraParams}`;
+            }
+            return url;
         },
 
         /**
