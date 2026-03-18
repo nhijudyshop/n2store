@@ -1,6 +1,7 @@
 <!--
-  Inbox Chat - N2STORE
-  Giao dien chat 3 cot tich hop Pancake API
+  📖 GHI CHÚ CHO LẬP TRÌNH VIÊN:
+  Khi code phải đọc thư mục https://github.com/nhijudyshop/n2store/tree/main/docs trước!
+  Đọc các file SHARED_*.md để hiểu cách sử dụng shared modules.
 -->
 <!doctype html>
 <html lang="vi">
@@ -14,7 +15,10 @@
         <link rel="stylesheet" href="css/inbox.css" />
         <link rel="stylesheet" href="css/quick-reply-modal.css" />
 
-        <!-- ES Module: Shared utilities (needed by navigation-modern.js) -->
+        <!-- Font Awesome (for quick reply modal icons) -->
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" />
+
+        <!-- ES Module: Shared utilities -->
         <script type="module" src="../shared/esm/compat.js"></script>
 
         <!-- Fallback for file:// protocol -->
@@ -33,9 +37,10 @@
         <!-- Font Awesome (for Pancake Settings modal) -->
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
-        <!-- Firebase SDKs (Firestore for token storage) -->
+        <!-- Firebase SDKs -->
         <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
         <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 
         <!-- Firebase Configuration (SHARED) -->
         <script src="../shared/js/firebase-config.js"></script>
@@ -49,7 +54,10 @@
                 <div class="col-header">
                     <h2>Inbox</h2>
                     <div class="col-header-actions">
-                        <button class="btn-icon-sm" id="btnPancakeSettings" title="Pancake Settings" data-perm="inbox:settings" data-perm-action="hide" onclick="window.inboxChat?.showPancakeSettingsModal?.()">
+                        <button class="btn-icon-sm" id="btnRenderData" title="Xem dữ liệu Render DB" data-perm="inbox:settings" data-perm-action="hide" onclick="window.inboxChat?.showRenderDataModal()">
+                            <i data-lucide="database"></i>
+                        </button>
+                        <button class="btn-icon-sm" id="btnPancakeSettings" title="Quản lý Pancake Accounts" data-perm="inbox:settings" data-perm-action="hide" onclick="openPancakeSettingsModal()">
                             <i data-lucide="settings"></i>
                         </button>
                         <button class="btn-icon-sm" id="btnRefreshInbox" title="Làm mới">
@@ -80,13 +88,13 @@
 
                 <!-- Filter Tabs -->
                 <div class="conversation-filters">
-                    <button class="filter-tab active" data-filter="all">Tất cả</button>
-                    <button class="filter-tab" data-filter="unread">Chưa đọc</button>
+                    <button class="filter-tab" data-filter="all">Tất cả</button>
+                    <button class="filter-tab active" data-filter="unread">Chưa đọc</button>
                     <button class="filter-tab" data-filter="livestream">Livestream</button>
-                    <button class="filter-tab" data-filter="inbox_my">Của tôi</button>
+                    <button class="filter-tab" data-filter="inbox_my">Inbox My</button>
                 </div>
 
-                <!-- Type Filter (comment/message) -->
+                <!-- Type Filter (comment/message) - applies across all tabs -->
                 <div class="type-filters" id="typeFilters">
                     <button class="type-filter-btn active" data-type="all" title="Tất cả">
                         <i data-lucide="messages-square"></i> Tất cả
@@ -107,7 +115,7 @@
                     <button class="btn-fetch-postnames" id="btnFetchPostNames" title="Lấy tên bài viết">
                         <i data-lucide="search"></i>
                     </button>
-                    <button class="btn-clear-livestream" id="btnClearLivestream" title="Xóa tất cả livestream của bài post này" data-perm="inbox:manage_labels" data-perm-action="hide">
+                    <button class="btn-clear-livestream" id="btnClearLivestream" title="Xóa tất cả đoạn hội thoại livestream của bài post này" data-perm="inbox:manage_labels" data-perm-action="hide">
                         <i data-lucide="trash-2"></i> Xóa livestream
                     </button>
                 </div>
@@ -126,7 +134,7 @@
                 <!-- Chat Header -->
                 <div class="chat-header" id="chatHeader">
                     <div class="chat-header-info">
-                        <div class="chat-avatar" id="chatHeaderAvatar">
+                        <div class="chat-avatar">
                             <i data-lucide="user"></i>
                         </div>
                         <div class="chat-user-details">
@@ -146,9 +154,6 @@
                         </button>
                         <button class="btn-icon-sm" id="btnToggleLivestream" title="Đưa vào Livestream" style="display:none;">
                             <i data-lucide="radio"></i>
-                        </button>
-                        <button class="btn-icon-sm" id="btnRenderData" title="Render Data (Thống kê)" onclick="window.inboxChat?.showRenderDataModal?.()">
-                            <i data-lucide="database"></i>
                         </button>
                         <button class="btn-icon-sm" id="btnToggleRightPanel" title="Thông tin">
                             <i data-lucide="panel-right-open"></i>
@@ -175,7 +180,7 @@
                     </button>
                 </div>
 
-                <!-- Label Bar -->
+                <!-- Label Bar (moved from col3) -->
                 <div class="chat-label-bar" id="chatLabelBar" style="display:none;" data-perm="inbox:manage_labels" data-perm-action="hide">
                     <div class="chat-label-bar-inner">
                         <span class="chat-label-bar-title">Nhãn:</span>
@@ -186,7 +191,7 @@
                     <div class="chat-label-resize" id="chatLabelResize" title="Kéo để mở rộng"></div>
                 </div>
 
-                <!-- Quick Reply Bar -->
+                <!-- Quick Reply Bar (like tpos-pancake) -->
                 <div class="quick-reply-bar" id="quickReplyBar" style="display:none;">
                     <div class="quick-reply-row" id="quickReplyRow1"></div>
                     <div class="quick-reply-row" id="quickReplyRow2"></div>
@@ -224,7 +229,7 @@
                                 <i data-lucide="send" style="width:12px;height:12px;"></i>
                                 Gửi từ:
                             </label>
-                            <select id="sendPageSelect" onchange="window.inboxChat?.onSendPageChanged?.(this.value)">
+                            <select id="sendPageSelect" onchange="window.inboxChat?.onSendPageChanged(this.value)">
                                 <option value="">Trang hiện tại</option>
                             </select>
                         </div>
@@ -234,12 +239,15 @@
                                 <i data-lucide="message-square" style="width:12px;height:12px;"></i>
                                 Kiểu:
                             </label>
-                            <select id="replyTypeSelect" onchange="window.inboxChat?.onReplyTypeChanged?.(this.value)">
+                            <select id="replyTypeSelect" onchange="window.inboxChat?.onReplyTypeChanged(this.value)">
                                 <option value="reply_comment">Bình luận (công khai)</option>
                                 <option value="private_replies">Nhắn riêng</option>
                             </select>
                         </div>
                         <div class="chat-input-toolbar-btns">
+                            <button class="btn-icon-sm" title="Mẫu trả lời nhanh" id="btnQuickReply" onclick="window.quickReplyManager?.openModal('chatInput')">
+                                <i data-lucide="zap"></i>
+                            </button>
                             <button class="btn-icon-sm" title="Đính kèm ảnh" id="btnAttachImage">
                                 <i data-lucide="image"></i>
                             </button>
@@ -275,9 +283,6 @@
                             <i data-lucide="send"></i>
                         </button>
                     </div>
-                    <!-- Hidden file inputs -->
-                    <input type="file" id="imageFileInput" accept="image/*" style="display:none;" />
-                    <input type="file" id="attachFileInput" style="display:none;" />
                 </div>
             </div>
 
@@ -384,7 +389,7 @@
                                             </div>
                                         </div>
                                         <div class="order-field">
-                                            <label>Giá (VND)</label>
+                                            <label>Giá (VNĐ)</label>
                                             <input type="text" class="product-price" placeholder="0" />
                                         </div>
                                     </div>
@@ -402,11 +407,11 @@
                                     Vận Chuyển & Thanh Toán
                                 </div>
                                 <div class="order-field">
-                                    <label>Phí Ship (VND)</label>
+                                    <label>Phí Ship (VNĐ)</label>
                                     <input type="text" id="orderShippingFee" placeholder="0" />
                                 </div>
                                 <div class="order-field">
-                                    <label>Giảm Giá (VND)</label>
+                                    <label>Giảm Giá (VNĐ)</label>
                                     <input type="text" id="orderDiscount" placeholder="0" />
                                 </div>
                                 <div class="order-field">
@@ -418,7 +423,7 @@
                                     </select>
                                 </div>
                                 <div class="order-field" id="depositField" style="display:none;">
-                                    <label>Số Tiền Đặt Cọc (VND)</label>
+                                    <label>Số Tiền Đặt Cọc (VNĐ)</label>
                                     <input type="text" id="orderDeposit" placeholder="0" />
                                 </div>
                                 <div class="order-field">
@@ -431,19 +436,19 @@
                             <div class="order-summary">
                                 <div class="order-summary-row">
                                     <span>Tạm tính:</span>
-                                    <span id="orderSubtotal">0d</span>
+                                    <span id="orderSubtotal">0₫</span>
                                 </div>
                                 <div class="order-summary-row">
                                     <span>Phí ship:</span>
-                                    <span id="orderShipDisplay">0d</span>
+                                    <span id="orderShipDisplay">0₫</span>
                                 </div>
                                 <div class="order-summary-row discount">
                                     <span>Giảm giá:</span>
-                                    <span id="orderDiscountDisplay">-0d</span>
+                                    <span id="orderDiscountDisplay">-0₫</span>
                                 </div>
                                 <div class="order-summary-row total">
                                     <span>Tổng cộng:</span>
-                                    <span id="orderTotal">0d</span>
+                                    <span id="orderTotal">0₫</span>
                                 </div>
                             </div>
 
@@ -468,8 +473,8 @@
         <div class="tag-modal" id="pancakeSettingsModal" style="display: none;">
             <div class="tag-modal-content" style="max-width: 800px;">
                 <div class="tag-modal-header">
-                    <h3><i class="fas fa-cog"></i> Pancake Accounts</h3>
-                    <button class="tag-modal-close" onclick="window.inboxChat?.closePancakeSettingsModal?.()">
+                    <h3><i class="fas fa-cog"></i> Quản lý Pancake Accounts</h3>
+                    <button class="tag-modal-close" onclick="closePancakeSettingsModal()">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
@@ -480,7 +485,7 @@
                             <h4 style="margin: 0; font-size: 15px; color: #374151;">
                                 <i class="fas fa-users"></i> Danh sách tài khoản
                             </h4>
-                            <button id="btnAddAccount" onclick="window.inboxChat?.showAddAccountForm?.()"
+                            <button id="btnAddAccount" onclick="showAddAccountForm()"
                                 style="padding: 6px 12px; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
                                 <i class="fas fa-plus"></i> Thêm tài khoản
                             </button>
@@ -500,7 +505,7 @@
                             <h4 style="margin: 0; font-size: 14px; color: #374151;">
                                 <i class="fas fa-user-plus"></i> Thêm tài khoản mới
                             </h4>
-                            <button onclick="document.getElementById('addAccountForm').style.display='none'"
+                            <button onclick="hideAddAccountForm()"
                                 style="padding: 4px 8px; background: transparent; border: none; cursor: pointer; font-size: 16px; color: #6b7280;">
                                 <i class="fas fa-times"></i>
                             </button>
@@ -512,7 +517,11 @@
                                 JWT Token:
                             </label>
                             <textarea id="newAccountTokenInput" placeholder="Nhập JWT token từ cookie pancake.vn..."
-                                style="width: 100%; min-height: 100px; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-family: monospace; font-size: 11px; resize: vertical;"></textarea>
+                                style="width: 100%; min-height: 100px; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-family: monospace; font-size: 11px; resize: vertical;"
+                                oninput="validateTokenInput()"></textarea>
+                            <div id="tokenValidationMessage"
+                                style="margin-top: 6px; font-size: 11px; color: #6b7280; display: none;">
+                            </div>
                             <div style="margin-top: 6px; font-size: 11px; color: #6b7280;">
                                 Token sẽ được tự động làm sạch (xóa khoảng trắng, prefix "jwt=", v.v.)
                             </div>
@@ -534,7 +543,15 @@
 
                         <!-- Actions -->
                         <div style="display: flex; gap: 8px;">
-                            <button class="tag-btn-save" onclick="window.inboxChat?.addAccountManual?.()"
+                            <button class="tag-btn-save" onclick="addAccountFromCookie()"
+                                style="flex: 1; background: #10b981; font-size: 13px;">
+                                <i class="fas fa-sync"></i> Lấy từ Cookie
+                            </button>
+                            <button onclick="debugTokenInput()"
+                                style="flex: 1; padding: 8px 12px; background: #f59e0b; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                                <i class="fas fa-bug"></i> Debug
+                            </button>
+                            <button class="tag-btn-save" onclick="addAccountManual()"
                                 style="flex: 1; background: #3b82f6; font-size: 13px;">
                                 <i class="fas fa-save"></i> Thêm Token
                             </button>
@@ -547,7 +564,7 @@
                             <h4 style="margin: 0; font-size: 15px; color: #374151;">
                                 <i class="fas fa-key"></i> Page Access Tokens
                             </h4>
-                            <button id="btnAddPageToken" onclick="window.inboxChat?.showAddPageTokenForm?.()"
+                            <button id="btnAddPageToken" onclick="showAddPageTokenForm()"
                                 style="padding: 6px 12px; background: #8b5cf6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
                                 <i class="fas fa-plus"></i> Thêm Page Token
                             </button>
@@ -559,31 +576,77 @@
                             <div style="text-align: center; color: #9ca3af; padding: 20px;">
                                 <i class="fas fa-key" style="font-size: 24px; margin-bottom: 8px;"></i>
                                 <div>Chưa có page token nào</div>
+                                <div style="font-size: 11px; margin-top: 4px;">Page token giúp gửi tin nhắn không bị giới hạn rate limit</div>
+                            </div>
+                        </div>
+
+                        <!-- Add Page Token Form (Hidden by default) -->
+                        <div id="addPageTokenForm"
+                            style="display: none; padding: 16px; background: #faf5ff; border-radius: 8px; border: 2px solid #8b5cf6;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                <h4 style="margin: 0; font-size: 14px; color: #374151;">
+                                    <i class="fas fa-plus-circle"></i> Thêm Page Access Token
+                                </h4>
+                                <button onclick="hideAddPageTokenForm()"
+                                    style="padding: 4px 8px; background: transparent; border: none; cursor: pointer; font-size: 16px; color: #6b7280;">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+
+                            <!-- Page Selector -->
+                            <div style="margin-bottom: 12px;">
+                                <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: #374151;">
+                                    Chọn Page:
+                                </label>
+                                <select id="pageTokenPageSelector"
+                                    style="width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px;">
+                                    <option value="">-- Đang tải pages... --</option>
+                                </select>
+                            </div>
+
+                            <!-- Token Input -->
+                            <div style="margin-bottom: 12px;">
+                                <label style="display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: #374151;">
+                                    Page Access Token:
+                                </label>
+                                <textarea id="newPageAccessTokenInput" placeholder="Paste page_access_token vào đây..."
+                                    style="width: 100%; min-height: 80px; padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-family: monospace; font-size: 11px; resize: vertical;"></textarea>
+                                <div id="pageTokenValidationMessage" style="margin-top: 6px; font-size: 11px; display: none;"></div>
+                            </div>
+
+                            <!-- Instructions -->
+                            <div style="padding: 10px; background: #f3e8ff; border-left: 3px solid #8b5cf6; border-radius: 4px; margin-bottom: 12px;">
+                                <div style="font-size: 12px; color: #6b21a8; font-weight: 500; margin-bottom: 6px;">
+                                    Cách lấy Page Access Token:
+                                </div>
+                                <ol style="margin: 0; padding-left: 18px; font-size: 11px; color: #6b21a8;">
+                                    <li>Vào <a href="https://pancake.vn" target="_blank" style="color: #7c3aed;">Pancake</a> → Chọn Page</li>
+                                    <li>Vào Settings → Tools → API</li>
+                                    <li>Copy "Page Access Token"</li>
+                                </ol>
+                            </div>
+
+                            <!-- Actions -->
+                            <div style="display: flex; gap: 8px;">
+                                <button onclick="generatePageTokenFromAPI()"
+                                    style="flex: 1; padding: 8px 12px; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                                    <i class="fas fa-magic"></i> Tự động tạo
+                                </button>
+                                <button onclick="addPageAccessTokenManual()"
+                                    style="flex: 1; padding: 8px 12px; background: #8b5cf6; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                                    <i class="fas fa-save"></i> Lưu Token
+                                </button>
                             </div>
                         </div>
                     </div>
                 </div>
                 <div class="tag-modal-footer">
-                    <button class="tag-btn-cancel" onclick="window.inboxChat?.closePancakeSettingsModal?.()">
+                    <button class="tag-btn-cancel" onclick="closePancakeSettingsModal()">
                         Đóng
                     </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Manage Groups Modal -->
-        <div class="modal-overlay" id="manageGroupsModal" style="display:none;">
-            <div class="modal-content">
-                <div class="modal-title">
-                    <i data-lucide="settings"></i>
-                    Quản Lý Nhóm Phân Loại
-                </div>
-                <div class="modal-body" id="manageGroupsBody">
-                    <!-- Populated by JS -->
-                </div>
-                <div class="modal-footer">
-                    <button class="btn-modal-cancel" id="btnCloseManageGroups">Đóng</button>
-                    <button class="btn-modal-confirm" id="btnSaveGroups">Lưu</button>
+                    <button id="btnClearAllAccounts" class="tag-btn-cancel" onclick="clearAllPancakeAccounts()" style="background: #ef4444; color: white;">
+                        <i class="fas fa-trash"></i> Xóa tất cả
+                    </button>
                 </div>
             </div>
         </div>
@@ -591,16 +654,25 @@
         <!-- Toast notification -->
         <div id="toastContainer" class="toast-container"></div>
 
-        <!-- JavaScript (order matters: same as old commit bab99518) -->
+        <!-- JavaScript -->
         <script src="js/permissions-helper.js"></script>
+
+        <!-- Inbox Pancake API (replaces api-config + pancake-token-manager + pancake-data-manager) -->
         <script src="js/inbox-pancake-api.js"></script>
         <script src="js/shop-config.js"></script>
+        <script src="js/pancake-settings.js"></script>
         <script src="js/goong-places.js"></script>
+
+        <!-- Quick Reply Manager (inbox-local) -->
         <script src="js/quick-reply-manager.js"></script>
+
+        <!-- Inbox modules -->
         <script src="js/inbox-data.js"></script>
         <script src="js/inbox-chat.js"></script>
         <script src="js/inbox-orders.js"></script>
         <script src="js/inbox-main.js"></script>
+
+        <!-- Debug Panel (remove in production) -->
         <script src="js/inbox-debug.js"></script>
     </body>
 </html>

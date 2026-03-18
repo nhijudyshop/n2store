@@ -3,7 +3,8 @@
    ===================================================== */
 
 class InboxOrderController {
-    constructor() {
+    constructor(dataManager) {
+        this.data = dataManager;
         this.productIndex = 1;
 
         this.elements = {
@@ -234,7 +235,7 @@ class InboxOrderController {
             note,
             status: 'pending',
             createdAt: new Date().toISOString(),
-            conversationId: null,
+            conversationId: window.inboxChat?.activeConversationId || null,
         };
 
         // Save to localStorage
@@ -298,7 +299,11 @@ class InboxOrderController {
         this.elements.orderDiscountDisplay.textContent = '-0₫';
         this.elements.orderTotal.textContent = '0₫';
 
-        // TODO: Re-fill customer info when messaging is re-implemented
+        // Re-fill customer info if a conversation is selected
+        if (window.inboxChat?.activeConversationId) {
+            const conv = this.data.getConversation(window.inboxChat.activeConversationId);
+            if (conv) this.fillCustomerInfo(conv);
+        }
     }
 }
 

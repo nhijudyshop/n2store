@@ -24,6 +24,15 @@ function showToast(message, type = 'info') {
 
 window.showToast = showToast;
 
+// Compatibility shim for tab1-pancake-settings.js (uses notificationManager.show)
+window.notificationManager = {
+    show: (message, type) => showToast(message, type),
+    error: (message) => showToast(message, 'error'),
+    success: (message) => showToast(message, 'success'),
+    info: (message) => showToast(message, 'info'),
+    warning: (message) => showToast(message, 'warning')
+};
+
 /* =====================================================
    COLUMN RESIZER - Draggable dividers between columns
    ===================================================== */
@@ -60,16 +69,19 @@ function initColumnResizer() {
             const newLeftW = leftWidth + dx;
             const newRightW = rightWidth - dx;
 
+            // Enforce min widths
             const leftMin = parseInt(getComputedStyle(leftCol).minWidth) || 200;
             const rightMin = parseInt(getComputedStyle(rightCol).minWidth) || 200;
 
             if (newLeftW < leftMin || newRightW < rightMin) return;
 
+            // For col1 (fixed width) -> set width directly
             if (leftCol.classList.contains('inbox-col-conversations') ||
                 leftCol.classList.contains('inbox-col-info')) {
                 leftCol.style.width = newLeftW + 'px';
                 leftCol.style.minWidth = newLeftW + 'px';
             } else {
+                // col2 is flex:1, so we set flex-basis
                 leftCol.style.flex = '0 0 ' + newLeftW + 'px';
                 leftCol.style.minWidth = '300px';
             }
@@ -113,122 +125,80 @@ function initColumnResizer() {
 }
 
 /* =====================================================
-   INFO TABS - Switch between tabs in column 3
-   ===================================================== */
-
-function initInfoTabs() {
-    const tabs = document.querySelectorAll('.info-tab');
-    tabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-            const targetTab = tab.dataset.tab;
-            // Deactivate all tabs
-            document.querySelectorAll('.info-tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.info-tab-content').forEach(c => c.classList.remove('active'));
-            // Activate target
-            tab.classList.add('active');
-            const content = document.getElementById('tab' + targetTab.charAt(0).toUpperCase() + targetTab.slice(1));
-            if (content) content.classList.add('active');
-        });
-    });
-}
-
-/* =====================================================
-   INIT APP
+   INIT APP - Async for Pancake API initialization
    ===================================================== */
 
 async function initInboxApp() {
-    console.log('[Inbox] Initializing app...');
+    // Show loading state in conversation list
+    const convList = document.getElementById('conversationList');
+    if (convList) {
+        convList.innerHTML = `
+            <div style="padding: 2rem; text-align: center; color: var(--text-tertiary);">
+                <div class="loading-spinner"></div>
+                <p style="margin-top: 0.5rem;">Đang kết nối Pancake...</p>
+            </div>
+        `;
+    }
 
-    // 1. Initialize Lucide icons
+    // Initialize Lucide icons early
     if (typeof lucide !== 'undefined') {
         lucide.createIcons();
     }
 
-    // 2. Initialize column resizer
+    // Initialize column resizer
     initColumnResizer();
 
-    // 3. Initialize info tabs
-    initInfoTabs();
+    // Initialize data manager with Pancake API
+    const dataManager = new InboxDataManager();
+    await dataManager.init();
 
-    // 4. Initialize data manager (token + pages + conversations)
-    let dataManager = null;
-    let chatController = null;
+    // Initialize chat controller
+    const chatController = new InboxChatController(dataManager);
+    chatController.init();
+    window.inboxChat = chatController;
 
-    try {
-        dataManager = new InboxDataManager();
-        window.inboxData = dataManager;
+    // Initialize order controller
+    const orderController = new InboxOrderController(dataManager);
+    orderController.init();
+    window.inboxOrders = orderController;
 
-        // Show loading state
-        const convList = document.getElementById('conversationList');
-        if (convList) {
-            convList.innerHTML = '<div class="conv-loading"><div class="spinner"></div><span>Đang tải hội thoại...</span></div>';
-        }
+    // Initialize WebSocket real-time (like tpos-pancake)
+    const socketConnected = await chatController.initializeWebSocket();
+    if (!socketConnected) {
+        console.log('[Inbox] WebSocket unavailable, using polling fallback');
+        chatController.startAutoRefresh();
+    }
 
+    // Update page unread counts
+    chatController.updatePageUnreadCounts();
+
+    // Fetch pending customers from Render DB (merge unread data)
+    dataManager.fetchPendingFromServer();
+
+    // Listen for account changes from Pancake Settings modal
+    window.addEventListener('pancakeAccountChanged', async () => {
+        showToast('Đang chuyển tài khoản...', 'info');
+        chatController.closeWebSocket();
         await dataManager.init();
-        console.log(`[Inbox] Data loaded: ${dataManager.conversations.length} conversations, ${dataManager.pages.length} pages`);
-    } catch (err) {
-        console.error('[Inbox] Data init failed:', err);
-        showToast('Không thể tải dữ liệu. Vui lòng thử lại.', 'error');
-        // Still continue - UI can work in degraded mode
+        chatController.renderPageSelector();
+        chatController.renderConversationList();
+        chatController.renderGroupStats();
+        chatController.updatePageUnreadCounts();
+        await chatController.initializeWebSocket();
+        showToast('Đã chuyển tài khoản thành công', 'success');
+    });
+
+    // Re-initialize Lucide icons after rendering
+    if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
     }
 
-    // 5. Initialize chat controller
-    try {
-        chatController = new InboxChatController(dataManager);
-        chatController.init();
-        window.inboxChat = chatController;
-        console.log('[Inbox] Chat controller initialized');
-    } catch (err) {
-        console.error('[Inbox] Chat controller init failed:', err);
-    }
-
-    // 6. Initialize order controller
-    if (typeof InboxOrderController !== 'undefined') {
-        try {
-            const orderController = new InboxOrderController();
-            orderController.init();
-            window.inboxOrders = orderController;
-            console.log('[Inbox] Order controller initialized');
-        } catch (err) {
-            console.error('[Inbox] Order controller init failed:', err);
-        }
-    }
-
-    // 7. Initialize WebSocket for real-time updates
-    if (chatController) {
-        try {
-            chatController.initializeWebSocket();
-        } catch (err) {
-            console.error('[Inbox] WebSocket init failed:', err);
-        }
-
-        // 8. Update page unread counts
-        try {
-            chatController.updatePageUnreadCounts();
-        } catch (err) {
-            console.error('[Inbox] Unread counts failed:', err);
-        }
-    }
-
-    // 9. Fetch pending customers from server
-    if (dataManager) {
-        try {
-            await dataManager.fetchPendingFromServer();
-            // Re-render conversation list after merging pending
-            if (chatController) {
-                chatController.renderConversationList();
-            }
-        } catch (err) {
-            console.error('[Inbox] Pending fetch failed:', err);
-        }
-    }
-
-    // 10. Apply permission-based UI restrictions
+    // ===== Apply Permission-based UI Restrictions =====
     if (typeof PermissionHelper !== 'undefined') {
         PermissionHelper.applyUIRestrictions('inbox');
     }
 
-    console.log('[Inbox] App fully initialized');
+    console.log('[Inbox] App initialized successfully with Pancake API + WebSocket');
 }
 
 // Wait for DOM ready

@@ -931,4 +931,130 @@ window.inboxTokenManager = inboxTokenManager;
 window.inboxPancakeAPI = inboxPancakeAPI;
 window.InboxApiConfig = InboxApiConfig;
 
-console.log('[INBOX-PANCAKE-API] Loaded');
+// =====================================================
+// BACKWARDS COMPATIBILITY SHIMS
+// (For code ported from old commit using old method names)
+// =====================================================
+
+// --- InboxApiConfig shims ---
+InboxApiConfig.smartFetch = async function(url, options) {
+    return fetch(url, options);
+};
+
+InboxApiConfig.buildUrl.pancakeDirect = function(endpoint, pageId, pageAccessToken, accessToken) {
+    return InboxApiConfig.buildUrl.pancakeOfficial(endpoint, pageAccessToken);
+};
+
+// window.API_CONFIG alias for old code
+window.API_CONFIG = InboxApiConfig;
+
+// --- InboxTokenManager shims ---
+InboxTokenManager.prototype.getTokenFromCookie = function() {
+    return this._getCookieToken();
+};
+
+InboxTokenManager.prototype.saveTokenToFirebase = function(token) {
+    return this.saveTokenToFirestore(token);
+};
+
+InboxTokenManager.prototype.clearToken = async function() {
+    const accounts = this.getAllAccounts();
+    for (const id of Object.keys(accounts)) {
+        await this.deleteAccount(id);
+    }
+    this.currentToken = null;
+    this.currentTokenExpiry = null;
+    this.activeAccountId = null;
+};
+
+InboxTokenManager.prototype.debugToken = function(input) {
+    try {
+        const clean = (input || '').replace(/^jwt=/, '').trim();
+        const decoded = this.decodeToken(clean);
+        return { valid: !!decoded, decoded, clean };
+    } catch (e) {
+        return { valid: false, error: e.message };
+    }
+};
+
+InboxTokenManager.prototype.savePageAccessTokensToStorage = function() {
+    return this._savePageTokensLocal();
+};
+
+Object.defineProperty(InboxTokenManager.prototype, 'pageTokensRef', {
+    get() { return this._pageTokensRef; }
+});
+
+InboxTokenManager.prototype.generatePageAccessTokenWithToken = function(pageId, accountToken) {
+    return this.generatePageAccessToken(pageId, accountToken);
+};
+
+// --- InboxPancakeAPI shims ---
+InboxPancakeAPI.prototype.initialize = async function() {
+    await this.fetchPages();
+};
+
+InboxPancakeAPI.prototype.fetchMessagesForConversation = function(pageId, convId, currentCount, customerId) {
+    return this.fetchMessages(pageId, convId, currentCount, customerId);
+};
+
+InboxPancakeAPI.prototype.markConversationAsRead = function(pageId, convId) {
+    return this.markAsRead(pageId, convId);
+};
+
+InboxPancakeAPI.prototype.uploadImage = async function(channelId, blob) {
+    const pat = await window.inboxTokenManager?.getOrGeneratePageAccessToken(channelId);
+    return this.uploadMedia(channelId, blob, pat);
+};
+
+InboxPancakeAPI.prototype.addCustomerNote = async function(pageId, customerId, text) {
+    try {
+        const pat = await window.inboxTokenManager?.getOrGeneratePageAccessToken(pageId);
+        if (!pat) return false;
+        const url = InboxApiConfig.buildUrl.pancakeOfficial(
+            `pages/${pageId}/customers/${customerId}/notes`, pat
+        );
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content: text })
+        });
+        return res.ok;
+    } catch (e) {
+        console.error('[INBOX-API] addCustomerNote error:', e);
+        return false;
+    }
+};
+
+InboxPancakeAPI.prototype.fetchPagesWithUnreadCount = function() {
+    return this.fetchPagesUnreadCount();
+};
+
+// Override comment actions to auto-fetch token if not provided
+const _origLikeComment = InboxPancakeAPI.prototype.likeComment;
+InboxPancakeAPI.prototype.likeComment = async function(pageId, commentId, pat) {
+    if (!pat) pat = await this.tm.getOrGeneratePageAccessToken(pageId);
+    return _origLikeComment.call(this, pageId, commentId, pat);
+};
+const _origUnlikeComment = InboxPancakeAPI.prototype.unlikeComment;
+InboxPancakeAPI.prototype.unlikeComment = async function(pageId, commentId, pat) {
+    if (!pat) pat = await this.tm.getOrGeneratePageAccessToken(pageId);
+    return _origUnlikeComment.call(this, pageId, commentId, pat);
+};
+const _origHideComment = InboxPancakeAPI.prototype.hideComment;
+InboxPancakeAPI.prototype.hideComment = async function(pageId, commentId, pat) {
+    if (!pat) pat = await this.tm.getOrGeneratePageAccessToken(pageId);
+    return _origHideComment.call(this, pageId, commentId, pat);
+};
+const _origUnhideComment = InboxPancakeAPI.prototype.unhideComment;
+InboxPancakeAPI.prototype.unhideComment = async function(pageId, commentId, pat) {
+    if (!pat) pat = await this.tm.getOrGeneratePageAccessToken(pageId);
+    return _origUnhideComment.call(this, pageId, commentId, pat);
+};
+const _origDeleteComment = InboxPancakeAPI.prototype.deleteComment;
+InboxPancakeAPI.prototype.deleteComment = async function(pageId, commentId, pat) {
+    if (!pat) pat = await this.tm.getOrGeneratePageAccessToken(pageId);
+    return _origDeleteComment.call(this, pageId, commentId, pat);
+};
+
+console.log('[INBOX-PANCAKE-API] Loaded (with compat shims)');
