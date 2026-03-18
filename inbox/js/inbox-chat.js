@@ -537,10 +537,10 @@ class InboxChatController {
         }).join('');
 
         // Tags
-        const tagsHtml = (conv.tags || []).slice(0, 2).map(t => {
+        const tagsHtml = (conv.tags || []).filter(t => t && t.name).slice(0, 2).map(t => {
             const colorMap = { red: 'tag-red', green: 'tag-green', blue: 'tag-blue', orange: 'tag-orange', purple: 'tag-purple', pink: 'tag-pink', teal: 'tag-teal' };
             const cls = colorMap[t.color] || '';
-            return `<span class="conv-tag ${cls}">${this.escapeHtml(t.name || '')}</span>`;
+            return `<span class="conv-tag ${cls}">${this.escapeHtml(t.name)}</span>`;
         }).join('');
 
         // Badges
