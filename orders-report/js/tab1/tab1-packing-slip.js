@@ -115,7 +115,7 @@ function renderPackingSlipProducts() {
     const tbody = document.getElementById('packingSlipProductBody');
 
     if (packingSlipOrderLines.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px; color:#9ca3af;">Không có sản phẩm</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:20px; color:#9ca3af;">Không có sản phẩm</td></tr>';
         return;
     }
 
@@ -124,13 +124,15 @@ function renderPackingSlipProducts() {
 
     const rows = packingSlipOrderLines.map((line, idx) => {
         const productName = line.ProductName || line.ProductNameGet || line.Product?.Name || '';
-        const uom = line.ProductUOMName || line.ProductUOM?.Name || 'Cái';
         const qty = line.ProductUOMQty || line.Quantity || 1;
         const price = line.PriceUnit || line.Price || 0;
         const total = qty * price;
 
         totalQty += qty;
         totalAmount += total;
+
+        const priceShort = Math.round(price / 1000);
+        const totalShort = Math.round(total / 1000);
 
         return `
             <tr style="border-bottom:1px solid #f3f4f6;">
@@ -142,10 +144,9 @@ function renderPackingSlipProducts() {
                     </label>
                 </td>
                 <td style="padding:8px 6px; text-align:left; word-break:break-word;">${productName}</td>
-                <td style="padding:8px 6px; text-align:center;">${uom}</td>
                 <td style="padding:8px 6px; text-align:center;">${qty}</td>
-                <td style="padding:8px 6px; text-align:right;">${price.toLocaleString('vi-VN')}</td>
-                <td style="padding:8px 6px; text-align:right;">${total.toLocaleString('vi-VN')}</td>
+                <td style="padding:8px 6px; text-align:right; font-size:12px; color:#6b7280;">${priceShort}</td>
+                <td style="padding:8px 6px; text-align:right; font-size:12px; color:#6b7280;">${totalShort}</td>
                 <td style="padding:8px 6px;">
                     <input type="text" data-note-index="${idx}" class="packing-slip-note"
                         placeholder="Nhập ghi chú..."
@@ -156,12 +157,13 @@ function renderPackingSlipProducts() {
     }).join('');
 
     // Add total row
+    const totalAmountShort = Math.round(totalAmount / 1000);
     const totalRow = `
         <tr style="border-top:2px solid #e5e7eb; font-weight:bold; background:#f9fafb;">
-            <td colspan="4" style="padding:8px 6px; text-align:right;">Tổng:</td>
+            <td colspan="3" style="padding:8px 6px; text-align:right;">Tổng:</td>
             <td style="padding:8px 6px; text-align:center;">${totalQty}</td>
             <td style="padding:8px 6px;"></td>
-            <td style="padding:8px 6px; text-align:right;">${totalAmount.toLocaleString('vi-VN')}</td>
+            <td style="padding:8px 6px; text-align:right;">${totalAmountShort}</td>
             <td style="padding:8px 6px;"></td>
         </tr>
     `;
@@ -236,6 +238,39 @@ function printPackingSlip() {
             printWindow.print();
         }
     }, 1500);
+
+    // Auto-tag "CHỜ HÀNG VỀ" after printing
+    autoTagChoHangVe();
+}
+
+/**
+ * Auto-tag the current packing slip order with "CHỜ HÀNG VỀ"
+ */
+async function autoTagChoHangVe() {
+    try {
+        const order = packingSlipOrderData;
+        if (!order) return;
+
+        const saleOnlineId = order.SaleOnlineIds?.[0] || order.Id;
+        if (!saleOnlineId) return;
+
+        if (window.findOrCreateTag && window.addTagToOrder) {
+            const tag = await window.findOrCreateTag('CHỜ HÀNG VỀ');
+            if (tag) {
+                await window.addTagToOrder(saleOnlineId, {
+                    Id: tag.Id,
+                    Name: tag.Name,
+                    Color: tag.Color || '#6366f1'
+                });
+                console.log('[PACKING-SLIP] Auto-tagged order with "CHỜ HÀNG VỀ"');
+                if (window.notificationManager) {
+                    window.notificationManager.success('Đã gắn tag "CHỜ HÀNG VỀ"');
+                }
+            }
+        }
+    } catch (e) {
+        console.error('[PACKING-SLIP] Error auto-tagging:', e);
+    }
 }
 
 /**
@@ -266,8 +301,8 @@ function generatePackingSlipHTML(waitingIndices, notes = {}) {
         }
     } catch (e) { }
 
-    // Bill number & date
-    const billNumber = `SO${stt || ''}`;
+    // Bill number uses the order's STT
+    const billNumber = stt || '';
     const now = new Date();
     const dateStr = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}/${now.getFullYear()} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
@@ -277,7 +312,6 @@ function generatePackingSlipHTML(waitingIndices, notes = {}) {
 
     const productRows = lines.map((line, idx) => {
         const productName = line.ProductName || line.ProductNameGet || line.Product?.Name || '';
-        const uom = line.ProductUOMName || line.ProductUOM?.Name || 'Cái';
         const qty = line.ProductUOMQty || line.Quantity || 1;
         const price = line.PriceUnit || line.Price || 0;
         const total = qty * price;
@@ -286,6 +320,10 @@ function generatePackingSlipHTML(waitingIndices, notes = {}) {
 
         totalQty += qty;
         totalAmount += total;
+
+        // Display price/total divided by 1000 (e.g. 190.000 -> 190)
+        const priceShort = Math.round(price / 1000);
+        const totalShort = Math.round(total / 1000);
 
         return `
             <tr>
@@ -296,20 +334,20 @@ function generatePackingSlipHTML(waitingIndices, notes = {}) {
                 <td style="border:1px solid #000; padding:5px 4px; text-align:left; word-break:break-word;">
                     ${productName}${note ? `<br/><i style="font-size:11px; color:#555;">Ghi chú: ${note}</i>` : ''}
                 </td>
-                <td style="border:1px solid #000; padding:5px 4px; text-align:center;">${uom}</td>
                 <td style="border:1px solid #000; padding:5px 4px; text-align:center;">${qty}</td>
-                <td style="border:1px solid #000; padding:5px 4px; text-align:right;">${price.toLocaleString('vi-VN')}</td>
-                <td style="border:1px solid #000; padding:5px 4px; text-align:right;">${total.toLocaleString('vi-VN')}</td>
+                <td style="border:1px solid #000; padding:5px 4px; text-align:right; font-size:11px;">${priceShort}</td>
+                <td style="border:1px solid #000; padding:5px 4px; text-align:right; font-size:11px;">${totalShort}</td>
             </tr>`;
     }).join('');
 
-    // Total row
+    // Total row (no ĐVT column, price/total in short format)
+    const totalAmountShort = Math.round(totalAmount / 1000);
     const totalRow = `
         <tr>
-            <td colspan="4" style="border:1px solid #000; padding:5px 4px; text-align:right; font-weight:bold;">Tổng:</td>
+            <td colspan="3" style="border:1px solid #000; padding:5px 4px; text-align:right; font-weight:bold;">Tổng:</td>
             <td style="border:1px solid #000; padding:5px 4px; text-align:center; font-weight:bold;">${totalQty}</td>
             <td style="border:1px solid #000; padding:5px 4px;"></td>
-            <td style="border:1px solid #000; padding:5px 4px; text-align:right; font-weight:bold;">${totalAmount.toLocaleString('vi-VN')}</td>
+            <td style="border:1px solid #000; padding:5px 4px; text-align:right; font-weight:bold; font-size:11px;">${totalAmountShort}</td>
         </tr>`;
 
     return `<!DOCTYPE html>
@@ -342,8 +380,9 @@ function generatePackingSlipHTML(waitingIndices, notes = {}) {
 <body>
     <div class="container">
         <h2>Phiếu Soạn Hàng</h2>
-        <div style="text-align:center; margin-bottom:10px; font-size:12px;">
-            <b>Số phiếu:</b> ${billNumber} - <b>Date:</b> ${dateStr}
+        <div style="text-align:center; margin-bottom:10px;">
+            <span style="font-size:22px; font-weight:bold;">${billNumber}</span>
+            <span style="font-size:12px; margin-left:10px;">${dateStr}</span>
         </div>
 
         <div class="info-row">
@@ -361,10 +400,9 @@ function generatePackingSlipHTML(waitingIndices, notes = {}) {
                     <th style="width:25px;">STT</th>
                     <th style="width:40px;">Chờ Hàng</th>
                     <th>Product</th>
-                    <th style="width:35px;">ĐVT</th>
                     <th style="width:30px;">SL</th>
-                    <th style="width:65px;">Giá</th>
-                    <th style="width:75px;">Tổng</th>
+                    <th style="width:45px;">Giá</th>
+                    <th style="width:50px;">Tổng</th>
                 </tr>
             </thead>
             <tbody>
