@@ -1935,6 +1935,12 @@ function updateActionButtons() {
         createFastSaleBtn.style.display = checkedCount > 1 ? 'flex' : 'none';
     }
 
+    // Show "Phiếu Soạn Hàng" button only when exactly 1 order is selected
+    const packingSlipBtn = document.getElementById('packingSlipBtn');
+    if (packingSlipBtn) {
+        packingSlipBtn.style.display = checkedCount === 1 ? 'flex' : 'none';
+    }
+
     // Show "Xóa Tag" button when any orders are selected
     const bulkRemoveTagBtn = document.getElementById('bulkRemoveTagBtn');
     if (bulkRemoveTagBtn) {
