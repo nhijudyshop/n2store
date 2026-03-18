@@ -19,8 +19,7 @@ class ProjectTracker {
     }
 
     async init() {
-        await this.store.init();
-
+        // Create modules immediately so UI renders even before data loads
         this.modules = {
             dashboard: new Dashboard(this.store, document.getElementById('tab-dashboard')),
             featureCatalog: new FeatureCatalog(this.store, document.getElementById('tab-feature-catalog')),
@@ -32,8 +31,17 @@ class ProjectTracker {
         this.setupSyncButtons();
         this.restoreTab();
 
-        // Render active tab
+        // Render empty state immediately
         this.renderActiveTab();
+
+        // Then load data async (with timeout to prevent hanging)
+        try {
+            await this.store.init();
+            // Re-render with loaded data
+            this.renderActiveTab();
+        } catch (err) {
+            console.warn('Store init error (non-blocking):', err);
+        }
     }
 
     setupTabs() {

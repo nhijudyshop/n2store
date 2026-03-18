@@ -20,12 +20,22 @@ export class ProjectStore {
     }
 
     async init() {
+        // Always load local first for instant rendering
+        this.loadFromLocal();
+
         if (typeof firebase !== 'undefined' && firebase.firestore) {
             this.db = firebase.firestore();
-            await this.loadAll();
+            // Load Firestore with timeout to prevent hanging
+            try {
+                await Promise.race([
+                    this.loadAll(),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('Firestore timeout')), 8000))
+                ]);
+            } catch (err) {
+                console.warn('Firestore load failed, using local data:', err.message);
+            }
         } else {
             console.warn('Firebase not available, using local data only');
-            this.loadFromLocal();
         }
     }
 
