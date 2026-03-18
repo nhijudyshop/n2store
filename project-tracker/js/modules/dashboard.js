@@ -9,7 +9,9 @@ export class Dashboard {
     }
 
     render() {
+        console.log('[Dashboard] render() called, container:', !!this.container);
         const stats = this.store.getStats();
+        console.log('[Dashboard] stats:', stats);
         const modules = this.store.getModules().sort((a, b) => (a.order || 0) - (b.order || 0));
         const features = this.store.getFeatures();
 

@@ -19,28 +19,45 @@ class ProjectTracker {
     }
 
     async init() {
+        console.log('[PT] init() start');
+
         // Create modules immediately so UI renders even before data loads
+        const tabDash = document.getElementById('tab-dashboard');
+        const tabFeat = document.getElementById('tab-feature-catalog');
+        const tabTodo = document.getElementById('tab-todo-system');
+        const tabMap = document.getElementById('tab-module-map');
+        console.log('[PT] Containers:', { tabDash: !!tabDash, tabFeat: !!tabFeat, tabTodo: !!tabTodo, tabMap: !!tabMap });
+
         this.modules = {
-            dashboard: new Dashboard(this.store, document.getElementById('tab-dashboard')),
-            featureCatalog: new FeatureCatalog(this.store, document.getElementById('tab-feature-catalog')),
-            todoSystem: new TodoSystem(this.store, document.getElementById('tab-todo-system')),
-            moduleMap: new ModuleMap(this.store, document.getElementById('tab-module-map')),
+            dashboard: new Dashboard(this.store, tabDash),
+            featureCatalog: new FeatureCatalog(this.store, tabFeat),
+            todoSystem: new TodoSystem(this.store, tabTodo),
+            moduleMap: new ModuleMap(this.store, tabMap),
         };
+        console.log('[PT] Modules created');
 
         this.setupTabs();
         this.setupSyncButtons();
         this.restoreTab();
+        console.log('[PT] activeTab =', this.activeTab);
 
         // Render empty state immediately
-        this.renderActiveTab();
+        try {
+            this.renderActiveTab();
+            console.log('[PT] First render done, container HTML length:', document.getElementById(`tab-${this.activeTab}`)?.innerHTML?.length);
+        } catch (err) {
+            console.error('[PT] First render FAILED:', err);
+            tabDash.innerHTML = `<div style="padding:2rem;color:red;background:#fee;border-radius:8px;"><strong>Render Error:</strong> ${err.message}<br><pre>${err.stack}</pre></div>`;
+        }
 
         // Then load data async (with timeout to prevent hanging)
         try {
             await this.store.init();
+            console.log('[PT] Store init done, modules:', this.store.getModules().length);
             // Re-render with loaded data
             this.renderActiveTab();
         } catch (err) {
-            console.warn('Store init error (non-blocking):', err);
+            console.warn('[PT] Store init error (non-blocking):', err);
         }
     }
 
