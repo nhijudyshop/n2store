@@ -12,6 +12,7 @@
 
         <!-- External CSS -->
         <link rel="stylesheet" href="css/inbox.css" />
+        <link rel="stylesheet" href="css/quick-reply-modal.css" />
 
         <script defer src="../shared/js/navigation-modern.js"></script>
 
@@ -134,6 +135,9 @@
                         </button>
                         <button class="btn-icon-sm" id="btnToggleLivestream" title="Đưa vào Livestream" style="display:none;">
                             <i data-lucide="radio"></i>
+                        </button>
+                        <button class="btn-icon-sm" id="btnRenderData" title="Render Data (Thống kê)" onclick="window.inboxChat?.showRenderDataModal?.()">
+                            <i data-lucide="database"></i>
                         </button>
                         <button class="btn-icon-sm" id="btnToggleRightPanel" title="Thông tin">
                             <i data-lucide="panel-right-open"></i>
@@ -584,6 +588,8 @@
         <script src="js/shop-config.js"></script>
         <script src="js/goong-places.js"></script>
         <script src="js/inbox-orders.js"></script>
+        <script src="js/quick-reply-manager.js"></script>
         <script src="js/inbox-main.js"></script>
+        <script src="js/inbox-debug.js"></script>
     </body>
 </html>

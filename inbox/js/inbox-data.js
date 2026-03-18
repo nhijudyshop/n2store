@@ -657,6 +657,59 @@ class InboxDataManager {
     }
 
     // =====================================================
+    // STATS
+    // =====================================================
+
+    getStats() {
+        const stats = {
+            total: this.conversations.length,
+            unread: 0,
+            inbox: 0,
+            comment: 0,
+            livestream: 0,
+            byGroup: {}
+        };
+
+        for (const g of this.groups) stats.byGroup[g.id] = 0;
+
+        for (const conv of this.conversations) {
+            if (conv.unread > 0) stats.unread++;
+            if (conv.type === 'INBOX') stats.inbox++;
+            if (conv.type === 'COMMENT') stats.comment++;
+            if (conv.isLivestream) stats.livestream++;
+            const labels = this.getLabelArray(conv.id);
+            for (const label of labels) {
+                if (stats.byGroup[label] !== undefined) stats.byGroup[label]++;
+            }
+        }
+
+        return stats;
+    }
+
+    // =====================================================
+    // FILTER SYSTEM MESSAGES
+    // =====================================================
+
+    _filterSystemMessage(text) {
+        if (!text || typeof text !== 'string') return text;
+        const systemPrefixes = [
+            'Đã thêm nhãn tự động:',
+            'Đã đặt giai đoạn',
+            'Đã gỡ nhãn:',
+            'Đã thêm nhãn:',
+            'Đã chuyển sang giai đoạn',
+            'Đã cập nhật đơn hàng',
+            'Đã tạo đơn hàng',
+            'Auto-assigned label:',
+            'Changed stage to',
+        ];
+        for (const prefix of systemPrefixes) {
+            if (text.startsWith(prefix)) return '';
+        }
+        return text;
+    }
+
+    // =====================================================
     // PENDING CUSTOMERS
     // =====================================================
 

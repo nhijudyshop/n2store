@@ -248,6 +248,8 @@ class InboxChatController {
         this.renderConversationList();
         this.renderGroupStats();
         this._setActiveFilter(this.currentFilter);
+        this.populateLivestreamPostSelector();
+        this.renderQuickReplies();
     }
 
     bindEvents() {
@@ -386,6 +388,10 @@ class InboxChatController {
 
         // Livestream toggle
         document.getElementById('btnToggleLivestream')?.addEventListener('click', () => this.toggleLivestreamStatus());
+
+        // Livestream post selector buttons
+        document.getElementById('btnFetchPostNames')?.addEventListener('click', () => this._fetchMissingPostNames());
+        document.getElementById('btnClearLivestream')?.addEventListener('click', () => this.clearLivestreamForPost());
 
         // Manage groups
         document.getElementById('btnManageGroups')?.addEventListener('click', () => this.showManageGroupsModal());
@@ -586,6 +592,8 @@ class InboxChatController {
         document.getElementById('sendPageSelector').style.display = 'flex';
         this._populateSendPageSelector(conv);
         this._populateReplyTypeSelector(conv);
+        this.updateLivestreamButton(conv);
+        this._updateReplyPlaceholder();
 
         // Update active state in list
         document.querySelectorAll('.conversation-item').forEach(el => {
@@ -1322,7 +1330,10 @@ class InboxChatController {
             this.data.buildMaps();
         }
 
-        this.renderConversationList();
+        // Try smart single update first, fallback to full re-render
+        if (!this._updateSingleConversationInList(convId)) {
+            this.renderConversationList();
+        }
         this.data.recalculateGroupCounts();
         this.renderGroupStats();
 
@@ -2085,6 +2096,263 @@ class InboxChatController {
         const div = document.createElement('div');
         div.innerHTML = html;
         return div.textContent || '';
+    }
+
+    // =====================================================
+    // DEBOUNCED LUCIDE ICONS
+    // =====================================================
+
+    _debouncedCreateIcons() {
+        if (this._iconTimer) clearTimeout(this._iconTimer);
+        this._iconTimer = setTimeout(() => {
+            if (typeof lucide !== 'undefined') lucide.createIcons({ attrs: { class: '' } });
+        }, 50);
+    }
+
+    // =====================================================
+    // SINGLE CONVERSATION UPDATE (avoid full re-render)
+    // =====================================================
+
+    _updateSingleConversationInList(convId) {
+        const el = document.querySelector(`.conversation-item[data-id="${convId}"]`);
+        if (!el) return false;
+
+        const conv = this.data.getConversation(convId);
+        if (!conv) return false;
+
+        const newHtml = this._buildConvItemHtml(conv);
+        const temp = document.createElement('div');
+        temp.innerHTML = newHtml;
+        const newEl = temp.firstElementChild;
+        if (!newEl) return false;
+
+        el.replaceWith(newEl);
+        newEl.addEventListener('click', () => this.selectConversation(convId));
+        this._debouncedCreateIcons();
+        return true;
+    }
+
+    // =====================================================
+    // LIVESTREAM POST SELECTOR
+    // =====================================================
+
+    populateLivestreamPostSelector() {
+        const select = document.getElementById('livestreamPostSelect');
+        if (!select) return;
+
+        const postMap = {};
+        for (const [convId, info] of Object.entries(this.data.livestreamPostMap)) {
+            const pid = info.postId;
+            if (pid) {
+                if (!postMap[pid]) postMap[pid] = { postId: pid, name: info.postName || pid, count: 0 };
+                postMap[pid].count++;
+            }
+        }
+
+        const posts = Object.values(postMap).sort((a, b) => b.count - a.count);
+        select.innerHTML = '<option value="">Tất cả bài post</option>' +
+            posts.map(p => `<option value="${p.postId}">${this.escapeHtml(p.name || p.postId)} (${p.count})</option>`).join('');
+
+        select.onchange = () => {
+            this._livestreamPostFilter = select.value;
+            this.renderConversationList();
+        };
+    }
+
+    async _fetchMissingPostNames() {
+        const postIds = new Set();
+        for (const info of Object.values(this.data.livestreamPostMap)) {
+            if (info.postId && !info.postName) postIds.add(info.postId);
+        }
+        if (postIds.size === 0) { showToast('Đã có tên tất cả bài viết', 'info'); return; }
+
+        showToast('Đang lấy tên bài viết...', 'info');
+        let found = 0;
+        for (const postId of postIds) {
+            try {
+                // Try to get post info from first page that has it
+                for (const pageId of this.data.pageIds) {
+                    const pat = await this._getPageAccessTokenWithFallback(pageId);
+                    if (!pat) continue;
+                    const url = InboxApiConfig.buildUrl.pancakeOfficial(`pages/${pageId}/posts/${postId}`, pat);
+                    const res = await fetch(url);
+                    if (res.ok) {
+                        const data = await res.json();
+                        const name = data.message || data.name || '';
+                        if (name) {
+                            for (const info of Object.values(this.data.livestreamPostMap)) {
+                                if (info.postId === postId) info.postName = name.substring(0, 80);
+                            }
+                            found++;
+                            break;
+                        }
+                    }
+                }
+            } catch (e) {}
+        }
+        showToast(`Đã lấy ${found}/${postIds.size} tên bài viết`, 'success');
+        this.populateLivestreamPostSelector();
+    }
+
+    async clearLivestreamForPost() {
+        const select = document.getElementById('livestreamPostSelect');
+        const postId = select?.value;
+        if (!postId) { showToast('Chọn bài post cần xóa', 'warning'); return; }
+        if (!confirm('Xóa tất cả livestream của bài post này?')) return;
+
+        const toRemove = [];
+        for (const [convId, info] of Object.entries(this.data.livestreamPostMap)) {
+            if (info.postId === postId) toRemove.push(convId);
+        }
+
+        for (const convId of toRemove) {
+            this.data.unmarkAsLivestream(convId);
+        }
+
+        showToast(`Đã xóa ${toRemove.length} livestream`, 'success');
+        this.populateLivestreamPostSelector();
+        this.renderConversationList();
+    }
+
+    updateLivestreamButton(conv) {
+        const btn = document.getElementById('btnToggleLivestream');
+        if (!btn) return;
+        if (!conv) { btn.style.display = 'none'; return; }
+        btn.style.display = '';
+        btn.title = conv.isLivestream ? 'Bỏ Livestream' : 'Đưa vào Livestream';
+        btn.classList.toggle('active', conv.isLivestream);
+    }
+
+    // =====================================================
+    // REPLY PLACEHOLDER & AUTO TYPE
+    // =====================================================
+
+    _updateReplyPlaceholder() {
+        const input = document.getElementById('chatInput');
+        if (!input) return;
+        const conv = this.data.getConversation(this.activeConvId);
+        if (!conv) { input.placeholder = 'Nhập tin nhắn...'; return; }
+
+        if (conv.type === 'COMMENT') {
+            const replyType = document.getElementById('replyTypeSelect')?.value || 'reply_comment';
+            input.placeholder = replyType === 'reply_comment' ? 'Bình luận công khai...' : 'Nhắn riêng cho khách...';
+        } else {
+            input.placeholder = 'Nhập tin nhắn...';
+        }
+    }
+
+    getAutoReplyType(conv) {
+        if (!conv || conv.type !== 'COMMENT') return 'reply_inbox';
+        return 'reply_comment';
+    }
+
+    // =====================================================
+    // FB ERROR PARSING
+    // =====================================================
+
+    _parseFbError(responseText) {
+        try {
+            const data = typeof responseText === 'string' ? JSON.parse(responseText) : responseText;
+            const errCode = data.error_code || data.e_code || data.error?.code;
+            const errSubcode = data.error_subcode || data.e_subcode || data.error?.error_subcode;
+            const errMsg = data.error?.message || data.message || '';
+
+            if (errCode === 10 && errSubcode === 2018278) return 'Đã quá 24h, không thể gửi inbox. Thử nhắn riêng (private_replies).';
+            if (errCode === 551) return 'Người dùng không khả dụng.';
+            if (errCode === 100) return 'Tin nhắn không hợp lệ hoặc đã bị xóa.';
+            if (errCode === 190) return 'Token hết hạn, vui lòng cập nhật lại.';
+            return errMsg || `Lỗi Facebook (code: ${errCode})`;
+        } catch (e) {
+            return typeof responseText === 'string' ? responseText : 'Lỗi không xác định';
+        }
+    }
+
+    // =====================================================
+    // RENDER DATA MODAL
+    // =====================================================
+
+    async showRenderDataModal() {
+        const convCount = this.data.conversations.length;
+        const pageCount = this.data.pages.length;
+        const groups = this.data.groups;
+        const labels = this.data.labelMap;
+
+        let labelStats = {};
+        for (const [convId, lblArr] of Object.entries(labels)) {
+            for (const lbl of lblArr) {
+                labelStats[lbl] = (labelStats[lbl] || 0) + 1;
+            }
+        }
+
+        const livestreamCount = Object.keys(this.data.livestreamPostMap).length;
+        const unreadCount = this.data.conversations.filter(c => c.unread > 0).length;
+        const inboxCount = this.data.conversations.filter(c => c.type === 'INBOX').length;
+        const commentCount = this.data.conversations.filter(c => c.type === 'COMMENT').length;
+
+        let html = `
+            <div style="padding:20px;max-height:70vh;overflow-y:auto;">
+                <h3 style="margin:0 0 16px;">Dữ liệu Inbox</h3>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+                    <div style="padding:12px;background:#f0f9ff;border-radius:8px;"><strong>${convCount}</strong> cuộc hội thoại</div>
+                    <div style="padding:12px;background:#f0fdf4;border-radius:8px;"><strong>${pageCount}</strong> pages</div>
+                    <div style="padding:12px;background:#fef3c7;border-radius:8px;"><strong>${unreadCount}</strong> chưa đọc</div>
+                    <div style="padding:12px;background:#fce7f3;border-radius:8px;"><strong>${livestreamCount}</strong> livestream</div>
+                    <div style="padding:12px;background:#ede9fe;border-radius:8px;"><strong>${inboxCount}</strong> INBOX</div>
+                    <div style="padding:12px;background:#ecfdf5;border-radius:8px;"><strong>${commentCount}</strong> COMMENT</div>
+                </div>
+                <h4 style="margin:16px 0 8px;">Nhóm phân loại</h4>
+                <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                    <tr style="background:#f9fafb;"><th style="padding:8px;text-align:left;">Nhóm</th><th style="padding:8px;text-align:right;">Số lượng</th></tr>
+                    ${groups.map(g => `<tr style="border-bottom:1px solid #e5e7eb;"><td style="padding:8px;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${g.color};margin-right:6px;"></span>${this.escapeHtml(g.name)}</td><td style="padding:8px;text-align:right;">${labelStats[g.id] || 0}</td></tr>`).join('')}
+                </table>
+                <h4 style="margin:16px 0 8px;">Pages</h4>
+                ${this.data.pages.map(p => `<div style="padding:6px 0;font-size:13px;border-bottom:1px solid #f3f4f6;">${this.escapeHtml(p.name || p.id)} <span style="color:#6b7280;">(${p.id})</span></div>`).join('')}
+            </div>`;
+
+        // Simple modal overlay
+        let modal = document.getElementById('renderDataModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'renderDataModal';
+            modal.style.cssText = 'display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:10001;align-items:center;justify-content:center;';
+            modal.innerHTML = '<div style="background:white;border-radius:12px;max-width:600px;width:90%;max-height:85vh;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.3);"><div id="renderDataContent"></div><div style="padding:12px 20px;border-top:1px solid #e5e7eb;text-align:right;"><button onclick="document.getElementById(\'renderDataModal\').style.display=\'none\'" style="padding:8px 20px;background:#3b82f6;color:white;border:none;border-radius:6px;cursor:pointer;">Đóng</button></div></div>';
+            document.body.appendChild(modal);
+        }
+        document.getElementById('renderDataContent').innerHTML = html;
+        modal.style.display = 'flex';
+    }
+
+    // =====================================================
+    // QUICK REPLY BAR
+    // =====================================================
+
+    async renderQuickReplies() {
+        const row1 = document.getElementById('quickReplyRow1');
+        const row2 = document.getElementById('quickReplyRow2');
+        const bar = document.getElementById('quickReplyBar');
+        if (!row1 || !row2 || !bar) return;
+
+        if (!window.quickReplyManager) { bar.style.display = 'none'; return; }
+
+        await window.quickReplyManager.ensureRepliesLoaded();
+        const replies = window.quickReplyManager.replies || [];
+        if (replies.length === 0) { bar.style.display = 'none'; return; }
+
+        bar.style.display = '';
+        const half = Math.ceil(replies.length / 2);
+        const first = replies.slice(0, Math.min(half, 6));
+        const second = replies.slice(Math.min(half, 6), Math.min(replies.length, 12));
+
+        row1.innerHTML = first.map(r => `<button class="quick-reply-chip" data-id="${r.id}" style="${r.topicColor ? 'border-color:' + r.topicColor : ''}">${this.escapeHtml(r.shortcut || r.topic || '...')}</button>`).join('') +
+            `<button class="quick-reply-chip qr-more" onclick="quickReplyManager.openModal('chatInput')">+</button>`;
+        row2.innerHTML = second.map(r => `<button class="quick-reply-chip" data-id="${r.id}" style="${r.topicColor ? 'border-color:' + r.topicColor : ''}">${this.escapeHtml(r.shortcut || r.topic || '...')}</button>`).join('');
+
+        bar.querySelectorAll('.quick-reply-chip[data-id]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = parseInt(btn.dataset.id);
+                window.quickReplyManager.selectReply(id);
+            });
+        });
     }
 }
 
