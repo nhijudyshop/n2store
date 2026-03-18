@@ -318,7 +318,7 @@ function generatePackingSlipHTML(waitingIndices, notes = {}) {
     <meta charset="utf-8" />
     <title>Phiếu Soạn Hàng</title>
     <style>
-        @page { margin: 10mm 8mm; }
+        @page { margin: 5mm 3mm; }
         body {
             font-family: Arial, Helvetica, sans-serif;
             font-size: 13px;
@@ -326,13 +326,14 @@ function generatePackingSlipHTML(waitingIndices, notes = {}) {
             margin: 0;
             padding: 0;
         }
-        .container { max-width: 210mm; margin: 0 auto; padding: 10px; }
+        .container { width: 100%; margin: 0; padding: 3px; }
         h2 { text-align: center; margin: 10px 0 5px 0; font-size: 20px; text-transform: uppercase; }
         .info-row { display: flex; justify-content: space-between; margin-bottom: 3px; font-size: 13px; }
         .info-row div { flex: 1; }
         .info-row .right { text-align: right; }
-        table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-        th { border: 1px solid #000; padding: 6px 4px; text-align: center; background: #f5f5f5; font-size: 12px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 8px; table-layout: auto; }
+        th { border: 1px solid #000; padding: 4px 3px; text-align: center; background: #f5f5f5; font-size: 11px; }
+        td { padding: 4px 3px; }
         .footer-sign { display: flex; justify-content: space-around; margin-top: 30px; text-align: center; }
         .footer-sign div { width: 40%; }
         .footer-sign b { font-size: 14px; }
@@ -357,13 +358,13 @@ function generatePackingSlipHTML(waitingIndices, notes = {}) {
         <table>
             <thead>
                 <tr>
-                    <th style="width:35px;">STT</th>
-                    <th style="width:55px;">Chờ Hàng</th>
+                    <th style="width:25px;">STT</th>
+                    <th style="width:40px;">Chờ Hàng</th>
                     <th>Product</th>
-                    <th style="width:50px;">Đơn vị</th>
-                    <th style="width:45px;">Số lượng</th>
-                    <th style="width:80px;">Giá</th>
-                    <th style="width:90px;">Tổng</th>
+                    <th style="width:35px;">ĐVT</th>
+                    <th style="width:30px;">SL</th>
+                    <th style="width:65px;">Giá</th>
+                    <th style="width:75px;">Tổng</th>
                 </tr>
             </thead>
             <tbody>
