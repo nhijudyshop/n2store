@@ -115,7 +115,7 @@ function renderPackingSlipProducts() {
     const tbody = document.getElementById('packingSlipProductBody');
 
     if (packingSlipOrderLines.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:20px; color:#9ca3af;">Không có sản phẩm</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px; color:#9ca3af;">Không có sản phẩm</td></tr>';
         return;
     }
 
@@ -146,6 +146,11 @@ function renderPackingSlipProducts() {
                 <td style="padding:8px 6px; text-align:center;">${qty}</td>
                 <td style="padding:8px 6px; text-align:right;">${price.toLocaleString('vi-VN')}</td>
                 <td style="padding:8px 6px; text-align:right;">${total.toLocaleString('vi-VN')}</td>
+                <td style="padding:8px 6px;">
+                    <input type="text" data-note-index="${idx}" class="packing-slip-note"
+                        placeholder="Nhập ghi chú..."
+                        style="width:100%; padding:4px 6px; border:1px solid #d1d5db; border-radius:4px; font-size:12px; outline:none;" />
+                </td>
             </tr>
         `;
     }).join('');
@@ -157,6 +162,7 @@ function renderPackingSlipProducts() {
             <td style="padding:8px 6px; text-align:center;">${totalQty}</td>
             <td style="padding:8px 6px;"></td>
             <td style="padding:8px 6px; text-align:right;">${totalAmount.toLocaleString('vi-VN')}</td>
+            <td style="padding:8px 6px;"></td>
         </tr>
     `;
 
@@ -193,8 +199,17 @@ function printPackingSlip() {
         }
     });
 
+    // Collect notes
+    const noteInputs = document.querySelectorAll('.packing-slip-note');
+    const notes = {};
+    noteInputs.forEach(input => {
+        const idx = parseInt(input.dataset.noteIndex);
+        const val = input.value.trim();
+        if (val) notes[idx] = val;
+    });
+
     // Build print HTML
-    const html = generatePackingSlipHTML(waitingIndices);
+    const html = generatePackingSlipHTML(waitingIndices, notes);
 
     // Open print window
     const printWindow = window.open('', '_blank', 'width=900,height=700,scrollbars=yes');
@@ -226,8 +241,9 @@ function printPackingSlip() {
 /**
  * Generate packing slip HTML for printing (A4 format, similar to Phiếu Đặt Hàng)
  * @param {Set} waitingIndices - Set of line indices marked as "Chờ Hàng"
+ * @param {Object} notes - Map of line index to note string
  */
-function generatePackingSlipHTML(waitingIndices) {
+function generatePackingSlipHTML(waitingIndices, notes = {}) {
     const order = packingSlipOrderData;
     const lines = packingSlipOrderLines;
 
@@ -266,6 +282,7 @@ function generatePackingSlipHTML(waitingIndices) {
         const price = line.PriceUnit || line.Price || 0;
         const total = qty * price;
         const isWaiting = waitingIndices.has(idx);
+        const note = notes[idx] || '';
 
         totalQty += qty;
         totalAmount += total;
@@ -276,7 +293,9 @@ function generatePackingSlipHTML(waitingIndices) {
                 <td style="border:1px solid #000; padding:5px 4px; text-align:center; font-size:15px;">
                     ${isWaiting ? '<b style="color:#c00;">✗</b>' : ''}
                 </td>
-                <td style="border:1px solid #000; padding:5px 4px; text-align:left; word-break:break-word;">${productName}</td>
+                <td style="border:1px solid #000; padding:5px 4px; text-align:left; word-break:break-word;">
+                    ${productName}${note ? `<br/><i style="font-size:11px; color:#555;">Ghi chú: ${note}</i>` : ''}
+                </td>
                 <td style="border:1px solid #000; padding:5px 4px; text-align:center;">${uom}</td>
                 <td style="border:1px solid #000; padding:5px 4px; text-align:center;">${qty}</td>
                 <td style="border:1px solid #000; padding:5px 4px; text-align:right;">${price.toLocaleString('vi-VN')}</td>
