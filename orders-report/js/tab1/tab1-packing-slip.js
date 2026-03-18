@@ -124,6 +124,7 @@ function renderPackingSlipProducts() {
 
     const rows = packingSlipOrderLines.map((line, idx) => {
         const productName = line.ProductName || line.ProductNameGet || line.Product?.Name || '';
+        const productNote = line.Note || '';
         const qty = line.ProductUOMQty || line.Quantity || 1;
         const price = line.PriceUnit || line.Price || 0;
         const total = qty * price;
@@ -143,7 +144,10 @@ function renderPackingSlipProducts() {
                             style="width:18px; height:18px; cursor:pointer; accent-color:#f59e0b;" />
                     </label>
                 </td>
-                <td style="padding:8px 6px; text-align:left; word-break:break-word;">${productName}</td>
+                <td style="padding:8px 6px; text-align:left; word-break:break-word;">
+                    ${productName}
+                    ${productNote ? `<div style="font-size:11px; color:#f59e0b; margin-top:2px;"><i>${productNote}</i></div>` : ''}
+                </td>
                 <td style="padding:8px 6px; text-align:center;">${qty}</td>
                 <td style="padding:8px 6px; text-align:right; font-size:12px; color:#6b7280;">${priceShort}</td>
                 <td style="padding:8px 6px; text-align:right; font-size:12px; color:#6b7280;">${totalShort}</td>
@@ -232,13 +236,6 @@ function printPackingSlip() {
         }, 500);
     };
 
-    setTimeout(() => {
-        if (printWindow && !printWindow.closed) {
-            printWindow.focus();
-            printWindow.print();
-        }
-    }, 1500);
-
     // Auto-tag "CHỜ HÀNG VỀ" after printing
     autoTagChoHangVe();
 }
@@ -257,14 +254,37 @@ async function autoTagChoHangVe() {
         if (window.findOrCreateTag && window.addTagToOrder) {
             const tag = await window.findOrCreateTag('CHỜ HÀNG VỀ');
             if (tag) {
-                await window.addTagToOrder(saleOnlineId, {
+                const success = await window.addTagToOrder(saleOnlineId, {
                     Id: tag.Id,
                     Name: tag.Name,
                     Color: tag.Color || '#6366f1'
                 });
-                console.log('[PACKING-SLIP] Auto-tagged order with "CHỜ HÀNG VỀ"');
-                if (window.notificationManager) {
-                    window.notificationManager.success('Đã gắn tag "CHỜ HÀNG VỀ"');
+                if (success) {
+                    console.log('[PACKING-SLIP] Auto-tagged order with "CHỜ HÀNG VỀ"');
+                    // Update local data and UI row
+                    const localOrder = window.OrderStore?.get(saleOnlineId) || allData?.find(o => o.Id === saleOnlineId);
+                    if (localOrder) {
+                        let currentTags = [];
+                        try {
+                            currentTags = typeof localOrder.Tags === 'string' ? JSON.parse(localOrder.Tags) : (localOrder.Tags || []);
+                        } catch (e) { currentTags = []; }
+                        if (!currentTags.some(t => t.Id === tag.Id)) {
+                            currentTags.push({ Id: tag.Id, Name: tag.Name, Color: tag.Color || '#6366f1' });
+                        }
+                        const newTagsJson = JSON.stringify(currentTags);
+                        localOrder.Tags = newTagsJson;
+                        if (window.OrderStore?.get(saleOnlineId)) {
+                            window.OrderStore.get(saleOnlineId).Tags = newTagsJson;
+                        }
+                        if (typeof updateRowTagsOnly === 'function') {
+                            updateRowTagsOnly(saleOnlineId, newTagsJson, localOrder.Code);
+                        } else if (typeof window.updateOrderInTable === 'function') {
+                            window.updateOrderInTable(saleOnlineId, { Tags: newTagsJson });
+                        }
+                    }
+                    if (window.notificationManager) {
+                        window.notificationManager.success('Đã gắn tag "CHỜ HÀNG VỀ"');
+                    }
                 }
             }
         }
