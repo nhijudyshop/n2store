@@ -331,8 +331,8 @@ function generatePackingSlipHTML(waitingIndices, notes = {}) {
                 <td style="border:1px solid #000; padding:5px 4px; text-align:center; font-size:15px;">
                     ${isWaiting ? '<b style="color:#c00;">✗</b>' : ''}
                 </td>
-                <td style="border:1px solid #000; padding:5px 4px; text-align:left; word-break:break-word; font-size:9px; font-weight:bold;">
-                    ${productName}${note ? `<br/><b style="font-size:9px;">${note}</b>` : ''}
+                <td style="border:1px solid #000; padding:5px 4px; text-align:left; word-break:break-word; font-size:14px; font-weight:bold;">
+                    ${productName}${note ? `<br/><b style="font-size:14px;">${note}</b>` : ''}
                 </td>
                 <td style="border:1px solid #000; padding:5px 4px; text-align:center;">${qty}</td>
                 <td style="border:1px solid #000; padding:5px 4px; text-align:right; font-size:11px;">${priceShort}</td>
@@ -398,9 +398,9 @@ function generatePackingSlipHTML(waitingIndices, notes = {}) {
             <thead>
                 <tr>
                     <th style="width:15px; font-size:9px;">STT</th>
-                    <th style="width:40px;">Chờ Hàng</th>
+                    <th style="width:20px; font-size:6px;">Chờ Hàng</th>
                     <th>Product</th>
-                    <th style="width:30px;">SL</th>
+                    <th style="width:15px; font-size:6px;">SL</th>
                     <th style="width:22px; font-size:6px;">Giá</th>
                     <th style="width:25px; font-size:6px;">Tổng</th>
                 </tr>
