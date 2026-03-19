@@ -1,0 +1,1336 @@
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Phase 1A — Flow Guide: So Sach Giao Hang Tung Phan</title>
+        <style>
+            :root {
+                --bg: #f0f4ff;
+                --surface: #ffffff;
+                --border: #e2e8f0;
+                --text: #1e293b;
+                --muted: #64748b;
+                --blue: #3b82f6;
+                --purple: #8b5cf6;
+                --green: #16a34a;
+                --amber: #ca8a04;
+                --red: #dc2626;
+                --grey: #64748b;
+            }
+            * {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+            }
+            body {
+                font-family:
+                    'Segoe UI',
+                    system-ui,
+                    -apple-system,
+                    sans-serif;
+                background: var(--bg);
+                color: var(--text);
+                line-height: 1.7;
+                padding: 24px;
+            }
+            .container {
+                max-width: 1100px;
+                margin: 0 auto;
+            }
+
+            /* Header */
+            .header {
+                text-align: center;
+                padding: 30px 20px 24px;
+                background: linear-gradient(135deg, #667eea, #764ba2);
+                color: #fff;
+                border-radius: 16px;
+                margin-bottom: 28px;
+            }
+            .header h1 {
+                font-size: 22px;
+                margin-bottom: 6px;
+            }
+            .header .sub {
+                color: rgba(255, 255, 255, 0.8);
+                font-size: 14px;
+            }
+
+            /* Section */
+            .section {
+                background: var(--surface);
+                border-radius: 14px;
+                border: 1px solid var(--border);
+                margin-bottom: 24px;
+                overflow: hidden;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+            }
+            .section-title {
+                padding: 16px 24px;
+                font-size: 17px;
+                font-weight: 700;
+                border-bottom: 1px solid var(--border);
+                background: #f8fafc;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+            .section-title .num {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 28px;
+                height: 28px;
+                border-radius: 50%;
+                background: var(--purple);
+                color: #fff;
+                font-size: 13px;
+                font-weight: 700;
+                flex-shrink: 0;
+            }
+            .section-body {
+                padding: 20px 24px;
+            }
+
+            /* Paragraph */
+            p {
+                margin-bottom: 12px;
+                font-size: 14.5px;
+            }
+            p:last-child {
+                margin-bottom: 0;
+            }
+            .note {
+                padding: 12px 16px;
+                background: #eff6ff;
+                border-left: 4px solid var(--blue);
+                border-radius: 0 8px 8px 0;
+                font-size: 13.5px;
+                margin: 12px 0;
+            }
+            .warn {
+                padding: 12px 16px;
+                background: #fefce8;
+                border-left: 4px solid var(--amber);
+                border-radius: 0 8px 8px 0;
+                font-size: 13.5px;
+                margin: 12px 0;
+            }
+
+            /* Badges inline */
+            .badge-demo {
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                padding: 2px 10px;
+                border-radius: 10px;
+                font-size: 12px;
+                font-weight: 600;
+                white-space: nowrap;
+                vertical-align: middle;
+            }
+            .bd-green {
+                background: #dcfce7;
+                color: #16a34a;
+            }
+            .bd-yellow {
+                background: #fef9c3;
+                color: #ca8a04;
+            }
+            .bd-red {
+                background: #fee2e2;
+                color: #dc2626;
+            }
+            .bd-grey {
+                background: #f1f5f9;
+                color: #64748b;
+            }
+
+            /* Role tag */
+            .role {
+                display: inline-block;
+                padding: 2px 10px;
+                border-radius: 6px;
+                font-size: 12px;
+                font-weight: 700;
+                vertical-align: middle;
+            }
+            .role-duyen {
+                background: #ede9fe;
+                color: #7c3aed;
+            }
+            .role-sale {
+                background: #dbeafe;
+                color: #2563eb;
+            }
+            .role-system {
+                background: #f1f5f9;
+                color: #475569;
+            }
+
+            /* Access points */
+            .access-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 16px;
+                margin: 16px 0;
+            }
+            .access-card {
+                padding: 16px;
+                border: 1px solid var(--border);
+                border-radius: 10px;
+                background: #fafbfc;
+            }
+            .access-card h4 {
+                font-size: 14px;
+                margin-bottom: 8px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .access-card .path {
+                font-size: 12px;
+                color: var(--muted);
+                font-family: monospace;
+                background: #f1f5f9;
+                padding: 4px 8px;
+                border-radius: 4px;
+                display: inline-block;
+                margin-bottom: 6px;
+            }
+            .access-card p {
+                font-size: 13px;
+                color: var(--muted);
+                margin: 0;
+            }
+
+            /* =====================================================
+           FLOW DIAGRAM
+           ===================================================== */
+            .flow-container {
+                padding: 24px;
+                overflow-x: auto;
+            }
+
+            .flow-diagram {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                gap: 0;
+                min-width: 700px;
+            }
+
+            /* Flow node */
+            .flow-node {
+                position: relative;
+                width: 580px;
+                padding: 16px 20px;
+                border-radius: 12px;
+                border: 2px solid var(--border);
+                background: var(--surface);
+                z-index: 1;
+            }
+            .flow-node h4 {
+                font-size: 14px;
+                margin-bottom: 6px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .flow-node p {
+                font-size: 13px;
+                color: #475569;
+                margin: 0;
+            }
+            .flow-node .detail-list {
+                margin: 6px 0 0 0;
+                padding-left: 18px;
+                font-size: 13px;
+                color: #475569;
+            }
+            .flow-node .detail-list li {
+                margin-bottom: 3px;
+            }
+
+            .flow-node.node-start {
+                border-color: var(--purple);
+                background: #faf5ff;
+            }
+            .flow-node.node-action {
+                border-color: var(--blue);
+                background: #eff6ff;
+            }
+            .flow-node.node-auto {
+                border-color: #10b981;
+                background: #ecfdf5;
+            }
+            .flow-node.node-result {
+                border-color: var(--green);
+                background: #f0fdf4;
+            }
+            .flow-node.node-decision {
+                border-color: var(--amber);
+                background: #fffbeb;
+                border-style: dashed;
+            }
+
+            .node-icon {
+                width: 26px;
+                height: 26px;
+                border-radius: 50%;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 12px;
+                color: #fff;
+                flex-shrink: 0;
+            }
+            .icon-purple {
+                background: var(--purple);
+            }
+            .icon-blue {
+                background: var(--blue);
+            }
+            .icon-green {
+                background: #10b981;
+            }
+            .icon-amber {
+                background: var(--amber);
+            }
+            .icon-dark {
+                background: #334155;
+            }
+
+            /* Arrows */
+            .flow-arrow {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                height: 40px;
+                position: relative;
+            }
+            .flow-arrow::before {
+                content: '';
+                width: 2px;
+                height: 28px;
+                background: #94a3b8;
+            }
+            .flow-arrow::after {
+                content: '';
+                width: 0;
+                height: 0;
+                border-left: 6px solid transparent;
+                border-right: 6px solid transparent;
+                border-top: 8px solid #94a3b8;
+            }
+            .flow-arrow .arrow-label {
+                position: absolute;
+                right: calc(50% + 20px);
+                top: 8px;
+                font-size: 11px;
+                color: var(--muted);
+                white-space: nowrap;
+                text-align: right;
+            }
+
+            /* Branch / parallel */
+            .flow-branch {
+                display: flex;
+                gap: 16px;
+                width: 580px;
+                justify-content: center;
+            }
+            .flow-branch .flow-node {
+                width: auto;
+                flex: 1;
+            }
+
+            /* Table demo */
+            .demo-table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 12px;
+                margin: 12px 0;
+            }
+            .demo-table th {
+                background: #f1f5f9;
+                padding: 8px 10px;
+                font-weight: 600;
+                color: #475569;
+                font-size: 11px;
+                text-transform: uppercase;
+                border-bottom: 2px solid #e2e8f0;
+                text-align: center;
+                white-space: nowrap;
+            }
+            .demo-table td {
+                padding: 8px 10px;
+                border-bottom: 1px solid #f1f5f9;
+                text-align: center;
+            }
+            .demo-table .td-left {
+                text-align: left;
+            }
+            .demo-table .td-code {
+                font-weight: 600;
+                color: var(--blue);
+                text-align: left;
+            }
+            .demo-table .td-edit {
+                background: #eff6ff;
+                font-weight: 600;
+            }
+            .demo-table .td-edit-ncc {
+                background: #eff6ff;
+                font-weight: 600;
+                position: relative;
+            }
+            .mini-btn {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 18px;
+                height: 18px;
+                border-radius: 50%;
+                background: #f8fafc;
+                border: 1px solid #cbd5e1;
+                color: var(--blue);
+                font-size: 11px;
+                font-weight: 700;
+                margin-left: 4px;
+                cursor: default;
+            }
+
+            /* Popup demo */
+            .popup-demo {
+                border: 1px solid #e2e8f0;
+                border-radius: 10px;
+                overflow: hidden;
+                margin: 12px auto;
+                max-width: 260px;
+                box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+                font-size: 13px;
+            }
+            .popup-demo-header {
+                padding: 8px 14px;
+                background: #f8fafc;
+                border-bottom: 1px solid #e2e8f0;
+                font-weight: 600;
+                display: flex;
+                justify-content: space-between;
+            }
+            .popup-demo-body {
+                padding: 12px 14px;
+            }
+            .popup-demo-body label {
+                font-size: 11px;
+                font-weight: 600;
+                color: var(--muted);
+                display: block;
+                margin-bottom: 2px;
+            }
+            .popup-demo-body .field {
+                padding: 5px 8px;
+                border: 1px solid #cbd5e1;
+                border-radius: 6px;
+                font-size: 12px;
+                margin-bottom: 8px;
+                background: #fafbfc;
+                color: var(--text);
+            }
+            .popup-demo-actions {
+                display: flex;
+                gap: 6px;
+                margin-top: 8px;
+            }
+            .popup-demo-actions .btn-save {
+                flex: 1;
+                padding: 6px;
+                background: var(--blue);
+                color: #fff;
+                border: none;
+                border-radius: 6px;
+                font-size: 12px;
+                font-weight: 600;
+                text-align: center;
+            }
+            .popup-demo-actions .btn-cancel {
+                padding: 6px 12px;
+                background: #f1f5f9;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                font-size: 12px;
+                color: var(--muted);
+                text-align: center;
+            }
+
+            /* Filter bar demo */
+            .filter-demo {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                padding: 12px 16px;
+                background: #f8fafc;
+                border: 1px solid var(--border);
+                border-radius: 10px;
+                margin: 12px 0;
+                flex-wrap: wrap;
+            }
+            .filter-demo label {
+                font-size: 12px;
+                font-weight: 600;
+                color: var(--muted);
+            }
+            .filter-demo select {
+                padding: 5px 10px;
+                border: 1px solid #d1d5db;
+                border-radius: 6px;
+                font-size: 13px;
+                background: #fff;
+            }
+            .filter-demo .btn-refresh-demo {
+                padding: 6px 14px;
+                background: #16a34a;
+                color: #fff;
+                border: none;
+                border-radius: 6px;
+                font-size: 12px;
+                font-weight: 600;
+            }
+
+            /* Scenario */
+            .scenario {
+                padding: 16px 20px;
+                border: 1px solid var(--border);
+                border-radius: 10px;
+                margin: 12px 0;
+                background: #fafbfc;
+            }
+            .scenario h4 {
+                font-size: 14px;
+                margin-bottom: 8px;
+            }
+            .scenario .step {
+                display: flex;
+                gap: 10px;
+                margin-bottom: 6px;
+                font-size: 13.5px;
+            }
+            .scenario .step-num {
+                flex-shrink: 0;
+                width: 22px;
+                height: 22px;
+                border-radius: 50%;
+                background: var(--blue);
+                color: #fff;
+                font-size: 11px;
+                font-weight: 700;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .scenario .step-text {
+                flex: 1;
+            }
+            .scenario .result {
+                margin-top: 10px;
+                padding: 10px 14px;
+                background: #dcfce7;
+                border-radius: 8px;
+                font-size: 13px;
+                color: var(--green);
+                font-weight: 500;
+            }
+
+            /* Keyboard shortcut hint */
+            kbd {
+                display: inline-block;
+                padding: 2px 6px;
+                background: #f1f5f9;
+                border: 1px solid #d1d5db;
+                border-radius: 4px;
+                font-size: 11px;
+                font-family: monospace;
+            }
+
+            @media (max-width: 768px) {
+                body {
+                    padding: 12px;
+                }
+                .access-grid {
+                    grid-template-columns: 1fr;
+                }
+                .flow-node {
+                    width: 100%;
+                }
+                .flow-branch {
+                    flex-direction: column;
+                    width: 100%;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <!-- HEADER -->
+            <div class="header">
+                <h1>Phase 1A — Huong Dan Su Dung So Sach Giao Hang Tung Phan</h1>
+                <div class="sub">
+                    Flow chi tiet tu luc Duyen dat hang den khi Sale thay trang thai giao hang
+                </div>
+            </div>
+
+            <!-- ====================================================
+         SECTION 0: TONG QUAN
+         ==================================================== -->
+            <div class="section">
+                <div class="section-title"><span class="num">0</span> Tong quan tinh nang</div>
+                <div class="section-body">
+                    <p>
+                        <strong>Van de:</strong> Truoc day, Duyen dat NCC 100 cai nhung NCC chi giao
+                        60 truoc — Sale khong biet, cu tuong hang du de di don. Ket qua: chot don
+                        cho khach nhung khong co hang giao.
+                    </p>
+                    <p>
+                        <strong>Giai phap:</strong> So Sach gio day cho phep
+                        <strong>ghi nhan giao hang tung phan (delivery batches)</strong>. Khi NCC
+                        giao tung lo, Duyen nhap so luong vao — he thong tu tinh
+                        <strong>SL Cho giao</strong>, <strong>SL NCC huy</strong> va hien
+                        <strong>badge trang thai</strong> de Sale nhin la biet ngay.
+                    </p>
+
+                    <p><strong>4 trang thai giao hang:</strong></p>
+                    <div style="display: flex; gap: 12px; flex-wrap: wrap; margin: 8px 0 12px">
+                        <span class="badge-demo bd-red">Chua giao</span> — NCC chua giao gi ca
+                        <span class="badge-demo bd-yellow">Tung phan</span> — NCC da giao mot phan
+                        (VD: 60/100) <span class="badge-demo bd-green">Du</span> — NCC da giao du so
+                        luong <span class="badge-demo bd-grey">Huy</span> — NCC huy khong giao
+                    </div>
+
+                    <p><strong>Ai dung gi:</strong></p>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0">
+                        <span class="role role-duyen">Duyen (Dat hang)</span> Nhap SL Duyen order,
+                        nhap lo giao hang, nhap SL NCC huy &nbsp;|&nbsp;
+                        <span class="role role-sale">Sale</span> Xem bang, loc theo NCC / trang
+                        thai, biet hang nao da ve / dang cho
+                    </div>
+                </div>
+            </div>
+
+            <!-- ====================================================
+         SECTION 1: CACH TRUY CAP
+         ==================================================== -->
+            <div class="section">
+                <div class="section-title"><span class="num">1</span> Cach truy cap So Sach</div>
+                <div class="section-body">
+                    <p>
+                        Co <strong>2 noi</strong> xem So Sach, du lieu
+                        <strong>dong bo realtime</strong> qua Firebase:
+                    </p>
+                    <div class="access-grid">
+                        <div class="access-card">
+                            <h4>
+                                <i class="fas fa-chart-pie" style="color: var(--purple)"></i> View
+                                1: Trong tab Bao Cao Tong Hop
+                            </h4>
+                            <div class="path">tab-overview.html > tab "So Sach"</div>
+                            <p>
+                                Phu hop khi dang xem bao cao tong hop, click tab "So Sach" la thay.
+                                Can chon chien dich live o dropdown phia tren truoc.
+                            </p>
+                        </div>
+                        <div class="access-card">
+                            <h4>
+                                <i class="fas fa-book-open" style="color: var(--purple)"></i> View
+                                2: Trang doc lap
+                            </h4>
+                            <div class="path">tab-live-ledger.html</div>
+                            <p>
+                                Trang rieng chi co So Sach. Co them bo loc ngay va chon dot live.
+                                Duyen co the mo trang nay de nhap hang ve ngay tren dien thoai.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ====================================================
+         SECTION 2: GIAO DIEN BANG
+         ==================================================== -->
+            <div class="section">
+                <div class="section-title">
+                    <span class="num">2</span> Giao dien bang So Sach — cac cot va y nghia
+                </div>
+                <div class="section-body">
+                    <!-- Filter bar demo -->
+                    <p><strong>Thanh loc (Filter Bar):</strong></p>
+                    <div class="filter-demo">
+                        <label>NCC:</label>
+                        <select>
+                            <option>Tat ca NCC</option>
+                            <option>B4</option>
+                            <option>YS</option>
+                        </select>
+                        <label>TT Giao:</label>
+                        <select>
+                            <option>Tat ca</option>
+                            <option>Chua giao</option>
+                            <option>Tung phan</option>
+                            <option>Du</option>
+                            <option>Huy</option>
+                        </select>
+                        <span class="btn-refresh-demo">Cap nhat so sach</span>
+                    </div>
+
+                    <!-- Table demo -->
+                    <p><strong>Bang du lieu (Vi du):</strong></p>
+                    <table class="demo-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Ma SP</th>
+                                <th>Ten SP</th>
+                                <th>NCC</th>
+                                <th>SL Khach dat</th>
+                                <th>SL Duyen order</th>
+                                <th>CL K-D</th>
+                                <th>SL NCC giao</th>
+                                <th>SL Cho giao</th>
+                                <th>SL NCC huy</th>
+                                <th>CL D-N</th>
+                                <th>TT Giao</th>
+                                <th>Ton kho</th>
+                                <th>Ghi chu</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>1</td>
+                                <td class="td-code">B34C</td>
+                                <td class="td-left">[B34C] B4 0603 Ao thun tay lo</td>
+                                <td>B4</td>
+                                <td>120</td>
+                                <td class="td-edit">100</td>
+                                <td>
+                                    <span style="color: var(--green); font-weight: 600">+20</span>
+                                </td>
+                                <td class="td-edit-ncc">60 <span class="mini-btn">+</span></td>
+                                <td style="font-weight: 600; color: var(--amber)">40</td>
+                                <td class="td-edit">0</td>
+                                <td>
+                                    <span style="color: var(--green); font-weight: 600">+40</span>
+                                </td>
+                                <td><span class="badge-demo bd-yellow">Tung phan</span></td>
+                                <td class="td-edit">200</td>
+                                <td class="td-left" style="color: var(--muted)">Lo 1 da ve</td>
+                            </tr>
+                            <tr>
+                                <td>2</td>
+                                <td class="td-code">YS12</td>
+                                <td class="td-left">[YS12] YS 0601 Vay hoa</td>
+                                <td>YS</td>
+                                <td>50</td>
+                                <td class="td-edit">50</td>
+                                <td><span style="color: #94a3b8">0</span></td>
+                                <td class="td-edit-ncc">50 <span class="mini-btn">+</span></td>
+                                <td>0</td>
+                                <td class="td-edit">0</td>
+                                <td><span style="color: #94a3b8">0</span></td>
+                                <td><span class="badge-demo bd-green">Du</span></td>
+                                <td class="td-edit">80</td>
+                                <td class="td-left"></td>
+                            </tr>
+                            <tr>
+                                <td>3</td>
+                                <td class="td-code">MK07</td>
+                                <td class="td-left">[MK07] MK 0520 Quan jean</td>
+                                <td>MK</td>
+                                <td>30</td>
+                                <td class="td-edit">30</td>
+                                <td><span style="color: #94a3b8">0</span></td>
+                                <td class="td-edit-ncc">0 <span class="mini-btn">+</span></td>
+                                <td style="font-weight: 600; color: var(--red)">30</td>
+                                <td class="td-edit">0</td>
+                                <td>
+                                    <span style="color: var(--green); font-weight: 600">+30</span>
+                                </td>
+                                <td><span class="badge-demo bd-red">Chua giao</span></td>
+                                <td class="td-edit">0</td>
+                                <td class="td-left" style="color: var(--muted)">
+                                    NCC chua xac nhan
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <p><strong>Giai thich cac cot:</strong></p>
+                    <ul class="detail-list" style="margin-left: 18px; font-size: 13.5px">
+                        <li>
+                            <strong>SL Khach dat</strong> — Tu dong lay tu don hang TPOS (khong sua
+                            duoc)
+                        </li>
+                        <li>
+                            <strong>SL Duyen order</strong> —
+                            <span class="role role-duyen">Duyen</span> nhap tay so luong da dat NCC.
+                            <strong>Sua duoc</strong>, tu dong sync 2 chieu voi Quan ly Order
+                        </li>
+                        <li>
+                            <strong>CL K-D</strong> — Chenh lech Khach dat - Duyen order.
+                            <span style="color: var(--green)">+20</span> = khach dat nhieu hon Duyen
+                            order 20 cai
+                        </li>
+                        <li>
+                            <strong>SL NCC giao</strong> — Tong NCC da giao.
+                            <strong>Sua truc tiep</strong> hoac <strong>nhan nut [+]</strong> de
+                            nhap tung lo
+                        </li>
+                        <li>
+                            <strong>SL Cho giao</strong> — Tu dong tinh: Duyen order - NCC giao -
+                            NCC huy. <span style="color: var(--amber)">40</span> = con cho 40 cai
+                        </li>
+                        <li>
+                            <strong>SL NCC huy</strong> —
+                            <span class="role role-duyen">Duyen</span> nhap khi NCC bao huy khong
+                            giao
+                        </li>
+                        <li>
+                            <strong>CL D-N</strong> — Chenh lech Duyen order - NCC giao - NCC huy
+                        </li>
+                        <li>
+                            <strong>TT Giao</strong> — Badge tu dong:
+                            <span class="badge-demo bd-red">Chua giao</span> /
+                            <span class="badge-demo bd-yellow">Tung phan</span> /
+                            <span class="badge-demo bd-green">Du</span> /
+                            <span class="badge-demo bd-grey">Huy</span>
+                        </li>
+                        <li>
+                            <strong>Ton kho</strong> — Tu Quan ly Order (QtyAvailable), co the chinh
+                            tay
+                        </li>
+                        <li><strong>Ghi chu</strong> — Ghi chu tu do</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- ====================================================
+         SECTION 3: FLOW DIAGRAM CHINH
+         ==================================================== -->
+            <div class="section">
+                <div class="section-title">
+                    <span class="num">3</span> Flow Diagram — Tu dat hang den xem trang thai
+                </div>
+                <div class="flow-container">
+                    <div class="flow-diagram">
+                        <!-- Node 1: Start -->
+                        <div class="flow-node node-start">
+                            <h4>
+                                <span class="node-icon icon-purple">1</span>
+                                <span class="role role-duyen">Duyen</span> Mo So Sach va chon dot
+                                live
+                            </h4>
+                            <p>
+                                Mo <code>tab-overview.html</code> > tab "So Sach" hoac mo
+                                <code>tab-live-ledger.html</code> > chon dot live tu dropdown
+                            </p>
+                        </div>
+
+                        <div class="flow-arrow">
+                            <span class="arrow-label">Nhan "Cap nhat so sach"</span>
+                        </div>
+
+                        <!-- Node 2: Refresh -->
+                        <div class="flow-node node-auto">
+                            <h4>
+                                <span class="node-icon icon-green">2</span>
+                                <span class="role role-system">He thong</span> Tu dong tong hop du
+                                lieu
+                            </h4>
+                            <ul class="detail-list">
+                                <li>
+                                    Pull <strong>SL Khach dat</strong> tu don hang TPOS
+                                    (cachedOrderDetails)
+                                </li>
+                                <li>
+                                    Pull <strong>SL Duyen order</strong> tu Quan ly Order
+                                    (orderProducts/{tposCampaignId})
+                                </li>
+                                <li>
+                                    Pull <strong>Ton kho</strong> (QtyAvailable) tu Quan ly Order
+                                </li>
+                                <li>
+                                    Giu nguyen <strong>SL NCC giao</strong>,
+                                    <strong>SL NCC huy</strong>,
+                                    <strong>deliveryBatches</strong> (du lieu Duyen da nhap)
+                                </li>
+                                <li>
+                                    Tinh lai <strong>SL Cho giao</strong> va
+                                    <strong>TT Giao</strong> tu dong
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div class="flow-arrow"><span class="arrow-label">Hien thi bang</span></div>
+
+                        <!-- Node 3: View -->
+                        <div class="flow-node node-result">
+                            <h4>
+                                <span class="node-icon icon-green">3</span>
+                                <span class="role role-sale">Sale</span> +
+                                <span class="role role-duyen">Duyen</span> Xem bang So Sach
+                            </h4>
+                            <p>
+                                Bang hien thi day du: Ma SP, SL Khach dat, SL Duyen order, SL NCC
+                                giao, SL Cho giao, badge TT Giao. Sale nhin la biet ngay SP nao da
+                                du hang, SP nao dang cho.
+                            </p>
+                            <div class="note">
+                                Sale co the <strong>loc theo NCC</strong> (dropdown NCC) hoac
+                                <strong>loc theo trang thai giao</strong> (dropdown TT Giao) de
+                                nhanh chong tim SP can chu y.
+                            </div>
+                        </div>
+
+                        <div class="flow-arrow">
+                            <span class="arrow-label">NCC giao hang lo 1...</span>
+                        </div>
+
+                        <!-- Node 4: Decision -->
+                        <div class="flow-node node-decision">
+                            <h4>
+                                <span class="node-icon icon-amber">4</span> NCC giao hang — Duyen co
+                                2 cach nhap
+                            </h4>
+                            <p>Khi NCC giao 1 lo hang, Duyen chon 1 trong 2 cach:</p>
+                        </div>
+
+                        <div class="flow-arrow"></div>
+
+                        <!-- Branch: 2 ways -->
+                        <div class="flow-branch">
+                            <div class="flow-node node-action">
+                                <h4>
+                                    <span class="node-icon icon-blue">A</span> Cach 1: Sua truc tiep
+                                </h4>
+                                <p>
+                                    Click vao o <strong>"SL NCC giao"</strong>, go so moi (VD: 60),
+                                    nhan <kbd>Enter</kbd> hoac click ra ngoai.
+                                </p>
+                                <p style="margin-top: 6px; color: var(--green); font-weight: 600">
+                                    Nhanh, don gian.
+                                </p>
+                            </div>
+                            <div class="flow-node node-action">
+                                <h4>
+                                    <span class="node-icon icon-blue">B</span> Cach 2: Nhap tung lo
+                                </h4>
+                                <p>
+                                    Click nut
+                                    <span class="mini-btn" style="font-size: 14px">+</span> canh o
+                                    "SL NCC giao" > popup hien ra > nhap so luong + ngay giao + ghi
+                                    chu > "Luu lo".
+                                </p>
+                                <p style="margin-top: 6px; color: var(--green); font-weight: 600">
+                                    Co lich su giao tung lo.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="flow-arrow"><span class="arrow-label">Sau khi luu</span></div>
+
+                        <!-- Node 5: Auto calc -->
+                        <div class="flow-node node-auto">
+                            <h4>
+                                <span class="node-icon icon-green">5</span>
+                                <span class="role role-system">He thong</span> Tu dong tinh toan lai
+                            </h4>
+                            <ul class="detail-list">
+                                <li>
+                                    <strong>SL Cho giao</strong> = Duyen order - NCC giao - NCC huy
+                                    = <code>100 - 60 - 0 = 40</code>
+                                </li>
+                                <li>
+                                    <strong>TT Giao</strong> tu dong chuyen:
+                                    <span class="badge-demo bd-red">Chua giao</span> &rarr;
+                                    <span class="badge-demo bd-yellow">Tung phan</span>
+                                </li>
+                                <li>
+                                    Neu NCC giao du (VD: 100/100) &rarr;
+                                    <span class="badge-demo bd-green">Du</span>
+                                </li>
+                                <li>
+                                    Du lieu <strong>luu Firebase realtime</strong> — Sale o may khac
+                                    thay ngay lap tuc
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div class="flow-arrow"><span class="arrow-label">NCC bao huy?</span></div>
+
+                        <!-- Node 6: Cancel -->
+                        <div class="flow-node node-action">
+                            <h4>
+                                <span class="node-icon icon-blue">6</span>
+                                <span class="role role-duyen">Duyen</span> Nhap SL NCC huy (neu co)
+                            </h4>
+                            <p>
+                                Khi NCC bao huy khong giao (VD: huy 10 cai), Duyen click vao o
+                                <strong>"SL NCC huy"</strong>, nhap <code>10</code>.
+                            </p>
+                            <ul class="detail-list">
+                                <li>
+                                    He thong tu tinh lai: Cho giao = <code>100 - 60 - 10 = 30</code>
+                                </li>
+                                <li>
+                                    Neu NCC huy het (100 cai) &rarr; badge chuyen
+                                    <span class="badge-demo bd-grey">Huy</span>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div class="flow-arrow">
+                            <span class="arrow-label">NCC giao tiep lo 2...</span>
+                        </div>
+
+                        <!-- Node 7: Loop -->
+                        <div class="flow-node node-result">
+                            <h4>
+                                <span class="node-icon icon-green">7</span> Lap lai cho den khi du
+                                hang
+                            </h4>
+                            <p>
+                                Moi lan NCC giao them, Duyen nhap lo moi &rarr; he thong tu cap nhat
+                                badge. Khi
+                                <strong>SL NCC giao + SL NCC huy >= SL Duyen order</strong> &rarr;
+                                badge chuyen <span class="badge-demo bd-green">Du</span>.
+                            </p>
+                            <div class="note">
+                                Neu nhap bang <strong>batch form</strong> (cach B), toan bo lich su
+                                lo giao duoc luu lai. Click nut [+] se thay cac lo truoc do.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ====================================================
+         SECTION 4: BATCH FORM DEMO
+         ==================================================== -->
+            <div class="section">
+                <div class="section-title">
+                    <span class="num">4</span> Popup nhap lo giao hang (Batch Form)
+                </div>
+                <div class="section-body">
+                    <p>
+                        Khi click nut <span class="mini-btn" style="font-size: 14px">+</span> ben
+                        canh o "SL NCC giao", popup hien ra:
+                    </p>
+
+                    <div class="popup-demo">
+                        <div class="popup-demo-header">
+                            <span>Nhap lo giao hang</span>
+                            <span style="color: #94a3b8; cursor: pointer">&times;</span>
+                        </div>
+                        <div
+                            style="
+                                padding: 6px 14px;
+                                background: #fafbfc;
+                                border-bottom: 1px solid #f1f5f9;
+                                font-size: 12px;
+                                color: #475569;
+                            "
+                        >
+                            <div>
+                                #1: 60 sp &nbsp;
+                                <span style="color: #94a3b8">2026-03-18</span> &nbsp;
+                                <em style="color: #64748b">Lo 1</em>
+                            </div>
+                        </div>
+                        <div class="popup-demo-body">
+                            <label>So luong</label>
+                            <div class="field">40</div>
+                            <label>Ngay giao</label>
+                            <div class="field">2026-03-20</div>
+                            <label>Ghi chu</label>
+                            <div class="field">Lo 2 - hang con lai</div>
+                            <div class="popup-demo-actions">
+                                <div class="btn-save">Luu lo</div>
+                                <div class="btn-cancel">Huy</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <p><strong>Khi nhan "Luu lo":</strong></p>
+                    <ul class="detail-list" style="margin-left: 18px; font-size: 13.5px">
+                        <li>
+                            Lo moi duoc them vao <code>deliveryBatches[]</code> (luu: qty, date,
+                            note, nguoi nhap, timestamp)
+                        </li>
+                        <li><strong>SL NCC giao</strong> = tong tat ca cac lo (60 + 40 = 100)</li>
+                        <li>He thong tu tinh lai SL Cho giao va TT Giao</li>
+                        <li>Lan sau click [+], se thay lich su cac lo truoc</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- ====================================================
+         SECTION 5: LOGIC AUTO-CALC
+         ==================================================== -->
+            <div class="section">
+                <div class="section-title"><span class="num">5</span> Logic tu dong tinh toan</div>
+                <div class="section-body">
+                    <p>
+                        Moi khi <strong>SL Duyen order</strong>, <strong>SL NCC giao</strong>, hoac
+                        <strong>SL NCC huy</strong> thay doi:
+                    </p>
+
+                    <div
+                        style="
+                            background: #f8fafc;
+                            padding: 16px;
+                            border-radius: 10px;
+                            border: 1px solid var(--border);
+                            margin: 12px 0;
+                            font-family: monospace;
+                            font-size: 13px;
+                            line-height: 2;
+                        "
+                    >
+                        <strong>SL Cho giao</strong> = max(0, Duyen order - NCC giao - NCC huy)<br />
+                        <br />
+                        <strong>TT Giao</strong> =<br />
+                        &nbsp;&nbsp;Neu Duyen order = 0 &rarr;
+                        <span class="badge-demo bd-red">Chua giao</span><br />
+                        &nbsp;&nbsp;Neu NCC huy >= Duyen order &rarr;
+                        <span class="badge-demo bd-grey">Huy</span><br />
+                        &nbsp;&nbsp;Neu NCC giao >= Duyen order - NCC huy &rarr;
+                        <span class="badge-demo bd-green">Du</span><br />
+                        &nbsp;&nbsp;Neu NCC giao > 0 (nhung chua du) &rarr;
+                        <span class="badge-demo bd-yellow">Tung phan</span><br />
+                        &nbsp;&nbsp;Con lai &rarr; <span class="badge-demo bd-red">Chua giao</span>
+                    </div>
+
+                    <div class="warn">
+                        <strong>Quan trong:</strong> Cac gia tri nay duoc tinh
+                        <strong>tu dong</strong>, nguoi dung khong can va khong the sua truc tiep
+                        "SL Cho giao" hay "TT Giao".
+                    </div>
+                </div>
+            </div>
+
+            <!-- ====================================================
+         SECTION 6: SCENARIOS
+         ==================================================== -->
+            <div class="section">
+                <div class="section-title">
+                    <span class="num">6</span> Vi du thuc te (Scenarios)
+                </div>
+                <div class="section-body">
+                    <!-- Scenario A -->
+                    <div class="scenario">
+                        <h4>Scenario A: NCC giao du 1 lan</h4>
+                        <div class="step">
+                            <span class="step-num">1</span
+                            ><span class="step-text"
+                                >Duyen dat NCC 50 cai ao B34C &rarr; nhap "SL Duyen order" =
+                                50</span
+                            >
+                        </div>
+                        <div class="step">
+                            <span class="step-num">2</span
+                            ><span class="step-text"
+                                >NCC giao du 50 cai &rarr; Duyen nhap "SL NCC giao" = 50</span
+                            >
+                        </div>
+                        <div class="result">
+                            Ket qua: SL Cho giao = 0 | TT Giao =
+                            <span class="badge-demo bd-green">Du</span> | Sale biet hang da du, co
+                            the chot don
+                        </div>
+                    </div>
+
+                    <!-- Scenario B -->
+                    <div class="scenario">
+                        <h4>Scenario B: NCC giao 2 lo</h4>
+                        <div class="step">
+                            <span class="step-num">1</span
+                            ><span class="step-text"
+                                >Duyen dat 100 cai &rarr; "SL Duyen order" = 100 | TT Giao =
+                                <span class="badge-demo bd-red">Chua giao</span></span
+                            >
+                        </div>
+                        <div class="step">
+                            <span class="step-num">2</span
+                            ><span class="step-text"
+                                >NCC giao lo 1: 60 cai &rarr; Click [+] nhap lo 60 | TT Giao =
+                                <span class="badge-demo bd-yellow">Tung phan</span> | Cho giao =
+                                40</span
+                            >
+                        </div>
+                        <div class="step">
+                            <span class="step-num">3</span
+                            ><span class="step-text"
+                                >NCC giao lo 2: 40 cai &rarr; Click [+] nhap lo 40 | TT Giao =
+                                <span class="badge-demo bd-green">Du</span> | Cho giao = 0</span
+                            >
+                        </div>
+                        <div class="result">
+                            Ket qua: He thong tu dong cong 60 + 40 = 100. Sale thay badge xanh.
+                        </div>
+                    </div>
+
+                    <!-- Scenario C -->
+                    <div class="scenario">
+                        <h4>Scenario C: NCC huy 1 phan</h4>
+                        <div class="step">
+                            <span class="step-num">1</span
+                            ><span class="step-text"
+                                >Duyen dat 80 cai | TT Giao =
+                                <span class="badge-demo bd-red">Chua giao</span></span
+                            >
+                        </div>
+                        <div class="step">
+                            <span class="step-num">2</span
+                            ><span class="step-text"
+                                >NCC giao 50 cai | TT Giao =
+                                <span class="badge-demo bd-yellow">Tung phan</span> | Cho giao =
+                                30</span
+                            >
+                        </div>
+                        <div class="step">
+                            <span class="step-num">3</span
+                            ><span class="step-text"
+                                >NCC bao huy 30 cai con lai &rarr; Duyen nhap "SL NCC huy" =
+                                30</span
+                            >
+                        </div>
+                        <div class="result">
+                            Ket qua: Cho giao = 80 - 50 - 30 = 0 | TT Giao =
+                            <span class="badge-demo bd-green">Du</span> (vi da giao + huy = toan bo)
+                        </div>
+                    </div>
+
+                    <!-- Scenario D -->
+                    <div class="scenario">
+                        <h4>Scenario D: Sale loc tim hang dang cho</h4>
+                        <div class="step">
+                            <span class="step-num">1</span
+                            ><span class="step-text">Sale mo So Sach</span>
+                        </div>
+                        <div class="step">
+                            <span class="step-num">2</span
+                            ><span class="step-text"
+                                >Chon bo loc <strong>"TT Giao" = "Tung phan"</strong></span
+                            >
+                        </div>
+                        <div class="step">
+                            <span class="step-num">3</span
+                            ><span class="step-text"
+                                >Chi hien cac SP ma NCC da giao mot phan &rarr; Sale biet SP nao can
+                                cho them</span
+                            >
+                        </div>
+                        <div class="result">
+                            Ket qua: Sale chi thay nhung SP dang cho hang, de uu tien chot don cho
+                            khach co hang truoc.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ====================================================
+         SECTION 7: DATA FLOW
+         ==================================================== -->
+            <div class="section">
+                <div class="section-title">
+                    <span class="num">7</span> Data Flow — Du lieu di tu dau den dau
+                </div>
+                <div class="flow-container">
+                    <div class="flow-diagram">
+                        <div class="flow-node node-start" style="width: auto; max-width: 600px">
+                            <h4>
+                                <span class="node-icon icon-purple">A</span> Nguon du lieu dau vao
+                            </h4>
+                            <ul class="detail-list">
+                                <li>
+                                    <strong>Don hang TPOS</strong> (report_order_details) &rarr; SL
+                                    Khach dat
+                                </li>
+                                <li>
+                                    <strong>Quan ly Order</strong> (orderProducts/{tposCampaignId})
+                                    &rarr; SL Duyen order, Ma SP, Ten SP, NCC, Ton kho
+                                </li>
+                                <li>
+                                    <strong>Duyen nhap tay</strong> &rarr; SL NCC giao, SL NCC huy,
+                                    deliveryBatches, Ghi chu
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div class="flow-arrow">
+                            <span class="arrow-label"
+                                >refreshFromCachedData() / refreshOrderData()</span
+                            >
+                        </div>
+
+                        <div class="flow-node node-auto" style="width: auto; max-width: 600px">
+                            <h4>
+                                <span class="node-icon icon-green">B</span> Firebase Realtime DB
+                            </h4>
+                            <p style="font-family: monospace; font-size: 12px">
+                                live_ledger/{campaignId}/products/{productId}<br />
+                                &nbsp;&nbsp;├── productCode, productName, nccName<br />
+                                &nbsp;&nbsp;├── customerOrderQty &nbsp;
+                                <span style="color: var(--muted)">(auto tu TPOS)</span><br />
+                                &nbsp;&nbsp;├── duyenOrderQty &nbsp;&nbsp;&nbsp;&nbsp;
+                                <span style="color: var(--muted)"
+                                    >(2-way sync voi orderProducts)</span
+                                ><br />
+                                &nbsp;&nbsp;├── nccDeliveredQty &nbsp;&nbsp;
+                                <span style="color: var(--muted)">(Duyen nhap / batch sum)</span
+                                ><br />
+                                &nbsp;&nbsp;├── nccCancelledQty &nbsp;&nbsp;
+                                <span style="color: var(--muted)">(Duyen nhap)</span><br />
+                                &nbsp;&nbsp;├── nccPendingQty &nbsp;&nbsp;&nbsp;&nbsp;
+                                <span style="color: var(--green)">(auto-calc)</span><br />
+                                &nbsp;&nbsp;├── deliveryStatus &nbsp;&nbsp;&nbsp;
+                                <span style="color: var(--green)">(auto-calc)</span><br />
+                                &nbsp;&nbsp;├── deliveryBatches[] &nbsp;
+                                <span style="color: var(--muted)">(lich su lo giao)</span><br />
+                                &nbsp;&nbsp;├── stockQty
+                                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                                <span style="color: var(--muted)">(tu QtyAvailable)</span><br />
+                                &nbsp;&nbsp;└── notes
+                            </p>
+                        </div>
+
+                        <div class="flow-arrow">
+                            <span class="arrow-label">Realtime listener .on('value')</span>
+                        </div>
+
+                        <div class="flow-node node-result" style="width: auto; max-width: 600px">
+                            <h4>
+                                <span class="node-icon icon-green">C</span> Giao dien nguoi dung (2
+                                views)
+                            </h4>
+                            <ul class="detail-list">
+                                <li>
+                                    <strong>View 1:</strong> tab-overview.html > tab So Sach
+                                    (overview-ledger.js)
+                                </li>
+                                <li>
+                                    <strong>View 2:</strong> tab-live-ledger.html
+                                    (tab-live-ledger.js)
+                                </li>
+                                <li>
+                                    Ca 2 <strong>realtime</strong>: Duyen nhap o may 1 &rarr; Sale
+                                    thay ngay o may 2
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>
