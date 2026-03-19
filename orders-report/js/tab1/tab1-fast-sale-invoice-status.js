@@ -300,15 +300,20 @@
         _saveToLocalStorage() {
             try {
                 // Only cache current user's entries to avoid QuotaExceeded
+                // Limit to 200 most recent entries to prevent storage bloat
                 const myEntries = [];
                 this._myKeys.forEach((key) => {
                     const value = this._data.get(key);
                     if (value) myEntries.push([key, value]);
                 });
+                // Sort by timestamp descending, keep only 200 newest
+                myEntries.sort((a, b) => (b[1].timestamp || 0) - (a[1].timestamp || 0));
+                const limitedEntries = myEntries.slice(0, 200);
+
                 localStorage.setItem(
                     STORAGE_KEY,
                     JSON.stringify({
-                        data: myEntries,
+                        data: limitedEntries,
                         sentBills: Array.from(this._sentBills),
                         lastUpdated: Date.now(),
                         version: 1,
