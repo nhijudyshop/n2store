@@ -676,17 +676,20 @@
                 return;
             }
 
-            // Build grouped map: SaleOnlineId -> Array<entry>
-            const grouped = new Map();
+            // Build plain object (NOT Map) for cross-frame compatibility
+            // Map objects fail instanceof checks across iframe boundaries
+            const grouped = {};
             this._data.forEach((value, key) => {
                 const soId = value.SaleOnlineId || extractSaleOnlineId(key);
                 if (!soId) return;
-                if (!grouped.has(soId)) grouped.set(soId, []);
-                grouped.get(soId).push(value);
+                if (!grouped[soId]) grouped[soId] = [];
+                grouped[soId].push(value);
             });
 
             fd.syncFromStore(grouped);
-            console.log(`[INVOICE-STATUS] Synced ${grouped.size} orders to FulfillmentData`);
+            console.log(
+                `[INVOICE-STATUS] Synced ${Object.keys(grouped).length} orders to FulfillmentData`
+            );
         },
 
         /**

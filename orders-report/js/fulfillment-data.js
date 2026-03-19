@@ -241,12 +241,26 @@
          * Sync invoice status data from InvoiceStatusStore (iframe).
          * Replaces the old duplicate Firestore load for invoice_status_v2.
          * Called by InvoiceStatusStore._syncToFulfillmentData() after init and real-time changes.
-         * @param {Map<SaleOnlineId, Array<entry>>} groupedData - Pre-grouped data from InvoiceStatusStore
+         * @param {Object} groupedData - Plain object { SaleOnlineId: Array<entry> } (cross-frame safe)
          */
         syncFromStore(groupedData) {
             if (!groupedData) return;
-            invoiceStatusMap =
-                groupedData instanceof Map ? groupedData : new Map(Object.entries(groupedData));
+
+            // Convert plain object to Map (cross-frame safe - no instanceof Map issues)
+            const newMap = new Map();
+            const entries =
+                typeof groupedData.entries === 'function'
+                    ? Array.from(groupedData.entries())
+                    : Object.entries(groupedData);
+            entries.forEach(([key, value]) => {
+                if (Array.isArray(value)) {
+                    newMap.set(key, value);
+                } else if (value) {
+                    newMap.set(key, [value]);
+                }
+            });
+
+            invoiceStatusMap = newMap;
             console.log(
                 `[FULFILLMENT] Synced ${invoiceStatusMap.size} orders from InvoiceStatusStore`
             );
