@@ -1850,6 +1850,112 @@ window.showFastSaleStatus = showFastSaleStatus;
 window.clearFastSaleStatus = clearFastSaleStatus;
 
 /**
+ * Re-verify wallet available_balance for all orders in batch before sending to TPOS.
+ * Groups orders by phone, checks total PaymentAmount per phone against real-time
+ * available_balance (which accounts for pending withdrawals).
+ * If a phone's total PaymentAmount exceeds available_balance, adjusts PaymentAmount
+ * on affected orders to fit within the real balance.
+ * Network errors are non-blocking — backend wallet_withdraw_fifo is the final safety net.
+ *
+ * @param {Array} models - Array of order models (mutated in-place)
+ */
+async function reVerifyWalletForBatch(models) {
+    // Group models by normalized phone that have PaymentAmount > 0
+    const phoneOrdersMap = new Map(); // phone -> [{ model, index }]
+
+    for (let i = 0; i < models.length; i++) {
+        const model = models[i];
+        if ((model.PaymentAmount || 0) <= 0) continue;
+
+        const phone = model.Phone || model.ReceiverPhone || model.Partner?.Phone;
+        if (!phone) continue;
+
+        let normalizedPhone = String(phone).replace(/\D/g, '');
+        if (normalizedPhone.startsWith('84') && normalizedPhone.length > 9) {
+            normalizedPhone = '0' + normalizedPhone.substring(2);
+        }
+        if (!normalizedPhone || normalizedPhone.length < 10) continue;
+
+        if (!phoneOrdersMap.has(normalizedPhone)) {
+            phoneOrdersMap.set(normalizedPhone, []);
+        }
+        phoneOrdersMap.get(normalizedPhone).push({ model, index: i });
+    }
+
+    if (phoneOrdersMap.size === 0) {
+        console.log('[FAST-SALE] Wallet re-verify: no orders with PaymentAmount > 0, skipping');
+        return;
+    }
+
+    console.log(`[FAST-SALE] Wallet re-verify: checking ${phoneOrdersMap.size} phones...`);
+    showFastSaleStatus(`Đang kiểm tra ví ${phoneOrdersMap.size} khách hàng...`, 'loading');
+
+    const QR_API = window.QR_API_URL || 'https://n2store-fallback.onrender.com';
+    let adjustedCount = 0;
+
+    // Verify each phone in parallel
+    const verifyPromises = Array.from(phoneOrdersMap.entries()).map(async ([phone, orderEntries]) => {
+        try {
+            const verifyRes = await fetch(`${QR_API}/api/v2/wallets/${encodeURIComponent(phone)}/available-balance`);
+            const verifyData = await verifyRes.json();
+
+            if (!verifyData.success) {
+                console.warn(`[FAST-SALE] Wallet re-verify: API error for ${phone}, allowing continue`);
+                return;
+            }
+
+            const availableBalance = verifyData.data.available_balance;
+            const totalRequested = orderEntries.reduce((sum, e) => sum + (e.model.PaymentAmount || 0), 0);
+
+            console.log(`[FAST-SALE] Wallet re-verify: ${phone} — available=${availableBalance}, requested=${totalRequested}`);
+
+            if (totalRequested <= availableBalance) {
+                return; // All good
+            }
+
+            // Need to adjust: distribute available balance across orders (FIFO)
+            console.warn(`[FAST-SALE] Wallet re-verify: ${phone} — OVER-COMMITTED! available=${availableBalance}, requested=${totalRequested}. Adjusting...`);
+
+            let remaining = availableBalance;
+            for (const entry of orderEntries) {
+                const model = entry.model;
+                const originalPayment = model.PaymentAmount || 0;
+                const newPayment = Math.min(originalPayment, Math.max(0, remaining));
+
+                if (newPayment !== originalPayment) {
+                    const shippingFee = model.DeliveryPrice || 0;
+                    model.PaymentAmount = newPayment;
+                    model.AmountDeposit = newPayment;
+                    model.PaymentJournalId = newPayment > 0 ? 1 : null;
+                    // Recalculate COD: total - wallet payment
+                    model.CashOnDelivery = (model.AmountTotal || 0) + shippingFee - newPayment;
+
+                    console.log(`[FAST-SALE] Wallet re-verify: Order ${model.Reference} — PaymentAmount ${originalPayment} → ${newPayment}, COD → ${model.CashOnDelivery}`);
+                    adjustedCount++;
+                }
+
+                remaining -= newPayment;
+            }
+        } catch (err) {
+            // Network error — allow continue, backend pending-withdrawal is the final safety net
+            console.warn(`[FAST-SALE] Wallet re-verify: network error for ${phone} (non-blocking):`, err.message);
+        }
+    });
+
+    await Promise.all(verifyPromises);
+
+    if (adjustedCount > 0) {
+        console.warn(`[FAST-SALE] Wallet re-verify: adjusted ${adjustedCount} orders due to insufficient available balance`);
+        window.notificationManager?.warning(
+            `Đã điều chỉnh ${adjustedCount} đơn do ví khách không đủ số dư khả dụng`,
+            'Cảnh báo ví', 5000
+        );
+    } else {
+        console.log('[FAST-SALE] Wallet re-verify: all orders OK');
+    }
+}
+
+/**
  * Save Fast Sale orders to backend
  * @param {boolean} isApprove - Whether to approve orders (Lưu xác nhận)
  */
@@ -1946,6 +2052,13 @@ async function saveFastSaleOrders(isApprove = false) {
         if (uniqueModels.length < models.length) {
             console.log(`[FAST-SALE] 🔄 Deduplicated: ${models.length} → ${uniqueModels.length} orders`);
         }
+
+        // =====================================================
+        // WALLET RE-VERIFY: Check available_balance before sending batch
+        // Prevents race condition where stale wallet data causes
+        // PaymentAmount > actual available balance
+        // =====================================================
+        await reVerifyWalletForBatch(uniqueModels);
 
         // Store models for later use (to get OrderLines when API response is empty)
         window.lastFastSaleModels = uniqueModels;
