@@ -119,15 +119,14 @@ async function fetchDeliveryCarriers() {
     }
 
     try {
-        const proxyUrl =
-            'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/DeliveryCarrier?$format=json&$orderby=DateCreated+desc&$filter=Active+eq+true&$count=true';
+        const proxyUrl = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/DeliveryCarrier?$format=json&$orderby=DateCreated+desc&$filter=Active+eq+true&$count=true';
         const response = await fetch(proxyUrl, {
             method: 'GET',
             headers: {
-                accept: 'application/json, text/javascript, */*; q=0.01',
-                authorization: `Bearer ${token}`,
-                tposappversion: window.TPOS_CONFIG?.tposAppVersion || '5.11.16.1',
-            },
+                'accept': 'application/json, text/javascript, */*; q=0.01',
+                'authorization': `Bearer ${token}`,
+                'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.11.16.1'
+            }
         });
 
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
@@ -167,7 +166,7 @@ function formatCurrencyVND(amount) {
     if (!amount && amount !== 0) return '0đ';
     return new Intl.NumberFormat('vi-VN', {
         style: 'currency',
-        currency: 'VND',
+        currency: 'VND'
     }).format(amount);
 }
 
@@ -196,12 +195,11 @@ function parseDiscountFromNoteForDisplay(note) {
 function currentSaleOrderHasDiscountTag() {
     if (!currentSaleOrderData?.Tags) return false;
     try {
-        const tags =
-            typeof currentSaleOrderData.Tags === 'string'
-                ? JSON.parse(currentSaleOrderData.Tags)
-                : currentSaleOrderData.Tags;
+        const tags = typeof currentSaleOrderData.Tags === 'string'
+            ? JSON.parse(currentSaleOrderData.Tags)
+            : currentSaleOrderData.Tags;
         if (Array.isArray(tags)) {
-            return tags.some((tag) => {
+            return tags.some(tag => {
                 const tagName = (tag.Name || '').toUpperCase();
                 return tagName.includes('GIẢM GIÁ') || tagName.includes('GIAM GIA');
             });
@@ -223,7 +221,7 @@ async function populateDeliveryCarrierDropdown(selectedId = null) {
     const carriers = await fetchDeliveryCarriers();
 
     let optionsHtml = '<option value="">-- Chọn đối tác giao hàng --</option>';
-    carriers.forEach((carrier) => {
+    carriers.forEach(carrier => {
         const fee = carrier.Config_DefaultFee || carrier.FixedPrice || 0;
         const feeText = fee > 0 ? ` (${formatCurrencyVND(fee)})` : '';
         const selected = selectedId && carrier.Id == selectedId ? 'selected' : '';
@@ -243,12 +241,8 @@ async function populateDeliveryCarrierDropdown(selectedId = null) {
         }
 
         // Full recalculation: discount, free shipping, COD, goods value, remaining balance
-        const totalAmount =
-            parseFloat(
-                document.getElementById('saleTotalAmount')?.textContent?.replace(/[^\d]/g, '')
-            ) || 0;
-        const totalQuantity =
-            parseInt(document.getElementById('saleTotalQuantity')?.textContent) || 0;
+        const totalAmount = parseFloat(document.getElementById('saleTotalAmount')?.textContent?.replace(/[^\d]/g, '')) || 0;
+        const totalQuantity = parseInt(document.getElementById('saleTotalQuantity')?.textContent) || 0;
         updateSaleTotals(totalQuantity, totalAmount);
     };
 
@@ -261,9 +255,7 @@ async function populateDeliveryCarrierDropdown(selectedId = null) {
 // COD & REMAINING BALANCE
 // =====================================================
 function updateSaleCOD() {
-    const finalTotal =
-        parseFloat(document.getElementById('saleFinalTotal')?.textContent?.replace(/[^\d]/g, '')) ||
-        0;
+    const finalTotal = parseFloat(document.getElementById('saleFinalTotal')?.textContent?.replace(/[^\d]/g, '')) || 0;
     const shippingFee = parseFloat(document.getElementById('saleShippingFee')?.value) || 0;
     const codInput = document.getElementById('saleCOD');
     if (codInput) {
@@ -334,13 +326,8 @@ function checkPrepaidExcessAndToggle() {
                 parseFloat(this.dataset.originalBalance) || 0,
                 parseFloat(document.getElementById('saleCOD')?.value) || 0
             );
-            if (val > maxVal) {
-                this.value = maxVal;
-                val = maxVal;
-            }
-            if (val < 0) {
-                this.value = 0;
-            }
+            if (val > maxVal) { this.value = maxVal; val = maxVal; }
+            if (val < 0) { this.value = 0; }
             updateSaleRemainingBalance();
         };
     } else {
@@ -382,10 +369,7 @@ function smartSelectDeliveryPartner(address, extraAddress = null) {
     if (districtInfo.isProvince) {
         selectCarrierByName(select, 'SHIP TỈNH', false);
         if (window.notificationManager) {
-            window.notificationManager.success(
-                `Tự động chọn: SHIP TỈNH (${districtInfo.cityName || 'tỉnh'})`,
-                2000
-            );
+            window.notificationManager.success(`Tự động chọn: SHIP TỈNH (${districtInfo.cityName || 'tỉnh'})`, 2000);
         }
         return;
     }
@@ -410,7 +394,7 @@ function extractDistrictFromAddress(address, extraAddress) {
         wardName: null,
         cityName: null,
         isProvince: false,
-        originalText: address,
+        originalText: address
     };
 
     if (extraAddress) {
@@ -422,16 +406,10 @@ function extractDistrictFromAddress(address, extraAddress) {
         if (extraAddress.Ward?.name) result.wardName = extraAddress.Ward.name;
         if (extraAddress.City?.name) {
             result.cityName = extraAddress.City.name;
-            const cityNorm = extraAddress.City.name
-                .toLowerCase()
-                .normalize('NFD')
-                .replace(/[\u0300-\u036f]/g, '');
-            if (
-                !cityNorm.includes('ho chi minh') &&
-                !cityNorm.includes('ha noi') &&
-                !cityNorm.includes('hcm') &&
-                !cityNorm.includes('sai gon')
-            ) {
+            const cityNorm = extraAddress.City.name.toLowerCase()
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            if (!cityNorm.includes('ho chi minh') && !cityNorm.includes('ha noi') &&
+                !cityNorm.includes('hcm') && !cityNorm.includes('sai gon')) {
                 result.isProvince = true;
             }
         }
@@ -446,146 +424,45 @@ function extractDistrictFromAddress(address, extraAddress) {
             .replace(/\s{2,}/g, ' ')
             .trim();
 
-        const normalizedAddress = cleanedAddress
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '');
+        const normalizedAddress = cleanedAddress.toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
         // 61 provinces (excluding HCM and Hanoi)
         const provinces = [
-            'hai phong',
-            'haiphong',
-            'da nang',
-            'danang',
-            'can tho',
-            'cantho',
-            'ha giang',
-            'hagiang',
-            'cao bang',
-            'caobang',
-            'bac kan',
-            'backan',
-            'tuyen quang',
-            'tuyenquang',
-            'lao cai',
-            'laocai',
-            'dien bien',
-            'dienbien',
-            'lai chau',
-            'laichau',
-            'son la',
-            'sonla',
-            'yen bai',
-            'yenbai',
-            'hoa binh',
-            'hoabinh',
-            'thai nguyen',
-            'thainguyen',
-            'lang son',
-            'langson',
-            'quang ninh',
-            'quangninh',
-            'bac giang',
-            'bacgiang',
-            'phu tho',
-            'phutho',
-            'vinh phuc',
-            'vinhphuc',
-            'bac ninh',
-            'bacninh',
-            'hai duong',
-            'haiduong',
-            'hung yen',
-            'hungyen',
-            'thai binh',
-            'thaibinh',
-            'ha nam',
-            'hanam',
-            'nam dinh',
-            'namdinh',
-            'ninh binh',
-            'ninhbinh',
-            'thanh hoa',
-            'thanhhoa',
-            'nghe an',
-            'nghean',
-            'ha tinh',
-            'hatinh',
-            'quang binh',
-            'quangbinh',
-            'quang tri',
-            'quangtri',
-            'thua thien hue',
-            'thuathienhue',
-            'quang nam',
-            'quangnam',
-            'quang ngai',
-            'quangngai',
-            'binh dinh',
-            'binhdinh',
-            'phu yen',
-            'phuyen',
-            'khanh hoa',
-            'khanhhoa',
-            'ninh thuan',
-            'ninhthuan',
-            'binh thuan',
-            'binhthuan',
-            'kon tum',
-            'kontum',
-            'gia lai',
-            'gialai',
-            'dak lak',
-            'daklak',
-            'dac lak',
-            'daclak',
-            'dak nong',
-            'daknong',
-            'dac nong',
-            'dacnong',
-            'lam dong',
-            'lamdong',
-            'binh phuoc',
-            'binhphuoc',
-            'tay ninh',
-            'tayninh',
-            'binh duong',
-            'binhduong',
-            'dong nai',
-            'dongnai',
-            'ba ria',
-            'baria',
-            'vung tau',
-            'vungtau',
-            'ba ria vung tau',
-            'bariavungtau',
-            'long an',
-            'longan',
-            'tien giang',
-            'tiengiang',
-            'ben tre',
-            'bentre',
-            'tra vinh',
-            'travinh',
-            'vinh long',
-            'vinhlong',
-            'dong thap',
-            'dongthap',
-            'an giang',
-            'angiang',
-            'kien giang',
-            'kiengiang',
-            'hau giang',
-            'haugiang',
-            'soc trang',
-            'soctrang',
-            'bac lieu',
-            'baclieu',
-            'ca mau',
-            'camau',
+            'hai phong', 'haiphong', 'da nang', 'danang', 'can tho', 'cantho',
+            'ha giang', 'hagiang', 'cao bang', 'caobang', 'bac kan', 'backan',
+            'tuyen quang', 'tuyenquang', 'lao cai', 'laocai',
+            'dien bien', 'dienbien', 'lai chau', 'laichau', 'son la', 'sonla',
+            'yen bai', 'yenbai', 'hoa binh', 'hoabinh',
+            'thai nguyen', 'thainguyen', 'lang son', 'langson',
+            'quang ninh', 'quangninh', 'bac giang', 'bacgiang',
+            'phu tho', 'phutho', 'vinh phuc', 'vinhphuc',
+            'bac ninh', 'bacninh', 'hai duong', 'haiduong',
+            'hung yen', 'hungyen', 'thai binh', 'thaibinh',
+            'ha nam', 'hanam', 'nam dinh', 'namdinh', 'ninh binh', 'ninhbinh',
+            'thanh hoa', 'thanhhoa', 'nghe an', 'nghean',
+            'ha tinh', 'hatinh', 'quang binh', 'quangbinh',
+            'quang tri', 'quangtri', 'thua thien hue', 'thuathienhue',
+            'quang nam', 'quangnam', 'quang ngai', 'quangngai',
+            'binh dinh', 'binhdinh', 'phu yen', 'phuyen',
+            'khanh hoa', 'khanhhoa', 'ninh thuan', 'ninhthuan',
+            'binh thuan', 'binhthuan',
+            'kon tum', 'kontum', 'gia lai', 'gialai',
+            'dak lak', 'daklak', 'dac lak', 'daclak',
+            'dak nong', 'daknong', 'dac nong', 'dacnong',
+            'lam dong', 'lamdong',
+            'binh phuoc', 'binhphuoc', 'tay ninh', 'tayninh',
+            'binh duong', 'binhduong', 'dong nai', 'dongnai',
+            'ba ria', 'baria', 'vung tau', 'vungtau', 'ba ria vung tau', 'bariavungtau',
+            'long an', 'longan', 'tien giang', 'tiengiang',
+            'ben tre', 'bentre', 'tra vinh', 'travinh',
+            'vinh long', 'vinhlong', 'dong thap', 'dongthap',
+            'an giang', 'angiang', 'kien giang', 'kiengiang',
+            'hau giang', 'haugiang', 'soc trang', 'soctrang',
+            'bac lieu', 'baclieu', 'ca mau', 'camau'
         ];
 
-        const parts = normalizedAddress.split(/[,\s]+/).filter((p) => p.length > 1);
+        const parts = normalizedAddress.split(/[,\s]+/).filter(p => p.length > 1);
         const endParts = parts.slice(-4).join(' ');
 
         for (const province of provinces) {
@@ -627,7 +504,7 @@ function extractDistrictFromAddress(address, extraAddress) {
             { normalized: 'can gio', original: 'Cần Giờ' },
             { normalized: 'cu chi', original: 'Củ Chi' },
             { normalized: 'hoc mon', original: 'Hóc Môn' },
-            { normalized: 'nha be', original: 'Nhà Bè' },
+            { normalized: 'nha be', original: 'Nhà Bè' }
         ];
 
         for (const district of namedDistricts) {
@@ -636,16 +513,11 @@ function extractDistrictFromAddress(address, extraAddress) {
                 `(quan|huyen|phuong|xa|thi tran|tp|thanh pho|q\\.?)?\\s*${district.normalized}(?:\\s|,|$)`,
                 'i'
             );
-            const hasApPrefix =
-                normalizedAddress.includes(`ap ${district.normalized}`) ||
-                normalizedAddress.includes(`xom ${district.normalized}`) ||
-                normalizedAddress.includes(`thon ${district.normalized}`);
+            const hasApPrefix = normalizedAddress.includes(`ap ${district.normalized}`) ||
+                                normalizedAddress.includes(`xom ${district.normalized}`) ||
+                                normalizedAddress.includes(`thon ${district.normalized}`);
 
-            if (
-                !hasApPrefix &&
-                (districtPattern.test(lastThreeParts) ||
-                    lastThreeParts.endsWith(district.normalized))
-            ) {
+            if (!hasApPrefix && (districtPattern.test(lastThreeParts) || lastThreeParts.endsWith(district.normalized))) {
                 result.districtName = district.original;
                 break;
             }
@@ -669,11 +541,8 @@ function findMatchingCarrier(select, districtInfo) {
 
     let targetGroup = null;
     const districtNum = districtInfo.districtNumber;
-    const districtName =
-        districtInfo.districtName
-            ?.toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '') || '';
+    const districtName = districtInfo.districtName?.toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '') || '';
 
     if (districtNum) {
         if (CARRIER_20K.includes(districtNum)) targetGroup = '20k';
@@ -682,10 +551,10 @@ function findMatchingCarrier(select, districtInfo) {
     }
 
     if (!targetGroup && districtName) {
-        if (CARRIER_20K_NAMED.some((d) => districtName.includes(d))) targetGroup = '20k';
-        else if (CARRIER_30K_NAMED.some((d) => districtName.includes(d))) targetGroup = '30k';
-        else if (CARRIER_35K_TP_NAMED.some((d) => districtName.includes(d))) targetGroup = '35k_tp';
-        else if (SHIP_TINH_NAMED.some((d) => districtName.includes(d))) targetGroup = 'ship_tinh';
+        if (CARRIER_20K_NAMED.some(d => districtName.includes(d))) targetGroup = '20k';
+        else if (CARRIER_30K_NAMED.some(d => districtName.includes(d))) targetGroup = '30k';
+        else if (CARRIER_35K_TP_NAMED.some(d => districtName.includes(d))) targetGroup = '35k_tp';
+        else if (SHIP_TINH_NAMED.some(d => districtName.includes(d))) targetGroup = 'ship_tinh';
     }
 
     if (!targetGroup) return null;
@@ -695,10 +564,7 @@ function findMatchingCarrier(select, districtInfo) {
         if (!option.value) continue;
 
         const carrierName = option.dataset.name || option.text;
-        const carrierNorm = carrierName
-            .toLowerCase()
-            .normalize('NFD')
-            .replace(/[\u0300-\u036f]/g, '');
+        const carrierNorm = carrierName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
         const carrierFee = parseFloat(option.dataset.fee) || 0;
 
         if (carrierNorm.includes('gop') || carrierName === 'BÁN HÀNG SHOP') continue;
@@ -758,23 +624,18 @@ function populateSaleModalWithOrder(order) {
     document.getElementById('saleOldDebt').textContent = '0';
 
     document.getElementById('saleReceiverName').value = order.PartnerName || order.Name || '';
-    document.getElementById('saleReceiverPhone').value =
-        order.PartnerPhone || order.Telephone || '';
-    document.getElementById('saleReceiverAddress').value =
-        order.PartnerAddress || order.Address || '';
+    document.getElementById('saleReceiverPhone').value = order.PartnerPhone || order.Telephone || '';
+    document.getElementById('saleReceiverAddress').value = order.PartnerAddress || order.Address || '';
     document.getElementById('saleReceiverNote').value = '';
 
     const shippingFeeValue = document.getElementById('saleShippingFee')?.value;
-    const shippingFee =
-        shippingFeeValue !== '' && shippingFeeValue !== null && shippingFeeValue !== undefined
-            ? parseInt(shippingFeeValue)
-            : 35000;
+    const shippingFee = (shippingFeeValue !== '' && shippingFeeValue !== null && shippingFeeValue !== undefined)
+        ? parseInt(shippingFeeValue) : 35000;
     const totalAmount = order.TotalAmount || 0;
 
     document.getElementById('saleCOD').value = totalAmount + shippingFee;
 
-    const defaultDeliveryNote =
-        'KHÔNG ĐƯỢC TỰ Ý HOÀN ĐƠN CÓ GÌ LIÊN HỆ HOTLINE CỦA SHOP 090 8888 674 ĐỂ ĐƯỢC HỖ TRỢ';
+    const defaultDeliveryNote = 'KHÔNG ĐƯỢC TỰ Ý HOÀN ĐƠN CÓ GÌ LIÊN HỆ HOTLINE CỦA SHOP 090 8888 674 ĐỂ ĐƯỢC HỖ TRỢ';
     document.getElementById('saleDeliveryNote').value = order.Comment || defaultDeliveryNote;
     document.getElementById('saleGoodsValue').value = totalAmount;
 
@@ -786,7 +647,7 @@ function populateSaleModalWithOrder(order) {
     if (order.orderLines && order.orderLines.length > 0) {
         populateSaleOrderLinesFromAPI(order.orderLines);
     } else if (order.Details && order.Details.length > 0) {
-        const orderLines = order.Details.map((detail) => ({
+        const orderLines = order.Details.map(detail => ({
             ProductId: detail.ProductId || 0,
             Product: null,
             ProductUOMId: 1,
@@ -801,7 +662,7 @@ function populateSaleModalWithOrder(order) {
             Note: detail.Note || '',
             SaleOnlineDetailId: null,
             Discount: 0,
-            Weight: 0,
+            Weight: 0
         }));
         populateSaleOrderLinesFromAPI(orderLines);
     } else {
@@ -814,23 +675,6 @@ function populateSaleModalWithOrder(order) {
             </tr>
         `;
         updateSaleTotals(0, 0);
-    }
-
-    // Show/hide "Lưu làm địa chỉ mặc định" button based on PartnerId
-    const btnSaveAddr = document.getElementById('btnSaveDefaultAddress');
-    if (btnSaveAddr) {
-        const partnerId = order.PartnerId || 0;
-        btnSaveAddr.style.display = partnerId > 0 ? 'inline-block' : 'none';
-        btnSaveAddr.dataset.partnerId = partnerId;
-        // Reset button state when opening a new order
-        btnSaveAddr.disabled = false;
-        btnSaveAddr.textContent = 'Lưu làm địa chỉ mặc định';
-        btnSaveAddr.style.background = '#f0f9ff';
-        btnSaveAddr.style.color = '#0369a1';
-        btnSaveAddr.style.borderColor = '#bae6fd';
-        btnSaveAddr.style.opacity = '1';
-        // Initialize click handler (safe to call multiple times)
-        initSaveDefaultAddressButton();
     }
 }
 
@@ -859,41 +703,40 @@ function populateSaleOrderLinesFromAPI(orderLines) {
     let totalAmount = 0;
     let totalDiscount = 0;
 
-    const itemsHTML = orderLines
-        .map((item, index) => {
-            const qty = item.ProductUOMQty || item.Quantity || 1;
-            const price = item.PriceUnit || item.Price || 0;
-            const total = qty * price;
+    const itemsHTML = orderLines.map((item, index) => {
+        const qty = item.ProductUOMQty || item.Quantity || 1;
+        const price = item.PriceUnit || item.Price || 0;
+        const total = qty * price;
 
-            const productName = item.Product?.NameGet || item.ProductName || '';
-            const productNote = item.Note || '';
+        const productName = item.Product?.NameGet || item.ProductName || '';
+        const productNote = item.Note || '';
 
-            const notePrice = hasDiscountTag ? parseDiscountFromNoteForDisplay(productNote) : 0;
-            const discountPerUnit = notePrice > 0 ? Math.max(0, price - notePrice) : 0;
-            const productDiscount = discountPerUnit * qty;
-            const isDiscountedProduct = productDiscount > 0;
-            if (isDiscountedProduct) totalDiscount += productDiscount;
+        const notePrice = hasDiscountTag ? parseDiscountFromNoteForDisplay(productNote) : 0;
+        const discountPerUnit = notePrice > 0 ? Math.max(0, price - notePrice) : 0;
+        const productDiscount = discountPerUnit * qty;
+        const isDiscountedProduct = productDiscount > 0;
+        if (isDiscountedProduct) totalDiscount += productDiscount;
 
-            const rowStyle = isDiscountedProduct ? 'background-color: #fef3c7;' : '';
-            const noteStyle = isDiscountedProduct
-                ? 'background: #f59e0b; color: white; padding: 2px 6px; border-radius: 4px; font-weight: 600;'
-                : 'font-size: 11px; color: #6b7280;';
+        const rowStyle = isDiscountedProduct ? 'background-color: #fef3c7;' : '';
+        const noteStyle = isDiscountedProduct
+            ? 'background: #f59e0b; color: white; padding: 2px 6px; border-radius: 4px; font-weight: 600;'
+            : 'font-size: 11px; color: #6b7280;';
 
-            const productImage = item.Product?.Thumbnails?.[1] || item.Product?.ImageUrl || '';
-            const imageHTML = productImage
-                ? `<img src="${productImage}" alt="" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px; border: 1px solid #e5e7eb;">`
-                : `<div style="width: 40px; height: 40px; background: #f3f4f6; border-radius: 4px; display: flex; align-items: center; justify-content: center;"><i class="fas fa-image" style="color: #9ca3af;"></i></div>`;
+        const productImage = item.Product?.Thumbnails?.[1] || item.Product?.ImageUrl || '';
+        const imageHTML = productImage
+            ? `<img src="${productImage}" alt="" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px; border: 1px solid #e5e7eb;">`
+            : `<div style="width: 40px; height: 40px; background: #f3f4f6; border-radius: 4px; display: flex; align-items: center; justify-content: center;"><i class="fas fa-image" style="color: #9ca3af;"></i></div>`;
 
-            totalQuantity += qty;
-            totalAmount += total;
+        totalQuantity += qty;
+        totalAmount += total;
 
-            const noteDisplay = productNote
-                ? isDiscountedProduct
-                    ? `<span style="${noteStyle}"><i class="fas fa-tag"></i> -${discountPerUnit.toLocaleString('vi-VN')}đ (${productNote})</span>`
-                    : `<div style="${noteStyle}">${productNote}</div>`
-                : '<div style="font-size: 11px; color: #9ca3af;">Ghi chú</div>';
+        const noteDisplay = productNote
+            ? (isDiscountedProduct
+                ? `<span style="${noteStyle}"><i class="fas fa-tag"></i> -${discountPerUnit.toLocaleString('vi-VN')}đ (${productNote})</span>`
+                : `<div style="${noteStyle}">${productNote}</div>`)
+            : '<div style="font-size: 11px; color: #9ca3af;">Ghi chú</div>';
 
-            return `
+        return `
             <tr style="${rowStyle}">
                 <td>${index + 1}</td>
                 <td>
@@ -919,8 +762,7 @@ function populateSaleOrderLinesFromAPI(orderLines) {
                 </td>
             </tr>
         `;
-        })
-        .join('');
+    }).join('');
 
     container.innerHTML = itemsHTML;
 
@@ -943,10 +785,7 @@ function populateSaleOrderLinesFromAPI(orderLines) {
 async function updateSaleItemQuantityFromAPI(index, value) {
     if (!currentSaleOrderData || !currentSaleOrderData.orderLines) return;
 
-    const oldQty =
-        currentSaleOrderData.orderLines[index].ProductUOMQty ||
-        currentSaleOrderData.orderLines[index].Quantity ||
-        1;
+    const oldQty = currentSaleOrderData.orderLines[index].ProductUOMQty || currentSaleOrderData.orderLines[index].Quantity || 1;
     const newQty = parseInt(value) || 1;
 
     currentSaleOrderData.orderLines[index].ProductUOMQty = newQty;
@@ -954,7 +793,7 @@ async function updateSaleItemQuantityFromAPI(index, value) {
 
     let totalQuantity = 0;
     let totalAmount = 0;
-    currentSaleOrderData.orderLines.forEach((item) => {
+    currentSaleOrderData.orderLines.forEach(item => {
         const itemQty = item.ProductUOMQty || item.Quantity || 1;
         const price = item.PriceUnit || item.Price || 0;
         totalQuantity += itemQty;
@@ -981,17 +820,11 @@ async function updateSaleItemQuantityFromAPI(index, value) {
 async function removeSaleItemFromAPI(index) {
     if (!currentSaleOrderData || !currentSaleOrderData.orderLines) return;
 
-    const productName =
-        currentSaleOrderData.orderLines[index].Product?.NameGet ||
-        currentSaleOrderData.orderLines[index].ProductName ||
-        'sản phẩm này';
+    const productName = currentSaleOrderData.orderLines[index].Product?.NameGet ||
+        currentSaleOrderData.orderLines[index].ProductName || 'sản phẩm này';
 
-    const confirmed = window.notificationManager
-        ? await window.notificationManager.confirm(
-              `Bạn có chắc muốn xóa ${productName}?`,
-              'Xóa sản phẩm'
-          )
-        : true;
+    const confirmed = window.notificationManager ?
+        await window.notificationManager.confirm(`Bạn có chắc muốn xóa ${productName}?`, 'Xóa sản phẩm') : true;
     if (!confirmed) return;
 
     const removedItem = currentSaleOrderData.orderLines[index];
@@ -1053,10 +886,8 @@ function updateSaleTotals(quantity, amount) {
     }
 
     const shippingFeeValue = document.getElementById('saleShippingFee')?.value;
-    const shippingFee =
-        shippingFeeValue !== '' && shippingFeeValue !== null && shippingFeeValue !== undefined
-            ? parseInt(shippingFeeValue)
-            : 0;
+    const shippingFee = (shippingFeeValue !== '' && shippingFeeValue !== null && shippingFeeValue !== undefined)
+        ? parseInt(shippingFeeValue) : 0;
     document.getElementById('saleCOD').value = finalTotal + shippingFee;
     document.getElementById('saleGoodsValue').value = finalTotal;
 
@@ -1094,9 +925,7 @@ function populatePartnerData(partner) {
         let address = partner.FullAddress || partner.Street || '';
         if (!address && partner.ExtraAddress) {
             const ea = partner.ExtraAddress;
-            const parts = [ea.Street, ea.Ward?.name, ea.District?.name, ea.City?.name].filter(
-                (p) => p
-            );
+            const parts = [ea.Street, ea.Ward?.name, ea.District?.name, ea.City?.name].filter(p => p);
             address = parts.join(', ');
         }
         receiverAddress.value = address;
@@ -1114,9 +943,7 @@ async function fetchDebtForSaleModal(phone) {
     if (prepaidAmountField) prepaidAmountField.value = '...';
 
     try {
-        const response = await fetch(
-            `${QR_API_URL}/api/v2/wallets/${encodeURIComponent(normalizedPhone)}`
-        );
+        const response = await fetch(`${QR_API_URL}/api/v2/wallets/${encodeURIComponent(normalizedPhone)}`);
         const result = await response.json();
 
         if (result.success && result.data) {
@@ -1132,7 +959,7 @@ async function fetchDebtForSaleModal(phone) {
             } else if (result.data.lastDepositAmount && result.data.lastDepositDate) {
                 currentSaleLastDeposit = {
                     amount: parseFloat(result.data.lastDepositAmount),
-                    date: result.data.lastDepositDate,
+                    date: result.data.lastDepositDate
                 };
                 currentSaleAvailableDeposits = [currentSaleLastDeposit];
             } else {
@@ -1200,16 +1027,14 @@ function autoFillSaleNote() {
                 const depAmount = parseFloat(dep.amount);
                 const depositDate = new Date(dep.date);
                 const dateStr = `${String(depositDate.getDate()).padStart(2, '0')}/${String(depositDate.getMonth() + 1).padStart(2, '0')}`;
-                const amountStr =
-                    depAmount >= 1000 ? `${Math.round(depAmount / 1000)}K` : depAmount;
+                const amountStr = depAmount >= 1000 ? `${Math.round(depAmount / 1000)}K` : depAmount;
                 noteParts.push(`CK ${amountStr} ACB ${dateStr}`);
             }
         } else {
             // Fallback: single entry with wallet balance
             const today = new Date();
             const dateStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}`;
-            const amountStr =
-                walletBalance >= 1000 ? `${Math.round(walletBalance / 1000)}K` : walletBalance;
+            const amountStr = walletBalance >= 1000 ? `${Math.round(walletBalance / 1000)}K` : walletBalance;
             noteParts.push(`CK ${amountStr} ACB ${dateStr}`);
         }
     }
@@ -1221,20 +1046,19 @@ function autoFillSaleNote() {
             orderTags = typeof order.Tags === 'string' ? JSON.parse(order.Tags) : order.Tags;
             if (!Array.isArray(orderTags)) orderTags = [];
         }
-    } catch (e) {
-        orderTags = [];
-    }
+    } catch (e) { orderTags = []; }
 
     // 2. GG from discount
     const totalDiscount = parseFloat(document.getElementById('saleDiscount')?.value) || 0;
     if (totalDiscount > 0) {
-        const discountStr =
-            totalDiscount >= 1000 ? `${Math.round(totalDiscount / 1000)}K` : totalDiscount;
+        const discountStr = totalDiscount >= 1000 ? `${Math.round(totalDiscount / 1000)}K` : totalDiscount;
         noteParts.push(`GG ${discountStr}`);
     }
 
     // 3. Gộp from merge tag
-    const mergeTag = orderTags.find((tag) => (tag.Name || '').toLowerCase().startsWith('gộp '));
+    const mergeTag = orderTags.find(tag =>
+        (tag.Name || '').toLowerCase().startsWith('gộp ')
+    );
     if (mergeTag) {
         const numbers = mergeTag.Name.match(/\d+/g);
         if (numbers && numbers.length > 1) {
@@ -1244,9 +1068,7 @@ function autoFillSaleNote() {
 
     // 4. Freeship
     const carrierSelect = document.getElementById('saleDeliveryPartner');
-    const finalTotal =
-        parseFloat(document.getElementById('saleFinalTotal')?.textContent?.replace(/[^\d]/g, '')) ||
-        0;
+    const finalTotal = parseFloat(document.getElementById('saleFinalTotal')?.textContent?.replace(/[^\d]/g, '')) || 0;
     if (carrierSelect && carrierSelect.value) {
         const selectedOption = carrierSelect.options[carrierSelect.selectedIndex];
         const carrierName = selectedOption?.dataset?.name || '';
@@ -1289,145 +1111,6 @@ function showCustomerWalletHistory() {
     }
 }
 
-// =====================================================
-// UPDATE PARTNER DEFAULT ADDRESS ON TPOS
-// Pattern: GET full partner -> update address fields -> PUT back
-// Reference: issue-tracking/js/script.js:906-944
-// =====================================================
-
-/**
- * Update a partner's default address on TPOS via GET + PUT pattern
- * @param {number} partnerId - TPOS Partner ID
- * @param {string} newAddress - New address string from the form
- * @returns {Promise<boolean>} true if success, false otherwise
- */
-async function updatePartnerDefaultAddress(partnerId, newAddress) {
-    if (!partnerId || !newAddress) {
-        console.warn('[SALE] updatePartnerDefaultAddress: missing partnerId or newAddress');
-        return false;
-    }
-
-    if (!window.tokenManager?.authenticatedFetch) {
-        console.error('[SALE] tokenManager.authenticatedFetch not available');
-        if (typeof showNotification === 'function')
-            showNotification('Chưa đăng nhập TPOS', 'error');
-        return false;
-    }
-
-    const API_BASE =
-        window.API_CONFIG?.WORKER_URL ||
-        window.CONFIG?.API_BASE_URL ||
-        'https://chatomni-proxy.nhijudyshop.workers.dev';
-    const url = `${API_BASE}/api/odata/Partner(${partnerId})`;
-    const headers = {
-        Accept: 'application/json, text/plain, */*',
-        'Content-Type': 'application/json;charset=UTF-8',
-        'feature-version': '2',
-        'x-tpos-lang': 'vi',
-    };
-
-    try {
-        // Step 1: GET full partner data
-        console.log(`[SALE] GET Partner(${partnerId}) for address update...`);
-        const getResponse = await window.tokenManager.authenticatedFetch(url, {
-            method: 'GET',
-            headers,
-        });
-        if (!getResponse.ok) {
-            const errText = await getResponse.text().catch(() => '');
-            console.error(`[SALE] GET Partner failed: ${getResponse.status}`, errText);
-            return false;
-        }
-        const partnerData = await getResponse.json();
-
-        // Step 2: Update address fields (same pattern as tab1-fast-sale.js saveAddressToServer)
-        partnerData.Street = newAddress;
-        partnerData.FullAddress = newAddress;
-        if (partnerData.ExtraAddress) {
-            partnerData.ExtraAddress.Street = newAddress;
-        } else {
-            partnerData.ExtraAddress = { Street: newAddress, City: {}, District: {}, Ward: {} };
-        }
-
-        // Step 3: PUT full partner data back
-        console.log(`[SALE] PUT Partner(${partnerId}) with new address: "${newAddress}"`);
-        const putResponse = await window.tokenManager.authenticatedFetch(url, {
-            method: 'PUT',
-            headers,
-            body: JSON.stringify(partnerData),
-        });
-        if (!putResponse.ok) {
-            const errText = await putResponse.text().catch(() => '');
-            console.error(`[SALE] PUT Partner failed: ${putResponse.status}`, errText);
-            return false;
-        }
-
-        console.log(`[SALE] Partner(${partnerId}) address updated successfully`);
-        return true;
-    } catch (error) {
-        console.error('[SALE] updatePartnerDefaultAddress error:', error);
-        return false;
-    }
-}
-
-/**
- * Initialize the "Lưu làm địa chỉ mặc định" button click handler
- * Safe to call multiple times - uses event delegation to avoid duplicate listeners
- */
-function initSaveDefaultAddressButton() {
-    const btn = document.getElementById('btnSaveDefaultAddress');
-    if (!btn || btn.dataset.initialized === 'true') return;
-    btn.dataset.initialized = 'true';
-
-    btn.addEventListener('click', async function () {
-        const partnerId = parseInt(this.dataset.partnerId) || 0;
-        const newAddress = document.getElementById('saleReceiverAddress')?.value?.trim();
-
-        if (!partnerId) {
-            if (typeof showNotification === 'function')
-                showNotification('Khách hàng chưa có trên TPOS', 'warning');
-            return;
-        }
-        if (!newAddress) {
-            if (typeof showNotification === 'function')
-                showNotification('Địa chỉ trống', 'warning');
-            return;
-        }
-
-        // Loading state
-        const originalText = this.textContent;
-        this.disabled = true;
-        this.textContent = 'Đang lưu...';
-        this.style.opacity = '0.7';
-
-        const success = await updatePartnerDefaultAddress(partnerId, newAddress);
-
-        if (success) {
-            if (typeof showNotification === 'function')
-                showNotification('Đã lưu địa chỉ mặc định trên TPOS', 'success');
-            this.textContent = 'Đã lưu';
-            this.style.background = '#ecfdf5';
-            this.style.color = '#065f46';
-            this.style.borderColor = '#a7f3d0';
-            this.style.opacity = '1';
-            // Re-enable after 3s so user can update again if needed
-            setTimeout(() => {
-                this.disabled = false;
-                this.textContent = originalText;
-                this.style.background = '#f0f9ff';
-                this.style.color = '#0369a1';
-                this.style.borderColor = '#bae6fd';
-            }, 3000);
-        } else {
-            if (typeof showNotification === 'function')
-                showNotification('Lưu địa chỉ thất bại', 'error');
-            this.textContent = originalText;
-            this.disabled = false;
-            this.style.opacity = '1';
-        }
-    });
-}
-
 // Export all shared functions to window for cross-file access and onclick handlers
 window.showCustomerWalletHistory = showCustomerWalletHistory;
 window.populateSaleModalWithOrder = populateSaleModalWithOrder;
@@ -1441,5 +1124,3 @@ window.updateSaleTotals = updateSaleTotals;
 window.formatNumber = formatNumber;
 window.formatDateTimeDisplay = formatDateTimeDisplay;
 window.formatCurrencyVND = formatCurrencyVND;
-window.updatePartnerDefaultAddress = updatePartnerDefaultAddress;
-window.initSaveDefaultAddressButton = initSaveDefaultAddressButton;

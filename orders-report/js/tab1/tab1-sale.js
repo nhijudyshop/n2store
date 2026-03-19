@@ -60,10 +60,12 @@ function saleOrderHasDiscountTag(order) {
     // Check Tags directly from order
     if (order.Tags) {
         try {
-            const tags = typeof order.Tags === 'string' ? JSON.parse(order.Tags) : order.Tags;
+            const tags = typeof order.Tags === 'string'
+                ? JSON.parse(order.Tags)
+                : order.Tags;
 
             if (Array.isArray(tags)) {
-                return tags.some((tag) => {
+                return tags.some(tag => {
                     const tagName = (tag.Name || '').toUpperCase();
                     return tagName.includes('GIẢM GIÁ') || tagName.includes('GIAM GIA');
                 });
@@ -86,20 +88,20 @@ function calculateSaleOrderDiscount(order) {
     let totalDiscount = 0;
     const discountedProducts = [];
 
-    orderLines.forEach((line) => {
+    orderLines.forEach(line => {
         const note = line.Note || '';
-        const notePrice = parseDiscountFromNoteSale(note); // "100k" = 100000 (giá bán thực tế)
+        const notePrice = parseDiscountFromNoteSale(note);  // "100k" = 100000 (giá bán thực tế)
         if (notePrice > 0) {
             const priceUnit = line.PriceUnit || line.Price || 0;
             const qty = line.ProductUOMQty || line.Quantity || 1;
-            const discountPerUnit = priceUnit - notePrice; // 180000 - 100000 = 80000
+            const discountPerUnit = priceUnit - notePrice;  // 180000 - 100000 = 80000
             if (discountPerUnit > 0) {
-                const lineDiscount = discountPerUnit * qty; // 80000 * 2 = 160000
+                const lineDiscount = discountPerUnit * qty;  // 80000 * 2 = 160000
                 totalDiscount += lineDiscount;
                 discountedProducts.push({
                     productName: line.Product?.Name || line.ProductName || 'N/A',
                     discount: lineDiscount,
-                    note: note,
+                    note: note
                 });
             }
         }
@@ -113,12 +115,12 @@ function calculateSaleOrderDiscount(order) {
  * Similar to initInlineProductSearch() from Edit Modal (~7300)
  */
 function initSaleProductSearch() {
-    const searchInput = document.getElementById('saleProductSearch');
+    const searchInput = document.getElementById("saleProductSearch");
     if (!searchInput) return;
 
     console.log('[SALE-PRODUCT-SEARCH] Initializing product search...');
 
-    searchInput.addEventListener('input', () => {
+    searchInput.addEventListener("input", () => {
         const query = searchInput.value.trim();
         if (saleSearchTimeout) clearTimeout(saleSearchTimeout);
         if (query.length < 2) {
@@ -143,10 +145,10 @@ function initSaleProductSearch() {
  * Similar to performInlineSearch() from Edit Modal (~7300)
  */
 async function performSaleProductSearch(query) {
-    const searchInput = document.getElementById('saleProductSearch');
-    const productList = document.getElementById('saleProductList');
+    const searchInput = document.getElementById("saleProductSearch");
+    const productList = document.getElementById("saleProductList");
 
-    searchInput.classList.add('searching');
+    searchInput.classList.add("searching");
     productList.innerHTML = `
         <tr>
             <td colspan="4" style="text-align: center; padding: 20px; color: #6b7280;">
@@ -171,7 +173,7 @@ async function performSaleProductSearch(query) {
             </tr>
         `;
     } finally {
-        searchInput.classList.remove('searching');
+        searchInput.classList.remove("searching");
     }
 }
 
@@ -180,7 +182,7 @@ async function performSaleProductSearch(query) {
  * Similar to displayInlineResults() from Edit Modal (~7300)
  */
 function displaySaleProductResults(results) {
-    const productList = document.getElementById('saleProductList');
+    const productList = document.getElementById("saleProductList");
 
     if (!results || results.length === 0) {
         productList.innerHTML = `
@@ -196,27 +198,25 @@ function displaySaleProductResults(results) {
     // Check which products are already in the order
     const productsInOrder = new Map();
     if (currentSaleOrderData && currentSaleOrderData.orderLines) {
-        currentSaleOrderData.orderLines.forEach((line) => {
+        currentSaleOrderData.orderLines.forEach(line => {
             const productId = line.ProductId || line.Product?.Id;
             const qty = line.ProductUOMQty || line.Quantity || 0;
             productsInOrder.set(productId, qty);
         });
     }
 
-    productList.innerHTML = results
-        .map((product) => {
-            const isInOrder = productsInOrder.has(product.Id);
-            const currentQty = productsInOrder.get(product.Id) || 0;
-            const rowClass = isInOrder ? 'style="background-color: #f0fdf4;"' : '';
+    productList.innerHTML = results.map((product) => {
+        const isInOrder = productsInOrder.has(product.Id);
+        const currentQty = productsInOrder.get(product.Id) || 0;
+        const rowClass = isInOrder ? 'style="background-color: #f0fdf4;"' : '';
 
-            return `
+        return `
             <tr ${rowClass} onclick="addProductToSaleFromSearch(${product.Id})" style="cursor: pointer;">
                 <td style="width: 40px; text-align: center;">
-                    ${
-                        product.ImageUrl
-                            ? `<img src="${product.ImageUrl}" style="width: 30px; height: 30px; object-fit: cover; border-radius: 4px;">`
-                            : `<div style="width: 30px; height: 30px; background: #f3f4f6; border-radius: 4px; display: flex; align-items: center; justify-content: center;"><i class="fas fa-image" style="color: #9ca3af; font-size: 12px;"></i></div>`
-                    }
+                    ${product.ImageUrl ?
+                `<img src="${product.ImageUrl}" style="width: 30px; height: 30px; object-fit: cover; border-radius: 4px;">` :
+                `<div style="width: 30px; height: 30px; background: #f3f4f6; border-radius: 4px; display: flex; align-items: center; justify-content: center;"><i class="fas fa-image" style="color: #9ca3af; font-size: 12px;"></i></div>`
+            }
                 </td>
                 <td>
                     <div style="font-weight: 500;">${product.Name}</div>
@@ -229,8 +229,7 @@ function displaySaleProductResults(results) {
                 </td>
             </tr>
         `;
-        })
-        .join('');
+    }).join('');
 }
 
 /**
@@ -244,13 +243,13 @@ async function addProductToSaleFromSearch(productId) {
         // Show loading notification
         if (window.notificationManager) {
             notificationId = window.notificationManager.show(
-                'Đang tải thông tin sản phẩm...',
-                'info',
+                "Đang tải thông tin sản phẩm...",
+                "info",
                 0,
                 {
                     showOverlay: true,
                     persistent: true,
-                    icon: 'package',
+                    icon: "package",
                 }
             );
         }
@@ -259,7 +258,7 @@ async function addProductToSaleFromSearch(productId) {
         const fullProduct = await window.productSearchManager.getFullProductDetails(productId);
 
         if (!fullProduct) {
-            throw new Error('Không tìm thấy thông tin sản phẩm');
+            throw new Error("Không tìm thấy thông tin sản phẩm");
         }
 
         console.log('[SALE-ADD-PRODUCT] Full product details:', fullProduct);
@@ -276,7 +275,7 @@ async function addProductToSaleFromSearch(productId) {
 
         // Check if product already exists in order
         const existingIndex = currentSaleOrderData.orderLines.findIndex(
-            (line) => (line.ProductId || line.Product?.Id) === productId
+            line => (line.ProductId || line.Product?.Id) === productId
         );
 
         if (existingIndex > -1) {
@@ -288,9 +287,7 @@ async function addProductToSaleFromSearch(productId) {
             existingLine.ProductUOMQty = newQty;
             existingLine.Quantity = newQty;
 
-            console.log(
-                `[SALE-ADD-PRODUCT] Product exists, increased quantity: ${oldQty} → ${newQty}`
-            );
+            console.log(`[SALE-ADD-PRODUCT] Product exists, increased quantity: ${oldQty} → ${newQty}`);
 
             if (window.notificationManager) {
                 window.notificationManager.success(
@@ -311,25 +308,23 @@ async function addProductToSaleFromSearch(productId) {
                     Id: fullProduct.Id,
                     Name: fullProduct.Name,
                     DefaultCode: fullProduct.DefaultCode,
-                    NameGet:
-                        fullProduct.NameGet || `[${fullProduct.DefaultCode}] ${fullProduct.Name}`,
-                    ImageUrl: fullProduct.ImageUrl,
+                    NameGet: fullProduct.NameGet || `[${fullProduct.DefaultCode}] ${fullProduct.Name}`,
+                    ImageUrl: fullProduct.ImageUrl
                 },
                 ProductUOMId: fullProduct.UOM?.Id || 1,
                 ProductUOM: {
                     Id: fullProduct.UOM?.Id || 1,
-                    Name: fullProduct.UOM?.Name || 'Cái',
+                    Name: fullProduct.UOM?.Name || 'Cái'
                 },
                 ProductUOMQty: 1,
                 Quantity: 1,
                 PriceUnit: salePrice,
                 ProductName: fullProduct.Name,
-                ProductNameGet:
-                    fullProduct.NameGet || `[${fullProduct.DefaultCode}] ${fullProduct.Name}`,
+                ProductNameGet: fullProduct.NameGet || `[${fullProduct.DefaultCode}] ${fullProduct.Name}`,
                 ProductUOMName: fullProduct.UOM?.Name || 'Cái',
                 Note: null,
                 Discount: 0,
-                Weight: fullProduct.Weight || 0,
+                Weight: fullProduct.Weight || 0
             };
 
             currentSaleOrderData.orderLines.push(newLine);
@@ -345,7 +340,7 @@ async function addProductToSaleFromSearch(productId) {
         populateSaleOrderLinesFromAPI(currentSaleOrderData.orderLines);
 
         // Refresh search results to show updated quantity
-        const searchInput = document.getElementById('saleProductSearch');
+        const searchInput = document.getElementById("saleProductSearch");
         if (searchInput && searchInput.value.trim().length >= 2) {
             performSaleProductSearch(searchInput.value.trim());
         }
@@ -367,27 +362,23 @@ async function addProductToSaleFromSearch(productId) {
                         productCode: fullProduct.DefaultCode || '',
                         productName: fullProduct.Name || '',
                         quantity: 1,
-                        source: 'sale_modal',
+                        source: 'sale_modal'
                     });
                     if (window.kpiManager && window.kpiManager.recalculateAndSaveKPI) {
                         await window.kpiManager.recalculateAndSaveKPI(String(orderId));
                     }
                 } catch (kpiError) {
-                    console.warn(
-                        '[SALE-ADD-PRODUCT] KPI audit log failed (non-blocking):',
-                        kpiError
-                    );
+                    console.warn('[SALE-ADD-PRODUCT] KPI audit log failed (non-blocking):', kpiError);
                 }
             }
         } catch (apiError) {
             console.error('[SALE-ADD-PRODUCT] ⚠️ API update failed:', apiError);
             // Show warning but don't rollback (product is already added locally)
             if (window.notificationManager) {
-                window.notificationManager.warning(
-                    'Sản phẩm đã được thêm nhưng chưa đồng bộ với server. Vui lòng thử lại.'
-                );
+                window.notificationManager.warning('Sản phẩm đã được thêm nhưng chưa đồng bộ với server. Vui lòng thử lại.');
             }
         }
+
     } catch (error) {
         console.error('[SALE-ADD-PRODUCT] Error:', error);
 
@@ -411,7 +402,7 @@ function recalculateSaleTotals() {
     let totalQuantity = 0;
     let totalAmount = 0;
 
-    currentSaleOrderData.orderLines.forEach((item) => {
+    currentSaleOrderData.orderLines.forEach(item => {
         const qty = item.ProductUOMQty || item.Quantity || 1;
         const price = item.PriceUnit || item.Price || 0;
         totalQuantity += qty;
@@ -447,8 +438,8 @@ async function updateSaleOrderWithAPI() {
             method: 'GET',
             headers: {
                 ...headers,
-                Accept: 'application/json',
-            },
+                Accept: "application/json",
+            }
         });
 
         if (!getResponse.ok) {
@@ -463,9 +454,8 @@ async function updateSaleOrderWithAPI() {
         const payload = JSON.parse(JSON.stringify(fullOrder));
 
         // Add @odata.context (CRITICAL for PUT request)
-        if (!payload['@odata.context']) {
-            payload['@odata.context'] =
-                'http://tomato.tpos.vn/odata/$metadata#SaleOnline_Order(Details(),Partner(),User(),CRMTeam())/$entity';
+        if (!payload["@odata.context"]) {
+            payload["@odata.context"] = "http://tomato.tpos.vn/odata/$metadata#SaleOnline_Order(Details(),Partner(),User(),CRMTeam())/$entity";
         }
 
         // Get CreatedById from order or auth
@@ -473,7 +463,7 @@ async function updateSaleOrderWithAPI() {
 
         // Convert local orderLines to Details format (API expects Details, not orderLines)
         if (currentSaleOrderData.orderLines && Array.isArray(currentSaleOrderData.orderLines)) {
-            payload.Details = currentSaleOrderData.orderLines.map((line) => {
+            payload.Details = currentSaleOrderData.orderLines.map(line => {
                 const cleaned = {
                     ProductId: line.ProductId || line.Product?.Id,
                     Quantity: line.ProductUOMQty || line.Quantity || 1,
@@ -493,7 +483,7 @@ async function updateSaleOrderWithAPI() {
                     IsOrderPriority: null,
                     QuantityRegex: null,
                     IsDisabledLiveCampaignDetail: false,
-                    CreatedById: createdById,
+                    CreatedById: createdById
                 };
 
                 // Keep Id if it exists (for existing details)
@@ -509,7 +499,7 @@ async function updateSaleOrderWithAPI() {
         let totalQuantity = 0;
         let totalAmount = 0;
         if (payload.Details) {
-            payload.Details.forEach((detail) => {
+            payload.Details.forEach(detail => {
                 const qty = detail.Quantity || 1;
                 const price = detail.Price || 0;
                 totalQuantity += qty;
@@ -525,11 +515,11 @@ async function updateSaleOrderWithAPI() {
             detailsCount: payload.Details?.length || 0,
             totalAmount: payload.TotalAmount,
             totalQuantity: payload.TotalQuantity,
-            hasContext: !!payload['@odata.context'],
+            hasContext: !!payload["@odata.context"],
             hasRowVersion: !!payload.RowVersion,
             hasPartner: !!payload.Partner,
             hasUser: !!payload.User,
-            hasCRMTeam: !!payload.CRMTeam,
+            hasCRMTeam: !!payload.CRMTeam
         });
 
         // 🔥 STEP 3: PUT updated order back to API
@@ -538,10 +528,10 @@ async function updateSaleOrderWithAPI() {
             method: 'PUT',
             headers: {
                 ...headers,
-                'Content-Type': 'application/json',
-                Accept: 'application/json',
+                "Content-Type": "application/json",
+                Accept: "application/json",
             },
-            body: JSON.stringify(payload),
+            body: JSON.stringify(payload)
         });
 
         if (!response.ok) {
@@ -561,9 +551,7 @@ async function updateSaleOrderWithAPI() {
             }
         }
 
-        console.log(
-            `[SALE-API] ✅ Updated order ${currentSaleOrderData.Id} with ${payload.Details?.length || 0} products`
-        );
+        console.log(`[SALE-API] ✅ Updated order ${currentSaleOrderData.Id} with ${payload.Details?.length || 0} products`);
 
         // Invalidate order details cache so chat modal loads fresh data on reopen
         if (typeof window.invalidateOrderDetailsCache === 'function') {
@@ -574,7 +562,7 @@ async function updateSaleOrderWithAPI() {
         if (typeof updateOrderInTable === 'function') {
             updateOrderInTable(currentSaleOrderData.Id, {
                 TotalQuantity: totalQuantity,
-                TotalAmount: totalAmount,
+                TotalAmount: totalAmount
             });
         }
 
@@ -584,8 +572,8 @@ async function updateSaleOrderWithAPI() {
             method: 'GET',
             headers: {
                 ...headers,
-                Accept: 'application/json',
-            },
+                Accept: "application/json",
+            }
         });
 
         if (!refreshResponse.ok) {
@@ -598,7 +586,7 @@ async function updateSaleOrderWithAPI() {
             // Convert Details back to orderLines format for consistency
             currentSaleOrderData = updatedOrder;
             if (updatedOrder.Details && Array.isArray(updatedOrder.Details)) {
-                currentSaleOrderData.orderLines = updatedOrder.Details.map((detail) => ({
+                currentSaleOrderData.orderLines = updatedOrder.Details.map(detail => ({
                     Id: detail.Id,
                     ProductId: detail.ProductId,
                     ProductUOMId: detail.UOMId,
@@ -618,12 +606,12 @@ async function updateSaleOrderWithAPI() {
                         Name: detail.ProductName,
                         DefaultCode: detail.ProductCode,
                         NameGet: detail.ProductNameGet,
-                        ImageUrl: detail.ImageUrl,
+                        ImageUrl: detail.ImageUrl
                     },
                     ProductUOM: {
                         Id: detail.UOMId,
-                        Name: detail.UOMName,
-                    },
+                        Name: detail.UOMName
+                    }
                 }));
             } else {
                 currentSaleOrderData.orderLines = [];
@@ -631,6 +619,7 @@ async function updateSaleOrderWithAPI() {
         }
 
         return data || { success: true, orderId: currentSaleOrderData.Id };
+
     } catch (error) {
         console.error('[SALE-API] Error updating order:', error);
         throw error;
@@ -672,9 +661,7 @@ async function confirmAndPrintSale() {
         if (window.billTokenManager) {
             await window.billTokenManager.ensureCredentialsLoaded();
             if (!window.billTokenManager.hasCredentials()) {
-                throw new Error(
-                    'Chưa cấu hình tài khoản TPOS cho bill. Vui lòng vào "Tài khoản TPOS" để cài đặt.'
-                );
+                throw new Error('Chưa cấu hình tài khoản TPOS cho bill. Vui lòng vào "Tài khoản TPOS" để cài đặt.');
             }
             headers = await window.billTokenManager.getAuthHeader();
             console.log('[SALE-CONFIRM] Using billTokenManager for auth');
@@ -684,7 +671,7 @@ async function confirmAndPrintSale() {
             if (!token) {
                 throw new Error('Không tìm thấy token xác thực');
             }
-            headers = { Authorization: `Bearer ${token}` };
+            headers = { 'Authorization': `Bearer ${token}` };
         }
 
         // Build model for InsertListOrderModel API (same format as fastSaleModal)
@@ -705,43 +692,28 @@ async function confirmAndPrintSale() {
             throw new Error('Vui lòng nhập địa chỉ người nhận');
         }
         // Validate all order lines have ProductId (TPOS API requires non-zero ProductId)
-        const missingProductIds = (model.OrderLines || []).filter(
-            (line) => !line.ProductId || line.ProductId === 0
-        );
+        const missingProductIds = (model.OrderLines || []).filter(line => !line.ProductId || line.ProductId === 0);
         if (missingProductIds.length > 0) {
-            const names = missingProductIds
-                .map((l) => l.ProductName)
-                .filter(Boolean)
-                .join(', ');
-            throw new Error(
-                `Sản phẩm chưa có mã trên TPOS: ${names || 'Không xác định'}. Vui lòng chọn sản phẩm từ Kho SP hoặc tìm kiếm trong ô tìm kiếm.`
-            );
+            const names = missingProductIds.map(l => l.ProductName).filter(Boolean).join(', ');
+            throw new Error(`Sản phẩm chưa có mã trên TPOS: ${names || 'Không xác định'}. Vui lòng chọn sản phẩm từ Kho SP hoặc tìm kiếm trong ô tìm kiếm.`);
         }
 
         // Re-verify wallet balance at order creation time (race condition protection)
         const customerPhone = document.getElementById('saleReceiverPhone')?.value;
-        const prepaidAmountForVerify =
-            parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;
+        const prepaidAmountForVerify = parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;
 
         if (prepaidAmountForVerify > 0 && customerPhone) {
             const normalizedPhoneVerify = normalizePhoneForQR(customerPhone);
             if (normalizedPhoneVerify) {
                 try {
                     const QR_API = window.QR_API_URL || 'https://n2store-fallback.onrender.com';
-                    const verifyRes = await fetch(
-                        `${QR_API}/api/v2/wallets/${encodeURIComponent(normalizedPhoneVerify)}/available-balance`
-                    );
+                    const verifyRes = await fetch(`${QR_API}/api/v2/wallets/${encodeURIComponent(normalizedPhoneVerify)}/available-balance`);
                     const verifyData = await verifyRes.json();
 
-                    if (
-                        verifyData.success &&
-                        prepaidAmountForVerify > verifyData.data.available_balance
-                    ) {
+                    if (verifyData.success && prepaidAmountForVerify > verifyData.data.available_balance) {
                         const availStr = verifyData.data.available_balance.toLocaleString('vi-VN');
                         const wantStr = prepaidAmountForVerify.toLocaleString('vi-VN');
-                        alert(
-                            `Ví khách hàng đã thay đổi!\n\nSố dư khả dụng: ${availStr}đ\nBạn đang muốn trừ: ${wantStr}đ\n\nVui lòng đóng modal và tạo lại.`
-                        );
+                        alert(`Ví khách hàng đã thay đổi!\n\nSố dư khả dụng: ${availStr}đ\nBạn đang muốn trừ: ${wantStr}đ\n\nVui lòng đóng modal và tạo lại.`);
                         if (confirmBtn) {
                             confirmBtn.disabled = false;
                             confirmBtn.textContent = originalText || 'Xác nhận và in (F9)';
@@ -752,10 +724,7 @@ async function confirmAndPrintSale() {
                 } catch (verifyErr) {
                     // Nếu không verify được (network error), vẫn cho tạo đơn
                     // pending-withdrawal sẽ fail nếu không đủ tiền
-                    console.warn(
-                        '[SALE-CONFIRM] Wallet re-verify failed (non-blocking):',
-                        verifyErr.message
-                    );
+                    console.warn('[SALE-CONFIRM] Wallet re-verify failed (non-blocking):', verifyErr.message);
                 }
             }
         }
@@ -763,7 +732,7 @@ async function confirmAndPrintSale() {
         // Build request body (same as fastSaleModal's "Lưu xác nhận")
         const requestBody = {
             is_approve: true,
-            model: [model],
+            model: [model]
         };
 
         console.log('[SALE-CONFIRM] Request body:', requestBody);
@@ -775,9 +744,9 @@ async function confirmAndPrintSale() {
             method: 'POST',
             headers: {
                 ...headers,
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/json'
             },
-            body: JSON.stringify(requestBody),
+            body: JSON.stringify(requestBody)
         });
 
         // Retry on 401: force-refresh bill token and retry once
@@ -790,9 +759,9 @@ async function confirmAndPrintSale() {
                 method: 'POST',
                 headers: {
                     ...headers,
-                    'Content-Type': 'application/json',
+                    'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(requestBody),
+                body: JSON.stringify(requestBody)
             });
         }
 
@@ -807,8 +776,8 @@ async function confirmAndPrintSale() {
         // Check top-level Errors array (e.g. inventory errors from TPOS)
         // API may return Success:true but with Errors[] containing inventory issues
         if (result.Errors && result.Errors.length > 0) {
-            const hasInventoryError = result.Errors.some(
-                (e) => typeof e === 'string' && e.includes('không đủ tồn kho')
+            const hasInventoryError = result.Errors.some(e =>
+                typeof e === 'string' && e.includes('không đủ tồn kho')
             );
 
             if (hasInventoryError) {
@@ -823,11 +792,8 @@ async function confirmAndPrintSale() {
                         const statusUrl = `${window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev'}/api/odata/SaleOnline_Order/OdataService.UpdateStatusSaleOnline?Id=${saleOnlineId}&Status=${encodeURIComponent('Nháp')}`;
                         await API_CONFIG.smartFetch(statusUrl, {
                             method: 'POST',
-                            headers: {
-                                ...headers,
-                                'content-type': 'application/json;charset=utf-8',
-                            },
-                            body: null,
+                            headers: { ...headers, 'content-type': 'application/json;charset=utf-8' },
+                            body: null
                         });
                         console.log('[SALE-CONFIRM] Reset order status to Nháp:', saleOnlineId);
                     } catch (statusErr) {
@@ -842,12 +808,9 @@ async function confirmAndPrintSale() {
                                 await window.addTagToOrder(saleOnlineId, {
                                     Id: amMaTag.Id,
                                     Name: amMaTag.Name,
-                                    Color: amMaTag.Color,
+                                    Color: amMaTag.Color
                                 });
-                                console.log(
-                                    '[SALE-CONFIRM] Added "ÂM MÃ" tag to order:',
-                                    saleOnlineId
-                                );
+                                console.log('[SALE-CONFIRM] Added "ÂM MÃ" tag to order:', saleOnlineId);
                             }
                         } catch (tagErr) {
                             console.warn('[SALE-CONFIRM] Failed to add "ÂM MÃ" tag:', tagErr);
@@ -870,21 +833,11 @@ async function confirmAndPrintSale() {
 
         if (errorOrders.length > 0 || dataErrorFast.length > 0) {
             const errorMessages = [];
-            errorOrders.forEach((o) => {
-                if (o.Error)
-                    errorMessages.push(
-                        typeof o.Error === 'string'
-                            ? o.Error
-                            : o.Error.Message || o.Error.message || JSON.stringify(o.Error)
-                    );
+            errorOrders.forEach(o => {
+                if (o.Error) errorMessages.push(typeof o.Error === 'string' ? o.Error : (o.Error.Message || o.Error.message || JSON.stringify(o.Error)));
             });
-            dataErrorFast.forEach((o) => {
-                if (o.Error)
-                    errorMessages.push(
-                        typeof o.Error === 'string'
-                            ? o.Error
-                            : o.Error.Message || o.Error.message || JSON.stringify(o.Error)
-                    );
+            dataErrorFast.forEach(o => {
+                if (o.Error) errorMessages.push(typeof o.Error === 'string' ? o.Error : (o.Error.Message || o.Error.message || JSON.stringify(o.Error)));
             });
 
             throw new Error(errorMessages.join('; ') || 'Có lỗi khi tạo đơn hàng');
@@ -903,16 +856,6 @@ async function confirmAndPrintSale() {
 
         console.log('[SALE-CONFIRM] Order created successfully:', { orderId, orderNumber });
 
-        // Fix address: TPOS InsertListOrderModel ignores address in payload when PartnerId exists,
-        // so we GET the created order and PUT back with the correct address from the form.
-        // Fire-and-forget (non-blocking) - same pattern as fast-sale's saveAddressToServer
-        const formAddress = document.getElementById('saleReceiverAddress')?.value?.trim();
-        if (orderId && formAddress) {
-            fixOrderAddressAfterCreation(orderId, formAddress, headers).catch((err) => {
-                console.warn('[SALE-CONFIRM] Address fix failed (non-critical):', err.message);
-            });
-        }
-
         // Save to order history (Firebase)
         if (window.OrderHistoryManager && createResult) {
             const historyData = {
@@ -924,13 +867,12 @@ async function confirmAndPrintSale() {
                 customerName: document.getElementById('saleReceiverName')?.value || '',
                 customerPhone: document.getElementById('saleReceiverPhone')?.value || '',
                 address: document.getElementById('saleReceiverAddress')?.value || '',
-                products: createResult.OrderLines || [],
+                products: (createResult.OrderLines || []),
                 totalAmount: createResult.AmountTotal || 0,
                 shippingFee: parseFloat(document.getElementById('saleShippingFee')?.value) || 0,
                 carrierId: parseInt(document.getElementById('saleDeliveryPartner')?.value) || 0,
-                carrierName:
-                    document.getElementById('saleDeliveryPartner')?.selectedOptions[0]?.text || '',
-                sessionIndex: currentSaleOrderData?.SessionIndex || '',
+                carrierName: document.getElementById('saleDeliveryPartner')?.selectedOptions[0]?.text || '',
+                sessionIndex: currentSaleOrderData?.SessionIndex || ''
             };
             window.OrderHistoryManager.saveOrderHistory(historyData, 'sale-modal');
         }
@@ -941,15 +883,11 @@ async function confirmAndPrintSale() {
         const savedWalletBalance = parseFloat(prepaidInput?.value) || 0;
         const savedDiscount = parseFloat(document.getElementById('saleDiscount')?.value) || 0;
         // Check if virtual debt (công nợ ảo from return ticket) was used
-        const hasVirtualDebt =
-            prepaidInput?.dataset?.hasVirtualDebt === '1' && savedWalletBalance > 0;
+        const hasVirtualDebt = prepaidInput?.dataset?.hasVirtualDebt === '1' && savedWalletBalance > 0;
         // Get carrier name from dropdown (API response often misses this)
         const carrierSelect = document.getElementById('saleDeliveryPartner');
         const selectedOption = carrierSelect?.selectedOptions[0];
-        const savedCarrierName =
-            selectedOption?.dataset?.name ||
-            selectedOption?.text?.replace(/\s*\([^)]*\)$/, '') ||
-            '';
+        const savedCarrierName = selectedOption?.dataset?.name || selectedOption?.text?.replace(/\s*\([^)]*\)$/, '') || '';
 
         // Store invoice status to localStorage + Firebase
         if (window.InvoiceStatusStore) {
@@ -984,7 +922,7 @@ async function confirmAndPrintSale() {
                     console.log('[SALE-CONFIRM] Updated InvoiceStatusStore with form values:', {
                         PaymentAmount: savedWalletBalance,
                         Discount: savedDiscount,
-                        CarrierName: savedCarrierName,
+                        CarrierName: savedCarrierName
                     });
                 }
             }
@@ -999,24 +937,12 @@ async function confirmAndPrintSale() {
         const currentDebt = savedWalletBalance;
         const codAmount = parseFloat(document.getElementById('saleCOD')?.value) || 0;
         if (currentDebt > 0) {
-            const customerPhone =
-                document.getElementById('saleReceiverPhone')?.value ||
-                currentSaleOrderData?.PartnerPhone ||
-                currentSaleOrderData?.Telephone;
+            const customerPhone = document.getElementById('saleReceiverPhone')?.value || currentSaleOrderData?.PartnerPhone || currentSaleOrderData?.Telephone;
             if (customerPhone) {
                 const actualPayment = Math.min(currentDebt, codAmount);
                 const remainingDebt = Math.max(0, currentDebt - codAmount);
 
-                console.log(
-                    '[SALE-CONFIRM] Debt calculation - current:',
-                    currentDebt,
-                    'COD:',
-                    codAmount,
-                    'paid:',
-                    actualPayment,
-                    'remaining:',
-                    remainingDebt
-                );
+                console.log('[SALE-CONFIRM] Debt calculation - current:', currentDebt, 'COD:', codAmount, 'paid:', actualPayment, 'remaining:', remainingDebt);
 
                 const prepaidInput = document.getElementById('salePrepaidAmount');
                 if (prepaidInput) {
@@ -1042,47 +968,30 @@ async function confirmAndPrintSale() {
                         amount: actualPayment,
                         source: 'SALE_ORDER',
                         note: `Thanh toán công nợ qua COD đơn hàng #${orderNumber}`,
-                        created_by: performedBy,
-                    }),
-                })
-                    .then((res) => res.json())
-                    .then((pendingResult) => {
-                        if (pendingResult.success) {
-                            if (pendingResult.skipped) {
-                                console.log(
-                                    '[SALE-CONFIRM] ⏭️ Withdrawal already processed for this order'
-                                );
-                            } else {
-                                console.log(
-                                    '[SALE-CONFIRM] ✅ Pending withdrawal created:',
-                                    pendingResult.pending_id,
-                                    'status:',
-                                    pendingResult.status
-                                );
-                            }
-                            // Update cache and UI
-                            if (normalizedPhone) {
-                                const cache = getDebtCache();
-                                delete cache[normalizedPhone];
-                                saveDebtCache(cache);
-                                updateDebtCellsInTable(normalizedPhone, remainingDebt);
-                            }
-                        } else {
-                            console.warn(
-                                '[SALE-CONFIRM] ⚠️ Failed to create pending withdrawal:',
-                                pendingResult.error
-                            );
-                            window.notificationManager?.warning(
-                                'Không thể ghi nhận trừ ví, sẽ tự động retry'
-                            );
-                        }
+                        created_by: performedBy
                     })
-                    .catch((err) => {
-                        console.error('[SALE-CONFIRM] ❌ Error creating pending withdrawal:', err);
-                        window.notificationManager?.warning(
-                            'Lỗi kết nối - Đơn đã tạo, ví sẽ được trừ sau'
-                        );
-                    });
+                }).then(res => res.json()).then(pendingResult => {
+                    if (pendingResult.success) {
+                        if (pendingResult.skipped) {
+                            console.log('[SALE-CONFIRM] ⏭️ Withdrawal already processed for this order');
+                        } else {
+                            console.log('[SALE-CONFIRM] ✅ Pending withdrawal created:', pendingResult.pending_id, 'status:', pendingResult.status);
+                        }
+                        // Update cache and UI
+                        if (normalizedPhone) {
+                            const cache = getDebtCache();
+                            delete cache[normalizedPhone];
+                            saveDebtCache(cache);
+                            updateDebtCellsInTable(normalizedPhone, remainingDebt);
+                        }
+                    } else {
+                        console.warn('[SALE-CONFIRM] ⚠️ Failed to create pending withdrawal:', pendingResult.error);
+                        window.notificationManager?.warning('Không thể ghi nhận trừ ví, sẽ tự động retry');
+                    }
+                }).catch(err => {
+                    console.error('[SALE-CONFIRM] ❌ Error creating pending withdrawal:', err);
+                    window.notificationManager?.warning('Lỗi kết nối - Đơn đã tạo, ví sẽ được trừ sau');
+                });
             }
         }
 
@@ -1097,27 +1006,12 @@ async function confirmAndPrintSale() {
             // Fetch HTML bill from TPOS API and open print popup
             // Pass savedWalletBalance for fallback case if TPOS API fails
             console.log('[SALE-CONFIRM] Fetching HTML bill from TPOS...');
-            window.fetchAndPrintTPOSBill(
-                orderId,
-                headers,
-                currentSaleOrderData,
-                savedWalletBalance,
-                hasVirtualDebt
-            );
+            window.fetchAndPrintTPOSBill(orderId, headers, currentSaleOrderData, savedWalletBalance, hasVirtualDebt);
         } else {
             // Use Web bill template (local)
             // Pass savedWalletBalance to ensure correct calculation (before debt update modified the form field)
-            console.log(
-                '[SALE-CONFIRM] Using Web bill template with walletBalance:',
-                savedWalletBalance,
-                'hasVirtualDebt:',
-                hasVirtualDebt
-            );
-            window.openPrintPopup(createResult, {
-                currentSaleOrderData: currentSaleOrderData,
-                walletBalance: savedWalletBalance,
-                hasVirtualDebt: hasVirtualDebt,
-            });
+            console.log('[SALE-CONFIRM] Using Web bill template with walletBalance:', savedWalletBalance, 'hasVirtualDebt:', hasVirtualDebt);
+            window.openPrintPopup(createResult, { currentSaleOrderData: currentSaleOrderData, walletBalance: savedWalletBalance, hasVirtualDebt: hasVirtualDebt });
         }
 
         // Success notification
@@ -1135,15 +1029,10 @@ async function confirmAndPrintSale() {
                     Name: document.getElementById('saleReceiverName')?.value || '',
                     Telephone: document.getElementById('saleReceiverPhone')?.value || '',
                     Address: document.getElementById('saleReceiverAddress')?.value || '',
-                    Code: socialOrderId,
+                    Code: socialOrderId
                 };
                 window.InvoiceStatusStore.set(socialOrderId, createResult, mappedOrder);
-                console.log(
-                    '[SALE-CONFIRM] Social: stored invoice for',
-                    socialOrderId,
-                    'Number:',
-                    createResult.Number
-                );
+                console.log('[SALE-CONFIRM] Social: stored invoice for', socialOrderId, 'Number:', createResult.Number);
             }
 
             // Update social order status to 'order'
@@ -1156,6 +1045,7 @@ async function confirmAndPrintSale() {
         setTimeout(() => {
             closeSaleButtonModal(true);
         }, 500);
+
     } catch (error) {
         console.error('[SALE-CONFIRM] Error:', error);
         window.notificationManager?.error(error.message || 'Lỗi xác nhận đơn hàng');
@@ -1168,87 +1058,6 @@ async function confirmAndPrintSale() {
 }
 
 /**
- * Fix order address after creation.
- * TPOS InsertListOrderModel ignores Ship_Receiver/ReceiverAddress when PartnerId already exists,
- * using the partner's stored address instead. This function does GET + PUT on the created
- * FastSaleOrder to overwrite all address fields with the address from the sale form.
- * Pattern copied from tab1-fast-sale.js saveAddressToServer().
- *
- * @param {number} fastSaleOrderId - The created FastSaleOrder ID
- * @param {string} newAddress - Address from the sale form
- * @param {object} authHeaders - Auth headers for API calls
- */
-async function fixOrderAddressAfterCreation(fastSaleOrderId, newAddress, authHeaders) {
-    if (!fastSaleOrderId || !newAddress) return;
-
-    const baseUrl =
-        window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
-    const expandParams =
-        '$expand=Partner,OrderLines($expand=Product,ProductUOM),Carrier,Ship_ServiceExtras';
-    const getUrl = `${baseUrl}/api/odata/FastSaleOrder(${fastSaleOrderId})?${expandParams}`;
-
-    console.log(`[SALE-ADDRESS-FIX] GET FastSaleOrder(${fastSaleOrderId})...`);
-    const getResponse = await API_CONFIG.smartFetch(getUrl, {
-        method: 'GET',
-        headers: { ...authHeaders, Accept: 'application/json' },
-    });
-
-    if (!getResponse.ok) {
-        throw new Error(`GET failed: ${getResponse.status}`);
-    }
-
-    const orderData = await getResponse.json();
-
-    // Check if address already matches (no fix needed)
-    if (orderData.ReceiverAddress === newAddress && orderData.Address === newAddress) {
-        console.log('[SALE-ADDRESS-FIX] Address already correct, skipping PUT');
-        return;
-    }
-
-    // Update all address fields (same pattern as fast-sale saveAddressToServer)
-    orderData.ReceiverAddress = newAddress;
-    orderData.Address = newAddress;
-
-    if (orderData.Ship_Receiver) {
-        orderData.Ship_Receiver.Street = newAddress;
-        if (orderData.Ship_Receiver.ExtraAddress) {
-            orderData.Ship_Receiver.ExtraAddress.Street = newAddress;
-        }
-    }
-
-    if (orderData.Partner) {
-        orderData.Partner.Street = newAddress;
-        orderData.Partner.FullAddress = newAddress;
-        if (orderData.Partner.ExtraAddress) {
-            orderData.Partner.ExtraAddress.Street = newAddress;
-        }
-    }
-
-    // PUT back
-    const putUrl = `${baseUrl}/api/odata/FastSaleOrder(${fastSaleOrderId})`;
-    console.log(
-        `[SALE-ADDRESS-FIX] PUT FastSaleOrder(${fastSaleOrderId}) with address: "${newAddress}"`
-    );
-    const putResponse = await API_CONFIG.smartFetch(putUrl, {
-        method: 'PUT',
-        headers: {
-            ...authHeaders,
-            'Content-Type': 'application/json;charset=UTF-8',
-            Accept: 'application/json',
-        },
-        body: JSON.stringify(orderData),
-    });
-
-    if (!putResponse.ok) {
-        throw new Error(`PUT failed: ${putResponse.status}`);
-    }
-
-    console.log(
-        `[SALE-ADDRESS-FIX] Address fixed successfully for FastSaleOrder(${fastSaleOrderId})`
-    );
-}
-
-/**
  * Show modal when order creation fails due to insufficient inventory
  * @param {string[]} errors - Array of error strings from result.Errors
  */
@@ -1258,7 +1067,7 @@ function showInventoryErrorModal(errors) {
     const productLines = [];
     const otherLines = [];
 
-    errors.forEach((e) => {
+    errors.forEach(e => {
         if (typeof e === 'string' && e.includes('không đủ tồn kho')) {
             const colonIdx = e.indexOf(':');
             if (colonIdx >= 0) {
@@ -1276,22 +1085,17 @@ function showInventoryErrorModal(errors) {
 
     const overlay = document.createElement('div');
     overlay.id = 'inventoryErrorModal';
-    overlay.style.cssText =
-        'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;';
 
-    const productListHtml = productLines
-        .map(
-            (p) =>
-                `<div style="padding:8px 12px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;margin-bottom:6px;color:#991b1b;font-size:13px;font-weight:500;">
+    const productListHtml = productLines.map(p =>
+        `<div style="padding:8px 12px;background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;margin-bottom:6px;color:#991b1b;font-size:13px;font-weight:500;">
             <span style="margin-right:6px;">&#10060;</span>${p}
         </div>`
-        )
-        .join('');
+    ).join('');
 
-    const otherHtml =
-        otherLines.length > 0
-            ? `<div style="color:#92400e;font-size:12px;margin-top:8px;padding:6px 10px;background:#fef3c7;border-radius:4px;">${otherLines.join('<br>')}</div>`
-            : '';
+    const otherHtml = otherLines.length > 0
+        ? `<div style="color:#92400e;font-size:12px;margin-top:8px;padding:6px 10px;background:#fef3c7;border-radius:4px;">${otherLines.join('<br>')}</div>`
+        : '';
 
     overlay.innerHTML = `
         <div style="background:white;border-radius:12px;padding:24px;max-width:480px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
@@ -1332,19 +1136,16 @@ function buildSaleOrderModelForInsertList() {
     const partner = currentSalePartnerData;
 
     // Get form values
-    const receiverName =
-        document.getElementById('saleReceiverName')?.value || order.PartnerName || '';
-    const receiverPhone =
-        document.getElementById('saleReceiverPhone')?.value || order.PartnerPhone || '';
+    const receiverName = document.getElementById('saleReceiverName')?.value || order.PartnerName || '';
+    const receiverPhone = document.getElementById('saleReceiverPhone')?.value || order.PartnerPhone || '';
     const receiverAddress = document.getElementById('saleReceiverAddress')?.value || null;
     const deliveryNote = document.getElementById('saleDeliveryNote')?.value || '';
     const comment = document.getElementById('saleReceiverNote')?.value || '';
 
     const shippingFeeValue = document.getElementById('saleShippingFee')?.value;
-    const shippingFee =
-        shippingFeeValue !== '' && shippingFeeValue !== null && shippingFeeValue !== undefined
-            ? parseFloat(shippingFeeValue)
-            : 35000;
+    const shippingFee = (shippingFeeValue !== '' && shippingFeeValue !== null && shippingFeeValue !== undefined)
+        ? parseFloat(shippingFeeValue)
+        : 35000;
 
     const codValue = parseFloat(document.getElementById('saleCOD')?.value) || 0;
     const walletBalance = parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;
@@ -1358,8 +1159,7 @@ function buildSaleOrderModelForInsertList() {
     const carrierSelect = document.getElementById('saleDeliveryPartner');
     const carrierId = carrierSelect?.value ? parseInt(carrierSelect.value) : 0;
     const selectedOption = carrierSelect?.selectedOptions[0];
-    const carrierName =
-        selectedOption?.dataset?.name || selectedOption?.text?.replace(/\s*\([^)]*\)$/, '') || '';
+    const carrierName = selectedOption?.dataset?.name || selectedOption?.text?.replace(/\s*\([^)]*\)$/, '') || '';
 
     // Get current user ID
     const currentUserId = window.tokenManager?.userId || window.currentUser?.Id || null;
@@ -1372,9 +1172,7 @@ function buildSaleOrderModelForInsertList() {
     const decreaseAmount = parseInt(document.getElementById('saleDiscount')?.value) || 0;
     const finalAmountTotal = originalAmountTotal - decreaseAmount;
     if (decreaseAmount > 0) {
-        console.log(
-            `[SALE-DISCOUNT] DecreaseAmount: ${decreaseAmount.toLocaleString('vi-VN')}đ, AmountTotal: ${finalAmountTotal.toLocaleString('vi-VN')}đ`
-        );
+        console.log(`[SALE-DISCOUNT] DecreaseAmount: ${decreaseAmount.toLocaleString('vi-VN')}đ, AmountTotal: ${finalAmountTotal.toLocaleString('vi-VN')}đ`);
     }
 
     // Build model matching InsertListOrderModel format
@@ -1409,13 +1207,13 @@ function buildSaleOrderModelForInsertList() {
         DateInvoice: new Date().toISOString(),
         DateCreated: new Date().toISOString(),
         CreatedById: null,
-        State: 'draft',
-        ShowState: 'Nháp',
+        State: "draft",
+        ShowState: "Nháp",
         CompanyId: 0,
         Comment: comment,
         WarehouseId: 0,
-        SaleOnlineIds: order.Id && !order._isSocialOrder ? [order.Id] : [],
-        SaleOnlineNames: order.Code && !order._isSocialOrder ? [order.Code] : [],
+        SaleOnlineIds: (order.Id && !order._isSocialOrder) ? [order.Id] : [],
+        SaleOnlineNames: (order.Code && !order._isSocialOrder) ? [order.Code] : [],
         Residual: null,
         Type: null,
         RefundOrderId: null,
@@ -1441,11 +1239,11 @@ function buildSaleOrderModelForInsertList() {
         TrackingArea: null,
         TrackingTransport: null,
         TrackingSortLine: null,
-        TrackingUrl: '',
+        TrackingUrl: "",
         IsProductDefault: false,
         TrackingRefSort: null,
-        ShipStatus: 'none',
-        ShowShipStatus: 'Chưa tiếp nhận',
+        ShipStatus: "none",
+        ShowShipStatus: "Chưa tiếp nhận",
         SaleOnlineName: order.Code || '',
         PartnerShippingId: null,
         PaymentJournalId: prepaidAmount > 0 ? 1 : null,
@@ -1505,7 +1303,7 @@ function buildSaleOrderModelForInsertList() {
         IsPickUpAtShop: null,
         DateDeposit: prepaidAmount > 0 ? new Date().toISOString() : null,
         IsRefund: null,
-        StateCode: 'None',
+        StateCode: "None",
         ActualPaymentAmount: null,
         RowVersion: null,
         ExchangeRate: null,
@@ -1514,41 +1312,10 @@ function buildSaleOrderModelForInsertList() {
         WiInvoiceId: null,
         WiInvoiceChannelId: null,
         WiInvoiceStatus: null,
-        WiInvoiceTrackingUrl: '',
+        WiInvoiceTrackingUrl: "",
         WiInvoiceIsReplate: false,
         FormAction: null,
-        Ship_Receiver: {
-            IsNewAddress: false,
-            Name: receiverName,
-            Phone: receiverPhone,
-            Street: receiverAddress,
-            City: partner?.ExtraAddress?.City || null,
-            District: partner?.ExtraAddress?.District || null,
-            Ward: partner?.ExtraAddress?.Ward || null,
-            ExtraAddress: {
-                Street: receiverAddress,
-                NewStreet: null,
-                City: partner?.ExtraAddress?.City || { name: null, nameNoSign: null, code: null },
-                District: partner?.ExtraAddress?.District || {
-                    name: null,
-                    nameNoSign: null,
-                    code: null,
-                    cityName: null,
-                    cityCode: null,
-                },
-                Ward: partner?.ExtraAddress?.Ward || {
-                    name: null,
-                    nameNoSign: null,
-                    code: null,
-                    cityName: null,
-                    cityCode: null,
-                    districtName: null,
-                    districtCode: null,
-                },
-                NewCity: null,
-                NewWard: null,
-            },
-        },
+        Ship_Receiver: null,
         Ship_Extras: null,
         PaymentInfo: [],
         Search: null,
@@ -1556,8 +1323,8 @@ function buildSaleOrderModelForInsertList() {
             PackageInfo: {
                 PackageLength: 0,
                 PackageWidth: 0,
-                PackageHeight: 0,
-            },
+                PackageHeight: 0
+            }
         },
         OrderMergeds: [],
         OrderAfterMerged: null,
@@ -1569,10 +1336,10 @@ function buildSaleOrderModelForInsertList() {
         PackageInfo: {
             PackageLength: 0,
             PackageWidth: 0,
-            PackageHeight: 0,
+            PackageHeight: 0
         },
         Error: null,
-        OrderLines: orderLines.map((line) => ({
+        OrderLines: orderLines.map(line => ({
             Id: 0,
             OrderId: 0,
             ProductId: line.ProductId,
@@ -1597,7 +1364,7 @@ function buildSaleOrderModelForInsertList() {
             SaleLineIds: [],
             ProductNameGet: null,
             SaleLineId: null,
-            Type: 'fixed',
+            Type: "fixed",
             PromotionProgramId: null,
             Note: line.Note || null,
             FacebookPostId: null,
@@ -1609,7 +1376,7 @@ function buildSaleOrderModelForInsertList() {
             PromotionProgramComboId: null,
             LiveCampaign_DetailId: null,
             LiveCampaignQtyChange: 0,
-            ProductImageUrl: '',
+            ProductImageUrl: "",
             SaleOnlineDetailId: line.SaleOnlineDetailId || null,
             PriceCheck: null,
             IsNotEnoughInventory: null,
@@ -1617,7 +1384,7 @@ function buildSaleOrderModelForInsertList() {
             CreatedById: null,
             TrackingRef: null,
             ReturnTotal: 0,
-            ConversionPrice: null,
+            ConversionPrice: null
         })),
         Partner: {
             Id: partner?.Id || order.PartnerId || 0,
@@ -1626,19 +1393,17 @@ function buildSaleOrderModelForInsertList() {
             Street: receiverAddress,
             Phone: receiverPhone,
             Customer: true,
-            Type: 'contact',
-            CompanyType: 'person',
+            Type: "contact",
+            CompanyType: "person",
             DateCreated: new Date().toISOString(),
-            ExtraAddress: partner?.ExtraAddress
-                ? { ...partner.ExtraAddress, Street: receiverAddress }
-                : { Street: receiverAddress || null, City: {}, District: {}, Ward: {} },
+            ExtraAddress: partner?.ExtraAddress || null
         },
         Carrier: {
             Id: carrierId,
             Name: carrierName,
-            DeliveryType: 'fixed',
-            Config_DefaultFee: shippingFee,
-        },
+            DeliveryType: "fixed",
+            Config_DefaultFee: shippingFee
+        }
     };
 }
 
@@ -1655,13 +1420,7 @@ function buildSaleOrderModelForInsertList() {
  * @param {boolean} hasVirtualDebt - Whether order uses virtual debt from return ticket
  * @deprecated Use window.fetchAndPrintTPOSBill from bill-service.js
  */
-async function fetchAndPrintTPOSBill(
-    orderId,
-    headers,
-    orderData,
-    walletBalance = null,
-    hasVirtualDebt = false
-) {
+async function fetchAndPrintTPOSBill(orderId, headers, orderData, walletBalance = null, hasVirtualDebt = false) {
     try {
         console.log('[SALE-CONFIRM] Fetching HTML bill for order:', orderId);
 
@@ -1671,8 +1430,8 @@ async function fetchAndPrintTPOSBill(
             method: 'GET',
             headers: {
                 ...headers,
-                accept: 'application/json, text/javascript, */*; q=0.01',
-            },
+                'accept': 'application/json, text/javascript, */*; q=0.01'
+            }
         });
 
         if (!response.ok) {
@@ -1691,12 +1450,13 @@ async function fetchAndPrintTPOSBill(
         console.log('[SALE-CONFIRM] Order data for STT:', {
             SessionIndex: orderData?.SessionIndex,
             IsMerged: orderData?.IsMerged,
-            OriginalOrders: orderData?.OriginalOrders?.length,
+            OriginalOrders: orderData?.OriginalOrders?.length
         });
 
         if (orderData?.IsMerged && orderData?.OriginalOrders?.length > 1) {
-            const allSTTs = orderData.OriginalOrders.map((o) => o.SessionIndex)
-                .filter((stt) => stt)
+            const allSTTs = orderData.OriginalOrders
+                .map(o => o.SessionIndex)
+                .filter(stt => stt)
                 .sort((a, b) => (parseInt(a) || 0) - (parseInt(b) || 0));
             sttDisplay = allSTTs.join(', ');
         } else {
@@ -1710,8 +1470,7 @@ async function fetchAndPrintTPOSBill(
             // Find "Người bán:" div and add STT after it
             // HTML may have "á" as either literal or HTML entity (&#225;)
             // Pattern: <div>...<strong>Người bán:</strong> text</div>
-            const nguoiBanRegex =
-                /(<div[^>]*>\s*<strong>Người\s+b(?:á|&#225;|&aacute;)n:<\/strong>[^<]*<\/div>)/i;
+            const nguoiBanRegex = /(<div[^>]*>\s*<strong>Người\s+b(?:á|&#225;|&aacute;)n:<\/strong>[^<]*<\/div>)/i;
 
             if (nguoiBanRegex.test(modifiedHtml)) {
                 modifiedHtml = modifiedHtml.replace(
@@ -1720,10 +1479,7 @@ async function fetchAndPrintTPOSBill(
                 );
                 console.log('[SALE-CONFIRM] Added STT to bill:', sttDisplay);
             } else {
-                console.log(
-                    '[SALE-CONFIRM] Could not find "Người bán" in HTML. HTML contains nguoi ban?',
-                    modifiedHtml.includes('Người') || modifiedHtml.includes('nguoi')
-                );
+                console.log('[SALE-CONFIRM] Could not find "Người bán" in HTML. HTML contains nguoi ban?', modifiedHtml.includes('Người') || modifiedHtml.includes('nguoi'));
             }
         } else {
             console.log('[SALE-CONFIRM] No STT to display');
@@ -1744,22 +1500,13 @@ async function fetchAndPrintTPOSBill(
 
         // Open print popup with modified HTML (use BillService)
         window.openPrintPopupWithHtml(modifiedHtml);
+
     } catch (error) {
         console.error('[SALE-CONFIRM] Error fetching HTML bill:', error);
         // Fallback to custom bill if TPOS API fails
         // Pass walletBalance for correct calculation (form field may have been modified by debt update)
-        console.log(
-            '[SALE-CONFIRM] Falling back to custom bill with walletBalance:',
-            walletBalance
-        );
-        window.openPrintPopup(
-            { Id: orderId },
-            {
-                currentSaleOrderData: orderData,
-                walletBalance: walletBalance,
-                hasVirtualDebt: hasVirtualDebt,
-            }
-        );
+        console.log('[SALE-CONFIRM] Falling back to custom bill with walletBalance:', walletBalance);
+        window.openPrintPopup({ Id: orderId }, { currentSaleOrderData: orderData, walletBalance: walletBalance, hasVirtualDebt: hasVirtualDebt });
     }
 }
 
@@ -1796,20 +1543,17 @@ function buildFastSaleOrderPayload() {
     const defaultData = window.lastDefaultSaleData || {};
 
     // Get form values
-    const receiverName =
-        document.getElementById('saleReceiverName')?.value || order.PartnerName || '';
-    const receiverPhone =
-        document.getElementById('saleReceiverPhone')?.value || order.PartnerPhone || '';
+    const receiverName = document.getElementById('saleReceiverName')?.value || order.PartnerName || '';
+    const receiverPhone = document.getElementById('saleReceiverPhone')?.value || order.PartnerPhone || '';
     const receiverAddressRaw = document.getElementById('saleReceiverAddress')?.value || '';
     const receiverAddress = receiverAddressRaw || null; // Use null instead of empty string
     const deliveryNote = document.getElementById('saleDeliveryNote')?.value || '';
 
     // 🔥 FIX: Use ?? instead of || to allow 0 value for shipping fee
     const shippingFeeValue = document.getElementById('saleShippingFee')?.value;
-    const shippingFee =
-        shippingFeeValue !== '' && shippingFeeValue !== null && shippingFeeValue !== undefined
-            ? parseFloat(shippingFeeValue)
-            : 35000;
+    const shippingFee = (shippingFeeValue !== '' && shippingFeeValue !== null && shippingFeeValue !== undefined)
+        ? parseFloat(shippingFeeValue)
+        : 35000;
 
     const codValue = parseFloat(document.getElementById('saleCOD')?.value) || 0;
     const walletBalance = parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;
@@ -1824,15 +1568,12 @@ function buildFastSaleOrderPayload() {
     const carrierId = carrierSelect?.value ? parseInt(carrierSelect.value) : 7;
     const selectedOption = carrierSelect?.selectedOptions[0];
     // Get carrier name from data-name attribute (clean name without fee), fallback to option text
-    const carrierName =
-        selectedOption?.dataset?.name ||
-        selectedOption?.text?.replace(/\s*\([^)]*\)$/, '') ||
-        'SHIP TỈNH';
+    const carrierName = selectedOption?.dataset?.name || selectedOption?.text?.replace(/\s*\([^)]*\)$/, '') || 'SHIP TỈNH';
     const carrierFee = parseFloat(selectedOption?.dataset?.fee) || shippingFee;
 
     // Get full carrier data from cache if available
     const cachedCarriers = getCachedDeliveryCarriers();
-    const fullCarrierData = cachedCarriers?.find((c) => c.Id === carrierId) || null;
+    const fullCarrierData = cachedCarriers?.find(c => c.Id === carrierId) || null;
 
     // Build order lines from current products (with full Product data)
     const orderLines = buildOrderLines();
@@ -1850,9 +1591,7 @@ function buildFastSaleOrderPayload() {
         if (totalDiscount > 0) {
             decreaseAmountPayload = totalDiscount;
             finalAmountTotalPayload = originalAmountTotal - decreaseAmountPayload;
-            console.log(
-                `[SALE-PAYLOAD-DISCOUNT] Applied ${decreaseAmountPayload.toLocaleString('vi-VN')}đ discount`
-            );
+            console.log(`[SALE-PAYLOAD-DISCOUNT] Applied ${decreaseAmountPayload.toLocaleString('vi-VN')}đ discount`);
         }
     }
 
@@ -2011,53 +1750,18 @@ function buildFastSaleOrderPayload() {
             Name: receiverName,
             Phone: receiverPhone,
             Street: null,
-            City: {
-                name: null,
-                code: null,
-                cityCode: null,
-                cityName: null,
-                districtCode: null,
-                districtName: null,
-            },
-            District: {
-                name: null,
-                code: null,
-                cityCode: null,
-                cityName: null,
-                districtCode: null,
-                districtName: null,
-            },
-            Ward: {
-                name: null,
-                code: null,
-                cityCode: null,
-                cityName: null,
-                districtCode: null,
-                districtName: null,
-            },
+            City: { name: null, code: null, cityCode: null, cityName: null, districtCode: null, districtName: null },
+            District: { name: null, code: null, cityCode: null, cityName: null, districtCode: null, districtName: null },
+            Ward: { name: null, code: null, cityCode: null, cityName: null, districtCode: null, districtName: null },
             ExtraAddress: {
                 Street: null,
                 NewStreet: null,
                 City: { name: null, nameNoSign: null, code: null },
-                District: {
-                    name: null,
-                    nameNoSign: null,
-                    code: null,
-                    cityName: null,
-                    cityCode: null,
-                },
-                Ward: {
-                    name: null,
-                    nameNoSign: null,
-                    code: null,
-                    cityName: null,
-                    cityCode: null,
-                    districtName: null,
-                    districtCode: null,
-                },
+                District: { name: null, nameNoSign: null, code: null, cityName: null, cityCode: null },
+                Ward: { name: null, nameNoSign: null, code: null, cityName: null, cityCode: null, districtName: null, districtCode: null },
                 NewCity: null,
-                NewWard: null,
-            },
+                NewWard: null
+            }
         },
         Ship_Extras: {
             PickWorkShift: null,
@@ -2085,13 +1789,13 @@ function buildFastSaleOrderPayload() {
             IsInsuranceEqualTotalAmount: false,
             IsReturn: false,
             IsSenderAddress: false,
-            SenderAddress: { Street: null, City: null, District: null, Ward: null },
+            SenderAddress: { Street: null, City: null, District: null, Ward: null }
         },
         PaymentInfo: [],
         Search: null,
         ShipmentDetailsAship: {
             ConfigsProvider: [],
-            PackageInfo: { PackageLength: 0, PackageWidth: 0, PackageHeight: 0 },
+            PackageInfo: { PackageLength: 0, PackageWidth: 0, PackageHeight: 0 }
         },
         OrderMergeds: [],
         OrderAfterMerged: null,
@@ -2109,20 +1813,14 @@ function buildFastSaleOrderPayload() {
         Journal: window.lastDefaultSaleData?.Journal || null,
         PaymentJournal: window.lastDefaultSaleData?.PaymentJournal || null,
         Partner: partner || null,
-        Carrier: fullCarrierData || {
-            Id: carrierId,
-            Name: carrierName,
-            DeliveryType: 'fixed',
-            Config_DefaultFee: carrierFee,
-            Active: true,
-        },
+        Carrier: fullCarrierData || { Id: carrierId, Name: carrierName, DeliveryType: 'fixed', Config_DefaultFee: carrierFee, Active: true },
         Tax: null,
         SaleOrder: null,
         DestConvertCurrencyUnit: null,
         Ship_ServiceExtras: [],
         OrderLines: orderLines,
         OfferAmountDetails: [],
-        Account: window.lastDefaultSaleData?.Account || null,
+        Account: window.lastDefaultSaleData?.Account || null
     };
 
     return payload;
@@ -2136,7 +1834,7 @@ function buildOrderLines() {
 
     // Use orderLines from API (stored by populateSaleOrderLinesFromAPI)
     if (order?.orderLines && order.orderLines.length > 0) {
-        return order.orderLines.map((item) => {
+        return order.orderLines.map(item => {
             const qty = item.ProductUOMQty || item.Quantity || 1;
             const price = item.PriceUnit || item.Price || 0;
             const total = qty * price;
@@ -2161,14 +1859,14 @@ function buildOrderLines() {
                 ProductUOM: item.ProductUOM || { Id: 1, Name: 'Cái', Factor: 1, FactorInv: 1 }, // Include full ProductUOM
                 Discount_Fixed: item.Discount_Fixed || 0,
                 Type: item.Type || 'fixed',
-                WeightTotal: item.WeightTotal || 0,
+                WeightTotal: item.WeightTotal || 0
             };
         });
     }
 
     // Fallback to order.Details if orderLines not available
     if (order?.Details && order.Details.length > 0) {
-        return order.Details.map((detail) => {
+        return order.Details.map(detail => {
             const price = detail.Price || 0;
             const quantity = detail.Quantity || 1;
             const total = price * quantity;
@@ -2193,7 +1891,7 @@ function buildOrderLines() {
                 ProductUOM: { Id: 1, Name: 'Cái', Factor: 1, FactorInv: 1 },
                 Discount_Fixed: 0,
                 Type: 'fixed',
-                WeightTotal: 0,
+                WeightTotal: 0
             };
         });
     }
@@ -2261,12 +1959,7 @@ if (typeof updateChatProductQuantity !== 'undefined') {
 
 // Chat Product Manager - For Orders tab in right panel
 window.chatProductManager = {
-    addProductFromSearch:
-        typeof addChatProductFromSearch !== 'undefined'
-            ? addChatProductFromSearch
-            : function () {
-                  console.warn('addChatProductFromSearch not loaded yet');
-              },
+    addProductFromSearch: typeof addChatProductFromSearch !== 'undefined' ? addChatProductFromSearch : function() { console.warn('addChatProductFromSearch not loaded yet'); },
     renderInvoiceHistory: function () {
         // TODO: Implement invoice history rendering
         const container = document.getElementById('chatInvoiceHistoryContainer');
@@ -2279,5 +1972,6 @@ window.chatProductManager = {
                 </div>
             `;
         }
-    },
+    }
 };
+
