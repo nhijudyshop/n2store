@@ -83,7 +83,7 @@
 
     async function loadFullDayOverrides() {
         try {
-            const snapshot = await db.collection(COLLECTIONS.fullday).get();
+            const snapshot = await serverGet(db.collection(COLLECTIONS.fullday));
             fullDayOverrides = new Set();
             snapshot.forEach(doc => fullDayOverrides.add(doc.id));
             console.log(`[Attendance] Loaded ${fullDayOverrides.size} fullday overrides`);
@@ -126,9 +126,8 @@
         if (!currentMonth) return;
         const monthKey = `${currentMonth.year}-${String(currentMonth.month).padStart(2, '0')}`;
         try {
-            const snapshot = await db.collection(COLLECTIONS.allowances)
-                .where('monthKey', '==', monthKey)
-                .get();
+            const snapshot = await serverGet(db.collection(COLLECTIONS.allowances)
+                .where('monthKey', '==', monthKey));
             monthlyAllowances = {};
             snapshot.forEach(doc => {
                 const data = doc.data();
@@ -224,9 +223,8 @@
         if (!currentMonth) return;
         const monthKey = `${currentMonth.year}-${String(currentMonth.month).padStart(2, '0')}`;
         try {
-            const snapshot = await db.collection(COLLECTIONS.payroll)
-                .where('monthKey', '==', monthKey)
-                .get();
+            const snapshot = await serverGet(db.collection(COLLECTIONS.payroll)
+                .where('monthKey', '==', monthKey));
             payrollDataMap = {};
             snapshot.forEach(doc => {
                 const data = doc.data();
@@ -673,10 +671,19 @@
     // DATA LOADING
     // ================================================================
 
+    /** Firestore get() force server, fallback cache */
+    async function serverGet(query) {
+        try {
+            return await query.get({ source: 'server' });
+        } catch (e) {
+            return await query.get();
+        }
+    }
+
     /** Load danh sách nhân viên từ máy chấm công */
     async function loadEmployees() {
         try {
-            const snapshot = await db.collection(COLLECTIONS.deviceUsers).get();
+            const snapshot = await serverGet(db.collection(COLLECTIONS.deviceUsers));
             employees = [];
             snapshot.forEach(doc => {
                 employees.push({ ...doc.data(), id: doc.id });
@@ -697,10 +704,9 @@
         const endKey = toDateKey(dates[6]);
 
         try {
-            const snapshot = await db.collection(COLLECTIONS.records)
+            const snapshot = await serverGet(db.collection(COLLECTIONS.records)
                 .where('dateKey', '>=', startKey)
-                .where('dateKey', '<=', endKey)
-                .get();
+                .where('dateKey', '<=', endKey));
 
             weekRecords = [];
             snapshot.forEach(doc => {
@@ -731,10 +737,9 @@
         const endKey = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
         try {
-            const snapshot = await db.collection(COLLECTIONS.records)
+            const snapshot = await serverGet(db.collection(COLLECTIONS.records)
                 .where('dateKey', '>=', startKey)
-                .where('dateKey', '<=', endKey)
-                .get();
+                .where('dateKey', '<=', endKey));
 
             monthRecords = [];
             snapshot.forEach(doc => {
