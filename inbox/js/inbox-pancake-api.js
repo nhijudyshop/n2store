@@ -586,24 +586,30 @@ class InboxPancakeAPI {
             for (const pageId of ids) {
                 let pat = this.tm.getPageAccessToken(pageId);
                 if (!pat) pat = await this.tm.generatePageAccessToken(pageId);
-                if (!pat) { errors.push({ pageId, code: 'NO_TOKEN' }); continue; }
+                if (!pat) { console.warn(`[INBOX-API] Page ${pageId}: NO PAT`); errors.push({ pageId, code: 'NO_TOKEN' }); continue; }
 
                 const url = InboxApiConfig.buildUrl.pancakeOfficialV2(
                     `pages/${pageId}/conversations`, pat
-                ) + '&unread_first=true';
+                );
 
                 try {
                     const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
-                    if (!res.ok) { errors.push({ pageId, code: res.status }); continue; }
+                    if (!res.ok) { console.warn(`[INBOX-API] Page ${pageId}: HTTP ${res.status}`); errors.push({ pageId, code: res.status }); continue; }
                     const data = await res.json();
+                    if (data.error_code) {
+                        console.warn(`[INBOX-API] Page ${pageId}: API error ${data.error_code} - ${data.message || ''}`);
+                        errors.push({ pageId, code: data.error_code, message: data.message });
+                        continue;
+                    }
                     if (data.conversations) {
+                        console.log(`[INBOX-API] Page ${pageId}: ${data.conversations.length} conversations`);
                         allConvs.push(...data.conversations);
                         const convs = data.conversations;
                         if (convs.length > 0) {
                             this._lastConvId[pageId] = convs[convs.length - 1].id;
                         }
                     }
-                } catch (e) { errors.push({ pageId, message: e.message }); }
+                } catch (e) { console.warn(`[INBOX-API] Page ${pageId}: ${e.message}`); errors.push({ pageId, message: e.message }); }
             }
 
             return { conversations: allConvs, error: errors.length > 0 ? errors : null };

@@ -183,10 +183,17 @@ class InboxDataManager {
         const pdm = window.inboxPancakeAPI;
         // New API already returns { conversations, error } format
         const result = await pdm.fetchConversations();
+
+        // If some pages succeeded and some failed, keep the successful conversations
+        // Only report full error if ALL pages failed (0 conversations)
         if (result.error) {
             const errCode = Array.isArray(result.error) ? result.error[0]?.code : result.error?.code;
             const errMsg = Array.isArray(result.error) ? result.error[0]?.message : result.error?.message;
-            console.error(`[InboxData] Pancake API error: code=${errCode}, message="${errMsg}"`);
+            console.warn(`[InboxData] Pancake API partial error: code=${errCode}, message="${errMsg}", convs=${result.conversations?.length || 0}`);
+            if (result.conversations && result.conversations.length > 0) {
+                // Some pages succeeded — use what we got
+                return { conversations: result.conversations, error: null };
+            }
             return { conversations: [], error: errCode, message: errMsg };
         }
         return { conversations: result.conversations || [], error: null };
