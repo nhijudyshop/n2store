@@ -697,10 +697,16 @@ class InboxPancakeAPI {
             if (customerId) url += `&customer_id=${customerId}`;
             if (currentCount !== null) url += `&current_count=${currentCount}`;
 
+            console.log('[INBOX-API] fetchMessages URL:', url);
             const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            if (!res.ok) {
+                const errText = await res.text().catch(() => '');
+                console.error('[INBOX-API] fetchMessages HTTP error:', res.status, errText.slice(0, 200));
+                throw new Error(`HTTP ${res.status}`);
+            }
 
             const data = await res.json();
+            console.log('[INBOX-API] fetchMessages response:', { messageCount: data.messages?.length, keys: Object.keys(data), error: data.error });
             const result = {
                 messages: data.messages || [],
                 conversation: data.conversation || null,
