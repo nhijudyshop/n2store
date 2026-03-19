@@ -94,6 +94,12 @@ class PancakePhoenixSocket {
             const [joinRef, ref, topic, event, payload] = data;
 
             if (event === 'phx_reply') {
+                // Heartbeat reply — clear timeout
+                if (topic === 'phoenix') {
+                    if (this.heartbeatTimeout) { clearTimeout(this.heartbeatTimeout); this.heartbeatTimeout = null; }
+                    return;
+                }
+                // Channel join reply
                 if (payload?.status === 'ok') {
                     this.joinedChannels.add(topic);
                     console.log('[PHOENIX] Joined:', topic);
@@ -104,11 +110,6 @@ class PancakePhoenixSocket {
                 } else if (payload?.status === 'error') {
                     console.warn('[PHOENIX] Join error:', topic, payload?.response?.reason || payload);
                 }
-                return;
-            }
-
-            if (topic === 'phoenix' && event === 'phx_reply') {
-                if (this.heartbeatTimeout) { clearTimeout(this.heartbeatTimeout); this.heartbeatTimeout = null; }
                 return;
             }
 
