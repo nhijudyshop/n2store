@@ -123,30 +123,7 @@ class InboxDataManager {
      * Fetch groups from server (call after init, async)
      */
     async loadGroupsFromServer() {
-        const workerUrl = InboxApiConfig?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
-        try {
-            const response = await fetch(`${workerUrl}/api/realtime/inbox-groups`);
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            const data = await response.json();
-            if (data.groups?.length > 0) {
-                this.groups = data.groups.map(g => ({
-                    id: g.id,
-                    name: g.name,
-                    color: g.color || '#3b82f6',
-                    note: g.note || '',
-                    count: 0,
-                }));
-                localStorage.setItem('inbox_groups', JSON.stringify(this.groups));
-                console.log(`[InboxData] Loaded ${this.groups.length} groups from server`);
-            } else {
-                // Server empty → seed defaults
-                console.log('[InboxData] No groups on server, seeding defaults');
-                this.groups = DEFAULT_GROUPS.map(g => ({ ...g }));
-                this.saveGroupsToServer();
-            }
-        } catch (err) {
-            // Silently fall back to localStorage (Render server may not have this endpoint)
-        }
+        // Render server has no endpoint — use localStorage only
     }
 
     /**
@@ -154,19 +131,8 @@ class InboxDataManager {
      */
     async saveGroupsToServer() {
         localStorage.setItem('inbox_groups', JSON.stringify(this.groups));
-        const workerUrl = InboxApiConfig?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        // Render server has no endpoint — localStorage only
         try {
-            const resp = await fetch(`${workerUrl}/api/realtime/inbox-groups`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    groups: this.groups.map((g, i) => ({
-                        id: g.id, name: g.name, color: g.color, note: g.note || '', sort_order: i
-                    }))
-                })
-            });
-            if (!resp.ok) throw new Error(`Server ${resp.status}`);
-            console.log('[InboxData] Groups saved to server');
             return true;
         } catch (err) {
             console.error('[InboxData] Failed to save groups to server:', err.message);
@@ -737,70 +703,11 @@ class InboxDataManager {
         this.recalculateGroupCounts();
         this.save();
 
-        // Save to dedicated conversation_labels table on server
-        const workerUrl = InboxApiConfig?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
-        fetch(`${workerUrl}/api/realtime/conversation-label`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ convId, labels: JSON.stringify(labels) })
-        }).catch(err => console.warn('[InboxData] Failed to save label to server:', err.message));
+        // Render server has no endpoint — localStorage only
     }
 
     async syncLabelsFromServer() {
-        const workerUrl = InboxApiConfig?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
-        try {
-            const response = await fetch(`${workerUrl}/api/realtime/conversation-labels`);
-            if (!response.ok) return;
-            const data = await response.json();
-            if (!data.success || !data.labelMap) return;
-
-            let updated = 0;
-            const serverConvIds = new Set(Object.keys(data.labelMap));
-
-            // Server → local: apply server labels
-            for (const [convId, labelsStr] of Object.entries(data.labelMap)) {
-                let parsed;
-                try { parsed = JSON.parse(labelsStr); } catch { parsed = [labelsStr]; }
-                if (!Array.isArray(parsed)) parsed = [parsed];
-
-                if (JSON.stringify(this.labelMap[convId]) !== JSON.stringify(parsed)) {
-                    this.labelMap[convId] = parsed;
-                    const conv = this.getConversation(convId);
-                    if (conv) conv.labels = parsed;
-                    updated++;
-                }
-            }
-
-            // Local → server: bulk push local labels missing from server
-            const localOnly = {};
-            for (const [convId, labels] of Object.entries(this.labelMap)) {
-                if (serverConvIds.has(convId)) continue;
-                const arr = Array.isArray(labels) ? labels : [labels];
-                if (arr.length === 1 && arr[0] === 'new') continue;
-                localOnly[convId] = JSON.stringify(arr);
-            }
-
-            if (Object.keys(localOnly).length > 0) {
-                fetch(`${workerUrl}/api/realtime/conversation-labels/bulk`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ labelMap: localOnly })
-                }).catch(() => {});
-                console.log(`[InboxData] Pushed ${Object.keys(localOnly).length} local labels to server`);
-            }
-
-            if (updated > 0) {
-                this.saveLocalState();
-                this.recalculateGroupCounts();
-                if (window.inboxChat) {
-                    window.inboxChat.renderConversationList();
-                    window.inboxChat.renderGroupStats();
-                }
-                console.log(`[InboxData] Applied ${updated} labels from server`);
-            }
-        } catch (err) {
-            console.warn('[InboxData] Failed to sync labels:', err.message);
-        }
+        // Render server has no endpoint — labels stored in localStorage only
     }
 
     markAsRead(convId) {
@@ -850,6 +757,8 @@ class InboxDataManager {
      * Fetch pending customers from Render DB and merge unread data
      */
     async fetchPendingFromServer() {
+        // Render server has no endpoint — skip
+        return;
         try {
             const workerUrl = InboxApiConfig?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
             const response = await fetch(`${workerUrl}/api/realtime/pending-customers?limit=500`);
@@ -898,6 +807,8 @@ class InboxDataManager {
      * Returns { post_id: [{ conv_id, name, ... }] }
      */
     async fetchLivestreamFromServer() {
+        // Render server has no endpoint — skip
+        return;
         const workerUrl = InboxApiConfig?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
 
         try {
