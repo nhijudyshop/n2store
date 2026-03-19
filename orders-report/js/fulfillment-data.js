@@ -157,10 +157,6 @@
             });
             _notifyChange();
         });
-                }
-            });
-            _notifyChange();
-        });
 
         // Listener for invoice_status_delete_v2 - ALL users
         _unsubscribeDelete = db.collection(DELETE_COLLECTION).onSnapshot((snapshot) => {
