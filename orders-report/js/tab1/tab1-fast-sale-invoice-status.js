@@ -201,10 +201,12 @@
                         if (soId && !allKeys.includes(soId)) allKeys.push(soId);
                     });
                     this._refreshInvoiceStatusUI(allKeys);
-
-                    // Also sync to FulfillmentData in parent frame
-                    this._syncToFulfillmentData();
                 }
+
+                // 5. Sync to FulfillmentData in parent frame (always, even if empty)
+                this._syncToFulfillmentData();
+                // Retry sync after short delay (in case FulfillmentData not ready yet)
+                setTimeout(() => this._syncToFulfillmentData(), 2000);
             } catch (e) {
                 console.error('[INVOICE-STATUS] Error initializing store:', e);
                 this._initialized = true;
@@ -669,7 +671,10 @@
          */
         _syncToFulfillmentData() {
             const fd = window.parent?.FulfillmentData || window.FulfillmentData;
-            if (!fd || typeof fd.syncFromStore !== 'function') return;
+            if (!fd || typeof fd.syncFromStore !== 'function') {
+                console.warn('[INVOICE-STATUS] FulfillmentData not available for sync');
+                return;
+            }
 
             // Build grouped map: SaleOnlineId -> Array<entry>
             const grouped = new Map();
@@ -681,6 +686,7 @@
             });
 
             fd.syncFromStore(grouped);
+            console.log(`[INVOICE-STATUS] Synced ${grouped.size} orders to FulfillmentData`);
         },
 
         /**
@@ -2829,15 +2835,15 @@
         }
 
         // Listen for FulfillmentData changes to update fulfillment cells
-        const fd = window.parent?.FulfillmentData;
+        const fd = window.parent?.FulfillmentData || window.FulfillmentData;
         if (fd) {
             fd.onChange(() => {
                 // Update all fulfillment cells in the table
                 document.querySelectorAll('td[data-column="fulfillment"]').forEach((cell) => {
                     const row = cell.closest('tr');
-                    const orderIdMatch = row?.querySelector('[data-order-id]');
-                    if (orderIdMatch) {
-                        const orderId = orderIdMatch.getAttribute('data-order-id');
+                    // data-order-id is on the <tr> itself, not a child element
+                    const orderId = row?.getAttribute('data-order-id');
+                    if (orderId) {
                         const order = { Id: orderId, Code: '' };
                         cell.innerHTML = renderFulfillmentCell(order);
                     }
