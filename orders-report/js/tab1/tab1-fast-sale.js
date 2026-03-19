@@ -130,18 +130,21 @@ function orderHasDiscountTag(order) {
     let saleOnlineOrder = null;
     if (order.SaleOnlineIds && order.SaleOnlineIds.length > 0) {
         const saleOnlineId = order.SaleOnlineIds[0];
-        saleOnlineOrder = window.OrderStore?.get(saleOnlineId) || displayedData.find(o => o.Id === saleOnlineId);
+        saleOnlineOrder =
+            window.OrderStore?.get(saleOnlineId) ||
+            displayedData.find((o) => o.Id === saleOnlineId);
     }
 
     // Check Tags from saleOnlineOrder
     if (saleOnlineOrder?.Tags) {
         try {
-            const tags = typeof saleOnlineOrder.Tags === 'string'
-                ? JSON.parse(saleOnlineOrder.Tags)
-                : saleOnlineOrder.Tags;
+            const tags =
+                typeof saleOnlineOrder.Tags === 'string'
+                    ? JSON.parse(saleOnlineOrder.Tags)
+                    : saleOnlineOrder.Tags;
 
             if (Array.isArray(tags)) {
-                return tags.some(tag => {
+                return tags.some((tag) => {
                     const tagName = (tag.Name || '').toUpperCase();
                     return tagName.includes('GIẢM GIÁ') || tagName.includes('GIAM GIA');
                 });
@@ -164,20 +167,20 @@ function calculateOrderDiscount(order) {
     let totalDiscount = 0;
     const discountedProducts = [];
 
-    orderLines.forEach(line => {
+    orderLines.forEach((line) => {
         const note = line.Note || '';
-        const notePrice = parseDiscountFromNote(note);  // "100k" = 100000 (giá bán thực tế)
+        const notePrice = parseDiscountFromNote(note); // "100k" = 100000 (giá bán thực tế)
         if (notePrice > 0) {
             const priceUnit = line.PriceUnit || 0;
             const qty = line.ProductUOMQty || 1;
-            const discountPerUnit = priceUnit - notePrice;  // 180000 - 100000 = 80000
+            const discountPerUnit = priceUnit - notePrice; // 180000 - 100000 = 80000
             if (discountPerUnit > 0) {
-                const lineDiscount = discountPerUnit * qty;  // 80000 * 2 = 160000
+                const lineDiscount = discountPerUnit * qty; // 80000 * 2 = 160000
                 totalDiscount += lineDiscount;
                 discountedProducts.push({
                     productName: line.ProductName || 'N/A',
                     discount: lineDiscount,
-                    note: note
+                    note: note,
                 });
             }
         }
@@ -195,14 +198,21 @@ async function fetchWalletBalancesForFastSale(phones) {
     if (!phones || phones.length === 0) return {};
 
     // Normalize and dedupe phones
-    const uniquePhones = [...new Set(phones.filter(p => p).map(p => {
-        // Use same normalization as normalizePhoneForQR
-        let cleaned = String(p).replace(/\D/g, '');
-        if (cleaned.startsWith('84') && cleaned.length > 9) {
-            cleaned = '0' + cleaned.substring(2);
-        }
-        return cleaned;
-    }).filter(p => p.length >= 9))];
+    const uniquePhones = [
+        ...new Set(
+            phones
+                .filter((p) => p)
+                .map((p) => {
+                    // Use same normalization as normalizePhoneForQR
+                    let cleaned = String(p).replace(/\D/g, '');
+                    if (cleaned.startsWith('84') && cleaned.length > 9) {
+                        cleaned = '0' + cleaned.substring(2);
+                    }
+                    return cleaned;
+                })
+                .filter((p) => p.length >= 9)
+        ),
+    ];
 
     if (uniquePhones.length === 0) return {};
 
@@ -212,7 +222,7 @@ async function fetchWalletBalancesForFastSale(phones) {
         const response = await fetch(`${QR_API_URL}/api/v2/wallets/batch-summary`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phones: uniquePhones })
+            body: JSON.stringify({ phones: uniquePhones }),
         });
 
         if (!response.ok) {
@@ -223,7 +233,9 @@ async function fetchWalletBalancesForFastSale(phones) {
         const result = await response.json();
 
         if (result.success && result.data) {
-            console.log(`[FAST-SALE] ✅ Fetched wallet balances for ${Object.keys(result.data).length} phones`);
+            console.log(
+                `[FAST-SALE] ✅ Fetched wallet balances for ${Object.keys(result.data).length} phones`
+            );
             return result.data;
         }
 
@@ -264,7 +276,8 @@ async function getBillAuthHeader() {
 
     // Check if billTokenManager has credentials
     if (!window.billTokenManager?.hasCredentials()) {
-        const errorMsg = 'Chưa cấu hình tài khoản TPOS cho bill. Vui lòng vào "Tài khoản TPOS" để cài đặt.';
+        const errorMsg =
+            'Chưa cấu hình tài khoản TPOS cho bill. Vui lòng vào "Tài khoản TPOS" để cài đặt.';
         window.notificationManager?.error(errorMsg, 5000);
         throw new Error(errorMsg);
     }
@@ -292,7 +305,7 @@ async function showFastSaleModal() {
 
     // Show modal with loading state
     modal.classList.add('show');
-    clearFastSaleStatus();  // Clear any previous status messages
+    clearFastSaleStatus(); // Clear any previous status messages
 
     // Reset confirm buttons state (in case they were disabled from previous session)
     const saveBtn = document.getElementById('confirmFastSaleBtn');
@@ -333,8 +346,9 @@ async function showFastSaleModal() {
         // Filter out orders with no products (TotalQuantity === 0)
         // These orders will cause API error "chưa có chi tiết"
         const emptyCartIds = [];
-        const selectedIds = allSelectedIds.filter(orderId => {
-            const order = window.OrderStore?.get(orderId) || displayedData.find(o => o.Id === orderId);
+        const selectedIds = allSelectedIds.filter((orderId) => {
+            const order =
+                window.OrderStore?.get(orderId) || displayedData.find((o) => o.Id === orderId);
             if (!order) return true; // Keep if can't find order data
             if (order.TotalQuantity === 0) {
                 emptyCartIds.push(order.Code || orderId);
@@ -345,7 +359,10 @@ async function showFastSaleModal() {
 
         // Show warning if some orders were filtered out
         if (emptyCartIds.length > 0) {
-            console.warn(`[FAST-SALE] Filtered out ${emptyCartIds.length} empty cart orders:`, emptyCartIds);
+            console.warn(
+                `[FAST-SALE] Filtered out ${emptyCartIds.length} empty cart orders:`,
+                emptyCartIds
+            );
             if (window.notificationManager) {
                 window.notificationManager.warning(
                     `Đã bỏ qua ${emptyCartIds.length} đơn giỏ trống (không có sản phẩm)`,
@@ -374,11 +391,13 @@ async function showFastSaleModal() {
 
         // DEDUPE: Remove duplicates by SaleOnlineIds[0] (source of truth)
         const seenIds = new Set();
-        fetchedOrders = fetchedOrders.filter(order => {
+        fetchedOrders = fetchedOrders.filter((order) => {
             const key = order.SaleOnlineIds?.[0];
             if (!key) return true; // Keep orders without SaleOnlineIds
             if (seenIds.has(key)) {
-                console.warn(`[FAST-SALE] Removed duplicate order: ${order.Reference} (SaleOnlineId: ${key})`);
+                console.warn(
+                    `[FAST-SALE] Removed duplicate order: ${order.Reference} (SaleOnlineId: ${key})`
+                );
                 return false;
             }
             seenIds.add(key);
@@ -399,12 +418,18 @@ async function showFastSaleModal() {
         // Filter out orders that already have confirmed/paid invoices
         // These orders should NOT be re-submitted to avoid duplicates
         const confirmedOrderCodes = [];
-        fastSaleOrdersData = fetchedOrders.filter(order => {
+        fastSaleOrdersData = fetchedOrders.filter((order) => {
             // Check 1: FastSaleOrder has confirmed/paid status from API
-            if (order.ShowState === 'Đã xác nhận' || order.ShowState === 'Đã thanh toán' || order.State === 'open') {
+            if (
+                order.ShowState === 'Đã xác nhận' ||
+                order.ShowState === 'Đã thanh toán' ||
+                order.State === 'open'
+            ) {
                 const code = order.Reference || order.SaleOnlineIds?.[0] || order.Id;
                 confirmedOrderCodes.push(code);
-                console.log(`[FAST-SALE] Skipping confirmed/paid order: ${code} (ShowState: ${order.ShowState}, State: ${order.State})`);
+                console.log(
+                    `[FAST-SALE] Skipping confirmed/paid order: ${code} (ShowState: ${order.ShowState}, State: ${order.State})`
+                );
                 return false;
             }
 
@@ -412,10 +437,17 @@ async function showFastSaleModal() {
             const saleOnlineId = order.SaleOnlineIds?.[0];
             if (saleOnlineId && window.InvoiceStatusStore) {
                 const invoiceData = window.InvoiceStatusStore.get(saleOnlineId);
-                if (invoiceData && (invoiceData.ShowState === 'Đã xác nhận' || invoiceData.ShowState === 'Đã thanh toán' || invoiceData.State === 'open')) {
+                if (
+                    invoiceData &&
+                    (invoiceData.ShowState === 'Đã xác nhận' ||
+                        invoiceData.ShowState === 'Đã thanh toán' ||
+                        invoiceData.State === 'open')
+                ) {
                     const code = order.Reference || saleOnlineId;
                     confirmedOrderCodes.push(code);
-                    console.log(`[FAST-SALE] Skipping order with confirmed/paid invoice in store: ${code}`);
+                    console.log(
+                        `[FAST-SALE] Skipping order with confirmed/paid invoice in store: ${code}`
+                    );
                     return false;
                 }
             }
@@ -426,7 +458,10 @@ async function showFastSaleModal() {
 
         // Show warning if some orders were filtered out due to confirmed/paid status
         if (confirmedOrderCodes.length > 0) {
-            console.warn(`[FAST-SALE] Filtered out ${confirmedOrderCodes.length} confirmed/paid orders:`, confirmedOrderCodes);
+            console.warn(
+                `[FAST-SALE] Filtered out ${confirmedOrderCodes.length} confirmed/paid orders:`,
+                confirmedOrderCodes
+            );
             if (window.notificationManager) {
                 window.notificationManager.warning(
                     `Đã bỏ qua ${confirmedOrderCodes.length} đơn đã có phiếu "Đã xác nhận" hoặc "Đã thanh toán"`,
@@ -437,7 +472,10 @@ async function showFastSaleModal() {
 
         // Check if all orders were filtered out
         if (fastSaleOrdersData.length === 0) {
-            showFastSaleStatus('Tất cả đơn đã có phiếu "Đã xác nhận" hoặc "Đã thanh toán"', 'warning');
+            showFastSaleStatus(
+                'Tất cả đơn đã có phiếu "Đã xác nhận" hoặc "Đã thanh toán"',
+                'warning'
+            );
             modalBody.innerHTML = `
                 <div class="merge-no-duplicates">
                     <i class="fas fa-exclamation-circle"></i>
@@ -452,26 +490,30 @@ async function showFastSaleModal() {
         const totalFiltered = emptyCartIds.length + confirmedOrderCodes.length;
         const filterDetails = [];
         if (emptyCartIds.length > 0) filterDetails.push(`${emptyCartIds.length} giỏ trống`);
-        if (confirmedOrderCodes.length > 0) filterDetails.push(`${confirmedOrderCodes.length} đã có phiếu`);
+        if (confirmedOrderCodes.length > 0)
+            filterDetails.push(`${confirmedOrderCodes.length} đã có phiếu`);
         const filteredInfo = totalFiltered > 0 ? ` (đã bỏ ${filterDetails.join(', ')})` : '';
         subtitle.innerHTML = `Đã chọn ${fastSaleOrdersData.length} đơn hàng${filteredInfo} ${tposAccountInfo}`;
 
         // Fetch wallet balances for all customer phones
-        const phones = fastSaleOrdersData.map(order => {
-            // Get phone from SaleOnlineOrder first
-            if (order.SaleOnlineIds && order.SaleOnlineIds.length > 0) {
-                const saleOnlineId = order.SaleOnlineIds[0];
-                const saleOnlineOrder = window.OrderStore?.get(saleOnlineId) || displayedData.find(o => o.Id === saleOnlineId);
-                if (saleOnlineOrder?.Telephone) return saleOnlineOrder.Telephone;
-            }
-            return order.PartnerPhone || order.Partner?.PartnerPhone;
-        }).filter(Boolean);
+        const phones = fastSaleOrdersData
+            .map((order) => {
+                // Get phone from SaleOnlineOrder first
+                if (order.SaleOnlineIds && order.SaleOnlineIds.length > 0) {
+                    const saleOnlineId = order.SaleOnlineIds[0];
+                    const saleOnlineOrder =
+                        window.OrderStore?.get(saleOnlineId) ||
+                        displayedData.find((o) => o.Id === saleOnlineId);
+                    if (saleOnlineOrder?.Telephone) return saleOnlineOrder.Telephone;
+                }
+                return order.PartnerPhone || order.Partner?.PartnerPhone;
+            })
+            .filter(Boolean);
 
         fastSaleWalletBalances = await fetchWalletBalancesForFastSale(phones);
 
         // Render modal body
         renderFastSaleModalBody();
-
     } catch (error) {
         console.error('[FAST-SALE] Error loading data:', error);
         showFastSaleStatus('Lỗi khi tải dữ liệu: ' + error.message, 'error');
@@ -494,7 +536,7 @@ function closeFastSaleModal() {
     // Reset state
     fastSaleOrdersData = [];
     window.fastSaleOrdersData = fastSaleOrdersData;
-    clearFastSaleStatus();  // Clear status message when closing modal
+    clearFastSaleStatus(); // Clear status message when closing modal
 }
 
 /**
@@ -508,7 +550,10 @@ function removeOrderFromFastSale(index) {
     }
 
     const removedOrder = fastSaleOrdersData[index];
-    console.log(`[FAST-SALE] Removing order at index ${index}:`, removedOrder.Reference || removedOrder.Id);
+    console.log(
+        `[FAST-SALE] Removing order at index ${index}:`,
+        removedOrder.Reference || removedOrder.Id
+    );
 
     // Remove from array
     fastSaleOrdersData.splice(index, 1);
@@ -552,31 +597,39 @@ async function fetchFastSaleOrdersData(orderIds) {
             batches.push(orderIds.slice(i, i + BATCH_SIZE));
         }
 
-        console.log(`[FAST-SALE] Split into ${batches.length} batches (max ${BATCH_SIZE} per batch)`);
+        console.log(
+            `[FAST-SALE] Split into ${batches.length} batches (max ${BATCH_SIZE} per batch)`
+        );
 
         // Fetch all batches in parallel
         const batchPromises = batches.map(async (batchIds, batchIndex) => {
-            console.log(`[FAST-SALE] Fetching batch ${batchIndex + 1}/${batches.length} (${batchIds.length} orders)...`);
+            console.log(
+                `[FAST-SALE] Fetching batch ${batchIndex + 1}/${batches.length} (${batchIds.length} orders)...`
+            );
 
             const response = await API_CONFIG.smartFetch(url, {
                 method: 'POST',
                 headers: {
                     ...headers,
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    ids: batchIds
-                })
+                    ids: batchIds,
+                }),
             });
 
             if (!response.ok) {
                 const errorText = await response.text();
-                console.error(`[FAST-SALE] Batch ${batchIndex + 1} failed: HTTP ${response.status}`);
+                console.error(
+                    `[FAST-SALE] Batch ${batchIndex + 1} failed: HTTP ${response.status}`
+                );
                 throw new Error(`HTTP ${response.status}: ${errorText}`);
             }
 
             const data = await response.json();
-            console.log(`[FAST-SALE] Batch ${batchIndex + 1} returned ${data.value?.length || 0} orders`);
+            console.log(
+                `[FAST-SALE] Batch ${batchIndex + 1} returned ${data.value?.length || 0} orders`
+            );
             return data.value || [];
         });
 
@@ -587,15 +640,20 @@ async function fetchFastSaleOrdersData(orderIds) {
         const allOrders = batchResults.flat();
 
         if (allOrders.length > 0) {
-            console.log(`[FAST-SALE] Successfully fetched ${allOrders.length} FastSaleOrders total`);
+            console.log(
+                `[FAST-SALE] Successfully fetched ${allOrders.length} FastSaleOrders total`
+            );
 
             // Enrich with SessionIndex from SaleOnlineOrder (displayedData)
-            const enrichedOrders = allOrders.map(order => {
+            const enrichedOrders = allOrders.map((order) => {
                 // Find matching SaleOnlineOrder by SaleOnlineIds
                 const saleOnlineId = order.SaleOnlineIds?.[0];
                 if (saleOnlineId) {
-                    const saleOnlineOrder = window.OrderStore?.get(saleOnlineId) ||
-                        displayedData.find(o => o.Id === saleOnlineId || String(o.Id) === String(saleOnlineId));
+                    const saleOnlineOrder =
+                        window.OrderStore?.get(saleOnlineId) ||
+                        displayedData.find(
+                            (o) => o.Id === saleOnlineId || String(o.Id) === String(saleOnlineId)
+                        );
                     if (saleOnlineOrder) {
                         order.SessionIndex = saleOnlineOrder.SessionIndex || '';
                         order.SaleOnlineOrder = saleOnlineOrder; // Store reference for later use
@@ -614,24 +672,27 @@ async function fetchFastSaleOrdersData(orderIds) {
 
         // Fallback: return basic data from displayedData
         console.warn('[FAST-SALE] Using fallback data from displayedData');
-        return orderIds.map(orderId => {
-            // O(1) via OrderStore with fallback
-            const order = window.OrderStore?.get(orderId) || displayedData.find(o => o.Id === orderId);
-            if (!order) return null;
+        return orderIds
+            .map((orderId) => {
+                // O(1) via OrderStore with fallback
+                const order =
+                    window.OrderStore?.get(orderId) || displayedData.find((o) => o.Id === orderId);
+                if (!order) return null;
 
-            return {
-                Id: null,
-                Reference: order.Code,
-                PartnerDisplayName: order.Name || order.PartnerName,
-                PartnerPhone: order.Telephone,
-                PartnerAddress: order.Address,
-                DeliveryPrice: 35000,
-                CarrierName: 'SHIP TỈNH',
-                SaleOnlineOrder: order,
-                OrderLines: order.Details || [],
-                NotFound: true
-            };
-        }).filter(o => o !== null);
+                return {
+                    Id: null,
+                    Reference: order.Code,
+                    PartnerDisplayName: order.Name || order.PartnerName,
+                    PartnerPhone: order.Telephone,
+                    PartnerAddress: order.Address,
+                    DeliveryPrice: 35000,
+                    CarrierName: 'SHIP TỈNH',
+                    SaleOnlineOrder: order,
+                    OrderLines: order.Details || [],
+                    NotFound: true,
+                };
+            })
+            .filter((o) => o !== null);
     }
 }
 
@@ -703,12 +764,16 @@ async function renderFastSaleModalBody() {
                 if (order.SaleOnlineIds && order.SaleOnlineIds.length > 0) {
                     const saleOnlineId = order.SaleOnlineIds[0];
                     // O(1) via OrderStore with fallback
-                    saleOnlineOrder = window.OrderStore?.get(saleOnlineId) || displayedData.find(o => o.Id === saleOnlineId);
+                    saleOnlineOrder =
+                        window.OrderStore?.get(saleOnlineId) ||
+                        displayedData.find((o) => o.Id === saleOnlineId);
                     address = saleOnlineOrder?.Address || '';
                 }
 
                 if (address) {
-                    console.log(`[FAST-SALE] Auto-selecting carrier for order ${index} with address: ${address}`);
+                    console.log(
+                        `[FAST-SALE] Auto-selecting carrier for order ${index} with address: ${address}`
+                    );
                     smartSelectCarrierForRow(rowCarrierSelect, address, null);
                 }
             }
@@ -724,7 +789,7 @@ function filterFastSaleRows(keyword) {
     const rows = document.querySelectorAll('.fast-sale-table tbody tr');
     const searchTerm = keyword.toLowerCase().trim();
 
-    rows.forEach(row => {
+    rows.forEach((row) => {
         if (!searchTerm) {
             row.style.display = '';
             return;
@@ -737,10 +802,11 @@ function filterFastSaleRows(keyword) {
         const rowText = row.textContent.toLowerCase();
 
         // Check if any field matches
-        const matches = customerName.includes(searchTerm) ||
-                       customerPhone.includes(searchTerm) ||
-                       productCodes.includes(searchTerm) ||
-                       rowText.includes(searchTerm);
+        const matches =
+            customerName.includes(searchTerm) ||
+            customerPhone.includes(searchTerm) ||
+            productCodes.includes(searchTerm) ||
+            rowText.includes(searchTerm);
 
         row.style.display = matches ? '' : 'none';
     });
@@ -759,14 +825,21 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
     let saleOnlineId = null;
     if (order.SaleOnlineIds && order.SaleOnlineIds.length > 0) {
         saleOnlineId = order.SaleOnlineIds[0];
-        saleOnlineOrder = window.OrderStore?.get(saleOnlineId) || displayedData.find(o => o.Id === saleOnlineId);
+        saleOnlineOrder =
+            window.OrderStore?.get(saleOnlineId) ||
+            displayedData.find((o) => o.Id === saleOnlineId);
     }
 
-    const customerName = order.PartnerDisplayName || order.Partner?.PartnerDisplayName || saleOnlineOrder?.Name || 'N/A';
+    const customerName =
+        order.PartnerDisplayName ||
+        order.Partner?.PartnerDisplayName ||
+        saleOnlineOrder?.Name ||
+        'N/A';
     const customerCode = order.Reference || 'N/A';
 
     // Get phone from SaleOnlineOrder first, then fallback to FastSaleOrder
-    const customerPhone = saleOnlineOrder?.Telephone || order.PartnerPhone || order.Partner?.PartnerPhone || 'N/A';
+    const customerPhone =
+        saleOnlineOrder?.Telephone || order.PartnerPhone || order.Partner?.PartnerPhone || 'N/A';
 
     // Get wallet balance for this customer
     let walletBalance = 0;
@@ -779,36 +852,41 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
         }
         walletData = fastSaleWalletBalances[normalizedPhone];
         if (walletData) {
-            walletBalance = (parseFloat(walletData.balance) || 0) + (parseFloat(walletData.virtualBalance) || 0);
+            walletBalance =
+                (parseFloat(walletData.balance) || 0) +
+                (parseFloat(walletData.virtualBalance) || 0);
         }
     }
 
     // Get address from SaleOnlineOrder first, then fallback to FastSaleOrder
-    const customerAddress = saleOnlineOrder?.Address || order.Partner?.PartnerAddress || '*Chưa có địa chỉ';
+    const customerAddress =
+        saleOnlineOrder?.Address || order.Partner?.PartnerAddress || '*Chưa có địa chỉ';
 
     // Get partner status from SaleOnlineOrder
     const partnerStatusText = saleOnlineOrder?.PartnerStatusText || '';
     const partnerStatusColors = {
-        "Bình thường": "#5cb85c",
-        "Bom hàng": "#d1332e",
-        "Cảnh báo": "#f0ad4e",
-        "Khách sỉ": "#5cb85c",
-        "Nguy hiểm": "#d9534f",
-        "Thân thiết": "#5bc0de",
-        "Vip": "#337ab7",
-        "VIP": "#5bc0de"
+        'Bình thường': '#5cb85c',
+        'Bom hàng': '#d1332e',
+        'Cảnh báo': '#f0ad4e',
+        'Khách sỉ': '#5cb85c',
+        'Nguy hiểm': '#d9534f',
+        'Thân thiết': '#5bc0de',
+        Vip: '#337ab7',
+        VIP: '#5bc0de',
     };
-    const partnerStatusColor = partnerStatusColors[partnerStatusText] || "#6b7280";
+    const partnerStatusColor = partnerStatusColors[partnerStatusText] || '#6b7280';
 
     // Get products from OrderLines or SaleOnlineOrder Details
     const products = order.OrderLines || saleOnlineOrder?.Details || [];
 
     // Build carrier options
-    const carrierOptions = carriers.map(c => {
-        const fee = c.Config_DefaultFee || c.FixedPrice || 0;
-        const feeText = fee > 0 ? ` (${formatCurrencyVND(fee)})` : '';
-        return `<option value="${c.Id}" data-fee="${fee}" data-name="${c.Name}">${c.Name}${feeText}</option>`;
-    }).join('');
+    const carrierOptions = carriers
+        .map((c) => {
+            const fee = c.Config_DefaultFee || c.FixedPrice || 0;
+            const feeText = fee > 0 ? ` (${formatCurrencyVND(fee)})` : '';
+            return `<option value="${c.Id}" data-fee="${fee}" data-name="${c.Name}">${c.Name}${feeText}</option>`;
+        })
+        .join('');
 
     // Get default shipping fee from order or use 35000
     const defaultShippingFee = order.DeliveryPrice || 35000;
@@ -834,13 +912,17 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
             const today = new Date();
             ckDateStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}`;
         }
-        const amountStr = ckAmount >= 1000 ? `${Math.round(ckAmount / 1000)}K` : ckAmount.toLocaleString('vi-VN');
+        const amountStr =
+            ckAmount >= 1000 ? `${Math.round(ckAmount / 1000)}K` : ckAmount.toLocaleString('vi-VN');
         noteParts.push(`CK ${amountStr} ACB ${ckDateStr}`);
     }
 
     // 2. Discount tag → "GG [amount]"
     if (hasAnyDiscount) {
-        const discountStr = totalDiscount >= 1000 ? `${Math.round(totalDiscount / 1000)}K` : totalDiscount.toLocaleString('vi-VN');
+        const discountStr =
+            totalDiscount >= 1000
+                ? `${Math.round(totalDiscount / 1000)}K`
+                : totalDiscount.toLocaleString('vi-VN');
         noteParts.push(`GG ${discountStr}`);
     }
 
@@ -856,9 +938,13 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
         orderTags = [];
     }
 
-    const mergeTag = orderTags.find(t => {
+    const mergeTag = orderTags.find((t) => {
         const tagName = (t.Name || '').trim();
-        return tagName.toLowerCase().startsWith('gộp ') || tagName.startsWith('Gộp ') || tagName.startsWith('GỘP ');
+        return (
+            tagName.toLowerCase().startsWith('gộp ') ||
+            tagName.startsWith('Gộp ') ||
+            tagName.startsWith('GỘP ')
+        );
     });
     if (mergeTag) {
         const numbers = mergeTag.Name.match(/\d+/g);
@@ -870,37 +956,45 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
     const autoGeneratedNote = noteParts.join(', ');
 
     // Extract product codes for search (e.g., [N2687])
-    const productCodes = products.map(p => {
-        const name = p.ProductName || '';
-        const match = name.match(/\[([A-Za-z0-9]+)\]/);
-        return match ? match[1] : '';
-    }).filter(Boolean).join(' ');
+    const productCodes = products
+        .map((p) => {
+            const name = p.ProductName || '';
+            const match = name.match(/\[([A-Za-z0-9]+)\]/);
+            return match ? match[1] : '';
+        })
+        .filter(Boolean)
+        .join(' ');
 
     // Build product rows
-    const productRows = products.map((product, pIndex) => {
-        const productName = product.ProductName || 'N/A';
-        const quantity = product.ProductUOMQty || product.Quantity || 0;
-        const price = product.PriceUnit || product.Price || 0;
-        const total = product.PriceSubTotal || (quantity * price) || 0;
-        const note = product.Note || '';
+    const productRows = products
+        .map((product, pIndex) => {
+            const productName = product.ProductName || 'N/A';
+            const quantity = product.ProductUOMQty || product.Quantity || 0;
+            const price = product.PriceUnit || product.Price || 0;
+            const total = product.PriceSubTotal || quantity * price || 0;
+            const note = product.Note || '';
 
-        // Check if this product has a discount in its note
-        const productDiscount = parseDiscountFromNote(note);
-        const isDiscountedProduct = productDiscount > 0;
-        const alternatingBg = index % 2 === 1 ? 'background-color: #e5e7eb;' : '';
-        const rowHighlightStyle = isDiscountedProduct ? 'background-color: #fef3c7;' : alternatingBg;
-        const orderSeparator = pIndex === 0 && index > 0 ? 'border-top: 4px solid #000;' : '';
-        const noteStyle = isDiscountedProduct
-            ? 'background: #f59e0b; color: white; padding: 2px 6px; border-radius: 4px; font-weight: 600;'
-            : '';
+            // Check if this product has a discount in its note
+            const productDiscount = parseDiscountFromNote(note);
+            const isDiscountedProduct = productDiscount > 0;
+            const alternatingBg = index % 2 === 1 ? 'background-color: #e5e7eb;' : '';
+            const rowHighlightStyle = isDiscountedProduct
+                ? 'background-color: #fef3c7;'
+                : alternatingBg;
+            const orderSeparator = pIndex === 0 && index > 0 ? 'border-top: 4px solid #000;' : '';
+            const noteStyle = isDiscountedProduct
+                ? 'background: #f59e0b; color: white; padding: 2px 6px; border-radius: 4px; font-weight: 600;'
+                : '';
 
-        return `
+            return `
             <tr style="${rowHighlightStyle} ${orderSeparator}"
                 data-customer-name="${customerName.replace(/"/g, '&quot;')}"
                 data-customer-phone="${customerPhone}"
                 data-product-codes="${productCodes}"
                 data-order-index="${index}">
-                ${pIndex === 0 ? `
+                ${
+                    pIndex === 0
+                        ? `
                     <td rowspan="${products.length}" style="vertical-align: top; ${hasAnyDiscount ? 'border-left: 4px solid #f59e0b;' : ''}">
                         <div style="display: flex; flex-direction: column; gap: 8px; position: relative;">
                             <button type="button" onclick="removeOrderFromFastSale(${index})"
@@ -919,16 +1013,26 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
                             </div>
                             ${(() => {
                                 // Tính totalPayment để so sánh với wallet
-                                const orderAmountTotal = order.AmountTotal ||
-                                    (order.OrderLines || []).reduce((sum, line) =>
-                                        sum + (line.PriceTotal || (line.PriceUnit || 0) * (line.ProductUOMQty || 0)), 0) || 0;
+                                const orderAmountTotal =
+                                    order.AmountTotal ||
+                                    (order.OrderLines || []).reduce(
+                                        (sum, line) =>
+                                            sum +
+                                            (line.PriceTotal ||
+                                                (line.PriceUnit || 0) * (line.ProductUOMQty || 0)),
+                                        0
+                                    ) ||
+                                    0;
                                 let orderFinalAmount = orderAmountTotal;
                                 if (hasAnyDiscount) {
                                     orderFinalAmount = orderAmountTotal - totalDiscount;
                                 }
                                 const orderTotalPayment = orderFinalAmount + defaultShippingFee;
-                                const walletExceedTotal = walletBalance > orderTotalPayment && orderTotalPayment > 0;
-                                const walletInputValue = walletExceedTotal ? orderTotalPayment : walletBalance;
+                                const walletExceedTotal =
+                                    walletBalance > orderTotalPayment && orderTotalPayment > 0;
+                                const walletInputValue = walletExceedTotal
+                                    ? orderTotalPayment
+                                    : walletBalance;
 
                                 return `
                                 <div style="display: flex; align-items: center; gap: 4px;" title="Số dư ví: ${walletBalance.toLocaleString('vi-VN')}đ">
@@ -1045,7 +1149,9 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
                             </div>
                         </div>
                     </td>
-                ` : ''}
+                `
+                        : ''
+                }
                 <td>
                     <div style="font-weight: 500; font-size: 13px;">${productName}</div>
                 </td>
@@ -1055,7 +1161,8 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
                 <td>${note ? (isDiscountedProduct ? `<span style="${noteStyle}">${note}</span>` : note) : ''}</td>
             </tr>
         `;
-    }).join('');
+        })
+        .join('');
 
     return productRows;
 }
@@ -1163,7 +1270,8 @@ async function saveAddressForRow(index) {
 
         // Update display text
         if (addressTextEl) {
-            addressTextEl.innerHTML = newAddress || '<i style="color: #9ca3af;">Chưa có địa chỉ</i>';
+            addressTextEl.innerHTML =
+                newAddress || '<i style="color: #9ca3af;">Chưa có địa chỉ</i>';
         }
 
         // Update original value in input
@@ -1225,11 +1333,13 @@ async function saveAddressToServer(index, fastSaleOrderId, newAddress, saveBtn) 
     saveBtn.disabled = true;
 
     try {
-        const baseUrl = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
-        const headers = await window.tokenManager?.getAuthHeader() || {};
+        const baseUrl =
+            window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        const headers = (await window.tokenManager?.getAuthHeader()) || {};
 
         // Step 1: GET full FastSaleOrder with $expand
-        const expandParams = '$expand=Partner,User,Warehouse,Company,PriceList,RefundOrder,Account,Journal,PaymentJournal,Carrier,Tax,SaleOrder,HistoryDeliveryDetails,OrderLines($expand=Product,ProductUOM,Account,SaleLine,User),Ship_ServiceExtras,OutstandingInfo($expand=Content),Team,OfferAmountDetails,DestConvertCurrencyUnit,PackageImages';
+        const expandParams =
+            '$expand=Partner,User,Warehouse,Company,PriceList,RefundOrder,Account,Journal,PaymentJournal,Carrier,Tax,SaleOrder,HistoryDeliveryDetails,OrderLines($expand=Product,ProductUOM,Account,SaleLine,User),Ship_ServiceExtras,OutstandingInfo($expand=Content),Team,OfferAmountDetails,DestConvertCurrencyUnit,PackageImages';
         const getUrl = `${baseUrl}/api/odata/FastSaleOrder(${fastSaleOrderId})?${expandParams}`;
 
         console.log(`[FAST-SALE] GET FastSaleOrder ${fastSaleOrderId} for address update...`);
@@ -1237,8 +1347,8 @@ async function saveAddressToServer(index, fastSaleOrderId, newAddress, saveBtn) 
             method: 'GET',
             headers: {
                 ...headers,
-                'Accept': 'application/json'
-            }
+                Accept: 'application/json',
+            },
         });
 
         if (!getResponse.ok) {
@@ -1277,9 +1387,9 @@ async function saveAddressToServer(index, fastSaleOrderId, newAddress, saveBtn) 
             headers: {
                 ...headers,
                 'Content-Type': 'application/json;charset=UTF-8',
-                'Accept': 'application/json'
+                Accept: 'application/json',
             },
-            body: JSON.stringify(orderData)
+            body: JSON.stringify(orderData),
         });
 
         if (!putResponse.ok) {
@@ -1299,7 +1409,8 @@ async function saveAddressToServer(index, fastSaleOrderId, newAddress, saveBtn) 
         const editContainer = document.getElementById(`fastSaleAddressEditContainer_${index}`);
 
         if (addressTextEl) {
-            addressTextEl.innerHTML = newAddress || '<i style="color: #9ca3af;">Chưa có địa chỉ</i>';
+            addressTextEl.innerHTML =
+                newAddress || '<i style="color: #9ca3af;">Chưa có địa chỉ</i>';
         }
         if (displayEl) displayEl.style.display = 'flex';
         if (editContainer) editContainer.style.display = 'none';
@@ -1324,7 +1435,6 @@ async function saveAddressToServer(index, fastSaleOrderId, newAddress, saveBtn) 
 
         window.notificationManager?.success('Đã lưu địa chỉ');
         console.log(`[FAST-SALE] Address saved for row ${index}:`, newAddress);
-
     } catch (error) {
         console.error('[FAST-SALE] Error saving address:', error);
         window.notificationManager?.error(`Lỗi lưu địa chỉ: ${error.message}`);
@@ -1375,9 +1485,15 @@ function updateFastSaleShippingFee(index) {
         const order = fastSaleOrdersData[index];
         if (order) {
             // Calculate finalAmountTotal (after discount)
-            const originalAmountTotal = order.AmountTotal ||
-                (order.OrderLines || []).reduce((sum, line) =>
-                    sum + (line.PriceTotal || (line.PriceUnit || 0) * (line.ProductUOMQty || 0)), 0) || 0;
+            const originalAmountTotal =
+                order.AmountTotal ||
+                (order.OrderLines || []).reduce(
+                    (sum, line) =>
+                        sum +
+                        (line.PriceTotal || (line.PriceUnit || 0) * (line.ProductUOMQty || 0)),
+                    0
+                ) ||
+                0;
             let finalAmountTotal = originalAmountTotal;
 
             if (orderHasDiscountTag(order)) {
@@ -1390,11 +1506,15 @@ function updateFastSaleShippingFee(index) {
             // Free shipping logic
             const isThanhPho = carrierName.startsWith('THÀNH PHỐ');
             const isTinh = carrierName.includes('TỈNH');
-            const qualifiesForFreeship = (isThanhPho && finalAmountTotal > 1500000) || (isTinh && finalAmountTotal > 3000000);
+            const qualifiesForFreeship =
+                (isThanhPho && finalAmountTotal > 1500000) ||
+                (isTinh && finalAmountTotal > 3000000);
 
             if (qualifiesForFreeship) {
                 fee = 0;
-                console.log(`[FAST-SALE] Row ${index}: Free shipping - ${isThanhPho ? 'THÀNH PHỐ' : 'TỈNH'}, total ${finalAmountTotal.toLocaleString('vi-VN')}đ`);
+                console.log(
+                    `[FAST-SALE] Row ${index}: Free shipping - ${isThanhPho ? 'THÀNH PHỐ' : 'TỈNH'}, total ${finalAmountTotal.toLocaleString('vi-VN')}đ`
+                );
             }
 
             // Update note field to add/remove "FREESHIP"
@@ -1402,7 +1522,10 @@ function updateFastSaleShippingFee(index) {
             if (noteInput) {
                 let currentNote = noteInput.value || '';
                 // Remove existing freeship mention (case insensitive)
-                currentNote = currentNote.replace(/,?\s*freeship/gi, '').replace(/freeship,?\s*/gi, '').trim();
+                currentNote = currentNote
+                    .replace(/,?\s*freeship/gi, '')
+                    .replace(/freeship,?\s*/gi, '')
+                    .trim();
                 // Add FREESHIP if qualifies
                 if (qualifiesForFreeship) {
                     currentNote = currentNote ? `${currentNote}, FREESHIP` : 'FREESHIP';
@@ -1482,7 +1605,11 @@ function smartSelectCarrierForRow(select, address, extraAddress = null) {
 
     // If address is detected as province (not HCM/Hanoi), select SHIP TỈNH immediately
     if (districtInfo.isProvince) {
-        console.log('[FAST-SALE] Address is in province:', districtInfo.cityName, '- selecting SHIP TỈNH');
+        console.log(
+            '[FAST-SALE] Address is in province:',
+            districtInfo.cityName,
+            '- selecting SHIP TỈNH'
+        );
         selectCarrierByName(select, 'SHIP TỈNH', false);
         return;
     }
@@ -1513,7 +1640,9 @@ function collectFastSaleData() {
         const saleOnlineId = order.SaleOnlineIds?.[0];
         if (saleOnlineId) {
             if (processedSaleOnlineIds.has(saleOnlineId)) {
-                console.warn(`[FAST-SALE] Skipping duplicate order ${order.Reference} (SaleOnlineId: ${saleOnlineId})`);
+                console.warn(
+                    `[FAST-SALE] Skipping duplicate order ${order.Reference} (SaleOnlineId: ${saleOnlineId})`
+                );
                 return; // Skip this order
             }
             processedSaleOnlineIds.add(saleOnlineId);
@@ -1529,7 +1658,8 @@ function collectFastSaleData() {
 
         // Get carrier info
         const carrierId = parseInt(carrierSelect?.value) || 0;
-        const carrierName = carrierSelect?.options[carrierSelect.selectedIndex]?.dataset?.name || '';
+        const carrierName =
+            carrierSelect?.options[carrierSelect.selectedIndex]?.dataset?.name || '';
 
         // Get address from editable input
         const addressInput = document.getElementById(`fastSaleAddress_${index}`);
@@ -1539,7 +1669,9 @@ function collectFastSaleData() {
         let saleOnlineOrder = null;
         if (order.SaleOnlineIds && order.SaleOnlineIds.length > 0) {
             const saleOnlineId = order.SaleOnlineIds[0];
-            saleOnlineOrder = window.OrderStore?.get(saleOnlineId) || displayedData.find(o => o.Id === saleOnlineId);
+            saleOnlineOrder =
+                window.OrderStore?.get(saleOnlineId) ||
+                displayedData.find((o) => o.Id === saleOnlineId);
         }
 
         // Get dimensions
@@ -1552,9 +1684,14 @@ function collectFastSaleData() {
 
         // Calculate discount if order has "GIẢM GIÁ" tag
         let decreaseAmount = 0;
-        const originalAmountTotal = order.AmountTotal ||
-            (order.OrderLines || []).reduce((sum, line) =>
-                sum + (line.PriceTotal || (line.PriceUnit || 0) * (line.ProductUOMQty || 0)), 0) || 0;
+        const originalAmountTotal =
+            order.AmountTotal ||
+            (order.OrderLines || []).reduce(
+                (sum, line) =>
+                    sum + (line.PriceTotal || (line.PriceUnit || 0) * (line.ProductUOMQty || 0)),
+                0
+            ) ||
+            0;
         let finalAmountTotal = originalAmountTotal;
 
         if (orderHasDiscountTag(order)) {
@@ -1562,13 +1699,16 @@ function collectFastSaleData() {
             if (totalDiscount > 0) {
                 decreaseAmount = totalDiscount;
                 finalAmountTotal = originalAmountTotal - decreaseAmount;
-                console.log(`[FAST-SALE] Order ${order.Reference}: Applied discount ${decreaseAmount.toLocaleString('vi-VN')}đ (${discountedProducts.length} products)`);
+                console.log(
+                    `[FAST-SALE] Order ${order.Reference}: Applied discount ${decreaseAmount.toLocaleString('vi-VN')}đ (${discountedProducts.length} products)`
+                );
             }
         }
 
         // 🔥 WALLET BALANCE / CÔNG NỢ CALCULATION
         // Get customer phone and check wallet balance
-        const customerPhone = saleOnlineOrder?.Telephone || order.PartnerPhone || order.Partner?.PartnerPhone || '';
+        const customerPhone =
+            saleOnlineOrder?.Telephone || order.PartnerPhone || order.Partner?.PartnerPhone || '';
         const defaultShipFee = parseFloat(shippingFeeInput?.value) || 0;
         let walletBalance = 0;
         let paymentAmount = 0;
@@ -1584,24 +1724,33 @@ function collectFastSaleData() {
             // Get wallet balance from pre-fetched data
             const walletData = fastSaleWalletBalances[normalizedPhone];
             if (walletData) {
-                walletBalance = (parseFloat(walletData.balance) || 0) + (parseFloat(walletData.virtualBalance) || 0);
+                walletBalance =
+                    (parseFloat(walletData.balance) || 0) +
+                    (parseFloat(walletData.virtualBalance) || 0);
 
                 if (walletBalance > 0) {
                     // Total payment = Amount (after discount) + Shipping fee
                     const shippingFee = parseFloat(shippingFeeInput?.value) || 0;
                     const totalPayment = finalAmountTotal + shippingFee;
                     // Read from input field if user has edited it (wallet > totalPayment case)
-                    const walletAmountInput = document.getElementById(`fastSaleWalletAmount_${index}`);
+                    const walletAmountInput = document.getElementById(
+                        `fastSaleWalletAmount_${index}`
+                    );
                     if (walletAmountInput) {
                         const userWalletAmount = parseFloat(walletAmountInput.value) || 0;
-                        paymentAmount = Math.max(0, Math.min(userWalletAmount, walletBalance, totalPayment));
+                        paymentAmount = Math.max(
+                            0,
+                            Math.min(userWalletAmount, walletBalance, totalPayment)
+                        );
                     } else {
                         paymentAmount = Math.min(walletBalance, totalPayment);
                     }
                     // COD = Total - Wallet payment (remaining amount customer needs to pay)
                     cashOnDelivery = totalPayment - paymentAmount;
 
-                    console.log(`[FAST-SALE] Order ${order.Reference}: Wallet ${walletBalance.toLocaleString('vi-VN')}đ, Total ${totalPayment.toLocaleString('vi-VN')}đ, Payment ${paymentAmount.toLocaleString('vi-VN')}đ, COD ${cashOnDelivery.toLocaleString('vi-VN')}đ`);
+                    console.log(
+                        `[FAST-SALE] Order ${order.Reference}: Wallet ${walletBalance.toLocaleString('vi-VN')}đ, Total ${totalPayment.toLocaleString('vi-VN')}đ, Payment ${paymentAmount.toLocaleString('vi-VN')}đ, COD ${cashOnDelivery.toLocaleString('vi-VN')}đ`
+                    );
                 }
             }
         }
@@ -1638,13 +1787,15 @@ function collectFastSaleData() {
             DateInvoice: new Date().toISOString(),
             DateCreated: order.DateCreated || new Date().toISOString(),
             CreatedById: null,
-            State: "draft",
-            ShowState: "Nháp",
+            State: 'draft',
+            ShowState: 'Nháp',
             CompanyId: 0,
             Comment: noteInput?.value || '',
             WarehouseId: 0,
             SaleOnlineIds: order.SaleOnlineIds || [],
-            SaleOnlineNames: Array.isArray(order.SaleOnlineNames) ? order.SaleOnlineNames : [order.SaleOnlineNames || ''],
+            SaleOnlineNames: Array.isArray(order.SaleOnlineNames)
+                ? order.SaleOnlineNames
+                : [order.SaleOnlineNames || ''],
             Residual: null,
             Type: null,
             RefundOrderId: null,
@@ -1670,11 +1821,11 @@ function collectFastSaleData() {
             TrackingArea: null,
             TrackingTransport: null,
             TrackingSortLine: null,
-            TrackingUrl: "",
+            TrackingUrl: '',
             IsProductDefault: false,
             TrackingRefSort: null,
-            ShipStatus: "none",
-            ShowShipStatus: order.ShowShipStatus || "Chưa tiếp nhận",
+            ShipStatus: 'none',
+            ShowShipStatus: order.ShowShipStatus || 'Chưa tiếp nhận',
             SaleOnlineName: order.Reference || '',
             PartnerShippingId: null,
             PaymentJournalId: paymentAmount > 0 ? 1 : null,
@@ -1734,7 +1885,7 @@ function collectFastSaleData() {
             IsPickUpAtShop: null,
             DateDeposit: paymentAmount > 0 ? new Date().toISOString() : null,
             IsRefund: null,
-            StateCode: "None",
+            StateCode: 'None',
             ActualPaymentAmount: null,
             RowVersion: null,
             ExchangeRate: null,
@@ -1743,7 +1894,7 @@ function collectFastSaleData() {
             WiInvoiceId: null,
             WiInvoiceChannelId: null,
             WiInvoiceStatus: null,
-            WiInvoiceTrackingUrl: "",
+            WiInvoiceTrackingUrl: '',
             WiInvoiceIsReplate: false,
             FormAction: null,
             Ship_Receiver: {
@@ -1757,12 +1908,30 @@ function collectFastSaleData() {
                 ExtraAddress: {
                     Street: editedAddress || saleOnlineOrder?.Address || null,
                     NewStreet: null,
-                    City: saleOnlineOrder?.ExtraAddress?.City || { name: null, nameNoSign: null, code: null },
-                    District: saleOnlineOrder?.ExtraAddress?.District || { name: null, nameNoSign: null, code: null, cityName: null, cityCode: null },
-                    Ward: saleOnlineOrder?.ExtraAddress?.Ward || { name: null, nameNoSign: null, code: null, cityName: null, cityCode: null, districtName: null, districtCode: null },
+                    City: saleOnlineOrder?.ExtraAddress?.City || {
+                        name: null,
+                        nameNoSign: null,
+                        code: null,
+                    },
+                    District: saleOnlineOrder?.ExtraAddress?.District || {
+                        name: null,
+                        nameNoSign: null,
+                        code: null,
+                        cityName: null,
+                        cityCode: null,
+                    },
+                    Ward: saleOnlineOrder?.ExtraAddress?.Ward || {
+                        name: null,
+                        nameNoSign: null,
+                        code: null,
+                        cityName: null,
+                        cityCode: null,
+                        districtName: null,
+                        districtCode: null,
+                    },
                     NewCity: null,
-                    NewWard: null
-                }
+                    NewWard: null,
+                },
             },
             Ship_Extras: null,
             PaymentInfo: [],
@@ -1771,8 +1940,8 @@ function collectFastSaleData() {
                 PackageInfo: {
                     PackageLength: packageLength,
                     PackageWidth: packageWidth,
-                    PackageHeight: packageHeight
-                }
+                    PackageHeight: packageHeight,
+                },
             },
             OrderMergeds: [],
             OrderAfterMerged: null,
@@ -1784,10 +1953,10 @@ function collectFastSaleData() {
             PackageInfo: {
                 PackageLength: packageLength,
                 PackageWidth: packageWidth,
-                PackageHeight: packageHeight
+                PackageHeight: packageHeight,
             },
             Error: null,
-            OrderLines: (order.OrderLines || []).map(line => ({
+            OrderLines: (order.OrderLines || []).map((line) => ({
                 Id: 0,
                 OrderId: 0,
                 ProductId: line.ProductId,
@@ -1812,7 +1981,7 @@ function collectFastSaleData() {
                 SaleLineIds: [],
                 ProductNameGet: null,
                 SaleLineId: null,
-                Type: "fixed",
+                Type: 'fixed',
                 PromotionProgramId: null,
                 Note: line.Note || null,
                 FacebookPostId: null,
@@ -1824,7 +1993,7 @@ function collectFastSaleData() {
                 PromotionProgramComboId: null,
                 LiveCampaign_DetailId: null,
                 LiveCampaignQtyChange: 0,
-                ProductImageUrl: "",
+                ProductImageUrl: '',
                 SaleOnlineDetailId: null,
                 PriceCheck: null,
                 IsNotEnoughInventory: null,
@@ -1832,7 +2001,7 @@ function collectFastSaleData() {
                 CreatedById: null,
                 TrackingRef: null,
                 ReturnTotal: 0,
-                ConversionPrice: null
+                ConversionPrice: null,
             })),
             Partner: order.Partner || {
                 Id: order.PartnerId || 0,
@@ -1841,17 +2010,17 @@ function collectFastSaleData() {
                 Street: saleOnlineOrder?.Address || order.Partner?.Street || null,
                 Phone: saleOnlineOrder?.Telephone || order.Partner?.Phone || '',
                 Customer: true,
-                Type: "contact",
-                CompanyType: "person",
+                Type: 'contact',
+                CompanyType: 'person',
                 DateCreated: new Date().toISOString(),
-                ExtraAddress: order.Partner?.ExtraAddress || null
+                ExtraAddress: order.Partner?.ExtraAddress || null,
             },
             Carrier: order.Carrier || {
                 Id: carrierId,
                 Name: carrierName,
-                DeliveryType: "fixed",
-                Config_DefaultFee: parseFloat(shippingFeeInput?.value) || 0
-            }
+                DeliveryType: 'fixed',
+                Config_DefaultFee: parseFloat(shippingFeeInput?.value) || 0,
+            },
         };
 
         models.push(model);
@@ -1886,7 +2055,7 @@ function resetFastSaleSubmissionState() {
     const confirmBtn = document.getElementById('confirmAndCheckFastSaleBtn');
     if (saveBtn) saveBtn.disabled = false;
     if (confirmBtn) confirmBtn.disabled = false;
-    clearFastSaleStatus();  // Clear status message when reset
+    clearFastSaleStatus(); // Clear status message when reset
     console.log('[FAST-SALE] 🔓 Submission state reset, buttons re-enabled');
 }
 
@@ -1918,7 +2087,7 @@ function showFastSaleStatus(message, type = 'info') {
         warning: 'fa-exclamation-triangle',
         error: 'fa-times-circle',
         loading: 'fa-spinner fa-spin',
-        success: 'fa-check-circle'
+        success: 'fa-check-circle',
     };
     iconEl.className = 'fas ' + (icons[type] || 'fa-info-circle');
 
@@ -1997,70 +2166,88 @@ async function reVerifyWalletForBatch(models) {
     const indexesToRemove = new Set();
 
     // Verify each phone in parallel
-    const verifyPromises = Array.from(phoneOrdersMap.entries()).map(async ([phone, orderEntries]) => {
-        try {
-            const verifyRes = await fetch(`${QR_API}/api/v2/wallets/${encodeURIComponent(phone)}/available-balance`);
-            const verifyData = await verifyRes.json();
+    const verifyPromises = Array.from(phoneOrdersMap.entries()).map(
+        async ([phone, orderEntries]) => {
+            try {
+                const verifyRes = await fetch(
+                    `${QR_API}/api/v2/wallets/${encodeURIComponent(phone)}/available-balance`
+                );
+                const verifyData = await verifyRes.json();
 
-            if (!verifyData.success) {
-                console.warn(`[FAST-SALE] Wallet re-verify: API error for ${phone}, allowing continue`);
-                return;
-            }
-
-            const availableBalance = verifyData.data.available_balance;
-            const totalRequested = orderEntries.reduce((sum, e) => sum + (e.model.PaymentAmount || 0), 0);
-
-            console.log(`[FAST-SALE] Wallet re-verify: ${phone} — available=${availableBalance}, requested=${totalRequested}`);
-
-            if (totalRequested <= availableBalance) {
-                return; // All good
-            }
-
-            // OVER-COMMITTED: distribute available balance FIFO, reject orders that don't fit
-            console.warn(`[FAST-SALE] Wallet re-verify: ${phone} — OVER-COMMITTED! available=${availableBalance}, requested=${totalRequested}`);
-
-            let remaining = availableBalance;
-            for (const entry of orderEntries) {
-                const model = entry.model;
-                const originalPayment = model.PaymentAmount || 0;
-
-                if (originalPayment <= remaining) {
-                    // This order fits within remaining balance
-                    remaining -= originalPayment;
-                    continue;
+                if (!verifyData.success) {
+                    console.warn(
+                        `[FAST-SALE] Wallet re-verify: API error for ${phone}, allowing continue`
+                    );
+                    return;
                 }
 
-                // This order CANNOT be fulfilled — REJECT it
-                const availStr = availableBalance.toLocaleString('vi-VN');
-                const wantStr = originalPayment.toLocaleString('vi-VN');
-                const remainStr = remaining.toLocaleString('vi-VN');
+                const availableBalance = verifyData.data.available_balance;
+                const totalRequested = orderEntries.reduce(
+                    (sum, e) => sum + (e.model.PaymentAmount || 0),
+                    0
+                );
 
-                console.error(`[FAST-SALE] Wallet re-verify: REJECTED order ${model.Reference} — wants ${wantStr}đ, only ${remainStr}đ remaining (total available: ${availStr}đ)`);
+                console.log(
+                    `[FAST-SALE] Wallet re-verify: ${phone} — available=${availableBalance}, requested=${totalRequested}`
+                );
 
-                // Build a failed order object matching the format renderFailedOrdersTable expects
-                rejectedOrders.push({
-                    Reference: model.Reference || 'N/A',
-                    Number: '',
-                    Partner: model.Partner,
-                    PartnerDisplayName: model.PartnerDisplayName || model.Partner?.Name || '',
-                    DeliveryNote: `Công nợ không đủ! Cần trừ: ${wantStr}đ, Ví khả dụng: ${remainStr}đ (tổng ví: ${availStr}đ). Ra đơn lại sau khi kiểm tra ví.`,
-                    // Keep original data for reference
-                    _walletRejectReason: 'INSUFFICIENT_BALANCE',
-                    _requestedAmount: originalPayment,
-                    _availableBalance: availableBalance,
-                    _remainingAtReject: remaining,
-                    SaleOnlineIds: model.SaleOnlineIds,
-                    OrderLines: model.OrderLines
-                });
+                if (totalRequested <= availableBalance) {
+                    return; // All good
+                }
 
-                indexesToRemove.add(entry.index);
-                // Don't subtract from remaining — this order is rejected, balance not consumed
+                // OVER-COMMITTED: distribute available balance FIFO, reject orders that don't fit
+                console.warn(
+                    `[FAST-SALE] Wallet re-verify: ${phone} — OVER-COMMITTED! available=${availableBalance}, requested=${totalRequested}`
+                );
+
+                let remaining = availableBalance;
+                for (const entry of orderEntries) {
+                    const model = entry.model;
+                    const originalPayment = model.PaymentAmount || 0;
+
+                    if (originalPayment <= remaining) {
+                        // This order fits within remaining balance
+                        remaining -= originalPayment;
+                        continue;
+                    }
+
+                    // This order CANNOT be fulfilled — REJECT it
+                    const availStr = availableBalance.toLocaleString('vi-VN');
+                    const wantStr = originalPayment.toLocaleString('vi-VN');
+                    const remainStr = remaining.toLocaleString('vi-VN');
+
+                    console.error(
+                        `[FAST-SALE] Wallet re-verify: REJECTED order ${model.Reference} — wants ${wantStr}đ, only ${remainStr}đ remaining (total available: ${availStr}đ)`
+                    );
+
+                    // Build a failed order object matching the format renderFailedOrdersTable expects
+                    rejectedOrders.push({
+                        Reference: model.Reference || 'N/A',
+                        Number: '',
+                        Partner: model.Partner,
+                        PartnerDisplayName: model.PartnerDisplayName || model.Partner?.Name || '',
+                        DeliveryNote: `Công nợ không đủ! Cần trừ: ${wantStr}đ, Ví khả dụng: ${remainStr}đ (tổng ví: ${availStr}đ). Ra đơn lại sau khi kiểm tra ví.`,
+                        // Keep original data for reference
+                        _walletRejectReason: 'INSUFFICIENT_BALANCE',
+                        _requestedAmount: originalPayment,
+                        _availableBalance: availableBalance,
+                        _remainingAtReject: remaining,
+                        SaleOnlineIds: model.SaleOnlineIds,
+                        OrderLines: model.OrderLines,
+                    });
+
+                    indexesToRemove.add(entry.index);
+                    // Don't subtract from remaining — this order is rejected, balance not consumed
+                }
+            } catch (err) {
+                // Network error — allow continue, backend pending-withdrawal is the final safety net
+                console.warn(
+                    `[FAST-SALE] Wallet re-verify: network error for ${phone} (non-blocking):`,
+                    err.message
+                );
             }
-        } catch (err) {
-            // Network error — allow continue, backend pending-withdrawal is the final safety net
-            console.warn(`[FAST-SALE] Wallet re-verify: network error for ${phone} (non-blocking):`, err.message);
         }
-    });
+    );
 
     await Promise.all(verifyPromises);
 
@@ -2071,10 +2258,13 @@ async function reVerifyWalletForBatch(models) {
             models.splice(idx, 1);
         }
 
-        console.warn(`[FAST-SALE] Wallet re-verify: REJECTED ${rejectedOrders.length} orders, ${models.length} remaining in batch`);
+        console.warn(
+            `[FAST-SALE] Wallet re-verify: REJECTED ${rejectedOrders.length} orders, ${models.length} remaining in batch`
+        );
         window.notificationManager?.error(
             `${rejectedOrders.length} đơn bị loại do công nợ không đủ! Kiểm tra tab "Thất bại"`,
-            'Lỗi công nợ', 8000
+            'Lỗi công nợ',
+            8000
         );
     } else {
         console.log('[FAST-SALE] Wallet re-verify: all orders OK');
@@ -2091,11 +2281,11 @@ async function saveFastSaleOrders(isApprove = false) {
     // Check for unsaved address changes
     if (hasUnsavedAddressChanges()) {
         const unsavedRows = getUnsavedAddressRows();
-        const rowNumbers = unsavedRows.map(i => i + 1).join(', ');
+        const rowNumbers = unsavedRows.map((i) => i + 1).join(', ');
         const confirmed = confirm(
             `Có ${unsavedRows.length} dòng chưa lưu địa chỉ (dòng: ${rowNumbers}).\n\n` +
-            `Nếu tiếp tục, địa chỉ sẽ được gửi đi nhưng KHÔNG lưu vào hệ thống.\n\n` +
-            `Bạn có muốn tiếp tục không?`
+                `Nếu tiếp tục, địa chỉ sẽ được gửi đi nhưng KHÔNG lưu vào hệ thống.\n\n` +
+                `Bạn có muốn tiếp tục không?`
         );
         if (!confirmed) {
             return;
@@ -2151,9 +2341,15 @@ async function saveFastSaleOrders(isApprove = false) {
 
         if (invalidOrders.length > 0) {
             const firstInvalid = invalidOrders[0];
-            const missingField = !firstInvalid.CarrierId ? 'đối tác ship' :
-                                 !firstInvalid.Partner?.Phone ? 'số điện thoại' : 'địa chỉ';
-            showFastSaleStatus(`Đơn ${firstInvalid.Reference || 'N/A'} thiếu ${missingField}`, 'warning');
+            const missingField = !firstInvalid.CarrierId
+                ? 'đối tác ship'
+                : !firstInvalid.Partner?.Phone
+                  ? 'số điện thoại'
+                  : 'địa chỉ';
+            showFastSaleStatus(
+                `Đơn ${firstInvalid.Reference || 'N/A'} thiếu ${missingField}`,
+                'warning'
+            );
             window.notificationManager.error(
                 `Có ${invalidOrders.length} đơn hàng thiếu thông tin bắt buộc (đối tác ship, SĐT, địa chỉ)`,
                 'Lỗi validation'
@@ -2173,12 +2369,16 @@ async function saveFastSaleOrders(isApprove = false) {
                 if (key) seenIds.add(key);
                 uniqueModels.push(model);
             } else {
-                console.warn(`[FAST-SALE] ⚠️ Duplicate removed: ${model.Reference} (SaleOnlineId: ${key})`);
+                console.warn(
+                    `[FAST-SALE] ⚠️ Duplicate removed: ${model.Reference} (SaleOnlineId: ${key})`
+                );
             }
         }
 
         if (uniqueModels.length < models.length) {
-            console.log(`[FAST-SALE] 🔄 Deduplicated: ${models.length} → ${uniqueModels.length} orders`);
+            console.log(
+                `[FAST-SALE] 🔄 Deduplicated: ${models.length} → ${uniqueModels.length} orders`
+            );
         }
 
         // =====================================================
@@ -2191,11 +2391,14 @@ async function saveFastSaleOrders(isApprove = false) {
         // If ALL orders were rejected by wallet verify, show results immediately (no TPOS call)
         if (uniqueModels.length === 0) {
             console.warn('[FAST-SALE] All orders rejected by wallet re-verify, skipping TPOS API');
-            showFastSaleStatus(`${walletRejectedOrders.length} đơn bị loại do công nợ không đủ`, 'error');
+            showFastSaleStatus(
+                `${walletRejectedOrders.length} đơn bị loại do công nợ không đủ`,
+                'error'
+            );
             showFastSaleResultsModal({
                 DataErrorFast: [],
                 OrdersError: walletRejectedOrders,
-                OrdersSucessed: []
+                OrdersSucessed: [],
             });
             isSavingFastSale = false;
             return;
@@ -2222,7 +2425,7 @@ async function saveFastSaleOrders(isApprove = false) {
         // =====================================================
         const requestBody = {
             is_approve: isApprove,
-            model: uniqueModels
+            model: uniqueModels,
         };
 
         console.log(`[FAST-SALE] 📦 Sending ${uniqueModels.length} orders in 1 request...`);
@@ -2233,9 +2436,9 @@ async function saveFastSaleOrders(isApprove = false) {
             method: 'POST',
             headers: {
                 ...headers,
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
             },
-            body: JSON.stringify(requestBody)
+            body: JSON.stringify(requestBody),
         });
 
         if (!response.ok) {
@@ -2249,31 +2452,40 @@ async function saveFastSaleOrders(isApprove = false) {
         // Merge wallet-rejected orders into TPOS errors for display in "Thất bại" tab
         if (walletRejectedOrders.length > 0) {
             result.OrdersError = [...(result.OrdersError || []), ...walletRejectedOrders];
-            console.log(`[FAST-SALE] Merged ${walletRejectedOrders.length} wallet-rejected orders into OrdersError`);
+            console.log(
+                `[FAST-SALE] Merged ${walletRejectedOrders.length} wallet-rejected orders into OrdersError`
+            );
         }
 
         const successCount = result.OrdersSucessed?.length || 0;
         const errorCount = (result.OrdersError?.length || 0) + (result.DataErrorFast?.length || 0);
-        const walletRejectInfo = walletRejectedOrders.length > 0 ? ` (${walletRejectedOrders.length} lỗi công nợ)` : '';
-        showFastSaleStatus(`Hoàn thành: ${successCount} thành công, ${errorCount} lỗi${walletRejectInfo}`, 'success');
+        const walletRejectInfo =
+            walletRejectedOrders.length > 0 ? ` (${walletRejectedOrders.length} lỗi công nợ)` : '';
+        showFastSaleStatus(
+            `Hoàn thành: ${successCount} thành công, ${errorCount} lỗi${walletRejectInfo}`,
+            'success'
+        );
 
         // Show results modal
         showFastSaleResultsModal(result);
 
         // Save to order history (Firebase)
         if (result.OrdersSucessed && result.OrdersSucessed.length > 0) {
-            const historyData = result.OrdersSucessed.map(order => {
+            const historyData = result.OrdersSucessed.map((order) => {
                 // Find original order data for additional info
-                const originalOrder = fastSaleOrdersData.find(o =>
-                    (o.SaleOnlineIds && order.SaleOnlineIds &&
-                        JSON.stringify(o.SaleOnlineIds) === JSON.stringify(order.SaleOnlineIds)) ||
-                    (o.Reference && o.Reference === order.Reference)
+                const originalOrder = fastSaleOrdersData.find(
+                    (o) =>
+                        (o.SaleOnlineIds &&
+                            order.SaleOnlineIds &&
+                            JSON.stringify(o.SaleOnlineIds) ===
+                                JSON.stringify(order.SaleOnlineIds)) ||
+                        (o.Reference && o.Reference === order.Reference)
                 );
                 return {
                     ...order,
                     SessionIndex: originalOrder?.SessionIndex || '',
                     LiveCampaignId: originalOrder?.LiveCampaignId || order.LiveCampaignId,
-                    LiveCampaignName: originalOrder?.LiveCampaignName || order.LiveCampaignName
+                    LiveCampaignName: originalOrder?.LiveCampaignName || order.LiveCampaignName,
                 };
             });
             window.OrderHistoryManager?.saveOrderHistoryBatch(historyData, 'fast-sale');
@@ -2282,15 +2494,11 @@ async function saveFastSaleOrders(isApprove = false) {
         // Note: Bill sending is handled manually via "In hóa đơn" button in printSuccessOrders()
         // Success: reset flag but don't re-enable buttons (modal will close)
         isSavingFastSale = false;
-
     } catch (error) {
         console.error('[FAST-SALE] Error saving orders:', error);
 
         showFastSaleStatus('Lỗi khi lưu: ' + error.message, 'error');
-        window.notificationManager.error(
-            `Lỗi khi lưu đơn hàng: ${error.message}`,
-            'Lỗi hệ thống'
-        );
+        window.notificationManager.error(`Lỗi khi lưu đơn hàng: ${error.message}`, 'Lỗi hệ thống');
 
         // Error: reset submission state so user can try again
         resetFastSaleSubmissionState();
@@ -2303,7 +2511,7 @@ async function saveFastSaleOrders(isApprove = false) {
 let fastSaleResultsData = {
     forced: [],
     failed: [],
-    success: []
+    success: [],
 };
 
 /**
@@ -2339,7 +2547,9 @@ async function preGenerateBillImages() {
     window.isPreGeneratingBills = true;
     // Run in background - don't disable print button
 
-    console.log(`[FAST-SALE] 🎨 Pre-generating ${successOrders.length} bill images in background...`);
+    console.log(
+        `[FAST-SALE] 🎨 Pre-generating ${successOrders.length} bill images in background...`
+    );
     window.preGeneratedBillData.clear();
 
     for (let i = 0; i < successOrders.length; i++) {
@@ -2347,42 +2557,58 @@ async function preGenerateBillImages() {
 
         try {
             // Find original order by matching SaleOnlineIds or Reference (same logic as printSuccessOrders)
-            const originalOrderIndex = fastSaleOrdersData.findIndex(o =>
-                (o.SaleOnlineIds && order.SaleOnlineIds &&
-                    JSON.stringify(o.SaleOnlineIds) === JSON.stringify(order.SaleOnlineIds)) ||
-                (o.Reference && o.Reference === order.Reference)
+            const originalOrderIndex = fastSaleOrdersData.findIndex(
+                (o) =>
+                    (o.SaleOnlineIds &&
+                        order.SaleOnlineIds &&
+                        JSON.stringify(o.SaleOnlineIds) === JSON.stringify(order.SaleOnlineIds)) ||
+                    (o.Reference && o.Reference === order.Reference)
             );
-            const originalOrder = originalOrderIndex >= 0 ? fastSaleOrdersData[originalOrderIndex] : null;
+            const originalOrder =
+                originalOrderIndex >= 0 ? fastSaleOrdersData[originalOrderIndex] : null;
 
             // Find saleOnline order from displayedData - O(1) via OrderStore
             const saleOnlineId = order.SaleOnlineIds?.[0];
             const saleOnlineOrderForData = saleOnlineId
-                ? (window.OrderStore?.get(saleOnlineId) || window.OrderStore?.get(String(saleOnlineId)) || displayedData.find(o => o.Id === saleOnlineId || String(o.Id) === String(saleOnlineId)))
+                ? window.OrderStore?.get(saleOnlineId) ||
+                  window.OrderStore?.get(String(saleOnlineId)) ||
+                  displayedData.find(
+                      (o) => o.Id === saleOnlineId || String(o.Id) === String(saleOnlineId)
+                  )
                 : null;
 
             // Get CarrierName from form dropdown
-            const carrierSelect = originalOrderIndex >= 0 ? document.getElementById(`fastSaleCarrier_${originalOrderIndex}`) : null;
-            const carrierNameFromDropdown = carrierSelect?.options[carrierSelect.selectedIndex]?.text || '';
-            const carrierName = carrierNameFromDropdown ||
+            const carrierSelect =
+                originalOrderIndex >= 0
+                    ? document.getElementById(`fastSaleCarrier_${originalOrderIndex}`)
+                    : null;
+            const carrierNameFromDropdown =
+                carrierSelect?.options[carrierSelect.selectedIndex]?.text || '';
+            const carrierName =
+                carrierNameFromDropdown ||
                 originalOrder?.Carrier?.Name ||
                 originalOrder?.CarrierName ||
                 order.CarrierName ||
                 order.Carrier?.Name ||
                 '';
-            const shippingFee = originalOrderIndex >= 0
-                ? parseFloat(document.getElementById(`fastSaleShippingFee_${originalOrderIndex}`)?.value) || 0
-                : order.DeliveryPrice || 0;
+            const shippingFee =
+                originalOrderIndex >= 0
+                    ? parseFloat(
+                          document.getElementById(`fastSaleShippingFee_${originalOrderIndex}`)
+                              ?.value
+                      ) || 0
+                    : order.DeliveryPrice || 0;
 
             // Get OrderLines
             let orderLines = originalOrder?.OrderLines || order.OrderLines || [];
             if ((!orderLines || orderLines.length === 0) && saleOnlineOrderForData?.Details) {
-                orderLines = saleOnlineOrderForData.Details.map(d => ({
+                orderLines = saleOnlineOrderForData.Details.map((d) => ({
                     ProductName: d.ProductName || d.ProductNameGet || '',
                     ProductNameGet: d.ProductNameGet || d.ProductName || '',
                     ProductUOMQty: d.Quantity || d.ProductUOMQty || 1,
                     Quantity: d.Quantity || d.ProductUOMQty || 1,
                     PriceUnit: d.Price || d.PriceUnit || 0,
-                    Note: d.Note || ''
+                    Note: d.Note || '',
                 }));
             }
 
@@ -2392,7 +2618,8 @@ async function preGenerateBillImages() {
                 OrderLines: orderLines,
                 CarrierName: carrierName,
                 DeliveryPrice: shippingFee,
-                PartnerDisplayName: order.PartnerDisplayName || originalOrder?.PartnerDisplayName || '',
+                PartnerDisplayName:
+                    order.PartnerDisplayName || originalOrder?.PartnerDisplayName || '',
             };
 
             // Find saleOnline order for chat info
@@ -2401,7 +2628,7 @@ async function preGenerateBillImages() {
             let saleOnlineOrder = saleOnlineOrderForData;
             const saleOnlineName = order.SaleOnlineNames?.[0];
             if (!saleOnlineOrder && saleOnlineName) {
-                saleOnlineOrder = displayedData.find(o => o.Code === saleOnlineName);
+                saleOnlineOrder = displayedData.find((o) => o.Code === saleOnlineName);
             }
             // PartnerId fallback removed - it could return wrong order for same customer
 
@@ -2417,7 +2644,7 @@ async function preGenerateBillImages() {
                         channelId,
                         psid,
                         customerName: saleOnlineOrder.Name,
-                        orderNumber: order.Number
+                        orderNumber: order.Number,
                     };
                 }
             }
@@ -2432,17 +2659,25 @@ async function preGenerateBillImages() {
             if (useTposBill && tposOrderId && typeof window.getBillAuthHeader === 'function') {
                 try {
                     const headers = await window.getBillAuthHeader();
-                    const orderData = enrichedOrder.SessionIndex ? enrichedOrder :
-                        (window.OrderStore?.get(order.SaleOnlineIds?.[0]) || enrichedOrder);
+                    const orderData = enrichedOrder.SessionIndex
+                        ? enrichedOrder
+                        : window.OrderStore?.get(order.SaleOnlineIds?.[0]) || enrichedOrder;
                     billHtml = await window.fetchTPOSBillHTML(tposOrderId, headers, orderData);
                     if (billHtml) {
-                        console.log(`[FAST-SALE] ✅ Got TPOS bill HTML for pre-generate: ${order.Number}`);
+                        console.log(
+                            `[FAST-SALE] ✅ Got TPOS bill HTML for pre-generate: ${order.Number}`
+                        );
                     }
                 } catch (tposError) {
-                    console.warn(`[FAST-SALE] Failed to fetch TPOS bill for pre-generate ${order.Number}:`, tposError.message);
+                    console.warn(
+                        `[FAST-SALE] Failed to fetch TPOS bill for pre-generate ${order.Number}:`,
+                        tposError.message
+                    );
                 }
             } else if (!useTposBill) {
-                console.log(`[FAST-SALE] Using Web bill template for pre-generate: ${order.Number}`);
+                console.log(
+                    `[FAST-SALE] Using Web bill template for pre-generate: ${order.Number}`
+                );
             }
 
             // Generate bill image using TPOS HTML if available, otherwise custom bill fallback
@@ -2452,12 +2687,23 @@ async function preGenerateBillImages() {
             let contentUrl = null;
             let contentId = null;
             if (sendTask && window.pancakeDataManager) {
-                const imageFile = new File([imageBlob], `bill_${order.Number || Date.now()}.png`, { type: 'image/png' });
-                const uploadResult = await window.pancakeDataManager.uploadImage(sendTask.channelId, imageFile);
-                contentUrl = typeof uploadResult === 'string' ? uploadResult : uploadResult.content_url;
+                const imageFile = new File([imageBlob], `bill_${order.Number || Date.now()}.png`, {
+                    type: 'image/png',
+                });
+                const uploadResult = await window.pancakeDataManager.uploadImage(
+                    sendTask.channelId,
+                    imageFile
+                );
+                contentUrl =
+                    typeof uploadResult === 'string' ? uploadResult : uploadResult.content_url;
                 // IMPORTANT: Use content_id (hash), not id (UUID) - Pancake API expects content_id
-                contentId = typeof uploadResult === 'object' ? (uploadResult.content_id || uploadResult.id) : null;
-                console.log(`[FAST-SALE] 📤 Pre-uploaded bill image for ${order.Number}: ${contentUrl}, content_id: ${contentId}`);
+                contentId =
+                    typeof uploadResult === 'object'
+                        ? uploadResult.content_id || uploadResult.id
+                        : null;
+                console.log(
+                    `[FAST-SALE] 📤 Pre-uploaded bill image for ${order.Number}: ${contentUrl}, content_id: ${contentId}`
+                );
             }
 
             // Cache the data
@@ -2467,18 +2713,24 @@ async function preGenerateBillImages() {
                 contentUrl,
                 contentId,
                 enrichedOrder,
-                sendTask
+                sendTask,
             });
 
-            console.log(`[FAST-SALE] ✅ Pre-generated bill ${i + 1}/${successOrders.length}: ${order.Number}`);
-
+            console.log(
+                `[FAST-SALE] ✅ Pre-generated bill ${i + 1}/${successOrders.length}: ${order.Number}`
+            );
         } catch (error) {
             console.error(`[FAST-SALE] ❌ Error pre-generating bill for ${order.Number}:`, error);
         }
     }
 
-    console.log(`[FAST-SALE] 🎨 Pre-generation complete: ${window.preGeneratedBillData.size}/${successOrders.length} bills ready`);
-    window.notificationManager.success(`Đã tạo sẵn ${window.preGeneratedBillData.size} bill images`, 2000);
+    console.log(
+        `[FAST-SALE] 🎨 Pre-generation complete: ${window.preGeneratedBillData.size}/${successOrders.length} bills ready`
+    );
+    window.notificationManager.success(
+        `Đã tạo sẵn ${window.preGeneratedBillData.size} bill images`,
+        2000
+    );
 
     window.isPreGeneratingBills = false;
 }
@@ -2491,7 +2743,9 @@ async function processWalletWithdrawalsForSuccessOrders() {
     const successOrders = fastSaleResultsData.success;
     if (!successOrders || successOrders.length === 0) return;
 
-    console.log(`[FAST-SALE] Processing wallet withdrawals for ${successOrders.length} successful orders...`);
+    console.log(
+        `[FAST-SALE] Processing wallet withdrawals for ${successOrders.length} successful orders...`
+    );
 
     const performedBy = window.authManager?.getAuthState()?.username || 'system';
     let pendingCount = 0;
@@ -2514,11 +2768,14 @@ async function processWalletWithdrawalsForSuccessOrders() {
             const walletData = fastSaleWalletBalances[normalizedPhone];
             if (!walletData) continue;
 
-            const totalWalletBalance = (parseFloat(walletData.balance) || 0) + (parseFloat(walletData.virtualBalance) || 0);
+            const totalWalletBalance =
+                (parseFloat(walletData.balance) || 0) +
+                (parseFloat(walletData.virtualBalance) || 0);
             if (totalWalletBalance <= 0) continue;
 
             // Get COD amount (CashOnDelivery or AmountTotal)
-            const codAmount = parseFloat(order.CashOnDelivery) || parseFloat(order.AmountTotal) || 0;
+            const codAmount =
+                parseFloat(order.CashOnDelivery) || parseFloat(order.AmountTotal) || 0;
             if (codAmount <= 0) continue;
 
             // Calculate how much to withdraw (min of wallet balance and COD amount)
@@ -2527,7 +2784,9 @@ async function processWalletWithdrawalsForSuccessOrders() {
 
             const orderNumber = order.Number || order.Code || order.Reference || 'N/A';
 
-            console.log(`[FAST-SALE] Creating pending withdrawal for order ${orderNumber}, phone: ${normalizedPhone}, amount: ${withdrawAmount}`);
+            console.log(
+                `[FAST-SALE] Creating pending withdrawal for order ${orderNumber}, phone: ${normalizedPhone}, amount: ${withdrawAmount}`
+            );
 
             // Use pending-withdrawals API on Render server directly (not via CF Worker)
             // This ensures 100% no lost transactions even on network failures
@@ -2542,8 +2801,8 @@ async function processWalletWithdrawalsForSuccessOrders() {
                     amount: withdrawAmount,
                     source: 'FAST_SALE',
                     note: `Thanh toán công nợ qua PBH hàng loạt đơn #${orderNumber}`,
-                    created_by: performedBy
-                })
+                    created_by: performedBy,
+                }),
             });
 
             const result = await response.json();
@@ -2553,22 +2812,33 @@ async function processWalletWithdrawalsForSuccessOrders() {
                     console.log(`[FAST-SALE] ⏭️ Already processed for ${orderNumber}`);
                     skippedCount++;
                 } else {
-                    console.log(`[FAST-SALE] ✅ Pending created #${result.pending_id} for ${orderNumber}: ${withdrawAmount}đ`);
+                    console.log(
+                        `[FAST-SALE] ✅ Pending created #${result.pending_id} for ${orderNumber}: ${withdrawAmount}đ`
+                    );
                     pendingCount++;
                     pendingTotal += withdrawAmount;
 
                     // Update local wallet balance cache (optimistic)
                     if (walletData) {
-                        const estimatedNewBalance = Math.max(0, totalWalletBalance - withdrawAmount);
+                        const estimatedNewBalance = Math.max(
+                            0,
+                            totalWalletBalance - withdrawAmount
+                        );
                         fastSaleWalletBalances[normalizedPhone] = {
-                            balance: Math.max(0, (parseFloat(walletData.balance) || 0) - withdrawAmount),
+                            balance: Math.max(
+                                0,
+                                (parseFloat(walletData.balance) || 0) - withdrawAmount
+                            ),
                             virtualBalance: parseFloat(walletData.virtualBalance) || 0,
-                            total: estimatedNewBalance
+                            total: estimatedNewBalance,
                         };
                     }
                 }
             } else {
-                console.warn(`[FAST-SALE] ⚠️ Failed to create pending for ${normalizedPhone}:`, result.error);
+                console.warn(
+                    `[FAST-SALE] ⚠️ Failed to create pending for ${normalizedPhone}:`,
+                    result.error
+                );
             }
         } catch (error) {
             console.error('[FAST-SALE] Error creating pending withdrawal:', error);
@@ -2576,8 +2846,12 @@ async function processWalletWithdrawalsForSuccessOrders() {
     }
 
     if (pendingCount > 0) {
-        console.log(`[FAST-SALE] ✅ Created ${pendingCount} pending withdrawals, total: ${pendingTotal.toLocaleString('vi-VN')}đ`);
-        window.notificationManager?.success(`Đã ghi nhận trừ công nợ ${pendingCount} đơn, tổng: ${pendingTotal.toLocaleString('vi-VN')}đ`);
+        console.log(
+            `[FAST-SALE] ✅ Created ${pendingCount} pending withdrawals, total: ${pendingTotal.toLocaleString('vi-VN')}đ`
+        );
+        window.notificationManager?.success(
+            `Đã ghi nhận trừ công nợ ${pendingCount} đơn, tổng: ${pendingTotal.toLocaleString('vi-VN')}đ`
+        );
     }
     if (skippedCount > 0) {
         console.log(`[FAST-SALE] ⏭️ Skipped ${skippedCount} already processed withdrawals`);
@@ -2602,9 +2876,17 @@ async function logOrderCreationActivities() {
     for (const order of successOrders) {
         try {
             // Try multiple phone fields (TPOS response may use different naming)
-            const phone = order.Partner?.Phone || order.PartnerPhone || order.Partner?.PartnerPhone || order.ReceiverPhone || order.Phone;
+            const phone =
+                order.Partner?.Phone ||
+                order.PartnerPhone ||
+                order.Partner?.PartnerPhone ||
+                order.ReceiverPhone ||
+                order.Phone;
             if (!phone) {
-                console.warn(`[FAST-SALE] No phone found for order ${order.Number || order.Id}, skipping activity log. Order keys:`, Object.keys(order));
+                console.warn(
+                    `[FAST-SALE] No phone found for order ${order.Number || order.Id}, skipping activity log. Order keys:`,
+                    Object.keys(order)
+                );
                 continue;
             }
 
@@ -2621,7 +2903,8 @@ async function logOrderCreationActivities() {
             // Check if this order used wallet/debt
             const walletData = fastSaleWalletBalances[normalizedPhone];
             const totalWalletBalance = walletData
-                ? (parseFloat(walletData.balance) || 0) + (parseFloat(walletData.virtualBalance) || 0)
+                ? (parseFloat(walletData.balance) || 0) +
+                  (parseFloat(walletData.virtualBalance) || 0)
                 : 0;
 
             let debtUsed = 0;
@@ -2646,7 +2929,7 @@ async function logOrderCreationActivities() {
                 amount_total: amountTotal,
                 cod_amount: codAmount,
                 carrier: order.Carrier?.Name || order.CarrierName || '',
-                source: 'FAST_SALE'
+                source: 'FAST_SALE',
             };
             if (debtUsed > 0) {
                 metadata.debt_used = debtUsed;
@@ -2656,35 +2939,48 @@ async function logOrderCreationActivities() {
             // Log activity with response checking
             // Skip if debt was used - backend pending-withdrawals.js already logs ORDER_CREATED
             if (debtUsed > 0) {
-                console.log(`[FAST-SALE] Skipping activity log for ${orderNumber} (debt used, backend already logged)`);
+                console.log(
+                    `[FAST-SALE] Skipping activity log for ${orderNumber} (debt used, backend already logged)`
+                );
                 loggedCount++;
                 continue;
             }
-            console.log(`[FAST-SALE] Posting activity for ${normalizedPhone}, order ${orderNumber}...`);
-            const response = await fetch(`${RENDER_API_URL}/api/v2/customers/${normalizedPhone}/activities`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    activity_type: 'ORDER_CREATED',
-                    title: debtUsed > 0
-                        ? `Tạo đơn #${orderNumber} (CK ${debtUsed.toLocaleString('vi-VN')}đ)`
-                        : `Tạo đơn hàng #${orderNumber}`,
-                    description,
-                    reference_type: 'order',
-                    reference_id: orderNumber,
-                    metadata,
-                    icon: 'shopping_cart',
-                    color: 'green',
-                    created_by: performedBy
-                })
-            });
+            console.log(
+                `[FAST-SALE] Posting activity for ${normalizedPhone}, order ${orderNumber}...`
+            );
+            const response = await fetch(
+                `${RENDER_API_URL}/api/v2/customers/${normalizedPhone}/activities`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        activity_type: 'ORDER_CREATED',
+                        title:
+                            debtUsed > 0
+                                ? `Tạo đơn #${orderNumber} (CK ${debtUsed.toLocaleString('vi-VN')}đ)`
+                                : `Tạo đơn hàng #${orderNumber}`,
+                        description,
+                        reference_type: 'order',
+                        reference_id: orderNumber,
+                        metadata,
+                        icon: 'shopping_cart',
+                        color: 'green',
+                        created_by: performedBy,
+                    }),
+                }
+            );
 
             if (!response.ok) {
                 const errText = await response.text().catch(() => '');
-                console.error(`[FAST-SALE] ❌ Activity API error ${response.status} for ${orderNumber}:`, errText);
+                console.error(
+                    `[FAST-SALE] ❌ Activity API error ${response.status} for ${orderNumber}:`,
+                    errText
+                );
             } else {
                 loggedCount++;
-                console.log(`[FAST-SALE] ✅ Activity logged for order ${orderNumber}, phone: ${normalizedPhone}`);
+                console.log(
+                    `[FAST-SALE] ✅ Activity logged for order ${orderNumber}, phone: ${normalizedPhone}`
+                );
             }
         } catch (error) {
             console.error('[FAST-SALE] Error logging order activity:', error);
@@ -2692,7 +2988,9 @@ async function logOrderCreationActivities() {
     }
 
     if (loggedCount > 0) {
-        console.log(`[FAST-SALE] ✅ Logged ${loggedCount}/${successOrders.length} order activities`);
+        console.log(
+            `[FAST-SALE] ✅ Logged ${loggedCount}/${successOrders.length} order activities`
+        );
     } else if (successOrders.length > 0) {
         console.warn(`[FAST-SALE] ⚠️ No activities logged for ${successOrders.length} orders`);
     }
@@ -2707,7 +3005,7 @@ function showFastSaleResultsModal(results) {
     fastSaleResultsData = {
         forced: results.DataErrorFast || [],
         failed: results.OrdersError || [],
-        success: results.OrdersSucessed || []
+        success: results.OrdersSucessed || [],
     };
 
     // Export to window for other modules (tab1-fast-sale-invoice-status.js)
@@ -2771,6 +3069,18 @@ function closeFastSaleResultsModal() {
     if (typeof filterAndDisplayOrders === 'function') {
         filterAndDisplayOrders();
     }
+
+    // Re-update invoice cells from stored results (handles race conditions)
+    const lastResults = window.fastSaleResultsData;
+    if (lastResults && typeof window.updateMainTableInvoiceCells === 'function') {
+        const apiResult = {
+            OrdersSucessed: lastResults.success || [],
+            OrdersError: lastResults.failed || [],
+        };
+        if (apiResult.OrdersSucessed.length > 0 || apiResult.OrdersError.length > 0) {
+            window.updateMainTableInvoiceCells(apiResult);
+        }
+    }
 }
 
 /**
@@ -2779,7 +3089,7 @@ function closeFastSaleResultsModal() {
  */
 function switchResultsTab(tabName) {
     // Update tab buttons
-    document.querySelectorAll('.fast-sale-results-tab').forEach(tab => {
+    document.querySelectorAll('.fast-sale-results-tab').forEach((tab) => {
         if (tab.dataset.tab === tabName) {
             tab.classList.add('active');
         } else {
@@ -2788,7 +3098,7 @@ function switchResultsTab(tabName) {
     });
 
     // Update tab content
-    document.querySelectorAll('.fast-sale-results-content').forEach(content => {
+    document.querySelectorAll('.fast-sale-results-content').forEach((content) => {
         if (content.id === `${tabName}Tab`) {
             content.classList.add('active');
         } else {
@@ -2805,7 +3115,8 @@ function renderForcedOrdersTable() {
     if (!container) return;
 
     if (fastSaleResultsData.forced.length === 0) {
-        container.innerHTML = '<p style="color: #6b7280; text-align: center; padding: 40px;">Không có đơn hàng cần cưỡng bức</p>';
+        container.innerHTML =
+            '<p style="color: #6b7280; text-align: center; padding: 40px;">Không có đơn hàng cần cưỡng bức</p>';
         return;
     }
 
@@ -2822,7 +3133,9 @@ function renderForcedOrdersTable() {
                 </tr>
             </thead>
             <tbody>
-                ${fastSaleResultsData.forced.map((order, index) => `
+                ${fastSaleResultsData.forced
+                    .map(
+                        (order, index) => `
                     <tr>
                         <td>${index + 1}</td>
                         <td><input type="checkbox" class="forced-order-checkbox" value="${index}"></td>
@@ -2831,7 +3144,9 @@ function renderForcedOrdersTable() {
                         <td>${order.Partner?.PartnerDisplayName || order.PartnerDisplayName || 'N/A'}</td>
                         <td><div class="fast-sale-error-msg">${order.DeliveryNote || 'Lỗi không xác định'}</div></td>
                     </tr>
-                `).join('')}
+                `
+                    )
+                    .join('')}
             </tbody>
         </table>
     `;
@@ -2847,7 +3162,8 @@ function renderFailedOrdersTable() {
     if (!container) return;
 
     if (fastSaleResultsData.failed.length === 0) {
-        container.innerHTML = '<p style="color: #6b7280; text-align: center; padding: 40px;">Không có đơn hàng thất bại</p>';
+        container.innerHTML =
+            '<p style="color: #6b7280; text-align: center; padding: 40px;">Không có đơn hàng thất bại</p>';
         return;
     }
 
@@ -2863,7 +3179,9 @@ function renderFailedOrdersTable() {
                 </tr>
             </thead>
             <tbody>
-                ${fastSaleResultsData.failed.map((order, index) => `
+                ${fastSaleResultsData.failed
+                    .map(
+                        (order, index) => `
                     <tr>
                         <td>${index + 1}</td>
                         <td>${order.Reference || 'N/A'}</td>
@@ -2871,7 +3189,9 @@ function renderFailedOrdersTable() {
                         <td>${order.Partner?.PartnerDisplayName || order.PartnerDisplayName || 'N/A'}</td>
                         <td><div class="fast-sale-error-msg">${order.DeliveryNote || 'Lỗi không xác định'}</div></td>
                     </tr>
-                `).join('')}
+                `
+                    )
+                    .join('')}
             </tbody>
         </table>
     `;
@@ -2887,7 +3207,8 @@ function renderSuccessOrdersTable() {
     if (!container) return;
 
     if (fastSaleResultsData.success.length === 0) {
-        container.innerHTML = '<p style="color: #6b7280; text-align: center; padding: 40px;">Không có đơn hàng thành công</p>';
+        container.innerHTML =
+            '<p style="color: #6b7280; text-align: center; padding: 40px;">Không có đơn hàng thành công</p>';
         return;
     }
 
@@ -2906,12 +3227,18 @@ function renderSuccessOrdersTable() {
                 </tr>
             </thead>
             <tbody>
-                ${fastSaleResultsData.success.map((order, index) => {
-                    const showState = order.ShowState || '';
-                    const isActionable = showState === 'Đã thanh toán' || showState === 'Đã xác nhận';
-                    const cancelBtn = isActionable ? (window.getCancelButtonHtml ? window.getCancelButtonHtml(order, index) : '') : '';
+                ${fastSaleResultsData.success
+                    .map((order, index) => {
+                        const showState = order.ShowState || '';
+                        const isActionable =
+                            showState === 'Đã thanh toán' || showState === 'Đã xác nhận';
+                        const cancelBtn = isActionable
+                            ? window.getCancelButtonHtml
+                                ? window.getCancelButtonHtml(order, index)
+                                : ''
+                            : '';
 
-                    return `
+                        return `
                     <tr>
                         <td>${index + 1}</td>
                         <td><input type="checkbox" class="success-order-checkbox" value="${index}" data-order-id="${order.Id}"></td>
@@ -2923,7 +3250,8 @@ function renderSuccessOrdersTable() {
                         <td style="white-space: nowrap;">${cancelBtn}</td>
                     </tr>
                     `;
-                }).join('')}
+                    })
+                    .join('')}
             </tbody>
         </table>
     `;
@@ -2933,7 +3261,7 @@ function renderSuccessOrdersTable() {
     // Trigger auto send bills if enabled
     console.log('[FAST-SALE] Checking auto send bills:', {
         functionExists: !!window.autoSendBillsIfEnabled,
-        successCount: fastSaleResultsData.success.length
+        successCount: fastSaleResultsData.success.length,
     });
     if (window.autoSendBillsIfEnabled && fastSaleResultsData.success.length > 0) {
         window.autoSendBillsIfEnabled(fastSaleResultsData.success);
@@ -2950,7 +3278,7 @@ function renderSuccessOrdersTable() {
  * @param {boolean} checked
  */
 function toggleAllForcedOrders(checked) {
-    document.querySelectorAll('.forced-order-checkbox').forEach(cb => {
+    document.querySelectorAll('.forced-order-checkbox').forEach((cb) => {
         cb.checked = checked;
     });
 }
@@ -2959,15 +3287,19 @@ function toggleAllForcedOrders(checked) {
  * Create Forced Orders (Tạo cưỡng bức)
  */
 async function createForcedOrders() {
-    const selectedIndexes = Array.from(document.querySelectorAll('.forced-order-checkbox:checked'))
-        .map(cb => parseInt(cb.value));
+    const selectedIndexes = Array.from(
+        document.querySelectorAll('.forced-order-checkbox:checked')
+    ).map((cb) => parseInt(cb.value));
 
     if (selectedIndexes.length === 0) {
-        window.notificationManager.warning('Vui lòng chọn ít nhất 1 đơn hàng để tạo cưỡng bức', 'Thông báo');
+        window.notificationManager.warning(
+            'Vui lòng chọn ít nhất 1 đơn hàng để tạo cưỡng bức',
+            'Thông báo'
+        );
         return;
     }
 
-    const selectedOrders = selectedIndexes.map(i => fastSaleResultsData.forced[i]);
+    const selectedOrders = selectedIndexes.map((i) => fastSaleResultsData.forced[i]);
 
     // Store models for later use (to get OrderLines when API response is empty)
     window.lastFastSaleModels = selectedOrders;
@@ -2981,7 +3313,7 @@ async function createForcedOrders() {
         // Use is_approve: false with isForce=true for forced creation
         const requestBody = {
             is_approve: false,
-            model: selectedOrders
+            model: selectedOrders,
         };
 
         const loadingNotif = window.notificationManager.info(
@@ -2993,9 +3325,9 @@ async function createForcedOrders() {
             method: 'POST',
             headers: {
                 ...headers,
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
             },
-            body: JSON.stringify(requestBody)
+            body: JSON.stringify(requestBody),
         });
 
         if (!response.ok) {
@@ -3024,7 +3356,6 @@ async function createForcedOrders() {
             `Đã tạo cưỡng bức ${result.OrdersSucessed?.length || 0} đơn hàng`,
             'Thành công'
         );
-
     } catch (error) {
         console.error('[FAST-SALE] Error creating forced orders:', error);
 
@@ -3042,7 +3373,7 @@ async function createForcedOrders() {
  * @param {boolean} checked
  */
 function toggleAllSuccessOrders(checked) {
-    document.querySelectorAll('.success-order-checkbox').forEach(cb => {
+    document.querySelectorAll('.success-order-checkbox').forEach((cb) => {
         cb.checked = checked;
     });
 }
@@ -3054,16 +3385,17 @@ function toggleAllSuccessOrders(checked) {
 async function printSuccessOrders(type) {
     // Pre-generation runs in background - if cached data exists, use it; otherwise generate on-the-fly
 
-    const selectedIndexes = Array.from(document.querySelectorAll('.success-order-checkbox:checked'))
-        .map(cb => parseInt(cb.value));
+    const selectedIndexes = Array.from(
+        document.querySelectorAll('.success-order-checkbox:checked')
+    ).map((cb) => parseInt(cb.value));
 
     if (selectedIndexes.length === 0) {
         window.notificationManager.warning('Vui lòng chọn ít nhất 1 đơn hàng để in', 'Thông báo');
         return;
     }
 
-    const selectedOrders = selectedIndexes.map(i => fastSaleResultsData.success[i]);
-    const orderIds = selectedOrders.map(o => o.Id).filter(id => id);
+    const selectedOrders = selectedIndexes.map((i) => fastSaleResultsData.success[i]);
+    const orderIds = selectedOrders.map((o) => o.Id).filter((id) => id);
 
     if (orderIds.length === 0) {
         window.notificationManager.error('Không tìm thấy ID đơn hàng để in', 'Lỗi');
@@ -3087,44 +3419,60 @@ async function printSuccessOrders(type) {
             const order = selectedOrders[i];
 
             // Find original order by matching SaleOnlineIds or Reference
-            const originalOrderIndex = fastSaleOrdersData.findIndex(o =>
-                (o.SaleOnlineIds && order.SaleOnlineIds &&
-                    JSON.stringify(o.SaleOnlineIds) === JSON.stringify(order.SaleOnlineIds)) ||
-                (o.Reference && o.Reference === order.Reference)
+            const originalOrderIndex = fastSaleOrdersData.findIndex(
+                (o) =>
+                    (o.SaleOnlineIds &&
+                        order.SaleOnlineIds &&
+                        JSON.stringify(o.SaleOnlineIds) === JSON.stringify(order.SaleOnlineIds)) ||
+                    (o.Reference && o.Reference === order.Reference)
             );
-            const originalOrder = originalOrderIndex >= 0 ? fastSaleOrdersData[originalOrderIndex] : null;
+            const originalOrder =
+                originalOrderIndex >= 0 ? fastSaleOrdersData[originalOrderIndex] : null;
 
             // Also try to find saleOnline order from displayedData for additional data - O(1) via OrderStore
             const saleOnlineId = order.SaleOnlineIds?.[0];
             const saleOnlineOrderForData = saleOnlineId
-                ? (window.OrderStore?.get(saleOnlineId) || window.OrderStore?.get(String(saleOnlineId)) || displayedData.find(o => o.Id === saleOnlineId || String(o.Id) === String(saleOnlineId)))
+                ? window.OrderStore?.get(saleOnlineId) ||
+                  window.OrderStore?.get(String(saleOnlineId)) ||
+                  displayedData.find(
+                      (o) => o.Id === saleOnlineId || String(o.Id) === String(saleOnlineId)
+                  )
                 : null;
 
             // Get CarrierName from form dropdown (same logic as collectFastSaleData)
-            const carrierSelect = originalOrderIndex >= 0 ? document.getElementById(`fastSaleCarrier_${originalOrderIndex}`) : null;
-            const carrierNameFromDropdown = carrierSelect?.options[carrierSelect.selectedIndex]?.text || '';
+            const carrierSelect =
+                originalOrderIndex >= 0
+                    ? document.getElementById(`fastSaleCarrier_${originalOrderIndex}`)
+                    : null;
+            const carrierNameFromDropdown =
+                carrierSelect?.options[carrierSelect.selectedIndex]?.text || '';
             // Fallback chain: dropdown > originalOrder.Carrier.Name > order.CarrierName > order.Carrier.Name
-            const carrierName = carrierNameFromDropdown ||
+            const carrierName =
+                carrierNameFromDropdown ||
                 originalOrder?.Carrier?.Name ||
                 originalOrder?.CarrierName ||
                 order.CarrierName ||
                 order.Carrier?.Name ||
                 '';
-            const shippingFee = originalOrderIndex >= 0
-                ? parseFloat(document.getElementById(`fastSaleShippingFee_${originalOrderIndex}`)?.value) || 0
-                : order.DeliveryPrice || 0;
+            const shippingFee =
+                originalOrderIndex >= 0
+                    ? parseFloat(
+                          document.getElementById(`fastSaleShippingFee_${originalOrderIndex}`)
+                              ?.value
+                      ) || 0
+                    : order.DeliveryPrice || 0;
 
             // Get OrderLines - priority: originalOrder (from FastSale API) > saleOnlineOrder.Details > order.OrderLines
             let orderLines = originalOrder?.OrderLines || order.OrderLines || [];
             if ((!orderLines || orderLines.length === 0) && saleOnlineOrderForData?.Details) {
                 // Map saleOnline Details to OrderLines format
-                orderLines = saleOnlineOrderForData.Details.map(d => ({
+                orderLines = saleOnlineOrderForData.Details.map((d) => ({
                     ProductName: d.ProductName || d.ProductNameGet || '',
                     ProductNameGet: d.ProductNameGet || d.ProductName || '',
                     ProductUOMQty: d.Quantity || d.ProductUOMQty || 1,
                     Quantity: d.Quantity || d.ProductUOMQty || 1,
                     PriceUnit: d.Price || d.PriceUnit || 0,
-                    Note: d.Note || ''
+                    Note: d.Note || '',
                 }));
             }
 
@@ -3135,7 +3483,8 @@ async function printSuccessOrders(type) {
                 orderNormalizedPhone = '0' + orderNormalizedPhone.substring(2);
             }
             const orderWalletData = fastSaleWalletBalances[orderNormalizedPhone];
-            const orderHasVirtualDebt = orderWalletData && (parseFloat(orderWalletData.virtualBalance) || 0) > 0;
+            const orderHasVirtualDebt =
+                orderWalletData && (parseFloat(orderWalletData.virtualBalance) || 0) > 0;
 
             // Merge data: API result + original OrderLines + form values
             const enrichedOrder = {
@@ -3143,7 +3492,8 @@ async function printSuccessOrders(type) {
                 OrderLines: orderLines,
                 CarrierName: carrierName,
                 DeliveryPrice: shippingFee,
-                PartnerDisplayName: order.PartnerDisplayName || originalOrder?.PartnerDisplayName || '',
+                PartnerDisplayName:
+                    order.PartnerDisplayName || originalOrder?.PartnerDisplayName || '',
                 hasVirtualDebt: orderHasVirtualDebt,
             };
 
@@ -3152,7 +3502,7 @@ async function printSuccessOrders(type) {
             console.log('[FAST-SALE] Enriched order for Messenger:', {
                 number: enrichedOrder.Number,
                 carrierName: enrichedOrder.CarrierName,
-                orderLinesCount: enrichedOrder.OrderLines?.length
+                orderLinesCount: enrichedOrder.OrderLines?.length,
             });
 
             // Find saleOnline order for chat info
@@ -3161,7 +3511,7 @@ async function printSuccessOrders(type) {
             let saleOnlineOrder = saleOnlineOrderForData;
             const saleOnlineName = order.SaleOnlineNames?.[0];
             if (!saleOnlineOrder && saleOnlineName) {
-                saleOnlineOrder = displayedData.find(o => o.Code === saleOnlineName);
+                saleOnlineOrder = displayedData.find((o) => o.Code === saleOnlineName);
             }
             // PartnerId fallback removed - it could return wrong order for same customer
 
@@ -3175,7 +3525,7 @@ async function printSuccessOrders(type) {
                 saleOnlineOrderName: saleOnlineOrder?.Name,
                 saleOnlineOrderCode: saleOnlineOrder?.Code,
                 Facebook_ASUserId: saleOnlineOrder?.Facebook_ASUserId,
-                Facebook_PostId: saleOnlineOrder?.Facebook_PostId
+                Facebook_PostId: saleOnlineOrder?.Facebook_PostId,
             });
 
             // Prepare send task for this customer
@@ -3190,23 +3540,32 @@ async function printSuccessOrders(type) {
                     psid,
                     postId,
                     channelId,
-                    willAddToSendTasks: !!(psid && channelId)
+                    willAddToSendTasks: !!(psid && channelId),
                 });
 
                 if (psid && channelId) {
-                    console.log('[FAST-SALE] Will send bill to:', saleOnlineOrder.Name, 'for order:', order.Number);
+                    console.log(
+                        '[FAST-SALE] Will send bill to:',
+                        saleOnlineOrder.Name,
+                        'for order:',
+                        order.Number
+                    );
                     sendTasks.push({
                         enrichedOrder,
                         channelId,
                         psid,
                         customerName: saleOnlineOrder.Name,
-                        orderNumber: order.Number
+                        orderNumber: order.Number,
                     });
                 } else {
-                    console.warn('[FAST-SALE] ⚠️ Missing psid or channelId for order:', order.Number, {
-                        psid: psid || 'MISSING',
-                        channelId: channelId || 'MISSING'
-                    });
+                    console.warn(
+                        '[FAST-SALE] ⚠️ Missing psid or channelId for order:',
+                        order.Number,
+                        {
+                            psid: psid || 'MISSING',
+                            channelId: channelId || 'MISSING',
+                        }
+                    );
                 }
             } else {
                 console.warn('[FAST-SALE] ⚠️ No saleOnlineOrder found for order:', order.Number);
@@ -3218,7 +3577,7 @@ async function printSuccessOrders(type) {
             selectedOrdersCount: selectedOrders.length,
             orderIds: orderIds,
             enrichedOrdersCount: enrichedOrders.length,
-            sendTasksCount: sendTasks.length
+            sendTasksCount: sendTasks.length,
         });
 
         // 1. Check bill type toggle preference
@@ -3243,33 +3602,43 @@ async function printSuccessOrders(type) {
                         // Find saleOnline order for SessionIndex
                         const saleOnlineId = order.SaleOnlineIds?.[0];
                         const saleOnlineOrder = saleOnlineId
-                            ? (window.OrderStore?.get(saleOnlineId) || displayedData.find(o => o.Id === saleOnlineId))
+                            ? window.OrderStore?.get(saleOnlineId) ||
+                              displayedData.find((o) => o.Id === saleOnlineId)
                             : null;
 
                         // Check if order uses virtual debt (công nợ ảo) from return ticket
                         const tposPhone = order.Partner?.Phone || order.PartnerPhone || '';
                         let tposNormalizedPhone = String(tposPhone).replace(/\D/g, '');
-                        if (tposNormalizedPhone.startsWith('84') && tposNormalizedPhone.length > 9) {
+                        if (
+                            tposNormalizedPhone.startsWith('84') &&
+                            tposNormalizedPhone.length > 9
+                        ) {
                             tposNormalizedPhone = '0' + tposNormalizedPhone.substring(2);
                         }
                         const tposWalletData = fastSaleWalletBalances[tposNormalizedPhone];
-                        const tposHasVirtualDebt = tposWalletData && (parseFloat(tposWalletData.virtualBalance) || 0) > 0;
+                        const tposHasVirtualDebt =
+                            tposWalletData && (parseFloat(tposWalletData.virtualBalance) || 0) > 0;
 
                         const baseOrderData = saleOnlineOrder || order;
                         return {
                             orderId: order.Id,
-                            orderData: { ...baseOrderData, hasVirtualDebt: tposHasVirtualDebt }
+                            orderData: { ...baseOrderData, hasVirtualDebt: tposHasVirtualDebt },
                         };
                     });
 
-                    console.log('[FAST-SALE] TPOS orders for print:', tposOrders.map(o => ({
-                        orderId: o.orderId,
-                        sessionIndex: o.orderData?.SessionIndex
-                    })));
+                    console.log(
+                        '[FAST-SALE] TPOS orders for print:',
+                        tposOrders.map((o) => ({
+                            orderId: o.orderId,
+                            sessionIndex: o.orderData?.SessionIndex,
+                        }))
+                    );
 
                     // Check if function exists
                     if (typeof window.openCombinedTPOSPrintPopup !== 'function') {
-                        console.error('[FAST-SALE] ERROR: window.openCombinedTPOSPrintPopup is not a function!');
+                        console.error(
+                            '[FAST-SALE] ERROR: window.openCombinedTPOSPrintPopup is not a function!'
+                        );
                         window.notificationManager?.error('Lỗi: Hàm in TPOS bill không tồn tại');
                         return;
                     }
@@ -3278,17 +3647,22 @@ async function printSuccessOrders(type) {
                     console.log('[FAST-SALE] Calling openCombinedTPOSPrintPopup...');
                     await window.openCombinedTPOSPrintPopup(tposOrders, headers);
                     console.log('[FAST-SALE] openCombinedTPOSPrintPopup completed');
-
                 } catch (error) {
                     console.error('[FAST-SALE] Error printing TPOS bills:', error);
                     window.notificationManager?.error(`Lỗi khi in TPOS bill: ${error.message}`);
                 }
             } else {
                 // Web Bill - use local template (generateCustomBillHTML)
-                console.log('[FAST-SALE] Using Web bill template for', enrichedOrders.length, 'bills...');
+                console.log(
+                    '[FAST-SALE] Using Web bill template for',
+                    enrichedOrders.length,
+                    'bills...'
+                );
 
                 if (typeof window.openCombinedPrintPopup !== 'function') {
-                    console.error('[FAST-SALE] ERROR: window.openCombinedPrintPopup is not a function!');
+                    console.error(
+                        '[FAST-SALE] ERROR: window.openCombinedPrintPopup is not a function!'
+                    );
                     window.notificationManager?.error('Lỗi: Hàm in Web bill không tồn tại');
                     return;
                 }
@@ -3305,7 +3679,7 @@ async function printSuccessOrders(type) {
         console.log('[FAST-SALE] Clearing main table checkboxes after print...');
         selectedOrderIds.clear();
         // Uncheck all checkboxes in main table
-        document.querySelectorAll('#ordersTable input[type="checkbox"]:checked').forEach(cb => {
+        document.querySelectorAll('#ordersTable input[type="checkbox"]:checked').forEach((cb) => {
             cb.checked = false;
         });
         // Also uncheck header checkbox
@@ -3316,14 +3690,22 @@ async function printSuccessOrders(type) {
 
         // 2. Send all bills to Messenger in PARALLEL
         if (sendTasks.length > 0) {
-            console.log('[FAST-SALE] Sending', sendTasks.length, 'bills to Messenger in parallel...');
-            window.notificationManager.info(`Đang gửi ${sendTasks.length} bill qua Messenger...`, 3000);
+            console.log(
+                '[FAST-SALE] Sending',
+                sendTasks.length,
+                'bills to Messenger in parallel...'
+            );
+            window.notificationManager.info(
+                `Đang gửi ${sendTasks.length} bill qua Messenger...`,
+                3000
+            );
 
-            const sendPromises = sendTasks.map(task => {
+            const sendPromises = sendTasks.map((task) => {
                 // Check for pre-generated bill data
                 const orderId = task.enrichedOrder?.Id;
                 const orderNumber = task.enrichedOrder?.Number;
-                const cachedData = window.preGeneratedBillData?.get(orderId) ||
+                const cachedData =
+                    window.preGeneratedBillData?.get(orderId) ||
                     window.preGeneratedBillData?.get(orderNumber);
 
                 const sendOptions = {};
@@ -3333,29 +3715,57 @@ async function printSuccessOrders(type) {
                     sendOptions.preGeneratedContentId = cachedData.contentId;
                 }
 
-                return sendBillToCustomer(task.enrichedOrder, task.channelId, task.psid, sendOptions)
-                    .then(res => {
+                return sendBillToCustomer(
+                    task.enrichedOrder,
+                    task.channelId,
+                    task.psid,
+                    sendOptions
+                )
+                    .then((res) => {
                         if (res.success) {
-                            console.log(`[FAST-SALE] ✅ Bill sent for ${task.orderNumber} to ${task.customerName}`);
-                            return { success: true, orderNumber: task.orderNumber, customerName: task.customerName };
+                            console.log(
+                                `[FAST-SALE] ✅ Bill sent for ${task.orderNumber} to ${task.customerName}`
+                            );
+                            return {
+                                success: true,
+                                orderNumber: task.orderNumber,
+                                customerName: task.customerName,
+                            };
                         } else {
-                            console.warn(`[FAST-SALE] ⚠️ Failed to send bill for ${task.orderNumber}:`, res.error);
-                            return { success: false, orderNumber: task.orderNumber, error: res.error };
+                            console.warn(
+                                `[FAST-SALE] ⚠️ Failed to send bill for ${task.orderNumber}:`,
+                                res.error
+                            );
+                            return {
+                                success: false,
+                                orderNumber: task.orderNumber,
+                                error: res.error,
+                            };
                         }
                     })
-                    .catch(err => {
-                        console.error(`[FAST-SALE] ❌ Error sending bill for ${task.orderNumber}:`, err);
-                        return { success: false, orderNumber: task.orderNumber, error: err.message };
+                    .catch((err) => {
+                        console.error(
+                            `[FAST-SALE] ❌ Error sending bill for ${task.orderNumber}:`,
+                            err
+                        );
+                        return {
+                            success: false,
+                            orderNumber: task.orderNumber,
+                            error: err.message,
+                        };
                     });
             });
 
             // Wait for all sends to complete
-            Promise.all(sendPromises).then(results => {
-                const successCount = results.filter(r => r.success).length;
-                const failCount = results.filter(r => !r.success).length;
+            Promise.all(sendPromises).then((results) => {
+                const successCount = results.filter((r) => r.success).length;
+                const failCount = results.filter((r) => !r.success).length;
 
                 if (successCount > 0) {
-                    window.notificationManager.success(`Đã gửi ${successCount}/${results.length} bill qua Messenger`, 3000);
+                    window.notificationManager.success(
+                        `Đã gửi ${successCount}/${results.length} bill qua Messenger`,
+                        3000
+                    );
                 }
                 if (failCount > 0) {
                     window.notificationManager.warning(`${failCount} bill gửi thất bại`, 3000);
@@ -3398,8 +3808,8 @@ async function printSuccessOrders(type) {
             method: 'GET',
             headers: {
                 ...headers,
-                'Accept': 'application/json, text/javascript, */*; q=0.01'
-            }
+                Accept: 'application/json, text/javascript, */*; q=0.01',
+            },
         });
 
         if (!response.ok) {
@@ -3416,10 +3826,7 @@ async function printSuccessOrders(type) {
 
         // Check for errors
         if (result.listErrors && result.listErrors.length > 0) {
-            window.notificationManager.error(
-                `Lỗi khi in: ${result.listErrors.join(', ')}`,
-                'Lỗi'
-            );
+            window.notificationManager.error(`Lỗi khi in: ${result.listErrors.join(', ')}`, 'Lỗi');
             return;
         }
 
@@ -3461,12 +3868,8 @@ async function printSuccessOrders(type) {
                 );
             }
         } else {
-            window.notificationManager.error(
-                'Không nhận được HTML để in',
-                'Lỗi'
-            );
+            window.notificationManager.error('Không nhận được HTML để in', 'Lỗi');
         }
-
     } catch (error) {
         console.error('[FAST-SALE] Error printing orders:', error);
 
@@ -3480,10 +3883,7 @@ async function printSuccessOrders(type) {
             errorMessage = error.toString();
         }
 
-        window.notificationManager.error(
-            `Lỗi khi in: ${errorMessage}`,
-            'Lỗi'
-        );
+        window.notificationManager.error(`Lỗi khi in: ${errorMessage}`, 'Lỗi');
     }
 }
 
@@ -3539,9 +3939,9 @@ const defaultBillSettings = {
     codBackground: '#fef3c7',
     codBorder: '#f59e0b',
     // Send behavior
-    previewBeforeSend: true,  // Xem trước bill trước khi gửi (mặc định: bật)
-    preGenerateBills: false,  // Tự động tạo trước hình bill sau khi lưu đơn (mặc định: tắt)
-    autoSendOnSuccess: false  // Tự động gửi bill khi đơn thành công (mặc định: tắt)
+    previewBeforeSend: true, // Xem trước bill trước khi gửi (mặc định: bật)
+    preGenerateBills: false, // Tự động tạo trước hình bill sau khi lưu đơn (mặc định: tắt)
+    autoSendOnSuccess: false, // Tự động gửi bill khi đơn thành công (mặc định: tắt)
 };
 
 /**
@@ -3585,18 +3985,18 @@ function closeBillTemplateSettings() {
  */
 function switchBillSettingsTab(tabName) {
     // Update tab buttons
-    document.querySelectorAll('.bill-settings-tab').forEach(tab => {
+    document.querySelectorAll('.bill-settings-tab').forEach((tab) => {
         tab.classList.toggle('active', tab.dataset.tab === tabName);
     });
     // Update content
-    document.querySelectorAll('.bill-settings-content').forEach(content => {
+    document.querySelectorAll('.bill-settings-content').forEach((content) => {
         content.style.display = 'none';
     });
     const tabMap = {
-        'general': 'billSettingsGeneral',
-        'sections': 'billSettingsSections',
-        'style': 'billSettingsStyle',
-        'preview': 'billSettingsPreview'
+        general: 'billSettingsGeneral',
+        sections: 'billSettingsSections',
+        style: 'billSettingsStyle',
+        preview: 'billSettingsPreview',
     };
     const targetContent = document.getElementById(tabMap[tabName]);
     if (targetContent) {
@@ -3693,7 +4093,7 @@ function saveBillTemplateSettings() {
         billWidth: document.getElementById('billWidth').value || '80mm',
         billPadding: parseInt(document.getElementById('billPadding').value) || 20,
         codBackground: document.getElementById('billCODBackground').value || '#fef3c7',
-        codBorder: document.getElementById('billCODBorder').value || '#f59e0b'
+        codBorder: document.getElementById('billCODBorder').value || '#f59e0b',
     };
 
     try {
@@ -3722,19 +4122,25 @@ function previewBillTemplate() {
     const sampleOrder = {
         Number: 'NJD/2026/SAMPLE',
         PartnerDisplayName: 'Nguyễn Văn A',
-        Partner: { Name: 'Nguyễn Văn A', Phone: '0901234567', Street: '123 Đường ABC, Quận 1, TP.HCM' },
-        CarrierName: 'THÀNH PHỐ (1 3 4 5 6 7 8 10 11 Phú Nhuận, Bình Thạnh, Tân Phú, Tân Bình, Gò Vấp,)',
+        Partner: {
+            Name: 'Nguyễn Văn A',
+            Phone: '0901234567',
+            Street: '123 Đường ABC, Quận 1, TP.HCM',
+        },
+        CarrierName:
+            'THÀNH PHỐ (1 3 4 5 6 7 8 10 11 Phú Nhuận, Bình Thạnh, Tân Phú, Tân Bình, Gò Vấp,)',
         DeliveryPrice: 20000,
         CashOnDelivery: 220000,
         AmountDeposit: 0,
         Discount: 160000,
-        DeliveryNote: 'KHÔNG ĐƯỢC TỰ Ý HOÀN ĐƠN CÓ GÌ LIÊN HỆ HOTLINE CŨA SHOP 090 8888 674 ĐỂ ĐƯỢC HỖ TRỢ\n\nSản phẩm nhận đổi trả trong vòng 2-4 ngày kể từ ngày nhận hàng , "ĐỐI VỚI SẢN PHẨM BỊ LỖI HOẶC SẢN PHẨM SHOP GIAO SAI" quá thời gian shop không nhận xử lý đổi trả bất kì trường hợp nào .',
+        DeliveryNote:
+            'KHÔNG ĐƯỢC TỰ Ý HOÀN ĐƠN CÓ GÌ LIÊN HỆ HOTLINE CŨA SHOP 090 8888 674 ĐỂ ĐƯỢC HỖ TRỢ\n\nSản phẩm nhận đổi trả trong vòng 2-4 ngày kể từ ngày nhận hàng , "ĐỐI VỚI SẢN PHẨM BỊ LỖI HOẶC SẢN PHẨM SHOP GIAO SAI" quá thời gian shop không nhận xử lý đổi trả bất kì trường hợp nào .',
         Comment: 'STK ngân hàng Lại Thụy Yến Nhi\n75918 (ACB)',
         SessionIndex: '252',
         UserName: 'Tú',
         OrderLines: [
-            { ProductName: '[N23] 0510 A3 ÁO 2D FENDY HỒNG', Quantity: 2, PriceUnit: 180000 }
-        ]
+            { ProductName: '[N23] 0510 A3 ÁO 2D FENDY HỒNG', Quantity: 2, PriceUnit: 180000 },
+        ],
     };
 
     const html = window.generateCustomBillHTML(sampleOrder, {});
@@ -3751,13 +4157,13 @@ function previewBillTemplate() {
             // Auto-resize iframe to content height
             iframe.onload = () => {
                 try {
-                    iframe.style.height = (doc.body.scrollHeight + 20) + 'px';
+                    iframe.style.height = doc.body.scrollHeight + 20 + 'px';
                 } catch (e) {}
             };
             // Fallback resize
             setTimeout(() => {
                 try {
-                    iframe.style.height = (doc.body.scrollHeight + 20) + 'px';
+                    iframe.style.height = doc.body.scrollHeight + 20 + 'px';
                 } catch (e) {}
             }, 100);
         }
@@ -3777,7 +4183,7 @@ window.getBillTemplateSettings = getBillTemplateSettings;
  * Open bill settings from preview modal
  * Opens settings modal on top of preview, refreshes preview after save
  */
-window.openBillSettingsFromPreview = function() {
+window.openBillSettingsFromPreview = function () {
     // Mark that settings was opened from preview
     window._billSettingsOpenedFromPreview = true;
     openBillTemplateSettings();
@@ -3785,7 +4191,7 @@ window.openBillSettingsFromPreview = function() {
 
 // Override saveBillTemplateSettings to refresh preview if opened from preview
 const originalSaveBillTemplateSettings = saveBillTemplateSettings;
-window.saveBillTemplateSettings = async function() {
+window.saveBillTemplateSettings = async function () {
     await originalSaveBillTemplateSettings();
 
     // If settings was opened from preview, refresh the preview
@@ -3798,7 +4204,10 @@ window.saveBillTemplateSettings = async function() {
             if (window._currentBillPreviewOrder) {
                 const container = document.getElementById('billPreviewSendContainer');
                 if (container && window.generateCustomBillHTML) {
-                    container.innerHTML = window.generateCustomBillHTML(window._currentBillPreviewOrder, {});
+                    container.innerHTML = window.generateCustomBillHTML(
+                        window._currentBillPreviewOrder,
+                        {}
+                    );
                 }
             }
         }
@@ -3995,7 +4404,8 @@ async function testTposAccount() {
             testResult.style.display = 'block';
             testResult.style.background = '#fef2f2';
             testResult.style.color = '#dc2626';
-            testResult.innerHTML = '<i class="fas fa-times-circle"></i> Vui lòng nhập username và password';
+            testResult.innerHTML =
+                '<i class="fas fa-times-circle"></i> Vui lòng nhập username và password';
             return;
         }
 
@@ -4061,7 +4471,7 @@ async function clearTposAccount() {
         const ref = window.billTokenManager.getFirestoreRef();
         if (ref) {
             await ref.update({
-                billCredentials: firebase.firestore.FieldValue.delete()
+                billCredentials: firebase.firestore.FieldValue.delete(),
             });
         }
 

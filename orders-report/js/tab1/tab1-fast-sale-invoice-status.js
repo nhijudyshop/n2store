@@ -29,20 +29,21 @@
         inner: {
             numbers: ['1', '3', '4', '5', '6', '7', '8', '10', '11'],
             names: ['Phú Nhuận', 'Bình Thạnh', 'Tân Phú', 'Tân Bình', 'Gò Vấp'],
-            carrier: 'THÀNH PHỐ (1 3 4 5 6 7 8 10 11 Phú Nhuận, Bình Thạnh, Tân Phú, Tân Bình, Gò Vấp,) (20.000 đ)'
+            carrier:
+                'THÀNH PHỐ (1 3 4 5 6 7 8 10 11 Phú Nhuận, Bình Thạnh, Tân Phú, Tân Bình, Gò Vấp,) (20.000 đ)',
         },
         // Ngoại thành 2 - 30k (Q2, Q12, Bình Tân, Thủ Đức)
         outer2: {
             numbers: ['2', '12'],
             names: ['Bình Tân', 'Thủ Đức'],
-            carrier: 'THÀNH PHỐ (Q2-12-Bình Tân-Thủ Đức) (30.000 đ)'
+            carrier: 'THÀNH PHỐ (Q2-12-Bình Tân-Thủ Đức) (30.000 đ)',
         },
         // Ngoại thành 1 - 35k (Q9, Bình Chánh, Nhà Bè, Hóc Môn, Củ Chi, Cần Giờ)
         outer1: {
             numbers: ['9'],
             names: ['Bình Chánh', 'Nhà Bè', 'Hóc Môn', 'Củ Chi', 'Cần Giờ'],
-            carrier: 'THÀNH PHỐ (Bình Chánh- Q9, Nhà Bè, Hóc Môn) (35.000 đ)'
-        }
+            carrier: 'THÀNH PHỐ (Bình Chánh- Q9, Nhà Bè, Hóc Môn) (35.000 đ)',
+        },
     };
 
     /**
@@ -61,17 +62,23 @@
         // Check by district number
         if (districtInfo.districtNumber) {
             const num = districtInfo.districtNumber;
-            if (DISTRICT_TO_CARRIER.inner.numbers.includes(num)) return DISTRICT_TO_CARRIER.inner.carrier;
-            if (DISTRICT_TO_CARRIER.outer2.numbers.includes(num)) return DISTRICT_TO_CARRIER.outer2.carrier;
-            if (DISTRICT_TO_CARRIER.outer1.numbers.includes(num)) return DISTRICT_TO_CARRIER.outer1.carrier;
+            if (DISTRICT_TO_CARRIER.inner.numbers.includes(num))
+                return DISTRICT_TO_CARRIER.inner.carrier;
+            if (DISTRICT_TO_CARRIER.outer2.numbers.includes(num))
+                return DISTRICT_TO_CARRIER.outer2.carrier;
+            if (DISTRICT_TO_CARRIER.outer1.numbers.includes(num))
+                return DISTRICT_TO_CARRIER.outer1.carrier;
         }
 
         // Check by district name
         if (districtInfo.districtName) {
             const name = districtInfo.districtName;
-            if (DISTRICT_TO_CARRIER.inner.names.includes(name)) return DISTRICT_TO_CARRIER.inner.carrier;
-            if (DISTRICT_TO_CARRIER.outer2.names.includes(name)) return DISTRICT_TO_CARRIER.outer2.carrier;
-            if (DISTRICT_TO_CARRIER.outer1.names.includes(name)) return DISTRICT_TO_CARRIER.outer1.carrier;
+            if (DISTRICT_TO_CARRIER.inner.names.includes(name))
+                return DISTRICT_TO_CARRIER.inner.carrier;
+            if (DISTRICT_TO_CARRIER.outer2.names.includes(name))
+                return DISTRICT_TO_CARRIER.outer2.carrier;
+            if (DISTRICT_TO_CARRIER.outer1.names.includes(name))
+                return DISTRICT_TO_CARRIER.outer1.carrier;
         }
 
         // Default → SHIP TỈNH
@@ -88,27 +95,39 @@
     const _invoiceBaseStore = new BaseStore({
         collectionPath: FIRESTORE_COLLECTION,
         localStorageKey: STORAGE_KEY,
-        maxLocalAge: MAX_AGE_DAYS * 24 * 60 * 60 * 1000
+        maxLocalAge: MAX_AGE_DAYS * 24 * 60 * 60 * 1000,
     });
 
     const InvoiceStatusStore = {
         /** @returns {Map} Internal data map (delegated to BaseStore) */
-        get _data() { return _invoiceBaseStore._data; },
-        set _data(val) { _invoiceBaseStore._data = val; },
+        get _data() {
+            return _invoiceBaseStore._data;
+        },
+        set _data(val) {
+            _invoiceBaseStore._data = val;
+        },
 
         _sentBills: new Set(),
-        _myKeys: new Set(),        // Keys that belong to the current user (for saving)
-        _pendingKeys: new Set(),   // Keys added locally but not yet saved to Firestore
+        _myKeys: new Set(), // Keys that belong to the current user (for saving)
+        _pendingKeys: new Set(), // Keys added locally but not yet saved to Firestore
         /** @returns {boolean} Whether store is initialized (delegated to BaseStore) */
-        get _initialized() { return _invoiceBaseStore._initialized; },
-        set _initialized(val) { _invoiceBaseStore._initialized = val; },
+        get _initialized() {
+            return _invoiceBaseStore._initialized;
+        },
+        set _initialized(val) {
+            _invoiceBaseStore._initialized = val;
+        },
 
         _syncTimeout: null,
         /** @returns {Function|null} Firestore listener unsubscribe (delegated to BaseStore) */
-        get _unsubscribe() { return _invoiceBaseStore._unsubscribe; },
-        set _unsubscribe(val) { _invoiceBaseStore._unsubscribe = val; },
+        get _unsubscribe() {
+            return _invoiceBaseStore._unsubscribe;
+        },
+        set _unsubscribe(val) {
+            _invoiceBaseStore._unsubscribe = val;
+        },
 
-        _isListening: false,       // Flag to prevent save loops when receiving updates
+        _isListening: false, // Flag to prevent save loops when receiving updates
 
         /**
          * Initialize store from Firestore (source of truth)
@@ -133,9 +152,13 @@
                             if (Array.isArray(parsed.sentBills)) {
                                 this._sentBills = new Set(parsed.sentBills);
                             }
-                        } catch (e) { /* ignore parse errors - BaseStore handles data */ }
+                        } catch (e) {
+                            /* ignore parse errors - BaseStore handles data */
+                        }
                     }
-                    console.log(`[INVOICE-STATUS] Offline mode - loaded ${this._data.size} entries from localStorage cache`);
+                    console.log(
+                        `[INVOICE-STATUS] Offline mode - loaded ${this._data.size} entries from localStorage cache`
+                    );
                 }
 
                 // 3. Cleanup old entries (delegated to BaseStore)
@@ -196,7 +219,7 @@
                 const snapshot = await db.collection(FIRESTORE_COLLECTION).get();
 
                 let totalEntries = 0;
-                snapshot.forEach(doc => {
+                snapshot.forEach((doc) => {
                     const firestoreData = doc.data();
                     const isMyDoc = doc.id === myUsername;
 
@@ -217,11 +240,13 @@
 
                     // Load sent bills
                     if (firestoreData.sentBills && Array.isArray(firestoreData.sentBills)) {
-                        firestoreData.sentBills.forEach(id => this._sentBills.add(id));
+                        firestoreData.sentBills.forEach((id) => this._sentBills.add(id));
                     }
                 });
 
-                console.log(`[INVOICE-STATUS] Loaded ${totalEntries} entries from ${snapshot.size} users (my keys: ${this._myKeys.size})`);
+                console.log(
+                    `[INVOICE-STATUS] Loaded ${totalEntries} entries from ${snapshot.size} users (my keys: ${this._myKeys.size})`
+                );
 
                 // Don't cache to localStorage - too much data from all users
                 return true;
@@ -238,16 +263,19 @@
             try {
                 // Only cache current user's entries to avoid QuotaExceeded
                 const myEntries = [];
-                this._myKeys.forEach(key => {
+                this._myKeys.forEach((key) => {
                     const value = this._data.get(key);
                     if (value) myEntries.push([key, value]);
                 });
-                localStorage.setItem(STORAGE_KEY, JSON.stringify({
-                    data: myEntries,
-                    sentBills: Array.from(this._sentBills),
-                    lastUpdated: Date.now(),
-                    version: 1
-                }));
+                localStorage.setItem(
+                    STORAGE_KEY,
+                    JSON.stringify({
+                        data: myEntries,
+                        sentBills: Array.from(this._sentBills),
+                        lastUpdated: Date.now(),
+                        version: 1,
+                    })
+                );
             } catch (e) {
                 // If still too big, just skip localStorage caching
                 console.warn('[INVOICE-STATUS] localStorage save skipped (quota)');
@@ -265,18 +293,23 @@
                 try {
                     // Only save entries that belong to the current user (not all merged data)
                     const myData = {};
-                    this._myKeys.forEach(key => {
+                    this._myKeys.forEach((key) => {
                         const value = this._data.get(key);
                         if (value) myData[key] = value;
                     });
-                    await this._getDocRef().set({
-                        data: myData,
-                        sentBills: Array.from(this._sentBills),
-                        lastUpdated: Date.now()
-                    }, { merge: true });
-                    // Clear pending keys that were just saved
-                    Object.keys(myData).forEach(key => this._pendingKeys.delete(key));
-                    console.log(`[INVOICE-STATUS] Synced ${Object.keys(myData).length} entries to Firestore`);
+                    await this._getDocRef().set(
+                        {
+                            data: myData,
+                            sentBills: Array.from(this._sentBills),
+                            lastUpdated: Date.now(),
+                        },
+                        { merge: true }
+                    );
+                    // DON'T clear _pendingKeys here — let snapshot handler confirm server has the data
+                    // This prevents race condition where stale snapshot deletes newly added keys
+                    console.log(
+                        `[INVOICE-STATUS] Synced ${Object.keys(myData).length} entries to Firestore`
+                    );
                 } catch (e) {
                     console.error('[INVOICE-STATUS] Firestore save error:', e);
                 }
@@ -291,17 +324,23 @@
             clearTimeout(this._syncTimeout);
             try {
                 const myData = {};
-                this._myKeys.forEach(key => {
+                this._myKeys.forEach((key) => {
                     const value = this._data.get(key);
                     if (value) myData[key] = value;
                 });
-                await this._getDocRef().set({
-                    data: myData,
-                    sentBills: Array.from(this._sentBills),
-                    lastUpdated: Date.now()
-                }, { merge: true });
-                Object.keys(myData).forEach(key => this._pendingKeys.delete(key));
-                console.log(`[INVOICE-STATUS] IMMEDIATE sync: ${Object.keys(myData).length} entries to Firestore`);
+                await this._getDocRef().set(
+                    {
+                        data: myData,
+                        sentBills: Array.from(this._sentBills),
+                        lastUpdated: Date.now(),
+                    },
+                    { merge: true }
+                );
+                // DON'T clear _pendingKeys here — let snapshot handler confirm server has the data
+                // This prevents race condition where stale snapshot deletes newly added keys
+                console.log(
+                    `[INVOICE-STATUS] IMMEDIATE sync: ${Object.keys(myData).length} entries to Firestore`
+                );
             } catch (e) {
                 console.error('[INVOICE-STATUS] Immediate Firestore save error:', e);
             }
@@ -333,12 +372,14 @@
 
             // Listen to ALL documents in the collection (all users)
             console.log('[INVOICE-STATUS] Setting up real-time listener for ALL users...');
-            this._unsubscribe = db.collection(FIRESTORE_COLLECTION)
-                .onSnapshot((snapshot) => {
+            this._unsubscribe = db.collection(FIRESTORE_COLLECTION).onSnapshot(
+                (snapshot) => {
                     this._handleCollectionSnapshot(snapshot);
-                }, (error) => {
+                },
+                (error) => {
                     console.error('[INVOICE-STATUS] Real-time listener error:', error);
-                });
+                }
+            );
         },
 
         /**
@@ -361,13 +402,20 @@
             // Build a set of all keys currently in Firestore (across all docs)
             const allServerKeys = new Set();
             const myServerKeys = new Set();
-            snapshot.docs.forEach(doc => {
+            snapshot.docs.forEach((doc) => {
                 const firestoreData = doc.data();
                 if (firestoreData.data) {
-                    Object.keys(firestoreData.data).forEach(key => {
+                    Object.keys(firestoreData.data).forEach((key) => {
                         allServerKeys.add(key);
                         if (doc.id === myUsername) myServerKeys.add(key);
                     });
+                }
+            });
+
+            // Clear pending keys that server has confirmed (safe to remove protection)
+            this._pendingKeys.forEach((key) => {
+                if (allServerKeys.has(key)) {
+                    this._pendingKeys.delete(key);
                 }
             });
 
@@ -398,11 +446,19 @@
                         entries.forEach(([key, value]) => {
                             const existingEntry = this._data.get(key);
                             // Only update if data actually changed (deep compare)
-                            const valueTs = value.timestamp?.toMillis ? value.timestamp.toMillis() : (value.timestamp || 0);
-                            const existingTs = existingEntry?.timestamp?.toMillis ? existingEntry.timestamp.toMillis() : (existingEntry?.timestamp || 0);
+                            const valueTs = value.timestamp?.toMillis
+                                ? value.timestamp.toMillis()
+                                : value.timestamp || 0;
+                            const existingTs = existingEntry?.timestamp?.toMillis
+                                ? existingEntry.timestamp.toMillis()
+                                : existingEntry?.timestamp || 0;
                             const isNew = !existingEntry;
                             const isNewer = valueTs > existingTs;
-                            const isDataDifferent = isNew || isNewer || (!isNewer && JSON.stringify(value) !== JSON.stringify(existingEntry));
+                            const isDataDifferent =
+                                isNew ||
+                                isNewer ||
+                                (!isNewer &&
+                                    JSON.stringify(value) !== JSON.stringify(existingEntry));
                             if (isNew || (value.timestamp && isDataDifferent)) {
                                 this._data.set(key, value);
                                 hasChanges = true;
@@ -413,7 +469,7 @@
 
                     // Update sentBills
                     if (firestoreData.sentBills && Array.isArray(firestoreData.sentBills)) {
-                        firestoreData.sentBills.forEach(id => {
+                        firestoreData.sentBills.forEach((id) => {
                             if (!this._sentBills.has(id)) {
                                 this._sentBills.add(id);
                                 hasChanges = true;
@@ -427,7 +483,9 @@
             if (hasChanges) {
                 this._saveToLocalStorage();
                 if (changedKeys.length > 0 || deletedKeys.length > 0) {
-                    console.log(`[INVOICE-STATUS] Real-time: ${changedKeys.length} updated, ${deletedKeys.length} deleted`);
+                    console.log(
+                        `[INVOICE-STATUS] Real-time: ${changedKeys.length} updated, ${deletedKeys.length} deleted`
+                    );
                 }
                 // Update UI for changed entries (add/update)
                 this._refreshInvoiceStatusUI(changedKeys);
@@ -458,6 +516,13 @@
                 const firestoreData = doc.data();
                 const serverDataKeys = new Set(Object.keys(firestoreData.data || {}));
 
+                // Clear pending keys that server has confirmed (safe to remove protection)
+                this._pendingKeys.forEach((key) => {
+                    if (serverDataKeys.has(key)) {
+                        this._pendingKeys.delete(key);
+                    }
+                });
+
                 // Check for deleted entries (in local but not in server)
                 // Skip pending keys - they haven't been saved to Firestore yet
                 this._data.forEach((value, key) => {
@@ -477,11 +542,18 @@
                     entries.forEach(([key, value]) => {
                         const existingEntry = this._data.get(key);
                         // Only update if data actually changed (deep compare)
-                        const valueTs = value.timestamp?.toMillis ? value.timestamp.toMillis() : (value.timestamp || 0);
-                        const existingTs = existingEntry?.timestamp?.toMillis ? existingEntry.timestamp.toMillis() : (existingEntry?.timestamp || 0);
+                        const valueTs = value.timestamp?.toMillis
+                            ? value.timestamp.toMillis()
+                            : value.timestamp || 0;
+                        const existingTs = existingEntry?.timestamp?.toMillis
+                            ? existingEntry.timestamp.toMillis()
+                            : existingEntry?.timestamp || 0;
                         const isNew = !existingEntry;
                         const isNewer = valueTs > existingTs;
-                        const isDataDifferent = isNew || isNewer || (!isNewer && JSON.stringify(value) !== JSON.stringify(existingEntry));
+                        const isDataDifferent =
+                            isNew ||
+                            isNewer ||
+                            (!isNewer && JSON.stringify(value) !== JSON.stringify(existingEntry));
                         if (isNew || (value.timestamp && isDataDifferent)) {
                             this._data.set(key, value);
                             hasChanges = true;
@@ -492,7 +564,7 @@
 
                 // Update sentBills
                 if (firestoreData.sentBills && Array.isArray(firestoreData.sentBills)) {
-                    firestoreData.sentBills.forEach(id => {
+                    firestoreData.sentBills.forEach((id) => {
                         if (!this._sentBills.has(id)) {
                             this._sentBills.add(id);
                             hasChanges = true;
@@ -505,7 +577,9 @@
             if (hasChanges) {
                 this._saveToLocalStorage();
                 if (changedKeys.length > 0 || deletedKeys.length > 0) {
-                    console.log(`[INVOICE-STATUS] Real-time: ${changedKeys.length} updated, ${deletedKeys.length} deleted`);
+                    console.log(
+                        `[INVOICE-STATUS] Real-time: ${changedKeys.length} updated, ${deletedKeys.length} deleted`
+                    );
                 }
                 // Update UI for changed entries (add/update)
                 this._refreshInvoiceStatusUI(changedKeys);
@@ -526,13 +600,16 @@
             if (typeof window.renderInvoiceStatusCell !== 'function') return;
 
             let updatedCount = 0;
-            changedKeys.forEach(saleOnlineId => {
+            changedKeys.forEach((saleOnlineId) => {
                 const row = document.querySelector(`tr[data-order-id="${saleOnlineId}"]`);
                 if (row) {
                     const cell = row.querySelector('td[data-column="invoice-status"]');
                     if (cell) {
-                        const orderData = window.OrderStore?.get(saleOnlineId) ||
-                            (window.displayedData || []).find(o => String(o.Id) === String(saleOnlineId));
+                        const orderData =
+                            window.OrderStore?.get(saleOnlineId) ||
+                            (window.displayedData || []).find(
+                                (o) => String(o.Id) === String(saleOnlineId)
+                            );
 
                         if (orderData) {
                             cell.innerHTML = window.renderInvoiceStatusCell(orderData);
@@ -554,7 +631,7 @@
             if (!deletedKeys || deletedKeys.length === 0) return;
 
             let clearedCount = 0;
-            deletedKeys.forEach(saleOnlineId => {
+            deletedKeys.forEach((saleOnlineId) => {
                 const row = document.querySelector(`tr[data-order-id="${saleOnlineId}"]`);
                 if (row) {
                     const cell = row.querySelector('td[data-column="invoice-status"]');
@@ -565,7 +642,9 @@
                 }
             });
             if (clearedCount > 0) {
-                console.log(`[INVOICE-STATUS] Real-time: Cleared UI for ${clearedCount} deleted orders`);
+                console.log(
+                    `[INVOICE-STATUS] Real-time: Cleared UI for ${clearedCount} deleted orders`
+                );
             }
         },
 
@@ -595,18 +674,24 @@
 
             // Get original order from store if not provided
             const displayedData = window.displayedData || [];
-            const order = originalOrder ||
+            const order =
+                originalOrder ||
                 window.OrderStore?.get(saleOnlineId) ||
-                displayedData.find(o => o.Id === saleOnlineId || String(o.Id) === String(saleOnlineId));
+                displayedData.find(
+                    (o) => o.Id === saleOnlineId || String(o.Id) === String(saleOnlineId)
+                );
 
             // Simplify OrderLines to reduce storage size
             // Include Note for product discount display (e.g. "100" = giảm 100k)
-            const orderLines = (invoiceData.OrderLines || []).map(line => ({
+            const orderLines = (invoiceData.OrderLines || []).map((line) => ({
                 ProductName: line.ProductName || line.ProductNameGet || '',
                 ProductUOMQty: line.ProductUOMQty || line.Quantity || 1,
                 PriceUnit: line.PriceUnit || line.Price || 0,
-                PriceTotal: line.PriceTotal || (line.ProductUOMQty || line.Quantity || 1) * (line.PriceUnit || line.Price || 0),
-                Note: line.Note || ''  // Ghi chú sản phẩm (giảm giá từng item)
+                PriceTotal:
+                    line.PriceTotal ||
+                    (line.ProductUOMQty || line.Quantity || 1) *
+                        (line.PriceUnit || line.Price || 0),
+                Note: line.Note || '', // Ghi chú sản phẩm (giảm giá từng item)
             }));
 
             // Ensure complete data - use Reference as Number if Number is null (for draft orders)
@@ -616,19 +701,19 @@
             const cashOnDelivery = invoiceData.CashOnDelivery || 0;
             const paymentAmount = invoiceData.PaymentAmount || 0;
             const isFullyPaid = cashOnDelivery === 0 && paymentAmount > 0;
-            const showState = isFullyPaid ? 'Đã thanh toán' : (invoiceData.ShowState || 'Nháp');
-            const state = isFullyPaid ? 'paid' : (invoiceData.State || 'draft');
+            const showState = isFullyPaid ? 'Đã thanh toán' : invoiceData.ShowState || 'Nháp';
+            const state = isFullyPaid ? 'paid' : invoiceData.State || 'draft';
 
             const entryKey = String(saleOnlineId);
             this._myKeys.add(entryKey);
-            this._pendingKeys.add(entryKey);  // Protect from snapshot deletion until saved
+            this._pendingKeys.add(entryKey); // Protect from snapshot deletion until saved
             this._data.set(entryKey, {
                 Id: invoiceData.Id,
-                Number: billNumber,  // Use complete bill number (never null)
+                Number: billNumber, // Use complete bill number (never null)
                 Reference: invoiceData.Reference || order?.Code || '',
-                State: state,           // "draft", "open", "cancel", "paid"
-                ShowState: showState,   // "Nháp", "Đã xác nhận", "Huỷ bỏ", "Đã thanh toán"
-                StateCode: invoiceData.StateCode,   // "None", "NotEnoughInventory", "CrossCheckComplete", etc.
+                State: state, // "draft", "open", "cancel", "paid"
+                ShowState: showState, // "Nháp", "Đã xác nhận", "Huỷ bỏ", "Đã thanh toán"
+                StateCode: invoiceData.StateCode, // "None", "NotEnoughInventory", "CrossCheckComplete", etc.
                 IsMergeCancel: invoiceData.IsMergeCancel,
                 PartnerId: invoiceData.PartnerId,
                 PartnerDisplayName: invoiceData.PartnerDisplayName || order?.Name || '',
@@ -636,11 +721,16 @@
                 AmountUntaxed: invoiceData.AmountUntaxed || 0, // Tổng tiền hàng (chưa ship)
                 DeliveryPrice: invoiceData.DeliveryPrice || order?.DeliveryPrice || 0,
                 CashOnDelivery: invoiceData.CashOnDelivery || 0,
-                PaymentAmount: invoiceData.PaymentAmount || 0,  // Số tiền trả trước (wallet balance)
-                Discount: invoiceData.Discount || invoiceData.DiscountAmount || invoiceData.DecreaseAmount || 0,  // Giảm giá
+                PaymentAmount: invoiceData.PaymentAmount || 0, // Số tiền trả trước (wallet balance)
+                Discount:
+                    invoiceData.Discount ||
+                    invoiceData.DiscountAmount ||
+                    invoiceData.DecreaseAmount ||
+                    0, // Giảm giá
                 TrackingRef: invoiceData.TrackingRef || '',
                 CarrierName: invoiceData.CarrierName || invoiceData.Carrier?.Name || '',
-                UserName: invoiceData.UserName || window.authManager?.currentUser?.displayName || '',  // Tên account tạo bill
+                UserName:
+                    invoiceData.UserName || window.authManager?.currentUser?.displayName || '', // Tên account tạo bill
                 SessionIndex: invoiceData.SessionIndex || order?.SessionIndex || '', // STT
                 OrderLines: orderLines, // Danh sách sản phẩm (simplified)
                 ReceiverName: invoiceData.ReceiverName || order?.Name || '',
@@ -650,9 +740,10 @@
                 DeliveryNote: invoiceData.DeliveryNote || order?.DeliveryNote || '',
                 Error: invoiceData.Error,
                 DateInvoice: invoiceData.DateInvoice || new Date().toISOString(), // Ngày tạo bill từ API
-                DateCreated: invoiceData.DateCreated || order?.DateCreated || new Date().toISOString(), // Ngày tạo đơn
+                DateCreated:
+                    invoiceData.DateCreated || order?.DateCreated || new Date().toISOString(), // Ngày tạo đơn
                 LiveCampaignId: invoiceData.LiveCampaignId || order?.LiveCampaignId || '', // ID chiến dịch live
-                timestamp: Date.now() // Thời điểm lưu vào localStorage
+                timestamp: Date.now(), // Thời điểm lưu vào localStorage
             });
             this.save();
         },
@@ -711,8 +802,9 @@
             const enrichWithSessionIndex = (order) => {
                 if (order.SaleOnlineIds && order.SaleOnlineIds.length > 0) {
                     const soId = order.SaleOnlineIds[0];
-                    const saleOnlineOrder = window.OrderStore?.get(soId) ||
-                        displayedData.find(o => o.Id === soId || String(o.Id) === String(soId));
+                    const saleOnlineOrder =
+                        window.OrderStore?.get(soId) ||
+                        displayedData.find((o) => o.Id === soId || String(o.Id) === String(soId));
                     if (saleOnlineOrder && saleOnlineOrder.SessionIndex) {
                         order.SessionIndex = saleOnlineOrder.SessionIndex;
                     }
@@ -722,7 +814,7 @@
 
             // Helper: always get OrderLines from request model (source of truth)
             const enrichWithOrderLines = (order) => {
-                const matchedModel = requestModels.find(m => m.Reference === order.Reference);
+                const matchedModel = requestModels.find((m) => m.Reference === order.Reference);
                 if (matchedModel?.OrderLines?.length > 0) {
                     order.OrderLines = matchedModel.OrderLines;
                 }
@@ -732,7 +824,7 @@
             // Helper: get PaymentAmount and Discount from request model
             // ALWAYS use request model values (API response may have wrong values)
             const enrichWithPaymentData = (order) => {
-                const matchedModel = requestModels.find(m => m.Reference === order.Reference);
+                const matchedModel = requestModels.find((m) => m.Reference === order.Reference);
                 if (matchedModel) {
                     // PaymentAmount = số tiền trả trước từ request (ALWAYS overwrite)
                     if (matchedModel.PaymentAmount !== undefined) {
@@ -746,7 +838,7 @@
                     console.log('[INVOICE-STATUS] Enriched payment data:', {
                         Reference: order.Reference,
                         PaymentAmount: order.PaymentAmount,
-                        Discount: order.Discount
+                        Discount: order.Discount,
                     });
                 }
                 return order;
@@ -755,16 +847,20 @@
             // Helper: get Address from request model (user may have edited address in form)
             const enrichWithAddress = (order) => {
                 // Match by Reference or SaleOnlineIds
-                const matchedModel = requestModels.find(m => {
-                    if (m.Reference && order.Reference && m.Reference === order.Reference) return true;
+                const matchedModel = requestModels.find((m) => {
+                    if (m.Reference && order.Reference && m.Reference === order.Reference)
+                        return true;
                     if (m.SaleOnlineIds?.length && order.SaleOnlineIds?.length) {
-                        return JSON.stringify(m.SaleOnlineIds) === JSON.stringify(order.SaleOnlineIds);
+                        return (
+                            JSON.stringify(m.SaleOnlineIds) === JSON.stringify(order.SaleOnlineIds)
+                        );
                     }
                     return false;
                 });
                 if (matchedModel) {
                     // Get address from request model (edited in form)
-                    const requestAddress = matchedModel.ReceiverAddress ||
+                    const requestAddress =
+                        matchedModel.ReceiverAddress ||
                         matchedModel.Address ||
                         matchedModel.Partner?.Street;
                     if (requestAddress) {
@@ -773,26 +869,36 @@
                         if (order.Partner) {
                             order.Partner.Street = requestAddress;
                         }
-                        console.log('[INVOICE-STATUS] Enriched address from request:', requestAddress);
+                        console.log(
+                            '[INVOICE-STATUS] Enriched address from request:',
+                            requestAddress
+                        );
                     }
                 } else {
-                    console.warn('[INVOICE-STATUS] No matching request model for address enrichment:', order.Reference);
+                    console.warn(
+                        '[INVOICE-STATUS] No matching request model for address enrichment:',
+                        order.Reference
+                    );
                 }
                 return order;
             };
 
             // Helper: get CarrierName from request model (user selected in form dropdown)
             const enrichWithCarrier = (order) => {
-                const matchedModel = requestModels.find(m => {
-                    if (m.Reference && order.Reference && m.Reference === order.Reference) return true;
+                const matchedModel = requestModels.find((m) => {
+                    if (m.Reference && order.Reference && m.Reference === order.Reference)
+                        return true;
                     if (m.SaleOnlineIds?.length && order.SaleOnlineIds?.length) {
-                        return JSON.stringify(m.SaleOnlineIds) === JSON.stringify(order.SaleOnlineIds);
+                        return (
+                            JSON.stringify(m.SaleOnlineIds) === JSON.stringify(order.SaleOnlineIds)
+                        );
                     }
                     return false;
                 });
                 if (matchedModel) {
                     // Get CarrierName from request model
-                    const carrierName = matchedModel.CarrierName || matchedModel.Carrier?.Name || '';
+                    const carrierName =
+                        matchedModel.CarrierName || matchedModel.Carrier?.Name || '';
                     if (carrierName) {
                         order.CarrierName = carrierName;
                         if (!order.Carrier) {
@@ -807,27 +913,35 @@
 
             // Store successful orders
             if (apiResult.OrdersSucessed && Array.isArray(apiResult.OrdersSucessed)) {
-                apiResult.OrdersSucessed.forEach(order => {
+                apiResult.OrdersSucessed.forEach((order) => {
                     enrichWithSessionIndex(order);
                     enrichWithOrderLines(order);
                     enrichWithPaymentData(order);
                     enrichWithAddress(order);
                     enrichWithCarrier(order);
                     if (order.SaleOnlineIds && order.SaleOnlineIds.length > 0) {
-                        order.SaleOnlineIds.forEach(soId => {
+                        order.SaleOnlineIds.forEach((soId) => {
                             // Get original SaleOnlineOrder for enrichment
-                            const originalOrder = window.OrderStore?.get(soId) ||
-                                displayedData.find(o => o.Id === soId || String(o.Id) === String(soId));
+                            const originalOrder =
+                                window.OrderStore?.get(soId) ||
+                                displayedData.find(
+                                    (o) => o.Id === soId || String(o.Id) === String(soId)
+                                );
 
                             // ĐƠN GIẢN: Lấy address từ fastSaleOrdersData (đã được user sửa trong form)
-                            const fastSaleData = window.fastSaleOrdersData?.find(f =>
-                                f.SaleOnlineIds?.includes(soId) ||
-                                JSON.stringify(f.SaleOnlineIds) === JSON.stringify(order.SaleOnlineIds)
+                            const fastSaleData = window.fastSaleOrdersData?.find(
+                                (f) =>
+                                    f.SaleOnlineIds?.includes(soId) ||
+                                    JSON.stringify(f.SaleOnlineIds) ===
+                                        JSON.stringify(order.SaleOnlineIds)
                             );
                             if (fastSaleData?.ReceiverAddress) {
                                 order.ReceiverAddress = fastSaleData.ReceiverAddress;
                                 order.Address = fastSaleData.ReceiverAddress;
-                                console.log('[INVOICE-STATUS] Address from fastSaleOrdersData:', fastSaleData.ReceiverAddress);
+                                console.log(
+                                    '[INVOICE-STATUS] Address from fastSaleOrdersData:',
+                                    fastSaleData.ReceiverAddress
+                                );
                             }
 
                             this.set(soId, order, originalOrder);
@@ -838,27 +952,35 @@
 
             // Store failed orders (they still have invoice created, just not confirmed)
             if (apiResult.OrdersError && Array.isArray(apiResult.OrdersError)) {
-                apiResult.OrdersError.forEach(order => {
+                apiResult.OrdersError.forEach((order) => {
                     enrichWithSessionIndex(order);
                     enrichWithOrderLines(order);
                     enrichWithPaymentData(order);
                     enrichWithAddress(order);
                     enrichWithCarrier(order);
                     if (order.SaleOnlineIds && order.SaleOnlineIds.length > 0) {
-                        order.SaleOnlineIds.forEach(soId => {
+                        order.SaleOnlineIds.forEach((soId) => {
                             // Get original SaleOnlineOrder for enrichment
-                            const originalOrder = window.OrderStore?.get(soId) ||
-                                displayedData.find(o => o.Id === soId || String(o.Id) === String(soId));
+                            const originalOrder =
+                                window.OrderStore?.get(soId) ||
+                                displayedData.find(
+                                    (o) => o.Id === soId || String(o.Id) === String(soId)
+                                );
 
                             // ĐƠN GIẢN: Lấy address từ fastSaleOrdersData (đã được user sửa trong form)
-                            const fastSaleData = window.fastSaleOrdersData?.find(f =>
-                                f.SaleOnlineIds?.includes(soId) ||
-                                JSON.stringify(f.SaleOnlineIds) === JSON.stringify(order.SaleOnlineIds)
+                            const fastSaleData = window.fastSaleOrdersData?.find(
+                                (f) =>
+                                    f.SaleOnlineIds?.includes(soId) ||
+                                    JSON.stringify(f.SaleOnlineIds) ===
+                                        JSON.stringify(order.SaleOnlineIds)
                             );
                             if (fastSaleData?.ReceiverAddress) {
                                 order.ReceiverAddress = fastSaleData.ReceiverAddress;
                                 order.Address = fastSaleData.ReceiverAddress;
-                                console.log('[INVOICE-STATUS] Address from fastSaleOrdersData:', fastSaleData.ReceiverAddress);
+                                console.log(
+                                    '[INVOICE-STATUS] Address from fastSaleOrdersData:',
+                                    fastSaleData.ReceiverAddress
+                                );
                             }
 
                             this.set(soId, order, originalOrder);
@@ -887,7 +1009,7 @@
             // Also cleanup sentBills for entries that were removed
             if (removed > 0) {
                 const currentKeys = new Set(this._data.keys());
-                this._sentBills.forEach(id => {
+                this._sentBills.forEach((id) => {
                     if (!currentKeys.has(id)) {
                         this._sentBills.delete(id);
                     }
@@ -944,19 +1066,21 @@
                     const snapshot = await db.collection(FIRESTORE_COLLECTION).get();
                     const batch = db.batch();
                     let batchCount = 0;
-                    snapshot.forEach(doc => {
+                    snapshot.forEach((doc) => {
                         const docData = doc.data();
                         if (docData.data && key in docData.data) {
                             batch.update(doc.ref, {
                                 [`data.${key}`]: firebase.firestore.FieldValue.delete(),
-                                lastUpdated: Date.now()
+                                lastUpdated: Date.now(),
                             });
                             batchCount++;
                         }
                     });
                     if (batchCount > 0) {
                         await batch.commit();
-                        console.log(`[INVOICE-STATUS] Deleted invoice ${key} from ${batchCount} user doc(s)`);
+                        console.log(
+                            `[INVOICE-STATUS] Deleted invoice ${key} from ${batchCount} user doc(s)`
+                        );
                     }
                 } catch (e) {
                     console.error('[INVOICE-STATUS] Firestore delete error:', e);
@@ -980,7 +1104,7 @@
             } catch (e) {
                 console.error('[INVOICE-STATUS] Firestore clear error:', e);
             }
-        }
+        },
     };
 
     // =====================================================
@@ -992,11 +1116,16 @@
      * Values: Nháp, Đã xác nhận, Huỷ bỏ, Đã thanh toán, etc.
      */
     const SHOW_STATE_CONFIG = {
-        'Nháp': { color: '#6c757d', bgColor: '#f3f4f6', borderColor: '#d1d5db' },
+        Nháp: { color: '#6c757d', bgColor: '#f3f4f6', borderColor: '#d1d5db' },
         'Đã xác nhận': { color: '#2563eb', bgColor: '#dbeafe', borderColor: '#93c5fd' },
-        'Huỷ bỏ': { color: '#dc2626', bgColor: '#fee2e2', borderColor: '#fca5a5', style: 'text-decoration: line-through;' },
+        'Huỷ bỏ': {
+            color: '#dc2626',
+            bgColor: '#fee2e2',
+            borderColor: '#fca5a5',
+            style: 'text-decoration: line-through;',
+        },
         'Đã thanh toán': { color: '#059669', bgColor: '#d1fae5', borderColor: '#6ee7b7' },
-        'Hoàn thành': { color: '#059669', bgColor: '#d1fae5', borderColor: '#6ee7b7' }
+        'Hoàn thành': { color: '#059669', bgColor: '#d1fae5', borderColor: '#6ee7b7' },
     };
 
     /**
@@ -1004,53 +1133,53 @@
      * Values: None, NotEnoughInventory, CrossCheckComplete, CrossCheckSuccess, etc.
      */
     const STATE_CODE_CONFIG = {
-        'draft': {
+        draft: {
             label: 'Nháp',
             cssClass: 'text-info-lt badge badge-empty',
-            color: '#17a2b8'
+            color: '#17a2b8',
         },
-        'NotEnoughInventory': {
+        NotEnoughInventory: {
             label: 'Chờ nhập hàng',
             cssClass: 'text-warning-dk',
-            color: '#e67e22'
+            color: '#e67e22',
         },
-        'cancel': {
+        cancel: {
             label: 'Hủy',
             cssClass: 'text-danger',
             color: '#6c757d',
-            style: 'text-decoration: line-through;'
+            style: 'text-decoration: line-through;',
         },
-        'IsMergeCancel': {
+        IsMergeCancel: {
             label: 'Hủy do gộp đơn',
             cssClass: 'text-danger',
             color: '#6c757d',
-            style: 'text-decoration: line-through;'
+            style: 'text-decoration: line-through;',
         },
-        'CrossCheckingError': {
+        CrossCheckingError: {
             label: 'Lỗi đối soát',
             cssClass: 'text-danger-dker',
-            color: '#c0392b'
+            color: '#c0392b',
         },
-        'CrossCheckComplete': {
+        CrossCheckComplete: {
             label: 'Hoàn thành đối soát',
             cssClass: 'text-success-dk',
-            color: '#27ae60'
+            color: '#27ae60',
         },
-        'CrossCheckSuccess': {
+        CrossCheckSuccess: {
             label: 'Đối soát OK',
             cssClass: 'text-success-dk',
-            color: '#27ae60'
+            color: '#27ae60',
         },
-        'CrossChecking': {
+        CrossChecking: {
             label: 'Đang đối soát',
             cssClass: 'text-success-dk',
-            color: '#27ae60'
+            color: '#27ae60',
         },
-        'None': {
+        None: {
             label: 'Chưa đối soát',
             cssClass: 'text-secondary',
-            color: '#6c757d'
-        }
+            color: '#6c757d',
+        },
     };
 
     /**
@@ -1070,7 +1199,7 @@
         return {
             label: stateCode || 'Chưa đối soát',
             cssClass: 'text-secondary',
-            color: '#6c757d'
+            color: '#6c757d',
         };
     }
 
@@ -1219,7 +1348,17 @@
      * @param {boolean} viewOnly - If true, hide send buttons (only allow print)
      * @param {number} walletBalance - Optional wallet balance for bill calculation
      */
-    async function showBillPreviewModal(enrichedOrder, channelId, psid, orderId, orderCode, source, resultIndex, viewOnly = false, walletBalance = 0) {
+    async function showBillPreviewModal(
+        enrichedOrder,
+        channelId,
+        psid,
+        orderId,
+        orderCode,
+        source,
+        resultIndex,
+        viewOnly = false,
+        walletBalance = 0
+    ) {
         const modal = document.getElementById('billPreviewSendModal');
         const container = document.getElementById('billPreviewSendContainer');
         const sendBtn = document.getElementById('billPreviewSendBtn');
@@ -1229,7 +1368,15 @@
             console.error('[INVOICE-STATUS] Preview modal elements not found');
             // Fallback to direct send (only if not view-only)
             if (!viewOnly) {
-                return performActualSend(enrichedOrder, channelId, psid, orderId, orderCode, source, resultIndex);
+                return performActualSend(
+                    enrichedOrder,
+                    channelId,
+                    psid,
+                    orderId,
+                    orderCode,
+                    source,
+                    resultIndex
+                );
             }
             return;
         }
@@ -1244,11 +1391,12 @@
             source,
             resultIndex,
             viewOnly,
-            walletBalance
+            walletBalance,
         };
 
         // Show loading in container
-        container.innerHTML = '<p style="color: #9ca3af; padding: 40px; text-align: center;"><i class="fas fa-spinner fa-spin"></i> Đang tạo bill...</p>';
+        container.innerHTML =
+            '<p style="color: #9ca3af; padding: 40px; text-align: center;"><i class="fas fa-spinner fa-spin"></i> Đang tạo bill...</p>';
 
         // Show modal (use both style and class for compatibility)
         modal.style.display = 'flex';
@@ -1268,14 +1416,18 @@
             let billHTML = null;
 
             if (typeof window.generateCustomBillHTML === 'function') {
-                console.log('[INVOICE-STATUS] Generating custom bill for preview, walletBalance:', walletBalance);
+                console.log(
+                    '[INVOICE-STATUS] Generating custom bill for preview, walletBalance:',
+                    walletBalance
+                );
                 billHTML = window.generateCustomBillHTML(enrichedOrder, { walletBalance });
             }
 
             if (billHTML) {
                 // Use iframe to display bill exactly as-is (no CSS conflicts)
                 const iframe = document.createElement('iframe');
-                iframe.style.cssText = 'width: 100%; height: 600px; border: none; background: white;';
+                iframe.style.cssText =
+                    'width: 100%; height: 600px; border: none; background: white;';
                 container.innerHTML = '';
                 container.appendChild(iframe);
 
@@ -1289,15 +1441,22 @@
 
                 // Pre-generate bill image in background (don't await - fire and forget)
                 // This makes sending instant when user clicks "Gửi"
-                if (!viewOnly && channelId && typeof window.generateBillImage === 'function' && window.pancakeDataManager) {
+                if (
+                    !viewOnly &&
+                    channelId &&
+                    typeof window.generateBillImage === 'function' &&
+                    window.pancakeDataManager
+                ) {
                     preGenerateBillInBackground(enrichedOrder, channelId, billHTML, walletBalance);
                 }
             } else {
-                container.innerHTML = '<p style="color: #ef4444; padding: 40px; text-align: center;">Không thể tạo bill preview</p>';
+                container.innerHTML =
+                    '<p style="color: #ef4444; padding: 40px; text-align: center;">Không thể tạo bill preview</p>';
             }
         } catch (error) {
             console.error('[INVOICE-STATUS] Error generating bill preview:', error);
-            container.innerHTML = '<p style="color: #ef4444; padding: 40px; text-align: center;">Lỗi khi tạo bill preview</p>';
+            container.innerHTML =
+                '<p style="color: #ef4444; padding: 40px; text-align: center;">Lỗi khi tạo bill preview</p>';
         }
 
         // Enable send button (only if not view-only)
@@ -1321,27 +1480,41 @@
             }
 
             // Generate image from the same HTML used in preview
-            const imageBlob = await window.generateBillImage(enrichedOrder, { billHtml, walletBalance });
+            const imageBlob = await window.generateBillImage(enrichedOrder, {
+                billHtml,
+                walletBalance,
+            });
 
             // Convert blob to File for upload
             const imageFile = new File([imageBlob], `bill_${cacheKey}.png`, { type: 'image/png' });
 
             // Upload to Pancake
             const uploadResult = await window.pancakeDataManager.uploadImage(channelId, imageFile);
-            const contentUrl = typeof uploadResult === 'string' ? uploadResult : uploadResult.content_url;
-            const contentId = typeof uploadResult === 'object' ? (uploadResult.content_id || uploadResult.id) : null;
+            const contentUrl =
+                typeof uploadResult === 'string' ? uploadResult : uploadResult.content_url;
+            const contentId =
+                typeof uploadResult === 'object'
+                    ? uploadResult.content_id || uploadResult.id
+                    : null;
 
             if (contentUrl && contentId) {
                 // Cache for later use
                 window.preGeneratedBillData.set(cacheKey, {
                     contentUrl,
                     contentId,
-                    timestamp: Date.now()
+                    timestamp: Date.now(),
                 });
-                console.log('[INVOICE-STATUS] ✅ Bill pre-generated and cached:', cacheKey, contentUrl);
+                console.log(
+                    '[INVOICE-STATUS] ✅ Bill pre-generated and cached:',
+                    cacheKey,
+                    contentUrl
+                );
             }
         } catch (error) {
-            console.warn('[INVOICE-STATUS] ⚠️ Pre-generation failed (will regenerate on send):', error.message);
+            console.warn(
+                '[INVOICE-STATUS] ⚠️ Pre-generation failed (will regenerate on send):',
+                error.message
+            );
         }
     }
 
@@ -1356,7 +1529,8 @@
             // Reset the container
             const container = document.getElementById('billPreviewSendContainer');
             if (container) {
-                container.innerHTML = '<p style="color: #9ca3af; padding: 40px; text-align: center;">Đang tạo bill...</p>';
+                container.innerHTML =
+                    '<p style="color: #9ca3af; padding: 40px; text-align: center;">Đang tạo bill...</p>';
             }
         }
         // Reset send button
@@ -1381,7 +1555,8 @@
             return;
         }
 
-        const { enrichedOrder, channelId, psid, orderId, orderCode, source, resultIndex } = pendingSendData;
+        const { enrichedOrder, channelId, psid, orderId, orderCode, source, resultIndex } =
+            pendingSendData;
 
         // Close modal immediately and show sending notification
         closeBillPreviewSendModal();
@@ -1392,9 +1567,12 @@
             .then(() => {
                 // Success handled in performActualSend
             })
-            .catch(error => {
+            .catch((error) => {
                 console.error('[INVOICE-STATUS] Error sending from preview:', error);
-                window.notificationManager?.error(`❌ Gửi bill #${orderCode} thất bại: ${error.message}`, 5000);
+                window.notificationManager?.error(
+                    `❌ Gửi bill #${orderCode} thất bại: ${error.message}`,
+                    5000
+                );
             });
     }
 
@@ -1414,8 +1592,9 @@
         if (tposOrderId && typeof window.fetchAndPrintTPOSBill === 'function') {
             console.log('[INVOICE-STATUS] Printing TPOS bill for order:', tposOrderId);
             const headers = await getBillAuthHeader();
-            const orderData = enrichedOrder.SessionIndex ? enrichedOrder :
-                (window.OrderStore?.get(enrichedOrder.SaleOnlineIds?.[0]) || enrichedOrder);
+            const orderData = enrichedOrder.SessionIndex
+                ? enrichedOrder
+                : window.OrderStore?.get(enrichedOrder.SaleOnlineIds?.[0]) || enrichedOrder;
             window.fetchAndPrintTPOSBill(tposOrderId, headers, orderData);
         } else if (typeof window.openCombinedPrintPopup === 'function') {
             // Fallback to custom bill
@@ -1436,15 +1615,17 @@
             return;
         }
 
-        const { enrichedOrder, channelId, psid, orderId, orderCode, source, resultIndex } = pendingSendData;
+        const { enrichedOrder, channelId, psid, orderId, orderCode, source, resultIndex } =
+            pendingSendData;
         const tposOrderId = enrichedOrder.Id || orderId;
 
         // 1. Open print popup first (TPOS bill if available)
         if (tposOrderId && typeof window.fetchAndPrintTPOSBill === 'function') {
             console.log('[INVOICE-STATUS] Printing TPOS bill for order:', tposOrderId);
             const headers = await getBillAuthHeader();
-            const orderData = enrichedOrder.SessionIndex ? enrichedOrder :
-                (window.OrderStore?.get(enrichedOrder.SaleOnlineIds?.[0]) || enrichedOrder);
+            const orderData = enrichedOrder.SessionIndex
+                ? enrichedOrder
+                : window.OrderStore?.get(enrichedOrder.SaleOnlineIds?.[0]) || enrichedOrder;
             window.fetchAndPrintTPOSBill(tposOrderId, headers, orderData);
         } else if (typeof window.openCombinedPrintPopup === 'function') {
             window.openCombinedPrintPopup([enrichedOrder]);
@@ -1460,20 +1641,32 @@
             .then(() => {
                 // Success handled in performActualSend
             })
-            .catch(error => {
+            .catch((error) => {
                 console.error('[INVOICE-STATUS] Error printing and sending:', error);
-                window.notificationManager?.error(`❌ Gửi bill #${orderCode} thất bại: ${error.message}`, 5000);
+                window.notificationManager?.error(
+                    `❌ Gửi bill #${orderCode} thất bại: ${error.message}`,
+                    5000
+                );
             });
     }
 
     /**
      * Perform actual bill send
      */
-    async function performActualSend(enrichedOrder, channelId, psid, orderId, orderCode, source, resultIndex) {
+    async function performActualSend(
+        enrichedOrder,
+        channelId,
+        psid,
+        orderId,
+        orderCode,
+        source,
+        resultIndex
+    ) {
         console.log('[INVOICE-STATUS] Sending bill for:', orderCode);
 
         // Check for pre-generated bill data
-        const cachedData = window.preGeneratedBillData?.get(enrichedOrder.Id) ||
+        const cachedData =
+            window.preGeneratedBillData?.get(enrichedOrder.Id) ||
             window.preGeneratedBillData?.get(enrichedOrder.Number);
         const sendOptions = {};
         if (cachedData && cachedData.contentUrl && cachedData.contentId) {
@@ -1495,7 +1688,9 @@
 
             // Update UI based on source
             if (source === 'main') {
-                const cell = document.querySelector(`td[data-column="invoice-status"] .btn-send-bill-main[data-order-id="${orderId}"]`);
+                const cell = document.querySelector(
+                    `td[data-column="invoice-status"] .btn-send-bill-main[data-order-id="${orderId}"]`
+                );
                 if (cell) {
                     // Change button style to green (sent), keep same onclick for viewing
                     cell.style.background = '#d1fae5';
@@ -1505,7 +1700,9 @@
                     cell.innerHTML = '✓';
                 }
             } else if (source === 'results') {
-                const cell = document.querySelector(`.invoice-status-cell[data-order-id="${enrichedOrder.Id}"]`);
+                const cell = document.querySelector(
+                    `.invoice-status-cell[data-order-id="${enrichedOrder.Id}"]`
+                );
                 if (cell) {
                     const btn = cell.querySelector('.btn-send-bill-messenger');
                     if (btn) {
@@ -1526,8 +1723,9 @@
      */
     async function sendBillFromMainTable(orderId) {
         const displayedData = window.displayedData || [];
-        const order = window.OrderStore?.get(orderId) ||
-            displayedData.find(o => o.Id === orderId || String(o.Id) === String(orderId));
+        const order =
+            window.OrderStore?.get(orderId) ||
+            displayedData.find((o) => o.Id === orderId || String(o.Id) === String(orderId));
 
         if (!order) {
             window.notificationManager?.error('Không tìm thấy đơn hàng');
@@ -1559,8 +1757,15 @@
 
         // Fallback: Auto-detect carrier from address if CarrierName is empty
         let carrierName = invoiceData.CarrierName;
-        if (!carrierName && invoiceData.ReceiverAddress && typeof window.extractDistrictFromAddress === 'function') {
-            const districtInfo = window.extractDistrictFromAddress(invoiceData.ReceiverAddress, null);
+        if (
+            !carrierName &&
+            invoiceData.ReceiverAddress &&
+            typeof window.extractDistrictFromAddress === 'function'
+        ) {
+            const districtInfo = window.extractDistrictFromAddress(
+                invoiceData.ReceiverAddress,
+                null
+            );
             if (districtInfo) {
                 carrierName = getCarrierNameFromDistrict(districtInfo);
                 console.log('[INVOICE-STATUS] Auto-detected carrier from address:', carrierName);
@@ -1569,14 +1774,14 @@
 
         const enrichedOrder = {
             Id: invoiceData.Id,
-            Number: invoiceData.Number,  // Already complete (never null)
+            Number: invoiceData.Number, // Already complete (never null)
             Reference: invoiceData.Reference,
-            DateInvoice: invoiceData.DateInvoice,  // Ngày tạo bill từ TPOS
+            DateInvoice: invoiceData.DateInvoice, // Ngày tạo bill từ TPOS
             PartnerDisplayName: invoiceData.PartnerDisplayName || invoiceData.ReceiverName,
             DeliveryPrice: invoiceData.DeliveryPrice,
             CashOnDelivery: invoiceData.CashOnDelivery,
-            PaymentAmount: invoiceData.PaymentAmount,  // Số tiền trả trước
-            Discount: invoiceData.Discount,            // Giảm giá
+            PaymentAmount: invoiceData.PaymentAmount, // Số tiền trả trước
+            Discount: invoiceData.Discount, // Giảm giá
             AmountTotal: invoiceData.AmountTotal,
             AmountUntaxed: invoiceData.AmountUntaxed,
             CarrierName: carrierName,
@@ -1589,8 +1794,8 @@
             Partner: {
                 Name: invoiceData.ReceiverName,
                 Phone: invoiceData.ReceiverPhone,
-                Street: invoiceData.ReceiverAddress
-            }
+                Street: invoiceData.ReceiverAddress,
+            },
         };
 
         // Calculate walletBalance for bill generation
@@ -1599,21 +1804,43 @@
         // Check if preview is enabled
         if (isPreviewBeforeSendEnabled()) {
             // Show preview modal (viewOnly if bill already sent)
-            await showBillPreviewModal(enrichedOrder, channelId, psid, orderId, order.Code || order.Name, 'main', null, billAlreadySent, walletBalance);
+            await showBillPreviewModal(
+                enrichedOrder,
+                channelId,
+                psid,
+                orderId,
+                order.Code || order.Name,
+                'main',
+                null,
+                billAlreadySent,
+                walletBalance
+            );
         } else {
             // Direct send with confirm
-            const confirmed = confirm(`Xác nhận gửi bill cho đơn hàng ${order.Code || order.Name}?`);
+            const confirmed = confirm(
+                `Xác nhận gửi bill cho đơn hàng ${order.Code || order.Name}?`
+            );
             if (!confirmed) return;
 
             // Find button and show loading
-            const button = document.querySelector(`.btn-send-bill-main[data-order-id="${orderId}"]`);
+            const button = document.querySelector(
+                `.btn-send-bill-main[data-order-id="${orderId}"]`
+            );
             if (button) {
                 button.disabled = true;
                 button.innerHTML = '...';
             }
 
             try {
-                await performActualSend(enrichedOrder, channelId, psid, orderId, order.Code || order.Name, 'main', null);
+                await performActualSend(
+                    enrichedOrder,
+                    channelId,
+                    psid,
+                    orderId,
+                    order.Code || order.Name,
+                    'main',
+                    null
+                );
             } catch (error) {
                 console.error('[INVOICE-STATUS] Error sending bill:', error);
                 window.notificationManager?.error(`Lỗi: ${error.message}`);
@@ -1652,9 +1879,9 @@
         // Confirmation dialog
         const confirmed = confirm(
             `Xóa phiếu bán hàng?\n\n` +
-            `Số phiếu: ${billNumber}\n` +
-            `Khách hàng: ${customerName}\n\n` +
-            `Dữ liệu sẽ bị xóa khỏi localStorage và Firebase.`
+                `Số phiếu: ${billNumber}\n` +
+                `Khách hàng: ${customerName}\n\n` +
+                `Dữ liệu sẽ bị xóa khỏi localStorage và Firebase.`
         );
 
         if (!confirmed) return;
@@ -1676,7 +1903,9 @@
                 }
 
                 // Also refresh if in results modal
-                const resultCell = document.querySelector(`.invoice-status-cell[data-order-id="${saleOnlineId}"]`);
+                const resultCell = document.querySelector(
+                    `.invoice-status-cell[data-order-id="${saleOnlineId}"]`
+                );
                 if (resultCell) {
                     resultCell.innerHTML = '<span style="color: #9ca3af;">−</span>';
                 }
@@ -1702,7 +1931,8 @@
 
         const resultsData = window.fastSaleResultsData;
         if (!resultsData || resultsData.success.length === 0) {
-            container.innerHTML = '<p style="color: #6b7280; text-align: center; padding: 40px;">Không có đơn hàng thành công</p>';
+            container.innerHTML =
+                '<p style="color: #6b7280; text-align: center; padding: 40px;">Không có đơn hàng thành công</p>';
             return;
         }
 
@@ -1721,28 +1951,32 @@
                     </tr>
                 </thead>
                 <tbody>
-                    ${resultsData.success.map((order, index) => {
-            const stateCode = order.StateCode || 'None';
-            const isMergeCancel = order.IsMergeCancel === true;
-            const config = getStateCodeConfig(stateCode, isMergeCancel);
-            const style = config.style || '';
-            const saleOnlineId = order.SaleOnlineIds?.[0];
-            const billSent = saleOnlineId ? InvoiceStatusStore.isBillSent(saleOnlineId) : false;
-            const showState = order.ShowState || '';
-            const canSendBill = showState === 'Đã xác nhận' || showState === 'Đã thanh toán';
+                    ${resultsData.success
+                        .map((order, index) => {
+                            const stateCode = order.StateCode || 'None';
+                            const isMergeCancel = order.IsMergeCancel === true;
+                            const config = getStateCodeConfig(stateCode, isMergeCancel);
+                            const style = config.style || '';
+                            const saleOnlineId = order.SaleOnlineIds?.[0];
+                            const billSent = saleOnlineId
+                                ? InvoiceStatusStore.isBillSent(saleOnlineId)
+                                : false;
+                            const showState = order.ShowState || '';
+                            const canSendBill =
+                                showState === 'Đã xác nhận' || showState === 'Đã thanh toán';
 
-            // Show send button for confirmed/paid orders
-            let sendButtonHtml = '';
-            if (billSent) {
-                sendButtonHtml = `<span class="bill-sent-badge" style="color: #27ae60; font-size: 14px;" title="Đã gửi bill">✓</span>`;
-            } else if (canSendBill) {
-                sendButtonHtml = `<button type="button" class="btn-send-bill-messenger" data-index="${index}" data-order-id="${order.Id}" onclick="window.sendBillManually(${index})" title="Gửi bill qua Messenger" style="background: #0084ff; color: white; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;">
+                            // Show send button for confirmed/paid orders
+                            let sendButtonHtml = '';
+                            if (billSent) {
+                                sendButtonHtml = `<span class="bill-sent-badge" style="color: #27ae60; font-size: 14px;" title="Đã gửi bill">✓</span>`;
+                            } else if (canSendBill) {
+                                sendButtonHtml = `<button type="button" class="btn-send-bill-messenger" data-index="${index}" data-order-id="${order.Id}" onclick="window.sendBillManually(${index})" title="Gửi bill qua Messenger" style="background: #0084ff; color: white; border: none; border-radius: 4px; padding: 4px 8px; cursor: pointer; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.36 2 2 6.13 2 11.7c0 2.91 1.19 5.44 3.14 7.17.16.13.26.35.27.57l.05 1.78c.04.57.61.94 1.13.71l1.98-.87c.17-.08.36-.1.55-.06.91.25 1.87.38 2.88.38 5.64 0 10-4.13 10-9.7S17.64 2 12 2zm6 7.46l-2.93 4.67c-.47.73-1.47.92-2.17.4l-2.33-1.75a.6.6 0 0 0-.72 0l-3.15 2.4c-.42.32-.97-.18-.69-.63l2.93-4.67c.47-.73 1.47-.92 2.17-.4l2.33 1.75a.6.6 0 0 0 .72 0l3.15-2.4c.42-.32.97.18.69.63z"/></svg>
                 </button>`;
-            }
-            // Note: Non-confirmed/non-paid orders (Nháp, Huỷ bỏ, etc.) don't get a send button
+                            }
+                            // Note: Non-confirmed/non-paid orders (Nháp, Huỷ bỏ, etc.) don't get a send button
 
-            return `
+                            return `
                         <tr data-order-id="${order.Id}" data-order-index="${index}">
                             <td>${index + 1}</td>
                             <td><input type="checkbox" class="success-order-checkbox" value="${index}" data-order-id="${order.Id}"></td>
@@ -1759,7 +1993,8 @@
                             <td>${order.TrackingRef || ''}</td>
                         </tr>
                     `;
-        }).join('')}
+                        })
+                        .join('')}
                 </tbody>
             </table>
         `;
@@ -1785,26 +2020,32 @@
 
         try {
             const fastSaleOrdersData = window.fastSaleOrdersData || [];
-            const originalOrderIndex = fastSaleOrdersData.findIndex(o =>
-                (o.SaleOnlineIds && order.SaleOnlineIds &&
-                    JSON.stringify(o.SaleOnlineIds) === JSON.stringify(order.SaleOnlineIds)) ||
-                (o.Reference && o.Reference === order.Reference)
+            const originalOrderIndex = fastSaleOrdersData.findIndex(
+                (o) =>
+                    (o.SaleOnlineIds &&
+                        order.SaleOnlineIds &&
+                        JSON.stringify(o.SaleOnlineIds) === JSON.stringify(order.SaleOnlineIds)) ||
+                    (o.Reference && o.Reference === order.Reference)
             );
-            const originalOrder = originalOrderIndex >= 0 ? fastSaleOrdersData[originalOrderIndex] : null;
+            const originalOrder =
+                originalOrderIndex >= 0 ? fastSaleOrdersData[originalOrderIndex] : null;
 
             const displayedData = window.displayedData || [];
             let saleOnlineOrder = saleOnlineId
-                ? (window.OrderStore?.get(saleOnlineId) || displayedData.find(o => o.Id === saleOnlineId || String(o.Id) === String(saleOnlineId)))
+                ? window.OrderStore?.get(saleOnlineId) ||
+                  displayedData.find(
+                      (o) => o.Id === saleOnlineId || String(o.Id) === String(saleOnlineId)
+                  )
                 : null;
 
             if (!saleOnlineOrder) {
                 const saleOnlineName = order.SaleOnlineNames?.[0];
                 if (saleOnlineName) {
-                    saleOnlineOrder = displayedData.find(o => o.Code === saleOnlineName);
+                    saleOnlineOrder = displayedData.find((o) => o.Code === saleOnlineName);
                 }
             }
             if (!saleOnlineOrder && order.PartnerId) {
-                saleOnlineOrder = displayedData.find(o => o.PartnerId === order.PartnerId);
+                saleOnlineOrder = displayedData.find((o) => o.PartnerId === order.PartnerId);
             }
 
             if (!saleOnlineOrder) {
@@ -1819,21 +2060,34 @@
                 throw new Error('Không có thông tin Messenger');
             }
 
-            const carrierSelect = originalOrderIndex >= 0 ? document.getElementById(`fastSaleCarrier_${originalOrderIndex}`) : null;
-            const carrierNameFromDropdown = carrierSelect?.options[carrierSelect.selectedIndex]?.text || '';
-            const carrierName = carrierNameFromDropdown || originalOrder?.Carrier?.Name || originalOrder?.CarrierName || order.CarrierName || '';
-            const shippingFee = originalOrderIndex >= 0
-                ? parseFloat(document.getElementById(`fastSaleShippingFee_${originalOrderIndex}`)?.value) || 0
-                : order.DeliveryPrice || 0;
+            const carrierSelect =
+                originalOrderIndex >= 0
+                    ? document.getElementById(`fastSaleCarrier_${originalOrderIndex}`)
+                    : null;
+            const carrierNameFromDropdown =
+                carrierSelect?.options[carrierSelect.selectedIndex]?.text || '';
+            const carrierName =
+                carrierNameFromDropdown ||
+                originalOrder?.Carrier?.Name ||
+                originalOrder?.CarrierName ||
+                order.CarrierName ||
+                '';
+            const shippingFee =
+                originalOrderIndex >= 0
+                    ? parseFloat(
+                          document.getElementById(`fastSaleShippingFee_${originalOrderIndex}`)
+                              ?.value
+                      ) || 0
+                    : order.DeliveryPrice || 0;
 
             let orderLines = originalOrder?.OrderLines || order.OrderLines || [];
             if ((!orderLines || orderLines.length === 0) && saleOnlineOrder?.Details) {
-                orderLines = saleOnlineOrder.Details.map(d => ({
+                orderLines = saleOnlineOrder.Details.map((d) => ({
                     ProductName: d.ProductName || d.ProductNameGet || '',
                     ProductNameGet: d.ProductNameGet || d.ProductName || '',
                     ProductUOMQty: d.Quantity || d.ProductUOMQty || 1,
                     PriceUnit: d.Price || d.PriceUnit || 0,
-                    Note: d.Note || ''
+                    Note: d.Note || '',
                 }));
             }
 
@@ -1845,15 +2099,26 @@
                 OrderLines: orderLines,
                 CarrierName: carrierName,
                 DeliveryPrice: shippingFee,
-                PartnerDisplayName: order.PartnerDisplayName || originalOrder?.PartnerDisplayName || '',
-                UserName: order.UserName || originalOrder?.UserName || '',  // Account tạo bill
+                PartnerDisplayName:
+                    order.PartnerDisplayName || originalOrder?.PartnerDisplayName || '',
+                UserName: order.UserName || originalOrder?.UserName || '', // Account tạo bill
                 SessionIndex: saleOnlineOrder?.SessionIndex || originalOrder?.SessionIndex || '', // STT
             };
 
             // Check if preview is enabled (skip preview for auto-send)
             if (!skipPreview && isPreviewBeforeSendEnabled()) {
                 // Show preview modal
-                await showBillPreviewModal(enrichedOrder, channelId, psid, saleOnlineId, orderNumber, 'results', index, false, walletBalance);
+                await showBillPreviewModal(
+                    enrichedOrder,
+                    channelId,
+                    psid,
+                    saleOnlineId,
+                    orderNumber,
+                    'results',
+                    index,
+                    false,
+                    walletBalance
+                );
             } else {
                 // Direct send (skip confirm for auto-send)
                 if (!skipPreview) {
@@ -1861,14 +2126,25 @@
                     if (!confirmed) return;
                 }
 
-                const button = document.querySelector(`button.btn-send-bill-messenger[data-index="${index}"]`);
+                const button = document.querySelector(
+                    `button.btn-send-bill-messenger[data-index="${index}"]`
+                );
                 if (button) {
                     button.disabled = true;
-                    button.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span>';
+                    button.innerHTML =
+                        '<span class="spinner-border spinner-border-sm" role="status"></span>';
                 }
 
                 try {
-                    await performActualSend(enrichedOrder, channelId, psid, saleOnlineId, orderNumber, 'results', index);
+                    await performActualSend(
+                        enrichedOrder,
+                        channelId,
+                        psid,
+                        saleOnlineId,
+                        orderNumber,
+                        'results',
+                        index
+                    );
                 } catch (sendError) {
                     console.error('[INVOICE-STATUS] Error:', sendError);
                     window.notificationManager?.error(`Lỗi: ${sendError.message}`);
@@ -1879,7 +2155,6 @@
                     }
                 }
             }
-
         } catch (error) {
             console.error('[INVOICE-STATUS] Error preparing bill:', error);
             window.notificationManager?.error(`Lỗi: ${error.message}`);
@@ -1890,8 +2165,9 @@
      * Override printSuccessOrders to disable auto-send
      */
     async function printSuccessOrdersWithoutAutoSend(type) {
-        const selectedIndexes = Array.from(document.querySelectorAll('.success-order-checkbox:checked'))
-            .map(cb => parseInt(cb.value));
+        const selectedIndexes = Array.from(
+            document.querySelectorAll('.success-order-checkbox:checked')
+        ).map((cb) => parseInt(cb.value));
 
         if (selectedIndexes.length === 0) {
             window.notificationManager?.warning('Vui lòng chọn ít nhất 1 đơn hàng để in');
@@ -1899,15 +2175,17 @@
         }
 
         const resultsData = window.fastSaleResultsData;
-        const selectedOrders = selectedIndexes.map(i => resultsData.success[i]);
-        const orderIds = selectedOrders.map(o => o.Id).filter(id => id);
+        const selectedOrders = selectedIndexes.map((i) => resultsData.success[i]);
+        const orderIds = selectedOrders.map((o) => o.Id).filter((id) => id);
 
         if (orderIds.length === 0) {
             window.notificationManager?.error('Không tìm thấy ID đơn hàng');
             return;
         }
 
-        console.log(`[INVOICE-STATUS] Printing ${type} for ${orderIds.length} orders (auto-send DISABLED)`);
+        console.log(
+            `[INVOICE-STATUS] Printing ${type} for ${orderIds.length} orders (auto-send DISABLED)`
+        );
 
         if (type === 'invoice') {
             const fastSaleOrdersData = window.fastSaleOrdersData || [];
@@ -1915,30 +2193,49 @@
             const enrichedOrders = [];
 
             for (const order of selectedOrders) {
-                const originalOrderIndex = fastSaleOrdersData.findIndex(o =>
-                    (o.SaleOnlineIds && order.SaleOnlineIds && JSON.stringify(o.SaleOnlineIds) === JSON.stringify(order.SaleOnlineIds)) ||
-                    (o.Reference && o.Reference === order.Reference)
+                const originalOrderIndex = fastSaleOrdersData.findIndex(
+                    (o) =>
+                        (o.SaleOnlineIds &&
+                            order.SaleOnlineIds &&
+                            JSON.stringify(o.SaleOnlineIds) ===
+                                JSON.stringify(order.SaleOnlineIds)) ||
+                        (o.Reference && o.Reference === order.Reference)
                 );
-                const originalOrder = originalOrderIndex >= 0 ? fastSaleOrdersData[originalOrderIndex] : null;
+                const originalOrder =
+                    originalOrderIndex >= 0 ? fastSaleOrdersData[originalOrderIndex] : null;
 
                 const saleOnlineId = order.SaleOnlineIds?.[0];
                 const saleOnlineOrderForData = saleOnlineId
-                    ? (window.OrderStore?.get(saleOnlineId) || displayedData.find(o => o.Id === saleOnlineId || String(o.Id) === String(saleOnlineId)))
+                    ? window.OrderStore?.get(saleOnlineId) ||
+                      displayedData.find(
+                          (o) => o.Id === saleOnlineId || String(o.Id) === String(saleOnlineId)
+                      )
                     : null;
 
-                const carrierSelect = originalOrderIndex >= 0 ? document.getElementById(`fastSaleCarrier_${originalOrderIndex}`) : null;
-                const carrierName = carrierSelect?.options[carrierSelect.selectedIndex]?.text ||
-                    originalOrder?.Carrier?.Name || originalOrder?.CarrierName || order.CarrierName || '';
-                const shippingFee = originalOrderIndex >= 0
-                    ? parseFloat(document.getElementById(`fastSaleShippingFee_${originalOrderIndex}`)?.value) || 0
-                    : order.DeliveryPrice || 0;
+                const carrierSelect =
+                    originalOrderIndex >= 0
+                        ? document.getElementById(`fastSaleCarrier_${originalOrderIndex}`)
+                        : null;
+                const carrierName =
+                    carrierSelect?.options[carrierSelect.selectedIndex]?.text ||
+                    originalOrder?.Carrier?.Name ||
+                    originalOrder?.CarrierName ||
+                    order.CarrierName ||
+                    '';
+                const shippingFee =
+                    originalOrderIndex >= 0
+                        ? parseFloat(
+                              document.getElementById(`fastSaleShippingFee_${originalOrderIndex}`)
+                                  ?.value
+                          ) || 0
+                        : order.DeliveryPrice || 0;
 
                 let orderLines = originalOrder?.OrderLines || order.OrderLines || [];
                 if ((!orderLines || orderLines.length === 0) && saleOnlineOrderForData?.Details) {
-                    orderLines = saleOnlineOrderForData.Details.map(d => ({
+                    orderLines = saleOnlineOrderForData.Details.map((d) => ({
                         ProductName: d.ProductName || d.ProductNameGet || '',
                         ProductUOMQty: d.Quantity || d.ProductUOMQty || 1,
-                        PriceUnit: d.Price || d.PriceUnit || 0
+                        PriceUnit: d.Price || d.PriceUnit || 0,
                     }));
                 }
 
@@ -1947,7 +2244,8 @@
                     OrderLines: orderLines,
                     CarrierName: carrierName,
                     DeliveryPrice: shippingFee,
-                    PartnerDisplayName: order.PartnerDisplayName || originalOrder?.PartnerDisplayName || '',
+                    PartnerDisplayName:
+                        order.PartnerDisplayName || originalOrder?.PartnerDisplayName || '',
                 });
             }
 
@@ -1956,12 +2254,19 @@
             }
 
             window.selectedOrderIds?.clear();
-            document.querySelectorAll('#ordersTable input[type="checkbox"]:checked').forEach(cb => cb.checked = false);
-            const headerCheckbox = document.querySelector('#ordersTable thead input[type="checkbox"]');
+            document
+                .querySelectorAll('#ordersTable input[type="checkbox"]:checked')
+                .forEach((cb) => (cb.checked = false));
+            const headerCheckbox = document.querySelector(
+                '#ordersTable thead input[type="checkbox"]'
+            );
             if (headerCheckbox) headerCheckbox.checked = false;
             if (typeof window.updateActionButtons === 'function') window.updateActionButtons();
 
-            window.notificationManager?.info(`Đã mở in ${enrichedOrders.length} bill. Bấm nút Messenger để gửi.`, 4000);
+            window.notificationManager?.info(
+                `Đã mở in ${enrichedOrders.length} bill. Bấm nút Messenger để gửi.`,
+                4000
+            );
             return;
         }
 
@@ -1988,7 +2293,9 @@
             return;
         }
 
-        console.log(`[INVOICE-STATUS] Invoice confirmed for order ${saleOnlineId}, updating status and tags...`);
+        console.log(
+            `[INVOICE-STATUS] Invoice confirmed for order ${saleOnlineId}, updating status and tags...`
+        );
 
         try {
             const headers = await window.tokenManager?.getAuthHeader();
@@ -2000,9 +2307,12 @@
             // Get order data
             const displayedData = window.displayedData || [];
             const allData = window.allData || [];
-            const order = window.OrderStore?.get(saleOnlineId) ||
-                displayedData.find(o => o.Id === saleOnlineId || String(o.Id) === String(saleOnlineId)) ||
-                allData.find(o => o.Id === saleOnlineId || String(o.Id) === String(saleOnlineId));
+            const order =
+                window.OrderStore?.get(saleOnlineId) ||
+                displayedData.find(
+                    (o) => o.Id === saleOnlineId || String(o.Id) === String(saleOnlineId)
+                ) ||
+                allData.find((o) => o.Id === saleOnlineId || String(o.Id) === String(saleOnlineId));
 
             if (!order) {
                 console.warn(`[INVOICE-STATUS] Order ${saleOnlineId} not found`);
@@ -2018,31 +2328,40 @@
                     headers: {
                         ...headers,
                         'content-type': 'application/json;charset=utf-8',
-                        'accept': '*/*'
+                        accept: '*/*',
                     },
-                    body: null
+                    body: null,
                 });
 
                 if (statusResponse.ok) {
-                    console.log(`[INVOICE-STATUS] ✅ Status updated to "Đơn hàng" for order ${saleOnlineId}`);
+                    console.log(
+                        `[INVOICE-STATUS] ✅ Status updated to "Đơn hàng" for order ${saleOnlineId}`
+                    );
 
                     // Update local data using OrderStore.update()
                     if (window.OrderStore) {
-                        window.OrderStore.update(saleOnlineId, { Status: 'order', StatusText: 'Đơn hàng' });
+                        window.OrderStore.update(saleOnlineId, {
+                            Status: 'order',
+                            StatusText: 'Đơn hàng',
+                        });
                     }
                     // Also update the order reference
                     order.Status = 'order';
                     order.StatusText = 'Đơn hàng';
 
                     // Update UI
-                    const statusBadge = document.querySelector(`.status-badge[data-order-id="${saleOnlineId}"]`);
+                    const statusBadge = document.querySelector(
+                        `.status-badge[data-order-id="${saleOnlineId}"]`
+                    );
                     if (statusBadge) {
                         statusBadge.className = 'status-badge status-order';
                         statusBadge.style.backgroundColor = '#5cb85c';
                         statusBadge.innerText = 'Đơn hàng';
                     }
                 } else {
-                    console.warn(`[INVOICE-STATUS] Failed to update status: ${statusResponse.status}`);
+                    console.warn(
+                        `[INVOICE-STATUS] Failed to update status: ${statusResponse.status}`
+                    );
                 }
             }
 
@@ -2110,7 +2429,6 @@
                 }
             }
             */
-
         } catch (error) {
             console.error(`[INVOICE-STATUS] Error updating order on invoice confirm:`, error);
         }
@@ -2127,10 +2445,7 @@
     function updateMainTableInvoiceCells(apiResult) {
         if (!apiResult) return;
 
-        const allOrders = [
-            ...(apiResult.OrdersSucessed || []),
-            ...(apiResult.OrdersError || [])
-        ];
+        const allOrders = [...(apiResult.OrdersSucessed || []), ...(apiResult.OrdersError || [])];
 
         console.log(`[INVOICE-STATUS] Updating ${allOrders.length} cells in main table`);
 
@@ -2138,9 +2453,9 @@
         const fd = window.parent?.FulfillmentData || window.FulfillmentData;
         if (fd && typeof fd.injectEntries === 'function') {
             const entries = [];
-            allOrders.forEach(order => {
+            allOrders.forEach((order) => {
                 if (!order.SaleOnlineIds) return;
-                order.SaleOnlineIds.forEach(soId => {
+                order.SaleOnlineIds.forEach((soId) => {
                     const data = InvoiceStatusStore.get(String(soId));
                     if (data) {
                         entries.push({ saleOnlineId: String(soId), data });
@@ -2152,10 +2467,10 @@
             }
         }
 
-        allOrders.forEach(order => {
+        allOrders.forEach((order) => {
             if (!order.SaleOnlineIds || order.SaleOnlineIds.length === 0) return;
 
-            order.SaleOnlineIds.forEach(saleOnlineId => {
+            order.SaleOnlineIds.forEach((saleOnlineId) => {
                 // Find the row in main table
                 const row = document.querySelector(`tr[data-order-id="${saleOnlineId}"]`);
                 if (!row) return;
@@ -2166,8 +2481,11 @@
 
                 // Get order data from displayedData for full info
                 const displayedData = window.displayedData || [];
-                const orderData = window.OrderStore?.get(saleOnlineId) ||
-                    displayedData.find(o => o.Id === saleOnlineId || String(o.Id) === String(saleOnlineId));
+                const orderData =
+                    window.OrderStore?.get(saleOnlineId) ||
+                    displayedData.find(
+                        (o) => o.Id === saleOnlineId || String(o.Id) === String(saleOnlineId)
+                    );
 
                 if (orderData) {
                     // Re-render the cell content
@@ -2177,7 +2495,9 @@
                 // Also update the fulfillment cell ("Ra đơn" column)
                 const fulfillmentCell = row.querySelector('td[data-column="fulfillment"]');
                 if (fulfillmentCell && typeof renderFulfillmentCell === 'function') {
-                    fulfillmentCell.innerHTML = renderFulfillmentCell(orderData || { Id: saleOnlineId });
+                    fulfillmentCell.innerHTML = renderFulfillmentCell(
+                        orderData || { Id: saleOnlineId }
+                    );
                 }
 
                 // When invoice is confirmed, update status to "Đơn hàng" and remove "OK" tags
@@ -2199,7 +2519,9 @@
         });
 
         // Update header checkbox and action buttons
-        const headerCheckbox = document.querySelector('#ordersTable thead input[type="checkbox"], .employee-section thead input[type="checkbox"]');
+        const headerCheckbox = document.querySelector(
+            '#ordersTable thead input[type="checkbox"], .employee-section thead input[type="checkbox"]'
+        );
         if (headerCheckbox) {
             headerCheckbox.checked = false;
         }
@@ -2242,6 +2564,12 @@
             setTimeout(() => {
                 updateMainTableInvoiceCells(result);
             }, 100);
+
+            // Delayed retry: re-update cells after 2s to handle race conditions
+            // (e.g., Firestore snapshot arriving late and clearing data)
+            setTimeout(() => {
+                updateMainTableInvoiceCells(result);
+            }, 2000);
         };
 
         console.log('[INVOICE-STATUS] Hooked showFastSaleResultsModal');
@@ -2264,7 +2592,10 @@
         await InvoiceStatusStore.init();
 
         // Save original function
-        if (typeof window.printSuccessOrders === 'function' && !window._originalPrintSuccessOrders) {
+        if (
+            typeof window.printSuccessOrders === 'function' &&
+            !window._originalPrintSuccessOrders
+        ) {
             window._originalPrintSuccessOrders = window.printSuccessOrders;
         }
 
@@ -2304,7 +2635,7 @@
         if (fd) {
             fd.onChange(() => {
                 // Update all fulfillment cells in the table
-                document.querySelectorAll('td[data-column="fulfillment"]').forEach(cell => {
+                document.querySelectorAll('td[data-column="fulfillment"]').forEach((cell) => {
                     const row = cell.closest('tr');
                     const orderIdMatch = row?.querySelector('[data-order-id]');
                     if (orderIdMatch) {
@@ -2327,7 +2658,7 @@
     const FULFILLMENT_COLORS = {
         da_ra_don: { bg: '#d1fae5', color: '#065f46', border: '#6ee7b7' },
         cho_ra_don: { bg: '#fef3c7', color: '#92400e', border: '#fcd34d' },
-        huy_cho_ra_don: { bg: '#fee2e2', color: '#991b1b', border: '#fca5a5' }
+        huy_cho_ra_don: { bg: '#fee2e2', color: '#991b1b', border: '#fca5a5' },
     };
 
     /**
@@ -2377,7 +2708,8 @@
         `;
 
         if (timeline.length === 0) {
-            html += '<div style="text-align: center; color: #9ca3af; padding: 32px;">Chưa có lịch sử ra đơn</div>';
+            html +=
+                '<div style="text-align: center; color: #9ca3af; padding: 32px;">Chưa có lịch sử ra đơn</div>';
         } else {
             html += '<div class="fulfillment-timeline">';
             timeline.forEach((event, index) => {
@@ -2385,7 +2717,9 @@
                 const eventColor = isCreate ? '#059669' : '#dc2626';
                 const eventBg = isCreate ? '#ecfdf5' : '#fef2f2';
                 const eventIcon = isCreate ? '✓' : '✕';
-                const timeStr = event.timestamp ? new Date(event.timestamp).toLocaleString('vi-VN') : 'N/A';
+                const timeStr = event.timestamp
+                    ? new Date(event.timestamp).toLocaleString('vi-VN')
+                    : 'N/A';
 
                 html += `
                     <div style="border-left: 3px solid ${eventColor}; background: ${eventBg};
@@ -2440,7 +2774,8 @@
         }
 
         modal.style.display = 'block';
-        document.getElementById('fulfillmentModalTitle').textContent = `Lịch sử ra đơn - ${orderCode || orderId}`;
+        document.getElementById('fulfillmentModalTitle').textContent =
+            `Lịch sử ra đơn - ${orderCode || orderId}`;
         document.getElementById('fulfillmentModalBody').innerHTML = html;
     }
 
@@ -2459,5 +2794,4 @@
     } else {
         init();
     }
-
 })();
