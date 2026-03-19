@@ -903,6 +903,16 @@ async function confirmAndPrintSale() {
 
         console.log('[SALE-CONFIRM] Order created successfully:', { orderId, orderNumber });
 
+        // Fix address: TPOS InsertListOrderModel ignores address in payload when PartnerId exists,
+        // so we GET the created order and PUT back with the correct address from the form.
+        // Fire-and-forget (non-blocking) - same pattern as fast-sale's saveAddressToServer
+        const formAddress = document.getElementById('saleReceiverAddress')?.value?.trim();
+        if (orderId && formAddress) {
+            fixOrderAddressAfterCreation(orderId, formAddress, headers).catch((err) => {
+                console.warn('[SALE-CONFIRM] Address fix failed (non-critical):', err.message);
+            });
+        }
+
         // Save to order history (Firebase)
         if (window.OrderHistoryManager && createResult) {
             const historyData = {
@@ -1155,6 +1165,87 @@ async function confirmAndPrintSale() {
             confirmBtn.textContent = originalText || 'Xác nhận và in (F9)';
         }
     }
+}
+
+/**
+ * Fix order address after creation.
+ * TPOS InsertListOrderModel ignores Ship_Receiver/ReceiverAddress when PartnerId already exists,
+ * using the partner's stored address instead. This function does GET + PUT on the created
+ * FastSaleOrder to overwrite all address fields with the address from the sale form.
+ * Pattern copied from tab1-fast-sale.js saveAddressToServer().
+ *
+ * @param {number} fastSaleOrderId - The created FastSaleOrder ID
+ * @param {string} newAddress - Address from the sale form
+ * @param {object} authHeaders - Auth headers for API calls
+ */
+async function fixOrderAddressAfterCreation(fastSaleOrderId, newAddress, authHeaders) {
+    if (!fastSaleOrderId || !newAddress) return;
+
+    const baseUrl =
+        window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const expandParams =
+        '$expand=Partner,OrderLines($expand=Product,ProductUOM),Carrier,Ship_ServiceExtras';
+    const getUrl = `${baseUrl}/api/odata/FastSaleOrder(${fastSaleOrderId})?${expandParams}`;
+
+    console.log(`[SALE-ADDRESS-FIX] GET FastSaleOrder(${fastSaleOrderId})...`);
+    const getResponse = await API_CONFIG.smartFetch(getUrl, {
+        method: 'GET',
+        headers: { ...authHeaders, Accept: 'application/json' },
+    });
+
+    if (!getResponse.ok) {
+        throw new Error(`GET failed: ${getResponse.status}`);
+    }
+
+    const orderData = await getResponse.json();
+
+    // Check if address already matches (no fix needed)
+    if (orderData.ReceiverAddress === newAddress && orderData.Address === newAddress) {
+        console.log('[SALE-ADDRESS-FIX] Address already correct, skipping PUT');
+        return;
+    }
+
+    // Update all address fields (same pattern as fast-sale saveAddressToServer)
+    orderData.ReceiverAddress = newAddress;
+    orderData.Address = newAddress;
+
+    if (orderData.Ship_Receiver) {
+        orderData.Ship_Receiver.Street = newAddress;
+        if (orderData.Ship_Receiver.ExtraAddress) {
+            orderData.Ship_Receiver.ExtraAddress.Street = newAddress;
+        }
+    }
+
+    if (orderData.Partner) {
+        orderData.Partner.Street = newAddress;
+        orderData.Partner.FullAddress = newAddress;
+        if (orderData.Partner.ExtraAddress) {
+            orderData.Partner.ExtraAddress.Street = newAddress;
+        }
+    }
+
+    // PUT back
+    const putUrl = `${baseUrl}/api/odata/FastSaleOrder(${fastSaleOrderId})`;
+    console.log(
+        `[SALE-ADDRESS-FIX] PUT FastSaleOrder(${fastSaleOrderId}) with address: "${newAddress}"`
+    );
+    const putResponse = await API_CONFIG.smartFetch(putUrl, {
+        method: 'PUT',
+        headers: {
+            ...authHeaders,
+            'Content-Type': 'application/json;charset=UTF-8',
+            Accept: 'application/json',
+        },
+        body: JSON.stringify(orderData),
+    });
+
+    if (!putResponse.ok) {
+        throw new Error(`PUT failed: ${putResponse.status}`);
+    }
+
+    console.log(
+        `[SALE-ADDRESS-FIX] Address fixed successfully for FastSaleOrder(${fastSaleOrderId})`
+    );
 }
 
 /**
