@@ -9,7 +9,7 @@
 
 class PancakePhoenixSocket {
     constructor({ accessToken, userId, pageIds, onEvent, onStatusChange }) {
-        this.url = 'wss://pancake.vn/socket/websocket?vsn=2.0.0';
+        this.url = 'wss://chatomni-proxy.nhijudyshop.workers.dev/ws/pancake?vsn=2.0.0';
         this.accessToken = accessToken;
         this.userId = userId;
         this.pageIds = pageIds;

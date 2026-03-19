@@ -908,8 +908,8 @@ class InboxPancakeAPI {
     // --- Avatar URL ---
     getAvatarUrl(fbId, pageId = null, token = null, directAvatarUrl = null) {
         if (directAvatarUrl) {
-            if (directAvatarUrl.includes('content.pancake.vn')) return directAvatarUrl;
-            if (/^[a-f0-9]{32,}$/i.test(directAvatarUrl)) return `https://content.pancake.vn/2.1-25/avatars/${directAvatarUrl}`;
+            if (directAvatarUrl.includes('content.pancake.vn')) return `${INBOX_WORKER_URL}/api/image-proxy?url=${encodeURIComponent(directAvatarUrl)}`;
+            if (/^[a-f0-9]{32,}$/i.test(directAvatarUrl)) return `${INBOX_WORKER_URL}/api/pancake-avatar?hash=${directAvatarUrl}`;
             if (directAvatarUrl.startsWith('http')) return directAvatarUrl;
         }
         if (!fbId) return 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><circle cx="20" cy="20" r="20" fill="%23e5e7eb"/><circle cx="20" cy="15" r="7" fill="%239ca3af"/><ellipse cx="20" cy="32" rx="11" ry="8" fill="%239ca3af"/></svg>';

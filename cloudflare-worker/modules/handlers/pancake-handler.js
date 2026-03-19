@@ -226,3 +226,32 @@ export async function handlePancakeGeneric(request, url, pathname) {
         return errorResponse('Pancake API failed: ' + error.message, 500);
     }
 }
+
+/**
+ * Handle /ws/pancake WebSocket proxy
+ * Proxies WebSocket connections to wss://pancake.vn/socket/websocket
+ * Sets correct Origin/Host headers to bypass origin checks
+ * @param {Request} request
+ * @param {URL} url
+ * @returns {Promise<Response>}
+ */
+export async function handlePancakeWebSocket(request, url) {
+    // Build target URL with query params (vsn=2.0.0, access_token, etc.)
+    const targetUrl = new URL('https://pancake.vn/socket/websocket');
+    for (const [key, value] of url.searchParams) {
+        targetUrl.searchParams.set(key, value);
+    }
+
+    console.log('[PANCAKE-WS] Proxying WebSocket to:', targetUrl.toString());
+
+    // Forward request headers but override Origin/Host
+    const headers = new Headers(request.headers);
+    headers.set('Host', 'pancake.vn');
+    headers.set('Origin', 'https://pancake.vn');
+
+    // Cloudflare Workers transparently proxy WebSocket when upstream returns 101
+    return fetch(targetUrl.toString(), {
+        method: request.method,
+        headers: headers,
+    });
+}

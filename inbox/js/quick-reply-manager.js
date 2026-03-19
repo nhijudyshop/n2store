@@ -396,7 +396,7 @@ class QuickReplyManager {
                 topic: 'C.ƠN KH',
                 topicColor: '#cec40c',
                 message: 'Dạ hàng của mình đã được lên bill , cám ơn chị yêu đã ủng hộ shop ạ ❤️',
-                imageUrl: 'https://content.pancake.vn/2-25/2025/5/21/2c82b1de2b01a5ad96990f2a14277eaa22d65293.jpg'
+                imageUrl: 'https://chatomni-proxy.nhijudyshop.workers.dev/api/image-proxy?url=' + encodeURIComponent('https://content.pancake.vn/2-25/2025/5/21/2c82b1de2b01a5ad96990f2a14277eaa22d65293.jpg')
             },
             {
                 id: 3,
@@ -763,7 +763,7 @@ class QuickReplyManager {
             input.style.height = 'auto';
 
             // Send the hardcoded image and message directly
-            const camonImageUrl = 'https://content.pancake.vn/2-25/2025/5/21/2c82b1de2b01a5ad96990f2a14277eaa22d65293.jpg';
+            const camonImageUrl = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/image-proxy?url=' + encodeURIComponent('https://content.pancake.vn/2-25/2025/5/21/2c82b1de2b01a5ad96990f2a14277eaa22d65293.jpg');
             const camonMessage = 'Dạ hàng của mình đã được lên bill , cám ơn chị yêu đã ủng hộ shop ạ ❤️';
             this.sendQuickReplyWithImage(camonImageUrl, camonMessage);
             return;

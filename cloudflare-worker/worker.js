@@ -16,7 +16,7 @@ import { matchRoute } from './modules/config/routes.js';
 import { handleTokenRequest } from './modules/handlers/token-handler.js';
 import { handleImageProxy, handleFacebookAvatar, handlePancakeAvatar, handleImgbbUpload } from './modules/handlers/image-proxy-handler.js';
 import { handleFacebookSend, handleFacebookLiveVideos, handleFacebookGraph } from './modules/handlers/facebook-handler.js';
-import { handlePancakeDirect, handlePancakeOfficial, handlePancakeOfficialV2, handlePancakeGeneric } from './modules/handlers/pancake-handler.js';
+import { handlePancakeDirect, handlePancakeOfficial, handlePancakeOfficialV2, handlePancakeGeneric, handlePancakeWebSocket } from './modules/handlers/pancake-handler.js';
 import {
     handleTposExportProductV2,
     handleTposExportStandardPrice,
@@ -50,6 +50,14 @@ export default {
             // Parse request URL
             const url = new URL(request.url);
             const pathname = url.pathname;
+
+            // WebSocket upgrade - proxy before route matching
+            if (request.headers.get('Upgrade') === 'websocket') {
+                if (pathname === '/ws/pancake' || pathname.startsWith('/ws/pancake')) {
+                    return handlePancakeWebSocket(request, url);
+                }
+                return errorResponse('Unknown WebSocket route', 404);
+            }
 
             // Match route
             const route = matchRoute(pathname);
