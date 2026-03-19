@@ -588,18 +588,33 @@ class InboxPancakeAPI {
                 if (!pat) pat = await this.tm.generatePageAccessToken(pageId);
                 if (!pat) { console.warn(`[INBOX-API] Page ${pageId}: NO PAT`); errors.push({ pageId, code: 'NO_TOKEN' }); continue; }
 
-                const url = InboxApiConfig.buildUrl.pancakeOfficialV2(
-                    `pages/${pageId}/conversations`, pat
-                );
+                let retried = false;
+                const fetchPage = async (token) => {
+                    const url = InboxApiConfig.buildUrl.pancakeOfficialV2(
+                        `pages/${pageId}/conversations`, token
+                    );
+                    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                    if (!res.ok) throw { code: res.status };
+                    const data = await res.json();
+                    if (data.error_code) throw { code: data.error_code, message: data.message };
+                    return data;
+                };
 
                 try {
-                    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
-                    if (!res.ok) { console.warn(`[INBOX-API] Page ${pageId}: HTTP ${res.status}`); errors.push({ pageId, code: res.status }); continue; }
-                    const data = await res.json();
-                    if (data.error_code) {
-                        console.warn(`[INBOX-API] Page ${pageId}: API error ${data.error_code} - ${data.message || ''}`);
-                        errors.push({ pageId, code: data.error_code, message: data.message });
-                        continue;
+                    let data;
+                    try {
+                        data = await fetchPage(pat);
+                    } catch (err) {
+                        // Token errors (105=renewed, 100=invalid) → regenerate and retry once
+                        if (!retried && (err.code === 105 || err.code === 100)) {
+                            console.warn(`[INBOX-API] Page ${pageId}: token error ${err.code}, regenerating...`);
+                            retried = true;
+                            pat = await this.tm.generatePageAccessToken(pageId);
+                            if (!pat) throw { code: 'REGEN_FAILED' };
+                            data = await fetchPage(pat);
+                        } else {
+                            throw err;
+                        }
                     }
                     if (data.conversations) {
                         console.log(`[INBOX-API] Page ${pageId}: ${data.conversations.length} conversations`);
@@ -609,7 +624,11 @@ class InboxPancakeAPI {
                             this._lastConvId[pageId] = convs[convs.length - 1].id;
                         }
                     }
-                } catch (e) { console.warn(`[INBOX-API] Page ${pageId}: ${e.message}`); errors.push({ pageId, message: e.message }); }
+                } catch (e) {
+                    const msg = e.message || e.code || String(e);
+                    console.warn(`[INBOX-API] Page ${pageId}: ${msg}`);
+                    errors.push({ pageId, code: e.code, message: e.message });
+                }
             }
 
             return { conversations: allConvs, error: errors.length > 0 ? errors : null };
@@ -698,21 +717,37 @@ class InboxPancakeAPI {
             if (!pat) pat = await this.tm.generatePageAccessToken(pageId);
             if (!pat) throw new Error('No page_access_token');
 
-            const endpoint = `pages/${pageId}/conversations/${conversationId}/messages`;
-            let url = InboxApiConfig.buildUrl.pancakeOfficial(endpoint, pat);
-            if (customerId) url += `&customer_id=${customerId}`;
-            if (currentCount !== null) url += `&current_count=${currentCount}`;
+            const doFetch = async (token) => {
+                const endpoint = `pages/${pageId}/conversations/${conversationId}/messages`;
+                let url = InboxApiConfig.buildUrl.pancakeOfficial(endpoint, token);
+                if (customerId) url += `&customer_id=${customerId}`;
+                if (currentCount !== null) url += `&current_count=${currentCount}`;
+                const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                return await res.json();
+            };
 
-            console.log('[INBOX-API] fetchMessages URL:', url);
-            const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
-            if (!res.ok) {
-                const errText = await res.text().catch(() => '');
-                console.error('[INBOX-API] fetchMessages HTTP error:', res.status, errText.slice(0, 200));
-                throw new Error(`HTTP ${res.status}`);
+            let data;
+            try {
+                data = await doFetch(pat);
+            } catch (e) {
+                // Retry with fresh PAT
+                console.warn(`[INBOX-API] fetchMessages retry for page ${pageId}: ${e.message}`);
+                pat = await this.tm.generatePageAccessToken(pageId);
+                if (!pat) throw new Error('No page_access_token after regen');
+                data = await doFetch(pat);
             }
 
-            const data = await res.json();
-            console.log('[INBOX-API] fetchMessages response:', { messageCount: data.messages?.length, keys: Object.keys(data), error: data.error });
+            if (data.error_code) {
+                // Token renewed — regenerate and retry
+                if (data.error_code === 105 || data.error_code === 100) {
+                    console.warn(`[INBOX-API] fetchMessages token error ${data.error_code}, regenerating...`);
+                    pat = await this.tm.generatePageAccessToken(pageId);
+                    if (pat) data = await doFetch(pat);
+                }
+            }
+
+            console.log('[INBOX-API] fetchMessages:', { pageId, messageCount: data.messages?.length });
             const result = {
                 messages: data.messages || [],
                 conversation: data.conversation || null,
