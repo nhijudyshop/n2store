@@ -374,6 +374,24 @@
                             oninput="filterTagPanelCards()"
                         />
                     </div>
+                    <div class="tag-panel-day-filters" id="tagPanelDayFilters">
+                        <label class="tag-day-filter-item" title="Lọc tag có đơn ≥3 ngày">
+                            <input type="checkbox" value="3" onchange="onTagDayFilterChange()" />
+                            <span>≥3N</span>
+                        </label>
+                        <label class="tag-day-filter-item" title="Lọc tag có đơn ≥5 ngày">
+                            <input type="checkbox" value="5" onchange="onTagDayFilterChange()" />
+                            <span>≥5N</span>
+                        </label>
+                        <label class="tag-day-filter-item" title="Lọc tag có đơn ≥7 ngày">
+                            <input type="checkbox" value="7" onchange="onTagDayFilterChange()" />
+                            <span>≥7N</span>
+                        </label>
+                        <label class="tag-day-filter-item" title="Lọc tag có đơn ≥10 ngày">
+                            <input type="checkbox" value="10" onchange="onTagDayFilterChange()" />
+                            <span>≥10N</span>
+                        </label>
+                    </div>
                     <div class="tag-panel-body" id="tagPanelBody">
                         <!-- Tag cards rendered by JS -->
                     </div>

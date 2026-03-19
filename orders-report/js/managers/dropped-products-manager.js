@@ -68,6 +68,9 @@
     let droppedProductsRef = null;
     let isFirstLoad = true;
 
+    // Campaign filter state for dropped products
+    let currentCampaignFilter = 'all'; // 'all' | 'current' | specific campaignId
+
     // Loading states for better UX during multi-user operations
     let operationsInProgress = new Set();
 
@@ -84,10 +87,53 @@
             clearTimeout(renderDebounceTimer);
         }
         renderDebounceTimer = setTimeout(() => {
-            renderDroppedProductsTable();
+            // Apply campaign filter if active
+            const filtered = getFilteredDroppedProducts();
+            renderDroppedProductsTable(filtered);
             updateDroppedCounts();
         }, RENDER_DEBOUNCE_MS);
     }
+
+    /**
+     * Get dropped products filtered by campaign selection
+     */
+    function getFilteredDroppedProducts() {
+        if (currentCampaignFilter === 'all') return null; // null = show all
+
+        if (currentCampaignFilter === 'current') {
+            const currentCampaignId = String(
+                window.currentChatOrderData?.LiveCampaignId ||
+                (typeof campaignInfoFromTab1 !== 'undefined' && campaignInfoFromTab1?.activeCampaignId) || ''
+            );
+            if (!currentCampaignId) return null; // No current campaign, show all
+            return droppedProducts.filter(p => String(p.campaignId) === currentCampaignId);
+        }
+
+        // Specific campaign ID
+        return droppedProducts.filter(p => String(p.campaignId) === currentCampaignFilter);
+    }
+
+    /**
+     * Get unique campaigns from dropped products for filter dropdown
+     */
+    function getUniqueCampaigns() {
+        const campaigns = new Map(); // campaignId -> campaignName
+        droppedProducts.forEach(p => {
+            if (p.campaignId && p.campaignName) {
+                campaigns.set(String(p.campaignId), p.campaignName);
+            }
+        });
+        return campaigns;
+    }
+
+    /**
+     * Filter dropped products by campaign — called from dropdown
+     */
+    window.filterDroppedByCampaign = function(filterValue) {
+        currentCampaignFilter = filterValue;
+        const filtered = getFilteredDroppedProducts();
+        renderDroppedProductsTable(filtered);
+    };
 
     // Product search state
     let productSearchInitialized = false;
@@ -484,12 +530,30 @@
                         updates.removedAt = metadata.removedAt || Date.now();
                     }
 
+                    // Set campaign info if not already present
+                    if (!current.campaignId) {
+                        const cId = window.currentChatOrderData?.LiveCampaignId ||
+                            (typeof campaignInfoFromTab1 !== 'undefined' && campaignInfoFromTab1?.activeCampaignId) || null;
+                        const cName = window.currentChatOrderData?.LiveCampaignName ||
+                            (typeof campaignInfoFromTab1 !== 'undefined' && campaignInfoFromTab1?.activeCampaignName) || '';
+                        if (cId) {
+                            updates.campaignId = String(cId);
+                            updates.campaignName = cName || '';
+                        }
+                    }
+
                     return updates;
                 });
 
                 console.log('[DROPPED-PRODUCTS] ✓ Quantity updated via transaction');
             } else {
                 // New product - push to Firebase (listener will update UI)
+                // Get campaign info from current context
+                const campaignId = window.currentChatOrderData?.LiveCampaignId ||
+                    (typeof campaignInfoFromTab1 !== 'undefined' && campaignInfoFromTab1?.activeCampaignId) || null;
+                const campaignName = window.currentChatOrderData?.LiveCampaignName ||
+                    (typeof campaignInfoFromTab1 !== 'undefined' && campaignInfoFromTab1?.activeCampaignName) || '';
+
                 const newItem = {
                     ProductId: product.ProductId,
                     ProductName: product.ProductName,
@@ -501,7 +565,9 @@
                     UOMName: product.UOMName || 'Cái',
                     reason: reason,
                     addedAt: window.firebase.database.ServerValue.TIMESTAMP,
-                    addedDate: new Date().toLocaleString('vi-VN')
+                    addedDate: new Date().toLocaleString('vi-VN'),
+                    campaignId: campaignId ? String(campaignId) : null,
+                    campaignName: campaignName || ''
                     // NO heldBy field - computed dynamically
                 };
 
@@ -1003,6 +1069,14 @@
             })
         );
 
+        // Build campaign filter options (preserve selection state)
+        const uniqueCampaigns = getUniqueCampaigns();
+        let campaignOptions = `<option value="all"${currentCampaignFilter === 'all' ? ' selected' : ''}>Tất cả đợt live</option><option value="current"${currentCampaignFilter === 'current' ? ' selected' : ''}>Live hiện tại</option>`;
+        uniqueCampaigns.forEach((name, id) => {
+            const selected = currentCampaignFilter === id ? ' selected' : '';
+            campaignOptions += `<option value="${id}"${selected}>${name}</option>`;
+        });
+
         // Add search UI at the top
         const searchUI = `
             <div id="droppedProductSearchContainer" style="
@@ -1011,33 +1085,49 @@
                 background: #f8fafc;
                 position: relative;
             ">
-                <div style="position: relative;">
-                    <input
-                        type="text"
-                        id="droppedProductSearchInput"
-                        placeholder="🔍 Tìm kiếm sản phẩm để thêm vào hàng rớt..."
-                        oninput="handleProductSearchInput(this.value)"
-                        style="
-                            width: 100%;
-                            padding: 10px 40px 10px 12px;
-                            border: 2px solid #e2e8f0;
-                            border-radius: 8px;
-                            font-size: 14px;
-                            outline: none;
-                            transition: all 0.2s;
-                            box-sizing: border-box;
-                        "
-                        onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59, 130, 246, 0.1)';"
-                        onblur="this.style.borderColor='#e2e8f0'; this.style.boxShadow='none';"
-                    />
-                    <i class="fas fa-search" style="
-                        position: absolute;
-                        right: 14px;
-                        top: 50%;
-                        transform: translateY(-50%);
-                        color: #94a3b8;
-                        pointer-events: none;
-                    "></i>
+                <div style="display: flex; gap: 8px; margin-bottom: 8px; align-items: center;">
+                    <div style="position: relative; flex: 1;">
+                        <input
+                            type="text"
+                            id="droppedProductSearchInput"
+                            placeholder="🔍 Tìm kiếm sản phẩm để thêm vào hàng rớt..."
+                            oninput="handleProductSearchInput(this.value)"
+                            style="
+                                width: 100%;
+                                padding: 10px 40px 10px 12px;
+                                border: 2px solid #e2e8f0;
+                                border-radius: 8px;
+                                font-size: 14px;
+                                outline: none;
+                                transition: all 0.2s;
+                                box-sizing: border-box;
+                            "
+                            onfocus="this.style.borderColor='#3b82f6'; this.style.boxShadow='0 0 0 3px rgba(59, 130, 246, 0.1)';"
+                            onblur="this.style.borderColor='#e2e8f0'; this.style.boxShadow='none';"
+                        />
+                        <i class="fas fa-search" style="
+                            position: absolute;
+                            right: 14px;
+                            top: 50%;
+                            transform: translateY(-50%);
+                            color: #94a3b8;
+                            pointer-events: none;
+                        "></i>
+                    </div>
+                    <select id="droppedCampaignFilter" onchange="filterDroppedByCampaign(this.value)" style="
+                        padding: 10px 12px;
+                        border: 2px solid #e2e8f0;
+                        border-radius: 8px;
+                        font-size: 13px;
+                        background: white;
+                        color: #334155;
+                        cursor: pointer;
+                        outline: none;
+                        min-width: 160px;
+                        transition: all 0.2s;
+                    ">
+                        ${campaignOptions}
+                    </select>
                 </div>
                 <div id="droppedProductSearchSuggestions" class="suggestions-dropdown" style="
                     position: absolute;
@@ -1093,6 +1183,7 @@
                         })() : isOutOfStock ? '<span style="font-size: 11px; color: #f59e0b; margin-left: 6px;"><i class="fas fa-user-clock"></i> Đang được giữ</span>' : ''}
                     </div>
                     <div style="font-size: 11px; color: #6b7280;">Mã: ${p.ProductCode || 'N/A'}</div>
+                    ${p.campaignName ? `<div style="font-size: 10px; color: #6366f1; margin-top: 2px;"><i class="fas fa-video"></i> ${p.campaignName}</div>` : ''}
                     ${p.removedBy || p.removedFromOrderSTT || p.removedFromCustomer ? `<div style="font-size: 10px; color: #8b5cf6; margin-top: 2px;">
                         ${p.removedBy ? `Xả bởi: ${p.removedBy}` : ''}${p.removedFromOrderSTT ? ` | STT: ${p.removedFromOrderSTT}` : ''}${p.removedFromCustomer ? ` | KH: ${p.removedFromCustomer}` : ''}
                     </div>` : ''}
@@ -1177,13 +1268,16 @@
      * Filter dropped products
      */
     window.filterDroppedProducts = async function (query) {
+        // Start with campaign-filtered products
+        let base = getFilteredDroppedProducts() || droppedProducts;
+
         if (!query || query.trim() === '') {
-            await renderDroppedProductsTable();
+            await renderDroppedProductsTable(currentCampaignFilter === 'all' ? null : base);
             return;
         }
 
         const lowerQuery = query.toLowerCase().trim();
-        const filtered = droppedProducts.filter(p =>
+        const filtered = base.filter(p =>
             (p.ProductName && p.ProductName.toLowerCase().includes(lowerQuery)) ||
             (p.ProductNameGet && p.ProductNameGet.toLowerCase().includes(lowerQuery)) ||
             (p.ProductCode && p.ProductCode.toLowerCase().includes(lowerQuery))

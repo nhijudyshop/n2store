@@ -11,9 +11,21 @@ let activePanelTagId = null; // null = show all
 
 // ===== PRESET COLORS =====
 const TAG_PRESET_COLORS = [
-    '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6',
-    '#ec4899', '#f97316', '#14b8a6', '#6366f1', '#a855f7',
-    '#e11d48', '#84cc16', '#06b6d4', '#7c3aed', '#db2777'
+    '#ef4444',
+    '#f59e0b',
+    '#10b981',
+    '#3b82f6',
+    '#8b5cf6',
+    '#ec4899',
+    '#f97316',
+    '#14b8a6',
+    '#6366f1',
+    '#a855f7',
+    '#e11d48',
+    '#84cc16',
+    '#06b6d4',
+    '#7c3aed',
+    '#db2777',
 ];
 
 // ===== TAG IMAGE STATE =====
@@ -129,6 +141,74 @@ function updatePinButtonUI() {
     }
 }
 
+// ===== DAY FILTER STATE =====
+let activeTagDayFilter = 0; // 0 = no filter, 3/5/7/10 = filter by days
+
+function onTagDayFilterChange() {
+    const checkboxes = document.querySelectorAll('#tagPanelDayFilters input[type="checkbox"]');
+    let maxDays = 0;
+    checkboxes.forEach((cb) => {
+        if (cb.checked) {
+            const val = parseInt(cb.value);
+            if (val > maxDays) maxDays = val;
+        }
+    });
+    // Only allow one checked at a time (radio-like behavior)
+    const clickedCb = event.target;
+    if (clickedCb.checked) {
+        checkboxes.forEach((cb) => {
+            if (cb !== clickedCb) cb.checked = false;
+        });
+        activeTagDayFilter = parseInt(clickedCb.value);
+    } else {
+        activeTagDayFilter = 0;
+    }
+    renderTagPanelCards();
+}
+
+/**
+ * Get tags that have at least one order created >= N days ago
+ */
+function getTagsWithOldOrders(days) {
+    if (!days || days <= 0) return null; // no filter
+    const now = Date.now();
+    const threshold = now - days * 24 * 60 * 60 * 1000;
+    const qualifiedTagIds = new Set();
+
+    SocialOrderState.orders.forEach((order) => {
+        if (!order.tags || order.tags.length === 0) return;
+        const orderDate = order.createdAt || 0;
+        if (orderDate <= threshold) {
+            order.tags.forEach((t) => qualifiedTagIds.add(t.id));
+        }
+    });
+
+    return qualifiedTagIds;
+}
+
+/**
+ * Count orders per tag that are older than N days
+ */
+function getTagOldOrderCounts(days) {
+    const counts = {};
+    if (!days || days <= 0) return counts;
+    const now = Date.now();
+    const threshold = now - days * 24 * 60 * 60 * 1000;
+
+    SocialOrderState.tags.forEach((tag) => {
+        counts[tag.id] = 0;
+    });
+    SocialOrderState.orders.forEach((order) => {
+        const orderDate = order.createdAt || 0;
+        if (orderDate <= threshold) {
+            (order.tags || []).forEach((t) => {
+                if (counts[t.id] !== undefined) counts[t.id]++;
+            });
+        }
+    });
+    return counts;
+}
+
 // ===== RENDER TAG CARDS =====
 function renderTagPanelCards() {
     const body = document.getElementById('tagPanelBody');
@@ -140,10 +220,19 @@ function renderTagPanelCards() {
     const counts = getTagOrderCounts();
     const totalOrders = SocialOrderState.orders.length;
 
+    // Day filter: get qualified tag IDs
+    const dayFilterTagIds = getTagsWithOldOrders(activeTagDayFilter);
+    const oldCounts = activeTagDayFilter > 0 ? getTagOldOrderCounts(activeTagDayFilter) : null;
+
     let html = '';
 
-    // "All" card (show if no search or matches "tất cả")
-    if (!searchTerm || removeDiacritics('tất cả').includes(searchTerm) || 'tat ca'.includes(searchTerm)) {
+    // "All" card (show if no day filter active and no search or matches "tất cả")
+    if (
+        !activeTagDayFilter &&
+        (!searchTerm ||
+            removeDiacritics('tất cả').includes(searchTerm) ||
+            'tat ca'.includes(searchTerm))
+    ) {
         html += `
             <div class="tag-panel-card ${activePanelTagId === null ? 'active' : ''}"
                  onclick="filterByPanelTag(null)">
@@ -158,9 +247,16 @@ function renderTagPanelCards() {
         `;
     }
 
-    // "No tag" card
-    if (!searchTerm || removeDiacritics('chưa gán tag').includes(searchTerm) || 'chua gan tag'.includes(searchTerm)) {
-        const noTagCount = SocialOrderState.orders.filter(o => !o.tags || o.tags.length === 0).length;
+    // "No tag" card (hide when day filter is active)
+    if (
+        !activeTagDayFilter &&
+        (!searchTerm ||
+            removeDiacritics('chưa gán tag').includes(searchTerm) ||
+            'chua gan tag'.includes(searchTerm))
+    ) {
+        const noTagCount = SocialOrderState.orders.filter(
+            (o) => !o.tags || o.tags.length === 0
+        ).length;
         html += `
             <div class="tag-panel-card ${activePanelTagId === '__no_tag__' ? 'active' : ''}"
                  onclick="filterByPanelTag('__no_tag__')">
@@ -175,26 +271,68 @@ function renderTagPanelCards() {
         `;
     }
 
-    // Tag cards (filtered by search)
-    SocialOrderState.tags.forEach(tag => {
+    // "Tag không có đơn" card (hide when day filter is active)
+    if (
+        !activeTagDayFilter &&
+        (!searchTerm ||
+            removeDiacritics('tag không có đơn').includes(searchTerm) ||
+            'tag khong co don'.includes(searchTerm))
+    ) {
+        const tagsWithOrders = new Set();
+        SocialOrderState.orders.forEach((order) => {
+            (order.tags || []).forEach((t) => tagsWithOrders.add(t.id));
+        });
+        const zeroOrderTags = SocialOrderState.tags.filter((t) => !tagsWithOrders.has(t.id));
+        const zeroCount = zeroOrderTags.length;
+        html += `
+            <div class="tag-panel-card ${activePanelTagId === '__zero_order__' ? 'active' : ''}"
+                 onclick="filterByPanelTag('__zero_order__')">
+                <div class="tag-panel-card-icon" style="background: #fecaca;">
+                    <i class="fas fa-box-open" style="color: #ef4444;"></i>
+                </div>
+                <div class="tag-panel-card-info">
+                    <div class="tag-panel-card-name">TAG KHÔNG CÓ ĐƠN</div>
+                    <div class="tag-panel-card-count">${zeroCount} tag</div>
+                </div>
+            </div>
+        `;
+    }
+
+    // Tag cards (filtered by search and day filter)
+    SocialOrderState.tags.forEach((tag) => {
         if (searchTerm && !removeDiacritics(tag.name).includes(searchTerm)) return;
 
+        // Day filter: skip tags that don't have old orders
+        if (dayFilterTagIds && !dayFilterTagIds.has(tag.id)) return;
+
         const count = counts[tag.id] || 0;
+        const oldCount = oldCounts ? oldCounts[tag.id] || 0 : 0;
         const hoverAttrs = tag.image
             ? `onmouseenter="showTagImageHover(this, '${tag.id}')" onmouseleave="hideTagImageHover()"`
             : '';
+
+        const dayInfo =
+            activeTagDayFilter > 0 && oldCount > 0
+                ? `<span style="color:#ef4444; font-weight:600;"> (${oldCount} ≥${activeTagDayFilter}N)</span>`
+                : '';
+
         html += `
             <div class="tag-panel-card ${activePanelTagId === tag.id ? 'active' : ''}"
                  onclick="filterByPanelTag('${tag.id}')" ${hoverAttrs}>
                 <div class="tag-panel-card-icon" style="background: ${tag.color};">
-                    ${tag.image
-                        ? `<img src="${tag.image}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;">`
-                        : `<i class="fas fa-tag"></i>`}
+                    ${
+                        tag.image
+                            ? `<img src="${tag.image}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;">`
+                            : `<i class="fas fa-tag"></i>`
+                    }
                 </div>
                 <div class="tag-panel-card-info">
                     <div class="tag-panel-card-name">${tag.name}</div>
-                    <div class="tag-panel-card-count">${count} đơn hàng</div>
+                    <div class="tag-panel-card-count">${count} đơn hàng${dayInfo}</div>
                 </div>
+                <button class="tag-panel-card-delete" onclick="event.stopPropagation(); deletePanelTag('${tag.id}')" title="Xóa tag">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
             </div>
         `;
     });
@@ -213,10 +351,12 @@ function filterTagPanelCards() {
 
 function getTagOrderCounts() {
     const counts = {};
-    SocialOrderState.tags.forEach(tag => { counts[tag.id] = 0; });
+    SocialOrderState.tags.forEach((tag) => {
+        counts[tag.id] = 0;
+    });
 
-    SocialOrderState.orders.forEach(order => {
-        (order.tags || []).forEach(t => {
+    SocialOrderState.orders.forEach((order) => {
+        (order.tags || []).forEach((t) => {
             if (counts[t.id] !== undefined) counts[t.id]++;
         });
     });
@@ -230,7 +370,7 @@ function filterByPanelTag(tagId) {
 
     const tagFilter = document.getElementById('tagFilter');
     if (tagFilter) {
-        if (tagId === null || tagId === '__no_tag__') {
+        if (tagId === null || tagId === '__no_tag__' || tagId === '__zero_order__') {
             tagFilter.value = 'all';
         } else {
             tagFilter.value = tagId;
@@ -239,14 +379,24 @@ function filterByPanelTag(tagId) {
 
     // For "no tag" filter, we need custom logic since performTableSearch doesn't support it natively
     if (tagId === '__no_tag__') {
-        // Temporarily override: filter orders without tags
         performTableSearchWithNoTag();
+    } else if (tagId === '__zero_order__') {
+        // Show tags with zero orders - display tag list only, no table filter
+        performTableSearchWithZeroOrderTags();
     } else {
         performTableSearch();
     }
 
     // Update active card UI
     renderTagPanelCards();
+}
+
+/**
+ * Delete a tag directly from the panel sidebar (with confirmation)
+ */
+function deletePanelTag(tagId) {
+    // Reuse the existing deleteTag function which shows confirmation modal
+    deleteTag(tagId);
 }
 
 // Custom search that filters orders with no tags
@@ -271,7 +421,7 @@ function performTableSearchWithNoTag() {
         dateTo: dateRange.to,
     };
 
-    SocialOrderState.filteredOrders = SocialOrderState.orders.filter(order => {
+    SocialOrderState.filteredOrders = SocialOrderState.orders.filter((order) => {
         // Date filter
         if (dateRange.from || dateRange.to) {
             const orderDate = new Date(order.createdAt);
@@ -288,7 +438,8 @@ function performTableSearchWithNoTag() {
         if (searchTerm) {
             const searchFields = removeDiacritics(
                 [order.id, order.customerName, order.phone, order.address, order.note]
-                    .filter(Boolean).join(' ')
+                    .filter(Boolean)
+                    .join(' ')
             );
             if (!searchFields.includes(searchTerm)) return false;
         }
@@ -298,6 +449,30 @@ function performTableSearchWithNoTag() {
     renderTable();
     updateSearchResultCount();
     updateSearchClearButton();
+}
+
+// Custom search that shows zero result (used when "Tag không có đơn" is selected)
+function performTableSearchWithZeroOrderTags() {
+    // Find tags with zero orders
+    const tagsWithOrders = new Set();
+    SocialOrderState.orders.forEach((order) => {
+        (order.tags || []).forEach((t) => tagsWithOrders.add(t.id));
+    });
+    const zeroOrderTags = SocialOrderState.tags.filter((t) => !tagsWithOrders.has(t.id));
+
+    // Show empty table since these tags have no orders
+    SocialOrderState.filteredOrders = [];
+    renderTable();
+    updateSearchResultCount();
+    updateSearchClearButton();
+
+    // Show notification about which tags have no orders
+    if (zeroOrderTags.length > 0) {
+        const names = zeroOrderTags.map((t) => t.name).join(', ');
+        showNotification(`${zeroOrderTags.length} tag không có đơn: ${names}`, 'info');
+    } else {
+        showNotification('Tất cả tag đều có đơn hàng', 'success');
+    }
 }
 
 // ===== TAG MANAGEMENT MODAL =====
@@ -355,10 +530,12 @@ function createTagManageModal() {
                     </button>
                 </div>
                 <div class="color-presets" id="colorPresets">
-                    ${TAG_PRESET_COLORS.map(c => `
+                    ${TAG_PRESET_COLORS.map(
+                        (c) => `
                         <div class="color-preset" style="background: ${c};"
                              onclick="selectPresetColor('${c}')" title="${c}"></div>
-                    `).join('')}
+                    `
+                    ).join('')}
                 </div>
             </div>
             <div class="modal-footer">
@@ -374,61 +551,74 @@ function renderTagManageList() {
     if (!list) return;
 
     if (SocialOrderState.tags.length === 0) {
-        list.innerHTML = '<div style="text-align: center; color: #9ca3af; padding: 20px;">Chưa có tag nào</div>';
+        list.innerHTML =
+            '<div style="text-align: center; color: #9ca3af; padding: 20px;">Chưa có tag nào</div>';
         return;
     }
 
-    list.innerHTML = SocialOrderState.tags.map(tag => {
-        const isEditing = editingTagId === tag.id;
-        const tagImage = tag.image || null;
-        const editImage = pendingEditTagImages[tag.id] !== undefined ? pendingEditTagImages[tag.id] : tagImage;
-        return `
+    list.innerHTML = SocialOrderState.tags
+        .map((tag) => {
+            const isEditing = editingTagId === tag.id;
+            const tagImage = tag.image || null;
+            const editImage =
+                pendingEditTagImages[tag.id] !== undefined
+                    ? pendingEditTagImages[tag.id]
+                    : tagImage;
+            return `
             <div class="tag-manage-item" data-tag-id="${tag.id}">
                 <input type="color" class="tag-manage-color" value="${tag.color}"
                        style="width: 28px; height: 28px; border: none; border-radius: 6px; cursor: pointer;"
                        ${isEditing ? '' : 'disabled'}
                        onchange="updateTagColor('${tag.id}', this.value)">
                 <div class="tag-manage-name">
-                    ${isEditing
-                        ? `<input type="text" value="${tag.name}" id="editTagName_${tag.id}"
+                    ${
+                        isEditing
+                            ? `<input type="text" value="${tag.name}" id="editTagName_${tag.id}"
                                   onkeydown="if(event.key==='Enter') saveTagEdit('${tag.id}')">`
-                        : tag.name}
+                            : tag.name
+                    }
                 </div>
                 <div class="tag-manage-image">
-                    ${isEditing
-                        ? `<div class="tag-image-paste-area ${editImage ? 'has-image' : ''}" id="editTagImagePaste_${tag.id}"
+                    ${
+                        isEditing
+                            ? `<div class="tag-image-paste-area ${editImage ? 'has-image' : ''}" id="editTagImagePaste_${tag.id}"
                                 onclick="triggerTagImageUpload('${tag.id}')"
                                 title="Dán (Ctrl+V) hoặc click để chọn ảnh">
-                               ${editImage
-                                   ? `<img src="${editImage}" class="tag-image-thumb">
+                               ${
+                                   editImage
+                                       ? `<img src="${editImage}" class="tag-image-thumb">
                                       <button class="tag-image-remove" onclick="event.stopPropagation(); removeTagImage('${tag.id}')" title="Xóa ảnh">&times;</button>`
-                                   : `<span class="tag-image-paste-placeholder"><i class="fas fa-image"></i></span>`}
+                                       : `<span class="tag-image-paste-placeholder"><i class="fas fa-image"></i></span>`
+                               }
                            </div>
                            <input type="file" id="editTagImageFile_${tag.id}" accept="image/*" style="display:none"
                                   onchange="handleTagImageFileSelect(event, '${tag.id}')">`
-                        : `<div class="tag-image-paste-area ${tagImage ? 'has-image' : ''}"
+                            : `<div class="tag-image-paste-area ${tagImage ? 'has-image' : ''}"
                                 onmouseenter="setHoveredImageTag('${tag.id}')"
                                 onmouseleave="setHoveredImageTag(null)"
                                 onclick="triggerTagImageUpload('${tag.id}')"
                                 title="Dán (Ctrl+V) hoặc click để chọn ảnh">
-                               ${tagImage
-                                   ? `<img src="${tagImage}" class="tag-image-thumb">
+                               ${
+                                   tagImage
+                                       ? `<img src="${tagImage}" class="tag-image-thumb">
                                       <button class="tag-image-remove" onclick="event.stopPropagation(); directRemoveTagImage('${tag.id}')" title="Xóa ảnh">&times;</button>`
-                                   : `<span class="tag-image-paste-placeholder"><i class="fas fa-image"></i></span>`}
+                                       : `<span class="tag-image-paste-placeholder"><i class="fas fa-image"></i></span>`
+                               }
                            </div>
                            <input type="file" id="editTagImageFile_${tag.id}" accept="image/*" style="display:none"
                                   onchange="handleTagImageFileSelect(event, '${tag.id}')">`
                     }
                 </div>
                 <div class="tag-manage-actions">
-                    ${isEditing
-                        ? `<button class="btn-edit-tag" onclick="saveTagEdit('${tag.id}')" title="Lưu">
+                    ${
+                        isEditing
+                            ? `<button class="btn-edit-tag" onclick="saveTagEdit('${tag.id}')" title="Lưu">
                                <i class="fas fa-check"></i>
                            </button>
                            <button class="btn-delete-tag" onclick="cancelTagEdit()" title="Hủy">
                                <i class="fas fa-times"></i>
                            </button>`
-                        : `<button class="btn-edit-tag" onclick="startTagEdit('${tag.id}')" title="Sửa">
+                            : `<button class="btn-edit-tag" onclick="startTagEdit('${tag.id}')" title="Sửa">
                                <i class="fas fa-edit"></i>
                            </button>
                            <button class="btn-delete-tag" onclick="deleteTag('${tag.id}')" title="Xóa">
@@ -438,7 +628,8 @@ function renderTagManageList() {
                 </div>
             </div>
         `;
-    }).join('');
+        })
+        .join('');
 }
 
 function selectPresetColor(color) {
@@ -446,7 +637,7 @@ function selectPresetColor(color) {
     if (colorInput) colorInput.value = color;
 
     // Update preset selection UI
-    document.querySelectorAll('.color-preset').forEach(el => {
+    document.querySelectorAll('.color-preset').forEach((el) => {
         el.classList.toggle('selected', el.style.background === color);
     });
 }
@@ -465,13 +656,20 @@ function addNewTag() {
     }
 
     // Check duplicate name
-    if (SocialOrderState.tags.some(t => t.name.toLowerCase() === name.toLowerCase())) {
+    if (SocialOrderState.tags.some((t) => t.name.toLowerCase() === name.toLowerCase())) {
         showNotification('Tag này đã tồn tại', 'warning');
         return;
     }
 
     // Generate ID
-    const id = 'tag_' + name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '') + '_' + Date.now();
+    const id =
+        'tag_' +
+        name
+            .toLowerCase()
+            .replace(/\s+/g, '_')
+            .replace(/[^a-z0-9_]/g, '') +
+        '_' +
+        Date.now();
 
     const newTag = { id, name, color };
     if (pendingNewTagImage) {
@@ -527,11 +725,13 @@ function saveTagEdit(tagId) {
         return;
     }
 
-    const tag = SocialOrderState.tags.find(t => t.id === tagId);
+    const tag = SocialOrderState.tags.find((t) => t.id === tagId);
     if (!tag) return;
 
     // Get color from the color input
-    const colorInput = document.querySelector(`.tag-manage-item[data-tag-id="${tagId}"] input[type="color"]`);
+    const colorInput = document.querySelector(
+        `.tag-manage-item[data-tag-id="${tagId}"] input[type="color"]`
+    );
     if (colorInput) tag.color = colorInput.value;
 
     tag.name = newName;
@@ -566,7 +766,7 @@ function saveTagEdit(tagId) {
 }
 
 function updateTagColor(tagId, newColor) {
-    const tag = SocialOrderState.tags.find(t => t.id === tagId);
+    const tag = SocialOrderState.tags.find((t) => t.id === tagId);
     if (tag) tag.color = newColor;
 }
 
@@ -574,14 +774,14 @@ function updateTagColor(tagId, newColor) {
 let _pendingDeleteTagId = null;
 
 function deleteTag(tagId) {
-    const tag = SocialOrderState.tags.find(t => t.id === tagId);
+    const tag = SocialOrderState.tags.find((t) => t.id === tagId);
     if (!tag) return;
 
     _pendingDeleteTagId = tagId;
 
     // Count affected orders
-    const affectedCount = SocialOrderState.orders.filter(o =>
-        o.tags && o.tags.some(t => t.id === tagId)
+    const affectedCount = SocialOrderState.orders.filter(
+        (o) => o.tags && o.tags.some((t) => t.id === tagId)
     ).length;
 
     // Build tag preview HTML
@@ -595,9 +795,10 @@ function deleteTag(tagId) {
         </div>
     `;
 
-    const messageHtml = affectedCount > 0
-        ? `Tag này đang được gán cho <strong>${affectedCount} đơn hàng</strong>. Tag sẽ bị gỡ khỏi tất cả đơn hàng.`
-        : `Tag này chưa được gán cho đơn hàng nào.`;
+    const messageHtml =
+        affectedCount > 0
+            ? `Tag này đang được gán cho <strong>${affectedCount} đơn hàng</strong>. Tag sẽ bị gỡ khỏi tất cả đơn hàng.`
+            : `Tag này chưa được gán cho đơn hàng nào.`;
 
     // Populate modal
     document.getElementById('confirmDeleteTagInfo').innerHTML = tagInfoHtml;
@@ -616,20 +817,20 @@ function confirmDeleteTag() {
     const tagId = _pendingDeleteTagId;
     if (!tagId) return;
 
-    const tag = SocialOrderState.tags.find(t => t.id === tagId);
+    const tag = SocialOrderState.tags.find((t) => t.id === tagId);
     const tagName = tag ? tag.name : 'Unknown';
 
     // Close modal immediately
     closeConfirmDeleteTagModal();
 
     // Remove from tag list
-    SocialOrderState.tags = SocialOrderState.tags.filter(t => t.id !== tagId);
+    SocialOrderState.tags = SocialOrderState.tags.filter((t) => t.id !== tagId);
 
     // Remove from all orders (local state only, batch Firestore update below)
     const affectedOrderIds = [];
-    SocialOrderState.orders.forEach(order => {
-        if (order.tags && order.tags.some(t => t.id === tagId)) {
-            order.tags = order.tags.filter(t => t.id !== tagId);
+    SocialOrderState.orders.forEach((order) => {
+        if (order.tags && order.tags.some((t) => t.id === tagId)) {
+            order.tags = order.tags.filter((t) => t.id !== tagId);
             order.updatedAt = Date.now();
             affectedOrderIds.push(order.id);
         }
@@ -662,9 +863,9 @@ function confirmDeleteTag() {
 
 function updateTagInOrders(tagId, newName, newColor, newImage) {
     const affectedOrders = [];
-    SocialOrderState.orders.forEach(order => {
+    SocialOrderState.orders.forEach((order) => {
         if (order.tags) {
-            const tag = order.tags.find(t => t.id === tagId);
+            const tag = order.tags.find((t) => t.id === tagId);
             if (tag) {
                 tag.name = newName;
                 tag.color = newColor;
@@ -684,7 +885,7 @@ function updateTagInOrders(tagId, newName, newColor, newImage) {
         performTableSearch();
         // Batch sync affected orders to Firestore
         if (typeof bulkUpdateSocialOrderTagsData === 'function') {
-            bulkUpdateSocialOrderTagsData(affectedOrders.map(o => ({ id: o.id, tags: o.tags })));
+            bulkUpdateSocialOrderTagsData(affectedOrders.map((o) => ({ id: o.id, tags: o.tags })));
         }
     }
 }
@@ -701,7 +902,7 @@ function initTagImagePasteListener() {
     if (!modal) return;
     _tagImagePasteListenerInit = true;
 
-    modal.addEventListener('paste', function(e) {
+    modal.addEventListener('paste', function (e) {
         const items = e.clipboardData?.items;
         if (!items) return;
 
@@ -724,7 +925,7 @@ function processTagImageFile(file) {
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = function (e) {
         const base64 = e.target.result;
 
         compressTagImage(base64, (compressed) => {
@@ -754,7 +955,7 @@ function processTagImageFile(file) {
  */
 function compressTagImage(base64, callback) {
     const img = new Image();
-    img.onload = function() {
+    img.onload = function () {
         const canvas = document.createElement('canvas');
         const MAX_SIZE = 200;
         let w = img.width;
@@ -762,10 +963,10 @@ function compressTagImage(base64, callback) {
 
         if (w > MAX_SIZE || h > MAX_SIZE) {
             if (w > h) {
-                h = Math.round(h * MAX_SIZE / w);
+                h = Math.round((h * MAX_SIZE) / w);
                 w = MAX_SIZE;
             } else {
-                w = Math.round(w * MAX_SIZE / h);
+                w = Math.round((w * MAX_SIZE) / h);
                 h = MAX_SIZE;
             }
         }
@@ -776,7 +977,7 @@ function compressTagImage(base64, callback) {
         ctx.drawImage(img, 0, 0, w, h);
         callback(canvas.toDataURL('image/jpeg', 0.8));
     };
-    img.onerror = function() {
+    img.onerror = function () {
         callback(base64); // fallback to original
     };
     img.src = base64;
@@ -814,9 +1015,10 @@ function clearNewTagImagePreview() {
  * Trigger file input for image upload
  */
 function triggerTagImageUpload(tagId) {
-    const fileInput = tagId === 'new'
-        ? document.getElementById('newTagImageFile')
-        : document.getElementById(`editTagImageFile_${tagId}`);
+    const fileInput =
+        tagId === 'new'
+            ? document.getElementById('newTagImageFile')
+            : document.getElementById(`editTagImageFile_${tagId}`);
     if (fileInput) fileInput.click();
 }
 
@@ -828,7 +1030,7 @@ function handleTagImageFileSelect(event, tagId) {
     if (!file || !file.type.startsWith('image/')) return;
 
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = function (e) {
         compressTagImage(e.target.result, (compressed) => {
             if (tagId === 'new') {
                 pendingNewTagImage = compressed;
@@ -863,7 +1065,7 @@ function removeTagImage(tagId) {
 let _tagImageHoverEl = null;
 
 function showTagImageHover(el, tagId) {
-    const tag = SocialOrderState.tags.find(t => t.id === tagId);
+    const tag = SocialOrderState.tags.find((t) => t.id === tagId);
     if (!tag || !tag.image) return;
 
     hideTagImageHover();
@@ -891,14 +1093,14 @@ function showTagImageHover(el, tagId) {
         const hoverRect = _tagImageHoverEl.getBoundingClientRect();
         let top = rect.top - hoverRect.height - 8;
         if (top < 8) top = rect.bottom + 8;
-        let left = rect.left + (rect.width / 2) - (hoverRect.width / 2);
+        let left = rect.left + rect.width / 2 - hoverRect.width / 2;
         left = Math.max(8, Math.min(left, window.innerWidth - hoverRect.width - 8));
         _tagImageHoverEl.style.top = top + 'px';
         _tagImageHoverEl.style.left = left + 'px';
     };
 
     // Initial position
-    _tagImageHoverEl.style.top = (rect.top - 220) + 'px';
+    _tagImageHoverEl.style.top = rect.top - 220 + 'px';
     _tagImageHoverEl.style.left = rect.left + 'px';
 }
 
@@ -922,7 +1124,7 @@ function setHoveredImageTag(tagId) {
  * Used when pasting/uploading while hovering over a tag's image area.
  */
 function directSaveTagImage(tagId, imageBase64) {
-    const tag = SocialOrderState.tags.find(t => t.id === tagId);
+    const tag = SocialOrderState.tags.find((t) => t.id === tagId);
     if (!tag) return;
 
     tag.image = imageBase64;
@@ -947,7 +1149,7 @@ function directSaveTagImage(tagId, imageBase64) {
  * Directly remove an image from a tag without entering edit mode.
  */
 function directRemoveTagImage(tagId) {
-    const tag = SocialOrderState.tags.find(t => t.id === tagId);
+    const tag = SocialOrderState.tags.find((t) => t.id === tagId);
     if (!tag) return;
 
     delete tag.image;
@@ -997,3 +1199,6 @@ window.setHoveredImageTag = setHoveredImageTag;
 window.directSaveTagImage = directSaveTagImage;
 window.directRemoveTagImage = directRemoveTagImage;
 window.filterTagPanelCards = filterTagPanelCards;
+window.onTagDayFilterChange = onTagDayFilterChange;
+window.deletePanelTag = deletePanelTag;
+window.performTableSearchWithZeroOrderTags = performTableSearchWithZeroOrderTags;

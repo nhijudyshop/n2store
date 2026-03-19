@@ -1423,8 +1423,14 @@ td[data-column].hidden {
 }
 
 @keyframes panelSlideIn {
-    from { opacity: 0; transform: translateX(20px); }
-    to { opacity: 1; transform: translateX(0); }
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
 }
 
 /* Panel header */
@@ -1518,6 +1524,77 @@ td[data-column].hidden {
     font-size: 13px;
 }
 
+/* Day filter checkboxes */
+.tag-panel-day-filters {
+    display: flex;
+    gap: 6px;
+    padding: 8px 12px 0;
+    flex-wrap: wrap;
+}
+
+.tag-day-filter-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    border: 1.5px solid #e5e7eb;
+    background: #f9fafb;
+    font-size: 12px;
+    font-weight: 600;
+    color: #6b7280;
+    transition: all 0.15s;
+    user-select: none;
+}
+
+.tag-day-filter-item:hover {
+    border-color: #8b5cf6;
+    color: #7c3aed;
+}
+
+.tag-day-filter-item input[type='checkbox'] {
+    width: 14px;
+    height: 14px;
+    margin: 0;
+    cursor: pointer;
+    accent-color: #8b5cf6;
+}
+
+.tag-day-filter-item:has(input:checked) {
+    background: #f0ecff;
+    border-color: #8b5cf6;
+    color: #7c3aed;
+}
+
+/* Tag card delete button */
+.tag-panel-card-delete {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 5px;
+    border: none;
+    background: #fee2e2;
+    color: #ef4444;
+    cursor: pointer;
+    font-size: 11px;
+    flex-shrink: 0;
+    transition: all 0.15s;
+    padding: 0;
+    line-height: 1;
+}
+
+.tag-panel-card-delete:hover {
+    background: #ef4444;
+    color: white;
+}
+
+.tag-panel-card:hover .tag-panel-card-delete {
+    display: flex;
+}
+
 /* Panel body */
 .tag-panel-body {
     flex: 1;
@@ -1607,7 +1684,7 @@ td[data-column].hidden {
     border-radius: 6px;
     flex-shrink: 0;
     cursor: pointer;
-    border: 2px solid rgba(0,0,0,0.1);
+    border: 2px solid rgba(0, 0, 0, 0.1);
 }
 
 .tag-manage-name {
@@ -1667,7 +1744,7 @@ td[data-column].hidden {
     margin-top: 12px;
 }
 
-.tag-add-form input[type="text"] {
+.tag-add-form input[type='text'] {
     flex: 1;
     padding: 6px 10px;
     border: 1px solid #d1d5db;
@@ -1675,12 +1752,12 @@ td[data-column].hidden {
     font-size: 13px;
 }
 
-.tag-add-form input[type="text"]:focus {
+.tag-add-form input[type='text']:focus {
     outline: none;
     border-color: #8b5cf6;
 }
 
-.tag-add-form input[type="color"] {
+.tag-add-form input[type='color'] {
     width: 32px;
     height: 32px;
     border: none;
@@ -1729,7 +1806,9 @@ td[data-column].hidden {
 
 .color-preset.selected {
     border-color: #374151;
-    box-shadow: 0 0 0 2px white, 0 0 0 4px #374151;
+    box-shadow:
+        0 0 0 2px white,
+        0 0 0 4px #374151;
 }
 
 /* Responsive panel */
@@ -1846,7 +1925,7 @@ td[data-column].hidden {
 
 .tag-image-thumb-small:hover {
     transform: scale(1.15);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 /* Tag manage image column */
@@ -1864,7 +1943,7 @@ td[data-column].hidden {
     padding: 4px;
     background: white;
     border-radius: 8px;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
     border: 1px solid #e5e7eb;
     transition: opacity 0.15s;
     max-width: 220px;
