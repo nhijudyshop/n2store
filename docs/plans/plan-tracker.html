@@ -216,6 +216,70 @@
         .file-tag { border: 1px solid var(--border); }
         .file-tag.new { background: var(--green-bg); color: var(--green); border-color: var(--green); }
 
+        /* Plan Overview */
+        .plan-overview {
+            background: var(--surface);
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 24px;
+            border: 1px solid var(--border);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        }
+        .plan-overview h3 {
+            font-size: 17px;
+            margin-bottom: 12px;
+            color: var(--blue);
+        }
+        .plan-overview p {
+            font-size: 14px;
+            color: var(--text);
+            margin-bottom: 10px;
+            line-height: 1.7;
+        }
+        .plan-overview .highlight {
+            background: var(--blue-bg);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 600;
+            color: var(--blue);
+        }
+        .plan-overview ul {
+            margin: 8px 0 8px 20px;
+            font-size: 14px;
+            line-height: 1.8;
+        }
+        .plan-overview ul li { color: var(--text); }
+
+        /* Sprint Goal Box */
+        .sprint-goal {
+            padding: 14px 20px;
+            background: linear-gradient(135deg, rgba(37,99,235,0.05), rgba(124,58,237,0.05));
+            border-bottom: 1px solid var(--border);
+        }
+        .sprint-goal-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--purple);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+        }
+        .sprint-goal p {
+            font-size: 13.5px;
+            color: var(--text);
+            line-height: 1.7;
+            margin: 0;
+        }
+        .sprint-goal .goal-result {
+            margin-top: 8px;
+            padding: 8px 12px;
+            background: var(--green-bg);
+            border-radius: 6px;
+            font-size: 13px;
+            color: var(--green);
+            font-weight: 500;
+        }
+
         /* Summary table */
         .summary-table {
             width: 100%;
@@ -292,6 +356,26 @@
             <div class="subtitle">Kế hoạch hiện thực các hạng mục quy trình | ~9 tuần, 5 Sprint</div>
         </div>
 
+        <!-- Tổng quan kế hoạch -->
+        <div class="plan-overview">
+            <h3>Kế hoạch này để làm gì?</h3>
+            <p>
+                Hiện tại khi shop live bán hàng, quy trình từ <span class="highlight">đặt hàng nhà cung cấp</span> đến
+                <span class="highlight">chốt đơn cho khách</span> đang bị đứt đoạn thông tin. Cụ thể:
+            </p>
+            <ul>
+                <li><strong>Duyên (người đặt hàng)</strong> đặt hàng nhà cung cấp qua Zalo/điện thoại nhưng các bạn Sale không thấy được số liệu, phải chờ Duyên note từng đơn một → rất chậm và dễ sai.</li>
+                <li><strong>Nhà cung cấp giao hàng từng phần</strong> (ví dụ đặt 100 cái nhưng chỉ về 60), Sale không biết để cân đối đi đơn cho khách hay báo khách hủy.</li>
+                <li><strong>Hệ thống KPI</strong> (tính thưởng cho Sale) đang có lỗ hổng — Sale có thể thêm mã nhầm trước khi gửi tin nhắn rồi đổi lại, KPI vẫn cộng sai.</li>
+                <li><strong>Hàng rớt/xả</strong> (khách hủy, hàng dư) chưa quản lý theo từng đợt live nên Sale khó tìm hàng available.</li>
+                <li><strong>Bộ phận CSKH</strong> khi tiếp nhận đơn từ Sale thiếu thông tin tổng quan, đi đơn chậm.</li>
+            </ul>
+            <p>
+                <strong>Mục tiêu:</strong> Kết nối thông tin giữa Duyên (đặt hàng) ↔ Sale (chốt đơn) ↔ CSKH (chăm sóc khách)
+                thành một luồng thông suốt. Ai cũng thấy được số liệu cần thiết, không phải chờ đợi hay hỏi nhau.
+            </p>
+        </div>
+
         <div class="progress-section">
             <div class="progress-header">
                 <h3>Tiến độ tổng</h3>
@@ -346,6 +430,8 @@ Phase 4D (KPI per-session) ── độc lập</div>
             title: 'Sprint 1',
             subtitle: 'Tuần 1–2',
             badgeClass: 'badge-green',
+            goal: 'Cho phép Duyên ghi nhận hàng về từng phần trên Sổ Sách (thay vì chỉ ghi tổng). Ví dụ: đặt 100 cái, hàng về 60 trước → hệ thống tự hiện "chờ giao 40". Đồng thời, khi khách hủy hàng (hàng rớt/xả), hệ thống sẽ ghi nhận thuộc đợt live nào để các bạn Sale dễ tìm và thêm cho khách khác.',
+            goalResult: 'Sale nhìn vào Sổ Sách biết ngay hàng nào đã về, hàng nào đang chờ, hàng nào NCC hủy. Hàng rớt được phân loại theo đợt live.',
             phases: [
                 {
                     id: 'phase1a',
@@ -386,6 +472,8 @@ Phase 4D (KPI per-session) ── độc lập</div>
             title: 'Sprint 2',
             subtitle: 'Tuần 3–4',
             badgeClass: 'badge-blue',
+            goal: 'Đưa thông tin đặt hàng nhà cung cấp lên màn hình chốt đơn (Tab1) để Sale thấy ngay khi mở đơn hàng. Ví dụ: Sale mở đơn khách, bên cạnh mỗi sản phẩm sẽ có icon cho biết "Duyên đã đặt NCC 50 cái, đã về 30, đang chờ 20". Ngoài ra, thêm bảng thống kê nhanh số đơn mỗi nhân viên đã xử lý (bao nhiêu OKE, bao nhiêu đang xử lý, bao nhiêu hủy).',
+            goalResult: 'Sale không cần hỏi Duyên nữa — nhìn vào màn hình chốt đơn là biết hàng có đủ hay chưa. Quản lý thấy được ai xử lý bao nhiêu đơn.',
             phases: [
                 {
                     id: 'phase1b',
@@ -427,6 +515,8 @@ Phase 4D (KPI per-session) ── độc lập</div>
             title: 'Sprint 3',
             subtitle: 'Tuần 5–6',
             badgeClass: 'badge-purple',
+            goal: 'Tạo chế độ "Bàn giao" cho bộ phận CSKH. Khi Sale đi live, CSKH tiếp nhận đơn hàng sẽ bật chế độ này lên — thấy tổng quan tất cả đơn đang xử lý, lọc theo nhân viên sale, theo trạng thái (OKE/đang xử lý/hủy), kèm thông tin hàng đã về chưa. Ngoài ra, hệ thống KPI sẽ được tách theo từng đợt live để xem thưởng chính xác theo đợt.',
+            goalResult: 'CSKH bật chế độ bàn giao → thấy rõ đơn nào cần đi, của ai, trạng thái gì, hàng có sẵn không. KPI xem theo từng đợt live.',
             phases: [
                 {
                     id: 'phase3b',
@@ -468,6 +558,8 @@ Phase 4D (KPI per-session) ── độc lập</div>
             title: 'Sprint 4',
             subtitle: 'Tuần 7–8',
             badgeClass: 'badge-amber',
+            goal: 'Sửa lỗi hệ thống tính thưởng KPI cho Sale. Hiện tại có 3 vấn đề lớn: (1) Sale thêm mã sản phẩm nhầm trước khi gửi tin nhắn chốt đơn, sau đó đổi lại — KPI vẫn cộng sai → sửa bằng cách khóa thông tin sau 5 phút và đối chiếu lại khi ra đơn. (2) Số lượng sản phẩm trong đơn khách phải khớp với số Duyên đặt nhà cung cấp — nếu không khớp sẽ hiện cảnh báo. (3) KPI chỉ được cộng chính thức khi đơn hàng thật sự giao thành công và khách không trả lại hàng.',
+            goalResult: 'KPI chính xác, chống gian lận. Có 2 mức: "KPI tạm tính" (khi chốt đơn) và "KPI xác nhận" (khi giao thành công). Đơn hoàn hàng → tự động trừ KPI.',
             phases: [
                 {
                     id: 'phase4a',
@@ -526,6 +618,8 @@ Phase 4D (KPI per-session) ── độc lập</div>
             title: 'Sprint 5',
             subtitle: 'Tuần 9',
             badgeClass: 'badge-red',
+            goal: 'Hoàn thiện và tối ưu tất cả tính năng đã làm ở 4 sprint trước. Đảm bảo dùng tốt trên điện thoại/tablet (Duyên có thể nhập hàng về trên điện thoại khi ở kho). Thêm thông báo âm thanh khi có hàng rớt mới để Sale phản ứng nhanh. Tự động cập nhật dữ liệu theo thời gian thực.',
+            goalResult: 'Tất cả tính năng chạy mượt trên mọi thiết bị. Thông báo realtime. Sẵn sàng vận hành chính thức.',
             phases: [
                 {
                     id: 'phase5',
@@ -679,6 +773,15 @@ Phase 4D (KPI per-session) ── độc lập</div>
                     <h2>${sprint.title} <span class="sprint-badge ${sprint.badgeClass}">${sprint.subtitle}</span></h2>
                     <span style="color: var(--text-muted); font-size: 13px;">${stats.completed}/${stats.total} tasks</span>
                 </div>`;
+
+            // Sprint goal description
+            if (sprint.goal) {
+                html += `<div class="sprint-goal">
+                    <div class="sprint-goal-title">Mục tiêu Sprint này</div>
+                    <p>${sprint.goal}</p>
+                    ${sprint.goalResult ? `<div class="goal-result">Kết quả đạt được: ${sprint.goalResult}</div>` : ''}
+                </div>`;
+            }
 
             sprint.phases.forEach(phase => {
                 html += `<div class="phase">

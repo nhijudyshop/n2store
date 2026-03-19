@@ -5,6 +5,20 @@
 
 ---
 
+## Kế hoạch này để làm gì? (Giải thích đơn giản)
+
+Hiện tại khi shop live bán hàng, quy trình từ **đặt hàng nhà cung cấp** đến **chốt đơn cho khách** đang bị đứt đoạn thông tin:
+
+- **Duyên (người đặt hàng)** đặt hàng nhà cung cấp qua Zalo/điện thoại nhưng các bạn Sale không thấy được số liệu, phải chờ Duyên note từng đơn một → rất chậm và dễ sai.
+- **Nhà cung cấp giao hàng từng phần** (ví dụ đặt 100 cái nhưng chỉ về 60), Sale không biết để cân đối đi đơn cho khách hay báo khách hủy.
+- **Hệ thống KPI** (tính thưởng cho Sale) đang có lỗ hổng — Sale có thể thêm mã nhầm trước khi gửi tin nhắn rồi đổi lại, KPI vẫn cộng sai.
+- **Hàng rớt/xả** (khách hủy, hàng dư) chưa quản lý theo từng đợt live nên Sale khó tìm hàng available.
+- **Bộ phận CSKH** khi tiếp nhận đơn từ Sale thiếu thông tin tổng quan, đi đơn chậm.
+
+**Mục tiêu cuối cùng:** Kết nối thông tin giữa Duyên (đặt hàng) ↔ Sale (chốt đơn) ↔ CSKH (chăm sóc khách) thành một luồng thông suốt. **Ai cũng thấy được số liệu cần thiết, không phải chờ đợi hay hỏi nhau.**
+
+---
+
 ## Tổng quan vấn đề
 
 | # | Vấn đề | Ảnh hưởng | Giải pháp |
@@ -18,6 +32,10 @@
 ---
 
 ## Sprint 1: Tuần 1–2 (Phase 1A + Phase 2)
+
+> **Mục tiêu (dễ hiểu):** Cho phép Duyên ghi nhận hàng về từng phần trên Sổ Sách (thay vì chỉ ghi tổng). Ví dụ: đặt 100 cái, hàng về 60 trước → hệ thống tự hiện "chờ giao 40". Đồng thời, khi khách hủy hàng (hàng rớt/xả), hệ thống sẽ ghi nhận thuộc đợt live nào để các bạn Sale dễ tìm.
+>
+> **Kết quả đạt được:** Sale nhìn vào Sổ Sách biết ngay hàng nào đã về, hàng nào đang chờ, hàng nào NCC hủy. Hàng rớt được phân loại theo đợt live.
 
 ### Phase 1A — Mở rộng Sổ Sách cho giao hàng từng phần
 
@@ -49,6 +67,10 @@
 
 ## Sprint 2: Tuần 3–4 (Phase 1B + Phase 3A)
 
+> **Mục tiêu (dễ hiểu):** Đưa thông tin đặt hàng nhà cung cấp lên màn hình chốt đơn (Tab1) để Sale thấy ngay khi mở đơn hàng. Ví dụ: Sale mở đơn khách, bên cạnh mỗi sản phẩm sẽ có icon cho biết "Duyên đã đặt NCC 50 cái, đã về 30, đang chờ 20". Ngoài ra, thêm bảng thống kê nhanh số đơn mỗi nhân viên đã xử lý.
+>
+> **Kết quả đạt được:** Sale không cần hỏi Duyên nữa — nhìn vào màn hình chốt đơn là biết hàng có đủ hay chưa. Quản lý thấy được ai xử lý bao nhiêu đơn.
+
 ### Phase 1B — Supply Status panel cho Sale ở Tab1
 
 - [ ] **1B.1** Tạo mới `orders-report/js/tab1/tab1-supply-status.js`
@@ -76,6 +98,10 @@
 
 ## Sprint 3: Tuần 5–6 (Phase 3B + Phase 4D)
 
+> **Mục tiêu (dễ hiểu):** Tạo chế độ "Bàn giao" cho bộ phận CSKH. Khi Sale đi live, CSKH tiếp nhận đơn hàng sẽ bật chế độ này lên — thấy tổng quan tất cả đơn đang xử lý, lọc theo nhân viên sale, theo trạng thái (OKE/đang xử lý/hủy), kèm thông tin hàng đã về chưa. Ngoài ra, hệ thống KPI sẽ được tách theo từng đợt live.
+>
+> **Kết quả đạt được:** CSKH bật chế độ bàn giao → thấy rõ đơn nào cần đi, của ai, trạng thái gì, hàng có sẵn không. KPI xem theo từng đợt live.
+
 ### Phase 3B — Chế độ Handover cho CSKH (Bảng filter đơn giản)
 
 - [ ] **3B.1** Toggle "Chế độ bàn giao" trên toolbar Tab1
@@ -102,6 +128,10 @@
 ---
 
 ## Sprint 4: Tuần 7–8 (Phase 4A + 4B + 4C)
+
+> **Mục tiêu (dễ hiểu):** Sửa lỗi hệ thống tính thưởng KPI cho Sale. Có 3 vấn đề lớn: (1) Sale thêm mã sản phẩm nhầm trước khi gửi tin nhắn chốt đơn, sau đó đổi lại — KPI vẫn cộng sai → sửa bằng cách khóa thông tin sau 5 phút và đối chiếu lại khi ra đơn. (2) Số lượng sản phẩm trong đơn khách phải khớp với số Duyên đặt nhà cung cấp — nếu không khớp sẽ hiện cảnh báo. (3) KPI chỉ được cộng chính thức khi đơn hàng thật sự giao thành công và khách không trả lại hàng.
+>
+> **Kết quả đạt được:** KPI chính xác, chống gian lận. Có 2 mức: "KPI tạm tính" (khi chốt đơn) và "KPI xác nhận" (khi giao thành công). Đơn hoàn hàng → tự động trừ KPI.
 
 ### Phase 4A — Fix bug thêm mã nhầm trước khi gửi tin nhắn
 
@@ -137,6 +167,10 @@
 ---
 
 ## Sprint 5: Tuần 9 (Phase 5 — Polish)
+
+> **Mục tiêu (dễ hiểu):** Hoàn thiện và tối ưu tất cả tính năng đã làm ở 4 sprint trước. Đảm bảo dùng tốt trên điện thoại/tablet (Duyên có thể nhập hàng về trên điện thoại khi ở kho). Thêm thông báo âm thanh khi có hàng rớt mới để Sale phản ứng nhanh. Tự động cập nhật dữ liệu theo thời gian thực.
+>
+> **Kết quả đạt được:** Tất cả tính năng chạy mượt trên mọi thiết bị. Thông báo realtime. Sẵn sàng vận hành chính thức.
 
 - [ ] **5.1** Responsive cho handover view trên tablet/phone
 - [ ] **5.2** Touch-friendly form nhập lô giao hàng
