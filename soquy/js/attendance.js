@@ -60,6 +60,24 @@
         return hiddenEmployees.has(String(empId));
     }
 
+    // Name overrides: mapping tên máy chấm công → tên hiển thị
+    const NAME_OVERRIDES_KEY = 'attendance_name_overrides';
+    let nameOverrides = JSON.parse(localStorage.getItem(NAME_OVERRIDES_KEY) || '{}');
+
+    function saveNameOverride(empId, displayName) {
+        nameOverrides[String(empId)] = displayName;
+        localStorage.setItem(NAME_OVERRIDES_KEY, JSON.stringify(nameOverrides));
+    }
+
+    function applyNameOverrides() {
+        employees.forEach(emp => {
+            const empId = String(emp.userId || emp.uid || emp.id);
+            if (nameOverrides[empId]) {
+                emp.name = nameOverrides[empId];
+            }
+        });
+    }
+
     // Full-day salary override — lưu trên Firestore
     let fullDayOverrides = new Set();
 
@@ -663,6 +681,7 @@
             snapshot.forEach(doc => {
                 employees.push({ ...doc.data(), id: doc.id });
             });
+            applyNameOverrides();
             employees.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'vi'));
             console.log(`[Attendance] Loaded ${employees.length} employees`);
         } catch (err) {
@@ -1811,19 +1830,11 @@
                 if (input.classList.contains('settings-name')) {
                     const newName = input.value.trim();
                     if (newName && newName !== emp.name) {
-                        const oldName = emp.name;
+                        const empId = String(emp.userId || emp.uid || emp.id);
                         emp.name = newName;
-                        try {
-                            if (!isTest) {
-                                console.log(`[Settings] Đổi tên: "${oldName}" → "${newName}", docId=${docId}`);
-                                await db.collection(COLLECTIONS.deviceUsers).doc(docId).update({ name: newName });
-                            }
-                            showNotification(`Đã đổi tên: ${newName}`, 'success');
-                            renderMonthlySchedule();
-                        } catch (err) {
-                            emp.name = oldName;
-                            showNotification('Lỗi đổi tên: ' + err.message, 'error');
-                        }
+                        saveNameOverride(empId, newName);
+                        showNotification(`Đã đổi tên: ${newName}`, 'success');
+                        renderMonthlySchedule();
                     }
                 }
 
