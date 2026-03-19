@@ -284,8 +284,9 @@ function renderTagPanelCards() {
         });
         const zeroOrderTags = SocialOrderState.tags.filter((t) => !tagsWithOrders.has(t.id));
         const zeroCount = zeroOrderTags.length;
+        const isZeroActive = activePanelTagId === '__zero_order__';
         html += `
-            <div class="tag-panel-card ${activePanelTagId === '__zero_order__' ? 'active' : ''}"
+            <div class="tag-panel-card ${isZeroActive ? 'active' : ''}"
                  onclick="filterByPanelTag('__zero_order__')">
                 <div class="tag-panel-card-icon" style="background: #fecaca;">
                     <i class="fas fa-box-open" style="color: #ef4444;"></i>
@@ -296,6 +297,31 @@ function renderTagPanelCards() {
                 </div>
             </div>
         `;
+
+        // Show sub-list of zero-order tags when active
+        if (isZeroActive && zeroOrderTags.length > 0) {
+            html += `<div class="zero-order-tags-list">`;
+            zeroOrderTags.forEach((tag) => {
+                html += `
+                    <div class="zero-order-tag-item">
+                        <div class="zero-order-tag-icon" style="background: ${tag.color};">
+                            ${
+                                tag.image
+                                    ? `<img src="${tag.image}" style="width:100%;height:100%;object-fit:cover;border-radius:6px;">`
+                                    : `<i class="fas fa-tag"></i>`
+                            }
+                        </div>
+                        <span class="zero-order-tag-name">${tag.name}</span>
+                        <button class="zero-order-tag-delete" onclick="event.stopPropagation(); deletePanelTag('${tag.id}')" title="Xóa tag ${tag.name}">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </div>
+                `;
+            });
+            html += `</div>`;
+        } else if (isZeroActive && zeroOrderTags.length === 0) {
+            html += `<div class="zero-order-tags-empty">Tất cả tag đều có đơn hàng</div>`;
+        }
     }
 
     // Tag cards (filtered by search and day filter)
@@ -451,28 +477,9 @@ function performTableSearchWithNoTag() {
     updateSearchClearButton();
 }
 
-// Custom search that shows zero result (used when "Tag không có đơn" is selected)
+// When "Tag không có đơn" is selected - just show all orders, the sub-list is rendered in the panel
 function performTableSearchWithZeroOrderTags() {
-    // Find tags with zero orders
-    const tagsWithOrders = new Set();
-    SocialOrderState.orders.forEach((order) => {
-        (order.tags || []).forEach((t) => tagsWithOrders.add(t.id));
-    });
-    const zeroOrderTags = SocialOrderState.tags.filter((t) => !tagsWithOrders.has(t.id));
-
-    // Show empty table since these tags have no orders
-    SocialOrderState.filteredOrders = [];
-    renderTable();
-    updateSearchResultCount();
-    updateSearchClearButton();
-
-    // Show notification about which tags have no orders
-    if (zeroOrderTags.length > 0) {
-        const names = zeroOrderTags.map((t) => t.name).join(', ');
-        showNotification(`${zeroOrderTags.length} tag không có đơn: ${names}`, 'info');
-    } else {
-        showNotification('Tất cả tag đều có đơn hàng', 'success');
-    }
+    performTableSearch();
 }
 
 // ===== TAG MANAGEMENT MODAL =====

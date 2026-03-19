@@ -1595,6 +1595,88 @@ td[data-column].hidden {
     display: flex;
 }
 
+/* Zero-order tags sub-list */
+.zero-order-tags-list {
+    margin: 4px 0 8px 0;
+    padding: 6px 8px;
+    background: #fef2f2;
+    border-radius: 8px;
+    border: 1px solid #fecaca;
+}
+
+.zero-order-tag-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 6px;
+    border-radius: 6px;
+    transition: background 0.12s;
+}
+
+.zero-order-tag-item:hover {
+    background: #fee2e2;
+}
+
+.zero-order-tag-icon {
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 11px;
+    flex-shrink: 0;
+}
+
+.zero-order-tag-name {
+    flex: 1;
+    font-size: 12px;
+    font-weight: 600;
+    color: #374151;
+    text-transform: uppercase;
+    letter-spacing: 0.2px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.zero-order-tag-delete {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 5px;
+    border: none;
+    background: #fee2e2;
+    color: #ef4444;
+    cursor: pointer;
+    font-size: 11px;
+    flex-shrink: 0;
+    transition: all 0.15s;
+    padding: 0;
+    opacity: 0;
+}
+
+.zero-order-tag-item:hover .zero-order-tag-delete {
+    opacity: 1;
+}
+
+.zero-order-tag-delete:hover {
+    background: #ef4444;
+    color: white;
+}
+
+.zero-order-tags-empty {
+    text-align: center;
+    color: #10b981;
+    font-size: 12px;
+    padding: 8px;
+    font-weight: 500;
+}
+
 /* Panel body */
 .tag-panel-body {
     flex: 1;
