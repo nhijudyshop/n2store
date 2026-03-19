@@ -5,7 +5,7 @@
  * - Manual bill sending via Messenger button
  * - Disables auto-send bill feature
  *
- * @version 2.0.0
+ * @version 3.0.0 - Compound key support (SaleOnlineId_timestamp) for multi-entry history
  * @author Claude
  */
 
@@ -14,11 +14,49 @@
 
     // =====================================================
     // INVOICE STATUS STORE
-    // Stores mapping: SaleOnlineId -> FastSaleOrder data
+    // Stores mapping: SaleOnlineId_timestamp -> FastSaleOrder data (compound key)
+    // Supports legacy flat keys (SaleOnlineId) for backward compatibility
     // =====================================================
 
     const STORAGE_KEY = 'invoiceStatusStore_v2';
     const FIRESTORE_COLLECTION = 'invoice_status_v2';
+
+    /**
+     * Extract SaleOnlineId from a compound key or legacy flat key.
+     * Compound key format: "SaleOnlineId_timestamp" (timestamp = 13 digits)
+     * Legacy flat key: "SaleOnlineId" (UUID or other format without _timestamp suffix)
+     * @param {string} key - The compound or flat key
+     * @returns {string} The SaleOnlineId portion
+     */
+    function extractSaleOnlineId(key) {
+        if (!key) return '';
+        const str = String(key);
+        const lastIdx = str.lastIndexOf('_');
+        if (lastIdx > 0) {
+            const suffix = str.substring(lastIdx + 1);
+            // 13-digit timestamp (ms since epoch)
+            if (/^\d{13}$/.test(suffix)) {
+                return str.substring(0, lastIdx);
+            }
+        }
+        return str; // Legacy flat key
+    }
+
+    /**
+     * Check if a key is a compound key (has _timestamp suffix)
+     * @param {string} key
+     * @returns {boolean}
+     */
+    function isCompoundKey(key) {
+        if (!key) return false;
+        const str = String(key);
+        const lastIdx = str.lastIndexOf('_');
+        if (lastIdx > 0) {
+            const suffix = str.substring(lastIdx + 1);
+            return /^\d{13}$/.test(suffix);
+        }
+        return false;
+    }
     const MAX_AGE_DAYS = 60; // Auto cleanup after 60 days
 
     // =====================================================
@@ -665,6 +703,9 @@
 
         /**
          * Store invoice data for a SaleOnlineOrder
+         * Uses compound key (SaleOnlineId_timestamp) to support multiple entries per order.
+         * If an existing entry with the same FastSaleOrder Id exists, updates it in-place
+         * instead of creating a new entry (for form value updates after initial store).
          * @param {string} saleOnlineId - The SaleOnline order ID
          * @param {Object} invoiceData - FastSaleOrder data
          * @param {Object} originalOrder - Optional: SaleOnlineOrder data for enrichment
@@ -704,10 +745,31 @@
             const showState = isFullyPaid ? 'Đã thanh toán' : invoiceData.ShowState || 'Nháp';
             const state = isFullyPaid ? 'paid' : invoiceData.State || 'draft';
 
-            const entryKey = String(saleOnlineId);
+            const soId = String(saleOnlineId);
+            const tposId = invoiceData.Id; // FastSaleOrder ID from TPOS
+
+            // Check if an existing entry for the same SaleOnlineId + same TPOS Id exists
+            // If so, update in-place (e.g., enriching with form values after initial storeFromApiResult)
+            let entryKey = null;
+            if (tposId) {
+                for (const [key, value] of this._data.entries()) {
+                    const keySoId = extractSaleOnlineId(key);
+                    if (keySoId === soId && value.Id === tposId) {
+                        entryKey = key; // Found existing entry with same TPOS Id → update in-place
+                        break;
+                    }
+                }
+            }
+
+            // If no existing entry found, create a new compound key
+            if (!entryKey) {
+                entryKey = `${soId}_${Date.now()}`;
+            }
+
             this._myKeys.add(entryKey);
             this._pendingKeys.add(entryKey); // Protect from snapshot deletion until saved
             this._data.set(entryKey, {
+                SaleOnlineId: soId, // Store original SaleOnlineId for grouping/lookup
                 Id: invoiceData.Id,
                 Number: billNumber, // Use complete bill number (never null)
                 Reference: invoiceData.Reference || order?.Code || '',
@@ -749,23 +811,151 @@
         },
 
         /**
-         * Get invoice data for a SaleOnlineOrder
-         * @param {string} saleOnlineId
-         * @returns {Object|null}
+         * Delete the LATEST invoice entry for a SaleOnlineOrder from local store and Firestore.
+         * Supports both compound keys and legacy flat keys.
+         * Admin: deletes from ALL user docs (since admin loads data from all docs)
+         * @param {string} saleOnlineId - The SaleOnline order ID to delete
+         * @returns {boolean} True if deleted, false if not found
          */
-        get(saleOnlineId) {
-            if (!saleOnlineId) return null;
-            return this._data.get(String(saleOnlineId)) || null;
+        async delete(saleOnlineId) {
+            if (!saleOnlineId) return false;
+
+            const soId = String(saleOnlineId);
+
+            // Find the LATEST entry's actual key (compound or flat)
+            let targetKey = null;
+            let latestTs = 0;
+
+            // Check legacy flat key first
+            if (this._data.has(soId) && !isCompoundKey(soId)) {
+                targetKey = soId;
+                latestTs = this._data.get(soId)?.timestamp || 0;
+            }
+
+            // Search compound keys for newest entry
+            for (const [key, value] of this._data.entries()) {
+                const keySoId = value.SaleOnlineId || extractSaleOnlineId(key);
+                if (keySoId === soId) {
+                    const ts = value.timestamp || 0;
+                    if (ts > latestTs || !targetKey) {
+                        targetKey = key;
+                        latestTs = ts;
+                    }
+                }
+            }
+
+            if (!targetKey) return false;
+
+            // Remove from local _data and _myKeys
+            this._data.delete(targetKey);
+            this._myKeys.delete(targetKey);
+            this._sentBills.delete(soId); // sentBills still keyed by SaleOnlineId
+            this._saveToLocalStorage();
+
+            // Delete from Firestore - scan ALL user docs since entry could be in any user's doc
+            try {
+                const db = firebase.firestore();
+                const snapshot = await db.collection(FIRESTORE_COLLECTION).get();
+                const batch = db.batch();
+                let batchCount = 0;
+                snapshot.forEach((doc) => {
+                    const docData = doc.data();
+                    if (docData.data && targetKey in docData.data) {
+                        batch.update(doc.ref, {
+                            [`data.${targetKey}`]: firebase.firestore.FieldValue.delete(),
+                            lastUpdated: Date.now(),
+                        });
+                        batchCount++;
+                    }
+                });
+                if (batchCount > 0) {
+                    await batch.commit();
+                    console.log(
+                        `[INVOICE-STATUS] Deleted invoice ${targetKey} from ${batchCount} user doc(s)`
+                    );
+                }
+            } catch (e) {
+                console.error('[INVOICE-STATUS] Firestore delete error:', e);
+            }
+
+            return true;
         },
 
         /**
-         * Check if order has invoice
+         * Get the LATEST invoice entry for a SaleOnlineOrder
+         * @param {string} saleOnlineId
+         * @returns {Object|null}
+         */
+        getLatest(saleOnlineId) {
+            if (!saleOnlineId) return null;
+            const soId = String(saleOnlineId);
+
+            // Fast path: check legacy flat key first
+            if (this._data.has(soId) && !isCompoundKey(soId)) {
+                const entry = this._data.get(soId);
+                // Make sure it's not a different SaleOnlineId's compound key
+                return entry || null;
+            }
+
+            // Search all compound keys for this SaleOnlineId
+            let latest = null;
+            let latestTs = 0;
+            for (const [key, value] of this._data.entries()) {
+                const keySoId = value.SaleOnlineId || extractSaleOnlineId(key);
+                if (keySoId === soId) {
+                    const ts = value.timestamp || 0;
+                    if (ts > latestTs || !latest) {
+                        latest = value;
+                        latestTs = ts;
+                    }
+                }
+            }
+            return latest;
+        },
+
+        /**
+         * Get ALL invoice entries for a SaleOnlineOrder (for history/timeline)
+         * Returns array sorted by timestamp descending (newest first)
+         * @param {string} saleOnlineId
+         * @returns {Array<Object>}
+         */
+        getAll(saleOnlineId) {
+            if (!saleOnlineId) return [];
+            const soId = String(saleOnlineId);
+            const entries = [];
+
+            for (const [key, value] of this._data.entries()) {
+                const keySoId = value.SaleOnlineId || extractSaleOnlineId(key);
+                if (keySoId === soId) {
+                    entries.push(value);
+                }
+            }
+
+            // Sort by timestamp descending (newest first)
+            entries.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+            return entries;
+        },
+
+        /**
+         * Check if order has at least one invoice entry
          * @param {string} saleOnlineId
          * @returns {boolean}
          */
         has(saleOnlineId) {
             if (!saleOnlineId) return false;
-            return this._data.has(String(saleOnlineId));
+            const soId = String(saleOnlineId);
+
+            // Fast path: check legacy flat key
+            if (this._data.has(soId) && !isCompoundKey(soId)) {
+                return true;
+            }
+
+            // Search compound keys
+            for (const [key, value] of this._data.entries()) {
+                const keySoId = value.SaleOnlineId || extractSaleOnlineId(key);
+                if (keySoId === soId) return true;
+            }
+            return false;
         },
 
         /**
@@ -1008,9 +1198,14 @@
 
             // Also cleanup sentBills for entries that were removed
             if (removed > 0) {
-                const currentKeys = new Set(this._data.keys());
+                // Build set of all SaleOnlineIds that still have entries
+                const activeSaleOnlineIds = new Set();
+                this._data.forEach((value, key) => {
+                    const soId = value.SaleOnlineId || extractSaleOnlineId(key);
+                    if (soId) activeSaleOnlineIds.add(soId);
+                });
                 this._sentBills.forEach((id) => {
-                    if (!currentKeys.has(id)) {
+                    if (!activeSaleOnlineIds.has(id)) {
                         this._sentBills.delete(id);
                     }
                 });
@@ -2609,6 +2804,7 @@
         window.sendBillManually = sendBillManually;
         window.updateMainTableInvoiceCells = updateMainTableInvoiceCells;
         window.InvoiceStatusStore = InvoiceStatusStore;
+        window.extractSaleOnlineId = extractSaleOnlineId; // For FulfillmentData backward compat
         window.getStateCodeConfig = getStateCodeConfig;
         window.getShowStateConfig = getShowStateConfig;
         // Preview modal functions
