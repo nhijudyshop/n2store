@@ -661,7 +661,7 @@
             const snapshot = await db.collection(COLLECTIONS.deviceUsers).get();
             employees = [];
             snapshot.forEach(doc => {
-                employees.push({ id: doc.id, ...doc.data() });
+                employees.push({ ...doc.data(), id: doc.id });
             });
             employees.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'vi'));
             console.log(`[Attendance] Loaded ${employees.length} employees`);
@@ -1815,6 +1815,7 @@
                         emp.name = newName;
                         try {
                             if (!isTest) {
+                                console.log(`[Settings] Đổi tên: "${oldName}" → "${newName}", docId=${docId}`);
                                 await db.collection(COLLECTIONS.deviceUsers).doc(docId).update({ name: newName });
                             }
                             showNotification(`Đã đổi tên: ${newName}`, 'success');
