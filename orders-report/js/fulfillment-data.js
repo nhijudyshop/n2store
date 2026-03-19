@@ -250,6 +250,28 @@
         },
 
         /**
+         * Inject invoice entries directly (bypass Firestore delay)
+         * Called by InvoiceStatusStore after batch order creation
+         * @param {Array<{saleOnlineId: string, data: Object}>} entries
+         */
+        injectEntries(entries) {
+            if (!entries || !Array.isArray(entries) || entries.length === 0) return;
+            let changed = false;
+            entries.forEach(({ saleOnlineId, data }) => {
+                if (!saleOnlineId) return;
+                const id = String(saleOnlineId);
+                if (!invoiceStatusMap.has(id) || data.timestamp > (invoiceStatusMap.get(id)?.timestamp || 0)) {
+                    invoiceStatusMap.set(id, data);
+                    changed = true;
+                }
+            });
+            if (changed) {
+                console.log(`[FULFILLMENT] Injected ${entries.length} entries directly`);
+                _notifyChange();
+            }
+        },
+
+        /**
          * Build timeline events for an order (sorted by time descending)
          * @param {string|number} orderId
          * @returns {Array} Array of event objects

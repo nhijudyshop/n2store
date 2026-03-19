@@ -98,6 +98,7 @@
 
         _sentBills: new Set(),
         _myKeys: new Set(),        // Keys that belong to the current user (for saving)
+        _pendingKeys: new Set(),   // Keys added locally but not yet saved to Firestore
         /** @returns {boolean} Whether store is initialized (delegated to BaseStore) */
         get _initialized() { return _invoiceBaseStore._initialized; },
         set _initialized(val) { _invoiceBaseStore._initialized = val; },
@@ -273,11 +274,37 @@
                         sentBills: Array.from(this._sentBills),
                         lastUpdated: Date.now()
                     }, { merge: true });
+                    // Clear pending keys that were just saved
+                    Object.keys(myData).forEach(key => this._pendingKeys.delete(key));
                     console.log(`[INVOICE-STATUS] Synced ${Object.keys(myData).length} entries to Firestore`);
                 } catch (e) {
                     console.error('[INVOICE-STATUS] Firestore save error:', e);
                 }
             }, 2000);
+        },
+
+        /**
+         * Save to Firestore IMMEDIATELY (no debounce)
+         * Used after batch operations like storeFromApiResult
+         */
+        async _saveToFirestoreImmediate() {
+            clearTimeout(this._syncTimeout);
+            try {
+                const myData = {};
+                this._myKeys.forEach(key => {
+                    const value = this._data.get(key);
+                    if (value) myData[key] = value;
+                });
+                await this._getDocRef().set({
+                    data: myData,
+                    sentBills: Array.from(this._sentBills),
+                    lastUpdated: Date.now()
+                }, { merge: true });
+                Object.keys(myData).forEach(key => this._pendingKeys.delete(key));
+                console.log(`[INVOICE-STATUS] IMMEDIATE sync: ${Object.keys(myData).length} entries to Firestore`);
+            } catch (e) {
+                console.error('[INVOICE-STATUS] Immediate Firestore save error:', e);
+            }
         },
 
         /**
@@ -344,12 +371,13 @@
                 }
             });
 
-            // Update _myKeys from server (source of truth)
-            this._myKeys = myServerKeys;
+            // Update _myKeys from server, preserving pending keys not yet saved
+            this._myKeys = new Set([...myServerKeys, ...this._pendingKeys]);
 
             // Check for deleted entries (in local but not in any server doc)
+            // Skip pending keys - they haven't been saved to Firestore yet
             this._data.forEach((value, key) => {
-                if (!allServerKeys.has(key)) {
+                if (!allServerKeys.has(key) && !this._pendingKeys.has(key)) {
                     this._data.delete(key);
                     this._sentBills.delete(key);
                     hasChanges = true;
@@ -431,8 +459,9 @@
                 const serverDataKeys = new Set(Object.keys(firestoreData.data || {}));
 
                 // Check for deleted entries (in local but not in server)
+                // Skip pending keys - they haven't been saved to Firestore yet
                 this._data.forEach((value, key) => {
-                    if (!serverDataKeys.has(key)) {
+                    if (!serverDataKeys.has(key) && !this._pendingKeys.has(key)) {
                         this._data.delete(key);
                         this._sentBills.delete(key);
                         hasChanges = true;
@@ -592,6 +621,7 @@
 
             const entryKey = String(saleOnlineId);
             this._myKeys.add(entryKey);
+            this._pendingKeys.add(entryKey);  // Protect from snapshot deletion until saved
             this._data.set(entryKey, {
                 Id: invoiceData.Id,
                 Number: billNumber,  // Use complete bill number (never null)
@@ -838,6 +868,9 @@
             }
 
             console.log(`[INVOICE-STATUS] Stored ${this._data.size} invoice entries`);
+
+            // Force immediate Firestore save (bypass 2s debounce)
+            this._saveToFirestoreImmediate();
         },
 
         /**
@@ -2101,6 +2134,24 @@
 
         console.log(`[INVOICE-STATUS] Updating ${allOrders.length} cells in main table`);
 
+        // Inject entries into FulfillmentData immediately (bypass Firestore delay)
+        const fd = window.parent?.FulfillmentData || window.FulfillmentData;
+        if (fd && typeof fd.injectEntries === 'function') {
+            const entries = [];
+            allOrders.forEach(order => {
+                if (!order.SaleOnlineIds) return;
+                order.SaleOnlineIds.forEach(soId => {
+                    const data = InvoiceStatusStore.get(String(soId));
+                    if (data) {
+                        entries.push({ saleOnlineId: String(soId), data });
+                    }
+                });
+            });
+            if (entries.length > 0) {
+                fd.injectEntries(entries);
+            }
+        }
+
         allOrders.forEach(order => {
             if (!order.SaleOnlineIds || order.SaleOnlineIds.length === 0) return;
 
@@ -2121,7 +2172,12 @@
                 if (orderData) {
                     // Re-render the cell content
                     cell.innerHTML = renderInvoiceStatusCell(orderData);
-                    console.log(`[INVOICE-STATUS] Updated cell for order ${saleOnlineId}`);
+                }
+
+                // Also update the fulfillment cell ("Ra đơn" column)
+                const fulfillmentCell = row.querySelector('td[data-column="fulfillment"]');
+                if (fulfillmentCell && typeof renderFulfillmentCell === 'function') {
+                    fulfillmentCell.innerHTML = renderFulfillmentCell(orderData || { Id: saleOnlineId });
                 }
 
                 // When invoice is confirmed, update status to "Đơn hàng" and remove "OK" tags
