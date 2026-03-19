@@ -1602,7 +1602,7 @@ function collectFastSaleData() {
             AmountTotalSigned: null,
             ResidualSigned: null,
             Origin: null,
-            AmountDeposit: 0,
+            AmountDeposit: paymentAmount,
             CompanyName: null,
             PreviousBalance: finalAmountTotal,
             ToPay: null,
@@ -1925,7 +1925,7 @@ async function reVerifyWalletForBatch(models) {
                 if (newPayment !== originalPayment) {
                     const shippingFee = model.DeliveryPrice || 0;
                     model.PaymentAmount = newPayment;
-                    model.AmountDeposit = 0;
+                    model.AmountDeposit = newPayment;
                     model.PaymentJournalId = newPayment > 0 ? 1 : null;
                     // Recalculate COD: total - wallet payment
                     model.CashOnDelivery = (model.AmountTotal || 0) + shippingFee - newPayment;
