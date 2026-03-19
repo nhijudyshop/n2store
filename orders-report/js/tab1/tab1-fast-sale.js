@@ -1857,13 +1857,21 @@ window.clearFastSaleStatus = clearFastSaleStatus;
  * Re-verify wallet available_balance for all orders in batch before sending to TPOS.
  * Groups orders by phone, checks total PaymentAmount per phone against real-time
  * available_balance (which accounts for pending withdrawals).
- * If a phone's total PaymentAmount exceeds available_balance, adjusts PaymentAmount
- * on affected orders to fit within the real balance.
- * Network errors are non-blocking — backend wallet_withdraw_fifo is the final safety net.
  *
- * @param {Array} models - Array of order models (mutated in-place)
+ * Orders where PaymentAmount > available_balance are REJECTED from the batch
+ * and returned as failed orders to show in the "Thất bại" tab.
+ *
+ * For same-phone multiple orders: FIFO — first order gets balance, later orders
+ * that exceed remaining balance are rejected.
+ *
+ * Network errors are non-blocking — orders proceed as-is.
+ *
+ * @param {Array} models - Array of order models (will be spliced to remove rejected orders)
+ * @returns {Array} rejectedOrders - Orders rejected due to insufficient wallet balance
  */
 async function reVerifyWalletForBatch(models) {
+    const rejectedOrders = [];
+
     // Group models by normalized phone that have PaymentAmount > 0
     const phoneOrdersMap = new Map(); // phone -> [{ model, index }]
 
@@ -1888,14 +1896,15 @@ async function reVerifyWalletForBatch(models) {
 
     if (phoneOrdersMap.size === 0) {
         console.log('[FAST-SALE] Wallet re-verify: no orders with PaymentAmount > 0, skipping');
-        return;
+        return rejectedOrders;
     }
 
     console.log(`[FAST-SALE] Wallet re-verify: checking ${phoneOrdersMap.size} phones...`);
     showFastSaleStatus(`Đang kiểm tra ví ${phoneOrdersMap.size} khách hàng...`, 'loading');
 
     const QR_API = window.QR_API_URL || 'https://n2store-fallback.onrender.com';
-    let adjustedCount = 0;
+    // Collect indexes to remove (must remove from end to preserve earlier indexes)
+    const indexesToRemove = new Set();
 
     // Verify each phone in parallel
     const verifyPromises = Array.from(phoneOrdersMap.entries()).map(async ([phone, orderEntries]) => {
@@ -1917,28 +1926,45 @@ async function reVerifyWalletForBatch(models) {
                 return; // All good
             }
 
-            // Need to adjust: distribute available balance across orders (FIFO)
-            console.warn(`[FAST-SALE] Wallet re-verify: ${phone} — OVER-COMMITTED! available=${availableBalance}, requested=${totalRequested}. Adjusting...`);
+            // OVER-COMMITTED: distribute available balance FIFO, reject orders that don't fit
+            console.warn(`[FAST-SALE] Wallet re-verify: ${phone} — OVER-COMMITTED! available=${availableBalance}, requested=${totalRequested}`);
 
             let remaining = availableBalance;
             for (const entry of orderEntries) {
                 const model = entry.model;
                 const originalPayment = model.PaymentAmount || 0;
-                const newPayment = Math.min(originalPayment, Math.max(0, remaining));
 
-                if (newPayment !== originalPayment) {
-                    const shippingFee = model.DeliveryPrice || 0;
-                    model.PaymentAmount = newPayment;
-                    model.AmountDeposit = newPayment;
-                    model.PaymentJournalId = newPayment > 0 ? 1 : null;
-                    // Recalculate COD: total - wallet payment
-                    model.CashOnDelivery = (model.AmountTotal || 0) + shippingFee - newPayment;
-
-                    console.log(`[FAST-SALE] Wallet re-verify: Order ${model.Reference} — PaymentAmount ${originalPayment} → ${newPayment}, COD → ${model.CashOnDelivery}`);
-                    adjustedCount++;
+                if (originalPayment <= remaining) {
+                    // This order fits within remaining balance
+                    remaining -= originalPayment;
+                    continue;
                 }
 
-                remaining -= newPayment;
+                // This order CANNOT be fulfilled — REJECT it
+                const availStr = availableBalance.toLocaleString('vi-VN');
+                const wantStr = originalPayment.toLocaleString('vi-VN');
+                const remainStr = remaining.toLocaleString('vi-VN');
+
+                console.error(`[FAST-SALE] Wallet re-verify: REJECTED order ${model.Reference} — wants ${wantStr}đ, only ${remainStr}đ remaining (total available: ${availStr}đ)`);
+
+                // Build a failed order object matching the format renderFailedOrdersTable expects
+                rejectedOrders.push({
+                    Reference: model.Reference || 'N/A',
+                    Number: '',
+                    Partner: model.Partner,
+                    PartnerDisplayName: model.PartnerDisplayName || model.Partner?.Name || '',
+                    DeliveryNote: `Công nợ không đủ! Cần trừ: ${wantStr}đ, Ví khả dụng: ${remainStr}đ (tổng ví: ${availStr}đ). Ra đơn lại sau khi kiểm tra ví.`,
+                    // Keep original data for reference
+                    _walletRejectReason: 'INSUFFICIENT_BALANCE',
+                    _requestedAmount: originalPayment,
+                    _availableBalance: availableBalance,
+                    _remainingAtReject: remaining,
+                    SaleOnlineIds: model.SaleOnlineIds,
+                    OrderLines: model.OrderLines
+                });
+
+                indexesToRemove.add(entry.index);
+                // Don't subtract from remaining — this order is rejected, balance not consumed
             }
         } catch (err) {
             // Network error — allow continue, backend pending-withdrawal is the final safety net
@@ -1948,15 +1974,23 @@ async function reVerifyWalletForBatch(models) {
 
     await Promise.all(verifyPromises);
 
-    if (adjustedCount > 0) {
-        console.warn(`[FAST-SALE] Wallet re-verify: adjusted ${adjustedCount} orders due to insufficient available balance`);
-        window.notificationManager?.warning(
-            `Đã điều chỉnh ${adjustedCount} đơn do ví khách không đủ số dư khả dụng`,
-            'Cảnh báo ví', 5000
+    // Remove rejected orders from models array (reverse order to preserve indexes)
+    if (indexesToRemove.size > 0) {
+        const sortedIndexes = Array.from(indexesToRemove).sort((a, b) => b - a);
+        for (const idx of sortedIndexes) {
+            models.splice(idx, 1);
+        }
+
+        console.warn(`[FAST-SALE] Wallet re-verify: REJECTED ${rejectedOrders.length} orders, ${models.length} remaining in batch`);
+        window.notificationManager?.error(
+            `${rejectedOrders.length} đơn bị loại do công nợ không đủ! Kiểm tra tab "Thất bại"`,
+            'Lỗi công nợ', 8000
         );
     } else {
         console.log('[FAST-SALE] Wallet re-verify: all orders OK');
     }
+
+    return rejectedOrders;
 }
 
 /**
@@ -2062,7 +2096,20 @@ async function saveFastSaleOrders(isApprove = false) {
         // Prevents race condition where stale wallet data causes
         // PaymentAmount > actual available balance
         // =====================================================
-        await reVerifyWalletForBatch(uniqueModels);
+        const walletRejectedOrders = await reVerifyWalletForBatch(uniqueModels);
+
+        // If ALL orders were rejected by wallet verify, show results immediately (no TPOS call)
+        if (uniqueModels.length === 0) {
+            console.warn('[FAST-SALE] All orders rejected by wallet re-verify, skipping TPOS API');
+            showFastSaleStatus(`${walletRejectedOrders.length} đơn bị loại do công nợ không đủ`, 'error');
+            showFastSaleResultsModal({
+                DataErrorFast: [],
+                OrdersError: walletRejectedOrders,
+                OrdersSucessed: []
+            });
+            isSavingFastSale = false;
+            return;
+        }
 
         // Store models for later use (to get OrderLines when API response is empty)
         window.lastFastSaleModels = uniqueModels;
@@ -2109,9 +2156,16 @@ async function saveFastSaleOrders(isApprove = false) {
         const result = await response.json();
         console.log('[FAST-SALE] ✅ Save result:', result);
 
+        // Merge wallet-rejected orders into TPOS errors for display in "Thất bại" tab
+        if (walletRejectedOrders.length > 0) {
+            result.OrdersError = [...(result.OrdersError || []), ...walletRejectedOrders];
+            console.log(`[FAST-SALE] Merged ${walletRejectedOrders.length} wallet-rejected orders into OrdersError`);
+        }
+
         const successCount = result.OrdersSucessed?.length || 0;
         const errorCount = (result.OrdersError?.length || 0) + (result.DataErrorFast?.length || 0);
-        showFastSaleStatus(`Hoàn thành: ${successCount} thành công, ${errorCount} lỗi`, 'success');
+        const walletRejectInfo = walletRejectedOrders.length > 0 ? ` (${walletRejectedOrders.length} lỗi công nợ)` : '';
+        showFastSaleStatus(`Hoàn thành: ${successCount} thành công, ${errorCount} lỗi${walletRejectInfo}`, 'success');
 
         // Show results modal
         showFastSaleResultsModal(result);
