@@ -77,7 +77,7 @@
 
         // Load ALL documents from all users
         const snapshot = await db.collection(INVOICE_COLLECTION).get();
-        snapshot.forEach(doc => {
+        snapshot.forEach((doc) => {
             const firestoreData = doc.data();
             if (firestoreData.data) {
                 const entries = Array.isArray(firestoreData.data)
@@ -96,7 +96,9 @@
             }
         });
 
-        console.log(`[FULFILLMENT] Loaded ${totalEntries} invoice status entries for ${invoiceStatusMap.size} orders`);
+        console.log(
+            `[FULFILLMENT] Loaded ${totalEntries} invoice status entries for ${invoiceStatusMap.size} orders`
+        );
     }
 
     async function _loadInvoiceDeletes() {
@@ -135,10 +137,10 @@
         const db = firebase.firestore();
 
         // Listener for invoice_status_v2 - ALL users
-        _unsubscribeStatus = db.collection(INVOICE_COLLECTION).onSnapshot(snapshot => {
+        _unsubscribeStatus = db.collection(INVOICE_COLLECTION).onSnapshot((snapshot) => {
             if (!_initialized) return;
             invoiceStatusMap.clear();
-            snapshot.forEach(doc => {
+            snapshot.forEach((doc) => {
                 const firestoreData = doc.data();
                 if (firestoreData.data) {
                     const entries = Array.isArray(firestoreData.data)
@@ -240,7 +242,9 @@
             let activeInvoice = null;
             if (activeEntries.length > 0) {
                 activeInvoice = activeEntries.reduce((latest, entry) => {
-                    return (!latest || (entry.timestamp || 0) > (latest.timestamp || 0)) ? entry : latest;
+                    return !latest || (entry.timestamp || 0) > (latest.timestamp || 0)
+                        ? entry
+                        : latest;
                 }, null);
             }
 
@@ -263,7 +267,7 @@
                 cancelCount,
                 activeInvoice,
                 activeEntries,
-                cancelHistory: cancelEntries
+                cancelHistory: cancelEntries,
             };
         },
 
@@ -323,12 +327,12 @@
                 }
                 const arr = invoiceStatusMap.get(id);
                 // Check if this exact entry already exists (by TPOS Id + timestamp) to avoid duplicates
-                const isDuplicate = arr.some(e =>
-                    e.Id === data.Id && e.timestamp === data.timestamp
+                const isDuplicate = arr.some(
+                    (e) => e.Id === data.Id && e.timestamp === data.timestamp
                 );
                 if (!isDuplicate) {
                     // Check if this is an update to an existing entry (same TPOS Id, newer timestamp)
-                    const existingIdx = arr.findIndex(e => e.Id === data.Id);
+                    const existingIdx = arr.findIndex((e) => e.Id === data.Id);
                     if (existingIdx >= 0 && data.timestamp > (arr[existingIdx].timestamp || 0)) {
                         // Update in-place (e.g., form value enrichment after initial store)
                         arr[existingIdx] = data;
@@ -359,7 +363,9 @@
             const buildCreateEvent = (entry) => ({
                 type: 'create',
                 label: 'Tạo phiếu bán hàng',
-                timestamp: entry.timestamp || (entry.DateInvoice ? new Date(entry.DateInvoice).getTime() : 0),
+                timestamp:
+                    entry.timestamp ||
+                    (entry.DateInvoice ? new Date(entry.DateInvoice).getTime() : 0),
                 userName: entry.UserName || '',
                 number: entry.Number || '',
                 showState: entry.ShowState || '',
@@ -372,51 +378,15 @@
                 carrierName: entry.CarrierName || '',
                 liveCampaignId: entry.LiveCampaignId || '',
                 orderLines: entry.OrderLines || [],
-                raw: entry
+                raw: entry,
             });
 
             // Add ALL active entries as "create" events (v3: supports multiple creations)
             if (activeEntries && activeEntries.length > 0) {
-                activeEntries.forEach(entry => {
+                activeEntries.forEach((entry) => {
                     events.push(buildCreateEvent(entry));
                 });
             }
-
-            // Add cancel entries - each cancel also had a corresponding create event
-            cancelHistory.forEach(entry => {
-                // Add the original create event (from when the invoice was first created before being cancelled)
-                const createTimestamp = entry.DateInvoice ? new Date(entry.DateInvoice).getTime()
-                    : (entry.timestamp || 0);
-                if (createTimestamp) {
-                    events.push(buildCreateEvent(entry));
-                }
-
-                // Add the cancel event
-                events.push({
-                    type: 'cancel',
-                    label: 'Hủy đơn',
-                    timestamp: entry.deletedAt || 0,
-                    userName: entry.deletedByDisplayName || entry.deletedBy || '',
-                    number: entry.Number || '',
-                    showState: entry.ShowState || '',
-                    cancelReason: entry.cancelReason || '',
-                    paymentAmount: entry.PaymentAmount || 0,
-                    discount: entry.Discount || 0,
-                    deliveryPrice: entry.DeliveryPrice,
-                    comment: entry.Comment || entry.DeliveryNote || '',
-                    amountTotal: entry.AmountTotal || 0,
-                    cashOnDelivery: entry.CashOnDelivery || 0,
-                    carrierName: entry.CarrierName || '',
-                    liveCampaignId: entry.LiveCampaignId || '',
-                    raw: entry
-                });
-            });
-
-            // Sort by timestamp descending (newest first)
-            events.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-
-            return events;
-        }
 
             // Add cancel entries - each cancel also had a corresponding create event
             cancelHistory.forEach((entry) => {
@@ -425,24 +395,7 @@
                     ? new Date(entry.DateInvoice).getTime()
                     : entry.timestamp || 0;
                 if (createTimestamp) {
-                    events.push({
-                        type: 'create',
-                        label: 'Tạo phiếu bán hàng',
-                        timestamp: createTimestamp,
-                        userName: entry.UserName || '',
-                        number: entry.Number || '',
-                        showState: entry.ShowState || '',
-                        paymentAmount: entry.PaymentAmount || 0,
-                        discount: entry.Discount || 0,
-                        deliveryPrice: entry.DeliveryPrice,
-                        comment: entry.Comment || entry.DeliveryNote || '',
-                        amountTotal: entry.AmountTotal || 0,
-                        cashOnDelivery: entry.CashOnDelivery || 0,
-                        carrierName: entry.CarrierName || '',
-                        liveCampaignId: entry.LiveCampaignId || '',
-                        orderLines: entry.OrderLines || [],
-                        raw: entry,
-                    });
+                    events.push(buildCreateEvent(entry));
                 }
 
                 // Add the cancel event
