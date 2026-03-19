@@ -632,7 +632,7 @@ function updateProductGrid() {
                 productPrice > 0 ? `${product.NameGet} ${productPrice / 1000}K` : product.NameGet;
 
             return `
-                    <div class="grid-item" data-product-id="${product.Id}">
+                    <div class="grid-item ${isMerged ? 'mode-merged' : 'mode-single'}" data-product-id="${product.Id}">
                         ${imageHtml}
                         <div class="grid-item-name">
                             <span class="grid-item-name-text">${productNameDisplay}</span>
