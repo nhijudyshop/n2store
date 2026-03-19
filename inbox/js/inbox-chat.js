@@ -922,7 +922,7 @@ class InboxChatController {
     // ===== Tags Helper =====
 
     getTagsHtml(conv) {
-        const tags = conv._raw?.tags;
+        const tags = conv._raw?.tags?.filter(t => t != null);
         if (!tags || tags.length === 0) return '';
         const colorPalette = ['red', 'green', 'blue', 'orange', 'purple', 'pink', 'teal'];
         return tags.slice(0, 3).map((tag, idx) => {
