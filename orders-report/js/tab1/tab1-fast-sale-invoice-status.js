@@ -312,25 +312,24 @@
             clearTimeout(this._syncTimeout);
             this._syncTimeout = setTimeout(async () => {
                 try {
-                    // Only save entries that belong to the current user (not all merged data)
-                    const myData = {};
+                    // Use dot-notation field paths to update individual entries
+                    // without overwriting other entries in the `data` object.
+                    // This is critical for compound keys where multiple entries coexist.
+                    const updateObj = {
+                        sentBills: Array.from(this._sentBills),
+                        lastUpdated: Date.now(),
+                    };
+                    let entryCount = 0;
                     this._myKeys.forEach((key) => {
                         const value = this._data.get(key);
-                        if (value) myData[key] = value;
+                        if (value) {
+                            updateObj[`data.${key}`] = value;
+                            entryCount++;
+                        }
                     });
-                    await this._getDocRef().set(
-                        {
-                            data: myData,
-                            sentBills: Array.from(this._sentBills),
-                            lastUpdated: Date.now(),
-                        },
-                        { merge: true }
-                    );
+                    await this._getDocRef().set(updateObj, { merge: true });
                     // DON'T clear _pendingKeys here — let snapshot handler confirm server has the data
-                    // This prevents race condition where stale snapshot deletes newly added keys
-                    console.log(
-                        `[INVOICE-STATUS] Synced ${Object.keys(myData).length} entries to Firestore`
-                    );
+                    console.log(`[INVOICE-STATUS] Synced ${entryCount} entries to Firestore`);
                 } catch (e) {
                     console.error('[INVOICE-STATUS] Firestore save error:', e);
                 }
@@ -344,24 +343,23 @@
         async _saveToFirestoreImmediate() {
             clearTimeout(this._syncTimeout);
             try {
-                const myData = {};
+                // Use dot-notation field paths to update individual entries
+                // without overwriting other entries in the `data` object.
+                const updateObj = {
+                    sentBills: Array.from(this._sentBills),
+                    lastUpdated: Date.now(),
+                };
+                let entryCount = 0;
                 this._myKeys.forEach((key) => {
                     const value = this._data.get(key);
-                    if (value) myData[key] = value;
+                    if (value) {
+                        updateObj[`data.${key}`] = value;
+                        entryCount++;
+                    }
                 });
-                await this._getDocRef().set(
-                    {
-                        data: myData,
-                        sentBills: Array.from(this._sentBills),
-                        lastUpdated: Date.now(),
-                    },
-                    { merge: true }
-                );
+                await this._getDocRef().set(updateObj, { merge: true });
                 // DON'T clear _pendingKeys here — let snapshot handler confirm server has the data
-                // This prevents race condition where stale snapshot deletes newly added keys
-                console.log(
-                    `[INVOICE-STATUS] IMMEDIATE sync: ${Object.keys(myData).length} entries to Firestore`
-                );
+                console.log(`[INVOICE-STATUS] IMMEDIATE sync: ${entryCount} entries to Firestore`);
             } catch (e) {
                 console.error('[INVOICE-STATUS] Immediate Firestore save error:', e);
             }
