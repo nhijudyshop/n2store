@@ -1604,6 +1604,38 @@ td[data-column].hidden {
     border: 1px solid #fecaca;
 }
 
+.zero-order-tags-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 6px 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #991b1b;
+    border-bottom: 1px solid #fecaca;
+    margin-bottom: 4px;
+}
+
+.zero-order-delete-all {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 5px;
+    border: 1px solid #ef4444;
+    background: white;
+    color: #ef4444;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 600;
+    transition: all 0.15s;
+}
+
+.zero-order-delete-all:hover {
+    background: #ef4444;
+    color: white;
+}
+
 .zero-order-tag-item {
     display: flex;
     align-items: center;

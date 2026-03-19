@@ -301,6 +301,14 @@ function renderTagPanelCards() {
         // Show sub-list of zero-order tags when active
         if (isZeroActive && zeroOrderTags.length > 0) {
             html += `<div class="zero-order-tags-list">`;
+            html += `
+                <div class="zero-order-tags-header">
+                    <span>${zeroCount} tag không có đơn</span>
+                    <button class="zero-order-delete-all" onclick="event.stopPropagation(); deleteAllZeroOrderTags()" title="Xóa toàn bộ tag không có đơn">
+                        <i class="fas fa-trash-alt"></i> Xóa toàn bộ
+                    </button>
+                </div>
+            `;
             zeroOrderTags.forEach((tag) => {
                 html += `
                     <div class="zero-order-tag-item">
@@ -1177,6 +1185,39 @@ function directRemoveTagImage(tagId) {
     showNotification(`Đã xóa ảnh tag "${tag.name}"`, 'success');
 }
 
+// ===== DELETE ALL ZERO-ORDER TAGS =====
+function deleteAllZeroOrderTags() {
+    const tagsWithOrders = new Set();
+    SocialOrderState.orders.forEach((order) => {
+        (order.tags || []).forEach((t) => tagsWithOrders.add(t.id));
+    });
+    const zeroOrderTags = SocialOrderState.tags.filter((t) => !tagsWithOrders.has(t.id));
+
+    if (zeroOrderTags.length === 0) {
+        showNotification('Không có tag nào cần xóa', 'info');
+        return;
+    }
+
+    const names = zeroOrderTags.map((t) => t.name).join(', ');
+    if (!confirm(`Xóa toàn bộ ${zeroOrderTags.length} tag không có đơn?\n\n${names}`)) return;
+
+    const idsToRemove = new Set(zeroOrderTags.map((t) => t.id));
+    SocialOrderState.tags = SocialOrderState.tags.filter((t) => !idsToRemove.has(t.id));
+
+    // Save
+    saveSocialTagsToStorage();
+    if (typeof saveSocialTagsToFirebase === 'function') {
+        saveSocialTagsToFirebase(SocialOrderState.tags);
+    }
+
+    // Update UI
+    populateTagFilter();
+    performTableSearch();
+    if (isTagPanelOpen) renderTagPanelCards();
+
+    showNotification(`Đã xóa ${zeroOrderTags.length} tag không có đơn`, 'success');
+}
+
 // ===== EXPORTS =====
 window.initTagPanel = initTagPanel;
 window.toggleTagPanel = toggleTagPanel;
@@ -1209,3 +1250,4 @@ window.filterTagPanelCards = filterTagPanelCards;
 window.onTagDayFilterChange = onTagDayFilterChange;
 window.deletePanelTag = deletePanelTag;
 window.performTableSearchWithZeroOrderTags = performTableSearchWithZeroOrderTags;
+window.deleteAllZeroOrderTags = deleteAllZeroOrderTags;
