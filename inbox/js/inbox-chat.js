@@ -1080,15 +1080,16 @@ class InboxChatController {
 
     /**
      * Update a single conversation in the DOM without re-rendering the entire list.
-     * Returns true if handled, false if a full re-render is needed.
+     * Returns true if handled (no full re-render needed).
+     * Only returns false when a full re-render is truly required.
      */
     _updateSingleConversationInList(convId) {
         const conv = this.data.getConversation(convId);
-        if (!conv) return false;
+        if (!conv) return true; // Nothing to render
 
-        // Check if conversation passes current filters
-        if (this.selectedPageIds.size > 0 && !this.selectedPageIds.has(conv.pageId)) return false;
-        if (this.currentTypeFilter !== 'all' && conv.type !== this.currentTypeFilter) return false;
+        // Conversation filtered out by page/type — data updated in memory, no DOM change needed
+        if (this.selectedPageIds.size > 0 && !this.selectedPageIds.has(conv.pageId)) return true;
+        if (this.currentTypeFilter !== 'all' && conv.type !== this.currentTypeFilter) return true;
 
         const existingEl = this.elements.conversationList.querySelector(`[data-id="${conv.id}"]`);
 
@@ -1103,17 +1104,16 @@ class InboxChatController {
             if (newEl !== this.elements.conversationList.firstElementChild) {
                 this.elements.conversationList.prepend(newEl);
             }
-        } else {
-            // Not in DOM — if search is active, don't add (search controls what's visible)
-            if (this.searchQuery) return false;
-            // New conversation — prepend
+            this._debouncedCreateIcons();
+        } else if (!this.searchQuery) {
+            // New conversation (no search active) — prepend to list
             const newHtml = this._buildConvItemHtml(conv);
             const temp = document.createElement('div');
             temp.innerHTML = newHtml;
             this.elements.conversationList.prepend(temp.firstElementChild);
+            this._debouncedCreateIcons();
         }
-
-        this._debouncedCreateIcons();
+        // If search active and not in DOM → skip silently (data already in memory)
         return true;
     }
 
