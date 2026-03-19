@@ -3,1413 +3,1472 @@
   Khi code phải đọc thư mục https://github.com/nhijudyshop/n2store/tree/main/docs trước!
   Đọc các file SHARED_*.md để hiểu cách sử dụng shared modules.
 -->
-<!DOCTYPE html>
+<!doctype html>
 <html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Danh sách Order - N2STORE</title>
-
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-
-    <!-- XLSX for product Excel data -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
-    <!-- Firebase Configuration (SHARED) -->
-    <script src="../shared/js/firebase-config.js"></script>
-    <script src="../shared/js/indexed-db-store.js"></script>
-
-    <script src="firebase-helpers.js"></script>
-
-    <script defer src="../shared/js/navigation-modern.js"></script>
-
-    <style>
-        :root {
-            /* Frame Layout CSS Variables */
-            --name-line-clamp: 2;
-
-            /* Image CSS Variables */
-            --image-border-radius: 8px;
-            --image-border-width: 2px;
-            --image-margin-bottom: 4px;
-
-            /* Name CSS Variables */
-            --name-font-size: 13px;
-            --name-font-weight: 700;
-            --name-margin: 3px;
-            --name-line-height: 1.2;
-
-            /* Stats CSS Variables */
-            --stats-value-size: 16px;
-            --stats-label-size: 9px;
-            --stats-padding: 3px;
-            --stats-gap: 4px;
-            --stats-border-radius: 6px;
-            --stats-margin-top: 4px;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            width: 100vw;
-            overflow: auto;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0;
-            padding: 0;
-        }
-
-        .main-content {
-            width: 100%;
-            min-height: 100vh;
-            padding: 15px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .product-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            grid-template-rows: repeat(2, 1fr);
-            gap: 15px;
-            width: 100%;
-            max-width: 1900px;
-            touch-action: pan-y pinch-zoom;
-            user-select: none;
-            aspect-ratio: 4/2;
-        }
-
-        .grid-item {
-            background: white;
-            border: 2px solid #e0e0e0;
-            border-radius: 12px;
-            padding: 6px;
-            transition: all 0.3s;
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
-            min-height: 0;
-        }
-
-        .grid-item:hover {
-            border-color: #667eea;
-            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
-            transform: translateY(-3px);
-        }
-
-        .grid-item.search-highlight {
-            border-color: #dc2626;
-            border-width: 6px;
-            box-shadow: 0 0 25px rgba(220, 38, 38, 0.7);
-            animation: highlightPulse 2s ease-in-out 3;
-        }
-
-        @keyframes highlightPulse {
-            0%, 100% { box-shadow: 0 0 25px rgba(220, 38, 38, 0.7); }
-            50% { box-shadow: 0 0 40px rgba(220, 38, 38, 1); }
-        }
-
-        .btn-refresh {
-            position: absolute;
-            top: 4px;
-            left: 4px;
-            background: rgba(255, 255, 255, 0.95);
-            color: #667eea;
-            border: 2px solid #2196f3;
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            cursor: pointer;
-            font-size: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.3s ease;
-            opacity: 0;
-            visibility: hidden;
-            pointer-events: none;
-            z-index: 10;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-        }
-
-        .grid-stat-total:hover .btn-refresh,
-        .btn-refresh:hover {
-            opacity: 1;
-            visibility: visible;
-            pointer-events: auto;
-        }
-
-        .btn-refresh:hover {
-            background: #2196f3;
-            color: white;
-            transform: scale(1.15);
-            box-shadow: 0 4px 12px rgba(33, 150, 243, 0.4);
-        }
-
-        .btn-refresh:active {
-            transform: scale(0.95);
-        }
-
-        .btn-refresh.loading {
-            animation: spin 1s linear infinite;
-            pointer-events: none;
-            opacity: 1;
-            background: #2196f3;
-            color: white;
-        }
-
-        @keyframes spin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
-        }
-
-        .btn-hide {
-            background: rgba(255, 255, 255, 0.95);
-            color: #ff9800;
-            border: 2px solid #ff9800;
-            padding: 2px 6px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 10px;
-            font-weight: 700;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.3s ease;
-            z-index: 10;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-            margin-left: 4px;
-            flex-shrink: 0;
-        }
-
-        .btn-hide:hover {
-            background: #ff9800;
-            color: white;
-            transform: scale(1.15);
-            box-shadow: 0 4px 12px rgba(255, 152, 0, 0.4);
-        }
-
-        .btn-hide:active {
-            transform: scale(0.95);
-        }
-
-        .btn-hide:disabled {
-            opacity: 0.3;
-            cursor: not-allowed;
-        }
-
-        .btn-delete {
-            background: rgba(255, 255, 255, 0.95);
-            color: #f44336;
-            border: 2px solid #f44336;
-            padding: 2px 6px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 10px;
-            font-weight: 700;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.3s ease;
-            z-index: 10;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-            margin-left: 4px;
-            flex-shrink: 0;
-        }
-
-        .btn-delete:hover {
-            background: #f44336;
-            color: white;
-            transform: scale(1.15);
-            box-shadow: 0 4px 12px rgba(244, 67, 54, 0.4);
-        }
-
-        .btn-delete:active {
-            transform: scale(0.95);
-        }
-
-        .btn-delete:disabled {
-            opacity: 0.3;
-            cursor: not-allowed;
-        }
-
-        .button-row {
-            display: flex;
-            flex-direction: row;
-            gap: 4px;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .grid-item-image {
-            width: 100%;
-            height: 0;
-            object-fit: cover;
-            background: white;
-            border-radius: var(--image-border-radius, 8px);
-            margin-bottom: var(--image-margin-bottom, 4px);
-            border: var(--image-border-width, 2px) solid #667eea;
-            flex: 40 1 0%;
-            min-height: 0;
-        }
-
-        .grid-item-image.no-image {
-            background: linear-gradient(135deg, #e0e0e0 0%, #c0c0c0 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 40px;
-            color: #666;
-        }
-
-        .grid-item-name {
-            font-weight: var(--name-font-weight, 700);
-            color: #333;
-            margin-bottom: var(--name-margin, 3px);
-            font-size: var(--name-font-size, 13px);
-            line-height: var(--name-line-height, 1.2);
-            flex: 10 1 0%;
-            text-align: center;
-            min-height: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            gap: 4px;
-        }
-
-        .grid-item-name-text {
-            width: 100%;
-            word-wrap: break-word;
-            overflow-wrap: break-word;
-            hyphens: auto;
-        }
-
-        .grid-item-stats {
-            display: flex;
-            gap: 0;
-            margin-top: var(--stats-margin-top, 4px);
-            margin-bottom: 0;
-            flex: 50 1 0%;
-            min-height: 0;
-            border-radius: var(--stats-border-radius, 6px);
-            overflow: hidden;
-        }
-
-        .grid-stat {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            min-height: 0;
-            border-right: 3px solid white;
-            padding: 8px 4px;
-        }
-
-        .grid-stat:last-child {
-            border-right: none;
-        }
-
-        .grid-stat-label {
-            font-size: var(--stats-label-size, 9px);
-            color: #555;
-            text-transform: uppercase;
-            font-weight: 700;
-            letter-spacing: 0.3px;
-            margin-bottom: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 4px;
-        }
-
-        .grid-stat-value {
-            font-size: var(--stats-value-size, 16px);
-            font-weight: 900;
-            color: #333;
-            line-height: 1;
-            flex: 1;
-            min-height: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .grid-stat-total {
-            background: linear-gradient(180deg, #e3f2fd 0%, #bbdefb 100%);
-            position: relative;
-        }
-
-        /* For TỔNG column when not merged - match BÁN column size */
-        .grid-stat-total .grid-stat-value {
-            font-size: 36px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .grid-stat-sold {
-            background: linear-gradient(180deg, #fff3e0 0%, #ffe0b2 100%);
-        }
-
-        .grid-stat-deposit {
-            background: linear-gradient(180deg, #fff8e1 0%, #ffecb3 100%);
-        }
-
-        .grid-stat-deposit .grid-stat-value {
-            font-size: 36px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .grid-stat-remaining {
-            background: linear-gradient(180deg, #e8f5e9 0%, #c8e6c9 100%);
-            flex: 1.5;
-        }
-
-        /* For ĐÃ ĐẶT column when not merged - larger than other columns */
-        .grid-stat-remaining .grid-stat-value {
-            font-size: 48px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .remaining-qty-list {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            font-size: 11px;
-            line-height: 1.3;
-            overflow-y: visible;
-            flex: 1;
-            min-height: 0;
-            justify-content: space-evenly;
-            height: 100%;
-        }
-
-        .remaining-qty-item {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding: 4px 6px;
-            background: rgba(255, 255, 255, 0.6);
-            border-radius: 6px;
-            gap: 6px;
-            flex: 1;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-            min-height: 0;
-            overflow: hidden;
-        }
-
-        /* For TỔNG column - simple value only */
-        .grid-stat-total .remaining-qty-item {
-            justify-content: center;
-            padding: 2px;
-        }
-
-        .grid-stat-total .remaining-qty-item-value {
-            font-weight: bold;
-            font-size: 18.2px;
-            color: #333;
-        }
-
-        /* Special styling for input in TỔNG column - make it easier to click */
-        .grid-stat-total input.remaining-qty-item-value {
-            width: 100%;
-            padding: 8px 6px;
-            border: 2px solid rgba(102, 126, 234, 0.2);
-            background: rgba(255, 255, 255, 0.5);
-            border-radius: 6px;
-            font-size: 18.2px;
-            min-height: 36px;
-        }
-
-        .grid-stat-total input.remaining-qty-item-value:hover {
-            border-color: rgba(102, 126, 234, 0.5);
-            background: rgba(255, 255, 255, 0.8);
-            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
-        }
-
-        .grid-stat-total input.remaining-qty-item-value:focus {
-            border-color: #667eea;
-            background: rgba(255, 255, 255, 1);
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
-        }
-
-        /* For ĐÃ ĐẶT column - name and value side by side */
-        .grid-stat-remaining .remaining-qty-item {
-            flex-direction: row;
-            justify-content: center;
-            align-items: center;
-            padding: 4px 3px;
-            gap: 6px;
-        }
-
-        .grid-stat-remaining .remaining-qty-item-name {
-            font-size: 17px;
-            font-weight: 900;
-            color: #2e7d32;
-            text-align: center;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            line-height: 1;
-            flex-shrink: 1;
-            min-width: 0;
-        }
-
-        .grid-stat-remaining .remaining-qty-item-value {
-            font-weight: 900;
-            font-size: 17px;
-            color: #1b5e20;
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-            line-height: 1;
-            flex-shrink: 0;
-        }
-
-        /* For BÁN column items */
-        .remaining-qty-item-value {
-            font-weight: bold;
-            font-size: 18.2px;
-            color: #333;
-        }
-
-        .variant-qty-btn {
-            background: #ff9800;
-            color: white;
-            border: none;
-            width: 18px;
-            height: 18px;
-            border-radius: 3px;
-            cursor: pointer;
-            font-size: 12px;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s;
-            padding: 0;
-            line-height: 1;
-            flex-shrink: 0;
-        }
-
-        .variant-qty-btn:hover {
-            background: #f57c00;
-            transform: scale(1.1);
-        }
-
-        .variant-qty-btn:active {
-            transform: scale(0.95);
-        }
-
-        .variant-qty-btn:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-            opacity: 0.5;
-        }
-
-        .qty-controls {
-            display: flex;
-            flex-direction: row;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            flex: 1;
-            min-height: 0;
-        }
-
-        .qty-controls .grid-stat-value {
-            flex: 0 0 auto;
-            min-width: 40px;
-            text-align: center;
-            font-size: 36px;
-        }
-
-        .qty-btn {
-            background: #ff9800;
-            color: white;
-            border: none;
-            width: 28px;
-            height: 28px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 18px;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s;
-            padding: 0;
-            line-height: 1;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        }
-
-        .qty-btn:hover {
-            background: #f57c00;
-            transform: scale(1.1);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-        }
-
-        .qty-btn:active {
-            transform: scale(0.95);
-        }
-
-        .qty-btn:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-            opacity: 0.5;
-        }
-
-        /* Editable Input Styles */
-        .editable-input {
-            border: 2px solid transparent;
-            text-align: center;
-            background: transparent;
-            outline: none;
-            transition: all 0.3s;
-            cursor: pointer;
-            width: 100%;
-        }
-
-        .editable-input:hover {
-            border-color: rgba(102, 126, 234, 0.3);
-            background: rgba(255, 255, 255, 0.5);
-        }
-
-        .editable-input:focus {
-            border-color: #667eea;
-            background: rgba(255, 255, 255, 0.9);
-            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
-            cursor: text;
-        }
-
-        /* Remove spinner for number inputs */
-        .editable-input::-webkit-outer-spin-button,
-        .editable-input::-webkit-inner-spin-button {
-            -webkit-appearance: none;
-            margin: 0;
-        }
-
-        .editable-input[type=number] {
-            -moz-appearance: textfield;
-        }
-
-        /* Override for input elements in merged products */
-        input.remaining-qty-item-value {
-            border: 2px solid transparent;
-            border-radius: 4px;
-            padding: 2px 4px;
-            background: transparent;
-            text-align: center;
-            outline: none;
-            transition: all 0.3s;
-            cursor: pointer;
-            width: 70px;
-            flex-shrink: 0;
-        }
-
-        input.remaining-qty-item-value:hover {
-            border-color: rgba(102, 126, 234, 0.3);
-            background: rgba(255, 255, 255, 0.5);
-        }
-
-        input.remaining-qty-item-value:focus {
-            border-color: #667eea;
-            background: rgba(255, 255, 255, 0.9);
-            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
-            cursor: text;
-        }
-
-        /* Remove spinner for merged product inputs */
-        input.remaining-qty-item-value::-webkit-outer-spin-button,
-        input.remaining-qty-item-value::-webkit-inner-spin-button {
-            -webkit-appearance: none;
-            margin: 0;
-        }
-
-        input.remaining-qty-item-value[type=number] {
-            -moz-appearance: textfield;
-        }
-
-        .btn-nav {
-            position: fixed;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(255, 255, 255, 0.9);
-            color: #667eea;
-            border: 2px solid #667eea;
-            padding: 12px 20px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 700;
-            transition: all 0.3s ease;
-            z-index: 1000;
-            box-shadow: 0 3px 15px rgba(0,0,0,0.2);
-            opacity: 0;
-            visibility: hidden;
-            pointer-events: none;
-        }
-
-        .btn-nav:hover:not(:disabled),
-        .btn-nav.active:not(:disabled) {
-            background: #667eea;
-            color: white;
-            transform: translateX(-50%) scale(1.05);
-            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.5);
-            opacity: 1;
-            visibility: visible;
-            pointer-events: auto;
-        }
-
-        .btn-nav:disabled {
-            opacity: 0 !important;
-            visibility: hidden !important;
-            cursor: not-allowed;
-            pointer-events: none !important;
-        }
-
-        .nav-hover-area {
-            position: fixed;
-            left: 0;
-            right: 0;
-            height: 80px;
-            z-index: 999;
-            pointer-events: none;
-        }
-
-        .nav-hover-area.left {
-            top: 0;
-        }
-
-        .nav-hover-area.right {
-            bottom: 0;
-        }
-
-        #btnPrev {
-            top: 10px;
-        }
-
-        #btnNext {
-            bottom: 10px;
-        }
-
-        .btn-sync-toggle {
-            position: fixed;
-            top: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(255, 255, 255, 0.9);
-            color: #667eea;
-            border: 2px solid #667eea;
-            padding: 10px 20px;
-            border-radius: 20px;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: 700;
-            transition: all 0.3s ease;
-            z-index: 1000;
-            box-shadow: 0 3px 15px rgba(0,0,0,0.2);
-            opacity: 0;
-            visibility: hidden;
-            pointer-events: none;
-        }
-
-        .btn-sync-toggle.active {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border-color: white;
-        }
-
-        .btn-sync-toggle:hover {
-            opacity: 1;
-            visibility: visible;
-            pointer-events: auto;
-            transform: translateX(-50%) scale(1.05);
-            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.5);
-        }
-
-        .sync-hover-area {
-            position: fixed;
-            top: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 200px;
-            height: 60px;
-            z-index: 999;
-        }
-
-        .sync-hover-area:hover ~ .btn-sync-toggle {
-            opacity: 1;
-            visibility: visible;
-            pointer-events: auto;
-        }
-
-        .page-info {
-            position: fixed;
-            bottom: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(255, 255, 255, 0.9);
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 12px;
-            font-weight: 700;
-            color: #333;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
-            z-index: 1000;
-            opacity: 0.15;
-            transition: opacity 0.3s ease;
-        }
-
-        body:hover .page-info,
-        .page-info:hover {
-            opacity: 1;
-        }
-
-        /* Campaign Selector */
-        .campaign-selector-area {
-            position: fixed;
-            top: 0;
-            left: calc(50% - 300px);
-            transform: translateX(-50%);
-            width: 200px;
-            height: 60px;
-            z-index: 999;
-        }
-
-        .campaign-selector-area:hover ~ .campaign-selector-container {
-            opacity: 1;
-            visibility: visible;
-            pointer-events: auto;
-        }
-
-        .campaign-selector-container {
-            position: fixed;
-            top: 10px;
-            left: calc(50% - 300px);
-            transform: translateX(-50%);
-            z-index: 1000;
-            opacity: 0;
-            visibility: hidden;
-            pointer-events: none;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .campaign-selector-container:hover {
-            opacity: 1;
-            visibility: visible;
-            pointer-events: auto;
-        }
-
-        .campaign-selector-container label {
-            color: rgba(255,255,255,0.9);
-            font-weight: 600;
-            font-size: 12px;
-            white-space: nowrap;
-        }
-
-        .campaign-selector-container select {
-            padding: 6px 12px;
-            border: 2px solid rgba(255,255,255,0.5);
-            border-radius: 15px;
-            font-size: 12px;
-            font-weight: 600;
-            background: rgba(255,255,255,0.15);
-            color: white;
-            min-width: 160px;
-            cursor: pointer;
-            backdrop-filter: blur(10px);
-        }
-
-        .campaign-selector-container select option {
-            background: #333;
-            color: white;
-        }
-
-        /* Add Product Input */
-        .add-product-hover-area {
-            position: fixed;
-            top: 0;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 100%;
-            height: 80px;
-            z-index: 998;
-        }
-
-        .add-product-container {
-            position: fixed;
-            top: 65px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 500px;
-            z-index: 999;
-            opacity: 0;
-            visibility: hidden;
-            pointer-events: none;
-            transition: all 0.3s ease;
-        }
-
-        .add-product-hover-area:hover ~ .add-product-container,
-        .add-product-container:hover,
-        .add-product-container.active {
-            opacity: 1;
-            visibility: visible;
-            pointer-events: auto;
-        }
-
-        .add-product-container .search-input {
-            border-color: #ff9800;
-            background: rgba(255, 248, 225, 0.98);
-        }
-
-        .add-product-container .search-input:focus {
-            border-color: #e65100;
-            box-shadow: 0 5px 25px rgba(255, 152, 0, 0.5);
-        }
-
-        .add-product-container .search-icon {
-            color: #ff9800;
-        }
-
-        .add-product-suggestions {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            background: white;
-            border-radius: 12px;
-            margin-top: 4px;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
-            max-height: 300px;
-            overflow-y: auto;
-            display: none;
-            z-index: 1001;
-        }
-
-        .add-product-suggestions.show {
-            display: block;
-        }
-
-        .add-product-suggestions .suggestion-item {
-            padding: 10px 16px;
-            cursor: pointer;
-            border-bottom: 1px solid #eee;
-            font-size: 13px;
-            transition: background 0.2s;
-        }
-
-        .add-product-suggestions .suggestion-item:hover {
-            background: #fff3e0;
-        }
-
-        .add-product-suggestions .suggestion-item:last-child {
-            border-bottom: none;
-        }
-
-        /* Search Box Styles */
-        .search-hover-area {
-            position: fixed;
-            top: 100px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 100%;
-            height: 80px;
-            z-index: 998;
-        }
-
-        .search-hint {
-            position: fixed;
-            top: 130px;
-            left: 50%;
-            transform: translateX(-50%);
-            color: rgba(255, 255, 255, 0.7);
-            font-size: 12px;
-            font-weight: 600;
-            z-index: 997;
-            opacity: 0.8;
-            transition: all 0.3s ease;
-            pointer-events: none;
-            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-        }
-
-        .search-hover-area:hover ~ .search-hint,
-        .search-container:hover ~ .search-hint,
-        .search-container.active ~ .search-hint {
-            opacity: 0;
-        }
-
-        .search-container {
-            position: fixed;
-            top: 120px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 500px;
-            z-index: 999;
-            opacity: 0;
-            visibility: hidden;
-            pointer-events: none;
-            transition: all 0.3s ease;
-        }
-
-        /* Hide search and add-product when edit controls are hidden */
-        body.hide-edit-controls .search-hover-area,
-        body.hide-edit-controls .search-hint,
-        body.hide-edit-controls .search-container,
-        body.hide-edit-controls .add-product-hover-area,
-        body.hide-edit-controls .add-product-container,
-        body.hide-edit-controls .campaign-selector-area,
-        body.hide-edit-controls .campaign-selector-container {
-            display: none !important;
-        }
-
-        .search-hover-area:hover ~ .search-container,
-        .search-container:hover,
-        .search-container.active {
-            opacity: 1;
-            visibility: visible;
-            pointer-events: auto;
-        }
-
-        .search-input-wrapper {
-            position: relative;
-            width: 100%;
-        }
-
-        .search-input {
-            width: 100%;
-            padding: 12px 45px 12px 20px;
-            font-size: 15px;
-            border: 2px solid #667eea;
-            border-radius: 25px;
-            outline: none;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.3);
-            transition: all 0.3s ease;
-        }
-
-        .search-input:focus {
-            border-color: #764ba2;
-            box-shadow: 0 5px 25px rgba(102, 126, 234, 0.5);
-            background: white;
-        }
-
-        .search-icon {
-            position: absolute;
-            right: 18px;
-            top: 50%;
-            transform: translateY(-50%);
-            font-size: 18px;
-            color: #667eea;
-            pointer-events: none;
-        }
-
-        .search-clear {
-            position: absolute;
-            right: 45px;
-            top: 50%;
-            transform: translateY(-50%);
-            background: #dc3545;
-            color: white;
-            border: none;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            cursor: pointer;
-            font-size: 12px;
-            line-height: 1;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s;
-        }
-
-        .search-clear:hover {
-            background: #c82333;
-            transform: translateY(-50%) scale(1.1);
-        }
-
-        .search-clear.show {
-            display: flex;
-        }
-
-        .empty-state {
-            text-align: center;
-            color: white;
-            padding: 40px;
-        }
-
-        .empty-state h2 {
-            font-size: 2em;
-            margin-bottom: 15px;
-        }
-
-        .empty-state p {
-            font-size: 1.1em;
-            margin-bottom: 20px;
-        }
-
-        .btn-back {
-            background: rgba(255,255,255,0.9);
-            border: 2px solid white;
-            color: #667eea;
-            padding: 12px 24px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: 600;
-            transition: all 0.3s;
-            text-decoration: none;
-            display: inline-block;
-        }
-
-        .btn-back:hover {
-            background: white;
-            color: #667eea;
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(255,255,255,0.3);
-        }
-
-
-        @media (min-width: 1025px) and (max-width: 1366px) {
-            .grid-item-name {
-                font-size: 13px;
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Danh sách Order - N2STORE</title>
+
+        <!-- Firebase SDK -->
+        <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+        <!-- XLSX for product Excel data -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+        <!-- Firebase Configuration (SHARED) -->
+        <script src="../shared/js/firebase-config.js"></script>
+        <script src="../shared/js/indexed-db-store.js"></script>
+
+        <script src="firebase-helpers.js"></script>
+
+        <script defer src="../shared/js/navigation-modern.js"></script>
+
+        <style>
+            :root {
+                /* Frame Layout CSS Variables */
+                --name-line-clamp: 2;
+
+                /* Image CSS Variables */
+                --image-border-radius: 8px;
+                --image-border-width: 2px;
+                --image-margin-bottom: 4px;
+
+                /* Name CSS Variables */
+                --name-font-size: 13px;
+                --name-font-weight: 700;
+                --name-margin: 3px;
+                --name-line-height: 1.2;
+
+                /* Stats CSS Variables */
+                --stats-value-size: 16px;
+                --stats-label-size: 9px;
+                --stats-padding: 3px;
+                --stats-gap: 4px;
+                --stats-border-radius: 6px;
+                --stats-margin-top: 4px;
             }
 
-            .grid-stat-label {
-                font-size: 10px;
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
             }
 
-            .grid-stat-value {
-                font-size: 17px;
+            body {
+                font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                min-height: 100vh;
+                width: 100vw;
+                overflow: auto;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                margin: 0;
+                padding: 0;
             }
 
-            .grid-stat-total .grid-stat-value {
-                font-size: 32px;
+            .main-content {
+                width: 100%;
+                min-height: 100vh;
+                padding: 15px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
             }
 
-            .grid-stat-remaining .grid-stat-value {
-                font-size: 42px;
+            .product-grid {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                grid-template-rows: repeat(2, 1fr);
+                gap: 15px;
+                width: 100%;
+                max-width: 1900px;
+                touch-action: pan-y pinch-zoom;
+                user-select: none;
+                aspect-ratio: 4/2;
+            }
+
+            .grid-item {
+                background: white;
+                border: 2px solid #e0e0e0;
+                border-radius: 12px;
+                padding: 6px;
+                transition: all 0.3s;
+                position: relative;
                 display: flex;
-                align-items: center;
-                justify-content: center;
+                flex-direction: column;
+                overflow: hidden;
+                box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+                min-height: 0;
             }
 
-            .grid-stat-remaining .remaining-qty-item-value {
-                font-size: 18px;
+            .grid-item:hover {
+                border-color: #667eea;
+                box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+                transform: translateY(-3px);
             }
 
-            .grid-stat-remaining .remaining-qty-item-name {
-                font-size: 18px;
+            .grid-item.search-highlight {
+                border-color: #dc2626;
+                border-width: 6px;
+                box-shadow: 0 0 25px rgba(220, 38, 38, 0.7);
+                animation: highlightPulse 2s ease-in-out 3;
             }
 
-            .qty-controls .grid-stat-value {
-                min-width: 40px;
-                font-size: 32px;
+            @keyframes highlightPulse {
+                0%,
+                100% {
+                    box-shadow: 0 0 25px rgba(220, 38, 38, 0.7);
+                }
+                50% {
+                    box-shadow: 0 0 40px rgba(220, 38, 38, 1);
+                }
             }
 
-            .grid-item-image.no-image {
-                font-size: 38px;
-            }
-
-            .qty-btn {
-                width: 26px;
-                height: 26px;
-                font-size: 17px;
-            }
-        }
-
-        @media (min-width: 1367px) and (max-width: 1600px) {
-            .grid-item-name {
-                font-size: 14px;
-            }
-
-            .grid-stat-label {
-                font-size: 11px;
-            }
-
-            .grid-stat-value {
-                font-size: 18px;
-            }
-
-            .grid-stat-total .grid-stat-value {
-                font-size: 34px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
-
-            .grid-stat-remaining .grid-stat-value {
-                font-size: 44px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
-
-            .grid-stat-remaining .remaining-qty-item-value {
-                font-size: 20px;
-            }
-
-            .grid-stat-remaining .remaining-qty-item-name {
-                font-size: 20px;
-            }
-
-            .qty-controls .grid-stat-value {
-                min-width: 45px;
-                font-size: 34px;
-            }
-
-            .grid-item-image.no-image {
-                font-size: 42px;
-            }
-        }
-
-        @media (min-width: 1601px) {
-            .grid-item-name {
-                font-size: 15px;
-            }
-
-            .grid-stat-value {
-                font-size: 20px;
-            }
-
-            .grid-stat-total .grid-stat-value {
-                font-size: 38px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
-
-            .grid-stat-remaining .grid-stat-value {
-                font-size: 50px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
-
-            .grid-stat-remaining .remaining-qty-item-value {
-                font-size: 21px;
-            }
-
-            .grid-stat-remaining .remaining-qty-item-name {
-                font-size: 21px;
-            }
-
-            .qty-controls .grid-stat-value {
-                min-width: 50px;
-                font-size: 38px;
-            }
-
-            .grid-stat-label {
+            .btn-refresh {
+                position: absolute;
+                top: 4px;
+                left: 4px;
+                background: rgba(255, 255, 255, 0.95);
+                color: #667eea;
+                border: 2px solid #2196f3;
+                width: 24px;
+                height: 24px;
+                border-radius: 50%;
+                cursor: pointer;
                 font-size: 12px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.3s ease;
+                opacity: 0;
+                visibility: hidden;
+                pointer-events: none;
+                z-index: 10;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+            }
+
+            .grid-stat-total:hover .btn-refresh,
+            .btn-refresh:hover {
+                opacity: 1;
+                visibility: visible;
+                pointer-events: auto;
+            }
+
+            .btn-refresh:hover {
+                background: #2196f3;
+                color: white;
+                transform: scale(1.15);
+                box-shadow: 0 4px 12px rgba(33, 150, 243, 0.4);
+            }
+
+            .btn-refresh:active {
+                transform: scale(0.95);
+            }
+
+            .btn-refresh.loading {
+                animation: spin 1s linear infinite;
+                pointer-events: none;
+                opacity: 1;
+                background: #2196f3;
+                color: white;
+            }
+
+            @keyframes spin {
+                from {
+                    transform: rotate(0deg);
+                }
+                to {
+                    transform: rotate(360deg);
+                }
+            }
+
+            .btn-hide {
+                background: rgba(255, 255, 255, 0.95);
+                color: #ff9800;
+                border: 2px solid #ff9800;
+                padding: 2px 6px;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 10px;
+                font-weight: 700;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.3s ease;
+                z-index: 10;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+                margin-left: 4px;
+                flex-shrink: 0;
+            }
+
+            .btn-hide:hover {
+                background: #ff9800;
+                color: white;
+                transform: scale(1.15);
+                box-shadow: 0 4px 12px rgba(255, 152, 0, 0.4);
+            }
+
+            .btn-hide:active {
+                transform: scale(0.95);
+            }
+
+            .btn-hide:disabled {
+                opacity: 0.3;
+                cursor: not-allowed;
+            }
+
+            .btn-delete {
+                background: rgba(255, 255, 255, 0.95);
+                color: #f44336;
+                border: 2px solid #f44336;
+                padding: 2px 6px;
+                border-radius: 4px;
+                cursor: pointer;
+                font-size: 10px;
+                font-weight: 700;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.3s ease;
+                z-index: 10;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+                margin-left: 4px;
+                flex-shrink: 0;
+            }
+
+            .btn-delete:hover {
+                background: #f44336;
+                color: white;
+                transform: scale(1.15);
+                box-shadow: 0 4px 12px rgba(244, 67, 54, 0.4);
+            }
+
+            .btn-delete:active {
+                transform: scale(0.95);
+            }
+
+            .btn-delete:disabled {
+                opacity: 0.3;
+                cursor: not-allowed;
+            }
+
+            .button-row {
+                display: flex;
+                flex-direction: row;
+                gap: 4px;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .grid-item-image {
+                width: 100%;
+                height: 0;
+                object-fit: cover;
+                background: white;
+                border-radius: var(--image-border-radius, 8px);
+                margin-bottom: var(--image-margin-bottom, 4px);
+                border: var(--image-border-width, 2px) solid #667eea;
+                flex: 40 1 0%;
+                min-height: 0;
             }
 
             .grid-item-image.no-image {
-                font-size: 48px;
+                background: linear-gradient(135deg, #e0e0e0 0%, #c0c0c0 100%);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 40px;
+                color: #666;
+            }
+
+            .grid-item-name {
+                font-weight: var(--name-font-weight, 700);
+                color: #333;
+                margin-bottom: var(--name-margin, 3px);
+                font-size: var(--name-font-size, 13px);
+                line-height: var(--name-line-height, 1.2);
+                flex: 10 1 0%;
+                text-align: center;
+                min-height: 0;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: 4px;
+            }
+
+            .grid-item-name-text {
+                width: 100%;
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                hyphens: auto;
+            }
+
+            .grid-item-stats {
+                display: flex;
+                gap: 0;
+                margin-top: var(--stats-margin-top, 4px);
+                margin-bottom: 0;
+                flex: 50 1 0%;
+                min-height: 0;
+                border-radius: var(--stats-border-radius, 6px);
+                overflow: hidden;
+            }
+
+            .grid-stat {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                min-height: 0;
+                border-right: 3px solid white;
+                padding: 8px 4px;
+            }
+
+            .grid-stat:last-child {
+                border-right: none;
+            }
+
+            .grid-stat-label {
+                font-size: var(--stats-label-size, 9px);
+                color: #555;
+                text-transform: uppercase;
+                font-weight: 700;
+                letter-spacing: 0.3px;
+                margin-bottom: 8px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 4px;
+            }
+
+            .grid-stat-value {
+                font-size: var(--stats-value-size, 16px);
+                font-weight: 900;
+                color: #333;
+                line-height: 1;
+                flex: 1;
+                min-height: 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .grid-stat-total {
+                background: linear-gradient(180deg, #e3f2fd 0%, #bbdefb 100%);
+                position: relative;
+                flex: 1.15;
+            }
+
+            /* For TỔNG column when not merged - match BÁN column size */
+            .grid-stat-total .grid-stat-value {
+                font-size: 28px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .grid-stat-sold {
+                background: linear-gradient(180deg, #fff3e0 0%, #ffe0b2 100%);
+                flex: 0.7;
+            }
+
+            .grid-stat-deposit {
+                background: linear-gradient(180deg, #fff8e1 0%, #ffecb3 100%);
+            }
+
+            .grid-stat-deposit .grid-stat-value {
+                font-size: 28px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .grid-stat-remaining {
+                background: linear-gradient(180deg, #e8f5e9 0%, #c8e6c9 100%);
+                flex: 1.65;
+            }
+
+            /* For ĐÃ ĐẶT column when not merged - larger than other columns */
+            .grid-stat-remaining .grid-stat-value {
+                font-size: 36px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .remaining-qty-list {
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+                font-size: 11px;
+                line-height: 1.3;
+                overflow-y: visible;
+                flex: 1;
+                min-height: 0;
+                justify-content: space-evenly;
+                height: 100%;
+            }
+
+            .remaining-qty-item {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                padding: 4px 6px;
+                background: rgba(255, 255, 255, 0.6);
+                border-radius: 6px;
+                gap: 6px;
+                flex: 1;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+                min-height: 0;
+                overflow: hidden;
+            }
+
+            /* For TỔNG column - simple value only */
+            .grid-stat-total .remaining-qty-item {
+                justify-content: center;
+                padding: 2px;
+            }
+
+            .grid-stat-total .remaining-qty-item-value {
+                font-weight: bold;
+                font-size: 18.2px;
+                color: #333;
+            }
+
+            /* Special styling for input in TỔNG column - make it easier to click */
+            .grid-stat-total input.remaining-qty-item-value {
+                width: 100%;
+                padding: 8px 6px;
+                border: 2px solid rgba(102, 126, 234, 0.2);
+                background: rgba(255, 255, 255, 0.5);
+                border-radius: 6px;
+                font-size: 18.2px;
+                min-height: 36px;
+            }
+
+            .grid-stat-total input.remaining-qty-item-value:hover {
+                border-color: rgba(102, 126, 234, 0.5);
+                background: rgba(255, 255, 255, 0.8);
+                box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+            }
+
+            .grid-stat-total input.remaining-qty-item-value:focus {
+                border-color: #667eea;
+                background: rgba(255, 255, 255, 1);
+                box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+            }
+
+            /* For ĐÃ ĐẶT column - name and value side by side */
+            .grid-stat-remaining .remaining-qty-item {
+                flex-direction: row;
+                justify-content: center;
+                align-items: center;
+                padding: 4px 3px;
+                gap: 6px;
+            }
+
+            .grid-stat-remaining .remaining-qty-item-name {
+                font-size: 17px;
+                font-weight: 900;
+                color: #2e7d32;
+                text-align: center;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                line-height: 1;
+                flex-shrink: 1;
+                min-width: 0;
+            }
+
+            .grid-stat-remaining .remaining-qty-item-value {
+                font-weight: 900;
+                font-size: 17px;
+                color: #1b5e20;
+                text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+                line-height: 1;
+                flex-shrink: 0;
+            }
+
+            /* For BÁN column items */
+            .remaining-qty-item-value {
+                font-weight: bold;
+                font-size: 18.2px;
+                color: #333;
+            }
+
+            .variant-qty-btn {
+                background: #ff9800;
+                color: white;
+                border: none;
+                width: 18px;
+                height: 18px;
+                border-radius: 3px;
+                cursor: pointer;
+                font-size: 12px;
+                font-weight: bold;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.2s;
+                padding: 0;
+                line-height: 1;
+                flex-shrink: 0;
+            }
+
+            .variant-qty-btn:hover {
+                background: #f57c00;
+                transform: scale(1.1);
+            }
+
+            .variant-qty-btn:active {
+                transform: scale(0.95);
+            }
+
+            .variant-qty-btn:disabled {
+                background: #ccc;
+                cursor: not-allowed;
+                opacity: 0.5;
+            }
+
+            .qty-controls {
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+                justify-content: center;
+                gap: 8px;
+                flex: 1;
+                min-height: 0;
+            }
+
+            .qty-controls .grid-stat-value {
+                flex: 0 0 auto;
+                min-width: 40px;
+                text-align: center;
+                font-size: 28px;
             }
 
             .qty-btn {
+                background: #ff9800;
+                color: white;
+                border: none;
                 width: 28px;
                 height: 28px;
+                border-radius: 6px;
+                cursor: pointer;
                 font-size: 18px;
-            }
-        }
-
-        /* TV and very large screens (1920px+) */
-        @media (min-width: 1920px) {
-            .grid-item-name {
-                font-size: 16px;
-            }
-
-            .grid-stat-value {
-                font-size: 22px;
-            }
-
-            .grid-stat-total .grid-stat-value {
-                font-size: 42px;
+                font-weight: bold;
                 display: flex;
                 align-items: center;
                 justify-content: center;
+                transition: all 0.2s;
+                padding: 0;
+                line-height: 1;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
             }
 
-            .grid-stat-remaining .grid-stat-value {
-                font-size: 56px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
+            .qty-btn:hover {
+                background: #f57c00;
+                transform: scale(1.1);
+                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
             }
 
-            .grid-stat-remaining .remaining-qty-item-value {
-                font-size: 24px;
+            .qty-btn:active {
+                transform: scale(0.95);
             }
 
-            .grid-stat-remaining .remaining-qty-item-name {
-                font-size: 24px;
+            .qty-btn:disabled {
+                background: #ccc;
+                cursor: not-allowed;
+                opacity: 0.5;
             }
 
-            .qty-controls .grid-stat-value {
-                min-width: 60px;
-                font-size: 42px;
+            /* Editable Input Styles */
+            .editable-input {
+                border: 2px solid transparent;
+                text-align: center;
+                background: transparent;
+                outline: none;
+                transition: all 0.3s;
+                cursor: pointer;
+                width: 100%;
             }
 
-            .grid-stat-label {
+            .editable-input:hover {
+                border-color: rgba(102, 126, 234, 0.3);
+                background: rgba(255, 255, 255, 0.5);
+            }
+
+            .editable-input:focus {
+                border-color: #667eea;
+                background: rgba(255, 255, 255, 0.9);
+                box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+                cursor: text;
+            }
+
+            /* Remove spinner for number inputs */
+            .editable-input::-webkit-outer-spin-button,
+            .editable-input::-webkit-inner-spin-button {
+                -webkit-appearance: none;
+                margin: 0;
+            }
+
+            .editable-input[type='number'] {
+                -moz-appearance: textfield;
+            }
+
+            /* Override for input elements in merged products */
+            input.remaining-qty-item-value {
+                border: 2px solid transparent;
+                border-radius: 4px;
+                padding: 2px 4px;
+                background: transparent;
+                text-align: center;
+                outline: none;
+                transition: all 0.3s;
+                cursor: pointer;
+                width: 70px;
+                flex-shrink: 0;
+            }
+
+            input.remaining-qty-item-value:hover {
+                border-color: rgba(102, 126, 234, 0.3);
+                background: rgba(255, 255, 255, 0.5);
+            }
+
+            input.remaining-qty-item-value:focus {
+                border-color: #667eea;
+                background: rgba(255, 255, 255, 0.9);
+                box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+                cursor: text;
+            }
+
+            /* Remove spinner for merged product inputs */
+            input.remaining-qty-item-value::-webkit-outer-spin-button,
+            input.remaining-qty-item-value::-webkit-inner-spin-button {
+                -webkit-appearance: none;
+                margin: 0;
+            }
+
+            input.remaining-qty-item-value[type='number'] {
+                -moz-appearance: textfield;
+            }
+
+            .btn-nav {
+                position: fixed;
+                left: 50%;
+                transform: translateX(-50%);
+                background: rgba(255, 255, 255, 0.9);
+                color: #667eea;
+                border: 2px solid #667eea;
+                padding: 12px 20px;
+                border-radius: 8px;
+                cursor: pointer;
+                font-size: 14px;
+                font-weight: 700;
+                transition: all 0.3s ease;
+                z-index: 1000;
+                box-shadow: 0 3px 15px rgba(0, 0, 0, 0.2);
+                opacity: 0;
+                visibility: hidden;
+                pointer-events: none;
+            }
+
+            .btn-nav:hover:not(:disabled),
+            .btn-nav.active:not(:disabled) {
+                background: #667eea;
+                color: white;
+                transform: translateX(-50%) scale(1.05);
+                box-shadow: 0 5px 20px rgba(102, 126, 234, 0.5);
+                opacity: 1;
+                visibility: visible;
+                pointer-events: auto;
+            }
+
+            .btn-nav:disabled {
+                opacity: 0 !important;
+                visibility: hidden !important;
+                cursor: not-allowed;
+                pointer-events: none !important;
+            }
+
+            .nav-hover-area {
+                position: fixed;
+                left: 0;
+                right: 0;
+                height: 80px;
+                z-index: 999;
+                pointer-events: none;
+            }
+
+            .nav-hover-area.left {
+                top: 0;
+            }
+
+            .nav-hover-area.right {
+                bottom: 0;
+            }
+
+            #btnPrev {
+                top: 10px;
+            }
+
+            #btnNext {
+                bottom: 10px;
+            }
+
+            .btn-sync-toggle {
+                position: fixed;
+                top: 10px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: rgba(255, 255, 255, 0.9);
+                color: #667eea;
+                border: 2px solid #667eea;
+                padding: 10px 20px;
+                border-radius: 20px;
+                cursor: pointer;
                 font-size: 13px;
+                font-weight: 700;
+                transition: all 0.3s ease;
+                z-index: 1000;
+                box-shadow: 0 3px 15px rgba(0, 0, 0, 0.2);
+                opacity: 0;
+                visibility: hidden;
+                pointer-events: none;
             }
 
-            .grid-item-image.no-image {
-                font-size: 52px;
+            .btn-sync-toggle.active {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                border-color: white;
             }
 
-            .qty-btn {
-                width: 32px;
-                height: 32px;
-                font-size: 20px;
-            }
-        }
-
-        /* 4K and ultra-wide screens (2560px+) */
-        @media (min-width: 2560px) {
-            .grid-item-name {
-                font-size: 18px;
+            .btn-sync-toggle:hover {
+                opacity: 1;
+                visibility: visible;
+                pointer-events: auto;
+                transform: translateX(-50%) scale(1.05);
+                box-shadow: 0 5px 20px rgba(102, 126, 234, 0.5);
             }
 
-            .grid-stat-value {
-                font-size: 26px;
+            .sync-hover-area {
+                position: fixed;
+                top: 0;
+                left: 50%;
+                transform: translateX(-50%);
+                width: 200px;
+                height: 60px;
+                z-index: 999;
             }
 
-            .grid-stat-total .grid-stat-value {
-                font-size: 48px;
+            .sync-hover-area:hover ~ .btn-sync-toggle {
+                opacity: 1;
+                visibility: visible;
+                pointer-events: auto;
+            }
+
+            .page-info {
+                position: fixed;
+                bottom: 10px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: rgba(255, 255, 255, 0.9);
+                padding: 8px 16px;
+                border-radius: 20px;
+                font-size: 12px;
+                font-weight: 700;
+                color: #333;
+                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+                z-index: 1000;
+                opacity: 0.15;
+                transition: opacity 0.3s ease;
+            }
+
+            body:hover .page-info,
+            .page-info:hover {
+                opacity: 1;
+            }
+
+            /* Campaign Selector */
+            .campaign-selector-area {
+                position: fixed;
+                top: 0;
+                left: calc(50% - 300px);
+                transform: translateX(-50%);
+                width: 200px;
+                height: 60px;
+                z-index: 999;
+            }
+
+            .campaign-selector-area:hover ~ .campaign-selector-container {
+                opacity: 1;
+                visibility: visible;
+                pointer-events: auto;
+            }
+
+            .campaign-selector-container {
+                position: fixed;
+                top: 10px;
+                left: calc(50% - 300px);
+                transform: translateX(-50%);
+                z-index: 1000;
+                opacity: 0;
+                visibility: hidden;
+                pointer-events: none;
+                transition: all 0.3s ease;
                 display: flex;
                 align-items: center;
-                justify-content: center;
+                gap: 8px;
             }
 
-            .grid-stat-remaining .grid-stat-value {
-                font-size: 64px;
-                display: flex;
-                align-items: center;
-                justify-content: center;
+            .campaign-selector-container:hover {
+                opacity: 1;
+                visibility: visible;
+                pointer-events: auto;
             }
 
-            .grid-stat-remaining .remaining-qty-item-value {
-                font-size: 27px;
+            .campaign-selector-container label {
+                color: rgba(255, 255, 255, 0.9);
+                font-weight: 600;
+                font-size: 12px;
+                white-space: nowrap;
             }
 
-            .grid-stat-remaining .remaining-qty-item-name {
-                font-size: 27px;
+            .campaign-selector-container select {
+                padding: 6px 12px;
+                border: 2px solid rgba(255, 255, 255, 0.5);
+                border-radius: 15px;
+                font-size: 12px;
+                font-weight: 600;
+                background: rgba(255, 255, 255, 0.15);
+                color: white;
+                min-width: 160px;
+                cursor: pointer;
+                backdrop-filter: blur(10px);
             }
 
-            .qty-controls .grid-stat-value {
-                min-width: 70px;
-                font-size: 48px;
+            .campaign-selector-container select option {
+                background: #333;
+                color: white;
             }
 
-            .grid-stat-label {
+            /* Add Product Input */
+            .add-product-hover-area {
+                position: fixed;
+                top: 0;
+                left: 50%;
+                transform: translateX(-50%);
+                width: 100%;
+                height: 80px;
+                z-index: 998;
+            }
+
+            .add-product-container {
+                position: fixed;
+                top: 65px;
+                left: 50%;
+                transform: translateX(-50%);
+                width: 500px;
+                z-index: 999;
+                opacity: 0;
+                visibility: hidden;
+                pointer-events: none;
+                transition: all 0.3s ease;
+            }
+
+            .add-product-hover-area:hover ~ .add-product-container,
+            .add-product-container:hover,
+            .add-product-container.active {
+                opacity: 1;
+                visibility: visible;
+                pointer-events: auto;
+            }
+
+            .add-product-container .search-input {
+                border-color: #ff9800;
+                background: rgba(255, 248, 225, 0.98);
+            }
+
+            .add-product-container .search-input:focus {
+                border-color: #e65100;
+                box-shadow: 0 5px 25px rgba(255, 152, 0, 0.5);
+            }
+
+            .add-product-container .search-icon {
+                color: #ff9800;
+            }
+
+            .add-product-suggestions {
+                position: absolute;
+                top: 100%;
+                left: 0;
+                right: 0;
+                background: white;
+                border-radius: 12px;
+                margin-top: 4px;
+                box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3);
+                max-height: 300px;
+                overflow-y: auto;
+                display: none;
+                z-index: 1001;
+            }
+
+            .add-product-suggestions.show {
+                display: block;
+            }
+
+            .add-product-suggestions .suggestion-item {
+                padding: 10px 16px;
+                cursor: pointer;
+                border-bottom: 1px solid #eee;
+                font-size: 13px;
+                transition: background 0.2s;
+            }
+
+            .add-product-suggestions .suggestion-item:hover {
+                background: #fff3e0;
+            }
+
+            .add-product-suggestions .suggestion-item:last-child {
+                border-bottom: none;
+            }
+
+            /* Search Box Styles */
+            .search-hover-area {
+                position: fixed;
+                top: 100px;
+                left: 50%;
+                transform: translateX(-50%);
+                width: 100%;
+                height: 80px;
+                z-index: 998;
+            }
+
+            .search-hint {
+                position: fixed;
+                top: 130px;
+                left: 50%;
+                transform: translateX(-50%);
+                color: rgba(255, 255, 255, 0.7);
+                font-size: 12px;
+                font-weight: 600;
+                z-index: 997;
+                opacity: 0.8;
+                transition: all 0.3s ease;
+                pointer-events: none;
+                text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+            }
+
+            .search-hover-area:hover ~ .search-hint,
+            .search-container:hover ~ .search-hint,
+            .search-container.active ~ .search-hint {
+                opacity: 0;
+            }
+
+            .search-container {
+                position: fixed;
+                top: 120px;
+                left: 50%;
+                transform: translateX(-50%);
+                width: 500px;
+                z-index: 999;
+                opacity: 0;
+                visibility: hidden;
+                pointer-events: none;
+                transition: all 0.3s ease;
+            }
+
+            /* Hide search and add-product when edit controls are hidden */
+            body.hide-edit-controls .search-hover-area,
+            body.hide-edit-controls .search-hint,
+            body.hide-edit-controls .search-container,
+            body.hide-edit-controls .add-product-hover-area,
+            body.hide-edit-controls .add-product-container,
+            body.hide-edit-controls .campaign-selector-area,
+            body.hide-edit-controls .campaign-selector-container {
+                display: none !important;
+            }
+
+            .search-hover-area:hover ~ .search-container,
+            .search-container:hover,
+            .search-container.active {
+                opacity: 1;
+                visibility: visible;
+                pointer-events: auto;
+            }
+
+            .search-input-wrapper {
+                position: relative;
+                width: 100%;
+            }
+
+            .search-input {
+                width: 100%;
+                padding: 12px 45px 12px 20px;
                 font-size: 15px;
+                border: 2px solid #667eea;
+                border-radius: 25px;
+                outline: none;
+                background: rgba(255, 255, 255, 0.95);
+                backdrop-filter: blur(10px);
+                box-shadow: 0 5px 20px rgba(102, 126, 234, 0.3);
+                transition: all 0.3s ease;
             }
 
-            .grid-item-image.no-image {
-                font-size: 60px;
+            .search-input:focus {
+                border-color: #764ba2;
+                box-shadow: 0 5px 25px rgba(102, 126, 234, 0.5);
+                background: white;
             }
 
-            .qty-btn {
-                width: 36px;
-                height: 36px;
-                font-size: 24px;
+            .search-icon {
+                position: absolute;
+                right: 18px;
+                top: 50%;
+                transform: translateY(-50%);
+                font-size: 18px;
+                color: #667eea;
+                pointer-events: none;
             }
-        }
 
-        /* Hide edit controls when toggle is active */
-        body.hide-edit-controls .qty-btn,
-        body.hide-edit-controls .variant-qty-btn {
-            display: none !important;
-        }
-    </style>
-</head>
-<body>
-    <div class="main-content" id="mainContent">
-        <div class="product-grid" id="productGrid"></div>
-    </div>
+            .search-clear {
+                position: absolute;
+                right: 45px;
+                top: 50%;
+                transform: translateY(-50%);
+                background: #dc3545;
+                color: white;
+                border: none;
+                width: 20px;
+                height: 20px;
+                border-radius: 50%;
+                cursor: pointer;
+                font-size: 12px;
+                line-height: 1;
+                display: none;
+                align-items: center;
+                justify-content: center;
+                transition: all 0.2s;
+            }
 
-    <div class="nav-hover-area left"></div>
-    <button class="btn-nav" id="btnPrev">▲ Trước</button>
-    <div class="nav-hover-area right"></div>
-    <button class="btn-nav" id="btnNext">Sau ▼</button>
+            .search-clear:hover {
+                background: #c82333;
+                transform: translateY(-50%) scale(1.1);
+            }
 
-    <!-- Campaign Selector -->
-    <div class="campaign-selector-area"></div>
-    <div class="campaign-selector-container" id="campaignSelectorContainer">
-        <label>🎯 Đợt Live:</label>
-        <select id="campaignSelector" onchange="handleCampaignChangeOL()">
-            <option value="">-- Chọn đợt live --</option>
-        </select>
-    </div>
+            .search-clear.show {
+                display: flex;
+            }
 
-    <div class="sync-hover-area" style="left: calc(50% - 150px); transform: translateX(0);"></div>
-    <button class="btn-sync-toggle" id="btnMergeVariants" onclick="toggleMergeVariants()" style="left: calc(50% - 150px); transform: translateX(0); background: rgba(156, 39, 176, 0.9); border-color: #9c27b0;">📦 Gộp biến thể</button>
+            .empty-state {
+                text-align: center;
+                color: white;
+                padding: 40px;
+            }
 
-    <div class="sync-hover-area" style="left: calc(50% + 150px); transform: translateX(0);"></div>
-    <button class="btn-sync-toggle" id="btnToggleSync" onclick="toggleSyncMode()" style="left: calc(50% + 150px); transform: translateX(0);">⏸️ Đồng bộ</button>
+            .empty-state h2 {
+                font-size: 2em;
+                margin-bottom: 15px;
+            }
 
-    <div class="sync-hover-area" style="left: calc(50%); transform: translateX(0);"></div>
-    <button class="btn-sync-toggle" id="btnToggleEdit" onclick="toggleHideEditControls()" style="left: calc(50%); transform: translateX(0); background: rgba(255, 152, 0, 0.9); border-color: #ff9800;">👁️ Ẩn chỉnh sửa</button>
+            .empty-state p {
+                font-size: 1.1em;
+                margin-bottom: 20px;
+            }
 
-    <!-- Add Product Input (top) -->
-    <div class="add-product-hover-area"></div>
-    <div class="add-product-container" id="addProductContainer">
-        <div class="search-input-wrapper">
-            <input type="text" class="search-input" id="addProductInput" placeholder="📦 Nhập sản phẩm thêm vào bảng..." autocomplete="off">
-            <span class="search-icon">📦</span>
+            .btn-back {
+                background: rgba(255, 255, 255, 0.9);
+                border: 2px solid white;
+                color: #667eea;
+                padding: 12px 24px;
+                border-radius: 8px;
+                cursor: pointer;
+                font-size: 16px;
+                font-weight: 600;
+                transition: all 0.3s;
+                text-decoration: none;
+                display: inline-block;
+            }
+
+            .btn-back:hover {
+                background: white;
+                color: #667eea;
+                transform: translateY(-2px);
+                box-shadow: 0 5px 15px rgba(255, 255, 255, 0.3);
+            }
+
+            @media (min-width: 1025px) and (max-width: 1366px) {
+                .grid-item-name {
+                    font-size: 13px;
+                }
+
+                .grid-stat-label {
+                    font-size: 10px;
+                }
+
+                .grid-stat-value {
+                    font-size: 17px;
+                }
+
+                .grid-stat-total .grid-stat-value {
+                    font-size: 24px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+
+                .grid-stat-remaining .grid-stat-value {
+                    font-size: 32px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+
+                .grid-stat-remaining .remaining-qty-item-value {
+                    font-size: 16px;
+                }
+
+                .grid-stat-remaining .remaining-qty-item-name {
+                    font-size: 16px;
+                }
+
+                .qty-controls .grid-stat-value {
+                    min-width: 35px;
+                    font-size: 24px;
+                }
+
+                .grid-item-image.no-image {
+                    font-size: 38px;
+                }
+
+                .qty-btn {
+                    width: 26px;
+                    height: 26px;
+                    font-size: 17px;
+                }
+            }
+
+            @media (min-width: 1367px) and (max-width: 1600px) {
+                .grid-item-name {
+                    font-size: 14px;
+                }
+
+                .grid-stat-label {
+                    font-size: 11px;
+                }
+
+                .grid-stat-value {
+                    font-size: 18px;
+                }
+
+                .grid-stat-total .grid-stat-value {
+                    font-size: 26px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+
+                .grid-stat-remaining .grid-stat-value {
+                    font-size: 34px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+
+                .grid-stat-remaining .remaining-qty-item-value {
+                    font-size: 18px;
+                }
+
+                .grid-stat-remaining .remaining-qty-item-name {
+                    font-size: 18px;
+                }
+
+                .qty-controls .grid-stat-value {
+                    min-width: 40px;
+                    font-size: 26px;
+                }
+
+                .grid-item-image.no-image {
+                    font-size: 42px;
+                }
+            }
+
+            @media (min-width: 1601px) {
+                .grid-item-name {
+                    font-size: 15px;
+                }
+
+                .grid-stat-value {
+                    font-size: 20px;
+                }
+
+                .grid-stat-total .grid-stat-value {
+                    font-size: 30px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+
+                .grid-stat-remaining .grid-stat-value {
+                    font-size: 38px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+
+                .grid-stat-remaining .remaining-qty-item-value {
+                    font-size: 19px;
+                }
+
+                .grid-stat-remaining .remaining-qty-item-name {
+                    font-size: 19px;
+                }
+
+                .qty-controls .grid-stat-value {
+                    min-width: 45px;
+                    font-size: 30px;
+                }
+
+                .grid-stat-label {
+                    font-size: 12px;
+                }
+
+                .grid-item-image.no-image {
+                    font-size: 48px;
+                }
+
+                .qty-btn {
+                    width: 28px;
+                    height: 28px;
+                    font-size: 18px;
+                }
+            }
+
+            /* TV and very large screens (1920px+) */
+            @media (min-width: 1920px) {
+                .grid-item-name {
+                    font-size: 16px;
+                }
+
+                .grid-stat-value {
+                    font-size: 22px;
+                }
+
+                .grid-stat-total .grid-stat-value {
+                    font-size: 34px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+
+                .grid-stat-remaining .grid-stat-value {
+                    font-size: 42px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+
+                .grid-stat-remaining .remaining-qty-item-value {
+                    font-size: 22px;
+                }
+
+                .grid-stat-remaining .remaining-qty-item-name {
+                    font-size: 22px;
+                }
+
+                .qty-controls .grid-stat-value {
+                    min-width: 50px;
+                    font-size: 34px;
+                }
+
+                .grid-stat-label {
+                    font-size: 13px;
+                }
+
+                .grid-item-image.no-image {
+                    font-size: 52px;
+                }
+
+                .qty-btn {
+                    width: 32px;
+                    height: 32px;
+                    font-size: 20px;
+                }
+            }
+
+            /* 4K and ultra-wide screens (2560px+) */
+            @media (min-width: 2560px) {
+                .grid-item-name {
+                    font-size: 18px;
+                }
+
+                .grid-stat-value {
+                    font-size: 26px;
+                }
+
+                .grid-stat-total .grid-stat-value {
+                    font-size: 38px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+
+                .grid-stat-remaining .grid-stat-value {
+                    font-size: 48px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+
+                .grid-stat-remaining .remaining-qty-item-value {
+                    font-size: 25px;
+                }
+
+                .grid-stat-remaining .remaining-qty-item-name {
+                    font-size: 25px;
+                }
+
+                .qty-controls .grid-stat-value {
+                    min-width: 60px;
+                    font-size: 38px;
+                }
+
+                .grid-stat-label {
+                    font-size: 15px;
+                }
+
+                .grid-item-image.no-image {
+                    font-size: 60px;
+                }
+
+                .qty-btn {
+                    width: 36px;
+                    height: 36px;
+                    font-size: 24px;
+                }
+            }
+
+            /* Hide edit controls when toggle is active */
+            body.hide-edit-controls .qty-btn,
+            body.hide-edit-controls .variant-qty-btn {
+                display: none !important;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="main-content" id="mainContent">
+            <div class="product-grid" id="productGrid"></div>
         </div>
-        <div class="add-product-suggestions" id="addProductSuggestions"></div>
-    </div>
 
-    <!-- Search Box (below add-product) -->
-    <div class="search-hover-area"></div>
-    <span class="search-hint">🔍 Hover để tìm kiếm</span>
-    <div class="search-container" id="searchContainer">
-        <div class="search-input-wrapper">
-            <input type="text" class="search-input" id="searchInput" placeholder="🔍 Tìm kiếm sản phẩm trong bảng..." autocomplete="off">
-            <button class="search-clear" id="searchClear" onclick="clearSearch()">×</button>
-            <span class="search-icon">🔍</span>
+        <div class="nav-hover-area left"></div>
+        <button class="btn-nav" id="btnPrev">▲ Trước</button>
+        <div class="nav-hover-area right"></div>
+        <button class="btn-nav" id="btnNext">Sau ▼</button>
+
+        <!-- Campaign Selector -->
+        <div class="campaign-selector-area"></div>
+        <div class="campaign-selector-container" id="campaignSelectorContainer">
+            <label>🎯 Đợt Live:</label>
+            <select id="campaignSelector" onchange="handleCampaignChangeOL()">
+                <option value="">-- Chọn đợt live --</option>
+            </select>
         </div>
-    </div>
 
-    <span class="page-info" id="pageInfo">Trang 1/1</span>
+        <div
+            class="sync-hover-area"
+            style="left: calc(50% - 150px); transform: translateX(0)"
+        ></div>
+        <button
+            class="btn-sync-toggle"
+            id="btnMergeVariants"
+            onclick="toggleMergeVariants()"
+            style="
+                left: calc(50% - 150px);
+                transform: translateX(0);
+                background: rgba(156, 39, 176, 0.9);
+                border-color: #9c27b0;
+            "
+        >
+            📦 Gộp biến thể
+        </button>
 
-    <!-- ES Module: Shared utilities (auto-initializes authManager, cache) -->
-    <script type="module" src="../shared/esm/compat.js"></script>
+        <div
+            class="sync-hover-area"
+            style="left: calc(50% + 150px); transform: translateX(0)"
+        ></div>
+        <button
+            class="btn-sync-toggle"
+            id="btnToggleSync"
+            onclick="toggleSyncMode()"
+            style="left: calc(50% + 150px); transform: translateX(0)"
+        >
+            ⏸️ Đồng bộ
+        </button>
 
-    <!-- Fallback for file:// protocol -->
-    <script>
-        if (window.location.protocol === 'file:') {
-            document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
-            document.write('<script src="../shared/js/shared-cache-manager.js"><\/script>');
-        }
-    </script>
-    <script src="js/order-list.js"></script>
-</body>
+        <div class="sync-hover-area" style="left: calc(50%); transform: translateX(0)"></div>
+        <button
+            class="btn-sync-toggle"
+            id="btnToggleEdit"
+            onclick="toggleHideEditControls()"
+            style="
+                left: calc(50%);
+                transform: translateX(0);
+                background: rgba(255, 152, 0, 0.9);
+                border-color: #ff9800;
+            "
+        >
+            👁️ Ẩn chỉnh sửa
+        </button>
+
+        <!-- Add Product Input (top) -->
+        <div class="add-product-hover-area"></div>
+        <div class="add-product-container" id="addProductContainer">
+            <div class="search-input-wrapper">
+                <input
+                    type="text"
+                    class="search-input"
+                    id="addProductInput"
+                    placeholder="📦 Nhập sản phẩm thêm vào bảng..."
+                    autocomplete="off"
+                />
+                <span class="search-icon">📦</span>
+            </div>
+            <div class="add-product-suggestions" id="addProductSuggestions"></div>
+        </div>
+
+        <!-- Search Box (below add-product) -->
+        <div class="search-hover-area"></div>
+        <span class="search-hint">🔍 Hover để tìm kiếm</span>
+        <div class="search-container" id="searchContainer">
+            <div class="search-input-wrapper">
+                <input
+                    type="text"
+                    class="search-input"
+                    id="searchInput"
+                    placeholder="🔍 Tìm kiếm sản phẩm trong bảng..."
+                    autocomplete="off"
+                />
+                <button class="search-clear" id="searchClear" onclick="clearSearch()">×</button>
+                <span class="search-icon">🔍</span>
+            </div>
+        </div>
+
+        <span class="page-info" id="pageInfo">Trang 1/1</span>
+
+        <!-- ES Module: Shared utilities (auto-initializes authManager, cache) -->
+        <script type="module" src="../shared/esm/compat.js"></script>
+
+        <!-- Fallback for file:// protocol -->
+        <script>
+            if (window.location.protocol === 'file:') {
+                document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
+                document.write('<script src="../shared/js/shared-cache-manager.js"><\/script>');
+            }
+        </script>
+        <script src="js/order-list.js"></script>
+    </body>
 </html>
