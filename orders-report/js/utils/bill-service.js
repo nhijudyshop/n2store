@@ -7,7 +7,6 @@
  * Bill Service Module
  */
 const BillService = (function () {
-
     /**
      * Generate bill HTML from order data (EXACT TPOS template copy)
      *
@@ -68,7 +67,7 @@ const BillService = (function () {
             ShowState: orderResult?.ShowState,
             SessionIndex: orderResult?.SessionIndex,
             PartnerDisplayName: orderResult?.PartnerDisplayName,
-            hasOrderLines: !!(orderResult?.OrderLines || orderResult?.orderLines)
+            hasOrderLines: !!(orderResult?.OrderLines || orderResult?.orderLines),
         });
 
         // Support both saleButtonModal (uses currentSaleOrderData) and FastSale (uses orderResult directly)
@@ -85,30 +84,36 @@ const BillService = (function () {
         // Only read form fields if saleButtonModal is currently visible (single order flow)
         // This prevents batch flow from using stale form data from previous single order
         const saleModal = document.getElementById('saleButtonModal');
-        const isModalVisible = saleModal && saleModal.style.display !== 'none' && saleModal.style.display !== '';
+        const isModalVisible =
+            saleModal && saleModal.style.display !== 'none' && saleModal.style.display !== '';
 
         // Customer info - only use form fields when modal is visible
-        const receiverName = (isModalVisible && document.getElementById('saleReceiverName')?.value) ||
+        const receiverName =
+            (isModalVisible && document.getElementById('saleReceiverName')?.value) ||
             orderResult?.Partner?.Name ||
             orderResult?.PartnerDisplayName ||
             orderResult?.ReceiverName ||
             '';
-        const receiverPhone = (isModalVisible && document.getElementById('saleReceiverPhone')?.value) ||
+        const receiverPhone =
+            (isModalVisible && document.getElementById('saleReceiverPhone')?.value) ||
             orderResult?.Partner?.Phone ||
             orderResult?.Ship_Receiver?.Phone ||
             orderResult?.ReceiverPhone ||
             '';
-        const receiverAddress = (isModalVisible && document.getElementById('saleReceiverAddress')?.value) ||
+        const receiverAddress =
+            (isModalVisible && document.getElementById('saleReceiverAddress')?.value) ||
             orderResult?.Partner?.Street ||
             orderResult?.Ship_Receiver?.Street ||
             orderResult?.ReceiverAddress ||
             '';
 
         // Money values
-        const shippingFee = (isModalVisible && parseFloat(document.getElementById('saleShippingFee')?.value)) ||
+        const shippingFee =
+            (isModalVisible && parseFloat(document.getElementById('saleShippingFee')?.value)) ||
             orderResult?.DeliveryPrice ||
             0;
-        const discount = (isModalVisible && parseFloat(document.getElementById('saleDiscount')?.value)) ||
+        const discount =
+            (isModalVisible && parseFloat(document.getElementById('saleDiscount')?.value)) ||
             orderResult?.Discount ||
             orderResult?.DiscountAmount ||
             orderResult?.DecreaseAmount ||
@@ -118,15 +123,14 @@ const BillService = (function () {
         // Priority: 1) options.walletBalance (passed explicitly, e.g. from confirmAndPrintSale)
         //           2) form field salePrepaidAmount (when modal visible)
         //           3) orderResult.PaymentAmount (fallback)
-        const walletBalance = options.walletBalance ||
+        const walletBalance =
+            options.walletBalance ||
             (isModalVisible && parseFloat(document.getElementById('salePrepaidAmount')?.value)) ||
             orderResult?.PaymentAmount ||
             0;
 
         // Virtual debt flag - true when order uses công nợ ảo from return ticket
-        const hasVirtualDebt = options.hasVirtualDebt ||
-            orderResult?.hasVirtualDebt ||
-            false;
+        const hasVirtualDebt = options.hasVirtualDebt || orderResult?.hasVirtualDebt || false;
 
         // ========== PARSE TAGS (for STT merge display) ==========
         let orderTags = [];
@@ -142,9 +146,13 @@ const BillService = (function () {
 
         // Find merge tag (Gộp X Y Z or GỘP X Y Z) for STT display
         let mergeTagNumbers = [];
-        const mergeTag = orderTags.find(t => {
+        const mergeTag = orderTags.find((t) => {
             const tagName = (t.Name || '').trim();
-            return tagName.toLowerCase().startsWith('gộp ') || tagName.startsWith('Gộp ') || tagName.startsWith('GỘP ');
+            return (
+                tagName.toLowerCase().startsWith('gộp ') ||
+                tagName.startsWith('Gộp ') ||
+                tagName.startsWith('GỘP ')
+            );
         });
         if (mergeTag) {
             const numbers = mergeTag.Name.match(/\d+/g);
@@ -154,33 +162,39 @@ const BillService = (function () {
         }
 
         // Order comment - get from form or data (pre-filled by fast sale modal)
-        const orderComment = (isModalVisible && document.getElementById('saleReceiverNote')?.value) ||
+        const orderComment =
+            (isModalVisible && document.getElementById('saleReceiverNote')?.value) ||
             orderResult?.Comment ||
             order?.Comment ||
             '';
 
         // Shop-wide delivery note (hotline warning + return policy)
         // This comes from shop settings or default
-        const shopDeliveryNote = defaultData?.DeliveryNote ||
+        const shopDeliveryNote =
+            defaultData?.DeliveryNote ||
             orderResult?.DeliveryNote ||
             'KHÔNG ĐƯỢC TỰ Ý HOÀN ĐƠN CÓ GÌ LIÊN HỆ HOTLINE CŨA SHOP 090 8888 674 ĐỂ ĐƯỢC HỖ TRỢ\n\nSản phẩm nhận đổi trả trong vòng 2-4 ngày kể từ ngày nhận hàng, "ĐỐI VỚI SẢN PHẨM BỊ LỖI HOẶC SẢN PHẨM SHOP GIAO SAI" quá thời gian shop không nhận xử lý đổi trả bất kì trường hợp nào.';
 
         // Shop-wide comment (bank account info)
         // This comes from shop settings or default
-        const shopComment = defaultData?.Comment ||
-            'STK ngân hàng Lại Thụy Yến Nhi\n75918 (ACB)';
+        const shopComment = defaultData?.Comment || 'STK ngân hàng Lại Thụy Yến Nhi\n75918 (ACB)';
 
         // Carrier info
-        const carrierSelect = isModalVisible ? document.getElementById('saleDeliveryPartner') : null;
+        const carrierSelect = isModalVisible
+            ? document.getElementById('saleDeliveryPartner')
+            : null;
         const carrierFromDropdown = carrierSelect?.options[carrierSelect.selectedIndex]?.text || '';
-        const isValidDropdownCarrier = carrierFromDropdown && !carrierFromDropdown.includes('Đang tải');
-        const carrierName = orderResult?.CarrierName ||
+        const isValidDropdownCarrier =
+            carrierFromDropdown && !carrierFromDropdown.includes('Đang tải');
+        const carrierName =
+            orderResult?.CarrierName ||
             orderResult?.Carrier?.Name ||
             (isValidDropdownCarrier ? carrierFromDropdown : '') ||
             '';
 
         // Seller name
-        const sellerName = window.authManager?.currentUser?.displayName ||
+        const sellerName =
+            window.authManager?.currentUser?.displayName ||
             defaultData.User?.Name ||
             orderResult?.User?.Name ||
             orderResult?.UserName ||
@@ -193,9 +207,8 @@ const BillService = (function () {
             sttDisplay = mergeTagNumbers.join(' + ');
         } else if (order?.IsMerged && order?.OriginalOrders?.length > 1) {
             // Fallback to merged orders STTs
-            const allSTTs = order.OriginalOrders
-                .map(o => o.SessionIndex)
-                .filter(stt => stt)
+            const allSTTs = order.OriginalOrders.map((o) => o.SessionIndex)
+                .filter((stt) => stt)
                 .sort((a, b) => (parseInt(a) || 0) - (parseInt(b) || 0));
             sttDisplay = allSTTs.join(' + ');
         } else {
@@ -208,40 +221,55 @@ const BillService = (function () {
         // Use DateInvoice or timestamp from stored data if available, otherwise use current time
         const billDate = orderResult?.DateInvoice
             ? new Date(orderResult.DateInvoice)
-            : (orderResult?.timestamp ? new Date(orderResult.timestamp) : new Date());
+            : orderResult?.timestamp
+              ? new Date(orderResult.timestamp)
+              : new Date();
         const dateStr = `${String(billDate.getDate()).padStart(2, '0')}/${String(billDate.getMonth() + 1).padStart(2, '0')}/${billDate.getFullYear()} ${String(billDate.getHours()).padStart(2, '0')}:${String(billDate.getMinutes()).padStart(2, '0')}`;
 
         // Barcode URL (TPOS CDN - exact format from TPOS)
-        const barcodeUrl = billNumber ?
-            `https://statics.tpos.vn/Web/Barcode?type=Code 128&value=${encodeURIComponent(billNumber)}&width=600&height=100` : '';
+        const barcodeUrl = billNumber
+            ? `https://statics.tpos.vn/Web/Barcode?type=Code 128&value=${encodeURIComponent(billNumber)}&width=600&height=100`
+            : '';
 
         // ========== GENERATE PRODUCT ROWS ==========
-        const orderLines = order?.orderLines || orderResult?.OrderLines || orderResult?.orderLines || [];
+        const orderLines =
+            order?.orderLines || orderResult?.OrderLines || orderResult?.orderLines || [];
 
         // Debug log key variables (AFTER orderLines is defined)
-        const walletSource = options.walletBalance ? 'options' :
-            (isModalVisible && document.getElementById('salePrepaidAmount')?.value) ? 'form' : 'orderResult';
+        const walletSource = options.walletBalance
+            ? 'options'
+            : isModalVisible && document.getElementById('salePrepaidAmount')?.value
+              ? 'form'
+              : 'orderResult';
         console.log('[BILL-SERVICE] Bill variables:', {
-            shopName, carrierName, billNumber, sellerName, sttDisplay,
-            shippingFee, discount, walletBalance, walletSource,
-            orderLinesCount: orderLines.length
+            shopName,
+            carrierName,
+            billNumber,
+            sellerName,
+            sttDisplay,
+            shippingFee,
+            discount,
+            walletBalance,
+            walletSource,
+            orderLinesCount: orderLines.length,
         });
         let totalQuantity = 0;
         let totalAmount = 0;
 
-        const productsHTML = orderLines.map((item) => {
-            const quantity = item.Quantity || item.ProductUOMQty || 1;
-            const price = item.PriceUnit || item.Price || 0;
-            const total = quantity * price;
-            const productName = item.ProductName || item.ProductNameGet || '';
-            const uomName = item.ProductUOMName || 'Cái';
-            const note = item.Note || '';
+        const productsHTML = orderLines
+            .map((item) => {
+                const quantity = item.Quantity || item.ProductUOMQty || 1;
+                const price = item.PriceUnit || item.Price || 0;
+                const total = quantity * price;
+                const productName = item.ProductName || item.ProductNameGet || '';
+                const uomName = item.ProductUOMName || 'Cái';
+                const note = item.Note || '';
 
-            totalQuantity += quantity;
-            totalAmount += total;
+                totalQuantity += quantity;
+                totalAmount += total;
 
-            // EXACT TPOS format: product name row + quantity/price row
-            return `                        <tr>
+                // EXACT TPOS format: product name row + quantity/price row
+                return `                        <tr>
                             <td class="PaddingProduct word-break" colspan="3" style="border-bottom:none">
                                     <label>
                                         ${productName}${note ? ` <span style="font-weight:bold">(${note})</span>` : ''}
@@ -262,7 +290,8 @@ ${uomName}                            </td>
                                 ${total.toLocaleString('vi-VN')}
                             </td>
                         </tr>`;
-        }).join('\n');
+            })
+            .join('\n');
 
         // ========== CALCULATE TOTALS ==========
         // Offline calculation - same logic as TPOS
@@ -287,7 +316,7 @@ ${uomName}                            </td>
             finalTotal,
             walletBalance: safeWalletBalance,
             prepaidAmount: safePrepaidAmount,
-            codAmount
+            codAmount,
         });
 
         // ========== EXACT TPOS HTML TEMPLATE ==========
@@ -871,9 +900,13 @@ ${hasVirtualDebt ? `<span style="font-weight:bold; color:#c00;">** CÓ ĐƠN THU
                 <tr>
                     <th>
                         <div class='text-center'>
-                    ${barcodeUrl ? `<div>
+                    ${
+                        barcodeUrl
+                            ? `<div>
                         <img src='${barcodeUrl}' style='width:95%' onerror="this.style.display='none'" />
-                    </div>` : ''}
+                    </div>`
+                            : ''
+                    }
                 <strong>Số phiếu</strong>: ${billNumber}
                 <div>
                     <strong>Ngày</strong>: ${dateStr}
@@ -887,20 +920,32 @@ ${hasVirtualDebt ? `<span style="font-weight:bold; color:#c00;">** CÓ ĐƠN THU
                             <div>
                                 <strong>Khách hàng:</strong> ${receiverName}
                             </div>
-                                                                            ${receiverAddress ? `<div>
+                                                                            ${
+                                                                                receiverAddress
+                                                                                    ? `<div>
                                 <strong>Địa chỉ:</strong> ${receiverAddress}
-                            </div>` : ''}
+                            </div>`
+                                                                                    : ''
+                                                                            }
                                                                             <div style="float:right">
                             </div>
                             <div>
                                 <strong>Điện thoại:</strong> ${receiverPhone}
                             </div>
-                                                    ${sellerName ? `<div>
+                                                    ${
+                                                        sellerName
+                                                            ? `<div>
                                 <strong>Người bán:</strong> ${sellerName}
-                            </div>` : ''}
-${sttDisplay ? `                            <div>
+                            </div>`
+                                                            : ''
+                                                    }
+${
+    sttDisplay
+        ? `                            <div>
                                 <strong>STT:</strong> ${sttDisplay}
-                            </div>` : ''}
+                            </div>`
+        : ''
+}
                                                                                             </th>
 
                 </tr>
@@ -928,13 +973,17 @@ ${productsHTML}
                         </td>
                         <td class="text-right"><strong>${totalAmount.toLocaleString('vi-VN')}</strong> </td>
                     </tr>
-                                    ${discount > 0 ? `
+                                    ${
+                                        discount > 0
+                                            ? `
                         <tr>
                             <td colspan="2" class="text-right" style="border-right: none !important">
                                 <strong>Giảm giá :</strong>
                             </td>
                              <td style="border-left:none !important" class="text-right">${safeDiscount.toLocaleString('vi-VN')}</td>
-                        </tr>` : ''}
+                        </tr>`
+                                            : ''
+                                    }
 
 
                         <tr>
@@ -952,7 +1001,9 @@ ${productsHTML}
                             </td>
                             <td class="text-right">${finalTotal.toLocaleString('vi-VN')}</td>
                         </tr>
-${safePrepaidAmount > 0 ? `
+${
+    safePrepaidAmount > 0
+        ? `
                         <tr>
                             <td colspan="2" class="text-right" style="border-right: none !important">
                                 <strong>Trả trước :</strong>
@@ -965,14 +1016,20 @@ ${safePrepaidAmount > 0 ? `
                             </td>
                             <td class="text-right">${codAmount.toLocaleString('vi-VN')}</td>
                         </tr>
-` : ''}
+`
+        : ''
+}
                                     </tfoot>
             </table>
-${orderComment ? `
+${
+    orderComment
+        ? `
             <div style="word-wrap:break-word">
                 <strong>Ghi chú :</strong> ${orderComment}
             </div>
-` : ''}
+`
+        : ''
+}
             <div style="word-wrap:break-word">
                 <strong>Ghi chú giao hàng :</strong> <span style="white-space:pre-wrap; word-break: break-word;">${shopDeliveryNote}</span>
             </div>
@@ -1006,7 +1063,9 @@ ${orderComment ? `
         if (!printWindow) {
             console.error('[BILL-SERVICE] Failed to open print window - popup blocked?');
             if (window.notificationManager) {
-                window.notificationManager.warning('Không thể mở cửa sổ in. Vui lòng cho phép popup.');
+                window.notificationManager.warning(
+                    'Không thể mở cửa sổ in. Vui lòng cho phép popup.'
+                );
             }
             return;
         }
@@ -1015,21 +1074,27 @@ ${orderComment ? `
         printWindow.document.write(html);
         printWindow.document.close();
 
+        // Use flag to prevent double print (matches openPrintPopupWithHtml pattern)
+        let printed = false;
+        const triggerPrint = () => {
+            if (printed || !printWindow || printWindow.closed) return;
+            printed = true;
+            printWindow.focus();
+            printWindow.print();
+        };
+
+        // Auto-close popup window after printing/cancelling
+        printWindow.onafterprint = () => {
+            printWindow.close();
+        };
+
         // Wait for content to load, then trigger print
         printWindow.onload = function () {
-            setTimeout(() => {
-                printWindow.focus();
-                printWindow.print();
-            }, 500);
+            setTimeout(triggerPrint, 500);
         };
 
         // Fallback if onload doesn't fire
-        setTimeout(() => {
-            if (printWindow && !printWindow.closed) {
-                printWindow.focus();
-                printWindow.print();
-            }
-        }, 1500);
+        setTimeout(triggerPrint, 1500);
     }
 
     /**
@@ -1053,9 +1118,10 @@ ${orderComment ? `
             const bodyContent = bodyMatch ? bodyMatch[1] : fullHtml;
 
             // Add page break after each bill except the last one
-            const pageBreak = index < orders.length - 1
-                ? '<div style="page-break-after: always; border-top: 2px dashed #999; margin: 20px 0; padding-top: 20px;"></div>'
-                : '';
+            const pageBreak =
+                index < orders.length - 1
+                    ? '<div style="page-break-after: always; border-top: 2px dashed #999; margin: 20px 0; padding-top: 20px;"></div>'
+                    : '';
 
             return `<div class="bill-container" data-bill-index="${index}">${bodyContent}</div>${pageBreak}`;
         });
@@ -1096,7 +1162,7 @@ ${orderComment ? `
             barcodes.forEach((svg, index) => {
                 // Give each barcode a unique ID
                 svg.id = 'barcode_' + index;
-                const orderNumber = '${orders.map(o => o.Number || '').join("','")}';
+                const orderNumber = '${orders.map((o) => o.Number || '').join("','")}';
                 const numbers = orderNumber.split("','");
                 try {
                     JsBarcode('#barcode_' + index, numbers[index] || '', {
@@ -1122,7 +1188,9 @@ ${orderComment ? `
         if (!printWindow) {
             console.error('[BILL-SERVICE] Failed to open print window - popup blocked?');
             if (window.notificationManager) {
-                window.notificationManager.warning('Không thể mở cửa sổ in. Vui lòng cho phép popup.');
+                window.notificationManager.warning(
+                    'Không thể mở cửa sổ in. Vui lòng cho phép popup.'
+                );
             }
             return;
         }
@@ -1133,24 +1201,24 @@ ${orderComment ? `
 
         // Wait for content to load, then trigger print
         let printed = false;
+        const triggerPrint = () => {
+            if (printed || !printWindow || printWindow.closed) return;
+            printed = true;
+            printWindow.focus();
+            printWindow.print();
+        };
+
+        // Auto-close popup window after printing/cancelling
+        printWindow.onafterprint = () => {
+            printWindow.close();
+        };
+
         printWindow.onload = function () {
-            setTimeout(() => {
-                if (!printed) {
-                    printed = true;
-                    printWindow.focus();
-                    printWindow.print();
-                }
-            }, 800); // Longer wait for multiple barcodes
+            setTimeout(triggerPrint, 800); // Longer wait for multiple barcodes
         };
 
         // Fallback if onload doesn't fire
-        setTimeout(() => {
-            if (printWindow && !printWindow.closed && !printed) {
-                printed = true;
-                printWindow.focus();
-                printWindow.print();
-            }
-        }, 2000);
+        setTimeout(triggerPrint, 2000);
 
         console.log('[BILL-SERVICE] Combined print popup opened successfully');
     }
@@ -1186,7 +1254,7 @@ ${orderComment ? `
         iframeDoc.close();
 
         // Wait for scripts to load and barcode to render (JsBarcode needs time)
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        await new Promise((resolve) => setTimeout(resolve, 1500));
 
         try {
             // Get the body element from iframe
@@ -1210,20 +1278,19 @@ ${orderComment ? `
                 allowTaint: true,
                 windowWidth: 400,
                 windowHeight: contentHeight,
-                height: contentHeight
+                height: contentHeight,
             });
 
             // Remove iframe
             document.body.removeChild(iframe);
 
             // Convert to blob
-            const blob = await new Promise(resolve => {
+            const blob = await new Promise((resolve) => {
                 canvas.toBlob(resolve, 'image/png');
             });
 
             console.log('[BILL-SERVICE] Bill image generated:', blob.size, 'bytes');
             return blob;
-
         } catch (error) {
             document.body.removeChild(iframe);
             console.error('[BILL-SERVICE] Error generating image:', error);
@@ -1261,13 +1328,19 @@ ${orderComment ? `
                 console.log('[BILL-SERVICE] ⚡ Using pre-generated bill image:', contentUrl);
             } else {
                 // Generate bill image using custom template (no TPOS API request)
-                console.log('[BILL-SERVICE] Step 1: Generating bill image using custom template...');
+                console.log(
+                    '[BILL-SERVICE] Step 1: Generating bill image using custom template...'
+                );
                 const imageBlob = await generateBillImage(orderResult, options);
 
                 // Convert blob to File for upload
-                const imageFile = new File([imageBlob], `bill_${orderResult?.Number || Date.now()}.png`, {
-                    type: 'image/png'
-                });
+                const imageFile = new File(
+                    [imageBlob],
+                    `bill_${orderResult?.Number || Date.now()}.png`,
+                    {
+                        type: 'image/png',
+                    }
+                );
 
                 // Step 2: Upload image to Pancake
                 console.log('[BILL-SERVICE] Step 2: Uploading image to Pancake...');
@@ -1276,9 +1349,13 @@ ${orderComment ? `
                 }
 
                 const uploadResult = await window.pancakeDataManager.uploadImage(pageId, imageFile);
-                contentUrl = typeof uploadResult === 'string' ? uploadResult : uploadResult.content_url;
+                contentUrl =
+                    typeof uploadResult === 'string' ? uploadResult : uploadResult.content_url;
                 // IMPORTANT: Use content_id (hash), not id (UUID) - Pancake API expects content_id
-                contentId = typeof uploadResult === 'object' ? (uploadResult.content_id || uploadResult.id) : null;
+                contentId =
+                    typeof uploadResult === 'object'
+                        ? uploadResult.content_id || uploadResult.id
+                        : null;
 
                 if (!contentUrl) {
                     throw new Error('Upload failed - no content_url returned');
@@ -1294,14 +1371,24 @@ ${orderComment ? `
             let convId = null;
 
             if (window.pancakeDataManager) {
-                console.log('[BILL-SERVICE] Fetching conversation by customer fb_id:', psid, 'pageId:', pageId);
+                console.log(
+                    '[BILL-SERVICE] Fetching conversation by customer fb_id:',
+                    psid,
+                    'pageId:',
+                    pageId
+                );
                 try {
                     // Same method as chat modal uses in tab1-chat.js line 1888
-                    const result = await window.pancakeDataManager.fetchConversationsByCustomerFbId(pageId, psid);
+                    const result = await window.pancakeDataManager.fetchConversationsByCustomerFbId(
+                        pageId,
+                        psid
+                    );
 
                     if (result.success && result.conversations?.length > 0) {
                         // Filter INBOX conversations (same as chat modal)
-                        const inboxConversations = result.conversations.filter(conv => conv.type === 'INBOX');
+                        const inboxConversations = result.conversations.filter(
+                            (conv) => conv.type === 'INBOX'
+                        );
 
                         if (inboxConversations.length > 0) {
                             convId = inboxConversations[0].id;
@@ -1309,13 +1396,19 @@ ${orderComment ? `
                         } else {
                             // Fallback to first conversation if no INBOX found
                             convId = result.conversations[0].id;
-                            console.log('[BILL-SERVICE] ✅ Got conversation ID (fallback):', convId);
+                            console.log(
+                                '[BILL-SERVICE] ✅ Got conversation ID (fallback):',
+                                convId
+                            );
                         }
                     } else {
                         console.warn('[BILL-SERVICE] No conversations found for customer');
                     }
                 } catch (fetchError) {
-                    console.error('[BILL-SERVICE] Error fetching conversation:', fetchError.message);
+                    console.error(
+                        '[BILL-SERVICE] Error fetching conversation:',
+                        fetchError.message
+                    );
                 }
             }
 
@@ -1324,14 +1417,17 @@ ${orderComment ? `
                 console.warn('[BILL-SERVICE] No conversation ID found for PSID:', psid);
                 return {
                     success: false,
-                    error: 'Không tìm thấy conversation. Khách hàng chưa có tin nhắn với page này.'
+                    error: 'Không tìm thấy conversation. Khách hàng chưa có tin nhắn với page này.',
                 };
             }
 
             // Send via Official API v1 (page_access_token) with JSON
-            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
+            const pageAccessToken =
+                await window.pancakeTokenManager?.getOrGeneratePageAccessToken(pageId);
             if (!pageAccessToken) {
-                throw new Error('No page_access_token available. Vui lòng kiểm tra cài đặt Pancake.');
+                throw new Error(
+                    'No page_access_token available. Vui lòng kiểm tra cài đặt Pancake.'
+                );
             }
 
             // Build URL using Official API v1 (pages.fm/api/public_api/v1/)
@@ -1343,11 +1439,14 @@ ${orderComment ? `
             // Build JSON payload - send image via content_ids (Official API docs §3.3)
             const billPayload = {
                 action: 'reply_inbox',
-                content_ids: contentId ? [contentId] : []
+                content_ids: contentId ? [contentId] : [],
             };
 
             console.log('[BILL-SERVICE] Sending via Official API v1 (page_access_token)');
-            console.log('[BILL-SERVICE] URL:', sendUrl.replace(/page_access_token=[^&]+/, 'page_access_token=***'));
+            console.log(
+                '[BILL-SERVICE] URL:',
+                sendUrl.replace(/page_access_token=[^&]+/, 'page_access_token=***')
+            );
             console.log('[BILL-SERVICE] content_id:', contentId);
 
             // Fire additional messages in parallel (fire and forget - don't wait)
@@ -1357,9 +1456,9 @@ ${orderComment ? `
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Accept': 'application/json'
+                    Accept: 'application/json',
                 },
-                body: JSON.stringify(billPayload)
+                body: JSON.stringify(billPayload),
             });
 
             if (!sendResponse.ok) {
@@ -1375,29 +1474,40 @@ ${orderComment ? `
                 console.warn('[BILL-SERVICE] ⚠️ Bill send failed (API error):', {
                     e_code: sendResult.e_code,
                     e_subcode: sendResult.e_subcode,
-                    message: sendResult.message
+                    message: sendResult.message,
                 });
 
                 // Check for 24-hour policy error - try Facebook API fallback
-                const is24HourError = (sendResult.e_code === 10 && sendResult.e_subcode === 2018278) ||
-                    (sendResult.message && sendResult.message.includes('khoảng thời gian cho phép'));
+                const is24HourError =
+                    (sendResult.e_code === 10 && sendResult.e_subcode === 2018278) ||
+                    (sendResult.message &&
+                        sendResult.message.includes('khoảng thời gian cho phép'));
 
                 if (is24HourError) {
-                    console.log('[BILL-SERVICE] 🔄 24h policy error detected - trying Facebook API fallback...');
+                    console.log(
+                        '[BILL-SERVICE] 🔄 24h policy error detected - trying Facebook API fallback...'
+                    );
 
                     // Send image only via Facebook API fallback (no text message)
                     const fbFallbackResult = await sendViaFacebookAPI(
                         pageId,
                         psid,
-                        null,  // No text message, send image only
+                        null, // No text message, send image only
                         contentUrl
                     );
 
                     if (fbFallbackResult.success) {
                         console.log('[BILL-SERVICE] ✅ Facebook API fallback succeeded!');
-                        return { success: true, messageId: fbFallbackResult.messageId, viafallback: true };
+                        return {
+                            success: true,
+                            messageId: fbFallbackResult.messageId,
+                            viafallback: true,
+                        };
                     } else {
-                        console.warn('[BILL-SERVICE] ❌ Facebook API fallback also failed:', fbFallbackResult.error);
+                        console.warn(
+                            '[BILL-SERVICE] ❌ Facebook API fallback also failed:',
+                            fbFallbackResult.error
+                        );
                     }
                 }
 
@@ -1405,13 +1515,12 @@ ${orderComment ? `
                     success: false,
                     error: errorMessage,
                     e_code: sendResult.e_code,
-                    e_subcode: sendResult.e_subcode
+                    e_subcode: sendResult.e_subcode,
                 };
             }
 
             console.log('[BILL-SERVICE] ✅ Bill sent successfully:', sendResult);
             return { success: true, messageId: sendResult.id };
-
         } catch (error) {
             console.error('[BILL-SERVICE] Error sending bill:', error);
             return { success: false, error: error.message };
@@ -1439,45 +1548,68 @@ ${orderComment ? `
 
             // Source 1: Try from window.currentCRMTeam (set when chat modal opens)
             if (window.currentCRMTeam && window.currentCRMTeam.Facebook_PageToken) {
-                const crmPageId = window.currentCRMTeam.ChannelId || window.currentCRMTeam.Facebook_AccountId || window.currentCRMTeam.Id;
-                if (String(crmPageId) === String(pageId) ||
-                    String(window.currentCRMTeam.Facebook_AccountId) === String(pageId)) {
+                const crmPageId =
+                    window.currentCRMTeam.ChannelId ||
+                    window.currentCRMTeam.Facebook_AccountId ||
+                    window.currentCRMTeam.Id;
+                if (
+                    String(crmPageId) === String(pageId) ||
+                    String(window.currentCRMTeam.Facebook_AccountId) === String(pageId)
+                ) {
                     facebookPageToken = window.currentCRMTeam.Facebook_PageToken;
-                    console.log('[BILL-SERVICE] [FB-FALLBACK] ✅ Got matching Facebook Page Token from window.currentCRMTeam');
+                    console.log(
+                        '[BILL-SERVICE] [FB-FALLBACK] ✅ Got matching Facebook Page Token from window.currentCRMTeam'
+                    );
                 }
             }
 
             // Source 2: Try from current order's CRMTeam
-            if (!facebookPageToken && window.currentOrder && window.currentOrder.CRMTeam && window.currentOrder.CRMTeam.Facebook_PageToken) {
-                const crmPageId = window.currentOrder.CRMTeam.ChannelId || window.currentOrder.CRMTeam.Facebook_AccountId;
-                if (String(crmPageId) === String(pageId) ||
-                    String(window.currentOrder.CRMTeam.Facebook_AccountId) === String(pageId)) {
+            if (
+                !facebookPageToken &&
+                window.currentOrder &&
+                window.currentOrder.CRMTeam &&
+                window.currentOrder.CRMTeam.Facebook_PageToken
+            ) {
+                const crmPageId =
+                    window.currentOrder.CRMTeam.ChannelId ||
+                    window.currentOrder.CRMTeam.Facebook_AccountId;
+                if (
+                    String(crmPageId) === String(pageId) ||
+                    String(window.currentOrder.CRMTeam.Facebook_AccountId) === String(pageId)
+                ) {
                     facebookPageToken = window.currentOrder.CRMTeam.Facebook_PageToken;
-                    console.log('[BILL-SERVICE] [FB-FALLBACK] ✅ Got matching Facebook Page Token from currentOrder.CRMTeam');
+                    console.log(
+                        '[BILL-SERVICE] [FB-FALLBACK] ✅ Got matching Facebook Page Token from currentOrder.CRMTeam'
+                    );
                 }
             }
 
             // Source 3: Try from cachedChannelsData
             if (!facebookPageToken && window.cachedChannelsData) {
-                const channel = window.cachedChannelsData.find(ch =>
-                    String(ch.ChannelId) === String(pageId) ||
-                    String(ch.Facebook_AccountId) === String(pageId)
+                const channel = window.cachedChannelsData.find(
+                    (ch) =>
+                        String(ch.ChannelId) === String(pageId) ||
+                        String(ch.Facebook_AccountId) === String(pageId)
                 );
                 if (channel && channel.Facebook_PageToken) {
                     facebookPageToken = channel.Facebook_PageToken;
-                    console.log('[BILL-SERVICE] [FB-FALLBACK] ✅ Got Facebook Page Token from cached channels');
+                    console.log(
+                        '[BILL-SERVICE] [FB-FALLBACK] ✅ Got Facebook Page Token from cached channels'
+                    );
                 }
             }
 
             // Source 4: Fetch CRMTeam directly by pageId from TPOS
             if (!facebookPageToken) {
-                console.log('[BILL-SERVICE] [FB-FALLBACK] Token not found, fetching CRMTeam from TPOS...');
+                console.log(
+                    '[BILL-SERVICE] [FB-FALLBACK] Token not found, fetching CRMTeam from TPOS...'
+                );
                 try {
-                    const headers = await window.tokenManager?.getAuthHeader() || {};
+                    const headers = (await window.tokenManager?.getAuthHeader()) || {};
                     const crmUrl = `${window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev'}/api/odata/CRMTeam?$filter=ChannelId eq '${pageId}' or Facebook_AccountId eq '${pageId}'&$top=1`;
                     const response = await fetch(crmUrl, {
                         method: 'GET',
-                        headers: { ...headers, 'Accept': 'application/json' }
+                        headers: { ...headers, Accept: 'application/json' },
                     });
 
                     if (response.ok) {
@@ -1485,30 +1617,42 @@ ${orderComment ? `
                         const teams = data.value || data;
                         if (teams && teams.length > 0 && teams[0].Facebook_PageToken) {
                             facebookPageToken = teams[0].Facebook_PageToken;
-                            console.log('[BILL-SERVICE] [FB-FALLBACK] ✅ Got Facebook Page Token from CRMTeam API');
+                            console.log(
+                                '[BILL-SERVICE] [FB-FALLBACK] ✅ Got Facebook Page Token from CRMTeam API'
+                            );
                         }
                     }
                 } catch (fetchError) {
-                    console.warn('[BILL-SERVICE] [FB-FALLBACK] ⚠️ Could not fetch CRMTeam from TPOS:', fetchError.message);
+                    console.warn(
+                        '[BILL-SERVICE] [FB-FALLBACK] ⚠️ Could not fetch CRMTeam from TPOS:',
+                        fetchError.message
+                    );
                 }
             }
 
             // Source 5: Fallback - use currentCRMTeam token anyway
-            if (!facebookPageToken && window.currentCRMTeam && window.currentCRMTeam.Facebook_PageToken) {
+            if (
+                !facebookPageToken &&
+                window.currentCRMTeam &&
+                window.currentCRMTeam.Facebook_PageToken
+            ) {
                 facebookPageToken = window.currentCRMTeam.Facebook_PageToken;
-                console.warn('[BILL-SERVICE] [FB-FALLBACK] ⚠️ Using currentCRMTeam token as last resort fallback');
+                console.warn(
+                    '[BILL-SERVICE] [FB-FALLBACK] ⚠️ Using currentCRMTeam token as last resort fallback'
+                );
             }
 
             if (!facebookPageToken) {
                 console.error('[BILL-SERVICE] [FB-FALLBACK] ❌ No Facebook Page Token found');
                 return {
                     success: false,
-                    error: 'Không tìm thấy Facebook Page Token để gửi fallback'
+                    error: 'Không tìm thấy Facebook Page Token để gửi fallback',
                 };
             }
 
             // Call Facebook Send API via worker proxy
-            const facebookSendUrl = window.API_CONFIG?.buildUrl?.facebookSend?.() ||
+            const facebookSendUrl =
+                window.API_CONFIG?.buildUrl?.facebookSend?.() ||
                 'https://chatomni-proxy.nhijudyshop.workers.dev/api/facebook-send';
             console.log('[BILL-SERVICE] [FB-FALLBACK] Calling:', facebookSendUrl);
 
@@ -1518,7 +1662,7 @@ ${orderComment ? `
                 psid: psid,
                 pageToken: facebookPageToken,
                 useTag: true, // Use POST_PURCHASE_UPDATE tag to bypass 24h policy
-                imageUrls: imageUrl ? [imageUrl] : [] // Include image URL if provided
+                imageUrls: imageUrl ? [imageUrl] : [], // Include image URL if provided
             };
             // Only add message field if provided (for image-only sends, message is null)
             if (message) {
@@ -1529,9 +1673,9 @@ ${orderComment ? `
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Accept': 'application/json'
+                    Accept: 'application/json',
                 },
-                body: JSON.stringify(requestBody)
+                body: JSON.stringify(requestBody),
             });
 
             const result = await response.json();
@@ -1539,24 +1683,25 @@ ${orderComment ? `
             console.log('[BILL-SERVICE] [FB-FALLBACK] ========================================');
 
             if (result.success) {
-                console.log('[BILL-SERVICE] [FB-FALLBACK] ✅ Message sent successfully via Facebook Graph API!');
+                console.log(
+                    '[BILL-SERVICE] [FB-FALLBACK] ✅ Message sent successfully via Facebook Graph API!'
+                );
                 console.log('[BILL-SERVICE] [FB-FALLBACK] Used tag:', result.used_tag);
                 return {
                     success: true,
-                    messageId: result.message_id
+                    messageId: result.message_id,
                 };
             } else {
                 return {
                     success: false,
-                    error: result.error || 'Facebook API error'
+                    error: result.error || 'Facebook API error',
                 };
             }
-
         } catch (error) {
             console.error('[BILL-SERVICE] [FB-FALLBACK] ❌ Error:', error);
             return {
                 success: false,
-                error: error.message
+                error: error.message,
             };
         }
     }
@@ -1580,51 +1725,65 @@ ${orderComment ? `
 
         const jsonHeaders = {
             'Content-Type': 'application/json',
-            'Accept': 'application/json'
+            Accept: 'application/json',
         };
 
         // Message 1: Send image via content_ids (Official API docs §3.3)
         const imagePayload = {
             action: 'reply_inbox',
-            content_ids: ['4d0b73b0-8d3f-4dfa-bb9b-11a82096734d']
+            content_ids: ['4d0b73b0-8d3f-4dfa-bb9b-11a82096734d'],
         };
 
         // Message 2: Send thank you text
         const textPayload = {
             action: 'reply_inbox',
-            message: 'Dạ hàng của mình đã được lên bill , cám ơn chị yêu đã ủng hộ shop ạ ❤️'
+            message: 'Dạ hàng của mình đã được lên bill , cám ơn chị yêu đã ủng hộ shop ạ ❤️',
         };
 
         // Fire both requests without waiting (fire and forget)
         fetch(baseUrl, { method: 'POST', headers: jsonHeaders, body: JSON.stringify(imagePayload) })
-            .then(response => {
+            .then((response) => {
                 if (!response.ok) {
-                    console.warn('[BILL-SERVICE] [ADDITIONAL] Image message HTTP error:', response.status);
+                    console.warn(
+                        '[BILL-SERVICE] [ADDITIONAL] Image message HTTP error:',
+                        response.status
+                    );
                     return { success: false, httpError: response.status };
                 }
                 return response.json();
             })
-            .then(result => {
+            .then((result) => {
                 const success = result.success !== false && !result.httpError;
-                console.log('[BILL-SERVICE] [ADDITIONAL] Image message:', success ? '✅' : '❌', result);
+                console.log(
+                    '[BILL-SERVICE] [ADDITIONAL] Image message:',
+                    success ? '✅' : '❌',
+                    result
+                );
             })
-            .catch(error => {
+            .catch((error) => {
                 console.warn('[BILL-SERVICE] [ADDITIONAL] Image message error:', error.message);
             });
 
         fetch(baseUrl, { method: 'POST', headers: jsonHeaders, body: JSON.stringify(textPayload) })
-            .then(response => {
+            .then((response) => {
                 if (!response.ok) {
-                    console.warn('[BILL-SERVICE] [ADDITIONAL] Thank you message HTTP error:', response.status);
+                    console.warn(
+                        '[BILL-SERVICE] [ADDITIONAL] Thank you message HTTP error:',
+                        response.status
+                    );
                     return { success: false, httpError: response.status };
                 }
                 return response.json();
             })
-            .then(result => {
+            .then((result) => {
                 const success = result.success !== false && !result.httpError;
-                console.log('[BILL-SERVICE] [ADDITIONAL] Thank you message:', success ? '✅' : '❌', result);
+                console.log(
+                    '[BILL-SERVICE] [ADDITIONAL] Thank you message:',
+                    success ? '✅' : '❌',
+                    result
+                );
             })
-            .catch(error => {
+            .catch((error) => {
                 console.warn('[BILL-SERVICE] [ADDITIONAL] Thank you message error:', error.message);
             });
     }
@@ -1647,8 +1806,8 @@ ${orderComment ? `
                 method: 'GET',
                 headers: {
                     ...headers,
-                    'accept': 'application/json, text/javascript, */*; q=0.01'
-                }
+                    accept: 'application/json, text/javascript, */*; q=0.01',
+                },
             });
 
             if (!response.ok) {
@@ -1665,9 +1824,8 @@ ${orderComment ? `
             // Get STT from order data
             let sttDisplay = '';
             if (orderData?.IsMerged && orderData?.OriginalOrders?.length > 1) {
-                const allSTTs = orderData.OriginalOrders
-                    .map(o => o.SessionIndex)
-                    .filter(stt => stt)
+                const allSTTs = orderData.OriginalOrders.map((o) => o.SessionIndex)
+                    .filter((stt) => stt)
                     .sort((a, b) => (parseInt(a) || 0) - (parseInt(b) || 0));
                 sttDisplay = allSTTs.join(', ');
             } else {
@@ -1679,7 +1837,8 @@ ${orderComment ? `
             let modifiedHtml = result.html;
             if (sttDisplay) {
                 // HTML may have "á" as either literal or HTML entity (&#225;)
-                const nguoiBanRegex = /(<div[^>]*>\s*<strong>Người\s+b(?:á|&#225;|&aacute;)n:<\/strong>[^<]*<\/div>)/i;
+                const nguoiBanRegex =
+                    /(<div[^>]*>\s*<strong>Người\s+b(?:á|&#225;|&aacute;)n:<\/strong>[^<]*<\/div>)/i;
 
                 if (nguoiBanRegex.test(modifiedHtml)) {
                     modifiedHtml = modifiedHtml.replace(
@@ -1692,7 +1851,8 @@ ${orderComment ? `
 
             // Add "CÓ ĐƠN THU VỀ" when order uses virtual debt from return ticket
             if (orderData?.hasVirtualDebt) {
-                const codRegex = /(<p[^>]*class=['"]size-16 font-bold['"][^>]*>Ti(?:ề|&#7873;)n thu h(?:ộ|&#7897;))/i;
+                const codRegex =
+                    /(<p[^>]*class=['"]size-16 font-bold['"][^>]*>Ti(?:ề|&#7873;)n thu h(?:ộ|&#7897;))/i;
                 if (codRegex.test(modifiedHtml)) {
                     modifiedHtml = modifiedHtml.replace(
                         codRegex,
@@ -1703,7 +1863,6 @@ ${orderComment ? `
             }
 
             return modifiedHtml;
-
         } catch (error) {
             console.error('[BILL-SERVICE] Error fetching TPOS bill:', error);
             return null;
@@ -1738,8 +1897,13 @@ ${orderComment ? `
             printWindow.print();
         };
 
+        // Auto-close popup window after printing/cancelling
+        printWindow.onafterprint = () => {
+            printWindow.close();
+        };
+
         // Wait for content to load, then trigger print
-        printWindow.onload = function() {
+        printWindow.onload = function () {
             setTimeout(triggerPrint, 500);
         };
 
@@ -1753,8 +1917,15 @@ ${orderComment ? `
      * @param {object} headers - Auth headers for TPOS API
      */
     async function openCombinedTPOSPrintPopup(orders, headers) {
-        console.log('[BILL-SERVICE] Opening combined TPOS print popup for', orders.length, 'orders...');
-        console.log('[BILL-SERVICE] Orders data:', orders.map(o => ({ orderId: o.orderId, hasOrderData: !!o.orderData })));
+        console.log(
+            '[BILL-SERVICE] Opening combined TPOS print popup for',
+            orders.length,
+            'orders...'
+        );
+        console.log(
+            '[BILL-SERVICE] Orders data:',
+            orders.map((o) => ({ orderId: o.orderId, hasOrderData: !!o.orderData }))
+        );
 
         if (!orders || orders.length === 0) {
             console.warn('[BILL-SERVICE] No orders to print');
@@ -1769,12 +1940,19 @@ ${orderComment ? `
         });
 
         const bills = await Promise.all(billPromises);
-        console.log('[BILL-SERVICE] Fetched bills count:', bills.length, 'Valid:', bills.filter(h => h !== null).length);
-        const validBills = bills.filter(html => html !== null);
+        console.log(
+            '[BILL-SERVICE] Fetched bills count:',
+            bills.length,
+            'Valid:',
+            bills.filter((h) => h !== null).length
+        );
+        const validBills = bills.filter((html) => html !== null);
 
         if (validBills.length === 0) {
             console.error('[BILL-SERVICE] No valid TPOS bills fetched - all returned null');
-            window.notificationManager?.error('Không thể tải bill từ TPOS. Kiểm tra Console để biết chi tiết.');
+            window.notificationManager?.error(
+                'Không thể tải bill từ TPOS. Kiểm tra Console để biết chi tiết.'
+            );
             return;
         }
 
@@ -1785,9 +1963,10 @@ ${orderComment ? `
             const bodyContent = bodyMatch ? bodyMatch[1] : html;
 
             // Add page break after each bill except the last one
-            const pageBreak = index < validBills.length - 1
-                ? '<div style="page-break-after: always; border-top: 2px dashed #999; margin: 20px 0;"></div>'
-                : '';
+            const pageBreak =
+                index < validBills.length - 1
+                    ? '<div style="page-break-after: always; border-top: 2px dashed #999; margin: 20px 0;"></div>'
+                    : '';
 
             return `<div class="bill-container">${bodyContent}</div>${pageBreak}`;
         });
@@ -1851,9 +2030,8 @@ ${orderComment ? `
         fetchTPOSBillHTML,
         openPrintPopupWithHtml,
         openCombinedTPOSPrintPopup,
-        fetchAndPrintTPOSBill
+        fetchAndPrintTPOSBill,
     };
-
 })();
 
 // Expose to window for global access
