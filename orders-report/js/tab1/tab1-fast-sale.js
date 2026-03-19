@@ -1336,7 +1336,9 @@ function updateFastSaleShippingFee(index) {
         const order = fastSaleOrdersData[index];
         if (order) {
             // Calculate finalAmountTotal (after discount)
-            const originalAmountTotal = order.AmountTotal || 0;
+            const originalAmountTotal = order.AmountTotal ||
+                (order.OrderLines || []).reduce((sum, line) =>
+                    sum + (line.PriceTotal || (line.PriceUnit || 0) * (line.ProductUOMQty || 0)), 0) || 0;
             let finalAmountTotal = originalAmountTotal;
 
             if (orderHasDiscountTag(order)) {
@@ -1466,7 +1468,9 @@ function collectFastSaleData() {
 
         // Calculate discount if order has "GIẢM GIÁ" tag
         let decreaseAmount = 0;
-        const originalAmountTotal = order.AmountTotal || 0;
+        const originalAmountTotal = order.AmountTotal ||
+            (order.OrderLines || []).reduce((sum, line) =>
+                sum + (line.PriceTotal || (line.PriceUnit || 0) * (line.ProductUOMQty || 0)), 0) || 0;
         let finalAmountTotal = originalAmountTotal;
 
         if (orderHasDiscountTag(order)) {
