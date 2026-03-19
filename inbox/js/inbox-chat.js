@@ -581,7 +581,9 @@ class InboxChatController {
         this.elements.btnMarkUnread.addEventListener('click', () => {
             if (this.activeConversationId) {
                 this.data.markAsUnread(this.activeConversationId);
-                this.renderConversationList();
+                if (!this._updateSingleConversationInList(this.activeConversationId)) {
+                    this.renderConversationList();
+                }
                 this.renderGroupStats();
                 this.updatePageUnreadCounts();
             }
@@ -1064,6 +1066,19 @@ class InboxChatController {
     }
 
     /**
+     * Schedule a debounced re-render of the conversation list.
+     * Batches multiple rapid calls (e.g. from WS events) into one render.
+     */
+    _scheduleRender() {
+        if (this._renderScheduled) return;
+        this._renderScheduled = true;
+        requestAnimationFrame(() => {
+            this._renderScheduled = false;
+            this.renderConversationList();
+        });
+    }
+
+    /**
      * Update a single conversation in the DOM without re-rendering the entire list.
      * Returns true if handled, false if a full re-render is needed.
      */
@@ -1368,9 +1383,8 @@ class InboxChatController {
     // ===== Toggle Read/Unread =====
 
     toggleReadUnread(convId) {
-        console.log('[InboxChat] toggleReadUnread called:', convId);
         const conv = this.data.getConversation(convId);
-        if (!conv) { console.warn('[InboxChat] toggleReadUnread: conv not found'); return; }
+        if (!conv) return;
 
         if (conv.unread > 0) {
             this.data.markAsRead(convId);
@@ -1379,7 +1393,9 @@ class InboxChatController {
             this.data.markAsUnread(convId);
             showToast('Đã đánh dấu chưa đọc', 'info');
         }
-        this.renderConversationList();
+        if (!this._updateSingleConversationInList(convId)) {
+            this.renderConversationList();
+        }
         this.data.recalculateGroupCounts();
         this.renderGroupStats();
         this.updatePageUnreadCounts();
@@ -1440,7 +1456,16 @@ class InboxChatController {
         this.elements.btnMarkUnread.style.display = '';
         this.updateLivestreamButton(conv);
         this.renderChatLabelBar(conv);
-        this.renderConversationList();
+        // Update active highlight + mark read without full re-render
+        this.elements.conversationList.querySelectorAll('.conversation-item.active').forEach(el => el.classList.remove('active'));
+        const activeEl = this.elements.conversationList.querySelector(`[data-id="${convId}"]`);
+        if (activeEl) {
+            activeEl.classList.remove('unread');
+            activeEl.classList.add('active');
+            const badge = activeEl.querySelector('.conv-unread-badge');
+            if (badge) badge.remove();
+        }
+        this.data.markAsRead(convId);
         this.renderGroupStats();
 
         // Reset stats bar and post info while loading
@@ -1530,7 +1555,11 @@ class InboxChatController {
             if (conv.isLivestream) statusParts.push('Livestream');
             if (postType && postType !== 'livestream') statusParts.push(postType);
             this.elements.chatUserStatus.textContent = statusParts.join(' · ') || '';
-            if (conv.isLivestream !== wasLivestream) this.renderConversationList();
+            if (conv.isLivestream !== wasLivestream) {
+                if (!this._updateSingleConversationInList(conv.id)) {
+                    this._scheduleRender();
+                }
+            }
 
             // Extract phone from response for order form
             // recent_phone_numbers can be string[] or {phone_number}[]
@@ -1605,7 +1634,10 @@ class InboxChatController {
                     }
                     // Update isCustomerLast from actual last message sender
                     conv.isCustomerLast = lastVisibleMsg.sender === 'customer';
-                    this.renderConversationList();
+                    // Targeted update for just this conversation item
+                    if (!this._updateSingleConversationInList(conv.id)) {
+                        this._scheduleRender();
+                    }
                 }
             }
 
@@ -2008,7 +2040,9 @@ class InboxChatController {
         const displayText = text || (hasImage ? '[Hình ảnh]' : '');
         this.data.addMessage(this.activeConversationId, displayText, 'shop', replyType ? { replyType } : {});
         this.renderMessages(conv);
-        this.renderConversationList();
+        if (!this._updateSingleConversationInList(this.activeConversationId)) {
+            this._scheduleRender();
+        }
 
         try {
             console.log(`[InboxChat] Sending from page: ${sendPageId}, conv page: ${conv.pageId} (${conv.pageName}), conv: ${conv.conversationId}, type: ${conv.type}`);
@@ -2052,7 +2086,9 @@ class InboxChatController {
 
             // Auto mark as read after sending message
             this.data.markAsRead(this.activeConversationId);
-            this.renderConversationList();
+            if (!this._updateSingleConversationInList(this.activeConversationId)) {
+                this._scheduleRender();
+            }
 
             setTimeout(async () => {
                 if (this.activeConversationId === conv.id) {
@@ -2903,7 +2939,9 @@ class InboxChatController {
                     });
                     showToast('Đã gửi file: ' + file.name, 'success');
                     this.data.markAsRead(this.activeConversationId);
-                    this.renderConversationList();
+                    if (!this._updateSingleConversationInList(this.activeConversationId)) {
+                        this._scheduleRender();
+                    }
                     setTimeout(() => {
                         const pdm = window.inboxPancakeAPI;
                         if (pdm) pdm.clearMessagesCache(`${conv.pageId}_${conv.conversationId}`);
@@ -3309,38 +3347,17 @@ class InboxChatController {
 
     handleConversationUpdate(payload) {
         const conversation = payload?.conversation || payload;
-        console.log(`[InboxChat][DEBUG] handleConversationUpdate ENTER:`, {
-            hasConversation: !!conversation,
-            convId: conversation?.id,
-            pageId: conversation?.page_id,
-            type: conversation?.type,
-            snippet: (conversation?.snippet || '').substring(0, 50),
-            from: conversation?.from?.name,
-            unread: conversation?.unread_count,
-            activeConv: this.activeConversationId,
-        });
+        if (!conversation || !conversation.id) return;
 
-        if (!conversation || !conversation.id) {
-            console.warn('[InboxChat][DEBUG] ⚠️ REJECTED: missing conversation or id', JSON.stringify(payload).substring(0, 200));
-            return;
-        }
-
-        // Filter by page_id — only process pages the inbox manages (use String for safe comparison)
+        // Filter by page_id — only process pages the inbox manages
         const pageId = String(conversation.page_id || payload?.page_id || '');
         if (pageId) {
             const knownPage = this.data.pages.find(p => String(p.id) === pageId || String(p.page_id) === pageId);
-            if (!knownPage) {
-                console.warn(`[InboxChat][DEBUG] ⚠️ REJECTED by page filter: page ${pageId} not in loaded pages [${this.data.pages.map(p => p.id).join(',')}]`);
-                return;
-            }
-            console.log(`[InboxChat][DEBUG] ✅ Page filter passed: ${pageId}`);
+            if (!knownPage) return;
         }
 
-        // Filter by type — only process INBOX and COMMENT (skip unknown types)
-        if (conversation.type && conversation.type !== 'INBOX' && conversation.type !== 'COMMENT') {
-            console.warn(`[InboxChat][DEBUG] ⚠️ REJECTED by type filter: type=${conversation.type} (not INBOX/COMMENT)`);
-            return;
-        }
+        // Filter by type — only process INBOX and COMMENT
+        if (conversation.type && conversation.type !== 'INBOX' && conversation.type !== 'COMMENT') return;
 
         // Detect livestream from post data in payload
         const post = conversation.post;
@@ -3373,7 +3390,6 @@ class InboxChatController {
             }
         } else {
             // New conversation
-            console.log(`[InboxChat][DEBUG] Adding NEW conversation ${conversation.id}: from="${conversation.from?.name}", snippet="${(conversation.snippet || '').substring(0, 40)}"`);
             const mapped = this.data.mapConversation(conversation);
             if (isLivestream) {
                 mapped.isLivestream = true;
@@ -3390,13 +3406,9 @@ class InboxChatController {
         this.data.conversations.sort((a, b) => b.time - a.time);
 
         // Smart update: only update the changed conversation item (avoid full list flicker)
-        console.log(`[InboxChat][DEBUG] About to update UI for conv ${conversation.id}...`);
         if (!this._updateSingleConversationInList(conversation.id)) {
-            console.log(`[InboxChat][DEBUG] _updateSingleConversationInList returned false → full re-render`);
-            // Fallback to full re-render if filters/search active
-            this.renderConversationList();
-        } else {
-            console.log(`[InboxChat][DEBUG] _updateSingleConversationInList succeeded (smart update)`);
+            // Fallback to debounced re-render if filters/search active
+            this._scheduleRender();
         }
         this.renderGroupStats();
 
@@ -3423,7 +3435,7 @@ class InboxChatController {
 
             // Smart update: only update the changed conversation item
             if (!this._updateSingleConversationInList(convId)) {
-                this.renderConversationList();
+                this._scheduleRender();
             }
 
             // If this is the active conversation, reload messages
@@ -3441,8 +3453,10 @@ class InboxChatController {
         if (postType === 'livestream' || liveVideoStatus === 'vod' || liveVideoStatus === 'live') {
             this.data.markAsLivestream(conversationId, postId);
             if (conv) conv.isLivestream = true;
-            console.log(`[InboxChat] 🔴 Livestream detected: ${conversationId}`);
-            this.renderConversationList();
+            console.log(`[InboxChat] Livestream detected: ${conversationId}`);
+            if (!this._updateSingleConversationInList(conversationId)) {
+                this._scheduleRender();
+            }
         } else if (conv && conv.type === 'COMMENT') {
             this.data.unmarkAsLivestream(conversationId);
             if (conv) conv.isLivestream = false;
@@ -3454,7 +3468,7 @@ class InboxChatController {
         this.autoRefreshInterval = setInterval(async () => {
             try {
                 await this.data.loadConversations(true);
-                this.renderConversationList();
+                this._scheduleRender();
                 this.renderGroupStats();
             } catch (e) {
                 console.warn('[InboxChat] Auto-refresh error:', e);
