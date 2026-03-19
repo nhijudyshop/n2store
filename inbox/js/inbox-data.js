@@ -840,15 +840,10 @@ class InboxDataManager {
     }
 
     /**
-     * Mark customer as replied on Render DB (remove from pending_customers)
+     * Mark customer as replied on Render DB (disabled — Render server has no endpoint)
      */
     markRepliedOnServer(psid, pageId) {
-        const workerUrl = InboxApiConfig?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
-        fetch(`${workerUrl}/api/realtime/mark-replied`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ psid, pageId })
-        }).catch(err => console.warn('[InboxData] Error marking replied:', err.message));
+        // No-op: Render server doesn't have /api/realtime/mark-replied
     }
 
     /**
