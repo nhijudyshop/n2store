@@ -1974,7 +1974,7 @@ class InboxChatController {
     }
 
     /**
-     * Send API request helper
+     * Send API request helper — checks both HTTP status AND body.success
      */
     async _sendApi(url, payload) {
         const response = await fetch(url, {
@@ -1982,15 +1982,29 @@ class InboxChatController {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
+        const text = await response.text();
+        let data;
+        try { data = JSON.parse(text); } catch { data = null; }
+
         if (!response.ok) {
-            const errText = await response.text();
-            const parsed = this._parseFbError(errText);
+            const parsed = this._parseFbError(text);
             const err = new Error(parsed.message);
             err.status = response.status;
             err.fbError = parsed;
             throw err;
         }
-        return response;
+
+        // Pancake may return HTTP 200 but success: false
+        if (data && data.success === false) {
+            console.error('[InboxChat] API returned success:false:', data);
+            const err = new Error(data.error?.message || data.message || 'API returned success:false');
+            err.status = response.status;
+            err.apiResponse = data;
+            throw err;
+        }
+
+        console.log('[InboxChat] _sendApi response:', data);
+        return data;
     }
 
     async sendMessage() {
@@ -2038,9 +2052,10 @@ class InboxChatController {
         const replyType = this.currentReplyType;
         this.cancelReply();
 
-        // Optimistic UI update
+        // Optimistic UI update + mark as read in one pass
         const displayText = text || (hasImage ? '[Hình ảnh]' : '');
         this.data.addMessage(this.activeConversationId, displayText, 'shop', replyType ? { replyType } : {});
+        this.data.markAsRead(this.activeConversationId);
         this.renderMessages(conv);
         if (!this._updateSingleConversationInList(this.activeConversationId)) {
             this._scheduleRender();
@@ -2086,12 +2101,6 @@ class InboxChatController {
                 }
             }
 
-            // Auto mark as read after sending message
-            this.data.markAsRead(this.activeConversationId);
-            if (!this._updateSingleConversationInList(this.activeConversationId)) {
-                this._scheduleRender();
-            }
-
             setTimeout(async () => {
                 if (this.activeConversationId === conv.id) {
                     const pdm = window.inboxPancakeAPI;
@@ -2127,11 +2136,11 @@ class InboxChatController {
         const payload = { action: 'reply_inbox', message: text };
         if (replyData?.msgId) payload.replied_message_id = replyData.msgId;
 
-        console.log('[InboxChat] Sending reply_inbox:', { pageId: conv.pageId, convId: conv.conversationId });
+        console.log('[InboxChat] Sending reply_inbox:', { pageId: conv.pageId, convId: conv.conversationId, url });
 
         try {
-            await this._sendApi(url, payload);
-            console.log('[InboxChat] reply_inbox succeeded');
+            const result = await this._sendApi(url, payload);
+            console.log('[InboxChat] reply_inbox succeeded:', result);
             return;
         } catch (err) {
             const fb = err.fbError;
