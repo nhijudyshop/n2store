@@ -98,10 +98,6 @@
 
         console.log(`[FULFILLMENT] Loaded ${totalEntries} invoice status entries for ${invoiceStatusMap.size} orders`);
     }
-        });
-
-        console.log(`[FULFILLMENT] Loaded ${invoiceStatusMap.size} invoice status entries`);
-    }
 
     async function _loadInvoiceDeletes() {
         const db = firebase.firestore();

@@ -2804,6 +2804,11 @@
         window.sendBillManually = sendBillManually;
         window.updateMainTableInvoiceCells = updateMainTableInvoiceCells;
         window.InvoiceStatusStore = InvoiceStatusStore;
+        // Assign 'get' method explicitly (cannot use shorthand in object literal due to getter keyword conflict)
+        InvoiceStatusStore.get = function (saleOnlineId) {
+            if (!saleOnlineId) return null;
+            return InvoiceStatusStore.getLatest(saleOnlineId);
+        };
         window.extractSaleOnlineId = extractSaleOnlineId; // For FulfillmentData backward compat
         window.getStateCodeConfig = getStateCodeConfig;
         window.getShowStateConfig = getShowStateConfig;
