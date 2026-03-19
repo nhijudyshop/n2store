@@ -9,7 +9,7 @@
  * - Debounced search
  */
 
-(function() {
+(function () {
     'use strict';
 
     // =====================================================
@@ -23,8 +23,8 @@
     // =====================================================
     // STATE
     // =====================================================
-    let historyData = [];      // All loaded data from Firebase
-    let filteredData = [];     // After applying search/source filter
+    let historyData = []; // All loaded data from Firebase
+    let filteredData = []; // After applying search/source filter
     let currentPage = 1;
     let pageSize = DEFAULT_PAGE_SIZE;
     let isLoading = false;
@@ -83,14 +83,19 @@
                 liveCampaignId: orderData.liveCampaignId || orderData.LiveCampaignId || null,
                 liveCampaignName: orderData.liveCampaignName || orderData.LiveCampaignName || '',
                 userCampaignName: userCampaignName, // User-defined campaign name (from modalUserCampaignSelect)
-                customerName: orderData.customerName || orderData.PartnerDisplayName || orderData.ReceiverName || '',
-                customerPhone: orderData.customerPhone || orderData.Phone || orderData.ReceiverPhone || '',
+                customerName:
+                    orderData.customerName ||
+                    orderData.PartnerDisplayName ||
+                    orderData.ReceiverName ||
+                    '',
+                customerPhone:
+                    orderData.customerPhone || orderData.Phone || orderData.ReceiverPhone || '',
                 address: orderData.address || orderData.ReceiverAddress || orderData.Address || '',
-                products: (orderData.products || orderData.OrderLines || []).map(p => ({
+                products: (orderData.products || orderData.OrderLines || []).map((p) => ({
                     name: p.ProductName || p.name || '',
                     quantity: p.ProductUOMQty || p.quantity || 1,
                     price: p.PriceUnit || p.price || 0,
-                    total: p.PriceTotal || p.total || 0
+                    total: p.PriceTotal || p.total || 0,
                 })),
                 totalAmount: orderData.totalAmount || orderData.AmountTotal || 0,
                 shippingFee: orderData.shippingFee || orderData.DeliveryPrice || 0,
@@ -101,8 +106,12 @@
                 sessionIndex: orderData.sessionIndex || orderData.SessionIndex || '',
 
                 // Searchable fields (lowercase for case-insensitive search)
-                _searchName: (orderData.customerName || orderData.PartnerDisplayName || '').toLowerCase(),
-                _searchPhone: (orderData.customerPhone || orderData.Phone || '').replace(/\D/g, '')
+                _searchName: (
+                    orderData.customerName ||
+                    orderData.PartnerDisplayName ||
+                    ''
+                ).toLowerCase(),
+                _searchPhone: (orderData.customerPhone || orderData.Phone || '').replace(/\D/g, ''),
             };
 
             await collection.add(historyRecord);
@@ -148,11 +157,11 @@
                     customerName: customerName,
                     customerPhone: customerPhone,
                     address: orderData.ReceiverAddress || orderData.Address || '',
-                    products: (orderData.OrderLines || []).map(p => ({
+                    products: (orderData.OrderLines || []).map((p) => ({
                         name: p.ProductName || '',
                         quantity: p.ProductUOMQty || 1,
                         price: p.PriceUnit || 0,
-                        total: p.PriceTotal || 0
+                        total: p.PriceTotal || 0,
                     })),
                     totalAmount: orderData.AmountTotal || 0,
                     shippingFee: orderData.DeliveryPrice || 0,
@@ -162,7 +171,7 @@
                     createdBy: currentUser,
                     sessionIndex: orderData.SessionIndex || '',
                     _searchName: customerName.toLowerCase(),
-                    _searchPhone: customerPhone.replace(/\D/g, '')
+                    _searchPhone: customerPhone.replace(/\D/g, ''),
                 };
                 batch.set(docRef, historyRecord);
             }
@@ -189,31 +198,26 @@
             if (!collection) return;
 
             // Get distinct campaigns from recent records (grouped by NAME)
-            const snapshot = await collection
-                .orderBy('createdAt', 'desc')
-                .limit(2000)
-                .get();
+            const snapshot = await collection.orderBy('createdAt', 'desc').limit(2000).get();
 
             const campaignsMap = new Map();
-            snapshot.forEach(doc => {
+            snapshot.forEach((doc) => {
                 const data = doc.data();
                 const name = data.liveCampaignName;
                 // Group by campaign NAME (not ID) because there are 2 pages
                 if (name && !campaignsMap.has(name)) {
                     campaignsMap.set(name, {
                         name: name,
-                        date: data.createdAt?.toDate?.() || new Date()
+                        date: data.createdAt?.toDate?.() || new Date(),
                     });
                 }
             });
 
             // Sort by date descending (most recent first)
-            campaignsList = Array.from(campaignsMap.values())
-                .sort((a, b) => b.date - a.date);
+            campaignsList = Array.from(campaignsMap.values()).sort((a, b) => b.date - a.date);
 
             console.log(`[ORDER-HISTORY] Found ${campaignsList.length} campaigns (by name)`);
             renderCampaignDropdown();
-
         } catch (error) {
             console.error('[ORDER-HISTORY] Error loading campaigns:', error);
         }
@@ -227,11 +231,15 @@
 
         select.innerHTML = `
             <option value="">-- Chọn chiến dịch --</option>
-            ${campaignsList.map(c => `
+            ${campaignsList
+                .map(
+                    (c) => `
                 <option value="${escapeHtml(c.name)}" ${c.name === currentValue ? 'selected' : ''}>
                     ${escapeHtml(c.name)}
                 </option>
-            `).join('')}
+            `
+                )
+                .join('')}
         `;
     }
 
@@ -272,7 +280,7 @@
             historyData = [];
             const now = new Date();
 
-            snapshot.forEach(doc => {
+            snapshot.forEach((doc) => {
                 const data = doc.data();
                 const expiresAt = data.expiresAt?.toDate?.() || new Date(0);
                 if (expiresAt > now) {
@@ -280,18 +288,19 @@
                         id: doc.id,
                         ...data,
                         createdAt: data.createdAt?.toDate?.() || new Date(),
-                        expiresAt: expiresAt
+                        expiresAt: expiresAt,
                     });
                 }
             });
 
-            console.log(`[ORDER-HISTORY] Loaded ${historyData.length} records for campaign "${campaignName}"`);
+            console.log(
+                `[ORDER-HISTORY] Loaded ${historyData.length} records for campaign "${campaignName}"`
+            );
 
             // Reset to page 1 when loading new data
             currentPage = 1;
             applyFilters();
             updateBadgeCount();
-
         } catch (error) {
             console.error('[ORDER-HISTORY] Error loading history:', error);
             renderEmpty('Lỗi khi tải dữ liệu: ' + error.message);
@@ -306,10 +315,7 @@
             if (!collection) return;
 
             const now = firebase.firestore.Timestamp.fromDate(new Date());
-            const snapshot = await collection
-                .where('expiresAt', '<', now)
-                .limit(100)
-                .get();
+            const snapshot = await collection.where('expiresAt', '<', now).limit(100).get();
 
             if (snapshot.empty) {
                 console.log('[ORDER-HISTORY] No expired records to clean');
@@ -317,13 +323,12 @@
             }
 
             const batch = getFirestore().batch();
-            snapshot.forEach(doc => {
+            snapshot.forEach((doc) => {
                 batch.delete(doc.ref);
             });
 
             await batch.commit();
             console.log(`[ORDER-HISTORY] Cleaned ${snapshot.size} expired records`);
-
         } catch (error) {
             console.error('[ORDER-HISTORY] Error cleaning expired records:', error);
         }
@@ -340,7 +345,8 @@
     function isAdmin() {
         // Check authManager first
         if (typeof window.authManager !== 'undefined') {
-            const authState = window.authManager.getUserInfo?.() || window.authManager.getAuthState?.();
+            const authState =
+                window.authManager.getUserInfo?.() || window.authManager.getAuthState?.();
             if (authState) {
                 // checkLogin === 1 means admin level
                 if (authState.checkLogin === 1) return true;
@@ -371,7 +377,7 @@
         const userIsAdmin = isAdmin();
 
         // Client-side filtering for search, source, and permission
-        filteredData = historyData.filter(record => {
+        filteredData = historyData.filter((record) => {
             // Permission filter: non-admin can only see their own records
             if (!userIsAdmin && record.createdBy !== currentUsername) {
                 return false;
@@ -392,10 +398,10 @@
                     record.carrierName,
                     record.liveCampaignName,
                     record.createdBy,
-                    String(record.sessionIndex || '') // STT search (convert to string)
-                ].map(f => (f || '').toLowerCase());
+                    String(record.sessionIndex || ''), // STT search (convert to string)
+                ].map((f) => (f || '').toLowerCase());
 
-                if (!searchFields.some(f => f.includes(searchTerm))) {
+                if (!searchFields.some((f) => f.includes(searchTerm))) {
                     return false;
                 }
             }
@@ -463,8 +469,9 @@
         let paginationHtml = `
             <div class="pagination-info">
                 <select id="orderHistoryPageSize" class="page-size-select">
-                    ${PAGE_SIZE_OPTIONS.map(size =>
-                        `<option value="${size}" ${size === pageSize ? 'selected' : ''}>${size}/trang</option>`
+                    ${PAGE_SIZE_OPTIONS.map(
+                        (size) =>
+                            `<option value="${size}" ${size === pageSize ? 'selected' : ''}>${size}/trang</option>`
                     ).join('')}
                 </select>
             </div>
@@ -519,7 +526,7 @@
         container.innerHTML = paginationHtml;
 
         // Bind events
-        container.querySelectorAll('.page-btn[data-page]').forEach(btn => {
+        container.querySelectorAll('.page-btn[data-page]').forEach((btn) => {
             btn.addEventListener('click', () => {
                 if (!btn.disabled) {
                     goToPage(parseInt(btn.dataset.page));
@@ -577,25 +584,36 @@
         const pageData = getCurrentPageData();
 
         if (pageData.length === 0) {
-            renderEmpty(historyData.length === 0 ? 'Chưa có lịch sử ra đơn (chọn ngày để tải)' : 'Không tìm thấy kết quả');
+            renderEmpty(
+                historyData.length === 0
+                    ? 'Chưa có lịch sử ra đơn (chọn ngày để tải)'
+                    : 'Không tìm thấy kết quả'
+            );
             return;
         }
 
-        tbody.innerHTML = pageData.map(record => {
-            const createdAt = record.createdAt;
-            const dateStr = createdAt.toLocaleDateString('vi-VN');
-            const timeStr = createdAt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+        tbody.innerHTML = pageData
+            .map((record) => {
+                const createdAt = record.createdAt;
+                const dateStr = createdAt.toLocaleDateString('vi-VN');
+                const timeStr = createdAt.toLocaleTimeString('vi-VN', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                });
 
-            // Check if order details available in localStorage (use for products count)
-            const localOrderData = record.saleOnlineId ? getOrderFromLocalStorage(record.saleOnlineId) : null;
-            const hasLocalData = !!localOrderData;
+                // Check if order details available in localStorage (use for products count)
+                const localOrderData = record.saleOnlineId
+                    ? getOrderFromLocalStorage(record.saleOnlineId)
+                    : null;
+                const hasLocalData = !!localOrderData;
 
-            // Use localStorage data for products count (more accurate), fallback to Firebase
-            const products = localOrderData?.OrderLines || record.products || [];
-            const productsCount = products.length;
-            const totalQty = products.reduce((sum, p) => sum + (p.ProductUOMQty || p.quantity || 0), 0) || 0;
+                // Use localStorage data for products count (more accurate), fallback to Firebase
+                const products = localOrderData?.OrderLines || record.products || [];
+                const productsCount = products.length;
+                const totalQty =
+                    products.reduce((sum, p) => sum + (p.ProductUOMQty || p.quantity || 0), 0) || 0;
 
-            return `
+                return `
                 <tr>
                     <td class="cell-stt" style="text-align:center; font-weight:500; color:#6366f1;">
                         ${escapeHtml(record.sessionIndex || '-')}
@@ -626,7 +644,9 @@
                         ${escapeHtml(record.createdBy || '-')}
                     </td>
                     <td class="cell-action">
-                        ${hasLocalData ? `
+                        ${
+                            hasLocalData
+                                ? `
                             <button class="btn-view-details"
                                 onclick="window.OrderHistoryManager.showOrderDetails('${record.saleOnlineId}')"
                                 onmouseenter="window.OrderHistoryManager.showBillPreview(this, '${record.saleOnlineId}')"
@@ -634,11 +654,14 @@
                                 title="Hover để xem nhanh, Click để xem chi tiết">
                                 <i class="fas fa-eye"></i>
                             </button>
-                        ` : '-'}
+                        `
+                                : '-'
+                        }
                     </td>
                 </tr>
             `;
-        }).join('');
+            })
+            .join('');
 
         renderPagination();
         updateFilterStats();
@@ -702,7 +725,8 @@
 
         // Try authManager (shared auth system)
         if (typeof window.authManager !== 'undefined') {
-            const authState = window.authManager.getUserInfo?.() || window.authManager.getAuthState?.();
+            const authState =
+                window.authManager.getUserInfo?.() || window.authManager.getAuthState?.();
             if (authState?.userType) {
                 const userType = authState.userType;
                 // userType format: "admin-admin@@" -> take part BEFORE "-"
@@ -720,37 +744,22 @@
         }
 
         // Fallback to tokenManagers
-        return window.billTokenManager?.getUsername?.() ||
-               window.tokenManager?.getUsername?.() ||
-               'unknown';
+        return (
+            window.billTokenManager?.getUsername?.() ||
+            window.tokenManager?.getUsername?.() ||
+            'unknown'
+        );
     }
 
     /**
-     * Get order details from invoiceStatusStore_v2 localStorage
+     * Get order details from InvoiceStatusStore (in-memory, Firestore-synced)
      * @param {string} saleOnlineId - SaleOnline ID to lookup
      * @returns {object|null} Order data or null if not found
      */
     function getOrderFromLocalStorage(saleOnlineId) {
         if (!saleOnlineId) return null;
-
-        try {
-            const stored = localStorage.getItem('invoiceStatusStore_v2');
-            if (!stored) return null;
-
-            const parsed = JSON.parse(stored);
-            const data = parsed.data || parsed;
-
-            // Find the order by saleOnlineId
-            for (const [key, value] of Object.entries(data)) {
-                if (value && (value.SaleOnlineId === saleOnlineId || key.includes(saleOnlineId))) {
-                    return value;
-                }
-            }
-            return null;
-        } catch (e) {
-            console.warn('[ORDER-HISTORY] Error reading localStorage:', e);
-            return null;
-        }
+        // Use live in-memory data from Firestore-synced store (no localStorage needed)
+        return window.InvoiceStatusStore?.get(saleOnlineId) || null;
     }
 
     /**
@@ -763,8 +772,10 @@
     function detectCarrierFromAddress(address) {
         if (!address) return 'SHIP TỈNH';
 
-        const normalized = address.toLowerCase()
-            .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const normalized = address
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '');
 
         // District mappings based on CARRIER-AUTO-SELECTION.md
         // 20k: Q1, Q3, Q4, Q5, Q6, Q7, Q8, Q10, Q11, Phú Nhuận, Bình Thạnh, Tân Phú, Tân Bình, Gò Vấp
@@ -802,16 +813,25 @@
 
         // Fallback pattern matching
         // Check for SHIP TỈNH first
-        if (shipTinh.some(kw => normalized.includes(kw))) return 'SHIP TỈNH';
+        if (shipTinh.some((kw) => normalized.includes(kw))) return 'SHIP TỈNH';
 
         // Check province keywords
-        const provinceKeywords = ['tinh', 'province', 'binh duong', 'dong nai', 'long an', 'tay ninh', 'ba ria', 'can tho'];
-        if (provinceKeywords.some(kw => normalized.includes(kw))) return 'SHIP TỈNH';
+        const provinceKeywords = [
+            'tinh',
+            'province',
+            'binh duong',
+            'dong nai',
+            'long an',
+            'tay ninh',
+            'ba ria',
+            'can tho',
+        ];
+        if (provinceKeywords.some((kw) => normalized.includes(kw))) return 'SHIP TỈNH';
 
         // Check named districts (order matters: 35k -> 30k -> 20k)
-        if (named35kTP.some(kw => normalized.includes(kw))) return 'THÀNH PHỐ (35.000 đ)';
-        if (named30k.some(kw => normalized.includes(kw))) return 'THÀNH PHỐ (30.000 đ)';
-        if (named20k.some(kw => normalized.includes(kw))) return 'THÀNH PHỐ (20.000 đ)';
+        if (named35kTP.some((kw) => normalized.includes(kw))) return 'THÀNH PHỐ (35.000 đ)';
+        if (named30k.some((kw) => normalized.includes(kw))) return 'THÀNH PHỐ (30.000 đ)';
+        if (named20k.some((kw) => normalized.includes(kw))) return 'THÀNH PHỐ (20.000 đ)';
 
         // Check district number pattern (Q1, Quận 5, etc.)
         const distMatch = normalized.match(/(?:q|quan|quận)\s*\.?\s*(\d+)/);
@@ -863,7 +883,8 @@
         // Generate bill HTML using the official function
         // Transform localStorage data to match orderResult format
         // Auto-detect carrier from address if CarrierName is empty
-        const carrierName = orderData.CarrierName || detectCarrierFromAddress(orderData.ReceiverAddress);
+        const carrierName =
+            orderData.CarrierName || detectCarrierFromAddress(orderData.ReceiverAddress);
 
         // Freeship conditions:
         // - THÀNH PHỐ: Tổng tiền hàng > 1,500,000đ
@@ -871,8 +892,9 @@
         const productTotal = orderData.AmountUntaxed || orderData.AmountTotal || 0;
         const isCity = carrierName && carrierName.includes('THÀNH PHỐ');
         const isProvince = carrierName && carrierName.includes('SHIP TỈNH');
-        const qualifiesForFreeship = (isCity && productTotal > 1500000) || (isProvince && productTotal > 3000000);
-        const shippingFee = qualifiesForFreeship ? 0 : (orderData.DeliveryPrice || 0);
+        const qualifiesForFreeship =
+            (isCity && productTotal > 1500000) || (isProvince && productTotal > 3000000);
+        const shippingFee = qualifiesForFreeship ? 0 : orderData.DeliveryPrice || 0;
 
         const orderResult = {
             Number: orderData.Number || orderData.Reference,
@@ -884,7 +906,8 @@
             ReceiverPhone: orderData.ReceiverPhone || orderData.Phone,
             ReceiverAddress: orderData.ReceiverAddress,
             DeliveryPrice: shippingFee,
-            Discount: orderData.Discount || orderData.DecreaseAmount || orderData.DiscountAmount || 0,
+            Discount:
+                orderData.Discount || orderData.DecreaseAmount || orderData.DiscountAmount || 0,
             PaymentAmount: orderData.PaymentAmount || 0,
             UserName: orderData.UserName || '',
             AmountUntaxed: orderData.AmountUntaxed || orderData.AmountTotal || 0,
@@ -895,11 +918,13 @@
             Partner: {
                 Name: orderData.ReceiverName || orderData.PartnerName,
                 Phone: orderData.ReceiverPhone || orderData.Phone,
-                Street: orderData.ReceiverAddress
-            }
+                Street: orderData.ReceiverAddress,
+            },
         };
 
-        const billHtml = window.generateCustomBillHTML(orderResult, { walletBalance: orderData.PaymentAmount || 0 });
+        const billHtml = window.generateCustomBillHTML(orderResult, {
+            walletBalance: orderData.PaymentAmount || 0,
+        });
 
         // Use iframe to render bill HTML (preserves CSS)
         const iframe = document.createElement('iframe');
@@ -915,7 +940,7 @@
         doc.close();
 
         // Scale down the bill to fit preview (bill is 80mm wide)
-        iframe.onload = function() {
+        iframe.onload = function () {
             try {
                 const body = doc.body;
                 if (body) {
@@ -975,16 +1000,19 @@
         // Create modal overlay
         const overlay = document.createElement('div');
         overlay.id = 'orderDetailModal';
-        overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10001;';
+        overlay.style.cssText =
+            'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);display:flex;align-items:center;justify-content:center;z-index:10001;';
 
         // Create modal container
         const modal = document.createElement('div');
-        modal.style.cssText = 'background:#fff;border-radius:12px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);max-height:90vh;overflow:hidden;display:flex;flex-direction:column;';
+        modal.style.cssText =
+            'background:#fff;border-radius:12px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);max-height:90vh;overflow:hidden;display:flex;flex-direction:column;';
 
         // Check if generateCustomBillHTML is available
         if (typeof window.generateCustomBillHTML === 'function') {
             // Auto-detect carrier from address if CarrierName is empty
-            const carrierName = orderData.CarrierName || detectCarrierFromAddress(orderData.ReceiverAddress);
+            const carrierName =
+                orderData.CarrierName || detectCarrierFromAddress(orderData.ReceiverAddress);
 
             // Freeship conditions:
             // - THÀNH PHỐ: Tổng tiền hàng > 1,500,000đ
@@ -992,8 +1020,9 @@
             const productTotal = orderData.AmountUntaxed || orderData.AmountTotal || 0;
             const isCity = carrierName && carrierName.includes('THÀNH PHỐ');
             const isProvince = carrierName && carrierName.includes('SHIP TỈNH');
-            const qualifiesForFreeship = (isCity && productTotal > 1500000) || (isProvince && productTotal > 3000000);
-            const shippingFee = qualifiesForFreeship ? 0 : (orderData.DeliveryPrice || 0);
+            const qualifiesForFreeship =
+                (isCity && productTotal > 1500000) || (isProvince && productTotal > 3000000);
+            const shippingFee = qualifiesForFreeship ? 0 : orderData.DeliveryPrice || 0;
 
             // Transform localStorage data to match orderResult format
             const orderResult = {
@@ -1006,7 +1035,8 @@
                 ReceiverPhone: orderData.ReceiverPhone || orderData.Phone,
                 ReceiverAddress: orderData.ReceiverAddress,
                 DeliveryPrice: shippingFee,
-                Discount: orderData.Discount || orderData.DecreaseAmount || orderData.DiscountAmount || 0,
+                Discount:
+                    orderData.Discount || orderData.DecreaseAmount || orderData.DiscountAmount || 0,
                 PaymentAmount: orderData.PaymentAmount || 0,
                 UserName: orderData.UserName || '',
                 AmountUntaxed: orderData.AmountUntaxed || orderData.AmountTotal || 0,
@@ -1017,11 +1047,13 @@
                 Partner: {
                     Name: orderData.ReceiverName || orderData.PartnerName,
                     Phone: orderData.ReceiverPhone || orderData.Phone,
-                    Street: orderData.ReceiverAddress
-                }
+                    Street: orderData.ReceiverAddress,
+                },
             };
 
-            const billHtml = window.generateCustomBillHTML(orderResult, { walletBalance: orderData.PaymentAmount || 0 });
+            const billHtml = window.generateCustomBillHTML(orderResult, {
+                walletBalance: orderData.PaymentAmount || 0,
+            });
 
             // Use iframe to render bill HTML (preserves CSS)
             const iframe = document.createElement('iframe');
@@ -1030,8 +1062,10 @@
 
             // Close button
             const closeBtn = document.createElement('div');
-            closeBtn.style.cssText = 'padding:12px 16px; text-align:center; border-top:1px solid #e5e7eb;';
-            closeBtn.innerHTML = '<button onclick="document.getElementById(\'orderDetailModal\').remove()" style="padding:10px 24px; background:#6366f1; color:#fff; border:none; border-radius:6px; cursor:pointer; font-weight:500;">Đóng</button>';
+            closeBtn.style.cssText =
+                'padding:12px 16px; text-align:center; border-top:1px solid #e5e7eb;';
+            closeBtn.innerHTML =
+                '<button onclick="document.getElementById(\'orderDetailModal\').remove()" style="padding:10px 24px; background:#6366f1; color:#fff; border:none; border-radius:6px; cursor:pointer; font-weight:500;">Đóng</button>';
             modal.appendChild(closeBtn);
 
             overlay.appendChild(modal);
@@ -1076,7 +1110,7 @@
 
     function debounce(func, wait) {
         let timeout;
-        return function(...args) {
+        return function (...args) {
             clearTimeout(timeout);
             timeout = setTimeout(() => func.apply(this, args), wait);
         };
@@ -1105,7 +1139,9 @@
         document.getElementById('orderHistoryCampaign')?.addEventListener('change', loadHistory);
 
         // Search with debounce (300ms) - client-side on loaded data
-        document.getElementById('orderHistorySearch')?.addEventListener('input', debounce(applyFilters, 300));
+        document
+            .getElementById('orderHistorySearch')
+            ?.addEventListener('input', debounce(applyFilters, 300));
 
         // Source filter (immediate) - client-side
         document.getElementById('orderHistorySource')?.addEventListener('change', applyFilters);
@@ -1135,7 +1171,7 @@
         showOrderDetails,
         showBillPreview,
         hideBillPreview,
-        getOrderFromLocalStorage
+        getOrderFromLocalStorage,
     };
 
     if (document.readyState === 'loading') {
@@ -1143,5 +1179,4 @@
     } else {
         setTimeout(init, 500);
     }
-
 })();

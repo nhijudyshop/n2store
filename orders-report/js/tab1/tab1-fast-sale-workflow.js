@@ -25,23 +25,35 @@
     const _deleteBaseStore = new BaseStore({
         collectionPath: DELETE_FIRESTORE_COLLECTION,
         localStorageKey: DELETE_STORAGE_KEY,
-        maxLocalAge: DELETE_MAX_AGE_DAYS * 24 * 60 * 60 * 1000
+        maxLocalAge: DELETE_MAX_AGE_DAYS * 24 * 60 * 60 * 1000,
     });
 
     const InvoiceStatusDeleteStore = {
         /** @returns {Map} Internal data map (delegated to BaseStore) */
-        get _data() { return _deleteBaseStore._data; },
-        set _data(val) { _deleteBaseStore._data = val; },
+        get _data() {
+            return _deleteBaseStore._data;
+        },
+        set _data(val) {
+            _deleteBaseStore._data = val;
+        },
 
         /** @returns {boolean} Whether store is initialized (delegated to BaseStore) */
-        get _initialized() { return _deleteBaseStore._initialized; },
-        set _initialized(val) { _deleteBaseStore._initialized = val; },
+        get _initialized() {
+            return _deleteBaseStore._initialized;
+        },
+        set _initialized(val) {
+            _deleteBaseStore._initialized = val;
+        },
 
         /** @returns {Function|null} Firestore listener unsubscribe (delegated to BaseStore) */
-        get _unsubscribe() { return _deleteBaseStore._unsubscribe; },
-        set _unsubscribe(val) { _deleteBaseStore._unsubscribe = val; },
+        get _unsubscribe() {
+            return _deleteBaseStore._unsubscribe;
+        },
+        set _unsubscribe(val) {
+            _deleteBaseStore._unsubscribe = val;
+        },
 
-        _isListening: false,       // Flag to prevent save loops when receiving updates
+        _isListening: false, // Flag to prevent save loops when receiving updates
 
         /**
          * Initialize store from Firestore (source of truth)
@@ -51,14 +63,13 @@
             if (this._initialized) return;
 
             try {
-                // 1. Load from Firestore FIRST (source of truth)
+                // 1. Load from Firestore (sole source of truth - no localStorage cache)
                 const loadedFromFirestore = await this._loadFromFirestore();
 
-                // 2. Nếu không load được từ Firestore, fallback to localStorage (offline mode)
                 if (!loadedFromFirestore) {
-                    // Use BaseStore's localStorage loading
-                    _deleteBaseStore._loadFromLocal();
-                    console.log(`[INVOICE-DELETE] Offline mode - loaded ${this._data.size} entries from localStorage cache`);
+                    console.warn(
+                        '[INVOICE-DELETE] Offline - Firestore unavailable, store is empty'
+                    );
                 }
 
                 // 3. Cleanup old entries (>14 days) - delegate to BaseStore
@@ -80,10 +91,13 @@
         _getDocRef() {
             const db = firebase.firestore();
             // Get username from authManager or fallback to localStorage
-            const authData = window.authManager?.getAuthData?.() || window.authManager?.getAuthState?.();
+            const authData =
+                window.authManager?.getAuthData?.() || window.authManager?.getAuthState?.();
             const userType = authData?.userType || localStorage.getItem('userType') || '';
             const username = authData?.username || userType.split('-')[0] || 'default';
-            console.log(`[INVOICE-DELETE] Using Firestore doc: ${DELETE_FIRESTORE_COLLECTION}/${username}`);
+            console.log(
+                `[INVOICE-DELETE] Using Firestore doc: ${DELETE_FIRESTORE_COLLECTION}/${username}`
+            );
             return db.collection(DELETE_FIRESTORE_COLLECTION).doc(username);
         },
 
@@ -92,11 +106,14 @@
          */
         _saveToLocalStorage() {
             try {
-                localStorage.setItem(DELETE_STORAGE_KEY, JSON.stringify({
-                    data: Array.from(this._data.entries()),
-                    timestamp: Date.now(),
-                    version: 1
-                }));
+                localStorage.setItem(
+                    DELETE_STORAGE_KEY,
+                    JSON.stringify({
+                        data: Array.from(this._data.entries()),
+                        timestamp: Date.now(),
+                        version: 1,
+                    })
+                );
                 console.log(`[INVOICE-DELETE] Saved to localStorage: ${this._data.size} entries`);
             } catch (e) {
                 console.error('[INVOICE-DELETE] Error saving to localStorage:', e);
@@ -125,9 +142,9 @@
                     }
                 }
 
-                console.log(`[INVOICE-DELETE] Loaded ${this._data.size} entries from Firestore (source of truth)`);
-                // Cache to localStorage
-                this._saveToLocalStorage();
+                console.log(
+                    `[INVOICE-DELETE] Loaded ${this._data.size} entries from Firestore (source of truth)`
+                );
                 return true;
             } catch (e) {
                 console.error('[INVOICE-DELETE] Error loading from Firestore:', e);
@@ -141,7 +158,9 @@
         _cleanForFirestore(obj) {
             if (obj === null || typeof obj !== 'object') return obj;
             if (Array.isArray(obj)) {
-                return obj.map(item => this._cleanForFirestore(item)).filter(item => item !== undefined);
+                return obj
+                    .map((item) => this._cleanForFirestore(item))
+                    .filter((item) => item !== undefined);
             }
             const cleaned = {};
             for (const [key, value] of Object.entries(obj)) {
@@ -153,16 +172,15 @@
         },
 
         /**
-         * Save to localStorage and sync to Firestore
+         * Save to Firestore (sole source of truth)
          */
         async _save() {
             try {
-                // Save to localStorage (using BaseStore-compatible format)
-                this._saveToLocalStorage();
-
                 // Skip Firestore save if currently receiving real-time updates (avoid infinite loops)
                 if (this._isListening) {
-                    console.log(`[INVOICE-DELETE] Skipping Firestore save (receiving real-time updates)`);
+                    console.log(
+                        `[INVOICE-DELETE] Skipping Firestore save (receiving real-time updates)`
+                    );
                     return;
                 }
 
@@ -170,14 +188,21 @@
                 // Uses merge:true for add/update, delete uses FieldValue.delete() separately
                 if (typeof firebase !== 'undefined' && firebase.firestore) {
                     const docRef = this._getDocRef();
-                    console.log(`[INVOICE-DELETE] Saving to Firestore collection: ${DELETE_FIRESTORE_COLLECTION}`);
+                    console.log(
+                        `[INVOICE-DELETE] Saving to Firestore collection: ${DELETE_FIRESTORE_COLLECTION}`
+                    );
                     // Clean data to remove undefined values (Firestore doesn't accept them)
                     const dataObj = Object.fromEntries(this._data);
                     const cleanedData = this._cleanForFirestore(dataObj);
-                    await docRef.set({ data: cleanedData, lastUpdated: Date.now() }, { merge: true });
+                    await docRef.set(
+                        { data: cleanedData, lastUpdated: Date.now() },
+                        { merge: true }
+                    );
                     console.log(`[INVOICE-DELETE] Synced to Firestore successfully`);
                 } else {
-                    console.warn('[INVOICE-DELETE] Firebase not available, skipping Firestore sync');
+                    console.warn(
+                        '[INVOICE-DELETE] Firebase not available, skipping Firestore sync'
+                    );
                 }
             } catch (e) {
                 console.error('[INVOICE-DELETE] Error saving:', e);
@@ -195,12 +220,14 @@
             }
 
             console.log('[INVOICE-DELETE] Setting up real-time listener...');
-            this._unsubscribe = this._getDocRef()
-                .onSnapshot((doc) => {
+            this._unsubscribe = this._getDocRef().onSnapshot(
+                (doc) => {
                     this._handleDocSnapshot(doc);
-                }, (error) => {
+                },
+                (error) => {
                     console.error('[INVOICE-DELETE] Real-time listener error:', error);
-                });
+                }
+            );
         },
 
         /**
@@ -225,7 +252,10 @@
                     entries.forEach(([key, value]) => {
                         const existingEntry = this._data.get(key);
                         // Only update if entry doesn't exist locally or server data is newer
-                        if (!existingEntry || (value.deletedAt && value.deletedAt > (existingEntry.deletedAt || 0))) {
+                        if (
+                            !existingEntry ||
+                            (value.deletedAt && value.deletedAt > (existingEntry.deletedAt || 0))
+                        ) {
                             this._data.set(key, value);
                             hasChanges = true;
                             console.log(`[INVOICE-DELETE] Real-time: Entry ${key} added/updated`);
@@ -239,16 +269,16 @@
                         if (!serverKeys.has(key)) {
                             this._data.delete(key);
                             hasChanges = true;
-                            console.log(`[INVOICE-DELETE] Real-time: Entry ${key} removed (deleted on server)`);
+                            console.log(
+                                `[INVOICE-DELETE] Real-time: Entry ${key} removed (deleted on server)`
+                            );
                         }
                     });
                 }
             }
 
-            // Update localStorage cache if there were changes
             if (hasChanges) {
-                this._saveToLocalStorage();
-                console.log('[INVOICE-DELETE] Real-time: localStorage cache updated');
+                console.log('[INVOICE-DELETE] Real-time: data updated from Firestore');
             }
 
             // Reset flag
@@ -277,8 +307,11 @@
             const key = `${String(saleOnlineId)}_${timestamp}`;
 
             // Get username from authManager
-            const authData = window.authManager?.getAuthData?.() || window.authManager?.getAuthState?.();
-            const username = authData?.username || (authData?.userType ? authData.userType.split('-')[0] : 'unknown');
+            const authData =
+                window.authManager?.getAuthData?.() || window.authManager?.getAuthState?.();
+            const username =
+                authData?.username ||
+                (authData?.userType ? authData.userType.split('-')[0] : 'unknown');
             // Get displayName from Firebase users collection (same as currentUserIdentifier)
             const displayName = window.currentUserIdentifier || username;
 
@@ -290,13 +323,15 @@
                 deletedBy: username,
                 deletedByDisplayName: displayName, // Tên hiển thị từ Firebase (VD: "HẠNH", "HUYÊN")
                 isOldVersion: false, // Đánh dấu version mới
-                hidden: false // Trạng thái ẩn/hiện - mặc định là hiện
+                hidden: false, // Trạng thái ẩn/hiện - mặc định là hiện
             };
 
             this._data.set(key, entry);
             await this._save();
 
-            console.log(`[INVOICE-DELETE] Added cancelled order: ${saleOnlineId} (key: ${key}), reason: ${reason}`);
+            console.log(
+                `[INVOICE-DELETE] Added cancelled order: ${saleOnlineId} (key: ${key}), reason: ${reason}`
+            );
             return entry;
         },
 
@@ -332,14 +367,13 @@
 
             // Remove from local _data
             this._data.delete(key);
-            this._saveToLocalStorage();
 
             // Delete specific field from Firestore using FieldValue.delete()
             try {
                 if (typeof firebase !== 'undefined' && firebase.firestore) {
                     await this._getDocRef().update({
                         [`data.${key}`]: firebase.firestore.FieldValue.delete(),
-                        lastUpdated: Date.now()
+                        lastUpdated: Date.now(),
                     });
                     console.log(`[INVOICE-DELETE] Deleted entry from Firestore: ${key}`);
                 }
@@ -353,10 +387,11 @@
         },
 
         /**
-         * Get cancelled order data
+         * localStorage cache removed - Firestore is sole source of truth.
+         * Kept as no-op to avoid breaking callers.
          */
-        get(saleOnlineId) {
-            return this._data.get(String(saleOnlineId));
+        _saveToLocalStorage() {
+            // No-op: Firestore is source of truth, localStorage no longer used
         },
 
         /**
@@ -383,18 +418,25 @@
             let removed = 0;
             const keysToRemove = [];
             this._data.forEach((value, key) => {
-                if (value.deletedAt && !value.timestamp && !value.lastUpdated && (now - value.deletedAt) > maxAge) {
+                if (
+                    value.deletedAt &&
+                    !value.timestamp &&
+                    !value.lastUpdated &&
+                    now - value.deletedAt > maxAge
+                ) {
                     keysToRemove.push(key);
                     removed++;
                 }
             });
-            keysToRemove.forEach(key => this._data.delete(key));
+            keysToRemove.forEach((key) => this._data.delete(key));
 
             if (removed > 0) {
-                console.log(`[INVOICE-DELETE] Cleaned up ${removed} old entries (>${DELETE_MAX_AGE_DAYS} days)`);
+                console.log(
+                    `[INVOICE-DELETE] Cleaned up ${removed} old entries (>${DELETE_MAX_AGE_DAYS} days)`
+                );
                 await this._save();
             }
-        }
+        },
     };
 
     // =====================================================
@@ -405,7 +447,7 @@
 
     const WorkflowSettings = {
         _settings: {
-            autoSendBillOnSuccess: false // Mặc định tắt
+            autoSendBillOnSuccess: false, // Mặc định tắt
         },
 
         load() {
@@ -431,7 +473,7 @@
         set autoSendBillOnSuccess(value) {
             this._settings.autoSendBillOnSuccess = value;
             this.save();
-        }
+        },
     };
 
     // Initialize settings
@@ -520,7 +562,9 @@
      */
     async function confirmCancelOrder(index) {
         // Block double-click: check if button is already disabled
-        const confirmBtn = document.querySelector('#cancelOrderModal button[onclick*="confirmCancelOrder"]');
+        const confirmBtn = document.querySelector(
+            '#cancelOrderModal button[onclick*="confirmCancelOrder"]'
+        );
         if (confirmBtn?.disabled) {
             console.warn('[WORKFLOW] ⚠️ Cancel button already disabled, ignoring duplicate click');
             return;
@@ -561,19 +605,28 @@
             const fastSaleOrderId = parseInt(order.Id, 10);
             if (fastSaleOrderId && !isNaN(fastSaleOrderId)) {
                 console.log(`[WORKFLOW] Calling TPOS API to cancel order ID: ${fastSaleOrderId}`);
-                const cancelResponse = await window.tokenManager.authenticatedFetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/ODataService.ActionCancel', {
-                    method: 'POST',
-                    headers: {
-                        'accept': 'application/json',
-                        'content-type': 'application/json'
-                    },
-                    body: JSON.stringify({ ids: [fastSaleOrderId] })
-                });
+                const cancelResponse = await window.tokenManager.authenticatedFetch(
+                    'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/ODataService.ActionCancel',
+                    {
+                        method: 'POST',
+                        headers: {
+                            accept: 'application/json',
+                            'content-type': 'application/json',
+                        },
+                        body: JSON.stringify({ ids: [fastSaleOrderId] }),
+                    }
+                );
 
                 if (!cancelResponse.ok) {
                     const errorText = await cancelResponse.text();
-                    console.error('[WORKFLOW] TPOS cancel API error:', cancelResponse.status, errorText);
-                    window.notificationManager?.error(`Lỗi hủy đơn trên TPOS: ${cancelResponse.status}`);
+                    console.error(
+                        '[WORKFLOW] TPOS cancel API error:',
+                        cancelResponse.status,
+                        errorText
+                    );
+                    window.notificationManager?.error(
+                        `Lỗi hủy đơn trên TPOS: ${cancelResponse.status}`
+                    );
                     return;
                 }
 
@@ -582,15 +635,21 @@
                 const cancelResult = responseText ? JSON.parse(responseText) : { success: true };
                 console.log('[WORKFLOW] TPOS cancel result:', cancelResult);
             } else {
-                console.warn('[WORKFLOW] No valid FastSaleOrder ID found, skipping TPOS cancel API');
+                console.warn(
+                    '[WORKFLOW] No valid FastSaleOrder ID found, skipping TPOS cancel API'
+                );
             }
 
             // Step 2: Save to delete store
-            await InvoiceStatusDeleteStore.add(saleOnlineId, {
-                ...invoiceData,
-                ...order,
-                SaleOnlineId: saleOnlineId
-            }, reason);
+            await InvoiceStatusDeleteStore.add(
+                saleOnlineId,
+                {
+                    ...invoiceData,
+                    ...order,
+                    SaleOnlineId: saleOnlineId,
+                },
+                reason
+            );
 
             // Step 3: Delete from InvoiceStatusStore (localStorage + Firebase)
             if (window.InvoiceStatusStore?.delete) {
@@ -617,18 +676,30 @@
 
             // Step 6: Log cancel activity & refund wallet (async, non-blocking)
             const orderNumber = order.Number || order.Reference || '';
-            const customerPhone = order.Partner?.Phone || order.PartnerPhone || order.Partner?.PartnerPhone || order.ReceiverPhone || order.Phone || '';
+            const customerPhone =
+                order.Partner?.Phone ||
+                order.PartnerPhone ||
+                order.Partner?.PartnerPhone ||
+                order.ReceiverPhone ||
+                order.Phone ||
+                '';
             if (customerPhone) {
                 logCancelOrderActivity(customerPhone, orderNumber, order, reason);
             } else {
-                console.warn(`[WORKFLOW] No phone found for cancel activity, order: ${orderNumber}`);
+                console.warn(
+                    `[WORKFLOW] No phone found for cancel activity, order: ${orderNumber}`
+                );
             }
 
-            window.notificationManager?.success(`Đã lưu yêu cầu hủy đơn + gắn lại tag OK: ${order.Number || order.Reference}`);
+            window.notificationManager?.success(
+                `Đã lưu yêu cầu hủy đơn + gắn lại tag OK: ${order.Number || order.Reference}`
+            );
             closeCancelOrderModal();
 
             // Update results modal UI - mark as cancelled
-            const row = document.querySelector(`.success-order-checkbox[data-order-id="${order.Id}"]`)?.closest('tr');
+            const row = document
+                .querySelector(`.success-order-checkbox[data-order-id="${order.Id}"]`)
+                ?.closest('tr');
             if (row) {
                 row.style.backgroundColor = '#fef2f2';
                 row.style.opacity = '0.7';
@@ -657,7 +728,8 @@
             // Re-enable button on error
             if (confirmBtn) {
                 confirmBtn.disabled = false;
-                confirmBtn.innerHTML = originalBtnText || '<i class="fas fa-check"></i> Xác nhận hủy';
+                confirmBtn.innerHTML =
+                    originalBtnText || '<i class="fas fa-check"></i> Xác nhận hủy';
             }
         }
     }
@@ -676,7 +748,7 @@
 
         const pattern = namePattern.toUpperCase();
 
-        return window.availableTags.find(tag => {
+        return window.availableTags.find((tag) => {
             const tagName = (tag.Name || '').toUpperCase();
             if (exactMatch) {
                 return tagName === pattern;
@@ -690,8 +762,8 @@
      */
     function findTagByName(name) {
         if (!window.availableTags) return null;
-        return window.availableTags.find(tag =>
-            (tag.Name || '').toUpperCase() === name.toUpperCase()
+        return window.availableTags.find(
+            (tag) => (tag.Name || '').toUpperCase() === name.toUpperCase()
         );
     }
 
@@ -700,10 +772,23 @@
      */
     function generateRandomColor() {
         const colors = [
-            '#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16',
-            '#22c55e', '#10b981', '#14b8a6', '#06b6d4', '#0ea5e9',
-            '#3b82f6', '#6366f1', '#8b5cf6', '#a855f7', '#d946ef',
-            '#ec4899', '#f43f5e'
+            '#ef4444',
+            '#f97316',
+            '#f59e0b',
+            '#eab308',
+            '#84cc16',
+            '#22c55e',
+            '#10b981',
+            '#14b8a6',
+            '#06b6d4',
+            '#0ea5e9',
+            '#3b82f6',
+            '#6366f1',
+            '#8b5cf6',
+            '#a855f7',
+            '#d946ef',
+            '#ec4899',
+            '#f43f5e',
         ];
         return colors[Math.floor(Math.random() * colors.length)];
     }
@@ -733,13 +818,13 @@
                     method: 'POST',
                     headers: {
                         ...headers,
-                        'accept': 'application/json, text/plain, */*',
+                        accept: 'application/json, text/plain, */*',
                         'content-type': 'application/json;charset=UTF-8',
                     },
                     body: JSON.stringify({
                         Name: tagName.toUpperCase(),
-                        Color: color
-                    })
+                        Color: color,
+                    }),
                 }
             );
 
@@ -766,7 +851,7 @@
             // Update local tags list
             if (Array.isArray(window.availableTags)) {
                 window.availableTags.push(newTag);
-                window.cacheManager?.set("tags", window.availableTags, "tags");
+                window.cacheManager?.set('tags', window.availableTags, 'tags');
             }
 
             return newTag;
@@ -791,12 +876,12 @@
                     headers: {
                         ...headers,
                         'Content-Type': 'application/json',
-                        'Accept': 'application/json',
+                        Accept: 'application/json',
                     },
                     body: JSON.stringify({
-                        Tags: tags.map(t => ({ Id: t.Id, Color: t.Color, Name: t.Name })),
-                        OrderId: orderId
-                    })
+                        Tags: tags.map((t) => ({ Id: t.Id, Color: t.Color, Name: t.Name })),
+                        OrderId: orderId,
+                    }),
                 }
             );
 
@@ -804,7 +889,10 @@
                 throw new Error(`API Error: ${response.status}`);
             }
 
-            console.log(`[WORKFLOW] Assigned tags to order ${orderId}:`, tags.map(t => t.Name));
+            console.log(
+                `[WORKFLOW] Assigned tags to order ${orderId}:`,
+                tags.map((t) => t.Name)
+            );
             return true;
         } catch (e) {
             console.error(`[WORKFLOW] Error assigning tags to order ${orderId}:`, e);
@@ -819,7 +907,8 @@
      */
     async function removeTagFromOrder(orderId, tagNamePattern) {
         // Get current order tags from OrderStore or displayedData
-        const order = window.OrderStore?.get(orderId) || window.displayedData?.find(o => o.Id === orderId);
+        const order =
+            window.OrderStore?.get(orderId) || window.displayedData?.find((o) => o.Id === orderId);
         if (!order) {
             console.error(`[WORKFLOW] Order not found: ${orderId}`);
             return false;
@@ -838,7 +927,7 @@
 
         // Filter out tags matching the pattern
         const pattern = tagNamePattern.toUpperCase();
-        const newTags = currentTags.filter(tag => {
+        const newTags = currentTags.filter((tag) => {
             const tagName = (tag.Name || '').toUpperCase();
             return !tagName.startsWith(pattern);
         });
@@ -854,7 +943,8 @@
      */
     async function addTagToOrder(orderId, tagToAdd) {
         // Get current order tags
-        const order = window.OrderStore?.get(orderId) || window.displayedData?.find(o => o.Id === orderId);
+        const order =
+            window.OrderStore?.get(orderId) || window.displayedData?.find((o) => o.Id === orderId);
         if (!order) {
             console.error(`[WORKFLOW] Order not found: ${orderId}`);
             return false;
@@ -872,7 +962,7 @@
         }
 
         // Check if tag already exists
-        if (currentTags.some(t => t.Id === tagToAdd.Id)) {
+        if (currentTags.some((t) => t.Id === tagToAdd.Id)) {
             console.log(`[WORKFLOW] Tag "${tagToAdd.Name}" already exists on order ${orderId}`);
             return true;
         }
@@ -908,11 +998,13 @@
         const success = await addTagToOrder(saleOnlineId, {
             Id: amMaTag.Id,
             Name: amMaTag.Name,
-            Color: amMaTag.Color
+            Color: amMaTag.Color,
         });
 
         if (success) {
-            console.log(`[WORKFLOW] Added "Âm Mã" tag to failed order: ${order.Reference || saleOnlineId}`);
+            console.log(
+                `[WORKFLOW] Added "Âm Mã" tag to failed order: ${order.Reference || saleOnlineId}`
+            );
         }
 
         return success;
@@ -943,7 +1035,9 @@
             window.notificationManager?.info(`Đã gắn tag "Âm Mã" cho ${successCount} đơn thất bại`);
         }
 
-        console.log(`[WORKFLOW] Failed orders processed: ${successCount} success, ${failCount} failed`);
+        console.log(
+            `[WORKFLOW] Failed orders processed: ${successCount} success, ${failCount} failed`
+        );
     }
 
     /**
@@ -954,8 +1048,8 @@
         if (!successOrders || successOrders.length === 0) return;
 
         // Filter orders with "Đã thanh toán" or "Đã xác nhận"
-        const ordersToProcess = successOrders.filter(order =>
-            order.ShowState === 'Đã thanh toán' || order.ShowState === 'Đã xác nhận'
+        const ordersToProcess = successOrders.filter(
+            (order) => order.ShowState === 'Đã thanh toán' || order.ShowState === 'Đã xác nhận'
         );
 
         if (ordersToProcess.length === 0) {
@@ -963,7 +1057,9 @@
             return;
         }
 
-        console.log(`[WORKFLOW] Auto removing "OK + NV" tag from ${ordersToProcess.length} successful orders...`);
+        console.log(
+            `[WORKFLOW] Auto removing "OK + NV" tag from ${ordersToProcess.length} successful orders...`
+        );
 
         let successCount = 0;
         for (const order of ordersToProcess) {
@@ -971,7 +1067,9 @@
             if (!saleOnlineId) continue;
 
             // Store the removed tag info for potential re-add on cancel
-            const orderData = window.OrderStore?.get(saleOnlineId) || window.displayedData?.find(o => o.Id === saleOnlineId);
+            const orderData =
+                window.OrderStore?.get(saleOnlineId) ||
+                window.displayedData?.find((o) => o.Id === saleOnlineId);
             let currentTags = [];
             try {
                 if (typeof orderData?.Tags === 'string') {
@@ -984,7 +1082,7 @@
             }
 
             // Find "OK + NV" tag to store for later re-add
-            const okTag = currentTags.find(t => (t.Name || '').toUpperCase().startsWith('OK '));
+            const okTag = currentTags.find((t) => (t.Name || '').toUpperCase().startsWith('OK '));
             if (okTag) {
                 // Store in order object for re-add on cancel
                 order._removedOkTag = okTag;
@@ -997,7 +1095,9 @@
         }
 
         if (successCount > 0) {
-            window.notificationManager?.success(`Đã gỡ tag "OK + NV" cho ${successCount} đơn thành công`);
+            window.notificationManager?.success(
+                `Đã gỡ tag "OK + NV" cho ${successCount} đơn thành công`
+            );
         }
 
         console.log(`[WORKFLOW] Success orders processed: ${successCount} tags removed`);
@@ -1008,7 +1108,11 @@
      * @param {array} successOrders - Array of success order data
      */
     async function autoSendBillsIfEnabled(successOrders) {
-        console.log('[WORKFLOW] autoSendBillsIfEnabled called with', successOrders?.length, 'orders');
+        console.log(
+            '[WORKFLOW] autoSendBillsIfEnabled called with',
+            successOrders?.length,
+            'orders'
+        );
 
         // Check setting from Bill Template Settings
         const billSettings = window.getBillTemplateSettings ? window.getBillTemplateSettings() : {};
@@ -1022,10 +1126,15 @@
         if (!successOrders || successOrders.length === 0) return;
 
         // Filter orders with "Đã thanh toán" or "Đã xác nhận"
-        const ordersToSend = successOrders.filter(order =>
-            order.ShowState === 'Đã thanh toán' || order.ShowState === 'Đã xác nhận'
+        const ordersToSend = successOrders.filter(
+            (order) => order.ShowState === 'Đã thanh toán' || order.ShowState === 'Đã xác nhận'
         );
-        console.log('[WORKFLOW] Orders eligible (Đã thanh toán/Đã xác nhận):', ordersToSend.length, 'ShowStates:', successOrders.map(o => o.ShowState));
+        console.log(
+            '[WORKFLOW] Orders eligible (Đã thanh toán/Đã xác nhận):',
+            ordersToSend.length,
+            'ShowStates:',
+            successOrders.map((o) => o.ShowState)
+        );
 
         if (ordersToSend.length === 0) {
             console.log('[WORKFLOW] No orders eligible for auto bill sending');
@@ -1052,7 +1161,7 @@
             }
 
             // Small delay between sends
-            await new Promise(resolve => setTimeout(resolve, 500));
+            await new Promise((resolve) => setTimeout(resolve, 500));
         }
 
         if (sentCount > 0) {
@@ -1082,7 +1191,7 @@
         }
 
         // Try to find order from displayedData for additional info (optional)
-        const orderData = window.displayedData?.find(o => o.Id === orderId);
+        const orderData = window.displayedData?.find((o) => o.Id === orderId);
 
         // Create a compatible order object using invoiceData as primary source
         const order = {
@@ -1090,12 +1199,15 @@
             SaleOnlineIds: [orderId], // Main table: orderId IS the SaleOnlineId (e.g., 15810000-5d48-...)
             Reference: invoiceData.Reference || orderData?.Code || orderData?.Reference,
             Number: invoiceData.Number,
-            PartnerDisplayName: invoiceData.PartnerDisplayName || invoiceData.ReceiverName || orderData?.PartnerDisplayName,
+            PartnerDisplayName:
+                invoiceData.PartnerDisplayName ||
+                invoiceData.ReceiverName ||
+                orderData?.PartnerDisplayName,
             ShowState: invoiceData.ShowState,
             // Phone fields for wallet refund on cancel
             ReceiverPhone: invoiceData.ReceiverPhone || orderData?.Telephone || '',
             Phone: invoiceData.ReceiverPhone || orderData?.Telephone || '',
-            AmountTotal: invoiceData.AmountTotal || orderData?.AmountTotal || 0
+            AmountTotal: invoiceData.AmountTotal || orderData?.AmountTotal || 0,
         };
 
         // Store in a temporary global for confirmCancelOrder to access
@@ -1106,7 +1218,8 @@
         let carrierName = invoiceData.CarrierName;
         if (!carrierName && invoiceData.ReceiverAddress) {
             const normalized = invoiceData.ReceiverAddress.toLowerCase()
-                .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '');
 
             // District mappings
             const districts20k = ['1', '3', '4', '5', '6', '7', '8', '10', '11'];
@@ -1116,11 +1229,23 @@
             const districts35kTP = ['9'];
             const named35kTP = ['binh chanh', 'nha be', 'hoc mon'];
             const shipTinh = ['cu chi', 'can gio'];
-            const provinceKeywords = ['tinh', 'province', 'binh duong', 'dong nai', 'long an', 'tay ninh', 'ba ria', 'can tho'];
+            const provinceKeywords = [
+                'tinh',
+                'province',
+                'binh duong',
+                'dong nai',
+                'long an',
+                'tay ninh',
+                'ba ria',
+                'can tho',
+            ];
 
             // Use extractDistrictFromAddress if available
             if (typeof window.extractDistrictFromAddress === 'function') {
-                const districtInfo = window.extractDistrictFromAddress(invoiceData.ReceiverAddress, null);
+                const districtInfo = window.extractDistrictFromAddress(
+                    invoiceData.ReceiverAddress,
+                    null
+                );
                 if (districtInfo.isProvince) {
                     carrierName = 'SHIP TỈNH';
                 } else if (districtInfo.districtNumber) {
@@ -1133,13 +1258,16 @@
 
             // Fallback pattern matching if not detected yet
             if (!carrierName) {
-                if (shipTinh.some(kw => normalized.includes(kw)) || provinceKeywords.some(kw => normalized.includes(kw))) {
+                if (
+                    shipTinh.some((kw) => normalized.includes(kw)) ||
+                    provinceKeywords.some((kw) => normalized.includes(kw))
+                ) {
                     carrierName = 'SHIP TỈNH';
-                } else if (named35kTP.some(kw => normalized.includes(kw))) {
+                } else if (named35kTP.some((kw) => normalized.includes(kw))) {
                     carrierName = 'THÀNH PHỐ (35.000 đ)';
-                } else if (named30k.some(kw => normalized.includes(kw))) {
+                } else if (named30k.some((kw) => normalized.includes(kw))) {
                     carrierName = 'THÀNH PHỐ (30.000 đ)';
-                } else if (named20k.some(kw => normalized.includes(kw))) {
+                } else if (named20k.some((kw) => normalized.includes(kw))) {
                     carrierName = 'THÀNH PHỐ (20.000 đ)';
                 } else {
                     // Check district number pattern
@@ -1179,8 +1307,8 @@
             Partner: {
                 Name: invoiceData.ReceiverName,
                 Phone: invoiceData.ReceiverPhone,
-                Street: invoiceData.ReceiverAddress
-            }
+                Street: invoiceData.ReceiverAddress,
+            },
         };
 
         // Create modal HTML with bill preview section
@@ -1250,7 +1378,8 @@
                 if (billHTML) {
                     // Use iframe to display bill
                     const iframe = document.createElement('iframe');
-                    iframe.style.cssText = 'width: 100%; height: 600px; border: none; background: white;';
+                    iframe.style.cssText =
+                        'width: 100%; height: 600px; border: none; background: white;';
                     previewContainer.innerHTML = '';
                     previewContainer.appendChild(iframe);
 
@@ -1259,11 +1388,13 @@
                     iframeDoc.write(billHTML);
                     iframeDoc.close();
                 } else {
-                    previewContainer.innerHTML = '<p style="color: #9ca3af; padding: 20px; text-align: center;">Không thể tạo bill preview</p>';
+                    previewContainer.innerHTML =
+                        '<p style="color: #9ca3af; padding: 20px; text-align: center;">Không thể tạo bill preview</p>';
                 }
             } catch (e) {
                 console.error('[WORKFLOW] Error generating bill preview:', e);
-                previewContainer.innerHTML = '<p style="color: #ef4444; padding: 20px; text-align: center;">Lỗi tạo bill</p>';
+                previewContainer.innerHTML =
+                    '<p style="color: #ef4444; padding: 20px; text-align: center;">Lỗi tạo bill</p>';
             }
         }
     }
@@ -1273,7 +1404,9 @@
      */
     async function confirmCancelOrderFromMain() {
         // Block double-click: check if button is already disabled
-        const cancelBtn = document.querySelector('#cancelOrderModal button[onclick*="confirmCancelOrderFromMain"]');
+        const cancelBtn = document.querySelector(
+            '#cancelOrderModal button[onclick*="confirmCancelOrderFromMain"]'
+        );
         if (cancelBtn?.disabled) {
             console.warn('[WORKFLOW] ⚠️ Cancel button already disabled, ignoring duplicate click');
             return;
@@ -1314,19 +1447,28 @@
             const fastSaleOrderId = parseInt(order.Id, 10);
             if (fastSaleOrderId && !isNaN(fastSaleOrderId)) {
                 console.log(`[WORKFLOW] Calling TPOS API to cancel order ID: ${fastSaleOrderId}`);
-                const cancelResponse = await window.tokenManager.authenticatedFetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/ODataService.ActionCancel', {
-                    method: 'POST',
-                    headers: {
-                        'accept': 'application/json',
-                        'content-type': 'application/json'
-                    },
-                    body: JSON.stringify({ ids: [fastSaleOrderId] })
-                });
+                const cancelResponse = await window.tokenManager.authenticatedFetch(
+                    'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/ODataService.ActionCancel',
+                    {
+                        method: 'POST',
+                        headers: {
+                            accept: 'application/json',
+                            'content-type': 'application/json',
+                        },
+                        body: JSON.stringify({ ids: [fastSaleOrderId] }),
+                    }
+                );
 
                 if (!cancelResponse.ok) {
                     const errorText = await cancelResponse.text();
-                    console.error('[WORKFLOW] TPOS cancel API error:', cancelResponse.status, errorText);
-                    window.notificationManager?.error(`Lỗi hủy đơn trên TPOS: ${cancelResponse.status}`);
+                    console.error(
+                        '[WORKFLOW] TPOS cancel API error:',
+                        cancelResponse.status,
+                        errorText
+                    );
+                    window.notificationManager?.error(
+                        `Lỗi hủy đơn trên TPOS: ${cancelResponse.status}`
+                    );
                     return;
                 }
 
@@ -1335,15 +1477,21 @@
                 const cancelResult = responseText ? JSON.parse(responseText) : { success: true };
                 console.log('[WORKFLOW] TPOS cancel result:', cancelResult);
             } else {
-                console.warn('[WORKFLOW] No valid FastSaleOrder ID found, skipping TPOS cancel API');
+                console.warn(
+                    '[WORKFLOW] No valid FastSaleOrder ID found, skipping TPOS cancel API'
+                );
             }
 
             // Step 2: Save to delete store
-            await InvoiceStatusDeleteStore.add(saleOnlineId, {
-                ...invoiceData,
-                ...order,
-                SaleOnlineId: saleOnlineId
-            }, reason);
+            await InvoiceStatusDeleteStore.add(
+                saleOnlineId,
+                {
+                    ...invoiceData,
+                    ...order,
+                    SaleOnlineId: saleOnlineId,
+                },
+                reason
+            );
 
             // Step 3: Delete from InvoiceStatusStore (localStorage + Firebase)
             if (window.InvoiceStatusStore?.delete) {
@@ -1370,14 +1518,24 @@
 
             // Step 6: Log cancel activity & refund wallet (async, non-blocking)
             const orderNumber = order.Number || order.Reference || '';
-            const customerPhone = order.Partner?.Phone || order.PartnerPhone || order.Partner?.PartnerPhone || order.ReceiverPhone || order.Phone || '';
+            const customerPhone =
+                order.Partner?.Phone ||
+                order.PartnerPhone ||
+                order.Partner?.PartnerPhone ||
+                order.ReceiverPhone ||
+                order.Phone ||
+                '';
             if (customerPhone) {
                 logCancelOrderActivity(customerPhone, orderNumber, order, reason);
             } else {
-                console.warn(`[WORKFLOW] No phone found for cancel activity, order: ${orderNumber}`);
+                console.warn(
+                    `[WORKFLOW] No phone found for cancel activity, order: ${orderNumber}`
+                );
             }
 
-            window.notificationManager?.success(`Đã lưu yêu cầu hủy đơn: ${order.Number || order.Reference}`);
+            window.notificationManager?.success(
+                `Đã lưu yêu cầu hủy đơn: ${order.Number || order.Reference}`
+            );
             closeCancelOrderModal();
 
             // Update main table UI - show "−" since invoice was deleted
@@ -1391,7 +1549,6 @@
 
             // Clear temp data
             delete window._cancelOrderFromMain;
-
         } catch (error) {
             console.error('[WORKFLOW] Error saving cancel order:', error);
             window.notificationManager?.error('Lỗi lưu yêu cầu hủy đơn');
@@ -1399,7 +1556,8 @@
             // Re-enable button on error
             if (cancelBtn) {
                 cancelBtn.disabled = false;
-                cancelBtn.innerHTML = originalBtnText || '<i class="fas fa-check"></i> Xác nhận hủy';
+                cancelBtn.innerHTML =
+                    originalBtnText || '<i class="fas fa-check"></i> Xác nhận hủy';
             }
         }
     }
@@ -1425,7 +1583,6 @@
         `;
     }
 
-
     // =====================================================
     // CUSTOMER ACTIVITY LOGGING & WALLET REFUND
     // =====================================================
@@ -1447,7 +1604,9 @@
                 normalizedPhone = '0' + normalizedPhone.substring(2);
             }
 
-            console.log(`[WORKFLOW] logCancelOrderActivity: phone=${normalizedPhone}, order=${orderNumber}`);
+            console.log(
+                `[WORKFLOW] logCancelOrderActivity: phone=${normalizedPhone}, order=${orderNumber}`
+            );
 
             const amountTotal = parseFloat(order.AmountTotal) || 0;
             const customerName = order.Partner?.Name || order.PartnerDisplayName || '';
@@ -1456,34 +1615,47 @@
             let refundResult = null;
             try {
                 console.log(`[WORKFLOW] Calling refund-by-order for ${orderNumber}...`);
-                const refundResponse = await fetch(`${RENDER_API_URL}/api/v2/wallets/refund-by-order`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        order_id: orderNumber,
-                        phone: normalizedPhone,
-                        reason: reason,
-                        created_by: performedBy
-                    })
-                });
+                const refundResponse = await fetch(
+                    `${RENDER_API_URL}/api/v2/wallets/refund-by-order`,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            order_id: orderNumber,
+                            phone: normalizedPhone,
+                            reason: reason,
+                            created_by: performedBy,
+                        }),
+                    }
+                );
 
                 if (!refundResponse.ok) {
                     const errText = await refundResponse.text().catch(() => '');
-                    console.error(`[WORKFLOW] ❌ Refund API error ${refundResponse.status}:`, errText);
+                    console.error(
+                        `[WORKFLOW] ❌ Refund API error ${refundResponse.status}:`,
+                        errText
+                    );
                 } else {
                     refundResult = await refundResponse.json();
 
                     if (refundResult.success && refundResult.refunded) {
-                        console.log(`[WORKFLOW] ✅ Wallet refunded for order ${orderNumber}: ${refundResult.data.refund_amount}đ`);
+                        console.log(
+                            `[WORKFLOW] ✅ Wallet refunded for order ${orderNumber}: ${refundResult.data.refund_amount}đ`
+                        );
                         window.notificationManager?.info(
                             `Đã hoàn ${refundResult.data.refund_amount.toLocaleString('vi-VN')}đ vào ví khách (Thật: ${refundResult.data.real_refunded.toLocaleString('vi-VN')}đ, CN: ${refundResult.data.virtual_refunded.toLocaleString('vi-VN')}đ)`,
                             5000
                         );
                     } else if (refundResult.success && refundResult.cancelled_pending) {
-                        console.log(`[WORKFLOW] ✅ Pending withdrawal cancelled for order ${orderNumber}`);
+                        console.log(
+                            `[WORKFLOW] ✅ Pending withdrawal cancelled for order ${orderNumber}`
+                        );
                         window.notificationManager?.info('Đã hủy giao dịch trừ ví chờ xử lý');
                     } else {
-                        console.log(`[WORKFLOW] Refund result for ${orderNumber}:`, refundResult.message || 'no withdrawal found');
+                        console.log(
+                            `[WORKFLOW] Refund result for ${orderNumber}:`,
+                            refundResult.message || 'no withdrawal found'
+                        );
                     }
                 }
             } catch (refundError) {
@@ -1504,7 +1676,7 @@
                 order_id: order.Id,
                 amount_total: amountTotal,
                 cancel_reason: reason,
-                source: 'FAST_SALE_CANCEL'
+                source: 'FAST_SALE_CANCEL',
             };
             if (refundResult?.refunded && refundResult?.data) {
                 metadata.wallet_refunded = true;
@@ -1514,27 +1686,35 @@
             }
 
             console.log(`[WORKFLOW] Posting cancel activity for ${normalizedPhone}...`);
-            const activityResponse = await fetch(`${RENDER_API_URL}/api/v2/customers/${normalizedPhone}/activities`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    activity_type: 'ORDER_CANCELLED',
-                    title: `Hủy đơn #${orderNumber}`,
-                    description,
-                    reference_type: 'order',
-                    reference_id: orderNumber,
-                    metadata,
-                    icon: 'cancel',
-                    color: 'red',
-                    created_by: performedBy
-                })
-            });
+            const activityResponse = await fetch(
+                `${RENDER_API_URL}/api/v2/customers/${normalizedPhone}/activities`,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        activity_type: 'ORDER_CANCELLED',
+                        title: `Hủy đơn #${orderNumber}`,
+                        description,
+                        reference_type: 'order',
+                        reference_id: orderNumber,
+                        metadata,
+                        icon: 'cancel',
+                        color: 'red',
+                        created_by: performedBy,
+                    }),
+                }
+            );
 
             if (!activityResponse.ok) {
                 const errText = await activityResponse.text().catch(() => '');
-                console.error(`[WORKFLOW] ❌ Activity API error ${activityResponse.status}:`, errText);
+                console.error(
+                    `[WORKFLOW] ❌ Activity API error ${activityResponse.status}:`,
+                    errText
+                );
             } else {
-                console.log(`[WORKFLOW] ✅ Cancel activity logged for order ${orderNumber}, phone: ${normalizedPhone}`);
+                console.log(
+                    `[WORKFLOW] ✅ Cancel activity logged for order ${orderNumber}, phone: ${normalizedPhone}`
+                );
             }
         } catch (error) {
             console.error('[WORKFLOW] ❌ Error logging cancel activity:', error.message);
@@ -1575,5 +1755,4 @@
     window.findOrCreateTag = findOrCreateTag;
     window.assignTagsToOrder = assignTagsToOrder;
     window.logCancelOrderActivity = logCancelOrderActivity;
-
 })();

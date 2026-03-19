@@ -175,38 +175,36 @@
             if (this._initialized) return;
 
             try {
-                // 1. Load from Firestore FIRST (source of truth)
+                // 1. Load from Firestore (sole source of truth - no localStorage cache)
                 const loadedFromFirestore = await this._loadFromFirestore();
 
-                // 2. Nếu không load được từ Firestore, fallback to localStorage (offline mode)
                 if (!loadedFromFirestore) {
-                    // Use BaseStore's localStorage loading
-                    _invoiceBaseStore._loadFromLocal();
-                    // Also load sentBills from localStorage (BaseStore doesn't handle this)
-                    const saved = localStorage.getItem(STORAGE_KEY);
-                    if (saved) {
-                        try {
-                            const parsed = JSON.parse(saved);
-                            if (Array.isArray(parsed.sentBills)) {
-                                this._sentBills = new Set(parsed.sentBills);
-                            }
-                        } catch (e) {
-                            /* ignore parse errors - BaseStore handles data */
-                        }
-                    }
-                    console.log(
-                        `[INVOICE-STATUS] Offline mode - loaded ${this._data.size} entries from localStorage cache`
+                    console.warn(
+                        '[INVOICE-STATUS] Offline - Firestore unavailable, store is empty'
                     );
                 }
 
-                // 3. Cleanup old entries (delegated to BaseStore)
+                // 2. Cleanup old entries (delegated to BaseStore)
                 _invoiceBaseStore._cleanupOldEntries();
 
                 this._initialized = true;
                 console.log(`[INVOICE-STATUS] Store initialized with ${this._data.size} entries`);
 
-                // 4. Setup real-time listener for add/delete from other devices
+                // 3. Setup real-time listener for add/delete from other devices
                 this._setupRealtimeListener();
+
+                // 4. Re-render all invoice status cells after init (fix: cells showed "−" during Firestore load)
+                if (this._data.size > 0) {
+                    const allKeys = [];
+                    this._data.forEach((value, key) => {
+                        const soId = value.SaleOnlineId || extractSaleOnlineId(key);
+                        if (soId && !allKeys.includes(soId)) allKeys.push(soId);
+                    });
+                    this._refreshInvoiceStatusUI(allKeys);
+
+                    // Also sync to FulfillmentData in parent frame
+                    this._syncToFulfillmentData();
+                }
             } catch (e) {
                 console.error('[INVOICE-STATUS] Error initializing store:', e);
                 this._initialized = true;
@@ -295,34 +293,12 @@
         },
 
         /**
-         * Save to localStorage (extends BaseStore's _saveToLocal with sentBills)
+         * localStorage cache removed - Firestore is sole source of truth.
+         * Saves ~500KB-1MB of localStorage quota.
+         * Kept as no-op to avoid breaking callers.
          */
         _saveToLocalStorage() {
-            try {
-                // Only cache current user's entries to avoid QuotaExceeded
-                // Limit to 200 most recent entries to prevent storage bloat
-                const myEntries = [];
-                this._myKeys.forEach((key) => {
-                    const value = this._data.get(key);
-                    if (value) myEntries.push([key, value]);
-                });
-                // Sort by timestamp descending, keep only 200 newest
-                myEntries.sort((a, b) => (b[1].timestamp || 0) - (a[1].timestamp || 0));
-                const limitedEntries = myEntries.slice(0, 200);
-
-                localStorage.setItem(
-                    STORAGE_KEY,
-                    JSON.stringify({
-                        data: limitedEntries,
-                        sentBills: Array.from(this._sentBills),
-                        lastUpdated: Date.now(),
-                        version: 1,
-                    })
-                );
-            } catch (e) {
-                // If still too big, just skip localStorage caching
-                console.warn('[INVOICE-STATUS] localStorage save skipped (quota)');
-            }
+            // No-op: Firestore is source of truth, localStorage no longer used
         },
 
         /**
@@ -390,10 +366,9 @@
         },
 
         /**
-         * Save to localStorage + Firestore
+         * Save to Firestore (sole source of truth)
          */
         save() {
-            this._saveToLocalStorage();
             // Skip Firestore save if currently receiving real-time updates (avoid infinite loops)
             if (!this._isListening) {
                 this._saveToFirestore();
@@ -522,18 +497,16 @@
                 }
             });
 
-            // Update localStorage cache if there were changes
+            // Update UI if there were changes
             if (hasChanges) {
-                this._saveToLocalStorage();
                 if (changedKeys.length > 0 || deletedKeys.length > 0) {
                     console.log(
                         `[INVOICE-STATUS] Real-time: ${changedKeys.length} updated, ${deletedKeys.length} deleted`
                     );
                 }
-                // Update UI for changed entries (add/update)
                 this._refreshInvoiceStatusUI(changedKeys);
-                // Update UI for deleted entries (show "-")
                 this._refreshDeletedInvoiceStatusUI(deletedKeys);
+                this._syncToFulfillmentData();
             }
 
             // Reset flag
@@ -616,18 +589,16 @@
                 }
             }
 
-            // Update localStorage cache if there were changes
+            // Update UI if there were changes
             if (hasChanges) {
-                this._saveToLocalStorage();
                 if (changedKeys.length > 0 || deletedKeys.length > 0) {
                     console.log(
                         `[INVOICE-STATUS] Real-time: ${changedKeys.length} updated, ${deletedKeys.length} deleted`
                     );
                 }
-                // Update UI for changed entries (add/update)
                 this._refreshInvoiceStatusUI(changedKeys);
-                // Update UI for deleted entries (show "-")
                 this._refreshDeletedInvoiceStatusUI(deletedKeys);
+                this._syncToFulfillmentData();
             }
 
             // Reset flag
@@ -689,6 +660,27 @@
                     `[INVOICE-STATUS] Real-time: Cleared UI for ${clearedCount} deleted orders`
                 );
             }
+        },
+
+        /**
+         * Sync invoice status data to FulfillmentData in parent frame.
+         * Replaces the duplicate Firestore load that FulfillmentData used to do.
+         * Groups entries by SaleOnlineId into arrays (matching FulfillmentData's expected format).
+         */
+        _syncToFulfillmentData() {
+            const fd = window.parent?.FulfillmentData || window.FulfillmentData;
+            if (!fd || typeof fd.syncFromStore !== 'function') return;
+
+            // Build grouped map: SaleOnlineId -> Array<entry>
+            const grouped = new Map();
+            this._data.forEach((value, key) => {
+                const soId = value.SaleOnlineId || extractSaleOnlineId(key);
+                if (!soId) return;
+                if (!grouped.has(soId)) grouped.set(soId, []);
+                grouped.get(soId).push(value);
+            });
+
+            fd.syncFromStore(grouped);
         },
 
         /**

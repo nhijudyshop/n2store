@@ -21,7 +21,7 @@ class MessageTemplateManager {
             completed: 0,
             success: 0,
             error: 0,
-            errors: []
+            errors: [],
         };
         // Track failed orders for comment watermark in table
         this.failedOrderIds = new Set();
@@ -44,8 +44,10 @@ class MessageTemplateManager {
                 const data = JSON.parse(stored);
                 // Only keep entries from last 24 hours
                 const now = Date.now();
-                const validEntries = data.filter(entry => (now - entry.timestamp) < 24 * 60 * 60 * 1000);
-                this.failedOrderIds = new Set(validEntries.map(e => e.orderId));
+                const validEntries = data.filter(
+                    (entry) => now - entry.timestamp < 24 * 60 * 60 * 1000
+                );
+                this.failedOrderIds = new Set(validEntries.map((e) => e.orderId));
                 // Save cleaned data
                 if (validEntries.length !== data.length) {
                     this._saveFailedOrderIds();
@@ -60,9 +62,9 @@ class MessageTemplateManager {
     _saveFailedOrderIds() {
         try {
             const now = Date.now();
-            const data = Array.from(this.failedOrderIds).map(orderId => ({
+            const data = Array.from(this.failedOrderIds).map((orderId) => ({
                 orderId,
-                timestamp: now
+                timestamp: now,
             }));
             localStorage.setItem('failed_message_orders', JSON.stringify(data));
         } catch (e) {
@@ -71,13 +73,15 @@ class MessageTemplateManager {
     }
 
     addFailedOrders(orderIds) {
-        orderIds.forEach(id => this.failedOrderIds.add(id));
+        orderIds.forEach((id) => this.failedOrderIds.add(id));
         this._saveFailedOrderIds();
         this.log(`📋 Added ${orderIds.length} failed orders, total: ${this.failedOrderIds.size}`);
         // Dispatch event to update table UI
-        window.dispatchEvent(new CustomEvent('failedOrdersUpdated', {
-            detail: { failedOrderIds: Array.from(this.failedOrderIds) }
-        }));
+        window.dispatchEvent(
+            new CustomEvent('failedOrdersUpdated', {
+                detail: { failedOrderIds: Array.from(this.failedOrderIds) },
+            })
+        );
     }
 
     removeFailedOrder(orderId) {
@@ -86,9 +90,11 @@ class MessageTemplateManager {
             this._saveFailedOrderIds();
             this.log(`✅ Removed order ${orderId} from failed list`);
             // Dispatch event to update table UI
-            window.dispatchEvent(new CustomEvent('failedOrdersUpdated', {
-                detail: { failedOrderIds: Array.from(this.failedOrderIds) }
-            }));
+            window.dispatchEvent(
+                new CustomEvent('failedOrdersUpdated', {
+                    detail: { failedOrderIds: Array.from(this.failedOrderIds) },
+                })
+            );
         }
     }
 
@@ -110,13 +116,19 @@ class MessageTemplateManager {
             if (stored) {
                 const data = JSON.parse(stored);
                 const now = Date.now();
-                const validEntries = data.filter(entry => (now - entry.timestamp) < 24 * 60 * 60 * 1000);
-                this.sentOrderIds = new Set(validEntries.map(e => e.orderId));
-                this.sentViaCommentIds = new Set(validEntries.filter(e => e.viaComment).map(e => e.orderId));
+                const validEntries = data.filter(
+                    (entry) => now - entry.timestamp < 24 * 60 * 60 * 1000
+                );
+                this.sentOrderIds = new Set(validEntries.map((e) => e.orderId));
+                this.sentViaCommentIds = new Set(
+                    validEntries.filter((e) => e.viaComment).map((e) => e.orderId)
+                );
                 if (validEntries.length !== data.length) {
                     this._saveSentOrderIds();
                 }
-                this.log(`📋 Loaded ${this.sentOrderIds.size} sent order IDs from storage (${this.sentViaCommentIds.size} via comment)`);
+                this.log(
+                    `📋 Loaded ${this.sentOrderIds.size} sent order IDs from storage (${this.sentViaCommentIds.size} via comment)`
+                );
             }
         } catch (e) {
             console.warn('[MESSAGE] Error loading sent order IDs:', e);
@@ -126,10 +138,10 @@ class MessageTemplateManager {
     _saveSentOrderIds() {
         try {
             const now = Date.now();
-            const data = Array.from(this.sentOrderIds).map(orderId => ({
+            const data = Array.from(this.sentOrderIds).map((orderId) => ({
                 orderId,
                 timestamp: now,
-                viaComment: this.sentViaCommentIds.has(orderId)
+                viaComment: this.sentViaCommentIds.has(orderId),
             }));
             localStorage.setItem('sent_message_orders', JSON.stringify(data));
         } catch (e) {
@@ -138,16 +150,20 @@ class MessageTemplateManager {
     }
 
     addSentOrders(orderIds, commentOrderIds = []) {
-        orderIds.forEach(id => this.sentOrderIds.add(id));
-        commentOrderIds.forEach(id => this.sentViaCommentIds.add(id));
+        orderIds.forEach((id) => this.sentOrderIds.add(id));
+        commentOrderIds.forEach((id) => this.sentViaCommentIds.add(id));
         this._saveSentOrderIds();
-        this.log(`✅ Added ${orderIds.length} sent orders (${commentOrderIds.length} via comment), total: ${this.sentOrderIds.size}`);
-        window.dispatchEvent(new CustomEvent('sentOrdersUpdated', {
-            detail: {
-                sentOrderIds: Array.from(this.sentOrderIds),
-                sentViaCommentIds: Array.from(this.sentViaCommentIds)
-            }
-        }));
+        this.log(
+            `✅ Added ${orderIds.length} sent orders (${commentOrderIds.length} via comment), total: ${this.sentOrderIds.size}`
+        );
+        window.dispatchEvent(
+            new CustomEvent('sentOrdersUpdated', {
+                detail: {
+                    sentOrderIds: Array.from(this.sentOrderIds),
+                    sentViaCommentIds: Array.from(this.sentViaCommentIds),
+                },
+            })
+        );
     }
 
     isOrderSent(orderId) {
@@ -183,7 +199,9 @@ class MessageTemplateManager {
         // Check if we need to restore progress UI state
         const isRunning = this.sendingState && this.sendingState.isRunning;
         const progressDisplay = isRunning ? 'block' : 'none';
-        const btnText = isRunning ? '<i class="fas fa-spinner fa-spin"></i> Đang gửi...' : '<i class="fas fa-paper-plane"></i> Gửi tin nhắn';
+        const btnText = isRunning
+            ? '<i class="fas fa-spinner fa-spin"></i> Đang gửi...'
+            : '<i class="fas fa-paper-plane"></i> Gửi tin nhắn';
         const btnDisabled = isRunning ? 'disabled' : '';
 
         const modalHTML = `
@@ -451,11 +469,17 @@ class MessageTemplateManager {
 
         // Filter out already-sent orders (only in send mode)
         if (mode === 'send' && this.selectedOrders.length > 0) {
-            const alreadySent = this.selectedOrders.filter(o => this.sentOrderIds.has(o.Id));
+            const alreadySent = this.selectedOrders.filter((o) => this.sentOrderIds.has(o.Id));
             if (alreadySent.length > 0) {
-                this.selectedOrders = this.selectedOrders.filter(o => !this.sentOrderIds.has(o.Id));
-                const names = alreadySent.map(o => o.customerName || o.code || o.Id).slice(0, 3).join(', ');
-                const extra = alreadySent.length > 3 ? ` và ${alreadySent.length - 3} đơn khác` : '';
+                this.selectedOrders = this.selectedOrders.filter(
+                    (o) => !this.sentOrderIds.has(o.Id)
+                );
+                const names = alreadySent
+                    .map((o) => o.customerName || o.code || o.Id)
+                    .slice(0, 3)
+                    .join(', ');
+                const extra =
+                    alreadySent.length > 3 ? ` và ${alreadySent.length - 3} đơn khác` : '';
                 window.notificationManager?.warning(
                     `Đã loại ${alreadySent.length} đơn đã gửi tin nhắn: ${names}${extra}`
                 );
@@ -514,7 +538,8 @@ class MessageTemplateManager {
                 sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Gửi tin nhắn';
             }
             if (modalTitle) {
-                modalTitle.innerHTML = '<i class="fab fa-facebook-messenger"></i> Gửi tin nhắn Facebook';
+                modalTitle.innerHTML =
+                    '<i class="fab fa-facebook-messenger"></i> Gửi tin nhắn Facebook';
             }
         }
 
@@ -596,9 +621,9 @@ class MessageTemplateManager {
             }
 
             // Map documents to template objects
-            this.templates = snapshot.docs.map(doc => ({
+            this.templates = snapshot.docs.map((doc) => ({
                 Id: doc.id,
-                ...doc.data()
+                ...doc.data(),
             }));
             this.filteredTemplates = [...this.templates];
 
@@ -617,7 +642,6 @@ class MessageTemplateManager {
 
             // Render templates
             this.renderTemplates();
-
         } catch (error) {
             this.log('');
             this.log('❌ ERROR LOADING TEMPLATES');
@@ -644,7 +668,6 @@ class MessageTemplateManager {
             if (window.notificationManager) {
                 window.notificationManager.error(`Lỗi tải template: ${error.message}`, 5000);
             }
-
         } finally {
             this.isLoading = false;
         }
@@ -675,20 +698,27 @@ class MessageTemplateManager {
             return;
         }
 
-        const templatesHTML = templates.map(template => {
-            // Support both Firestore (Content) and legacy TPOS (BodyPlain)
-            const content = template.Content || (template.Content || template.BodyPlain) || 'Không có nội dung';
-            const date = template.createdAt?.toDate
-                ? template.createdAt.toDate().toLocaleDateString('vi-VN')
-                : (template.DateCreated ? new Date(template.DateCreated).toLocaleDateString('vi-VN') : '');
+        const templatesHTML = templates
+            .map((template) => {
+                // Support both Firestore (Content) and legacy TPOS (BodyPlain)
+                const content =
+                    template.Content ||
+                    template.Content ||
+                    template.BodyPlain ||
+                    'Không có nội dung';
+                const date = template.createdAt?.toDate
+                    ? template.createdAt.toDate().toLocaleDateString('vi-VN')
+                    : template.DateCreated
+                      ? new Date(template.DateCreated).toLocaleDateString('vi-VN')
+                      : '';
 
-            // Convert \n thành <br> để giữ line breaks
-            const contentWithBreaks = this.escapeHtml(content).replace(/\n/g, '<br>');
+                // Convert \n thành <br> để giữ line breaks
+                const contentWithBreaks = this.escapeHtml(content).replace(/\n/g, '<br>');
 
-            // Kiểm tra nếu content dài
-            const needsExpand = content.length > 200;
+                // Kiểm tra nếu content dài
+                const needsExpand = content.length > 200;
 
-            return `
+                return `
                 <div class="message-template-item ${this.selectedTemplate?.Id === template.Id ? 'selected' : ''}"
                      data-template-id="${template.Id}"
                      onclick="messageTemplateManager.selectTemplate('${template.Id}')">
@@ -709,19 +739,24 @@ class MessageTemplateManager {
                         ${contentWithBreaks}
                     </div>
                     <div class="message-template-actions">
-                        ${needsExpand ? `
+                        ${
+                            needsExpand
+                                ? `
                             <button class="message-expand-btn" onclick="event.stopPropagation(); messageTemplateManager.toggleExpand('${template.Id}')">
                                 <i class="fas fa-chevron-down"></i>
                                 <span class="expand-text">Xem thêm</span>
                             </button>
-                        ` : '<div></div>'}
+                        `
+                                : '<div></div>'
+                        }
                         <div class="message-template-meta">
                             ${date ? `<span><i class="fas fa-calendar"></i> ${date}</span>` : ''}
                         </div>
                     </div>
                 </div>
             `;
-        }).join('');
+            })
+            .join('');
 
         bodyEl.innerHTML = `<div class="message-template-list">${templatesHTML}</div>`;
         this.log('✅ Templates rendered to DOM');
@@ -729,7 +764,7 @@ class MessageTemplateManager {
 
     selectTemplate(templateId) {
         // Support both string (Firestore) and number (legacy) IDs
-        const template = this.templates.find(t => String(t.Id) === String(templateId));
+        const template = this.templates.find((t) => String(t.Id) === String(templateId));
         if (!template) {
             this.log('❌ Template not found:', templateId);
             return;
@@ -738,7 +773,7 @@ class MessageTemplateManager {
         this.selectedTemplate = template;
         this.log('✅ Template selected:', template.Name);
 
-        document.querySelectorAll('.message-template-item').forEach(item => {
+        document.querySelectorAll('.message-template-item').forEach((item) => {
             item.classList.remove('selected');
         });
         document.querySelector(`[data-template-id="${templateId}"]`)?.classList.add('selected');
@@ -790,15 +825,17 @@ class MessageTemplateManager {
             this.filteredTemplates = [...this.templates];
         } else {
             const searchLower = query.toLowerCase();
-            this.filteredTemplates = this.templates.filter(template => {
+            this.filteredTemplates = this.templates.filter((template) => {
                 const name = (template.Name || '').toLowerCase();
                 // CHỈ TÌM TRONG BodyPlain
-                const content = ((template.Content || template.BodyPlain) || '').toLowerCase();
+                const content = (template.Content || template.BodyPlain || '').toLowerCase();
                 const type = (template.TypeId || '').toLowerCase();
 
-                return name.includes(searchLower) ||
+                return (
+                    name.includes(searchLower) ||
                     content.includes(searchLower) ||
-                    type.includes(searchLower);
+                    type.includes(searchLower)
+                );
             });
         }
 
@@ -851,7 +888,9 @@ class MessageTemplateManager {
         const validAccounts = window.pancakeTokenManager?.getValidAccountsForSending() || [];
         if (validAccounts.length === 0) {
             if (window.notificationManager) {
-                window.notificationManager.error('Không có tài khoản Pancake nào sẵn sàng. Vui lòng thêm tài khoản trong Cài đặt.');
+                window.notificationManager.error(
+                    'Không có tài khoản Pancake nào sẵn sàng. Vui lòng thêm tài khoản trong Cài đặt.'
+                );
             }
             return;
         }
@@ -860,7 +899,9 @@ class MessageTemplateManager {
         this.log('🔑 Pre-loading page access tokens...');
         try {
             await window.pancakeTokenManager.loadPageAccessTokens();
-            const pageTokenCount = Object.keys(window.pancakeTokenManager.pageAccessTokens || {}).length;
+            const pageTokenCount = Object.keys(
+                window.pancakeTokenManager.pageAccessTokens || {}
+            ).length;
             this.log(`🔑 Page access tokens loaded: ${pageTokenCount} pages`);
         } catch (e) {
             this.log('⚠️ Warning: Could not pre-load page tokens:', e.message);
@@ -878,18 +919,32 @@ class MessageTemplateManager {
             this.log('⚠️ Warning: Could not pre-fetch page access:', e.message);
         }
 
-        this.log('📮 Send mode:', sendMode, '| Delay:', delay, 'ms | Accounts:', validAccounts.length);
-        this.log('📋 Valid accounts:', validAccounts.map(a => a.name).join(', '));
+        this.log(
+            '📮 Send mode:',
+            sendMode,
+            '| Delay:',
+            delay,
+            'ms | Accounts:',
+            validAccounts.length
+        );
+        this.log('📋 Valid accounts:', validAccounts.map((a) => a.name).join(', '));
 
         // SEND MODE - send via Pancake API with ALL accounts
         try {
             const ordersCount = this.selectedOrders.length;
-            this.log('📤 Sending message to', ordersCount, 'order(s) via Pancake API (Multi-Account Mode)');
+            this.log(
+                '📤 Sending message to',
+                ordersCount,
+                'order(s) via Pancake API (Multi-Account Mode)'
+            );
 
             // NOTE: No employee signature for multi-account sending
 
             // Get template content (ONE TIME)
-            const templateContent = (this.selectedTemplate.Content || this.selectedTemplate.BodyPlain) || 'Không có nội dung';
+            const templateContent =
+                this.selectedTemplate.Content ||
+                this.selectedTemplate.BodyPlain ||
+                'Không có nội dung';
 
             // Initialize State with tracking arrays for Firestore
             this.sendingState = {
@@ -900,7 +955,7 @@ class MessageTemplateManager {
                 error: 0,
                 errors: [],
                 successOrders: [], // Track success orders with details
-                errorOrders: []    // Track error orders with details
+                errorOrders: [], // Track error orders with details
             };
 
             // Update UI
@@ -929,7 +984,12 @@ class MessageTemplateManager {
                     // Find accounts with access to this page
                     const eligible = validAccounts
                         .map((acc, idx) => ({ acc, idx }))
-                        .filter(({ acc }) => window.pancakeTokenManager.accountHasPageAccess(acc.accountId, channelId));
+                        .filter(({ acc }) =>
+                            window.pancakeTokenManager.accountHasPageAccess(
+                                acc.accountId,
+                                channelId
+                            )
+                        );
 
                     if (eligible.length > 0) {
                         // Round-robin among eligible accounts for this page
@@ -956,7 +1016,9 @@ class MessageTemplateManager {
                 this.log(`  - ${account.name}: ${accountQueues[i].length} orders`);
             });
             if (unassignedOrders.length > 0) {
-                this.log(`  ⚠️ ${unassignedOrders.length} orders assigned via fallback round-robin (no page access info)`);
+                this.log(
+                    `  ⚠️ ${unassignedOrders.length} orders assigned via fallback round-robin (no page access info)`
+                );
             }
 
             // Worker Function for each account
@@ -965,17 +1027,19 @@ class MessageTemplateManager {
                     token: account.token,
                     displayName: null, // No signature for multi-account sending
                     templateContent,
-                    sendMode
+                    sendMode,
                 };
 
                 return async () => {
-                    this.log(`🚀 Worker started for account: ${account.name} (${queue.length} orders)`);
+                    this.log(
+                        `🚀 Worker started for account: ${account.name} (${queue.length} orders)`
+                    );
 
                     for (const order of queue) {
                         try {
                             // Delay before processing
                             if (delay > 0) {
-                                await new Promise(r => setTimeout(r, delay));
+                                await new Promise((r) => setTimeout(r, delay));
                             }
 
                             await this._processSingleOrder(order, context);
@@ -990,10 +1054,12 @@ class MessageTemplateManager {
                                 account: account.name,
                                 Details: order.Details || order.OrderDetails || [],
                                 products: order.products || order.mainProducts || [],
-                                viaComment: order._sentViaComment || false
+                                viaComment: order._sentViaComment || false,
                             });
 
-                            this.log(`✅ [${account.name}] Sent successfully to order ${order.code || order.Id}`);
+                            this.log(
+                                `✅ [${account.name}] Sent successfully to order ${order.code || order.Id}`
+                            );
                         } catch (err) {
                             this.sendingState.error++;
 
@@ -1002,7 +1068,8 @@ class MessageTemplateManager {
                             if (err.is24HourError) {
                                 errorMessage = 'Đã quá 24h - Vui lòng dùng COMMENT';
                             } else if (err.isUserUnavailable) {
-                                errorMessage = 'Người dùng không có mặt (551) - Vui lòng dùng COMMENT';
+                                errorMessage =
+                                    'Người dùng không có mặt (551) - Vui lòng dùng COMMENT';
                             }
 
                             // Track error order with details (including Facebook fields for comment reply)
@@ -1016,9 +1083,12 @@ class MessageTemplateManager {
                                 is24HourError: err.is24HourError || false,
                                 isUserUnavailable: err.isUserUnavailable || false,
                                 // Facebook fields for comment reply
-                                Facebook_PostId: order.Facebook_PostId || order.raw?.Facebook_PostId || '',
-                                Facebook_CommentId: order.Facebook_CommentId || order.raw?.Facebook_CommentId || '',
-                                Facebook_ASUserId: order.Facebook_ASUserId || order.raw?.Facebook_ASUserId || ''
+                                Facebook_PostId:
+                                    order.Facebook_PostId || order.raw?.Facebook_PostId || '',
+                                Facebook_CommentId:
+                                    order.Facebook_CommentId || order.raw?.Facebook_CommentId || '',
+                                Facebook_ASUserId:
+                                    order.Facebook_ASUserId || order.raw?.Facebook_ASUserId || '',
                             });
 
                             // Also keep old format for backward compatibility
@@ -1027,10 +1097,13 @@ class MessageTemplateManager {
                                 error: errorMessage,
                                 account: account.name,
                                 is24HourError: err.is24HourError,
-                                isUserUnavailable: err.isUserUnavailable
+                                isUserUnavailable: err.isUserUnavailable,
                             });
 
-                            this.log(`❌ [${account.name}] Error sending to order ${order.code}:`, err);
+                            this.log(
+                                `❌ [${account.name}] Error sending to order ${order.code}:`,
+                                err
+                            );
                         } finally {
                             this.sendingState.completed++;
                             this.updateProgressUI();
@@ -1050,14 +1123,31 @@ class MessageTemplateManager {
             await Promise.all(workers);
 
             // AUTO BASE Snapshot - lưu BASE cho các đơn gửi tin thành công
-            if (window.kpiManager && window.kpiManager.saveAutoBaseSnapshot && this.sendingState.successOrders.length > 0) {
+            if (
+                window.kpiManager &&
+                window.kpiManager.saveAutoBaseSnapshot &&
+                this.sendingState.successOrders.length > 0
+            ) {
                 try {
-                    const campaignName = (window.campaignManager && window.campaignManager.activeCampaign)
-                        ? window.campaignManager.activeCampaign.name || window.campaignManager.activeCampaign.displayName || ''
+                    const campaignName =
+                        window.campaignManager && window.campaignManager.activeCampaign
+                            ? window.campaignManager.activeCampaign.name ||
+                              window.campaignManager.activeCampaign.displayName ||
+                              ''
+                            : '';
+                    const userId = window.authManager
+                        ? window.authManager.getAuthState()?.userId || ''
                         : '';
-                    const userId = window.authManager ? window.authManager.getAuthState()?.userId || '' : '';
-                    await window.kpiManager.saveAutoBaseSnapshot(this.sendingState.successOrders, campaignName, userId);
-                    console.log('[MESSAGE] ✅ KPI AUTO BASE saved for', this.sendingState.successOrders.length, 'orders');
+                    await window.kpiManager.saveAutoBaseSnapshot(
+                        this.sendingState.successOrders,
+                        campaignName,
+                        userId
+                    );
+                    console.log(
+                        '[MESSAGE] ✅ KPI AUTO BASE saved for',
+                        this.sendingState.successOrders.length,
+                        'orders'
+                    );
                 } catch (kpiError) {
                     console.warn('[MESSAGE] ⚠️ KPI AUTO BASE failed (non-blocking):', kpiError);
                 }
@@ -1095,10 +1185,16 @@ class MessageTemplateManager {
 
                 if (this.sendingState.error > 0) {
                     // Check if any 24-hour policy errors or user unavailable errors
-                    const has24HErrors = this.sendingState.errors.some(e => e.is24HourError);
-                    const num24HErrors = this.sendingState.errors.filter(e => e.is24HourError).length;
-                    const hasUserUnavailable = this.sendingState.errors.some(e => e.isUserUnavailable);
-                    const numUserUnavailable = this.sendingState.errors.filter(e => e.isUserUnavailable).length;
+                    const has24HErrors = this.sendingState.errors.some((e) => e.is24HourError);
+                    const num24HErrors = this.sendingState.errors.filter(
+                        (e) => e.is24HourError
+                    ).length;
+                    const hasUserUnavailable = this.sendingState.errors.some(
+                        (e) => e.isUserUnavailable
+                    );
+                    const numUserUnavailable = this.sendingState.errors.filter(
+                        (e) => e.isUserUnavailable
+                    ).length;
 
                     if (has24HErrors || hasUserUnavailable) {
                         let msg = '⚠️ ';
@@ -1133,40 +1229,34 @@ class MessageTemplateManager {
                 errorCount: this.sendingState.error,
                 successOrders: this.sendingState.successOrders,
                 errorOrders: this.sendingState.errorOrders,
-                accountsUsed: validAccounts.map(a => a.name),
-                delay: delaySeconds
+                accountsUsed: validAccounts.map((a) => a.name),
+                delay: delaySeconds,
             });
 
             // Track failed orders for comment watermark in table
             if (this.sendingState.errorOrders.length > 0) {
                 const failedIds = this.sendingState.errorOrders
-                    .map(o => o.orderId)
-                    .filter(id => id); // Filter out empty IDs
+                    .map((o) => o.orderId)
+                    .filter((id) => id); // Filter out empty IDs
                 this.addFailedOrders(failedIds);
             }
 
             // Track sent orders to prevent duplicate bulk sending
             if (this.sendingState.successOrders.length > 0) {
-                const sentIds = this.sendingState.successOrders
-                    .map(o => o.Id)
-                    .filter(id => id);
+                const sentIds = this.sendingState.successOrders.map((o) => o.Id).filter((id) => id);
                 const commentSentIds = this.sendingState.successOrders
-                    .filter(o => o.viaComment)
-                    .map(o => o.Id)
-                    .filter(id => id);
+                    .filter((o) => o.viaComment)
+                    .map((o) => o.Id)
+                    .filter((id) => id);
                 this.addSentOrders(sentIds, commentSentIds);
             }
 
             this.closeModal();
-
         } catch (error) {
             this.sendingState.isRunning = false;
             this.log('❌ Error sending messages:', error);
             if (window.notificationManager) {
-                window.notificationManager.error(
-                    `Lỗi: ${error.message}`,
-                    4000
-                );
+                window.notificationManager.error(`Lỗi: ${error.message}`, 4000);
             }
             // Restore UI
             const sendBtn = document.getElementById('messageBtnSend');
@@ -1188,11 +1278,13 @@ class MessageTemplateManager {
 
         container.style.display = 'block';
 
-        const percent = Math.round((this.sendingState.completed / this.sendingState.total) * 100) || 0;
+        const percent =
+            Math.round((this.sendingState.completed / this.sendingState.total) * 100) || 0;
 
         if (bar) bar.style.width = `${percent}%`;
         if (percentText) percentText.textContent = `${percent}%`;
-        if (text) text.textContent = `Đang gửi ${this.sendingState.completed}/${this.sendingState.total}...`;
+        if (text)
+            text.textContent = `Đang gửi ${this.sendingState.completed}/${this.sendingState.total}...`;
 
         if (sendBtn) {
             sendBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${this.sendingState.completed}/${this.sendingState.total}`;
@@ -1214,7 +1306,8 @@ class MessageTemplateManager {
             this.log('  - Employee:', displayName || '(Anonymous)');
 
             // Get template content
-            const templateContent = (this.selectedTemplate.Content || this.selectedTemplate.BodyPlain) || '';
+            const templateContent =
+                this.selectedTemplate.Content || this.selectedTemplate.BodyPlain || '';
             this.log('  - Template:', this.selectedTemplate.Name);
 
             // Initialize state
@@ -1224,7 +1317,7 @@ class MessageTemplateManager {
                 completed: 0,
                 success: 0,
                 error: 0,
-                errors: []
+                errors: [],
             };
 
             // Update UI
@@ -1246,7 +1339,9 @@ class MessageTemplateManager {
                 const currentSTT = sttCounter;
 
                 try {
-                    this.log(`\n[${currentSTT}/${this.sendingState.total}] Processing order: ${order.code || order.Id}`);
+                    this.log(
+                        `\n[${currentSTT}/${this.sendingState.total}] Processing order: ${order.code || order.Id}`
+                    );
 
                     // Fetch full order data with CRMTeam
                     const fullOrderData = await this._fetchOrderWithCRMTeam(order.Id);
@@ -1264,18 +1359,22 @@ class MessageTemplateManager {
                         phone: fullOrderData.Partner?.Telephone || fullOrderData.Telephone,
                         address: fullOrderData.Partner?.Address || fullOrderData.Address,
                         totalAmount: fullOrderData.TotalAmount,
-                        products: fullOrderData.Details?.map(detail => ({
-                            id: detail.ProductId,
-                            name: detail.ProductNameGet || detail.ProductName,
-                            quantity: detail.Quantity || 0,
-                            price: detail.Price || 0,
-                            total: (detail.Quantity || 0) * (detail.Price || 0),
-                            note: detail.Note || ''
-                        })) || []
+                        products:
+                            fullOrderData.Details?.map((detail) => ({
+                                id: detail.ProductId,
+                                name: detail.ProductNameGet || detail.ProductName,
+                                quantity: detail.Quantity || 0,
+                                price: detail.Price || 0,
+                                total: (detail.Quantity || 0) * (detail.Price || 0),
+                                note: detail.Note || '',
+                            })) || [],
                     };
 
                     // Replace placeholders
-                    let messageContent = this.replacePlaceholders(templateContent, orderDataForTemplate);
+                    let messageContent = this.replacePlaceholders(
+                        templateContent,
+                        orderDataForTemplate
+                    );
 
                     // NOTE: Do NOT add employee signature for batch T-Page sending
                     this.log('  - Message length:', messageContent.length, 'chars');
@@ -1285,19 +1384,18 @@ class MessageTemplateManager {
                         rawOrder: fullOrderData,
                         crmTeam: fullOrderData.CRMTeam,
                         message: messageContent,
-                        stt: currentSTT
+                        stt: currentSTT,
                     });
 
                     successOrders.push(fullOrderData.Code);
                     this.sendingState.success++;
                     this.log(`  ✅ Order ${currentSTT} prepared successfully`);
-
                 } catch (error) {
                     this.sendingState.error++;
                     this.sendingState.errors.push({
                         stt: currentSTT,
                         order: order.code || order.Id,
-                        error: error.message
+                        error: error.message,
                     });
                     this.log(`  ❌ Error processing order ${currentSTT}:`, error.message);
                 } finally {
@@ -1308,7 +1406,9 @@ class MessageTemplateManager {
 
             // Send batch if we have any valid orders
             if (orderCampaignDetails.length > 0) {
-                this.log(`\n📤 Sending batch of ${orderCampaignDetails.length} orders to T-Page API...`);
+                this.log(
+                    `\n📤 Sending batch of ${orderCampaignDetails.length} orders to T-Page API...`
+                );
 
                 if (sendBtn) {
                     sendBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Đang gửi batch...`;
@@ -1343,7 +1443,7 @@ class MessageTemplateManager {
 
             // Track sent orders to prevent duplicate bulk sending
             if (orderCampaignDetails.length > 0) {
-                const sentIds = orderCampaignDetails.map(o => o.rawOrder?.Id).filter(Boolean);
+                const sentIds = orderCampaignDetails.map((o) => o.rawOrder?.Id).filter(Boolean);
                 if (sentIds.length > 0) this.addSentOrders(sentIds);
             }
 
@@ -1356,7 +1456,6 @@ class MessageTemplateManager {
                 this.sendingState.errors,
                 successOrders
             );
-
         } catch (error) {
             this.sendingState.isRunning = false;
             this.log('❌ [T-PAGE] Fatal error:', error);
@@ -1369,10 +1468,7 @@ class MessageTemplateManager {
             }
 
             if (window.notificationManager) {
-                window.notificationManager.error(
-                    `Lỗi T-Page: ${error.message}`,
-                    5000
-                );
+                window.notificationManager.error(`Lỗi T-Page: ${error.message}`, 5000);
             }
 
             throw error;
@@ -1388,7 +1484,8 @@ class MessageTemplateManager {
 
         // SMART OPTIMIZATION:
         // Check if we need full data (products)
-        const needsProductDetails = templateContent.includes('{order.details}') || sendMode === 'image';
+        const needsProductDetails =
+            templateContent.includes('{order.details}') || sendMode === 'image';
 
         // Check if we already have PartnerId (customer_id)
         const hasPartnerId = !!order.PartnerId;
@@ -1397,7 +1494,9 @@ class MessageTemplateManager {
         let orderDataForTemplate;
 
         if (!needsProductDetails && hasPartnerId) {
-            this.log(`⚡ [OPTIMIZATION] Skipping fetch for order ${order.code} (Text mode, no products needed)`);
+            this.log(
+                `⚡ [OPTIMIZATION] Skipping fetch for order ${order.code} (Text mode, no products needed)`
+            );
             // Use existing data
             orderDataForTemplate = {
                 Id: order.Id,
@@ -1406,15 +1505,15 @@ class MessageTemplateManager {
                 phone: order.phone,
                 address: order.address,
                 totalAmount: order.totalAmount,
-                products: [] // Empty products
+                products: [], // Empty products
             };
             // Mock fullOrderData.raw for getChatInfoForOrder
             fullOrderData = {
                 raw: {
                     ...order.raw, // Use raw data if available from getAllOrders
-                    PartnerId: order.PartnerId
+                    PartnerId: order.PartnerId,
                 },
-                converted: orderDataForTemplate
+                converted: orderDataForTemplate,
             };
         } else {
             // Fetch full data
@@ -1427,14 +1526,15 @@ class MessageTemplateManager {
         if (sendMode === 'image') {
             orderDataWithImages = {
                 ...fullOrderData.converted,
-                products: fullOrderData.raw.Details?.map(detail => ({
-                    name: detail.ProductNameGet || detail.ProductName,
-                    quantity: detail.Quantity || 0,
-                    price: detail.Price || 0,
-                    total: (detail.Quantity || 0) * (detail.Price || 0),
-                    imageUrl: detail.ImageUrl || '',
-                    note: detail.Note || ''
-                })) || []
+                products:
+                    fullOrderData.raw.Details?.map((detail) => ({
+                        name: detail.ProductNameGet || detail.ProductName,
+                        quantity: detail.Quantity || 0,
+                        price: detail.Price || 0,
+                        total: (detail.Quantity || 0) * (detail.Price || 0),
+                        imageUrl: detail.ImageUrl || '',
+                        note: detail.Note || '',
+                    })) || [],
             };
         }
 
@@ -1471,7 +1571,9 @@ class MessageTemplateManager {
             if (conversation.type === 'COMMENT') {
                 isCommentOnly = true;
                 commentConvId = conversation.id;
-                this.log(`📌 Found COMMENT conversation in cache: ${conversationId} (no INBOX available)`);
+                this.log(
+                    `📌 Found COMMENT conversation in cache: ${conversationId} (no INBOX available)`
+                );
             } else {
                 this.log(`📌 Found conversation in cache: ${conversationId}`);
             }
@@ -1479,10 +1581,13 @@ class MessageTemplateManager {
             // Fetch from Pancake API to get correct conversation ID
             this.log(`🔍 Fetching conversation from Pancake API for psid: ${psid}`);
             try {
-                const convResult = await window.pancakeDataManager.fetchConversationsByCustomerFbId(channelId, psid);
+                const convResult = await window.pancakeDataManager.fetchConversationsByCustomerFbId(
+                    channelId,
+                    psid
+                );
                 if (convResult.success && convResult.conversations?.length > 0) {
                     // Find INBOX conversation first, track COMMENT for fallback
-                    const inboxConv = convResult.conversations.find(c => c.type === 'INBOX');
+                    const inboxConv = convResult.conversations.find((c) => c.type === 'INBOX');
 
                     // Find COMMENT conversation matching this order's post (if possible)
                     // Facebook_PostId format: pageId_postId → extract postId to match conv ID (postId_commentId)
@@ -1490,33 +1595,46 @@ class MessageTemplateManager {
                     const orderFbPostId = fullOrderData?.raw?.Facebook_PostId;
                     if (orderFbPostId) {
                         const postIdPart = orderFbPostId.split('_')[1] || orderFbPostId;
-                        commentConv = convResult.conversations.find(c =>
-                            c.type === 'COMMENT' && c.id.startsWith(postIdPart + '_')
+                        commentConv = convResult.conversations.find(
+                            (c) => c.type === 'COMMENT' && c.id.startsWith(postIdPart + '_')
                         );
                         if (commentConv) {
-                            this.log(`📌 Found COMMENT matching order's post (${postIdPart}): ${commentConv.id}`);
+                            this.log(
+                                `📌 Found COMMENT matching order's post (${postIdPart}): ${commentConv.id}`
+                            );
                         }
                     }
                     // Fallback: first COMMENT conversation
                     if (!commentConv) {
-                        commentConv = convResult.conversations.find(c => c.type === 'COMMENT');
+                        commentConv = convResult.conversations.find((c) => c.type === 'COMMENT');
                     }
 
                     if (inboxConv) {
                         conversationId = inboxConv.id;
-                        customerId = convResult.customerUuid || inboxConv.customers?.[0]?.id || null;
+                        customerId =
+                            convResult.customerUuid || inboxConv.customers?.[0]?.id || null;
                         if (commentConv) commentConvId = commentConv.id;
-                        this.log(`✅ Got INBOX conversation: ${conversationId}, customerId: ${customerId}`);
+                        this.log(
+                            `✅ Got INBOX conversation: ${conversationId}, customerId: ${customerId}`
+                        );
                     } else if (commentConv) {
                         isCommentOnly = true;
                         commentConvId = commentConv.id;
-                        customerId = convResult.customerUuid || commentConv.customers?.[0]?.id || null;
+                        customerId =
+                            convResult.customerUuid || commentConv.customers?.[0]?.id || null;
                         this.log(`⚠️ No INBOX conversation found. Only COMMENT: ${commentConvId}`);
-                        this.log(`📋 Available types: ${convResult.conversations.map(c => c.type).join(', ')}`);
+                        this.log(
+                            `📋 Available types: ${convResult.conversations.map((c) => c.type).join(', ')}`
+                        );
                     } else {
                         conversationId = convResult.conversations[0].id;
-                        customerId = convResult.customerUuid || convResult.conversations[0].customers?.[0]?.id || null;
-                        this.log(`✅ Got conversation from API: ${conversationId}, customerId: ${customerId}`);
+                        customerId =
+                            convResult.customerUuid ||
+                            convResult.conversations[0].customers?.[0]?.id ||
+                            null;
+                        this.log(
+                            `✅ Got conversation from API: ${conversationId}, customerId: ${customerId}`
+                        );
                     }
                 } else {
                     // Fallback: construct conversationId from channelId_psid
@@ -1526,20 +1644,28 @@ class MessageTemplateManager {
             } catch (fetchErr) {
                 // Fallback on error
                 conversationId = `${channelId}_${psid}`;
-                this.log(`⚠️ Error fetching conversation: ${fetchErr.message}, using fallback: ${conversationId}`);
+                this.log(
+                    `⚠️ Error fetching conversation: ${fetchErr.message}, using fallback: ${conversationId}`
+                );
             }
         }
 
         // COMMENT-only: Skip Pancake reply_inbox (will fail), use Pancake private_replies action
         if (isCommentOnly && commentConvId) {
-            this.log(`🔄 COMMENT-only → Pancake private_replies for order ${order.code} (commentConvId: ${commentConvId})`);
+            this.log(
+                `🔄 COMMENT-only → Pancake private_replies for order ${order.code} (commentConvId: ${commentConvId})`
+            );
 
             // Get page_access_token (same logic as below)
             let prPageAccessToken = window.pancakeTokenManager?.getPageAccessToken(channelId);
             if (!prPageAccessToken) {
                 const accountToken = token || window.pancakeTokenManager?.currentToken;
                 if (accountToken && window.pancakeTokenManager) {
-                    prPageAccessToken = await window.pancakeTokenManager.generatePageAccessTokenWithToken(channelId, accountToken);
+                    prPageAccessToken =
+                        await window.pancakeTokenManager.generatePageAccessTokenWithToken(
+                            channelId,
+                            accountToken
+                        );
                 }
             }
             if (!prPageAccessToken) {
@@ -1547,10 +1673,11 @@ class MessageTemplateManager {
             }
 
             // For private_replies: conversationId = message_id = commentConvId
-            const prApiUrl = window.API_CONFIG.buildUrl.pancakeOfficial(
-                `pages/${channelId}/conversations/${commentConvId}/messages`,
-                prPageAccessToken
-            ) + (customerId ? `&customer_id=${customerId}` : '');
+            const prApiUrl =
+                window.API_CONFIG.buildUrl.pancakeOfficial(
+                    `pages/${channelId}/conversations/${commentConvId}/messages`,
+                    prPageAccessToken
+                ) + (customerId ? `&customer_id=${customerId}` : '');
 
             // Derive post_id from commentConvId to ensure consistency
             // commentConvId format: postId_commentId → post_id: pageId_postId
@@ -1562,18 +1689,23 @@ class MessageTemplateManager {
                 post_id: prDerivedPostId,
                 message_id: commentConvId,
                 from_id: psid,
-                message: messageContent
+                message: messageContent,
             };
 
             this.log(`📤 Sending private_replies via Pancake API...`);
             this.log(`📦 Payload:`, JSON.stringify(prPayload));
 
             try {
-                const prResponse = await API_CONFIG.smartFetch(prApiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                    body: JSON.stringify(prPayload)
-                }, 1, true);
+                const prResponse = await API_CONFIG.smartFetch(
+                    prApiUrl,
+                    {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                        body: JSON.stringify(prPayload),
+                    },
+                    1,
+                    true
+                );
 
                 const prData = await prResponse.json();
                 this.log(`📥 private_replies Response:`, JSON.stringify(prData, null, 2));
@@ -1583,7 +1715,9 @@ class MessageTemplateManager {
                     return true;
                 }
 
-                this.log(`❌ Pancake private_replies failed: ${prData.error || prData.message || JSON.stringify(prData)}`);
+                this.log(
+                    `❌ Pancake private_replies failed: ${prData.error || prData.message || JSON.stringify(prData)}`
+                );
             } catch (prErr) {
                 this.log(`❌ Pancake private_replies error: ${prErr.message}`);
             }
@@ -1593,37 +1727,53 @@ class MessageTemplateManager {
             this.log(`🔄 private_replies failed → trying reply_comment for order ${order.code}`);
             try {
                 const facebookPostId = order.Facebook_PostId || order.raw?.Facebook_PostId;
-                const postIdPart = facebookPostId ? facebookPostId.split('_').slice(1).join('_') : null;
+                const postIdPart = facebookPostId
+                    ? facebookPostId.split('_').slice(1).join('_')
+                    : null;
 
                 if (postIdPart && window.pancakeDataManager) {
                     const commentsResult = await window.pancakeDataManager.fetchComments(
-                        channelId, psid, null, postIdPart
+                        channelId,
+                        psid,
+                        null,
+                        postIdPart
                     );
 
                     if (commentsResult?.comments?.length) {
-                        const customerComments = commentsResult.comments.filter(c => !c.IsOwner);
+                        const customerComments = commentsResult.comments.filter((c) => !c.IsOwner);
                         if (customerComments.length > 0) {
                             const latestComment = customerComments[customerComments.length - 1];
 
                             // Use commentConvId (COMMENT conversation ID) for URL,
                             // latestComment.Id (individual comment) for message_id
-                            const rcUrl = window.API_CONFIG.buildUrl.pancakeOfficial(
-                                `pages/${channelId}/conversations/${commentConvId}/messages`,
-                                prPageAccessToken
-                            ) + (customerId ? `&customer_id=${customerId}` : '');
+                            const rcUrl =
+                                window.API_CONFIG.buildUrl.pancakeOfficial(
+                                    `pages/${channelId}/conversations/${commentConvId}/messages`,
+                                    prPageAccessToken
+                                ) + (customerId ? `&customer_id=${customerId}` : '');
 
                             const rcPayload = {
                                 action: 'reply_comment',
                                 message_id: latestComment.Id,
-                                message: messageContent
+                                message: messageContent,
                             };
 
-                            this.log(`📤 Sending reply_comment: convId=${commentConvId}, commentId=${latestComment.Id}`);
-                            const rcResponse = await API_CONFIG.smartFetch(rcUrl, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                                body: JSON.stringify(rcPayload)
-                            }, 1, true);
+                            this.log(
+                                `📤 Sending reply_comment: convId=${commentConvId}, commentId=${latestComment.Id}`
+                            );
+                            const rcResponse = await API_CONFIG.smartFetch(
+                                rcUrl,
+                                {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        Accept: 'application/json',
+                                    },
+                                    body: JSON.stringify(rcPayload),
+                                },
+                                1,
+                                true
+                            );
 
                             const rcData = await rcResponse.json();
                             if (rcResponse.ok && rcData.success !== false && !rcData.error) {
@@ -1633,7 +1783,9 @@ class MessageTemplateManager {
                                 this.removeFailedOrder(order.Id);
                                 return true;
                             }
-                            this.log(`❌ reply_comment failed: ${rcData.error || rcData.message || JSON.stringify(rcData)}`);
+                            this.log(
+                                `❌ reply_comment failed: ${rcData.error || rcData.message || JSON.stringify(rcData)}`
+                            );
                         }
                     }
                 }
@@ -1643,7 +1795,8 @@ class MessageTemplateManager {
 
             // Both private_replies and reply_comment failed
             const err = new Error('COMMENT_ONLY_NO_INBOX');
-            err.originalMessage = 'Khách chỉ comment, không có inbox. private_replies và reply_comment đều thất bại.';
+            err.originalMessage =
+                'Khách chỉ comment, không có inbox. private_replies và reply_comment đều thất bại.';
             err.isCommentOnly = true;
             throw err;
         }
@@ -1655,8 +1808,13 @@ class MessageTemplateManager {
             // Try generate using worker's account token (multi-account sending)
             const accountToken = token || window.pancakeTokenManager?.currentToken;
             if (accountToken && window.pancakeTokenManager) {
-                this.log(`🔑 Generating page_access_token for page ${channelId} using account token...`);
-                pageAccessToken = await window.pancakeTokenManager.generatePageAccessTokenWithToken(channelId, accountToken);
+                this.log(
+                    `🔑 Generating page_access_token for page ${channelId} using account token...`
+                );
+                pageAccessToken = await window.pancakeTokenManager.generatePageAccessTokenWithToken(
+                    channelId,
+                    accountToken
+                );
             }
         }
         if (!pageAccessToken) {
@@ -1664,10 +1822,11 @@ class MessageTemplateManager {
         }
 
         // Build API URL with customer_id in query params
-        const apiUrl = window.API_CONFIG.buildUrl.pancakeOfficial(
-            `pages/${channelId}/conversations/${conversationId}/messages`,
-            pageAccessToken
-        ) + (customerId ? `&customer_id=${customerId}` : '');
+        const apiUrl =
+            window.API_CONFIG.buildUrl.pancakeOfficial(
+                `pages/${channelId}/conversations/${conversationId}/messages`,
+                pageAccessToken
+            ) + (customerId ? `&customer_id=${customerId}` : '');
 
         // Cắt tin nhắn thành nhiều phần nếu quá dài
         const messageParts = this.splitMessageIntoParts(messageContent);
@@ -1678,197 +1837,262 @@ class MessageTemplateManager {
             const isLastPart = partIndex === messageParts.length - 1;
 
             if (messageParts.length > 1) {
-                this.log(`📤 Sending part ${partIndex + 1}/${messageParts.length} (${messagePart.length} chars)`);
+                this.log(
+                    `📤 Sending part ${partIndex + 1}/${messageParts.length} (${messagePart.length} chars)`
+                );
             }
 
-        // Build JSON payload (Pancake API chính thức dùng application/json)
-        const payload = {
-            action: 'reply_inbox',
-            message: messagePart
-        };
+            // Build JSON payload (Pancake API chính thức dùng application/json)
+            const payload = {
+                action: 'reply_inbox',
+                message: messagePart,
+            };
 
-        // Chỉ gửi ảnh ở phần cuối cùng
-        if (sendMode === 'image' && isLastPart) {
-            // IMAGE MODE
-            if (!window.orderImageGenerator) {
-                throw new Error('OrderImageGenerator không có sẵn');
-            }
-
-            const imageBlob = await window.orderImageGenerator.generateOrderImage(
-                orderDataWithImages,
-                messageContent
-            );
-
-            const imageFile = new File(
-                [imageBlob],
-                `order_${orderDataForTemplate.code}_${Date.now()}.png`,
-                { type: 'image/png' }
-            );
-
-            if (!window.pancakeDataManager) {
-                throw new Error('pancakeDataManager không có sẵn');
-            }
-
-            // NEW: Firebase cache check for order products
-            let contentUrl = null;
-            let contentId = null;
-
-            // Get list of product IDs from order
-            const productIds = orderDataForTemplate.products
-                ? orderDataForTemplate.products.map(p => p.id).filter(Boolean)
-                : [];
-
-            this.log('📦 Order has products:', productIds);
-
-            // Check cache for any product in the order
-            if (productIds.length > 0 && window.firebaseImageCache) {
-                this.log('🔍 Checking Firebase cache for products...');
-
-                for (const productId of productIds) {
-                    const cached = await window.firebaseImageCache.get(productId);
-                    if (cached && cached.content_url) {
-                        // ✅ CACHE HIT - Reuse first cached image found
-                        this.log(`✅ Cache HIT for product ${productId}! Reusing:`, cached.content_url);
-                        contentUrl = cached.content_url;
-                        break; // Use first match
-                    }
+            // Chỉ gửi ảnh ở phần cuối cùng
+            if (sendMode === 'image' && isLastPart) {
+                // IMAGE MODE
+                if (!window.orderImageGenerator) {
+                    throw new Error('OrderImageGenerator không có sẵn');
                 }
-            }
 
-            // If cache miss, upload new image
-            if (!contentUrl) {
-                this.log('❌ Cache miss - uploading new image to Pancake...');
+                const imageBlob = await window.orderImageGenerator.generateOrderImage(
+                    orderDataWithImages,
+                    messageContent
+                );
 
-                const uploadResult = await window.pancakeDataManager.uploadImage(channelId, imageFile);
+                const imageFile = new File(
+                    [imageBlob],
+                    `order_${orderDataForTemplate.code}_${Date.now()}.png`,
+                    { type: 'image/png' }
+                );
 
-                // Handle both old (string) and new (object) return formats for compatibility
-                contentUrl = typeof uploadResult === 'string' ? uploadResult : uploadResult.content_url;
-                contentId = typeof uploadResult === 'object' ? uploadResult.id : null;
+                if (!window.pancakeDataManager) {
+                    throw new Error('pancakeDataManager không có sẵn');
+                }
 
-                this.log('✅ Image uploaded:', contentUrl);
+                // NEW: Firebase cache check for order products
+                let contentUrl = null;
+                let contentId = null;
 
-                // Save to Firebase cache for ALL products in order
+                // Get list of product IDs from order
+                const productIds = orderDataForTemplate.products
+                    ? orderDataForTemplate.products.map((p) => p.id).filter(Boolean)
+                    : [];
+
+                this.log('📦 Order has products:', productIds);
+
+                // Check cache for any product in the order
                 if (productIds.length > 0 && window.firebaseImageCache) {
-                    this.log('💾 Saving to Firebase cache for all products...');
+                    this.log('🔍 Checking Firebase cache for products...');
 
-                    for (const product of orderDataForTemplate.products || []) {
-                        if (product.id && product.name) {
-                            await window.firebaseImageCache.set(product.id, product.name, contentUrl)
-                                .catch(err => {
-                                    // Non-critical error
-                                    this.log('⚠️ Failed to cache for product', product.id, '(non-critical):', err);
-                                });
+                    for (const productId of productIds) {
+                        const cached = await window.firebaseImageCache.get(productId);
+                        if (cached && cached.content_url) {
+                            // ✅ CACHE HIT - Reuse first cached image found
+                            this.log(
+                                `✅ Cache HIT for product ${productId}! Reusing:`,
+                                cached.content_url
+                            );
+                            contentUrl = cached.content_url;
+                            break; // Use first match
                         }
                     }
                 }
-            } else {
-                this.log('♻️ Using cached image - skip upload');
-            }
 
-            // Add image data to payload - Pancake API dùng content_ids (array)
-            if (contentId) {
-                payload.content_ids = [contentId];
-                payload.attachment_type = 'PHOTO';
-            }
+                // If cache miss, upload new image
+                if (!contentUrl) {
+                    this.log('❌ Cache miss - uploading new image to Pancake...');
 
-            this.log('📷 Image added to payload, content_id:', contentId);
-        }
+                    const uploadResult = await window.pancakeDataManager.uploadImage(
+                        channelId,
+                        imageFile
+                    );
 
-        // Send using JSON (Pancake API chính thức)
-        this.log('📤 Sending message via JSON...');
-        this.log('📡 API URL:', apiUrl);
-        this.log('📦 Payload:', JSON.stringify(payload));
+                    // Handle both old (string) and new (object) return formats for compatibility
+                    contentUrl =
+                        typeof uploadResult === 'string' ? uploadResult : uploadResult.content_url;
+                    contentId = typeof uploadResult === 'object' ? uploadResult.id : null;
 
-        const response = await API_CONFIG.smartFetch(apiUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify(payload)
-        }, 1, true); // maxRetries=1, skipFallback=true: chỉ gọi 1 lần, không retry
+                    this.log('✅ Image uploaded:', contentUrl);
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`HTTP ${response.status}: ${errorText}`);
-        }
+                    // Save to Firebase cache for ALL products in order
+                    if (productIds.length > 0 && window.firebaseImageCache) {
+                        this.log('💾 Saving to Firebase cache for all products...');
 
-        const responseData = await response.json();
-        this.log('📥 API Response:', JSON.stringify(responseData, null, 2));
-
-        if (!responseData.success) {
-            this.log('❌ API Error Details:', responseData);
-
-            // Check for 24-hour policy error
-            const is24HourError = (responseData.e_code === 10 && responseData.e_subcode === 2018278) ||
-                (responseData.message && responseData.message.includes('khoảng thời gian cho phép'));
-            if (is24HourError) {
-                this.log(`⚠️ 24-hour policy error - attempting Facebook API fallback for order ${order.code}`);
-
-                // Try Facebook API fallback (with postId + commentConvId for Private Reply)
-                const fbFallbackResult = await this._sendViaFacebookAPI(channelId, psid, messageContent, fullOrderData.raw, fullOrderData.raw.Facebook_PostId);
-
-                if (fbFallbackResult.success) {
-                    this.log(`✅ Facebook API fallback succeeded for order ${order.code}`);
-                    return true; // Success via Facebook API
-                }
-
-                // Send API also failed → try Pancake private_replies with known comment conv ID
-                if (commentConvId) {
-                    this.log(`🔄 Send API failed → trying Pancake private_replies with commentConvId: ${commentConvId}`);
-                    const prResult = await this._sendViaPancakePrivateReply(channelId, psid, messageContent, commentConvId, customerId, token);
-                    if (prResult) {
-                        this.log(`✅ Pancake private_replies succeeded for order ${order.code}`);
-                        return true;
+                        for (const product of orderDataForTemplate.products || []) {
+                            if (product.id && product.name) {
+                                await window.firebaseImageCache
+                                    .set(product.id, product.name, contentUrl)
+                                    .catch((err) => {
+                                        // Non-critical error
+                                        this.log(
+                                            '⚠️ Failed to cache for product',
+                                            product.id,
+                                            '(non-critical):',
+                                            err
+                                        );
+                                    });
+                            }
+                        }
                     }
+                } else {
+                    this.log('♻️ Using cached image - skip upload');
                 }
 
-                // All fallbacks failed, throw original error
-                this.log(`❌ Facebook API fallback failed: ${fbFallbackResult.error}`);
-                const error24h = new Error('24H_POLICY_ERROR');
-                error24h.is24HourError = true;
-                error24h.originalMessage = responseData.message;
-                throw error24h;
+                // Add image data to payload - Pancake API dùng content_ids (array)
+                if (contentId) {
+                    payload.content_ids = [contentId];
+                    payload.attachment_type = 'PHOTO';
+                }
+
+                this.log('📷 Image added to payload, content_id:', contentId);
             }
 
-            // Check for user unavailable error (551)
-            const isUserUnavailable = (responseData.e_code === 551) ||
-                (responseData.message && responseData.message.includes('không có mặt'));
-            if (isUserUnavailable) {
-                this.log(`⚠️ User unavailable (551) error - attempting Facebook API fallback for order ${order.code}`);
+            // Send using JSON (Pancake API chính thức)
+            this.log('📤 Sending message via JSON...');
+            this.log('📡 API URL:', apiUrl);
+            this.log('📦 Payload:', JSON.stringify(payload));
 
-                // Try Facebook API fallback (with postId + commentConvId for Private Reply)
-                const fbFallbackResult = await this._sendViaFacebookAPI(channelId, psid, messageContent, fullOrderData.raw, fullOrderData.raw.Facebook_PostId);
+            const response = await API_CONFIG.smartFetch(
+                apiUrl,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Accept: 'application/json',
+                    },
+                    body: JSON.stringify(payload),
+                },
+                1,
+                true
+            ); // maxRetries=1, skipFallback=true: chỉ gọi 1 lần, không retry
 
-                if (fbFallbackResult.success) {
-                    this.log(`✅ Facebook API fallback succeeded for order ${order.code}`);
-                    return true; // Success via Facebook API
-                }
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
 
-                // Send API also failed → try Pancake private_replies with known comment conv ID
-                if (commentConvId) {
-                    this.log(`🔄 Send API failed → trying Pancake private_replies with commentConvId: ${commentConvId}`);
-                    const prResult = await this._sendViaPancakePrivateReply(channelId, psid, messageContent, commentConvId, customerId, token);
-                    if (prResult) {
-                        this.log(`✅ Pancake private_replies succeeded for order ${order.code}`);
-                        return true;
+            const responseData = await response.json();
+            this.log('📥 API Response:', JSON.stringify(responseData, null, 2));
+
+            if (!responseData.success) {
+                this.log('❌ API Error Details:', responseData);
+
+                // Check for 24-hour policy error
+                const is24HourError =
+                    (responseData.e_code === 10 && responseData.e_subcode === 2018278) ||
+                    (responseData.message &&
+                        responseData.message.includes('khoảng thời gian cho phép'));
+                if (is24HourError) {
+                    this.log(
+                        `⚠️ 24-hour policy error - attempting Facebook API fallback for order ${order.code}`
+                    );
+
+                    // Try Facebook API fallback (with postId + commentConvId for Private Reply)
+                    const fbFallbackResult = await this._sendViaFacebookAPI(
+                        channelId,
+                        psid,
+                        messageContent,
+                        fullOrderData.raw,
+                        fullOrderData.raw.Facebook_PostId
+                    );
+
+                    if (fbFallbackResult.success) {
+                        this.log(`✅ Facebook API fallback succeeded for order ${order.code}`);
+                        return true; // Success via Facebook API
                     }
+
+                    // Send API also failed → try Pancake private_replies with known comment conv ID
+                    if (commentConvId) {
+                        this.log(
+                            `🔄 Send API failed → trying Pancake private_replies with commentConvId: ${commentConvId}`
+                        );
+                        const prResult = await this._sendViaPancakePrivateReply(
+                            channelId,
+                            psid,
+                            messageContent,
+                            commentConvId,
+                            customerId,
+                            token
+                        );
+                        if (prResult) {
+                            this.log(
+                                `✅ Pancake private_replies succeeded for order ${order.code}`
+                            );
+                            return true;
+                        }
+                    }
+
+                    // All fallbacks failed, throw original error
+                    this.log(`❌ Facebook API fallback failed: ${fbFallbackResult.error}`);
+                    const error24h = new Error('24H_POLICY_ERROR');
+                    error24h.is24HourError = true;
+                    error24h.originalMessage = responseData.message;
+                    throw error24h;
                 }
 
-                // All fallbacks failed, throw original error
-                this.log(`❌ Facebook API fallback failed: ${fbFallbackResult.error}`);
-                const error551 = new Error('USER_UNAVAILABLE');
-                error551.isUserUnavailable = true;
-                error551.originalMessage = responseData.message;
-                throw error551;
-            }
+                // Check for user unavailable error (551)
+                const isUserUnavailable =
+                    responseData.e_code === 551 ||
+                    (responseData.message && responseData.message.includes('không có mặt'));
+                if (isUserUnavailable) {
+                    this.log(
+                        `⚠️ User unavailable (551) error - attempting Facebook API fallback for order ${order.code}`
+                    );
 
-            throw new Error(responseData.error || responseData.message || `API returned success: false - ${JSON.stringify(responseData)}`);
-        }
+                    // Try Facebook API fallback (with postId + commentConvId for Private Reply)
+                    const fbFallbackResult = await this._sendViaFacebookAPI(
+                        channelId,
+                        psid,
+                        messageContent,
+                        fullOrderData.raw,
+                        fullOrderData.raw.Facebook_PostId
+                    );
+
+                    if (fbFallbackResult.success) {
+                        this.log(`✅ Facebook API fallback succeeded for order ${order.code}`);
+                        return true; // Success via Facebook API
+                    }
+
+                    // Send API also failed → try Pancake private_replies with known comment conv ID
+                    if (commentConvId) {
+                        this.log(
+                            `🔄 Send API failed → trying Pancake private_replies with commentConvId: ${commentConvId}`
+                        );
+                        const prResult = await this._sendViaPancakePrivateReply(
+                            channelId,
+                            psid,
+                            messageContent,
+                            commentConvId,
+                            customerId,
+                            token
+                        );
+                        if (prResult) {
+                            this.log(
+                                `✅ Pancake private_replies succeeded for order ${order.code}`
+                            );
+                            return true;
+                        }
+                    }
+
+                    // All fallbacks failed, throw original error
+                    this.log(`❌ Facebook API fallback failed: ${fbFallbackResult.error}`);
+                    const error551 = new Error('USER_UNAVAILABLE');
+                    error551.isUserUnavailable = true;
+                    error551.originalMessage = responseData.message;
+                    throw error551;
+                }
+
+                throw new Error(
+                    responseData.error ||
+                        responseData.message ||
+                        `API returned success: false - ${JSON.stringify(responseData)}`
+                );
+            }
 
             // Delay nhỏ giữa các phần để tránh rate limit
             if (!isLastPart && messageParts.length > 1) {
-                await new Promise(resolve => setTimeout(resolve, 500));
+                await new Promise((resolve) => setTimeout(resolve, 500));
             }
         } // End of for loop (messageParts)
 
@@ -1880,7 +2104,14 @@ class MessageTemplateManager {
      * Uses Pancake API endpoint with action: "private_replies"
      * @returns {boolean} true if succeeded, false if failed
      */
-    async _sendViaPancakePrivateReply(channelId, psid, messageContent, commentConvId, customerId, token) {
+    async _sendViaPancakePrivateReply(
+        channelId,
+        psid,
+        messageContent,
+        commentConvId,
+        customerId,
+        token
+    ) {
         this.log(`[PANCAKE-PR] Attempting Pancake private_replies...`);
 
         try {
@@ -1889,7 +2120,11 @@ class MessageTemplateManager {
             if (!pageAccessToken) {
                 const accountToken = token || window.pancakeTokenManager?.currentToken;
                 if (accountToken && window.pancakeTokenManager) {
-                    pageAccessToken = await window.pancakeTokenManager.generatePageAccessTokenWithToken(channelId, accountToken);
+                    pageAccessToken =
+                        await window.pancakeTokenManager.generatePageAccessTokenWithToken(
+                            channelId,
+                            accountToken
+                        );
                 }
             }
             if (!pageAccessToken) {
@@ -1898,10 +2133,11 @@ class MessageTemplateManager {
             }
 
             // For private_replies: conversationId = message_id = commentConvId
-            const apiUrl = window.API_CONFIG.buildUrl.pancakeOfficial(
-                `pages/${channelId}/conversations/${commentConvId}/messages`,
-                pageAccessToken
-            ) + (customerId ? `&customer_id=${customerId}` : '');
+            const apiUrl =
+                window.API_CONFIG.buildUrl.pancakeOfficial(
+                    `pages/${channelId}/conversations/${commentConvId}/messages`,
+                    pageAccessToken
+                ) + (customerId ? `&customer_id=${customerId}` : '');
 
             // Derive post_id from commentConvId to ensure consistency
             // commentConvId format: postId_commentId → post_id: pageId_postId
@@ -1913,17 +2149,22 @@ class MessageTemplateManager {
                 post_id: derivedPostId,
                 message_id: commentConvId,
                 from_id: psid,
-                message: messageContent
+                message: messageContent,
             };
 
             this.log(`[PANCAKE-PR] 📤 Sending...`);
             this.log(`[PANCAKE-PR] 📦 Payload:`, JSON.stringify(payload));
 
-            const response = await API_CONFIG.smartFetch(apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                body: JSON.stringify(payload)
-            }, 1, true);
+            const response = await API_CONFIG.smartFetch(
+                apiUrl,
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                    body: JSON.stringify(payload),
+                },
+                1,
+                true
+            );
 
             const data = await response.json();
             this.log(`[PANCAKE-PR] 📥 Response:`, JSON.stringify(data, null, 2));
@@ -1933,7 +2174,9 @@ class MessageTemplateManager {
                 return true;
             }
 
-            this.log(`[PANCAKE-PR] ❌ Failed: ${data.error || data.message || JSON.stringify(data)}`);
+            this.log(
+                `[PANCAKE-PR] ❌ Failed: ${data.error || data.message || JSON.stringify(data)}`
+            );
             return false;
         } catch (err) {
             this.log(`[PANCAKE-PR] ❌ Error: ${err.message}`);
@@ -1954,9 +2197,10 @@ class MessageTemplateManager {
 
             // Source 1: Try from cachedChannelsData
             if (window.cachedChannelsData) {
-                const channel = window.cachedChannelsData.find(ch =>
-                    String(ch.ChannelId) === String(pageId) ||
-                    String(ch.Facebook_AccountId) === String(pageId)
+                const channel = window.cachedChannelsData.find(
+                    (ch) =>
+                        String(ch.ChannelId) === String(pageId) ||
+                        String(ch.Facebook_AccountId) === String(pageId)
                 );
                 if (channel && channel.Facebook_PageToken) {
                     facebookPageToken = channel.Facebook_PageToken;
@@ -1980,7 +2224,7 @@ class MessageTemplateManager {
             if (!facebookPageToken) {
                 return {
                     success: false,
-                    error: 'Không tìm thấy Facebook Page Token'
+                    error: 'Không tìm thấy Facebook Page Token',
                 };
             }
 
@@ -1993,7 +2237,7 @@ class MessageTemplateManager {
                 psid: psid,
                 message: message,
                 pageToken: facebookPageToken,
-                useTag: true
+                useTag: true,
             };
 
             // Direct Private Reply mode: pass commentId to skip Send API entirely
@@ -2009,16 +2253,19 @@ class MessageTemplateManager {
             }
             if (orderRaw.PartnerName || orderRaw.Partner?.Name) {
                 requestBody.customerName = orderRaw.PartnerName || orderRaw.Partner?.Name;
-                this.log('[FB-FALLBACK] Including customerName for matching:', requestBody.customerName);
+                this.log(
+                    '[FB-FALLBACK] Including customerName for matching:',
+                    requestBody.customerName
+                );
             }
 
             const response = await fetch(facebookSendUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Accept': 'application/json'
+                    Accept: 'application/json',
                 },
-                body: JSON.stringify(requestBody)
+                body: JSON.stringify(requestBody),
             });
 
             const result = await response.json();
@@ -2026,7 +2273,9 @@ class MessageTemplateManager {
 
             if (result.success) {
                 const method = result.method || 'send_api';
-                this.log(`[FB-FALLBACK] ✅ Message sent successfully! Method: ${method}, Tag: ${result.used_tag || 'none'}`);
+                this.log(
+                    `[FB-FALLBACK] ✅ Message sent successfully! Method: ${method}, Tag: ${result.used_tag || 'none'}`
+                );
                 return {
                     success: true,
                     messageId: result.message_id,
@@ -2041,12 +2290,11 @@ class MessageTemplateManager {
                     _debug: result._debug,
                 };
             }
-
         } catch (error) {
             this.log('[FB-FALLBACK] ❌ Error:', error);
             return {
                 success: false,
-                error: error.message
+                error: error.message,
             };
         }
     }
@@ -2061,8 +2309,8 @@ class MessageTemplateManager {
             const response = await fetch(apiUrl, {
                 headers: {
                     ...headers,
-                    'accept': 'application/json'
-                }
+                    accept: 'application/json',
+                },
             });
 
             if (!response.ok) {
@@ -2072,7 +2320,6 @@ class MessageTemplateManager {
             const data = await response.json();
             this.log('✅ CRMTeam data fetched:', data.Name);
             return data;
-
         } catch (error) {
             this.log('❌ Error fetching CRMTeam data:', error);
             return null; // Return null if failed, continue without team info
@@ -2092,7 +2339,7 @@ class MessageTemplateManager {
             const rootCRMTeamId = orderCampaignDetails[0]?.rawOrder?.CRMTeamId || 2;
 
             // Build Details array
-            const details = orderCampaignDetails.map(detail => {
+            const details = orderCampaignDetails.map((detail) => {
                 const order = detail.rawOrder;
                 const crmTeam = detail.crmTeam;
 
@@ -2107,7 +2354,7 @@ class MessageTemplateManager {
                     MatchingId: order.MatchingId,
                     Message: detail.message,
                     PartnerId: order.PartnerId,
-                    TypeId: "Message"
+                    TypeId: 'Message',
                 };
             });
 
@@ -2116,7 +2363,7 @@ class MessageTemplateManager {
                 CRMTeamId: rootCRMTeamId,
                 Details: details,
                 Note: noteDate,
-                MailTemplateId: this.selectedTemplate.Id
+                MailTemplateId: this.selectedTemplate.Id,
             };
 
             this.log('📦 Payload:');
@@ -2127,16 +2374,17 @@ class MessageTemplateManager {
 
             // POST to API
             const headers = await window.tokenManager.getAuthHeader();
-            const apiUrl = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/rest/v1.0/CRMActivityCampaign/order-campaign';
+            const apiUrl =
+                'https://chatomni-proxy.nhijudyshop.workers.dev/api/rest/v1.0/CRMActivityCampaign/order-campaign';
 
             const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: {
                     ...headers,
                     'Content-Type': 'application/json',
-                    'accept': 'application/json'
+                    accept: 'application/json',
                 },
-                body: JSON.stringify(payload)
+                body: JSON.stringify(payload),
             });
 
             if (!response.ok) {
@@ -2149,7 +2397,6 @@ class MessageTemplateManager {
             this.log('  - Response:', result);
 
             return result;
-
         } catch (error) {
             this.log('❌ Error posting order campaign:', error);
             throw error;
@@ -2168,8 +2415,8 @@ class MessageTemplateManager {
             const response = await fetch(apiUrl, {
                 headers: {
                     ...headers,
-                    'accept': 'application/json'
-                }
+                    accept: 'application/json',
+                },
             });
 
             if (!response.ok) {
@@ -2193,16 +2440,16 @@ class MessageTemplateManager {
                     phone: data.Partner?.Telephone || data.Telephone,
                     address: data.Partner?.Address || data.Address,
                     totalAmount: data.TotalAmount,
-                    products: data.Details?.map(detail => ({
-                        name: detail.ProductNameGet || detail.ProductName,
-                        quantity: detail.Quantity || 0,
-                        price: detail.Price || 0,
-                        total: (detail.Quantity || 0) * (detail.Price || 0),
-                        note: detail.Note || ''
-                    })) || []
-                }
+                    products:
+                        data.Details?.map((detail) => ({
+                            name: detail.ProductNameGet || detail.ProductName,
+                            quantity: detail.Quantity || 0,
+                            price: detail.Price || 0,
+                            total: (detail.Quantity || 0) * (detail.Price || 0),
+                            note: detail.Note || '',
+                        })) || [],
+                },
             };
-
         } catch (error) {
             this.log('❌ Error fetching full order data:', error);
             throw new Error(`Không thể tải thông tin đơn hàng: ${error.message}`);
@@ -2225,8 +2472,8 @@ class MessageTemplateManager {
             const response = await fetch(apiUrl, {
                 headers: {
                     ...headers,
-                    'accept': 'application/json'
-                }
+                    accept: 'application/json',
+                },
             });
 
             if (!response.ok) {
@@ -2247,7 +2494,6 @@ class MessageTemplateManager {
             }
 
             return data; // Return full order data with CRMTeam
-
         } catch (error) {
             this.log('❌ Error fetching order with CRMTeam:', error);
             throw new Error(`Không thể tải thông tin đơn hàng: ${error.message}`);
@@ -2296,7 +2542,7 @@ class MessageTemplateManager {
             return {
                 discountPrice: discountPrice,
                 displayText: priceValue.toString(),
-                remainingNote: remainingNote
+                remainingNote: remainingNote,
             };
         }
 
@@ -2327,8 +2573,8 @@ class MessageTemplateManager {
                 hasDiscount: true,
                 discountData: {
                     originalTotal: product.total,
-                    totalDiscount: totalDiscount
-                }
+                    totalDiscount: totalDiscount,
+                },
             };
         } else {
             let line = `- ${product.name} x${product.quantity} = ${this.formatCurrency(product.total)}`;
@@ -2338,7 +2584,7 @@ class MessageTemplateManager {
             return {
                 line: line,
                 hasDiscount: false,
-                discountData: null
+                discountData: null,
             };
         }
     }
@@ -2383,7 +2629,8 @@ class MessageTemplateManager {
         const districtNum = districtInfo.districtNumber;
         const districtName = (districtInfo.districtName || '')
             .toLowerCase()
-            .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '');
 
         // Check by district number first
         if (districtNum) {
@@ -2403,15 +2650,15 @@ class MessageTemplateManager {
 
         // Check by district name
         if (districtName) {
-            if (CARRIER_20K_NAMED.some(d => districtName.includes(d))) {
+            if (CARRIER_20K_NAMED.some((d) => districtName.includes(d))) {
                 this.log('📍 District ' + districtInfo.districtName + ' → 20k (THÀNH PHỐ)');
                 return { fee: 20000, isProvince: false };
             }
-            if (CARRIER_30K_NAMED.some(d => districtName.includes(d))) {
+            if (CARRIER_30K_NAMED.some((d) => districtName.includes(d))) {
                 this.log('📍 District ' + districtInfo.districtName + ' → 30k (THÀNH PHỐ)');
                 return { fee: 30000, isProvince: false };
             }
-            if (CARRIER_35K_TP_NAMED.some(d => districtName.includes(d))) {
+            if (CARRIER_35K_TP_NAMED.some((d) => districtName.includes(d))) {
                 this.log('📍 District ' + districtInfo.districtName + ' → 35k (THÀNH PHỐ)');
                 return { fee: 35000, isProvince: false };
             }
@@ -2436,7 +2683,9 @@ class MessageTemplateManager {
         if (orderData.address && orderData.address.trim()) {
             // Thêm số điện thoại vào địa chỉ
             const phone = orderData.phone && orderData.phone.trim() ? orderData.phone : '';
-            const addressWithPhone = phone ? `${orderData.address} - SĐT: ${phone}` : orderData.address;
+            const addressWithPhone = phone
+                ? `${orderData.address} - SĐT: ${phone}`
+                : orderData.address;
             result = result.replace(/{partner\.address}/g, addressWithPhone);
         } else {
             // Xử lý pattern với dấu ngoặc kép: "{partner.address}" → (Chưa có địa chỉ)
@@ -2453,11 +2702,15 @@ class MessageTemplateManager {
         }
 
         // Replace order details (products) - with discount detection
-        if (orderData.products && Array.isArray(orderData.products) && orderData.products.length > 0) {
+        if (
+            orderData.products &&
+            Array.isArray(orderData.products) &&
+            orderData.products.length > 0
+        ) {
             let totalDiscountAmount = 0;
             let hasAnyDiscount = false;
 
-            const formattedProducts = orderData.products.map(p => {
+            const formattedProducts = orderData.products.map((p) => {
                 const formatted = this.formatProductLineWithDiscount(p);
                 if (formatted.hasDiscount && formatted.discountData) {
                     hasAnyDiscount = true;
@@ -2466,7 +2719,7 @@ class MessageTemplateManager {
                 return formatted;
             });
 
-            const productList = formattedProducts.map(fp => fp.line).join('\n');
+            const productList = formattedProducts.map((fp) => fp.line).join('\n');
 
             // Format total section based on whether discounts exist (không bao gồm phí ship)
             let totalSection;
@@ -2477,7 +2730,7 @@ class MessageTemplateManager {
                 totalSection = [
                     `Tổng : ${this.formatCurrency(originalTotal)}`,
                     `Giảm giá: ${this.formatCurrency(totalDiscountAmount)}`,
-                    `Tổng tiền: ${this.formatCurrency(afterDiscount)}`
+                    `Tổng tiền: ${this.formatCurrency(afterDiscount)}`,
                 ].join('\n');
             } else {
                 const totalAmount = orderData.totalAmount || 0;
@@ -2501,9 +2754,13 @@ class MessageTemplateManager {
         if (orderData.totalAmount) {
             let totalForDisplay = orderData.totalAmount;
             // Trừ giảm giá nếu có discount
-            if (orderData.products && Array.isArray(orderData.products) && orderData.products.length > 0) {
+            if (
+                orderData.products &&
+                Array.isArray(orderData.products) &&
+                orderData.products.length > 0
+            ) {
                 let totalDiscountForTotal = 0;
-                orderData.products.forEach(p => {
+                orderData.products.forEach((p) => {
                     const formatted = this.formatProductLineWithDiscount(p);
                     if (formatted.hasDiscount && formatted.discountData) {
                         totalDiscountForTotal += formatted.discountData.totalDiscount;
@@ -2621,7 +2878,7 @@ class MessageTemplateManager {
         }
 
         // Get template content (plain text only)
-        let content = (this.selectedTemplate.Content || this.selectedTemplate.BodyPlain) || '';
+        let content = this.selectedTemplate.Content || this.selectedTemplate.BodyPlain || '';
 
         // If we have order data, replace placeholders
         if (this.currentOrder) {
@@ -2682,13 +2939,17 @@ class MessageTemplateManager {
         // Build error table HTML
         let errorTableHTML = '';
         if (errors && errors.length > 0) {
-            const errorRows = errors.map(err => `
+            const errorRows = errors
+                .map(
+                    (err) => `
                 <tr>
                     <td style="padding: 8px; border: 1px solid #e5e7eb; text-align: center;">${err.stt || '-'}</td>
                     <td style="padding: 8px; border: 1px solid #e5e7eb;">${this.escapeHtml(err.order || '-')}</td>
                     <td style="padding: 8px; border: 1px solid #e5e7eb; color: #dc2626;">${this.escapeHtml(err.error || 'Unknown error')}</td>
                 </tr>
-            `).join('');
+            `
+                )
+                .join('');
 
             errorTableHTML = `
                 <div style="margin-top: 20px;">
@@ -2786,7 +3047,7 @@ class MessageTemplateManager {
             successCount: successCount,
             errorCount: errorCount,
             errors: errors,
-            successOrders: successOrders
+            successOrders: successOrders,
         });
 
         // Close main modal
@@ -2804,11 +3065,11 @@ class MessageTemplateManager {
 
         const allOrders = window.getAllOrders ? window.getAllOrders() : [];
 
-        checkboxes.forEach(checkbox => {
+        checkboxes.forEach((checkbox) => {
             const orderId = checkbox.value;
 
             // Try to find full order data from global state
-            const fullOrder = allOrders.find(o => o.Id === orderId);
+            const fullOrder = allOrders.find((o) => o.Id === orderId);
 
             if (fullOrder) {
                 // Use full data - prioritize Partner info if available
@@ -2827,7 +3088,7 @@ class MessageTemplateManager {
                     Facebook_CommentId: fullOrder.Facebook_CommentId || null,
                     Facebook_ASUserId: fullOrder.Facebook_ASUserId || null,
                     // Keep raw data for getChatInfoForOrder
-                    raw: fullOrder
+                    raw: fullOrder,
                 });
                 this.log('  - Found full order:', fullOrder.Code, 'STT:', fullOrder.SessionIndex);
             } else {
@@ -2836,11 +3097,21 @@ class MessageTemplateManager {
                 if (row) {
                     const orderData = {
                         Id: orderId,
-                        code: row.querySelector('td:nth-child(3)')?.textContent?.trim().split('\n')[0]?.trim(),
-                        customerName: row.querySelector('td:nth-child(4)')?.textContent?.trim().split('\n')[0]?.trim(),
+                        code: row
+                            .querySelector('td:nth-child(3)')
+                            ?.textContent?.trim()
+                            .split('\n')[0]
+                            ?.trim(),
+                        customerName: row
+                            .querySelector('td:nth-child(4)')
+                            ?.textContent?.trim()
+                            .split('\n')[0]
+                            ?.trim(),
                         phone: row.querySelector('td:nth-child(5)')?.textContent?.trim(),
                         address: row.querySelector('td:nth-child(6)')?.textContent?.trim(),
-                        totalAmount: row.querySelector('td:nth-child(8)')?.textContent?.replace(/[^\d]/g, ''),
+                        totalAmount: row
+                            .querySelector('td:nth-child(8)')
+                            ?.textContent?.replace(/[^\d]/g, ''),
                         // PartnerId is missing here, will fail optimization check
                     };
                     selectedOrders.push(orderData);
@@ -2952,12 +3223,16 @@ class MessageTemplateManager {
                     </div>
                     <div class="message-modal-footer" style="padding: 16px 24px; background: #f9fafb; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-between;">
                         <div>
-                            ${isEdit ? `
+                            ${
+                                isEdit
+                                    ? `
                                 <button onclick="window.messageTemplateManager?.deleteTemplate('${template?.Id}')"
                                     style="padding: 10px 18px; background: #fee2e2; color: #dc2626; border: none; border-radius: 8px; font-weight: 500; cursor: pointer; font-size: 14px;">
                                     <i class="fas fa-trash"></i> Xóa
                                 </button>
-                            ` : ''}
+                            `
+                                    : ''
+                            }
                         </div>
                         <div style="display: flex; gap: 12px;">
                             <button onclick="document.getElementById('${modalId}').remove()"
@@ -3017,7 +3292,7 @@ class MessageTemplateManager {
                 Name: name,
                 Content: content,
                 active: true,
-                updatedAt: window.firebase.firestore.FieldValue.serverTimestamp()
+                updatedAt: window.firebase.firestore.FieldValue.serverTimestamp(),
             };
 
             if (templateId) {
@@ -3035,7 +3310,6 @@ class MessageTemplateManager {
             // Close modal and reload
             document.getElementById('templateEditorModal')?.remove();
             await this.loadTemplates();
-
         } catch (error) {
             console.error('Error saving template:', error);
             window.notificationManager?.error('Lỗi lưu template: ' + error.message);
@@ -3065,7 +3339,6 @@ class MessageTemplateManager {
             // Close modal and reload
             document.getElementById('templateEditorModal')?.remove();
             await this.loadTemplates();
-
         } catch (error) {
             console.error('Error deleting template:', error);
             window.notificationManager?.error('Lỗi xóa template: ' + error.message);
@@ -3094,7 +3367,7 @@ Em gửi đến mình các sản phẩm mà mình đã đặt bên em gồm:
 Chị xác nhận giúp em để em gửi hàng nha ạ! 🙏`,
                 order: 1,
                 active: true,
-                createdAt: window.firebase.firestore.FieldValue.serverTimestamp()
+                createdAt: window.firebase.firestore.FieldValue.serverTimestamp(),
             },
             {
                 Name: 'Xác nhận địa chỉ',
@@ -3106,7 +3379,7 @@ Em xác nhận lại địa chỉ nhận hàng của chị là:
 Chị kiểm tra giúp em địa chỉ đã chính xác chưa ạ?`,
                 order: 2,
                 active: true,
-                createdAt: window.firebase.firestore.FieldValue.serverTimestamp()
+                createdAt: window.firebase.firestore.FieldValue.serverTimestamp(),
             },
             {
                 Name: 'Thông báo giao hàng',
@@ -3117,7 +3390,7 @@ Chị kiểm tra giúp em địa chỉ đã chính xác chưa ạ?`,
 Chị chú ý điện thoại để nhận hàng nha! 📦`,
                 order: 3,
                 active: true,
-                createdAt: window.firebase.firestore.FieldValue.serverTimestamp()
+                createdAt: window.firebase.firestore.FieldValue.serverTimestamp(),
             },
             {
                 Name: 'Cảm ơn khách hàng',
@@ -3128,11 +3401,11 @@ Chị dùng hàng có gì thắc mắc cứ inbox shop em hỗ trợ nha.
 Chúc chị một ngày vui vẻ! 😊`,
                 order: 4,
                 active: true,
-                createdAt: window.firebase.firestore.FieldValue.serverTimestamp()
-            }
+                createdAt: window.firebase.firestore.FieldValue.serverTimestamp(),
+            },
         ];
 
-        defaultTemplates.forEach(template => {
+        defaultTemplates.forEach((template) => {
             const docRef = templatesRef.doc();
             batch.set(docRef, template);
         });
@@ -3159,15 +3432,14 @@ Chúc chị một ngày vui vẻ! 😊`,
     }
 
     formatCurrency(amount) {
-        const numericAmount = typeof amount === 'string'
-            ? parseFloat(amount.replace(/[^\d.-]/g, ''))
-            : amount;
+        const numericAmount =
+            typeof amount === 'string' ? parseFloat(amount.replace(/[^\d.-]/g, '')) : amount;
 
         if (isNaN(numericAmount)) return '0đ';
 
         return new Intl.NumberFormat('vi-VN', {
             style: 'currency',
-            currency: 'VND'
+            currency: 'VND',
         }).format(numericAmount);
     }
 
@@ -3182,16 +3454,16 @@ Chúc chị một ngày vui vẻ! 😊`,
      * Save send history to localStorage
      * @param {Object} historyEntry - History entry object
      */
-    saveToHistory(historyEntry) {
+    async saveToHistory(historyEntry) {
         try {
             const HISTORY_KEY = 'messageSendHistory';
             const MAX_HISTORY = 100; // Keep last 100 entries
 
-            // Get existing history
+            // Get existing history from IndexedDB
             let history = [];
-            const existingHistory = localStorage.getItem(HISTORY_KEY);
-            if (existingHistory) {
-                history = JSON.parse(existingHistory);
+            if (window.indexedDBStorage) {
+                const existing = await window.indexedDBStorage.getItem(HISTORY_KEY);
+                if (Array.isArray(existing)) history = existing;
             }
 
             // Add new entry at the beginning
@@ -3202,52 +3474,53 @@ Chúc chị một ngày vui vẻ! 😊`,
                 history = history.slice(0, MAX_HISTORY);
             }
 
-            // Save to localStorage
-            localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+            // Save to IndexedDB
+            if (window.indexedDBStorage) {
+                await window.indexedDBStorage.setItem(HISTORY_KEY, history);
+            }
 
-            this.log('💾 History saved to localStorage');
+            this.log('History saved to IndexedDB');
             this.log('  - Total entries:', history.length);
-
         } catch (error) {
-            this.log('❌ Error saving history:', error);
+            this.log('Error saving history:', error);
         }
     }
 
     /**
-     * Get send history from localStorage
-     * @returns {Array} Array of history entries
+     * Get send history from IndexedDB
+     * @returns {Promise<Array>} Array of history entries
      */
-    getHistory() {
+    async getHistory() {
         try {
             const HISTORY_KEY = 'messageSendHistory';
-            const history = localStorage.getItem(HISTORY_KEY);
-            if (!history) {
-                this.log('📋 No history found');
-                return [];
+            if (window.indexedDBStorage) {
+                const history = await window.indexedDBStorage.getItem(HISTORY_KEY);
+                if (Array.isArray(history)) {
+                    this.log('History retrieved:', history.length, 'entries');
+                    return history;
+                }
             }
-
-            const parsed = JSON.parse(history);
-            this.log('📋 History retrieved:', parsed.length, 'entries');
-            return parsed;
-
+            this.log('No history found');
+            return [];
         } catch (error) {
-            this.log('❌ Error getting history:', error);
+            this.log('Error getting history:', error);
             return [];
         }
     }
 
     /**
-     * Clear send history from localStorage
+     * Clear send history from IndexedDB
      */
-    clearHistory() {
+    async clearHistory() {
         try {
             const HISTORY_KEY = 'messageSendHistory';
-            localStorage.removeItem(HISTORY_KEY);
-            this.log('🗑️ History cleared');
-            console.log('✅ History cleared successfully');
-
+            if (window.indexedDBStorage) {
+                await window.indexedDBStorage.removeItem(HISTORY_KEY);
+            }
+            this.log('History cleared');
+            console.log('History cleared successfully');
         } catch (error) {
-            this.log('❌ Error clearing history:', error);
+            this.log('Error clearing history:', error);
         }
     }
 
@@ -3277,13 +3550,12 @@ Chúc chị một ngày vui vẻ! 😊`,
                 ...campaignData,
                 createdAt: window.firebase.firestore.FieldValue.serverTimestamp(),
                 expireAt: expireAt, // For TTL auto-delete
-                localCreatedAt: now.toISOString()
+                localCreatedAt: now.toISOString(),
             };
 
             const docRef = await campaignsRef.add(campaign);
             this.log('✅ Campaign saved to Firestore:', docRef.id);
             return docRef.id;
-
         } catch (error) {
             this.log('❌ Error saving campaign to Firestore:', error);
             return null;
@@ -3314,10 +3586,10 @@ Chúc chị một ngày vui vẻ! 😊`,
                 .get();
 
             const campaigns = [];
-            snapshot.forEach(doc => {
+            snapshot.forEach((doc) => {
                 campaigns.push({
                     id: doc.id,
-                    ...doc.data()
+                    ...doc.data(),
                 });
             });
 
@@ -3330,7 +3602,6 @@ Chúc chị một ngày vui vẻ! 😊`,
 
             this.log('📋 Loaded campaigns from Firestore:', campaigns.length);
             return campaigns;
-
         } catch (error) {
             this.log('❌ Error loading campaigns from Firestore:', error);
             return [];
@@ -3348,10 +3619,7 @@ Chúc chị một ngày vui vẻ! 😊`,
             const campaignsRef = db.collection('message_campaigns');
 
             const now = new Date();
-            const snapshot = await campaignsRef
-                .where('expireAt', '<', now)
-                .limit(100)
-                .get();
+            const snapshot = await campaignsRef.where('expireAt', '<', now).limit(100).get();
 
             if (snapshot.empty) {
                 this.log('📋 No expired campaigns to delete');
@@ -3359,13 +3627,12 @@ Chúc chị một ngày vui vẻ! 😊`,
             }
 
             const batch = db.batch();
-            snapshot.forEach(doc => {
+            snapshot.forEach((doc) => {
                 batch.delete(doc.ref);
             });
             await batch.commit();
 
             this.log('🗑️ Deleted', snapshot.size, 'expired campaigns');
-
         } catch (error) {
             this.log('❌ Error cleaning up campaigns:', error);
         }
@@ -3460,7 +3727,9 @@ Chúc chị một ngày vui vẻ! 😊`,
                         </div>
                     </div>
 
-                    ${errorCount > 0 ? `
+                    ${
+                        errorCount > 0
+                            ? `
                     <details style="margin-top: 8px;">
                         <summary style="cursor: pointer; color: #dc2626; font-size: 13px; padding: 8px 0;">
                             <i class="fas fa-exclamation-triangle"></i> Xem ${errorCount} đơn thất bại (click để mở)
@@ -3486,7 +3755,9 @@ Chúc chị một ngày vui vẻ! 😊`,
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        ${(campaign.errorOrders || []).map((order, i) => `
+                                        ${(campaign.errorOrders || [])
+                                            .map(
+                                                (order, i) => `
                                             <tr style="border-bottom: 1px solid #f3f4f6;" id="errorRow_${index}_${i}">
                                                 <td style="padding: 8px; color: #6b7280;">${order.stt || i + 1}</td>
                                                 <td style="padding: 8px; font-weight: 500;">${order.code || 'N/A'}</td>
@@ -3501,15 +3772,21 @@ Chúc chị một ngày vui vẻ! 😊`,
                                                     </button>
                                                 </td>
                                             </tr>
-                                        `).join('')}
+                                        `
+                                            )
+                                            .join('')}
                                     </tbody>
                                 </table>
                             </div>
                         </div>
                     </details>
-                    ` : ''}
+                    `
+                            : ''
+                    }
 
-                    ${successCount > 0 ? `
+                    ${
+                        successCount > 0
+                            ? `
                     <details style="margin-top: 8px;">
                         <summary style="cursor: pointer; color: #16a34a; font-size: 13px; padding: 8px 0;">
                             <i class="fas fa-check-circle"></i> Xem ${successCount} đơn thành công (click để mở)
@@ -3525,19 +3802,25 @@ Chúc chị một ngày vui vẻ! 😊`,
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    ${(campaign.successOrders || []).map((order, i) => `
+                                    ${(campaign.successOrders || [])
+                                        .map(
+                                            (order, i) => `
                                         <tr style="border-bottom: 1px solid #f3f4f6;">
                                             <td style="padding: 8px; color: #6b7280;">${order.stt || i + 1}</td>
                                             <td style="padding: 8px; font-weight: 500;">${order.code || 'N/A'}</td>
                                             <td style="padding: 8px;">${order.customerName || 'N/A'}</td>
                                             <td style="padding: 8px; color: #6b7280; font-size: 11px;">${order.account || 'N/A'}</td>
                                         </tr>
-                                    `).join('')}
+                                    `
+                                        )
+                                        .join('')}
                                 </tbody>
                             </table>
                         </div>
                     </details>
-                    ` : ''}
+                    `
+                            : ''
+                    }
                 </div>
             `;
         });
@@ -3580,12 +3863,14 @@ Chúc chị một ngày vui vẻ! 😊`,
             // Mark row as success
             if (row) {
                 row.style.background = '#f0fdf4';
-                row.querySelector('td:last-child').innerHTML = '<i class="fas fa-check" style="color: #16a34a;"></i>';
+                row.querySelector('td:last-child').innerHTML =
+                    '<i class="fas fa-check" style="color: #16a34a;"></i>';
             }
             window.notificationManager?.show(`Comment sent: ${errorOrder.code}`, 'success');
         } catch (err) {
             if (row) {
-                row.querySelector('td:last-child').innerHTML = `<span style="color: #dc2626; font-size: 10px;" title="${err.message}"><i class="fas fa-times"></i></span>`;
+                row.querySelector('td:last-child').innerHTML =
+                    `<span style="color: #dc2626; font-size: 10px;" title="${err.message}"><i class="fas fa-times"></i></span>`;
             }
             window.notificationManager?.error(`Lỗi ${errorOrder.code}: ${err.message}`);
         }
@@ -3629,19 +3914,21 @@ Chúc chị một ngày vui vẻ! 😊`,
 
                 if (row) {
                     row.style.background = '#f0fdf4';
-                    row.querySelector('td:last-child').innerHTML = '<i class="fas fa-check" style="color: #16a34a;"></i>';
+                    row.querySelector('td:last-child').innerHTML =
+                        '<i class="fas fa-check" style="color: #16a34a;"></i>';
                 }
             } catch (err) {
                 errorCount++;
                 console.error(`[COMMENT-SEND] Error for ${errorOrder.code}:`, err.message);
 
                 if (row) {
-                    row.querySelector('td:last-child').innerHTML = `<span style="color: #dc2626; font-size: 10px;" title="${err.message}"><i class="fas fa-times"></i></span>`;
+                    row.querySelector('td:last-child').innerHTML =
+                        `<span style="color: #dc2626; font-size: 10px;" title="${err.message}"><i class="fas fa-times"></i></span>`;
                 }
             }
 
             // Small delay between sends
-            await new Promise(r => setTimeout(r, 1000));
+            await new Promise((r) => setTimeout(r, 1000));
 
             // Update button progress
             if (btn) {
@@ -3692,7 +3979,8 @@ Chúc chị một ngày vui vẻ! 😊`,
         // 3. Get page_access_token
         let pageAccessToken = window.pancakeTokenManager?.getPageAccessToken(channelId);
         if (!pageAccessToken) {
-            pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(channelId);
+            pageAccessToken =
+                await window.pancakeTokenManager?.getOrGeneratePageAccessToken(channelId);
         }
         if (!pageAccessToken) {
             throw new Error(`Không có page_access_token cho page ${channelId}`);
@@ -3702,7 +3990,10 @@ Chúc chị một ngày vui vẻ! 😊`,
         // IMPORTANT: Must use Pancake internal comment ID, NOT TPOS Facebook_CommentId
         const postId = facebookPostId.split('_').slice(1).join('_'); // postId part
         const commentsResult = await window.pancakeDataManager?.fetchComments(
-            channelId, psid, null, postId
+            channelId,
+            psid,
+            null,
+            postId
         );
 
         if (!commentsResult?.comments?.length) {
@@ -3710,17 +4001,25 @@ Chúc chị một ngày vui vẻ! 😊`,
         }
 
         // Find the latest comment from customer (not page owner)
-        const customerComments = commentsResult.comments.filter(c => !c.IsOwner);
+        const customerComments = commentsResult.comments.filter((c) => !c.IsOwner);
         if (customerComments.length === 0) {
             throw new Error('Không tìm thấy comment nào từ khách hàng');
         }
 
         const latestComment = customerComments[customerComments.length - 1];
         const latestCommentId = latestComment.Id; // Pancake internal ID
-        console.log('[COMMENT-SEND] Using latest customer comment:', latestCommentId, 'Message:', latestComment.Message?.substring(0, 50));
+        console.log(
+            '[COMMENT-SEND] Using latest customer comment:',
+            latestCommentId,
+            'Message:',
+            latestComment.Message?.substring(0, 50)
+        );
 
         // 5. Replace placeholders in template
-        let messageContent = this.replacePlaceholders(templateContent || '', fullOrderData.converted);
+        let messageContent = this.replacePlaceholders(
+            templateContent || '',
+            fullOrderData.converted
+        );
 
         // 6. Build reply_comment payload
         const conversationId = latestCommentId;
@@ -3732,25 +4031,36 @@ Chúc chị một ngày vui vẻ! 😊`,
         const payload = {
             action: 'reply_comment',
             message_id: latestCommentId,
-            message: messageContent
+            message: messageContent,
         };
 
-        console.log('[COMMENT-SEND] Sending reply_comment:', { channelId, conversationId, latestCommentId, message: messageContent.substring(0, 50) + '...' });
+        console.log('[COMMENT-SEND] Sending reply_comment:', {
+            channelId,
+            conversationId,
+            latestCommentId,
+            message: messageContent.substring(0, 50) + '...',
+        });
 
         // 7. Send API request
-        const response = await API_CONFIG.smartFetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
+        const response = await API_CONFIG.smartFetch(
+            url,
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                },
+                body: JSON.stringify(payload),
             },
-            body: JSON.stringify(payload)
-        }, 1, true);
+            1,
+            true
+        );
 
         const result = await response.json();
 
         if (!response.ok || result.success === false || result.error) {
-            const errorMsg = result.message || result.error?.message || result.error || 'Lỗi gửi comment';
+            const errorMsg =
+                result.message || result.error?.message || result.error || 'Lỗi gửi comment';
             throw new Error(errorMsg);
         }
 
@@ -3782,11 +4092,12 @@ Chúc chị một ngày vui vẻ! 😊`,
                 this.log('📋 Templates not loaded yet, fetching from Firestore...');
                 const db = window.firebase?.firestore();
                 if (db) {
-                    const snapshot = await db.collection(this.TEMPLATES_COLLECTION)
+                    const snapshot = await db
+                        .collection(this.TEMPLATES_COLLECTION)
                         .where('active', '==', true)
                         .orderBy('order', 'asc')
                         .get();
-                    this.templates = snapshot.docs.map(doc => ({ Id: doc.id, ...doc.data() }));
+                    this.templates = snapshot.docs.map((doc) => ({ Id: doc.id, ...doc.data() }));
                     this.filteredTemplates = [...this.templates];
                     this.log(`✅ Loaded ${this.templates.length} templates`);
                 }
@@ -3811,7 +4122,6 @@ Chúc chị một ngày vui vẻ! 😊`,
 
             // Create quick template selection modal
             this._showQuickTemplateModal(orderId, orderCode, fullOrderData);
-
         } catch (error) {
             console.error('[QUICK-COMMENT] Error:', error);
             if (window.notificationManager) {
@@ -3833,13 +4143,16 @@ Chúc chị một ngày vui vẻ! 😊`,
 
         // Get templates
         const templates = this.templates || [];
-        const messengerTemplates = templates.filter(t =>
-            (t.TypeId || '').toLowerCase().includes('messenger') ||
-            (t.Type || '').toLowerCase().includes('messenger')
+        const messengerTemplates = templates.filter(
+            (t) =>
+                (t.TypeId || '').toLowerCase().includes('messenger') ||
+                (t.Type || '').toLowerCase().includes('messenger')
         );
 
-        const templateOptions = messengerTemplates.length > 0 ? messengerTemplates : templates.slice(0, 10);
-        const selectStyle = 'width:100%; padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:13px; background:white;';
+        const templateOptions =
+            messengerTemplates.length > 0 ? messengerTemplates : templates.slice(0, 10);
+        const selectStyle =
+            'width:100%; padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:13px; background:white;';
 
         const modalHTML = `
             <div id="quickCommentModal" class="message-modal-overlay active" style="z-index: 10002;">
@@ -3879,7 +4192,7 @@ Chúc chị một ngày vui vẻ! 😊`,
                             <i class="fas fa-file-alt"></i> Mẫu tin nhắn:
                         </label>
                         <select id="quickTemplateSelect" style="${selectStyle}">
-                            ${templateOptions.map(t => `<option value="${t.Id}">${t.Name}</option>`).join('')}
+                            ${templateOptions.map((t) => `<option value="${t.Id}">${t.Name}</option>`).join('')}
                         </select>
 
                         <div id="quickTemplatePreview" style="margin-top: 12px; padding: 10px; background: #f9fafb; border-radius: 8px; font-size: 12px; max-height: 120px; overflow-y: auto; white-space: pre-wrap; color: #4b5563;">
@@ -3907,13 +4220,19 @@ Chúc chị một ngày vui vẻ! 😊`,
         const select = document.getElementById('quickTemplateSelect');
         const preview = document.getElementById('quickTemplatePreview');
         select?.addEventListener('change', () => {
-            const selectedTemplate = templateOptions.find(t => t.Id === select.value);
+            const selectedTemplate = templateOptions.find((t) => t.Id === select.value);
             if (selectedTemplate && preview) {
-                preview.textContent = this.replacePlaceholders(selectedTemplate.Content || '', fullOrderData.converted);
+                preview.textContent = this.replacePlaceholders(
+                    selectedTemplate.Content || '',
+                    fullOrderData.converted
+                );
             }
         });
         if (select && templateOptions[0]) {
-            const initialPreview = this.replacePlaceholders(templateOptions[0].Content || '', fullOrderData.converted);
+            const initialPreview = this.replacePlaceholders(
+                templateOptions[0].Content || '',
+                fullOrderData.converted
+            );
             if (preview) preview.textContent = initialPreview;
         }
 
@@ -3943,8 +4262,10 @@ Chúc chị một ngày vui vẻ! 😊`,
         // Get Page Token
         let pageToken = null;
         if (window.cachedChannelsData) {
-            const ch = window.cachedChannelsData.find(c =>
-                String(c.ChannelId) === String(channelId) || String(c.Facebook_AccountId) === String(channelId)
+            const ch = window.cachedChannelsData.find(
+                (c) =>
+                    String(c.ChannelId) === String(channelId) ||
+                    String(c.Facebook_AccountId) === String(channelId)
             );
             if (ch?.Facebook_PageToken) pageToken = ch.Facebook_PageToken;
         }
@@ -3952,7 +4273,9 @@ Chúc chị một ngày vui vẻ! 😊`,
             try {
                 const crmTeam = await this.fetchCRMTeam(raw.CRMTeamId);
                 if (crmTeam?.Facebook_PageToken) pageToken = crmTeam.Facebook_PageToken;
-            } catch (e) { /* ignore */ }
+            } catch (e) {
+                /* ignore */
+            }
         }
 
         if (!pageToken) {
@@ -3969,20 +4292,39 @@ Chúc chị một ngày vui vẻ! 😊`,
             // Get REAL Facebook Page ID from token (Pancake channelId may be internal)
             let realPageId = channelId;
             try {
-                const meUrl = window.API_CONFIG.buildUrl.facebookGraph('me', pageToken, { fields: 'id,name' });
-                const meRes = await fetch(meUrl).then(r => r.json());
+                const meUrl = window.API_CONFIG.buildUrl.facebookGraph('me', pageToken, {
+                    fields: 'id,name',
+                });
+                const meRes = await fetch(meUrl).then((r) => r.json());
                 if (meRes.id) {
                     realPageId = meRes.id;
                     this.log('[FB-TARGET] Real Page ID:', realPageId, '| Name:', meRes.name);
                 }
-            } catch (e) { /* keep channelId as fallback */ }
+            } catch (e) {
+                /* keep channelId as fallback */
+            }
 
             this._fbPageId = realPageId;
 
             // Fetch live videos and feed in parallel using REAL page ID
             const [liveRes, feedRes] = await Promise.all([
-                fetch(window.API_CONFIG.buildUrl.facebookGraph(`${realPageId}/live_videos`, pageToken, { fields: 'id,title,created_time', limit: '10' })).then(r => r.json()).catch(() => ({})),
-                fetch(window.API_CONFIG.buildUrl.facebookGraph(`${realPageId}/feed`, pageToken, { fields: 'id,message,created_time', limit: '10' })).then(r => r.json()).catch(() => ({})),
+                fetch(
+                    window.API_CONFIG.buildUrl.facebookGraph(
+                        `${realPageId}/live_videos`,
+                        pageToken,
+                        { fields: 'id,title,created_time', limit: '10' }
+                    )
+                )
+                    .then((r) => r.json())
+                    .catch(() => ({})),
+                fetch(
+                    window.API_CONFIG.buildUrl.facebookGraph(`${realPageId}/feed`, pageToken, {
+                        fields: 'id,message,created_time',
+                        limit: '10',
+                    })
+                )
+                    .then((r) => r.json())
+                    .catch(() => ({})),
             ]);
 
             const posts = [];
@@ -3990,29 +4332,50 @@ Chúc chị một ngày vui vẻ! 😊`,
             // Add live videos
             if (liveRes.data) {
                 for (const v of liveRes.data) {
-                    const date = v.created_time ? new Date(v.created_time).toLocaleDateString('vi-VN') : '';
-                    posts.push({ id: v.id, label: `[LIVE] ${v.title || 'Live'} - ${date}`, time: v.created_time, type: 'live' });
+                    const date = v.created_time
+                        ? new Date(v.created_time).toLocaleDateString('vi-VN')
+                        : '';
+                    posts.push({
+                        id: v.id,
+                        label: `[LIVE] ${v.title || 'Live'} - ${date}`,
+                        time: v.created_time,
+                        type: 'live',
+                    });
                 }
             }
 
             // Add feed posts
             if (feedRes.data) {
                 for (const p of feedRes.data) {
-                    const date = p.created_time ? new Date(p.created_time).toLocaleDateString('vi-VN') : '';
+                    const date = p.created_time
+                        ? new Date(p.created_time).toLocaleDateString('vi-VN')
+                        : '';
                     const msg = (p.message || '').substring(0, 40);
-                    posts.push({ id: p.id, label: `${msg || 'Bài viết'} - ${date}`, time: p.created_time, type: 'post' });
+                    posts.push({
+                        id: p.id,
+                        label: `${msg || 'Bài viết'} - ${date}`,
+                        time: p.created_time,
+                        type: 'post',
+                    });
                 }
             }
 
             // Sort by date (newest first) and deduplicate
             posts.sort((a, b) => new Date(b.time || 0) - new Date(a.time || 0));
             const seen = new Set();
-            const uniquePosts = posts.filter(p => { if (seen.has(p.id)) return false; seen.add(p.id); return true; });
+            const uniquePosts = posts.filter((p) => {
+                if (seen.has(p.id)) return false;
+                seen.add(p.id);
+                return true;
+            });
 
             if (postSelect) {
-                postSelect.innerHTML = uniquePosts.length > 0
-                    ? uniquePosts.map(p => `<option value="${p.id}">${p.label}</option>`).join('')
-                    : '<option value="">Không tìm thấy bài viết</option>';
+                postSelect.innerHTML =
+                    uniquePosts.length > 0
+                        ? uniquePosts
+                              .map((p) => `<option value="${p.id}">${p.label}</option>`)
+                              .join('')
+                        : '<option value="">Không tìm thấy bài viết</option>';
                 postSelect.disabled = false;
 
                 // Auto-load comments for the first post
@@ -4049,11 +4412,21 @@ Chúc chị một ngày vui vẻ! 😊`,
             // Try with stream filter first (for live), then without
             let comments = [];
             for (const filter of ['stream', null]) {
-                const params = { fields: 'from{id,name},id,message,created_time', limit: '200', order: 'reverse_chronological' };
+                const params = {
+                    fields: 'from{id,name},id,message,created_time',
+                    limit: '200',
+                    order: 'reverse_chronological',
+                };
                 if (filter) params.filter = filter;
 
-                const url = window.API_CONFIG.buildUrl.facebookGraph(`${postId}/comments`, pageToken, params);
-                const res = await fetch(url).then(r => r.json()).catch(() => ({}));
+                const url = window.API_CONFIG.buildUrl.facebookGraph(
+                    `${postId}/comments`,
+                    pageToken,
+                    params
+                );
+                const res = await fetch(url)
+                    .then((r) => r.json())
+                    .catch(() => ({}));
 
                 if (res.data?.length > 0) {
                     comments = res.data;
@@ -4072,8 +4445,8 @@ Chúc chị một ngày vui vẻ! 😊`,
             const norm = customerName.trim().toLowerCase();
 
             commentSelect.innerHTML = comments
-                .filter(c => c.from)
-                .map(c => {
+                .filter((c) => c.from)
+                .map((c) => {
                     const name = c.from.name || 'Unknown';
                     const msg = (c.message || '').substring(0, 30);
                     const isMatch = name.trim().toLowerCase() === norm;
@@ -4084,11 +4457,14 @@ Chúc chị một ngày vui vẻ! 😊`,
 
             commentSelect.disabled = false;
 
-            const matchCount = comments.filter(c => c.from?.name?.trim().toLowerCase() === norm).length;
+            const matchCount = comments.filter(
+                (c) => c.from?.name?.trim().toLowerCase() === norm
+            ).length;
             if (status) {
-                status.innerHTML = matchCount > 0
-                    ? `<span style="color:#059669;">✓ Tìm thấy comment của ${customerName}</span>`
-                    : `<span style="color:#d97706;">⚠ ${comments.length} comment, chưa tìm thấy "${customerName}"</span>`;
+                status.innerHTML =
+                    matchCount > 0
+                        ? `<span style="color:#059669;">✓ Tìm thấy comment của ${customerName}</span>`
+                        : `<span style="color:#d97706;">⚠ ${comments.length} comment, chưa tìm thấy "${customerName}"</span>`;
             }
         } catch (err) {
             commentSelect.innerHTML = '<option value="">Lỗi tải comment</option>';
@@ -4110,7 +4486,7 @@ Chúc chị một ngày vui vẻ! 😊`,
             return;
         }
 
-        const selectedTemplate = (this.templates || []).find(t => t.Id === select.value);
+        const selectedTemplate = (this.templates || []).find((t) => t.Id === select.value);
         if (!selectedTemplate) {
             if (window.notificationManager) {
                 window.notificationManager.error('Vui lòng chọn mẫu tin nhắn', 3000);
@@ -4134,7 +4510,10 @@ Chúc chị một ngày vui vẻ! 😊`,
             }
 
             // Replace placeholders in template
-            const messageContent = this.replacePlaceholders(selectedTemplate.Content || '', this._quickCommentOrderData.converted);
+            const messageContent = this.replacePlaceholders(
+                selectedTemplate.Content || '',
+                this._quickCommentOrderData.converted
+            );
 
             // Check if user selected a comment from dropdown
             const selectedCommentId = document.getElementById('fbCommentSelect')?.value;
@@ -4162,7 +4541,13 @@ Chúc chị một ngày vui vẻ! 😊`,
                 // FALLBACK: Send API → auto Private Reply lookup
                 const facebookPostId = raw.Facebook_PostId || '';
                 this.log('[QUICK-FB-SEND] Fallback mode, Facebook_PostId:', facebookPostId);
-                result = await this._sendViaFacebookAPI(channelId, psid, messageContent, raw, facebookPostId);
+                result = await this._sendViaFacebookAPI(
+                    channelId,
+                    psid,
+                    messageContent,
+                    raw,
+                    facebookPostId
+                );
             }
 
             if (result.success) {
@@ -4197,14 +4582,10 @@ Chúc chị một ngày vui vẻ! 😊`,
                     `Đơn: ${raw.Code || orderId}`
                 );
             }
-
         } catch (error) {
             console.error('[QUICK-FB-SEND] Error:', error);
             if (window.notificationManager) {
-                window.notificationManager.error(
-                    'Lỗi gửi tin nhắn: ' + error.message,
-                    5000
-                );
+                window.notificationManager.error('Lỗi gửi tin nhắn: ' + error.message, 5000);
             }
 
             // Re-enable button
@@ -4229,7 +4610,7 @@ Chúc chị một ngày vui vẻ! 😊`,
             return;
         }
 
-        const selectedTemplate = (this.templates || []).find(t => t.Id === select.value);
+        const selectedTemplate = (this.templates || []).find((t) => t.Id === select.value);
         if (!selectedTemplate) {
             if (window.notificationManager) {
                 window.notificationManager.error('Vui lòng chọn mẫu tin nhắn', 3000);
@@ -4247,7 +4628,7 @@ Chúc chị một ngày vui vẻ! 😊`,
             // Create error order object for _sendOrderViaCommentReply
             const errorOrder = {
                 orderId: orderId,
-                code: this._quickCommentOrderData.raw?.Code || orderId
+                code: this._quickCommentOrderData.raw?.Code || orderId,
             };
 
             await this._sendOrderViaCommentReply(errorOrder, selectedTemplate.Content);
@@ -4262,14 +4643,10 @@ Chúc chị một ngày vui vẻ! 😊`,
                     `Đơn: ${errorOrder.code}`
                 );
             }
-
         } catch (error) {
             console.error('[QUICK-COMMENT] Send error:', error);
             if (window.notificationManager) {
-                window.notificationManager.error(
-                    'Lỗi gửi comment: ' + error.message,
-                    5000
-                );
+                window.notificationManager.error('Lỗi gửi comment: ' + error.message, 5000);
             }
 
             // Re-enable button
@@ -4292,10 +4669,22 @@ if (document.readyState === 'loading') {
 }
 
 function initMessageTemplateManager() {
-    console.log('%c🚀 MESSAGE TEMPLATE MANAGER - IMPROVED VERSION', 'background: #10b981; color: white; padding: 8px; font-weight: bold;');
+    console.log(
+        '%c🚀 MESSAGE TEMPLATE MANAGER - IMPROVED VERSION',
+        'background: #10b981; color: white; padding: 8px; font-weight: bold;'
+    );
     const messageTemplateManager = new MessageTemplateManager();
     window.messageTemplateManager = messageTemplateManager;
-    console.log('✅ MessageTemplateManager initialized and ready');
+
+    // Migrate messageSendHistory from localStorage to IndexedDB (one-time)
+    if (
+        window.indexedDBStorage &&
+        typeof window.indexedDBStorage.migrateFromLocalStorage === 'function'
+    ) {
+        window.indexedDBStorage.migrateFromLocalStorage(['messageSendHistory']).catch(() => {});
+    }
+
+    console.log('MessageTemplateManager initialized and ready');
     console.log('📊 Debug mode:', messageTemplateManager.DEBUG_MODE);
     console.log('');
 }
