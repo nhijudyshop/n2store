@@ -284,15 +284,37 @@ class InboxTokenManager {
     }
 
     async generatePageAccessToken(pageId, accountToken = null) {
-        const jwt = accountToken || this.currentToken;
-        if (!jwt) return null;
-        try {
+        // Try specific token first
+        const tryGenerate = async (jwt) => {
             const url = InboxApiConfig.buildUrl.pancake(`pages/${pageId}/generate_page_access_token`, `access_token=${jwt}`);
             const res = await fetch(url, { method: 'POST', headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' } });
             const data = await res.json();
             if (data.success && data.page_access_token) {
                 await this.savePageAccessToken(pageId, data.page_access_token);
                 return data.page_access_token;
+            }
+            return null;
+        };
+
+        try {
+            // Try provided token or current token
+            const jwt = accountToken || this.currentToken;
+            if (jwt) {
+                const pat = await tryGenerate(jwt);
+                if (pat) return pat;
+            }
+
+            // Current token failed — try all other valid accounts
+            const validAccounts = this.getValidAccounts();
+            for (const acc of validAccounts) {
+                if (acc.token === jwt) continue; // skip already-tried
+                try {
+                    const pat = await tryGenerate(acc.token);
+                    if (pat) {
+                        console.log(`[INBOX-TOKEN] Generated PAT for page ${pageId} using account ${acc.name || acc.accountId}`);
+                        return pat;
+                    }
+                } catch (e) { /* try next account */ }
             }
         } catch (e) {
             console.error('[INBOX-TOKEN] Generate page token error:', e);

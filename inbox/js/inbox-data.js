@@ -126,6 +126,7 @@ class InboxDataManager {
         const workerUrl = InboxApiConfig?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
         try {
             const response = await fetch(`${workerUrl}/api/realtime/inbox-groups`);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
             const data = await response.json();
             if (data.groups?.length > 0) {
                 this.groups = data.groups.map(g => ({
@@ -144,7 +145,7 @@ class InboxDataManager {
                 this.saveGroupsToServer();
             }
         } catch (err) {
-            console.warn('[InboxData] Failed to load groups from server, using local:', err.message);
+            // Silently fall back to localStorage (Render server may not have this endpoint)
         }
     }
 
@@ -892,7 +893,7 @@ class InboxDataManager {
                 console.log('[InboxData] Updated unread counts from Render pending_customers');
             }
         } catch (error) {
-            console.warn('[InboxData] Error fetching pending customers:', error.message);
+            // Silently ignore (Render server may not have this endpoint)
         }
     }
 
@@ -963,7 +964,7 @@ class InboxDataManager {
             if (window.inboxChat) window.inboxChat.renderConversationList();
             console.log(`[InboxData] Livestream from server: ${this.livestreamConvIdSet.size} convs (${virtualCount} virtual) across ${Object.keys(this.livestreamPostMap).length} posts`);
         } catch (error) {
-            console.warn('[InboxData] Failed to fetch livestream from server:', error.message);
+            // Silently fall back to local data (Render server may not have this endpoint)
         }
     }
 
@@ -1027,7 +1028,7 @@ class InboxDataManager {
                 psid: conv.psid,
                 customerId: conv.customerId
             })
-        }).catch(err => console.warn('[InboxData] Failed to save livestream conv to server:', err.message));
+        }).catch(() => {}); // Silently ignore (Render server may not have this endpoint)
     }
 
     /**
