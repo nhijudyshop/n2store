@@ -917,12 +917,51 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
                                 <i class="fas fa-phone" style="font-size: 10px; color: #9ca3af;"></i>
                                 <span style="font-size: 12px;">${customerPhone}</span>
                             </div>
-                            <div style="display: flex; align-items: center; gap: 4px;" title="Số dư ví khách hàng">
-                                <i class="fas fa-wallet" style="font-size: 10px; color: ${walletBalance > 0 ? '#10b981' : '#9ca3af'};"></i>
-                                <span style="font-size: 12px; color: ${walletBalance > 0 ? '#10b981' : '#6b7280'}; font-weight: ${walletBalance > 0 ? '600' : '400'};">
-                                    ${walletBalance > 0 ? walletBalance.toLocaleString('vi-VN') + 'đ' : '0đ'}
-                                </span>
-                            </div>
+                            ${(() => {
+                                // Tính totalPayment để so sánh với wallet
+                                const orderAmountTotal = order.AmountTotal ||
+                                    (order.OrderLines || []).reduce((sum, line) =>
+                                        sum + (line.PriceTotal || (line.PriceUnit || 0) * (line.ProductUOMQty || 0)), 0) || 0;
+                                let orderFinalAmount = orderAmountTotal;
+                                if (hasAnyDiscount) {
+                                    orderFinalAmount = orderAmountTotal - totalDiscount;
+                                }
+                                const orderTotalPayment = orderFinalAmount + defaultShippingFee;
+                                const walletExceedTotal = walletBalance > orderTotalPayment && orderTotalPayment > 0;
+                                const walletInputValue = walletExceedTotal ? orderTotalPayment : walletBalance;
+
+                                return `
+                                <div style="display: flex; align-items: center; gap: 4px;" title="Số dư ví: ${walletBalance.toLocaleString('vi-VN')}đ">
+                                    <i class="fas fa-wallet" style="font-size: 10px; color: ${walletBalance > 0 ? '#10b981' : '#9ca3af'};"></i>
+                                    <input id="fastSaleWalletAmount_${index}" type="number"
+                                           value="${walletInputValue}"
+                                           min="0" max="${walletInputValue}"
+                                           data-wallet-balance="${walletBalance}"
+                                           data-total-payment="${orderTotalPayment}"
+                                           ${walletExceedTotal ? '' : 'disabled'}
+                                           style="width: 100px; font-size: 12px; padding: 2px 4px; border-radius: 4px;
+                                                  color: ${walletBalance > 0 ? '#10b981' : '#6b7280'};
+                                                  font-weight: ${walletBalance > 0 ? '600' : '400'};
+                                                  background: ${walletExceedTotal ? '#ffffff' : '#f3f4f6'};
+                                                  border: ${walletExceedTotal ? '2px solid #dc2626' : '1px solid #d1d5db'};"
+                                           oninput="(function(el) {
+                                               let val = parseFloat(el.value) || 0;
+                                               const maxVal = Math.min(
+                                                   parseFloat(el.dataset.walletBalance) || 0,
+                                                   parseFloat(el.dataset.totalPayment) || 0
+                                               );
+                                               if (val > maxVal) { el.value = maxVal; }
+                                               if (val < 0) { el.value = 0; }
+                                           })(this)" />
+                                    <span style="font-size: 11px; color: #9ca3af;">${walletBalance > 0 ? '/ ' + walletBalance.toLocaleString('vi-VN') + 'đ' : '0đ'}</span>
+                                </div>
+                                <div id="fastSaleWalletWarning_${index}"
+                                     style="display:${walletExceedTotal ? 'block' : 'none'}; color:#dc2626; font-size:10px;
+                                            margin-top:4px; padding:3px 6px; background:#fef2f2; border-radius:4px;
+                                            border:1px solid #fecaca;">
+                                    Ví nhiều hơn tổng thu, nhập số tiền muốn trừ
+                                </div>`;
+                            })()}
                             ${hasAnyDiscount ? `<span class="badge" style="background: #f59e0b; color: white; font-size: 11px; padding: 2px 6px; border-radius: 4px;"><i class="fas fa-tag"></i> Giảm ${totalDiscount.toLocaleString('vi-VN')}đ</span>` : ''}
                             <div style="margin-top: 4px;">
                                 <div style="font-size: 11px; color: #6b7280;">
@@ -1370,9 +1409,54 @@ function updateFastSaleShippingFee(index) {
                 }
                 noteInput.value = currentNote;
             }
+
+            // Update wallet input state when shipping fee changes
+            updateFastSaleWalletInput(index, finalAmountTotal, fee);
         }
 
         shippingFeeInput.value = fee;
+    }
+}
+
+/**
+ * Update wallet input field state when totalPayment changes (e.g. shipping fee changed)
+ * @param {number} index - Row index
+ * @param {number} finalAmountTotal - Amount after discount
+ * @param {number} shippingFee - Shipping fee
+ */
+function updateFastSaleWalletInput(index, finalAmountTotal, shippingFee) {
+    const walletInput = document.getElementById(`fastSaleWalletAmount_${index}`);
+    const warningDiv = document.getElementById(`fastSaleWalletWarning_${index}`);
+    if (!walletInput) return;
+
+    const walletBalance = parseFloat(walletInput.dataset.walletBalance) || 0;
+    if (walletBalance <= 0) return;
+
+    const totalPayment = finalAmountTotal + shippingFee;
+    const walletExceedTotal = walletBalance > totalPayment && totalPayment > 0;
+
+    // Update data attribute
+    walletInput.dataset.totalPayment = totalPayment;
+
+    if (walletExceedTotal) {
+        // Wallet > total: enable editing
+        walletInput.disabled = false;
+        walletInput.style.background = '#ffffff';
+        walletInput.style.border = '2px solid #dc2626';
+        walletInput.max = totalPayment;
+        // Clamp current value
+        if (parseFloat(walletInput.value) > totalPayment) {
+            walletInput.value = totalPayment;
+        }
+        if (warningDiv) warningDiv.style.display = 'block';
+    } else {
+        // Normal: disable, auto-fill
+        walletInput.disabled = true;
+        walletInput.style.background = '#f3f4f6';
+        walletInput.style.border = '1px solid #d1d5db';
+        walletInput.value = Math.min(walletBalance, totalPayment);
+        walletInput.max = Math.min(walletBalance, totalPayment);
+        if (warningDiv) warningDiv.style.display = 'none';
     }
 }
 
@@ -1506,8 +1590,14 @@ function collectFastSaleData() {
                     // Total payment = Amount (after discount) + Shipping fee
                     const shippingFee = parseFloat(shippingFeeInput?.value) || 0;
                     const totalPayment = finalAmountTotal + shippingFee;
-                    // Calculate payment from wallet (min of wallet balance and total payment)
-                    paymentAmount = Math.min(walletBalance, totalPayment);
+                    // Read from input field if user has edited it (wallet > totalPayment case)
+                    const walletAmountInput = document.getElementById(`fastSaleWalletAmount_${index}`);
+                    if (walletAmountInput) {
+                        const userWalletAmount = parseFloat(walletAmountInput.value) || 0;
+                        paymentAmount = Math.max(0, Math.min(userWalletAmount, walletBalance, totalPayment));
+                    } else {
+                        paymentAmount = Math.min(walletBalance, totalPayment);
+                    }
                     // COD = Total - Wallet payment (remaining amount customer needs to pay)
                     cashOnDelivery = totalPayment - paymentAmount;
 
