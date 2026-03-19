@@ -1007,28 +1007,10 @@ class InboxDataManager {
     }
 
     /**
-     * Save a single livestream conversation to server
+     * Save a single livestream conversation to server (disabled — Render server has no endpoint)
      */
     _saveLivestreamConvToServer(convId, postId, conv) {
-        const workerUrl = InboxApiConfig?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
-        fetch(`${workerUrl}/api/realtime/livestream-conversation`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                convId,
-                postId,
-                postName: conv._messagesData?.post?.message || conv._messagesData?.post?.story
-                    || conv._raw?.post?.message
-                    || this.livestreamPostNames[postId]
-                    || (conv._messagesData?.activities?.length ? conv._messagesData.activities[conv._messagesData.activities.length - 1]?.message : null)
-                    || null,
-                name: conv.name,
-                type: conv.type,
-                pageId: conv.pageId,
-                psid: conv.psid,
-                customerId: conv.customerId
-            })
-        }).catch(() => {}); // Silently ignore (Render server may not have this endpoint)
+        // No-op: Render server doesn't have /api/realtime/livestream-conversation
     }
 
     /**

@@ -1089,13 +1089,12 @@ class InboxChatController {
         // Check if conversation passes current filters
         if (this.selectedPageIds.size > 0 && !this.selectedPageIds.has(conv.pageId)) return false;
         if (this.currentTypeFilter !== 'all' && conv.type !== this.currentTypeFilter) return false;
-        if (this.searchQuery) return false; // Full re-render needed for search
 
         const existingEl = this.elements.conversationList.querySelector(`[data-id="${conv.id}"]`);
-        const newHtml = this._buildConvItemHtml(conv);
 
         if (existingEl) {
             // Replace content in-place
+            const newHtml = this._buildConvItemHtml(conv);
             const temp = document.createElement('div');
             temp.innerHTML = newHtml;
             const newEl = temp.firstElementChild;
@@ -1105,7 +1104,10 @@ class InboxChatController {
                 this.elements.conversationList.prepend(newEl);
             }
         } else {
+            // Not in DOM — if search is active, don't add (search controls what's visible)
+            if (this.searchQuery) return false;
             // New conversation — prepend
+            const newHtml = this._buildConvItemHtml(conv);
             const temp = document.createElement('div');
             temp.innerHTML = newHtml;
             this.elements.conversationList.prepend(temp.firstElementChild);
@@ -3371,7 +3373,6 @@ class InboxChatController {
 
         const existing = this.data.getConversation(conversation.id);
         if (existing) {
-            console.log(`[InboxChat][DEBUG] Updating EXISTING conversation ${conversation.id}: snippet="${(conversation.snippet || '').substring(0, 40)}", unread=${conversation.unread_count}`);
             existing.lastMessage = this.data._filterSystemMessage(conversation.snippet) || existing.lastMessage;
             existing.time = this.parseTimestamp(conversation.updated_at) || new Date();
             existing.unread = conversation.unread_count ?? existing.unread;
