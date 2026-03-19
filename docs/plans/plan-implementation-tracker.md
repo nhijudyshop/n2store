@@ -21,13 +21,13 @@ Hiện tại khi shop live bán hàng, quy trình từ **đặt hàng nhà cung 
 
 ## Tổng quan vấn đề
 
-| # | Vấn đề | Ảnh hưởng | Giải pháp |
-|---|--------|-----------|-----------|
-| 1 | Sale không thấy số liệu Duyên đặt NCC | Chờ Duyên note thẻ → chậm | Supply Status panel ở Tab1 |
-| 2 | NCC giao hàng từng phần, Sale không biết | Không cân đối được đi đơn/hủy | Mở rộng Sổ Sách + delivery batches |
-| 3 | KPI cộng sai khi đổi mã sau gửi tin | Thống kê không chính xác | BASE lock + grace period + reconcile |
-| 4 | Hàng rớt xả chung, không theo đợt live | Sale mất thời gian tìm | Filter per-campaign |
-| 5 | CSKH thiếu thông tin khi tiếp nhận đơn | Đi đơn chậm, thiếu chính xác | Handover view (bảng filter) |
+| #   | Vấn đề                                   | Ảnh hưởng                     | Giải pháp                            |
+| --- | ---------------------------------------- | ----------------------------- | ------------------------------------ |
+| 1   | Sale không thấy số liệu Duyên đặt NCC    | Chờ Duyên note thẻ → chậm     | Supply Status panel ở Tab1           |
+| 2   | NCC giao hàng từng phần, Sale không biết | Không cân đối được đi đơn/hủy | Mở rộng Sổ Sách + delivery batches   |
+| 3   | KPI cộng sai khi đổi mã sau gửi tin      | Thống kê không chính xác      | BASE lock + grace period + reconcile |
+| 4   | Hàng rớt xả chung, không theo đợt live   | Sale mất thời gian tìm        | Filter per-campaign                  |
+| 5   | CSKH thiếu thông tin khi tiếp nhận đơn   | Đi đơn chậm, thiếu chính xác  | Handover view (bảng filter)          |
 
 ---
 
@@ -39,17 +39,20 @@ Hiện tại khi shop live bán hàng, quy trình từ **đặt hàng nhà cung 
 
 ### Phase 1A — Mở rộng Sổ Sách cho giao hàng từng phần
 
-- [ ] **1A.1** Thêm fields mới vào data model `live_ledger/{campaignId}/products/{productId}`:
-  - `nccPendingQty` (auto-calc: duyenOrderQty - nccDeliveredQty - nccCancelledQty)
-  - `nccCancelledQty` (NCC hủy không giao)
-  - `deliveryBatches[]` (lịch sử giao từng lô: qty, date, note, recordedBy)
-  - `deliveryStatus` ("pending" | "partial" | "complete" | "cancelled")
-- [ ] **1A.2** Sửa `overview-ledger.js` → `refreshFromCachedData()`: populate fields mới
-- [ ] **1A.3** Sửa `overview-ledger.js` → `renderLedgerTable()`: thêm cột "SL Chờ giao", "SL NCC hủy"
-- [ ] **1A.4** Sửa `overview-ledger.js` → `saveCell()`: auto-tính `nccPendingQty` và `deliveryStatus`
-- [ ] **1A.5** Thêm badge màu cho `deliveryStatus`: xanh=đủ, vàng=từng phần, đỏ=chưa giao, xám=hủy
-- [ ] **1A.6** Mini form nhập lô giao hàng (click vào ô NCC giao → popup qty + date + note)
-- [ ] **1A.7** Test: Duyên nhập "đặt 100" → ghi "về 60" → badge hiện "Từng phần", chờ giao = 40
+- [x] **1A.1** Thêm fields mới vào data model `live_ledger/{campaignId}/products/{productId}`:
+    - `nccPendingQty` (auto-calc: duyenOrderQty - nccDeliveredQty - nccCancelledQty)
+    - `nccCancelledQty` (NCC hủy không giao)
+    - `deliveryBatches[]` (lịch sử giao từng lô: qty, date, note, recordedBy)
+    - `deliveryStatus` ("pending" | "partial" | "complete" | "cancelled")
+- [x] **1A.2** Sửa `overview-ledger.js` → `refreshFromCachedData()`: populate fields mới
+- [x] **1A.3** Sửa `overview-ledger.js` → `renderLedgerTable()`: thêm cột "SL Chờ giao", "SL NCC hủy"
+- [x] **1A.4** Sửa `overview-ledger.js` → `saveCell()`: auto-tính `nccPendingQty` và `deliveryStatus`
+- [x] **1A.5** Thêm badge màu cho `deliveryStatus`: xanh=đủ, vàng=từng phần, đỏ=chưa giao, xám=hủy
+- [x] **1A.6** Mini form nhập lô giao hàng (click vào ô NCC giao → popup qty + date + note)
+- [x] **1A.7** Test: Duyên nhập "đặt 100" → ghi "về 60" → badge hiện "Từng phần", chờ giao = 40
+- [x] **1A.8** [Bổ sung] Upgrade `tab-live-ledger.js`: thêm delivery batches, status badges, batch form, auto-calc để đồng bộ tính năng với overview-ledger
+- [x] **1A.9** [Bổ sung] Upgrade `tab-live-ledger.css`: thêm styles cho delivery badges + batch popup form
+- [x] **1A.10** [Bổ sung] Thêm filter TT Giao (delivery status) cho cả 2 views: overview-ledger và tab-live-ledger
 
 ### Phase 2 — Hàng rớt xả theo đợt live
 
@@ -60,6 +63,7 @@ Hiện tại khi shop live bán hàng, quy trình từ **đặt hàng nhà cung 
 - [ ] **2.5** Test: Thêm hàng rớt trong live → filter "Live hiện tại" → chỉ thấy hàng đợt này
 
 **Files chính Sprint 1:**
+
 - `orders-report/js/overview/overview-ledger.js`
 - `orders-report/js/managers/dropped-products-manager.js`
 
@@ -90,6 +94,7 @@ Hiện tại khi shop live bán hàng, quy trình từ **đặt hàng nhà cung 
 - [ ] **3A.5** Test: Gắn tag 10 đơn → mở thống kê → số liệu đúng per-NV
 
 **Files chính Sprint 2:**
+
 - `orders-report/js/tab1/tab1-supply-status.js` (TẠO MỚI)
 - `orders-report/tab1-orders.html`
 - `orders-report/js/tab1/tab1-processing-tags.js`
@@ -121,6 +126,7 @@ Hiện tại khi shop live bán hàng, quy trình từ **đặt hàng nhà cung 
 - [ ] **4D.4** Test: Chọn đợt live → chỉ thấy KPI của đợt đó
 
 **Files chính Sprint 3:**
+
 - `orders-report/js/tab1/tab1-core.js`
 - `orders-report/tab1-orders.html`
 - `orders-report/js/tab-kpi-commission.js`
@@ -160,6 +166,7 @@ Hiện tại khi shop live bán hàng, quy trình từ **đặt hàng nhà cung 
 - [ ] **4C.7** Test: Ra đơn → finalize → KPI xác nhận. Hoàn hàng → KPI trừ
 
 **Files chính Sprint 4:**
+
 - `orders-report/js/managers/kpi-manager.js`
 - `orders-report/js/tab1/tab1-fast-sale-invoice-status.js`
 - `orders-report/js/tab-kpi-commission.js`
@@ -179,6 +186,7 @@ Hiện tại khi shop live bán hàng, quy trình từ **đặt hàng nhà cung 
 - [ ] **5.5** Test end-to-end trên mobile/tablet
 
 **Files chính Sprint 5:**
+
 - CSS files across all modified modules
 
 ---
@@ -203,14 +211,18 @@ Phase 4D (KPI per-session) ── độc lập
 
 ## Tổng kết files
 
-| File | Phase | Thay đổi |
-|------|-------|----------|
-| `orders-report/js/overview/overview-ledger.js` | 1A | Delivery batches, status, auto-calc |
-| `orders-report/js/tab1/tab1-supply-status.js` | 1B | **TẠO MỚI** — supply status panel |
-| `orders-report/js/managers/dropped-products-manager.js` | 2 | Campaign filter |
-| `orders-report/js/tab1/tab1-processing-tags.js` | 3A | Employee statistics |
-| `orders-report/js/tab1/tab1-core.js` | 3B | Handover mode |
-| `orders-report/js/managers/kpi-manager.js` | 4A,4B,4C | Base lock, validation, finalization |
-| `orders-report/js/tab1/tab1-fast-sale-invoice-status.js` | 4A | Lock BASE khi invoice tạo |
-| `orders-report/js/tab-kpi-commission.js` | 4B,4C,4D | UI validation/finalization/filter |
-| `orders-report/tab1-orders.html` | 1B,3B | Script tags + container divs |
+| File                                                     | Phase    | Thay đổi                                                  |
+| -------------------------------------------------------- | -------- | --------------------------------------------------------- |
+| `orders-report/js/overview/overview-ledger.js`           | 1A       | Delivery batches, status, auto-calc, status filter        |
+| `orders-report/js/tab-live-ledger.js`                    | 1A       | Upgraded: delivery batches, badges, batch form, auto-calc |
+| `orders-report/css/tab-live-ledger.css`                  | 1A       | Upgraded: delivery badge + batch form styles              |
+| `orders-report/tab-live-ledger.html`                     | 1A       | Upgraded: delivery status filter dropdown                 |
+| `orders-report/tab-overview.html`                        | 1A       | Added: delivery status filter dropdown                    |
+| `orders-report/js/tab1/tab1-supply-status.js`            | 1B       | **TẠO MỚI** — supply status panel                         |
+| `orders-report/js/managers/dropped-products-manager.js`  | 2        | Campaign filter                                           |
+| `orders-report/js/tab1/tab1-processing-tags.js`          | 3A       | Employee statistics                                       |
+| `orders-report/js/tab1/tab1-core.js`                     | 3B       | Handover mode                                             |
+| `orders-report/js/managers/kpi-manager.js`               | 4A,4B,4C | Base lock, validation, finalization                       |
+| `orders-report/js/tab1/tab1-fast-sale-invoice-status.js` | 4A       | Lock BASE khi invoice tạo                                 |
+| `orders-report/js/tab-kpi-commission.js`                 | 4B,4C,4D | UI validation/finalization/filter                         |
+| `orders-report/tab1-orders.html`                         | 1B,3B    | Script tags + container divs                              |

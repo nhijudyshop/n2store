@@ -3,607 +3,1113 @@
   Khi code phải đọc thư mục https://github.com/nhijudyshop/n2store/tree/main/docs trước!
   Đọc các file SHARED_*.md để hiểu cách sử dụng shared modules.
 -->
-<!DOCTYPE html>
+<!doctype html>
 <html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes"
+        />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <title>Báo Cáo Tổng Hợp</title>
+        <link
+            href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+            rel="stylesheet"
+        />
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"
+        />
+        <link rel="stylesheet" href="css/tab-overview.css" />
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <title>Báo Cáo Tổng Hợp</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="stylesheet" href="css/tab-overview.css">
+        <!-- Mobile CSS removed - will be reimplemented later -->
+    </head>
 
-    <!-- Mobile CSS removed - will be reimplemented later -->
-</head>
-
-<body>
-    <div class="container">
-        <!-- Header -->
-        <div class="header">
-            <h1>
-                <i class="fas fa-file-alt"></i>
-                Báo Cáo Tổng Hợp
-            </h1>
-            <div class="header-actions" style="display: flex; gap: 15px; align-items: center;">
-                <div style="display: flex; flex-direction: column; gap: 8px;">
-                    <label
-                        style="font-size: 13px; color: #667eea; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">
-                        <i class="fas fa-table" style="margin-right: 5px;"></i>Chiến dịch Live:
-                    </label>
-                    <select id="tableSelector" onchange="handleTableChange()"
-                        style="padding: 12px 20px; border: 3px solid #667eea; border-radius: 12px; font-size: 16px; font-weight: 700; background: linear-gradient(135deg, #f8f9ff 0%, #e8ecff 100%); color: #4c51bf; min-width: 280px; cursor: pointer; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3); transition: all 0.2s;">
-                        <option value="">-- Chọn bảng --</option>
-                    </select>
-                    <!-- Message helper khi bảng chưa có trong Firebase -->
-                    <div id="tableHelperMessage"
-                        style="display: none; font-size: 12px; padding: 8px 12px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; color: #856404; max-width: 320px;">
-                        <i class="fas fa-info-circle"></i>
-                        <span id="tableHelperText">Bảng này chưa có dữ liệu chi tiết. Nhấn "Lấy chi tiết đơn hàng" để
-                            tải.</span>
-                    </div>
-                </div>
-                <button class="btn-action" onclick="refreshAllData()"
-                    style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); margin-top: 20px;">
-                    <i class="fas fa-sync-alt"></i> Làm mới danh sách
-                </button>
-                <button class="btn-action green" onclick="startBatchFetch()" id="btnBatchFetch"
-                    style="margin-top: 20px;">
-                    <i class="fas fa-download"></i> Lấy chi tiết đơn hàng
-                </button>
-                <button class="btn-action orange" onclick="syncAllDataFromTab1()" id="btnRefreshTags"
-                    style="margin-top: 20px;" disabled title="Đồng bộ toàn bộ dữ liệu mới nhất từ Tab Quản lý đơn hàng">
-                    <i class="fas fa-sync"></i> Đồng bộ Tab1
-                </button>
-                <button class="btn-action blue" onclick="openSaveReportModal()" id="btnSaveReport"
-                    style="margin-top: 20px;" disabled title="Lưu bản sao báo cáo">
-                    <i class="fas fa-save"></i> Lưu báo cáo
-                </button>
-                <button class="btn-action-icon" onclick="openManageReportsModal()" id="btnManageReports"
-                    style="margin-top: 20px;" title="Quản lý bản lưu">
-                    <i class="fas fa-cog"></i>
-                </button>
-            </div>
-        </div>
-
-        <!-- Main Tabs -->
-        <div class="main-tabs">
-            <button class="main-tab-btn active" onclick="switchMainTab('overview')" data-tab="overview">
-                <i class="fas fa-chart-pie"></i> Tổng quan
-            </button>
-            <button class="main-tab-btn" onclick="switchMainTab('details')" data-tab="details">
-                <i class="fas fa-database"></i> Chi tiết đã tải
-                <span class="badge" id="cachedCountBadge">0</span>
-            </button>
-            <button class="main-tab-btn" onclick="switchMainTab('analysis')" data-tab="analysis" id="analysisTabBtn"
-                style="display: none;">
-                <i class="fas fa-chart-line"></i> Phân tích hiệu quả
-            </button>
-            <button class="main-tab-btn" onclick="switchMainTab('ledger')" data-tab="ledger">
-                <i class="fas fa-book-open" style="color: #8b5cf6;"></i> Sổ Sách
-            </button>
-        </div>
-
-        <!-- Progress Bar (outside tabs - always visible when loading) -->
-        <div class="progress-container" id="progressContainer" style="display: none;">
-            <h3 style="margin: 0 0 15px 0; color: #667eea;">
-                <i class="fas fa-spinner spinning"></i> Đang tải chi tiết đơn hàng...
-            </h3>
-            <div class="progress-bar-wrapper">
-                <div class="progress-bar-fill" id="progressBar" style="width: 0%"></div>
-            </div>
-            <div class="progress-text">
-                <span id="progressText">0 / 0</span>
-                <span id="progressPercent">0%</span>
-            </div>
-        </div>
-
-        <!-- Tab: Overview -->
-        <div class="main-tab-content active" id="tabOverview">
-            <!-- Stats Cards -->
-            <div class="stats-grid" id="statsGrid">
-                <div class="stat-card">
-                    <div class="stat-icon blue"><i class="fas fa-shopping-cart"></i></div>
-                    <div class="stat-value" id="statTotalOrders">0</div>
-                    <div class="stat-label">Tổng đơn hàng</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon green"><i class="fas fa-money-bill-wave"></i></div>
-                    <div class="stat-value" id="statTotalAmount">0</div>
-                    <div class="stat-label">Tổng tiền</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon orange"><i class="fas fa-box"></i></div>
-                    <div class="stat-value" id="statTotalProducts">0</div>
-                    <div class="stat-label">Tổng sản phẩm</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon purple"><i class="fas fa-users"></i></div>
-                    <div class="stat-value" id="statTotalCustomers">0</div>
-                    <div class="stat-label">Khách hàng</div>
-                </div>
-            </div>
-
-            <!-- Statistics Sections (from cached data) -->
-            <div id="statisticsContainer" style="display: none;">
-                <!-- Tag Statistics - Summary -->
-                <div class="content-section" id="tagStatsSection">
-                    <h2>
-                        <i class="fas fa-shopping-cart"></i> Thống Kê Đơn Live
-                        <div class="live-stats-badges" id="liveStatsBadges">
-                            <span class="live-badge badge-total" id="badgeTotalDon">0 ĐƠN</span>
-                            <span class="live-badge badge-chot" id="badgeDonChot">0 ĐƠN CHỐT</span>
+    <body>
+        <div class="container">
+            <!-- Header -->
+            <div class="header">
+                <h1>
+                    <i class="fas fa-file-alt"></i>
+                    Báo Cáo Tổng Hợp
+                </h1>
+                <div class="header-actions" style="display: flex; gap: 15px; align-items: center">
+                    <div style="display: flex; flex-direction: column; gap: 8px">
+                        <label
+                            style="
+                                font-size: 13px;
+                                color: #667eea;
+                                font-weight: 700;
+                                text-transform: uppercase;
+                                letter-spacing: 0.5px;
+                            "
+                        >
+                            <i class="fas fa-table" style="margin-right: 5px"></i>Chiến dịch Live:
+                        </label>
+                        <select
+                            id="tableSelector"
+                            onchange="handleTableChange()"
+                            style="
+                                padding: 12px 20px;
+                                border: 3px solid #667eea;
+                                border-radius: 12px;
+                                font-size: 16px;
+                                font-weight: 700;
+                                background: linear-gradient(135deg, #f8f9ff 0%, #e8ecff 100%);
+                                color: #4c51bf;
+                                min-width: 280px;
+                                cursor: pointer;
+                                box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+                                transition: all 0.2s;
+                            "
+                        >
+                            <option value="">-- Chọn bảng --</option>
+                        </select>
+                        <!-- Message helper khi bảng chưa có trong Firebase -->
+                        <div
+                            id="tableHelperMessage"
+                            style="
+                                display: none;
+                                font-size: 12px;
+                                padding: 8px 12px;
+                                background: #fff3cd;
+                                border: 1px solid #ffc107;
+                                border-radius: 6px;
+                                color: #856404;
+                                max-width: 320px;
+                            "
+                        >
+                            <i class="fas fa-info-circle"></i>
+                            <span id="tableHelperText"
+                                >Bảng này chưa có dữ liệu chi tiết. Nhấn "Lấy chi tiết đơn hàng" để
+                                tải.</span
+                            >
                         </div>
-                        <button class="btn-add-tag" onclick="openAddTagModal()">
-                            <i class="fas fa-plus"></i> Thêm tag
-                        </button>
-                    </h2>
-                    <div class="stats-table-wrapper">
-                        <table class="stats-table" id="tagStatsTable">
-                            <thead>
-                                <tr>
-                                    <th>Tag</th>
-                                    <th>Số đơn</th>
-                                    <th>Tỷ lệ</th>
-                                    <th>Tổng tiền</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody id="tagStatsBody">
-                            </tbody>
-                        </table>
+                    </div>
+                    <button
+                        class="btn-action"
+                        onclick="refreshAllData()"
+                        style="
+                            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                            margin-top: 20px;
+                        "
+                    >
+                        <i class="fas fa-sync-alt"></i> Làm mới danh sách
+                    </button>
+                    <button
+                        class="btn-action green"
+                        onclick="startBatchFetch()"
+                        id="btnBatchFetch"
+                        style="margin-top: 20px"
+                    >
+                        <i class="fas fa-download"></i> Lấy chi tiết đơn hàng
+                    </button>
+                    <button
+                        class="btn-action orange"
+                        onclick="syncAllDataFromTab1()"
+                        id="btnRefreshTags"
+                        style="margin-top: 20px"
+                        disabled
+                        title="Đồng bộ toàn bộ dữ liệu mới nhất từ Tab Quản lý đơn hàng"
+                    >
+                        <i class="fas fa-sync"></i> Đồng bộ Tab1
+                    </button>
+                    <button
+                        class="btn-action blue"
+                        onclick="openSaveReportModal()"
+                        id="btnSaveReport"
+                        style="margin-top: 20px"
+                        disabled
+                        title="Lưu bản sao báo cáo"
+                    >
+                        <i class="fas fa-save"></i> Lưu báo cáo
+                    </button>
+                    <button
+                        class="btn-action-icon"
+                        onclick="openManageReportsModal()"
+                        id="btnManageReports"
+                        style="margin-top: 20px"
+                        title="Quản lý bản lưu"
+                    >
+                        <i class="fas fa-cog"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Main Tabs -->
+            <div class="main-tabs">
+                <button
+                    class="main-tab-btn active"
+                    onclick="switchMainTab('overview')"
+                    data-tab="overview"
+                >
+                    <i class="fas fa-chart-pie"></i> Tổng quan
+                </button>
+                <button class="main-tab-btn" onclick="switchMainTab('details')" data-tab="details">
+                    <i class="fas fa-database"></i> Chi tiết đã tải
+                    <span class="badge" id="cachedCountBadge">0</span>
+                </button>
+                <button
+                    class="main-tab-btn"
+                    onclick="switchMainTab('analysis')"
+                    data-tab="analysis"
+                    id="analysisTabBtn"
+                    style="display: none"
+                >
+                    <i class="fas fa-chart-line"></i> Phân tích hiệu quả
+                </button>
+                <button class="main-tab-btn" onclick="switchMainTab('ledger')" data-tab="ledger">
+                    <i class="fas fa-book-open" style="color: #8b5cf6"></i> Sổ Sách
+                </button>
+            </div>
+
+            <!-- Progress Bar (outside tabs - always visible when loading) -->
+            <div class="progress-container" id="progressContainer" style="display: none">
+                <h3 style="margin: 0 0 15px 0; color: #667eea">
+                    <i class="fas fa-spinner spinning"></i> Đang tải chi tiết đơn hàng...
+                </h3>
+                <div class="progress-bar-wrapper">
+                    <div class="progress-bar-fill" id="progressBar" style="width: 0%"></div>
+                </div>
+                <div class="progress-text">
+                    <span id="progressText">0 / 0</span>
+                    <span id="progressPercent">0%</span>
+                </div>
+            </div>
+
+            <!-- Tab: Overview -->
+            <div class="main-tab-content active" id="tabOverview">
+                <!-- Stats Cards -->
+                <div class="stats-grid" id="statsGrid">
+                    <div class="stat-card">
+                        <div class="stat-icon blue"><i class="fas fa-shopping-cart"></i></div>
+                        <div class="stat-value" id="statTotalOrders">0</div>
+                        <div class="stat-label">Tổng đơn hàng</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon green"><i class="fas fa-money-bill-wave"></i></div>
+                        <div class="stat-value" id="statTotalAmount">0</div>
+                        <div class="stat-label">Tổng tiền</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon orange"><i class="fas fa-box"></i></div>
+                        <div class="stat-value" id="statTotalProducts">0</div>
+                        <div class="stat-label">Tổng sản phẩm</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon purple"><i class="fas fa-users"></i></div>
+                        <div class="stat-value" id="statTotalCustomers">0</div>
+                        <div class="stat-label">Khách hàng</div>
                     </div>
                 </div>
 
-                <!-- Employee Statistics -->
-                <div class="content-section" id="employeeStatsSection">
-                    <h2>
-                        <i class="fas fa-users"></i> Thống Kê Theo Nhân Viên
-                    </h2>
-                    <div id="employeeStatsContainer">
-                        <!-- Employee cards will be rendered here -->
+                <!-- Statistics Sections (from cached data) -->
+                <div id="statisticsContainer" style="display: none">
+                    <!-- Tag Statistics - Summary -->
+                    <div class="content-section" id="tagStatsSection">
+                        <h2>
+                            <i class="fas fa-shopping-cart"></i> Thống Kê Đơn Live
+                            <div class="live-stats-badges" id="liveStatsBadges">
+                                <span class="live-badge badge-total" id="badgeTotalDon">0 ĐƠN</span>
+                                <span class="live-badge badge-chot" id="badgeDonChot"
+                                    >0 ĐƠN CHỐT</span
+                                >
+                            </div>
+                            <button class="btn-add-tag" onclick="openAddTagModal()">
+                                <i class="fas fa-plus"></i> Thêm tag
+                            </button>
+                        </h2>
+                        <div class="stats-table-wrapper">
+                            <table class="stats-table" id="tagStatsTable">
+                                <thead>
+                                    <tr>
+                                        <th>Tag</th>
+                                        <th>Số đơn</th>
+                                        <th>Tỷ lệ</th>
+                                        <th>Tổng tiền</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tagStatsBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Employee Statistics -->
+                    <div class="content-section" id="employeeStatsSection">
+                        <h2><i class="fas fa-users"></i> Thống Kê Theo Nhân Viên</h2>
+                        <div id="employeeStatsContainer">
+                            <!-- Employee cards will be rendered here -->
+                        </div>
+                    </div>
+
+                    <!-- Empty Cart Reasons Section -->
+                    <div class="content-section" id="emptyCartReasonsSection" style="display: none">
+                        <h2>
+                            <i class="fas fa-shopping-cart" style="color: #f59e0b"></i> Lý Do Giỏ
+                            Trống
+                            <span
+                                class="section-badge"
+                                id="emptyCartTotalBadge"
+                                style="
+                                    background: #f59e0b;
+                                    color: white;
+                                    padding: 4px 12px;
+                                    border-radius: 20px;
+                                    font-size: 14px;
+                                    margin-left: 10px;
+                                "
+                                >0 đơn</span
+                            >
+                        </h2>
+                        <div class="stats-table-wrapper">
+                            <table class="stats-table" id="emptyCartReasonsTable">
+                                <thead>
+                                    <tr>
+                                        <th>Lý do (Tag kèm theo)</th>
+                                        <th>Số đơn</th>
+                                        <th>Tỷ lệ</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="emptyCartReasonsBody"></tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Empty Cart Reasons Section -->
-                <div class="content-section" id="emptyCartReasonsSection" style="display: none;">
-                    <h2>
-                        <i class="fas fa-shopping-cart" style="color: #f59e0b;"></i> Lý Do Giỏ Trống
-                        <span class="section-badge" id="emptyCartTotalBadge"
-                            style="background: #f59e0b; color: white; padding: 4px 12px; border-radius: 20px; font-size: 14px; margin-left: 10px;">0
-                            đơn</span>
-                    </h2>
-                    <div class="stats-table-wrapper">
-                        <table class="stats-table" id="emptyCartReasonsTable">
-                            <thead>
-                                <tr>
-                                    <th>Lý do (Tag kèm theo)</th>
-                                    <th>Số đơn</th>
-                                    <th>Tỷ lệ</th>
-                                    <th></th>
-                                </tr>
-                            </thead>
-                            <tbody id="emptyCartReasonsBody">
-                            </tbody>
-                        </table>
+                <!-- Empty state when no cached data -->
+                <div id="statsEmptyState" class="content-section">
+                    <div class="empty-state">
+                        <i class="fas fa-chart-bar"></i>
+                        <h3>Chưa có dữ liệu thống kê</h3>
+                        <p>
+                            Nhấn <strong>"Lấy chi tiết đơn hàng"</strong> để tải dữ liệu và xem
+                            thống kê chi tiết
+                        </p>
                     </div>
                 </div>
-
             </div>
-
-            <!-- Empty state when no cached data -->
-            <div id="statsEmptyState" class="content-section">
-                <div class="empty-state">
-                    <i class="fas fa-chart-bar"></i>
-                    <h3>Chưa có dữ liệu thống kê</h3>
-                    <p>Nhấn <strong>"Lấy chi tiết đơn hàng"</strong> để tải dữ liệu và xem thống kê chi tiết</p>
+            <div class="main-tab-content" id="tabDetails">
+                <div id="cachedDetailsArea">
+                    <div class="empty-state">
+                        <i class="fas fa-database"></i>
+                        <h3>Chưa có dữ liệu chi tiết</h3>
+                        <p>Nhấn "Lấy chi tiết đơn hàng" để tải dữ liệu đầy đủ từ API</p>
+                    </div>
                 </div>
             </div>
-        </div>
-        <div class="main-tab-content" id="tabDetails">
-            <div id="cachedDetailsArea">
-                <div class="empty-state">
-                    <i class="fas fa-database"></i>
-                    <h3>Chưa có dữ liệu chi tiết</h3>
-                    <p>Nhấn "Lấy chi tiết đơn hàng" để tải dữ liệu đầy đủ từ API</p>
-                </div>
-            </div>
-        </div>
 
-        <!-- Tab: Phân tích hiệu quả -->
-        <div class="main-tab-content" id="tabAnalysis">
-            <div id="analysisContent">
-                <!-- ================================================
+            <!-- Tab: Phân tích hiệu quả -->
+            <div class="main-tab-content" id="tabAnalysis">
+                <div id="analysisContent">
+                    <!-- ================================================
                      DISCOUNT STATS SECTION - Thống Kê Giảm Giá
                      ================================================ -->
-                <div id="discountStatsSection" class="content-section" style="display: none;">
-                    <h2>
-                        <i class="fas fa-percentage"></i> Thống Kê Giảm Giá
-                        <button class="btn-refresh-discount" onclick="window.discountStatsUI.refreshStats()">
-                            <i class="fas fa-sync-alt"></i> Làm mới
-                        </button>
-                    </h2>
+                    <div id="discountStatsSection" class="content-section" style="display: none">
+                        <h2>
+                            <i class="fas fa-percentage"></i> Thống Kê Giảm Giá
+                            <button
+                                class="btn-refresh-discount"
+                                onclick="window.discountStatsUI.refreshStats()"
+                            >
+                                <i class="fas fa-sync-alt"></i> Làm mới
+                            </button>
+                        </h2>
 
-                    <!-- Loading State -->
-                    <div id="discountStatsLoading">
-                        <i class="fas fa-spinner"></i>
-                        <span>Đang tính toán thống kê giảm giá...</span>
-                    </div>
+                        <!-- Loading State -->
+                        <div id="discountStatsLoading">
+                            <i class="fas fa-spinner"></i>
+                            <span>Đang tính toán thống kê giảm giá...</span>
+                        </div>
 
-                    <!-- Sub-tabs -->
-                    <div class="discount-sub-tabs">
-                        <button class="discount-sub-tab active" data-tab="analysis">
-                            <i class="fas fa-chart-line"></i> Phân Tích
-                        </button>
-                        <button class="discount-sub-tab" data-tab="products">
-                            <i class="fas fa-box"></i> Chi Tiết SP
-                        </button>
-                        <button class="discount-sub-tab" data-tab="orders">
-                            <i class="fas fa-shopping-cart"></i> Chi Tiết Đơn
-                        </button>
-                    </div>
+                        <!-- Sub-tabs -->
+                        <div class="discount-sub-tabs">
+                            <button class="discount-sub-tab active" data-tab="analysis">
+                                <i class="fas fa-chart-line"></i> Phân Tích
+                            </button>
+                            <button class="discount-sub-tab" data-tab="products">
+                                <i class="fas fa-box"></i> Chi Tiết SP
+                            </button>
+                            <button class="discount-sub-tab" data-tab="orders">
+                                <i class="fas fa-shopping-cart"></i> Chi Tiết Đơn
+                            </button>
+                        </div>
 
-                    <!-- Tab Content: Analysis (now first/default) -->
-                    <div id="discountTabAnalysis" class="discount-tab-content active">
-                        <div id="discountAnalysisContent">
-                            <!-- Content rendered by JS -->
+                        <!-- Tab Content: Analysis (now first/default) -->
+                        <div id="discountTabAnalysis" class="discount-tab-content active">
+                            <div id="discountAnalysisContent">
+                                <!-- Content rendered by JS -->
+                            </div>
+                        </div>
+
+                        <!-- Tab Content: Products -->
+                        <div id="discountTabProducts" class="discount-tab-content">
+                            <div id="discountProductsContent">
+                                <!-- Content rendered by JS -->
+                            </div>
+                        </div>
+
+                        <!-- Tab Content: Orders -->
+                        <div id="discountTabOrders" class="discount-tab-content">
+                            <div id="discountOrdersContent">
+                                <!-- Content rendered by JS -->
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Tab Content: Products -->
-                    <div id="discountTabProducts" class="discount-tab-content">
-                        <div id="discountProductsContent">
-                            <!-- Content rendered by JS -->
+                    <!-- Empty state when no data -->
+                    <div id="analysisEmptyState" class="content-section">
+                        <div class="empty-state">
+                            <i class="fas fa-chart-line"></i>
+                            <h3>Phân Tích Hiệu Quả</h3>
+                            <p>
+                                Nhấn <strong>"Lấy chi tiết đơn hàng"</strong> để tải dữ liệu và xem
+                                phân tích
+                            </p>
                         </div>
                     </div>
+                </div>
+            </div>
 
-                    <!-- Tab Content: Orders -->
-                    <div id="discountTabOrders" class="discount-tab-content">
-                        <div id="discountOrdersContent">
-                            <!-- Content rendered by JS -->
+            <!-- Tab: Sổ Sách Live -->
+            <div class="main-tab-content" id="tabLedger">
+                <div class="ledger-inline-container">
+                    <!-- Ledger Filters -->
+                    <div class="ledger-inline-header">
+                        <div class="ledger-inline-filters">
+                            <div class="ledger-filter-group">
+                                <label>NCC:</label>
+                                <select
+                                    id="ledgerNccFilter"
+                                    onchange="window.ledgerModule.onNccChange()"
+                                >
+                                    <option value="">Tất cả NCC</option>
+                                </select>
+                            </div>
+                            <div class="ledger-filter-group">
+                                <label>TT Giao:</label>
+                                <select
+                                    id="ledgerStatusFilter"
+                                    onchange="window.ledgerModule.onStatusFilterChange()"
+                                >
+                                    <option value="">Tất cả</option>
+                                    <option value="pending">Chưa giao</option>
+                                    <option value="partial">Từng phần</option>
+                                    <option value="complete">Đủ</option>
+                                    <option value="cancelled">Hủy</option>
+                                </select>
+                            </div>
+                            <button
+                                class="btn-action green"
+                                onclick="window.ledgerModule.refreshFromCachedData()"
+                                id="btnLedgerRefresh"
+                                style="padding: 8px 16px; font-size: 13px"
+                            >
+                                <i class="fas fa-sync-alt"></i> Cập nhật sổ sách
+                            </button>
+                        </div>
+                    </div>
+                    <!-- Ledger Table -->
+                    <div id="ledgerContent">
+                        <div class="ledger-empty-inline">
+                            <i class="fas fa-book-open"></i>
+                            <p>Chọn chiến dịch live và lấy chi tiết đơn hàng trước</p>
+                            <p style="font-size: 12px">
+                                Sổ sách sẽ tổng hợp từ dữ liệu đã tải trong tab "Chi tiết đã tải"
+                            </p>
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
 
-                <!-- Empty state when no data -->
-                <div id="analysisEmptyState" class="content-section">
-                    <div class="empty-state">
-                        <i class="fas fa-chart-line"></i>
-                        <h3>Phân Tích Hiệu Quả</h3>
-                        <p>Nhấn <strong>"Lấy chi tiết đơn hàng"</strong> để tải dữ liệu và xem phân tích</p>
+        <!-- Order Detail Modal -->
+        <div class="modal-overlay" id="orderDetailModal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="modalTitle">Chi tiết đơn hàng</h3>
+                    <button class="modal-close" onclick="closeOrderDetailModal()">&times;</button>
+                </div>
+                <div class="modal-body" id="modalBody">
+                    <!-- Content loaded dynamically -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Tag Modal -->
+        <div class="add-tag-modal" id="addTagModal">
+            <div class="add-tag-modal-content">
+                <div class="add-tag-modal-header">
+                    <h3><i class="fas fa-plus-circle"></i> Thêm Tag Thống Kê</h3>
+                    <button class="modal-close" onclick="closeAddTagModal()">&times;</button>
+                </div>
+                <div class="add-tag-modal-body">
+                    <input
+                        type="text"
+                        class="tag-search-input"
+                        id="tagSearchInput"
+                        placeholder="Tìm kiếm tag..."
+                        oninput="filterTagList()"
+                    />
+                    <div class="tag-list" id="tagListContainer">
+                        <!-- Tags will be loaded here -->
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Tab: Sổ Sách Live -->
-        <div class="main-tab-content" id="tabLedger">
-            <div class="ledger-inline-container">
-                <!-- Ledger Filters -->
-                <div class="ledger-inline-header">
-                    <div class="ledger-inline-filters">
-                        <div class="ledger-filter-group">
-                            <label>NCC:</label>
-                            <select id="ledgerNccFilter" onchange="window.ledgerModule.onNccChange()">
-                                <option value="">Tất cả NCC</option>
-                            </select>
-                        </div>
-                        <button class="btn-action green" onclick="window.ledgerModule.refreshFromCachedData()" id="btnLedgerRefresh" style="padding: 8px 16px; font-size: 13px;">
-                            <i class="fas fa-sync-alt"></i> Cập nhật sổ sách
-                        </button>
-                    </div>
+        <!-- Orders Detail Modal (for viewing filtered orders) -->
+        <div class="orders-detail-modal" id="ordersDetailModal">
+            <div class="orders-detail-modal-content">
+                <div class="orders-detail-modal-header">
+                    <h3 id="ordersDetailTitle"><i class="fas fa-list"></i> Chi tiết đơn hàng</h3>
+                    <button class="modal-close-white" onclick="closeOrdersDetailModal()">
+                        &times;
+                    </button>
                 </div>
-                <!-- Ledger Table -->
-                <div id="ledgerContent">
-                    <div class="ledger-empty-inline">
-                        <i class="fas fa-book-open"></i>
-                        <p>Chọn chiến dịch live và lấy chi tiết đơn hàng trước</p>
-                        <p style="font-size: 12px;">Sổ sách sẽ tổng hợp từ dữ liệu đã tải trong tab "Chi tiết đã tải"</p>
-                    </div>
+                <div class="orders-detail-modal-body" id="ordersDetailBody">
+                    <!-- Orders will be loaded here -->
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Order Detail Modal -->
-    <div class="modal-overlay" id="orderDetailModal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="modalTitle">Chi tiết đơn hàng</h3>
-                <button class="modal-close" onclick="closeOrderDetailModal()">&times;</button>
-            </div>
-            <div class="modal-body" id="modalBody">
-                <!-- Content loaded dynamically -->
-            </div>
-        </div>
-    </div>
+        <!-- Mobile Product Detail Popup removed - will be reimplemented later -->
 
-    <!-- Add Tag Modal -->
-    <div class="add-tag-modal" id="addTagModal">
-        <div class="add-tag-modal-content">
-            <div class="add-tag-modal-header">
-                <h3><i class="fas fa-plus-circle"></i> Thêm Tag Thống Kê</h3>
-                <button class="modal-close" onclick="closeAddTagModal()">&times;</button>
-            </div>
-            <div class="add-tag-modal-body">
-                <input type="text" class="tag-search-input" id="tagSearchInput" placeholder="Tìm kiếm tag..."
-                    oninput="filterTagList()">
-                <div class="tag-list" id="tagListContainer">
-                    <!-- Tags will be loaded here -->
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Orders Detail Modal (for viewing filtered orders) -->
-    <div class="orders-detail-modal" id="ordersDetailModal">
-        <div class="orders-detail-modal-content">
-            <div class="orders-detail-modal-header">
-                <h3 id="ordersDetailTitle"><i class="fas fa-list"></i> Chi tiết đơn hàng</h3>
-                <button class="modal-close-white" onclick="closeOrdersDetailModal()">&times;</button>
-            </div>
-            <div class="orders-detail-modal-body" id="ordersDetailBody">
-                <!-- Orders will be loaded here -->
-            </div>
-        </div>
-    </div>
-
-    <!-- Mobile Product Detail Popup removed - will be reimplemented later -->
-
-    <!-- Modal: Lưu báo cáo -->
-    <div class="modal-overlay" id="saveReportModal">
-        <div class="modal-content" style="width: 95%; max-width: 500px; border-radius: 16px;">
-            <div class="modal-header" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);">
-                <h3 style="margin: 0; color: white;">
-                    <i class="fas fa-save"></i> Lưu bản sao báo cáo
-                </h3>
-                <button class="modal-close" onclick="closeSaveReportModal()"
-                    style="color: white; opacity: 0.8;">&times;</button>
-            </div>
-            <div class="modal-body" style="padding: 25px;">
-                <div style="margin-bottom: 20px;">
-                    <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #374151;">
-                        <i class="fas fa-tag" style="color: #3b82f6; margin-right: 5px;"></i>
-                        Tên bản lưu:
-                    </label>
-                    <input type="text" id="saveReportName"
-                        style="width: 100%; padding: 12px 15px; border: 2px solid #e5e7eb; border-radius: 10px; font-size: 15px; transition: border-color 0.2s;"
-                        placeholder="Nhập tên bản lưu..." onfocus="this.style.borderColor='#3b82f6'"
-                        onblur="this.style.borderColor='#e5e7eb'">
-                </div>
+        <!-- Modal: Lưu báo cáo -->
+        <div class="modal-overlay" id="saveReportModal">
+            <div class="modal-content" style="width: 95%; max-width: 500px; border-radius: 16px">
                 <div
-                    style="background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 10px; padding: 12px 15px; margin-bottom: 20px;">
-                    <div style="font-size: 13px; color: #0369a1;">
-                        <i class="fas fa-info-circle" style="margin-right: 5px;"></i>
-                        <strong>Chiến dịch gốc:</strong> <span id="saveReportOriginalCampaign">-</span>
-                    </div>
-                    <div style="font-size: 13px; color: #0369a1; margin-top: 5px;">
-                        <i class="fas fa-database" style="margin-right: 5px;"></i>
-                        <strong>Số đơn hàng:</strong> <span id="saveReportOrderCount">0</span>
-                    </div>
+                    class="modal-header"
+                    style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)"
+                >
+                    <h3 style="margin: 0; color: white">
+                        <i class="fas fa-save"></i> Lưu bản sao báo cáo
+                    </h3>
+                    <button
+                        class="modal-close"
+                        onclick="closeSaveReportModal()"
+                        style="color: white; opacity: 0.8"
+                    >
+                        &times;
+                    </button>
                 </div>
-                <div style="display: flex; gap: 10px; justify-content: flex-end;">
-                    <button onclick="closeSaveReportModal()"
-                        style="padding: 10px 20px; border: 2px solid #e5e7eb; background: white; border-radius: 10px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
-                        Hủy
-                    </button>
-                    <button onclick="confirmSaveReport()"
-                        style="padding: 10px 25px; background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); color: white; border: none; border-radius: 10px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
-                        <i class="fas fa-save" style="margin-right: 5px;"></i> Lưu
-                    </button>
+                <div class="modal-body" style="padding: 25px">
+                    <div style="margin-bottom: 20px">
+                        <label
+                            style="
+                                display: block;
+                                font-weight: 600;
+                                margin-bottom: 8px;
+                                color: #374151;
+                            "
+                        >
+                            <i class="fas fa-tag" style="color: #3b82f6; margin-right: 5px"></i>
+                            Tên bản lưu:
+                        </label>
+                        <input
+                            type="text"
+                            id="saveReportName"
+                            style="
+                                width: 100%;
+                                padding: 12px 15px;
+                                border: 2px solid #e5e7eb;
+                                border-radius: 10px;
+                                font-size: 15px;
+                                transition: border-color 0.2s;
+                            "
+                            placeholder="Nhập tên bản lưu..."
+                            onfocus="this.style.borderColor = '#3b82f6'"
+                            onblur="this.style.borderColor = '#e5e7eb'"
+                        />
+                    </div>
+                    <div
+                        style="
+                            background: #f0f9ff;
+                            border: 1px solid #bae6fd;
+                            border-radius: 10px;
+                            padding: 12px 15px;
+                            margin-bottom: 20px;
+                        "
+                    >
+                        <div style="font-size: 13px; color: #0369a1">
+                            <i class="fas fa-info-circle" style="margin-right: 5px"></i>
+                            <strong>Chiến dịch gốc:</strong>
+                            <span id="saveReportOriginalCampaign">-</span>
+                        </div>
+                        <div style="font-size: 13px; color: #0369a1; margin-top: 5px">
+                            <i class="fas fa-database" style="margin-right: 5px"></i>
+                            <strong>Số đơn hàng:</strong> <span id="saveReportOrderCount">0</span>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 10px; justify-content: flex-end">
+                        <button
+                            onclick="closeSaveReportModal()"
+                            style="
+                                padding: 10px 20px;
+                                border: 2px solid #e5e7eb;
+                                background: white;
+                                border-radius: 10px;
+                                font-weight: 600;
+                                cursor: pointer;
+                                transition: all 0.2s;
+                            "
+                        >
+                            Hủy
+                        </button>
+                        <button
+                            onclick="confirmSaveReport()"
+                            style="
+                                padding: 10px 25px;
+                                background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+                                color: white;
+                                border: none;
+                                border-radius: 10px;
+                                font-weight: 600;
+                                cursor: pointer;
+                                transition: all 0.2s;
+                            "
+                        >
+                            <i class="fas fa-save" style="margin-right: 5px"></i> Lưu
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- ⚡ NEW: Modal chọn nguồn dữ liệu - Chuyên nghiệp & Hiện đại -->
-    <div class="modal-overlay" id="dataSourceModal" style="display: none;">
-        <div class="modal-content" style="width: 95%; max-width: 520px; border-radius: 20px; overflow: hidden; animation: modalSlideIn 0.3s ease;">
-            <div class="modal-header" style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); padding: 30px 25px; position: relative;">
-                <h3 style="margin: 0; color: white; font-size: 22px; font-weight: 700; display: flex; align-items: center; gap: 12px;">
-                    <i class="fas fa-database"></i>
-                    <span>Chọn Nguồn Dữ Liệu</span>
-                </h3>
-                <button class="modal-close" onclick="closeDataSourceModal()"
-                    style="color: white; opacity: 0.9; font-size: 32px; background: none; border: none; position: absolute; top: 20px; right: 20px; cursor: pointer; transition: opacity 0.2s; line-height: 1; padding: 0; width: 32px; height: 32px;"
-                    onmouseover="this.style.opacity='1'"
-                    onmouseout="this.style.opacity='0.9'">&times;</button>
-                <p style="margin: 10px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px; font-weight: 400;">
-                    Chọn phương thức tải dữ liệu đơn hàng
-                </p>
-            </div>
-            <div class="modal-body" style="padding: 25px;">
-                <!-- Option 1: Excel -->
-                <div class="data-source-option" data-choice="excel"
-                    style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border: 2px solid #86efac; border-radius: 16px; padding: 20px; margin-bottom: 15px; cursor: pointer; transition: all 0.3s; position: relative; overflow: hidden;"
-                    onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 12px 24px rgba(34, 197, 94, 0.2)'"
-                    onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
-                    <div style="position: absolute; top: 15px; right: 15px; background: #22c55e; color: white; border-radius: 20px; padding: 4px 12px; font-size: 11px; font-weight: 700; text-transform: uppercase;">
-                        Khuyến nghị
-                    </div>
-                    <div style="display: flex; align-items: start; gap: 15px;">
-                        <div style="background: #22c55e; color: white; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0;">
-                            <i class="fas fa-file-excel"></i>
-                        </div>
-                        <div style="flex: 1;">
-                            <div style="font-size: 18px; font-weight: 700; color: #166534; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
-                                <span>Excel Chiến Dịch</span>
-                                <span style="background: #22c55e; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700;">1</span>
-                            </div>
-                            <div style="color: #166534; font-size: 14px; line-height: 1.5; margin-bottom: 10px;">
-                                Tải tất cả đơn từ Excel của chiến dịch
-                            </div>
-                            <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-                                <div style="display: flex; align-items: center; gap: 5px; font-size: 13px; color: #15803d;">
-                                    <i class="fas fa-bolt" style="color: #22c55e;"></i>
-                                    <span style="font-weight: 600;">Nhanh (5-10s)</span>
-                                </div>
-                                <div style="display: flex; align-items: center; gap: 5px; font-size: 13px; color: #15803d;">
-                                    <i class="fas fa-database" style="color: #22c55e;"></i>
-                                    <span style="font-weight: 600;">Dữ liệu cơ bản</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Option 2: API -->
-                <div class="data-source-option" data-choice="api"
-                    style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 2px solid #93c5fd; border-radius: 16px; padding: 20px; cursor: pointer; transition: all 0.3s; position: relative; overflow: hidden;"
-                    onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 12px 24px rgba(59, 130, 246, 0.2)'"
-                    onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
-                    <div style="display: flex; align-items: start; gap: 15px;">
-                        <div style="background: #3b82f6; color: white; width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0;">
-                            <i class="fas fa-cloud-download-alt"></i>
-                        </div>
-                        <div style="flex: 1;">
-                            <div style="font-size: 18px; font-weight: 700; color: #1e40af; margin-bottom: 8px; display: flex; align-items: center; gap: 8px;">
-                                <span>API Chi Tiết</span>
-                                <span style="background: #3b82f6; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700;">2</span>
-                            </div>
-                            <div style="color: #1e40af; font-size: 14px; line-height: 1.5; margin-bottom: 10px;">
-                                Fetch từng đơn từ API TPOS
-                            </div>
-                            <div style="display: flex; gap: 15px; flex-wrap: wrap;">
-                                <div style="display: flex; align-items: center; gap: 5px; font-size: 13px; color: #1d4ed8;">
-                                    <i class="fas fa-clock" style="color: #3b82f6;"></i>
-                                    <span style="font-weight: 600;">Chậm (30-60s)</span>
-                                </div>
-                                <div style="display: flex; align-items: center; gap: 5px; font-size: 13px; color: #1d4ed8;">
-                                    <i class="fas fa-check-circle" style="color: #3b82f6;"></i>
-                                    <span style="font-weight: 600;">Đầy đủ nhất</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Info Box -->
-                <div style="background: #fef3c7; border: 2px solid #fbbf24; border-radius: 12px; padding: 15px; margin-top: 20px; display: flex; align-items: start; gap: 12px;">
-                    <i class="fas fa-lightbulb" style="color: #f59e0b; font-size: 20px; margin-top: 2px;"></i>
-                    <div style="flex: 1;">
-                        <div style="font-weight: 700; color: #92400e; margin-bottom: 5px; font-size: 14px;">
-                            💡 Gợi ý sử dụng
-                        </div>
-                        <div style="color: #92400e; font-size: 13px; line-height: 1.6;">
-                            <strong>Excel (1):</strong> Dùng cho báo cáo nhanh, dữ liệu cơ bản<br>
-                            <strong>API (2):</strong> Dùng khi cần thông tin chi tiết đầy đủ
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Buttons -->
-                <div style="display: flex; gap: 12px; margin-top: 25px;">
-                    <button onclick="closeDataSourceModal()"
-                        style="flex: 1; padding: 14px; border: 2px solid #e5e7eb; background: white; border-radius: 12px; font-weight: 600; font-size: 15px; cursor: pointer; transition: all 0.2s; color: #6b7280;"
-                        onmouseover="this.style.background='#f9fafb'; this.style.borderColor='#d1d5db'"
-                        onmouseout="this.style.background='white'; this.style.borderColor='#e5e7eb'">
-                        <i class="fas fa-times" style="margin-right: 5px;"></i> Hủy
+        <!-- ⚡ NEW: Modal chọn nguồn dữ liệu - Chuyên nghiệp & Hiện đại -->
+        <div class="modal-overlay" id="dataSourceModal" style="display: none">
+            <div
+                class="modal-content"
+                style="
+                    width: 95%;
+                    max-width: 520px;
+                    border-radius: 20px;
+                    overflow: hidden;
+                    animation: modalSlideIn 0.3s ease;
+                "
+            >
+                <div
+                    class="modal-header"
+                    style="
+                        background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+                        padding: 30px 25px;
+                        position: relative;
+                    "
+                >
+                    <h3
+                        style="
+                            margin: 0;
+                            color: white;
+                            font-size: 22px;
+                            font-weight: 700;
+                            display: flex;
+                            align-items: center;
+                            gap: 12px;
+                        "
+                    >
+                        <i class="fas fa-database"></i>
+                        <span>Chọn Nguồn Dữ Liệu</span>
+                    </h3>
+                    <button
+                        class="modal-close"
+                        onclick="closeDataSourceModal()"
+                        style="
+                            color: white;
+                            opacity: 0.9;
+                            font-size: 32px;
+                            background: none;
+                            border: none;
+                            position: absolute;
+                            top: 20px;
+                            right: 20px;
+                            cursor: pointer;
+                            transition: opacity 0.2s;
+                            line-height: 1;
+                            padding: 0;
+                            width: 32px;
+                            height: 32px;
+                        "
+                        onmouseover="this.style.opacity = '1'"
+                        onmouseout="this.style.opacity = '0.9'"
+                    >
+                        &times;
                     </button>
+                    <p
+                        style="
+                            margin: 10px 0 0 0;
+                            color: rgba(255, 255, 255, 0.9);
+                            font-size: 14px;
+                            font-weight: 400;
+                        "
+                    >
+                        Chọn phương thức tải dữ liệu đơn hàng
+                    </p>
+                </div>
+                <div class="modal-body" style="padding: 25px">
+                    <!-- Option 1: Excel -->
+                    <div
+                        class="data-source-option"
+                        data-choice="excel"
+                        style="
+                            background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+                            border: 2px solid #86efac;
+                            border-radius: 16px;
+                            padding: 20px;
+                            margin-bottom: 15px;
+                            cursor: pointer;
+                            transition: all 0.3s;
+                            position: relative;
+                            overflow: hidden;
+                        "
+                        onmouseover="
+                            this.style.transform = 'translateY(-4px)';
+                            this.style.boxShadow = '0 12px 24px rgba(34, 197, 94, 0.2)';
+                        "
+                        onmouseout="
+                            this.style.transform = 'translateY(0)';
+                            this.style.boxShadow = 'none';
+                        "
+                    >
+                        <div
+                            style="
+                                position: absolute;
+                                top: 15px;
+                                right: 15px;
+                                background: #22c55e;
+                                color: white;
+                                border-radius: 20px;
+                                padding: 4px 12px;
+                                font-size: 11px;
+                                font-weight: 700;
+                                text-transform: uppercase;
+                            "
+                        >
+                            Khuyến nghị
+                        </div>
+                        <div style="display: flex; align-items: start; gap: 15px">
+                            <div
+                                style="
+                                    background: #22c55e;
+                                    color: white;
+                                    width: 48px;
+                                    height: 48px;
+                                    border-radius: 12px;
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                    font-size: 24px;
+                                    flex-shrink: 0;
+                                "
+                            >
+                                <i class="fas fa-file-excel"></i>
+                            </div>
+                            <div style="flex: 1">
+                                <div
+                                    style="
+                                        font-size: 18px;
+                                        font-weight: 700;
+                                        color: #166534;
+                                        margin-bottom: 8px;
+                                        display: flex;
+                                        align-items: center;
+                                        gap: 8px;
+                                    "
+                                >
+                                    <span>Excel Chiến Dịch</span>
+                                    <span
+                                        style="
+                                            background: #22c55e;
+                                            color: white;
+                                            border-radius: 50%;
+                                            width: 24px;
+                                            height: 24px;
+                                            display: flex;
+                                            align-items: center;
+                                            justify-content: center;
+                                            font-size: 14px;
+                                            font-weight: 700;
+                                        "
+                                        >1</span
+                                    >
+                                </div>
+                                <div
+                                    style="
+                                        color: #166534;
+                                        font-size: 14px;
+                                        line-height: 1.5;
+                                        margin-bottom: 10px;
+                                    "
+                                >
+                                    Tải tất cả đơn từ Excel của chiến dịch
+                                </div>
+                                <div style="display: flex; gap: 15px; flex-wrap: wrap">
+                                    <div
+                                        style="
+                                            display: flex;
+                                            align-items: center;
+                                            gap: 5px;
+                                            font-size: 13px;
+                                            color: #15803d;
+                                        "
+                                    >
+                                        <i class="fas fa-bolt" style="color: #22c55e"></i>
+                                        <span style="font-weight: 600">Nhanh (5-10s)</span>
+                                    </div>
+                                    <div
+                                        style="
+                                            display: flex;
+                                            align-items: center;
+                                            gap: 5px;
+                                            font-size: 13px;
+                                            color: #15803d;
+                                        "
+                                    >
+                                        <i class="fas fa-database" style="color: #22c55e"></i>
+                                        <span style="font-weight: 600">Dữ liệu cơ bản</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Option 2: API -->
+                    <div
+                        class="data-source-option"
+                        data-choice="api"
+                        style="
+                            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+                            border: 2px solid #93c5fd;
+                            border-radius: 16px;
+                            padding: 20px;
+                            cursor: pointer;
+                            transition: all 0.3s;
+                            position: relative;
+                            overflow: hidden;
+                        "
+                        onmouseover="
+                            this.style.transform = 'translateY(-4px)';
+                            this.style.boxShadow = '0 12px 24px rgba(59, 130, 246, 0.2)';
+                        "
+                        onmouseout="
+                            this.style.transform = 'translateY(0)';
+                            this.style.boxShadow = 'none';
+                        "
+                    >
+                        <div style="display: flex; align-items: start; gap: 15px">
+                            <div
+                                style="
+                                    background: #3b82f6;
+                                    color: white;
+                                    width: 48px;
+                                    height: 48px;
+                                    border-radius: 12px;
+                                    display: flex;
+                                    align-items: center;
+                                    justify-content: center;
+                                    font-size: 24px;
+                                    flex-shrink: 0;
+                                "
+                            >
+                                <i class="fas fa-cloud-download-alt"></i>
+                            </div>
+                            <div style="flex: 1">
+                                <div
+                                    style="
+                                        font-size: 18px;
+                                        font-weight: 700;
+                                        color: #1e40af;
+                                        margin-bottom: 8px;
+                                        display: flex;
+                                        align-items: center;
+                                        gap: 8px;
+                                    "
+                                >
+                                    <span>API Chi Tiết</span>
+                                    <span
+                                        style="
+                                            background: #3b82f6;
+                                            color: white;
+                                            border-radius: 50%;
+                                            width: 24px;
+                                            height: 24px;
+                                            display: flex;
+                                            align-items: center;
+                                            justify-content: center;
+                                            font-size: 14px;
+                                            font-weight: 700;
+                                        "
+                                        >2</span
+                                    >
+                                </div>
+                                <div
+                                    style="
+                                        color: #1e40af;
+                                        font-size: 14px;
+                                        line-height: 1.5;
+                                        margin-bottom: 10px;
+                                    "
+                                >
+                                    Fetch từng đơn từ API TPOS
+                                </div>
+                                <div style="display: flex; gap: 15px; flex-wrap: wrap">
+                                    <div
+                                        style="
+                                            display: flex;
+                                            align-items: center;
+                                            gap: 5px;
+                                            font-size: 13px;
+                                            color: #1d4ed8;
+                                        "
+                                    >
+                                        <i class="fas fa-clock" style="color: #3b82f6"></i>
+                                        <span style="font-weight: 600">Chậm (30-60s)</span>
+                                    </div>
+                                    <div
+                                        style="
+                                            display: flex;
+                                            align-items: center;
+                                            gap: 5px;
+                                            font-size: 13px;
+                                            color: #1d4ed8;
+                                        "
+                                    >
+                                        <i class="fas fa-check-circle" style="color: #3b82f6"></i>
+                                        <span style="font-weight: 600">Đầy đủ nhất</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Info Box -->
+                    <div
+                        style="
+                            background: #fef3c7;
+                            border: 2px solid #fbbf24;
+                            border-radius: 12px;
+                            padding: 15px;
+                            margin-top: 20px;
+                            display: flex;
+                            align-items: start;
+                            gap: 12px;
+                        "
+                    >
+                        <i
+                            class="fas fa-lightbulb"
+                            style="color: #f59e0b; font-size: 20px; margin-top: 2px"
+                        ></i>
+                        <div style="flex: 1">
+                            <div
+                                style="
+                                    font-weight: 700;
+                                    color: #92400e;
+                                    margin-bottom: 5px;
+                                    font-size: 14px;
+                                "
+                            >
+                                💡 Gợi ý sử dụng
+                            </div>
+                            <div style="color: #92400e; font-size: 13px; line-height: 1.6">
+                                <strong>Excel (1):</strong> Dùng cho báo cáo nhanh, dữ liệu cơ
+                                bản<br />
+                                <strong>API (2):</strong> Dùng khi cần thông tin chi tiết đầy đủ
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Buttons -->
+                    <div style="display: flex; gap: 12px; margin-top: 25px">
+                        <button
+                            onclick="closeDataSourceModal()"
+                            style="
+                                flex: 1;
+                                padding: 14px;
+                                border: 2px solid #e5e7eb;
+                                background: white;
+                                border-radius: 12px;
+                                font-weight: 600;
+                                font-size: 15px;
+                                cursor: pointer;
+                                transition: all 0.2s;
+                                color: #6b7280;
+                            "
+                            onmouseover="
+                                this.style.background = '#f9fafb';
+                                this.style.borderColor = '#d1d5db';
+                            "
+                            onmouseout="
+                                this.style.background = 'white';
+                                this.style.borderColor = '#e5e7eb';
+                            "
+                        >
+                            <i class="fas fa-times" style="margin-right: 5px"></i> Hủy
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <style>
-        @keyframes modalSlideIn {
-            from {
-                opacity: 0;
-                transform: translateY(-30px) scale(0.95);
+        <style>
+            @keyframes modalSlideIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(-30px) scale(0.95);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0) scale(1);
+                }
             }
-            to {
-                opacity: 1;
-                transform: translateY(0) scale(1);
+
+            .data-source-option:active {
+                transform: scale(0.98) !important;
             }
-        }
+        </style>
 
-        .data-source-option:active {
-            transform: scale(0.98) !important;
-        }
-    </style>
-
-    <!-- Modal: Quản lý bản lưu -->
-    <div class="modal-overlay" id="manageReportsModal">
-        <div class="modal-content"
-            style="width: 95%; max-width: 700px; border-radius: 16px; max-height: 80vh; display: flex; flex-direction: column;">
-            <div class="modal-header" style="background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);">
-                <h3 style="margin: 0; color: white;">
-                    <i class="fas fa-cog"></i> Quản lý bản lưu
-                </h3>
-                <button class="modal-close" onclick="closeManageReportsModal()"
-                    style="color: white; opacity: 0.8;">&times;</button>
-            </div>
-            <div class="modal-body" style="padding: 20px; overflow-y: auto; flex: 1;">
-                <div id="manageReportsLoading" style="text-align: center; padding: 40px; color: #6b7280;">
-                    <i class="fas fa-spinner fa-spin fa-2x"></i>
-                    <p>Đang tải danh sách...</p>
+        <!-- Modal: Quản lý bản lưu -->
+        <div class="modal-overlay" id="manageReportsModal">
+            <div
+                class="modal-content"
+                style="
+                    width: 95%;
+                    max-width: 700px;
+                    border-radius: 16px;
+                    max-height: 80vh;
+                    display: flex;
+                    flex-direction: column;
+                "
+            >
+                <div
+                    class="modal-header"
+                    style="background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)"
+                >
+                    <h3 style="margin: 0; color: white">
+                        <i class="fas fa-cog"></i> Quản lý bản lưu
+                    </h3>
+                    <button
+                        class="modal-close"
+                        onclick="closeManageReportsModal()"
+                        style="color: white; opacity: 0.8"
+                    >
+                        &times;
+                    </button>
                 </div>
-                <div id="manageReportsList" style="display: none;">
-                    <table class="manage-reports-table" style="width: 100%; border-collapse: collapse;">
-                        <thead>
-                            <tr style="background: #f3f4f6;">
-                                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e5e7eb;">Loại</th>
-                                <th style="padding: 12px; text-align: left; border-bottom: 2px solid #e5e7eb;">Tên báo
-                                    cáo</th>
-                                <th style="padding: 12px; text-align: center; border-bottom: 2px solid #e5e7eb;">Số đơn
-                                </th>
-                                <th style="padding: 12px; text-align: center; border-bottom: 2px solid #e5e7eb;">Ngày
-                                    tạo</th>
-                                <th style="padding: 12px; text-align: center; border-bottom: 2px solid #e5e7eb;">Thao
-                                    tác</th>
-                            </tr>
-                        </thead>
-                        <tbody id="manageReportsTableBody">
-                            <!-- Rows injected via JS -->
-                        </tbody>
-                    </table>
-                </div>
-                <div id="manageReportsEmpty" style="display: none; text-align: center; padding: 40px; color: #9ca3af;">
-                    <i class="fas fa-folder-open fa-3x" style="margin-bottom: 15px;"></i>
-                    <p>Chưa có bản lưu nào</p>
+                <div class="modal-body" style="padding: 20px; overflow-y: auto; flex: 1">
+                    <div
+                        id="manageReportsLoading"
+                        style="text-align: center; padding: 40px; color: #6b7280"
+                    >
+                        <i class="fas fa-spinner fa-spin fa-2x"></i>
+                        <p>Đang tải danh sách...</p>
+                    </div>
+                    <div id="manageReportsList" style="display: none">
+                        <table
+                            class="manage-reports-table"
+                            style="width: 100%; border-collapse: collapse"
+                        >
+                            <thead>
+                                <tr style="background: #f3f4f6">
+                                    <th
+                                        style="
+                                            padding: 12px;
+                                            text-align: left;
+                                            border-bottom: 2px solid #e5e7eb;
+                                        "
+                                    >
+                                        Loại
+                                    </th>
+                                    <th
+                                        style="
+                                            padding: 12px;
+                                            text-align: left;
+                                            border-bottom: 2px solid #e5e7eb;
+                                        "
+                                    >
+                                        Tên báo cáo
+                                    </th>
+                                    <th
+                                        style="
+                                            padding: 12px;
+                                            text-align: center;
+                                            border-bottom: 2px solid #e5e7eb;
+                                        "
+                                    >
+                                        Số đơn
+                                    </th>
+                                    <th
+                                        style="
+                                            padding: 12px;
+                                            text-align: center;
+                                            border-bottom: 2px solid #e5e7eb;
+                                        "
+                                    >
+                                        Ngày tạo
+                                    </th>
+                                    <th
+                                        style="
+                                            padding: 12px;
+                                            text-align: center;
+                                            border-bottom: 2px solid #e5e7eb;
+                                        "
+                                    >
+                                        Thao tác
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody id="manageReportsTableBody">
+                                <!-- Rows injected via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div
+                        id="manageReportsEmpty"
+                        style="display: none; text-align: center; padding: 40px; color: #9ca3af"
+                    >
+                        <i class="fas fa-folder-open fa-3x" style="margin-bottom: 15px"></i>
+                        <p>Chưa có bản lưu nào</p>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
 
-    <!-- Firebase SDK v8 -->
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+        <!-- Firebase SDK v8 -->
+        <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
 
-    <!-- Firebase Configuration (SHARED) -->
-    <script src="../shared/js/firebase-config.js"></script>
-    <script src="../shared/js/indexed-db-store.js"></script>
+        <!-- Firebase Configuration (SHARED) -->
+        <script src="../shared/js/firebase-config.js"></script>
+        <script src="../shared/js/indexed-db-store.js"></script>
 
-    <!-- Core Dependencies -->
-    <script src="js/core/config.js"></script>
-    <script src="js/core/api-config.js"></script>
-    <script src="../shared/js/shop-config.js"></script>
-    <script src="../shared/js/token-manager.js"></script>
+        <!-- Core Dependencies -->
+        <script src="js/core/config.js"></script>
+        <script src="js/core/api-config.js"></script>
+        <script src="../shared/js/shop-config.js"></script>
+        <script src="../shared/js/token-manager.js"></script>
 
-    <!-- Discount Stats Dependencies -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="js/managers/product-search-manager.js"></script>
-    <script src="js/managers/standard-price-manager.js"></script>
-    <script src="js/stats/discount-stats-calculator.js"></script>
-    <script src="js/stats/discount-stats-ui.js"></script>
+        <!-- Discount Stats Dependencies -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+        <script src="js/managers/product-search-manager.js"></script>
+        <script src="js/managers/standard-price-manager.js"></script>
+        <script src="js/stats/discount-stats-calculator.js"></script>
+        <script src="js/stats/discount-stats-ui.js"></script>
 
-    <!-- Overview Module Scripts -->
-    <script src="js/overview/overview-core.js"></script>
-    <script src="js/overview/overview-firebase.js"></script>
-    <script src="js/overview/overview-fetch.js"></script>
-    <script src="js/overview/overview-statistics.js"></script>
-    <script src="js/overview/overview-modals.js"></script>
-    <script src="js/overview/overview-table.js"></script>
-    <script src="js/overview/overview-events.js"></script>
-    <script src="js/overview/overview-ui.js"></script>
-    <script src="js/overview/overview-ledger.js"></script>
-    <script src="js/overview/overview-init.js"></script>
+        <!-- Overview Module Scripts -->
+        <script src="js/overview/overview-core.js"></script>
+        <script src="js/overview/overview-firebase.js"></script>
+        <script src="js/overview/overview-fetch.js"></script>
+        <script src="js/overview/overview-statistics.js"></script>
+        <script src="js/overview/overview-modals.js"></script>
+        <script src="js/overview/overview-table.js"></script>
+        <script src="js/overview/overview-events.js"></script>
+        <script src="js/overview/overview-ui.js"></script>
+        <script src="js/overview/overview-ledger.js"></script>
+        <script src="js/overview/overview-init.js"></script>
 
-    <!-- Mobile JS removed - will be reimplemented later -->
-</body>
-
+        <!-- Mobile JS removed - will be reimplemented later -->
+    </body>
 </html>

@@ -1,844 +1,1124 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>N2Store — Plan Implementation Tracker</title>
-    <style>
-        :root {
-            --bg: #f0f4ff;
-            --surface: #ffffff;
-            --surface2: #f1f5f9;
-            --border: #cbd5e1;
-            --text: #1e293b;
-            --text-muted: #64748b;
-            --green: #059669;
-            --green-bg: rgba(5,150,105,0.1);
-            --amber: #d97706;
-            --amber-bg: rgba(217,119,6,0.1);
-            --red: #dc2626;
-            --red-bg: rgba(220,38,38,0.1);
-            --blue: #2563eb;
-            --blue-bg: rgba(37,99,235,0.1);
-            --purple: #7c3aed;
-            --purple-bg: rgba(124,58,237,0.1);
-        }
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            line-height: 1.6;
-            padding: 20px;
-        }
-        .container { max-width: 1100px; margin: 0 auto; }
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>N2Store — Plan Implementation Tracker</title>
+        <style>
+            :root {
+                --bg: #f0f4ff;
+                --surface: #ffffff;
+                --surface2: #f1f5f9;
+                --border: #cbd5e1;
+                --text: #1e293b;
+                --text-muted: #64748b;
+                --green: #059669;
+                --green-bg: rgba(5, 150, 105, 0.1);
+                --amber: #d97706;
+                --amber-bg: rgba(217, 119, 6, 0.1);
+                --red: #dc2626;
+                --red-bg: rgba(220, 38, 38, 0.1);
+                --blue: #2563eb;
+                --blue-bg: rgba(37, 99, 235, 0.1);
+                --purple: #7c3aed;
+                --purple-bg: rgba(124, 58, 237, 0.1);
+            }
+            * {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+            }
+            body {
+                font-family:
+                    'Segoe UI',
+                    system-ui,
+                    -apple-system,
+                    sans-serif;
+                background: var(--bg);
+                color: var(--text);
+                line-height: 1.6;
+                padding: 20px;
+            }
+            .container {
+                max-width: 1100px;
+                margin: 0 auto;
+            }
 
-        /* Header */
-        .header {
-            text-align: center;
-            padding: 30px 20px;
-            margin-bottom: 30px;
-            background: linear-gradient(135deg, #667eea, #764ba2);
-            color: #fff;
-            border-radius: 16px;
-            border: 1px solid var(--border);
-        }
-        .header h1 { font-size: 24px; margin-bottom: 8px; }
-        .header .subtitle { color: rgba(255,255,255,0.85); font-size: 14px; }
+            /* Header */
+            .header {
+                text-align: center;
+                padding: 30px 20px;
+                margin-bottom: 30px;
+                background: linear-gradient(135deg, #667eea, #764ba2);
+                color: #fff;
+                border-radius: 16px;
+                border: 1px solid var(--border);
+            }
+            .header h1 {
+                font-size: 24px;
+                margin-bottom: 8px;
+            }
+            .header .subtitle {
+                color: rgba(255, 255, 255, 0.85);
+                font-size: 14px;
+            }
 
-        /* Progress Bar */
-        .progress-section {
-            background: var(--surface);
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 24px;
-            border: 1px solid var(--border);
-            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-        }
-        .progress-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
-        }
-        .progress-header h3 { font-size: 16px; }
-        .progress-stats {
-            display: flex;
-            gap: 16px;
-            font-size: 13px;
-        }
-        .progress-stats .stat { color: var(--text-muted); }
-        .progress-stats .stat strong { color: var(--text); }
-        .progress-bar-bg {
-            height: 10px;
-            background: var(--surface2);
-            border-radius: 5px;
-            overflow: hidden;
-        }
-        .progress-bar-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #10b981, #3b82f6);
-            border-radius: 5px;
-            transition: width 0.4s ease;
-        }
+            /* Progress Bar */
+            .progress-section {
+                background: var(--surface);
+                border-radius: 12px;
+                padding: 20px;
+                margin-bottom: 24px;
+                border: 1px solid var(--border);
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+            }
+            .progress-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 12px;
+            }
+            .progress-header h3 {
+                font-size: 16px;
+            }
+            .progress-stats {
+                display: flex;
+                gap: 16px;
+                font-size: 13px;
+            }
+            .progress-stats .stat {
+                color: var(--text-muted);
+            }
+            .progress-stats .stat strong {
+                color: var(--text);
+            }
+            .progress-bar-bg {
+                height: 10px;
+                background: var(--surface2);
+                border-radius: 5px;
+                overflow: hidden;
+            }
+            .progress-bar-fill {
+                height: 100%;
+                background: linear-gradient(90deg, #10b981, #3b82f6);
+                border-radius: 5px;
+                transition: width 0.4s ease;
+            }
 
-        /* Sprint Tabs */
-        .sprint-tabs {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-        }
-        .sprint-tab {
-            padding: 8px 16px;
-            border-radius: 8px;
-            border: 1px solid var(--border);
-            background: var(--surface);
-            color: var(--text-muted);
-            cursor: pointer;
-            font-size: 13px;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .sprint-tab:hover { border-color: var(--blue); color: var(--blue); background: var(--blue-bg); }
-        .sprint-tab.active { background: var(--blue); border-color: var(--blue); color: #fff; }
-        .sprint-tab .tab-badge {
-            font-size: 11px;
-            padding: 1px 6px;
-            border-radius: 10px;
-            background: var(--surface2);
-        }
-        .sprint-tab.active .tab-badge { background: rgba(255,255,255,0.25); color: #fff; }
+            /* Sprint Tabs */
+            .sprint-tabs {
+                display: flex;
+                gap: 8px;
+                margin-bottom: 20px;
+                flex-wrap: wrap;
+            }
+            .sprint-tab {
+                padding: 8px 16px;
+                border-radius: 8px;
+                border: 1px solid var(--border);
+                background: var(--surface);
+                color: var(--text-muted);
+                cursor: pointer;
+                font-size: 13px;
+                transition: all 0.2s;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+            .sprint-tab:hover {
+                border-color: var(--blue);
+                color: var(--blue);
+                background: var(--blue-bg);
+            }
+            .sprint-tab.active {
+                background: var(--blue);
+                border-color: var(--blue);
+                color: #fff;
+            }
+            .sprint-tab .tab-badge {
+                font-size: 11px;
+                padding: 1px 6px;
+                border-radius: 10px;
+                background: var(--surface2);
+            }
+            .sprint-tab.active .tab-badge {
+                background: rgba(255, 255, 255, 0.25);
+                color: #fff;
+            }
 
-        /* Sprint Section */
-        .sprint-section {
-            background: var(--surface);
-            border-radius: 12px;
-            margin-bottom: 16px;
-            border: 1px solid var(--border);
-            overflow: hidden;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-        }
-        .sprint-section.hidden { display: none; }
-        .sprint-header {
-            padding: 16px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border);
-        }
-        .sprint-header h2 { font-size: 18px; display: flex; align-items: center; gap: 10px; }
-        .sprint-badge {
-            font-size: 11px;
-            padding: 3px 10px;
-            border-radius: 12px;
-            font-weight: 600;
-        }
-        .badge-green { background: var(--green-bg); color: var(--green); }
-        .badge-amber { background: var(--amber-bg); color: var(--amber); }
-        .badge-red { background: var(--red-bg); color: var(--red); }
-        .badge-blue { background: var(--blue-bg); color: var(--blue); }
-        .badge-purple { background: var(--purple-bg); color: var(--purple); }
+            /* Sprint Section */
+            .sprint-section {
+                background: var(--surface);
+                border-radius: 12px;
+                margin-bottom: 16px;
+                border: 1px solid var(--border);
+                overflow: hidden;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+            }
+            .sprint-section.hidden {
+                display: none;
+            }
+            .sprint-header {
+                padding: 16px 20px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                border-bottom: 1px solid var(--border);
+            }
+            .sprint-header h2 {
+                font-size: 18px;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+            .sprint-badge {
+                font-size: 11px;
+                padding: 3px 10px;
+                border-radius: 12px;
+                font-weight: 600;
+            }
+            .badge-green {
+                background: var(--green-bg);
+                color: var(--green);
+            }
+            .badge-amber {
+                background: var(--amber-bg);
+                color: var(--amber);
+            }
+            .badge-red {
+                background: var(--red-bg);
+                color: var(--red);
+            }
+            .badge-blue {
+                background: var(--blue-bg);
+                color: var(--blue);
+            }
+            .badge-purple {
+                background: var(--purple-bg);
+                color: var(--purple);
+            }
 
-        /* Phase */
-        .phase {
-            padding: 16px 20px;
-            border-bottom: 1px solid rgba(71,85,105,0.4);
-        }
-        .phase:last-child { border-bottom: none; }
-        .phase-title {
-            font-size: 15px;
-            font-weight: 600;
-            margin-bottom: 4px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .phase-meta {
-            font-size: 12px;
-            color: var(--text-muted);
-            margin-bottom: 12px;
-        }
+            /* Phase */
+            .phase {
+                padding: 16px 20px;
+                border-bottom: 1px solid rgba(71, 85, 105, 0.4);
+            }
+            .phase:last-child {
+                border-bottom: none;
+            }
+            .phase-title {
+                font-size: 15px;
+                font-weight: 600;
+                margin-bottom: 4px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            .phase-meta {
+                font-size: 12px;
+                color: var(--text-muted);
+                margin-bottom: 12px;
+            }
 
-        /* Task Items */
-        .task-item {
-            display: flex;
-            align-items: flex-start;
-            gap: 10px;
-            padding: 8px 0;
-            border-bottom: 1px solid rgba(71,85,105,0.2);
-        }
-        .task-item:last-child { border-bottom: none; }
-        .task-item input[type="checkbox"] {
-            margin-top: 4px;
-            width: 18px;
-            height: 18px;
-            accent-color: #10b981;
-            cursor: pointer;
-            flex-shrink: 0;
-        }
-        .task-label {
-            flex: 1;
-            font-size: 14px;
-            cursor: pointer;
-            transition: color 0.2s;
-        }
-        .task-label.completed {
-            text-decoration: line-through;
-            color: var(--text-muted);
-        }
-        .task-id {
-            font-weight: 700;
-            color: var(--blue);
-            margin-right: 4px;
-        }
-        .task-label.completed .task-id { color: var(--text-muted); }
+            /* Task Items */
+            .task-item {
+                display: flex;
+                align-items: flex-start;
+                gap: 10px;
+                padding: 8px 0;
+                border-bottom: 1px solid rgba(71, 85, 105, 0.2);
+            }
+            .task-item:last-child {
+                border-bottom: none;
+            }
+            .task-item input[type='checkbox'] {
+                margin-top: 4px;
+                width: 18px;
+                height: 18px;
+                accent-color: #10b981;
+                cursor: pointer;
+                flex-shrink: 0;
+            }
+            .task-label {
+                flex: 1;
+                font-size: 14px;
+                cursor: pointer;
+                transition: color 0.2s;
+            }
+            .task-label.completed {
+                text-decoration: line-through;
+                color: var(--text-muted);
+            }
+            .task-id {
+                font-weight: 700;
+                color: var(--blue);
+                margin-right: 4px;
+            }
+            .task-label.completed .task-id {
+                color: var(--text-muted);
+            }
 
-        /* File tags */
-        .file-tags {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-            margin-top: 8px;
-            padding-top: 8px;
-            border-top: 1px dashed rgba(71,85,105,0.4);
-        }
-        .file-tag {
-            font-size: 11px;
-            padding: 2px 8px;
-            border-radius: 4px;
-            background: var(--surface2);
-            color: var(--text-muted);
-            font-family: 'Cascadia Code', 'Fira Code', monospace;
-        }
-        .file-tag { border: 1px solid var(--border); }
-        .file-tag.new { background: var(--green-bg); color: var(--green); border-color: var(--green); }
+            /* File tags */
+            .file-tags {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 6px;
+                margin-top: 8px;
+                padding-top: 8px;
+                border-top: 1px dashed rgba(71, 85, 105, 0.4);
+            }
+            .file-tag {
+                font-size: 11px;
+                padding: 2px 8px;
+                border-radius: 4px;
+                background: var(--surface2);
+                color: var(--text-muted);
+                font-family: 'Cascadia Code', 'Fira Code', monospace;
+            }
+            .file-tag {
+                border: 1px solid var(--border);
+            }
+            .file-tag.new {
+                background: var(--green-bg);
+                color: var(--green);
+                border-color: var(--green);
+            }
 
-        /* Plan Overview */
-        .plan-overview {
-            background: var(--surface);
-            border-radius: 12px;
-            padding: 24px;
-            margin-bottom: 24px;
-            border: 1px solid var(--border);
-            box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-        }
-        .plan-overview h3 {
-            font-size: 17px;
-            margin-bottom: 12px;
-            color: var(--blue);
-        }
-        .plan-overview p {
-            font-size: 14px;
-            color: var(--text);
-            margin-bottom: 10px;
-            line-height: 1.7;
-        }
-        .plan-overview .highlight {
-            background: var(--blue-bg);
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-weight: 600;
-            color: var(--blue);
-        }
-        .plan-overview ul {
-            margin: 8px 0 8px 20px;
-            font-size: 14px;
-            line-height: 1.8;
-        }
-        .plan-overview ul li { color: var(--text); }
+            /* Plan Overview */
+            .plan-overview {
+                background: var(--surface);
+                border-radius: 12px;
+                padding: 24px;
+                margin-bottom: 24px;
+                border: 1px solid var(--border);
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+            }
+            .plan-overview h3 {
+                font-size: 17px;
+                margin-bottom: 12px;
+                color: var(--blue);
+            }
+            .plan-overview p {
+                font-size: 14px;
+                color: var(--text);
+                margin-bottom: 10px;
+                line-height: 1.7;
+            }
+            .plan-overview .highlight {
+                background: var(--blue-bg);
+                padding: 2px 6px;
+                border-radius: 4px;
+                font-weight: 600;
+                color: var(--blue);
+            }
+            .plan-overview ul {
+                margin: 8px 0 8px 20px;
+                font-size: 14px;
+                line-height: 1.8;
+            }
+            .plan-overview ul li {
+                color: var(--text);
+            }
 
-        /* Sprint Goal Box */
-        .sprint-goal {
-            padding: 14px 20px;
-            background: linear-gradient(135deg, rgba(37,99,235,0.05), rgba(124,58,237,0.05));
-            border-bottom: 1px solid var(--border);
-        }
-        .sprint-goal-title {
-            font-size: 13px;
-            font-weight: 700;
-            color: var(--purple);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 6px;
-        }
-        .sprint-goal p {
-            font-size: 13.5px;
-            color: var(--text);
-            line-height: 1.7;
-            margin: 0;
-        }
-        .sprint-goal .goal-result {
-            margin-top: 8px;
-            padding: 8px 12px;
-            background: var(--green-bg);
-            border-radius: 6px;
-            font-size: 13px;
-            color: var(--green);
-            font-weight: 500;
-        }
+            /* Sprint Goal Box */
+            .sprint-goal {
+                padding: 14px 20px;
+                background: linear-gradient(
+                    135deg,
+                    rgba(37, 99, 235, 0.05),
+                    rgba(124, 58, 237, 0.05)
+                );
+                border-bottom: 1px solid var(--border);
+            }
+            .sprint-goal-title {
+                font-size: 13px;
+                font-weight: 700;
+                color: var(--purple);
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                margin-bottom: 6px;
+            }
+            .sprint-goal p {
+                font-size: 13.5px;
+                color: var(--text);
+                line-height: 1.7;
+                margin: 0;
+            }
+            .sprint-goal .goal-result {
+                margin-top: 8px;
+                padding: 8px 12px;
+                background: var(--green-bg);
+                border-radius: 6px;
+                font-size: 13px;
+                color: var(--green);
+                font-weight: 500;
+            }
 
-        /* Summary table */
-        .summary-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 16px;
-            font-size: 13px;
-        }
-        .summary-table th, .summary-table td {
-            padding: 10px 12px;
-            text-align: left;
-            border-bottom: 1px solid rgba(71,85,105,0.3);
-        }
-        .summary-table th {
-            color: var(--text-muted);
-            font-weight: 600;
-            font-size: 12px;
-            text-transform: uppercase;
-        }
+            /* Summary table */
+            .summary-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 16px;
+                font-size: 13px;
+            }
+            .summary-table th,
+            .summary-table td {
+                padding: 10px 12px;
+                text-align: left;
+                border-bottom: 1px solid rgba(71, 85, 105, 0.3);
+            }
+            .summary-table th {
+                color: var(--text-muted);
+                font-weight: 600;
+                font-size: 12px;
+                text-transform: uppercase;
+            }
 
-        /* Controls */
-        .controls {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-        }
-        .btn {
-            padding: 8px 16px;
-            border-radius: 8px;
-            border: 1px solid var(--border);
-            background: var(--surface);
-            color: var(--text);
-            cursor: pointer;
-            font-size: 13px;
-            transition: all 0.2s;
-        }
-        .btn:hover { border-color: var(--blue); background: var(--blue-bg); }
-        .btn-danger:hover { border-color: var(--red); background: var(--red-bg); color: var(--red); }
+            /* Controls */
+            .controls {
+                display: flex;
+                gap: 10px;
+                margin-bottom: 20px;
+                flex-wrap: wrap;
+            }
+            .btn {
+                padding: 8px 16px;
+                border-radius: 8px;
+                border: 1px solid var(--border);
+                background: var(--surface);
+                color: var(--text);
+                cursor: pointer;
+                font-size: 13px;
+                transition: all 0.2s;
+            }
+            .btn:hover {
+                border-color: var(--blue);
+                background: var(--blue-bg);
+            }
+            .btn-danger:hover {
+                border-color: var(--red);
+                background: var(--red-bg);
+                color: var(--red);
+            }
 
-        /* Timestamp */
-        .last-saved {
-            font-size: 12px;
-            color: var(--text-muted);
-            text-align: right;
-            margin-top: 8px;
-        }
+            /* Timestamp */
+            .last-saved {
+                font-size: 12px;
+                color: var(--text-muted);
+                text-align: right;
+                margin-top: 8px;
+            }
 
-        /* Dependency graph */
-        .dep-graph {
-            background: #1e293b;
-            padding: 16px;
-            border-radius: 8px;
-            font-family: 'Cascadia Code', 'Fira Code', monospace;
-            font-size: 12px;
-            white-space: pre;
-            overflow-x: auto;
-            line-height: 1.8;
-            color: #94a3b8;
-        }
+            /* Dependency graph */
+            .dep-graph {
+                background: #1e293b;
+                padding: 16px;
+                border-radius: 8px;
+                font-family: 'Cascadia Code', 'Fira Code', monospace;
+                font-size: 12px;
+                white-space: pre;
+                overflow-x: auto;
+                line-height: 1.8;
+                color: #94a3b8;
+            }
 
-        @media (max-width: 768px) {
-            body { padding: 12px; }
-            .header h1 { font-size: 20px; }
-            .progress-stats { flex-direction: column; gap: 4px; }
-            .sprint-tabs { gap: 6px; }
-            .sprint-tab { padding: 6px 12px; font-size: 12px; }
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>N2Store — Implementation Tracker</h1>
-            <div class="subtitle">Kế hoạch hiện thực các hạng mục quy trình | ~9 tuần, 5 Sprint</div>
-        </div>
-
-        <!-- Tổng quan kế hoạch -->
-        <div class="plan-overview">
-            <h3>Kế hoạch này để làm gì?</h3>
-            <p>
-                Hiện tại khi shop live bán hàng, quy trình từ <span class="highlight">đặt hàng nhà cung cấp</span> đến
-                <span class="highlight">chốt đơn cho khách</span> đang bị đứt đoạn thông tin. Cụ thể:
-            </p>
-            <ul>
-                <li><strong>Duyên (người đặt hàng)</strong> đặt hàng nhà cung cấp qua Zalo/điện thoại nhưng các bạn Sale không thấy được số liệu, phải chờ Duyên note từng đơn một → rất chậm và dễ sai.</li>
-                <li><strong>Nhà cung cấp giao hàng từng phần</strong> (ví dụ đặt 100 cái nhưng chỉ về 60), Sale không biết để cân đối đi đơn cho khách hay báo khách hủy.</li>
-                <li><strong>Hệ thống KPI</strong> (tính thưởng cho Sale) đang có lỗ hổng — Sale có thể thêm mã nhầm trước khi gửi tin nhắn rồi đổi lại, KPI vẫn cộng sai.</li>
-                <li><strong>Hàng rớt/xả</strong> (khách hủy, hàng dư) chưa quản lý theo từng đợt live nên Sale khó tìm hàng available.</li>
-                <li><strong>Bộ phận CSKH</strong> khi tiếp nhận đơn từ Sale thiếu thông tin tổng quan, đi đơn chậm.</li>
-            </ul>
-            <p>
-                <strong>Mục tiêu:</strong> Kết nối thông tin giữa Duyên (đặt hàng) ↔ Sale (chốt đơn) ↔ CSKH (chăm sóc khách)
-                thành một luồng thông suốt. Ai cũng thấy được số liệu cần thiết, không phải chờ đợi hay hỏi nhau.
-            </p>
-        </div>
-
-        <div class="progress-section">
-            <div class="progress-header">
-                <h3>Tiến độ tổng</h3>
-                <div class="progress-stats">
-                    <span class="stat">Hoàn thành: <strong id="completedCount">0</strong>/<strong id="totalCount">0</strong></span>
-                    <span class="stat">Phần trăm: <strong id="progressPercent">0%</strong></span>
+            @media (max-width: 768px) {
+                body {
+                    padding: 12px;
+                }
+                .header h1 {
+                    font-size: 20px;
+                }
+                .progress-stats {
+                    flex-direction: column;
+                    gap: 4px;
+                }
+                .sprint-tabs {
+                    gap: 6px;
+                }
+                .sprint-tab {
+                    padding: 6px 12px;
+                    font-size: 12px;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>N2Store — Implementation Tracker</h1>
+                <div class="subtitle">
+                    Kế hoạch hiện thực các hạng mục quy trình | ~9 tuần, 5 Sprint
                 </div>
             </div>
-            <div class="progress-bar-bg">
-                <div class="progress-bar-fill" id="progressBar" style="width: 0%"></div>
+
+            <!-- Tổng quan kế hoạch -->
+            <div class="plan-overview">
+                <h3>Kế hoạch này để làm gì?</h3>
+                <p>
+                    Hiện tại khi shop live bán hàng, quy trình từ
+                    <span class="highlight">đặt hàng nhà cung cấp</span> đến
+                    <span class="highlight">chốt đơn cho khách</span> đang bị đứt đoạn thông tin. Cụ
+                    thể:
+                </p>
+                <ul>
+                    <li>
+                        <strong>Duyên (người đặt hàng)</strong> đặt hàng nhà cung cấp qua Zalo/điện
+                        thoại nhưng các bạn Sale không thấy được số liệu, phải chờ Duyên note từng
+                        đơn một → rất chậm và dễ sai.
+                    </li>
+                    <li>
+                        <strong>Nhà cung cấp giao hàng từng phần</strong> (ví dụ đặt 100 cái nhưng
+                        chỉ về 60), Sale không biết để cân đối đi đơn cho khách hay báo khách hủy.
+                    </li>
+                    <li>
+                        <strong>Hệ thống KPI</strong> (tính thưởng cho Sale) đang có lỗ hổng — Sale
+                        có thể thêm mã nhầm trước khi gửi tin nhắn rồi đổi lại, KPI vẫn cộng sai.
+                    </li>
+                    <li>
+                        <strong>Hàng rớt/xả</strong> (khách hủy, hàng dư) chưa quản lý theo từng đợt
+                        live nên Sale khó tìm hàng available.
+                    </li>
+                    <li>
+                        <strong>Bộ phận CSKH</strong> khi tiếp nhận đơn từ Sale thiếu thông tin tổng
+                        quan, đi đơn chậm.
+                    </li>
+                </ul>
+                <p>
+                    <strong>Mục tiêu:</strong> Kết nối thông tin giữa Duyên (đặt hàng) ↔ Sale (chốt
+                    đơn) ↔ CSKH (chăm sóc khách) thành một luồng thông suốt. Ai cũng thấy được số
+                    liệu cần thiết, không phải chờ đợi hay hỏi nhau.
+                </p>
             </div>
-            <div class="last-saved" id="lastSaved"></div>
+
+            <div class="progress-section">
+                <div class="progress-header">
+                    <h3>Tiến độ tổng</h3>
+                    <div class="progress-stats">
+                        <span class="stat"
+                            >Hoàn thành: <strong id="completedCount">0</strong>/<strong
+                                id="totalCount"
+                                >0</strong
+                            ></span
+                        >
+                        <span class="stat"
+                            >Phần trăm: <strong id="progressPercent">0%</strong></span
+                        >
+                    </div>
+                </div>
+                <div class="progress-bar-bg">
+                    <div class="progress-bar-fill" id="progressBar" style="width: 0%"></div>
+                </div>
+                <div class="last-saved" id="lastSaved"></div>
+            </div>
+
+            <div class="controls">
+                <button class="btn" onclick="expandAll()">Mở tất cả Sprint</button>
+                <button class="btn" onclick="collapseAll()">Thu gọn</button>
+                <button class="btn btn-danger" onclick="resetAll()">Reset tiến độ</button>
+            </div>
+
+            <div class="sprint-tabs" id="sprintTabs"></div>
+
+            <div id="sprintContent"></div>
+
+            <!-- Dependency Graph -->
+            <div class="sprint-section" style="margin-top: 24px">
+                <div class="sprint-header">
+                    <h2>Dependency Graph</h2>
+                </div>
+                <div style="padding: 16px 20px">
+                    <div class="dep-graph">
+                        Phase 1A (Giao hàng từng phần) ↓ Phase 1B (Supply Status cho Sale) → Phase
+                        3B (Handover CSKH) ↓ Phase 2 (Hàng rớt per-session) Phase 5 (Polish) Phase
+                        3A (Thống kê tags) ──────→/ Phase 4A (KPI Base Lock) ─── độc lập Phase 4B
+                        (KPI vs Ledger) ─── cần Phase 1A xong Phase 4C (KPI Finalization) ── độc lập
+                        Phase 4D (KPI per-session) ── độc lập
+                    </div>
+                </div>
+            </div>
         </div>
 
-        <div class="controls">
-            <button class="btn" onclick="expandAll()">Mở tất cả Sprint</button>
-            <button class="btn" onclick="collapseAll()">Thu gọn</button>
-            <button class="btn btn-danger" onclick="resetAll()">Reset tiến độ</button>
-        </div>
+        <script>
+            const STORAGE_KEY = 'n2store_plan_tracker';
 
-        <div class="sprint-tabs" id="sprintTabs"></div>
-
-        <div id="sprintContent"></div>
-
-        <!-- Dependency Graph -->
-        <div class="sprint-section" style="margin-top: 24px;">
-            <div class="sprint-header">
-                <h2>Dependency Graph</h2>
-            </div>
-            <div style="padding: 16px 20px;">
-                <div class="dep-graph">Phase 1A (Giao hàng từng phần)
-   ↓
-Phase 1B (Supply Status cho Sale) → Phase 3B (Handover CSKH)
-                                         ↓
-Phase 2 (Hàng rớt per-session)     Phase 5 (Polish)
-Phase 3A (Thống kê tags)  ──────→/
-
-Phase 4A (KPI Base Lock) ─── độc lập
-Phase 4B (KPI vs Ledger) ─── cần Phase 1A xong
-Phase 4C (KPI Finalization) ── độc lập
-Phase 4D (KPI per-session) ── độc lập</div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-    const STORAGE_KEY = 'n2store_plan_tracker';
-
-    const PLAN_DATA = [
-        {
-            id: 'sprint1',
-            title: 'Sprint 1',
-            subtitle: 'Tuần 1–2',
-            badgeClass: 'badge-green',
-            goal: 'Cho phép Duyên ghi nhận hàng về từng phần trên Sổ Sách (thay vì chỉ ghi tổng). Ví dụ: đặt 100 cái, hàng về 60 trước → hệ thống tự hiện "chờ giao 40". Đồng thời, khi khách hủy hàng (hàng rớt/xả), hệ thống sẽ ghi nhận thuộc đợt live nào để các bạn Sale dễ tìm và thêm cho khách khác.',
-            goalResult: 'Sale nhìn vào Sổ Sách biết ngay hàng nào đã về, hàng nào đang chờ, hàng nào NCC hủy. Hàng rớt được phân loại theo đợt live.',
-            phases: [
+            const PLAN_DATA = [
                 {
-                    id: 'phase1a',
-                    title: 'Phase 1A — Mở rộng Sổ Sách giao hàng từng phần',
-                    complexity: 'M',
-                    files: [
-                        { name: 'orders-report/js/overview/overview-ledger.js', isNew: false }
+                    id: 'sprint1',
+                    title: 'Sprint 1',
+                    subtitle: 'Tuần 1–2',
+                    badgeClass: 'badge-green',
+                    goal: 'Cho phép Duyên ghi nhận hàng về từng phần trên Sổ Sách (thay vì chỉ ghi tổng). Ví dụ: đặt 100 cái, hàng về 60 trước → hệ thống tự hiện "chờ giao 40". Đồng thời, khi khách hủy hàng (hàng rớt/xả), hệ thống sẽ ghi nhận thuộc đợt live nào để các bạn Sale dễ tìm và thêm cho khách khác.',
+                    goalResult:
+                        'Sale nhìn vào Sổ Sách biết ngay hàng nào đã về, hàng nào đang chờ, hàng nào NCC hủy. Hàng rớt được phân loại theo đợt live.',
+                    phases: [
+                        {
+                            id: 'phase1a',
+                            title: 'Phase 1A — Mở rộng Sổ Sách giao hàng từng phần',
+                            complexity: 'M',
+                            files: [
+                                {
+                                    name: 'orders-report/js/overview/overview-ledger.js',
+                                    isNew: false,
+                                },
+                            ],
+                            tasks: [
+                                {
+                                    id: '1A.1',
+                                    text: 'Thêm fields mới vào data model: nccPendingQty, nccCancelledQty, deliveryBatches[], deliveryStatus',
+                                },
+                                {
+                                    id: '1A.2',
+                                    text: 'Sửa refreshFromCachedData(): populate fields mới từ Firebase',
+                                },
+                                {
+                                    id: '1A.3',
+                                    text: 'Sửa renderLedgerTable(): thêm cột "SL Chờ giao", "SL NCC hủy"',
+                                },
+                                {
+                                    id: '1A.4',
+                                    text: 'Sửa saveCell(): auto-tính nccPendingQty và deliveryStatus',
+                                },
+                                {
+                                    id: '1A.5',
+                                    text: 'Thêm badge màu cho deliveryStatus (xanh/vàng/đỏ/xám)',
+                                },
+                                {
+                                    id: '1A.6',
+                                    text: 'Mini form nhập lô giao hàng (popup qty + date + note)',
+                                },
+                                {
+                                    id: '1A.7',
+                                    text: 'Test: Đặt 100 → ghi về 60 → badge "Từng phần", chờ giao = 40',
+                                },
+                                {
+                                    id: '1A.8',
+                                    text: '[Bổ sung] Upgrade tab-live-ledger.js: thêm delivery batches, status badges, batch form, auto-calc để đồng bộ tính năng với overview-ledger',
+                                },
+                                {
+                                    id: '1A.9',
+                                    text: '[Bổ sung] Upgrade tab-live-ledger.css: thêm styles cho delivery badges + batch popup form',
+                                },
+                                {
+                                    id: '1A.10',
+                                    text: '[Bổ sung] Thêm filter TT Giao (delivery status) cho cả 2 views: overview-ledger và tab-live-ledger',
+                                },
+                            ],
+                        },
+                        {
+                            id: 'phase2',
+                            title: 'Phase 2 — Hàng rớt xả theo đợt live',
+                            complexity: 'S',
+                            files: [
+                                {
+                                    name: 'orders-report/js/managers/dropped-products-manager.js',
+                                    isNew: false,
+                                },
+                            ],
+                            tasks: [
+                                {
+                                    id: '2.1',
+                                    text: 'Sửa addDroppedProduct(): thêm campaignId + campaignName',
+                                },
+                                {
+                                    id: '2.2',
+                                    text: 'Thêm dropdown filter: "Tất cả" / "Live hiện tại" / chọn đợt live',
+                                },
+                                { id: '2.3', text: 'Sửa render để filter theo campaign đang chọn' },
+                                {
+                                    id: '2.4',
+                                    text: 'Backward compatible: items cũ không có campaignId → "Tất cả"',
+                                },
+                                {
+                                    id: '2.5',
+                                    text: 'Test: Thêm hàng rớt → filter "Live hiện tại" → chỉ thấy đợt này',
+                                },
+                            ],
+                        },
                     ],
-                    tasks: [
-                        { id: '1A.1', text: 'Thêm fields mới vào data model: nccPendingQty, nccCancelledQty, deliveryBatches[], deliveryStatus' },
-                        { id: '1A.2', text: 'Sửa refreshFromCachedData(): populate fields mới từ Firebase' },
-                        { id: '1A.3', text: 'Sửa renderLedgerTable(): thêm cột "SL Chờ giao", "SL NCC hủy"' },
-                        { id: '1A.4', text: 'Sửa saveCell(): auto-tính nccPendingQty và deliveryStatus' },
-                        { id: '1A.5', text: 'Thêm badge màu cho deliveryStatus (xanh/vàng/đỏ/xám)' },
-                        { id: '1A.6', text: 'Mini form nhập lô giao hàng (popup qty + date + note)' },
-                        { id: '1A.7', text: 'Test: Đặt 100 → ghi về 60 → badge "Từng phần", chờ giao = 40' },
-                    ]
                 },
                 {
-                    id: 'phase2',
-                    title: 'Phase 2 — Hàng rớt xả theo đợt live',
-                    complexity: 'S',
-                    files: [
-                        { name: 'orders-report/js/managers/dropped-products-manager.js', isNew: false }
+                    id: 'sprint2',
+                    title: 'Sprint 2',
+                    subtitle: 'Tuần 3–4',
+                    badgeClass: 'badge-blue',
+                    goal: 'Đưa thông tin đặt hàng nhà cung cấp lên màn hình chốt đơn (Tab1) để Sale thấy ngay khi mở đơn hàng. Ví dụ: Sale mở đơn khách, bên cạnh mỗi sản phẩm sẽ có icon cho biết "Duyên đã đặt NCC 50 cái, đã về 30, đang chờ 20". Ngoài ra, thêm bảng thống kê nhanh số đơn mỗi nhân viên đã xử lý (bao nhiêu OKE, bao nhiêu đang xử lý, bao nhiêu hủy).',
+                    goalResult:
+                        'Sale không cần hỏi Duyên nữa — nhìn vào màn hình chốt đơn là biết hàng có đủ hay chưa. Quản lý thấy được ai xử lý bao nhiêu đơn.',
+                    phases: [
+                        {
+                            id: 'phase1b',
+                            title: 'Phase 1B — Supply Status panel cho Sale ở Tab1',
+                            complexity: 'M',
+                            files: [
+                                {
+                                    name: 'orders-report/js/tab1/tab1-supply-status.js',
+                                    isNew: true,
+                                },
+                                { name: 'orders-report/tab1-orders.html', isNew: false },
+                            ],
+                            tasks: [
+                                { id: '1B.1', text: 'Tạo mới tab1-supply-status.js' },
+                                {
+                                    id: '1B.2',
+                                    text: 'Listen Firebase live_ledger/{campaignId}/products (read-only)',
+                                },
+                                {
+                                    id: '1B.3',
+                                    text: 'Render thanh summary: tổng SP đặt / đã giao / đang chờ / thiếu',
+                                },
+                                {
+                                    id: '1B.4',
+                                    text: 'Icon trạng thái nhỏ bên cạnh mỗi SP trong đơn hàng',
+                                },
+                                {
+                                    id: '1B.5',
+                                    text: 'Click icon → popover: Duyên đặt X, NCC giao Y, còn chờ Z',
+                                },
+                                {
+                                    id: '1B.6',
+                                    text: 'Sửa tab1-orders.html: thêm script + container div',
+                                },
+                                {
+                                    id: '1B.7',
+                                    text: 'Test: Sale mở Tab1 → thấy thanh summary → click SP → chi tiết',
+                                },
+                            ],
+                        },
+                        {
+                            id: 'phase3a',
+                            title: 'Phase 3A — Thống kê Processing Tags theo nhân viên',
+                            complexity: 'M',
+                            files: [
+                                {
+                                    name: 'orders-report/js/tab1/tab1-processing-tags.js',
+                                    isNew: false,
+                                },
+                            ],
+                            tasks: [
+                                { id: '3A.1', text: 'Thêm function _ptagCalculateEmployeeStats()' },
+                                {
+                                    id: '3A.2',
+                                    text: 'Nút "Thống kê" trong panel Processing Tags header',
+                                },
+                                {
+                                    id: '3A.3',
+                                    text: 'Render bảng: hàng = NV, cột = 4 mục (OKE, XỬ LÝ, KHÔNG CHỐT, XÃ)',
+                                },
+                                {
+                                    id: '3A.4',
+                                    text: 'Click vào cell → filter bảng chính theo NV + category',
+                                },
+                                {
+                                    id: '3A.5',
+                                    text: 'Test: Gắn tag 10 đơn → mở thống kê → số liệu đúng per-NV',
+                                },
+                            ],
+                        },
                     ],
-                    tasks: [
-                        { id: '2.1', text: 'Sửa addDroppedProduct(): thêm campaignId + campaignName' },
-                        { id: '2.2', text: 'Thêm dropdown filter: "Tất cả" / "Live hiện tại" / chọn đợt live' },
-                        { id: '2.3', text: 'Sửa render để filter theo campaign đang chọn' },
-                        { id: '2.4', text: 'Backward compatible: items cũ không có campaignId → "Tất cả"' },
-                        { id: '2.5', text: 'Test: Thêm hàng rớt → filter "Live hiện tại" → chỉ thấy đợt này' },
-                    ]
-                }
-            ]
-        },
-        {
-            id: 'sprint2',
-            title: 'Sprint 2',
-            subtitle: 'Tuần 3–4',
-            badgeClass: 'badge-blue',
-            goal: 'Đưa thông tin đặt hàng nhà cung cấp lên màn hình chốt đơn (Tab1) để Sale thấy ngay khi mở đơn hàng. Ví dụ: Sale mở đơn khách, bên cạnh mỗi sản phẩm sẽ có icon cho biết "Duyên đã đặt NCC 50 cái, đã về 30, đang chờ 20". Ngoài ra, thêm bảng thống kê nhanh số đơn mỗi nhân viên đã xử lý (bao nhiêu OKE, bao nhiêu đang xử lý, bao nhiêu hủy).',
-            goalResult: 'Sale không cần hỏi Duyên nữa — nhìn vào màn hình chốt đơn là biết hàng có đủ hay chưa. Quản lý thấy được ai xử lý bao nhiêu đơn.',
-            phases: [
-                {
-                    id: 'phase1b',
-                    title: 'Phase 1B — Supply Status panel cho Sale ở Tab1',
-                    complexity: 'M',
-                    files: [
-                        { name: 'orders-report/js/tab1/tab1-supply-status.js', isNew: true },
-                        { name: 'orders-report/tab1-orders.html', isNew: false }
-                    ],
-                    tasks: [
-                        { id: '1B.1', text: 'Tạo mới tab1-supply-status.js' },
-                        { id: '1B.2', text: 'Listen Firebase live_ledger/{campaignId}/products (read-only)' },
-                        { id: '1B.3', text: 'Render thanh summary: tổng SP đặt / đã giao / đang chờ / thiếu' },
-                        { id: '1B.4', text: 'Icon trạng thái nhỏ bên cạnh mỗi SP trong đơn hàng' },
-                        { id: '1B.5', text: 'Click icon → popover: Duyên đặt X, NCC giao Y, còn chờ Z' },
-                        { id: '1B.6', text: 'Sửa tab1-orders.html: thêm script + container div' },
-                        { id: '1B.7', text: 'Test: Sale mở Tab1 → thấy thanh summary → click SP → chi tiết' },
-                    ]
                 },
                 {
-                    id: 'phase3a',
-                    title: 'Phase 3A — Thống kê Processing Tags theo nhân viên',
-                    complexity: 'M',
-                    files: [
-                        { name: 'orders-report/js/tab1/tab1-processing-tags.js', isNew: false }
+                    id: 'sprint3',
+                    title: 'Sprint 3',
+                    subtitle: 'Tuần 5–6',
+                    badgeClass: 'badge-purple',
+                    goal: 'Tạo chế độ "Bàn giao" cho bộ phận CSKH. Khi Sale đi live, CSKH tiếp nhận đơn hàng sẽ bật chế độ này lên — thấy tổng quan tất cả đơn đang xử lý, lọc theo nhân viên sale, theo trạng thái (OKE/đang xử lý/hủy), kèm thông tin hàng đã về chưa. Ngoài ra, hệ thống KPI sẽ được tách theo từng đợt live để xem thưởng chính xác theo đợt.',
+                    goalResult:
+                        'CSKH bật chế độ bàn giao → thấy rõ đơn nào cần đi, của ai, trạng thái gì, hàng có sẵn không. KPI xem theo từng đợt live.',
+                    phases: [
+                        {
+                            id: 'phase3b',
+                            title: 'Phase 3B — Chế độ Handover cho CSKH (Bảng filter)',
+                            complexity: 'M',
+                            files: [
+                                { name: 'orders-report/js/tab1/tab1-core.js', isNew: false },
+                                { name: 'orders-report/tab1-orders.html', isNew: false },
+                            ],
+                            tasks: [
+                                { id: '3B.1', text: 'Toggle "Chế độ bàn giao" trên toolbar Tab1' },
+                                {
+                                    id: '3B.2',
+                                    text: 'Ẩn bớt cột không cần, phóng to badge trạng thái',
+                                },
+                                { id: '3B.3', text: 'Filter nhanh theo nhân viên sale (dropdown)' },
+                                { id: '3B.4', text: 'Filter nhanh theo tag category' },
+                                { id: '3B.5', text: 'Color-coded row theo tag category' },
+                                { id: '3B.6', text: 'Read-only mode: ẩn nút sửa/xóa' },
+                                { id: '3B.7', text: 'Hiển thị supply status inline (từ Phase 1B)' },
+                                {
+                                    id: '3B.8',
+                                    text: 'Test: Bật handover → CSKH thấy tổng quan → filter theo NV',
+                                },
+                            ],
+                        },
+                        {
+                            id: 'phase4d',
+                            title: 'Phase 4D — KPI theo đợt live',
+                            complexity: 'S',
+                            files: [
+                                { name: 'orders-report/js/tab-kpi-commission.js', isNew: false },
+                            ],
+                            tasks: [
+                                { id: '4D.1', text: 'Dropdown chọn đợt live trên tab KPI' },
+                                { id: '4D.2', text: 'Filter statistics theo campaignName' },
+                                { id: '4D.3', text: 'Subtotal theo campaign' },
+                                { id: '4D.4', text: 'Test: Chọn đợt live → chỉ thấy KPI đợt đó' },
+                            ],
+                        },
                     ],
-                    tasks: [
-                        { id: '3A.1', text: 'Thêm function _ptagCalculateEmployeeStats()' },
-                        { id: '3A.2', text: 'Nút "Thống kê" trong panel Processing Tags header' },
-                        { id: '3A.3', text: 'Render bảng: hàng = NV, cột = 4 mục (OKE, XỬ LÝ, KHÔNG CHỐT, XÃ)' },
-                        { id: '3A.4', text: 'Click vào cell → filter bảng chính theo NV + category' },
-                        { id: '3A.5', text: 'Test: Gắn tag 10 đơn → mở thống kê → số liệu đúng per-NV' },
-                    ]
-                }
-            ]
-        },
-        {
-            id: 'sprint3',
-            title: 'Sprint 3',
-            subtitle: 'Tuần 5–6',
-            badgeClass: 'badge-purple',
-            goal: 'Tạo chế độ "Bàn giao" cho bộ phận CSKH. Khi Sale đi live, CSKH tiếp nhận đơn hàng sẽ bật chế độ này lên — thấy tổng quan tất cả đơn đang xử lý, lọc theo nhân viên sale, theo trạng thái (OKE/đang xử lý/hủy), kèm thông tin hàng đã về chưa. Ngoài ra, hệ thống KPI sẽ được tách theo từng đợt live để xem thưởng chính xác theo đợt.',
-            goalResult: 'CSKH bật chế độ bàn giao → thấy rõ đơn nào cần đi, của ai, trạng thái gì, hàng có sẵn không. KPI xem theo từng đợt live.',
-            phases: [
-                {
-                    id: 'phase3b',
-                    title: 'Phase 3B — Chế độ Handover cho CSKH (Bảng filter)',
-                    complexity: 'M',
-                    files: [
-                        { name: 'orders-report/js/tab1/tab1-core.js', isNew: false },
-                        { name: 'orders-report/tab1-orders.html', isNew: false }
-                    ],
-                    tasks: [
-                        { id: '3B.1', text: 'Toggle "Chế độ bàn giao" trên toolbar Tab1' },
-                        { id: '3B.2', text: 'Ẩn bớt cột không cần, phóng to badge trạng thái' },
-                        { id: '3B.3', text: 'Filter nhanh theo nhân viên sale (dropdown)' },
-                        { id: '3B.4', text: 'Filter nhanh theo tag category' },
-                        { id: '3B.5', text: 'Color-coded row theo tag category' },
-                        { id: '3B.6', text: 'Read-only mode: ẩn nút sửa/xóa' },
-                        { id: '3B.7', text: 'Hiển thị supply status inline (từ Phase 1B)' },
-                        { id: '3B.8', text: 'Test: Bật handover → CSKH thấy tổng quan → filter theo NV' },
-                    ]
                 },
                 {
-                    id: 'phase4d',
-                    title: 'Phase 4D — KPI theo đợt live',
-                    complexity: 'S',
-                    files: [
-                        { name: 'orders-report/js/tab-kpi-commission.js', isNew: false }
+                    id: 'sprint4',
+                    title: 'Sprint 4',
+                    subtitle: 'Tuần 7–8',
+                    badgeClass: 'badge-amber',
+                    goal: 'Sửa lỗi hệ thống tính thưởng KPI cho Sale. Hiện tại có 3 vấn đề lớn: (1) Sale thêm mã sản phẩm nhầm trước khi gửi tin nhắn chốt đơn, sau đó đổi lại — KPI vẫn cộng sai → sửa bằng cách khóa thông tin sau 5 phút và đối chiếu lại khi ra đơn. (2) Số lượng sản phẩm trong đơn khách phải khớp với số Duyên đặt nhà cung cấp — nếu không khớp sẽ hiện cảnh báo. (3) KPI chỉ được cộng chính thức khi đơn hàng thật sự giao thành công và khách không trả lại hàng.',
+                    goalResult:
+                        'KPI chính xác, chống gian lận. Có 2 mức: "KPI tạm tính" (khi chốt đơn) và "KPI xác nhận" (khi giao thành công). Đơn hoàn hàng → tự động trừ KPI.',
+                    phases: [
+                        {
+                            id: 'phase4a',
+                            title: 'Phase 4A — Fix bug thêm mã nhầm trước khi gửi tin',
+                            complexity: 'M',
+                            files: [
+                                {
+                                    name: 'orders-report/js/overview/overview-ledger.js',
+                                    isNew: false,
+                                },
+                                { name: 'orders-report/js/tab-live-ledger.js', isNew: false },
+                                { name: 'orders-report/css/tab-live-ledger.css', isNew: false },
+                                { name: 'orders-report/tab-live-ledger.html', isNew: false },
+                                { name: 'orders-report/tab-overview.html', isNew: false },
+                            ],
+                            tasks: [
+                                {
+                                    id: '4A.1',
+                                    text: 'Sửa saveAutoBaseSnapshot(): thêm baseLockedAt, createdAt',
+                                },
+                                {
+                                    id: '4A.2',
+                                    text: 'Thêm updateBaseIfUnlocked(): update BASE trong grace period 5 phút',
+                                },
+                                {
+                                    id: '4A.3',
+                                    text: 'Thêm reconcileBaseWithInvoice(): so sánh BASE vs invoice thực tế',
+                                },
+                                {
+                                    id: '4A.4',
+                                    text: 'Sửa invoice-status: khi invoice tạo → lockBase() + reconcile()',
+                                },
+                                {
+                                    id: '4A.5',
+                                    text: 'Test: Gửi tin → đổi mã trong 5 phút → BASE update → sau 5 phút lock',
+                                },
+                            ],
+                        },
+                        {
+                            id: 'phase4b',
+                            title: 'Phase 4B — KPI đối chiếu với Sổ Sách Duyên',
+                            complexity: 'S',
+                            files: [
+                                { name: 'orders-report/js/managers/kpi-manager.js', isNew: false },
+                                { name: 'orders-report/js/tab-kpi-commission.js', isNew: false },
+                            ],
+                            tasks: [
+                                {
+                                    id: '4B.1',
+                                    text: 'Thêm validateAgainstLedger() trong kpi-manager.js',
+                                },
+                                {
+                                    id: '4B.2',
+                                    text: 'Cross-check product qty với live_ledger/.../duyenOrderQty',
+                                },
+                                { id: '4B.3', text: 'Flag "SL không khớp" nếu qty > Duyên đặt' },
+                                { id: '4B.4', text: 'Badge cảnh báo trên tab-kpi-commission.js' },
+                                {
+                                    id: '4B.5',
+                                    text: 'Test: Đơn 5 SP nhưng Duyên đặt 3 → badge cảnh báo',
+                                },
+                            ],
+                        },
+                        {
+                            id: 'phase4c',
+                            title: 'Phase 4C — KPI chỉ cộng khi đơn thành công & không hoàn',
+                            complexity: 'M',
+                            files: [
+                                { name: 'orders-report/js/managers/kpi-manager.js', isNew: false },
+                                { name: 'orders-report/js/tab-kpi-commission.js', isNew: false },
+                            ],
+                            tasks: [
+                                {
+                                    id: '4C.1',
+                                    text: 'Thêm finalizeKPI(orderId) trong kpi-manager.js',
+                                },
+                                { id: '4C.2', text: 'Check invoice_status_v2: đã ra đơn chưa?' },
+                                {
+                                    id: '4C.3',
+                                    text: 'Call TPOS API: check StateCode (shipped/returned)',
+                                },
+                                {
+                                    id: '4C.4',
+                                    text: '2 cột KPI: "Tạm tính" vs "Xác nhận" trên tab KPI',
+                                },
+                                {
+                                    id: '4C.5',
+                                    text: 'Nút "Xác nhận KPI" batch finalize tất cả đơn đã ra bill',
+                                },
+                                {
+                                    id: '4C.6',
+                                    text: 'Đơn hoàn hàng (CSKH nhập hoàn) → tự động trừ KPI',
+                                },
+                                {
+                                    id: '4C.7',
+                                    text: 'Test: Ra đơn → finalize → KPI xác nhận. Hoàn → KPI trừ',
+                                },
+                            ],
+                        },
                     ],
-                    tasks: [
-                        { id: '4D.1', text: 'Dropdown chọn đợt live trên tab KPI' },
-                        { id: '4D.2', text: 'Filter statistics theo campaignName' },
-                        { id: '4D.3', text: 'Subtotal theo campaign' },
-                        { id: '4D.4', text: 'Test: Chọn đợt live → chỉ thấy KPI đợt đó' },
-                    ]
-                }
-            ]
-        },
-        {
-            id: 'sprint4',
-            title: 'Sprint 4',
-            subtitle: 'Tuần 7–8',
-            badgeClass: 'badge-amber',
-            goal: 'Sửa lỗi hệ thống tính thưởng KPI cho Sale. Hiện tại có 3 vấn đề lớn: (1) Sale thêm mã sản phẩm nhầm trước khi gửi tin nhắn chốt đơn, sau đó đổi lại — KPI vẫn cộng sai → sửa bằng cách khóa thông tin sau 5 phút và đối chiếu lại khi ra đơn. (2) Số lượng sản phẩm trong đơn khách phải khớp với số Duyên đặt nhà cung cấp — nếu không khớp sẽ hiện cảnh báo. (3) KPI chỉ được cộng chính thức khi đơn hàng thật sự giao thành công và khách không trả lại hàng.',
-            goalResult: 'KPI chính xác, chống gian lận. Có 2 mức: "KPI tạm tính" (khi chốt đơn) và "KPI xác nhận" (khi giao thành công). Đơn hoàn hàng → tự động trừ KPI.',
-            phases: [
-                {
-                    id: 'phase4a',
-                    title: 'Phase 4A — Fix bug thêm mã nhầm trước khi gửi tin',
-                    complexity: 'M',
-                    files: [
-                        { name: 'orders-report/js/managers/kpi-manager.js', isNew: false },
-                        { name: 'orders-report/js/tab1/tab1-fast-sale-invoice-status.js', isNew: false }
-                    ],
-                    tasks: [
-                        { id: '4A.1', text: 'Sửa saveAutoBaseSnapshot(): thêm baseLockedAt, createdAt' },
-                        { id: '4A.2', text: 'Thêm updateBaseIfUnlocked(): update BASE trong grace period 5 phút' },
-                        { id: '4A.3', text: 'Thêm reconcileBaseWithInvoice(): so sánh BASE vs invoice thực tế' },
-                        { id: '4A.4', text: 'Sửa invoice-status: khi invoice tạo → lockBase() + reconcile()' },
-                        { id: '4A.5', text: 'Test: Gửi tin → đổi mã trong 5 phút → BASE update → sau 5 phút lock' },
-                    ]
                 },
                 {
-                    id: 'phase4b',
-                    title: 'Phase 4B — KPI đối chiếu với Sổ Sách Duyên',
-                    complexity: 'S',
-                    files: [
-                        { name: 'orders-report/js/managers/kpi-manager.js', isNew: false },
-                        { name: 'orders-report/js/tab-kpi-commission.js', isNew: false }
+                    id: 'sprint5',
+                    title: 'Sprint 5',
+                    subtitle: 'Tuần 9',
+                    badgeClass: 'badge-red',
+                    goal: 'Hoàn thiện và tối ưu tất cả tính năng đã làm ở 4 sprint trước. Đảm bảo dùng tốt trên điện thoại/tablet (Duyên có thể nhập hàng về trên điện thoại khi ở kho). Thêm thông báo âm thanh khi có hàng rớt mới để Sale phản ứng nhanh. Tự động cập nhật dữ liệu theo thời gian thực.',
+                    goalResult:
+                        'Tất cả tính năng chạy mượt trên mọi thiết bị. Thông báo realtime. Sẵn sàng vận hành chính thức.',
+                    phases: [
+                        {
+                            id: 'phase5',
+                            title: 'Phase 5 — Polish & Mobile',
+                            complexity: 'S-M',
+                            files: [],
+                            tasks: [
+                                {
+                                    id: '5.1',
+                                    text: 'Responsive cho handover view trên tablet/phone',
+                                },
+                                { id: '5.2', text: 'Touch-friendly form nhập lô giao hàng' },
+                                { id: '5.3', text: 'Sound notification khi có hàng rớt mới' },
+                                {
+                                    id: '5.4',
+                                    text: 'Auto-refresh interval cho supply status panel',
+                                },
+                                { id: '5.5', text: 'Test end-to-end trên mobile/tablet' },
+                            ],
+                        },
                     ],
-                    tasks: [
-                        { id: '4B.1', text: 'Thêm validateAgainstLedger() trong kpi-manager.js' },
-                        { id: '4B.2', text: 'Cross-check product qty với live_ledger/.../duyenOrderQty' },
-                        { id: '4B.3', text: 'Flag "SL không khớp" nếu qty > Duyên đặt' },
-                        { id: '4B.4', text: 'Badge cảnh báo trên tab-kpi-commission.js' },
-                        { id: '4B.5', text: 'Test: Đơn 5 SP nhưng Duyên đặt 3 → badge cảnh báo' },
-                    ]
                 },
-                {
-                    id: 'phase4c',
-                    title: 'Phase 4C — KPI chỉ cộng khi đơn thành công & không hoàn',
-                    complexity: 'M',
-                    files: [
-                        { name: 'orders-report/js/managers/kpi-manager.js', isNew: false },
-                        { name: 'orders-report/js/tab-kpi-commission.js', isNew: false }
-                    ],
-                    tasks: [
-                        { id: '4C.1', text: 'Thêm finalizeKPI(orderId) trong kpi-manager.js' },
-                        { id: '4C.2', text: 'Check invoice_status_v2: đã ra đơn chưa?' },
-                        { id: '4C.3', text: 'Call TPOS API: check StateCode (shipped/returned)' },
-                        { id: '4C.4', text: '2 cột KPI: "Tạm tính" vs "Xác nhận" trên tab KPI' },
-                        { id: '4C.5', text: 'Nút "Xác nhận KPI" batch finalize tất cả đơn đã ra bill' },
-                        { id: '4C.6', text: 'Đơn hoàn hàng (CSKH nhập hoàn) → tự động trừ KPI' },
-                        { id: '4C.7', text: 'Test: Ra đơn → finalize → KPI xác nhận. Hoàn → KPI trừ' },
-                    ]
-                }
-            ]
-        },
-        {
-            id: 'sprint5',
-            title: 'Sprint 5',
-            subtitle: 'Tuần 9',
-            badgeClass: 'badge-red',
-            goal: 'Hoàn thiện và tối ưu tất cả tính năng đã làm ở 4 sprint trước. Đảm bảo dùng tốt trên điện thoại/tablet (Duyên có thể nhập hàng về trên điện thoại khi ở kho). Thêm thông báo âm thanh khi có hàng rớt mới để Sale phản ứng nhanh. Tự động cập nhật dữ liệu theo thời gian thực.',
-            goalResult: 'Tất cả tính năng chạy mượt trên mọi thiết bị. Thông báo realtime. Sẵn sàng vận hành chính thức.',
-            phases: [
-                {
-                    id: 'phase5',
-                    title: 'Phase 5 — Polish & Mobile',
-                    complexity: 'S-M',
-                    files: [],
-                    tasks: [
-                        { id: '5.1', text: 'Responsive cho handover view trên tablet/phone' },
-                        { id: '5.2', text: 'Touch-friendly form nhập lô giao hàng' },
-                        { id: '5.3', text: 'Sound notification khi có hàng rớt mới' },
-                        { id: '5.4', text: 'Auto-refresh interval cho supply status panel' },
-                        { id: '5.5', text: 'Test end-to-end trên mobile/tablet' },
-                    ]
-                }
-            ]
-        }
-    ];
+            ];
 
-    // State
-    let checkedTasks = {};
-    let activeSprint = 'all';
+            // State
+            let checkedTasks = {};
+            let activeSprint = 'all';
 
-    // Load from localStorage
-    function loadState() {
-        try {
-            const saved = localStorage.getItem(STORAGE_KEY);
-            if (saved) {
-                const parsed = JSON.parse(saved);
-                checkedTasks = parsed.tasks || {};
+            // Load from localStorage
+            function loadState() {
+                try {
+                    const saved = localStorage.getItem(STORAGE_KEY);
+                    if (saved) {
+                        const parsed = JSON.parse(saved);
+                        checkedTasks = parsed.tasks || {};
+                    }
+                } catch (e) {
+                    console.error('Load error:', e);
+                }
             }
-        } catch (e) { console.error('Load error:', e); }
-    }
 
-    function saveState() {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({
-            tasks: checkedTasks,
-            lastSaved: new Date().toISOString()
-        }));
-        updateLastSaved();
-    }
-
-    function updateLastSaved() {
-        const el = document.getElementById('lastSaved');
-        const saved = localStorage.getItem(STORAGE_KEY);
-        if (saved) {
-            const { lastSaved } = JSON.parse(saved);
-            if (lastSaved) {
-                const d = new Date(lastSaved);
-                el.textContent = `Lưu lần cuối: ${d.toLocaleDateString('vi-VN')} ${d.toLocaleTimeString('vi-VN')}`;
+            function saveState() {
+                localStorage.setItem(
+                    STORAGE_KEY,
+                    JSON.stringify({
+                        tasks: checkedTasks,
+                        lastSaved: new Date().toISOString(),
+                    })
+                );
+                updateLastSaved();
             }
-        }
-    }
 
-    // Get all task IDs
-    function getAllTaskIds() {
-        const ids = [];
-        PLAN_DATA.forEach(sprint => {
-            sprint.phases.forEach(phase => {
-                phase.tasks.forEach(task => {
-                    ids.push(task.id);
+            function updateLastSaved() {
+                const el = document.getElementById('lastSaved');
+                const saved = localStorage.getItem(STORAGE_KEY);
+                if (saved) {
+                    const { lastSaved } = JSON.parse(saved);
+                    if (lastSaved) {
+                        const d = new Date(lastSaved);
+                        el.textContent = `Lưu lần cuối: ${d.toLocaleDateString('vi-VN')} ${d.toLocaleTimeString('vi-VN')}`;
+                    }
+                }
+            }
+
+            // Get all task IDs
+            function getAllTaskIds() {
+                const ids = [];
+                PLAN_DATA.forEach((sprint) => {
+                    sprint.phases.forEach((phase) => {
+                        phase.tasks.forEach((task) => {
+                            ids.push(task.id);
+                        });
+                    });
                 });
-            });
-        });
-        return ids;
-    }
+                return ids;
+            }
 
-    // Get sprint task count
-    function getSprintStats(sprint) {
-        let total = 0, completed = 0;
-        sprint.phases.forEach(phase => {
-            phase.tasks.forEach(task => {
-                total++;
-                if (checkedTasks[task.id]) completed++;
-            });
-        });
-        return { total, completed };
-    }
+            // Get sprint task count
+            function getSprintStats(sprint) {
+                let total = 0,
+                    completed = 0;
+                sprint.phases.forEach((phase) => {
+                    phase.tasks.forEach((task) => {
+                        total++;
+                        if (checkedTasks[task.id]) completed++;
+                    });
+                });
+                return { total, completed };
+            }
 
-    // Update progress
-    function updateProgress() {
-        const allIds = getAllTaskIds();
-        const total = allIds.length;
-        const completed = allIds.filter(id => checkedTasks[id]).length;
-        const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+            // Update progress
+            function updateProgress() {
+                const allIds = getAllTaskIds();
+                const total = allIds.length;
+                const completed = allIds.filter((id) => checkedTasks[id]).length;
+                const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
 
-        document.getElementById('completedCount').textContent = completed;
-        document.getElementById('totalCount').textContent = total;
-        document.getElementById('progressPercent').textContent = percent + '%';
-        document.getElementById('progressBar').style.width = percent + '%';
+                document.getElementById('completedCount').textContent = completed;
+                document.getElementById('totalCount').textContent = total;
+                document.getElementById('progressPercent').textContent = percent + '%';
+                document.getElementById('progressBar').style.width = percent + '%';
 
-        // Update tab badges
-        renderTabs();
-    }
+                // Update tab badges
+                renderTabs();
+            }
 
-    // Toggle task
-    function toggleTask(taskId) {
-        checkedTasks[taskId] = !checkedTasks[taskId];
-        saveState();
-        updateProgress();
+            // Toggle task
+            function toggleTask(taskId) {
+                checkedTasks[taskId] = !checkedTasks[taskId];
+                saveState();
+                updateProgress();
 
-        // Update label style
-        const label = document.querySelector(`label[for="task-${taskId}"]`);
-        if (label) {
-            label.classList.toggle('completed', checkedTasks[taskId]);
-        }
-    }
+                // Update label style
+                const label = document.querySelector(`label[for="task-${taskId}"]`);
+                if (label) {
+                    label.classList.toggle('completed', checkedTasks[taskId]);
+                }
+            }
 
-    // Render tabs
-    function renderTabs() {
-        const container = document.getElementById('sprintTabs');
-        let html = `<div class="sprint-tab ${activeSprint === 'all' ? 'active' : ''}" onclick="filterSprint('all')">
+            // Render tabs
+            function renderTabs() {
+                const container = document.getElementById('sprintTabs');
+                let html = `<div class="sprint-tab ${activeSprint === 'all' ? 'active' : ''}" onclick="filterSprint('all')">
             Tất cả
         </div>`;
 
-        PLAN_DATA.forEach(sprint => {
-            const stats = getSprintStats(sprint);
-            const isActive = activeSprint === sprint.id;
-            html += `<div class="sprint-tab ${isActive ? 'active' : ''}" onclick="filterSprint('${sprint.id}')">
+                PLAN_DATA.forEach((sprint) => {
+                    const stats = getSprintStats(sprint);
+                    const isActive = activeSprint === sprint.id;
+                    html += `<div class="sprint-tab ${isActive ? 'active' : ''}" onclick="filterSprint('${sprint.id}')">
                 ${sprint.title} (${sprint.subtitle})
                 <span class="tab-badge">${stats.completed}/${stats.total}</span>
             </div>`;
-        });
+                });
 
-        container.innerHTML = html;
-    }
-
-    // Filter sprint
-    function filterSprint(sprintId) {
-        activeSprint = sprintId;
-        renderTabs();
-
-        document.querySelectorAll('.sprint-section[data-sprint]').forEach(el => {
-            if (sprintId === 'all') {
-                el.classList.remove('hidden');
-            } else {
-                el.classList.toggle('hidden', el.dataset.sprint !== sprintId);
+                container.innerHTML = html;
             }
-        });
-    }
 
-    // Render content
-    function renderContent() {
-        const container = document.getElementById('sprintContent');
-        let html = '';
+            // Filter sprint
+            function filterSprint(sprintId) {
+                activeSprint = sprintId;
+                renderTabs();
 
-        PLAN_DATA.forEach(sprint => {
-            const stats = getSprintStats(sprint);
+                document.querySelectorAll('.sprint-section[data-sprint]').forEach((el) => {
+                    if (sprintId === 'all') {
+                        el.classList.remove('hidden');
+                    } else {
+                        el.classList.toggle('hidden', el.dataset.sprint !== sprintId);
+                    }
+                });
+            }
 
-            html += `<div class="sprint-section" data-sprint="${sprint.id}">
+            // Render content
+            function renderContent() {
+                const container = document.getElementById('sprintContent');
+                let html = '';
+
+                PLAN_DATA.forEach((sprint) => {
+                    const stats = getSprintStats(sprint);
+
+                    html += `<div class="sprint-section" data-sprint="${sprint.id}">
                 <div class="sprint-header">
                     <h2>${sprint.title} <span class="sprint-badge ${sprint.badgeClass}">${sprint.subtitle}</span></h2>
                     <span style="color: var(--text-muted); font-size: 13px;">${stats.completed}/${stats.total} tasks</span>
                 </div>`;
 
-            // Sprint goal description
-            if (sprint.goal) {
-                html += `<div class="sprint-goal">
+                    // Sprint goal description
+                    if (sprint.goal) {
+                        html += `<div class="sprint-goal">
                     <div class="sprint-goal-title">Mục tiêu Sprint này</div>
                     <p>${sprint.goal}</p>
                     ${sprint.goalResult ? `<div class="goal-result">Kết quả đạt được: ${sprint.goalResult}</div>` : ''}
                 </div>`;
-            }
+                    }
 
-            sprint.phases.forEach(phase => {
-                html += `<div class="phase">
+                    sprint.phases.forEach((phase) => {
+                        html += `<div class="phase">
                     <div class="phase-title">
                         ${phase.title}
                         <span class="sprint-badge badge-blue">Complexity: ${phase.complexity}</span>
                     </div>`;
 
-                if (phase.files.length > 0) {
-                    html += `<div class="file-tags">`;
-                    phase.files.forEach(f => {
-                        html += `<span class="file-tag ${f.isNew ? 'new' : ''}">${f.isNew ? '+ ' : ''}${f.name}</span>`;
-                    });
-                    html += `</div>`;
-                }
+                        if (phase.files.length > 0) {
+                            html += `<div class="file-tags">`;
+                            phase.files.forEach((f) => {
+                                html += `<span class="file-tag ${f.isNew ? 'new' : ''}">${f.isNew ? '+ ' : ''}${f.name}</span>`;
+                            });
+                            html += `</div>`;
+                        }
 
-                html += `<div style="margin-top: 12px;">`;
-                phase.tasks.forEach(task => {
-                    const checked = checkedTasks[task.id] ? 'checked' : '';
-                    const completedClass = checkedTasks[task.id] ? 'completed' : '';
-                    html += `<div class="task-item">
+                        html += `<div style="margin-top: 12px;">`;
+                        phase.tasks.forEach((task) => {
+                            const checked = checkedTasks[task.id] ? 'checked' : '';
+                            const completedClass = checkedTasks[task.id] ? 'completed' : '';
+                            html += `<div class="task-item">
                         <input type="checkbox" id="task-${task.id}" ${checked} onchange="toggleTask('${task.id}')">
                         <label class="task-label ${completedClass}" for="task-${task.id}">
                             <span class="task-id">${task.id}</span> ${task.text}
                         </label>
                     </div>`;
+                        });
+                        html += `</div></div>`;
+                    });
+
+                    html += `</div>`;
                 });
-                html += `</div></div>`;
-            });
 
-            html += `</div>`;
-        });
+                container.innerHTML = html;
+            }
 
-        container.innerHTML = html;
-    }
+            function expandAll() {
+                filterSprint('all');
+            }
+            function collapseAll() {
+                document
+                    .querySelectorAll('.sprint-section[data-sprint]')
+                    .forEach((el) => el.classList.add('hidden'));
+                activeSprint = 'none';
+                renderTabs();
+            }
+            function resetAll() {
+                if (confirm('Bạn có chắc muốn reset tất cả tiến độ?')) {
+                    checkedTasks = {};
+                    saveState();
+                    renderContent();
+                    updateProgress();
+                }
+            }
 
-    function expandAll() { filterSprint('all'); }
-    function collapseAll() {
-        document.querySelectorAll('.sprint-section[data-sprint]').forEach(el => el.classList.add('hidden'));
-        activeSprint = 'none';
-        renderTabs();
-    }
-    function resetAll() {
-        if (confirm('Bạn có chắc muốn reset tất cả tiến độ?')) {
-            checkedTasks = {};
-            saveState();
+            // Init
+            loadState();
+            renderTabs();
             renderContent();
             updateProgress();
-        }
-    }
-
-    // Init
-    loadState();
-    renderTabs();
-    renderContent();
-    updateProgress();
-    updateLastSaved();
-    </script>
-</body>
+            updateLastSaved();
+        </script>
+    </body>
 </html>

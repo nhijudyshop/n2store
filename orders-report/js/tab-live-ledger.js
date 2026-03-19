@@ -2,6 +2,7 @@
  * Tab Live Ledger — Sổ Sách Live Order Tracking
  *
  * Bảng tổng hợp so sánh: SL Khách đặt vs SL Duyên order NCC vs SL NCC giao vs Tồn kho
+ * Hỗ trợ giao hàng từng phần (delivery batches) + delivery status badges
  *
  * Firebase paths:
  * - live_ledger/{campaignId}/metadata — campaign info
@@ -35,12 +36,92 @@
                 }
             }
             db = firebase.database();
-            console.log('[LEDGER] ✓ Firebase initialized');
+            console.log('[LEDGER] Firebase initialized');
 
             await loadCampaigns();
         } catch (error) {
             console.error('[LEDGER] Init error:', error);
         }
+    }
+
+    // =====================================================
+    // DELIVERY STATUS HELPERS
+    // =====================================================
+
+    /**
+     * Calculate derived fields: nccPendingQty and deliveryStatus
+     * @param {number} duyenOrderQty - Duyên's order quantity
+     * @param {number} nccDeliveredQty - Total NCC delivered quantity
+     * @param {number} nccCancelledQty - NCC cancelled quantity
+     * @returns {{ nccPendingQty: number, deliveryStatus: string }}
+     */
+    function calcDerivedFields(duyenOrderQty, nccDeliveredQty, nccCancelledQty) {
+        const duyen = duyenOrderQty || 0;
+        const delivered = nccDeliveredQty || 0;
+        const cancelled = nccCancelledQty || 0;
+        const pending = Math.max(0, duyen - delivered - cancelled);
+
+        let status = 'pending';
+        if (duyen === 0) {
+            status = 'pending';
+        } else if (cancelled >= duyen) {
+            status = 'cancelled';
+        } else if (delivered >= duyen - cancelled) {
+            status = 'complete';
+        } else if (delivered > 0) {
+            status = 'partial';
+        }
+
+        return { nccPendingQty: pending, deliveryStatus: status };
+    }
+
+    /**
+     * Get delivery status badge HTML
+     */
+    function getStatusBadge(status) {
+        const map = {
+            complete: {
+                label: 'Đủ',
+                css: 'delivery-badge badge-complete',
+                icon: 'fa-check-circle',
+            },
+            partial: { label: 'Từng phần', css: 'delivery-badge badge-partial', icon: 'fa-clock' },
+            pending: {
+                label: 'Chưa giao',
+                css: 'delivery-badge badge-pending',
+                icon: 'fa-hourglass-half',
+            },
+            cancelled: {
+                label: 'Hủy',
+                css: 'delivery-badge badge-cancelled',
+                icon: 'fa-times-circle',
+            },
+        };
+        const info = map[status] || map.pending;
+        return `<span class="${info.css}"><i class="fas ${info.icon}"></i> ${info.label}</span>`;
+    }
+
+    // =====================================================
+    // PRODUCT INFO EXTRACTION FROM NameGet
+    // =====================================================
+
+    function extractProductCode(product) {
+        if (product.DefaultCode) return product.DefaultCode;
+        const name = product.NameGet || product.Name || '';
+        const match = name.match(/^\[([^\]]+)\]/);
+        return match ? match[1].trim() : '';
+    }
+
+    function extractNccName(product) {
+        if (product.supplierName) return product.supplierName;
+        if (product.nccName) return product.nccName;
+        const name = product.NameGet || product.Name || '';
+        const match = name.match(/^\[[^\]]+\]\s*(\S+)/);
+        return match ? match[1].trim() : '';
+    }
+
+    function extractProductName(product) {
+        return product.NameGet || product.ProductNameGet || product.Name || '';
     }
 
     // =====================================================
@@ -56,7 +137,7 @@
             const select = document.getElementById('campaignFilter');
             select.innerHTML = '<option value="">-- Chọn đợt live --</option>';
 
-            campaignNames.forEach(name => {
+            campaignNames.forEach((name) => {
                 const opt = document.createElement('option');
                 opt.value = name;
                 opt.textContent = name;
@@ -71,12 +152,13 @@
 
     /**
      * Find the TPOS campaign ID from ledger metadata or orderProducts structure.
-     * This is needed to read from the correct orderProducts/{tposCampaignId}/ path.
      */
     async function findTposCampaignId(campaignId) {
         // First try: check ledger metadata (saved by overview-ledger)
         try {
-            const metaSnap = await db.ref(`live_ledger/${campaignId}/metadata/tposCampaignId`).once('value');
+            const metaSnap = await db
+                .ref(`live_ledger/${campaignId}/metadata/tposCampaignId`)
+                .once('value');
             const id = metaSnap.val();
             if (id) {
                 console.log('[LEDGER] Found TPOS campaign ID from metadata:', id);
@@ -93,11 +175,12 @@
 
             for (const [key, products] of Object.entries(omData)) {
                 if (!products || typeof products !== 'object') continue;
-                // Check first product in this campaign for matching campaignName
                 const firstProduct = Object.values(products)[0];
                 if (firstProduct && firstProduct.campaignName) {
-                    // Check if campaign name matches current campaign
-                    if (currentCampaignName && firstProduct.campaignName.includes(currentCampaignName.split(' ')[0])) {
+                    if (
+                        currentCampaignName &&
+                        firstProduct.campaignName.includes(currentCampaignName.split(' ')[0])
+                    ) {
                         console.log('[LEDGER] Found TPOS campaign ID by name match:', key);
                         return String(key);
                     }
@@ -132,30 +215,26 @@
     window.onDateChange = async function () {
         const dateFilter = document.getElementById('dateFilter').value;
         if (!dateFilter) {
-            // No date selected — reload all campaigns
             await loadCampaigns();
             return;
         }
 
-        // Filter campaigns by date — check campaign metadata
         try {
             const snapshot = await db.ref('report_order_details').once('value');
             const data = snapshot.val() || {};
             const campaignNames = Object.keys(data).sort().reverse();
 
-            // Also check live_ledger metadata for date info
             const ledgerSnapshot = await db.ref('live_ledger').once('value');
             const ledgerData = ledgerSnapshot.val() || {};
 
             const select = document.getElementById('campaignFilter');
             select.innerHTML = '<option value="">-- Chọn đợt live --</option>';
 
-            campaignNames.forEach(name => {
+            campaignNames.forEach((name) => {
                 const campaignId = name.replace(/[.$#\[\]\/]/g, '_');
                 const meta = ledgerData[campaignId]?.metadata;
                 const campaignDate = meta?.date || '';
 
-                // Show campaign if its date matches, or if no metadata yet (show all)
                 if (!campaignDate || campaignDate === dateFilter) {
                     const opt = document.createElement('option');
                     opt.value = name;
@@ -172,6 +251,10 @@
         renderFilteredTable();
     };
 
+    window.onStatusFilterChange = function () {
+        renderFilteredTable();
+    };
+
     // =====================================================
     // LOAD LEDGER DATA
     // =====================================================
@@ -181,16 +264,16 @@
         detachListeners();
 
         try {
-            // Load existing ledger data
             const ledgerRef = db.ref(`live_ledger/${currentCampaignId}/products`);
             const snapshot = await ledgerRef.once('value');
             ledgerProducts = snapshot.val() || {};
 
-            // Setup realtime listener for ledger changes
+            // Setup realtime listener
             ledgerListener = ledgerRef;
             ledgerRef.on('value', (snap) => {
                 ledgerProducts = snap.val() || {};
                 renderFilteredTable();
+                populateNccFilter();
             });
 
             renderFilteredTable();
@@ -208,7 +291,10 @@
 
     function setupOrderManagementSync() {
         if (orderManagementListener) {
-            db.ref(`orderProducts/${orderManagementListener._tposCampaignId}`).off('value', orderManagementListener._handler);
+            db.ref(`orderProducts/${orderManagementListener._tposCampaignId}`).off(
+                'value',
+                orderManagementListener._handler
+            );
         }
 
         if (!_tposCampaignId) {
@@ -216,10 +302,8 @@
             return;
         }
 
-        // FIX: Listen to correct campaign-scoped path
         const omRef = db.ref(`orderProducts/${_tposCampaignId}`);
         const handler = (snapshot) => {
-            // Skip if this change was triggered by our own saveCell (prevent echo loop)
             if (_syncingFromSave) return;
 
             const orderProducts = snapshot.val() || {};
@@ -231,31 +315,75 @@
                 const soldQty = product.soldQty || 0;
 
                 if (ledgerProducts[pid]) {
-                    // Existing product — update duyenOrderQty if changed
                     if (ledgerProducts[pid].duyenOrderQty !== soldQty) {
-                        db.ref(`live_ledger/${currentCampaignId}/products/${pid}/duyenOrderQty`).set(soldQty);
+                        const syncDerived = calcDerivedFields(
+                            soldQty,
+                            ledgerProducts[pid].nccDeliveredQty || 0,
+                            ledgerProducts[pid].nccCancelledQty || 0
+                        );
+                        db.ref(`live_ledger/${currentCampaignId}/products/${pid}`).update({
+                            duyenOrderQty: soldQty,
+                            nccPendingQty: syncDerived.nccPendingQty,
+                            deliveryStatus: syncDerived.deliveryStatus,
+                        });
                         updated = true;
                     }
+                    // Update product info if missing
+                    if (!ledgerProducts[pid].productCode) {
+                        const code = extractProductCode(product);
+                        if (code)
+                            db.ref(
+                                `live_ledger/${currentCampaignId}/products/${pid}/productCode`
+                            ).set(code);
+                    }
+                    if (
+                        !ledgerProducts[pid].productName ||
+                        ledgerProducts[pid].productName === '—'
+                    ) {
+                        const name = extractProductName(product);
+                        if (name)
+                            db.ref(
+                                `live_ledger/${currentCampaignId}/products/${pid}/productName`
+                            ).set(name);
+                    }
+                    if (!ledgerProducts[pid].nccName) {
+                        const ncc = extractNccName(product);
+                        if (ncc)
+                            db.ref(`live_ledger/${currentCampaignId}/products/${pid}/nccName`).set(
+                                ncc
+                            );
+                    }
+                    // Always update stock from QtyAvailable
+                    if (product.QtyAvailable != null) {
+                        const currentStock = ledgerProducts[pid].stockQty || 0;
+                        if (currentStock !== product.QtyAvailable) {
+                            db.ref(`live_ledger/${currentCampaignId}/products/${pid}/stockQty`).set(
+                                product.QtyAvailable
+                            );
+                        }
+                    }
                 } else if (soldQty > 0) {
-                    // New product from order-management — auto-create ledger entry
+                    const newDerived = calcDerivedFields(soldQty, 0, 0);
                     db.ref(`live_ledger/${currentCampaignId}/products/${pid}`).set({
-                        productCode: product.ProductCode || product.Code || '',
-                        productName: product.ProductName || product.Name || product.ProductNameGet || '',
-                        nccName: product.supplierName || product.nccName || '',
+                        productCode: extractProductCode(product),
+                        productName: extractProductName(product),
+                        nccName: extractNccName(product),
                         customerOrderQty: 0,
                         duyenOrderQty: soldQty,
                         nccDeliveredQty: 0,
+                        nccCancelledQty: 0,
+                        nccPendingQty: newDerived.nccPendingQty,
+                        deliveryStatus: newDerived.deliveryStatus,
+                        deliveryBatches: [],
                         stockQty: product.QtyAvailable || 0,
                         notes: '',
-                        lastUpdated: Date.now()
+                        lastUpdated: Date.now(),
                     });
                     updated = true;
                 }
             });
 
-            if (updated) {
-                console.log('[LEDGER] Synced soldQty from order-management');
-            }
+            if (updated) console.log('[LEDGER] Synced soldQty from order-management');
         };
 
         omRef.on('value', handler);
@@ -275,16 +403,17 @@
 
         try {
             // Pull orders from report_order_details
-            const snapshot = await db.ref(`report_order_details/${currentCampaignName}/orders`).once('value');
+            const snapshot = await db
+                .ref(`report_order_details/${currentCampaignName}/orders`)
+                .once('value');
             const orders = snapshot.val() || [];
 
             // Aggregate qty per productId
             const qtyMap = {};
             const productInfoMap = {};
 
-            (Array.isArray(orders) ? orders : Object.values(orders)).forEach(order => {
-                (order.Details || []).forEach(detail => {
-                    // FIX: Skip details without valid ProductId
+            (Array.isArray(orders) ? orders : Object.values(orders)).forEach((order) => {
+                (order.Details || []).forEach((detail) => {
                     if (!detail.ProductId && detail.ProductId !== 0) return;
                     const pid = String(detail.ProductId);
                     if (pid === 'null' || pid === 'undefined' || pid === '') return;
@@ -301,9 +430,10 @@
             });
 
             // Also pull order-management data for Duyên's soldQty
-            // FIX: Read from correct campaign-scoped path
             const duyenQtyMap = {};
             const nccMap = {};
+            const omProductInfoMap = {};
+            const omStockMap = {};
 
             if (_tposCampaignId) {
                 const omSnapshot = await db.ref(`orderProducts/${_tposCampaignId}`).once('value');
@@ -313,8 +443,18 @@
                     if (!product || !product.Id) return;
                     const pid = String(product.Id);
                     duyenQtyMap[pid] = product.soldQty || 0;
-                    if (product.supplierName || product.nccName) {
-                        nccMap[pid] = product.supplierName || product.nccName || '';
+
+                    const ncc = extractNccName(product);
+                    if (ncc) nccMap[pid] = ncc;
+
+                    const code = extractProductCode(product);
+                    const name = extractProductName(product);
+                    if (code || name) {
+                        omProductInfoMap[pid] = { productCode: code, productName: name };
+                    }
+
+                    if (product.QtyAvailable != null) {
+                        omStockMap[pid] = product.QtyAvailable;
                     }
                 });
             }
@@ -324,48 +464,70 @@
 
             // Keep existing products with manual edits
             Object.entries(ledgerProducts).forEach(([pid, data]) => {
-                if (data && (data.nccDeliveredQty > 0 || (data.notes && data.notes.trim()))) {
+                if (
+                    data &&
+                    (data.nccDeliveredQty > 0 ||
+                        data.nccCancelledQty > 0 ||
+                        (data.deliveryBatches && data.deliveryBatches.length > 0) ||
+                        (data.notes && data.notes.trim()))
+                ) {
                     currentPids.add(pid);
                 }
             });
 
             // Update ledger in Firebase
             const updates = {};
-            currentPids.forEach(pid => {
+            currentPids.forEach((pid) => {
                 const existing = ledgerProducts[pid] || {};
+                const omInfo = omProductInfoMap[pid] || {};
+                const custInfo = productInfoMap[pid] || {};
 
-                // FIX: Use explicit checks instead of || for numeric values
                 const customerOrderQty = pid in qtyMap ? qtyMap[pid] : 0;
-                const duyenOrderQty = pid in duyenQtyMap ? duyenQtyMap[pid] : (existing.duyenOrderQty || 0);
+                const duyenOrderQty =
+                    pid in duyenQtyMap ? duyenQtyMap[pid] : existing.duyenOrderQty || 0;
+                const stockQty = pid in omStockMap ? omStockMap[pid] : existing.stockQty || 0;
+
+                const nccDeliveredQty = existing.nccDeliveredQty || 0;
+                const nccCancelledQty = existing.nccCancelledQty || 0;
+                const derived = calcDerivedFields(duyenOrderQty, nccDeliveredQty, nccCancelledQty);
 
                 updates[pid] = {
-                    productCode: productInfoMap[pid]?.productCode || existing.productCode || '',
-                    productName: productInfoMap[pid]?.productName || existing.productName || '',
+                    productCode:
+                        omInfo.productCode || custInfo.productCode || existing.productCode || '',
+                    productName:
+                        omInfo.productName || custInfo.productName || existing.productName || '',
                     nccName: nccMap[pid] || existing.nccName || '',
                     customerOrderQty: customerOrderQty,
                     duyenOrderQty: duyenOrderQty,
-                    nccDeliveredQty: existing.nccDeliveredQty || 0,
-                    stockQty: existing.stockQty || 0,
+                    nccDeliveredQty: nccDeliveredQty,
+                    nccCancelledQty: nccCancelledQty,
+                    nccPendingQty: derived.nccPendingQty,
+                    deliveryStatus: derived.deliveryStatus,
+                    deliveryBatches: existing.deliveryBatches || [],
+                    stockQty: stockQty,
                     notes: existing.notes || '',
-                    lastUpdated: Date.now()
+                    lastUpdated: Date.now(),
                 };
             });
 
-            // FIX: Use .set() to replace stale data completely
-            await db.ref(`live_ledger/${currentCampaignId}/products`).set(
-                Object.keys(updates).length > 0 ? updates : null
-            );
+            await db
+                .ref(`live_ledger/${currentCampaignId}/products`)
+                .set(Object.keys(updates).length > 0 ? updates : null);
 
-            // Also save metadata
             await db.ref(`live_ledger/${currentCampaignId}/metadata`).set({
                 campaignName: currentCampaignName,
                 tposCampaignId: _tposCampaignId || null,
                 date: new Date().toISOString().split('T')[0],
-                lastUpdated: Date.now()
+                lastUpdated: Date.now(),
             });
 
-            console.log('[LEDGER] ✓ Refreshed', Object.keys(updates).length, 'products from', (Array.isArray(orders) ? orders : Object.values(orders)).length, 'orders');
-
+            console.log(
+                '[LEDGER] Refreshed',
+                Object.keys(updates).length,
+                'products from',
+                (Array.isArray(orders) ? orders : Object.values(orders)).length,
+                'orders'
+            );
         } catch (error) {
             console.error('[LEDGER] Error refreshing:', error);
         } finally {
@@ -382,24 +544,176 @@
         if (!currentCampaignId || !productId) return;
 
         try {
-            const numValue = (field === 'notes') ? value : (parseInt(value) || 0);
-            await db.ref(`live_ledger/${currentCampaignId}/products/${productId}/${field}`).set(numValue);
-            await db.ref(`live_ledger/${currentCampaignId}/products/${productId}/lastUpdated`).set(Date.now());
+            const numValue = field === 'notes' ? value : parseInt(value) || 0;
+            await db
+                .ref(`live_ledger/${currentCampaignId}/products/${productId}/${field}`)
+                .set(numValue);
+            await db
+                .ref(`live_ledger/${currentCampaignId}/products/${productId}/lastUpdated`)
+                .set(Date.now());
 
-            // FIX: 2-way sync with correct campaign-scoped path
+            // 2-way sync with correct campaign-scoped path
             if (field === 'duyenOrderQty' && _tposCampaignId) {
                 _syncingFromSave = true;
                 const productKey = `product_${productId}`;
-                await db.ref(`orderProducts/${_tposCampaignId}/${productKey}/soldQty`).set(numValue);
-                // Reset flag after a short delay to allow Firebase listener to fire
-                setTimeout(() => { _syncingFromSave = false; }, 500);
-                console.log('[LEDGER] ✓ Synced duyenOrderQty → order-management soldQty');
+                await db
+                    .ref(`orderProducts/${_tposCampaignId}/${productKey}/soldQty`)
+                    .set(numValue);
+                setTimeout(() => {
+                    _syncingFromSave = false;
+                }, 500);
             }
 
-            console.log('[LEDGER] ✓ Saved', field, '=', numValue, 'for product', productId);
+            // Auto-recalculate derived fields when quantity fields change
+            if (['duyenOrderQty', 'nccDeliveredQty', 'nccCancelledQty'].includes(field)) {
+                const product = ledgerProducts[productId] || {};
+                const duyen = field === 'duyenOrderQty' ? numValue : product.duyenOrderQty || 0;
+                const delivered =
+                    field === 'nccDeliveredQty' ? numValue : product.nccDeliveredQty || 0;
+                const cancelled =
+                    field === 'nccCancelledQty' ? numValue : product.nccCancelledQty || 0;
+                const derived = calcDerivedFields(duyen, delivered, cancelled);
+                await db.ref(`live_ledger/${currentCampaignId}/products/${productId}`).update({
+                    nccPendingQty: derived.nccPendingQty,
+                    deliveryStatus: derived.deliveryStatus,
+                });
+            }
+
+            console.log('[LEDGER] Saved', field, '=', numValue, 'for product', productId);
         } catch (error) {
             console.error('[LEDGER] Error saving cell:', error);
             _syncingFromSave = false;
+        }
+    };
+
+    // =====================================================
+    // DELIVERY BATCH FORM
+    // =====================================================
+
+    window.showBatchForm = function (productId, anchorBtn) {
+        closeBatchForm();
+
+        const product = ledgerProducts[productId];
+        if (!product) return;
+
+        const rect = anchorBtn.getBoundingClientRect();
+        const batchHistory = (product.deliveryBatches || [])
+            .map(
+                (b, i) =>
+                    `<div class="batch-history-item">
+                <span>#${i + 1}: ${b.qty || 0} sp</span>
+                <span class="batch-date">${b.date || ''}</span>
+                ${b.note ? `<span class="batch-note">${b.note}</span>` : ''}
+            </div>`
+            )
+            .join('');
+
+        const form = document.createElement('div');
+        form.id = 'ledgerBatchForm';
+        form.className = 'ledger-batch-popup';
+        form.innerHTML = `
+            <div class="batch-popup-header">
+                <strong>Nhập lô giao hàng</strong>
+                <button onclick="closeBatchForm()" class="batch-close-btn">&times;</button>
+            </div>
+            ${batchHistory ? `<div class="batch-history">${batchHistory}</div>` : ''}
+            <div class="batch-form-body">
+                <div class="batch-field">
+                    <label>Số lượng</label>
+                    <input type="number" id="batchQty" min="1" placeholder="VD: 60" autofocus>
+                </div>
+                <div class="batch-field">
+                    <label>Ngày giao</label>
+                    <input type="date" id="batchDate" value="${new Date().toISOString().split('T')[0]}">
+                </div>
+                <div class="batch-field">
+                    <label>Ghi chú</label>
+                    <input type="text" id="batchNote" placeholder="VD: Lô 1...">
+                </div>
+                <div class="batch-actions">
+                    <button onclick="saveDeliveryBatch('${productId}')" class="batch-save-btn">
+                        <i class="fas fa-save"></i> Lưu lô
+                    </button>
+                    <button onclick="closeBatchForm()" class="batch-cancel-btn">Hủy</button>
+                </div>
+            </div>`;
+
+        document.body.appendChild(form);
+
+        // Position near the button
+        let top = rect.bottom + window.scrollY + 4;
+        let left = rect.left + window.scrollX - 100;
+        if (left + 260 > window.innerWidth) left = window.innerWidth - 270;
+        if (left < 10) left = 10;
+        form.style.top = top + 'px';
+        form.style.left = left + 'px';
+
+        // Focus qty input
+        setTimeout(() => {
+            const qtyInput = document.getElementById('batchQty');
+            if (qtyInput) qtyInput.focus();
+        }, 50);
+    };
+
+    window.closeBatchForm = function () {
+        const existing = document.getElementById('ledgerBatchForm');
+        if (existing) existing.remove();
+    };
+
+    window.saveDeliveryBatch = async function (productId) {
+        const qtyInput = document.getElementById('batchQty');
+        const dateInput = document.getElementById('batchDate');
+        const noteInput = document.getElementById('batchNote');
+
+        const qty = parseInt(qtyInput?.value) || 0;
+        if (qty <= 0) {
+            qtyInput?.focus();
+            return;
+        }
+
+        const date = dateInput?.value || new Date().toISOString().split('T')[0];
+        const note = noteInput?.value || '';
+
+        if (!db || !currentCampaignId) return;
+
+        const productRef = db.ref(`live_ledger/${currentCampaignId}/products/${productId}`);
+
+        try {
+            // Use transaction for safe concurrent batch appending
+            await productRef.child('deliveryBatches').transaction((currentBatches) => {
+                const batches = currentBatches || [];
+                batches.push({
+                    qty: qty,
+                    date: date,
+                    note: note,
+                    recordedBy: window.currentUser || 'unknown',
+                    timestamp: Date.now(),
+                });
+                return batches;
+            });
+
+            // Read back batches and recalculate nccDeliveredQty from sum
+            const snap = await productRef.once('value');
+            const data = snap.val() || {};
+            const batches = data.deliveryBatches || [];
+            const totalDelivered = batches.reduce((sum, b) => sum + (b.qty || 0), 0);
+            const derived = calcDerivedFields(
+                data.duyenOrderQty || 0,
+                totalDelivered,
+                data.nccCancelledQty || 0
+            );
+
+            await productRef.update({
+                nccDeliveredQty: totalDelivered,
+                nccPendingQty: derived.nccPendingQty,
+                deliveryStatus: derived.deliveryStatus,
+                lastUpdated: Date.now(),
+            });
+
+            closeBatchForm();
+            console.log('[LEDGER] Saved delivery batch:', qty, 'for product', productId);
+        } catch (err) {
+            console.error('[LEDGER] Error saving batch:', err);
         }
     };
 
@@ -408,16 +722,22 @@
     // =====================================================
 
     function renderFilteredTable() {
-        const nccFilter = document.getElementById('nccFilter').value;
+        const nccFilter = document.getElementById('nccFilter')?.value || '';
+        const statusFilter = document.getElementById('statusFilter')?.value || '';
 
         let products = Object.entries(ledgerProducts).map(([pid, data]) => ({
             id: pid,
-            ...data
+            ...data,
         }));
 
         // Filter by NCC
         if (nccFilter) {
-            products = products.filter(p => p.nccName === nccFilter);
+            products = products.filter((p) => p.nccName === nccFilter);
+        }
+
+        // Filter by delivery status
+        if (statusFilter) {
+            products = products.filter((p) => (p.deliveryStatus || 'pending') === statusFilter);
         }
 
         renderLedgerTable(products);
@@ -444,19 +764,40 @@
         products.sort((a, b) => (a.productCode || '').localeCompare(b.productCode || ''));
 
         // Calculate totals
-        let totalCustomer = 0, totalDuyen = 0, totalNcc = 0, totalStock = 0;
+        let totalCustomer = 0,
+            totalDuyen = 0,
+            totalNcc = 0,
+            totalPending = 0,
+            totalCancelled = 0,
+            totalStock = 0;
 
-        const rows = products.map((p, i) => {
-            const diff = (p.duyenOrderQty || 0) - (p.nccDeliveredQty || 0);
-            const diffClass = diff > 0 ? 'diff-positive' : diff < 0 ? 'diff-negative' : 'diff-zero';
-            const diffText = diff > 0 ? `+${diff}` : diff === 0 ? '0' : String(diff);
+        const rows = products
+            .map((p, i) => {
+                // Chênh lệch 1: Khách đặt vs Duyên order
+                const diff1 = (p.customerOrderQty || 0) - (p.duyenOrderQty || 0);
+                const diff1Class =
+                    diff1 > 0 ? 'diff-positive' : diff1 < 0 ? 'diff-negative' : 'diff-zero';
+                const diff1Text = diff1 > 0 ? `+${diff1}` : diff1 === 0 ? '0' : String(diff1);
 
-            totalCustomer += (p.customerOrderQty || 0);
-            totalDuyen += (p.duyenOrderQty || 0);
-            totalNcc += (p.nccDeliveredQty || 0);
-            totalStock += (p.stockQty || 0);
+                // Chênh lệch 2: Duyên order vs NCC giao (trừ cả NCC hủy)
+                const diff2 =
+                    (p.duyenOrderQty || 0) - (p.nccDeliveredQty || 0) - (p.nccCancelledQty || 0);
+                const diff2Class =
+                    diff2 > 0 ? 'diff-positive' : diff2 < 0 ? 'diff-negative' : 'diff-zero';
+                const diff2Text = diff2 > 0 ? `+${diff2}` : diff2 === 0 ? '0' : String(diff2);
 
-            return `<tr>
+                // Delivery status badge
+                const status = p.deliveryStatus || 'pending';
+                const badge = getStatusBadge(status);
+
+                totalCustomer += p.customerOrderQty || 0;
+                totalDuyen += p.duyenOrderQty || 0;
+                totalNcc += p.nccDeliveredQty || 0;
+                totalPending += p.nccPendingQty || 0;
+                totalCancelled += p.nccCancelledQty || 0;
+                totalStock += p.stockQty || 0;
+
+                return `<tr>
                 <td>${i + 1}</td>
                 <td style="font-weight: 600; color: #3b82f6;">${p.productCode || '—'}</td>
                 <td>${p.productName || '—'}</td>
@@ -467,27 +808,41 @@
                         onblur="saveCell('${p.id}', 'duyenOrderQty', this.value)"
                         onkeydown="if(event.key==='Enter') this.blur()">
                 </td>
-                <td class="editable-cell">
+                <td style="text-align: center;"><span class="${diff1Class}">${diff1Text}</span></td>
+                <td class="editable-cell ledger-ncc-cell">
                     <input type="number" value="${p.nccDeliveredQty || 0}" min="0"
                         onblur="saveCell('${p.id}', 'nccDeliveredQty', this.value)"
                         onkeydown="if(event.key==='Enter') this.blur()">
+                    <button class="ledger-batch-btn" onclick="showBatchForm('${p.id}', this)" title="Nhập lô giao hàng">+</button>
                 </td>
+                <td style="text-align: right;">${p.nccPendingQty || 0}</td>
+                <td class="editable-cell">
+                    <input type="number" value="${p.nccCancelledQty || 0}" min="0"
+                        onblur="saveCell('${p.id}', 'nccCancelledQty', this.value)"
+                        onkeydown="if(event.key==='Enter') this.blur()">
+                </td>
+                <td style="text-align: center;"><span class="${diff2Class}">${diff2Text}</span></td>
+                <td style="text-align: center;">${badge}</td>
                 <td class="editable-cell">
                     <input type="number" value="${p.stockQty || 0}" min="0"
                         onblur="saveCell('${p.id}', 'stockQty', this.value)"
                         onkeydown="if(event.key==='Enter') this.blur()">
                 </td>
-                <td style="text-align: center;"><span class="${diffClass}">${diffText}</span></td>
                 <td class="editable-cell">
                     <input type="text" class="notes-input" value="${p.notes || ''}" placeholder="Ghi chú..."
                         onblur="saveCell('${p.id}', 'notes', this.value)"
                         onkeydown="if(event.key==='Enter') this.blur()">
                 </td>
             </tr>`;
-        }).join('');
+            })
+            .join('');
 
-        const totalDiff = totalDuyen - totalNcc;
-        const totalDiffClass = totalDiff > 0 ? 'diff-positive' : totalDiff < 0 ? 'diff-negative' : 'diff-zero';
+        const totalDiff1 = totalCustomer - totalDuyen;
+        const totalDiff1Class =
+            totalDiff1 > 0 ? 'diff-positive' : totalDiff1 < 0 ? 'diff-negative' : 'diff-zero';
+        const totalDiff2 = totalDuyen - totalNcc - totalCancelled;
+        const totalDiff2Class =
+            totalDiff2 > 0 ? 'diff-positive' : totalDiff2 < 0 ? 'diff-negative' : 'diff-zero';
 
         container.innerHTML = `
             <table class="ledger-table">
@@ -499,21 +854,29 @@
                         <th>NCC</th>
                         <th style="text-align: right;">SL Khách đặt</th>
                         <th style="text-align: right;">SL Duyên order</th>
+                        <th style="text-align: center;">CL K-D</th>
                         <th style="text-align: right;">SL NCC giao</th>
+                        <th style="text-align: right;">SL Chờ giao</th>
+                        <th style="text-align: right;">SL NCC hủy</th>
+                        <th style="text-align: center;">CL D-N</th>
+                        <th style="text-align: center;">TT Giao</th>
                         <th style="text-align: right;">Tồn kho</th>
-                        <th style="text-align: center;">Chênh lệch</th>
                         <th>Ghi chú</th>
                     </tr>
                 </thead>
                 <tbody>${rows}</tbody>
                 <tfoot>
                     <tr>
-                        <td colspan="4" style="text-align: right;">Tổng cộng (${products.length} SP):</td>
-                        <td style="text-align: right;">${totalCustomer}</td>
-                        <td style="text-align: right;">${totalDuyen}</td>
-                        <td style="text-align: right;">${totalNcc}</td>
-                        <td style="text-align: right;">${totalStock}</td>
-                        <td style="text-align: center;" class="${totalDiffClass}">${totalDiff > 0 ? '+' + totalDiff : totalDiff}</td>
+                        <td colspan="4" style="text-align: right;"><strong>Tổng (${products.length} SP):</strong></td>
+                        <td style="text-align: right;"><strong>${totalCustomer}</strong></td>
+                        <td style="text-align: right;"><strong>${totalDuyen}</strong></td>
+                        <td style="text-align: center;"><strong class="${totalDiff1Class}">${totalDiff1 > 0 ? '+' + totalDiff1 : totalDiff1}</strong></td>
+                        <td style="text-align: right;"><strong>${totalNcc}</strong></td>
+                        <td style="text-align: right;"><strong>${totalPending}</strong></td>
+                        <td style="text-align: right;"><strong>${totalCancelled}</strong></td>
+                        <td style="text-align: center;"><strong class="${totalDiff2Class}">${totalDiff2 > 0 ? '+' + totalDiff2 : totalDiff2}</strong></td>
+                        <td></td>
+                        <td style="text-align: right;"><strong>${totalStock}</strong></td>
                         <td></td>
                     </tr>
                 </tfoot>
@@ -522,20 +885,23 @@
 
     function populateNccFilter() {
         const nccSet = new Set();
-        Object.values(ledgerProducts).forEach(p => {
+        Object.values(ledgerProducts).forEach((p) => {
             if (p.nccName) nccSet.add(p.nccName);
         });
 
         const select = document.getElementById('nccFilter');
+        if (!select) return;
         const currentVal = select.value;
         select.innerHTML = '<option value="">Tất cả NCC</option>';
-        Array.from(nccSet).sort().forEach(ncc => {
-            const opt = document.createElement('option');
-            opt.value = ncc;
-            opt.textContent = ncc;
-            if (ncc === currentVal) opt.selected = true;
-            select.appendChild(opt);
-        });
+        Array.from(nccSet)
+            .sort()
+            .forEach((ncc) => {
+                const opt = document.createElement('option');
+                opt.value = ncc;
+                opt.textContent = ncc;
+                if (ncc === currentVal) opt.selected = true;
+                select.appendChild(opt);
+            });
     }
 
     // =====================================================
@@ -564,7 +930,10 @@
             ledgerListener = null;
         }
         if (orderManagementListener) {
-            db.ref(`orderProducts/${orderManagementListener._tposCampaignId}`).off('value', orderManagementListener._handler);
+            db.ref(`orderProducts/${orderManagementListener._tposCampaignId}`).off(
+                'value',
+                orderManagementListener._handler
+            );
             orderManagementListener = null;
         }
     }
@@ -574,5 +943,4 @@
     // =====================================================
 
     document.addEventListener('DOMContentLoaded', init);
-
 })();
