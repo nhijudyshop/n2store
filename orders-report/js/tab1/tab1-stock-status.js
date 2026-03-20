@@ -409,7 +409,8 @@
             }
         });
 
-        // Phase 3 — Build final status map (2 states: sufficient / insufficient)
+        // Phase 3 — Re-evaluate ALL insufficient orders against remainingStock
+        // (initialWaiting was classified against total stock, need to re-check with remaining)
         let sufficientCount = 0, insufficientCount = 0;
 
         confirmedReady.forEach(orderId => {
@@ -417,7 +418,17 @@
             sufficientCount++;
         });
 
-        [...initialWaiting, ...overflowWaiting].forEach(({ orderId, blocking }) => {
+        [...initialWaiting, ...overflowWaiting].forEach(({ orderId }) => {
+            const products = orderProducts.get(orderId);
+            // Re-evaluate blocking against REMAINING stock (after allocation)
+            const blocking = [];
+            products.forEach(p => {
+                const codeUpper = (p.code || '').toUpperCase();
+                const remaining = remainingStock.get(codeUpper) ?? 0;
+                if (remaining < p.qty) {
+                    blocking.push({ code: p.code, name: p.name, need: p.qty, have: remaining });
+                }
+            });
             const stockTags = blocking.map(b => `${STOCK_TAG_PREFIX}${b.code}`);
             statusMap.set(orderId, { status: 'insufficient', blocking, stockTags });
             insufficientCount++;
