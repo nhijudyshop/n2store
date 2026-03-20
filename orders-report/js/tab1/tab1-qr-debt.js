@@ -615,9 +615,12 @@ async function openSaleButtonModal() {
     // Block if order has pending wallet adjustment
     if (window.WalletAdjustmentStore?.isPending(orderId)) {
         const adj = window.WalletAdjustmentStore.get(orderId);
-        const msg = `🚫 Đơn này đang chờ kế toán điều chỉnh công nợ do đổi SĐT.\n\nSĐT cũ: ${adj.oldPhone} (${(adj.oldPhoneBalance || 0).toLocaleString('vi-VN')}đ)\nSĐT mới: ${adj.newPhone} (${(adj.newPhoneBalance || 0).toLocaleString('vi-VN')}đ)\n\nVui lòng chờ kế toán xử lý trước khi tạo phiếu bán hàng.`;
+        const stt = order.SessionIndex || '';
+        const name = order.Name || adj.customerName || '';
+        const phone = order.Telephone || adj.newPhone || '';
+        const msg = `Đơn STT ${stt} - ${name} (${phone}) đang chờ điều chỉnh công nợ ví. Liên hệ kế toán để điều chỉnh.`;
         if (window.notificationManager) {
-            window.notificationManager.error(msg, 'Không thể tạo phiếu', 8000);
+            window.notificationManager.error(msg, 'Chờ điều chỉnh công nợ', 8000);
         } else {
             alert(msg);
         }
@@ -789,9 +792,11 @@ async function openSaleModalFromSocialOrder(socialOrder) {
     // Block if order has pending wallet adjustment
     if (socialOrder.id && window.WalletAdjustmentStore?.isPending(socialOrder.id)) {
         const adj = window.WalletAdjustmentStore.get(socialOrder.id);
+        const name = socialOrder.customerName || adj.customerName || '';
+        const phone = socialOrder.phone || adj.newPhone || '';
         window.notificationManager?.error(
-            `Đơn đang chờ kế toán điều chỉnh công nợ (SĐT cũ: ${adj.oldPhone}, SĐT mới: ${adj.newPhone}). Vui lòng chờ xử lý.`,
-            'Không thể tạo phiếu', 8000
+            `Đơn ${name} (${phone}) đang chờ điều chỉnh công nợ ví. Liên hệ kế toán để điều chỉnh.`,
+            'Chờ điều chỉnh công nợ', 8000
         );
         return;
     }

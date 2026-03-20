@@ -518,9 +518,16 @@ async function showFastSaleModal() {
             return saleOnlineId && window.WalletAdjustmentStore?.isPending(saleOnlineId);
         });
         if (pendingAdjOrders.length > 0) {
-            const adjCodes = pendingAdjOrders.map(o => o.Reference || o.Code || 'N/A').join(', ');
+            const adjDetails = pendingAdjOrders.map(o => {
+                const soId = o.SaleOnlineIds?.[0];
+                const soOrder = soId ? (window.OrderStore?.get(soId) || displayedData.find(d => d.Id === soId)) : null;
+                const stt = soOrder?.SessionIndex || '';
+                const name = soOrder?.Name || o.PartnerName || '';
+                const phone = soOrder?.Telephone || o.PartnerPhone || '';
+                return `STT ${stt} - ${name} (${phone})`;
+            }).join(', ');
             showFastSaleStatus(
-                `⚠️ ${pendingAdjOrders.length} đơn chờ kế toán điều chỉnh công nợ (${adjCodes}). Không thể tạo phiếu cho các đơn này.`,
+                `⚠️ Đơn ${adjDetails} đang chờ điều chỉnh công nợ ví. Liên hệ kế toán để điều chỉnh.`,
                 'warning'
             );
             if (saveBtn) { saveBtn.disabled = true; saveBtn.title = 'Có đơn chờ điều chỉnh công nợ'; }
@@ -2315,14 +2322,21 @@ async function saveFastSaleOrders(isApprove = false) {
             return saleOnlineId && window.WalletAdjustmentStore.isPending(saleOnlineId);
         });
         if (pendingAdjOrders.length > 0) {
-            const adjCodes = pendingAdjOrders.map(o => o.Reference || o.Code || 'N/A').join(', ');
+            const adjDetails = pendingAdjOrders.map(o => {
+                const soId = o.SaleOnlineIds?.[0];
+                const soOrder = soId ? (window.OrderStore?.get(soId) || displayedData.find(d => d.Id === soId)) : null;
+                const stt = soOrder?.SessionIndex || '';
+                const name = soOrder?.Name || o.PartnerName || '';
+                const phone = soOrder?.Telephone || o.PartnerPhone || '';
+                return `STT ${stt} - ${name} (${phone})`;
+            }).join(', ');
             showFastSaleStatus(
-                `🚫 Không thể tạo phiếu! ${pendingAdjOrders.length} đơn chờ kế toán điều chỉnh công nợ: ${adjCodes}`,
+                `🚫 Đơn ${adjDetails} đang chờ điều chỉnh công nợ ví. Liên hệ kế toán để điều chỉnh.`,
                 'error'
             );
             window.notificationManager?.error(
-                `Có ${pendingAdjOrders.length} đơn chờ kế toán điều chỉnh công nợ do đổi SĐT. Vui lòng chờ kế toán xử lý trước khi tạo phiếu.`,
-                'Không thể tạo phiếu'
+                `Đơn ${adjDetails} đang chờ điều chỉnh công nợ ví. Liên hệ kế toán để điều chỉnh.`,
+                'Chờ điều chỉnh công nợ'
             );
             return;
         }
