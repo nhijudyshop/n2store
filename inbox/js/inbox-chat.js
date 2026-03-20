@@ -1994,12 +1994,13 @@ class InboxChatController {
             throw err;
         }
 
-        // Pancake may return HTTP 200 but success: false
+        // Pancake may return HTTP 200 but success: false (e.g. 24h policy error)
         if (data && data.success === false) {
             console.error('[InboxChat] API returned success:false:', data);
-            const err = new Error(data.error?.message || data.message || 'API returned success:false');
+            const parsed = this._parseFbError(text);
+            const err = new Error(parsed.message);
             err.status = response.status;
-            err.apiResponse = data;
+            err.fbError = parsed;
             throw err;
         }
 
@@ -2146,33 +2147,50 @@ class InboxChatController {
             const fb = err.fbError;
             if (!fb?.is24HourError && !fb?.isUserUnavailable) throw err;
 
-            // 24h or 551 error → try private_replies if we have comment/post data
+            // 24h or 551 error → try pancake-direct (internal API, may bypass 24h)
+            console.log('[InboxChat] reply_inbox failed (24h/551), trying pancake-direct fallback...');
+            showToast('Quá 24h, đang thử gửi qua Pancake Direct...', 'warning');
+
+            try {
+                const ptm = window.inboxTokenManager;
+                const jwt = ptm?.currentToken;
+                if (!jwt) throw new Error('No JWT token for pancake-direct');
+
+                const directUrl = InboxApiConfig.buildUrl.pancakeDirect(
+                    `pages/${conv.pageId}/conversations/${conv.conversationId}/messages`,
+                    conv.pageId, jwt
+                );
+                const result = await this._sendApi(directUrl, payload);
+                console.log('[InboxChat] pancake-direct succeeded:', result);
+                showToast('Đã gửi qua Pancake Direct (bypass 24h)', 'success');
+                return;
+            } catch (err2) {
+                console.warn('[InboxChat] pancake-direct fallback failed:', err2.message);
+            }
+
+            // Last fallback: private_replies if we have comment/post data
             const postId = conv._raw?.post_id || conv._messagesData?.post?.id || '';
             const fromId = conv.psid || conv._raw?.from?.id || '';
 
-            if (!postId || !fromId) {
-                console.warn('[InboxChat] No post/comment data for private_replies fallback');
-                throw err; // Re-throw original error
+            if (postId && fromId) {
+                console.log('[InboxChat] Trying private_replies fallback...');
+                try {
+                    await this._sendApi(url, {
+                        action: 'private_replies',
+                        post_id: postId,
+                        message_id: conv.conversationId,
+                        from_id: fromId,
+                        message: text
+                    });
+                    console.log('[InboxChat] private_replies fallback succeeded');
+                    showToast('Đã gửi qua private reply', 'success');
+                    return;
+                } catch (err3) {
+                    console.warn('[InboxChat] private_replies fallback also failed');
+                }
             }
 
-            console.log('[InboxChat] reply_inbox failed (24h/551), trying private_replies fallback...');
-            showToast('Inbox thất bại, đang thử gửi qua comment...', 'warning');
-
-            try {
-                await this._sendApi(url, {
-                    action: 'private_replies',
-                    post_id: postId,
-                    message_id: conv.conversationId,
-                    from_id: fromId,
-                    message: text
-                });
-                console.log('[InboxChat] private_replies fallback succeeded');
-                showToast('Đã gửi qua private reply', 'success');
-                return;
-            } catch (err2) {
-                console.warn('[InboxChat] private_replies fallback also failed');
-                throw err; // Throw original 24h/551 error for user-friendly message
-            }
+            throw err; // All fallbacks failed — show original 24h error
         }
     }
 

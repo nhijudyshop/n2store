@@ -1010,8 +1010,12 @@ InboxApiConfig.smartFetch = async function(url, options) {
     return fetch(url, options);
 };
 
-InboxApiConfig.buildUrl.pancakeDirect = function(endpoint, pageId, pageAccessToken, accessToken) {
-    return InboxApiConfig.buildUrl.pancakeOfficial(endpoint, pageAccessToken);
+InboxApiConfig.buildUrl.pancakeDirect = function(endpoint, pageId, jwtToken) {
+    const base = `${INBOX_WORKER_URL}/api/pancake-direct/${endpoint}`;
+    const params = [];
+    if (pageId) params.push(`page_id=${pageId}`);
+    if (jwtToken) params.push(`jwt=${jwtToken}`);
+    return params.length ? `${base}?${params.join('&')}` : base;
 };
 
 // window.API_CONFIG alias for old code

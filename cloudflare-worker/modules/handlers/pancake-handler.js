@@ -40,6 +40,8 @@ export async function handlePancakeDirect(request, url, pathname) {
         refererUrl = 'https://pancake.vn/NhiJudyHouse.VietNam';
     } else if (pageId === '270136663390370') {
         refererUrl = 'https://pancake.vn/NhiJudyStore';
+    } else if (pageId === '112678138086607') {
+        refererUrl = 'https://pancake.vn/NhiJudyOi';
     }
 
     console.log('[PANCAKE-DIRECT] Referer:', refererUrl);
