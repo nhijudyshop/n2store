@@ -2159,28 +2159,64 @@ class InboxChatController {
      *   Step 2: REPLY_INBOX_PHOTO with globalUserId → send via business.facebook.com/messaging/send/
      */
     async _sendViaExtension(text, conv) {
-        // Pancake API provides global_id directly in page_customer field
-        // No need for GET_GLOBAL_ID_FOR_CONV - we have it from the API!
         const raw = conv._raw || {};
         const psid = conv.psid || raw.from_psid || raw.from?.id || '';
-        const globalUserId = raw.page_customer?.global_id || null;
         const conversationUpdatedTime = conv.time ? conv.time.getTime() : Date.now();
 
+        // Try 1: Get globalUserId from Pancake API (page_customer.global_id)
+        let globalUserId = raw.page_customer?.global_id || null;
+
         console.log('[EXT-SEND] Extension send:', {
-            pageId: conv.pageId,
-            psid,
-            globalUserId,
+            pageId: conv.pageId, psid, globalUserId,
             conversationId: conv.conversationId,
-            customerName: conv.customerName || conv.name,
-            hasGlobalId: !!globalUserId
+            customerName: conv.customerName || conv.name
         });
 
+        // Try 2: If no global_id from API, ask extension to resolve via GET_GLOBAL_ID_FOR_CONV
         if (!globalUserId) {
-            console.error('[EXT-SEND] No global_id in page_customer! Cannot send via extension.');
-            throw new Error('Không có Global Facebook ID cho khách hàng này. Extension không thể gửi.');
+            console.log('[EXT-SEND] No global_id in API, trying GET_GLOBAL_ID_FOR_CONV with PSID...');
+            const taskId = Date.now();
+            globalUserId = await new Promise((resolve) => {
+                const timeout = setTimeout(() => {
+                    window.removeEventListener('message', handler);
+                    resolve(null);
+                }, 15000);
+                const handler = (e) => {
+                    if (e.source !== window) return;
+                    if (e.data?.type === 'GET_GLOBAL_ID_FOR_CONV_SUCCESS' && e.data?.taskId === taskId) {
+                        clearTimeout(timeout);
+                        window.removeEventListener('message', handler);
+                        console.log('[EXT-SEND] ✅ Got globalUserId from extension:', e.data.globalId);
+                        resolve(e.data.globalId);
+                    }
+                    if (e.data?.type === 'GET_GLOBAL_ID_FOR_CONV_FAILURE' && e.data?.taskId === taskId) {
+                        clearTimeout(timeout);
+                        window.removeEventListener('message', handler);
+                        console.warn('[EXT-SEND] ❌ GET_GLOBAL_ID_FOR_CONV failed:', e.data);
+                        resolve(null);
+                    }
+                };
+                window.addEventListener('message', handler);
+                window.postMessage({
+                    type: 'GET_GLOBAL_ID_FOR_CONV',
+                    pageId: conv.pageId,
+                    threadId: psid,
+                    threadKey: 't_' + psid,
+                    isBusiness: true,
+                    conversationUpdatedTime,
+                    customerName: conv.customerName || conv.name || '',
+                    convType: conv.type || 'INBOX',
+                    postId: null, convId: null,
+                    taskId, from: 'WEBPAGE'
+                }, '*');
+            });
         }
 
-        // Send REPLY_INBOX_PHOTO with globalUserId from Pancake API
+        if (!globalUserId) {
+            throw new Error('Không tìm được Global Facebook ID. Khách hàng này chưa có global_id trong Pancake.');
+        }
+
+        // Send REPLY_INBOX_PHOTO with globalUserId
         const sendTaskId = Date.now();
 
         return new Promise((resolve, reject) => {
