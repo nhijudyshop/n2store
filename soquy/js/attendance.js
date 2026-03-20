@@ -60,21 +60,13 @@
         return hiddenEmployees.has(String(empId));
     }
 
-    // Name overrides: mapping tên máy chấm công → tên hiển thị
-    // Key = tên gốc từ device (ví dụ "Bo"), Value = tên hiển thị (ví dụ "BO")
-    const NAME_OVERRIDES_KEY = 'attendance_name_overrides';
-    let nameOverrides = JSON.parse(localStorage.getItem(NAME_OVERRIDES_KEY) || '{}');
-
-    function saveNameOverride(deviceName, displayName) {
-        nameOverrides[deviceName] = displayName;
-        localStorage.setItem(NAME_OVERRIDES_KEY, JSON.stringify(nameOverrides));
-    }
-
-    function applyNameOverrides() {
+    // displayName: tên hiển thị do user đặt, lưu trên Firestore
+    // Device sync chỉ ghi field "name", không đụng "displayName"
+    function applyDisplayNames() {
         employees.forEach(emp => {
             emp._deviceName = emp.name; // Lưu tên gốc từ máy chấm công
-            if (nameOverrides[emp.name]) {
-                emp.name = nameOverrides[emp.name];
+            if (emp.displayName) {
+                emp.name = emp.displayName;
             }
         });
     }
@@ -689,7 +681,7 @@
             snapshot.forEach(doc => {
                 employees.push({ ...doc.data(), id: doc.id });
             });
-            applyNameOverrides();
+            applyDisplayNames();
             employees.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'vi'));
             console.log(`[Attendance] Loaded ${employees.length} employees`);
         } catch (err) {
@@ -1836,11 +1828,20 @@
                 if (input.classList.contains('settings-name')) {
                     const newName = input.value.trim();
                     if (newName && newName !== emp.name) {
-                        const deviceName = emp._deviceName || emp.name;
+                        const oldName = emp.name;
                         emp.name = newName;
-                        saveNameOverride(deviceName, newName);
-                        showNotification(`Đã đổi tên: ${deviceName} → ${newName}`, 'success');
-                        renderMonthlySchedule();
+                        emp.displayName = newName;
+                        try {
+                            if (!isTest) {
+                                await db.collection(COLLECTIONS.deviceUsers).doc(docId).update({ displayName: newName });
+                            }
+                            showNotification(`Đã đổi tên: ${emp._deviceName || oldName} → ${newName}`, 'success');
+                            renderMonthlySchedule();
+                        } catch (err) {
+                            emp.name = oldName;
+                            emp.displayName = oldName === emp._deviceName ? null : oldName;
+                            showNotification('Lỗi đổi tên: ' + err.message, 'error');
+                        }
                     }
                 }
 
