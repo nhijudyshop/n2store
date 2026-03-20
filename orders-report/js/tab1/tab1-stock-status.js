@@ -47,11 +47,175 @@
         return match ? match[1].trim() : null;
     }
 
+    const PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+
     /**
-     * Load stock data from orderProducts Firebase path
+     * Load stock data fresh from TPOS via Product/ExportProductV2 Excel export.
+     * Same approach as overview-ledger.js fetchFreshStockFromTPOS().
+     * Falls back to orderProducts Firebase if Excel export fails.
      * Returns: Map<ProductCode, { qty, name, id }>
      */
     async function loadStockData(tposCampaignId) {
+        // Try fetching fresh stock from TPOS Excel first
+        try {
+            const freshStock = await fetchStockFromTPOSExcel(tposCampaignId);
+            if (freshStock && freshStock.size > 0) {
+                return freshStock;
+            }
+        } catch (e) {
+            console.warn('[STOCK] Excel export failed, falling back to orderProducts:', e.message);
+        }
+
+        // Fallback: load from orderProducts Firebase
+        return loadStockFromFirebase(tposCampaignId);
+    }
+
+    /**
+     * Fetch fresh stock from TPOS Product/ExportProductV2 Excel export
+     */
+    async function fetchStockFromTPOSExcel(tposCampaignId) {
+        console.log('[STOCK] Fetching fresh stock from TPOS Excel export...');
+
+        // First load orderProducts for product code/name mapping
+        const db = firebase.database();
+        const snapshot = await db.ref(`orderProducts/${tposCampaignId}`).once('value');
+        const orderProductsData = snapshot.val() || {};
+
+        // Build code→info map from orderProducts
+        const productInfoByCode = {};
+        const productInfoById = {};
+        Object.entries(orderProductsData).forEach(([key, product]) => {
+            if (!product || !product.Id) return;
+            const code = extractProductCode(product);
+            const id = String(product.Id);
+            const info = {
+                name: product.NameGet || product.Name || code || id,
+                id: id,
+            };
+            if (code) {
+                productInfoByCode[code.toUpperCase()] = info;
+            }
+            productInfoById[id] = info;
+        });
+
+        const headers = window.tokenManager
+            ? await window.tokenManager.getAuthHeader()
+            : {};
+
+        const response = await fetch(`${PROXY_URL}/api/Product/ExportProductV2?Active=true`, {
+            method: 'POST',
+            headers: {
+                ...headers,
+                'Content-Type': 'application/json',
+                'feature-version': '2',
+            },
+            body: JSON.stringify({
+                data: JSON.stringify({
+                    Filter: {
+                        logic: 'and',
+                        filters: [{ field: 'Active', operator: 'eq', value: true }],
+                    },
+                }),
+                ids: [],
+            }),
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const blob = await response.blob();
+        console.log(`[STOCK] Excel downloaded: ${(blob.size / 1024).toFixed(1)} KB`);
+
+        // Parse Excel (requires XLSX library)
+        if (typeof XLSX === 'undefined') {
+            throw new Error('XLSX library not loaded');
+        }
+
+        const arrayBuffer = await blob.arrayBuffer();
+        const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+
+        if (jsonData.length === 0) {
+            throw new Error('Excel is empty');
+        }
+
+        const columnNames = Object.keys(jsonData[0]);
+        console.log('[STOCK] Excel columns:', columnNames);
+
+        // Find stock column
+        const stockColumnCandidates = [
+            'SL Tồn kho', 'Tồn kho', 'SL tồn kho',
+            'Số lượng tồn', 'Số lượng thực tế', 'SL thực tế',
+            'QtyAvailable', 'Qty Available', 'Quantity Available',
+            'SL Tồn', 'Tồn', 'Stock',
+        ];
+        let stockColumn = stockColumnCandidates.find(c => columnNames.includes(c));
+        if (!stockColumn) {
+            stockColumn = columnNames.find(col => {
+                const lower = col.toLowerCase();
+                return lower.includes('tồn') || lower.includes('qty') || lower.includes('stock');
+            });
+        }
+
+        // Find product code column
+        const codeColumnCandidates = [
+            'Mã sản phẩm', 'Mã SP', 'Mã', 'DefaultCode', 'Code', 'Mã sản phẩm (*)',
+        ];
+        let codeColumn = codeColumnCandidates.find(c => columnNames.includes(c));
+        if (!codeColumn) {
+            codeColumn = columnNames.find(col => {
+                const lower = col.toLowerCase();
+                return lower.includes('mã') && !lower.includes('nhóm');
+            });
+        }
+
+        // Find ID column
+        const idColumnCandidates = ['Id sản phẩm (*)', 'Id sản phẩm', 'Id', 'ID'];
+        const idColumn = idColumnCandidates.find(c => columnNames.includes(c));
+
+        console.log('[STOCK] Detected columns — code:', codeColumn, '| stock:', stockColumn, '| id:', idColumn);
+
+        if (!stockColumn) {
+            throw new Error('Could not find stock column in Excel');
+        }
+
+        // Build stock map, matching by code or ID against orderProducts
+        const stockMap = new Map();
+        jsonData.forEach(row => {
+            const code = codeColumn ? String(row[codeColumn] || '').toUpperCase().trim() : '';
+            const id = idColumn ? String(row[idColumn] || '') : '';
+            const stock = parseFloat(row[stockColumn]) || 0;
+
+            let info = null;
+            let matchedCode = code;
+            if (code && productInfoByCode[code]) {
+                info = productInfoByCode[code];
+            } else if (id && productInfoById[id]) {
+                info = productInfoById[id];
+                // Try to get code from product info
+                const extractedCode = extractProductCode(info.name);
+                if (extractedCode) matchedCode = extractedCode.toUpperCase();
+            }
+
+            if (info && matchedCode) {
+                stockMap.set(matchedCode, {
+                    qty: stock,
+                    name: info.name,
+                    id: info.id,
+                });
+            }
+        });
+
+        console.log(`[STOCK] Fresh stock loaded for ${stockMap.size} products from TPOS Excel`);
+        return stockMap;
+    }
+
+    /**
+     * Fallback: Load stock from orderProducts Firebase path
+     */
+    async function loadStockFromFirebase(tposCampaignId) {
         const db = firebase.database();
         const snapshot = await db.ref(`orderProducts/${tposCampaignId}`).once('value');
         const data = snapshot.val() || {};
@@ -62,14 +226,14 @@
             const code = extractProductCode(product);
             if (!code) return;
 
-            stockMap.set(code, {
+            stockMap.set(code.toUpperCase(), {
                 qty: product.QtyAvailable != null ? product.QtyAvailable : 0,
                 name: product.NameGet || product.Name || code,
                 id: String(product.Id),
             });
         });
 
-        console.log(`[STOCK] Loaded stock for ${stockMap.size} products from orderProducts/${tposCampaignId}`);
+        console.log(`[STOCK] Loaded stock for ${stockMap.size} products from orderProducts/${tposCampaignId} (fallback)`);
         return stockMap;
     }
 
@@ -183,7 +347,8 @@
         orderProducts.forEach((products, orderId) => {
             const blocking = [];
             products.forEach(p => {
-                const stock = stockMap.get(p.code);
+                const codeUpper = (p.code || '').toUpperCase();
+                const stock = stockMap.get(codeUpper);
                 const available = stock ? stock.qty : 0;
                 if (available < p.qty) {
                     blocking.push({ code: p.code, name: p.name, need: p.qty, have: available });
@@ -212,21 +377,24 @@
             // Check if we can allocate all products
             let canAllocate = true;
             products.forEach(p => {
-                const remaining = remainingStock.get(p.code) || 0;
+                const codeUpper = (p.code || '').toUpperCase();
+                const remaining = remainingStock.get(codeUpper) || 0;
                 if (remaining < p.qty) canAllocate = false;
             });
 
             if (canAllocate) {
                 // Deduct stock
                 products.forEach(p => {
-                    remainingStock.set(p.code, (remainingStock.get(p.code) || 0) - p.qty);
+                    const codeUpper = (p.code || '').toUpperCase();
+                    remainingStock.set(codeUpper, (remainingStock.get(codeUpper) || 0) - p.qty);
                 });
                 confirmedReady.push(orderId);
             } else {
                 // Moved to waiting due to insufficient remaining stock
                 const blocking = [];
                 products.forEach(p => {
-                    const remaining = remainingStock.get(p.code) || 0;
+                    const codeUpper = (p.code || '').toUpperCase();
+                    const remaining = remainingStock.get(codeUpper) || 0;
                     if (remaining < p.qty) {
                         blocking.push({ code: p.code, name: p.name, need: p.qty, have: remaining });
                     }
