@@ -2158,14 +2158,26 @@ class InboxChatController {
      *   Step 1: GET_GLOBAL_ID_FOR_CONV → get globalUserId from extension
      *   Step 2: REPLY_INBOX_PHOTO with globalUserId → send via business.facebook.com/messaging/send/
      */
+    // Cache: conversationId → globalUserId (avoid 40s wait on repeat sends)
+    _globalIdCache = {};
+
     async _sendViaExtension(text, conv) {
         const raw = conv._raw || {};
         const psid = conv.psid || raw.from_psid || raw.from?.id || '';
         const conversationUpdatedTime = conv.time ? conv.time.getTime() : Date.now();
         const accessToken = window.inboxTokenManager?.getTokenSync?.() || '';
 
-        // Try 1: Get globalUserId from Pancake API (page_customer.global_id)
-        let globalUserId = raw.page_customer?.global_id || null;
+        // Try 1: Check cache first (instant)
+        const cacheKey = conv.conversationId || conv.id;
+        let globalUserId = this._globalIdCache[cacheKey] || null;
+        if (globalUserId) {
+            console.log('[EXT-SEND] ⚡ Using cached globalUserId:', globalUserId);
+        }
+
+        // Try 2: Get from Pancake API (page_customer.global_id)
+        if (!globalUserId) {
+            globalUserId = raw.page_customer?.global_id || null;
+        }
 
         // Get Facebook thread_id from Pancake API (for GET_GLOBAL_ID_FOR_CONV fallback)
         const fbThreadId = raw.thread_id || null;
@@ -2177,7 +2189,7 @@ class InboxChatController {
             customerName: conv.customerName || conv.name
         });
 
-        // Try 2: If no global_id, ask extension to resolve via GET_GLOBAL_ID_FOR_CONV
+        // Try 3: If no global_id, ask extension to resolve via GET_GLOBAL_ID_FOR_CONV
         // Use Facebook thread_id (NOT PSID!) - PSID fails with "INCORRECT THREAD"
         if (!globalUserId && fbThreadId) {
             console.log('[EXT-SEND] No global_id, trying GET_GLOBAL_ID_FOR_CONV with thread_id:', fbThreadId);
@@ -2223,6 +2235,12 @@ class InboxChatController {
 
         if (!globalUserId) {
             throw new Error('Không tìm được Global Facebook ID. Khách hàng này chưa có global_id trong Pancake.');
+        }
+
+        // Cache for next time (skip 40s wait)
+        if (cacheKey) {
+            this._globalIdCache[cacheKey] = globalUserId;
+            console.log('[EXT-SEND] Cached globalUserId for', cacheKey);
         }
 
         // Send REPLY_INBOX_PHOTO with globalUserId
