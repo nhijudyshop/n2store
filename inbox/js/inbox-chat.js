@@ -2185,9 +2185,9 @@ class InboxChatController {
             globalUserId = await new Promise((resolve) => {
                 const timeout = setTimeout(() => {
                     window.removeEventListener('message', handler);
-                    console.warn('[EXT-SEND] ⏰ GET_GLOBAL_ID_FOR_CONV timeout (45s)');
+                    console.warn('[EXT-SEND] ⏰ GET_GLOBAL_ID_FOR_CONV timeout (60s)');
                     resolve(null);
-                }, 45000); // Extension needs ~25-30s to resolve via graphqlbatch
+                }, 60000); // Extension needs ~30-40s to resolve via graphqlbatch
                 const handler = (e) => {
                     if (e.source !== window) return;
                     if (e.data?.type === 'GET_GLOBAL_ID_FOR_CONV_SUCCESS' && e.data?.taskId === taskId) {
