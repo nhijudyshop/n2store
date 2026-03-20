@@ -278,13 +278,28 @@
 
         console.log(`[STOCK] Loaded ${orders.length} orders from Firestore`);
 
+        // Build a map of Firestore orders by SessionIndex (STT) for cross-referencing
+        const firestoreBySTT = new Map();
         orders.forEach(item => {
             const order = item.order || item;
-            const orderId = String(order.Id || item.Id || '');
-            if (!orderId) return;
+            const stt = String(order.SessionIndex || '');
+            if (stt && (order.Details || []).length > 0) {
+                firestoreBySTT.set(stt, order);
+            }
+        });
+
+        // Map to tab1 order IDs using SessionIndex cross-reference
+        // This fixes ID mismatch: Firestore stores OData response Id which may differ from tab1's order.Id
+        const allOrders = window.getAllOrders ? window.getAllOrders() : [];
+        let matchCount = 0;
+
+        allOrders.forEach(tableOrder => {
+            const stt = String(tableOrder.SessionIndex || '');
+            const firestoreOrder = firestoreBySTT.get(stt);
+            if (!firestoreOrder) return;
 
             const products = [];
-            (order.Details || []).forEach(detail => {
+            (firestoreOrder.Details || []).forEach(detail => {
                 const rawCode = detail.ProductCode || detail.DefaultCode || extractProductCode(detail.ProductNameGet || detail.ProductName);
                 if (!rawCode) return;
                 products.push({
@@ -295,11 +310,21 @@
             });
 
             if (products.length > 0) {
-                orderProductsMap.set(orderId, products);
+                orderProductsMap.set(String(tableOrder.Id), products);
+                matchCount++;
             }
         });
 
-        console.log(`[STOCK] Loaded product details for ${orderProductsMap.size} orders`);
+        console.log(`[STOCK] Matched ${matchCount} orders by STT cross-reference (Firestore STTs: ${firestoreBySTT.size}, Tab1 orders: ${allOrders.length})`);
+
+        // Diagnostic: log sample IDs for debugging
+        if (orderProductsMap.size > 0) {
+            const sampleKeys = [...orderProductsMap.keys()].slice(0, 3);
+            const sampleTableIds = allOrders.slice(0, 3).map(o => String(o.Id));
+            console.log(`[STOCK] Sample _orderProducts keys: ${sampleKeys.join(', ')}`);
+            console.log(`[STOCK] Sample tab1 order.Id: ${sampleTableIds.join(', ')}`);
+        }
+
         return orderProductsMap;
     }
 
