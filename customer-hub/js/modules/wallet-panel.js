@@ -21,19 +21,27 @@ const TYPE_LABELS = {
 
 const CREDIT_TYPES = ['DEPOSIT', 'VIRTUAL_CREDIT', 'ORDER_CANCEL_REFUND'];
 
+// Manual operation types for the "Nạp/Rút Tay Công Nợ" tab
+const MANUAL_TYPES = ['DEPOSIT', 'WITHDRAW', 'VIRTUAL_CREDIT', 'VIRTUAL_DEBIT', 'VIRTUAL_CANCEL', 'ADJUSTMENT'];
+
 export class WalletPanelModule {
     constructor(containerId, permissionHelper) {
         this.container = document.getElementById(containerId);
         this.permissionHelper = permissionHelper;
         this.customerPhone = null;
         this.eventSource = null;
+        this._currentTab = 'overview'; // 'overview' | 'manual-history'
+        this._walletData = null;
+        this._manualTxCache = null; // cached manual transactions
     }
 
     async render(phone) {
         if (this.customerPhone !== phone) {
             this.closeSSE();
+            this._manualTxCache = null;
         }
         this.customerPhone = phone;
+        this._currentTab = 'overview';
 
         if (!this.permissionHelper.hasPermission('customer-hub', 'viewWallet')) {
             this.container.innerHTML = `
@@ -69,6 +77,7 @@ export class WalletPanelModule {
         try {
             const wallet = await apiService.getWallet(this.customerPhone);
             if (wallet) {
+                this._walletData = wallet;
                 this.renderWallet(wallet);
                 this.subscribeToRealtimeUpdates();
             } else {
@@ -96,61 +105,342 @@ export class WalletPanelModule {
             </div>`;
     }
 
+    _renderTabBar() {
+        const isOverview = this._currentTab === 'overview';
+        const activeStyle = 'color: #16a34a; border-bottom: 2px solid #16a34a; font-weight: 700;';
+        const inactiveStyle = 'color: #94a3b8; border-bottom: 2px solid transparent;';
+        return `
+            <div style="display: flex; gap: 0; border-bottom: 1px solid #e2e8f0;" class="dark:border-slate-700">
+                <button data-tab="overview" class="wallet-tab-btn" style="flex: 1; padding: 6px 4px; font-size: 11px; text-align: center; transition: all 0.15s; ${isOverview ? activeStyle : inactiveStyle}">
+                    Tổng quan
+                </button>
+                <button data-tab="manual-history" class="wallet-tab-btn" style="flex: 1; padding: 6px 4px; font-size: 11px; text-align: center; transition: all 0.15s; ${!isOverview ? activeStyle : inactiveStyle}">
+                    Nạp/Rút Tay
+                </button>
+            </div>`;
+    }
+
     renderWallet(wallet) {
         const realBalance = parseFloat(wallet.balance || wallet.real_balance) || 0;
         const virtualBalance = parseFloat(wallet.virtual_balance) || 0;
         const totalBalance = wallet.total_balance || (realBalance + virtualBalance);
         const canManage = this.permissionHelper.hasPermission('customer-hub', 'manageWallet');
+        this._walletData = wallet;
 
         this.container.innerHTML = `
             <div class="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-green-50 to-transparent dark:from-green-900/10 rounded-bl-full -z-0 opacity-50"></div>
-            <div class="p-6 relative z-10 flex flex-col h-full">
-                <div class="flex items-center justify-between mb-4">
+            <div class="relative z-10 flex flex-col h-full">
+                <!-- Header -->
+                <div class="flex items-center justify-between px-6 pt-4 pb-2">
                     <h3 class="text-base font-bold text-slate-800 dark:text-white flex items-center gap-2">
                         <span class="material-symbols-outlined text-green-600 dark:text-green-500">account_balance_wallet</span>
                         Ví Khách Hàng
                     </h3>
                     <button id="view-history-btn" class="text-xs text-primary font-medium hover:underline">Lịch sử</button>
                 </div>
-                <div class="flex-1 flex flex-col justify-center gap-4 py-2">
-                    <div>
-                        <p class="text-xs text-slate-500 font-medium uppercase tracking-wider mb-1">Số dư khả dụng</p>
-                        <p class="text-4xl font-bold text-green-600 dark:text-green-500 tracking-tight tabular-nums">${this._formatCurrency(totalBalance)}</p>
+                <!-- Tab Bar -->
+                ${this._renderTabBar()}
+                <!-- Tab Content -->
+                <div id="wallet-tab-content" class="flex-1 overflow-y-auto">
+                    ${this._currentTab === 'overview'
+                        ? this._renderOverviewContent(totalBalance, realBalance, virtualBalance, canManage)
+                        : '<div class="p-4 flex items-center justify-center"><div class="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600"></div></div>'
+                    }
+                </div>
+            </div>`;
+
+        // Event delegation
+        this.container.querySelector('#view-history-btn')?.addEventListener('click', () => this._showTransactionHistory());
+        this.container.querySelectorAll('.wallet-tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => this._switchTab(btn.dataset.tab));
+        });
+        this.container.querySelectorAll('.wallet-action-btn').forEach(btn => {
+            btn.addEventListener('click', () => this._showActionModal(btn.dataset.action));
+        });
+
+        // If manual-history tab is active, load data
+        if (this._currentTab === 'manual-history') {
+            this._loadManualHistory();
+        }
+    }
+
+    _renderOverviewContent(totalBalance, realBalance, virtualBalance, canManage) {
+        return `
+            <div class="px-6 py-4 flex flex-col justify-center gap-4">
+                <div>
+                    <p class="text-xs text-slate-500 font-medium uppercase tracking-wider mb-1">Số dư khả dụng</p>
+                    <p class="text-4xl font-bold text-green-600 dark:text-green-500 tracking-tight tabular-nums">${this._formatCurrency(totalBalance)}</p>
+                </div>
+                <div class="flex items-center gap-3 py-3 border-y border-dashed border-slate-200 dark:border-slate-700">
+                    <div class="flex-1">
+                        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-0.5">Tiền thật</p>
+                        <p class="text-xl font-semibold text-slate-700 dark:text-slate-300 tabular-nums">${this._formatShort(realBalance)}</p>
                     </div>
-                    <div class="flex items-center gap-3 py-3 border-y border-dashed border-slate-200 dark:border-slate-700">
-                        <div class="flex-1">
-                            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-0.5">Tiền thật</p>
-                            <p class="text-xl font-semibold text-slate-700 dark:text-slate-300 tabular-nums">${this._formatShort(realBalance)}</p>
+                    <div class="w-px h-8 bg-slate-200 dark:bg-slate-700"></div>
+                    <div class="flex-1">
+                        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-0.5">Công nợ ảo</p>
+                        <p class="text-xl font-semibold text-amber-500 tabular-nums flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">token</span>
+                            ${this._formatShort(virtualBalance)}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            ${canManage ? `
+                <div class="grid grid-cols-2 gap-2 px-6 pb-4">
+                    <button data-action="deposit" class="wallet-action-btn py-2 px-3 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-bold shadow-sm transition-all flex items-center justify-center gap-1">
+                        <span class="material-symbols-outlined text-[16px]">add</span> Nạp tiền
+                    </button>
+                    <button data-action="withdraw" class="wallet-action-btn py-2 px-3 rounded-lg bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 hover:bg-slate-50 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all flex items-center justify-center gap-1">
+                        <span class="material-symbols-outlined text-[16px]">remove</span> Rút tiền
+                    </button>
+                    <button data-action="issue_vc" class="wallet-action-btn col-span-2 py-2 px-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-500 hover:bg-amber-100 dark:hover:bg-amber-900/40 border border-amber-200 dark:border-amber-800 text-xs font-bold transition-all flex items-center justify-center gap-1">
+                        <span class="material-symbols-outlined text-[16px]">stars</span> Cấp công nợ ảo
+                    </button>
+                </div>
+            ` : ''}`;
+    }
+
+    async _switchTab(tab) {
+        if (tab === this._currentTab) return;
+        this._currentTab = tab;
+
+        if (this._walletData) {
+            this.renderWallet(this._walletData);
+            if (tab === 'manual-history') {
+                await this._loadManualHistory();
+            }
+        }
+    }
+
+    async _loadManualHistory() {
+        const contentEl = this.container.querySelector('#wallet-tab-content');
+        if (!contentEl) return;
+
+        // Show loading
+        contentEl.innerHTML = `
+            <div class="p-6 flex items-center justify-center">
+                <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600"></div>
+            </div>`;
+
+        try {
+            // Fetch all transactions (use larger limit to get full history)
+            const response = await fetch(`${apiService.RENDER_API_URL}/v2/wallets/${this.customerPhone}/transactions?limit=200`);
+            if (!response.ok) throw new Error('Không thể tải lịch sử');
+            const { data: allTx = [] } = await response.json();
+
+            // Filter only manual operation types
+            this._manualTxCache = allTx.filter(tx => MANUAL_TYPES.includes(tx.type));
+
+            this._renderManualHistoryTab();
+        } catch (err) {
+            contentEl.innerHTML = `
+                <div class="p-6 text-center text-red-500">
+                    <span class="material-symbols-outlined text-3xl mb-2">error</span>
+                    <p class="text-xs">${err.message}</p>
+                </div>`;
+        }
+    }
+
+    _renderManualHistoryTab() {
+        const contentEl = this.container.querySelector('#wallet-tab-content');
+        if (!contentEl || !this._manualTxCache) return;
+
+        const transactions = this._manualTxCache;
+
+        // Extract unique created_by values for filter
+        const creators = [...new Set(transactions.map(tx => tx.created_by).filter(c => c && c !== 'system'))];
+
+        contentEl.innerHTML = `
+            <!-- Filters -->
+            <div class="px-3 pt-3 pb-2 space-y-2" style="border-bottom: 1px solid #e2e8f0;">
+                <!-- Type filter chips -->
+                <div class="flex flex-wrap gap-1">
+                    <button data-filter-type="all" class="manual-type-chip px-2 py-0.5 rounded-full text-[10px] font-bold transition-all" style="background: #16a34a; color: white;">Tất cả</button>
+                    <button data-filter-type="DEPOSIT" class="manual-type-chip px-2 py-0.5 rounded-full text-[10px] font-bold transition-all" style="background: #f1f5f9; color: #64748b;">Nạp</button>
+                    <button data-filter-type="WITHDRAW" class="manual-type-chip px-2 py-0.5 rounded-full text-[10px] font-bold transition-all" style="background: #f1f5f9; color: #64748b;">Rút</button>
+                    <button data-filter-type="VIRTUAL_CREDIT" class="manual-type-chip px-2 py-0.5 rounded-full text-[10px] font-bold transition-all" style="background: #f1f5f9; color: #64748b;">+CN ảo</button>
+                    <button data-filter-type="VIRTUAL_DEBIT" class="manual-type-chip px-2 py-0.5 rounded-full text-[10px] font-bold transition-all" style="background: #f1f5f9; color: #64748b;">-CN ảo</button>
+                    <button data-filter-type="VIRTUAL_CANCEL" class="manual-type-chip px-2 py-0.5 rounded-full text-[10px] font-bold transition-all" style="background: #f1f5f9; color: #64748b;">Thu hồi</button>
+                    <button data-filter-type="ADJUSTMENT" class="manual-type-chip px-2 py-0.5 rounded-full text-[10px] font-bold transition-all" style="background: #f1f5f9; color: #64748b;">Đ.chỉnh</button>
+                </div>
+                <!-- Date range + Creator -->
+                <div class="flex gap-1">
+                    <input type="date" id="manual-date-from" class="flex-1 px-1.5 py-1 border border-slate-200 dark:border-slate-600 rounded text-[10px] bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200" title="Từ ngày">
+                    <input type="date" id="manual-date-to" class="flex-1 px-1.5 py-1 border border-slate-200 dark:border-slate-600 rounded text-[10px] bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200" title="Đến ngày">
+                </div>
+                ${creators.length > 0 ? `
+                    <select id="manual-creator-filter" class="w-full px-1.5 py-1 border border-slate-200 dark:border-slate-600 rounded text-[10px] bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200">
+                        <option value="">Người thực hiện: Tất cả</option>
+                        ${creators.map(c => `<option value="${this._escapeHtml(c)}">${this._escapeHtml(c)}</option>`).join('')}
+                    </select>
+                ` : ''}
+                <!-- Search -->
+                <input type="text" id="manual-search" class="w-full px-2 py-1 border border-slate-200 dark:border-slate-600 rounded text-[10px] bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200" placeholder="Tìm ghi chú, người thực hiện...">
+            </div>
+            <!-- Transaction list -->
+            <div id="manual-tx-list" class="overflow-y-auto" style="flex: 1;">
+                ${this._renderManualTxList(transactions)}
+            </div>
+            <!-- Summary bar -->
+            <div id="manual-summary" class="px-3 py-2 text-[10px] text-slate-500 font-medium" style="border-top: 1px solid #e2e8f0;">
+                ${this._renderManualSummary(transactions)}
+            </div>`;
+
+        // Bind filter events
+        this._bindManualFilters();
+    }
+
+    _renderManualTxList(transactions) {
+        if (transactions.length === 0) {
+            return `
+                <div class="p-6 text-center text-slate-400">
+                    <span class="material-symbols-outlined text-3xl mb-1">receipt_long</span>
+                    <p class="text-xs">Không có giao dịch nào</p>
+                </div>`;
+        }
+
+        return `<div class="space-y-1 p-2">${transactions.map(tx => this._renderManualTxItem(tx)).join('')}</div>`;
+    }
+
+    _renderManualTxItem(tx) {
+        const isCredit = CREDIT_TYPES.includes(tx.type);
+        const bgColor = isCredit ? '#f0fdf4' : '#fef2f2';
+        const amountColor = isCredit ? '#16a34a' : '#dc2626';
+        const sign = isCredit ? '+' : '-';
+
+        const date = tx.created_at
+            ? new Date(tx.created_at).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
+            : '';
+        const expiry = (tx.type === 'VIRTUAL_CREDIT' && tx.expires_at)
+            ? ` · HSD: ${new Date(tx.expires_at).toLocaleDateString('vi-VN')}`
+            : '';
+        const creator = tx.created_by && tx.created_by !== 'system' ? tx.created_by : '';
+        const note = tx.note || tx.source || '';
+
+        // Type icon mapping
+        const typeIcons = {
+            'DEPOSIT': 'add_circle',
+            'WITHDRAW': 'remove_circle',
+            'VIRTUAL_CREDIT': 'stars',
+            'VIRTUAL_DEBIT': 'star_half',
+            'VIRTUAL_CANCEL': 'block',
+            'ADJUSTMENT': 'tune'
+        };
+        const icon = typeIcons[tx.type] || 'swap_horiz';
+
+        return `
+            <div class="rounded-lg p-2" style="background: ${bgColor};" data-tx-type="${tx.type}" data-tx-date="${tx.created_at || ''}" data-tx-creator="${this._escapeHtml(creator)}" data-tx-note="${this._escapeHtml(note)}">
+                <div class="flex items-start gap-2">
+                    <span class="material-symbols-outlined" style="font-size: 16px; color: ${amountColor}; margin-top: 1px;">${icon}</span>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center justify-between">
+                            <span class="text-[11px] font-bold text-slate-800 dark:text-slate-200">${TYPE_LABELS[tx.type] || 'Giao dịch'}</span>
+                            <span class="text-[11px] font-bold tabular-nums" style="color: ${amountColor};">${sign}${this._formatCurrency(Math.abs(tx.amount))}</span>
                         </div>
-                        <div class="w-px h-8 bg-slate-200 dark:bg-slate-700"></div>
-                        <div class="flex-1">
-                            <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-0.5">Công nợ ảo</p>
-                            <p class="text-xl font-semibold text-amber-500 tabular-nums flex items-center gap-1">
-                                <span class="material-symbols-outlined text-sm">token</span>
-                                ${this._formatShort(virtualBalance)}
-                            </p>
+                        ${note ? `<p class="text-[10px] text-slate-500 truncate">${this._escapeHtml(note)}</p>` : ''}
+                        <div class="flex items-center gap-1 mt-0.5">
+                            <span class="text-[9px] text-slate-400">${date}${expiry}</span>
+                            ${creator ? `<span class="text-[9px] text-slate-400">·</span><span class="text-[9px] font-semibold" style="color: #ef4444;">${this._escapeHtml(creator)}</span>` : ''}
                         </div>
                     </div>
                 </div>
-                ${canManage ? `
-                    <div class="grid grid-cols-2 gap-2 mt-4">
-                        <button data-action="deposit" class="wallet-action-btn py-2 px-3 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-bold shadow-sm transition-all flex items-center justify-center gap-1">
-                            <span class="material-symbols-outlined text-[16px]">add</span> Nạp tiền
-                        </button>
-                        <button data-action="withdraw" class="wallet-action-btn py-2 px-3 rounded-lg bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 hover:bg-slate-50 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all flex items-center justify-center gap-1">
-                            <span class="material-symbols-outlined text-[16px]">remove</span> Rút tiền
-                        </button>
-                        <button data-action="issue_vc" class="wallet-action-btn col-span-2 py-2 px-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-500 hover:bg-amber-100 dark:hover:bg-amber-900/40 border border-amber-200 dark:border-amber-800 text-xs font-bold transition-all flex items-center justify-center gap-1">
-                            <span class="material-symbols-outlined text-[16px]">stars</span> Cấp công nợ ảo
-                        </button>
-                    </div>
-                ` : ''}
             </div>`;
+    }
 
-        // Event delegation for buttons
-        this.container.querySelector('#view-history-btn')?.addEventListener('click', () => this._showTransactionHistory());
-        this.container.querySelectorAll('.wallet-action-btn').forEach(btn => {
-            btn.addEventListener('click', () => this._showActionModal(btn.dataset.action));
+    _renderManualSummary(transactions) {
+        const totalDeposit = transactions.filter(tx => tx.type === 'DEPOSIT').reduce((s, tx) => s + Math.abs(tx.amount || 0), 0);
+        const totalWithdraw = transactions.filter(tx => tx.type === 'WITHDRAW').reduce((s, tx) => s + Math.abs(tx.amount || 0), 0);
+        const totalVC = transactions.filter(tx => tx.type === 'VIRTUAL_CREDIT').reduce((s, tx) => s + Math.abs(tx.amount || 0), 0);
+
+        const parts = [];
+        if (totalDeposit > 0) parts.push(`<span style="color: #16a34a;">+${this._formatShort(totalDeposit)} nạp</span>`);
+        if (totalWithdraw > 0) parts.push(`<span style="color: #dc2626;">-${this._formatShort(totalWithdraw)} rút</span>`);
+        if (totalVC > 0) parts.push(`<span style="color: #d97706;">+${this._formatShort(totalVC)} CN ảo</span>`);
+
+        return `${transactions.length} giao dịch${parts.length > 0 ? ' · ' + parts.join(' · ') : ''}`;
+    }
+
+    _bindManualFilters() {
+        let activeType = 'all';
+
+        const applyFilters = () => {
+            if (!this._manualTxCache) return;
+
+            const dateFrom = this.container.querySelector('#manual-date-from')?.value;
+            const dateTo = this.container.querySelector('#manual-date-to')?.value;
+            const creator = this.container.querySelector('#manual-creator-filter')?.value || '';
+            const search = (this.container.querySelector('#manual-search')?.value || '').toLowerCase().trim();
+
+            let filtered = this._manualTxCache;
+
+            // Type filter
+            if (activeType !== 'all') {
+                filtered = filtered.filter(tx => tx.type === activeType);
+            }
+
+            // Date filter
+            if (dateFrom) {
+                const from = new Date(dateFrom);
+                from.setHours(0, 0, 0, 0);
+                filtered = filtered.filter(tx => tx.created_at && new Date(tx.created_at) >= from);
+            }
+            if (dateTo) {
+                const to = new Date(dateTo);
+                to.setHours(23, 59, 59, 999);
+                filtered = filtered.filter(tx => tx.created_at && new Date(tx.created_at) <= to);
+            }
+
+            // Creator filter
+            if (creator) {
+                filtered = filtered.filter(tx => tx.created_by === creator);
+            }
+
+            // Search filter (note + created_by)
+            if (search) {
+                filtered = filtered.filter(tx => {
+                    const noteStr = (tx.note || tx.source || '').toLowerCase();
+                    const creatorStr = (tx.created_by || '').toLowerCase();
+                    return noteStr.includes(search) || creatorStr.includes(search);
+                });
+            }
+
+            // Update list
+            const listEl = this.container.querySelector('#manual-tx-list');
+            if (listEl) listEl.innerHTML = this._renderManualTxList(filtered);
+
+            // Update summary
+            const summaryEl = this.container.querySelector('#manual-summary');
+            if (summaryEl) summaryEl.innerHTML = this._renderManualSummary(filtered);
+        };
+
+        // Type chips
+        this.container.querySelectorAll('.manual-type-chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+                activeType = chip.dataset.filterType;
+                // Update chip styles
+                this.container.querySelectorAll('.manual-type-chip').forEach(c => {
+                    if (c.dataset.filterType === activeType) {
+                        c.style.background = '#16a34a';
+                        c.style.color = 'white';
+                    } else {
+                        c.style.background = '#f1f5f9';
+                        c.style.color = '#64748b';
+                    }
+                });
+                applyFilters();
+            });
+        });
+
+        // Date, creator, search filters
+        this.container.querySelector('#manual-date-from')?.addEventListener('change', applyFilters);
+        this.container.querySelector('#manual-date-to')?.addEventListener('change', applyFilters);
+        this.container.querySelector('#manual-creator-filter')?.addEventListener('change', applyFilters);
+
+        let searchTimeout;
+        this.container.querySelector('#manual-search')?.addEventListener('input', () => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(applyFilters, 300);
         });
     }
 
@@ -250,6 +540,7 @@ export class WalletPanelModule {
                 } catch (e) { /* audit log error - ignore */ }
 
                 close();
+                this._manualTxCache = null; // invalidate cache
                 await this.loadWalletDetails();
 
                 // Notify search list to refresh wallet balance
@@ -339,6 +630,8 @@ export class WalletPanelModule {
                 const data = JSON.parse(event.data);
                 const walletData = data.data?.wallet || (data.event === 'wallet_update' && data.data?.wallet);
                 if (walletData) {
+                    this._walletData = walletData;
+                    this._manualTxCache = null; // invalidate cache on update
                     this.renderWallet(walletData);
                     if (data.data?.transaction?.amount > 0) this._showNotification(data.data.transaction);
                     // Notify search list to refresh wallet balance
@@ -376,6 +669,7 @@ export class WalletPanelModule {
     destroy() {
         this.closeSSE();
         this.customerPhone = null;
+        this._manualTxCache = null;
     }
 
     // Helpers
