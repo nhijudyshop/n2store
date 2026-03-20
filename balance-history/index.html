@@ -981,6 +981,29 @@
                             <textarea id="accReviewNote"
                                 placeholder="VD: Đã dùng cho đơn hàng #12345, khách Nguyễn Văn A..."></textarea>
                         </div>
+
+                        <!-- Image Paste Area -->
+                        <div class="acc-form-group">
+                            <label>Ảnh đính kèm (Ctrl+V để dán)</label>
+                            <div class="acc-image-upload-area" id="accReviewImageArea">
+                                <div class="acc-image-dropzone acc-paste-only" id="accReviewDropzone">
+                                    <i data-lucide="image-plus" style="width:28px;height:28px"></i>
+                                    <span>Paste (Ctrl+V) hoặc kéo thả hình vào đây</span>
+                                </div>
+                                <div class="acc-image-preview" id="accReviewImagePreview" style="display:none">
+                                    <img id="accReviewPreviewImg" src="" alt="Preview">
+                                    <div class="acc-image-overlay" id="accReviewUploadOverlay">
+                                        <div class="acc-loading-spinner"></div>
+                                        <span>Đang tải lên...</span>
+                                    </div>
+                                    <button type="button" class="acc-btn-remove-image"
+                                        onclick="AccountantModule.clearReviewImage()">
+                                        <i data-lucide="x" style="width:14px;height:14px"></i>
+                                    </button>
+                                    <span class="acc-upload-status" id="accReviewUploadStatus"></span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div class="acc-modal-footer">
                         <button class="acc-btn acc-btn-secondary"

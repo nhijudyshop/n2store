@@ -55,6 +55,12 @@
             imageUrl: null,
             imageFile: null,
             isUploading: false
+        },
+        // Review modal state
+        reviewModal: {
+            imageUrl: null,
+            imageFile: null,
+            isUploading: false
         }
     };
 
@@ -374,6 +380,44 @@
                         e.preventDefault();
                         const blob = item.getAsFile();
                         handleApproveImageSelect(blob);
+                        break;
+                    }
+                }
+            });
+        }
+
+        // =====================================================
+        // REVIEW MODAL EVENT LISTENERS (Ctrl+V paste, drag-drop)
+        // =====================================================
+        const reviewModal = document.getElementById('accManagerReviewModal');
+        const reviewDropzone = document.getElementById('accReviewDropzone');
+
+        if (reviewDropzone) {
+            reviewDropzone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                reviewDropzone.classList.add('dragover');
+            });
+            reviewDropzone.addEventListener('dragleave', () => {
+                reviewDropzone.classList.remove('dragover');
+            });
+            reviewDropzone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                reviewDropzone.classList.remove('dragover');
+                const files = e.dataTransfer.files;
+                if (files.length > 0 && files[0].type.startsWith('image/')) {
+                    handleReviewImageSelect(files[0]);
+                }
+            });
+        }
+
+        if (reviewModal) {
+            reviewModal.addEventListener('paste', (e) => {
+                const items = (e.clipboardData || e.originalEvent?.clipboardData)?.items;
+                if (!items) return;
+                for (let item of items) {
+                    if (item.kind === 'file' && item.type.startsWith('image/')) {
+                        e.preventDefault();
+                        handleReviewImageSelect(item.getAsFile());
                         break;
                     }
                 }
@@ -2336,6 +2380,9 @@
         const noteEl = document.getElementById('accReviewNote');
         if (noteEl) noteEl.value = '';
 
+        // Reset image state
+        clearReviewImage();
+
         // Show modal
         const modal = document.getElementById('accManagerReviewModal');
         if (modal) {
@@ -2366,12 +2413,15 @@
 
         try {
             // API call to backend
+            const reviewImageUrl = state.reviewModal.imageUrl || null;
+
             const response = await fetch(`${API_BASE_URL}/api/v2/balance-history/${currentReviewTxId}/manager-review`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     manager_review_note: reviewNote,
-                    reviewed_by: reviewedBy
+                    reviewed_by: reviewedBy,
+                    review_image_url: reviewImageUrl
                 })
             });
 
@@ -2388,9 +2438,11 @@
                 state.approvedToday[txIndex].manager_review_note = reviewNote;
                 state.approvedToday[txIndex].reviewed_by = reviewedBy;
                 state.approvedToday[txIndex].reviewed_at = new Date().toISOString();
+                if (reviewImageUrl) state.approvedToday[txIndex].review_image_url = reviewImageUrl;
             }
 
-            // Close modal and re-render
+            // Close modal, clear image, and re-render
+            clearReviewImage();
             document.getElementById('accManagerReviewModal')?.classList.remove('visible');
             renderApprovedToday();
 
@@ -2408,6 +2460,112 @@
             }
             currentReviewTxId = null;
         }
+    }
+
+    // =====================================================
+    // REVIEW MODAL IMAGE HANDLING
+    // =====================================================
+
+    /**
+     * Handle image selection for review modal (paste/drag-drop)
+     */
+    async function handleReviewImageSelect(file) {
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+        if (!allowedTypes.includes(file.type)) {
+            showNotification('Chỉ chấp nhận file ảnh (JPEG, PNG, GIF, WebP)', 'error');
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            showNotification('File quá lớn (tối đa 5MB)', 'error');
+            return;
+        }
+
+        state.reviewModal.imageFile = file;
+
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            const previewImg = document.getElementById('accReviewPreviewImg');
+            const previewDiv = document.getElementById('accReviewImagePreview');
+            const dropzone = document.getElementById('accReviewDropzone');
+
+            if (previewImg) previewImg.src = e.target.result;
+            if (previewDiv) previewDiv.style.display = 'block';
+            if (dropzone) dropzone.style.display = 'none';
+
+            if (window.lucide) lucide.createIcons();
+
+            // Upload immediately
+            await uploadReviewImage(file, e.target.result);
+        };
+        reader.readAsDataURL(file);
+    }
+
+    /**
+     * Upload review image to Firebase
+     */
+    async function uploadReviewImage(file, base64Data) {
+        if (state.reviewModal.isUploading) return;
+        state.reviewModal.isUploading = true;
+
+        const overlay = document.getElementById('accReviewUploadOverlay');
+        const statusEl = document.getElementById('accReviewUploadStatus');
+        const confirmBtn = document.getElementById('accReviewConfirmBtn');
+
+        if (overlay) overlay.style.display = 'flex';
+        if (statusEl) { statusEl.textContent = 'Đang tải lên...'; statusEl.className = 'acc-upload-status uploading'; }
+        if (confirmBtn) confirmBtn.disabled = true;
+
+        try {
+            const timestamp = Date.now();
+            const random = Math.random().toString(36).substring(2, 8);
+            const extension = file.name?.split('.').pop() || 'jpg';
+            const filename = `review_${timestamp}_${random}.${extension}`;
+
+            const response = await fetch(`${API_BASE_URL}/api/upload/image`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    image: base64Data,
+                    fileName: filename,
+                    folderPath: 'accountant-reviews',
+                    mimeType: file.type
+                })
+            });
+
+            const result = await response.json();
+            if (!result.success) throw new Error(result.error || 'Upload failed');
+
+            state.reviewModal.imageUrl = result.url;
+
+            if (overlay) overlay.style.display = 'none';
+            if (statusEl) { statusEl.textContent = 'Đã tải lên'; statusEl.className = 'acc-upload-status success'; }
+            if (confirmBtn) confirmBtn.disabled = false;
+
+        } catch (error) {
+            console.error('[ACCOUNTANT] Review image upload error:', error);
+            if (overlay) overlay.style.display = 'none';
+            if (statusEl) { statusEl.textContent = 'Lỗi tải lên'; statusEl.className = 'acc-upload-status error'; }
+            if (confirmBtn) confirmBtn.disabled = false;
+            showNotification(`Lỗi tải ảnh: ${error.message}`, 'error');
+        } finally {
+            state.reviewModal.isUploading = false;
+        }
+    }
+
+    /**
+     * Clear review image
+     */
+    function clearReviewImage() {
+        state.reviewModal.imageFile = null;
+        state.reviewModal.imageUrl = null;
+
+        const previewDiv = document.getElementById('accReviewImagePreview');
+        const dropzone = document.getElementById('accReviewDropzone');
+        const previewImg = document.getElementById('accReviewPreviewImg');
+
+        if (previewDiv) previewDiv.style.display = 'none';
+        if (dropzone) dropzone.style.display = '';
+        if (previewImg) previewImg.src = '';
     }
 
     // =====================================================
@@ -2611,6 +2769,8 @@
         // Manager Review functions (quản lý kiểm tra)
         openManagerReviewModal,
         confirmManagerReview,
+        // Review image
+        clearReviewImage,
         // Wallet Adjustment functions (điều chỉnh công nợ do đổi SĐT)
         loadWalletAdjustments,
         completeWalletAdjustment,
