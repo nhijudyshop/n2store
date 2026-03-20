@@ -2022,8 +2022,14 @@ class MessageTemplateManager {
                         }
                     }
 
+                    // Try Extension Bypass (last resort before giving up)
+                    const extResult24h = await this._sendViaExtensionBypass(
+                        channelId, psid, messageContent, conversation, fullOrderData, order
+                    );
+                    if (extResult24h) return true;
+
                     // All fallbacks failed, throw original error
-                    this.log(`❌ Facebook API fallback failed: ${fbFallbackResult.error}`);
+                    this.log(`❌ All fallbacks failed (FB API: ${fbFallbackResult.error})`);
                     const error24h = new Error('24H_POLICY_ERROR');
                     error24h.is24HourError = true;
                     error24h.originalMessage = responseData.message;
@@ -2074,8 +2080,14 @@ class MessageTemplateManager {
                         }
                     }
 
+                    // Try Extension Bypass (last resort before giving up)
+                    const extResult551 = await this._sendViaExtensionBypass(
+                        channelId, psid, messageContent, conversation, fullOrderData, order
+                    );
+                    if (extResult551) return true;
+
                     // All fallbacks failed, throw original error
-                    this.log(`❌ Facebook API fallback failed: ${fbFallbackResult.error}`);
+                    this.log(`❌ All fallbacks failed (FB API: ${fbFallbackResult.error})`);
                     const error551 = new Error('USER_UNAVAILABLE');
                     error551.isUserUnavailable = true;
                     error551.originalMessage = responseData.message;
@@ -2179,6 +2191,59 @@ class MessageTemplateManager {
             return false;
         } catch (err) {
             this.log(`[PANCAKE-PR] ❌ Error: ${err.message}`);
+            return false;
+        }
+    }
+
+    /**
+     * Send message via Pancake Extension Bypass (24h bypass)
+     * Last-resort fallback when Pancake API and Facebook API both fail
+     * @returns {boolean} true if succeeded, false if failed
+     */
+    async _sendViaExtensionBypass(channelId, psid, messageContent, conversation, fullOrderData, order) {
+        if (!window.tab1ExtensionBridge?.isConnected()) {
+            this.log(`⏭️ Extension not connected, skipping bypass for order ${order.code}`);
+            return false;
+        }
+
+        try {
+            this.log(`🔌 Attempting Extension Bypass for order ${order.code}...`);
+
+            // Build conv-like object for resolveGlobalUserId
+            const conv = {
+                id: conversation?.id || `${channelId}_${psid}`,
+                conversationId: conversation?.id,
+                pageId: channelId,
+                psid: psid,
+                _raw: conversation?.raw || {},
+                customers: conversation?.customers || [],
+                _messagesData: conversation?._messagesData || null,
+                updated_at: conversation?.updated_at,
+                customerName: fullOrderData?.raw?.PartnerName || fullOrderData?.raw?.Partner?.Name || conversation?.from?.name || '',
+                from: conversation?.from,
+                type: conversation?.type || 'INBOX'
+            };
+
+            // Resolve globalUserId (fast from cache/API data, or slow from extension ~30-40s)
+            const globalUserId = await window.tab1ExtensionBridge.resolveGlobalUserId(conv);
+            if (!globalUserId) {
+                this.log(`❌ Cannot resolve globalUserId for order ${order.code}`);
+                return false;
+            }
+
+            // Send via extension
+            await window.tab1ExtensionBridge.sendMessage({
+                text: messageContent,
+                pageId: channelId,
+                psid: psid,
+                globalUserId: globalUserId,
+                customerName: conv.customerName
+            });
+
+            this.log(`✅ Extension Bypass succeeded for order ${order.code}`);
+            return true;
+        } catch (extError) {
+            this.log(`❌ Extension Bypass failed for order ${order.code}: ${extError.message}`);
             return false;
         }
     }
