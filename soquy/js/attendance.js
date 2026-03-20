@@ -528,12 +528,13 @@
             ? thuongItems.reduce((s, item) => s + (item.amount || 0), 0)
             : (payDoc.thuong || 0);
 
-        // Giảm trừ: trừ muộn (auto) + items array hoặc legacy giamTruManual
+        // Giảm trừ: trừ muộn (auto hoặc override) + items array hoặc legacy giamTruManual
         const giamTruItems = payDoc.giamTruItems || [];
         const giamTruManualTotal = giamTruItems.length > 0
             ? giamTruItems.reduce((s, item) => s + (item.amount || 0), 0)
             : (payDoc.giamTruManual || 0);
-        const giamTru = totalLate + giamTruManualTotal;
+        const effectiveLate = payDoc.giamTruLateOverride != null ? payDoc.giamTruLateOverride : totalLate;
+        const giamTru = effectiveLate + giamTruManualTotal;
 
         // Tổng lương
         const tongLuong = luongChinh + lamThem + phuCap + thuong - giamTru;
@@ -2406,10 +2407,16 @@
 
         document.getElementById('giamTruEmpName').textContent = `Nhân viên: ${empName}`;
 
+        // Override cho giảm trừ đi muộn (mặc định = auto)
+        let lateOverride = payDoc.giamTruLateOverride != null ? payDoc.giamTruLateOverride : null;
+        const effectiveLate = () => lateOverride != null ? lateOverride : totalLateAuto;
+        // Ghi chú giảm trừ
+        let giamTruNote = payDoc.giamTruNote || '';
+
         function renderGiamTruRows() {
             const tbody = document.getElementById('giamTruBody');
             const itemsTotal = items.reduce((s, item) => s + (item.amount || 0), 0);
-            const grandTotal = totalLateAuto + itemsTotal;
+            const grandTotal = effectiveLate() + itemsTotal;
 
             let html = `
                 <tr class="total-row">
@@ -2417,8 +2424,14 @@
                     <td style="text-align:right; font-weight:700;">${formatVND(grandTotal)}</td>
                 </tr>
                 <tr>
-                    <td>Giảm trừ đi muộn, về sớm, cố định</td>
-                    <td style="text-align:right; color:#1890ff; font-weight:600;">${formatVND(totalLateAuto)}</td>
+                    <td>Giảm trừ đi muộn, về sớm, cố định
+                        ${lateOverride != null ? `<span style="color:#8c8c8c; font-size:12px;"> (gốc: ${formatVND(totalLateAuto)})</span>` : ''}
+                    </td>
+                    <td style="text-align:right;">
+                        <input type="text" class="payroll-settings-input" id="giamTruLateInput"
+                            value="${formatVND(effectiveLate())}"
+                            style="text-align:right; width:150px; color:#1890ff; font-weight:600;">
+                    </td>
                 </tr>
             `;
 
@@ -2455,10 +2468,46 @@
                         <span class="phu-cap-add-link giamtru-add-btn" data-cat="khac" style="cursor:pointer;">+</span>
                     </td>
                 </tr>
+                <tr>
+                    <td colspan="2" style="padding: 8px 12px;">
+                        <div style="font-size:13px; color:#8c8c8c; margin-bottom:4px;">Ghi chú</div>
+                        <textarea id="giamTruNoteInput" class="payroll-settings-input" rows="2"
+                            placeholder="Ghi chú giảm trừ..." style="width:100%; resize:vertical;">${escapeHtml(giamTruNote)}</textarea>
+                    </td>
+                </tr>
             `;
 
             tbody.innerHTML = html;
             refreshIcons();
+
+            // Late override input
+            const lateInput = document.getElementById('giamTruLateInput');
+            if (lateInput) {
+                lateInput.addEventListener('focus', () => {
+                    const raw = lateInput.value.replace(/\./g, '').replace(/,/g, '');
+                    const num = parseInt(raw) || 0;
+                    lateInput.value = num === 0 ? '' : num;
+                    lateInput.select();
+                });
+                lateInput.addEventListener('blur', () => {
+                    const raw = lateInput.value.replace(/\./g, '').replace(/,/g, '');
+                    const num = Math.max(0, parseInt(raw) || 0);
+                    if (num === totalLateAuto) {
+                        lateOverride = null; // Reset về auto
+                    } else {
+                        lateOverride = num;
+                    }
+                    renderGiamTruRows();
+                });
+            }
+
+            // Note input
+            const noteInput = document.getElementById('giamTruNoteInput');
+            if (noteInput) {
+                noteInput.addEventListener('blur', () => {
+                    giamTruNote = noteInput.value.trim();
+                });
+            }
 
             // Delete buttons
             tbody.querySelectorAll('.giamtru-delete-btn').forEach(btn => {
@@ -2510,7 +2559,38 @@
         // Xong button
         document.getElementById('btnGiamTruApply').onclick = async () => {
             const cleanItems = items.filter(item => item.name || item.amount);
-            await savePayrollField(empId, 'giamTruItems', cleanItems);
+            if (!currentMonth) return;
+            const monthKey = `${currentMonth.year}-${String(currentMonth.month).padStart(2, '0')}`;
+            const docId = `${empId}_${monthKey}`;
+            try {
+                const data = {
+                    empId: String(empId),
+                    monthKey,
+                    giamTruItems: cleanItems,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                };
+                if (lateOverride != null) {
+                    data.giamTruLateOverride = lateOverride;
+                } else {
+                    data.giamTruLateOverride = firebase.firestore.FieldValue.delete();
+                }
+                if (giamTruNote) {
+                    data.giamTruNote = giamTruNote;
+                } else {
+                    data.giamTruNote = firebase.firestore.FieldValue.delete();
+                }
+                await db.collection(COLLECTIONS.payroll).doc(docId).set(data, { merge: true });
+                // Update local cache
+                if (!payrollDataMap[String(empId)]) {
+                    payrollDataMap[String(empId)] = { empId: String(empId), monthKey };
+                }
+                const local = payrollDataMap[String(empId)];
+                local.giamTruItems = cleanItems;
+                local.giamTruLateOverride = lateOverride;
+                local.giamTruNote = giamTruNote || '';
+            } catch (err) {
+                showNotification('Lỗi lưu: ' + err.message, 'error');
+            }
             modal.style.display = 'none';
             renderMonthlySchedule();
         };
