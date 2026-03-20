@@ -2167,15 +2167,20 @@ class InboxChatController {
         // Try 1: Get globalUserId from Pancake API (page_customer.global_id)
         let globalUserId = raw.page_customer?.global_id || null;
 
+        // Get Facebook thread_id from Pancake API (for GET_GLOBAL_ID_FOR_CONV fallback)
+        const fbThreadId = raw.thread_id || null;
+
         console.log('[EXT-SEND] Extension send:', {
-            pageId: conv.pageId, psid, globalUserId,
+            pageId: conv.pageId, psid, globalUserId, fbThreadId,
+            threadKey: raw.thread_key,
             conversationId: conv.conversationId,
             customerName: conv.customerName || conv.name
         });
 
-        // Try 2: If no global_id from API, ask extension to resolve via GET_GLOBAL_ID_FOR_CONV
-        if (!globalUserId) {
-            console.log('[EXT-SEND] No global_id in API, trying GET_GLOBAL_ID_FOR_CONV with PSID...');
+        // Try 2: If no global_id, ask extension to resolve via GET_GLOBAL_ID_FOR_CONV
+        // Use Facebook thread_id (NOT PSID!) - PSID fails with "INCORRECT THREAD"
+        if (!globalUserId && fbThreadId) {
+            console.log('[EXT-SEND] No global_id, trying GET_GLOBAL_ID_FOR_CONV with thread_id:', fbThreadId);
             const taskId = Date.now();
             globalUserId = await new Promise((resolve) => {
                 const timeout = setTimeout(() => {
@@ -2201,8 +2206,8 @@ class InboxChatController {
                 window.postMessage({
                     type: 'GET_GLOBAL_ID_FOR_CONV',
                     pageId: conv.pageId,
-                    threadId: psid,
-                    threadKey: 't_' + psid,
+                    threadId: fbThreadId,
+                    threadKey: 't_' + fbThreadId,
                     isBusiness: true,
                     conversationUpdatedTime,
                     customerName: conv.customerName || conv.name || '',
@@ -2211,6 +2216,8 @@ class InboxChatController {
                     taskId, from: 'WEBPAGE'
                 }, '*');
             });
+        } else if (!globalUserId) {
+            console.warn('[EXT-SEND] No global_id AND no thread_id in conversation data!');
         }
 
         if (!globalUserId) {
