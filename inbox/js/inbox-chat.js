@@ -2183,11 +2183,15 @@ class InboxChatController {
             };
             window.addEventListener('message', handler);
 
+            // Extract PSID from conversationId (format: pageId_psid)
+            const psid = conv.psid || conv._raw?.from?.id || conv.conversationId.split('_').pop();
+
             const payload = {
                 type: 'REPLY_INBOX_PHOTO',
                 pageId: conv.pageId,
                 convId: conv.conversationId,
                 threadId: conv.conversationId,
+                globalUserId: psid,
                 message: text,
                 attachmentType: 'SEND_TEXT_ONLY',
                 files: [],
