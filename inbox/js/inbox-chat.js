@@ -2199,6 +2199,12 @@ class InboxChatController {
             globalUserId = raw.page_customer?.global_id || null;
         }
 
+        // Try 2b: Get from messages response customers (faster than extension ~1-2s vs ~30-40s)
+        if (!globalUserId && conv._messagesData?.customers?.length) {
+            globalUserId = conv._messagesData.customers[0].global_id || null;
+            if (globalUserId) console.log('[EXT-SEND] Got globalUserId from customers[]:', globalUserId);
+        }
+
         // Get Facebook thread_id from Pancake API (for GET_GLOBAL_ID_FOR_CONV fallback)
         const fbThreadId = raw.thread_id || null;
 
@@ -2211,9 +2217,9 @@ class InboxChatController {
             _sources: {
                 cache: this._globalIdCache[cacheKey] || null,
                 raw_global_id: raw.page_customer?.global_id || null,
+                customers_global_id: conv._messagesData?.customers?.[0]?.global_id || null,
                 raw_thread_id: raw.thread_id || null,
                 raw_thread_key: raw.thread_key || null,
-                raw_keys: Object.keys(raw).join(',')
             }
         });
 
