@@ -2115,7 +2115,7 @@ async function toggleProductDetail(orderId, sttCell) {
         const rows = details.map((p, i) => `
             <tr>
                 <td style="padding: 6px 12px; border-bottom: 1px solid #e5e7eb; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                    <div style="font-weight: 500;">[${p.ProductCode || ''}] ${p.ProductNameGet || p.ProductName || ''}</div>
+                    <div style="font-weight: 500;">${p.ProductNameGet || p.ProductName || ''}</div>
                     ${p.Note ? `<div style="font-size: 11px; color: #6b7280; font-style: italic;">${p.Note}</div>` : ''}
                 </td>
                 <td style="padding: 6px 12px; border-bottom: 1px solid #e5e7eb; text-align: center; width: 60px;">${p.Quantity || 0}</td>
