@@ -2137,9 +2137,62 @@ class InboxChatController {
         const payload = { action: 'reply_inbox', message: text };
         if (replyData?.msgId) payload.replied_message_id = replyData.msgId;
 
-        // reply_inbox via Public API v1
-        const result = await this._sendApi(url, payload);
-        console.log('[InboxChat] reply_inbox succeeded:', result);
+        try {
+            const result = await this._sendApi(url, payload);
+            console.log('[InboxChat] reply_inbox succeeded:', result);
+        } catch (err) {
+            // Fallback: send via Pancake Extension (bypass 24h)
+            if (window.pancakeExtension?.connected) {
+                console.log('[InboxChat] API failed, trying Pancake Extension...', err.message);
+                showToast('Đang gửi qua Pancake Extension...', 'warning');
+                await this._sendViaExtension(text, conv);
+                return;
+            }
+            throw err;
+        }
+    }
+
+    /**
+     * Send message via Pancake Extension (postMessage → contentscript → background → Facebook Business Suite)
+     */
+    _sendViaExtension(text, conv) {
+        return new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                window.removeEventListener('message', handler);
+                reject(new Error('Extension send timeout (15s)'));
+            }, 15000);
+
+            const handler = (e) => {
+                if (e.source !== window) return;
+                if (e.data?.type === 'REPLY_INBOX_PHOTO_SUCCESS') {
+                    clearTimeout(timeout);
+                    window.removeEventListener('message', handler);
+                    console.log('[InboxChat] Extension send success:', e.data);
+                    showToast('Đã gửi qua Extension', 'success');
+                    resolve(e.data);
+                }
+                if (e.data?.type === 'REPLY_INBOX_PHOTO_FAILURE') {
+                    clearTimeout(timeout);
+                    window.removeEventListener('message', handler);
+                    console.warn('[InboxChat] Extension send failed:', e.data);
+                    reject(new Error(e.data?.error || 'Extension send failed'));
+                }
+            };
+            window.addEventListener('message', handler);
+
+            // REPLY_INBOX_PHOTO with SEND_TEXT_ONLY — same protocol as Pancake web app
+            window.postMessage({
+                type: 'REPLY_INBOX_PHOTO',
+                pageId: conv.pageId,
+                threadId: conv.conversationId,
+                message: text,
+                attachType: 'SEND_TEXT_ONLY',
+                files: [],
+                platform: 'facebook'
+            }, '*');
+
+            console.log('[InboxChat] Sent REPLY_INBOX_PHOTO to extension:', { pageId: conv.pageId, threadId: conv.conversationId });
+        });
     }
 
     /**
