@@ -448,7 +448,7 @@
             <div class="header">
                 <h1>N2Store — Implementation Tracker</h1>
                 <div class="subtitle">
-                    Kế hoạch hiện thực các hạng mục quy trình | ~9 tuần, 5 Sprint
+                    Kế hoạch hiện thực các hạng mục quy trình | Sprint 0 + 5 Sprint chính
                 </div>
             </div>
 
@@ -543,6 +543,160 @@
             const STORAGE_KEY = 'n2store_plan_tracker';
 
             const PLAN_DATA = [
+                {
+                    id: 'sprint0',
+                    title: 'Sprint 0',
+                    subtitle: 'Ưu tiên cao',
+                    badgeClass: 'badge-red',
+                    goal: 'Thay thế quy trình thủ công của Duyên: check tồn kho → tạo tag chờ → gắn đơn → gỡ khi hàng về. Sale bấm 1 nút "Kiểm tra tồn kho" → biết ngay đơn nào đủ hàng (xanh), đơn nào thiếu (đỏ), thiếu SP gì, tự gắn tag chờ vào cột Tag Xử Lý.',
+                    goalResult:
+                        'Sale nhìn Tab1 biết ngay trạng thái tồn kho từng đơn. Duyên không cần gắn/gỡ tag thủ công nữa. Filter nhanh đủ/thiếu để ưu tiên ship đơn đủ hàng trước.',
+                    phases: [
+                        {
+                            id: 'phase0a',
+                            title: 'Phase 0A — Fix data loading (nguồn dữ liệu đúng)',
+                            complexity: 'M',
+                            files: [
+                                {
+                                    name: 'orders-report/js/tab1/tab1-stock-status.js',
+                                    isNew: false,
+                                },
+                            ],
+                            tasks: [
+                                {
+                                    id: '0A.1',
+                                    text: 'Viết lại fetchStockFromTPOSExcel(): bỏ dependency orderProducts, build stockMap trực tiếp từ Excel',
+                                },
+                                {
+                                    id: '0A.2',
+                                    text: 'Thêm detect cột "Tên sản phẩm" trong Excel để lấy tên SP',
+                                },
+                                {
+                                    id: '0A.3',
+                                    text: 'Normalize ProductCode → UPPERCASE trong loadOrderProductDetails()',
+                                },
+                                {
+                                    id: '0A.4',
+                                    text: 'Fix renderStockColumnCell() — uppercase lookup khi get từ stockMap',
+                                },
+                                {
+                                    id: '0A.5',
+                                    text: 'Fix loadStockFromFirebase() fallback — đảm bảo uppercase keys',
+                                },
+                                {
+                                    id: '0A.6',
+                                    text: 'Test: Console stock count > 100 SP, so sánh tồn kho khớp với sổ sách',
+                                },
+                            ],
+                        },
+                        {
+                            id: 'phase0b',
+                            title: 'Phase 0B — Đổi 3 trạng thái → 2 trạng thái (đủ/thiếu)',
+                            complexity: 'M',
+                            files: [
+                                {
+                                    name: 'orders-report/js/tab1/tab1-stock-status.js',
+                                    isNew: false,
+                                },
+                                {
+                                    name: 'orders-report/css/tab1-stock-status.css',
+                                    isNew: false,
+                                },
+                            ],
+                            tasks: [
+                                {
+                                    id: '0B.1',
+                                    text: 'Sửa computeAll(): ready/waiting/critical → sufficient/insufficient',
+                                },
+                                {
+                                    id: '0B.2',
+                                    text: 'Sửa _summaryStats: sufficient/insufficient/noProducts/total',
+                                },
+                                {
+                                    id: '0B.3',
+                                    text: 'Sửa renderStockBadgeInline(): 2 màu + xám, tooltip "Tồn: X / Cần: Y"',
+                                },
+                                {
+                                    id: '0B.4',
+                                    text: 'Sửa getStockRowClass(): bỏ waiting/critical → chỉ insufficient',
+                                },
+                                {
+                                    id: '0B.5',
+                                    text: 'Sửa updateSummaryBar(): 2 trạng thái + "đơn không có SP"',
+                                },
+                                {
+                                    id: '0B.6',
+                                    text: 'Sửa passesStockFilter() + filterByStatus() cho 2 trạng thái',
+                                },
+                                {
+                                    id: '0B.7',
+                                    text: 'Sửa syncProcessingTags(): gắn tag cho insufficient (không phải waiting+critical)',
+                                },
+                                {
+                                    id: '0B.8',
+                                    text: 'CSS: bỏ .stock-waiting/.stock-critical, thêm .stock-insufficient',
+                                },
+                                {
+                                    id: '0B.9',
+                                    text: 'CSS: bỏ .stock-row-waiting, thêm .stock-row-insufficient',
+                                },
+                                {
+                                    id: '0B.10',
+                                    text: 'CSS: summary classes — sufficient/insufficient/noproducts',
+                                },
+                                {
+                                    id: '0B.11',
+                                    text: 'Test: Badge 2 màu đúng, filter hoạt động, tags gắn cho insufficient',
+                                },
+                            ],
+                        },
+                        {
+                            id: 'phase0c',
+                            title: 'Phase 0C — Thêm Filter Tabs + Polish UI giống demo',
+                            complexity: 'S',
+                            files: [
+                                {
+                                    name: 'orders-report/js/tab1/tab1-stock-status.js',
+                                    isNew: false,
+                                },
+                                {
+                                    name: 'orders-report/css/tab1-stock-status.css',
+                                    isNew: false,
+                                },
+                                {
+                                    name: 'orders-report/tab1-orders.html',
+                                    isNew: false,
+                                },
+                            ],
+                            tasks: [
+                                {
+                                    id: '0C.1',
+                                    text: 'HTML: Thêm <div id="stockFilterTabs"> cạnh nút "Cài đặt cột"',
+                                },
+                                {
+                                    id: '0C.2',
+                                    text: 'JS: Thêm updateFilterTabs() — pill badges [Tất cả X] [Đủ Y] [Thiếu Z]',
+                                },
+                                {
+                                    id: '0C.3',
+                                    text: 'JS: Gọi updateFilterTabs() từ updateSummaryBar() và filterByStatus()',
+                                },
+                                {
+                                    id: '0C.4',
+                                    text: 'CSS: .stock-filter-tab, .stock-filter-tab.active, colors per-status',
+                                },
+                                {
+                                    id: '0C.5',
+                                    text: 'Verify tab1-table.js dùng getStockRowClass() (không hardcode)',
+                                },
+                                {
+                                    id: '0C.6',
+                                    text: 'Test E2E: badge + tooltip + summary + filter tabs + expand + tags',
+                                },
+                            ],
+                        },
+                    ],
+                },
                 {
                     id: 'sprint1',
                     title: 'Sprint 1',
