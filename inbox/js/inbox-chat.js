@@ -1532,6 +1532,26 @@ class InboxChatController {
                 notes: result.notes || [],
             };
 
+            // Merge conversation data from messages response into _raw
+            // Messages endpoint returns more fields (thread_id, thread_key, page_customer.global_id)
+            // that may be missing from the conversations LIST endpoint
+            if (result.conversation) {
+                if (!conv._raw) conv._raw = {};
+                const rc = result.conversation;
+                if (rc.thread_id && !conv._raw.thread_id) {
+                    conv._raw.thread_id = rc.thread_id;
+                    console.log('[InboxChat] Merged thread_id from messages response:', rc.thread_id);
+                }
+                if (rc.thread_key && !conv._raw.thread_key) {
+                    conv._raw.thread_key = rc.thread_key;
+                }
+                if (rc.page_customer?.global_id && !conv._raw.page_customer?.global_id) {
+                    if (!conv._raw.page_customer) conv._raw.page_customer = {};
+                    conv._raw.page_customer.global_id = rc.page_customer.global_id;
+                    console.log('[InboxChat] Merged global_id from messages response:', rc.page_customer.global_id);
+                }
+            }
+
             // Detect livestream from post data
             // post.type === 'livestream' → livestream (live_video_status: 'vod' or 'live')
             // post.type === 'video' / other → NOT livestream (reel, video post, etc.)
@@ -2186,7 +2206,15 @@ class InboxChatController {
             pageId: conv.pageId, psid, globalUserId, fbThreadId,
             threadKey: raw.thread_key,
             conversationId: conv.conversationId,
-            customerName: conv.customerName || conv.name
+            customerName: conv.customerName || conv.name,
+            // Debug: show all sources
+            _sources: {
+                cache: this._globalIdCache[cacheKey] || null,
+                raw_global_id: raw.page_customer?.global_id || null,
+                raw_thread_id: raw.thread_id || null,
+                raw_thread_key: raw.thread_key || null,
+                raw_keys: Object.keys(raw).join(',')
+            }
         });
 
         // Try 3: If no global_id, ask extension to resolve via GET_GLOBAL_ID_FOR_CONV
