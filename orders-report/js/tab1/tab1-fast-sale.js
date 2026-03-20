@@ -527,7 +527,7 @@ async function showFastSaleModal() {
                 return `STT ${stt} - ${name} (${phone})`;
             }).join(', ');
             showFastSaleStatus(
-                `⚠️ Đơn ${adjDetails} đang chờ điều chỉnh công nợ ví. Liên hệ kế toán để điều chỉnh.`,
+                `<b style="font-size:14px;">Đơn ${adjDetails}</b> đang chờ điều chỉnh công nợ ví. <b>Liên hệ kế toán để điều chỉnh.</b>`,
                 'warning'
             );
             if (saveBtn) { saveBtn.disabled = true; saveBtn.title = 'Có đơn chờ điều chỉnh công nợ'; }
@@ -2100,8 +2100,12 @@ function showFastSaleStatus(message, type = 'info') {
         return;
     }
 
-    // Update content
-    textEl.textContent = message;
+    // Update content (support HTML if message contains tags)
+    if (message.includes('<')) {
+        textEl.innerHTML = message;
+    } else {
+        textEl.textContent = message;
+    }
 
     // Update icon based on type
     const icons = {
@@ -2331,12 +2335,12 @@ async function saveFastSaleOrders(isApprove = false) {
                 return `STT ${stt} - ${name} (${phone})`;
             }).join(', ');
             showFastSaleStatus(
-                `🚫 Đơn ${adjDetails} đang chờ điều chỉnh công nợ ví. Liên hệ kế toán để điều chỉnh.`,
+                `<b style="font-size:14px;">Đơn ${adjDetails}</b> đang chờ điều chỉnh công nợ ví. <b>Liên hệ kế toán để điều chỉnh.</b>`,
                 'error'
             );
             window.notificationManager?.error(
-                `Đơn ${adjDetails} đang chờ điều chỉnh công nợ ví. Liên hệ kế toán để điều chỉnh.`,
-                'Chờ điều chỉnh công nợ'
+                `<div style="font-size:15px;line-height:1.6;"><b style="font-size:16px;">Đơn ${adjDetails}</b><br>đang chờ điều chỉnh công nợ ví.<br><b>Liên hệ kế toán để điều chỉnh.</b></div>`,
+                10000, 'Chờ điều chỉnh công nợ'
             );
             return;
         }

@@ -618,11 +618,11 @@ async function openSaleButtonModal() {
         const stt = order.SessionIndex || '';
         const name = order.Name || adj.customerName || '';
         const phone = order.Telephone || adj.newPhone || '';
-        const msg = `Đơn STT ${stt} - ${name} (${phone}) đang chờ điều chỉnh công nợ ví. Liên hệ kế toán để điều chỉnh.`;
+        const msg = `<div style="font-size:15px;line-height:1.6;"><b style="font-size:16px;">Đơn STT ${stt} - ${name} (${phone})</b><br>đang chờ điều chỉnh công nợ ví.<br><b>Liên hệ kế toán để điều chỉnh.</b></div>`;
         if (window.notificationManager) {
-            window.notificationManager.error(msg, 'Chờ điều chỉnh công nợ', 8000);
+            window.notificationManager.error(msg, 10000, 'Chờ điều chỉnh công nợ');
         } else {
-            alert(msg);
+            alert(`Đơn STT ${stt} - ${name} (${phone}) đang chờ điều chỉnh công nợ ví. Liên hệ kế toán để điều chỉnh.`);
         }
         return;
     }
@@ -795,8 +795,8 @@ async function openSaleModalFromSocialOrder(socialOrder) {
         const name = socialOrder.customerName || adj.customerName || '';
         const phone = socialOrder.phone || adj.newPhone || '';
         window.notificationManager?.error(
-            `Đơn ${name} (${phone}) đang chờ điều chỉnh công nợ ví. Liên hệ kế toán để điều chỉnh.`,
-            'Chờ điều chỉnh công nợ', 8000
+            `<div style="font-size:15px;line-height:1.6;"><b style="font-size:16px;">Đơn ${name} (${phone})</b><br>đang chờ điều chỉnh công nợ ví.<br><b>Liên hệ kế toán để điều chỉnh.</b></div>`,
+            10000, 'Chờ điều chỉnh công nợ'
         );
         return;
     }
