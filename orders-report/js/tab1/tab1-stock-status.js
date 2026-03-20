@@ -696,6 +696,25 @@
      */
     function filterByStatus(status) {
         StockStatusEngine._activeFilter = StockStatusEngine._activeFilter === status ? null : status;
+
+        // Debug: log filter state and ID matching
+        if (StockStatusEngine._activeFilter) {
+            const statusMap = StockStatusEngine._orderStatus;
+            const allOrders = window.getAllOrders ? window.getAllOrders() : [];
+            const sampleOrderIds = allOrders.slice(0, 5).map(o => ({ raw: o.Id, type: typeof o.Id, str: String(o.Id) }));
+            const sampleStatusKeys = [...statusMap.keys()].slice(0, 5);
+            const matchCount = allOrders.filter(o => statusMap.has(String(o.Id))).length;
+            const sufficientCount = [...statusMap.values()].filter(s => s.status === 'sufficient').length;
+            const insufficientCount = [...statusMap.values()].filter(s => s.status === 'insufficient').length;
+
+            console.log(`[STOCK-FILTER] Filter: ${StockStatusEngine._activeFilter}`);
+            console.log(`[STOCK-FILTER] _orderStatus size: ${statusMap.size} (${sufficientCount} sufficient, ${insufficientCount} insufficient)`);
+            console.log(`[STOCK-FILTER] allData size: ${allOrders.length}`);
+            console.log(`[STOCK-FILTER] ID match count: ${matchCount}/${allOrders.length}`);
+            console.log(`[STOCK-FILTER] Sample allData IDs:`, sampleOrderIds);
+            console.log(`[STOCK-FILTER] Sample _orderStatus keys:`, sampleStatusKeys);
+        }
+
         updateSummaryBar();
 
         // Re-render table with filter
