@@ -722,53 +722,13 @@ async function sendMessageInternal(messageData) {
             console.log('[MESSAGE] All images processed:', imagesDataArray.length, 'hasFallbackImages:', hasFallbackImages);
         }
 
-        // Step 1.5: If we have fallback images (no content_id), go directly to Facebook Graph API
+        // Step 1.5: Warn if fallback images (no content_id) - these will be sent as text only
         if (hasFallbackImages && imagesDataArray.length > 0) {
-            console.log('[MESSAGE] Fallback images detected - sending directly via Facebook Graph API');
-            showChatSendingIndicator('Đang gửi qua Facebook Graph API...');
-
-            const imageUrls = imagesDataArray
-                .map(img => img.fallback_url || img.content_url)
-                .filter(url => url);
-
-            if (imageUrls.length > 0) {
-                let realPsid = psid || window.currentRealFacebookPSID || window.currentChatPSID;
-
-                const fbResult = await sendMessageViaFacebookTag({
-                    pageId: channelId,
-                    psid: realPsid,
-                    message: message,
-                    imageUrls: imageUrls
-                });
-
-                if (fbResult.success) {
-                    console.log('[MESSAGE] Facebook Graph API send success!');
-                    if (window.notificationManager) {
-                        window.notificationManager.show('Đã gửi tin nhắn qua Facebook!', 'success');
-                    }
-
-                    // Optimistic UI update
-                    const now = new Date().toISOString();
-                    const tempMessage = {
-                        Id: `temp_${Date.now()}`,
-                        id: `temp_${Date.now()}`,
-                        Message: message,
-                        CreatedTime: now,
-                        IsOwner: true,
-                        is_temp: true,
-                        Attachments: imageUrls.map(url => ({
-                            Type: 'image',
-                            Payload: { Url: url }
-                        }))
-                    };
-                    window.allChatMessages.push(tempMessage);
-                    renderChatMessages(window.allChatMessages, true);
-
-                    return; // Success - exit early
-                } else {
-                    console.error('[MESSAGE] Facebook Graph API send failed:', fbResult.error);
-                    throw new Error('Gửi qua Facebook Graph API thất bại: ' + (fbResult.error || 'Unknown error'));
-                }
+            console.warn('[MESSAGE] Fallback images detected (no content_id) - sending text only via Pancake API');
+            // Filter out images without content_id, keep only uploadable ones
+            imagesDataArray = imagesDataArray.filter(img => img.content_id || img.id);
+            if (imagesDataArray.length === 0) {
+                console.log('[MESSAGE] No uploadable images remaining, sending text only');
             }
         }
 
@@ -1207,49 +1167,22 @@ async function sendMessageInternal(messageData) {
                         hideChatSendingIndicator();
                         return; // Extension bypass succeeded!
                     } else {
-                        console.warn('[MESSAGE] Extension: could not resolve globalUserId, falling through to Facebook Tag');
+                        console.warn('[MESSAGE] Extension: could not resolve globalUserId');
                     }
                 } catch (extError) {
-                    console.warn('[MESSAGE] Extension Bypass failed:', extError.message, '- falling through to Facebook Tag');
+                    console.warn('[MESSAGE] Extension Bypass failed:', extError.message);
                 }
                 hideChatSendingIndicator();
             }
 
-            // ============ FALLBACK 2: Facebook Tag (POST_PURCHASE_UPDATE / HUMAN_AGENT) ============
-            if (originalMessage && pageId && psid) {
-                const errorDesc = error.is24HourError ? '24h error' : '551 (user unavailable)';
-                console.log(`[MESSAGE] Auto-sending via Facebook Tag for ${errorDesc}`);
-
-                const imageUrls = [];
-                if (messageData.uploadedImagesData && messageData.uploadedImagesData.length > 0) {
-                    for (const imgData of messageData.uploadedImagesData) {
-                        if (imgData.fallback_url) {
-                            imageUrls.push(imgData.fallback_url);
-                        }
-                        else if (imgData.content_url) {
-                            imageUrls.push(imgData.content_url);
-                        }
-                        else if (imgData.content_id || imgData.id) {
-                            const contentId = imgData.content_id || imgData.id;
-                            imageUrls.push(`https://content.pancake.vn/2.1-25/contents/${contentId}`);
-                        }
-                    }
-                    console.log('[MESSAGE] Extracted image URLs for Facebook Tag:', imageUrls);
-                }
-
-                const fallbackPostId = window.purchaseFacebookPostId || null;
-                const fallbackCustomerName = window.currentCustomerName || null;
-                window.sendViaFacebookTagFromModal(encodeURIComponent(originalMessage), pageId, psid, imageUrls, fallbackPostId, fallbackCustomerName);
+            // Extension failed or not connected - show error
+            const msg = error.is24HourError
+                ? 'Không thể gửi Inbox (đã quá 24h). Cần Pancake Extension để bypass hoặc dùng COMMENT.'
+                : 'Không thể gửi Inbox (người dùng không có mặt). Cần Pancake Extension để bypass.';
+            if (window.notificationManager) {
+                window.notificationManager.show(msg, 'warning', 8000);
             } else {
-                let message = error.is24HourError
-                    ? 'Không thể gửi Inbox (đã quá 24h). Thử gửi qua Facebook Message Tag hoặc dùng COMMENT!'
-                    : 'Không thể gửi Inbox (người dùng không có mặt). Đang thử gửi qua Facebook...';
-
-                if (window.notificationManager) {
-                    window.notificationManager.show(message, 'warning', 8000);
-                } else {
-                    alert(message);
-                }
+                alert(msg);
             }
             return;
         }

@@ -27,20 +27,13 @@ Error 10 / Subcode 2018278: This message is sent outside of allowed window.
 Error 551: This person isn't available right now.
 ```
 
-### 1.2 Giải pháp trước đó
+### 1.2 Giải pháp
 
-- **Tab1 (orders-report)**: Pancake API → Facebook Graph API với message_tag (HUMAN_AGENT / POST_PURCHASE_UPDATE) → Manual prompt
-- **Inbox**: Pancake API → Extension Bypass 24h → Facebook Tag → Manual prompt
-
-**Vấn đề**: Tab1 KHÔNG có Extension Bypass, dẫn đến phải dùng Facebook Tag (bị giới hạn use case) hoặc bắt user chuyển sang inbox.
-
-### 1.3 Giải pháp mới
-
-Tích hợp **Pancake Extension V2 Bypass** vào Tab1 với module riêng (`tab1-extension-bridge.js`), không đụng vào code inbox/.
+Khi gặp lỗi 24h / 551, **chỉ dùng Pancake Extension Bypass**. Facebook Graph API (message_tag) đã bị loại bỏ.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                  GỬI TIN NHẮN (Tab1)                     │
+│           GỬI TIN NHẮN (Tab1 - Chat & Bulk)             │
 ├─────────────────────────────────────────────────────────┤
 │                                                          │
 │  1. Pancake API (reply_inbox)                           │
@@ -53,15 +46,12 @@ Tích hợp **Pancake Extension V2 Bypass** vào Tab1 với module riêng (`tab1
 │     │   └─ Thất bại → Tiếp tục                         │
 │     └─ Không connected → Bỏ qua                        │
 │         │                                                │
-│  3. Facebook Tag (HUMAN_AGENT / POST_PURCHASE_UPDATE)   │
-│     ├─ Có token → Gửi qua Graph API                    │
-│     │   ├─ Thành công → Done                            │
-│     │   └─ Thất bại → Tiếp tục                         │
-│     └─ Không token → Bỏ qua                            │
+│  3. Pancake private_replies (nếu có COMMENT conv)       │
+│     ├─ Thành công → Done                                │
+│     └─ Thất bại → Báo lỗi                              │
 │         │                                                │
-│  4. Manual Prompt (show24hFallbackPrompt)               │
+│  4. Báo lỗi / Manual Prompt                             │
 │     ├─ Nút "Gửi qua Extension" (nếu connected)        │
-│     ├─ Nút "Gửi với Message Tag"                       │
 │     ├─ Nút "Chuyển sang Comment"                       │
 │     └─ Nút "Hủy"                                       │
 │                                                          │
@@ -205,15 +195,11 @@ Pancake API (reply_inbox, page_access_token)
   ├─ 200 OK → Thành công
   └─ Lỗi 24h (is24HourError) hoặc 551 (isUserUnavailable)
       │
-      ├─ FALLBACK 1: Extension Bypass
+      ├─ FALLBACK: Extension Bypass
       │   ├─ tab1ExtensionBridge.isConnected()? → resolveGlobalUserId() → sendMessage()
       │   └─ Thành công → Optimistic UI update → return
       │
-      ├─ FALLBACK 2: Facebook Tag
-      │   ├─ show24hFallbackPrompt() → User chọn cách gửi
-      │   └─ sendViaFacebookTagFromModal() hoặc sendViaExtensionFromModal()
-      │
-      └─ Các lỗi khác → throw Error
+      └─ Báo lỗi (cần Extension hoặc dùng COMMENT)
 ```
 
 ### 3.2 sendCommentInternal() — Bình luận COMMENT
@@ -243,9 +229,10 @@ File: `orders-report/js/tab1/tab1-chat-facebook.js`
 Modal hiển thị khi auto-fallback thất bại, cho user chọn:
 
 1. **Gửi qua Extension** (tím, chỉ hiện nếu Extension connected)
-2. **Gửi với Message Tag** (xanh dương, dùng HUMAN_AGENT / POST_PURCHASE_UPDATE)
-3. **Chuyển sang Comment** (xanh lá)
-4. **Hủy** (xám)
+2. **Chuyển sang Comment** (xanh lá)
+3. **Hủy** (xám)
+
+> **Lưu ý**: Facebook Graph API (message_tag) đã bị loại bỏ khỏi fallback chain. Chỉ dùng Extension Bypass.
 
 ---
 
@@ -257,7 +244,7 @@ Modal hiển thị khi auto-fallback thất bại, cho user chọn:
 |-------|-------|----------|---------------|----------|
 | **Pancake JWT** (`access_token`) | Pancake login | ~24 giờ | `isTokenExpired()` 1h buffer | Pancake API v1, tạo page_access_token |
 | **Pancake page_access_token** | Generate từ JWT | Không hết hạn | Không cần | Pancake Official API v1/v2 |
-| **Facebook Page Token** | TPOS CRMTeam | ~60 ngày | **MỚI**: error code 190 detection | Facebook Graph API (24h bypass) |
+| **Facebook Page Token** | TPOS CRMTeam | ~60 ngày | error code 190 detection | Realtime message fetching (read-only) |
 | **Account Token** (multi-account) | Firestore | ~24 giờ | `isTokenExpired()` | Fallback khi active account không access page |
 
 ### 4.2 Shared `getFacebookPageToken()` (MỚI)
@@ -459,7 +446,7 @@ orders-report/tab1-orders.html
   ├─ js/tab1/tab1-extension-bridge.js   ← Extension bypass module (NEW)
   ├─ js/tab1/tab1-chat-core.js          ← State, modals, selectors, mark-read, scroll
   ├─ js/tab1/tab1-chat-messages.js       ← Render, send, queue, reply state
-  ├─ js/tab1/tab1-chat-facebook.js       ← Facebook Graph API, 24h fallback, getFacebookPageToken
+  ├─ js/tab1/tab1-chat-facebook.js       ← getFacebookPageToken, 24h fallback UI (Extension only)
   ├─ js/tab1/tab1-chat-images.js         ← Upload, paste, preview, compression
   ├─ js/tab1/tab1-chat-realtime.js       ← WebSocket, polling, live updates
   └─ js/tab1/tab1-chat.js               ← Aggregator: verify, init extension bridge, status indicator

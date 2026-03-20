@@ -24,7 +24,7 @@
         // tab1-chat-messages.js
         { name: 'tab1-chat-messages', globals: ['renderChatMessages', 'renderComments', 'sendMessage', 'sendComment', 'sendReplyComment'] },
         // tab1-chat-facebook.js
-        { name: 'tab1-chat-facebook', globals: ['sendMessageViaFacebookTag', 'sendViaFacebookTagFromModal', 'show24hFallbackPrompt', 'getFacebookPageToken'] },
+        { name: 'tab1-chat-facebook', globals: ['show24hFallbackPrompt', 'getFacebookPageToken'] },
         // tab1-chat-images.js
         { name: 'tab1-chat-images', globals: ['uploadImageWithCache', 'updateMultipleImagesPreview', 'clearAllImages', 'sendImageToChat', 'sendProductToChat'] },
         // tab1-chat-realtime.js

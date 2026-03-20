@@ -1984,27 +1984,19 @@ class MessageTemplateManager {
                         responseData.message.includes('khoảng thời gian cho phép'));
                 if (is24HourError) {
                     this.log(
-                        `⚠️ 24-hour policy error - attempting Facebook API fallback for order ${order.code}`
+                        `⚠️ 24-hour policy error for order ${order.code} - trying Extension Bypass`
                     );
 
-                    // Try Facebook API fallback (with postId + commentConvId for Private Reply)
-                    const fbFallbackResult = await this._sendViaFacebookAPI(
-                        channelId,
-                        psid,
-                        messageContent,
-                        fullOrderData.raw,
-                        fullOrderData.raw.Facebook_PostId
+                    // Fallback 1: Extension Bypass (primary for 24h)
+                    const extResult24h = await this._sendViaExtensionBypass(
+                        channelId, psid, messageContent, conversation, fullOrderData, order
                     );
+                    if (extResult24h) return true;
 
-                    if (fbFallbackResult.success) {
-                        this.log(`✅ Facebook API fallback succeeded for order ${order.code}`);
-                        return true; // Success via Facebook API
-                    }
-
-                    // Send API also failed → try Pancake private_replies with known comment conv ID
+                    // Fallback 2: Pancake private_replies (for COMMENT conversations)
                     if (commentConvId) {
                         this.log(
-                            `🔄 Send API failed → trying Pancake private_replies with commentConvId: ${commentConvId}`
+                            `🔄 Extension failed → trying Pancake private_replies with commentConvId: ${commentConvId}`
                         );
                         const prResult = await this._sendViaPancakePrivateReply(
                             channelId,
@@ -2022,14 +2014,8 @@ class MessageTemplateManager {
                         }
                     }
 
-                    // Try Extension Bypass (last resort before giving up)
-                    const extResult24h = await this._sendViaExtensionBypass(
-                        channelId, psid, messageContent, conversation, fullOrderData, order
-                    );
-                    if (extResult24h) return true;
-
-                    // All fallbacks failed, throw original error
-                    this.log(`❌ All fallbacks failed (FB API: ${fbFallbackResult.error})`);
+                    // All fallbacks failed
+                    this.log(`❌ All fallbacks failed for order ${order.code}`);
                     const error24h = new Error('24H_POLICY_ERROR');
                     error24h.is24HourError = true;
                     error24h.originalMessage = responseData.message;
@@ -2042,27 +2028,19 @@ class MessageTemplateManager {
                     (responseData.message && responseData.message.includes('không có mặt'));
                 if (isUserUnavailable) {
                     this.log(
-                        `⚠️ User unavailable (551) error - attempting Facebook API fallback for order ${order.code}`
+                        `⚠️ User unavailable (551) error for order ${order.code} - trying Extension Bypass`
                     );
 
-                    // Try Facebook API fallback (with postId + commentConvId for Private Reply)
-                    const fbFallbackResult = await this._sendViaFacebookAPI(
-                        channelId,
-                        psid,
-                        messageContent,
-                        fullOrderData.raw,
-                        fullOrderData.raw.Facebook_PostId
+                    // Fallback 1: Extension Bypass (primary for 551)
+                    const extResult551 = await this._sendViaExtensionBypass(
+                        channelId, psid, messageContent, conversation, fullOrderData, order
                     );
+                    if (extResult551) return true;
 
-                    if (fbFallbackResult.success) {
-                        this.log(`✅ Facebook API fallback succeeded for order ${order.code}`);
-                        return true; // Success via Facebook API
-                    }
-
-                    // Send API also failed → try Pancake private_replies with known comment conv ID
+                    // Fallback 2: Pancake private_replies (for COMMENT conversations)
                     if (commentConvId) {
                         this.log(
-                            `🔄 Send API failed → trying Pancake private_replies with commentConvId: ${commentConvId}`
+                            `🔄 Extension failed → trying Pancake private_replies with commentConvId: ${commentConvId}`
                         );
                         const prResult = await this._sendViaPancakePrivateReply(
                             channelId,
@@ -2080,14 +2058,8 @@ class MessageTemplateManager {
                         }
                     }
 
-                    // Try Extension Bypass (last resort before giving up)
-                    const extResult551 = await this._sendViaExtensionBypass(
-                        channelId, psid, messageContent, conversation, fullOrderData, order
-                    );
-                    if (extResult551) return true;
-
-                    // All fallbacks failed, throw original error
-                    this.log(`❌ All fallbacks failed (FB API: ${fbFallbackResult.error})`);
+                    // All fallbacks failed
+                    this.log(`❌ All fallbacks failed for order ${order.code}`);
                     const error551 = new Error('USER_UNAVAILABLE');
                     error551.isUserUnavailable = true;
                     error551.originalMessage = responseData.message;

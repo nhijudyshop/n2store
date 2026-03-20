@@ -1,11 +1,11 @@
 // =====================================================
-// tab1-chat-facebook.js - Facebook Graph API Integration
-// Send message via Facebook Tag (HUMAN_AGENT / POST_PURCHASE_UPDATE),
-// 24h policy fallback UI, switchToCommentMode
+// tab1-chat-facebook.js - Facebook Token Utilities & 24h Fallback UI
+// getFacebookPageToken (shared utility), Extension bypass modal,
+// switchToCommentMode
 // =====================================================
-// Dependencies: tab1-chat-core.js (state globals), tab1-chat-messages.js (renderChatMessages)
-// Exposes: sendMessageViaFacebookTag (file-scoped, called from messages.js),
-//          window.show24hFallbackPrompt, window.sendViaFacebookTagFromModal,
+// Dependencies: tab1-chat-core.js (state globals)
+// Exposes: window.getFacebookPageToken, window.markFacebookTokenInvalid,
+//          window.show24hFallbackPrompt, window.sendViaExtensionFromModal,
 //          window.switchToCommentMode, window.close24hFallbackModal,
 //          window.current24hPolicyStatus
 
@@ -94,132 +94,17 @@ window.markFacebookTokenInvalid = function (pageId) {
     _fbTokenValidationCache[pageId] = { invalid: true, timestamp: Date.now() };
 };
 
-/**
- * Send message via Facebook Graph API with HUMAN_AGENT / POST_PURCHASE_UPDATE message tag
- * Used to bypass 24h policy when normal Pancake API fails
- * @param {object} params - Message parameters
- * @param {string} params.pageId - Facebook Page ID
- * @param {string} params.psid - Facebook PSID of recipient
- * @param {string} params.message - Message text to send
- * @param {Array<string>} params.imageUrls - Optional array of image URLs to send
- * @returns {Promise<{success: boolean, error?: string, messageId?: string}>}
- */
-async function sendMessageViaFacebookTag(params) {
-    const { pageId, psid, message, imageUrls, postId, customerName } = params;
-
-    console.log('[FB-TAG-SEND] ========================================');
-    console.log('[FB-TAG-SEND] Attempting to send message via Facebook Graph API with HUMAN_AGENT / POST_PURCHASE_UPDATE tag');
-    console.log('[FB-TAG-SEND] Page ID:', pageId, 'PSID:', psid);
-
-    try {
-        const facebookPageToken = await window.getFacebookPageToken(pageId);
-
-        if (!facebookPageToken) {
-            console.error('[FB-TAG-SEND] No Facebook Page Token found for page:', pageId);
-            return {
-                success: false,
-                error: 'Không tìm thấy Facebook Page Token. Token này khác với Pancake token và cần được thiết lập trong TPOS.'
-            };
-        }
-
-        // Call Facebook Send API via our worker proxy
-        const facebookSendUrl = window.API_CONFIG.buildUrl.facebookSend();
-        console.log('[FB-TAG-SEND] Calling:', facebookSendUrl);
-
-        // Collect known comment IDs from order data for direct Private Reply
-        const knownCommentIdStr = window.purchaseCommentId || null;
-        const knownCommentIds = knownCommentIdStr
-            ? knownCommentIdStr.split(',').map(id => id.trim()).filter(Boolean)
-            : [];
-
-        const requestBody = {
-            pageId: pageId,
-            psid: psid,
-            message: message,
-            pageToken: facebookPageToken,
-            useTag: true, // Use HUMAN_AGENT / POST_PURCHASE_UPDATE tag
-            imageUrls: imageUrls || [],
-            postId: postId || window.purchaseFacebookPostId || null,
-            customerName: customerName || window.currentCustomerName || null,
-            knownCommentIds: knownCommentIds // Direct Private Reply fallback
-        };
-
-        const response = await fetch(facebookSendUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify(requestBody)
-        });
-
-        const result = await response.json();
-        console.log('[FB-TAG-SEND] Response:', result);
-        console.log('[FB-TAG-SEND] ========================================');
-
-        if (result.success) {
-            console.log('[FB-TAG-SEND] Message sent successfully via Facebook Graph API!');
-            console.log('[FB-TAG-SEND] Message ID:', result.message_id);
-            console.log('[FB-TAG-SEND] Used tag:', result.used_tag);
-            return {
-                success: true,
-                messageId: result.message_id,
-                recipientId: result.recipient_id,
-                usedTag: result.used_tag
-            };
-        } else {
-            console.error('[FB-TAG-SEND] Facebook API error:', result.error);
-
-            // Detect expired/invalid token (error code 190)
-            if (result.error_code === 190 || result.error_subcode === 463 || result.error_subcode === 467) {
-                window.markFacebookTokenInvalid(pageId);
-                if (window.notificationManager) {
-                    window.notificationManager.show(
-                        'Facebook Page Token hết hạn hoặc không hợp lệ. Vui lòng cập nhật trong TPOS → Kênh bán hàng.',
-                        'error', 10000
-                    );
-                }
-            }
-
-            return {
-                success: false,
-                error: result.error || 'Facebook API error',
-                errorCode: result.error_code,
-                errorSubcode: result.error_subcode
-            };
-        }
-
-    } catch (error) {
-        console.error('[FB-TAG-SEND] Error:', error);
-        return {
-            success: false,
-            error: error.message
-        };
-    }
-}
-
 // Global flag to track if 24h policy fallback UI should be shown
 window.current24hPolicyStatus = {
     isExpired: false,
-    hoursSinceLastMessage: null,
-    canUseFacebookTag: false
+    hoursSinceLastMessage: null
 };
 
 /**
- * Show 24h policy fallback prompt with option to send via Facebook tag
+ * Show 24h policy fallback prompt with option to send via Extension Bypass
  */
 window.show24hFallbackPrompt = function (messageText, pageId, psid) {
-    // Check if Extension is available for bypass
     const extConnected = window.tab1ExtensionBridge?.isConnected();
-    const extensionButton = extConnected ? `
-                <button onclick="window.sendViaExtensionFromModal('${encodeURIComponent(messageText)}', '${pageId}', '${psid}')"
-                    style="padding: 12px 16px; background: linear-gradient(135deg, #8b5cf6, #6d28d9); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                    <i class="fas fa-plug"></i>
-                    Gửi qua Extension (bypass 24h)
-                </button>
-                <p style="font-size: 12px; color: #9ca3af; margin: 0; padding: 0 8px;">
-                    Gửi trực tiếp qua Business Suite - không giới hạn 24h
-                </p>` : '';
 
     const modalContent = `
         <div style="padding: 20px; max-width: 400px;">
@@ -231,15 +116,19 @@ window.show24hFallbackPrompt = function (messageText, pageId, psid) {
                 Khách hàng chưa tương tác trong 24 giờ qua. Chọn cách gửi tin nhắn:
             </p>
             <div style="display: flex; flex-direction: column; gap: 12px;">
-                ${extensionButton}
-                <button onclick="window.sendViaFacebookTagFromModal('${encodeURIComponent(messageText)}', '${pageId}', '${psid}')"
-                    style="padding: 12px 16px; background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                    <i class="fab fa-facebook"></i>
-                    Gửi với Message Tag (HUMAN_AGENT / POST_PURCHASE_UPDATE)
+                ${extConnected ? `
+                <button onclick="window.sendViaExtensionFromModal('${encodeURIComponent(messageText)}', '${pageId}', '${psid}')"
+                    style="padding: 12px 16px; background: linear-gradient(135deg, #8b5cf6, #6d28d9); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <i class="fas fa-plug"></i>
+                    Gửi qua Extension (bypass 24h)
                 </button>
                 <p style="font-size: 12px; color: #9ca3af; margin: 0; padding: 0 8px;">
-                    Chỉ dùng cho thông báo liên quan đơn hàng (xác nhận, vận chuyển, yêu cầu hành động)
-                </p>
+                    Gửi trực tiếp qua Business Suite - không giới hạn 24h
+                </p>` : `
+                <p style="font-size: 13px; color: #ef4444; margin: 0; padding: 8px; background: #fef2f2; border-radius: 6px;">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    Pancake Extension chưa kết nối. Cài extension và reload trang để bypass 24h.
+                </p>`}
                 <button onclick="window.switchToCommentMode()"
                     style="padding: 12px 16px; background: #10b981; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 8px;">
                     <i class="fas fa-comment"></i>
@@ -253,7 +142,6 @@ window.show24hFallbackPrompt = function (messageText, pageId, psid) {
         </div>
     `;
 
-    // Create modal
     let modal = document.getElementById('fb24hFallbackModal');
     if (!modal) {
         modal = document.createElement('div');
@@ -269,61 +157,6 @@ window.show24hFallbackPrompt = function (messageText, pageId, psid) {
 window.close24hFallbackModal = function () {
     const modal = document.getElementById('fb24hFallbackModal');
     if (modal) modal.style.display = 'none';
-};
-
-window.sendViaFacebookTagFromModal = async function (encodedMessage, pageId, psid, imageUrls = [], postId = null, customerName = null) {
-    window.close24hFallbackModal();
-
-    const message = decodeURIComponent(encodedMessage);
-
-    if (window.notificationManager) {
-        window.notificationManager.show('Đang gửi qua Facebook Graph API...', 'info');
-    }
-
-    const result = await sendMessageViaFacebookTag({ pageId, psid, message, imageUrls, postId, customerName });
-
-    if (result.success) {
-        if (window.notificationManager) {
-            window.notificationManager.show('Đã gửi tin nhắn thành công qua Facebook!', 'success', 5000);
-        }
-
-        // Add optimistic UI update
-        const now = new Date().toISOString();
-        const tempMessage = {
-            Id: `fb_${Date.now()}`,
-            id: `fb_${Date.now()}`,
-            Message: message + '\n\n[Gửi qua Facebook Message Tag]',
-            CreatedTime: now,
-            IsOwner: true,
-            is_temp: true
-        };
-        window.allChatMessages.push(tempMessage);
-        renderChatMessages(window.allChatMessages, true);
-
-        // Refresh messages after a delay
-        setTimeout(async () => {
-            try {
-                if (window.currentChatPSID && window.currentChatChannelId) {
-                    const response = await window.chatDataManager.fetchMessages(
-                        window.currentChatChannelId,
-                        window.currentChatPSID
-                    );
-                    if (response.messages && response.messages.length > 0) {
-                        window.allChatMessages = response.messages;
-                        renderChatMessages(window.allChatMessages, false);
-                    }
-                }
-            } catch (e) {
-                console.error('[FB-TAG-SEND] Error refreshing messages:', e);
-            }
-        }, 1000);
-    } else {
-        if (window.notificationManager) {
-            window.notificationManager.show('Lỗi gửi qua Facebook: ' + result.error, 'error', 8000);
-        } else {
-            alert('Lỗi gửi qua Facebook: ' + result.error);
-        }
-    }
 };
 
 /**
@@ -402,8 +235,5 @@ window.switchToCommentMode = function () {
         window.notificationManager.show('Vui lòng mở lại modal Comment để reply', 'info', 5000);
     }
 };
-
-// Expose sendMessageViaFacebookTag for use by tab1-chat-messages.js
-window.sendMessageViaFacebookTag = sendMessageViaFacebookTag;
 
 console.log('[Tab1-Chat-Facebook] Loaded successfully.');
