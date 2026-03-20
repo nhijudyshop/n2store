@@ -184,6 +184,21 @@ body {
     text-align: center;
 }
 
+/* STT clickable - product detail expand */
+.stt-clickable {
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.stt-clickable:hover {
+    background: #e0e7ff !important;
+}
+.stt-clickable.stt-expanded {
+    background: #c7d2fe !important;
+}
+.product-detail-row td {
+    padding: 0 !important;
+}
+
 /* TAG column - fixed */
 .table th[data-column="tag"],
 .table td[data-column="tag"] {

@@ -1092,7 +1092,7 @@ function createRowHTML(order) {
         <tr class="${rowClass} ${mergedClass}" data-psid="${order.Facebook_ASUserId || ''}" data-page-id="${pageId}" data-order-id="${order.Id}">
             <td><input type="checkbox" value="${order.Id}" ${selectedOrderIds.has(order.Id) ? 'checked' : ''} /></td>
             ${actionsHTML}
-            <td data-column="stt">
+            <td data-column="stt" class="stt-clickable" onclick="toggleProductDetail('${order.Id}', this)" title="Click để xem chi tiết sản phẩm">
                 <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
                     <span>${order.SessionIndex || ""}</span>
                     ${mergedIcon}
@@ -2058,4 +2058,83 @@ function showSaveIndicator(type, message) {
         </div>`;
     document.body.insertAdjacentHTML("beforeend", modalHTML);
 })();
+
+// ===============================================
+// PRODUCT DETAIL EXPAND (click STT)
+// ===============================================
+const _productDetailCache = new Map();
+
+async function toggleProductDetail(orderId, sttCell) {
+    const tr = sttCell.closest('tr');
+    const existingDetailRow = tr.nextElementSibling;
+
+    // Toggle: if detail row exists, remove it
+    if (existingDetailRow && existingDetailRow.classList.contains('product-detail-row')) {
+        existingDetailRow.remove();
+        sttCell.classList.remove('stt-expanded');
+        return;
+    }
+
+    // Count columns for colspan
+    const colCount = tr.children.length;
+
+    // Show loading row
+    const loadingRow = document.createElement('tr');
+    loadingRow.className = 'product-detail-row';
+    loadingRow.innerHTML = `<td colspan="${colCount}" style="padding: 8px 16px; background: #f8fafc;"><i class="fas fa-spinner fa-spin"></i> Đang tải...</td>`;
+    tr.after(loadingRow);
+    sttCell.classList.add('stt-expanded');
+
+    try {
+        let details;
+        if (_productDetailCache.has(orderId)) {
+            details = _productDetailCache.get(orderId);
+        } else {
+            const headers = await window.tokenManager.getAuthHeader();
+            const res = await API_CONFIG.smartFetch(
+                `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details`,
+                { headers: { ...headers, 'Content-Type': 'application/json', Accept: 'application/json' } }
+            );
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            details = data.Details || [];
+            _productDetailCache.set(orderId, details);
+            // Auto-clear cache after 5 minutes
+            setTimeout(() => _productDetailCache.delete(orderId), 5 * 60 * 1000);
+        }
+
+        if (details.length === 0) {
+            loadingRow.innerHTML = `<td colspan="${colCount}" style="padding: 12px 16px; background: #f8fafc; color: #6b7280; font-style: italic;">Không có sản phẩm</td>`;
+            return;
+        }
+
+        const rows = details.map((p, i) => `
+            <tr>
+                <td style="padding: 6px 12px; border-bottom: 1px solid #e5e7eb; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                    <div style="font-weight: 500;">[${p.ProductCode || ''}] ${p.ProductNameGet || p.ProductName || ''}</div>
+                    ${p.Note ? `<div style="font-size: 11px; color: #6b7280; font-style: italic;">${p.Note}</div>` : ''}
+                </td>
+                <td style="padding: 6px 12px; border-bottom: 1px solid #e5e7eb; text-align: center; width: 60px;">${p.Quantity || 0}</td>
+                <td style="padding: 6px 12px; border-bottom: 1px solid #e5e7eb; text-align: right; width: 100px;">${(p.Price || 0).toLocaleString('vi-VN')}</td>
+            </tr>
+        `).join('');
+
+        loadingRow.innerHTML = `
+            <td colspan="${colCount}" style="padding: 0; background: #f8fafc;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                    <thead>
+                        <tr style="background: #e2e8f0;">
+                            <th style="padding: 6px 12px; text-align: left; font-weight: 600;">Sản phẩm</th>
+                            <th style="padding: 6px 12px; text-align: center; width: 60px; font-weight: 600;">Số lượng</th>
+                            <th style="padding: 6px 12px; text-align: right; width: 100px; font-weight: 600;">Đơn giá</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </td>`;
+    } catch (err) {
+        console.error('[PRODUCT-DETAIL] Error:', err);
+        loadingRow.innerHTML = `<td colspan="${colCount}" style="padding: 12px 16px; background: #fef2f2; color: #dc2626;"><i class="fas fa-exclamation-triangle"></i> Lỗi tải dữ liệu</td>`;
+    }
+}
 
