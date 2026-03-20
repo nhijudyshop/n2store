@@ -2383,6 +2383,13 @@ class InboxChatController {
                     return;
                 } catch (err2) {
                     console.warn('[InboxChat] reply_inbox fallback failed:', err2.message);
+                    // Fallback to Extension (bypass 24h)
+                    if (window.pancakeExtension?.connected) {
+                        console.log('[InboxChat] Both APIs failed, trying Pancake Extension for private reply...');
+                        showToast('Đang gửi nhắn riêng qua Extension...', 'warning');
+                        await this._sendViaExtension(text, conv);
+                        return;
+                    }
                     throw err; // Throw original error
                 }
             }
