@@ -2185,8 +2185,9 @@ class InboxChatController {
             globalUserId = await new Promise((resolve) => {
                 const timeout = setTimeout(() => {
                     window.removeEventListener('message', handler);
+                    console.warn('[EXT-SEND] ⏰ GET_GLOBAL_ID_FOR_CONV timeout (45s)');
                     resolve(null);
-                }, 15000);
+                }, 45000); // Extension needs ~25-30s to resolve via graphqlbatch
                 const handler = (e) => {
                     if (e.source !== window) return;
                     if (e.data?.type === 'GET_GLOBAL_ID_FOR_CONV_SUCCESS' && e.data?.taskId === taskId) {
@@ -2230,10 +2231,10 @@ class InboxChatController {
         return new Promise((resolve, reject) => {
             const timeout = setTimeout(() => {
                 window.removeEventListener('message', handler);
-                console.error('[EXT-SEND] ⏰ TIMEOUT after 35s for REPLY_INBOX_PHOTO');
+                console.error('[EXT-SEND] ⏰ TIMEOUT after 60s for REPLY_INBOX_PHOTO');
                 console.error('[EXT-SEND] Recent extension events:', window.pancakeExtension?.lastEvents?.slice(-5));
-                reject(new Error('Extension send timeout (35s)'));
-            }, 35000);
+                reject(new Error('Extension send timeout (60s)'));
+            }, 60000);
 
             const handler = (e) => {
                 if (e.source !== window) return;
