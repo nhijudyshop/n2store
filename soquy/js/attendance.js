@@ -61,19 +61,20 @@
     }
 
     // Name overrides: mapping tên máy chấm công → tên hiển thị
+    // Key = tên gốc từ device (ví dụ "Bo"), Value = tên hiển thị (ví dụ "BO")
     const NAME_OVERRIDES_KEY = 'attendance_name_overrides';
     let nameOverrides = JSON.parse(localStorage.getItem(NAME_OVERRIDES_KEY) || '{}');
 
-    function saveNameOverride(empId, displayName) {
-        nameOverrides[String(empId)] = displayName;
+    function saveNameOverride(deviceName, displayName) {
+        nameOverrides[deviceName] = displayName;
         localStorage.setItem(NAME_OVERRIDES_KEY, JSON.stringify(nameOverrides));
     }
 
     function applyNameOverrides() {
         employees.forEach(emp => {
-            const empId = String(emp.userId || emp.uid || emp.id);
-            if (nameOverrides[empId]) {
-                emp.name = nameOverrides[empId];
+            emp._deviceName = emp.name; // Lưu tên gốc từ máy chấm công
+            if (nameOverrides[emp.name]) {
+                emp.name = nameOverrides[emp.name];
             }
         });
     }
@@ -1835,10 +1836,10 @@
                 if (input.classList.contains('settings-name')) {
                     const newName = input.value.trim();
                     if (newName && newName !== emp.name) {
-                        const empId = String(emp.userId || emp.uid || emp.id);
+                        const deviceName = emp._deviceName || emp.name;
                         emp.name = newName;
-                        saveNameOverride(empId, newName);
-                        showNotification(`Đã đổi tên: ${newName}`, 'success');
+                        saveNameOverride(deviceName, newName);
+                        showNotification(`Đã đổi tên: ${deviceName} → ${newName}`, 'success');
                         renderMonthlySchedule();
                     }
                 }
