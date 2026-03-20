@@ -3334,6 +3334,9 @@ ${d.ghiChu ? `<div style="margin-top:12px; font-style:italic; font-size:12px;"><
                         modal.style.display = 'none';
                         renderTimesheet();
                         renderSchedule();
+                        if (document.getElementById('attendanceDetailModal')?.style.display !== 'none') {
+                            showAttendanceDetailModal(empId);
+                        }
                         showNotification(`Đã lưu: ${type === 'paid_leave' ? 'Nghỉ có phép' : 'Nghỉ không phép'}`, 'success');
                     } catch (err) {
                         showNotification('Lỗi: ' + err.message, 'error');
@@ -3406,6 +3409,10 @@ ${d.ghiChu ? `<div style="margin-top:12px; font-style:italic; font-size:12px;"><
                     modal.style.display = 'none';
                     renderTimesheet();
                     renderSchedule();
+                    // Re-render detail modal nếu đang mở
+                    if (document.getElementById('attendanceDetailModal')?.style.display !== 'none') {
+                        showAttendanceDetailModal(empId);
+                    }
                     showNotification('Đã cập nhật chấm công', 'success');
                 } catch (err) {
                     console.error('[Attendance] Lỗi cập nhật:', err);
@@ -3439,6 +3446,9 @@ ${d.ghiChu ? `<div style="margin-top:12px; font-style:italic; font-size:12px;"><
                     modal.style.display = 'none';
                     renderTimesheet();
                     renderSchedule();
+                    if (document.getElementById('attendanceDetailModal')?.style.display !== 'none') {
+                        showAttendanceDetailModal(empId);
+                    }
                     showNotification('Đã xóa chấm công', 'success');
                 } catch (err) {
                     console.error('[Attendance] Lỗi xóa:', err);
