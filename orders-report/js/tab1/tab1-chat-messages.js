@@ -1113,7 +1113,7 @@ async function sendMessageInternal(messageData) {
         // Special handling for 24-hour policy error or user unavailable (551) error
         if (error.is24HourError || error.isUserUnavailable) {
             const errorType = error.is24HourError ? '24H' : '551';
-            console.log(`[MESSAGE] Showing Facebook Tag fallback for ${errorType} error`);
+            console.log(`[MESSAGE] ${errorType} error - trying fallback chain: Extension → Facebook Tag`);
 
             const originalMessage = messageData.message || '';
             const pageId = messageData.channelId || window.currentChatChannelId;
@@ -1145,8 +1145,78 @@ async function sendMessageInternal(messageData) {
                 console.log('[MESSAGE] Using currentChatPSID as last fallback:', psid);
             }
 
-            // Auto-send via Facebook Tag (POST_PURCHASE_UPDATE)
-            if ((error.is24HourError || error.isUserUnavailable) && originalMessage && pageId && psid) {
+            // ============ FALLBACK 1: Try Extension Bypass (24h bypass via business.facebook.com) ============
+            if (window.tab1ExtensionBridge?.isConnected() && originalMessage && pageId && psid) {
+                try {
+                    console.log('[MESSAGE] Trying Extension Bypass for', errorType, 'error...');
+                    showChatSendingIndicator('Đang gửi qua Extension (bypass 24h)...');
+
+                    // Build conv-like object for resolveGlobalUserId
+                    let convData = null;
+                    if (window.currentConversationId && window.pancakeDataManager) {
+                        for (const [key, conv] of window.pancakeDataManager.inboxMapByPSID) {
+                            if (conv.id === window.currentConversationId) {
+                                convData = conv;
+                                break;
+                            }
+                        }
+                    }
+
+                    // Minimal conv object if not found in cache
+                    if (!convData) {
+                        convData = {
+                            pageId: pageId,
+                            psid: psid,
+                            conversationId: window.currentConversationId,
+                            _raw: {},
+                            customers: []
+                        };
+                    }
+
+                    const globalUserId = await window.tab1ExtensionBridge.resolveGlobalUserId(convData);
+
+                    if (globalUserId) {
+                        const extResult = await window.tab1ExtensionBridge.sendMessage({
+                            text: originalMessage,
+                            pageId: pageId,
+                            psid: psid,
+                            globalUserId: globalUserId,
+                            customerName: window.currentCustomerName || ''
+                        });
+
+                        console.log('[MESSAGE] Extension Bypass SUCCESS:', extResult.messageId);
+                        if (window.notificationManager) {
+                            window.notificationManager.show('Đã gửi qua Extension (bypass 24h)', 'success');
+                        }
+
+                        // Optimistic UI update
+                        const tempMessage = {
+                            Id: extResult.messageId || `ext_${Date.now()}`,
+                            id: extResult.messageId || `ext_${Date.now()}`,
+                            Message: originalMessage,
+                            message: originalMessage,
+                            CreatedTime: new Date().toISOString(),
+                            inserted_at: new Date().toISOString(),
+                            IsOwner: true,
+                            is_temp: true
+                        };
+                        window.allChatMessages.push(tempMessage);
+                        window._messageIdSet?.add(tempMessage.id);
+                        renderChatMessages(window.allChatMessages, true);
+
+                        hideChatSendingIndicator();
+                        return; // Extension bypass succeeded!
+                    } else {
+                        console.warn('[MESSAGE] Extension: could not resolve globalUserId, falling through to Facebook Tag');
+                    }
+                } catch (extError) {
+                    console.warn('[MESSAGE] Extension Bypass failed:', extError.message, '- falling through to Facebook Tag');
+                }
+                hideChatSendingIndicator();
+            }
+
+            // ============ FALLBACK 2: Facebook Tag (POST_PURCHASE_UPDATE / HUMAN_AGENT) ============
+            if (originalMessage && pageId && psid) {
                 const errorDesc = error.is24HourError ? '24h error' : '551 (user unavailable)';
                 console.log(`[MESSAGE] Auto-sending via Facebook Tag for ${errorDesc}`);
 
@@ -1411,8 +1481,49 @@ async function sendCommentInternal(commentData) {
             }
         }
 
+        // ============ FALLBACK 3: Extension Bypass for private_replies ============
+        if (!sendSuccess && window.tab1ExtensionBridge?.isConnected()) {
+            try {
+                console.log('[COMMENT] Both APIs failed, trying Extension Bypass...');
+                showChatSendingIndicator('Đang gửi nhắn riêng qua Extension (bypass 24h)...');
+
+                const psid = window.currentChatPSID || window.currentRealFacebookPSID;
+                let convData = null;
+                if (window.currentConversationId && window.pancakeDataManager) {
+                    for (const [key, conv] of window.pancakeDataManager.inboxMapByPSID) {
+                        if (conv.id === window.currentConversationId || conv.from_psid === psid) {
+                            convData = conv;
+                            break;
+                        }
+                    }
+                }
+                if (!convData) {
+                    convData = { pageId: channelId, psid: psid, conversationId: window.currentConversationId, _raw: {}, customers: [] };
+                }
+
+                const globalUserId = await window.tab1ExtensionBridge.resolveGlobalUserId(convData);
+                if (globalUserId) {
+                    await window.tab1ExtensionBridge.sendMessage({
+                        text: message,
+                        pageId: channelId,
+                        psid: psid,
+                        globalUserId: globalUserId,
+                        customerName: window.currentCustomerName || ''
+                    });
+                    sendSuccess = true;
+                    console.log('[COMMENT] Extension Bypass SUCCESS for private_replies');
+                    if (window.notificationManager) {
+                        window.notificationManager.show('Đã gửi nhắn riêng qua Extension (bypass 24h)', 'success');
+                    }
+                }
+            } catch (extErr) {
+                console.warn('[COMMENT] Extension Bypass also failed:', extErr.message);
+            }
+            hideChatSendingIndicator();
+        }
+
         if (!sendSuccess) {
-            throw new Error('Gửi tin nhắn riêng thất bại (private_replies + reply_inbox fallback)');
+            throw new Error('Gửi tin nhắn riêng thất bại (private_replies + reply_inbox + extension fallback)');
         }
 
         console.log('[COMMENT] Message sent successfully!');

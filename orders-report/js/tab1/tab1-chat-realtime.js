@@ -16,6 +16,7 @@ console.log('[Tab1-Chat-Realtime] Loading...');
 window.realtimeMessagesInterval = null;
 window.realtimeMessagesHandler = null;
 window.lastMessageTimestamp = null;
+window._messageIdSet = new Set(); // Persistent dedup set - updated atomically with allChatMessages
 const REALTIME_POLL_INTERVAL = 10000; // 10 seconds polling interval
 
 /**
@@ -68,13 +69,12 @@ async function handleRealtimeConversationEvent(event) {
     const lastMessage = conversation.last_message || conversation.message;
 
     if (lastMessage && lastMessage.id) {
-        // Check if this message already exists
-        const existingIds = new Set(window.allChatMessages.map(m => m.id || m.Id));
-
-        if (!existingIds.has(lastMessage.id)) {
+        // Check using persistent dedup Set (atomic - no race condition)
+        if (!window._messageIdSet.has(lastMessage.id)) {
             console.log('[REALTIME-MSG] Adding message directly from WebSocket:', lastMessage.id);
 
-            // Add the new message directly (instant realtime!)
+            // Add to dedup set FIRST, then push to array (atomic order prevents duplicates)
+            window._messageIdSet.add(lastMessage.id);
             window.allChatMessages.push(lastMessage);
 
             // Update timestamp
@@ -195,17 +195,17 @@ async function fetchAndUpdateMessages() {
             return;
         }
 
-        // Find truly new messages by comparing IDs
-        const existingIds = new Set(window.allChatMessages.map(m => m.id || m.Id));
+        // Find truly new messages using persistent dedup Set
         const trulyNewMessages = newMessages.filter(msg => {
             const msgId = msg.id || msg.Id;
-            return msgId && !existingIds.has(msgId);
+            return msgId && !window._messageIdSet.has(msgId);
         });
 
         if (trulyNewMessages.length > 0) {
             console.log('[REALTIME-MSG] Found', trulyNewMessages.length, 'new messages');
 
-            // Add new messages to the array
+            // Add to dedup set FIRST, then update array
+            trulyNewMessages.forEach(msg => window._messageIdSet.add(msg.id || msg.Id));
             window.allChatMessages = [...window.allChatMessages, ...trulyNewMessages];
 
             // Update timestamp
@@ -374,6 +374,7 @@ function cleanupRealtimeMessages() {
     // Reset state
     window.lastMessageTimestamp = null;
     window.isFetchingRealtimeMessages = false;
+    window._messageIdSet.clear();
 }
 
 // Expose for external use

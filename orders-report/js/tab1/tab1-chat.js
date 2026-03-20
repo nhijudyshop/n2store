@@ -43,9 +43,33 @@
         }
     });
 
+    // Check extension bridge module
+    if (window.tab1ExtensionBridge) {
+        console.log('[Tab1-Chat] tab1-extension-bridge OK');
+    } else {
+        console.warn('[Tab1-Chat] tab1-extension-bridge not loaded (Extension bypass unavailable)');
+    }
+
     if (allPassed) {
-        console.log('[Tab1-Chat] All 5 sub-modules loaded successfully.');
+        console.log('[Tab1-Chat] All sub-modules loaded successfully.');
     } else {
         console.error('[Tab1-Chat] Some sub-modules failed to load! Check script tags in tab1-orders.html.');
     }
+
+    // Initialize Extension Bridge with discovered page IDs (delayed to let pancakeTokenManager load)
+    setTimeout(() => {
+        if (window.tab1ExtensionBridge && !window.tab1ExtensionBridge._initialized) {
+            let pageIds = [];
+            // Try to get page IDs from pancakeTokenManager
+            if (window.pancakeTokenManager?.accountPages) {
+                pageIds = Object.keys(window.pancakeTokenManager.accountPages);
+            }
+            // Fallback: try from pancakeDataManager
+            if (pageIds.length === 0 && window.pancakeDataManager?.pageIds) {
+                pageIds = window.pancakeDataManager.pageIds;
+            }
+            window.tab1ExtensionBridge.init(pageIds);
+            console.log('[Tab1-Chat] Extension bridge initialized with', pageIds.length, 'page IDs');
+        }
+    }, 3000); // Wait 3s for token manager to load
 })();

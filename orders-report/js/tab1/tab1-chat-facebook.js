@@ -191,6 +191,18 @@ window.current24hPolicyStatus = {
  * Show 24h policy fallback prompt with option to send via Facebook tag
  */
 window.show24hFallbackPrompt = function (messageText, pageId, psid) {
+    // Check if Extension is available for bypass
+    const extConnected = window.tab1ExtensionBridge?.isConnected();
+    const extensionButton = extConnected ? `
+                <button onclick="window.sendViaExtensionFromModal('${encodeURIComponent(messageText)}', '${pageId}', '${psid}')"
+                    style="padding: 12px 16px; background: linear-gradient(135deg, #8b5cf6, #6d28d9); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <i class="fas fa-plug"></i>
+                    Gửi qua Extension (bypass 24h)
+                </button>
+                <p style="font-size: 12px; color: #9ca3af; margin: 0; padding: 0 8px;">
+                    Gửi trực tiếp qua Business Suite - không giới hạn 24h
+                </p>` : '';
+
     const modalContent = `
         <div style="padding: 20px; max-width: 400px;">
             <h3 style="margin: 0 0 16px; color: #ef4444; display: flex; align-items: center; gap: 8px;">
@@ -201,6 +213,7 @@ window.show24hFallbackPrompt = function (messageText, pageId, psid) {
                 Khách hàng chưa tương tác trong 24 giờ qua. Chọn cách gửi tin nhắn:
             </p>
             <div style="display: flex; flex-direction: column; gap: 12px;">
+                ${extensionButton}
                 <button onclick="window.sendViaFacebookTagFromModal('${encodeURIComponent(messageText)}', '${pageId}', '${psid}')"
                     style="padding: 12px 16px; background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 8px;">
                     <i class="fab fa-facebook"></i>
@@ -291,6 +304,76 @@ window.sendViaFacebookTagFromModal = async function (encodedMessage, pageId, psi
             window.notificationManager.show('Lỗi gửi qua Facebook: ' + result.error, 'error', 8000);
         } else {
             alert('Lỗi gửi qua Facebook: ' + result.error);
+        }
+    }
+};
+
+/**
+ * Send message via Extension from 24h fallback modal
+ */
+window.sendViaExtensionFromModal = async function (encodedMessage, pageId, psid) {
+    window.close24hFallbackModal();
+    const message = decodeURIComponent(encodedMessage);
+
+    if (!window.tab1ExtensionBridge?.isConnected()) {
+        if (window.notificationManager) {
+            window.notificationManager.show('Extension chưa kết nối. Vui lòng cài extension và reload.', 'error');
+        }
+        return;
+    }
+
+    try {
+        if (window.notificationManager) {
+            window.notificationManager.show('Đang gửi qua Extension (bypass 24h)...', 'info');
+        }
+
+        // Build conv data for resolving globalUserId
+        let convData = { pageId, psid, conversationId: window.currentConversationId, _raw: {}, customers: [] };
+        if (window.currentConversationId && window.pancakeDataManager) {
+            for (const [key, conv] of window.pancakeDataManager.inboxMapByPSID) {
+                if (conv.id === window.currentConversationId) {
+                    convData = conv;
+                    break;
+                }
+            }
+        }
+
+        const globalUserId = await window.tab1ExtensionBridge.resolveGlobalUserId(convData);
+        if (!globalUserId) {
+            throw new Error('Không tìm được Global Facebook ID');
+        }
+
+        const result = await window.tab1ExtensionBridge.sendMessage({
+            text: message,
+            pageId,
+            psid,
+            globalUserId,
+            customerName: window.currentCustomerName || ''
+        });
+
+        if (window.notificationManager) {
+            window.notificationManager.show('Đã gửi qua Extension (bypass 24h)!', 'success');
+        }
+
+        // Optimistic UI update
+        const tempMessage = {
+            Id: result.messageId || `ext_${Date.now()}`,
+            id: result.messageId || `ext_${Date.now()}`,
+            Message: message,
+            message: message,
+            CreatedTime: new Date().toISOString(),
+            inserted_at: new Date().toISOString(),
+            IsOwner: true,
+            is_temp: true
+        };
+        window.allChatMessages.push(tempMessage);
+        window._messageIdSet?.add(tempMessage.id);
+        renderChatMessages(window.allChatMessages, true);
+
+    } catch (err) {
+        console.error('[EXT-MODAL] Extension send failed:', err);
+        if (window.notificationManager) {
+            window.notificationManager.show('Extension gửi thất bại: ' + err.message, 'error');
         }
     }
 };

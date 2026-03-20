@@ -703,7 +703,6 @@ class MessageTemplateManager {
                 // Support both Firestore (Content) and legacy TPOS (BodyPlain)
                 const content =
                     template.Content ||
-                    template.Content ||
                     template.BodyPlain ||
                     'Không có nội dung';
                 const date = template.createdAt?.toDate
