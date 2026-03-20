@@ -1014,7 +1014,10 @@ InboxApiConfig.buildUrl.pancakeDirect = function(endpoint, pageId, jwtToken) {
     const base = `${INBOX_WORKER_URL}/api/pancake-direct/${endpoint}`;
     const params = [];
     if (pageId) params.push(`page_id=${pageId}`);
-    if (jwtToken) params.push(`jwt=${jwtToken}`);
+    if (jwtToken) {
+        params.push(`jwt=${jwtToken}`);
+        params.push(`access_token=${jwtToken}`);
+    }
     return params.length ? `${base}?${params.join('&')}` : base;
 };
 
