@@ -1089,11 +1089,12 @@ function createRowHTML(order) {
     const pageId = order.Facebook_PostId ? order.Facebook_PostId.split('_')[0] : '';
 
     return `
-        <tr class="${rowClass} ${mergedClass}" data-psid="${order.Facebook_ASUserId || ''}" data-page-id="${pageId}" data-order-id="${order.Id}">
+        <tr class="${rowClass} ${mergedClass} ${window.StockStatusEngine?.getStockRowClass?.(order.Id) || ''}" data-psid="${order.Facebook_ASUserId || ''}" data-page-id="${pageId}" data-order-id="${order.Id}">
             <td><input type="checkbox" value="${order.Id}" ${selectedOrderIds.has(order.Id) ? 'checked' : ''} /></td>
             ${actionsHTML}
             <td data-column="stt" class="stt-clickable" onclick="toggleProductDetail('${order.Id}', this)" title="Click để xem chi tiết sản phẩm">
                 <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
+                    ${window.StockStatusEngine?.renderBadge?.(order.Id) || ''}
                     <span>${order.SessionIndex || ""}</span>
                     ${mergedIcon}
                     ${ordersWithKPIBase.has(order.Id) ? '<span class="kpi-base-indicator" title="Đã lưu BASE tính KPI"><i class="fas fa-lock" style="color: #10b981; font-size: 10px;"></i></span>' : ''}
@@ -2112,6 +2113,7 @@ async function toggleProductDetail(orderId, sttCell) {
             return;
         }
 
+        const _stockEngine = window.StockStatusEngine;
         const rows = details.map((p, i) => `
             <tr>
                 <td style="padding: 6px 12px; border-bottom: 1px solid #e5e7eb; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
@@ -2120,6 +2122,7 @@ async function toggleProductDetail(orderId, sttCell) {
                 </td>
                 <td style="padding: 6px 12px; border-bottom: 1px solid #e5e7eb; text-align: center; width: 60px;">${p.Quantity || 0}</td>
                 <td style="padding: 6px 12px; border-bottom: 1px solid #e5e7eb; text-align: right; width: 100px;">${(p.Price || 0).toLocaleString('vi-VN')}</td>
+                ${_stockEngine?._checked ? _stockEngine.renderStockColumnCell(p) : ''}
             </tr>
         `).join('');
 
@@ -2131,6 +2134,7 @@ async function toggleProductDetail(orderId, sttCell) {
                             <th style="padding: 6px 12px; text-align: left; font-weight: 600;">Sản phẩm</th>
                             <th style="padding: 6px 12px; text-align: center; width: 60px; font-weight: 600;">Số lượng</th>
                             <th style="padding: 6px 12px; text-align: right; width: 100px; font-weight: 600;">Đơn giá</th>
+                            ${window.StockStatusEngine?._checked ? window.StockStatusEngine.renderStockColumnHeader() : ''}
                         </tr>
                     </thead>
                     <tbody>${rows}</tbody>

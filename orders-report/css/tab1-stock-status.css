@@ -1,0 +1,118 @@
+/* =====================================================
+   TAB1 STOCK STATUS — Kiểm tra tồn kho
+   ===================================================== */
+
+/* Stock badge dot in STT cell */
+.stock-badge {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    cursor: help;
+    transition: transform 0.2s;
+}
+.stock-badge:hover {
+    transform: scale(1.4);
+}
+
+/* Pulse animation for waiting/critical */
+.stock-waiting, .stock-critical {
+    animation: stockPulse 2s ease-in-out infinite;
+}
+@keyframes stockPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* Row highlighting */
+.stock-row-waiting {
+    background: rgba(245, 158, 11, 0.05) !important;
+}
+.stock-row-critical {
+    background: rgba(239, 68, 68, 0.06) !important;
+}
+
+/* Stock check button */
+.btn-stock-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+.btn-stock-check:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+}
+.btn-stock-check:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* Summary bar */
+#stockSummaryBar {
+    display: none;
+    gap: 12px;
+    align-items: center;
+    padding: 8px 16px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 13px;
+    flex-wrap: wrap;
+}
+
+.stock-summary-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.15s;
+    user-select: none;
+}
+.stock-summary-item:hover {
+    transform: translateY(-1px);
+}
+
+.stock-summary-ready {
+    background: rgba(16, 185, 129, 0.1);
+    color: #065f46;
+}
+.stock-summary-ready:hover {
+    background: rgba(16, 185, 129, 0.2);
+}
+
+.stock-summary-waiting {
+    background: rgba(245, 158, 11, 0.1);
+    color: #92400e;
+}
+.stock-summary-waiting:hover {
+    background: rgba(245, 158, 11, 0.2);
+}
+
+.stock-summary-critical {
+    background: rgba(239, 68, 68, 0.1);
+    color: #991b1b;
+}
+.stock-summary-critical:hover {
+    background: rgba(239, 68, 68, 0.2);
+}
+
+.stock-summary-clear {
+    background: rgba(107, 114, 128, 0.1);
+    color: #374151;
+}
+.stock-summary-clear:hover {
+    background: rgba(107, 114, 128, 0.2);
+}

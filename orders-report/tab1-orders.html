@@ -22,6 +22,7 @@
     <link rel="stylesheet" href="css/tab1-bill-settings.css" />
     <link rel="stylesheet" href="css/order-history.css" />
     <link rel="stylesheet" href="css/tab1-processing-tags.css" />
+    <link rel="stylesheet" href="css/tab1-stock-status.css" />
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="js/utils/decoding-utility.js"></script>
@@ -161,6 +162,10 @@
                 <i class="fas fa-tags"></i>
                 Xóa Tag Hàng Loạt
             </button>
+            <button class="btn-stock-check" id="btnStockCheck" onclick="window.StockStatusEngine.init()"
+                title="Kiểm tra tồn kho từng đơn dựa trên dữ liệu TPOS">
+                <i class="fas fa-boxes-stacked"></i> Kiểm tra tồn kho
+            </button>
             <button class="btn-primary" id="billTemplateSettingsBtn" onclick="openBillTemplateSettings()"
                 style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%)"
                 title="Cài đặt mẫu hóa đơn/bill">
@@ -210,6 +215,9 @@
             </div>
 
         </div>
+
+        <!-- Stock Status Summary Bar (hidden until stock check) -->
+        <div id="stockSummaryBar"></div>
 
         <!-- Action Buttons Section (Compact & Sticky) -->
         <div class="action-buttons-section" id="actionButtonsSection">
@@ -1448,6 +1456,9 @@
 
     <!-- 6b. Processing Tags: Tag Xử Lý system -->
     <script src="js/tab1/tab1-processing-tags.js"></script>
+
+    <!-- 6c. Stock Status: Kiểm tra tồn kho tự động -->
+    <script src="js/tab1/tab1-stock-status.js"></script>
 
     <!-- 7. Search: Table search, campaign loading (lines 5241-6814) -->
     <script src="js/tab1/tab1-search.js"></script>

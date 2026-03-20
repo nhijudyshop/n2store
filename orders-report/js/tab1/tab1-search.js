@@ -327,6 +327,12 @@ function performTableSearch() {
         console.log(`[FILTER] Applied processing tag filter, remaining orders: ${tempData.length}`);
     }
 
+    // Apply Stock Status filter
+    if (window.StockStatusEngine?._checked && window.StockStatusEngine._activeFilter) {
+        tempData = tempData.filter(order => window.StockStatusEngine.passesStockFilter(String(order.Id)));
+        console.log(`[FILTER] Applied stock status filter (${window.StockStatusEngine._activeFilter}), remaining orders: ${tempData.length}`);
+    }
+
     filteredData = tempData;
 
     // Priority sorting: STT → Phone → Name
