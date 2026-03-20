@@ -2196,6 +2196,8 @@ class InboxChatController {
                 message: text,
                 attachmentType: 'SEND_TEXT_ONLY',
                 files: [],
+                photoUrls: [],
+                contentIds: [],
                 taskId: taskId,
                 platform: 'facebook',
                 isBusiness: true,
