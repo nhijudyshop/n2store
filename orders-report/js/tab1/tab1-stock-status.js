@@ -74,22 +74,65 @@
     }
 
     /**
-     * Load order product details from report_order_details Firebase path
+     * Load order product details from Firestore report_order_details collection
+     * Supports chunked data (isChunked + order_chunks subcollection)
      * Returns: Map<OrderId, [{ code, name, qty }]>
      */
     async function loadOrderProductDetails(campaignName) {
-        const db = firebase.database();
+        const db = firebase.firestore();
+        const collectionRef = db.collection('report_order_details');
         const sanitizedName = campaignName.replace(/[.$#\[\]\/]/g, '_');
-        const snapshot = await db.ref(`report_order_details/${sanitizedName}/orders`).once('value');
-        const data = snapshot.val();
 
-        const orderProductsMap = new Map();
-        if (!data) {
-            console.warn('[STOCK] No order details found at report_order_details/' + sanitizedName);
-            return orderProductsMap;
+        // Try direct doc lookup first
+        let doc = await collectionRef.doc(sanitizedName).get();
+
+        // If not found, try listing all docs to find a match
+        if (!doc.exists) {
+            console.log(`[STOCK] Doc "${sanitizedName}" not found, scanning collection...`);
+            const allDocs = await collectionRef.get();
+            const matchingDoc = allDocs.docs.find(d => {
+                const docName = d.id.toLowerCase();
+                const searchName = sanitizedName.toLowerCase();
+                return docName === searchName || docName.includes(searchName) || searchName.includes(docName);
+            });
+            if (matchingDoc) {
+                doc = matchingDoc;
+                console.log(`[STOCK] Found matching doc: "${doc.id}"`);
+            }
         }
 
-        const orders = Array.isArray(data) ? data : Object.values(data);
+        const orderProductsMap = new Map();
+        if (!doc.exists) {
+            console.warn('[STOCK] No order details found in report_order_details for: ' + sanitizedName);
+            // List available docs for debugging
+            const allDocs = await collectionRef.get();
+            console.log('[STOCK] Available docs:', allDocs.docs.map(d => d.id));
+            return orderProductsMap;
+        }
+        const docRef = doc.ref;
+
+        const docData = doc.data();
+        let orders;
+
+        // Handle chunked data (large datasets > 100 orders)
+        if (docData.isChunked) {
+            console.log(`[STOCK] Loading chunked order details (${docData.chunkCount} chunks)...`);
+            const chunksSnapshot = await docRef.collection('order_chunks')
+                .orderBy('chunkIndex')
+                .get();
+            orders = [];
+            chunksSnapshot.docs.forEach(chunkDoc => {
+                const chunkData = chunkDoc.data();
+                if (chunkData.orders) {
+                    orders.push(...chunkData.orders);
+                }
+            });
+        } else {
+            orders = docData.orders || [];
+        }
+
+        console.log(`[STOCK] Loaded ${orders.length} orders from Firestore`);
+
         orders.forEach(item => {
             const order = item.order || item;
             const orderId = String(order.Id || item.Id || '');
@@ -505,7 +548,16 @@
                 throw new Error('Chưa chọn chiến dịch');
             }
 
-            const campaignName = campaign.name || document.getElementById('activeCampaignLabel')?.textContent?.trim();
+            // Resolve campaign name: try multiple sources
+            let campaignName = campaign.name;
+            if (!campaignName) {
+                campaignName = document.getElementById('activeCampaignLabel')?.textContent?.trim();
+            }
+            // Fallback: use LiveCampaignName from first order (TPOS native name)
+            const allOrders = window.getAllOrders ? window.getAllOrders() : [];
+            if (!campaignName && allOrders.length > 0) {
+                campaignName = allOrders[0].LiveCampaignName;
+            }
             const tposCampaignId = campaign.tposCampaignId || campaignId;
 
             if (!campaignName) {
