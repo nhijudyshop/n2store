@@ -198,26 +198,25 @@ async function initInboxApp() {
         PermissionHelper.applyUIRestrictions('inbox');
     }
 
-    // ===== Pancake Extension Bridge =====
-    window.pancakeExtension = { connected: false };
-    window.addEventListener('message', (e) => {
-        if (e.source !== window) return;
-        if (e.data?.type === 'EXTENSION_LOADED' && e.data?.from === 'EXTENSION') {
-            window.pancakeExtension.connected = true;
-            console.log('[Inbox] Pancake Extension connected');
-            showToast('Pancake Extension đã kết nối', 'success');
-        }
-        // Handle send message responses
-        if (e.data?.type === 'REPLY_INBOX_PHOTO_SUCCESS') {
-            console.log('[Inbox] Extension send success:', e.data);
-        }
-        if (e.data?.type === 'REPLY_INBOX_PHOTO_FAILURE') {
-            console.warn('[Inbox] Extension send failed:', e.data);
-        }
-    });
-
     console.log('[Inbox] App initialized successfully with Pancake API + WebSocket');
 }
+
+// ===== Pancake Extension Bridge (before DOM ready, catch early EXTENSION_LOADED) =====
+window.pancakeExtension = { connected: false };
+window.addEventListener('message', (e) => {
+    if (e.source !== window) return;
+    if (e.data?.type === 'EXTENSION_LOADED' && e.data?.from === 'EXTENSION') {
+        window.pancakeExtension.connected = true;
+        console.log('[Inbox] Pancake Extension connected');
+        if (typeof showToast === 'function') showToast('Pancake Extension đã kết nối', 'success');
+    }
+    if (e.data?.type === 'REPLY_INBOX_PHOTO_SUCCESS') {
+        console.log('[Inbox] Extension send success:', e.data);
+    }
+    if (e.data?.type === 'REPLY_INBOX_PHOTO_FAILURE') {
+        console.warn('[Inbox] Extension send failed:', e.data);
+    }
+});
 
 // Wait for DOM ready
 if (document.readyState === 'loading') {
