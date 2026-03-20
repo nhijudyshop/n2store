@@ -402,38 +402,12 @@
         btn.classList.add('loading');
 
         try {
-            // Pull orders from report_order_details
-            const snapshot = await db
-                .ref(`report_order_details/${currentCampaignName}/orders`)
-                .once('value');
-            const orders = snapshot.val() || [];
-
-            // Aggregate qty per productId
-            const qtyMap = {};
-            const productInfoMap = {};
-
-            (Array.isArray(orders) ? orders : Object.values(orders)).forEach((order) => {
-                (order.Details || []).forEach((detail) => {
-                    if (!detail.ProductId && detail.ProductId !== 0) return;
-                    const pid = String(detail.ProductId);
-                    if (pid === 'null' || pid === 'undefined' || pid === '') return;
-
-                    qtyMap[pid] = (qtyMap[pid] || 0) + (detail.Quantity || 0);
-
-                    if (!productInfoMap[pid]) {
-                        productInfoMap[pid] = {
-                            productCode: detail.ProductCode || detail.Code || '',
-                            productName: detail.ProductName || detail.Name || '',
-                        };
-                    }
-                });
-            });
-
-            // Also pull order-management data for Duyên's soldQty
+            // Pull order-management data FIRST (need code→id map for Excel orders)
             const duyenQtyMap = {};
             const nccMap = {};
             const omProductInfoMap = {};
             const omStockMap = {};
+            const codeToIdMap = {};
 
             if (_tposCampaignId) {
                 const omSnapshot = await db.ref(`orderProducts/${_tposCampaignId}`).once('value');
@@ -452,12 +426,53 @@
                     if (code || name) {
                         omProductInfoMap[pid] = { productCode: code, productName: name };
                     }
+                    // Build reverse map: ProductCode → ProductId
+                    if (code) {
+                        codeToIdMap[code] = pid;
+                    }
 
                     if (product.QtyAvailable != null) {
                         omStockMap[pid] = product.QtyAvailable;
                     }
                 });
             }
+
+            // Pull orders from report_order_details
+            const snapshot = await db
+                .ref(`report_order_details/${currentCampaignName}/orders`)
+                .once('value');
+            const orders = snapshot.val() || [];
+
+            // Aggregate qty per productId
+            const qtyMap = {};
+            const productInfoMap = {};
+
+            (Array.isArray(orders) ? orders : Object.values(orders)).forEach((order) => {
+                (order.Details || []).forEach((detail) => {
+                    // Resolve ProductId: use ProductId if available, else lookup by ProductCode
+                    let pid = null;
+                    if (detail.ProductId && detail.ProductId !== 0) {
+                        const pidStr = String(detail.ProductId);
+                        if (pidStr !== 'null' && pidStr !== 'undefined' && pidStr !== '') {
+                            pid = pidStr;
+                        }
+                    }
+                    // Fallback: resolve via ProductCode → ProductId map
+                    if (!pid && detail.ProductCode && codeToIdMap[detail.ProductCode]) {
+                        pid = codeToIdMap[detail.ProductCode];
+                    }
+                    if (!pid) return;
+
+                    qtyMap[pid] = (qtyMap[pid] || 0) + (detail.Quantity || 0);
+
+                    if (!productInfoMap[pid]) {
+                        productInfoMap[pid] = {
+                            productCode: detail.ProductCode || detail.Code || '',
+                            productName: detail.ProductName || detail.Name || '',
+                        };
+                    }
+                });
+            });
 
             // Merge product IDs from current data only
             const currentPids = new Set([...Object.keys(qtyMap), ...Object.keys(duyenQtyMap)]);

@@ -177,43 +177,17 @@
         detachListeners();
 
         try {
-            // Step 1: Aggregate customerOrderQty from cachedOrderDetails
-            const qtyMap = {};
-            const productInfoMap = {};
-            const cached =
-                typeof cachedOrderDetails !== 'undefined' && cachedOrderDetails
-                    ? cachedOrderDetails[campaignName]
-                    : null;
-
-            if (cached && cached.orders) {
-                const orders = cached.orders;
-                (Array.isArray(orders) ? orders : Object.values(orders)).forEach((item) => {
-                    const order = item.order || item;
-                    (order.Details || []).forEach((detail) => {
-                        // FIX BUG 5: Skip details without valid ProductId (Excel source has null)
-                        if (!detail.ProductId && detail.ProductId !== 0) return;
-                        const pid = String(detail.ProductId);
-                        if (pid === 'null' || pid === 'undefined' || pid === '') return;
-
-                        qtyMap[pid] = (qtyMap[pid] || 0) + (detail.Quantity || 0);
-                        if (!productInfoMap[pid]) {
-                            productInfoMap[pid] = {
-                                productCode:
-                                    detail.ProductCode || detail.Code || detail.DefaultCode || '',
-                                productName: detail.ProductName || detail.Name || '',
-                            };
-                        }
-                    });
-                });
-            }
-
-            // Step 2: Pull order-management data (Duyên's soldQty + product info)
+            // Step 1: Pull order-management data FIRST (need code→id map for Excel orders)
+            // Moved before customer order aggregation so we can resolve ProductCode → ProductId
             // FIX BUG 1 & 3: Read from correct campaign-scoped path
             const tposCampaignId = await getTposCampaignId();
             const duyenQtyMap = {};
             const nccMap = {};
             const omProductInfoMap = {};
             const omStockMap = {};
+
+            // Build ProductCode → ProductId reverse map for resolving Excel orders
+            const codeToIdMap = {};
 
             if (tposCampaignId) {
                 const omSnapshot = await db.ref(`orderProducts/${tposCampaignId}`).once('value');
@@ -238,6 +212,10 @@
                             productName: name,
                         };
                     }
+                    // Build reverse map: ProductCode → ProductId
+                    if (code) {
+                        codeToIdMap[code] = pid;
+                    }
 
                     // FIX BUG 6: Stock from QtyAvailable - always update (including 0)
                     if (product.QtyAvailable != null) {
@@ -249,12 +227,53 @@
                     '[LEDGER] Loaded orderProducts from TPOS campaign:',
                     tposCampaignId,
                     'products:',
-                    Object.keys(duyenQtyMap).length
+                    Object.keys(duyenQtyMap).length,
+                    'codeToIdMap:',
+                    Object.keys(codeToIdMap).length
                 );
             } else {
                 console.warn(
                     '[LEDGER] No TPOS campaign ID available - Duyên order data will not be synced'
                 );
+            }
+
+            // Step 2: Aggregate customerOrderQty from cachedOrderDetails
+            const qtyMap = {};
+            const productInfoMap = {};
+            const cached =
+                typeof cachedOrderDetails !== 'undefined' && cachedOrderDetails
+                    ? cachedOrderDetails[campaignName]
+                    : null;
+
+            if (cached && cached.orders) {
+                const orders = cached.orders;
+                (Array.isArray(orders) ? orders : Object.values(orders)).forEach((item) => {
+                    const order = item.order || item;
+                    (order.Details || []).forEach((detail) => {
+                        // Resolve ProductId: use ProductId if available, else lookup by ProductCode
+                        let pid = null;
+                        if (detail.ProductId && detail.ProductId !== 0) {
+                            const pidStr = String(detail.ProductId);
+                            if (pidStr !== 'null' && pidStr !== 'undefined' && pidStr !== '') {
+                                pid = pidStr;
+                            }
+                        }
+                        // Fallback: resolve via ProductCode → ProductId map
+                        if (!pid && detail.ProductCode && codeToIdMap[detail.ProductCode]) {
+                            pid = codeToIdMap[detail.ProductCode];
+                        }
+                        if (!pid) return;
+
+                        qtyMap[pid] = (qtyMap[pid] || 0) + (detail.Quantity || 0);
+                        if (!productInfoMap[pid]) {
+                            productInfoMap[pid] = {
+                                productCode:
+                                    detail.ProductCode || detail.Code || detail.DefaultCode || '',
+                                productName: detail.ProductName || detail.Name || '',
+                            };
+                        }
+                    });
+                });
             }
 
             // Step 3: Load existing ledger data from Firebase
