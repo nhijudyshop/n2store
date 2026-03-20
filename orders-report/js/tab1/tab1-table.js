@@ -2121,7 +2121,7 @@ async function toggleProductDetail(orderId, sttCell) {
 
         loadingRow.innerHTML = `
             <td colspan="${colCount}" style="padding: 0; background: #f8fafc;">
-                <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                <table style="width: auto; border-collapse: collapse; font-size: 13px;">
                     <thead>
                         <tr style="background: #e2e8f0;">
                             <th style="padding: 6px 12px; text-align: left; font-weight: 600;">Sản phẩm</th>
