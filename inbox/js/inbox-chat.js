@@ -2159,17 +2159,32 @@ class InboxChatController {
      *   Step 2: REPLY_INBOX_PHOTO with globalUserId → send via business.facebook.com/messaging/send/
      */
     async _sendViaExtension(text, conv) {
-        // Extract threadId from conversationId (Pancake API format: "t_34116166741365151")
-        const convIdRaw = conv.conversationId || conv.id;
-        const threadId = String(convIdRaw).replace(/^t_/, '');
-        const threadKey = String(convIdRaw).startsWith('t_') ? String(convIdRaw) : 't_' + convIdRaw;
+        // Pancake API conv.id format: "pageId_psid" (e.g. "112678138086607_6669808339796793")
+        // Extension needs Facebook thread_fbid (e.g. "34116166741365151")
+        // Try to find fb_thread_id from raw data, fallback to PSID
+        const raw = conv._raw || {};
+        const psid = conv.psid || raw.from_psid || raw.from?.id || '';
+
+        // Log ALL raw fields to discover Facebook thread ID field
+        console.log('[EXT-SEND] 🔍 Raw conversation fields:', Object.keys(raw));
+        console.log('[EXT-SEND] 🔍 Raw conversation data:', JSON.stringify(raw, null, 2).substring(0, 3000));
+
+        // Look for Facebook thread ID in raw data (various possible field names)
+        const fbThreadId = raw.fb_thread_id || raw.thread_id || raw.thread_fbid ||
+                          raw.facebook_thread_id || raw.thread_key?.replace?.(/^t_/, '') || null;
+
+        // Use fb_thread_id if found, otherwise use PSID (not pageId_psid!)
+        const threadId = fbThreadId || psid;
+        const threadKey = 't_' + threadId;
         const conversationUpdatedTime = conv.time ? conv.time.getTime() : Date.now();
 
         console.log('[EXT-SEND] Step 1: Resolving Global ID via GET_GLOBAL_ID_FOR_CONV', {
             pageId: conv.pageId,
-            convIdRaw,
+            psid,
+            fbThreadId,
             threadId,
             threadKey,
+            convId: conv.conversationId,
             conversationUpdatedTime,
             customerName: conv.customerName || conv.name
         });
