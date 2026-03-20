@@ -2190,13 +2190,15 @@ class InboxChatController {
                 type: 'REPLY_INBOX_PHOTO',
                 pageId: conv.pageId,
                 convId: conv.conversationId,
-                threadId: conv.conversationId,
+                threadId: psid,
+                threadKey: psid,
                 globalUserId: psid,
                 message: text,
                 attachmentType: 'SEND_TEXT_ONLY',
                 files: [],
                 taskId: taskId,
                 platform: 'facebook',
+                isBusiness: true,
                 customerName: conv.customerName || conv.name || ''
             };
             window.postMessage(payload, '*');
