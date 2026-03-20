@@ -2075,6 +2075,10 @@ async function toggleProductDetail(orderId, sttCell) {
         return;
     }
 
+    // Close all other open detail rows
+    document.querySelectorAll('.product-detail-row').forEach(row => row.remove());
+    document.querySelectorAll('.stt-expanded').forEach(el => el.classList.remove('stt-expanded'));
+
     // Count columns for colspan
     const colCount = tr.children.length;
 
