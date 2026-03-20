@@ -543,11 +543,113 @@
                 (Array.isArray(orders) ? orders : Object.values(orders)).length,
                 'orders'
             );
+
+            // Fetch fresh stock from TPOS API (async, non-blocking)
+            fetchFreshStockFromTPOS().catch(err =>
+                console.warn('[LEDGER] Background stock update failed:', err)
+            );
         } catch (error) {
             console.error('[LEDGER] Error refreshing:', error);
         } finally {
             btn.disabled = false;
             btn.classList.remove('loading');
+        }
+    };
+
+    // =====================================================
+    // FETCH FRESH STOCK FROM TPOS API
+    // =====================================================
+
+    const TPOS_PRODUCT_API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Product';
+
+    /**
+     * Fetch fresh QtyAvailable from TPOS Product API for all products in ledger.
+     */
+    async function fetchFreshStockFromTPOS() {
+        if (!currentCampaignId) return;
+
+        const productIds = Object.keys(ledgerProducts);
+        if (productIds.length === 0) return;
+
+        console.log('[LEDGER] Fetching fresh stock from TPOS for', productIds.length, 'products...');
+
+        try {
+            const headers = window.tokenManager
+                ? await window.tokenManager.getAuthHeader()
+                : {};
+
+            const chunkSize = 20;
+            const stockMap = {};
+
+            for (let i = 0; i < productIds.length; i += chunkSize) {
+                const chunk = productIds.slice(i, i + chunkSize);
+                const filterParts = chunk.map(id => `Id eq ${id}`);
+                const filter = filterParts.join(' or ');
+                const url = `${TPOS_PRODUCT_API}/OdataService.GetViewV2?$filter=${encodeURIComponent(filter)}&$select=Id,QtyAvailable,DefaultCode&$top=${chunk.length}`;
+
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: { ...headers, 'Accept': 'application/json' },
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    (data.value || []).forEach(product => {
+                        stockMap[String(product.Id)] = product.QtyAvailable || 0;
+                    });
+                } else {
+                    console.warn('[LEDGER] TPOS stock fetch failed for chunk:', response.status);
+                }
+            }
+
+            // Update Firebase with fresh stock values
+            const updates = {};
+            let updatedCount = 0;
+            Object.entries(stockMap).forEach(([pid, freshQty]) => {
+                const currentQty = ledgerProducts[pid]?.stockQty;
+                if (currentQty !== freshQty) {
+                    updates[`${pid}/stockQty`] = freshQty;
+                    updatedCount++;
+                }
+            });
+
+            if (Object.keys(updates).length > 0) {
+                await db.ref(`live_ledger/${currentCampaignId}/products`).update(updates);
+                console.log('[LEDGER] Updated stock for', updatedCount, 'products from TPOS');
+            } else {
+                console.log('[LEDGER] Stock already up to date');
+            }
+
+            return stockMap;
+        } catch (error) {
+            console.error('[LEDGER] Error fetching stock from TPOS:', error);
+            return null;
+        }
+    }
+
+    window.updateStockFromTPOS = async function () {
+        const btn = document.getElementById('btnUpdateStock');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang cập nhật...';
+        }
+
+        try {
+            const stockMap = await fetchFreshStockFromTPOS();
+            if (stockMap) {
+                const count = Object.keys(stockMap).length;
+                if (btn) btn.innerHTML = `<i class="fas fa-check"></i> Đã cập nhật ${count} SP`;
+                setTimeout(() => {
+                    if (btn) btn.innerHTML = '<i class="fas fa-warehouse"></i> Cập nhật tồn kho';
+                }, 2000);
+            } else {
+                if (btn) btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Lỗi!';
+                setTimeout(() => {
+                    if (btn) btn.innerHTML = '<i class="fas fa-warehouse"></i> Cập nhật tồn kho';
+                }, 2000);
+            }
+        } finally {
+            if (btn) btn.disabled = false;
         }
     };
 
