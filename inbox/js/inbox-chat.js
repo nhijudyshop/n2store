@@ -2154,29 +2154,93 @@ class InboxChatController {
 
     /**
      * Send message via Pancake Extension (postMessage → contentscript → background → Facebook Business Suite)
+     * 2-step flow (matching pancake.vn behavior):
+     *   Step 1: GET_GLOBAL_ID_FOR_CONV → get globalUserId from extension
+     *   Step 2: REPLY_INBOX_PHOTO with globalUserId → send via business.facebook.com/messaging/send/
      */
-    _sendViaExtension(text, conv) {
-        const taskId = 'n2_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    async _sendViaExtension(text, conv) {
+        // Extract threadId from conversationId (Pancake API format: "t_34116166741365151")
+        const convIdRaw = conv.conversationId || conv.id;
+        const threadId = String(convIdRaw).replace(/^t_/, '');
+        const threadKey = String(convIdRaw).startsWith('t_') ? String(convIdRaw) : 't_' + convIdRaw;
+        const conversationUpdatedTime = conv.time ? conv.time.getTime() : Date.now();
+
+        console.log('[EXT-SEND] Step 1: Resolving Global ID via GET_GLOBAL_ID_FOR_CONV', {
+            pageId: conv.pageId,
+            convIdRaw,
+            threadId,
+            threadKey,
+            conversationUpdatedTime,
+            customerName: conv.customerName || conv.name
+        });
+
+        // Step 1: Get globalUserId via extension's Facebook GraphQL lookup
+        const globalTaskId = Date.now();
+        const globalUserId = await new Promise((resolve) => {
+            const timeout = setTimeout(() => {
+                window.removeEventListener('message', handler);
+                console.warn('[EXT-SEND] GET_GLOBAL_ID_FOR_CONV timeout (15s), trying without globalUserId...');
+                resolve(null);
+            }, 15000);
+
+            const handler = (e) => {
+                if (e.source !== window) return;
+                if (e.data?.type === 'GET_GLOBAL_ID_FOR_CONV_SUCCESS' && e.data?.taskId === globalTaskId) {
+                    clearTimeout(timeout);
+                    window.removeEventListener('message', handler);
+                    console.log('[EXT-SEND] ✅ Got globalUserId:', e.data.globalId);
+                    resolve(e.data.globalId);
+                }
+                if (e.data?.type === 'GET_GLOBAL_ID_FOR_CONV_FAILURE' && e.data?.taskId === globalTaskId) {
+                    clearTimeout(timeout);
+                    window.removeEventListener('message', handler);
+                    console.warn('[EXT-SEND] ❌ GET_GLOBAL_ID_FOR_CONV_FAILURE:', e.data);
+                    resolve(null);
+                }
+            };
+            window.addEventListener('message', handler);
+
+            window.postMessage({
+                type: 'GET_GLOBAL_ID_FOR_CONV',
+                pageId: conv.pageId,
+                threadId: threadId,
+                threadKey: threadKey,
+                isBusiness: true,
+                conversationUpdatedTime: conversationUpdatedTime,
+                customerName: conv.customerName || conv.name || '',
+                convType: conv.type || 'INBOX',
+                postId: null,
+                convId: null,
+                taskId: globalTaskId,
+                from: 'WEBPAGE'
+            }, '*');
+        });
+
+        if (!globalUserId) {
+            console.error('[EXT-SEND] Cannot resolve Global Facebook ID. Extension send will likely fail.');
+        }
+
+        // Step 2: Send REPLY_INBOX_PHOTO with globalUserId (matching pancake.vn payload exactly)
+        const sendTaskId = globalTaskId + 1;
 
         return new Promise((resolve, reject) => {
             const timeout = setTimeout(() => {
                 window.removeEventListener('message', handler);
-                console.error('[EXT-SEND] ⏰ TIMEOUT after 30s. No response from extension for taskId:', taskId);
+                console.error('[EXT-SEND] ⏰ TIMEOUT after 35s for REPLY_INBOX_PHOTO');
                 console.error('[EXT-SEND] Recent extension events:', window.pancakeExtension?.lastEvents?.slice(-5));
-                reject(new Error('Extension send timeout (30s)'));
-            }, 30000);
+                reject(new Error('Extension send timeout (35s)'));
+            }, 35000);
 
             const handler = (e) => {
                 if (e.source !== window) return;
-                // Match by taskId to avoid catching other tabs' responses
-                if (e.data?.type === 'REPLY_INBOX_PHOTO_SUCCESS' && e.data?.taskId === taskId) {
+                if (e.data?.type === 'REPLY_INBOX_PHOTO_SUCCESS' && e.data?.taskId === sendTaskId) {
                     clearTimeout(timeout);
                     window.removeEventListener('message', handler);
                     console.log('[EXT-SEND] ✅ SUCCESS:', JSON.stringify(e.data, null, 2));
                     showToast('Đã gửi qua Extension (bypass 24h)', 'success');
                     resolve(e.data);
                 }
-                if (e.data?.type === 'REPLY_INBOX_PHOTO_FAILURE' && e.data?.taskId === taskId) {
+                if (e.data?.type === 'REPLY_INBOX_PHOTO_FAILURE' && e.data?.taskId === sendTaskId) {
                     clearTimeout(timeout);
                     window.removeEventListener('message', handler);
                     console.error('[EXT-SEND] ❌ FAILURE:', JSON.stringify(e.data, null, 2));
@@ -2185,41 +2249,29 @@ class InboxChatController {
             };
             window.addEventListener('message', handler);
 
-            // Extract PSID from conversationId (format: pageId_psid)
-            const psid = conv.psid || conv._raw?.from?.id || conv.conversationId.split('_').pop();
-
-            console.log('[EXT-SEND] Preparing payload:', {
-                pageId: conv.pageId,
-                conversationId: conv.conversationId,
-                'psid (extracted)': psid,
-                'conv.psid': conv.psid,
-                'conv._raw?.from?.id': conv._raw?.from?.id,
-                'conv.conversationId.split': conv.conversationId?.split('_').pop(),
-                customerName: conv.customerName || conv.name,
-                extensionConnected: window.pancakeExtension?.connected
-            });
-
-            // NOTE: Do NOT pass globalUserId - PSID ≠ Global Facebook ID
-            // Let the extension resolve global ID via GraphQL lookup
             const payload = {
                 type: 'REPLY_INBOX_PHOTO',
                 pageId: conv.pageId,
-                convId: conv.conversationId,
-                threadId: psid,
-                threadKey: psid,
+                igPageId: null,
+                tryResizeImage: true,
+                contentIds: [],
                 message: text,
                 attachmentType: 'SEND_TEXT_ONLY',
-                files: [],
-                photoUrls: [],
-                contentIds: [],
-                taskId: taskId,
+                globalUserId: globalUserId,
                 platform: 'facebook',
-                isBusiness: true,
-                customerName: conv.customerName || conv.name || ''
+                replyMessage: null,
+                threadId: threadId,
+                convId: threadKey,
+                customerName: conv.customerName || conv.name || '',
+                conversationUpdatedTime: conversationUpdatedTime,
+                photoUrls: [],
+                isBusiness: false,
+                taskId: sendTaskId,
+                from: 'WEBPAGE'
             };
-            window.postMessage(payload, '*');
 
-            console.log('[EXT-SEND] 📤 Sent REPLY_INBOX_PHOTO:', JSON.stringify(payload, null, 2));
+            window.postMessage(payload, '*');
+            console.log('[EXT-SEND] 📤 Step 2: Sent REPLY_INBOX_PHOTO:', JSON.stringify(payload, null, 2));
         });
     }
 
