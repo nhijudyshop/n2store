@@ -612,6 +612,18 @@ async function openSaleButtonModal() {
         return;
     }
 
+    // Block if order has pending wallet adjustment
+    if (window.WalletAdjustmentStore?.isPending(orderId)) {
+        const adj = window.WalletAdjustmentStore.get(orderId);
+        const msg = `🚫 Đơn này đang chờ kế toán điều chỉnh công nợ do đổi SĐT.\n\nSĐT cũ: ${adj.oldPhone} (${(adj.oldPhoneBalance || 0).toLocaleString('vi-VN')}đ)\nSĐT mới: ${adj.newPhone} (${(adj.newPhoneBalance || 0).toLocaleString('vi-VN')}đ)\n\nVui lòng chờ kế toán xử lý trước khi tạo phiếu bán hàng.`;
+        if (window.notificationManager) {
+            window.notificationManager.error(msg, 'Không thể tạo phiếu', 8000);
+        } else {
+            alert(msg);
+        }
+        return;
+    }
+
     currentSaleOrderData = order;
     console.log('[SALE-MODAL] Selected order:', order);
 
@@ -773,6 +785,16 @@ async function openSaleButtonModal() {
  */
 async function openSaleModalFromSocialOrder(socialOrder) {
     console.log('[SALE-MODAL] Opening from social order:', socialOrder);
+
+    // Block if order has pending wallet adjustment
+    if (socialOrder.id && window.WalletAdjustmentStore?.isPending(socialOrder.id)) {
+        const adj = window.WalletAdjustmentStore.get(socialOrder.id);
+        window.notificationManager?.error(
+            `Đơn đang chờ kế toán điều chỉnh công nợ (SĐT cũ: ${adj.oldPhone}, SĐT mới: ${adj.newPhone}). Vui lòng chờ xử lý.`,
+            'Không thể tạo phiếu', 8000
+        );
+        return;
+    }
 
     // Map social order data to Tab1 order format
     const mappedOrder = {

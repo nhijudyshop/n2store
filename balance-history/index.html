@@ -549,6 +549,15 @@
                     <button class="alert-action" onclick="AccountantModule.switchSubTab('pending')">Xem ngay</button>
                 </div>
 
+                <!-- Alert Bar: Wallet Adjustment Requests -->
+                <div class="acc-alert-bar wallet-adj hidden" id="accWalletAdjBar">
+                    <div class="alert-content">
+                        <span class="alert-icon">🔴</span>
+                        <span class="alert-text" id="accWalletAdjText">0 giao dịch cần điều chỉnh công nợ</span>
+                    </div>
+                    <button class="alert-action" onclick="AccountantModule.switchSubTab('walletAdj')">Xem ngay</button>
+                </div>
+
                 <!-- Sub-tabs -->
                 <div class="acc-sub-tabs" id="accSubTabs">
                     <button class="acc-sub-tab active" data-tab="pending" id="accTabPending">
@@ -559,6 +568,11 @@
                     <button class="acc-sub-tab" data-tab="approved" id="accTabApproved">
                         <i data-lucide="check-circle" style="width:16px;height:16px"></i>
                         Đã Duyệt
+                    </button>
+                    <button class="acc-sub-tab" data-tab="walletAdj" id="accTabWalletAdj" onclick="AccountantModule.switchSubTab('walletAdj')">
+                        <i data-lucide="wallet" style="width:16px;height:16px"></i>
+                        Điều Chỉnh Công Nợ
+                        <span class="tab-badge wallet-adj-badge" id="accWalletAdjBadge" style="display: none; background: #dc2626;">0</span>
                     </button>
                 </div>
 
@@ -762,6 +776,45 @@
                     <div class="acc-pagination" id="accPaginationApproved"></div>
 
                 </div><!-- End Approved Panel -->
+
+                <!-- ========== SUB-PANEL: Wallet Adjustment ========== -->
+                <div class="acc-sub-panel" data-panel="walletAdj" id="accPanelWalletAdj">
+                    <div class="acc-queue-header">
+                        <div class="queue-title">
+                            <i data-lucide="wallet" style="width:20px;height:20px"></i>
+                            Yêu cầu điều chỉnh công nợ do đổi SĐT
+                        </div>
+                        <button class="acc-btn acc-btn-sm" onclick="AccountantModule.loadWalletAdjustments()">
+                            <i data-lucide="refresh-cw" style="width:14px;height:14px"></i> Tải lại
+                        </button>
+                    </div>
+
+                    <div class="table-container">
+                        <table class="acc-approved-table">
+                            <thead>
+                                <tr>
+                                    <th>Mã đơn</th>
+                                    <th>Khách hàng</th>
+                                    <th>SĐT cũ</th>
+                                    <th>Số dư cũ</th>
+                                    <th>SĐT mới</th>
+                                    <th>Số dư mới</th>
+                                    <th>Người đổi</th>
+                                    <th>Thời gian</th>
+                                    <th>Trạng thái</th>
+                                    <th>Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody id="accWalletAdjTableBody">
+                                <tr>
+                                    <td colspan="10" class="acc-empty-state">
+                                        <div class="empty-text">Không có yêu cầu điều chỉnh</div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div><!-- End Wallet Adjustment Panel -->
 
             </div><!-- End Verification/Accountant Panel -->
 
@@ -1379,6 +1432,9 @@
     <script src="js/balance-verification.js?v=20260311a"></script>
     <script src="js/main.js?v=20260311a"></script>
     <script src="js/transfer-stats.js?v=20260123b"></script>
+    <!-- BaseStore + WalletAdjustmentStore for wallet adjustment tracking -->
+    <script src="../shared/js/base-store.js"></script>
+    <script src="../orders-report/js/utils/wallet-adjustment-store.js"></script>
     <script src="js/accountant.js?v=20260123b"></script>
     <script src="js/live-mode.js?v=20260123b"></script>
 

@@ -512,6 +512,21 @@ async function showFastSaleModal() {
 
         fastSaleWalletBalances = await fetchWalletBalancesForFastSale(phones);
 
+        // Check for pending wallet adjustments — warn and disable buttons
+        const pendingAdjOrders = fastSaleOrdersData.filter((order) => {
+            const saleOnlineId = order.SaleOnlineIds?.[0];
+            return saleOnlineId && window.WalletAdjustmentStore?.isPending(saleOnlineId);
+        });
+        if (pendingAdjOrders.length > 0) {
+            const adjCodes = pendingAdjOrders.map(o => o.Reference || o.Code || 'N/A').join(', ');
+            showFastSaleStatus(
+                `⚠️ ${pendingAdjOrders.length} đơn chờ kế toán điều chỉnh công nợ (${adjCodes}). Không thể tạo phiếu cho các đơn này.`,
+                'warning'
+            );
+            if (saveBtn) { saveBtn.disabled = true; saveBtn.title = 'Có đơn chờ điều chỉnh công nợ'; }
+            if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.title = 'Có đơn chờ điều chỉnh công nợ'; }
+        }
+
         // Render modal body
         renderFastSaleModalBody();
     } catch (error) {
@@ -2291,6 +2306,26 @@ async function saveFastSaleOrders(isApprove = false) {
             return;
         }
         console.log('[FAST-SALE] User chose to continue with unsaved addresses');
+    }
+
+    // Block if any order has pending wallet adjustment
+    if (window.WalletAdjustmentStore) {
+        const pendingAdjOrders = fastSaleOrdersData.filter((order) => {
+            const saleOnlineId = order.SaleOnlineIds?.[0];
+            return saleOnlineId && window.WalletAdjustmentStore.isPending(saleOnlineId);
+        });
+        if (pendingAdjOrders.length > 0) {
+            const adjCodes = pendingAdjOrders.map(o => o.Reference || o.Code || 'N/A').join(', ');
+            showFastSaleStatus(
+                `🚫 Không thể tạo phiếu! ${pendingAdjOrders.length} đơn chờ kế toán điều chỉnh công nợ: ${adjCodes}`,
+                'error'
+            );
+            window.notificationManager?.error(
+                `Có ${pendingAdjOrders.length} đơn chờ kế toán điều chỉnh công nợ do đổi SĐT. Vui lòng chờ kế toán xử lý trước khi tạo phiếu.`,
+                'Không thể tạo phiếu'
+            );
+            return;
+        }
     }
 
     // Prevent double submission

@@ -523,6 +523,9 @@
             case 'approved':
                 loadApprovedToday();
                 break;
+            case 'walletAdj':
+                loadWalletAdjustments();
+                break;
         }
 
         // Reinitialize Lucide icons
@@ -590,6 +593,9 @@
             pendingBadge.textContent = pending;
             pendingBadge.style.display = pending > 0 ? 'inline' : 'none';
         }
+
+        // Update wallet adjustment alert bar and badge
+        updateWalletAdjUI();
     }
 
     // =====================================================
@@ -2405,6 +2411,168 @@
     }
 
     // =====================================================
+    // WALLET ADJUSTMENT (Điều chỉnh công nợ do đổi SĐT)
+    // =====================================================
+
+    /**
+     * Update wallet adjustment UI elements (alert bar, badge, stat card)
+     */
+    function updateWalletAdjUI() {
+        const count = window.WalletAdjustmentStore?.getPendingCount() || 0;
+
+        // Update alert bar
+        const adjBar = document.getElementById('accWalletAdjBar');
+        if (adjBar) {
+            if (count > 0) {
+                adjBar.classList.remove('hidden');
+                const textEl = document.getElementById('accWalletAdjText');
+                if (textEl) textEl.textContent = `${count} giao dịch cần điều chỉnh công nợ`;
+            } else {
+                adjBar.classList.add('hidden');
+            }
+        }
+
+        // Update badge on tab
+        const adjBadge = document.getElementById('accWalletAdjBadge');
+        if (adjBadge) {
+            adjBadge.textContent = count;
+            adjBadge.style.display = count > 0 ? 'inline' : 'none';
+        }
+
+        // Update stat card (Điều Chỉnh)
+        const statAdj = document.getElementById('accStatAdjustment');
+        if (statAdj) {
+            statAdj.querySelector('.stat-value').textContent = count;
+        }
+    }
+
+    /**
+     * Load and render wallet adjustment requests
+     */
+    function loadWalletAdjustments() {
+        if (!window.WalletAdjustmentStore) {
+            console.warn('[ACCOUNTANT] WalletAdjustmentStore not available');
+            return;
+        }
+
+        // Ensure store is initialized
+        if (!window.WalletAdjustmentStore._initialized) {
+            window.WalletAdjustmentStore.init().then(() => {
+                renderWalletAdjustments();
+            });
+        } else {
+            renderWalletAdjustments();
+        }
+    }
+
+    /**
+     * Render wallet adjustment table
+     */
+    function renderWalletAdjustments() {
+        const tbody = document.getElementById('accWalletAdjTableBody');
+        if (!tbody) return;
+
+        const allRecords = [];
+        window.WalletAdjustmentStore.getAll().forEach((value, key) => {
+            allRecords.push({ ...value, _id: key });
+        });
+
+        // Sort: pending first, then by createdAt desc
+        allRecords.sort((a, b) => {
+            if (a.status === 'pending' && b.status !== 'pending') return -1;
+            if (a.status !== 'pending' && b.status === 'pending') return 1;
+            return (b.createdAt || 0) - (a.createdAt || 0);
+        });
+
+        if (allRecords.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="10" class="acc-empty-state"><div class="empty-text">Không có yêu cầu điều chỉnh</div></td></tr>`;
+            updateWalletAdjUI();
+            return;
+        }
+
+        tbody.innerHTML = allRecords.map(record => {
+            const isPending = record.status === 'pending';
+            const createdDate = record.createdAt ? new Date(record.createdAt).toLocaleString('vi-VN') : '—';
+            const statusHTML = isPending
+                ? '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;">Chờ xử lý</span>'
+                : `<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;">Đã hoàn thành</span>`;
+            const actionHTML = isPending
+                ? `<button class="acc-btn acc-btn-sm acc-btn-primary" onclick="AccountantModule.completeWalletAdjustment('${record._id}')" style="background:#059669;border-color:#059669;">
+                    <i data-lucide="check" style="width:14px;height:14px"></i> Hoàn thành
+                   </button>
+                   <button class="acc-btn acc-btn-sm" onclick="AccountantModule.deleteWalletAdjustment('${record._id}')" style="color:#dc2626;" title="Xóa yêu cầu">
+                    <i data-lucide="trash-2" style="width:14px;height:14px"></i>
+                   </button>`
+                : `<span style="color:#6b7280;font-size:12px;">${record.completedBy || ''} - ${record.completedAt ? new Date(record.completedAt).toLocaleString('vi-VN') : ''}</span>`;
+
+            return `<tr style="${isPending ? 'background:#fef2f2;' : ''}">
+                <td><strong>${record.orderCode || record._id}</strong></td>
+                <td>${record.customerName || '—'}</td>
+                <td>${record.oldPhone || '—'}</td>
+                <td style="color:#dc2626;font-weight:600;">${(record.oldPhoneBalance || 0).toLocaleString('vi-VN')}đ</td>
+                <td>${record.newPhone || '—'}</td>
+                <td style="color:#2563eb;font-weight:600;">${(record.newPhoneBalance || 0).toLocaleString('vi-VN')}đ</td>
+                <td>${record.createdBy || '—'}</td>
+                <td>${createdDate}</td>
+                <td>${statusHTML}</td>
+                <td>${actionHTML}</td>
+            </tr>`;
+        }).join('');
+
+        updateWalletAdjUI();
+
+        // Reinitialize Lucide icons
+        if (window.lucide) lucide.createIcons();
+    }
+
+    /**
+     * Mark a wallet adjustment as completed
+     */
+    async function completeWalletAdjustment(orderId) {
+        if (!orderId || !window.WalletAdjustmentStore) return;
+
+        const record = window.WalletAdjustmentStore.get(orderId);
+        if (!record) return;
+
+        const note = prompt(`Hoàn thành điều chỉnh công nợ cho đơn ${record.orderCode || orderId}.\n\nGhi chú (tùy chọn):`);
+        if (note === null) return; // User cancelled
+
+        const userName = window.authManager?.currentUser?.displayName || '';
+        await window.WalletAdjustmentStore.markCompleted(orderId, note, userName);
+
+        if (window.notificationManager) {
+            window.notificationManager.show(`Đã hoàn thành điều chỉnh công nợ cho đơn ${record.orderCode || orderId}`, 'success');
+        }
+
+        renderWalletAdjustments();
+    }
+
+    /**
+     * Delete a wallet adjustment request
+     */
+    async function deleteWalletAdjustment(orderId) {
+        if (!orderId || !window.WalletAdjustmentStore) return;
+
+        const record = window.WalletAdjustmentStore.get(orderId);
+        if (!confirm(`Xóa yêu cầu điều chỉnh công nợ cho đơn ${record?.orderCode || orderId}?`)) return;
+
+        await window.WalletAdjustmentStore.delete(orderId);
+
+        if (window.notificationManager) {
+            window.notificationManager.show('Đã xóa yêu cầu điều chỉnh', 'info');
+        }
+
+        renderWalletAdjustments();
+    }
+
+    /**
+     * Show wallet adjustments tab
+     */
+    function showWalletAdjustments() {
+        switchSubTab('walletAdj');
+    }
+
+    // =====================================================
     // PUBLIC API
     // =====================================================
 
@@ -2442,7 +2610,12 @@
         closeAdjustmentModal,
         // Manager Review functions (quản lý kiểm tra)
         openManagerReviewModal,
-        confirmManagerReview
+        confirmManagerReview,
+        // Wallet Adjustment functions (điều chỉnh công nợ do đổi SĐT)
+        loadWalletAdjustments,
+        completeWalletAdjustment,
+        deleteWalletAdjustment,
+        showWalletAdjustments
     };
 
     // Auto-initialize when DOM is ready

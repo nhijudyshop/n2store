@@ -1135,7 +1135,7 @@ function createRowHTML(order) {
             ${renderMergedTotalColumn(order)}
             ${renderMergedQuantityColumn(order)}
             <td data-column="created-date">${new Date(order.DateCreated).toLocaleString("vi-VN")}</td>
-            <td data-column="invoice-status">${window.renderInvoiceStatusCell ? window.renderInvoiceStatusCell(order) : '<span style="color: #9ca3af;">−</span>'}</td>
+            <td data-column="invoice-status">${window.renderInvoiceStatusCell ? window.renderInvoiceStatusCell(order) : '<span style="color: #9ca3af;">−</span>'}${window.WalletAdjustmentStore?.isPending(order.Id) ? '<div style="margin-top:4px;"><span style="background:#fef2f2;color:#dc2626;border:1px solid #fca5a5;padding:2px 6px;border-radius:4px;font-size:11px;font-weight:600;white-space:nowrap;" title="Chờ kế toán điều chỉnh công nợ do đổi SĐT">⚠️ Chờ ĐC công nợ</span></div>' : ''}</td>
             <td data-column="status"><span class="status-badge ${order.Status === "Draft" ? "status-draft" : "status-order"}" style="cursor: pointer;" onclick="openOrderStatusModal('${order.Id}', '${order.Status}')" data-order-id="${order.Id}" title="Click để thay đổi trạng thái">${highlight(order.StatusText || order.Status)}</span></td>
             <td data-column="fulfillment">${window.renderFulfillmentCell ? window.renderFulfillmentCell(order) : '<span style="color: #9ca3af;">−</span>'}</td>
         </tr>`;

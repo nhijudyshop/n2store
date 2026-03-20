@@ -195,6 +195,32 @@
     }
 }
 
+/* Wallet Adjustment Alert Bar - darker red */
+.acc-alert-bar.wallet-adj {
+    background: linear-gradient(90deg, #fef2f2 0%, #fecaca 100%);
+    border: 1px solid #f87171;
+    border-left: 4px solid #b91c1c;
+}
+
+.acc-alert-bar.wallet-adj .alert-content {
+    color: #7f1d1d;
+    font-weight: 600;
+}
+
+.acc-alert-bar.wallet-adj .alert-action {
+    background: #b91c1c;
+}
+
+.acc-alert-bar.wallet-adj .alert-action:hover {
+    background: #991b1b;
+}
+
+/* Wallet Adj badge in sub-tab */
+.wallet-adj-badge {
+    background: #dc2626 !important;
+    color: white !important;
+}
+
 /* =====================================================
    SUB-TABS
    ===================================================== */

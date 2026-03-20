@@ -167,6 +167,16 @@ function renderInfoTab(data) {
 
 function updateOrderInfo(field, value) {
     if (!currentEditOrderData) return;
+
+    // Detect phone number change and check wallet balance
+    if (field === 'Telephone') {
+        const oldPhone = currentEditOrderData.Telephone || '';
+        const newPhone = value || '';
+        if (oldPhone && newPhone && oldPhone !== newPhone) {
+            checkWalletOnPhoneChange(currentEditOrderId, currentEditOrderData, oldPhone, newPhone);
+        }
+    }
+
     currentEditOrderData[field] = value;
     hasUnsavedOrderChanges = true; // Set dirty flag
 
@@ -175,6 +185,82 @@ function updateOrderInfo(field, value) {
         showSaveIndicator("success", "Đã cập nhật thông tin (chưa lưu)");
     } else if (window.notificationManager) {
         window.notificationManager.show("Đã cập nhật thông tin (chưa lưu)", "info");
+    }
+}
+
+/**
+ * Check wallet balance when phone number changes.
+ * If old or new phone has wallet balance, create a pending adjustment record.
+ */
+async function checkWalletOnPhoneChange(orderId, orderData, oldPhone, newPhone) {
+    if (!window.WalletAdjustmentStore) {
+        console.warn('[WALLET-ADJ] WalletAdjustmentStore not loaded');
+        return;
+    }
+
+    const normalizePhone = (phone) => {
+        if (!phone) return '';
+        let cleaned = String(phone).replace(/\D/g, '');
+        if (cleaned.startsWith('84') && cleaned.length > 9) {
+            cleaned = '0' + cleaned.substring(2);
+        }
+        return cleaned;
+    };
+
+    const normOld = normalizePhone(oldPhone);
+    const normNew = normalizePhone(newPhone);
+
+    if (!normOld || !normNew || normOld === normNew) return;
+
+    try {
+        const apiUrl = typeof QR_API_URL !== 'undefined'
+            ? QR_API_URL
+            : 'https://chatomni-proxy.nhijudyshop.workers.dev';
+
+        // Fetch wallet for both phones in parallel
+        const [oldRes, newRes] = await Promise.allSettled([
+            fetch(`${apiUrl}/api/v2/wallets/${encodeURIComponent(normOld)}`).then(r => r.json()),
+            fetch(`${apiUrl}/api/v2/wallets/${encodeURIComponent(normNew)}`).then(r => r.json()),
+        ]);
+
+        const oldBalance = oldRes.status === 'fulfilled' && oldRes.value?.data
+            ? (parseFloat(oldRes.value.data.balance) || 0) + (parseFloat(oldRes.value.data.virtual_balance) || 0)
+            : 0;
+        const newBalance = newRes.status === 'fulfilled' && newRes.value?.data
+            ? (parseFloat(newRes.value.data.balance) || 0) + (parseFloat(newRes.value.data.virtual_balance) || 0)
+            : 0;
+
+        if (oldBalance > 0 || newBalance > 0) {
+            // Create pending adjustment record
+            const userName = window.authManager?.currentUser?.displayName || '';
+            await window.WalletAdjustmentStore.set(orderId, {
+                orderCode: orderData.Code || '',
+                oldPhone: normOld,
+                newPhone: normNew,
+                oldPhoneBalance: oldBalance,
+                newPhoneBalance: newBalance,
+                customerName: orderData.Name || '',
+                status: 'pending',
+                createdBy: userName,
+            });
+
+            // Show warning
+            const balanceInfo = [];
+            if (oldBalance > 0) balanceInfo.push(`SĐT cũ (${normOld}): ${oldBalance.toLocaleString('vi-VN')}đ`);
+            if (newBalance > 0) balanceInfo.push(`SĐT mới (${normNew}): ${newBalance.toLocaleString('vi-VN')}đ`);
+
+            const msg = `⚠️ Phát hiện công nợ khi đổi SĐT!\n${balanceInfo.join('\n')}\n\nĐơn sẽ bị đánh dấu chờ kế toán điều chỉnh công nợ trước khi ra đơn.`;
+
+            if (window.notificationManager) {
+                window.notificationManager.show(msg, 'warning', 8000);
+            } else {
+                alert(msg);
+            }
+
+            console.log(`[WALLET-ADJ] Created pending adjustment for order ${orderId}: old=${normOld}(${oldBalance}), new=${normNew}(${newBalance})`);
+        }
+    } catch (error) {
+        console.error('[WALLET-ADJ] Error checking wallet on phone change:', error);
     }
 }
 
