@@ -401,7 +401,36 @@
 .add-order-form .form-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 1rem;
+    gap: 1.5rem;
+}
+
+.add-order-form .form-group {
+    margin-bottom: 0;
+}
+
+.add-order-form .form-group input[type="text"],
+.add-order-form .form-group input[type="number"] {
+    width: 100%;
+    padding: 0.875rem 1rem;
+    border: 2px solid var(--order-border);
+    border-radius: 10px;
+    font-size: 1.15rem;
+    transition: all 0.2s ease;
+    background: var(--order-bg-light);
+    box-sizing: border-box;
+}
+
+.add-order-form .form-group input[type="text"]:hover,
+.add-order-form .form-group input[type="number"]:hover {
+    border-color: var(--order-primary-light);
+}
+
+.add-order-form .form-group input[type="text"]:focus,
+.add-order-form .form-group input[type="number"]:focus {
+    outline: none;
+    border-color: var(--order-primary);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+    background: white;
 }
 
 .add-order-form .form-footer {
