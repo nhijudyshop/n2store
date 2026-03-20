@@ -557,52 +557,155 @@
     };
 
     // =====================================================
-    // FETCH FRESH STOCK FROM TPOS API
+    // FETCH FRESH STOCK FROM TPOS VIA EXCEL EXPORT
     // =====================================================
 
-    const TPOS_PRODUCT_API = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Product';
+    const PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
 
     /**
-     * Fetch fresh QtyAvailable from TPOS Product API for all products in ledger.
+     * Fetch fresh stock from TPOS by downloading Product Excel export.
      */
     async function fetchFreshStockFromTPOS() {
         if (!currentCampaignId) return;
 
-        const productIds = Object.keys(ledgerProducts);
-        if (productIds.length === 0) return;
+        const productEntries = Object.entries(ledgerProducts);
+        if (productEntries.length === 0) return;
 
-        console.log('[LEDGER] Fetching fresh stock from TPOS for', productIds.length, 'products...');
+        const codeToPidMap = {};
+        const idToPidMap = {};
+        productEntries.forEach(([pid, data]) => {
+            if (data.productCode) {
+                codeToPidMap[data.productCode.toUpperCase()] = pid;
+            }
+            idToPidMap[pid] = pid;
+        });
+
+        console.log('[LEDGER] Fetching fresh stock via Excel export...');
 
         try {
             const headers = window.tokenManager
                 ? await window.tokenManager.getAuthHeader()
                 : {};
 
-            const chunkSize = 20;
-            const stockMap = {};
+            const response = await fetch(`${PROXY_URL}/api/Product/ExportProductV2?Active=true`, {
+                method: 'POST',
+                headers: {
+                    ...headers,
+                    'Content-Type': 'application/json',
+                    'feature-version': '2',
+                },
+                body: JSON.stringify({
+                    data: JSON.stringify({
+                        Filter: {
+                            logic: 'and',
+                            filters: [{ field: 'Active', operator: 'eq', value: true }],
+                        },
+                    }),
+                    ids: [],
+                }),
+            });
 
-            for (let i = 0; i < productIds.length; i += chunkSize) {
-                const chunk = productIds.slice(i, i + chunkSize);
-                const filterParts = chunk.map(id => `Id eq ${id}`);
-                const filter = filterParts.join(' or ');
-                const url = `${TPOS_PRODUCT_API}/OdataService.GetViewV2?$filter=${encodeURIComponent(filter)}&$select=Id,QtyAvailable,DefaultCode&$top=${chunk.length}`;
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
 
-                const response = await fetch(url, {
-                    method: 'GET',
-                    headers: { ...headers, 'Accept': 'application/json' },
+            const blob = await response.blob();
+            console.log(`[LEDGER] Excel downloaded: ${(blob.size / 1024).toFixed(1)} KB`);
+
+            const arrayBuffer = await blob.arrayBuffer();
+            const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
+            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+
+            if (jsonData.length === 0) {
+                console.warn('[LEDGER] Excel is empty');
+                return null;
+            }
+
+            const sampleRow = jsonData[0];
+            const columnNames = Object.keys(sampleRow);
+            console.log('[LEDGER] Excel columns:', columnNames);
+
+            // Find stock column
+            const stockColumnCandidates = [
+                'SL Tồn kho', 'Tồn kho', 'SL tồn kho',
+                'Số lượng tồn', 'Số lượng thực tế', 'SL thực tế',
+                'QtyAvailable', 'Qty Available',
+                'SL Tồn', 'Tồn', 'Stock',
+            ];
+            let stockColumn = null;
+            for (const candidate of stockColumnCandidates) {
+                if (columnNames.includes(candidate)) {
+                    stockColumn = candidate;
+                    break;
+                }
+            }
+            if (!stockColumn) {
+                stockColumn = columnNames.find(col => {
+                    const lower = col.toLowerCase();
+                    return lower.includes('tồn') || lower.includes('qty') || lower.includes('stock');
                 });
+            }
 
-                if (response.ok) {
-                    const data = await response.json();
-                    (data.value || []).forEach(product => {
-                        stockMap[String(product.Id)] = product.QtyAvailable || 0;
-                    });
-                } else {
-                    console.warn('[LEDGER] TPOS stock fetch failed for chunk:', response.status);
+            // Find code column
+            const codeColumnCandidates = [
+                'Mã sản phẩm', 'Mã SP', 'Mã', 'DefaultCode', 'Code',
+                'Mã sản phẩm (*)',
+            ];
+            let codeColumn = null;
+            for (const candidate of codeColumnCandidates) {
+                if (columnNames.includes(candidate)) {
+                    codeColumn = candidate;
+                    break;
+                }
+            }
+            if (!codeColumn) {
+                codeColumn = columnNames.find(col => {
+                    const lower = col.toLowerCase();
+                    return lower.includes('mã') && !lower.includes('nhóm');
+                });
+            }
+
+            // Find ID column
+            const idColumnCandidates = ['Id sản phẩm (*)', 'Id sản phẩm', 'Id', 'ID'];
+            let idColumn = null;
+            for (const candidate of idColumnCandidates) {
+                if (columnNames.includes(candidate)) {
+                    idColumn = candidate;
+                    break;
                 }
             }
 
-            // Update Firebase with fresh stock values
+            console.log('[LEDGER] Detected columns — code:', codeColumn, '| stock:', stockColumn, '| id:', idColumn);
+
+            if (!stockColumn) {
+                console.warn('[LEDGER] Could not find stock column in Excel. Available:', columnNames);
+                return null;
+            }
+
+            const stockMap = {};
+            let matchedCount = 0;
+
+            jsonData.forEach(row => {
+                const code = codeColumn ? String(row[codeColumn] || '').toUpperCase().trim() : '';
+                const id = idColumn ? String(row[idColumn] || '') : '';
+                const stock = parseFloat(row[stockColumn]) || 0;
+
+                let pid = null;
+                if (code && codeToPidMap[code]) {
+                    pid = codeToPidMap[code];
+                } else if (id && idToPidMap[id]) {
+                    pid = id;
+                }
+
+                if (pid) {
+                    stockMap[pid] = stock;
+                    matchedCount++;
+                }
+            });
+
+            console.log(`[LEDGER] Matched ${matchedCount}/${productEntries.length} products from Excel (${jsonData.length} total rows)`);
+
             const updates = {};
             let updatedCount = 0;
             Object.entries(stockMap).forEach(([pid, freshQty]) => {
@@ -615,14 +718,14 @@
 
             if (Object.keys(updates).length > 0) {
                 await db.ref(`live_ledger/${currentCampaignId}/products`).update(updates);
-                console.log('[LEDGER] Updated stock for', updatedCount, 'products from TPOS');
+                console.log('[LEDGER] Updated stock for', updatedCount, 'products from TPOS Excel');
             } else {
                 console.log('[LEDGER] Stock already up to date');
             }
 
             return stockMap;
         } catch (error) {
-            console.error('[LEDGER] Error fetching stock from TPOS:', error);
+            console.error('[LEDGER] Error fetching stock from TPOS Excel:', error);
             return null;
         }
     }
@@ -631,7 +734,7 @@
         const btn = document.getElementById('btnUpdateStock');
         if (btn) {
             btn.disabled = true;
-            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang cập nhật...';
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tải Excel...';
         }
 
         try {
