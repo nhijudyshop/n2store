@@ -9,7 +9,7 @@
    "content_scripts": [ {
       "all_frames": false,
       "js": [ "scripts/contentscript.js" ],
-      "matches": [ "https://comcake.localhost:3000/*", "https://localhost:3000/*", "https://localhost:3001/*", "https://localhost:8003/*", "http://dev.pages.fm/*", "https://pages.fm/*", "https://paging.botcake.io/*", "https://botcake.io/*", "https://pancake.ph/*", "https://pancake.id/*", "https://pancake.in/*", "https://pancake.biz/*", "https://pancake.vn/*", "https://pancake.net/*", "https://pos.pages.fm/*", "https://pos.pancake.ph/*", "https://pos.pancake.id/*", "https://pos.pancake.in/*", "https://pos.pancake.biz/*", "https://pos.pancake.vn/*", "https://pos.pancake.net/*", "https://dev.pancake.vn/*", "https://dev.pancake.vn:3600/*", "https://*.nhijudyshop.workers.dev/*", "https://nhijudyshop.workers.dev/*" ],
+      "matches": [ "https://comcake.localhost:3000/*", "https://localhost:3000/*", "https://localhost:3001/*", "https://localhost:8003/*", "http://dev.pages.fm/*", "https://pages.fm/*", "https://paging.botcake.io/*", "https://botcake.io/*", "https://pancake.ph/*", "https://pancake.id/*", "https://pancake.in/*", "https://pancake.biz/*", "https://pancake.vn/*", "https://pancake.net/*", "https://pos.pages.fm/*", "https://pos.pancake.ph/*", "https://pos.pancake.id/*", "https://pos.pancake.in/*", "https://pos.pancake.biz/*", "https://pos.pancake.vn/*", "https://pos.pancake.net/*", "https://dev.pancake.vn/*", "https://dev.pancake.vn:3600/*", "https://*.nhijudyshop.workers.dev/*", "https://nhijudyshop.workers.dev/*", "https://nhijudyshop.github.io/*" ],
       "run_at": "document_end"
    } ],
    "default_locale": "en",
