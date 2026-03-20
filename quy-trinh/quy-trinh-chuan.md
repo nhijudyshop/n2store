@@ -276,6 +276,25 @@ Hàng rớt sẽ được **bàn giao qua cho bạn làm kho**. Bạn làm kho v
 - VD: bạn A chốt từ 1 → 300 hoặc bạn B từ 301 → 600.
 - Bạn sale nào làm số bao nhiêu chịu trách nhiệm với đơn đó.
 
+#### ⚡ Song song: Quy trình gắn thẻ chờ trên web Hệ thống quản lí
+
+> Thực hiện song song với chốt đơn để các bạn sale biết được đơn nào thiếu hàng, đơn nào đủ hàng để có thể ra đơn.
+
+**❗ Bước 1:** Bấm vào **HIỂN THỊ BỘ LỌC** → Chọn chiến dịch live của đợt live đó.
+
+**👉 NẾU GẮN THẺ CHỜ MẪU NHIỀU:**
+- Bấm vào **GẮN TAG ĐỒNG LOẠT**
+- Tạo tên thẻ cần gắn — VD: `T1 Áo smi trắng tag hoa ...`
+- Nhập số thứ tự của khách trên phiếu theo đợt live đó
+- Bấm **Lưu**
+
+**👉 NẾU GẮN THẺ CHỜ LẺ ÍT:**
+- Kéo xuống thanh tìm kiếm
+- Nhập số thứ tự của khách theo trên phiếu hoặc bấm tên khách
+- Kéo xuống sẽ hiện ra đúng theo STT hoặc tên trên phiếu
+- Bấm vào dấu **gắn tag**
+- Tạo tên tag và gắn thẻ
+
 #### Bước 2: Bắt đầu chốt đơn
 - Check tin nhắn và đưa từng đơn của khách vào mục phân loại chính xác đến khi hết đơn, trống trang.
 - Sau khi trống trang vào từng mục đã được phân loại để xử lý các đơn trong mục cần xử lý.
