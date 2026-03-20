@@ -57,8 +57,10 @@
                                 ) {
                                     keysToRemove.push(k);
                                 }
-                                // Remove any item > 500KB
-                                if (localStorage[k].length > 500000) {
+                                // Remove any item > 500KB (except tab3 assignment data)
+                                if (localStorage[k].length > 500000 &&
+                                    k !== 'orders_productAssignments' &&
+                                    k !== 'orders_productRemovals') {
                                     keysToRemove.push(k);
                                 }
                             }
@@ -101,7 +103,9 @@
                                 if (
                                     rk !== 'userType' &&
                                     rk !== 'authState' &&
-                                    !rk.startsWith('auth')
+                                    !rk.startsWith('auth') &&
+                                    rk !== 'orders_productAssignments' &&
+                                    rk !== 'orders_productRemovals'
                                 ) {
                                     localStorage.removeItem(rk);
                                     removed++;
