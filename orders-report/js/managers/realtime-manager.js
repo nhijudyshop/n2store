@@ -15,10 +15,17 @@ class RealtimeManager {
         this.pageIds = [];
         this.isConnecting = false;
 
+        // Exponential backoff for WebSocket reconnection
+        this.reconnectAttempts = 0;
+        this.maxReconnectAttempts = 10;
+        this.baseReconnectDelay = 2000; // 2s
+        this.maxReconnectDelay = 60000; // 60s
+
         // Server mode REST polling
         this.pollingInterval = null;
         this.lastEventTimestamp = null;
         this.consecutiveErrors = 0;
+        this.currentPollInterval = 5000; // Adaptive: starts at 5s
     }
 
     /**
@@ -133,6 +140,7 @@ class RealtimeManager {
             this.startServerPolling(serverBaseUrl, mode);
             this.isConnected = true;
             this.consecutiveErrors = 0;
+            this._dispatchStatusEvent(true);
 
         } catch (error) {
             console.error('[REALTIME] Error connecting to server:', error);
@@ -145,7 +153,7 @@ class RealtimeManager {
     }
 
     /**
-     * Start REST polling for server events
+     * Start REST polling for server events (adaptive interval)
      */
     startServerPolling(serverBaseUrl, mode) {
         // Clear any existing polling
@@ -155,18 +163,28 @@ class RealtimeManager {
 
         // Track last event timestamp for incremental fetching
         this.lastEventTimestamp = new Date().toISOString();
+        this.currentPollInterval = 5000; // Reset to base interval
 
-        const eventsUrl = mode === 'localhost'
+        this._serverEventsUrl = mode === 'localhost'
             ? `${serverBaseUrl}/api/events`
             : `${serverBaseUrl}/api/realtime/events`;
 
-        console.log('[REALTIME] Starting REST polling every 5s:', eventsUrl);
+        console.log('[REALTIME] Starting adaptive REST polling (5-30s):', this._serverEventsUrl);
 
-        // Poll immediately once, then every 5 seconds
-        this.pollServerEvents(eventsUrl);
-        this.pollingInterval = setInterval(() => {
-            this.pollServerEvents(eventsUrl);
-        }, 5000);
+        // Poll immediately once, then schedule adaptive polling
+        this.pollServerEvents(this._serverEventsUrl);
+        this._scheduleNextPoll();
+    }
+
+    /**
+     * Schedule next poll with adaptive interval
+     */
+    _scheduleNextPoll() {
+        if (this.pollingInterval) clearTimeout(this.pollingInterval);
+        this.pollingInterval = setTimeout(() => {
+            this.pollServerEvents(this._serverEventsUrl);
+            this._scheduleNextPoll();
+        }, this.currentPollInterval);
     }
 
     /**
@@ -195,6 +213,13 @@ class RealtimeManager {
             this.consecutiveErrors = 0;
             const data = await response.json();
             const events = data.events || data || [];
+
+            // Adaptive polling: speed up when events found, slow down when quiet
+            if (events.length > 0) {
+                this.currentPollInterval = 5000; // Reset to 5s when events arrive
+            } else {
+                this.currentPollInterval = Math.min(this.currentPollInterval * 2, 30000); // Double up to 30s max
+            }
 
             if (events.length > 0) {
                 console.log(`[REALTIME] Received ${events.length} events from server`);
@@ -291,22 +316,37 @@ class RealtimeManager {
             this.ws.onopen = () => {
                 console.log('[REALTIME] WebSocket Connected');
                 this.isConnected = true;
+                this.reconnectAttempts = 0; // Reset on successful connect
                 this.startHeartbeat();
                 this.joinChannels();
+                this._dispatchStatusEvent(true);
             };
 
             this.ws.onclose = (e) => {
                 console.log('[REALTIME] WebSocket Closed', e.code, e.reason);
                 this.isConnected = false;
                 this.stopHeartbeat();
+                this._dispatchStatusEvent(false);
 
-                // Reconnect if still in realtime mode
+                // Reconnect with exponential backoff if still in realtime mode
                 if (window.chatAPISettings &&
                     window.chatAPISettings.isRealtimeEnabled() &&
                     window.chatAPISettings.isPancake()) {
-                    console.log('[REALTIME] Reconnecting in 5s...');
+
+                    this.reconnectAttempts++;
+                    if (this.reconnectAttempts > this.maxReconnectAttempts) {
+                        console.error(`[REALTIME] Max reconnect attempts (${this.maxReconnectAttempts}) reached. Giving up.`);
+                        window.dispatchEvent(new CustomEvent('realtimeConnectionLost'));
+                        return;
+                    }
+
+                    const delay = Math.min(
+                        this.baseReconnectDelay * Math.pow(2, this.reconnectAttempts - 1),
+                        this.maxReconnectDelay
+                    );
+                    console.log(`[REALTIME] Reconnecting in ${delay / 1000}s (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
                     clearTimeout(this.reconnectTimer);
-                    this.reconnectTimer = setTimeout(() => this.connect(), 5000);
+                    this.reconnectTimer = setTimeout(() => this.connect(), delay);
                 }
             };
 
@@ -321,6 +361,15 @@ class RealtimeManager {
         } catch (error) {
             console.error('[REALTIME] Connection error:', error);
         }
+    }
+
+    /**
+     * Dispatch realtime status change event for UI indicators
+     */
+    _dispatchStatusEvent(connected) {
+        window.dispatchEvent(new CustomEvent('realtimeStatusChanged', {
+            detail: { connected }
+        }));
     }
 
     /**
@@ -342,12 +391,13 @@ class RealtimeManager {
 
         if (this.pollingInterval) {
             console.log('[REALTIME] Stopping REST polling...');
-            clearInterval(this.pollingInterval);
+            clearTimeout(this.pollingInterval);
             this.pollingInterval = null;
         }
 
         this.isConnected = false;
         this.consecutiveErrors = 0;
+        this._dispatchStatusEvent(false);
     }
 
     /**

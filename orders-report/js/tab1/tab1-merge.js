@@ -1419,14 +1419,18 @@ function closeMergeHistoryModal() {
 }
 
 /**
- * Helper: Escape HTML to prevent XSS
+ * Shared escapeHtml utility - prevents XSS by encoding HTML entities
+ * Also used by tab1-order-history.js, live-comments-readonly-modal.js, etc.
  */
-function escapeHtml(text) {
-    if (!text) return '';
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
+if (!window.escapeHtml) {
+    window.escapeHtml = function (text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    };
 }
+const escapeHtml = window.escapeHtml;
 
 // =====================================================
 // MERGE TAG ASSIGNMENT FUNCTIONS

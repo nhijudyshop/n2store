@@ -24,7 +24,7 @@
         // tab1-chat-messages.js
         { name: 'tab1-chat-messages', globals: ['renderChatMessages', 'renderComments', 'sendMessage', 'sendComment', 'sendReplyComment'] },
         // tab1-chat-facebook.js
-        { name: 'tab1-chat-facebook', globals: ['sendMessageViaFacebookTag', 'sendViaFacebookTagFromModal', 'show24hFallbackPrompt'] },
+        { name: 'tab1-chat-facebook', globals: ['sendMessageViaFacebookTag', 'sendViaFacebookTagFromModal', 'show24hFallbackPrompt', 'getFacebookPageToken'] },
         // tab1-chat-images.js
         { name: 'tab1-chat-images', globals: ['uploadImageWithCache', 'updateMultipleImagesPreview', 'clearAllImages', 'sendImageToChat', 'sendProductToChat'] },
         // tab1-chat-realtime.js
@@ -72,4 +72,40 @@
             console.log('[Tab1-Chat] Extension bridge initialized with', pageIds.length, 'page IDs');
         }
     }, 3000); // Wait 3s for token manager to load
+
+    // Realtime connection status indicator
+    function updateRealtimeStatusIndicator(connected) {
+        const indicator = document.getElementById('realtimeStatusIndicator');
+        if (!indicator) return;
+
+        indicator.style.display = 'inline-flex';
+        const icon = indicator.querySelector('i');
+        if (connected) {
+            icon.style.color = '#10b981'; // green
+            indicator.title = 'Realtime: Đang kết nối';
+        } else {
+            icon.style.color = '#ef4444'; // red
+            indicator.title = 'Realtime: Mất kết nối';
+        }
+    }
+
+    // Listen for realtime status changes from RealtimeManager
+    window.addEventListener('realtimeStatusChanged', (e) => {
+        updateRealtimeStatusIndicator(e.detail?.connected);
+    });
+
+    // Listen for connection lost (max retries exceeded)
+    window.addEventListener('realtimeConnectionLost', () => {
+        updateRealtimeStatusIndicator(false);
+        const indicator = document.getElementById('realtimeStatusIndicator');
+        if (indicator) {
+            indicator.title = 'Realtime: Mất kết nối (đã thử lại tối đa)';
+        }
+    });
+
+    // Set initial state
+    setTimeout(() => {
+        const connected = window.realtimeManager?.isConnected || false;
+        updateRealtimeStatusIndicator(connected);
+    }, 1000);
 })();

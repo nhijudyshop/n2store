@@ -21,7 +21,7 @@ const REALTIME_POLL_INTERVAL = 10000; // 10 seconds polling interval
 
 /**
  * Setup realtime messages when chat modal opens
- * Uses both WebSocket events and polling as backup
+ * Uses WebSocket events with polling as automatic fallback
  */
 function setupRealtimeMessages() {
     console.log('[REALTIME-MSG] Setting up realtime messages...');
@@ -34,9 +34,30 @@ function setupRealtimeMessages() {
     window.addEventListener('realtimeConversationUpdate', window.realtimeMessagesHandler);
     console.log('[REALTIME-MSG] WebSocket event listener added');
 
-    // 2. Start polling as backup (only if WebSocket is not connected)
-    // Polling is disabled by default since we have WebSocket realtime
-    // startRealtimePolling();
+    // 2. Auto-start polling if WebSocket is NOT connected
+    if (!window.realtimeManager || !window.realtimeManager.isConnected) {
+        console.log('[REALTIME-MSG] WebSocket not connected, starting polling fallback');
+        startRealtimePolling();
+    }
+
+    // 3. Listen for WebSocket connection loss to auto-enable polling
+    window._realtimeConnectionLostHandler = function () {
+        if (!window.realtimeMessagesInterval) {
+            console.log('[REALTIME-MSG] WebSocket lost, activating polling fallback');
+            startRealtimePolling();
+        }
+    };
+    window.addEventListener('realtimeConnectionLost', window._realtimeConnectionLostHandler);
+
+    // 4. Listen for WebSocket reconnection to stop polling
+    window._realtimeStatusHandler = function (e) {
+        if (e.detail?.connected && window.realtimeMessagesInterval) {
+            console.log('[REALTIME-MSG] WebSocket reconnected, stopping polling');
+            clearInterval(window.realtimeMessagesInterval);
+            window.realtimeMessagesInterval = null;
+        }
+    };
+    window.addEventListener('realtimeStatusChanged', window._realtimeStatusHandler);
 }
 
 /**
@@ -173,7 +194,7 @@ async function fetchAndUpdateMessages() {
 
         // Try Facebook Graph API first if we have page token
         let newMessages = [];
-        const facebookPageToken = await getFacebookPageToken();
+        const facebookPageToken = await window.getFacebookPageToken();
 
         if (facebookPageToken && window.currentConversationId) {
             // Use Facebook Graph API directly
@@ -242,29 +263,8 @@ async function fetchAndUpdateMessages() {
     }
 }
 
-/**
- * Get Facebook Page Token from various sources
- * @returns {string|null} Facebook Page Token
- */
-async function getFacebookPageToken() {
-    // Try CRMTeam first
-    if (window.currentCRMTeam && window.currentCRMTeam.Facebook_PageToken) {
-        return window.currentCRMTeam.Facebook_PageToken;
-    }
-
-    // Try current order
-    if (window.currentOrder && window.currentOrder.CRMTeam && window.currentOrder.CRMTeam.Facebook_PageToken) {
-        return window.currentOrder.CRMTeam.Facebook_PageToken;
-    }
-
-    // Try pancake token manager
-    if (window.pancakeTokenManager && window.currentChatChannelId) {
-        const pageAccessToken = await window.pancakeTokenManager.getOrGeneratePageAccessToken(window.currentChatChannelId);
-        return pageAccessToken;
-    }
-
-    return null;
-}
+// getFacebookPageToken() is now a shared utility: window.getFacebookPageToken(pageId)
+// Defined in tab1-chat-facebook.js with Sources 1-4 and validation cache
 
 /**
  * Fetch messages directly from Facebook Graph API
@@ -363,6 +363,16 @@ function cleanupRealtimeMessages() {
     if (window.realtimeMessagesHandler) {
         window.removeEventListener('realtimeConversationUpdate', window.realtimeMessagesHandler);
         window.realtimeMessagesHandler = null;
+    }
+
+    // Remove connection loss/status listeners
+    if (window._realtimeConnectionLostHandler) {
+        window.removeEventListener('realtimeConnectionLost', window._realtimeConnectionLostHandler);
+        window._realtimeConnectionLostHandler = null;
+    }
+    if (window._realtimeStatusHandler) {
+        window.removeEventListener('realtimeStatusChanged', window._realtimeStatusHandler);
+        window._realtimeStatusHandler = null;
     }
 
     // Clear polling interval

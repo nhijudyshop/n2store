@@ -1543,112 +1543,19 @@ ${
         console.log('[BILL-SERVICE] [FB-FALLBACK] Page ID:', pageId, 'PSID:', psid);
 
         try {
-            // Get Facebook Page Token from various sources (same as tab1-orders.js)
-            let facebookPageToken = null;
-
-            // Source 1: Try from window.currentCRMTeam (set when chat modal opens)
-            if (window.currentCRMTeam && window.currentCRMTeam.Facebook_PageToken) {
-                const crmPageId =
-                    window.currentCRMTeam.ChannelId ||
-                    window.currentCRMTeam.Facebook_AccountId ||
-                    window.currentCRMTeam.Id;
-                if (
-                    String(crmPageId) === String(pageId) ||
-                    String(window.currentCRMTeam.Facebook_AccountId) === String(pageId)
-                ) {
-                    facebookPageToken = window.currentCRMTeam.Facebook_PageToken;
-                    console.log(
-                        '[BILL-SERVICE] [FB-FALLBACK] ✅ Got matching Facebook Page Token from window.currentCRMTeam'
-                    );
-                }
-            }
-
-            // Source 2: Try from current order's CRMTeam
-            if (
-                !facebookPageToken &&
-                window.currentOrder &&
-                window.currentOrder.CRMTeam &&
-                window.currentOrder.CRMTeam.Facebook_PageToken
-            ) {
-                const crmPageId =
-                    window.currentOrder.CRMTeam.ChannelId ||
-                    window.currentOrder.CRMTeam.Facebook_AccountId;
-                if (
-                    String(crmPageId) === String(pageId) ||
-                    String(window.currentOrder.CRMTeam.Facebook_AccountId) === String(pageId)
-                ) {
-                    facebookPageToken = window.currentOrder.CRMTeam.Facebook_PageToken;
-                    console.log(
-                        '[BILL-SERVICE] [FB-FALLBACK] ✅ Got matching Facebook Page Token from currentOrder.CRMTeam'
-                    );
-                }
-            }
-
-            // Source 3: Try from cachedChannelsData
-            if (!facebookPageToken && window.cachedChannelsData) {
-                const channel = window.cachedChannelsData.find(
-                    (ch) =>
-                        String(ch.ChannelId) === String(pageId) ||
-                        String(ch.Facebook_AccountId) === String(pageId)
-                );
-                if (channel && channel.Facebook_PageToken) {
-                    facebookPageToken = channel.Facebook_PageToken;
-                    console.log(
-                        '[BILL-SERVICE] [FB-FALLBACK] ✅ Got Facebook Page Token from cached channels'
-                    );
-                }
-            }
-
-            // Source 4: Fetch CRMTeam directly by pageId from TPOS
-            if (!facebookPageToken) {
-                console.log(
-                    '[BILL-SERVICE] [FB-FALLBACK] Token not found, fetching CRMTeam from TPOS...'
-                );
-                try {
-                    const headers = (await window.tokenManager?.getAuthHeader()) || {};
-                    const crmUrl = `${window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev'}/api/odata/CRMTeam?$filter=ChannelId eq '${pageId}' or Facebook_AccountId eq '${pageId}'&$top=1`;
-                    const response = await fetch(crmUrl, {
-                        method: 'GET',
-                        headers: { ...headers, Accept: 'application/json' },
-                    });
-
-                    if (response.ok) {
-                        const data = await response.json();
-                        const teams = data.value || data;
-                        if (teams && teams.length > 0 && teams[0].Facebook_PageToken) {
-                            facebookPageToken = teams[0].Facebook_PageToken;
-                            console.log(
-                                '[BILL-SERVICE] [FB-FALLBACK] ✅ Got Facebook Page Token from CRMTeam API'
-                            );
-                        }
-                    }
-                } catch (fetchError) {
-                    console.warn(
-                        '[BILL-SERVICE] [FB-FALLBACK] ⚠️ Could not fetch CRMTeam from TPOS:',
-                        fetchError.message
-                    );
-                }
-            }
-
-            // Source 5: Fallback - use currentCRMTeam token anyway
-            if (
-                !facebookPageToken &&
-                window.currentCRMTeam &&
-                window.currentCRMTeam.Facebook_PageToken
-            ) {
-                facebookPageToken = window.currentCRMTeam.Facebook_PageToken;
-                console.warn(
-                    '[BILL-SERVICE] [FB-FALLBACK] ⚠️ Using currentCRMTeam token as last resort fallback'
-                );
-            }
+            // Use shared getFacebookPageToken() utility (defined in tab1-chat-facebook.js)
+            const facebookPageToken = window.getFacebookPageToken
+                ? await window.getFacebookPageToken(pageId)
+                : null;
 
             if (!facebookPageToken) {
-                console.error('[BILL-SERVICE] [FB-FALLBACK] ❌ No Facebook Page Token found');
+                console.error('[BILL-SERVICE] [FB-FALLBACK] No Facebook Page Token found');
                 return {
                     success: false,
                     error: 'Không tìm thấy Facebook Page Token để gửi fallback',
                 };
             }
+            console.log('[BILL-SERVICE] [FB-FALLBACK] Got Facebook Page Token via shared utility');
 
             // Call Facebook Send API via worker proxy
             const facebookSendUrl =
