@@ -1,0 +1,446 @@
+# Pancake Extension V2 - Bypass Facebook 24h Messaging Window
+
+## Tổng quan
+
+Facebook giới hạn Page chỉ gửi được tin nhắn cho khách hàng trong vòng **24 giờ** kể từ tin nhắn cuối của khách (Messaging Window Policy). Sau 24h, Facebook API trả lỗi:
+
+```
+e_code: 10, e_subcode: 2018278
+"It has been more than 24 hours since the recipient last responded"
+```
+
+Hoặc:
+```
+e_code: 551, e_subcode: 1545041
+"Người này hiện không có mặt."
+```
+
+**Pancake Extension V2** (Chrome Extension) bypass giới hạn này bằng cách gửi qua endpoint nội bộ `business.facebook.com/messaging/send/` thay vì Facebook Graph API. Đây là cách Business Suite web gửi tin nhắn — không bị giới hạn 24h.
+
+---
+
+## Kiến trúc
+
+### Message Flow (hiện tại - đã tối ưu)
+
+```
+Trang inbox (nhijudyshop)
+    │
+    │  1. Gửi qua Pancake API (Graph API) → fail (24h/551)
+    │
+    │  2. Fallback: Gửi qua Extension
+    │     globalUserId = conv._raw.page_customer.global_id  ← LẤY TỪ PANCAKE API
+    │
+    ├── window.postMessage({ type: 'REPLY_INBOX_PHOTO', globalUserId, ... })
+    │       │
+    │       ▼
+    │   contentscript.js (inject vào trang)
+    │       │ chrome.runtime.connect (port)
+    │       ▼
+    │   background.js (Service Worker - 589KB)
+    │       │ POST business.facebook.com/messaging/send/
+    │       │ (dùng fb_dtsg token từ Facebook session + globalUserId)
+    │       ▼
+    │   REPLY_INBOX_PHOTO_SUCCESS { messageId: "mid.$...", timestamp: ... }
+    │
+    ▼
+Tin nhắn đã gửi (bypass 24h)
+```
+
+### Key Insight: globalUserId từ Pancake API
+
+Pancake API trả `global_id` (Global Facebook User ID) trực tiếp trong conversation data:
+
+```json
+{
+  "page_customer": {
+    "psid": "26140045085657251",
+    "global_id": "100001957832900"    ← CHÍNH LÀ globalUserId
+  }
+}
+```
+
+**KHÔNG cần gọi `GET_GLOBAL_ID_FOR_CONV`** để resolve — đã có sẵn từ API!
+
+### Pancake.vn flow (tham khảo)
+
+Pancake.vn dùng 2-step flow phức tạp hơn (vì họ cần cache cho nhiều user):
+1. `GET_GLOBAL_ID_FOR_CONV` với `threadId` (Facebook thread_fbid) → resolve `globalId`
+2. Cache vào IndexedDB `fb_meta_data/global_user_ids`
+3. `REPLY_INBOX_PHOTO` với `globalUserId`
+
+Ta skip bước 1-2 vì đã có `global_id` từ API.
+
+### Files
+
+| File | Mô tả |
+|------|--------|
+| `pancake-extension/manifest.json` | Extension config, domains, permissions |
+| `pancake-extension/scripts/background.js` | Service Worker chính (589KB minified) - xử lý Facebook API calls |
+| `pancake-extension/scripts/contentscript.js` | Content script inject vào trang - bridge giữa page ↔ background |
+| `pancake-extension/scripts/cext.js` | SharedWorker bridge (dùng cho iframe mode, ít quan trọng) |
+| `pancake-extension/scripts/worker.js` | SharedWorker broadcast messages giữa tabs |
+| `inbox/js/inbox-main.js` | Extension bridge + debug functions |
+| `inbox/js/inbox-chat.js` | `_sendViaExtension()` - gửi tin nhắn qua extension |
+
+---
+
+## Cài đặt Extension
+
+### Unpacked Extension (cho nhijudyshop)
+
+Extension đã được sửa `manifest.json` thêm domain nhijudyshop vào `content_scripts.matches`:
+
+```json
+"content_scripts": [{
+    "matches": [
+        "https://pancake.vn/*",
+        "https://*.nhijudyshop.workers.dev/*",
+        "https://nhijudyshop.workers.dev/*",
+        "https://nhijudyshop.github.io/*"
+    ],
+    "js": ["scripts/contentscript.js"]
+}]
+```
+
+**Cài đặt:**
+1. Chrome → `chrome://extensions/` → Developer mode ON
+2. "Load unpacked" → chọn folder `pancake-extension/`
+3. Extension ID: `fbpkaheebdjhiknljniepfgeaiijofcm` (thay đổi mỗi máy)
+
+### Chrome Web Store Extension
+
+- Extension ID gốc: `oehooocookcnclgniepdgaiankfifmmn`
+- Version: 0.5.42 (build 267)
+- **Không hoạt động trên nhijudyshop** vì `content_scripts.matches` không có domain nhijudyshop
+- Chỉ hoạt động trên `pancake.vn`, `pages.fm`, etc.
+
+### Lưu ý quan trọng
+- **KHÔNG dùng cả 2 extension cùng lúc** (Chrome Web Store + unpacked) → conflict
+- Extension cần user đã **đăng nhập Facebook** trên cùng Chrome profile
+- `background.js` (589KB) là file gốc từ Pancake, **KHÔNG SỬA** — chỉ sửa `manifest.json` và thêm debug log vào `contentscript.js`
+
+---
+
+## Cách hoạt động chi tiết
+
+### Bước 0: Extension kết nối
+
+Khi trang load, `contentscript.js` inject vào và:
+1. Tạo `chrome.runtime.connect({ name: "pancake_tab" })` tới background
+2. Gửi `EXTENSION_LOADED` event về trang
+3. Gửi `WAKE_UP` mỗi 10 giây để giữ Service Worker sống
+
+```
+contentscript.js:
+    setup_port → chrome.runtime.connect
+    → window.postMessage({ type: "EXTENSION_LOADED", from: "EXTENSION" })
+    → setInterval WAKE_UP every 10s
+```
+
+Trang inbox nhận event trong `inbox-main.js`:
+```javascript
+// inbox-main.js line 205
+window.pancakeExtension = { connected: false, lastEvents: [] };
+
+// Khi nhận EXTENSION_LOADED:
+window.pancakeExtension.connected = true;
+// Gửi PREINITIALIZE_PAGES để extension warm up Facebook sessions
+window.postMessage({ type: 'PREINITIALIZE_PAGES', pageIds: [...] });
+```
+
+### Bước 1: PREINITIALIZE_PAGES
+
+Extension mở `business.facebook.com/latest/inbox/all?page_id=XXX` trong background để:
+- Lấy **fb_dtsg** (CSRF token) từ Facebook HTML
+- Cache Facebook session cookies
+- Load GraphQL doc_ids (MessengerThreadlistQuery, etc.)
+
+```
+Log: "SET TO VERSION 6"
+Log: "FOUND MessengerThreadlistQuery DOC ID"
+Log: "UPDATE DYNAMIC RULES FOR URL https://business.facebook.com/latest/inbox/all?page_id=..."
+```
+
+### Bước 2: REPLY_INBOX_PHOTO (Gửi tin nhắn)
+
+`globalUserId` lấy trực tiếp từ Pancake API `conv._raw.page_customer.global_id`:
+
+```javascript
+// inbox-chat.js - _sendViaExtension()
+const raw = conv._raw || {};
+const psid = conv.psid || raw.from?.id || '';
+const globalUserId = raw.page_customer?.global_id;  // "100001957832900"
+
+window.postMessage({
+    type: 'REPLY_INBOX_PHOTO',
+    pageId: conv.pageId,              // "112678138086607"
+    igPageId: null,
+    tryResizeImage: true,
+    contentIds: [],
+    message: 'Nội dung tin nhắn',
+    attachmentType: 'SEND_TEXT_ONLY',
+    globalUserId: globalUserId,       // "100001957832900" ← TỪ PANCAKE API
+    platform: 'facebook',
+    replyMessage: null,
+    threadId: psid,                   // "26140045085657251" (PSID)
+    convId: 't_' + psid,             // "t_26140045085657251"
+    customerName: 'Huỳnh Thành Đạt',
+    conversationUpdatedTime: 1773560946749,
+    photoUrls: [],
+    isBusiness: false,                // PHẢI LÀ false
+    taskId: Date.now(),
+    from: 'WEBPAGE'
+}, '*');
+```
+
+Extension background.js:
+1. Dùng `fb_dtsg` + `globalUserId` + cookies
+2. POST tới `business.facebook.com/messaging/send/`
+3. Trả về `REPLY_INBOX_PHOTO_SUCCESS` hoặc `REPLY_INBOX_PHOTO_FAILURE`
+
+```javascript
+// Response thành công:
+{
+    type: 'REPLY_INBOX_PHOTO_SUCCESS',
+    taskId: 1234567891,
+    pageId: '112678138086607',
+    convId: 't_34116166741365151',
+    messageId: 'mid.$cAAA8iWlJbAujO0rkmGdCgWVarv7_',
+    globalUserId: '100001957832900',
+    timestamp: 1773989633176,
+    retryReason: null,
+    messageCreatedRange: [1773989631342, 1773989633288]
+}
+```
+
+---
+
+## Các ID quan trọng
+
+### PSID vs globalUserId vs threadId
+
+| ID | Ví dụ | Nguồn | Mô tả |
+|----|-------|-------|--------|
+| PSID | `26140045085657251` | `conv.psid` / `conv._raw.from.id` | Page-Scoped ID — ID khách hàng theo Page |
+| `globalUserId` | `100001957832900` | `conv._raw.page_customer.global_id` | Global Facebook User ID — **BẮT BUỘC** cho extension |
+| `threadId` (Facebook) | `34116166741365151` | Pancake IndexedDB cache | Facebook thread_fbid — Pancake API **KHÔNG trả** field này |
+| `conversationId` (Pancake) | `112678138086607_26140045085657251` | `conv.id` / `conv._raw.id` | Format: `pageId_psid` |
+
+### Cách lấy globalUserId
+
+```javascript
+// Từ Pancake API conversation data:
+const globalUserId = conv._raw?.page_customer?.global_id;
+// → "100001957832900"
+
+// KHÔNG cần dùng GET_GLOBAL_ID_FOR_CONV
+// KHÔNG cần Facebook thread_fbid
+```
+
+### isBusiness: false (QUAN TRỌNG)
+
+Mặc dù gửi qua Business Suite endpoint, trường `isBusiness` trong payload REPLY_INBOX_PHOTO phải là **`false`**. Đây là cách pancake.vn gửi. Nếu để `true`, extension xử lý khác và có thể fail.
+
+---
+
+## Fallback Logic trong inbox-chat.js
+
+```javascript
+// inbox-chat.js - _sendInbox()
+async _sendInbox(url, text, conv, replyData) {
+    try {
+        // Thử gửi qua Pancake API trước (Graph API - bị 24h)
+        await this._sendApi(url, { action: 'reply_inbox', message: text });
+    } catch (err) {
+        // Nếu API fail (24h, 551, etc.) → fallback qua Extension
+        if (window.pancakeExtension?.connected) {
+            await this._sendViaExtension(text, conv);
+            return;
+        }
+        throw err; // Không có extension → throw error
+    }
+}
+```
+
+**Flow:**
+1. Gửi qua Pancake API (Graph API) → nếu OK thì xong
+2. Nếu lỗi 24h/551 → check `window.pancakeExtension.connected`
+3. Nếu extension connected → `_sendViaExtension()` với `page_customer.global_id`
+4. Nếu không có extension → show error toast
+
+---
+
+## Debug
+
+### Console commands
+
+```javascript
+// Kiểm tra extension đã kết nối chưa
+window.pancakeExtension
+// → { connected: true, lastEvents: [...] }
+
+// Xem global_id của conversation đang mở
+const id = window.inboxChat?.activeConversationId;
+const conv = window.inboxChat?.data?.getConversation(id);
+console.log('global_id:', conv?._raw?.page_customer?.global_id);
+console.log('psid:', conv?.psid);
+
+// Debug full extension (test fb_dtsg, version)
+debugExtension()
+debugExtension('PAGE_ID')
+
+// Xem event log
+window.pancakeExtension.lastEvents
+
+// Xem raw conversation data (tất cả fields từ Pancake API)
+console.log(JSON.stringify(conv?._raw, null, 2));
+```
+
+### Pancake API conversation fields (24 fields)
+
+```
+id, type, tags, seen, from, snippet, inserted_at, updated_at,
+message_count, page_id, assignee_ids, last_sent_by, customers,
+post_id, has_phone, recent_phone_numbers, assignee_group_id,
+customer_id, page_customer, ads, ad_ids, assignee_histories,
+current_assign_users, tag_histories
+```
+
+**Quan trọng:** `page_customer.global_id` = Global Facebook User ID
+
+### Debug log prefixes
+
+| Prefix | File | Mô tả |
+|--------|------|--------|
+| `[CS→BG]` | contentscript.js | Trang → Background (gửi command) |
+| `[BG→CS]` | contentscript.js | Background → Trang (nhận response) |
+| `[EXT-EVENT]` | inbox-main.js | Tất cả extension events |
+| `[EXT-SEND]` | inbox-chat.js | Chi tiết gửi tin nhắn qua extension |
+
+### Service Worker console (chrome://extensions/)
+
+Mở extension → "Inspect views: service worker" để xem:
+- `FOUND MessengerThreadlistQuery DOC ID` → Extension đã lấy được GraphQL doc IDs
+- `UPDATE DYNAMIC RULES FOR URL .../messaging/send/` → Đang gửi tin nhắn
+- `Time remain send inbox: XXXXX` → Timer còn lại trước khi gửi
+- `CANNOT GET GLOBAL ID WITH ...` → GraphQL lookup failed (chỉ xảy ra nếu dùng GET_GLOBAL_ID_FOR_CONV)
+
+---
+
+## Các loại message type
+
+### Gửi đi (Trang → Extension)
+
+| Type | Mô tả |
+|------|--------|
+| `PREINITIALIZE_PAGES` | Warm up Facebook sessions cho các page |
+| `CHECK_EXTENSION_VERSION` | Kiểm tra version extension |
+| `GET_BUSINESS_CONTEXT` | Lấy fb_dtsg token |
+| `GET_GLOBAL_ID_FOR_CONV` | Resolve thread → Global Facebook ID (không cần nếu có `page_customer.global_id`) |
+| `REPLY_INBOX_PHOTO` | Gửi tin nhắn text/ảnh |
+| `UPLOAD_INBOX_PHOTO` | Upload ảnh |
+| `SEND_COMMENT` | Gửi comment |
+| `WAKE_UP` | Giữ Service Worker sống |
+
+### Nhận về (Extension → Trang)
+
+| Type | Mô tả |
+|------|--------|
+| `EXTENSION_LOADED` | Extension đã inject vào trang |
+| `EXTENSION_VERSION` | Trả version + build number |
+| `GET_BUSINESS_CONTEXT_SUCCESS/FAILURE` | fb_dtsg kết quả |
+| `GET_GLOBAL_ID_FOR_CONV_SUCCESS/FAILURE` | Global ID kết quả |
+| `REPLY_INBOX_PHOTO_SUCCESS/FAILURE` | Kết quả gửi tin nhắn |
+| `REPORT_EXTENSION_STATUS` | Trạng thái kết nối Facebook |
+
+---
+
+## Lỗi thường gặp
+
+### 1. Extension not connected
+**Triệu chứng:** `window.pancakeExtension.connected === false`
+**Nguyên nhân:**
+- Domain không có trong `manifest.json` `content_scripts.matches`
+- Extension chưa load (reload trang)
+- Dùng Chrome Web Store extension thay vì unpacked
+
+### 2. No global_id in page_customer
+**Triệu chứng:** `Không có Global Facebook ID cho khách hàng này`
+**Nguyên nhân:**
+- Khách hàng mới, Pancake chưa resolve global_id
+- Conversation data chưa có `page_customer` field
+**Workaround:** Dùng `GET_GLOBAL_ID_FOR_CONV` với Facebook thread_fbid (cần tìm threadId riêng)
+
+### 3. REPLY_INBOX_PHOTO_FAILURE (no error message)
+**Triệu chứng:** Extension trả failure nhưng không có error detail
+**Nguyên nhân:**
+- `globalUserId` null hoặc sai
+- `isBusiness` sai (phải là `false`)
+- fb_dtsg expired (cần refresh Facebook page)
+
+### 4. TIMEOUT 35s
+**Triệu chứng:** `Extension send timeout (35s)`
+**Nguyên nhân:**
+- Extension Service Worker đã tắt (không có WAKE_UP)
+- Facebook session expired
+- Network issues
+
+---
+
+## fb_dtsg
+
+**fb_dtsg** là CSRF token của Facebook, chỉ lấy được bằng cách:
+1. Mở trang `business.facebook.com` (extension background.js tự làm khi PREINITIALIZE_PAGES)
+2. Parse HTML để extract token
+3. **KHÔNG thể lấy qua API** (Graph API, Pancake API, etc.)
+
+Extension tự quản lý fb_dtsg qua `GET_BUSINESS_CONTEXT`:
+```javascript
+window.postMessage({ type: 'GET_BUSINESS_CONTEXT', pageId: 'PAGE_ID' });
+// → GET_BUSINESS_CONTEXT_SUCCESS { dtsg: "AQ...", context: { ... } }
+```
+
+---
+
+## Pancake IndexedDB Cache (tham khảo)
+
+Pancake.vn cache global IDs trong IndexedDB `fb_meta_data`:
+
+```javascript
+// DB: fb_meta_data
+// Store: global_user_ids (43 items)
+{ "globalId": "100008123833898", "threadId": "120006314020456", "pageId": "112678138086607", "insertedAt": 1773989634 }
+
+// Store: global_user_ids_2 (43 items)
+{ "threadId": "122200536296499398", "globalId": "61564981960459", "pageId": "112678138086607", "insertedAt": 1773989632 }
+```
+
+Các databases của Pancake:
+- `ComCakeDatabase` → cache
+- `PancakeOffline` → QuickReplies
+- `fb_meta_data` → **global_user_ids** (mapping threadId ↔ globalId)
+- `pancakeIndexedDB` → EXPORT_ADS_CONV, EXPORT_CONTACTS, etc.
+
+---
+
+## Lịch sử debug (tóm tắt)
+
+1. **Vấn đề ban đầu:** Facebook 24h policy block gửi tin nhắn qua Graph API
+2. **Giải pháp:** Dùng Pancake Extension V2 bypass qua `business.facebook.com/messaging/send/`
+3. **Bug 1:** Extension cần `globalUserId` (Global Facebook ID), ta gửi PSID → fail
+4. **Bug 2:** `GET_GLOBAL_ID_FOR_CONV` cần Facebook thread_fbid, ta gửi `pageId_psid` → fail
+5. **Bug 3:** Dùng PSID làm threadId → extension vẫn không match thread list
+6. **Giải pháp cuối:** Pancake API trả `page_customer.global_id` trực tiếp → skip GET_GLOBAL_ID_FOR_CONV hoàn toàn
+
+---
+
+## Tham chiếu code hiện tại
+
+- **Extension bridge:** [inbox-main.js:204-337](inbox/js/inbox-main.js#L204-L337)
+- **Send via extension:** [inbox-chat.js:2161-2236](inbox/js/inbox-chat.js#L2161-L2236)
+- **Fallback trigger:** [inbox-chat.js:2132-2150](inbox/js/inbox-chat.js#L2132-L2150)
+- **24h check:** [inbox-chat.js:2043-2048](inbox/js/inbox-chat.js#L2043-L2048)
+- **mapConversation (raw data):** [inbox-data.js:465-486](inbox/js/inbox-data.js#L465-L486)
+- **Manifest (domains):** [pancake-extension/manifest.json](pancake-extension/manifest.json)
+- **Content script:** [pancake-extension/scripts/contentscript.js](pancake-extension/scripts/contentscript.js)
