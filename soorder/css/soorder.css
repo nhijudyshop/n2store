@@ -406,10 +406,12 @@
 
 .add-order-form .form-group {
     margin-bottom: 0;
+    min-width: 0;
 }
 
 .add-order-form .form-group input[type="text"],
 .add-order-form .form-group input[type="number"] {
+    display: block;
     width: 100%;
     padding: 0.875rem 1rem;
     border: 2px solid var(--order-border);
@@ -418,6 +420,10 @@
     transition: all 0.2s ease;
     background: var(--order-bg-light);
     box-sizing: border-box;
+}
+
+.add-order-form .ncc-input-wrapper {
+    width: 100%;
 }
 
 .add-order-form .form-group input[type="text"]:hover,
