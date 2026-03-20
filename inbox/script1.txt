@@ -1,0 +1,69 @@
+(() => {
+    const chat = window.inboxChat;
+    const conv = chat?.data?.getConversation(chat?.activeConversationId);
+    const raw = conv?._raw || {};
+    const api = window.inboxPancakeAPI;
+    const cacheKey = `${conv?.pageId}_${conv?.conversationId}`;
+    const cached = api?._messagesCache?.get(cacheKey);
+    const rc = cached?.conversation || null;
+
+    console.log('=== NHIJUDYSHOP DEBUG ===');
+    console.log('convId:', conv?.conversationId);
+    console.log('pageId:', conv?.pageId);
+    console.log('psid:', conv?.psid);
+    console.log('name:', conv?.name);
+
+    console.log('\n--- _raw (LIST + merged) ---');
+    console.log('thread_id:', raw.thread_id);
+    console.log('thread_key:', raw.thread_key);
+    console.log('page_customer:', JSON.stringify(raw.page_customer));
+    console.log('from_psid:', raw.from_psid);
+    console.log('raw keys:', Object.keys(raw).sort().join(', '));
+
+    console.log('\n--- Messages cache (result.conversation) ---');
+    console.log('has cache:', !!cached);
+    if (rc) {
+        console.log('rc.thread_id:', rc.thread_id);
+        console.log('rc.thread_key:', rc.thread_key);
+        console.log('rc.page_customer:', JSON.stringify(rc.page_customer));
+        console.log('rc keys:', Object.keys(rc).sort().join(', '));
+    } else {
+        console.log('NO result.conversation in cache');
+    }
+
+    console.log('\n--- Customers from messages ---');
+    (cached?.customers || []).forEach((c, i) => {
+        console.log(`customer[${i}]:`, JSON.stringify({id: c.id, name: c.name, fb_id: c.fb_id, global_id: c.global_id, psid: c.psid}));
+    });
+
+    console.log('\n--- Extension state ---');
+    console.log('_globalIdCache:', JSON.stringify(chat?._globalIdCache));
+    console.log('extension:', window.pancakeExtension?.connected);
+    console.log('token:', window.inboxTokenManager?.getTokenSync?.()?.substring(0, 20) + '...');
+})();
+
+VM25405:10 === NHIJUDYSHOP DEBUG ===
+VM25405:11 convId: 112678138086607_34488268700787170
+VM25405:12 pageId: 112678138086607
+VM25405:13 psid: 34488268700787170
+VM25405:14 name: Bao Nhi
+VM25405:16 
+--- _raw (LIST + merged) ---
+VM25405:17 thread_id: undefined
+VM25405:18 thread_key: undefined
+VM25405:19 page_customer: {"id":"7909aa03-0fed-4a66-b51a-4f2a3e68e5ee","name":"Bao Nhi","inserted_at":"2026-03-10T07:11:03","customer_id":"a7ebc1ff-9530-46ff-bf58-87a3d028bc3f","psid":"34488268700787170","gender":null,"global_id":"61562857243573","birthday":null,"notes":null,"recent_orders":null}
+VM25405:20 from_psid: undefined
+VM25405:21 raw keys: ad_ids, ads, assignee_group_id, assignee_histories, assignee_ids, current_assign_users, customer_id, customers, from, has_phone, id, inserted_at, last_sent_by, message_count, page_customer, page_id, post_id, recent_phone_numbers, seen, snippet, tag_histories, tags, type, updated_at
+VM25405:23 
+--- Messages cache (result.conversation) ---
+VM25405:24 has cache: true
+VM25405:31 NO result.conversation in cache
+VM25405:34 
+--- Customers from messages ---
+VM25405:36 customer[0]: {"id":"7909aa03-0fed-4a66-b51a-4f2a3e68e5ee","name":"Bao Nhi","fb_id":"34488268700787170","global_id":"61562857243573"}
+VM25405:39 
+--- Extension state ---
+VM25405:40 _globalIdCache: {}
+VM25405:41 extension: true
+VM25405:42 token: eyJhbGciOiJIUzI1NiIs...
+undefined

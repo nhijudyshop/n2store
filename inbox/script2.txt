@@ -1,0 +1,133 @@
+(() => {
+    console.log('=== PANCAKE.VN DEBUG ===');
+
+    // Intercept postMessage để bắt payload khi gửi tin nhắn
+    const origPM = window.postMessage.bind(window);
+    window._debugMessages = [];
+    window.postMessage = function(data, ...args) {
+        if (data?.type && (data.type.includes('GLOBAL_ID') || data.type.includes('REPLY_INBOX') || data.type.includes('BIRTHDAY'))) {
+            console.log('📤 OUTGOING:', data.type, JSON.stringify(data, null, 2));
+            window._debugMessages.push({dir: 'OUT', ...data});
+        }
+        return origPM(data, ...args);
+    };
+
+    // Intercept responses
+    window.addEventListener('message', (e) => {
+        if (e.data?.type && (
+            e.data.type.includes('GLOBAL_ID') ||
+            e.data.type.includes('REPLY_INBOX') ||
+            e.data.type.includes('BIRTHDAY')
+        )) {
+            console.log('📥 INCOMING:', e.data.type, JSON.stringify(e.data, null, 2));
+            window._debugMessages.push({dir: 'IN', ...e.data});
+        }
+    });
+
+    // Try to find current conversation data from pancake.vn's React state
+    // Look for conversation store in window.__NEXT_DATA__ or React fiber
+    const nextData = window.__NEXT_DATA__;
+    if (nextData) {
+        console.log('__NEXT_DATA__ pageProps keys:', Object.keys(nextData?.props?.pageProps || {}).join(', '));
+    }
+
+    // Scan for global stores
+    ['conversationStore', 'chatStore', 'inboxStore', 'messageStore'].forEach(name => {
+        if (window[name]) console.log('Found window.' + name);
+    });
+
+    console.log('\n✅ Interceptor active. Bây giờ GỬI 1 TIN NHẮN cho khách hàng cần test.');
+    console.log('Sau khi gửi xong, chạy: JSON.stringify(window._debugMessages, null, 2)');
+})();
+
+VM192:2 === PANCAKE.VN DEBUG ===
+VM192:31 __NEXT_DATA__ pageProps keys: 
+VM192:39 
+✅ Interceptor active. Bây giờ GỬI 1 TIN NHẮN cho khách hàng cần test.
+VM192:40 Sau khi gửi xong, chạy: JSON.stringify(window._debugMessages, null, 2)
+undefined
+_app-ea121a8c57a9239e.v6.js:1 sendInbox: Missing last_customer_interactive_at field in conversation object. This won't break the flow but will create a suboptimal plan.
+getAvailableMethods @ _app-ea121a8c57a9239e.v6.js:1
+eM @ _app-ea121a8c57a9239e.v6.js:1
+(anonymous) @ _app-ea121a8c57a9239e.v6.js:1
+(anonymous) @ _app-ea121a8c57a9239e.v6.js:1
+t.exports @ large-vendor-b49fab05-b4dddc8352d5dd54.v6.js:1
+t.exports @ large-vendor-b49fab05-b4dddc8352d5dd54.v6.js:1
+t.exports @ large-vendor-b49fab05-b4dddc8352d5dd54.v6.js:1
+eE @ _app-ea121a8c57a9239e.v6.js:1
+eI @ _app-ea121a8c57a9239e.v6.js:1
+eN @ _app-ea121a8c57a9239e.v6.js:1
+await in eN
+sendInbox @ conversation-c6ed4de70120c096.v6.js:1
+sendReplyRequest @ conversation-c6ed4de70120c096.v6.js:1
+checkMessageBeforeSend @ conversation-c6ed4de70120c096.v6.js:1
+(anonymous) @ conversation-c6ed4de70120c096.v6.js:1
+c @ _app-ea121a8c57a9239e.v6.js:1
+e81a3000156b42ce5cf6e96a813047e4daa7a4c8:1  GET https://content.pancake.vn/2.1-23/avatars/e81a3000156b42ce5cf6e96a813047e4daa7a4c8 404 (Not Found)
+Image
+oY @ framework-68da13a6b83c3aee.v6.js:1
+e @ framework-68da13a6b83c3aee.v6.js:1
+(anonymous) @ framework-68da13a6b83c3aee.v6.js:1
+uO @ framework-68da13a6b83c3aee.v6.js:1
+uS @ framework-68da13a6b83c3aee.v6.js:1
+x @ framework-68da13a6b83c3aee.v6.js:1
+R @ framework-68da13a6b83c3aee.v6.js:1
+_app-ea121a8c57a9239e.v6.js:1 found_in_cache
+VM192:9 📤 OUTGOING: REPLY_INBOX_PHOTO {
+  "pageId": "112678138086607",
+  "igPageId": null,
+  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiS-G7uSBUaHXhuq10IE5KRCIsImV4cCI6MTc4MDM4MTg4MywiYXBwbGljYXRpb24iOjEsInVpZCI6ImM0MmVmOTFkLTFhMWQtNDNhYS1iOGFmLThhYzAxNGQ4M2Q2YyIsInNlc3Npb25faWQiOiJkMTczYmNmZi1hMDM4LTQ3NjYtYjllZC04NWM4ZmFkYzMzMzYiLCJpYXQiOjE3NzI2MDU4ODMsImZiX2lkIjoiMTMwNzU5MDg2NjUwNTIyIiwibG9naW5fc2Vzc2lvbiI6bnVsbCwiZmJfbmFtZSI6Ikvhu7kgVGh14bqtdCBOSkQifQ.dzMT4A8KR3Puz0llKKrzdTFjLlP49NwvVg9fbHnwNBM",
+  "tryResizeImage": true,
+  "contentIds": [],
+  "type": "REPLY_INBOX_PHOTO",
+  "message": "tinnhan test",
+  "attachmentType": "SEND_TEXT_ONLY",
+  "globalUserId": "61562857243573",
+  "platform": "facebook",
+  "replyMessage": null,
+  "threadId": "122180070296428574",
+  "convId": "t_122180070296428574",
+  "customerName": "Bao Nhi",
+  "conversationUpdatedTime": 1773126991000,
+  "photoUrls": [],
+  "isBusiness": false,
+  "taskId": 0,
+  "from": "WEBPAGE"
+}
+contentscript.js:1 [CS→BG] Forwarding to background: REPLY_INBOX_PHOTO {"pageId":"112678138086607","igPageId":null,"accessToken":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiS-G7uSBUaHXhuq10IE5KRCIsImV4cCI6MTc4MDM4MTg4MywiYXBwbGljYXRpb24iOjEsInVpZCI6ImM0MmVmOTFkLTFhMWQtNDNhYS1iOGFmLThhYzAxNGQ4M2Q2YyIsInNlc3Npb25faWQiOiJkMTczYmNmZi1hMDM4LTQ3NjYtYjllZC04NWM4ZmFkYzMzMzYiLCJpYXQiOjE3NzI2MDU4ODMsImZiX2lkIjoiMTMwNzU5MDg2NjUwNTIyIiwibG9naW5fc2Vzc2lvbiI6bnVsbCwiZmJfbmFtZSI6Ikvhu7kgVGh14bqtdCBOSkQifQ.dzMT4A8KR3Puz0llKKrzdTFjLlP49NwvVg9fbHnwNBM","tryResizeImage":true,"c
+VM192:22 📥 INCOMING: REPLY_INBOX_PHOTO {
+  "pageId": "112678138086607",
+  "igPageId": null,
+  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiS-G7uSBUaHXhuq10IE5KRCIsImV4cCI6MTc4MDM4MTg4MywiYXBwbGljYXRpb24iOjEsInVpZCI6ImM0MmVmOTFkLTFhMWQtNDNhYS1iOGFmLThhYzAxNGQ4M2Q2YyIsInNlc3Npb25faWQiOiJkMTczYmNmZi1hMDM4LTQ3NjYtYjllZC04NWM4ZmFkYzMzMzYiLCJpYXQiOjE3NzI2MDU4ODMsImZiX2lkIjoiMTMwNzU5MDg2NjUwNTIyIiwibG9naW5fc2Vzc2lvbiI6bnVsbCwiZmJfbmFtZSI6Ikvhu7kgVGh14bqtdCBOSkQifQ.dzMT4A8KR3Puz0llKKrzdTFjLlP49NwvVg9fbHnwNBM",
+  "tryResizeImage": true,
+  "contentIds": [],
+  "type": "REPLY_INBOX_PHOTO",
+  "message": "tinnhan test",
+  "attachmentType": "SEND_TEXT_ONLY",
+  "globalUserId": "61562857243573",
+  "platform": "facebook",
+  "replyMessage": null,
+  "threadId": "122180070296428574",
+  "convId": "t_122180070296428574",
+  "customerName": "Bao Nhi",
+  "conversationUpdatedTime": 1773126991000,
+  "photoUrls": [],
+  "isBusiness": false,
+  "taskId": 0,
+  "from": "WEBPAGE"
+}
+contentscript.js:1 [BG→CS] Received from background: REPLY_INBOX_PHOTO_SUCCESS {"type":"REPLY_INBOX_PHOTO_SUCCESS","taskId":0,"pageId":"112678138086607","convId":"t_122180070296428574","messageId":"mid.$cAABRh1RZx3qjPoFpUGdDTwXiUvWI","globalUserId":"61562857243573","timestamp":1774043537744,"retryReason":null,"messageCreatedRange":[1774043535244,1774043537902]}
+VM192:22 📥 INCOMING: REPLY_INBOX_PHOTO_SUCCESS {
+  "type": "REPLY_INBOX_PHOTO_SUCCESS",
+  "taskId": 0,
+  "pageId": "112678138086607",
+  "convId": "t_122180070296428574",
+  "messageId": "mid.$cAABRh1RZx3qjPoFpUGdDTwXiUvWI",
+  "globalUserId": "61562857243573",
+  "timestamp": 1774043537744,
+  "retryReason": null,
+  "messageCreatedRange": [
+    1774043535244,
+    1774043537902
+  ]
+}

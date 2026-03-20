@@ -30,8 +30,9 @@ Trang inbox (nhijudyshop)
     │
     │  2. Fallback: Gửi qua Extension
     │     globalUserId = conv._raw.page_customer.global_id  ← LẤY TỪ PANCAKE API
+    │     accessToken = window.inboxTokenManager.getTokenSync()  ← PANCAKE JWT
     │
-    ├── window.postMessage({ type: 'REPLY_INBOX_PHOTO', globalUserId, ... })
+    ├── window.postMessage({ type: 'REPLY_INBOX_PHOTO', globalUserId, accessToken, ... })
     │       │
     │       ▼
     │   contentscript.js (inject vào trang)
@@ -47,29 +48,38 @@ Trang inbox (nhijudyshop)
 Tin nhắn đã gửi (bypass 24h)
 ```
 
-### Key Insight: globalUserId từ Pancake API
+### Key Insight: 5-step fallback chain cho globalUserId
 
-Pancake API trả `global_id` (Global Facebook User ID) trực tiếp trong conversation data:
+Extension cần `globalUserId` (Global Facebook User ID) để gửi tin nhắn. Ta dùng 5-step fallback:
 
-```json
-{
-  "page_customer": {
-    "psid": "26140045085657251",
-    "global_id": "100001957832900"    ← CHÍNH LÀ globalUserId
-  }
-}
+```
+Try 1: Cache (instant)           → _globalIdCache[conversationId]
+Try 2: Pancake API               → conv._raw.page_customer.global_id
+Try 2b: Messages customers       → conv._messagesData.customers[0].global_id (~1-2s)
+Try 3: Messages response merge   → conv._raw.thread_id (merged from fetchMessages)
+Try 4: GET_GLOBAL_ID_FOR_CONV    → extension resolve via thread_id (~30-40s lần đầu)
 ```
 
-**KHÔNG cần gọi `GET_GLOBAL_ID_FOR_CONV`** để resolve — đã có sẵn từ API!
+**Try 2b** cover trường hợp `page_customer.global_id = null` nhưng messages endpoint trả `customers[].global_id`. Nhanh hơn extension 20-30x (~1-2s vs ~30-40s).
 
-### Pancake.vn flow (tham khảo)
+**PSID ≠ thread_id**: Dùng PSID làm threadId cho GET_GLOBAL_ID_FOR_CONV sẽ FAIL với `INCORRECT THREAD`. Phải dùng Facebook `thread_id` (thread_fbid).
 
-Pancake.vn dùng 2-step flow phức tạp hơn (vì họ cần cache cho nhiều user):
-1. `GET_GLOBAL_ID_FOR_CONV` với `threadId` (Facebook thread_fbid) → resolve `globalId`
-2. Cache vào IndexedDB `fb_meta_data/global_user_ids`
-3. `REPLY_INBOX_PHOTO` với `globalUserId`
+**PSID OK cho REPLY_INBOX_PHOTO**: Extension chấp nhận PSID làm threadId trong REPLY_INBOX_PHOTO vì nó dùng `globalUserId` cho API call chính. Đã test thành công.
 
-Ta skip bước 1-2 vì đã có `global_id` từ API.
+### Nguồn dữ liệu cho thread_id
+
+| Nguồn | Trả thread_id? | Ghi chú |
+|--------|----------------|---------|
+| Conversations LIST endpoint | Một số page có, một số không | Page 270136663390370 có, page 112678138086607 không |
+| Messages endpoint (`result.conversation`) | **CÓ THỂ** — merged vào `_raw` | Merged tự động khi user click vào conversation |
+| Pancake IndexedDB cache | Có (pancake.vn) | Không truy cập được từ nhijudyshop |
+
+### Cache: `_globalIdCache`
+
+Sau khi resolve thành công, globalUserId được cache để lần gửi tiếp theo không cần đợi 30-40s:
+```javascript
+_globalIdCache[conversationId] = globalUserId; // instant on repeat sends
+```
 
 ### Files
 
@@ -162,25 +172,60 @@ Log: "FOUND MessengerThreadlistQuery DOC ID"
 Log: "UPDATE DYNAMIC RULES FOR URL https://business.facebook.com/latest/inbox/all?page_id=..."
 ```
 
-### Bước 2: REPLY_INBOX_PHOTO (Gửi tin nhắn)
-
-`globalUserId` lấy trực tiếp từ Pancake API `conv._raw.page_customer.global_id`:
+### Bước 2: Resolve globalUserId (5-step fallback)
 
 ```javascript
 // inbox-chat.js - _sendViaExtension()
 const raw = conv._raw || {};
-const psid = conv.psid || raw.from?.id || '';
-const globalUserId = raw.page_customer?.global_id;  // "100001957832900"
+
+// Try 1: Cache (instant - từ lần gửi trước)
+let globalUserId = this._globalIdCache[cacheKey] || null;
+
+// Try 2: Pancake API (page_customer.global_id)
+if (!globalUserId) globalUserId = raw.page_customer?.global_id || null;
+
+// Try 2b: Messages response customers[].global_id (~1-2s, nhanh hơn extension 20-30x)
+if (!globalUserId && conv._messagesData?.customers?.length) {
+    globalUserId = conv._messagesData.customers[0].global_id || null;
+}
+
+// Try 3: thread_id từ API (merged từ messages response vào _raw)
+const fbThreadId = raw.thread_id || null;
+
+// Try 4: Nếu có thread_id → hỏi extension resolve qua GET_GLOBAL_ID_FOR_CONV
+// ⚠️ PHẢI dùng thread_id (Facebook thread_fbid), KHÔNG PHẢI PSID!
+if (!globalUserId && fbThreadId) {
+    globalUserId = await getGlobalIdFromExtension(fbThreadId, conv.pageId); // timeout 60s
+}
+
+// Nếu tất cả fail → throw error
+if (!globalUserId) throw new Error('Không tìm được Global Facebook ID');
+
+// Cache cho lần sau
+this._globalIdCache[cacheKey] = globalUserId;
+```
+
+**QUAN TRỌNG về thread_id:**
+- `thread_id` có thể KHÔNG có trong conversations LIST response (tùy page)
+- Nhưng CÓ THỂ có trong messages endpoint response (`result.conversation.thread_id`)
+- Code tự động merge `result.conversation` fields vào `conv._raw` khi load messages (line ~1535)
+- Nên user phải **click vào conversation** trước khi gửi tin (để messages endpoint được gọi)
+
+### Bước 3: REPLY_INBOX_PHOTO (Gửi tin nhắn)
+
+```javascript
+const accessToken = window.inboxTokenManager?.getTokenSync?.() || '';
 
 window.postMessage({
     type: 'REPLY_INBOX_PHOTO',
     pageId: conv.pageId,              // "112678138086607"
     igPageId: null,
+    accessToken: accessToken,         // Pancake JWT token ← BẮT BUỘC
     tryResizeImage: true,
     contentIds: [],
     message: 'Nội dung tin nhắn',
     attachmentType: 'SEND_TEXT_ONLY',
-    globalUserId: globalUserId,       // "100001957832900" ← TỪ PANCAKE API
+    globalUserId: globalUserId,       // "100001957832900" ← TỪ API hoặc EXTENSION
     platform: 'facebook',
     replyMessage: null,
     threadId: psid,                   // "26140045085657251" (PSID)
@@ -194,8 +239,19 @@ window.postMessage({
 }, '*');
 ```
 
+### accessToken (Pancake JWT)
+
+`accessToken` là **Pancake login JWT** (không phải Facebook token). Pancake.vn **luôn gửi** field này trong REPLY_INBOX_PHOTO.
+
+```
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+→ { name: "Kỹ Thuật NJD", uid: "c42ef91d-...", fb_id: "130759086650522", exp: 1780381883 }
+```
+
+Lấy từ: `window.inboxTokenManager.getTokenSync()` (đã load sẵn trong memory).
+
 Extension background.js:
-1. Dùng `fb_dtsg` + `globalUserId` + cookies
+1. Dùng `fb_dtsg` + `globalUserId` + `accessToken` + cookies
 2. POST tới `business.facebook.com/messaging/send/`
 3. Trả về `REPLY_INBOX_PHOTO_SUCCESS` hoặc `REPLY_INBOX_PHOTO_FAILURE`
 
@@ -227,16 +283,50 @@ Extension background.js:
 | `threadId` (Facebook) | `34116166741365151` | Pancake IndexedDB cache | Facebook thread_fbid — Pancake API **KHÔNG trả** field này |
 | `conversationId` (Pancake) | `112678138086607_26140045085657251` | `conv.id` / `conv._raw.id` | Format: `pageId_psid` |
 
-### Cách lấy globalUserId
+### Cách lấy globalUserId (5-step fallback)
 
 ```javascript
-// Từ Pancake API conversation data:
-const globalUserId = conv._raw?.page_customer?.global_id;
-// → "100001957832900"
+// Try 1: Cache (instant)
+let globalUserId = this._globalIdCache[conversationId];
 
-// KHÔNG cần dùng GET_GLOBAL_ID_FOR_CONV
-// KHÔNG cần Facebook thread_fbid
+// Try 2: Từ Pancake API (đa số khách hàng có)
+if (!globalUserId) globalUserId = conv._raw?.page_customer?.global_id;
+
+// Try 2b: Từ messages response customers[] (~1-2s)
+if (!globalUserId) globalUserId = conv._messagesData?.customers?.[0]?.global_id;
+
+// Try 3+4: thread_id + GET_GLOBAL_ID_FOR_CONV (~30-40s, last resort)
+// ⚠️ Dùng raw.thread_id (Facebook thread_fbid), KHÔNG PHẢI PSID!
+const fbThreadId = conv._raw?.thread_id; // merged từ messages response
+if (!globalUserId && fbThreadId) {
+    window.postMessage({
+        type: 'GET_GLOBAL_ID_FOR_CONV',
+        pageId: conv.pageId,
+        threadId: fbThreadId,         // Facebook thread_fbid ← ĐÚNG
+        threadKey: 't_' + fbThreadId, // threadKey format
+        isBusiness: true,
+        conversationUpdatedTime: timestamp,
+        customerName: conv.name,
+        convType: 'INBOX',
+        postId: null, convId: null,
+        taskId: Date.now(),
+        from: 'WEBPAGE'
+    }, '*');
+    // → GET_GLOBAL_ID_FOR_CONV_SUCCESS { globalId: "100002968457940" }
+    // ⏱️ Extension cần ~30-40s lần đầu (graphqlbatch), instant nếu cached
+}
 ```
+
+### PSID vs thread_id (BUG ĐÃ FIX)
+
+**PSID** (VD: `7404404646279046`) ≠ **thread_id** (VD: `2109131096157575`)
+
+Extension background.js lỗi khi dùng PSID làm threadId:
+```
+FAIL TO GET GLOBAL ID --> INCORRECT THREAD 7404404646279046, t_7404404646279046 VS undefined
+```
+
+Extension cần Facebook `thread_fbid` để query `PagesManagerInboxAdminAssignerRootQuery` → resolve Global ID.
 
 ### isBusiness: false (QUAN TRỌNG)
 
@@ -365,26 +455,38 @@ Mở extension → "Inspect views: service worker" để xem:
 - Extension chưa load (reload trang)
 - Dùng Chrome Web Store extension thay vì unpacked
 
-### 2. No global_id in page_customer
-**Triệu chứng:** `Không có Global Facebook ID cho khách hàng này`
+### 2. No global_id AND no thread_id
+**Triệu chứng:** `[EXT-SEND] No global_id AND no thread_id in conversation data!`
 **Nguyên nhân:**
-- Khách hàng mới, Pancake chưa resolve global_id
-- Conversation data chưa có `page_customer` field
-**Workaround:** Dùng `GET_GLOBAL_ID_FOR_CONV` với Facebook thread_fbid (cần tìm threadId riêng)
+- `page_customer.global_id` = null (Pancake chưa resolve)
+- `thread_id` không có trong conversations LIST response
+- Messages endpoint chưa được gọi (user chưa click vào conversation)
+**Xử lý:**
+1. Click vào conversation trước → messages endpoint trả `result.conversation` có thể chứa `thread_id`
+2. Code tự động merge `thread_id` vào `_raw` khi load messages
+3. Nếu vẫn không có → hiển thị error "Không tìm được Global Facebook ID"
 
-### 3. REPLY_INBOX_PHOTO_FAILURE (no error message)
+### 3. INCORRECT THREAD error
+**Triệu chứng:** Extension background.js: `FAIL TO GET GLOBAL ID --> INCORRECT THREAD {psid}, t_{psid} VS undefined`
+**Nguyên nhân:** Code cũ dùng PSID thay vì Facebook thread_id làm threadId
+**Đã fix:** Dùng `raw.thread_id` (Facebook thread_fbid) thay vì PSID
+
+### 4. REPLY_INBOX_PHOTO_FAILURE (no error message)
 **Triệu chứng:** Extension trả failure nhưng không có error detail
 **Nguyên nhân:**
 - `globalUserId` null hoặc sai
+- `accessToken` thiếu hoặc expired (Pancake JWT)
 - `isBusiness` sai (phải là `false`)
 - fb_dtsg expired (cần refresh Facebook page)
 
-### 4. TIMEOUT 35s
-**Triệu chứng:** `Extension send timeout (35s)`
+### 5. TIMEOUT 60s
+**Triệu chứng:** `Extension send timeout (60s)` hoặc `GET_GLOBAL_ID_FOR_CONV timeout (60s)`
 **Nguyên nhân:**
+- GET_GLOBAL_ID_FOR_CONV thường mất ~30-40s lần đầu (extension query graphqlbatch)
 - Extension Service Worker đã tắt (không có WAKE_UP)
 - Facebook session expired
 - Network issues
+**Lưu ý:** Timeout đã tăng lên 60s (từ 15s/35s ban đầu) dựa trên đo thực tế (~39.9s).
 
 ---
 
@@ -430,17 +532,27 @@ Các databases của Pancake:
 2. **Giải pháp:** Dùng Pancake Extension V2 bypass qua `business.facebook.com/messaging/send/`
 3. **Bug 1:** Extension cần `globalUserId` (Global Facebook ID), ta gửi PSID → fail
 4. **Bug 2:** `GET_GLOBAL_ID_FOR_CONV` cần Facebook thread_fbid, ta gửi `pageId_psid` → fail
-5. **Bug 3:** Dùng PSID làm threadId → extension vẫn không match thread list
-6. **Giải pháp cuối:** Pancake API trả `page_customer.global_id` trực tiếp → skip GET_GLOBAL_ID_FOR_CONV hoàn toàn
+5. **Bug 3:** Dùng PSID làm threadId → `INCORRECT THREAD` error
+6. **Fix 1:** Pancake API trả `page_customer.global_id` trực tiếp → dùng làm globalUserId
+7. **Bug 4:** Một số khách có `global_id: null` → cần GET_GLOBAL_ID_FOR_CONV nhưng PSID ≠ thread_id
+8. **Fix 2:** Phát hiện `raw.thread_id` (Facebook thread_fbid) trong conversation data → dùng cho GET_GLOBAL_ID_FOR_CONV
+9. **Bug 5:** Timeout 15s quá ngắn — extension cần ~30-40s resolve (đo được 39.9s) → tăng lên 60s
+10. **Fix 3:** Thêm `_globalIdCache` để cache globalUserId → instant trên lần gửi tiếp
+11. **Bug 6:** Một số page (112678138086607) conversations LIST không trả `thread_id`
+12. **Fix 4:** Merge `result.conversation` từ messages endpoint vào `conv._raw` → có thể lấy thread_id sau khi click vào conversation
+13. **Bug 7:** `accessToken` (Pancake JWT) thiếu trong payload → thêm `window.inboxTokenManager.getTokenSync()`
+14. **Fix 5:** Thêm `customers[0].global_id` từ messages response làm fallback (~1-2s thay vì ~30-40s extension)
+15. **Confirmed:** Extension chấp nhận PSID làm threadId trong REPLY_INBOX_PHOTO (dùng globalUserId cho API call chính)
 
 ---
 
 ## Tham chiếu code hiện tại
 
 - **Extension bridge:** [inbox-main.js:204-337](inbox/js/inbox-main.js#L204-L337)
-- **Send via extension:** [inbox-chat.js:2161-2236](inbox/js/inbox-chat.js#L2161-L2236)
+- **Send via extension:** [inbox-chat.js:2184-2320](inbox/js/inbox-chat.js#L2184-L2320) — `_sendViaExtension()`
+- **Global ID cache:** [inbox-chat.js:2182](inbox/js/inbox-chat.js#L2182) — `_globalIdCache = {}`
+- **Merge thread_id from messages:** [inbox-chat.js:1535-1553](inbox/js/inbox-chat.js#L1535-L1553) — `result.conversation` → `conv._raw`
 - **Fallback trigger:** [inbox-chat.js:2132-2150](inbox/js/inbox-chat.js#L2132-L2150)
-- **24h check:** [inbox-chat.js:2043-2048](inbox/js/inbox-chat.js#L2043-L2048)
 - **mapConversation (raw data):** [inbox-data.js:465-486](inbox/js/inbox-data.js#L465-L486)
 - **Manifest (domains):** [pancake-extension/manifest.json](pancake-extension/manifest.json)
 - **Content script:** [pancake-extension/scripts/contentscript.js](pancake-extension/scripts/contentscript.js)

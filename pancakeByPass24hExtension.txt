@@ -1,0 +1,101 @@
+_app-58b69038f12b5f38.v6.js:1 sendInbox: Missing last_customer_interactive_at field in conversation object. This won't break the flow but will create a suboptimal plan.
+getAvailableMethods @ _app-58b69038f12b5f38.v6.js:1
+eM @ _app-58b69038f12b5f38.v6.js:1
+(anonymous) @ _app-58b69038f12b5f38.v6.js:1
+(anonymous) @ _app-58b69038f12b5f38.v6.js:1
+(anonymous) @ large-vendor-b49fab05-b4dddc8352d5dd54.v6.js:1
+push.435161.t.exports @ large-vendor-b49fab05-b4dddc8352d5dd54.v6.js:1
+push.594654.t.exports @ large-vendor-b49fab05-b4dddc8352d5dd54.v6.js:1
+eE @ _app-58b69038f12b5f38.v6.js:1
+eI @ _app-58b69038f12b5f38.v6.js:1
+eN @ _app-58b69038f12b5f38.v6.js:1
+await in eN
+push.760075.constructor.sendInbox @ conversation-a8f506ca2c32173c.v6.js:1
+push.760075.constructor.sendReplyRequest @ conversation-a8f506ca2c32173c.v6.js:1
+push.760075.constructor.checkMessageBeforeSend @ conversation-a8f506ca2c32173c.v6.js:1
+onClick @ conversation-a8f506ca2c32173c.v6.js:1
+eB @ framework-68da13a6b83c3aee.v6.js:1
+eH @ framework-68da13a6b83c3aee.v6.js:1
+(anonymous) @ framework-68da13a6b83c3aee.v6.js:1
+re @ framework-68da13a6b83c3aee.v6.js:1
+rt @ framework-68da13a6b83c3aee.v6.js:1
+(anonymous) @ framework-68da13a6b83c3aee.v6.js:1
+uT @ framework-68da13a6b83c3aee.v6.js:1
+eM @ framework-68da13a6b83c3aee.v6.js:1
+ru @ framework-68da13a6b83c3aee.v6.js:1
+tB @ framework-68da13a6b83c3aee.v6.js:1
+tD @ framework-68da13a6b83c3aee.v6.js:1
+_app-58b69038f12b5f38.v6.js:1 start call: getGlobalIdFromWS from: extensionPayload
+contentscript.js:1 [CS→BG] Forwarding to background: GET_GLOBAL_ID_FOR_CONV {"pageId":"112678138086607","threadId":"4319065975007943","threadKey":"t_4319065975007943","isBusiness":true,"conversationUpdatedTime":1773144096000,"customerName":"Nguyễn Tâm","convType":"INBOX","postId":null,"convId":null,"type":"GET_GLOBAL_ID_FOR_CONV","taskId":2,"from":"WEBPAGE"}
+_app-58b69038f12b5f38.v6.js:1 result_1 {success: true, data: '100007137486520'}
+_app-58b69038f12b5f38.v6.js:1 CallTime (getGlobalIdFromWS) - (from: extensionPayload):  0  s.
+_app-58b69038f12b5f38.v6.js:1 resolve at index: 2 100007137486520
+_app-58b69038f12b5f38.v6.js:1 store_global_id 100007137486520
+contentscript.js:1 [CS→BG] Forwarding to background: REPLY_INBOX_PHOTO {"pageId":"112678138086607","igPageId":null,"accessToken":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiS-G7uSBUaHXhuq10IE5KRCIsImV4cCI6MTc4MDM4MTg4MywiYXBwbGljYXRpb24iOjEsInVpZCI6ImM0MmVmOTFkLTFhMWQtNDNhYS1iOGFmLThhYzAxNGQ4M2Q2YyIsInNlc3Npb25faWQiOiJkMTczYmNmZi1hMDM4LTQ3NjYtYjllZC04NWM4ZmFkYzMzMzYiLCJpYXQiOjE3NzI2MDU4ODMsImZiX2lkIjoiMTMwNzU5MDg2NjUwNTIyIiwibG9naW5fc2Vzc2lvbiI6bnVsbCwiZmJfbmFtZSI6Ikvhu7kgVGh14bqtdCBOSkQifQ.dzMT4A8KR3Puz0llKKrzdTFjLlP49NwvVg9fbHnwNBM","tryResizeImage":true,"c
+contentscript.js:1 [BG→CS] Received from background: GET_GLOBAL_ID_FOR_CONV_SUCCESS {"type":"GET_GLOBAL_ID_FOR_CONV_SUCCESS","success":true,"globalId":"100007137486520","taskId":2}
+contentscript.js:1 [BG→CS] Received from background: REPLY_INBOX_PHOTO_SUCCESS {"type":"REPLY_INBOX_PHOTO_SUCCESS","taskId":3,"pageId":"112678138086607","convId":"t_4319065975007943","messageId":"mid.$cAAA8jlWConejPGKmBGdCx1XWBxnT","globalUserId":"100007137486520","timestamp":1774007967236,"retryReason":null,"messageCreatedRange":[1774007965548,1774007967338]}
+
+
+window.addEventListener('message', (e) => {
+    if (e.data?.type === 'REPLY_INBOX_PHOTO') {
+        console.log('PANCAKE PAYLOAD:', JSON.stringify(e.data, null, 2));
+    }
+});
+
+undefined
+_app-58b69038f12b5f38.v6.js:1 start call: getGlobalIdFromWS from: extensionPayload
+contentscript.js:1 [CS→BG] Forwarding to background: GET_GLOBAL_ID_FOR_CONV {"pageId":"112678138086607","threadId":"34116166741365151","threadKey":"t_34116166741365151","isBusiness":true,"conversationUpdatedTime":1773560946749,"customerName":"Huỳnh Thành Đạt","convType":"INBOX","postId":null,"convId":null,"type":"GET_GLOBAL_ID_FOR_CONV","taskId":4,"from":"WEBPAGE"}
+_app-58b69038f12b5f38.v6.js:1 start call: getBusinessWSContext from: initSocket
+contentscript.js:1 [CS→BG] Forwarding to background: GET_BUSINESS_WS_CONTEXT {"type":"GET_BUSINESS_WS_CONTEXT","pageId":"112678138086607","forceReloadIfExpire":false,"taskId":5,"from":"WEBPAGE"}
+contentscript.js:1 [BG→CS] Received from background: GET_GLOBAL_ID_FOR_CONV_SUCCESS {"type":"GET_GLOBAL_ID_FOR_CONV_SUCCESS","success":true,"globalId":"100001957832900","taskId":4}
+_app-58b69038f12b5f38.v6.js:1 resolve at index: 1 100001957832900
+_app-58b69038f12b5f38.v6.js:1 store_global_id 100001957832900
+contentscript.js:1 [CS→BG] Forwarding to background: REPLY_INBOX_PHOTO {"pageId":"112678138086607","igPageId":null,"accessToken":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiS-G7uSBUaHXhuq10IE5KRCIsImV4cCI6MTc4MDM4MTg4MywiYXBwbGljYXRpb24iOjEsInVpZCI6ImM0MmVmOTFkLTFhMWQtNDNhYS1iOGFmLThhYzAxNGQ4M2Q2YyIsInNlc3Npb25faWQiOiJkMTczYmNmZi1hMDM4LTQ3NjYtYjllZC04NWM4ZmFkYzMzMzYiLCJpYXQiOjE3NzI2MDU4ODMsImZiX2lkIjoiMTMwNzU5MDg2NjUwNTIyIiwibG9naW5fc2Vzc2lvbiI6bnVsbCwiZmJfbmFtZSI6Ikvhu7kgVGh14bqtdCBOSkQifQ.dzMT4A8KR3Puz0llKKrzdTFjLlP49NwvVg9fbHnwNBM","tryResizeImage":true,"c
+VM122:3 PANCAKE PAYLOAD: {
+  "pageId": "112678138086607",
+  "igPageId": null,
+  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiS-G7uSBUaHXhuq10IE5KRCIsImV4cCI6MTc4MDM4MTg4MywiYXBwbGljYXRpb24iOjEsInVpZCI6ImM0MmVmOTFkLTFhMWQtNDNhYS1iOGFmLThhYzAxNGQ4M2Q2YyIsInNlc3Npb25faWQiOiJkMTczYmNmZi1hMDM4LTQ3NjYtYjllZC04NWM4ZmFkYzMzMzYiLCJpYXQiOjE3NzI2MDU4ODMsImZiX2lkIjoiMTMwNzU5MDg2NjUwNTIyIiwibG9naW5fc2Vzc2lvbiI6bnVsbCwiZmJfbmFtZSI6Ikvhu7kgVGh14bqtdCBOSkQifQ.dzMT4A8KR3Puz0llKKrzdTFjLlP49NwvVg9fbHnwNBM",
+  "tryResizeImage": true,
+  "contentIds": [],
+  "type": "REPLY_INBOX_PHOTO",
+  "message": ".....",
+  "attachmentType": "SEND_TEXT_ONLY",
+  "globalUserId": "100001957832900",
+  "platform": "facebook",
+  "replyMessage": null,
+  "threadId": "34116166741365151",
+  "convId": "t_34116166741365151",
+  "customerName": "Huỳnh Thành Đạt",
+  "conversationUpdatedTime": 1773560946749,
+  "photoUrls": [],
+  "isBusiness": false,
+  "taskId": 6,
+  "from": "WEBPAGE"
+}
+VM125:3 PANCAKE PAYLOAD: {
+  "pageId": "112678138086607",
+  "igPageId": null,
+  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiS-G7uSBUaHXhuq10IE5KRCIsImV4cCI6MTc4MDM4MTg4MywiYXBwbGljYXRpb24iOjEsInVpZCI6ImM0MmVmOTFkLTFhMWQtNDNhYS1iOGFmLThhYzAxNGQ4M2Q2YyIsInNlc3Npb25faWQiOiJkMTczYmNmZi1hMDM4LTQ3NjYtYjllZC04NWM4ZmFkYzMzMzYiLCJpYXQiOjE3NzI2MDU4ODMsImZiX2lkIjoiMTMwNzU5MDg2NjUwNTIyIiwibG9naW5fc2Vzc2lvbiI6bnVsbCwiZmJfbmFtZSI6Ikvhu7kgVGh14bqtdCBOSkQifQ.dzMT4A8KR3Puz0llKKrzdTFjLlP49NwvVg9fbHnwNBM",
+  "tryResizeImage": true,
+  "contentIds": [],
+  "type": "REPLY_INBOX_PHOTO",
+  "message": ".....",
+  "attachmentType": "SEND_TEXT_ONLY",
+  "globalUserId": "100001957832900",
+  "platform": "facebook",
+  "replyMessage": null,
+  "threadId": "34116166741365151",
+  "convId": "t_34116166741365151",
+  "customerName": "Huỳnh Thành Đạt",
+  "conversationUpdatedTime": 1773560946749,
+  "photoUrls": [],
+  "isBusiness": false,
+  "taskId": 6,
+  "from": "WEBPAGE"
+}
+contentscript.js:1 [BG→CS] Received from background: GET_BUSINESS_WS_CONTEXT_SUCCESS {"type":"GET_BUSINESS_WS_CONTEXT_SUCCESS","response":{"success":true,"wsContext":{"pageId":"112678138086607","deviceId":"c50ddc81-dd89-44a9-bb95-d8c62ba52930","context":{"deviceId":"c50ddc81-dd89-44a9-bb95-d8c62ba52930","pageId":"112678138086607","accountId":"100091492933314","appId":"514771569228061","currentFbUserData":{"ACCOUNT_ID":"100091492933314","USER_ID":"100091492933314","NAME":"Lê Minh Tú","SHORT_NAME":"Tú","IS_BUSINESS_PERSON_ACCOUNT":false,"HAS_SECONDARY_BUSINESS_PERSON":false,"IS_FA
+_app-58b69038f12b5f38.v6.js:1 CallTime (getBusinessWSContext) - (from: initSocket):  3  s.
+_app-58b69038f12b5f38.v6.js:1 DONE LISTEN SOCKET V2
+contentscript.js:1 [BG→CS] Received from background: REPLY_INBOX_PHOTO_SUCCESS {"type":"REPLY_INBOX_PHOTO_SUCCESS","taskId":6,"pageId":"112678138086607","convId":"t_34116166741365151","messageId":"mid.$cAAA8iWlJbAujO0rkmGdCgWVarv7_","globalUserId":"100001957832900","timestamp":1773989633176,"retryReason":null,"messageCreatedRange":[1773989631342,1773989633288]}
+_app-58b69038f12b5f38.v6.js:1 result_1 {success: true, data: '100001957832900'}
+_app-58b69038f12b5f38.v6.js:1 CallTime (getGlobalIdFromWS) - (from: extensionPayload):  4  s.
