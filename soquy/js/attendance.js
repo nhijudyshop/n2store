@@ -3234,18 +3234,28 @@ ${d.ghiChu ? `<div style="margin-top:12px; font-style:italic; font-size:12px;"><
         if (checkInEnabled) checkInEnabled.checked = hasCheckIn;
         if (checkOutEnabled) checkOutEnabled.checked = hasCheckOut;
 
-        // Auto-fill giờ mặc định khi tick checkbox
+        // Auto-fill giờ mặc định + auto-switch sang "Đi làm" khi tick checkbox
+        function autoSwitchToWorking() {
+            const workingRadio = modal.querySelector('input[name="attType"][value="working"]');
+            if (workingRadio) workingRadio.checked = true;
+        }
         if (checkInEnabled) {
             checkInEnabled.onchange = () => {
-                if (checkInEnabled.checked && checkInInput && !checkInInput.value) {
-                    checkInInput.value = `${String(startHour).padStart(2, '0')}:00`;
+                if (checkInEnabled.checked) {
+                    if (checkInInput && !checkInInput.value) {
+                        checkInInput.value = `${String(startHour).padStart(2, '0')}:00`;
+                    }
+                    autoSwitchToWorking();
                 }
             };
         }
         if (checkOutEnabled) {
             checkOutEnabled.onchange = () => {
-                if (checkOutEnabled.checked && checkOutInput && !checkOutInput.value) {
-                    checkOutInput.value = `${String(endHour).padStart(2, '0')}:00`;
+                if (checkOutEnabled.checked) {
+                    if (checkOutInput && !checkOutInput.value) {
+                        checkOutInput.value = `${String(endHour).padStart(2, '0')}:00`;
+                    }
+                    autoSwitchToWorking();
                 }
             };
         }
