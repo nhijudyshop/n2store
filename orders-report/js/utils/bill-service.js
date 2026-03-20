@@ -1477,37 +1477,66 @@ ${
                     message: sendResult.message,
                 });
 
-                // Check for 24-hour policy error - try Facebook API fallback
+                // Check for 24-hour policy error - try Extension Bypass fallback
                 const is24HourError =
                     (sendResult.e_code === 10 && sendResult.e_subcode === 2018278) ||
                     (sendResult.message &&
                         sendResult.message.includes('khoảng thời gian cho phép'));
 
-                if (is24HourError) {
+                if (is24HourError && window.tab1ExtensionBridge?.isConnected()) {
                     console.log(
-                        '[BILL-SERVICE] 🔄 24h policy error detected - trying Facebook API fallback...'
+                        '[BILL-SERVICE] 🔄 24h policy error detected - trying Extension Bypass...'
                     );
 
-                    // Send image only via Facebook API fallback (no text message)
-                    const fbFallbackResult = await sendViaFacebookAPI(
-                        pageId,
-                        psid,
-                        null, // No text message, send image only
-                        contentUrl
-                    );
-
-                    if (fbFallbackResult.success) {
-                        console.log('[BILL-SERVICE] ✅ Facebook API fallback succeeded!');
-                        return {
-                            success: true,
-                            messageId: fbFallbackResult.messageId,
-                            viafallback: true,
+                    try {
+                        // Build minimal conv data for resolveGlobalUserId
+                        const conv = {
+                            pageId: pageId,
+                            psid: psid,
+                            conversationId: convId,
+                            _raw: {},
+                            customers: [],
                         };
-                    } else {
-                        console.warn(
-                            '[BILL-SERVICE] ❌ Facebook API fallback also failed:',
-                            fbFallbackResult.error
-                        );
+
+                        // Try to find conversation data from pancakeDataManager
+                        if (window.pancakeDataManager?.inboxMapByPSID) {
+                            for (const [, c] of window.pancakeDataManager.inboxMapByPSID) {
+                                if (String(c.pageId) === String(pageId) && String(c.psid) === String(psid)) {
+                                    conv._raw = c._raw || c.raw || {};
+                                    conv.customers = c.customers || [];
+                                    conv._messagesData = c._messagesData || null;
+                                    conv.updated_at = c.updated_at;
+                                    conv.customerName = c.from?.name || '';
+                                    conv.from = c.from;
+                                    break;
+                                }
+                            }
+                        }
+
+                        const globalUserId = await window.tab1ExtensionBridge.resolveGlobalUserId(conv);
+                        if (globalUserId) {
+                            // Send bill image URL as text via Extension (bypass 24h)
+                            const billMessage = contentUrl
+                                ? `[Hóa đơn] ${contentUrl}`
+                                : '[Hóa đơn đã được tạo]';
+                            await window.tab1ExtensionBridge.sendMessage({
+                                text: billMessage,
+                                pageId: pageId,
+                                psid: psid,
+                                globalUserId: globalUserId,
+                                customerName: conv.customerName || '',
+                            });
+                            console.log('[BILL-SERVICE] ✅ Extension Bypass succeeded!');
+                            return {
+                                success: true,
+                                messageId: `ext_${Date.now()}`,
+                                viafallback: true,
+                            };
+                        } else {
+                            console.warn('[BILL-SERVICE] ❌ Cannot resolve globalUserId for Extension Bypass');
+                        }
+                    } catch (extError) {
+                        console.warn('[BILL-SERVICE] ❌ Extension Bypass failed:', extError.message);
                     }
                 }
 
@@ -1527,91 +1556,7 @@ ${
         }
     }
 
-    /**
-     * Send message via Facebook Graph API with POST_PURCHASE_UPDATE tag
-     * Used as fallback when Pancake API fails with 24h policy error
-     * Same logic as sendMessageViaFacebookTag in tab1-orders.js
-     * @param {string} pageId - Facebook Page ID
-     * @param {string} psid - Customer's Facebook PSID
-     * @param {string} message - Text message to send
-     * @param {string} imageUrl - Optional image URL to include
-     * @returns {Promise<{success: boolean, error?: string, messageId?: string}>}
-     */
-    async function sendViaFacebookAPI(pageId, psid, message, imageUrl = null) {
-        console.log('[BILL-SERVICE] [FB-FALLBACK] ========================================');
-        console.log('[BILL-SERVICE] [FB-FALLBACK] Attempting Facebook API fallback...');
-        console.log('[BILL-SERVICE] [FB-FALLBACK] Page ID:', pageId, 'PSID:', psid);
-
-        try {
-            // Use shared getFacebookPageToken() utility (defined in tab1-chat-facebook.js)
-            const facebookPageToken = window.getFacebookPageToken
-                ? await window.getFacebookPageToken(pageId)
-                : null;
-
-            if (!facebookPageToken) {
-                console.error('[BILL-SERVICE] [FB-FALLBACK] No Facebook Page Token found');
-                return {
-                    success: false,
-                    error: 'Không tìm thấy Facebook Page Token để gửi fallback',
-                };
-            }
-            console.log('[BILL-SERVICE] [FB-FALLBACK] Got Facebook Page Token via shared utility');
-
-            // Call Facebook Send API via worker proxy
-            const facebookSendUrl =
-                window.API_CONFIG?.buildUrl?.facebookSend?.() ||
-                'https://chatomni-proxy.nhijudyshop.workers.dev/api/facebook-send';
-            console.log('[BILL-SERVICE] [FB-FALLBACK] Calling:', facebookSendUrl);
-
-            // Build request body - only include message if provided (for image-only sends)
-            const requestBody = {
-                pageId: pageId,
-                psid: psid,
-                pageToken: facebookPageToken,
-                useTag: true, // Use POST_PURCHASE_UPDATE tag to bypass 24h policy
-                imageUrls: imageUrl ? [imageUrl] : [], // Include image URL if provided
-            };
-            // Only add message field if provided (for image-only sends, message is null)
-            if (message) {
-                requestBody.message = message;
-            }
-
-            const response = await fetch(facebookSendUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Accept: 'application/json',
-                },
-                body: JSON.stringify(requestBody),
-            });
-
-            const result = await response.json();
-            console.log('[BILL-SERVICE] [FB-FALLBACK] Response:', result);
-            console.log('[BILL-SERVICE] [FB-FALLBACK] ========================================');
-
-            if (result.success) {
-                console.log(
-                    '[BILL-SERVICE] [FB-FALLBACK] ✅ Message sent successfully via Facebook Graph API!'
-                );
-                console.log('[BILL-SERVICE] [FB-FALLBACK] Used tag:', result.used_tag);
-                return {
-                    success: true,
-                    messageId: result.message_id,
-                };
-            } else {
-                return {
-                    success: false,
-                    error: result.error || 'Facebook API error',
-                };
-            }
-        } catch (error) {
-            console.error('[BILL-SERVICE] [FB-FALLBACK] ❌ Error:', error);
-            return {
-                success: false,
-                error: error.message,
-            };
-        }
-    }
+    // sendViaFacebookAPI() removed - 24h fallback now uses Extension Bypass (tab1ExtensionBridge)
 
     /**
      * Send additional messages after bill send (image + thank you message)

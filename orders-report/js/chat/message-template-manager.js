@@ -2220,121 +2220,6 @@ class MessageTemplateManager {
         }
     }
 
-    /**
-     * Send message via Facebook Graph API with HUMAN_AGENT/CUSTOMER_FEEDBACK tag
-     * Falls back to Private Reply if Send API fails with 551 (no inbox conversation)
-     */
-    async _sendViaFacebookAPI(pageId, psid, message, orderRaw, postId, commentId) {
-        this.log('[FB-FALLBACK] Attempting Facebook API fallback...');
-
-        try {
-            // Get Facebook Page Token from various sources
-            let facebookPageToken = null;
-
-            // Source 1: Try from cachedChannelsData
-            if (window.cachedChannelsData) {
-                const channel = window.cachedChannelsData.find(
-                    (ch) =>
-                        String(ch.ChannelId) === String(pageId) ||
-                        String(ch.Facebook_AccountId) === String(pageId)
-                );
-                if (channel && channel.Facebook_PageToken) {
-                    facebookPageToken = channel.Facebook_PageToken;
-                    this.log('[FB-FALLBACK] ✅ Got Facebook Page Token from cached channels');
-                }
-            }
-
-            // Source 2: Fetch from CRMTeam if available
-            if (!facebookPageToken && orderRaw.CRMTeamId) {
-                try {
-                    const crmTeam = await this.fetchCRMTeam(orderRaw.CRMTeamId);
-                    if (crmTeam && crmTeam.Facebook_PageToken) {
-                        facebookPageToken = crmTeam.Facebook_PageToken;
-                        this.log('[FB-FALLBACK] ✅ Got Facebook Page Token from CRMTeam');
-                    }
-                } catch (err) {
-                    this.log('[FB-FALLBACK] ⚠️ Could not fetch CRMTeam:', err.message);
-                }
-            }
-
-            if (!facebookPageToken) {
-                return {
-                    success: false,
-                    error: 'Không tìm thấy Facebook Page Token',
-                };
-            }
-
-            // Call Facebook Send API via worker proxy
-            const facebookSendUrl = window.API_CONFIG.buildUrl.facebookSend();
-            this.log('[FB-FALLBACK] Calling:', facebookSendUrl);
-
-            const requestBody = {
-                pageId: pageId,
-                psid: psid,
-                message: message,
-                pageToken: facebookPageToken,
-                useTag: true,
-            };
-
-            // Direct Private Reply mode: pass commentId to skip Send API entirely
-            if (commentId) {
-                requestBody.commentId = commentId;
-                this.log('[FB-FALLBACK] Direct Private Reply mode → commentId:', commentId);
-            }
-
-            // Pass postId and customerName for Private Reply fallback (when Send API fails with 551)
-            if (postId) {
-                requestBody.postId = postId;
-                this.log('[FB-FALLBACK] Including postId for Private Reply fallback:', postId);
-            }
-            if (orderRaw.PartnerName || orderRaw.Partner?.Name) {
-                requestBody.customerName = orderRaw.PartnerName || orderRaw.Partner?.Name;
-                this.log(
-                    '[FB-FALLBACK] Including customerName for matching:',
-                    requestBody.customerName
-                );
-            }
-
-            const response = await fetch(facebookSendUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Accept: 'application/json',
-                },
-                body: JSON.stringify(requestBody),
-            });
-
-            const result = await response.json();
-            this.log('[FB-FALLBACK] Response:', result);
-
-            if (result.success) {
-                const method = result.method || 'send_api';
-                this.log(
-                    `[FB-FALLBACK] ✅ Message sent successfully! Method: ${method}, Tag: ${result.used_tag || 'none'}`
-                );
-                return {
-                    success: true,
-                    messageId: result.message_id,
-                    method: method,
-                    used_tag: result.used_tag,
-                };
-            } else {
-                return {
-                    success: false,
-                    error: result.error || 'Facebook API error',
-                    error_code: result.error_code,
-                    _debug: result._debug,
-                };
-            }
-        } catch (error) {
-            this.log('[FB-FALLBACK] ❌ Error:', error);
-            return {
-                success: false,
-                error: error.message,
-            };
-        }
-    }
-
     async fetchCRMTeam(teamId) {
         this.log('🌐 Fetching CRMTeam data for ID:', teamId);
 
@@ -4509,7 +4394,7 @@ Chúc chị một ngày vui vẻ! 😊`,
     }
 
     /**
-     * Execute quick send via Facebook Graph API (POST_PURCHASE_UPDATE tag)
+     * Execute quick send via Pancake API + Extension Bypass fallback
      */
     async _executeQuickFacebookSend(orderId) {
         const select = document.getElementById('quickTemplateSelect');
@@ -4530,7 +4415,6 @@ Chúc chị một ngày vui vẻ! 😊`,
             return;
         }
 
-        // Disable button and show loading
         if (sendBtn) {
             sendBtn.disabled = true;
             sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang gửi...';
@@ -4545,89 +4429,121 @@ Chúc chị một ngày vui vẻ! 😊`,
                 throw new Error('Thiếu thông tin Facebook (PageId hoặc PSID)');
             }
 
-            // Replace placeholders in template
             const messageContent = this.replacePlaceholders(
                 selectedTemplate.Content || '',
                 this._quickCommentOrderData.converted
             );
 
-            // Check if user selected a comment from dropdown
+            // Get page_access_token for Pancake API
+            let pageAccessToken = window.pancakeTokenManager?.getPageAccessToken(channelId);
+            if (!pageAccessToken) {
+                const accountToken = window.pancakeTokenManager?.currentToken;
+                if (accountToken && window.pancakeTokenManager) {
+                    pageAccessToken = await window.pancakeTokenManager.generatePageAccessTokenWithToken(channelId, accountToken);
+                }
+            }
+
+            let sent = false;
             const selectedCommentId = document.getElementById('fbCommentSelect')?.value;
-            const pageToken = this._fbPageToken;
 
-            let result;
+            // Try 1: Pancake private_replies (if comment selected)
+            if (selectedCommentId && selectedCommentId !== '' && pageAccessToken) {
+                this.log('[QUICK-SEND] Pancake private_replies with commentId:', selectedCommentId);
+                const commentPostPart = selectedCommentId.split('_')[0];
+                const derivedPostId = `${channelId}_${commentPostPart}`;
 
-            if (selectedCommentId && selectedCommentId !== '' && pageToken) {
-                // DIRECT PRIVATE REPLY: Use selected comment ID
-                this.log('[QUICK-FB-SEND] Direct Private Reply with commentId:', selectedCommentId);
+                const apiUrl = window.API_CONFIG.buildUrl.pancakeOfficial(
+                    `pages/${channelId}/conversations/${selectedCommentId}/messages`,
+                    pageAccessToken
+                );
 
-                const sendUrl = window.API_CONFIG.buildUrl.facebookSend();
-                const resp = await fetch(sendUrl, {
+                const resp = await API_CONFIG.smartFetch(apiUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        commentId: selectedCommentId,
+                        action: 'private_replies',
+                        post_id: derivedPostId,
+                        message_id: selectedCommentId,
+                        from_id: psid,
                         message: messageContent,
-                        pageToken: pageToken,
-                        pageId: this._fbPageId || channelId,
                     }),
-                });
-                result = await resp.json();
-            } else {
-                // FALLBACK: Send API → auto Private Reply lookup
-                const facebookPostId = raw.Facebook_PostId || '';
-                this.log('[QUICK-FB-SEND] Fallback mode, Facebook_PostId:', facebookPostId);
-                result = await this._sendViaFacebookAPI(
-                    channelId,
-                    psid,
-                    messageContent,
-                    raw,
-                    facebookPostId
-                );
-            }
+                }, 1, true);
 
-            if (result.success) {
-                this.log('[QUICK-FB-SEND] ✅ Message sent! Method:', result.method || 'send_api');
-            } else {
-                // Log diagnostics for debugging
-                if (result._debug) {
-                    console.group('[QUICK-FB-SEND] 🔍 Private Reply Debug');
-                    console.log('PostId:', result._debug.postId);
-                    console.log('PSID:', result._debug.psid);
-                    console.log('Customer:', result._debug.customerName);
-                    console.table(result._debug.queries);
-                    if (result._debug.commentersFound?.length > 0) {
-                        console.log('Commenters found on post:');
-                        console.table(result._debug.commentersFound);
-                    }
-                    console.groupEnd();
+                const data = await resp.json();
+                if (data.success !== false) {
+                    this.log('[QUICK-SEND] ✅ Pancake private_replies succeeded!');
+                    sent = true;
+                } else {
+                    this.log('[QUICK-SEND] ❌ Pancake private_replies failed:', data.error || data.message);
                 }
-                throw new Error(result.error || 'Gửi tin nhắn thất bại');
             }
 
-            // Close modal
-            document.getElementById('quickCommentModal')?.remove();
+            // Try 2: Pancake reply_inbox
+            if (!sent && pageAccessToken) {
+                this.log('[QUICK-SEND] Trying Pancake reply_inbox...');
+                // Get conversation ID
+                let convId = `${channelId}_${psid}`;
+                try {
+                    const convResult = await window.pancakeDataManager?.fetchConversationsByCustomerFbId(channelId, psid);
+                    if (convResult?.success && convResult.conversations?.length > 0) {
+                        const inboxConv = convResult.conversations.find(c => c.type === 'INBOX');
+                        if (inboxConv) convId = inboxConv.id;
+                    }
+                } catch (e) { /* use fallback convId */ }
 
-            // Remove from failed orders
+                const apiUrl = window.API_CONFIG.buildUrl.pancakeOfficial(
+                    `pages/${channelId}/conversations/${convId}/messages`,
+                    pageAccessToken
+                );
+
+                try {
+                    const resp = await API_CONFIG.smartFetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ action: 'reply_inbox', message: messageContent }),
+                    }, 1, true);
+
+                    const data = await resp.json();
+                    if (data.success !== false) {
+                        this.log('[QUICK-SEND] ✅ Pancake reply_inbox succeeded!');
+                        sent = true;
+                    } else {
+                        this.log('[QUICK-SEND] ❌ Pancake reply_inbox failed:', data.error || data.message);
+                    }
+                } catch (e) {
+                    this.log('[QUICK-SEND] ❌ Pancake reply_inbox error:', e.message);
+                }
+            }
+
+            // Try 3: Extension Bypass
+            if (!sent) {
+                this.log('[QUICK-SEND] Trying Extension Bypass...');
+                const extResult = await this._sendViaExtensionBypass(
+                    channelId, psid, messageContent, null,
+                    { raw }, { code: raw.Code || orderId }
+                );
+                if (extResult) sent = true;
+            }
+
+            if (!sent) {
+                throw new Error('Không gửi được qua Pancake API hoặc Extension Bypass');
+            }
+
+            document.getElementById('quickCommentModal')?.remove();
             this.removeFailedOrder(orderId);
 
             if (window.notificationManager) {
-                window.notificationManager.success(
-                    'Đã gửi tin nhắn thành công!',
-                    3000,
-                    `Đơn: ${raw.Code || orderId}`
-                );
+                window.notificationManager.success('Đã gửi tin nhắn thành công!', 3000, `Đơn: ${raw.Code || orderId}`);
             }
         } catch (error) {
-            console.error('[QUICK-FB-SEND] Error:', error);
+            console.error('[QUICK-SEND] Error:', error);
             if (window.notificationManager) {
                 window.notificationManager.error('Lỗi gửi tin nhắn: ' + error.message, 5000);
             }
 
-            // Re-enable button
             if (sendBtn) {
                 sendBtn.disabled = false;
-                sendBtn.innerHTML = '<i class="fab fa-facebook-messenger"></i> Gửi qua Facebook';
+                sendBtn.innerHTML = '<i class="fab fa-facebook-messenger"></i> Gửi tin nhắn';
             }
         }
     }

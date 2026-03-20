@@ -4,8 +4,8 @@
 // sendMessageInternal, sendCommentInternal, handleReplyToComment,
 // renderChatMessages, renderComments, new message indicator
 // =====================================================
-// Dependencies: tab1-chat-core.js (state globals), tab1-chat-facebook.js (sendMessageViaFacebookTag),
-//               tab1-chat-images.js (updateSendButtonState)
+// Dependencies: tab1-chat-core.js (state globals), tab1-chat-facebook.js (getFacebookPageToken),
+//               tab1-chat-images.js (updateSendButtonState), tab1-extension-bridge.js (Extension Bypass)
 // Exposes: renderChatMessages, renderComments, window.sendMessage, window.sendComment, etc.
 
 console.log('[Tab1-Chat-Messages] Loading...');
@@ -915,42 +915,47 @@ async function sendMessageInternal(messageData) {
                 const facebookASUserId = order.Facebook_ASUserId || window.purchaseFacebookASUserId || psid;
                 const realFacebookPageToken = window.currentCRMTeam?.Facebook_PageToken;
 
-                if (facebookPostId && facebookCommentId && facebookASUserId && realFacebookPageToken) {
-                    console.log('[MESSAGE] Found comment context, attempting Private Reply fallback...');
+                if (facebookPostId && facebookCommentId && facebookASUserId) {
+                    console.log('[MESSAGE] Found comment context, attempting Pancake private_replies fallback...');
                     showChatSendingIndicator('Khách chưa nhắn tin, đang thử Private Reply...');
 
                     try {
                         const commentIds = facebookCommentId.toString().split(',').map(id => id.trim());
                         const targetCommentId = commentIds[0];
 
-                        const privateReplyUrl = window.API_CONFIG.buildUrl.facebookSend();
+                        // Use Pancake API private_replies instead of Facebook Graph API
+                        let pageAccessToken = window.pancakeTokenManager?.getPageAccessToken(channelId);
+                        if (!pageAccessToken) {
+                            const accountToken = window.pancakeTokenManager?.currentToken;
+                            if (accountToken && window.pancakeTokenManager) {
+                                pageAccessToken = await window.pancakeTokenManager.generatePageAccessTokenWithToken(channelId, accountToken);
+                            }
+                        }
 
-                        const privatePayload = {
-                            pageId: channelId,
-                            recipient: {
-                                comment_id: targetCommentId
-                            },
-                            message: {
-                                text: message
-                            },
-                            pageToken: realFacebookPageToken
-                        };
+                        if (pageAccessToken) {
+                            const commentPostPart = targetCommentId.split('_')[0];
+                            const derivedPostId = `${channelId}_${commentPostPart}`;
 
-                        console.log('[MESSAGE] Sending Private Reply (Graph API) payload:', JSON.stringify(privatePayload));
+                            const apiUrl = window.API_CONFIG.buildUrl.pancakeOfficial(
+                                `pages/${channelId}/conversations/${targetCommentId}/messages`,
+                                pageAccessToken
+                            );
 
-                        const prResponse = await API_CONFIG.smartFetch(privateReplyUrl, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Accept': 'application/json'
-                            },
-                            body: JSON.stringify(privatePayload)
-                        }, 1, true);
+                            const prResponse = await API_CONFIG.smartFetch(apiUrl, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    action: 'private_replies',
+                                    post_id: derivedPostId,
+                                    message_id: targetCommentId,
+                                    from_id: facebookASUserId,
+                                    message: message,
+                                }),
+                            }, 1, true);
 
-                        if (prResponse.ok) {
                             const prData = await prResponse.json();
                             if (prData.success !== false) {
-                                console.log('[MESSAGE] Private Reply fallback succeeded!');
+                                console.log('[MESSAGE] Pancake private_replies succeeded!');
                                 apiSuccess = true;
                                 apiError = null;
 
@@ -960,11 +965,10 @@ async function sendMessageInternal(messageData) {
 
                                 autoMarkAsRead(0);
                             } else {
-                                console.warn('[MESSAGE] Private Reply API error:', prData);
+                                console.warn('[MESSAGE] Pancake private_replies failed:', prData);
                             }
                         } else {
-                            const errorData = await prResponse.json().catch(() => ({}));
-                            console.warn('[MESSAGE] Private Reply HTTP error:', prResponse.status, errorData);
+                            console.warn('[MESSAGE] No page_access_token for private_replies');
                         }
                     } catch (prError) {
                         console.error('[MESSAGE] Private Reply fallback failed:', prError);
