@@ -2161,6 +2161,8 @@ class InboxChatController {
         return new Promise((resolve, reject) => {
             const timeout = setTimeout(() => {
                 window.removeEventListener('message', handler);
+                console.error('[EXT-SEND] ⏰ TIMEOUT after 30s. No response from extension for taskId:', taskId);
+                console.error('[EXT-SEND] Recent extension events:', window.pancakeExtension?.lastEvents?.slice(-5));
                 reject(new Error('Extension send timeout (30s)'));
             }, 30000);
 
@@ -2170,14 +2172,14 @@ class InboxChatController {
                 if (e.data?.type === 'REPLY_INBOX_PHOTO_SUCCESS' && e.data?.taskId === taskId) {
                     clearTimeout(timeout);
                     window.removeEventListener('message', handler);
-                    console.log('[InboxChat] Extension send success:', e.data);
+                    console.log('[EXT-SEND] ✅ SUCCESS:', JSON.stringify(e.data, null, 2));
                     showToast('Đã gửi qua Extension (bypass 24h)', 'success');
                     resolve(e.data);
                 }
                 if (e.data?.type === 'REPLY_INBOX_PHOTO_FAILURE' && e.data?.taskId === taskId) {
                     clearTimeout(timeout);
                     window.removeEventListener('message', handler);
-                    console.warn('[InboxChat] Extension send failed:', e.data);
+                    console.error('[EXT-SEND] ❌ FAILURE:', JSON.stringify(e.data, null, 2));
                     reject(new Error(e.data?.error || 'Extension send failed'));
                 }
             };
@@ -2185,6 +2187,17 @@ class InboxChatController {
 
             // Extract PSID from conversationId (format: pageId_psid)
             const psid = conv.psid || conv._raw?.from?.id || conv.conversationId.split('_').pop();
+
+            console.log('[EXT-SEND] Preparing payload:', {
+                pageId: conv.pageId,
+                conversationId: conv.conversationId,
+                'psid (extracted)': psid,
+                'conv.psid': conv.psid,
+                'conv._raw?.from?.id': conv._raw?.from?.id,
+                'conv.conversationId.split': conv.conversationId?.split('_').pop(),
+                customerName: conv.customerName || conv.name,
+                extensionConnected: window.pancakeExtension?.connected
+            });
 
             const payload = {
                 type: 'REPLY_INBOX_PHOTO',
@@ -2205,7 +2218,7 @@ class InboxChatController {
             };
             window.postMessage(payload, '*');
 
-            console.log('[InboxChat] Sent REPLY_INBOX_PHOTO to extension:', payload);
+            console.log('[EXT-SEND] 📤 Sent REPLY_INBOX_PHOTO:', JSON.stringify(payload, null, 2));
         });
     }
 

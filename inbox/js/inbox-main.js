@@ -202,10 +202,29 @@ async function initInboxApp() {
 }
 
 // ===== Pancake Extension Bridge (before DOM ready, catch early EXTENSION_LOADED) =====
-window.pancakeExtension = { connected: false };
+window.pancakeExtension = { connected: false, lastEvents: [] };
+
+// Debug: log ALL postMessage events from extension
 window.addEventListener('message', (e) => {
     if (e.source !== window) return;
-    if (e.data?.type === 'EXTENSION_LOADED' && e.data?.from === 'EXTENSION') {
+    const type = e.data?.type;
+    if (!type) return;
+
+    // Log ALL extension-related events (filter out noise)
+    const isExtEvent = type.includes('EXTENSION') || type.includes('REPLY_INBOX') ||
+        type.includes('UPLOAD_INBOX') || type.includes('PREINITIALIZE') ||
+        type.includes('BUSINESS_CONTEXT') || type.includes('GLOBAL_ID') ||
+        type.includes('BATCH_GET') || type.includes('CHECK_EXTENSION') ||
+        (e.data?.from === 'EXTENSION');
+
+    if (isExtEvent) {
+        const logEntry = { type, time: new Date().toISOString(), data: e.data };
+        window.pancakeExtension.lastEvents.push(logEntry);
+        if (window.pancakeExtension.lastEvents.length > 50) window.pancakeExtension.lastEvents.shift();
+        console.log('[EXT-EVENT]', type, e.data);
+    }
+
+    if (type === 'EXTENSION_LOADED' && e.data?.from === 'EXTENSION') {
         window.pancakeExtension.connected = true;
         console.log('[Inbox] Pancake Extension connected');
         if (typeof showToast === 'function') showToast('Pancake Extension đã kết nối', 'success');
@@ -219,14 +238,103 @@ window.addEventListener('message', (e) => {
                 console.log('[Inbox] Sent PREINITIALIZE_PAGES:', pageIds);
             }
         }
-    }
-    if (e.data?.type === 'REPLY_INBOX_PHOTO_SUCCESS') {
-        console.log('[Inbox] Extension send success:', e.data);
-    }
-    if (e.data?.type === 'REPLY_INBOX_PHOTO_FAILURE') {
-        console.warn('[Inbox] Extension send failed:', e.data);
+
+        // Auto-check business context after extension connects
+        setTimeout(() => {
+            if (window.debugExtension) window.debugExtension();
+        }, 3000);
     }
 });
+
+/**
+ * Debug Extension: test GET_BUSINESS_CONTEXT to check if fb_dtsg is available
+ * Call from console: debugExtension() or debugExtension('YOUR_PAGE_ID')
+ */
+window.debugExtension = function(pageId) {
+    if (!window.pancakeExtension?.connected) {
+        console.error('[DEBUG] Extension not connected!');
+        return;
+    }
+
+    // Auto-detect pageId from loaded data
+    if (!pageId) {
+        const dm = window.inboxChat?.data;
+        if (dm) {
+            const pageIds = Object.keys(dm.pages || {});
+            pageId = pageIds[0];
+        }
+    }
+
+    if (!pageId) {
+        console.error('[DEBUG] No pageId available. Usage: debugExtension("YOUR_PAGE_ID")');
+        return;
+    }
+
+    console.log('[DEBUG] Testing GET_BUSINESS_CONTEXT for pageId:', pageId);
+    console.log('[DEBUG] Extension state:', {
+        connected: window.pancakeExtension.connected,
+        recentEvents: window.pancakeExtension.lastEvents.slice(-10)
+    });
+
+    // Test 1: GET_BUSINESS_CONTEXT - checks if extension can reach Facebook
+    const taskId1 = 'debug_ctx_' + Date.now();
+    const handler1 = (e) => {
+        if (e.source !== window) return;
+        if (e.data?.type === 'GET_BUSINESS_CONTEXT_SUCCESS') {
+            console.log('[DEBUG] ✅ GET_BUSINESS_CONTEXT_SUCCESS:', e.data);
+            console.log('[DEBUG] fb_dtsg available:', !!e.data?.dtsg || !!e.data?.context?.dtsg);
+            console.log('[DEBUG] Full context:', JSON.stringify(e.data, null, 2));
+            window.removeEventListener('message', handler1);
+        }
+        if (e.data?.type === 'GET_BUSINESS_CONTEXT_FAILURE') {
+            console.error('[DEBUG] ❌ GET_BUSINESS_CONTEXT_FAILURE:', e.data);
+            window.removeEventListener('message', handler1);
+        }
+    };
+    window.addEventListener('message', handler1);
+    setTimeout(() => window.removeEventListener('message', handler1), 15000);
+    window.postMessage({ type: 'GET_BUSINESS_CONTEXT', pageId: pageId }, '*');
+
+    // Test 2: CHECK_EXTENSION_VERSION
+    const handler2 = (e) => {
+        if (e.source !== window) return;
+        if (e.data?.type === 'EXTENSION_VERSION') {
+            console.log('[DEBUG] ✅ Extension version:', e.data);
+            window.removeEventListener('message', handler2);
+        }
+    };
+    window.addEventListener('message', handler2);
+    setTimeout(() => window.removeEventListener('message', handler2), 5000);
+    window.postMessage({ type: 'CHECK_EXTENSION_VERSION' }, '*');
+
+    // Test 3: GET_GLOBAL_ID_FOR_CONV - test if extension can resolve PSIDs
+    const conv = window.inboxChat?.currentConv;
+    if (conv) {
+        const psid = conv.psid || conv._raw?.from?.id || conv.conversationId?.split('_').pop();
+        console.log('[DEBUG] Testing GET_GLOBAL_ID_FOR_CONV for PSID:', psid);
+        const handler3 = (e) => {
+            if (e.source !== window) return;
+            if (e.data?.type === 'GET_GLOBAL_ID_FOR_CONV_SUCCESS') {
+                console.log('[DEBUG] ✅ GET_GLOBAL_ID_FOR_CONV_SUCCESS:', e.data);
+                window.removeEventListener('message', handler3);
+            }
+            if (e.data?.type === 'GET_GLOBAL_ID_FOR_CONV_FAILURE') {
+                console.error('[DEBUG] ❌ GET_GLOBAL_ID_FOR_CONV_FAILURE:', e.data);
+                window.removeEventListener('message', handler3);
+            }
+        };
+        window.addEventListener('message', handler3);
+        setTimeout(() => window.removeEventListener('message', handler3), 15000);
+        window.postMessage({
+            type: 'GET_GLOBAL_ID_FOR_CONV',
+            pageId: pageId,
+            threadId: psid,
+            platform: 'facebook'
+        }, '*');
+    }
+
+    console.log('[DEBUG] Sent 3 test requests. Watch for responses above (15s timeout)...');
+};
 
 // Wait for DOM ready
 if (document.readyState === 'loading') {
