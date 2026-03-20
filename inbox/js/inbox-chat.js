@@ -2156,22 +2156,25 @@ class InboxChatController {
      * Send message via Pancake Extension (postMessage → contentscript → background → Facebook Business Suite)
      */
     _sendViaExtension(text, conv) {
+        const taskId = 'n2_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+
         return new Promise((resolve, reject) => {
             const timeout = setTimeout(() => {
                 window.removeEventListener('message', handler);
-                reject(new Error('Extension send timeout (15s)'));
-            }, 15000);
+                reject(new Error('Extension send timeout (30s)'));
+            }, 30000);
 
             const handler = (e) => {
                 if (e.source !== window) return;
-                if (e.data?.type === 'REPLY_INBOX_PHOTO_SUCCESS') {
+                // Match by taskId to avoid catching other tabs' responses
+                if (e.data?.type === 'REPLY_INBOX_PHOTO_SUCCESS' && e.data?.taskId === taskId) {
                     clearTimeout(timeout);
                     window.removeEventListener('message', handler);
                     console.log('[InboxChat] Extension send success:', e.data);
-                    showToast('Đã gửi qua Extension', 'success');
+                    showToast('Đã gửi qua Extension (bypass 24h)', 'success');
                     resolve(e.data);
                 }
-                if (e.data?.type === 'REPLY_INBOX_PHOTO_FAILURE') {
+                if (e.data?.type === 'REPLY_INBOX_PHOTO_FAILURE' && e.data?.taskId === taskId) {
                     clearTimeout(timeout);
                     window.removeEventListener('message', handler);
                     console.warn('[InboxChat] Extension send failed:', e.data);
@@ -2180,18 +2183,21 @@ class InboxChatController {
             };
             window.addEventListener('message', handler);
 
-            // REPLY_INBOX_PHOTO with SEND_TEXT_ONLY — same protocol as Pancake web app
-            window.postMessage({
+            const payload = {
                 type: 'REPLY_INBOX_PHOTO',
                 pageId: conv.pageId,
+                convId: conv.conversationId,
                 threadId: conv.conversationId,
                 message: text,
-                attachType: 'SEND_TEXT_ONLY',
+                attachmentType: 'SEND_TEXT_ONLY',
                 files: [],
-                platform: 'facebook'
-            }, '*');
+                taskId: taskId,
+                platform: 'facebook',
+                customerName: conv.customerName || conv.name || ''
+            };
+            window.postMessage(payload, '*');
 
-            console.log('[InboxChat] Sent REPLY_INBOX_PHOTO to extension:', { pageId: conv.pageId, threadId: conv.conversationId });
+            console.log('[InboxChat] Sent REPLY_INBOX_PHOTO to extension:', payload);
         });
     }
 

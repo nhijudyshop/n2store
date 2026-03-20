@@ -209,6 +209,16 @@ window.addEventListener('message', (e) => {
         window.pancakeExtension.connected = true;
         console.log('[Inbox] Pancake Extension connected');
         if (typeof showToast === 'function') showToast('Pancake Extension đã kết nối', 'success');
+
+        // Pre-initialize pages so extension warms up Facebook sessions
+        const dm = window.inboxChat?.data;
+        if (dm) {
+            const pageIds = Object.keys(dm.pages || {});
+            if (pageIds.length) {
+                window.postMessage({ type: 'PREINITIALIZE_PAGES', pageIds }, '*');
+                console.log('[Inbox] Sent PREINITIALIZE_PAGES:', pageIds);
+            }
+        }
     }
     if (e.data?.type === 'REPLY_INBOX_PHOTO_SUCCESS') {
         console.log('[Inbox] Extension send success:', e.data);
