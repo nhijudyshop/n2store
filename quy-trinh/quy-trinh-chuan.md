@@ -489,23 +489,6 @@ Hàng rớt sẽ được **bàn giao qua cho bạn làm kho**. Bạn làm kho v
 - Gắn thẻ chờ sản phẩm: `"TÊN SẢN PHẨM KHÁCH ĐẶT"`
 - Khi hàng về: vào thẻ chờ món đó và **ra đơn đồng loạt** để đi đơn (gắn thẻ dành cho hàng oder).
 
-#### Quy trình gắn thẻ chờ trên web Hệ thống quản lí:
-
-**❗ Bước 1:** Bấm vào HIỂN THỊ BỘ LỌC → Chọn chiến dịch live của đợt live đó.
-
-**👉 NẾU GẮN THẺ CHỜ MẪU NHIỀU:**
-- Bấm vào **GẮN TAG ĐỒNG LOẠT**
-- Tạo tên thẻ cần gắn — VD: `T1 Áo smi trắng tag hoa ...`
-- Nhập số thứ tự của khách trên phiếu theo đợt live đó
-- Bấm **Lưu**
-
-**👉 NẾU GẮN THẺ CHỜ LẺ ÍT:**
-- Kéo xuống thanh tìm kiếm
-- Nhập số thứ tự của khách theo trên phiếu hoặc bấm tên khách
-- Kéo xuống sẽ hiện ra đúng theo STT hoặc tên trên phiếu
-- Bấm vào dấu **gắn tag**
-- Tạo tên tag và gắn thẻ
-
 ### Bước 3: Đi đơn ngay (hàng có sẵn)
 - Note tên khách lên trên bao sản phẩm đó.
 - Đi đơn luôn.
