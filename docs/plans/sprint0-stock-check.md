@@ -106,43 +106,43 @@
 ### Phase 0A — Fix data loading (nguồn dữ liệu đúng)
 **Mục đích**: Đảm bảo tồn kho và chi tiết đơn lấy đúng, matching đúng.
 
-| # | Task | File |
-|---|------|------|
-| 0A.1 | Viết lại `fetchStockFromTPOSExcel()`: bỏ dependency orderProducts, build stockMap trực tiếp từ Excel | `tab1-stock-status.js` |
-| 0A.2 | Thêm detect cột "Tên sản phẩm" trong Excel | `tab1-stock-status.js` |
-| 0A.3 | Normalize ProductCode → UPPERCASE trong `loadOrderProductDetails()` | `tab1-stock-status.js` |
-| 0A.4 | Fix `renderStockColumnCell()` uppercase lookup | `tab1-stock-status.js` |
-| 0A.5 | Fix `loadStockFromFirebase()` fallback uppercase keys | `tab1-stock-status.js` |
-| 0A.6 | Test: Console log stock count > 100 SP, so sánh tồn kho với sổ sách | Manual |
+| # | Task | File | Done |
+|---|------|------|------|
+| 0A.1 | Viết lại `fetchStockFromTPOSExcel()`: bỏ dependency orderProducts, build stockMap trực tiếp từ Excel | `tab1-stock-status.js` | ✅ |
+| 0A.2 | Thêm detect cột "Tên sản phẩm" trong Excel | `tab1-stock-status.js` | ✅ |
+| 0A.3 | Normalize ProductCode → UPPERCASE trong `loadOrderProductDetails()` | `tab1-stock-status.js` | ✅ |
+| 0A.4 | Fix `renderStockColumnCell()` uppercase lookup | `tab1-stock-status.js` | ✅ |
+| 0A.5 | Fix `loadStockFromFirebase()` fallback uppercase keys | `tab1-stock-status.js` | ✅ (đã đúng sẵn) |
+| 0A.6 | Test: Console log stock count > 100 SP, so sánh tồn kho với sổ sách | Manual | ⏳ |
 
 ### Phase 0B — Đổi 3 trạng thái → 2 trạng thái
 **Mục đích**: Đơn giản hóa, bỏ phân biệt "chờ" vs "hết".
 
-| # | Task | File |
-|---|------|------|
-| 0B.1 | Sửa `computeAll()`: ready/waiting/critical → sufficient/insufficient | `tab1-stock-status.js` |
-| 0B.2 | Sửa `_summaryStats`: bỏ waiting/critical, thêm sufficient/insufficient/noProducts/total | `tab1-stock-status.js` |
-| 0B.3 | Sửa `renderStockBadgeInline()`: 2 màu + xám, tooltip format "Tồn: X / Cần: Y" | `tab1-stock-status.js` |
-| 0B.4 | Sửa `getStockRowClass()`: bỏ waiting/critical → chỉ insufficient | `tab1-stock-status.js` |
-| 0B.5 | Sửa `updateSummaryBar()`: 2 trạng thái + "đơn không có SP" | `tab1-stock-status.js` |
-| 0B.6 | Sửa `passesStockFilter()` + `filterByStatus()` cho sufficient/insufficient | `tab1-stock-status.js` |
-| 0B.7 | Sửa `syncProcessingTags()`: gắn tag cho insufficient thay vì waiting+critical | `tab1-stock-status.js` |
-| 0B.8 | Sửa CSS: bỏ .stock-waiting/.stock-critical, thêm .stock-insufficient | `tab1-stock-status.css` |
-| 0B.9 | Sửa CSS: bỏ .stock-row-waiting, thêm .stock-row-insufficient | `tab1-stock-status.css` |
-| 0B.10 | Sửa CSS: bỏ .stock-summary-waiting/.critical, thêm .stock-summary-sufficient/.insufficient/.noproducts | `tab1-stock-status.css` |
-| 0B.11 | Test: Kết quả hiện sufficient + insufficient, badge 2 màu, filter hoạt động | Manual |
+| # | Task | File | Done |
+|---|------|------|------|
+| 0B.1 | Sửa `computeAll()`: ready/waiting/critical → sufficient/insufficient | `tab1-stock-status.js` | ✅ |
+| 0B.2 | Sửa `_summaryStats`: bỏ waiting/critical, thêm sufficient/insufficient/noProducts/total | `tab1-stock-status.js` | ✅ |
+| 0B.3 | Sửa `renderStockBadgeInline()`: 2 màu + xám, tooltip format "Tồn: X / Cần: Y" | `tab1-stock-status.js` | ✅ |
+| 0B.4 | Sửa `getStockRowClass()`: bỏ waiting/critical → chỉ insufficient | `tab1-stock-status.js` | ✅ |
+| 0B.5 | Sửa `updateSummaryBar()`: 2 trạng thái + "đơn không có SP" | `tab1-stock-status.js` | ✅ |
+| 0B.6 | Sửa `passesStockFilter()` + `filterByStatus()` cho sufficient/insufficient | `tab1-stock-status.js` | ✅ |
+| 0B.7 | Sửa `syncProcessingTags()`: gắn tag cho insufficient thay vì waiting+critical | `tab1-stock-status.js` | ✅ (logic đã tự đúng) |
+| 0B.8 | Sửa CSS: bỏ .stock-waiting/.stock-critical, thêm .stock-insufficient | `tab1-stock-status.css` | ✅ |
+| 0B.9 | Sửa CSS: bỏ .stock-row-waiting, thêm .stock-row-insufficient | `tab1-stock-status.css` | ✅ |
+| 0B.10 | Sửa CSS: bỏ .stock-summary-waiting/.critical, thêm .stock-summary-sufficient/.insufficient/.noproducts | `tab1-stock-status.css` | ✅ |
+| 0B.11 | Test: Kết quả hiện sufficient + insufficient, badge 2 màu, filter hoạt động | Manual | ⏳ |
 
 ### Phase 0C — Thêm Filter Tabs + Polish UI
 **Mục đích**: UI giống demo, thêm filter tabs góc phải.
 
-| # | Task | File |
-|---|------|------|
-| 0C.1 | Thêm `<div id="stockFilterTabs">` vào HTML (cạnh nút "Cài đặt cột") | `tab1-orders.html` |
-| 0C.2 | Thêm function `updateFilterTabs()`: render pill badges [Tất cả X] [Đủ Y] [Thiếu Z] | `tab1-stock-status.js` |
-| 0C.3 | Gọi `updateFilterTabs()` từ `updateSummaryBar()` và `filterByStatus()` | `tab1-stock-status.js` |
-| 0C.4 | Thêm CSS cho `.stock-filter-tab`, `.stock-filter-tab.active`, colors | `tab1-stock-status.css` |
-| 0C.5 | Verify `tab1-table.js` dùng `getStockRowClass()` (không hardcode class) | `tab1-table.js` |
-| 0C.6 | Test end-to-end: badge + tooltip + summary + filter tabs + expand + tags | Manual |
+| # | Task | File | Done |
+|---|------|------|------|
+| 0C.1 | Thêm `<div id="stockFilterTabs">` vào HTML (cạnh nút "Cài đặt cột") | `tab1-orders.html` | ✅ |
+| 0C.2 | Thêm function `updateFilterTabs()`: render pill badges [Tất cả X] [Đủ Y] [Thiếu Z] | `tab1-stock-status.js` | ✅ |
+| 0C.3 | Gọi `updateFilterTabs()` từ `updateSummaryBar()` và `filterByStatus()` | `tab1-stock-status.js` | ✅ |
+| 0C.4 | Thêm CSS cho `.stock-filter-tab`, `.stock-filter-tab.active`, colors | `tab1-stock-status.css` | ✅ |
+| 0C.5 | Verify `tab1-table.js` dùng `getStockRowClass()` (không hardcode class) | `tab1-table.js` | ✅ |
+| 0C.6 | Test end-to-end: badge + tooltip + summary + filter tabs + expand + tags | Manual | ⏳ |
 
 ---
 

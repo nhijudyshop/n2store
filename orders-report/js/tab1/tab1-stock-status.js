@@ -25,8 +25,8 @@
         _orderStatus: new Map(),     // OrderId → { status, blocking[], stockTags[] }
         _checked: false,
         _loading: false,
-        _summaryStats: { ready: 0, waiting: 0, critical: 0, noProducts: 0 },
-        _activeFilter: null,         // null | 'ready' | 'waiting' | 'critical'
+        _summaryStats: { sufficient: 0, insufficient: 0, noProducts: 0, total: 0 },
+        _activeFilter: null,         // null | 'sufficient' | 'insufficient'
     };
 
     const STOCK_TAG_PREFIX = 'STOCK_CHO_';
@@ -58,7 +58,7 @@
     async function loadStockData(tposCampaignId) {
         // Try fetching fresh stock from TPOS Excel first
         try {
-            const freshStock = await fetchStockFromTPOSExcel(tposCampaignId);
+            const freshStock = await fetchStockFromTPOSExcel();
             if (freshStock && freshStock.size > 0) {
                 return freshStock;
             }
@@ -71,32 +71,11 @@
     }
 
     /**
-     * Fetch fresh stock from TPOS Product/ExportProductV2 Excel export
+     * Fetch fresh stock from TPOS Product/ExportProductV2 Excel export.
+     * Builds stockMap directly from Excel — NO dependency on orderProducts Firebase.
      */
-    async function fetchStockFromTPOSExcel(tposCampaignId) {
+    async function fetchStockFromTPOSExcel() {
         console.log('[STOCK] Fetching fresh stock from TPOS Excel export...');
-
-        // First load orderProducts for product code/name mapping
-        const db = firebase.database();
-        const snapshot = await db.ref(`orderProducts/${tposCampaignId}`).once('value');
-        const orderProductsData = snapshot.val() || {};
-
-        // Build code→info map from orderProducts
-        const productInfoByCode = {};
-        const productInfoById = {};
-        Object.entries(orderProductsData).forEach(([key, product]) => {
-            if (!product || !product.Id) return;
-            const code = extractProductCode(product);
-            const id = String(product.Id);
-            const info = {
-                name: product.NameGet || product.Name || code || id,
-                id: id,
-            };
-            if (code) {
-                productInfoByCode[code.toUpperCase()] = info;
-            }
-            productInfoById[id] = info;
-        });
 
         const headers = window.tokenManager
             ? await window.tokenManager.getAuthHeader()
@@ -171,41 +150,43 @@
             });
         }
 
+        // Find product name column (0A.2)
+        const nameColumnCandidates = [
+            'Tên sản phẩm', 'Tên SP', 'Tên sản phẩm (*)', 'Name', 'ProductName',
+        ];
+        let nameColumn = nameColumnCandidates.find(c => columnNames.includes(c));
+        if (!nameColumn) {
+            nameColumn = columnNames.find(col => {
+                const lower = col.toLowerCase();
+                return (lower.includes('tên') && lower.includes('phẩm')) || lower.includes('name');
+            });
+        }
+
         // Find ID column
         const idColumnCandidates = ['Id sản phẩm (*)', 'Id sản phẩm', 'Id', 'ID'];
         const idColumn = idColumnCandidates.find(c => columnNames.includes(c));
 
-        console.log('[STOCK] Detected columns — code:', codeColumn, '| stock:', stockColumn, '| id:', idColumn);
+        console.log('[STOCK] Detected columns — code:', codeColumn, '| stock:', stockColumn, '| name:', nameColumn, '| id:', idColumn);
 
         if (!stockColumn) {
             throw new Error('Could not find stock column in Excel');
         }
 
-        // Build stock map, matching by code or ID against orderProducts
+        // Build stock map directly from Excel (no orderProducts dependency)
         const stockMap = new Map();
         jsonData.forEach(row => {
             const code = codeColumn ? String(row[codeColumn] || '').toUpperCase().trim() : '';
+            if (!code) return;
+
             const id = idColumn ? String(row[idColumn] || '') : '';
+            const name = nameColumn ? String(row[nameColumn] || '') : code;
             const stock = parseFloat(row[stockColumn]) || 0;
 
-            let info = null;
-            let matchedCode = code;
-            if (code && productInfoByCode[code]) {
-                info = productInfoByCode[code];
-            } else if (id && productInfoById[id]) {
-                info = productInfoById[id];
-                // Try to get code from product info
-                const extractedCode = extractProductCode(info.name);
-                if (extractedCode) matchedCode = extractedCode.toUpperCase();
-            }
-
-            if (info && matchedCode) {
-                stockMap.set(matchedCode, {
-                    qty: stock,
-                    name: info.name,
-                    id: info.id,
-                });
-            }
+            stockMap.set(code, {
+                qty: stock,
+                name: name,
+                id: id,
+            });
         });
 
         console.log(`[STOCK] Fresh stock loaded for ${stockMap.size} products from TPOS Excel`);
@@ -304,11 +285,11 @@
 
             const products = [];
             (order.Details || []).forEach(detail => {
-                const code = detail.ProductCode || detail.DefaultCode || extractProductCode(detail.ProductNameGet || detail.ProductName);
-                if (!code) return;
+                const rawCode = detail.ProductCode || detail.DefaultCode || extractProductCode(detail.ProductNameGet || detail.ProductName);
+                if (!rawCode) return;
                 products.push({
-                    code,
-                    name: detail.ProductNameGet || detail.ProductName || code,
+                    code: rawCode.toUpperCase().trim(),
+                    name: detail.ProductNameGet || detail.ProductName || rawCode,
                     qty: detail.Quantity || 0,
                 });
             });
@@ -403,32 +384,28 @@
             }
         });
 
-        // Phase 3 — Build final status map
-        let readyCount = 0, waitingCount = 0, criticalCount = 0;
+        // Phase 3 — Build final status map (2 states: sufficient / insufficient)
+        let sufficientCount = 0, insufficientCount = 0;
 
         confirmedReady.forEach(orderId => {
-            statusMap.set(orderId, { status: 'ready', blocking: [], stockTags: [] });
-            readyCount++;
+            statusMap.set(orderId, { status: 'sufficient', blocking: [], stockTags: [] });
+            sufficientCount++;
         });
 
         [...initialWaiting, ...overflowWaiting].forEach(({ orderId, blocking }) => {
-            const hasCritical = blocking.some(b => b.have === 0);
-            const status = hasCritical ? 'critical' : 'waiting';
             const stockTags = blocking.map(b => `${STOCK_TAG_PREFIX}${b.code}`);
-
-            statusMap.set(orderId, { status, blocking, stockTags });
-            if (hasCritical) criticalCount++;
-            else waitingCount++;
+            statusMap.set(orderId, { status: 'insufficient', blocking, stockTags });
+            insufficientCount++;
         });
 
         StockStatusEngine._summaryStats = {
-            ready: readyCount,
-            waiting: waitingCount,
-            critical: criticalCount,
+            sufficient: sufficientCount,
+            insufficient: insufficientCount,
             noProducts: (allOrders.length - orderProducts.size),
+            total: allOrders.length,
         };
 
-        console.log(`[STOCK] Computed: ${readyCount} ready, ${waitingCount} waiting, ${criticalCount} critical`);
+        console.log(`[STOCK] Computed: ${sufficientCount} sufficient, ${insufficientCount} insufficient, ${allOrders.length - orderProducts.size} no products`);
     }
 
     // =====================================================
@@ -581,20 +558,19 @@
         const status = StockStatusEngine._orderStatus.get(String(orderId));
         if (!status) return '';
 
-        const colors = { ready: '#10b981', waiting: '#f59e0b', critical: '#ef4444' };
-        const labels = { ready: 'Đủ hàng', waiting: 'Chờ hàng', critical: 'Hết hàng' };
-        const color = colors[status.status] || '#9ca3af';
-        const label = labels[status.status] || '';
+        const color = status.status === 'sufficient' ? '#10b981' : '#ef4444';
+        const label = status.status === 'sufficient' ? 'Đủ hàng' : 'Thiếu hàng';
+        const pulseClass = status.status === 'insufficient' ? 'stock-insufficient' : '';
 
-        // Build tooltip content
+        // Build tooltip: "Thiếu hàng:\n• B378V  Tồn: 0 / Cần: 1"
         let tooltipContent = label;
         if (status.blocking && status.blocking.length > 0) {
             tooltipContent += ':\n' + status.blocking.map(b =>
-                `• ${b.code}: cần ${b.qty}, tồn ${b.have}`
+                `• ${b.code}  Tồn: ${b.have} / Cần: ${b.need}`
             ).join('\n');
         }
 
-        return `<div class="stock-badge stock-${status.status}"
+        return `<div class="stock-badge ${pulseClass}"
             style="width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0;cursor:help;"
             title="${tooltipContent.replace(/"/g, '&quot;')}"></div>`;
     }
@@ -609,10 +585,10 @@
 
     function renderStockColumnCell(detail) {
         if (!StockStatusEngine._checked) return '';
-        const code = detail.ProductCode || detail.DefaultCode || extractProductCode(detail.ProductNameGet || detail.ProductName);
-        if (!code) return '<td style="padding: 6px 12px; text-align: center; width: 80px; color: #9ca3af;">-</td>';
+        const rawCode = detail.ProductCode || detail.DefaultCode || extractProductCode(detail.ProductNameGet || detail.ProductName);
+        if (!rawCode) return '<td style="padding: 6px 12px; text-align: center; width: 80px; color: #9ca3af;">-</td>';
 
-        const stock = StockStatusEngine._stockMap.get(code);
+        const stock = StockStatusEngine._stockMap.get(rawCode.toUpperCase().trim());
         const qty = stock ? stock.qty : 0;
         const needed = detail.Quantity || 0;
 
@@ -638,8 +614,7 @@
         if (!StockStatusEngine._checked) return '';
         const status = StockStatusEngine._orderStatus.get(String(orderId));
         if (!status) return '';
-        if (status.status === 'waiting') return 'stock-row-waiting';
-        if (status.status === 'critical') return 'stock-row-critical';
+        if (status.status === 'insufficient') return 'stock-row-insufficient';
         return '';
     }
 
@@ -653,19 +628,22 @@
         const s = StockStatusEngine._summaryStats;
         bar.style.display = 'flex';
         bar.innerHTML = `
-            <span class="stock-summary-item stock-summary-ready" onclick="window.StockStatusEngine.filterByStatus('ready')" title="Đơn đủ hàng, sẵn sàng ship">
-                <i class="fas fa-check-circle"></i> ${s.ready} đủ hàng
+            <span class="stock-summary-item stock-summary-sufficient" onclick="window.StockStatusEngine.filterByStatus('sufficient')" title="Đơn đủ hàng, sẵn sàng ship">
+                <i class="fas fa-check-circle"></i> ${s.sufficient} đủ hàng
             </span>
-            <span class="stock-summary-item stock-summary-waiting" onclick="window.StockStatusEngine.filterByStatus('waiting')" title="Đơn thiếu SP nhưng còn tồn">
-                <i class="fas fa-clock"></i> ${s.waiting} chờ hàng
+            <span class="stock-summary-item stock-summary-insufficient" onclick="window.StockStatusEngine.filterByStatus('insufficient')" title="Đơn thiếu hàng">
+                <i class="fas fa-times-circle"></i> ${s.insufficient} thiếu hàng
             </span>
-            <span class="stock-summary-item stock-summary-critical" onclick="window.StockStatusEngine.filterByStatus('critical')" title="Đơn có SP tồn = 0">
-                <i class="fas fa-exclamation-triangle"></i> ${s.critical} hết hàng
-            </span>
+            ${s.noProducts > 0 ? `<span class="stock-summary-item stock-summary-noproducts" title="Đơn không có chi tiết SP">
+                <i class="fas fa-circle"></i> ${s.noProducts} không có SP
+            </span>` : ''}
             ${StockStatusEngine._activeFilter ? `<span class="stock-summary-item stock-summary-clear" onclick="window.StockStatusEngine.filterByStatus(null)" title="Xóa bộ lọc">
                 <i class="fas fa-times"></i> Xóa lọc
             </span>` : ''}
         `;
+
+        // Also update filter tabs if they exist
+        updateFilterTabs();
     }
 
     /**
@@ -687,8 +665,39 @@
     function passesStockFilter(orderId) {
         if (!StockStatusEngine._checked || !StockStatusEngine._activeFilter) return true;
         const status = StockStatusEngine._orderStatus.get(String(orderId));
-        if (!status) return StockStatusEngine._activeFilter === null;
-        return status.status === StockStatusEngine._activeFilter;
+
+        if (StockStatusEngine._activeFilter === 'sufficient') {
+            return status && status.status === 'sufficient';
+        }
+        if (StockStatusEngine._activeFilter === 'insufficient') {
+            return status && status.status === 'insufficient';
+        }
+        return true;
+    }
+
+    /**
+     * Update filter tabs (pill badges in toolbar area)
+     */
+    function updateFilterTabs() {
+        const container = document.getElementById('stockFilterTabs');
+        if (!container) return;
+
+        const s = StockStatusEngine._summaryStats;
+        const active = StockStatusEngine._activeFilter;
+        const totalWithProducts = s.sufficient + s.insufficient;
+
+        container.style.display = StockStatusEngine._checked ? 'flex' : 'none';
+        container.innerHTML = `
+            <span class="stock-filter-tab ${active === null ? 'active' : ''}" onclick="window.StockStatusEngine.filterByStatus(null)">
+                Tất cả ${totalWithProducts}
+            </span>
+            <span class="stock-filter-tab stock-filter-sufficient ${active === 'sufficient' ? 'active' : ''}" onclick="window.StockStatusEngine.filterByStatus('sufficient')">
+                Đủ hàng ${s.sufficient}
+            </span>
+            <span class="stock-filter-tab stock-filter-insufficient ${active === 'insufficient' ? 'active' : ''}" onclick="window.StockStatusEngine.filterByStatus('insufficient')">
+                Thiếu ${s.insufficient}
+            </span>
+        `;
     }
 
     // =====================================================
@@ -767,7 +776,7 @@
             const s = StockStatusEngine._summaryStats;
             if (window.notificationManager) {
                 window.notificationManager.success(
-                    `Kiểm tra tồn kho: ${s.ready} đủ hàng, ${s.waiting} chờ, ${s.critical} hết`,
+                    `Kiểm tra tồn kho: ${s.sufficient} đủ hàng, ${s.insufficient} thiếu hàng`,
                     5000,
                     'Tồn kho'
                 );

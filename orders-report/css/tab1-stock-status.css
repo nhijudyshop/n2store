@@ -15,8 +15,8 @@
     transform: scale(1.4);
 }
 
-/* Pulse animation for waiting/critical */
-.stock-waiting, .stock-critical {
+/* Pulse animation for insufficient */
+.stock-insufficient {
     animation: stockPulse 2s ease-in-out infinite;
 }
 @keyframes stockPulse {
@@ -25,10 +25,7 @@
 }
 
 /* Row highlighting */
-.stock-row-waiting {
-    background: rgba(245, 158, 11, 0.05) !important;
-}
-.stock-row-critical {
+.stock-row-insufficient {
     background: rgba(239, 68, 68, 0.06) !important;
 }
 
@@ -85,28 +82,26 @@
     transform: translateY(-1px);
 }
 
-.stock-summary-ready {
+.stock-summary-sufficient {
     background: rgba(16, 185, 129, 0.1);
     color: #065f46;
 }
-.stock-summary-ready:hover {
+.stock-summary-sufficient:hover {
     background: rgba(16, 185, 129, 0.2);
 }
 
-.stock-summary-waiting {
-    background: rgba(245, 158, 11, 0.1);
-    color: #92400e;
-}
-.stock-summary-waiting:hover {
-    background: rgba(245, 158, 11, 0.2);
-}
-
-.stock-summary-critical {
+.stock-summary-insufficient {
     background: rgba(239, 68, 68, 0.1);
     color: #991b1b;
 }
-.stock-summary-critical:hover {
+.stock-summary-insufficient:hover {
     background: rgba(239, 68, 68, 0.2);
+}
+
+.stock-summary-noproducts {
+    background: rgba(156, 163, 175, 0.1);
+    color: #6b7280;
+    cursor: default;
 }
 
 .stock-summary-clear {
@@ -115,4 +110,46 @@
 }
 .stock-summary-clear:hover {
     background: rgba(107, 114, 128, 0.2);
+}
+
+/* =====================================================
+   Filter Tabs (pill badges in toolbar)
+   ===================================================== */
+#stockFilterTabs {
+    display: none;
+    gap: 4px;
+    align-items: center;
+    margin-left: 8px;
+}
+
+.stock-filter-tab {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+    background: #f1f5f9;
+    color: #64748b;
+    border: 1px solid transparent;
+}
+.stock-filter-tab:hover {
+    background: #e2e8f0;
+}
+.stock-filter-tab.active {
+    background: #334155;
+    color: white;
+    border-color: #334155;
+}
+
+.stock-filter-tab.stock-filter-sufficient.active {
+    background: #10b981;
+    border-color: #10b981;
+}
+.stock-filter-tab.stock-filter-insufficient.active {
+    background: #ef4444;
+    border-color: #ef4444;
 }

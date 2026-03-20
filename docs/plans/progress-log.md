@@ -9,6 +9,7 @@
 
 - **Sprint đang làm:** Sprint 1
 - **Task tiếp theo:** Sprint 1 → Phase 2.1 (Hàng rớt xả theo đợt live)
+- **Sprint 0 (Stock Check):** Phase 0A + 0B + 0C code done, chờ test manual
 - **File cần đọc trước khi làm tiếp:**
     - `orders-report/js/managers/dropped-products-manager.js` — Dropped products module
     - `docs/plans/plan-implementation-tracker.md` — Chi tiết plan
@@ -16,6 +17,13 @@
 ---
 
 ## Checklist tổng quan
+
+### Sprint 0: Kiểm tra tồn kho (Stock Check)
+
+- [x] Phase 0A: Fix data loading (bỏ dependency orderProducts, detect name column, normalize codes)
+- [x] Phase 0B: Đổi 3 trạng thái → 2 trạng thái (sufficient/insufficient)
+- [x] Phase 0C: Filter Tabs + Polish UI
+- [ ] Manual testing
 
 ### Sprint 1 (Tuần 1-2): Sổ Sách + Hàng rớt
 
@@ -55,6 +63,26 @@
 > **Ghi chú kỹ thuật:** những điều cần biết cho task sau
 > **Vấn đề gặp phải:** (nếu có)
 > ```
+
+### 2026-03-20 — Sprint 0: Kiểm tra tồn kho (Phase 0A + 0B + 0C)
+
+**Trạng thái:** Hoàn thành (code), chờ manual test
+**Files đã sửa:**
+
+- `orders-report/js/tab1/tab1-stock-status.js` — Rewrite fetchStockFromTPOSExcel (bỏ orderProducts dependency), detect name column, normalize uppercase, simplify 3→2 states, add filter tabs function
+- `orders-report/css/tab1-stock-status.css` — Replace waiting/critical CSS with sufficient/insufficient, add filter tabs styles
+- `orders-report/tab1-orders.html` — Add stockFilterTabs container
+- `docs/plans/sprint0-stock-check.md` — Tick completed tasks
+
+**Ghi chú kỹ thuật:**
+
+- `fetchStockFromTPOSExcel()` giờ build stockMap trực tiếp từ Excel, không cần load orderProducts trước → nhanh hơn, ít lỗi hơn
+- Product codes normalize UPPERCASE ở cả loadOrderProductDetails() và renderStockColumnCell()
+- 3 trạng thái (ready/waiting/critical) → 2 trạng thái (sufficient/insufficient), tooltip format "Tồn: X / Cần: Y"
+- Filter tabs pill badges [Tất cả X] [Đủ Y] [Thiếu Z] cạnh nút "Cài đặt cột"
+- syncProcessingTags() tự động đúng vì chỉ tag insufficient orders (stockTags chỉ có ở insufficient)
+
+---
 
 ### 2026-03-19 — Phase 1A: Mở rộng Sổ Sách giao hàng từng phần
 
