@@ -3234,6 +3234,22 @@ ${d.ghiChu ? `<div style="margin-top:12px; font-style:italic; font-size:12px;"><
         if (checkInEnabled) checkInEnabled.checked = hasCheckIn;
         if (checkOutEnabled) checkOutEnabled.checked = hasCheckOut;
 
+        // Auto-fill giờ mặc định khi tick checkbox
+        if (checkInEnabled) {
+            checkInEnabled.onchange = () => {
+                if (checkInEnabled.checked && checkInInput && !checkInInput.value) {
+                    checkInInput.value = `${String(startHour).padStart(2, '0')}:00`;
+                }
+            };
+        }
+        if (checkOutEnabled) {
+            checkOutEnabled.onchange = () => {
+                if (checkOutEnabled.checked && checkOutInput && !checkOutInput.value) {
+                    checkOutInput.value = `${String(endHour).padStart(2, '0')}:00`;
+                }
+            };
+        }
+
         // Overtime (Làm thêm) - time before shift start
         const otEnabled = document.getElementById('attOtEnabled');
         const otHours = document.getElementById('attOtHours');
