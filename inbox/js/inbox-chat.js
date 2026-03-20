@@ -2162,6 +2162,7 @@ class InboxChatController {
         const raw = conv._raw || {};
         const psid = conv.psid || raw.from_psid || raw.from?.id || '';
         const conversationUpdatedTime = conv.time ? conv.time.getTime() : Date.now();
+        const accessToken = window.inboxTokenManager?.getTokenSync?.() || '';
 
         // Try 1: Get globalUserId from Pancake API (page_customer.global_id)
         let globalUserId = raw.page_customer?.global_id || null;
@@ -2249,6 +2250,7 @@ class InboxChatController {
                 type: 'REPLY_INBOX_PHOTO',
                 pageId: conv.pageId,
                 igPageId: null,
+                accessToken: accessToken,
                 tryResizeImage: true,
                 contentIds: [],
                 message: text,
