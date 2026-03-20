@@ -2137,54 +2137,9 @@ class InboxChatController {
         const payload = { action: 'reply_inbox', message: text };
         if (replyData?.msgId) payload.replied_message_id = replyData.msgId;
 
-        // Primary: pancake-direct (internal API, bypasses 24h)
-        try {
-            const ptm = window.inboxTokenManager;
-            const jwt = ptm?.currentToken;
-            if (!jwt) throw new Error('No JWT token');
-
-            const directUrl = InboxApiConfig.buildUrl.pancakeDirect(
-                `pages/${conv.pageId}/conversations/${conv.conversationId}/messages`,
-                conv.pageId, jwt
-            );
-            const result = await this._sendApi(directUrl, payload);
-            console.log('[InboxChat] pancake-direct succeeded:', result);
-            return;
-        } catch (err1) {
-            console.warn('[InboxChat] pancake-direct failed:', err1.message);
-        }
-
-        // Fallback 1: reply_inbox (Public API)
-        try {
-            const result = await this._sendApi(url, payload);
-            console.log('[InboxChat] reply_inbox succeeded:', result);
-            return;
-        } catch (err2) {
-            console.warn('[InboxChat] reply_inbox failed:', err2.message);
-
-            // Fallback 2: private_replies
-            const postId = conv._raw?.post_id || conv._messagesData?.post?.id || '';
-            const fromId = conv.psid || conv._raw?.from?.id || '';
-
-            if (postId && fromId) {
-                try {
-                    await this._sendApi(url, {
-                        action: 'private_replies',
-                        post_id: postId,
-                        message_id: conv.conversationId,
-                        from_id: fromId,
-                        message: text
-                    });
-                    console.log('[InboxChat] private_replies succeeded');
-                    showToast('Đã gửi qua private reply', 'success');
-                    return;
-                } catch (err3) {
-                    console.warn('[InboxChat] private_replies also failed');
-                }
-            }
-
-            throw err2;
-        }
+        // reply_inbox via Public API v1
+        const result = await this._sendApi(url, payload);
+        console.log('[InboxChat] reply_inbox succeeded:', result);
     }
 
     /**
