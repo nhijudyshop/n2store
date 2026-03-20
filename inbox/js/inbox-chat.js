@@ -2199,13 +2199,14 @@ class InboxChatController {
                 extensionConnected: window.pancakeExtension?.connected
             });
 
+            // NOTE: Do NOT pass globalUserId - PSID ≠ Global Facebook ID
+            // Let the extension resolve global ID via GraphQL lookup
             const payload = {
                 type: 'REPLY_INBOX_PHOTO',
                 pageId: conv.pageId,
                 convId: conv.conversationId,
                 threadId: psid,
                 threadKey: psid,
-                globalUserId: psid,
                 message: text,
                 attachmentType: 'SEND_TEXT_ONLY',
                 files: [],
