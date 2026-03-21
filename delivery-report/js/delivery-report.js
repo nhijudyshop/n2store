@@ -18,6 +18,11 @@
         pageSize: 1000,
         isLoading: false,
 
+        // Tra soát mode
+        traSoatMode: false,
+        scannedNumbers: new Set(),
+        activeTab: 'all', // 'city', 'province', 'all'
+
         // Filter values
         filters: {
             fromDate: '',
@@ -305,11 +310,21 @@
     }
 
     // =====================================================
-    // CLIENT-SIDE FILTER (carrier)
+    // CLIENT-SIDE FILTER (carrier + tra soát)
     // =====================================================
     function getFilteredData() {
-        let data = DeliveryReportState.allData || [];
-        const carrier = DeliveryReportState.filters.carrierId;
+        const state = DeliveryReportState;
+
+        if (state.traSoatMode) {
+            // In tra soát mode: use tab filter + exclude scanned
+            let data = getTabFilteredData();
+            data = data.filter(item => !state.scannedNumbers.has(item.Number));
+            return data;
+        }
+
+        // Normal mode: carrier filter only
+        let data = state.allData || [];
+        const carrier = state.filters.carrierId;
         if (carrier) {
             data = data.filter(item => item.CarrierName === carrier);
         }
@@ -659,59 +674,144 @@
     }
 
     // =====================================================
-    // TRA SOÁT (Reconciliation Check)
+    // TRA SOÁT - Barcode Scanner Mode
     // =====================================================
-    async function traSoat() {
+    let barcodeBuffer = '';
+    let barcodeTimeout = null;
+
+    function traSoat() {
+        const state = DeliveryReportState;
+        state.traSoatMode = !state.traSoatMode;
+
         const btn = document.getElementById('drBtnTraSoat');
-        if (!btn) return;
+        const bar = document.getElementById('drTraSoatBar');
 
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tra soát...';
-
-        try {
-            // Use filtered data
-            const items = getFilteredData();
-
-            // Tính toán tra soát
-            let totalCOD = 0, totalPaid = 0, totalReturn = 0, totalShipping = 0, totalFail = 0;
-            let countPaid = 0, countReturn = 0, countShipping = 0, countFail = 0;
-
-            items.forEach(item => {
-                const cod = item.CashOnDelivery || 0;
-                totalCOD += cod;
-
-                if (item.ShipPaymentStatus === 'done') {
-                    countPaid++;
-                    totalPaid += cod;
-                } else if (item.ShipPaymentStatus === 'fail') {
-                    countFail++;
-                    totalFail += cod;
-                } else if (item.ShipStatus === 'returned' || item.ShipStatus === 'cancel') {
-                    countReturn++;
-                    totalReturn += cod;
-                } else {
-                    countShipping++;
-                    totalShipping += cod;
-                }
-            });
-
-            // Show results
-            const msg = `📊 KẾT QUẢ TRA SOÁT\n\n` +
-                `Tổng đơn: ${formatNumber(items.length)}\n` +
-                `Tổng COD: ${formatMoney(totalCOD)}\n\n` +
-                `✅ Đã đối soát: ${formatNumber(countPaid)} đơn - ${formatMoney(totalPaid)}\n` +
-                `🚚 Đang giao: ${formatNumber(countShipping)} đơn - ${formatMoney(totalShipping)}\n` +
-                `↩️ Trả hàng/Hủy: ${formatNumber(countReturn)} đơn - ${formatMoney(totalReturn)}\n` +
-                `❌ Đối soát thất bại: ${formatNumber(countFail)} đơn - ${formatMoney(totalFail)}`;
-
-            alert(msg);
-        } catch (error) {
-            console.error('[DELIVERY-REPORT] Tra soát error:', error);
-            alert('Lỗi tra soát: ' + error.message);
-        } finally {
-            btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-clipboard-check"></i> Tra soát';
+        if (state.traSoatMode) {
+            // Enter scan mode
+            if (btn) {
+                btn.classList.add('dr-btn-active');
+                btn.innerHTML = '<i class="fas fa-times"></i> Tắt tra soát';
+            }
+            if (bar) bar.style.display = '';
+            state.scannedNumbers = new Set();
+            state.activeTab = 'all';
+            state.currentPage = 1;
+            updateTabUI();
+            document.addEventListener('keydown', onBarcodeKeydown);
+            renderTable();
+            renderPagination();
+            updateScanCount();
+        } else {
+            // Exit scan mode
+            if (btn) {
+                btn.classList.remove('dr-btn-active');
+                btn.innerHTML = '<i class="fas fa-clipboard-check"></i> Tra soát';
+            }
+            if (bar) bar.style.display = 'none';
+            state.scannedNumbers = new Set();
+            state.activeTab = 'all';
+            state.currentPage = 1;
+            document.removeEventListener('keydown', onBarcodeKeydown);
+            renderTable();
+            renderStats();
+            renderPagination();
         }
+    }
+
+    function setTab(tab) {
+        DeliveryReportState.activeTab = tab;
+        DeliveryReportState.currentPage = 1;
+        updateTabUI();
+        renderTable();
+        renderPagination();
+        updateScanCount();
+    }
+
+    function updateTabUI() {
+        const tabs = document.querySelectorAll('.dr-trasoat-tab');
+        tabs.forEach(t => {
+            t.classList.toggle('active', t.dataset.tab === DeliveryReportState.activeTab);
+        });
+    }
+
+    function updateScanCount() {
+        const countEl = document.getElementById('drScanCount');
+        const totalEl = document.getElementById('drScanTotal');
+        if (!countEl || !totalEl) return;
+
+        const tabData = getTabFilteredData();
+        const scanned = tabData.filter(item => DeliveryReportState.scannedNumbers.has(item.Number)).length;
+        countEl.textContent = `Đã quét: ${formatNumber(scanned)}`;
+        totalEl.textContent = formatNumber(tabData.length);
+    }
+
+    function getTabFilteredData() {
+        let data = DeliveryReportState.allData || [];
+        // Apply carrier filter from dropdown
+        const carrier = DeliveryReportState.filters.carrierId;
+        if (carrier) {
+            data = data.filter(item => item.CarrierName === carrier);
+        }
+        // Apply tab filter
+        if (DeliveryReportState.activeTab === 'city') {
+            data = data.filter(item => (item.CarrierName || '').toUpperCase().includes('THÀNH PHỐ'));
+        } else if (DeliveryReportState.activeTab === 'province') {
+            data = data.filter(item => !(item.CarrierName || '').toUpperCase().includes('THÀNH PHỐ'));
+        }
+        return data;
+    }
+
+    function onBarcodeKeydown(e) {
+        // Ignore if focus is on an input/select
+        const tag = e.target.tagName;
+        if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            if (barcodeBuffer.length > 0) {
+                processScan(barcodeBuffer.trim());
+                barcodeBuffer = '';
+            }
+            return;
+        }
+
+        // Only accept printable characters
+        if (e.key.length === 1) {
+            barcodeBuffer += e.key;
+            clearTimeout(barcodeTimeout);
+            barcodeTimeout = setTimeout(() => { barcodeBuffer = ''; }, 500);
+        }
+    }
+
+    function processScan(value) {
+        console.log('[DELIVERY-REPORT] Scanned:', value);
+        const state = DeliveryReportState;
+
+        // Find matching item by Number
+        const match = (state.allData || []).find(item => item.Number === value);
+        if (match) {
+            state.scannedNumbers.add(match.Number);
+            renderTable();
+            renderPagination();
+            updateScanCount();
+            showScanFeedback(true, match.Number);
+        } else {
+            showScanFeedback(false, value);
+        }
+    }
+
+    function showScanFeedback(success, value) {
+        // Remove existing feedback
+        const existing = document.getElementById('drScanFeedback');
+        if (existing) existing.remove();
+
+        const div = document.createElement('div');
+        div.id = 'drScanFeedback';
+        div.className = success ? 'dr-scan-feedback success' : 'dr-scan-feedback error';
+        div.textContent = success ? `${value}` : `Không tìm thấy: ${value}`;
+        document.body.appendChild(div);
+
+        setTimeout(() => div.remove(), 2000);
     }
 
     // =====================================================
@@ -761,6 +861,7 @@
         },
         exportExcel: exportExcel,
         traSoat: traSoat,
+        setTab: setTab,
         getState: () => DeliveryReportState
     };
 })();

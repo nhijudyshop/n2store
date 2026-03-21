@@ -180,6 +180,18 @@
                 </div>
             </div>
 
+            <!-- Tra Soát Tab Bar (hidden by default) -->
+            <div class="dr-trasoat-bar" id="drTraSoatBar" style="display:none;">
+                <div class="dr-trasoat-tabs">
+                    <button class="dr-trasoat-tab" data-tab="city" onclick="DeliveryReport.setTab('city')">Thành phố</button>
+                    <button class="dr-trasoat-tab" data-tab="province" onclick="DeliveryReport.setTab('province')">Tỉnh</button>
+                    <button class="dr-trasoat-tab active" data-tab="all" onclick="DeliveryReport.setTab('all')">Tất cả</button>
+                </div>
+                <div class="dr-trasoat-info">
+                    <span id="drScanCount">Đã quét: 0</span> / <span id="drScanTotal">0</span>
+                </div>
+            </div>
+
             <!-- Data Table -->
             <div class="dr-table-wrapper" id="drTableWrapper">
                 <div class="dr-table-scroll">
