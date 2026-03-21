@@ -273,6 +273,23 @@
         },
 
         /**
+         * Inject a cancel/delete entry directly (bypass Firestore delay)
+         * Called after order cancellation to immediately update UI
+         * @param {string} saleOnlineId
+         * @param {Object} entry - Cancel entry data
+         */
+        injectDeleteEntry(saleOnlineId, entry) {
+            if (!saleOnlineId || !entry) return;
+            const id = String(saleOnlineId);
+            if (!invoiceDeleteMap.has(id)) {
+                invoiceDeleteMap.set(id, []);
+            }
+            invoiceDeleteMap.get(id).push(entry);
+            console.log(`[FULFILLMENT] Injected delete entry for ${id}`);
+            _notifyChange();
+        },
+
+        /**
          * Build timeline events for an order (sorted by time descending)
          * v3: Shows ALL active entries (not just the latest), plus cancel entries
          * @param {string|number} orderId

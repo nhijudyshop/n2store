@@ -502,6 +502,22 @@
                 if (invoiceCell) {
                     invoiceCell.innerHTML = '<span style="color: #9ca3af;">−</span>';
                 }
+
+                // Update fulfillment ("Ra đơn") cell immediately
+                const fd = window.parent?.FulfillmentData || window.FulfillmentData;
+                if (fd?.injectDeleteEntry) {
+                    fd.injectDeleteEntry(saleOnlineId, {
+                        ...invoiceData,
+                        ...order,
+                        SaleOnlineId: saleOnlineId,
+                        cancelReason: reason,
+                        deletedAt: Date.now(),
+                    });
+                }
+                const fulfillmentCell = mainRow.querySelector('td[data-column="fulfillment"]');
+                if (fulfillmentCell && typeof window.renderFulfillmentCell === 'function') {
+                    fulfillmentCell.innerHTML = window.renderFulfillmentCell({ Id: saleOnlineId });
+                }
             }
         } catch (e) {
             console.error('[WORKFLOW] Error confirming cancel:', e);
@@ -1326,6 +1342,22 @@
                 const invoiceCell = row.querySelector('td[data-column="invoice-status"]');
                 if (invoiceCell) {
                     invoiceCell.innerHTML = '<span style="color: #9ca3af;">−</span>';
+                }
+
+                // Update fulfillment ("Ra đơn") cell immediately
+                const fd = window.parent?.FulfillmentData || window.FulfillmentData;
+                if (fd?.injectDeleteEntry) {
+                    fd.injectDeleteEntry(saleOnlineId, {
+                        ...invoiceData,
+                        ...order,
+                        SaleOnlineId: saleOnlineId,
+                        cancelReason: reason,
+                        deletedAt: Date.now(),
+                    });
+                }
+                const fulfillmentCell = row.querySelector('td[data-column="fulfillment"]');
+                if (fulfillmentCell && typeof window.renderFulfillmentCell === 'function') {
+                    fulfillmentCell.innerHTML = window.renderFulfillmentCell({ Id: saleOnlineId });
                 }
             }
 
