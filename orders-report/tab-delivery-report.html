@@ -1,0 +1,305 @@
+<!--
+  📖 GHI CHÚ CHO LẬP TRÌNH VIÊN:
+  Khi code phải đọc thư mục https://github.com/nhijudyshop/n2store/tree/main/docs trước!
+  Đọc các file SHARED_*.md để hiểu cách sử dụng shared modules.
+-->
+<!doctype html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Thống Kê Giao Hàng</title>
+
+        <!-- External CSS -->
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+        <!-- Page CSS -->
+        <link rel="stylesheet" href="css/tab-delivery-report.css" />
+    </head>
+
+    <body>
+        <div class="delivery-report-container">
+            <!-- Header -->
+            <div class="dr-header">
+                <h1><i class="fas fa-truck"></i> Thống Kê Giao Hàng</h1>
+
+                <!-- Sub Tabs -->
+                <div class="dr-sub-tabs">
+                    <button class="dr-sub-tab active" data-subtab="overview" onclick="switchSubTab('overview')">Tổng quan</button>
+                    <button class="dr-sub-tab" data-subtab="customer" onclick="switchSubTab('customer')">Khách hàng</button>
+                    <button class="dr-sub-tab" data-subtab="employee" onclick="switchSubTab('employee')">Nhân viên</button>
+                    <button class="dr-sub-tab" data-subtab="channel" onclick="switchSubTab('channel')">Kênh bán hàng</button>
+                </div>
+            </div>
+
+            <!-- Filter Section -->
+            <div class="dr-filter-section">
+                <div class="dr-filter-grid">
+                    <!-- Row 1 -->
+                    <div class="dr-filter-row">
+                        <label for="drFilterFromDate">Ngày bắt đầu</label>
+                        <input type="datetime-local" id="drFilterFromDate" />
+                    </div>
+                    <div class="dr-filter-row">
+                        <label for="drFilterPartner">Khách hàng</label>
+                        <select id="drFilterPartner">
+                            <option value="">Tất cả</option>
+                        </select>
+                    </div>
+                    <div class="dr-filter-row">
+                        <label for="drFilterCarrier">Đối tác giao hàng</label>
+                        <select id="drFilterCarrier">
+                            <option value="">Tất cả</option>
+                        </select>
+                    </div>
+
+                    <!-- Row 2 -->
+                    <div class="dr-filter-row">
+                        <label for="drFilterToDate">Ngày kết thúc</label>
+                        <input type="datetime-local" id="drFilterToDate" />
+                    </div>
+                    <div class="dr-filter-row">
+                        <label for="drFilterShipState">Trạng thái</label>
+                        <select id="drFilterShipState">
+                            <option value="">Tất cả</option>
+                            <option value="none">Chưa tiếp nhận</option>
+                            <option value="picking">Đang lấy hàng</option>
+                            <option value="shipping">Đang giao</option>
+                            <option value="done">Đã giao</option>
+                            <option value="returned">Trả hàng</option>
+                            <option value="cancel">Hủy</option>
+                        </select>
+                    </div>
+                    <div class="dr-filter-row">
+                        <label for="drFilterForControl">Trạng thái đối soát</label>
+                        <select id="drFilterForControl">
+                            <option value="">Tất cả</option>
+                            <option value="done">Đã đối soát</option>
+                            <option value="fail">Không thành công</option>
+                        </select>
+                    </div>
+
+                    <!-- Row 3 -->
+                    <div class="dr-filter-row">
+                        <label for="drFilterDeliveryType">Loại đối tác giao hàng</label>
+                        <select id="drFilterDeliveryType">
+                            <option value="">Loại đối tác giao hàng</option>
+                        </select>
+                    </div>
+                    <div class="dr-filter-row">
+                        <label for="drFilterCompany">Công ty</label>
+                        <select id="drFilterCompany">
+                            <option value="">Tất cả</option>
+                        </select>
+                    </div>
+                    <div class="dr-filter-row">
+                        <label for="drFilterCity">Thành phố</label>
+                        <select id="drFilterCity">
+                            <option value="">Tỉnh/Thành</option>
+                        </select>
+                    </div>
+
+                    <!-- Row 4: Keyword -->
+                    <div class="dr-filter-row dr-filter-keyword">
+                        <label for="drFilterKeyword">Từ khóa</label>
+                        <input type="text" id="drFilterKeyword" placeholder="Mã vận đơn hoặc số hóa đơn" />
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                    <div class="dr-filter-actions">
+                        <button class="dr-btn dr-btn-primary" id="drBtnSearch" onclick="DeliveryReport.search()">
+                            <i class="fas fa-search"></i> Tìm kiếm
+                        </button>
+                        <button class="dr-btn dr-btn-success" id="drBtnExport" onclick="DeliveryReport.exportExcel()">
+                            <i class="fas fa-file-excel"></i> Xuất excel
+                        </button>
+                        <button class="dr-btn dr-btn-warning" id="drBtnExportDetail" onclick="DeliveryReport.exportExcel()">
+                            <i class="fas fa-file-excel"></i> Xuất excel chi tiết sản phẩm từng dòng
+                        </button>
+                        <button class="dr-btn dr-btn-info" onclick="window.print()">
+                            <i class="fas fa-print"></i> In
+                        </button>
+                    </div>
+
+                    <!-- Column Toggle -->
+                    <div class="dr-column-toggle-wrapper">
+                        <button class="dr-btn" id="drColumnToggleBtn" style="background:#e5e7eb; color:#374151;">
+                            Ẩn hiện cột <i class="fas fa-caret-down"></i>
+                        </button>
+                        <div class="dr-column-dropdown" id="drColumnDropdown">
+                            <label><input type="checkbox" data-col="index" checked /> #</label>
+                            <label><input type="checkbox" data-col="customer" checked /> Khách hàng</label>
+                            <label><input type="checkbox" data-col="receiverInfo" checked /> Thông tin người nhận</label>
+                            <label><input type="checkbox" data-col="dateInvoice" checked /> Ngày hóa đơn</label>
+                            <label><input type="checkbox" data-col="number" checked /> Số</label>
+                            <label><input type="checkbox" data-col="amountTotal" checked /> Tổng tiền</label>
+                            <label><input type="checkbox" data-col="cashOnDelivery" checked /> Giao hàng thu tiền</label>
+                            <label><input type="checkbox" data-col="carrierName" checked /> Đối tác giao hàng</label>
+                            <label><input type="checkbox" data-col="deliveryPrice" checked /> Tiền ship đối tác</label>
+                            <label><input type="checkbox" data-col="shipWeight" checked /> Khối lượng ship (g)</label>
+                            <label><input type="checkbox" data-col="trackingRef" checked /> Mã vận đơn</label>
+                            <label><input type="checkbox" data-col="showShipStatus" checked /> Trạng thái GH</label>
+                            <label><input type="checkbox" data-col="forControlStatus" checked /> Đối soát GH</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats Summary Bar -->
+            <div class="dr-stats-bar">
+                <div class="dr-stat-item">
+                    <div class="dr-stat-icon blue"><i class="fas fa-dollar-sign"></i></div>
+                    <div class="dr-stat-info">
+                        <span class="dr-stat-count" id="drStatCODCount">0 Hóa đơn</span>
+                        <span class="dr-stat-value" id="drStatCODValue">0</span>
+                        <span class="dr-stat-label">Giao hàng thu tiền</span>
+                    </div>
+                </div>
+                <div class="dr-stat-item">
+                    <div class="dr-stat-icon blue"><i class="fas fa-dollar-sign"></i></div>
+                    <div class="dr-stat-info">
+                        <span class="dr-stat-count" id="drStatPaidCount">0 Hóa đơn</span>
+                        <span class="dr-stat-value" id="drStatPaidValue">0</span>
+                        <span class="dr-stat-label">Đã thanh toán</span>
+                    </div>
+                </div>
+                <div class="dr-stat-item">
+                    <div class="dr-stat-icon cyan"><i class="fas fa-undo"></i></div>
+                    <div class="dr-stat-info">
+                        <span class="dr-stat-count" id="drStatReturnCount">0 Hóa đơn</span>
+                        <span class="dr-stat-value" id="drStatReturnValue">0</span>
+                        <span class="dr-stat-label">Trả hàng</span>
+                    </div>
+                </div>
+                <div class="dr-stat-item">
+                    <div class="dr-stat-icon green"><i class="fas fa-dollar-sign"></i></div>
+                    <div class="dr-stat-info">
+                        <span class="dr-stat-count" id="drStatShippingCount">0 Hóa đơn</span>
+                        <span class="dr-stat-value" id="drStatShippingValue">0</span>
+                        <span class="dr-stat-label">Đang giao</span>
+                    </div>
+                </div>
+                <div class="dr-stat-item">
+                    <div class="dr-stat-icon red"><i class="fas fa-dollar-sign"></i></div>
+                    <div class="dr-stat-info">
+                        <span class="dr-stat-count" id="drStatFailCount">0 Hóa đơn</span>
+                        <span class="dr-stat-value" id="drStatFailValue">0</span>
+                        <span class="dr-stat-label">Đối soát không thành công</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Data Table -->
+            <div class="dr-table-wrapper" id="drTableWrapper">
+                <div class="dr-table-scroll">
+                    <table class="dr-table">
+                        <thead>
+                            <tr>
+                                <th data-col="index" style="width:40px;">#</th>
+                                <th data-col="customer">Khách hàng</th>
+                                <th data-col="receiverInfo">Thông tin người nhận</th>
+                                <th data-col="dateInvoice">Ngày hóa đơn</th>
+                                <th data-col="number">Số</th>
+                                <th data-col="amountTotal" style="text-align:right;">Tổng tiền</th>
+                                <th data-col="cashOnDelivery" style="text-align:right;">Giao hàng thu tiền</th>
+                                <th data-col="carrierName">Đối tác giao hàng</th>
+                                <th data-col="deliveryPrice" style="text-align:right;">Tiền ship đối tác</th>
+                                <th data-col="shipWeight" style="text-align:center;">Khối lượng ship (g)</th>
+                                <th data-col="trackingRef">Mã vận đơn</th>
+                                <th data-col="showShipStatus">Trạng thái GH</th>
+                                <th data-col="forControlStatus">Đối soát GH</th>
+                            </tr>
+                        </thead>
+                        <tbody id="drTableBody">
+                            <tr>
+                                <td colspan="13" class="dr-loading">
+                                    <div class="spinner"></div>
+                                    <div>Đang tải dữ liệu...</div>
+                                </td>
+                            </tr>
+                        </tbody>
+                        <tfoot id="drTableFoot"></tfoot>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                <div class="dr-pagination" id="drPagination"></div>
+            </div>
+        </div>
+
+        <!-- Sub-tab content placeholders (hidden by default) -->
+        <div id="drSubTabCustomer" style="display:none;">
+            <div class="delivery-report-container">
+                <div class="dr-header"><h2>Thống kê theo Khách hàng</h2><p style="color:#6b7280;">Chức năng đang phát triển...</p></div>
+            </div>
+        </div>
+        <div id="drSubTabEmployee" style="display:none;">
+            <div class="delivery-report-container">
+                <div class="dr-header"><h2>Thống kê theo Nhân viên</h2><p style="color:#6b7280;">Chức năng đang phát triển...</p></div>
+            </div>
+        </div>
+        <div id="drSubTabChannel" style="display:none;">
+            <div class="delivery-report-container">
+                <div class="dr-header"><h2>Thống kê theo Kênh bán hàng</h2><p style="color:#6b7280;">Chức năng đang phát triển...</p></div>
+            </div>
+        </div>
+
+        <!-- Firebase SDK -->
+        <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
+        <!-- Shared Libraries -->
+        <script src="../shared/js/firebase-config.js"></script>
+        <script src="js/core/config.js"></script>
+        <script src="js/core/api-config.js"></script>
+        <script src="../shared/js/shop-config.js"></script>
+        <script src="../shared/js/token-manager.js"></script>
+        <script src="../shared/js/tpos-config.js"></script>
+
+        <!-- XLSX for Excel export -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+        <!-- Delivery Report Logic -->
+        <script src="js/delivery-report/delivery-report.js"></script>
+
+        <!-- Sub-tab switching -->
+        <script>
+            function switchSubTab(tabName) {
+                // Update buttons
+                document.querySelectorAll('.dr-sub-tab').forEach(btn => btn.classList.remove('active'));
+                const activeBtn = document.querySelector(`.dr-sub-tab[data-subtab="${tabName}"]`);
+                if (activeBtn) activeBtn.classList.add('active');
+
+                // Main overview content
+                const mainContent = document.querySelector('.delivery-report-container');
+                const subCustomer = document.getElementById('drSubTabCustomer');
+                const subEmployee = document.getElementById('drSubTabEmployee');
+                const subChannel = document.getElementById('drSubTabChannel');
+
+                // Hide all sub-tabs
+                [subCustomer, subEmployee, subChannel].forEach(el => { if (el) el.style.display = 'none'; });
+
+                if (tabName === 'overview') {
+                    // Show main container, hide sub-tab placeholders
+                    mainContent.style.display = '';
+                } else {
+                    // Show corresponding sub-tab
+                    if (tabName === 'customer' && subCustomer) subCustomer.style.display = 'block';
+                    if (tabName === 'employee' && subEmployee) subEmployee.style.display = 'block';
+                    if (tabName === 'channel' && subChannel) subChannel.style.display = 'block';
+                }
+            }
+
+            // Initialize on DOM ready
+            document.addEventListener('DOMContentLoaded', function () {
+                if (window.DeliveryReport) {
+                    window.DeliveryReport.init();
+                }
+            });
+        </script>
+    </body>
+</html>
