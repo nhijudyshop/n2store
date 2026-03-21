@@ -12,7 +12,7 @@
     // STATE
     // =====================================================
     const DeliveryReportState = {
-        data: [],
+        allData: [],
         totalCount: 0,
         currentPage: 1,
         pageSize: 200,
@@ -198,7 +198,7 @@
     }
 
     // =====================================================
-    // API FETCH
+    // API FETCH - Loads ALL data, client-side pagination
     // =====================================================
     async function fetchData() {
         if (DeliveryReportState.isLoading) return;
@@ -229,8 +229,8 @@
             }
 
             const result = await response.json();
-            DeliveryReportState.data = result.value || [];
-            DeliveryReportState.totalCount = result['@odata.count'] || 0;
+            DeliveryReportState.allData = result.value || [];
+            DeliveryReportState.totalCount = DeliveryReportState.allData.length;
 
             renderTable();
             renderStats();
@@ -288,11 +288,8 @@
         params.set('CityCode', f.cityCode);
         params.set('Q', f.keyword);
 
-        // Paging
-        params.set('$top', DeliveryReportState.pageSize);
-        if (DeliveryReportState.currentPage > 1) {
-            params.set('$skip', (DeliveryReportState.currentPage - 1) * DeliveryReportState.pageSize);
-        }
+        // Fetch all data (client-side pagination)
+        params.set('$top', '10000');
 
         // Sort
         params.set('$orderby', 'DateInvoice desc,Number desc,Id desc');
@@ -309,22 +306,25 @@
         const tfoot = document.getElementById('drTableFoot');
         if (!tbody) return;
 
-        const data = DeliveryReportState.data;
+        const allData = DeliveryReportState.allData || [];
 
-        if (!data || data.length === 0) {
+        if (!allData || allData.length === 0) {
             tbody.innerHTML = `<tr><td colspan="13" class="dr-empty"><i class="fas fa-inbox"></i>Không có dữ liệu</td></tr>`;
             if (tfoot) tfoot.innerHTML = '';
             return;
         }
 
+        // Client-side pagination: slice from allData
         const startIndex = (DeliveryReportState.currentPage - 1) * DeliveryReportState.pageSize;
+        const endIndex = startIndex + DeliveryReportState.pageSize;
+        const pageData = allData.slice(startIndex, endIndex);
 
         let html = '';
         let totalAmount = 0;
         let totalCOD = 0;
         let totalShipPrice = 0;
 
-        data.forEach((item, i) => {
+        pageData.forEach((item, i) => {
             totalAmount += item.AmountTotal || 0;
             totalCOD += item.CashOnDelivery || 0;
             totalShipPrice += item.DeliveryPrice || 0;
@@ -358,7 +358,14 @@
 
         tbody.innerHTML = html;
 
-        // Footer totals
+        // Footer totals (from ALL data, not just current page)
+        let allTotalAmount = 0, allTotalCOD = 0, allTotalShipPrice = 0;
+        allData.forEach(item => {
+            allTotalAmount += item.AmountTotal || 0;
+            allTotalCOD += item.CashOnDelivery || 0;
+            allTotalShipPrice += item.DeliveryPrice || 0;
+        });
+
         if (tfoot) {
             tfoot.innerHTML = `<tr>
                 <td data-col="index"></td>
@@ -366,10 +373,10 @@
                 <td data-col="receiverInfo"></td>
                 <td data-col="dateInvoice"></td>
                 <td data-col="number"></td>
-                <td data-col="amountTotal" class="dr-money"><strong>${formatMoney(totalAmount)}</strong></td>
-                <td data-col="cashOnDelivery" class="dr-money"><strong>${formatMoney(totalCOD)}</strong></td>
+                <td data-col="amountTotal" class="dr-money"><strong>${formatMoney(allTotalAmount)}</strong></td>
+                <td data-col="cashOnDelivery" class="dr-money"><strong>${formatMoney(allTotalCOD)}</strong></td>
                 <td data-col="carrierName"></td>
-                <td data-col="deliveryPrice" class="dr-money"><strong>${formatMoney(totalShipPrice)}</strong></td>
+                <td data-col="deliveryPrice" class="dr-money"><strong>${formatMoney(allTotalShipPrice)}</strong></td>
                 <td data-col="shipWeight"></td>
                 <td data-col="trackingRef"></td>
                 <td data-col="showShipStatus"></td>
@@ -384,11 +391,9 @@
     // RENDER STATS
     // =====================================================
     function renderStats() {
-        const data = DeliveryReportState.data;
+        const data = DeliveryReportState.allData || [];
         const totalCount = DeliveryReportState.totalCount;
 
-        // Calculate stats from current page data (approximation)
-        // For accurate totals, we'd need a separate summary API or compute from all pages
         let totalCOD = 0;
         let paidCount = 0;
         let paidAmount = 0;
@@ -399,7 +404,7 @@
         let failControlCount = 0;
         let failControlAmount = 0;
 
-        // We compute basic stats from the visible data
+        // Stats from ALL data (accurate)
         data.forEach(item => {
             totalCOD += item.CashOnDelivery || 0;
             if (item.ShipStatus === 'done') {
@@ -587,39 +592,12 @@
             return;
         }
 
-        // Fetch all data (without paging) for export
         const btn = document.getElementById('drBtnExport');
         if (btn) { btn.disabled = true; btn.textContent = 'Đang xuất...'; }
 
         try {
-            const token = await getToken();
-            const f = DeliveryReportState.filters;
-            const params = new URLSearchParams();
-            if (f.fromDate) params.set('FromDate', new Date(f.fromDate).toISOString());
-            if (f.toDate) params.set('ToDate', new Date(f.toDate).toISOString());
-            params.set('PartnerId', f.partnerId);
-            params.set('CarrierId', f.carrierId);
-            params.set('ShipState', f.shipState);
-            params.set('ForControl', f.forControl);
-            params.set('DeliveryType', f.deliveryType);
-            params.set('CompanyId', f.companyId);
-            params.set('CityCode', f.cityCode);
-            params.set('Q', f.keyword);
-            params.set('$top', '10000');
-            params.set('$orderby', 'DateInvoice desc,Number desc,Id desc');
-
-            const url = `${WORKER_URL}/api/odata/Report/DeliveryReport?${params.toString()}`;
-            const resp = await fetch(url, {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json',
-                    'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.12.29.1'
-                }
-            });
-
-            const result = await resp.json();
-            const items = result.value || [];
+            // Use already-loaded allData
+            const items = DeliveryReportState.allData || [];
 
             const wsData = [
                 ['#', 'Khách hàng', 'ĐT Khách hàng', 'Người nhận', 'ĐT Người nhận', 'Địa chỉ', 'Ngày hóa đơn', 'Số', 'Tổng tiền', 'Giao hàng thu tiền', 'Đối tác GH', 'Tiền ship', 'Khối lượng (g)', 'Mã vận đơn', 'Trạng thái GH', 'Đối soát GH']
@@ -672,40 +650,8 @@
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tra soát...';
 
         try {
-            const token = await getToken();
-            if (!token) {
-                alert('Không thể lấy token xác thực.');
-                return;
-            }
-
-            const f = DeliveryReportState.filters;
-            const params = new URLSearchParams();
-            if (f.fromDate) params.set('FromDate', new Date(f.fromDate).toISOString());
-            if (f.toDate) params.set('ToDate', new Date(f.toDate).toISOString());
-            params.set('PartnerId', f.partnerId);
-            params.set('CarrierId', f.carrierId);
-            params.set('ShipState', f.shipState);
-            params.set('ForControl', f.forControl);
-            params.set('DeliveryType', f.deliveryType);
-            params.set('CompanyId', f.companyId);
-            params.set('CityCode', f.cityCode);
-            params.set('Q', f.keyword);
-            params.set('$top', '10000');
-            params.set('$orderby', 'DateInvoice desc,Number desc,Id desc');
-            params.set('$count', 'true');
-
-            const url = `${WORKER_URL}/api/odata/Report/DeliveryReport?${params.toString()}`;
-            const resp = await fetch(url, {
-                method: 'GET',
-                headers: {
-                    'Authorization': `Bearer ${token}`,
-                    'Accept': 'application/json',
-                    'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.12.29.1'
-                }
-            });
-
-            const result = await resp.json();
-            const items = result.value || [];
+            // Use already-loaded allData
+            const items = DeliveryReportState.allData || [];
 
             // Tính toán tra soát
             let totalCOD = 0, totalPaid = 0, totalReturn = 0, totalShipping = 0, totalFail = 0;
@@ -764,14 +710,16 @@
             const totalPages = Math.ceil(DeliveryReportState.totalCount / DeliveryReportState.pageSize);
             if (page < 1 || page > totalPages) return;
             DeliveryReportState.currentPage = page;
-            fetchData();
-            // Scroll to top of table
+            // Client-side pagination: just re-render, no API call
+            renderTable();
+            renderPagination();
             document.getElementById('drTableWrapper')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         },
         changePageSize: (size) => {
-            DeliveryReportState.pageSize = parseInt(size, 10) || 50;
+            DeliveryReportState.pageSize = parseInt(size, 10) || 200;
             DeliveryReportState.currentPage = 1;
-            fetchData();
+            renderTable();
+            renderPagination();
         },
         exportExcel: exportExcel,
         traSoat: traSoat,
