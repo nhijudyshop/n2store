@@ -129,12 +129,37 @@ router.get('/tables', async (req, res) => {
 
         // Build response grouped
         const groups = {};
+        const registeredNames = new Set();
         for (const [groupName, tables] of Object.entries(TABLE_GROUPS)) {
-            groups[groupName] = tables.map(t => ({
-                ...t,
-                exists: existingTables.hasOwnProperty(t.name),
-                rowCount: existingTables[t.name] || 0
-            }));
+            groups[groupName] = tables.map(t => {
+                registeredNames.add(t.name);
+                return {
+                    ...t,
+                    exists: existingTables.hasOwnProperty(t.name),
+                    rowCount: existingTables[t.name] || 0
+                };
+            });
+        }
+
+        // Auto-detect unregistered tables/views
+        const viewNames = new Set(viewResult.rows.map(r => r.table_name));
+        const otherTables = [];
+        for (const [name, rowCount] of Object.entries(existingTables)) {
+            if (!registeredNames.has(name)) {
+                otherTables.push({
+                    name,
+                    label: name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+                    pk: 'id',
+                    isView: viewNames.has(name),
+                    usedBy: 'auto-detected',
+                    exists: true,
+                    rowCount
+                });
+            }
+        }
+        if (otherTables.length > 0) {
+            otherTables.sort((a, b) => a.name.localeCompare(b.name));
+            groups['Other (auto-detected)'] = otherTables;
         }
 
         res.json({ success: true, groups, totalTables: Object.keys(existingTables).length });
@@ -154,8 +179,14 @@ router.get('/browse/:table', async (req, res) => {
         if (!db) return res.status(500).json({ error: 'Database not available' });
 
         const tableName = req.params.table;
+        // Validate: must be registered OR exist in database
         if (!ALL_TABLES[tableName]) {
-            return res.status(400).json({ error: `Table "${tableName}" is not in the allowed list` });
+            const checkExists = await db.query(
+                `SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = $1`, [tableName]
+            );
+            if (checkExists.rows.length === 0) {
+                return res.status(400).json({ error: `Table "${tableName}" does not exist` });
+            }
         }
 
         const page = Math.max(1, parseInt(req.query.page) || 1);
@@ -230,16 +261,24 @@ router.delete('/row/:table', async (req, res) => {
 
         const tableName = req.params.table;
         const tableInfo = ALL_TABLES[tableName];
+
+        // Check if table exists (registered or in database)
         if (!tableInfo) {
-            return res.status(400).json({ error: `Table "${tableName}" is not in the allowed list` });
+            const checkExists = await db.query(
+                `SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = $1 AND table_type = 'BASE TABLE'`, [tableName]
+            );
+            if (checkExists.rows.length === 0) {
+                return res.status(400).json({ error: `Table "${tableName}" does not exist or is a view` });
+            }
         }
-        if (tableInfo.isView) {
+        if (tableInfo?.isView) {
             return res.status(400).json({ error: 'Cannot delete from a view' });
         }
 
         const { pkValue, pkValues } = req.body;
+        const pk = tableInfo?.pk || 'id';
 
-        if (tableInfo.compositePk) {
+        if (tableInfo?.compositePk) {
             if (!pkValues || Object.keys(pkValues).length !== tableInfo.compositePk.length) {
                 return res.status(400).json({ error: 'Missing composite primary key values' });
             }
@@ -250,7 +289,7 @@ router.delete('/row/:table', async (req, res) => {
             if (!pkValue && pkValue !== 0) {
                 return res.status(400).json({ error: 'Missing primary key value (pkValue)' });
             }
-            await db.query(`DELETE FROM "${tableName}" WHERE "${tableInfo.pk}" = $1`, [pkValue]);
+            await db.query(`DELETE FROM "${tableName}" WHERE "${pk}" = $1`, [pkValue]);
         }
 
         res.json({ success: true, message: 'Row deleted' });
@@ -272,9 +311,14 @@ router.delete('/truncate/:table', async (req, res) => {
         const tableName = req.params.table;
         const tableInfo = ALL_TABLES[tableName];
         if (!tableInfo) {
-            return res.status(400).json({ error: `Table "${tableName}" is not in the allowed list` });
+            const checkExists = await db.query(
+                `SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = $1 AND table_type = 'BASE TABLE'`, [tableName]
+            );
+            if (checkExists.rows.length === 0) {
+                return res.status(400).json({ error: `Table "${tableName}" does not exist or is a view` });
+            }
         }
-        if (tableInfo.isView) {
+        if (tableInfo?.isView) {
             return res.status(400).json({ error: 'Cannot truncate a view' });
         }
 
