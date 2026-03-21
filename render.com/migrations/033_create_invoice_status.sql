@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS invoice_status (
     delivery_price DECIMAL(15,2) DEFAULT 0,
     cash_on_delivery DECIMAL(15,2) DEFAULT 0,
     payment_amount DECIMAL(15,2) DEFAULT 0,
+    debt_used DECIMAL(15,2) DEFAULT 0,
     discount DECIMAL(15,2) DEFAULT 0,
     tracking_ref VARCHAR(255),
     carrier_name TEXT,

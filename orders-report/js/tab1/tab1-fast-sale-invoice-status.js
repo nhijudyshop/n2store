@@ -215,6 +215,7 @@
                         CashOnDelivery: parseFloat(row.cash_on_delivery) || 0,
                         PaymentAmount: parseFloat(row.payment_amount) || 0,
                         Discount: parseFloat(row.discount) || 0,
+                        DebtUsed: parseFloat(row.debt_used) || 0,
                         TrackingRef: row.tracking_ref,
                         CarrierName: row.carrier_name,
                         UserName: row.user_name,
@@ -490,6 +491,7 @@
                 DeliveryPrice: invoiceData.DeliveryPrice || order?.DeliveryPrice || 0,
                 CashOnDelivery: invoiceData.CashOnDelivery || 0,
                 PaymentAmount: invoiceData.PaymentAmount || 0, // Số tiền trả trước (wallet balance)
+                DebtUsed: invoiceData.DebtUsed || invoiceData.PaymentAmount || 0, // Công nợ đã sử dụng lúc ra đơn
                 Discount:
                     invoiceData.Discount ||
                     invoiceData.DiscountAmount ||
