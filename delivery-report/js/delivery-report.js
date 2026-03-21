@@ -1012,8 +1012,9 @@
         console.log('[DELIVERY-REPORT] Scanned:', value);
         const state = DeliveryReportState;
 
-        // Find matching item by Number
-        const match = (state.allData || []).find(item => item.Number === value);
+        // Find matching item by Number (case-insensitive)
+        const upperValue = value.toUpperCase();
+        const match = (state.allData || []).find(item => (item.Number || '').toUpperCase() === upperValue);
         if (!match) {
             showScanFeedback(false, `Không tìm thấy: ${value}`);
             return;
