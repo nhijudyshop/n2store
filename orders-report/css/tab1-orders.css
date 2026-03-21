@@ -54,7 +54,7 @@ body {
 }
 
 .filter-section input,
-.filter-section select {
+.filter-section select:not(.search-filter-select) {
     padding: 6px 10px;
     border: 1px solid #e5e7eb;
     border-radius: 6px;
