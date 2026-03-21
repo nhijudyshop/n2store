@@ -353,6 +353,7 @@
 
             html += `<tr>
                 <td data-col="index">${startIndex + i + 1}</td>
+                <td data-col="number">${escapeHtml(item.Number || '')}</td>
                 <td data-col="customer">
                     <div class="dr-customer-name">${escapeHtml(item.PartnerDisplayName || '')}</div>
                     <div class="dr-customer-phone">ĐT: ${escapeHtml(item.Phone || '')}</div>
@@ -363,7 +364,6 @@
                     <div class="dr-receiver-address">Địa chỉ: ${escapeHtml(item.FullAddress || item.Address || '')}</div>
                 </td>
                 <td data-col="dateInvoice">${formatDate(item.DateInvoice)}</td>
-                <td data-col="number">${escapeHtml(item.Number || '')}</td>
                 <td data-col="amountTotal" class="dr-money">${formatMoney(item.AmountTotal)}</td>
                 <td data-col="cashOnDelivery" class="dr-money">${formatMoney(item.CashOnDelivery)}</td>
                 <td data-col="carrierName">${escapeHtml(item.CarrierName || '')}</td>
@@ -388,10 +388,10 @@
         if (tfoot) {
             tfoot.innerHTML = `<tr>
                 <td data-col="index"></td>
+                <td data-col="number"></td>
                 <td data-col="customer"><strong>Tổng: ${formatNumber(DeliveryReportState.totalCount)}</strong></td>
                 <td data-col="receiverInfo"></td>
                 <td data-col="dateInvoice"></td>
-                <td data-col="number"></td>
                 <td data-col="amountTotal" class="dr-money"><strong>${formatMoney(allTotalAmount)}</strong></td>
                 <td data-col="cashOnDelivery" class="dr-money"><strong>${formatMoney(allTotalCOD)}</strong></td>
                 <td data-col="carrierName"></td>
