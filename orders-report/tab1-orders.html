@@ -903,31 +903,44 @@
                 <div class="chat-right-panel" id="chatRightPanel">
                     <!-- Product Tabs -->
                     <div class="chat-right-tabs">
-                        <button class="chat-right-tab active" data-tab="orders" onclick="window.switchProductTab && window.switchProductTab('orders')">
+                        <button class="chat-right-tab chat-tab-btn active" data-tab="orders" onclick="switchChatPanelTab('orders')">
                             <i class="fas fa-shopping-cart"></i> Đơn hàng
-                            <span class="tab-badge" id="tabBadgeOrders"></span>
+                            <span class="tab-badge" id="chatOrdersCountBadge"></span>
                         </button>
-                        <button class="chat-right-tab" data-tab="dropped" onclick="window.switchProductTab && window.switchProductTab('dropped')">
+                        <button class="chat-right-tab chat-tab-btn" data-tab="dropped" onclick="switchChatPanelTab('dropped')">
                             <i class="fas fa-box-open"></i> Hàng rớt - xả
-                            <span class="tab-badge" id="tabBadgeDropped"></span>
+                            <span class="tab-badge" id="chatDroppedCountBadge"></span>
                         </button>
-                        <button class="chat-right-tab" data-tab="history" onclick="window.switchProductTab && window.switchProductTab('history')">
+                        <button class="chat-right-tab chat-tab-btn" data-tab="history" onclick="switchChatPanelTab('history')">
                             <i class="fas fa-history"></i> Lịch sử
                         </button>
-                        <button class="chat-right-tab" data-tab="invoices" onclick="window.switchProductTab && window.switchProductTab('invoices')">
+                        <button class="chat-right-tab chat-tab-btn" data-tab="invoice_history" onclick="switchChatPanelTab('invoice_history')">
                             <i class="fas fa-file-invoice"></i> Hóa đơn
                         </button>
                     </div>
 
                     <!-- Tab Content: Orders -->
-                    <div class="chat-right-tab-content active" id="tabContentOrders" data-tab="orders">
-                        <div class="chat-product-search">
-                            <input type="text" id="chatProductSearchInput" placeholder="Tìm sản phẩm theo tên hoặc mã..."
-                                oninput="window.searchChatProducts && window.searchChatProducts(this.value)">
+                    <div class="chat-right-tab-content chat-tab-content active" id="chatTabOrders" data-tab="orders">
+                        <div class="chat-product-search" style="position:relative">
+                            <input type="text" id="chatProductSearchInput" placeholder="Tìm sản phẩm để thêm..."
+                                oninput="window.chatProductSearch && window.chatProductSearch(this.value)">
+                            <div id="chatProductSearchSuggestions" class="search-suggestions-dropdown"></div>
                         </div>
+                        <!-- Held Products Section (hidden by default) -->
+                        <div id="chatHeldSection" class="held-section" style="display:none">
+                            <div class="held-section-header">
+                                <span><i class="fas fa-hand-holding"></i> Sản phẩm đang giữ</span>
+                                <button onclick="window.saveHeldProducts && window.saveHeldProducts()" class="btn-save-held">
+                                    <i class="fas fa-save"></i> Lưu giữ
+                                </button>
+                            </div>
+                            <div id="chatHeldProductsList" class="chat-product-list"></div>
+                        </div>
+                        <!-- Main Products List -->
                         <div class="chat-product-list" id="chatProductList">
                             <div class="chat-panel-empty">Chưa có sản phẩm</div>
                         </div>
+                        <!-- Footer: Totals + KPI -->
                         <div class="chat-product-footer">
                             <div class="chat-product-total">
                                 <span>Tổng tiền:</span>
@@ -935,27 +948,27 @@
                             </div>
                             <div class="chat-product-meta">
                                 <span id="chatProductCount">0 sản phẩm</span>
-                                <span id="chatKpiBadge" class="kpi-badge"></span>
+                                <div id="kpiBadgeContainer" style="display:none">
+                                    <span id="kpiBadge" class="kpi-badge"></span>
+                                </div>
                             </div>
                         </div>
                     </div>
 
                     <!-- Tab Content: Dropped -->
-                    <div class="chat-right-tab-content" id="tabContentDropped" data-tab="dropped">
-                        <div class="chat-product-list" id="chatDroppedList">
-                            <div class="chat-panel-empty">Không có hàng rớt</div>
-                        </div>
+                    <div class="chat-right-tab-content chat-tab-content" id="chatTabDropped" data-tab="dropped">
+                        <div id="chatDroppedProductsContainer" style="flex:1;overflow-y:auto;"></div>
                     </div>
 
                     <!-- Tab Content: History -->
-                    <div class="chat-right-tab-content" id="tabContentHistory" data-tab="history">
+                    <div class="chat-right-tab-content chat-tab-content" id="chatTabHistory" data-tab="history">
                         <div class="chat-product-list" id="chatHistoryList">
                             <div class="chat-panel-empty">Đang tải lịch sử...</div>
                         </div>
                     </div>
 
                     <!-- Tab Content: Invoices -->
-                    <div class="chat-right-tab-content" id="tabContentInvoices" data-tab="invoices">
+                    <div class="chat-right-tab-content chat-tab-content" id="chatTabInvoiceHistory" data-tab="invoice_history">
                         <div class="chat-product-list" id="chatInvoiceList">
                             <div class="chat-panel-empty">Đang tải hóa đơn...</div>
                         </div>

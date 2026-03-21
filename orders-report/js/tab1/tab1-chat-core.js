@@ -57,11 +57,13 @@ window.openChatModal = async function(orderId, pageId, psid, conversationType) {
     window.currentSendPageId = pageId;
     window.isSendingMessage = false;
 
-    // Get customer name + phone from order row
+    // Get customer name + phone + STT from order row
     const orderRow = document.querySelector(`tr[data-order-id="${orderId}"]`);
     window.currentCustomerName = orderRow?.querySelector('.customer-name')?.textContent?.trim() || '';
     const customerPhone = orderRow?.querySelector('.customer-phone')?.textContent?.trim()
         || orderRow?.querySelector('[data-phone]')?.dataset?.phone || '';
+    window.currentChatOrderSTT = orderRow?.querySelector('.order-stt')?.textContent?.trim()
+        || orderRow?.dataset?.stt || '';
 
     // Show modal
     modal.style.display = 'flex';
