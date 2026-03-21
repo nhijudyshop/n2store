@@ -241,11 +241,6 @@
          */
         async _loadFromFirestore() {
             try {
-                // CLEAR old data - Firestore là source of truth
-                this._data.clear();
-                this._sentBills.clear();
-                this._myKeys.clear();
-
                 // Get current username to track own keys
                 const authState = window.authManager?.getAuthState();
                 const userType = authState?.userType || localStorage.getItem('userType') || '';
@@ -255,6 +250,11 @@
                 console.log('[INVOICE-STATUS] Loading ALL users data from Firestore...');
                 const db = firebase.firestore();
                 const snapshot = await db.collection(FIRESTORE_COLLECTION).get();
+
+                // Build new data in temp collections first (don't clear until load succeeds)
+                const newData = new Map();
+                const newSentBills = new Set();
+                const newMyKeys = new Set();
 
                 let totalEntries = 0;
                 snapshot.forEach((doc) => {
@@ -267,20 +267,26 @@
                             ? firestoreData.data
                             : Object.entries(firestoreData.data);
                         entries.forEach(([key, value]) => {
-                            this._data.set(key, value);
+                            newData.set(key, value);
                             totalEntries++;
                             // Track keys that belong to the current user
                             if (isMyDoc) {
-                                this._myKeys.add(key);
+                                newMyKeys.add(key);
                             }
                         });
                     }
 
                     // Load sent bills
                     if (firestoreData.sentBills && Array.isArray(firestoreData.sentBills)) {
-                        firestoreData.sentBills.forEach((id) => this._sentBills.add(id));
+                        firestoreData.sentBills.forEach((id) => newSentBills.add(id));
                     }
                 });
+
+                // Only replace data AFTER successful load (prevents data loss on partial failure)
+                this._data.clear();
+                newData.forEach((value, key) => this._data.set(key, value));
+                this._sentBills = newSentBills;
+                this._myKeys = newMyKeys;
 
                 console.log(
                     `[INVOICE-STATUS] Loaded ${totalEntries} entries from ${snapshot.size} users (my keys: ${this._myKeys.size})`
@@ -308,7 +314,10 @@
          * Uses merge:true for add/update operations (safe for concurrent edits)
          * Delete uses FieldValue.delete() separately
          */
+        _hasPendingSave: false, // Track if there's unsaved data
+
         _saveToFirestore() {
+            this._hasPendingSave = true;
             clearTimeout(this._syncTimeout);
             this._syncTimeout = setTimeout(async () => {
                 try {
@@ -328,6 +337,7 @@
                         }
                     });
                     await this._getDocRef().set(updateObj, { merge: true });
+                    this._hasPendingSave = false;
                     // DON'T clear _pendingKeys here — let snapshot handler confirm server has the data
                     console.log(`[INVOICE-STATUS] Synced ${entryCount} entries to Firestore`);
                 } catch (e) {
@@ -358,10 +368,14 @@
                     }
                 });
                 await this._getDocRef().set(updateObj, { merge: true });
+                this._hasPendingSave = false;
                 // DON'T clear _pendingKeys here — let snapshot handler confirm server has the data
                 console.log(`[INVOICE-STATUS] IMMEDIATE sync: ${entryCount} entries to Firestore`);
             } catch (e) {
                 console.error('[INVOICE-STATUS] Immediate Firestore save error:', e);
+                // Re-schedule debounced save as fallback (immediate save failed)
+                this._hasPendingSave = true;
+                this._saveToFirestore();
             }
         },
 
@@ -2851,6 +2865,48 @@
                 });
             });
         }
+
+        // Flush pending saves when tab becomes hidden or before page unload
+        const flushPendingSave = () => {
+            if (!InvoiceStatusStore._hasPendingSave) return;
+            console.log('[INVOICE-STATUS] Flushing pending save...');
+            try {
+                clearTimeout(InvoiceStatusStore._syncTimeout);
+                const updateObj = {
+                    sentBills: Array.from(InvoiceStatusStore._sentBills),
+                    lastUpdated: Date.now(),
+                };
+                let entryCount = 0;
+                InvoiceStatusStore._myKeys.forEach((key) => {
+                    const value = InvoiceStatusStore._data.get(key);
+                    if (value) {
+                        updateObj[`data.${key}`] = value;
+                        entryCount++;
+                    }
+                });
+                if (entryCount > 0) {
+                    const docRef = InvoiceStatusStore._getDocRef();
+                    docRef.set(updateObj, { merge: true })
+                        .then(() => {
+                            InvoiceStatusStore._hasPendingSave = false;
+                            console.log(`[INVOICE-STATUS] Flush save OK: ${entryCount} entries`);
+                        })
+                        .catch((e) => {
+                            console.error('[INVOICE-STATUS] Flush save failed:', e);
+                        });
+                }
+            } catch (e) {
+                console.error('[INVOICE-STATUS] Error in flush:', e);
+            }
+        };
+
+        // visibilitychange fires BEFORE beforeunload and is more reliable
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') {
+                flushPendingSave();
+            }
+        });
+        window.addEventListener('beforeunload', flushPendingSave);
 
         console.log('[INVOICE-STATUS] Module initialized successfully');
     }
