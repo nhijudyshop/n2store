@@ -700,7 +700,6 @@
 
 .dr-province-item.scanned .dr-province-num,
 .dr-province-item.scanned .dr-province-customer {
-    text-decoration: line-through;
     color: #6b7280;
 }
 
