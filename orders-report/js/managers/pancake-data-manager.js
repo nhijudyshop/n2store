@@ -10,29 +10,30 @@ console.log('[PDM] Loading...');
 // CONFIG & URL BUILDERS
 // =====================================================
 
-const WORKER_URL = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+// Use IIFE-scoped variable to avoid conflict with api-config.js const WORKER_URL
+var _PDM_WORKER_URL = (window.API_CONFIG?.WORKER_URL) || 'https://chatomni-proxy.nhijudyshop.workers.dev';
 
-const PancakeApiConfig = {
-    WORKER_URL: WORKER_URL,
+var PancakeApiConfig = {
+    WORKER_URL: _PDM_WORKER_URL,
     buildUrl: {
         // User API (pages.fm/api/v1) - needs access_token
         pancake(endpoint, params = '') {
-            const base = `${WORKER_URL}/api/pancake/${endpoint}`;
+            const base = `${_PDM_WORKER_URL}/api/pancake/${endpoint}`;
             return params ? `${base}?${params}` : base;
         },
         // Public API v1 (pages.fm/api/public_api/v1) - needs page_access_token
         pancakeOfficial(endpoint, pageAccessToken) {
-            const base = `${WORKER_URL}/api/pancake-official/${endpoint}`;
+            const base = `${_PDM_WORKER_URL}/api/pancake-official/${endpoint}`;
             return pageAccessToken ? `${base}?page_access_token=${pageAccessToken}` : base;
         },
         // Public API v2 (pages.fm/api/public_api/v2) - needs page_access_token
         pancakeOfficialV2(endpoint, pageAccessToken) {
-            const base = `${WORKER_URL}/api/pancake-official-v2/${endpoint}`;
+            const base = `${_PDM_WORKER_URL}/api/pancake-official-v2/${endpoint}`;
             return pageAccessToken ? `${base}?page_access_token=${pageAccessToken}` : base;
         },
         // Data persistence API
         dataApi(path) {
-            return `${WORKER_URL}/api/realtime/${path}`;
+            return `${_PDM_WORKER_URL}/api/realtime/${path}`;
         }
     }
 };
