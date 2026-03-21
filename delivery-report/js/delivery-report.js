@@ -25,6 +25,8 @@
         provinceGroups: {}, // { Number: 'tomato' | 'nap' }
         _provinceGroupsLoaded: false,
         lastScannedColumn: null, // 'tomato' | 'nap'
+        _scannedListener: null,
+        _groupsListener: null,
 
         // Filter values
         filters: {
@@ -698,7 +700,7 @@
     let barcodeBuffer = '';
     let barcodeTimeout = null;
 
-    function traSoat() {
+    async function traSoat() {
         const state = DeliveryReportState;
         state.traSoatMode = !state.traSoatMode;
 
@@ -712,9 +714,13 @@
                 btn.innerHTML = '<i class="fas fa-times"></i> Tắt tra soát';
             }
             if (bar) bar.style.display = '';
-            state.scannedNumbers = new Set();
             state.activeTab = 'all';
             state.currentPage = 1;
+
+            // Load scanned numbers from server + setup cross-machine sync
+            await loadScannedNumbers();
+            setupRealtimeSync();
+
             updateTabUI();
             document.addEventListener('keydown', onBarcodeKeydown);
             renderTable();
@@ -733,6 +739,9 @@
             if (provinceView) provinceView.style.display = 'none';
             const tableWrapper = document.getElementById('drTableWrapper');
             if (tableWrapper) tableWrapper.style.display = '';
+
+            // Teardown cross-machine sync
+            teardownRealtimeSync();
 
             state.scannedNumbers = new Set();
             state.activeTab = 'all';
@@ -868,6 +877,87 @@
         } catch (e) {
             console.warn('[DELIVERY-REPORT] Failed to save province groups:', e);
         }
+    }
+
+    // =====================================================
+    // SCANNED NUMBERS - Firestore Sync
+    // =====================================================
+    async function loadScannedNumbers() {
+        const db = getFirestoreDB();
+        if (!db) return;
+
+        try {
+            const doc = await db.collection('delivery_report').doc('scanned_numbers').get();
+            if (doc.exists) {
+                const numbers = doc.data().numbers || [];
+                DeliveryReportState.scannedNumbers = new Set(numbers);
+            }
+        } catch (e) {
+            console.warn('[DELIVERY-REPORT] Failed to load scanned numbers:', e);
+        }
+    }
+
+    function saveScannedNumbers() {
+        const db = getFirestoreDB();
+        if (!db) return;
+
+        db.collection('delivery_report').doc('scanned_numbers').set({
+            numbers: [...DeliveryReportState.scannedNumbers],
+            lastUpdated: Date.now()
+        }).catch(e => console.warn('[DELIVERY-REPORT] Failed to save scanned numbers:', e));
+    }
+
+    // =====================================================
+    // REALTIME SYNC - Cross-machine sync via Firestore listeners
+    // =====================================================
+    function setupRealtimeSync() {
+        const db = getFirestoreDB();
+        if (!db) return;
+
+        // Listen for scanned numbers changes from other machines
+        DeliveryReportState._scannedListener = db.collection('delivery_report')
+            .doc('scanned_numbers')
+            .onSnapshot(doc => {
+                if (!doc.exists || !DeliveryReportState.traSoatMode) return;
+                const numbers = doc.data().numbers || [];
+                DeliveryReportState.scannedNumbers = new Set(numbers);
+                refreshTraSoatView();
+            });
+
+        // Listen for province groups changes from other machines
+        DeliveryReportState._groupsListener = db.collection('delivery_report')
+            .doc('province_groups')
+            .onSnapshot(doc => {
+                if (!doc.exists) return;
+                DeliveryReportState.provinceGroups = doc.data().groups || {};
+                DeliveryReportState._provinceGroupsLoaded = true;
+                if (DeliveryReportState.activeTab === 'province' && DeliveryReportState.traSoatMode) {
+                    renderProvinceView();
+                    updateScanCount();
+                }
+            });
+    }
+
+    function teardownRealtimeSync() {
+        if (DeliveryReportState._scannedListener) {
+            DeliveryReportState._scannedListener();
+            DeliveryReportState._scannedListener = null;
+        }
+        if (DeliveryReportState._groupsListener) {
+            DeliveryReportState._groupsListener();
+            DeliveryReportState._groupsListener = null;
+        }
+    }
+
+    function refreshTraSoatView() {
+        if (!DeliveryReportState.traSoatMode) return;
+        if (DeliveryReportState.activeTab === 'province') {
+            renderProvinceView();
+        } else if (DeliveryReportState.activeTab !== 'all') {
+            renderTable();
+            renderPagination();
+        }
+        updateScanCount();
     }
 
     async function ensureProvinceGroups() {
@@ -1012,6 +1102,12 @@
         console.log('[DELIVERY-REPORT] Scanned:', value);
         const state = DeliveryReportState;
 
+        // Block scanning on "Tất cả" tab
+        if (state.activeTab === 'all') {
+            showScanFeedback(false, 'Vui lòng chọn tab cụ thể để quét!');
+            return;
+        }
+
         // Find matching item by Number (case-insensitive)
         const upperValue = value.toUpperCase();
         const match = (state.allData || []).find(item => (item.Number || '').toUpperCase() === upperValue);
@@ -1027,39 +1123,40 @@
         }
 
         // Tab-aware scanning: check if item belongs to current tab
-        if (state.activeTab !== 'all') {
-            const normalizedCarrier = normalizeCarrier(match.CarrierName);
-            let belongsToTab = false;
+        const normalizedCarrier = normalizeCarrier(match.CarrierName);
+        let belongsToTab = false;
 
-            const isCity = normalizedCarrier === 'THÀNH PHỐ';
-            const isShop = normalizedCarrier === 'BÁN HÀNG SHOP';
-            const isProvince = normalizedCarrier && !isCity && !isShop;
+        const isCity = normalizedCarrier === 'THÀNH PHỐ';
+        const isShop = normalizedCarrier === 'BÁN HÀNG SHOP';
+        const isProvince = normalizedCarrier && !isCity && !isShop;
 
-            if (state.activeTab === 'city' && isCity) belongsToTab = true;
-            else if (state.activeTab === 'province' && isProvince) belongsToTab = true;
-            else if (state.activeTab === 'shop' && isShop) belongsToTab = true;
+        if (state.activeTab === 'city' && isCity) belongsToTab = true;
+        else if (state.activeTab === 'province' && isProvince) belongsToTab = true;
+        else if (state.activeTab === 'shop' && isShop) belongsToTab = true;
 
-            if (!belongsToTab) {
-                let correctTab = 'khác';
-                if (isCity) correctTab = 'Thành phố';
-                else if (isProvince) correctTab = 'Tỉnh';
-                else if (isShop) correctTab = 'Bán hàng shop';
+        if (!belongsToTab) {
+            let correctTab = 'khác';
+            if (isCity) correctTab = 'Thành phố';
+            else if (isProvince) correctTab = 'Tỉnh';
+            else if (isShop) correctTab = 'Bán hàng shop';
 
-                showScanFeedback(false, `${value} thuộc tab "${correctTab}"!`);
-                return;
-            }
+            showScanFeedback(false, `${value} thuộc tab "${correctTab}"!`);
+            return;
         }
 
         // Mark as scanned
         state.scannedNumbers.add(match.Number);
 
-        // Province tab: highlight column + render province view
+        // Save to Firestore for cross-machine sync
+        saveScannedNumbers();
+
+        // Province tab: render first, then highlight column
         if (state.activeTab === 'province' && state.traSoatMode) {
+            renderProvinceView();
             const group = state.provinceGroups[match.Number];
             if (group) {
                 highlightProvinceColumn(group);
             }
-            renderProvinceView();
         } else {
             renderTable();
             renderPagination();
