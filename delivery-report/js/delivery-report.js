@@ -789,7 +789,11 @@
         if (tab === 'city') {
             data = data.filter(item => normalizeCarrier(item.CarrierName) === 'THÀNH PHỐ');
         } else if (tab === 'province') {
-            data = data.filter(item => normalizeCarrier(item.CarrierName) === 'SHIP TÌNH');
+            // Province = everything NOT city and NOT shop
+            data = data.filter(item => {
+                const nc = normalizeCarrier(item.CarrierName);
+                return nc && nc !== 'THÀNH PHỐ' && nc !== 'BÁN HÀNG SHOP';
+            });
         } else if (tab === 'shop') {
             data = data.filter(item => normalizeCarrier(item.CarrierName) === 'BÁN HÀNG SHOP');
         }
@@ -805,7 +809,11 @@
         if (carrier) {
             data = data.filter(item => normalizeCarrier(item.CarrierName) === carrier);
         }
-        return data.filter(item => normalizeCarrier(item.CarrierName) === 'SHIP TÌNH');
+        // Province = everything NOT city and NOT shop
+        return data.filter(item => {
+            const nc = normalizeCarrier(item.CarrierName);
+            return nc && nc !== 'THÀNH PHỐ' && nc !== 'BÁN HÀNG SHOP';
+        });
     }
 
     function getFirestoreDB() {
@@ -1022,15 +1030,19 @@
             const normalizedCarrier = normalizeCarrier(match.CarrierName);
             let belongsToTab = false;
 
-            if (state.activeTab === 'city' && normalizedCarrier === 'THÀNH PHỐ') belongsToTab = true;
-            else if (state.activeTab === 'province' && normalizedCarrier === 'SHIP TÌNH') belongsToTab = true;
-            else if (state.activeTab === 'shop' && normalizedCarrier === 'BÁN HÀNG SHOP') belongsToTab = true;
+            const isCity = normalizedCarrier === 'THÀNH PHỐ';
+            const isShop = normalizedCarrier === 'BÁN HÀNG SHOP';
+            const isProvince = normalizedCarrier && !isCity && !isShop;
+
+            if (state.activeTab === 'city' && isCity) belongsToTab = true;
+            else if (state.activeTab === 'province' && isProvince) belongsToTab = true;
+            else if (state.activeTab === 'shop' && isShop) belongsToTab = true;
 
             if (!belongsToTab) {
                 let correctTab = 'khác';
-                if (normalizedCarrier === 'THÀNH PHỐ') correctTab = 'Thành phố';
-                else if (normalizedCarrier === 'SHIP TÌNH') correctTab = 'Tỉnh';
-                else if (normalizedCarrier === 'BÁN HÀNG SHOP') correctTab = 'Bán hàng shop';
+                if (isCity) correctTab = 'Thành phố';
+                else if (isProvince) correctTab = 'Tỉnh';
+                else if (isShop) correctTab = 'Bán hàng shop';
 
                 showScanFeedback(false, `${value} thuộc tab "${correctTab}"!`);
                 return;
