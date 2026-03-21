@@ -48,19 +48,21 @@
         <div class="delivery-report-container">
             <!-- Header -->
             <div class="dr-header">
-                <h1><i class="fas fa-truck"></i> Thống Kê Giao Hàng</h1>
-
-                <!-- Sub Tabs -->
-                <div class="dr-sub-tabs">
-                    <button class="dr-sub-tab active" data-subtab="overview" onclick="switchSubTab('overview')">Tổng quan</button>
-                    <button class="dr-sub-tab" data-subtab="customer" onclick="switchSubTab('customer')">Khách hàng</button>
-                    <button class="dr-sub-tab" data-subtab="employee" onclick="switchSubTab('employee')">Nhân viên</button>
-                    <button class="dr-sub-tab" data-subtab="channel" onclick="switchSubTab('channel')">Kênh bán hàng</button>
+                <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+                    <h1 style="margin:0;"><i class="fas fa-truck"></i> Thống Kê Giao Hàng</h1>
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <button class="dr-btn" id="drToggleFilter" onclick="toggleFilterSection()" style="background:#e5e7eb; color:#374151;">
+                            <i class="fas fa-filter"></i> Bộ lọc <i class="fas fa-caret-down" id="drFilterArrow"></i>
+                        </button>
+                        <button class="dr-btn dr-btn-primary" id="drBtnTraSoat" onclick="DeliveryReport.traSoat()">
+                            <i class="fas fa-clipboard-check"></i> Tra soát
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            <!-- Filter Section -->
-            <div class="dr-filter-section">
+            <!-- Filter Section (hidden by default) -->
+            <div class="dr-filter-section" id="drFilterSection" style="display:none;">
                 <div class="dr-filter-grid">
                     <!-- Row 1 -->
                     <div class="dr-filter-row">
@@ -174,8 +176,8 @@
                 </div>
             </div>
 
-            <!-- Stats Summary Bar -->
-            <div class="dr-stats-bar">
+            <!-- Stats Summary Bar (hidden with filter) -->
+            <div class="dr-stats-bar" id="drStatsBar" style="display:none;">
                 <div class="dr-stat-item">
                     <div class="dr-stat-icon blue"><i class="fas fa-dollar-sign"></i></div>
                     <div class="dr-stat-info">
@@ -256,23 +258,6 @@
             </div>
         </div>
 
-        <!-- Sub-tab content placeholders -->
-        <div id="drSubTabCustomer" style="display:none;">
-            <div class="delivery-report-container">
-                <div class="dr-header"><h2>Thống kê theo Khách hàng</h2><p style="color:#6b7280;">Chức năng đang phát triển...</p></div>
-            </div>
-        </div>
-        <div id="drSubTabEmployee" style="display:none;">
-            <div class="delivery-report-container">
-                <div class="dr-header"><h2>Thống kê theo Nhân viên</h2><p style="color:#6b7280;">Chức năng đang phát triển...</p></div>
-            </div>
-        </div>
-        <div id="drSubTabChannel" style="display:none;">
-            <div class="delivery-report-container">
-                <div class="dr-header"><h2>Thống kê theo Kênh bán hàng</h2><p style="color:#6b7280;">Chức năng đang phát triển...</p></div>
-            </div>
-        </div>
-
         <!-- Token Manager (standalone - needs its own token) -->
         <script src="../shared/js/shop-config.js"></script>
         <script src="../shared/js/token-manager.js"></script>
@@ -284,34 +269,21 @@
         <!-- Delivery Report Logic -->
         <script src="js/delivery-report.js"></script>
 
-        <!-- Sub-tab switching & Init -->
+        <!-- Init -->
         <script>
-            function switchSubTab(tabName) {
-                document.querySelectorAll('.dr-sub-tab').forEach(btn => btn.classList.remove('active'));
-                const activeBtn = document.querySelector(`.dr-sub-tab[data-subtab="${tabName}"]`);
-                if (activeBtn) activeBtn.classList.add('active');
+            function toggleFilterSection() {
+                const filterSection = document.getElementById('drFilterSection');
+                const statsBar = document.getElementById('drStatsBar');
+                const arrow = document.getElementById('drFilterArrow');
+                const isHidden = filterSection.style.display === 'none';
 
-                const mainContent = document.querySelector('.delivery-report-container');
-                const subCustomer = document.getElementById('drSubTabCustomer');
-                const subEmployee = document.getElementById('drSubTabEmployee');
-                const subChannel = document.getElementById('drSubTabChannel');
-
-                [subCustomer, subEmployee, subChannel].forEach(el => { if (el) el.style.display = 'none'; });
-
-                if (tabName === 'overview') {
-                    mainContent.style.display = '';
-                } else {
-                    if (tabName === 'customer' && subCustomer) subCustomer.style.display = 'block';
-                    if (tabName === 'employee' && subEmployee) subEmployee.style.display = 'block';
-                    if (tabName === 'channel' && subChannel) subChannel.style.display = 'block';
-                }
+                filterSection.style.display = isHidden ? '' : 'none';
+                statsBar.style.display = isHidden ? '' : 'none';
+                arrow.className = isHidden ? 'fas fa-caret-up' : 'fas fa-caret-down';
             }
 
             document.addEventListener('DOMContentLoaded', function () {
-                // Init Lucide icons
                 if (typeof lucide !== 'undefined') lucide.createIcons();
-
-                // Init Delivery Report
                 if (window.DeliveryReport) {
                     window.DeliveryReport.init();
                 }

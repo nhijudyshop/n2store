@@ -662,6 +662,94 @@
     }
 
     // =====================================================
+    // TRA SOÁT (Reconciliation Check)
+    // =====================================================
+    async function traSoat() {
+        const btn = document.getElementById('drBtnTraSoat');
+        if (!btn) return;
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tra soát...';
+
+        try {
+            const token = await getToken();
+            if (!token) {
+                alert('Không thể lấy token xác thực.');
+                return;
+            }
+
+            const f = DeliveryReportState.filters;
+            const params = new URLSearchParams();
+            if (f.fromDate) params.set('FromDate', new Date(f.fromDate).toISOString());
+            if (f.toDate) params.set('ToDate', new Date(f.toDate).toISOString());
+            params.set('PartnerId', f.partnerId);
+            params.set('CarrierId', f.carrierId);
+            params.set('ShipState', f.shipState);
+            params.set('ForControl', f.forControl);
+            params.set('DeliveryType', f.deliveryType);
+            params.set('CompanyId', f.companyId);
+            params.set('CityCode', f.cityCode);
+            params.set('Q', f.keyword);
+            params.set('$top', '10000');
+            params.set('$orderby', 'DateInvoice desc,Number desc,Id desc');
+            params.set('$count', 'true');
+
+            const url = `${WORKER_URL}/api/odata/Report/DeliveryReport?${params.toString()}`;
+            const resp = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json',
+                    'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.12.29.1'
+                }
+            });
+
+            const result = await resp.json();
+            const items = result.value || [];
+
+            // Tính toán tra soát
+            let totalCOD = 0, totalPaid = 0, totalReturn = 0, totalShipping = 0, totalFail = 0;
+            let countPaid = 0, countReturn = 0, countShipping = 0, countFail = 0;
+
+            items.forEach(item => {
+                const cod = item.CashOnDelivery || 0;
+                totalCOD += cod;
+
+                if (item.ShipPaymentStatus === 'done') {
+                    countPaid++;
+                    totalPaid += cod;
+                } else if (item.ShipPaymentStatus === 'fail') {
+                    countFail++;
+                    totalFail += cod;
+                } else if (item.ShipStatus === 'returned' || item.ShipStatus === 'cancel') {
+                    countReturn++;
+                    totalReturn += cod;
+                } else {
+                    countShipping++;
+                    totalShipping += cod;
+                }
+            });
+
+            // Show results
+            const msg = `📊 KẾT QUẢ TRA SOÁT\n\n` +
+                `Tổng đơn: ${formatNumber(items.length)}\n` +
+                `Tổng COD: ${formatMoney(totalCOD)}\n\n` +
+                `✅ Đã đối soát: ${formatNumber(countPaid)} đơn - ${formatMoney(totalPaid)}\n` +
+                `🚚 Đang giao: ${formatNumber(countShipping)} đơn - ${formatMoney(totalShipping)}\n` +
+                `↩️ Trả hàng/Hủy: ${formatNumber(countReturn)} đơn - ${formatMoney(totalReturn)}\n` +
+                `❌ Đối soát thất bại: ${formatNumber(countFail)} đơn - ${formatMoney(totalFail)}`;
+
+            alert(msg);
+        } catch (error) {
+            console.error('[DELIVERY-REPORT] Tra soát error:', error);
+            alert('Lỗi tra soát: ' + error.message);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-clipboard-check"></i> Tra soát';
+        }
+    }
+
+    // =====================================================
     // PUBLIC API
     // =====================================================
     window.DeliveryReport = {
@@ -686,6 +774,7 @@
             fetchData();
         },
         exportExcel: exportExcel,
+        traSoat: traSoat,
         getState: () => DeliveryReportState
     };
 })();

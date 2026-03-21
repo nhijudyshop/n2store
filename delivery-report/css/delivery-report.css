@@ -23,42 +23,7 @@
     font-size: 20px;
     font-weight: 600;
     color: #1a1a2e;
-    margin: 0 0 16px 0;
-}
-
-/* Sub tabs */
-.dr-sub-tabs {
-    display: flex;
-    gap: 0;
-    border-bottom: 2px solid #e5e7eb;
-    margin-bottom: 20px;
-}
-
-.dr-sub-tab {
-    padding: 10px 20px;
-    border: 1px solid #d1d5db;
-    border-bottom: none;
-    background: #f9fafb;
-    color: #6b7280;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 500;
-    transition: all 0.2s;
-    border-radius: 6px 6px 0 0;
-    margin-right: -1px;
-    position: relative;
-}
-
-.dr-sub-tab:hover {
-    background: #eef2ff;
-    color: #4f46e5;
-}
-
-.dr-sub-tab.active {
-    background: #4f87e8;
-    color: white;
-    border-color: #4f87e8;
-    z-index: 1;
+    margin: 0;
 }
 
 /* Filter Section */
