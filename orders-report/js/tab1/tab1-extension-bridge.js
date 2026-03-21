@@ -5,6 +5,8 @@
 // =====================================================
 // Reference: inbox/js/inbox-main.js (extension bridge), inbox/js/inbox-chat.js (_sendViaExtension)
 // NOTE: This is a SEPARATE module for tab1. Does NOT modify inbox/ code.
+// IMPORTANT: Listener registered IMMEDIATELY on script load (not deferred)
+//   to catch EXTENSION_LOADED event which fires at document_end.
 
 console.log('[Tab1-ExtBridge] Loading...');
 
@@ -13,61 +15,25 @@ window.tab1ExtensionBridge = {
     lastEvents: [],
     _globalIdCache: {},
     _initialized: false,
+    _pageIds: [],
 
     /**
-     * Initialize extension bridge - listen for EXTENSION_LOADED events
+     * Initialize with page IDs for PREINITIALIZE_PAGES
+     * Listener is already active - this just sends PREINITIALIZE if extension is already connected
      * @param {string[]} pageIds - Page IDs to pre-initialize
      */
     init(pageIds) {
         if (this._initialized) return;
         this._initialized = true;
+        this._pageIds = pageIds || [];
 
-        // Listen for ALL extension-related postMessage events
-        window.addEventListener('message', (e) => {
-            if (e.source !== window) return;
-            const type = e.data?.type;
-            if (!type) return;
+        // If extension already connected before init, send PREINITIALIZE now
+        if (this.connected && this._pageIds.length > 0) {
+            window.postMessage({ type: 'PREINITIALIZE_PAGES', pageIds: this._pageIds }, '*');
+            console.log('[Tab1-ExtBridge] Sent PREINITIALIZE_PAGES (deferred):', this._pageIds);
+        }
 
-            const isExtEvent = type.includes('EXTENSION') || type.includes('REPLY_INBOX') ||
-                type.includes('UPLOAD_INBOX') || type.includes('PREINITIALIZE') ||
-                type.includes('BUSINESS_CONTEXT') || type.includes('GLOBAL_ID') ||
-                type.includes('BATCH_GET') || type.includes('CHECK_EXTENSION') ||
-                (e.data?.from === 'EXTENSION');
-
-            if (isExtEvent) {
-                const logEntry = { type, time: new Date().toISOString(), data: e.data };
-                this.lastEvents.push(logEntry);
-                if (this.lastEvents.length > 50) this.lastEvents.shift();
-                console.log('[Tab1-EXT]', type, e.data);
-            }
-
-            // Handle EXTENSION_LOADED
-            if (type === 'EXTENSION_LOADED' && e.data?.from === 'EXTENSION') {
-                this.connected = true;
-                console.log('[Tab1-ExtBridge] Extension connected');
-
-                if (window.notificationManager) {
-                    window.notificationManager.show('Pancake Extension đã kết nối', 'success');
-                }
-
-                // Update UI indicator
-                this._updateStatusUI(true);
-
-                // Pre-initialize pages
-                if (pageIds && pageIds.length > 0) {
-                    window.postMessage({ type: 'PREINITIALIZE_PAGES', pageIds }, '*');
-                    console.log('[Tab1-ExtBridge] Sent PREINITIALIZE_PAGES:', pageIds);
-                }
-            }
-
-            // Handle extension disconnect (REPORT_EXTENSION_STATUS with error)
-            if (type === 'REPORT_EXTENSION_STATUS' && e.data?.status === 'disconnected') {
-                this.connected = false;
-                this._updateStatusUI(false);
-            }
-        });
-
-        console.log('[Tab1-ExtBridge] Initialized, listening for extension events');
+        console.log('[Tab1-ExtBridge] Initialized with', this._pageIds.length, 'page IDs');
     },
 
     /**
@@ -286,4 +252,54 @@ window.tab1ExtensionBridge = {
     }
 };
 
-console.log('[Tab1-ExtBridge] Loaded successfully.');
+// =====================================================
+// REGISTER LISTENER IMMEDIATELY (before DOM ready)
+// This catches EXTENSION_LOADED which fires at document_end
+// Same pattern as inbox/js/inbox-main.js:204
+// =====================================================
+window.addEventListener('message', (e) => {
+    if (e.source !== window) return;
+    const type = e.data?.type;
+    if (!type) return;
+
+    const bridge = window.tab1ExtensionBridge;
+
+    const isExtEvent = type.includes('EXTENSION') || type.includes('REPLY_INBOX') ||
+        type.includes('UPLOAD_INBOX') || type.includes('PREINITIALIZE') ||
+        type.includes('BUSINESS_CONTEXT') || type.includes('GLOBAL_ID') ||
+        type.includes('BATCH_GET') || type.includes('CHECK_EXTENSION') ||
+        (e.data?.from === 'EXTENSION');
+
+    if (isExtEvent) {
+        const logEntry = { type, time: new Date().toISOString(), data: e.data };
+        bridge.lastEvents.push(logEntry);
+        if (bridge.lastEvents.length > 50) bridge.lastEvents.shift();
+        console.log('[Tab1-EXT]', type, e.data);
+    }
+
+    // Handle EXTENSION_LOADED
+    if (type === 'EXTENSION_LOADED' && e.data?.from === 'EXTENSION') {
+        bridge.connected = true;
+        console.log('[Tab1-ExtBridge] Extension connected!');
+
+        if (window.notificationManager) {
+            window.notificationManager.show('Pancake Extension đã kết nối', 'success');
+        }
+
+        bridge._updateStatusUI(true);
+
+        // Send PREINITIALIZE_PAGES if we have page IDs
+        if (bridge._pageIds && bridge._pageIds.length > 0) {
+            window.postMessage({ type: 'PREINITIALIZE_PAGES', pageIds: bridge._pageIds }, '*');
+            console.log('[Tab1-ExtBridge] Sent PREINITIALIZE_PAGES:', bridge._pageIds);
+        }
+    }
+
+    // Handle extension disconnect
+    if (type === 'REPORT_EXTENSION_STATUS' && e.data?.status === 'disconnected') {
+        bridge.connected = false;
+        bridge._updateStatusUI(false);
+    }
+});
+
+console.log('[Tab1-ExtBridge] Loaded - listener active immediately.');

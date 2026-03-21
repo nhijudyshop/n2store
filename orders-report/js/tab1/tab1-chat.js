@@ -56,22 +56,21 @@
         console.error('[Tab1-Chat] Some sub-modules failed to load! Check script tags in tab1-orders.html.');
     }
 
-    // Initialize Extension Bridge with discovered page IDs (delayed to let pancakeTokenManager load)
+    // Pass page IDs to Extension Bridge (listener already active from script load)
+    // Delayed to let pancakeTokenManager load page data
     setTimeout(() => {
         if (window.tab1ExtensionBridge && !window.tab1ExtensionBridge._initialized) {
             let pageIds = [];
-            // Try to get page IDs from pancakeTokenManager
             if (window.pancakeTokenManager?.accountPages) {
                 pageIds = Object.keys(window.pancakeTokenManager.accountPages);
             }
-            // Fallback: try from pancakeDataManager
             if (pageIds.length === 0 && window.pancakeDataManager?.pageIds) {
                 pageIds = window.pancakeDataManager.pageIds;
             }
             window.tab1ExtensionBridge.init(pageIds);
-            console.log('[Tab1-Chat] Extension bridge initialized with', pageIds.length, 'page IDs');
+            console.log('[Tab1-Chat] Extension bridge page IDs set:', pageIds.length);
         }
-    }, 3000); // Wait 3s for token manager to load
+    }, 3000);
 
     // Realtime connection status indicator
     function updateRealtimeStatusIndicator(connected) {
