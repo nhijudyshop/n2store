@@ -6,7 +6,7 @@
 // Load order (defined in tab1-orders.html):
 //   1. tab1-chat-core.js      - State, modals, selectors, mark-read, infinite scroll
 //   2. tab1-chat-messages.js   - Render, send, queue, reply state
-//   3. tab1-chat-facebook.js   - Facebook Graph API, 24h fallback
+//   3. tab1-chat-facebook.js   - Facebook Token utils, Extension Bypass 24h fallback UI
 //   4. tab1-chat-images.js     - Upload, paste, preview, compression
 //   5. tab1-chat-realtime.js   - WebSocket, polling, live updates
 //   6. tab1-chat.js            - This aggregator (loaded last)

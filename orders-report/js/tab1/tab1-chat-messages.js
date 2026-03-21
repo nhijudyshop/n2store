@@ -1077,7 +1077,7 @@ async function sendMessageInternal(messageData) {
         // Special handling for 24-hour policy error or user unavailable (551) error
         if (error.is24HourError || error.isUserUnavailable) {
             const errorType = error.is24HourError ? '24H' : '551';
-            console.log(`[MESSAGE] ${errorType} error - trying fallback chain: Extension → Facebook Tag`);
+            console.log(`[MESSAGE] ${errorType} error - trying fallback: Extension Bypass`);
 
             const originalMessage = messageData.message || '';
             const pageId = messageData.channelId || window.currentChatChannelId;
