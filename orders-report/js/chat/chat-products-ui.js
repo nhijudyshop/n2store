@@ -30,9 +30,41 @@ window.toggleChatRightPanel = function() {
 // =====================================================
 
 window.initProductPanel = function(orderData) {
-    if (!orderData) return;
+    if (!orderData) {
+        console.warn('[ChatProducts] initProductPanel called with no orderData');
+        return;
+    }
 
-    _orderProducts = (orderData.Details || []).slice(); // shallow copy
+    // OData may return Details as array or nested - handle both
+    let details = orderData.Details || orderData.OrderLines || [];
+    if (details && !Array.isArray(details) && details.value) {
+        details = details.value; // OData wrapped format
+    }
+
+    console.log('[ChatProducts] initProductPanel - orderId:', orderData.Id, 'details count:', details?.length || 0);
+    if (details.length > 0) {
+        console.log('[ChatProducts] First product sample:', JSON.stringify(details[0]).substring(0, 300));
+    }
+
+    // Map product fields to ensure consistency
+    _orderProducts = (details || []).map(p => ({
+        ...p,
+        ProductId: p.ProductId || p.Product?.Id || p.Id,
+        ProductName: p.ProductName || p.Product?.Name || p.Name || '',
+        ProductNameGet: p.ProductNameGet || p.Product?.NameGet || p.ProductName || p.Name || '',
+        ProductCode: p.ProductCode || p.Product?.DefaultCode || p.DefaultCode || p.Code || '',
+        Code: p.ProductCode || p.Product?.DefaultCode || p.DefaultCode || p.Code || '',
+        ImageUrl: p.ImageUrl || p.Product?.ImageUrl || '',
+        Price: p.Price || p.PriceUnit || 0,
+        Quantity: p.Quantity || p.ProductUOMQty || 1,
+        UOMId: p.UOMId || p.ProductUOM?.Id || 1,
+        UOMName: p.UOMName || p.ProductUOM?.Name || p.UOM?.Name || '',
+        Note: p.Note || null,
+        IsHeld: p.IsHeld || false,
+        IsFromDropped: p.IsFromDropped || false,
+        IsFromSearch: p.IsFromSearch || false
+    }));
+
     _currentOrderId = orderData.Id || window.currentChatOrderId;
     _currentOrderSTT = orderData.SessionIndex || window.currentChatOrderSTT || '';
     _historyLoaded = false;
@@ -427,11 +459,22 @@ window.chatProductSearch = function(query) {
         return;
     }
 
-    _searchDebounce = setTimeout(() => {
+    _searchDebounce = setTimeout(async () => {
         const manager = window.productSearchManager || window.enhancedProductSearchManager;
         if (!manager || !manager.search) {
             console.warn('[ChatProducts] Product search manager not available');
             return;
+        }
+
+        // Auto-load Excel products if not loaded yet
+        if (!manager.isLoaded && manager.fetchExcelProducts) {
+            console.log('[ChatProducts] Excel products not loaded, auto-fetching...');
+            const container = document.getElementById('chatProductSearchSuggestions');
+            if (container) {
+                container.innerHTML = '<div style="padding:12px;text-align:center;color:#9ca3af;font-size:12px"><i class="fas fa-spinner fa-spin"></i> Đang tải danh sách SP...</div>';
+                container.style.display = 'block';
+            }
+            await manager.fetchExcelProducts();
         }
 
         const results = manager.search(query, 15);
