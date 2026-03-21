@@ -1064,16 +1064,13 @@
     }
 
     function highlightProvinceColumn(column) {
+        // Remove from all columns
+        document.querySelectorAll('.dr-province-col').forEach(el => el.classList.remove('active-scan'));
+
+        // Add persistent highlight to the scanned column
         const colId = column === 'tomato' ? 'drColTomato' : 'drColNap';
         const colEl = document.getElementById(colId);
-        if (!colEl) return;
-
-        // Remove previous highlight
-        document.querySelectorAll('.dr-province-col').forEach(el => el.classList.remove('highlight'));
-
-        // Add highlight with animation
-        colEl.classList.add('highlight');
-        setTimeout(() => colEl.classList.remove('highlight'), 1500);
+        if (colEl) colEl.classList.add('active-scan');
     }
 
     function onBarcodeKeydown(e) {
