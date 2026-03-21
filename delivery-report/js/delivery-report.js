@@ -27,21 +27,21 @@
             keyword: ''
         },
 
-        // Column visibility
+        // Column visibility (default: only key columns visible)
         columns: {
             index: true,
             customer: true,
-            receiverInfo: true,
+            receiverInfo: false,
             dateInvoice: true,
             number: true,
             amountTotal: true,
-            cashOnDelivery: true,
-            carrierName: true,
-            deliveryPrice: true,
-            shipWeight: true,
-            trackingRef: true,
-            showShipStatus: true,
-            forControlStatus: true
+            cashOnDelivery: false,
+            carrierName: false,
+            deliveryPrice: false,
+            shipWeight: false,
+            trackingRef: false,
+            showShipStatus: false,
+            forControlStatus: false
         }
     };
 
@@ -52,6 +52,7 @@
         setDefaultDates();
         bindFilterEvents();
         bindColumnToggle();
+        applyColumnVisibility();
         loadFiltersFromStorage();
         fetchData();
     }
