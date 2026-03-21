@@ -287,6 +287,29 @@
     border-color: #4f87e8;
 }
 
+.dr-trasoat-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.dr-scan-filter-select {
+    padding: 6px 12px;
+    border: 2px solid #4f87e8;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #4f87e8;
+    background: white;
+    cursor: pointer;
+}
+
+.dr-scan-filter-select:focus {
+    outline: none;
+    border-color: #3b72d4;
+    box-shadow: 0 0 0 2px rgba(79, 135, 232, 0.2);
+}
+
 .dr-trasoat-info {
     font-size: 14px;
     font-weight: 600;
@@ -708,6 +731,12 @@
     align-items: center;
     gap: 8px;
     flex-shrink: 0;
+}
+
+.dr-province-date {
+    color: #6b7280;
+    font-size: 12px;
+    white-space: nowrap;
 }
 
 .dr-province-amount {

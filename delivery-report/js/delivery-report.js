@@ -22,6 +22,7 @@
         traSoatMode: false,
         scannedNumbers: new Set(),
         activeTab: 'all', // 'city', 'province', 'shop', 'all'
+        scanFilter: 'unscanned', // 'unscanned' | 'scanned'
         provinceGroups: {}, // { Number: 'tomato' | 'nap' }
         _provinceGroupsLoaded: false,
         lastScannedColumn: null, // 'tomato' | 'nap'
@@ -325,9 +326,13 @@
         const state = DeliveryReportState;
 
         if (state.traSoatMode) {
-            // In tra soát mode: use tab filter + exclude scanned
+            // In tra soát mode: use tab filter + scan filter
             let data = getTabFilteredData();
-            data = data.filter(item => !state.scannedNumbers.has(item.Number));
+            if (state.scanFilter === 'unscanned') {
+                data = data.filter(item => !state.scannedNumbers.has(item.Number));
+            } else {
+                data = data.filter(item => state.scannedNumbers.has(item.Number));
+            }
             return data;
         }
 
@@ -715,6 +720,7 @@
             }
             if (bar) bar.style.display = '';
             state.activeTab = 'all';
+            state.scanFilter = 'unscanned';
             state.currentPage = 1;
 
             // Load scanned numbers from server + setup cross-machine sync
@@ -745,6 +751,7 @@
 
             state.scannedNumbers = new Set();
             state.activeTab = 'all';
+            state.scanFilter = 'unscanned';
             state.currentPage = 1;
             document.removeEventListener('keydown', onBarcodeKeydown);
             renderTable();
@@ -760,6 +767,23 @@
 
         if (tab === 'province' && DeliveryReportState.traSoatMode) {
             await ensureProvinceGroups();
+            renderProvinceView();
+        } else {
+            renderTable();
+            renderPagination();
+        }
+        updateScanCount();
+    }
+
+    function setScanFilter(filter) {
+        DeliveryReportState.scanFilter = filter;
+        DeliveryReportState.currentPage = 1;
+
+        // Update UI
+        const select = document.getElementById('drScanFilterSelect');
+        if (select) select.value = filter;
+
+        if (DeliveryReportState.activeTab === 'province' && DeliveryReportState.traSoatMode) {
             renderProvinceView();
         } else {
             renderTable();
@@ -1018,13 +1042,21 @@
             saveProvinceGroups(groups);
         }
 
-        const tomatoItems = provinceData.filter(item => groups[item.Number] === 'tomato');
-        const napItems = provinceData.filter(item => groups[item.Number] === 'nap');
+        const allTomato = provinceData.filter(item => groups[item.Number] === 'tomato');
+        const allNap = provinceData.filter(item => groups[item.Number] === 'nap');
+
+        // Count scanned for display
+        const tomatoScannedCount = allTomato.filter(i => scanned.has(i.Number)).length;
+        const napScannedCount = allNap.filter(i => scanned.has(i.Number)).length;
+
+        // Apply scan filter
+        const showScanned = DeliveryReportState.scanFilter === 'scanned';
+        const tomatoItems = allTomato.filter(item => showScanned ? scanned.has(item.Number) : !scanned.has(item.Number));
+        const napItems = allNap.filter(item => showScanned ? scanned.has(item.Number) : !scanned.has(item.Number));
 
         // Render TOMATO column
-        const tomatoScanned = tomatoItems.filter(i => scanned.has(i.Number)).length;
         let tomatoHtml = `<div class="dr-province-header dr-province-header-tomato">
-            TOMATO <span class="dr-province-count">${tomatoScanned}/${tomatoItems.length}</span>
+            TOMATO <span class="dr-province-count">${tomatoScannedCount}/${allTomato.length}</span>
         </div>`;
         tomatoItems.forEach(item => {
             const isScanned = scanned.has(item.Number);
@@ -1034,16 +1066,19 @@
                     <span class="dr-province-customer">${escapeHtml(item.PartnerDisplayName || '')}</span>
                 </div>
                 <div class="dr-province-right">
+                    <span class="dr-province-date">${formatDate(item.DateInvoice)}</span>
                     <span class="dr-province-amount">${formatMoney(item.AmountTotal)}</span>
                     ${isScanned ? '<i class="fas fa-check" style="color:#22c55e"></i>' : ''}
                 </div>
             </div>`;
         });
+        if (tomatoItems.length === 0) {
+            tomatoHtml += `<div class="dr-province-item" style="justify-content:center;color:#9ca3af;padding:20px;">Không có dữ liệu</div>`;
+        }
 
         // Render NAP column
-        const napScanned = napItems.filter(i => scanned.has(i.Number)).length;
         let napHtml = `<div class="dr-province-header dr-province-header-nap">
-            NAP <span class="dr-province-count">${napScanned}/${napItems.length}</span>
+            NAP <span class="dr-province-count">${napScannedCount}/${allNap.length}</span>
         </div>`;
         napItems.forEach(item => {
             const isScanned = scanned.has(item.Number);
@@ -1053,11 +1088,15 @@
                     <span class="dr-province-customer">${escapeHtml(item.PartnerDisplayName || '')}</span>
                 </div>
                 <div class="dr-province-right">
+                    <span class="dr-province-date">${formatDate(item.DateInvoice)}</span>
                     <span class="dr-province-amount">${formatMoney(item.AmountTotal)}</span>
                     ${isScanned ? '<i class="fas fa-check" style="color:#22c55e"></i>' : ''}
                 </div>
             </div>`;
         });
+        if (napItems.length === 0) {
+            napHtml += `<div class="dr-province-item" style="justify-content:center;color:#9ca3af;padding:20px;">Không có dữ liệu</div>`;
+        }
 
         document.getElementById('drColTomato').innerHTML = tomatoHtml;
         document.getElementById('drColNap').innerHTML = napHtml;
@@ -1223,6 +1262,7 @@
         exportExcel: exportExcel,
         traSoat: traSoat,
         setTab: setTab,
+        setScanFilter: setScanFilter,
         getState: () => DeliveryReportState
     };
 })();
