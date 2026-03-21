@@ -82,14 +82,6 @@
 
                     <!-- Row 2 -->
                     <div class="dr-filter-row">
-                        <label for="drFilterForControl">Trạng thái đối soát</label>
-                        <select id="drFilterForControl">
-                            <option value="">Tất cả</option>
-                            <option value="done">Đã đối soát</option>
-                            <option value="fail">Không thành công</option>
-                        </select>
-                    </div>
-                    <div class="dr-filter-row">
                         <label for="drFilterKeyword">Từ khóa</label>
                         <input type="text" id="drFilterKeyword" placeholder="Mã vận đơn hoặc số hóa đơn" />
                     </div>
@@ -185,6 +177,7 @@
                 <div class="dr-trasoat-tabs">
                     <button class="dr-trasoat-tab" data-tab="city" onclick="DeliveryReport.setTab('city')">Thành phố</button>
                     <button class="dr-trasoat-tab" data-tab="province" onclick="DeliveryReport.setTab('province')">Tỉnh</button>
+                    <button class="dr-trasoat-tab" data-tab="shop" onclick="DeliveryReport.setTab('shop')">Bán hàng shop</button>
                     <button class="dr-trasoat-tab active" data-tab="all" onclick="DeliveryReport.setTab('all')">Tất cả</button>
                 </div>
                 <div class="dr-trasoat-info">

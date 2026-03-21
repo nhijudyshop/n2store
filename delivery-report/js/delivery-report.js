@@ -28,7 +28,6 @@
             fromDate: '',
             toDate: '',
             carrierId: '',
-            forControl: '',
             keyword: ''
         },
 
@@ -123,7 +122,6 @@
         f.fromDate = document.getElementById('drFilterFromDate')?.value || '';
         f.toDate = document.getElementById('drFilterToDate')?.value || '';
         f.carrierId = document.getElementById('drFilterCarrier')?.value || '';
-        f.forControl = document.getElementById('drFilterForControl')?.value || '';
         f.keyword = document.getElementById('drFilterKeyword')?.value?.trim() || '';
     }
 
@@ -144,7 +142,6 @@
                 if (f.fromDate) document.getElementById('drFilterFromDate').value = f.fromDate;
                 if (f.toDate) document.getElementById('drFilterToDate').value = f.toDate;
                 if (f.carrierId) document.getElementById('drFilterCarrier').value = f.carrierId;
-                if (f.forControl) document.getElementById('drFilterForControl').value = f.forControl;
                 if (f.keyword) document.getElementById('drFilterKeyword').value = f.keyword;
             }
         } catch (e) { /* ignore */ }
@@ -270,7 +267,6 @@
             params.set('ToDate', new Date(f.toDate).toISOString());
         }
 
-        params.set('ForControl', f.forControl);
         params.set('Q', f.keyword);
 
         // Fetch all data (client-side pagination)
@@ -286,6 +282,13 @@
     // =====================================================
     // POPULATE CARRIER FILTER FROM DATA
     // =====================================================
+    // Normalize carrier name: group all "THÀNH PHỐ (...)" into "THÀNH PHỐ"
+    function normalizeCarrier(name) {
+        if (!name) return '';
+        if (name.toUpperCase().startsWith('THÀNH PHỐ')) return 'THÀNH PHỐ';
+        return name;
+    }
+
     function populateCarrierFilter() {
         const select = document.getElementById('drFilterCarrier');
         if (!select) return;
@@ -293,7 +296,7 @@
         const currentValue = select.value;
         const carriers = new Set();
         (DeliveryReportState.allData || []).forEach(item => {
-            if (item.CarrierName) carriers.add(item.CarrierName);
+            if (item.CarrierName) carriers.add(normalizeCarrier(item.CarrierName));
         });
 
         const sorted = [...carriers].sort();
@@ -322,11 +325,11 @@
             return data;
         }
 
-        // Normal mode: carrier filter only
+        // Normal mode: carrier filter only (normalized)
         let data = state.allData || [];
         const carrier = state.filters.carrierId;
         if (carrier) {
-            data = data.filter(item => item.CarrierName === carrier);
+            data = data.filter(item => normalizeCarrier(item.CarrierName) === carrier);
         }
         return data;
     }
@@ -747,16 +750,19 @@
 
     function getTabFilteredData() {
         let data = DeliveryReportState.allData || [];
-        // Apply carrier filter from dropdown
+        // Apply carrier filter from dropdown (normalized)
         const carrier = DeliveryReportState.filters.carrierId;
         if (carrier) {
-            data = data.filter(item => item.CarrierName === carrier);
+            data = data.filter(item => normalizeCarrier(item.CarrierName) === carrier);
         }
         // Apply tab filter
-        if (DeliveryReportState.activeTab === 'city') {
-            data = data.filter(item => (item.CarrierName || '').toUpperCase().includes('THÀNH PHỐ'));
-        } else if (DeliveryReportState.activeTab === 'province') {
-            data = data.filter(item => !(item.CarrierName || '').toUpperCase().includes('THÀNH PHỐ'));
+        const tab = DeliveryReportState.activeTab;
+        if (tab === 'city') {
+            data = data.filter(item => normalizeCarrier(item.CarrierName) === 'THÀNH PHỐ');
+        } else if (tab === 'province') {
+            data = data.filter(item => normalizeCarrier(item.CarrierName) === 'SHIP TÌNH');
+        } else if (tab === 'shop') {
+            data = data.filter(item => normalizeCarrier(item.CarrierName) === 'BÁN HÀNG SHOP');
         }
         return data;
     }
@@ -822,17 +828,15 @@
         search: () => {
             const oldFromDate = DeliveryReportState.filters.fromDate;
             const oldToDate = DeliveryReportState.filters.toDate;
-            const oldForControl = DeliveryReportState.filters.forControl;
             const oldKeyword = DeliveryReportState.filters.keyword;
 
             DeliveryReportState.currentPage = 1;
             collectFilters();
             saveFiltersToStorage();
 
-            // Only re-fetch from API if date/forControl/keyword changed
+            // Only re-fetch from API if date/keyword changed
             const needRefetch = oldFromDate !== DeliveryReportState.filters.fromDate ||
                 oldToDate !== DeliveryReportState.filters.toDate ||
-                oldForControl !== DeliveryReportState.filters.forControl ||
                 oldKeyword !== DeliveryReportState.filters.keyword;
 
             if (needRefetch || !DeliveryReportState.allData.length) {
