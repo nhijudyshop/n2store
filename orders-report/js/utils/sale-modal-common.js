@@ -307,38 +307,49 @@ function checkPrepaidExcessAndToggle() {
     const originalBalance = parseFloat(prepaidField.dataset.originalBalance) || 0;
     const codValue = parseFloat(document.getElementById('saleCOD')?.value) || 0;
 
-    if (originalBalance > codValue && codValue > 0) {
-        // Wallet > bill: enable editing
+    if (originalBalance > 0) {
+        // Wallet có tiền: cho phép user nhập số tiền muốn trừ
         prepaidField.disabled = false;
         prepaidField.style.background = '#ffffff';
-        prepaidField.style.border = '2px solid #dc2626';
-        prepaidField.max = codValue;
         prepaidField.min = 0;
-        // Clamp value to max (COD)
-        if (parseFloat(prepaidField.value) > codValue) {
-            prepaidField.value = codValue;
+
+        const maxVal = Math.min(originalBalance, codValue > 0 ? codValue : originalBalance);
+        prepaidField.max = maxVal;
+
+        // Điền sẵn giá trị mặc định = min(wallet, COD)
+        const currentVal = parseFloat(prepaidField.value) || 0;
+        if (currentVal > maxVal) {
+            prepaidField.value = maxVal;
+        } else if (currentVal === 0 || prepaidField.value === '...' || prepaidField.value === '') {
+            prepaidField.value = maxVal;
         }
-        if (warningDiv) warningDiv.style.display = 'block';
-        // Update remaining when user types
+
+        // Wallet > COD: border đỏ + warning
+        if (originalBalance > codValue && codValue > 0) {
+            prepaidField.style.border = '2px solid #dc2626';
+            if (warningDiv) warningDiv.style.display = 'block';
+        } else {
+            prepaidField.style.border = '1px solid #10b981';
+            if (warningDiv) warningDiv.style.display = 'none';
+        }
+
+        // Clamp value khi user nhập
         prepaidField.oninput = function () {
             let val = parseFloat(this.value) || 0;
-            const maxVal = Math.min(
+            const currentMax = Math.min(
                 parseFloat(this.dataset.originalBalance) || 0,
                 parseFloat(document.getElementById('saleCOD')?.value) || 0
             );
-            if (val > maxVal) { this.value = maxVal; val = maxVal; }
+            if (val > currentMax) { this.value = currentMax; val = currentMax; }
             if (val < 0) { this.value = 0; }
             updateSaleRemainingBalance();
         };
     } else {
-        // Normal case: disable field
+        // Wallet = 0: disable field
         prepaidField.disabled = true;
         prepaidField.style.background = '#f3f4f6';
         prepaidField.style.border = '';
-        // Reset value to original balance (clamped to COD)
-        if (originalBalance > 0) {
-            prepaidField.value = Math.min(originalBalance, codValue || originalBalance);
-        }
+        prepaidField.value = 0;
         if (warningDiv) warningDiv.style.display = 'none';
     }
     updateSaleRemainingBalance();

@@ -2460,7 +2460,7 @@
                                 Data source: REALTIME từ API /api/sepay/debt-summary?phone=xxx
                                 (Cùng nguồn với cột "Công Nợ" trong bảng orders)
                                 Populated by: fetchDebtForSaleModal() in tab1-orders.js
-                                Field disabled: chỉ admin có thể sửa, có nút xác nhận để cập nhật DB
+                                Field disabled by default, enabled when customer has wallet balance > 0. Admin always enabled.
                             -->
                             <label class="sale-label">Trả trước (Công nợ)</label>
                             <div style="display: flex; gap: 8px; align-items: center;">
