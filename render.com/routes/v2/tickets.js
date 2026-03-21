@@ -424,6 +424,14 @@ router.post('/:id/resolve', async (req, res) => {
 
         // Issue compensation if requested
         if (compensation_amount && compensation_amount > 0) {
+            // Build wallet note: include ticket's internal_note for activity history
+            const walletNoteForVC = ticket.internal_note
+                ? `${ticket.internal_note} (ticket ${ticket.ticket_code})`
+                : note || `Bồi thường ticket ${ticket.ticket_code}`;
+            const walletNoteForDeposit = ticket.internal_note
+                ? `${ticket.internal_note} (ticket ${ticket.ticket_code})`
+                : note || `Hoàn tiền ticket ${ticket.ticket_code}`;
+
             if (compensation_type === 'virtual_credit') {
                 // Use centralized wallet-event-processor for virtual credit
                 const vcResult = await issueVirtualCredit(
@@ -431,7 +439,7 @@ router.post('/:id/resolve', async (req, res) => {
                     ticket.phone,
                     compensation_amount,
                     ticket.ticket_code,
-                    note || `Bồi thường ticket ${ticket.ticket_code}`,
+                    walletNoteForVC,
                     15 // expires in 15 days
                 );
 
@@ -447,7 +455,7 @@ router.post('/:id/resolve', async (req, res) => {
                     compensation_amount,
                     'RETURN_GOODS', // Source: hàng trả về
                     ticket.ticket_code, // Reference ID
-                    note || `Hoàn tiền ticket ${ticket.ticket_code}`,
+                    walletNoteForDeposit,
                     ticket.customer_id
                 );
 

@@ -132,17 +132,20 @@ router.get('/:customerId', async (req, res) => {
 
         const wallet = walletResult.rows[0];
 
-        // Get active virtual credits
+        // Get active virtual credits with ticket notes
         const creditsResult = await db.query(`
-            SELECT id, original_amount, remaining_amount, issued_at, expires_at, status, source_type, source_id
-            FROM virtual_credits
-            WHERE phone = $1 AND status = 'ACTIVE' AND expires_at > NOW()
-            ORDER BY expires_at ASC
+            SELECT vc.id, vc.original_amount, vc.remaining_amount, vc.issued_at, vc.expires_at,
+                   vc.status, vc.source_type, vc.source_id, vc.note,
+                   ct.internal_note as ticket_note
+            FROM virtual_credits vc
+            LEFT JOIN customer_tickets ct ON ct.ticket_code = vc.source_id
+            WHERE vc.phone = $1 AND vc.status = 'ACTIVE' AND vc.expires_at > NOW()
+            ORDER BY vc.expires_at ASC
         `, [phone]);
 
         // Get all deposit transactions (for payment note generation)
         const depositsResult = await db.query(`
-            SELECT amount, created_at
+            SELECT amount, created_at, source
             FROM wallet_transactions
             WHERE phone = $1 AND type = 'DEPOSIT'
             ORDER BY created_at ASC
@@ -166,13 +169,15 @@ router.get('/:customerId', async (req, res) => {
             } else if (remainingWithdrawn > 0) {
                 availableDeposits.push({
                     amount: depAmount - remainingWithdrawn,
-                    date: dep.created_at
+                    date: dep.created_at,
+                    source: dep.source || 'BANK_TRANSFER'
                 });
                 remainingWithdrawn = 0;
             } else {
                 availableDeposits.push({
                     amount: depAmount,
-                    date: dep.created_at
+                    date: dep.created_at,
+                    source: dep.source || 'BANK_TRANSFER'
                 });
             }
         }
@@ -459,7 +464,7 @@ router.post('/batch-summary', async (req, res) => {
         // Fetch last deposit transaction for each phone (for payment note generation)
         if (phonesForDeposit.length > 0) {
             const depositResult = await db.query(`
-                SELECT DISTINCT ON (phone) phone, amount, created_at
+                SELECT DISTINCT ON (phone) phone, amount, created_at, source
                 FROM wallet_transactions
                 WHERE phone = ANY($1) AND type = 'DEPOSIT'
                 ORDER BY phone, created_at DESC
@@ -469,6 +474,55 @@ router.post('/batch-summary', async (req, res) => {
                 if (walletMap[row.phone]) {
                     walletMap[row.phone].lastDepositAmount = parseFloat(row.amount);
                     walletMap[row.phone].lastDepositDate = row.created_at;
+                    walletMap[row.phone].lastDepositSource = row.source || 'BANK_TRANSFER';
+                }
+            });
+
+            // Fetch active virtual credits with ticket notes (for note generation)
+            const vcResult = await db.query(`
+                SELECT vc.phone, vc.remaining_amount, vc.source_type, vc.source_id, vc.note,
+                       ct.internal_note as ticket_note
+                FROM virtual_credits vc
+                LEFT JOIN customer_tickets ct ON ct.ticket_code = vc.source_id
+                WHERE vc.phone = ANY($1) AND vc.status = 'ACTIVE' AND vc.expires_at > NOW()
+                ORDER BY vc.phone, vc.expires_at ASC
+            `, [phonesForDeposit]);
+
+            vcResult.rows.forEach(row => {
+                if (walletMap[row.phone]) {
+                    if (!walletMap[row.phone].virtualCredits) {
+                        walletMap[row.phone].virtualCredits = [];
+                    }
+                    walletMap[row.phone].virtualCredits.push({
+                        remaining_amount: parseFloat(row.remaining_amount),
+                        source_type: row.source_type,
+                        source_id: row.source_id,
+                        note: row.note,
+                        ticket_note: row.ticket_note
+                    });
+                }
+            });
+
+            // Fetch RETURN_GOODS deposits (Khách Gửi) for note generation
+            const returnGoodsResult = await db.query(`
+                SELECT phone, amount, created_at, reference_id, note
+                FROM wallet_transactions
+                WHERE phone = ANY($1) AND type = 'DEPOSIT' AND source = 'RETURN_GOODS'
+                  AND created_at > NOW() - INTERVAL '60 days'
+                ORDER BY phone, created_at DESC
+            `, [phonesForDeposit]);
+
+            returnGoodsResult.rows.forEach(row => {
+                if (walletMap[row.phone]) {
+                    if (!walletMap[row.phone].returnGoodsDeposits) {
+                        walletMap[row.phone].returnGoodsDeposits = [];
+                    }
+                    walletMap[row.phone].returnGoodsDeposits.push({
+                        amount: parseFloat(row.amount),
+                        date: row.created_at,
+                        reference_id: row.reference_id,
+                        note: row.note
+                    });
                 }
             });
         }

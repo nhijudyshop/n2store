@@ -921,22 +921,53 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
     // ========== AUTO-GENERATE ORDER NOTE ==========
     const noteParts = [];
 
-    // 1. Check wallet balance → "CK [amount] ACB [date]"
-    // Use last deposit amount and date instead of current balance and today's date
+    // 1. Check wallet balance → generate note based on source type
     if (walletBalance > 0) {
-        let ckAmount = walletBalance;
-        let ckDateStr;
-        if (walletData?.lastDepositAmount && walletData?.lastDepositDate) {
-            ckAmount = walletData.lastDepositAmount;
-            const depositDate = new Date(walletData.lastDepositDate);
-            ckDateStr = `${String(depositDate.getDate()).padStart(2, '0')}/${String(depositDate.getMonth() + 1).padStart(2, '0')}`;
-        } else {
-            const today = new Date();
-            ckDateStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}`;
+        // 1a. RETURN_SHIPPER virtual credits (Thu Về) → use ticket's internal_note
+        if (walletData?.virtualCredits?.length > 0) {
+            for (const vc of walletData.virtualCredits) {
+                if (vc.source_type === 'RETURN_SHIPPER') {
+                    if (vc.ticket_note) {
+                        noteParts.push(vc.ticket_note);
+                    } else {
+                        const vcAmountStr = vc.remaining_amount >= 1000
+                            ? `${Math.round(vc.remaining_amount / 1000)}K`
+                            : vc.remaining_amount.toLocaleString('vi-VN');
+                        noteParts.push(`TRỪ ${vcAmountStr} CÔNG NỢ ẢO THU VỀ`);
+                    }
+                }
+            }
         }
-        const amountStr =
-            ckAmount >= 1000 ? `${Math.round(ckAmount / 1000)}K` : ckAmount.toLocaleString('vi-VN');
-        noteParts.push(`CK ${amountStr} ACB ${ckDateStr}`);
+
+        // 1b. RETURN_GOODS deposits (Khách Gửi) → "TRỪ [amount] TIỀN HÀNG KHÁCH GỬI Ở TỈNH LÊN"
+        if (walletData?.returnGoodsDeposits?.length > 0) {
+            for (const dep of walletData.returnGoodsDeposits) {
+                const depAmountStr = dep.amount >= 1000
+                    ? `${Math.round(dep.amount / 1000)}K`
+                    : dep.amount.toLocaleString('vi-VN');
+                noteParts.push(`TRỪ ${depAmountStr} TIỀN HÀNG KHÁCH GỬI Ở TỈNH LÊN`);
+            }
+        }
+
+        // 1c. Real bank deposits (CK) → keep "CK [amount] ACB [date]"
+        const returnGoodsTotal = (walletData?.returnGoodsDeposits || [])
+            .reduce((sum, d) => sum + d.amount, 0);
+        const realCKBalance = Math.max(0, (parseFloat(walletData?.balance) || 0) - returnGoodsTotal);
+        if (realCKBalance > 0) {
+            let ckAmount = realCKBalance;
+            let ckDateStr;
+            if (walletData?.lastDepositAmount && walletData?.lastDepositDate && walletData?.lastDepositSource !== 'RETURN_GOODS') {
+                ckAmount = walletData.lastDepositAmount;
+                const depositDate = new Date(walletData.lastDepositDate);
+                ckDateStr = `${String(depositDate.getDate()).padStart(2, '0')}/${String(depositDate.getMonth() + 1).padStart(2, '0')}`;
+            } else {
+                const today = new Date();
+                ckDateStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}`;
+            }
+            const amountStr =
+                ckAmount >= 1000 ? `${Math.round(ckAmount / 1000)}K` : ckAmount.toLocaleString('vi-VN');
+            noteParts.push(`CK ${amountStr} ACB ${ckDateStr}`);
+        }
     }
 
     // 2. Discount tag → "GG [amount]"

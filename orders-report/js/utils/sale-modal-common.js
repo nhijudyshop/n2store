@@ -7,6 +7,7 @@
 //   - currentSaleOrderData (let) - current order being edited
 //   - currentSaleLastDeposit (let) - last deposit info for note generation
 //   - currentSaleAvailableDeposits (let) - all deposits contributing to wallet balance
+//   - currentSaleVirtualCredits (let) - active virtual credits with source info
 //   - saveDebtToCache(phone, debt) - save debt to tab-specific cache
 //   - updateDebtCellsInTable(phone, debt) - update debt display (no-op in social)
 //   - QR_API_URL (const) - wallet API base URL
@@ -978,6 +979,11 @@ async function fetchDebtForSaleModal(phone) {
                 currentSaleAvailableDeposits = [];
             }
 
+            // Store virtual credits for source-aware note generation
+            if (typeof currentSaleVirtualCredits !== 'undefined') {
+                currentSaleVirtualCredits = result.data.virtualCredits || [];
+            }
+
             if (prepaidAmountField) {
                 prepaidAmountField.value = totalBalance > 0 ? totalBalance : 0;
                 prepaidAmountField.dataset.originalBalance = totalBalance.toString();
@@ -999,6 +1005,7 @@ async function fetchDebtForSaleModal(phone) {
         } else {
             currentSaleLastDeposit = null;
             currentSaleAvailableDeposits = [];
+            if (typeof currentSaleVirtualCredits !== 'undefined') currentSaleVirtualCredits = [];
             if (prepaidAmountField) {
                 prepaidAmountField.value = 0;
                 prepaidAmountField.dataset.hasVirtualDebt = '0';
@@ -1010,6 +1017,7 @@ async function fetchDebtForSaleModal(phone) {
     } catch (error) {
         console.error('[SALE-MODAL] Error fetching wallet balance:', error);
         currentSaleAvailableDeposits = [];
+        if (typeof currentSaleVirtualCredits !== 'undefined') currentSaleVirtualCredits = [];
         if (prepaidAmountField) {
             prepaidAmountField.value = 0;
             prepaidAmountField.dataset.hasVirtualDebt = '0';
@@ -1030,19 +1038,43 @@ function autoFillSaleNote() {
 
     const noteParts = [];
 
-    // 1. CK from wallet balance - list all available deposits
+    // 1. Wallet balance → generate note based on source type
     const walletBalance = parseFloat(document.getElementById('salePrepaidAmount')?.value) || 0;
     if (walletBalance > 0) {
+        // 1a. RETURN_SHIPPER virtual credits (Thu Về) → use ticket's internal_note
+        const vcList = (typeof currentSaleVirtualCredits !== 'undefined') ? currentSaleVirtualCredits : [];
+        if (vcList.length > 0) {
+            for (const vc of vcList) {
+                if (vc.source_type === 'RETURN_SHIPPER') {
+                    if (vc.ticket_note) {
+                        noteParts.push(vc.ticket_note);
+                    } else {
+                        const vcAmount = parseFloat(vc.remaining_amount);
+                        const vcAmountStr = vcAmount >= 1000 ? `${Math.round(vcAmount / 1000)}K` : vcAmount;
+                        noteParts.push(`TRỪ ${vcAmountStr} CÔNG NỢ ẢO THU VỀ`);
+                    }
+                }
+            }
+        }
+
+        // 1b. Available deposits - split by source
         if (currentSaleAvailableDeposits && currentSaleAvailableDeposits.length > 0) {
             for (const dep of currentSaleAvailableDeposits) {
                 const depAmount = parseFloat(dep.amount);
-                const depositDate = new Date(dep.date);
-                const dateStr = `${String(depositDate.getDate()).padStart(2, '0')}/${String(depositDate.getMonth() + 1).padStart(2, '0')}`;
                 const amountStr = depAmount >= 1000 ? `${Math.round(depAmount / 1000)}K` : depAmount;
-                noteParts.push(`CK ${amountStr} ACB ${dateStr}`);
+
+                if (dep.source === 'RETURN_GOODS') {
+                    // Khách Gửi deposit
+                    noteParts.push(`TRỪ ${amountStr} TIỀN HÀNG KHÁCH GỬI Ở TỈNH LÊN`);
+                } else {
+                    // Real bank deposit (CK)
+                    const depositDate = new Date(dep.date);
+                    const dateStr = `${String(depositDate.getDate()).padStart(2, '0')}/${String(depositDate.getMonth() + 1).padStart(2, '0')}`;
+                    noteParts.push(`CK ${amountStr} ACB ${dateStr}`);
+                }
             }
-        } else {
-            // Fallback: single entry with wallet balance
+        } else if (vcList.length === 0) {
+            // Fallback: single entry with wallet balance (no source info available)
             const today = new Date();
             const dateStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}`;
             const amountStr = walletBalance >= 1000 ? `${Math.round(walletBalance / 1000)}K` : walletBalance;
