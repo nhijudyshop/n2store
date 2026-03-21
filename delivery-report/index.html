@@ -1,21 +1,47 @@
 <!--
-  📖 GHI CHÚ CHO LẬP TRÌNH VIÊN:
+  Thống Kê Giao Hàng - Standalone Page
   Khi code phải đọc thư mục https://github.com/nhijudyshop/n2store/tree/main/docs trước!
-  Đọc các file SHARED_*.md để hiểu cách sử dụng shared modules.
 -->
 <!doctype html>
 <html lang="vi">
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Thống Kê Giao Hàng</title>
+        <title>Thống Kê Giao Hàng - N2STORE</title>
+
+        <!-- Shared CSS -->
+        <link rel="stylesheet" href="../shared/css/modern.css" />
 
         <!-- External CSS -->
         <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
         <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
         <!-- Page CSS -->
-        <link rel="stylesheet" href="css/tab-delivery-report.css" />
+        <link rel="stylesheet" href="css/delivery-report.css" />
+
+        <!-- ES Module: Shared utilities (auto-inits authManager) -->
+        <script type="module" src="../shared/esm/compat.js"></script>
+
+        <!-- Fallback for file:// protocol -->
+        <script>
+            if (window.location.protocol === 'file:') {
+                document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
+                document.write('<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>');
+            }
+        </script>
+
+        <!-- Firebase SDKs -->
+        <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
+        <!-- Shared Configuration -->
+        <script src="../shared/js/firebase-config.js"></script>
+        <script defer src="../shared/js/navigation-modern.js"></script>
+        <script defer src="../shared/js/common-utils.js"></script>
+
+        <!-- Lucide Icons -->
+        <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
     </head>
 
     <body>
@@ -230,7 +256,7 @@
             </div>
         </div>
 
-        <!-- Sub-tab content placeholders (hidden by default) -->
+        <!-- Sub-tab content placeholders -->
         <div id="drSubTabCustomer" style="display:none;">
             <div class="delivery-report-container">
                 <div class="dr-header"><h2>Thống kê theo Khách hàng</h2><p style="color:#6b7280;">Chức năng đang phát triển...</p></div>
@@ -247,15 +273,7 @@
             </div>
         </div>
 
-        <!-- Firebase SDK -->
-        <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-        <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-        <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
-
-        <!-- Shared Libraries -->
-        <script src="../shared/js/firebase-config.js"></script>
-        <script src="js/core/config.js"></script>
-        <script src="js/core/api-config.js"></script>
+        <!-- Token Manager (standalone - needs its own token) -->
         <script src="../shared/js/shop-config.js"></script>
         <script src="../shared/js/token-manager.js"></script>
         <script src="../shared/js/tpos-config.js"></script>
@@ -264,38 +282,36 @@
         <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
         <!-- Delivery Report Logic -->
-        <script src="js/delivery-report/delivery-report.js"></script>
+        <script src="js/delivery-report.js"></script>
 
-        <!-- Sub-tab switching -->
+        <!-- Sub-tab switching & Init -->
         <script>
             function switchSubTab(tabName) {
-                // Update buttons
                 document.querySelectorAll('.dr-sub-tab').forEach(btn => btn.classList.remove('active'));
                 const activeBtn = document.querySelector(`.dr-sub-tab[data-subtab="${tabName}"]`);
                 if (activeBtn) activeBtn.classList.add('active');
 
-                // Main overview content
                 const mainContent = document.querySelector('.delivery-report-container');
                 const subCustomer = document.getElementById('drSubTabCustomer');
                 const subEmployee = document.getElementById('drSubTabEmployee');
                 const subChannel = document.getElementById('drSubTabChannel');
 
-                // Hide all sub-tabs
                 [subCustomer, subEmployee, subChannel].forEach(el => { if (el) el.style.display = 'none'; });
 
                 if (tabName === 'overview') {
-                    // Show main container, hide sub-tab placeholders
                     mainContent.style.display = '';
                 } else {
-                    // Show corresponding sub-tab
                     if (tabName === 'customer' && subCustomer) subCustomer.style.display = 'block';
                     if (tabName === 'employee' && subEmployee) subEmployee.style.display = 'block';
                     if (tabName === 'channel' && subChannel) subChannel.style.display = 'block';
                 }
             }
 
-            // Initialize on DOM ready
             document.addEventListener('DOMContentLoaded', function () {
+                // Init Lucide icons
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+
+                // Init Delivery Report
                 if (window.DeliveryReport) {
                     window.DeliveryReport.init();
                 }

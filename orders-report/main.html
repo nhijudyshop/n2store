@@ -528,15 +528,6 @@
                 </div>
                 <div
                     class="mobile-dropdown-item"
-                    onclick="switchMobileTab('delivery-report', 'Thống Kê Giao Hàng')"
-                    data-mobile-tab="delivery-report"
-                >
-                    <i data-lucide="truck"></i>
-                    <span>Thống Kê Giao Hàng</span>
-                    <i data-lucide="check" class="check-icon"></i>
-                </div>
-                <div
-                    class="mobile-dropdown-item"
                     onclick="window.location.href = '../index.html'"
                     style="border-top: 1px solid #eee; margin-top: 4px; color: #ef4444"
                 >
@@ -593,15 +584,6 @@
                         KPI - HOA HỒNG
                     </button>
 
-                    <button
-                        class="tab-button"
-                        onclick="switchTab('delivery-report')"
-                        data-tab="delivery-report"
-                    >
-                        <i data-lucide="truck" class="tab-icon"></i>
-                        Thống Kê Giao Hàng
-                    </button>
-
                     <!-- Campaign Firebase Badge -->
                     <div class="campaign-badge-wrapper">
                         <div class="campaign-badge" id="campaignBadge">
@@ -653,10 +635,6 @@
 
             <div id="kpiCommissionTab" class="tab-content">
                 <iframe id="kpiCommissionFrame" src="tab-kpi-commission.html"></iframe>
-            </div>
-
-            <div id="deliveryReportTab" class="tab-content">
-                <iframe id="deliveryReportFrame" src="tab-delivery-report.html"></iframe>
             </div>
 
             <div id="reportOnlineTab" class="tab-content">
@@ -811,8 +789,6 @@
                     document.getElementById('pendingDeleteTab').classList.add('active');
                 } else if (tabName === 'kpi-commission') {
                     document.getElementById('kpiCommissionTab').classList.add('active');
-                } else if (tabName === 'delivery-report') {
-                    document.getElementById('deliveryReportTab').classList.add('active');
                 } else if (tabName === 'report-online') {
                     document.getElementById('reportOnlineTab').classList.add('active');
                 }
@@ -859,7 +835,6 @@
                     overview: 'Báo Cáo Tổng Hợp',
                     'pending-delete': 'Bill Đã Xóa',
                     'kpi-commission': 'KPI - HOA HỒNG',
-                    'delivery-report': 'Thống Kê Giao Hàng',
                     'report-online': 'Báo Cáo Online',
                 };
 
@@ -1135,7 +1110,6 @@
                         'overview',
                         'pending-delete',
                         'kpi-commission',
-                        'delivery-report',
                         'report-online',
                     ].includes(savedTab)
                 ) {
