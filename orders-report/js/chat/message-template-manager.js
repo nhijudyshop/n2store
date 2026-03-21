@@ -1113,6 +1113,11 @@ class MessageTemplateManager {
                 };
             };
 
+            // Enable bulk mode on request queue: allow parallel requests across accounts
+            if (typeof pancakeRequestQueue !== 'undefined') {
+                pancakeRequestQueue.enableBulkMode(validAccounts.length, 200);
+            }
+
             // Start ALL workers (one per account) in parallel
             const workers = validAccounts.map((account, i) =>
                 createWorker(account, accountQueues[i])()
@@ -1120,6 +1125,11 @@ class MessageTemplateManager {
 
             // Wait for all workers to finish
             await Promise.all(workers);
+
+            // Restore normal queue mode
+            if (typeof pancakeRequestQueue !== 'undefined') {
+                pancakeRequestQueue.disableBulkMode();
+            }
 
             // AUTO BASE Snapshot - lưu BASE cho các đơn gửi tin thành công
             if (
@@ -1252,6 +1262,10 @@ class MessageTemplateManager {
 
             this.closeModal();
         } catch (error) {
+            // Ensure bulk mode is disabled on error
+            if (typeof pancakeRequestQueue !== 'undefined') {
+                pancakeRequestQueue.disableBulkMode();
+            }
             this.sendingState.isRunning = false;
             this.log('❌ Error sending messages:', error);
             if (window.notificationManager) {

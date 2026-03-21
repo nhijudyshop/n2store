@@ -91,8 +91,37 @@ class PancakeRequestQueue {
         return {
             queueLength: this.queue.length,
             running: this.running,
-            pendingRequests: this.pendingRequests.size
+            pendingRequests: this.pendingRequests.size,
+            maxConcurrent: this.maxConcurrent,
+            minInterval: this.minInterval,
+            bulkMode: this._bulkMode || false
         };
+    }
+
+    /**
+     * Enable bulk mode: increase concurrency for parallel multi-account sending
+     * @param {number} concurrent - Max concurrent requests (default: 6)
+     * @param {number} interval - Min interval between requests in ms (default: 200)
+     */
+    enableBulkMode(concurrent = 6, interval = 200) {
+        this._savedMaxConcurrent = this.maxConcurrent;
+        this._savedMinInterval = this.minInterval;
+        this.maxConcurrent = concurrent;
+        this.minInterval = interval;
+        this._bulkMode = true;
+        console.log(`[PANCAKE-QUEUE] 🚀 Bulk mode ON: maxConcurrent=${concurrent}, minInterval=${interval}ms`);
+        // Kick processing in case items are waiting
+        this.process();
+    }
+
+    /**
+     * Disable bulk mode: restore original settings
+     */
+    disableBulkMode() {
+        this.maxConcurrent = this._savedMaxConcurrent || 1;
+        this.minInterval = this._savedMinInterval || 1500;
+        this._bulkMode = false;
+        console.log(`[PANCAKE-QUEUE] 🔄 Bulk mode OFF: maxConcurrent=${this.maxConcurrent}, minInterval=${this.minInterval}ms`);
     }
 }
 
