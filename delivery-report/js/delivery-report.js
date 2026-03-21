@@ -22,13 +22,8 @@
         filters: {
             fromDate: '',
             toDate: '',
-            partnerId: '',
             carrierId: '',
-            shipState: '',
             forControl: '',
-            deliveryType: '',
-            companyId: '',
-            cityCode: '',
             keyword: ''
         },
 
@@ -121,13 +116,8 @@
         const f = DeliveryReportState.filters;
         f.fromDate = document.getElementById('drFilterFromDate')?.value || '';
         f.toDate = document.getElementById('drFilterToDate')?.value || '';
-        f.partnerId = document.getElementById('drFilterPartner')?.value || '';
         f.carrierId = document.getElementById('drFilterCarrier')?.value || '';
-        f.shipState = document.getElementById('drFilterShipState')?.value || '';
         f.forControl = document.getElementById('drFilterForControl')?.value || '';
-        f.deliveryType = document.getElementById('drFilterDeliveryType')?.value || '';
-        f.companyId = document.getElementById('drFilterCompany')?.value || '';
-        f.cityCode = document.getElementById('drFilterCity')?.value || '';
         f.keyword = document.getElementById('drFilterKeyword')?.value?.trim() || '';
     }
 
@@ -147,13 +137,8 @@
                 // Apply to inputs
                 if (f.fromDate) document.getElementById('drFilterFromDate').value = f.fromDate;
                 if (f.toDate) document.getElementById('drFilterToDate').value = f.toDate;
-                if (f.partnerId) document.getElementById('drFilterPartner').value = f.partnerId;
                 if (f.carrierId) document.getElementById('drFilterCarrier').value = f.carrierId;
-                if (f.shipState) document.getElementById('drFilterShipState').value = f.shipState;
                 if (f.forControl) document.getElementById('drFilterForControl').value = f.forControl;
-                if (f.deliveryType) document.getElementById('drFilterDeliveryType').value = f.deliveryType;
-                if (f.companyId) document.getElementById('drFilterCompany').value = f.companyId;
-                if (f.cityCode) document.getElementById('drFilterCity').value = f.cityCode;
                 if (f.keyword) document.getElementById('drFilterKeyword').value = f.keyword;
             }
         } catch (e) { /* ignore */ }
@@ -230,8 +215,8 @@
 
             const result = await response.json();
             DeliveryReportState.allData = result.value || [];
-            DeliveryReportState.totalCount = DeliveryReportState.allData.length;
 
+            populateCarrierFilter();
             renderTable();
             renderStats();
             renderPagination();
@@ -279,13 +264,7 @@
             params.set('ToDate', new Date(f.toDate).toISOString());
         }
 
-        params.set('PartnerId', f.partnerId);
-        params.set('CarrierId', f.carrierId);
-        params.set('ShipState', f.shipState);
         params.set('ForControl', f.forControl);
-        params.set('DeliveryType', f.deliveryType);
-        params.set('CompanyId', f.companyId);
-        params.set('CityCode', f.cityCode);
         params.set('Q', f.keyword);
 
         // Fetch all data (client-side pagination)
@@ -299,6 +278,44 @@
     }
 
     // =====================================================
+    // POPULATE CARRIER FILTER FROM DATA
+    // =====================================================
+    function populateCarrierFilter() {
+        const select = document.getElementById('drFilterCarrier');
+        if (!select) return;
+
+        const currentValue = select.value;
+        const carriers = new Set();
+        (DeliveryReportState.allData || []).forEach(item => {
+            if (item.CarrierName) carriers.add(item.CarrierName);
+        });
+
+        const sorted = [...carriers].sort();
+        let html = '<option value="">Tất cả</option>';
+        sorted.forEach(name => {
+            html += `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`;
+        });
+        select.innerHTML = html;
+
+        // Restore selection if still valid
+        if (currentValue && carriers.has(currentValue)) {
+            select.value = currentValue;
+        }
+    }
+
+    // =====================================================
+    // CLIENT-SIDE FILTER (carrier)
+    // =====================================================
+    function getFilteredData() {
+        let data = DeliveryReportState.allData || [];
+        const carrier = DeliveryReportState.filters.carrierId;
+        if (carrier) {
+            data = data.filter(item => item.CarrierName === carrier);
+        }
+        return data;
+    }
+
+    // =====================================================
     // RENDER TABLE
     // =====================================================
     function renderTable() {
@@ -306,7 +323,8 @@
         const tfoot = document.getElementById('drTableFoot');
         if (!tbody) return;
 
-        const allData = DeliveryReportState.allData || [];
+        const allData = getFilteredData();
+        DeliveryReportState.totalCount = allData.length;
 
         if (!allData || allData.length === 0) {
             tbody.innerHTML = `<tr><td colspan="13" class="dr-empty"><i class="fas fa-inbox"></i>Không có dữ liệu</td></tr>`;
@@ -391,8 +409,8 @@
     // RENDER STATS
     // =====================================================
     function renderStats() {
-        const data = DeliveryReportState.allData || [];
-        const totalCount = DeliveryReportState.totalCount;
+        const data = getFilteredData();
+        const totalCount = data.length;
 
         let totalCOD = 0;
         let paidCount = 0;
@@ -596,8 +614,8 @@
         if (btn) { btn.disabled = true; btn.textContent = 'Đang xuất...'; }
 
         try {
-            // Use already-loaded allData
-            const items = DeliveryReportState.allData || [];
+            // Use filtered data
+            const items = getFilteredData();
 
             const wsData = [
                 ['#', 'Khách hàng', 'ĐT Khách hàng', 'Người nhận', 'ĐT Người nhận', 'Địa chỉ', 'Ngày hóa đơn', 'Số', 'Tổng tiền', 'Giao hàng thu tiền', 'Đối tác GH', 'Tiền ship', 'Khối lượng (g)', 'Mã vận đơn', 'Trạng thái GH', 'Đối soát GH']
@@ -650,8 +668,8 @@
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tra soát...';
 
         try {
-            // Use already-loaded allData
-            const items = DeliveryReportState.allData || [];
+            // Use filtered data
+            const items = getFilteredData();
 
             // Tính toán tra soát
             let totalCOD = 0, totalPaid = 0, totalReturn = 0, totalShipping = 0, totalFail = 0;
@@ -701,10 +719,29 @@
     window.DeliveryReport = {
         init: initDeliveryReport,
         search: () => {
+            const oldFromDate = DeliveryReportState.filters.fromDate;
+            const oldToDate = DeliveryReportState.filters.toDate;
+            const oldForControl = DeliveryReportState.filters.forControl;
+            const oldKeyword = DeliveryReportState.filters.keyword;
+
             DeliveryReportState.currentPage = 1;
             collectFilters();
             saveFiltersToStorage();
-            fetchData();
+
+            // Only re-fetch from API if date/forControl/keyword changed
+            const needRefetch = oldFromDate !== DeliveryReportState.filters.fromDate ||
+                oldToDate !== DeliveryReportState.filters.toDate ||
+                oldForControl !== DeliveryReportState.filters.forControl ||
+                oldKeyword !== DeliveryReportState.filters.keyword;
+
+            if (needRefetch || !DeliveryReportState.allData.length) {
+                fetchData();
+            } else {
+                // Carrier filter is client-side, just re-render
+                renderTable();
+                renderStats();
+                renderPagination();
+            }
         },
         goToPage: (page) => {
             const totalPages = Math.ceil(DeliveryReportState.totalCount / DeliveryReportState.pageSize);

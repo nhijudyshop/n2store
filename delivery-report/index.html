@@ -70,10 +70,8 @@
                         <input type="datetime-local" id="drFilterFromDate" />
                     </div>
                     <div class="dr-filter-row">
-                        <label for="drFilterPartner">Khách hàng</label>
-                        <select id="drFilterPartner">
-                            <option value="">Tất cả</option>
-                        </select>
+                        <label for="drFilterToDate">Ngày kết thúc</label>
+                        <input type="datetime-local" id="drFilterToDate" />
                     </div>
                     <div class="dr-filter-row">
                         <label for="drFilterCarrier">Đối tác giao hàng</label>
@@ -84,22 +82,6 @@
 
                     <!-- Row 2 -->
                     <div class="dr-filter-row">
-                        <label for="drFilterToDate">Ngày kết thúc</label>
-                        <input type="datetime-local" id="drFilterToDate" />
-                    </div>
-                    <div class="dr-filter-row">
-                        <label for="drFilterShipState">Trạng thái</label>
-                        <select id="drFilterShipState">
-                            <option value="">Tất cả</option>
-                            <option value="none">Chưa tiếp nhận</option>
-                            <option value="picking">Đang lấy hàng</option>
-                            <option value="shipping">Đang giao</option>
-                            <option value="done">Đã giao</option>
-                            <option value="returned">Trả hàng</option>
-                            <option value="cancel">Hủy</option>
-                        </select>
-                    </div>
-                    <div class="dr-filter-row">
                         <label for="drFilterForControl">Trạng thái đối soát</label>
                         <select id="drFilterForControl">
                             <option value="">Tất cả</option>
@@ -107,29 +89,7 @@
                             <option value="fail">Không thành công</option>
                         </select>
                     </div>
-
-                    <!-- Row 3 -->
                     <div class="dr-filter-row">
-                        <label for="drFilterDeliveryType">Loại đối tác giao hàng</label>
-                        <select id="drFilterDeliveryType">
-                            <option value="">Loại đối tác giao hàng</option>
-                        </select>
-                    </div>
-                    <div class="dr-filter-row">
-                        <label for="drFilterCompany">Công ty</label>
-                        <select id="drFilterCompany">
-                            <option value="">Tất cả</option>
-                        </select>
-                    </div>
-                    <div class="dr-filter-row">
-                        <label for="drFilterCity">Thành phố</label>
-                        <select id="drFilterCity">
-                            <option value="">Tỉnh/Thành</option>
-                        </select>
-                    </div>
-
-                    <!-- Row 4: Keyword -->
-                    <div class="dr-filter-row dr-filter-keyword">
                         <label for="drFilterKeyword">Từ khóa</label>
                         <input type="text" id="drFilterKeyword" placeholder="Mã vận đơn hoặc số hóa đơn" />
                     </div>
