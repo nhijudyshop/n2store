@@ -15,7 +15,7 @@
         data: [],
         totalCount: 0,
         currentPage: 1,
-        pageSize: 50,
+        pageSize: 200,
         isLoading: false,
 
         // Filter values
