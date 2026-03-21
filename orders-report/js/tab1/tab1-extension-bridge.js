@@ -215,40 +215,69 @@ async function sendViaExtension(text, conv) {
  */
 function buildConvData(pageId, psid) {
     const storedData = window.currentConversationData || {};
+    const rawFromMerge = storedData._raw || {};
+
+    // IMPORTANT: storedData IS the original conversation from the lookup API.
+    // It may have thread_id, page_customer at the TOP level (not inside _raw).
+    // _raw was set by _loadMessages() from the messages API response.
+    // We need to check BOTH levels.
+    if (!rawFromMerge.thread_id && storedData.thread_id) {
+        rawFromMerge.thread_id = storedData.thread_id;
+    }
+    if (!rawFromMerge.page_customer?.global_id && storedData.page_customer?.global_id) {
+        if (!rawFromMerge.page_customer) rawFromMerge.page_customer = {};
+        rawFromMerge.page_customer.global_id = storedData.page_customer.global_id;
+    }
+
     const conv = {
         pageId: pageId,
         psid: psid,
         conversationId: window.currentConversationId,
-        _raw: storedData._raw || {},
+        _raw: rawFromMerge,
         customers: storedData.customers || [],
-        _messagesData: { customers: storedData.customers || [] },
-        updated_at: null,
+        _messagesData: storedData._messagesData || { customers: storedData.customers || [] },
+        updated_at: storedData.updated_at || null,
         customerName: window.currentCustomerName || '',
-        type: 'INBOX'
+        type: storedData.type || window.currentConversationType || 'INBOX'
     };
 
-    // Merge from pancakeDataManager cache
+    // Merge from pancakeDataManager cache (additional source)
     if (window.pancakeDataManager?.inboxMapByPSID) {
         for (const [, cached] of window.pancakeDataManager.inboxMapByPSID) {
             if (cached.id === window.currentConversationId ||
                 (String(cached.pageId) === String(pageId) && String(cached.psid) === String(psid))) {
-                if (!conv._raw.page_customer && cached._raw?.page_customer) {
-                    conv._raw.page_customer = cached._raw.page_customer;
+                // Merge page_customer from cache
+                if (!conv._raw.page_customer?.global_id) {
+                    const cachedGlobalId = cached._raw?.page_customer?.global_id
+                        || cached.page_customer?.global_id;
+                    if (cachedGlobalId) {
+                        if (!conv._raw.page_customer) conv._raw.page_customer = {};
+                        conv._raw.page_customer.global_id = cachedGlobalId;
+                    }
                 }
-                if (!conv._raw.thread_id && cached._raw?.thread_id) {
-                    conv._raw.thread_id = cached._raw.thread_id;
+                // Merge thread_id from cache
+                if (!conv._raw.thread_id) {
+                    conv._raw.thread_id = cached._raw?.thread_id || cached.thread_id || null;
                 }
+                // Merge customers
                 if (cached.customers?.length && !conv.customers?.length) {
                     conv.customers = cached.customers;
                     conv._messagesData = { customers: cached.customers };
                 }
-                conv.updated_at = cached.updated_at;
+                if (!conv.updated_at) conv.updated_at = cached.updated_at;
                 conv.from = cached.from;
-                conv.type = cached.type || 'INBOX';
+                if (cached.type) conv.type = cached.type;
                 break;
             }
         }
     }
+
+    console.log('[EXT-SEND] buildConvData result:', {
+        thread_id: conv._raw.thread_id || null,
+        global_id: conv._raw.page_customer?.global_id || null,
+        customers_global_id: conv.customers?.[0]?.global_id || null,
+        messagesData_global_id: conv._messagesData?.customers?.[0]?.global_id || null,
+    });
 
     return conv;
 }

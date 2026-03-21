@@ -251,17 +251,42 @@ async function _loadMessages(pageId, conversationId, customerId) {
         const result = await pdm.fetchMessages(pageId, conversationId, null, customerId);
 
         // Store conversation data (for extension bypass - thread_id, global_id)
+        // IMPORTANT: Merge with existing data, don't overwrite.
+        // window.currentConversationData was set by _findAndLoadConversation()
+        // and may contain thread_id, page_customer from the conversations API.
+        // The messages API response may have different/additional data.
+        if (!window.currentConversationData) window.currentConversationData = {};
+        const existingData = window.currentConversationData;
+
         if (result.conversation) {
             const rc = result.conversation;
-            if (!window.currentConversationData) window.currentConversationData = {};
-            window.currentConversationData._raw = rc;
-            window.currentConversationData.customers = result.customers || [];
-            window.currentConversationData._messagesData = {
-                customers: result.customers || [],
-                post: result.post || null,
-                activities: result.activities || [],
-            };
+            // Merge _raw: keep existing fields, add new ones from messages API
+            if (!existingData._raw) existingData._raw = {};
+            Object.assign(existingData._raw, rc);
+
+            // Preserve thread_id from original conversation if messages API didn't provide it
+            if (!existingData._raw.thread_id && existingData.thread_id) {
+                existingData._raw.thread_id = existingData.thread_id;
+            }
+            // Preserve page_customer.global_id from original conversation
+            if (!existingData._raw.page_customer?.global_id && existingData.page_customer?.global_id) {
+                if (!existingData._raw.page_customer) existingData._raw.page_customer = {};
+                existingData._raw.page_customer.global_id = existingData.page_customer.global_id;
+            }
+
+            console.log('[Chat-Core] Merged conversation data:', {
+                thread_id: existingData._raw.thread_id || null,
+                global_id: existingData._raw.page_customer?.global_id || null,
+                customers_global_id: (result.customers || [])[0]?.global_id || null,
+            });
         }
+
+        existingData.customers = result.customers || existingData.customers || [];
+        existingData._messagesData = {
+            customers: result.customers || [],
+            post: result.post || null,
+            activities: result.activities || [],
+        };
 
         // Map messages
         const messages = (result.messages || []).map(msg => {
