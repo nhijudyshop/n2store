@@ -109,6 +109,17 @@ window.openCommentModal = function(orderId, pageId, psid) {
 };
 
 /**
+ * Show conversation picker (legacy compatibility)
+ * Old code showed a dropdown to pick INBOX/COMMENT first.
+ * New chat modal has built-in toggle, so just open INBOX directly.
+ * Called from tab1-table.js and tab1-encoding.js onclick handlers.
+ */
+window.showConversationPicker = function(orderId, pageId, psid, event) {
+    if (event) event.stopPropagation();
+    window.openChatModal(orderId, pageId, psid, 'INBOX');
+};
+
+/**
  * Close chat modal
  */
 window.closeChatModal = function() {
