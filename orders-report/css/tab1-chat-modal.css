@@ -349,24 +349,25 @@
 
 /* ===== Right Panel ===== */
 .chat-right-panel {
-    flex: 0 0 36%;
+    width: 36%;
     max-width: 480px;
     min-width: 300px;
     border-left: 1px solid #e5e7eb;
     display: flex;
     flex-direction: column;
     background: #fff;
-    overflow: hidden;
-    transition: flex 0.3s ease, min-width 0.3s ease, opacity 0.3s ease;
+    flex-shrink: 0;
+    transition: width 0.3s ease, min-width 0.3s ease, opacity 0.3s ease, border 0.3s ease;
 }
 
 .chat-right-panel.hidden {
-    flex: 0 0 0%;
+    width: 0;
     min-width: 0;
     max-width: 0;
     border-left: none;
     overflow: hidden;
     opacity: 0;
+    padding: 0;
 }
 
 /* Right Panel Tabs */
@@ -375,12 +376,13 @@
     border-bottom: 2px solid #f3f4f6;
     background: #fafafa;
     flex-shrink: 0;
-    padding: 0 4px;
+    padding: 0;
+    overflow: hidden;
 }
 
 .chat-right-tab {
-    flex: 1;
-    padding: 10px 2px;
+    flex: 1 1 0;
+    padding: 10px 6px;
     border: none;
     background: transparent;
     color: #6b7280;
@@ -394,8 +396,8 @@
     border-bottom: 2px solid transparent;
     margin-bottom: -2px;
     transition: all 0.15s;
+    white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis;
     min-width: 0;
 }
 
@@ -436,7 +438,6 @@
     flex-direction: column;
     flex: 1;
     min-height: 0;
-    overflow: hidden;
 }
 
 .chat-right-tab-content.active {
@@ -472,6 +473,7 @@
 .chat-product-list {
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: 8px 10px;
 }
 
@@ -1534,8 +1536,8 @@
 /* ===== Responsive ===== */
 @media (max-width: 1024px) {
     .chat-right-panel {
-        flex: 0 0 35%;
-        min-width: 260px;
+        width: 300px;
+        min-width: 280px;
     }
 
     .chat-qr-buttons {
