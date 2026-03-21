@@ -744,12 +744,13 @@
         }
     }
 
-    function setTab(tab) {
+    async function setTab(tab) {
         DeliveryReportState.activeTab = tab;
         DeliveryReportState.currentPage = 1;
         updateTabUI();
 
         if (tab === 'province' && DeliveryReportState.traSoatMode) {
+            await ensureProvinceGroups();
             renderProvinceView();
         } else {
             renderTable();
@@ -808,19 +809,33 @@
     }
 
     function getFirestoreDB() {
-        if (typeof firebase !== 'undefined' && firebase.firestore) {
+        // Use shared getFirestore() which handles initialization
+        if (typeof getFirestore === 'function') {
+            return getFirestore();
+        }
+        // Fallback: direct Firebase access
+        if (typeof firebase !== 'undefined' && firebase.apps && firebase.apps.length) {
             return firebase.firestore();
         }
+        // Last resort: try to initialize
+        if (typeof initializeFirestore === 'function') {
+            return initializeFirestore();
+        }
+        console.warn('[DELIVERY-REPORT] Firestore not available');
         return null;
     }
 
     async function loadProvinceGroups() {
         const db = getFirestoreDB();
-        if (!db) return {};
+        if (!db) {
+            console.warn('[DELIVERY-REPORT] No Firestore DB for loading province groups');
+            return {};
+        }
 
         try {
             const doc = await db.collection('delivery_report').doc('province_groups').get();
             if (doc.exists) {
+                console.log('[DELIVERY-REPORT] Loaded province groups from Firestore');
                 return doc.data().groups || {};
             }
         } catch (e) {
@@ -831,7 +846,10 @@
 
     async function saveProvinceGroups(groups) {
         const db = getFirestoreDB();
-        if (!db) return;
+        if (!db) {
+            console.warn('[DELIVERY-REPORT] No Firestore DB for saving province groups');
+            return;
+        }
 
         try {
             await db.collection('delivery_report').doc('province_groups').set({
@@ -889,6 +907,18 @@
         const provinceData = getTabFilteredData();
         const groups = DeliveryReportState.provinceGroups;
         const scanned = DeliveryReportState.scannedNumbers;
+
+        // Auto-assign items without group (fallback if ensureProvinceGroups didn't run)
+        const unassigned = provinceData.filter(item => !groups[item.Number]);
+        if (unassigned.length > 0) {
+            const shuffled = [...unassigned].sort(() => Math.random() - 0.5);
+            const tomatoCount = Math.max(1, Math.round(shuffled.length / 4));
+            shuffled.forEach((item, index) => {
+                groups[item.Number] = index < tomatoCount ? 'tomato' : 'nap';
+            });
+            // Save in background (don't await)
+            saveProvinceGroups(groups);
+        }
 
         const tomatoItems = provinceData.filter(item => groups[item.Number] === 'tomato');
         const napItems = provinceData.filter(item => groups[item.Number] === 'nap');
