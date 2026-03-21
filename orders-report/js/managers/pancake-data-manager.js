@@ -1357,8 +1357,18 @@ class PancakeDataManager {
             }
             console.log(`[PANCAKE] Fetched ${data.messages?.length || 0} messages`);
 
+            // Debug: log global_id sources from API response
+            const _conv = data.conversation || {};
+            const _custs = data.customers || data.conv_customers || [];
+            console.log('[PANCAKE] globalUserId sources:', {
+                'conversation.page_customer.global_id': _conv.page_customer?.global_id || null,
+                'conversation.thread_id': _conv.thread_id || null,
+                'customers[0].global_id': _custs[0]?.global_id || null,
+                'customers.length': _custs.length,
+            });
+
             // Extract customer_id from customers array if available
-            const customers = data.customers || data.conv_customers || [];
+            const customers = _custs;
             const extractedCustomerId = customers.length > 0 ? customers[0].id : null;
             if (extractedCustomerId) {
                 console.log(`[PANCAKE] ✅ Extracted customer_id from response: ${extractedCustomerId}`);
