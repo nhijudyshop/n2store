@@ -2,9 +2,9 @@
  * Fulfillment Data Module (Shared)
  * Loaded in main.html, accessible from all iframes via window.parent.FulfillmentData
  *
- * v4: invoice_status_v2 data is synced FROM InvoiceStatusStore (iframe) via syncFromStore().
- *     Only invoice_status_delete_v2 is loaded directly from Firestore.
- *     This eliminates duplicate Firestore reads (was loading invoice_status_v2 twice).
+ * v5: All data comes from PostgreSQL API (no more Firestore dependency).
+ *     invoice_status data is synced FROM InvoiceStatusStore (iframe) via syncFromStore().
+ *     invoice_status_delete data is loaded from API.
  *
  * invoiceStatusMap: Map<SaleOnlineId, Array<entry>> (grouped by SaleOnlineId)
  * invoiceDeleteMap: Map<SaleOnlineId, Array<entry>> (cancel entries)
@@ -13,13 +13,12 @@
 (function () {
     'use strict';
 
-    const DELETE_COLLECTION = 'invoice_status_delete_v2';
+    const DELETE_API_BASE = (window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev') + '/api/invoice-status/delete';
 
     // Maps: SaleOnlineId -> Array of invoice entries / cancel entries
     let invoiceStatusMap = new Map(); // SaleOnlineId -> Array of create entries (synced from InvoiceStatusStore)
-    let invoiceDeleteMap = new Map(); // SaleOnlineId -> Array of cancel entries (from Firestore)
+    let invoiceDeleteMap = new Map(); // SaleOnlineId -> Array of cancel entries (from API)
     let _initialized = false;
-    let _unsubscribeDelete = null;
     let _onChangeCallbacks = [];
 
     // =====================================================
@@ -41,68 +40,42 @@
     }
 
     // =====================================================
-    // LOAD FROM FIRESTORE (only delete collection)
+    // LOAD FROM API (delete entries)
     // Invoice status data comes from InvoiceStatusStore via syncFromStore()
     // =====================================================
 
     async function _loadInvoiceDeletes() {
-        const db = firebase.firestore();
+        try {
+            const response = await fetch(`${DELETE_API_BASE}/load`);
+            if (!response.ok) throw new Error(`API load failed: ${response.status}`);
 
-        invoiceDeleteMap.clear();
+            const result = await response.json();
+            if (!result.success) throw new Error(result.error || 'Load failed');
 
-        const processEntries = (data) => {
-            if (!data) return;
-            const entries = Array.isArray(data) ? data : Object.entries(data);
-            entries.forEach(([key, value]) => {
-                const saleOnlineId = String(value.SaleOnlineId || '');
+            invoiceDeleteMap.clear();
+            (result.entries || []).forEach(row => {
+                const saleOnlineId = String(row.sale_online_id || '');
                 if (!saleOnlineId) return;
                 if (!invoiceDeleteMap.has(saleOnlineId)) {
                     invoiceDeleteMap.set(saleOnlineId, []);
                 }
+                const value = {
+                    SaleOnlineId: saleOnlineId,
+                    cancelReason: row.cancel_reason,
+                    deletedAt: parseInt(row.deleted_at) || 0,
+                    deletedBy: row.deleted_by,
+                    deletedByDisplayName: row.deleted_by_display_name,
+                    isOldVersion: row.is_old_version || false,
+                    hidden: row.hidden || false,
+                    ...(row.invoice_data || {}),
+                };
                 invoiceDeleteMap.get(saleOnlineId).push(value);
             });
-        };
 
-        // Load ALL documents from all users
-        const snapshot = await db.collection(DELETE_COLLECTION).get();
-        snapshot.forEach((doc) => {
-            const firestoreData = doc.data();
-            processEntries(firestoreData.data);
-        });
-
-        console.log(`[FULFILLMENT] Loaded delete entries for ${invoiceDeleteMap.size} orders`);
-    }
-
-    // =====================================================
-    // REAL-TIME LISTENERS
-    // =====================================================
-
-    function _setupListeners() {
-        const db = firebase.firestore();
-
-        // invoice_status_v2 listener REMOVED - data comes from InvoiceStatusStore via syncFromStore()
-        // This eliminates duplicate Firestore reads (saves ~50% Firestore bandwidth)
-
-        // Listener for invoice_status_delete_v2 - ALL users
-        _unsubscribeDelete = db.collection(DELETE_COLLECTION).onSnapshot((snapshot) => {
-            if (!_initialized) return;
-            invoiceDeleteMap.clear();
-            snapshot.forEach((doc) => {
-                const firestoreData = doc.data();
-                if (firestoreData.data) {
-                    const entries = Object.entries(firestoreData.data);
-                    entries.forEach(([key, value]) => {
-                        const saleOnlineId = String(value.SaleOnlineId || '');
-                        if (!saleOnlineId) return;
-                        if (!invoiceDeleteMap.has(saleOnlineId)) {
-                            invoiceDeleteMap.set(saleOnlineId, []);
-                        }
-                        invoiceDeleteMap.get(saleOnlineId).push(value);
-                    });
-                }
-            });
-            _notifyChange();
-        });
+            console.log(`[FULFILLMENT] Loaded delete entries for ${invoiceDeleteMap.size} orders`);
+        } catch (e) {
+            console.error('[FULFILLMENT] Error loading delete entries:', e);
+        }
     }
 
     function _notifyChange() {
@@ -121,20 +94,14 @@
 
     const FulfillmentData = {
         /**
-         * Initialize: load delete data from Firestore and setup listener.
+         * Initialize: load delete data from API.
          * Invoice status data comes from InvoiceStatusStore via syncFromStore().
          */
         async init() {
             if (_initialized) return;
             try {
-                if (typeof firebase === 'undefined' || !firebase.firestore) {
-                    console.warn('[FULFILLMENT] Firebase not available, skipping init');
-                    return;
-                }
-                // Only load deletes from Firestore; invoice status comes via syncFromStore()
                 await _loadInvoiceDeletes();
                 _initialized = true;
-                _setupListeners();
                 console.log(
                     '[FULFILLMENT] Initialized (delete data loaded, awaiting invoice status sync)'
                 );
@@ -239,8 +206,7 @@
 
         /**
          * Sync invoice status data from InvoiceStatusStore (iframe).
-         * Replaces the old duplicate Firestore load for invoice_status_v2.
-         * Called by InvoiceStatusStore._syncToFulfillmentData() after init and real-time changes.
+         * Called by InvoiceStatusStore._syncToFulfillmentData() after init and reload.
          * @param {Object} groupedData - Plain object { SaleOnlineId: Array<entry> } (cross-frame safe)
          */
         syncFromStore(groupedData) {
@@ -268,7 +234,7 @@
         },
 
         /**
-         * Inject invoice entries directly (bypass Firestore delay)
+         * Inject invoice entries directly (bypass API delay)
          * Called by InvoiceStatusStore after batch order creation
          * v3: Pushes into arrays grouped by SaleOnlineId (avoids overwriting previous entries)
          * @param {Array<{saleOnlineId: string, data: Object}>} entries

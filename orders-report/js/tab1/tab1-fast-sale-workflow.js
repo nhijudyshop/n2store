@@ -15,70 +15,35 @@
     // =====================================================
     // INVOICE STATUS DELETE STORE
     // Lưu trữ thông tin đơn hủy với lý do
-    // Uses BaseStore internally for core data management
+    // Persists to PostgreSQL via REST API
     // =====================================================
 
-    const DELETE_STORAGE_KEY = 'invoiceStatusDelete_v2';
-    const DELETE_FIRESTORE_COLLECTION = 'invoice_status_delete_v2';
-    const DELETE_MAX_AGE_DAYS = 60; // Auto cleanup after 60 days
-
-    const _deleteBaseStore = new BaseStore({
-        collectionPath: DELETE_FIRESTORE_COLLECTION,
-        localStorageKey: DELETE_STORAGE_KEY,
-        maxLocalAge: DELETE_MAX_AGE_DAYS * 24 * 60 * 60 * 1000,
-    });
+    const DELETE_API_BASE = (window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev') + '/api/invoice-status/delete';
 
     const InvoiceStatusDeleteStore = {
-        /** @returns {Map} Internal data map (delegated to BaseStore) */
-        get _data() {
-            return _deleteBaseStore._data;
-        },
-        set _data(val) {
-            _deleteBaseStore._data = val;
-        },
-
-        /** @returns {boolean} Whether store is initialized (delegated to BaseStore) */
-        get _initialized() {
-            return _deleteBaseStore._initialized;
-        },
-        set _initialized(val) {
-            _deleteBaseStore._initialized = val;
-        },
-
-        /** @returns {Function|null} Firestore listener unsubscribe (delegated to BaseStore) */
-        get _unsubscribe() {
-            return _deleteBaseStore._unsubscribe;
-        },
-        set _unsubscribe(val) {
-            _deleteBaseStore._unsubscribe = val;
-        },
-
-        _isListening: false, // Flag to prevent save loops when receiving updates
+        _data: new Map(),
+        _initialized: false,
 
         /**
-         * Initialize store from Firestore (source of truth)
-         * Firebase là source of truth - localStorage chỉ là cache
+         * Get current username for API calls
+         */
+        _getUsername() {
+            const authData =
+                window.authManager?.getAuthData?.() || window.authManager?.getAuthState?.();
+            const userType = authData?.userType || localStorage.getItem('userType') || '';
+            return authData?.username || userType.split('-')[0] || 'default';
+        },
+
+        /**
+         * Initialize store from PostgreSQL API
          */
         async init() {
             if (this._initialized) return;
 
             try {
-                // 1. Load from Firestore (sole source of truth - no localStorage cache)
-                const loadedFromFirestore = await this._loadFromFirestore();
-
-                if (!loadedFromFirestore) {
-                    console.warn(
-                        '[INVOICE-DELETE] Offline - Firestore unavailable, store is empty'
-                    );
-                }
-
-                // 3. Cleanup old entries (>14 days) - delegate to BaseStore
-                _deleteBaseStore._cleanupOldEntries();
-
+                await this._loadFromAPI();
                 this._initialized = true;
-
-                // 4. Setup real-time listener for add/delete from other devices
-                this._setupRealtimeListener();
+                console.log(`[INVOICE-DELETE] Store initialized with ${this._data.size} entries`);
             } catch (e) {
                 console.error('[INVOICE-DELETE] Error initializing store:', e);
                 this._initialized = true;
@@ -86,248 +51,99 @@
         },
 
         /**
-         * Get Firestore doc reference
+         * Load from API (source of truth)
          */
-        _getDocRef() {
-            const db = firebase.firestore();
-            // Get username from authManager or fallback to localStorage
-            const authData =
-                window.authManager?.getAuthData?.() || window.authManager?.getAuthState?.();
-            const userType = authData?.userType || localStorage.getItem('userType') || '';
-            const username = authData?.username || userType.split('-')[0] || 'default';
-            console.log(
-                `[INVOICE-DELETE] Using Firestore doc: ${DELETE_FIRESTORE_COLLECTION}/${username}`
-            );
-            return db.collection(DELETE_FIRESTORE_COLLECTION).doc(username);
-        },
-
-        /**
-         * Save only to localStorage (extends BaseStore's format)
-         */
-        _saveToLocalStorage() {
+        async _loadFromAPI() {
             try {
-                localStorage.setItem(
-                    DELETE_STORAGE_KEY,
-                    JSON.stringify({
-                        data: Array.from(this._data.entries()),
-                        timestamp: Date.now(),
-                        version: 1,
-                    })
-                );
-                console.log(`[INVOICE-DELETE] Saved to localStorage: ${this._data.size} entries`);
-            } catch (e) {
-                console.error('[INVOICE-DELETE] Error saving to localStorage:', e);
-            }
-        },
+                console.log('[INVOICE-DELETE] Loading from API...');
+                const response = await fetch(`${DELETE_API_BASE}/load`);
+                if (!response.ok) throw new Error(`API load failed: ${response.status}`);
 
-        /**
-         * Load from Firestore (source of truth) - THAY THẾ toàn bộ _data
-         * @returns {boolean} true nếu load thành công từ Firestore
-         */
-        async _loadFromFirestore() {
-            try {
-                const docRef = this._getDocRef();
-                const doc = await docRef.get();
+                const result = await response.json();
+                if (!result.success) throw new Error(result.error || 'Load failed');
 
-                // CLEAR old data - Firestore là source of truth
                 this._data.clear();
+                (result.entries || []).forEach(row => {
+                    const key = row.compound_key;
+                    const value = {
+                        SaleOnlineId: row.sale_online_id,
+                        cancelReason: row.cancel_reason,
+                        deletedAt: parseInt(row.deleted_at) || 0,
+                        deletedBy: row.deleted_by,
+                        deletedByDisplayName: row.deleted_by_display_name,
+                        isOldVersion: row.is_old_version || false,
+                        hidden: row.hidden || false,
+                        ...(row.invoice_data || {}),
+                    };
+                    this._data.set(key, value);
+                });
 
-                if (doc.exists) {
-                    const firestoreData = doc.data();
-                    if (firestoreData.data) {
-                        const entries = Object.entries(firestoreData.data);
-                        entries.forEach(([key, value]) => {
-                            this._data.set(key, value);
-                        });
-                    }
-                }
-
-                console.log(
-                    `[INVOICE-DELETE] Loaded ${this._data.size} entries from Firestore (source of truth)`
-                );
+                console.log(`[INVOICE-DELETE] Loaded ${this._data.size} entries from API`);
                 return true;
             } catch (e) {
-                console.error('[INVOICE-DELETE] Error loading from Firestore:', e);
-                return false; // Signal để fallback về localStorage
+                console.error('[INVOICE-DELETE] API load error:', e);
+                return false;
             }
         },
 
         /**
-         * Remove undefined values from object (Firestore doesn't accept undefined)
-         */
-        _cleanForFirestore(obj) {
-            if (obj === null || typeof obj !== 'object') return obj;
-            if (Array.isArray(obj)) {
-                return obj
-                    .map((item) => this._cleanForFirestore(item))
-                    .filter((item) => item !== undefined);
-            }
-            const cleaned = {};
-            for (const [key, value] of Object.entries(obj)) {
-                if (value !== undefined) {
-                    cleaned[key] = this._cleanForFirestore(value);
-                }
-            }
-            return cleaned;
-        },
-
-        /**
-         * Save to Firestore (sole source of truth)
-         */
-        async _save() {
-            try {
-                // Skip Firestore save if currently receiving real-time updates (avoid infinite loops)
-                if (this._isListening) {
-                    console.log(
-                        `[INVOICE-DELETE] Skipping Firestore save (receiving real-time updates)`
-                    );
-                    return;
-                }
-
-                // Sync to Firestore (if Firebase is available)
-                // Uses merge:true for add/update, delete uses FieldValue.delete() separately
-                if (typeof firebase !== 'undefined' && firebase.firestore) {
-                    const docRef = this._getDocRef();
-                    console.log(
-                        `[INVOICE-DELETE] Saving to Firestore collection: ${DELETE_FIRESTORE_COLLECTION}`
-                    );
-                    // Clean data to remove undefined values (Firestore doesn't accept them)
-                    const dataObj = Object.fromEntries(this._data);
-                    const cleanedData = this._cleanForFirestore(dataObj);
-                    await docRef.set(
-                        { data: cleanedData, lastUpdated: Date.now() },
-                        { merge: true }
-                    );
-                    console.log(`[INVOICE-DELETE] Synced to Firestore successfully`);
-                } else {
-                    console.warn(
-                        '[INVOICE-DELETE] Firebase not available, skipping Firestore sync'
-                    );
-                }
-            } catch (e) {
-                console.error('[INVOICE-DELETE] Error saving:', e);
-            }
-        },
-
-        /**
-         * Setup real-time listener for add/delete operations from other devices
-         */
-        _setupRealtimeListener() {
-            // Don't setup if already listening
-            if (this._unsubscribe) {
-                console.log('[INVOICE-DELETE] Real-time listener already active');
-                return;
-            }
-
-            console.log('[INVOICE-DELETE] Setting up real-time listener...');
-            this._unsubscribe = this._getDocRef().onSnapshot(
-                (doc) => {
-                    this._handleDocSnapshot(doc);
-                },
-                (error) => {
-                    console.error('[INVOICE-DELETE] Real-time listener error:', error);
-                }
-            );
-        },
-
-        /**
-         * Handle document snapshot from real-time listener
-         * @param {firebase.firestore.DocumentSnapshot} doc
-         */
-        _handleDocSnapshot(doc) {
-            // Skip the initial snapshot (we already loaded data in init)
-            if (!this._initialized) return;
-
-            // Set flag to prevent save loops
-            this._isListening = true;
-
-            let hasChanges = false;
-
-            if (doc.exists) {
-                const firestoreData = doc.data();
-
-                // Update entries from Firestore
-                if (firestoreData.data) {
-                    const entries = Object.entries(firestoreData.data);
-                    entries.forEach(([key, value]) => {
-                        const existingEntry = this._data.get(key);
-                        // Only update if entry doesn't exist locally or server data is newer
-                        if (
-                            !existingEntry ||
-                            (value.deletedAt && value.deletedAt > (existingEntry.deletedAt || 0))
-                        ) {
-                            this._data.set(key, value);
-                            hasChanges = true;
-                            console.log(`[INVOICE-DELETE] Real-time: Entry ${key} added/updated`);
-                        }
-                    });
-
-                    // Check for deleted entries (entries in local but not in server)
-                    // Note: Only sync deletes if the server entry is completely gone
-                    const serverKeys = new Set(Object.keys(firestoreData.data));
-                    this._data.forEach((value, key) => {
-                        if (!serverKeys.has(key)) {
-                            this._data.delete(key);
-                            hasChanges = true;
-                            console.log(
-                                `[INVOICE-DELETE] Real-time: Entry ${key} removed (deleted on server)`
-                            );
-                        }
-                    });
-                }
-            }
-
-            if (hasChanges) {
-                console.log('[INVOICE-DELETE] Real-time: data updated from Firestore');
-            }
-
-            // Reset flag
-            this._isListening = false;
-        },
-
-        /**
-         * Destroy real-time listener and cleanup (delegates to BaseStore)
-         * Call this when the page is unloaded or the store is no longer needed
+         * Cleanup store resources
          */
         destroy() {
-            _deleteBaseStore.destroy();
-            console.log('[INVOICE-DELETE] Store destroyed (via BaseStore)');
+            this._data.clear();
+            this._initialized = false;
+            console.log('[INVOICE-DELETE] Store destroyed');
         },
 
         /**
          * Add a cancelled order with reason
-         * IMPORTANT: Does NOT overwrite existing entries - creates unique key with timestamp
          * @param {string} saleOnlineId - SaleOnline order ID
          * @param {object} invoiceData - Full invoice data from invoiceStatusStore
          * @param {string} reason - Cancellation reason
          */
         async add(saleOnlineId, invoiceData, reason) {
-            // Generate unique key: saleOnlineId_timestamp to avoid overwriting duplicates
             const timestamp = Date.now();
             const key = `${String(saleOnlineId)}_${timestamp}`;
 
-            // Get username from authManager
             const authData =
                 window.authManager?.getAuthData?.() || window.authManager?.getAuthState?.();
             const username =
                 authData?.username ||
                 (authData?.userType ? authData.userType.split('-')[0] : 'unknown');
-            // Get displayName from Firebase users collection (same as currentUserIdentifier)
             const displayName = window.currentUserIdentifier || username;
 
             const entry = {
                 ...invoiceData,
-                SaleOnlineId: String(saleOnlineId), // Store original ID for reference
+                SaleOnlineId: String(saleOnlineId),
                 cancelReason: reason,
                 deletedAt: timestamp,
                 deletedBy: username,
-                deletedByDisplayName: displayName, // Tên hiển thị từ Firebase (VD: "HẠNH", "HUYÊN")
-                isOldVersion: false, // Đánh dấu version mới
-                hidden: false, // Trạng thái ẩn/hiện - mặc định là hiện
+                deletedByDisplayName: displayName,
+                isOldVersion: false,
+                hidden: false,
             };
 
             this._data.set(key, entry);
-            await this._save();
+
+            // Save to API
+            try {
+                await fetch(`${DELETE_API_BASE}/entries`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        compoundKey: key,
+                        username,
+                        saleOnlineId: String(saleOnlineId),
+                        cancelReason: reason,
+                        deletedAt: timestamp,
+                        deletedBy: username,
+                        deletedByDisplayName: displayName,
+                        invoiceData: invoiceData || {},
+                    }),
+                });
+            } catch (e) {
+                console.error('[INVOICE-DELETE] API save error:', e);
+            }
 
             console.log(
                 `[INVOICE-DELETE] Added cancelled order: ${saleOnlineId} (key: ${key}), reason: ${reason}`
@@ -349,7 +165,16 @@
 
             entry.hidden = !entry.hidden;
             this._data.set(key, entry);
-            await this._save();
+
+            try {
+                await fetch(`${DELETE_API_BASE}/entries/${encodeURIComponent(key)}/toggle-hidden`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ hidden: entry.hidden }),
+                });
+            } catch (e) {
+                console.error('[INVOICE-DELETE] API toggle-hidden error:', e);
+            }
 
             console.log(`[INVOICE-DELETE] Toggled hidden for ${key}: ${entry.hidden}`);
             return entry.hidden;
@@ -365,33 +190,18 @@
                 return false;
             }
 
-            // Remove from local _data
             this._data.delete(key);
 
-            // Delete specific field from Firestore using FieldValue.delete()
             try {
-                if (typeof firebase !== 'undefined' && firebase.firestore) {
-                    await this._getDocRef().update({
-                        [`data.${key}`]: firebase.firestore.FieldValue.delete(),
-                        lastUpdated: Date.now(),
-                    });
-                    console.log(`[INVOICE-DELETE] Deleted entry from Firestore: ${key}`);
-                }
+                await fetch(`${DELETE_API_BASE}/entries/${encodeURIComponent(key)}`, {
+                    method: 'DELETE',
+                });
+                console.log(`[INVOICE-DELETE] Deleted entry from API: ${key}`);
             } catch (e) {
-                console.error('[INVOICE-DELETE] Firestore delete error:', e);
-                // Fallback: save entire document if update fails
-                await this._save();
+                console.error('[INVOICE-DELETE] API delete error:', e);
             }
 
             return true;
-        },
-
-        /**
-         * localStorage cache removed - Firestore is sole source of truth.
-         * Kept as no-op to avoid breaking callers.
-         */
-        _saveToLocalStorage() {
-            // No-op: Firestore is source of truth, localStorage no longer used
         },
 
         /**
@@ -402,40 +212,12 @@
         },
 
         /**
-         * Cleanup old entries (delegates to BaseStore's _cleanupOldEntries)
-         * BaseStore checks both `timestamp` and `lastUpdated` fields;
-         * InvoiceStatusDeleteStore entries use `deletedAt` as their timestamp,
-         * so we also handle that here for entries that only have `deletedAt`.
+         * Reload data from API (manual refresh)
          */
-        async cleanup() {
-            const now = Date.now();
-            const maxAge = DELETE_MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
-
-            // First, let BaseStore handle entries with standard timestamp/lastUpdated
-            _deleteBaseStore._cleanupOldEntries();
-
-            // Then handle entries that only have deletedAt (custom to this store)
-            let removed = 0;
-            const keysToRemove = [];
-            this._data.forEach((value, key) => {
-                if (
-                    value.deletedAt &&
-                    !value.timestamp &&
-                    !value.lastUpdated &&
-                    now - value.deletedAt > maxAge
-                ) {
-                    keysToRemove.push(key);
-                    removed++;
-                }
-            });
-            keysToRemove.forEach((key) => this._data.delete(key));
-
-            if (removed > 0) {
-                console.log(
-                    `[INVOICE-DELETE] Cleaned up ${removed} old entries (>${DELETE_MAX_AGE_DAYS} days)`
-                );
-                await this._save();
-            }
+        async reload() {
+            this._data.clear();
+            await this._loadFromAPI();
+            console.log(`[INVOICE-DELETE] Reloaded ${this._data.size} entries from API`);
         },
     };
 

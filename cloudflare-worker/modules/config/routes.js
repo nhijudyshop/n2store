@@ -50,6 +50,9 @@ export const ROUTES = {
     CHAT: { pattern: '/api/chat/*' },
     CUSTOMERS: { pattern: '/api/customers/*' },
 
+    // Invoice Status (PostgreSQL - replaces Firestore)
+    INVOICE_STATUS: { pattern: '/api/invoice-status/*' },
+
     // Customer 360 v2 (NEW - unified API)
     CUSTOMERS_V2: { pattern: '/api/v2/customers/*' },
     WALLETS_V2: { pattern: '/api/v2/wallets/*' },
@@ -97,6 +100,7 @@ export function matchRoute(pathname) {
 
     if (pathname.startsWith('/api/rest/')) return 'TPOS_REST';
 
+    if (pathname.startsWith('/api/invoice-status/')) return 'INVOICE_STATUS';
     if (pathname.startsWith('/api/sepay/')) return 'SEPAY';
     if (pathname.startsWith('/api/realtime/')) return 'REALTIME';
     if (pathname.startsWith('/api/chat/')) return 'CHAT';

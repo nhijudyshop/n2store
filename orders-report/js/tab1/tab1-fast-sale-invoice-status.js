@@ -19,7 +19,7 @@
     // =====================================================
 
     const STORAGE_KEY = 'invoiceStatusStore_v2';
-    const FIRESTORE_COLLECTION = 'invoice_status_v2';
+    const API_BASE = (window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev') + '/api/invoice-status';
 
     /**
      * Extract SaleOnlineId from a compound key or legacy flat key.
@@ -125,75 +125,30 @@
 
     /**
      * InvoiceStatusStore - Manages invoice status data
-     * Syncs to Firestore for persistence across devices
+     * Persists to PostgreSQL via REST API
      *
-     * Uses BaseStore internally for core data management (localStorage caching, cleanup).
-     * Custom Firestore logic (admin vs normal user, sentBills, debounced save) is kept here.
+     * Persists to PostgreSQL via REST API (no more Firestore dependency).
      */
-    const _invoiceBaseStore = new BaseStore({
-        collectionPath: FIRESTORE_COLLECTION,
-        localStorageKey: STORAGE_KEY,
-        maxLocalAge: MAX_AGE_DAYS * 24 * 60 * 60 * 1000,
-    });
-
     const InvoiceStatusStore = {
-        /** @returns {Map} Internal data map (delegated to BaseStore) */
-        get _data() {
-            return _invoiceBaseStore._data;
-        },
-        set _data(val) {
-            _invoiceBaseStore._data = val;
-        },
-
+        _data: new Map(),
         _sentBills: new Set(),
-        _myKeys: new Set(), // Keys that belong to the current user (for saving)
-        _pendingKeys: new Set(), // Keys added locally but not yet saved to Firestore
-        /** @returns {boolean} Whether store is initialized (delegated to BaseStore) */
-        get _initialized() {
-            return _invoiceBaseStore._initialized;
-        },
-        set _initialized(val) {
-            _invoiceBaseStore._initialized = val;
-        },
-
-        _syncTimeout: null,
-        /** @returns {Function|null} Firestore listener unsubscribe (delegated to BaseStore) */
-        get _unsubscribe() {
-            return _invoiceBaseStore._unsubscribe;
-        },
-        set _unsubscribe(val) {
-            _invoiceBaseStore._unsubscribe = val;
-        },
-
-        _isListening: false, // Flag to prevent save loops when receiving updates
+        _myKeys: new Set(),
+        _initialized: false,
+        _batchMode: false, // When true, set() skips API save (for batch operations)
 
         /**
-         * Initialize store from Firestore (source of truth)
-         * Firebase là source of truth - localStorage chỉ là cache
+         * Initialize store from PostgreSQL API (source of truth)
          */
         async init() {
             if (this._initialized) return;
 
             try {
-                // 1. Load from Firestore (sole source of truth - no localStorage cache)
-                const loadedFromFirestore = await this._loadFromFirestore();
-
-                if (!loadedFromFirestore) {
-                    console.warn(
-                        '[INVOICE-STATUS] Offline - Firestore unavailable, store is empty'
-                    );
-                }
-
-                // 2. Cleanup old entries (delegated to BaseStore)
-                _invoiceBaseStore._cleanupOldEntries();
+                await this._loadFromAPI();
 
                 this._initialized = true;
                 console.log(`[INVOICE-STATUS] Store initialized with ${this._data.size} entries`);
 
-                // 3. Setup real-time listener for add/delete from other devices
-                this._setupRealtimeListener();
-
-                // 4. Re-render all invoice status cells after init (fix: cells showed "−" during Firestore load)
+                // Re-render all invoice status cells after init
                 if (this._data.size > 0) {
                     const allKeys = [];
                     this._data.forEach((value, key) => {
@@ -203,9 +158,8 @@
                     this._refreshInvoiceStatusUI(allKeys);
                 }
 
-                // 5. Sync to FulfillmentData in parent frame (always, even if empty)
+                // Sync to FulfillmentData in parent frame
                 this._syncToFulfillmentData();
-                // Retry sync after short delay (in case FulfillmentData not ready yet)
                 setTimeout(() => this._syncToFulfillmentData(), 2000);
             } catch (e) {
                 console.error('[INVOICE-STATUS] Error initializing store:', e);
@@ -214,409 +168,148 @@
         },
 
         /**
-         * Get Firestore doc reference - uses username for cross-device sync
+         * Get current username for API calls
          */
-        _getDocRef() {
-            const db = firebase.firestore();
-            // Get username from authManager or fallback to localStorage
+        _getUsername() {
             const authState = window.authManager?.getAuthState();
             const userType = authState?.userType || localStorage.getItem('userType') || '';
-            const username = authState?.username || userType.split('-')[0] || 'default';
-            return db.collection(FIRESTORE_COLLECTION).doc(username);
+            return authState?.username || userType.split('-')[0] || 'default';
         },
 
         /**
-         * Check if current user is admin
+         * Load from PostgreSQL API (source of truth)
+         * Replaces _loadFromFirestore - loads all entries + sentBills
          */
-        _isAdmin() {
-            const authState = window.authManager?.getAuthState();
-            const userType = authState?.userType || localStorage.getItem('userType') || '';
-            return userType === 'admin-admin@@' || userType.split('-')[0] === 'admin';
-        },
-
-        /**
-         * Load from Firestore (source of truth) - THAY THẾ toàn bộ _data
-         * Admin loads ALL users' data, normal users load only their own
-         * @returns {boolean} true nếu load thành công từ Firestore
-         */
-        async _loadFromFirestore() {
+        async _loadFromAPI() {
             try {
-                // Get current username to track own keys
-                const authState = window.authManager?.getAuthState();
-                const userType = authState?.userType || localStorage.getItem('userType') || '';
-                const myUsername = authState?.username || userType.split('-')[0] || 'default';
+                const myUsername = this._getUsername();
+                console.log('[INVOICE-STATUS] Loading from API...');
 
-                // Load ALL documents from invoice_status collection (all users)
-                console.log('[INVOICE-STATUS] Loading ALL users data from Firestore...');
-                const db = firebase.firestore();
-                const snapshot = await db.collection(FIRESTORE_COLLECTION).get();
+                const response = await fetch(`${API_BASE}/load`);
+                if (!response.ok) throw new Error(`API load failed: ${response.status}`);
 
-                // Build new data in temp collections first (don't clear until load succeeds)
-                const newData = new Map();
-                const newSentBills = new Set();
-                const newMyKeys = new Set();
+                const result = await response.json();
+                if (!result.success) throw new Error(result.error || 'Load failed');
 
-                let totalEntries = 0;
-                snapshot.forEach((doc) => {
-                    const firestoreData = doc.data();
-                    const isMyDoc = doc.id === myUsername;
+                this._data.clear();
+                this._sentBills = new Set();
+                this._myKeys = new Set();
 
-                    // Load data từ Firestore (REPLACE, not merge)
-                    if (firestoreData.data) {
-                        const entries = Array.isArray(firestoreData.data)
-                            ? firestoreData.data
-                            : Object.entries(firestoreData.data);
-                        entries.forEach(([key, value]) => {
-                            newData.set(key, value);
-                            totalEntries++;
-                            // Track keys that belong to the current user
-                            if (isMyDoc) {
-                                newMyKeys.add(key);
-                            }
-                        });
-                    }
-
-                    // Load sent bills
-                    if (firestoreData.sentBills && Array.isArray(firestoreData.sentBills)) {
-                        firestoreData.sentBills.forEach((id) => newSentBills.add(id));
+                // Populate Map from DB rows
+                (result.entries || []).forEach(row => {
+                    const key = row.compound_key;
+                    const value = {
+                        SaleOnlineId: row.sale_online_id,
+                        Id: row.tpos_id,
+                        Number: row.number,
+                        Reference: row.reference,
+                        State: row.state,
+                        ShowState: row.show_state,
+                        StateCode: row.state_code,
+                        IsMergeCancel: row.is_merge_cancel,
+                        PartnerId: row.partner_id,
+                        PartnerDisplayName: row.partner_display_name,
+                        AmountTotal: parseFloat(row.amount_total) || 0,
+                        AmountUntaxed: parseFloat(row.amount_untaxed) || 0,
+                        DeliveryPrice: parseFloat(row.delivery_price) || 0,
+                        CashOnDelivery: parseFloat(row.cash_on_delivery) || 0,
+                        PaymentAmount: parseFloat(row.payment_amount) || 0,
+                        Discount: parseFloat(row.discount) || 0,
+                        TrackingRef: row.tracking_ref,
+                        CarrierName: row.carrier_name,
+                        UserName: row.user_name,
+                        SessionIndex: row.session_index,
+                        OrderLines: row.order_lines || [],
+                        ReceiverName: row.receiver_name,
+                        ReceiverPhone: row.receiver_phone,
+                        ReceiverAddress: row.receiver_address,
+                        Comment: row.comment,
+                        DeliveryNote: row.delivery_note,
+                        Error: row.error,
+                        DateInvoice: row.date_invoice,
+                        DateCreated: row.date_created,
+                        LiveCampaignId: row.live_campaign_id,
+                        timestamp: parseInt(row.entry_timestamp) || 0,
+                    };
+                    this._data.set(key, value);
+                    if (row.username === myUsername) {
+                        this._myKeys.add(key);
                     }
                 });
 
-                // Only replace data AFTER successful load (prevents data loss on partial failure)
-                this._data.clear();
-                newData.forEach((value, key) => this._data.set(key, value));
-                this._sentBills = newSentBills;
-                this._myKeys = newMyKeys;
+                // Populate sentBills
+                (result.sentBills || []).forEach(id => this._sentBills.add(id));
 
-                console.log(
-                    `[INVOICE-STATUS] Loaded ${totalEntries} entries from ${snapshot.size} users (my keys: ${this._myKeys.size})`
-                );
-
-                // Don't cache to localStorage - too much data from all users
+                console.log(`[INVOICE-STATUS] Loaded ${this._data.size} entries from API (my keys: ${this._myKeys.size})`);
                 return true;
             } catch (e) {
-                console.error('[INVOICE-STATUS] Firestore load error:', e);
-                return false; // Signal để fallback về localStorage
+                console.error('[INVOICE-STATUS] API load error:', e);
+                return false;
             }
         },
 
         /**
-         * localStorage cache removed - Firestore is sole source of truth.
-         * Saves ~500KB-1MB of localStorage quota.
-         * Kept as no-op to avoid breaking callers.
+         * Save single entry to API (POST /entries)
+         * Called after set() for individual saves
          */
-        _saveToLocalStorage() {
-            // No-op: Firestore is source of truth, localStorage no longer used
-        },
+        async _saveEntryToAPI(compoundKey) {
+            const data = this._data.get(compoundKey);
+            if (!data) return;
 
-        /**
-         * Save to Firestore (debounced 2s)
-         * Uses merge:true for add/update operations (safe for concurrent edits)
-         * Delete uses FieldValue.delete() separately
-         */
-        _hasPendingSave: false, // Track if there's unsaved data
-
-        _saveToFirestore() {
-            this._hasPendingSave = true;
-            clearTimeout(this._syncTimeout);
-            this._syncTimeout = setTimeout(async () => {
-                try {
-                    // Use dot-notation field paths to update individual entries
-                    // without overwriting other entries in the `data` object.
-                    // This is critical for compound keys where multiple entries coexist.
-                    const updateObj = {
-                        sentBills: Array.from(this._sentBills),
-                        lastUpdated: Date.now(),
-                    };
-                    let entryCount = 0;
-                    this._myKeys.forEach((key) => {
-                        const value = this._data.get(key);
-                        if (value) {
-                            updateObj[`data.${key}`] = value;
-                            entryCount++;
-                        }
-                    });
-                    await this._getDocRef().set(updateObj, { merge: true });
-                    this._hasPendingSave = false;
-                    // DON'T clear _pendingKeys here — let snapshot handler confirm server has the data
-                    console.log(`[INVOICE-STATUS] Synced ${entryCount} entries to Firestore`);
-                } catch (e) {
-                    console.error('[INVOICE-STATUS] Firestore save error:', e);
-                }
-            }, 2000);
-        },
-
-        /**
-         * Save to Firestore IMMEDIATELY (no debounce)
-         * Used after batch operations like storeFromApiResult
-         */
-        async _saveToFirestoreImmediate() {
-            clearTimeout(this._syncTimeout);
             try {
-                // Use dot-notation field paths to update individual entries
-                // without overwriting other entries in the `data` object.
-                const updateObj = {
-                    sentBills: Array.from(this._sentBills),
-                    lastUpdated: Date.now(),
-                };
-                let entryCount = 0;
-                this._myKeys.forEach((key) => {
-                    const value = this._data.get(key);
-                    if (value) {
-                        updateObj[`data.${key}`] = value;
-                        entryCount++;
-                    }
+                const response = await fetch(`${API_BASE}/entries`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        compoundKey,
+                        username: this._getUsername(),
+                        saleOnlineId: data.SaleOnlineId || extractSaleOnlineId(compoundKey),
+                        data,
+                    }),
                 });
-                await this._getDocRef().set(updateObj, { merge: true });
-                this._hasPendingSave = false;
-                // DON'T clear _pendingKeys here — let snapshot handler confirm server has the data
-                console.log(`[INVOICE-STATUS] IMMEDIATE sync: ${entryCount} entries to Firestore`);
+                if (!response.ok) {
+                    console.error('[INVOICE-STATUS] Save entry API error:', response.status);
+                }
             } catch (e) {
-                console.error('[INVOICE-STATUS] Immediate Firestore save error:', e);
-                // Re-schedule debounced save as fallback (immediate save failed)
-                this._hasPendingSave = true;
-                this._saveToFirestore();
+                console.error('[INVOICE-STATUS] Save entry error:', e);
             }
         },
 
         /**
-         * Save to Firestore (sole source of truth)
+         * Save multiple entries to API (POST /entries/batch)
+         * Called after storeFromApiResult() for batch saves
          */
-        save() {
-            // Skip Firestore save if currently receiving real-time updates (avoid infinite loops)
-            if (!this._isListening) {
-                this._saveToFirestore();
-            }
-        },
+        async _saveBatchToAPI(compoundKeys) {
+            if (!compoundKeys || compoundKeys.length === 0) return;
 
-        /**
-         * Setup real-time listener for add/delete operations from other devices
-         * Listens to Firestore changes and updates local _data accordingly
-         */
-        _setupRealtimeListener() {
-            // Don't setup if already listening
-            if (this._unsubscribe) {
-                console.log('[INVOICE-STATUS] Real-time listener already active');
-                return;
-            }
+            const entries = compoundKeys.map(key => {
+                const data = this._data.get(key);
+                return data ? {
+                    compoundKey: key,
+                    saleOnlineId: data.SaleOnlineId || extractSaleOnlineId(key),
+                    data,
+                } : null;
+            }).filter(Boolean);
 
-            const db = firebase.firestore();
+            if (entries.length === 0) return;
 
-            // Listen to ALL documents in the collection (all users)
-            console.log('[INVOICE-STATUS] Setting up real-time listener for ALL users...');
-            this._unsubscribe = db.collection(FIRESTORE_COLLECTION).onSnapshot(
-                (snapshot) => {
-                    this._handleCollectionSnapshot(snapshot);
-                },
-                (error) => {
-                    console.error('[INVOICE-STATUS] Real-time listener error:', error);
-                }
-            );
-        },
-
-        /**
-         * Handle collection snapshot (for admin - all docs)
-         * @param {firebase.firestore.QuerySnapshot} snapshot
-         */
-        _handleCollectionSnapshot(snapshot) {
-            // Set flag to prevent save loops
-            this._isListening = true;
-
-            // Get current username to track own keys
-            const authState = window.authManager?.getAuthState();
-            const userType = authState?.userType || localStorage.getItem('userType') || '';
-            const myUsername = authState?.username || userType.split('-')[0] || 'default';
-
-            let hasChanges = false;
-            const changedKeys = [];
-            const deletedKeys = [];
-
-            // Build a set of all keys currently in Firestore (across all docs)
-            const allServerKeys = new Set();
-            const myServerKeys = new Set();
-            snapshot.docs.forEach((doc) => {
-                const firestoreData = doc.data();
-                if (firestoreData.data) {
-                    Object.keys(firestoreData.data).forEach((key) => {
-                        allServerKeys.add(key);
-                        if (doc.id === myUsername) myServerKeys.add(key);
-                    });
-                }
-            });
-
-            // Clear pending keys that server has confirmed (safe to remove protection)
-            this._pendingKeys.forEach((key) => {
-                if (allServerKeys.has(key)) {
-                    this._pendingKeys.delete(key);
-                }
-            });
-
-            // Update _myKeys from server, preserving pending keys not yet saved
-            this._myKeys = new Set([...myServerKeys, ...this._pendingKeys]);
-
-            // Check for deleted entries (in local but not in any server doc)
-            // Skip pending keys - they haven't been saved to Firestore yet
-            this._data.forEach((value, key) => {
-                if (!allServerKeys.has(key) && !this._pendingKeys.has(key)) {
-                    this._data.delete(key);
-                    this._sentBills.delete(key);
-                    hasChanges = true;
-                    deletedKeys.push(key);
-                }
-            });
-
-            snapshot.docChanges().forEach((change) => {
-                const doc = change.doc;
-                const firestoreData = doc.data();
-
-                if (change.type === 'added' || change.type === 'modified') {
-                    // Update entries from this document
-                    if (firestoreData.data) {
-                        const entries = Array.isArray(firestoreData.data)
-                            ? firestoreData.data
-                            : Object.entries(firestoreData.data);
-                        entries.forEach(([key, value]) => {
-                            const existingEntry = this._data.get(key);
-                            // Only update if data actually changed (deep compare)
-                            const valueTs = value.timestamp?.toMillis
-                                ? value.timestamp.toMillis()
-                                : value.timestamp || 0;
-                            const existingTs = existingEntry?.timestamp?.toMillis
-                                ? existingEntry.timestamp.toMillis()
-                                : existingEntry?.timestamp || 0;
-                            const isNew = !existingEntry;
-                            const isNewer = valueTs > existingTs;
-                            const isDataDifferent =
-                                isNew ||
-                                isNewer ||
-                                (!isNewer &&
-                                    JSON.stringify(value) !== JSON.stringify(existingEntry));
-                            if (isNew || (value.timestamp && isDataDifferent)) {
-                                this._data.set(key, value);
-                                hasChanges = true;
-                                changedKeys.push(key);
-                            }
-                        });
-                    }
-
-                    // Update sentBills
-                    if (firestoreData.sentBills && Array.isArray(firestoreData.sentBills)) {
-                        firestoreData.sentBills.forEach((id) => {
-                            if (!this._sentBills.has(id)) {
-                                this._sentBills.add(id);
-                                hasChanges = true;
-                            }
-                        });
-                    }
-                }
-            });
-
-            // Update UI if there were changes
-            if (hasChanges) {
-                if (changedKeys.length > 0 || deletedKeys.length > 0) {
-                    console.log(
-                        `[INVOICE-STATUS] Real-time: ${changedKeys.length} updated, ${deletedKeys.length} deleted`
-                    );
-                }
-                this._refreshInvoiceStatusUI(changedKeys);
-                this._refreshDeletedInvoiceStatusUI(deletedKeys);
-                this._syncToFulfillmentData();
-            }
-
-            // Reset flag
-            this._isListening = false;
-        },
-
-        /**
-         * Handle single document snapshot (for normal user)
-         * @param {firebase.firestore.DocumentSnapshot} doc
-         */
-        _handleDocSnapshot(doc) {
-            // Skip the initial snapshot (we already loaded data in init)
-            if (!this._initialized) return;
-
-            // Set flag to prevent save loops
-            this._isListening = true;
-
-            let hasChanges = false;
-            const changedKeys = [];
-            const deletedKeys = [];
-
-            if (doc.exists) {
-                const firestoreData = doc.data();
-                const serverDataKeys = new Set(Object.keys(firestoreData.data || {}));
-
-                // Clear pending keys that server has confirmed (safe to remove protection)
-                this._pendingKeys.forEach((key) => {
-                    if (serverDataKeys.has(key)) {
-                        this._pendingKeys.delete(key);
-                    }
+            try {
+                const response = await fetch(`${API_BASE}/entries/batch`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: this._getUsername(),
+                        entries,
+                    }),
                 });
-
-                // Check for deleted entries (in local but not in server)
-                // Skip pending keys - they haven't been saved to Firestore yet
-                this._data.forEach((value, key) => {
-                    if (!serverDataKeys.has(key) && !this._pendingKeys.has(key)) {
-                        this._data.delete(key);
-                        this._sentBills.delete(key);
-                        hasChanges = true;
-                        deletedKeys.push(key);
-                    }
-                });
-
-                // Update entries from Firestore
-                if (firestoreData.data) {
-                    const entries = Array.isArray(firestoreData.data)
-                        ? firestoreData.data
-                        : Object.entries(firestoreData.data);
-                    entries.forEach(([key, value]) => {
-                        const existingEntry = this._data.get(key);
-                        // Only update if data actually changed (deep compare)
-                        const valueTs = value.timestamp?.toMillis
-                            ? value.timestamp.toMillis()
-                            : value.timestamp || 0;
-                        const existingTs = existingEntry?.timestamp?.toMillis
-                            ? existingEntry.timestamp.toMillis()
-                            : existingEntry?.timestamp || 0;
-                        const isNew = !existingEntry;
-                        const isNewer = valueTs > existingTs;
-                        const isDataDifferent =
-                            isNew ||
-                            isNewer ||
-                            (!isNewer && JSON.stringify(value) !== JSON.stringify(existingEntry));
-                        if (isNew || (value.timestamp && isDataDifferent)) {
-                            this._data.set(key, value);
-                            hasChanges = true;
-                            changedKeys.push(key);
-                        }
-                    });
+                if (!response.ok) {
+                    console.error('[INVOICE-STATUS] Batch save API error:', response.status);
+                } else {
+                    console.log(`[INVOICE-STATUS] Batch saved ${entries.length} entries to API`);
                 }
-
-                // Update sentBills
-                if (firestoreData.sentBills && Array.isArray(firestoreData.sentBills)) {
-                    firestoreData.sentBills.forEach((id) => {
-                        if (!this._sentBills.has(id)) {
-                            this._sentBills.add(id);
-                            hasChanges = true;
-                        }
-                    });
-                }
+            } catch (e) {
+                console.error('[INVOICE-STATUS] Batch save error:', e);
             }
-
-            // Update UI if there were changes
-            if (hasChanges) {
-                if (changedKeys.length > 0 || deletedKeys.length > 0) {
-                    console.log(
-                        `[INVOICE-STATUS] Real-time: ${changedKeys.length} updated, ${deletedKeys.length} deleted`
-                    );
-                }
-                this._refreshInvoiceStatusUI(changedKeys);
-                this._refreshDeletedInvoiceStatusUI(deletedKeys);
-                this._syncToFulfillmentData();
-            }
-
-            // Reset flag
-            this._isListening = false;
         },
 
         /**
@@ -705,18 +398,14 @@
         },
 
         /**
-         * Destroy real-time listener and cleanup (delegates to BaseStore)
-         * Call this when the page is unloaded or the store is no longer needed
+         * Cleanup store resources
          */
         destroy() {
-            // Delegate core cleanup to BaseStore (unsubscribe, clear timers, clear subscribers)
-            _invoiceBaseStore.destroy();
-            // Clear any pending sync timeout (custom to InvoiceStatusStore)
-            if (this._syncTimeout) {
-                clearTimeout(this._syncTimeout);
-                this._syncTimeout = null;
-            }
-            console.log('[INVOICE-STATUS] Store destroyed (via BaseStore)');
+            this._data.clear();
+            this._sentBills.clear();
+            this._myKeys.clear();
+            this._initialized = false;
+            console.log('[INVOICE-STATUS] Store destroyed');
         },
 
         /**
@@ -785,7 +474,6 @@
             }
 
             this._myKeys.add(entryKey);
-            this._pendingKeys.add(entryKey); // Protect from snapshot deletion until saved
             this._data.set(entryKey, {
                 SaleOnlineId: soId, // Store original SaleOnlineId for grouping/lookup
                 Id: invoiceData.Id,
@@ -823,15 +511,16 @@
                 DateCreated:
                     invoiceData.DateCreated || order?.DateCreated || new Date().toISOString(), // Ngày tạo đơn
                 LiveCampaignId: invoiceData.LiveCampaignId || order?.LiveCampaignId || '', // ID chiến dịch live
-                timestamp: Date.now(), // Thời điểm lưu vào localStorage
+                timestamp: Date.now(),
             });
-            this.save();
+            // Save to API (skip if in batch mode - storeFromApiResult handles batch save)
+            if (!this._batchMode) {
+                this._saveEntryToAPI(entryKey);
+            }
         },
 
         /**
-         * Delete the LATEST invoice entry for a SaleOnlineOrder from local store and Firestore.
-         * Supports both compound keys and legacy flat keys.
-         * Admin: deletes from ALL user docs (since admin loads data from all docs)
+         * Delete the LATEST invoice entry for a SaleOnlineOrder
          * @param {string} saleOnlineId - The SaleOnline order ID to delete
          * @returns {boolean} True if deleted, false if not found
          */
@@ -844,13 +533,11 @@
             let targetKey = null;
             let latestTs = 0;
 
-            // Check legacy flat key first
             if (this._data.has(soId) && !isCompoundKey(soId)) {
                 targetKey = soId;
                 latestTs = this._data.get(soId)?.timestamp || 0;
             }
 
-            // Search compound keys for newest entry
             for (const [key, value] of this._data.entries()) {
                 const keySoId = value.SaleOnlineId || extractSaleOnlineId(key);
                 if (keySoId === soId) {
@@ -864,36 +551,21 @@
 
             if (!targetKey) return false;
 
-            // Remove from local _data and _myKeys
+            // Remove from local
             this._data.delete(targetKey);
             this._myKeys.delete(targetKey);
-            this._sentBills.delete(soId); // sentBills still keyed by SaleOnlineId
-            this._saveToLocalStorage();
+            this._sentBills.delete(soId);
 
-            // Delete from Firestore - scan ALL user docs since entry could be in any user's doc
+            // Delete from API
             try {
-                const db = firebase.firestore();
-                const snapshot = await db.collection(FIRESTORE_COLLECTION).get();
-                const batch = db.batch();
-                let batchCount = 0;
-                snapshot.forEach((doc) => {
-                    const docData = doc.data();
-                    if (docData.data && targetKey in docData.data) {
-                        batch.update(doc.ref, {
-                            [`data.${targetKey}`]: firebase.firestore.FieldValue.delete(),
-                            lastUpdated: Date.now(),
-                        });
-                        batchCount++;
-                    }
+                const response = await fetch(`${API_BASE}/entries/${encodeURIComponent(targetKey)}`, {
+                    method: 'DELETE',
                 });
-                if (batchCount > 0) {
-                    await batch.commit();
-                    console.log(
-                        `[INVOICE-STATUS] Deleted invoice ${targetKey} from ${batchCount} user doc(s)`
-                    );
+                if (response.ok) {
+                    console.log(`[INVOICE-STATUS] Deleted invoice ${targetKey} from API`);
                 }
             } catch (e) {
-                console.error('[INVOICE-STATUS] Firestore delete error:', e);
+                console.error('[INVOICE-STATUS] API delete error:', e);
             }
 
             return true;
@@ -980,10 +652,20 @@
          * Mark bill as sent for an order
          * @param {string} saleOnlineId
          */
-        markBillSent(saleOnlineId) {
+        async markBillSent(saleOnlineId) {
             if (!saleOnlineId) return;
-            this._sentBills.add(String(saleOnlineId));
-            this.save();
+            const soId = String(saleOnlineId);
+            this._sentBills.add(soId);
+
+            try {
+                await fetch(`${API_BASE}/sent-bills`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ saleOnlineId: soId, username: this._getUsername() }),
+                });
+            } catch (e) {
+                console.error('[INVOICE-STATUS] markBillSent API error:', e);
+            }
         },
 
         /**
@@ -1002,6 +684,9 @@
          */
         storeFromApiResult(apiResult) {
             if (!apiResult) return;
+
+            // Batch mode: set() will skip individual API saves, we batch at the end
+            this._batchMode = true;
 
             const displayedData = window.displayedData || [];
             const requestModels = window.lastFastSaleModels || [];
@@ -1199,35 +884,23 @@
 
             console.log(`[INVOICE-STATUS] Stored ${this._data.size} invoice entries`);
 
-            // Force immediate Firestore save (bypass 2s debounce)
-            this._saveToFirestoreImmediate();
+            // Batch save all entries to API
+            this._batchMode = false;
+            this._saveBatchToAPI(Array.from(this._myKeys));
         },
 
         /**
-         * Clear old entries (delegates to BaseStore's _cleanupOldEntries)
-         * Also cleans up sentBills for removed entries
+         * Cleanup old entries (> 60 days) via API
          */
         async cleanup() {
-            const sizeBefore = this._data.size;
-            // Delegate cleanup to BaseStore
-            _invoiceBaseStore._cleanupOldEntries();
-            const sizeAfter = this._data.size;
-            const removed = sizeBefore - sizeAfter;
-
-            // Also cleanup sentBills for entries that were removed
-            if (removed > 0) {
-                // Build set of all SaleOnlineIds that still have entries
-                const activeSaleOnlineIds = new Set();
-                this._data.forEach((value, key) => {
-                    const soId = value.SaleOnlineId || extractSaleOnlineId(key);
-                    if (soId) activeSaleOnlineIds.add(soId);
-                });
-                this._sentBills.forEach((id) => {
-                    if (!activeSaleOnlineIds.has(id)) {
-                        this._sentBills.delete(id);
-                    }
-                });
-                this.save();
+            try {
+                const response = await fetch(`${API_BASE}/cleanup`, { method: 'DELETE' });
+                if (response.ok) {
+                    const result = await response.json();
+                    console.log('[INVOICE-STATUS] Cleanup result:', result.cleaned);
+                }
+            } catch (e) {
+                console.error('[INVOICE-STATUS] Cleanup error:', e);
             }
         },
 
@@ -1253,70 +926,33 @@
         },
 
         /**
-         * Delete a single invoice entry using FieldValue.delete()
-         * This removes only the specific entry without affecting other data
-         * Admin: deletes from ALL user docs (since admin loads data from all docs)
-         * Normal user: deletes from own doc only
-         * @param {string} saleOnlineId - The SaleOnline order ID to delete
-         * @returns {boolean} True if deleted, false if not found
-         */
-        async delete(saleOnlineId) {
-            if (!saleOnlineId) return false;
-
-            const key = String(saleOnlineId);
-            const existed = this._data.has(key);
-
-            if (existed) {
-                // Remove from local _data and _myKeys
-                this._data.delete(key);
-                this._myKeys.delete(key);
-                this._sentBills.delete(key);
-                this._saveToLocalStorage();
-
-                // Delete from Firestore - scan ALL user docs since entry could be in any user's doc
-                try {
-                    const db = firebase.firestore();
-                    const snapshot = await db.collection(FIRESTORE_COLLECTION).get();
-                    const batch = db.batch();
-                    let batchCount = 0;
-                    snapshot.forEach((doc) => {
-                        const docData = doc.data();
-                        if (docData.data && key in docData.data) {
-                            batch.update(doc.ref, {
-                                [`data.${key}`]: firebase.firestore.FieldValue.delete(),
-                                lastUpdated: Date.now(),
-                            });
-                            batchCount++;
-                        }
-                    });
-                    if (batchCount > 0) {
-                        await batch.commit();
-                        console.log(
-                            `[INVOICE-STATUS] Deleted invoice ${key} from ${batchCount} user doc(s)`
-                        );
-                    }
-                } catch (e) {
-                    console.error('[INVOICE-STATUS] Firestore delete error:', e);
-                }
-            }
-
-            return existed;
-        },
-
-        /**
          * Clear all data (for testing/reset)
          */
-        async clearAll() {
+        clearAll() {
             this._data.clear();
             this._myKeys.clear();
             this._sentBills.clear();
             localStorage.removeItem(STORAGE_KEY);
+        },
 
-            try {
-                await this._getDocRef().delete();
-            } catch (e) {
-                console.error('[INVOICE-STATUS] Firestore clear error:', e);
-            }
+        /**
+         * Reload data from API (manual refresh)
+         */
+        async reload() {
+            this._data.clear();
+            this._sentBills.clear();
+            this._myKeys.clear();
+            await this._loadFromAPI();
+
+            // Re-render UI
+            const allKeys = [];
+            this._data.forEach((value, key) => {
+                const soId = value.SaleOnlineId || extractSaleOnlineId(key);
+                if (soId && !allKeys.includes(soId)) allKeys.push(soId);
+            });
+            this._refreshInvoiceStatusUI(allKeys);
+            this._syncToFulfillmentData();
+            console.log(`[INVOICE-STATUS] Reloaded ${this._data.size} entries from API`);
         },
     };
 
@@ -2072,7 +1708,7 @@
     // =====================================================
 
     /**
-     * Delete invoice from localStorage and Firebase
+     * Delete invoice from store and API
      * Called when clicking trash button in "Phiếu bán hàng" column
      * @param {string} saleOnlineId - The SaleOnline order ID
      */
@@ -2094,13 +1730,13 @@
             `Xóa phiếu bán hàng?\n\n` +
                 `Số phiếu: ${billNumber}\n` +
                 `Khách hàng: ${customerName}\n\n` +
-                `Dữ liệu sẽ bị xóa khỏi localStorage và Firebase.`
+                `Dữ liệu sẽ bị xóa khỏi hệ thống.`
         );
 
         if (!confirmed) return;
 
         try {
-            // Delete from store (localStorage + Firebase)
+            // Delete from store (API)
             const deleted = await InvoiceStatusStore.delete(saleOnlineId);
 
             if (deleted) {
@@ -2662,7 +2298,7 @@
 
         console.log(`[INVOICE-STATUS] Updating ${allOrders.length} cells in main table`);
 
-        // Inject entries into FulfillmentData immediately (bypass Firestore delay)
+        // Inject entries into FulfillmentData immediately
         const fd = window.parent?.FulfillmentData || window.FulfillmentData;
         if (fd && typeof fd.injectEntries === 'function') {
             const entries = [];
@@ -2779,7 +2415,7 @@
             }, 100);
 
             // Delayed retry: re-update cells after 2s to handle race conditions
-            // (e.g., Firestore snapshot arriving late and clearing data)
+            // (e.g., late data clearing)
             setTimeout(() => {
                 updateMainTableInvoiceCells(result);
             }, 2000);
@@ -2799,9 +2435,9 @@
         if (_initStarted) return;
         _initStarted = true;
 
-        console.log('[INVOICE-STATUS] Initializing module v2.1 (with Firestore sync)...');
+        console.log('[INVOICE-STATUS] Initializing module v3.0 (PostgreSQL API)...');
 
-        // Initialize store (async - loads from localStorage + Firestore)
+        // Initialize store (async - loads from API)
         await InvoiceStatusStore.init();
 
         // Save original function
@@ -2866,47 +2502,7 @@
             });
         }
 
-        // Flush pending saves when tab becomes hidden or before page unload
-        const flushPendingSave = () => {
-            if (!InvoiceStatusStore._hasPendingSave) return;
-            console.log('[INVOICE-STATUS] Flushing pending save...');
-            try {
-                clearTimeout(InvoiceStatusStore._syncTimeout);
-                const updateObj = {
-                    sentBills: Array.from(InvoiceStatusStore._sentBills),
-                    lastUpdated: Date.now(),
-                };
-                let entryCount = 0;
-                InvoiceStatusStore._myKeys.forEach((key) => {
-                    const value = InvoiceStatusStore._data.get(key);
-                    if (value) {
-                        updateObj[`data.${key}`] = value;
-                        entryCount++;
-                    }
-                });
-                if (entryCount > 0) {
-                    const docRef = InvoiceStatusStore._getDocRef();
-                    docRef.set(updateObj, { merge: true })
-                        .then(() => {
-                            InvoiceStatusStore._hasPendingSave = false;
-                            console.log(`[INVOICE-STATUS] Flush save OK: ${entryCount} entries`);
-                        })
-                        .catch((e) => {
-                            console.error('[INVOICE-STATUS] Flush save failed:', e);
-                        });
-                }
-            } catch (e) {
-                console.error('[INVOICE-STATUS] Error in flush:', e);
-            }
-        };
-
-        // visibilitychange fires BEFORE beforeunload and is more reliable
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'hidden') {
-                flushPendingSave();
-            }
-        });
-        window.addEventListener('beforeunload', flushPendingSave);
+        // No flush needed - API calls are immediate (no debounce)
 
         console.log('[INVOICE-STATUS] Module initialized successfully');
     }
