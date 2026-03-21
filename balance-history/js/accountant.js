@@ -64,6 +64,9 @@
         }
     };
 
+    // Track whether correct customer was found on TPOS
+    let _correctCustomerFound = false;
+
     // =====================================================
     // TOOLTIP SYSTEM
     // =====================================================
@@ -2196,6 +2199,7 @@
                     correctGroup.style.display = 'block';
                 } else {
                     correctGroup.style.display = 'none';
+                    _correctCustomerFound = false;
                 }
             });
         });
@@ -2216,8 +2220,12 @@
 
         if (phone.length !== 10) {
             lookupDiv.style.display = 'none';
+            _correctCustomerFound = false;
             return;
         }
+
+        lookupDiv.innerHTML = `<div style="padding: 8px; color: #666;"><i class="fas fa-spinner fa-spin"></i> Đang tìm...</div>`;
+        lookupDiv.style.display = 'block';
 
         try {
             const response = await fetch(`${API_BASE_URL}/api/sepay/tpos/search/${phone}`);
@@ -2233,18 +2241,65 @@
                         <small>${c.phone}</small>
                     </div>
                 `;
-                lookupDiv.style.display = 'block';
+                _correctCustomerFound = true;
             } else {
                 lookupDiv.innerHTML = `
-                    <div class="acc-customer-not-found" style="padding: 8px; background: #fff3cd; border-radius: 4px;">
-                        Khách hàng mới - sẽ được tạo tự động
+                    <div style="padding: 8px; background: #f8d7da; border-radius: 4px; color: #721c24;">
+                        <div style="margin-bottom: 6px;"><i class="fas fa-exclamation-triangle"></i> Không tìm thấy khách hàng trên TPOS</div>
+                        <button type="button" onclick="AccountantModule.openCreateCustomer()" class="acc-btn acc-btn-primary" style="font-size: 12px; padding: 4px 10px;">
+                            <i class="fas fa-user-plus"></i> Tạo khách hàng trên TPOS
+                        </button>
                     </div>
                 `;
-                lookupDiv.style.display = 'block';
+                _correctCustomerFound = false;
             }
+            lookupDiv.style.display = 'block';
         } catch (error) {
             console.error('[ACCOUNTANT] lookupCorrectCustomer error:', error);
+            lookupDiv.innerHTML = `
+                <div style="padding: 8px; background: #f8d7da; border-radius: 4px; color: #721c24;">
+                    <i class="fas fa-exclamation-triangle"></i> Lỗi tìm khách hàng
+                </div>
+            `;
+            lookupDiv.style.display = 'block';
+            _correctCustomerFound = false;
         }
+    }
+
+    /**
+     * Mở CustomerCreator modal để tạo KH mới trên TPOS
+     */
+    function openCreateCustomer() {
+        const phoneInput = document.getElementById('accCorrectPhone');
+        const phone = phoneInput ? phoneInput.value.replace(/\D/g, '') : '';
+
+        if (!window.CustomerCreator) {
+            showNotification('Module tạo khách hàng chưa được tải', 'error');
+            return;
+        }
+
+        window.CustomerCreator.open({
+            phone: phone,
+            onSuccess: (customer) => {
+                console.log('[ACCOUNTANT] Customer created on TPOS:', customer);
+                const lookupDiv = document.getElementById('accCorrectCustomerLookup');
+                if (lookupDiv) {
+                    lookupDiv.innerHTML = `
+                        <div class="acc-customer-found" style="padding: 8px; background: #d4edda; border-radius: 4px;">
+                            <strong>${customer.name}</strong><br>
+                            <small>${customer.phone}</small>
+                        </div>
+                    `;
+                    lookupDiv.style.display = 'block';
+                }
+                // Cập nhật SĐT nếu khác
+                if (phoneInput && customer.phone) {
+                    phoneInput.value = customer.phone;
+                }
+                _correctCustomerFound = true;
+                showNotification(`Đã tạo khách hàng ${customer.name} trên TPOS`, 'success');
+            }
+        });
     }
 
     /**
@@ -2263,6 +2318,11 @@
 
         if (adjustType === 'transfer_to_correct' && (!correctPhone || correctPhone.length !== 10)) {
             showNotification('Vui lòng nhập SĐT khách hàng đúng (10 số)', 'error');
+            return;
+        }
+
+        if (adjustType === 'transfer_to_correct' && !_correctCustomerFound) {
+            showNotification('Khách hàng chưa có trên TPOS. Vui lòng tạo khách hàng trước khi điều chỉnh.', 'error');
             return;
         }
 
@@ -2766,6 +2826,7 @@
         openAdjustmentModal,
         confirmAdjustment,
         closeAdjustmentModal,
+        openCreateCustomer,
         // Manager Review functions (quản lý kiểm tra)
         openManagerReviewModal,
         confirmManagerReview,

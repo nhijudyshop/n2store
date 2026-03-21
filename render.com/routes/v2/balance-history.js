@@ -1876,6 +1876,15 @@ router.post('/:id/adjust', async (req, res) => {
 
             // Lấy hoặc tạo KH đúng
             const correctCustomer = await getOrCreateCustomerFromTPOS(db, normalizedCorrectPhone);
+            console.log(`[ADJUSTMENT] Transfer target customer: ID=${correctCustomer.customerId}, name=${correctCustomer.customerName}, created=${correctCustomer.created}, phone=${normalizedCorrectPhone}`);
+
+            if (!correctCustomer || !correctCustomer.customerId) {
+                await db.query('ROLLBACK');
+                return res.status(500).json({
+                    success: false,
+                    error: `Không thể tạo/tìm khách hàng với SĐT ${normalizedCorrectPhone}`
+                });
+            }
 
             // Lấy ví KH đúng
             let correctWallet = await db.query(`
@@ -1887,10 +1896,12 @@ router.post('/:id/adjust', async (req, res) => {
                 await db.query(`
                     INSERT INTO customer_wallets (phone, customer_id, balance, virtual_balance)
                     VALUES ($1, $2, 0, 0)
-                `, [normalizedCorrectPhone, correctCustomer.id]);
+                    ON CONFLICT (phone) DO NOTHING
+                `, [normalizedCorrectPhone, correctCustomer.customerId]);
                 correctWallet = await db.query(`
                     SELECT id, balance FROM customer_wallets WHERE phone = $1
                 `, [normalizedCorrectPhone]);
+                console.log(`[ADJUSTMENT] Created new wallet for ${normalizedCorrectPhone}, wallet_id=${correctWallet.rows[0]?.id}`);
             }
 
             const correctCurrentBalance = parseFloat(correctWallet.rows[0].balance);
