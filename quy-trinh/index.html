@@ -14,6 +14,13 @@
 <script defer src="../shared/js/firebase-config.js"></script>
 <!-- Core utilities (Auth + Firebase config) -->
 <script type="module" src="../shared/esm/compat.js"></script>
+<!-- Fallback for file:// protocol -->
+<script>
+    if (window.location.protocol === 'file:') {
+        document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
+        document.write('<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>');
+    }
+</script>
 <!-- Navigation Modern -->
 <script defer src="../shared/js/navigation-modern.js"></script>
 <style>
