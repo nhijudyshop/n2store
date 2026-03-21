@@ -2533,7 +2533,7 @@
             }
 
             // 1. Update status to "Đơn hàng" if currently "Nháp"
-            if (order.Status === 'Draft' || order.StatusText === 'Nháp') {
+            if (order.Status === 'Nháp' || order.Status === 'Draft' || order.StatusText === 'Nháp') {
                 const statusUrl = `${window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev'}/api/odata/SaleOnline_Order/OdataService.UpdateStatusSaleOnline?Id=${saleOnlineId}&Status=${encodeURIComponent('Đơn hàng')}`;
 
                 const statusResponse = await fetch(statusUrl, {

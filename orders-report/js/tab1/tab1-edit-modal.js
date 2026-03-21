@@ -155,7 +155,7 @@ function renderInfoTab(data) {
             <h4><i class="fas fa-shopping-cart"></i> Thông tin đơn hàng</h4>
             <div class="info-grid">
                 <div class="info-field"><div class="info-label">Mã đơn</div><div class="info-value highlight">${data.Code || ""}</div></div>
-                <div class="info-field"><div class="info-label">Trạng thái</div><div class="info-value"><span class="status-badge-large ${data.Status === "Draft" ? "status-badge-draft" : "status-badge-order"}">${data.StatusText || data.Status || ""}</span></div></div>
+                <div class="info-field"><div class="info-label">Trạng thái</div><div class="info-value"><span class="status-badge-large ${(data.Status === "Nháp" || data.Status === "Draft") ? "status-badge-draft" : (data.Status === "Hủy" || data.Status === "Cancel") ? "status-badge-cancel" : "status-badge-order"}">${data.StatusText || data.Status || ""}</span></div></div>
                 <div class="info-field"><div class="info-label">Tổng tiền</div><div class="info-value highlight">${(data.TotalAmount || 0).toLocaleString("vi-VN")}đ</div></div>
                 <div class="info-field" style="grid-column: 1 / -1;">
                     <div class="info-label">Ghi chú</div>

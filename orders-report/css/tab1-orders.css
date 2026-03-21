@@ -378,6 +378,11 @@ body {
     color: #065f46;
 }
 
+.status-cancel {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
 .order-tag {
     display: inline-block;
     padding: 2px 6px;
@@ -1820,6 +1825,11 @@ body {
 .status-badge-order {
     background: #d1fae5;
     color: #065f46;
+}
+
+.status-badge-cancel {
+    background: #fee2e2;
+    color: #991b1b;
 }
 
 @media (max-width: 768px) {

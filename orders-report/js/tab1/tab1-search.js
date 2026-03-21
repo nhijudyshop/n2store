@@ -257,13 +257,8 @@ function performTableSearch() {
     const statusFilter = document.getElementById('statusFilter')?.value || 'all';
     if (statusFilter !== 'all') {
         tempData = tempData.filter(order => {
-            const isDraft = order.Status === 'Draft' || order.Status === 'Nháp';
-            if (statusFilter === 'Draft') {
-                return isDraft;
-            } else if (statusFilter === 'Confirmed') {
-                return !isDraft;
-            }
-            return true;
+            const status = order.StatusText || order.Status;
+            return status === statusFilter;
         });
     }
 
