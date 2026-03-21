@@ -448,9 +448,9 @@ async function _loadOrderDataAndPanel(orderId, phone) {
 
             // Update phone from order data if not available from row
             const orderPhone = orderData.Phone || orderData.Partner?.Phone || phone;
-            const phoneEl = document.getElementById('chatSubtitlePhone');
-            if (phoneEl && orderPhone && !phoneEl.textContent) {
-                phoneEl.textContent = `SĐT: ${orderPhone}`;
+            if (orderPhone) {
+                const phoneEl = document.getElementById('chatSubtitlePhone');
+                if (phoneEl) phoneEl.textContent = `SĐT: ${orderPhone}`;
             }
 
             // Init product panel
@@ -458,17 +458,22 @@ async function _loadOrderDataAndPanel(orderId, phone) {
                 window.initProductPanel(orderData);
             }
 
-            // Load debt/Công nợ
-            _loadDebtDisplay(orderPhone);
+            // Load debt/Công nợ (use phone from order or from row)
+            _loadDebtDisplay(orderPhone || phone);
 
             // Load QR settings
             if (window.loadQRAmountSetting) window.loadQRAmountSetting();
 
             // Populate page selector from Pancake pages
             _populatePageSelector();
+        } else if (phone) {
+            // Even without order data, try loading debt
+            _loadDebtDisplay(phone);
         }
     } catch (e) {
         console.error('[Chat-Core] Error loading order data:', e);
+        // Still try loading debt even if order fetch fails
+        if (phone) _loadDebtDisplay(phone);
     }
 }
 
@@ -477,23 +482,19 @@ function _loadDebtDisplay(phone) {
     const debtEl = document.getElementById('chatDebtValue');
     if (!debtEl) return;
 
-    // Try cached first
-    if (window.getCachedDebt) {
-        const cached = window.getCachedDebt(phone);
-        if (cached !== null && cached !== undefined) {
-            debtEl.textContent = _formatCurrencyShort(cached);
-            debtEl.style.color = cached > 0 ? '#059669' : '#6b7280';
-        }
-    }
+    debtEl.textContent = '...';
 
-    // Fetch fresh (non-blocking)
+    // Fetch from API
     if (window.fetchDebtForPhone) {
-        window.fetchDebtForPhone(phone).then(debt => {
-            if (debtEl) {
-                debtEl.textContent = _formatCurrencyShort(debt);
-                debtEl.style.color = debt > 0 ? '#059669' : '#6b7280';
-            }
-        }).catch(() => {});
+        window.fetchDebtForPhone(phone).then(balance => {
+            debtEl.textContent = _formatCurrencyShort(balance);
+            debtEl.style.color = balance > 0 ? '#34d399' : 'rgba(255,255,255,0.6)';
+        }).catch(() => {
+            debtEl.textContent = '0đ';
+            debtEl.style.color = 'rgba(255,255,255,0.6)';
+        });
+    } else {
+        debtEl.textContent = '0đ';
     }
 }
 
