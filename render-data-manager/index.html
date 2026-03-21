@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Render Data Manager</title>
+    <title>Data Manager</title>
 
     <!-- ES Module: Shared utilities -->
     <script type="module" src="../shared/esm/compat.js"></script>
@@ -26,69 +26,148 @@
 <body>
     <div class="main-content" id="mainContent">
         <div class="page-header">
-            <h1><i data-lucide="database"></i> Render Data Manager</h1>
+            <h1><i data-lucide="database"></i> Data Manager</h1>
             <div class="header-actions">
-                <button class="btn btn-outline" onclick="refreshAllTables()">
+                <button class="btn btn-outline" onclick="refreshCurrentTab()">
                     <i data-lucide="refresh-cw"></i> Refresh
                 </button>
             </div>
         </div>
 
-        <div class="layout">
-            <!-- Sidebar - Table Groups -->
-            <aside class="sidebar-tables" id="sidebarTables">
-                <div class="sidebar-search">
-                    <input type="text" id="tableSearch" placeholder="Tìm table..." oninput="filterTables(this.value)">
-                </div>
-                <div id="tableGroups" class="table-groups">
-                    <div class="loading-placeholder">Đang tải danh sách table...</div>
-                </div>
-            </aside>
+        <!-- Tab Bar -->
+        <div class="tab-bar">
+            <button class="tab-btn active" data-tab="render" onclick="switchTab('render')">
+                <i data-lucide="server"></i> Render (PostgreSQL)
+            </button>
+            <button class="tab-btn" data-tab="firebase" onclick="switchTab('firebase')">
+                <i data-lucide="flame"></i> Firebase (Firestore)
+            </button>
+        </div>
 
-            <!-- Main Content Area -->
-            <main class="data-area">
-                <div id="welcomePanel" class="welcome-panel">
-                    <i data-lucide="database" class="welcome-icon"></i>
-                    <h2>Chọn table để xem dữ liệu</h2>
-                    <p>Chọn table từ sidebar bên trái</p>
-                </div>
+        <!-- ============================================= -->
+        <!-- RENDER TAB -->
+        <!-- ============================================= -->
+        <div class="tab-content active" id="renderTab">
+            <div class="layout">
+                <!-- Sidebar - Table Groups -->
+                <aside class="sidebar-tables" id="sidebarTables">
+                    <div class="sidebar-search">
+                        <input type="text" id="tableSearch" placeholder="Tìm table..." oninput="filterTables(this.value)">
+                    </div>
+                    <div id="tableGroups" class="table-groups">
+                        <div class="loading-placeholder">Đang tải danh sách table...</div>
+                    </div>
+                </aside>
 
-                <div id="dataPanel" class="data-panel" style="display:none;">
-                    <!-- Table Header -->
-                    <div class="data-header">
-                        <div class="data-title">
-                            <h2 id="currentTableName">-</h2>
-                            <span id="currentTableCount" class="badge">0 rows</span>
-                        </div>
-                        <div class="data-actions">
-                            <input type="text" id="dataSearch" placeholder="Tìm kiếm..."
-                                   oninput="searchData(this.value)" class="search-input">
-                            <button class="btn btn-danger-outline" onclick="confirmTruncate()">
-                                <i data-lucide="trash-2"></i> Xóa tất cả
-                            </button>
-                        </div>
+                <!-- Main Content Area -->
+                <main class="data-area">
+                    <div id="welcomePanel" class="welcome-panel">
+                        <i data-lucide="database" class="welcome-icon"></i>
+                        <h2>Chọn table để xem dữ liệu</h2>
+                        <p>Chọn table từ sidebar bên trái</p>
                     </div>
 
-                    <!-- Data Table -->
-                    <div class="table-wrapper">
-                        <table class="data-table" id="dataTable">
-                            <thead id="dataTableHead"></thead>
-                            <tbody id="dataTableBody"></tbody>
-                        </table>
-                        <div id="emptyState" class="empty-state" style="display:none;">
-                            <i data-lucide="inbox"></i>
-                            <p>Không có dữ liệu</p>
+                    <div id="dataPanel" class="data-panel" style="display:none;">
+                        <!-- Table Header -->
+                        <div class="data-header">
+                            <div class="data-title">
+                                <h2 id="currentTableName">-</h2>
+                                <span id="currentTableCount" class="badge">0 rows</span>
+                            </div>
+                            <div class="data-actions">
+                                <input type="text" id="dataSearch" placeholder="Tìm kiếm..."
+                                       oninput="searchData(this.value)" class="search-input">
+                                <button class="btn btn-danger-outline" onclick="confirmTruncate()">
+                                    <i data-lucide="trash-2"></i> Xóa tất cả
+                                </button>
+                            </div>
                         </div>
-                        <div id="loadingState" class="loading-state" style="display:none;">
-                            <div class="spinner"></div>
-                            <p>Đang tải...</p>
+
+                        <!-- Data Table -->
+                        <div class="table-wrapper">
+                            <table class="data-table" id="dataTable">
+                                <thead id="dataTableHead"></thead>
+                                <tbody id="dataTableBody"></tbody>
+                            </table>
+                            <div id="emptyState" class="empty-state" style="display:none;">
+                                <i data-lucide="inbox"></i>
+                                <p>Không có dữ liệu</p>
+                            </div>
+                            <div id="loadingState" class="loading-state" style="display:none;">
+                                <div class="spinner"></div>
+                                <p>Đang tải...</p>
+                            </div>
                         </div>
+
+                        <!-- Pagination -->
+                        <div class="pagination" id="pagination"></div>
+                    </div>
+                </main>
+            </div>
+        </div>
+
+        <!-- ============================================= -->
+        <!-- FIREBASE TAB -->
+        <!-- ============================================= -->
+        <div class="tab-content" id="firebaseTab">
+            <div class="layout">
+                <!-- Sidebar - Collections -->
+                <aside class="sidebar-tables" id="fbSidebar">
+                    <div class="sidebar-search">
+                        <input type="text" id="fbCollectionSearch" placeholder="Tìm collection..." oninput="fbFilterCollections(this.value)">
+                    </div>
+                    <div id="fbCollectionList" class="table-groups">
+                        <div class="loading-placeholder">Đang tải collections...</div>
+                    </div>
+                </aside>
+
+                <!-- Main Content Area -->
+                <main class="data-area">
+                    <div id="fbWelcomePanel" class="welcome-panel">
+                        <i data-lucide="flame" class="welcome-icon"></i>
+                        <h2>Chọn collection để xem dữ liệu</h2>
+                        <p>Chọn collection từ sidebar bên trái</p>
                     </div>
 
-                    <!-- Pagination -->
-                    <div class="pagination" id="pagination"></div>
-                </div>
-            </main>
+                    <div id="fbDataPanel" class="data-panel" style="display:none;">
+                        <!-- Breadcrumb -->
+                        <div class="fb-breadcrumb" id="fbBreadcrumb"></div>
+
+                        <!-- Data Header -->
+                        <div class="data-header">
+                            <div class="data-title">
+                                <h2 id="fbCurrentName">-</h2>
+                                <span id="fbCurrentCount" class="badge">0 docs</span>
+                            </div>
+                            <div class="data-actions">
+                                <input type="text" id="fbDataSearch" placeholder="Tìm document ID..."
+                                       oninput="fbSearchDocs(this.value)" class="search-input">
+                            </div>
+                        </div>
+
+                        <!-- Data Table -->
+                        <div class="table-wrapper">
+                            <table class="data-table" id="fbDataTable">
+                                <thead id="fbDataTableHead"></thead>
+                                <tbody id="fbDataTableBody"></tbody>
+                            </table>
+                            <div id="fbEmptyState" class="empty-state" style="display:none;">
+                                <i data-lucide="inbox"></i>
+                                <p>Không có dữ liệu</p>
+                            </div>
+                            <div id="fbLoadingState" class="loading-state" style="display:none;">
+                                <div class="spinner"></div>
+                                <p>Đang tải...</p>
+                            </div>
+                        </div>
+
+                        <!-- Load More -->
+                        <div class="fb-load-more" id="fbLoadMore" style="display:none;">
+                            <button class="btn btn-outline" onclick="fbLoadMore()">Tải thêm...</button>
+                        </div>
+                    </div>
+                </main>
+            </div>
         </div>
     </div>
 
@@ -113,7 +192,7 @@
     <div class="modal-overlay" id="detailModal" style="display:none;">
         <div class="modal modal-lg">
             <div class="modal-header">
-                <h3>Chi tiết row</h3>
+                <h3 id="detailModalTitle">Chi tiết</h3>
                 <button class="modal-close" onclick="closeDetailModal()">&times;</button>
             </div>
             <div class="modal-body" id="detailModalBody"></div>

@@ -71,10 +71,66 @@ body {
     justify-content: space-between;
     padding: 16px 24px;
     background: white;
-    border-bottom: 1px solid var(--gray-200);
+    border-bottom: none;
     position: sticky;
     top: 0;
     z-index: 10;
+}
+
+/* =====================================================
+   TAB BAR
+   ===================================================== */
+
+.tab-bar {
+    display: flex;
+    gap: 0;
+    background: white;
+    border-bottom: 2px solid var(--gray-200);
+    padding: 0 24px;
+    position: sticky;
+    top: 57px;
+    z-index: 10;
+}
+
+.tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 20px;
+    border: none;
+    background: none;
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--gray-500);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    transition: all 0.2s;
+}
+
+.tab-btn svg { width: 16px; height: 16px; }
+
+.tab-btn:hover {
+    color: var(--gray-700);
+    background: var(--gray-50);
+}
+
+.tab-btn.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+    font-weight: 600;
+}
+
+/* Tab Content */
+.tab-content {
+    display: none;
+    flex: 1;
+}
+
+.tab-content.active {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
 }
 
 .page-header h1 {
@@ -105,7 +161,7 @@ body {
     border-right: 1px solid var(--gray-200);
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 57px);
+    height: calc(100vh - 97px);
     overflow: hidden;
 }
 
@@ -275,7 +331,7 @@ body {
 .data-panel {
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 57px);
+    height: calc(100vh - 97px);
     overflow: hidden;
 }
 
@@ -688,6 +744,62 @@ body {
 @keyframes toastIn {
     from { opacity: 0; transform: translateX(30px); }
     to { opacity: 1; transform: translateX(0); }
+}
+
+/* =====================================================
+   FIREBASE - BREADCRUMB
+   ===================================================== */
+
+.fb-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 20px;
+    background: var(--gray-50);
+    border-bottom: 1px solid var(--gray-100);
+    font-size: 0.78rem;
+    flex-wrap: wrap;
+}
+
+.breadcrumb-item {
+    color: var(--gray-500);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+}
+
+.breadcrumb-item.clickable {
+    cursor: pointer;
+    color: var(--primary);
+}
+
+.breadcrumb-item.clickable:hover {
+    background: rgba(99, 102, 241, 0.08);
+    text-decoration: underline;
+}
+
+.breadcrumb-item.current {
+    font-weight: 600;
+    color: var(--gray-800);
+}
+
+.breadcrumb-sep {
+    color: var(--gray-300);
+    font-size: 0.7rem;
+}
+
+/* Firebase Doc ID */
+.fb-doc-id {
+    color: var(--primary);
+    font-size: 0.8rem;
+}
+
+/* Firebase Load More */
+.fb-load-more {
+    display: flex;
+    justify-content: center;
+    padding: 12px 20px;
+    background: white;
+    border-top: 1px solid var(--gray-100);
 }
 
 /* =====================================================

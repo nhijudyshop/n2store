@@ -53,6 +53,9 @@ export const ROUTES = {
     // Invoice Status (PostgreSQL - replaces Firestore)
     INVOICE_STATUS: { pattern: '/api/invoice-status/*' },
 
+    // Admin Firebase (Firestore browser)
+    ADMIN_FIREBASE: { pattern: '/api/admin/firebase/*' },
+
     // Customer 360 v2 (NEW - unified API)
     CUSTOMERS_V2: { pattern: '/api/v2/customers/*' },
     WALLETS_V2: { pattern: '/api/v2/wallets/*' },
@@ -100,6 +103,7 @@ export function matchRoute(pathname) {
 
     if (pathname.startsWith('/api/rest/')) return 'TPOS_REST';
 
+    if (pathname.startsWith('/api/admin/firebase/')) return 'ADMIN_FIREBASE';
     if (pathname.startsWith('/api/invoice-status/')) return 'INVOICE_STATUS';
     if (pathname.startsWith('/api/sepay/')) return 'SEPAY';
     if (pathname.startsWith('/api/realtime/')) return 'REALTIME';
