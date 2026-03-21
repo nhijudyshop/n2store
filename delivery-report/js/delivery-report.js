@@ -15,7 +15,7 @@
         allData: [],
         totalCount: 0,
         currentPage: 1,
-        pageSize: 200,
+        pageSize: 1000,
         isLoading: false,
 
         // Filter values
@@ -499,10 +499,10 @@
             <div class="dr-pagination-pages">${pagesHtml}</div>
             <div class="dr-page-size">
                 <select id="drPageSizeSelect" onchange="DeliveryReport.changePageSize(this.value)">
-                    <option value="20" ${pageSize === 20 ? 'selected' : ''}>20</option>
                     <option value="50" ${pageSize === 50 ? 'selected' : ''}>50</option>
-                    <option value="100" ${pageSize === 100 ? 'selected' : ''}>100</option>
                     <option value="200" ${pageSize === 200 ? 'selected' : ''}>200</option>
+                    <option value="500" ${pageSize === 500 ? 'selected' : ''}>500</option>
+                    <option value="1000" ${pageSize === 1000 ? 'selected' : ''}>1000</option>
                 </select>
                 <span>Số dòng trên trang</span>
             </div>
