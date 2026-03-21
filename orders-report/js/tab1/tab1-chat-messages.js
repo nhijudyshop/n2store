@@ -1145,6 +1145,16 @@ async function sendMessageInternal(messageData) {
                         }
                     }
 
+                    // Debug: log what data we have for resolving globalUserId
+                    console.log('[MESSAGE] Extension convData for resolve:', {
+                        hasStoredData: !!window.currentConversationData,
+                        customersCount: convData.customers?.length || 0,
+                        customersGlobalIds: (convData.customers || []).map(c => c.global_id).filter(Boolean),
+                        rawPageCustomer: convData._raw?.page_customer?.global_id || null,
+                        rawThreadId: convData._raw?.thread_id || null,
+                        messagesDataCustomers: convData._messagesData?.customers?.length || 0
+                    });
+
                     const globalUserId = await window.tab1ExtensionBridge.resolveGlobalUserId(convData);
 
                     if (globalUserId) {
