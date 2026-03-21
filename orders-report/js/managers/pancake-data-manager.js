@@ -780,29 +780,20 @@ class PancakeDataManager {
                 `${pagesParams}&access_token=${token}`
             );
 
-            console.log('[PANCAKE-DEBUG] fetchConvByFbId URL:', url);
-            console.log(`[PANCAKE-DEBUG] fetchConvByFbId token: ${token ? token.substring(0, 20) + '...' : 'NULL'}`);
-            console.log(`[PANCAKE-DEBUG] fetchConvByFbId pages (${fbPageIds.length}):`, fbPageIds);
-
             const response = await this.queuedFetch(url, {
                 method: 'GET',
                 headers: { 'Content-Type': 'application/json' }
             }, `fetchConvByFbId:${fbId}`, 3, true);
 
-            console.log(`[PANCAKE-DEBUG] fetchConvByFbId response status: ${response.status}`);
-
             let conversations = [];
             if (response.ok) {
                 const data = await response.json();
-                console.log(`[PANCAKE-DEBUG] fetchConvByFbId FULL response:`, JSON.stringify(data).substring(0, 800));
                 if (data.success === false || data.error_code) {
-                    console.error(`[PANCAKE-DEBUG] ❌ fetchConvByFbId API ERROR: code=${data.error_code}, message=${data.message}, errors=${JSON.stringify(data.errors)}`);
+                    console.error(`[PANCAKE] ❌ fetchConvByFbId API ERROR: code=${data.error_code}, message=${data.message}`);
                 }
                 conversations = data.conversations || [];
             } else {
-                const errorBody = await response.text();
-                console.error(`[PANCAKE-DEBUG] fetchConvByFbId ERROR body: ${errorBody}`);
-                console.warn('[PANCAKE] Multi-page request failed:', response.status);
+                console.warn('[PANCAKE] fetchConvByFbId failed:', response.status);
             }
 
             // Enrich conversations with page_name from loaded pages data
@@ -1360,9 +1351,6 @@ class PancakeDataManager {
                 pageAccessToken
             ) + extraParams;
 
-            console.log(`[PANCAKE-DEBUG] fetchMessages URL: ${url}`);
-            console.log(`[PANCAKE-DEBUG] pageAccessToken: ${pageAccessToken ? pageAccessToken.substring(0, 20) + '...' : 'NULL'}`);
-
             // Use queuedFetch with conversation-specific deduplication key
             const response = await this.queuedFetch(url, {
                 method: 'GET',
@@ -1371,33 +1359,19 @@ class PancakeDataManager {
                 }
             }, `fetchMessages:${pageId}:${conversationId}`, 3, true);
 
-            console.log(`[PANCAKE-DEBUG] fetchMessages response status: ${response.status}`);
-
             if (!response.ok) {
                 const errorBody = await response.text();
-                console.error(`[PANCAKE-DEBUG] fetchMessages ERROR body: ${errorBody}`);
                 throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorBody}`);
             }
 
             const data = await response.json();
-            console.log(`[PANCAKE-DEBUG] fetchMessages FULL response:`, JSON.stringify(data).substring(0, 800));
             if (data.success === false || data.error_code) {
-                console.error(`[PANCAKE-DEBUG] ❌ fetchMessages API ERROR: code=${data.error_code}, message=${data.message}`);
+                console.error(`[PANCAKE] ❌ fetchMessages API ERROR: code=${data.error_code}, message=${data.message}`);
             }
             console.log(`[PANCAKE] Fetched ${data.messages?.length || 0} messages`);
 
-            // Debug: log global_id sources from API response
-            const _conv = data.conversation || {};
-            const _custs = data.customers || data.conv_customers || [];
-            console.log('[PANCAKE] globalUserId sources:', {
-                'conversation.page_customer.global_id': _conv.page_customer?.global_id || null,
-                'conversation.thread_id': _conv.thread_id || null,
-                'customers[0].global_id': _custs[0]?.global_id || null,
-                'customers.length': _custs.length,
-            });
-
             // Extract customer_id from customers array if available
-            const customers = _custs;
+            const customers = data.customers || data.conv_customers || [];
             const extractedCustomerId = customers.length > 0 ? customers[0].id : null;
             if (extractedCustomerId) {
                 console.log(`[PANCAKE] ✅ Extracted customer_id from response: ${extractedCustomerId}`);

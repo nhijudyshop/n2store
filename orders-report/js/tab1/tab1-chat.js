@@ -24,7 +24,7 @@
         // tab1-chat-messages.js
         { name: 'tab1-chat-messages', globals: ['renderChatMessages', 'renderComments', 'sendMessage', 'sendComment', 'sendReplyComment'] },
         // tab1-chat-facebook.js
-        { name: 'tab1-chat-facebook', globals: ['show24hFallbackPrompt', 'getFacebookPageToken'] },
+        { name: 'tab1-chat-facebook', globals: ['getFacebookPageToken'] },
         // tab1-chat-images.js
         { name: 'tab1-chat-images', globals: ['uploadImageWithCache', 'updateMultipleImagesPreview', 'clearAllImages', 'sendImageToChat', 'sendProductToChat'] },
         // tab1-chat-realtime.js
@@ -44,7 +44,7 @@
     });
 
     // Check extension bridge module
-    if (window.tab1ExtensionBridge) {
+    if (window.pancakeExtension) {
         console.log('[Tab1-Chat] tab1-extension-bridge OK');
     } else {
         console.warn('[Tab1-Chat] tab1-extension-bridge not loaded (Extension bypass unavailable)');
@@ -56,10 +56,9 @@
         console.error('[Tab1-Chat] Some sub-modules failed to load! Check script tags in tab1-orders.html.');
     }
 
-    // Pass page IDs to Extension Bridge (listener already active from script load)
-    // Delayed to let pancakeTokenManager load page data
+    // Pass page IDs to Extension Bridge (delayed to let pancakeTokenManager load)
     setTimeout(() => {
-        if (window.tab1ExtensionBridge && !window.tab1ExtensionBridge._initialized) {
+        if (window.initExtensionPages) {
             let pageIds = [];
             if (window.pancakeTokenManager?.accountPages) {
                 pageIds = Object.keys(window.pancakeTokenManager.accountPages);
@@ -67,7 +66,7 @@
             if (pageIds.length === 0 && window.pancakeDataManager?.pageIds) {
                 pageIds = window.pancakeDataManager.pageIds;
             }
-            window.tab1ExtensionBridge.init(pageIds);
+            window.initExtensionPages(pageIds);
             console.log('[Tab1-Chat] Extension bridge page IDs set:', pageIds.length);
         }
     }, 3000);

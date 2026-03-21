@@ -1,13 +1,9 @@
 // =====================================================
-// tab1-chat-facebook.js - Facebook Token Utilities & 24h Fallback UI
-// getFacebookPageToken (shared utility), Extension bypass modal,
-// switchToCommentMode
+// tab1-chat-facebook.js - Facebook Token Utilities
+// getFacebookPageToken (shared utility), markFacebookTokenInvalid
 // =====================================================
 // Dependencies: tab1-chat-core.js (state globals)
-// Exposes: window.getFacebookPageToken, window.markFacebookTokenInvalid,
-//          window.show24hFallbackPrompt, window.sendViaExtensionFromModal,
-//          window.switchToCommentMode, window.close24hFallbackModal,
-//          window.current24hPolicyStatus
+// Exposes: window.getFacebookPageToken, window.markFacebookTokenInvalid
 
 console.log('[Tab1-Chat-Facebook] Loading...');
 
@@ -16,7 +12,7 @@ const _fbTokenValidationCache = {};
 
 /**
  * Get Facebook Page Token from various sources (TPOS CRMTeam data)
- * Shared utility - used by tab1-chat-facebook.js, tab1-chat-realtime.js, bill-service.js
+ * Shared utility - used by tab1-chat-realtime.js, bill-service.js
  *
  * Priority: 1. currentCRMTeam → 2. currentOrder.CRMTeam → 3. cachedChannelsData → 4. TPOS API
  *
@@ -82,7 +78,6 @@ window.getFacebookPageToken = async function (pageId) {
         console.warn('[FB-TOKEN] Could not fetch CRMTeam from TPOS:', fetchError.message);
     }
 
-    // Source 5 removed: fallback to mismatched CRMTeam token always fails with page mismatch error
     return null;
 };
 
@@ -92,148 +87,6 @@ window.getFacebookPageToken = async function (pageId) {
  */
 window.markFacebookTokenInvalid = function (pageId) {
     _fbTokenValidationCache[pageId] = { invalid: true, timestamp: Date.now() };
-};
-
-// Global flag to track if 24h policy fallback UI should be shown
-window.current24hPolicyStatus = {
-    isExpired: false,
-    hoursSinceLastMessage: null
-};
-
-/**
- * Show 24h policy fallback prompt with option to send via Extension Bypass
- */
-window.show24hFallbackPrompt = function (messageText, pageId, psid) {
-    const extConnected = window.tab1ExtensionBridge?.isConnected();
-
-    const modalContent = `
-        <div style="padding: 20px; max-width: 400px;">
-            <h3 style="margin: 0 0 16px; color: #ef4444; display: flex; align-items: center; gap: 8px;">
-                <i class="fas fa-clock"></i>
-                Đã quá 24 giờ
-            </h3>
-            <p style="color: #6b7280; margin: 0 0 16px; line-height: 1.5;">
-                Khách hàng chưa tương tác trong 24 giờ qua. Chọn cách gửi tin nhắn:
-            </p>
-            <div style="display: flex; flex-direction: column; gap: 12px;">
-                ${extConnected ? `
-                <button onclick="window.sendViaExtensionFromModal('${encodeURIComponent(messageText)}', '${pageId}', '${psid}')"
-                    style="padding: 12px 16px; background: linear-gradient(135deg, #8b5cf6, #6d28d9); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                    <i class="fas fa-plug"></i>
-                    Gửi qua Extension (bypass 24h)
-                </button>
-                <p style="font-size: 12px; color: #9ca3af; margin: 0; padding: 0 8px;">
-                    Gửi trực tiếp qua Business Suite - không giới hạn 24h
-                </p>` : `
-                <p style="font-size: 13px; color: #ef4444; margin: 0; padding: 8px; background: #fef2f2; border-radius: 6px;">
-                    <i class="fas fa-exclamation-triangle"></i>
-                    Pancake Extension chưa kết nối. Cài extension và reload trang để bypass 24h.
-                </p>`}
-                <button onclick="window.switchToCommentMode()"
-                    style="padding: 12px 16px; background: #10b981; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 8px;">
-                    <i class="fas fa-comment"></i>
-                    Chuyển sang reply Comment
-                </button>
-                <button onclick="window.close24hFallbackModal()"
-                    style="padding: 10px 16px; background: transparent; color: #6b7280; border: 1px solid #e5e7eb; border-radius: 8px; cursor: pointer;">
-                    Hủy
-                </button>
-            </div>
-        </div>
-    `;
-
-    let modal = document.getElementById('fb24hFallbackModal');
-    if (!modal) {
-        modal = document.createElement('div');
-        modal.id = 'fb24hFallbackModal';
-        modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 10001; display: flex; align-items: center; justify-content: center;';
-        document.body.appendChild(modal);
-    }
-
-    modal.innerHTML = `<div style="background: white; border-radius: 12px; box-shadow: 0 20px 50px rgba(0,0,0,0.2);">${modalContent}</div>`;
-    modal.style.display = 'flex';
-};
-
-window.close24hFallbackModal = function () {
-    const modal = document.getElementById('fb24hFallbackModal');
-    if (modal) modal.style.display = 'none';
-};
-
-/**
- * Send message via Extension from 24h fallback modal
- */
-window.sendViaExtensionFromModal = async function (encodedMessage, pageId, psid) {
-    window.close24hFallbackModal();
-    const message = decodeURIComponent(encodedMessage);
-
-    if (!window.tab1ExtensionBridge?.isConnected()) {
-        if (window.notificationManager) {
-            window.notificationManager.show('Extension chưa kết nối. Vui lòng cài extension và reload.', 'error');
-        }
-        return;
-    }
-
-    try {
-        if (window.notificationManager) {
-            window.notificationManager.show('Đang gửi qua Extension (bypass 24h)...', 'info');
-        }
-
-        // Build conv data for resolving globalUserId
-        let convData = { pageId, psid, conversationId: window.currentConversationId, _raw: {}, customers: [] };
-        if (window.currentConversationId && window.pancakeDataManager) {
-            for (const [key, conv] of window.pancakeDataManager.inboxMapByPSID) {
-                if (conv.id === window.currentConversationId) {
-                    convData = conv;
-                    break;
-                }
-            }
-        }
-
-        const globalUserId = await window.tab1ExtensionBridge.resolveGlobalUserId(convData);
-        if (!globalUserId) {
-            throw new Error('Không tìm được Global Facebook ID');
-        }
-
-        const result = await window.tab1ExtensionBridge.sendMessage({
-            text: message,
-            pageId,
-            psid,
-            globalUserId,
-            customerName: window.currentCustomerName || ''
-        });
-
-        if (window.notificationManager) {
-            window.notificationManager.show('Đã gửi qua Extension (bypass 24h)!', 'success');
-        }
-
-        // Optimistic UI update
-        const tempMessage = {
-            Id: result.messageId || `ext_${Date.now()}`,
-            id: result.messageId || `ext_${Date.now()}`,
-            Message: message,
-            message: message,
-            CreatedTime: new Date().toISOString(),
-            inserted_at: new Date().toISOString(),
-            IsOwner: true,
-            is_temp: true
-        };
-        window.allChatMessages.push(tempMessage);
-        window._messageIdSet?.add(tempMessage.id);
-        renderChatMessages(window.allChatMessages, true);
-
-    } catch (err) {
-        console.error('[EXT-MODAL] Extension send failed:', err);
-        if (window.notificationManager) {
-            window.notificationManager.show('Extension gửi thất bại: ' + err.message, 'error');
-        }
-    }
-};
-
-window.switchToCommentMode = function () {
-    window.close24hFallbackModal();
-    if (window.notificationManager) {
-        window.notificationManager.show('Vui lòng mở lại modal Comment để reply', 'info', 5000);
-    }
 };
 
 console.log('[Tab1-Chat-Facebook] Loaded successfully.');

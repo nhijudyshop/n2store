@@ -2187,7 +2187,7 @@ class MessageTemplateManager {
      * @returns {boolean} true if succeeded, false if failed
      */
     async _sendViaExtensionBypass(channelId, psid, messageContent, conversation, fullOrderData, order) {
-        if (!window.tab1ExtensionBridge?.isConnected()) {
+        if (!window.pancakeExtension?.connected || !window.sendViaExtension) {
             this.log(`⏭️ Extension not connected, skipping bypass for order ${order.code}`);
             return false;
         }
@@ -2195,7 +2195,6 @@ class MessageTemplateManager {
         try {
             this.log(`🔌 Attempting Extension Bypass for order ${order.code}...`);
 
-            // Build conv-like object for resolveGlobalUserId
             const conv = {
                 id: conversation?.id || `${channelId}_${psid}`,
                 conversationId: conversation?.id,
@@ -2210,22 +2209,7 @@ class MessageTemplateManager {
                 type: conversation?.type || 'INBOX'
             };
 
-            // Resolve globalUserId (fast from cache/API data, or slow from extension ~30-40s)
-            const globalUserId = await window.tab1ExtensionBridge.resolveGlobalUserId(conv);
-            if (!globalUserId) {
-                this.log(`❌ Cannot resolve globalUserId for order ${order.code}`);
-                return false;
-            }
-
-            // Send via extension
-            await window.tab1ExtensionBridge.sendMessage({
-                text: messageContent,
-                pageId: channelId,
-                psid: psid,
-                globalUserId: globalUserId,
-                customerName: conv.customerName
-            });
-
+            await window.sendViaExtension(messageContent, conv);
             this.log(`✅ Extension Bypass succeeded for order ${order.code}`);
             return true;
         } catch (extError) {

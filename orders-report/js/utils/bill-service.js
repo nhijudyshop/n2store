@@ -1483,60 +1483,23 @@ ${
                     (sendResult.message &&
                         sendResult.message.includes('khoảng thời gian cho phép'));
 
-                if (is24HourError && window.tab1ExtensionBridge?.isConnected()) {
-                    console.log(
-                        '[BILL-SERVICE] 🔄 24h policy error detected - trying Extension Bypass...'
-                    );
-
+                if (is24HourError && window.pancakeExtension?.connected && window.sendViaExtension) {
+                    console.log('[BILL-SERVICE] 24h error - trying Extension Bypass...');
                     try {
-                        // Build minimal conv data for resolveGlobalUserId
-                        const conv = {
-                            pageId: pageId,
-                            psid: psid,
-                            conversationId: convId,
-                            _raw: {},
-                            customers: [],
+                        const conv = window.buildConvData(pageId, psid);
+                        conv.conversationId = convId;
+                        const billMessage = contentUrl
+                            ? `[Hóa đơn] ${contentUrl}`
+                            : '[Hóa đơn đã được tạo]';
+                        await window.sendViaExtension(billMessage, conv);
+                        console.log('[BILL-SERVICE] Extension Bypass succeeded!');
+                        return {
+                            success: true,
+                            messageId: `ext_${Date.now()}`,
+                            viafallback: true,
                         };
-
-                        // Try to find conversation data from pancakeDataManager
-                        if (window.pancakeDataManager?.inboxMapByPSID) {
-                            for (const [, c] of window.pancakeDataManager.inboxMapByPSID) {
-                                if (String(c.pageId) === String(pageId) && String(c.psid) === String(psid)) {
-                                    conv._raw = c._raw || c.raw || {};
-                                    conv.customers = c.customers || [];
-                                    conv._messagesData = c._messagesData || null;
-                                    conv.updated_at = c.updated_at;
-                                    conv.customerName = c.from?.name || '';
-                                    conv.from = c.from;
-                                    break;
-                                }
-                            }
-                        }
-
-                        const globalUserId = await window.tab1ExtensionBridge.resolveGlobalUserId(conv);
-                        if (globalUserId) {
-                            // Send bill image URL as text via Extension (bypass 24h)
-                            const billMessage = contentUrl
-                                ? `[Hóa đơn] ${contentUrl}`
-                                : '[Hóa đơn đã được tạo]';
-                            await window.tab1ExtensionBridge.sendMessage({
-                                text: billMessage,
-                                pageId: pageId,
-                                psid: psid,
-                                globalUserId: globalUserId,
-                                customerName: conv.customerName || '',
-                            });
-                            console.log('[BILL-SERVICE] ✅ Extension Bypass succeeded!');
-                            return {
-                                success: true,
-                                messageId: `ext_${Date.now()}`,
-                                viafallback: true,
-                            };
-                        } else {
-                            console.warn('[BILL-SERVICE] ❌ Cannot resolve globalUserId for Extension Bypass');
-                        }
                     } catch (extError) {
-                        console.warn('[BILL-SERVICE] ❌ Extension Bypass failed:', extError.message);
+                        console.warn('[BILL-SERVICE] Extension Bypass failed:', extError.message);
                     }
                 }
 
@@ -1556,7 +1519,7 @@ ${
         }
     }
 
-    // sendViaFacebookAPI() removed - 24h fallback now uses Extension Bypass (tab1ExtensionBridge)
+    // sendViaFacebookAPI() removed - 24h fallback now uses Extension Bypass (sendViaExtension)
 
     /**
      * Send additional messages after bill send (image + thank you message)
