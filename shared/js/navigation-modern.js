@@ -130,6 +130,14 @@ const MENU_CONFIG = [
         permissionRequired: "tpos-pancake",
     },
     {
+        href: "../delivery-report/index.html",
+        icon: "truck",
+        text: "Thống Kê Giao Hàng",
+        shortText: "Giao Hàng",
+        pageIdentifier: "delivery-report",
+        permissionRequired: "delivery-report",
+    },
+    {
         href: "../order-management/index.html",
         icon: "package-check",
         text: "Quản Lý Order",
