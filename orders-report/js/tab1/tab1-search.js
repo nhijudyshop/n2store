@@ -257,10 +257,11 @@ function performTableSearch() {
     const statusFilter = document.getElementById('statusFilter')?.value || 'all';
     if (statusFilter !== 'all') {
         tempData = tempData.filter(order => {
+            const isDraft = order.Status === 'Draft' || order.Status === 'Nháp';
             if (statusFilter === 'Draft') {
-                return order.Status === 'Draft';
+                return isDraft;
             } else if (statusFilter === 'Confirmed') {
-                return order.Status !== 'Draft';
+                return !isDraft;
             }
             return true;
         });
