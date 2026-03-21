@@ -1309,21 +1309,7 @@ body {
     color: #9ca3af;
 }
 
-/* Search filter select - compact */
-.search-filter-select {
-    padding: 6px 10px;
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
-    font-size: 12px;
-    background: #f9fafb;
-    cursor: pointer;
-    min-width: 90px;
-}
-
-.search-filter-select:focus {
-    outline: none;
-    border-color: #3b82f6;
-}
+/* Search filter select - styles in tab1-filters.css */
 
 /* Highlight search results */
 .highlight {
