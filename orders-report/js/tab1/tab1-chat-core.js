@@ -645,6 +645,19 @@ window.switchConversationType = async function (type) {
             window.allChatComments = messagesResponse.messages || [];
             currentChatCursor = messagesResponse.after;
 
+            // Store customers + conversation data for Extension Bypass
+            window.currentConversationData = {
+                customers: messagesResponse.customers || [],
+                conversation: messagesResponse.conversation || null,
+                _raw: {}
+            };
+            if (messagesResponse.conversation?.page_customer?.global_id) {
+                window.currentConversationData._raw.page_customer = { global_id: messagesResponse.conversation.page_customer.global_id };
+            }
+            if (messagesResponse.conversation?.thread_id) {
+                window.currentConversationData._raw.thread_id = messagesResponse.conversation.thread_id;
+            }
+
             console.log('[CONV-TYPE] Loaded', window.allChatComments.length, 'comments/messages');
 
             // Render comments
@@ -679,6 +692,29 @@ window.switchConversationType = async function (type) {
 
             window.allChatMessages = response.messages || [];
             currentChatCursor = response.after;
+
+            // Store customers + conversation data for Extension Bypass globalUserId resolution
+            // (Same pattern as inbox-chat.js: merge response data into accessible state)
+            window.currentConversationData = {
+                customers: response.customers || [],
+                conversation: response.conversation || null,
+                _raw: {}
+            };
+            // Extract global_id and thread_id from response
+            if (response.conversation) {
+                const rc = response.conversation;
+                if (rc.page_customer?.global_id) {
+                    window.currentConversationData._raw.page_customer = { global_id: rc.page_customer.global_id };
+                    console.log('[CONV-TYPE] Got global_id from response:', rc.page_customer.global_id);
+                }
+                if (rc.thread_id) {
+                    window.currentConversationData._raw.thread_id = rc.thread_id;
+                    console.log('[CONV-TYPE] Got thread_id from response:', rc.thread_id);
+                }
+            }
+            if (response.customers?.length > 0 && response.customers[0].global_id) {
+                console.log('[CONV-TYPE] Got global_id from customers[]:', response.customers[0].global_id);
+            }
 
             // Update conversationId from response if available
             if (response.conversationId) {

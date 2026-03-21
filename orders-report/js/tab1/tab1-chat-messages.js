@@ -1116,25 +1116,33 @@ async function sendMessageInternal(messageData) {
                     showChatSendingIndicator('Đang gửi qua Extension (bypass 24h)...');
 
                     // Build conv-like object for resolveGlobalUserId
-                    let convData = null;
-                    if (window.currentConversationId && window.pancakeDataManager) {
+                    // Use currentConversationData (stored when messages were fetched)
+                    const storedData = window.currentConversationData || {};
+                    let convData = {
+                        pageId: pageId,
+                        psid: psid,
+                        conversationId: window.currentConversationId,
+                        _raw: storedData._raw || {},
+                        customers: storedData.customers || [],
+                        _messagesData: { customers: storedData.customers || [] }
+                    };
+
+                    // Also try pancakeDataManager cache as additional source
+                    if (window.pancakeDataManager?.inboxMapByPSID) {
                         for (const [key, conv] of window.pancakeDataManager.inboxMapByPSID) {
                             if (conv.id === window.currentConversationId) {
-                                convData = conv;
+                                // Merge any additional data from cache
+                                if (!convData._raw.page_customer && conv._raw?.page_customer) {
+                                    convData._raw.page_customer = conv._raw.page_customer;
+                                }
+                                if (!convData._raw.thread_id && conv._raw?.thread_id) {
+                                    convData._raw.thread_id = conv._raw.thread_id;
+                                }
+                                convData.from = conv.from;
+                                convData.updated_at = conv.updated_at;
                                 break;
                             }
                         }
-                    }
-
-                    // Minimal conv object if not found in cache
-                    if (!convData) {
-                        convData = {
-                            pageId: pageId,
-                            psid: psid,
-                            conversationId: window.currentConversationId,
-                            _raw: {},
-                            customers: []
-                        };
                     }
 
                     const globalUserId = await window.tab1ExtensionBridge.resolveGlobalUserId(convData);
