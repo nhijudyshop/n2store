@@ -576,16 +576,15 @@
 .message-actions {
     display: none;
     position: absolute;
-    top: -4px;
+    top: -12px;
+    right: 4px;
     gap: 2px;
-}
-
-.message-row.incoming .message-actions {
-    right: -8px;
+    z-index: 5;
 }
 
 .message-row.outgoing .message-actions {
-    left: -8px;
+    right: auto;
+    left: 4px;
 }
 
 .message-row:hover .message-actions {

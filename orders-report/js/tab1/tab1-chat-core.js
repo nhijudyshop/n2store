@@ -65,6 +65,13 @@ window.openChatModal = async function(orderId, pageId, psid, conversationType) {
     const nameEl = document.getElementById('chatCustomerName');
     if (nameEl) nameEl.textContent = window.currentCustomerName || 'Khách hàng';
 
+    // Update header avatar
+    const avatarEl = document.getElementById('chatCustomerAvatar');
+    if (avatarEl && psid) {
+        const initial = (window.currentCustomerName || 'K').charAt(0).toUpperCase();
+        avatarEl.innerHTML = `<img src="https://graph.facebook.com/${psid}/picture?type=small" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.style.display='none';this.parentElement.textContent='${initial}'">`;
+    }
+
     // Update type toggle
     _updateTypeToggle(conversationType);
 
@@ -374,7 +381,7 @@ window.setReplyMessage = function(msgId) {
 
     const preview = document.getElementById('replyPreview');
     if (preview) {
-        preview.style.display = 'flex';
+        preview.classList.add('active');
         const textEl = preview.querySelector('.reply-text');
         if (textEl) textEl.textContent = msg.text?.substring(0, 100) || '[Tin nhắn]';
     }
@@ -387,7 +394,7 @@ window.setReplyMessage = function(msgId) {
 window.cancelReply = function() {
     window.currentReplyMessage = null;
     const preview = document.getElementById('replyPreview');
-    if (preview) preview.style.display = 'none';
+    if (preview) preview.classList.remove('active');
 };
 
 // =====================================================

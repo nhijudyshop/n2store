@@ -100,6 +100,27 @@ document.addEventListener('DOMContentLoaded', function() {
             e.target.value = ''; // Reset for re-select
         }
     });
+
+    // Paste image handler on chat input
+    document.addEventListener('paste', function(e) {
+        // Only handle paste when chat modal is open and target is chat input
+        const chatModal = document.getElementById('chatModal');
+        if (!chatModal || chatModal.style.display === 'none') return;
+
+        const items = e.clipboardData?.items;
+        if (!items) return;
+
+        for (const item of items) {
+            if (item.type.startsWith('image/')) {
+                e.preventDefault();
+                const blob = item.getAsFile();
+                if (blob) {
+                    window.addImageToPreview(blob);
+                }
+                return;
+            }
+        }
+    });
 });
 
 console.log('[Chat-Img] Loaded.');

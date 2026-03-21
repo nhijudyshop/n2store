@@ -75,11 +75,17 @@ window.renderChatMessages = function(messages) {
             // Actions
             const actionsHtml = _buildMessageActions(msg);
 
+            // Avatar
+            const avatarHtml = !isOutgoing
+                ? `<div class="message-avatar" data-sender-id="${msg.fromId || ''}">${_getAvatarContent(msg)}</div>`
+                : '';
+
             return `
                 ${dateSeparator}
                 <div class="message-row ${isOutgoing ? 'outgoing' : 'incoming'}${statusClass}" data-msg-id="${msg.id}">
-                    ${!isOutgoing ? '<div class="message-avatar-placeholder"></div>' : ''}
+                    ${avatarHtml}
                     <div class="message-bubble">
+                        ${actionsHtml}
                         ${mediaHtml}
                         ${textHtml}
                         <div class="message-meta">
@@ -88,7 +94,6 @@ window.renderChatMessages = function(messages) {
                             <span class="message-time">${_formatTime(msg.time)}</span>
                         </div>
                     </div>
-                    ${actionsHtml}
                 </div>
             `;
         }).join('');
@@ -96,6 +101,19 @@ window.renderChatMessages = function(messages) {
     container.innerHTML = html;
     container.scrollTop = container.scrollHeight;
 };
+
+// =====================================================
+// AVATAR HELPER
+// =====================================================
+
+function _getAvatarContent(msg) {
+    const psid = msg.fromId || window.currentChatPSID || '';
+    if (psid) {
+        const imgUrl = `https://graph.facebook.com/${psid}/picture?type=small`;
+        return `<img src="${imgUrl}" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.style.display='none';this.parentElement.textContent='${(msg.senderName || 'K').charAt(0).toUpperCase()}'">`;
+    }
+    return (msg.senderName || 'K').charAt(0).toUpperCase();
+}
 
 // =====================================================
 // ATTACHMENT RENDERING (from inbox-chat.js renderAttachments)
