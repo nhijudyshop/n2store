@@ -21,7 +21,10 @@
         // Tra soát mode
         traSoatMode: false,
         scannedNumbers: new Set(),
-        activeTab: 'all', // 'city', 'province', 'all'
+        activeTab: 'all', // 'city', 'province', 'shop', 'all'
+        provinceGroups: {}, // { Number: 'tomato' | 'nap' }
+        _provinceGroupsLoaded: false,
+        lastScannedColumn: null, // 'tomato' | 'nap'
 
         // Filter values
         filters: {
@@ -220,6 +223,7 @@
             DeliveryReportState.allData = result.value || [];
 
             populateCarrierFilter();
+            await ensureProvinceGroups();
             renderTable();
             renderStats();
             renderPagination();
@@ -338,6 +342,18 @@
     // RENDER TABLE
     // =====================================================
     function renderTable() {
+        // Province tab in tra soát mode uses special 2-column view
+        if (DeliveryReportState.traSoatMode && DeliveryReportState.activeTab === 'province') {
+            renderProvinceView();
+            return;
+        }
+
+        // Ensure normal table is visible
+        const provinceView = document.getElementById('drProvinceView');
+        const tableWrapper = document.getElementById('drTableWrapper');
+        if (provinceView) provinceView.style.display = 'none';
+        if (tableWrapper) tableWrapper.style.display = '';
+
         const tbody = document.getElementById('drTableBody');
         const tfoot = document.getElementById('drTableFoot');
         if (!tbody) return;
@@ -711,6 +727,13 @@
                 btn.innerHTML = '<i class="fas fa-clipboard-check"></i> Tra soát';
             }
             if (bar) bar.style.display = 'none';
+
+            // Hide province view if active
+            const provinceView = document.getElementById('drProvinceView');
+            if (provinceView) provinceView.style.display = 'none';
+            const tableWrapper = document.getElementById('drTableWrapper');
+            if (tableWrapper) tableWrapper.style.display = '';
+
             state.scannedNumbers = new Set();
             state.activeTab = 'all';
             state.currentPage = 1;
@@ -725,8 +748,13 @@
         DeliveryReportState.activeTab = tab;
         DeliveryReportState.currentPage = 1;
         updateTabUI();
-        renderTable();
-        renderPagination();
+
+        if (tab === 'province' && DeliveryReportState.traSoatMode) {
+            renderProvinceView();
+        } else {
+            renderTable();
+            renderPagination();
+        }
         updateScanCount();
     }
 
@@ -767,6 +795,159 @@
         return data;
     }
 
+    // =====================================================
+    // PROVINCE GROUPS - TOMATO/NAP Split + Firebase Persistence
+    // =====================================================
+    function getProvinceData() {
+        let data = DeliveryReportState.allData || [];
+        const carrier = DeliveryReportState.filters.carrierId;
+        if (carrier) {
+            data = data.filter(item => normalizeCarrier(item.CarrierName) === carrier);
+        }
+        return data.filter(item => normalizeCarrier(item.CarrierName) === 'SHIP TÌNH');
+    }
+
+    function getFirestoreDB() {
+        if (typeof firebase !== 'undefined' && firebase.firestore) {
+            return firebase.firestore();
+        }
+        return null;
+    }
+
+    async function loadProvinceGroups() {
+        const db = getFirestoreDB();
+        if (!db) return {};
+
+        try {
+            const doc = await db.collection('delivery_report').doc('province_groups').get();
+            if (doc.exists) {
+                return doc.data().groups || {};
+            }
+        } catch (e) {
+            console.warn('[DELIVERY-REPORT] Failed to load province groups:', e);
+        }
+        return {};
+    }
+
+    async function saveProvinceGroups(groups) {
+        const db = getFirestoreDB();
+        if (!db) return;
+
+        try {
+            await db.collection('delivery_report').doc('province_groups').set({
+                groups: groups,
+                lastUpdated: Date.now()
+            }, { merge: true });
+            console.log('[DELIVERY-REPORT] Province groups saved to Firestore');
+        } catch (e) {
+            console.warn('[DELIVERY-REPORT] Failed to save province groups:', e);
+        }
+    }
+
+    async function ensureProvinceGroups() {
+        const state = DeliveryReportState;
+        const provinceData = getProvinceData();
+
+        if (!provinceData.length) return;
+
+        // Load saved groups from Firestore (once per session)
+        if (!state._provinceGroupsLoaded) {
+            state.provinceGroups = await loadProvinceGroups();
+            state._provinceGroupsLoaded = true;
+        }
+
+        // Find items without group assignment
+        const unassigned = provinceData.filter(item => !state.provinceGroups[item.Number]);
+
+        if (unassigned.length > 0) {
+            // Shuffle randomly
+            const shuffled = [...unassigned].sort(() => Math.random() - 0.5);
+
+            // Split 1:3 ratio (TOMATO gets 1/4, NAP gets 3/4)
+            const tomatoCount = Math.max(1, Math.round(shuffled.length / 4));
+
+            shuffled.forEach((item, index) => {
+                state.provinceGroups[item.Number] = index < tomatoCount ? 'tomato' : 'nap';
+            });
+
+            await saveProvinceGroups(state.provinceGroups);
+        }
+    }
+
+    // =====================================================
+    // PROVINCE VIEW - 2-Column Layout (TOMATO / NAP)
+    // =====================================================
+    function renderProvinceView() {
+        const view = document.getElementById('drProvinceView');
+        const tableWrapper = document.getElementById('drTableWrapper');
+        if (!view) return;
+
+        // Show province view, hide table
+        view.style.display = '';
+        if (tableWrapper) tableWrapper.style.display = 'none';
+
+        const provinceData = getTabFilteredData();
+        const groups = DeliveryReportState.provinceGroups;
+        const scanned = DeliveryReportState.scannedNumbers;
+
+        const tomatoItems = provinceData.filter(item => groups[item.Number] === 'tomato');
+        const napItems = provinceData.filter(item => groups[item.Number] === 'nap');
+
+        // Render TOMATO column
+        const tomatoScanned = tomatoItems.filter(i => scanned.has(i.Number)).length;
+        let tomatoHtml = `<div class="dr-province-header dr-province-header-tomato">
+            TOMATO <span class="dr-province-count">${tomatoScanned}/${tomatoItems.length}</span>
+        </div>`;
+        tomatoItems.forEach(item => {
+            const isScanned = scanned.has(item.Number);
+            tomatoHtml += `<div class="dr-province-item ${isScanned ? 'scanned' : ''}">
+                <div class="dr-province-left">
+                    <span class="dr-province-num">${escapeHtml(item.Number)}</span>
+                    <span class="dr-province-customer">${escapeHtml(item.PartnerDisplayName || '')}</span>
+                </div>
+                <div class="dr-province-right">
+                    <span class="dr-province-amount">${formatMoney(item.AmountTotal)}</span>
+                    ${isScanned ? '<i class="fas fa-check" style="color:#22c55e"></i>' : ''}
+                </div>
+            </div>`;
+        });
+
+        // Render NAP column
+        const napScanned = napItems.filter(i => scanned.has(i.Number)).length;
+        let napHtml = `<div class="dr-province-header dr-province-header-nap">
+            NAP <span class="dr-province-count">${napScanned}/${napItems.length}</span>
+        </div>`;
+        napItems.forEach(item => {
+            const isScanned = scanned.has(item.Number);
+            napHtml += `<div class="dr-province-item ${isScanned ? 'scanned' : ''}">
+                <div class="dr-province-left">
+                    <span class="dr-province-num">${escapeHtml(item.Number)}</span>
+                    <span class="dr-province-customer">${escapeHtml(item.PartnerDisplayName || '')}</span>
+                </div>
+                <div class="dr-province-right">
+                    <span class="dr-province-amount">${formatMoney(item.AmountTotal)}</span>
+                    ${isScanned ? '<i class="fas fa-check" style="color:#22c55e"></i>' : ''}
+                </div>
+            </div>`;
+        });
+
+        document.getElementById('drColTomato').innerHTML = tomatoHtml;
+        document.getElementById('drColNap').innerHTML = napHtml;
+    }
+
+    function highlightProvinceColumn(column) {
+        const colId = column === 'tomato' ? 'drColTomato' : 'drColNap';
+        const colEl = document.getElementById(colId);
+        if (!colEl) return;
+
+        // Remove previous highlight
+        document.querySelectorAll('.dr-province-col').forEach(el => el.classList.remove('highlight'));
+
+        // Add highlight with animation
+        colEl.classList.add('highlight');
+        setTimeout(() => colEl.classList.remove('highlight'), 1500);
+    }
+
     function onBarcodeKeydown(e) {
         // Ignore if focus is on an input/select
         const tag = e.target.tagName;
@@ -795,15 +976,54 @@
 
         // Find matching item by Number
         const match = (state.allData || []).find(item => item.Number === value);
-        if (match) {
-            state.scannedNumbers.add(match.Number);
+        if (!match) {
+            showScanFeedback(false, `Không tìm thấy: ${value}`);
+            return;
+        }
+
+        // Check if already scanned
+        if (state.scannedNumbers.has(match.Number)) {
+            showScanFeedback(false, `Đã quét rồi: ${value}`);
+            return;
+        }
+
+        // Tab-aware scanning: check if item belongs to current tab
+        if (state.activeTab !== 'all') {
+            const normalizedCarrier = normalizeCarrier(match.CarrierName);
+            let belongsToTab = false;
+
+            if (state.activeTab === 'city' && normalizedCarrier === 'THÀNH PHỐ') belongsToTab = true;
+            else if (state.activeTab === 'province' && normalizedCarrier === 'SHIP TÌNH') belongsToTab = true;
+            else if (state.activeTab === 'shop' && normalizedCarrier === 'BÁN HÀNG SHOP') belongsToTab = true;
+
+            if (!belongsToTab) {
+                let correctTab = 'khác';
+                if (normalizedCarrier === 'THÀNH PHỐ') correctTab = 'Thành phố';
+                else if (normalizedCarrier === 'SHIP TÌNH') correctTab = 'Tỉnh';
+                else if (normalizedCarrier === 'BÁN HÀNG SHOP') correctTab = 'Bán hàng shop';
+
+                showScanFeedback(false, `${value} thuộc tab "${correctTab}"!`);
+                return;
+            }
+        }
+
+        // Mark as scanned
+        state.scannedNumbers.add(match.Number);
+
+        // Province tab: highlight column + render province view
+        if (state.activeTab === 'province' && state.traSoatMode) {
+            const group = state.provinceGroups[match.Number];
+            if (group) {
+                highlightProvinceColumn(group);
+            }
+            renderProvinceView();
+        } else {
             renderTable();
             renderPagination();
-            updateScanCount();
-            showScanFeedback(true, match.Number);
-        } else {
-            showScanFeedback(false, value);
         }
+
+        updateScanCount();
+        showScanFeedback(true, match.Number);
     }
 
     function showScanFeedback(success, value) {

@@ -585,3 +585,130 @@
         padding: 8px 14px;
     }
 }
+
+/* =====================================================
+   PROVINCE VIEW - TOMATO / NAP 2-Column Layout
+   ===================================================== */
+.dr-province-grid {
+    display: grid;
+    grid-template-columns: 1fr 3fr;
+    gap: 16px;
+}
+
+.dr-province-col {
+    background: white;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    overflow: hidden;
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.dr-province-col.highlight {
+    border-color: #22c55e;
+    box-shadow: 0 0 16px rgba(34, 197, 94, 0.35);
+}
+
+/* Province column headers */
+.dr-province-header {
+    padding: 12px 16px;
+    font-weight: 700;
+    font-size: 16px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.dr-province-header-tomato {
+    background: #fee2e2;
+    color: #dc2626;
+    border-bottom: 2px solid #fca5a5;
+}
+
+.dr-province-header-nap {
+    background: #dbeafe;
+    color: #1e40af;
+    border-bottom: 2px solid #93c5fd;
+}
+
+.dr-province-count {
+    font-size: 13px;
+    font-weight: 500;
+    opacity: 0.8;
+}
+
+/* Province items */
+.dr-province-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    border-bottom: 1px solid #f3f4f6;
+    font-size: 13px;
+    transition: background 0.2s;
+}
+
+.dr-province-item:last-child {
+    border-bottom: none;
+}
+
+.dr-province-item:hover {
+    background: #f8fafc;
+}
+
+.dr-province-item.scanned {
+    background: #d1fae5;
+}
+
+.dr-province-item.scanned .dr-province-num,
+.dr-province-item.scanned .dr-province-customer {
+    text-decoration: line-through;
+    color: #6b7280;
+}
+
+.dr-province-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.dr-province-num {
+    font-weight: 600;
+    color: #1a1a2e;
+    white-space: nowrap;
+}
+
+.dr-province-customer {
+    color: #6b7280;
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 200px;
+}
+
+.dr-province-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.dr-province-amount {
+    color: #374151;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+/* Responsive province grid */
+@media (max-width: 768px) {
+    .dr-province-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .dr-province-customer {
+        max-width: 120px;
+    }
+}
