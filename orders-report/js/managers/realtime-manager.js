@@ -1,559 +1,331 @@
+/* =====================================================
+   REALTIME MANAGER - Pancake Phoenix WebSocket + Polling Fallback
+   Exact copy of PancakePhoenixSocket from inbox/js/inbox-chat.js
+   Plus polling fallback from n2store-realtime server
+   ===================================================== */
+
+console.log('[Realtime] Loading...');
+
 // =====================================================
-// REALTIME MANAGER - Quản lý WebSocket Realtime
+// PANCAKE PHOENIX WEBSOCKET
+// =====================================================
+
+class PancakePhoenixSocket {
+    constructor({ accessToken, userId, pageIds, onEvent, onStatusChange }) {
+        this.url = 'wss://chatomni-proxy.nhijudyshop.workers.dev/ws/pancake?vsn=2.0.0';
+        this.accessToken = accessToken;
+        this.userId = userId;
+        this.pageIds = pageIds;
+        this.onEvent = onEvent;
+        this.onStatusChange = onStatusChange;
+
+        this.ws = null;
+        this.ref = 0;
+        this.heartbeatTimer = null;
+        this.heartbeatTimeout = null;
+        this.reconnectTimer = null;
+        this.reconnectAttempts = 0;
+        this.maxReconnect = 10;
+        this.isConnected = false;
+        this.joinedChannels = new Set();
+
+        this.clientSession = crypto.getRandomValues(new Uint8Array(32))
+            .reduce((s, b) => s + b.toString(36).padStart(2, '0'), '').slice(0, 64);
+    }
+
+    connect() {
+        if (this.ws) this.disconnect();
+        console.log('[PHOENIX] Connecting to', this.url);
+
+        try {
+            this.ws = new WebSocket(this.url);
+            this.ws.onopen = () => this._onOpen();
+            this.ws.onclose = (e) => this._onClose(e);
+            this.ws.onmessage = (e) => this._onMessage(e);
+            this.ws.onerror = (e) => console.error('[PHOENIX] WS error:', e);
+        } catch (e) {
+            console.error('[PHOENIX] Connect error:', e);
+            this._scheduleReconnect();
+        }
+    }
+
+    disconnect() {
+        this._stopHeartbeat();
+        if (this.reconnectTimer) { clearTimeout(this.reconnectTimer); this.reconnectTimer = null; }
+        if (this.ws) {
+            this.ws.onopen = null;
+            this.ws.onclose = null;
+            this.ws.onmessage = null;
+            this.ws.onerror = null;
+            this.ws.close();
+            this.ws = null;
+        }
+        this.isConnected = false;
+        this.joinedChannels.clear();
+        this.onStatusChange(false);
+    }
+
+    _onOpen() {
+        console.log('[PHOENIX] Connected, joining channels...');
+        this.reconnectAttempts = 0;
+
+        // Join user channel
+        this._joinChannel(`users:${this.userId}`, {
+            accessToken: this.accessToken, userId: this.userId, platform: 'web'
+        });
+
+        // Join multi-page channel
+        this._joinChannel(`multiple_pages:${this.userId}`, {
+            accessToken: this.accessToken, userId: this.userId,
+            clientSession: this.clientSession, pageIds: this.pageIds, platform: 'web'
+        });
+
+        this._startHeartbeat();
+    }
+
+    _onClose(e) {
+        console.log('[PHOENIX] Disconnected, code:', e.code, 'reason:', e.reason);
+        this.isConnected = false;
+        this.joinedChannels.clear();
+        this._stopHeartbeat();
+        this.onStatusChange(false);
+        this._scheduleReconnect();
+    }
+
+    _onMessage(e) {
+        try {
+            const data = JSON.parse(e.data);
+            if (!Array.isArray(data) || data.length < 5) return;
+            const [joinRef, ref, topic, event, payload] = data;
+
+            // Heartbeat reply
+            if (event === 'phx_reply') {
+                if (topic === 'phoenix') {
+                    if (this.heartbeatTimeout) { clearTimeout(this.heartbeatTimeout); this.heartbeatTimeout = null; }
+                    return;
+                }
+                // Channel join reply
+                if (payload?.status === 'ok') {
+                    this.joinedChannels.add(topic);
+                    console.log('[PHOENIX] Joined:', topic);
+                    if (!this.isConnected && this.joinedChannels.size > 0) {
+                        this.isConnected = true;
+                        this.onStatusChange(true);
+                    }
+                } else if (payload?.status === 'error') {
+                    console.warn('[PHOENIX] Join error:', topic, payload?.response?.reason || payload);
+                }
+                return;
+            }
+
+            if (event === 'phx_error') { this.joinedChannels.delete(topic); return; }
+            if (event === 'phx_close') { this.joinedChannels.delete(topic); return; }
+
+            // Dispatch real event
+            if (this.onEvent) this.onEvent(event, payload);
+        } catch (e) {
+            console.error('[PHOENIX] Message parse error:', e);
+        }
+    }
+
+    _joinChannel(topic, payload) {
+        const joinRef = String(++this.ref);
+        this._send([joinRef, joinRef, topic, 'phx_join', payload]);
+    }
+
+    _send(data) {
+        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify(data));
+        }
+    }
+
+    _startHeartbeat() {
+        this._stopHeartbeat();
+        this.heartbeatTimer = setInterval(() => {
+            const ref = String(++this.ref);
+            this._send([null, ref, 'phoenix', 'heartbeat', {}]);
+            this.heartbeatTimeout = setTimeout(() => {
+                console.warn('[PHOENIX] Heartbeat timeout, closing...');
+                if (this.ws) this.ws.close();
+            }, 10000);
+        }, 30000);
+    }
+
+    _stopHeartbeat() {
+        if (this.heartbeatTimer) { clearInterval(this.heartbeatTimer); this.heartbeatTimer = null; }
+        if (this.heartbeatTimeout) { clearTimeout(this.heartbeatTimeout); this.heartbeatTimeout = null; }
+    }
+
+    _scheduleReconnect() {
+        if (this.reconnectAttempts >= this.maxReconnect) {
+            console.warn('[PHOENIX] Max reconnect attempts reached');
+            this.onStatusChange(false);
+            // Start polling fallback when WS fails completely
+            if (window.realtimeManager) window.realtimeManager._startPollingFallback();
+            return;
+        }
+        const delay = Math.min(2000 * Math.pow(2, this.reconnectAttempts), 60000);
+        this.reconnectAttempts++;
+        console.log(`[PHOENIX] Reconnecting in ${delay / 1000}s (attempt ${this.reconnectAttempts}/${this.maxReconnect})`);
+        this.reconnectTimer = setTimeout(() => this.connect(), delay);
+    }
+}
+
+// =====================================================
+// REALTIME MANAGER - Orchestrates WS + Polling
 // =====================================================
 
 class RealtimeManager {
     constructor() {
-        this.ws = null;
+        this.socket = null;
         this.isConnected = false;
-        this.refCounter = 1;
-        this.heartbeatInterval = null;
-        this.reconnectTimer = null;
-        this.url = "wss://pancake.vn/socket/websocket?vsn=2.0.0";
-        this.userId = null;
-        this.token = null;
-        this.pageIds = [];
-        this.isConnecting = false;
-
-        // Exponential backoff for WebSocket reconnection
-        this.reconnectAttempts = 0;
-        this.maxReconnectAttempts = 10;
-        this.baseReconnectDelay = 2000; // 2s
-        this.maxReconnectDelay = 60000; // 60s
-
-        // Server mode REST polling
-        this.pollingInterval = null;
+        this.pollingTimer = null;
+        this.pollingInterval = 10000; // 10s
         this.lastEventTimestamp = null;
-        this.consecutiveErrors = 0;
-        this.currentPollInterval = 5000; // Adaptive: starts at 5s
+        this.eventHandlers = new Map();
+        this.REALTIME_SERVER_URL = 'https://n2store-realtime.onrender.com';
     }
 
     /**
-     * Initialize and connect if mode is realtime
+     * Initialize WebSocket connection to Pancake
+     * @param {Object} options - { accessToken, userId, pageIds }
      */
-    async initialize() {
-        // Listen for mode changes
-        window.addEventListener('chatApiSourceChanged', (e) => {
-            const isRealtime = e.detail.realtime;
-            const source = e.detail.source;
-            const mode = e.detail.realtimeMode || 'browser';
+    async initWebSocket({ accessToken, userId, pageIds }) {
+        if (this.socket) this.socket.disconnect();
 
-            // Always disconnect existing connections first to prevent duplicates
-            this.disconnect();
+        this.socket = new PancakePhoenixSocket({
+            accessToken,
+            userId,
+            pageIds,
+            onEvent: (event, payload) => this._handleEvent(event, payload),
+            onStatusChange: (connected) => {
+                this.isConnected = connected;
+                console.log('[Realtime] WebSocket status:', connected ? 'CONNECTED' : 'DISCONNECTED');
 
-            if (isRealtime && source === 'pancake') {
-                if (mode === 'browser') {
-                    this.connect();
-                } else {
-                    this.connectServerMode();
+                // Dispatch status event for UI
+                window.dispatchEvent(new CustomEvent('realtimeStatusChanged', {
+                    detail: { connected }
+                }));
+
+                // If connected, stop polling fallback
+                if (connected && this.pollingTimer) {
+                    this._stopPolling();
                 }
             }
         });
 
-        // Check current mode
-        if (window.chatAPISettings &&
-            window.chatAPISettings.isRealtimeEnabled() &&
-            window.chatAPISettings.isPancake()) {
-
-            const mode = window.chatAPISettings.getRealtimeMode();
-            if (mode === 'browser') {
-                await this.connect();
-            } else {
-                this.connectServerMode();
-            }
-        }
+        this.socket.connect();
+        return true;
     }
 
     /**
-     * Manual Connect Trigger
-     */
-    async manualConnect() {
-        const mode = window.chatAPISettings ? window.chatAPISettings.getRealtimeMode() : 'browser';
-        console.log(`[REALTIME] Manual connect triggered for mode: ${mode}`);
-
-        if (window.notificationManager) {
-            window.notificationManager.show('🔄 Đang kết nối lại...', 'info');
-        }
-
-        if (mode === 'browser') {
-            this.disconnect();
-            await this.connect();
-        } else {
-            // Server modes
-            this.disconnect();
-            await this.connectServerMode();
-        }
-    }
-
-    /**
-     * Connect via Server Mode (REST Polling)
-     * tpos-pancake server auto-connects to Pancake WS on startup via Firebase tokens.
-     * Frontend polls GET /api/events for new events.
-     */
-    async connectServerMode() {
-        if (this.isConnected || this.isConnecting) {
-            console.log('[REALTIME] Already connected or connecting to Server Mode.');
-            return;
-        }
-
-        console.log('[REALTIME] Server Mode Active. Starting REST polling...');
-        this.isConnecting = true;
-
-        // Determine server base URL
-        // Default to Cloudflare Worker proxy to avoid CORS
-        let serverBaseUrl = 'https://chatomni-proxy.nhijudyshop.workers.dev';
-        const mode = window.chatAPISettings ? window.chatAPISettings.getRealtimeMode() : 'server';
-        if (mode === 'localhost') {
-            serverBaseUrl = 'http://localhost:3000';
-        }
-
-        try {
-            // Check server status first
-            const statusUrl = mode === 'localhost'
-                ? `${serverBaseUrl}/api/status`
-                : `${serverBaseUrl}/api/realtime/status`;
-
-            console.log('[REALTIME] Checking server status:', statusUrl);
-            const response = await fetch(statusUrl);
-            const data = await response.json();
-
-            const connected = data.connectedClients || 0;
-            const total = data.totalClients || 0;
-
-            if (connected > 0) {
-                console.log(`[REALTIME] Server alive: ${connected}/${total} accounts connected`);
-                if (window.notificationManager) {
-                    window.notificationManager.show(
-                        `✅ Server đang chạy (${connected}/${total} accounts kết nối)`, 'success'
-                    );
-                }
-            } else {
-                console.warn('[REALTIME] Server alive but no accounts connected');
-                if (window.notificationManager) {
-                    window.notificationManager.show(
-                        '⚠️ Server đang chạy nhưng chưa có account kết nối', 'warning'
-                    );
-                }
-            }
-
-            // Start REST polling for events
-            this.startServerPolling(serverBaseUrl, mode);
-            this.isConnected = true;
-            this.consecutiveErrors = 0;
-            this._dispatchStatusEvent(true);
-
-        } catch (error) {
-            console.error('[REALTIME] Error connecting to server:', error);
-            if (window.notificationManager) {
-                window.notificationManager.show('❌ Không thể kết nối tới Server', 'error');
-            }
-        } finally {
-            this.isConnecting = false;
-        }
-    }
-
-    /**
-     * Start REST polling for server events (adaptive interval)
-     */
-    startServerPolling(serverBaseUrl, mode) {
-        // Clear any existing polling
-        if (this.pollingInterval) {
-            clearInterval(this.pollingInterval);
-        }
-
-        // Track last event timestamp for incremental fetching
-        this.lastEventTimestamp = new Date().toISOString();
-        this.currentPollInterval = 5000; // Reset to base interval
-
-        this._serverEventsUrl = mode === 'localhost'
-            ? `${serverBaseUrl}/api/events`
-            : `${serverBaseUrl}/api/realtime/events`;
-
-        console.log('[REALTIME] Starting adaptive REST polling (5-30s):', this._serverEventsUrl);
-
-        // Poll immediately once, then schedule adaptive polling
-        this.pollServerEvents(this._serverEventsUrl);
-        this._scheduleNextPoll();
-    }
-
-    /**
-     * Schedule next poll with adaptive interval
-     */
-    _scheduleNextPoll() {
-        if (this.pollingInterval) clearTimeout(this.pollingInterval);
-        this.pollingInterval = setTimeout(() => {
-            this.pollServerEvents(this._serverEventsUrl);
-            this._scheduleNextPoll();
-        }, this.currentPollInterval);
-    }
-
-    /**
-     * Poll server for new events since last timestamp
-     */
-    async pollServerEvents(eventsUrl) {
-        try {
-            const url = `${eventsUrl}?since=${encodeURIComponent(this.lastEventTimestamp)}&limit=50`;
-            const response = await fetch(url);
-
-            if (!response.ok) {
-                this.consecutiveErrors++;
-                console.warn(`[REALTIME] Poll failed (${this.consecutiveErrors}):`, response.status);
-
-                // After 5 consecutive errors, show notification and stop polling
-                if (this.consecutiveErrors >= 5) {
-                    console.error('[REALTIME] Too many poll errors, stopping...');
-                    this.disconnect();
-                    if (window.notificationManager) {
-                        window.notificationManager.show('❌ Mất kết nối Server, đã dừng polling', 'error');
-                    }
-                }
-                return;
-            }
-
-            this.consecutiveErrors = 0;
-            const data = await response.json();
-            const events = data.events || data || [];
-
-            // Adaptive polling: speed up when events found, slow down when quiet
-            if (events.length > 0) {
-                this.currentPollInterval = 5000; // Reset to 5s when events arrive
-            } else {
-                this.currentPollInterval = Math.min(this.currentPollInterval * 2, 30000); // Double up to 30s max
-            }
-
-            if (events.length > 0) {
-                console.log(`[REALTIME] Received ${events.length} events from server`);
-
-                for (const event of events) {
-                    // Update last timestamp for incremental fetching
-                    if (event.timestamp && event.timestamp > this.lastEventTimestamp) {
-                        this.lastEventTimestamp = event.timestamp;
-                    }
-
-                    // Process based on event type
-                    if (event.type === 'update_conversation' || event.type === 'pages:update_conversation') {
-                        this.handleUpdateConversation(event.payload);
-                    } else if (event.type === 'tags_updated' || event.type === 'order:tags_updated') {
-                        this.handleOrderTagsUpdate(event.payload);
-                    }
-                }
-            }
-        } catch (error) {
-            this.consecutiveErrors++;
-            console.warn(`[REALTIME] Poll error (${this.consecutiveErrors}):`, error.message);
-
-            if (this.consecutiveErrors >= 5) {
-                console.error('[REALTIME] Too many poll errors, stopping...');
-                this.disconnect();
-                if (window.notificationManager) {
-                    window.notificationManager.show('❌ Mất kết nối Server, đã dừng polling', 'error');
-                }
-            }
-        }
-    }
-
-    /**
-     * Generate a unique reference ID
-     */
-    makeRef() {
-        return String(this.refCounter++);
-    }
-
-    /**
-     * Generate a random client session ID
-     */
-    generateClientSession() {
-        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-            var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-            return v.toString(16);
-        });
-    }
-
-    /**
-     * Connect to WebSocket
-     */
-    async connect() {
-        if (this.isConnected || (this.ws && this.ws.readyState === WebSocket.CONNECTING)) {
-            console.log('[REALTIME] Already connected or connecting');
-            return;
-        }
-
-        try {
-            console.log('[REALTIME] Connecting...');
-
-            // Get dependencies
-            if (!window.pancakeTokenManager || !window.pancakeDataManager) {
-                console.warn('[REALTIME] Dependencies not ready, retrying in 1s...');
-                setTimeout(() => this.connect(), 1000);
-                return;
-            }
-
-            // Get Token
-            this.token = await window.pancakeTokenManager.getToken();
-            if (!this.token) {
-                console.error('[REALTIME] No token found. Cannot connect.');
-                return;
-            }
-
-            // Get User ID
-            const tokenInfo = window.pancakeTokenManager.getTokenInfo();
-            this.userId = tokenInfo ? tokenInfo.uid : null;
-            if (!this.userId) {
-                console.error('[REALTIME] No User ID found in token.');
-                return;
-            }
-
-            // Get Page IDs
-            // Ensure pages are fetched
-            if (window.pancakeDataManager.pageIds.length === 0) {
-                await window.pancakeDataManager.fetchPages();
-            }
-            this.pageIds = window.pancakeDataManager.pageIds;
-
-            // Open WebSocket
-            this.ws = new WebSocket(this.url);
-
-            this.ws.onopen = () => {
-                console.log('[REALTIME] WebSocket Connected');
-                this.isConnected = true;
-                this.reconnectAttempts = 0; // Reset on successful connect
-                this.startHeartbeat();
-                this.joinChannels();
-                this._dispatchStatusEvent(true);
-            };
-
-            this.ws.onclose = (e) => {
-                console.log('[REALTIME] WebSocket Closed', e.code, e.reason);
-                this.isConnected = false;
-                this.stopHeartbeat();
-                this._dispatchStatusEvent(false);
-
-                // Reconnect with exponential backoff if still in realtime mode
-                if (window.chatAPISettings &&
-                    window.chatAPISettings.isRealtimeEnabled() &&
-                    window.chatAPISettings.isPancake()) {
-
-                    this.reconnectAttempts++;
-                    if (this.reconnectAttempts > this.maxReconnectAttempts) {
-                        console.error(`[REALTIME] Max reconnect attempts (${this.maxReconnectAttempts}) reached. Giving up.`);
-                        window.dispatchEvent(new CustomEvent('realtimeConnectionLost'));
-                        return;
-                    }
-
-                    const delay = Math.min(
-                        this.baseReconnectDelay * Math.pow(2, this.reconnectAttempts - 1),
-                        this.maxReconnectDelay
-                    );
-                    console.log(`[REALTIME] Reconnecting in ${delay / 1000}s (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
-                    clearTimeout(this.reconnectTimer);
-                    this.reconnectTimer = setTimeout(() => this.connect(), delay);
-                }
-            };
-
-            this.ws.onerror = (error) => {
-                console.error('[REALTIME] WebSocket Error:', error);
-            };
-
-            this.ws.onmessage = (event) => {
-                this.handleMessage(event.data);
-            };
-
-        } catch (error) {
-            console.error('[REALTIME] Connection error:', error);
-        }
-    }
-
-    /**
-     * Dispatch realtime status change event for UI indicators
-     */
-    _dispatchStatusEvent(connected) {
-        window.dispatchEvent(new CustomEvent('realtimeStatusChanged', {
-            detail: { connected }
-        }));
-    }
-
-    /**
-     * Disconnect WebSocket
+     * Disconnect everything
      */
     disconnect() {
-        if (this.ws) {
-            console.log('[REALTIME] Disconnecting Browser WS...');
-            this.ws.close();
-            this.ws = null;
-            this.stopHeartbeat();
+        if (this.socket) {
+            this.socket.disconnect();
+            this.socket = null;
         }
-
-        if (this.proxyWs) {
-            console.log('[REALTIME] Disconnecting Proxy WS...');
-            this.proxyWs.close();
-            this.proxyWs = null;
-        }
-
-        if (this.pollingInterval) {
-            console.log('[REALTIME] Stopping REST polling...');
-            clearTimeout(this.pollingInterval);
-            this.pollingInterval = null;
-        }
-
+        this._stopPolling();
         this.isConnected = false;
-        this.consecutiveErrors = 0;
-        this._dispatchStatusEvent(false);
     }
 
     /**
-     * Send Heartbeat to keep connection alive
+     * Register event handler
+     * @param {string} eventType - e.g. 'pages:new_message', 'pages:update_conversation'
+     * @param {Function} handler - callback(payload)
      */
-    startHeartbeat() {
-        this.stopHeartbeat();
-        this.heartbeatInterval = setInterval(() => {
-            if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-                const ref = this.makeRef();
-                // Phoenix heartbeat: [null, ref, "phoenix", "heartbeat", {}]
-                this.ws.send(JSON.stringify([null, ref, "phoenix", "heartbeat", {}]));
-            }
-        }, 30000); // 30s
+    on(eventType, handler) {
+        if (!this.eventHandlers.has(eventType)) {
+            this.eventHandlers.set(eventType, []);
+        }
+        this.eventHandlers.get(eventType).push(handler);
     }
 
-    stopHeartbeat() {
-        if (this.heartbeatInterval) {
-            clearInterval(this.heartbeatInterval);
-            this.heartbeatInterval = null;
+    /**
+     * Remove event handler
+     */
+    off(eventType, handler) {
+        const handlers = this.eventHandlers.get(eventType);
+        if (handlers) {
+            const idx = handlers.indexOf(handler);
+            if (idx >= 0) handlers.splice(idx, 1);
         }
     }
 
-    /**
-     * Join required channels
-     */
-    joinChannels() {
-        if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+    // --- Internal: Handle WebSocket event ---
+    _handleEvent(event, payload) {
+        this.lastEventTimestamp = Date.now();
 
-        // 1. Join User Channel
-        // ["ref", "ref", "users:UID", "phx_join", {accessToken, userId, platform: "web"}]
-        const userRef = this.makeRef();
-        const userJoinMsg = [
-            userRef,
-            userRef,
-            `users:${this.userId}`,
-            "phx_join",
-            {
-                accessToken: this.token,
-                userId: this.userId,
-                platform: "web"
+        // Dispatch to registered handlers
+        const handlers = this.eventHandlers.get(event) || [];
+        for (const handler of handlers) {
+            try {
+                handler(payload);
+            } catch (e) {
+                console.error('[Realtime] Handler error for', event, ':', e);
             }
-        ];
-        this.ws.send(JSON.stringify(userJoinMsg));
-        console.log('[REALTIME] Joining users channel...');
+        }
 
-        // 2. Join Multiple Pages Channel
-        // ["ref", "ref", "multiple_pages:UID", "phx_join", {accessToken, userId, clientSession, pageIds, platform: "web"}]
-        const pagesRef = this.makeRef();
-        const pagesJoinMsg = [
-            pagesRef,
-            pagesRef,
-            `multiple_pages:${this.userId}`,
-            "phx_join",
-            {
-                accessToken: this.token,
-                userId: this.userId,
-                clientSession: this.generateClientSession(),
-                pageIds: this.pageIds.map(id => String(id)), // Ensure strings
-                platform: "web"
+        // Also dispatch wildcard handlers
+        const wildcard = this.eventHandlers.get('*') || [];
+        for (const handler of wildcard) {
+            try {
+                handler(event, payload);
+            } catch (e) {
+                console.error('[Realtime] Wildcard handler error:', e);
             }
-        ];
-        this.ws.send(JSON.stringify(pagesJoinMsg));
-        console.log('[REALTIME] Joining multiple_pages channel...');
-
-        // 3. Get Online Status (Mimic browser)
-        setTimeout(() => {
-            if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
-            const statusRef = this.makeRef();
-            const statusMsg = [
-                pagesRef, statusRef, `multiple_pages:${this.userId}`, "get_online_status", {}
-            ];
-            this.ws.send(JSON.stringify(statusMsg));
-        }, 1000);
+        }
     }
 
-    /**
-     * Handle incoming messages
-     */
-    handleMessage(data) {
+    // --- Polling Fallback (when WS fails) ---
+    _startPollingFallback() {
+        if (this.pollingTimer) return;
+        console.log('[Realtime] Starting polling fallback...');
+        this.pollingTimer = setInterval(() => this._pollRealtimeServer(), this.pollingInterval);
+        this._pollRealtimeServer(); // immediate first poll
+    }
+
+    _stopPolling() {
+        if (this.pollingTimer) {
+            clearInterval(this.pollingTimer);
+            this.pollingTimer = null;
+            console.log('[Realtime] Polling stopped');
+        }
+    }
+
+    async _pollRealtimeServer() {
         try {
-            const msg = JSON.parse(data);
-            // Msg format: [joinRef, ref, topic, event, payload]
-            const [joinRef, ref, topic, event, payload] = msg;
-
-            // console.log('[REALTIME] Msg:', event, topic);
-
-            if (event === 'phx_reply') {
-                if (payload.status === 'ok') {
-                    // console.log('[REALTIME] Join/Push success:', topic);
-                } else {
-                    console.warn('[REALTIME] Join/Push error:', payload);
-                }
-            } else if (event === 'pages:update_conversation') {
-                this.handleUpdateConversation(payload);
-            } else if (event === 'order:tags_updated') {
-                this.handleOrderTagsUpdate(payload);
-            } else if (event === 'online_status') {
-                // Handle online status if needed
+            let url = `${this.REALTIME_SERVER_URL}/api/events?limit=50`;
+            if (this.lastEventTimestamp) {
+                url += `&since=${new Date(this.lastEventTimestamp).toISOString()}`;
             }
 
-        } catch (error) {
-            console.error('[REALTIME] Error parsing message:', error);
-        }
-    }
+            const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+            if (!res.ok) return;
+            const data = await res.json();
 
-    /**
-     * Handle conversation update
-     */
-    handleUpdateConversation(payload) {
-        console.log('[REALTIME] Update Conversation:', payload);
-
-        const conversation = payload.conversation;
-        if (!conversation) return;
-
-        // Dispatch event for UI to update
-        const event = new CustomEvent('realtimeConversationUpdate', {
-            detail: conversation
-        });
-        window.dispatchEvent(event);
-
-        // Show notification if it's a new message
-        if (conversation.snippet && !conversation.seen) {
-            // Optional: Toast notification
-            // console.log('New message:', conversation.snippet);
-        }
-    }
-
-    /**
-     * Handle order tags update from WebSocket
-     * Payload format: { orderId, orderCode, STT, tags, updatedBy, timestamp }
-     */
-    handleOrderTagsUpdate(payload) {
-        console.log('[REALTIME] Order Tags Updated:', payload);
-
-        const { orderId, tags, updatedBy, orderCode, STT } = payload;
-        if (!orderId || !tags) return;
-
-        // Dispatch event for UI to update
-        const event = new CustomEvent('realtimeOrderTagsUpdate', {
-            detail: {
-                orderId,
-                orderCode,
-                STT,
-                tags,
-                updatedBy,
-                timestamp: payload.timestamp || Date.now()
+            const events = data.events || [];
+            for (const evt of events) {
+                // Server stores types without 'pages:' prefix, normalize
+                const type = evt.type?.startsWith('pages:') ? evt.type : `pages:${evt.type}`;
+                this._handleEvent(type, evt.payload);
             }
-        });
-        window.dispatchEvent(event);
 
-        console.log(`[REALTIME] Tag update dispatched for order ${orderCode} (STT: ${STT})`);
+            if (events.length > 0) {
+                this.lastEventTimestamp = Date.now();
+            }
+        } catch (e) {
+            // Silent fail for polling
+        }
     }
 }
 
-// Export class and create global instance
-window.RealtimeManager = RealtimeManager;
+// =====================================================
+// GLOBAL INSTANCE
+// =====================================================
+
 window.realtimeManager = new RealtimeManager();
-console.log('[REALTIME] RealtimeManager loaded');
+window.PancakePhoenixSocket = PancakePhoenixSocket;
+
+console.log('[Realtime] Loaded.');

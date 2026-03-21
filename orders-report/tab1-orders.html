@@ -13,7 +13,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <link rel="stylesheet" href="css/tab1-orders.css" />
-    <link rel="stylesheet" href="css/message-template-modal.css" />
+    <!-- message-template-modal.css removed (chat rebuild) -->
     <link rel="stylesheet" href="css/quick-reply-modal.css" />
     <!-- Extracted CSS files -->
     <link rel="stylesheet" href="css/tab1-filters.css" />
@@ -778,578 +778,75 @@
         </div>
     </div>
 
-    <!-- Chat Messages Modal -->
-    <div class="chat-modal" id="chatModal">
+    <!-- ===== Chat Modal ===== -->
+    <div class="chat-modal-overlay" id="chatModal" style="display:none">
         <div class="chat-modal-content">
-            <!-- Left Panel: Chat -->
-            <div class="chat-left-panel">
-                <div class="chat-modal-header"
-                    style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px 24px; border-bottom: none;">
-                    <div class="chat-header-info" style="flex: 1;">
-                        <h3 id="chatModalTitle"
-                            style="color: white; font-size: 18px; font-weight: 600; margin: 0 0 4px 0;">Tin nhắn với
-                            Khách hàng</h3>
-                        <p id="chatModalSubtitle" style="color: rgba(255, 255, 255, 0.9); font-size: 13px; margin: 0; display: flex; align-items: center; gap: 10px;">
-                            <span id="chatModalSubtitleText">Đang tải...</span>
-                            <span id="chatReadBadge"
-                                style="padding: 4px 10px; border-radius: 12px; background: rgba(255, 255, 255, 0.2); font-size: 11px; font-weight: 600; display: none; border: 1px solid rgba(255, 255, 255, 0.3);">
-                                <i class="fas fa-circle"></i> Chưa đọc
-                            </span>
-                            <span id="chatAdClickBadge"
-                                style="padding: 4px 10px; border-radius: 12px; background: linear-gradient(135deg, #fbbf24, #f59e0b); font-size: 11px; font-weight: 600; display: none; color: #1e293b; border: 1px solid rgba(255, 255, 255, 0.5); box-shadow: 0 2px 8px rgba(251, 191, 36, 0.4);">
-                                <i class="fas fa-ad"></i> Từ quảng cáo
-                            </span>
-                            <span id="extensionStatusIndicator"
-                                style="display: none; padding: 4px 8px; border-radius: 12px; background: rgba(255, 255, 255, 0.15); align-items: center; gap: 4px; cursor: help;"
-                                title="Pancake Extension chưa kết nối">
-                                <i class="fas fa-plug" style="color: #ef4444; font-size: 10px;"></i>
-                            </span>
-                            <span id="realtimeStatusIndicator"
-                                style="display: none; padding: 4px 8px; border-radius: 12px; background: rgba(255, 255, 255, 0.15); align-items: center; gap: 4px; cursor: help;"
-                                title="Realtime: Đang kiểm tra...">
-                                <i class="fas fa-wifi" style="color: #9ca3af; font-size: 10px;"></i>
-                            </span>
-                        </p>
-                        <!-- Conversation Type Toggle -->
-                        <div id="conversationTypeToggle" style="display: flex; gap: 6px; margin-top: 10px;">
-                            <button id="btnViewInbox" onclick="switchConversationType('INBOX')"
-                                style="padding: 6px 14px; border: 2px solid rgba(255, 255, 255, 0.8); border-radius: 6px; background: rgba(255, 255, 255, 0.2); color: white; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
-                                <i class="fab fa-facebook-messenger"></i> Tin nhắn
-                            </button>
-                            <button id="btnViewComment" onclick="switchConversationType('COMMENT')"
-                                style="padding: 6px 14px; border: 2px solid rgba(255, 255, 255, 0.3); border-radius: 6px; background: transparent; color: rgba(255, 255, 255, 0.7); font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
-                                <i class="fas fa-comment-dots"></i> Bình luận
-                            </button>
+            <!-- Header -->
+            <div class="chat-modal-header">
+                <div class="chat-header-left">
+                    <div class="chat-customer-avatar" id="chatCustomerAvatar">K</div>
+                    <div class="chat-header-info">
+                        <div class="chat-customer-name" id="chatCustomerName">Khách hàng</div>
+                        <div class="chat-badges">
+                            <span class="chat-badge ext-badge" id="extensionBadge" style="display:none">EXT</span>
+                            <span class="chat-badge live-badge" id="realtimeBadge" style="display:none">LIVE</span>
                         </div>
-                    </div>
-                    <!-- QR Buttons -->
-                    <div class="chat-qr-buttons" id="chatQRButtons"
-                        style="display: flex; gap: 6px; margin-right: 12px; align-items: center;">
-                        <button id="btnMarkReadToggle" onclick="toggleConversationReadState()" title="Đánh dấu đã đọc"
-                            style="background: rgba(16, 185, 129, 0.8); border: none; padding: 6px 10px; border-radius: 6px; cursor: pointer; display: none; align-items: center; gap: 4px; color: white; font-size: 11px; font-weight: 600; transition: all 0.2s;"
-                            onmouseover="this.style.opacity='0.9';" onmouseout="this.style.opacity='1';">
-                            <i class="fas fa-envelope"></i>
-                        </button>
-                        <button onclick="toggleChatRightPanel()" title="Mở/Đóng panel thông tin"
-                            style="background: rgba(255, 255, 255, 0.2); border: none; padding: 6px 10px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 4px; color: white; font-size: 11px; font-weight: 600; transition: all 0.2s;"
-                            onmouseover="this.style.background='rgba(255, 255, 255, 0.3)';" onmouseout="this.style.background='rgba(255, 255, 255, 0.2)';">
-                            <i class="fas fa-info-circle"></i>
-                        </button>
-                        <button id="qrAmountToggle" onclick="toggleQRAmountSetting()"
-                            title="Bật/tắt hiện số tiền trong QR"
-                            style="background: rgba(16, 185, 129, 0.8); border: none; padding: 6px 10px; border-radius: 6px; cursor: pointer; display: flex; align-items: center; gap: 4px; color: white; font-size: 11px; font-weight: 600; transition: all 0.2s;"
-                            onmouseover="this.style.opacity='0.9';" onmouseout="this.style.opacity='1';">
-                            <i class="fas fa-dollar-sign"></i>
-                        </button>
-                        <button onclick="copyQRImageFromChat()" title="Copy ảnh QR"
-                            style="background: rgba(255, 255, 255, 0.2); border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 6px; color: white; font-size: 12px; font-weight: 500; transition: all 0.2s;"
-                            onmouseover="this.style.background='rgba(255, 255, 255, 0.3)';"
-                            onmouseout="this.style.background='rgba(255, 255, 255, 0.2)';">
-                            <i class="fas fa-copy"></i> Copy QR
-                        </button>
-                        <button onclick="showQRFromChat()" title="Xem QR"
-                            style="background: rgba(16, 185, 129, 0.8); border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 6px; color: white; font-size: 12px; font-weight: 500; transition: all 0.2s;"
-                            onmouseover="this.style.background='rgba(16, 185, 129, 1)';"
-                            onmouseout="this.style.background='rgba(16, 185, 129, 0.8)';">
-                            <i class="fas fa-qrcode"></i> Xem QR
-                        </button>
-                    </div>
-                    <!-- Debt Display -->
-                    <div id="chatDebtDisplay"
-                        style="display: flex; align-items: center; gap: 6px; margin-right: 12px; padding: 6px 12px; background: rgba(255, 255, 255, 0.15); border-radius: 8px;">
-                        <i class="fas fa-wallet" style="color: rgba(255, 255, 255, 0.8); font-size: 12px;"></i>
-                        <span style="color: rgba(255, 255, 255, 0.8); font-size: 11px;">Công nợ:</span>
-                        <span id="chatDebtValue" style="color: white; font-weight: 600; font-size: 13px;">-</span>
-                    </div>
-                    <!-- Page Selector -->
-                    <div class="chat-page-selector" id="chatPageSelector" style="margin-right: 12px;">
-                        <select id="chatPageSelect" onchange="onChatPageChanged(this.value)"
-                            style="padding: 8px 12px; border-radius: 8px; border: none; background: rgba(255, 255, 255, 0.2); color: white; font-size: 13px; font-weight: 500; cursor: pointer; min-width: 180px; appearance: none; -webkit-appearance: none; -moz-appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 10px center; background-size: 10px; padding-right: 30px;">
-                            <option value="">Đang tải pages...</option>
-                        </select>
-                    </div>
-                    <!-- Conversation Selector (shown when multiple conversations found) -->
-                    <div class="chat-conversation-selector" id="chatConversationSelector"
-                        style="display: none; margin-right: 12px;">
-                        <select id="chatConversationSelect" onchange="onChatConversationChanged(this.value)"
-                            style="padding: 8px 12px; border-radius: 8px; border: none; background: rgba(236, 72, 153, 0.3); color: white; font-size: 13px; font-weight: 500; cursor: pointer; min-width: 200px; appearance: none; -webkit-appearance: none; -moz-appearance: none; background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23FFFFFF%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E'); background-repeat: no-repeat; background-position: right 10px center; background-size: 10px; padding-right: 30px;">
-                            <option value="">Chọn cuộc hội thoại...</option>
-                        </select>
-                    </div>
-                    <button class="chat-modal-close" onclick="closeChatModal()"
-                        style="background: rgba(255, 255, 255, 0.2); border: none; width: 32px; height: 32px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s;"
-                        onmouseover="this.style.background='rgba(255, 255, 255, 0.3)';"
-                        onmouseout="this.style.background='rgba(255, 255, 255, 0.2)';">
-                        <i class="fas fa-times" style="color: white; font-size: 16px;"></i>
-                    </button>
-                </div>
-                <div class="chat-modal-body" id="chatModalBody" style="position: relative;">
-                    <div class="chat-loading">
-                        <i class="fas fa-spinner fa-spin"></i>
-                        <p>Đang tải tin nhắn...</p>
                     </div>
                 </div>
-                <!-- Reply Input (chỉ hiển thị cho comments) -->
-                <div class="chat-reply-container" id="chatReplyContainer"
-                    style="display: none; background: white; border-top: 1px solid #e5e7eb;">
-                    <!-- Sending Status Bar (visible and centered) -->
-                    <div id="chatSendingIndicator"
-                        style="display: none; padding: 10px 16px; background: linear-gradient(135deg, rgba(0, 132, 255, 0.1) 0%, rgba(0, 132, 255, 0.05) 100%); border-bottom: 1px solid rgba(0, 132, 255, 0.2);">
-                        <div style="display: flex; align-items: center; gap: 10px; justify-content: center;">
-                            <i class="fas fa-spinner fa-spin" style="color: #0084ff; font-size: 14px;"></i>
-                            <span id="chatSendingText" style="color: #0084ff; font-weight: 600; font-size: 13px;">Đang
-                                gửi...</span>
-                            <span id="chatQueueCount"
-                                style="display: none; background: rgba(0, 132, 255, 0.2); color: #0084ff; padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 700;"></span>
-                        </div>
+                <div class="chat-header-right">
+                    <div class="conv-type-toggle">
+                        <button data-type="INBOX" class="active" onclick="window.switchConversationType('INBOX')">Tin nhắn</button>
+                        <button data-type="COMMENT" onclick="window.switchConversationType('COMMENT')">Bình luận</button>
                     </div>
-                    <!-- Reply Preview Container -->
-                    <div id="chatReplyPreviewContainer"
-                        style="display: none; padding: 8px 16px; background: #f9fafb; border-bottom: 1px solid #e5e7eb;">
-                        <div style="display: flex; align-items: start; gap: 8px;">
-                            <div style="flex: 1;">
-                                <div style="font-size: 11px; color: #6b7280; margin-bottom: 2px; font-weight: 600;">
-                                    <i class="fas fa-reply" style="margin-right: 4px;"></i>Đang trả lời
-                                </div>
-                                <div id="chatReplyPreviewText"
-                                    style="font-size: 12px; color: #374151; max-height: 40px; overflow: hidden; text-overflow: ellipsis;">
-                                </div>
-                            </div>
-                            <button onclick="cancelReply()"
-                                style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 4px; border-radius: 4px; transition: all 0.2s;"
-                                onmouseover="this.style.background='#e5e7eb';"
-                                onmouseout="this.style.background='none';">
-                                <i class="fas fa-times"></i>
-                            </button>
-                        </div>
-                    </div>
-                    <!-- Image Preview Container -->
-                    <div id="chatImagePreviewContainer"
-                        style="display: none; padding: 8px 16px; border-bottom: 1px solid #f0f0f0;"></div>
-                    <!-- Message Reply Type Toggle (only for message modal when order has comment) -->
-                    <div id="messageReplyTypeToggle"
-                        style="display: none; padding: 8px 16px; background: #f9fafb; border-bottom: 1px solid #e5e7eb;">
-                        <div style="display: flex; gap: 8px;">
-                            <button id="btnMsgReplyInbox" onclick="setMessageReplyType('reply_inbox')"
-                                style="flex: 1; padding: 8px 12px; border: 2px solid #3b82f6; border-radius: 8px; background: #eff6ff; color: #1d4ed8; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s;">
-                                <i class="fab fa-facebook-messenger"></i> Messenger
-                            </button>
-                            <button id="btnMsgPrivateReply" onclick="setMessageReplyType('private_replies')"
-                                style="flex: 1; padding: 8px 12px; border: 2px solid #e5e7eb; border-radius: 8px; background: white; color: #6b7280; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s;">
-                                <i class="fas fa-comment-dots"></i> Reply từ comment
-                            </button>
-                        </div>
-                        <p id="msgReplyTypeHint"
-                            style="font-size: 11px; color: #6b7280; margin: 6px 0 0 0; text-align: center;">
-                            Gửi tin nhắn qua Messenger
-                        </p>
-                    </div>
-                    <!-- Input Row -->
-                    <div style="display: flex; gap: 8px; align-items: flex-end; padding: 8px 16px;">
-                        <textarea id="chatReplyInput" placeholder="Nhập tin nhắn trả lời... (Shift+Enter để xuống dòng)"
-                            rows="1"
-                            style="flex: 1; min-width: 0; width: 0; padding: 10px 14px; border: 1px solid #e5e7eb; border-radius: 20px; font-size: 14px; background: #f9fafb; transition: all 0.2s; resize: none; overflow-y: auto; overflow-x: hidden; max-height: 120px; font-family: inherit; line-height: 1.5; word-wrap: break-word; word-break: break-word;"
-                            onfocus="this.style.borderColor='#667eea'; this.style.background='white';"
-                            onblur="this.style.borderColor='#e5e7eb'; this.style.background='#f9fafb';"></textarea>
-                        <button class="chat-btn-send" id="chatSendBtn" onclick="sendReplyComment()"
-                            style="padding: 10px 24px; background: linear-gradient(135deg, #0084ff 0%, #0066cc 100%); color: white; border: none; border-radius: 20px; font-size: 14px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s; box-shadow: 0 2px 8px rgba(0, 132, 255, 0.3);"
-                            onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(0, 132, 255, 0.4)';"
-                            onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(0, 132, 255, 0.3)';">
+                    <select id="replyTypeSelect" class="hidden" onchange="window.setReplyType(this.value)">
+                        <option value="reply_comment">Trả lời công khai</option>
+                        <option value="private_replies">Nhắn riêng</option>
+                    </select>
+                    <select id="sendPageSelector" style="display:none"></select>
+                    <button class="chat-close-btn" onclick="window.closeChatModal()">&times;</button>
+                </div>
+            </div>
+
+            <!-- Messages -->
+            <div class="chat-messages" id="chatMessages">
+                <div class="chat-empty-state"><p>Chọn cuộc hội thoại để bắt đầu</p></div>
+            </div>
+
+            <!-- Reply preview -->
+            <div class="reply-preview" id="replyPreview">
+                <div class="reply-indicator"></div>
+                <span class="reply-text"></span>
+                <button class="cancel-reply" onclick="window.cancelReply()">&times;</button>
+            </div>
+
+            <!-- Image preview -->
+            <div class="image-preview-container" id="imagePreviewContainer"></div>
+
+            <!-- Sending indicator -->
+            <div class="sending-indicator" id="sendingIndicator">
+                <div class="dot-pulse"><span></span><span></span><span></span></div>
+                <span>Đang gửi...</span>
+            </div>
+
+            <!-- Input area -->
+            <div class="chat-input-area">
+                <div class="chat-input-wrapper">
+                    <textarea id="chatInput" placeholder="Nhập tin nhắn..." rows="1"
+                        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();window.sendMessage();}"></textarea>
+                    <div class="chat-toolbar">
+                        <button class="attach-btn" onclick="document.getElementById('chatImageInput').click()" title="Đính kèm ảnh">
+                            <i class="fas fa-paperclip"></i>
+                        </button>
+                        <input type="file" id="chatImageInput" accept="image/*" multiple style="display:none">
+                        <button class="send-btn" onclick="window.sendMessage()" title="Gửi">
                             <i class="fas fa-paper-plane"></i>
-                            Gửi
                         </button>
                     </div>
-
-                    <!-- Toolbar Row -->
-                    <div
-                        style="display: flex; align-items: center; justify-content: space-between; padding: 4px 16px 0 16px; border-top: 1px solid #f3f4f6;">
-                        <!-- Send Page Selector -->
-                        <div style="display: flex; align-items: center; gap: 6px; flex: 1;">
-                            <label style="font-size: 12px; color: #6b7280; white-space: nowrap;">
-                                <i class="fas fa-paper-plane" style="margin-right: 4px;"></i>Gửi từ:
-                            </label>
-                            <select id="chatSendPageSelect" onchange="onSendPageChanged(this.value)"
-                                style="padding: 6px 10px; border-radius: 6px; border: 1px solid #e5e7eb; background: white; color: #374151; font-size: 12px; cursor: pointer; min-width: 150px; max-width: 200px;">
-                                <option value="">Đang tải...</option>
-                            </select>
-                        </div>
-                        <div style="display: flex; gap: 4px; align-items: center;">
-                            <!-- Edit Order Icon (Shortcut) -->
-                            <button class="toolbar-icon-btn" title="Sửa đơn hàng" onclick="openEditModal(currentChatOrderId)"
-                                style="background: none; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; color: #6b7280;"
-                                onmouseover="this.style.background='#f3f4f6';"
-                                onmouseout="this.style.background='none';">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor"
-                                    viewBox="0 0 256 256">
-                                    <path
-                                        d="M227.31,73.37,182.63,28.68a16,16,0,0,0-22.63,0L36.69,152A15.86,15.86,0,0,0,32,163.31V208a16,16,0,0,0,16,16H92.69A15.86,15.86,0,0,0,104,219.31L227.31,96a16,16,0,0,0,0-22.63ZM92.69,208H48V163.31l88-88L180.69,120ZM192,108.68,147.31,64l24-24L216,84.68Z">
-                                    </path>
-                                </svg>
-                            </button>
-
-                            <!-- Live Comments History Icon -->
-                            <button class="toolbar-icon-btn" title="Lịch sử bình luận Live" onclick="openLiveCommentsModal()"
-                                style="background: none; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; color: #6b7280;"
-                                onmouseover="this.style.background='#f3f4f6';"
-                                onmouseout="this.style.background='none';">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor"
-                                    viewBox="0 0 256 256">
-                                    <path
-                                        d="M224,128a8,8,0,0,1-8,8H40a8,8,0,0,1,0-16H216A8,8,0,0,1,224,128ZM40,72H216a8,8,0,0,0,0-16H40a8,8,0,0,0,0,16ZM216,184H40a8,8,0,0,0,0,16H216a8,8,0,0,0,0-16Z">
-                                    </path>
-                                </svg>
-                            </button>
-
-                            <!-- Copy Template Icon -->
-                            <button class="toolbar-icon-btn" title="Copy mẫu chốt đơn" onclick="copyOrderTemplate()"
-                                style="background: none; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; color: #6b7280;"
-                                onmouseover="this.style.background='#f3f4f6';"
-                                onmouseout="this.style.background='none';">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor"
-                                    viewBox="0 0 256 256">
-                                    <path
-                                        d="M216,32H88a8,8,0,0,0-8,8V80H40a8,8,0,0,0-8,8V216a8,8,0,0,0,8,8H168a8,8,0,0,0,8-8V176h40a8,8,0,0,0,8-8V40A8,8,0,0,0,216,32ZM160,208H48V96H160Zm48-48H176V88a8,8,0,0,0-8-8H96V48H208Z">
-                                    </path>
-                                </svg>
-                            </button>
-
-                            <!-- Help Icon -->
-                            <button class="toolbar-icon-btn" title="Trợ giúp"
-                                style="background: none; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; color: #6b7280;"
-                                onmouseover="this.style.background='#f3f4f6';"
-                                onmouseout="this.style.background='none';">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor"
-                                    viewBox="0 0 256 256">
-                                    <path
-                                        d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,168a12,12,0,1,1,12-12A12,12,0,0,1,128,192Zm8-48.72V144a8,8,0,0,1-16,0v-8a8,8,0,0,1,8-8c13.23,0,24-9,24-20s-10.77-20-24-20-24,9-24,20v4a8,8,0,0,1-16,0v-4c0-19.85,17.94-36,40-36s40,16.15,40,36C168,125.38,154.24,139.93,136,143.28Z">
-                                    </path>
-                                </svg>
-                            </button>
-
-                            <!-- Message Template Icon -->
-                            <button class="toolbar-icon-btn" title="Tin nhắn mẫu" onclick="openChatTemplateModal()"
-                                style="background: none; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; color: #6b7280;"
-                                onmouseover="this.style.background='#f3f4f6';"
-                                onmouseout="this.style.background='none';">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor"
-                                    viewBox="0 0 256 256">
-                                    <path
-                                        d="M128,24A104,104,0,0,0,36.18,176.88L24.83,210.93a16,16,0,0,0,20.24,20.24l34.05-11.35A104,104,0,1,0,128,24Zm32,128H96a8,8,0,0,1,0-16h64a8,8,0,0,1,0,16Zm0-32H96a8,8,0,0,1,0-16h64a8,8,0,0,1,0,16Z">
-                                    </path>
-                                </svg>
-                            </button>
-                        </div>
-
-                        <div style="display: flex; gap: 4px; align-items: center;">
-                            <!-- Photo Icon -->
-                            <button class="toolbar-icon-btn" title="Hình ảnh"
-                                style="background: none; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; color: #6b7280;"
-                                onmouseover="this.style.background='#f3f4f6';"
-                                onmouseout="this.style.background='none';">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor"
-                                    viewBox="0 0 256 256">
-                                    <path
-                                        d="M216,40H72A16,16,0,0,0,56,56V72H40A16,16,0,0,0,24,88V200a16,16,0,0,0,16,16H184a16,16,0,0,0,16-16V184h16a16,16,0,0,0,16-16V56A16,16,0,0,0,216,40ZM172,72a12,12,0,1,1-12,12A12,12,0,0,1,172,72Zm12,128H40V88H56v80a16,16,0,0,0,16,16H184Zm32-32H72V120.69l30.34-30.35a8,8,0,0,1,11.32,0L163.31,140,189,114.34a8,8,0,0,1,11.31,0L216,130.07V168Z">
-                                    </path>
-                                </svg>
-                            </button>
-
-                            <!-- File Attachment Icon -->
-                            <button class="toolbar-icon-btn" title="Tệp đính kèm"
-                                onclick="document.getElementById('uploadFileInput').click();"
-                                style="background: none; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; color: #6b7280;"
-                                onmouseover="this.style.background='#f3f4f6';"
-                                onmouseout="this.style.background='none';">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor"
-                                    viewBox="0 0 256 256">
-                                    <path
-                                        d="M209.66,122.34a8,8,0,0,1,0,11.32l-82.05,82a56,56,0,0,1-79.2-79.21L147.67,35.73a40,40,0,1,1,56.61,56.55L105,193A24,24,0,1,1,71,159L154.3,74.38A8,8,0,1,1,165.7,85.6L82.39,170.31a8,8,0,1,0,11.27,11.36L192.93,81A24,24,0,1,0,159,47L59.76,147.68a40,40,0,1,0,56.53,56.62l82.06-82A8,8,0,0,1,209.66,122.34Z">
-                                    </path>
-                                </svg>
-                            </button>
-                            <input id="uploadFileInput" type="file" multiple=""
-                                accept="video/*, audio/*, .docx, .doc, .xlsx, .xls, .pdf, .csv, .gif, .text, .pptx, .ppt, image/*"
-                                style="display: none;">
-
-                            <!-- Sticker Icon -->
-                            <button class="toolbar-icon-btn" title="Sticker" onclick="openStickerPickerModal()"
-                                style="background: none; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; color: #6b7280;"
-                                onmouseover="this.style.background='#f3f4f6';"
-                                onmouseout="this.style.background='none';">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor"
-                                    viewBox="0 0 256 256">
-                                    <path
-                                        d="M168,32H88A56.06,56.06,0,0,0,32,88v80a56.06,56.06,0,0,0,56,56h48a8.07,8.07,0,0,0,2.53-.41c26.23-8.75,76.31-58.83,85.06-85.06A8.07,8.07,0,0,0,224,136V88A56.06,56.06,0,0,0,168,32ZM136,207.42V176a40,40,0,0,1,40-40h31.42C198.16,157.55,157.55,198.16,136,207.42Z">
-                                    </path>
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
                 </div>
             </div>
-
-            <!-- Right Panel: Orders -->
-            <div class="chat-right-panel collapsed" style="position: relative;">
-
-                <!-- Toggle Button -->
-                <button class="chat-panel-toggle-btn" onclick="toggleChatRightPanel()" title="Mở/Đóng panel thông tin">
-                    <i class="fas fa-chevron-left" id="chatPanelToggleIcon"></i>
-                </button>
-
-                <!-- Tabs Header -->
-                <div class="chat-panel-tabs" style="
-                    display: flex;
-                    background: white;
-                    border-bottom: 1px solid #e2e8f0;
-                ">
-                    <button class="chat-tab-btn active" data-tab="orders" onclick="switchChatPanelTab('orders')" style="
-                        flex: 1;
-                        padding: 14px 16px;
-                        border: none;
-                        background: white;
-                        color: #3b82f6;
-                        font-size: 13px;
-                        font-weight: 600;
-                        cursor: pointer;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        gap: 6px;
-                        border-bottom: 2px solid #3b82f6;
-                        transition: all 0.2s;
-                    ">
-                        <i class="fas fa-shopping-cart"></i>
-                        Đơn hàng
-                        <span id="chatOrdersCountBadge"
-                            style="background: #eff6ff; color: #3b82f6; padding: 2px 8px; border-radius: 10px; font-size: 11px;">0</span>
-                    </button>
-                    <button class="chat-tab-btn" data-tab="dropped" onclick="switchChatPanelTab('dropped')" style="
-                        flex: 1;
-                        padding: 14px 16px;
-                        border: none;
-                        background: #f8fafc;
-                        color: #64748b;
-                        font-size: 13px;
-                        font-weight: 600;
-                        cursor: pointer;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        gap: 6px;
-                        border-bottom: 2px solid transparent;
-                        transition: all 0.2s;
-                    ">
-                        <i class="fas fa-box-open"></i>
-                        Hàng rớt - xả
-                        <span id="chatDroppedCountBadge"
-                            style="background: #fef2f2; color: #ef4444; padding: 2px 8px; border-radius: 10px; font-size: 11px;">0</span>
-                    </button>
-                    <button class="chat-tab-btn" data-tab="history" onclick="switchChatPanelTab('history')" style="
-                        flex: 1;
-                        padding: 14px 16px;
-                        border: none;
-                        background: #f8fafc;
-                        color: #64748b;
-                        font-size: 13px;
-                        font-weight: 600;
-                        cursor: pointer;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        gap: 6px;
-                        border-bottom: 2px solid transparent;
-                        transition: all 0.2s;
-                    ">
-                        <i class="fas fa-history"></i>
-                        Lịch sử
-                    </button>
-                    <button class="chat-tab-btn" data-tab="invoice_history"
-                        onclick="switchChatPanelTab('invoice_history')" style="
-                        flex: 1;
-                        padding: 14px 16px;
-                        border: none;
-                        background: #f8fafc;
-                        color: #64748b;
-                        font-size: 13px;
-                        font-weight: 600;
-                        cursor: pointer;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        gap: 6px;
-                        border-bottom: 2px solid transparent;
-                        transition: all 0.2s;
-                    ">
-                        <i class="fas fa-file-invoice-dollar"></i>
-                        Hóa đơn
-                    </button>
-                </div>
-
-                <!-- Tab Content: Orders -->
-                <div id="chatTabOrders" class="chat-tab-content"
-                    style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
-                    <!-- Product Search -->
-                    <div class="chat-product-search-inline"
-                        style="padding: 16px; background: white; border-bottom: 1px solid #e2e8f0;">
-                        <div class="chat-search-input-wrapper" style="position: relative;">
-                            <i class="fas fa-search"
-                                style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 14px;"></i>
-                            <input type="text" id="chatInlineProductSearch"
-                                placeholder="Tìm sản phẩm theo tên hoặc mã..." autocomplete="off"
-                                style="width: 100%; padding: 10px 12px 10px 36px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; transition: all 0.2s; background: #f8fafc;"
-                                onfocus="this.style.borderColor='#3b82f6'; this.style.background='white';"
-                                onblur="this.style.borderColor='#cbd5e1'; this.style.background='#f8fafc';">
-                        </div>
-                        <div id="chatInlineSearchResults" class="chat-inline-search-results"
-                            style="display: none; margin-top: 8px; max-height: 300px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px; background: white; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);">
-                        </div>
-                    </div>
-
-                    <!-- Products Table Container -->
-                    <div style="flex: 1; overflow-y: auto; background: white;">
-                        <!-- Danh sách sản phẩm đơn hàng của tin nhắn, bình luận -->
-                        <div id="chatProductsTableContainer" style="padding: 16px;">
-                            <!-- Empty State -->
-                            <div class="chat-empty-products"
-                                style="text-align: center; padding: 40px 20px; color: #94a3b8;">
-                                <i class="fas fa-box-open"
-                                    style="font-size: 40px; margin-bottom: 12px; opacity: 0.5;"></i>
-                                <p style="font-size: 14px; margin: 0;">Chưa có sản phẩm</p>
-                                <p style="font-size: 12px; margin-top: 4px;">Tìm kiếm để thêm sản phẩm vào đơn</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Footer -->
-                    <div class="chat-panel-footer" style="
-                        padding: 16px;
-                        background: white;
-                        border-top: 1px solid #e2e8f0;
-                        box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.05);
-                    ">
-                        <div style="
-                            display: flex;
-                            justify-content: space-between;
-                            align-items: center;
-                            margin-bottom: 16px;
-                        ">
-                            <span style="font-size: 14px; color: #64748b;">Tổng tiền:</span>
-                            <span id="chatProductTotal"
-                                style="font-size: 18px; font-weight: 700; color: #3b82f6;">0đ</span>
-                        </div>
-                        <div style="font-size: 12px; color: #94a3b8; text-align: center;">
-                            <span id="productCount">0</span> sản phẩm
-                        </div>
-                        <!-- KPI Badge -->
-                        <div id="kpiBadgeContainer" style="margin-top: 8px; text-align: center; display: none;">
-                            <span id="kpiBadge" style="
-                                display: inline-block;
-                                padding: 3px 10px;
-                                border-radius: 12px;
-                                font-size: 11px;
-                                font-weight: 600;
-                                background: #f1f5f9;
-                                color: #94a3b8;
-                            "></span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Tab Content: Dropped Items -->
-                <div id="chatTabDropped" class="chat-tab-content"
-                    style="flex: 1; display: none; flex-direction: column; overflow: hidden;">
-                    <!-- Search for dropped items -->
-                    <div class="chat-product-search-inline"
-                        style="padding: 16px; background: white; border-bottom: 1px solid #e2e8f0;">
-                        <div class="chat-search-input-wrapper" style="position: relative;">
-                            <i class="fas fa-search"
-                                style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: 14px;"></i>
-                            <input type="text" id="chatDroppedProductSearch"
-                                placeholder="Tìm sản phẩm trong hàng rớt - xả..." autocomplete="off"
-                                style="width: 100%; padding: 10px 12px 10px 36px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px; transition: all 0.2s; background: #f8fafc;"
-                                onfocus="this.style.borderColor='#ef4444'; this.style.background='white';"
-                                onblur="this.style.borderColor='#cbd5e1'; this.style.background='#f8fafc';"
-                                oninput="filterDroppedProducts(this.value)">
-                        </div>
-                    </div>
-
-                    <!-- Dropped Products Table Container -->
-                    <div style="flex: 1; overflow-y: auto; background: white;">
-                        <div id="chatDroppedProductsContainer" style="padding: 16px;">
-                            <div class="chat-empty-products"
-                                style="text-align: center; padding: 40px 20px; color: #94a3b8;">
-                                <i class="fas fa-box-open"
-                                    style="font-size: 40px; margin-bottom: 12px; opacity: 0.5;"></i>
-                                <p style="font-size: 14px; margin: 0;">Chưa có hàng rớt - xả</p>
-                                <p style="font-size: 12px; margin-top: 4px;">Sản phẩm bị xóa hoặc giảm số lượng sẽ hiển
-                                    thị ở đây</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Footer for Dropped -->
-                    <div class="chat-panel-footer" style="
-                        padding: 16px;
-                        background: white;
-                        border-top: 1px solid #e2e8f0;
-                        box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.05);
-                    ">
-                        <div style="
-                            display: flex;
-                            justify-content: space-between;
-                            align-items: center;
-                            margin-bottom: 16px;
-                        ">
-                            <span style="font-size: 14px; color: #64748b;">Tổng giá trị:</span>
-                            <span id="chatDroppedTotal"
-                                style="font-size: 18px; font-weight: 700; color: #ef4444;">0đ</span>
-                        </div>
-                        <div style="font-size: 12px; color: #94a3b8; text-align: center;">
-                            <span id="droppedProductCount">0</span> sản phẩm rớt - xả
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Tab Content: History -->
-                <div id="chatTabHistory" class="chat-tab-content"
-                    style="flex: 1; display: none; flex-direction: column; overflow: hidden;">
-                    <!-- History Container -->
-                    <div style="flex: 1; overflow-y: auto; background: white;">
-                        <div id="chatHistoryContainer" style="padding: 16px;">
-                            <div class="chat-empty-products"
-                                style="text-align: center; padding: 40px 20px; color: #94a3b8;">
-                                <i class="fas fa-history"
-                                    style="font-size: 40px; margin-bottom: 12px; opacity: 0.5;"></i>
-                                <p style="font-size: 14px; margin: 0;">Chưa có lịch sử</p>
-                                <p style="font-size: 12px; margin-top: 4px;">Các thao tác sẽ được ghi lại ở đây</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Tab Content: Invoice History -->
-                <div id="chatTabInvoiceHistory" class="chat-tab-content"
-                    style="flex: 1; display: none; flex-direction: column; overflow: hidden;">
-                    <!-- Invoice History Container -->
-                    <div style="flex: 1; overflow-y: auto; background: white;">
-                        <div id="chatInvoiceHistoryContainer" style="padding: 16px;">
-                            <div class="chat-empty-products"
-                                style="text-align: center; padding: 40px 20px; color: #94a3b8;">
-                                <i class="fas fa-file-invoice-dollar"
-                                    style="font-size: 40px; margin-bottom: 12px; opacity: 0.5;"></i>
-                                <p style="font-size: 14px; margin: 0;">Chưa có lịch sử hóa đơn</p>
-                                <p style="font-size: 12px; margin-top: 4px;">Danh sách hóa đơn sẽ hiển thị ở đây</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-            </div>
-
-
         </div>
     </div>
-    </div>
+
 
     <!-- Scripts -->
     <!-- Firebase SDK -->
@@ -1436,7 +933,7 @@
     <script src="js/managers/column-visibility-manager.js"></script>
     <script src="js/managers/realtime-manager.js"></script>
     <script src="js/chat/new-messages-notifier.js"></script>
-    <script src="js/utils/debug-realtime.js"></script>
+    <script src="js/tab1/tab1-extension-bridge.js"></script>
     <!-- ⭐ Image Compressor for Pancake API (500KB limit) -->
     <script src="js/utils/image-compressor.js"></script>
     <!-- ⭐ Bill Service for custom bill generation, printing and sending -->
@@ -1480,20 +977,12 @@
     <!-- 9. Edit Modal: Order editing, inline search (lines 8393-10015) -->
     <script src="js/tab1/tab1-edit-modal.js"></script>
 
-    <!-- 10. Chat: Split into 5 sub-modules + aggregator -->
-    <script src="js/tab1/tab1-extension-bridge.js"></script>
-    <script src="js/tab1/tab1-chat-core.js"></script>
-    <script src="js/tab1/tab1-chat-messages.js"></script>
-    <script src="js/tab1/tab1-chat-facebook.js"></script>
-    <script src="js/tab1/tab1-chat-images.js"></script>
-    <script src="js/tab1/tab1-chat-realtime.js"></script>
-    <script src="js/tab1/tab1-chat.js"></script>
+    <!-- 10. Chat: will be rebuilt (new Pancake API + Extension Bypass) -->
 
     <!-- 11. Encoding: Note encoding/decoding (lines 16371-17195) -->
     <script src="js/tab1/tab1-encoding.js"></script>
 
-    <!-- 12. Chat Products: Quick add, chat products panel (lines 17196-19144) -->
-    <script src="js/tab1/tab1-chat-products.js"></script>
+    <!-- 12. Chat Products: will be rebuilt -->
 
     <!-- 13. Merge: Order merge functions (lines 19145-20743) -->
     <script src="js/tab1/tab1-merge.js"></script>
@@ -1527,12 +1016,13 @@
 
     <!-- Legacy file (backup - comment out when using modular) -->
     <!-- <script src="js/tab1/tab1-orders.js"></script> -->
-    <!-- KPI Audit Logger - phải load trước chat-products-actions.js -->
     <script src="js/managers/kpi-audit-logger.js"></script>
-    <!-- Chat Products UI & Actions - separated for easier management -->
+    <!-- Chat System (rebuilt) -->
+    <script src="js/tab1/tab1-chat-core.js"></script>
+    <script src="js/tab1/tab1-chat-messages.js"></script>
+    <script src="js/tab1/tab1-chat-images.js"></script>
+    <script src="js/tab1/tab1-chat-realtime.js"></script>
     <script src="js/chat/chat-products-ui.js"></script>
-    <script src="js/chat/chat-products-actions.js"></script>
-    <script src="js/chat/comment-modal.js"></script>
 
     <!-- Extracted JS files (formerly inline) -->
     <script src="js/tab1/tab1-checkbox.js"></script>
@@ -1543,82 +1033,7 @@
         <span id="saveIndicatorText">Đã lưu thành công</span>
     </div>
 
-    <!-- Comment Modal (Separate from Chat Modal) -->
-    <div class="comment-modal" id="commentModal">
-        <div class="comment-modal-content">
-            <!-- Header -->
-            <div class="comment-modal-header">
-                <div class="comment-header-info">
-                    <h3 id="commentModalTitle">Bình luận với Khách hàng</h3>
-                    <p id="commentModalSubtitle">Đang tải...</p>
-                </div>
-                <button class="comment-modal-close" onclick="closeCommentModal()">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
 
-            <!-- Body - Comments List -->
-            <div class="comment-modal-body" id="commentModalBody">
-                <div class="chat-loading">
-                    <i class="fas fa-spinner fa-spin"></i>
-                    <p>Đang tải bình luận...</p>
-                </div>
-            </div>
-
-            <!-- Reply Container -->
-            <div class="comment-reply-container" id="commentReplyContainer">
-                <!-- Reply Preview -->
-                <div id="commentReplyPreviewContainer"
-                    style="display: none; padding: 8px 16px; background: #f9fafb; border-bottom: 1px solid #e5e7eb;">
-                    <div style="display: flex; align-items: start; gap: 8px;">
-                        <div style="flex: 1;">
-                            <div style="font-size: 11px; color: #6b7280; margin-bottom: 2px; font-weight: 600;">
-                                <i class="fas fa-reply" style="margin-right: 4px;"></i>Đang trả lời
-                            </div>
-                            <div id="commentReplyPreviewText"
-                                style="font-size: 12px; color: #374151; max-height: 40px; overflow: hidden; text-overflow: ellipsis;">
-                            </div>
-                        </div>
-                        <button onclick="cancelCommentReply()"
-                            style="background: none; border: none; color: #6b7280; cursor: pointer; padding: 4px; border-radius: 4px;">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </div>
-
-                    <!-- Reply Type Toggle -->
-                    <div id="commentReplyTypeToggle" style="display: flex; gap: 8px; margin-top: 8px;">
-                        <button id="btnReplyPublic" onclick="setCommentReplyType('reply_comment')"
-                            style="flex: 1; padding: 8px 12px; border: 2px solid #e5e7eb; border-radius: 8px; background: white; cursor: pointer; font-size: 12px; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s; color: #374151;">
-                            <i class="fas fa-comment"></i> Reply công khai
-                        </button>
-                        <button id="btnReplyPrivate" onclick="setCommentReplyType('private_replies')"
-                            style="flex: 1; padding: 8px 12px; border: 2px solid #3b82f6; border-radius: 8px; background: #eff6ff; color: #3b82f6; cursor: pointer; font-size: 12px; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s;">
-                            <i class="fas fa-envelope"></i> Tin nhắn riêng
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Input Row -->
-                <div style="display: flex; gap: 8px; align-items: flex-end; padding: 12px 16px;">
-                    <textarea id="commentReplyInput" placeholder="Chọn 'Trả lời' một bình luận để reply..." rows="1"
-                        disabled
-                        style="flex: 1; padding: 10px 14px; border: 1px solid #e5e7eb; border-radius: 20px; font-size: 14px; background: #f3f4f6; resize: none; max-height: 120px; font-family: inherit; line-height: 1.5; cursor: not-allowed;"></textarea>
-                    <button class="comment-btn-send" id="commentSendBtn" onclick="sendCommentReply()" disabled
-                        style="padding: 10px 24px; background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); color: white; border: none; border-radius: 20px; font-size: 14px; font-weight: 600; cursor: not-allowed; display: flex; align-items: center; gap: 6px; opacity: 0.5;">
-                        <i class="fas fa-paper-plane"></i>
-                        Gửi
-                    </button>
-                </div>
-            </div>
-
-            <!-- Footer -->
-            <div class="comment-modal-footer">
-                <button class="comment-btn-close" onclick="closeCommentModal()">
-                    <i class="fas fa-times"></i> Đóng
-                </button>
-            </div>
-        </div>
-    </div>
 
     <!-- Merge Duplicate Orders Modal -->
     <div class="merge-modal" id="mergeDuplicateOrdersModal">

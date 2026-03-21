@@ -1,395 +1,84 @@
-// =====================================================
-// tab1-chat-realtime.js - Realtime Message Listeners
-// WebSocket event handling, polling backup, Facebook API
-// message fetching, notification sounds
-// =====================================================
-// Dependencies: tab1-chat-core.js (window.currentChatType, window.currentChatChannelId, etc.),
-//               tab1-chat-messages.js (renderChatMessages, showNewMessageIndicator)
-// Exposes: window.setupRealtimeMessages, window.cleanupRealtimeMessages,
-//          window.fetchAndUpdateMessages
+/* =====================================================
+   TAB1 CHAT REALTIME - Handle realtime events in chat context
+   ===================================================== */
 
-console.log('[Tab1-Chat-Realtime] Loading...');
+console.log('[Chat-RT] Loading...');
 
 /**
- * Global variables for realtime messages
+ * Handle new message from realtime (WebSocket or polling)
+ * Called from tab1-chat-core.js _startRealtimeForChat()
  */
-window.realtimeMessagesInterval = null;
-window.realtimeMessagesHandler = null;
-window.lastMessageTimestamp = null;
-window._messageIdSet = new Set(); // Persistent dedup set - updated atomically with allChatMessages
-const REALTIME_POLL_INTERVAL = 10000; // 10 seconds polling interval
+window.handleNewMessage = function(payload) {
+    if (!payload || !window.currentConversationId) return;
 
-/**
- * Setup realtime messages when chat modal opens
- * Uses WebSocket events with polling as automatic fallback
- */
-function setupRealtimeMessages() {
-    console.log('[REALTIME-MSG] Setting up realtime messages...');
+    // Check if this message belongs to current conversation
+    const convId = payload.conversation_id || payload.convId;
+    if (convId && String(convId) !== String(window.currentConversationId)) return;
 
-    // Cleanup any existing listeners first
-    cleanupRealtimeMessages();
+    // Check pageId match
+    const pageId = payload.page_id || payload.pageId;
+    if (pageId && String(pageId) !== String(window.currentChatChannelId)) return;
 
-    // 1. Listen for WebSocket events from RealtimeManager
-    window.realtimeMessagesHandler = handleRealtimeConversationEvent;
-    window.addEventListener('realtimeConversationUpdate', window.realtimeMessagesHandler);
-    console.log('[REALTIME-MSG] WebSocket event listener added');
+    const msg = payload.message || payload;
+    if (!msg || !msg.id) return;
 
-    // 2. Auto-start polling if WebSocket is NOT connected
-    if (!window.realtimeManager || !window.realtimeManager.isConnected) {
-        console.log('[REALTIME-MSG] WebSocket not connected, starting polling fallback');
-        startRealtimePolling();
-    }
+    // Skip if already in messages list
+    if (window.allChatMessages.some(m => String(m.id) === String(msg.id))) return;
 
-    // 3. Listen for WebSocket connection loss to auto-enable polling
-    window._realtimeConnectionLostHandler = function () {
-        if (!window.realtimeMessagesInterval) {
-            console.log('[REALTIME-MSG] WebSocket lost, activating polling fallback');
-            startRealtimePolling();
-        }
+    const isFromPage = String(msg.from?.id) === String(window.currentChatChannelId);
+    const parsed = {
+        id: msg.id,
+        text: msg.original_message || window._stripHtml?.(msg.message || '') || msg.message || '',
+        time: window._parseTimestamp?.(msg.inserted_at || msg.created_time) || new Date(),
+        sender: isFromPage ? 'shop' : 'customer',
+        senderName: msg.from?.name || '',
+        fromId: msg.from?.id || '',
+        attachments: msg.attachments || [],
+        isHidden: msg.is_hidden || false,
+        isRemoved: msg.is_removed || false,
+        canHide: msg.can_hide !== false,
+        canRemove: msg.can_remove !== false,
+        canLike: msg.can_like !== false,
+        userLikes: msg.user_likes || false,
+        parentId: msg.parent_id || null,
+        canReplyPrivately: msg.can_reply_privately || false,
+        privateReplyConversation: msg.private_reply_conversation || null,
     };
-    window.addEventListener('realtimeConnectionLost', window._realtimeConnectionLostHandler);
 
-    // 4. Listen for WebSocket reconnection to stop polling
-    window._realtimeStatusHandler = function (e) {
-        if (e.detail?.connected && window.realtimeMessagesInterval) {
-            console.log('[REALTIME-MSG] WebSocket reconnected, stopping polling');
-            clearInterval(window.realtimeMessagesInterval);
-            window.realtimeMessagesInterval = null;
-        }
-    };
-    window.addEventListener('realtimeStatusChanged', window._realtimeStatusHandler);
-}
+    // Append to messages
+    window.allChatMessages.push(parsed);
+
+    // Re-render & scroll to bottom
+    if (window.renderChatMessages) {
+        window.renderChatMessages(window.allChatMessages);
+    }
+    const messagesEl = document.getElementById('chatMessages');
+    if (messagesEl) {
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    console.log('[Chat-RT] New message appended:', parsed.id, parsed.text?.substring(0, 50));
+};
 
 /**
- * Handle realtime conversation update from WebSocket
- * Trực tiếp lấy tin nhắn từ WebSocket payload, không cần gọi API
- * @param {CustomEvent} event - Event with conversation data
+ * Handle conversation update from realtime
  */
-async function handleRealtimeConversationEvent(event) {
-    const conversation = event.detail;
-    if (!conversation) return;
+window.handleConversationUpdate = function(payload) {
+    if (!payload) return;
 
-    // Check if this update is for the current conversation
-    const currentConvId = window.currentConversationId;
-    const currentPSID = window.currentChatPSID;
-    const currentChannelId = window.currentChatChannelId;
+    const convId = payload.conversation_id || payload.id;
+    if (!convId) return;
 
-    // Match by conversation ID or by page_id + customer PSID
-    const isMatchingConv = (conversation.id === currentConvId) ||
-        (conversation.page_id === currentChannelId &&
-            (conversation.from?.id === currentPSID || conversation.from_psid === currentPSID));
-
-    if (!isMatchingConv) {
-        // Log quietly - this is expected for updates to other conversations
-        return;
-    }
-
-    console.log('[REALTIME-MSG] Received realtime update for current conversation:', conversation.id);
-
-    // Try to get the new message directly from WebSocket payload
-    const lastMessage = conversation.last_message || conversation.message;
-
-    if (lastMessage && lastMessage.id) {
-        // Check using persistent dedup Set (atomic - no race condition)
-        if (!window._messageIdSet.has(lastMessage.id)) {
-            console.log('[REALTIME-MSG] Adding message directly from WebSocket:', lastMessage.id);
-
-            // Add to dedup set FIRST, then push to array (atomic order prevents duplicates)
-            window._messageIdSet.add(lastMessage.id);
-            window.allChatMessages.push(lastMessage);
-
-            // Update timestamp
-            window.lastMessageTimestamp = lastMessage.inserted_at || lastMessage.created_time;
-
-            // Check if user is at bottom before updating
-            const modalBody = document.getElementById('chatModalBody');
-            const wasAtBottom = modalBody &&
-                (modalBody.scrollHeight - modalBody.scrollTop - modalBody.clientHeight < 100);
-
-            // Re-render messages
-            renderChatMessages(window.allChatMessages, wasAtBottom);
-
-            // Show indicator if not at bottom
-            if (!wasAtBottom) {
-                showNewMessageIndicator();
-            }
-
-            // Play notification sound
-            playNewMessageSound();
-
-            return; // Done - no need to call API
-        } else {
-            console.log('[REALTIME-MSG] Message already exists:', lastMessage.id);
-            return;
+    // If this is the current conversation, update data
+    if (String(convId) === String(window.currentConversationId)) {
+        if (payload.updated_at && window.currentConversationData) {
+            window.currentConversationData.updated_at = payload.updated_at;
+        }
+        // Mark as read if chat is open
+        if (window.pancakeDataManager && window.currentChatChannelId) {
+            window.pancakeDataManager.markAsRead(window.currentChatChannelId, convId).catch(() => {});
         }
     }
+};
 
-    // Fallback: If last_message not in payload, check snippet
-    // This means we only got a notification, need to fetch the full message
-    if (conversation.snippet) {
-        console.log('[REALTIME-MSG] WebSocket has snippet but not full message, fetching via API...');
-        await fetchAndUpdateMessages();
-    }
-}
-
-/**
- * Start polling for new messages
- */
-function startRealtimePolling() {
-    // Clear any existing interval
-    if (window.realtimeMessagesInterval) {
-        clearInterval(window.realtimeMessagesInterval);
-    }
-
-    // Store initial timestamp
-    if (window.allChatMessages && window.allChatMessages.length > 0) {
-        const latestMsg = window.allChatMessages.reduce((latest, msg) => {
-            const msgTime = new Date(msg.inserted_at || msg.CreatedTime || 0).getTime();
-            const latestTime = new Date(latest.inserted_at || latest.CreatedTime || 0).getTime();
-            return msgTime > latestTime ? msg : latest;
-        });
-        window.lastMessageTimestamp = latestMsg.inserted_at || latestMsg.CreatedTime;
-    }
-
-    console.log('[REALTIME-MSG] Starting polling every', REALTIME_POLL_INTERVAL / 1000, 'seconds');
-
-    // Start polling
-    window.realtimeMessagesInterval = setInterval(async () => {
-        // Only poll if chat modal is open
-        const chatModal = document.getElementById('chatModal');
-        if (!chatModal || !chatModal.classList.contains('show')) {
-            console.log('[REALTIME-MSG] Chat modal closed, stopping poll');
-            cleanupRealtimeMessages();
-            return;
-        }
-
-        // Only poll for message type (not comments)
-        if (currentChatType !== 'message') {
-            return;
-        }
-
-        await fetchAndUpdateMessages();
-    }, REALTIME_POLL_INTERVAL);
-}
-
-/**
- * Fetch latest messages using Facebook Graph API via Pancake
- * Only fetches new messages since last update
- */
-async function fetchAndUpdateMessages() {
-    if (!window.currentChatChannelId || !window.currentChatPSID) {
-        return;
-    }
-
-    // Prevent concurrent fetches
-    if (window.isFetchingRealtimeMessages) {
-        console.log('[REALTIME-MSG] Already fetching, skipping...');
-        return;
-    }
-
-    window.isFetchingRealtimeMessages = true;
-
-    try {
-        console.log('[REALTIME-MSG] Fetching latest messages...');
-
-        // Try Facebook Graph API first if we have page token
-        let newMessages = [];
-        const facebookPageToken = await window.getFacebookPageToken();
-
-        if (facebookPageToken && window.currentConversationId) {
-            // Use Facebook Graph API directly
-            newMessages = await fetchMessagesFromFacebookAPI(facebookPageToken);
-        } else {
-            // Fallback to Pancake API
-            const response = await window.chatDataManager.fetchMessages(
-                window.currentChatChannelId,
-                window.currentChatPSID,
-                window.currentConversationId,
-                window.currentCustomerUUID
-            );
-            newMessages = response.messages || [];
-        }
-
-        if (newMessages.length === 0) {
-            console.log('[REALTIME-MSG] No messages returned');
-            window.isFetchingRealtimeMessages = false;
-            return;
-        }
-
-        // Find truly new messages using persistent dedup Set
-        const trulyNewMessages = newMessages.filter(msg => {
-            const msgId = msg.id || msg.Id;
-            return msgId && !window._messageIdSet.has(msgId);
-        });
-
-        if (trulyNewMessages.length > 0) {
-            console.log('[REALTIME-MSG] Found', trulyNewMessages.length, 'new messages');
-
-            // Add to dedup set FIRST, then update array
-            trulyNewMessages.forEach(msg => window._messageIdSet.add(msg.id || msg.Id));
-            window.allChatMessages = [...window.allChatMessages, ...trulyNewMessages];
-
-            // Update timestamp
-            const latestMsg = trulyNewMessages.reduce((latest, msg) => {
-                const msgTime = new Date(msg.inserted_at || msg.CreatedTime || 0).getTime();
-                const latestTime = new Date(latest.inserted_at || latest.CreatedTime || 0).getTime();
-                return msgTime > latestTime ? msg : latest;
-            });
-            window.lastMessageTimestamp = latestMsg.inserted_at || latestMsg.CreatedTime;
-
-            // Check if user is at bottom before updating
-            const modalBody = document.getElementById('chatModalBody');
-            const wasAtBottom = modalBody &&
-                (modalBody.scrollHeight - modalBody.scrollTop - modalBody.clientHeight < 100);
-
-            // Re-render messages
-            renderChatMessages(window.allChatMessages, wasAtBottom);
-
-            // Show indicator if not at bottom
-            if (!wasAtBottom) {
-                showNewMessageIndicator();
-            }
-
-            // Play notification sound if available
-            playNewMessageSound();
-        } else {
-            console.log('[REALTIME-MSG] No new messages to display');
-        }
-
-    } catch (error) {
-        console.error('[REALTIME-MSG] Error fetching messages:', error);
-    } finally {
-        window.isFetchingRealtimeMessages = false;
-    }
-}
-
-// getFacebookPageToken() is now a shared utility: window.getFacebookPageToken(pageId)
-// Defined in tab1-chat-facebook.js with Sources 1-4 and validation cache
-
-/**
- * Fetch messages directly from Facebook Graph API
- * Uses the conversation endpoint with page access token
- * @param {string} pageToken - Facebook Page Token
- * @returns {Array} Messages array
- */
-async function fetchMessagesFromFacebookAPI(pageToken) {
-    try {
-        // Build the Facebook Graph API URL
-        // GET /{conversation-id}/messages?access_token={page_token}
-        const conversationId = window.currentConversationId;
-
-        if (!conversationId) {
-            console.warn('[REALTIME-MSG] No conversation ID for Facebook API call');
-            return [];
-        }
-
-        // Use Pancake Official API which proxies to Facebook
-        // This respects the same format and avoids CORS issues
-        const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(window.currentChatChannelId);
-
-        if (!pageAccessToken) {
-            console.warn('[REALTIME-MSG] No page access token for Facebook API');
-            return [];
-        }
-
-        // Build URL using existing API config
-        let extraParams = '';
-        if (window.currentCustomerUUID) {
-            extraParams = `&customer_id=${window.currentCustomerUUID}`;
-        }
-
-        const url = window.API_CONFIG.buildUrl.pancakeOfficial(
-            `pages/${window.currentChatChannelId}/conversations/${conversationId}/messages`,
-            pageAccessToken
-        ) + extraParams;
-
-        console.log('[REALTIME-MSG] Calling Facebook API via Pancake:', url.substring(0, 100) + '...');
-
-        const response = await API_CONFIG.smartFetch(url, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        }, 2, true); // 2 retries, skip fallback
-
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        console.log('[REALTIME-MSG] Facebook API returned', data.messages?.length || 0, 'messages');
-
-        return data.messages || [];
-
-    } catch (error) {
-        console.error('[REALTIME-MSG] Error calling Facebook API:', error);
-        return [];
-    }
-}
-
-/**
- * Play notification sound for new messages
- */
-function playNewMessageSound() {
-    try {
-        // Create a simple beep sound using Web Audio API
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-
-        oscillator.frequency.value = 800; // Frequency in Hz
-        oscillator.type = 'sine';
-
-        gainNode.gain.setValueAtTime(0.1, audioContext.currentTime); // Low volume
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
-
-        oscillator.start(audioContext.currentTime);
-        oscillator.stop(audioContext.currentTime + 0.3);
-    } catch (e) {
-        // Silently fail if audio not supported
-    }
-}
-
-/**
- * Cleanup realtime messages listeners and intervals
- */
-function cleanupRealtimeMessages() {
-    console.log('[REALTIME-MSG] Cleaning up realtime messages...');
-
-    // Remove WebSocket event listener
-    if (window.realtimeMessagesHandler) {
-        window.removeEventListener('realtimeConversationUpdate', window.realtimeMessagesHandler);
-        window.realtimeMessagesHandler = null;
-    }
-
-    // Remove connection loss/status listeners
-    if (window._realtimeConnectionLostHandler) {
-        window.removeEventListener('realtimeConnectionLost', window._realtimeConnectionLostHandler);
-        window._realtimeConnectionLostHandler = null;
-    }
-    if (window._realtimeStatusHandler) {
-        window.removeEventListener('realtimeStatusChanged', window._realtimeStatusHandler);
-        window._realtimeStatusHandler = null;
-    }
-
-    // Clear polling interval
-    if (window.realtimeMessagesInterval) {
-        clearInterval(window.realtimeMessagesInterval);
-        window.realtimeMessagesInterval = null;
-    }
-
-    // Reset state
-    window.lastMessageTimestamp = null;
-    window.isFetchingRealtimeMessages = false;
-    window._messageIdSet.clear();
-}
-
-// Expose for external use
-window.setupRealtimeMessages = setupRealtimeMessages;
-window.cleanupRealtimeMessages = cleanupRealtimeMessages;
-window.fetchAndUpdateMessages = fetchAndUpdateMessages;
-
-console.log('[Tab1-Chat-Realtime] Loaded successfully.');
+console.log('[Chat-RT] Loaded.');
