@@ -168,13 +168,12 @@ window.addEventListener("DOMContentLoaded", async function () {
     } else {
         console.warn('[PANCAKE] ⚠️ Pancake managers not available');
     }
-    // Initialize Realtime Manager
-    if (window.RealtimeManager) {
+    // Initialize Realtime Manager (instance already created by realtime-manager.js)
+    if (window.realtimeManager) {
         console.log('[REALTIME] Initializing RealtimeManager...');
-        window.realtimeManager = new RealtimeManager();
         window.realtimeManager.initialize();
     } else {
-        console.warn('[REALTIME] ⚠️ RealtimeManager class not found');
+        console.warn('[REALTIME] ⚠️ RealtimeManager not available');
     }
 
     // ⚡ OPTIMIZATION FIX: Defer TAG/KPI BASE listeners to reduce initial blocking

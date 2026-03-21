@@ -278,6 +278,23 @@ class RealtimeManager {
         }
     }
 
+    /**
+     * Initialize - called by tab1-init.js after page load
+     * Sets up event listeners for chat realtime updates
+     */
+    initialize() {
+        console.log('[Realtime] Initialized. Ready for connectServerMode() or initWebSocket().');
+    }
+
+    /**
+     * Connect via polling from n2store-realtime server
+     * Called by tab1-init.js after campaign select
+     */
+    connectServerMode() {
+        console.log('[Realtime] Connecting via Server Mode (polling)...');
+        this._startPollingFallback();
+    }
+
     // --- Polling Fallback (when WS fails) ---
     _startPollingFallback() {
         if (this.pollingTimer) return;

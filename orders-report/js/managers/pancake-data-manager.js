@@ -628,9 +628,69 @@ class PancakeDataManager {
     // --- Avatar URL ---
     getAvatarUrl(fbId, pageId = null) {
         if (!fbId) return 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><circle cx="20" cy="20" r="20" fill="%23e5e7eb"/><circle cx="20" cy="15" r="7" fill="%239ca3af"/><ellipse cx="20" cy="32" rx="11" ry="8" fill="%239ca3af"/></svg>';
-        let url = `${WORKER_URL}/api/fb-avatar?id=${fbId}`;
+        let url = `${_PDM_WORKER_URL}/api/fb-avatar?id=${fbId}`;
         if (pageId) url += `&page=${pageId}`;
         return url;
+    }
+
+    // --- Parse channelId from Facebook_PostId (format: "pageId_postId") ---
+    parseChannelId(facebookPostId) {
+        if (!facebookPostId) return null;
+        const parts = String(facebookPostId).split('_');
+        return parts[0] || null;
+    }
+
+    // --- Get chat info for an order (used by tab1-table.js) ---
+    getChatInfoForOrder(order) {
+        if (!order) return { psid: null, channelId: null };
+        const psid = order.Facebook_ASUserId || order.psid || '';
+        const channelId = this.parseChannelId(order.Facebook_PostId) || '';
+        return { psid, channelId };
+    }
+
+    // --- Get last message for an order (used by tab1-table.js) ---
+    getLastMessageForOrder(order) {
+        const defaultResult = { text: '', message: '', hasUnread: false, unreadCount: 0, attachments: [], time: null };
+        if (!order) return defaultResult;
+
+        const psid = order.Facebook_ASUserId || order.psid || '';
+        if (!psid) return defaultResult;
+
+        const conv = this.inboxMapByPSID.get(String(psid));
+        if (!conv) return defaultResult;
+
+        const lastMsg = conv.last_message || {};
+        const msgText = lastMsg.text || lastMsg.message || '';
+        return {
+            text: msgText,
+            message: msgText, // alias for tab1-table.js formatMessagePreview/renderChatColumnWithData
+            hasUnread: !conv.seen,
+            unreadCount: conv.unread_count || 0,
+            attachments: lastMsg.attachments || [],
+            time: conv.updated_at || null,
+            sender: lastMsg.sender || '',
+        };
+    }
+
+    // --- Get last comment for an order (used by tab1-table.js) ---
+    getLastCommentForOrder(channelId, psid, order) {
+        const defaultResult = { text: '', message: '', hasUnread: false, unreadCount: 0, attachments: [], time: null };
+        if (!psid) return defaultResult;
+
+        const conv = this.commentMapByPSID.get(String(psid));
+        if (!conv) return defaultResult;
+
+        const lastMsg = conv.last_message || {};
+        const msgText = lastMsg.text || lastMsg.message || '';
+        return {
+            text: msgText,
+            message: msgText,
+            hasUnread: !conv.seen,
+            unreadCount: conv.unread_count || 0,
+            attachments: lastMsg.attachments || [],
+            time: conv.updated_at || null,
+            sender: lastMsg.sender || '',
+        };
     }
 
     // --- Queued fetch (for rate-limited operations) ---
