@@ -190,8 +190,9 @@ async function _findAndLoadConversation(pageId, psid, type) {
     window.currentConversationId = conv.id;
     window.currentConversationData = conv;
 
-    // Load messages
-    await _loadMessages(pageId, conv.id, conv.customerId || null);
+    // Load messages (customerId from conv or from.id)
+    const customerId = conv.customerId || conv.customer?.id || conv.from?.id || null;
+    await _loadMessages(pageId, conv.id, customerId);
 }
 
 /**

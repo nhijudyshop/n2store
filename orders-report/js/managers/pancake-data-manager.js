@@ -275,6 +275,17 @@ class PancakeDataManager {
             if (convs.length > 0) {
                 this._lastConvId[pageId] = convs[convs.length - 1].id;
             }
+            // Update maps
+            for (const conv of convs) {
+                const psid = conv.from?.id;
+                if (conv.type === 'INBOX') {
+                    if (psid) this.inboxMapByPSID.set(String(psid), conv);
+                    if (conv.from?.id) this.inboxMapByFBID.set(String(conv.from.id), conv);
+                } else {
+                    if (psid) this.commentMapByPSID.set(String(psid), conv);
+                    if (conv.from?.id) this.commentMapByFBID.set(String(conv.from.id), conv);
+                }
+            }
             return { conversations: convs, error: null };
         } catch (e) {
             return { conversations: [], error: { code: 0, message: e.message } };
