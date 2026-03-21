@@ -85,12 +85,16 @@ window.ProductCodeGenerator = (function() {
         let name = productName.trim();
         if (!name) return null;
 
-        // Strip date prefix (DDMM) and supplier code prefix to get clean product name
-        if (window.SupplierDetector && window.SupplierDetector.getCleanProductName) {
-            name = window.SupplierDetector.getCleanProductName(name);
+        // Extract supplier code prefix from product name (e.g., "2003 B5 SET ÁO" → "B" from B5)
+        if (window.SupplierDetector && window.SupplierDetector.parseProductInfo) {
+            const info = window.SupplierDetector.parseProductInfo(name);
+            if (info.supplierCode) {
+                // Use first letter of supplier code as product code prefix
+                return info.supplierCode.charAt(0).toUpperCase();
+            }
         }
 
-        // Sort rules by match length desc (longer matches first to avoid ambiguity)
+        // Fallback: try matching rules against clean product name
         const sorted = [...rules].sort((a, b) => b.match.length - a.match.length);
 
         for (const rule of sorted) {
