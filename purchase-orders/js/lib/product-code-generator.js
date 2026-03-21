@@ -82,8 +82,13 @@ window.ProductCodeGenerator = (function() {
             return null;
         }
 
-        const name = productName.trim();
+        let name = productName.trim();
         if (!name) return null;
+
+        // Strip date prefix (DDMM) and supplier code prefix to get clean product name
+        if (window.SupplierDetector && window.SupplierDetector.getCleanProductName) {
+            name = window.SupplierDetector.getCleanProductName(name);
+        }
 
         // Sort rules by match length desc (longer matches first to avoid ambiguity)
         const sorted = [...rules].sort((a, b) => b.match.length - a.match.length);
