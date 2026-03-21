@@ -3,10 +3,18 @@
 // Handles Extension connection + bypass 24h messaging via
 // business.facebook.com/messaging/send/ (Extension V2)
 // =====================================================
-// Reference: inbox/js/inbox-main.js (extension bridge), inbox/js/inbox-chat.js (_sendViaExtension)
-// NOTE: This is a SEPARATE module for tab1. Does NOT modify inbox/ code.
-// IMPORTANT: Listener registered IMMEDIATELY on script load (not deferred)
-//   to catch EXTENSION_LOADED event which fires at document_end.
+// ARCHITECTURE:
+//   tab1-orders.html runs inside an IFRAME in main.html.
+//   Extension contentscript injects into top frame (main.html), NOT iframe.
+//   main.html has a relay bridge that:
+//     1. Catches extension events (EXTENSION_LOADED, REPLY_INBOX_PHOTO_SUCCESS, etc.)
+//        and forwards them DOWN to this iframe via iframe.contentWindow.postMessage()
+//     2. Catches extension commands FROM this iframe (REPLY_INBOX_PHOTO, etc.)
+//        and forwards them UP to contentscript via window.postMessage()
+//
+//   Flow: Extension ↔ contentscript ↔ main.html relay ↔ iframe (this code)
+//
+// Reference: inbox/js/inbox-main.js (extension bridge), inbox/js/inbox-chat.js
 
 console.log('[Tab1-ExtBridge] Loading...');
 
@@ -19,7 +27,6 @@ window.tab1ExtensionBridge = {
 
     /**
      * Initialize with page IDs for PREINITIALIZE_PAGES
-     * Listener is already active - this just sends PREINITIALIZE if extension is already connected
      * @param {string[]} pageIds - Page IDs to pre-initialize
      */
     init(pageIds) {
@@ -27,13 +34,28 @@ window.tab1ExtensionBridge = {
         this._initialized = true;
         this._pageIds = pageIds || [];
 
-        // If extension already connected before init, send PREINITIALIZE now
+        // If already connected (from early EXTENSION_LOADED), send PREINITIALIZE now
         if (this.connected && this._pageIds.length > 0) {
-            window.postMessage({ type: 'PREINITIALIZE_PAGES', pageIds: this._pageIds }, '*');
+            this._postToExtension({ type: 'PREINITIALIZE_PAGES', pageIds: this._pageIds });
             console.log('[Tab1-ExtBridge] Sent PREINITIALIZE_PAGES (deferred):', this._pageIds);
         }
 
         console.log('[Tab1-ExtBridge] Initialized with', this._pageIds.length, 'page IDs');
+    },
+
+    /**
+     * Post message to extension via parent frame relay
+     * If in iframe: parent.postMessage() → main.html relay → contentscript
+     * If top frame: window.postMessage() → contentscript directly
+     */
+    _postToExtension(data) {
+        if (window.parent !== window) {
+            // We're in an iframe - send to parent for relay
+            window.parent.postMessage(data, '*');
+        } else {
+            // We're top frame - send directly
+            window.postMessage(data, '*');
+        }
     },
 
     /**
@@ -64,7 +86,7 @@ window.tab1ExtensionBridge = {
         if (conv._messagesData?.customers?.length) {
             globalUserId = conv._messagesData.customers[0].global_id || null;
             if (globalUserId) {
-                console.log('[Tab1-EXT] Got globalUserId from customers[]:', globalUserId);
+                console.log('[Tab1-EXT] Got globalUserId from _messagesData.customers[]:', globalUserId);
                 this._globalIdCache[cacheKey] = globalUserId;
                 return globalUserId;
             }
@@ -94,23 +116,24 @@ window.tab1ExtensionBridge = {
                 }, 60000);
 
                 const handler = (e) => {
-                    if (e.source !== window) return;
-                    if (e.data?.type === 'GET_GLOBAL_ID_FOR_CONV_SUCCESS' && e.data?.taskId === taskId) {
+                    const d = e.data;
+                    if (!d || !d.type) return;
+                    if (d.type === 'GET_GLOBAL_ID_FOR_CONV_SUCCESS' && d.taskId === taskId) {
                         clearTimeout(timeout);
                         window.removeEventListener('message', handler);
-                        console.log('[Tab1-EXT] Got globalUserId from extension:', e.data.globalId);
-                        resolve(e.data.globalId);
+                        console.log('[Tab1-EXT] Got globalUserId from extension:', d.globalId);
+                        resolve(d.globalId);
                     }
-                    if (e.data?.type === 'GET_GLOBAL_ID_FOR_CONV_FAILURE' && e.data?.taskId === taskId) {
+                    if (d.type === 'GET_GLOBAL_ID_FOR_CONV_FAILURE' && d.taskId === taskId) {
                         clearTimeout(timeout);
                         window.removeEventListener('message', handler);
-                        console.warn('[Tab1-EXT] GET_GLOBAL_ID_FOR_CONV failed:', e.data);
+                        console.warn('[Tab1-EXT] GET_GLOBAL_ID_FOR_CONV failed:', d);
                         resolve(null);
                     }
                 };
                 window.addEventListener('message', handler);
 
-                window.postMessage({
+                this._postToExtension({
                     type: 'GET_GLOBAL_ID_FOR_CONV',
                     pageId: conv.pageId,
                     threadId: fbThreadId,
@@ -121,7 +144,7 @@ window.tab1ExtensionBridge = {
                     convType: conv.type || 'INBOX',
                     postId: null, convId: null,
                     taskId, from: 'WEBPAGE'
-                }, '*');
+                });
             });
 
             if (globalUserId) {
@@ -138,14 +161,6 @@ window.tab1ExtensionBridge = {
     /**
      * Send message via Pancake Extension (REPLY_INBOX_PHOTO)
      * Bypasses Facebook 24h messaging window
-     * @param {Object} params
-     * @param {string} params.text - Message text
-     * @param {string} params.pageId - Facebook Page ID
-     * @param {string} params.psid - Customer PSID
-     * @param {string} params.globalUserId - Global Facebook User ID (required)
-     * @param {number} [params.convUpdatedTime] - Conversation updated timestamp
-     * @param {string} [params.customerName] - Customer name
-     * @returns {Promise<Object>} Extension response with messageId
      */
     async sendMessage({ text, pageId, psid, globalUserId, convUpdatedTime, customerName }) {
         if (!this.connected) {
@@ -169,18 +184,19 @@ window.tab1ExtensionBridge = {
             }, 60000);
 
             const handler = (e) => {
-                if (e.source !== window) return;
-                if (e.data?.type === 'REPLY_INBOX_PHOTO_SUCCESS' && e.data?.taskId === sendTaskId) {
+                const d = e.data;
+                if (!d || !d.type) return;
+                if (d.type === 'REPLY_INBOX_PHOTO_SUCCESS' && d.taskId === sendTaskId) {
                     clearTimeout(timeout);
                     window.removeEventListener('message', handler);
-                    console.log('[Tab1-EXT] REPLY_INBOX_PHOTO SUCCESS:', e.data.messageId);
-                    resolve(e.data);
+                    console.log('[Tab1-EXT] REPLY_INBOX_PHOTO SUCCESS:', d.messageId);
+                    resolve(d);
                 }
-                if (e.data?.type === 'REPLY_INBOX_PHOTO_FAILURE' && e.data?.taskId === sendTaskId) {
+                if (d.type === 'REPLY_INBOX_PHOTO_FAILURE' && d.taskId === sendTaskId) {
                     clearTimeout(timeout);
                     window.removeEventListener('message', handler);
-                    console.error('[Tab1-EXT] REPLY_INBOX_PHOTO FAILURE:', e.data);
-                    reject(new Error(e.data?.error || 'Extension gửi tin nhắn thất bại'));
+                    console.error('[Tab1-EXT] REPLY_INBOX_PHOTO FAILURE:', d);
+                    reject(new Error(d.error || 'Extension gửi tin nhắn thất bại'));
                 }
             };
             window.addEventListener('message', handler);
@@ -207,39 +223,27 @@ window.tab1ExtensionBridge = {
                 from: 'WEBPAGE'
             };
 
-            window.postMessage(payload, '*');
+            this._postToExtension(payload);
             console.log('[Tab1-EXT] Sent REPLY_INBOX_PHOTO:', { pageId, psid, globalUserId });
         });
     },
 
-    /**
-     * Check if extension is connected
-     * @returns {boolean}
-     */
     isConnected() {
         return this.connected;
     },
 
-    /**
-     * Get current status
-     * @returns {Object}
-     */
     getStatus() {
         return {
             connected: this.connected,
+            inIframe: window.parent !== window,
             cacheSize: Object.keys(this._globalIdCache).length,
             recentEvents: this.lastEvents.slice(-10)
         };
     },
 
-    /**
-     * Update extension status indicator in chat modal UI
-     * @param {boolean} connected
-     */
     _updateStatusUI(connected) {
         const indicator = document.getElementById('extensionStatusIndicator');
         if (!indicator) return;
-
         if (connected) {
             indicator.style.display = 'inline-flex';
             indicator.innerHTML = '<i class="fas fa-plug" style="color: #10b981; font-size: 10px;"></i>';
@@ -253,53 +257,96 @@ window.tab1ExtensionBridge = {
 };
 
 // =====================================================
-// REGISTER LISTENER IMMEDIATELY (before DOM ready)
-// This catches EXTENSION_LOADED which fires at document_end
-// Same pattern as inbox/js/inbox-main.js:204
+// REGISTER LISTENER IMMEDIATELY
+// Listen for messages from BOTH:
+//   - parent frame (main.html relay bridge forwards extension events here)
+//   - same window (in case contentscript somehow injects directly)
 // =====================================================
-window.addEventListener('message', (e) => {
-    if (e.source !== window) return;
-    const type = e.data?.type;
-    if (!type) return;
+window.addEventListener('message', function(e) {
+    var d = e.data;
+    if (!d || !d.type) return;
 
-    const bridge = window.tab1ExtensionBridge;
+    var bridge = window.tab1ExtensionBridge;
+    var type = d.type;
 
-    const isExtEvent = type.includes('EXTENSION') || type.includes('REPLY_INBOX') ||
+    // Log extension-related events
+    var isExtEvent = type.includes('EXTENSION') || type.includes('REPLY_INBOX') ||
         type.includes('UPLOAD_INBOX') || type.includes('PREINITIALIZE') ||
         type.includes('BUSINESS_CONTEXT') || type.includes('GLOBAL_ID') ||
         type.includes('BATCH_GET') || type.includes('CHECK_EXTENSION') ||
-        (e.data?.from === 'EXTENSION');
+        type === 'EXT_BRIDGE_PROBE_RESPONSE' ||
+        (d.from === 'EXTENSION');
 
     if (isExtEvent) {
-        const logEntry = { type, time: new Date().toISOString(), data: e.data };
-        bridge.lastEvents.push(logEntry);
+        bridge.lastEvents.push({ type: type, time: new Date().toISOString(), data: d });
         if (bridge.lastEvents.length > 50) bridge.lastEvents.shift();
-        console.log('[Tab1-EXT]', type, e.data);
+        console.log('[Tab1-EXT]', type, d);
     }
 
-    // Handle EXTENSION_LOADED
-    if (type === 'EXTENSION_LOADED' && e.data?.from === 'EXTENSION') {
+    // Handle EXTENSION_LOADED (relayed from main.html or direct)
+    if (type === 'EXTENSION_LOADED' && d.from === 'EXTENSION') {
         bridge.connected = true;
         console.log('[Tab1-ExtBridge] Extension connected!');
 
         if (window.notificationManager) {
             window.notificationManager.show('Pancake Extension đã kết nối', 'success');
         }
-
         bridge._updateStatusUI(true);
 
         // Send PREINITIALIZE_PAGES if we have page IDs
         if (bridge._pageIds && bridge._pageIds.length > 0) {
-            window.postMessage({ type: 'PREINITIALIZE_PAGES', pageIds: bridge._pageIds }, '*');
+            bridge._postToExtension({ type: 'PREINITIALIZE_PAGES', pageIds: bridge._pageIds });
             console.log('[Tab1-ExtBridge] Sent PREINITIALIZE_PAGES:', bridge._pageIds);
         }
     }
 
+    // Handle probe response from main.html relay
+    if (type === 'EXT_BRIDGE_PROBE_RESPONSE') {
+        if (d.connected && !bridge.connected) {
+            bridge.connected = true;
+            console.log('[Tab1-ExtBridge] Extension was already connected (probe response)');
+            if (window.notificationManager) {
+                window.notificationManager.show('Pancake Extension đã kết nối', 'success');
+            }
+            bridge._updateStatusUI(true);
+
+            if (bridge._pageIds && bridge._pageIds.length > 0) {
+                bridge._postToExtension({ type: 'PREINITIALIZE_PAGES', pageIds: bridge._pageIds });
+            }
+        }
+    }
+
     // Handle extension disconnect
-    if (type === 'REPORT_EXTENSION_STATUS' && e.data?.status === 'disconnected') {
+    if (type === 'REPORT_EXTENSION_STATUS' && d.status === 'disconnected') {
         bridge.connected = false;
         bridge._updateStatusUI(false);
     }
 });
 
-console.log('[Tab1-ExtBridge] Loaded - listener active immediately.');
+// =====================================================
+// PROBE: Check if extension already connected before this script loaded
+// main.html relay tracks _extensionConnected state
+// =====================================================
+if (window.parent !== window) {
+    // We're in iframe - probe parent for extension status
+    console.log('[Tab1-ExtBridge] In iframe, probing parent for extension status...');
+    window.parent.postMessage({ type: 'EXT_BRIDGE_PROBE' }, '*');
+
+    // Retry probe after 2s in case main.html relay wasn't ready
+    setTimeout(function() {
+        if (!window.tab1ExtensionBridge.connected) {
+            console.log('[Tab1-ExtBridge] Retry probe...');
+            window.parent.postMessage({ type: 'EXT_BRIDGE_PROBE' }, '*');
+        }
+    }, 2000);
+
+    // Final retry after 5s
+    setTimeout(function() {
+        if (!window.tab1ExtensionBridge.connected) {
+            console.log('[Tab1-ExtBridge] Final probe...');
+            window.parent.postMessage({ type: 'EXT_BRIDGE_PROBE' }, '*');
+        }
+    }, 5000);
+}
+
+console.log('[Tab1-ExtBridge] Loaded - listener active, iframe:', window.parent !== window);

@@ -659,6 +659,90 @@
         <!-- DO NOT load: token-manager, cache, notification-system, pancake, chat managers -->
         <!-- These are loaded in individual tabs to avoid duplicates -->
 
+        <!-- ===== Pancake Extension Relay Bridge (top frame → iframe) ===== -->
+        <!-- Extension contentscript injects into top frame (main.html), NOT iframe.
+             This relay catches extension events and forwards them to ordersFrame (tab1).
+             Also relays iframe→extension messages (REPLY_INBOX_PHOTO, etc.) back up. -->
+        <script>
+        (function() {
+            // Track extension connection at top frame level
+            window._extensionConnected = false;
+
+            // 1. EXTENSION → TOP FRAME → IFRAME (relay extension events down to iframe)
+            window.addEventListener('message', function(e) {
+                if (e.source !== window) return;
+                var type = e.data && e.data.type;
+                if (!type) return;
+
+                // Extension events to relay down to iframe
+                var isExtResponse = (
+                    type === 'EXTENSION_LOADED' ||
+                    type === 'EXTENSION_VERSION' ||
+                    type === 'REPORT_EXTENSION_STATUS' ||
+                    type === 'REPLY_INBOX_PHOTO_SUCCESS' ||
+                    type === 'REPLY_INBOX_PHOTO_FAILURE' ||
+                    type === 'UPLOAD_INBOX_PHOTO_SUCCESS' ||
+                    type === 'UPLOAD_INBOX_PHOTO_FAILURE' ||
+                    type === 'GET_GLOBAL_ID_FOR_CONV_SUCCESS' ||
+                    type === 'GET_GLOBAL_ID_FOR_CONV_FAILURE' ||
+                    type === 'GET_BUSINESS_CONTEXT_SUCCESS' ||
+                    type === 'GET_BUSINESS_CONTEXT_FAILURE' ||
+                    type === 'BATCH_GET_GLOBAL_ID_SUCCESS' ||
+                    type === 'BATCH_GET_GLOBAL_ID_FAILURE'
+                );
+
+                if (isExtResponse) {
+                    if (type === 'EXTENSION_LOADED') {
+                        window._extensionConnected = true;
+                        console.log('[MAIN-EXT] Extension connected, relaying to iframe');
+                    }
+                    // Forward to ordersFrame (tab1 iframe)
+                    var ordersFrame = document.getElementById('ordersFrame');
+                    if (ordersFrame && ordersFrame.contentWindow) {
+                        ordersFrame.contentWindow.postMessage(e.data, '*');
+                    }
+                }
+            });
+
+            // 2. IFRAME → TOP FRAME → EXTENSION (relay extension commands from iframe up)
+            window.addEventListener('message', function(e) {
+                // Only accept messages from our iframes (not from window itself)
+                if (e.source === window) return;
+                var type = e.data && e.data.type;
+                if (!type) return;
+
+                // Extension commands that iframe sends up
+                var isExtCommand = (
+                    type === 'PREINITIALIZE_PAGES' ||
+                    type === 'CHECK_EXTENSION_VERSION' ||
+                    type === 'REPLY_INBOX_PHOTO' ||
+                    type === 'UPLOAD_INBOX_PHOTO' ||
+                    type === 'GET_GLOBAL_ID_FOR_CONV' ||
+                    type === 'GET_BUSINESS_CONTEXT' ||
+                    type === 'BATCH_GET_GLOBAL_ID' ||
+                    type === 'CHECK_EXTENSION' ||
+                    type === 'EXT_BRIDGE_PROBE'
+                );
+
+                if (isExtCommand) {
+                    if (type === 'EXT_BRIDGE_PROBE') {
+                        // Respond to probe from iframe with connection status
+                        e.source.postMessage({
+                            type: 'EXT_BRIDGE_PROBE_RESPONSE',
+                            connected: window._extensionConnected
+                        }, '*');
+                        return;
+                    }
+                    // Forward to extension (top frame window.postMessage → contentscript)
+                    console.log('[MAIN-EXT] Relaying to extension:', type);
+                    window.postMessage(e.data, '*');
+                }
+            });
+
+            console.log('[MAIN-EXT] Extension relay bridge active');
+        })();
+        </script>
+
         <script>
             // Initialize Lucide icons (wait for defer script to load)
             if (typeof lucide !== 'undefined') {
