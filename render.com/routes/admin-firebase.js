@@ -168,6 +168,109 @@ router.delete('/document/*', async (req, res) => {
 });
 
 // =====================================================
+// REALTIME DATABASE - Browse RTDB data
+// =====================================================
+
+const rtdb = admin.database();
+
+// GET /rtdb/browse - Browse RTDB at a path
+// ?path=/  or  ?path=/soluongProducts
+router.get('/rtdb/browse', async (req, res) => {
+    try {
+        const path = req.query.path || '/';
+        const limit = Math.min(parseInt(req.query.limit) || 50, 200);
+
+        const ref = rtdb.ref(path);
+        const snapshot = await ref.orderByKey().limitToFirst(limit + 1).once('value');
+        const val = snapshot.val();
+
+        if (val === null) {
+            return res.json({ success: true, path, type: 'null', data: null, childCount: 0, children: [] });
+        }
+
+        // Determine type
+        if (typeof val !== 'object') {
+            // Primitive value
+            return res.json({ success: true, path, type: typeof val, data: val, childCount: 0, children: [] });
+        }
+
+        // Object/Array - list children with previews
+        const keys = Object.keys(val);
+        const hasMore = keys.length > limit;
+        const displayKeys = hasMore ? keys.slice(0, limit) : keys;
+
+        const children = displayKeys.map(key => {
+            const child = val[key];
+            let type = typeof child;
+            let preview = '';
+            let childCount = 0;
+
+            if (child === null) {
+                type = 'null';
+                preview = 'null';
+            } else if (Array.isArray(child)) {
+                type = 'array';
+                childCount = child.length;
+                preview = `[${childCount} items]`;
+            } else if (typeof child === 'object') {
+                type = 'object';
+                childCount = Object.keys(child).length;
+                // Short preview of first few keys
+                const previewKeys = Object.keys(child).slice(0, 3).join(', ');
+                preview = `{${previewKeys}${childCount > 3 ? ', ...' : ''}} (${childCount})`;
+            } else {
+                preview = String(child).substring(0, 100);
+            }
+
+            return { key, type, preview, childCount };
+        });
+
+        res.json({
+            success: true,
+            path,
+            type: Array.isArray(val) ? 'array' : 'object',
+            childCount: keys.length,
+            hasMore,
+            children
+        });
+    } catch (error) {
+        console.error('[ADMIN-FIREBASE] RTDB browse error:', error.message);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// GET /rtdb/value - Get full value at a path (for viewing detail)
+router.get('/rtdb/value', async (req, res) => {
+    try {
+        const path = req.query.path || '/';
+        const ref = rtdb.ref(path);
+        const snapshot = await ref.once('value');
+        const val = snapshot.val();
+
+        res.json({ success: true, path, data: val });
+    } catch (error) {
+        console.error('[ADMIN-FIREBASE] RTDB value error:', error.message);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// DELETE /rtdb/value - Delete data at a path
+router.delete('/rtdb/value', async (req, res) => {
+    try {
+        const path = req.query.path;
+        if (!path || path === '/') {
+            return res.status(400).json({ success: false, error: 'Cannot delete root or empty path' });
+        }
+
+        await rtdb.ref(path).remove();
+        res.json({ success: true, message: `Deleted data at ${path}` });
+    } catch (error) {
+        console.error('[ADMIN-FIREBASE] RTDB delete error:', error.message);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// =====================================================
 // HELPER: Serialize Firestore data for JSON
 // =====================================================
 function serializeFirestoreData(data) {

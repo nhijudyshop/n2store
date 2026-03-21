@@ -202,6 +202,7 @@ const realtimeDbRoutes = require('./routes/realtime-db');
 const adminMigrationRoutes = require('./routes/admin-migration');
 const adminDataRoutes = require('./routes/admin-data');
 const adminFirebaseRoutes = require('./routes/admin-firebase');
+const adminRenderRoutes = require('./routes/admin-render');
 const invoiceStatusRoutes = require('./routes/invoice-status');
 
 // === ROUTES MERGED FROM /api ===
@@ -242,6 +243,7 @@ app.use('/api/realtime', realtimeDbRoutes);
 app.use('/api/admin', adminMigrationRoutes);
 app.use('/api/admin/data', adminDataRoutes);
 app.use('/api/admin/firebase', adminFirebaseRoutes);
+app.use('/api/admin/render', adminRenderRoutes);
 app.use('/api/invoice-status', invoiceStatusRoutes);
 
 // Initialize SSE notifiers in realtime-db routes

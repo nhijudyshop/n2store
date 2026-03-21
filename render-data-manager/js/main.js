@@ -10,6 +10,10 @@ const FB_API_BASE = window.location.hostname === 'localhost'
     ? 'http://localhost:3000/api/admin/firebase'
     : 'https://n2store-fallback.onrender.com/api/admin/firebase';
 
+const RS_API_BASE = window.location.hostname === 'localhost'
+    ? 'http://localhost:3000/api/admin/render'
+    : 'https://n2store-fallback.onrender.com/api/admin/render';
+
 // =====================================================
 // STATE
 // =====================================================
@@ -32,6 +36,15 @@ let fbLastDocId = null;
 let fbHasMore = false;
 let fbSearchFilter = '';
 let fbSearchTimeout = null;
+
+// RTDB state
+let rtdbRootKeys = [];
+let rtdbCurrentPath = '/';
+let rtdbChildren = [];
+
+// Render Services state
+let rsServices = [];
+let rsCurrentService = null;
 
 // =====================================================
 // INIT
@@ -58,25 +71,26 @@ function switchTab(tab) {
         el.classList.remove('active');
     });
 
-    if (tab === 'render') {
-        document.getElementById('renderTab').classList.add('active');
-    } else {
-        document.getElementById('firebaseTab').classList.add('active');
-        // Load collections on first switch
-        if (fbCollections.length === 0) {
-            fbLoadCollections();
-        }
+    const tabMap = { render: 'renderTab', firebase: 'firebaseTab', rtdb: 'rtdbTab', renderSvc: 'renderSvcTab' };
+    document.getElementById(tabMap[tab]).classList.add('active');
+
+    // Lazy load on first switch
+    if (tab === 'firebase' && fbCollections.length === 0) {
+        fbLoadCollections();
+    } else if (tab === 'rtdb' && rtdbRootKeys.length === 0) {
+        rtdbLoadRoot();
+    } else if (tab === 'renderSvc' && rsServices.length === 0) {
+        rsLoadServices();
     }
 
     lucide.createIcons();
 }
 
 function refreshCurrentTab() {
-    if (activeTab === 'render') {
-        refreshAllTables();
-    } else {
-        fbRefresh();
-    }
+    if (activeTab === 'render') refreshAllTables();
+    else if (activeTab === 'firebase') fbRefresh();
+    else if (activeTab === 'rtdb') rtdbRefresh();
+    else if (activeTab === 'renderSvc') rsRefresh();
 }
 
 // =====================================================
@@ -414,10 +428,21 @@ async function executeDelete() {
             if (!data.success) throw new Error(data.error);
             showToast('Xóa document thành công', 'success');
             fbReloadCurrentCollection();
+
+        } else if (pendingDeleteAction.type === 'rtdb') {
+            const path = pendingDeleteAction.path;
+            const resp = await fetch(`${FB_API_BASE}/rtdb/value?path=${encodeURIComponent(path)}`, {
+                method: 'DELETE'
+            });
+            const data = await resp.json();
+            if (!data.success) throw new Error(data.error);
+            showToast('Xóa RTDB data thành công', 'success');
+            rtdbLoadData();
+            rtdbLoadRoot();
         }
 
         // Refresh for render tab
-        if (pendingDeleteAction.type !== 'fb-doc') {
+        if (pendingDeleteAction.type === 'row' || pendingDeleteAction.type === 'truncate') {
             loadData();
             loadTableList();
         }
@@ -883,6 +908,351 @@ function fbRefresh() {
     if (fbCurrentPath.length > 0) {
         fbReloadCurrentCollection();
     }
+    showToast('Đã làm mới', 'info');
+}
+
+// =====================================================
+// RTDB TAB - LOAD ROOT KEYS
+// =====================================================
+
+async function rtdbLoadRoot() {
+    rtdbCurrentPath = '/';
+    const container = document.getElementById('rtdbKeyList');
+    container.innerHTML = '<div class="loading-placeholder"><div class="spinner" style="margin:0 auto 8px;"></div>Đang tải...</div>';
+
+    try {
+        const resp = await fetch(`${FB_API_BASE}/rtdb/browse?path=/`);
+        const data = await resp.json();
+
+        if (!data.success) throw new Error(data.error || 'Failed');
+
+        rtdbRootKeys = data.children || [];
+        rtdbRenderKeyList(rtdbRootKeys);
+    } catch (err) {
+        container.innerHTML = `<div class="loading-placeholder" style="color:var(--danger);">Lỗi: ${err.message}</div>`;
+    }
+}
+
+function rtdbRenderKeyList(keys, filter = '') {
+    const container = document.getElementById('rtdbKeyList');
+    const lower = filter.toLowerCase();
+    const filtered = keys.filter(k => !lower || k.key.toLowerCase().includes(lower));
+
+    if (filtered.length === 0) {
+        container.innerHTML = '<div class="loading-placeholder">Không tìm thấy key nào</div>';
+        return;
+    }
+
+    container.innerHTML = filtered.map(k => {
+        const typeIcon = k.type === 'object' ? '{}' : k.type === 'array' ? '[]' : '=';
+        const isActive = rtdbCurrentPath === '/' + k.key;
+        return `<div class="table-item ${isActive ? 'active' : ''}" onclick="rtdbNavigate('/${k.key}')">
+            <span class="table-item-info">
+                <span class="table-item-name">${escapeHtml(k.key)}</span>
+                <span class="table-item-used">${escapeHtml(k.preview)}</span>
+            </span>
+            <span class="row-count">${k.childCount || typeIcon}</span>
+        </div>`;
+    }).join('');
+}
+
+function rtdbFilterKeys(value) {
+    rtdbRenderKeyList(rtdbRootKeys, value);
+}
+
+// =====================================================
+// RTDB TAB - NAVIGATE & BROWSE
+// =====================================================
+
+async function rtdbNavigate(path) {
+    rtdbCurrentPath = path;
+
+    document.getElementById('rtdbWelcomePanel').style.display = 'none';
+    document.getElementById('rtdbDataPanel').style.display = 'flex';
+
+    rtdbRenderBreadcrumb();
+    await rtdbLoadData();
+
+    // Update sidebar active
+    document.querySelectorAll('#rtdbSidebar .table-item').forEach(el => el.classList.remove('active'));
+    const rootKey = path.split('/')[1];
+    const item = [...document.querySelectorAll('#rtdbSidebar .table-item')].find(el =>
+        el.getAttribute('onclick')?.includes(`'/${rootKey}'`)
+    );
+    if (item) item.classList.add('active');
+}
+
+function rtdbRenderBreadcrumb() {
+    const container = document.getElementById('rtdbBreadcrumb');
+    const parts = rtdbCurrentPath.split('/').filter(Boolean);
+
+    let html = `<span class="breadcrumb-item clickable" onclick="rtdbNavigate('/'); document.getElementById('rtdbDataPanel').style.display='none'; document.getElementById('rtdbWelcomePanel').style.display='flex';">Root</span>`;
+
+    parts.forEach((part, idx) => {
+        const path = '/' + parts.slice(0, idx + 1).join('/');
+        const isLast = idx === parts.length - 1;
+        html += '<span class="breadcrumb-sep">/</span>';
+        if (isLast) {
+            html += `<span class="breadcrumb-item current">${escapeHtml(part)}</span>`;
+        } else {
+            html += `<span class="breadcrumb-item clickable" onclick="rtdbNavigate('${path}')">${escapeHtml(part)}</span>`;
+        }
+    });
+
+    container.innerHTML = html;
+}
+
+async function rtdbLoadData() {
+    const loadingEl = document.getElementById('rtdbLoadingState');
+    const emptyEl = document.getElementById('rtdbEmptyState');
+    const tableEl = document.getElementById('rtdbTable');
+    const valueEl = document.getElementById('rtdbValueDisplay');
+
+    tableEl.style.display = 'none';
+    valueEl.style.display = 'none';
+    emptyEl.style.display = 'none';
+    loadingEl.style.display = 'flex';
+
+    try {
+        const resp = await fetch(`${FB_API_BASE}/rtdb/browse?path=${encodeURIComponent(rtdbCurrentPath)}&limit=100`);
+        const data = await resp.json();
+
+        if (!data.success) throw new Error(data.error || 'Failed');
+
+        loadingEl.style.display = 'none';
+
+        if (data.data === null) {
+            emptyEl.style.display = 'flex';
+            return;
+        }
+
+        // Primitive value
+        if (data.type !== 'object' && data.type !== 'array') {
+            valueEl.style.display = 'block';
+            valueEl.innerHTML = `
+                <div class="rtdb-value-card">
+                    <div class="detail-row">
+                        <div class="detail-key">Path</div>
+                        <div class="detail-value" style="font-family:monospace;color:var(--primary);">${escapeHtml(rtdbCurrentPath)}</div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-key">Type</div>
+                        <div class="detail-value">${escapeHtml(data.type)}</div>
+                    </div>
+                    <div class="detail-row">
+                        <div class="detail-key">Value</div>
+                        <div class="detail-value"><pre style="white-space:pre-wrap;font-size:0.82rem;">${escapeHtml(String(data.data))}</pre></div>
+                    </div>
+                </div>`;
+            return;
+        }
+
+        // Object/Array - show children table
+        rtdbChildren = data.children || [];
+
+        if (rtdbChildren.length === 0) {
+            emptyEl.style.display = 'flex';
+            return;
+        }
+
+        tableEl.style.display = 'table';
+        const tbody = document.getElementById('rtdbTableBody');
+        tbody.innerHTML = rtdbChildren.map(child => {
+            const childPath = rtdbCurrentPath === '/' ? `/${child.key}` : `${rtdbCurrentPath}/${child.key}`;
+            const isNavigable = child.type === 'object' || child.type === 'array';
+            return `<tr>
+                <td class="cell-actions">
+                    ${isNavigable ? `<button class="btn-icon btn-icon-view" onclick="rtdbNavigate('${childPath}')" title="Mở">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                    </button>` : `<button class="btn-icon btn-icon-view" onclick="rtdbViewValue('${childPath}')" title="Xem">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                    </button>`}
+                    <button class="btn-icon" onclick="rtdbConfirmDelete('${childPath}')" title="Xóa">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                    </button>
+                </td>
+                <td><strong class="${isNavigable ? 'fb-doc-id' : ''}" ${isNavigable ? `style="cursor:pointer" onclick="rtdbNavigate('${childPath}')"` : ''}>${escapeHtml(child.key)}</strong></td>
+                <td><span class="rtdb-type-badge rtdb-type-${child.type}">${child.type}</span></td>
+                <td>${escapeHtml(child.preview)}</td>
+            </tr>`;
+        }).join('');
+
+        if (data.hasMore) {
+            tbody.innerHTML += `<tr><td colspan="4" style="text-align:center;color:var(--gray-400);font-size:0.78rem;padding:12px;">+ thêm dữ liệu (giới hạn 100 keys)</td></tr>`;
+        }
+
+    } catch (err) {
+        loadingEl.style.display = 'none';
+        emptyEl.style.display = 'flex';
+        emptyEl.querySelector('p').textContent = `Lỗi: ${err.message}`;
+    }
+
+    lucide.createIcons();
+}
+
+async function rtdbViewValue(path) {
+    const modal = document.getElementById('detailModal');
+    const body = document.getElementById('detailModalBody');
+    document.getElementById('detailModalTitle').textContent = 'RTDB Value';
+
+    body.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Đang tải...</p></div>';
+    modal.style.display = 'flex';
+
+    try {
+        const resp = await fetch(`${FB_API_BASE}/rtdb/value?path=${encodeURIComponent(path)}`);
+        const data = await resp.json();
+
+        if (!data.success) throw new Error(data.error);
+
+        body.innerHTML = `
+            <div class="detail-row">
+                <div class="detail-key">Path</div>
+                <div class="detail-value" style="font-family:monospace;color:var(--primary);">${escapeHtml(path)}</div>
+            </div>
+            <div class="detail-row">
+                <div class="detail-key">Value</div>
+                <div class="detail-value"><pre style="white-space:pre-wrap;font-size:0.75rem;background:var(--gray-50);padding:8px;border-radius:4px;max-height:400px;overflow:auto;">${escapeHtml(typeof data.data === 'object' ? JSON.stringify(data.data, null, 2) : String(data.data))}</pre></div>
+            </div>`;
+    } catch (err) {
+        body.innerHTML = `<div style="color:var(--danger);">Lỗi: ${escapeHtml(err.message)}</div>`;
+    }
+}
+
+function rtdbConfirmDelete(path) {
+    pendingDeleteAction = { type: 'rtdb', path };
+    const modal = document.getElementById('confirmModal');
+    document.getElementById('modalTitle').textContent = 'Xóa RTDB Data';
+    document.getElementById('modalBody').innerHTML =
+        `Bạn có chắc chắn muốn xóa dữ liệu tại path này?<br><strong style="font-family:monospace;">${escapeHtml(path)}</strong><br><br>` +
+        `<span style="color:var(--danger);font-size:0.8rem;">Hành động này không thể hoàn tác!</span>`;
+    modal.style.display = 'flex';
+}
+
+function rtdbRefresh() {
+    rtdbLoadRoot();
+    if (rtdbCurrentPath !== '/') rtdbLoadData();
+    showToast('Đã làm mới', 'info');
+}
+
+// =====================================================
+// RENDER SERVICES TAB
+// =====================================================
+
+async function rsLoadServices() {
+    const container = document.getElementById('rsServiceList');
+    container.innerHTML = '<div class="loading-placeholder"><div class="spinner" style="margin:0 auto 8px;"></div>Đang tải...</div>';
+
+    try {
+        const statusResp = await fetch(`${RS_API_BASE}/status`);
+        const statusData = await statusResp.json();
+
+        if (!statusData.configured) {
+            container.innerHTML = '<div class="loading-placeholder" style="color:var(--warning);">RENDER_API_KEY chưa được cấu hình.<br><br>Thêm env var RENDER_API_KEY vào Render service.</div>';
+            return;
+        }
+
+        const resp = await fetch(`${RS_API_BASE}/services`);
+        const data = await resp.json();
+
+        if (!data.success) throw new Error(data.error || 'Failed');
+
+        rsServices = data.services;
+        rsRenderServiceList(rsServices);
+    } catch (err) {
+        container.innerHTML = `<div class="loading-placeholder" style="color:var(--danger);">Lỗi: ${err.message}</div>`;
+    }
+}
+
+function rsRenderServiceList(services, filter = '') {
+    const container = document.getElementById('rsServiceList');
+    const lower = filter.toLowerCase();
+    const filtered = services.filter(s => !lower || s.name.toLowerCase().includes(lower));
+
+    if (filtered.length === 0) {
+        container.innerHTML = '<div class="loading-placeholder">Không tìm thấy service nào</div>';
+        return;
+    }
+
+    container.innerHTML = filtered.map(s => {
+        const isActive = rsCurrentService?.id === s.id;
+        const typeMap = { web_service: 'Web', static_site: 'Static', private_service: 'Private', background_worker: 'Worker', cron_job: 'Cron' };
+        const typeLabel = typeMap[s.type] || s.type || '?';
+        return `<div class="table-item ${isActive ? 'active' : ''}" onclick="rsSelectService('${s.id}')">
+            <span class="table-item-info">
+                <span class="table-item-name">${escapeHtml(s.name)}</span>
+                ${s.url ? `<span class="table-item-used">${escapeHtml(s.url)}</span>` : ''}
+            </span>
+            <span class="row-count"><em class="view-tag">${typeLabel}</em></span>
+        </div>`;
+    }).join('');
+}
+
+function rsFilterServices(value) {
+    rsRenderServiceList(rsServices, value);
+}
+
+async function rsSelectService(serviceId) {
+    rsCurrentService = rsServices.find(s => s.id === serviceId);
+    if (!rsCurrentService) return;
+
+    // Update sidebar
+    document.querySelectorAll('#rsSidebar .table-item').forEach(el => el.classList.remove('active'));
+    const item = [...document.querySelectorAll('#rsSidebar .table-item')].find(el =>
+        el.getAttribute('onclick')?.includes(`'${serviceId}'`)
+    );
+    if (item) item.classList.add('active');
+
+    document.getElementById('rsWelcomePanel').style.display = 'none';
+    document.getElementById('rsDataPanel').style.display = 'flex';
+    document.getElementById('rsServiceName').textContent = rsCurrentService.name;
+    document.getElementById('rsServiceType').textContent = rsCurrentService.type || '-';
+    document.getElementById('rsServiceUrl').textContent = rsCurrentService.url || '';
+
+    const loadingEl = document.getElementById('rsLoadingState');
+    const emptyEl = document.getElementById('rsEmptyState');
+    const tableEl = document.getElementById('rsEnvTable');
+
+    tableEl.style.display = 'none';
+    emptyEl.style.display = 'none';
+    loadingEl.style.display = 'flex';
+
+    try {
+        const resp = await fetch(`${RS_API_BASE}/services/${serviceId}/env`);
+        const data = await resp.json();
+
+        loadingEl.style.display = 'none';
+
+        if (!data.success) throw new Error(data.error);
+
+        if (data.envVars.length === 0) {
+            emptyEl.style.display = 'flex';
+            return;
+        }
+
+        tableEl.style.display = 'table';
+        document.getElementById('rsEnvTableBody').innerHTML = data.envVars.map(ev => {
+            const isSensitive = ev.key.includes('KEY') || ev.key.includes('SECRET') || ev.key.includes('PASSWORD') || ev.key.includes('TOKEN') || ev.key.includes('PRIVATE');
+            const val = ev.value || '';
+            const displayVal = isSensitive && val.length > 10
+                ? `<span class="rs-secret" onclick="this.textContent=this.dataset.full;this.classList.remove('rs-secret')" data-full="${escapeHtml(val)}">${escapeHtml(val.substring(0, 6))}${'*'.repeat(Math.min(16, val.length - 6))} (click)</span>`
+                : escapeHtml(val);
+            return `<tr>
+                <td><strong>${escapeHtml(ev.key)}</strong></td>
+                <td style="font-family:monospace;font-size:0.78rem;word-break:break-all;">${displayVal}</td>
+            </tr>`;
+        }).join('');
+
+    } catch (err) {
+        loadingEl.style.display = 'none';
+        emptyEl.style.display = 'flex';
+        emptyEl.querySelector('p').textContent = `Lỗi: ${err.message}`;
+    }
+
+    lucide.createIcons();
+}
+
+function rsRefresh() {
+    rsLoadServices();
     showToast('Đã làm mới', 'info');
 }
 

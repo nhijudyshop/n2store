@@ -40,7 +40,13 @@
                 <i data-lucide="server"></i> Render (PostgreSQL)
             </button>
             <button class="tab-btn" data-tab="firebase" onclick="switchTab('firebase')">
-                <i data-lucide="flame"></i> Firebase (Firestore)
+                <i data-lucide="flame"></i> Firestore
+            </button>
+            <button class="tab-btn" data-tab="rtdb" onclick="switchTab('rtdb')">
+                <i data-lucide="git-branch"></i> Realtime DB
+            </button>
+            <button class="tab-btn" data-tab="renderSvc" onclick="switchTab('renderSvc')">
+                <i data-lucide="cloud"></i> Render Services
             </button>
         </div>
 
@@ -164,6 +170,120 @@
                         <!-- Load More -->
                         <div class="fb-load-more" id="fbLoadMore" style="display:none;">
                             <button class="btn btn-outline" onclick="fbLoadMore()">Tải thêm...</button>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </div>
+        <!-- ============================================= -->
+        <!-- REALTIME DB TAB -->
+        <!-- ============================================= -->
+        <div class="tab-content" id="rtdbTab">
+            <div class="layout">
+                <!-- Sidebar - Root keys -->
+                <aside class="sidebar-tables" id="rtdbSidebar">
+                    <div class="sidebar-search">
+                        <input type="text" id="rtdbSearch" placeholder="Tìm key..." oninput="rtdbFilterKeys(this.value)">
+                    </div>
+                    <div id="rtdbKeyList" class="table-groups">
+                        <div class="loading-placeholder">Đang tải...</div>
+                    </div>
+                </aside>
+
+                <!-- Main Content Area -->
+                <main class="data-area">
+                    <div id="rtdbWelcomePanel" class="welcome-panel">
+                        <i data-lucide="git-branch" class="welcome-icon"></i>
+                        <h2>Chọn key để xem dữ liệu</h2>
+                        <p>Chọn key từ sidebar bên trái</p>
+                    </div>
+
+                    <div id="rtdbDataPanel" class="data-panel" style="display:none;">
+                        <!-- Breadcrumb -->
+                        <div class="fb-breadcrumb" id="rtdbBreadcrumb"></div>
+
+                        <!-- Data Area -->
+                        <div class="table-wrapper" id="rtdbContentArea">
+                            <div id="rtdbLoadingState" class="loading-state" style="display:none;">
+                                <div class="spinner"></div>
+                                <p>Đang tải...</p>
+                            </div>
+                            <div id="rtdbEmptyState" class="empty-state" style="display:none;">
+                                <i data-lucide="inbox"></i>
+                                <p>Không có dữ liệu</p>
+                            </div>
+                            <!-- Children table -->
+                            <table class="data-table" id="rtdbTable" style="display:none;">
+                                <thead>
+                                    <tr>
+                                        <th style="width:60px">Actions</th>
+                                        <th>Key</th>
+                                        <th>Type</th>
+                                        <th>Preview</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="rtdbTableBody"></tbody>
+                            </table>
+                            <!-- Primitive value display -->
+                            <div id="rtdbValueDisplay" class="rtdb-value-display" style="display:none;"></div>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </div>
+
+        <!-- ============================================= -->
+        <!-- RENDER SERVICES TAB -->
+        <!-- ============================================= -->
+        <div class="tab-content" id="renderSvcTab">
+            <div class="layout">
+                <!-- Sidebar - Services -->
+                <aside class="sidebar-tables" id="rsSidebar">
+                    <div class="sidebar-search">
+                        <input type="text" id="rsServiceSearch" placeholder="Tìm service..." oninput="rsFilterServices(this.value)">
+                    </div>
+                    <div id="rsServiceList" class="table-groups">
+                        <div class="loading-placeholder">Đang tải...</div>
+                    </div>
+                </aside>
+
+                <!-- Main Content Area -->
+                <main class="data-area">
+                    <div id="rsWelcomePanel" class="welcome-panel">
+                        <i data-lucide="cloud" class="welcome-icon"></i>
+                        <h2>Chọn service để xem environment</h2>
+                        <p>Chọn service từ sidebar bên trái</p>
+                    </div>
+
+                    <div id="rsDataPanel" class="data-panel" style="display:none;">
+                        <div class="data-header">
+                            <div class="data-title">
+                                <h2 id="rsServiceName">-</h2>
+                                <span id="rsServiceType" class="badge">-</span>
+                            </div>
+                            <div class="data-actions">
+                                <span id="rsServiceUrl" style="font-size:0.78rem;color:var(--gray-500);"></span>
+                            </div>
+                        </div>
+
+                        <div class="table-wrapper">
+                            <table class="data-table" id="rsEnvTable" style="display:none;">
+                                <thead>
+                                    <tr>
+                                        <th>Key</th>
+                                        <th>Value</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="rsEnvTableBody"></tbody>
+                            </table>
+                            <div id="rsEmptyState" class="empty-state" style="display:none;">
+                                <i data-lucide="inbox"></i>
+                                <p>Không có environment variables</p>
+                            </div>
+                            <div id="rsLoadingState" class="loading-state" style="display:none;">
+                                <div class="spinner"></div>
+                                <p>Đang tải...</p>
+                            </div>
                         </div>
                     </div>
                 </main>

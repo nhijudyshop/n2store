@@ -803,6 +803,53 @@ body {
 }
 
 /* =====================================================
+   RTDB - TYPE BADGES & VALUE DISPLAY
+   ===================================================== */
+
+.rtdb-type-badge {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.rtdb-type-object { background: #ede9fe; color: #7c3aed; }
+.rtdb-type-array { background: #dbeafe; color: #2563eb; }
+.rtdb-type-string { background: #dcfce7; color: #16a34a; }
+.rtdb-type-number { background: #fef3c7; color: #d97706; }
+.rtdb-type-boolean { background: #fce7f3; color: #db2777; }
+.rtdb-type-null { background: var(--gray-100); color: var(--gray-400); }
+
+.rtdb-value-card {
+    padding: 20px;
+    background: white;
+}
+
+.rtdb-value-display {
+    padding: 0;
+}
+
+/* =====================================================
+   RENDER SERVICES - SECRET VALUES
+   ===================================================== */
+
+.rs-secret {
+    cursor: pointer;
+    color: var(--gray-400);
+    background: var(--gray-100);
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-size: 0.75rem;
+}
+
+.rs-secret:hover {
+    background: var(--gray-200);
+    color: var(--gray-600);
+}
+
+/* =====================================================
    RESPONSIVE
    ===================================================== */
 
