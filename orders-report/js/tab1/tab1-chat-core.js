@@ -151,7 +151,7 @@ async function _findAndLoadConversation(pageId, psid, type) {
     const pdm = window.pancakeDataManager;
     if (!pdm) throw new Error('pancakeDataManager not available');
 
-    // Try to find conversation from cached maps
+    // Step 1: Try cached maps first
     let conv = null;
     if (type === 'INBOX') {
         conv = pdm.inboxMapByPSID.get(String(psid)) || pdm.inboxMapByFBID.get(String(psid));
@@ -159,24 +159,34 @@ async function _findAndLoadConversation(pageId, psid, type) {
         conv = pdm.commentMapByPSID.get(String(psid)) || pdm.commentMapByFBID.get(String(psid));
     }
 
-    // If not found in cache, fetch from API
+    // Step 2: If not in cache, use direct customer lookup API
+    // GET /api/v1/pages/{pageId}/customers/{fbId}/conversations
     if (!conv) {
-        console.log('[Chat-Core] Conversation not in cache, fetching from API...');
-        const result = await pdm.fetchConversationsForPage(pageId);
+        console.log('[Chat-Core] Not in cache, using customer lookup API for PSID:', psid);
+        const result = await pdm.fetchConversationsByCustomerFbId(pageId, psid);
         const convs = result.conversations || [];
 
-        // Find matching conversation
-        conv = convs.find(c =>
-            c.type === type &&
-            (String(c.from?.id) === String(psid) || String(c.participants?.[0]?.id) === String(psid))
-        );
+        // Find matching type first
+        conv = convs.find(c => c.type === type);
 
-        // If still not found, try fetching all types
-        if (!conv) {
-            conv = convs.find(c =>
-                String(c.from?.id) === String(psid) || String(c.participants?.[0]?.id) === String(psid)
-            );
+        // If no exact type match, use any conversation
+        if (!conv && convs.length > 0) {
+            conv = convs[0];
+            console.log('[Chat-Core] No', type, 'conversation found, using', conv.type);
         }
+    }
+
+    // Step 3: Fallback - try multi-page search if single page returned nothing
+    if (!conv) {
+        console.log('[Chat-Core] Single page lookup failed, trying multi-page search...');
+        const result = await pdm.fetchConversationsByCustomerIdMultiPage(psid);
+        const convs = result.conversations || [];
+
+        // Find matching type on same page first, then any type on same page, then any
+        conv = convs.find(c => c.type === type && String(c.page_id) === String(pageId))
+            || convs.find(c => String(c.page_id) === String(pageId))
+            || convs.find(c => c.type === type)
+            || convs[0] || null;
     }
 
     if (!conv) {
@@ -190,9 +200,17 @@ async function _findAndLoadConversation(pageId, psid, type) {
     window.currentConversationId = conv.id;
     window.currentConversationData = conv;
 
-    // Load messages (customerId from conv or from.id)
-    const customerId = conv.customerId || conv.customer?.id || conv.from?.id || null;
-    await _loadMessages(pageId, conv.id, customerId);
+    // Use correct pageId from conversation (may differ from order's pageId)
+    const convPageId = conv.page_id || pageId;
+    if (convPageId !== pageId) {
+        console.log('[Chat-Core] Conversation on different page:', convPageId, '(order page:', pageId, ')');
+        window.currentChatChannelId = convPageId;
+        window.currentSendPageId = convPageId;
+    }
+
+    // Load messages - customerId from customers array or from.id
+    const customerId = conv.customers?.[0]?.id || conv.customerId || conv.customer?.id || conv.from?.id || null;
+    await _loadMessages(convPageId, conv.id, customerId);
 }
 
 /**

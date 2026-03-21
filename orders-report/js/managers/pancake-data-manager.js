@@ -292,16 +292,79 @@ class PancakeDataManager {
         }
     }
 
-    // --- Fetch Conversations by customer Facebook ID (for bill-service) ---
+    // --- Fetch Conversations by customer Facebook ID ---
+    // Uses Pancake API: GET /api/v1/pages/{pageId}/customers/{fbId}/conversations
+    // Returns ALL conversations (INBOX + COMMENT) for this customer on this page
     async fetchConversationsByCustomerFbId(pageId, fbId) {
         try {
-            // Search via conversation list, then filter by from.id
-            const result = await this.fetchConversationsForPage(pageId);
-            const convs = (result.conversations || []).filter(c =>
-                String(c.from?.id) === String(fbId)
+            if (!fbId) return { conversations: [] };
+            const token = await this.tm?.getToken();
+            if (!token) return { conversations: [] };
+
+            const url = PancakeApiConfig.buildUrl.pancake(
+                `pages/${pageId}/customers/${fbId}/conversations`,
+                `access_token=${token}`
             );
-            return { conversations: convs };
+            const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+            if (!res.ok) return { conversations: [] };
+            const data = await res.json();
+            const convs = data.conversations || [];
+
+            // Update maps with results
+            for (const conv of convs) {
+                const psid = conv.from_psid || conv.from?.id || conv.from_id;
+                if (conv.type === 'INBOX') {
+                    if (psid) this.inboxMapByPSID.set(String(psid), conv);
+                    if (conv.from?.id) this.inboxMapByFBID.set(String(conv.from.id), conv);
+                } else {
+                    if (psid) this.commentMapByPSID.set(String(psid), conv);
+                    if (conv.from?.id) this.commentMapByFBID.set(String(conv.from.id), conv);
+                }
+            }
+
+            return { conversations: convs, pagesWithCount: data.pages_with_current_count || {} };
         } catch (e) {
+            console.error('[PDM] fetchConversationsByCustomerFbId error:', e);
+            return { conversations: [] };
+        }
+    }
+
+    // --- Fetch Conversations by customer ID across ALL pages ---
+    // Uses Pancake API: GET /api/v1/conversations/customer/{fbId}?pages[id1]=0&pages[id2]=0
+    async fetchConversationsByCustomerIdMultiPage(fbId) {
+        try {
+            if (!fbId) return { conversations: [] };
+            const token = await this.tm?.getToken();
+            if (!token) return { conversations: [] };
+
+            if (this.pageIds.length === 0) await this.fetchPages();
+
+            // Build pages params: pages[pageId1]=0&pages[pageId2]=0
+            const pagesParams = this.pageIds.map(id => `pages[${id}]=0`).join('&');
+            const url = PancakeApiConfig.buildUrl.pancake(
+                `conversations/customer/${fbId}`,
+                `${pagesParams}&access_token=${token}`
+            );
+            const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+            if (!res.ok) return { conversations: [] };
+            const data = await res.json();
+            const convs = data.conversations || [];
+
+            // Update maps
+            for (const conv of convs) {
+                const psid = conv.from_psid || conv.from?.id || conv.from_id;
+                if (conv.type === 'INBOX') {
+                    if (psid) this.inboxMapByPSID.set(String(psid), conv);
+                    if (conv.from?.id) this.inboxMapByFBID.set(String(conv.from.id), conv);
+                } else {
+                    if (psid) this.commentMapByPSID.set(String(psid), conv);
+                    if (conv.from?.id) this.commentMapByFBID.set(String(conv.from.id), conv);
+                }
+            }
+
+            return { conversations: convs, pagesWithCount: data.pages_with_current_count || {} };
+        } catch (e) {
+            console.error('[PDM] fetchConversationsByCustomerIdMultiPage error:', e);
             return { conversations: [] };
         }
     }
