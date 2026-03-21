@@ -59,6 +59,11 @@ const TABLE_GROUPS = {
         { name: 'soluong_products', label: 'Soluong Products', pk: 'id', usedBy: 'soluong-live (quản lý số lượng SP)' },
         { name: 'soluong_meta', label: 'Soluong Meta', pk: 'key', usedBy: 'soluong-live (metadata số lượng)' }
     ],
+    'Invoice Status': [
+        { name: 'invoice_status', label: 'Invoice Status', pk: 'id', usedBy: 'orders-report Tab 1 (trạng thái đơn hàng)' },
+        { name: 'invoice_sent_bills', label: 'Invoice Sent Bills', pk: 'id', usedBy: 'orders-report Tab 1 (đơn đã gửi bill)' },
+        { name: 'invoice_status_delete', label: 'Invoice Status Delete', pk: 'id', usedBy: 'orders-report Tab 1 (đơn đã xóa/hủy)' }
+    ],
     'Config & Admin': [
         { name: 'admin_settings', label: 'Admin Settings', pk: 'id', usedBy: 'balance-history (cài đặt auto-approve), orders-report' },
         { name: 'rfm_config', label: 'RFM Config', pk: 'id', usedBy: 'customer-hub (cấu hình phân khúc RFM)' }
