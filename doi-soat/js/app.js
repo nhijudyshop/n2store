@@ -73,7 +73,7 @@
         return firebase.firestore().collection('manual_crosscheck_log');
     }
 
-    async function saveManualEntryLog(orderNumber, orderId, barcode, productName, userName) {
+    async function saveManualEntryLog(orderNumber, orderId, barcode, productName, userName, note) {
         const col = getManualLogCollection();
         if (!col) {
             console.warn('[DOI-SOAT] Firestore not available, skip manual log');
@@ -86,6 +86,7 @@
                 barcode,
                 productName,
                 userName: userName || 'Không rõ',
+                note: note || '',
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 expireAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
             });
@@ -217,8 +218,8 @@
         // Header info
         $('#orderNumber').textContent = data.Number || data.MoveName || '';
         $('#orderStatus').textContent = data.ShowState || '';
-        $('#scannedCode').textContent = data.Number || data.MoveName || '';
         $('#customerName').textContent = data.PartnerDisplayName || '';
+        $('#staffName').textContent = data.UserName || '';
         $('#companyName').textContent = data.CompanyName || '';
 
         // Init checked quantities to 0
@@ -396,12 +397,14 @@
         // Log manual entry to Firestore
         if (!scannerMode) {
             const userName = (document.getElementById('manualUserName') || {}).value || '';
+            const note = (document.getElementById('manualNote') || {}).value || '';
             saveManualEntryLog(
                 currentOrder.Number || currentOrder.MoveName || '',
                 currentOrder.Id,
                 lineBarcode,
                 matchedLine.ProductNameGet || matchedLine.Name || '',
-                userName
+                userName,
+                note
             );
         }
 
