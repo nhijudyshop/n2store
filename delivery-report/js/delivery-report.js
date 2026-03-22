@@ -69,8 +69,8 @@
 
     function setDefaultDates() {
         const now = new Date();
-        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
-        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+        const firstDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+        const lastDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
 
         const fromInput = document.getElementById('drFilterFromDate');
         const toInput = document.getElementById('drFilterToDate');
