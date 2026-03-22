@@ -640,27 +640,17 @@
             const items = getFilteredData();
 
             const wsData = [
-                ['#', 'Khách hàng', 'ĐT Khách hàng', 'Người nhận', 'ĐT Người nhận', 'Địa chỉ', 'Ngày hóa đơn', 'Số', 'Tổng tiền', 'Giao hàng thu tiền', 'Đối tác GH', 'Tiền ship', 'Khối lượng (g)', 'Mã vận đơn', 'Trạng thái GH', 'Đối soát GH']
+                ['#', 'Số', 'Khách hàng', 'ĐT', 'Địa chỉ', 'Công nợ']
             ];
 
             items.forEach((item, i) => {
                 wsData.push([
                     i + 1,
+                    item.Number || '',
                     item.PartnerDisplayName || '',
                     item.Phone || '',
-                    item.Ship_Receiver_Name || '',
-                    item.Ship_Receiver_Phone || '',
                     item.FullAddress || item.Address || '',
-                    item.DateInvoice ? new Date(item.DateInvoice).toLocaleString('vi-VN') : '',
-                    item.Number || '',
-                    item.AmountTotal || 0,
-                    item.CashOnDelivery || 0,
-                    item.CarrierName || '',
-                    item.DeliveryPrice || 0,
-                    item.ShipWeight || 0,
-                    item.TrackingRef || '',
-                    item.ShowShipStatus || '',
-                    item.ShipPaymentStatus || ''
+                    item.CashOnDelivery || 0
                 ]);
             });
 
@@ -691,7 +681,7 @@
         const label = group.toUpperCase();
 
         const wsData = [
-            ['#', 'Số', 'Khách hàng', 'ĐT', 'Ngày hóa đơn', 'Công nợ']
+            ['#', 'Số', 'Khách hàng', 'ĐT', 'Địa chỉ', 'Công nợ']
         ];
 
         items.forEach((item, i) => {
@@ -700,7 +690,7 @@
                 item.Number || '',
                 item.PartnerDisplayName || '',
                 item.Phone || '',
-                item.DateInvoice ? new Date(item.DateInvoice).toLocaleString('vi-VN') : '',
+                item.FullAddress || item.Address || '',
                 item.CashOnDelivery || 0
             ]);
         });
