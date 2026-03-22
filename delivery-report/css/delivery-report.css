@@ -348,6 +348,11 @@
     color: white;
 }
 
+.dr-scan-feedback.wrong-tab {
+    background: #f97316;
+    color: white;
+}
+
 @keyframes drFadeInOut {
     0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
     15% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
