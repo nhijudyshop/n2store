@@ -847,7 +847,8 @@
                 ? scannedItems
                 : tabData.filter(item => !DeliveryReportState.scannedNumbers.has(item.Number));
             const total = viewItems.reduce((sum, i) => sum + (i.AmountTotal || 0), 0);
-            amountEl.textContent = `Tổng: ${formatMoney(total)}`;
+            const totalCOD = viewItems.reduce((sum, i) => sum + (i.CashOnDelivery || 0), 0);
+            amountEl.textContent = `Tổng: ${formatMoney(total)} | CN: ${formatMoney(totalCOD)}`;
         }
     }
 
