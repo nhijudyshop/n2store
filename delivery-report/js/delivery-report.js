@@ -1219,7 +1219,17 @@
         const div = document.createElement('div');
         div.id = 'drScanFeedback';
         div.className = className;
-        div.textContent = value;
+
+        const textSpan = document.createElement('span');
+        textSpan.textContent = value;
+        div.appendChild(textSpan);
+
+        const closeBtn = document.createElement('span');
+        closeBtn.className = 'dr-scan-feedback-close';
+        closeBtn.textContent = '✕';
+        closeBtn.onclick = () => div.remove();
+        div.appendChild(closeBtn);
+
         document.body.appendChild(div);
 
         if (!persistent) {
