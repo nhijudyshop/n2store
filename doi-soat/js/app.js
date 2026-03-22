@@ -28,21 +28,26 @@
     }
 
     // =====================================================
-    // BARCODE SCANNER AUTO-CLEAR
-    // If no keystroke for 500ms, next keystroke clears input first
+    // AUTO-CLEAR INPUT AFTER 3s (toggleable)
     // =====================================================
-    let lastKeyTime = 0;
-    const SCAN_GAP = 500; // ms - gap between scans
+    let autoClearEnabled = true;
+    let autoClearTimer = null;
 
-    function setupScannerAutoClear(input) {
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') return;
-            const now = Date.now();
-            if (now - lastKeyTime > SCAN_GAP) {
+    function startAutoClearTimer(input) {
+        clearAutoClearTimer();
+        if (!autoClearEnabled) return;
+        autoClearTimer = setTimeout(() => {
+            if (input && input.value) {
                 input.value = '';
             }
-            lastKeyTime = now;
-        });
+        }, 3000);
+    }
+
+    function clearAutoClearTimer() {
+        if (autoClearTimer) {
+            clearTimeout(autoClearTimer);
+            autoClearTimer = null;
+        }
     }
 
     // =====================================================
@@ -542,9 +547,19 @@
             }
         });
 
-        // Auto-clear inputs when new barcode scan starts
-        setupScannerAutoClear(invoiceCodeInput);
-        setupScannerAutoClear(productBarcodeInput);
+        // Auto-clear: start 3s timer after input changes
+        invoiceCodeInput.addEventListener('input', () => startAutoClearTimer(invoiceCodeInput));
+        productBarcodeInput.addEventListener('input', () => startAutoClearTimer(productBarcodeInput));
+
+        // Auto-clear toggle
+        const autoClearToggle = $('#autoClearToggle');
+        if (autoClearToggle) {
+            autoClearToggle.checked = autoClearEnabled;
+            autoClearToggle.addEventListener('change', () => {
+                autoClearEnabled = autoClearToggle.checked;
+                if (!autoClearEnabled) clearAutoClearTimer();
+            });
+        }
 
         // Tabs
         initTabs();
@@ -571,8 +586,6 @@
                 : productBarcodeInput;
 
             activeInput.focus();
-            // Clear old value so new scan replaces it
-            activeInput.value = '';
         });
 
         // Focus input
