@@ -328,9 +328,11 @@
         renderProductTable();
         updateSaveButton();
 
-        // Play allDone sound when all products are checked
+        // Auto-save when all products are checked
         if (isAllChecked()) {
             playSound('allDone');
+            handleSave();
+            return;
         }
 
         productBarcodeInput.focus();
@@ -385,11 +387,9 @@
             const result = await resp.json();
 
             if (result.Success) {
-                showToast('Đối soát thành công!', 'success');
-                // Go back to scanner page after short delay
-                setTimeout(() => {
-                    goBack();
-                }, 1000);
+                const orderNum = currentOrder.Number || currentOrder.MoveName || '';
+                goBack();
+                showToast(`Đối soát thành công đơn ${orderNum}`, 'success');
             } else {
                 showToast(`Lỗi: ${result.Error || 'Không xác định'}`, 'error');
             }
