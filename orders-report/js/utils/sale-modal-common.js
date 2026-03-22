@@ -309,29 +309,28 @@ function checkPrepaidExcessAndToggle() {
     const codValue = parseFloat(document.getElementById('saleCOD')?.value) || 0;
 
     if (originalBalance > 0) {
-        const maxVal = Math.min(originalBalance, codValue > 0 ? codValue : originalBalance);
+        // Wallet có tiền: cho phép user nhập số tiền muốn trừ
+        prepaidField.disabled = false;
+        prepaidField.style.background = '#ffffff';
         prepaidField.min = 0;
+
+        const maxVal = Math.min(originalBalance, codValue > 0 ? codValue : originalBalance);
         prepaidField.max = maxVal;
 
-        // Luôn auto-set = min(wallet, COD) khi COD thay đổi
-        prepaidField.value = maxVal;
-
-        // Mặc định disabled, chỉ enable khi user bấm nút bút
-        if (!prepaidField.dataset.manualEdit) {
-            prepaidField.disabled = true;
-            prepaidField.style.background = '#f3f4f6';
+        // Điền sẵn giá trị mặc định = min(wallet, COD)
+        const currentVal = parseFloat(prepaidField.value) || 0;
+        if (currentVal > maxVal) {
+            prepaidField.value = maxVal;
+        } else if (currentVal === 0 || prepaidField.value === '...' || prepaidField.value === '') {
+            prepaidField.value = maxVal;
         }
-
-        // Hiện nút bút khi wallet > 0 và field đang disabled
-        const editBtn = document.getElementById('editPrepaidBtn');
-        if (editBtn) editBtn.style.display = prepaidField.disabled ? 'inline-flex' : 'none';
 
         // Wallet > COD: border đỏ + warning
         if (originalBalance > codValue && codValue > 0) {
             prepaidField.style.border = '2px solid #dc2626';
             if (warningDiv) warningDiv.style.display = 'block';
         } else {
-            prepaidField.style.border = prepaidField.disabled ? '' : '1px solid #10b981';
+            prepaidField.style.border = '1px solid #10b981';
             if (warningDiv) warningDiv.style.display = 'none';
         }
 
@@ -347,32 +346,16 @@ function checkPrepaidExcessAndToggle() {
             updateSaleRemainingBalance();
         };
     } else {
-        // Wallet = 0: disable field, ẩn nút bút
+        // Wallet = 0: disable field
         prepaidField.disabled = true;
         prepaidField.style.background = '#f3f4f6';
         prepaidField.style.border = '';
         prepaidField.value = 0;
-        const editBtn = document.getElementById('editPrepaidBtn');
-        if (editBtn) editBtn.style.display = 'none';
         if (warningDiv) warningDiv.style.display = 'none';
     }
     updateSaleRemainingBalance();
 }
 
-function enablePrepaidEdit() {
-    const prepaidField = document.getElementById('salePrepaidAmount');
-    if (!prepaidField) return;
-    prepaidField.disabled = false;
-    prepaidField.dataset.manualEdit = '1';
-    prepaidField.style.background = '#ffffff';
-    prepaidField.style.border = '2px solid #f59e0b';
-    prepaidField.focus();
-    prepaidField.select();
-    const editBtn = document.getElementById('editPrepaidBtn');
-    if (editBtn) editBtn.style.display = 'none';
-}
-
-window.enablePrepaidEdit = enablePrepaidEdit;
 window.checkPrepaidExcessAndToggle = checkPrepaidExcessAndToggle;
 window.updateSaleRemainingBalance = updateSaleRemainingBalance;
 window.fetchDeliveryCarriers = fetchDeliveryCarriers;
