@@ -330,6 +330,20 @@ window.addEventListener("DOMContentLoaded", async function () {
             console.log('[TAB1] 📤 Sent orders data to Tab3:', orders.length, 'orders');
         }
 
+        // Handle orders data request from Overview tab
+        if (event.data.type === 'REQUEST_ORDERS_DATA_FROM_OVERVIEW') {
+            const orders = window.getAllOrders ? window.getAllOrders() : [];
+            // Get current table name from campaign manager
+            const campaign = window.campaignManager?.activeCampaign;
+            const tableName = campaign?.name || localStorage.getItem('orders_table_name') || 'Bảng 1';
+            window.parent.postMessage({
+                type: 'ORDERS_DATA_RESPONSE_OVERVIEW',
+                orders: orders,
+                tableName: tableName
+            }, '*');
+            console.log('[TAB1] 📤 Sent orders data to Overview:', orders.length, 'orders, table:', tableName);
+        }
+
         // Handle retail sale from Social tab
         if (event.data.type === 'OPEN_RETAIL_SALE_FROM_SOCIAL') {
             console.log('[TAB1] 🧾 Received social order data for retail sale:', event.data.orderData);

@@ -115,11 +115,49 @@ document.addEventListener('DOMContentLoaded', async function () {
         console.warn('[REPORT] ⚠️ Error loading session cache:', error);
     }
 
-    // ⚡ OPTIMIZATION FIX: Request Tab1 data IMMEDIATELY (no delay)
-    // Previous: 500ms delay after blocking Excel fetch
-    // New: Request immediately, let Tab1 respond when ready
-    console.log('[REPORT] 📡 Requesting Tab1 data for Tổng quan...');
-    requestDataFromTab1();
+    // ⚡ Try loading from IndexedDB first (shared with Tab1), fallback to postMessage
+    console.log('[REPORT] 📡 Loading orders data...');
+    let loadedFromIDB = false;
+    if (window.indexedDBStorage) {
+        try {
+            const cached = await window.indexedDBStorage.getItem('allOrdersRaw');
+            if (cached && cached.orders && cached.orders.length > 0) {
+                allOrders = cached.orders;
+                loadedFromIDB = true;
+                console.log('[REPORT] ✅ Loaded from IndexedDB:', allOrders.length, 'orders');
+
+                // Detect campaign name
+                if (allOrders.length > 0) {
+                    const rawCampaign = allOrders[0].LiveCampaignName || 'Unknown';
+                    currentCampaignName = rawCampaign.replace(/[.$#\[\]\/]/g, '_').trim();
+                }
+
+                // Update UI
+                updateStats();
+                updateCachedCountBadge();
+                renderCachedDetailsTab();
+
+                loadEmployeeRanges().then(() => {
+                    renderStatisticsFromAllOrders();
+                }).catch(err => console.error('[REPORT] ❌ Error loading employee ranges:', err));
+
+                checkFirebaseStatus();
+                if (currentTableName) {
+                    loadTableDataFromFirebase(currentTableName).catch(err => {
+                        console.warn('[REPORT] ⚠️ Failed to load Firebase data:', err);
+                    });
+                }
+            }
+        } catch (err) {
+            console.warn('[REPORT] ⚠️ IndexedDB read error:', err);
+        }
+    }
+
+    // Always request fresh data from Tab1 (will update if newer)
+    if (!loadedFromIDB) {
+        console.log('[REPORT] 📡 Requesting Tab1 data for Tổng quan...');
+        requestDataFromTab1();
+    }
 });
 
 // =====================================================

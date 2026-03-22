@@ -1302,6 +1302,12 @@ async function fetchOrders() {
                 orders: ordersForTabs,
                 timestamp: Date.now()
             }).catch(err => console.error('[TAB1] IndexedDB save error:', err));
+
+            // Also save raw data for Overview tab (uses raw API field names)
+            window.indexedDBStorage.setItem('allOrdersRaw', {
+                orders: allData,
+                timestamp: Date.now()
+            }).catch(err => console.error('[TAB1] IndexedDB save raw error:', err));
         }
 
         // Render table with all data
