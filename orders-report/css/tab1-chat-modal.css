@@ -30,9 +30,8 @@
     border-radius: 12px;
     width: 95%;
     max-width: 680px;
-    height: auto;
-    min-height: 50vh;
-    max-height: 92vh;
+    height: 95vh;
+    max-height: 95vh;
     display: flex;
     flex-direction: column;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
@@ -1069,9 +1068,8 @@
 .chat-modal-content.chat-modal-with-panel {
     max-width: 1500px;
     width: 96vw;
-    max-height: 92vh;
-    height: auto;
-    min-height: 60vh;
+    height: 95vh;
+    max-height: 95vh;
 }
 
 .chat-modal-body {
@@ -1088,6 +1086,7 @@
     display: flex;
     flex-direction: column;
     min-width: 320px;
+    height: 100%;
     overflow: hidden;
     border-radius: 12px 0 0 12px;
 }
@@ -1173,6 +1172,7 @@
     width: 520px;
     min-width: 380px;
     max-width: 70%;
+    height: 100%;
     display: flex;
     flex-direction: column;
     background: #fff;
@@ -1307,6 +1307,7 @@
     flex: 1;
     display: flex;
     flex-direction: column;
+    height: 100%;
     overflow: hidden;
     min-height: 0;
 }
