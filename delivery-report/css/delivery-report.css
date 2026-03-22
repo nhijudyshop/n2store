@@ -776,6 +776,13 @@
     white-space: nowrap;
 }
 
+.dr-province-cod {
+    color: #2563eb;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
 /* Responsive province grid */
 @media (max-width: 768px) {
     .dr-province-grid {
