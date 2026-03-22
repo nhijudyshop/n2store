@@ -1231,13 +1231,10 @@ function buildSaleOrderModelForInsertList() {
     const orderComment = order?.Comment || '';
     const defaultDeliveryNote = 'KHÔNG ĐƯỢC TỰ Ý HOÀN ĐƠN CÓ GÌ LIÊN HỆ HOTLINE CỦA SHOP 090 8888 674 ĐỂ ĐƯỢC HỖ TRỢ';
 
-    // Nếu ghi chú (saleReceiverNote hoặc order.Comment) có "Thu về":
-    // → luôn dùng default DeliveryNote + "THU VỀ" ở đầu (bỏ dấu + uppercase để so sánh chính xác)
+    // Nhận diện "thu về" từ ghi chú modal hoặc order.Comment (bỏ dấu + uppercase)
     const removeDiacritics = (str) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
     const hasThuVe = removeDiacritics(comment).includes('THU VE') || removeDiacritics(orderComment).includes('THU VE');
-    const deliveryNote = hasThuVe
-        ? 'THU VỀ ' + defaultDeliveryNote
-        : deliveryNoteRaw;
+    const deliveryNote = deliveryNoteRaw;
 
     const shippingFeeValue = document.getElementById('saleShippingFee')?.value;
     const shippingFee =
@@ -1496,6 +1493,7 @@ function buildSaleOrderModelForInsertList() {
             Customer: true,
             Type: 'contact',
             CompanyType: 'person',
+            FullAddress: hasThuVe ? 'THU VỀ ' + (partner?.FullAddress || receiverAddress || '') : (partner?.FullAddress || receiverAddress || ''),
             DateCreated: new Date().toISOString(),
             ExtraAddress: partner?.ExtraAddress || null,
         },
@@ -1673,13 +1671,10 @@ function buildFastSaleOrderPayload() {
     const orderComment = order?.Comment || '';
     const defaultDeliveryNote = 'KHÔNG ĐƯỢC TỰ Ý HOÀN ĐƠN CÓ GÌ LIÊN HỆ HOTLINE CỦA SHOP 090 8888 674 ĐỂ ĐƯỢC HỖ TRỢ';
 
-    // Nếu ghi chú (saleReceiverNote hoặc order.Comment) có "Thu về":
-    // → luôn dùng default DeliveryNote + "THU VỀ" ở đầu (bỏ dấu + uppercase để so sánh chính xác)
+    // Nhận diện "thu về" từ ghi chú modal hoặc order.Comment (bỏ dấu + uppercase)
     const removeDiacritics = (str) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
     const hasThuVe = removeDiacritics(comment).includes('THU VE') || removeDiacritics(orderComment).includes('THU VE');
-    const deliveryNote = hasThuVe
-        ? 'THU VỀ ' + defaultDeliveryNote
-        : deliveryNoteRaw;
+    const deliveryNote = deliveryNoteRaw;
 
     // 🔥 FIX: Use ?? instead of || to allow 0 value for shipping fee
     const shippingFeeValue = document.getElementById('saleShippingFee')?.value;
@@ -1985,7 +1980,10 @@ function buildFastSaleOrderPayload() {
         Company: window.lastDefaultSaleData?.Company || null,
         Journal: window.lastDefaultSaleData?.Journal || null,
         PaymentJournal: window.lastDefaultSaleData?.PaymentJournal || null,
-        Partner: partner || null,
+        Partner: partner ? {
+            ...partner,
+            FullAddress: hasThuVe ? 'THU VỀ ' + (partner.FullAddress || '') : (partner.FullAddress || ''),
+        } : null,
         Carrier: fullCarrierData || {
             Id: carrierId,
             Name: carrierName,
