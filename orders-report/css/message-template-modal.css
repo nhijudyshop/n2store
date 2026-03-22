@@ -620,6 +620,70 @@
     border-color: #ef4444;
 }
 
+/* === HISTORY MODAL CARDS === */
+.msg-history-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 14px;
+    margin-bottom: 10px;
+    transition: border-color 0.2s;
+}
+
+.msg-history-card:hover {
+    border-color: #667eea;
+}
+
+.msg-history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.msg-history-header strong {
+    font-size: 14px;
+    color: #111827;
+}
+
+.msg-history-time {
+    font-size: 12px;
+    color: #9ca3af;
+}
+
+.msg-history-stats {
+    display: flex;
+    gap: 16px;
+    font-size: 13px;
+}
+
+.msg-history-success { color: #10b981; }
+.msg-history-error { color: #ef4444; }
+.msg-history-total { color: #6b7280; }
+
+.msg-history-actions {
+    margin-top: 8px;
+}
+
+.message-send-btn {
+    padding: 6px 12px;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.2s;
+}
+
+.message-send-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
 /* === RESPONSIVE === */
 @media (max-width: 768px) {
     .message-modal { width: 95%; max-height: 95vh; }

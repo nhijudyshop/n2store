@@ -303,6 +303,14 @@ console.log('[TemplateMgr] Loading...');
                 const snap = await window.db.collection('message_templates').orderBy('order', 'asc').get();
                 _templates = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
                 localStorage.setItem(TEMPLATES_KEY, JSON.stringify(_templates));
+
+                // Seed defaults if empty
+                if (_templates.length === 0) {
+                    await _seedDefaultTemplates();
+                    const snap2 = await window.db.collection('message_templates').orderBy('order', 'asc').get();
+                    _templates = snap2.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    localStorage.setItem(TEMPLATES_KEY, JSON.stringify(_templates));
+                }
             }
         } catch (e) {
             console.warn('[TemplateMgr] Load templates error:', e);
@@ -374,6 +382,695 @@ console.log('[TemplateMgr] Loading...');
 
     // Run cleanup on load
     cleanup();
+
+    // =====================================================
+    // RICH PLACEHOLDER SYSTEM (replicates copy-template-helper.js logic)
+    // =====================================================
+
+    function _formatCurrency(amount) {
+        if (!amount && amount !== 0) return '0đ';
+        return new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
+    }
+
+    function _parseDiscountPrice(note) {
+        if (!note || typeof note !== 'string') return null;
+        const trimmedNote = note.trim();
+        if (!trimmedNote) return null;
+
+        const kPattern = /^(\d+)k\b\s*(.*)/i;
+        const numPattern = /^(\d+)\b\s*(.*)/;
+        let match = null, priceValue = null, remainingNote = '';
+
+        match = trimmedNote.match(kPattern);
+        if (match) { priceValue = parseInt(match[1], 10); remainingNote = (match[2] || '').trim(); }
+
+        if (!priceValue) {
+            match = trimmedNote.match(numPattern);
+            if (match) { priceValue = parseInt(match[1], 10); remainingNote = (match[2] || '').trim(); }
+        }
+
+        if (priceValue && priceValue > 0) {
+            return { discountPrice: priceValue * 1000, displayText: priceValue.toString(), remainingNote };
+        }
+        return null;
+    }
+
+    function _formatProductLine(product) {
+        const discountInfo = _parseDiscountPrice(product.note);
+        if (discountInfo) {
+            const discountPerItem = product.price - discountInfo.discountPrice;
+            const totalDiscount = discountPerItem * product.quantity;
+            let line = `- ${product.name} x${product.quantity} = ${_formatCurrency(product.total)}`;
+            let saleLine = `  📝Sale ${discountInfo.displayText}`;
+            if (discountInfo.remainingNote) saleLine += ` (${discountInfo.remainingNote})`;
+            return {
+                line: line + '\n' + saleLine,
+                hasDiscount: true,
+                discountData: { originalTotal: product.total, discountPerItem, totalDiscount, finalTotal: product.total - totalDiscount }
+            };
+        } else {
+            const noteText = product.note ? ` (${product.note})` : '';
+            return {
+                line: `- ${product.name} x${product.quantity} = ${_formatCurrency(product.total)}${noteText}`,
+                hasDiscount: false,
+                discountData: null
+            };
+        }
+    }
+
+    /**
+     * Determine shipping fee from address
+     * City addresses: ~30,000đ, Province: ~40,000đ
+     * Freeship: City > 1,500,000đ | Province > 3,000,000đ
+     */
+    function _getShippingFeeFromAddress(address, extraAddress) {
+        const fullAddr = ((address || '') + ' ' + (extraAddress || '')).toLowerCase();
+        const cityKeywords = ['hồ chí minh', 'hcm', 'tp.hcm', 'tphcm', 'sài gòn', 'saigon',
+            'hà nội', 'hanoi', 'đà nẵng', 'da nang', 'cần thơ', 'can tho', 'hải phòng', 'hai phong',
+            'biên hòa', 'bien hoa', 'thủ đức', 'thu duc', 'quận', 'quan'];
+        const isCity = cityKeywords.some(kw => fullAddr.includes(kw));
+        return { fee: isCity ? 30000 : 40000, isProvince: !isCity };
+    }
+
+    function _convertOrderData(fullOrderData) {
+        if (!fullOrderData) return null;
+        const products = (fullOrderData.Details || [])
+            .filter(d => !d.IsHeld)
+            .map(d => ({
+                name: d.ProductNameGet || d.ProductName || 'Sản phẩm',
+                quantity: d.Quantity || 1,
+                price: d.Price || 0,
+                total: (d.Quantity || 1) * (d.Price || 0),
+                note: d.Note || ''
+            }));
+        const calculatedTotal = products.reduce((sum, p) => sum + p.total, 0);
+        return {
+            code: fullOrderData.Code || '',
+            customerName: fullOrderData.Partner?.Name || fullOrderData.PartnerName || fullOrderData.CustomerName || '',
+            phone: fullOrderData.Partner?.Telephone || fullOrderData.ReceiverPhone || fullOrderData.Telephone || '',
+            address: fullOrderData.Partner?.Address || fullOrderData.ReceiverAddress || fullOrderData.Address || '',
+            extraAddress: fullOrderData.ReceiverAddress2 || '',
+            totalAmount: calculatedTotal,
+            products: products
+        };
+    }
+
+    function _needsFullData(content) {
+        return content.includes('{order.details}') ||
+               content.includes('{order.totalAmount}') ||
+               content.includes('{order.total}') ||
+               content.includes('{partner.address}');
+    }
+
+    function _replacePlaceholders(content, orderData) {
+        let result = content;
+
+        // {partner.name}
+        if (orderData.customerName && orderData.customerName.trim()) {
+            result = result.replace(/{partner\.name}/g, orderData.customerName);
+        } else {
+            result = result.replace(/{partner\.name}/g, '(Khách hàng)');
+        }
+
+        // {partner.address} - kèm SĐT
+        if (orderData.address && orderData.address.trim()) {
+            const phone = orderData.phone && orderData.phone.trim() ? orderData.phone : '';
+            const addressWithPhone = phone ? `${orderData.address} - SĐT: ${phone}` : orderData.address;
+            result = result.replace(/{partner\.address}/g, addressWithPhone);
+        } else {
+            result = result.replace(/"\{partner\.address\}"/g, '(Chưa có địa chỉ)');
+            result = result.replace(/\{partner\.address\}/g, '(Chưa có địa chỉ)');
+        }
+
+        // {partner.phone}
+        if (orderData.phone && orderData.phone.trim()) {
+            result = result.replace(/{partner\.phone}/g, orderData.phone);
+        } else {
+            result = result.replace(/{partner\.phone}/g, '(Chưa có SĐT)');
+        }
+
+        // {order.details} - danh sách SP + tổng tiền + phí ship + freeship
+        if (orderData.products && Array.isArray(orderData.products) && orderData.products.length > 0) {
+            let totalDiscountAmount = 0;
+            let hasAnyDiscount = false;
+            const formattedProducts = orderData.products.map(p => {
+                const fp = _formatProductLine(p);
+                if (fp.hasDiscount && fp.discountData) {
+                    hasAnyDiscount = true;
+                    totalDiscountAmount += fp.discountData.totalDiscount;
+                }
+                return fp;
+            });
+            const productList = formattedProducts.map(fp => fp.line).join('\n');
+
+            // Shipping fee
+            const { fee: baseShippingFee, isProvince } = _getShippingFeeFromAddress(orderData.address, orderData.extraAddress);
+            const orderTotal = hasAnyDiscount
+                ? (orderData.totalAmount || 0) - totalDiscountAmount
+                : (orderData.totalAmount || 0);
+
+            let shippingFee = baseShippingFee;
+            let isFreeship = false;
+            if (!isProvince && orderTotal > 1500000) { shippingFee = 0; isFreeship = true; }
+            else if (isProvince && orderTotal > 3000000) { shippingFee = 0; isFreeship = true; }
+
+            const shipLine = isFreeship
+                ? 'Phí ship: FREESHIP 🎁'
+                : `Phí ship: ${_formatCurrency(shippingFee)}`;
+
+            let totalSection;
+            if (hasAnyDiscount) {
+                const originalTotal = orderData.totalAmount || 0;
+                const afterDiscount = originalTotal - totalDiscountAmount;
+                const finalTotal = afterDiscount + shippingFee;
+                totalSection = [
+                    `Tổng : ${_formatCurrency(originalTotal)}`,
+                    `Giảm giá: ${_formatCurrency(totalDiscountAmount)}`,
+                    `Tổng tiền: ${_formatCurrency(afterDiscount)}`,
+                    shipLine,
+                    `Tổng thanh toán: ${_formatCurrency(finalTotal)}`
+                ].join('\n');
+            } else {
+                const totalAmount = orderData.totalAmount || 0;
+                const finalTotal = totalAmount + shippingFee;
+                totalSection = [
+                    `Tổng tiền: ${_formatCurrency(totalAmount)}`,
+                    shipLine,
+                    `Tổng thanh toán: ${_formatCurrency(finalTotal)}`
+                ].join('\n');
+            }
+            result = result.replace(/{order\.details}/g, `${productList}\n\n${totalSection}`);
+        } else {
+            result = result.replace(/{order\.details}/g, '(Chưa có sản phẩm)');
+        }
+
+        // {order.code}
+        if (orderData.code && orderData.code.trim()) {
+            result = result.replace(/{order\.code}/g, orderData.code);
+        } else {
+            result = result.replace(/{order\.code}/g, '(Không có mã)');
+        }
+
+        // {order.total} / {order.totalAmount}
+        if (orderData.totalAmount) {
+            result = result.replace(/{order\.total}/g, _formatCurrency(orderData.totalAmount));
+            result = result.replace(/{order\.totalAmount}/g, _formatCurrency(orderData.totalAmount));
+        } else {
+            result = result.replace(/{order\.total}/g, '0đ');
+            result = result.replace(/{order\.totalAmount}/g, '0đ');
+        }
+
+        // {order.phone}
+        if (orderData.phone && orderData.phone.trim()) {
+            result = result.replace(/{order\.phone}/g, orderData.phone);
+        } else {
+            result = result.replace(/{order\.phone}/g, '(Chưa có SĐT)');
+        }
+
+        // {order.customerName}
+        result = result.replace(/{order\.customerName}/g, orderData.customerName || '(Khách hàng)');
+
+        // {order.address}
+        result = result.replace(/{order\.address}/g, orderData.address || '(Chưa có địa chỉ)');
+
+        return result;
+    }
+
+    function _splitMessageIntoParts(message, maxLength) {
+        if (!maxLength) maxLength = 2000;
+        if (!message || message.length <= maxLength) return [message];
+
+        const parts = [];
+        let remaining = message;
+        while (remaining.length > maxLength) {
+            let cutAt = remaining.lastIndexOf('\n', maxLength);
+            if (cutAt <= 0) cutAt = remaining.lastIndexOf(' ', maxLength);
+            if (cutAt <= 0) cutAt = maxLength;
+            parts.push(remaining.substring(0, cutAt));
+            remaining = remaining.substring(cutAt).trimStart();
+        }
+        if (remaining) parts.push(remaining);
+        return parts;
+    }
+
+    // =====================================================
+    // MULTI-ACCOUNT SEND ENGINE
+    // =====================================================
+
+    function _distributeOrdersToAccounts(orders, accounts) {
+        const queues = accounts.map(() => []);
+        let rrIndex = 0;
+
+        for (const order of orders) {
+            const pageId = order.channelId || order.pageId;
+            // Find account with access to this page
+            let preferredIdx = -1;
+            if (pageId && window.pancakeTokenManager) {
+                preferredIdx = accounts.findIndex(acc =>
+                    window.pancakeTokenManager.accountHasPageAccess(acc.accountId, pageId)
+                );
+            }
+            if (preferredIdx >= 0) {
+                queues[preferredIdx].push(order);
+            } else {
+                queues[rrIndex % accounts.length].push(order);
+                rrIndex++;
+            }
+        }
+        return queues;
+    }
+
+    async function _prefetchPageAccessTokens(orders) {
+        if (!window.pancakeTokenManager) return;
+        const uniquePageIds = [...new Set(orders.map(o => o.channelId || o.pageId).filter(Boolean))];
+        const promises = uniquePageIds.map(pid =>
+            window.pancakeTokenManager.getOrGeneratePageAccessToken(pid).catch(e => {
+                console.warn('[TemplateMgr] Failed to prefetch PAT for', pid, e);
+            })
+        );
+        await Promise.allSettled(promises);
+    }
+
+    function _is24HourPolicyError(result) {
+        const errorCode = result?.error?.code || result?.error_code;
+        const subCode = result?.error?.error_subcode || result?.error_subcode;
+        return errorCode === 10 || subCode === 2018278 ||
+            (result?.error?.message || '').includes('24');
+    }
+
+    function _isUserUnavailableError(result) {
+        const errorCode = result?.error?.code || result?.error_code;
+        return errorCode === 551 ||
+            (result?.error?.message || '').includes('not available');
+    }
+
+    async function _sendViaFacebookTag(order, messageContent, channelId, psid) {
+        // Get page token from multiple sources
+        let pageToken = null;
+
+        if (window.currentCRMTeam?.Facebook_PageToken &&
+            window.currentCRMTeam?.Facebook_PageId === channelId) {
+            pageToken = window.currentCRMTeam.Facebook_PageToken;
+        }
+        if (!pageToken && window.currentOrder?.CRMTeam?.Facebook_PageToken) {
+            pageToken = window.currentOrder.CRMTeam.Facebook_PageToken;
+        }
+        if (!pageToken && window.cachedChannelsData) {
+            const ch = window.cachedChannelsData.find(c => c.channelId === channelId);
+            if (ch) pageToken = ch.pageToken;
+        }
+        if (!pageToken) throw new Error('Không tìm thấy Facebook Page Token');
+
+        const url = window.API_CONFIG ? window.API_CONFIG.buildUrl.facebookSend() : null;
+        if (!url) throw new Error('API_CONFIG.buildUrl.facebookSend not available');
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                pageId: channelId,
+                psid: psid,
+                message: messageContent,
+                pageToken: pageToken,
+                useTag: true,
+                imageUrls: [],
+                postId: order.Facebook_PostId || '',
+                customerName: order.customerName || ''
+            })
+        });
+        return await response.json();
+    }
+
+    async function _processSingleOrder(order, template, account, sendingState) {
+        const pdm = window.pancakeDataManager;
+        if (!pdm) throw new Error('pancakeDataManager not available');
+
+        // 1. Get full order data if needed
+        let orderData;
+        const templateContent = template.Content || template.BodyPlain || template.content || '';
+        if (_needsFullData(templateContent)) {
+            const fullOrder = window.OrderStore ? window.OrderStore.get(order.orderId) : null;
+            orderData = fullOrder ? _convertOrderData(fullOrder) : {
+                code: order.Code || '', customerName: order.customerName || '',
+                phone: order.Phone || '', address: order.Address || '',
+                totalAmount: order.AmountTotal || 0, products: []
+            };
+        } else {
+            orderData = {
+                code: order.Code || '', customerName: order.customerName || '',
+                phone: order.Phone || '', address: order.Address || '',
+                totalAmount: order.AmountTotal || 0, products: []
+            };
+        }
+
+        // 2. Replace placeholders
+        let messageContent = _replacePlaceholders(templateContent, orderData);
+
+        // 3. Employee signature
+        const displayName = window.authManager?.getCurrentUser()?.displayName;
+        if (displayName) messageContent += '\nNv. ' + displayName;
+
+        // 4. Get chat info
+        const channelId = order.channelId || order.pageId;
+        const psid = order.psid;
+        if (!channelId || !psid) throw new Error('Thiếu thông tin chat (channelId/psid)');
+
+        // 5. Find conversation
+        const conv = pdm.inboxMapByPSID?.get(String(psid));
+        if (!conv) throw new Error('Không tìm thấy cuộc hội thoại INBOX');
+
+        // 6. Split message if too long
+        const parts = _splitMessageIntoParts(messageContent);
+
+        // 7. Send via Pancake API
+        let sendSuccess = false;
+        let lastError = null;
+
+        for (const part of parts) {
+            try {
+                await pdm.sendMessage(channelId, conv.id, { message: part, type: 'reply_inbox' });
+                sendSuccess = true;
+            } catch (apiErr) {
+                lastError = apiErr;
+                // Check if 24h error
+                const errMsg = apiErr?.message || String(apiErr);
+                const is24h = errMsg.includes('24') || errMsg.includes('policy');
+
+                if (is24h || true) { // Try extension for any API error
+                    // [Fallback 1] Extension Bypass
+                    if (window.sendViaExtension && window.pancakeExtension?.connected) {
+                        try {
+                            const convData = window.buildConvData ? window.buildConvData(channelId, psid) : { pageId: channelId, psid };
+                            await window.sendViaExtension(part, convData);
+                            sendSuccess = true;
+                            lastError = null;
+                            continue;
+                        } catch (extErr) {
+                            lastError = extErr;
+                        }
+                    }
+
+                    // [Fallback 2] Facebook Tag
+                    try {
+                        const tagResult = await _sendViaFacebookTag(order, part, channelId, psid);
+                        if (tagResult.success) {
+                            sendSuccess = true;
+                            lastError = null;
+                            order._usedTag = tagResult.used_tag;
+                            continue;
+                        }
+                    } catch (tagErr) {
+                        lastError = tagErr;
+                    }
+                }
+
+                if (lastError) throw lastError;
+            }
+        }
+
+        if (!sendSuccess && lastError) throw lastError;
+
+        // 8. Track success
+        return {
+            Id: order.orderId,
+            code: order.Code || '',
+            customerName: order.customerName || '',
+            account: account?.name || 'default',
+            usedTag: order._usedTag || null
+        };
+    }
+
+    async function _processAccountQueue(orders, account, template, delay, sendingState) {
+        for (const order of orders) {
+            if (!sendingState.isSending) break;
+
+            try {
+                const result = await _processSingleOrder(order, template, account, sendingState);
+                sendingState.successOrders.push(result);
+                markOrderSent(order.orderId, false);
+            } catch (error) {
+                const errObj = {
+                    orderId: order.orderId,
+                    code: order.Code || '',
+                    customerName: order.customerName || '',
+                    error: error.message || 'Lỗi không xác định',
+                    is24HourError: (error.message || '').includes('24'),
+                    Facebook_PostId: order.Facebook_PostId || '',
+                    Facebook_CommentId: order.Facebook_CommentId || ''
+                };
+                sendingState.errorOrders.push(errObj);
+                markOrderFailed(order.orderId, error.message);
+            }
+
+            sendingState.totalProcessed++;
+
+            // Progress callback
+            if (typeof sendingState.onProgress === 'function') {
+                sendingState.onProgress(
+                    sendingState.totalProcessed,
+                    sendingState.totalToProcess,
+                    sendingState.totalToProcess,
+                    sendingState.successOrders.length,
+                    sendingState.errorOrders.length
+                );
+            }
+
+            // Delay between messages
+            if (delay > 0 && sendingState.isSending) {
+                await new Promise(r => setTimeout(r, delay * 1000));
+            }
+        }
+    }
+
+    // =====================================================
+    // CAMPAIGN RESULTS SAVING
+    // =====================================================
+
+    async function _saveCampaignResults(template, accounts, delay, successOrders, errorOrders) {
+        // 1. Save to Firestore
+        try {
+            if (window.db) {
+                await window.db.collection('message_campaigns').add({
+                    templateName: template.Name || template.name || '',
+                    templateId: template.id || '',
+                    templateContent: template.Content || template.BodyPlain || '',
+                    totalOrders: successOrders.length + errorOrders.length,
+                    successCount: successOrders.length,
+                    errorCount: errorOrders.length,
+                    successOrders: successOrders,
+                    errorOrders: errorOrders,
+                    accountsUsed: accounts.map(a => a.name || a.accountId),
+                    delay: delay,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    expireAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+                    localCreatedAt: new Date().toISOString()
+                });
+            }
+        } catch (e) {
+            console.error('[TemplateMgr] Save campaign error:', e);
+        }
+
+        // 2. Save to localStorage backup (max 100)
+        try {
+            const history = JSON.parse(localStorage.getItem('messageSendHistory') || '[]');
+            history.unshift({
+                templateName: template.Name || template.name || '',
+                templateId: template.id || '',
+                totalOrders: successOrders.length + errorOrders.length,
+                successCount: successOrders.length,
+                errorCount: errorOrders.length,
+                errorOrders: errorOrders,
+                localCreatedAt: new Date().toISOString()
+            });
+            if (history.length > 100) history.length = 100;
+            localStorage.setItem('messageSendHistory', JSON.stringify(history));
+        } catch (e) { /* ignore */ }
+
+        // 3. KPI integration
+        if (window.kpiManager?.saveAutoBaseSnapshot && successOrders.length > 0) {
+            try {
+                const campaignName = window.currentCampaignName || '';
+                const userId = window.authManager?.getCurrentUser()?.uid || '';
+                await window.kpiManager.saveAutoBaseSnapshot(successOrders, campaignName, userId);
+            } catch (e) { /* ignore */ }
+        }
+    }
+
+    // =====================================================
+    // DEFAULT TEMPLATE SEEDING
+    // =====================================================
+
+    async function _seedDefaultTemplates() {
+        if (!window.db) return;
+        try {
+            const batch = window.db.batch();
+            const ref = window.db.collection('message_templates');
+            const defaults = [
+                {
+                    Name: 'Chốt đơn',
+                    Content: 'Dạ chào chị {partner.name},\n\nEm gửi đến mình các sản phẩm mà mình đã đặt bên em gồm:\n\n{order.details}\n\nĐơn hàng của mình sẽ được gửi về địa chỉ \"{partner.address}\"\n\nChị xác nhận giúp em để em gửi hàng nha ạ! 🙏',
+                    order: 1, active: true, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                },
+                {
+                    Name: 'Xác nhận địa chỉ',
+                    Content: 'Dạ chị {partner.name} ơi,\n\nEm xác nhận lại địa chỉ nhận hàng của chị là:\n📍 {partner.address}\n\nChị kiểm tra giúp em địa chỉ đã chính xác chưa ạ?',
+                    order: 2, active: true, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                },
+                {
+                    Name: 'Thông báo giao hàng',
+                    Content: 'Dạ chị {partner.name} ơi,\n\nĐơn hàng #{order.code} của chị đã được giao cho đơn vị vận chuyển rồi ạ.\n\nChị chú ý điện thoại để nhận hàng nha! 📦',
+                    order: 3, active: true, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                },
+                {
+                    Name: 'Cảm ơn khách hàng',
+                    Content: 'Dạ cảm ơn chị {partner.name} đã ủng hộ shop ạ! 🙏❤️\n\nChị dùng hàng có gì thắc mắc cứ inbox shop em hỗ trợ nha.\n\nChúc chị một ngày vui vẻ! 😊',
+                    order: 4, active: true, createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                }
+            ];
+            defaults.forEach(t => { batch.set(ref.doc(), t); });
+            await batch.commit();
+            console.log('[TemplateMgr] Seeded 4 default templates');
+        } catch (e) {
+            console.error('[TemplateMgr] Seed error:', e);
+        }
+    }
+
+    // =====================================================
+    // HISTORY MODAL
+    // =====================================================
+
+    let _historyCampaigns = [];
+
+    async function _openHistoryModal() {
+        // Load from Firestore
+        try {
+            if (window.db) {
+                const snap = await window.db.collection('message_campaigns')
+                    .orderBy('createdAt', 'desc')
+                    .limit(50)
+                    .get();
+                _historyCampaigns = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            } else {
+                _historyCampaigns = JSON.parse(localStorage.getItem('messageSendHistory') || '[]');
+            }
+        } catch (e) {
+            console.warn('[TemplateMgr] Load history error:', e);
+            _historyCampaigns = JSON.parse(localStorage.getItem('messageSendHistory') || '[]');
+        }
+        _renderHistoryModal(_historyCampaigns);
+    }
+
+    function _renderHistoryModal(campaigns) {
+        let overlay = document.getElementById('messageHistoryModal');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.className = 'message-modal-overlay';
+            overlay.id = 'messageHistoryModal';
+            overlay.innerHTML = `
+                <div class="message-modal" style="max-width:700px;">
+                    <div class="message-modal-header">
+                        <h3><i class="fas fa-history"></i> Lịch sử gửi tin nhắn</h3>
+                        <button class="message-modal-close" id="msgHistoryCloseBtn">&times;</button>
+                    </div>
+                    <div class="message-modal-body" id="msgHistoryBody"></div>
+                </div>`;
+            document.body.appendChild(overlay);
+
+            // Close events
+            document.getElementById('msgHistoryCloseBtn').onclick = () => overlay.classList.remove('active');
+            overlay.onclick = (e) => {
+                if (e.target.classList.contains('message-modal-overlay')) overlay.classList.remove('active');
+            };
+        }
+
+        const body = document.getElementById('msgHistoryBody');
+        if (campaigns.length === 0) {
+            body.innerHTML = '<div class="message-no-results"><i class="fas fa-inbox"></i><p>Chưa có lịch sử gửi tin.</p></div>';
+        } else {
+            body.innerHTML = campaigns.map((c, i) => `
+                <div class="msg-history-card">
+                    <div class="msg-history-header">
+                        <strong>${_escHtml(c.templateName || 'Template')}</strong>
+                        <span class="msg-history-time">${c.localCreatedAt ? new Date(c.localCreatedAt).toLocaleString('vi-VN') : ''}</span>
+                    </div>
+                    <div class="msg-history-stats">
+                        <span class="msg-history-success">✓ ${c.successCount || 0} thành công</span>
+                        <span class="msg-history-error">✗ ${c.errorCount || 0} thất bại</span>
+                        <span class="msg-history-total">Tổng: ${c.totalOrders || 0}</span>
+                    </div>
+                    ${c.errorCount > 0 ? `
+                        <div class="msg-history-actions">
+                            <button class="message-send-btn msg-retry-comment-btn" data-campaign-index="${i}">
+                                <i class="fas fa-comment"></i> Gửi ${c.errorCount} đơn thất bại qua Comment
+                            </button>
+                        </div>
+                    ` : ''}
+                </div>
+            `).join('');
+
+            // Bind retry buttons
+            body.querySelectorAll('.msg-retry-comment-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const idx = parseInt(btn.dataset.campaignIndex);
+                    _sendFailedOrdersViaComment(idx);
+                });
+            });
+        }
+
+        overlay.classList.add('active');
+    }
+
+    async function _sendFailedOrdersViaComment(campaignIndex) {
+        const campaign = _historyCampaigns[campaignIndex];
+        if (!campaign || !campaign.errorOrders || campaign.errorOrders.length === 0) {
+            if (window.notificationManager) window.notificationManager.show('Không có đơn thất bại', 'info');
+            return;
+        }
+
+        const pdm = window.pancakeDataManager;
+        if (!pdm) {
+            if (window.notificationManager) window.notificationManager.show('pancakeDataManager chưa sẵn sàng', 'error');
+            return;
+        }
+
+        let successCount = 0, failCount = 0;
+
+        for (const errOrder of campaign.errorOrders) {
+            try {
+                const psid = errOrder.psid || '';
+                const conv = pdm.commentMapByPSID?.get(String(psid));
+                if (!conv) {
+                    failCount++;
+                    continue;
+                }
+
+                const pageId = conv.page_id || errOrder.pageId || '';
+                // Rebuild message from template
+                let msg = campaign.templateContent || '';
+                const fullOrder = window.OrderStore ? window.OrderStore.get(errOrder.orderId) : null;
+                if (fullOrder) {
+                    const od = _convertOrderData(fullOrder);
+                    msg = _replacePlaceholders(msg, od);
+                }
+                const displayName = window.authManager?.getCurrentUser()?.displayName;
+                if (displayName) msg += '\nNv. ' + displayName;
+
+                await pdm.sendMessage(pageId, conv.id, { message: msg, type: 'reply_comment' });
+                successCount++;
+                markOrderSent(errOrder.orderId, true);
+            } catch (e) {
+                failCount++;
+            }
+            await new Promise(r => setTimeout(r, 1000));
+        }
+
+        if (window.notificationManager) {
+            window.notificationManager.show(
+                `Comment: ${successCount} thành công, ${failCount} thất bại`,
+                failCount === 0 ? 'success' : 'warning'
+            );
+        }
+    }
 
     // =====================================================
     // MESSAGE TEMPLATE MODAL UI
@@ -509,10 +1206,8 @@ console.log('[TemplateMgr] Loading...');
         // Send
         document.getElementById('msgBtnSend').onclick = () => _handleSend();
 
-        // History (placeholder - not implemented yet)
-        document.getElementById('msgBtnHistory').onclick = () => {
-            if (window.notificationManager) window.notificationManager.show('Tính năng lịch sử sẽ được bổ sung sau', 'info');
-        };
+        // History
+        document.getElementById('msgBtnHistory').onclick = () => _openHistoryModal();
     }
 
     // ----- Render Template Cards -----
@@ -721,25 +1416,61 @@ console.log('[TemplateMgr] Loading...');
             return;
         }
 
-        // Gather order data from table rows
-        const orders = [];
+        // Gather enriched order data from OrderStore + table rows
+        const allOrders = [];
+        let filteredCount = 0;
         selectedIds.forEach(orderId => {
+            // Skip orders already sent in 24h
+            if (isOrderSent(orderId)) {
+                filteredCount++;
+                return;
+            }
+
             const row = document.querySelector(`tr[data-order-id="${orderId}"]`);
             if (!row) return;
-            orders.push({
+
+            // Enrich from OrderStore
+            const storeOrder = window.OrderStore ? window.OrderStore.get(orderId) : null;
+            const pdm = window.pancakeDataManager;
+
+            let pageId = row.dataset.pageId || '';
+            let psid = row.dataset.psid || '';
+
+            // Try getChatInfoForOrder for better data
+            if (storeOrder && pdm?.getChatInfoForOrder) {
+                try {
+                    const chatInfo = pdm.getChatInfoForOrder(storeOrder);
+                    if (chatInfo.channelId) pageId = chatInfo.channelId;
+                    if (chatInfo.psid) psid = chatInfo.psid;
+                } catch (e) { /* use row data */ }
+            }
+
+            allOrders.push({
                 orderId,
-                pageId: row.dataset.pageId || '',
-                psid: row.dataset.psid || '',
-                customerName: row.querySelector('.customer-name')?.textContent?.trim() || '',
+                pageId,
+                channelId: pageId,
+                psid,
+                customerName: storeOrder?.PartnerName || storeOrder?.CustomerName || row.querySelector('.customer-name')?.textContent?.trim() || '',
+                Code: storeOrder?.Code || '',
+                Phone: storeOrder?.ReceiverPhone || storeOrder?.Partner?.Telephone || '',
+                Address: storeOrder?.ReceiverAddress || storeOrder?.Partner?.Address || '',
+                AmountTotal: storeOrder?.AmountTotal || 0,
+                Facebook_PostId: storeOrder?.Facebook_PostId || '',
+                Facebook_CommentId: storeOrder?.Facebook_CommentId || '',
+                raw: storeOrder || null
             });
         });
 
-        if (orders.length === 0) {
-            if (window.notificationManager) window.notificationManager.show('Không tìm thấy thông tin đơn hàng', 'error');
+        if (filteredCount > 0 && window.notificationManager) {
+            window.notificationManager.show(`Đã bỏ qua ${filteredCount} đơn đã gửi trong 24h`, 'info');
+        }
+
+        if (allOrders.length === 0) {
+            if (window.notificationManager) window.notificationManager.show('Không tìm thấy thông tin đơn hàng (hoặc đã gửi hết)', 'error');
             return;
         }
 
-        _modalOrders = orders;
+        _modalOrders = allOrders;
 
         // Create modal DOM if needed
         _createModalDOM();
@@ -801,6 +1532,20 @@ console.log('[TemplateMgr] Loading...');
             return;
         }
 
+        // Get accounts
+        let accounts = [];
+        if (window.pancakeTokenManager) {
+            try {
+                accounts = window.pancakeTokenManager.getValidAccountsForSending();
+            } catch (e) { /* fallback to empty */ }
+        }
+        if (accounts.length === 0) {
+            accounts = [{ accountId: 'default', name: 'Default' }];
+        }
+
+        // Get delay
+        const delay = parseInt(document.getElementById('msgSendDelay').value) || 1;
+
         // Disable UI
         const sendBtn = document.getElementById('msgBtnSend');
         const cancelBtn = document.getElementById('msgBtnCancel');
@@ -812,19 +1557,45 @@ console.log('[TemplateMgr] Loading...');
         progressContainer.style.display = 'block';
         _updateProgress(0, 0, orders.length);
 
-        // Send using existing bulkSendTemplate
-        const result = await bulkSendTemplate(orders, templateText, {
-            viaComment: false,
-            onProgress: (sent, failed, total) => {
-                _updateProgress(sent + failed, total, total, sent, failed);
+        // Sending state
+        const sendingState = {
+            isSending: true,
+            successOrders: [],
+            errorOrders: [],
+            totalProcessed: 0,
+            totalToProcess: orders.length,
+            onProgress: (processed, total, totalToProcess, sent, failed) => {
+                _updateProgress(processed, total, totalToProcess, sent, failed);
             }
-        });
+        };
+
+        try {
+            // Pre-fetch page access tokens
+            await _prefetchPageAccessTokens(orders);
+
+            // Distribute orders to accounts (page-aware round-robin)
+            const accountQueues = _distributeOrdersToAccounts(orders, accounts);
+
+            // Create parallel workers per account
+            const workers = accounts.map((account, idx) =>
+                _processAccountQueue(accountQueues[idx] || [], account, template, delay, sendingState)
+            );
+
+            await Promise.all(workers);
+        } catch (error) {
+            console.error('[TemplateMgr] Send error:', error);
+        }
 
         // Show completion
-        const totalProcessed = result.sent + result.failed;
-        _updateProgress(totalProcessed, orders.length, orders.length, result.sent, result.failed);
+        const successCount = sendingState.successOrders.length;
+        const errorCount = sendingState.errorOrders.length;
+        _updateProgress(successCount + errorCount, orders.length, orders.length, successCount, errorCount);
         document.getElementById('msgProgressText').textContent =
-            `Hoàn tất: ✓${result.sent} ✗${result.failed}`;
+            `Hoàn tất: ✓${successCount} ✗${errorCount}`;
+
+        // Save campaign results
+        sendingState.isSending = false;
+        await _saveCampaignResults(template, accounts, delay, sendingState.successOrders, sendingState.errorOrders);
 
         // Re-enable UI
         sendBtn.disabled = false;
@@ -834,8 +1605,8 @@ console.log('[TemplateMgr] Loading...');
         // Notification
         if (window.notificationManager) {
             window.notificationManager.show(
-                `Đã gửi ${result.sent}/${orders.length} tin nhắn` + (result.failed > 0 ? `, ${result.failed} lỗi` : ''),
-                result.failed > 0 ? 'warning' : 'success'
+                `Đã gửi ${successCount}/${orders.length} tin nhắn` + (errorCount > 0 ? `, ${errorCount} lỗi` : ''),
+                errorCount > 0 ? 'warning' : 'success'
             );
         }
 
@@ -902,6 +1673,10 @@ console.log('[TemplateMgr] Loading...');
         // Data access
         getSentOrders: () => new Map(_sentOrders),
         getFailedOrders: () => new Map(_failedOrders),
+
+        // History & retry
+        openHistoryModal: _openHistoryModal,
+        sendFailedOrdersViaComment: _sendFailedOrdersViaComment,
 
         // Cleanup
         cleanup,
