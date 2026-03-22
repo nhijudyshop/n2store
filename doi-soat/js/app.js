@@ -139,6 +139,8 @@
     function renderOrder(data) {
         currentOrder = data;
         checkedQuantities = {};
+        // Hide success banner when viewing a new order
+        $('#successBanner').style.display = 'none';
 
         // Header info
         $('#orderNumber').textContent = data.Number || data.MoveName || '';
@@ -389,7 +391,7 @@
             if (result.Success) {
                 const orderNum = currentOrder.Number || currentOrder.MoveName || '';
                 goBack();
-                showToast(`Đối soát thành công đơn ${orderNum}`, 'success');
+                showSuccessBanner(`Đối soát thành công đơn ${orderNum}`);
             } else {
                 showToast(`Lỗi: ${result.Error || 'Không xác định'}`, 'error');
             }
@@ -480,6 +482,17 @@
         setTimeout(() => {
             toast.classList.remove('show');
         }, 3000);
+    }
+
+    let bannerTimer = null;
+    function showSuccessBanner(message) {
+        const banner = $('#successBanner');
+        banner.textContent = message;
+        banner.style.display = '';
+        if (bannerTimer) clearTimeout(bannerTimer);
+        bannerTimer = setTimeout(() => {
+            banner.style.display = 'none';
+        }, 30000);
     }
 
     function showLoading() {
