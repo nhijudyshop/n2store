@@ -2114,11 +2114,16 @@ async function toggleProductDetail(orderId, sttCell) {
         }
 
         const _stockEngine = window.StockStatusEngine;
+        const escapeHtml = (str) => str ? str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : '';
         const rows = details.map((p, i) => `
             <tr>
                 <td style="padding: 6px 12px; border-bottom: 1px solid #e5e7eb; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
                     <div style="font-weight: 500;">${p.ProductNameGet || p.ProductName || ''}</div>
-                    ${p.Note ? `<div style="font-size: 11px; color: #6b7280; font-style: italic;">${p.Note}</div>` : ''}
+                    <div class="inline-note-wrapper" data-order-id="${orderId}" data-product-id="${p.ProductId}" data-detail-index="${i}"
+                         onclick="startInlineNoteEdit(this)" title="Click để sửa ghi chú"
+                         style="font-size: 11px; color: #6b7280; font-style: italic; cursor: pointer; min-height: 16px; padding: 1px 0;">
+                        ${p.Note ? escapeHtml(p.Note) : '<span style="color: #d1d5db;">+ Thêm ghi chú</span>'}
+                    </div>
                 </td>
                 <td style="padding: 6px 12px; border-bottom: 1px solid #e5e7eb; text-align: center; width: 60px;">${p.Quantity || 0}</td>
                 <td style="padding: 6px 12px; border-bottom: 1px solid #e5e7eb; text-align: right; width: 100px;">${(p.Price || 0).toLocaleString('vi-VN')}</td>
@@ -2144,5 +2149,126 @@ async function toggleProductDetail(orderId, sttCell) {
         console.error('[PRODUCT-DETAIL] Error:', err);
         loadingRow.innerHTML = `<td colspan="${colCount}" style="padding: 12px 16px; background: #fef2f2; color: #dc2626;"><i class="fas fa-exclamation-triangle"></i> Lỗi tải dữ liệu</td>`;
     }
+}
+
+// =====================================================
+// INLINE NOTE EDITING (in product detail expansion)
+// =====================================================
+
+function startInlineNoteEdit(wrapper) {
+    // Prevent double-click creating multiple inputs
+    if (wrapper.querySelector('input')) return;
+
+    const orderId = wrapper.dataset.orderId;
+    const productId = wrapper.dataset.productId;
+    const currentNote = wrapper.textContent.trim();
+    const isPlaceholder = wrapper.querySelector('span[style*="color: #d1d5db"]');
+    const noteValue = isPlaceholder ? '' : currentNote;
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = noteValue;
+    input.placeholder = 'Nhập ghi chú...';
+    input.style.cssText = 'width: 100%; padding: 2px 6px; border: 1px solid #3b82f6; border-radius: 3px; font-size: 11px; outline: none; box-sizing: border-box;';
+
+    wrapper.innerHTML = '';
+    wrapper.appendChild(input);
+    input.focus();
+    input.select();
+
+    // Stop click propagation so it doesn't re-trigger startInlineNoteEdit
+    input.addEventListener('click', (e) => e.stopPropagation());
+
+    const saveNote = async () => {
+        const newNote = input.value.trim();
+        // Restore display
+        if (newNote) {
+            wrapper.innerHTML = newNote.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        } else {
+            wrapper.innerHTML = '<span style="color: #d1d5db;">+ Thêm ghi chú</span>';
+        }
+
+        // Skip if note hasn't changed
+        if (newNote === noteValue) return;
+
+        // Save via API
+        try {
+            await saveInlineProductNote(orderId, productId, newNote);
+            // Brief success flash
+            wrapper.style.background = '#d1fae5';
+            setTimeout(() => wrapper.style.background = '', 800);
+        } catch (err) {
+            console.error('[INLINE-NOTE] Save failed:', err);
+            wrapper.style.background = '#fee2e2';
+            setTimeout(() => wrapper.style.background = '', 1500);
+            if (window.notificationManager) {
+                window.notificationManager.show('Lỗi lưu ghi chú: ' + err.message, 'error');
+            }
+        }
+    };
+
+    input.addEventListener('blur', saveNote);
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            input.blur();
+        }
+        if (e.key === 'Escape') {
+            // Restore original without saving
+            if (noteValue) {
+                wrapper.innerHTML = noteValue.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+            } else {
+                wrapper.innerHTML = '<span style="color: #d1d5db;">+ Thêm ghi chú</span>';
+            }
+        }
+    });
+}
+
+async function saveInlineProductNote(orderId, productId, newNote) {
+    const headers = await window.tokenManager.getAuthHeader();
+    const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details,Partner,User,CRMTeam`;
+
+    // Fetch fresh order data
+    const res = await fetch(apiUrl, {
+        headers: { ...headers, 'Content-Type': 'application/json', Accept: 'application/json' }
+    });
+    if (!res.ok) throw new Error(`Fetch order failed: HTTP ${res.status}`);
+    const fullOrder = await res.json();
+
+    // Find the product and update note
+    const details = fullOrder.Details || [];
+    const idx = details.findIndex(d => d.ProductId === Number(productId));
+    if (idx === -1) throw new Error('Không tìm thấy sản phẩm');
+
+    details[idx].Note = newNote || null;
+
+    // Build PUT payload
+    const payload = JSON.parse(JSON.stringify(fullOrder));
+    if (!payload['@odata.context']) {
+        payload['@odata.context'] = 'http://tomato.tpos.vn/odata/$metadata#SaleOnline_Order(Details(),Partner(),User(),CRMTeam())/$entity';
+    }
+    payload.Details = details;
+    payload.TotalAmount = details.reduce((sum, d) => sum + ((d.Quantity || 0) * (d.Price || 0)), 0);
+    payload.TotalQuantity = details.reduce((sum, d) => sum + (d.Quantity || 0), 0);
+
+    // PUT back
+    const putUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})`;
+    const putRes = await fetch(putUrl, {
+        method: 'PUT',
+        headers: { ...headers, 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(payload)
+    });
+    if (!putRes.ok) {
+        const errText = await putRes.text();
+        throw new Error(`PUT failed: HTTP ${putRes.status} - ${errText}`);
+    }
+
+    // Invalidate caches
+    _productDetailCache.delete(orderId);
+    if (typeof window.invalidateOrderDetailsCache === 'function') {
+        window.invalidateOrderDetailsCache(orderId);
+    }
+
+    console.log(`[INLINE-NOTE] Saved note for order ${orderId}, product ${productId}: "${newNote}"`);
 }
 
