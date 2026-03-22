@@ -66,12 +66,18 @@
                 <div class="dr-filter-grid">
                     <!-- Row 1 -->
                     <div class="dr-filter-row">
-                        <label for="drFilterFromDate">Ngày bắt đầu</label>
-                        <input type="datetime-local" id="drFilterFromDate" lang="vi" />
+                        <label>Ngày bắt đầu</label>
+                        <div style="display:flex; gap:6px;">
+                            <input type="date" id="drFilterFromDate" style="flex:1;" />
+                            <input type="time" id="drFilterFromTime" value="00:00" style="width:100px;" />
+                        </div>
                     </div>
                     <div class="dr-filter-row">
-                        <label for="drFilterToDate">Ngày kết thúc</label>
-                        <input type="datetime-local" id="drFilterToDate" lang="vi" />
+                        <label>Ngày kết thúc</label>
+                        <div style="display:flex; gap:6px;">
+                            <input type="date" id="drFilterToDate" style="flex:1;" />
+                            <input type="time" id="drFilterToTime" value="23:59" style="width:100px;" />
+                        </div>
                     </div>
 
                     <!-- Row 2 -->
@@ -92,6 +98,12 @@
                         </button>
                         <button class="dr-btn dr-btn-warning" id="drBtnExportDetail" onclick="DeliveryReport.exportExcel()">
                             <i class="fas fa-file-excel"></i> Xuất excel chi tiết sản phẩm từng dòng
+                        </button>
+                        <button class="dr-btn" id="drBtnExportTomato" onclick="DeliveryReport.exportExcelProvince('tomato')" style="background:#fee2e2; color:#dc2626; display:none;">
+                            <i class="fas fa-file-excel"></i> Xuất TOMATO
+                        </button>
+                        <button class="dr-btn" id="drBtnExportNap" onclick="DeliveryReport.exportExcelProvince('nap')" style="background:#dbeafe; color:#2563eb; display:none;">
+                            <i class="fas fa-file-excel"></i> Xuất NAP
                         </button>
                         <button class="dr-btn dr-btn-info" onclick="window.print()">
                             <i class="fas fa-print"></i> In

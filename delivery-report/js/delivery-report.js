@@ -68,29 +68,28 @@
 
     function setDefaultDates() {
         const now = new Date();
-        const firstDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-        const lastDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
-        const fromInput = document.getElementById('drFilterFromDate');
-        const toInput = document.getElementById('drFilterToDate');
+        const fromDateInput = document.getElementById('drFilterFromDate');
+        const fromTimeInput = document.getElementById('drFilterFromTime');
+        const toDateInput = document.getElementById('drFilterToDate');
+        const toTimeInput = document.getElementById('drFilterToTime');
 
-        if (fromInput && !fromInput.value) {
-            fromInput.value = formatDateForInput(firstDay);
-            DeliveryReportState.filters.fromDate = fromInput.value;
+        if (fromDateInput && !fromDateInput.value) {
+            fromDateInput.value = todayStr;
         }
-        if (toInput && !toInput.value) {
-            toInput.value = formatDateForInput(lastDay);
-            DeliveryReportState.filters.toDate = toInput.value;
+        if (fromTimeInput && !fromTimeInput.value) {
+            fromTimeInput.value = '00:00';
         }
-    }
+        if (toDateInput && !toDateInput.value) {
+            toDateInput.value = todayStr;
+        }
+        if (toTimeInput && !toTimeInput.value) {
+            toTimeInput.value = '23:59';
+        }
 
-    function formatDateForInput(date) {
-        const y = date.getFullYear();
-        const m = String(date.getMonth() + 1).padStart(2, '0');
-        const d = String(date.getDate()).padStart(2, '0');
-        const h = String(date.getHours()).padStart(2, '0');
-        const min = String(date.getMinutes()).padStart(2, '0');
-        return `${y}-${m}-${d}T${h}:${min}`;
+        DeliveryReportState.filters.fromDate = `${fromDateInput.value}T${fromTimeInput.value}`;
+        DeliveryReportState.filters.toDate = `${toDateInput.value}T${toTimeInput.value}`;
     }
 
     // =====================================================
@@ -124,8 +123,12 @@
 
     function collectFilters() {
         const f = DeliveryReportState.filters;
-        f.fromDate = document.getElementById('drFilterFromDate')?.value || '';
-        f.toDate = document.getElementById('drFilterToDate')?.value || '';
+        const fromDate = document.getElementById('drFilterFromDate')?.value || '';
+        const fromTime = document.getElementById('drFilterFromTime')?.value || '00:00';
+        const toDate = document.getElementById('drFilterToDate')?.value || '';
+        const toTime = document.getElementById('drFilterToTime')?.value || '23:59';
+        f.fromDate = fromDate ? `${fromDate}T${fromTime}` : '';
+        f.toDate = toDate ? `${toDate}T${toTime}` : '';
         f.keyword = document.getElementById('drFilterKeyword')?.value?.trim() || '';
     }
 
@@ -142,9 +145,17 @@
                 const f = JSON.parse(saved);
                 Object.assign(DeliveryReportState.filters, f);
 
-                // Apply to inputs
-                if (f.fromDate) document.getElementById('drFilterFromDate').value = f.fromDate;
-                if (f.toDate) document.getElementById('drFilterToDate').value = f.toDate;
+                // Apply to inputs (split datetime into date + time)
+                if (f.fromDate) {
+                    const [fd, ft] = f.fromDate.split('T');
+                    document.getElementById('drFilterFromDate').value = fd || '';
+                    document.getElementById('drFilterFromTime').value = ft || '00:00';
+                }
+                if (f.toDate) {
+                    const [td, tt] = f.toDate.split('T');
+                    document.getElementById('drFilterToDate').value = td || '';
+                    document.getElementById('drFilterToTime').value = tt || '23:59';
+                }
                 if (f.keyword) document.getElementById('drFilterKeyword').value = f.keyword;
             }
         } catch (e) { /* ignore */ }
@@ -668,6 +679,45 @@
         }
     }
 
+    function exportExcelProvince(group) {
+        if (typeof XLSX === 'undefined') {
+            alert('Thư viện XLSX chưa được tải. Vui lòng tải lại trang.');
+            return;
+        }
+
+        const provinceData = getTabFilteredData();
+        const groups = DeliveryReportState.provinceGroups;
+        const items = provinceData.filter(item => groups[item.Number] === group);
+        const label = group.toUpperCase();
+
+        const wsData = [
+            ['#', 'Số', 'Khách hàng', 'ĐT', 'Ngày hóa đơn', 'Tổng tiền']
+        ];
+
+        items.forEach((item, i) => {
+            wsData.push([
+                i + 1,
+                item.Number || '',
+                item.PartnerDisplayName || '',
+                item.Phone || '',
+                item.DateInvoice ? new Date(item.DateInvoice).toLocaleString('vi-VN') : '',
+                item.AmountTotal || 0
+            ]);
+        });
+
+        // Add total row
+        const total = items.reduce((sum, i) => sum + (i.AmountTotal || 0), 0);
+        wsData.push(['', '', '', '', 'Tổng:', total]);
+
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, label);
+
+        const now = new Date();
+        const fileName = `GiaoHang_${label}_${now.getDate()}-${now.getMonth()+1}-${now.getFullYear()}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+    }
+
     // =====================================================
     // TRA SOÁT - Barcode Scanner Mode
     // =====================================================
@@ -697,6 +747,7 @@
             setupRealtimeSync();
 
             updateTabUI();
+            updateProvinceExportButtons();
             document.addEventListener('keydown', onBarcodeKeydown);
             renderTable();
             renderPagination();
@@ -723,6 +774,7 @@
             state.scanFilter = 'unscanned';
             state.currentPage = 1;
             document.removeEventListener('keydown', onBarcodeKeydown);
+            updateProvinceExportButtons();
             renderTable();
             renderStats();
             renderPagination();
@@ -733,6 +785,7 @@
         DeliveryReportState.activeTab = tab;
         DeliveryReportState.currentPage = 1;
         updateTabUI();
+        updateProvinceExportButtons();
 
         if (tab === 'province' && DeliveryReportState.traSoatMode) {
             await ensureProvinceGroups();
@@ -742,6 +795,14 @@
             renderPagination();
         }
         updateScanCount();
+    }
+
+    function updateProvinceExportButtons() {
+        const tomatoBtn = document.getElementById('drBtnExportTomato');
+        const napBtn = document.getElementById('drBtnExportNap');
+        const isProvince = DeliveryReportState.activeTab === 'province' && DeliveryReportState.traSoatMode;
+        if (tomatoBtn) tomatoBtn.style.display = isProvince ? '' : 'none';
+        if (napBtn) napBtn.style.display = isProvince ? '' : 'none';
     }
 
     function setScanFilter(filter) {
@@ -1281,6 +1342,7 @@
             renderPagination();
         },
         exportExcel: exportExcel,
+        exportExcelProvince: exportExcelProvince,
         traSoat: traSoat,
         setTab: setTab,
         setScanFilter: setScanFilter,
