@@ -642,13 +642,34 @@ console.log('[TemplateMgr] Loading...');
 
     async function _prefetchPageAccessTokens(orders) {
         if (!window.pancakeTokenManager) return;
+
+        // Ensure page access tokens are loaded from IndexedDB/Firestore into memory cache
+        // These tokens are already saved via "Quản lý tài khoản Pancake" UI
+        try {
+            await window.pancakeTokenManager.loadPageAccessTokens();
+        } catch (e) {
+            console.warn('[TemplateMgr] Failed to load page access tokens from storage:', e);
+        }
+
+        // Just verify tokens exist - DO NOT auto-generate (requires subscription)
         const uniquePageIds = [...new Set(orders.map(o => o.channelId || o.pageId).filter(Boolean))];
-        const promises = uniquePageIds.map(pid =>
-            window.pancakeTokenManager.getOrGeneratePageAccessToken(pid).catch(e => {
-                console.warn('[TemplateMgr] Failed to prefetch PAT for', pid, e);
-            })
-        );
-        await Promise.allSettled(promises);
+        const missingPages = [];
+        for (const pid of uniquePageIds) {
+            const token = window.pancakeTokenManager.getPageAccessToken(pid);
+            if (token) {
+                console.log('[TemplateMgr] ✅ PAT cached for page:', pid);
+            } else {
+                missingPages.push(pid);
+                console.warn('[TemplateMgr] ⚠️ No PAT found for page:', pid, '- Admin cần thêm token qua "Quản lý Pancake Accounts"');
+            }
+        }
+
+        if (missingPages.length > 0) {
+            window.notificationManager?.show(
+                `${missingPages.length} page chưa có Page Access Token. Vào "Quản lý Pancake Accounts" để thêm.`,
+                'warning'
+            );
+        }
     }
 
     function _is24HourPolicyError(result) {
