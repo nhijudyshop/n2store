@@ -329,7 +329,7 @@ function generatePackingSlipHTML(waitingIndices, notes = {}) {
         // Build ghi chú: nếu Chờ Hàng thì thêm "CH" in đậm lớn
         let ghiChu = '';
         if (isWaiting) {
-            ghiChu += '<b style="font-size:18px; color:#c00;">CH</b>';
+            ghiChu += '<b style="font-size:18px;">CH</b>';
         }
         if (note) {
             ghiChu += (ghiChu ? ' ' : '') + `<span style="font-size:12px;">${note}</span>`;
