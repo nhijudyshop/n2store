@@ -43,7 +43,7 @@
             receiverInfo: false,
             dateInvoice: true,
             number: true,
-            amountTotal: true,
+            amountTotal: false,
             cashOnDelivery: true,
             carrierName: false,
             deliveryPrice: false,
@@ -836,9 +836,8 @@
             const viewItems = showScanned
                 ? scannedItems
                 : tabData.filter(item => !DeliveryReportState.scannedNumbers.has(item.Number));
-            const total = viewItems.reduce((sum, i) => sum + (i.AmountTotal || 0), 0);
             const totalCOD = viewItems.reduce((sum, i) => sum + (i.CashOnDelivery || 0), 0);
-            amountEl.textContent = `Tổng: ${formatMoney(total)} | CN: ${formatMoney(totalCOD)}`;
+            amountEl.textContent = `CN: ${formatMoney(totalCOD)}`;
         }
     }
 
@@ -1076,20 +1075,17 @@
         const tomatoItems = allTomato.filter(item => showScanned ? scanned.has(item.Number) : !scanned.has(item.Number));
         const napItems = allNap.filter(item => showScanned ? scanned.has(item.Number) : !scanned.has(item.Number));
 
-        // Calculate totals for current view (filtered by scan status)
-        const tomatoTotal = tomatoItems.reduce((sum, i) => sum + (i.AmountTotal || 0), 0);
-        const napTotal = napItems.reduce((sum, i) => sum + (i.AmountTotal || 0), 0);
+        // Calculate COD totals for current view (filtered by scan status)
         const tomatoCOD = tomatoItems.reduce((sum, i) => sum + (i.CashOnDelivery || 0), 0);
         const napCOD = napItems.reduce((sum, i) => sum + (i.CashOnDelivery || 0), 0);
 
         // Render TOMATO column
         let tomatoHtml = `<div class="dr-province-header dr-province-header-tomato">
             TOMATO <span class="dr-province-count">${tomatoScannedCount}/${allTomato.length}</span>
-            <div class="dr-province-total">${formatMoney(tomatoTotal)} <span style="font-size:14px; opacity:0.8;">CN: ${formatMoney(tomatoCOD)}</span></div>
+            <div class="dr-province-total">${formatMoney(tomatoCOD)}</div>
         </div>`;
         tomatoItems.forEach(item => {
             const isScanned = scanned.has(item.Number);
-            const cod = item.CashOnDelivery || 0;
             tomatoHtml += `<div class="dr-province-item ${isScanned ? 'scanned' : ''}">
                 <div class="dr-province-left">
                     <span class="dr-province-num">${escapeHtml(item.Number)}</span>
@@ -1097,8 +1093,7 @@
                 </div>
                 <div class="dr-province-right">
                     <span class="dr-province-date">${formatDate(item.DateInvoice)}</span>
-                    <span class="dr-province-amount">${formatMoney(item.AmountTotal)}</span>
-                    ${cod ? `<span class="dr-province-cod">${formatMoney(cod)}</span>` : ''}
+                    <span class="dr-province-amount">${formatMoney(item.CashOnDelivery || 0)}</span>
                     ${isScanned ? '<i class="fas fa-check" style="color:#22c55e"></i>' : ''}
                 </div>
             </div>`;
@@ -1110,11 +1105,10 @@
         // Render NAP column
         let napHtml = `<div class="dr-province-header dr-province-header-nap">
             NAP <span class="dr-province-count">${napScannedCount}/${allNap.length}</span>
-            <div class="dr-province-total">${formatMoney(napTotal)} <span style="font-size:14px; opacity:0.8;">CN: ${formatMoney(napCOD)}</span></div>
+            <div class="dr-province-total">${formatMoney(napCOD)}</div>
         </div>`;
         napItems.forEach(item => {
             const isScanned = scanned.has(item.Number);
-            const cod = item.CashOnDelivery || 0;
             napHtml += `<div class="dr-province-item ${isScanned ? 'scanned' : ''}">
                 <div class="dr-province-left">
                     <span class="dr-province-num">${escapeHtml(item.Number)}</span>
@@ -1122,8 +1116,7 @@
                 </div>
                 <div class="dr-province-right">
                     <span class="dr-province-date">${formatDate(item.DateInvoice)}</span>
-                    <span class="dr-province-amount">${formatMoney(item.AmountTotal)}</span>
-                    ${cod ? `<span class="dr-province-cod">${formatMoney(cod)}</span>` : ''}
+                    <span class="dr-province-amount">${formatMoney(item.CashOnDelivery || 0)}</span>
                     ${isScanned ? '<i class="fas fa-check" style="color:#22c55e"></i>' : ''}
                 </div>
             </div>`;
