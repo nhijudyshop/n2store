@@ -33,7 +33,6 @@
         filters: {
             fromDate: '',
             toDate: '',
-            carrierId: '',
             keyword: ''
         },
 
@@ -127,7 +126,6 @@
         const f = DeliveryReportState.filters;
         f.fromDate = document.getElementById('drFilterFromDate')?.value || '';
         f.toDate = document.getElementById('drFilterToDate')?.value || '';
-        f.carrierId = document.getElementById('drFilterCarrier')?.value || '';
         f.keyword = document.getElementById('drFilterKeyword')?.value?.trim() || '';
     }
 
@@ -147,7 +145,6 @@
                 // Apply to inputs
                 if (f.fromDate) document.getElementById('drFilterFromDate').value = f.fromDate;
                 if (f.toDate) document.getElementById('drFilterToDate').value = f.toDate;
-                if (f.carrierId) document.getElementById('drFilterCarrier').value = f.carrierId;
                 if (f.keyword) document.getElementById('drFilterKeyword').value = f.keyword;
             }
         } catch (e) { /* ignore */ }
@@ -225,7 +222,6 @@
             const result = await response.json();
             DeliveryReportState.allData = result.value || [];
 
-            populateCarrierFilter();
             await ensureProvinceGroups();
             renderTable();
             renderStats();
@@ -296,28 +292,6 @@
         return name;
     }
 
-    function populateCarrierFilter() {
-        const select = document.getElementById('drFilterCarrier');
-        if (!select) return;
-
-        const currentValue = select.value;
-        const carriers = new Set();
-        (DeliveryReportState.allData || []).forEach(item => {
-            if (item.CarrierName) carriers.add(normalizeCarrier(item.CarrierName));
-        });
-
-        const sorted = [...carriers].sort();
-        let html = '<option value="">Tất cả</option>';
-        sorted.forEach(name => {
-            html += `<option value="${escapeHtml(name)}">${escapeHtml(name)}</option>`;
-        });
-        select.innerHTML = html;
-
-        // Restore selection if still valid
-        if (currentValue && carriers.has(currentValue)) {
-            select.value = currentValue;
-        }
-    }
 
     // =====================================================
     // CLIENT-SIDE FILTER (carrier + tra soát)
@@ -336,13 +310,8 @@
             return data;
         }
 
-        // Normal mode: carrier filter only (normalized)
-        let data = state.allData || [];
-        const carrier = state.filters.carrierId;
-        if (carrier) {
-            data = data.filter(item => normalizeCarrier(item.CarrierName) === carrier);
-        }
-        return data;
+        // Normal mode: no additional filter
+        return state.allData || [];
     }
 
     // =====================================================
@@ -812,11 +781,6 @@
 
     function getTabFilteredData() {
         let data = DeliveryReportState.allData || [];
-        // Apply carrier filter from dropdown (normalized)
-        const carrier = DeliveryReportState.filters.carrierId;
-        if (carrier) {
-            data = data.filter(item => normalizeCarrier(item.CarrierName) === carrier);
-        }
         // Apply tab filter
         const tab = DeliveryReportState.activeTab;
         if (tab === 'city') {
@@ -837,11 +801,7 @@
     // PROVINCE GROUPS - TOMATO/NAP Split + Firebase Persistence
     // =====================================================
     function getProvinceData() {
-        let data = DeliveryReportState.allData || [];
-        const carrier = DeliveryReportState.filters.carrierId;
-        if (carrier) {
-            data = data.filter(item => normalizeCarrier(item.CarrierName) === carrier);
-        }
+        const data = DeliveryReportState.allData || [];
         // Province = everything NOT city and NOT shop
         return data.filter(item => {
             const nc = normalizeCarrier(item.CarrierName);
