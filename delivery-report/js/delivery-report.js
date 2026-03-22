@@ -691,7 +691,7 @@
         const label = group.toUpperCase();
 
         const wsData = [
-            ['#', 'Số', 'Khách hàng', 'ĐT', 'Ngày hóa đơn', 'Tổng tiền']
+            ['#', 'Số', 'Khách hàng', 'ĐT', 'Ngày hóa đơn', 'Công nợ']
         ];
 
         items.forEach((item, i) => {
@@ -701,12 +701,12 @@
                 item.PartnerDisplayName || '',
                 item.Phone || '',
                 item.DateInvoice ? new Date(item.DateInvoice).toLocaleString('vi-VN') : '',
-                item.AmountTotal || 0
+                item.CashOnDelivery || 0
             ]);
         });
 
         // Add total row
-        const total = items.reduce((sum, i) => sum + (i.AmountTotal || 0), 0);
+        const total = items.reduce((sum, i) => sum + (i.CashOnDelivery || 0), 0);
         wsData.push(['', '', '', '', 'Tổng:', total]);
 
         const ws = XLSX.utils.aoa_to_sheet(wsData);
