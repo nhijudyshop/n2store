@@ -457,13 +457,7 @@ class PurchaseOrderFormModal {
         return `
             <div style="display: flex; gap: 4px; justify-content: center; flex-wrap: wrap;">
                 <div style="position: relative;">
-                    <img src="${images[0]}" alt="${type}" style="
-                        width: 50px;
-                        height: 50px;
-                        object-fit: cover;
-                        border-radius: 6px;
-                        cursor: pointer;
-                    " onclick="window.purchaseOrderFormModal.viewImage('${images[0]}')">
+                    <img src="${images[0]}" alt="${type}" class="po-modal-thumb" onclick="window.purchaseOrderFormModal.viewImage('${images[0]}')">
                     ${images.length > 1 ? `
                         <span style="
                             position: absolute;
@@ -808,6 +802,10 @@ class PurchaseOrderFormModal {
         if (this._globalKeydownHandler) {
             document.removeEventListener('keydown', this._globalKeydownHandler);
             this._globalKeydownHandler = null;
+        }
+        if (this._imagePreview) {
+            this._imagePreview.remove();
+            this._imagePreview = null;
         }
         if (this.modalElement) {
             this.modalElement.remove();
@@ -1964,6 +1962,70 @@ class PurchaseOrderFormModal {
 
         // Bind item events
         this.bindItemEvents();
+
+        // Image hover preview (zoom on hover)
+        this.setupImageHoverPreview();
+    }
+
+    /**
+     * Setup floating image preview on hover for product/price images in table
+     */
+    setupImageHoverPreview() {
+        // Create preview element once
+        if (!this._imagePreview) {
+            this._imagePreview = document.createElement('img');
+            this._imagePreview.className = 'po-image-preview';
+            this._imagePreview.style.display = 'none';
+            document.body.appendChild(this._imagePreview);
+        }
+
+        // Use event delegation on modal
+        this.modalElement.addEventListener('mouseenter', (e) => {
+            const thumb = e.target.closest('.po-modal-thumb');
+            if (!thumb) return;
+            this._imagePreview.src = thumb.src;
+            this._imagePreview.style.display = 'block';
+            this._positionPreview(thumb);
+        }, true);
+
+        this.modalElement.addEventListener('mousemove', (e) => {
+            const thumb = e.target.closest('.po-modal-thumb');
+            if (!thumb || this._imagePreview.style.display === 'none') return;
+            this._positionPreview(thumb);
+        }, true);
+
+        this.modalElement.addEventListener('mouseleave', (e) => {
+            const thumb = e.target.closest('.po-modal-thumb');
+            if (!thumb) return;
+            this._imagePreview.style.display = 'none';
+        }, true);
+    }
+
+    /**
+     * Position the floating preview next to the thumbnail
+     */
+    _positionPreview(thumb) {
+        const rect = thumb.getBoundingClientRect();
+        const previewSize = 300;
+        const gap = 10;
+
+        // Default: show to the left of the image
+        let left = rect.left - previewSize - gap;
+        let top = rect.top + rect.height / 2 - previewSize / 2;
+
+        // If not enough space on the left, show on the right
+        if (left < 10) {
+            left = rect.right + gap;
+        }
+
+        // Keep within viewport vertically
+        if (top < 10) top = 10;
+        if (top + previewSize > window.innerHeight - 10) {
+            top = window.innerHeight - previewSize - 10;
+        }
+
+        this._imagePreview.style.left = left + 'px';
+        this._imagePreview.style.top = top + 'px';
     }
 
     /**
