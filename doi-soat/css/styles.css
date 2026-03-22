@@ -242,6 +242,15 @@ body {
     border-color: #4CAF50;
 }
 
+.hint-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    max-width: 400px;
+    margin: 0 auto;
+}
+
 .hint-text {
     color: #e53935;
     font-size: 13px;
