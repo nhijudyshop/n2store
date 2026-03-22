@@ -1102,21 +1102,28 @@ function autoFillSaleNote() {
             }
         }
 
-        // 1b. Available deposits - split by source
+        // 1b. Available deposits - chỉ lấy đủ cover phần real balance (trừ VC đã có note riêng)
         if (currentSaleAvailableDeposits && currentSaleAvailableDeposits.length > 0) {
-            for (const dep of currentSaleAvailableDeposits) {
+            const vcTotal = vcList.reduce((sum, vc) => sum + (parseFloat(vc.remaining_amount) || 0), 0);
+            let remainingToCover = walletBalance - vcTotal;
+
+            // Lặp từ cuối (giao dịch gần nhất) → đầu, dừng khi đủ
+            const depositsReversed = [...currentSaleAvailableDeposits].reverse();
+            for (const dep of depositsReversed) {
+                if (remainingToCover <= 0) break;
+
                 const depAmount = parseFloat(dep.amount);
-                const amountStr = depAmount >= 1000 ? `${Math.round(depAmount / 1000)}K` : depAmount;
+                const usedAmount = Math.min(depAmount, remainingToCover);
+                const amountStr = usedAmount >= 1000 ? `${Math.round(usedAmount / 1000)}K` : usedAmount;
 
                 if (dep.source === 'RETURN_GOODS') {
-                    // Khách Gửi deposit
                     noteParts.push(`TRỪ ${amountStr} TIỀN HÀNG KHÁCH GỬI Ở TỈNH LÊN`);
                 } else {
-                    // Real bank deposit (CK)
                     const depositDate = new Date(dep.date);
                     const dateStr = `${String(depositDate.getDate()).padStart(2, '0')}/${String(depositDate.getMonth() + 1).padStart(2, '0')}`;
                     noteParts.push(`CK ${amountStr} ACB ${dateStr}`);
                 }
+                remainingToCover -= depAmount;
             }
         } else if (vcList.length === 0) {
             // Fallback: single entry with wallet balance (no source info available)
