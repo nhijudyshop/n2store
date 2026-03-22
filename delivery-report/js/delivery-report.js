@@ -848,7 +848,7 @@
     }
 
     function isReturnItem(item) {
-        return removeTones(item.DeliveryNote || '').toUpperCase().includes('THU VE');
+        return removeTones(item.FullAddress || '').toUpperCase().includes('THU VE');
     }
 
     function getTabFilteredData() {
