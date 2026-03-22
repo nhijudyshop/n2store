@@ -903,6 +903,38 @@ async function confirmAndPrintSale() {
 
         console.log('[SALE-CONFIRM] Order created successfully:', { orderId, orderNumber });
 
+        // Nếu ghi chú có "thu về" và DeliveryNote chưa có "THU VỀ" → PUT để thêm "THU VỀ" vào đầu DeliveryNote
+        const removeDiacritics = (str) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+        const noteComment = document.getElementById('saleReceiverNote')?.value || '';
+        const origComment = currentSaleOrderData?.Comment || '';
+        const hasThuVe = removeDiacritics(noteComment).includes('THU VE') || removeDiacritics(origComment).includes('THU VE');
+
+        if (hasThuVe && orderId) {
+            const currentDeliveryNote = createResult.DeliveryNote || '';
+            if (!removeDiacritics(currentDeliveryNote).includes('THU VE')) {
+                try {
+                    const baseUrl = window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+                    const getUrl = `${baseUrl}/api/odata/FastSaleOrder(${orderId})?$expand=Partner,OrderLines($expand=Product,ProductUOM,User),User,Warehouse,Company,PriceList,Journal,PaymentJournal,Carrier,Tax,SaleOrder,Account`;
+                    const getRes = await API_CONFIG.smartFetch(getUrl, {
+                        headers: { ...headers, 'Content-Type': 'application/json;charset=UTF-8' },
+                    });
+                    if (getRes.ok) {
+                        const fullOrder = await getRes.json();
+                        fullOrder.DeliveryNote = 'THU VỀ ' + (fullOrder.DeliveryNote || '');
+                        const putUrl = `${baseUrl}/api/odata/FastSaleOrder(${orderId})`;
+                        await API_CONFIG.smartFetch(putUrl, {
+                            method: 'PUT',
+                            headers: { ...headers, 'Content-Type': 'application/json;charset=UTF-8' },
+                            body: JSON.stringify(fullOrder),
+                        });
+                        console.log('[SALE-CONFIRM] Updated DeliveryNote with THU VỀ for order:', orderId);
+                    }
+                } catch (err) {
+                    console.warn('[SALE-CONFIRM] Failed to update DeliveryNote with THU VỀ:', err);
+                }
+            }
+        }
+
         // Save to order history (Firebase)
         if (window.OrderHistoryManager && createResult) {
             const historyData = {
@@ -1228,12 +1260,6 @@ function buildSaleOrderModelForInsertList() {
     const receiverAddress = document.getElementById('saleReceiverAddress')?.value || null;
     const deliveryNoteRaw = document.getElementById('saleDeliveryNote')?.value || '';
     const comment = document.getElementById('saleReceiverNote')?.value || '';
-    const orderComment = order?.Comment || '';
-    const defaultDeliveryNote = 'KHÔNG ĐƯỢC TỰ Ý HOÀN ĐƠN CÓ GÌ LIÊN HỆ HOTLINE CỦA SHOP 090 8888 674 ĐỂ ĐƯỢC HỖ TRỢ';
-
-    // Nhận diện "thu về" từ ghi chú modal hoặc order.Comment (bỏ dấu + uppercase)
-    const removeDiacritics = (str) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
-    const hasThuVe = removeDiacritics(comment).includes('THU VE') || removeDiacritics(orderComment).includes('THU VE');
     const deliveryNote = deliveryNoteRaw;
 
     const shippingFeeValue = document.getElementById('saleShippingFee')?.value;
@@ -1493,7 +1519,6 @@ function buildSaleOrderModelForInsertList() {
             Customer: true,
             Type: 'contact',
             CompanyType: 'person',
-            FullAddress: hasThuVe ? 'THU VỀ ' + (partner?.FullAddress || receiverAddress || '') : (partner?.FullAddress || receiverAddress || ''),
             DateCreated: new Date().toISOString(),
             ExtraAddress: partner?.ExtraAddress || null,
         },
@@ -1667,13 +1692,6 @@ function buildFastSaleOrderPayload() {
     const receiverAddressRaw = document.getElementById('saleReceiverAddress')?.value || '';
     const receiverAddress = receiverAddressRaw || null; // Use null instead of empty string
     const deliveryNoteRaw = document.getElementById('saleDeliveryNote')?.value || '';
-    const comment = document.getElementById('saleReceiverNote')?.value || '';
-    const orderComment = order?.Comment || '';
-    const defaultDeliveryNote = 'KHÔNG ĐƯỢC TỰ Ý HOÀN ĐƠN CÓ GÌ LIÊN HỆ HOTLINE CỦA SHOP 090 8888 674 ĐỂ ĐƯỢC HỖ TRỢ';
-
-    // Nhận diện "thu về" từ ghi chú modal hoặc order.Comment (bỏ dấu + uppercase)
-    const removeDiacritics = (str) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
-    const hasThuVe = removeDiacritics(comment).includes('THU VE') || removeDiacritics(orderComment).includes('THU VE');
     const deliveryNote = deliveryNoteRaw;
 
     // 🔥 FIX: Use ?? instead of || to allow 0 value for shipping fee
@@ -1980,10 +1998,7 @@ function buildFastSaleOrderPayload() {
         Company: window.lastDefaultSaleData?.Company || null,
         Journal: window.lastDefaultSaleData?.Journal || null,
         PaymentJournal: window.lastDefaultSaleData?.PaymentJournal || null,
-        Partner: partner ? {
-            ...partner,
-            FullAddress: hasThuVe ? 'THU VỀ ' + (partner.FullAddress || '') : (partner.FullAddress || ''),
-        } : null,
+        Partner: partner || null,
         Carrier: fullCarrierData || {
             Id: carrierId,
             Name: carrierName,
