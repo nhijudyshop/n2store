@@ -1235,7 +1235,7 @@ function buildSaleOrderModelForInsertList() {
     // → luôn dùng default DeliveryNote + " Thu về" (không dùng order.Comment làm DeliveryNote)
     const hasThuVe = /thu\s*về/i.test(comment) || /thu\s*về/i.test(orderComment);
     const deliveryNote = hasThuVe
-        ? defaultDeliveryNote + ' Thu về'
+        ? 'THU VỀ ' + defaultDeliveryNote
         : deliveryNoteRaw;
 
     const shippingFeeValue = document.getElementById('saleShippingFee')?.value;
@@ -1676,7 +1676,7 @@ function buildFastSaleOrderPayload() {
     // → luôn dùng default DeliveryNote + " Thu về" (không dùng order.Comment làm DeliveryNote)
     const hasThuVe = /thu\s*về/i.test(comment) || /thu\s*về/i.test(orderComment);
     const deliveryNote = hasThuVe
-        ? defaultDeliveryNote + ' Thu về'
+        ? 'THU VỀ ' + defaultDeliveryNote
         : deliveryNoteRaw;
 
     // 🔥 FIX: Use ?? instead of || to allow 0 value for shipping fee

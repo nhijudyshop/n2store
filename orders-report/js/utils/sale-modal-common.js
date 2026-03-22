@@ -651,7 +651,7 @@ function populateSaleModalWithOrder(order) {
     // Nếu order.Comment có "thu về" → dùng default + "Thu về", không dùng order.Comment làm DeliveryNote
     const orderCommentVal = order.Comment || '';
     const deliveryNoteValue = /thu\s*về/i.test(orderCommentVal)
-        ? defaultDeliveryNote + ' Thu về'
+        ? 'THU VỀ ' + defaultDeliveryNote
         : (orderCommentVal || defaultDeliveryNote);
     document.getElementById('saleDeliveryNote').value = deliveryNoteValue;
     document.getElementById('saleGoodsValue').value = totalAmount;
