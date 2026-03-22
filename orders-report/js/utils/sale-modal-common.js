@@ -648,7 +648,12 @@ function populateSaleModalWithOrder(order) {
     document.getElementById('saleCOD').value = totalAmount + shippingFee;
 
     const defaultDeliveryNote = 'KHÔNG ĐƯỢC TỰ Ý HOÀN ĐƠN CÓ GÌ LIÊN HỆ HOTLINE CỦA SHOP 090 8888 674 ĐỂ ĐƯỢC HỖ TRỢ';
-    document.getElementById('saleDeliveryNote').value = order.Comment || defaultDeliveryNote;
+    // Nếu order.Comment có "thu về" → dùng default + "Thu về", không dùng order.Comment làm DeliveryNote
+    const orderCommentVal = order.Comment || '';
+    const deliveryNoteValue = /thu\s*về/i.test(orderCommentVal)
+        ? defaultDeliveryNote + ' Thu về'
+        : (orderCommentVal || defaultDeliveryNote);
+    document.getElementById('saleDeliveryNote').value = deliveryNoteValue;
     document.getElementById('saleGoodsValue').value = totalAmount;
 
     const now = new Date();
