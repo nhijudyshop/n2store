@@ -3147,16 +3147,6 @@ button[onclick*='showAddProductForm'] {
     transform: rotate(90deg);
 }
 
-/* Chat Modal Body */
-.chat-modal-body {
-    flex: 1;
-    overflow-y: auto;
-    padding: 20px 24px;
-    background: #f9fafb;
-    min-height: 400px;
-    max-height: 500px;
-}
-
 .chat-modal-body::-webkit-scrollbar {
     width: 8px;
 }
