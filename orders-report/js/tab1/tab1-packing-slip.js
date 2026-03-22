@@ -393,14 +393,9 @@ function generatePackingSlipHTML(waitingIndices, notes = {}) {
             <span style="font-size:12px; margin-left:10px;">${dateStr}</span>
         </div>
 
-        <div class="info-row">
-            <div><b>Khách hàng:</b> ${customerName}</div>
-            <div class="right"><b>Điện thoại:</b> ${phone}</div>
-        </div>
-        <div class="info-row">
-            <div><b>Địa chỉ:</b> ${address}</div>
-            <div class="right"><b>Nhân viên:</b> ${nhanVien}</div>
-        </div>
+        <div style="margin-bottom:3px; font-size:13px;"><b>Khách hàng:</b> ${customerName}</div>
+        <div style="margin-bottom:3px; font-size:13px;"><b>SĐT:</b> ${phone}${nhanVien ? ` &nbsp;-&nbsp; <b>Nhân viên:</b> ${nhanVien}` : ''}</div>
+        ${address ? `<div style="margin-bottom:3px; font-size:13px;"><b>Địa chỉ:</b> ${address}</div>` : ''}
 
         <table>
             <thead>
@@ -418,16 +413,6 @@ function generatePackingSlipHTML(waitingIndices, notes = {}) {
             </tbody>
         </table>
 
-        <div class="footer-sign">
-            <div>
-                <b>NGƯỜI MUA</b>
-                <br/><br/><br/><br/>
-            </div>
-            <div>
-                <b>NGƯỜI BÁN</b>
-                <br/><br/><br/><br/>
-            </div>
-        </div>
     </div>
 </body>
 </html>`;
