@@ -393,6 +393,7 @@
                 <td data-col="trackingRef">${escapeHtml(item.TrackingRef || '')}</td>
                 <td data-col="showShipStatus"><span class="dr-ship-status ${shipStatusClass}">${escapeHtml(item.ShowShipStatus || '')}</span></td>
                 <td data-col="forControlStatus">${forControlText}</td>
+                ${DeliveryReportState.traSoatMode && DeliveryReportState.scanFilter === 'scanned' ? `<td class="dr-unscan-cell"><button class="dr-btn-unscan" onclick="DeliveryReport.unscanItem('${escapeHtml(item.Number)}')" title="Xóa quét"><i class="fas fa-times"></i></button></td>` : ''}
             </tr>`;
         });
 
@@ -805,6 +806,10 @@
         const select = document.getElementById('drScanFilterSelect');
         if (select) select.value = filter;
 
+        // Show/hide "Xóa tất cả" button
+        const unscanAllBtn = document.getElementById('drBtnUnscanAll');
+        if (unscanAllBtn) unscanAllBtn.style.display = filter === 'scanned' ? '' : 'none';
+
         if (DeliveryReportState.activeTab === 'province' && DeliveryReportState.traSoatMode) {
             renderProvinceView();
         } else {
@@ -964,6 +969,21 @@
         }).catch(e => console.warn('[DELIVERY-REPORT] Failed to save scanned numbers:', e));
     }
 
+    function unscanItem(number) {
+        DeliveryReportState.scannedNumbers.delete(number);
+        saveScannedNumbers();
+        refreshTraSoatView();
+    }
+
+    function unscanAllTab() {
+        const tabData = getTabFilteredData();
+        tabData.forEach(item => {
+            DeliveryReportState.scannedNumbers.delete(item.Number);
+        });
+        saveScannedNumbers();
+        refreshTraSoatView();
+    }
+
     // =====================================================
     // REALTIME SYNC - Cross-machine sync via Firestore listeners
     // =====================================================
@@ -1105,7 +1125,7 @@
                 <div class="dr-province-right">
                     <span class="dr-province-date">${formatDate(item.DateInvoice)}</span>
                     <span class="dr-province-amount">${formatMoney(item.CashOnDelivery || 0)}</span>
-                    ${isScanned ? '<i class="fas fa-check" style="color:#22c55e"></i>' : ''}
+                    ${showScanned ? `<button class="dr-btn-unscan" onclick="DeliveryReport.unscanItem('${escapeHtml(item.Number)}')" title="Xóa quét"><i class="fas fa-times"></i></button>` : ''}
                 </div>
             </div>`;
         });
@@ -1128,7 +1148,7 @@
                 <div class="dr-province-right">
                     <span class="dr-province-date">${formatDate(item.DateInvoice)}</span>
                     <span class="dr-province-amount">${formatMoney(item.CashOnDelivery || 0)}</span>
-                    ${isScanned ? '<i class="fas fa-check" style="color:#22c55e"></i>' : ''}
+                    ${showScanned ? `<button class="dr-btn-unscan" onclick="DeliveryReport.unscanItem('${escapeHtml(item.Number)}')" title="Xóa quét"><i class="fas fa-times"></i></button>` : ''}
                 </div>
             </div>`;
         });
@@ -1354,6 +1374,8 @@
         traSoat: traSoat,
         setTab: setTab,
         setScanFilter: setScanFilter,
+        unscanItem: unscanItem,
+        unscanAllTab: unscanAllTab,
         getState: () => DeliveryReportState
     };
 })();
