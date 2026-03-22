@@ -378,9 +378,21 @@
         }
     }
 
-    function loadOrdersData() {
+    async function loadOrdersData() {
         try {
-            console.log('[ORDERS] Requesting fresh orders data from tab1...');
+            // Read from IndexedDB (shared with Tab1)
+            if (window.indexedDBStorage) {
+                const cached = await window.indexedDBStorage.getItem('allOrders');
+                if (cached && cached.orders && cached.orders.length > 0) {
+                    ordersData = cached.orders;
+                    console.log('[ORDERS] ✅ Loaded from IndexedDB:', ordersData.length, 'orders');
+                    updateOrdersCount();
+                    showNotification(`📦 Đã load ${ordersData.length} đơn hàng`);
+                    return;
+                }
+            }
+            // Fallback: request from Tab1 via postMessage
+            console.log('[ORDERS] IndexedDB empty, requesting from tab1...');
             requestOrdersDataFromTab1();
         } catch (error) {
             console.error('Error loading orders:', error);

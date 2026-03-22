@@ -304,6 +304,16 @@ window.addEventListener("DOMContentLoaded", async function () {
             }
         }
 
+        // Handle orders data request from Tab3 (fallback when IndexedDB unavailable)
+        if (event.data.type === 'REQUEST_ORDERS_DATA') {
+            const orders = window.getAllOrders ? window.getAllOrders() : [];
+            window.parent.postMessage({
+                type: 'ORDERS_DATA_RESPONSE_TAB3',
+                orders: orders
+            }, '*');
+            console.log('[TAB1] 📤 Sent orders data to Tab3:', orders.length, 'orders');
+        }
+
         // Handle retail sale from Social tab
         if (event.data.type === 'OPEN_RETAIL_SALE_FROM_SOCIAL') {
             console.log('[TAB1] 🧾 Received social order data for retail sale:', event.data.orderData);

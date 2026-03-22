@@ -1280,6 +1280,14 @@ async function fetchOrders() {
             window.OrderStore.setAll(allData);
         }
 
+        // Save to IndexedDB for cross-tab access (Tab3, Overview, etc.)
+        if (window.indexedDBStorage) {
+            window.indexedDBStorage.setItem('allOrders', {
+                orders: allData,
+                timestamp: Date.now()
+            }).catch(err => console.error('[TAB1] IndexedDB save error:', err));
+        }
+
         // Render table with all data
         performTableSearch();
         updateSearchResultCount();
