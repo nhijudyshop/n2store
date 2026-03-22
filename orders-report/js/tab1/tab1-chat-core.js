@@ -105,6 +105,18 @@ window.openChatModal = async function(orderId, pageId, psid, conversationType) {
 
     // Start realtime
     _startRealtimeForChat();
+
+    // Load order products in right panel
+    if (typeof window.loadChatOrderProducts === 'function' && orderId) {
+        window.loadChatOrderProducts(orderId);
+    }
+
+    // Set panel toggle button active state
+    const toggleBtn = document.querySelector('.chat-panel-toggle-btn');
+    const panel = document.getElementById('chatRightPanel');
+    if (toggleBtn && panel) {
+        toggleBtn.classList.toggle('active', !panel.classList.contains('collapsed'));
+    }
 };
 
 /**
@@ -145,6 +157,11 @@ window.closeChatModal = function() {
 
     // Clear image previews
     if (window.clearImagePreviews) window.clearImagePreviews();
+
+    // Cleanup products panel
+    if (typeof window.cleanupChatProducts === 'function') {
+        window.cleanupChatProducts();
+    }
 };
 
 // Also provide closeCommentModal alias
