@@ -221,10 +221,10 @@ console.log('[ChatProducts-UI] Loading...');
 
         return `
         <tr class="chat-product-row" data-product-id="${p.ProductId}">
-            <td style="width: 52px;">${imgHtml}</td>
-            <td>
-                <div style="font-weight: 600; font-size: 12px; color: #1e293b; margin-bottom: 2px;">${productName}</div>
-                <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 3px;">
+            <td style="width: 48px;">${imgHtml}</td>
+            <td class="chat-product-info-cell">
+                <div class="chat-product-name" title="${productName}">${productName}</div>
+                <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 2px; flex-wrap: wrap;">
                     <span class="chat-main-badge"><i class="fas fa-check-circle"></i> Chính</span>
                     ${productCode ? `<span style="font-size: 10px; color: #6b7280;">Mã: ${productCode}</span>` : ''}
                 </div>
@@ -237,12 +237,12 @@ console.log('[ChatProducts-UI] Loading...');
                     </span>
                 </div>
             </td>
-            <td style="text-align: center; width: 90px;">
+            <td style="text-align: center; width: 70px;">
                 <div class="chat-quantity-controls">
                     <button class="chat-qty-btn" onclick="window.decreaseMainProductQuantityById(${p.ProductId})" title="Giảm số lượng">
                         <i class="fas fa-minus"></i>
                     </button>
-                    <span style="font-size: 14px; font-weight: 700; min-width: 24px; text-align: center;">${p.Quantity || 0}</span>
+                    <span style="font-size: 14px; font-weight: 700; min-width: 20px; text-align: center;">${p.Quantity || 0}</span>
                 </div>
             </td>
         </tr>`;
@@ -264,20 +264,19 @@ console.log('[ChatProducts-UI] Loading...');
 
         return `
         <tr class="chat-product-row held-product" data-product-id="${p.ProductId}">
-            <td style="width: 52px;">${imgHtml}</td>
-            <td>
-                <div style="font-weight: 600; font-size: 12px; color: #92400e; margin-bottom: 2px;">${productName}</div>
-                <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 3px;">
+            <td style="width: 48px;">${imgHtml}</td>
+            <td class="chat-product-info-cell">
+                <div class="chat-product-name held" title="${productName}">${productName}</div>
+                <div style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-bottom: 2px;">
                     <span class="chat-held-badge${isDraft ? ' saved' : ''}">
                         <i class="fas fa-${isDraft ? 'save' : 'clock'}"></i> ${isDraft ? 'Đã lưu' : 'Tạm giữ'}
                     </span>
-                    ${isFromDropped ? '<span style="font-size: 10px; color: #8b5cf6;"><i class="fas fa-arrow-left"></i> Từ hàng rớt</span>' : ''}
                     ${productCode ? `<span style="font-size: 10px; color: #6b7280;">Mã: ${productCode}</span>` : ''}
                 </div>
                 ${heldBy ? `<div style="font-size: 10px; color: #d97706;"><i class="fas fa-user"></i> ${heldBy}</div>` : ''}
                 <div style="font-size: 12px; color: #d97706; font-weight: 600; margin-top: 2px;">${(p.Price || 0).toLocaleString('vi-VN')}đ</div>
             </td>
-            <td style="text-align: center; width: 130px;">
+            <td style="text-align: center; width: 110px;">
                 <div class="chat-quantity-controls" style="margin-bottom: 4px;">
                     <button class="chat-qty-btn" onclick="window.updateHeldProductQuantityById(${p.ProductId}, -1)">
                         <i class="fas fa-minus"></i>
