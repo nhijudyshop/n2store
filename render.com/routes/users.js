@@ -14,9 +14,9 @@ const { verifyToken, requireUserMgmt, JWT_SECRET } = require('../middleware/auth
 // HELPERS
 // =====================================================
 
-/** Verify PBKDF2 password (CryptoJS compatibility - SHA1, 1000 iterations, 32 bytes) */
+/** Verify PBKDF2 password (CryptoJS 4.1.1 compatibility - SHA256, 1000 iterations, 32 bytes) */
 function verifyPBKDF2(password, hash, salt) {
-    const computed = crypto.pbkdf2Sync(password, salt, 1000, 32, 'sha1').toString('hex');
+    const computed = crypto.pbkdf2Sync(password, salt, 1000, 32, 'sha256').toString('hex');
     return computed === hash;
 }
 
