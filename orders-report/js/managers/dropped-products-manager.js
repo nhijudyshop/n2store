@@ -877,6 +877,24 @@
     };
 
     /**
+     * Remove dropped product by ProductId (used when confirming held product into order)
+     */
+    window.removeDroppedProductByProductId = async function (productId) {
+        if (!firebaseDb) return;
+
+        productId = Number(productId);
+        const product = droppedProducts.find(p => Number(p.ProductId) === productId);
+        if (!product || !product.id) return;
+
+        try {
+            await firebaseDb.ref(`${DROPPED_PRODUCTS_COLLECTION}/${product.id}`).remove();
+            console.log('[DROPPED-PRODUCTS] ✓ Removed by ProductId:', productId);
+        } catch (error) {
+            console.error('[DROPPED-PRODUCTS] ❌ Error removing by ProductId:', error);
+        }
+    };
+
+    /**
      * Update dropped product quantity
      * FIREBASE-ONLY: Uses transaction for atomic updates (critical for multi-user)
      */

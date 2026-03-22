@@ -127,6 +127,11 @@ console.log('[ChatProducts-Actions] Loading...');
             // Remove from Firebase held_products
             await removeHeldFromFirebase(orderData.Id, productId);
 
+            // If product came from dropped products, remove it from dropped list
+            if (heldProduct.IsFromDropped && typeof window.removeDroppedProductByProductId === 'function') {
+                await window.removeDroppedProductByProductId(productId);
+            }
+
             // Invalidate cache
             if (typeof window.invalidateOrderDetailsCache === 'function') {
                 window.invalidateOrderDetailsCache(orderData.Id);
