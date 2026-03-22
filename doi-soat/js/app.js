@@ -28,22 +28,42 @@
     // =====================================================
     // API
     // =====================================================
-    function getAuthToken() {
-        try {
-            const authData = JSON.parse(localStorage.getItem('loginindex_auth') || '{}');
-            return authData.token || '';
-        } catch {
-            return '';
+    async function getToken() {
+        // Try tokenManager first (managed by token-manager.js)
+        if (window.tokenManager && typeof window.tokenManager.getToken === 'function') {
+            try {
+                return await window.tokenManager.getToken();
+            } catch (e) {
+                console.warn('[DOI-SOAT] tokenManager.getToken failed:', e);
+            }
         }
+
+        // Fallback: try localStorage
+        try {
+            const companyId = window.ShopConfig?.getConfig?.()?.CompanyId || 1;
+            const key = 'bearer_token_data_' + companyId;
+            const stored = localStorage.getItem(key);
+            if (stored) {
+                const data = JSON.parse(stored);
+                if (data.access_token) return data.access_token;
+            }
+        } catch (e) { /* ignore */ }
+
+        return null;
     }
 
     async function fetchOrderByNumber(number) {
-        const token = getAuthToken();
+        const token = await getToken();
+        if (!token) {
+            throw new Error('Không có token xác thực. Vui lòng đăng nhập lại.');
+        }
+
+        const companyId = window.ShopConfig?.getConfig?.()?.CompanyId || 1;
         const baseUrl = (window.TPOS_CONFIG && window.TPOS_CONFIG.tposBaseUrl) || 'https://tomato.tpos.vn';
 
         const url = `${baseUrl}/odata/FastSaleOrder/ODataService.GetDataCrossCheck` +
             `?$expand=Partner,User,Warehouse,Company,PriceList,RefundOrder,Account,Journal,PaymentJournal,Carrier,Tax,SaleOrder,OrderLines($expand=Product,ProductUOM,Account,SaleLine,User),Ship_ServiceExtras,Team` +
-            `&number=${encodeURIComponent(number)}&companyId=1`;
+            `&number=${encodeURIComponent(number)}&companyId=${companyId}`;
 
         const resp = await fetch(url, {
             method: 'GET',
