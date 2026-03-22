@@ -28,7 +28,7 @@
     }
 
     // =====================================================
-    // AUTO-CLEAR INPUT AFTER 3s (toggleable)
+    // AUTO-CLEAR INPUT AFTER 1s (toggleable)
     // =====================================================
     let autoClearEnabled = true;
     let autoClearTimer = null;
@@ -40,7 +40,7 @@
             if (input && input.value) {
                 input.value = '';
             }
-        }, 3000);
+        }, 1000);
     }
 
     function clearAutoClearTimer() {
