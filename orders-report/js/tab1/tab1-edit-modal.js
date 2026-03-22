@@ -1723,33 +1723,6 @@ function debugPayloadBeforeSend(payload) {
 // MESSAGE HANDLER FOR CROSS-TAB COMMUNICATION
 // =====================================================
 window.addEventListener("message", function (event) {
-    // Handle request for orders data from product assignment tab
-    if (event.data.type === "REQUEST_ORDERS_DATA") {
-        console.log('📨 Nhận request orders data, allData length:', allData.length);
-
-        // Check if data is loaded
-        if (!allData || allData.length === 0) {
-            console.log('⚠️ allData chưa có dữ liệu');
-            return;
-        }
-
-        sendOrdersDataToTab3();
-    }
-
-    // Handle request for orders data from overview tab
-    if (event.data.type === "REQUEST_ORDERS_DATA_FROM_OVERVIEW") {
-        console.log('📨 [OVERVIEW] Nhận request orders data từ tab Báo Cáo Tổng Hợp');
-        console.log('📊 [OVERVIEW] allData length:', allData.length);
-
-        // Check if data is loaded
-        if (!allData || allData.length === 0) {
-            console.log('⚠️ [OVERVIEW] allData chưa có dữ liệu');
-            return;
-        }
-
-        sendOrdersDataToOverview();
-    }
-
     // Handle request to fetch conversations for orders loaded from Firebase
     if (event.data.type === "FETCH_CONVERSATIONS_FOR_ORDERS") {
         handleFetchConversationsRequest(event.data.orders || []);

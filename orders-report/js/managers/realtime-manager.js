@@ -160,8 +160,7 @@ class PancakePhoenixSocket {
         if (this.reconnectAttempts >= this.maxReconnect) {
             console.warn('[PHOENIX] Max reconnect attempts reached');
             this.onStatusChange(false);
-            // Start polling fallback when WS fails completely
-            if (window.realtimeManager) window.realtimeManager._startPollingFallback();
+            // WS failed completely - no polling fallback (server endpoint removed)
             return;
         }
         const delay = Math.min(2000 * Math.pow(2, this.reconnectAttempts), 60000);
@@ -179,11 +178,8 @@ class RealtimeManager {
     constructor() {
         this.socket = null;
         this.isConnected = false;
-        this.pollingTimer = null;
-        this.pollingInterval = 10000; // 10s
         this.lastEventTimestamp = null;
         this.eventHandlers = new Map();
-        this.REALTIME_SERVER_URL = 'https://n2store-realtime.onrender.com';
     }
 
     /**
@@ -207,10 +203,7 @@ class RealtimeManager {
                     detail: { connected }
                 }));
 
-                // If connected, stop polling fallback
-                if (connected && this.pollingTimer) {
-                    this._stopPolling();
-                }
+                // WebSocket status changed
             }
         });
 
@@ -226,7 +219,6 @@ class RealtimeManager {
             this.socket.disconnect();
             this.socket = null;
         }
-        this._stopPolling();
         this.isConnected = false;
     }
 
@@ -287,54 +279,12 @@ class RealtimeManager {
     }
 
     /**
-     * Connect via polling from n2store-realtime server
-     * Called by tab1-init.js after campaign select
+     * Connect via server mode (legacy - polling endpoint removed)
+     * Kept as no-op for backward compatibility with callers
      */
     connectServerMode() {
-        console.log('[Realtime] Connecting via Server Mode (polling)...');
-        this._startPollingFallback();
-    }
-
-    // --- Polling Fallback (when WS fails) ---
-    _startPollingFallback() {
-        if (this.pollingTimer) return;
-        console.log('[Realtime] Starting polling fallback...');
-        this.pollingTimer = setInterval(() => this._pollRealtimeServer(), this.pollingInterval);
-        this._pollRealtimeServer(); // immediate first poll
-    }
-
-    _stopPolling() {
-        if (this.pollingTimer) {
-            clearInterval(this.pollingTimer);
-            this.pollingTimer = null;
-            console.log('[Realtime] Polling stopped');
-        }
-    }
-
-    async _pollRealtimeServer() {
-        try {
-            let url = `${this.REALTIME_SERVER_URL}/api/events?limit=50`;
-            if (this.lastEventTimestamp) {
-                url += `&since=${new Date(this.lastEventTimestamp).toISOString()}`;
-            }
-
-            const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
-            if (!res.ok) return;
-            const data = await res.json();
-
-            const events = data.events || [];
-            for (const evt of events) {
-                // Server stores types without 'pages:' prefix, normalize
-                const type = evt.type?.startsWith('pages:') ? evt.type : `pages:${evt.type}`;
-                this._handleEvent(type, evt.payload);
-            }
-
-            if (events.length > 0) {
-                this.lastEventTimestamp = Date.now();
-            }
-        } catch (e) {
-            // Silent fail for polling
-        }
+        // Polling to n2store-realtime server removed (endpoint no longer exists)
+        // Realtime now uses WebSocket only (initWebSocket)
     }
 }
 
