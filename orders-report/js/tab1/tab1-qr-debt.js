@@ -640,12 +640,16 @@ async function openSaleButtonModal() {
     if (prepaidEl) {
         prepaidEl.value = 0;
         prepaidEl.dataset.originalBalance = '';
+        prepaidEl.dataset.manualEdit = '';
         prepaidEl.style.border = '';
+        prepaidEl.style.color = '';
     }
     const prepaidDateEl = document.getElementById('salePrepaidDate');
     if (prepaidDateEl) prepaidDateEl.value = '';
     const prepaidWarning = document.getElementById('prepaidExcessWarning');
     if (prepaidWarning) prepaidWarning.style.display = 'none';
+    const editPrepaidBtn = document.getElementById('editPrepaidBtn');
+    if (editPrepaidBtn) editPrepaidBtn.style.display = 'none';
 
     // Show modal with loading state
     const modal = document.getElementById('saleButtonModal');
@@ -679,6 +683,8 @@ async function openSaleButtonModal() {
             prepaidAmountField.disabled = false;
             prepaidAmountField.style.background = '#ffffff';
             if (confirmDebtBtn) confirmDebtBtn.style.display = 'inline-flex';
+            const editPrepaidBtnAdmin = document.getElementById('editPrepaidBtn');
+            if (editPrepaidBtnAdmin) editPrepaidBtnAdmin.style.display = 'none';
             console.log('[SALE-MODAL] Admin detected - Công nợ field enabled with confirm button');
         } else {
             prepaidAmountField.disabled = true;
@@ -836,12 +842,16 @@ async function openSaleModalFromSocialOrder(socialOrder) {
     if (prepaidEl) {
         prepaidEl.value = 0;
         prepaidEl.dataset.originalBalance = '';
+        prepaidEl.dataset.manualEdit = '';
         prepaidEl.style.border = '';
+        prepaidEl.style.color = '';
     }
     const prepaidDateEl = document.getElementById('salePrepaidDate');
     if (prepaidDateEl) prepaidDateEl.value = '';
     const prepaidWarning = document.getElementById('prepaidExcessWarning');
     if (prepaidWarning) prepaidWarning.style.display = 'none';
+    const editPrepaidBtn = document.getElementById('editPrepaidBtn');
+    if (editPrepaidBtn) editPrepaidBtn.style.display = 'none';
 
     // Show modal
     const modal = document.getElementById('saleButtonModal');
@@ -873,6 +883,8 @@ async function openSaleModalFromSocialOrder(socialOrder) {
             prepaidAmountField.disabled = false;
             prepaidAmountField.style.background = '#ffffff';
             if (confirmDebtBtn) confirmDebtBtn.style.display = 'inline-flex';
+            const editPrepaidBtnAdmin = document.getElementById('editPrepaidBtn');
+            if (editPrepaidBtnAdmin) editPrepaidBtnAdmin.style.display = 'none';
         } else {
             prepaidAmountField.disabled = true;
             prepaidAmountField.style.background = '#f3f4f6';

@@ -285,56 +285,74 @@ function updateSaleRemainingBalance() {
 // =====================================================
 // CHECK PREPAID EXCESS AND TOGGLE FIELD
 // =====================================================
-// Khi công nợ > tổng bill: cho phép nhân viên chỉnh sửa số tiền muốn trừ
+// Auto-set prepaid = min(wallet, COD), disabled mặc định, bấm bút để chỉnh
 function checkPrepaidExcessAndToggle() {
     const prepaidField = document.getElementById('salePrepaidAmount');
     const warningDiv = document.getElementById('prepaidExcessWarning');
     if (!prepaidField) return;
 
-    // Admin đã được enable sẵn từ modal opener, không cần can thiệp
     const isAdmin = window.authManager?.isAdminTemplate?.() || false;
+    const originalBalance = parseFloat(prepaidField.dataset.originalBalance) || 0;
+    const codValue = parseFloat(document.getElementById('saleCOD')?.value) || 0;
+
+    // ===== ADMIN BRANCH =====
     if (isAdmin) {
-        // Vẫn hiện warning nếu wallet > COD (để admin biết)
-        const originalBalance = parseFloat(prepaidField.dataset.originalBalance) || 0;
-        const codValue = parseFloat(document.getElementById('saleCOD')?.value) || 0;
+        if (originalBalance > 0 && codValue > 0) {
+            const maxVal = Math.min(originalBalance, codValue);
+            if (!prepaidField.dataset.manualEdit) {
+                prepaidField.value = maxVal;
+            }
+            if (parseFloat(prepaidField.value) > maxVal) {
+                prepaidField.value = maxVal;
+            }
+        }
         if (originalBalance > codValue && codValue > 0 && warningDiv) {
             warningDiv.style.display = 'block';
         } else if (warningDiv) {
             warningDiv.style.display = 'none';
         }
+        updateSaleRemainingBalance();
         return;
     }
 
-    const originalBalance = parseFloat(prepaidField.dataset.originalBalance) || 0;
-    const codValue = parseFloat(document.getElementById('saleCOD')?.value) || 0;
+    // ===== NON-ADMIN BRANCH =====
+    const editBtn = document.getElementById('editPrepaidBtn');
 
-    if (originalBalance > 0) {
-        // Wallet có tiền: cho phép user nhập số tiền muốn trừ
-        prepaidField.disabled = false;
-        prepaidField.style.background = '#ffffff';
+    if (originalBalance > 0 && codValue > 0) {
+        const maxVal = Math.min(originalBalance, codValue);
         prepaidField.min = 0;
-
-        const maxVal = Math.min(originalBalance, codValue > 0 ? codValue : originalBalance);
         prepaidField.max = maxVal;
 
-        // Điền sẵn giá trị mặc định = min(wallet, COD)
-        const currentVal = parseFloat(prepaidField.value) || 0;
-        if (currentVal > maxVal) {
+        // Auto-set = min(wallet, COD), trừ khi user đã bấm bút chỉnh tay
+        if (!prepaidField.dataset.manualEdit) {
             prepaidField.value = maxVal;
-        } else if (currentVal === 0 || prepaidField.value === '...' || prepaidField.value === '') {
+        }
+        // Giới hạn không vượt quá max (kể cả manual edit)
+        if (parseFloat(prepaidField.value) > maxVal) {
             prepaidField.value = maxVal;
         }
 
-        // Wallet > COD: border đỏ + warning
-        if (originalBalance > codValue && codValue > 0) {
+        // Mặc định disabled, chỉ enable khi bấm bút
+        if (!prepaidField.dataset.manualEdit) {
+            prepaidField.disabled = true;
+            prepaidField.style.background = '#f3f4f6';
+        }
+
+        // Hiện nút bút khi field đang disabled
+        if (editBtn) editBtn.style.display = prepaidField.disabled ? 'inline-flex' : 'none';
+
+        // Wallet > COD: tô đỏ ô + warning
+        if (originalBalance > codValue) {
             prepaidField.style.border = '2px solid #dc2626';
+            prepaidField.style.color = '#dc2626';
             if (warningDiv) warningDiv.style.display = 'block';
         } else {
-            prepaidField.style.border = '1px solid #10b981';
+            prepaidField.style.border = prepaidField.disabled ? '' : '1px solid #10b981';
+            prepaidField.style.color = '';
             if (warningDiv) warningDiv.style.display = 'none';
         }
 
-        // Clamp value khi user nhập
+        // Giới hạn value khi user nhập (sau khi bấm bút)
         prepaidField.oninput = function () {
             let val = parseFloat(this.value) || 0;
             const currentMax = Math.min(
@@ -345,17 +363,42 @@ function checkPrepaidExcessAndToggle() {
             if (val < 0) { this.value = 0; }
             updateSaleRemainingBalance();
         };
-    } else {
-        // Wallet = 0: disable field
+    } else if (originalBalance > 0 && codValue <= 0) {
+        // Wallet có nhưng COD chưa tính xong → set 0, chờ COD load
+        prepaidField.value = 0;
         prepaidField.disabled = true;
         prepaidField.style.background = '#f3f4f6';
         prepaidField.style.border = '';
+        prepaidField.style.color = '';
+        if (editBtn) editBtn.style.display = 'none';
+        if (warningDiv) warningDiv.style.display = 'none';
+    } else {
+        // Wallet = 0: disable field, ẩn nút bút
+        prepaidField.disabled = true;
+        prepaidField.style.background = '#f3f4f6';
+        prepaidField.style.border = '';
+        prepaidField.style.color = '';
         prepaidField.value = 0;
+        if (editBtn) editBtn.style.display = 'none';
         if (warningDiv) warningDiv.style.display = 'none';
     }
     updateSaleRemainingBalance();
 }
 
+function enablePrepaidEdit() {
+    const prepaidField = document.getElementById('salePrepaidAmount');
+    if (!prepaidField) return;
+    prepaidField.disabled = false;
+    prepaidField.dataset.manualEdit = '1';
+    prepaidField.style.background = '#ffffff';
+    prepaidField.style.border = '2px solid #f59e0b';
+    prepaidField.focus();
+    prepaidField.select();
+    const editBtn = document.getElementById('editPrepaidBtn');
+    if (editBtn) editBtn.style.display = 'none';
+}
+
+window.enablePrepaidEdit = enablePrepaidEdit;
 window.checkPrepaidExcessAndToggle = checkPrepaidExcessAndToggle;
 window.updateSaleRemainingBalance = updateSaleRemainingBalance;
 window.fetchDeliveryCarriers = fetchDeliveryCarriers;
