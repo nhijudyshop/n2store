@@ -413,7 +413,7 @@ console.log('[TemplateMgr] Loading...');
         if (!modal) {
             modal = document.createElement('div');
             modal.id = 'messageTemplateModal';
-            modal.className = 'chat-modal';
+            modal.className = 'chat-modal-overlay';
             document.body.appendChild(modal);
         }
 
