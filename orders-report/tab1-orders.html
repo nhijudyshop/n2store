@@ -872,7 +872,7 @@
                             <i class="fas fa-shopping-cart"></i> Đơn hàng <span class="chat-tab-badge" id="chatOrdersCountBadge">0</span>
                         </button>
                         <button class="chat-tab-btn" data-tab="dropped" onclick="switchChatPanelTab('dropped')">
-                            <i class="fas fa-arrow-down"></i> Hàng rớt - xả <span class="chat-tab-badge chat-tab-badge-danger" id="chatDroppedCountBadge">0</span>
+                            <i class="fas fa-arrow-down"></i> Hàng rớt<br>- xả <span class="chat-tab-badge chat-tab-badge-danger" id="chatDroppedCountBadge">0</span>
                         </button>
                         <button class="chat-tab-btn" data-tab="history" onclick="switchChatPanelTab('history')">
                             <i class="fas fa-history"></i> Lịch sử
@@ -915,15 +915,7 @@
 
                     <!-- Tab: Hàng rớt - xả -->
                     <div class="chat-tab-content" id="chatTabDropped" style="display: none;">
-                        <!-- Filter search bar -->
-                        <div class="chat-order-search-container">
-                            <div class="chat-order-search-wrapper">
-                                <i class="fas fa-search"></i>
-                                <input type="text" id="chatDroppedProductSearch" placeholder="Tìm sản phẩm trong hàng rớt - xả..."
-                                    oninput="window.filterDroppedProducts(this.value)">
-                            </div>
-                        </div>
-                        <!-- Dropped products table -->
+                        <!-- Dropped products - rendered by dropped-products-manager.js -->
                         <div class="chat-products-scroll" id="chatDroppedProductsContainer">
                             <div class="chat-empty-products">
                                 <i class="fas fa-box-open"></i>

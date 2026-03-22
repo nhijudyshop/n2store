@@ -49,7 +49,12 @@ console.log('[ChatProducts-UI] Loading...');
      * Called when openChatModal opens a new order
      */
     window.loadChatOrderProducts = async function (orderId) {
-        if (!orderId) return;
+        if (!orderId) {
+            console.warn('[ChatProducts-UI] loadChatOrderProducts called without orderId');
+            return;
+        }
+
+        console.log('[ChatProducts-UI] Loading order products for:', orderId);
 
         const container = document.getElementById('chatProductsTableContainer');
         if (container) {
@@ -65,15 +70,25 @@ console.log('[ChatProducts-UI] Loading...');
             const orderData = await getOrderDetailsWithCache(orderId);
 
             if (!orderData) {
+                console.warn('[ChatProducts-UI] No order data returned for:', orderId);
                 if (container) {
                     container.innerHTML = '<div class="chat-empty-products"><i class="fas fa-exclamation-triangle"></i><p>Không tải được dữ liệu đơn hàng</p></div>';
                 }
                 return;
             }
 
+            console.log('[ChatProducts-UI] Order loaded:', orderId, 'Products:', orderData.Details?.length || 0);
+
             // Store globally for other modules
             window.currentChatOrderData = orderData;
             window.currentChatOrderData.Details = orderData.Details || [];
+
+            // Enrich product details with display info from API response
+            window.currentChatOrderData.Details.forEach(d => {
+                if (!d.ProductNameGet && d.ProductName) {
+                    d.ProductNameGet = d.ProductName;
+                }
+            });
 
             // Setup held products listener
             if (typeof window.setupHeldProductsListener === 'function') {
@@ -366,8 +381,22 @@ console.log('[ChatProducts-UI] Loading...');
                 let results = [];
 
                 // Use ProductSearchModule if available
-                if (window.productSearchManager && window.productSearchManager.isLoaded) {
-                    results = window.productSearchManager.searchProducts(query, 15);
+                if (window.productSearchManager) {
+                    // Try loading if not loaded yet
+                    if (!window.productSearchManager.isLoaded && typeof window.productSearchManager.fetchExcelProducts === 'function') {
+                        try {
+                            await window.productSearchManager.fetchExcelProducts();
+                        } catch (e) {
+                            console.warn('[ChatProducts-UI] Could not load Excel data:', e.message);
+                        }
+                    }
+
+                    if (window.productSearchManager.isLoaded && typeof window.productSearchManager.search === 'function') {
+                        results = window.productSearchManager.search(query, 15);
+                    } else {
+                        // Fallback to API search
+                        results = await searchProductsFromAPI(query);
+                    }
                 } else {
                     // Fallback to API search
                     results = await searchProductsFromAPI(query);
