@@ -6,8 +6,7 @@
 
 body {
     font-family:
-        -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
-        Arial, sans-serif;
+        -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     font-size: 13px;
     color: #333;
     background-color: #f5f5f5;
@@ -168,8 +167,8 @@ body {
 }
 
 /* Actions column - fixed width */
-.table th[data-column="actions"],
-.table td[data-column="actions"] {
+.table th[data-column='actions'],
+.table td[data-column='actions'] {
     width: 70px;
     min-width: 70px;
     text-align: center;
@@ -177,8 +176,8 @@ body {
 }
 
 /* STT column */
-.table th[data-column="stt"],
-.table td[data-column="stt"] {
+.table th[data-column='stt'],
+.table td[data-column='stt'] {
     width: 50px;
     min-width: 50px;
     text-align: center;
@@ -200,31 +199,31 @@ body {
 }
 
 /* TAG column - fixed */
-.table th[data-column="tag"],
-.table td[data-column="tag"] {
+.table th[data-column='tag'],
+.table td[data-column='tag'] {
     width: 252px;
     min-width: 252px;
     white-space: normal;
 }
 
 /* Employee column */
-.table th[data-column="employee"],
-.table td[data-column="employee"] {
+.table th[data-column='employee'],
+.table td[data-column='employee'] {
     width: 80px;
     min-width: 80px;
     text-align: center;
 }
 
 /* Order code column */
-.table th[data-column="order-code"],
-.table td[data-column="order-code"] {
+.table th[data-column='order-code'],
+.table td[data-column='order-code'] {
     width: 90px;
     min-width: 90px;
 }
 
 /* Customer column - fixed */
-.table th[data-column="customer"],
-.table td[data-column="customer"] {
+.table th[data-column='customer'],
+.table td[data-column='customer'] {
     width: 160px;
     min-width: 160px;
     white-space: normal;
@@ -232,111 +231,111 @@ body {
 }
 
 /* Customer name bold */
-.table td[data-column="customer"] .customer-name {
+.table td[data-column='customer'] .customer-name {
     font-weight: 600;
 }
 
 /* Messages column - expandable */
-.table th[data-column="messages"],
-.table td[data-column="messages"] {
+.table th[data-column='messages'],
+.table td[data-column='messages'] {
     min-width: 100px;
     white-space: normal;
     word-break: break-word;
 }
 
 /* Comments column - expandable */
-.table th[data-column="comments"],
-.table td[data-column="comments"] {
+.table th[data-column='comments'],
+.table td[data-column='comments'] {
     min-width: 100px;
     white-space: normal;
     word-break: break-word;
 }
 
 /* Phone number column */
-.table th[data-column="phone"],
-.table td[data-column="phone"] {
+.table th[data-column='phone'],
+.table td[data-column='phone'] {
     width: 110px;
     min-width: 110px;
 }
 
 /* QR column */
-.table th[data-column="qr"],
-.table td[data-column="qr"] {
+.table th[data-column='qr'],
+.table td[data-column='qr'] {
     width: 50px;
     min-width: 50px;
     text-align: center;
 }
 
 /* Debt column */
-.table th[data-column="debt"],
-.table td[data-column="debt"] {
+.table th[data-column='debt'],
+.table td[data-column='debt'] {
     width: 80px;
     min-width: 80px;
     text-align: right;
 }
 
 /* Address column - expandable */
-.table th[data-column="address"],
-.table td[data-column="address"] {
+.table th[data-column='address'],
+.table td[data-column='address'] {
     min-width: 200px;
     white-space: normal;
 }
 
 /* Notes column - expandable */
-.table th[data-column="notes"],
-.table td[data-column="notes"] {
+.table th[data-column='notes'],
+.table td[data-column='notes'] {
     min-width: 150px;
     white-space: normal;
     word-break: break-word;
 }
 
 /* Total column */
-.table th[data-column="total"],
-.table td[data-column="total"] {
+.table th[data-column='total'],
+.table td[data-column='total'] {
     width: 90px;
     min-width: 90px;
     text-align: right;
 }
 
 /* Quantity column */
-.table th[data-column="quantity"],
-.table td[data-column="quantity"] {
+.table th[data-column='quantity'],
+.table td[data-column='quantity'] {
     width: 40px;
     min-width: 40px;
     text-align: center;
 }
 
 /* Created date column */
-.table th[data-column="created-date"],
-.table td[data-column="created-date"] {
+.table th[data-column='created-date'],
+.table td[data-column='created-date'] {
     width: 100px;
     min-width: 100px;
 }
 
 /* Status column */
-.table th[data-column="status"],
-.table td[data-column="status"] {
+.table th[data-column='status'],
+.table td[data-column='status'] {
     width: 70px;
     min-width: 70px;
     text-align: center;
 }
 
 /* Sortable column headers */
-.table th[data-column="phone"],
-.table th[data-column="address"],
-.table th[data-column="debt"],
-.table th[data-column="total"],
-.table th[data-column="quantity"] {
+.table th[data-column='phone'],
+.table th[data-column='address'],
+.table th[data-column='debt'],
+.table th[data-column='total'],
+.table th[data-column='quantity'] {
     cursor: pointer;
     user-select: none;
     transition: background-color 0.2s ease;
 }
 
-.table th[data-column="phone"]:hover,
-.table th[data-column="address"]:hover,
-.table th[data-column="debt"]:hover,
-.table th[data-column="total"]:hover,
-.table th[data-column="quantity"]:hover {
+.table th[data-column='phone']:hover,
+.table th[data-column='address']:hover,
+.table th[data-column='debt']:hover,
+.table th[data-column='total']:hover,
+.table th[data-column='quantity']:hover {
     background-color: #e5e7eb;
 }
 
@@ -1498,7 +1497,7 @@ body {
 }
 
 .edit-tab-btn.active::after {
-    content: "";
+    content: '';
     position: absolute;
     bottom: -2px;
     left: 0;
@@ -1655,7 +1654,7 @@ body {
 }
 
 .history-timeline::before {
-    content: "";
+    content: '';
     position: absolute;
     left: 0;
     top: 0;
@@ -1671,7 +1670,7 @@ body {
 }
 
 .history-item::before {
-    content: "";
+    content: '';
     position: absolute;
     left: -27px;
     top: 4px;
@@ -2114,7 +2113,7 @@ body {
     pointer-events: none;
 }
 
-.inline-search-input:focus+.search-hint {
+.inline-search-input:focus + .search-hint {
     display: none;
 }
 
@@ -2233,7 +2232,6 @@ body {
 }
 
 @keyframes checkPulse {
-
     0%,
     100% {
         transform: scale(1);
@@ -2279,7 +2277,7 @@ body {
 .inline-result-code {
     font-size: 12px;
     color: #6b7280;
-    font-family: "Courier New", monospace;
+    font-family: 'Courier New', monospace;
 }
 
 .inline-result-price {
@@ -2339,7 +2337,7 @@ body {
 
 /* Remove old button (if exists) */
 .btn-add-product,
-button[onclick*="showAddProductForm"] {
+button[onclick*='showAddProductForm'] {
     display: none !important;
 }
 
@@ -2579,7 +2577,7 @@ button[onclick*="showAddProductForm"] {
 .search-result-code {
     font-size: 11px;
     color: #6b7280;
-    font-family: "Courier New", monospace;
+    font-family: 'Courier New', monospace;
     margin-bottom: 2px;
 }
 
@@ -2859,7 +2857,6 @@ button[onclick*="showAddProductForm"] {
     }
 }
 
-
 /* =====================================================
    AUDIT LOG ENHANCEMENTS
    ===================================================== */
@@ -3051,7 +3048,6 @@ button[onclick*="showAddProductForm"] {
 }
 
 @keyframes pulse-badge {
-
     0%,
     100% {
         transform: scale(1);
@@ -3225,7 +3221,8 @@ button[onclick*="showAddProductForm"] {
 }
 
 @keyframes avatar-pulse {
-    0%, 100% {
+    0%,
+    100% {
         opacity: 0.6;
     }
     50% {
@@ -3286,7 +3283,7 @@ button[onclick*="showAddProductForm"] {
 }
 
 .quoted-message:hover::after {
-    content: "Nhấn để xem tin nhắn gốc";
+    content: 'Nhấn để xem tin nhắn gốc';
     position: absolute;
     top: -20px;
     left: 50%;
@@ -3578,7 +3575,7 @@ button[onclick*="showAddProductForm"] {
     cursor: pointer;
 }
 
-.merge-select-all-label input[type="checkbox"] {
+.merge-select-all-label input[type='checkbox'] {
     width: 18px;
     height: 18px;
     cursor: pointer;
@@ -4499,7 +4496,7 @@ button[onclick*="showAddProductForm"] {
     border-color: #8b5cf6;
 }
 
-.column-setting-item input[type="checkbox"] {
+.column-setting-item input[type='checkbox'] {
     width: 18px;
     height: 18px;
     margin-right: 12px;
@@ -4585,7 +4582,7 @@ td[data-column].hidden {
         gap: 12px;
     }
 
-    .column-settings-modal-footer>div {
+    .column-settings-modal-footer > div {
         width: 100%;
     }
 
@@ -4658,98 +4655,6 @@ td[data-column].hidden {
     100% {
         background-color: transparent;
     }
-}
-
-/* Chat Modal 2-Column Layout */
-.chat-modal-content {
-    display: flex;
-    flex-direction: row;
-    max-width: 1600px;
-    width: 92%;
-    height: 90vh;
-    max-height: 90vh;
-    overflow: hidden;
-    border-radius: 12px;
-    background: white;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-    animation: slideIn 0.3s ease;
-}
-
-.chat-left-panel {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    border-right: 1px solid #e5e7eb;
-    min-width: 0;
-    max-width: 100%;
-    transition: all 0.3s ease;
-    /* Prevent flex item from overflowing */
-}
-
-/* When right panel is open, left panel has fixed width */
-.chat-right-panel:not(.collapsed) ~ .chat-left-panel,
-.chat-modal-content:has(.chat-right-panel:not(.collapsed)) .chat-left-panel {
-    flex: 0 0 1000px;
-    max-width: 1000px;
-}
-
-.chat-right-panel {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    background: #f9fafb;
-    border-left: 1px solid #e5e7eb;
-    transition: all 0.3s ease;
-    overflow: hidden;
-}
-
-/* Collapsed state - hide right panel */
-.chat-right-panel.collapsed {
-    flex: 0 0 0;
-    width: 0;
-    min-width: 0;
-    border-left: none;
-    opacity: 0;
-    visibility: hidden;
-}
-
-/* Toggle button for right panel */
-.chat-panel-toggle-btn {
-    position: absolute;
-    left: -16px;
-    top: 50%;
-    transform: translateY(-50%);
-    background: white;
-    border: 1px solid #e5e7eb;
-    width: 32px;
-    height: 64px;
-    border-radius: 8px 0 0 8px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s ease;
-    box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
-    z-index: 10;
-    color: #6b7280;
-}
-
-.chat-panel-toggle-btn:hover {
-    background: #f9fafb;
-    color: #3b82f6;
-    box-shadow: -2px 0 12px rgba(0, 0, 0, 0.15);
-}
-
-.chat-right-panel.collapsed .chat-panel-toggle-btn {
-    position: fixed;
-    right: 2.5vw;
-    left: auto;
-    border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.chat-right-panel.collapsed .chat-panel-toggle-btn:hover {
-    transform: translateY(-50%) scale(1.05);
 }
 
 /* Hide message reply type toggle - always use Messenger */
@@ -4960,7 +4865,9 @@ td[data-column].hidden {
     background: white;
     border: 1px solid #e5e7eb;
     border-radius: 8px;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    box-shadow:
+        0 10px 15px -3px rgba(0, 0, 0, 0.1),
+        0 4px 6px -2px rgba(0, 0, 0, 0.05);
     z-index: 10001;
     min-width: 220px;
     display: none;
@@ -5378,7 +5285,9 @@ td[data-column].hidden {
     background: white;
     border: 1px solid #d1d5db;
     border-radius: 4px;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    box-shadow:
+        0 4px 6px -1px rgba(0, 0, 0, 0.1),
+        0 2px 4px -1px rgba(0, 0, 0, 0.06);
     z-index: 100;
     margin-top: 4px;
     max-height: 200px;
@@ -5667,7 +5576,7 @@ td[data-column].hidden {
     color: #374151;
 }
 
-.bulk-tag-select-all-label input[type="checkbox"] {
+.bulk-tag-select-all-label input[type='checkbox'] {
     width: 18px;
     height: 18px;
     cursor: pointer;
@@ -5771,7 +5680,7 @@ td[data-column].hidden {
     border-right: 1px solid #e5e7eb;
 }
 
-.bulk-tag-row-tag input[type="checkbox"] {
+.bulk-tag-row-tag input[type='checkbox'] {
     width: 18px;
     height: 18px;
     cursor: pointer;
@@ -6655,12 +6564,24 @@ td[data-column].hidden {
 }
 
 /* StateCode color classes */
-.text-info-lt { color: #17a2b8; }
-.text-warning-dk { color: #e67e22; }
-.text-danger { color: #dc3545; }
-.text-danger-dker { color: #c0392b; }
-.text-success-dk { color: #27ae60; }
-.text-secondary { color: #6c757d; }
+.text-info-lt {
+    color: #17a2b8;
+}
+.text-warning-dk {
+    color: #e67e22;
+}
+.text-danger {
+    color: #dc3545;
+}
+.text-danger-dker {
+    color: #c0392b;
+}
+.text-success-dk {
+    color: #27ae60;
+}
+.text-secondary {
+    color: #6c757d;
+}
 
 /* =====================================================
    FIXED ACTION BUTTONS SECTION - Compact & Fixed at top
