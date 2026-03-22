@@ -28,14 +28,16 @@
     }
 
     // =====================================================
-    // AUTO-CLEAR INPUT AFTER 1s (toggleable)
+    // SCANNER MODE (toggle: Máy quét ON/OFF)
+    // ON  = auto-clear 1s, barcode scanner mode
+    // OFF = manual entry, show name input, log to Firestore
     // =====================================================
-    let autoClearEnabled = true;
+    let scannerMode = true; // true = máy quét, false = nhập tay
     let autoClearTimer = null;
 
     function startAutoClearTimer(input) {
         clearAutoClearTimer();
-        if (!autoClearEnabled) return;
+        if (!scannerMode) return;
         autoClearTimer = setTimeout(() => {
             if (input && input.value) {
                 input.value = '';
@@ -47,6 +49,64 @@
         if (autoClearTimer) {
             clearTimeout(autoClearTimer);
             autoClearTimer = null;
+        }
+    }
+
+    function setScannerMode(enabled) {
+        scannerMode = enabled;
+        const manualRow = document.getElementById('manualEntryRow');
+        if (manualRow) {
+            manualRow.style.display = enabled ? 'none' : '';
+        }
+        if (enabled) {
+            // Scanner mode: no need for manual name
+        } else {
+            clearAutoClearTimer();
+        }
+    }
+
+    // =====================================================
+    // FIRESTORE: Manual entry log (auto-delete after 30 days)
+    // =====================================================
+    function getManualLogCollection() {
+        if (typeof firebase === 'undefined' || !firebase.firestore) return null;
+        return firebase.firestore().collection('manual_crosscheck_log');
+    }
+
+    async function saveManualEntryLog(orderNumber, orderId, barcode, productName, userName) {
+        const col = getManualLogCollection();
+        if (!col) {
+            console.warn('[DOI-SOAT] Firestore not available, skip manual log');
+            return;
+        }
+        try {
+            await col.add({
+                orderNumber,
+                orderId,
+                barcode,
+                productName,
+                userName: userName || 'Không rõ',
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                expireAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+            });
+        } catch (e) {
+            console.error('[DOI-SOAT] Failed to save manual log:', e);
+        }
+    }
+
+    async function cleanupManualLogs() {
+        const col = getManualLogCollection();
+        if (!col) return;
+        try {
+            const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+            const snap = await col.where('expireAt', '<=', cutoff).limit(50).get();
+            if (snap.empty) return;
+            const batch = firebase.firestore().batch();
+            snap.docs.forEach(doc => batch.delete(doc.ref));
+            await batch.commit();
+            console.log(`[DOI-SOAT] Cleaned up ${snap.size} expired manual logs`);
+        } catch (e) {
+            console.error('[DOI-SOAT] Cleanup error:', e);
         }
     }
 
@@ -333,6 +393,18 @@
         checkedQuantities[lineBarcode] = currentQty + 1;
         const newQty = checkedQuantities[lineBarcode];
 
+        // Log manual entry to Firestore
+        if (!scannerMode) {
+            const userName = (document.getElementById('manualUserName') || {}).value || '';
+            saveManualEntryLog(
+                currentOrder.Number || currentOrder.MoveName || '',
+                currentOrder.Id,
+                lineBarcode,
+                matchedLine.ProductNameGet || matchedLine.Name || '',
+                userName
+            );
+        }
+
         if (newQty >= totalQty) {
             showToast(`${matchedLine.ProductNameGet || matchedLine.Name} - Đủ! (${newQty}/${Math.floor(totalQty)})`, 'success');
         } else {
@@ -558,15 +630,17 @@
         invoiceCodeInput.addEventListener('input', () => startAutoClearTimer(invoiceCodeInput));
         productBarcodeInput.addEventListener('input', () => startAutoClearTimer(productBarcodeInput));
 
-        // Auto-clear toggle
+        // Scanner mode toggle
         const autoClearToggle = $('#autoClearToggle');
         if (autoClearToggle) {
-            autoClearToggle.checked = autoClearEnabled;
+            autoClearToggle.checked = scannerMode;
             autoClearToggle.addEventListener('change', () => {
-                autoClearEnabled = autoClearToggle.checked;
-                if (!autoClearEnabled) clearAutoClearTimer();
+                setScannerMode(autoClearToggle.checked);
             });
         }
+
+        // Cleanup expired manual logs on init
+        cleanupManualLogs();
 
         // Tabs
         initTabs();

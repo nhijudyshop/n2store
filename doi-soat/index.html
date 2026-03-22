@@ -81,13 +81,7 @@
                         </button>
                     </div>
 
-                    <div class="hint-row">
-                        <p class="hint-text">* Tìm hoặc quét mã số PBH để lấy thông tin phiếu bán hàng</p>
-                        <label class="auto-clear-toggle">
-                            <input type="checkbox" id="autoClearToggle" checked />
-                            <span>Tự xóa 1s</span>
-                        </label>
-                    </div>
+                    <p class="hint-text">* Tìm hoặc quét mã số PBH để lấy thông tin phiếu bán hàng</p>
                 </div>
             </main>
         </div>
@@ -154,6 +148,18 @@
                                         </svg>
                                         Quét mã
                                     </button>
+                                    <label class="auto-clear-toggle" title="Bật: chế độ máy quét (auto-clear 1s). Tắt: nhập tay">
+                                        <input type="checkbox" id="autoClearToggle" checked />
+                                        <span>Máy quét</span>
+                                    </label>
+                                </div>
+                                <div class="manual-entry-row" id="manualEntryRow" style="display:none;">
+                                    <input
+                                        type="text"
+                                        id="manualUserName"
+                                        class="search-input"
+                                        placeholder="Tên người nhập tay"
+                                    />
                                 </div>
                             </div>
                         </div>
