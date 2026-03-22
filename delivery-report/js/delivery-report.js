@@ -843,20 +843,29 @@
         }
     }
 
+    function removeTones(str) {
+        return (str || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
+    }
+
+    function isReturnItem(item) {
+        return removeTones(item.Comment || '').toUpperCase().includes('THU VE');
+    }
+
     function getTabFilteredData() {
         let data = DeliveryReportState.allData || [];
         // Apply tab filter
         const tab = DeliveryReportState.activeTab;
         if (tab === 'city') {
-            data = data.filter(item => normalizeCarrier(item.CarrierName) === 'THÀNH PHỐ');
+            data = data.filter(item => normalizeCarrier(item.CarrierName) === 'THÀNH PHỐ' && !isReturnItem(item));
         } else if (tab === 'province') {
-            // Province = everything NOT city and NOT shop
             data = data.filter(item => {
                 const nc = normalizeCarrier(item.CarrierName);
-                return nc && nc !== 'THÀNH PHỐ' && nc !== 'BÁN HÀNG SHOP';
+                return nc && nc !== 'THÀNH PHỐ' && nc !== 'BÁN HÀNG SHOP' && !isReturnItem(item);
             });
         } else if (tab === 'shop') {
-            data = data.filter(item => normalizeCarrier(item.CarrierName) === 'BÁN HÀNG SHOP');
+            data = data.filter(item => normalizeCarrier(item.CarrierName) === 'BÁN HÀNG SHOP' && !isReturnItem(item));
+        } else if (tab === 'return') {
+            data = data.filter(item => isReturnItem(item));
         }
         return data;
     }
@@ -1196,19 +1205,22 @@
 
         // Tab-aware scanning: check if item belongs to current tab
         const normalizedCarrier = normalizeCarrier(match.CarrierName);
+        const matchIsReturn = isReturnItem(match);
         let belongsToTab = false;
 
         const isCity = normalizedCarrier === 'THÀNH PHỐ';
         const isShop = normalizedCarrier === 'BÁN HÀNG SHOP';
         const isProvince = normalizedCarrier && !isCity && !isShop;
 
-        if (state.activeTab === 'city' && isCity) belongsToTab = true;
-        else if (state.activeTab === 'province' && isProvince) belongsToTab = true;
-        else if (state.activeTab === 'shop' && isShop) belongsToTab = true;
+        if (state.activeTab === 'return' && matchIsReturn) belongsToTab = true;
+        else if (state.activeTab === 'city' && isCity && !matchIsReturn) belongsToTab = true;
+        else if (state.activeTab === 'province' && isProvince && !matchIsReturn) belongsToTab = true;
+        else if (state.activeTab === 'shop' && isShop && !matchIsReturn) belongsToTab = true;
 
         if (!belongsToTab) {
             let correctTab = 'khác';
-            if (isCity) correctTab = 'Thành phố';
+            if (matchIsReturn) correctTab = 'Thu về';
+            else if (isCity) correctTab = 'Thành phố';
             else if (isProvince) correctTab = 'Tỉnh';
             else if (isShop) correctTab = 'Bán hàng shop';
 
