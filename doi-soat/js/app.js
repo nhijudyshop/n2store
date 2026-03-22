@@ -509,6 +509,8 @@
                 : productBarcodeInput;
 
             activeInput.focus();
+            // Clear old value so new scan replaces it
+            activeInput.value = '';
         });
 
         // Focus input
