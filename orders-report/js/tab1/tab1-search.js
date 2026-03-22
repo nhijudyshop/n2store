@@ -1281,9 +1281,25 @@ async function fetchOrders() {
         }
 
         // Save to IndexedDB for cross-tab access (Tab3, Overview, etc.)
+        // Transform to Tab3-compatible format (stt, customerName, etc.)
         if (window.indexedDBStorage) {
+            const ordersForTabs = allData.map((order, index) => ({
+                stt: order.SessionIndex || (index + 1).toString(),
+                orderId: order.Id,
+                orderCode: order.Code,
+                customerName: order.PartnerName || order.Name,
+                phone: order.PartnerPhone || order.Telephone,
+                address: order.PartnerAddress || order.Address,
+                totalAmount: order.TotalAmount || order.AmountTotal || 0,
+                quantity: order.TotalQuantity || 0,
+                note: order.Note,
+                state: order.Status || order.State,
+                dateOrder: order.DateCreated || order.DateOrder,
+                Tags: order.Tags,
+                liveCampaignName: order.LiveCampaignName
+            }));
             window.indexedDBStorage.setItem('allOrders', {
-                orders: allData,
+                orders: ordersForTabs,
                 timestamp: Date.now()
             }).catch(err => console.error('[TAB1] IndexedDB save error:', err));
         }

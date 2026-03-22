@@ -306,7 +306,23 @@ window.addEventListener("DOMContentLoaded", async function () {
 
         // Handle orders data request from Tab3 (fallback when IndexedDB unavailable)
         if (event.data.type === 'REQUEST_ORDERS_DATA') {
-            const orders = window.getAllOrders ? window.getAllOrders() : [];
+            const rawOrders = window.getAllOrders ? window.getAllOrders() : [];
+            // Transform to Tab3-compatible format
+            const orders = rawOrders.map((order, index) => ({
+                stt: order.SessionIndex || (index + 1).toString(),
+                orderId: order.Id,
+                orderCode: order.Code,
+                customerName: order.PartnerName || order.Name,
+                phone: order.PartnerPhone || order.Telephone,
+                address: order.PartnerAddress || order.Address,
+                totalAmount: order.TotalAmount || order.AmountTotal || 0,
+                quantity: order.TotalQuantity || 0,
+                note: order.Note,
+                state: order.Status || order.State,
+                dateOrder: order.DateCreated || order.DateOrder,
+                Tags: order.Tags,
+                liveCampaignName: order.LiveCampaignName
+            }));
             window.parent.postMessage({
                 type: 'ORDERS_DATA_RESPONSE_TAB3',
                 orders: orders
