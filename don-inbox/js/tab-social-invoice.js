@@ -457,19 +457,39 @@
                 console.log(`[SOCIAL-INVOICE] Deleted invoice from InvoiceStatusStore: ${saleOnlineId}`);
             }
 
-            // Step 4: Update social order status back to "draft" (Nhap)
+            // Step 4: Update social order status back to "draft" (Nhap) + auto-tag "XÓA ĐƠN LÀM LẠI"
             const socialOrder = window.SocialOrderState?.orders?.find(o => o.id === socialOrderId);
             if (socialOrder) {
                 socialOrder.status = 'draft';
                 // Also clear invoice-related fields
                 delete socialOrder.invoiceNumber;
                 delete socialOrder.invoiceCreatedBy;
+
+                // Auto-assign "XÓA ĐƠN LÀM LẠI" tag
+                const cancelTagName = 'XÓA ĐƠN LÀM LẠI';
+                const cancelTag = window.SocialOrderState?.tags?.find(t => t.name === cancelTagName);
+                if (cancelTag) {
+                    const existingTags = socialOrder.tags || [];
+                    const alreadyHasTag = existingTags.some(t => t.id === cancelTag.id);
+                    if (!alreadyHasTag) {
+                        socialOrder.tags = [...existingTags, { id: cancelTag.id, name: cancelTag.name, color: cancelTag.color }];
+                        socialOrder.updatedAt = Date.now();
+                        console.log(`[SOCIAL-INVOICE] Auto-assigned "${cancelTagName}" tag to order: ${socialOrderId}`);
+                    }
+                } else {
+                    console.warn(`[SOCIAL-INVOICE] Tag "${cancelTagName}" not found in SocialOrderState.tags`);
+                }
+
                 // Save to storage + Firebase
                 if (typeof saveSocialOrdersToStorage === 'function') {
                     saveSocialOrdersToStorage();
                 }
                 if (typeof updateSocialOrder === 'function') {
                     updateSocialOrder(socialOrderId, { status: 'draft' });
+                }
+                // Sync tags to Firestore separately
+                if (socialOrder.tags && typeof updateSocialOrderTags === 'function') {
+                    updateSocialOrderTags(socialOrderId, socialOrder.tags);
                 }
             }
 
