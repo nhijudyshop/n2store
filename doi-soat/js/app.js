@@ -124,6 +124,7 @@
         }
 
         renderProductTable();
+        updateSaveButton();
         renderOrderDetail(data);
         showPage(reconcilePage);
 
@@ -145,13 +146,21 @@
             return;
         }
 
-        productTableBody.innerHTML = currentOrder.OrderLines.map((line, idx) => {
+        let totalChecked = 0;
+        let totalRequired = 0;
+        let totalAmount = 0;
+
+        const rows = currentOrder.OrderLines.map((line, idx) => {
             const barcode = extractBarcode(line);
             const totalQty = line.ProductUOMQty || 1;
             const checkedQty = barcode ? (checkedQuantities[barcode] || 0) : 0;
             const isDone = checkedQty >= totalQty;
             const price = line.PriceUnit || 0;
-            const totalPrice = line.PriceTotal || (price * totalQty);
+            const lineTotal = line.PriceTotal || (price * totalQty);
+
+            totalChecked += checkedQty;
+            totalRequired += Math.floor(totalQty);
+            totalAmount += lineTotal;
 
             return `<tr class="${isDone ? 'checked' : ''}">
                 <td>${idx + 1}</td>
@@ -162,7 +171,7 @@
                     </span>
                 </td>
                 <td>${formatNumber(price)}</td>
-                <td>${formatNumber(totalPrice)}</td>
+                <td>${formatNumber(lineTotal)}</td>
                 <td>
                     <span class="status-cell">
                         <span class="status-dot ${isDone ? 'green' : 'red'}"></span>
@@ -170,7 +179,45 @@
                     </span>
                 </td>
             </tr>`;
-        }).join('');
+        });
+
+        const allDone = totalChecked >= totalRequired;
+        rows.push(`<tr class="summary-row">
+            <td colspan="2"><strong>Tổng cộng</strong></td>
+            <td>
+                <span class="qty-display">
+                    <strong><span class="${allDone ? 'qty-checked' : 'qty-unchecked'}">${totalChecked}</span>/${totalRequired}</strong>
+                </span>
+            </td>
+            <td></td>
+            <td><strong>${formatNumber(totalAmount)}</strong></td>
+            <td>
+                <span class="status-cell">
+                    <span class="status-dot ${allDone ? 'green' : 'red'}"></span>
+                    <span class="${allDone ? 'status-text-green' : 'status-text-red'}">${allDone ? 'Đủ tất cả' : 'Chưa đủ'}</span>
+                </span>
+            </td>
+        </tr>`);
+
+        productTableBody.innerHTML = rows.join('');
+    }
+
+    function isAllChecked() {
+        if (!currentOrder || !currentOrder.OrderLines) return false;
+        return currentOrder.OrderLines.every(line => {
+            const barcode = extractBarcode(line);
+            if (!barcode) return true;
+            const totalQty = line.ProductUOMQty || 1;
+            return (checkedQuantities[barcode] || 0) >= totalQty;
+        });
+    }
+
+    function updateSaveButton() {
+        if (isAllChecked()) {
+            saveBtn.style.display = '';
+        } else {
+            saveBtn.style.display = 'none';
+        }
     }
 
     function renderOrderDetail(data) {
@@ -243,6 +290,7 @@
         }
 
         renderProductTable();
+        updateSaveButton();
         productBarcodeInput.focus();
     }
 
