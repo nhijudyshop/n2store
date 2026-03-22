@@ -1226,17 +1226,15 @@ function buildSaleOrderModelForInsertList() {
     const receiverPhone =
         document.getElementById('saleReceiverPhone')?.value || order.PartnerPhone || '';
     const receiverAddress = document.getElementById('saleReceiverAddress')?.value || null;
-    const deliveryNoteRaw = document.getElementById('saleDeliveryNote')?.value || '';
+    let deliveryNote = document.getElementById('saleDeliveryNote')?.value || '';
     const comment = document.getElementById('saleReceiverNote')?.value || '';
     const orderComment = order?.Comment || '';
 
-    // Nếu ghi chú (saleReceiverNote hoặc order.Comment) có "Thu về" thì thêm "thu về" vào cuối DeliveryNote
+    // Nếu ghi chú (saleReceiverNote hoặc order.Comment) có "Thu về" thì thêm "Thu về" vào cuối DeliveryNote
     const hasThuVe = /thu\s*về/i.test(comment) || /thu\s*về/i.test(orderComment);
-    const defaultDeliveryNote = 'KHÔNG ĐƯỢC TỰ Ý HOÀN ĐƠN CÓ GÌ LIÊN HỆ HOTLINE CỦA SHOP 090 8888 674 ĐỂ ĐƯỢC HỖ TRỢ';
-    // Khi có "thu về": dùng default delivery note + "thu về", không dùng order.Comment làm delivery note
-    const deliveryNote = hasThuVe
-        ? (defaultDeliveryNote + ' thu về')
-        : deliveryNoteRaw;
+    if (hasThuVe) {
+        deliveryNote = deliveryNote.trimEnd() + ' Thu về';
+    }
 
     const shippingFeeValue = document.getElementById('saleShippingFee')?.value;
     const shippingFee =
@@ -1667,16 +1665,15 @@ function buildFastSaleOrderPayload() {
         document.getElementById('saleReceiverPhone')?.value || order.PartnerPhone || '';
     const receiverAddressRaw = document.getElementById('saleReceiverAddress')?.value || '';
     const receiverAddress = receiverAddressRaw || null; // Use null instead of empty string
-    const deliveryNoteRaw = document.getElementById('saleDeliveryNote')?.value || '';
+    let deliveryNote = document.getElementById('saleDeliveryNote')?.value || '';
     const comment = document.getElementById('saleReceiverNote')?.value || '';
     const orderComment = order?.Comment || '';
 
-    // Nếu ghi chú (saleReceiverNote hoặc order.Comment) có "Thu về" thì thêm "thu về" vào cuối DeliveryNote
+    // Nếu ghi chú (saleReceiverNote hoặc order.Comment) có "Thu về" thì thêm "Thu về" vào cuối DeliveryNote
     const hasThuVe = /thu\s*về/i.test(comment) || /thu\s*về/i.test(orderComment);
-    const defaultDeliveryNote = 'KHÔNG ĐƯỢC TỰ Ý HOÀN ĐƠN CÓ GÌ LIÊN HỆ HOTLINE CỦA SHOP 090 8888 674 ĐỂ ĐƯỢC HỖ TRỢ';
-    const deliveryNote = hasThuVe
-        ? (defaultDeliveryNote + ' thu về')
-        : deliveryNoteRaw;
+    if (hasThuVe) {
+        deliveryNote = deliveryNote.trimEnd() + ' Thu về';
+    }
 
     // 🔥 FIX: Use ?? instead of || to allow 0 value for shipping fee
     const shippingFeeValue = document.getElementById('saleShippingFee')?.value;
