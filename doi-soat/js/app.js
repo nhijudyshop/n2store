@@ -390,8 +390,9 @@
 
             if (result.Success) {
                 const orderNum = currentOrder.Number || currentOrder.MoveName || '';
+                const productList = contents;
                 goBack();
-                showSuccessBanner(`Đối soát thành công đơn ${orderNum}`);
+                showSuccessBanner(orderNum, productList);
             } else {
                 showToast(`Lỗi: ${result.Error || 'Không xác định'}`, 'error');
             }
@@ -485,9 +486,11 @@
     }
 
     let bannerTimer = null;
-    function showSuccessBanner(message) {
+    function showSuccessBanner(orderNum, productList) {
         const banner = $('#successBanner');
-        banner.textContent = message;
+        const items = productList.map(p => `<li>${p}</li>`).join('');
+        banner.innerHTML = `<div class="banner-title">Đối soát thành công đơn ${orderNum}</div>
+            <ul class="banner-products">${items}</ul>`;
         banner.style.display = '';
         if (bannerTimer) clearTimeout(bannerTimer);
         bannerTimer = setTimeout(() => {

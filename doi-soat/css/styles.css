@@ -179,6 +179,30 @@ body {
     animation: bannerFadeIn 0.3s ease;
 }
 
+.banner-title {
+    font-weight: 700;
+    font-size: 16px;
+    margin-bottom: 8px;
+}
+
+.banner-products {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    font-size: 13px;
+    font-weight: 400;
+    text-align: left;
+}
+
+.banner-products li {
+    padding: 2px 0;
+    border-bottom: 1px solid rgba(76, 175, 80, 0.2);
+}
+
+.banner-products li:last-child {
+    border-bottom: none;
+}
+
 @keyframes bannerFadeIn {
     from { opacity: 0; transform: translateY(-10px); }
     to { opacity: 1; transform: translateY(0); }
