@@ -379,10 +379,341 @@ console.log('[TemplateMgr] Loading...');
     // MESSAGE TEMPLATE MODAL UI
     // =====================================================
 
-    /**
-     * Open the message template modal for bulk sending to selected orders.
-     * Called from "Gửi tin nhắn" button in action bar.
-     */
+    let _selectedTemplateId = null;
+    let _filteredTemplates = [];
+    let _modalOrders = [];       // Orders to send in current session
+    let _modalCreated = false;
+
+    function _escHtml(s) {
+        const div = document.createElement('div');
+        div.textContent = s || '';
+        return div.innerHTML;
+    }
+
+    function _formatDate(timestamp) {
+        if (!timestamp) return '';
+        const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+        return date.toLocaleDateString('vi-VN');
+    }
+
+    // ----- Create Modal DOM -----
+    function _createModalDOM() {
+        if (_modalCreated) return;
+
+        const overlay = document.createElement('div');
+        overlay.className = 'message-modal-overlay';
+        overlay.id = 'messageTemplateModal';
+        overlay.innerHTML = `
+            <div class="message-modal">
+                <!-- Header -->
+                <div class="message-modal-header">
+                    <h3><i class="fab fa-facebook-messenger"></i> Gửi tin nhắn Facebook</h3>
+                    <button class="message-modal-close" id="msgCloseBtn">&times;</button>
+                </div>
+
+                <!-- Search -->
+                <div class="message-search-section">
+                    <div class="message-search-wrapper">
+                        <div class="message-search-input-wrapper">
+                            <i class="fas fa-search message-search-icon"></i>
+                            <input type="text" class="message-search-input" id="msgSearchInput" placeholder="Tìm kiếm template...">
+                            <button class="message-clear-search" id="msgClearSearch">&times;</button>
+                        </div>
+                        <button class="message-new-template-btn" id="msgNewTemplate">
+                            <i class="fas fa-plus"></i> Mẫu mới
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Body -->
+                <div class="message-modal-body" id="msgModalBody">
+                    <div class="message-loading">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        <p>Đang tải templates...</p>
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="message-modal-footer">
+                    <div class="message-footer-info">
+                        <span class="message-result-count">
+                            <strong id="msgResultCount">0</strong> template
+                        </span>
+                        <span class="message-setting-item">
+                            <i class="fas fa-users"></i> ACCOUNTS
+                            <strong id="msgThreadCount">0</strong>
+                        </span>
+                        <span class="message-setting-item">
+                            <i class="fas fa-clock"></i> DELAY
+                            <input type="number" id="msgSendDelay" value="1" min="0" max="30"> giây
+                        </span>
+                        <span class="message-setting-item">
+                            <i class="fas fa-plug"></i> API
+                            <strong>Pancake</strong>
+                        </span>
+                        <button class="message-btn-history" id="msgBtnHistory">
+                            <i class="fas fa-history"></i> Lịch sử
+                        </button>
+                    </div>
+
+                    <div class="message-progress-container" id="msgProgressContainer" style="display:none">
+                        <div class="message-progress-info">
+                            <span id="msgProgressText">Đang gửi...</span>
+                            <span id="msgProgressPercent">0%</span>
+                        </div>
+                        <div class="message-progress-bar-bg">
+                            <div class="message-progress-bar" id="msgProgressBar"></div>
+                        </div>
+                    </div>
+
+                    <div class="message-modal-actions">
+                        <button class="message-btn-cancel" id="msgBtnCancel">Hủy</button>
+                        <button class="message-btn-send" id="msgBtnSend" disabled>
+                            <i class="fas fa-paper-plane"></i> Gửi tin nhắn
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+        _modalCreated = true;
+        _bindModalEvents();
+    }
+
+    // ----- Bind Events -----
+    function _bindModalEvents() {
+        // Close
+        document.getElementById('msgCloseBtn').onclick = () => _closeModal();
+        document.getElementById('msgBtnCancel').onclick = () => _closeModal();
+
+        // Click outside
+        document.getElementById('messageTemplateModal').onclick = (e) => {
+            if (e.target.classList.contains('message-modal-overlay')) _closeModal();
+        };
+
+        // Search
+        document.getElementById('msgSearchInput').oninput = (e) => {
+            _handleSearch(e.target.value);
+            document.getElementById('msgClearSearch').classList.toggle('show', e.target.value.length > 0);
+        };
+
+        document.getElementById('msgClearSearch').onclick = () => {
+            document.getElementById('msgSearchInput').value = '';
+            document.getElementById('msgClearSearch').classList.remove('show');
+            _handleSearch('');
+        };
+
+        // New template
+        document.getElementById('msgNewTemplate').onclick = () => _openNewTemplateForm();
+
+        // Send
+        document.getElementById('msgBtnSend').onclick = () => _handleSend();
+
+        // History (placeholder - not implemented yet)
+        document.getElementById('msgBtnHistory').onclick = () => {
+            if (window.notificationManager) window.notificationManager.show('Tính năng lịch sử sẽ được bổ sung sau', 'info');
+        };
+    }
+
+    // ----- Render Template Cards -----
+    function _renderTemplateCards() {
+        const container = document.getElementById('msgModalBody');
+        const countEl = document.getElementById('msgResultCount');
+
+        if (_filteredTemplates.length === 0) {
+            container.innerHTML = `
+                <div class="message-no-results">
+                    <i class="fas fa-search"></i>
+                    <p>Không tìm thấy template nào</p>
+                </div>`;
+            countEl.textContent = '0';
+            return;
+        }
+
+        countEl.textContent = _filteredTemplates.length;
+
+        container.innerHTML = `<div class="message-template-list">
+            ${_filteredTemplates.map(t => _renderSingleCard(t)).join('')}
+        </div>`;
+
+        // Bind click events for cards
+        container.querySelectorAll('.message-template-item').forEach(card => {
+            card.addEventListener('click', (e) => {
+                if (e.target.closest('button')) return;
+                _selectTemplate(card.dataset.templateId);
+            });
+        });
+
+        // Bind expand buttons
+        container.querySelectorAll('.message-expand-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const content = btn.closest('.message-template-item').querySelector('.message-template-content');
+                content.classList.toggle('expanded');
+                btn.innerHTML = content.classList.contains('expanded')
+                    ? '<i class="fas fa-chevron-up"></i> Thu gọn'
+                    : '<i class="fas fa-chevron-down"></i> Xem thêm';
+            });
+        });
+
+        // Bind edit buttons
+        container.querySelectorAll('.message-template-edit-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const id = btn.dataset.templateId;
+                const template = _templates.find(t => t.id === id);
+                if (template) _openNewTemplateForm(template);
+            });
+        });
+    }
+
+    function _renderSingleCard(template) {
+        const contentHtml = _escHtml(template.Content || template.BodyPlain || template.content || template.text || '')
+            .replace(/\n/g, '<br>')
+            .substring(0, 500);
+
+        const dateStr = template.DateCreated ||
+            (template.createdAt ? _formatDate(template.createdAt) : '');
+
+        const name = template.Name || template.name || template.title || 'Không tên';
+        const typeId = template.TypeId || 'MESSENGER';
+
+        return `
+            <div class="message-template-item ${_selectedTemplateId === template.id ? 'selected' : ''}"
+                 data-template-id="${template.id}">
+                <div class="message-template-header">
+                    <div class="message-template-name">${_escHtml(name)}</div>
+                    <button class="message-template-edit-btn" data-template-id="${template.id}" title="Sửa template">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <span class="message-template-type">${_escHtml(typeId)}</span>
+                </div>
+                <div class="message-template-content">${contentHtml}</div>
+                <div class="message-template-actions">
+                    <button class="message-expand-btn">
+                        <i class="fas fa-chevron-down"></i> Xem thêm
+                    </button>
+                    <div class="message-template-meta">
+                        <span><i class="fas fa-calendar"></i> ${dateStr}</span>
+                    </div>
+                </div>
+            </div>`;
+    }
+
+    // ----- Select Template -----
+    function _selectTemplate(templateId) {
+        _selectedTemplateId = templateId;
+
+        document.querySelectorAll('.message-template-item').forEach(item => {
+            item.classList.toggle('selected', item.dataset.templateId === templateId);
+        });
+
+        document.getElementById('msgBtnSend').disabled = false;
+    }
+
+    // ----- Search -----
+    function _handleSearch(query) {
+        const q = (query || '').toLowerCase().trim();
+
+        if (!q) {
+            _filteredTemplates = [..._templates];
+        } else {
+            _filteredTemplates = _templates.filter(t => {
+                const name = (t.Name || t.name || t.title || '').toLowerCase();
+                const content = (t.Content || t.BodyPlain || t.content || t.text || '').toLowerCase();
+                const type = (t.TypeId || '').toLowerCase();
+                return name.includes(q) || content.includes(q) || type.includes(q);
+            });
+        }
+
+        _renderTemplateCards();
+    }
+
+    // ----- New/Edit Template Form -----
+    function _openNewTemplateForm(templateToEdit) {
+        const isEdit = !!templateToEdit;
+        const container = document.getElementById('msgModalBody');
+
+        const nameValue = isEdit ? _escHtml(templateToEdit.Name || templateToEdit.name || templateToEdit.title || '') : '';
+        const contentValue = isEdit ? _escHtml(templateToEdit.Content || templateToEdit.BodyPlain || templateToEdit.content || templateToEdit.text || '') : '';
+
+        container.innerHTML = `
+            <div class="message-template-form">
+                <h4>${isEdit ? 'Sửa' : 'Tạo'} Template</h4>
+                <div class="message-form-group">
+                    <label>Tên template</label>
+                    <input type="text" id="msgTemplateNameInput" value="${nameValue}" placeholder="VD: Chốt đơn">
+                </div>
+                <div class="message-form-group">
+                    <label>Nội dung</label>
+                    <textarea id="msgTemplateContentInput" rows="8"
+                        placeholder="VD: Dạ chào chị {partner.name}...">${contentValue}</textarea>
+                    <p class="message-form-hint">
+                        Placeholders: {partner.name}, {partner.address}, {order.code}, {order.phone}, {order.totalAmount}, {order.details}
+                    </p>
+                </div>
+                <div class="message-form-actions">
+                    ${isEdit ? `<button class="message-form-delete-btn" id="msgTemplateDeleteBtn">
+                        <i class="fas fa-trash"></i> Xóa
+                    </button>` : ''}
+                    <button class="message-btn-cancel" id="msgTemplateCancelBtn">Hủy</button>
+                    <button class="message-btn-send" id="msgTemplateSaveBtn">
+                        <i class="fas fa-save"></i> Lưu
+                    </button>
+                </div>
+            </div>
+        `;
+
+        // Bind form events
+        document.getElementById('msgTemplateCancelBtn').onclick = () => {
+            _filteredTemplates = [..._templates];
+            _renderTemplateCards();
+        };
+
+        document.getElementById('msgTemplateSaveBtn').onclick = async () => {
+            const name = document.getElementById('msgTemplateNameInput').value.trim();
+            const content = document.getElementById('msgTemplateContentInput').value.trim();
+
+            if (!name || !content) {
+                if (window.notificationManager) window.notificationManager.show('Vui lòng nhập tên và nội dung template!', 'warning');
+                return;
+            }
+
+            const data = {
+                Name: name,
+                Content: content,
+                TypeId: 'MESSENGER',
+                active: true
+            };
+
+            if (isEdit && templateToEdit.id) {
+                data.id = templateToEdit.id;
+            } else {
+                data.order = _templates.length + 1;
+                data.DateCreated = new Date().toLocaleDateString('vi-VN');
+            }
+
+            await saveTemplate(data);
+            _filteredTemplates = [..._templates];
+            _renderTemplateCards();
+            if (window.notificationManager) window.notificationManager.show('Đã lưu template', 'success');
+        };
+
+        if (isEdit) {
+            const deleteBtn = document.getElementById('msgTemplateDeleteBtn');
+            if (deleteBtn) {
+                deleteBtn.onclick = async () => {
+                    if (!confirm('Bạn có chắc muốn xóa template này?')) return;
+                    await deleteTemplate(templateToEdit.id);
+                    _filteredTemplates = [..._templates];
+                    _renderTemplateCards();
+                    if (window.notificationManager) window.notificationManager.show('Đã xóa template', 'success');
+                };
+            }
+        }
+    }
+
+    // ----- Open Modal -----
     function openMessageTemplateModal() {
         const selectedIds = window.selectedOrderIds;
         if (!selectedIds || selectedIds.size === 0) {
@@ -408,128 +739,136 @@ console.log('[TemplateMgr] Loading...');
             return;
         }
 
-        // Create or reuse modal
-        let modal = document.getElementById('messageTemplateModal');
-        if (!modal) {
-            modal = document.createElement('div');
-            modal.id = 'messageTemplateModal';
-            modal.className = 'chat-modal-overlay';
-            document.body.appendChild(modal);
+        _modalOrders = orders;
+
+        // Create modal DOM if needed
+        _createModalDOM();
+
+        // Reset state
+        _selectedTemplateId = null;
+        document.getElementById('msgBtnSend').disabled = true;
+        document.getElementById('msgSearchInput').value = '';
+        document.getElementById('msgClearSearch').classList.remove('show');
+        document.getElementById('msgProgressContainer').style.display = 'none';
+        document.getElementById('msgBtnCancel').disabled = false;
+
+        // Show loading
+        document.getElementById('msgModalBody').innerHTML = `
+            <div class="message-loading">
+                <i class="fas fa-spinner fa-spin"></i>
+                <p>Đang tải templates...</p>
+            </div>`;
+
+        // Show modal
+        document.getElementById('messageTemplateModal').classList.add('active');
+
+        // Update account count
+        if (window.pancakeTokenManager) {
+            try {
+                const accounts = window.pancakeTokenManager.getValidAccountsForSending();
+                document.getElementById('msgThreadCount').textContent = accounts.length;
+            } catch (e) {
+                document.getElementById('msgThreadCount').textContent = '0';
+            }
         }
 
         // Load templates and render
-        loadTemplates().then(templates => {
-            const templateOptions = templates.map((t, i) =>
-                `<div class="tpl-option" data-idx="${i}" onclick="window._selectTemplate(${i})">
-                    <strong>${_escHtml(t.name || t.title || 'Mẫu ' + (i+1))}</strong>
-                    <p>${_escHtml((t.content || t.text || '').substring(0, 80))}${(t.content || t.text || '').length > 80 ? '...' : ''}</p>
-                </div>`
-            ).join('');
-
-            modal.innerHTML = `
-                <div class="chat-modal-content" style="max-width:520px;max-height:80vh;">
-                    <div class="chat-modal-header">
-                        <div class="chat-header-info">
-                            <span class="customer-name">Gửi tin nhắn (${orders.length} đơn)</span>
-                        </div>
-                        <div class="chat-header-controls">
-                            <button class="close-btn" onclick="document.getElementById('messageTemplateModal').style.display='none'">&times;</button>
-                        </div>
-                    </div>
-                    <div style="padding:16px;overflow-y:auto;flex:1;">
-                        <label style="font-weight:600;font-size:13px;margin-bottom:8px;display:block;">Chọn mẫu tin nhắn:</label>
-                        <div id="tplOptionsList" style="max-height:180px;overflow-y:auto;margin-bottom:12px;border:1px solid #e5e7eb;border-radius:8px;">
-                            ${templateOptions || '<div style="padding:12px;color:#9ca3af;text-align:center;">Chưa có mẫu tin nhắn. Nhập nội dung bên dưới.</div>'}
-                        </div>
-                        <label style="font-weight:600;font-size:13px;margin-bottom:6px;display:block;">Nội dung tin nhắn:</label>
-                        <textarea id="tplMessageText" rows="4" style="width:100%;border:1px solid #d1d5db;border-radius:8px;padding:10px;font-size:13px;resize:vertical;font-family:inherit;" placeholder="Nhập nội dung... Biến: {customerName}, {orderId}"></textarea>
-                        <div style="margin-top:8px;font-size:11px;color:#9ca3af;">
-                            Biến hỗ trợ: <code>{customerName}</code>, <code>{orderId}</code>, <code>{phone}</code>, <code>{total}</code>, <code>{products}</code>
-                        </div>
-                        <div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end;">
-                            <label style="display:flex;align-items:center;gap:4px;font-size:12px;margin-right:auto;color:#6b7280;">
-                                <input type="checkbox" id="tplViaComment"> Gửi qua Comment
-                            </label>
-                            <button onclick="document.getElementById('messageTemplateModal').style.display='none'"
-                                style="padding:8px 16px;border:1px solid #d1d5db;border-radius:6px;background:#fff;cursor:pointer;font-size:13px;">Hủy</button>
-                            <button id="tplSendBtn" onclick="window._startBulkSend()"
-                                style="padding:8px 20px;border:none;border-radius:6px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;cursor:pointer;font-weight:600;font-size:13px;">
-                                Gửi (${orders.length})
-                            </button>
-                        </div>
-                        <div id="tplSendProgress" style="display:none;margin-top:12px;padding:10px;background:#f3f4f6;border-radius:8px;font-size:12px;">
-                        </div>
-                    </div>
-                </div>
-            `;
-
-            modal.style.display = 'flex';
-
-            // Store orders for send
-            window._tplBulkOrders = orders;
+        loadTemplates().then(() => {
+            _filteredTemplates = [..._templates];
+            _renderTemplateCards();
         });
     }
 
-    function _escHtml(s) { return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-
-    // Template selection handler
-    window._selectTemplate = function(idx) {
-        const templates = getTemplates();
-        if (!templates[idx]) return;
-        const textarea = document.getElementById('tplMessageText');
-        if (textarea) textarea.value = templates[idx].content || templates[idx].text || '';
-        // Highlight selected
-        document.querySelectorAll('#tplOptionsList .tpl-option').forEach((el, i) => {
-            el.style.background = i === idx ? '#eef2ff' : '';
-            el.style.borderLeft = i === idx ? '3px solid #667eea' : '3px solid transparent';
-        });
-    };
-
-    // Bulk send handler
-    window._startBulkSend = async function() {
-        const textarea = document.getElementById('tplMessageText');
-        const text = textarea?.value?.trim();
-        if (!text) {
-            if (window.notificationManager) window.notificationManager.show('Nhập nội dung tin nhắn', 'warning');
+    // ----- Handle Send -----
+    async function _handleSend() {
+        if (!_selectedTemplateId) {
+            if (window.notificationManager) window.notificationManager.show('Chọn một template trước', 'warning');
             return;
         }
 
-        const orders = window._tplBulkOrders || [];
-        if (!orders.length) return;
+        const template = _templates.find(t => t.id === _selectedTemplateId);
+        if (!template) return;
 
-        const viaComment = document.getElementById('tplViaComment')?.checked || false;
-        const sendBtn = document.getElementById('tplSendBtn');
-        const progressEl = document.getElementById('tplSendProgress');
+        const orders = _modalOrders;
+        if (!orders || orders.length === 0) {
+            if (window.notificationManager) window.notificationManager.show('Không có đơn hàng nào để gửi!', 'warning');
+            return;
+        }
 
-        if (sendBtn) { sendBtn.disabled = true; sendBtn.textContent = 'Đang gửi...'; }
-        if (progressEl) { progressEl.style.display = 'block'; progressEl.textContent = 'Bắt đầu gửi...'; }
+        const templateText = template.Content || template.BodyPlain || template.content || template.text || '';
+        if (!templateText) {
+            if (window.notificationManager) window.notificationManager.show('Template không có nội dung', 'warning');
+            return;
+        }
 
-        const result = await bulkSendTemplate(orders, text, {
-            viaComment,
+        // Disable UI
+        const sendBtn = document.getElementById('msgBtnSend');
+        const cancelBtn = document.getElementById('msgBtnCancel');
+        const progressContainer = document.getElementById('msgProgressContainer');
+
+        sendBtn.disabled = true;
+        sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang gửi...';
+        cancelBtn.disabled = true;
+        progressContainer.style.display = 'block';
+        _updateProgress(0, 0, orders.length);
+
+        // Send using existing bulkSendTemplate
+        const result = await bulkSendTemplate(orders, templateText, {
+            viaComment: false,
             onProgress: (sent, failed, total) => {
-                if (progressEl) {
-                    progressEl.innerHTML = `Đã gửi: <strong>${sent}</strong>/${total} | Lỗi: <strong style="color:#ef4444">${failed}</strong>`;
-                }
+                _updateProgress(sent + failed, total, total, sent, failed);
             }
         });
 
-        if (progressEl) {
-            progressEl.innerHTML = `<strong>Hoàn tất:</strong> Gửi thành công ${result.sent}/${orders.length}` +
-                (result.failed > 0 ? ` | Lỗi: <strong style="color:#ef4444">${result.failed}</strong>` : '');
+        // Show completion
+        const totalProcessed = result.sent + result.failed;
+        _updateProgress(totalProcessed, orders.length, orders.length, result.sent, result.failed);
+        document.getElementById('msgProgressText').textContent =
+            `Hoàn tất: ✓${result.sent} ✗${result.failed}`;
+
+        // Re-enable UI
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Gửi tin nhắn';
+        cancelBtn.disabled = false;
+
+        // Notification
+        if (window.notificationManager) {
+            window.notificationManager.show(
+                `Đã gửi ${result.sent}/${orders.length} tin nhắn` + (result.failed > 0 ? `, ${result.failed} lỗi` : ''),
+                result.failed > 0 ? 'warning' : 'success'
+            );
         }
 
-        if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = `Gửi (${orders.length})`; }
-
-        // Refresh table badges after 1s
+        // Hide progress after 3s and close modal
         setTimeout(() => {
-            if (window.notificationManager) {
-                window.notificationManager.show(
-                    `Đã gửi ${result.sent}/${orders.length} tin nhắn` + (result.failed > 0 ? `, ${result.failed} lỗi` : ''),
-                    result.failed > 0 ? 'warning' : 'success'
-                );
+            progressContainer.style.display = 'none';
+            _closeModal();
+        }, 3000);
+    }
+
+    function _updateProgress(processed, total, totalToProcess, sent, failed) {
+        const percent = totalToProcess > 0 ? Math.round((processed / totalToProcess) * 100) : 0;
+        const progressText = document.getElementById('msgProgressText');
+        const progressPercent = document.getElementById('msgProgressPercent');
+        const progressBar = document.getElementById('msgProgressBar');
+
+        if (progressText) {
+            if (sent !== undefined) {
+                progressText.textContent = `Đang gửi... ${processed}/${totalToProcess} (✓${sent} ✗${failed || 0})`;
+            } else {
+                progressText.textContent = `Đang gửi... ${processed}/${totalToProcess}`;
             }
-        }, 500);
-    };
+        }
+        if (progressPercent) progressPercent.textContent = `${percent}%`;
+        if (progressBar) progressBar.style.width = `${percent}%`;
+    }
+
+    // ----- Close Modal -----
+    function _closeModal() {
+        const modal = document.getElementById('messageTemplateModal');
+        if (modal) modal.classList.remove('active');
+        _selectedTemplateId = null;
+    }
 
     // =====================================================
     // EXPOSE GLOBALLY
