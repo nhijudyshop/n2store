@@ -1,31 +1,52 @@
 // =====================================================
-// USER MANAGEMENT WITH DETAILED PERMISSIONS
+// USER MANAGEMENT WITH RENDER API
 // =====================================================
 
-let db = null;
-let auth = null;
-let currentMethod = "cryptojs";
 let users = [];
 
-// Check admin access - Admin (roleTemplate='admin') has FULL BYPASS
+// =====================================================
+// API CLIENT
+// =====================================================
+const UserAPI = {
+    BASE_URL: window.location.hostname === 'localhost'
+        ? 'http://localhost:3000/api/users'
+        : 'https://n2store-fallback.onrender.com/api/users',
+
+    getToken() {
+        const auth = JSON.parse(localStorage.getItem('loginindex_auth') || sessionStorage.getItem('loginindex_auth') || '{}');
+        return auth.token;
+    },
+
+    async fetch(endpoint, options = {}) {
+        const url = `${this.BASE_URL}${endpoint}`;
+        const response = await fetch(url, {
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${this.getToken()}`,
+                ...options.headers
+            }
+        });
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.error || `HTTP ${response.status}`);
+        }
+        return data;
+    }
+};
+
+// Check admin access
 function checkAdminAccess() {
     const isLoggedIn = localStorage.getItem("isLoggedIn") || sessionStorage.getItem("isLoggedIn");
-    // IMPORTANT: Check both localStorage AND sessionStorage (depends on "remember me" setting)
     const authData = localStorage.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth");
 
-    console.log("Checking admin access:", {
-        isLoggedIn,
-        authData: !!authData,
-        source: localStorage.getItem("loginindex_auth") ? "localStorage" : "sessionStorage"
-    });
-
     if (!isLoggedIn || isLoggedIn !== "true") {
-        showAccessDenied("Bạn chưa đăng nhập hệ thống.");
+        showAccessDenied("Ban chua dang nhap he thong.");
         return false;
     }
 
     if (!authData) {
-        showAccessDenied("Không tìm thấy thông tin đăng nhập.");
+        showAccessDenied("Khong tim thay thong tin dang nhap.");
         return false;
     }
 
@@ -34,23 +55,16 @@ function checkAdminAccess() {
     try {
         const auth = JSON.parse(authData);
 
-        // ALL users (including Admin) check detailedPermissions - NO bypass
         if (auth.detailedPermissions && auth.detailedPermissions['user-management']) {
             const userMgmtPerms = auth.detailedPermissions['user-management'];
             hasPermission = Object.values(userMgmtPerms).some(v => v === true);
         }
-
-        console.log("Permission check:", {
-            hasDetailedPermissions: !!auth.detailedPermissions,
-            hasUserManagementPermission: hasPermission,
-            roleTemplate: auth.roleTemplate || 'unknown'
-        });
     } catch (e) {
         console.error("Error checking permissions:", e);
     }
 
     if (!hasPermission) {
-        showAccessDenied("Bạn không có quyền truy cập trang quản lý người dùng.");
+        showAccessDenied("Ban khong co quyen truy cap trang quan ly nguoi dung.");
         return false;
     }
 
@@ -64,7 +78,8 @@ function checkAdminAccess() {
 
     document.getElementById("mainContainer").style.display = "block";
 
-    setTimeout(connectFirebase, 500);
+    // Check API connection
+    setTimeout(checkApiConnection, 500);
 
     return true;
 }
@@ -79,68 +94,42 @@ function showAccessDenied(reason = "") {
     }
 }
 
-// Firebase Configuration - use shared config (loaded via shared/js/firebase-config.js)
-function connectFirebase() {
+// API Connection Check
+async function checkApiConnection() {
+    const statusEl = document.getElementById("apiStatus");
+    if (!statusEl) return;
+
     try {
-        if (!firebase.apps.length) {
-            const config = (typeof FIREBASE_CONFIG !== 'undefined') ? FIREBASE_CONFIG : {
-                apiKey: "AIzaSyA-legWlCgjMDEy70rsaTTwLK39F4ZCKhM",
-                authDomain: "n2shop-69e37.firebaseapp.com",
-                projectId: "n2shop-69e37",
-                storageBucket: "n2shop-69e37-ne0q1",
-                messagingSenderId: "598906493303",
-                appId: "1:598906493303:web:46d6236a1fdc2eff33e972",
-            };
+        const data = await UserAPI.fetch('/');
+        statusEl.textContent = `Connected to Render API\nUsers: ${data.users?.length || 0}`;
+        statusEl.className = "output success";
 
-            firebase.initializeApp(config);
-        }
-
-        // Always get db and auth references (even if app was already initialized by shared/js/firebase-config.js)
-        db = db || window.db || firebase.firestore();
-        auth = auth || firebase.auth();
-
-        document.getElementById("firebaseStatus").textContent =
-            "✅ Kết nối Firebase thành công!\nProject: n2shop-69e37\nTrạng thái: Admin Access Granted";
-        document.getElementById("firebaseStatus").className = "output success";
-
-        setTimeout(loadUsers, 1000);
+        // Auto load users
+        users = data.users || [];
+        renderUserList(users);
     } catch (error) {
-        document.getElementById("firebaseStatus").textContent =
-            "❌ Lỗi kết nối Firebase: " + error.message;
-        document.getElementById("firebaseStatus").className = "output error";
+        statusEl.textContent = "API connection failed: " + error.message;
+        statusEl.className = "output error";
     }
 }
 
-
 // Load users
 async function loadUsers() {
-    if (!db) {
-        showError("Firebase chưa được kết nối!");
-        return;
-    }
-
     const userList = document.getElementById("userList");
     userList.innerHTML =
-        '<div class="empty-state show"><i data-lucide="loader" class="spinning"></i><h3>Đang tải dữ liệu...</h3></div>';
+        '<div class="empty-state show"><i data-lucide="loader" class="spinning"></i><h3>Dang tai du lieu...</h3></div>';
 
     if (typeof lucide !== "undefined") {
         lucide.createIcons();
     }
 
     try {
-        const snapshot = await db.collection("users").get();
-        users = [];
-
-        snapshot.forEach((doc) => {
-            users.push({
-                id: doc.id,
-                ...doc.data(),
-            });
-        });
+        const data = await UserAPI.fetch('/');
+        users = data.users || [];
 
         if (users.length === 0) {
             userList.innerHTML =
-                '<div class="empty-state show"><i data-lucide="user-x"></i><h3>Không có tài khoản nào</h3></div>';
+                '<div class="empty-state show"><i data-lucide="user-x"></i><h3>Khong co tai khoan nao</h3></div>';
             if (typeof lucide !== "undefined") {
                 lucide.createIcons();
             }
@@ -151,12 +140,12 @@ async function loadUsers() {
             const aIsAdmin = a.roleTemplate === 'admin' ? 0 : 1;
             const bIsAdmin = b.roleTemplate === 'admin' ? 0 : 1;
             if (aIsAdmin !== bIsAdmin) return aIsAdmin - bIsAdmin;
-            return a.displayName.localeCompare(b.displayName);
+            return (a.displayName || '').localeCompare(b.displayName || '');
         });
 
         renderUserList(users);
     } catch (error) {
-        userList.innerHTML = `<div class="empty-state show"><i data-lucide="alert-circle"></i><h3>Lỗi tải danh sách</h3><p>${error.message}</p></div>`;
+        userList.innerHTML = `<div class="empty-state show"><i data-lucide="alert-circle"></i><h3>Loi tai danh sach</h3><p>${error.message}</p></div>`;
         if (typeof lucide !== "undefined") {
             lucide.createIcons();
         }
@@ -219,17 +208,15 @@ function updateBulkToolbar() {
 
 function showBulkTemplateModal() {
     if (selectedUsers.size === 0) {
-        showError("Vui lòng chọn ít nhất 1 user!");
+        showError("Vui long chon it nhat 1 user!");
         return;
     }
 
-    // Get list of selected users for preview
     const selectedUsersList = Array.from(selectedUsers).map(uid => {
         const user = users.find(u => u.id === uid);
         return user ? `<li>${user.displayName} (${user.id})</li>` : '';
     }).join('');
 
-    // Build template options
     const templates = typeof PERMISSION_TEMPLATES !== 'undefined' ? PERMISSION_TEMPLATES : {};
     let templateOptions = '';
     Object.entries(templates).forEach(([id, template]) => {
@@ -251,20 +238,20 @@ function showBulkTemplateModal() {
         <div class="modal-overlay" id="bulkTemplateModal" onclick="if(event.target === this) closeBulkTemplateModal()">
             <div class="modal-content bulk-template-modal">
                 <div class="modal-header">
-                    <h3><i data-lucide="users"></i> Áp dụng Template cho ${selectedUsers.size} Users</h3>
+                    <h3><i data-lucide="users"></i> Ap dung Template cho ${selectedUsers.size} Users</h3>
                     <button class="modal-close" onclick="closeBulkTemplateModal()">
                         <i data-lucide="x"></i>
                     </button>
                 </div>
                 <div class="modal-body">
                     <div class="bulk-template-section">
-                        <h4><i data-lucide="layout-template"></i> Chọn Template</h4>
+                        <h4><i data-lucide="layout-template"></i> Chon Template</h4>
                         <div class="template-options-grid">
                             ${templateOptions}
                         </div>
                     </div>
                     <div class="bulk-template-section">
-                        <h4><i data-lucide="users"></i> Users sẽ được cập nhật</h4>
+                        <h4><i data-lucide="users"></i> Users se duoc cap nhat</h4>
                         <div class="selected-users-preview">
                             <ul>${selectedUsersList}</ul>
                         </div>
@@ -272,10 +259,10 @@ function showBulkTemplateModal() {
                 </div>
                 <div class="modal-footer">
                     <button class="btn btn-secondary" onclick="closeBulkTemplateModal()">
-                        <i data-lucide="x"></i> Hủy
+                        <i data-lucide="x"></i> Huy
                     </button>
                     <button class="btn btn-primary" onclick="executeBulkApplyTemplate()">
-                        <i data-lucide="check"></i> Áp dụng Template
+                        <i data-lucide="check"></i> Ap dung Template
                     </button>
                 </div>
             </div>
@@ -295,15 +282,14 @@ async function executeBulkApplyTemplate() {
     const selectedTemplate = document.querySelector('input[name="bulkTemplate"]:checked');
 
     if (!selectedTemplate) {
-        showError("Vui lòng chọn một template!");
+        showError("Vui long chon mot template!");
         return;
     }
 
     const templateId = selectedTemplate.value;
     const templateName = PERMISSION_TEMPLATES[templateId]?.name || templateId;
 
-    // Confirm
-    if (!confirm(`Bạn có chắc chắn muốn áp dụng template "${templateName}" cho ${selectedUsers.size} users?\n\nHành động này sẽ ghi đè toàn bộ quyền hiện tại của các users đã chọn.`)) {
+    if (!confirm(`Ban co chac chan muon ap dung template "${templateName}" cho ${selectedUsers.size} users?\n\nHanh dong nay se ghi de toan bo quyen hien tai cua cac users da chon.`)) {
         return;
     }
 
@@ -314,51 +300,38 @@ async function executeBulkApplyTemplate() {
         permissions = templateData.detailedPermissions || {};
     }
 
-    // Show loading
     const applyBtn = document.querySelector('.bulk-template-modal .btn-primary');
     const originalText = applyBtn.innerHTML;
-    applyBtn.innerHTML = '<i data-lucide="loader-2" class="spin"></i> Đang xử lý...';
+    applyBtn.innerHTML = '<i data-lucide="loader-2" class="spin"></i> Dang xu ly...';
     applyBtn.disabled = true;
 
     try {
-        // Get current user info
-        const authData = JSON.parse(localStorage.getItem("loginindex_auth") || sessionStorage.getItem("loginindex_auth") || "{}");
-        const updatedBy = authData.username || 'unknown';
-
-        // Batch update all selected users
-        const batch = db.batch();
-        selectedUsers.forEach(userId => {
-            const userRef = db.collection('users').doc(userId);
-            batch.update(userRef, {
-                detailedPermissions: permissions,
-                roleTemplate: templateId,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                updatedBy: updatedBy
-            });
+        await UserAPI.fetch('/batch-template', {
+            method: 'POST',
+            body: JSON.stringify({
+                userIds: Array.from(selectedUsers),
+                templateId: templateId,
+                permissions: permissions
+            })
         });
 
-        await batch.commit();
-
-        showSuccess(`Đã áp dụng template "${templateName}" cho ${selectedUsers.size} users!`);
+        showSuccess(`Da ap dung template "${templateName}" cho ${selectedUsers.size} users!`);
         closeBulkTemplateModal();
         clearSelection();
-
-        // Refresh user list
         await loadUsers();
 
     } catch (error) {
         console.error("Bulk apply error:", error);
-        showError("Lỗi khi áp dụng template: " + error.message);
+        showError("Loi khi ap dung template: " + error.message);
         applyBtn.innerHTML = originalText;
         applyBtn.disabled = false;
     }
 }
 
 // =====================================================
-// USER LIST RENDERING (Updated with checkboxes)
+// USER LIST RENDERING
 // =====================================================
 
-// Render user list
 function renderUserList(users) {
     const userList = document.getElementById("userList");
     const emptyState = userList.querySelector(".empty-state");
@@ -370,11 +343,10 @@ function renderUserList(users) {
 
     if (emptyState) emptyState.classList.remove("show");
 
-    // Build bulk action toolbar and header
     let html = `
         <div class="user-list-header">
             <div class="user-select-cell">
-                <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()" title="Chọn tất cả">
+                <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()" title="Chon tat ca">
             </div>
             <div class="user-list-header-info">
                 <span class="user-count">${users.length} users</span>
@@ -382,15 +354,15 @@ function renderUserList(users) {
             <div id="bulkActionToolbar" class="bulk-action-toolbar" style="display: none;">
                 <span class="selected-info">
                     <i data-lucide="check-square"></i>
-                    Đã chọn <strong id="selectedCount">0</strong> users
+                    Da chon <strong id="selectedCount">0</strong> users
                 </span>
                 <button class="btn btn-primary btn-sm" onclick="showBulkTemplateModal()">
                     <i data-lucide="layout-template"></i>
-                    Áp dụng Template
+                    Ap dung Template
                 </button>
                 <button class="btn btn-secondary btn-sm" onclick="clearSelection()">
                     <i data-lucide="x"></i>
-                    Bỏ chọn
+                    Bo chon
                 </button>
             </div>
         </div>
@@ -399,34 +371,28 @@ function renderUserList(users) {
     users.forEach((user) => {
         const roleInfo = getRoleTemplateInfo(user.roleTemplate);
 
-        // Count detailed permissions and derive page access count
         let permissionCount = 0;
         let accessiblePagesCount = 0;
         if (user.detailedPermissions) {
             Object.entries(user.detailedPermissions).forEach(([pageId, pagePerms]) => {
                 const pagePermCount = Object.values(pagePerms).filter(v => v === true).length;
                 permissionCount += pagePermCount;
-                // User has access to this page if at least one permission is true
                 if (pagePermCount > 0) accessiblePagesCount++;
             });
         }
 
-        // Total permissions available
         let totalPerms = 0;
-        Object.values(DETAILED_PERMISSIONS).forEach((page) => {
-            totalPerms += Object.keys(page.subPermissions).length;
-        });
+        if (typeof DETAILED_PERMISSIONS !== 'undefined') {
+            Object.values(DETAILED_PERMISSIONS).forEach((page) => {
+                totalPerms += Object.keys(page.subPermissions).length;
+            });
+        }
 
         const createdDate = user.createdAt
-            ? new Date(user.createdAt.seconds * 1000).toLocaleDateString(
-                  "vi-VN",
-              )
+            ? new Date(user.createdAt).toLocaleDateString("vi-VN")
             : "N/A";
         const updatedDate = user.updatedAt
-            ? " | Cập nhật: " +
-              new Date(user.updatedAt.seconds * 1000).toLocaleDateString(
-                  "vi-VN",
-              )
+            ? " | Cap nhat: " + new Date(user.updatedAt).toLocaleDateString("vi-VN")
             : "";
 
         const isSelected = selectedUsers.has(user.id);
@@ -450,19 +416,19 @@ function renderUserList(users) {
                                 ${roleInfo.name}
                             </span>
                             <span><i data-lucide="layout-grid" style="width:14px;height:14px;display:inline-block;vertical-align:middle"></i> ${accessiblePagesCount} trang</span>
-                            <span><i data-lucide="shield-check" style="width:14px;height:14px;display:inline-block;vertical-align:middle"></i> ${permissionCount}/${totalPerms} quyền</span>
+                            <span><i data-lucide="shield-check" style="width:14px;height:14px;display:inline-block;vertical-align:middle"></i> ${permissionCount}/${totalPerms} quyen</span>
                             <span><i data-lucide="calendar" style="width:14px;height:14px;display:inline-block;vertical-align:middle"></i> ${createdDate}${updatedDate}</span>
                         </div>
                     </div>
                 </div>
                 <div class="user-list-actions">
-                    <button class="btn-icon" onclick="editUser('${user.id}')" title="Chỉnh sửa">
+                    <button class="btn-icon" onclick="editUser('${user.id}')" title="Chinh sua">
                         <i data-lucide="edit"></i>
                     </button>
-                    <button class="btn-icon" onclick="viewUserPermissions('${user.id}')" title="Xem quyền">
+                    <button class="btn-icon" onclick="viewUserPermissions('${user.id}')" title="Xem quyen">
                         <i data-lucide="eye"></i>
                     </button>
-                    <button class="btn-icon danger" onclick="deleteUser('${user.id}')" title="Xóa">
+                    <button class="btn-icon danger" onclick="deleteUser('${user.id}')" title="Xoa">
                         <i data-lucide="trash-2"></i>
                     </button>
                 </div>
@@ -474,17 +440,7 @@ function renderUserList(users) {
     lucide.createIcons();
 }
 
-
-
-
-
-/**
- * Lấy thông tin role từ roleTemplate
- * @param {string} roleTemplate - Template name (admin, manager, sales-team, etc.)
- * @returns {Object} - { name, icon, color }
- */
 function getRoleTemplateInfo(roleTemplate) {
-    // Check PERMISSION_TEMPLATES from registry
     if (typeof PERMISSION_TEMPLATES !== 'undefined' && PERMISSION_TEMPLATES[roleTemplate]) {
         const info = PERMISSION_TEMPLATES[roleTemplate];
         return {
@@ -495,7 +451,6 @@ function getRoleTemplateInfo(roleTemplate) {
         };
     }
 
-    // Default templates
     const defaultTemplates = {
         'admin': { name: 'Admin', icon: 'crown', color: '#ef4444' },
         'manager': { name: 'Manager', icon: 'briefcase', color: '#f59e0b' },
@@ -512,11 +467,6 @@ function getRoleTemplateInfo(roleTemplate) {
     };
 }
 
-/**
- * Render role badge HTML từ roleTemplate
- * @param {string} roleTemplate - Template name
- * @returns {string} - HTML string
- */
 function renderRoleBadge(roleTemplate) {
     const info = getRoleTemplateInfo(roleTemplate);
     return `<span class="role-badge" style="background: ${info.color}20; color: ${info.color}; border: 1px solid ${info.color}40;">
@@ -526,10 +476,9 @@ function renderRoleBadge(roleTemplate) {
 }
 
 // =====================================================
-// USER MANAGEMENT CRUD OPERATIONS - PART 2
+// USER CRUD OPERATIONS
 // =====================================================
 
-// Edit user
 function editUser(username) {
     const user = users.find((u) => u.id === username);
     if (!user) return;
@@ -539,14 +488,11 @@ function editUser(username) {
     document.getElementById("editIdentifier").value = user.identifier || "";
     document.getElementById("editNewPassword").value = "";
 
-    // Load detailed permissions and roleTemplate
     if (window.editDetailedPermUI) {
         window.editDetailedPermUI.setPermissions(user.detailedPermissions || {});
-        // Set the currentTemplate so it's saved correctly on update
         window.editDetailedPermUI.currentTemplate = user.roleTemplate || 'custom';
     }
 
-    // Set admin toggle state based on user data
     const isAdmin = user.isAdmin === true || user.roleTemplate === 'admin';
     const editIsAdminCheckbox = document.getElementById('editIsAdmin');
     if (editIsAdminCheckbox) {
@@ -560,72 +506,61 @@ function editUser(username) {
         .scrollIntoView({ behavior: "smooth" });
 }
 
-// View user permissions
 function viewUserPermissions(username) {
     const user = users.find((u) => u.id === username);
     if (!user) return;
 
-    let report = `QUYỀN HẠN CHI TIẾT\n`;
+    let report = `QUYEN HAN CHI TIET\n`;
     report += `${"=".repeat(60)}\n\n`;
-    report += `Tài khoản: ${user.displayName} (${user.id})\n`;
+    report += `Tai khoan: ${user.displayName} (${user.id})\n`;
     const roleInfo = getRoleTemplateInfo(user.roleTemplate);
-    report += `Vai trò: ${roleInfo.name}\n\n`;
+    report += `Vai tro: ${roleInfo.name}\n\n`;
 
     const permissions = user.detailedPermissions || {};
     let totalGranted = 0;
 
-    Object.values(DETAILED_PERMISSIONS).forEach((page) => {
-        const pagePerms = permissions[page.id] || {};
-        const granted = Object.entries(pagePerms).filter(
-            ([_, v]) => v === true,
-        );
+    if (typeof DETAILED_PERMISSIONS !== 'undefined') {
+        Object.values(DETAILED_PERMISSIONS).forEach((page) => {
+            const pagePerms = permissions[page.id] || {};
+            const granted = Object.entries(pagePerms).filter(([_, v]) => v === true);
 
-        if (granted.length > 0) {
-            report += `📄 ${page.name}\n`;
-            granted.forEach(([subKey, _]) => {
-                const subPerm = page.subPermissions[subKey];
-                report += `   ✓ ${subPerm.name}\n`;
-                totalGranted++;
-            });
-            report += "\n";
-        }
-    });
+            if (granted.length > 0) {
+                report += `${page.name}\n`;
+                granted.forEach(([subKey, _]) => {
+                    const subPerm = page.subPermissions[subKey];
+                    report += `   * ${subPerm.name}\n`;
+                    totalGranted++;
+                });
+                report += "\n";
+            }
+        });
+    }
 
     if (totalGranted === 0) {
-        report += "⚠️ Không có quyền nào được cấp\n";
+        report += "Khong co quyen nao duoc cap\n";
     } else {
-        report += `\nTổng cộng: ${totalGranted} quyền\n`;
+        report += `\nTong cong: ${totalGranted} quyen\n`;
     }
 
     alert(report);
 }
 
-// Update user
 async function updateUser() {
-    if (!db) {
-        showError("Firebase chưa được kết nối!");
-        return;
-    }
-
     const username = document.getElementById("editUsername").value.trim();
     const displayName = document.getElementById("editDisplayName").value.trim();
     const identifier = document.getElementById("editIdentifier").value.trim();
     const newPassword = document.getElementById("editNewPassword").value.trim();
 
     if (!username || !displayName) {
-        showError("Vui lòng nhập đầy đủ thông tin!");
+        showError("Vui long nhap day du thong tin!");
         return;
     }
 
-    // Get isAdmin flag from checkbox
     const isAdminCheckbox = document.getElementById('editIsAdmin');
     const isAdmin = isAdminCheckbox ? isAdminCheckbox.checked : false;
 
-    // Get detailed permissions from UI (page access is derived from this)
-    // Admin: generate full permissions (all = true) regardless of UI state
     let detailedPermissions;
     if (isAdmin) {
-        // Use PermissionsRegistry if available (full 147 permissions), fallback to UI
         if (typeof PermissionsRegistry !== 'undefined' && typeof PermissionsRegistry.generateFullDetailedPermissions === 'function') {
             detailedPermissions = PermissionsRegistry.generateFullDetailedPermissions();
         } else if (typeof window.generateFullAdminPermissions === 'function') {
@@ -635,51 +570,38 @@ async function updateUser() {
                 ? window.editDetailedPermUI.getPermissions()
                 : {};
         }
-        console.log('[updateUser] Admin: generated full permissions -', Object.keys(detailedPermissions).length, 'pages');
     } else {
         detailedPermissions = window.editDetailedPermUI
             ? window.editDetailedPermUI.getPermissions()
             : {};
     }
 
-    // Get roleTemplate from UI (which template is currently applied)
     const roleTemplate = window.editDetailedPermUI?.currentTemplate || 'custom';
 
-    const loadingId = showFloatingAlert(
-        "Đang cập nhật tài khoản...",
-        "loading",
-    );
+    const loadingId = showFloatingAlert("Dang cap nhat tai khoan...", "loading");
 
     try {
-        let updateData = {
+        const updateData = {
             displayName: displayName,
             identifier: identifier,
             detailedPermissions: detailedPermissions,
             roleTemplate: isAdmin ? 'admin' : roleTemplate,
             isAdmin: isAdmin,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-            updatedBy: JSON.parse(localStorage.getItem("loginindex_auth"))
-                .username,
         };
 
         if (newPassword) {
-            const salt = CryptoJS.lib.WordArray.random(128 / 8).toString();
-            const hash = CryptoJS.PBKDF2(newPassword, salt, {
-                keySize: 256 / 32,
-                iterations: 1000,
-            }).toString();
-
-            updateData.passwordHash = hash;
-            updateData.salt = salt;
+            updateData.password = newPassword;
         }
 
-        await db.collection("users").doc(username).update(updateData);
+        await UserAPI.fetch(`/${username}`, {
+            method: 'PUT',
+            body: JSON.stringify(updateData)
+        });
 
         if (window.notify) {
             window.notify.remove(loadingId);
         }
 
-        // Count permissions and derive accessible pages
         let permCount = 0;
         let accessiblePages = 0;
         Object.entries(detailedPermissions).forEach(([pageId, pagePerms]) => {
@@ -689,7 +611,7 @@ async function updateUser() {
         });
 
         showSuccess(
-            `Cập nhật thành công!\nUsername: ${username}\nTên hiển thị: ${displayName}\nNhóm quyền: ${roleTemplate}\nTruy cập trang: ${accessiblePages} trang\nQuyền chi tiết: ${permCount} quyền${newPassword ? "\n🔒 Đã thay đổi password" : ""}`,
+            `Cap nhat thanh cong!\nUsername: ${username}\nTen hien thi: ${displayName}\nNhom quyen: ${isAdmin ? 'admin' : roleTemplate}\nTruy cap trang: ${accessiblePages} trang\nQuyen chi tiet: ${permCount} quyen${newPassword ? "\nDa thay doi password" : ""}`,
         );
 
         setTimeout(loadUsers, 1000);
@@ -700,17 +622,11 @@ async function updateUser() {
         if (window.notify) {
             window.notify.remove(loadingId);
         }
-        showError("Lỗi cập nhật: " + error.message);
+        showError("Loi cap nhat: " + error.message);
     }
 }
 
-// Create user
 async function createUser() {
-    if (!db) {
-        showError("Firebase chưa được kết nối!");
-        return;
-    }
-
     const username = document
         .getElementById("newUsername")
         .value.trim()
@@ -722,28 +638,23 @@ async function createUser() {
     const identifier = document.getElementById("newIdentifier").value.trim();
 
     if (!username || !password) {
-        showError("Vui lòng nhập username và password!");
+        showError("Vui long nhap username va password!");
         return;
     }
 
     if (!/^[a-z0-9_]+$/.test(username)) {
-        showError(
-            "Username chỉ được chứa chữ cái thường, số và dấu gạch dưới!",
-        );
+        showError("Username chi duoc chua chu cai thuong, so va dau gach duoi!");
         return;
     }
 
     if (password.length < 6) {
-        showError("Password phải có ít nhất 6 ký tự!");
+        showError("Password phai co it nhat 6 ky tu!");
         return;
     }
 
-    // Get roleTemplate from UI (which template is currently applied)
     const roleTemplate = window.newDetailedPermUI?.currentTemplate || 'custom';
     const isAdmin = roleTemplate === 'admin';
 
-    // Get detailed permissions from UI (page access is derived from this)
-    // Admin: generate full permissions (all = true)
     let detailedPermissions;
     if (isAdmin) {
         if (typeof PermissionsRegistry !== 'undefined' && typeof PermissionsRegistry.generateFullDetailedPermissions === 'function') {
@@ -761,45 +672,26 @@ async function createUser() {
             : {};
     }
 
-    const loadingId = showFloatingAlert("Đang tạo tài khoản...", "loading");
+    const loadingId = showFloatingAlert("Dang tao tai khoan...", "loading");
 
     try {
-        const userDoc = await db.collection("users").doc(username).get();
-        if (userDoc.exists) {
-            if (window.notify) {
-                window.notify.remove(loadingId);
-            }
-            showError("Username đã tồn tại!");
-            return;
-        }
-
-        const salt = CryptoJS.lib.WordArray.random(128 / 8).toString();
-        const hash = CryptoJS.PBKDF2(password, salt, {
-            keySize: 256 / 32,
-            iterations: 1000,
-        }).toString();
-
-        await db
-            .collection("users")
-            .doc(username)
-            .set({
-                displayName: displayName,
-                identifier: identifier,
-                detailedPermissions: detailedPermissions,
-                roleTemplate: roleTemplate,
-                isAdmin: isAdmin,
-                passwordHash: hash,
-                salt: salt,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                createdBy: JSON.parse(localStorage.getItem("loginindex_auth"))
-                    .username,
-            });
+        await UserAPI.fetch('/', {
+            method: 'POST',
+            body: JSON.stringify({
+                username,
+                password,
+                displayName,
+                identifier,
+                roleTemplate,
+                isAdmin,
+                detailedPermissions
+            })
+        });
 
         if (window.notify) {
             window.notify.remove(loadingId);
         }
 
-        // Count permissions and derive accessible pages
         let permCount = 0;
         let accessiblePages = 0;
         Object.entries(detailedPermissions).forEach(([pageId, pagePerms]) => {
@@ -809,7 +701,7 @@ async function createUser() {
         });
 
         showSuccess(
-            `Tạo tài khoản thành công!\n\nUsername: ${username}\nTên hiển thị: ${displayName}\nNhóm quyền: ${roleTemplate}\nTruy cập trang: ${accessiblePages} trang\nQuyền chi tiết: ${permCount} quyền\n🔒 Password đã được hash an toàn`,
+            `Tao tai khoan thanh cong!\n\nUsername: ${username}\nTen hien thi: ${displayName}\nNhom quyen: ${roleTemplate}\nTruy cap trang: ${accessiblePages} trang\nQuyen chi tiet: ${permCount} quyen\nPassword da duoc hash an toan`,
         );
 
         clearCreateForm();
@@ -818,102 +710,88 @@ async function createUser() {
         if (window.notify) {
             window.notify.remove(loadingId);
         }
-        showError("Lỗi tạo tài khoản: " + error.message);
+        showError("Loi tao tai khoan: " + error.message);
     }
 }
 
-// Delete user
 async function deleteUser(username) {
-    if (!db) {
-        showError("Firebase chưa được kết nối!");
-        return;
-    }
-
     const user = users.find((u) => u.id === username);
     if (!user) return;
 
     const adminCount = users.filter((u) => u.roleTemplate === 'admin').length;
     if (user.roleTemplate === 'admin' && adminCount === 1) {
-        showError(
-            "Không thể xóa admin cuối cùng!\nHệ thống phải có ít nhất 1 admin.",
-        );
+        showError("Khong the xoa admin cuoi cung!\nHe thong phai co it nhat 1 admin.");
         return;
     }
 
-    // Count permissions
     let permCount = 0;
     if (user.detailedPermissions) {
         Object.values(user.detailedPermissions).forEach((pagePerms) => {
-            permCount += Object.values(pagePerms).filter(
-                (v) => v === true,
-            ).length;
+            permCount += Object.values(pagePerms).filter((v) => v === true).length;
         });
     }
 
     const roleInfo = getRoleTemplateInfo(user.roleTemplate);
-    const confirmMsg = `XÁC NHẬN XÓA TÀI KHOẢN\n\nUsername: ${username}\nTên: ${user.displayName}\nNhóm quyền: ${roleInfo.name}\nQuyền chi tiết: ${permCount} quyền\n\nHành động này KHÔNG THỂ HOÀN TÁC!\n\nBạn có chắc chắn muốn xóa?`;
+    const confirmMsg = `XAC NHAN XOA TAI KHOAN\n\nUsername: ${username}\nTen: ${user.displayName}\nNhom quyen: ${roleInfo.name}\nQuyen chi tiet: ${permCount} quyen\n\nHanh dong nay KHONG THE HOAN TAC!\n\nBan co chac chan muon xoa?`;
 
     if (!confirm(confirmMsg)) {
         return;
     }
 
-    const loadingId = showFloatingAlert("Đang xóa tài khoản...", "loading");
+    const loadingId = showFloatingAlert("Dang xoa tai khoan...", "loading");
 
     try {
-        await db.collection("users").doc(username).delete();
+        await UserAPI.fetch(`/${username}`, { method: 'DELETE' });
 
         if (window.notify) {
             window.notify.remove(loadingId);
         }
 
-        showSuccess(`Đã xóa tài khoản "${username}" thành công!`);
+        showSuccess(`Da xoa tai khoan "${username}" thanh cong!`);
         loadUsers();
     } catch (error) {
         if (window.notify) {
             window.notify.remove(loadingId);
         }
-        showError("Lỗi xóa tài khoản: " + error.message);
+        showError("Loi xoa tai khoan: " + error.message);
     }
 }
 
 // Load permissions overview
 async function loadPermissionsOverview() {
-    if (!db) {
-        showError("Firebase chưa được kết nối!");
-        return;
-    }
-
     const overview = document.getElementById("permissionsOverview");
     overview.innerHTML =
-        '<div class="empty-state show"><i data-lucide="loader" class="spinning"></i><h3>Đang tải dữ liệu...</h3></div>';
+        '<div class="empty-state show"><i data-lucide="loader" class="spinning"></i><h3>Dang tai du lieu...</h3></div>';
 
     if (typeof lucide !== "undefined") {
         lucide.createIcons();
     }
 
     try {
-        const snapshot = await db.collection("users").get();
+        const data = await UserAPI.fetch('/');
+        const allUsers = data.users || [];
+
         const permissionStats = {};
         const roleStats = {};
 
-        // Initialize stats
-        Object.values(DETAILED_PERMISSIONS).forEach((page) => {
-            permissionStats[page.id] = {};
-            Object.keys(page.subPermissions).forEach((subKey) => {
-                permissionStats[page.id][subKey] = {
-                    name: page.subPermissions[subKey].name,
-                    icon: page.subPermissions[subKey].icon,
-                    pageName: page.name,
-                    count: 0,
-                    users: [],
-                };
+        if (typeof DETAILED_PERMISSIONS !== 'undefined') {
+            Object.values(DETAILED_PERMISSIONS).forEach((page) => {
+                permissionStats[page.id] = {};
+                Object.keys(page.subPermissions).forEach((subKey) => {
+                    permissionStats[page.id][subKey] = {
+                        name: page.subPermissions[subKey].name,
+                        icon: page.subPermissions[subKey].icon,
+                        pageName: page.name,
+                        count: 0,
+                        users: [],
+                    };
+                });
             });
-        });
+        }
 
         let totalUsers = 0;
 
-        snapshot.forEach((doc) => {
-            const user = doc.data();
+        allUsers.forEach((user) => {
             totalUsers++;
 
             const roleInfo = getRoleTemplateInfo(user.roleTemplate);
@@ -923,15 +801,9 @@ async function loadPermissionsOverview() {
             const permissions = user.detailedPermissions || {};
             Object.entries(permissions).forEach(([pageId, pagePerms]) => {
                 Object.entries(pagePerms).forEach(([subKey, granted]) => {
-                    if (
-                        granted &&
-                        permissionStats[pageId] &&
-                        permissionStats[pageId][subKey]
-                    ) {
+                    if (granted && permissionStats[pageId] && permissionStats[pageId][subKey]) {
                         permissionStats[pageId][subKey].count++;
-                        permissionStats[pageId][subKey].users.push(
-                            user.displayName || doc.id,
-                        );
+                        permissionStats[pageId][subKey].users.push(user.displayName || user.id);
                     }
                 });
             });
@@ -939,7 +811,7 @@ async function loadPermissionsOverview() {
 
         let html = `
             <div style="background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-                <h3><i data-lucide="bar-chart-2" style="width:20px;height:20px;display:inline-block;vertical-align:middle;margin-right:8px;"></i>Thống Kê Tổng Quan</h3>
+                <h3><i data-lucide="bar-chart-2" style="width:20px;height:20px;display:inline-block;vertical-align:middle;margin-right:8px;"></i>Thong Ke Tong Quan</h3>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px;">
         `;
 
@@ -956,51 +828,46 @@ async function loadPermissionsOverview() {
                 </div>
             </div>
             <div style="background: white; padding: 20px; border-radius: 10px;">
-                <h3><i data-lucide="shield-check" style="width:20px;height:20px;display:inline-block;vertical-align:middle;margin-right:8px;"></i>Thống Kê Quyền Chi Tiết</h3>
+                <h3><i data-lucide="shield-check" style="width:20px;height:20px;display:inline-block;vertical-align:middle;margin-right:8px;"></i>Thong Ke Quyen Chi Tiet</h3>
                 <div style="margin-top: 15px;">
         `;
 
-        // Group by page
-        Object.entries(permissionStats).forEach(([pageId, subPerms]) => {
-            const page = DETAILED_PERMISSIONS[pageId];
+        if (typeof DETAILED_PERMISSIONS !== 'undefined') {
+            Object.entries(permissionStats).forEach(([pageId, subPerms]) => {
+                const page = DETAILED_PERMISSIONS[pageId];
+                if (!page) return;
 
-            html += `<div style="margin-bottom: 25px;">`;
-            html += `<h4 style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">`;
-            html += `<i data-lucide="${page.icon}" style="width:18px;height:18px;"></i>`;
-            html += `${page.name}</h4>`;
+                html += `<div style="margin-bottom: 25px;">`;
+                html += `<h4 style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">`;
+                html += `<i data-lucide="${page.icon}" style="width:18px;height:18px;"></i>`;
+                html += `${page.name}</h4>`;
 
-            Object.entries(subPerms).forEach(([subKey, stats]) => {
-                const percentage =
-                    totalUsers > 0
-                        ? Math.round((stats.count / totalUsers) * 100)
-                        : 0;
+                Object.entries(subPerms).forEach(([subKey, stats]) => {
+                    const percentage = totalUsers > 0 ? Math.round((stats.count / totalUsers) * 100) : 0;
 
-                html += `
-                    <div style="margin-bottom: 12px; padding: 12px; border: 1px solid #dee2e6; border-radius: 8px;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                            <span style="font-size: 0.875rem;"><i data-lucide="${stats.icon}" style="width:14px;height:14px;display:inline-block;vertical-align:middle;margin-right:6px;"></i>${stats.name}</span>
-                            <span style="background: #007bff; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px;">
-                                ${stats.count}/${totalUsers} (${percentage}%)
-                            </span>
-                        </div>
-                        <div style="background: #e9ecef; height: 6px; border-radius: 3px; overflow: hidden;">
-                            <div style="background: #007bff; height: 100%; width: ${percentage}%; transition: width 0.3s ease;"></div>
-                        </div>
-                        ${
-                            stats.users.length > 0
-                                ? `
-                            <div style="margin-top: 6px; font-size: 11px; color: #6c757d;">
-                                <strong>Users:</strong> ${stats.users.join(", ")}
+                    html += `
+                        <div style="margin-bottom: 12px; padding: 12px; border: 1px solid #dee2e6; border-radius: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                                <span style="font-size: 0.875rem;"><i data-lucide="${stats.icon}" style="width:14px;height:14px;display:inline-block;vertical-align:middle;margin-right:6px;"></i>${stats.name}</span>
+                                <span style="background: #007bff; color: white; padding: 2px 8px; border-radius: 12px; font-size: 11px;">
+                                    ${stats.count}/${totalUsers} (${percentage}%)
+                                </span>
                             </div>
-                        `
-                                : ""
-                        }
-                    </div>
-                `;
-            });
+                            <div style="background: #e9ecef; height: 6px; border-radius: 3px; overflow: hidden;">
+                                <div style="background: #007bff; height: 100%; width: ${percentage}%; transition: width 0.3s ease;"></div>
+                            </div>
+                            ${stats.users.length > 0 ? `
+                                <div style="margin-top: 6px; font-size: 11px; color: #6c757d;">
+                                    <strong>Users:</strong> ${stats.users.join(", ")}
+                                </div>
+                            ` : ""}
+                        </div>
+                    `;
+                });
 
-            html += `</div>`;
-        });
+                html += `</div>`;
+            });
+        }
 
         html += "</div></div>";
         overview.innerHTML = html;
@@ -1009,7 +876,7 @@ async function loadPermissionsOverview() {
             lucide.createIcons();
         }
     } catch (error) {
-        overview.innerHTML = `<div class="empty-state show"><i data-lucide="alert-circle"></i><h3>Lỗi tải thống kê</h3><p>${error.message}</p></div>`;
+        overview.innerHTML = `<div class="empty-state show"><i data-lucide="alert-circle"></i><h3>Loi tai thong ke</h3><p>${error.message}</p></div>`;
         if (typeof lucide !== "undefined") {
             lucide.createIcons();
         }
@@ -1019,41 +886,41 @@ async function loadPermissionsOverview() {
 // Export permissions
 async function exportPermissions() {
     if (users.length === 0) {
-        showError("Vui lòng tải danh sách users trước!");
+        showError("Vui long tai danh sach users truoc!");
         return;
     }
 
     try {
         let csv = "Username,Display Name,Role,";
 
-        // Add all permission columns
-        Object.values(DETAILED_PERMISSIONS).forEach((page) => {
-            Object.values(page.subPermissions).forEach((subPerm) => {
-                csv += `${page.name} - ${subPerm.name},`;
+        if (typeof DETAILED_PERMISSIONS !== 'undefined') {
+            Object.values(DETAILED_PERMISSIONS).forEach((page) => {
+                Object.values(page.subPermissions).forEach((subPerm) => {
+                    csv += `${page.name} - ${subPerm.name},`;
+                });
             });
-        });
+        }
         csv += "Total Permissions,Created Date\n";
 
         users.forEach((user) => {
             const permissions = user.detailedPermissions || {};
             const createdDate = user.createdAt
-                ? new Date(user.createdAt.seconds * 1000).toLocaleDateString(
-                      "vi-VN",
-                  )
+                ? new Date(user.createdAt).toLocaleDateString("vi-VN")
                 : "N/A";
 
             const roleInfo = getRoleTemplateInfo(user.roleTemplate);
             csv += `${user.id},"${user.displayName}","${roleInfo.name}",`;
 
             let totalPerms = 0;
-            Object.values(DETAILED_PERMISSIONS).forEach((page) => {
-                Object.keys(page.subPermissions).forEach((subKey) => {
-                    const hasPermission =
-                        permissions[page.id]?.[subKey] || false;
-                    csv += hasPermission ? "YES," : "NO,";
-                    if (hasPermission) totalPerms++;
+            if (typeof DETAILED_PERMISSIONS !== 'undefined') {
+                Object.values(DETAILED_PERMISSIONS).forEach((page) => {
+                    Object.keys(page.subPermissions).forEach((subKey) => {
+                        const hasPermission = permissions[page.id]?.[subKey] || false;
+                        csv += hasPermission ? "YES," : "NO,";
+                        if (hasPermission) totalPerms++;
+                    });
                 });
-            });
+            }
 
             csv += `${totalPerms},"${createdDate}"\n`;
         });
@@ -1063,51 +930,41 @@ async function exportPermissions() {
         const url = URL.createObjectURL(blob);
 
         link.setAttribute("href", url);
-        link.setAttribute(
-            "download",
-            `N2Shop_Detailed_Permissions_${new Date().toISOString().split("T")[0]}.csv`,
-        );
+        link.setAttribute("download", `N2Shop_Detailed_Permissions_${new Date().toISOString().split("T")[0]}.csv`);
         link.style.visibility = "hidden";
 
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
 
-        showSuccess("Đã xuất báo cáo quyền chi tiết thành công!");
+        showSuccess("Da xuat bao cao quyen chi tiet thanh cong!");
     } catch (error) {
-        showError("Lỗi xuất báo cáo: " + error.message);
+        showError("Loi xuat bao cao: " + error.message);
     }
 }
 
 // Export users
 async function exportUsers() {
     if (users.length === 0) {
-        showError("Không có dữ liệu để xuất!");
+        showError("Khong co du lieu de xuat!");
         return;
     }
 
     try {
-        let csv =
-            "Username,Display Name,Role,Role Template,Total Permissions,Created Date,Updated Date\n";
+        let csv = "Username,Display Name,Role,Role Template,Total Permissions,Created Date,Updated Date\n";
 
         users.forEach((user) => {
             const createdDate = user.createdAt
-                ? new Date(user.createdAt.seconds * 1000).toLocaleDateString(
-                      "vi-VN",
-                  )
+                ? new Date(user.createdAt).toLocaleDateString("vi-VN")
                 : "N/A";
             const updatedDate = user.updatedAt
-                ? new Date(user.updatedAt.seconds * 1000).toLocaleDateString(
-                      "vi-VN",
-                  )
+                ? new Date(user.updatedAt).toLocaleDateString("vi-VN")
                 : "N/A";
 
             let permCount = 0;
             if (user.detailedPermissions) {
                 Object.values(user.detailedPermissions).forEach((pagePerms) => {
-                    permCount += Object.values(pagePerms).filter(
-                        (v) => v === true,
-                    ).length;
+                    permCount += Object.values(pagePerms).filter((v) => v === true).length;
                 });
             }
 
@@ -1120,31 +977,23 @@ async function exportUsers() {
         const url = URL.createObjectURL(blob);
 
         link.setAttribute("href", url);
-        link.setAttribute(
-            "download",
-            `N2Shop_Users_${new Date().toISOString().split("T")[0]}.csv`,
-        );
+        link.setAttribute("download", `N2Shop_Users_${new Date().toISOString().split("T")[0]}.csv`);
         link.style.visibility = "hidden";
 
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
 
-        showSuccess("✅ Đã xuất file CSV thành công!");
+        showSuccess("Da xuat file CSV thanh cong!");
     } catch (error) {
-        showError("❌ Lỗi xuất file: " + error.message);
+        showError("Loi xuat file: " + error.message);
     }
 }
 
 // =====================================================
-// ADMIN TOGGLE - isAdmin flag management
+// ADMIN TOGGLE
 // =====================================================
 
-/**
- * Toggle admin mode for edit form
- * When admin is ON: hide detailed permissions section, show ON badge, hide OFF badge
- * When admin is OFF: show detailed permissions section, hide ON badge, show OFF badge
- */
 function toggleAdminMode(isAdmin) {
     const detailedPermissions = document.getElementById('editDetailedPermissions');
     const adminBadge = document.getElementById('editAdminBadge');
@@ -1161,10 +1010,6 @@ function toggleAdminMode(isAdmin) {
     }
 }
 
-/**
- * Initialize admin toggle checkbox event listener
- * Only show admin toggle group if current logged-in user is admin
- */
 function initAdminToggle() {
     const adminCheckbox = document.getElementById('editIsAdmin');
     const adminToggleGroup = document.getElementById('editAdminToggleGroup');
@@ -1175,14 +1020,13 @@ function initAdminToggle() {
         });
     }
 
-    // Show admin toggle group only if current user is admin
     if (adminToggleGroup) {
         const authData = localStorage.getItem('loginindex_auth') || sessionStorage.getItem('loginindex_auth');
         if (authData) {
             try {
                 const auth = JSON.parse(authData);
                 const isCurrentUserAdmin = auth.isAdmin === true || auth.roleTemplate === 'admin';
-                const hasUserMgmtAccess = auth.detailedPermissions?.['user-management'] && 
+                const hasUserMgmtAccess = auth.detailedPermissions?.['user-management'] &&
                     Object.values(auth.detailedPermissions['user-management']).some(v => v === true);
                 if (isCurrentUserAdmin || hasUserMgmtAccess) {
                     adminToggleGroup.style.display = '';
@@ -1201,7 +1045,6 @@ function clearEditForm() {
     document.getElementById("editIdentifier").value = "";
     document.getElementById("editNewPassword").value = "";
 
-    // Clear detailed permissions UI (simplified system - only detailedPermissions)
     if (window.editDetailedPermUI) {
         window.editDetailedPermUI.setPermissions({});
     }
@@ -1218,7 +1061,6 @@ function clearCreateForm() {
     document.getElementById("newDisplayName").value = "";
     document.getElementById("newIdentifier").value = "";
 
-    // Clear detailed permissions UI (simplified system - only detailedPermissions)
     if (window.newDetailedPermUI) {
         window.newDetailedPermUI.setPermissions({});
     }
@@ -1249,7 +1091,7 @@ function showSuccess(message) {
         window.notify.success(message);
     } else {
         console.log("[SUCCESS]", message);
-        alert("✅ " + message);
+        alert(message);
     }
 }
 
@@ -1258,7 +1100,7 @@ function showError(message) {
         window.notify.error(message);
     } else {
         console.error("[ERROR]", message);
-        alert("❌ " + message);
+        alert(message);
     }
 }
 
@@ -1271,34 +1113,79 @@ document.getElementById("newUsername")?.addEventListener("input", function () {
     }
 });
 
+// =====================================================
+// FIREBASE MIGRATION (temporary - remove after migration)
+// =====================================================
+async function migrateFromFirebase() {
+    if (typeof firebase === 'undefined' || !firebase.apps.length) {
+        showError('Firebase not loaded. Add Firebase scripts temporarily for migration.');
+        return;
+    }
+
+    const db = firebase.firestore();
+    const loadingId = showFloatingAlert('Dang migrate du lieu tu Firebase...', 'loading');
+
+    try {
+        // Load users
+        const usersSnapshot = await db.collection('users').get();
+        const usersData = [];
+        usersSnapshot.forEach(doc => {
+            usersData.push({ id: doc.id, ...doc.data() });
+        });
+
+        // Load templates
+        const templatesSnapshot = await db.collection('permission_templates').get();
+        const templatesData = [];
+        templatesSnapshot.forEach(doc => {
+            templatesData.push({ id: doc.id, ...doc.data() });
+        });
+
+        // Load settings
+        const settingsData = {};
+        try {
+            const menuNamesDoc = await db.collection('settings').doc('custom_menu_names').get();
+            if (menuNamesDoc.exists) {
+                settingsData.custom_menu_names = menuNamesDoc.data();
+            }
+        } catch (e) {
+            console.warn('Could not load settings:', e);
+        }
+
+        // Send to API
+        const response = await fetch(UserAPI.BASE_URL + '/migrate/bulk', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                users: usersData,
+                templates: templatesData,
+                settings: settingsData
+            })
+        });
+
+        const result = await response.json();
+
+        if (window.notify) window.notify.remove(loadingId);
+
+        if (result.success) {
+            showSuccess('Migration thanh cong! ' + result.message);
+        } else {
+            showError('Migration that bai: ' + (result.error || 'Unknown error'));
+        }
+    } catch (error) {
+        if (window.notify) window.notify.remove(loadingId);
+        showError('Migration loi: ' + error.message);
+    }
+}
+
 // Initialize page
 document.addEventListener("DOMContentLoaded", function () {
-    console.log("Enhanced User Management page loading...");
+    console.log("User Management page loading (Render API mode)...");
 
     if (!checkAdminAccess()) {
         return;
     }
 
-    console.log(
-        "Enhanced User Management initialized with detailed permissions",
-    );
+    console.log("User Management initialized with Render API");
 
-    setTimeout(() => {
-        if (typeof CryptoJS !== "undefined" && typeof bcrypt !== "undefined") {
-            console.log("✅ Crypto libraries loaded successfully");
-        } else {
-            console.warn("⚠️ Some crypto libraries failed to load");
-        }
-    }, 1000);
-
-    // Note: PagePermissionsUI removed - now using simplified system with only detailedPermissions
-    // DetailedPermissionsUI is initialized in detailed-permissions-ui.js
-    console.log("✅ User Management initialized with simplified permission system");
-
-    // Initialize admin toggle
     initAdminToggle();
 });
-
-console.log(
-    "Enhanced User Management System with Detailed Permissions initialized",
-);

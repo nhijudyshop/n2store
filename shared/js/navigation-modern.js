@@ -280,12 +280,16 @@ function selectiveLogoutStorage() {
 // localStorage key for custom menu names (cache)
 const CUSTOM_MENU_NAMES_KEY = 'n2shop_custom_menu_names';
 const CUSTOM_MENU_NAMES_TIMESTAMP_KEY = 'n2shop_custom_menu_names_timestamp';
-const FIREBASE_MENU_NAMES_DOC = 'settings/custom_menu_names';
+
+// API URL for settings
+const SETTINGS_API_URL = window.location.hostname === 'localhost'
+    ? 'http://localhost:10000/api/users/settings'
+    : 'https://n2store-fallback.onrender.com/api/users/settings';
 
 // Cache expiry time: 24 hours in milliseconds
 const CACHE_EXPIRY_MS = 24 * 60 * 60 * 1000;
 
-// Cache for menu names (loaded from Firebase)
+// Cache for menu names (loaded from API)
 let cachedMenuNames = null;
 
 // Helper functions for custom menu names with Firebase sync
@@ -327,8 +331,8 @@ function isCacheValid() {
     }
 }
 
-// Load custom menu names from Firebase (call this on page load)
-// Only fetches from Firebase if cache is expired or doesn't exist
+// Load custom menu names from API (call this on page load)
+// Only fetches from API if cache is expired or doesn't exist
 async function loadCustomMenuNamesFromFirebase() {
     try {
         // Check if we have valid cached data
@@ -339,52 +343,64 @@ async function loadCustomMenuNamesFromFirebase() {
             return getCustomMenuNames();
         }
 
-        if (typeof firebase === 'undefined' || !firebase.firestore || !firebase.apps?.length) {
-            console.log('[Menu Names] Firebase not available or not initialized, using localStorage only');
-            return getCustomMenuNames();
-        }
+        console.log('[Menu Names] Cache expired or missing, fetching from API...');
+        const authData = JSON.parse(localStorage.getItem('loginindex_auth') || '{}');
+        const token = authData.token;
 
-        console.log('[Menu Names] Cache expired or missing, fetching from Firebase...');
-        const db = firebase.firestore();
-        const doc = await db.doc(FIREBASE_MENU_NAMES_DOC).get();
+        const resp = await fetch(`${SETTINGS_API_URL}/custom_menu_names`, {
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
 
-        if (doc.exists) {
-            const data = doc.data();
-            cachedMenuNames = data.names || {};
-            // Update localStorage cache with timestamp
+        if (resp.ok) {
+            const data = await resp.json();
+            cachedMenuNames = data.value?.names || data.value || {};
             localStorage.setItem(CUSTOM_MENU_NAMES_KEY, JSON.stringify(cachedMenuNames));
             localStorage.setItem(CUSTOM_MENU_NAMES_TIMESTAMP_KEY, Date.now().toString());
-            console.log('[Menu Names] Loaded from Firebase:', Object.keys(cachedMenuNames).length, 'custom names');
-        } else {
+            console.log('[Menu Names] Loaded from API:', Object.keys(cachedMenuNames).length, 'custom names');
+        } else if (resp.status === 404) {
             cachedMenuNames = {};
-            // Still set timestamp to avoid continuous retry
             localStorage.setItem(CUSTOM_MENU_NAMES_TIMESTAMP_KEY, Date.now().toString());
-            console.log('[Menu Names] No custom names in Firebase');
+            console.log('[Menu Names] No custom names saved yet');
+        } else {
+            console.warn('[Menu Names] API error:', resp.status);
+            return getCustomMenuNames();
         }
 
         return cachedMenuNames;
     } catch (e) {
-        console.error('[Menu Names] Error loading from Firebase:', e);
+        console.error('[Menu Names] Error loading from API:', e);
         return getCustomMenuNames(); // Fallback to localStorage
     }
 }
 
-// Save custom menu names to Firebase
+// Save custom menu names to API
 async function saveCustomMenuNames(customNames) {
     try {
         // Save to localStorage first (immediate)
         localStorage.setItem(CUSTOM_MENU_NAMES_KEY, JSON.stringify(customNames));
+        localStorage.setItem(CUSTOM_MENU_NAMES_TIMESTAMP_KEY, Date.now().toString());
         cachedMenuNames = customNames;
 
-        // Save to Firebase for sync
-        if (typeof firebase !== 'undefined' && firebase.firestore && firebase.apps?.length) {
-            const db = firebase.firestore();
-            await db.doc(FIREBASE_MENU_NAMES_DOC).set({
+        // Save to API for sync
+        const authData = JSON.parse(localStorage.getItem('loginindex_auth') || '{}');
+        const token = authData.token;
+
+        const resp = await fetch(`${SETTINGS_API_URL}/custom_menu_names`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+            },
+            body: JSON.stringify({
                 names: customNames,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
                 updatedBy: localStorage.getItem('currentUser') || 'admin'
-            }, { merge: true });
-            console.log('[Menu Names] Saved to Firebase successfully');
+            })
+        });
+
+        if (resp.ok) {
+            console.log('[Menu Names] Saved to API successfully');
+        } else {
+            console.warn('[Menu Names] API save failed:', resp.status);
         }
 
         return true;
@@ -421,7 +437,6 @@ window.MenuNameUtils = {
 
 const MENU_LAYOUT_STORAGE_KEY = 'n2shop_menu_layout';
 const MENU_LAYOUT_TIMESTAMP_KEY = 'n2shop_menu_layout_timestamp';
-const MENU_LAYOUT_FIREBASE_DOC = 'settings/menu_layout';
 
 // Default groups configuration by icon type
 const DEFAULT_GROUPS_CONFIG = [
@@ -464,13 +479,12 @@ const DEFAULT_GROUPS_CONFIG = [
 
 const MenuLayoutStore = {
     _layout: null,
-    _unsubscribe: null,
-    _isListening: false,
+    _pollInterval: null,
     _saveTimeout: null,
     _isEditing: false,
 
     /**
-     * Initialize the store - load from Firebase or localStorage
+     * Initialize the store - load from API or localStorage
      */
     async init() {
         console.log('[MenuLayout] Initializing...');
@@ -482,11 +496,11 @@ const MenuLayoutStore = {
             console.log('[MenuLayout] Loaded from cache');
         }
 
-        // Load from Firebase (async)
-        await this._loadFromFirestore();
+        // Load from API (async)
+        await this._loadFromAPI();
 
-        // Setup real-time listener
-        this._setupRealtimeListener();
+        // Poll for updates every 5 minutes (replaces real-time listener)
+        this._startPolling();
 
         return this._layout;
     },
@@ -531,32 +545,33 @@ const MenuLayoutStore = {
     },
 
     /**
-     * Load layout from Firestore
+     * Load layout from API
      */
-    async _loadFromFirestore() {
+    async _loadFromAPI() {
         try {
-            if (typeof firebase === 'undefined' || !firebase.firestore || !firebase.apps?.length) {
-                console.log('[MenuLayout] Firebase not available, using default layout');
+            const authData = JSON.parse(localStorage.getItem('loginindex_auth') || '{}');
+            const token = authData.token;
+
+            const resp = await fetch(`${SETTINGS_API_URL}/menu_layout`, {
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+            });
+
+            if (resp.ok) {
+                const data = await resp.json();
+                this._layout = data.value || this.getDefaultLayout();
+                this._saveToLocalStorage();
+                console.log('[MenuLayout] Loaded from API:', this._layout.groups?.length, 'groups');
+            } else if (resp.status === 404) {
+                this._layout = this.getDefaultLayout();
+                console.log('[MenuLayout] No saved layout, using default');
+            } else {
+                console.warn('[MenuLayout] API error:', resp.status);
                 if (!this._layout) {
                     this._layout = this.getDefaultLayout();
                 }
-                return;
-            }
-
-            const db = firebase.firestore();
-            const doc = await db.doc(MENU_LAYOUT_FIREBASE_DOC).get();
-
-            if (doc.exists) {
-                this._layout = doc.data();
-                this._saveToLocalStorage();
-                console.log('[MenuLayout] Loaded from Firebase:', this._layout.groups?.length, 'groups');
-            } else {
-                // No layout saved yet - create default
-                this._layout = this.getDefaultLayout();
-                console.log('[MenuLayout] No saved layout, using default');
             }
         } catch (e) {
-            console.error('[MenuLayout] Error loading from Firestore:', e);
+            console.error('[MenuLayout] Error loading from API:', e);
             if (!this._layout) {
                 this._layout = this.getDefaultLayout();
             }
@@ -564,63 +579,46 @@ const MenuLayoutStore = {
     },
 
     /**
-     * Setup real-time listener for cross-device sync
+     * Start polling for layout changes (replaces Firebase real-time listener)
      */
-    _setupRealtimeListener() {
-        if (this._unsubscribe) return;
+    _startPolling() {
+        if (this._pollInterval) return;
 
-        try {
-            if (typeof firebase === 'undefined' || !firebase.firestore || !firebase.apps?.length) {
-                console.log('[MenuLayout] Firebase not available, skipping listener setup');
-                return;
-            }
+        this._pollInterval = setInterval(async () => {
+            if (this._isEditing) return;
 
-            const db = firebase.firestore();
-            this._unsubscribe = db.doc(MENU_LAYOUT_FIREBASE_DOC)
-                .onSnapshot((doc) => {
-                    // Prevent processing during save
-                    if (this._isEditing) {
-                        console.log('[MenuLayout] Ignoring snapshot during edit');
-                        return;
-                    }
+            try {
+                const authData = JSON.parse(localStorage.getItem('loginindex_auth') || '{}');
+                const token = authData.token;
 
-                    this._isListening = true;
-
-                    if (doc.exists) {
-                        const newLayout = doc.data();
-
-                        // Get timestamps for comparison
-                        const currentTime = this._layout?.lastUpdated?.toMillis?.() ||
-                                          this._layout?.lastUpdated?.seconds * 1000 || 0;
-                        const newTime = newLayout.lastUpdated?.toMillis?.() ||
-                                       newLayout.lastUpdated?.seconds * 1000 || 0;
-
-                        console.log('[MenuLayout] Snapshot received - current:', currentTime, 'new:', newTime);
-
-                        // Update if newer or if we don't have a timestamp yet
-                        if (newTime > currentTime || !this._layout?.lastUpdated) {
-                            this._layout = newLayout;
-                            this._saveToLocalStorage();
-                            console.log('[MenuLayout] Updated from Firebase - groups:', newLayout.groups?.length);
-
-                            // Re-render navigation for other users
-                            if (window.navigationManager && !this._isEditing) {
-                                console.log('[MenuLayout] Re-rendering navigation...');
-                                window.navigationManager.renderNavigation();
-                            }
-                        }
-                    }
-
-                    this._isListening = false;
-                }, (error) => {
-                    console.error('[MenuLayout] Listener error:', error);
-                    this._isListening = false;
+                const resp = await fetch(`${SETTINGS_API_URL}/menu_layout`, {
+                    headers: token ? { 'Authorization': `Bearer ${token}` } : {}
                 });
 
-            console.log('[MenuLayout] Real-time listener setup successfully');
-        } catch (e) {
-            console.error('[MenuLayout] Error setting up listener:', e);
-        }
+                if (resp.ok) {
+                    const data = await resp.json();
+                    const newLayout = data.value;
+                    if (!newLayout) return;
+
+                    const currentTime = this._layout?.lastUpdated || 0;
+                    const newTime = newLayout.lastUpdated || 0;
+
+                    if (newTime > currentTime) {
+                        this._layout = newLayout;
+                        this._saveToLocalStorage();
+                        console.log('[MenuLayout] Updated from API - groups:', newLayout.groups?.length);
+
+                        if (window.navigationManager && !this._isEditing) {
+                            window.navigationManager.renderNavigation();
+                        }
+                    }
+                }
+            } catch (e) {
+                // Silent fail for polling
+            }
+        }, 5 * 60 * 1000); // Poll every 5 minutes
+
+        console.log('[MenuLayout] Polling setup successfully (5 min interval)');
     },
 
     /**
@@ -756,7 +754,7 @@ const MenuLayoutStore = {
     },
 
     /**
-     * Save layout to Firebase (debounced)
+     * Save layout to API (debounced)
      */
     async saveLayout(layout) {
         // Create a deep copy to avoid reference issues
@@ -766,39 +764,38 @@ const MenuLayoutStore = {
 
         console.log('[MenuLayout] Layout updated locally - groups:', layoutCopy.groups?.length);
 
-        // Debounce Firebase save
+        // Debounce API save
         clearTimeout(this._saveTimeout);
         this._saveTimeout = setTimeout(async () => {
-            if (this._isListening) {
-                console.log('[MenuLayout] Skipping Firebase save - listener active');
-                return;
-            }
-
             try {
-                if (typeof firebase === 'undefined' || !firebase.firestore || !firebase.apps?.length) {
-                    console.log('[MenuLayout] Firebase not available, saved to localStorage only');
-                    return;
-                }
+                const authData = JSON.parse(localStorage.getItem('loginindex_auth') || '{}');
+                const token = authData.token;
+                const username = localStorage.getItem('currentUser') || authData.username || 'admin';
 
-                const db = firebase.firestore();
-                const username = localStorage.getItem('currentUser') ||
-                    JSON.parse(localStorage.getItem('loginindex_auth') || '{}').username ||
-                    'admin';
-
-                // Save without lastUpdated from local copy (let Firebase set it)
-                const { lastUpdated, ...layoutWithoutTimestamp } = this._layout;
-
-                await db.doc(MENU_LAYOUT_FIREBASE_DOC).set({
-                    ...layoutWithoutTimestamp,
-                    lastUpdated: firebase.firestore.FieldValue.serverTimestamp(),
+                const layoutToSave = {
+                    ...this._layout,
+                    lastUpdated: Date.now(),
                     updatedBy: username
+                };
+
+                const resp = await fetch(`${SETTINGS_API_URL}/menu_layout`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                    },
+                    body: JSON.stringify(layoutToSave)
                 });
 
-                console.log('[MenuLayout] Saved to Firebase successfully');
+                if (resp.ok) {
+                    console.log('[MenuLayout] Saved to API successfully');
+                } else {
+                    console.warn('[MenuLayout] API save failed:', resp.status);
+                }
             } catch (e) {
-                console.error('[MenuLayout] Error saving to Firebase:', e);
+                console.error('[MenuLayout] Error saving to API:', e);
             }
-        }, 1000); // Reduced to 1 second for faster sync
+        }, 1000);
     },
 
     /**
@@ -809,12 +806,12 @@ const MenuLayoutStore = {
     },
 
     /**
-     * Cleanup listener
+     * Cleanup polling and timeouts
      */
     destroy() {
-        if (this._unsubscribe) {
-            this._unsubscribe();
-            this._unsubscribe = null;
+        if (this._pollInterval) {
+            clearInterval(this._pollInterval);
+            this._pollInterval = null;
         }
         clearTimeout(this._saveTimeout);
     }
