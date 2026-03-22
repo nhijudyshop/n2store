@@ -771,12 +771,23 @@
     function updateScanCount() {
         const countEl = document.getElementById('drScanCount');
         const totalEl = document.getElementById('drScanTotal');
+        const amountEl = document.getElementById('drScanTotalAmount');
         if (!countEl || !totalEl) return;
 
         const tabData = getTabFilteredData();
-        const scanned = tabData.filter(item => DeliveryReportState.scannedNumbers.has(item.Number)).length;
-        countEl.textContent = `Đã quét: ${formatNumber(scanned)}`;
+        const scannedItems = tabData.filter(item => DeliveryReportState.scannedNumbers.has(item.Number));
+        countEl.textContent = `Đã quét: ${formatNumber(scannedItems.length)}`;
         totalEl.textContent = formatNumber(tabData.length);
+
+        // Show total amount for current view (scanned or unscanned)
+        if (amountEl) {
+            const showScanned = DeliveryReportState.scanFilter === 'scanned';
+            const viewItems = showScanned
+                ? scannedItems
+                : tabData.filter(item => !DeliveryReportState.scannedNumbers.has(item.Number));
+            const total = viewItems.reduce((sum, i) => sum + (i.AmountTotal || 0), 0);
+            amountEl.textContent = `Tổng: ${formatMoney(total)}`;
+        }
     }
 
     function getTabFilteredData() {
