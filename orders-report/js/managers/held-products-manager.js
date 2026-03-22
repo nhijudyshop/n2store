@@ -393,6 +393,7 @@
                         UOMId: p.UOMId,
                         UOMName: p.UOMName,
                         IsFromSearch: p.IsFromSearch,
+                        IsFromDropped: p.IsFromDropped,
                         StockQty: p.StockQty
                     };
                 });
@@ -451,6 +452,9 @@
                         const productSource = existingHeld || droppedProduct || firebaseProductInfo;
 
                         if (productSource) {
+                            // Determine if product came from dropped list
+                            const isFromDropped = !!droppedProduct || (existingHeld && existingHeld.IsFromDropped);
+
                             window.currentChatOrderData.Details.push({
                                 ProductId: parseInt(productId),
                                 ProductName: productSource.ProductName,
@@ -468,6 +472,7 @@
                                 ProductWeight: 0,
                                 Note: null,
                                 IsHeld: true,
+                                IsFromDropped: isFromDropped,
                                 IsFromSearch: isFromSearch || productSource.IsFromSearch,
                                 StockQty: productSource.StockQty || 0,
                                 HeldBy: holders.join(', ')

@@ -127,9 +127,14 @@ console.log('[ChatProducts-Actions] Loading...');
             // Remove from Firebase held_products
             await removeHeldFromFirebase(orderData.Id, productId);
 
-            // If product came from dropped products, remove it from dropped list
-            if (heldProduct.IsFromDropped && typeof window.removeDroppedProductByProductId === 'function') {
-                await window.removeDroppedProductByProductId(productId);
+            // Remove from dropped products list if it came from there
+            // Check both IsFromDropped flag and actual presence in dropped list
+            if (typeof window.removeDroppedProductByProductId === 'function') {
+                const droppedProducts = typeof window.getDroppedProducts === 'function' ? window.getDroppedProducts() : [];
+                const inDropped = droppedProducts.some(p => Number(p.ProductId) === productId);
+                if (heldProduct.IsFromDropped || inDropped) {
+                    await window.removeDroppedProductByProductId(productId);
+                }
             }
 
             // Invalidate cache
