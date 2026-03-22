@@ -295,6 +295,71 @@
     }
 
     // =====================================================
+    // SAVE (CrossCheck)
+    // =====================================================
+    async function handleSave() {
+        if (!currentOrder || !isAllChecked()) return;
+
+        const overlay = showLoading();
+
+        try {
+            const token = await getToken();
+            if (!token) {
+                showToast('Không có token xác thực. Vui lòng đăng nhập lại.', 'error');
+                return;
+            }
+
+            // Build contents array: "[CODE] PRODUCT_NAME: checked/total"
+            const contents = currentOrder.OrderLines.map(line => {
+                const barcode = extractBarcode(line);
+                const totalQty = Math.floor(line.ProductUOMQty || 1);
+                const checkedQty = barcode ? (checkedQuantities[barcode] || 0) : 0;
+                const name = line.Name || line.ProductNameGet || '';
+                return `${name}: ${checkedQty}/${totalQty}`;
+            });
+
+            const baseUrl = (window.TPOS_CONFIG && window.TPOS_CONFIG.tposBaseUrl) || 'https://tomato.tpos.vn';
+            const url = `${baseUrl}/odata/FastSaleOrder/ODataService.CrossCheckAndOpenOrder?fastSaleOrderId=${currentOrder.Id}`;
+
+            const resp = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'accept': 'application/json, text/plain, */*',
+                    'content-type': 'application/json;charset=UTF-8',
+                    'authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    model: {
+                        IsOk: true,
+                        Contents: contents
+                    }
+                })
+            });
+
+            if (!resp.ok) {
+                throw new Error(`Lỗi ${resp.status}: ${resp.statusText}`);
+            }
+
+            const result = await resp.json();
+
+            if (result.Success) {
+                showToast('Đối soát thành công!', 'success');
+                // Go back to scanner page after short delay
+                setTimeout(() => {
+                    goBack();
+                }, 1000);
+            } else {
+                showToast(`Lỗi: ${result.Error || 'Không xác định'}`, 'error');
+            }
+        } catch (err) {
+            console.error('Save error:', err);
+            showToast(`Lỗi lưu: ${err.message}`, 'error');
+        } finally {
+            hideLoading(overlay);
+        }
+    }
+
+    // =====================================================
     // INVOICE SEARCH
     // =====================================================
     async function handleInvoiceSearch() {
@@ -406,9 +471,7 @@
         backBtn.addEventListener('click', goBack);
 
         // Save button
-        saveBtn.addEventListener('click', () => {
-            showToast('Đã lưu thông tin đối soát', 'success');
-        });
+        saveBtn.addEventListener('click', handleSave);
 
         // Product barcode scan
         productScanBtn.addEventListener('click', () => {
