@@ -170,10 +170,15 @@ const BillService = (function () {
 
         // Shop-wide delivery note (hotline warning + return policy)
         // This comes from shop settings or default
-        const shopDeliveryNote =
+        let shopDeliveryNote =
             defaultData?.DeliveryNote ||
             orderResult?.DeliveryNote ||
             'KHÔNG ĐƯỢC TỰ Ý HOÀN ĐƠN CÓ GÌ LIÊN HỆ HOTLINE CŨA SHOP 090 8888 674 ĐỂ ĐƯỢC HỖ TRỢ\n\nSản phẩm nhận đổi trả trong vòng 2-4 ngày kể từ ngày nhận hàng, "ĐỐI VỚI SẢN PHẨM BỊ LỖI HOẶC SẢN PHẨM SHOP GIAO SAI" quá thời gian shop không nhận xử lý đổi trả bất kì trường hợp nào.';
+
+        // Nếu ghi chú có "Thu về" thì thêm "Thu về" vào cuối ghi chú giao hàng
+        if (/thu\s*về/i.test(orderComment)) {
+            shopDeliveryNote = shopDeliveryNote.trimEnd() + ' Thu về';
+        }
 
         // Shop-wide comment (bank account info)
         // This comes from shop settings or default
