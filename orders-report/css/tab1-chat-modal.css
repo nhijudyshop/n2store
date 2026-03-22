@@ -1170,8 +1170,8 @@
 
 /* Right: Product panel - fully independent, own header */
 .chat-right-panel {
-    width: 520px;
-    min-width: 380px;
+    width: 624px;
+    min-width: 456px;
     max-width: 70%;
     height: 100% !important;
     min-height: 0;

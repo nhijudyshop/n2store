@@ -1277,12 +1277,17 @@
                     /"/g,
                     '&quot;'
                 );
-                const tooltipText =
-                    productNameEscaped + (removedInfo ? `&#10;---&#10;${removedInfo}` : '');
+
+                // Build tooltip with product info + notes
+                let tooltipParts = [productNameEscaped];
+                if (p.ProductCode) tooltipParts.push(`Mã: ${p.ProductCode}`);
+                if (p.campaignName) tooltipParts.push(`Live: ${p.campaignName}`);
+                if (p.addedDate) tooltipParts.push(p.addedDate);
+                if (removedInfo) tooltipParts.push('---', removedInfo);
+                const tooltipText = tooltipParts.join('&#10;');
 
                 return `
             <tr class="chat-product-row" data-index="${actualIndex}" style="opacity: ${rowOpacity};">
-                <td style="width: 30px;">${i + 1}</td>
                 <td style="width: 60px;">
                     ${p.ImageUrl ? `<img src="${p.ImageUrl}" class="chat-product-image" style="opacity: ${isOutOfStock ? '0.7' : '1'}; cursor: pointer;" onclick="showImageZoom('${p.ImageUrl}', '${productNameEscaped}')" oncontextmenu="sendImageToChat('${p.ImageUrl}', '${productNameEscaped}', ${p.ProductId}, '${(p.ProductCode || '').replace(/'/g, "\\'")}'); return false;" title="Click: Xem ảnh | Chuột phải: Gửi ảnh vào chat">` : `<div class="chat-product-image" style="background: linear-gradient(135deg, ${isOutOfStock ? '#9ca3af' : '#ef4444'} 0%, ${isOutOfStock ? '#6b7280' : '#dc2626'} 100%); display: flex; align-items: center; justify-content: center;"><i class="fas fa-box" style="color: white; font-size: 18px;"></i></div>`}
                 </td>
@@ -1304,8 +1309,6 @@
                                   : ''
                         }
                     </div>
-                    <div style="font-size: 11px; color: #6b7280;">Mã: ${p.ProductCode || 'N/A'}</div>
-                    ${p.campaignName ? `<div style="font-size: 10px; color: #6366f1; margin-top: 2px;"><i class="fas fa-video"></i> ${p.campaignName}</div>` : ''}
                     ${
                         p._holders && p._holders.length > 1
                             ? p._holders
@@ -1320,7 +1323,6 @@
                                   .join('')
                             : ''
                     }
-                    <div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">${p.addedDate || ''}</div>
                 </td>
                 <td style="text-align: center; width: 140px;">
                     <div class="chat-quantity-controls">
@@ -1335,7 +1337,6 @@
                     </div>
                 </td>
                 <td style="text-align: right; width: 100px;">${(p.Price || 0).toLocaleString('vi-VN')}đ</td>
-                <td style="text-align: right; font-weight: 600; width: 120px; color: #ef4444;">${((p.Quantity || 0) * (p.Price || 0)).toLocaleString('vi-VN')}đ</td>
                 <td style="text-align: center; width: 140px;">
                     <button onclick="moveDroppedToOrder(${actualIndex})" class="chat-btn-product-action" title="${isOutOfStock ? 'Không thể chuyển (số lượng = 0)' : 'Chuyển về đơn hàng'}" style="margin-right: 4px; color: ${isOutOfStock ? '#cbd5e1' : '#10b981'}; ${isOutOfStock ? 'cursor: not-allowed; opacity: 0.5;' : ''}" ${isOutOfStock ? 'disabled' : ''}>
                         <i class="fas fa-undo"></i>
@@ -1375,12 +1376,10 @@
             <table class="chat-products-table">
                 <thead>
                     <tr>
-                        <th>#</th>
                         <th>Ảnh</th>
                         <th>Sản phẩm</th>
                         <th style="text-align: center;">SL</th>
                         <th style="text-align: right;">Đơn giá</th>
-                        <th style="text-align: right;">Thành tiền</th>
                         <th style="text-align: center;">Thao tác</th>
                     </tr>
                 </thead>
@@ -1389,9 +1388,8 @@
                 </tbody>
                 <tfoot>
                     <tr>
-                        <td colspan="3" style="text-align: right;">Tổng cộng:</td>
+                        <td colspan="2" style="text-align: right;">Tổng cộng:</td>
                         <td style="text-align: center;">${totalQuantity}</td>
-                        <td></td>
                         <td style="text-align: right; color: #ef4444; font-size: 14px;">${totalAmount.toLocaleString('vi-VN')}đ</td>
                         <td></td>
                     </tr>
