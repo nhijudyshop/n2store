@@ -1000,13 +1000,13 @@
         const unassigned = provinceData.filter(item => !state.provinceGroups[item.Number]);
 
         if (unassigned.length > 0) {
-            // Shuffle randomly
-            const shuffled = [...unassigned].sort(() => Math.random() - 0.5);
+            // Sort by price ascending - smallest goes to TOMATO
+            const sorted = [...unassigned].sort((a, b) => (a.AmountTotal || 0) - (b.AmountTotal || 0));
 
-            // Split 1:3 ratio (TOMATO gets 1/4, NAP gets 3/4)
-            const tomatoCount = Math.max(1, Math.round(shuffled.length / 4));
+            // 1/4 cheapest → TOMATO, 3/4 rest → NAP
+            const tomatoCount = Math.max(1, Math.round(sorted.length / 4));
 
-            shuffled.forEach((item, index) => {
+            sorted.forEach((item, index) => {
                 state.provinceGroups[item.Number] = index < tomatoCount ? 'tomato' : 'nap';
             });
 
@@ -1033,12 +1033,11 @@
         // Auto-assign items without group (fallback if ensureProvinceGroups didn't run)
         const unassigned = provinceData.filter(item => !groups[item.Number]);
         if (unassigned.length > 0) {
-            const shuffled = [...unassigned].sort(() => Math.random() - 0.5);
-            const tomatoCount = Math.max(1, Math.round(shuffled.length / 4));
-            shuffled.forEach((item, index) => {
+            const sorted = [...unassigned].sort((a, b) => (a.AmountTotal || 0) - (b.AmountTotal || 0));
+            const tomatoCount = Math.max(1, Math.round(sorted.length / 4));
+            sorted.forEach((item, index) => {
                 groups[item.Number] = index < tomatoCount ? 'tomato' : 'nap';
             });
-            // Save in background (don't await)
             saveProvinceGroups(groups);
         }
 
