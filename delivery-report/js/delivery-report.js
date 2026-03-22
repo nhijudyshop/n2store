@@ -1013,9 +1013,14 @@
         const tomatoItems = allTomato.filter(item => showScanned ? scanned.has(item.Number) : !scanned.has(item.Number));
         const napItems = allNap.filter(item => showScanned ? scanned.has(item.Number) : !scanned.has(item.Number));
 
+        // Calculate totals for current view (filtered by scan status)
+        const tomatoTotal = tomatoItems.reduce((sum, i) => sum + (i.AmountTotal || 0), 0);
+        const napTotal = napItems.reduce((sum, i) => sum + (i.AmountTotal || 0), 0);
+
         // Render TOMATO column
         let tomatoHtml = `<div class="dr-province-header dr-province-header-tomato">
             TOMATO <span class="dr-province-count">${tomatoScannedCount}/${allTomato.length}</span>
+            <div class="dr-province-total">${formatMoney(tomatoTotal)}</div>
         </div>`;
         tomatoItems.forEach(item => {
             const isScanned = scanned.has(item.Number);
@@ -1038,6 +1043,7 @@
         // Render NAP column
         let napHtml = `<div class="dr-province-header dr-province-header-nap">
             NAP <span class="dr-province-count">${napScannedCount}/${allNap.length}</span>
+            <div class="dr-province-total">${formatMoney(napTotal)}</div>
         </div>`;
         napItems.forEach(item => {
             const isScanned = scanned.has(item.Number);
