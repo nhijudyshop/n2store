@@ -40,25 +40,14 @@ async function openPackingSlipModal() {
     const address = order.PartnerAddress || order.Address || '';
     const stt = order.SessionIndex || '';
 
-    // Get nhân viên from tags
-    let nhanVien = '';
-    try {
-        const tags = typeof order.Tags === 'string' ? JSON.parse(order.Tags) : (order.Tags || []);
-        if (Array.isArray(tags)) {
-            const nvTag = tags.find(t => {
-                const name = (t.Name || '').toUpperCase();
-                return name.startsWith('OK ') || name.includes('HUYỀN') || name.includes('NHỎ') || name.includes('NHI');
-            });
-            if (nvTag) nhanVien = nvTag.Name;
-        }
-    } catch (e) { }
+    // Get nhân viên from employee assignment (based on SessionIndex)
+    const nhanVien = (typeof getEmployeeName === 'function' && getEmployeeName(order.SessionIndex)) || '';
 
     customerInfo.innerHTML = `
         <div style="display:flex; gap:20px; flex-wrap:wrap;">
             <div><b>Khách hàng:</b> ${customerName}</div>
-            <div><b>SĐT:</b> ${phone}</div>
+            <div><b>SĐT:</b> ${phone}${nhanVien ? ` &nbsp;-&nbsp; <b>Nhân viên:</b> ${nhanVien}` : ''}</div>
             ${stt ? `<div><b>STT:</b> ${stt}</div>` : ''}
-            ${nhanVien ? `<div><b>Nhân viên:</b> ${nhanVien}</div>` : ''}
         </div>
         ${address ? `<div style="margin-top:4px;"><b>Địa chỉ:</b> ${address}</div>` : ''}
     `;
@@ -84,9 +73,8 @@ async function openPackingSlipModal() {
                 customerInfo.innerHTML = `
                     <div style="display:flex; gap:20px; flex-wrap:wrap;">
                         <div><b>Khách hàng:</b> ${updatedName}</div>
-                        <div><b>SĐT:</b> ${updatedPhone}</div>
+                        <div><b>SĐT:</b> ${updatedPhone}${nhanVien ? ` &nbsp;-&nbsp; <b>Nhân viên:</b> ${nhanVien}` : ''}</div>
                         ${stt ? `<div><b>STT:</b> ${stt}</div>` : ''}
-                        ${nhanVien ? `<div><b>Nhân viên:</b> ${nhanVien}</div>` : ''}
                     </div>
                     ${updatedAddress ? `<div style="margin-top:4px;"><b>Địa chỉ:</b> ${updatedAddress}</div>` : ''}
                 `;
@@ -297,18 +285,8 @@ function generatePackingSlipHTML(waitingIndices, notes = {}) {
     const address = order.PartnerAddress || order.Address || '';
     const stt = order.SessionIndex || '';
 
-    // Nhân viên
-    let nhanVien = '';
-    try {
-        const tags = typeof order.Tags === 'string' ? JSON.parse(order.Tags) : (order.Tags || []);
-        if (Array.isArray(tags)) {
-            const nvTag = tags.find(t => {
-                const name = (t.Name || '').toUpperCase();
-                return name.startsWith('OK ') || name.includes('HUYỀN') || name.includes('NHỎ') || name.includes('NHI');
-            });
-            if (nvTag) nhanVien = nvTag.Name;
-        }
-    } catch (e) { }
+    // Nhân viên from employee assignment (based on SessionIndex)
+    const nhanVien = (typeof getEmployeeName === 'function' && getEmployeeName(order.SessionIndex)) || '';
 
     // Bill number uses the order's STT
     const billNumber = stt || '';
