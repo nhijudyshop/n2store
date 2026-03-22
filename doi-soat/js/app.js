@@ -28,6 +28,24 @@
     }
 
     // =====================================================
+    // BARCODE SCANNER AUTO-CLEAR
+    // If no keystroke for 500ms, next keystroke clears input first
+    // =====================================================
+    let lastKeyTime = 0;
+    const SCAN_GAP = 500; // ms - gap between scans
+
+    function setupScannerAutoClear(input) {
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') return;
+            const now = Date.now();
+            if (now - lastKeyTime > SCAN_GAP) {
+                input.value = '';
+            }
+            lastKeyTime = now;
+        });
+    }
+
+    // =====================================================
     // DOM REFERENCES
     // =====================================================
     const $ = (sel) => document.querySelector(sel);
@@ -507,6 +525,10 @@
                 handleProductBarcodeScan(productBarcodeInput.value);
             }
         });
+
+        // Auto-clear inputs when new barcode scan starts
+        setupScannerAutoClear(invoiceCodeInput);
+        setupScannerAutoClear(productBarcodeInput);
 
         // Tabs
         initTabs();
