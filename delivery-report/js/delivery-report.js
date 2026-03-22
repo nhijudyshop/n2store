@@ -1136,10 +1136,12 @@
     function processScan(value) {
         console.log('[DELIVERY-REPORT] Scanned:', value);
         const state = DeliveryReportState;
+        const isProvinceTab = state.activeTab === 'province' && state.traSoatMode;
 
         // Block scanning on "Tất cả" tab
         if (state.activeTab === 'all') {
-            showScanFeedback(false, 'Vui lòng chọn tab cụ thể để quét!');
+            if (isProvinceTab) hideProvinceColumns();
+            showScanFeedback(false, 'Vui lòng chọn tab cụ thể để quét!', true);
             return;
         }
 
@@ -1147,13 +1149,15 @@
         const upperValue = value.toUpperCase();
         const match = (state.allData || []).find(item => (item.Number || '').toUpperCase() === upperValue);
         if (!match) {
-            showScanFeedback(false, `Không tìm thấy: ${value}`);
+            if (isProvinceTab) hideProvinceColumns();
+            showScanFeedback(false, `Không tìm thấy: ${value}`, true);
             return;
         }
 
         // Check if already scanned
         if (state.scannedNumbers.has(match.Number)) {
-            showScanFeedback('warning', `Đã quét rồi: ${value}`);
+            if (isProvinceTab) hideProvinceColumns();
+            showScanFeedback('warning', `Đã quét rồi: ${value}`, true);
             return;
         }
 
@@ -1175,7 +1179,8 @@
             else if (isProvince) correctTab = 'Tỉnh';
             else if (isShop) correctTab = 'Bán hàng shop';
 
-            showScanFeedback(false, `${value} thuộc tab "${correctTab}"!`);
+            if (isProvinceTab) hideProvinceColumns();
+            showScanFeedback('wrong-tab', `${value} thuộc tab "${correctTab}"!`, true);
             return;
         }
 
@@ -1185,12 +1190,12 @@
         // Save to Firestore for cross-machine sync
         saveScannedNumbers();
 
-        // Province tab: render first, then highlight column
-        if (state.activeTab === 'province' && state.traSoatMode) {
+        // Province tab: show only the column the item belongs to
+        if (isProvinceTab) {
             renderProvinceView();
             const group = state.provinceGroups[match.Number];
             if (group) {
-                highlightProvinceColumn(group);
+                showProvinceColumn(group);
             }
         } else {
             renderTable();
@@ -1198,17 +1203,40 @@
         }
 
         updateScanCount();
-        showScanFeedback(true, match.Number);
+        const groupLabel = isProvinceTab ? ` → ${(state.provinceGroups[match.Number] || '').toUpperCase()}` : '';
+        showScanFeedback(true, `${match.Number}${groupLabel}`, false);
     }
 
-    function showScanFeedback(type, value) {
-        // type: true/'success' | false/'error' | 'warning'
+    function hideProvinceColumns() {
+        const tomato = document.getElementById('drColTomato');
+        const nap = document.getElementById('drColNap');
+        if (tomato) tomato.style.display = 'none';
+        if (nap) nap.style.display = 'none';
+    }
+
+    function showProvinceColumn(group) {
+        const tomato = document.getElementById('drColTomato');
+        const nap = document.getElementById('drColNap');
+        if (group === 'tomato') {
+            if (tomato) tomato.style.display = '';
+            if (nap) nap.style.display = 'none';
+        } else {
+            if (tomato) tomato.style.display = 'none';
+            if (nap) nap.style.display = '';
+        }
+        highlightProvinceColumn(group);
+    }
+
+    function showScanFeedback(type, value, persistent) {
+        // type: true/'success' | false/'error' | 'warning' | 'wrong-tab'
+        // persistent: if true, feedback stays until next successful scan
         const existing = document.getElementById('drScanFeedback');
         if (existing) existing.remove();
 
         let className = 'dr-scan-feedback ';
         if (type === true || type === 'success') className += 'success';
         else if (type === 'warning') className += 'warning';
+        else if (type === 'wrong-tab') className += 'wrong-tab';
         else className += 'error';
 
         const div = document.createElement('div');
@@ -1217,7 +1245,9 @@
         div.textContent = value;
         document.body.appendChild(div);
 
-        setTimeout(() => div.remove(), 2000);
+        if (!persistent) {
+            setTimeout(() => div.remove(), 2000);
+        }
     }
 
     // =====================================================
