@@ -392,8 +392,10 @@ async function saveCustomMenuNames(customNames) {
                 ...(token ? { 'Authorization': `Bearer ${token}` } : {})
             },
             body: JSON.stringify({
-                names: customNames,
-                updatedBy: localStorage.getItem('currentUser') || 'admin'
+                value: {
+                    names: customNames,
+                    updatedBy: localStorage.getItem('currentUser') || 'admin'
+                }
             })
         });
 
@@ -558,7 +560,9 @@ const MenuLayoutStore = {
 
             if (resp.ok) {
                 const data = await resp.json();
-                this._layout = data.value || this.getDefaultLayout();
+                const val = data.value;
+                // Check if value has actual layout data (groups array)
+                this._layout = (val && val.groups && val.groups.length > 0) ? val : this.getDefaultLayout();
                 this._saveToLocalStorage();
                 console.log('[MenuLayout] Loaded from API:', this._layout.groups?.length, 'groups');
             } else if (resp.status === 404) {
@@ -598,7 +602,7 @@ const MenuLayoutStore = {
                 if (resp.ok) {
                     const data = await resp.json();
                     const newLayout = data.value;
-                    if (!newLayout) return;
+                    if (!newLayout || !newLayout.groups) return;
 
                     const currentTime = this._layout?.lastUpdated || 0;
                     const newTime = newLayout.lastUpdated || 0;
@@ -784,7 +788,7 @@ const MenuLayoutStore = {
                         'Content-Type': 'application/json',
                         ...(token ? { 'Authorization': `Bearer ${token}` } : {})
                     },
-                    body: JSON.stringify(layoutToSave)
+                    body: JSON.stringify({ value: layoutToSave })
                 });
 
                 if (resp.ok) {
