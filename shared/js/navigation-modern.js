@@ -47,6 +47,14 @@ const MENU_CONFIG = [
     // REMOVED: livestream nav item (module deleted - cleanup task 9.1)
     // REMOVED: sanphamlive nav item (module deleted - cleanup task 9.1)
     {
+        href: "../doi-soat/index.html",
+        icon: "scan-barcode",
+        text: "Quét Mã Đối Soát",
+        shortText: "Đối Soát",
+        pageIdentifier: "doi-soat",
+        permissionRequired: "doi-soat",
+    },
+    {
         href: "../nhanhang/index.html",
         icon: "scale",
         text: "Cân Nặng Hàng",
@@ -455,7 +463,7 @@ const DEFAULT_GROUPS_CONFIG = [
     {
         name: "Kho & Nhập Hàng",
         icon: "package",
-        items: ["inventory-tracking", "purchase-orders", "nhanhang"]
+        items: ["inventory-tracking", "purchase-orders", "nhanhang", "doi-soat"]
     },
     {
         name: "Khách Hàng",
