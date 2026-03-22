@@ -311,6 +311,22 @@ const PAGES_REGISTRY = {
         }
     },
 
+    "delivery-report": {
+        id: "delivery-report",
+        name: "Thống Kê Giao Hàng",
+        shortName: "Giao Hàng",
+        icon: "truck",
+        href: "../delivery-report/index.html",
+        description: "Thống kê và báo cáo giao hàng",
+        adminOnly: false,
+        category: "orders",
+        detailedPermissions: {
+            view: { name: "Xem thống kê", icon: "eye", description: "Xem báo cáo giao hàng" },
+            export: { name: "Xuất báo cáo", icon: "download", description: "Export báo cáo giao hàng" },
+            manage: { name: "Quản lý", icon: "settings", description: "Quản lý cấu hình giao hàng" }
+        }
+    },
+
     // =====================================================
     // CATEGORY: ADMIN - Quản trị hệ thống
     // =====================================================
@@ -491,6 +507,24 @@ const PAGES_REGISTRY = {
         detailedPermissions: {
             view: { name: "Xem lịch sử", icon: "eye", description: "Xem lịch sử chỉnh sửa" },
             export: { name: "Xuất dữ liệu", icon: "download", description: "Export lịch sử ra file" }
+        }
+    },
+
+    "render-data-manager": {
+        id: "render-data-manager",
+        name: "Render Data Manager",
+        shortName: "DB Data",
+        icon: "database",
+        href: "../render-data-manager/index.html",
+        description: "Quản lý và xem dữ liệu PostgreSQL trên Render",
+        adminOnly: true,
+        category: "admin",
+        detailedPermissions: {
+            view: { name: "Xem dữ liệu", icon: "eye", description: "Xem các bảng dữ liệu" },
+            edit: { name: "Sửa dữ liệu", icon: "edit-3", description: "Chỉnh sửa dữ liệu trong bảng" },
+            delete: { name: "Xóa dữ liệu", icon: "trash-2", description: "Xóa dữ liệu" },
+            export: { name: "Xuất dữ liệu", icon: "download", description: "Export dữ liệu" },
+            query: { name: "Chạy query", icon: "terminal", description: "Chạy SQL query tùy chỉnh" }
         }
     },
 
