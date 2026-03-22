@@ -713,6 +713,8 @@
     // =====================================================
     let barcodeBuffer = '';
     let barcodeTimeout = null;
+    const soundError = new Audio('sound/sai.mp3');
+    const soundDuplicate = new Audio('sound/trung.mp3');
 
     async function traSoat() {
         const state = DeliveryReportState;
@@ -1169,6 +1171,7 @@
         // Block scanning on "Tất cả" tab
         if (state.activeTab === 'all') {
             if (isProvinceTab) hideProvinceColumns();
+            soundError.currentTime = 0; soundError.play();
             showScanFeedback(false, 'Vui lòng chọn tab cụ thể để quét!', true);
             return;
         }
@@ -1178,6 +1181,7 @@
         const match = (state.allData || []).find(item => (item.Number || '').toUpperCase() === upperValue);
         if (!match) {
             if (isProvinceTab) hideProvinceColumns();
+            soundError.currentTime = 0; soundError.play();
             showScanFeedback(false, `Không tìm thấy: ${value}`, true);
             return;
         }
@@ -1185,6 +1189,7 @@
         // Check if already scanned
         if (state.scannedNumbers.has(match.Number)) {
             if (isProvinceTab) hideProvinceColumns();
+            soundDuplicate.currentTime = 0; soundDuplicate.play();
             showScanFeedback('warning', `Đã quét rồi: ${value}`, true);
             return;
         }
@@ -1208,6 +1213,7 @@
             else if (isShop) correctTab = 'Bán hàng shop';
 
             if (isProvinceTab) hideProvinceColumns();
+            soundError.currentTime = 0; soundError.play();
             showScanFeedback('wrong-tab', `${value} thuộc tab "${correctTab}"!`, true);
             return;
         }
