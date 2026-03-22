@@ -44,7 +44,7 @@
             dateInvoice: true,
             number: true,
             amountTotal: true,
-            cashOnDelivery: false,
+            cashOnDelivery: true,
             carrierName: false,
             deliveryPrice: false,
             shipWeight: false,
