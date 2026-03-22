@@ -115,7 +115,7 @@ function renderPackingSlipProducts() {
     const tbody = document.getElementById('packingSlipProductBody');
 
     if (packingSlipOrderLines.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding:20px; color:#9ca3af;">Không có sản phẩm</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:#9ca3af;">Không có sản phẩm</td></tr>';
         return;
     }
 
@@ -126,14 +126,8 @@ function renderPackingSlipProducts() {
         const productName = line.ProductName || line.ProductNameGet || line.Product?.Name || '';
         const productNote = line.Note || '';
         const qty = line.ProductUOMQty || line.Quantity || 1;
-        const price = line.PriceUnit || line.Price || 0;
-        const total = qty * price;
 
         totalQty += qty;
-        totalAmount += total;
-
-        const priceShort = Math.round(price / 1000);
-        const totalShort = Math.round(total / 1000);
 
         return `
             <tr style="border-bottom:1px solid #f3f4f6;">
@@ -149,8 +143,6 @@ function renderPackingSlipProducts() {
                     ${productNote ? `<div style="font-size:11px; color:#f59e0b; margin-top:2px;"><i>${productNote}</i></div>` : ''}
                 </td>
                 <td style="padding:8px 6px; text-align:center;">${qty}</td>
-                <td style="padding:8px 6px; text-align:right; font-size:12px; color:#6b7280;">${priceShort}</td>
-                <td style="padding:8px 6px; text-align:right; font-size:12px; color:#6b7280;">${totalShort}</td>
                 <td style="padding:8px 6px;">
                     <input type="text" data-note-index="${idx}" class="packing-slip-note"
                         placeholder="Nhập ghi chú..."
@@ -161,13 +153,10 @@ function renderPackingSlipProducts() {
     }).join('');
 
     // Add total row
-    const totalAmountShort = Math.round(totalAmount / 1000);
     const totalRow = `
         <tr style="border-top:2px solid #e5e7eb; font-weight:bold; background:#f9fafb;">
             <td colspan="3" style="padding:8px 6px; text-align:right;">Tổng:</td>
             <td style="padding:8px 6px; text-align:center;">${totalQty}</td>
-            <td style="padding:8px 6px;"></td>
-            <td style="padding:8px 6px; text-align:right;">${totalAmountShort}</td>
             <td style="padding:8px 6px;"></td>
         </tr>
     `;
@@ -328,46 +317,45 @@ function generatePackingSlipHTML(waitingIndices, notes = {}) {
 
     // Product rows
     let totalQty = 0;
-    let totalAmount = 0;
 
     const productRows = lines.map((line, idx) => {
         const productName = line.ProductName || line.ProductNameGet || line.Product?.Name || '';
         const qty = line.ProductUOMQty || line.Quantity || 1;
-        const price = line.PriceUnit || line.Price || 0;
-        const total = qty * price;
         const isWaiting = waitingIndices.has(idx);
         const note = notes[idx] || '';
 
         totalQty += qty;
-        totalAmount += total;
 
-        // Display price/total divided by 1000 (e.g. 190.000 -> 190)
-        const priceShort = Math.round(price / 1000);
-        const totalShort = Math.round(total / 1000);
+        // Build ghi chú: nếu Chờ Hàng thì thêm "CH" in đậm lớn
+        let ghiChu = '';
+        if (isWaiting) {
+            ghiChu += '<b style="font-size:18px; color:#c00;">CH</b>';
+        }
+        if (note) {
+            ghiChu += (ghiChu ? ' ' : '') + `<span style="font-size:12px;">${note}</span>`;
+        }
 
         return `
             <tr>
                 <td style="border:1px solid #000; padding:5px 4px; text-align:center;">${idx + 1}</td>
-                <td style="border:1px solid #000; padding:5px 4px; text-align:center; font-size:15px;">
-                    ${isWaiting ? '<b style="color:#c00;">✗</b>' : ''}
-                </td>
                 <td style="border:1px solid #000; padding:5px 4px; text-align:left; word-break:break-word; font-size:14px; font-weight:bold;">
-                    ${productName}${note ? `<br/><b style="font-size:14px;">${note}</b>` : ''}
+                    ${productName}
                 </td>
                 <td style="border:1px solid #000; padding:5px 4px; text-align:center;">${qty}</td>
-                <td style="border:1px solid #000; padding:5px 4px; text-align:right; font-size:11px;">${priceShort}</td>
-                <td style="border:1px solid #000; padding:5px 4px; text-align:right; font-size:11px;">${totalShort}</td>
+                <td style="border:1px solid #000; padding:5px 4px; text-align:center;">${ghiChu}</td>
+                <td style="border:1px solid #000; padding:5px 4px; text-align:center; width:30px;">
+                    <span style="font-size:16px; color:#ccc;">☐</span>
+                </td>
             </tr>`;
     }).join('');
 
-    // Total row (no ĐVT column, price/total in short format)
-    const totalAmountShort = Math.round(totalAmount / 1000);
+    // Total row
     const totalRow = `
         <tr>
-            <td colspan="3" style="border:1px solid #000; padding:5px 4px; text-align:right; font-weight:bold;">Tổng:</td>
+            <td colspan="2" style="border:1px solid #000; padding:5px 4px; text-align:right; font-weight:bold;">Tổng:</td>
             <td style="border:1px solid #000; padding:5px 4px; text-align:center; font-weight:bold;">${totalQty}</td>
             <td style="border:1px solid #000; padding:5px 4px;"></td>
-            <td style="border:1px solid #000; padding:5px 4px; text-align:right; font-weight:bold; font-size:11px;">${totalAmountShort}</td>
+            <td style="border:1px solid #000; padding:5px 4px;"></td>
         </tr>`;
 
     return `<!DOCTYPE html>
@@ -418,11 +406,10 @@ function generatePackingSlipHTML(waitingIndices, notes = {}) {
             <thead>
                 <tr>
                     <th style="width:15px; font-size:9px;">STT</th>
-                    <th style="width:20px; font-size:6px;">Chờ Hàng</th>
-                    <th>Product</th>
+                    <th>Sản phẩm</th>
                     <th style="width:15px; font-size:6px;">SL</th>
-                    <th style="width:22px; font-size:6px;">Giá</th>
-                    <th style="width:25px; font-size:6px;">Tổng</th>
+                    <th style="width:40px; font-size:9px;">Ghi chú</th>
+                    <th style="width:30px; font-size:9px;">✓</th>
                 </tr>
             </thead>
             <tbody>
