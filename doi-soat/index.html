@@ -48,6 +48,7 @@
             </header>
 
             <main class="scanner-container">
+                <div id="inlineMsgScanner" class="inline-msg" style="display:none;"></div>
                 <div id="successBanner" class="success-banner" style="display:none;"></div>
                 <div class="scanner-box">
                     <div class="barcode-icon">
@@ -102,6 +103,9 @@
             </header>
 
             <main class="reconcile-container">
+                <!-- Inline Message -->
+                <div id="inlineMsg" class="inline-msg" style="display:none;"></div>
+
                 <!-- Tabs -->
                 <div class="tab-nav">
                     <button class="tab-btn active" data-tab="reconcileTab">Thông tin đối soát</button>
@@ -206,8 +210,6 @@
             </main>
         </div>
 
-        <!-- Toast notification -->
-        <div id="toast" class="toast"></div>
 
         <!-- Scripts -->
         <script src="js/app.js"></script>

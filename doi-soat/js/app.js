@@ -183,7 +183,15 @@
         });
 
         if (!resp.ok) {
-            throw new Error(`Lỗi ${resp.status}: ${resp.statusText}`);
+            let errMsg = `Lỗi ${resp.status}: ${resp.statusText}`;
+            try {
+                const errBody = await resp.json();
+                if (errBody.error_description) errMsg = errBody.error_description;
+                else if (errBody.error?.message) errMsg = errBody.error.message;
+                else if (errBody.Error) errMsg = errBody.Error;
+                else if (errBody.message) errMsg = errBody.message;
+            } catch (e) { /* ignore parse error */ }
+            throw new Error(errMsg);
         }
 
         return await resp.json();
@@ -386,7 +394,7 @@
 
         if (currentQty >= totalQty) {
             playSound('excess');
-            showToast(`${matchedLine.ProductNameGet || matchedLine.Name} - Đã đủ số lượng!`, 'warning');
+            showInlineMsg(`${matchedLine.ProductNameGet || matchedLine.Name} - Đã đủ số lượng!`, 'warning');
             return;
         }
 
@@ -409,9 +417,9 @@
         }
 
         if (newQty >= totalQty) {
-            showToast(`${matchedLine.ProductNameGet || matchedLine.Name} - Đủ! (${newQty}/${Math.floor(totalQty)})`, 'success');
+            showInlineMsg(`${matchedLine.ProductNameGet || matchedLine.Name} - Đủ! (${newQty}/${Math.floor(totalQty)})`, 'success');
         } else {
-            showToast(`${matchedLine.ProductNameGet || matchedLine.Name} - ${newQty}/${Math.floor(totalQty)}`, 'info');
+            showInlineMsg(`${matchedLine.ProductNameGet || matchedLine.Name} - ${newQty}/${Math.floor(totalQty)}`, 'info');
         }
 
         renderProductTable();
@@ -525,7 +533,7 @@
         try {
             const token = await getToken();
             if (!token) {
-                showToast('Không có token xác thực. Vui lòng đăng nhập lại.', 'error');
+                showInlineMsg('Không có token xác thực. Vui lòng đăng nhập lại.', 'error');
                 return;
             }
 
@@ -557,7 +565,15 @@
             });
 
             if (!resp.ok) {
-                throw new Error(`Lỗi ${resp.status}: ${resp.statusText}`);
+                let errMsg = `Lỗi ${resp.status}: ${resp.statusText}`;
+                try {
+                    const errBody = await resp.json();
+                    if (errBody.error_description) errMsg = errBody.error_description;
+                    else if (errBody.error?.message) errMsg = errBody.error.message;
+                    else if (errBody.Error) errMsg = errBody.Error;
+                    else if (errBody.message) errMsg = errBody.message;
+                } catch (e) { /* ignore */ }
+                throw new Error(errMsg);
             }
 
             const result = await resp.json();
@@ -568,11 +584,11 @@
                 goBack();
                 showSuccessBanner(orderNum, productList);
             } else {
-                showToast(`Lỗi: ${result.Error || 'Không xác định'}`, 'error');
+                showInlineMsg(`Lỗi: ${result.Error || 'Không xác định'}`, 'error');
             }
         } catch (err) {
             console.error('Save error:', err);
-            showToast(`Lỗi lưu: ${err.message}`, 'error');
+            showInlineMsg(`Lỗi lưu: ${err.message}`, 'error');
         } finally {
             hideLoading(overlay);
         }
@@ -584,7 +600,7 @@
     async function handleInvoiceSearch() {
         const code = invoiceCodeInput.value.trim();
         if (!code) {
-            showToast('Vui lòng nhập mã phiếu bán hàng', 'error');
+            showInlineMsg('Vui lòng nhập mã phiếu bán hàng', 'error');
             invoiceCodeInput.focus();
             return;
         }
@@ -596,19 +612,19 @@
             const data = await fetchOrderByNumber(code);
 
             if (data.Error) {
-                showToast(`Lỗi: ${data.Error}`, 'error');
+                showInlineMsg(`Lỗi: ${data.Error}`, 'error');
                 return;
             }
 
             if (!data.OrderLines || data.OrderLines.length === 0) {
-                showToast('Không tìm thấy sản phẩm trong phiếu', 'warning');
+                showInlineMsg('Không tìm thấy sản phẩm trong phiếu', 'warning');
                 return;
             }
 
             renderOrder(data);
         } catch (err) {
             console.error('Fetch error:', err);
-            showToast(`Lỗi kết nối: ${err.message}`, 'error');
+            showInlineMsg(`Lỗi kết nối: ${err.message}`, 'error');
         } finally {
             hideLoading(overlay);
         }
@@ -650,13 +666,22 @@
         }
     }
 
-    function showToast(message, type = 'info') {
-        const toast = $('#toast');
-        toast.textContent = message;
-        toast.className = `toast ${type} show`;
-        setTimeout(() => {
-            toast.classList.remove('show');
-        }, 4000);
+    let inlineMsgTimer = null;
+    function showInlineMsg(message, type = 'info') {
+        // Pick the right container based on active page
+        const container = scannerPage.classList.contains('active')
+            ? document.getElementById('inlineMsgScanner')
+            : document.getElementById('inlineMsg');
+        if (!container) return;
+
+        container.textContent = message;
+        container.className = `inline-msg inline-msg-${type}`;
+        container.style.display = '';
+
+        if (inlineMsgTimer) clearTimeout(inlineMsgTimer);
+        inlineMsgTimer = setTimeout(() => {
+            container.style.display = 'none';
+        }, 30000);
     }
 
     let bannerTimer = null;

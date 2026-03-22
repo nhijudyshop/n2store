@@ -576,43 +576,44 @@ body {
     font-size: 14px;
 }
 
-/* Toast */
-.toast {
-    position: fixed;
-    bottom: 40px;
-    left: 50%;
-    transform: translateX(-50%) translateY(100px);
-    padding: 18px 36px;
-    border-radius: 10px;
-    font-size: 22px;
+/* Inline Message */
+.inline-msg {
+    padding: 14px 20px;
+    border-radius: 8px;
+    font-size: 20px;
     font-weight: 600;
-    color: #fff;
-    z-index: 9999;
-    opacity: 0;
-    transition: all 0.3s ease;
-    pointer-events: none;
-    max-width: 90%;
+    margin-bottom: 12px;
+    animation: bannerFadeIn 0.3s ease;
 }
 
-.toast.show {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
+.inline-msg-success {
+    background: #e8f5e9;
+    border: 1px solid #4CAF50;
+    color: #2e7d32;
 }
 
-.toast.success {
-    background: #4CAF50;
+.inline-msg-error {
+    background: #fef2f2;
+    border: 1px solid #e53935;
+    color: #c62828;
 }
 
-.toast.error {
-    background: #e53935;
+.inline-msg-warning {
+    background: #fff3e0;
+    border: 1px solid #FF9800;
+    color: #e65100;
 }
 
-.toast.warning {
-    background: #FF9800;
+.inline-msg-info {
+    background: #e3f2fd;
+    border: 1px solid #2196F3;
+    color: #1565c0;
 }
 
-.toast.info {
-    background: #2196F3;
+.scanner-container .inline-msg {
+    width: 100%;
+    max-width: 600px;
+    text-align: center;
 }
 
 /* Mismatch Dialog */
