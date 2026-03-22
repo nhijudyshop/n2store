@@ -321,10 +321,13 @@ function generatePackingSlipHTML(waitingIndices, notes = {}) {
     const productRows = lines.map((line, idx) => {
         const productName = line.ProductName || line.ProductNameGet || line.Product?.Name || '';
         const qty = line.ProductUOMQty || line.Quantity || 1;
+        const price = line.PriceUnit || line.Price || 0;
         const isWaiting = waitingIndices.has(idx);
         const note = notes[idx] || '';
 
         totalQty += qty;
+
+        const priceShort = Math.round(price / 1000);
 
         // Build ghi chú: nếu Chờ Hàng thì thêm "CH" in đậm lớn
         let ghiChu = '';
@@ -342,10 +345,8 @@ function generatePackingSlipHTML(waitingIndices, notes = {}) {
                     ${productName}
                 </td>
                 <td style="border:1px solid #000; padding:5px 4px; text-align:center;">${qty}</td>
+                <td style="border:1px solid #000; padding:5px 4px; text-align:right; font-size:11px;">${priceShort}</td>
                 <td style="border:1px solid #000; padding:5px 4px; text-align:center;">${ghiChu}</td>
-                <td style="border:1px solid #000; padding:5px 4px; text-align:center; width:30px;">
-                    <span style="font-size:16px; color:#ccc;">☐</span>
-                </td>
             </tr>`;
     }).join('');
 
@@ -403,8 +404,8 @@ function generatePackingSlipHTML(waitingIndices, notes = {}) {
                     <th style="width:15px; font-size:9px;">STT</th>
                     <th>Sản phẩm</th>
                     <th style="width:15px; font-size:6px;">SL</th>
+                    <th style="width:22px; font-size:6px;">Giá</th>
                     <th style="width:40px; font-size:9px;">Ghi chú</th>
-                    <th style="width:30px; font-size:9px;">✓</th>
                 </tr>
             </thead>
             <tbody>
