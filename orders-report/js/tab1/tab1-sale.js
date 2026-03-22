@@ -1226,8 +1226,13 @@ function buildSaleOrderModelForInsertList() {
     const receiverPhone =
         document.getElementById('saleReceiverPhone')?.value || order.PartnerPhone || '';
     const receiverAddress = document.getElementById('saleReceiverAddress')?.value || null;
-    const deliveryNote = document.getElementById('saleDeliveryNote')?.value || '';
+    let deliveryNote = document.getElementById('saleDeliveryNote')?.value || '';
     const comment = document.getElementById('saleReceiverNote')?.value || '';
+
+    // Nếu ghi chú có "Thu về" thì thêm "thu về" vào cuối DeliveryNote
+    if (/thu\s*về/i.test(comment)) {
+        deliveryNote = (deliveryNote ? deliveryNote + ' ' : '') + 'thu về';
+    }
 
     const shippingFeeValue = document.getElementById('saleShippingFee')?.value;
     const shippingFee =
@@ -1658,7 +1663,13 @@ function buildFastSaleOrderPayload() {
         document.getElementById('saleReceiverPhone')?.value || order.PartnerPhone || '';
     const receiverAddressRaw = document.getElementById('saleReceiverAddress')?.value || '';
     const receiverAddress = receiverAddressRaw || null; // Use null instead of empty string
-    const deliveryNote = document.getElementById('saleDeliveryNote')?.value || '';
+    let deliveryNote = document.getElementById('saleDeliveryNote')?.value || '';
+    const comment = document.getElementById('saleReceiverNote')?.value || '';
+
+    // Nếu ghi chú có "Thu về" thì thêm "thu về" vào cuối DeliveryNote
+    if (/thu\s*về/i.test(comment)) {
+        deliveryNote = (deliveryNote ? deliveryNote + ' ' : '') + 'thu về';
+    }
 
     // 🔥 FIX: Use ?? instead of || to allow 0 value for shipping fee
     const shippingFeeValue = document.getElementById('saleShippingFee')?.value;
@@ -1757,7 +1768,7 @@ function buildFastSaleOrderPayload() {
         State: 'draft',
         ShowState: 'Nháp',
         CompanyId: window.tokenManager?.companyId || 1,
-        Comment: document.getElementById('saleReceiverNote')?.value || '',
+        Comment: comment,
         WarehouseId: window.lastDefaultSaleData?.Warehouse?.Id || 1,
         SaleOnlineIds: order.Id ? [order.Id] : [],
         SaleOnlineNames: [],
