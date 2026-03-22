@@ -456,7 +456,7 @@
                 console.warn('[WORKFLOW] updateOrderStatus function not available');
             }
 
-            // Step 6: Log cancel activity & refund wallet (async, non-blocking)
+            // Step 6: Log cancel activity & refund wallet
             const orderNumber = order.Number || order.Reference || '';
             const customerPhone =
                 order.Partner?.Phone ||
@@ -466,7 +466,14 @@
                 order.Phone ||
                 '';
             if (customerPhone) {
-                logCancelOrderActivity(customerPhone, orderNumber, order, reason);
+                try {
+                    await logCancelOrderActivity(customerPhone, orderNumber, order, reason);
+                } catch (refundErr) {
+                    console.error('[WORKFLOW] ❌ Wallet refund/activity failed:', refundErr.message);
+                    window.notificationManager?.error(
+                        `⚠️ Đơn đã hủy nhưng hoàn ví thất bại. Liên hệ admin để hoàn ví thủ công cho đơn ${orderNumber}`
+                    );
+                }
             } else {
                 console.warn(
                     `[WORKFLOW] No phone found for cancel activity, order: ${orderNumber}`
@@ -1314,7 +1321,7 @@
                 console.warn('[WORKFLOW] updateOrderStatus function not available');
             }
 
-            // Step 6: Log cancel activity & refund wallet (async, non-blocking)
+            // Step 6: Log cancel activity & refund wallet
             const orderNumber = order.Number || order.Reference || '';
             const customerPhone =
                 order.Partner?.Phone ||
@@ -1324,7 +1331,14 @@
                 order.Phone ||
                 '';
             if (customerPhone) {
-                logCancelOrderActivity(customerPhone, orderNumber, order, reason);
+                try {
+                    await logCancelOrderActivity(customerPhone, orderNumber, order, reason);
+                } catch (refundErr) {
+                    console.error('[WORKFLOW] ❌ Wallet refund/activity failed:', refundErr.message);
+                    window.notificationManager?.error(
+                        `⚠️ Đơn đã hủy nhưng hoàn ví thất bại. Liên hệ admin để hoàn ví thủ công cho đơn ${orderNumber}`
+                    );
+                }
             } else {
                 console.warn(
                     `[WORKFLOW] No phone found for cancel activity, order: ${orderNumber}`

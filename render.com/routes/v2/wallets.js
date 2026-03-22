@@ -1010,17 +1010,33 @@ router.post('/refund-by-order', async (req, res) => {
                 WHERE phone = $1
             `, [normalizedPhone, virtualUsed]);
 
-            // Try to restore the most recently consumed virtual credits
-            await db.query(`
-                UPDATE virtual_credits
-                SET remaining_amount = LEAST(original_amount, remaining_amount + $2),
-                    status = 'ACTIVE',
-                    updated_at = NOW()
+            // Restore consumed virtual credits (FIFO by expires_at, may span multiple records)
+            let virtualRemaining = virtualUsed;
+            const creditsToRestore = await db.query(`
+                SELECT id, original_amount, remaining_amount
+                FROM virtual_credits
                 WHERE phone = $1 AND status IN ('USED', 'ACTIVE')
                   AND expires_at > NOW()
                 ORDER BY expires_at ASC
-                LIMIT 1
-            `, [normalizedPhone, virtualUsed]);
+            `, [normalizedPhone]);
+
+            for (const credit of creditsToRestore.rows) {
+                if (virtualRemaining <= 0) break;
+                const canRestore = Math.min(
+                    virtualRemaining,
+                    parseFloat(credit.original_amount) - parseFloat(credit.remaining_amount)
+                );
+                if (canRestore <= 0) continue;
+
+                await db.query(`
+                    UPDATE virtual_credits
+                    SET remaining_amount = remaining_amount + $2,
+                        status = 'ACTIVE',
+                        updated_at = NOW()
+                    WHERE id = $1
+                `, [credit.id, canRestore]);
+                virtualRemaining -= canRestore;
+            }
         }
 
         // Step 3: Log wallet transaction (refund)
