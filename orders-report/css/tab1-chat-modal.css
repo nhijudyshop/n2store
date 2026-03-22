@@ -1043,11 +1043,11 @@
    ===================================================== */
 
 /* Two-column layout when panel is open */
-.chat-modal-with-panel {
-    max-width: 1200px;
-    width: 98%;
-    max-height: 90vh;
-    height: 90vh;
+.chat-modal-content.chat-modal-with-panel {
+    max-width: 1300px;
+    width: 98vw;
+    max-height: 92vh;
+    height: 92vh;
 }
 
 .chat-modal-body {
@@ -1120,15 +1120,14 @@
 
 /* Right: Product panel */
 .chat-right-panel {
-    width: 480px;
-    min-width: 400px;
+    width: 550px;
+    min-width: 450px;
     border-left: 1px solid #e5e7eb;
     display: flex;
     flex-direction: column;
     background: #fff;
     overflow: hidden;
     flex-shrink: 0;
-    transition: width 0.2s, min-width 0.2s;
 }
 
 .chat-right-panel.collapsed {
@@ -1148,12 +1147,17 @@
 }
 
 .chat-panel-tabs::-webkit-scrollbar {
-    height: 0;
+    height: 3px;
+}
+
+.chat-panel-tabs::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 2px;
 }
 
 .chat-tab-btn {
-    flex: 1;
-    padding: 8px 4px;
+    flex: 1 1 0;
+    padding: 8px 2px;
     border: none;
     background: #f8fafc;
     color: #64748b;
@@ -1165,12 +1169,14 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 3px;
-    white-space: normal;
+    gap: 2px;
+    white-space: nowrap;
     text-align: center;
     line-height: 1.3;
     position: relative;
     min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .chat-tab-btn:hover {
@@ -1186,7 +1192,8 @@
 }
 
 .chat-tab-btn i {
-    font-size: 11px;
+    font-size: 10px;
+    flex-shrink: 0;
 }
 
 /* Tab badges */
@@ -1223,7 +1230,7 @@
 .chat-products-scroll {
     flex: 1;
     overflow-y: auto;
-    overflow-x: hidden;
+    overflow-x: auto;
 }
 
 .chat-products-scroll::-webkit-scrollbar {
@@ -1712,6 +1719,13 @@
     .chat-tab-btn {
         padding: 8px 4px;
         font-size: 11px;
+    }
+}
+
+@media (max-width: 1280px) {
+    .chat-right-panel {
+        width: 420px;
+        min-width: 350px;
     }
 }
 
