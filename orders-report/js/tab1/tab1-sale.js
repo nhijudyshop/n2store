@@ -1232,8 +1232,9 @@ function buildSaleOrderModelForInsertList() {
     const defaultDeliveryNote = 'KHÔNG ĐƯỢC TỰ Ý HOÀN ĐƠN CÓ GÌ LIÊN HỆ HOTLINE CỦA SHOP 090 8888 674 ĐỂ ĐƯỢC HỖ TRỢ';
 
     // Nếu ghi chú (saleReceiverNote hoặc order.Comment) có "Thu về":
-    // → luôn dùng default DeliveryNote + " Thu về" (không dùng order.Comment làm DeliveryNote)
-    const hasThuVe = /thu\s*về/i.test(comment) || /thu\s*về/i.test(orderComment);
+    // → luôn dùng default DeliveryNote + "THU VỀ" ở đầu (bỏ dấu + uppercase để so sánh chính xác)
+    const removeDiacritics = (str) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+    const hasThuVe = removeDiacritics(comment).includes('THU VE') || removeDiacritics(orderComment).includes('THU VE');
     const deliveryNote = hasThuVe
         ? 'THU VỀ ' + defaultDeliveryNote
         : deliveryNoteRaw;
@@ -1673,8 +1674,9 @@ function buildFastSaleOrderPayload() {
     const defaultDeliveryNote = 'KHÔNG ĐƯỢC TỰ Ý HOÀN ĐƠN CÓ GÌ LIÊN HỆ HOTLINE CỦA SHOP 090 8888 674 ĐỂ ĐƯỢC HỖ TRỢ';
 
     // Nếu ghi chú (saleReceiverNote hoặc order.Comment) có "Thu về":
-    // → luôn dùng default DeliveryNote + " Thu về" (không dùng order.Comment làm DeliveryNote)
-    const hasThuVe = /thu\s*về/i.test(comment) || /thu\s*về/i.test(orderComment);
+    // → luôn dùng default DeliveryNote + "THU VỀ" ở đầu (bỏ dấu + uppercase để so sánh chính xác)
+    const removeDiacritics = (str) => str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+    const hasThuVe = removeDiacritics(comment).includes('THU VE') || removeDiacritics(orderComment).includes('THU VE');
     const deliveryNote = hasThuVe
         ? 'THU VỀ ' + defaultDeliveryNote
         : deliveryNoteRaw;
