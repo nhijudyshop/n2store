@@ -726,6 +726,11 @@ console.log('[TemplateMgr] Loading...');
         const pdm = window.pancakeDataManager;
         if (!pdm) throw new Error('pancakeDataManager not available');
 
+        console.log('[TemplateMgr] Processing order:', order.orderId, order.Code, {
+            channelId: order.channelId, pageId: order.pageId, psid: order.psid,
+            customerName: order.customerName
+        });
+
         // 1. Get full order data if needed
         let orderData;
         const templateContent = template.Content || template.BodyPlain || template.content || '';
@@ -754,11 +759,34 @@ console.log('[TemplateMgr] Loading...');
         // 4. Get chat info
         const channelId = order.channelId || order.pageId;
         const psid = order.psid;
-        if (!channelId || !psid) throw new Error('Thiếu thông tin chat (channelId/psid)');
+        if (!channelId || !psid) {
+            console.error('[TemplateMgr] ❌ Missing chat info:', { channelId, psid, orderId: order.orderId });
+            throw new Error(`Thiếu thông tin chat (channelId=${channelId || 'N/A'}, psid=${psid || 'N/A'})`);
+        }
 
         // 5. Find conversation
-        const conv = pdm.inboxMapByPSID?.get(String(psid));
-        if (!conv) throw new Error('Không tìm thấy cuộc hội thoại INBOX');
+        let conv = pdm.inboxMapByPSID?.get(String(psid));
+
+        // If not found in inbox, try fetching conversations for this customer
+        if (!conv) {
+            console.warn('[TemplateMgr] ⚠️ Conversation not in inboxMapByPSID for psid:', psid, '- trying fetch...');
+            try {
+                if (pdm.fetchConversationsByCustomerFbId) {
+                    await pdm.fetchConversationsByCustomerFbId(channelId, psid);
+                    conv = pdm.inboxMapByPSID?.get(String(psid));
+                }
+            } catch (e) {
+                console.warn('[TemplateMgr] fetchConversationsByCustomerFbId failed:', e.message);
+            }
+        }
+
+        if (!conv) {
+            console.error('[TemplateMgr] ❌ No conversation found for psid:', psid, 'in page:', channelId);
+            console.log('[TemplateMgr] inboxMapByPSID size:', pdm.inboxMapByPSID?.size || 0);
+            throw new Error('Không tìm thấy cuộc hội thoại INBOX cho psid: ' + psid);
+        }
+
+        console.log('[TemplateMgr] ✅ Found conversation:', conv.id, 'for psid:', psid);
 
         // 6. Split message if too long
         const parts = _splitMessageIntoParts(messageContent);
@@ -768,45 +796,57 @@ console.log('[TemplateMgr] Loading...');
         let lastError = null;
 
         for (const part of parts) {
+            // [Primary] Pancake Official API
             try {
-                await pdm.sendMessage(channelId, conv.id, { message: part, type: 'reply_inbox' });
-                sendSuccess = true;
-            } catch (apiErr) {
-                lastError = apiErr;
-                // Check if 24h error
-                const errMsg = apiErr?.message || String(apiErr);
-                const is24h = errMsg.includes('24') || errMsg.includes('policy');
-
-                if (is24h || true) { // Try extension for any API error
-                    // [Fallback 1] Extension Bypass
-                    if (window.sendViaExtension && window.pancakeExtension?.connected) {
-                        try {
-                            const convData = window.buildConvData ? window.buildConvData(channelId, psid) : { pageId: channelId, psid };
-                            await window.sendViaExtension(part, convData);
-                            sendSuccess = true;
-                            lastError = null;
-                            continue;
-                        } catch (extErr) {
-                            lastError = extErr;
-                        }
-                    }
-
-                    // [Fallback 2] Facebook Tag
-                    try {
-                        const tagResult = await _sendViaFacebookTag(order, part, channelId, psid);
-                        if (tagResult.success) {
-                            sendSuccess = true;
-                            lastError = null;
-                            order._usedTag = tagResult.used_tag;
-                            continue;
-                        }
-                    } catch (tagErr) {
-                        lastError = tagErr;
-                    }
+                const result = await pdm.sendMessage(channelId, conv.id, { message: part, type: 'reply_inbox' });
+                // sendMessage returns { success, error } instead of throwing
+                if (result && result.success !== false && !result.error) {
+                    sendSuccess = true;
+                    console.log('[TemplateMgr] ✅ Message sent via Pancake API');
+                    continue;
                 }
-
-                if (lastError) throw lastError;
+                // API returned error
+                const errMsg = result?.error?.message || result?.error || 'Pancake API error';
+                console.warn('[TemplateMgr] Pancake API error:', errMsg);
+                lastError = new Error(typeof errMsg === 'string' ? errMsg : JSON.stringify(errMsg));
+            } catch (apiErr) {
+                console.warn('[TemplateMgr] Pancake API exception:', apiErr.message);
+                lastError = apiErr;
             }
+
+            // [Fallback 1] Extension Bypass
+            if (window.sendViaExtension && window.pancakeExtension?.connected) {
+                try {
+                    const convData = window.buildConvData ? window.buildConvData(channelId, psid) : { pageId: channelId, psid };
+                    await window.sendViaExtension(part, convData);
+                    sendSuccess = true;
+                    lastError = null;
+                    console.log('[TemplateMgr] ✅ Message sent via Extension');
+                    continue;
+                } catch (extErr) {
+                    console.warn('[TemplateMgr] Extension fallback failed:', extErr.message);
+                    lastError = extErr;
+                }
+            }
+
+            // [Fallback 2] Facebook Tag
+            try {
+                const tagResult = await _sendViaFacebookTag(order, part, channelId, psid);
+                if (tagResult.success) {
+                    sendSuccess = true;
+                    lastError = null;
+                    order._usedTag = tagResult.used_tag;
+                    console.log('[TemplateMgr] ✅ Message sent via Facebook Tag:', tagResult.used_tag);
+                    continue;
+                }
+                console.warn('[TemplateMgr] Facebook Tag failed:', tagResult.error || tagResult);
+            } catch (tagErr) {
+                console.warn('[TemplateMgr] Facebook Tag exception:', tagErr.message);
+                lastError = tagErr;
+            }
+
+            // All fallbacks failed for this part
+            if (lastError) throw lastError;
         }
 
         if (!sendSuccess && lastError) throw lastError;
@@ -1466,6 +1506,10 @@ console.log('[TemplateMgr] Loading...');
                 } catch (e) { /* use row data */ }
             }
 
+            // Additional fallbacks from storeOrder
+            if (!psid && storeOrder?.Facebook_ASUserId) psid = storeOrder.Facebook_ASUserId;
+            if (!pageId && storeOrder?.Facebook_PostId) pageId = storeOrder.Facebook_PostId.split('_')[0];
+
             allOrders.push({
                 orderId,
                 pageId,
@@ -1492,6 +1536,16 @@ console.log('[TemplateMgr] Loading...');
         }
 
         _modalOrders = allOrders;
+
+        // Debug: log order data for troubleshooting
+        console.log('[TemplateMgr] Modal orders prepared:', allOrders.length);
+        allOrders.forEach((o, i) => {
+            console.log(`[TemplateMgr] Order ${i + 1}:`, {
+                orderId: o.orderId, Code: o.Code,
+                pageId: o.pageId, channelId: o.channelId,
+                psid: o.psid, customerName: o.customerName
+            });
+        });
 
         // Create modal DOM if needed
         _createModalDOM();
