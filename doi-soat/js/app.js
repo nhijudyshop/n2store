@@ -376,7 +376,7 @@
 
         if (!matchedLine) {
             playSound('error');
-            showToast(`Không tìm thấy sản phẩm với mã: ${barcode}`, 'error');
+            showMismatchDialog(barcode);
             return;
         }
 
@@ -425,6 +425,93 @@
         }
 
         productBarcodeInput.focus();
+    }
+
+    // =====================================================
+    // MISMATCH DIALOG
+    // =====================================================
+    function showMismatchDialog(barcode) {
+        // Remove existing dialog if any
+        const existing = document.getElementById('mismatchDialog');
+        if (existing) existing.remove();
+
+        const overlay = document.createElement('div');
+        overlay.id = 'mismatchDialog';
+        overlay.className = 'mismatch-overlay';
+        overlay.innerHTML = `
+            <div class="mismatch-box">
+                <div class="mismatch-icon">&#9888;</div>
+                <div class="mismatch-title">Sản phẩm sai mã</div>
+                <div class="mismatch-code">${barcode}</div>
+                <div class="mismatch-msg">Vui lòng xử lý sản phẩm bị sai để tiếp tục</div>
+                <div class="mismatch-actions">
+                    <button class="btn btn-mismatch-done" id="mismatchDoneBtn">Đã xử lý</button>
+                    <button class="btn btn-mismatch-skip" id="mismatchSkipBtn">Chưa xử lý</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        document.getElementById('mismatchDoneBtn').addEventListener('click', () => {
+            // Save mismatch log to Firestore
+            saveMismatchLog(barcode);
+            overlay.remove();
+            productBarcodeInput.focus();
+        });
+
+        document.getElementById('mismatchSkipBtn').addEventListener('click', () => {
+            overlay.remove();
+            // Ask if user wants to scan another order
+            showConfirmScanOther();
+        });
+    }
+
+    function showConfirmScanOther() {
+        const existing = document.getElementById('mismatchDialog');
+        if (existing) existing.remove();
+
+        const overlay = document.createElement('div');
+        overlay.id = 'mismatchDialog';
+        overlay.className = 'mismatch-overlay';
+        overlay.innerHTML = `
+            <div class="mismatch-box">
+                <div class="mismatch-msg">Bạn muốn quét đơn khác?</div>
+                <div class="mismatch-actions">
+                    <button class="btn btn-mismatch-done" id="confirmYesBtn">Quét đơn khác</button>
+                    <button class="btn btn-mismatch-skip" id="confirmNoBtn">Tiếp tục đơn này</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        document.getElementById('confirmYesBtn').addEventListener('click', () => {
+            overlay.remove();
+            goBack();
+        });
+
+        document.getElementById('confirmNoBtn').addEventListener('click', () => {
+            overlay.remove();
+            productBarcodeInput.focus();
+        });
+    }
+
+    async function saveMismatchLog(barcode) {
+        const col = getManualLogCollection();
+        if (!col) return;
+        try {
+            await col.add({
+                orderNumber: currentOrder?.Number || currentOrder?.MoveName || '',
+                orderId: currentOrder?.Id,
+                barcode,
+                type: 'mismatch',
+                note: 'Sản phẩm sai mã - đã xử lý',
+                userName: (document.getElementById('manualUserName') || {}).value || '',
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                expireAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+            });
+        } catch (e) {
+            console.error('[DOI-SOAT] Failed to save mismatch log:', e);
+        }
     }
 
     // =====================================================
@@ -569,7 +656,7 @@
         toast.className = `toast ${type} show`;
         setTimeout(() => {
             toast.classList.remove('show');
-        }, 3000);
+        }, 4000);
     }
 
     let bannerTimer = null;
