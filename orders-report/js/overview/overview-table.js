@@ -24,9 +24,14 @@ async function loadAvailableTables() {
     showCachedDetailsLoading();
 
     try {
-        const snapshot = await database.collection(FIREBASE_PATH).get();
+        // Load both report tables and campaigns in parallel
+        const [tablesSnapshot, campaignsSnapshot] = await Promise.all([
+            database.collection(FIREBASE_PATH).get(),
+            database.collection('campaigns').get().catch(() => null)
+        ]);
+
         const tables = {};
-        snapshot.forEach(doc => {
+        tablesSnapshot.forEach(doc => {
             tables[doc.id] = doc.data();
         });
 
@@ -35,6 +40,7 @@ async function loadAvailableTables() {
 
         // Only extract metadata for dropdown (don't keep full orders in memory)
         const tableMetadata = {};
+        const addedNames = new Set(); // Track names to avoid duplicates
 
         Object.keys(tables).forEach(safeTableName => {
             const tableData = tables[safeTableName];
@@ -63,12 +69,35 @@ async function loadAvailableTables() {
             option.textContent = `${icon} ${originalName} (${orderCount} đơn - ${fetchedAt}) [${typeLabel}]`;
             option.dataset.isSavedCopy = isSavedCopy;
             selector.appendChild(option);
+            addedNames.add(originalName);
         });
+
+        // Also add campaigns from Tab1 that don't have report data yet
+        if (campaignsSnapshot) {
+            campaignsSnapshot.forEach(doc => {
+                const campaign = doc.data();
+                const campaignName = campaign.name;
+                if (campaignName && !addedNames.has(campaignName)) {
+                    const option = document.createElement('option');
+                    option.value = campaignName;
+                    option.textContent = `⭐ ${campaignName} (chưa có dữ liệu)`;
+                    selector.appendChild(option);
+                    addedNames.add(campaignName);
+                    tableMetadata[campaignName] = {
+                        tableName: campaignName,
+                        safeTableName: campaignName.replace(/[.$#\[\]\/]/g, '_'),
+                        orderCount: 0,
+                        fetchedAt: null,
+                        isSavedCopy: false
+                    };
+                }
+            });
+        }
 
         // Store metadata globally for later reference
         window._tableMetadata = tableMetadata;
 
-        console.log(`[REPORT] ✅ Loaded ${Object.keys(tables).length} table metadata from Firebase`);
+        console.log(`[REPORT] ✅ Loaded ${Object.keys(tables).length} tables + ${addedNames.size - Object.keys(tables).length} campaigns from Firebase`);
 
         // Select current table if exists
         if (currentTableName) {
