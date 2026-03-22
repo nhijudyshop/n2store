@@ -29,7 +29,7 @@
     height: 92vh;
     max-height: 92vh;
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     animation: chatSlideUp 0.3s ease-out;
     overflow: hidden;
@@ -1048,7 +1048,6 @@
     width: 96vw;
     max-height: 92vh;
     height: 92vh;
-    flex-direction: row;
 }
 
 .chat-modal-body {
