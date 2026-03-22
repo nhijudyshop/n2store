@@ -233,6 +233,12 @@
             const result = await response.json();
             DeliveryReportState.allData = result.value || [];
 
+            // Debug: check DeliveryNote field
+            const withNote = DeliveryReportState.allData.filter(i => i.DeliveryNote);
+            console.log('[DELIVERY-REPORT] Items with DeliveryNote:', withNote.length, withNote.map(i => ({ Number: i.Number, DeliveryNote: i.DeliveryNote })));
+            const returnItems = DeliveryReportState.allData.filter(i => isReturnItem(i));
+            console.log('[DELIVERY-REPORT] Return items (THU VE):', returnItems.length, returnItems.map(i => ({ Number: i.Number, DeliveryNote: i.DeliveryNote })));
+
             await ensureProvinceGroups();
             renderTable();
             renderStats();
