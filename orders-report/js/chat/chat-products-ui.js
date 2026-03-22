@@ -97,7 +97,9 @@ console.log('[ChatProducts-UI] Loading...');
             if (panel) {
                 try {
                     localStorage.setItem('chatPanelWidth', panel.style.width);
-                } catch (e) { /* ignore */ }
+                } catch (e) {
+                    /* ignore */
+                }
             }
         });
 
@@ -108,7 +110,9 @@ console.log('[ChatProducts-UI] Loading...');
                 const panel = document.getElementById('chatRightPanel');
                 if (panel) panel.style.width = savedWidth;
             }
-        } catch (e) { /* ignore */ }
+        } catch (e) {
+            /* ignore */
+        }
     })();
 
     // =====================================================
@@ -143,19 +147,25 @@ console.log('[ChatProducts-UI] Loading...');
             if (!orderData) {
                 console.warn('[ChatProducts-UI] No order data returned for:', orderId);
                 if (container) {
-                    container.innerHTML = '<div class="chat-empty-products"><i class="fas fa-exclamation-triangle"></i><p>Không tải được dữ liệu đơn hàng</p></div>';
+                    container.innerHTML =
+                        '<div class="chat-empty-products"><i class="fas fa-exclamation-triangle"></i><p>Không tải được dữ liệu đơn hàng</p></div>';
                 }
                 return;
             }
 
-            console.log('[ChatProducts-UI] Order loaded:', orderId, 'Products:', orderData.Details?.length || 0);
+            console.log(
+                '[ChatProducts-UI] Order loaded:',
+                orderId,
+                'Products:',
+                orderData.Details?.length || 0
+            );
 
             // Store globally for other modules
             window.currentChatOrderData = orderData;
             window.currentChatOrderData.Details = orderData.Details || [];
 
             // Enrich product details with display info from API response
-            window.currentChatOrderData.Details.forEach(d => {
+            window.currentChatOrderData.Details.forEach((d) => {
                 if (!d.ProductNameGet && d.ProductName) {
                     d.ProductNameGet = d.ProductName;
                 }
@@ -171,11 +181,13 @@ console.log('[ChatProducts-UI] Loading...');
 
             // Check BASE status
             updateBaseStatus(orderId);
-
         } catch (error) {
             console.error('[ChatProducts-UI] Error loading order:', error);
             if (container) {
-                container.innerHTML = '<div class="chat-empty-products"><i class="fas fa-exclamation-triangle"></i><p>Lỗi tải dữ liệu: ' + error.message + '</p></div>';
+                container.innerHTML =
+                    '<div class="chat-empty-products"><i class="fas fa-exclamation-triangle"></i><p>Lỗi tải dữ liệu: ' +
+                    error.message +
+                    '</p></div>';
             }
         }
     };
@@ -186,7 +198,7 @@ console.log('[ChatProducts-UI] Loading...');
     async function getOrderDetailsWithCache(orderId) {
         // Check cache
         const cached = orderDetailsCache.get(orderId);
-        if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
+        if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
             console.log('[ChatProducts-UI] Using cached order details for', orderId);
             return JSON.parse(JSON.stringify(cached.data));
         }
@@ -202,14 +214,21 @@ console.log('[ChatProducts-UI] Loading...');
             const headers = await window.tokenManager.getAuthHeader();
             const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details,Partner,User,CRMTeam`;
             const response = await API_CONFIG.smartFetch(apiUrl, {
-                headers: { ...headers, 'Content-Type': 'application/json', 'Accept': 'application/json' }
+                headers: {
+                    ...headers,
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                },
             });
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
             data = await response.json();
         }
 
         // Cache result
-        orderDetailsCache.set(orderId, { data: JSON.parse(JSON.stringify(data)), timestamp: Date.now() });
+        orderDetailsCache.set(orderId, {
+            data: JSON.parse(JSON.stringify(data)),
+            timestamp: Date.now(),
+        });
         return data;
     }
 
@@ -234,46 +253,59 @@ console.log('[ChatProducts-UI] Loading...');
 
         const orderData = window.currentChatOrderData;
         if (!orderData || !orderData.Details) {
-            container.innerHTML = '<div class="chat-empty-products"><i class="fas fa-box-open"></i><p>Chưa có sản phẩm trong đơn</p></div>';
+            container.innerHTML =
+                '<div class="chat-empty-products"><i class="fas fa-box-open"></i><p>Chưa có sản phẩm trong đơn</p></div>';
             updateOrderCounts(0, 0);
             return;
         }
 
         const details = orderData.Details;
-        const mainProducts = details.filter(p => !p.IsHeld);
-        const heldProducts = details.filter(p => p.IsHeld);
+        const mainProducts = details.filter((p) => !p.IsHeld);
+        const heldProducts = details.filter((p) => p.IsHeld);
 
         if (details.length === 0) {
-            container.innerHTML = '<div class="chat-empty-products"><i class="fas fa-box-open"></i><p>Chưa có sản phẩm trong đơn</p></div>';
+            container.innerHTML =
+                '<div class="chat-empty-products"><i class="fas fa-box-open"></i><p>Chưa có sản phẩm trong đơn</p></div>';
             updateOrderCounts(0, 0);
             return;
         }
 
         let html = '<table class="chat-products-table"><tbody>';
 
-        // Render main products first
-        mainProducts.forEach((p, i) => {
-            html += renderMainProductRow(p, i);
-        });
-
-        // Separator if both types exist
-        if (mainProducts.length > 0 && heldProducts.length > 0) {
-            html += `<tr><td colspan="5" style="padding: 4px 10px; background: #fef9c3; text-align: center; font-size: 11px; color: #d97706; font-weight: 600;">
+        // 1. Render held products FIRST (on top)
+        if (heldProducts.length > 0) {
+            html += `<tr><td colspan="3" style="padding: 4px 10px; background: #fef9c3; text-align: center; font-size: 11px; color: #d97706; font-weight: 600; border-bottom: 1px solid #fde047;">
                 <i class="fas fa-clock"></i> Sản phẩm đang giữ (chưa xác nhận)
             </td></tr>`;
         }
 
-        // Render held products
         heldProducts.forEach((p, i) => {
             html += renderHeldProductRow(p, i);
+        });
+
+        // 2. Render main products SECOND
+        if (mainProducts.length > 0 && heldProducts.length > 0) {
+            html += `<tr><td colspan="3" style="padding: 4px 10px; background: #f3f4f6; text-align: center; font-size: 11px; color: #6b7280; font-weight: 600; border-bottom: 1px solid #e5e7eb; border-top: 1px solid #e5e7eb;">
+                <i class="fas fa-check-circle"></i> Sản phẩm chính thức
+            </td></tr>`;
+        }
+
+        mainProducts.forEach((p, i) => {
+            html += renderMainProductRow(p, i);
         });
 
         html += '</tbody></table>';
         container.innerHTML = html;
 
         // Update counts and totals
-        const totalAmount = mainProducts.reduce((sum, p) => sum + ((p.Quantity || 0) * (p.Price || 0)), 0);
-        const totalHeldAmount = heldProducts.reduce((sum, p) => sum + ((p.Quantity || 0) * (p.Price || 0)), 0);
+        const totalAmount = mainProducts.reduce(
+            (sum, p) => sum + (p.Quantity || 0) * (p.Price || 0),
+            0
+        );
+        const totalHeldAmount = heldProducts.reduce(
+            (sum, p) => sum + (p.Quantity || 0) * (p.Price || 0),
+            0
+        );
         const totalQuantity = details.reduce((sum, p) => sum + (p.Quantity || 0), 0);
 
         updateOrderCounts(totalQuantity, totalAmount + totalHeldAmount);
@@ -445,7 +477,8 @@ console.log('[ChatProducts-UI] Loading...');
 
         searchDebounceTimer = setTimeout(async () => {
             try {
-                dropdown.innerHTML = '<div style="padding: 12px; text-align: center; color: #94a3b8; font-size: 12px;">Đang tìm...</div>';
+                dropdown.innerHTML =
+                    '<div style="padding: 12px; text-align: center; color: #94a3b8; font-size: 12px;">Đang tìm...</div>';
                 dropdown.style.display = 'block';
 
                 let results = [];
@@ -453,7 +486,10 @@ console.log('[ChatProducts-UI] Loading...');
                 // Use ProductSearchModule if available
                 if (window.productSearchManager) {
                     // Try loading if not loaded yet
-                    if (!window.productSearchManager.isLoaded && typeof window.productSearchManager.fetchExcelProducts === 'function') {
+                    if (
+                        !window.productSearchManager.isLoaded &&
+                        typeof window.productSearchManager.fetchExcelProducts === 'function'
+                    ) {
                         try {
                             await window.productSearchManager.fetchExcelProducts();
                         } catch (e) {
@@ -461,7 +497,10 @@ console.log('[ChatProducts-UI] Loading...');
                         }
                     }
 
-                    if (window.productSearchManager.isLoaded && typeof window.productSearchManager.search === 'function') {
+                    if (
+                        window.productSearchManager.isLoaded &&
+                        typeof window.productSearchManager.search === 'function'
+                    ) {
                         results = window.productSearchManager.search(query, 15);
                     } else {
                         // Fallback to API search
@@ -473,10 +512,10 @@ console.log('[ChatProducts-UI] Loading...');
                 }
 
                 displayChatSearchResults(results, dropdown);
-
             } catch (error) {
                 console.error('[ChatProducts-UI] Search error:', error);
-                dropdown.innerHTML = '<div style="padding: 12px; text-align: center; color: #ef4444; font-size: 12px;">Lỗi tìm kiếm</div>';
+                dropdown.innerHTML =
+                    '<div style="padding: 12px; text-align: center; color: #ef4444; font-size: 12px;">Lỗi tìm kiếm</div>';
             }
         }, SEARCH_DEBOUNCE_MS);
     };
@@ -490,12 +529,12 @@ console.log('[ChatProducts-UI] Loading...');
         const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Product?$filter=contains(Name,'${encodedQuery}') or contains(DefaultCode,'${encodedQuery}')&$expand=UOM,Images&$top=15`;
 
         const response = await API_CONFIG.smartFetch(apiUrl, {
-            headers: { ...headers, 'Content-Type': 'application/json', 'Accept': 'application/json' }
+            headers: { ...headers, 'Content-Type': 'application/json', Accept: 'application/json' },
         });
 
         if (!response.ok) return [];
         const data = await response.json();
-        return (data.value || []).map(p => ({
+        return (data.value || []).map((p) => ({
             Id: p.Id,
             ProductId: p.Id,
             Name: p.Name,
@@ -503,7 +542,7 @@ console.log('[ChatProducts-UI] Loading...');
             ListPrice: p.PriceVariant || p.ListPrice || 0,
             ImageUrl: p.ImageUrl || (p.Images && p.Images[0]?.Url) || '',
             UOM: p.UOM,
-            QtyAvailable: p.QtyAvailable || 0
+            QtyAvailable: p.QtyAvailable || 0,
         }));
     }
 
@@ -512,25 +551,27 @@ console.log('[ChatProducts-UI] Loading...');
      */
     function displayChatSearchResults(results, dropdown) {
         if (!results || results.length === 0) {
-            dropdown.innerHTML = '<div style="padding: 12px; text-align: center; color: #94a3b8; font-size: 12px;">Không tìm thấy sản phẩm</div>';
+            dropdown.innerHTML =
+                '<div style="padding: 12px; text-align: center; color: #94a3b8; font-size: 12px;">Không tìm thấy sản phẩm</div>';
             return;
         }
 
         // Check which products are already in the order
         const existingIds = new Set();
         if (window.currentChatOrderData?.Details) {
-            window.currentChatOrderData.Details.forEach(d => existingIds.add(d.ProductId));
+            window.currentChatOrderData.Details.forEach((d) => existingIds.add(d.ProductId));
         }
 
-        dropdown.innerHTML = results.map(p => {
-            const productId = p.Id || p.ProductId;
-            const name = p.NameGet || p.Name || '';
-            const code = p.DefaultCode || p.Code || '';
-            const price = p.PriceVariant || p.ListPrice || 0;
-            const imgUrl = p.ImageUrl || '';
-            const inOrder = existingIds.has(productId);
+        dropdown.innerHTML = results
+            .map((p) => {
+                const productId = p.Id || p.ProductId;
+                const name = p.NameGet || p.Name || '';
+                const code = p.DefaultCode || p.Code || '';
+                const price = p.PriceVariant || p.ListPrice || 0;
+                const imgUrl = p.ImageUrl || '';
+                const inOrder = existingIds.has(productId);
 
-            return `
+                return `
                 <div class="chat-search-item" onclick="window.addChatProductFromSearch(${productId})">
                     ${imgUrl ? `<img src="${imgUrl}" class="chat-search-item-img" onerror="this.style.display='none'">` : '<div class="chat-search-item-img" style="background:#f1f5f9; display:flex; align-items:center; justify-content:center;"><i class="fas fa-box" style="color:#cbd5e1;"></i></div>'}
                     <div class="chat-search-item-info">
@@ -540,7 +581,8 @@ console.log('[ChatProducts-UI] Loading...');
                     <div class="chat-search-item-price">${price.toLocaleString('vi-VN')}đ</div>
                     ${inOrder ? '<span class="chat-search-item-badge">Đã có</span>' : ''}
                 </div>`;
-        }).join('');
+            })
+            .join('');
     }
 
     /**
@@ -559,7 +601,7 @@ console.log('[ChatProducts-UI] Loading...');
 
         // Check if already in held list → merge quantity
         const existingHeld = window.currentChatOrderData.Details.find(
-            p => p.ProductId === productId && p.IsHeld
+            (p) => p.ProductId === productId && p.IsHeld
         );
 
         if (existingHeld) {
@@ -579,7 +621,10 @@ console.log('[ChatProducts-UI] Loading...');
             // Fetch full product details
             let fullProduct = null;
             if (window.productSearchManager) {
-                fullProduct = await window.productSearchManager.getFullProductDetails(productId, true);
+                fullProduct = await window.productSearchManager.getFullProductDetails(
+                    productId,
+                    true
+                );
             }
 
             if (!fullProduct) {
@@ -587,13 +632,18 @@ console.log('[ChatProducts-UI] Loading...');
                 const headers = await window.tokenManager.getAuthHeader();
                 const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Product(${productId})?$expand=UOM,Images`;
                 const resp = await API_CONFIG.smartFetch(apiUrl, {
-                    headers: { ...headers, 'Content-Type': 'application/json', 'Accept': 'application/json' }
+                    headers: {
+                        ...headers,
+                        'Content-Type': 'application/json',
+                        Accept: 'application/json',
+                    },
                 });
                 if (resp.ok) fullProduct = await resp.json();
             }
 
             if (!fullProduct) {
-                if (window.notificationManager) window.notificationManager.error('Không tìm thấy thông tin sản phẩm');
+                if (window.notificationManager)
+                    window.notificationManager.error('Không tìm thấy thông tin sản phẩm');
                 return;
             }
 
@@ -629,7 +679,7 @@ console.log('[ChatProducts-UI] Loading...');
                 StockQty: fullProduct.QtyAvailable || 0,
                 HeldBy: getUserDisplayName(),
                 Name: fullProduct.Name || '',
-                Code: fullProduct.DefaultCode || fullProduct.Barcode || ''
+                Code: fullProduct.DefaultCode || fullProduct.Barcode || '',
             };
 
             // Add to Details
@@ -648,12 +698,15 @@ console.log('[ChatProducts-UI] Loading...');
             if (input) input.value = '';
 
             if (window.notificationManager) {
-                window.notificationManager.show(`Đã thêm "${heldProduct.ProductNameGet}" vào danh sách giữ`, 'success');
+                window.notificationManager.show(
+                    `Đã thêm "${heldProduct.ProductNameGet}" vào danh sách giữ`,
+                    'success'
+                );
             }
-
         } catch (error) {
             console.error('[ChatProducts-UI] Error adding product:', error);
-            if (window.notificationManager) window.notificationManager.error('Lỗi thêm sản phẩm: ' + error.message);
+            if (window.notificationManager)
+                window.notificationManager.error('Lỗi thêm sản phẩm: ' + error.message);
         }
     };
 
@@ -675,10 +728,12 @@ console.log('[ChatProducts-UI] Loading...');
             if (!userId) return;
 
             const heldProduct = window.currentChatOrderData.Details.find(
-                p => p.ProductId === productId && p.IsHeld
+                (p) => p.ProductId === productId && p.IsHeld
             );
 
-            const ref = window.firebase.database().ref(`held_products/${orderId}/${productId}/${userId}`);
+            const ref = window.firebase
+                .database()
+                .ref(`held_products/${orderId}/${productId}/${userId}`);
             await ref.set({
                 productId: productId,
                 displayName: auth.displayName || auth.userType || 'Unknown',
@@ -693,7 +748,7 @@ console.log('[ChatProducts-UI] Loading...');
                 productCode: heldProduct?.ProductCode || '',
                 imageUrl: heldProduct?.ImageUrl || '',
                 price: heldProduct?.Price || 0,
-                uomName: heldProduct?.UOMName || 'Cái'
+                uomName: heldProduct?.UOMName || 'Cái',
             });
 
             console.log('[ChatProducts-UI] Synced held product to Firebase:', productId);
@@ -762,7 +817,8 @@ console.log('[ChatProducts-UI] Loading...');
         // Reset UI
         const container = document.getElementById('chatProductsTableContainer');
         if (container) {
-            container.innerHTML = '<div class="chat-empty-products"><i class="fas fa-box-open"></i><p>Chưa có sản phẩm trong đơn</p></div>';
+            container.innerHTML =
+                '<div class="chat-empty-products"><i class="fas fa-box-open"></i><p>Chưa có sản phẩm trong đơn</p></div>';
         }
         updateOrderCounts(0, 0);
 
