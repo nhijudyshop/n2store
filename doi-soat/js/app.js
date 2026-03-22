@@ -51,6 +51,13 @@
     }
 
     // =====================================================
+    // REMOVE VIETNAMESE DIACRITICS
+    // =====================================================
+    function removeDiacritics(str) {
+        return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D');
+    }
+
+    // =====================================================
     // DOM REFERENCES
     // =====================================================
     const $ = (sel) => document.querySelector(sel);
@@ -175,10 +182,10 @@
 
     function extractBarcode(line) {
         // Extract barcode from ProductBarcode field or from [] in Name
-        if (line.ProductBarcode) return line.ProductBarcode.toUpperCase();
+        if (line.ProductBarcode) return removeDiacritics(line.ProductBarcode.toUpperCase());
 
         const match = (line.Name || line.ProductNameGet || '').match(/\[([^\]]+)\]/);
-        return match ? match[1].toUpperCase() : null;
+        return match ? removeDiacritics(match[1].toUpperCase()) : null;
     }
 
     function renderProductTable() {
@@ -297,7 +304,7 @@
     function handleProductBarcodeScan(barcode) {
         if (!barcode || !currentOrder || !currentOrder.OrderLines) return;
 
-        const barcodeUpper = barcode.toUpperCase().trim();
+        const barcodeUpper = removeDiacritics(barcode.toUpperCase().trim());
         productBarcodeInput.value = '';
 
         // Find matching order line by barcode
