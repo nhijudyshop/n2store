@@ -319,17 +319,18 @@
 /* Scan Feedback Toast */
 .dr-scan-feedback {
     position: fixed;
-    top: 80px;
+    top: 50%;
     left: 50%;
-    transform: translateX(-50%);
-    padding: 12px 24px;
-    border-radius: 8px;
-    font-size: 15px;
-    font-weight: 600;
+    transform: translate(-50%, -50%);
+    padding: 60px 120px;
+    border-radius: 24px;
+    font-size: 75px;
+    font-weight: 700;
     z-index: 10000;
     animation: drFadeInOut 2s ease-in-out;
     pointer-events: none;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    box-shadow: 0 8px 40px rgba(0,0,0,0.3);
+    text-align: center;
 }
 
 .dr-scan-feedback.success {
@@ -342,11 +343,16 @@
     color: white;
 }
 
+.dr-scan-feedback.warning {
+    background: #f59e0b;
+    color: white;
+}
+
 @keyframes drFadeInOut {
-    0% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
-    15% { opacity: 1; transform: translateX(-50%) translateY(0); }
-    75% { opacity: 1; transform: translateX(-50%) translateY(0); }
-    100% { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+    0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+    15% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    75% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
 }
 
 /* Table */

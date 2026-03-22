@@ -1154,7 +1154,7 @@
 
         // Check if already scanned
         if (state.scannedNumbers.has(match.Number)) {
-            showScanFeedback(false, `Đã quét rồi: ${value}`);
+            showScanFeedback('warning', `Đã quét rồi: ${value}`);
             return;
         }
 
@@ -1202,15 +1202,20 @@
         showScanFeedback(true, match.Number);
     }
 
-    function showScanFeedback(success, value) {
-        // Remove existing feedback
+    function showScanFeedback(type, value) {
+        // type: true/'success' | false/'error' | 'warning'
         const existing = document.getElementById('drScanFeedback');
         if (existing) existing.remove();
 
+        let className = 'dr-scan-feedback ';
+        if (type === true || type === 'success') className += 'success';
+        else if (type === 'warning') className += 'warning';
+        else className += 'error';
+
         const div = document.createElement('div');
         div.id = 'drScanFeedback';
-        div.className = success ? 'dr-scan-feedback success' : 'dr-scan-feedback error';
-        div.textContent = success ? `${value}` : `Không tìm thấy: ${value}`;
+        div.className = className;
+        div.textContent = value;
         document.body.appendChild(div);
 
         setTimeout(() => div.remove(), 2000);
