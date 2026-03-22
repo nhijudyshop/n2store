@@ -15,6 +15,8 @@ window.currentChatChannelId = null;     // pageId
 window.currentChatPSID = null;
 window.currentCustomerName = null;
 window.currentConversationData = null;  // full Pancake conversation object
+window.currentChatOrderId = null;       // current order ID for edit/product panel
+window.currentChatOrderData = null;     // full order data from TPOS API
 window.allChatMessages = [];
 window.currentChatCursor = null;        // pagination cursor (current_count)
 window.isLoadingMoreMessages = false;
@@ -47,23 +49,35 @@ window.openChatModal = async function(orderId, pageId, psid, conversationType) {
     window.currentConversationType = conversationType;
     window.currentConversationId = null;
     window.currentConversationData = null;
+    window.currentChatOrderId = orderId;
+    window.currentChatOrderData = null;
     window.allChatMessages = [];
     window.currentChatCursor = null;
     window.currentReplyMessage = null;
     window.currentSendPageId = pageId;
     window.isSendingMessage = false;
 
-    // Get customer name from order row
+    // Get customer name + phone + STT from order row
     const orderRow = document.querySelector(`tr[data-order-id="${orderId}"]`);
     window.currentCustomerName = orderRow?.querySelector('.customer-name')?.textContent?.trim() || '';
+    const customerPhone = orderRow?.querySelector('.customer-phone')?.textContent?.trim()
+        || orderRow?.querySelector('[data-phone]')?.dataset?.phone || '';
+    window.currentChatOrderSTT = orderRow?.querySelector('.order-stt')?.textContent?.trim()
+        || orderRow?.dataset?.stt || '';
 
     // Show modal
     modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
 
-    // Update header
+    // Update header - name
     const nameEl = document.getElementById('chatCustomerName');
     if (nameEl) nameEl.textContent = window.currentCustomerName || 'Khách hàng';
+
+    // Update header - subtitle (SĐT + Mã ĐH)
+    const phoneEl = document.getElementById('chatSubtitlePhone');
+    if (phoneEl) phoneEl.textContent = customerPhone ? `SĐT: ${customerPhone}` : '';
+    const orderIdEl = document.getElementById('chatSubtitleOrderId');
+    if (orderIdEl) orderIdEl.textContent = orderId ? `Mã ĐH: ${orderId}` : '';
 
     // Update header avatar
     const avatarEl = document.getElementById('chatCustomerAvatar');
@@ -77,6 +91,9 @@ window.openChatModal = async function(orderId, pageId, psid, conversationType) {
 
     // Update extension badge
     _updateExtensionBadge();
+
+    // Load order data + populate right panel (non-blocking)
+    _loadOrderDataAndPanel(orderId, customerPhone);
 
     // Show loading
     const messagesEl = document.getElementById('chatMessages');
@@ -105,18 +122,6 @@ window.openChatModal = async function(orderId, pageId, psid, conversationType) {
 
     // Start realtime
     _startRealtimeForChat();
-
-    // Load order products in right panel
-    if (typeof window.loadChatOrderProducts === 'function' && orderId) {
-        window.loadChatOrderProducts(orderId);
-    }
-
-    // Set panel toggle button active state
-    const toggleBtn = document.querySelector('.chat-panel-toggle-btn');
-    const panel = document.getElementById('chatRightPanel');
-    if (toggleBtn && panel) {
-        toggleBtn.classList.toggle('active', !panel.classList.contains('collapsed'));
-    }
 };
 
 /**
@@ -150,6 +155,8 @@ window.closeChatModal = function() {
     window.currentConversationId = null;
     window.currentConversationType = null;
     window.currentConversationData = null;
+    window.currentChatOrderId = null;
+    window.currentChatOrderData = null;
     window.allChatMessages = [];
     window.currentChatCursor = null;
     window.currentReplyMessage = null;
@@ -158,10 +165,8 @@ window.closeChatModal = function() {
     // Clear image previews
     if (window.clearImagePreviews) window.clearImagePreviews();
 
-    // Cleanup products panel
-    if (typeof window.cleanupChatProducts === 'function') {
-        window.cleanupChatProducts();
-    }
+    // Cleanup product panel
+    if (window.cleanupProductPanel) window.cleanupProductPanel();
 };
 
 // Also provide closeCommentModal alias
@@ -248,17 +253,42 @@ async function _loadMessages(pageId, conversationId, customerId) {
         const result = await pdm.fetchMessages(pageId, conversationId, null, customerId);
 
         // Store conversation data (for extension bypass - thread_id, global_id)
+        // IMPORTANT: Merge with existing data, don't overwrite.
+        // window.currentConversationData was set by _findAndLoadConversation()
+        // and may contain thread_id, page_customer from the conversations API.
+        // The messages API response may have different/additional data.
+        if (!window.currentConversationData) window.currentConversationData = {};
+        const existingData = window.currentConversationData;
+
         if (result.conversation) {
             const rc = result.conversation;
-            if (!window.currentConversationData) window.currentConversationData = {};
-            window.currentConversationData._raw = rc;
-            window.currentConversationData.customers = result.customers || [];
-            window.currentConversationData._messagesData = {
-                customers: result.customers || [],
-                post: result.post || null,
-                activities: result.activities || [],
-            };
+            // Merge _raw: keep existing fields, add new ones from messages API
+            if (!existingData._raw) existingData._raw = {};
+            Object.assign(existingData._raw, rc);
+
+            // Preserve thread_id from original conversation if messages API didn't provide it
+            if (!existingData._raw.thread_id && existingData.thread_id) {
+                existingData._raw.thread_id = existingData.thread_id;
+            }
+            // Preserve page_customer.global_id from original conversation
+            if (!existingData._raw.page_customer?.global_id && existingData.page_customer?.global_id) {
+                if (!existingData._raw.page_customer) existingData._raw.page_customer = {};
+                existingData._raw.page_customer.global_id = existingData.page_customer.global_id;
+            }
+
+            console.log('[Chat-Core] Merged conversation data:', {
+                thread_id: existingData._raw.thread_id || null,
+                global_id: existingData._raw.page_customer?.global_id || null,
+                customers_global_id: (result.customers || [])[0]?.global_id || null,
+            });
         }
+
+        existingData.customers = result.customers || existingData.customers || [];
+        existingData._messagesData = {
+            customers: result.customers || [],
+            post: result.post || null,
+            activities: result.activities || [],
+        };
 
         // Map messages
         const messages = (result.messages || []).map(msg => {
@@ -430,6 +460,101 @@ window.setReplyType = function(type) {
             ? 'Nhắn riêng cho khách...'
             : 'Trả lời bình luận...';
     }
+};
+
+// =====================================================
+// ORDER DATA & HEADER POPULATION
+// =====================================================
+
+async function _loadOrderDataAndPanel(orderId, phone) {
+    try {
+        // Load order details from TPOS API
+        if (window.getOrderDetails && orderId) {
+            const orderData = await window.getOrderDetails(orderId);
+            window.currentChatOrderData = orderData;
+
+            // Update phone from order data if not available from row
+            const orderPhone = orderData.Phone || orderData.Partner?.Phone || phone;
+            if (orderPhone) {
+                const phoneEl = document.getElementById('chatSubtitlePhone');
+                if (phoneEl) phoneEl.textContent = `SĐT: ${orderPhone}`;
+            }
+
+            // Init product panel
+            if (window.initProductPanel) {
+                window.initProductPanel(orderData);
+            }
+
+            // Load debt/Công nợ (use phone from order or from row)
+            _loadDebtDisplay(orderPhone || phone);
+
+            // Load QR settings
+            if (window.loadQRAmountSetting) window.loadQRAmountSetting();
+
+            // Populate page selector from Pancake pages
+            _populatePageSelector();
+        } else if (phone) {
+            // Even without order data, try loading debt
+            _loadDebtDisplay(phone);
+        }
+    } catch (e) {
+        console.error('[Chat-Core] Error loading order data:', e);
+        // Still try loading debt even if order fetch fails
+        if (phone) _loadDebtDisplay(phone);
+    }
+}
+
+function _loadDebtDisplay(phone) {
+    if (!phone) return;
+    const debtEl = document.getElementById('chatDebtValue');
+    if (!debtEl) return;
+
+    debtEl.textContent = '...';
+
+    // Fetch from API
+    if (window.fetchDebtForPhone) {
+        window.fetchDebtForPhone(phone).then(balance => {
+            debtEl.textContent = _formatCurrencyShort(balance);
+            debtEl.style.color = balance > 0 ? '#34d399' : 'rgba(255,255,255,0.6)';
+        }).catch(() => {
+            debtEl.textContent = '0đ';
+            debtEl.style.color = 'rgba(255,255,255,0.6)';
+        });
+    } else {
+        debtEl.textContent = '0đ';
+    }
+}
+
+function _formatCurrencyShort(amount) {
+    if (!amount && amount !== 0) return '-';
+    return new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
+}
+
+function _populatePageSelector() {
+    const select = document.getElementById('chatPageSelect');
+    if (!select) return;
+
+    const pdm = window.pancakeDataManager;
+    if (!pdm || !pdm.pageIds || pdm.pageIds.length <= 1) {
+        select.style.display = 'none';
+        return;
+    }
+
+    select.style.display = '';
+    select.innerHTML = pdm.pageIds.map(pid => {
+        const pageName = pdm.pageNames?.[pid] || `Page ${pid}`;
+        const selected = pid === window.currentChatChannelId ? 'selected' : '';
+        return `<option value="${pid}" ${selected}>${pageName}</option>`;
+    }).join('');
+}
+
+window.onChatPageChanged = function(pageId) {
+    if (!pageId || pageId === window.currentChatChannelId) return;
+    window.currentChatChannelId = pageId;
+    window.currentSendPageId = pageId;
+
+    // Reload conversation on new page
+    window.switchConversationType(window.currentConversationType || 'INBOX');
 };
 
 // =====================================================

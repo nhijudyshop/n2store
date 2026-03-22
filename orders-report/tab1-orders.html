@@ -780,41 +780,77 @@
 
     <!-- ===== Chat Modal ===== -->
     <div class="chat-modal-overlay" id="chatModal" style="display:none">
-        <div class="chat-modal-content chat-modal-with-panel">
+        <div class="chat-modal-content">
             <!-- Header -->
             <div class="chat-modal-header">
                 <div class="chat-header-left">
                     <div class="chat-customer-avatar" id="chatCustomerAvatar">K</div>
                     <div class="chat-header-info">
                         <div class="chat-customer-name" id="chatCustomerName">Khách hàng</div>
+                        <div class="chat-subtitle" id="chatSubtitle">
+                            <span id="chatSubtitlePhone"></span>
+                            <span class="chat-subtitle-sep">&bull;</span>
+                            <span id="chatSubtitleOrderId">Mã ĐH: --</span>
+                            <span class="chat-badge read-badge" id="chatReadBadge" style="display:none">
+                                <i class="fas fa-circle"></i> Chưa đọc
+                            </span>
+                        </div>
                         <div class="chat-badges">
                             <span class="chat-badge ext-badge" id="extensionBadge" style="display:none">EXT</span>
                             <span class="chat-badge live-badge" id="realtimeBadge" style="display:none">LIVE</span>
                         </div>
                     </div>
                 </div>
-                <div class="chat-header-right">
+                <div class="chat-header-center">
                     <div class="conv-type-toggle">
-                        <button data-type="INBOX" class="active" onclick="window.switchConversationType('INBOX')">Tin nhắn</button>
-                        <button data-type="COMMENT" onclick="window.switchConversationType('COMMENT')">Bình luận</button>
+                        <button data-type="INBOX" class="active" onclick="window.switchConversationType('INBOX')">
+                            <i class="fab fa-facebook-messenger"></i> Tin nhắn
+                        </button>
+                        <button data-type="COMMENT" onclick="window.switchConversationType('COMMENT')">
+                            <i class="fas fa-comment-dots"></i> Bình luận
+                        </button>
                     </div>
                     <select id="replyTypeSelect" class="hidden" onchange="window.setReplyType(this.value)">
                         <option value="reply_comment">Trả lời công khai</option>
                         <option value="private_replies">Nhắn riêng</option>
                     </select>
+                </div>
+                <div class="chat-header-right">
+                    <!-- QR Buttons -->
+                    <div class="chat-qr-buttons">
+                        <button id="qrAmountToggle" onclick="window.toggleQRAmountSetting && window.toggleQRAmountSetting()" title="Bật/tắt hiện số tiền trong QR" class="chat-header-btn">
+                            <i class="fas fa-dollar-sign"></i>
+                        </button>
+                        <button onclick="window.copyQRImageFromChat && window.copyQRImageFromChat()" title="Copy ảnh QR" class="chat-header-btn">
+                            <i class="fas fa-copy"></i> Copy QR
+                        </button>
+                        <button onclick="window.showQRFromChat && window.showQRFromChat()" title="Xem QR" class="chat-header-btn chat-header-btn-primary">
+                            <i class="fas fa-qrcode"></i> Xem QR
+                        </button>
+                    </div>
+                    <!-- Debt Display -->
+                    <div class="chat-debt-display" id="chatDebtDisplay">
+                        <i class="fas fa-wallet"></i>
+                        <span>Công nợ:</span>
+                        <span class="chat-debt-value" id="chatDebtValue">-</span>
+                    </div>
+                    <!-- Page Selector -->
+                    <select id="chatPageSelect" class="chat-page-select" onchange="window.onChatPageChanged && window.onChatPageChanged(this.value)">
+                        <option value="">Chọn page...</option>
+                    </select>
                     <select id="sendPageSelector" style="display:none"></select>
-                    <button class="chat-panel-toggle-btn" onclick="window.toggleChatPanel()" title="Mở/đóng panel sản phẩm">
+                    <!-- Toggle Right Panel -->
+                    <button onclick="window.toggleChatRightPanel && window.toggleChatRightPanel()" title="Mở/Đóng panel sản phẩm" class="chat-header-btn">
                         <i class="fas fa-columns"></i>
                     </button>
                     <button class="chat-close-btn" onclick="window.closeChatModal()">&times;</button>
                 </div>
             </div>
 
-            <!-- Main body: Chat + Right Panel -->
-            <div class="chat-modal-body">
-                <!-- Left: Chat area -->
+            <!-- Body: Left (chat) + Right (products) -->
+            <div class="chat-body-wrapper">
+                <!-- Left Panel: Messages -->
                 <div class="chat-left-panel">
-                    <!-- Messages -->
                     <div class="chat-messages" id="chatMessages">
                         <div class="chat-empty-state"><p>Chọn cuộc hội thoại để bắt đầu</p></div>
                     </div>
@@ -851,6 +887,10 @@
                                 <button class="attach-btn" onclick="window.quickReplyManager?.openSettings()" title="Cài đặt mẫu tin nhắn">
                                     <i class="fas fa-cog"></i>
                                 </button>
+                                <!-- Edit Order button -->
+                                <button class="attach-btn" onclick="window.openEditModal && window.openEditModal(window.currentChatOrderId)" title="Sửa đơn hàng">
+                                    <i class="fas fa-edit"></i>
+                                </button>
                                 <button class="send-btn" onclick="window.sendMessage()" title="Gửi">
                                     <i class="fas fa-paper-plane"></i>
                                 </button>
@@ -859,97 +899,78 @@
                     </div>
                 </div>
 
-                <!-- Panel toggle handle (visible when panel is collapsed) -->
-                <div class="chat-panel-handle" id="chatPanelHandle" onclick="window.toggleChatPanel()" title="Mở panel sản phẩm">
-                    <i class="fas fa-chevron-left"></i>
-                </div>
-
-                <!-- Right: Product Panel -->
+                <!-- Right Panel: Products -->
                 <div class="chat-right-panel" id="chatRightPanel">
-                    <!-- Panel tabs -->
-                    <div class="chat-panel-tabs">
-                        <button class="chat-tab-btn active" data-tab="orders" onclick="switchChatPanelTab('orders')">
-                            <i class="fas fa-shopping-cart"></i> Đơn hàng <span class="chat-tab-badge" id="chatOrdersCountBadge">0</span>
+                    <!-- Product Tabs -->
+                    <div class="chat-right-tabs">
+                        <button class="chat-right-tab chat-tab-btn active" data-tab="orders" onclick="switchChatPanelTab('orders')">
+                            <i class="fas fa-shopping-cart"></i> Đơn hàng
+                            <span class="tab-badge" id="chatOrdersCountBadge"></span>
                         </button>
-                        <button class="chat-tab-btn" data-tab="dropped" onclick="switchChatPanelTab('dropped')">
-                            <i class="fas fa-arrow-down"></i> Hàng rớt - xả <span class="chat-tab-badge chat-tab-badge-danger" id="chatDroppedCountBadge">0</span>
+                        <button class="chat-right-tab chat-tab-btn" data-tab="dropped" onclick="switchChatPanelTab('dropped')">
+                            <i class="fas fa-box-open"></i> Hàng rớt - xả
+                            <span class="tab-badge" id="chatDroppedCountBadge"></span>
                         </button>
-                        <button class="chat-tab-btn" data-tab="history" onclick="switchChatPanelTab('history')">
+                        <button class="chat-right-tab chat-tab-btn" data-tab="history" onclick="switchChatPanelTab('history')">
                             <i class="fas fa-history"></i> Lịch sử
                         </button>
-                        <button class="chat-tab-btn" data-tab="invoice_history" onclick="switchChatPanelTab('invoice_history')">
+                        <button class="chat-right-tab chat-tab-btn" data-tab="invoice_history" onclick="switchChatPanelTab('invoice_history')">
                             <i class="fas fa-file-invoice"></i> Hóa đơn
                         </button>
                     </div>
 
-                    <!-- Tab: Đơn hàng -->
-                    <div class="chat-tab-content" id="chatTabOrders" style="display: flex;">
-                        <!-- Search bar -->
-                        <div class="chat-order-search-container">
-                            <div class="chat-order-search-wrapper">
-                                <i class="fas fa-search"></i>
-                                <input type="text" id="chatInlineProductSearch" placeholder="Tìm sản phẩm theo tên hoặc mã..."
-                                    oninput="window.performChatProductSearch(this.value)">
+                    <!-- Tab Content: Orders -->
+                    <div class="chat-right-tab-content chat-tab-content active" id="chatTabOrders" data-tab="orders">
+                        <div class="chat-product-search" style="position:relative">
+                            <input type="text" id="chatProductSearchInput" placeholder="Tìm sản phẩm để thêm..."
+                                oninput="window.chatProductSearch && window.chatProductSearch(this.value)">
+                            <div id="chatProductSearchSuggestions" class="search-suggestions-dropdown"></div>
+                        </div>
+                        <!-- Held Products Section (hidden by default) -->
+                        <div id="chatHeldSection" class="held-section" style="display:none">
+                            <div class="held-section-header">
+                                <span><i class="fas fa-hand-holding"></i> Sản phẩm đang giữ</span>
+                                <button onclick="window.saveHeldProducts && window.saveHeldProducts()" class="btn-save-held">
+                                    <i class="fas fa-save"></i> Lưu giữ
+                                </button>
                             </div>
-                            <div id="chatInlineSearchResults" class="chat-search-dropdown" style="display:none;"></div>
+                            <div id="chatHeldProductsList" class="chat-product-list"></div>
                         </div>
-                        <!-- Products table -->
-                        <div class="chat-products-scroll" id="chatProductsTableContainer">
-                            <div class="chat-empty-products">
-                                <i class="fas fa-box-open"></i>
-                                <p>Chưa có sản phẩm trong đơn</p>
+                        <!-- Main Products List -->
+                        <div class="chat-product-list" id="chatProductList">
+                            <div class="chat-panel-empty">Chưa có sản phẩm</div>
+                        </div>
+                        <!-- Footer: Totals + KPI -->
+                        <div class="chat-product-footer">
+                            <div class="chat-product-total">
+                                <span>Tổng tiền:</span>
+                                <span class="chat-total-value" id="chatProductTotal">0đ</span>
                             </div>
-                        </div>
-                        <!-- Footer totals -->
-                        <div class="chat-order-footer">
-                            <div class="chat-order-footer-left">
-                                Tổng tiền: <span class="chat-order-footer-icon"><i class="fas fa-paper-plane" style="color: #3b82f6; cursor: pointer;" onclick="window.sendOrderTotalToChat()" title="Gửi tổng tiền vào chat"></i></span>
-                            </div>
-                            <div class="chat-order-footer-right" id="chatProductTotal">0đ</div>
-                        </div>
-                        <div class="chat-order-footer-info">
-                            <span id="productCount">0</span> sản phẩm
-                            <span class="chat-base-status" id="chatBaseStatus">Chưa có BASE</span>
-                        </div>
-                    </div>
-
-                    <!-- Tab: Hàng rớt - xả -->
-                    <div class="chat-tab-content" id="chatTabDropped" style="display: none;">
-                        <!-- Dropped products - rendered by dropped-products-manager.js -->
-                        <div class="chat-products-scroll" id="chatDroppedProductsContainer">
-                            <div class="chat-empty-products">
-                                <i class="fas fa-box-open"></i>
-                                <p>Chưa có hàng rớt - xả</p>
-                            </div>
-                        </div>
-                        <!-- Footer totals -->
-                        <div class="chat-order-footer">
-                            <div class="chat-order-footer-left">Tổng giá trị:</div>
-                            <div class="chat-order-footer-right chat-order-footer-danger" id="chatDroppedTotal">0đ</div>
-                        </div>
-                        <div class="chat-order-footer-info">
-                            <span id="droppedProductCount">0</span> sản phẩm rớt - xả
-                        </div>
-                    </div>
-
-                    <!-- Tab: Lịch sử -->
-                    <div class="chat-tab-content" id="chatTabHistory" style="display: none;">
-                        <div class="chat-products-scroll" id="chatHistoryContainer">
-                            <div class="chat-empty-products">
-                                <i class="fas fa-history"></i>
-                                <p>Lịch sử đã tắt</p>
-                                <p style="font-size: 12px; margin-top: 4px;">Tính năng này đã được tắt để tiết kiệm chi phí</p>
+                            <div class="chat-product-meta">
+                                <span id="chatProductCount">0 sản phẩm</span>
+                                <div id="kpiBadgeContainer" style="display:none">
+                                    <span id="kpiBadge" class="kpi-badge"></span>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Tab: Hóa đơn -->
-                    <div class="chat-tab-content" id="chatTabInvoiceHistory" style="display: none;">
-                        <div class="chat-products-scroll" id="chatInvoiceHistoryContainer">
-                            <div class="chat-empty-products">
-                                <i class="fas fa-file-invoice"></i>
-                                <p>Chưa có hóa đơn</p>
-                            </div>
+                    <!-- Tab Content: Dropped -->
+                    <div class="chat-right-tab-content chat-tab-content" id="chatTabDropped" data-tab="dropped">
+                        <div id="chatDroppedProductsContainer" style="flex:1;overflow-y:auto;"></div>
+                    </div>
+
+                    <!-- Tab Content: History -->
+                    <div class="chat-right-tab-content chat-tab-content" id="chatTabHistory" data-tab="history">
+                        <div class="chat-product-list" id="chatHistoryList">
+                            <div class="chat-panel-empty">Đang tải lịch sử...</div>
+                        </div>
+                    </div>
+
+                    <!-- Tab Content: Invoices -->
+                    <div class="chat-right-tab-content chat-tab-content" id="chatTabInvoiceHistory" data-tab="invoice_history">
+                        <div class="chat-product-list" id="chatInvoiceList">
+                            <div class="chat-panel-empty">Đang tải hóa đơn...</div>
                         </div>
                     </div>
                 </div>
@@ -1133,7 +1154,6 @@
     <script src="js/tab1/tab1-chat-images.js"></script>
     <script src="js/tab1/tab1-chat-realtime.js"></script>
     <script src="js/chat/chat-products-ui.js"></script>
-    <script src="js/chat/chat-products-actions.js"></script>
 
     <!-- Extracted JS files (formerly inline) -->
     <script src="js/tab1/tab1-checkbox.js"></script>

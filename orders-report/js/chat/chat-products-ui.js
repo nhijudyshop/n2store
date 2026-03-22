@@ -1,723 +1,957 @@
 /* =====================================================
-   CHAT PRODUCTS UI
-   Renders product panel in chat modal:
-   - Tab Đơn hàng: main + held products table
-   - Product search (inline)
-   - Total, count, BASE status
+   CHAT PRODUCTS UI - Right panel product management
+   Tab Đơn hàng: held/main products, actions, search, KPI
+   Tab Lịch sử + Hóa đơn (dropped tab do manager render)
    ===================================================== */
 
 console.log('[ChatProducts-UI] Loading...');
 
-(function () {
-    'use strict';
+// =====================================================
+// STATE
+// =====================================================
+let _orderProducts = [];
+let _currentOrderId = null;
+let _currentOrderSTT = null;
+let _searchDebounce = null;
+let _historyLoaded = false;
+let _invoicesLoaded = false;
 
-    // Order details cache (5 min TTL)
-    const orderDetailsCache = new Map();
-    const CACHE_TTL = 5 * 60 * 1000;
+// =====================================================
+// TOGGLE RIGHT PANEL
+// =====================================================
 
-    // Search debounce
-    let searchDebounceTimer = null;
-    const SEARCH_DEBOUNCE_MS = 300;
+window.toggleChatRightPanel = function() {
+    const panel = document.getElementById('chatRightPanel');
+    if (panel) panel.classList.toggle('hidden');
+};
 
-    // =====================================================
-    // PANEL TOGGLE
-    // =====================================================
+// =====================================================
+// INIT & CLEANUP
+// =====================================================
 
-    window.toggleChatPanel = function () {
-        const panel = document.getElementById('chatRightPanel');
-        const handle = document.getElementById('chatPanelHandle');
-        const toggleBtn = document.querySelector('.chat-panel-toggle-btn');
+window.initProductPanel = function(orderData) {
+    if (!orderData) {
+        console.warn('[ChatProducts] initProductPanel called with no orderData');
+        return;
+    }
 
-        if (!panel) return;
+    // OData may return Details as array or nested - handle both
+    let details = orderData.Details || orderData.OrderLines || [];
+    if (details && !Array.isArray(details) && details.value) {
+        details = details.value; // OData wrapped format
+    }
 
-        const isCollapsed = panel.classList.toggle('collapsed');
+    console.log('[ChatProducts] initProductPanel - orderId:', orderData.Id, 'details count:', details?.length || 0);
+    if (details.length > 0) {
+        console.log('[ChatProducts] First product sample:', JSON.stringify(details[0]).substring(0, 300));
+    }
 
-        if (handle) {
-            handle.classList.toggle('visible', isCollapsed);
+    // Map product fields to ensure consistency
+    _orderProducts = (details || []).map(p => ({
+        ...p,
+        ProductId: p.ProductId || p.Product?.Id || p.Id,
+        ProductName: p.ProductName || p.Product?.Name || p.Name || '',
+        ProductNameGet: p.ProductNameGet || p.Product?.NameGet || p.ProductName || p.Name || '',
+        ProductCode: p.ProductCode || p.Product?.DefaultCode || p.DefaultCode || p.Code || '',
+        Code: p.ProductCode || p.Product?.DefaultCode || p.DefaultCode || p.Code || '',
+        ImageUrl: p.ImageUrl || p.Product?.ImageUrl || '',
+        Price: p.Price || p.PriceUnit || 0,
+        Quantity: p.Quantity || p.ProductUOMQty || 1,
+        UOMId: p.UOMId || p.ProductUOM?.Id || 1,
+        UOMName: p.UOMName || p.ProductUOM?.Name || p.UOM?.Name || '',
+        Note: p.Note || null,
+        IsHeld: p.IsHeld || false,
+        IsFromDropped: p.IsFromDropped || false,
+        IsFromSearch: p.IsFromSearch || false
+    }));
+
+    _currentOrderId = orderData.Id || window.currentChatOrderId;
+    _currentOrderSTT = orderData.SessionIndex || window.currentChatOrderSTT || '';
+    _historyLoaded = false;
+    _invoicesLoaded = false;
+
+    // Reset search
+    const searchInput = document.getElementById('chatProductSearchInput');
+    if (searchInput) searchInput.value = '';
+    _hideSearchSuggestions();
+
+    // Render products
+    _renderAllProducts();
+
+    // Init KPI badge
+    if (window.kpiManager && window.kpiManager.initKPIBadge && _currentOrderId) {
+        window.kpiManager.initKPIBadge(String(_currentOrderId));
+    }
+};
+
+window.cleanupProductPanel = function() {
+    _orderProducts = [];
+    _currentOrderId = null;
+    _currentOrderSTT = null;
+    _historyLoaded = false;
+    _invoicesLoaded = false;
+    _hideSearchSuggestions();
+};
+
+// =====================================================
+// TAB 1: ĐƠN HÀNG - RENDERING
+// =====================================================
+
+function _renderAllProducts() {
+    const heldProducts = _orderProducts.filter(p => p.IsHeld);
+    const mainProducts = _orderProducts.filter(p => !p.IsHeld);
+
+    // Held section
+    const heldSection = document.getElementById('chatHeldSection');
+    const heldList = document.getElementById('chatHeldProductsList');
+    if (heldSection && heldList) {
+        if (heldProducts.length > 0) {
+            heldSection.style.display = '';
+            heldList.innerHTML = heldProducts.map((p, i) => _renderHeldProduct(p)).join('');
+        } else {
+            heldSection.style.display = 'none';
+            heldList.innerHTML = '';
         }
-        if (toggleBtn) {
-            toggleBtn.classList.toggle('active', !isCollapsed);
+    }
+
+    // Main products
+    const mainList = document.getElementById('chatProductList');
+    if (mainList) {
+        if (mainProducts.length > 0) {
+            mainList.innerHTML = mainProducts.map((p, i) => _renderMainProduct(p)).join('');
+        } else {
+            mainList.innerHTML = '<div class="chat-panel-empty">Không có sản phẩm</div>';
         }
-    };
+    }
 
-    // =====================================================
-    // LOAD ORDER DATA
-    // =====================================================
+    _updateTotals();
+}
 
-    /**
-     * Load order details for current chat and render
-     * Called when openChatModal opens a new order
-     */
-    window.loadChatOrderProducts = async function (orderId) {
-        if (!orderId) {
-            console.warn('[ChatProducts-UI] loadChatOrderProducts called without orderId');
+function _renderHeldProduct(product) {
+    const pid = parseInt(product.ProductId);
+    const name = product.ProductNameGet || product.ProductName || 'Sản phẩm';
+    const code = product.ProductCode || product.Code || '';
+    const qty = product.Quantity || 1;
+    const price = product.Price || 0;
+    const imgUrl = product.ImageUrl || '';
+    const uomName = product.UOMName || '';
+    const note = product.Note || '';
+
+    const imgHtml = imgUrl
+        ? `<img class="chat-product-img" src="${_escapeHtml(imgUrl)}" alt="" onerror="this.style.display='none'"
+               onclick="window.showImageZoom && showImageZoom('${_escapeHtml(imgUrl)}', '${_escapeJs(name)}')"
+               oncontextmenu="window.sendImageToChat && sendImageToChat('${_escapeHtml(imgUrl)}', '${_escapeJs(name)}', ${pid}, '${_escapeJs(code)}'); return false"
+               title="Click: Xem ảnh | Chuột phải: Gửi ảnh">`
+        : `<div class="chat-product-img" style="display:flex;align-items:center;justify-content:center;color:#f59e0b;font-size:16px;background:#fffbeb"><i class="fas fa-hand-holding"></i></div>`;
+
+    const variant = [code, uomName].filter(Boolean).join(' · ');
+
+    return `
+        <div class="chat-product-card held-product">
+            ${imgHtml}
+            <div class="chat-product-info">
+                <div class="chat-product-name" title="${_escapeHtml(name)}">${_escapeHtml(name)}</div>
+                ${variant ? `<div class="chat-product-variant">${_escapeHtml(variant)}</div>` : ''}
+                <div class="chat-product-price">${_formatCurrency(price)}</div>
+                <input class="chat-product-note" type="text" placeholder="Ghi chú..." value="${_escapeHtml(note)}"
+                    onblur="window.updateProductNote(${pid}, this.value)">
+            </div>
+            <div class="chat-product-qty">
+                <button onclick="window.updateHeldProductQty(${pid}, -1)" class="chat-qty-btn"><i class="fas fa-minus"></i></button>
+                <input type="number" class="chat-quantity-input" value="${qty}" min="1"
+                    onchange="window.updateHeldProductQty(${pid}, 0, parseInt(this.value))" style="width:36px;text-align:center">
+                <button onclick="window.updateHeldProductQty(${pid}, 1)" class="chat-qty-btn"><i class="fas fa-plus"></i></button>
+            </div>
+            <div class="held-actions">
+                <button class="btn-confirm" onclick="window.confirmHeldProduct(${pid})" title="Xác nhận thêm vào đơn">
+                    <i class="fas fa-check"></i>
+                </button>
+                <button class="btn-delete" onclick="window.deleteHeldProduct(${pid})" title="Xóa / Trả lại">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+function _renderMainProduct(product) {
+    const pid = parseInt(product.ProductId);
+    const name = product.ProductNameGet || product.ProductName || 'Sản phẩm';
+    const code = product.ProductCode || product.Code || '';
+    const qty = product.Quantity || 1;
+    const price = product.Price || 0;
+    const imgUrl = product.ImageUrl || '';
+    const uomName = product.UOMName || '';
+
+    const imgHtml = imgUrl
+        ? `<img class="chat-product-img" src="${_escapeHtml(imgUrl)}" alt="" onerror="this.style.display='none'"
+               onclick="window.showImageZoom && showImageZoom('${_escapeHtml(imgUrl)}', '${_escapeJs(name)}')">`
+        : `<div class="chat-product-img" style="display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:16px"><i class="fas fa-box"></i></div>`;
+
+    const variant = [code, uomName].filter(Boolean).join(' · ');
+
+    return `
+        <div class="chat-product-card">
+            ${imgHtml}
+            <div class="chat-product-info">
+                <div class="chat-product-name" title="${_escapeHtml(name)}">${_escapeHtml(name)}</div>
+                ${variant ? `<div class="chat-product-variant">${_escapeHtml(variant)}</div>` : ''}
+                <div class="chat-product-price">${_formatCurrency(price)}</div>
+            </div>
+            <div class="chat-product-qty">
+                <button onclick="window.decreaseMainProductQty(${pid})" class="chat-qty-btn" title="Giảm số lượng">
+                    <i class="fas fa-minus"></i>
+                </button>
+                <span>${qty}</span>
+            </div>
+        </div>
+    `;
+}
+
+function _updateTotals() {
+    const mainProducts = _orderProducts.filter(p => !p.IsHeld);
+    const totalAmount = mainProducts.reduce((sum, p) => sum + (p.Price || 0) * (p.Quantity || 1), 0);
+    const totalQty = mainProducts.reduce((sum, p) => sum + (p.Quantity || 1), 0);
+
+    const totalEl = document.getElementById('chatProductTotal');
+    if (totalEl) totalEl.textContent = _formatCurrency(totalAmount);
+
+    const countEl = document.getElementById('chatProductCount');
+    if (countEl) countEl.textContent = `${totalQty} sản phẩm`;
+
+    // Update tab badge
+    const badge = document.getElementById('chatOrdersCountBadge');
+    if (badge) badge.textContent = totalQty || '';
+}
+
+// =====================================================
+// PRODUCT ACTIONS
+// =====================================================
+
+window.confirmHeldProduct = async function(productId) {
+    productId = parseInt(productId);
+    const heldIndex = _orderProducts.findIndex(p => parseInt(p.ProductId) === productId && p.IsHeld);
+    if (heldIndex === -1) {
+        console.warn('[ChatProducts] Held product not found:', productId);
+        return;
+    }
+
+    const heldProduct = _orderProducts[heldIndex];
+    const orderId = String(_currentOrderId);
+
+    try {
+        // 1. KPI BASE check
+        if (window.kpiManager && window.kpiManager.promptAndSaveKPIBase) {
+            const mainProducts = _orderProducts.filter(p => !p.IsHeld);
+            await window.kpiManager.promptAndSaveKPIBase(orderId, _currentOrderSTT, mainProducts);
+        }
+
+        // 2. Remove from held
+        _orderProducts.splice(heldIndex, 1);
+
+        // 3. Merge with existing main product or add as new
+        const existingMain = _orderProducts.find(p => parseInt(p.ProductId) === productId && !p.IsHeld);
+        if (existingMain) {
+            existingMain.Quantity = (existingMain.Quantity || 1) + (heldProduct.Quantity || 1);
+            if (heldProduct.Note) existingMain.Note = heldProduct.Note;
+        } else {
+            _orderProducts.push({
+                ...heldProduct,
+                IsHeld: false,
+                IsFromDropped: false,
+                IsFromSearch: false
+            });
+        }
+
+        // 4. Update on TPOS backend
+        await _updateOrderOnBackend();
+
+        // 5. Remove from Firebase held_products
+        await _removeFromFirebaseHeld(productId);
+
+        // 6. KPI audit log
+        if (window.kpiAuditLogger && window.kpiAuditLogger.logProductAction) {
+            const auth = window.authManager?.getAuthState();
+            window.kpiAuditLogger.logProductAction({
+                orderId: orderId,
+                action: 'add',
+                productId: productId,
+                productCode: heldProduct.ProductCode || heldProduct.Code || '',
+                productName: heldProduct.ProductNameGet || heldProduct.ProductName || '',
+                quantity: heldProduct.Quantity || 1,
+                userId: auth?.id || auth?.Id || '',
+                userName: auth?.displayName || '',
+                campaignName: window.currentChatOrderData?.LiveCampaignName || '',
+                source: 'chat_confirm_held'
+            });
+        }
+
+        // 7. Recalculate KPI
+        if (window.kpiManager && window.kpiManager.recalculateAndSaveKPI) {
+            window.kpiManager.recalculateAndSaveKPI(orderId);
+        }
+
+        // 8. Sync to window.currentChatOrderData
+        if (window.currentChatOrderData) {
+            window.currentChatOrderData.Details = _orderProducts.slice();
+        }
+
+        // 9. Re-render
+        _renderAllProducts();
+
+        console.log('[ChatProducts] ✓ Confirmed held product:', productId);
+    } catch (e) {
+        console.error('[ChatProducts] Error confirming held product:', e);
+        // Re-add held product on error
+        _orderProducts.splice(heldIndex, 0, heldProduct);
+        _renderAllProducts();
+        _showError('Lỗi xác nhận sản phẩm: ' + e.message);
+    }
+};
+
+window.deleteHeldProduct = async function(productId) {
+    productId = parseInt(productId);
+    const heldIndex = _orderProducts.findIndex(p => parseInt(p.ProductId) === productId && p.IsHeld);
+    if (heldIndex === -1) return;
+
+    const heldProduct = _orderProducts[heldIndex];
+    const name = heldProduct.ProductNameGet || heldProduct.ProductName || '';
+
+    // Confirm
+    let confirmed = false;
+    if (window.CustomPopup) {
+        confirmed = await window.CustomPopup.confirm(`Xóa sản phẩm "${name}" khỏi danh sách giữ?`, 'Xác nhận xóa');
+    } else {
+        confirmed = confirm(`Xóa sản phẩm "${name}" khỏi danh sách giữ?`);
+    }
+    if (!confirmed) return;
+
+    try {
+        // Remove from local
+        _orderProducts.splice(heldIndex, 1);
+
+        // If from dropped, return to dropped products
+        if (heldProduct.IsFromDropped && window.addToDroppedProducts) {
+            await window.addToDroppedProducts({
+                ProductId: productId,
+                ProductName: heldProduct.ProductName,
+                ProductNameGet: heldProduct.ProductNameGet,
+                ProductCode: heldProduct.ProductCode || heldProduct.Code,
+                ImageUrl: heldProduct.ImageUrl,
+                Price: heldProduct.Price,
+                UOMName: heldProduct.UOMName
+            }, heldProduct.Quantity || 1, 'returned_from_held', null, {});
+        }
+
+        // Remove from Firebase held_products
+        await _removeFromFirebaseHeld(productId);
+
+        // Sync
+        if (window.currentChatOrderData) {
+            window.currentChatOrderData.Details = _orderProducts.slice();
+        }
+
+        _renderAllProducts();
+        console.log('[ChatProducts] ✓ Deleted held product:', productId);
+    } catch (e) {
+        console.error('[ChatProducts] Error deleting held product:', e);
+        _showError('Lỗi xóa sản phẩm: ' + e.message);
+    }
+};
+
+window.decreaseMainProductQty = async function(productId) {
+    productId = parseInt(productId);
+    const mainIndex = _orderProducts.findIndex(p => parseInt(p.ProductId) === productId && !p.IsHeld);
+    if (mainIndex === -1) return;
+
+    const product = _orderProducts[mainIndex];
+    const name = product.ProductNameGet || product.ProductName || '';
+    const currentQty = product.Quantity || 1;
+
+    const msg = currentQty > 1
+        ? `Giảm số lượng "${name}" từ ${currentQty} xuống ${currentQty - 1}?`
+        : `Xóa sản phẩm "${name}" khỏi đơn hàng?`;
+
+    let confirmed = false;
+    if (window.CustomPopup) {
+        confirmed = await window.CustomPopup.confirm(msg, 'Xác nhận');
+    } else {
+        confirmed = confirm(msg);
+    }
+    if (!confirmed) return;
+
+    try {
+        const orderId = String(_currentOrderId);
+
+        if (currentQty > 1) {
+            product.Quantity = currentQty - 1;
+        } else {
+            _orderProducts.splice(mainIndex, 1);
+        }
+
+        // Update backend
+        await _updateOrderOnBackend();
+
+        // KPI audit log
+        if (window.kpiAuditLogger && window.kpiAuditLogger.logProductAction) {
+            const auth = window.authManager?.getAuthState();
+            window.kpiAuditLogger.logProductAction({
+                orderId: orderId,
+                action: 'remove',
+                productId: productId,
+                productCode: product.ProductCode || product.Code || '',
+                productName: product.ProductNameGet || product.ProductName || '',
+                quantity: 1,
+                userId: auth?.id || auth?.Id || '',
+                userName: auth?.displayName || '',
+                campaignName: window.currentChatOrderData?.LiveCampaignName || '',
+                source: 'chat_decrease'
+            });
+        }
+
+        // Recalculate KPI
+        if (window.kpiManager && window.kpiManager.recalculateAndSaveKPI) {
+            window.kpiManager.recalculateAndSaveKPI(orderId);
+        }
+
+        // Sync
+        if (window.currentChatOrderData) {
+            window.currentChatOrderData.Details = _orderProducts.slice();
+        }
+
+        _renderAllProducts();
+        console.log('[ChatProducts] ✓ Decreased product qty:', productId);
+    } catch (e) {
+        console.error('[ChatProducts] Error decreasing qty:', e);
+        _showError('Lỗi cập nhật số lượng: ' + e.message);
+    }
+};
+
+window.updateHeldProductQty = function(productId, change, value) {
+    productId = parseInt(productId);
+    const product = _orderProducts.find(p => parseInt(p.ProductId) === productId && p.IsHeld);
+    if (!product) return;
+
+    if (change !== 0) {
+        product.Quantity = Math.max(1, (product.Quantity || 1) + change);
+    } else if (value !== undefined) {
+        product.Quantity = Math.max(1, parseInt(value) || 1);
+    }
+
+    _renderAllProducts();
+};
+
+window.updateProductNote = function(productId, note) {
+    productId = parseInt(productId);
+    const product = _orderProducts.find(p => parseInt(p.ProductId) === productId);
+    if (product) product.Note = note;
+};
+
+// =====================================================
+// SEARCH & ADD PRODUCTS
+// =====================================================
+
+window.chatProductSearch = function(query) {
+    clearTimeout(_searchDebounce);
+
+    if (!query || query.trim().length < 2) {
+        _hideSearchSuggestions();
+        return;
+    }
+
+    _searchDebounce = setTimeout(async () => {
+        const manager = window.productSearchManager || window.enhancedProductSearchManager;
+        if (!manager || !manager.search) {
+            console.warn('[ChatProducts] Product search manager not available');
             return;
         }
 
-        console.log('[ChatProducts-UI] Loading order products for:', orderId);
-
-        const container = document.getElementById('chatProductsTableContainer');
-        if (container) {
-            container.innerHTML = `
-                <div style="text-align: center; padding: 30px; color: #94a3b8;">
-                    <div class="loading-spinner" style="width:24px;height:24px;border:3px solid #e5e7eb;border-top-color:#6366f1;border-radius:50%;animation:spin 0.8s linear infinite;margin:0 auto 10px;"></div>
-                    <p style="font-size:13px;">Đang tải sản phẩm...</p>
-                </div>`;
+        // Auto-load Excel products if not loaded yet
+        if (!manager.isLoaded && manager.fetchExcelProducts) {
+            console.log('[ChatProducts] Excel products not loaded, auto-fetching...');
+            const container = document.getElementById('chatProductSearchSuggestions');
+            if (container) {
+                container.innerHTML = '<div style="padding:12px;text-align:center;color:#9ca3af;font-size:12px"><i class="fas fa-spinner fa-spin"></i> Đang tải danh sách SP...</div>';
+                container.style.display = 'block';
+            }
+            await manager.fetchExcelProducts();
         }
 
-        try {
-            // Get order details from API or cache
-            const orderData = await getOrderDetailsWithCache(orderId);
+        const results = manager.search(query, 15);
+        _displaySearchResults(results);
+    }, 300);
+};
 
-            if (!orderData) {
-                console.warn('[ChatProducts-UI] No order data returned for:', orderId);
-                if (container) {
-                    container.innerHTML = '<div class="chat-empty-products"><i class="fas fa-exclamation-triangle"></i><p>Không tải được dữ liệu đơn hàng</p></div>';
-                }
+function _displaySearchResults(results) {
+    const container = document.getElementById('chatProductSearchSuggestions');
+    if (!container) return;
+
+    if (results.length === 0) {
+        container.innerHTML = '<div style="padding:12px;text-align:center;color:#9ca3af;font-size:12px">Không tìm thấy sản phẩm</div>';
+        container.style.display = 'block';
+        return;
+    }
+
+    container.innerHTML = results.map(p => {
+        const pid = parseInt(p.Id || p.ProductId);
+        const name = p.NameGet || p.Name || '';
+        const code = p.Code || p.DefaultCode || '';
+        const price = p.ListPrice || p.PriceVariant || 0;
+        const imgUrl = p.ImageUrl || '';
+
+        // Check if already in order
+        const inOrder = _orderProducts.find(op => parseInt(op.ProductId) === pid);
+        const badge = inOrder
+            ? (inOrder.IsHeld ? '<span style="color:#f59e0b;font-size:10px;font-weight:600">Giữ</span>' : `<span style="color:#059669;font-size:10px;font-weight:600">x${inOrder.Quantity}</span>`)
+            : '';
+
+        const imgHtml = imgUrl
+            ? `<img src="${_escapeHtml(imgUrl)}" style="width:36px;height:36px;border-radius:6px;object-fit:cover;flex-shrink:0" onerror="this.style.display='none'">`
+            : `<div style="width:36px;height:36px;border-radius:6px;background:#f3f4f6;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:#9ca3af"><i class="fas fa-box" style="font-size:14px"></i></div>`;
+
+        return `
+            <div class="search-suggestion-item" onclick="window.addProductFromSearch(${pid})" style="display:flex;align-items:center;gap:8px;padding:8px 12px;cursor:pointer;border-bottom:1px solid #f3f4f6;transition:background 0.15s"
+                 onmouseover="this.style.background='#f9fafb'" onmouseout="this.style.background=''">
+                ${imgHtml}
+                <div style="flex:1;min-width:0">
+                    <div style="font-size:12px;font-weight:600;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${code ? `[${_escapeHtml(code)}] ` : ''}${_escapeHtml(name)}</div>
+                    <div style="font-size:11px;color:#059669;font-weight:600">${_formatCurrency(price)}</div>
+                </div>
+                <div style="flex-shrink:0;display:flex;align-items:center;gap:6px">
+                    ${badge}
+                    ${inOrder
+                        ? `<i class="fas fa-check-circle" style="color:#059669;font-size:14px"></i>`
+                        : `<i class="fas fa-plus-circle" style="color:#6366f1;font-size:14px"></i>`
+                    }
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    container.style.display = 'block';
+}
+
+function _hideSearchSuggestions() {
+    const container = document.getElementById('chatProductSearchSuggestions');
+    if (container) {
+        container.style.display = 'none';
+        container.innerHTML = '';
+    }
+}
+
+window.addProductFromSearch = async function(productId) {
+    productId = parseInt(productId);
+
+    // Check if already held → merge qty
+    const existingHeld = _orderProducts.find(p => parseInt(p.ProductId) === productId && p.IsHeld);
+    if (existingHeld) {
+        existingHeld.Quantity = (existingHeld.Quantity || 1) + 1;
+        _renderAllProducts();
+        _hideSearchSuggestions();
+        return;
+    }
+
+    try {
+        // Get full product details
+        const manager = window.productSearchManager || window.enhancedProductSearchManager;
+        let fullProduct = null;
+        if (manager && manager.getFullProductDetails) {
+            fullProduct = await manager.getFullProductDetails(productId);
+        }
+
+        if (!fullProduct) {
+            // Fallback from search results
+            const searchResults = manager?.search(String(productId), 1) || [];
+            const match = searchResults.find(p => parseInt(p.Id) === productId);
+            if (match) {
+                fullProduct = match;
+            } else {
+                _showError('Không tìm thấy thông tin sản phẩm');
                 return;
             }
-
-            console.log('[ChatProducts-UI] Order loaded:', orderId, 'Products:', orderData.Details?.length || 0);
-
-            // Store globally for other modules
-            window.currentChatOrderData = orderData;
-            window.currentChatOrderData.Details = orderData.Details || [];
-
-            // Enrich product details with display info from API response
-            window.currentChatOrderData.Details.forEach(d => {
-                if (!d.ProductNameGet && d.ProductName) {
-                    d.ProductNameGet = d.ProductName;
-                }
-            });
-
-            // Setup held products listener
-            if (typeof window.setupHeldProductsListener === 'function') {
-                window.setupHeldProductsListener();
-            }
-
-            // Render
-            renderChatProductsTable();
-
-            // Check BASE status
-            updateBaseStatus(orderId);
-
-        } catch (error) {
-            console.error('[ChatProducts-UI] Error loading order:', error);
-            if (container) {
-                container.innerHTML = '<div class="chat-empty-products"><i class="fas fa-exclamation-triangle"></i><p>Lỗi tải dữ liệu: ' + error.message + '</p></div>';
-            }
-        }
-    };
-
-    /**
-     * Get order details with caching
-     */
-    async function getOrderDetailsWithCache(orderId) {
-        // Check cache
-        const cached = orderDetailsCache.get(orderId);
-        if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
-            console.log('[ChatProducts-UI] Using cached order details for', orderId);
-            return JSON.parse(JSON.stringify(cached.data));
         }
 
-        // Fetch from API (use tab1-merge.js's getOrderDetails if available)
-        let data;
-        if (typeof window.getOrderDetails === 'function') {
-            data = await window.getOrderDetails(orderId);
-        } else if (typeof getOrderDetails === 'function') {
-            data = await getOrderDetails(orderId);
+        // Use correct price (PriceVariant or ListPrice, NOT StandardPrice)
+        const price = fullProduct.PriceVariant || fullProduct.ListPrice || fullProduct.Price || 0;
+
+        // Create held product
+        const heldProduct = {
+            ProductId: productId,
+            ProductName: fullProduct.Name || fullProduct.ProductName || '',
+            ProductNameGet: fullProduct.NameGet || fullProduct.ProductNameGet || fullProduct.Name || '',
+            ProductCode: fullProduct.DefaultCode || fullProduct.Code || fullProduct.Barcode || '',
+            Code: fullProduct.DefaultCode || fullProduct.Code || '',
+            ImageUrl: fullProduct.ImageUrl || '',
+            Price: price,
+            Quantity: 1,
+            UOMId: fullProduct.UOM?.Id || fullProduct.UOMId || 1,
+            UOMName: fullProduct.UOM?.Name || fullProduct.UOMName || 'Cái',
+            Factor: 1,
+            Priority: 0,
+            OrderId: _currentOrderId,
+            Note: null,
+            IsHeld: true,
+            IsFromSearch: true,
+            IsFromDropped: false,
+            StockQty: fullProduct.QtyAvailable || 0
+        };
+
+        _orderProducts.push(heldProduct);
+
+        // Sync to Firebase held_products
+        await _syncToFirebaseHeld(heldProduct);
+
+        // Sync to window.currentChatOrderData
+        if (window.currentChatOrderData) {
+            window.currentChatOrderData.Details = _orderProducts.slice();
+        }
+
+        _renderAllProducts();
+        _hideSearchSuggestions();
+
+        // Clear search input
+        const searchInput = document.getElementById('chatProductSearchInput');
+        if (searchInput) {
+            searchInput.value = '';
+            searchInput.focus();
+        }
+
+        console.log('[ChatProducts] ✓ Added product from search:', productId, heldProduct.ProductNameGet);
+    } catch (e) {
+        console.error('[ChatProducts] Error adding product:', e);
+        _showError('Lỗi thêm sản phẩm: ' + e.message);
+    }
+};
+
+// Close search suggestions when clicking outside
+document.addEventListener('click', function(e) {
+    const searchContainer = document.getElementById('chatProductSearchInput');
+    const suggestions = document.getElementById('chatProductSearchSuggestions');
+    if (searchContainer && suggestions && !searchContainer.contains(e.target) && !suggestions.contains(e.target)) {
+        _hideSearchSuggestions();
+    }
+});
+
+// =====================================================
+// FIREBASE HELPERS
+// =====================================================
+
+async function _syncToFirebaseHeld(product) {
+    if (!window.firebase || !window.authManager || !_currentOrderId) return;
+
+    try {
+        const auth = window.authManager.getAuthState();
+        if (!auth) return;
+
+        let userId = auth.id || auth.Id || auth.username || auth.userType;
+        if (!userId && auth.displayName) {
+            userId = auth.displayName.replace(/[.#$/\[\]]/g, '_');
+        }
+        if (!userId) return;
+
+        const ref = window.firebase.database().ref(`held_products/${_currentOrderId}/${product.ProductId}/${userId}`);
+        await ref.transaction((current) => {
+            const preservedIsDraft = current?.isDraft === true;
+            return {
+                productId: product.ProductId,
+                displayName: auth.displayName || auth.userType || 'Unknown',
+                quantity: product.Quantity || 1,
+                isDraft: preservedIsDraft,
+                isFromSearch: true,
+                timestamp: window.firebase.database.ServerValue.TIMESTAMP,
+                campaignName: window.currentChatOrderData?.LiveCampaignName || '',
+                stt: window.currentChatOrderData?.SessionIndex || '',
+                productName: product.ProductName || '',
+                productNameGet: product.ProductNameGet || '',
+                productCode: product.ProductCode || '',
+                imageUrl: product.ImageUrl || '',
+                price: product.Price || 0,
+                uomName: product.UOMName || 'Cái'
+            };
+        });
+    } catch (e) {
+        console.warn('[ChatProducts] Firebase held sync error:', e);
+    }
+}
+
+async function _removeFromFirebaseHeld(productId) {
+    if (!window.firebase || !window.authManager || !_currentOrderId) return;
+
+    try {
+        const auth = window.authManager.getAuthState();
+        if (!auth) return;
+
+        let userId = auth.id || auth.Id || auth.username || auth.userType;
+        if (!userId && auth.displayName) {
+            userId = auth.displayName.replace(/[.#$/\[\]]/g, '_');
+        }
+        if (!userId) return;
+
+        const ref = window.firebase.database().ref(`held_products/${_currentOrderId}/${productId}/${userId}`);
+        await ref.remove();
+    } catch (e) {
+        console.warn('[ChatProducts] Firebase held remove error:', e);
+    }
+}
+
+async function _updateOrderOnBackend() {
+    if (!_currentOrderId || !window.currentChatOrderData) return;
+
+    try {
+        const headers = await window.tokenManager?.getAuthHeader();
+        if (!headers) return;
+
+        const mainProducts = _orderProducts.filter(p => !p.IsHeld);
+        const orderLines = mainProducts.map(p => ({
+            ProductId: parseInt(p.ProductId),
+            ProductName: p.ProductName || '',
+            ProductNameGet: p.ProductNameGet || p.ProductName || '',
+            Quantity: p.Quantity || 1,
+            Price: p.Price || 0,
+            UOMId: p.UOMId || 1,
+            Factor: p.Factor || 1,
+            Priority: p.Priority || 0,
+            Note: p.Note || null,
+            ProductUOMQty: p.Quantity || 1
+        }));
+
+        const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${_currentOrderId})`;
+        const response = await API_CONFIG.smartFetch(apiUrl, {
+            method: 'PUT',
+            headers: { ...headers, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                Details: orderLines
+            })
+        });
+
+        if (!response.ok) {
+            console.warn('[ChatProducts] Backend update failed:', response.status);
         } else {
-            // Direct fetch
-            const headers = await window.tokenManager.getAuthHeader();
-            const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details,Partner,User,CRMTeam`;
-            const response = await API_CONFIG.smartFetch(apiUrl, {
-                headers: { ...headers, 'Content-Type': 'application/json', 'Accept': 'application/json' }
-            });
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            data = await response.json();
+            console.log('[ChatProducts] ✓ Order updated on backend');
         }
+    } catch (e) {
+        console.warn('[ChatProducts] Backend update error:', e);
+    }
+}
 
-        // Cache result
-        orderDetailsCache.set(orderId, { data: JSON.parse(JSON.stringify(data)), timestamp: Date.now() });
-        return data;
+// =====================================================
+// TAB 3: LỊCH SỬ (Order History)
+// =====================================================
+
+window.loadChatHistoryTab = async function() {
+    if (_historyLoaded) return;
+    _historyLoaded = true;
+
+    const container = document.getElementById('chatHistoryList');
+    if (!container) return;
+
+    const phone = window.currentChatOrderData?.Phone
+        || window.currentChatOrderData?.Partner?.Phone
+        || '';
+
+    if (!phone) {
+        container.innerHTML = '<div class="chat-panel-empty">Không có số điện thoại để tra cứu</div>';
+        return;
     }
 
-    /**
-     * Invalidate cache for an order
-     */
-    window.invalidateOrderDetailsCache = function (orderId) {
-        orderDetailsCache.delete(orderId);
-    };
+    container.innerHTML = '<div class="chat-panel-empty"><i class="fas fa-spinner fa-spin"></i> Đang tải...</div>';
 
-    // =====================================================
-    // RENDER PRODUCTS TABLE
-    // =====================================================
-
-    /**
-     * Render the products table in the orders tab
-     * Shows both main products (confirmed) and held products (pending)
-     */
-    window.renderChatProductsTable = function () {
-        const container = document.getElementById('chatProductsTableContainer');
-        if (!container) return;
-
-        const orderData = window.currentChatOrderData;
-        if (!orderData || !orderData.Details) {
-            container.innerHTML = '<div class="chat-empty-products"><i class="fas fa-box-open"></i><p>Chưa có sản phẩm trong đơn</p></div>';
-            updateOrderCounts(0, 0);
+    try {
+        const db = window.getFirestore ? window.getFirestore() : (typeof initializeFirestore === 'function' ? initializeFirestore() : null);
+        if (!db) {
+            container.innerHTML = '<div class="chat-panel-empty">Firestore chưa khởi tạo</div>';
             return;
         }
 
-        const details = orderData.Details;
-        const mainProducts = details.filter(p => !p.IsHeld);
-        const heldProducts = details.filter(p => p.IsHeld);
+        const normalizedPhone = phone.replace(/\D/g, '');
+        const snapshot = await db.collection('order_creation_history')
+            .where('_searchPhone', '==', normalizedPhone)
+            .orderBy('createdAt', 'desc')
+            .limit(20)
+            .get();
 
-        if (details.length === 0) {
-            container.innerHTML = '<div class="chat-empty-products"><i class="fas fa-box-open"></i><p>Chưa có sản phẩm trong đơn</p></div>';
-            updateOrderCounts(0, 0);
+        if (snapshot.empty) {
+            container.innerHTML = '<div class="chat-panel-empty">Chưa có lịch sử đơn hàng</div>';
             return;
         }
 
-        let html = '<table class="chat-products-table"><tbody>';
+        const records = [];
+        snapshot.forEach(doc => records.push({ id: doc.id, ...doc.data() }));
 
-        // Render main products first
-        mainProducts.forEach((p, i) => {
-            html += renderMainProductRow(p, i);
-        });
+        container.innerHTML = records.map(r => {
+            const ref = r.reference || r.saleOnlineId || r.id;
+            const date = r.createdAt?.toDate ? r.createdAt.toDate() : new Date(r.createdAt);
+            const dateStr = _formatDate(date);
+            const amount = r.totalAmount || 0;
+            const products = (r.products || []).map(p => `${p.name} x${p.quantity}`).join(', ');
 
-        // Separator if both types exist
-        if (mainProducts.length > 0 && heldProducts.length > 0) {
-            html += `<tr><td colspan="5" style="padding: 4px 10px; background: #fef9c3; text-align: center; font-size: 11px; color: #d97706; font-weight: 600;">
-                <i class="fas fa-clock"></i> Sản phẩm đang giữ (chưa xác nhận)
-            </td></tr>`;
-        }
-
-        // Render held products
-        heldProducts.forEach((p, i) => {
-            html += renderHeldProductRow(p, i);
-        });
-
-        html += '</tbody></table>';
-        container.innerHTML = html;
-
-        // Update counts and totals
-        const totalAmount = mainProducts.reduce((sum, p) => sum + ((p.Quantity || 0) * (p.Price || 0)), 0);
-        const totalHeldAmount = heldProducts.reduce((sum, p) => sum + ((p.Quantity || 0) * (p.Price || 0)), 0);
-        const totalQuantity = details.reduce((sum, p) => sum + (p.Quantity || 0), 0);
-
-        updateOrderCounts(totalQuantity, totalAmount + totalHeldAmount);
-    };
-
-    /**
-     * Render a main product row (confirmed, on API)
-     */
-    function renderMainProductRow(p, index) {
-        const productName = p.ProductNameGet || p.ProductName || p.Name || 'Sản phẩm';
-        const productCode = p.ProductCode || p.Code || '';
-        const imgUrl = p.ImageUrl || '';
-        const imgHtml = imgUrl
-            ? `<img src="${imgUrl}" class="chat-product-image" onclick="window.showImageZoom && showImageZoom('${imgUrl.replace(/'/g, "\\'")}')" oncontextmenu="window.sendImageToChat && sendImageToChat('${imgUrl.replace(/'/g, "\\'")}', '${productName.replace(/'/g, "\\'")}', ${p.ProductId}); return false;" title="Click: Xem ảnh | Chuột phải: Gửi ảnh">`
-            : `<div class="chat-product-image" style="background: linear-gradient(135deg, #6366f1, #818cf8); display: flex; align-items: center; justify-content: center;"><i class="fas fa-box" style="color: white; font-size: 16px;"></i></div>`;
-
-        return `
-        <tr class="chat-product-row" data-product-id="${p.ProductId}">
-            <td style="width: 48px;">${imgHtml}</td>
-            <td class="chat-product-info-cell">
-                <div class="chat-product-name" title="${productName}">${productName}</div>
-                <div style="display: flex; align-items: center; gap: 4px; margin-bottom: 2px; flex-wrap: wrap;">
-                    <span class="chat-main-badge"><i class="fas fa-check-circle"></i> Chính</span>
-                    ${productCode ? `<span style="font-size: 10px; color: #6b7280;">Mã: ${productCode}</span>` : ''}
+            return `
+                <div class="chat-history-card">
+                    <div class="chat-history-header">
+                        <span class="chat-history-ref">#${_escapeHtml(String(ref))}</span>
+                        <span class="chat-history-date">${dateStr}</span>
+                    </div>
+                    <div class="chat-history-amount">${_formatCurrency(amount)}</div>
+                    ${products ? `<div class="chat-history-products">${_escapeHtml(products)}</div>` : ''}
                 </div>
-                <input type="text" class="chat-product-note" value="${(p.Note || '').replace(/"/g, '&quot;')}" placeholder="Ghi chú"
-                    onblur="window.updateChatProductNote(${p.ProductId}, this.value)">
-                <div style="font-size: 12px; color: #3b82f6; font-weight: 600; margin-top: 2px;">
-                    ${(p.Price || 0).toLocaleString('vi-VN')}đ
-                    <span style="color: #3b82f6; cursor: pointer; margin-left: 4px;" onclick="window.sendProductToChat && sendProductToChat(${p.ProductId}, '${productName.replace(/'/g, "\\'")}')" title="Gửi vào chat">
-                        <i class="fas fa-paper-plane" style="font-size: 10px;"></i>
-                    </span>
-                </div>
-            </td>
-            <td style="text-align: center; width: 70px;">
-                <div class="chat-quantity-controls">
-                    <button class="chat-qty-btn" onclick="window.decreaseMainProductQuantityById(${p.ProductId})" title="Giảm số lượng">
-                        <i class="fas fa-minus"></i>
-                    </button>
-                    <span style="font-size: 14px; font-weight: 700; min-width: 20px; text-align: center;">${p.Quantity || 0}</span>
-                </div>
-            </td>
-        </tr>`;
+            `;
+        }).join('');
+    } catch (e) {
+        console.error('[ChatProducts] Load history error:', e);
+        container.innerHTML = `<div class="chat-panel-empty">Lỗi: ${e.message}</div>`;
+    }
+};
+
+// =====================================================
+// TAB 4: HÓA ĐƠN (Invoice History)
+// =====================================================
+
+window.loadChatInvoicesTab = async function() {
+    if (_invoicesLoaded) return;
+    _invoicesLoaded = true;
+
+    const container = document.getElementById('chatInvoiceList');
+    if (!container) return;
+
+    const phone = window.currentChatOrderData?.Phone
+        || window.currentChatOrderData?.Partner?.Phone
+        || '';
+
+    if (!phone) {
+        container.innerHTML = '<div class="chat-panel-empty">Không có số điện thoại để tra cứu</div>';
+        return;
     }
 
-    /**
-     * Render a held product row (pending confirmation)
-     */
-    function renderHeldProductRow(p, index) {
-        const productName = p.ProductNameGet || p.ProductName || p.Name || 'Sản phẩm';
-        const productCode = p.ProductCode || p.Code || '';
-        const imgUrl = p.ImageUrl || '';
-        const heldBy = p.HeldBy || '';
-        const isDraft = p.isDraft === true;
-        const isFromDropped = p.IsFromDropped === true;
-        const imgHtml = imgUrl
-            ? `<img src="${imgUrl}" class="chat-product-image" onclick="window.showImageZoom && showImageZoom('${imgUrl.replace(/'/g, "\\'")}')" title="Xem ảnh">`
-            : `<div class="chat-product-image" style="background: linear-gradient(135deg, #f59e0b, #fbbf24); display: flex; align-items: center; justify-content: center;"><i class="fas fa-box" style="color: white; font-size: 16px;"></i></div>`;
+    container.innerHTML = '<div class="chat-panel-empty"><i class="fas fa-spinner fa-spin"></i> Đang tải...</div>';
 
-        return `
-        <tr class="chat-product-row held-product" data-product-id="${p.ProductId}">
-            <td style="width: 48px;">${imgHtml}</td>
-            <td class="chat-product-info-cell">
-                <div class="chat-product-name held" title="${productName}">${productName}</div>
-                <div style="display: flex; align-items: center; gap: 4px; flex-wrap: wrap; margin-bottom: 2px;">
-                    <span class="chat-held-badge${isDraft ? ' saved' : ''}">
-                        <i class="fas fa-${isDraft ? 'save' : 'clock'}"></i> ${isDraft ? 'Đã lưu' : 'Tạm giữ'}
-                    </span>
-                    ${productCode ? `<span style="font-size: 10px; color: #6b7280;">Mã: ${productCode}</span>` : ''}
-                </div>
-                ${heldBy ? `<div style="font-size: 10px; color: #d97706;"><i class="fas fa-user"></i> ${heldBy}</div>` : ''}
-                <div style="font-size: 12px; color: #d97706; font-weight: 600; margin-top: 2px;">${(p.Price || 0).toLocaleString('vi-VN')}đ</div>
-            </td>
-            <td style="text-align: center; width: 110px;">
-                <div class="chat-quantity-controls" style="margin-bottom: 4px;">
-                    <button class="chat-qty-btn" onclick="window.updateHeldProductQuantityById(${p.ProductId}, -1)">
-                        <i class="fas fa-minus"></i>
-                    </button>
-                    <input type="number" class="chat-quantity-input" value="${p.Quantity || 1}" min="1"
-                        onchange="window.updateHeldProductQuantityById(${p.ProductId}, 0, parseInt(this.value))">
-                    <button class="chat-qty-btn" onclick="window.updateHeldProductQuantityById(${p.ProductId}, 1)">
-                        <i class="fas fa-plus"></i>
-                    </button>
-                </div>
-                <div style="display: flex; gap: 4px; justify-content: center;">
-                    <button class="chat-btn-product-action chat-btn-confirm" onclick="window.confirmHeldProduct(${p.ProductId})" title="Xác nhận thêm vào đơn">
-                        <i class="fas fa-check"></i>
-                    </button>
-                    <button class="chat-btn-product-action chat-btn-delete-item" onclick="window.deleteHeldProduct(${p.ProductId})" title="Xóa sản phẩm giữ">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            </td>
-        </tr>`;
-    }
-
-    /**
-     * Update order counts and totals in UI
-     */
-    function updateOrderCounts(totalQuantity, totalAmount) {
-        const badge = document.getElementById('chatOrdersCountBadge');
-        if (badge) badge.textContent = totalQuantity;
-
-        const totalEl = document.getElementById('chatProductTotal');
-        if (totalEl) totalEl.textContent = `${totalAmount.toLocaleString('vi-VN')}đ`;
-
-        const countEl = document.getElementById('productCount');
-        if (countEl) countEl.textContent = totalQuantity;
-    }
-
-    /**
-     * Update BASE status indicator
-     */
-    async function updateBaseStatus(orderId) {
-        const statusEl = document.getElementById('chatBaseStatus');
-        if (!statusEl) return;
-
-        try {
-            if (window.firebase && window.firebase.firestore) {
-                const db = window.firebase.firestore();
-                const doc = await db.collection('kpi_base').doc(orderId).get();
-                if (doc.exists) {
-                    statusEl.textContent = 'Có BASE';
-                    statusEl.classList.add('has-base');
-                } else {
-                    statusEl.textContent = 'Chưa có BASE';
-                    statusEl.classList.remove('has-base');
-                }
-            }
-        } catch (e) {
-            console.warn('[ChatProducts-UI] Could not check BASE status:', e.message);
-        }
-    }
-
-    // =====================================================
-    // PRODUCT SEARCH (Inline in Orders tab)
-    // =====================================================
-
-    /**
-     * Initialize product search in the orders tab
-     */
-    window.initChatProductSearch = function () {
-        const input = document.getElementById('chatInlineProductSearch');
-        if (!input) return;
-
-        // Close dropdown on click outside
-        document.addEventListener('click', (e) => {
-            const dropdown = document.getElementById('chatInlineSearchResults');
-            const searchContainer = document.querySelector('.chat-order-search-container');
-            if (dropdown && searchContainer && !searchContainer.contains(e.target)) {
-                dropdown.style.display = 'none';
-            }
-        });
-    };
-
-    /**
-     * Perform product search
-     */
-    window.performChatProductSearch = function (query) {
-        if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
-
-        const dropdown = document.getElementById('chatInlineSearchResults');
-        if (!dropdown) return;
-
-        if (!query || query.trim().length < 2) {
-            dropdown.style.display = 'none';
+    try {
+        const headers = await window.tokenManager?.getAuthHeader();
+        if (!headers) {
+            container.innerHTML = '<div class="chat-panel-empty">Chưa đăng nhập</div>';
             return;
         }
 
-        searchDebounceTimer = setTimeout(async () => {
-            try {
-                dropdown.innerHTML = '<div style="padding: 12px; text-align: center; color: #94a3b8; font-size: 12px;">Đang tìm...</div>';
-                dropdown.style.display = 'block';
-
-                let results = [];
-
-                // Use ProductSearchModule if available
-                if (window.productSearchManager) {
-                    // Try loading if not loaded yet
-                    if (!window.productSearchManager.isLoaded && typeof window.productSearchManager.fetchExcelProducts === 'function') {
-                        try {
-                            await window.productSearchManager.fetchExcelProducts();
-                        } catch (e) {
-                            console.warn('[ChatProducts-UI] Could not load Excel data:', e.message);
-                        }
-                    }
-
-                    if (window.productSearchManager.isLoaded && typeof window.productSearchManager.search === 'function') {
-                        results = window.productSearchManager.search(query, 15);
-                    } else {
-                        // Fallback to API search
-                        results = await searchProductsFromAPI(query);
-                    }
-                } else {
-                    // Fallback to API search
-                    results = await searchProductsFromAPI(query);
-                }
-
-                displayChatSearchResults(results, dropdown);
-
-            } catch (error) {
-                console.error('[ChatProducts-UI] Search error:', error);
-                dropdown.innerHTML = '<div style="padding: 12px; text-align: center; color: #ef4444; font-size: 12px;">Lỗi tìm kiếm</div>';
-            }
-        }, SEARCH_DEBOUNCE_MS);
-    };
-
-    /**
-     * Search products from API (fallback)
-     */
-    async function searchProductsFromAPI(query) {
-        const headers = await window.tokenManager.getAuthHeader();
-        const encodedQuery = encodeURIComponent(query);
-        const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Product?$filter=contains(Name,'${encodedQuery}') or contains(DefaultCode,'${encodedQuery}')&$expand=UOM,Images&$top=15`;
+        const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder?$filter=Partner/Phone eq '${encodeURIComponent(phone)}'&$top=20&$orderby=DateCreated desc&$select=Id,Number,DateInvoice,AmountTotal,State,DateCreated`;
 
         const response = await API_CONFIG.smartFetch(apiUrl, {
             headers: { ...headers, 'Content-Type': 'application/json', 'Accept': 'application/json' }
         });
 
-        if (!response.ok) return [];
-        const data = await response.json();
-        return (data.value || []).map(p => ({
-            Id: p.Id,
-            ProductId: p.Id,
-            Name: p.Name,
-            DefaultCode: p.DefaultCode || p.Barcode || '',
-            ListPrice: p.PriceVariant || p.ListPrice || 0,
-            ImageUrl: p.ImageUrl || (p.Images && p.Images[0]?.Url) || '',
-            UOM: p.UOM,
-            QtyAvailable: p.QtyAvailable || 0
-        }));
-    }
-
-    /**
-     * Display search results in dropdown
-     */
-    function displayChatSearchResults(results, dropdown) {
-        if (!results || results.length === 0) {
-            dropdown.innerHTML = '<div style="padding: 12px; text-align: center; color: #94a3b8; font-size: 12px;">Không tìm thấy sản phẩm</div>';
+        if (!response.ok) {
+            container.innerHTML = '<div class="chat-panel-empty">Không tải được hóa đơn</div>';
             return;
         }
 
-        // Check which products are already in the order
-        const existingIds = new Set();
-        if (window.currentChatOrderData?.Details) {
-            window.currentChatOrderData.Details.forEach(d => existingIds.add(d.ProductId));
+        const data = await response.json();
+        const invoices = data.value || [];
+
+        if (invoices.length === 0) {
+            container.innerHTML = '<div class="chat-panel-empty">Chưa có hóa đơn</div>';
+            return;
         }
 
-        dropdown.innerHTML = results.map(p => {
-            const productId = p.Id || p.ProductId;
-            const name = p.NameGet || p.Name || '';
-            const code = p.DefaultCode || p.Code || '';
-            const price = p.PriceVariant || p.ListPrice || 0;
-            const imgUrl = p.ImageUrl || '';
-            const inOrder = existingIds.has(productId);
+        container.innerHTML = invoices.map(inv => {
+            const number = inv.Number || inv.Id;
+            const date = inv.DateInvoice || inv.DateCreated;
+            const dateStr = date ? _formatDate(new Date(date)) : '';
+            const amount = inv.AmountTotal || 0;
+            const state = inv.State || '';
+
+            const stateLabel = state === 'open' ? 'Mở' : state === 'paid' ? 'Đã thanh toán' : state === 'cancel' ? 'Hủy' : state;
+            const stateColor = state === 'paid' ? '#059669' : state === 'cancel' ? '#ef4444' : '#6b7280';
 
             return `
-                <div class="chat-search-item" onclick="window.addChatProductFromSearch(${productId})">
-                    ${imgUrl ? `<img src="${imgUrl}" class="chat-search-item-img" onerror="this.style.display='none'">` : '<div class="chat-search-item-img" style="background:#f1f5f9; display:flex; align-items:center; justify-content:center;"><i class="fas fa-box" style="color:#cbd5e1;"></i></div>'}
-                    <div class="chat-search-item-info">
-                        <div class="chat-search-item-name">${name}</div>
-                        <div class="chat-search-item-code">${code}</div>
+                <div class="chat-history-card">
+                    <div class="chat-history-header">
+                        <span class="chat-history-ref">${_escapeHtml(String(number))}</span>
+                        <span class="chat-history-date">${dateStr}</span>
                     </div>
-                    <div class="chat-search-item-price">${price.toLocaleString('vi-VN')}đ</div>
-                    ${inOrder ? '<span class="chat-search-item-badge">Đã có</span>' : ''}
-                </div>`;
+                    <div style="display:flex;justify-content:space-between;align-items:center">
+                        <span class="chat-history-amount">${_formatCurrency(amount)}</span>
+                        <span style="font-size:11px;color:${stateColor};font-weight:500">${_escapeHtml(stateLabel)}</span>
+                    </div>
+                </div>
+            `;
         }).join('');
+    } catch (e) {
+        console.error('[ChatProducts] Load invoices error:', e);
+        container.innerHTML = `<div class="chat-panel-empty">Lỗi: ${e.message}</div>`;
     }
+};
 
-    /**
-     * Add product from search to held list
-     */
-    window.addChatProductFromSearch = async function (productId) {
-        if (!productId || !window.currentChatOrderData) {
-            console.warn('[ChatProducts-UI] No productId or no order data');
-            return;
-        }
+// =====================================================
+// HELPERS
+// =====================================================
 
-        // Ensure Details array exists
-        if (!window.currentChatOrderData.Details) {
-            window.currentChatOrderData.Details = [];
-        }
+function _formatCurrency(amount) {
+    if (!amount && amount !== 0) return '0đ';
+    return new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
+}
 
-        // Check if already in held list → merge quantity
-        const existingHeld = window.currentChatOrderData.Details.find(
-            p => p.ProductId === productId && p.IsHeld
-        );
+function _formatDate(date) {
+    if (!date || isNaN(date.getTime())) return '';
+    const d = date.getDate().toString().padStart(2, '0');
+    const m = (date.getMonth() + 1).toString().padStart(2, '0');
+    const y = date.getFullYear();
+    const h = date.getHours().toString().padStart(2, '0');
+    const min = date.getMinutes().toString().padStart(2, '0');
+    return `${d}/${m}/${y} ${h}:${min}`;
+}
 
-        if (existingHeld) {
-            existingHeld.Quantity = (existingHeld.Quantity || 1) + 1;
-            renderChatProductsTable();
+function _escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
 
-            // Sync to Firebase
-            syncHeldToFirebase(productId, existingHeld.Quantity);
+function _escapeJs(str) {
+    if (!str) return '';
+    return String(str).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
+}
 
-            if (window.notificationManager) {
-                window.notificationManager.show('Đã tăng số lượng sản phẩm giữ', 'success');
-            }
-            return;
-        }
-
-        try {
-            // Fetch full product details
-            let fullProduct = null;
-            if (window.productSearchManager) {
-                fullProduct = await window.productSearchManager.getFullProductDetails(productId, true);
-            }
-
-            if (!fullProduct) {
-                // Direct API fetch
-                const headers = await window.tokenManager.getAuthHeader();
-                const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Product(${productId})?$expand=UOM,Images`;
-                const resp = await API_CONFIG.smartFetch(apiUrl, {
-                    headers: { ...headers, 'Content-Type': 'application/json', 'Accept': 'application/json' }
-                });
-                if (resp.ok) fullProduct = await resp.json();
-            }
-
-            if (!fullProduct) {
-                if (window.notificationManager) window.notificationManager.error('Không tìm thấy thông tin sản phẩm');
-                return;
-            }
-
-            // Get price
-            const price = fullProduct.PriceVariant || fullProduct.ListPrice || 0;
-
-            // Get image - try variant first, then template
-            let imageUrl = fullProduct.ImageUrl || '';
-            if (!imageUrl && fullProduct.Images && fullProduct.Images.length > 0) {
-                imageUrl = fullProduct.Images[0].Url || '';
-            }
-
-            // Create held product
-            const heldProduct = {
-                ProductId: productId,
-                ProductName: fullProduct.Name || '',
-                ProductNameGet: fullProduct.NameGet || fullProduct.Name || '',
-                ProductCode: fullProduct.DefaultCode || fullProduct.Barcode || '',
-                ImageUrl: imageUrl,
-                Price: price,
-                Quantity: 1,
-                UOMId: fullProduct.UOM?.Id || 1,
-                UOMName: fullProduct.UOM?.Name || 'Cái',
-                Factor: 1,
-                Priority: 0,
-                OrderId: window.currentChatOrderData.Id,
-                LiveCampaign_DetailId: null,
-                ProductWeight: 0,
-                Note: null,
-                IsHeld: true,
-                IsFromSearch: true,
-                IsFromDropped: false,
-                StockQty: fullProduct.QtyAvailable || 0,
-                HeldBy: getUserDisplayName(),
-                Name: fullProduct.Name || '',
-                Code: fullProduct.DefaultCode || fullProduct.Barcode || ''
-            };
-
-            // Add to Details
-            window.currentChatOrderData.Details.push(heldProduct);
-
-            // Sync to Firebase
-            syncHeldToFirebase(productId, 1);
-
-            // Render
-            renderChatProductsTable();
-
-            // Close search dropdown
-            const dropdown = document.getElementById('chatInlineSearchResults');
-            if (dropdown) dropdown.style.display = 'none';
-            const input = document.getElementById('chatInlineProductSearch');
-            if (input) input.value = '';
-
-            if (window.notificationManager) {
-                window.notificationManager.show(`Đã thêm "${heldProduct.ProductNameGet}" vào danh sách giữ`, 'success');
-            }
-
-        } catch (error) {
-            console.error('[ChatProducts-UI] Error adding product:', error);
-            if (window.notificationManager) window.notificationManager.error('Lỗi thêm sản phẩm: ' + error.message);
-        }
-    };
-
-    /**
-     * Sync held product to Firebase
-     */
-    async function syncHeldToFirebase(productId, quantity) {
-        const orderId = window.currentChatOrderData?.Id;
-        if (!orderId || !window.firebase || !window.authManager) return;
-
-        try {
-            const auth = window.authManager.getAuthState();
-            if (!auth) return;
-
-            let userId = auth.id || auth.Id || auth.username || auth.userType;
-            if (!userId && auth.displayName) {
-                userId = auth.displayName.replace(/[.#$/\[\]]/g, '_');
-            }
-            if (!userId) return;
-
-            const heldProduct = window.currentChatOrderData.Details.find(
-                p => p.ProductId === productId && p.IsHeld
-            );
-
-            const ref = window.firebase.database().ref(`held_products/${orderId}/${productId}/${userId}`);
-            await ref.set({
-                productId: productId,
-                displayName: auth.displayName || auth.userType || 'Unknown',
-                quantity: quantity,
-                isDraft: false,
-                isFromSearch: heldProduct?.IsFromSearch || false,
-                timestamp: window.firebase.database.ServerValue.TIMESTAMP,
-                campaignName: window.currentChatOrderData?.LiveCampaignName || '',
-                stt: window.currentChatOrderData?.SessionIndex || '',
-                productName: heldProduct?.ProductName || '',
-                productNameGet: heldProduct?.ProductNameGet || '',
-                productCode: heldProduct?.ProductCode || '',
-                imageUrl: heldProduct?.ImageUrl || '',
-                price: heldProduct?.Price || 0,
-                uomName: heldProduct?.UOMName || 'Cái'
-            });
-
-            console.log('[ChatProducts-UI] Synced held product to Firebase:', productId);
-        } catch (e) {
-            console.error('[ChatProducts-UI] Firebase sync error:', e);
-        }
-    }
-
-    // =====================================================
-    // SEND TO CHAT HELPERS
-    // =====================================================
-
-    /**
-     * Send product name/info to chat input
-     */
-    window.sendProductToChat = function (productId, productName) {
-        const input = document.getElementById('chatInput');
-        if (!input) return;
-
-        input.value = productName;
-        input.focus();
-    };
-
-    /**
-     * Send order total to chat
-     */
-    window.sendOrderTotalToChat = function () {
-        const totalEl = document.getElementById('chatProductTotal');
-        if (!totalEl) return;
-
-        const input = document.getElementById('chatInput');
-        if (!input) return;
-
-        input.value = `Tổng tiền đơn hàng: ${totalEl.textContent}`;
-        input.focus();
-    };
-
-    /**
-     * Send image to chat
-     */
-    window.sendImageToChat = function (imageUrl, productName, productId, productCode) {
-        const input = document.getElementById('chatInput');
-        if (!input) return;
-
-        // Set the product name in input
-        input.value = productName || '';
-        input.focus();
-    };
-
-    // =====================================================
-    // CLEANUP ON MODAL CLOSE
-    // =====================================================
-
-    /**
-     * Cleanup when chat modal closes
-     */
-    window.cleanupChatProducts = function () {
-        // Cleanup held products listener
-        if (typeof window.cleanupHeldProductsListener === 'function') {
-            window.cleanupHeldProductsListener();
-        }
-
-        // Clear order data
-        window.currentChatOrderData = null;
-
-        // Reset UI
-        const container = document.getElementById('chatProductsTableContainer');
-        if (container) {
-            container.innerHTML = '<div class="chat-empty-products"><i class="fas fa-box-open"></i><p>Chưa có sản phẩm trong đơn</p></div>';
-        }
-        updateOrderCounts(0, 0);
-
-        const searchInput = document.getElementById('chatInlineProductSearch');
-        if (searchInput) searchInput.value = '';
-
-        const searchDropdown = document.getElementById('chatInlineSearchResults');
-        if (searchDropdown) searchDropdown.style.display = 'none';
-    };
-
-    // =====================================================
-    // HELPERS
-    // =====================================================
-
-    function getUserDisplayName() {
-        if (!window.authManager) return 'Unknown';
-        const auth = window.authManager.getAuthState();
-        return auth?.displayName || auth?.userType?.split('-')[0] || 'Unknown';
-    }
-
-    // Initialize search on DOM ready
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => window.initChatProductSearch());
+function _showError(msg) {
+    if (window.showNotification) {
+        window.showNotification(msg, 'error');
     } else {
-        window.initChatProductSearch();
+        console.error('[ChatProducts]', msg);
     }
+}
 
-    console.log('[ChatProducts-UI] Loaded successfully');
+// =====================================================
+// HOOK INTO TAB SWITCHING
+// switchChatPanelTab is defined in dropped-products-manager.js
+// We wrap it to add history/invoice loading
+// =====================================================
+
+(function() {
+    const _origSwitchTab = window.switchChatPanelTab;
+    if (_origSwitchTab) {
+        window.switchChatPanelTab = function(tabName) {
+            _origSwitchTab(tabName);
+            // Load history/invoices on first tab switch
+            if (tabName === 'history' && window.loadChatHistoryTab) {
+                window.loadChatHistoryTab();
+            } else if (tabName === 'invoice_history' && window.loadChatInvoicesTab) {
+                window.loadChatInvoicesTab();
+            }
+        };
+    }
 })();
+
+// Backward compatibility stubs
+window.removeChatProduct = window.removeChatProduct || function(productId) {
+    window.decreaseMainProductQty(productId);
+};
+
+window.updateChatProductQuantity = window.updateChatProductQuantity || function(productId, qty) {
+    const product = _orderProducts.find(p => parseInt(p.ProductId) === parseInt(productId));
+    if (product) {
+        product.Quantity = qty;
+        _renderAllProducts();
+    }
+};
+
+window.saveChatProductsToFirebase = window.saveChatProductsToFirebase || function() {
+    console.log('[ChatProducts] saveChatProductsToFirebase - no-op (real-time sync)');
+};
+
+console.log('[ChatProducts-UI] Loaded.');
