@@ -12,6 +12,22 @@
     let checkedQuantities = {};    // { productBarcode: checkedQty }
 
     // =====================================================
+    // SOUND
+    // =====================================================
+    const sounds = {
+        error: new Audio('sound/loi.mp3'),
+        excess: new Audio('sound/duThua.mp3'),
+        allDone: new Audio('sound/daDu.mp3'),
+    };
+
+    function playSound(name) {
+        const s = sounds[name];
+        if (!s) return;
+        s.currentTime = 0;
+        s.play().catch(() => {});
+    }
+
+    // =====================================================
     // DOM REFERENCES
     // =====================================================
     const $ = (sel) => document.querySelector(sel);
@@ -266,6 +282,7 @@
         });
 
         if (!matchedLine) {
+            playSound('error');
             showToast(`Không tìm thấy sản phẩm với mã: ${barcode}`, 'error');
             return;
         }
@@ -275,6 +292,7 @@
         const currentQty = checkedQuantities[lineBarcode] || 0;
 
         if (currentQty >= totalQty) {
+            playSound('excess');
             showToast(`${matchedLine.ProductNameGet || matchedLine.Name} - Đã đủ số lượng!`, 'warning');
             return;
         }
@@ -291,6 +309,12 @@
 
         renderProductTable();
         updateSaveButton();
+
+        // Play allDone sound when all products are checked
+        if (isAllChecked()) {
+            playSound('allDone');
+        }
+
         productBarcodeInput.focus();
     }
 
