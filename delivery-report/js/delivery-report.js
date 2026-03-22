@@ -43,7 +43,7 @@
             receiverInfo: false,
             dateInvoice: true,
             number: true,
-            amountTotal: true,
+            amountTotal: false,
             cashOnDelivery: true,
             carrierName: false,
             deliveryPrice: false,
