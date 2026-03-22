@@ -26,8 +26,8 @@
     border-radius: 12px;
     width: 95%;
     max-width: 680px;
-    height: 85vh;
-    max-height: 700px;
+    height: 92vh;
+    max-height: 92vh;
     display: flex;
     flex-direction: row;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
@@ -1076,27 +1076,37 @@
 
 /* Panel toggle button in chat header */
 .chat-panel-toggle-btn {
-    width: 32px;
     height: 32px;
-    border: none;
+    padding: 0 10px;
+    border: 1.5px solid #c7d2fe;
     background: #eef2ff;
     color: #6366f1;
     border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
+    gap: 5px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 13px;
+    font-weight: 500;
     transition: all 0.15s;
+    white-space: nowrap;
 }
 
 .chat-panel-toggle-btn:hover {
     background: #c7d2fe;
+    border-color: #6366f1;
 }
 
 .chat-panel-toggle-btn.active {
     background: #6366f1;
     color: #fff;
+    border-color: #6366f1;
+}
+
+.chat-panel-toggle-label {
+    font-size: 12px;
+    font-weight: 600;
 }
 
 /* ===== Resize Handle between panels ===== */
