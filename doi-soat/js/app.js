@@ -496,6 +496,21 @@
             });
         }
 
+        // Global keyboard capture: auto-focus the active input when typing anywhere
+        document.addEventListener('keydown', (e) => {
+            // Ignore if already in an input
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            // Ignore modifier keys and special keys
+            if (e.ctrlKey || e.altKey || e.metaKey) return;
+            if (e.key.length !== 1 && e.key !== 'Enter') return;
+
+            const activeInput = scannerPage.classList.contains('active')
+                ? invoiceCodeInput
+                : productBarcodeInput;
+
+            activeInput.focus();
+        });
+
         // Focus input
         invoiceCodeInput.focus();
     }
