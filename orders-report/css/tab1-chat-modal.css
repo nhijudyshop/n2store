@@ -29,7 +29,7 @@
     height: 85vh;
     max-height: 700px;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     animation: chatSlideUp 0.3s ease-out;
     overflow: hidden;
@@ -1044,10 +1044,11 @@
 
 /* Two-column layout when panel is open */
 .chat-modal-content.chat-modal-with-panel {
-    max-width: 1400px;
-    width: 95vw;
-    max-height: 90vh;
-    height: 90vh;
+    max-width: 1500px;
+    width: 96vw;
+    max-height: 92vh;
+    height: 92vh;
+    flex-direction: row;
 }
 
 .chat-modal-body {
@@ -1055,45 +1056,25 @@
     flex: 1;
     overflow: hidden;
     min-height: 0;
+    height: 100%;
 }
 
-/* Left: Chat panel */
+/* Left: Chat section (has its own header inside) */
 .chat-left-panel {
     flex: 1;
     display: flex;
     flex-direction: column;
-    min-width: 280px;
+    min-width: 320px;
     overflow: hidden;
+    border-radius: 12px 0 0 12px;
 }
 
-/* Panel toggle handle (when collapsed) */
-.chat-panel-handle {
-    width: 20px;
-    display: none;
-    align-items: center;
-    justify-content: center;
-    background: #f1f5f9;
-    border-left: 1px solid #e2e8f0;
-    cursor: pointer;
-    transition: background 0.15s;
-    flex-shrink: 0;
+/* Chat header is now INSIDE left panel */
+.chat-left-panel .chat-modal-header {
+    border-radius: 12px 0 0 0;
 }
 
-.chat-panel-handle:hover {
-    background: #e2e8f0;
-}
-
-.chat-panel-handle i {
-    color: #64748b;
-    font-size: 10px;
-}
-
-.chat-right-panel.collapsed ~ .chat-panel-handle,
-.chat-panel-handle.visible {
-    display: flex;
-}
-
-/* Panel toggle button in header */
+/* Panel toggle button in chat header */
 .chat-panel-toggle-btn {
     width: 32px;
     height: 32px;
@@ -1120,9 +1101,9 @@
 
 /* ===== Resize Handle between panels ===== */
 .chat-panel-resize-handle {
-    width: 5px;
+    width: 6px;
     cursor: col-resize;
-    background: transparent;
+    background: #f1f5f9;
     flex-shrink: 0;
     position: relative;
     z-index: 10;
@@ -1132,38 +1113,41 @@
 .chat-panel-resize-handle::after {
     content: '';
     position: absolute;
-    top: 0;
-    bottom: 0;
-    left: 2px;
-    width: 1px;
-    background: #e5e7eb;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 2px;
+    height: 40px;
+    background: #cbd5e1;
+    border-radius: 2px;
 }
 
 .chat-panel-resize-handle:hover,
 .chat-panel-resize-handle.resizing {
-    background: #3b82f6;
+    background: #e0e7ff;
 }
 
 .chat-panel-resize-handle:hover::after,
 .chat-panel-resize-handle.resizing::after {
-    background: #3b82f6;
+    background: #6366f1;
+    height: 60px;
 }
 
-/* Right: Product panel - independent, resizable */
+/* Right: Product panel - fully independent, own header */
 .chat-right-panel {
-    width: 500px;
-    min-width: 350px;
-    max-width: 65%;
-    border-left: none;
+    width: 520px;
+    min-width: 380px;
+    max-width: 70%;
     display: flex;
     flex-direction: column;
     background: #fff;
     overflow: hidden;
     flex-shrink: 0;
     box-sizing: border-box;
-    /* CSS isolation - own stacking context */
+    border-radius: 0 12px 12px 0;
+    border-left: 1px solid #e5e7eb;
+    /* CSS isolation */
     isolation: isolate;
-    contain: layout style;
 }
 
 .chat-right-panel.collapsed {
@@ -1171,20 +1155,47 @@
     min-width: 0;
     border-left: none;
     overflow: hidden;
+    border-radius: 0;
 }
 
 .chat-right-panel.collapsed + .chat-panel-resize-handle {
     display: none;
 }
 
-/* Panel tabs bar */
+/* Panel collapse button inside tabs */
+.chat-panel-collapse-btn {
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: transparent;
+    color: #94a3b8;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 11px;
+    transition: all 0.15s;
+    flex-shrink: 0;
+    margin-left: auto;
+    margin-right: 4px;
+}
+
+.chat-panel-collapse-btn:hover {
+    background: #f1f5f9;
+    color: #64748b;
+}
+
+/* Panel tabs bar - serves as panel's own header */
 .chat-panel-tabs {
     display: flex;
+    align-items: center;
     border-bottom: 2px solid #e2e8f0;
-    background: #fff;
+    background: #fafbfc;
     flex-shrink: 0;
     overflow-x: auto;
     padding: 0 4px;
+    min-height: 52px;
 }
 
 .chat-panel-tabs::-webkit-scrollbar {
@@ -1737,17 +1748,25 @@
         border-radius: 0;
     }
 
+    .chat-modal-content.chat-modal-with-panel {
+        flex-direction: column;
+    }
+
     .chat-modal-with-panel {
         max-width: 100%;
     }
 
-    /* Stack panels vertically on mobile */
     .chat-modal-body {
         flex-direction: column;
     }
 
     .chat-panel-resize-handle {
         display: none;
+    }
+
+    .chat-left-panel {
+        border-radius: 0;
+        min-width: 0;
     }
 
     .chat-right-panel {
@@ -1757,21 +1776,11 @@
         max-height: 50vh;
         border-left: none;
         border-top: 1px solid #e5e7eb;
+        border-radius: 0;
     }
 
     .chat-right-panel.collapsed {
         max-height: 0;
-    }
-
-    .chat-panel-handle {
-        width: 100%;
-        height: 20px;
-        border-left: none;
-        border-top: 1px solid #e2e8f0;
-    }
-
-    .chat-panel-handle i {
-        transform: rotate(-90deg);
     }
 
     .message-row {
