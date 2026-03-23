@@ -70,7 +70,7 @@ const DEFAULT_PROCESSING_TAGS = [
 // [B] STATE MANAGEMENT
 // =====================================================
 
-const ProcessingTagState = {
+var ProcessingTagState = {
     _orderTags: new Map(),      // orderId -> [{ key, category, note, assignedAt }]
     _tagDefinitions: [],        // Custom tag list (loaded from API or defaults)
     _panelOpen: false,
