@@ -1,160 +1,198 @@
 /**
- * Tab Social Orders - Firebase Module
- * Firestore CRUD operations + real-time sync
+ * Tab Social Orders - API Module (Render PostgreSQL + Firebase read-only)
  *
- * Collection: social_orders
- * Each order = 1 document, doc ID = order.id
- * Firestore is source of truth, localStorage is offline cache
+ * Strategy:
+ * - CREATE/UPDATE/DELETE: Only via Render API (PostgreSQL)
+ * - LOAD: Hybrid - Render API (new orders) + Firestore (old orders, read-only)
+ * - After 1 month (25/04/2026): Remove Firestore read, keep only Render API
+ *
+ * API Base: /api/social-orders (via Cloudflare Worker → n2store-fallback)
  */
 
 // ===== CONSTANTS =====
-const SOCIAL_ORDERS_COLLECTION = 'social_orders';
-const SOCIAL_TAGS_COLLECTION = 'social_tags';
+const SOCIAL_ORDERS_COLLECTION = 'social_orders'; // Firestore (read-only, legacy)
+const SOCIAL_TAGS_COLLECTION = 'social_tags';      // Firestore (read-only, legacy)
+const SOCIAL_API_BASE = (window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev') + '/api/social-orders';
 
 // ===== INTERNAL STATE =====
 let _socialOrdersUnsubscribe = null;
 let _socialTagsUnsubscribe = null;
-let _firestoreAvailable = null; // null = unknown, true/false after check
-let _lastOrdersSnapshotHash = null; // Track data hash to skip redundant re-renders
-let _suppressSnapshotRerender = false; // Skip re-render when we just wrote to Firestore
+let _firestoreAvailable = null;
+let _lastOrdersSnapshotHash = null;
+let _suppressSnapshotRerender = false;
 
-// ===== FIRESTORE HELPER =====
+// ===== FIRESTORE HELPER (read-only, for loading old orders) =====
 function _getFirestoreDB() {
     try {
         if (typeof firebase !== 'undefined' && firebase.firestore) {
             return firebase.firestore();
         }
     } catch (e) {
-        console.error('[SocialFirebase] Cannot get Firestore:', e);
+        console.error('[SocialAPI] Cannot get Firestore:', e);
     }
     return null;
 }
 
-/**
- * Check if Firestore is available (cached after first check)
- */
 function isFirestoreAvailable() {
     if (_firestoreAvailable !== null) return _firestoreAvailable;
     _firestoreAvailable = _getFirestoreDB() !== null;
     return _firestoreAvailable;
 }
 
-// ===== LOAD ALL ORDERS FROM FIRESTORE =====
+// ===== API HELPER =====
+async function _apiFetch(path, options = {}) {
+    const url = `${SOCIAL_API_BASE}${path}`;
+    const resp = await fetch(url, {
+        headers: { 'Content-Type': 'application/json', ...options.headers },
+        ...options
+    });
+    if (!resp.ok) {
+        const err = await resp.json().catch(() => ({ error: resp.statusText }));
+        throw new Error(err.error || `API ${resp.status}`);
+    }
+    return resp.json();
+}
+
+// ===== LOAD ALL ORDERS (HYBRID: Render API + Firestore read-only) =====
 /**
- * Load all social orders from Firestore (source of truth).
- * Falls back to localStorage if Firestore unavailable.
+ * Load orders from Render API (primary) + Firestore (old orders, read-only).
+ * Falls back to localStorage if both fail.
  * @returns {Promise<Array>} Array of orders
  */
 async function loadSocialOrdersFromFirebase() {
-    const db = _getFirestoreDB();
-    if (!db) {
-        console.warn('[SocialFirebase] Firestore not available, using localStorage');
-        return loadSocialOrdersFromStorage();
-    }
-
+    // 1. Load from Render API (primary - new orders)
+    let renderOrders = [];
     try {
-        const snapshot = await db.collection(SOCIAL_ORDERS_COLLECTION)
-            .orderBy('createdAt', 'desc')
-            .get();
-
-        const orders = [];
-        snapshot.forEach(doc => {
-            orders.push({ id: doc.id, ...doc.data() });
-        });
-
-        console.log('[SocialFirebase] Loaded', orders.length, 'orders from Firestore');
-
-        // Cache to localStorage
-        SocialOrderState.orders = orders;
-        saveSocialOrdersToStorage();
-
-        return orders;
+        const data = await _apiFetch('/load?limit=500');
+        if (data.success && data.orders) {
+            renderOrders = data.orders;
+            console.log('[SocialAPI] Loaded', renderOrders.length, 'orders from Render API');
+        }
     } catch (e) {
-        console.error('[SocialFirebase] Error loading orders:', e);
-        // Fallback to localStorage
-        return loadSocialOrdersFromStorage();
+        console.warn('[SocialAPI] Render API failed:', e.message);
     }
+
+    // 2. Load from Firestore (old orders, read-only)
+    // TODO REMOVE after 25/04/2026: Delete this entire block
+    let firestoreOrders = [];
+    try {
+        const db = _getFirestoreDB();
+        if (db) {
+            const snapshot = await db.collection(SOCIAL_ORDERS_COLLECTION)
+                .orderBy('createdAt', 'desc')
+                .get();
+            snapshot.forEach(doc => {
+                firestoreOrders.push({ id: doc.id, ...doc.data(), _source: 'firestore' });
+            });
+            if (firestoreOrders.length > 0) {
+                console.log('[SocialAPI] Loaded', firestoreOrders.length, 'old orders from Firestore (read-only)');
+            }
+        }
+    } catch (e) {
+        console.warn('[SocialAPI] Firestore read failed (expected if corrupted):', e.message);
+    }
+    // END TODO REMOVE
+
+    // 3. Merge: Render wins on duplicate IDs
+    const renderIds = new Set(renderOrders.map(o => o.id));
+    const oldOrders = firestoreOrders.filter(o => !renderIds.has(o.id));
+    const merged = [...renderOrders, ...oldOrders];
+
+    // Sort by createdAt desc
+    merged.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+    // If both sources failed, fallback to localStorage
+    if (renderOrders.length === 0 && firestoreOrders.length === 0) {
+        const cached = loadSocialOrdersFromStorage();
+        if (cached.length > 0) {
+            console.log('[SocialAPI] Using localStorage cache:', cached.length, 'orders');
+            return cached;
+        }
+    }
+
+    // Cache to localStorage
+    SocialOrderState.orders = merged;
+    saveSocialOrdersToStorage();
+    return merged;
 }
 
-// ===== LOAD TAGS FROM FIRESTORE =====
-/**
- * Load tags from Firestore (source of truth).
- * Recovers orphan tags from orders if missing from the tag list.
- * Falls back to localStorage only if Firestore is unavailable.
- * NEVER overwrites Firestore with DEFAULT_TAGS blindly.
- * @returns {Promise<Array>} Array of tags
- */
+// ===== LOAD TAGS (Render API only, with local fallback) =====
 async function loadSocialTagsFromFirebase() {
-    const db = _getFirestoreDB();
-    if (!db) {
-        console.warn('[SocialFirebase] Firestore not available for tags, using local cache');
-        // Prefer IndexedDB (has images), fallback to localStorage
-        if (typeof loadSocialTagsFromStorageAsync === 'function') {
-            return await loadSocialTagsFromStorageAsync();
-        }
-        return loadSocialTagsFromStorage();
-    }
-
+    // 1. Try Render API first
     try {
-        const doc = await db.collection(SOCIAL_TAGS_COLLECTION).doc('tags').get();
+        const data = await _apiFetch('/tags');
+        if (data.success && data.tags && data.tags.length > 0) {
+            const tags = data.tags;
+            console.log('[SocialAPI] Loaded', tags.length, 'tags from Render API');
 
-        let tags = [];
-        if (doc.exists && doc.data().tags && doc.data().tags.length > 0) {
-            tags = doc.data().tags;
-            console.log('[SocialFirebase] Loaded', tags.length, 'tags from Firestore');
-        } else {
-            // No tags in Firestore yet. Try local cache first (may have user-created tags)
-            let localTags;
-            if (typeof loadSocialTagsFromStorageAsync === 'function') {
-                localTags = await loadSocialTagsFromStorageAsync();
-            } else {
-                localTags = loadSocialTagsFromStorage();
-            }
-            // Only use local tags if they are NOT just the defaults
-            const defaultIds = new Set(DEFAULT_TAGS.map(t => t.id));
-            const hasCustomTags = localTags.some(t => !defaultIds.has(t.id));
-            if (hasCustomTags || localTags.length > DEFAULT_TAGS.length) {
-                tags = localTags;
-                console.log('[SocialFirebase] Using local cache tags (has custom tags):', tags.length);
-            } else {
-                tags = DEFAULT_TAGS;
-                console.log('[SocialFirebase] Using default tags');
-            }
-            // Save to Firestore for first time
-            await saveSocialTagsToFirebase(tags);
+            // Recovery: scan orders for orphan tags
+            const recovered = recoverOrphanTags(tags);
+            SocialOrderState.tags = recovered;
+            saveSocialTagsToStorage();
+            return recovered;
         }
-
-        // Recovery: scan orders for tags not in the tags list
-        tags = recoverOrphanTags(tags);
-
-        SocialOrderState.tags = tags;
-        saveSocialTagsToStorage(); // Saves to both IndexedDB + localStorage
-        return tags;
     } catch (e) {
-        console.error('[SocialFirebase] Error loading tags:', e);
-        // On error, use local cache but NEVER save back to Firestore
-        if (typeof loadSocialTagsFromStorageAsync === 'function') {
-            return await loadSocialTagsFromStorageAsync();
-        }
-        return loadSocialTagsFromStorage();
+        console.warn('[SocialAPI] Tags API failed:', e.message);
     }
+
+    // 2. Fallback: Try Firestore (read-only)
+    // TODO REMOVE after 25/04/2026
+    try {
+        const db = _getFirestoreDB();
+        if (db) {
+            const doc = await db.collection(SOCIAL_TAGS_COLLECTION).doc('tags').get();
+            if (doc.exists && doc.data().tags && doc.data().tags.length > 0) {
+                const tags = doc.data().tags;
+                console.log('[SocialAPI] Using Firestore tags (fallback):', tags.length);
+                // Migrate tags to Render API
+                _apiFetch('/tags', {
+                    method: 'POST',
+                    body: JSON.stringify({ tags })
+                }).then(() => console.log('[SocialAPI] Migrated tags to Render API'))
+                  .catch(e => console.warn('[SocialAPI] Tags migration failed:', e.message));
+
+                SocialOrderState.tags = tags;
+                saveSocialTagsToStorage();
+                return tags;
+            }
+        }
+    } catch (e) {
+        console.warn('[SocialAPI] Firestore tags read failed:', e.message);
+    }
+    // END TODO REMOVE
+
+    // 3. Fallback: Local cache
+    let localTags;
+    if (typeof loadSocialTagsFromStorageAsync === 'function') {
+        localTags = await loadSocialTagsFromStorageAsync();
+    } else {
+        localTags = loadSocialTagsFromStorage();
+    }
+
+    if (localTags && localTags.length > 0) {
+        const defaultIds = new Set(DEFAULT_TAGS.map(t => t.id));
+        const hasCustomTags = localTags.some(t => !defaultIds.has(t.id));
+        if (hasCustomTags || localTags.length > DEFAULT_TAGS.length) {
+            // Save to Render API
+            saveSocialTagsToFirebase(localTags);
+            return localTags;
+        }
+    }
+
+    return DEFAULT_TAGS;
 }
 
 /**
  * Recover tags that exist on orders but are missing from the tag list.
- * This prevents data loss when tags get accidentally removed from the list.
- * @param {Array} currentTags - Current tag list
- * @returns {Array} Tag list with recovered orphan tags
  */
 function recoverOrphanTags(currentTags) {
     const tagIds = new Set(currentTags.map(t => t.id));
     const orphanTags = [];
 
-    // Scan all orders for tags not in the current list
     (SocialOrderState.orders || []).forEach(order => {
         (order.tags || []).forEach(tag => {
             if (tag.id && !tagIds.has(tag.id)) {
-                tagIds.add(tag.id); // avoid duplicates
+                tagIds.add(tag.id);
                 orphanTags.push({
                     id: tag.id,
                     name: tag.name || 'Unknown',
@@ -167,9 +205,8 @@ function recoverOrphanTags(currentTags) {
     });
 
     if (orphanTags.length > 0) {
-        console.warn('[SocialFirebase] Recovered', orphanTags.length, 'orphan tags from orders:', orphanTags.map(t => t.name));
+        console.warn('[SocialAPI] Recovered', orphanTags.length, 'orphan tags:', orphanTags.map(t => t.name));
         const merged = [...currentTags, ...orphanTags];
-        // Save recovered tags back to Firestore
         saveSocialTagsToFirebase(merged);
         return merged;
     }
@@ -177,375 +214,157 @@ function recoverOrphanTags(currentTags) {
     return currentTags;
 }
 
-// ===== SAVE TAGS TO FIRESTORE =====
-/**
- * Save tags to Firestore. This is the primary storage.
- * @param {Array} tags - Tags array to save
- */
+// ===== SAVE TAGS (Render API only) =====
 async function saveSocialTagsToFirebase(tags) {
-    const db = _getFirestoreDB();
-    if (!db) {
-        console.warn('[SocialFirebase] Cannot save tags to Firestore (offline)');
-        return;
-    }
-
     const tagsToSave = tags || SocialOrderState.tags;
     try {
-        await db.collection(SOCIAL_TAGS_COLLECTION).doc('tags').set({
-            tags: tagsToSave,
-            updatedAt: Date.now()
+        await _apiFetch('/tags', {
+            method: 'POST',
+            body: JSON.stringify({ tags: tagsToSave })
         });
-        console.log('[SocialFirebase] Saved', tagsToSave.length, 'tags to Firestore');
+        console.log('[SocialAPI] Saved', tagsToSave.length, 'tags to Render API');
     } catch (e) {
-        console.error('[SocialFirebase] Error saving tags:', e);
+        console.error('[SocialAPI] Error saving tags:', e.message);
     }
 }
 
-// ===== CREATE ORDER =====
-/**
- * Save a new order to Firestore + localStorage
- * @param {Object} order - Order object to save
- * @returns {Promise<string>} Order ID
- */
+// ===== CREATE ORDER (Render API only) =====
 async function createSocialOrder(order) {
-    // Always save to localStorage first (instant UI)
     saveSocialOrdersToStorage();
 
-    const db = _getFirestoreDB();
-    if (!db) {
-        console.warn('[SocialFirebase] Offline — order saved to localStorage only');
-        return order.id;
-    }
-
     try {
-        // Use order.id as document ID for easy lookup
-        await db.collection(SOCIAL_ORDERS_COLLECTION).doc(order.id).set({
-            ...order,
-            createdAt: order.createdAt || Date.now(),
-            updatedAt: order.updatedAt || Date.now()
+        await _apiFetch('/entries', {
+            method: 'POST',
+            body: JSON.stringify(order)
         });
-        console.log('[SocialFirebase] Created order:', order.id);
+        console.log('[SocialAPI] Created order:', order.id);
     } catch (e) {
-        console.error('[SocialFirebase] Error creating order:', e);
-        showNotification('Lỗi lưu Firestore, đã lưu cục bộ', 'warning');
+        console.error('[SocialAPI] Error creating order:', e.message);
+        showNotification('Lỗi lưu server, đã lưu cục bộ', 'warning');
     }
 
     return order.id;
 }
 
-// ===== UPDATE ORDER =====
-/**
- * Update an existing order in Firestore + localStorage
- * @param {string} orderId - Order ID
- * @param {Object} updates - Fields to update
- * @returns {Promise<void>}
- */
+// ===== UPDATE ORDER (Render API only) =====
 async function updateSocialOrder(orderId, updates) {
-    // Always save to localStorage first
     saveSocialOrdersToStorage();
 
-    const db = _getFirestoreDB();
-    if (!db) return;
-
     try {
-        await db.collection(SOCIAL_ORDERS_COLLECTION).doc(orderId).update({
-            ...updates,
-            updatedAt: Date.now()
+        await _apiFetch(`/entries/${encodeURIComponent(orderId)}`, {
+            method: 'PUT',
+            body: JSON.stringify({ ...updates, updatedAt: Date.now() })
         });
-        console.log('[SocialFirebase] Updated order:', orderId);
+        console.log('[SocialAPI] Updated order:', orderId);
     } catch (e) {
-        console.error('[SocialFirebase] Error updating order:', e);
+        console.error('[SocialAPI] Error updating order:', e.message);
     }
 }
 
-// ===== DELETE ORDER =====
-/**
- * Delete an order from Firestore + localStorage
- * @param {string} orderId - Order ID
- * @returns {Promise<void>}
- */
+// ===== DELETE ORDER (Render API only) =====
 async function deleteSocialOrder(orderId) {
-    // Always save to localStorage first
     saveSocialOrdersToStorage();
 
-    const db = _getFirestoreDB();
-    if (!db) return;
-
     try {
-        await db.collection(SOCIAL_ORDERS_COLLECTION).doc(orderId).delete();
-        console.log('[SocialFirebase] Deleted order:', orderId);
+        await _apiFetch(`/entries/${encodeURIComponent(orderId)}`, {
+            method: 'DELETE'
+        });
+        console.log('[SocialAPI] Deleted order:', orderId);
     } catch (e) {
-        console.error('[SocialFirebase] Error deleting order:', e);
+        console.error('[SocialAPI] Error deleting order:', e.message);
     }
 }
 
-// ===== BULK DELETE ORDERS =====
-/**
- * Delete multiple orders from Firestore
- * @param {Array<string>} orderIds - Array of order IDs to delete
- * @returns {Promise<void>}
- */
+// ===== BULK DELETE ORDERS (Render API only) =====
 async function bulkDeleteSocialOrders(orderIds) {
-    // Always save to localStorage first
     saveSocialOrdersToStorage();
 
-    const db = _getFirestoreDB();
-    if (!db) return;
-
     try {
-        const batch = db.batch();
-        orderIds.forEach(id => {
-            batch.delete(db.collection(SOCIAL_ORDERS_COLLECTION).doc(id));
+        await _apiFetch('/entries/batch-delete', {
+            method: 'POST',
+            body: JSON.stringify({ ids: orderIds })
         });
-        await batch.commit();
-        console.log('[SocialFirebase] Bulk deleted', orderIds.length, 'orders');
+        console.log('[SocialAPI] Bulk deleted', orderIds.length, 'orders');
     } catch (e) {
-        console.error('[SocialFirebase] Error bulk deleting:', e);
+        console.error('[SocialAPI] Error bulk deleting:', e.message);
     }
 }
 
 // ===== UPDATE TAGS FOR ORDER =====
-/**
- * Update tags for a specific order
- * @param {string} orderId - Order ID
- * @param {Array} tags - Array of tag objects
- * @returns {Promise<void>}
- */
 async function updateSocialOrderTags(orderId, tags) {
     return updateSocialOrder(orderId, { tags });
 }
 
 // ===== BULK UPDATE ORDER TAGS (for tag deletion) =====
-/**
- * Remove a deleted tag from affected orders using Firestore batch writes.
- * Much faster than individual updates (max 500 per batch).
- * @param {Array<string>} orderIds - Order IDs that had the tag
- * @param {string} deletedTagId - Tag ID that was removed
- */
 async function bulkUpdateSocialOrderTags(orderIds, deletedTagId) {
-    const db = _getFirestoreDB();
-    if (!db || orderIds.length === 0) return;
+    if (orderIds.length === 0) return;
 
     try {
-        _suppressSnapshotRerender = true; // Prevent listener from re-rendering
-        const BATCH_SIZE = 500;
-        for (let i = 0; i < orderIds.length; i += BATCH_SIZE) {
-            const chunk = orderIds.slice(i, i + BATCH_SIZE);
-            const batch = db.batch();
-            chunk.forEach(orderId => {
-                const order = SocialOrderState.orders.find(o => o.id === orderId);
-                if (order) {
-                    batch.update(db.collection(SOCIAL_ORDERS_COLLECTION).doc(orderId), {
-                        tags: order.tags || [],
-                        updatedAt: Date.now()
-                    });
-                }
-            });
-            await batch.commit();
+        // Update each affected order via API
+        for (const orderId of orderIds) {
+            const order = SocialOrderState.orders.find(o => o.id === orderId);
+            if (order) {
+                await updateSocialOrder(orderId, { tags: order.tags || [] });
+            }
         }
-        console.log('[SocialFirebase] Batch updated tags for', orderIds.length, 'orders');
+        console.log('[SocialAPI] Batch updated tags for', orderIds.length, 'orders');
     } catch (e) {
-        console.error('[SocialFirebase] Error batch updating tags:', e);
+        console.error('[SocialAPI] Error batch updating tags:', e.message);
     }
 }
 
 /**
- * Batch update tags data for multiple orders using Firestore batch writes.
+ * Batch update tags data for multiple orders.
  * Used when editing a tag (name/color/image change).
- * @param {Array<{id: string, tags: Array}>} orderTagsData - Array of {id, tags}
  */
 async function bulkUpdateSocialOrderTagsData(orderTagsData) {
-    const db = _getFirestoreDB();
-    if (!db || orderTagsData.length === 0) return;
+    if (!orderTagsData || orderTagsData.length === 0) return;
 
     try {
-        _suppressSnapshotRerender = true; // Prevent listener from re-rendering
-        const BATCH_SIZE = 500;
-        for (let i = 0; i < orderTagsData.length; i += BATCH_SIZE) {
-            const chunk = orderTagsData.slice(i, i + BATCH_SIZE);
-            const batch = db.batch();
-            chunk.forEach(({ id, tags }) => {
-                batch.update(db.collection(SOCIAL_ORDERS_COLLECTION).doc(id), {
-                    tags: tags,
-                    updatedAt: Date.now()
-                });
-            });
-            await batch.commit();
+        for (const { id, tags } of orderTagsData) {
+            await updateSocialOrder(id, { tags });
         }
-        console.log('[SocialFirebase] Batch updated tag data for', orderTagsData.length, 'orders');
+        console.log('[SocialAPI] Batch updated tag data for', orderTagsData.length, 'orders');
     } catch (e) {
-        console.error('[SocialFirebase] Error batch updating tag data:', e);
+        console.error('[SocialAPI] Error batch updating tag data:', e.message);
     }
 }
 
 // ===== GET SINGLE ORDER =====
-/**
- * Get a single order by ID from Firestore
- * @param {string} orderId - Order ID
- * @returns {Promise<Object|null>} Order object or null
- */
 async function getSocialOrderById(orderId) {
-    const db = _getFirestoreDB();
-    if (!db) {
-        // Fallback to local state
-        return SocialOrderState.orders.find(o => o.id === orderId) || null;
-    }
-
-    try {
-        const doc = await db.collection(SOCIAL_ORDERS_COLLECTION).doc(orderId).get();
-        return doc.exists ? { id: doc.id, ...doc.data() } : null;
-    } catch (e) {
-        console.error('[SocialFirebase] Error getting order:', e);
-        return SocialOrderState.orders.find(o => o.id === orderId) || null;
-    }
+    // Use local state first (fastest)
+    return SocialOrderState.orders.find(o => o.id === orderId) || null;
 }
 
-// ===== REAL-TIME LISTENER =====
-/**
- * Setup Firestore real-time listener for cross-device sync
- * @returns {Function} Unsubscribe function
- */
+// ===== REAL-TIME LISTENERS (kept for compatibility, but disabled) =====
 function setupSocialOrdersListener() {
-    const db = _getFirestoreDB();
-    if (!db) {
-        console.warn('[SocialFirebase] Firestore not available, skipping real-time listener');
-        return () => {};
-    }
-
-    // Don't setup duplicate listeners
-    if (_socialOrdersUnsubscribe) {
-        console.log('[SocialFirebase] Listener already active');
-        return _socialOrdersUnsubscribe;
-    }
-
-    try {
-        _socialOrdersUnsubscribe = db.collection(SOCIAL_ORDERS_COLLECTION)
-            .orderBy('createdAt', 'desc')
-            .onSnapshot(snapshot => {
-                const orders = [];
-                snapshot.forEach(doc => {
-                    orders.push({ id: doc.id, ...doc.data() });
-                });
-
-                // Quick hash to detect actual data changes (avoid redundant re-renders)
-                const snapshotHash = orders.map(o => o.id + ':' + (o.updatedAt || o.createdAt || '')).join('|');
-                if (snapshotHash === _lastOrdersSnapshotHash) {
-                    console.log('[SocialFirebase] Real-time: no changes detected, skipping re-render (' + orders.length + ' orders)');
-                    return;
-                }
-                _lastOrdersSnapshotHash = snapshotHash;
-
-                // Skip re-render if we just wrote to Firestore (self-triggered snapshot)
-                if (_suppressSnapshotRerender) {
-                    _suppressSnapshotRerender = false;
-                    console.log('[SocialFirebase] Real-time: self-triggered, updating state only (' + orders.length + ' orders)');
-                    SocialOrderState.orders = orders;
-                    SocialOrderState.filteredOrders = [...orders];
-                    saveSocialOrdersToStorage();
-                    return;
-                }
-
-                // Update state
-                SocialOrderState.orders = orders;
-                SocialOrderState.filteredOrders = [...orders];
-                saveSocialOrdersToStorage();
-
-                // Re-render if table is visible
-                if (typeof performTableSearch === 'function') {
-                    performTableSearch();
-                }
-
-                console.log('[SocialFirebase] Real-time update:', orders.length, 'orders');
-            }, error => {
-                console.error('[SocialFirebase] Listener error:', error);
-                _socialOrdersUnsubscribe = null;
-            });
-
-        console.log('[SocialFirebase] Real-time listener active');
-        return _socialOrdersUnsubscribe;
-    } catch (e) {
-        console.error('[SocialFirebase] Error setting up listener:', e);
-        return () => {};
-    }
+    // Real-time listeners disabled - using Render API now
+    console.log('[SocialAPI] Real-time listeners disabled (using Render API)');
+    return () => {};
 }
 
-// ===== REAL-TIME LISTENER FOR TAGS =====
-/**
- * Setup Firestore real-time listener for tags (cross-device sync).
- * Ensures tags are always up-to-date from Firestore.
- */
 function setupSocialTagsListener() {
-    const db = _getFirestoreDB();
-    if (!db) return () => {};
-
-    if (_socialTagsUnsubscribe) {
-        console.log('[SocialFirebase] Tags listener already active');
-        return _socialTagsUnsubscribe;
-    }
-
-    try {
-        _socialTagsUnsubscribe = db.collection(SOCIAL_TAGS_COLLECTION).doc('tags')
-            .onSnapshot(doc => {
-                if (doc.exists && doc.data().tags) {
-                    const remoteTags = doc.data().tags;
-                    // Only update if remote has data (never overwrite with empty)
-                    if (remoteTags.length > 0) {
-                        SocialOrderState.tags = remoteTags;
-                        saveSocialTagsToStorage();
-
-                        // Re-render UI if visible
-                        if (typeof populateTagFilter === 'function') populateTagFilter();
-                        if (typeof renderTagPanelCards === 'function') renderTagPanelCards();
-
-                        console.log('[SocialFirebase] Tags real-time update:', remoteTags.length, 'tags');
-                    }
-                }
-            }, error => {
-                console.error('[SocialFirebase] Tags listener error:', error);
-                _socialTagsUnsubscribe = null;
-            });
-
-        console.log('[SocialFirebase] Tags real-time listener active');
-        return _socialTagsUnsubscribe;
-    } catch (e) {
-        console.error('[SocialFirebase] Error setting up tags listener:', e);
-        return () => {};
-    }
+    return () => {};
 }
 
-/**
- * Stop the real-time listeners
- */
 function stopSocialOrdersListener() {
     if (_socialOrdersUnsubscribe) {
         _socialOrdersUnsubscribe();
         _socialOrdersUnsubscribe = null;
-        console.log('[SocialFirebase] Orders listener stopped');
     }
     if (_socialTagsUnsubscribe) {
         _socialTagsUnsubscribe();
         _socialTagsUnsubscribe = null;
-        console.log('[SocialFirebase] Tags listener stopped');
     }
 }
 
 // ===== HELPER FUNCTIONS =====
-
-/**
- * Generate next STT (sequential number)
- * @returns {number} Next STT
- */
 function getNextSTT() {
     if (SocialOrderState.orders.length === 0) return 1;
     const maxSTT = Math.max(...SocialOrderState.orders.map(o => o.stt || 0));
     return maxSTT + 1;
 }
 
-/**
- * Check if order ID exists
- * @param {string} orderId - Order ID to check
- * @returns {boolean}
- */
 function orderIdExists(orderId) {
     return SocialOrderState.orders.some(o => o.id === orderId);
 }

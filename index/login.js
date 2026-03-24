@@ -85,7 +85,18 @@ document.addEventListener("DOMContentLoaded", function () {
             const authDataString = JSON.stringify(authData);
 
             if (rememberMe) {
-                localStorage.setItem("loginindex_auth", authDataString);
+                try {
+                    localStorage.setItem("loginindex_auth", authDataString);
+                } catch (quotaErr) {
+                    // Emergency cleanup if localStorage is full
+                    console.warn('[Login] localStorage quota exceeded, cleaning up...');
+                    ['socialOrders', 'socialOrderTags', 'standard_price_cache', 'product_excel_cache']
+                        .forEach(k => { try { localStorage.removeItem(k); } catch (_) {} });
+                    Object.keys(localStorage).filter(k => k.startsWith('firebase:')).forEach(k => {
+                        try { localStorage.removeItem(k); } catch (_) {}
+                    });
+                    localStorage.setItem("loginindex_auth", authDataString);
+                }
                 localStorage.setItem("remember_login_preference", "true");
                 localStorage.setItem("isLoggedIn", "true");
                 localStorage.setItem("userType", authData.userType);

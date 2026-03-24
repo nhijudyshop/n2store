@@ -53,6 +53,9 @@ export const ROUTES = {
     // Invoice Status (PostgreSQL - replaces Firestore)
     INVOICE_STATUS: { pattern: '/api/invoice-status/*' },
 
+    // Social Orders (PostgreSQL - replaces Firestore for don-inbox)
+    SOCIAL_ORDERS: { pattern: '/api/social-orders/*' },
+
     // Admin Firebase (Firestore browser) & Render services
     ADMIN_FIREBASE: { pattern: '/api/admin/firebase/*' },
     ADMIN_RENDER: { pattern: '/api/admin/render/*' },
@@ -107,6 +110,7 @@ export function matchRoute(pathname) {
     if (pathname.startsWith('/api/admin/firebase/')) return 'ADMIN_FIREBASE';
     if (pathname.startsWith('/api/admin/render/')) return 'ADMIN_RENDER';
     if (pathname.startsWith('/api/invoice-status/')) return 'INVOICE_STATUS';
+    if (pathname.startsWith('/api/social-orders/')) return 'SOCIAL_ORDERS';
     if (pathname.startsWith('/api/sepay/')) return 'SEPAY';
     if (pathname.startsWith('/api/realtime/')) return 'REALTIME';
     if (pathname.startsWith('/api/chat/')) return 'CHAT';

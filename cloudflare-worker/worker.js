@@ -123,6 +123,8 @@ export default {
                     return handleSepayProxy(request, url, pathname);
                 case 'INVOICE_STATUS':
                     return handleCustomer360Proxy(request, url, pathname);
+                case 'SOCIAL_ORDERS':
+                    return handleCustomer360Proxy(request, url, pathname);
                 case 'ADMIN_FIREBASE':
                     return handleCustomer360Proxy(request, url, pathname);
                 case 'ADMIN_RENDER':

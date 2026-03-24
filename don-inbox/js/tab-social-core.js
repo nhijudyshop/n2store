@@ -51,12 +51,29 @@ const SOCIAL_ORDERS_STORAGE_KEY = 'socialOrders';
 const SOCIAL_TAGS_STORAGE_KEY = 'socialOrderTags';
 const SOCIAL_TAGS_IDB_KEY = 'social_tags_cache'; // IndexedDB key for tags
 
-// ===== LOCAL STORAGE PERSISTENCE (Orders - no images, smaller data) =====
+// ===== LOCAL STORAGE PERSISTENCE (Orders - stripped images to avoid quota) =====
 function saveSocialOrdersToStorage() {
     try {
-        localStorage.setItem(SOCIAL_ORDERS_STORAGE_KEY, JSON.stringify(SocialOrderState.orders));
+        // Strip base64 images to prevent localStorage quota overflow
+        const stripped = SocialOrderState.orders.map(order => ({
+            ...order,
+            noteImages: [],
+            products: (order.products || []).map(p => ({
+                ...p,
+                productImages: [],
+                priceImages: []
+            }))
+        }));
+        localStorage.setItem(SOCIAL_ORDERS_STORAGE_KEY, JSON.stringify(stripped));
     } catch (e) {
-        console.error('[Tab Social] Failed to save orders to localStorage:', e);
+        console.warn('[Tab Social] Failed to save orders to localStorage:', e);
+        // If still quota exceeded, clear and retry with minimal data
+        if (e.name === 'QuotaExceededError') {
+            try {
+                localStorage.removeItem(SOCIAL_ORDERS_STORAGE_KEY);
+                console.warn('[Tab Social] Cleared orders from localStorage due to quota');
+            } catch (_) { /* ignore */ }
+        }
     }
 }
 
