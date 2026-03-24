@@ -1022,6 +1022,12 @@
                     if (overviewFrame && overviewFrame.contentWindow) {
                         overviewFrame.contentWindow.postMessage(e.data, '*');
                     }
+                } else if (e.data.type === 'CAMPAIGN_CHANGED_FOR_TAB3') {
+                    // Forward campaign change from Tab1 to Tab3
+                    const productAssignmentFrame = document.getElementById('productAssignmentFrame');
+                    if (productAssignmentFrame && productAssignmentFrame.contentWindow) {
+                        productAssignmentFrame.contentWindow.postMessage(e.data, '*');
+                    }
                 }
             });
 

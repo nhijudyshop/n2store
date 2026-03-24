@@ -8,7 +8,7 @@
 (function () {
     'use strict';
 
-    const { state, utils, ui, data: dataFns } = window._tab3;
+    const { state, utils, ui, auth, data: dataFns } = window._tab3;
 
     // =====================================================
     // RENDER ASSIGNMENT TABLE
@@ -161,22 +161,85 @@
         }, 200);
     };
 
-    window.handleSTTKeyPress = function (event) {
+    // Helper: find order by STT with campaign priority
+    function findOrderBySTT(sttValue) {
+        const campaignNames = state.activeCampaignNames || [];
+        // Prioritize matching campaign
+        if (campaignNames.length > 0) {
+            const campaignMatch = state.ordersData.find(o =>
+                o.stt && o.stt.toString() === sttValue &&
+                campaignNames.includes(o.liveCampaignName)
+            );
+            if (campaignMatch) return campaignMatch;
+        }
+        // Fallback to any match
+        return state.ordersData.find(o => o.stt && o.stt.toString() === sttValue);
+    }
+
+    window.handleSTTKeyPress = async function (event) {
         if (event.key === 'Enter') {
             event.preventDefault();
             const input = event.target;
             const assignmentId = parseInt(input.dataset.assignmentId);
             const value = input.value.trim();
 
-            if (value) {
-                const order = state.ordersData.find(o => o.stt && o.stt.toString() === value);
-                if (order) {
-                    input.value = '';
-                    hideSTTSuggestions(assignmentId);
-                    window._tab3.fn.addSTTToAssignment(assignmentId, value, order);
-                } else {
-                    ui.showNotification('Không tìm thấy STT: ' + value, 'error');
+            if (!value) return;
+
+            // 1. Try cache first (campaign-aware)
+            let order = findOrderBySTT(value);
+            if (order) {
+                input.value = '';
+                hideSTTSuggestions(assignmentId);
+                window._tab3.fn.addSTTToAssignment(assignmentId, value, order);
+                return;
+            }
+
+            // 2. Cache miss → API fallback
+            input.disabled = true;
+            ui.showNotification(`Đang tìm STT ${value}...`, 'info');
+
+            try {
+                const response = await auth.authenticatedFetch(
+                    `${API_CONFIG.WORKER_URL}/api/odata/SaleOnline_Order?$filter=SessionIndex eq '${value}'&$top=10`
+                );
+                if (response.ok) {
+                    const data = await response.json();
+                    const results = data.value || [];
+
+                    if (results.length > 0) {
+                        // Filter by campaign if possible
+                        const campaignNames = state.activeCampaignNames || [];
+                        let matched = results[0];
+                        if (campaignNames.length > 0) {
+                            const campaignMatch = results.find(o => campaignNames.includes(o.LiveCampaignName));
+                            if (campaignMatch) matched = campaignMatch;
+                        }
+
+                        // Build order object compatible with Tab3 format
+                        order = {
+                            stt: matched.SessionIndex || value,
+                            orderId: matched.Id,
+                            orderCode: matched.Code,
+                            customerName: matched.PartnerName || matched.Name || 'N/A',
+                            phone: matched.PartnerPhone || matched.Telephone || '',
+                            totalAmount: matched.TotalAmount || 0,
+                            liveCampaignName: matched.LiveCampaignName || ''
+                        };
+                        console.log(`[STT] Found via API: STT ${value} → ${order.orderId} (${order.liveCampaignName})`);
+
+                        input.value = '';
+                        hideSTTSuggestions(assignmentId);
+                        window._tab3.fn.addSTTToAssignment(assignmentId, value, order);
+                        return;
+                    }
                 }
+                ui.showNotification('Không tìm thấy STT: ' + value, 'error');
+            } catch (err) {
+                console.error('[STT] API lookup error:', err);
+                ui.showNotification('Không tìm thấy STT: ' + value, 'error');
+            } finally {
+                input.disabled = false;
+                input.focus();
             }
         }
     };
@@ -189,12 +252,21 @@
         const suggestionsDiv = document.getElementById(`stt-suggestions-${assignmentId}`);
         if (!suggestionsDiv) return;
 
+        const campaignNames = state.activeCampaignNames || [];
         const filteredOrders = state.ordersData.filter(order => {
             const sttMatch = order.stt && order.stt.toString().includes(searchText);
             const customerMatch = order.customerName &&
                 utils.removeVietnameseTones(order.customerName).includes(utils.removeVietnameseTones(searchText));
             return sttMatch || customerMatch;
         }).sort((a, b) => {
+            // Prioritize current campaign
+            if (campaignNames.length > 0) {
+                const aInCampaign = campaignNames.includes(a.liveCampaignName);
+                const bInCampaign = campaignNames.includes(b.liveCampaignName);
+                if (aInCampaign && !bInCampaign) return -1;
+                if (!aInCampaign && bInCampaign) return 1;
+            }
+
             const aSTT = a.stt.toString();
             const bSTT = b.stt.toString();
 

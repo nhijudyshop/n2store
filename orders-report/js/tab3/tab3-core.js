@@ -24,6 +24,7 @@
     let userStorageManager = null;
     let autoAddVariants = true;
     let productNotes = {};
+    let activeCampaignNames = [];
 
     // Firebase Configuration - use shared config (loaded via shared/js/firebase-config.js)
     if (!firebase.apps.length) {
@@ -385,6 +386,10 @@
                 const cached = await window.indexedDBStorage.getItem('allOrders');
                 if (cached && cached.orders && cached.orders.length > 0) {
                     ordersData = cached.orders;
+                    if (cached.activeCampaignNames) {
+                        activeCampaignNames = cached.activeCampaignNames;
+                        console.log('[ORDERS] Campaign filter:', activeCampaignNames);
+                    }
                     console.log('[ORDERS] ✅ Loaded from IndexedDB:', ordersData.length, 'orders');
                     updateOrdersCount();
                     showNotification(`📦 Đã load ${ordersData.length} đơn hàng`);
@@ -579,6 +584,11 @@
                 showNotification(`📦 Đã load ${ordersData.length} đơn hàng từ Tab Quản Lý`);
             }
         }
+
+        if (event.data.type === 'CAMPAIGN_CHANGED_FOR_TAB3') {
+            activeCampaignNames = event.data.campaignNames || [];
+            console.log('[CAMPAIGN] ✅ Updated campaign filter:', activeCampaignNames);
+        }
     });
 
     // =====================================================
@@ -611,6 +621,8 @@
                 set autoAddVariants(v) { autoAddVariants = v; },
                 get productNotes() { return productNotes; },
                 set productNotes(v) { productNotes = v; },
+                get activeCampaignNames() { return activeCampaignNames; },
+                set activeCampaignNames(v) { activeCampaignNames = v; },
             };
         },
 

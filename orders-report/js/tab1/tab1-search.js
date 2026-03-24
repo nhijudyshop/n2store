@@ -962,6 +962,13 @@ async function handleCampaignChange() {
 
         // 🔥 Setup new Firebase TAG listeners for this campaign
         setupTagRealtimeListeners();
+
+        // Notify Tab 3 about campaign change
+        window.parent.postMessage({
+            type: 'CAMPAIGN_CHANGED_FOR_TAB3',
+            campaignNames: selectedCampaign?.campaignNames || []
+        }, '*');
+        console.log('[CAMPAIGN-SWITCH] 📤 Notified Tab3 about campaign:', selectedCampaign?.campaignNames);
     }
 }
 
@@ -1300,7 +1307,8 @@ async function fetchOrders() {
             }));
             window.indexedDBStorage.setItem('allOrders', {
                 orders: ordersForTabs,
-                timestamp: Date.now()
+                timestamp: Date.now(),
+                activeCampaignNames: selectedCampaign?.campaignNames || []
             }).catch(err => console.error('[TAB1] IndexedDB save error:', err));
 
             // Also save raw data for Overview tab (uses raw API field names)
