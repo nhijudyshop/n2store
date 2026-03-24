@@ -1,85 +1,164 @@
 /**
  * ╔══════════════════════════════════════════════════════════════════════════════╗
- * ║                    TAB1 PROCESSING TAGS (Tag Xử Lý)                         ║
- * ║          Hệ thống phân luồng quy trình chốt đơn với khách                   ║
+ * ║              TAB1 PROCESSING TAGS v2 (Quy Trình Chốt Đơn Mới)             ║
+ * ║     5 Category: Hoàn tất / Chờ đi đơn / Xử lý / Ko cần chốt / Khách xã   ║
  * ╠══════════════════════════════════════════════════════════════════════════════╣
- * ║  [A] CONSTANTS & DEFAULTS                                                   ║
- * ║  [B] STATE MANAGEMENT                                                        ║
- * ║  [C] API CRUD (PostgreSQL + SSE)                                              ║
- * ║  [D] PANEL RENDERING                                                         ║
- * ║  [E] TABLE CELL RENDERING                                                    ║
- * ║  [F] TAG ASSIGN DROPDOWN                                                     ║
- * ║  [G] TAG MANAGEMENT MODAL                                                    ║
- * ║  [H] BULK ASSIGNMENT                                                         ║
- * ║  [I] FILTER INTEGRATION                                                      ║
- * ║  [J] UTILITIES                                                               ║
+ * ║  [A] CONSTANTS & DATA STRUCTURES                                            ║
+ * ║  [B] STATE MANAGEMENT (ProcessingTagState)                                  ║
+ * ║  [C] API CRUD (PostgreSQL + SSE)                                            ║
+ * ║  [D] AUTO-DETECT FLAGS & AUTO SUB-STATE                                     ║
+ * ║  [E] MIGRATION (old flat tags → new category system)                        ║
+ * ║  [F] PANEL RENDERING                                                        ║
+ * ║  [G] TABLE CELL RENDERING                                                   ║
+ * ║  [H] CATEGORY/FLAG ASSIGN DROPDOWN                                          ║
+ * ║  [I] BULK ASSIGNMENT                                                        ║
+ * ║  [J] FILTER INTEGRATION                                                     ║
+ * ║  [K] UTILITIES                                                              ║
  * ╚══════════════════════════════════════════════════════════════════════════════╝
  */
 
 // =====================================================
-// [A] CONSTANTS & DEFAULTS
+// [A] CONSTANTS & DATA STRUCTURES
 // =====================================================
 
-const PTAG_PRESET_COLORS = [
-    '#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6',
-    '#ec4899', '#f97316', '#14b8a6', '#6366f1', '#a855f7',
-    '#e11d48', '#84cc16', '#06b6d4', '#7c3aed', '#db2777'
-];
-
-const PTAG_CATEGORY_COLORS = {
-    1: { bg: 'rgba(16,185,129,0.08)', border: '#10b981', text: '#065f46', tagDefault: '#10b981' },
-    2: { bg: 'rgba(245,158,11,0.08)', border: '#f59e0b', text: '#92400e', tagDefault: '#f59e0b' },
-    3: { bg: 'rgba(107,114,128,0.08)', border: '#6b7280', text: '#374151', tagDefault: '#6b7280' },
-    4: { bg: 'rgba(239,68,68,0.08)', border: '#ef4444', text: '#991b1b', tagDefault: '#ef4444' },
+const PTAG_CATEGORIES = {
+    HOAN_TAT: 0,        // 0.A — Hoàn tất (đã ra đơn)
+    CHO_DI_DON: 1,      // 0.C — Chờ đi đơn (OKE)
+    XU_LY: 2,           // 2 — Mục xử lý
+    KHONG_CAN_CHOT: 3,  // 3 — Không cần chốt
+    KHACH_XA: 4          // 4 — Khách xã sau chốt
 };
 
 const PTAG_CATEGORY_NAMES = {
-    1: 'MỤC OKE',
+    0: 'HOÀN TẤT — ĐÃ RA ĐƠN',
+    1: 'CHỜ ĐI ĐƠN (OKE)',
     2: 'MỤC XỬ LÝ',
     3: 'MỤC KHÔNG CẦN CHỐT',
-    4: 'MỤC KHÁCH XÃ SAU CHỐT',
+    4: 'MỤC KHÁCH XÃ SAU CHỐT'
 };
 
-const DEFAULT_PROCESSING_TAGS = [
-    // Category 1 - MỤC OKE
-    { key: 'DI_DON', label: 'ĐI ĐƠN', color: '#10b981', category: 1 },
-    { key: 'CHO_HANG', label: 'CHỜ HÀNG', color: '#34d399', category: 1 },
-    { key: 'KHACH_CKHOAN', label: 'KHÁCH CKHOAN', color: '#6ee7b7', category: 1 },
-    { key: 'BAN_HANG', label: 'BÁN HÀNG', color: '#059669', category: 1 },
-    { key: 'CHO_LIVE_GIU_DON', label: 'CHỜ LIVE + GIỮ ĐƠN', color: '#047857', category: 1 },
-    { key: 'QUA_LAY', label: 'QUA LẤY', color: '#065f46', category: 1 },
-    { key: 'TRU_CONG_NO', label: 'TRỪ CÔNG NỢ', color: '#14b8a6', category: 1 },
-    { key: 'GIAM_GIA', label: 'GIẢM GIÁ', color: '#0d9488', category: 1 },
-    { key: 'DA_DI_DON_GAP', label: 'ĐÃ ĐI ĐƠN GẤP', color: '#0f766e', category: 1 },
-    { key: 'OKE_KHAC', label: 'KHÁC (OKE)', color: '#115e59', category: 1 },
-    // Category 2 - MỤC XỬ LÝ
-    { key: 'CHUA_PHAN_HOI', label: 'ĐƠN CHƯA PHẢN HỒI', color: '#f59e0b', category: 2 },
-    { key: 'CHUA_DUNG_SP', label: 'ĐƠN CHƯA ĐÚNG SP', color: '#d97706', category: 2 },
-    { key: 'KHACH_MUON_XA', label: 'ĐƠN KHÁCH MUỐN XÃ', color: '#b45309', category: 2 },
-    { key: 'NCC_HET_HANG', label: 'NCC HẾT HÀNG', color: '#f97316', category: 2 },
-    { key: 'XU_LY_KHAC', label: 'KHÁC (XỬ LÝ)', color: '#ea580c', category: 2 },
-    // Category 3 - MỤC KHÔNG CẦN CHỐT
-    { key: 'DA_GOP_KHONG_CHOT', label: 'ĐÃ GỘP KHÔNG CHỐT', color: '#6b7280', category: 3 },
-    { key: 'GIO_TRONG', label: 'GIỎ TRỐNG', color: '#9ca3af', category: 3 },
-    // Category 4 - MỤC KHÁCH XÃ SAU CHỐT
-    { key: 'KHACH_HUY_DON', label: 'KHÁCH HỦY NGUYÊN ĐƠN', color: '#ef4444', category: 4 },
-    { key: 'KHACH_KO_LIEN_LAC', label: 'KHÁCH KHÔNG LIÊN LẠC ĐƯỢC', color: '#dc2626', category: 4 },
-];
+const PTAG_CATEGORY_COLORS = {
+    0: { bg: 'rgba(16,185,129,0.12)', border: '#10b981', text: '#065f46' },   // Green
+    1: { bg: 'rgba(59,130,246,0.08)', border: '#3b82f6', text: '#1e40af' },   // Blue
+    2: { bg: 'rgba(245,158,11,0.08)', border: '#f59e0b', text: '#92400e' },   // Orange
+    3: { bg: 'rgba(107,114,128,0.08)', border: '#6b7280', text: '#374151' },  // Gray
+    4: { bg: 'rgba(239,68,68,0.08)', border: '#ef4444', text: '#991b1b' }     // Red
+};
+
+const PTAG_CATEGORY_ICONS = {
+    0: 'fa-check-circle',
+    1: 'fa-shipping-fast',
+    2: 'fa-exclamation-triangle',
+    3: 'fa-ban',
+    4: 'fa-times-circle'
+};
+
+// Sub-states chỉ cho Category 1 (0.C)
+const PTAG_SUBSTATES = {
+    OKIE_CHO_DI_DON: { key: 'OKIE_CHO_DI_DON', label: 'Okie Chờ Đi Đơn', color: '#3b82f6' },
+    CHO_HANG:        { key: 'CHO_HANG',         label: 'Chờ Hàng',         color: '#f59e0b' }
+};
+
+// Flags chỉ cho Category 1 (0.C)
+const PTAG_FLAGS = {
+    TRU_CONG_NO:  { key: 'TRU_CONG_NO',  label: 'Trừ công nợ', auto: true,  icon: '💰' },
+    CHUYEN_KHOAN: { key: 'CHUYEN_KHOAN', label: 'CK',          auto: true,  icon: '💳' },
+    GIAM_GIA:     { key: 'GIAM_GIA',     label: 'Giảm giá',    auto: true,  icon: '🏷️' },
+    CHO_LIVE:     { key: 'CHO_LIVE',     label: 'Chờ live',    auto: false, icon: '📺' },
+    GIU_DON:      { key: 'GIU_DON',      label: 'Giữ đơn',     auto: false, icon: '⏳' },
+    QUA_LAY:      { key: 'QUA_LAY',      label: 'Qua lấy',     auto: false, icon: '🏠' },
+    KHAC:         { key: 'KHAC',         label: 'Khác',        auto: false, icon: '📋', hasNote: true }
+};
+
+const PTAG_FLAG_KEYS = Object.keys(PTAG_FLAGS);
+
+// Sub-tags cho Categories 2, 3, 4
+const PTAG_SUBTAGS = {
+    // Category 2 — MỤC XỬ LÝ
+    CHUA_PHAN_HOI:  { key: 'CHUA_PHAN_HOI',  label: 'Đơn chưa phản hồi', category: 2 },
+    CHUA_DUNG_SP:   { key: 'CHUA_DUNG_SP',   label: 'Đơn chưa đúng SP',  category: 2 },
+    KHACH_MUON_XA:  { key: 'KHACH_MUON_XA',  label: 'Đơn khách muốn xã', category: 2 },
+    NCC_HET_HANG:   { key: 'NCC_HET_HANG',   label: 'NCC hết hàng',      category: 2 },
+    BAN_HANG:       { key: 'BAN_HANG',       label: 'Bán hàng',          category: 2 },
+    XU_LY_KHAC:    { key: 'XU_LY_KHAC',    label: 'Khác (ghi chú)',    category: 2, hasNote: true },
+
+    // Category 3 — MỤC KHÔNG CẦN CHỐT
+    DA_GOP_KHONG_CHOT: { key: 'DA_GOP_KHONG_CHOT', label: 'Đã gộp không chốt', category: 3 },
+    GIO_TRONG:         { key: 'GIO_TRONG',         label: 'Giỏ trống',         category: 3 },
+
+    // Category 4 — MỤC KHÁCH XÃ SAU CHỐT
+    KHACH_HUY_DON:     { key: 'KHACH_HUY_DON',     label: 'Khách hủy nguyên đơn',       category: 4 },
+    KHACH_KO_LIEN_LAC: { key: 'KHACH_KO_LIEN_LAC', label: 'Khách không liên lạc được',  category: 4 }
+};
+
+// Migration map: old flat tag keys → new category system
+const PTAG_MIGRATION_MAP = {
+    'DI_DON':           { category: 1, subState: 'OKIE_CHO_DI_DON', flags: [] },
+    'CHO_HANG':         { category: 1, subState: 'CHO_HANG', flags: [] },
+    'KHACH_CKHOAN':     { category: 1, subState: 'OKIE_CHO_DI_DON', flags: ['CHUYEN_KHOAN'] },
+    'BAN_HANG':         { category: 2, subTag: 'BAN_HANG' },
+    'CHO_LIVE_GIU_DON': { category: 1, subState: 'OKIE_CHO_DI_DON', flags: ['CHO_LIVE'] },
+    'QUA_LAY':          { category: 1, subState: 'OKIE_CHO_DI_DON', flags: ['QUA_LAY'] },
+    'TRU_CONG_NO':      { category: 1, subState: 'OKIE_CHO_DI_DON', flags: ['TRU_CONG_NO'] },
+    'GIAM_GIA':         { category: 1, subState: 'OKIE_CHO_DI_DON', flags: ['GIAM_GIA'] },
+    'DA_DI_DON_GAP':    { category: 0 },
+    'OKE_KHAC':         { category: 1, subState: 'OKIE_CHO_DI_DON', flags: ['KHAC'] },
+    'CHUA_PHAN_HOI':    { category: 2, subTag: 'CHUA_PHAN_HOI' },
+    'CHUA_DUNG_SP':     { category: 2, subTag: 'CHUA_DUNG_SP' },
+    'KHACH_MUON_XA':    { category: 2, subTag: 'KHACH_MUON_XA' },
+    'NCC_HET_HANG':     { category: 2, subTag: 'NCC_HET_HANG' },
+    'XU_LY_KHAC':      { category: 2, subTag: 'XU_LY_KHAC' },
+    'DA_GOP_KHONG_CHOT':{ category: 3, subTag: 'DA_GOP_KHONG_CHOT' },
+    'GIO_TRONG':        { category: 3, subTag: 'GIO_TRONG' },
+    'KHACH_HUY_DON':    { category: 4, subTag: 'KHACH_HUY_DON' },
+    'KHACH_KO_LIEN_LAC':{ category: 4, subTag: 'KHACH_KO_LIEN_LAC' }
+};
 
 // =====================================================
 // [B] STATE MANAGEMENT
 // =====================================================
 
 var ProcessingTagState = {
-    _orderTags: new Map(),      // orderId -> [{ key, category, note, assignedAt }]
-    _tagDefinitions: [],        // Custom tag list (loaded from API or defaults)
+    _orderData: new Map(),    // orderId → { category, subTag, subState, flags, note, assignedAt, previousPosition }
     _panelOpen: false,
     _panelPinned: false,
-    _activeFilter: null,        // null | tagKey | '__no_tag__'
-    _activeCategory: null,      // null | categoryId
+    _activeFilter: null,      // null | '__no_tag__' | 'cat_0' | 'cat_1' ... | 'sub_OKIE_CHO_DI_DON' | 'sub_CHO_HANG' | 'flag_CK' ...
     _campaignId: null,
-    _sseSource: null,           // SSE EventSource for realtime updates
-    _pollInterval: null,        // Polling fallback interval
+    _sseSource: null,
+    _pollInterval: null,
+
+    // Get order data (returns null if not assigned)
+    getOrderData(orderId) {
+        return this._orderData.get(orderId) || null;
+    },
+
+    // Set order data (full replacement)
+    setOrderData(orderId, data) {
+        this._orderData.set(orderId, data);
+    },
+
+    // Update order data (partial merge)
+    updateOrder(orderId, updates) {
+        const existing = this._orderData.get(orderId);
+        if (!existing) return;
+        Object.assign(existing, updates);
+    },
+
+    // Get order flags (convenience)
+    getOrderFlags(orderId) {
+        const data = this._orderData.get(orderId);
+        return data?.flags || [];
+    },
+
+    // Remove order data
+    removeOrder(orderId) {
+        this._orderData.delete(orderId);
+    },
+
+    // Check if order has data
+    hasOrder(orderId) {
+        return this._orderData.has(orderId);
+    }
 };
 
 const PTAG_PIN_KEY = 'ptagPanelPinned';
@@ -96,128 +175,139 @@ function _ptagApiUrl(path) {
 
 /**
  * Load all processing tags for a campaign
+ * Handles migration from old format automatically
  */
 async function loadProcessingTags(campaignId) {
     ProcessingTagState._campaignId = campaignId;
-    ProcessingTagState._orderTags.clear();
+    ProcessingTagState._orderData.clear();
 
     try {
         const resp = await fetch(_ptagApiUrl(`processing-tags/${campaignId}`));
         const json = await resp.json();
         if (json.success && json.data) {
             Object.keys(json.data).forEach(orderId => {
-                ProcessingTagState._orderTags.set(orderId, json.data[orderId]);
+                const raw = json.data[orderId];
+                const migrated = _ptagMigrateIfNeeded(raw);
+                ProcessingTagState._orderData.set(orderId, migrated);
             });
         }
-        console.log(`[PTAG] Loaded processing tags for ${ProcessingTagState._orderTags.size} orders`);
+        console.log(`[PTAG v2] Loaded processing tags for ${ProcessingTagState._orderData.size} orders`);
     } catch (e) {
-        console.error('[PTAG] Error loading processing tags:', e);
+        console.error('[PTAG v2] Error loading processing tags:', e);
     }
 }
 
 /**
- * Load custom tag definitions (or use defaults)
+ * Load tag definitions — no longer needed for custom tags in v2
+ * Kept for backward compatibility with tab1-init.js call
  */
 async function loadTagDefinitions(campaignId) {
     ProcessingTagState._campaignId = campaignId;
-
-    try {
-        const resp = await fetch(_ptagApiUrl(`processing-tag-defs/${campaignId}`));
-        const json = await resp.json();
-        if (json.success && json.definitions && json.definitions.length > 0) {
-            ProcessingTagState._tagDefinitions = json.definitions;
-        } else {
-            ProcessingTagState._tagDefinitions = [...DEFAULT_PROCESSING_TAGS];
-        }
-        console.log(`[PTAG] Loaded ${ProcessingTagState._tagDefinitions.length} tag definitions`);
-    } catch (e) {
-        console.error('[PTAG] Error loading tag definitions:', e);
-        ProcessingTagState._tagDefinitions = [...DEFAULT_PROCESSING_TAGS];
-    }
+    console.log('[PTAG v2] Tag definitions are now built-in constants (no custom tags)');
 }
 
 /**
- * Assign a processing tag to an order
+ * Assign order to a category (main entry point for seller actions)
  */
-async function assignProcessingTag(orderId, tagKey, note) {
-    const tagDef = ProcessingTagState._tagDefinitions.find(t => t.key === tagKey);
-    if (!tagDef) return;
-
-    const existing = ProcessingTagState._orderTags.get(orderId) || [];
-    if (existing.some(t => t.key === tagKey)) return;
-
-    const newTag = {
-        key: tagKey,
-        category: tagDef.category,
-        note: note || '',
+async function assignOrderCategory(orderId, category, options = {}) {
+    const data = {
+        category,
+        subTag: options.subTag || null,
+        subState: null,
+        flags: options.flags || [],
+        note: options.note || '',
         assignedAt: Date.now(),
+        previousPosition: null
     };
 
-    const updatedTags = [...existing, newTag];
-    ProcessingTagState._orderTags.set(orderId, updatedTags);
+    // Category 1 (0.C): auto-detect sub-state + flags
+    if (category === PTAG_CATEGORIES.CHO_DI_DON) {
+        // Sub-state from tag T
+        const orderTags = _ptagGetOrderTPOSTags(orderId);
+        const hasTTag = orderTags?.some(t => /^T\d/.test(t.Name || t.name || ''));
+        data.subState = hasTTag ? 'CHO_HANG' : 'OKIE_CHO_DI_DON';
+
+        // Auto-detect flags (merge, no duplicates)
+        const phone = _ptagGetOrderPhone(orderId);
+        if (phone) {
+            const autoFlags = await _ptagAutoDetectFlags(orderId, phone);
+            data.flags = [...new Set([...data.flags, ...autoFlags])];
+        }
+    }
+
+    ProcessingTagState.setOrderData(orderId, data);
 
     // Update UI immediately (optimistic)
     _ptagUpdateCellDOM(orderId);
     _ptagRenderPanelCards();
 
     // Save to API
+    await _ptagSaveToApi(orderId, data);
+}
+
+/**
+ * Toggle a flag on/off for an order in category 1
+ */
+async function toggleOrderFlag(orderId, flagKey) {
+    const data = ProcessingTagState.getOrderData(orderId);
+    if (!data || data.category !== PTAG_CATEGORIES.CHO_DI_DON) return;
+
+    const flags = data.flags || [];
+    const idx = flags.indexOf(flagKey);
+
+    if (idx >= 0) {
+        flags.splice(idx, 1);
+    } else {
+        // KHAC flag needs a note
+        if (flagKey === 'KHAC') {
+            const note = prompt('Ghi chú cho flag "Khác":');
+            if (note === null) return;
+            data.note = note;
+        }
+        flags.push(flagKey);
+    }
+
+    data.flags = flags;
+    ProcessingTagState.setOrderData(orderId, data);
+
+    _ptagUpdateCellDOM(orderId);
+    _ptagRenderPanelCards();
+
+    await _ptagSaveToApi(orderId, data);
+}
+
+/**
+ * Clear processing tag from an order (reset to unassigned)
+ */
+async function clearProcessingTags(orderId) {
+    ProcessingTagState.removeOrder(orderId);
+    _ptagUpdateCellDOM(orderId);
+    _ptagRenderPanelCards();
+
+    try {
+        await fetch(_ptagApiUrl(`processing-tags/${ProcessingTagState._campaignId}/${orderId}`), {
+            method: 'DELETE',
+        });
+    } catch (e) {
+        console.error('[PTAG v2] Error clearing tags:', e);
+    }
+}
+
+/**
+ * Save order data to API
+ */
+async function _ptagSaveToApi(orderId, data) {
     try {
         await fetch(_ptagApiUrl(`processing-tags/${ProcessingTagState._campaignId}/${orderId}`), {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                tagKey,
-                category: tagDef.category,
-                note: note || '',
+                ...data,
                 assignedBy: _ptagGetCurrentUser(),
             }),
         });
     } catch (e) {
-        console.error('[PTAG] Error saving tag:', e);
-    }
-}
-
-/**
- * Remove a processing tag from an order
- */
-async function removeProcessingTag(orderId, tagKey) {
-    const existing = ProcessingTagState._orderTags.get(orderId) || [];
-    const updatedTags = existing.filter(t => t.key !== tagKey);
-
-    if (updatedTags.length === 0) {
-        ProcessingTagState._orderTags.delete(orderId);
-    } else {
-        ProcessingTagState._orderTags.set(orderId, updatedTags);
-    }
-
-    // Update UI immediately
-    _ptagUpdateCellDOM(orderId);
-    _ptagRenderPanelCards();
-
-    // Delete from API
-    try {
-        await fetch(_ptagApiUrl(`processing-tags/${ProcessingTagState._campaignId}/${orderId}/${tagKey}`), {
-            method: 'DELETE',
-        });
-    } catch (e) {
-        console.error('[PTAG] Error removing tag:', e);
-    }
-}
-
-/**
- * Clear all processing tags from an order
- */
-async function clearProcessingTags(orderId) {
-    ProcessingTagState._orderTags.delete(orderId);
-    _ptagUpdateCellDOM(orderId);
-    _ptagRenderPanelCards();
-
-    try {
-        await fetch(_ptagApiUrl(`processing-tags/${ProcessingTagState._campaignId}/${orderId}`), {
-            method: 'DELETE',
-        });
-    } catch (e) {
-        console.error('[PTAG] Error clearing tags:', e);
+        console.error('[PTAG v2] Error saving to API:', e);
     }
 }
 
@@ -230,38 +320,32 @@ function setupProcessingTagRealtimeListeners(campaignId) {
 
     // SSE for instant updates
     try {
-        const sseUrl = _ptagApiUrl(`sse?keys=processing_tags/${campaignId},processing_tag_defs/${campaignId}`);
+        const sseUrl = _ptagApiUrl(`sse?keys=processing_tags/${campaignId}`);
         const source = new EventSource(sseUrl);
 
         source.addEventListener('update', (event) => {
             try {
                 const payload = JSON.parse(event.data);
                 const key = payload.key || '';
-
-                if (key.startsWith('processing_tag_defs/')) {
-                    loadTagDefinitions(campaignId).then(() => _ptagRenderPanelCards());
-                    return;
-                }
-
                 if (key.startsWith('processing_tags/')) {
                     _ptagReloadFromApi(campaignId);
                 }
             } catch (e) {
-                console.error('[PTAG] SSE parse error:', e);
+                console.error('[PTAG v2] SSE parse error:', e);
             }
         });
 
         source.onerror = () => {
-            console.warn('[PTAG] SSE connection error, will auto-reconnect');
+            console.warn('[PTAG v2] SSE connection error, will auto-reconnect');
         };
 
         ProcessingTagState._sseSource = source;
-        console.log('[PTAG] SSE realtime listener connected');
+        console.log('[PTAG v2] SSE realtime listener connected');
     } catch (e) {
-        console.error('[PTAG] SSE setup error:', e);
+        console.error('[PTAG v2] SSE setup error:', e);
     }
 
-    // Polling fallback every 15s (SSE can be unreliable on Render)
+    // Polling fallback every 15s
     ProcessingTagState._pollInterval = setInterval(() => {
         _ptagReloadFromApi(campaignId);
     }, 15000);
@@ -269,24 +353,21 @@ function setupProcessingTagRealtimeListeners(campaignId) {
 
 /**
  * Reload all processing tags from API
- * Correctly handles deleted orders by tracking old vs new keys
  */
 async function _ptagReloadFromApi(campaignId) {
     try {
         const resp = await fetch(_ptagApiUrl(`processing-tags/${campaignId}`));
         const json = await resp.json();
         if (json.success) {
-            // Save old order IDs before clearing
-            const oldOrderIds = new Set(ProcessingTagState._orderTags.keys());
+            const oldOrderIds = new Set(ProcessingTagState._orderData.keys());
 
-            // Rebuild from server data
-            ProcessingTagState._orderTags.clear();
+            ProcessingTagState._orderData.clear();
             const newData = json.data || {};
             Object.keys(newData).forEach(orderId => {
-                ProcessingTagState._orderTags.set(orderId, newData[orderId]);
+                const migrated = _ptagMigrateIfNeeded(newData[orderId]);
+                ProcessingTagState._orderData.set(orderId, migrated);
             });
 
-            // Update cells for ALL affected orders (old + new)
             const newOrderIds = new Set(Object.keys(newData));
             const allAffected = new Set([...oldOrderIds, ...newOrderIds]);
             allAffected.forEach(orderId => _ptagUpdateCellDOM(orderId));
@@ -294,7 +375,7 @@ async function _ptagReloadFromApi(campaignId) {
             _ptagRenderPanelCards();
         }
     } catch (e) {
-        console.error('[PTAG] Error reloading from API:', e);
+        console.error('[PTAG v2] Error reloading from API:', e);
     }
 }
 
@@ -309,28 +390,166 @@ function _ptagCleanupListeners() {
     }
 }
 
-/**
- * Save tag definitions to API
- */
-async function saveTagDefinitions() {
-    if (!ProcessingTagState._campaignId) return;
+// =====================================================
+// [D] AUTO-DETECT FLAGS & AUTO SUB-STATE
+// =====================================================
 
+/**
+ * Auto-detect flags khi seller gắn đơn vào 0.C
+ * - Check ví khách → CK, Công nợ
+ * - Check order data → Giảm giá
+ * - Không đánh trùng: nếu flag đã có rồi → bỏ qua
+ */
+async function _ptagAutoDetectFlags(orderId, phone) {
+    const existingFlags = ProcessingTagState.getOrderFlags(orderId);
+    const newFlags = [];
+
+    // 1. Check wallet → CK + Công nợ
     try {
-        await fetch(_ptagApiUrl(`processing-tag-defs/${ProcessingTagState._campaignId}`), {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                definitions: ProcessingTagState._tagDefinitions,
-            }),
-        });
-        console.log('[PTAG] Tag definitions saved');
+        if (typeof getWallet === 'function') {
+            const wallet = await getWallet(phone);
+            if (wallet?.balance > 0 && !existingFlags.includes('CHUYEN_KHOAN')) {
+                newFlags.push('CHUYEN_KHOAN');
+            }
+            if (wallet?.virtual_balance > 0 && !existingFlags.includes('TRU_CONG_NO')) {
+                newFlags.push('TRU_CONG_NO');
+            }
+        }
     } catch (e) {
-        console.error('[PTAG] Error saving tag definitions:', e);
+        console.warn('[PTAG v2] autoDetectFlags: wallet check failed', e);
+    }
+
+    // 2. Check order data → Giảm giá
+    try {
+        const order = _ptagGetOrderById(orderId);
+        if (order?.Discount > 0 && !existingFlags.includes('GIAM_GIA')) {
+            newFlags.push('GIAM_GIA');
+        }
+    } catch (e) {
+        console.warn('[PTAG v2] autoDetectFlags: order check failed', e);
+    }
+
+    return newFlags;
+}
+
+/**
+ * Watch TPOS tag changes → auto chuyển sub-state trong 0.C
+ * Called from tab1-tags.js realtime listener
+ */
+function onOrderTagsChanged(orderId, newTags) {
+    const orderData = ProcessingTagState.getOrderData(orderId);
+    if (!orderData || orderData.category !== PTAG_CATEGORIES.CHO_DI_DON) return;
+
+    const hasTTag = Array.isArray(newTags) && newTags.some(t => /^T\d/.test(t.Name || t.name || ''));
+    const currentSubState = orderData.subState;
+
+    if (hasTTag && currentSubState !== 'CHO_HANG') {
+        ProcessingTagState.updateOrder(orderId, { subState: 'CHO_HANG' });
+        _ptagUpdateCellDOM(orderId);
+        _ptagRenderPanelCards();
+        _ptagSaveToApi(orderId, ProcessingTagState.getOrderData(orderId));
+    } else if (!hasTTag && currentSubState !== 'OKIE_CHO_DI_DON') {
+        ProcessingTagState.updateOrder(orderId, { subState: 'OKIE_CHO_DI_DON' });
+        _ptagUpdateCellDOM(orderId);
+        _ptagRenderPanelCards();
+        _ptagSaveToApi(orderId, ProcessingTagState.getOrderData(orderId));
     }
 }
 
+/**
+ * Hook: bill tạo thành công → auto chuyển sang 0.A HOÀN TẤT
+ * Lưu snapshot vị trí cũ để rollback
+ */
+function onBillCreated(saleOnlineId, invoiceData) {
+    const currentData = ProcessingTagState.getOrderData(saleOnlineId);
+    if (!currentData) return;
+
+    const snapshot = {
+        category: currentData.category,
+        subTag: currentData.subTag,
+        subState: currentData.subState,
+        flags: [...(currentData.flags || [])],
+        note: currentData.note
+    };
+
+    const newData = {
+        category: PTAG_CATEGORIES.HOAN_TAT,
+        subTag: null,
+        subState: null,
+        flags: [],
+        note: '',
+        assignedAt: Date.now(),
+        previousPosition: snapshot
+    };
+
+    ProcessingTagState.setOrderData(saleOnlineId, newData);
+    _ptagUpdateCellDOM(saleOnlineId);
+    _ptagRenderPanelCards();
+    _ptagSaveToApi(saleOnlineId, newData);
+}
+
+/**
+ * Hook: bill bị hủy → auto trả về vị trí cũ kèm flags cũ
+ */
+function onBillCancelled(saleOnlineId) {
+    const currentData = ProcessingTagState.getOrderData(saleOnlineId);
+    if (!currentData?.previousPosition) return;
+
+    const prev = currentData.previousPosition;
+    const restoredData = {
+        category: prev.category,
+        subTag: prev.subTag,
+        subState: prev.subState,
+        flags: prev.flags,
+        note: prev.note,
+        assignedAt: Date.now(),
+        previousPosition: null
+    };
+
+    ProcessingTagState.setOrderData(saleOnlineId, restoredData);
+    _ptagUpdateCellDOM(saleOnlineId);
+    _ptagRenderPanelCards();
+    _ptagSaveToApi(saleOnlineId, restoredData);
+}
+
 // =====================================================
-// [D] PANEL RENDERING
+// [E] MIGRATION (old flat tags → new category system)
+// =====================================================
+
+/**
+ * Migrate old format data to new format if needed
+ * Old format: [{ key, category, note, assignedAt }] (array of flat tags)
+ * New format: { category, subTag, subState, flags, note, assignedAt, previousPosition }
+ */
+function _ptagMigrateIfNeeded(raw) {
+    // Already new format — has 'category' as a direct number property
+    if (raw && typeof raw.category === 'number' && !Array.isArray(raw)) {
+        return raw;
+    }
+
+    // Old format: array of tags → pick first tag and map
+    if (Array.isArray(raw) && raw.length > 0) {
+        const firstTag = raw[0];
+        const mapped = PTAG_MIGRATION_MAP[firstTag.key];
+        if (mapped) {
+            return {
+                category: mapped.category,
+                subTag: mapped.subTag || null,
+                subState: mapped.subState || null,
+                flags: mapped.flags || [],
+                note: firstTag.note || '',
+                assignedAt: firstTag.assignedAt || Date.now(),
+                previousPosition: null
+            };
+        }
+    }
+
+    // Unknown format, return as-is or null
+    return raw || null;
+}
+
+// =====================================================
+// [F] PANEL RENDERING
 // =====================================================
 
 function initProcessingTagPanel() {
@@ -363,7 +582,6 @@ function openProcessingTagPanel() {
     _ptagUpdatePinBtnUI();
     _ptagRenderPanelCards();
 
-    // Mobile overlay
     const overlay = document.getElementById('ptagPanelOverlay');
     if (overlay && window.innerWidth <= 1024) {
         overlay.classList.add('show');
@@ -379,7 +597,6 @@ function closeProcessingTagPanel(force) {
     panel.classList.remove('open');
     ProcessingTagState._panelOpen = false;
 
-    // Unpin if force closing
     if (force && ProcessingTagState._panelPinned) {
         ProcessingTagState._panelPinned = false;
         localStorage.setItem(PTAG_PIN_KEY, 'false');
@@ -410,6 +627,9 @@ function _ptagUpdatePinBtnUI() {
     }
 }
 
+/**
+ * Render panel cards — 5 categories with counts
+ */
 function _ptagRenderPanelCards() {
     const body = document.getElementById('ptagPanelBody');
     if (!body) return;
@@ -417,103 +637,226 @@ function _ptagRenderPanelCards() {
     const searchInput = document.getElementById('ptagPanelSearch');
     const searchTerm = _ptagRemoveDiacritics((searchInput?.value || '').trim().toLowerCase());
 
-    // Count tags across all orders (use allData for total context)
     const counts = _ptagGetCounts();
     const totalOrders = (typeof allData !== 'undefined' ? allData.length : 0);
-    const noTagCount = totalOrders - ProcessingTagState._orderTags.size;
+    const noTagCount = Math.max(0, totalOrders - ProcessingTagState._orderData.size);
 
     let html = '';
 
     // TẤT CẢ card
     if (!searchTerm || _ptagRemoveDiacritics('tất cả').includes(searchTerm)) {
-        html += `
-            <div class="ptag-card ${ProcessingTagState._activeFilter === null && ProcessingTagState._activeCategory === null ? 'active' : ''}"
-                 onclick="ptagFilterByTag(null)">
-                <div class="ptag-card-icon" style="background: #6b7280;">
-                    <i class="fas fa-globe"></i>
-                </div>
-                <div class="ptag-card-info">
-                    <div class="ptag-card-name">TẤT CẢ</div>
-                    <div class="ptag-card-count">${totalOrders} đơn hàng</div>
-                </div>
-            </div>`;
+        html += _ptagRenderSpecialCard(null, 'TẤT CẢ', totalOrders, '#6b7280', 'fa-globe',
+            ProcessingTagState._activeFilter === null);
     }
 
     // CHƯA GÁN card
     if (!searchTerm || _ptagRemoveDiacritics('chưa gán').includes(searchTerm)) {
-        html += `
-            <div class="ptag-card ${ProcessingTagState._activeFilter === '__no_tag__' ? 'active' : ''}"
-                 onclick="ptagFilterByTag('__no_tag__')">
-                <div class="ptag-card-icon" style="background: #d1d5db;">
-                    <i class="fas fa-tag" style="color: #6b7280;"></i>
-                </div>
-                <div class="ptag-card-info">
-                    <div class="ptag-card-name">CHƯA GÁN TAG XỬ LÝ</div>
-                    <div class="ptag-card-count">${noTagCount < 0 ? 0 : noTagCount} đơn hàng</div>
-                </div>
-            </div>`;
+        html += _ptagRenderSpecialCard('__no_tag__', 'CHƯA GÁN TAG', noTagCount, '#d1d5db', 'fa-tag',
+            ProcessingTagState._activeFilter === '__no_tag__');
     }
 
-    // Render by category
-    const tagsByCategory = {};
-    ProcessingTagState._tagDefinitions.forEach(t => {
-        if (!tagsByCategory[t.category]) tagsByCategory[t.category] = [];
-        tagsByCategory[t.category].push(t);
-    });
+    // Render each category
+    [0, 1, 2, 3, 4].forEach(catId => {
+        const catName = PTAG_CATEGORY_NAMES[catId];
+        const catColor = PTAG_CATEGORY_COLORS[catId];
+        const catIcon = PTAG_CATEGORY_ICONS[catId];
+        const catCount = counts.byCategory[catId] || 0;
+        const filterKey = `cat_${catId}`;
+        const isActive = ProcessingTagState._activeFilter === filterKey;
 
-    [1, 2, 3, 4].forEach(catId => {
-        const catTags = tagsByCategory[catId] || [];
-        const catName = PTAG_CATEGORY_NAMES[catId] || `MỤC ${catId}`;
-        const catColors = PTAG_CATEGORY_COLORS[catId];
+        if (searchTerm && !_ptagRemoveDiacritics(catName.toLowerCase()).includes(searchTerm)) {
+            // Check if any sub-items match
+            const subItems = _ptagGetSubItemsForCategory(catId);
+            const anyMatch = subItems.some(s => _ptagRemoveDiacritics(s.label.toLowerCase()).includes(searchTerm));
+            if (!anyMatch) return;
+        }
 
-        // Filter tags by search
-        const filteredTags = searchTerm
-            ? catTags.filter(t => _ptagRemoveDiacritics(t.label.toLowerCase()).includes(searchTerm))
-            : catTags;
-
-        if (filteredTags.length === 0 && searchTerm) return;
-
-        // Category total count
-        const catCount = catTags.reduce((sum, t) => sum + (counts[t.key] || 0), 0);
-
+        // Category header (clickable to filter)
         html += `
-            <div class="ptag-category-header ptag-category-${catId} ${ProcessingTagState._activeCategory === catId ? 'active' : ''}"
-                 onclick="ptagFilterByCategory(${catId})">
+            <div class="ptag-category-header ptag-category-${catId} ${isActive ? 'active' : ''}"
+                 onclick="ptagSetFilter('${filterKey}')">
+                <i class="fas ${catIcon}" style="font-size:12px;"></i>
                 <span class="ptag-category-header-name">${catName}</span>
                 <span class="ptag-category-header-count">${catCount}</span>
             </div>`;
 
-        filteredTags.forEach(tag => {
-            const count = counts[tag.key] || 0;
-            html += `
-                <div class="ptag-card ${ProcessingTagState._activeFilter === tag.key ? 'active' : ''}"
-                     onclick="ptagFilterByTag('${tag.key}')">
-                    <div class="ptag-card-icon" style="background: ${tag.color};">
-                        <i class="fas fa-tag"></i>
-                    </div>
-                    <div class="ptag-card-info">
-                        <div class="ptag-card-name">${tag.label}</div>
-                        <div class="ptag-card-count">${count} đơn hàng</div>
-                    </div>
-                </div>`;
-        });
+        // Sub-items for category 1: sub-states + flags
+        if (catId === 1) {
+            // Sub-states
+            Object.values(PTAG_SUBSTATES).forEach(sub => {
+                if (searchTerm && !_ptagRemoveDiacritics(sub.label.toLowerCase()).includes(searchTerm)) return;
+                const subCount = counts.bySubState[sub.key] || 0;
+                const subFilterKey = `sub_${sub.key}`;
+                const subActive = ProcessingTagState._activeFilter === subFilterKey;
+                html += `
+                    <div class="ptag-card ptag-sub-item ${subActive ? 'active' : ''}"
+                         onclick="ptagSetFilter('${subFilterKey}')">
+                        <div class="ptag-card-icon" style="background: ${sub.color};">
+                            <i class="fas fa-dot-circle" style="font-size:11px;"></i>
+                        </div>
+                        <div class="ptag-card-info">
+                            <div class="ptag-card-name">${sub.label}</div>
+                            <div class="ptag-card-count">${subCount} đơn</div>
+                        </div>
+                    </div>`;
+            });
+
+            // Flags
+            Object.values(PTAG_FLAGS).forEach(flag => {
+                if (searchTerm && !_ptagRemoveDiacritics(flag.label.toLowerCase()).includes(searchTerm)) return;
+                const flagCount = counts.byFlag[flag.key] || 0;
+                if (flagCount === 0 && searchTerm) return;
+                const flagFilterKey = `flag_${flag.key}`;
+                const flagActive = ProcessingTagState._activeFilter === flagFilterKey;
+                html += `
+                    <div class="ptag-card ptag-flag-item ${flagActive ? 'active' : ''}"
+                         onclick="ptagSetFilter('${flagFilterKey}')">
+                        <div class="ptag-card-icon ptag-flag-icon">
+                            <span>${flag.icon}</span>
+                        </div>
+                        <div class="ptag-card-info">
+                            <div class="ptag-card-name">${flag.icon} ${flag.label}</div>
+                            <div class="ptag-card-count">${flagCount} đơn</div>
+                        </div>
+                    </div>`;
+            });
+        }
+
+        // Sub-items for categories 2, 3, 4: sub-tags
+        if (catId >= 2) {
+            const subTags = Object.values(PTAG_SUBTAGS).filter(s => s.category === catId);
+            subTags.forEach(sub => {
+                if (searchTerm && !_ptagRemoveDiacritics(sub.label.toLowerCase()).includes(searchTerm)) return;
+                const subCount = counts.bySubTag[sub.key] || 0;
+                const subFilterKey = `subtag_${sub.key}`;
+                const subActive = ProcessingTagState._activeFilter === subFilterKey;
+                html += `
+                    <div class="ptag-card ptag-sub-item ${subActive ? 'active' : ''}"
+                         onclick="ptagSetFilter('${subFilterKey}')">
+                        <div class="ptag-card-icon" style="background: ${catColor.border};">
+                            <i class="fas fa-tag" style="font-size:11px;"></i>
+                        </div>
+                        <div class="ptag-card-info">
+                            <div class="ptag-card-name">${sub.label}</div>
+                            <div class="ptag-card-count">${subCount} đơn</div>
+                        </div>
+                    </div>`;
+            });
+        }
     });
 
+    // Tag T section
+    html += _ptagRenderTTagSection();
+
     if (!html) {
-        html = '<div style="text-align:center; padding:20px; color:#9ca3af; font-size:13px;">Không tìm thấy tag</div>';
+        html = '<div style="text-align:center; padding:20px; color:#9ca3af; font-size:13px;">Không tìm thấy</div>';
     }
 
     body.innerHTML = html;
 }
 
-function _ptagGetCounts() {
-    const counts = {};
-    ProcessingTagState._tagDefinitions.forEach(t => { counts[t.key] = 0; });
+function _ptagRenderSpecialCard(filterKey, label, count, bgColor, icon, isActive) {
+    return `
+        <div class="ptag-card ${isActive ? 'active' : ''}"
+             onclick="ptagSetFilter(${filterKey === null ? 'null' : "'" + filterKey + "'"})">
+            <div class="ptag-card-icon" style="background: ${bgColor};">
+                <i class="fas ${icon}" style="${bgColor === '#d1d5db' ? 'color:#6b7280;' : ''}"></i>
+            </div>
+            <div class="ptag-card-info">
+                <div class="ptag-card-name">${label}</div>
+                <div class="ptag-card-count">${count} đơn hàng</div>
+            </div>
+        </div>`;
+}
 
-    ProcessingTagState._orderTags.forEach(tags => {
+/**
+ * Render Tag T section — shows TPOS tags matching /^T\d/
+ */
+function _ptagRenderTTagSection() {
+    if (typeof allData === 'undefined' || !allData.length) return '';
+
+    // Collect T tags from all orders
+    const tTagCounts = {};
+    allData.forEach(order => {
+        const tags = _ptagGetOrderTPOSTags(order.Id);
+        if (!tags) return;
         tags.forEach(t => {
-            if (counts[t.key] !== undefined) counts[t.key]++;
+            const name = t.Name || t.name || '';
+            if (/^T\d/.test(name)) {
+                tTagCounts[name] = (tTagCounts[name] || 0) + 1;
+            }
         });
+    });
+
+    const tTagNames = Object.keys(tTagCounts).sort();
+    if (tTagNames.length === 0) return '';
+
+    let html = `
+        <div class="ptag-category-header ptag-ttag-header" style="border-left-color:#8b5cf6; background:rgba(139,92,246,0.08); margin-top:12px;">
+            <i class="fas fa-boxes" style="font-size:12px; color:#6d28d9;"></i>
+            <span class="ptag-category-header-name" style="color:#6d28d9;">TAG T CHỜ HÀNG</span>
+            <span class="ptag-category-header-count" style="color:#6d28d9;">${tTagNames.length}</span>
+        </div>`;
+
+    tTagNames.forEach(name => {
+        const filterKey = `ttag_${name}`;
+        const isActive = ProcessingTagState._activeFilter === filterKey;
+        html += `
+            <div class="ptag-card ptag-sub-item ${isActive ? 'active' : ''}"
+                 onclick="ptagSetFilter('${_ptagEscapeHtml(filterKey)}')">
+                <div class="ptag-card-icon" style="background: #8b5cf6;">
+                    <i class="fas fa-box" style="font-size:11px;"></i>
+                </div>
+                <div class="ptag-card-info">
+                    <div class="ptag-card-name">${_ptagEscapeHtml(name)}</div>
+                    <div class="ptag-card-count">${tTagCounts[name]} đơn</div>
+                </div>
+            </div>`;
+    });
+
+    return html;
+}
+
+function _ptagGetSubItemsForCategory(catId) {
+    if (catId === 0) return [{ label: 'Hoàn tất' }];
+    if (catId === 1) {
+        return [
+            ...Object.values(PTAG_SUBSTATES).map(s => ({ label: s.label })),
+            ...Object.values(PTAG_FLAGS).map(f => ({ label: f.label }))
+        ];
+    }
+    return Object.values(PTAG_SUBTAGS).filter(s => s.category === catId);
+}
+
+/**
+ * Count orders per category, sub-state, flag, sub-tag
+ */
+function _ptagGetCounts() {
+    const counts = {
+        byCategory: { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0 },
+        bySubState: {},
+        byFlag: {},
+        bySubTag: {}
+    };
+
+    Object.keys(PTAG_SUBSTATES).forEach(k => { counts.bySubState[k] = 0; });
+    PTAG_FLAG_KEYS.forEach(k => { counts.byFlag[k] = 0; });
+    Object.keys(PTAG_SUBTAGS).forEach(k => { counts.bySubTag[k] = 0; });
+
+    ProcessingTagState._orderData.forEach(data => {
+        const cat = data.category;
+        if (counts.byCategory[cat] !== undefined) counts.byCategory[cat]++;
+
+        if (cat === 1 && data.subState) {
+            if (counts.bySubState[data.subState] !== undefined) counts.bySubState[data.subState]++;
+            (data.flags || []).forEach(f => {
+                if (counts.byFlag[f] !== undefined) counts.byFlag[f]++;
+            });
+        }
+
+        if (data.subTag && counts.bySubTag[data.subTag] !== undefined) {
+            counts.bySubTag[data.subTag]++;
+        }
     });
 
     return counts;
@@ -521,24 +864,12 @@ function _ptagGetCounts() {
 
 // ===== PANEL FILTER ACTIONS =====
 
-function ptagFilterByTag(tagKey) {
-    ProcessingTagState._activeFilter = tagKey;
-    ProcessingTagState._activeCategory = null;
-    _ptagRenderPanelCards();
-
-    if (typeof performTableSearch === 'function') {
-        performTableSearch();
-    }
-}
-
-function ptagFilterByCategory(catId) {
-    if (ProcessingTagState._activeCategory === catId) {
+function ptagSetFilter(filterKey) {
+    if (ProcessingTagState._activeFilter === filterKey) {
         // Toggle off
-        ProcessingTagState._activeCategory = null;
         ProcessingTagState._activeFilter = null;
     } else {
-        ProcessingTagState._activeCategory = catId;
-        ProcessingTagState._activeFilter = null;
+        ProcessingTagState._activeFilter = filterKey;
     }
     _ptagRenderPanelCards();
 
@@ -551,8 +882,17 @@ function ptagFilterPanelSearch() {
     _ptagRenderPanelCards();
 }
 
+// Legacy compatibility
+function ptagFilterByTag(tagKey) {
+    ptagSetFilter(tagKey);
+}
+
+function ptagFilterByCategory(catId) {
+    ptagSetFilter(`cat_${catId}`);
+}
+
 // =====================================================
-// [E] TABLE CELL RENDERING
+// [G] TABLE CELL RENDERING
 // =====================================================
 
 /**
@@ -560,26 +900,45 @@ function ptagFilterPanelSearch() {
  * Called from createRowHTML() in tab1-table.js
  */
 function renderProcessingTagCell(orderId, orderCode) {
-    const tags = ProcessingTagState._orderTags.get(orderId) || [];
+    const data = ProcessingTagState.getOrderData(orderId);
 
-    let badgesHTML = '';
-    tags.forEach(tag => {
-        const def = ProcessingTagState._tagDefinitions.find(d => d.key === tag.key);
-        const color = def ? def.color : '#6b7280';
-        const label = def ? def.label : tag.key;
-        badgesHTML += `<span class="ptag-badge" style="background:${color};" title="${tag.note || label}">
-            ${label}
-            <span class="ptag-badge-remove" onclick="removeProcessingTag('${orderId}','${tag.key}'); event.stopPropagation();">×</span>
-        </span>`;
-    });
+    let contentHTML = '';
+
+    if (!data) {
+        // No tag — show assign button only
+        contentHTML = '';
+    } else if (data.category === PTAG_CATEGORIES.HOAN_TAT) {
+        // 0.A — HOÀN TẤT
+        contentHTML = `<span class="ptag-badge ptag-badge-hoantat">✓ Hoàn tất</span>`;
+    } else if (data.category === PTAG_CATEGORIES.CHO_DI_DON) {
+        // 0.C — CHỜ ĐI ĐƠN
+        const subState = PTAG_SUBSTATES[data.subState] || PTAG_SUBSTATES.OKIE_CHO_DI_DON;
+        contentHTML = `<span class="ptag-badge" style="background:${subState.color};">${subState.label}</span>`;
+
+        // Show flag icons
+        const flags = data.flags || [];
+        if (flags.length > 0) {
+            const flagIcons = flags.map(f => PTAG_FLAGS[f]?.icon || '').filter(Boolean).join('');
+            contentHTML += `<span class="ptag-flags" title="${flags.map(f => PTAG_FLAGS[f]?.label || f).join(', ')}">${flagIcons}</span>`;
+        }
+    } else {
+        // 2, 3, 4 — Sub-tag
+        const catColor = PTAG_CATEGORY_COLORS[data.category];
+        const subTagDef = PTAG_SUBTAGS[data.subTag];
+        const label = subTagDef?.label || PTAG_CATEGORY_NAMES[data.category] || '';
+        contentHTML = `<span class="ptag-badge" style="background:${catColor.border};">${label}</span>`;
+    }
 
     return `<div class="ptag-cell">
         <div class="ptag-cell-actions">
             <button class="ptag-cell-btn" onclick="openPtagDropdown('${orderId}', event); event.stopPropagation();" title="Gán Tag Xử Lý">
                 <i class="fas fa-tasks"></i>
             </button>
+            ${data ? `<button class="ptag-cell-btn ptag-cell-btn-clear" onclick="clearProcessingTags('${orderId}'); event.stopPropagation();" title="Xóa tag">
+                <i class="fas fa-times" style="font-size:9px;"></i>
+            </button>` : ''}
         </div>
-        <div class="ptag-badges" id="ptagBadges_${orderId}">${badgesHTML}</div>
+        <div class="ptag-badges" id="ptagBadges_${orderId}">${contentHTML}</div>
     </div>`;
 }
 
@@ -590,22 +949,52 @@ function _ptagUpdateCellDOM(orderId) {
     const container = document.getElementById(`ptagBadges_${orderId}`);
     if (!container) return;
 
-    const tags = ProcessingTagState._orderTags.get(orderId) || [];
+    const data = ProcessingTagState.getOrderData(orderId);
     let html = '';
-    tags.forEach(tag => {
-        const def = ProcessingTagState._tagDefinitions.find(d => d.key === tag.key);
-        const color = def ? def.color : '#6b7280';
-        const label = def ? def.label : tag.key;
-        html += `<span class="ptag-badge" style="background:${color};" title="${tag.note || label}">
-            ${label}
-            <span class="ptag-badge-remove" onclick="removeProcessingTag('${orderId}','${tag.key}'); event.stopPropagation();">×</span>
-        </span>`;
-    });
+
+    if (!data) {
+        html = '';
+    } else if (data.category === PTAG_CATEGORIES.HOAN_TAT) {
+        html = `<span class="ptag-badge ptag-badge-hoantat">✓ Hoàn tất</span>`;
+    } else if (data.category === PTAG_CATEGORIES.CHO_DI_DON) {
+        const subState = PTAG_SUBSTATES[data.subState] || PTAG_SUBSTATES.OKIE_CHO_DI_DON;
+        html = `<span class="ptag-badge" style="background:${subState.color};">${subState.label}</span>`;
+        const flags = data.flags || [];
+        if (flags.length > 0) {
+            const flagIcons = flags.map(f => PTAG_FLAGS[f]?.icon || '').filter(Boolean).join('');
+            html += `<span class="ptag-flags" title="${flags.map(f => PTAG_FLAGS[f]?.label || f).join(', ')}">${flagIcons}</span>`;
+        }
+    } else {
+        const catColor = PTAG_CATEGORY_COLORS[data.category];
+        const subTagDef = PTAG_SUBTAGS[data.subTag];
+        const label = subTagDef?.label || '';
+        html = `<span class="ptag-badge" style="background:${catColor.border};">${label}</span>`;
+    }
+
     container.innerHTML = html;
+
+    // Update clear button visibility
+    const cell = container.closest('.ptag-cell');
+    if (cell) {
+        const clearBtn = cell.querySelector('.ptag-cell-btn-clear');
+        if (data && !clearBtn) {
+            const actionsDiv = cell.querySelector('.ptag-cell-actions');
+            if (actionsDiv) {
+                const btn = document.createElement('button');
+                btn.className = 'ptag-cell-btn ptag-cell-btn-clear';
+                btn.title = 'Xóa tag';
+                btn.onclick = (e) => { clearProcessingTags(orderId); e.stopPropagation(); };
+                btn.innerHTML = '<i class="fas fa-times" style="font-size:9px;"></i>';
+                actionsDiv.appendChild(btn);
+            }
+        } else if (!data && clearBtn) {
+            clearBtn.remove();
+        }
+    }
 }
 
 // =====================================================
-// [F] TAG ASSIGN DROPDOWN
+// [H] CATEGORY/FLAG ASSIGN DROPDOWN
 // =====================================================
 
 let _ptagDropdownOrderId = null;
@@ -615,38 +1004,88 @@ function openPtagDropdown(orderId, event) {
     _ptagDropdownOrderId = orderId;
 
     const rect = event.target.closest('button').getBoundingClientRect();
-    const existingTags = ProcessingTagState._orderTags.get(orderId) || [];
-    const existingKeys = new Set(existingTags.map(t => t.key));
+    const currentData = ProcessingTagState.getOrderData(orderId);
 
-    // Build dropdown HTML
-    let itemsHTML = '';
-    const tagsByCategory = {};
-    ProcessingTagState._tagDefinitions.forEach(t => {
-        if (!tagsByCategory[t.category]) tagsByCategory[t.category] = [];
-        tagsByCategory[t.category].push(t);
-    });
+    // Build dropdown HTML — choose category first, then sub-tag/flags
+    let html = `
+        <div class="ptag-dropdown-header">
+            <span>Chọn trạng thái đơn</span>
+            <span style="font-size:11px; color:#9ca3af; cursor:pointer;" onclick="clearProcessingTags('${orderId}'); closePtagDropdown();">Xóa hết</span>
+        </div>
+        <div class="ptag-dropdown-search">
+            <input type="text" placeholder="Tìm..." oninput="_ptagDropdownFilter(this.value)" />
+        </div>
+        <div class="ptag-dropdown-body">`;
 
-    [1, 2, 3, 4].forEach(catId => {
-        const catTags = tagsByCategory[catId] || [];
-        const catName = PTAG_CATEGORY_NAMES[catId] || `MỤC ${catId}`;
-        itemsHTML += `<div class="ptag-dropdown-category">${catName}</div>`;
-        catTags.forEach(tag => {
-            const selected = existingKeys.has(tag.key);
-            itemsHTML += `
-                <div class="ptag-dropdown-item ${selected ? 'selected' : ''}"
-                     onclick="_ptagDropdownToggle('${orderId}', '${tag.key}')" data-ptag-key="${tag.key}">
-                    <span class="ptag-dropdown-item-dot" style="background:${tag.color};"></span>
-                    <span>${tag.label}</span>
-                    ${selected ? '<span class="ptag-dropdown-item-check"><i class="fas fa-check"></i></span>' : ''}
-                </div>`;
+    // Category 1 — CHỜ ĐI ĐƠN (OKE) → assign directly, flags shown separately
+    const cat1Active = currentData?.category === 1;
+    html += `<div class="ptag-dropdown-category">CHỜ ĐI ĐƠN (OKE)</div>`;
+    html += `<div class="ptag-dropdown-item ${cat1Active ? 'selected' : ''}"
+                 onclick="_ptagDropdownAssignCategory('${orderId}', 1)" data-ptag-label="Okie Chờ Đi Đơn">
+                <span class="ptag-dropdown-item-dot" style="background:#3b82f6;"></span>
+                <span>Okie Chờ Đi Đơn</span>
+                ${cat1Active ? '<span class="ptag-dropdown-item-check"><i class="fas fa-check"></i></span>' : ''}
+            </div>`;
+
+    // If currently in cat 1, show flags section
+    if (cat1Active) {
+        html += `<div class="ptag-dropdown-category" style="color:#3b82f6;">── FLAGS ──</div>`;
+        const currentFlags = currentData.flags || [];
+        Object.values(PTAG_FLAGS).forEach(flag => {
+            const hasFlag = currentFlags.includes(flag.key);
+            html += `<div class="ptag-dropdown-item ${hasFlag ? 'selected' : ''}"
+                         onclick="_ptagDropdownToggleFlag('${orderId}', '${flag.key}')" data-ptag-label="${flag.label}">
+                        <span style="font-size:14px; width:18px; text-align:center;">${flag.icon}</span>
+                        <span>${flag.label}${flag.auto ? ' <small style="color:#9ca3af;">(auto)</small>' : ''}</span>
+                        ${hasFlag ? '<span class="ptag-dropdown-item-check"><i class="fas fa-check"></i></span>' : ''}
+                    </div>`;
         });
+    }
+
+    // Category 2 — MỤC XỬ LÝ
+    html += `<div class="ptag-dropdown-category">MỤC XỬ LÝ</div>`;
+    Object.values(PTAG_SUBTAGS).filter(s => s.category === 2).forEach(sub => {
+        const isActive = currentData?.category === 2 && currentData?.subTag === sub.key;
+        html += `<div class="ptag-dropdown-item ${isActive ? 'selected' : ''}"
+                     onclick="_ptagDropdownAssignSubTag('${orderId}', 2, '${sub.key}', ${sub.hasNote || false})" data-ptag-label="${sub.label}">
+                    <span class="ptag-dropdown-item-dot" style="background:#f59e0b;"></span>
+                    <span>${sub.label}</span>
+                    ${isActive ? '<span class="ptag-dropdown-item-check"><i class="fas fa-check"></i></span>' : ''}
+                </div>`;
     });
+
+    // Category 3 — MỤC KHÔNG CẦN CHỐT
+    html += `<div class="ptag-dropdown-category">KHÔNG CẦN CHỐT</div>`;
+    Object.values(PTAG_SUBTAGS).filter(s => s.category === 3).forEach(sub => {
+        const isActive = currentData?.category === 3 && currentData?.subTag === sub.key;
+        html += `<div class="ptag-dropdown-item ${isActive ? 'selected' : ''}"
+                     onclick="_ptagDropdownAssignSubTag('${orderId}', 3, '${sub.key}', false)" data-ptag-label="${sub.label}">
+                    <span class="ptag-dropdown-item-dot" style="background:#6b7280;"></span>
+                    <span>${sub.label}</span>
+                    ${isActive ? '<span class="ptag-dropdown-item-check"><i class="fas fa-check"></i></span>' : ''}
+                </div>`;
+    });
+
+    // Category 4 — MỤC KHÁCH XÃ
+    html += `<div class="ptag-dropdown-category">KHÁCH XÃ SAU CHỐT</div>`;
+    Object.values(PTAG_SUBTAGS).filter(s => s.category === 4).forEach(sub => {
+        const isActive = currentData?.category === 4 && currentData?.subTag === sub.key;
+        html += `<div class="ptag-dropdown-item ${isActive ? 'selected' : ''}"
+                     onclick="_ptagDropdownAssignSubTag('${orderId}', 4, '${sub.key}', false)" data-ptag-label="${sub.label}">
+                    <span class="ptag-dropdown-item-dot" style="background:#ef4444;"></span>
+                    <span>${sub.label}</span>
+                    ${isActive ? '<span class="ptag-dropdown-item-check"><i class="fas fa-check"></i></span>' : ''}
+                </div>`;
+    });
+
+    html += `</div>`;
 
     // Position dropdown
     let top = rect.bottom + 4;
     let left = rect.left;
-    if (top + 420 > window.innerHeight) top = rect.top - 420;
-    if (left + 280 > window.innerWidth) left = window.innerWidth - 290;
+    if (top + 480 > window.innerHeight) top = rect.top - 480;
+    if (top < 0) top = 4;
+    if (left + 300 > window.innerWidth) left = window.innerWidth - 310;
 
     const overlayEl = document.createElement('div');
     overlayEl.className = 'ptag-dropdown-overlay';
@@ -658,20 +1097,11 @@ function openPtagDropdown(orderId, event) {
     dropdownEl.id = 'ptagDropdown';
     dropdownEl.style.top = `${top}px`;
     dropdownEl.style.left = `${left}px`;
-    dropdownEl.innerHTML = `
-        <div class="ptag-dropdown-header">
-            <span>Tag Xử Lý</span>
-            <span style="font-size:11px; color:#9ca3af; cursor:pointer;" onclick="clearProcessingTags('${orderId}'); closePtagDropdown();">Xóa hết</span>
-        </div>
-        <div class="ptag-dropdown-search">
-            <input type="text" placeholder="Tìm tag..." oninput="_ptagDropdownFilter(this.value)" />
-        </div>
-        <div class="ptag-dropdown-body">${itemsHTML}</div>`;
+    dropdownEl.innerHTML = html;
 
     document.body.appendChild(overlayEl);
     document.body.appendChild(dropdownEl);
 
-    // Focus search
     setTimeout(() => {
         const searchInput = dropdownEl.querySelector('input');
         if (searchInput) searchInput.focus();
@@ -686,26 +1116,36 @@ function closePtagDropdown() {
     _ptagDropdownOrderId = null;
 }
 
-function _ptagDropdownToggle(orderId, tagKey) {
-    const existing = ProcessingTagState._orderTags.get(orderId) || [];
-    const has = existing.some(t => t.key === tagKey);
-
-    if (has) {
-        removeProcessingTag(orderId, tagKey);
+function _ptagDropdownAssignCategory(orderId, category) {
+    assignOrderCategory(orderId, category);
+    // Reopen dropdown to show flags for category 1
+    if (category === 1) {
+        setTimeout(() => {
+            const btn = document.querySelector(`#ptagBadges_${orderId}`)?.closest('.ptag-cell')?.querySelector('.ptag-cell-btn');
+            if (btn) btn.click();
+        }, 100);
     } else {
-        // Check if this is a KHAC tag that needs a note
-        const tagDef = ProcessingTagState._tagDefinitions.find(t => t.key === tagKey);
-        if (tagDef && (tagKey === 'OKE_KHAC' || tagKey === 'XU_LY_KHAC')) {
-            const note = prompt(`Ghi chú cho "${tagDef.label}":`);
-            if (note === null) return; // Cancelled
-            assignProcessingTag(orderId, tagKey, note);
-        } else {
-            assignProcessingTag(orderId, tagKey, '');
-        }
+        closePtagDropdown();
     }
+}
 
-    // Refresh dropdown to show updated state
+function _ptagDropdownAssignSubTag(orderId, category, subTag, needsNote) {
+    let note = '';
+    if (needsNote) {
+        note = prompt('Ghi chú:');
+        if (note === null) return;
+    }
+    assignOrderCategory(orderId, category, { subTag, note });
     closePtagDropdown();
+}
+
+function _ptagDropdownToggleFlag(orderId, flagKey) {
+    toggleOrderFlag(orderId, flagKey);
+    // Reopen to refresh flag checkmarks
+    setTimeout(() => {
+        const btn = document.querySelector(`#ptagBadges_${orderId}`)?.closest('.ptag-cell')?.querySelector('.ptag-cell-btn');
+        if (btn) btn.click();
+    }, 100);
 }
 
 function _ptagDropdownFilter(searchText) {
@@ -717,16 +1157,15 @@ function _ptagDropdownFilter(searchText) {
     const categories = dropdown.querySelectorAll('.ptag-dropdown-category');
 
     items.forEach(item => {
-        const label = _ptagRemoveDiacritics(item.textContent.trim().toLowerCase());
+        const label = _ptagRemoveDiacritics((item.getAttribute('data-ptag-label') || item.textContent).trim().toLowerCase());
         item.style.display = (!term || label.includes(term)) ? '' : 'none';
     });
 
-    // Hide empty category headers
     categories.forEach(catEl => {
         let next = catEl.nextElementSibling;
         let hasVisible = false;
         while (next && !next.classList.contains('ptag-dropdown-category')) {
-            if (next.style.display !== 'none') hasVisible = true;
+            if (next.style.display !== 'none' && next.classList.contains('ptag-dropdown-item')) hasVisible = true;
             next = next.nextElementSibling;
         }
         catEl.style.display = hasVisible ? '' : 'none';
@@ -734,205 +1173,14 @@ function _ptagDropdownFilter(searchText) {
 }
 
 // =====================================================
-// [G] TAG MANAGEMENT MODAL
-// =====================================================
-
-function openPtagManageModal() {
-    let modal = document.getElementById('ptagManageModal');
-    if (!modal) return;
-
-    modal.classList.add('show');
-    _ptagRenderManageList();
-}
-
-function closePtagManageModal() {
-    const modal = document.getElementById('ptagManageModal');
-    if (modal) modal.classList.remove('show');
-
-    // Close any open color picker
-    document.querySelectorAll('.ptag-color-picker.show').forEach(el => el.classList.remove('show'));
-}
-
-function _ptagRenderManageList() {
-    const body = document.getElementById('ptagManageBody');
-    if (!body) return;
-
-    const tagsByCategory = {};
-    ProcessingTagState._tagDefinitions.forEach(t => {
-        if (!tagsByCategory[t.category]) tagsByCategory[t.category] = [];
-        tagsByCategory[t.category].push(t);
-    });
-
-    let html = '';
-    [1, 2, 3, 4].forEach(catId => {
-        const catTags = tagsByCategory[catId] || [];
-        const catName = PTAG_CATEGORY_NAMES[catId];
-        const catColors = PTAG_CATEGORY_COLORS[catId];
-
-        html += `<div class="ptag-manage-category-section">
-            <div class="ptag-manage-category-title" style="background:${catColors.bg}; color:${catColors.text}; border-left: 3px solid ${catColors.border};">
-                ${catName}
-            </div>`;
-
-        catTags.forEach(tag => {
-            html += `
-            <div class="ptag-manage-item" data-ptag-key="${tag.key}">
-                <div class="ptag-manage-item-color" style="background:${tag.color};"
-                     onclick="_ptagOpenColorPicker(this, '${tag.key}')" title="Đổi màu"></div>
-                <input class="ptag-manage-item-name" value="${_ptagEscapeHtml(tag.label)}"
-                       onchange="_ptagUpdateTagLabel('${tag.key}', this.value)" />
-                <div class="ptag-manage-item-actions">
-                    <button class="delete" onclick="_ptagDeleteTag('${tag.key}')" title="Xóa tag">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            </div>`;
-        });
-
-        // Add new tag form for this category
-        html += `
-            <div class="ptag-manage-add-form">
-                <input type="text" placeholder="Tên tag mới..." id="ptagNewTag_${catId}" />
-                <button onclick="_ptagAddTag(${catId})">
-                    <i class="fas fa-plus"></i> Thêm
-                </button>
-            </div>
-        </div>`;
-    });
-
-    body.innerHTML = html;
-}
-
-function _ptagAddTag(categoryId) {
-    const input = document.getElementById(`ptagNewTag_${categoryId}`);
-    if (!input) return;
-
-    const name = input.value.trim();
-    if (!name) return;
-
-    // Generate key from name
-    const key = 'CUSTOM_' + name.toUpperCase()
-        .replace(/[^A-Z0-9\u00C0-\u024F]/g, '_')
-        .replace(/_+/g, '_')
-        .substring(0, 30) + '_' + Date.now().toString(36);
-
-    const catColors = PTAG_CATEGORY_COLORS[categoryId];
-    const newTag = {
-        key: key,
-        label: name,
-        color: catColors.tagDefault,
-        category: categoryId,
-    };
-
-    ProcessingTagState._tagDefinitions.push(newTag);
-    saveTagDefinitions();
-    _ptagRenderManageList();
-    _ptagRenderPanelCards();
-
-    input.value = '';
-}
-
-function _ptagUpdateTagLabel(tagKey, newLabel) {
-    const tag = ProcessingTagState._tagDefinitions.find(t => t.key === tagKey);
-    if (tag) {
-        tag.label = newLabel.trim();
-        saveTagDefinitions();
-        _ptagRenderPanelCards();
-    }
-}
-
-function _ptagDeleteTag(tagKey) {
-    const tag = ProcessingTagState._tagDefinitions.find(t => t.key === tagKey);
-    if (!tag) return;
-
-    if (!confirm(`Xóa tag "${tag.label}"? Tag sẽ bị xóa khỏi tất cả đơn hàng.`)) return;
-
-    // Remove from definitions
-    ProcessingTagState._tagDefinitions = ProcessingTagState._tagDefinitions.filter(t => t.key !== tagKey);
-    saveTagDefinitions();
-
-    // Remove from all orders (API calls for each affected order)
-    ProcessingTagState._orderTags.forEach((tags, orderId) => {
-        const filtered = tags.filter(t => t.key !== tagKey);
-        if (filtered.length !== tags.length) {
-            if (filtered.length === 0) {
-                ProcessingTagState._orderTags.delete(orderId);
-            } else {
-                ProcessingTagState._orderTags.set(orderId, filtered);
-            }
-            // Remove tag via API
-            fetch(_ptagApiUrl(`processing-tags/${ProcessingTagState._campaignId}/${orderId}/${tagKey}`), {
-                method: 'DELETE',
-            }).catch(e => console.error('[PTAG] Error deleting tag from order:', e));
-            _ptagUpdateCellDOM(orderId);
-        }
-    });
-
-    // Reset filter if deleted tag was active
-    if (ProcessingTagState._activeFilter === tagKey) {
-        ProcessingTagState._activeFilter = null;
-        if (typeof performTableSearch === 'function') performTableSearch();
-    }
-
-    _ptagRenderManageList();
-    _ptagRenderPanelCards();
-}
-
-function _ptagOpenColorPicker(element, tagKey) {
-    // Close any existing
-    document.querySelectorAll('.ptag-color-picker.show').forEach(el => el.classList.remove('show'));
-
-    let picker = element.parentElement.querySelector('.ptag-color-picker');
-    if (!picker) {
-        picker = document.createElement('div');
-        picker.className = 'ptag-color-picker';
-        picker.innerHTML = PTAG_PRESET_COLORS.map(c =>
-            `<div class="ptag-color-picker-item" style="background:${c};" onclick="_ptagSetColor('${tagKey}','${c}', this)"></div>`
-        ).join('');
-        element.parentElement.style.position = 'relative';
-        element.parentElement.appendChild(picker);
-    }
-
-    picker.classList.add('show');
-
-    // Close on outside click
-    setTimeout(() => {
-        const close = (e) => {
-            if (!picker.contains(e.target) && e.target !== element) {
-                picker.classList.remove('show');
-                document.removeEventListener('click', close);
-            }
-        };
-        document.addEventListener('click', close);
-    }, 10);
-}
-
-function _ptagSetColor(tagKey, color, pickerItem) {
-    const tag = ProcessingTagState._tagDefinitions.find(t => t.key === tagKey);
-    if (tag) {
-        tag.color = color;
-        saveTagDefinitions();
-        _ptagRenderManageList();
-        _ptagRenderPanelCards();
-
-        // Update all visible cells that have this tag
-        ProcessingTagState._orderTags.forEach((tags, orderId) => {
-            if (tags.some(t => t.key === tagKey)) {
-                _ptagUpdateCellDOM(orderId);
-            }
-        });
-    }
-}
-
-// =====================================================
-// [H] BULK ASSIGNMENT
+// [I] BULK ASSIGNMENT
 // =====================================================
 
 function openPtagBulkModal() {
     const modal = document.getElementById('ptagBulkModal');
     if (!modal) return;
     modal.classList.add('show');
-    _ptagRenderBulkTagList();
+    _ptagRenderBulkOptions();
 }
 
 function closePtagBulkModal() {
@@ -940,32 +1188,32 @@ function closePtagBulkModal() {
     if (modal) modal.classList.remove('show');
 }
 
-function _ptagRenderBulkTagList() {
+function _ptagRenderBulkOptions() {
     const container = document.getElementById('ptagBulkTagList');
     if (!container) return;
 
-    const tagsByCategory = {};
-    ProcessingTagState._tagDefinitions.forEach(t => {
-        if (!tagsByCategory[t.category]) tagsByCategory[t.category] = [];
-        tagsByCategory[t.category].push(t);
+    let html = '';
+
+    // Category 1 — OKE
+    html += `<div class="ptag-bulk-section-title" style="color:#1e40af; border-bottom:2px solid #3b82f6;">CHỜ ĐI ĐƠN (OKE)</div>`;
+    html += `<label class="ptag-bulk-option"><input type="radio" name="ptagBulkCat" value="cat_1" /> Okie Chờ Đi Đơn</label>`;
+
+    // Category 2 — XỬ LÝ
+    html += `<div class="ptag-bulk-section-title" style="color:#92400e; border-bottom:2px solid #f59e0b;">MỤC XỬ LÝ</div>`;
+    Object.values(PTAG_SUBTAGS).filter(s => s.category === 2).forEach(sub => {
+        html += `<label class="ptag-bulk-option"><input type="radio" name="ptagBulkCat" value="subtag_${sub.key}" /> ${sub.label}</label>`;
     });
 
-    let html = '';
-    [1, 2, 3, 4].forEach(catId => {
-        const catTags = tagsByCategory[catId] || [];
-        const catName = PTAG_CATEGORY_NAMES[catId];
-        const catColors = PTAG_CATEGORY_COLORS[catId];
+    // Category 3 — KHÔNG CẦN CHỐT
+    html += `<div class="ptag-bulk-section-title" style="color:#374151; border-bottom:2px solid #6b7280;">KHÔNG CẦN CHỐT</div>`;
+    Object.values(PTAG_SUBTAGS).filter(s => s.category === 3).forEach(sub => {
+        html += `<label class="ptag-bulk-option"><input type="radio" name="ptagBulkCat" value="subtag_${sub.key}" /> ${sub.label}</label>`;
+    });
 
-        html += `<div style="font-size:11px; font-weight:700; text-transform:uppercase; color:${catColors.text}; padding:6px 0 2px; border-bottom:2px solid ${catColors.border}; margin-top:8px;">${catName}</div>`;
-
-        catTags.forEach(tag => {
-            html += `
-                <label style="display:flex; align-items:center; gap:8px; padding:5px 4px; cursor:pointer; font-size:12px;">
-                    <input type="checkbox" value="${tag.key}" class="ptag-bulk-checkbox" />
-                    <span class="ptag-dropdown-item-dot" style="background:${tag.color};"></span>
-                    <span>${tag.label}</span>
-                </label>`;
-        });
+    // Category 4 — KHÁCH XÃ
+    html += `<div class="ptag-bulk-section-title" style="color:#991b1b; border-bottom:2px solid #ef4444;">KHÁCH XÃ SAU CHỐT</div>`;
+    Object.values(PTAG_SUBTAGS).filter(s => s.category === 4).forEach(sub => {
+        html += `<label class="ptag-bulk-option"><input type="radio" name="ptagBulkCat" value="subtag_${sub.key}" /> ${sub.label}</label>`;
     });
 
     container.innerHTML = html;
@@ -998,18 +1246,16 @@ async function savePtagBulk() {
         }
     });
 
-    // Get selected tags
-    const selectedKeys = [];
-    document.querySelectorAll('.ptag-bulk-checkbox:checked').forEach(cb => {
-        selectedKeys.push(cb.value);
-    });
-
-    if (selectedKeys.length === 0) {
-        alert('Vui lòng chọn ít nhất 1 tag');
+    // Get selected option
+    const selectedRadio = document.querySelector('input[name="ptagBulkCat"]:checked');
+    if (!selectedRadio) {
+        alert('Vui lòng chọn trạng thái');
         return;
     }
 
-    // Find orders matching STT
+    const selectedValue = selectedRadio.value;
+
+    // Find matching orders
     const matchingOrders = (typeof allData !== 'undefined' ? allData : []).filter(o => {
         const stt = parseInt(o.SessionIndex);
         return !isNaN(stt) && sttSet.has(stt);
@@ -1020,67 +1266,39 @@ async function savePtagBulk() {
         return;
     }
 
-    // Build bulk assignments
-    const assignments = [];
-    for (const order of matchingOrders) {
-        for (const tagKey of selectedKeys) {
-            const existing = ProcessingTagState._orderTags.get(order.Id) || [];
-            if (!existing.some(t => t.key === tagKey)) {
-                const tagDef = ProcessingTagState._tagDefinitions.find(t => t.key === tagKey);
-                assignments.push({
-                    orderId: order.Id,
-                    tagKey,
-                    category: tagDef ? tagDef.category : null,
-                    note: '',
-                });
-                // Optimistic UI update
-                const newTag = { key: tagKey, category: tagDef?.category, note: '', assignedAt: Date.now() };
-                const updatedTags = [...existing, newTag];
-                ProcessingTagState._orderTags.set(order.Id, updatedTags);
-                _ptagUpdateCellDOM(order.Id);
-            }
-        }
+    // Parse selected value
+    let category, subTag = null;
+    if (selectedValue === 'cat_1') {
+        category = 1;
+    } else if (selectedValue.startsWith('subtag_')) {
+        const subTagKey = selectedValue.replace('subtag_', '');
+        const subTagDef = PTAG_SUBTAGS[subTagKey];
+        if (!subTagDef) return;
+        category = subTagDef.category;
+        subTag = subTagKey;
     }
 
-    // Send bulk API call
-    if (assignments.length > 0) {
-        try {
-            await fetch(_ptagApiUrl(`processing-tags/${ProcessingTagState._campaignId}/bulk`), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    assignments,
-                    assignedBy: _ptagGetCurrentUser(),
-                }),
-            });
-        } catch (e) {
-            console.error('[PTAG] Bulk assign error:', e);
-        }
+    // Assign to all matching orders
+    let assignCount = 0;
+    for (const order of matchingOrders) {
+        await assignOrderCategory(order.Id, category, { subTag });
+        assignCount++;
     }
 
     closePtagBulkModal();
-    alert(`Đã gán ${selectedKeys.length} tag cho ${matchingOrders.length} đơn (${assignments.length} thao tác mới)`);
-
-    _ptagRenderPanelCards();
+    alert(`Đã gán trạng thái cho ${assignCount} đơn hàng`);
 }
 
 // =====================================================
-// [I] FILTER INTEGRATION
+// [J] FILTER INTEGRATION
 // =====================================================
 
 /**
- * Get active processing tag filter for performTableSearch()
- * Returns: { type: 'tag'|'category'|'no_tag'|null, value: string|number|null }
+ * Get active processing tag filter
  */
 window.getActiveProcessingTagFilter = function () {
-    if (ProcessingTagState._activeFilter === '__no_tag__') {
-        return { type: 'no_tag', value: null };
-    }
     if (ProcessingTagState._activeFilter) {
-        return { type: 'tag', value: ProcessingTagState._activeFilter };
-    }
-    if (ProcessingTagState._activeCategory) {
-        return { type: 'category', value: ProcessingTagState._activeCategory };
+        return { type: 'active', value: ProcessingTagState._activeFilter };
     }
     return null;
 };
@@ -1089,29 +1307,50 @@ window.getActiveProcessingTagFilter = function () {
  * Check if an order passes the processing tag filter
  */
 window.orderPassesProcessingTagFilter = function (orderId) {
-    const filter = window.getActiveProcessingTagFilter();
+    const filter = ProcessingTagState._activeFilter;
     if (!filter) return true;
 
-    const orderTags = ProcessingTagState._orderTags.get(orderId) || [];
+    const data = ProcessingTagState.getOrderData(orderId);
 
-    switch (filter.type) {
-        case 'no_tag':
-            return orderTags.length === 0;
-        case 'tag':
-            return orderTags.some(t => t.key === filter.value);
-        case 'category': {
-            const catTagKeys = ProcessingTagState._tagDefinitions
-                .filter(d => d.category === filter.value)
-                .map(d => d.key);
-            return orderTags.some(t => catTagKeys.includes(t.key));
-        }
-        default:
-            return true;
+    // Special filters
+    if (filter === '__no_tag__') return !data;
+
+    // Category filter: cat_0, cat_1, cat_2, cat_3, cat_4
+    if (filter.startsWith('cat_')) {
+        const catId = parseInt(filter.replace('cat_', ''));
+        return data?.category === catId;
     }
+
+    // Sub-state filter: sub_OKIE_CHO_DI_DON, sub_CHO_HANG
+    if (filter.startsWith('sub_')) {
+        const subKey = filter.replace('sub_', '');
+        return data?.category === 1 && data?.subState === subKey;
+    }
+
+    // Flag filter: flag_CHUYEN_KHOAN, flag_QUA_LAY, etc.
+    if (filter.startsWith('flag_')) {
+        const flagKey = filter.replace('flag_', '');
+        return data?.category === 1 && (data?.flags || []).includes(flagKey);
+    }
+
+    // Sub-tag filter: subtag_CHUA_PHAN_HOI, etc.
+    if (filter.startsWith('subtag_')) {
+        const subTagKey = filter.replace('subtag_', '');
+        return data?.subTag === subTagKey;
+    }
+
+    // Tag T filter: ttag_T1 Áo smi trắng, etc.
+    if (filter.startsWith('ttag_')) {
+        const tTagName = filter.replace('ttag_', '');
+        const tags = _ptagGetOrderTPOSTags(orderId);
+        return tags?.some(t => (t.Name || t.name || '') === tTagName);
+    }
+
+    return true;
 };
 
 // =====================================================
-// [J] UTILITIES
+// [K] UTILITIES
 // =====================================================
 
 function _ptagGetCurrentUser() {
@@ -1133,13 +1372,71 @@ function _ptagEscapeHtml(str) {
     return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-// Expose key functions to window
+/**
+ * Get order phone from allData
+ */
+function _ptagGetOrderPhone(orderId) {
+    if (typeof allData === 'undefined') return null;
+    const order = allData.find(o => o.Id === orderId);
+    return order?.Telephone || null;
+}
+
+/**
+ * Get order by ID from allData
+ */
+function _ptagGetOrderById(orderId) {
+    if (typeof allData === 'undefined') return null;
+    return allData.find(o => o.Id === orderId) || null;
+}
+
+/**
+ * Get TPOS tags for an order (from availableTags or tag realtime data)
+ */
+function _ptagGetOrderTPOSTags(orderId) {
+    // Try to get from the global tag state if available
+    if (typeof window.getOrderTagsData === 'function') {
+        return window.getOrderTagsData(orderId);
+    }
+    // Fallback: try order data
+    const order = _ptagGetOrderById(orderId);
+    return order?.Tags || null;
+}
+
+// =====================================================
+// BACKWARD COMPATIBILITY — expose old function names
+// =====================================================
+
+// Old assignProcessingTag → new assignOrderCategory with migration
+async function assignProcessingTag(orderId, tagKey, note) {
+    // Map old tag key to new category system
+    const mapped = PTAG_MIGRATION_MAP[tagKey];
+    if (mapped) {
+        await assignOrderCategory(orderId, mapped.category, {
+            subTag: mapped.subTag || null,
+            flags: mapped.flags || [],
+            note: note || ''
+        });
+    }
+}
+
+// Old removeProcessingTag → clear entire tag
+async function removeProcessingTag(orderId, tagKey) {
+    await clearProcessingTags(orderId);
+}
+
+// =====================================================
+// EXPOSE TO WINDOW
+// =====================================================
+
 window.renderProcessingTagCell = renderProcessingTagCell;
 window.assignProcessingTag = assignProcessingTag;
+window.assignOrderCategory = assignOrderCategory;
+window.toggleOrderFlag = toggleOrderFlag;
 window.removeProcessingTag = removeProcessingTag;
 window.clearProcessingTags = clearProcessingTags;
 window.openPtagDropdown = openPtagDropdown;
 window.closePtagDropdown = closePtagDropdown;
+window.ptagSetFilter = ptagSetFilter;
 window.ptagFilterByTag = ptagFilterByTag;
 window.ptagFilterByCategory = ptagFilterByCategory;
 window.ptagFilterPanelSearch = ptagFilterPanelSearch;
@@ -1147,8 +1444,6 @@ window.toggleProcessingTagPanel = toggleProcessingTagPanel;
 window.openProcessingTagPanel = openProcessingTagPanel;
 window.closeProcessingTagPanel = closeProcessingTagPanel;
 window.togglePinProcessingTagPanel = togglePinProcessingTagPanel;
-window.openPtagManageModal = openPtagManageModal;
-window.closePtagManageModal = closePtagManageModal;
 window.openPtagBulkModal = openPtagBulkModal;
 window.closePtagBulkModal = closePtagBulkModal;
 window.savePtagBulk = savePtagBulk;
@@ -1156,4 +1451,13 @@ window.loadProcessingTags = loadProcessingTags;
 window.loadTagDefinitions = loadTagDefinitions;
 window.setupProcessingTagRealtimeListeners = setupProcessingTagRealtimeListeners;
 window.initProcessingTagPanel = initProcessingTagPanel;
+window.onOrderTagsChanged = onOrderTagsChanged;
+window.onBillCreated = onBillCreated;
+window.onBillCancelled = onBillCancelled;
 window.ProcessingTagState = ProcessingTagState;
+
+// Expose dropdown internal functions for onclick handlers in HTML
+window._ptagDropdownAssignCategory = _ptagDropdownAssignCategory;
+window._ptagDropdownAssignSubTag = _ptagDropdownAssignSubTag;
+window._ptagDropdownToggleFlag = _ptagDropdownToggleFlag;
+window._ptagDropdownFilter = _ptagDropdownFilter;
