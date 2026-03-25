@@ -1248,39 +1248,119 @@ async function fetchOrders() {
         }
         console.log(`[PARALLEL] Fetching ${batches.length} batches in parallel:`, batches);
 
-        const fetchPromises = batches.map(async (skipValue, index) => {
-            const url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order/ODataService.GetView?$top=${PAGE_SIZE}&$skip=${skipValue}&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}`;
-            try {
-                const response = await API_CONFIG.smartFetch(url, {
-                    headers: { ...headers, accept: "application/json" },
-                });
-                if (!response.ok) {
-                    console.error(`[PARALLEL] Batch ${index + 1} failed: HTTP ${response.status}`);
+        // Hàm fetch 1 batch với retry (tự động retry khi 429/502/503/network error)
+        async function fetchBatchWithRetry(batchUrl, batchHeaders, skipValue, index, maxRetries = 2) {
+            for (let attempt = 0; attempt <= maxRetries; attempt++) {
+                try {
+                    // Nếu retry, lấy token mới phòng trường hợp token expire
+                    const fetchHeaders = attempt > 0
+                        ? { ...(await window.tokenManager.getAuthHeader()), accept: "application/json" }
+                        : { ...batchHeaders, accept: "application/json" };
+
+                    const response = await API_CONFIG.smartFetch(batchUrl, { headers: fetchHeaders });
+
+                    if (response.status === 429) {
+                        if (attempt < maxRetries) {
+                            const waitMs = 1000 * (attempt + 1);
+                            console.warn(`[PARALLEL] Batch ${index + 1} (skip=${skipValue}) got 429, retry sau ${waitMs}ms...`);
+                            await new Promise(r => setTimeout(r, waitMs));
+                            continue;
+                        }
+                        console.error(`[PARALLEL] Batch ${index + 1} (skip=${skipValue}) FAILED: 429 sau ${maxRetries} retries`);
+                        return { skipValue, orders: [], error: true, status: 429 };
+                    }
+
+                    if (response.status === 502 || response.status === 503) {
+                        if (attempt < maxRetries) {
+                            const waitMs = 1500 * (attempt + 1);
+                            console.warn(`[PARALLEL] Batch ${index + 1} (skip=${skipValue}) got ${response.status}, retry sau ${waitMs}ms...`);
+                            await new Promise(r => setTimeout(r, waitMs));
+                            continue;
+                        }
+                        console.error(`[PARALLEL] Batch ${index + 1} (skip=${skipValue}) FAILED: ${response.status} sau ${maxRetries} retries`);
+                        return { skipValue, orders: [], error: true, status: response.status };
+                    }
+
+                    if (!response.ok) {
+                        console.error(`[PARALLEL] Batch ${index + 1} (skip=${skipValue}) failed: HTTP ${response.status}`);
+                        return { skipValue, orders: [], error: true, status: response.status };
+                    }
+
+                    const data = await response.json();
+                    const orders = data.value || [];
+                    console.log(`[PARALLEL] Batch ${index + 1} (skip=${skipValue}): ${orders.length} orders${attempt > 0 ? ` (retry #${attempt})` : ''}`);
+                    return { skipValue, orders, error: false };
+
+                } catch (err) {
+                    if (attempt < maxRetries) {
+                        console.warn(`[PARALLEL] Batch ${index + 1} (skip=${skipValue}) error, retry #${attempt + 1}:`, err.message);
+                        await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+                        continue;
+                    }
+                    console.error(`[PARALLEL] Batch ${index + 1} (skip=${skipValue}) FAILED sau ${maxRetries} retries:`, err);
                     return { skipValue, orders: [], error: true };
                 }
-                const data = await response.json();
-                const orders = data.value || [];
-                console.log(`[PARALLEL] Batch ${index + 1} (skip=${skipValue}): ${orders.length} orders`);
-                return { skipValue, orders, error: false };
-            } catch (err) {
-                console.error(`[PARALLEL] Batch ${index + 1} error:`, err);
-                return { skipValue, orders: [], error: true };
             }
+            return { skipValue, orders: [], error: true };
+        }
+
+        // Fetch với concurrency limit để tránh 429 Too Many Requests
+        const CONCURRENCY_LIMIT = 3;
+        const tasks = batches.map((skipValue, index) => {
+            const url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order/ODataService.GetView?$top=${PAGE_SIZE}&$skip=${skipValue}&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}`;
+            return () => fetchBatchWithRetry(url, headers, skipValue, index);
         });
 
-        // Wait for ALL batches
-        const results = await Promise.all(fetchPromises);
+        // Chạy tối đa CONCURRENCY_LIMIT request cùng lúc
+        const resultPromises = [];
+        const executing = new Set();
+        for (const task of tasks) {
+            const p = task().then(result => {
+                executing.delete(p);
+                return result;
+            });
+            executing.add(p);
+            resultPromises.push(p);
+            if (executing.size >= CONCURRENCY_LIMIT) {
+                await Promise.race(executing);
+            }
+        }
+        const results = await Promise.all(resultPromises);
 
         // Sort by skipValue and combine (maintains DateCreated desc order)
         results.sort((a, b) => a.skipValue - b.skipValue);
         allData = [];
+        const failedBatches = [];
         for (const result of results) {
+            if (result.error) {
+                failedBatches.push(result);
+            }
             if (result.orders.length > 0) {
                 allData = allData.concat(result.orders);
             }
         }
 
-        console.log(`[PARALLEL] ✅ All batches complete: ${allData.length}/${totalCount} orders`);
+        // ===== LOG CHI TIẾT ĐỂ DEBUG =====
+        console.log(`[PARALLEL] ===== KẾT QUẢ TẢI ĐƠN =====`);
+        console.log(`[PARALLEL] Tổng count từ API: ${totalCount}`);
+        console.log(`[PARALLEL] Số batch: ${batches.length}, thành công: ${batches.length - failedBatches.length}, thất bại: ${failedBatches.length}`);
+        for (const result of results) {
+            const status = result.error ? '❌ FAIL' : '✅ OK';
+            console.log(`[PARALLEL]   Batch skip=${result.skipValue}: ${status} - ${result.orders.length} orders${result.status ? ` (HTTP ${result.status})` : ''}`);
+        }
+        console.log(`[PARALLEL] Tổng đơn nhận được: ${allData.length}/${totalCount}`);
+        if (allData.length < totalCount) {
+            console.warn(`[PARALLEL] ⚠️ THIẾU ${totalCount - allData.length} ĐƠN HÀNG!`);
+        }
+        console.log(`[PARALLEL] ================================`);
+
+        // Cảnh báo user nếu có batch fail sau retry
+        if (failedBatches.length > 0 && window.notificationManager) {
+            window.notificationManager.warning(
+                `⚠️ Tải thiếu dữ liệu: ${allData.length}/${totalCount} đơn. Nhấn "Tải lại" để thử lại.`,
+                6000
+            );
+        }
 
         // Initialize OrderStore with all data
         if (window.OrderStore) {
@@ -1305,17 +1385,18 @@ async function fetchOrders() {
                 Tags: order.Tags,
                 liveCampaignName: order.LiveCampaignName
             }));
-            window.indexedDBStorage.setItem('allOrders', {
-                orders: ordersForTabs,
-                timestamp: Date.now(),
-                activeCampaignNames: selectedCampaign?.campaignNames || []
-            }).catch(err => console.error('[TAB1] IndexedDB save error:', err));
-
-            // Also save raw data for Overview tab (uses raw API field names)
-            window.indexedDBStorage.setItem('allOrdersRaw', {
-                orders: allData,
-                timestamp: Date.now()
-            }).catch(err => console.error('[TAB1] IndexedDB save raw error:', err));
+            await Promise.all([
+                window.indexedDBStorage.setItem('allOrders', {
+                    orders: ordersForTabs,
+                    timestamp: Date.now(),
+                    activeCampaignNames: selectedCampaign?.campaignNames || []
+                }),
+                // Also save raw data for Overview tab (uses raw API field names)
+                window.indexedDBStorage.setItem('allOrdersRaw', {
+                    orders: allData,
+                    timestamp: Date.now()
+                })
+            ]).catch(err => console.error('[TAB1] IndexedDB save error:', err));
         }
 
         // Render table with all data
