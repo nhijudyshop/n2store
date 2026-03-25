@@ -140,6 +140,7 @@
             }
             console.log(`${PTAG_LOG} Loaded ${result.count || 0} tags for campaign ${campaignId}`);
             renderPanelContent();
+            _ptagRefreshAllRows();
         } catch (e) {
             console.error(`${PTAG_LOG} Failed to load tags:`, e);
         }
@@ -249,6 +250,19 @@
         if (!cell) return;
         const order = (window.allData || []).find(o => o.Id === orderId);
         cell.innerHTML = renderProcessingTagCell(orderId, order?.Code || '');
+    }
+
+    function _ptagRefreshAllRows() {
+        // Re-render all visible processing tag cells after bulk load
+        const cells = document.querySelectorAll('td[data-column="processing-tag"]');
+        cells.forEach(cell => {
+            const row = cell.closest('tr');
+            if (!row) return;
+            const orderId = row.getAttribute('data-order-id');
+            if (!orderId) return;
+            const order = (window.allData || []).find(o => o.Id === orderId);
+            cell.innerHTML = renderProcessingTagCell(orderId, order?.Code || '');
+        });
     }
 
     // =====================================================
