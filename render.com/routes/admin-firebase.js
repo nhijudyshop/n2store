@@ -188,7 +188,7 @@ router.delete('/document/*', async (req, res) => {
 // REALTIME DATABASE - Browse RTDB data
 // =====================================================
 
-const rtdb = admin.database();
+const rtdb = admin.apps.length > 0 ? admin.database() : null;
 
 // GET /rtdb/browse - Browse RTDB at a path
 // ?path=/  or  ?path=/soluongProducts
