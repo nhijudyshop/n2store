@@ -128,6 +128,8 @@
 
     async function loadProcessingTags(campaignId) {
         ProcessingTagState._campaignId = campaignId;
+        // Reset filter khi đổi campaign
+        ProcessingTagState._activeFilter = null;
         try {
             const result = await _ptagFetch(`${PTAG_API_BASE}/${encodeURIComponent(campaignId)}`);
             ProcessingTagState.clear();
