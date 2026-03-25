@@ -127,7 +127,7 @@ const ApiService = {
      * @param {number} orderId - TPOS Order ID
      * @returns {Promise<Object>} Order details with products array
      */
-    async getOrderDetails(orderId) {
+    async getOrderDetails(orderId, retries = 2) {
         if (!orderId) return null;
 
         // Expand OrderLines with Product info
@@ -136,63 +136,79 @@ const ApiService = {
 
         console.log('[API] Fetching order details:', orderId);
 
-        try {
-            const response = await window.tokenManager.authenticatedFetch(url, {
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json'
+        for (let attempt = 0; attempt <= retries; attempt++) {
+            try {
+                const response = await window.tokenManager.authenticatedFetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                // Retry on 502/503 (TPOS server overload)
+                if ((response.status === 502 || response.status === 503) && attempt < retries) {
+                    const waitMs = 1500 * (attempt + 1);
+                    console.warn(`[API] Order ${orderId} got ${response.status}, retry ${attempt + 1}/${retries} after ${waitMs}ms...`);
+                    await new Promise(r => setTimeout(r, waitMs));
+                    continue;
                 }
-            });
 
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('[API] Order details error:', errorText);
-                throw new Error(`TPOS API error: ${response.status}`);
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('[API] Order details error:', errorText);
+                    throw new Error(`Lỗi tải đơn hàng (HTTP ${response.status}). Vui lòng thử lại.`);
+                }
+
+                const data = await response.json();
+                console.log('[API] Order details loaded, products:', data.OrderLines?.length || 0);
+
+                // Calculate product subtotal from OrderLines (sum of PriceTotal for each line)
+                const productSubtotal = (data.OrderLines || []).reduce((sum, line) => sum + (line.PriceTotal || 0), 0);
+
+                // Map to internal format
+                return {
+                    id: data.Id,
+                    tposCode: data.Number,
+                    reference: data.Reference,
+                    trackingCode: data.TrackingRef || '',
+                    customer: data.PartnerDisplayName || data.Ship_Receiver_Name || 'N/A',
+                    phone: data.Phone,
+                    address: data.FullAddress || data.Address || '',
+                    cod: data.CashOnDelivery || 0,
+                    // Use calculated product subtotal instead of AmountTotal (which is already reduced)
+                    amountTotal: productSubtotal,
+                    decreaseAmount: data.DecreaseAmount || 0,
+                    deliveryPrice: data.DeliveryPrice || 0,
+                    paymentAmount: data.PaymentAmount || 0,
+                    status: data.State,
+                    carrier: data.CarrierName || '',
+                    channel: data.CRMTeamName || 'TPOS',
+                    // Map OrderLines to products array
+                    products: (data.OrderLines || []).map(line => ({
+                        id: line.Id,
+                        productId: line.ProductId,
+                        code: line.ProductBarcode || '',
+                        name: line.ProductName || '',
+                        quantity: line.ProductUOMQty || 1,
+                        price: line.PriceUnit || 0,
+                        total: line.PriceTotal || 0,
+                        note: line.Note || '',
+                        imageUrl: line.ProductImageUrl || ''
+                    })),
+                    createdAt: new Date(data.DateInvoice).getTime()
+                };
+
+            } catch (error) {
+                if (attempt < retries) {
+                    const waitMs = 1500 * (attempt + 1);
+                    console.warn(`[API] Order ${orderId} error, retry ${attempt + 1}/${retries} after ${waitMs}ms...`, error.message);
+                    await new Promise(r => setTimeout(r, waitMs));
+                    continue;
+                }
+                console.error(`[API] Get order details failed after ${retries + 1} attempts:`, error);
+                throw error;
             }
-
-            const data = await response.json();
-            console.log('[API] Order details loaded, products:', data.OrderLines?.length || 0);
-
-            // Calculate product subtotal from OrderLines (sum of PriceTotal for each line)
-            const productSubtotal = (data.OrderLines || []).reduce((sum, line) => sum + (line.PriceTotal || 0), 0);
-
-            // Map to internal format
-            return {
-                id: data.Id,
-                tposCode: data.Number,
-                reference: data.Reference,
-                trackingCode: data.TrackingRef || '',
-                customer: data.PartnerDisplayName || data.Ship_Receiver_Name || 'N/A',
-                phone: data.Phone,
-                address: data.FullAddress || data.Address || '',
-                cod: data.CashOnDelivery || 0,
-                // Use calculated product subtotal instead of AmountTotal (which is already reduced)
-                amountTotal: productSubtotal,
-                decreaseAmount: data.DecreaseAmount || 0,
-                deliveryPrice: data.DeliveryPrice || 0,
-                paymentAmount: data.PaymentAmount || 0,
-                status: data.State,
-                carrier: data.CarrierName || '',
-                channel: data.CRMTeamName || 'TPOS',
-                // Map OrderLines to products array
-                products: (data.OrderLines || []).map(line => ({
-                    id: line.Id,
-                    productId: line.ProductId,
-                    code: line.ProductBarcode || '',
-                    name: line.ProductName || '',
-                    quantity: line.ProductUOMQty || 1,
-                    price: line.PriceUnit || 0,
-                    total: line.PriceTotal || 0,
-                    note: line.Note || '',
-                    imageUrl: line.ProductImageUrl || ''
-                })),
-                createdAt: new Date(data.DateInvoice).getTime()
-            };
-
-        } catch (error) {
-            console.error('[API] Get order details failed:', error);
-            throw error;
         }
     },
 

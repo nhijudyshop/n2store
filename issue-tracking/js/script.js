@@ -527,9 +527,12 @@ async function selectOrder(order) {
         }
     } catch (err) {
         console.error('[APP] Failed to load order details:', err);
-        // Fallback to error state
-        document.getElementById('res-products-table').innerHTML = '<tr><td colspan="3" style="text-align:center;padding:10px;color:#ef4444;">Lỗi tải sản phẩm</td></tr>';
-        checklist.innerHTML = `<p style="color:#ef4444;font-size:12px;">Lỗi tải sản phẩm. Mã đơn: ${order.tposCode}</p>`;
+        const isServerError = err.message && (err.message.includes('502') || err.message.includes('503'));
+        const errorMsg = isServerError
+            ? 'Hệ thống TPOS đang quá tải, vui lòng thử lại sau ít phút.'
+            : `Lỗi tải sản phẩm: ${err.message || 'Không xác định'}`;
+        document.getElementById('res-products-table').innerHTML = `<tr><td colspan="3" style="text-align:center;padding:10px;color:#ef4444;">${errorMsg}</td></tr>`;
+        checklist.innerHTML = `<p style="color:#ef4444;font-size:12px;">${errorMsg} Mã đơn: ${order.tposCode}</p>`;
     }
 }
 
