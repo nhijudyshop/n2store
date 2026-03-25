@@ -149,7 +149,7 @@
         const campaignId = ProcessingTagState._campaignId;
         if (!campaignId) return;
         try {
-            const userName = window.currentUserName || window.AuthManager?.getCurrentUser()?.username || '';
+            const userName = window.authManager?.getAuthState()?.username || '';
             await _ptagFetch(
                 `${PTAG_API_BASE}/${encodeURIComponent(campaignId)}/${encodeURIComponent(orderId)}`,
                 { method: 'PUT', body: JSON.stringify({ data, updatedBy: userName }) }
