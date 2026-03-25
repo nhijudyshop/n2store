@@ -29,9 +29,6 @@
         _activeFilter: null,         // null | 'sufficient' | 'insufficient'
     };
 
-    const STOCK_TAG_PREFIX = 'STOCK_CHO_';
-    const STOCK_TAG_COLOR = '#f59e0b';
-    const STOCK_TAG_CATEGORY = 1; // MỤC OKE (same as CHO_HANG)
 
     // =====================================================
     // [B] DATA LOADING (Firebase)
@@ -429,8 +426,7 @@
                     blocking.push({ code: p.code, name: p.name, need: p.qty, have: remaining });
                 }
             });
-            const stockTags = blocking.map(b => `${STOCK_TAG_PREFIX}${b.code}`);
-            statusMap.set(orderId, { status: 'insufficient', blocking, stockTags });
+            statusMap.set(orderId, { status: 'insufficient', blocking });
             insufficientCount++;
         });
 
@@ -444,152 +440,6 @@
         console.log(`[STOCK] Computed: ${sufficientCount} sufficient, ${insufficientCount} insufficient, ${allOrders.length - orderProducts.size} no products`);
     }
 
-    // =====================================================
-    // [D] PROCESSING TAGS SYNC
-    // =====================================================
-
-    /**
-     * Sync stock tags to Processing Tags system.
-     * RESET approach: xóa toàn bộ STOCK_CHO_* cũ → gắn mới từ đầu.
-     * Tránh lỗi tag cũ còn sót khi chạy lại kiểm tra tồn kho.
-     */
-    async function syncProcessingTags() {
-        const campaignId = ProcessingTagState._campaignId;
-        if (!campaignId) {
-            console.warn('[STOCK] No campaignId for processing tags sync');
-            return;
-        }
-
-        // ── PHASE 1: XÓA TOÀN BỘ STOCK_CHO_* cũ ──────────────────────
-
-        const deletePromises = [];
-        const affectedOrderIds = new Set();
-
-        ProcessingTagState._orderTags.forEach((tags, orderId) => {
-            const stockTags = tags.filter(t => t.key.startsWith(STOCK_TAG_PREFIX));
-            if (stockTags.length === 0) return;
-
-            affectedOrderIds.add(orderId);
-
-            // Remove from local state
-            const remaining = tags.filter(t => !t.key.startsWith(STOCK_TAG_PREFIX));
-            if (remaining.length > 0) {
-                ProcessingTagState._orderTags.set(orderId, remaining);
-            } else {
-                ProcessingTagState._orderTags.delete(orderId);
-            }
-
-            // Queue API delete for each stock tag
-            stockTags.forEach(t => {
-                deletePromises.push(
-                    fetch(_ptagApiUrl(`processing-tags/${campaignId}/${orderId}/${t.key}`), {
-                        method: 'DELETE',
-                    }).catch(e => console.warn(`[STOCK] Delete ${t.key} from ${orderId}:`, e.message))
-                );
-            });
-        });
-
-        // Fire all deletes in parallel
-        if (deletePromises.length > 0) {
-            await Promise.all(deletePromises);
-            console.log(`[STOCK] Cleared ${deletePromises.length} old stock tags from ${affectedOrderIds.size} orders`);
-        }
-
-        // Update DOM for cleared orders
-        affectedOrderIds.forEach(orderId => _ptagUpdateCellDOM(orderId));
-
-        // Remove old STOCK_CHO_* definitions
-        const oldDefs = ProcessingTagState._tagDefinitions.filter(d => d.key.startsWith(STOCK_TAG_PREFIX));
-        if (oldDefs.length > 0) {
-            ProcessingTagState._tagDefinitions = ProcessingTagState._tagDefinitions.filter(d => !d.key.startsWith(STOCK_TAG_PREFIX));
-        }
-
-        // ── PHASE 2: TẠO MỚI tag definitions + bulk assign ───────────
-
-        // Collect all unique STOCK_CHO_ keys needed from fresh computation
-        const neededTagKeys = new Set();
-        StockStatusEngine._orderStatus.forEach(({ stockTags }) => {
-            stockTags.forEach(key => neededTagKeys.add(key));
-        });
-
-        // Add new tag definitions
-        neededTagKeys.forEach(tagKey => {
-            const code = tagKey.replace(STOCK_TAG_PREFIX, '');
-            ProcessingTagState._tagDefinitions.push({
-                key: tagKey,
-                label: `Chờ ${code}`,
-                color: STOCK_TAG_COLOR,
-                category: STOCK_TAG_CATEGORY,
-            });
-        });
-
-        // Save updated definitions
-        if (neededTagKeys.size > 0 || oldDefs.length > 0) {
-            try {
-                await fetch(_ptagApiUrl(`processing-tag-defs/${campaignId}`), {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ definitions: ProcessingTagState._tagDefinitions }),
-                });
-                console.log(`[STOCK] Updated tag definitions: removed ${oldDefs.length} old, added ${neededTagKeys.size} new`);
-            } catch (e) {
-                console.error('[STOCK] Error saving tag definitions:', e);
-            }
-        }
-
-        // Build fresh assignments
-        const assignments = [];
-        const assignedOrderIds = new Set();
-
-        StockStatusEngine._orderStatus.forEach(({ stockTags }, orderId) => {
-            if (!stockTags || stockTags.length === 0) return;
-
-            stockTags.forEach(tagKey => {
-                assignments.push({
-                    orderId,
-                    tagKey,
-                    category: STOCK_TAG_CATEGORY,
-                    note: 'auto-stock',
-                });
-            });
-
-            // Optimistic UI: set fresh tags in local state
-            const existing = ProcessingTagState._orderTags.get(orderId) || [];
-            const nonStockTags = existing.filter(t => !t.key.startsWith(STOCK_TAG_PREFIX));
-            const freshStockTags = stockTags.map(key => ({
-                key, category: STOCK_TAG_CATEGORY, note: 'auto-stock', assignedAt: Date.now(),
-            }));
-            ProcessingTagState._orderTags.set(orderId, [...nonStockTags, ...freshStockTags]);
-            assignedOrderIds.add(orderId);
-        });
-
-        // Bulk assign via API
-        if (assignments.length > 0) {
-            try {
-                await fetch(_ptagApiUrl(`processing-tags/${campaignId}/bulk`), {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        assignments,
-                        assignedBy: 'auto-stock',
-                    }),
-                });
-                console.log(`[STOCK] Bulk assigned ${assignments.length} fresh stock tags to ${assignedOrderIds.size} orders`);
-            } catch (e) {
-                console.error('[STOCK] Bulk assign error:', e);
-            }
-        }
-
-        // Update DOM for newly assigned orders
-        assignedOrderIds.forEach(orderId => _ptagUpdateCellDOM(orderId));
-
-        // Refresh panel if open
-        if (typeof _ptagRenderPanelCards === 'function') {
-            _ptagRenderPanelCards();
-        }
-
-        console.log(`[STOCK] Tag sync complete — cleared ${deletePromises.length} old, assigned ${assignments.length} new`);
-    }
 
     // =====================================================
     // [E] UI RENDERING (Badges, Tooltips, Filter)
@@ -834,8 +684,6 @@
                 performTableSearch();
             }
 
-            // 5. Sync processing tags
-            await syncProcessingTags();
 
             const s = StockStatusEngine._summaryStats;
             if (window.notificationManager) {

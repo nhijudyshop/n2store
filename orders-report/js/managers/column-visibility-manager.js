@@ -12,7 +12,7 @@ const DEFAULT_COLUMN_VISIBILITY = {
     'stt': true,
     'employee': false,
     'tag': true,
-    'processing-tag': true,
+
     'order-code': false,
     'customer': true,
     'messages': true,

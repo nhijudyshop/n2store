@@ -960,7 +960,7 @@ function renderByEmployee() {
                                 <th data-column="stt">STT</th>
                                 <th data-column="employee" style="width: 90px;">Nhân viên</th>
                                 <th data-column="tag">TAG</th>
-                                <th data-column="processing-tag" style="min-width: 120px;">Tag Xử Lý</th>
+
                                 <th data-column="order-code">Mã ĐH</th>
                                 <th data-column="customer">Khách hàng</th>
                                 <th data-column="phone">SĐT</th>
@@ -1117,7 +1117,7 @@ function createRowHTML(order) {
                     <div style="display: flex; flex-wrap: wrap; gap: 4px; align-items: center;">${tagsHTML}</div>
                 </div>
             </td>
-            <td data-column="processing-tag">${typeof renderProcessingTagCell === 'function' ? renderProcessingTagCell(order.Id, order.Code) : ''}</td>
+
             <td data-column="order-code">
                 <span>${highlight(order.Code)}</span>
             </td>

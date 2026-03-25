@@ -46,8 +46,8 @@ QUY TRÌNH RA ĐƠN :
 
 - Đi đơn bình thường : chọn đơn đồng loạt -> chỉnh kênh ( tính năng web ) -> xác nhận in phiếu -> chụp bill + gửi câu cảm ơn khách.
 
-- Đi đơn công nợ ( trừ thu về, trừ nợ đơn trước, khách ck, giảm giá ) : chọn từng đơn -> chỉnh kênh ( tính năng web ) -> chiết khấu công nợ, giảm giá ( tính năng web ) -> check lại công nợ cho chính xác -> ghi chú ( tính năng web ) -> xác nhận in phiếu -> chụp bill + gửi câu cảm ơn khách.
-
+- Đi đơn công nợ ( trừ thu về, trừ nợ đơn trước, khách ck, g ) : chọn từng đơn -> chỉnh kênh ( tính năng web ) -> chiết khấu công nợ, ( tính năng web ) -> check lại công nợ cho chính xác -> ghi chú ( tính năng web ) -> xác nhận in phiếu -> chụp bill + gửi câu cảm ơn khách.
+= đơn công nợ không gồm giảm giá, giảm giá vẫn đi hàng loạt bình thường đã cài đặt sẵn trong phiếu bán hành nhanh
 - Đi đơn Qua Lấy - Bookgrab : chọn từng đơn -> chỉnh kênh BÁN HÀNG SHOP -> xác nhận in phiếu -> chụp bill + gửi câu cảm ơn khách ( Đơn qua lấy gửi khách câu sđt quản lý )
 
 --> Sau khi ra bill mã vạch sẽ báo cho các bạn khâu đi chợ vào lấy bill để đi hàng.
