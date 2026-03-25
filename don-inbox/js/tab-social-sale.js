@@ -57,6 +57,94 @@ function updateDebtCellsInTable(phone, debt) {
 }
 
 // =====================================================
+// CONFIRM DEBT UPDATE (copied from tab1-qr-debt.js)
+// =====================================================
+async function confirmDebtUpdate() {
+    const prepaidAmountField = document.getElementById('salePrepaidAmount');
+    const confirmBtn = document.getElementById('confirmDebtBtn');
+
+    if (!prepaidAmountField || !currentSaleOrderData) {
+        if (window.notificationManager) {
+            window.notificationManager.error('Không có dữ liệu để cập nhật');
+        }
+        return;
+    }
+
+    const phone = currentSaleOrderData.Telephone || currentSaleOrderData.PartnerPhone;
+    if (!phone) {
+        if (window.notificationManager) {
+            window.notificationManager.error('Không tìm thấy số điện thoại khách hàng');
+        }
+        return;
+    }
+
+    const newDebt = parseFloat(prepaidAmountField.value) || 0;
+
+    // Show loading state
+    const originalText = confirmBtn?.textContent;
+    if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = '...';
+    }
+
+    try {
+        console.log('[DEBT-UPDATE] Updating debt for phone:', phone, 'to:', newDebt);
+
+        const response = await fetch(`${QR_API_URL}/api/sepay/update-debt`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                phone: phone,
+                new_debt: newDebt,
+                reason: 'Admin manual adjustment from Sale Modal (Social)'
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            console.log('[DEBT-UPDATE] Success:', result);
+            if (window.notificationManager) {
+                window.notificationManager.success(`Đã cập nhật Công nợ: ${newDebt.toLocaleString('vi-VN')}đ`);
+            }
+            prepaidAmountField.style.background = '#d1fae5';
+            setTimeout(() => {
+                prepaidAmountField.style.background = '#ffffff';
+            }, 2000);
+
+            const normalizedPhone = normalizePhoneForQR(phone);
+            if (normalizedPhone) {
+                const cache = getDebtCache();
+                delete cache[normalizedPhone];
+                saveDebtCache(cache);
+
+                updateDebtCellsInTable(normalizedPhone, newDebt);
+
+                const oldDebtField = document.getElementById('saleOldDebt');
+                if (oldDebtField) {
+                    oldDebtField.textContent = newDebt > 0 ? `${newDebt.toLocaleString('vi-VN')} đ` : '0';
+                }
+            }
+        } else {
+            throw new Error(result.error || 'Failed to update debt');
+        }
+
+    } catch (error) {
+        console.error('[DEBT-UPDATE] Error:', error);
+        if (window.notificationManager) {
+            window.notificationManager.error('Lỗi cập nhật Công nợ: ' + error.message);
+        }
+    } finally {
+        if (confirmBtn) {
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = originalText || 'Xác nhận';
+        }
+    }
+}
+
+// =====================================================
 // SALE MODAL TAB SWITCHING
 // =====================================================
 function switchSaleTab(tabName) {
