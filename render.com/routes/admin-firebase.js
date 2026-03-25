@@ -6,19 +6,35 @@ const express = require('express');
 const router = express.Router();
 const admin = require('firebase-admin');
 
-// Initialize Firebase Admin (singleton)
-if (!admin.apps.length) {
-    admin.initializeApp({
-        credential: admin.credential.cert({
-            projectId: process.env.FIREBASE_PROJECT_ID,
-            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-            privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')
-        }),
-        databaseURL: 'https://n2shop-69e37-default-rtdb.asia-southeast1.firebasedatabase.app'
-    });
+// Initialize Firebase Admin (singleton) - skip if env vars missing
+let db = null;
+try {
+    if (!admin.apps.length) {
+        const projectId = process.env.FIREBASE_PROJECT_ID;
+        const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+        const privateKey = process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+
+        if (!projectId || !clientEmail || !privateKey) {
+            console.warn('[ADMIN-FIREBASE] Missing Firebase env vars, admin routes disabled');
+        } else {
+            admin.initializeApp({
+                credential: admin.credential.cert({ projectId, clientEmail, privateKey }),
+                databaseURL: 'https://n2shop-69e37-default-rtdb.asia-southeast1.firebasedatabase.app'
+            });
+        }
+    }
+    if (admin.apps.length > 0) {
+        db = admin.firestore();
+    }
+} catch (e) {
+    console.error('[ADMIN-FIREBASE] Init error:', e.message);
 }
 
-const db = admin.firestore();
+// Guard: return 503 if Firebase Admin not initialized
+router.use((req, res, next) => {
+    if (!db) return res.status(503).json({ error: 'Firebase Admin not configured (missing env vars)' });
+    next();
+});
 
 // =====================================================
 // GET /collections - List top-level collections
