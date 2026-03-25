@@ -7,7 +7,17 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const { Pool } = require('pg');
+const { Pool, types } = require('pg');
+
+// Fix timezone: transaction_date is stored as TIMESTAMP WITHOUT TIMEZONE
+// but contains Vietnam time (UTC+7). Render.com server runs in UTC,
+// so pg driver would misinterpret it as UTC. This parser appends +07:00
+// so browser correctly displays Vietnam time.
+// OID 1114 = TIMESTAMP WITHOUT TIMEZONE
+types.setTypeParser(1114, (val) => {
+    if (!val) return val;
+    return val + '+07:00';
+});
 
 const app = express();
 const PORT = process.env.PORT || 3000;

@@ -3,7 +3,11 @@
  * Singleton pattern - returns same pool instance
  */
 
-const { Pool } = require('pg');
+const { Pool, types } = require('pg');
+
+// Fix timezone: TIMESTAMP WITHOUT TIMEZONE contains Vietnam time (UTC+7)
+// Append +07:00 so browser correctly interprets it
+types.setTypeParser(1114, (val) => val ? val + '+07:00' : val);
 
 let pool = null;
 
