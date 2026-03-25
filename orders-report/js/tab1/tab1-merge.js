@@ -6,29 +6,41 @@
  * @param {string} orderId - Order ID
  * @returns {Promise<Object>} Order data with Details array
  */
-async function getOrderDetails(orderId) {
-    try {
-        const headers = await window.tokenManager.getAuthHeader();
-        const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details,Partner,User,CRMTeam`;
+async function getOrderDetails(orderId, retries = 2) {
+    for (let attempt = 0; attempt <= retries; attempt++) {
+        try {
+            const headers = await window.tokenManager.getAuthHeader();
+            const apiUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details,Partner,User,CRMTeam`;
 
-        const response = await API_CONFIG.smartFetch(apiUrl, {
-            headers: {
-                ...headers,
-                "Content-Type": "application/json",
-                Accept: "application/json",
-            },
-        });
+            const response = await API_CONFIG.smartFetch(apiUrl, {
+                headers: {
+                    ...headers,
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                },
+            });
 
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            if (!response.ok) {
+                if (response.status === 502 && attempt < retries) {
+                    console.warn(`[MERGE-API] 502 for order ${orderId}, retry ${attempt + 1}/${retries}...`);
+                    await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
+                    continue;
+                }
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const data = await response.json();
+            console.log(`[MERGE-API] Fetched order ${orderId} with ${data.Details?.length || 0} products`);
+            return data;
+        } catch (error) {
+            if (attempt < retries) {
+                console.warn(`[MERGE-API] Error for order ${orderId}, retry ${attempt + 1}/${retries}...`);
+                await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
+                continue;
+            }
+            console.error(`[MERGE-API] Error fetching order ${orderId} after ${retries + 1} attempts:`, error);
+            return null; // Return null instead of throwing - let caller handle gracefully
         }
-
-        const data = await response.json();
-        console.log(`[MERGE-API] Fetched order ${orderId} with ${data.Details?.length || 0} products`);
-        return data;
-    } catch (error) {
-        console.error(`[MERGE-API] Error fetching order ${orderId}:`, error);
-        throw error;
     }
 }
 
@@ -163,9 +175,16 @@ async function executeMergeOrderProducts(mergedOrder) {
 
         // Step 1: Fetch all order details
         const targetOrderData = await getOrderDetails(mergedOrder.TargetOrderId);
+        if (!targetOrderData) {
+            return { success: false, message: `Không thể tải đơn đích ${mergedOrder.TargetOrderId} (API lỗi 502)` };
+        }
         const sourceOrdersData = await Promise.all(
             mergedOrder.SourceOrderIds.map(id => getOrderDetails(id))
         );
+        const failedSources = sourceOrdersData.filter(d => !d);
+        if (failedSources.length > 0) {
+            return { success: false, message: `Không thể tải ${failedSources.length} đơn nguồn (API lỗi 502)` };
+        }
 
         // Step 2: Collect all products and merge by ProductId
         const productMap = new Map(); // key: ProductId, value: product detail
@@ -578,16 +597,31 @@ async function showMergeDuplicateOrdersModal() {
 
         // Fetch details in batches to avoid rate limiting
         const batchSize = 5;
+        let failedCount = 0;
         for (let i = 0; i < allOrderIds.length; i += batchSize) {
             const batch = allOrderIds.slice(i, i + batchSize);
             const results = await Promise.all(batch.map(id => getOrderDetails(id)));
             results.forEach((detail, idx) => {
-                orderDetailsMap.set(batch[idx], detail);
+                if (detail) {
+                    orderDetailsMap.set(batch[idx], detail);
+                } else {
+                    failedCount++;
+                    console.warn(`[MERGE-MODAL] Failed to fetch details for order ${batch[idx]}, will show without products`);
+                }
             });
+
+            // Update loading progress
+            const loaded = Math.min(i + batchSize, allOrderIds.length);
+            modalBody.innerHTML = `
+                <div class="merge-loading">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Đang tải chi tiết ${loaded}/${allOrderIds.length} đơn hàng...${failedCount > 0 ? ` (${failedCount} lỗi)` : ''}</p>
+                </div>
+            `;
 
             // Small delay between batches
             if (i + batchSize < allOrderIds.length) {
-                await new Promise(resolve => setTimeout(resolve, 200));
+                await new Promise(resolve => setTimeout(resolve, 300));
             }
         }
 
