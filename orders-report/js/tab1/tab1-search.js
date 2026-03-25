@@ -324,6 +324,12 @@ function performTableSearch() {
         console.log(`[FILTER] Applied stock status filter (${window.StockStatusEngine._activeFilter}), remaining orders: ${tempData.length}`);
     }
 
+    // Apply Processing Tag filter
+    if (typeof window.getActiveProcessingTagFilter === 'function' && window.getActiveProcessingTagFilter() !== null) {
+        tempData = tempData.filter(order => window.orderPassesProcessingTagFilter(order.Id));
+        console.log(`[FILTER] Applied processing tag filter (${window.getActiveProcessingTagFilter()}), remaining orders: ${tempData.length}`);
+    }
+
     filteredData = tempData;
 
     // Priority sorting: STT → Phone → Name
@@ -1398,6 +1404,14 @@ async function fetchOrders() {
         performTableSearch();
         updateSearchResultCount();
         showInfoBanner(`✅ Đã tải ${allData.length} đơn hàng.`);
+
+        // Init Processing Tags (Tag Xử Lý) for this campaign
+        const ptagCampaignId = selectedCampaign?.campaignIds?.[0] || selectedCampaign?.campaignId || 'default';
+        if (window.loadProcessingTags) {
+            window.loadProcessingTags(ptagCampaignId);
+            if (window.setupProcessingTagSSE) window.setupProcessingTagSSE(ptagCampaignId);
+            if (window.initProcessingTagPanel) window.initProcessingTagPanel();
+        }
 
         // NOTE: Removed cross-tab sync (sendDataToTab2, sendOrdersDataToOverview, sendOrdersDataToTab3)
         // Each tab now fetches its own data independently when user switches to it

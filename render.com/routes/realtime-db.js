@@ -943,6 +943,116 @@ router.delete('/note-snapshots/cleanup', async (req, res) => {
 
 
 // =====================================================
+// PROCESSING TAGS API
+// Tag xử lý chốt đơn — per campaign, per order
+// =====================================================
+
+/**
+ * GET /api/realtime/processing-tags/:campaignId
+ * Load tất cả processing tags cho 1 campaign
+ */
+router.get('/processing-tags/:campaignId', async (req, res) => {
+    try {
+        const { campaignId } = req.params;
+        const pool = req.app.locals.chatDb;
+
+        if (!pool) {
+            return res.status(500).json({ error: 'Database not available' });
+        }
+
+        const result = await pool.query(
+            'SELECT order_id, data, updated_by, updated_at FROM processing_tags WHERE campaign_id = $1',
+            [campaignId]
+        );
+
+        const data = {};
+        for (const row of result.rows) {
+            data[row.order_id] = {
+                ...row.data,
+                updatedBy: row.updated_by,
+                updatedAt: row.updated_at
+            };
+        }
+
+        res.json({ success: true, data, count: result.rowCount });
+    } catch (error) {
+        console.error('[REALTIME-DB] GET /processing-tags error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * PUT /api/realtime/processing-tags/:campaignId/:orderId
+ * Upsert processing tag cho 1 đơn hàng
+ * Body: { data: {...}, updatedBy: string }
+ */
+router.put('/processing-tags/:campaignId/:orderId', async (req, res) => {
+    try {
+        const { campaignId, orderId } = req.params;
+        const { data, updatedBy } = req.body;
+        const pool = req.app.locals.chatDb;
+
+        if (!pool) {
+            return res.status(500).json({ error: 'Database not available' });
+        }
+
+        if (!data) {
+            return res.status(400).json({ error: 'Missing data in request body' });
+        }
+
+        await pool.query(`
+            INSERT INTO processing_tags (campaign_id, order_id, data, updated_by, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            ON CONFLICT (campaign_id, order_id) DO UPDATE SET
+                data = $3,
+                updated_by = $4,
+                updated_at = CURRENT_TIMESTAMP
+        `, [campaignId, orderId, JSON.stringify(data), updatedBy || null]);
+
+        // Notify SSE clients watching this campaign
+        if (notifyClients) {
+            notifyClients('processing_tags/' + campaignId, { orderId, data, updatedBy }, 'update');
+        }
+
+        res.json({ success: true, campaignId, orderId });
+    } catch (error) {
+        console.error('[REALTIME-DB] PUT /processing-tags error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * DELETE /api/realtime/processing-tags/:campaignId/:orderId
+ * Xóa processing tag của 1 đơn hàng
+ */
+router.delete('/processing-tags/:campaignId/:orderId', async (req, res) => {
+    try {
+        const { campaignId, orderId } = req.params;
+        const pool = req.app.locals.chatDb;
+
+        if (!pool) {
+            return res.status(500).json({ error: 'Database not available' });
+        }
+
+        const result = await pool.query(
+            'DELETE FROM processing_tags WHERE campaign_id = $1 AND order_id = $2 RETURNING id',
+            [campaignId, orderId]
+        );
+
+        // Notify SSE clients
+        if (notifyClients) {
+            notifyClients('processing_tags/' + campaignId, { orderId }, 'deleted');
+        }
+
+        res.json({ success: true, deleted: result.rowCount > 0, campaignId, orderId });
+    } catch (error) {
+        console.error('[REALTIME-DB] DELETE /processing-tags error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+
+// =====================================================
 // EXPORTS
 // =====================================================
 

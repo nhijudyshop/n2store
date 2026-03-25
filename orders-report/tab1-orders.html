@@ -20,6 +20,7 @@
     <link rel="stylesheet" href="css/tab1-chat-modal.css" />
     <link rel="stylesheet" href="css/tab1-sale-modal.css" />
     <link rel="stylesheet" href="css/tab1-bill-settings.css" />
+    <link rel="stylesheet" href="css/tab1-processing-tags.css" />
     <link rel="stylesheet" href="css/order-history.css" />
 
     <link rel="stylesheet" href="css/tab1-stock-status.css" />
@@ -377,6 +378,9 @@
                         <i class="fas fa-columns"></i> Cài đặt cột
                     </button>
                     <div id="stockFilterTabs" style="display:none;"></div>
+                    <button class="ptag-toggle-btn" id="ptagToggleBtn" onclick="window._ptagTogglePanel && window._ptagTogglePanel();" title="Panel Tag Xử Lý">
+                        <i class="fas fa-tasks"></i> Chốt Đơn
+                    </button>
                 </div>
             </div>
             <!-- Active Filters Display -->
@@ -418,6 +422,7 @@
                             <th data-column="stt">STT</th>
                             <th data-column="employee" style="width: 90px;">Nhân viên</th>
                             <th data-column="tag">TAG</th>
+                            <th data-column="processing-tag" style="min-width:110px;">Tag XL</th>
 
                             <th data-column="order-code">Mã ĐH</th>
                             <th data-column="customer">Khách hàng</th>
@@ -660,6 +665,10 @@
                     <label class="column-setting-item">
                         <input type="checkbox" data-column="tag" checked />
                         <span>TAG</span>
+                    </label>
+                    <label class="column-setting-item">
+                        <input type="checkbox" data-column="processing-tag" checked />
+                        <span>Tag XL</span>
                     </label>
 
                     <label class="column-setting-item">
@@ -1069,6 +1078,8 @@
     <!-- 6. Bulk Tags: Bulk tag add/delete (lines 2855-5240) -->
     <script src="js/tab1/tab1-bulk-tags.js"></script>
 
+    <!-- 6b. Processing Tags: Tag xử lý chốt đơn -->
+    <script src="js/tab1/tab1-processing-tags.js"></script>
 
     <!-- 6c. Stock Status: Kiểm tra tồn kho tự động -->
     <script src="js/tab1/tab1-stock-status.js"></script>

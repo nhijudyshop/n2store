@@ -1118,6 +1118,10 @@ function createRowHTML(order) {
                 </div>
             </td>
 
+            <td data-column="processing-tag">
+                ${typeof window.renderProcessingTagCell === 'function' ? window.renderProcessingTagCell(order.Id, order.Code) : '<span style="color:#9ca3af;">-</span>'}
+            </td>
+
             <td data-column="order-code">
                 <span>${highlight(order.Code)}</span>
             </td>

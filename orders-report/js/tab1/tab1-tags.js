@@ -570,6 +570,9 @@ async function quickAssignTag(orderId, orderCode, tagPrefix) {
 
         console.log('[QUICK-TAG] Tag assigned successfully:', tagName, 'to order:', orderCode);
 
+        // Hook: Notify processing tags about TPOS tag change (for T-tag auto sub-state)
+        if (window.onPtagOrderTagsChanged) window.onPtagOrderTagsChanged(orderId, orderTags);
+
         // Re-apply filters to hide order if it no longer matches the current tag filter
         const currentTagFilter = document.getElementById('tagFilter')?.value || 'all';
         if (currentTagFilter !== 'all') {
@@ -1207,6 +1210,9 @@ async function saveOrderTags() {
         window.cacheManager.clear("orders");
         showLoading(false);
         closeTagModal();
+
+        // Hook: Notify processing tags about TPOS tag change (for T-tag auto sub-state)
+        if (window.onPtagOrderTagsChanged) window.onPtagOrderTagsChanged(currentEditingOrderId, currentOrderTags);
 
         if (window.notificationManager) {
             window.notificationManager.success(

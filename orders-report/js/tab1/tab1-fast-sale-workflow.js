@@ -437,6 +437,8 @@
             if (window.InvoiceStatusStore?.delete) {
                 await window.InvoiceStatusStore.delete(saleOnlineId);
                 console.log(`[WORKFLOW] Deleted invoice from InvoiceStatusStore: ${saleOnlineId}`);
+                // Hook: Processing tag rollback to previous position
+                if (window.onPtagBillCancelled) window.onPtagBillCancelled(saleOnlineId);
             }
 
             // Re-add "OK + định danh" tag using quickAssignTag (same as quick-tag-ok button)
@@ -1302,6 +1304,8 @@
             if (window.InvoiceStatusStore?.delete) {
                 await window.InvoiceStatusStore.delete(saleOnlineId);
                 console.log(`[WORKFLOW] Deleted invoice from InvoiceStatusStore: ${saleOnlineId}`);
+                // Hook: Processing tag rollback to previous position
+                if (window.onPtagBillCancelled) window.onPtagBillCancelled(saleOnlineId);
             }
 
             // Step 4: Add "OK + định danh" tag using quickAssignTag
