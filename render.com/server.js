@@ -48,7 +48,7 @@ app.use((req, res, next) => {
 
 // Initialize PostgreSQL connection pool for SePay and Customers routes
 const chatDbPool = new Pool({
-    connectionString: process.env.DATABASE_URL,
+    connectionString: process.env.DATABASE_URL || 'postgresql://n2store_user:iKxWmQEh1PcUSRRJXrlMueaGci1Id6Z0@dpg-d4kr80npm1nc738em3j0-a.singapore-postgres.render.com/n2store_chat',
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
     max: 20,                      // Maximum 20 connections
     idleTimeoutMillis: 30000,     // Close idle connections after 30s
