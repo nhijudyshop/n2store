@@ -742,9 +742,6 @@
                     <button class="ptag-panel-btn" id="ptag-bulk-btn" title="Gán hàng loạt" onclick="window._ptagOpenBulkModal()">
                         <i class="fas fa-layer-group"></i>
                     </button>
-                    <button class="ptag-panel-btn" title="Xóa Tag XL hàng loạt" onclick="window._bulkDelOpenModal()" style="color:#ef4444;">
-                        <i class="fas fa-trash-alt"></i>
-                    </button>
                     <button class="ptag-panel-btn" title="Đóng" onclick="window._ptagTogglePanel()">
                         <i class="fas fa-times"></i>
                     </button>
@@ -1454,7 +1451,6 @@
     window.clearProcessingTag = clearProcessingTag;
     window.renderProcessingTagCell = renderProcessingTagCell;
     window.renderPanelContent = renderPanelContent;
-    window._ptagRefreshRow = _ptagRefreshRow;
 
     // Hooks (called from other files)
     window.onPtagBillCreated = onPtagBillCreated;
