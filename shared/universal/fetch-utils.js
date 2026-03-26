@@ -97,10 +97,21 @@ export async function safeFetch(url, options = {}, config = {}) {
  */
 export async function fetchWithRetry(resource, options = {}, maxRetries = 3, initialDelay = 1000, timeout = 10000) {
     let lastError;
+    let lastResponse;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
             const response = await fetchWithTimeout(resource, options, timeout);
+
+            // Retry on server errors (500, 502, 503, 504)
+            if (response.status >= 500 && attempt < maxRetries) {
+                console.warn(`[FETCH-RETRY] Server error ${response.status}, attempt ${attempt + 1}/${maxRetries + 1}`);
+                lastResponse = response;
+                const delayMs = initialDelay * Math.pow(2, attempt);
+                await delay(delayMs);
+                continue;
+            }
+
             return response;
         } catch (error) {
             lastError = error;
@@ -108,11 +119,11 @@ export async function fetchWithRetry(resource, options = {}, maxRetries = 3, ini
 
             if (attempt < maxRetries) {
                 const delayMs = initialDelay * Math.pow(2, attempt);
-                console.log(`[FETCH-RETRY] Retrying in ${delayMs}ms...`);
                 await delay(delayMs);
             }
         }
     }
 
+    if (lastResponse) return lastResponse;
     throw lastError;
 }
