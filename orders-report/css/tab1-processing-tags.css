@@ -473,3 +473,215 @@
     color: #fff;
     border-color: #7c3aed;
 }
+
+/* ===== T-TAG INDICATOR (table cell) ===== */
+.ptag-ttag-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 10px;
+    color: #7c3aed;
+    background: rgba(124, 58, 237, 0.08);
+    border: 1px solid rgba(124, 58, 237, 0.25);
+    border-radius: 4px;
+    padding: 1px 4px;
+    cursor: pointer;
+    margin-left: 2px;
+}
+.ptag-ttag-indicator:hover {
+    background: rgba(124, 58, 237, 0.15);
+}
+
+/* ===== T-TAG DROPDOWN BUTTON (in dropdown) ===== */
+.ptag-dd-ttag-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 12px 6px 20px;
+    cursor: pointer;
+    border-top: 1px solid #e5e7eb;
+    font-size: 12px;
+    color: #7c3aed;
+    transition: background 0.15s;
+}
+.ptag-dd-ttag-btn:hover {
+    background: rgba(124, 58, 237, 0.06);
+}
+
+/* ===== T-TAG MODAL ===== */
+.ptag-ttag-modal {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 10001;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.2s;
+}
+.ptag-ttag-modal-content {
+    background: #fff;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+}
+.ptag-ttag-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-bottom: 1px solid #e5e7eb;
+}
+.ptag-ttag-save-btn {
+    background: #7c3aed;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.ptag-ttag-save-btn:hover {
+    background: #6d28d9;
+}
+.ptag-ttag-close-btn {
+    background: none;
+    border: none;
+    font-size: 20px;
+    color: #6b7280;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+}
+.ptag-ttag-close-btn:hover {
+    color: #ef4444;
+}
+.ptag-ttag-body {
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.ptag-ttag-input-container {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    min-height: 42px;
+    background: #fff;
+    transition: all 0.2s;
+}
+.ptag-ttag-input-container:focus-within {
+    border-color: #8b5cf6;
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+}
+.ptag-ttag-search-input {
+    flex: 1;
+    min-width: 120px;
+    padding: 4px 0;
+    border: none;
+    font-size: 14px;
+    outline: none;
+    background: transparent;
+}
+
+/* T-tag pills (chips) */
+.ptag-ttag-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #fff;
+    transition: all 0.15s ease-in-out;
+}
+.ptag-ttag-pill.deletion-pending {
+    transform: scale(0.95);
+}
+.ptag-ttag-pill-remove {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.8);
+    cursor: pointer;
+    font-size: 12px;
+    padding: 0;
+    line-height: 1;
+}
+.ptag-ttag-pill-remove:hover {
+    color: #fff;
+}
+
+/* T-tag suggestions dropdown */
+.ptag-ttag-dropdown {
+    max-height: 250px;
+    overflow-y: auto;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    background: #fff;
+}
+.ptag-ttag-dropdown-item {
+    padding: 10px 16px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background 0.15s;
+    border-bottom: 1px solid #f3f4f6;
+}
+.ptag-ttag-dropdown-item:last-child {
+    border-bottom: none;
+}
+.ptag-ttag-dropdown-item:hover {
+    background: #f9fafb;
+}
+.ptag-ttag-dropdown-item.highlighted {
+    background: #e5e7eb;
+}
+.ptag-ttag-dropdown-item.highlighted:hover {
+    background: #d1d5db;
+}
+.ptag-ttag-no-match {
+    text-align: center;
+    padding: 30px 20px;
+    color: #9ca3af;
+    font-size: 13px;
+}
+
+/* T-tag Manager */
+.ptag-ttag-def-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-bottom: 1px solid #f3f4f6;
+    font-size: 13px;
+}
+.ptag-ttag-def-item:last-child {
+    border-bottom: none;
+}
+.ptag-ttag-def-delete {
+    background: none;
+    border: none;
+    color: #d1d5db;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 0 4px;
+}
+.ptag-ttag-def-delete:hover {
+    color: #ef4444;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}

@@ -80,6 +80,7 @@
         _campaignId: null,
         _sseSource: null,
         _pollInterval: null,
+        _tTagDefinitions: [],
 
         getOrderData(orderId) {
             return this._orderData.get(orderId) || null;
@@ -107,6 +108,22 @@
         },
         clear() {
             this._orderData.clear();
+        },
+        getTTagDefinitions() {
+            return this._tTagDefinitions;
+        },
+        setTTagDefinitions(defs) {
+            this._tTagDefinitions = Array.isArray(defs) ? defs : [];
+        },
+        getTTagName(tagId) {
+            const def = this._tTagDefinitions.find(d => d.id === tagId);
+            return def ? `${tagId} ${def.name}` : tagId;
+        },
+        getNextTTagId() {
+            const existing = this._tTagDefinitions.map(d => parseInt(d.id.replace('T', '')) || 0);
+            let next = 1;
+            while (existing.includes(next)) next++;
+            return 'T' + next;
         }
     };
 
@@ -135,6 +152,10 @@
             ProcessingTagState.clear();
             if (result.data) {
                 for (const [orderId, data] of Object.entries(result.data)) {
+                    if (orderId === '__ttag_config__') {
+                        ProcessingTagState.setTTagDefinitions(data.tTagDefinitions || []);
+                        continue;
+                    }
                     ProcessingTagState.setOrderData(orderId, data);
                 }
             }
@@ -158,6 +179,11 @@
         } catch (e) {
             console.error(`${PTAG_LOG} Failed to save tag for ${orderId}:`, e);
         }
+    }
+
+    async function saveTTagDefinitions() {
+        const data = { tTagDefinitions: ProcessingTagState.getTTagDefinitions() };
+        await saveProcessingTagToAPI('__ttag_config__', data);
     }
 
     async function clearProcessingTagAPI(orderId) {
@@ -196,6 +222,11 @@
                 try {
                     const payload = JSON.parse(e.data);
                     const { orderId, data } = payload.data || payload;
+                    if (orderId === '__ttag_config__' && data) {
+                        ProcessingTagState.setTTagDefinitions(data.tTagDefinitions || []);
+                        renderPanelContent();
+                        return;
+                    }
                     if (orderId && data) {
                         ProcessingTagState.setOrderData(orderId, data);
                         _ptagRefreshRow(orderId);
@@ -270,11 +301,13 @@
     // =====================================================
 
     async function assignOrderCategory(orderId, category, options = {}) {
+        const existingData = ProcessingTagState.getOrderData(orderId);
         const data = {
             category,
             subTag: options.subTag || null,
             subState: null,
             flags: options.flags || [],
+            tTags: (category === PTAG_CATEGORIES.CHO_DI_DON && existingData?.tTags) ? [...existingData.tTags] : [],
             note: options.note || '',
             assignedAt: Date.now(),
             previousPosition: null
@@ -282,10 +315,8 @@
 
         // Category 1 (CHỜ ĐI ĐƠN): auto-detect sub-state + flags
         if (category === PTAG_CATEGORIES.CHO_DI_DON) {
-            // Auto sub-state from T-tags
-            const orderTags = _ptagGetOrderTPOSTags(orderId);
-            const hasTTag = orderTags.some(t => /^T\d/.test(t.Name || t.name || ''));
-            data.subState = hasTTag ? 'CHO_HANG' : 'OKIE_CHO_DI_DON';
+            // Auto sub-state from internal tTags
+            data.subState = data.tTags.length > 0 ? 'CHO_HANG' : 'OKIE_CHO_DI_DON';
 
             // Auto-detect flags from wallet
             const phone = _ptagGetOrderPhone(orderId);
@@ -359,22 +390,37 @@
         await clearProcessingTagAPI(orderId);
     }
 
-    // Auto sub-state from T-tag changes
-    function onPtagOrderTagsChanged(orderId, newTags) {
+    // T-tag assignment functions
+    async function assignTTagToOrder(orderId, tagId) {
         const data = ProcessingTagState.getOrderData(orderId);
         if (!data || data.category !== PTAG_CATEGORIES.CHO_DI_DON) return;
+        const tTags = data.tTags || [];
+        if (!tTags.includes(tagId)) tTags.push(tagId);
+        data.tTags = tTags;
+        data.subState = 'CHO_HANG';
+        ProcessingTagState.setOrderData(orderId, data);
+        _ptagRefreshRow(orderId);
+        renderPanelContent();
+        await saveProcessingTagToAPI(orderId, data);
+    }
 
-        const tags = Array.isArray(newTags) ? newTags : [];
-        const hasTTag = tags.some(t => /^T\d/.test(t.Name || t.name || ''));
-        const newSubState = hasTTag ? 'CHO_HANG' : 'OKIE_CHO_DI_DON';
-
-        if (data.subState !== newSubState) {
-            data.subState = newSubState;
-            ProcessingTagState.setOrderData(orderId, data);
-            _ptagRefreshRow(orderId);
-            renderPanelContent();
-            saveProcessingTagToAPI(orderId, data);
+    async function removeTTagFromOrder(orderId, tagId) {
+        const data = ProcessingTagState.getOrderData(orderId);
+        if (!data) return;
+        data.tTags = (data.tTags || []).filter(t => t !== tagId);
+        if (data.category === PTAG_CATEGORIES.CHO_DI_DON) {
+            data.subState = data.tTags.length > 0 ? 'CHO_HANG' : 'OKIE_CHO_DI_DON';
         }
+        ProcessingTagState.setOrderData(orderId, data);
+        _ptagRefreshRow(orderId);
+        renderPanelContent();
+        await saveProcessingTagToAPI(orderId, data);
+    }
+
+    // DEPRECATED — T-tags now managed internally, not from TPOS
+    // Kept as no-op to avoid breaking call sites in tab1-tags.js
+    function onPtagOrderTagsChanged(orderId, newTags) {
+        // no-op
     }
 
     // Auto transition: bill created → HOÀN TẤT
@@ -387,6 +433,7 @@
             subTag: data.subTag,
             subState: data.subState,
             flags: [...(data.flags || [])],
+            tTags: [...(data.tTags || [])],
             note: data.note
         };
 
@@ -395,6 +442,7 @@
             subTag: null,
             subState: null,
             flags: [],
+            tTags: [],
             note: '',
             assignedAt: Date.now(),
             previousPosition: snapshot
@@ -417,6 +465,7 @@
             subTag: prev.subTag,
             subState: prev.subState,
             flags: prev.flags || [],
+            tTags: prev.tTags || [],
             note: prev.note || '',
             assignedAt: Date.now(),
             previousPosition: null
@@ -429,15 +478,6 @@
     }
 
     // Helpers
-    function _ptagGetOrderTPOSTags(orderId) {
-        try {
-            const order = (window.allData || []).find(o => o.Id === orderId);
-            if (!order?.Tags) return [];
-            const tags = typeof order.Tags === 'string' ? JSON.parse(order.Tags) : order.Tags;
-            return Array.isArray(tags) ? tags : [];
-        } catch { return []; }
-    }
-
     function _ptagGetOrderPhone(orderId) {
         const order = (window.allData || []).find(o => o.Id === orderId);
         return order?.Telephone || order?.Phone || '';
@@ -472,9 +512,14 @@
         if (data.category === PTAG_CATEGORIES.CHO_DI_DON) {
             const ss = PTAG_SUBSTATES[data.subState] || PTAG_SUBSTATES.OKIE_CHO_DI_DON;
             const flagIcons = (data.flags || []).map(f => PTAG_FLAGS[f]?.icon || '').filter(Boolean).join('');
+            const tTags = data.tTags || [];
+            const tTagHtml = tTags.length > 0
+                ? `<span class="ptag-ttag-indicator" title="${tTags.map(t => ProcessingTagState.getTTagName(t)).join(', ')}" onclick="window._ptagOpenTTagModal('${orderId}'); event.stopPropagation();">\u{1F4E6}${tTags.length}</span>`
+                : '';
             return `<div class="ptag-cell">
                 <span class="ptag-badge" style="border-color:${ss.color};color:${ss.color};" title="${ss.label}">${ss.label}</span>
                 ${flagIcons ? `<span class="ptag-flags" title="${(data.flags||[]).map(f=>PTAG_FLAGS[f]?.label||f).join(', ')}">${flagIcons}</span>` : ''}
+                ${tTagHtml}
                 <button class="ptag-assign-btn" onclick="window._ptagOpenDropdown('${orderId}', '${orderCode}', this); event.stopPropagation();" title="Sửa tag">
                     <i class="fas fa-pen" style="font-size:9px;color:#9ca3af;"></i>
                 </button>
@@ -535,6 +580,12 @@
                 </label>`;
             }
             html += `</div>`;
+            // T-tag button
+            const tTagCount = (data.tTags || []).length;
+            html += `<div class="ptag-dd-ttag-btn" onclick="window._ptagCloseDropdown(); window._ptagOpenTTagModal('${orderId}');" data-search="tag t cho hang">
+                <span>\u{1F4E6} Tag T Chờ Hàng</span>
+                ${tTagCount > 0 ? `<span class="ptag-count" style="background:#8b5cf6;color:#fff;">${tTagCount}</span>` : '<span style="font-size:10px;color:#9ca3af;">Gán ›</span>'}
+            </div>`;
         }
         html += `</div>`;
 
@@ -727,16 +778,13 @@
             }
         }
 
-        // Count T-tags from TPOS data
-        for (const order of allOrders) {
-            try {
-                const tags = typeof order.Tags === 'string' ? JSON.parse(order.Tags) : (order.Tags || []);
-                if (Array.isArray(tags)) {
-                    tags.filter(t => /^T\d/.test(t.Name || '')).forEach(t => {
-                        tTagCounts[t.Name] = (tTagCounts[t.Name] || 0) + 1;
-                    });
+        // Count T-tags from internal processing tag data
+        for (const [orderId, data] of taggedOrders) {
+            if (data.tTags) {
+                for (const tagId of data.tTags) {
+                    tTagCounts[tagId] = (tTagCounts[tagId] || 0) + 1;
                 }
-            } catch {}
+            }
         }
 
         const activeFilter = ProcessingTagState._activeFilter;
@@ -796,19 +844,25 @@
             html += `</div>`;
         }
 
-        // Tag T section
-        const tTagNames = Object.keys(tTagCounts).sort();
-        if (tTagNames.length > 0) {
+        // Tag T section — always show, with definitions from __ttag_config__
+        const tTagDefs = ProcessingTagState.getTTagDefinitions();
+        {
             html += `<div class="ptag-panel-group ptag-ttag-section" data-search="tag t cho hang">
                 <div class="ptag-panel-item ptag-cat-header" style="border-left:3px solid #8b5cf6;">
-                    <span>TAG T CHỜ HÀNG</span>
-                    <span class="ptag-count">${tTagNames.length}</span>
+                    <span>\u{1F4E6} TAG T CHỜ HÀNG</span>
+                    <span>
+                        <span class="ptag-count">${tTagDefs.length}</span>
+                        <button class="ptag-panel-btn" style="display:inline-flex;width:20px;height:20px;font-size:10px;margin-left:4px;background:none;border:1px solid #d1d5db;border-radius:4px;cursor:pointer;align-items:center;justify-content:center;" onclick="window._ptagOpenTTagManager(); event.stopPropagation();" title="Quản lý Tag T">
+                            <i class="fas fa-cog" style="font-size:9px;color:#6b7280;"></i>
+                        </button>
+                    </span>
                 </div>`;
-            for (const name of tTagNames) {
-                const fk = 'ttag_' + name;
-                html += `<div class="ptag-panel-item ptag-sub-item ${activeFilter === fk ? 'active' : ''}" onclick="window._ptagSetFilter('${fk}')" data-search="${_ptagNormalize(name)}">
-                    <span>${name}</span>
-                    <span class="ptag-count">${tTagCounts[name]}</span>
+            for (const def of tTagDefs) {
+                const fk = 'ttag_' + def.id;
+                const count = tTagCounts[def.id] || 0;
+                html += `<div class="ptag-panel-item ptag-sub-item ${activeFilter === fk ? 'active' : ''}" onclick="window._ptagSetFilter('${fk}')" data-search="${_ptagNormalize(def.id + ' ' + def.name)}">
+                    <span style="color:#7c3aed;">${def.id} ${def.name}</span>
+                    <span class="ptag-count">${count}</span>
                 </div>`;
             }
             html += `</div>`;
@@ -986,6 +1040,326 @@
     }
 
     // =====================================================
+    // SECTION 8B: T-TAG MODAL (UX giống TPOS tag modal)
+    // =====================================================
+
+    let _ttagModalOrderId = null;
+    let _ttagSelectedTags = [];
+    let _ttagPendingDeleteIndex = -1;
+
+    function _ptagOpenTTagModal(orderId) {
+        const data = ProcessingTagState.getOrderData(orderId);
+        if (!data || data.category !== PTAG_CATEGORIES.CHO_DI_DON) {
+            console.warn(`${PTAG_LOG} T-tag modal: order must be in CHỜ ĐI ĐƠN category`);
+            return;
+        }
+
+        _ttagModalOrderId = orderId;
+        _ttagSelectedTags = [...(data.tTags || [])];
+        _ttagPendingDeleteIndex = -1;
+
+        // Remove existing modal
+        const existing = document.getElementById('ptag-ttag-modal');
+        if (existing) existing.remove();
+
+        const order = (window.allData || []).find(o => o.Id === orderId);
+        const orderCode = order?.Code || '';
+
+        const modal = document.createElement('div');
+        modal.id = 'ptag-ttag-modal';
+        modal.className = 'ptag-ttag-modal';
+        modal.innerHTML = `
+            <div class="ptag-ttag-modal-content">
+                <div class="ptag-ttag-header">
+                    <button class="ptag-ttag-save-btn" onclick="window._ptagSaveTTags()" title="Lưu (Ctrl+Enter)">\u{1F4BE} Lưu (Ctrl+Enter)</button>
+                    <span style="flex:1;"></span>
+                    <span style="font-size:11px;color:#6b7280;">Đơn ${orderCode}</span>
+                    <button class="ptag-ttag-close-btn" onclick="window._ptagCloseTTagModal()" title="Đóng">&times;</button>
+                </div>
+                <div class="ptag-ttag-body">
+                    <div class="ptag-ttag-input-container" id="ptag-ttag-input-container">
+                        <div id="ptag-ttag-chips"></div>
+                        <input type="text" id="ptag-ttag-search" class="ptag-ttag-search-input" placeholder="Tìm hoặc tạo tag T..."
+                            oninput="window._ptagFilterTTags()"
+                            onkeydown="window._ptagHandleTTagKeydown(event)" />
+                    </div>
+                    <div class="ptag-ttag-dropdown" id="ptag-ttag-dropdown"></div>
+                </div>
+            </div>`;
+        document.body.appendChild(modal);
+
+        _ptagUpdateTTagChips();
+        _ptagRenderTTagSuggestions('');
+
+        setTimeout(() => {
+            document.getElementById('ptag-ttag-search')?.focus();
+        }, 100);
+    }
+
+    function _ptagCloseTTagModal() {
+        const modal = document.getElementById('ptag-ttag-modal');
+        if (modal) modal.remove();
+        _ttagModalOrderId = null;
+        _ttagSelectedTags = [];
+        _ttagPendingDeleteIndex = -1;
+    }
+
+    function _ptagUpdateTTagChips() {
+        const container = document.getElementById('ptag-ttag-chips');
+        if (!container) return;
+        if (_ttagSelectedTags.length === 0) {
+            container.innerHTML = '';
+            _ttagPendingDeleteIndex = -1;
+            return;
+        }
+        container.innerHTML = _ttagSelectedTags.map((tagId, index) => {
+            const isPending = index === _ttagPendingDeleteIndex;
+            const bg = isPending ? '#ef4444' : '#8b5cf6';
+            const name = ProcessingTagState.getTTagName(tagId);
+            return `<span class="ptag-ttag-pill ${isPending ? 'deletion-pending' : ''}" style="background-color:${bg};">
+                ${name}
+                <button class="ptag-ttag-pill-remove" onclick="event.stopPropagation(); window._ptagRemoveTTagAtIndex(${index});">\u2715</button>
+            </span>`;
+        }).join('');
+    }
+
+    function _ptagRenderTTagSuggestions(query) {
+        const dropdown = document.getElementById('ptag-ttag-dropdown');
+        if (!dropdown) return;
+
+        const defs = ProcessingTagState.getTTagDefinitions();
+        const q = _ptagNormalize(query);
+
+        const filtered = defs.filter(def => {
+            if (_ttagSelectedTags.includes(def.id)) return false;
+            if (!q) return true;
+            return _ptagNormalize(def.id + ' ' + def.name).includes(q);
+        });
+
+        if (filtered.length === 0 && !query.trim()) {
+            dropdown.innerHTML = `<div class="ptag-ttag-no-match"><i class="fas fa-box-open" style="font-size:32px;margin-bottom:8px;display:block;"></i><p>Chưa có tag T nào. Gõ tên và Enter để tạo mới.</p></div>`;
+            return;
+        }
+        if (filtered.length === 0) {
+            dropdown.innerHTML = `<div class="ptag-ttag-no-match"><i class="fas fa-search" style="font-size:32px;margin-bottom:8px;display:block;"></i><p>Không tìm thấy tag phù hợp.<br>Nhấn <b>Enter</b> để tạo "<b>${query.trim().toUpperCase()}</b>"</p></div>`;
+            return;
+        }
+
+        dropdown.innerHTML = filtered.map((def, idx) => {
+            return `<div class="ptag-ttag-dropdown-item ${idx === 0 ? 'highlighted' : ''}" onclick="window._ptagToggleTTagSelection('${def.id}')" data-tag-id="${def.id}">
+                <span style="color:#7c3aed;font-weight:600;">${def.id}</span> ${def.name}
+            </div>`;
+        }).join('');
+    }
+
+    function _ptagFilterTTags() {
+        const input = document.getElementById('ptag-ttag-search');
+        _ptagRenderTTagSuggestions(input?.value || '');
+    }
+
+    function _ptagHandleTTagKeydown(event) {
+        const input = document.getElementById('ptag-ttag-search');
+        const inputValue = input?.value || '';
+
+        // Ctrl+Enter → save (check BEFORE plain Enter)
+        if (event.ctrlKey && event.key === 'Enter') {
+            event.preventDefault();
+            _ptagSaveTTags();
+            return;
+        }
+
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            const highlighted = document.querySelector('.ptag-ttag-dropdown-item.highlighted');
+            if (highlighted) {
+                const tagId = highlighted.getAttribute('data-tag-id');
+                if (tagId) {
+                    _ptagToggleTTagSelection(tagId);
+                    if (input) input.value = '';
+                    _ptagRenderTTagSuggestions('');
+                    _ttagPendingDeleteIndex = -1;
+                }
+            } else if (inputValue.trim()) {
+                _ptagAutoCreateTTag(inputValue.trim());
+                if (input) input.value = '';
+            }
+        } else if (event.key === 'Backspace' && inputValue === '') {
+            event.preventDefault();
+            if (_ttagSelectedTags.length === 0) return;
+            if (_ttagPendingDeleteIndex >= 0) {
+                _ptagRemoveTTagAtIndex(_ttagPendingDeleteIndex);
+            } else {
+                _ttagPendingDeleteIndex = _ttagSelectedTags.length - 1;
+                _ptagUpdateTTagChips();
+            }
+        } else if (event.key === 'Escape') {
+            _ptagCloseTTagModal();
+        } else {
+            if (event.key === 'Control' || event.key === 'Shift') return;
+            if (_ttagPendingDeleteIndex >= 0) {
+                _ttagPendingDeleteIndex = -1;
+                _ptagUpdateTTagChips();
+            }
+        }
+    }
+
+    function _ptagToggleTTagSelection(tagId) {
+        const idx = _ttagSelectedTags.indexOf(tagId);
+        if (idx >= 0) {
+            _ttagSelectedTags.splice(idx, 1);
+        } else {
+            _ttagSelectedTags.push(tagId);
+        }
+        _ttagPendingDeleteIndex = -1;
+        _ptagUpdateTTagChips();
+        const input = document.getElementById('ptag-ttag-search');
+        _ptagRenderTTagSuggestions(input?.value || '');
+        input?.focus();
+    }
+
+    function _ptagRemoveTTagAtIndex(index) {
+        if (index >= 0 && index < _ttagSelectedTags.length) {
+            _ttagSelectedTags.splice(index, 1);
+            _ttagPendingDeleteIndex = -1;
+            _ptagUpdateTTagChips();
+            const input = document.getElementById('ptag-ttag-search');
+            _ptagRenderTTagSuggestions(input?.value || '');
+        }
+    }
+
+    function _ptagAutoCreateTTag(name) {
+        const upperName = name.toUpperCase();
+        const defs = ProcessingTagState.getTTagDefinitions();
+
+        // Check if already exists by name
+        const existing = defs.find(d => d.name.toUpperCase() === upperName);
+        if (existing) {
+            if (!_ttagSelectedTags.includes(existing.id)) {
+                _ttagSelectedTags.push(existing.id);
+            }
+            _ptagUpdateTTagChips();
+            _ptagRenderTTagSuggestions('');
+            return;
+        }
+
+        // Create new definition
+        const newId = ProcessingTagState.getNextTTagId();
+        const newDef = { id: newId, name: upperName };
+        defs.push(newDef);
+        ProcessingTagState.setTTagDefinitions(defs);
+        saveTTagDefinitions();
+
+        // Add to selection
+        _ttagSelectedTags.push(newId);
+        _ptagUpdateTTagChips();
+        _ptagRenderTTagSuggestions('');
+        renderPanelContent();
+
+        console.log(`${PTAG_LOG} Created T-tag: ${newId} ${upperName}`);
+    }
+
+    async function _ptagSaveTTags() {
+        if (!_ttagModalOrderId) return;
+        const orderId = _ttagModalOrderId;
+        const data = ProcessingTagState.getOrderData(orderId);
+        if (!data) return;
+
+        data.tTags = [..._ttagSelectedTags];
+        if (data.category === PTAG_CATEGORIES.CHO_DI_DON) {
+            data.subState = data.tTags.length > 0 ? 'CHO_HANG' : 'OKIE_CHO_DI_DON';
+        }
+
+        ProcessingTagState.setOrderData(orderId, data);
+        _ptagRefreshRow(orderId);
+        renderPanelContent();
+        await saveProcessingTagToAPI(orderId, data);
+
+        _ptagCloseTTagModal();
+        console.log(`${PTAG_LOG} Saved ${data.tTags.length} T-tags for order ${orderId}`);
+    }
+
+    // =====================================================
+    // SECTION 8C: T-TAG MANAGER (quản lý definitions)
+    // =====================================================
+
+    function _ptagOpenTTagManager() {
+        const existing = document.getElementById('ptag-ttag-manager');
+        if (existing) existing.remove();
+
+        const defs = ProcessingTagState.getTTagDefinitions();
+
+        // Count orders per tag
+        const counts = {};
+        for (const [, data] of ProcessingTagState.getAllOrders()) {
+            if (data.tTags) {
+                for (const tagId of data.tTags) {
+                    counts[tagId] = (counts[tagId] || 0) + 1;
+                }
+            }
+        }
+
+        let listHtml = '';
+        if (defs.length === 0) {
+            listHtml = '<div style="text-align:center;padding:20px;color:#9ca3af;">Chưa có tag T nào.<br>Tạo từ dropdown khi gán cho đơn.</div>';
+        } else {
+            listHtml = defs.map(def => {
+                const count = counts[def.id] || 0;
+                return `<div class="ptag-ttag-def-item">
+                    <span style="color:#7c3aed;font-weight:600;min-width:30px;">${def.id}</span>
+                    <span style="flex:1;">${def.name}</span>
+                    <span class="ptag-count" style="margin-right:8px;">${count}</span>
+                    <button class="ptag-ttag-def-delete" onclick="window._ptagDeleteTTagDef('${def.id}')" title="Xóa tag ${def.id}">&times;</button>
+                </div>`;
+            }).join('');
+        }
+
+        const modal = document.createElement('div');
+        modal.id = 'ptag-ttag-manager';
+        modal.className = 'ptag-ttag-modal';
+        modal.innerHTML = `
+            <div class="ptag-ttag-modal-content" style="max-width:450px;">
+                <div class="ptag-ttag-header">
+                    <span style="font-weight:600;font-size:14px;">\u{1F4E6} Quản lý Tag T Chờ Hàng</span>
+                    <span style="flex:1;"></span>
+                    <button class="ptag-ttag-close-btn" onclick="window._ptagCloseTTagManager()">&times;</button>
+                </div>
+                <div style="padding:12px;max-height:400px;overflow-y:auto;" id="ptag-ttag-manager-list">
+                    ${listHtml}
+                </div>
+            </div>`;
+        document.body.appendChild(modal);
+    }
+
+    function _ptagCloseTTagManager() {
+        const modal = document.getElementById('ptag-ttag-manager');
+        if (modal) modal.remove();
+    }
+
+    function _ptagDeleteTTagDef(tagId) {
+        const defs = ProcessingTagState.getTTagDefinitions();
+        // Count how many orders use this tag
+        let count = 0;
+        for (const [, data] of ProcessingTagState.getAllOrders()) {
+            if (data.tTags && data.tTags.includes(tagId)) count++;
+        }
+
+        if (count > 0 && !confirm(`Tag ${tagId} đang được dùng cho ${count} đơn. Xóa definition sẽ không xóa tag khỏi các đơn. Tiếp tục?`)) {
+            return;
+        }
+
+        const idx = defs.findIndex(d => d.id === tagId);
+        if (idx >= 0) {
+            defs.splice(idx, 1);
+            ProcessingTagState.setTTagDefinitions(defs);
+            saveTTagDefinitions();
+            renderPanelContent();
+            // Re-render manager list
+            _ptagCloseTTagManager();
+            _ptagOpenTTagManager();
+        }
+    }
+
+    // =====================================================
     // SECTION 9: FILTER INTEGRATION
     // =====================================================
 
@@ -1023,11 +1397,10 @@
             return data.subTag === filter.replace('subtag_', '');
         }
 
-        // T-tag filter
+        // T-tag filter (from internal tTags, not TPOS)
         if (filter.startsWith('ttag_')) {
-            const tagName = filter.replace('ttag_', '');
-            const tags = _ptagGetOrderTPOSTags(orderId);
-            return tags.some(t => (t.Name || '') === tagName);
+            const tagId = filter.replace('ttag_', '');
+            return (data.tTags || []).includes(tagId);
         }
 
         return true;
@@ -1081,6 +1454,24 @@
     window._ptagOpenBulkModal = _ptagOpenBulkModal;
     window._ptagCloseBulkModal = _ptagCloseBulkModal;
     window._ptagConfirmBulk = _ptagConfirmBulk;
+
+    // T-tag modal (called from onclick)
+    window._ptagOpenTTagModal = _ptagOpenTTagModal;
+    window._ptagCloseTTagModal = _ptagCloseTTagModal;
+    window._ptagHandleTTagKeydown = _ptagHandleTTagKeydown;
+    window._ptagFilterTTags = _ptagFilterTTags;
+    window._ptagToggleTTagSelection = _ptagToggleTTagSelection;
+    window._ptagRemoveTTagAtIndex = _ptagRemoveTTagAtIndex;
+    window._ptagSaveTTags = _ptagSaveTTags;
+
+    // T-tag manager (called from onclick)
+    window._ptagOpenTTagManager = _ptagOpenTTagManager;
+    window._ptagCloseTTagManager = _ptagCloseTTagManager;
+    window._ptagDeleteTTagDef = _ptagDeleteTTagDef;
+
+    // T-tag business logic
+    window.assignTTagToOrder = assignTTagToOrder;
+    window.removeTTagFromOrder = removeTTagFromOrder;
 
     // State (for debugging)
     window.ProcessingTagState = ProcessingTagState;
