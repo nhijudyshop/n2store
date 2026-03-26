@@ -580,8 +580,10 @@
                 </label>`;
             }
             html += `</div>`;
-            // T-tag button
-            const tTagCount = (data.tTags || []).length;
+        }
+        // T-tag button — always visible for Cat 1 orders
+        {
+            const tTagCount = (data?.tTags || []).length;
             html += `<div class="ptag-dd-ttag-btn" onclick="window._ptagCloseDropdown(); window._ptagOpenTTagModal('${orderId}');" data-search="tag t cho hang">
                 <span>\u{1F4E6} Tag T Chờ Hàng</span>
                 ${tTagCount > 0 ? `<span class="ptag-count" style="background:#8b5cf6;color:#fff;">${tTagCount}</span>` : '<span style="font-size:10px;color:#9ca3af;">Gán ›</span>'}
@@ -1047,12 +1049,16 @@
     let _ttagSelectedTags = [];
     let _ttagPendingDeleteIndex = -1;
 
-    function _ptagOpenTTagModal(orderId) {
-        const data = ProcessingTagState.getOrderData(orderId);
+    async function _ptagOpenTTagModal(orderId) {
+        let data = ProcessingTagState.getOrderData(orderId);
+
+        // Auto-assign Cat 1 if not assigned yet
         if (!data || data.category !== PTAG_CATEGORIES.CHO_DI_DON) {
-            console.warn(`${PTAG_LOG} T-tag modal: order must be in CHỜ ĐI ĐƠN category`);
-            return;
+            await assignOrderCategory(orderId, PTAG_CATEGORIES.CHO_DI_DON);
+            data = ProcessingTagState.getOrderData(orderId);
         }
+
+        if (!data) return;
 
         _ttagModalOrderId = orderId;
         _ttagSelectedTags = [...(data.tTags || [])];
