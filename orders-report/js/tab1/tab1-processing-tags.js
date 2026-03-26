@@ -1067,7 +1067,7 @@
         const data = ProcessingTagState.getOrderData(orderId);
 
         _ttagModalOrderId = orderId;
-        _ttagSelectedTags = [...(data.tTags || [])];
+        _ttagSelectedTags = [...(data?.tTags || [])];
         _ttagPendingDeleteIndex = -1;
 
         // Remove existing modal
