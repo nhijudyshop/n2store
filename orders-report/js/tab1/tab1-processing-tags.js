@@ -116,14 +116,7 @@
             this._tTagDefinitions = Array.isArray(defs) ? defs : [];
         },
         getTTagName(tagId) {
-            const def = this._tTagDefinitions.find(d => d.id === tagId);
-            return def ? `${tagId} ${def.name}` : tagId;
-        },
-        getNextTTagId() {
-            const existing = this._tTagDefinitions.map(d => parseInt(d.id.replace('T', '')) || 0);
-            let next = 1;
-            while (existing.includes(next)) next++;
-            return 'T' + next;
+            return tagId;
         }
     };
 
@@ -307,7 +300,7 @@
             subTag: options.subTag || null,
             subState: null,
             flags: options.flags || [],
-            tTags: (category === PTAG_CATEGORIES.CHO_DI_DON && existingData?.tTags) ? [...existingData.tTags] : [],
+            tTags: existingData?.tTags ? [...existingData.tTags] : [],
             note: options.note || '',
             assignedAt: Date.now(),
             previousPosition: null
@@ -390,14 +383,20 @@
         await clearProcessingTagAPI(orderId);
     }
 
-    // T-tag assignment functions
+    // T-tag assignment functions — works for ANY order state
     async function assignTTagToOrder(orderId, tagId) {
-        const data = ProcessingTagState.getOrderData(orderId);
-        if (!data || data.category !== PTAG_CATEGORIES.CHO_DI_DON) return;
+        let data = ProcessingTagState.getOrderData(orderId);
+        if (!data) {
+            // Create minimal data for orders without processing tag
+            data = { tTags: [] };
+        }
         const tTags = data.tTags || [];
         if (!tTags.includes(tagId)) tTags.push(tagId);
         data.tTags = tTags;
-        data.subState = 'CHO_HANG';
+        // Auto sub-state ONLY when at Cat 1 "Okie Chờ Đi Đơn"
+        if (data.category === PTAG_CATEGORIES.CHO_DI_DON && data.subState === 'OKIE_CHO_DI_DON') {
+            data.subState = 'CHO_HANG';
+        }
         ProcessingTagState.setOrderData(orderId, data);
         _ptagRefreshRow(orderId);
         renderPanelContent();
@@ -408,8 +407,9 @@
         const data = ProcessingTagState.getOrderData(orderId);
         if (!data) return;
         data.tTags = (data.tTags || []).filter(t => t !== tagId);
-        if (data.category === PTAG_CATEGORIES.CHO_DI_DON) {
-            data.subState = data.tTags.length > 0 ? 'CHO_HANG' : 'OKIE_CHO_DI_DON';
+        // Auto sub-state ONLY when at Cat 1 "Chờ Hàng" and all T-tags removed
+        if (data.category === PTAG_CATEGORIES.CHO_DI_DON && data.subState === 'CHO_HANG' && data.tTags.length === 0) {
+            data.subState = 'OKIE_CHO_DI_DON';
         }
         ProcessingTagState.setOrderData(orderId, data);
         _ptagRefreshRow(orderId);
@@ -498,6 +498,22 @@
             </div>`;
         }
 
+        // T-tag indicator for ANY order that has tTags
+        const _tTags = data.tTags || [];
+        const _tTagHtml = _tTags.length > 0
+            ? `<span class="ptag-ttag-indicator" title="${_tTags.join(', ')}" onclick="window._ptagOpenTTagModal('${orderId}'); event.stopPropagation();">\u{1F4E6}${_tTags.length}</span>`
+            : '';
+
+        if (!data.category && data.category !== 0) {
+            // Order has only tTags, no processing tag category
+            return `<div class="ptag-cell">
+                ${_tTagHtml}
+                <button class="ptag-assign-btn" onclick="window._ptagOpenDropdown('${orderId}', '${orderCode}', this); event.stopPropagation();" title="Gán tag xử lý">
+                    <i class="fas fa-tasks" style="font-size:11px;color:#9ca3af;"></i>
+                </button>
+            </div>`;
+        }
+
         const catColor = PTAG_CATEGORY_COLORS[data.category];
 
         // Cat 0 — HOÀN TẤT
@@ -512,14 +528,10 @@
         if (data.category === PTAG_CATEGORIES.CHO_DI_DON) {
             const ss = PTAG_SUBSTATES[data.subState] || PTAG_SUBSTATES.OKIE_CHO_DI_DON;
             const flagIcons = (data.flags || []).map(f => PTAG_FLAGS[f]?.icon || '').filter(Boolean).join('');
-            const tTags = data.tTags || [];
-            const tTagHtml = tTags.length > 0
-                ? `<span class="ptag-ttag-indicator" title="${tTags.map(t => ProcessingTagState.getTTagName(t)).join(', ')}" onclick="window._ptagOpenTTagModal('${orderId}'); event.stopPropagation();">\u{1F4E6}${tTags.length}</span>`
-                : '';
             return `<div class="ptag-cell">
                 <span class="ptag-badge" style="border-color:${ss.color};color:${ss.color};" title="${ss.label}">${ss.label}</span>
                 ${flagIcons ? `<span class="ptag-flags" title="${(data.flags||[]).map(f=>PTAG_FLAGS[f]?.label||f).join(', ')}">${flagIcons}</span>` : ''}
-                ${tTagHtml}
+                ${_tTagHtml}
                 <button class="ptag-assign-btn" onclick="window._ptagOpenDropdown('${orderId}', '${orderCode}', this); event.stopPropagation();" title="Sửa tag">
                     <i class="fas fa-pen" style="font-size:9px;color:#9ca3af;"></i>
                 </button>
@@ -532,6 +544,7 @@
         const label = subTagDef?.label || PTAG_CATEGORY_META[data.category]?.short || '';
         return `<div class="ptag-cell">
             <span class="ptag-badge" style="border-color:${catColor.border};color:${catColor.text};background:${catColor.bg};" title="${PTAG_CATEGORY_META[data.category]?.name || ''}">${label}</span>
+            ${_tTagHtml}
             <button class="ptag-assign-btn" onclick="window._ptagOpenDropdown('${orderId}', '${orderCode}', this); event.stopPropagation();" title="Sửa tag">
                 <i class="fas fa-pen" style="font-size:9px;color:#9ca3af;"></i>
             </button>
@@ -861,9 +874,10 @@
                 </div>`;
             for (const def of tTagDefs) {
                 const fk = 'ttag_' + def.id;
+                const escapedFk = fk.replace(/'/g, "\\'");
                 const count = tTagCounts[def.id] || 0;
-                html += `<div class="ptag-panel-item ptag-sub-item ${activeFilter === fk ? 'active' : ''}" onclick="window._ptagSetFilter('${fk}')" data-search="${_ptagNormalize(def.id + ' ' + def.name)}">
-                    <span style="color:#7c3aed;">${def.id} ${def.name}</span>
+                html += `<div class="ptag-panel-item ptag-sub-item ${activeFilter === fk ? 'active' : ''}" onclick="window._ptagSetFilter('${escapedFk}')" data-search="${_ptagNormalize(def.name)}">
+                    <span style="color:#7c3aed;">${def.name}</span>
                     <span class="ptag-count">${count}</span>
                 </div>`;
             }
@@ -1050,15 +1064,7 @@
     let _ttagPendingDeleteIndex = -1;
 
     async function _ptagOpenTTagModal(orderId) {
-        let data = ProcessingTagState.getOrderData(orderId);
-
-        // Auto-assign Cat 1 if not assigned yet
-        if (!data || data.category !== PTAG_CATEGORIES.CHO_DI_DON) {
-            await assignOrderCategory(orderId, PTAG_CATEGORIES.CHO_DI_DON);
-            data = ProcessingTagState.getOrderData(orderId);
-        }
-
-        if (!data) return;
+        const data = ProcessingTagState.getOrderData(orderId);
 
         _ttagModalOrderId = orderId;
         _ttagSelectedTags = [...(data.tTags || [])];
@@ -1121,9 +1127,8 @@
         container.innerHTML = _ttagSelectedTags.map((tagId, index) => {
             const isPending = index === _ttagPendingDeleteIndex;
             const bg = isPending ? '#ef4444' : '#8b5cf6';
-            const name = ProcessingTagState.getTTagName(tagId);
             return `<span class="ptag-ttag-pill ${isPending ? 'deletion-pending' : ''}" style="background-color:${bg};">
-                ${name}
+                ${tagId}
                 <button class="ptag-ttag-pill-remove" onclick="event.stopPropagation(); window._ptagRemoveTTagAtIndex(${index});">\u2715</button>
             </span>`;
         }).join('');
@@ -1139,7 +1144,7 @@
         const filtered = defs.filter(def => {
             if (_ttagSelectedTags.includes(def.id)) return false;
             if (!q) return true;
-            return _ptagNormalize(def.id + ' ' + def.name).includes(q);
+            return _ptagNormalize(def.name).includes(q);
         });
 
         if (filtered.length === 0 && !query.trim()) {
@@ -1152,8 +1157,9 @@
         }
 
         dropdown.innerHTML = filtered.map((def, idx) => {
-            return `<div class="ptag-ttag-dropdown-item ${idx === 0 ? 'highlighted' : ''}" onclick="window._ptagToggleTTagSelection('${def.id}')" data-tag-id="${def.id}">
-                <span style="color:#7c3aed;font-weight:600;">${def.id}</span> ${def.name}
+            const escapedId = def.id.replace(/'/g, "\\'");
+            return `<div class="ptag-ttag-dropdown-item ${idx === 0 ? 'highlighted' : ''}" onclick="window._ptagToggleTTagSelection('${escapedId}')" data-tag-id="${def.id}">
+                <span style="color:#7c3aed;font-weight:600;">${def.name}</span>
             </div>`;
         }).join('');
     }
@@ -1237,8 +1243,8 @@
         const upperName = name.toUpperCase();
         const defs = ProcessingTagState.getTTagDefinitions();
 
-        // Check if already exists by name
-        const existing = defs.find(d => d.name.toUpperCase() === upperName);
+        // Check if already exists (id = name, case-insensitive)
+        const existing = defs.find(d => d.id === upperName);
         if (existing) {
             if (!_ttagSelectedTags.includes(existing.id)) {
                 _ttagSelectedTags.push(existing.id);
@@ -1248,31 +1254,40 @@
             return;
         }
 
-        // Create new definition
-        const newId = ProcessingTagState.getNextTTagId();
-        const newDef = { id: newId, name: upperName };
+        // Create new definition: id = name (UPPERCASE)
+        const newDef = { id: upperName, name: upperName };
         defs.push(newDef);
         ProcessingTagState.setTTagDefinitions(defs);
         saveTTagDefinitions();
 
         // Add to selection
-        _ttagSelectedTags.push(newId);
+        _ttagSelectedTags.push(upperName);
         _ptagUpdateTTagChips();
         _ptagRenderTTagSuggestions('');
         renderPanelContent();
 
-        console.log(`${PTAG_LOG} Created T-tag: ${newId} ${upperName}`);
+        console.log(`${PTAG_LOG} Created T-tag: ${upperName}`);
     }
 
     async function _ptagSaveTTags() {
         if (!_ttagModalOrderId) return;
         const orderId = _ttagModalOrderId;
-        const data = ProcessingTagState.getOrderData(orderId);
-        if (!data) return;
+        let data = ProcessingTagState.getOrderData(orderId);
 
-        data.tTags = [..._ttagSelectedTags];
+        if (!data) {
+            // Create minimal data for orders without processing tag
+            data = { tTags: [..._ttagSelectedTags] };
+        } else {
+            data.tTags = [..._ttagSelectedTags];
+        }
+
+        // Auto sub-state ONLY when at Cat 1
         if (data.category === PTAG_CATEGORIES.CHO_DI_DON) {
-            data.subState = data.tTags.length > 0 ? 'CHO_HANG' : 'OKIE_CHO_DI_DON';
+            if (data.subState === 'OKIE_CHO_DI_DON' && data.tTags.length > 0) {
+                data.subState = 'CHO_HANG';
+            } else if (data.subState === 'CHO_HANG' && data.tTags.length === 0) {
+                data.subState = 'OKIE_CHO_DI_DON';
+            }
         }
 
         ProcessingTagState.setOrderData(orderId, data);
@@ -1310,11 +1325,11 @@
         } else {
             listHtml = defs.map(def => {
                 const count = counts[def.id] || 0;
+                const escapedId = def.id.replace(/'/g, "\\'");
                 return `<div class="ptag-ttag-def-item">
-                    <span style="color:#7c3aed;font-weight:600;min-width:30px;">${def.id}</span>
-                    <span style="flex:1;">${def.name}</span>
+                    <span style="color:#7c3aed;font-weight:600;flex:1;">${def.name}</span>
                     <span class="ptag-count" style="margin-right:8px;">${count}</span>
-                    <button class="ptag-ttag-def-delete" onclick="window._ptagDeleteTTagDef('${def.id}')" title="Xóa tag ${def.id}">&times;</button>
+                    <button class="ptag-ttag-def-delete" onclick="window._ptagDeleteTTagDef('${escapedId}')" title="Xóa tag ${def.name}">&times;</button>
                 </div>`;
             }).join('');
         }
