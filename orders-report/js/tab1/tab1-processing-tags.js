@@ -498,10 +498,10 @@
             </div>`;
         }
 
-        // T-tag indicator for ANY order that has tTags
+        // T-tag badges for ANY order that has tTags — show full names
         const _tTags = data.tTags || [];
         const _tTagHtml = _tTags.length > 0
-            ? `<span class="ptag-ttag-indicator" title="${_tTags.join(', ')}" onclick="window._ptagOpenTTagModal('${orderId}'); event.stopPropagation();">\u{1F4E6}${_tTags.length}</span>`
+            ? `<div class="ptag-ttag-badges" onclick="window._ptagOpenTTagModal('${orderId}'); event.stopPropagation();">${_tTags.map(t => `<span class="ptag-ttag-badge">${t}</span>`).join('')}</div>`
             : '';
 
         if (!data.category && data.category !== 0) {
@@ -1083,7 +1083,7 @@
         modal.innerHTML = `
             <div class="ptag-ttag-modal-content">
                 <div class="ptag-ttag-header">
-                    <button class="ptag-ttag-save-btn" onclick="window._ptagSaveTTags()" title="Lưu (Ctrl+Enter)">\u{1F4BE} Lưu (Ctrl+Enter)</button>
+                    <button class="ptag-ttag-save-btn" onclick="window._ptagSaveTTags()" title="Lưu (Tab / Ctrl+Enter)">\u{1F4BE} Lưu (Tab)</button>
                     <span style="flex:1;"></span>
                     <span style="font-size:11px;color:#6b7280;">Đơn ${orderCode}</span>
                     <button class="ptag-ttag-close-btn" onclick="window._ptagCloseTTagModal()" title="Đóng">&times;</button>
@@ -1173,8 +1173,8 @@
         const input = document.getElementById('ptag-ttag-search');
         const inputValue = input?.value || '';
 
-        // Ctrl+Enter → save (check BEFORE plain Enter)
-        if (event.ctrlKey && event.key === 'Enter') {
+        // Ctrl+Enter or Tab → save
+        if ((event.ctrlKey && event.key === 'Enter') || event.key === 'Tab') {
             event.preventDefault();
             _ptagSaveTTags();
             return;
