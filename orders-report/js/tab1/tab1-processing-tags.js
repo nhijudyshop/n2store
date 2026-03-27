@@ -621,8 +621,24 @@
                 <span style="font-weight:600;font-size:12px;">Chọn trạng thái</span>
                 ${data ? `<button class="ptag-dd-clear" onclick="window._ptagClear('${orderId}'); window._ptagCloseDropdown();">Xóa</button>` : ''}
             </div>
-            <input type="text" class="ptag-dd-search" placeholder="Tìm..." oninput="window._ptagFilterDropdown(this.value)" />
-            <div class="ptag-dd-list">`;
+            <input type="text" class="ptag-dd-search" placeholder="Tìm..." oninput="window._ptagFilterDropdown(this.value)" />`;
+
+        // ĐẶC ĐIỂM ĐƠN HÀNG — Flags PINNED at top (always visible, not scrollable)
+        html += `<div class="ptag-dd-flags-pinned" data-search="dac diem tru cong no ck giam gia cho live giu don qua lay khac">
+            <div class="ptag-dd-cat-header" style="border-left:3px solid #7c3aed;font-size:11px;padding:6px 12px;">
+                🏷️ ĐẶC ĐIỂM ĐƠN HÀNG
+            </div>
+            <div class="ptag-dd-flags">`;
+        for (const [key, flag] of Object.entries(PTAG_FLAGS)) {
+            const checked = (data?.flags || []).includes(key);
+            html += `<label class="ptag-dd-flag ${checked ? 'checked' : ''}" data-search="${_ptagNormalize(flag.label)}">
+                <input type="checkbox" ${checked ? 'checked' : ''} onchange="window._ptagToggleFlag('${orderId}', '${key}'); event.stopPropagation();" />
+                ${flag.icon} ${flag.label}${flag.auto ? ' <span class="ptag-auto-badge">auto</span>' : ''}
+            </label>`;
+        }
+        html += `</div></div>`;
+
+        html += `<div class="ptag-dd-list">`;
 
         // Cat 1 — CHỜ ĐI ĐƠN
         const isCat1 = data?.category === PTAG_CATEGORIES.CHO_DI_DON;
@@ -685,21 +701,6 @@
             </div>`;
         }
         html += `</div>`;
-
-        // ĐẶC ĐIỂM ĐƠN HÀNG — Flags (always visible, independent of category)
-        html += `<div class="ptag-dd-group" data-search="dac diem tru cong no ck giam gia cho live giu don qua lay khac">
-            <div class="ptag-dd-cat-header" style="border-left:3px solid #7c3aed;">
-                🏷️ ĐẶC ĐIỂM ĐƠN HÀNG
-            </div>
-            <div class="ptag-dd-flags">`;
-        for (const [key, flag] of Object.entries(PTAG_FLAGS)) {
-            const checked = (data?.flags || []).includes(key);
-            html += `<label class="ptag-dd-flag ${checked ? 'checked' : ''}" data-search="${_ptagNormalize(flag.label)}">
-                <input type="checkbox" ${checked ? 'checked' : ''} onchange="window._ptagToggleFlag('${orderId}', '${key}'); event.stopPropagation();" />
-                ${flag.icon} ${flag.label}${flag.auto ? ' <span class="ptag-auto-badge">auto</span>' : ''}
-            </label>`;
-        }
-        html += `</div></div>`;
 
         html += `</div></div>`;
 

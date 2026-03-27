@@ -195,9 +195,27 @@
     box-shadow: 0 0 0 2px rgba(59,130,246,0.1);
 }
 
+.ptag-dd-flags-pinned {
+    border-bottom: 2px solid #e5e7eb;
+    flex-shrink: 0;
+    background: #fefce8;
+}
+
+.ptag-dd-flags-pinned .ptag-dd-flags {
+    padding: 4px 8px 6px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2px;
+}
+
+.ptag-dd-flags-pinned .ptag-dd-flag {
+    padding: 5px 8px;
+    font-size: 13px;
+}
+
 .ptag-dd-list {
     overflow-y: auto;
-    max-height: 420px;
+    max-height: 340px;
     padding: 4px 0;
 }
 
