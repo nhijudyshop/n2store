@@ -531,12 +531,11 @@
     function renderProcessingTagCell(orderId, orderCode) {
         const data = ProcessingTagState.getOrderData(orderId);
 
+        // Quick-tag buttons: ✓ Okie Chờ Đi Đơn, ⏰ Đơn chưa phản hồi, 🏷 Open dropdown
+        const quickBtns = `<button class="ptag-quick-btn ptag-quick-btn--ok" onclick="window._ptagQuickAssign('${orderId}', 'ok'); event.stopPropagation();" title="Okie Chờ Đi Đơn"><i class="fas fa-check"></i></button><button class="ptag-quick-btn ptag-quick-btn--wait" onclick="window._ptagQuickAssign('${orderId}', 'wait'); event.stopPropagation();" title="Đơn chưa phản hồi"><i class="fas fa-clock"></i></button><button class="ptag-tag-btn" onclick="window._ptagOpenDropdown('${orderId}', '${orderCode}', this); event.stopPropagation();" title="Chọn trạng thái"><i class="fas fa-tag"></i></button>`;
+
         if (!data) {
-            return `<div class="ptag-cell">
-                <button class="ptag-assign-btn" onclick="window._ptagOpenDropdown('${orderId}', '${orderCode}', this); event.stopPropagation();" title="Gán tag xử lý">
-                    <i class="fas fa-tasks" style="font-size:11px;color:#9ca3af;"></i>
-                </button>
-            </div>`;
+            return `<div class="ptag-cell">${quickBtns}</div>`;
         }
 
         // T-tag badges for ANY order that has tTags — show full names
@@ -546,22 +545,18 @@
             : '';
 
         if (!data.category && data.category !== 0) {
-            // Order has only tTags, no processing tag category
-            return `<div class="ptag-cell">
-                ${_tTagHtml}
-                <button class="ptag-assign-btn" onclick="window._ptagOpenDropdown('${orderId}', '${orderCode}', this); event.stopPropagation();" title="Gán tag xử lý">
-                    <i class="fas fa-tasks" style="font-size:11px;color:#9ca3af;"></i>
-                </button>
-            </div>`;
+            return `<div class="ptag-cell">${_tTagHtml}${quickBtns}</div>`;
         }
 
         const catColor = PTAG_CATEGORY_COLORS[data.category];
+        const tagBtn = `<button class="ptag-tag-btn" onclick="window._ptagOpenDropdown('${orderId}', '${orderCode}', this); event.stopPropagation();" title="Chọn trạng thái"><i class="fas fa-tag"></i></button>`;
+        const clearBtn = `<button class="ptag-clear-btn" onclick="window._ptagClear('${orderId}'); event.stopPropagation();" title="Xóa tag">&times;</button>`;
 
         // Cat 0 — HOÀN TẤT
         if (data.category === PTAG_CATEGORIES.HOAN_TAT) {
             return `<div class="ptag-cell">
-                <span class="ptag-badge ptag-cat-0" title="Hoàn tất — Đã ra đơn">Hoàn tất</span>
-                <button class="ptag-clear-btn" onclick="window._ptagClear('${orderId}'); event.stopPropagation();" title="Xóa tag">&times;</button>
+                <span class="ptag-badge ptag-cat-0" onclick="window._ptagOpenDropdown('${orderId}', '${orderCode}', this); event.stopPropagation();" title="Hoàn tất — Đã ra đơn">🟢 Hoàn tất</span>
+                ${clearBtn}
             </div>`;
         }
 
@@ -570,13 +565,10 @@
             const ss = PTAG_SUBSTATES[data.subState] || PTAG_SUBSTATES.OKIE_CHO_DI_DON;
             const flagIcons = (data.flags || []).map(f => PTAG_FLAGS[f]?.icon || '').filter(Boolean).join('');
             return `<div class="ptag-cell">
-                <span class="ptag-badge" style="border-color:${ss.color};color:${ss.color};" title="${ss.label}">${ss.label}</span>
+                <span class="ptag-badge" style="border-color:${ss.color};color:${ss.color};background:${ss.color}12;" onclick="window._ptagOpenDropdown('${orderId}', '${orderCode}', this); event.stopPropagation();" title="${ss.label}">${ss.label}</span>
                 ${flagIcons ? `<span class="ptag-flags" title="${(data.flags||[]).map(f=>PTAG_FLAGS[f]?.label||f).join(', ')}">${flagIcons}</span>` : ''}
                 ${_tTagHtml}
-                <button class="ptag-assign-btn" onclick="window._ptagOpenDropdown('${orderId}', '${orderCode}', this); event.stopPropagation();" title="Sửa tag">
-                    <i class="fas fa-pen" style="font-size:9px;color:#9ca3af;"></i>
-                </button>
-                <button class="ptag-clear-btn" onclick="window._ptagClear('${orderId}'); event.stopPropagation();" title="Xóa tag">&times;</button>
+                ${tagBtn}${clearBtn}
             </div>`;
         }
 
@@ -584,12 +576,9 @@
         const subTagDef = PTAG_SUBTAGS[data.subTag];
         const label = subTagDef?.label || PTAG_CATEGORY_META[data.category]?.short || '';
         return `<div class="ptag-cell">
-            <span class="ptag-badge" style="border-color:${catColor.border};color:${catColor.text};background:${catColor.bg};" title="${PTAG_CATEGORY_META[data.category]?.name || ''}">${label}</span>
+            <span class="ptag-badge" style="border-color:${catColor.border};color:${catColor.text};background:${catColor.bg};" onclick="window._ptagOpenDropdown('${orderId}', '${orderCode}', this); event.stopPropagation();" title="${PTAG_CATEGORY_META[data.category]?.name || ''}">${label}</span>
             ${_tTagHtml}
-            <button class="ptag-assign-btn" onclick="window._ptagOpenDropdown('${orderId}', '${orderCode}', this); event.stopPropagation();" title="Sửa tag">
-                <i class="fas fa-pen" style="font-size:9px;color:#9ca3af;"></i>
-            </button>
-            <button class="ptag-clear-btn" onclick="window._ptagClear('${orderId}'); event.stopPropagation();" title="Xóa tag">&times;</button>
+            ${tagBtn}${clearBtn}
         </div>`;
     }
 
@@ -763,6 +752,14 @@
     // =====================================================
     // SECTION 7: UI — PANEL (SIDEBAR)
     // =====================================================
+
+    function _ptagQuickAssign(orderId, type) {
+        if (type === 'ok') {
+            assignOrderCategory(orderId, PTAG_CATEGORIES.CHO_DI_DON, { subTag: null });
+        } else if (type === 'wait') {
+            assignOrderCategory(orderId, PTAG_CATEGORIES.XU_LY, { subTag: 'CHUA_PHAN_HOI' });
+        }
+    }
 
     function initProcessingTagPanel() {
         let panel = document.getElementById('ptag-panel');
@@ -1595,6 +1592,7 @@
     window._ptagSetFilter = _ptagSetFilter;
     window._ptagFilterPanel = _ptagFilterPanel;
     window._ptagToggleFlagFilter = _ptagToggleFlagFilter;
+    window._ptagQuickAssign = _ptagQuickAssign;
     window._ptagOpenBulkModal = _ptagOpenBulkModal;
     window._ptagCloseBulkModal = _ptagCloseBulkModal;
     window._ptagConfirmBulk = _ptagConfirmBulk;

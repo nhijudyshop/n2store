@@ -6,20 +6,26 @@
 .ptag-cell {
     display: flex;
     align-items: center;
-    gap: 3px;
+    gap: 4px;
     flex-wrap: wrap;
 }
 
 .ptag-badge {
     display: inline-flex;
     align-items: center;
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-size: 11px;
-    font-weight: 500;
-    border: 1px solid;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    border: 1.5px solid;
     white-space: nowrap;
     line-height: 1.4;
+    cursor: pointer;
+    transition: opacity 0.15s;
+}
+
+.ptag-badge:hover {
+    opacity: 0.8;
 }
 
 .ptag-cat-0 {
@@ -29,34 +35,90 @@
 }
 
 .ptag-flags {
-    font-size: 12px;
-    letter-spacing: 1px;
+    font-size: 14px;
+    letter-spacing: 2px;
 }
 
-.ptag-assign-btn,
+/* Quick-tag buttons */
+.ptag-quick-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border: 1.5px solid #d1d5db;
+    background: #fff;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.15s;
+    font-size: 13px;
+    color: #6b7280;
+}
+
+.ptag-quick-btn:hover {
+    border-color: #9ca3af;
+    background: #f9fafb;
+}
+
+.ptag-quick-btn--ok {
+    color: #10b981;
+    border-color: #a7f3d0;
+}
+
+.ptag-quick-btn--ok:hover {
+    background: #ecfdf5;
+    border-color: #10b981;
+}
+
+.ptag-quick-btn--wait {
+    color: #f59e0b;
+    border-color: #fde68a;
+}
+
+.ptag-quick-btn--wait:hover {
+    background: #fffbeb;
+    border-color: #f59e0b;
+}
+
+/* Tag icon button (opens dropdown) */
+.ptag-tag-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border: 1.5px solid #c4b5fd;
+    background: #f5f3ff;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.15s;
+    font-size: 13px;
+    color: #7c3aed;
+}
+
+.ptag-tag-btn:hover {
+    background: #ede9fe;
+    border-color: #7c3aed;
+}
+
 .ptag-clear-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 20px;
-    height: 20px;
+    width: 22px;
+    height: 22px;
     border: none;
     background: none;
     cursor: pointer;
-    border-radius: 3px;
-    opacity: 0.5;
-    transition: opacity 0.15s, background 0.15s;
-}
-
-.ptag-assign-btn:hover,
-.ptag-clear-btn:hover {
-    opacity: 1;
-    background: rgba(0,0,0,0.06);
-}
-
-.ptag-clear-btn {
+    border-radius: 4px;
     font-size: 14px;
-    color: #9ca3af;
+    color: #d1d5db;
+    transition: all 0.15s;
+}
+
+.ptag-clear-btn:hover {
+    color: #ef4444;
+    background: #fef2f2;
 }
 
 /* ----- DROPDOWN ----- */
