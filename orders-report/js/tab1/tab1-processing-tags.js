@@ -549,9 +549,9 @@
     function renderProcessingTagCell(orderId, orderCode) {
         const data = ProcessingTagState.getOrderData(orderId);
 
-        // Buttons row: [🏷 tag] [⏰ wait] [✓ ok] — TPOS style (tag first)
+        // Buttons row: [🏷 tags] [⏰ wait] [✓ ok] — identical to TPOS tag column
         const btns = `<div class="ptag-cell-buttons">` +
-            `<button class="ptag-tag-btn" onclick="window._ptagOpenDropdown('${orderId}', '${orderCode}', this); event.stopPropagation();" title="Chọn trạng thái"><i class="fas fa-tag"></i></button>` +
+            `<button class="ptag-tag-btn" onclick="window._ptagOpenDropdown('${orderId}', '${orderCode}', this); event.stopPropagation();" title="Chọn trạng thái"><i class="fas fa-tags"></i></button>` +
             `<button class="ptag-quick-btn ptag-quick-btn--wait" onclick="window._ptagQuickAssign('${orderId}', 'wait'); event.stopPropagation();" title="Đơn chưa phản hồi"><i class="fas fa-clock"></i></button>` +
             `<button class="ptag-quick-btn ptag-quick-btn--ok" onclick="window._ptagQuickAssign('${orderId}', 'ok'); event.stopPropagation();" title="Okie Chờ Đi Đơn"><i class="fas fa-check"></i></button>` +
             `</div>`;
