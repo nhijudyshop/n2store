@@ -109,7 +109,7 @@ class TokenManager {
     }
 
     static getFallbackCredentials() {
-        return { grant_type: 'password', username: 'nvlive', password: 'Njd123456', client_id: 'tmtWebApp' };
+        return { grant_type: 'password', username: 'nvktlive2', password: 'Aa@28612345678', client_id: 'tmtWebApp' };
     }
 
     initFirestore() {
