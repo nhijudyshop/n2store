@@ -5,9 +5,22 @@
 /* ----- TABLE CELL ----- */
 .ptag-cell {
     display: flex;
-    align-items: center;
+    flex-direction: column;
     gap: 4px;
+    align-items: flex-start;
+}
+
+.ptag-cell-buttons {
+    display: flex;
+    gap: 2px;
+    align-items: center;
+}
+
+.ptag-cell-badges {
+    display: flex;
     flex-wrap: wrap;
+    gap: 4px;
+    align-items: center;
 }
 
 .ptag-badge {
@@ -52,66 +65,66 @@
     line-height: 1.3;
 }
 
-/* Quick-tag buttons */
+/* Quick-tag buttons — TPOS style (transparent bg, gray icon, blue on hover) */
 .ptag-quick-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     width: 26px;
     height: 26px;
-    border: 1.5px solid #d1d5db;
-    background: #fff;
+    border: none;
+    background: transparent;
     cursor: pointer;
-    border-radius: 6px;
+    border-radius: 4px;
     transition: all 0.15s;
     font-size: 13px;
-    color: #6b7280;
+    color: #9ca3af;
+    padding: 4px;
 }
 
 .ptag-quick-btn:hover {
-    border-color: #9ca3af;
-    background: #f9fafb;
+    background: #f3f4f6;
+    color: #3b82f6;
 }
 
 .ptag-quick-btn--ok {
-    color: #10b981;
-    border-color: #a7f3d0;
+    color: #9ca3af;
 }
 
 .ptag-quick-btn--ok:hover {
+    color: #10b981;
     background: #ecfdf5;
-    border-color: #10b981;
 }
 
 .ptag-quick-btn--wait {
-    color: #f59e0b;
-    border-color: #fde68a;
+    color: #9ca3af;
 }
 
 .ptag-quick-btn--wait:hover {
+    color: #f59e0b;
     background: #fffbeb;
-    border-color: #f59e0b;
 }
 
-/* Tag icon button (opens dropdown) */
+/* Tag icon button (opens dropdown) — TPOS .tag-icon-btn style */
 .ptag-tag-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     width: 26px;
     height: 26px;
-    border: 1.5px solid #c4b5fd;
-    background: #f5f3ff;
+    border: none;
+    background: transparent;
     cursor: pointer;
-    border-radius: 6px;
+    border-radius: 4px;
     transition: all 0.15s;
     font-size: 13px;
-    color: #7c3aed;
+    color: #9ca3af;
+    padding: 4px;
 }
 
 .ptag-tag-btn:hover {
-    background: #ede9fe;
-    border-color: #7c3aed;
+    background: #f3f4f6;
+    color: #3b82f6;
 }
 
 .ptag-clear-btn {
@@ -149,68 +162,66 @@
     flex-direction: column;
 }
 
-.ptag-dd-header {
+/* TPOS-style input container with pills + search input */
+.ptag-dd-input-container {
     display: flex;
-    justify-content: space-between;
+    flex-wrap: wrap;
     align-items: center;
-    padding: 12px 16px;
-    border-bottom: 1px solid #e5e7eb;
-    background: #fafafa;
-}
-
-.ptag-dd-header span {
-    font-size: 14px;
-}
-
-.ptag-dd-clear {
-    font-size: 12px;
-    color: #ef4444;
-    background: none;
-    border: 1px solid #fecaca;
+    gap: 6px;
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
     border-radius: 6px;
-    padding: 4px 12px;
-    cursor: pointer;
-    font-weight: 500;
-    transition: background 0.15s;
+    min-height: 42px;
+    margin: 8px;
+    background: #fff;
+    transition: all 0.2s;
 }
 
-.ptag-dd-clear:hover {
-    background: #fef2f2;
-}
-
-.ptag-dd-search {
-    margin: 8px 12px;
-    padding: 10px 14px;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    font-size: 14px;
-    outline: none;
-    box-sizing: border-box;
-    width: calc(100% - 24px);
-    transition: border-color 0.15s;
-}
-
-.ptag-dd-search:focus {
+.ptag-dd-input-container:focus-within {
     border-color: #3b82f6;
     box-shadow: 0 0 0 2px rgba(59,130,246,0.1);
 }
 
-.ptag-dd-flags-pinned {
-    border-bottom: 2px solid #e5e7eb;
-    flex-shrink: 0;
-    background: #fefce8;
+.ptag-dd-input {
+    flex: 1;
+    min-width: 80px;
+    border: none;
+    outline: none;
+    font-size: 14px;
+    padding: 4px 0;
+    background: transparent;
 }
 
-.ptag-dd-flags-pinned .ptag-dd-flags {
-    padding: 4px 8px 6px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 2px;
+.ptag-dd-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #fff;
+    white-space: nowrap;
+    transition: all 0.15s ease-in-out;
 }
 
-.ptag-dd-flags-pinned .ptag-dd-flag {
-    padding: 5px 8px;
-    font-size: 13px;
+.ptag-dd-pill.deletion-pending {
+    opacity: 0.6;
+    transform: scale(0.95);
+}
+
+.ptag-dd-pill button {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.8);
+    cursor: pointer;
+    font-size: 12px;
+    padding: 0;
+    line-height: 1;
+}
+
+.ptag-dd-pill button:hover {
+    color: #fff;
 }
 
 .ptag-dd-list {
@@ -219,99 +230,47 @@
     padding: 4px 0;
 }
 
-.ptag-dd-group {
-    margin-bottom: 4px;
-}
-
-.ptag-dd-cat-header {
-    padding: 10px 16px;
-    font-size: 13px;
+/* TPOS-style flat tag list */
+.ptag-dd-cat-label {
+    padding: 6px 16px;
+    font-size: 11px;
     font-weight: 700;
-    color: #374151;
-    background: #f3f4f6;
-    border-bottom: 1px solid #e5e7eb;
+    color: #6b7280;
+    background: #f9fafb;
     text-transform: uppercase;
     letter-spacing: 0.3px;
 }
 
-.ptag-dd-item {
-    padding: 12px 16px 12px 20px;
-    font-size: 15px;
+.ptag-dd-tag-item {
+    padding: 10px 16px;
     cursor: pointer;
-    transition: background 0.12s;
-    color: #1f2937;
+    font-size: 14px;
     border-bottom: 1px solid #f9fafb;
+    transition: background 0.1s;
+    color: #1f2937;
 }
 
-.ptag-dd-item:hover {
-    background: #f0f7ff;
+.ptag-dd-tag-item:hover {
+    background: #f9fafb;
 }
 
-.ptag-dd-item.active {
-    background: #eff6ff;
-    color: #1e40af;
+.ptag-dd-tag-item.highlighted {
+    background: #e5e7eb;
+}
+
+.ptag-dd-tag-item.selected {
+    color: #3b82f6;
     font-weight: 600;
 }
 
-.ptag-dd-flags {
-    padding: 6px 12px 6px 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    border-top: 1px solid #f3f4f6;
-}
-
-.ptag-dd-flag {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 12px;
-    font-size: 14px;
-    cursor: pointer;
-    border-radius: 6px;
-    transition: background 0.12s;
-    color: #374151;
-}
-
-.ptag-dd-flag:hover {
-    background: #f0f7ff;
-}
-
-.ptag-dd-flag.checked {
-    background: #eff6ff;
-}
-
-.ptag-dd-flag input[type="checkbox"] {
-    margin: 0;
-    cursor: pointer;
-    width: 16px;
-    height: 16px;
-    accent-color: #7c3aed;
-}
-
-.ptag-auto-badge {
+.ptag-dd-tag-item .ptag-auto-badge {
     font-size: 10px;
     background: #dbeafe;
     color: #3b82f6;
     padding: 1px 6px;
     border-radius: 4px;
     font-weight: 500;
-}
-
-.ptag-dd-ttag-btn {
-    padding: 12px 16px 12px 20px;
-    font-size: 14px;
-    cursor: pointer;
-    transition: background 0.12s;
-    color: #5b21b6;
-    border-top: 1px solid #f3f4f6;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
-
-.ptag-dd-ttag-btn:hover {
-    background: #f5f3ff;
+    margin-left: 4px;
 }
 
 /* ----- PANEL (SIDEBAR) ----- */
@@ -796,22 +755,6 @@
 }
 .ptag-ttag-badges:hover .ptag-ttag-badge {
     background: rgba(124, 58, 237, 0.2);
-}
-
-/* ===== T-TAG DROPDOWN BUTTON (in dropdown) ===== */
-.ptag-dd-ttag-btn {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 6px 12px 6px 20px;
-    cursor: pointer;
-    border-top: 1px solid #e5e7eb;
-    font-size: 12px;
-    color: #7c3aed;
-    transition: background 0.15s;
-}
-.ptag-dd-ttag-btn:hover {
-    background: rgba(124, 58, 237, 0.06);
 }
 
 /* ===== T-TAG MODAL ===== */

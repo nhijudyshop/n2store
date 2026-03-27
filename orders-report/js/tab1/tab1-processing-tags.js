@@ -122,6 +122,7 @@
         _sseSource: null,
         _pollInterval: null,
         _tTagDefinitions: [],
+        _customFlags: new Map(),
 
         getOrderData(orderId) {
             return this._orderData.get(orderId) || null;
@@ -188,6 +189,12 @@
                 for (const [orderId, data] of Object.entries(result.data)) {
                     if (orderId === '__ttag_config__') {
                         ProcessingTagState.setTTagDefinitions(data.tTagDefinitions || []);
+                        continue;
+                    }
+                    if (orderId === '__ptag_custom_flags__') {
+                        if (data.customFlags) {
+                            ProcessingTagState._customFlags = new Map(Object.entries(data.customFlags));
+                        }
                         continue;
                     }
                     // Normalize subState for cat 1 orders based on tTags
@@ -542,66 +549,55 @@
     function renderProcessingTagCell(orderId, orderCode) {
         const data = ProcessingTagState.getOrderData(orderId);
 
-        // Quick-tag buttons — ALWAYS shown at the start (like TPOS tag column)
-        const quickBtns = `<button class="ptag-quick-btn ptag-quick-btn--ok" onclick="window._ptagQuickAssign('${orderId}', 'ok'); event.stopPropagation();" title="Okie Chờ Đi Đơn"><i class="fas fa-check"></i></button><button class="ptag-quick-btn ptag-quick-btn--wait" onclick="window._ptagQuickAssign('${orderId}', 'wait'); event.stopPropagation();" title="Đơn chưa phản hồi"><i class="fas fa-clock"></i></button><button class="ptag-tag-btn" onclick="window._ptagOpenDropdown('${orderId}', '${orderCode}', this); event.stopPropagation();" title="Chọn trạng thái"><i class="fas fa-tag"></i></button>`;
+        // Buttons row: [🏷 tag] [⏰ wait] [✓ ok] — TPOS style (tag first)
+        const btns = `<div class="ptag-cell-buttons">` +
+            `<button class="ptag-tag-btn" onclick="window._ptagOpenDropdown('${orderId}', '${orderCode}', this); event.stopPropagation();" title="Chọn trạng thái"><i class="fas fa-tag"></i></button>` +
+            `<button class="ptag-quick-btn ptag-quick-btn--wait" onclick="window._ptagQuickAssign('${orderId}', 'wait'); event.stopPropagation();" title="Đơn chưa phản hồi"><i class="fas fa-clock"></i></button>` +
+            `<button class="ptag-quick-btn ptag-quick-btn--ok" onclick="window._ptagQuickAssign('${orderId}', 'ok'); event.stopPropagation();" title="Okie Chờ Đi Đơn"><i class="fas fa-check"></i></button>` +
+            `</div>`;
 
         if (!data) {
-            return `<div class="ptag-cell">${quickBtns}</div>`;
+            return `<div class="ptag-cell">${btns}</div>`;
         }
 
-        // T-tag badges for ANY order that has tTags — show full names
-        const _tTags = data.tTags || [];
-        const _tTagHtml = _tTags.length > 0
-            ? `<div class="ptag-ttag-badges" onclick="window._ptagOpenTTagModal('${orderId}'); event.stopPropagation();">${_tTags.map(t => `<span class="ptag-ttag-badge">${t}</span>`).join('')}</div>`
-            : '';
+        // Build badges: tag xử lý → flags → tTags (display priority order)
+        let badges = '';
 
-        // Flag badges — shown for ALL orders that have flags
-        const flagLabels = (data.flags || []).map(f => {
+        // 1. Category badge (tag xử lý) — FIRST
+        if (data.category !== null && data.category !== undefined) {
+            const catColor = PTAG_CATEGORY_COLORS[data.category];
+            if (data.category === PTAG_CATEGORIES.HOAN_TAT) {
+                badges += `<span class="ptag-badge ptag-cat-0" onclick="window._ptagOpenDropdown('${orderId}', '${orderCode}', this); event.stopPropagation();">🟢 Hoàn tất</span>`;
+            } else if (data.category === PTAG_CATEGORIES.CHO_DI_DON) {
+                const ss = PTAG_SUBSTATES[data.subState] || PTAG_SUBSTATES.OKIE_CHO_DI_DON;
+                badges += `<span class="ptag-badge" style="border-color:${ss.color};color:${ss.color};background:${ss.color}12;" onclick="window._ptagOpenDropdown('${orderId}', '${orderCode}', this); event.stopPropagation();">${ss.label}</span>`;
+            } else {
+                const subTagDef = PTAG_SUBTAGS[data.subTag];
+                const label = subTagDef?.label || PTAG_CATEGORY_META[data.category]?.short || '';
+                badges += `<span class="ptag-badge" style="border-color:${catColor.border};color:${catColor.text};background:${catColor.bg};" onclick="window._ptagOpenDropdown('${orderId}', '${orderCode}', this); event.stopPropagation();">${label}</span>`;
+            }
+        }
+
+        // 2. Flag badges (đặc điểm) — SECOND
+        (data.flags || []).forEach(f => {
             const fl = PTAG_FLAGS[f];
-            if (!fl) return '';
-            return `<span class="ptag-flag-badge">${fl.label}</span>`;
-        }).filter(Boolean).join('');
+            if (fl) {
+                badges += `<span class="ptag-flag-badge">${fl.label}</span>`;
+            } else {
+                // Custom flag
+                const cf = ProcessingTagState._customFlags?.get(f);
+                if (cf) badges += `<span class="ptag-flag-badge">${cf.label}</span>`;
+            }
+        });
 
-        if (!data.category && data.category !== 0) {
-            // Order has only flags/tTags, no category
-            return `<div class="ptag-cell">${quickBtns}${flagLabels}${_tTagHtml}</div>`;
+        // 3. T-tag badges — LAST
+        const _tTags = data.tTags || [];
+        if (_tTags.length > 0) {
+            badges += `<div class="ptag-ttag-badges" onclick="window._ptagOpenTTagModal('${orderId}'); event.stopPropagation();">${_tTags.map(t => `<span class="ptag-ttag-badge">${t}</span>`).join('')}</div>`;
         }
 
-        const catColor = PTAG_CATEGORY_COLORS[data.category];
-        const clearBtn = `<button class="ptag-clear-btn" onclick="window._ptagClear('${orderId}'); event.stopPropagation();" title="Xóa tag">&times;</button>`;
-
-        // Cat 0 — HOÀN TẤT
-        if (data.category === PTAG_CATEGORIES.HOAN_TAT) {
-            return `<div class="ptag-cell">
-                ${quickBtns}
-                <span class="ptag-badge ptag-cat-0" onclick="window._ptagOpenDropdown('${orderId}', '${orderCode}', this); event.stopPropagation();" title="Hoàn tất — Đã ra đơn">🟢 Hoàn tất</span>
-                ${flagLabels}
-                ${clearBtn}
-            </div>`;
-        }
-
-        // Cat 1 — CHỜ ĐI ĐƠN
-        if (data.category === PTAG_CATEGORIES.CHO_DI_DON) {
-            const ss = PTAG_SUBSTATES[data.subState] || PTAG_SUBSTATES.OKIE_CHO_DI_DON;
-            return `<div class="ptag-cell">
-                ${quickBtns}
-                <span class="ptag-badge" style="border-color:${ss.color};color:${ss.color};background:${ss.color}12;" onclick="window._ptagOpenDropdown('${orderId}', '${orderCode}', this); event.stopPropagation();" title="${ss.label}">${ss.label}</span>
-                ${flagLabels}
-                ${_tTagHtml}
-                ${clearBtn}
-            </div>`;
-        }
-
-        // Cat 2,3,4 — Sub-tag
-        const subTagDef = PTAG_SUBTAGS[data.subTag];
-        const label = subTagDef?.label || PTAG_CATEGORY_META[data.category]?.short || '';
-        return `<div class="ptag-cell">
-            ${quickBtns}
-            <span class="ptag-badge" style="border-color:${catColor.border};color:${catColor.text};background:${catColor.bg};" onclick="window._ptagOpenDropdown('${orderId}', '${orderCode}', this); event.stopPropagation();" title="${PTAG_CATEGORY_META[data.category]?.name || ''}">${label}</span>
-            ${flagLabels}
-            ${_tTagHtml}
-            ${clearBtn}
-        </div>`;
+        const badgesRow = badges ? `<div class="ptag-cell-badges">${badges}</div>` : '';
+        return `<div class="ptag-cell">${btns}${badgesRow}</div>`;
     }
 
     // =====================================================
@@ -609,105 +605,128 @@
     // =====================================================
 
     let _currentDropdown = null;
+    let _ddOrderId = null;
+
+    // Build the full list of all tags for the dropdown (flat, grouped by category)
+    function _ptagBuildAllTags() {
+        const tags = [];
+        // Cat 1 — CHỜ ĐI ĐƠN
+        tags.push({ type: 'cat-label', label: `${PTAG_CATEGORY_META[1].emoji} CHỜ ĐI ĐƠN` });
+        tags.push({ type: 'tag', key: 'cat:1:null', label: 'Okie Chờ Đi Đơn', isCat: true, cat: 1, subTag: null, color: PTAG_CATEGORY_COLORS[1].border });
+        // T-tag button
+        tags.push({ type: 'tag', key: 'ttag-btn', label: '📦 Tag T Chờ Hàng', isTTagBtn: true, color: '#8b5cf6' });
+        // Cat 2 — XỬ LÝ
+        tags.push({ type: 'cat-label', label: `${PTAG_CATEGORY_META[2].emoji} MỤC XỬ LÝ` });
+        for (const [key, st] of Object.entries(PTAG_SUBTAGS)) {
+            if (st.category !== 2) continue;
+            tags.push({ type: 'tag', key: `cat:2:${key}`, label: st.label, isCat: true, cat: 2, subTag: key, color: PTAG_CATEGORY_COLORS[2].border });
+        }
+        // Cat 3 — KHÔNG CẦN CHỐT
+        tags.push({ type: 'cat-label', label: `${PTAG_CATEGORY_META[3].emoji} KHÔNG CẦN CHỐT` });
+        for (const [key, st] of Object.entries(PTAG_SUBTAGS)) {
+            if (st.category !== 3) continue;
+            tags.push({ type: 'tag', key: `cat:3:${key}`, label: st.label, isCat: true, cat: 3, subTag: key, color: PTAG_CATEGORY_COLORS[3].border });
+        }
+        // Cat 4 — KHÁCH XÃ
+        tags.push({ type: 'cat-label', label: `${PTAG_CATEGORY_META[4].emoji} KHÁCH XÃ SAU CHỐT` });
+        for (const [key, st] of Object.entries(PTAG_SUBTAGS)) {
+            if (st.category !== 4) continue;
+            tags.push({ type: 'tag', key: `cat:4:${key}`, label: st.label, isCat: true, cat: 4, subTag: key, color: PTAG_CATEGORY_COLORS[4].border });
+        }
+        // Cat 0 — HOÀN TẤT
+        tags.push({ type: 'cat-label', label: `${PTAG_CATEGORY_META[0].emoji} HOÀN TẤT` });
+        tags.push({ type: 'tag', key: 'cat:0:null', label: 'Hoàn tất — Đã ra đơn', isCat: true, cat: 0, subTag: null, color: PTAG_CATEGORY_COLORS[0].border });
+        // Flags — ĐẶC ĐIỂM ĐƠN HÀNG
+        tags.push({ type: 'cat-label', label: '🏷️ ĐẶC ĐIỂM ĐƠN HÀNG' });
+        for (const [key, flag] of Object.entries(PTAG_FLAGS)) {
+            tags.push({ type: 'tag', key: `flag:${key}`, label: `${flag.icon} ${flag.label}`, isFlag: true, flagKey: key, color: '#7c3aed', auto: flag.auto });
+        }
+        // Custom flags
+        const customFlags = ProcessingTagState._customFlags;
+        if (customFlags && customFlags.size > 0) {
+            for (const [key, cf] of customFlags) {
+                tags.push({ type: 'tag', key: `flag:${key}`, label: cf.label, isFlag: true, flagKey: key, color: cf.color || '#7c3aed' });
+            }
+        }
+        return tags;
+    }
+
+    // Get pill color for a selected tag
+    function _ptagPillColor(tagInfo) {
+        if (tagInfo.isCat) return tagInfo.color;
+        if (tagInfo.isFlag) return '#7c3aed';
+        return '#6b7280';
+    }
+
+    // Get all currently selected tags for an order as tag-info objects
+    function _ptagGetSelectedTags(orderId) {
+        const data = ProcessingTagState.getOrderData(orderId);
+        if (!data) return [];
+        const selected = [];
+        // Category tag
+        if (data.category !== null && data.category !== undefined) {
+            const catColor = PTAG_CATEGORY_COLORS[data.category];
+            if (data.category === PTAG_CATEGORIES.CHO_DI_DON) {
+                selected.push({ key: 'cat:1:null', label: 'Okie Chờ Đi Đơn', isCat: true, cat: 1, subTag: null, color: catColor.border });
+            } else if (data.category === PTAG_CATEGORIES.HOAN_TAT) {
+                selected.push({ key: 'cat:0:null', label: 'Hoàn tất', isCat: true, cat: 0, subTag: null, color: catColor.border });
+            } else {
+                const st = PTAG_SUBTAGS[data.subTag];
+                const label = st?.label || PTAG_CATEGORY_META[data.category]?.short || '';
+                selected.push({ key: `cat:${data.category}:${data.subTag}`, label, isCat: true, cat: data.category, subTag: data.subTag, color: catColor.border });
+            }
+        }
+        // Flags
+        (data.flags || []).forEach(f => {
+            const fl = PTAG_FLAGS[f];
+            if (fl) {
+                selected.push({ key: `flag:${f}`, label: `${fl.icon} ${fl.label}`, isFlag: true, flagKey: f, color: '#7c3aed' });
+            } else {
+                const cf = ProcessingTagState._customFlags?.get(f);
+                if (cf) selected.push({ key: `flag:${f}`, label: cf.label, isFlag: true, flagKey: f, color: cf.color || '#7c3aed' });
+            }
+        });
+        return selected;
+    }
 
     function _ptagOpenDropdown(orderId, orderCode, anchorEl) {
         _ptagCloseDropdown();
 
         const rect = anchorEl.getBoundingClientRect();
-        const data = ProcessingTagState.getOrderData(orderId);
+        _ddOrderId = orderId;
+        const allTags = _ptagBuildAllTags();
+        const selectedTags = _ptagGetSelectedTags(orderId);
+        const selectedKeys = new Set(selectedTags.map(t => t.key));
 
-        let html = `<div class="ptag-dropdown" id="ptag-dropdown">
-            <div class="ptag-dd-header">
-                <span style="font-weight:600;font-size:12px;">Chọn trạng thái</span>
-                ${data ? `<button class="ptag-dd-clear" onclick="window._ptagClear('${orderId}'); window._ptagCloseDropdown();">Xóa</button>` : ''}
-            </div>
-            <input type="text" class="ptag-dd-search" placeholder="Tìm..." oninput="window._ptagFilterDropdown(this.value)" />`;
+        // Build HTML
+        let html = `<div class="ptag-dropdown" id="ptag-dropdown" data-order-id="${orderId}">`;
 
-        // ĐẶC ĐIỂM ĐƠN HÀNG — Flags PINNED at top (always visible, not scrollable)
-        html += `<div class="ptag-dd-flags-pinned" data-search="dac diem tru cong no ck giam gia cho live giu don qua lay khac">
-            <div class="ptag-dd-cat-header" style="border-left:3px solid #7c3aed;font-size:11px;padding:6px 12px;">
-                🏷️ ĐẶC ĐIỂM ĐƠN HÀNG
-            </div>
-            <div class="ptag-dd-flags">`;
-        for (const [key, flag] of Object.entries(PTAG_FLAGS)) {
-            const checked = (data?.flags || []).includes(key);
-            html += `<label class="ptag-dd-flag ${checked ? 'checked' : ''}" data-search="${_ptagNormalize(flag.label)}">
-                <input type="checkbox" ${checked ? 'checked' : ''} onchange="window._ptagToggleFlag('${orderId}', '${key}'); event.stopPropagation();" />
-                ${flag.icon} ${flag.label}${flag.auto ? ' <span class="ptag-auto-badge">auto</span>' : ''}
-            </label>`;
-        }
-        html += `</div></div>`;
+        // Input container: pills + search input
+        html += `<div class="ptag-dd-input-container">`;
+        selectedTags.forEach(t => {
+            html += `<span class="ptag-dd-pill" style="background:${_ptagPillColor(t)};" data-key="${t.key}">${t.label} <button onclick="window._ptagDdRemovePill('${t.key}'); event.stopPropagation();">&times;</button></span>`;
+        });
+        html += `<input type="text" class="ptag-dd-input" id="ptag-dd-input" placeholder="Tìm tag..." />`;
+        html += `</div>`;
 
+        // Tag list (scrollable, filterable)
         html += `<div class="ptag-dd-list">`;
-
-        // Cat 1 — CHỜ ĐI ĐƠN
-        const isCat1 = data?.category === PTAG_CATEGORIES.CHO_DI_DON;
-        html += `<div class="ptag-dd-group" data-search="cho di don oke okie">
-            <div class="ptag-dd-cat-header" style="border-left:3px solid ${PTAG_CATEGORY_COLORS[1].border};">
-                ${PTAG_CATEGORY_META[1].emoji} ${PTAG_CATEGORY_META[1].name}
-            </div>
-            <div class="ptag-dd-item ${isCat1 ? 'active' : ''}" onclick="window._ptagAssign('${orderId}', 1, null); window._ptagCloseDropdown();" data-search="okie cho di don">
-                Okie Chờ Đi Đơn
-            </div>`;
-
-        // T-tag button
-        {
-            const tTagCount = (data?.tTags || []).length;
-            html += `<div class="ptag-dd-ttag-btn" onclick="window._ptagCloseDropdown(); window._ptagOpenTTagModal('${orderId}');" data-search="tag t cho hang">
-                <span>\u{1F4E6} Tag T Chờ Hàng</span>
-                ${tTagCount > 0 ? `<span class="ptag-count" style="background:#8b5cf6;color:#fff;">${tTagCount}</span>` : '<span style="font-size:10px;color:#9ca3af;">Gán ›</span>'}
-            </div>`;
+        for (const tag of allTags) {
+            if (tag.type === 'cat-label') {
+                html += `<div class="ptag-dd-cat-label">${tag.label}</div>`;
+            } else {
+                const isSelected = selectedKeys.has(tag.key);
+                const cls = isSelected ? 'selected' : '';
+                const autoLabel = tag.auto ? ' <span class="ptag-auto-badge">auto</span>' : '';
+                html += `<div class="ptag-dd-tag-item ${cls}" data-key="${tag.key}" data-search="${_ptagNormalize(tag.label)}">${tag.label}${autoLabel}</div>`;
+            }
         }
-        html += `</div>`;
-
-        // Cat 2 — XỬ LÝ
-        html += `<div class="ptag-dd-group" data-search="xu ly">
-            <div class="ptag-dd-cat-header" style="border-left:3px solid ${PTAG_CATEGORY_COLORS[2].border};">
-                ${PTAG_CATEGORY_META[2].emoji} ${PTAG_CATEGORY_META[2].name}
-            </div>`;
-        for (const [key, st] of Object.entries(PTAG_SUBTAGS)) {
-            if (st.category !== 2) continue;
-            const active = data?.category === 2 && data?.subTag === key;
-            html += `<div class="ptag-dd-item ${active ? 'active' : ''}" onclick="window._ptagAssign('${orderId}', 2, '${key}'); window._ptagCloseDropdown();" data-search="${_ptagNormalize(st.label)}">
-                ${st.label}
-            </div>`;
-        }
-        html += `</div>`;
-
-        // Cat 3 — KHÔNG CẦN CHỐT
-        html += `<div class="ptag-dd-group" data-search="khong can chot">
-            <div class="ptag-dd-cat-header" style="border-left:3px solid ${PTAG_CATEGORY_COLORS[3].border};">
-                ${PTAG_CATEGORY_META[3].emoji} ${PTAG_CATEGORY_META[3].name}
-            </div>`;
-        for (const [key, st] of Object.entries(PTAG_SUBTAGS)) {
-            if (st.category !== 3) continue;
-            const active = data?.category === 3 && data?.subTag === key;
-            html += `<div class="ptag-dd-item ${active ? 'active' : ''}" onclick="window._ptagAssign('${orderId}', 3, '${key}'); window._ptagCloseDropdown();" data-search="${_ptagNormalize(st.label)}">
-                ${st.label}
-            </div>`;
-        }
-        html += `</div>`;
-
-        // Cat 4 — KHÁCH XÃ
-        html += `<div class="ptag-dd-group" data-search="khach xa">
-            <div class="ptag-dd-cat-header" style="border-left:3px solid ${PTAG_CATEGORY_COLORS[4].border};">
-                ${PTAG_CATEGORY_META[4].emoji} ${PTAG_CATEGORY_META[4].name}
-            </div>`;
-        for (const [key, st] of Object.entries(PTAG_SUBTAGS)) {
-            if (st.category !== 4) continue;
-            const active = data?.category === 4 && data?.subTag === key;
-            html += `<div class="ptag-dd-item ${active ? 'active' : ''}" onclick="window._ptagAssign('${orderId}', 4, '${key}'); window._ptagCloseDropdown();" data-search="${_ptagNormalize(st.label)}">
-                ${st.label}
-            </div>`;
-        }
-        html += `</div>`;
-
         html += `</div></div>`;
 
         // Insert dropdown
-        const dropdown = document.createElement('div');
-        dropdown.innerHTML = html;
-        const ddEl = dropdown.firstElementChild;
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = html;
+        const ddEl = wrapper.firstElementChild;
         document.body.appendChild(ddEl);
 
         // Position
@@ -721,6 +740,23 @@
 
         _currentDropdown = ddEl;
 
+        // Auto-focus search input
+        const input = ddEl.querySelector('#ptag-dd-input');
+        if (input) {
+            setTimeout(() => input.focus(), 50);
+            input.addEventListener('input', () => _ptagFilterDropdown(input.value));
+            input.addEventListener('keydown', _ptagDdKeydown);
+        }
+
+        // Click on tag items
+        ddEl.querySelectorAll('.ptag-dd-tag-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const key = item.dataset.key;
+                _ptagDdSelectTag(key);
+            });
+        });
+
         // Close on outside click
         setTimeout(() => {
             document.addEventListener('click', _ptagCloseOnOutside);
@@ -728,11 +764,167 @@
         }, 10);
     }
 
+    // Select a tag from dropdown
+    function _ptagDdSelectTag(key) {
+        const orderId = _ddOrderId;
+        if (!orderId) return;
+
+        if (key === 'ttag-btn') {
+            _ptagCloseDropdown();
+            _ptagOpenTTagModal(orderId);
+            return;
+        }
+
+        if (key.startsWith('cat:')) {
+            // Processing tag — parse cat:N:subTag
+            const parts = key.split(':');
+            const cat = parseInt(parts[1]);
+            const subTag = parts[2] === 'null' ? null : parts[2];
+            // This replaces any existing processing tag (implicit rule)
+            assignOrderCategory(orderId, cat, { subTag });
+        } else if (key.startsWith('flag:')) {
+            const flagKey = key.replace('flag:', '');
+            toggleOrderFlag(orderId, flagKey);
+        }
+
+        // Refresh dropdown pills and selected state (don't close — TPOS style)
+        _ptagRefreshDropdownState();
+    }
+
+    // Remove a pill from dropdown
+    function _ptagDdRemovePill(key) {
+        const orderId = _ddOrderId;
+        if (!orderId) return;
+
+        if (key.startsWith('cat:')) {
+            // Remove processing tag = clear category
+            clearProcessingTag(orderId);
+        } else if (key.startsWith('flag:')) {
+            const flagKey = key.replace('flag:', '');
+            toggleOrderFlag(orderId, flagKey);
+        }
+
+        _ptagRefreshDropdownState();
+    }
+
+    // Refresh pills and selected states in open dropdown
+    function _ptagRefreshDropdownState() {
+        const dd = _currentDropdown;
+        if (!dd) return;
+        const orderId = _ddOrderId;
+        const selectedTags = _ptagGetSelectedTags(orderId);
+        const selectedKeys = new Set(selectedTags.map(t => t.key));
+
+        // Refresh pills
+        const container = dd.querySelector('.ptag-dd-input-container');
+        const input = dd.querySelector('#ptag-dd-input');
+        if (container && input) {
+            // Remove old pills
+            container.querySelectorAll('.ptag-dd-pill').forEach(p => p.remove());
+            // Insert new pills before input
+            selectedTags.forEach(t => {
+                const pill = document.createElement('span');
+                pill.className = 'ptag-dd-pill';
+                pill.style.background = _ptagPillColor(t);
+                pill.dataset.key = t.key;
+                pill.innerHTML = `${t.label} <button onclick="window._ptagDdRemovePill('${t.key}'); event.stopPropagation();">&times;</button>`;
+                container.insertBefore(pill, input);
+            });
+        }
+
+        // Refresh selected class on items
+        dd.querySelectorAll('.ptag-dd-tag-item').forEach(item => {
+            item.classList.toggle('selected', selectedKeys.has(item.dataset.key));
+        });
+    }
+
+    // Keyboard handler for dropdown input
+    function _ptagDdKeydown(e) {
+        const dd = _currentDropdown;
+        if (!dd) return;
+        const input = dd.querySelector('#ptag-dd-input');
+
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            // Select highlighted item
+            const highlighted = dd.querySelector('.ptag-dd-tag-item.highlighted');
+            if (highlighted) {
+                _ptagDdSelectTag(highlighted.dataset.key);
+                if (input) input.value = '';
+                _ptagFilterDropdown('');
+            } else if (input && input.value.trim()) {
+                // No match — create custom tag
+                _ptagCreateCustomTag(input.value.trim());
+                input.value = '';
+                _ptagFilterDropdown('');
+            }
+        } else if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            _ptagDdMoveHighlight(1);
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            _ptagDdMoveHighlight(-1);
+        } else if (e.key === 'Backspace' && input && !input.value) {
+            // Backspace on empty input → pending delete last pill, then delete on 2nd press
+            const pills = dd.querySelectorAll('.ptag-dd-pill');
+            if (pills.length > 0) {
+                const lastPill = pills[pills.length - 1];
+                if (lastPill.classList.contains('deletion-pending')) {
+                    // 2nd backspace — remove
+                    const key = lastPill.dataset.key;
+                    _ptagDdRemovePill(key);
+                } else {
+                    // 1st backspace — mark pending
+                    lastPill.classList.add('deletion-pending');
+                }
+            }
+        }
+    }
+
+    // Move highlight up/down in tag list
+    function _ptagDdMoveHighlight(dir) {
+        const dd = _currentDropdown;
+        if (!dd) return;
+        const items = [...dd.querySelectorAll('.ptag-dd-tag-item')].filter(i => i.style.display !== 'none');
+        if (!items.length) return;
+        const current = dd.querySelector('.ptag-dd-tag-item.highlighted');
+        let idx = current ? items.indexOf(current) : -1;
+        if (current) current.classList.remove('highlighted');
+        idx += dir;
+        if (idx < 0) idx = items.length - 1;
+        if (idx >= items.length) idx = 0;
+        items[idx].classList.add('highlighted');
+        items[idx].scrollIntoView({ block: 'nearest' });
+    }
+
+    // Create custom tag from search input
+    function _ptagCreateCustomTag(label) {
+        const orderId = _ddOrderId;
+        if (!orderId) return;
+        const key = 'CUSTOM_' + Date.now();
+        if (!ProcessingTagState._customFlags) ProcessingTagState._customFlags = new Map();
+        ProcessingTagState._customFlags.set(key, { label, color: '#7c3aed' });
+        // Toggle this flag onto the order
+        toggleOrderFlag(orderId, key);
+        // Save custom flags config to API
+        _ptagSaveCustomFlags();
+        _ptagRefreshDropdownState();
+    }
+
+    // Save custom flags config to API (persisted under __ptag_custom_flags__)
+    async function _ptagSaveCustomFlags() {
+        const customFlags = ProcessingTagState._customFlags;
+        if (!customFlags) return;
+        const data = { customFlags: Object.fromEntries(customFlags) };
+        await saveProcessingTagToAPI('__ptag_custom_flags__', data);
+    }
+
     function _ptagCloseDropdown() {
         if (_currentDropdown) {
             _currentDropdown.remove();
             _currentDropdown = null;
         }
+        _ddOrderId = null;
         document.removeEventListener('click', _ptagCloseOnOutside);
         document.removeEventListener('keydown', _ptagCloseOnEsc);
     }
@@ -751,16 +943,46 @@
         const norm = _ptagNormalize(query);
         const dd = document.getElementById('ptag-dropdown');
         if (!dd) return;
-        dd.querySelectorAll('.ptag-dd-group').forEach(group => {
-            const groupMatch = (group.dataset.search || '').includes(norm);
-            let anyItemVisible = false;
-            group.querySelectorAll('.ptag-dd-item, .ptag-dd-flag').forEach(item => {
-                const match = groupMatch || (item.dataset.search || '').includes(norm);
-                item.style.display = match ? '' : 'none';
-                if (match) anyItemVisible = true;
-            });
-            group.style.display = (groupMatch || anyItemVisible) ? '' : 'none';
+
+        // Remove pending delete from pills when typing
+        dd.querySelectorAll('.ptag-dd-pill.deletion-pending').forEach(p => p.classList.remove('deletion-pending'));
+
+        const list = dd.querySelector('.ptag-dd-list');
+        if (!list) return;
+
+        let firstVisible = null;
+        let currentCatLabel = null;
+        let catHasVisibleItem = false;
+
+        // First pass: show/hide tag items
+        list.querySelectorAll('.ptag-dd-cat-label, .ptag-dd-tag-item').forEach(el => {
+            if (el.classList.contains('ptag-dd-cat-label')) {
+                // Before moving to next cat, apply visibility to previous cat label
+                if (currentCatLabel) {
+                    currentCatLabel.style.display = catHasVisibleItem ? '' : 'none';
+                }
+                currentCatLabel = el;
+                catHasVisibleItem = false;
+            } else {
+                el.classList.remove('highlighted');
+                const search = el.dataset.search || '';
+                const match = !norm || search.includes(norm);
+                el.style.display = match ? '' : 'none';
+                if (match) {
+                    catHasVisibleItem = true;
+                    if (!firstVisible) firstVisible = el;
+                }
+            }
         });
+        // Handle last category label
+        if (currentCatLabel) {
+            currentCatLabel.style.display = catHasVisibleItem ? '' : 'none';
+        }
+
+        // Highlight first visible item
+        if (firstVisible) {
+            firstVisible.classList.add('highlighted');
+        }
     }
 
     function _ptagAssign(orderId, category, subTag) {
@@ -1627,6 +1849,8 @@
     window._ptagAssign = _ptagAssign;
     window._ptagToggleFlag = _ptagToggleFlag;
     window._ptagClear = _ptagClear;
+    window._ptagDdRemovePill = _ptagDdRemovePill;
+    window._ptagDdSelectTag = _ptagDdSelectTag;
     window._ptagTogglePanel = _ptagTogglePanel;
     window._ptagTogglePin = _ptagTogglePin;
     window._ptagSetFilter = _ptagSetFilter;
