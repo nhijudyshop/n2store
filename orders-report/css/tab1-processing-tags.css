@@ -64,11 +64,11 @@
     position: fixed;
     z-index: 10000;
     background: #fff;
-    border: 1px solid #e5e7eb;
+    border: 1px solid #e0e0e0;
     border-radius: 8px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-    width: 280px;
-    max-height: 420px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.16);
+    width: 320px;
+    max-height: 520px;
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -78,18 +78,25 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 8px 12px;
-    border-bottom: 1px solid #f3f4f6;
+    padding: 12px 16px;
+    border-bottom: 1px solid #e5e7eb;
+    background: #fafafa;
+}
+
+.ptag-dd-header span {
+    font-size: 14px;
 }
 
 .ptag-dd-clear {
-    font-size: 11px;
+    font-size: 12px;
     color: #ef4444;
     background: none;
     border: 1px solid #fecaca;
-    border-radius: 4px;
-    padding: 2px 8px;
+    border-radius: 6px;
+    padding: 4px 12px;
     cursor: pointer;
+    font-weight: 500;
+    transition: background 0.15s;
 }
 
 .ptag-dd-clear:hover {
@@ -97,42 +104,50 @@
 }
 
 .ptag-dd-search {
-    margin: 6px 10px;
-    padding: 6px 10px;
+    margin: 8px 12px;
+    padding: 10px 14px;
     border: 1px solid #e5e7eb;
-    border-radius: 6px;
-    font-size: 12px;
+    border-radius: 8px;
+    font-size: 14px;
     outline: none;
+    box-sizing: border-box;
+    width: calc(100% - 24px);
+    transition: border-color 0.15s;
 }
 
 .ptag-dd-search:focus {
     border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59,130,246,0.1);
 }
 
 .ptag-dd-list {
     overflow-y: auto;
-    max-height: 340px;
-    padding-bottom: 4px;
+    max-height: 420px;
+    padding: 4px 0;
 }
 
 .ptag-dd-group {
-    margin-bottom: 2px;
+    margin-bottom: 4px;
 }
 
 .ptag-dd-cat-header {
-    padding: 6px 12px;
-    font-size: 11px;
-    font-weight: 600;
-    color: #6b7280;
-    background: #f9fafb;
-    border-bottom: 1px solid #f3f4f6;
+    padding: 10px 16px;
+    font-size: 13px;
+    font-weight: 700;
+    color: #374151;
+    background: #f3f4f6;
+    border-bottom: 1px solid #e5e7eb;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
 }
 
 .ptag-dd-item {
-    padding: 7px 12px 7px 24px;
-    font-size: 12px;
+    padding: 12px 16px 12px 20px;
+    font-size: 15px;
     cursor: pointer;
-    transition: background 0.1s;
+    transition: background 0.12s;
+    color: #1f2937;
+    border-bottom: 1px solid #f9fafb;
 }
 
 .ptag-dd-item:hover {
@@ -142,25 +157,27 @@
 .ptag-dd-item.active {
     background: #eff6ff;
     color: #1e40af;
-    font-weight: 500;
+    font-weight: 600;
 }
 
 .ptag-dd-flags {
-    padding: 4px 12px 4px 20px;
+    padding: 6px 12px 6px 16px;
     display: flex;
     flex-direction: column;
     gap: 2px;
+    border-top: 1px solid #f3f4f6;
 }
 
 .ptag-dd-flag {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 4px 8px;
-    font-size: 11px;
+    gap: 10px;
+    padding: 8px 12px;
+    font-size: 14px;
     cursor: pointer;
-    border-radius: 4px;
-    transition: background 0.1s;
+    border-radius: 6px;
+    transition: background 0.12s;
+    color: #374151;
 }
 
 .ptag-dd-flag:hover {
@@ -174,14 +191,34 @@
 .ptag-dd-flag input[type="checkbox"] {
     margin: 0;
     cursor: pointer;
+    width: 16px;
+    height: 16px;
+    accent-color: #7c3aed;
 }
 
 .ptag-auto-badge {
-    font-size: 9px;
+    font-size: 10px;
     background: #dbeafe;
     color: #3b82f6;
-    padding: 0 4px;
-    border-radius: 3px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-weight: 500;
+}
+
+.ptag-dd-ttag-btn {
+    padding: 12px 16px 12px 20px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background 0.12s;
+    color: #5b21b6;
+    border-top: 1px solid #f3f4f6;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.ptag-dd-ttag-btn:hover {
+    background: #f5f3ff;
 }
 
 /* ----- PANEL (SIDEBAR) ----- */
