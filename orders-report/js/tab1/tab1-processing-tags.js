@@ -68,6 +68,46 @@
         KHACH_KO_LIEN_LAC:  { key: 'KHACH_KO_LIEN_LAC', label: 'Khách không liên lạc được', category: 4 }
     };
 
+    const PTAG_TOOLTIPS = {
+        // Categories
+        cat_0: 'Đơn đã tạo bill thành công, hoàn thành chốt đơn. Tự động khi bill tạo thành công.',
+        cat_1: 'Khách đã xác nhận OK, đơn chờ đủ điều kiện để ra bill.',
+        cat_2: 'Đơn cần seller xử lý vấn đề trước khi có thể ra bill.',
+        cat_3: 'Đơn không cần xử lý chốt đơn.',
+        cat_4: 'Khách hủy hoặc không liên lạc được sau chốt đơn.',
+        // Sub-states
+        sub_OKIE_CHO_DI_DON: 'Đủ hàng, sẵn sàng ra bill. Không có tag T nào.',
+        sub_CHO_HANG: 'Thiếu hàng, chờ hàng về. Có ít nhất 1 tag T.',
+        // Flags
+        flag_TRU_CONG_NO: 'Ví khách có virtual balance (công nợ ảo). Auto-detect từ ví.',
+        flag_CHUYEN_KHOAN: 'Ví khách có real balance (đã chuyển khoản). Auto-detect từ ví.',
+        flag_GIAM_GIA: 'Đơn có chiết khấu/sale. Auto-detect từ data.',
+        flag_CHO_LIVE: 'Chờ gộp vào live sau, in phiếu soạn hàng ghi chú.',
+        flag_GIU_DON: 'Giữ 10-20 ngày, khách đã CK đủ nhưng chưa muốn nhận.',
+        flag_QUA_LAY: 'Khách qua shop lấy, soạn hàng để kệ qua lấy.',
+        flag_KHAC: 'Ghi chú tự do cho trường hợp đặc biệt.',
+        // Sub-tags cat 2
+        subtag_CHUA_PHAN_HOI: 'Khách chưa trả lời tin nhắn + chưa gọi được.',
+        subtag_CHUA_DUNG_SP: 'Thiếu, dư, sai sản phẩm cần kiểm tra lại.',
+        subtag_KHACH_MUON_XA: 'Khách muốn bỏ 1 hoặc vài món, đang năn nỉ.',
+        subtag_NCC_HET_HANG: 'Báo khách hết hàng hoặc đổi qua mẫu khác.',
+        subtag_BAN_HANG: 'Khách đang mua thêm, seller đang chào hàng.',
+        subtag_XU_LY_KHAC: 'Ghi chú — VD: xử lý bưu cục, khách yêu cầu thêm deal.',
+        // Sub-tags cat 3
+        subtag_DA_GOP_KHONG_CHOT: 'Đơn khách mua 2 page đã gộp vào 1 đơn khác.',
+        subtag_GIO_TRONG: 'Đơn không có SP, đã xử lý trước đó.',
+        // Sub-tags cat 4
+        subtag_KHACH_HUY_DON: 'Khách báo lý do không nhận: đi công tác, không có tiền, đổi ý.',
+        subtag_KHACH_KO_LIEN_LAC: 'Sau buổi chốt đơn vẫn không liên lạc được, bắt buộc xã.'
+    };
+
+    const PTAG_SUBTAG_ICONS = {
+        CHUA_PHAN_HOI: '💬', CHUA_DUNG_SP: '📦', KHACH_MUON_XA: '🙏',
+        NCC_HET_HANG: '🚫', BAN_HANG: '🛒', XU_LY_KHAC: '📋',
+        DA_GOP_KHONG_CHOT: '🔗', GIO_TRONG: '🛒',
+        KHACH_HUY_DON: '❌', KHACH_KO_LIEN_LAC: '📵'
+    };
+
     // =====================================================
     // SECTION 2: STATE MANAGEMENT
     // =====================================================
@@ -77,6 +117,7 @@
         _panelOpen: false,
         _panelPinned: JSON.parse(localStorage.getItem('ptag_panel_pinned') || 'false'),
         _activeFilter: null,
+        _activeFlagFilters: new Set(),
         _campaignId: null,
         _sseSource: null,
         _pollInterval: null,
@@ -761,6 +802,12 @@
         renderPanelContent();
     }
 
+    function _tooltipHtml(key) {
+        const text = PTAG_TOOLTIPS[key];
+        if (!text) return '';
+        return `<span class="ptag-tooltip-trigger" data-tooltip="${text.replace(/"/g, '&quot;')}" onclick="event.stopPropagation();">?</span>`;
+    }
+
     function renderPanelContent() {
         const body = document.getElementById('ptag-panel-body');
         if (!body) return;
@@ -803,96 +850,139 @@
         }
 
         const activeFilter = ProcessingTagState._activeFilter;
+        const activeFlagFilters = ProcessingTagState._activeFlagFilters;
 
         let html = '';
 
-        // Special filters
-        html += `<div class="ptag-panel-item ${activeFilter === null ? 'active' : ''}" onclick="window._ptagSetFilter(null)" data-search="tat ca">
-            <span>TẤT CẢ</span><span class="ptag-count">${totalOrders}</span>
+        // --- Special filters: TẤT CẢ & CHƯA GÁN TAG ---
+        html += `<div class="ptag-panel-card ${activeFilter === null && activeFlagFilters.size === 0 ? 'active' : ''}" onclick="window._ptagSetFilter(null)" data-search="tat ca">
+            <div class="ptag-panel-card-icon" style="background:#6b7280;">
+                <i class="fas fa-globe" style="color:#fff;font-size:14px;"></i>
+            </div>
+            <div class="ptag-panel-card-info">
+                <div class="ptag-panel-card-name">TẤT CẢ</div>
+                <div class="ptag-panel-card-count">${totalOrders} đơn hàng</div>
+            </div>
         </div>`;
-        html += `<div class="ptag-panel-item ${activeFilter === '__no_tag__' ? 'active' : ''}" onclick="window._ptagSetFilter('__no_tag__')" data-search="chua gan tag">
-            <span>CHƯA GÁN TAG</span><span class="ptag-count">${untaggedCount}</span>
+        html += `<div class="ptag-panel-card ${activeFilter === '__no_tag__' ? 'active' : ''}" onclick="window._ptagSetFilter('__no_tag__')" data-search="chua gan tag">
+            <div class="ptag-panel-card-icon" style="background:#d1d5db;">
+                <i class="fas fa-tag" style="color:#6b7280;font-size:14px;"></i>
+            </div>
+            <div class="ptag-panel-card-info">
+                <div class="ptag-panel-card-name">CHƯA GÁN TAG</div>
+                <div class="ptag-panel-card-count">${untaggedCount} đơn hàng</div>
+            </div>
         </div>`;
 
-        // Category 0 — HOÀN TẤT
-        html += _renderPanelCategory(0, catCounts[0], activeFilter);
+        // --- Category 0 — HOÀN TẤT ---
+        html += `<div class="ptag-panel-card ${activeFilter === 'cat_0' ? 'active' : ''}" onclick="window._ptagSetFilter('cat_0')" data-search="${_ptagNormalize(PTAG_CATEGORY_META[0].name)}">
+            <div class="ptag-panel-card-icon" style="background:${PTAG_CATEGORY_COLORS[0].border};">
+                <i class="fas ${PTAG_CATEGORY_META[0].icon}" style="color:#fff;font-size:14px;"></i>
+            </div>
+            <div class="ptag-panel-card-info">
+                <div class="ptag-panel-card-name">${PTAG_CATEGORY_META[0].emoji} ${PTAG_CATEGORY_META[0].name}</div>
+                <div class="ptag-panel-card-count">${catCounts[0]} đơn hàng</div>
+            </div>
+            ${_tooltipHtml('cat_0')}
+        </div>`;
 
-        // Category 1 — CHỜ ĐI ĐƠN + sub-states + flags
-        html += `<div class="ptag-panel-group" data-search="cho di don oke">
-            <div class="ptag-panel-item ptag-cat-header ${activeFilter === 'cat_1' ? 'active' : ''}" style="border-left:3px solid ${PTAG_CATEGORY_COLORS[1].border};" onclick="window._ptagSetFilter('cat_1')">
-                <span>${PTAG_CATEGORY_META[1].emoji} ${PTAG_CATEGORY_META[1].name}</span>
-                <span class="ptag-count">${catCounts[1]}</span>
+        // --- Category 1 — CHỜ ĐI ĐƠN + sub-states + flag checkboxes ---
+        html += `<div class="ptag-panel-group" data-search="cho di don oke okie cho hang tru cong no ck giam gia cho live giu don qua lay">
+            <div class="ptag-panel-cat-header-v2 ${activeFilter === 'cat_1' ? 'active' : ''}" style="border-left-color:${PTAG_CATEGORY_COLORS[1].border};background:${PTAG_CATEGORY_COLORS[1].bg};" onclick="window._ptagSetFilter('cat_1')">
+                <span class="ptag-cat-name" style="color:${PTAG_CATEGORY_COLORS[1].text};">${PTAG_CATEGORY_META[1].emoji} ${PTAG_CATEGORY_META[1].name}</span>
+                <span class="ptag-cat-count">${catCounts[1]}</span>
+                ${_tooltipHtml('cat_1')}
             </div>`;
-        // Sub-states
+
+        // Sub-states as cards
         for (const [key, ss] of Object.entries(PTAG_SUBSTATES)) {
             const fk = 'sub_' + key;
-            html += `<div class="ptag-panel-item ptag-sub-item ${activeFilter === fk ? 'active' : ''}" onclick="window._ptagSetFilter('${fk}')" data-search="${_ptagNormalize(ss.label)}">
-                <span style="color:${ss.color};">${ss.label}</span>
-                <span class="ptag-count">${subStateCounts[key] || 0}</span>
+            const ssIcon = key === 'OKIE_CHO_DI_DON' ? 'fa-check' : 'fa-hourglass-half';
+            html += `<div class="ptag-panel-card ${activeFilter === fk ? 'active' : ''}" onclick="window._ptagSetFilter('${fk}')" data-search="${_ptagNormalize(ss.label)}">
+                <div class="ptag-panel-card-icon" style="background:${ss.color};">
+                    <i class="fas ${ssIcon}" style="color:#fff;font-size:13px;"></i>
+                </div>
+                <div class="ptag-panel-card-info">
+                    <div class="ptag-panel-card-name">${ss.label}</div>
+                    <div class="ptag-panel-card-count">${subStateCounts[key] || 0} đơn hàng</div>
+                </div>
+                ${_tooltipHtml(fk)}
             </div>`;
         }
-        // Flags
+
+        // Flags as checkboxes
         for (const [key, flag] of Object.entries(PTAG_FLAGS)) {
             const fk = 'flag_' + key;
-            html += `<div class="ptag-panel-item ptag-sub-item ${activeFilter === fk ? 'active' : ''}" onclick="window._ptagSetFilter('${fk}')" data-search="${_ptagNormalize(flag.label)}">
-                <span>${flag.icon} ${flag.label}</span>
-                <span class="ptag-count">${flagCounts[key] || 0}</span>
+            const checked = activeFlagFilters.has(key) ? 'checked' : '';
+            const count = flagCounts[key] || 0;
+            html += `<div class="ptag-panel-flag-item" data-search="${_ptagNormalize(flag.label)}">
+                <label class="ptag-flag-checkbox">
+                    <input type="checkbox" ${checked} onchange="window._ptagToggleFlagFilter('${key}'); event.stopPropagation();" />
+                    <span style="font-size:15px;flex-shrink:0;">${flag.icon}</span>
+                    <span class="ptag-flag-label">${flag.label}</span>
+                </label>
+                <span class="ptag-panel-card-count">${count}</span>
+                ${_tooltipHtml(fk)}
             </div>`;
         }
         html += `</div>`;
 
-        // Categories 2,3,4
+        // --- Categories 2, 3, 4 ---
         for (const cat of [2, 3, 4]) {
             const subtags = Object.entries(PTAG_SUBTAGS).filter(([, v]) => v.category === cat);
+            const catColors = PTAG_CATEGORY_COLORS[cat];
             html += `<div class="ptag-panel-group" data-search="${_ptagNormalize(PTAG_CATEGORY_META[cat].name)}">
-                <div class="ptag-panel-item ptag-cat-header ${activeFilter === 'cat_' + cat ? 'active' : ''}" style="border-left:3px solid ${PTAG_CATEGORY_COLORS[cat].border};" onclick="window._ptagSetFilter('cat_${cat}')">
-                    <span>${PTAG_CATEGORY_META[cat].emoji} ${PTAG_CATEGORY_META[cat].name}</span>
-                    <span class="ptag-count">${catCounts[cat]}</span>
+                <div class="ptag-panel-cat-header-v2 ${activeFilter === 'cat_' + cat ? 'active' : ''}" style="border-left-color:${catColors.border};background:${catColors.bg};" onclick="window._ptagSetFilter('cat_${cat}')">
+                    <span class="ptag-cat-name" style="color:${catColors.text};">${PTAG_CATEGORY_META[cat].emoji} ${PTAG_CATEGORY_META[cat].name}</span>
+                    <span class="ptag-cat-count">${catCounts[cat]}</span>
+                    ${_tooltipHtml('cat_' + cat)}
                 </div>`;
             for (const [key, st] of subtags) {
                 const fk = 'subtag_' + key;
-                html += `<div class="ptag-panel-item ptag-sub-item ${activeFilter === fk ? 'active' : ''}" onclick="window._ptagSetFilter('${fk}')" data-search="${_ptagNormalize(st.label)}">
-                    <span>${st.label}</span>
-                    <span class="ptag-count">${subTagCounts[key] || 0}</span>
+                const icon = PTAG_SUBTAG_ICONS[key] || '📋';
+                html += `<div class="ptag-panel-card ${activeFilter === fk ? 'active' : ''}" onclick="window._ptagSetFilter('${fk}')" data-search="${_ptagNormalize(st.label)}">
+                    <div class="ptag-panel-card-icon ptag-panel-card-icon--sm" style="background:${catColors.border};">
+                        <span style="font-size:12px;">${icon}</span>
+                    </div>
+                    <div class="ptag-panel-card-info">
+                        <div class="ptag-panel-card-name">${st.label}</div>
+                        <div class="ptag-panel-card-count">${subTagCounts[key] || 0} đơn hàng</div>
+                    </div>
+                    ${_tooltipHtml(fk)}
                 </div>`;
             }
             html += `</div>`;
         }
 
-        // Tag T section — always show, with definitions from __ttag_config__
+        // --- Tag T section ---
         const tTagDefs = ProcessingTagState.getTTagDefinitions();
         {
             html += `<div class="ptag-panel-group ptag-ttag-section" data-search="tag t cho hang">
-                <div class="ptag-panel-item ptag-cat-header" style="border-left:3px solid #8b5cf6;">
-                    <span>\u{1F4E6} TAG T CHỜ HÀNG</span>
-                    <span>
-                        <span class="ptag-count">${tTagDefs.length}</span>
-                        <button class="ptag-panel-btn" style="display:inline-flex;width:20px;height:20px;font-size:10px;margin-left:4px;background:none;border:1px solid #d1d5db;border-radius:4px;cursor:pointer;align-items:center;justify-content:center;" onclick="window._ptagOpenTTagManager(); event.stopPropagation();" title="Quản lý Tag T">
-                            <i class="fas fa-cog" style="font-size:9px;color:#6b7280;"></i>
-                        </button>
-                    </span>
+                <div class="ptag-panel-cat-header-v2" style="border-left-color:#8b5cf6;background:rgba(139,92,246,0.08);">
+                    <span class="ptag-cat-name" style="color:#5b21b6;">\u{1F4E6} TAG T CHỜ HÀNG</span>
+                    <span class="ptag-cat-count">${tTagDefs.length}</span>
+                    <button class="ptag-panel-btn" style="display:inline-flex;width:20px;height:20px;font-size:10px;margin-left:4px;background:none;border:1px solid #d1d5db;border-radius:4px;cursor:pointer;align-items:center;justify-content:center;" onclick="window._ptagOpenTTagManager(); event.stopPropagation();" title="Quản lý Tag T">
+                        <i class="fas fa-cog" style="font-size:9px;color:#6b7280;"></i>
+                    </button>
                 </div>`;
             for (const def of tTagDefs) {
                 const fk = 'ttag_' + def.id;
                 const escapedFk = fk.replace(/'/g, "\\'");
                 const count = tTagCounts[def.id] || 0;
-                html += `<div class="ptag-panel-item ptag-sub-item ${activeFilter === fk ? 'active' : ''}" onclick="window._ptagSetFilter('${escapedFk}')" data-search="${_ptagNormalize(def.name)}">
-                    <span style="color:#7c3aed;">${def.name}</span>
-                    <span class="ptag-count">${count}</span>
+                html += `<div class="ptag-panel-card ${activeFilter === fk ? 'active' : ''}" onclick="window._ptagSetFilter('${escapedFk}')" data-search="${_ptagNormalize(def.name)}">
+                    <div class="ptag-panel-card-icon ptag-panel-card-icon--sm" style="background:#8b5cf6;">
+                        <span style="font-size:12px;">\u{1F3F7}\uFE0F</span>
+                    </div>
+                    <div class="ptag-panel-card-info">
+                        <div class="ptag-panel-card-name" style="color:#7c3aed;">${def.name}</div>
+                        <div class="ptag-panel-card-count">${count} đơn hàng</div>
+                    </div>
                 </div>`;
             }
             html += `</div>`;
         }
 
         body.innerHTML = html;
-    }
-
-    function _renderPanelCategory(cat, count, activeFilter) {
-        const fk = 'cat_' + cat;
-        return `<div class="ptag-panel-item ptag-cat-header ${activeFilter === fk ? 'active' : ''}" style="border-left:3px solid ${PTAG_CATEGORY_COLORS[cat].border};" onclick="window._ptagSetFilter('${fk}')" data-search="${_ptagNormalize(PTAG_CATEGORY_META[cat].name)}">
-            <span>${PTAG_CATEGORY_META[cat].emoji} ${PTAG_CATEGORY_META[cat].name}</span>
-            <span class="ptag-count">${count}</span>
-        </div>`;
     }
 
     function _ptagTogglePanel() {
@@ -913,8 +1003,22 @@
 
     function _ptagSetFilter(filterKey) {
         ProcessingTagState._activeFilter = filterKey;
+        ProcessingTagState._activeFlagFilters.clear();
         renderPanelContent();
         // Trigger table re-render
+        if (typeof window.performTableSearch === 'function') {
+            window.performTableSearch();
+        }
+    }
+
+    function _ptagToggleFlagFilter(flagKey) {
+        const set = ProcessingTagState._activeFlagFilters;
+        if (set.has(flagKey)) {
+            set.delete(flagKey);
+        } else {
+            set.add(flagKey);
+        }
+        renderPanelContent();
         if (typeof window.performTableSearch === 'function') {
             window.performTableSearch();
         }
@@ -924,7 +1028,7 @@
         const norm = _ptagNormalize(query);
         const body = document.getElementById('ptag-panel-body');
         if (!body) return;
-        body.querySelectorAll('.ptag-panel-item, .ptag-panel-group').forEach(el => {
+        body.querySelectorAll('.ptag-panel-card, .ptag-panel-cat-header-v2, .ptag-panel-flag-item, .ptag-panel-group').forEach(el => {
             if (!el.dataset.search) return;
             const match = el.dataset.search.includes(norm);
             el.style.display = match ? '' : 'none';
@@ -1390,6 +1494,16 @@
 
     function orderPassesProcessingTagFilter(orderId) {
         const filter = ProcessingTagState._activeFilter;
+        const flagFilters = ProcessingTagState._activeFlagFilters;
+
+        // If only flag checkboxes are active (no main filter)
+        if (filter === null && flagFilters.size > 0) {
+            const data = ProcessingTagState.getOrderData(orderId);
+            if (!data || data.category !== PTAG_CATEGORIES.CHO_DI_DON) return false;
+            const orderFlags = data.flags || [];
+            return [...flagFilters].some(f => orderFlags.includes(f));
+        }
+
         if (filter === null) return true;
 
         const data = ProcessingTagState.getOrderData(orderId);
@@ -1398,33 +1512,41 @@
 
         if (!data) return false;
 
+        let passesBase = false;
+
         // Category filter
         if (filter.startsWith('cat_')) {
-            return data.category === parseInt(filter.replace('cat_', ''));
+            passesBase = data.category === parseInt(filter.replace('cat_', ''));
         }
-
         // Sub-state filter (cat 1)
-        if (filter.startsWith('sub_')) {
-            return data.category === PTAG_CATEGORIES.CHO_DI_DON && data.subState === filter.replace('sub_', '');
+        else if (filter.startsWith('sub_')) {
+            passesBase = data.category === PTAG_CATEGORIES.CHO_DI_DON && data.subState === filter.replace('sub_', '');
         }
-
-        // Flag filter (cat 1)
-        if (filter.startsWith('flag_')) {
-            return data.category === PTAG_CATEGORIES.CHO_DI_DON && (data.flags || []).includes(filter.replace('flag_', ''));
+        // Flag filter (cat 1) — legacy single-click mode
+        else if (filter.startsWith('flag_')) {
+            passesBase = data.category === PTAG_CATEGORIES.CHO_DI_DON && (data.flags || []).includes(filter.replace('flag_', ''));
         }
-
         // Sub-tag filter (cat 2,3,4)
-        if (filter.startsWith('subtag_')) {
-            return data.subTag === filter.replace('subtag_', '');
+        else if (filter.startsWith('subtag_')) {
+            passesBase = data.subTag === filter.replace('subtag_', '');
         }
-
         // T-tag filter (from internal tTags, not TPOS)
-        if (filter.startsWith('ttag_')) {
+        else if (filter.startsWith('ttag_')) {
             const tagId = filter.replace('ttag_', '');
-            return (data.tTags || []).includes(tagId);
+            passesBase = (data.tTags || []).includes(tagId);
+        }
+        else {
+            passesBase = true;
         }
 
-        return true;
+        // Apply flag checkbox overlay on top of base filter
+        if (passesBase && flagFilters.size > 0) {
+            if (data.category !== PTAG_CATEGORIES.CHO_DI_DON) return false;
+            const orderFlags = data.flags || [];
+            return [...flagFilters].some(f => orderFlags.includes(f));
+        }
+
+        return passesBase;
     }
 
     // =====================================================
@@ -1472,6 +1594,7 @@
     window._ptagTogglePin = _ptagTogglePin;
     window._ptagSetFilter = _ptagSetFilter;
     window._ptagFilterPanel = _ptagFilterPanel;
+    window._ptagToggleFlagFilter = _ptagToggleFlagFilter;
     window._ptagOpenBulkModal = _ptagOpenBulkModal;
     window._ptagCloseBulkModal = _ptagCloseBulkModal;
     window._ptagConfirmBulk = _ptagConfirmBulk;
