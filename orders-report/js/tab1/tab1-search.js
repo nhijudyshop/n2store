@@ -324,8 +324,8 @@ function performTableSearch() {
         console.log(`[FILTER] Applied stock status filter (${window.StockStatusEngine._activeFilter}), remaining orders: ${tempData.length}`);
     }
 
-    // Apply Processing Tag filter
-    if (typeof window.getActiveProcessingTagFilter === 'function' && window.getActiveProcessingTagFilter() !== null) {
+    // Apply Processing Tag filter (base filter OR flag checkboxes)
+    if (typeof window.hasActiveProcessingTagFilters === 'function' && window.hasActiveProcessingTagFilters()) {
         tempData = tempData.filter(order => window.orderPassesProcessingTagFilter(order.Id));
         console.log(`[FILTER] Applied processing tag filter (${window.getActiveProcessingTagFilter()}), remaining orders: ${tempData.length}`);
     }

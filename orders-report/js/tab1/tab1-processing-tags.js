@@ -1756,6 +1756,10 @@
         return ProcessingTagState._activeFilter;
     }
 
+    function hasActiveProcessingTagFilters() {
+        return ProcessingTagState._activeFilter !== null || ProcessingTagState._activeFlagFilters.size > 0;
+    }
+
     function orderPassesProcessingTagFilter(orderId) {
         const filter = ProcessingTagState._activeFilter;
         const flagFilters = ProcessingTagState._activeFlagFilters;
@@ -1853,6 +1857,7 @@
 
     // Filter (called from tab1-search.js)
     window.getActiveProcessingTagFilter = getActiveProcessingTagFilter;
+    window.hasActiveProcessingTagFilters = hasActiveProcessingTagFilters;
     window.orderPassesProcessingTagFilter = orderPassesProcessingTagFilter;
 
     // UI internal (called from onclick)
