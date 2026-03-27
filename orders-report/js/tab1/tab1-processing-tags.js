@@ -531,7 +531,7 @@
     function renderProcessingTagCell(orderId, orderCode) {
         const data = ProcessingTagState.getOrderData(orderId);
 
-        // Quick-tag buttons: ✓ Okie Chờ Đi Đơn, ⏰ Đơn chưa phản hồi, 🏷 Open dropdown
+        // Quick-tag buttons — ALWAYS shown at the start (like TPOS tag column)
         const quickBtns = `<button class="ptag-quick-btn ptag-quick-btn--ok" onclick="window._ptagQuickAssign('${orderId}', 'ok'); event.stopPropagation();" title="Okie Chờ Đi Đơn"><i class="fas fa-check"></i></button><button class="ptag-quick-btn ptag-quick-btn--wait" onclick="window._ptagQuickAssign('${orderId}', 'wait'); event.stopPropagation();" title="Đơn chưa phản hồi"><i class="fas fa-clock"></i></button><button class="ptag-tag-btn" onclick="window._ptagOpenDropdown('${orderId}', '${orderCode}', this); event.stopPropagation();" title="Chọn trạng thái"><i class="fas fa-tag"></i></button>`;
 
         if (!data) {
@@ -545,16 +545,16 @@
             : '';
 
         if (!data.category && data.category !== 0) {
-            return `<div class="ptag-cell">${_tTagHtml}${quickBtns}</div>`;
+            return `<div class="ptag-cell">${quickBtns}${_tTagHtml}</div>`;
         }
 
         const catColor = PTAG_CATEGORY_COLORS[data.category];
-        const tagBtn = `<button class="ptag-tag-btn" onclick="window._ptagOpenDropdown('${orderId}', '${orderCode}', this); event.stopPropagation();" title="Chọn trạng thái"><i class="fas fa-tag"></i></button>`;
         const clearBtn = `<button class="ptag-clear-btn" onclick="window._ptagClear('${orderId}'); event.stopPropagation();" title="Xóa tag">&times;</button>`;
 
         // Cat 0 — HOÀN TẤT
         if (data.category === PTAG_CATEGORIES.HOAN_TAT) {
             return `<div class="ptag-cell">
+                ${quickBtns}
                 <span class="ptag-badge ptag-cat-0" onclick="window._ptagOpenDropdown('${orderId}', '${orderCode}', this); event.stopPropagation();" title="Hoàn tất — Đã ra đơn">🟢 Hoàn tất</span>
                 ${clearBtn}
             </div>`;
@@ -565,10 +565,11 @@
             const ss = PTAG_SUBSTATES[data.subState] || PTAG_SUBSTATES.OKIE_CHO_DI_DON;
             const flagIcons = (data.flags || []).map(f => PTAG_FLAGS[f]?.icon || '').filter(Boolean).join('');
             return `<div class="ptag-cell">
+                ${quickBtns}
                 <span class="ptag-badge" style="border-color:${ss.color};color:${ss.color};background:${ss.color}12;" onclick="window._ptagOpenDropdown('${orderId}', '${orderCode}', this); event.stopPropagation();" title="${ss.label}">${ss.label}</span>
                 ${flagIcons ? `<span class="ptag-flags" title="${(data.flags||[]).map(f=>PTAG_FLAGS[f]?.label||f).join(', ')}">${flagIcons}</span>` : ''}
                 ${_tTagHtml}
-                ${tagBtn}${clearBtn}
+                ${clearBtn}
             </div>`;
         }
 
@@ -576,9 +577,10 @@
         const subTagDef = PTAG_SUBTAGS[data.subTag];
         const label = subTagDef?.label || PTAG_CATEGORY_META[data.category]?.short || '';
         return `<div class="ptag-cell">
+            ${quickBtns}
             <span class="ptag-badge" style="border-color:${catColor.border};color:${catColor.text};background:${catColor.bg};" onclick="window._ptagOpenDropdown('${orderId}', '${orderCode}', this); event.stopPropagation();" title="${PTAG_CATEGORY_META[data.category]?.name || ''}">${label}</span>
             ${_tTagHtml}
-            ${tagBtn}${clearBtn}
+            ${clearBtn}
         </div>`;
     }
 
