@@ -125,25 +125,25 @@
         _customFlags: new Map(),
 
         getOrderData(orderId) {
-            return this._orderData.get(orderId) || null;
+            return this._orderData.get(String(orderId)) || null;
         },
         setOrderData(orderId, data) {
-            this._orderData.set(orderId, data);
+            this._orderData.set(String(orderId), data);
         },
         updateOrder(orderId, updates) {
-            const current = this._orderData.get(orderId);
+            const current = this._orderData.get(String(orderId));
             if (current) {
                 Object.assign(current, updates);
             }
         },
         getOrderFlags(orderId) {
-            return this._orderData.get(orderId)?.flags || [];
+            return this._orderData.get(String(orderId))?.flags || [];
         },
         removeOrder(orderId) {
-            this._orderData.delete(orderId);
+            this._orderData.delete(String(orderId));
         },
         hasOrder(orderId) {
-            return this._orderData.has(orderId);
+            return this._orderData.has(String(orderId));
         },
         getAllOrders() {
             return this._orderData;
