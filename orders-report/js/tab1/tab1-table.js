@@ -1785,29 +1785,6 @@ function updateStats() {
         0,
     );
 
-    // Calculate merged order statistics
-    const mergedOrders = displayedData.filter(order => order.IsMerged === true);
-    const totalOriginalOrders = displayedData.reduce((sum, order) => {
-        return sum + (order.MergedCount || 1);
-    }, 0);
-
-    // Update total orders count
-    document.getElementById("totalOrdersCount").textContent =
-        filteredData.length.toLocaleString("vi-VN");
-
-    // Update merged orders info
-    const mergedInfoElement = document.getElementById("mergedOrdersInfo");
-    if (mergedOrders.length > 0) {
-        mergedInfoElement.textContent =
-            `${mergedOrders.length} đơn gộp (${totalOriginalOrders} đơn gốc)`;
-        mergedInfoElement.style.color = "#f59e0b"; // Orange color for emphasis
-    } else {
-        mergedInfoElement.textContent = "-";
-        mergedInfoElement.style.color = "#9ca3af"; // Gray color
-    }
-
-    document.getElementById("totalAmountSum").textContent =
-        totalAmount.toLocaleString("vi-VN") + "đ";
 }
 
 function updatePageInfo() {
