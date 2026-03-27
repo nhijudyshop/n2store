@@ -190,6 +190,11 @@
                         ProcessingTagState.setTTagDefinitions(data.tTagDefinitions || []);
                         continue;
                     }
+                    // Normalize subState for cat 1 orders based on tTags
+                    if (data.category === PTAG_CATEGORIES.CHO_DI_DON) {
+                        const hasTTags = (data.tTags || []).length > 0;
+                        data.subState = hasTTags ? 'CHO_HANG' : 'OKIE_CHO_DI_DON';
+                    }
                     ProcessingTagState.setOrderData(orderId, data);
                 }
             }
@@ -336,11 +341,14 @@
 
     async function assignOrderCategory(orderId, category, options = {}) {
         const existingData = ProcessingTagState.getOrderData(orderId);
+        // Preserve existing flags when changing category
+        const existingFlags = existingData?.flags || [];
+        const newFlags = options.flags || [];
         const data = {
             category,
             subTag: options.subTag || null,
             subState: null,
-            flags: options.flags || [],
+            flags: [...new Set([...existingFlags, ...newFlags])],
             tTags: existingData?.tTags ? [...existingData.tTags] : [],
             note: options.note || '',
             assignedAt: Date.now(),
@@ -399,8 +407,11 @@
     }
 
     async function toggleOrderFlag(orderId, flagKey) {
-        const data = ProcessingTagState.getOrderData(orderId);
-        if (!data || data.category !== PTAG_CATEGORIES.CHO_DI_DON) return;
+        let data = ProcessingTagState.getOrderData(orderId);
+        // If no data yet, create a minimal entry with just flags (no category)
+        if (!data) {
+            data = { category: null, subTag: null, subState: null, flags: [], tTags: [], note: '', assignedAt: Date.now() };
+        }
 
         const flags = data.flags || [];
         const idx = flags.indexOf(flagKey);
@@ -544,8 +555,16 @@
             ? `<div class="ptag-ttag-badges" onclick="window._ptagOpenTTagModal('${orderId}'); event.stopPropagation();">${_tTags.map(t => `<span class="ptag-ttag-badge">${t}</span>`).join('')}</div>`
             : '';
 
+        // Flag badges — shown for ALL orders that have flags
+        const flagLabels = (data.flags || []).map(f => {
+            const fl = PTAG_FLAGS[f];
+            if (!fl) return '';
+            return `<span class="ptag-flag-badge">${fl.label}</span>`;
+        }).filter(Boolean).join('');
+
         if (!data.category && data.category !== 0) {
-            return `<div class="ptag-cell">${quickBtns}${_tTagHtml}</div>`;
+            // Order has only flags/tTags, no category
+            return `<div class="ptag-cell">${quickBtns}${flagLabels}${_tTagHtml}</div>`;
         }
 
         const catColor = PTAG_CATEGORY_COLORS[data.category];
@@ -556,6 +575,7 @@
             return `<div class="ptag-cell">
                 ${quickBtns}
                 <span class="ptag-badge ptag-cat-0" onclick="window._ptagOpenDropdown('${orderId}', '${orderCode}', this); event.stopPropagation();" title="Hoàn tất — Đã ra đơn">🟢 Hoàn tất</span>
+                ${flagLabels}
                 ${clearBtn}
             </div>`;
         }
@@ -563,11 +583,6 @@
         // Cat 1 — CHỜ ĐI ĐƠN
         if (data.category === PTAG_CATEGORIES.CHO_DI_DON) {
             const ss = PTAG_SUBSTATES[data.subState] || PTAG_SUBSTATES.OKIE_CHO_DI_DON;
-            const flagLabels = (data.flags || []).map(f => {
-                const fl = PTAG_FLAGS[f];
-                if (!fl) return '';
-                return `<span class="ptag-flag-badge">${fl.label}</span>`;
-            }).filter(Boolean).join('');
             return `<div class="ptag-cell">
                 ${quickBtns}
                 <span class="ptag-badge" style="border-color:${ss.color};color:${ss.color};background:${ss.color}12;" onclick="window._ptagOpenDropdown('${orderId}', '${orderCode}', this); event.stopPropagation();" title="${ss.label}">${ss.label}</span>
@@ -583,6 +598,7 @@
         return `<div class="ptag-cell">
             ${quickBtns}
             <span class="ptag-badge" style="border-color:${catColor.border};color:${catColor.text};background:${catColor.bg};" onclick="window._ptagOpenDropdown('${orderId}', '${orderCode}', this); event.stopPropagation();" title="${PTAG_CATEGORY_META[data.category]?.name || ''}">${label}</span>
+            ${flagLabels}
             ${_tTagHtml}
             ${clearBtn}
         </div>`;
@@ -618,19 +634,7 @@
                 Okie Chờ Đi Đơn
             </div>`;
 
-        // Flags (chỉ hiện khi đang ở cat 1)
-        if (isCat1) {
-            html += `<div class="ptag-dd-flags">`;
-            for (const [key, flag] of Object.entries(PTAG_FLAGS)) {
-                const checked = (data.flags || []).includes(key);
-                html += `<label class="ptag-dd-flag ${checked ? 'checked' : ''}" data-search="${_ptagNormalize(flag.label)}">
-                    <input type="checkbox" ${checked ? 'checked' : ''} onchange="window._ptagToggleFlag('${orderId}', '${key}'); event.stopPropagation();" />
-                    ${flag.icon} ${flag.label}${flag.auto ? ' <span class="ptag-auto-badge">auto</span>' : ''}
-                </label>`;
-            }
-            html += `</div>`;
-        }
-        // T-tag button — always visible for Cat 1 orders
+        // T-tag button
         {
             const tTagCount = (data?.tTags || []).length;
             html += `<div class="ptag-dd-ttag-btn" onclick="window._ptagCloseDropdown(); window._ptagOpenTTagModal('${orderId}');" data-search="tag t cho hang">
@@ -681,6 +685,21 @@
             </div>`;
         }
         html += `</div>`;
+
+        // ĐẶC ĐIỂM ĐƠN HÀNG — Flags (always visible, independent of category)
+        html += `<div class="ptag-dd-group" data-search="dac diem tru cong no ck giam gia cho live giu don qua lay khac">
+            <div class="ptag-dd-cat-header" style="border-left:3px solid #7c3aed;">
+                🏷️ ĐẶC ĐIỂM ĐƠN HÀNG
+            </div>
+            <div class="ptag-dd-flags">`;
+        for (const [key, flag] of Object.entries(PTAG_FLAGS)) {
+            const checked = (data?.flags || []).includes(key);
+            html += `<label class="ptag-dd-flag ${checked ? 'checked' : ''}" data-search="${_ptagNormalize(flag.label)}">
+                <input type="checkbox" ${checked ? 'checked' : ''} onchange="window._ptagToggleFlag('${orderId}', '${key}'); event.stopPropagation();" />
+                ${flag.icon} ${flag.label}${flag.auto ? ' <span class="ptag-auto-badge">auto</span>' : ''}
+            </label>`;
+        }
+        html += `</div></div>`;
 
         html += `</div></div>`;
 
@@ -832,12 +851,14 @@
             catCounts[data.category] = (catCounts[data.category] || 0) + 1;
 
             if (data.category === PTAG_CATEGORIES.CHO_DI_DON) {
-                const ss = data.subState || 'OKIE_CHO_DI_DON';
+                // Derive subState from tTags (source of truth) for accurate counting
+                const ss = (data.tTags || []).length > 0 ? 'CHO_HANG' : 'OKIE_CHO_DI_DON';
                 subStateCounts[ss] = (subStateCounts[ss] || 0) + 1;
-                (data.flags || []).forEach(f => {
-                    flagCounts[f] = (flagCounts[f] || 0) + 1;
-                });
             }
+            // Count flags for ALL orders (flags are independent of category)
+            (data.flags || []).forEach(f => {
+                flagCounts[f] = (flagCounts[f] || 0) + 1;
+            });
             if (data.subTag) {
                 subTagCounts[data.subTag] = (subTagCounts[data.subTag] || 0) + 1;
             }
@@ -889,8 +910,8 @@
             ${_tooltipHtml('cat_0')}
         </div>`;
 
-        // --- Category 1 — CHỜ ĐI ĐƠN + sub-states + flag checkboxes ---
-        html += `<div class="ptag-panel-group" data-search="cho di don oke okie cho hang tru cong no ck giam gia cho live giu don qua lay">
+        // --- Category 1 — CHỜ ĐI ĐƠN + sub-states ---
+        html += `<div class="ptag-panel-group" data-search="cho di don oke okie cho hang">
             <div class="ptag-panel-cat-header-v2 ${activeFilter === 'cat_1' ? 'active' : ''}" style="border-left-color:${PTAG_CATEGORY_COLORS[1].border};background:${PTAG_CATEGORY_COLORS[1].bg};" onclick="window._ptagSetFilter('cat_1')">
                 <span class="ptag-cat-name" style="color:${PTAG_CATEGORY_COLORS[1].text};">${PTAG_CATEGORY_META[1].emoji} ${PTAG_CATEGORY_META[1].name}</span>
                 <span class="ptag-cat-count">${catCounts[1]}</span>
@@ -912,8 +933,13 @@
                 ${_tooltipHtml(fk)}
             </div>`;
         }
+        html += `</div>`;
 
-        // Flags as checkboxes
+        // --- ĐẶC ĐIỂM ĐƠN HÀNG (Flags) — Independent section ---
+        html += `<div class="ptag-panel-group" data-search="dac diem don hang tru cong no ck giam gia cho live giu don qua lay khac">
+            <div class="ptag-panel-cat-header-v2" style="border-left-color:#7c3aed;background:rgba(124,58,237,0.06);">
+                <span class="ptag-cat-name" style="color:#5b21b6;">🏷️ ĐẶC ĐIỂM ĐƠN HÀNG</span>
+            </div>`;
         for (const [key, flag] of Object.entries(PTAG_FLAGS)) {
             const fk = 'flag_' + key;
             const checked = activeFlagFilters.has(key) ? 'checked' : '';
@@ -1502,7 +1528,7 @@
         // If only flag checkboxes are active (no main filter)
         if (filter === null && flagFilters.size > 0) {
             const data = ProcessingTagState.getOrderData(orderId);
-            if (!data || data.category !== PTAG_CATEGORIES.CHO_DI_DON) return false;
+            if (!data) return false;
             const orderFlags = data.flags || [];
             return [...flagFilters].some(f => orderFlags.includes(f));
         }
@@ -1521,13 +1547,21 @@
         if (filter.startsWith('cat_')) {
             passesBase = data.category === parseInt(filter.replace('cat_', ''));
         }
-        // Sub-state filter (cat 1)
+        // Sub-state filter (cat 1) — use tTags as source of truth
         else if (filter.startsWith('sub_')) {
-            passesBase = data.category === PTAG_CATEGORIES.CHO_DI_DON && data.subState === filter.replace('sub_', '');
+            const subKey = filter.replace('sub_', '');
+            if (data.category !== PTAG_CATEGORIES.CHO_DI_DON) {
+                passesBase = false;
+            } else if (subKey === 'CHO_HANG') {
+                passesBase = (data.tTags || []).length > 0;
+            } else {
+                // OKIE_CHO_DI_DON = cat 1 without tTags
+                passesBase = (data.tTags || []).length === 0;
+            }
         }
-        // Flag filter (cat 1) — legacy single-click mode
+        // Flag filter — works across all categories
         else if (filter.startsWith('flag_')) {
-            passesBase = data.category === PTAG_CATEGORIES.CHO_DI_DON && (data.flags || []).includes(filter.replace('flag_', ''));
+            passesBase = (data.flags || []).includes(filter.replace('flag_', ''));
         }
         // Sub-tag filter (cat 2,3,4)
         else if (filter.startsWith('subtag_')) {
@@ -1544,7 +1578,6 @@
 
         // Apply flag checkbox overlay on top of base filter
         if (passesBase && flagFilters.size > 0) {
-            if (data.category !== PTAG_CATEGORIES.CHO_DI_DON) return false;
             const orderFlags = data.flags || [];
             return [...flagFilters].some(f => orderFlags.includes(f));
         }
