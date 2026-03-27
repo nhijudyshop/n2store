@@ -366,19 +366,27 @@ function renderAllOrders() {
     existingSections.forEach(section => section.remove());
 
     // ═══════════════════════════════════════════════════════════════════
-    // RENDER ALL: Render tất cả rows một lần
-    // - Progressive Loading vẫn load data theo batch từ API
-    // - Nhưng table render ALL rows mỗi lần update
-    // - Scroll mượt vì không cần re-render
-    // - Realtime chỉ update đúng cell cần thiết
+    // PROGRESSIVE RENDER: Render 50 đơn đầu ngay lập tức,
+    // load thêm khi scroll (qua handleTableScroll → loadMoreRows)
     // ═══════════════════════════════════════════════════════════════════
     const tbody = document.getElementById("tableBody");
 
-    // Render ALL rows at once
-    renderedCount = displayedData.length;
-    tbody.innerHTML = displayedData.map(order => createRowHTML(order)).join('');
+    // Render initial batch (50 rows) for instant display
+    const initialBatch = displayedData.slice(0, INITIAL_RENDER_COUNT);
+    renderedCount = initialBatch.length;
+    tbody.innerHTML = initialBatch.map(order => createRowHTML(order)).join('');
 
-    console.log(`[RENDER-ALL] Rendered ${renderedCount} orders`);
+    // Add spacer to trigger loadMoreRows() on scroll
+    if (renderedCount < displayedData.length) {
+        const spacer = document.createElement('tr');
+        spacer.id = 'table-spacer';
+        spacer.innerHTML = `<td colspan="18" style="text-align: center; padding: 20px; color: #6b7280;">
+            <i class="fas fa-spinner fa-spin"></i> Đang tải thêm... (${renderedCount}/${displayedData.length})
+        </td>`;
+        tbody.appendChild(spacer);
+    }
+
+    console.log(`[RENDER] Initial ${renderedCount}/${displayedData.length} orders`);
 
     // Clear rendering flag after render is complete
     isRendering = false;
@@ -637,7 +645,7 @@ window.VirtualTable = VirtualTable;
 // INFINITE SCROLL LOGIC (Legacy - backup khi VirtualTable disabled)
 // =====================================================
 const INITIAL_RENDER_COUNT = 50;
-const LOAD_MORE_COUNT = 50;
+const LOAD_MORE_COUNT = 100;
 let renderedCount = 0;
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -804,18 +812,14 @@ function loadMoreRows() {
 
     tbody.appendChild(fragment);
 
-    // Apply column visibility to newly added rows
-    if (window.columnVisibility) {
-        const settings = window.columnVisibility.load();
-        window.columnVisibility.apply(settings);
-    }
+    // Column visibility uses <style> tag — auto-applies to new DOM, no JS needed
 
     // Add spacer back if still have more
     if (renderedCount < displayedData.length) {
         const newSpacer = document.createElement('tr');
         newSpacer.id = 'table-spacer';
         newSpacer.innerHTML = `<td colspan="18" style="text-align: center; padding: 20px; color: #6b7280;">
-            <i class="fas fa-spinner fa-spin"></i> Đang tải thêm...
+            <i class="fas fa-spinner fa-spin"></i> Đang tải thêm... (${renderedCount}/${displayedData.length})
         </td>`;
         tbody.appendChild(newSpacer);
     }
