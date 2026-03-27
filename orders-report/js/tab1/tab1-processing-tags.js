@@ -1257,7 +1257,11 @@
 
     function _ptagSetFilter(filterKey) {
         ProcessingTagState._activeFilter = filterKey;
-        ProcessingTagState._activeFlagFilters.clear();
+        // Only clear flag filters when resetting to "TẤT CẢ" (null)
+        // Flags are independent of processing tag filters otherwise
+        if (filterKey === null) {
+            ProcessingTagState._activeFlagFilters.clear();
+        }
         renderPanelContent();
         // Debounce table re-render to avoid redundant work on rapid clicks
         clearTimeout(_ptagFilterTimer);
@@ -1755,65 +1759,66 @@
     function orderPassesProcessingTagFilter(orderId) {
         const filter = ProcessingTagState._activeFilter;
         const flagFilters = ProcessingTagState._activeFlagFilters;
+        const hasBaseFilter = filter !== null;
+        const hasFlagFilter = flagFilters.size > 0;
 
-        // If only flag checkboxes are active (no main filter)
-        if (filter === null && flagFilters.size > 0) {
-            const data = ProcessingTagState.getOrderData(orderId);
-            if (!data) return false;
-            const orderFlags = data.flags || [];
-            return [...flagFilters].some(f => orderFlags.includes(f));
-        }
-
-        if (filter === null) return true;
+        // No filters active — show all
+        if (!hasBaseFilter && !hasFlagFilter) return true;
 
         const data = ProcessingTagState.getOrderData(orderId);
 
-        if (filter === '__no_tag__') return !data;
-
-        if (!data) return false;
-
-        let passesBase = false;
-
-        // Category filter
-        if (filter.startsWith('cat_')) {
-            passesBase = data.category === parseInt(filter.replace('cat_', ''));
-        }
-        // Sub-state filter (cat 1) — use tTags as source of truth
-        else if (filter.startsWith('sub_')) {
-            const subKey = filter.replace('sub_', '');
-            if (data.category !== PTAG_CATEGORIES.CHO_DI_DON) {
-                passesBase = false;
-            } else if (subKey === 'CHO_HANG') {
-                passesBase = (data.tTags || []).length > 0;
+        // --- Evaluate flag filter independently ---
+        let passesFlag = true; // default: no flag filter = pass
+        if (hasFlagFilter) {
+            if (!data) {
+                passesFlag = false;
             } else {
-                // OKIE_CHO_DI_DON = cat 1 without tTags
-                passesBase = (data.tTags || []).length === 0;
+                const orderFlags = data.flags || [];
+                passesFlag = [...flagFilters].some(f => orderFlags.includes(f));
             }
         }
-        // Flag filter — works across all categories
-        else if (filter.startsWith('flag_')) {
-            passesBase = (data.flags || []).includes(filter.replace('flag_', ''));
-        }
-        // Sub-tag filter (cat 2,3,4)
-        else if (filter.startsWith('subtag_')) {
-            passesBase = data.subTag === filter.replace('subtag_', '');
-        }
-        // T-tag filter (from internal tTags, not TPOS)
-        else if (filter.startsWith('ttag_')) {
-            const tagId = filter.replace('ttag_', '');
-            passesBase = (data.tTags || []).includes(tagId);
-        }
-        else {
-            passesBase = true;
+
+        // --- Evaluate base filter independently ---
+        let passesBase = true; // default: no base filter = pass
+        if (hasBaseFilter) {
+            if (filter === '__no_tag__') {
+                passesBase = !data;
+            } else if (!data) {
+                passesBase = false;
+            } else if (filter.startsWith('cat_')) {
+                passesBase = data.category === parseInt(filter.replace('cat_', ''));
+            }
+            // Sub-state filter (cat 1) — use tTags as source of truth
+            else if (filter.startsWith('sub_')) {
+                const subKey = filter.replace('sub_', '');
+                if (data.category !== PTAG_CATEGORIES.CHO_DI_DON) {
+                    passesBase = false;
+                } else if (subKey === 'CHO_HANG') {
+                    passesBase = (data.tTags || []).length > 0;
+                } else {
+                    passesBase = (data.tTags || []).length === 0;
+                }
+            }
+            // Flag filter — works across all categories
+            else if (filter.startsWith('flag_')) {
+                passesBase = (data.flags || []).includes(filter.replace('flag_', ''));
+            }
+            // Sub-tag filter (cat 2,3,4)
+            else if (filter.startsWith('subtag_')) {
+                passesBase = data.subTag === filter.replace('subtag_', '');
+            }
+            // T-tag filter (from internal tTags, not TPOS)
+            else if (filter.startsWith('ttag_')) {
+                const tagId = filter.replace('ttag_', '');
+                passesBase = (data.tTags || []).includes(tagId);
+            }
         }
 
-        // Apply flag checkbox overlay on top of base filter
-        if (passesBase && flagFilters.size > 0) {
-            const orderFlags = data.flags || [];
-            return [...flagFilters].some(f => orderFlags.includes(f));
-        }
-
-        return passesBase;
+        // Both filters must pass independently (AND logic)
+        // Flag-only: passesBase=true, must pass flag
+        // Base-only: passesFlag=true, must pass base
+        // Both: must pass both
+        return passesBase && passesFlag;
     }
 
     // =====================================================
