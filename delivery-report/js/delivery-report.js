@@ -251,28 +251,53 @@
         }
     }
 
-    async function getToken() {
-        // Try tokenManager (if loaded on this page)
-        if (window.tokenManager && typeof window.tokenManager.getToken === 'function') {
-            try {
-                return await window.tokenManager.getToken();
-            } catch (e) {
-                console.warn('[DELIVERY-REPORT] tokenManager.getToken failed:', e);
-            }
-        }
+    // Delivery report needs nvktlive1 account (has Report permissions)
+    const DR_CREDENTIALS = {
+        grant_type: 'password',
+        username: 'nvktlive1',
+        password: 'Aa@28612345678',
+        client_id: 'tmtWebApp'
+    };
+    const DR_TOKEN_KEY = 'delivery_report_token';
 
-        // Fallback: try localStorage
+    async function getToken() {
+        // Check cached token first
         try {
-            const companyId = window.ShopConfig?.getConfig?.()?.CompanyId || 1;
-            const key = 'bearer_token_data_' + companyId;
-            const stored = localStorage.getItem(key);
+            const stored = localStorage.getItem(DR_TOKEN_KEY);
             if (stored) {
                 const data = JSON.parse(stored);
-                if (data.access_token) return data.access_token;
+                if (data.access_token && data.expires_at && Date.now() < data.expires_at - 5 * 60 * 1000) {
+                    return data.access_token;
+                }
             }
         } catch (e) { /* ignore */ }
 
-        return null;
+        // Fetch new token with delivery-report specific credentials
+        try {
+            const formData = new URLSearchParams(DR_CREDENTIALS);
+            const response = await fetch(WORKER_URL + '/api/token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: formData.toString()
+            });
+
+            if (!response.ok) throw new Error(`Token fetch failed: ${response.status}`);
+
+            const data = await response.json();
+            if (!data.access_token) throw new Error('No access_token in response');
+
+            const tokenData = {
+                access_token: data.access_token,
+                expires_at: Date.now() + (data.expires_in * 1000)
+            };
+            try { localStorage.setItem(DR_TOKEN_KEY, JSON.stringify(tokenData)); } catch (e) { /* ignore */ }
+
+            console.log('[DELIVERY-REPORT] Token obtained with nvktlive1 account');
+            return data.access_token;
+        } catch (e) {
+            console.error('[DELIVERY-REPORT] Token fetch error:', e);
+            return null;
+        }
     }
 
     function buildApiUrl() {
