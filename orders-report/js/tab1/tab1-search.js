@@ -1406,7 +1406,7 @@ async function fetchOrders() {
         showInfoBanner(`✅ Đã tải ${allData.length} đơn hàng.`);
 
         // Init Processing Tags (Tag Xử Lý) for this campaign
-        const ptagCampaignId = selectedCampaign?.campaignIds?.[0] || selectedCampaign?.campaignId || 'default';
+        const ptagCampaignId = window.campaignManager?.activeCampaignId || 'default';
         if (window.loadProcessingTags) {
             window.loadProcessingTags(ptagCampaignId);
             if (window.setupProcessingTagSSE) window.setupProcessingTagSSE(ptagCampaignId);

@@ -325,7 +325,7 @@
         if (!row) return;
         const cell = row.querySelector('td[data-column="processing-tag"]');
         if (!cell) return;
-        const order = (window.allData || []).find(o => o.Id === orderId);
+        const order = ((typeof window.getAllOrders === 'function') ? window.getAllOrders() : []).find(o => o.Id === orderId);
         cell.innerHTML = renderProcessingTagCell(orderId, order?.Code || '');
     }
 
@@ -337,7 +337,7 @@
             if (!row) return;
             const orderId = row.getAttribute('data-order-id');
             if (!orderId) return;
-            const order = (window.allData || []).find(o => o.Id === orderId);
+            const order = ((typeof window.getAllOrders === 'function') ? window.getAllOrders() : []).find(o => o.Id === orderId);
             cell.innerHTML = renderProcessingTagCell(orderId, order?.Code || '');
         });
     }
@@ -402,7 +402,7 @@
 
         // 2. Order Discount → Giảm giá
         try {
-            const order = (window.allData || []).find(o => o.Id === orderId);
+            const order = ((typeof window.getAllOrders === 'function') ? window.getAllOrders() : []).find(o => o.Id === orderId);
             if (order && parseFloat(order.Discount || 0) > 0 && !existingFlags.includes('GIAM_GIA')) {
                 newFlags.push('GIAM_GIA');
             }
@@ -538,7 +538,7 @@
 
     // Helpers
     function _ptagGetOrderPhone(orderId) {
-        const order = (window.allData || []).find(o => o.Id === orderId);
+        const order = ((typeof window.getAllOrders === 'function') ? window.getAllOrders() : []).find(o => o.Id === orderId);
         return order?.Telephone || order?.Phone || '';
     }
 
@@ -1057,7 +1057,7 @@
         const body = document.getElementById('ptag-panel-body');
         if (!body) return;
 
-        const allOrders = window.allData || [];
+        const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
         const taggedOrders = ProcessingTagState.getAllOrders();
         const totalOrders = allOrders.length;
         const taggedCount = taggedOrders.size;
@@ -1373,7 +1373,7 @@
         }
 
         // Find orders by STT (SessionIndex)
-        const orders = (window.allData || []).filter(o => stts.includes(o.SessionIndex));
+        const orders = ((typeof window.getAllOrders === 'function') ? window.getAllOrders() : []).filter(o => stts.includes(o.SessionIndex));
 
         if (orders.length === 0) {
             alert('Không tìm thấy đơn nào với STT đã nhập.');
@@ -1430,7 +1430,7 @@
         const existing = document.getElementById('ptag-ttag-modal');
         if (existing) existing.remove();
 
-        const order = (window.allData || []).find(o => o.Id === orderId);
+        const order = ((typeof window.getAllOrders === 'function') ? window.getAllOrders() : []).find(o => o.Id === orderId);
         const orderCode = order?.Code || '';
 
         const modal = document.createElement('div');
