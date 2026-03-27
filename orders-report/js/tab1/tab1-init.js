@@ -603,6 +603,14 @@ async function continueAfterCampaignSelect(campaignId) {
         // Set selectedCampaign to custom mode
         selectedCampaign = { isCustom: true };
 
+        // Check if date mode is enabled - override campaign dates
+        if (typeof window.initDateMode === 'function') {
+            const dateModeActive = await window.initDateMode();
+            if (dateModeActive) {
+                console.log('[APP] Date mode active - using date mode dates instead of campaign dates');
+            }
+        }
+
         // Update UI label
         updateActiveCampaignLabel(campaign.name);
 

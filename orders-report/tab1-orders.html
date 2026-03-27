@@ -110,16 +110,28 @@
                         style="font-size: 11px; color: #9ca3af; margin-top: 4px;">-</div>
                 </div>
                 <div class="stats-item">
-                    <div class="stats-value" id="displayedOrdersCount">0</div>
-                    <div class="stats-label">Đang hiển thị</div>
-                </div>
-                <div class="stats-item">
                     <div class="stats-value" id="totalAmountSum">0đ</div>
                     <div class="stats-label">Tổng giá trị</div>
                 </div>
-                <div class="stats-item">
-                    <div class="stats-value" id="loadingProgress">0%</div>
-                    <div class="stats-label">Tiến độ</div>
+                <div class="stats-item" style="flex: 2; min-width: 320px;">
+                    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px; font-weight: 600; color: #7c3aed;">
+                            <input type="checkbox" id="dateModeToggle" onchange="toggleDateMode(this.checked)" style="width: 16px; height: 16px; accent-color: #7c3aed; cursor: pointer;" />
+                            <i class="fas fa-calendar-day"></i> Lọc theo ngày
+                        </label>
+                    </div>
+                    <div id="dateModeControls" style="display: none; flex-wrap: wrap; gap: 6px; align-items: center;">
+                        <div style="display: flex; gap: 4px;">
+                            <button onclick="applyQuickDays(15)" class="btn-quick-days" data-days="15" style="padding: 4px 10px; border: 2px solid #8b5cf6; border-radius: 6px; background: white; color: #7c3aed; font-weight: 700; font-size: 12px; cursor: pointer; transition: all 0.2s;">15N</button>
+                            <button onclick="applyQuickDays(20)" class="btn-quick-days" data-days="20" style="padding: 4px 10px; border: 2px solid #8b5cf6; border-radius: 6px; background: white; color: #7c3aed; font-weight: 700; font-size: 12px; cursor: pointer; transition: all 0.2s;">20N</button>
+                            <button onclick="applyQuickDays(30)" class="btn-quick-days" data-days="30" style="padding: 4px 10px; border: 2px solid #8b5cf6; border-radius: 6px; background: white; color: #7c3aed; font-weight: 700; font-size: 12px; cursor: pointer; transition: all 0.2s;">30N</button>
+                        </div>
+                        <div style="display: flex; gap: 4px; align-items: center;">
+                            <input type="datetime-local" id="dateModeStartDate" onchange="applyCustomDateRange()" style="padding: 4px 6px; border: 2px solid #d1d5db; border-radius: 6px; font-size: 12px; font-weight: 500; width: 165px;" />
+                            <span style="color: #9ca3af; font-size: 12px;">-</span>
+                            <input type="datetime-local" id="dateModeEndDate" onchange="applyCustomDateRange()" style="padding: 4px 6px; border: 2px solid #d1d5db; border-radius: 6px; font-size: 12px; font-weight: 500; width: 165px;" />
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -1065,6 +1077,9 @@
 
     <!-- 2. Firebase: Tag sync, KPI, filter prefs (lines 279-749) -->
     <script src="js/tab1/tab1-firebase.js"></script>
+
+    <!-- 2b. Date Mode: Quick date filter toggle -->
+    <script src="js/tab1/tab1-date-mode.js"></script>
 
     <!-- 3. Init: DOMContentLoaded, app initialization (lines 750-1385) -->
     <script src="js/tab1/tab1-init.js"></script>

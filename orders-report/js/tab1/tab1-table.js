@@ -1806,11 +1806,8 @@ function updateStats() {
         mergedInfoElement.style.color = "#9ca3af"; // Gray color
     }
 
-    document.getElementById("displayedOrdersCount").textContent =
-        displayedData.length.toLocaleString("vi-VN");
     document.getElementById("totalAmountSum").textContent =
         totalAmount.toLocaleString("vi-VN") + "đ";
-    document.getElementById("loadingProgress").textContent = "100%";
 }
 
 function updatePageInfo() {
