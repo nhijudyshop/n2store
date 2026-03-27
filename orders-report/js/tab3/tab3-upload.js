@@ -19,29 +19,6 @@
     let selectedSTTs = new Set();
     let currentViewMode = 'product'; // 'order' or 'product'
 
-    // Fetch with retry on 5xx errors (exponential backoff: 1s, 2s)
-    async function fetchWithRetryOn5xx(url, options = {}, maxRetries = 2, initialDelay = 1000) {
-        let lastError;
-        for (let attempt = 0; attempt <= maxRetries; attempt++) {
-            try {
-                const response = await fetch(url, options);
-                if (response.status >= 500 && attempt < maxRetries) {
-                    console.warn(`[FETCH-RETRY] HTTP ${response.status} on attempt ${attempt + 1}/${maxRetries + 1}, retrying...`);
-                    await new Promise(r => setTimeout(r, initialDelay * Math.pow(2, attempt)));
-                    continue;
-                }
-                return response;
-            } catch (error) {
-                lastError = error;
-                console.warn(`[FETCH-RETRY] Network error on attempt ${attempt + 1}/${maxRetries + 1}:`, error.message);
-                if (attempt < maxRetries) {
-                    await new Promise(r => setTimeout(r, initialDelay * Math.pow(2, attempt)));
-                }
-            }
-        }
-        throw lastError;
-    }
-
     // =====================================================
     // BUILD UPLOAD DATA
     // =====================================================
@@ -617,7 +594,7 @@
             const apiUrl = `${API_CONFIG.WORKER_URL}/api/odata/SaleOnline_Order(${orderId})?$expand=Details($expand=Product)`;
             const headers = await window.tokenManager.getAuthHeader();
 
-            const response = await fetchWithRetryOn5xx(apiUrl, {
+            const response = await fetch(apiUrl, {
                 headers: {
                     ...headers,
                     "Content-Type": "application/json",
@@ -715,7 +692,7 @@
             const apiUrl = `${API_CONFIG.WORKER_URL}/api/odata/SaleOnline_Order(${orderId})?$expand=Details($expand=Product),Partner,User,CRMTeam`;
             const headers = await window.tokenManager.getAuthHeader();
 
-            const response = await fetchWithRetryOn5xx(apiUrl, {
+            const response = await fetch(apiUrl, {
                 headers: {
                     ...headers,
                     "Content-Type": "application/json",
@@ -784,7 +761,7 @@
             console.log(`[UPLOAD] Uploading order ${orderId}...`);
 
             const uploadHeaders = await window.tokenManager.getAuthHeader();
-            const uploadResponse = await fetchWithRetryOn5xx(
+            const uploadResponse = await fetch(
                 `${API_CONFIG.WORKER_URL}/api/odata/SaleOnline_Order(${orderId})`,
                 {
                     method: "PUT",
@@ -918,7 +895,7 @@
             const apiUrl = `${API_CONFIG.WORKER_URL}/api/odata/Product(${productId})?$expand=UOM`;
             const headers = await window.tokenManager.getAuthHeader();
 
-            const response = await fetchWithRetryOn5xx(apiUrl, {
+            const response = await fetch(apiUrl, {
                 headers: {
                     ...headers,
                     "Content-Type": "application/json",
