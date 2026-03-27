@@ -563,11 +563,15 @@
         // Cat 1 — CHỜ ĐI ĐƠN
         if (data.category === PTAG_CATEGORIES.CHO_DI_DON) {
             const ss = PTAG_SUBSTATES[data.subState] || PTAG_SUBSTATES.OKIE_CHO_DI_DON;
-            const flagIcons = (data.flags || []).map(f => PTAG_FLAGS[f]?.icon || '').filter(Boolean).join('');
+            const flagLabels = (data.flags || []).map(f => {
+                const fl = PTAG_FLAGS[f];
+                if (!fl) return '';
+                return `<span class="ptag-flag-badge">${fl.label}</span>`;
+            }).filter(Boolean).join('');
             return `<div class="ptag-cell">
                 ${quickBtns}
                 <span class="ptag-badge" style="border-color:${ss.color};color:${ss.color};background:${ss.color}12;" onclick="window._ptagOpenDropdown('${orderId}', '${orderCode}', this); event.stopPropagation();" title="${ss.label}">${ss.label}</span>
-                ${flagIcons ? `<span class="ptag-flags" title="${(data.flags||[]).map(f=>PTAG_FLAGS[f]?.label||f).join(', ')}">${flagIcons}</span>` : ''}
+                ${flagLabels}
                 ${_tTagHtml}
                 ${clearBtn}
             </div>`;
