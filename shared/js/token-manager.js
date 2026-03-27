@@ -102,14 +102,14 @@ class TokenManager {
      */
     static getCredentials(companyId) {
         const CREDENTIALS_BY_COMPANY = {
-            1: { grant_type: 'password', username: 'nvlive', password: 'Njd123456', client_id: 'tmtWebApp' },
+            1: { grant_type: 'password', username: 'nvktlive1', password: 'Aa@28612345678', client_id: 'tmtWebApp' },
             2: { grant_type: 'password', username: 'nvktshop1', password: 'Aa@28612345678', client_id: 'tmtWebApp' }
         };
         return CREDENTIALS_BY_COMPANY[companyId] || CREDENTIALS_BY_COMPANY[1];
     }
 
     static getFallbackCredentials() {
-        return { grant_type: 'password', username: 'nvktlive1', password: 'Aa@28612345678', client_id: 'tmtWebApp' };
+        return { grant_type: 'password', username: 'nvlive', password: 'Njd123456', client_id: 'tmtWebApp' };
     }
 
     initFirestore() {
