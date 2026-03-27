@@ -6,6 +6,9 @@
 const COLUMN_VISIBILITY_KEY = 'orderTableColumnVisibility';
 const EXCLUDED_TAGS_KEY = 'orderTableExcludedTags';
 
+// Cache to skip redundant DOM updates when settings haven't changed
+let _lastAppliedSettingsJSON = null;
+
 // Default column visibility settings
 const DEFAULT_COLUMN_VISIBILITY = {
     'actions': true,
@@ -60,7 +63,6 @@ function loadColumnVisibility() {
 function saveColumnVisibilityToStorage(settings) {
     try {
         localStorage.setItem(COLUMN_VISIBILITY_KEY, JSON.stringify(settings));
-        console.log('[COLUMN] Column visibility saved:', settings);
     } catch (error) {
         console.error('[COLUMN] Error saving column visibility:', error);
     }
@@ -70,27 +72,30 @@ function saveColumnVisibilityToStorage(settings) {
  * Apply column visibility to table
  */
 function applyColumnVisibility(settings) {
-    console.log('[COLUMN] Applying column visibility:', settings);
+    // Skip if settings haven't changed — the <style> tag already has correct rules
+    const settingsJSON = JSON.stringify(settings);
+    if (_lastAppliedSettingsJSON === settingsJSON) {
+        return;
+    }
+    _lastAppliedSettingsJSON = settingsJSON;
 
-    // Apply to table headers
-    document.querySelectorAll('th[data-column]').forEach(th => {
-        const column = th.getAttribute('data-column');
-        if (settings[column] === false) {
-            th.classList.add('hidden');
-        } else {
-            th.classList.remove('hidden');
+    // Use a <style> tag instead of per-cell class manipulation.
+    // This way CSS automatically applies to new/replaced DOM elements (e.g. after innerHTML),
+    // eliminating the need to query 58K+ td[data-column] elements.
+    let css = '';
+    for (const [col, visible] of Object.entries(settings)) {
+        if (visible === false) {
+            css += `th[data-column="${col}"],td[data-column="${col}"]{display:none!important}\n`;
         }
-    });
+    }
 
-    // Apply to table cells
-    document.querySelectorAll('td[data-column]').forEach(td => {
-        const column = td.getAttribute('data-column');
-        if (settings[column] === false) {
-            td.classList.add('hidden');
-        } else {
-            td.classList.remove('hidden');
-        }
-    });
+    let styleEl = document.getElementById('column-visibility-style');
+    if (!styleEl) {
+        styleEl = document.createElement('style');
+        styleEl.id = 'column-visibility-style';
+        document.head.appendChild(styleEl);
+    }
+    styleEl.textContent = css;
 }
 
 /**
@@ -176,6 +181,9 @@ function saveColumnSettings() {
  * Reset column settings to default
  */
 function resetColumnSettings() {
+    // Invalidate cache so next apply will re-query DOM
+    _lastAppliedSettingsJSON = null;
+
     // Update checkboxes to default
     updateColumnCheckboxes(DEFAULT_COLUMN_VISIBILITY);
 
@@ -190,15 +198,11 @@ function resetColumnSettings() {
  * Initialize column visibility on page load
  */
 function initializeColumnVisibility() {
-    console.log('[COLUMN] Initializing column visibility...');
-
     // Load settings from localStorage
     const settings = loadColumnVisibility();
 
     // Apply settings to table
     applyColumnVisibility(settings);
-
-    console.log('[COLUMN] Column visibility initialized');
 }
 
 /**

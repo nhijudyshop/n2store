@@ -1253,14 +1253,19 @@
         if (btn) btn.classList.toggle('active', ProcessingTagState._panelPinned);
     }
 
+    let _ptagFilterTimer = null;
+
     function _ptagSetFilter(filterKey) {
         ProcessingTagState._activeFilter = filterKey;
         ProcessingTagState._activeFlagFilters.clear();
         renderPanelContent();
-        // Trigger table re-render
-        if (typeof window.performTableSearch === 'function') {
-            window.performTableSearch();
-        }
+        // Debounce table re-render to avoid redundant work on rapid clicks
+        clearTimeout(_ptagFilterTimer);
+        _ptagFilterTimer = setTimeout(() => {
+            if (typeof window.performTableSearch === 'function') {
+                window.performTableSearch();
+            }
+        }, 50);
     }
 
     function _ptagToggleFlagFilter(flagKey) {
@@ -1271,9 +1276,12 @@
             set.add(flagKey);
         }
         renderPanelContent();
-        if (typeof window.performTableSearch === 'function') {
-            window.performTableSearch();
-        }
+        clearTimeout(_ptagFilterTimer);
+        _ptagFilterTimer = setTimeout(() => {
+            if (typeof window.performTableSearch === 'function') {
+                window.performTableSearch();
+            }
+        }, 50);
     }
 
     function _ptagFilterPanel(query) {
