@@ -13,14 +13,14 @@ window.openCreateCampaignModal = function() {
     document.getElementById('newCampaignCustomStartDate').value = '';
     document.getElementById('newCampaignCustomEndDate').value = '';
 
-    // Copy current dates from main modal if available
-    const modalCustomStartDate = document.getElementById('modalCustomStartDate');
-    const modalCustomEndDate = document.getElementById('modalCustomEndDate');
-    if (modalCustomStartDate && modalCustomStartDate.value) {
-        document.getElementById('newCampaignCustomStartDate').value = modalCustomStartDate.value;
+    // Copy current dates from hidden fields if available
+    const customStartDate = document.getElementById('customStartDate');
+    const customEndDate = document.getElementById('customEndDate');
+    if (customStartDate && customStartDate.value) {
+        document.getElementById('newCampaignCustomStartDate').value = customStartDate.value;
     }
-    if (modalCustomEndDate && modalCustomEndDate.value) {
-        document.getElementById('newCampaignCustomEndDate').value = modalCustomEndDate.value;
+    if (customEndDate && customEndDate.value) {
+        document.getElementById('newCampaignCustomEndDate').value = customEndDate.value;
     }
 
     // Focus on name input

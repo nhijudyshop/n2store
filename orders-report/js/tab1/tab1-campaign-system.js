@@ -88,16 +88,6 @@ window.updateCampaignSettingsUI = function (campaign) {
 
     // SYNC DATE FIELDS - Critical for fetchOrders() to use correct dates
     if (campaign && campaign.customStartDate) {
-        // Sync to modal visible fields
-        const modalCustomStartDate = document.getElementById('modalCustomStartDate');
-        const modalCustomEndDate = document.getElementById('modalCustomEndDate');
-        if (modalCustomStartDate) {
-            modalCustomStartDate.value = campaign.customStartDate;
-        }
-        if (modalCustomEndDate) {
-            modalCustomEndDate.value = campaign.customEndDate || '';
-        }
-
         // Sync to hidden fields (used by fetchOrders)
         const customStartDate = document.getElementById('customStartDate');
         const customEndDate = document.getElementById('customEndDate');

@@ -24,19 +24,6 @@ window.closeCampaignSettingsModal = function() {
 
 // Sync original hidden elements to modal inputs
 window.syncOriginalToModal = function() {
-    // Sync custom date range (From - To)
-    const originalCustomStartDate = document.getElementById('customStartDate');
-    const modalCustomStartDate = document.getElementById('modalCustomStartDate');
-    if (originalCustomStartDate && modalCustomStartDate) {
-        modalCustomStartDate.value = originalCustomStartDate.value;
-    }
-
-    const originalCustomEndDate = document.getElementById('customEndDate');
-    const modalCustomEndDate = document.getElementById('modalCustomEndDate');
-    if (originalCustomEndDate && modalCustomEndDate) {
-        modalCustomEndDate.value = originalCustomEndDate.value;
-    }
-
     // Sync realtime checkbox
     const originalRealtimeCheckbox = document.getElementById('realtimeToggleCheckbox');
     const modalRealtimeCheckbox = document.getElementById('modalRealtimeToggleCheckbox');
@@ -59,36 +46,8 @@ window.syncOriginalToModal = function() {
     }
 };
 
-// Auto-fill end date when start date changes (+3 days at 00:00)
-window.autoFillCustomEndDate = function() {
-    const modalCustomStartDate = document.getElementById('modalCustomStartDate');
-    const modalCustomEndDate = document.getElementById('modalCustomEndDate');
-
-    if (modalCustomStartDate && modalCustomEndDate && modalCustomStartDate.value) {
-        const startDate = new Date(modalCustomStartDate.value);
-        const endDate = new Date(startDate.getTime() + 3 * 24 * 60 * 60 * 1000); // +3 days
-
-        // Set end date to 00:00 AM
-        endDate.setHours(0, 0, 0, 0);
-
-        // Format as datetime-local
-        const year = endDate.getFullYear();
-        const month = String(endDate.getMonth() + 1).padStart(2, '0');
-        const day = String(endDate.getDate()).padStart(2, '0');
-        const hours = String(endDate.getHours()).padStart(2, '0');
-        const minutes = String(endDate.getMinutes()).padStart(2, '0');
-
-        modalCustomEndDate.value = `${year}-${month}-${day}T${hours}:${minutes}`;
-    }
-};
-
-// Setup event listener for auto-fill
+// Setup event listeners
 document.addEventListener('DOMContentLoaded', function() {
-    const modalCustomStartDate = document.getElementById('modalCustomStartDate');
-    if (modalCustomStartDate) {
-        modalCustomStartDate.addEventListener('change', window.autoFillCustomEndDate);
-    }
-
     // Add event listener for user campaign select
     const userCampaignSelect = document.getElementById('modalUserCampaignSelect');
     if (userCampaignSelect) {

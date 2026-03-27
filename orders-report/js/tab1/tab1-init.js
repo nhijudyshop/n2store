@@ -592,15 +592,11 @@ async function continueAfterCampaignSelect(campaignId) {
         const customEndDateInput = document.getElementById('customEndDate');
         const startDateInput = document.getElementById('startDate');
         const endDateInput = document.getElementById('endDate');
-        const modalCustomStartDate = document.getElementById('modalCustomStartDate');
-        const modalCustomEndDate = document.getElementById('modalCustomEndDate');
 
         if (customStartDateInput) customStartDateInput.value = startDate;
         if (customEndDateInput) customEndDateInput.value = endDate;
         if (startDateInput) startDateInput.value = startDate;
         if (endDateInput) endDateInput.value = endDate;
-        if (modalCustomStartDate) modalCustomStartDate.value = startDate;
-        if (modalCustomEndDate) modalCustomEndDate.value = endDate;
 
         console.log('[APP] Dates set:', startDate, '->', endDate);
 
