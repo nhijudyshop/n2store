@@ -525,7 +525,7 @@
                     if (!Array.isArray(orderTags)) continue;
 
                     for (const tag of orderTags) {
-                        if ((tag.Name || '').startsWith(mapping.prefix)) {
+                        if ((tag.Name || '').toLowerCase().startsWith(mapping.prefix.toLowerCase())) {
                             const customFlagKey = _getOrCreateCustomFlag(tag.Name);
                             // Check if order already has this flag
                             const existing = window.ProcessingTagState.getOrderData(String(order.Id));
