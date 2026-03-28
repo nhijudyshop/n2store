@@ -1208,6 +1208,29 @@
 .ptag-ttag-panel-delete:hover {
     color: #ef4444;
 }
+.ptag-ttag-panel-delete-v2 {
+    background: rgba(239,68,68,0.08);
+    border: 1px solid rgba(239,68,68,0.2);
+    color: #ef4444;
+    font-size: 15px;
+    font-weight: 700;
+    width: 22px;
+    height: 22px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 5px;
+    cursor: pointer;
+    flex-shrink: 0;
+    margin-left: auto;
+    transition: all 0.15s;
+    line-height: 1;
+}
+.ptag-ttag-panel-delete-v2:hover {
+    background: #ef4444;
+    color: #fff;
+    border-color: #ef4444;
+}
 .ptag-ttag-panel-arrow {
     color: #d1d5db;
     font-size: 11px;
@@ -1226,9 +1249,10 @@
     padding: 16px;
 }
 .ptag-ttag-manager-summary {
-    font-size: 12px;
-    color: #6b7280;
+    font-size: 13px;
+    color: #374151;
     margin-bottom: 14px;
+    font-weight: 500;
 }
 .ptag-ttag-manager-create-btn {
     display: flex;
@@ -1236,21 +1260,21 @@
     justify-content: center;
     gap: 6px;
     width: 100%;
-    padding: 10px;
-    border: 2px dashed #d1d5db;
+    padding: 12px;
+    border: 2px dashed #a855f7;
     border-radius: 8px;
-    background: #fafafa;
-    color: #6b7280;
-    font-size: 13px;
-    font-weight: 500;
+    background: rgba(168,85,247,0.04);
+    color: #7c3aed;
+    font-size: 14px;
+    font-weight: 600;
     cursor: pointer;
     transition: all 0.15s;
     margin-bottom: 14px;
 }
 .ptag-ttag-manager-create-btn:hover {
-    border-color: #a855f7;
-    color: #7c3aed;
-    background: rgba(168,85,247,0.04);
+    border-color: #7c3aed;
+    color: #6d28d9;
+    background: rgba(168,85,247,0.08);
 }
 
 /* Manager card (expandable) */
@@ -1262,13 +1286,16 @@
     transition: border-color 0.15s;
 }
 .ptag-ttag-mgr-card:hover {
-    border-color: #d1d5db;
+    border-color: #c4b5fd;
+}
+.ptag-ttag-mgr-card.expanded {
+    border-color: #a855f7;
 }
 .ptag-ttag-mgr-card-header {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 10px 14px;
+    gap: 8px;
+    padding: 12px 14px;
     background: #fafafa;
     cursor: pointer;
     user-select: none;
@@ -1278,33 +1305,33 @@
     background: #f3f4f6;
 }
 .ptag-ttag-mgr-delete-btn {
-    background: none;
-    border: none;
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.2);
     color: #ef4444;
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 700;
     cursor: pointer;
-    width: 24px;
-    height: 24px;
+    width: 26px;
+    height: 26px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: 4px;
+    border-radius: 6px;
     margin-left: 6px;
-    opacity: 0.5;
-    transition: opacity 0.15s, background 0.15s;
+    transition: all 0.15s;
     flex-shrink: 0;
 }
 .ptag-ttag-mgr-delete-btn:hover {
-    opacity: 1;
-    background: rgba(239, 68, 68, 0.1);
+    background: #ef4444;
+    color: #fff;
+    border-color: #ef4444;
 }
 .ptag-ttag-mgr-card-title {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 13px;
-    font-weight: 500;
+    font-size: 14px;
+    font-weight: 600;
     color: #7c3aed;
 }
 .ptag-ttag-mgr-card-title .tag-icon {
@@ -1314,32 +1341,34 @@
     display: flex;
     align-items: center;
     gap: 10px;
-    font-size: 12px;
-    color: #9ca3af;
+    font-size: 13px;
+    color: #6b7280;
 }
 .ptag-ttag-mgr-card-body {
-    padding: 14px;
+    padding: 16px;
     border-top: 1px solid #f3f4f6;
+    background: #fff;
 }
 
 /* STT pills */
 .ptag-ttag-mgr-pills {
     display: flex;
     flex-wrap: wrap;
-    gap: 5px;
+    gap: 6px;
     margin-bottom: 14px;
-    max-height: 140px;
+    max-height: 160px;
     overflow-y: auto;
 }
 .ptag-ttag-mgr-pill {
     display: inline-flex;
     align-items: center;
-    gap: 3px;
-    padding: 3px 8px;
-    background: #f3f4f6;
-    border: 1px solid #e5e7eb;
-    border-radius: 4px;
-    font-size: 11.5px;
+    gap: 4px;
+    padding: 5px 10px;
+    background: #f5f3ff;
+    border: 1px solid #ddd6fe;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
     color: #374151;
     white-space: nowrap;
 }
@@ -1347,25 +1376,25 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 13px;
-    height: 13px;
+    width: 16px;
+    height: 16px;
     border: none;
-    background: rgba(0,0,0,0.06);
-    color: #9ca3af;
-    font-size: 10px;
+    background: rgba(239,68,68,0.1);
+    color: #ef4444;
+    font-size: 12px;
     border-radius: 50%;
     cursor: pointer;
     padding: 0;
-    margin-left: 2px;
+    margin-left: 3px;
     transition: background 0.15s, color 0.15s;
 }
 .ptag-ttag-mgr-pill button:hover {
-    background: rgba(239,68,68,0.15);
-    color: #ef4444;
+    background: #ef4444;
+    color: #fff;
 }
 .ptag-ttag-mgr-pills-empty {
-    font-size: 12px;
-    color: #9ca3af;
+    font-size: 13px;
+    color: #6b7280;
     padding: 8px 0;
 }
 
@@ -1396,33 +1425,34 @@
     margin-bottom: 0;
 }
 .ptag-ttag-mgr-row label {
-    font-size: 12px;
-    color: #6b7280;
+    font-size: 13px;
+    color: #374151;
+    font-weight: 500;
     white-space: nowrap;
     min-width: 50px;
 }
 .ptag-ttag-mgr-row input[type="text"] {
     flex: 1;
-    padding: 6px 10px;
+    padding: 8px 12px;
     border: 1px solid #d1d5db;
-    border-radius: 5px;
-    font-size: 12px;
-    color: #374151;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #1f2937;
     outline: none;
-    transition: border-color 0.15s;
+    transition: border-color 0.15s, box-shadow 0.15s;
 }
 .ptag-ttag-mgr-row input[type="text"]:focus {
     border-color: #a855f7;
-    box-shadow: 0 0 0 2px rgba(168,85,247,0.1);
+    box-shadow: 0 0 0 3px rgba(168,85,247,0.12);
 }
 
 /* Manager buttons */
 .ptag-ttag-mgr-btn {
-    padding: 5px 12px;
+    padding: 8px 16px;
     border: none;
-    border-radius: 5px;
-    font-size: 12px;
-    font-weight: 500;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
     cursor: pointer;
     transition: all 0.15s;
     white-space: nowrap;
@@ -1463,63 +1493,67 @@
    ===================================================== */
 .ptag-ttag-create-form {
     border: 2px solid #a855f7;
-    border-radius: 8px;
-    padding: 14px;
+    border-radius: 10px;
+    padding: 16px;
     margin-bottom: 14px;
-    background: rgba(168,85,247,0.02);
+    background: rgba(168,85,247,0.03);
 }
 .ptag-ttag-create-form h4 {
-    margin: 0 0 12px 0;
-    font-size: 13px;
+    margin: 0 0 14px 0;
+    font-size: 15px;
     font-weight: 600;
     color: #7c3aed;
 }
 .ptag-ttag-create-fields {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 10px;
     margin-bottom: 12px;
 }
 .ptag-ttag-create-row {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
 }
 .ptag-ttag-create-row label {
-    font-size: 12px;
-    color: #6b7280;
-    min-width: 80px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #374151;
+    min-width: 90px;
     white-space: nowrap;
 }
 .ptag-ttag-create-row input[type="text"] {
     flex: 1;
-    padding: 7px 10px;
-    border: 1px solid #d1d5db;
-    border-radius: 5px;
-    font-size: 12.5px;
-    color: #374151;
+    padding: 9px 12px;
+    border: 1.5px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+    color: #1f2937;
     outline: none;
-    transition: border-color 0.15s;
+    transition: border-color 0.15s, box-shadow 0.15s;
 }
 .ptag-ttag-create-row input[type="text"]:focus {
     border-color: #a855f7;
-    box-shadow: 0 0 0 2px rgba(168,85,247,0.1);
+    box-shadow: 0 0 0 3px rgba(168,85,247,0.12);
 }
 .ptag-ttag-create-assign-mode {
     display: flex;
-    gap: 12px;
+    gap: 14px;
     margin-bottom: 12px;
 }
 .ptag-ttag-create-assign-mode label {
     display: flex;
     align-items: center;
-    gap: 5px;
-    font-size: 12px;
-    color: #4b5563;
+    gap: 6px;
+    font-size: 13px;
+    color: #374151;
     cursor: pointer;
+    font-weight: 500;
 }
 .ptag-ttag-create-assign-mode input[type="radio"] {
     accent-color: #7c3aed;
+    width: 15px;
+    height: 15px;
 }
 .ptag-ttag-create-actions {
     display: flex;

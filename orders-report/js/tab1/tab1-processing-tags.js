@@ -1322,8 +1322,8 @@
                 const fk = 'ttag_' + def.id;
                 const escapedFk = fk.replace(/'/g, "\\'");
                 const count = tTagCounts[def.id] || 0;
-                const pcLabel = def.productCode ? `<span style="color:#9ca3af;font-size:10px;margin-left:4px;">${def.productCode}</span>` : '';
-                const deleteBtn = `<button class="ptag-ttag-panel-delete" onclick="window._ptagDeleteTTagDefAndOrders('${escapedFk.replace('ttag_', '')}'); event.stopPropagation();" title="Xóa tag và gỡ khỏi tất cả đơn"><i class="fas fa-times" style="font-size:9px;color:#ef4444;"></i></button>`;
+                const pcLabel = def.productCode ? `<span style="color:#6b7280;font-size:11px;margin-left:4px;font-weight:500;">${def.productCode}</span>` : '';
+                const deleteBtn = `<button class="ptag-ttag-panel-delete-v2" onclick="window._ptagDeleteTTagDefAndOrders('${escapedFk.replace('ttag_', '')}'); event.stopPropagation();" title="Xóa tag và gỡ khỏi tất cả đơn">&times;</button>`;
                 html += `<div class="ptag-panel-card ${activeFilter === fk ? 'active' : ''}" onclick="window._ptagSetFilter('${escapedFk}')" data-search="${_ptagNormalize(def.name + ' ' + (def.productCode || ''))}">
                     <div class="ptag-panel-card-icon ptag-panel-card-icon--sm" style="background:#8b5cf6;">
                         <span style="font-size:12px;">\u{1F3F7}\uFE0F</span>
@@ -1833,13 +1833,13 @@
         modal.innerHTML = `
             <div class="ptag-ttag-modal-content ptag-ttag-manager-content">
                 <div class="ptag-ttag-header" style="background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;">
-                    <span style="font-weight:600;font-size:14px;">\u{1F3F7}\uFE0F QUẢN LÝ TAG T CHỜ HÀNG</span>
+                    <span style="font-weight:700;font-size:16px;">\u{1F3F7}\uFE0F QUẢN LÝ TAG T CHỜ HÀNG</span>
                     <span style="flex:1;"></span>
                     <button class="ptag-ttag-close-btn" style="color:#fff;" onclick="window._ptagCloseTTagManager()">&times;</button>
                 </div>
-                <div id="ptag-ttag-manager-summary" style="padding:8px 16px;font-size:12px;color:#6b7280;border-bottom:1px solid #e5e7eb;"></div>
-                <div id="ptag-ttag-manager-create" style="padding:12px 16px;border-bottom:1px solid #e5e7eb;">
-                    <button class="ptag-ttag-create-btn" id="ptag-ttag-create-toggle" onclick="window._ptagToggleCreateForm()">+ TẠO TAG T MỚI</button>
+                <div id="ptag-ttag-manager-summary" style="padding:10px 16px;font-size:14px;color:#374151;font-weight:500;border-bottom:1px solid #e5e7eb;"></div>
+                <div id="ptag-ttag-manager-create" style="padding:14px 16px;border-bottom:1px solid #e5e7eb;">
+                    <button id="ptag-ttag-create-toggle" onclick="window._ptagToggleCreateForm()" style="width:100%;padding:12px;border:2px dashed #a855f7;border-radius:8px;background:rgba(168,85,247,0.04);color:#7c3aed;font-size:14px;font-weight:700;cursor:pointer;transition:all 0.15s;">+ TẠO TAG T MỚI</button>
                     <div id="ptag-ttag-create-form" style="display:none;margin-top:10px;"></div>
                 </div>
                 <div id="ptag-ttag-manager-list" style="padding:8px 16px;max-height:calc(80vh - 200px);overflow-y:auto;"></div>
@@ -1863,7 +1863,7 @@
         if (!list) return;
 
         if (defs.length === 0) {
-            list.innerHTML = '<div style="text-align:center;padding:24px;color:#9ca3af;"><i class="fas fa-box-open" style="font-size:32px;margin-bottom:8px;display:block;"></i>Chưa có tag T nào.<br>Nhấn "+ TẠO TAG T MỚI" để bắt đầu.</div>';
+            list.innerHTML = '<div style="text-align:center;padding:30px;color:#6b7280;font-size:14px;"><i class="fas fa-box-open" style="font-size:36px;margin-bottom:10px;display:block;color:#a855f7;"></i>Chưa có tag T nào.<br>Nhấn <b style="color:#7c3aed;">+ TẠO TAG T MỚI</b> để bắt đầu.</div>';
             return;
         }
 
@@ -1871,14 +1871,14 @@
             const count = counts[def.id] || 0;
             const escapedId = def.id.replace(/'/g, "\\'");
             const isExpanded = _ttagManagerExpanded === def.id;
-            const pcLabel = def.productCode ? `<span style="color:#9ca3af;"> · ${def.productCode}</span>` : '';
+            const pcLabel = def.productCode ? `<span style="color:#6b7280;font-weight:500;"> · ${def.productCode}</span>` : '';
             const expandIcon = isExpanded ? 'fa-chevron-down' : 'fa-chevron-right';
 
             let cardHtml = `<div class="ptag-ttag-mgr-card ${isExpanded ? 'expanded' : ''}">
                 <div class="ptag-ttag-mgr-card-header" onclick="window._ptagToggleTTagCard('${escapedId}')">
-                    <i class="fas ${expandIcon}" style="font-size:10px;color:#9ca3af;margin-right:6px;"></i>
-                    <span style="color:#7c3aed;font-weight:600;flex:1;">${def.name}${pcLabel}</span>
-                    <span class="ptag-ttag-mgr-count">${count} đơn</span>
+                    <i class="fas ${expandIcon}" style="font-size:11px;color:#7c3aed;margin-right:4px;"></i>
+                    <span style="color:#7c3aed;font-weight:600;font-size:14px;flex:1;">${def.name}${pcLabel}</span>
+                    <span style="font-size:13px;font-weight:500;color:#374151;margin-right:4px;">${count} đơn</span>
                     <button class="ptag-ttag-mgr-delete-btn" onclick="window._ptagDeleteTTagDefAndOrders('${escapedId}'); event.stopPropagation();" title="Xóa tag và gỡ khỏi tất cả đơn">&times;</button>
                 </div>`;
 
@@ -1894,30 +1894,30 @@
                     });
                     cardHtml += `</div>`;
                 } else {
-                    cardHtml += `<div style="color:#9ca3af;font-size:11px;padding:4px 0;">Chưa có đơn nào.</div>`;
+                    cardHtml += `<div style="color:#6b7280;font-size:13px;padding:6px 0;">Chưa có đơn nào.</div>`;
                 }
 
                 // Add orders section
-                cardHtml += `<div class="ptag-ttag-mgr-actions">
-                    <div class="ptag-ttag-mgr-action-row">
-                        <input type="text" class="ptag-ttag-mgr-input" id="ptag-ttag-add-stt-${def.id}" placeholder="Nhập STT: 1, 5-10, 15" />
-                        <button class="ptag-ttag-mgr-btn" onclick="window._ptagAddSTTsToTag('${escapedId}')">+ Thêm</button>
+                cardHtml += `<div style="margin-top:12px;padding-top:12px;border-top:1px solid #f3f4f6;">
+                    <div style="font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">➕ Thêm đơn</div>
+                    <div style="display:flex;gap:8px;margin-bottom:8px;">
+                        <input type="text" id="ptag-ttag-add-stt-${def.id}" placeholder="Nhập STT: 1, 5-10, 15" style="flex:1;padding:9px 12px;font-size:13px;border:1.5px solid #d1d5db;border-radius:6px;color:#1f2937;outline:none;" onfocus="this.style.borderColor='#a855f7';this.style.boxShadow='0 0 0 3px rgba(168,85,247,0.12)'" onblur="this.style.borderColor='#d1d5db';this.style.boxShadow='none'" />
+                        <button onclick="window._ptagAddSTTsToTag('${escapedId}')" style="padding:9px 16px;font-size:13px;font-weight:600;background:#7c3aed;color:#fff;border:none;border-radius:6px;cursor:pointer;white-space:nowrap;">+ Thêm</button>
                     </div>
-                    <div class="ptag-ttag-mgr-action-row">
-                        <button class="ptag-ttag-mgr-btn ptag-ttag-mgr-btn--find" onclick="window._ptagFindByProductCode('${escapedId}')">
-                            <i class="fas fa-search"></i> Tìm đơn chứa SP ${def.productCode || def.name}
-                        </button>
-                    </div>
+                    <button onclick="window._ptagFindByProductCode('${escapedId}')" style="width:100%;padding:10px 16px;font-size:13px;font-weight:600;background:#f5f3ff;color:#7c3aed;border:1.5px solid #c4b5fd;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
+                        <i class="fas fa-search"></i> Tìm đơn chứa SP ${def.productCode || def.name}
+                    </button>
                 </div>`;
 
                 // Remove section
-                cardHtml += `<div class="ptag-ttag-mgr-remove">
-                    <div class="ptag-ttag-mgr-action-row">
-                        <input type="text" class="ptag-ttag-mgr-input" id="ptag-ttag-remove-stt-${def.id}" placeholder="STT cần gỡ: 1, 5, 10" />
-                        <button class="ptag-ttag-mgr-btn ptag-ttag-mgr-btn--warn" onclick="window._ptagRemoveSTTsFromTag('${escapedId}')">Gỡ chọn</button>
+                cardHtml += `<div style="margin-top:12px;padding-top:12px;border-top:1px solid #f3f4f6;">
+                    <div style="font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">➖ Gỡ đơn</div>
+                    <div style="display:flex;gap:8px;margin-bottom:8px;">
+                        <input type="text" id="ptag-ttag-remove-stt-${def.id}" placeholder="STT cần gỡ: 1, 5, 10" style="flex:1;padding:9px 12px;font-size:13px;border:1.5px solid #d1d5db;border-radius:6px;color:#1f2937;outline:none;" onfocus="this.style.borderColor='#ef4444';this.style.boxShadow='0 0 0 3px rgba(239,68,68,0.1)'" onblur="this.style.borderColor='#d1d5db';this.style.boxShadow='none'" />
+                        <button onclick="window._ptagRemoveSTTsFromTag('${escapedId}')" style="padding:9px 16px;font-size:13px;font-weight:600;background:rgba(239,68,68,0.08);color:#ef4444;border:1.5px solid rgba(239,68,68,0.2);border-radius:6px;cursor:pointer;white-space:nowrap;">Gỡ chọn</button>
                     </div>
-                    ${count > 0 ? `<button class="ptag-ttag-mgr-btn ptag-ttag-mgr-btn--success ptag-ttag-mgr-btn--full" onclick="window._ptagRemoveAllFromTag('${escapedId}')">
-                        \u{1F7E2} HÀNG ĐÃ VỀ — Gỡ tất cả ${count} đơn
+                    ${count > 0 ? `<button onclick="window._ptagRemoveAllFromTag('${escapedId}')" style="width:100%;padding:10px 16px;font-size:14px;font-weight:600;background:#22c55e;color:#fff;border:none;border-radius:6px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
+                        🟢 HÀNG ĐÃ VỀ — Gỡ tất cả ${count} đơn
                     </button>` : ''}
                 </div>`;
 
@@ -1941,25 +1941,26 @@
         form.style.display = isVisible ? 'none' : 'block';
         if (!isVisible) {
             form.innerHTML = `
-                <div class="ptag-ttag-create-fields">
+                <div class="ptag-ttag-create-fields" style="border:2px solid #a855f7;border-radius:10px;padding:16px;background:rgba(168,85,247,0.03);">
+                    <div style="font-size:15px;font-weight:700;color:#7c3aed;margin-bottom:4px;">📋 Tạo Tag T mới</div>
                     <div class="ptag-ttag-create-row">
-                        <label>Mã SP <span style="color:#ef4444;">*</span></label>
-                        <input type="text" id="ptag-ttag-new-pc" placeholder="VD: B16" style="text-transform:uppercase;" />
+                        <label style="font-size:14px;font-weight:600;color:#374151;min-width:100px;">Mã SP <span style="color:#ef4444;">*</span></label>
+                        <input type="text" id="ptag-ttag-new-pc" placeholder="VD: B16" style="text-transform:uppercase;font-size:14px;padding:10px 12px;border:1.5px solid #d1d5db;border-radius:6px;" />
                     </div>
                     <div class="ptag-ttag-create-row">
-                        <label>Tên gợi nhớ <span style="color:#ef4444;">*</span></label>
-                        <input type="text" id="ptag-ttag-new-name" placeholder="VD: Áo nâu ngắn tay" />
+                        <label style="font-size:14px;font-weight:600;color:#374151;min-width:100px;">Tên gợi nhớ <span style="color:#ef4444;">*</span></label>
+                        <input type="text" id="ptag-ttag-new-name" placeholder="VD: Áo nâu ngắn tay" style="font-size:14px;padding:10px 12px;border:1.5px solid #d1d5db;border-radius:6px;" />
                     </div>
                     <div class="ptag-ttag-create-row">
-                        <label>Gắn đơn ngay:</label>
-                        <div style="display:flex;gap:8px;margin-top:4px;">
-                            <label style="font-size:12px;cursor:pointer;"><input type="radio" name="ptag-ttag-assign-mode" value="search" checked /> Tự tìm đơn chứa SP</label>
-                            <label style="font-size:12px;cursor:pointer;"><input type="radio" name="ptag-ttag-assign-mode" value="manual" /> Nhập STT thủ công</label>
+                        <label style="font-size:14px;font-weight:600;color:#374151;min-width:100px;">Gắn đơn ngay:</label>
+                        <div style="display:flex;gap:14px;margin-top:2px;">
+                            <label style="font-size:13px;font-weight:500;color:#374151;cursor:pointer;display:flex;align-items:center;gap:6px;"><input type="radio" name="ptag-ttag-assign-mode" value="search" checked style="width:15px;height:15px;accent-color:#7c3aed;" /> Tự tìm đơn chứa SP</label>
+                            <label style="font-size:13px;font-weight:500;color:#374151;cursor:pointer;display:flex;align-items:center;gap:6px;"><input type="radio" name="ptag-ttag-assign-mode" value="manual" style="width:15px;height:15px;accent-color:#7c3aed;" /> Nhập STT thủ công</label>
                         </div>
                     </div>
-                    <div style="display:flex;gap:8px;margin-top:10px;">
-                        <button class="ptag-ttag-mgr-btn ptag-ttag-mgr-btn--warn" onclick="window._ptagCancelCreateForm()">Hủy</button>
-                        <button class="ptag-ttag-mgr-btn ptag-ttag-mgr-btn--success" style="flex:1;" onclick="window._ptagConfirmCreateTag()">Tạo & Tiếp tục</button>
+                    <div style="display:flex;gap:10px;margin-top:12px;">
+                        <button class="ptag-ttag-mgr-btn ptag-ttag-mgr-btn--warn" style="padding:10px 20px;font-size:14px;" onclick="window._ptagCancelCreateForm()">Hủy</button>
+                        <button class="ptag-ttag-mgr-btn ptag-ttag-mgr-btn--success" style="flex:1;padding:10px 20px;font-size:14px;" onclick="window._ptagConfirmCreateTag()">Tạo & Tiếp tục</button>
                     </div>
                 </div>`;
             setTimeout(() => document.getElementById('ptag-ttag-new-pc')?.focus(), 50);
