@@ -2026,36 +2026,26 @@
      * Cache for order details loaded from Firestore (Báo Cáo Tổng Hợp).
      * Key: tableName, Value: array of orders with Details[].ProductCode
      */
-    let _reportOrderDetailsCache = null; // { tableName, orders[] }
+    let _reportOrderDetailsCache = null; // { tableName, orders[], updatedAt }
     let _reportOrderDetailsLoading = null; // Promise if currently loading
+
+    /** Convert Firestore timestamp to comparable number */
+    function _tsToMillis(ts) {
+        if (!ts) return 0;
+        if (typeof ts.toMillis === 'function') return ts.toMillis();
+        if (typeof ts.seconds === 'number') return ts.seconds * 1000;
+        if (typeof ts === 'number') return ts;
+        return 0;
+    }
 
     /**
      * Load order details from Firestore collection 'report_order_details'.
-     * This data was fetched & saved by Tab "Báo Cáo Tổng Hợp" (overview)
-     * via "Lấy chi tiết đơn hàng" button → fetchOrderData() with $expand=Details.
+     * Smart cache: checks updatedAt from main doc (1 read) before reloading chunks.
      */
     async function _ptagLoadReportOrderDetails() {
         const tableName = window.campaignManager?.activeCampaign?.name
             || localStorage.getItem('orders_table_name') || '';
         if (!tableName) return null;
-
-        // Return cache if same table
-        if (_reportOrderDetailsCache && _reportOrderDetailsCache.tableName === tableName) {
-            return _reportOrderDetailsCache.orders;
-        }
-
-        // Prevent duplicate concurrent loads
-        if (_reportOrderDetailsLoading) return _reportOrderDetailsLoading;
-
-        _reportOrderDetailsLoading = _ptagLoadReportOrderDetailsInner(tableName);
-        try {
-            return await _reportOrderDetailsLoading;
-        } finally {
-            _reportOrderDetailsLoading = null;
-        }
-    }
-
-    async function _ptagLoadReportOrderDetailsInner(tableName) {
 
         const db = window.firestoreDb || (typeof firebase !== 'undefined' && firebase.firestore());
         if (!db) {
@@ -2066,6 +2056,39 @@
         const safeTableName = tableName.replace(/[.$#\[\]\/]/g, '_');
         const FIREBASE_PATH = 'report_order_details';
 
+        // If cache exists → check if data changed (1 lightweight Firestore read)
+        if (_reportOrderDetailsCache && _reportOrderDetailsCache.tableName === tableName) {
+            try {
+                const docRef = db.collection(FIREBASE_PATH).doc(safeTableName);
+                const doc = await docRef.get();
+                if (doc.exists) {
+                    const serverUpdatedAt = _tsToMillis(doc.data().updatedAt);
+                    const cachedUpdatedAt = _tsToMillis(_reportOrderDetailsCache.updatedAt);
+                    if (serverUpdatedAt > 0 && serverUpdatedAt === cachedUpdatedAt) {
+                        console.log(`${PTAG_LOG} Report data unchanged, using cache (${_reportOrderDetailsCache.orders.length} orders)`);
+                        return _reportOrderDetailsCache.orders;
+                    }
+                    console.log(`${PTAG_LOG} Report data updated on server, refreshing cache...`);
+                }
+            } catch (e) {
+                // If check fails, still use cache as fallback
+                console.warn(`${PTAG_LOG} Cache check failed, using existing cache`, e);
+                return _reportOrderDetailsCache.orders;
+            }
+        }
+
+        // Prevent duplicate concurrent loads
+        if (_reportOrderDetailsLoading) return _reportOrderDetailsLoading;
+
+        _reportOrderDetailsLoading = _ptagLoadReportOrderDetailsInner(tableName, db, safeTableName, FIREBASE_PATH);
+        try {
+            return await _reportOrderDetailsLoading;
+        } finally {
+            _reportOrderDetailsLoading = null;
+        }
+    }
+
+    async function _ptagLoadReportOrderDetailsInner(tableName, db, safeTableName, FIREBASE_PATH) {
         try {
             const docRef = db.collection(FIREBASE_PATH).doc(safeTableName);
             const doc = await docRef.get();
@@ -2078,7 +2101,6 @@
             let orders;
 
             if (data.isChunked) {
-                // Load chunked data
                 const chunksSnapshot = await docRef.collection('order_chunks')
                     .orderBy('chunkIndex').get();
                 orders = [];
@@ -2092,7 +2114,7 @@
                 console.log(`${PTAG_LOG} Loaded ${orders.length} orders from report_order_details`);
             }
 
-            _reportOrderDetailsCache = { tableName, orders };
+            _reportOrderDetailsCache = { tableName, orders, updatedAt: data.updatedAt };
             return orders;
         } catch (e) {
             console.error(`${PTAG_LOG} Error loading report order details:`, e);
