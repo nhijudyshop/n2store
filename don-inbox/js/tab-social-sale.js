@@ -14,8 +14,6 @@ let currentSaleLastDeposit = null;
 let currentSaleAvailableDeposits = []; // [{ amount, date }] all deposits contributing to wallet balance
 let currentSaleVirtualCredits = [];    // [{ remaining_amount, source_type, source_id, ticket_note }] active virtual credits
 
-// Saved tags before sale modal opens (for restore on cancel)
-let _savedTagsBeforeSale = null; // { orderId, tags: [...] }
 
 // QR/wallet API URL (required by sale-modal-common.js)
 const QR_API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
@@ -219,26 +217,6 @@ async function openSaleModalInSocialTab(orderId) {
     }
 
     window._lastSocialSaleOrderId = orderId;
-
-    // Save current tags and remove them from order
-    // _savedTags persists on order for restore on TPOS cancel ("Nhờ hủy đơn")
-    // _savedTagsBeforeSale is in-memory for restore on sale modal close
-    if (order.tags && order.tags.length > 0) {
-        const tagsCopy = [...order.tags];
-        _savedTagsBeforeSale = { orderId, tags: tagsCopy };
-        order._savedTags = tagsCopy;
-        order.tags = [];
-        order.updatedAt = Date.now();
-        saveSocialOrdersToStorage();
-        if (typeof updateSocialOrder === 'function') {
-            updateSocialOrder(orderId, { tags: [], _savedTags: tagsCopy });
-        }
-        if (typeof performTableSearch === 'function') {
-            performTableSearch();
-        }
-    } else {
-        _savedTagsBeforeSale = null;
-    }
 
     // Map social order data to Tab1-compatible format
     const mappedOrder = {
