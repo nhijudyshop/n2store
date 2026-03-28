@@ -206,10 +206,52 @@
                 }
             }
             console.log(`${PTAG_LOG} Loaded ${result.count || 0} tags for campaign ${campaignId}`);
+            _ptagReconcileIds();
             renderPanelContent();
             _ptagRefreshAllRows();
         } catch (e) {
             console.error(`${PTAG_LOG} Failed to load tags:`, e);
+        }
+    }
+
+    /**
+     * Re-map processing tag IDs to match current allData order IDs.
+     * Uses order Code (Mã ĐH) as cross-reference key — unique per order on TPOS.
+     * Fixes the issue where order.Id changes between page loads.
+     */
+    function _ptagReconcileIds() {
+        const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
+        if (allOrders.length === 0) return;
+
+        const allDataIds = new Set(allOrders.map(o => String(o.Id)));
+        const codeToTableId = new Map();
+        allOrders.forEach(o => {
+            if (o.Code) codeToTableId.set(String(o.Code), String(o.Id));
+        });
+
+        const remaps = [];
+        for (const [orderId, data] of ProcessingTagState.getAllOrders()) {
+            if (allDataIds.has(orderId)) continue; // Already matches
+            const code = String(data.code || '');
+            if (code && codeToTableId.has(code)) {
+                const newId = codeToTableId.get(code);
+                if (newId !== orderId) {
+                    remaps.push({ oldId: orderId, newId, data });
+                }
+            }
+        }
+
+        for (const { oldId, newId, data } of remaps) {
+            if (ProcessingTagState.hasOrder(newId)) continue;
+            ProcessingTagState.removeOrder(oldId);
+            ProcessingTagState.setOrderData(newId, data);
+            saveProcessingTagToAPI(newId, data);
+            clearProcessingTagAPI(oldId);
+            console.log(`${PTAG_LOG} Re-mapped order: ${oldId} → ${newId} (Code: ${data.code})`);
+        }
+
+        if (remaps.length > 0) {
+            console.log(`${PTAG_LOG} Reconciled ${remaps.length} order ID(s) by Code cross-reference`);
         }
     }
 
@@ -375,6 +417,7 @@
             }
         }
 
+        _ptagEnsureCode(orderId, data);
         ProcessingTagState.setOrderData(orderId, data);
         _ptagRefreshRow(orderId);
         renderPanelContent();
@@ -429,6 +472,7 @@
         }
         data.flags = flags;
 
+        _ptagEnsureCode(orderId, data);
         ProcessingTagState.setOrderData(orderId, data);
         _ptagRefreshRow(orderId);
         renderPanelContent();
@@ -456,6 +500,7 @@
         if (data.category === PTAG_CATEGORIES.CHO_DI_DON && data.subState === 'OKIE_CHO_DI_DON') {
             data.subState = 'CHO_HANG';
         }
+        _ptagEnsureCode(orderId, data);
         ProcessingTagState.setOrderData(orderId, data);
         _ptagRefreshRow(orderId);
         renderPanelContent();
@@ -470,6 +515,7 @@
         if (data.category === PTAG_CATEGORIES.CHO_DI_DON && data.subState === 'CHO_HANG' && data.tTags.length === 0) {
             data.subState = 'OKIE_CHO_DI_DON';
         }
+        _ptagEnsureCode(orderId, data);
         ProcessingTagState.setOrderData(orderId, data);
         _ptagRefreshRow(orderId);
         renderPanelContent();
@@ -540,6 +586,14 @@
     function _ptagGetOrderPhone(orderId) {
         const order = ((typeof window.getAllOrders === 'function') ? window.getAllOrders() : []).find(o => o.Id === orderId);
         return order?.Telephone || order?.Phone || '';
+    }
+
+    /** Inject order Code into data before saving (for cross-referencing after reload) */
+    function _ptagEnsureCode(orderId, data) {
+        if (!data.code) {
+            const order = ((typeof window.getAllOrders === 'function') ? window.getAllOrders() : []).find(o => String(o.Id) === String(orderId));
+            if (order?.Code) data.code = order.Code;
+        }
     }
 
     // =====================================================
@@ -1060,10 +1114,10 @@
         const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
         const taggedOrders = ProcessingTagState.getAllOrders();
         const totalOrders = allOrders.length;
-        const taggedCount = taggedOrders.size;
-        const untaggedCount = totalOrders - taggedCount;
 
-        // Count per category
+        // Only count tagged orders that exist in current allData
+        const allDataIds = new Set(allOrders.map(o => String(o.Id)));
+        let taggedCount = 0;
         const catCounts = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0 };
         const subStateCounts = {};
         const flagCounts = {};
@@ -1071,6 +1125,9 @@
         const tTagCounts = {};
 
         for (const [orderId, data] of taggedOrders) {
+            if (!allDataIds.has(orderId)) continue; // Skip stale/mismatched IDs
+            taggedCount++;
+
             catCounts[data.category] = (catCounts[data.category] || 0) + 1;
 
             if (data.category === PTAG_CATEGORIES.CHO_DI_DON) {
@@ -1087,8 +1144,11 @@
             }
         }
 
+        const untaggedCount = totalOrders - taggedCount;
+
         // Count T-tags from internal processing tag data
         for (const [orderId, data] of taggedOrders) {
+            if (!allDataIds.has(orderId)) continue;
             if (data.tTags) {
                 for (const tagId of data.tTags) {
                     tTagCounts[tagId] = (tTagCounts[tagId] || 0) + 1;
@@ -1658,6 +1718,7 @@
             }
         }
 
+        _ptagEnsureCode(orderId, data);
         ProcessingTagState.setOrderData(orderId, data);
         _ptagRefreshRow(orderId);
         renderPanelContent();
