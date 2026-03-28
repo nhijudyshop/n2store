@@ -2018,6 +2018,7 @@
      * Key: tableName, Value: array of orders with Details[].ProductCode
      */
     let _reportOrderDetailsCache = null; // { tableName, orders[] }
+    let _reportOrderDetailsLoading = null; // Promise if currently loading
 
     /**
      * Load order details from Firestore collection 'report_order_details'.
@@ -2033,6 +2034,19 @@
         if (_reportOrderDetailsCache && _reportOrderDetailsCache.tableName === tableName) {
             return _reportOrderDetailsCache.orders;
         }
+
+        // Prevent duplicate concurrent loads
+        if (_reportOrderDetailsLoading) return _reportOrderDetailsLoading;
+
+        _reportOrderDetailsLoading = _ptagLoadReportOrderDetailsInner(tableName);
+        try {
+            return await _reportOrderDetailsLoading;
+        } finally {
+            _reportOrderDetailsLoading = null;
+        }
+    }
+
+    async function _ptagLoadReportOrderDetailsInner(tableName) {
 
         const db = window.firestoreDb || (typeof firebase !== 'undefined' && firebase.firestore());
         if (!db) {
@@ -2099,9 +2113,10 @@
             // Load order details from Firestore (Báo Cáo Tổng Hợp data)
             const list = document.getElementById('ptag-ttag-manager-list');
             if (list) {
-                list.innerHTML = `<div style="text-align:center;padding:24px 20px;">
-                    <i class="fas fa-spinner fa-spin" style="font-size:20px;color:#a855f7;margin-bottom:8px;display:block;"></i>
-                    <div style="font-size:12px;color:#6b7280;">Đang tải chi tiết SP từ Báo Cáo Tổng Hợp...</div>
+                list.innerHTML = `<div style="text-align:center;padding:30px 20px;">
+                    <i class="fas fa-spinner fa-spin" style="font-size:28px;color:#a855f7;margin-bottom:12px;display:block;"></i>
+                    <div style="font-size:14px;font-weight:500;color:#374151;">Đang tải chi tiết SP từ Báo Cáo Tổng Hợp...</div>
+                    <div style="font-size:12px;color:#6b7280;margin-top:4px;">Lần đầu có thể mất vài giây</div>
                 </div>`;
             }
 
