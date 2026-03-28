@@ -661,6 +661,20 @@
             // (confirmAndPrintSale: storeFromApiResult at T=0, closeSaleButtonModal at T=500ms)
             // So data is already in InvoiceStatusStore - call directly, no setTimeout needed
             updateSocialOrderAfterBillCreation(socialOrderId);
+            // Order created successfully → tags stay removed
+            _savedTagsBeforeSale = null;
+        } else if (!clearSelection && typeof _savedTagsBeforeSale !== 'undefined' && _savedTagsBeforeSale) {
+            // Cancelled → restore saved tags
+            const { orderId, tags } = _savedTagsBeforeSale;
+            const order = SocialOrderState?.orders?.find(o => o.id === orderId);
+            if (order) {
+                order.tags = tags;
+                order.updatedAt = Date.now();
+                if (typeof saveSocialOrdersToStorage === 'function') saveSocialOrdersToStorage();
+                if (typeof updateSocialOrderTags === 'function') updateSocialOrderTags(orderId, tags);
+                if (typeof performTableSearch === 'function') performTableSearch();
+            }
+            _savedTagsBeforeSale = null;
         }
 
         // Close the modal
