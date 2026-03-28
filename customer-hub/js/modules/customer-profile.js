@@ -610,22 +610,25 @@ export class CustomerProfileModule {
                                 operatorHtml = ` - <span style="color: #ef4444; font-weight: 700;">${label} ${createdBy}</span>`;
                             }
 
-                            // Balance after
+                            // Balance before & after
+                            const balBefore = parseFloat(tx.balance_before) || 0;
+                            const vBalBefore = parseFloat(tx.virtual_balance_before) || 0;
+                            const totalBefore = balBefore + vBalBefore;
                             const balAfter = parseFloat(tx.balance_after) || 0;
                             const vBalAfter = parseFloat(tx.virtual_balance_after) || 0;
                             const totalAfter = balAfter + vBalAfter;
 
                             return `
-                                <div style="background: ${bgColor}; border: 1px solid ${borderColor}; border-radius: 10px; padding: 12px 14px;">
-                                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
-                                        <div style="width: 32px; height: 32px; border-radius: 50%; background: ${iconBg}; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                                            <span style="font-size: 18px; font-weight: 900; color: ${iconColor}; line-height: 1;">${cfg.iconChar}</span>
+                                <div style="background: ${bgColor}; border: 1px solid ${borderColor}; border-radius: 10px; padding: 14px 16px;">
+                                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                                        <div style="width: 34px; height: 34px; border-radius: 50%; background: ${iconBg}; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                            <span style="font-size: 20px; font-weight: 900; color: ${iconColor}; line-height: 1;">${cfg.iconChar}</span>
                                         </div>
-                                        <span style="font-size: 15px; font-weight: 800; color: ${amountColor};" class="dark:opacity-90">${cfg.label}  ${sign}${formatCurrency(Math.abs(amount))}</span>
+                                        <span style="font-size: 16px; font-weight: 800; color: ${amountColor};">${cfg.label}  ${sign}${formatCurrency(Math.abs(amount))}</span>
                                     </div>
-                                    <div style="padding-left: 42px;">
-                                        <p style="font-size: 13px; color: #94a3b8; line-height: 1.5;" class="dark:text-slate-400">${detailParts.join(' - ')}${operatorHtml}</p>
-                                        <p style="font-size: 14px; font-weight: 800; color: #334155; margin-top: 4px;" class="dark:text-slate-200 tabular-nums">Số Dư Còn Lại: ${formatCurrency(totalAfter)}</p>
+                                    <div style="padding-left: 44px;">
+                                        <p style="font-size: 13px; font-weight: 500; color: #475569; line-height: 1.6;">${detailParts.join(' - ')}${operatorHtml}</p>
+                                        <p style="font-size: 14px; font-weight: 800; color: #1e293b; margin-top: 6px;">Thay đổi số dư: ${formatCurrency(totalBefore)} → ${formatCurrency(totalAfter)}</p>
                                     </div>
                                 </div>
                             `;

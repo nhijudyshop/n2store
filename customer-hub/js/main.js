@@ -32,13 +32,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const themeIcon = document.getElementById('theme-icon');
     const htmlTag = document.documentElement;
 
-    // Check for saved theme preference
-    if (localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-        htmlTag.classList.add('dark');
-        themeIcon.textContent = 'light_mode';
-    } else {
-        themeIcon.textContent = 'dark_mode';
-    }
+    // Default to light mode always
+    htmlTag.classList.remove('dark');
+    localStorage.setItem('theme', 'light');
+    themeIcon.textContent = 'dark_mode';
 
     themeToggleBtn.addEventListener('click', () => {
         htmlTag.classList.toggle('dark');
