@@ -554,91 +554,78 @@ export class CustomerProfileModule {
         if (hasWalletTx) {
             // Wallet transaction type config
             const walletTypeConfig = {
-                'DEPOSIT': { label: 'Nạp tiền', icon: 'savings', color: 'text-emerald-600', bg: 'bg-emerald-50', isCredit: true },
-                'WITHDRAW': { label: 'Rút tiền', icon: 'payments', color: 'text-red-600', bg: 'bg-red-50', isCredit: false },
-                'VIRTUAL_CREDIT': { label: 'Cộng công nợ ảo', icon: 'card_giftcard', color: 'text-purple-600', bg: 'bg-purple-50', isCredit: true },
-                'VIRTUAL_DEBIT': { label: 'Trừ công nợ ảo', icon: 'star_half', color: 'text-red-500', bg: 'bg-red-50', isCredit: false },
-                'VIRTUAL_CANCEL': { label: 'Thu hồi công nợ ảo', icon: 'block', color: 'text-red-500', bg: 'bg-red-50', isCredit: false },
-                'VIRTUAL_EXPIRE': { label: 'Công nợ hết hạn', icon: 'timer_off', color: 'text-slate-500', bg: 'bg-slate-50', isCredit: false },
-                'ADJUSTMENT': { label: 'Điều chỉnh số dư', icon: 'tune', color: 'text-blue-600', bg: 'bg-blue-50', isCredit: true },
-                'ORDER_CANCEL_REFUND': { label: 'Hoàn tiền hủy đơn', icon: 'currency_exchange', color: 'text-emerald-600', bg: 'bg-emerald-50', isCredit: true },
-                'RETURN_SHIPPER': { label: 'Phiếu thu về', icon: 'local_shipping', color: 'text-amber-600', bg: 'bg-amber-50', isCredit: true },
-                'RETURN_CLIENT': { label: 'Phiếu trả hàng', icon: 'assignment_return', color: 'text-purple-600', bg: 'bg-purple-50', isCredit: true },
-                'BOOM': { label: 'Phiếu boom hàng', icon: 'warning', color: 'text-red-600', bg: 'bg-red-50', isCredit: false },
-                'COD_ADJUSTMENT': { label: 'Điều chỉnh COD', icon: 'tune', color: 'text-blue-600', bg: 'bg-blue-50', isCredit: true },
+                'DEPOSIT': { label: 'Cộng Tiền', iconChar: '+', isCredit: true },
+                'WITHDRAW': { label: 'Trừ Tiền', iconChar: '-', isCredit: false },
+                'VIRTUAL_CREDIT': { label: 'Cộng Công Nợ Ảo', iconChar: '+', isCredit: true },
+                'VIRTUAL_DEBIT': { label: 'Trừ Công Nợ Ảo', iconChar: '-', isCredit: false },
+                'VIRTUAL_CANCEL': { label: 'Thu Hồi Công Nợ Ảo', iconChar: '-', isCredit: false },
+                'VIRTUAL_EXPIRE': { label: 'Công Nợ Hết Hạn', iconChar: '-', isCredit: false },
+                'ADJUSTMENT': { label: 'Điều Chỉnh Số Dư', iconChar: '~', isCredit: true },
+                'ORDER_CANCEL_REFUND': { label: 'Hoàn Tiền Hủy Đơn', iconChar: '+', isCredit: true },
+                'RETURN_SHIPPER': { label: 'Phiếu Thu Về', iconChar: '+', isCredit: true },
+                'RETURN_CLIENT': { label: 'Phiếu Trả Hàng', iconChar: '+', isCredit: true },
+                'BOOM': { label: 'Phiếu Boom Hàng', iconChar: '-', isCredit: false },
+                'COD_ADJUSTMENT': { label: 'Điều Chỉnh COD', iconChar: '~', isCredit: true },
             };
-            const defaultConfig = { label: 'Giao dịch ví', icon: 'swap_horiz', color: 'text-slate-500', bg: 'bg-slate-50', isCredit: false };
+            const defaultConfig = { label: 'Giao Dịch Ví', iconChar: '~', isCredit: false };
 
             const formatCurrency = (val) => {
                 const num = parseFloat(val) || 0;
                 return new Intl.NumberFormat('vi-VN').format(num) + 'đ';
             };
-            const formatShort = (val) => {
-                const num = parseFloat(val) || 0;
-                if (num >= 1e6) return (num / 1e6).toFixed(1).replace('.0', '') + 'M';
-                if (num >= 1e3) return Math.round(num / 1e3) + 'K';
-                return new Intl.NumberFormat('vi-VN').format(num);
-            };
 
             activitiesHtml = `
-                <div class="px-4 py-2 border-t border-border-light dark:border-border-dark">
-                    <div class="flex items-center gap-2 mb-2">
-                        <span class="material-symbols-outlined text-indigo-500" style="font-size: 18px;">account_balance_wallet</span>
-                        <span class="text-xs font-semibold text-slate-500 uppercase">Hoạt động ví</span>
+                <div class="px-4 py-3 border-t border-border-light dark:border-border-dark">
+                    <div class="flex items-center gap-2 mb-3">
+                        <span class="material-symbols-outlined text-indigo-500" style="font-size: 20px;">account_balance_wallet</span>
+                        <span class="text-xs font-bold text-slate-500 uppercase tracking-wide">Hoạt động ví</span>
                     </div>
-                    <div class="space-y-2">
+                    <div class="space-y-3">
                         ${walletTransactions.slice(0, 15).map(tx => {
                             const cfg = walletTypeConfig[tx.type] || defaultConfig;
                             const amount = parseFloat(tx.amount) || 0;
                             const sign = cfg.isCredit ? '+' : '-';
                             const amountColor = cfg.isCredit ? '#16a34a' : '#dc2626';
+                            const bgColor = cfg.isCredit ? 'rgba(22,163,74,0.08)' : 'rgba(220,38,38,0.08)';
+                            const borderColor = cfg.isCredit ? 'rgba(22,163,74,0.2)' : 'rgba(220,38,38,0.2)';
+                            const iconBg = cfg.isCredit ? '#dcfce7' : '#fee2e2';
+                            const iconColor = cfg.isCredit ? '#16a34a' : '#dc2626';
 
                             const date = tx.created_at ? new Date(tx.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
                             const createdBy = tx.created_by && tx.created_by !== 'system' ? tx.created_by : '';
 
-                            // Operator label
+                            // Build note + date + operator on one line
+                            const note = tx.note || tx.source || '';
+                            let detailParts = [];
+                            if (note) detailParts.push(note);
+                            if (date) detailParts.push(date);
+
+                            // Operator label - all in RED
                             let operatorHtml = '';
                             if (createdBy) {
                                 const isDeposit = tx.type === 'DEPOSIT';
                                 const isRefund = tx.type === 'ORDER_CANCEL_REFUND';
-                                const label = isDeposit ? 'Duyệt bởi' : isRefund ? 'Người hoàn' : 'Người thực hiện';
-                                operatorHtml = ` · <span class="font-bold" style="color: #ef4444;">${label}: ${createdBy}</span>`;
+                                const isWithdraw = tx.type === 'WITHDRAW';
+                                const label = isDeposit ? 'Duyệt bởi' : isWithdraw ? 'Tạo bởi' : isRefund ? 'Hoàn bởi' : 'Bởi';
+                                operatorHtml = ` - <span style="color: #ef4444; font-weight: 700;">${label} ${createdBy}</span>`;
                             }
 
-                            // Note/description
-                            const note = tx.note || tx.source || '';
-
-                            // Balance after annotation
+                            // Balance after
                             const balAfter = parseFloat(tx.balance_after) || 0;
                             const vBalAfter = parseFloat(tx.virtual_balance_after) || 0;
                             const totalAfter = balAfter + vBalAfter;
-                            const realChanged = Math.abs((parseFloat(tx.balance_before) || 0) - balAfter) > 0.01;
-                            const virtualChanged = Math.abs((parseFloat(tx.virtual_balance_before) || 0) - vBalAfter) > 0.01;
-
-                            let breakdownHtml = '';
-                            if (realChanged && virtualChanged) {
-                                breakdownHtml = `<span class="text-slate-400">Thật: ${formatShort(balAfter)}</span> <span class="text-slate-300 dark:text-slate-600">|</span> <span class="text-amber-500">Ảo: ${formatShort(vBalAfter)}</span>`;
-                            } else if (virtualChanged) {
-                                breakdownHtml = `<span class="text-amber-500">CN ảo: ${formatShort(vBalAfter)}</span>`;
-                            }
 
                             return `
-                                <div class="rounded-lg p-2.5 ${cfg.bg} dark:bg-slate-800/50">
-                                    <div class="flex items-start gap-2.5">
-                                        <span class="material-symbols-outlined ${cfg.color}" style="font-size: 20px; margin-top: 2px;">${cfg.icon}</span>
-                                        <div class="flex-1 min-w-0">
-                                            <div class="flex items-center justify-between">
-                                                <span class="text-sm font-semibold text-slate-800 dark:text-slate-200">${cfg.label}</span>
-                                                <span class="text-sm font-bold tabular-nums" style="color: ${amountColor};">${sign}${formatCurrency(Math.abs(amount))}</span>
-                                            </div>
-                                            ${note ? `<p class="text-xs text-slate-500 truncate mt-0.5">${note}</p>` : ''}
-                                            <p class="text-xs text-slate-400 mt-0.5">${date}${operatorHtml}</p>
-                                            <div class="mt-1.5 inline-flex items-center gap-1.5 px-2 py-1 rounded-md" style="background: rgba(0,0,0,0.05);">
-                                                <span class="material-symbols-outlined" style="font-size: 12px; color: #64748b;">account_balance</span>
-                                                <span class="text-[11px] font-bold text-slate-700 dark:text-slate-300 tabular-nums">Số dư sau: ${formatCurrency(totalAfter)}</span>
-                                                ${breakdownHtml ? `<span class="text-[10px] tabular-nums ml-1">(${breakdownHtml})</span>` : ''}
-                                            </div>
+                                <div style="background: ${bgColor}; border: 1px solid ${borderColor}; border-radius: 10px; padding: 12px 14px;">
+                                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+                                        <div style="width: 32px; height: 32px; border-radius: 50%; background: ${iconBg}; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                                            <span style="font-size: 18px; font-weight: 900; color: ${iconColor}; line-height: 1;">${cfg.iconChar}</span>
                                         </div>
+                                        <span style="font-size: 15px; font-weight: 800; color: ${amountColor};" class="dark:opacity-90">${cfg.label}  ${sign}${formatCurrency(Math.abs(amount))}</span>
+                                    </div>
+                                    <div style="padding-left: 42px;">
+                                        <p style="font-size: 13px; color: #94a3b8; line-height: 1.5;" class="dark:text-slate-400">${detailParts.join(' - ')}${operatorHtml}</p>
+                                        <p style="font-size: 14px; font-weight: 800; color: #334155; margin-top: 4px;" class="dark:text-slate-200 tabular-nums">Số Dư Còn Lại: ${formatCurrency(totalAfter)}</p>
                                     </div>
                                 </div>
                             `;
