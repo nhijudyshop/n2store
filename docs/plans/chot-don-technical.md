@@ -31,7 +31,17 @@ Mới:
         subState: string|null,
         flags: string[],
         note: string
-    } | null
+    } | null,
+    tTags: string[],             // Tag T IDs gắn vào đơn: ['T1', 'T2']
+    history: [                   // Lịch sử thao tác tag (max 50 entries)
+        {
+            action: string,      // SET_CATEGORY | REMOVE_CATEGORY | ADD_FLAG | REMOVE_FLAG | ADD_TTAG | REMOVE_TTAG | AUTO_HOAN_TAT | AUTO_ROLLBACK
+            value: string,       // Giá trị liên quan (category key, flag key, tag T id)
+            user: string,        // Tên user thao tác (hoặc "Hệ thống" cho auto)
+            userId: number|null, // ID user (null cho hệ thống)
+            timestamp: number    // Timestamp thao tác
+        }
+    ]
 }
 ```
 
@@ -438,7 +448,165 @@ function migrateOldProcessingTag(oldData) {
 
 ---
 
-## 9. Verification Checklist
+## 9. Tag T Chờ Hàng — Data & UI Spec
+
+### 9.1 Tag T Definition (lưu trong processing tag API dưới key `__ttag_config__`)
+
+```javascript
+{
+  tTagDefinitions: [
+    {
+      id: 'T1',                    // Auto-increment: T1, T2, T3...
+      productCode: 'B16',          // Mã SP tham chiếu
+      name: 'Áo nâu ngắn tay',    // Tên gợi nhớ
+      createdAt: 1711612800000
+    }
+  ]
+}
+```
+
+### 9.2 Auto-increment ID logic
+
+```javascript
+// Tìm max number trong existing definitions → +1
+const nums = defs.map(d => parseInt(d.id.replace('T',''))).filter(n => !isNaN(n));
+const next = nums.length ? Math.max(...nums) + 1 : 1;
+const newId = 'T' + next;
+```
+
+### 9.3 UI Architecture: Hybrid (Panel Section + Modal)
+
+**Panel Section** — luôn hiện trong side panel:
+- Header: "TAG T CHỜ HÀNG (N đơn)" + nút [⚙] mở modal
+- Card per tag: `T1 · Áo nâu ngắn tay` + mã SP + count + arrow
+- Click card → filter bảng theo tag T đó
+- Nút 🗑 hiện khi tag có 0 đơn (xóa definition)
+
+**Modal Quản Lý** — mở từ [⚙]:
+- Summary: tổng tag + tổng đơn chờ
+- [+ TẠO TAG T MỚI] → inline form
+- Expandable cards per tag với:
+  - STT pills (click × gỡ từng đơn)
+  - THÊM ĐƠN: nhập STT hoặc tìm theo mã SP
+  - GỠ ĐƠN: gỡ theo STT hoặc "HÀNG ĐÃ VỀ — Gỡ tất cả"
+
+### 9.4 Tạo Tag T — 2 assign modes
+
+| Mode | Flow |
+|---|---|
+| Tìm theo mã SP | Scan `allData` → match `Details[].ProductCode` → checkbox list → chọn → gắn |
+| Nhập STT thủ công | Nhập STT cách dấu phẩy → validate → gắn |
+
+### 9.5 Gỡ Tag T — 3 cách
+
+| Cách | Thao tác |
+|---|---|
+| Gỡ tất cả | Click "HÀNG ĐÃ VỀ" → confirm → gỡ all đơn khỏi tag |
+| Gỡ theo STT | Nhập STT cần gỡ → [Gỡ chọn] |
+| Gỡ từng đơn | Click × trên STT pill hoặc × trên badge trong table cell |
+
+### 9.6 Badge hiển thị trong table cell
+
+Tất cả badge đều có nút × xóa nhanh:
+
+```
+[Okie Chờ Đi Đơn          ×]    ← category badge
+[💳 CK ×] [🏠 Qua lấy ×]        ← flag badges
+[🔖 T1 · B16 · Áo nâu ngắn tay  ×]  ← tag T badge (full, purple)
+```
+
+- **Category ×**: Xóa processing tag → đơn về "chưa gắn"
+- **Flag ×**: Xóa flag đó (giữ category + flags khác)
+- **Tag T ×**: Gỡ tag T khỏi đơn (gỡ hết → auto "Okie Chờ Đi Đơn")
+
+### 9.7 Key functions
+
+| Function | File | Mô tả |
+|---|---|---|
+| `_ptagOpenTTagManager()` | tab1-processing-tags.js | Mở modal quản lý |
+| `_ptagToggleCreateForm()` | tab1-processing-tags.js | Toggle form tạo tag mới |
+| `_ptagConfirmCreateTag()` | tab1-processing-tags.js | Xác nhận tạo + auto assign |
+| `_ptagFindByProductCode(tagId)` | tab1-processing-tags.js | Scan allData tìm đơn chứa SP |
+| `_ptagShowSearchResults()` | tab1-processing-tags.js | Hiển thị kết quả tìm SP |
+| `_ptagConfirmSearchResults()` | tab1-processing-tags.js | Gắn tag T cho đơn đã chọn |
+| `_ptagAddSTTsToTag()` | tab1-processing-tags.js | Thêm STT vào tag |
+| `_ptagRemoveSTTsFromTag()` | tab1-processing-tags.js | Gỡ STT khỏi tag |
+| `_ptagRemoveAllFromTag()` | tab1-processing-tags.js | Gỡ tất cả ("Hàng đã về") |
+| `_ptagRemoveTTagBySTT()` | tab1-processing-tags.js | Gỡ 1 đơn qua STT pill × |
+
+---
+
+## 10. History / Audit Log
+
+### 10.1 Mục đích
+
+Ghi log cho TẤT CẢ thao tác gắn/xóa trên processing tag, flag, và tag T. Giúp track ai làm gì, khi nào.
+
+### 10.2 Action types
+
+| Action | Mô tả | Ví dụ value |
+|---|---|---|
+| `SET_CATEGORY` | Gắn/chuyển category (kèm subTag) | `'CHO_DI_DON'`, `'CHUA_PHAN_HOI'` |
+| `REMOVE_CATEGORY` | Xóa category | `'CHO_DI_DON'` |
+| `ADD_FLAG` | Thêm flag | `'CHUYEN_KHOAN'` |
+| `REMOVE_FLAG` | Xóa flag | `'QUA_LAY'` |
+| `ADD_TTAG` | Gắn tag T | `'T1'` |
+| `REMOVE_TTAG` | Gỡ tag T | `'T2'` |
+| `AUTO_HOAN_TAT` | Auto chuyển Hoàn Tất khi bill tạo | `'HOAN_TAT'` |
+| `AUTO_ROLLBACK` | Auto rollback khi bill hủy | `'CHO_DI_DON'` |
+
+### 10.3 Ghi log
+
+```javascript
+function _ptagAddHistory(orderId, action, value, userName) {
+    const data = ProcessingTagState.getOrderData(orderId);
+    if (!data) return;
+    if (!data.history) data.history = [];
+    const userInfo = userName
+        ? { user: userName, userId: null }
+        : _ptagGetCurrentUser();    // Lấy từ auth
+    data.history.push({
+        action, value,
+        user: userInfo.user,
+        userId: userInfo.userId,
+        timestamp: Date.now()
+    });
+    if (data.history.length > 50) data.history = data.history.slice(-50);
+}
+```
+
+- Auto-detect (CK, CN, giảm giá): `user = "Hệ thống"`
+- Max 50 entries per order (cắt entries cũ nhất)
+
+### 10.4 UI xem lịch sử
+
+- Nút 🕐 nhỏ kế badge trong table cell (hiện khi có history)
+- Click → popover hiển thị 20 entries gần nhất
+- Format: `ngày giờ | user | +/- action label`
+
+```
+28/03 14:30  Duyên      + Gắn T1·B16
+28/03 14:25  Hệ thống   + Auto CK (từ ví)
+28/03 14:20  Nguyễn A   + Okie Chờ Đi Đơn
+28/03 10:00  Trần B     + Đơn chưa phản hồi
+28/03 09:55  Trần B     - Xóa Bán hàng
+```
+
+### 10.5 History tích hợp vào các hàm
+
+| Hàm | Action ghi |
+|---|---|
+| `assignOrderCategory()` | SET_CATEGORY |
+| `clearProcessingTag()` | REMOVE_CATEGORY |
+| `toggleOrderFlag()` | ADD_FLAG / REMOVE_FLAG |
+| `assignTTagToOrder()` | ADD_TTAG |
+| `removeTTagFromOrder()` | REMOVE_TTAG |
+| `onPtagBillCreated()` | AUTO_HOAN_TAT |
+| `onPtagBillCancelled()` | AUTO_ROLLBACK |
+
+---
+
+## 11. Verification Checklist
 
 1. **Test flow seller**: Đơn mới (chưa có tag) → seller liên hệ khách → gắn đúng category/sub-tag
 2. **Test auto-detect flags**: Gắn vào 0.C → CK/CN auto từ wallet, không trùng, user đánh tay OK
@@ -447,3 +615,11 @@ function migrateOldProcessingTag(oldData) {
 5. **Test filter**: Filter theo category, sub-state, flag, tag T
 6. **Test realtime**: 2 seller cùng thao tác → SSE sync đúng
 7. **Test migration**: Data cũ load lên → tự convert sang format mới
+8. **Test Tag T tạo**: Tạo tag mới (mã SP + tên) → hiện panel + modal
+9. **Test Tag T tìm SP**: Nhập mã SP → tìm đúng đơn chứa SP → gắn tag T
+10. **Test Tag T nhập STT**: Nhập STT thủ công → gắn → đơn chuyển "Chờ Hàng"
+11. **Test Tag T gỡ hàng loạt**: "Hàng đã về" → tất cả đơn gỡ tag → chuyển "Okie Chờ Đi Đơn"
+12. **Test Tag T gỡ từng đơn**: Click × trên pill/badge → gỡ đúng 1 đơn
+13. **Test badge ×**: Xóa category, flag, tag T qua × button trên badge
+14. **Test history**: Gắn/xóa tag → history ghi đúng action, user, timestamp
+15. **Test history popover**: Click 🕐 → popover hiện entries đúng format
