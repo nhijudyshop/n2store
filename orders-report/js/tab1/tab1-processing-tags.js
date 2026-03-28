@@ -2057,9 +2057,14 @@
         const productCode = (def?.productCode || tagId).toUpperCase();
         const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
 
-        // Build lookup: orderId → order object from current Tab 1 data
+        // Build lookups from current Tab 1 data
+        // TPOS changes order IDs between page loads → use Code (Mã ĐH) as stable key
+        const orderByCode = new Map();
         const orderById = new Map();
-        for (const o of allOrders) orderById.set(String(o.Id), o);
+        for (const o of allOrders) {
+            if (o.Code) orderByCode.set(String(o.Code), o);
+            orderById.set(String(o.Id), o);
+        }
 
         // Check if allData already has Details (unlikely for GetView)
         let hasDetails = allOrders.some(o => Array.isArray(o.Details) && o.Details.length > 0);
@@ -2087,20 +2092,35 @@
         }
 
         // Search for orders containing this product code
+        // Collect both Code and Id from report data for cross-reference
+        const matchedCodes = new Set();
         const matchedIds = new Set();
         for (const order of searchSource) {
             const details = order.Details;
             if (!Array.isArray(details)) continue;
             if (details.some(d => (d.ProductCode || '').toUpperCase() === productCode)) {
+                if (order.Code) matchedCodes.add(String(order.Code));
                 matchedIds.add(String(order.Id));
             }
         }
 
-        // Resolve to Tab 1 order objects (for STT, name, phone display)
+        // Resolve to Tab 1 order objects — try Code first (stable), fallback to Id
         const matchingOrders = [];
+        const seenIds = new Set();
+        for (const code of matchedCodes) {
+            const order = orderByCode.get(code);
+            if (order && !seenIds.has(String(order.Id))) {
+                matchingOrders.push(order);
+                seenIds.add(String(order.Id));
+            }
+        }
+        // Fallback: also try by Id for any not matched by Code
         for (const oid of matchedIds) {
             const order = orderById.get(oid);
-            if (order) matchingOrders.push(order);
+            if (order && !seenIds.has(oid)) {
+                matchingOrders.push(order);
+                seenIds.add(oid);
+            }
         }
 
         // Filter out orders already having this tag T
