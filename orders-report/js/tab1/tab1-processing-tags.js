@@ -1116,6 +1116,9 @@
                     <button class="ptag-panel-btn" id="ptag-pin-btn" title="Ghim panel" onclick="window._ptagTogglePin()">
                         <i class="fas fa-thumbtack"></i>
                     </button>
+                    <button class="ptag-panel-btn" title="Quản lý Tag T" onclick="window._ptagOpenTTagManager()" style="color:#7c3aed;">
+                        <i class="fas fa-tags"></i>
+                    </button>
                     <button class="ptag-panel-btn" id="ptag-bulk-btn" title="Gán hàng loạt" onclick="window._ptagOpenBulkModal()">
                         <i class="fas fa-layer-group"></i>
                     </button>
@@ -1320,7 +1323,7 @@
                 const escapedFk = fk.replace(/'/g, "\\'");
                 const count = tTagCounts[def.id] || 0;
                 const pcLabel = def.productCode ? `<span style="color:#9ca3af;font-size:10px;margin-left:4px;">${def.productCode}</span>` : '';
-                const deleteBtn = count === 0 ? `<button class="ptag-ttag-panel-delete" onclick="window._ptagDeleteTTagDef('${escapedFk.replace('ttag_', '')}'); event.stopPropagation();" title="Xóa tag (0 đơn)"><i class="fas fa-trash-alt" style="font-size:9px;"></i></button>` : '';
+                const deleteBtn = `<button class="ptag-ttag-panel-delete" onclick="window._ptagDeleteTTagDefAndOrders('${escapedFk.replace('ttag_', '')}'); event.stopPropagation();" title="Xóa tag và gỡ khỏi tất cả đơn"><i class="fas fa-times" style="font-size:9px;color:#ef4444;"></i></button>`;
                 html += `<div class="ptag-panel-card ${activeFilter === fk ? 'active' : ''}" onclick="window._ptagSetFilter('${escapedFk}')" data-search="${_ptagNormalize(def.name + ' ' + (def.productCode || ''))}">
                     <div class="ptag-panel-card-icon ptag-panel-card-icon--sm" style="background:#8b5cf6;">
                         <span style="font-size:12px;">\u{1F3F7}\uFE0F</span>
@@ -1876,6 +1879,7 @@
                     <i class="fas ${expandIcon}" style="font-size:10px;color:#9ca3af;margin-right:6px;"></i>
                     <span style="color:#7c3aed;font-weight:600;flex:1;">${def.name}${pcLabel}</span>
                     <span class="ptag-ttag-mgr-count">${count} đơn</span>
+                    <button class="ptag-ttag-mgr-delete-btn" onclick="window._ptagDeleteTTagDefAndOrders('${escapedId}'); event.stopPropagation();" title="Xóa tag và gỡ khỏi tất cả đơn">&times;</button>
                 </div>`;
 
             if (isExpanded) {
@@ -2322,6 +2326,37 @@
         _ttagManagerExpanded = null;
     }
 
+    async function _ptagDeleteTTagDefAndOrders(tagId) {
+        const defs = ProcessingTagState.getTTagDefinitions();
+        const tagName = ProcessingTagState.getTTagName(tagId) || tagId;
+        const orders = _ttagGetOrdersForTag(tagId);
+        const count = orders.length;
+
+        const msg = count > 0
+            ? `Xóa tag "${tagName}" và gỡ khỏi ${count} đơn hàng?`
+            : `Xóa tag "${tagName}"?`;
+        if (!confirm(msg)) return;
+
+        // Remove tag from all orders first
+        for (const o of orders) {
+            await removeTTagFromOrder(o.orderId, tagId);
+        }
+
+        // Remove tag definition
+        const idx = defs.findIndex(d => d.id === tagId);
+        if (idx >= 0) {
+            defs.splice(idx, 1);
+            ProcessingTagState.setTTagDefinitions(defs);
+            saveTTagDefinitions();
+        }
+
+        console.log(`${PTAG_LOG} Deleted tag ${tagId} definition + removed from ${count} orders`);
+        renderPanelContent();
+        if (document.getElementById('ptag-ttag-manager')) {
+            _ttagRenderManagerList();
+        }
+    }
+
     function _ptagDeleteTTagDef(tagId) {
         const defs = ProcessingTagState.getTTagDefinitions();
         let count = 0;
@@ -2605,6 +2640,7 @@
     window._ptagOpenTTagManager = _ptagOpenTTagManager;
     window._ptagCloseTTagManager = _ptagCloseTTagManager;
     window._ptagDeleteTTagDef = _ptagDeleteTTagDef;
+    window._ptagDeleteTTagDefAndOrders = _ptagDeleteTTagDefAndOrders;
     window._ptagToggleTTagCard = _ptagToggleTTagCard;
     window._ptagToggleCreateForm = _ptagToggleCreateForm;
     window._ptagCancelCreateForm = _ptagCancelCreateForm;
