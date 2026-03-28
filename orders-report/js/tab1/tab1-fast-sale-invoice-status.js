@@ -840,6 +840,8 @@
                             }
 
                             this.set(soId, order, originalOrder);
+                            // Auto-transition processing tag to HOÀN TẤT
+                            if (window.onPtagBillCreated) window.onPtagBillCreated(String(soId));
                         });
                     }
                 });
@@ -879,6 +881,8 @@
                             }
 
                             this.set(soId, order, originalOrder);
+                            // Auto-transition processing tag to HOÀN TẤT
+                            if (window.onPtagBillCreated) window.onPtagBillCreated(String(soId));
                         });
                     }
                 });
