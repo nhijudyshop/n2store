@@ -6588,6 +6588,36 @@ td[data-column].hidden {
     font-size: 13px;
 }
 
+.ts-dropdown-section-label {
+    padding: 8px 12px 4px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-top: 1px solid #f3f4f6;
+    margin-top: 4px;
+}
+
+.ts-dropdown-section-label:first-child {
+    border-top: none;
+    margin-top: 0;
+}
+
+.ts-dropdown-prefix {
+    color: #8b5cf6;
+    font-style: italic;
+}
+
+.ts-flag-display { color: #7c3aed; font-weight: 500; }
+.ts-ttag-display { color: #8b5cf6; font-weight: 500; }
+.ts-prefix-display { color: #8b5cf6; font-size: 13px; }
+.ts-prefix-target { color: #8b5cf6; font-style: italic; }
+
+.ts-dropdown-ptag .ts-dropdown-list {
+    max-height: 350px;
+}
+
 .ts-color-dot {
     width: 10px;
     height: 10px;

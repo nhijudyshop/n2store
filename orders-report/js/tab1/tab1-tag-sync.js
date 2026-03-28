@@ -1,13 +1,13 @@
 // =====================================================
 // TAB1 TAG SYNC — Đồng bộ Tag TPOS → Tag XL
-// Maps TPOS tags to Processing Tag categories
+// Maps TPOS tags to Processing Tag categories/flags/tTags
 // =====================================================
 
 (function() {
     'use strict';
 
     const SYNC_LOG = '[TAG-SYNC]';
-    const SYNC_STORAGE_KEY = 'tagSyncMappings_v1';
+    const SYNC_STORAGE_KEY = 'tagSyncMappings_v2';
     const DEFAULT_ROW_COUNT = 5;
 
     // Processing tag category metadata (mirror from tab1-processing-tags.js)
@@ -39,6 +39,26 @@
         ]
     };
 
+    // Built-in flags (mirror from tab1-processing-tags.js)
+    const FLAG_OPTIONS = [
+        { key: 'TRU_CONG_NO', label: 'Trừ công nợ', icon: '💰' },
+        { key: 'CHUYEN_KHOAN', label: 'CK', icon: '💳' },
+        { key: 'GIAM_GIA', label: 'Giảm giá', icon: '🏷️' },
+        { key: 'CHO_LIVE', label: 'Chờ live', icon: '📺' },
+        { key: 'GIU_DON', label: 'Giữ đơn', icon: '⌛' },
+        { key: 'QUA_LAY', label: 'Qua lấy', icon: '🏠' },
+        { key: 'GOI_BAO_KHACH_HH', label: 'Gọi báo khách HH', icon: '📞' },
+        { key: 'KHAC', label: 'Khác', icon: '📋' }
+    ];
+
+    // =====================================================
+    // TAG XL TARGET TYPES
+    // =====================================================
+    // type: 'category' → assign category (+ optional subTag)
+    // type: 'flag'     → toggle flag on order
+    // type: 'ttag'     → assign T-tag to order
+    // type: 'prefix'   → match TPOS tag by prefix, create custom flag with same name
+
     // =====================================================
     // STATE
     // =====================================================
@@ -48,6 +68,22 @@
 
     function _genRowId() {
         return 'tsync_' + (++_rowIdCounter) + '_' + Date.now();
+    }
+
+    function _createEmptyMapping() {
+        return {
+            id: _genRowId(),
+            tposTagId: null,
+            tposTagName: '',
+            tposTagColor: '#6b7280',
+            targetType: null,       // 'category', 'flag', 'ttag', 'prefix'
+            ptagCategory: null,
+            ptagSubTag: null,
+            flagKey: null,
+            ttagId: null,
+            ttagName: '',
+            prefix: ''
+        };
     }
 
     // =====================================================
@@ -60,8 +96,13 @@
                 tposTagId: m.tposTagId,
                 tposTagName: m.tposTagName,
                 tposTagColor: m.tposTagColor,
+                targetType: m.targetType,
                 ptagCategory: m.ptagCategory,
-                ptagSubTag: m.ptagSubTag
+                ptagSubTag: m.ptagSubTag,
+                flagKey: m.flagKey,
+                ttagId: m.ttagId,
+                ttagName: m.ttagName,
+                prefix: m.prefix
             }));
             localStorage.setItem(SYNC_STORAGE_KEY, JSON.stringify(data));
         } catch (e) {
@@ -80,8 +121,13 @@
                 tposTagId: d.tposTagId || null,
                 tposTagName: d.tposTagName || '',
                 tposTagColor: d.tposTagColor || '#6b7280',
+                targetType: d.targetType || (d.ptagCategory != null ? 'category' : null),
                 ptagCategory: d.ptagCategory != null ? d.ptagCategory : null,
-                ptagSubTag: d.ptagSubTag || null
+                ptagSubTag: d.ptagSubTag || null,
+                flagKey: d.flagKey || null,
+                ttagId: d.ttagId || null,
+                ttagName: d.ttagName || '',
+                prefix: d.prefix || ''
             }));
         } catch (e) {
             console.warn(SYNC_LOG, 'Failed to load mappings:', e);
@@ -94,21 +140,13 @@
     // =====================================================
 
     function showTagSyncModal() {
-        // Load saved mappings or create defaults
         const saved = loadMappingsFromStorage();
         if (saved && saved.length > 0) {
             syncMappings = saved;
         } else {
             syncMappings = [];
             for (let i = 0; i < DEFAULT_ROW_COUNT; i++) {
-                syncMappings.push({
-                    id: _genRowId(),
-                    tposTagId: null,
-                    tposTagName: '',
-                    tposTagColor: '#6b7280',
-                    ptagCategory: null,
-                    ptagSubTag: null
-                });
+                syncMappings.push(_createEmptyMapping());
             }
         }
 
@@ -125,7 +163,6 @@
         if (modal) {
             modal.classList.remove('show');
         }
-        // Close any open dropdowns
         document.querySelectorAll('.ts-dropdown.show').forEach(d => d.classList.remove('show'));
     }
 
@@ -138,13 +175,20 @@
         if (!body) return;
 
         body.innerHTML = syncMappings.map((mapping, index) => {
-            const tposDisplay = mapping.tposTagId
-                ? `<span class="ts-tag-pill" style="background:${mapping.tposTagColor || '#6b7280'}">${_escHtml(mapping.tposTagName)}</span>`
-                : '<span class="ts-placeholder">Chọn tag TPOS...</span>';
+            // TPOS tag display (left side)
+            let tposDisplay;
+            if (mapping.targetType === 'prefix') {
+                tposDisplay = mapping.prefix
+                    ? `<span class="ts-prefix-display">🔤 Prefix: <b>${_escHtml(mapping.prefix)}</b>...</span>`
+                    : '<span class="ts-placeholder">Chọn tag TPOS...</span>';
+            } else {
+                tposDisplay = mapping.tposTagId
+                    ? `<span class="ts-tag-pill" style="background:${mapping.tposTagColor || '#6b7280'}">${_escHtml(mapping.tposTagName)}</span>`
+                    : '<span class="ts-placeholder">Chọn tag TPOS...</span>';
+            }
 
-            const ptagDisplay = mapping.ptagCategory != null
-                ? _getPTagDisplayText(mapping.ptagCategory, mapping.ptagSubTag)
-                : '<span class="ts-placeholder">Chọn Tag XL...</span>';
+            // Tag XL display (right side)
+            const ptagDisplay = _getTargetDisplayText(mapping);
 
             return `
                 <div class="ts-row" data-row-id="${mapping.id}">
@@ -181,15 +225,37 @@
         }).join('');
     }
 
-    function _getPTagDisplayText(category, subTag) {
-        const cat = CATEGORY_OPTIONS.find(c => c.value === category);
-        if (!cat) return '<span class="ts-placeholder">Chọn Tag XL...</span>';
-        let text = `${cat.emoji} ${cat.label}`;
-        if (subTag && SUBTAG_OPTIONS[category]) {
-            const sub = SUBTAG_OPTIONS[category].find(s => s.key === subTag);
-            if (sub) text += ` → ${sub.label}`;
+    function _getTargetDisplayText(mapping) {
+        if (!mapping.targetType) return '<span class="ts-placeholder">Chọn Tag XL...</span>';
+
+        switch (mapping.targetType) {
+            case 'category': {
+                const cat = CATEGORY_OPTIONS.find(c => c.value === mapping.ptagCategory);
+                if (!cat) return '<span class="ts-placeholder">Chọn Tag XL...</span>';
+                let text = `${cat.emoji} ${cat.label}`;
+                if (mapping.ptagSubTag && SUBTAG_OPTIONS[mapping.ptagCategory]) {
+                    const sub = SUBTAG_OPTIONS[mapping.ptagCategory].find(s => s.key === mapping.ptagSubTag);
+                    if (sub) text += ` → ${sub.label}`;
+                }
+                return `<span class="ts-ptag-display">${text}</span>`;
+            }
+            case 'flag': {
+                const fl = FLAG_OPTIONS.find(f => f.key === mapping.flagKey);
+                if (fl) return `<span class="ts-ptag-display ts-flag-display">${fl.icon} ${fl.label}</span>`;
+                // Custom flag
+                const cf = window.ProcessingTagState?._customFlags?.get(mapping.flagKey);
+                if (cf) return `<span class="ts-ptag-display ts-flag-display">🏷️ ${cf.label}</span>`;
+                return `<span class="ts-ptag-display ts-flag-display">🏷️ ${mapping.flagKey}</span>`;
+            }
+            case 'ttag': {
+                const name = mapping.ttagName || window.ProcessingTagState?.getTTagName(mapping.ttagId) || mapping.ttagId;
+                return `<span class="ts-ptag-display ts-ttag-display">📦 ${name}</span>`;
+            }
+            case 'prefix':
+                return `<span class="ts-ptag-display ts-prefix-target">🏷️ Gán flag = tên tag TPOS</span>`;
+            default:
+                return '<span class="ts-placeholder">Chọn Tag XL...</span>';
         }
-        return `<span class="ts-ptag-display">${text}</span>`;
     }
 
     function _escHtml(str) {
@@ -251,13 +317,18 @@
         mapping.tposTagId = tagId;
         mapping.tposTagName = tagName;
         mapping.tposTagColor = tagColor;
+        // If prefix mode was on, switch back to normal
+        if (mapping.targetType === 'prefix') {
+            mapping.targetType = null;
+            mapping.prefix = '';
+        }
         _closeAllDropdowns();
         renderMappingRows();
         saveMappingsToStorage();
     }
 
     // =====================================================
-    // PTAG CATEGORY DROPDOWN
+    // PTAG TARGET DROPDOWN (categories + flags + tTags + prefix)
     // =====================================================
 
     function _tsTogglePtagDropdown(rowId, event) {
@@ -274,32 +345,114 @@
         if (!list) return;
 
         let html = '';
+
+        // === PREFIX OPTION ===
+        html += `<div class="ts-dropdown-section-label">🔤 TỰ ĐỘNG THEO PREFIX</div>`;
+        html += `
+            <div class="ts-dropdown-item ts-dropdown-prefix" onclick="window._tsSelectPrefix('${rowId}')">
+                <span>🔤 Prefix → Gán flag cùng tên tag TPOS</span>
+            </div>
+        `;
+
+        // === CATEGORIES ===
+        html += `<div class="ts-dropdown-section-label">📂 PHÂN LOẠI ĐƠN</div>`;
         for (const cat of CATEGORY_OPTIONS) {
             html += `
-                <div class="ts-dropdown-item ts-dropdown-category" onclick="window._tsSelectPtagCategory('${rowId}', ${cat.value}, null)">
+                <div class="ts-dropdown-item ts-dropdown-category" onclick="window._tsSelectTarget('${rowId}', 'category', ${cat.value}, null, null, null)">
                     <span>${cat.emoji} ${cat.label}</span>
                 </div>
             `;
-            // Show subtags for categories 2, 3, 4
             if (SUBTAG_OPTIONS[cat.value]) {
                 for (const sub of SUBTAG_OPTIONS[cat.value]) {
                     html += `
-                        <div class="ts-dropdown-item ts-dropdown-subtag" onclick="window._tsSelectPtagCategory('${rowId}', ${cat.value}, '${sub.key}')">
+                        <div class="ts-dropdown-item ts-dropdown-subtag" onclick="window._tsSelectTarget('${rowId}', 'category', ${cat.value}, '${sub.key}', null, null)">
                             <span>↳ ${sub.label}</span>
                         </div>
                     `;
                 }
             }
         }
+
+        // === FLAGS (ĐẶC ĐIỂM) ===
+        html += `<div class="ts-dropdown-section-label">🏷️ ĐẶC ĐIỂM ĐƠN HÀNG</div>`;
+        for (const flag of FLAG_OPTIONS) {
+            html += `
+                <div class="ts-dropdown-item" onclick="window._tsSelectTarget('${rowId}', 'flag', null, null, '${flag.key}', null)">
+                    <span>${flag.icon} ${flag.label}</span>
+                </div>
+            `;
+        }
+        // Custom flags
+        const customFlags = window.ProcessingTagState?._customFlags;
+        if (customFlags && customFlags.size > 0) {
+            for (const [key, cf] of customFlags) {
+                html += `
+                    <div class="ts-dropdown-item" onclick="window._tsSelectTarget('${rowId}', 'flag', null, null, '${_escAttr(key)}', null)">
+                        <span>🏷️ ${_escHtml(cf.label)}</span>
+                    </div>
+                `;
+            }
+        }
+
+        // === T-TAGS ===
+        const tTagDefs = window.ProcessingTagState?.getTTagDefinitions() || [];
+        if (tTagDefs.length > 0) {
+            html += `<div class="ts-dropdown-section-label">📦 TAG T (CHỜ HÀNG)</div>`;
+            for (const def of tTagDefs) {
+                html += `
+                    <div class="ts-dropdown-item" onclick="window._tsSelectTarget('${rowId}', 'ttag', null, null, null, '${_escAttr(def.id)}')">
+                        <span>📦 ${_escHtml(def.name)}${def.productCode ? ' · ' + _escHtml(def.productCode) : ''}</span>
+                    </div>
+                `;
+            }
+        }
+
         list.innerHTML = html;
     }
 
-    function _tsSelectPtagCategory(rowId, category, subTag) {
+    function _tsSelectTarget(rowId, type, category, subTag, flagKey, ttagId) {
         const mapping = syncMappings.find(m => m.id === rowId);
         if (!mapping) return;
+        mapping.targetType = type;
         mapping.ptagCategory = category;
         mapping.ptagSubTag = subTag;
+        mapping.flagKey = flagKey;
+        mapping.ttagId = ttagId;
+        if (ttagId) {
+            mapping.ttagName = window.ProcessingTagState?.getTTagName(ttagId) || ttagId;
+        }
         _closeAllDropdowns();
+        renderMappingRows();
+        saveMappingsToStorage();
+    }
+
+    function _tsSelectPrefix(rowId) {
+        const mapping = syncMappings.find(m => m.id === rowId);
+        if (!mapping) return;
+
+        _closeAllDropdowns();
+
+        // Prompt for prefix
+        const prefix = prompt('Nhập prefix tag TPOS (VD: "Gộp").\nĐơn có tag TPOS bắt đầu bằng prefix sẽ được gán flag cùng tên:', mapping.prefix || '');
+        if (prefix === null) return; // cancelled
+        if (!prefix.trim()) {
+            if (window.notificationManager) {
+                window.notificationManager.warning('Prefix không được để trống!', 2000);
+            }
+            return;
+        }
+
+        mapping.targetType = 'prefix';
+        mapping.prefix = prefix.trim();
+        // Clear specific tag selection since prefix mode scans all tags
+        mapping.tposTagId = null;
+        mapping.tposTagName = '';
+        mapping.tposTagColor = '#6b7280';
+        mapping.ptagCategory = null;
+        mapping.ptagSubTag = null;
+        mapping.flagKey = null;
+        mapping.ttagId = null;
+
         renderMappingRows();
         saveMappingsToStorage();
     }
@@ -309,29 +462,14 @@
     // =====================================================
 
     function _tsAddRow() {
-        syncMappings.push({
-            id: _genRowId(),
-            tposTagId: null,
-            tposTagName: '',
-            tposTagColor: '#6b7280',
-            ptagCategory: null,
-            ptagSubTag: null
-        });
+        syncMappings.push(_createEmptyMapping());
         renderMappingRows();
     }
 
     function _tsRemoveRow(rowId) {
         syncMappings = syncMappings.filter(m => m.id !== rowId);
         if (syncMappings.length === 0) {
-            // Keep at least 1 row
-            syncMappings.push({
-                id: _genRowId(),
-                tposTagId: null,
-                tposTagName: '',
-                tposTagColor: '#6b7280',
-                ptagCategory: null,
-                ptagSubTag: null
-            });
+            syncMappings.push(_createEmptyMapping());
         }
         renderMappingRows();
         saveMappingsToStorage();
@@ -343,7 +481,14 @@
 
     async function executeTagSync() {
         // 1. Validate mappings
-        const validMappings = syncMappings.filter(m => m.tposTagId && m.ptagCategory != null);
+        const validMappings = syncMappings.filter(m => {
+            if (m.targetType === 'prefix') return !!m.prefix;
+            if (m.targetType === 'category') return m.tposTagId && m.ptagCategory != null;
+            if (m.targetType === 'flag') return m.tposTagId && m.flagKey;
+            if (m.targetType === 'ttag') return m.tposTagId && m.ttagId;
+            return false;
+        });
+
         if (validMappings.length === 0) {
             if (window.notificationManager) {
                 window.notificationManager.warning('Vui lòng chọn ít nhất 1 cặp tag TPOS → Tag XL!', 3000);
@@ -367,35 +512,89 @@
             return;
         }
 
-        // 3. Build assignments map
-        const assignments = new Map(); // orderId → {category, subTag, orderCode}
-        for (const mapping of validMappings) {
-            for (const order of allOrders) {
-                let orderTags = [];
-                try {
-                    orderTags = JSON.parse(order.Tags || '[]');
-                } catch (e) { continue; }
-                if (!Array.isArray(orderTags)) continue;
+        // 3. Build tasks list
+        // Each task: { orderId, action: 'category'|'flag'|'ttag', data: {...} }
+        const tasks = [];
 
-                const hasTag = orderTags.some(t => t.Id === mapping.tposTagId);
-                if (hasTag) {
-                    // Check if order already has this category — skip if same
-                    const existing = window.ProcessingTagState.getOrderData(String(order.Id));
-                    if (existing && existing.category === mapping.ptagCategory) {
-                        if (!mapping.ptagSubTag || existing.subTag === mapping.ptagSubTag) {
-                            continue; // Already assigned, skip
+        for (const mapping of validMappings) {
+            if (mapping.targetType === 'prefix') {
+                // PREFIX MODE: scan all orders for tags starting with prefix
+                for (const order of allOrders) {
+                    let orderTags = [];
+                    try { orderTags = JSON.parse(order.Tags || '[]'); } catch (e) { continue; }
+                    if (!Array.isArray(orderTags)) continue;
+
+                    for (const tag of orderTags) {
+                        if ((tag.Name || '').startsWith(mapping.prefix)) {
+                            const customFlagKey = _getOrCreateCustomFlag(tag.Name);
+                            // Check if order already has this flag
+                            const existing = window.ProcessingTagState.getOrderData(String(order.Id));
+                            if (existing && (existing.flags || []).includes(customFlagKey)) continue;
+                            tasks.push({
+                                orderId: String(order.Id),
+                                orderCode: order.Code || order.Id,
+                                action: 'flag',
+                                flagKey: customFlagKey
+                            });
                         }
                     }
-                    assignments.set(String(order.Id), {
-                        category: mapping.ptagCategory,
-                        subTag: mapping.ptagSubTag,
-                        orderCode: order.Code || order.Id
-                    });
+                }
+            } else {
+                // NORMAL MODE: find orders with specific TPOS tag
+                for (const order of allOrders) {
+                    let orderTags = [];
+                    try { orderTags = JSON.parse(order.Tags || '[]'); } catch (e) { continue; }
+                    if (!Array.isArray(orderTags)) continue;
+
+                    const hasTag = orderTags.some(t => t.Id === mapping.tposTagId);
+                    if (!hasTag) continue;
+
+                    const oid = String(order.Id);
+
+                    if (mapping.targetType === 'category') {
+                        const existing = window.ProcessingTagState.getOrderData(oid);
+                        if (existing && existing.category === mapping.ptagCategory) {
+                            if (!mapping.ptagSubTag || existing.subTag === mapping.ptagSubTag) continue;
+                        }
+                        tasks.push({
+                            orderId: oid,
+                            orderCode: order.Code || order.Id,
+                            action: 'category',
+                            category: mapping.ptagCategory,
+                            subTag: mapping.ptagSubTag
+                        });
+                    } else if (mapping.targetType === 'flag') {
+                        const existing = window.ProcessingTagState.getOrderData(oid);
+                        if (existing && (existing.flags || []).includes(mapping.flagKey)) continue;
+                        tasks.push({
+                            orderId: oid,
+                            orderCode: order.Code || order.Id,
+                            action: 'flag',
+                            flagKey: mapping.flagKey
+                        });
+                    } else if (mapping.targetType === 'ttag') {
+                        const existing = window.ProcessingTagState.getOrderData(oid);
+                        if (existing && (existing.tTags || []).includes(mapping.ttagId)) continue;
+                        tasks.push({
+                            orderId: oid,
+                            orderCode: order.Code || order.Id,
+                            action: 'ttag',
+                            ttagId: mapping.ttagId
+                        });
+                    }
                 }
             }
         }
 
-        if (assignments.size === 0) {
+        // Deduplicate: keep last task per orderId+action+key combo
+        const taskMap = new Map();
+        for (const t of tasks) {
+            const key = `${t.orderId}|${t.action}|${t.flagKey || t.ttagId || t.category}`;
+            taskMap.set(key, t);
+        }
+        const uniqueTasks = [...taskMap.values()];
+
+        if (uniqueTasks.length === 0) {
             if (window.notificationManager) {
                 window.notificationManager.info('Không tìm thấy đơn nào cần đồng bộ (tất cả đã có Tag XL tương ứng).', 3000);
             }
@@ -403,7 +602,7 @@
         }
 
         // 4. Confirm
-        if (!confirm(`Sẽ đồng bộ Tag XL cho ${assignments.size} đơn hàng. Tiếp tục?`)) return;
+        if (!confirm(`Sẽ đồng bộ Tag XL cho ${uniqueTasks.length} thao tác trên các đơn hàng. Tiếp tục?`)) return;
 
         // 5. Execute with progress
         const syncBtn = document.getElementById('tagSyncExecuteBtn');
@@ -411,23 +610,28 @@
             syncBtn.disabled = true;
             syncBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang đồng bộ...';
         }
-        _showProgress(0, assignments.size);
+        _showProgress(0, uniqueTasks.length);
 
         let success = 0, failed = 0;
-        const total = assignments.size;
+        const total = uniqueTasks.length;
 
-        for (const [orderId, { category, subTag }] of assignments) {
+        for (const task of uniqueTasks) {
             try {
-                const opts = {};
-                if (subTag) opts.subTag = subTag;
-                await window.assignOrderCategory(orderId, category, opts);
+                if (task.action === 'category') {
+                    const opts = {};
+                    if (task.subTag) opts.subTag = task.subTag;
+                    await window.assignOrderCategory(task.orderId, task.category, opts);
+                } else if (task.action === 'flag') {
+                    await window.toggleOrderFlag(task.orderId, task.flagKey);
+                } else if (task.action === 'ttag') {
+                    await window.assignTTagToOrder(task.orderId, task.ttagId);
+                }
                 success++;
             } catch (err) {
-                console.error(SYNC_LOG, 'Failed for order', orderId, err);
+                console.error(SYNC_LOG, 'Failed for order', task.orderId, err);
                 failed++;
             }
             _showProgress(success + failed, total);
-            // Small delay to avoid flooding API
             await new Promise(r => setTimeout(r, 50));
         }
 
@@ -448,8 +652,48 @@
 
         // 7. Save mappings
         saveMappingsToStorage();
-
         console.log(SYNC_LOG, msg);
+    }
+
+    // =====================================================
+    // PREFIX: Custom flag creation
+    // =====================================================
+
+    function _getOrCreateCustomFlag(label) {
+        // Check if custom flag with this label already exists
+        const customFlags = window.ProcessingTagState?._customFlags;
+        if (customFlags) {
+            for (const [key, cf] of customFlags) {
+                if (cf.label === label) return key;
+            }
+        }
+        // Create new custom flag
+        const key = 'CUSTOM_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
+        if (!window.ProcessingTagState._customFlags) {
+            window.ProcessingTagState._customFlags = new Map();
+        }
+        window.ProcessingTagState._customFlags.set(key, { label, color: '#7c3aed' });
+        // Save custom flags config to API
+        _saveCustomFlagsToAPI();
+        return key;
+    }
+
+    async function _saveCustomFlagsToAPI() {
+        try {
+            const customFlags = window.ProcessingTagState._customFlags;
+            if (!customFlags) return;
+            const data = { customFlags: Object.fromEntries(customFlags) };
+            const campaignId = window.ProcessingTagState._campaignId;
+            if (!campaignId) return;
+            const url = `https://n2store-fallback.onrender.com/api/realtime/processing-tags/${campaignId}/__ptag_custom_flags__`;
+            await fetch(url, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data, updatedBy: window.currentUserName || 'system' })
+            });
+        } catch (e) {
+            console.warn(SYNC_LOG, 'Failed to save custom flags:', e);
+        }
     }
 
     // =====================================================
@@ -460,7 +704,7 @@
         const bar = document.getElementById('tagSyncProgressBar');
         const text = document.getElementById('tagSyncProgressText');
         const container = document.getElementById('tagSyncProgress');
-        if (container) container.style.display = 'block';
+        if (container) container.style.display = 'flex';
         if (bar) bar.style.width = Math.round((current / total) * 100) + '%';
         if (text) text.textContent = `${current} / ${total}`;
     }
@@ -499,7 +743,8 @@
     window._tsFilterTposTags = _tsFilterTposTags;
     window._tsSelectTposTag = _tsSelectTposTag;
     window._tsTogglePtagDropdown = _tsTogglePtagDropdown;
-    window._tsSelectPtagCategory = _tsSelectPtagCategory;
+    window._tsSelectTarget = _tsSelectTarget;
+    window._tsSelectPrefix = _tsSelectPrefix;
     window._tsAddRow = _tsAddRow;
     window._tsRemoveRow = _tsRemoveRow;
     window.executeTagSync = executeTagSync;
