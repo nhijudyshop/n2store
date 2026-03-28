@@ -89,6 +89,7 @@ const PTAG_FLAGS = {
     CHO_LIVE:     { key: 'CHO_LIVE',     label: 'Chờ live',    auto: false, icon: '📺' },
     GIU_DON:      { key: 'GIU_DON',      label: 'Giữ đơn',     auto: false, icon: '⏳' },
     QUA_LAY:      { key: 'QUA_LAY',      label: 'Qua lấy',     auto: false, icon: '🏠' },
+    GOI_BAO_KHACH_HH: { key: 'GOI_BAO_KHACH_HH', label: 'Gọi báo khách HH', auto: false, icon: '📞' },
     KHAC:         { key: 'KHAC',         label: 'Khác',        auto: false, icon: '📋', hasNote: true }
 };
 
@@ -98,7 +99,6 @@ const PTAG_SUBTAGS = {
     CHUA_PHAN_HOI:  { key: 'CHUA_PHAN_HOI',  label: 'Đơn chưa phản hồi', category: 2 },
     CHUA_DUNG_SP:   { key: 'CHUA_DUNG_SP',   label: 'Đơn chưa đúng SP',  category: 2 },
     KHACH_MUON_XA:  { key: 'KHACH_MUON_XA',  label: 'Đơn khách muốn xã', category: 2 },
-    NCC_HET_HANG:   { key: 'NCC_HET_HANG',   label: 'NCC hết hàng',      category: 2 },
     BAN_HANG:       { key: 'BAN_HANG',       label: 'Bán hàng',          category: 2 },
     XU_LY_KHAC:    { key: 'XU_LY_KHAC',    label: 'Khác (ghi chú)',    category: 2, hasNote: true },
 
@@ -107,6 +107,7 @@ const PTAG_SUBTAGS = {
     GIO_TRONG:         { key: 'GIO_TRONG',         label: 'Giỏ trống',         category: 3 },
 
     // Category 4 — MỤC KHÁCH XÃ SAU CHỐT
+    NCC_HET_HANG:      { key: 'NCC_HET_HANG',      label: 'NCC hết hàng',              category: 4 },
     KHACH_HUY_DON:     { key: 'KHACH_HUY_DON',     label: 'Khách hủy nguyên đơn',       category: 4 },
     KHACH_KO_LIEN_LAC: { key: 'KHACH_KO_LIEN_LAC', label: 'Khách không liên lạc được',  category: 4 }
 };
@@ -421,7 +422,7 @@ const MIGRATION_MAP = {
     'CHUA_PHAN_HOI':    { category: 2, subTag: 'CHUA_PHAN_HOI' },
     'CHUA_DUNG_SP':     { category: 2, subTag: 'CHUA_DUNG_SP' },
     'KHACH_MUON_XA':    { category: 2, subTag: 'KHACH_MUON_XA' },
-    'NCC_HET_HANG':     { category: 2, subTag: 'NCC_HET_HANG' },
+    'NCC_HET_HANG':     { category: 4, subTag: 'NCC_HET_HANG' },
     'XU_LY_KHAC':      { category: 2, subTag: 'XU_LY_KHAC' },
     'DA_GOP_KHONG_CHOT':{ category: 3, subTag: 'DA_GOP_KHONG_CHOT' },
     'GIO_TRONG':        { category: 3, subTag: 'GIO_TRONG' },
@@ -464,6 +465,28 @@ function migrateOldProcessingTag(oldData) {
   ]
 }
 ```
+
+### 9.1b Default T-tag Definition (hardcoded, always injected)
+
+```javascript
+// Default T-tags — always present, cannot be deleted, hidden from manager modal
+const DEFAULT_TTAG_DEFS = [
+    { id: 'T_MY', name: 'MY THÊM CHỜ VỀ', productCode: '', createdAt: 0, isDefault: true }
+];
+```
+
+**Behavior**:
+- `setTTagDefinitions()` auto-injects defaults if missing (unshift to beginning)
+- `_ttagRenderManagerList()` filters out default tags (hidden from manager modal)
+- `_ptagDeleteTTagDefAndOrders()` / `_ptagDeleteTTagDef()` block deletion of defaults
+- Panel: default tags show normally but without delete (×) button
+- Dropdown: default tags appear at bottom as direct toggle items (key: `dtag:T_MY`)
+
+**Dropdown integration**:
+- `_ptagBuildAllTags()` appends default T-tags at the end with `type: 'tag'`, `isDefaultTTag: true`
+- `_ptagDdSelectTag()` handles `dtag:` prefix — toggles tag directly (assign/remove)
+- `_ptagGetSelectedTags()` includes active default T-tags as pills with `isDefaultTTag: true`
+- `_ptagDdRemovePill()` handles `dtag:` prefix for removal
 
 ### 9.2 Auto-increment ID logic
 
@@ -623,3 +646,6 @@ function _ptagAddHistory(orderId, action, value, userName) {
 13. **Test badge ×**: Xóa category, flag, tag T qua × button trên badge
 14. **Test history**: Gắn/xóa tag → history ghi đúng action, user, timestamp
 15. **Test history popover**: Click 🕐 → popover hiện entries đúng format
+16. **Test NCC hết hàng**: Tag nằm trong mục KHÁCH XÃ SAU CHỐT (category 4), không còn trong MỤC XỬ LÝ
+17. **Test flag Gọi báo khách HH**: Hiện trong dropdown đặc điểm đơn hàng, toggle on/off, hiện badge
+18. **Test default T-tag MY THÊM CHỜ VỀ**: Luôn có sẵn, hiện ở cuối dropdown, toggle trực tiếp, ẩn khỏi modal quản lý, không xóa được
