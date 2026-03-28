@@ -1988,19 +1988,122 @@
         console.log(`${PTAG_LOG} Created T-tag: ${tagId} (${productCode} - ${name})`);
     }
 
-    function _ptagFindByProductCode(tagId) {
+    /**
+     * Cache for order details loaded from Firestore (Báo Cáo Tổng Hợp).
+     * Key: tableName, Value: array of orders with Details[].ProductCode
+     */
+    let _reportOrderDetailsCache = null; // { tableName, orders[] }
+
+    /**
+     * Load order details from Firestore collection 'report_order_details'.
+     * This data was fetched & saved by Tab "Báo Cáo Tổng Hợp" (overview)
+     * via "Lấy chi tiết đơn hàng" button → fetchOrderData() with $expand=Details.
+     */
+    async function _ptagLoadReportOrderDetails() {
+        const tableName = window.campaignManager?.activeCampaign?.name
+            || localStorage.getItem('orders_table_name') || '';
+        if (!tableName) return null;
+
+        // Return cache if same table
+        if (_reportOrderDetailsCache && _reportOrderDetailsCache.tableName === tableName) {
+            return _reportOrderDetailsCache.orders;
+        }
+
+        const db = window.firestoreDb || (typeof firebase !== 'undefined' && firebase.firestore());
+        if (!db) {
+            console.warn(`${PTAG_LOG} Firestore not available for loading report order details`);
+            return null;
+        }
+
+        const safeTableName = tableName.replace(/[.$#\[\]\/]/g, '_');
+        const FIREBASE_PATH = 'report_order_details';
+
+        try {
+            const docRef = db.collection(FIREBASE_PATH).doc(safeTableName);
+            const doc = await docRef.get();
+            if (!doc.exists) {
+                console.log(`${PTAG_LOG} No report data in Firestore for table: ${tableName}`);
+                return null;
+            }
+
+            const data = doc.data();
+            let orders;
+
+            if (data.isChunked) {
+                // Load chunked data
+                const chunksSnapshot = await docRef.collection('order_chunks')
+                    .orderBy('chunkIndex').get();
+                orders = [];
+                chunksSnapshot.forEach(chunkDoc => {
+                    const chunkData = chunkDoc.data();
+                    if (chunkData.orders) orders.push(...chunkData.orders);
+                });
+                console.log(`${PTAG_LOG} Loaded ${orders.length} orders from ${chunksSnapshot.size} chunks (report_order_details)`);
+            } else {
+                orders = data.orders || [];
+                console.log(`${PTAG_LOG} Loaded ${orders.length} orders from report_order_details`);
+            }
+
+            _reportOrderDetailsCache = { tableName, orders };
+            return orders;
+        } catch (e) {
+            console.error(`${PTAG_LOG} Error loading report order details:`, e);
+            return null;
+        }
+    }
+
+    async function _ptagFindByProductCode(tagId) {
         const def = ProcessingTagState.getTTagDef(tagId);
-        const productCode = def?.productCode || tagId;
+        const productCode = (def?.productCode || tagId).toUpperCase();
         const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
 
-        // Find orders containing this product code
-        const matchingOrders = allOrders.filter(order => {
-            const details = order.Details;
-            if (!Array.isArray(details)) return false;
-            return details.some(d => (d.ProductCode || '').toUpperCase() === productCode.toUpperCase());
-        });
+        // Build lookup: orderId → order object from current Tab 1 data
+        const orderById = new Map();
+        for (const o of allOrders) orderById.set(String(o.Id), o);
 
-        // Filter out orders already having this tag
+        // Check if allData already has Details (unlikely for GetView)
+        let hasDetails = allOrders.some(o => Array.isArray(o.Details) && o.Details.length > 0);
+        let searchSource = allOrders;
+
+        if (!hasDetails) {
+            // Load order details from Firestore (Báo Cáo Tổng Hợp data)
+            const list = document.getElementById('ptag-ttag-manager-list');
+            if (list) {
+                list.innerHTML = `<div style="text-align:center;padding:24px 20px;">
+                    <i class="fas fa-spinner fa-spin" style="font-size:20px;color:#a855f7;margin-bottom:8px;display:block;"></i>
+                    <div style="font-size:12px;color:#6b7280;">Đang tải chi tiết SP từ Báo Cáo Tổng Hợp...</div>
+                </div>`;
+            }
+
+            const reportOrders = await _ptagLoadReportOrderDetails();
+            if (!reportOrders || reportOrders.length === 0) {
+                alert('Chưa có dữ liệu chi tiết đơn hàng.\n\nVui lòng vào Tab "Báo Cáo Tổng Hợp" → nhấn "Lấy chi tiết đơn hàng" trước.\n\nHoặc dùng cách nhập STT thủ công.');
+                _ttagManagerExpanded = tagId;
+                _ttagRenderManagerList();
+                renderPanelContent();
+                return;
+            }
+            searchSource = reportOrders;
+        }
+
+        // Search for orders containing this product code
+        const matchedIds = new Set();
+        for (const order of searchSource) {
+            const details = order.Details;
+            if (!Array.isArray(details)) continue;
+            if (details.some(d => (d.ProductCode || '').toUpperCase() === productCode)) {
+                matchedIds.add(String(order.Id));
+            }
+        }
+
+        // Resolve to Tab 1 order objects (for STT, name, phone display)
+        const matchingOrders = [];
+        for (const oid of matchedIds) {
+            const order = orderById.get(oid);
+            if (order) matchingOrders.push(order);
+        }
+
+        // Filter out orders already having this tag T
         const existingOrderIds = new Set();
         for (const [orderId, data] of ProcessingTagState.getAllOrders()) {
             if (data.tTags && data.tTags.includes(tagId)) existingOrderIds.add(String(orderId));
@@ -2008,12 +2111,12 @@
         const newOrders = matchingOrders.filter(o => !existingOrderIds.has(String(o.Id)));
 
         if (newOrders.length === 0) {
-            // Check if no Details available
-            const hasDetails = allOrders.some(o => Array.isArray(o.Details) && o.Details.length > 0);
-            if (!hasDetails) {
-                alert(`Không thể tìm theo mã SP vì dữ liệu chi tiết đơn hàng (Details) chưa được tải.\n\nHãy dùng cách nhập STT thủ công.`);
+            if (matchingOrders.length > 0) {
+                alert(`Tất cả ${matchingOrders.length} đơn chứa SP "${productCode}" đã có tag này.`);
+            } else if (matchedIds.size > 0) {
+                alert(`Tìm thấy ${matchedIds.size} đơn chứa SP "${productCode}" trong Báo Cáo Tổng Hợp nhưng không khớp với đơn hiện tại.\n\nHãy dùng cách nhập STT thủ công.`);
             } else {
-                alert(`Không tìm thấy đơn mới nào chứa SP "${productCode}" (${matchingOrders.length} đơn đã có tag).`);
+                alert(`Không tìm thấy đơn nào chứa SP "${productCode}".`);
             }
             _ttagManagerExpanded = tagId;
             _ttagRenderManagerList();
@@ -2021,7 +2124,7 @@
             return;
         }
 
-        // Show search results modal
+        console.log(`${PTAG_LOG} Found ${newOrders.length} orders with SP "${productCode}" (source: ${hasDetails ? 'allData' : 'report_order_details'})`);
         _ptagShowSearchResults(tagId, productCode, newOrders);
     }
 
