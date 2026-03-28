@@ -1988,73 +1988,19 @@
         console.log(`${PTAG_LOG} Created T-tag: ${tagId} (${productCode} - ${name})`);
     }
 
-    /**
-     * Find orders by product code using Tab 3 product assignments data (localStorage).
-     * Tab 3 "Gán Sản Phẩm" stores assignments with productCode + sttList → orderInfo.orderId.
-     * We read this data and cross-reference with allData in Tab 1.
-     */
     function _ptagFindByProductCode(tagId) {
         const def = ProcessingTagState.getTTagDef(tagId);
-        const productCode = (def?.productCode || tagId).toUpperCase();
+        const productCode = def?.productCode || tagId;
         const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
 
-        // Build lookup: orderId → order object from allData
-        const orderById = new Map();
-        for (const o of allOrders) {
-            orderById.set(String(o.Id), o);
-        }
+        // Find orders containing this product code
+        const matchingOrders = allOrders.filter(order => {
+            const details = order.Details;
+            if (!Array.isArray(details)) return false;
+            return details.some(d => (d.ProductCode || '').toUpperCase() === productCode.toUpperCase());
+        });
 
-        // Read product assignments from Tab 3 (localStorage)
-        let assignments = [];
-        try {
-            const stored = localStorage.getItem('orders_productAssignments');
-            if (stored) {
-                const parsed = JSON.parse(stored);
-                assignments = parsed?.assignments || (Array.isArray(parsed) ? parsed : []);
-            }
-        } catch (e) {
-            console.warn(`${PTAG_LOG} Failed to read product assignments from localStorage:`, e);
-        }
-
-        if (!assignments.length) {
-            alert('Chưa có dữ liệu gán sản phẩm từ Tab 3 (Gán Sản Phẩm - STT).\n\nHãy gán sản phẩm ở Tab 3 trước hoặc dùng cách nhập STT thủ công.');
-            _ttagManagerExpanded = tagId;
-            _ttagRenderManagerList();
-            renderPanelContent();
-            return;
-        }
-
-        // Find assignments matching this product code
-        const matchingAssignments = assignments.filter(a =>
-            (a.productCode || '').toUpperCase() === productCode
-        );
-
-        if (matchingAssignments.length === 0) {
-            alert(`Không tìm thấy sản phẩm "${productCode}" trong dữ liệu gán SP (Tab 3).\n\nKiểm tra lại mã SP hoặc dùng cách nhập STT thủ công.`);
-            _ttagManagerExpanded = tagId;
-            _ttagRenderManagerList();
-            renderPanelContent();
-            return;
-        }
-
-        // Collect unique order IDs from matching assignments' sttList
-        const matchedOrderIds = new Set();
-        for (const a of matchingAssignments) {
-            if (!Array.isArray(a.sttList)) continue;
-            for (const s of a.sttList) {
-                const orderId = s.orderInfo?.orderId;
-                if (orderId) matchedOrderIds.add(String(orderId));
-            }
-        }
-
-        // Resolve to actual order objects from allData
-        const matchingOrders = [];
-        for (const oid of matchedOrderIds) {
-            const order = orderById.get(oid);
-            if (order) matchingOrders.push(order);
-        }
-
-        // Filter out orders already having this tag T
+        // Filter out orders already having this tag
         const existingOrderIds = new Set();
         for (const [orderId, data] of ProcessingTagState.getAllOrders()) {
             if (data.tTags && data.tTags.includes(tagId)) existingOrderIds.add(String(orderId));
@@ -2062,12 +2008,12 @@
         const newOrders = matchingOrders.filter(o => !existingOrderIds.has(String(o.Id)));
 
         if (newOrders.length === 0) {
-            if (matchingOrders.length > 0) {
-                alert(`Không tìm thấy đơn mới nào chứa SP "${productCode}" (${matchingOrders.length} đơn đã có tag).`);
-            } else if (matchedOrderIds.size > 0) {
-                alert(`Tìm thấy ${matchedOrderIds.size} đơn chứa SP "${productCode}" trong Tab 3 nhưng không khớp với đơn hiện tại trong bảng.\n\nHãy dùng cách nhập STT thủ công.`);
+            // Check if no Details available
+            const hasDetails = allOrders.some(o => Array.isArray(o.Details) && o.Details.length > 0);
+            if (!hasDetails) {
+                alert(`Không thể tìm theo mã SP vì dữ liệu chi tiết đơn hàng (Details) chưa được tải.\n\nHãy dùng cách nhập STT thủ công.`);
             } else {
-                alert(`SP "${productCode}" đã gán trong Tab 3 nhưng chưa có đơn nào.\n\nHãy dùng cách nhập STT thủ công.`);
+                alert(`Không tìm thấy đơn mới nào chứa SP "${productCode}" (${matchingOrders.length} đơn đã có tag).`);
             }
             _ttagManagerExpanded = tagId;
             _ttagRenderManagerList();
@@ -2075,8 +2021,7 @@
             return;
         }
 
-        console.log(`${PTAG_LOG} Found ${newOrders.length} orders with SP "${productCode}" from Tab 3 assignments`);
-        // Show search results
+        // Show search results modal
         _ptagShowSearchResults(tagId, productCode, newOrders);
     }
 
