@@ -215,6 +215,12 @@ function printPackingSlip() {
 
     // Auto-tag "CHỜ HÀNG VỀ" after printing
     autoTagChoHangVe();
+
+    // Auto-transition processing tag to "Phiếu Soạn Hàng"
+    const saleOnlineId = packingSlipOrderData.SaleOnlineIds?.[0] || packingSlipOrderData.Id;
+    if (saleOnlineId && window.onPtagPackingSlipPrinted) {
+        window.onPtagPackingSlipPrinted(String(saleOnlineId));
+    }
 }
 
 /**

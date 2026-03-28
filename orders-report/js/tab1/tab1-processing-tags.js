@@ -18,7 +18,8 @@
         CHO_DI_DON: 1,
         XU_LY: 2,
         KHONG_CAN_CHOT: 3,
-        KHACH_XA: 4
+        KHACH_XA: 4,
+        PHIEU_SOAN_HANG: 5
     };
 
     const PTAG_CATEGORY_META = {
@@ -26,7 +27,8 @@
         1: { name: 'CHỜ ĐI ĐƠN (OKE)', short: 'Chờ đi đơn', icon: 'fa-clock', emoji: '🔵' },
         2: { name: 'MỤC XỬ LÝ', short: 'Xử lý', icon: 'fa-exclamation-triangle', emoji: '🟠' },
         3: { name: 'KHÔNG CẦN CHỐT', short: 'Ko cần chốt', icon: 'fa-minus-circle', emoji: '⚪' },
-        4: { name: 'KHÁCH XÃ SAU CHỐT', short: 'Khách xã', icon: 'fa-times-circle', emoji: '🔴' }
+        4: { name: 'KHÁCH XÃ SAU CHỐT', short: 'Khách xã', icon: 'fa-times-circle', emoji: '🔴' },
+        5: { name: 'PHIẾU SOẠN HÀNG', short: 'Phiếu soạn', icon: 'fa-clipboard-list', emoji: '📋' }
     };
 
     const PTAG_CATEGORY_COLORS = {
@@ -34,7 +36,8 @@
         1: { bg: 'rgba(59,130,246,0.08)', border: '#3b82f6', text: '#1e40af' },
         2: { bg: 'rgba(245,158,11,0.08)', border: '#f59e0b', text: '#92400e' },
         3: { bg: 'rgba(107,114,128,0.08)', border: '#6b7280', text: '#374151' },
-        4: { bg: 'rgba(239,68,68,0.08)', border: '#ef4444', text: '#991b1b' }
+        4: { bg: 'rgba(239,68,68,0.08)', border: '#ef4444', text: '#991b1b' },
+        5: { bg: 'rgba(245,158,11,0.12)', border: '#f59e0b', text: '#92400e' }
     };
 
     const PTAG_SUBSTATES = {
@@ -75,6 +78,7 @@
         cat_2: 'Đơn cần seller xử lý vấn đề trước khi có thể ra bill.',
         cat_3: 'Đơn không cần xử lý chốt đơn.',
         cat_4: 'Khách hủy hoặc không liên lạc được sau chốt đơn.',
+        cat_5: 'Đơn đã in phiếu soạn hàng. Tự động khi bấm In Phiếu Soạn Hàng.',
         // Sub-states
         sub_OKIE_CHO_DI_DON: 'Đủ hàng, sẵn sàng ra bill. Không có tag T nào.',
         sub_CHO_HANG: 'Thiếu hàng, chờ hàng về. Có ít nhất 1 tag T.',
@@ -613,6 +617,41 @@
         saveProcessingTagToAPI(saleOnlineId, newData);
     }
 
+    // Auto transition: packing slip printed → PHIẾU SOẠN HÀNG
+    function onPtagPackingSlipPrinted(saleOnlineId) {
+        let data = ProcessingTagState.getOrderData(saleOnlineId);
+
+        if (!data) {
+            data = { category: null, subTag: null, subState: null, flags: [], tTags: [], note: '', assignedAt: Date.now() };
+        }
+
+        // Already in PHIEU_SOAN_HANG → skip
+        if (data.category === PTAG_CATEGORIES.PHIEU_SOAN_HANG) return;
+
+        const snapshot = {
+            category: data.category,
+            subTag: data.subTag,
+            subState: data.subState,
+            flags: [...(data.flags || [])],
+            tTags: [...(data.tTags || [])],
+            note: data.note
+        };
+
+        // Keep flags + tTags, only change category
+        data.category = PTAG_CATEGORIES.PHIEU_SOAN_HANG;
+        data.subTag = null;
+        data.subState = null;
+        data.assignedAt = Date.now();
+        data.previousPosition = snapshot;
+
+        _ptagEnsureCode(saleOnlineId, data);
+        ProcessingTagState.setOrderData(saleOnlineId, data);
+        _ptagAddHistory(saleOnlineId, 'AUTO_PHIEU_SOAN', '', 'Hệ thống');
+        _ptagRefreshRow(saleOnlineId);
+        renderPanelContent();
+        saveProcessingTagToAPI(saleOnlineId, data);
+    }
+
     // Auto rollback: bill cancelled → restore previous position
     function onPtagBillCancelled(saleOnlineId) {
         const data = ProcessingTagState.getOrderData(saleOnlineId);
@@ -751,6 +790,9 @@
         // Cat 0 — HOÀN TẤT
         tags.push({ type: 'cat-label', label: `${PTAG_CATEGORY_META[0].emoji} HOÀN TẤT` });
         tags.push({ type: 'tag', key: 'cat:0:null', label: 'Hoàn tất — Đã ra đơn', isCat: true, cat: 0, subTag: null, color: PTAG_CATEGORY_COLORS[0].border });
+        // Cat 5 — PHIẾU SOẠN HÀNG
+        tags.push({ type: 'cat-label', label: `${PTAG_CATEGORY_META[5].emoji} PHIẾU SOẠN HÀNG` });
+        tags.push({ type: 'tag', key: 'cat:5:null', label: 'Phiếu Soạn Hàng', isCat: true, cat: 5, subTag: null, color: PTAG_CATEGORY_COLORS[5].border });
         // Flags — ĐẶC ĐIỂM ĐƠN HÀNG
         tags.push({ type: 'cat-label', label: '🏷️ ĐẶC ĐIỂM ĐƠN HÀNG' });
         for (const [key, flag] of Object.entries(PTAG_FLAGS)) {
@@ -1182,7 +1224,7 @@
         // Only count tagged orders that exist in current allData
         const allDataIds = new Set(allOrders.map(o => String(o.Id)));
         let taggedCount = 0;
-        const catCounts = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0 };
+        const catCounts = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
         const subStateCounts = {};
         const flagCounts = {};
         const subTagCounts = {};
@@ -1274,6 +1316,17 @@
                 <div class="ptag-panel-card-count">${catCounts[0]} đơn hàng</div>
             </div>
             ${_tooltipHtml('cat_0')}
+        </div>`;
+
+        // --- Category 5 — PHIẾU SOẠN HÀNG ---
+        html += `<div class="ptag-panel-card ${activeFilter === 'cat_5' ? 'active' : ''}" onclick="window._ptagSetFilter('cat_5')" data-search="${_ptagNormalize(PTAG_CATEGORY_META[5].name)}">
+            <div class="ptag-panel-card-icon" style="background:${PTAG_CATEGORY_COLORS[5].border};">
+                <i class="fas ${PTAG_CATEGORY_META[5].icon}" style="color:#fff;font-size:14px;"></i>
+            </div>
+            <div class="ptag-panel-card-info">
+                <div class="ptag-panel-card-name">${PTAG_CATEGORY_META[5].emoji} ${PTAG_CATEGORY_META[5].name}</div>
+                <div class="ptag-panel-card-count">${catCounts[5]} đơn hàng</div>
+            </div>
         </div>`;
 
         // --- Category 1 — CHỜ ĐI ĐƠN + sub-states ---
@@ -2718,6 +2771,7 @@
     // Hooks (called from other files)
     window.onPtagBillCreated = onPtagBillCreated;
     window.onPtagBillCancelled = onPtagBillCancelled;
+    window.onPtagPackingSlipPrinted = onPtagPackingSlipPrinted;
     window.onPtagOrderTagsChanged = onPtagOrderTagsChanged;
 
     // Filter (called from tab1-search.js)
