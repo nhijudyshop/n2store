@@ -1594,14 +1594,6 @@
         setTimeout(() => {
             document.getElementById('ptag-ttag-search')?.focus();
         }, 100);
-
-        // Load all campaign tag T definitions in background, re-render when done
-        _ptagLoadAllTTagDefinitions().then(() => {
-            const searchInput = document.getElementById('ptag-ttag-search');
-            if (searchInput && document.getElementById('ptag-ttag-modal')) {
-                _ptagRenderTTagSuggestions(searchInput.value || '');
-            }
-        }).catch(() => {});
     }
 
     function _ptagCloseTTagModal() {
@@ -1631,71 +1623,17 @@
         }).join('');
     }
 
-    /**
-     * Load and merge tag T definitions from ALL campaigns (not just current).
-     * Fetches __ttag_config__ from each campaign's processing tags API.
-     * Results cached until next page load.
-     */
-    let _allCampaignTTagDefs = null; // cache
-
-    async function _ptagLoadAllTTagDefinitions() {
-        if (_allCampaignTTagDefs) return _allCampaignTTagDefs;
-
-        const currentDefs = ProcessingTagState.getTTagDefinitions();
-        const seenIds = new Set(currentDefs.map(d => d.id));
-        const merged = [...currentDefs];
-
-        // Get all campaign IDs from campaignManager
-        const campaigns = window.campaignManager?.allCampaigns;
-        if (!campaigns || campaigns.length === 0) {
-            _allCampaignTTagDefs = merged;
-            return merged;
-        }
-
-        const currentCampaignId = ProcessingTagState._campaignId;
-
-        // Fetch __ttag_config__ from other campaigns in parallel
-        const otherCampaigns = campaigns
-            .filter(c => c.campaignId && String(c.campaignId) !== String(currentCampaignId))
-            .slice(0, 20); // Limit to 20 campaigns
-
-        const fetchPromises = otherCampaigns.map(async (c) => {
-            try {
-                const result = await _ptagFetch(`${PTAG_API_BASE}/${encodeURIComponent(c.campaignId)}`);
-                if (result.data?.['__ttag_config__']?.tTagDefinitions) {
-                    return result.data['__ttag_config__'].tTagDefinitions;
-                }
-            } catch (e) { /* ignore */ }
-            return [];
-        });
-
-        const results = await Promise.all(fetchPromises);
-        for (const defs of results) {
-            for (const def of defs) {
-                if (!seenIds.has(def.id)) {
-                    seenIds.add(def.id);
-                    merged.push(def);
-                }
-            }
-        }
-
-        _allCampaignTTagDefs = merged;
-        console.log(`${PTAG_LOG} Merged tag T definitions: ${merged.length} total from ${otherCampaigns.length + 1} campaigns`);
-        return merged;
-    }
-
     function _ptagRenderTTagSuggestions(query) {
         const dropdown = document.getElementById('ptag-ttag-dropdown');
         if (!dropdown) return;
 
-        // Use all-campaign defs if loaded, otherwise current campaign defs
-        const defs = _allCampaignTTagDefs || ProcessingTagState.getTTagDefinitions();
+        const defs = ProcessingTagState.getTTagDefinitions();
         const q = _ptagNormalize(query);
 
         const filtered = defs.filter(def => {
             if (_ttagSelectedTags.includes(def.id)) return false;
             if (!q) return true;
-            return _ptagNormalize(def.name).includes(q) || _ptagNormalize(def.productCode || '').includes(q);
+            return _ptagNormalize(def.name).includes(q);
         });
 
         if (filtered.length === 0 && !query.trim()) {
@@ -1710,7 +1648,7 @@
         dropdown.innerHTML = filtered.map((def, idx) => {
             const escapedId = def.id.replace(/'/g, "\\'");
             return `<div class="ptag-ttag-dropdown-item ${idx === 0 ? 'highlighted' : ''}" onclick="window._ptagToggleTTagSelection('${escapedId}')" data-tag-id="${def.id}">
-                <span style="color:#7c3aed;font-weight:600;">${def.name}${def.productCode ? ` · ${def.productCode}` : ''}</span>
+                <span style="color:#7c3aed;font-weight:600;">${def.name}</span>
             </div>`;
         }).join('');
     }
@@ -1810,11 +1748,6 @@
         defs.push(newDef);
         ProcessingTagState.setTTagDefinitions(defs);
         saveTTagDefinitions();
-
-        // Invalidate all-campaign cache so new tag appears in merged list
-        if (_allCampaignTTagDefs) {
-            _allCampaignTTagDefs.push(newDef);
-        }
 
         // Add to selection
         _ttagSelectedTags.push(upperName);
