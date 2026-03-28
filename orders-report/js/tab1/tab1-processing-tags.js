@@ -206,10 +206,61 @@
                 }
             }
             console.log(`${PTAG_LOG} Loaded ${result.count || 0} tags for campaign ${campaignId}`);
+            // Cross-reference IDs with allData to fix mismatches
+            _ptagReconcileIds();
             renderPanelContent();
             _ptagRefreshAllRows();
         } catch (e) {
             console.error(`${PTAG_LOG} Failed to load tags:`, e);
+        }
+    }
+
+    /**
+     * Re-map processing tag IDs to match current allData order IDs.
+     * Uses STT (SessionIndex) as cross-reference key.
+     * Fixes the issue where Firestore stores an orderId that no longer matches
+     * the current TPOS OData response (IDs can differ between page loads).
+     */
+    function _ptagReconcileIds() {
+        const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
+        if (allOrders.length === 0) return;
+
+        // Build lookup maps
+        const allDataIds = new Set(allOrders.map(o => String(o.Id)));
+        const sttToTableId = new Map();
+        allOrders.forEach(o => {
+            const stt = String(o.SessionIndex || '');
+            if (stt) sttToTableId.set(stt, String(o.Id));
+        });
+
+        const remaps = [];
+        for (const [orderId, data] of ProcessingTagState.getAllOrders()) {
+            if (allDataIds.has(orderId)) continue; // Already matches
+            // Try cross-reference by stored STT
+            const stt = String(data.stt || '');
+            if (stt && sttToTableId.has(stt)) {
+                const newId = sttToTableId.get(stt);
+                if (newId !== orderId) {
+                    remaps.push({ oldId: orderId, newId, data });
+                }
+            }
+        }
+
+        if (remaps.length === 0) return;
+
+        for (const { oldId, newId, data } of remaps) {
+            // Check if target already has data (don't overwrite)
+            if (ProcessingTagState.hasOrder(newId)) continue;
+            ProcessingTagState.removeOrder(oldId);
+            ProcessingTagState.setOrderData(newId, data);
+            // Update API: save with new ID, delete old ID
+            saveProcessingTagToAPI(newId, data);
+            clearProcessingTagAPI(oldId);
+            console.log(`${PTAG_LOG} Re-mapped order: ${oldId} → ${newId} (STT: ${data.stt})`);
+        }
+
+        if (remaps.length > 0) {
+            console.log(`${PTAG_LOG} Reconciled ${remaps.length} order ID(s) by STT cross-reference`);
         }
     }
 
@@ -375,6 +426,7 @@
             }
         }
 
+        _ptagEnsureSTT(orderId, data);
         ProcessingTagState.setOrderData(orderId, data);
         _ptagRefreshRow(orderId);
         renderPanelContent();
@@ -429,6 +481,7 @@
         }
         data.flags = flags;
 
+        _ptagEnsureSTT(orderId, data);
         ProcessingTagState.setOrderData(orderId, data);
         _ptagRefreshRow(orderId);
         renderPanelContent();
@@ -456,6 +509,7 @@
         if (data.category === PTAG_CATEGORIES.CHO_DI_DON && data.subState === 'OKIE_CHO_DI_DON') {
             data.subState = 'CHO_HANG';
         }
+        _ptagEnsureSTT(orderId, data);
         ProcessingTagState.setOrderData(orderId, data);
         _ptagRefreshRow(orderId);
         renderPanelContent();
@@ -470,6 +524,7 @@
         if (data.category === PTAG_CATEGORIES.CHO_DI_DON && data.subState === 'CHO_HANG' && data.tTags.length === 0) {
             data.subState = 'OKIE_CHO_DI_DON';
         }
+        _ptagEnsureSTT(orderId, data);
         ProcessingTagState.setOrderData(orderId, data);
         _ptagRefreshRow(orderId);
         renderPanelContent();
@@ -540,6 +595,18 @@
     function _ptagGetOrderPhone(orderId) {
         const order = ((typeof window.getAllOrders === 'function') ? window.getAllOrders() : []).find(o => o.Id === orderId);
         return order?.Telephone || order?.Phone || '';
+    }
+
+    function _ptagGetOrderSTT(orderId) {
+        const order = ((typeof window.getAllOrders === 'function') ? window.getAllOrders() : []).find(o => String(o.Id) === String(orderId));
+        return order?.SessionIndex || null;
+    }
+
+    /** Inject STT into data before saving (for cross-referencing after reload) */
+    function _ptagEnsureSTT(orderId, data) {
+        if (!data.stt) {
+            data.stt = _ptagGetOrderSTT(orderId);
+        }
     }
 
     // =====================================================
@@ -1060,10 +1127,12 @@
         const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
         const taggedOrders = ProcessingTagState.getAllOrders();
         const totalOrders = allOrders.length;
-        const taggedCount = taggedOrders.size;
-        const untaggedCount = totalOrders - taggedCount;
 
-        // Count per category
+        // Build set of valid order IDs (orders in current allData)
+        const allDataIds = new Set(allOrders.map(o => String(o.Id)));
+
+        // Only count tagged orders that exist in current allData
+        let taggedCount = 0;
         const catCounts = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0 };
         const subStateCounts = {};
         const flagCounts = {};
@@ -1071,6 +1140,10 @@
         const tTagCounts = {};
 
         for (const [orderId, data] of taggedOrders) {
+            // Skip orders not in current allData (stale/mismatched IDs)
+            if (!allDataIds.has(orderId)) continue;
+            taggedCount++;
+
             catCounts[data.category] = (catCounts[data.category] || 0) + 1;
 
             if (data.category === PTAG_CATEGORIES.CHO_DI_DON) {
@@ -1087,8 +1160,11 @@
             }
         }
 
+        const untaggedCount = totalOrders - taggedCount;
+
         // Count T-tags from internal processing tag data
         for (const [orderId, data] of taggedOrders) {
+            if (!allDataIds.has(orderId)) continue;
             if (data.tTags) {
                 for (const tagId of data.tTags) {
                     tTagCounts[tagId] = (tTagCounts[tagId] || 0) + 1;
@@ -1658,6 +1734,7 @@
             }
         }
 
+        _ptagEnsureSTT(orderId, data);
         ProcessingTagState.setOrderData(orderId, data);
         _ptagRefreshRow(orderId);
         renderPanelContent();
