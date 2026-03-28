@@ -1660,3 +1660,141 @@
 .ptag-history-popover::-webkit-scrollbar-track {
     background: transparent;
 }
+
+/* =====================================================
+   T-TAG MANAGER v2 — TABS & SETTINGS
+   ===================================================== */
+
+/* Tab bar */
+.ttag-mgr-tabs {
+    display: flex;
+    border-bottom: 2px solid #e5e7eb;
+    background: #fafafa;
+}
+
+.ttag-mgr-tab {
+    flex: 1;
+    padding: 12px 16px;
+    text-align: center;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    color: #6b7280;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-bottom: -2px;
+}
+
+.ttag-mgr-tab:hover {
+    color: #374151;
+    background: rgba(0, 0, 0, 0.02);
+}
+
+.ttag-mgr-tab.active-assign {
+    border-bottom-color: #10b981;
+    color: #10b981;
+    background: rgba(16, 185, 129, 0.04);
+}
+
+.ttag-mgr-tab.active-remove {
+    border-bottom-color: #ef4444;
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.04);
+}
+
+/* Product code + Tìm Đơn button */
+.ttag-mgr-product-code {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 2px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.ttag-mgr-product-code b {
+    color: #374151;
+    font-weight: 700;
+}
+
+.ttag-mgr-find-btn {
+    font-size: 11px;
+    padding: 2px 8px;
+    margin-left: 4px;
+    background: #f5f3ff;
+    color: #7c3aed;
+    border: 1px solid #c4b5fd;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+}
+
+.ttag-mgr-find-btn:hover {
+    background: #ede9fe;
+    border-color: #a78bfa;
+}
+
+/* Settings modal overlay */
+.ttag-mgr-settings-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    z-index: 10002;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 10vh;
+    animation: fadeIn 0.2s;
+}
+
+.ttag-mgr-settings-content {
+    width: 90%;
+    max-width: 520px;
+    background: #fff;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+}
+
+.ttag-mgr-settings-row {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid #f3f4f6;
+    gap: 10px;
+    transition: background 0.1s;
+}
+
+.ttag-mgr-settings-row:hover {
+    background: #faf5ff;
+}
+
+.ttag-mgr-settings-row:last-child {
+    border-bottom: none;
+}
+
+/* Override bulk-tag dropdown item for T-tag manager */
+#ttagMgrSearchDropdown .bulk-tag-dropdown-item {
+    padding: 10px 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    transition: background 0.1s;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+#ttagMgrSearchDropdown .bulk-tag-dropdown-item:hover,
+#ttagMgrSearchDropdown .bulk-tag-dropdown-item.highlighted {
+    background: #f5f3ff;
+}
+
+#ttagMgrSearchDropdown .bulk-tag-dropdown-item:last-child {
+    border-bottom: none;
+}
