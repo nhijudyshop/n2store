@@ -192,6 +192,8 @@
         ProcessingTagState._campaignId = campaignId;
         // Reset filter khi đổi campaign
         ProcessingTagState._activeFilter = null;
+        // Invalidate Details cache when campaign changes
+        _orderDetailsCache = null;
         try {
             const result = await _ptagFetch(`${PTAG_API_BASE}/${encodeURIComponent(campaignId)}`);
             ProcessingTagState.clear();
@@ -1988,12 +1990,128 @@
         console.log(`${PTAG_LOG} Created T-tag: ${tagId} (${productCode} - ${name})`);
     }
 
-    function _ptagFindByProductCode(tagId) {
+    // Cache for order Details fetched on-demand
+    let _orderDetailsCache = null; // { count, timestamp }
+
+    async function _ptagFetchOrderDetails(progressCallback) {
+        // Return cache if already fetched for current allData
+        const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
+        const hasDetails = allOrders.some(o => Array.isArray(o.Details) && o.Details.length > 0);
+        if (_orderDetailsCache && _orderDetailsCache.count === allOrders.length && hasDetails) {
+            return; // Already fetched
+        }
+
+        // Get date range from current search inputs (same filter as main fetch)
+        const startDateEl = document.getElementById('customStartDate');
+        const endDateEl = document.getElementById('customEndDate');
+        if (!startDateEl?.value || !endDateEl?.value) {
+            throw new Error('Chưa có khoảng thời gian tìm kiếm');
+        }
+
+        // Convert to UTC (same as tab1-search.js)
+        const convertToUTC = (localStr) => {
+            const d = new Date(localStr);
+            return d.toISOString().replace('Z', '+07:00');
+        };
+        const filter = `(DateCreated ge ${convertToUTC(startDateEl.value)} and DateCreated le ${convertToUTC(endDateEl.value)})`;
+
+        const headers = await window.tokenManager?.getAuthHeader?.() || {};
+        const PAGE_SIZE = 200;
+        const BASE_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order/ODataService.GetView';
+        const smartFetch = window.API_CONFIG?.smartFetch || fetch;
+
+        // First: get count
+        const countUrl = `${BASE_URL}?$top=1&$skip=0&$filter=${encodeURIComponent(filter)}&$count=true&$select=Id`;
+        const countResp = await smartFetch(countUrl, { headers: { ...headers, accept: 'application/json' } });
+        if (!countResp.ok) throw new Error(`HTTP ${countResp.status}`);
+        const countData = await countResp.json();
+        const totalCount = countData['@odata.count'] || countData.value?.length || 0;
+
+        // Fetch in batches with $expand=Details
+        const batches = [];
+        for (let skip = 0; skip < totalCount; skip += PAGE_SIZE) {
+            batches.push(skip);
+        }
+
+        const CONCURRENCY = 3;
+        let fetched = 0;
+        const orderDetailsMap = new Map(); // orderId -> Details[]
+
+        const fetchBatch = async (skip) => {
+            const url = `${BASE_URL}?$top=${PAGE_SIZE}&$skip=${skip}&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}&$select=Id,SessionIndex&$expand=Details($select=ProductCode,ProductName,Quantity)`;
+            try {
+                const resp = await smartFetch(url, { headers: { ...headers, accept: 'application/json' } });
+                if (!resp.ok) return;
+                const data = await resp.json();
+                const orders = data.value || [];
+                for (const o of orders) {
+                    if (Array.isArray(o.Details)) {
+                        orderDetailsMap.set(String(o.Id), o.Details);
+                    }
+                }
+                fetched += orders.length;
+                if (progressCallback) progressCallback(fetched, totalCount);
+            } catch (e) {
+                console.warn(`${PTAG_LOG} Batch skip=${skip} failed:`, e);
+            }
+        };
+
+        // Run with concurrency limit
+        const executing = new Set();
+        for (const skip of batches) {
+            const p = fetchBatch(skip).then(() => executing.delete(p));
+            executing.add(p);
+            if (executing.size >= CONCURRENCY) await Promise.race(executing);
+        }
+        if (executing.size > 0) await Promise.all(executing);
+
+        // Patch allData with fetched Details
+        for (const order of allOrders) {
+            const details = orderDetailsMap.get(String(order.Id));
+            if (details) order.Details = details;
+        }
+
+        _orderDetailsCache = { count: allOrders.length, timestamp: Date.now() };
+        console.log(`${PTAG_LOG} Fetched Details for ${orderDetailsMap.size}/${totalCount} orders`);
+    }
+
+    async function _ptagFindByProductCode(tagId) {
         const def = ProcessingTagState.getTTagDef(tagId);
         const productCode = def?.productCode || tagId;
         const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
 
-        // Find orders containing this product code
+        // Check if Details already available in allData
+        const hasDetails = allOrders.some(o => Array.isArray(o.Details) && o.Details.length > 0);
+
+        if (!hasDetails) {
+            // Show loading in modal with progress
+            const list = document.getElementById('ptag-ttag-manager-list');
+            if (list) {
+                list.innerHTML = `<div style="text-align:center;padding:30px 20px;">
+                    <i class="fas fa-spinner fa-spin" style="font-size:24px;color:#a855f7;margin-bottom:10px;display:block;"></i>
+                    <div style="font-size:13px;color:#6b7280;">Đang tải chi tiết sản phẩm...</div>
+                    <div id="ptag-ttag-fetch-progress" style="font-size:12px;color:#a855f7;margin-top:6px;font-weight:500;">0%</div>
+                    <div style="font-size:11px;color:#9ca3af;margin-top:4px;">Lần đầu mất vài giây, các lần sau dùng cache</div>
+                </div>`;
+            }
+
+            const progressEl = () => document.getElementById('ptag-ttag-fetch-progress');
+            try {
+                await _ptagFetchOrderDetails((fetched, total) => {
+                    const el = progressEl();
+                    if (el) el.textContent = `${fetched}/${total} đơn (${Math.round(fetched/total*100)}%)`;
+                });
+            } catch (e) {
+                console.error(`${PTAG_LOG} Failed to fetch order details:`, e);
+                alert('Lỗi khi tải chi tiết đơn hàng. Hãy dùng cách nhập STT thủ công.');
+                _ttagManagerExpanded = tagId;
+                _ttagRenderManagerList();
+                renderPanelContent();
+                return;
+            }
+        }
+
+        // Now search in allData (Details should be patched)
         const matchingOrders = allOrders.filter(order => {
             const details = order.Details;
             if (!Array.isArray(details)) return false;
@@ -2008,12 +2126,10 @@
         const newOrders = matchingOrders.filter(o => !existingOrderIds.has(String(o.Id)));
 
         if (newOrders.length === 0) {
-            // Check if no Details available
-            const hasDetails = allOrders.some(o => Array.isArray(o.Details) && o.Details.length > 0);
-            if (!hasDetails) {
-                alert(`Không thể tìm theo mã SP vì dữ liệu chi tiết đơn hàng (Details) chưa được tải.\n\nHãy dùng cách nhập STT thủ công.`);
-            } else {
+            if (matchingOrders.length > 0) {
                 alert(`Không tìm thấy đơn mới nào chứa SP "${productCode}" (${matchingOrders.length} đơn đã có tag).`);
+            } else {
+                alert(`Không tìm thấy đơn nào chứa SP "${productCode}" trong ${allOrders.length} đơn hiện tại.`);
             }
             _ttagManagerExpanded = tagId;
             _ttagRenderManagerList();
@@ -2021,7 +2137,7 @@
             return;
         }
 
-        // Show search results modal
+        // Show search results
         _ptagShowSearchResults(tagId, productCode, newOrders);
     }
 
