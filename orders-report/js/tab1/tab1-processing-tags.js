@@ -117,7 +117,7 @@
 
     // Default T-tags — always present, cannot be deleted, hidden from manager modal
     const DEFAULT_TTAG_DEFS = [
-        { id: 'T_MY', name: 'My chờ hàng về', productCode: '', createdAt: 0, isDefault: true }
+        { id: 'T_MY', name: 'MY THÊM CHỜ VỀ', productCode: '', createdAt: 0, isDefault: true }
     ];
 
     // =====================================================
@@ -822,6 +822,10 @@
                 tags.push({ type: 'tag', key: `flag:${key}`, label: cf.label, isFlag: true, flagKey: key, color: cf.color || '#7c3aed' });
             }
         }
+        // Default T-tags — shown at bottom of dropdown as direct toggle
+        for (const def of DEFAULT_TTAG_DEFS) {
+            tags.push({ type: 'tag', key: `dtag:${def.id}`, label: `📦 ${def.name}`, isDefaultTTag: true, ttagId: def.id, color: '#8b5cf6' });
+        }
         return tags;
     }
 
@@ -829,6 +833,7 @@
     function _ptagPillColor(tagInfo) {
         if (tagInfo.isCat) return tagInfo.color;
         if (tagInfo.isFlag) return '#7c3aed';
+        if (tagInfo.isDefaultTTag) return '#8b5cf6';
         return '#6b7280';
     }
 
@@ -858,6 +863,14 @@
             } else {
                 const cf = ProcessingTagState._customFlags?.get(f);
                 if (cf) selected.push({ key: `flag:${f}`, label: cf.label, isFlag: true, flagKey: f, color: cf.color || '#7c3aed' });
+            }
+        });
+        // Default T-tags
+        const defaultIds = new Set(DEFAULT_TTAG_DEFS.map(d => d.id));
+        (data.tTags || []).forEach(t => {
+            if (defaultIds.has(t)) {
+                const def = DEFAULT_TTAG_DEFS.find(d => d.id === t);
+                selected.push({ key: `dtag:${t}`, label: `📦 ${def.name}`, isDefaultTTag: true, ttagId: t, color: '#8b5cf6' });
             }
         });
         return selected;
@@ -949,7 +962,17 @@
             return;
         }
 
-        if (key.startsWith('cat:')) {
+        if (key.startsWith('dtag:')) {
+            // Default T-tag — toggle directly
+            const ttagId = key.replace('dtag:', '');
+            const data = ProcessingTagState.getOrderData(orderId);
+            const hasTTag = data?.tTags?.includes(ttagId);
+            if (hasTTag) {
+                removeTTagFromOrder(orderId, ttagId);
+            } else {
+                assignTTagToOrder(orderId, ttagId);
+            }
+        } else if (key.startsWith('cat:')) {
             // Processing tag — parse cat:N:subTag
             const parts = key.split(':');
             const cat = parseInt(parts[1]);
@@ -970,7 +993,10 @@
         const orderId = _ddOrderId;
         if (!orderId) return;
 
-        if (key.startsWith('cat:')) {
+        if (key.startsWith('dtag:')) {
+            const ttagId = key.replace('dtag:', '');
+            removeTTagFromOrder(orderId, ttagId);
+        } else if (key.startsWith('cat:')) {
             // Remove processing tag = clear category
             clearProcessingTag(orderId);
         } else if (key.startsWith('flag:')) {
