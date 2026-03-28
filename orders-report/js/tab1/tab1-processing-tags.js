@@ -23,7 +23,7 @@
     };
 
     const PTAG_CATEGORY_META = {
-        0: { name: 'HOÀN TẤT — ĐÃ RA ĐƠN', short: 'Hoàn tất', icon: 'fa-check-circle', emoji: '🟢' },
+        0: { name: 'ĐÃ RA ĐƠN', short: 'ĐÃ RA ĐƠN', icon: 'fa-check-circle', emoji: '🟢' },
         1: { name: 'CHỜ ĐI ĐƠN (OKE)', short: 'Chờ đi đơn', icon: 'fa-clock', emoji: '🔵' },
         2: { name: 'MỤC XỬ LÝ', short: 'Xử lý', icon: 'fa-exclamation-triangle', emoji: '🟠' },
         3: { name: 'KHÔNG CẦN CHỐT', short: 'Ko cần chốt', icon: 'fa-minus-circle', emoji: '⚪' },
@@ -74,7 +74,7 @@
 
     const PTAG_TOOLTIPS = {
         // Categories
-        cat_0: 'Đơn đã tạo bill thành công, hoàn thành chốt đơn. Tự động khi bill tạo thành công.',
+        cat_0: 'Đơn đã tạo phiếu bán hàng thành công. Tự động khi tạo đơn.',
         cat_1: 'Khách đã xác nhận OK, đơn chờ đủ điều kiện để ra bill.',
         cat_2: 'Đơn cần seller xử lý vấn đề trước khi có thể ra bill.',
         cat_3: 'Đơn không cần xử lý chốt đơn.',
@@ -587,10 +587,16 @@
         // no-op
     }
 
-    // Auto transition: bill created → HOÀN TẤT
+    // Auto transition: bill created → ĐÃ RA ĐƠN
     function onPtagBillCreated(saleOnlineId) {
-        const data = ProcessingTagState.getOrderData(saleOnlineId);
-        if (!data) return;
+        let data = ProcessingTagState.getOrderData(saleOnlineId);
+
+        if (!data) {
+            data = { category: null, subTag: null, subState: null, flags: [], tTags: [], note: '', assignedAt: Date.now() };
+        }
+
+        // Already in ĐÃ RA ĐƠN → skip
+        if (data.category === PTAG_CATEGORIES.HOAN_TAT) return;
 
         const snapshot = {
             category: data.category,
@@ -601,23 +607,19 @@
             note: data.note
         };
 
-        const newData = {
-            category: PTAG_CATEGORIES.HOAN_TAT,
-            subTag: null,
-            subState: null,
-            flags: [],
-            tTags: [],
-            note: '',
-            assignedAt: Date.now(),
-            previousPosition: snapshot,
-            history: data.history || []
-        };
+        // Keep flags + tTags, only change category
+        data.category = PTAG_CATEGORIES.HOAN_TAT;
+        data.subTag = null;
+        data.subState = null;
+        data.assignedAt = Date.now();
+        data.previousPosition = snapshot;
 
-        ProcessingTagState.setOrderData(saleOnlineId, newData);
+        _ptagEnsureCode(saleOnlineId, data);
+        ProcessingTagState.setOrderData(saleOnlineId, data);
         _ptagAddHistory(saleOnlineId, 'AUTO_HOAN_TAT', '', 'Hệ thống');
         _ptagRefreshRow(saleOnlineId);
         renderPanelContent();
-        saveProcessingTagToAPI(saleOnlineId, newData);
+        saveProcessingTagToAPI(saleOnlineId, data);
     }
 
     // Auto transition: packing slip printed → PHIẾU SOẠN HÀNG
@@ -722,7 +724,7 @@
             const catColor = PTAG_CATEGORY_COLORS[data.category];
             const removeBtn = `<button class="ptag-badge-remove" onclick="window._ptagClear('${oid}'); event.stopPropagation();" title="Xóa tag">&times;</button>`;
             if (data.category === PTAG_CATEGORIES.HOAN_TAT) {
-                badges += `<span class="ptag-badge ptag-cat-0 ptag-badge-removable">🟢 Hoàn tất${removeBtn}</span>`;
+                badges += `<span class="ptag-badge ptag-cat-0 ptag-badge-removable">🟢 ĐÃ RA ĐƠN${removeBtn}</span>`;
             } else if (data.category === PTAG_CATEGORIES.CHO_DI_DON) {
                 const ss = PTAG_SUBSTATES[data.subState] || PTAG_SUBSTATES.OKIE_CHO_DI_DON;
                 badges += `<span class="ptag-badge ptag-badge-removable" style="border-color:${ss.color};color:${ss.color};background:${ss.color}12;">${ss.label}${removeBtn}</span>`;
@@ -792,7 +794,7 @@
         }
         // Cat 0 — HOÀN TẤT
         tags.push({ type: 'cat-label', label: `${PTAG_CATEGORY_META[0].emoji} HOÀN TẤT` });
-        tags.push({ type: 'tag', key: 'cat:0:null', label: 'Hoàn tất — Đã ra đơn', isCat: true, cat: 0, subTag: null, color: PTAG_CATEGORY_COLORS[0].border });
+        tags.push({ type: 'tag', key: 'cat:0:null', label: 'ĐÃ RA ĐƠN', isCat: true, cat: 0, subTag: null, color: PTAG_CATEGORY_COLORS[0].border });
         // Cat 5 — PHIẾU SOẠN HÀNG
         tags.push({ type: 'cat-label', label: `${PTAG_CATEGORY_META[5].emoji} PHIẾU SOẠN HÀNG` });
         tags.push({ type: 'tag', key: 'cat:5:null', label: 'Phiếu Soạn Hàng', isCat: true, cat: 5, subTag: null, color: PTAG_CATEGORY_COLORS[5].border });
@@ -829,7 +831,7 @@
             if (data.category === PTAG_CATEGORIES.CHO_DI_DON) {
                 selected.push({ key: 'cat:1:null', label: 'Okie Chờ Đi Đơn', isCat: true, cat: 1, subTag: null, color: catColor.border });
             } else if (data.category === PTAG_CATEGORIES.HOAN_TAT) {
-                selected.push({ key: 'cat:0:null', label: 'Hoàn tất', isCat: true, cat: 0, subTag: null, color: catColor.border });
+                selected.push({ key: 'cat:0:null', label: 'ĐÃ RA ĐƠN', isCat: true, cat: 0, subTag: null, color: catColor.border });
             } else {
                 const st = PTAG_SUBTAGS[data.subTag];
                 const label = st?.label || PTAG_CATEGORY_META[data.category]?.short || '';
@@ -2708,7 +2710,7 @@
             } else if (h.action === 'ADD_TTAG' || h.action === 'REMOVE_TTAG') {
                 label = ProcessingTagState.getTTagName(h.value);
             } else if (h.action === 'AUTO_HOAN_TAT') {
-                label = 'Hoàn tất (auto)';
+                label = 'ĐÃ RA ĐƠN (auto)';
             } else if (h.action === 'AUTO_ROLLBACK') {
                 label = 'Rollback (auto)';
             }
