@@ -1,43 +1,15 @@
 /**
- * Tab Social Orders - API Module (Render PostgreSQL + Firebase read-only)
+ * Tab Social Orders - API Module (Render PostgreSQL)
  *
  * Strategy:
- * - CREATE/UPDATE/DELETE: Only via Render API (PostgreSQL)
- * - LOAD: Hybrid - Render API (new orders) + Firestore (old orders, read-only)
- * - After 1 month (25/04/2026): Remove Firestore read, keep only Render API
+ * - All operations via Render API (PostgreSQL)
+ * - localStorage as offline fallback cache
  *
  * API Base: /api/social-orders (via Cloudflare Worker → n2store-fallback)
  */
 
 // ===== CONSTANTS =====
-const SOCIAL_ORDERS_COLLECTION = 'social_orders'; // Firestore (read-only, legacy)
-const SOCIAL_TAGS_COLLECTION = 'social_tags';      // Firestore (read-only, legacy)
 const SOCIAL_API_BASE = (window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev') + '/api/social-orders';
-
-// ===== INTERNAL STATE =====
-let _socialOrdersUnsubscribe = null;
-let _socialTagsUnsubscribe = null;
-let _firestoreAvailable = null;
-let _lastOrdersSnapshotHash = null;
-let _suppressSnapshotRerender = false;
-
-// ===== FIRESTORE HELPER (read-only, for loading old orders) =====
-function _getFirestoreDB() {
-    try {
-        if (typeof firebase !== 'undefined' && firebase.firestore) {
-            return firebase.firestore();
-        }
-    } catch (e) {
-        console.error('[SocialAPI] Cannot get Firestore:', e);
-    }
-    return null;
-}
-
-function isFirestoreAvailable() {
-    if (_firestoreAvailable !== null) return _firestoreAvailable;
-    _firestoreAvailable = _getFirestoreDB() !== null;
-    return _firestoreAvailable;
-}
 
 // ===== API HELPER =====
 async function _apiFetch(path, options = {}) {
@@ -53,56 +25,24 @@ async function _apiFetch(path, options = {}) {
     return resp.json();
 }
 
-// ===== LOAD ALL ORDERS (HYBRID: Render API + Firestore read-only) =====
+// ===== LOAD ALL ORDERS (Render API only) =====
 /**
- * Load orders from Render API (primary) + Firestore (old orders, read-only).
- * Falls back to localStorage if both fail.
+ * Load orders from Render API. Falls back to localStorage if API fails.
  * @returns {Promise<Array>} Array of orders
  */
 async function loadSocialOrdersFromFirebase() {
-    // 1. Load from Render API (primary - new orders)
-    let renderOrders = [];
+    let orders = [];
     try {
         const data = await _apiFetch('/load?limit=500');
         if (data.success && data.orders) {
-            renderOrders = data.orders;
-            console.log('[SocialAPI] Loaded', renderOrders.length, 'orders from Render API');
+            orders = data.orders;
+            console.log('[SocialAPI] Loaded', orders.length, 'orders from Render API');
         }
     } catch (e) {
         console.warn('[SocialAPI] Render API failed:', e.message);
     }
 
-    // 2. Load from Firestore (old orders, read-only)
-    // TODO REMOVE after 25/04/2026: Delete this entire block
-    let firestoreOrders = [];
-    try {
-        const db = _getFirestoreDB();
-        if (db) {
-            const snapshot = await db.collection(SOCIAL_ORDERS_COLLECTION)
-                .orderBy('createdAt', 'desc')
-                .get();
-            snapshot.forEach(doc => {
-                firestoreOrders.push({ id: doc.id, ...doc.data(), _source: 'firestore' });
-            });
-            if (firestoreOrders.length > 0) {
-                console.log('[SocialAPI] Loaded', firestoreOrders.length, 'old orders from Firestore (read-only)');
-            }
-        }
-    } catch (e) {
-        console.warn('[SocialAPI] Firestore read failed (expected if corrupted):', e.message);
-    }
-    // END TODO REMOVE
-
-    // 3. Merge: Render wins on duplicate IDs
-    const renderIds = new Set(renderOrders.map(o => o.id));
-    const oldOrders = firestoreOrders.filter(o => !renderIds.has(o.id));
-    const merged = [...renderOrders, ...oldOrders];
-
-    // Sort by createdAt desc
-    merged.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-
-    // If both sources failed, fallback to localStorage
-    if (renderOrders.length === 0 && firestoreOrders.length === 0) {
+    if (orders.length === 0) {
         const cached = loadSocialOrdersFromStorage();
         if (cached.length > 0) {
             console.log('[SocialAPI] Using localStorage cache:', cached.length, 'orders');
@@ -110,10 +50,10 @@ async function loadSocialOrdersFromFirebase() {
         }
     }
 
-    // Cache to localStorage
-    SocialOrderState.orders = merged;
+    orders.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+    SocialOrderState.orders = orders;
     saveSocialOrdersToStorage();
-    return merged;
+    return orders;
 }
 
 // ===== LOAD TAGS (Render API only, with local fallback) =====
@@ -135,33 +75,7 @@ async function loadSocialTagsFromFirebase() {
         console.warn('[SocialAPI] Tags API failed:', e.message);
     }
 
-    // 2. Fallback: Try Firestore (read-only)
-    // TODO REMOVE after 25/04/2026
-    try {
-        const db = _getFirestoreDB();
-        if (db) {
-            const doc = await db.collection(SOCIAL_TAGS_COLLECTION).doc('tags').get();
-            if (doc.exists && doc.data().tags && doc.data().tags.length > 0) {
-                const tags = doc.data().tags;
-                console.log('[SocialAPI] Using Firestore tags (fallback):', tags.length);
-                // Migrate tags to Render API
-                _apiFetch('/tags', {
-                    method: 'POST',
-                    body: JSON.stringify({ tags })
-                }).then(() => console.log('[SocialAPI] Migrated tags to Render API'))
-                  .catch(e => console.warn('[SocialAPI] Tags migration failed:', e.message));
-
-                SocialOrderState.tags = tags;
-                saveSocialTagsToStorage();
-                return tags;
-            }
-        }
-    } catch (e) {
-        console.warn('[SocialAPI] Firestore tags read failed:', e.message);
-    }
-    // END TODO REMOVE
-
-    // 3. Fallback: Local cache
+    // 2. Fallback: Local cache
     let localTags;
     if (typeof loadSocialTagsFromStorageAsync === 'function') {
         localTags = await loadSocialTagsFromStorageAsync();
@@ -336,28 +250,6 @@ async function getSocialOrderById(orderId) {
     return SocialOrderState.orders.find(o => o.id === orderId) || null;
 }
 
-// ===== REAL-TIME LISTENERS (kept for compatibility, but disabled) =====
-function setupSocialOrdersListener() {
-    // Real-time listeners disabled - using Render API now
-    console.log('[SocialAPI] Real-time listeners disabled (using Render API)');
-    return () => {};
-}
-
-function setupSocialTagsListener() {
-    return () => {};
-}
-
-function stopSocialOrdersListener() {
-    if (_socialOrdersUnsubscribe) {
-        _socialOrdersUnsubscribe();
-        _socialOrdersUnsubscribe = null;
-    }
-    if (_socialTagsUnsubscribe) {
-        _socialTagsUnsubscribe();
-        _socialTagsUnsubscribe = null;
-    }
-}
-
 // ===== HELPER FUNCTIONS =====
 function getNextSTT() {
     if (SocialOrderState.orders.length === 0) return 1;
@@ -368,11 +260,6 @@ function getNextSTT() {
 function orderIdExists(orderId) {
     return SocialOrderState.orders.some(o => o.id === orderId);
 }
-
-// ===== CLEANUP ON PAGE UNLOAD =====
-window.addEventListener('beforeunload', () => {
-    stopSocialOrdersListener();
-});
 
 // ===== EXPORTS =====
 window.loadSocialOrdersFromFirebase = loadSocialOrdersFromFirebase;
@@ -386,9 +273,5 @@ window.updateSocialOrderTags = updateSocialOrderTags;
 window.bulkUpdateSocialOrderTags = bulkUpdateSocialOrderTags;
 window.bulkUpdateSocialOrderTagsData = bulkUpdateSocialOrderTagsData;
 window.getSocialOrderById = getSocialOrderById;
-window.setupSocialOrdersListener = setupSocialOrdersListener;
-window.setupSocialTagsListener = setupSocialTagsListener;
-window.stopSocialOrdersListener = stopSocialOrdersListener;
-window.isFirestoreAvailable = isFirestoreAvailable;
 window.getNextSTT = getNextSTT;
 window.orderIdExists = orderIdExists;
