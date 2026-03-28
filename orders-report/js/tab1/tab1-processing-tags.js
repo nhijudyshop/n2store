@@ -1393,10 +1393,29 @@
         const norm = _ptagNormalize(query);
         const body = document.getElementById('ptag-panel-body');
         if (!body) return;
-        body.querySelectorAll('.ptag-panel-card, .ptag-panel-cat-header-v2, .ptag-panel-flag-item, .ptag-panel-group').forEach(el => {
+
+        // First: filter individual items (cards, flags, headers)
+        body.querySelectorAll('.ptag-panel-card, .ptag-panel-cat-header-v2, .ptag-panel-flag-item').forEach(el => {
             if (!el.dataset.search) return;
-            const match = el.dataset.search.includes(norm);
-            el.style.display = match ? '' : 'none';
+            el.style.display = el.dataset.search.includes(norm) ? '' : 'none';
+        });
+
+        // Then: show/hide groups — visible if group itself matches OR any child card is visible
+        body.querySelectorAll('.ptag-panel-group').forEach(group => {
+            const groupMatch = group.dataset.search && group.dataset.search.includes(norm);
+            const hasVisibleChild = group.querySelector('.ptag-panel-card:not([style*="display: none"]), .ptag-panel-card:not([style*="display:none"])');
+            if (groupMatch) {
+                // Group matches → show group + all children
+                group.style.display = '';
+                group.querySelectorAll('.ptag-panel-card, .ptag-panel-cat-header-v2').forEach(c => c.style.display = '');
+            } else if (hasVisibleChild) {
+                // Some children match → show group + header, keep children filtered
+                group.style.display = '';
+                const header = group.querySelector('.ptag-panel-cat-header-v2');
+                if (header) header.style.display = '';
+            } else {
+                group.style.display = 'none';
+            }
         });
     }
 
