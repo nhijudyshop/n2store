@@ -325,8 +325,11 @@ function performTableSearch() {
     }
 
     // Apply Processing Tag filter (base filter OR flag checkboxes)
+    if (typeof window._ptagResetFilterDebug === 'function') window._ptagResetFilterDebug();
     if (typeof window.hasActiveProcessingTagFilters === 'function' && window.hasActiveProcessingTagFilters()) {
+        const beforeCount = tempData.length;
         tempData = tempData.filter(order => window.orderPassesProcessingTagFilter(order.Id));
+        console.log(`[FILTER] Processing tag: ${beforeCount} → ${tempData.length} orders`);
         console.log(`[FILTER] Applied processing tag filter (${window.getActiveProcessingTagFilter()}), remaining orders: ${tempData.length}`);
     }
 

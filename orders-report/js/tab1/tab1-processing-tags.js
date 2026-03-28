@@ -1760,6 +1760,10 @@
         return ProcessingTagState._activeFilter !== null || ProcessingTagState._activeFlagFilters.size > 0;
     }
 
+    // Debug helper: log once per search to identify ID mismatches
+    let _ptagFilterDebugDone = false;
+    function _ptagResetFilterDebug() { _ptagFilterDebugDone = false; }
+
     function orderPassesProcessingTagFilter(orderId) {
         const filter = ProcessingTagState._activeFilter;
         const flagFilters = ProcessingTagState._activeFlagFilters;
@@ -1770,6 +1774,24 @@
         if (!hasBaseFilter && !hasFlagFilter) return true;
 
         const data = ProcessingTagState.getOrderData(orderId);
+
+        // Debug: log ID mismatch details once per search
+        if (!_ptagFilterDebugDone && hasFlagFilter) {
+            _ptagFilterDebugDone = true;
+            const ptagKeys = [...ProcessingTagState.getAllOrders().keys()];
+            const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
+            const sampleIds = allOrders.slice(0, 5).map(o => ({ raw: o.Id, type: typeof o.Id, str: String(o.Id) }));
+            const matchCount = allOrders.filter(o => ProcessingTagState.hasOrder(o.Id)).length;
+            console.log(`${PTAG_LOG} [FLAG-FILTER DEBUG]`, {
+                flagFilters: [...flagFilters],
+                ptagOrderCount: ptagKeys.length,
+                ptagKeys: ptagKeys.slice(0, 10),
+                tableOrderCount: allOrders.length,
+                sampleTableIds: sampleIds,
+                matchingOrders: matchCount,
+                ptagSampleData: ptagKeys.slice(0, 3).map(k => ({ id: k, flags: ProcessingTagState.getOrderData(k)?.flags }))
+            });
+        }
 
         // --- Evaluate flag filter independently ---
         let passesFlag = true; // default: no flag filter = pass
@@ -1874,6 +1896,7 @@
     window._ptagSetFilter = _ptagSetFilter;
     window._ptagFilterPanel = _ptagFilterPanel;
     window._ptagToggleFlagFilter = _ptagToggleFlagFilter;
+    window._ptagResetFilterDebug = _ptagResetFilterDebug;
     window._ptagQuickAssign = _ptagQuickAssign;
     window._ptagOpenBulkModal = _ptagOpenBulkModal;
     window._ptagCloseBulkModal = _ptagCloseBulkModal;
