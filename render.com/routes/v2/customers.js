@@ -332,11 +332,25 @@ router.get('/:id', async (req, res) => {
             LIMIT 10
         `, [phone]);
 
-        // Get recent activities (last 20)
+        // Get recent activities (last 20) - exclude wallet types (shown from wallet_transactions instead)
         const activitiesResult = await db.query(`
             SELECT activity_type, title, description, icon, color, created_by,
                 (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at
             FROM customer_activities
+            WHERE phone = $1
+                AND activity_type NOT IN ('WALLET_DEPOSIT', 'WALLET_WITHDRAW', 'WALLET_REFUND', 'WALLET_VIRTUAL_CREDIT', 'ORDER_CANCEL_REFUND')
+            ORDER BY created_at DESC
+            LIMIT 20
+        `, [phone]);
+
+        // Get recent wallet transactions (with balance_before/after for "Số dư sau" display)
+        const walletTxResult = await db.query(`
+            SELECT id, type, amount,
+                balance_before, balance_after,
+                virtual_balance_before, virtual_balance_after,
+                source, reference_id, note, created_by,
+                (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at
+            FROM wallet_transactions
             WHERE phone = $1
             ORDER BY created_at DESC
             LIMIT 20
@@ -377,6 +391,7 @@ router.get('/:id', async (req, res) => {
                 },
                 recentTickets: ticketsResult.rows,
                 recentActivities: activitiesResult.rows,
+                recentWalletTransactions: walletTxResult.rows,
                 notes: notesResult.rows,
             },
         });

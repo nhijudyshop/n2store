@@ -111,7 +111,7 @@ export class CustomerProfileModule {
                 // Render all sections
                 this._renderHeader(data.customer);
                 this._renderRFMCard(data.customer);
-                this._renderTicketsCard(data.recentTickets || [], data.recentActivities || []);
+                this._renderTicketsCard(data.recentTickets || [], data.recentActivities || [], data.recentWalletTransactions || []);
                 this._renderNotesSection(data.notes || []);
 
                 // Initialize wallet panel module
@@ -453,7 +453,7 @@ export class CustomerProfileModule {
         `).join('');
     }
 
-    _renderTicketsCard(tickets, activities = []) {
+    _renderTicketsCard(tickets, activities = [], walletTransactions = []) {
         const container = this.container.querySelector('#recent-activities-card');
 
         // Ticket type translations
@@ -491,7 +491,8 @@ export class CustomerProfileModule {
 
         const hasTickets = tickets && tickets.length > 0;
         const hasActivities = activities && activities.length > 0;
-        const totalCount = (tickets?.length || 0) + (activities?.length || 0);
+        const hasWalletTx = walletTransactions && walletTransactions.length > 0;
+        const totalCount = (tickets?.length || 0) + (walletTransactions?.length || activities?.length || 0);
 
         let ticketsHtml = '';
         if (hasTickets) {
@@ -545,9 +546,108 @@ export class CustomerProfileModule {
             `;
         }
 
-        // Render wallet activities
+        // Render wallet transactions with balance annotations
+        // Use walletTransactions (from wallet_transactions table with balance_before/after)
+        // Fallback to activities if walletTransactions not available (backward compatibility)
         let activitiesHtml = '';
-        if (hasActivities) {
+
+        if (hasWalletTx) {
+            // Wallet transaction type config
+            const walletTypeConfig = {
+                'DEPOSIT': { label: 'Nạp tiền', icon: 'savings', color: 'text-emerald-600', bg: 'bg-emerald-50', isCredit: true },
+                'WITHDRAW': { label: 'Rút tiền', icon: 'payments', color: 'text-red-600', bg: 'bg-red-50', isCredit: false },
+                'VIRTUAL_CREDIT': { label: 'Cộng công nợ ảo', icon: 'card_giftcard', color: 'text-purple-600', bg: 'bg-purple-50', isCredit: true },
+                'VIRTUAL_DEBIT': { label: 'Trừ công nợ ảo', icon: 'star_half', color: 'text-red-500', bg: 'bg-red-50', isCredit: false },
+                'VIRTUAL_CANCEL': { label: 'Thu hồi công nợ ảo', icon: 'block', color: 'text-red-500', bg: 'bg-red-50', isCredit: false },
+                'VIRTUAL_EXPIRE': { label: 'Công nợ hết hạn', icon: 'timer_off', color: 'text-slate-500', bg: 'bg-slate-50', isCredit: false },
+                'ADJUSTMENT': { label: 'Điều chỉnh số dư', icon: 'tune', color: 'text-blue-600', bg: 'bg-blue-50', isCredit: true },
+                'ORDER_CANCEL_REFUND': { label: 'Hoàn tiền hủy đơn', icon: 'currency_exchange', color: 'text-emerald-600', bg: 'bg-emerald-50', isCredit: true },
+                'RETURN_SHIPPER': { label: 'Phiếu thu về', icon: 'local_shipping', color: 'text-amber-600', bg: 'bg-amber-50', isCredit: true },
+                'RETURN_CLIENT': { label: 'Phiếu trả hàng', icon: 'assignment_return', color: 'text-purple-600', bg: 'bg-purple-50', isCredit: true },
+                'BOOM': { label: 'Phiếu boom hàng', icon: 'warning', color: 'text-red-600', bg: 'bg-red-50', isCredit: false },
+                'COD_ADJUSTMENT': { label: 'Điều chỉnh COD', icon: 'tune', color: 'text-blue-600', bg: 'bg-blue-50', isCredit: true },
+            };
+            const defaultConfig = { label: 'Giao dịch ví', icon: 'swap_horiz', color: 'text-slate-500', bg: 'bg-slate-50', isCredit: false };
+
+            const formatCurrency = (val) => {
+                const num = parseFloat(val) || 0;
+                return new Intl.NumberFormat('vi-VN').format(num) + 'đ';
+            };
+            const formatShort = (val) => {
+                const num = parseFloat(val) || 0;
+                if (num >= 1e6) return (num / 1e6).toFixed(1).replace('.0', '') + 'M';
+                if (num >= 1e3) return Math.round(num / 1e3) + 'K';
+                return new Intl.NumberFormat('vi-VN').format(num);
+            };
+
+            activitiesHtml = `
+                <div class="px-4 py-2 border-t border-border-light dark:border-border-dark">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="material-symbols-outlined text-indigo-500" style="font-size: 18px;">account_balance_wallet</span>
+                        <span class="text-xs font-semibold text-slate-500 uppercase">Hoạt động ví</span>
+                    </div>
+                    <div class="space-y-2">
+                        ${walletTransactions.slice(0, 15).map(tx => {
+                            const cfg = walletTypeConfig[tx.type] || defaultConfig;
+                            const amount = parseFloat(tx.amount) || 0;
+                            const sign = cfg.isCredit ? '+' : '-';
+                            const amountColor = cfg.isCredit ? '#16a34a' : '#dc2626';
+
+                            const date = tx.created_at ? new Date(tx.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+                            const createdBy = tx.created_by && tx.created_by !== 'system' ? tx.created_by : '';
+
+                            // Operator label
+                            let operatorHtml = '';
+                            if (createdBy) {
+                                const isDeposit = tx.type === 'DEPOSIT';
+                                const isRefund = tx.type === 'ORDER_CANCEL_REFUND';
+                                const label = isDeposit ? 'Duyệt bởi' : isRefund ? 'Người hoàn' : 'Người thực hiện';
+                                operatorHtml = ` · <span class="font-bold" style="color: #ef4444;">${label}: ${createdBy}</span>`;
+                            }
+
+                            // Note/description
+                            const note = tx.note || tx.source || '';
+
+                            // Balance after annotation
+                            const balAfter = parseFloat(tx.balance_after) || 0;
+                            const vBalAfter = parseFloat(tx.virtual_balance_after) || 0;
+                            const totalAfter = balAfter + vBalAfter;
+                            const realChanged = Math.abs((parseFloat(tx.balance_before) || 0) - balAfter) > 0.01;
+                            const virtualChanged = Math.abs((parseFloat(tx.virtual_balance_before) || 0) - vBalAfter) > 0.01;
+
+                            let breakdownHtml = '';
+                            if (realChanged && virtualChanged) {
+                                breakdownHtml = `<span class="text-slate-400">Thật: ${formatShort(balAfter)}</span> <span class="text-slate-300 dark:text-slate-600">|</span> <span class="text-amber-500">Ảo: ${formatShort(vBalAfter)}</span>`;
+                            } else if (virtualChanged) {
+                                breakdownHtml = `<span class="text-amber-500">CN ảo: ${formatShort(vBalAfter)}</span>`;
+                            }
+
+                            return `
+                                <div class="rounded-lg p-2.5 ${cfg.bg} dark:bg-slate-800/50">
+                                    <div class="flex items-start gap-2.5">
+                                        <span class="material-symbols-outlined ${cfg.color}" style="font-size: 20px; margin-top: 2px;">${cfg.icon}</span>
+                                        <div class="flex-1 min-w-0">
+                                            <div class="flex items-center justify-between">
+                                                <span class="text-sm font-semibold text-slate-800 dark:text-slate-200">${cfg.label}</span>
+                                                <span class="text-sm font-bold tabular-nums" style="color: ${amountColor};">${sign}${formatCurrency(Math.abs(amount))}</span>
+                                            </div>
+                                            ${note ? `<p class="text-xs text-slate-500 truncate mt-0.5">${note}</p>` : ''}
+                                            <p class="text-xs text-slate-400 mt-0.5">${date}${operatorHtml}</p>
+                                            <div class="mt-1.5 inline-flex items-center gap-1.5 px-2 py-1 rounded-md" style="background: rgba(0,0,0,0.05);">
+                                                <span class="material-symbols-outlined" style="font-size: 12px; color: #64748b;">account_balance</span>
+                                                <span class="text-[11px] font-bold text-slate-700 dark:text-slate-300 tabular-nums">Số dư sau: ${formatCurrency(totalAfter)}</span>
+                                                ${breakdownHtml ? `<span class="text-[10px] tabular-nums ml-1">(${breakdownHtml})</span>` : ''}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        } else if (hasActivities) {
+            // Fallback: render from customer_activities (backward compatibility)
             activitiesHtml = `
                 <div class="px-4 py-2 border-t border-border-light dark:border-border-dark">
                     <div class="flex items-center gap-2 mb-2">
@@ -557,32 +657,15 @@ export class CustomerProfileModule {
                     <div class="space-y-2">
                         ${activities.slice(0, 10).map(act => {
                             const style = activityStyleMap[act.activity_type] || defaultActivityStyle;
-                            // Always use style map icon (DB icon may be invalid for Material Symbols Outlined)
                             const icon = style.icon;
                             const date = act.created_at ? new Date(act.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
                             const createdBy = act.created_by && act.created_by !== 'system' ? act.created_by : '';
-                            const isCancelled = act.activity_type === 'ORDER_CANCELLED';
-                            const isCreated = act.activity_type === 'ORDER_CREATED';
-                            const isDeposit = act.activity_type === 'WALLET_DEPOSIT';
-                            const isRefund = act.activity_type === 'WALLET_REFUND' || act.activity_type === 'ORDER_CANCEL_REFUND';
 
-                            // Build creator/operator label - all bold red
                             let operatorHtml = '';
                             if (createdBy) {
-                                if (isCancelled) {
-                                    operatorHtml = ` · <span class="font-bold" style="color: #ef4444;">Người hủy: ${createdBy}</span>`;
-                                } else if (isCreated) {
-                                    operatorHtml = ` · <span class="font-bold" style="color: #ef4444;">Người tạo: ${createdBy}</span>`;
-                                } else if (isDeposit) {
-                                    operatorHtml = ` · <span class="font-bold" style="color: #ef4444;">Duyệt bởi: ${createdBy}</span>`;
-                                } else if (isRefund) {
-                                    operatorHtml = ` · <span class="font-bold" style="color: #ef4444;">Người hoàn: ${createdBy}</span>`;
-                                } else {
-                                    operatorHtml = ` · <span class="font-bold" style="color: #ef4444;">${createdBy}</span>`;
-                                }
+                                operatorHtml = ` · <span class="font-bold" style="color: #ef4444;">${createdBy}</span>`;
                             }
 
-                            // Fix description: replace "Approved by X" with "Duyệt bởi X"
                             let desc = act.description || '';
                             desc = desc.replace(/Approved by\s*/gi, 'Duyệt bởi ');
 
@@ -602,9 +685,9 @@ export class CustomerProfileModule {
             `;
         }
 
-        // Empty state only when both are empty
+        // Empty state only when all are empty
         let emptyHtml = '';
-        if (!hasTickets && !hasActivities) {
+        if (!hasTickets && !hasActivities && !hasWalletTx) {
             emptyHtml = `
                 <div class="flex flex-col items-center justify-center py-10 text-slate-400">
                     <span class="material-symbols-outlined" style="font-size: 48px; margin-bottom: 12px;">confirmation_number</span>
