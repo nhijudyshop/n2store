@@ -379,7 +379,14 @@
         if (!cell) return;
         const order = ((typeof window.getAllOrders === 'function') ? window.getAllOrders() : []).find(o => o.Id === orderId);
         cell.innerHTML = renderProcessingTagCell(orderId, order?.Code || '');
+
+        // Re-filter table if any processing tag filter is active
+        if (hasActiveProcessingTagFilters() && typeof window.performTableSearch === 'function') {
+            clearTimeout(_ptagRefreshFilterTimer);
+            _ptagRefreshFilterTimer = setTimeout(() => window.performTableSearch(), 50);
+        }
     }
+    let _ptagRefreshFilterTimer = null;
 
     function _ptagRefreshAllRows() {
         // Re-render all visible processing tag cells after bulk load
