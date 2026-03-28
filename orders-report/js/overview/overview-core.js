@@ -18,6 +18,10 @@ let justReceivedFromTab1 = false; // Flag to prevent auto-load from Firebase whe
 let dataReceivedFromTab1 = false; // Flag to track if data was received from Tab1 (for retry logic)
 let currentProductFilter = ''; // Product search filter for detail list
 
+// Dedup tracking for loadTableDataFromFirebase()
+let _firebaseLoadPromise = null;   // In-flight load promise
+let _firebaseLoadedTable = null;   // Table already loaded successfully
+
 const STORAGE_KEY = 'report_order_details_by_table';
 const FIREBASE_PATH = 'report_order_details';
 const TABLE_NAME_SETTINGS_PATH = 'settings/table_name'; // Path to default table name (same as tab1)

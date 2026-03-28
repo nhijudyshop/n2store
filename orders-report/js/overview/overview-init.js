@@ -141,12 +141,8 @@ document.addEventListener('DOMContentLoaded', async function () {
                     renderStatisticsFromAllOrders();
                 }).catch(err => console.error('[REPORT] ❌ Error loading employee ranges:', err));
 
-                checkFirebaseStatus();
-                if (currentTableName) {
-                    loadTableDataFromFirebase(currentTableName).catch(err => {
-                        console.warn('[REPORT] ⚠️ Failed to load Firebase data:', err);
-                    });
-                }
+                // Note: loadTableDataFromFirebase() already called by loadAvailableTables() above
+                // Dedup logic in loadTableDataFromFirebase() will skip if already loaded
             }
         } catch (err) {
             console.warn('[REPORT] ⚠️ IndexedDB read error:', err);

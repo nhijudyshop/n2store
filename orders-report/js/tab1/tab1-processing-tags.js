@@ -168,7 +168,7 @@
             const def = this._tTagDefinitions.find(d => d.id === tagId);
             if (!def) return tagId;
             const pc = def.productCode ? ` · ${def.productCode}` : '';
-            return `${def.id}${pc} · ${def.name}`;
+            return `${def.name}${pc}`;
         }
     };
 
@@ -1326,7 +1326,7 @@
                         <span style="font-size:12px;">\u{1F3F7}\uFE0F</span>
                     </div>
                     <div class="ptag-panel-card-info">
-                        <div class="ptag-panel-card-name" style="color:#7c3aed;">${def.id} · ${def.name}${pcLabel}</div>
+                        <div class="ptag-panel-card-name" style="color:#7c3aed;">${def.name}${pcLabel}</div>
                         <div class="ptag-panel-card-count">${count} đơn hàng</div>
                     </div>
                     ${deleteBtn}
@@ -1596,8 +1596,9 @@
         container.innerHTML = _ttagSelectedTags.map((tagId, index) => {
             const isPending = index === _ttagPendingDeleteIndex;
             const bg = isPending ? '#ef4444' : '#8b5cf6';
+            const label = ProcessingTagState.getTTagName(tagId) || tagId;
             return `<span class="ptag-ttag-pill ${isPending ? 'deletion-pending' : ''}" style="background-color:${bg};">
-                ${tagId}
+                ${label}
                 <button class="ptag-ttag-pill-remove" onclick="event.stopPropagation(); window._ptagRemoveTTagAtIndex(${index});">\u2715</button>
             </span>`;
         }).join('');
@@ -1854,7 +1855,7 @@
             let cardHtml = `<div class="ptag-ttag-mgr-card ${isExpanded ? 'expanded' : ''}">
                 <div class="ptag-ttag-mgr-card-header" onclick="window._ptagToggleTTagCard('${escapedId}')">
                     <i class="fas ${expandIcon}" style="font-size:10px;color:#9ca3af;margin-right:6px;"></i>
-                    <span style="color:#7c3aed;font-weight:600;flex:1;">${def.id} · ${def.name}${pcLabel}</span>
+                    <span style="color:#7c3aed;font-weight:600;flex:1;">${def.name}${pcLabel}</span>
                     <span class="ptag-ttag-mgr-count">${count} đơn</span>
                 </div>`;
 
@@ -1881,7 +1882,7 @@
                     </div>
                     <div class="ptag-ttag-mgr-action-row">
                         <button class="ptag-ttag-mgr-btn ptag-ttag-mgr-btn--find" onclick="window._ptagFindByProductCode('${escapedId}')">
-                            <i class="fas fa-search"></i> Tìm đơn chứa SP ${def.productCode || def.id}
+                            <i class="fas fa-search"></i> Tìm đơn chứa SP ${def.productCode || def.name}
                         </button>
                     </div>
                 </div>`;
@@ -2183,7 +2184,7 @@
             <div style="display:flex;gap:8px;margin-top:12px;">
                 <button class="ptag-ttag-mgr-btn ptag-ttag-mgr-btn--warn" onclick="window._ptagCancelSearchResults('${tagId.replace(/'/g, "\\'")}')">Hủy</button>
                 <button class="ptag-ttag-mgr-btn ptag-ttag-mgr-btn--success" style="flex:1;" onclick="window._ptagConfirmSearchResults('${tagId.replace(/'/g, "\\'")}')">
-                    Gắn Tag ${tagId} cho <span id="ptag-ttag-search-count">${orders.length}</span> đơn đã chọn
+                    Gắn cho <span id="ptag-ttag-search-count">${orders.length}</span> đơn đã chọn
                 </button>
             </div>
         </div>`;
@@ -2278,7 +2279,8 @@
     async function _ptagRemoveAllFromTag(tagId) {
         const orders = _ttagGetOrdersForTag(tagId);
         if (orders.length === 0) return;
-        if (!confirm(`Gỡ tag ${tagId} khỏi tất cả ${orders.length} đơn? (Hàng đã về)`)) return;
+        const tagName = ProcessingTagState.getTTagName(tagId) || tagId;
+        if (!confirm(`Gỡ tag "${tagName}" khỏi tất cả ${orders.length} đơn? (Hàng đã về)`)) return;
 
         for (const o of orders) {
             await removeTTagFromOrder(o.orderId, tagId);
@@ -2308,7 +2310,8 @@
             if (data.tTags && data.tTags.includes(tagId)) count++;
         }
 
-        if (count > 0 && !confirm(`Tag ${tagId} đang được dùng cho ${count} đơn. Xóa definition sẽ không xóa tag khỏi các đơn. Tiếp tục?`)) {
+        const tagName = ProcessingTagState.getTTagName(tagId) || tagId;
+        if (count > 0 && !confirm(`Tag "${tagName}" đang được dùng cho ${count} đơn. Xóa definition sẽ không xóa tag khỏi các đơn. Tiếp tục?`)) {
             return;
         }
 

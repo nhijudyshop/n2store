@@ -119,6 +119,18 @@ async function loadAvailableTables() {
             if (optionExists) {
                 console.log(`[REPORT] 📥 Loading full data for Chi tiết đã tải: ${currentTableName}`);
                 await loadTableDataFromFirebase(currentTableName);
+
+                // Update dropdown text with actual loaded count (fixes stale metadata in dropdown)
+                const actualCount = cachedOrderDetails[currentTableName]?.orders?.length || 0;
+                const selectedOption = Array.from(selector.options).find(o => o.value === currentTableName);
+                if (selectedOption && actualCount > 0) {
+                    const fetchedAt = cachedOrderDetails[currentTableName]?.fetchedAt
+                        ? new Date(cachedOrderDetails[currentTableName].fetchedAt).toLocaleString('vi-VN') : '';
+                    const isSavedCopy = selectedOption.dataset.isSavedCopy === 'true';
+                    const icon = isSavedCopy ? '💾' : '📌';
+                    const typeLabel = isSavedCopy ? 'Bản lưu' : 'Chính';
+                    selectedOption.textContent = `${icon} ${currentTableName} (${actualCount} đơn - ${fetchedAt}) [${typeLabel}]`;
+                }
             } else {
                 // Campaign not in Firebase yet - show empty state for Chi tiết đã tải
                 console.log(`[REPORT] ⚠️ Campaign "${currentTableName}" not in Firebase - Chi tiết đã tải will show empty`);
@@ -150,13 +162,15 @@ function populateCacheFromFirebaseData(tableName, firebaseData) {
     console.log(`[REPORT] 📦 Populating cache (Chi tiết đã tải) for "${tableName}" with ${firebaseData.orders?.length || 0} orders`);
 
     // Update cache for "Chi tiết đã tải" tab ONLY
+    // Use actual orders.length as authoritative count (not stale metadata)
+    const actualOrders = firebaseData.orders || [];
     cachedOrderDetails[tableName] = {
         tableName: firebaseData.tableName || tableName,
-        orders: firebaseData.orders || [],
+        orders: actualOrders,
         fetchedAt: firebaseData.fetchedAt,
-        totalOrders: firebaseData.totalOrders,
-        successCount: firebaseData.successCount,
-        errorCount: firebaseData.errorCount
+        totalOrders: actualOrders.length,
+        successCount: actualOrders.length,
+        errorCount: firebaseData.errorCount || 0
     };
 
     // DO NOT set allOrders here - allOrders comes from Tab1 only!
@@ -190,45 +204,83 @@ async function handleTableChange() {
     userManuallySelectedTable = true; // Mark that user manually selected a table
     currentTableName = selectedTable;
 
-    // Load cached data from Firebase for Chi tiết đã tải tab
-    await loadTableDataFromFirebase(selectedTable);
+    // Load cached data from Firebase for Chi tiết đã tải tab (force reload on manual selection)
+    await loadTableDataFromFirebase(selectedTable, { force: true });
 }
 
 // Load table data from Firebase (for "Chi tiết đã tải" tab ONLY)
 // NOTE: This does NOT affect allOrders - allOrders comes from Tab1
-async function loadTableDataFromFirebase(tableName) {
+// Includes dedup logic to prevent triple-loading on page init
+async function loadTableDataFromFirebase(tableName, options = {}) {
     if (!tableName) return;
 
+    const forceReload = options.force || false;
+
+    // DEDUP 1: If data already loaded for this table, skip (unless forced)
+    if (!forceReload && _firebaseLoadedTable === tableName && cachedOrderDetails[tableName]?.orders?.length > 0) {
+        console.log(`[REPORT] ⏭️ Firebase data already loaded for "${tableName}", skipping duplicate load`);
+        return;
+    }
+
+    // DEDUP 2: If a load is already in flight for this table, await existing promise
+    if (_firebaseLoadPromise && _firebaseLoadedTable === tableName) {
+        console.log(`[REPORT] ⏭️ Firebase load already in progress for "${tableName}", awaiting existing promise`);
+        return _firebaseLoadPromise;
+    }
+
+    // Start the actual load
+    _firebaseLoadedTable = tableName;
+    _firebaseLoadPromise = _doLoadTableDataFromFirebase(tableName);
+
+    try {
+        await _firebaseLoadPromise;
+    } finally {
+        _firebaseLoadPromise = null;
+    }
+}
+
+// Internal: actual Firebase load logic with error handling
+async function _doLoadTableDataFromFirebase(tableName) {
     console.log(`[REPORT] 📥 Loading Firebase data for table: ${tableName} (Chi tiết đã tải)`);
 
     // Show loading indicator immediately
     showCachedDetailsLoading();
 
-    // Try loading from Firebase
-    const firebaseData = await loadFromFirebase(tableName);
+    try {
+        // Try loading from Firebase
+        const firebaseData = await loadFromFirebase(tableName);
 
-    if (firebaseData) {
-        // Use the common function to populate cache (Chi tiết đã tải only)
-        populateCacheFromFirebaseData(tableName, firebaseData);
-        console.log(`[REPORT] ✅ Loaded ${firebaseData.orders?.length || 0} orders from Firebase for: ${tableName}`);
-    } else {
-        console.log(`[REPORT] ⚠️ No Firebase data for table: ${tableName} - need to fetch`);
-        // Clear cache for this table (Chi tiết đã tải will show empty message)
-        delete cachedOrderDetails[tableName];
+        if (firebaseData) {
+            // Use the common function to populate cache (Chi tiết đã tải only)
+            populateCacheFromFirebaseData(tableName, firebaseData);
+            console.log(`[REPORT] ✅ Loaded ${firebaseData.orders?.length || 0} orders from Firebase for: ${tableName}`);
+        } else {
+            console.log(`[REPORT] ⚠️ No Firebase data for table: ${tableName} - need to fetch`);
+            // Clear cache for this table (Chi tiết đã tải will show empty message)
+            delete cachedOrderDetails[tableName];
 
-        // Update Firebase status - show helper that this campaign needs fetching
-        firebaseTableName = null;
-        firebaseDataFetchedAt = null;
-        updateTableHelperUI(true);
+            // Update Firebase status - show helper that this campaign needs fetching
+            firebaseTableName = null;
+            firebaseDataFetchedAt = null;
+            updateTableHelperUI(true);
+        }
+    } catch (error) {
+        console.error(`[REPORT] ❌ Error loading Firebase data for "${tableName}":`, error);
+        // Don't clear existing cache on error - keep stale data if available
+        _firebaseLoadedTable = null; // Allow retry
+    } finally {
+        // ALWAYS update UI regardless of success/failure (prevents stuck spinner)
+        updateCachedCountBadge();
+        renderCachedDetailsTab();
+
+        // Update statistics (with error handling)
+        try {
+            await loadEmployeeRanges();
+            renderStatistics();
+        } catch (err) {
+            console.warn('[REPORT] Statistics render failed:', err);
+        }
     }
-
-    // Update UI for Chi tiết đã tải tab
-    updateCachedCountBadge();
-    renderCachedDetailsTab();
-
-    // Update statistics
-    await loadEmployeeRanges();
-    renderStatistics();
 }
 
 // Save cached data to localStorage (only metadata, not full orders)

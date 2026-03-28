@@ -72,11 +72,9 @@ window.addEventListener('message', function (event) {
             console.error('[REPORT] ❌ Error loading employee ranges:', err);
         });
 
-        // Check Firebase status for this table
-        checkFirebaseStatus();
-
-        // ⚡ OPTIMIZATION FIX: AWAIT Firebase load to prevent race condition
         // Load Firebase data for "Chi tiết đã tải" tab (separate from allOrders)
+        // Note: dedup logic in loadTableDataFromFirebase() will skip if already loaded
+        // checkFirebaseStatus() removed - loadTableDataFromFirebase() sets firebase status
         if (currentTableName) {
             loadTableDataFromFirebase(currentTableName).then(() => {
                 console.log('[REPORT] ✅ Firebase data loaded for "Chi tiết đã tải" tab');

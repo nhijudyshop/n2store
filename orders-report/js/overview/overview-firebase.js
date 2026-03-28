@@ -96,13 +96,13 @@ async function saveToFirebase(tableName, data) {
         if (totalOrders > ORDERS_CHUNK_SIZE) {
             console.log(`[REPORT] Large dataset (${totalOrders} orders), splitting into chunks...`);
 
-            // Save metadata document (without orders)
+            // Save metadata document (without orders) - use actual count, not stale metadata
             await docRef.set({
                 tableName: tableName,
                 fetchedAt: data.fetchedAt,
-                totalOrders: data.totalOrders,
-                successCount: data.successCount,
-                errorCount: data.errorCount,
+                totalOrders: totalOrders,
+                successCount: totalOrders,
+                errorCount: data.errorCount || 0,
                 isChunked: true,
                 chunkCount: Math.ceil(totalOrders / ORDERS_CHUNK_SIZE),
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -147,14 +147,14 @@ async function saveToFirebase(tableName, data) {
 
             console.log(`[REPORT] ✅ Saved ${totalOrders} orders in ${Math.ceil(totalOrders / ORDERS_CHUNK_SIZE)} chunks`);
         } else {
-            // Small dataset - save directly
+            // Small dataset - save directly (use actual count, not stale metadata)
             await docRef.set({
                 tableName: tableName,
                 orders: sanitizedOrders,
                 fetchedAt: data.fetchedAt,
-                totalOrders: data.totalOrders,
-                successCount: data.successCount,
-                errorCount: data.errorCount,
+                totalOrders: totalOrders,
+                successCount: totalOrders,
+                errorCount: data.errorCount || 0,
                 isChunked: false,
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             }, { merge: true });
@@ -208,6 +208,21 @@ async function loadFromFirebase(tableName) {
 
                 data.orders = allOrders;
                 console.log(`[REPORT] ✅ Loaded ${allOrders.length} orders from ${chunksSnapshot.size} chunks`);
+
+                // Fix metadata mismatch: correct totalOrders/successCount if they don't match actual chunks
+                const actualCount = allOrders.length;
+                if (data.totalOrders !== actualCount || data.successCount !== actualCount) {
+                    console.warn(`[REPORT] ⚠️ Metadata mismatch: totalOrders=${data.totalOrders}, actual=${actualCount}. Correcting.`);
+                    data.totalOrders = actualCount;
+                    data.successCount = actualCount;
+
+                    // Fire-and-forget: update Firestore metadata to match reality
+                    docRef.update({
+                        totalOrders: actualCount,
+                        successCount: actualCount,
+                        metadataCorrectedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    }).catch(err => console.warn('[REPORT] Failed to correct metadata:', err));
+                }
             } else {
                 console.log(`[REPORT] ✅ Loaded from Firestore: ${tableName}, orders: ${data.orders?.length || 0}`);
             }

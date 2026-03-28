@@ -327,14 +327,7 @@ function parseProductsFromExcel(productsStr) {
                 ProductName: productName,
                 ProductNameGet: productNameGet,
                 Quantity: quantity,
-                Price: price,
-                Note: null,
-                // Additional fields set to null for compatibility
-                ProductId: null,
-                UOMId: null,
-                UOMName: null,
-                Discount: 0,
-                DiscountPercent: 0
+                Price: price
             });
         } catch (e) {
             console.warn('[REPORT] Error parsing product line:', line, e);
@@ -419,13 +412,11 @@ function parseExcelOrderData(orders) {
             Id: row['Mã'] || row['###'] || index + 1,
             Code: String(row['Mã'] || ''),              // Cột D - Mã đơn hàng
 
-            // Customer name - MUST use "Name" for render compatibility
-            Name: customerName,                         // Cột G - Tên khách (render uses this!)
-            PartnerName: customerName,                  // Alias for compatibility
+            // Customer name - render uses Name || PartnerName fallback
+            Name: customerName,                         // Cột G - Tên khách
 
-            // Phone - MUST use "Telephone" for render compatibility
-            Phone: phone,                               // Cột I
-            Telephone: phone,                           // Alias (render uses this!)
+            // Phone - render uses Telephone
+            Telephone: phone,                           // Cột I
 
             // Address
             FullAddress: row['Địa chỉ'] || '',         // Cột K - Địa chỉ
@@ -434,10 +425,8 @@ function parseExcelOrderData(orders) {
             TotalAmount: totalAmount,                   // Cột L - Tổng tiền
             CashOnDelivery: totalAmount,                // Same as TotalAmount for Excel data
 
-            // Status - MUST use "Status" for render compatibility
-            StatusText: status,                         // Cột M - Trạng thái
-            Status: status,                             // Alias (render uses this!)
-            State: status,                              // Alias for compatibility
+            // Status - render uses Status || State fallback
+            Status: status,                             // Cột M - Trạng thái
 
             // Date
             DateCreated: parseDateToISO(row['Ngày tạo']), // Cột N - Ngày tạo
@@ -445,8 +434,7 @@ function parseExcelOrderData(orders) {
             // Note
             Note: row['Ghi chú'] || '',                // Cột R - Ghi chú
 
-            // Facebook fields
-            Facebook_UserName: customerName,            // Cột G - Tên khách
+            // Facebook ID
             Facebook_ASUserId: String(row['Facebook'] || ''), // Cột E - Facebook ID
 
             // Customer status
@@ -455,7 +443,7 @@ function parseExcelOrderData(orders) {
             // Carrier info
             Carrier: row['Nhà mạng'] || '',            // Cột J
 
-            // Product details - parsed from Cột O
+            // Product details - parsed from Cột O (lean: no null/zero fields)
             Details: details,
 
             // Quantity summary
@@ -482,8 +470,7 @@ function parseExcelOrderData(orders) {
 
             // Source marker
             _source: 'excel',
-            _campaign: row._campaign || '',
-            _originalRow: row
+            _campaign: row._campaign || ''
         };
     });
 }
