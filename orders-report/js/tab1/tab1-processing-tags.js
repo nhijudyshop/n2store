@@ -52,6 +52,7 @@
         CHO_LIVE:     { key: 'CHO_LIVE',     label: 'Chờ live',    auto: false, icon: '\u{1F4FA}' },
         GIU_DON:      { key: 'GIU_DON',      label: 'Giữ đơn',     auto: false, icon: '\u{231B}' },
         QUA_LAY:      { key: 'QUA_LAY',      label: 'Qua lấy',     auto: false, icon: '\u{1F3E0}' },
+        GOI_BAO_KHACH_HH: { key: 'GOI_BAO_KHACH_HH', label: 'Gọi báo khách HH', auto: false, icon: '\u{1F4DE}' },
         KHAC:         { key: 'KHAC',         label: 'Khác',        auto: false, icon: '\u{1F4CB}', hasNote: true }
     };
 
@@ -60,13 +61,13 @@
         CHUA_PHAN_HOI:  { key: 'CHUA_PHAN_HOI',  label: 'Đơn chưa phản hồi', category: 2 },
         CHUA_DUNG_SP:   { key: 'CHUA_DUNG_SP',   label: 'Đơn chưa đúng SP',  category: 2 },
         KHACH_MUON_XA:  { key: 'KHACH_MUON_XA',  label: 'Đơn khách muốn xã', category: 2 },
-        NCC_HET_HANG:   { key: 'NCC_HET_HANG',   label: 'NCC hết hàng',       category: 2 },
         BAN_HANG:       { key: 'BAN_HANG',        label: 'Bán hàng',           category: 2 },
         XU_LY_KHAC:     { key: 'XU_LY_KHAC',     label: 'Khác (ghi chú)',     category: 2, hasNote: true },
         // Category 3 — KHÔNG CẦN CHỐT
         DA_GOP_KHONG_CHOT: { key: 'DA_GOP_KHONG_CHOT', label: 'Đã gộp không chốt', category: 3 },
         GIO_TRONG:          { key: 'GIO_TRONG',         label: 'Giỏ trống',         category: 3 },
         // Category 4 — KHÁCH XÃ
+        NCC_HET_HANG:       { key: 'NCC_HET_HANG',      label: 'NCC hết hàng',              category: 4 },
         KHACH_HUY_DON:      { key: 'KHACH_HUY_DON',     label: 'Khách hủy nguyên đơn',      category: 4 },
         KHACH_KO_LIEN_LAC:  { key: 'KHACH_KO_LIEN_LAC', label: 'Khách không liên lạc được', category: 4 }
     };
@@ -94,15 +95,17 @@
         subtag_CHUA_PHAN_HOI: 'Khách chưa trả lời tin nhắn + chưa gọi được.',
         subtag_CHUA_DUNG_SP: 'Thiếu, dư, sai sản phẩm cần kiểm tra lại.',
         subtag_KHACH_MUON_XA: 'Khách muốn bỏ 1 hoặc vài món, đang năn nỉ.',
-        subtag_NCC_HET_HANG: 'Báo khách hết hàng hoặc đổi qua mẫu khác.',
         subtag_BAN_HANG: 'Khách đang mua thêm, seller đang chào hàng.',
         subtag_XU_LY_KHAC: 'Ghi chú — VD: xử lý bưu cục, khách yêu cầu thêm deal.',
         // Sub-tags cat 3
         subtag_DA_GOP_KHONG_CHOT: 'Đơn khách mua 2 page đã gộp vào 1 đơn khác.',
         subtag_GIO_TRONG: 'Đơn không có SP, đã xử lý trước đó.',
         // Sub-tags cat 4
+        subtag_NCC_HET_HANG: 'Báo khách hết hàng hoặc đổi qua mẫu khác.',
         subtag_KHACH_HUY_DON: 'Khách báo lý do không nhận: đi công tác, không có tiền, đổi ý.',
-        subtag_KHACH_KO_LIEN_LAC: 'Sau buổi chốt đơn vẫn không liên lạc được, bắt buộc xã.'
+        subtag_KHACH_KO_LIEN_LAC: 'Sau buổi chốt đơn vẫn không liên lạc được, bắt buộc xã.',
+        // Flags
+        flag_GOI_BAO_KHACH_HH: 'Gọi báo khách hàng hết hàng, chờ phản hồi.'
     };
 
     const PTAG_SUBTAG_ICONS = {
