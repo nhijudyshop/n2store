@@ -670,7 +670,12 @@
         // 2. Flag badges (đặc điểm) — SECOND — with × to remove
         (data.flags || []).forEach(f => {
             const fl = PTAG_FLAGS[f];
-            const label = fl ? fl.label : (ProcessingTagState._customFlags?.get(f)?.label || f);
+            if (!fl) return; // Skip unknown flags (legacy CUSTOM_xxx)
+            let label = fl.label;
+            // Show note content for KHAC flag
+            if (f === 'KHAC' && data.note) {
+                label = `${fl.label}: ${data.note}`;
+            }
             const removeBtn = `<button class="ptag-badge-remove" onclick="window._ptagToggleFlag('${oid}', '${f}'); event.stopPropagation();" title="Xóa flag">&times;</button>`;
             badges += `<span class="ptag-flag-badge ptag-badge-removable">${label}${removeBtn}</span>`;
         });
@@ -732,13 +737,7 @@
         for (const [key, flag] of Object.entries(PTAG_FLAGS)) {
             tags.push({ type: 'tag', key: `flag:${key}`, label: `${flag.icon} ${flag.label}`, isFlag: true, flagKey: key, color: '#7c3aed', auto: flag.auto });
         }
-        // Custom flags
-        const customFlags = ProcessingTagState._customFlags;
-        if (customFlags && customFlags.size > 0) {
-            for (const [key, cf] of customFlags) {
-                tags.push({ type: 'tag', key: `flag:${key}`, label: cf.label, isFlag: true, flagKey: key, color: cf.color || '#7c3aed' });
-            }
-        }
+        // Custom tags are now mapped to KHAC flag — no separate entries needed
         return tags;
     }
 
@@ -770,12 +769,12 @@
         // Flags
         (data.flags || []).forEach(f => {
             const fl = PTAG_FLAGS[f];
-            if (fl) {
-                selected.push({ key: `flag:${f}`, label: `${fl.icon} ${fl.label}`, isFlag: true, flagKey: f, color: '#7c3aed' });
-            } else {
-                const cf = ProcessingTagState._customFlags?.get(f);
-                if (cf) selected.push({ key: `flag:${f}`, label: cf.label, isFlag: true, flagKey: f, color: cf.color || '#7c3aed' });
+            if (!fl) return; // Skip unknown flags (legacy CUSTOM_xxx)
+            let label = `${fl.icon} ${fl.label}`;
+            if (f === 'KHAC' && data.note) {
+                label = `${fl.icon} ${fl.label}: ${data.note}`;
             }
+            selected.push({ key: `flag:${f}`, label, isFlag: true, flagKey: f, color: '#7c3aed' });
         });
         return selected;
     }
@@ -988,27 +987,37 @@
         items[idx].scrollIntoView({ block: 'nearest' });
     }
 
-    // Create custom tag from search input
-    function _ptagCreateCustomTag(label) {
+    // Create custom tag from search input — maps to KHAC flag with note
+    async function _ptagCreateCustomTag(label) {
         const orderId = _ddOrderId;
         if (!orderId) return;
-        const key = 'CUSTOM_' + Date.now();
-        if (!ProcessingTagState._customFlags) ProcessingTagState._customFlags = new Map();
-        ProcessingTagState._customFlags.set(key, { label, color: '#7c3aed' });
-        // Toggle this flag onto the order
-        toggleOrderFlag(orderId, key);
-        // Save custom flags config to API
-        _ptagSaveCustomFlags();
+
+        let data = ProcessingTagState.getOrderData(orderId);
+        if (!data) {
+            data = { category: null, subTag: null, subState: null, flags: [], tTags: [], note: '', assignedAt: Date.now() };
+        }
+
+        // Ensure KHAC flag is added
+        const flags = data.flags || [];
+        if (!flags.includes('KHAC')) {
+            flags.push('KHAC');
+            data.flags = flags;
+        }
+
+        // Append label to note (comma-separated if existing note)
+        const existingNote = (data.note || '').trim();
+        data.note = existingNote ? `${existingNote}, ${label}` : label;
+
+        _ptagEnsureCode(orderId, data);
+        ProcessingTagState.setOrderData(orderId, data);
+        _ptagAddHistory(orderId, 'ADD_FLAG', 'KHAC');
+        _ptagRefreshRow(orderId);
+        renderPanelContent();
+        await saveProcessingTagToAPI(orderId, data);
         _ptagRefreshDropdownState();
     }
 
-    // Save custom flags config to API (persisted under __ptag_custom_flags__)
-    async function _ptagSaveCustomFlags() {
-        const customFlags = ProcessingTagState._customFlags;
-        if (!customFlags) return;
-        const data = { customFlags: Object.fromEntries(customFlags) };
-        await saveProcessingTagToAPI('__ptag_custom_flags__', data);
-    }
+    // _ptagSaveCustomFlags removed — custom tags now use KHAC flag with note
 
     function _ptagCloseDropdown() {
         if (_currentDropdown) {
