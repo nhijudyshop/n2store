@@ -3043,7 +3043,14 @@
             ProcessingTagState.setTTagDefinitions(defs);
             saveTTagDefinitions();
             renderPanelContent();
-            console.log(`${PTAG_LOG} Renamed tag ${tagId} to "${newName}" (PC: ${newPC})`);
+
+            // Refresh all table rows that have this tag to show the new name
+            const ordersWithTag = _ttagGetOrdersForTag(tagId);
+            for (const o of ordersWithTag) {
+                _ptagRefreshRow(o.orderId);
+            }
+
+            console.log(`${PTAG_LOG} Renamed tag ${tagId} to "${newName}" (PC: ${newPC}), refreshed ${ordersWithTag.length} rows`);
         }
 
         _ttagMgrRefreshSettings();
