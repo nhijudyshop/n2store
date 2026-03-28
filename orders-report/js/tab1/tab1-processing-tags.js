@@ -513,6 +513,23 @@
 
     async function clearProcessingTag(orderId) {
         _ptagAddHistory(orderId, 'REMOVE_CATEGORY', '');
+        const data = ProcessingTagState.getOrderData(orderId);
+        if (data) {
+            const hasFlags = (data.flags || []).length > 0;
+            const hasTTags = (data.tTags || []).length > 0;
+            if (hasFlags || hasTTags) {
+                // Keep flags + tTags, only clear category/subTag/subState
+                data.category = null;
+                data.subTag = null;
+                data.subState = null;
+                ProcessingTagState.setOrderData(orderId, data);
+                _ptagRefreshRow(orderId);
+                renderPanelContent();
+                await saveProcessingTagToAPI(orderId, data);
+                return;
+            }
+        }
+        // Nothing left → fully remove
         ProcessingTagState.removeOrder(orderId);
         _ptagRefreshRow(orderId);
         renderPanelContent();
