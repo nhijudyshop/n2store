@@ -115,6 +115,11 @@
         KHACH_HUY_DON: '❌', KHACH_KO_LIEN_LAC: '📵'
     };
 
+    // Default T-tags — always present, cannot be deleted, hidden from manager modal
+    const DEFAULT_TTAG_DEFS = [
+        { id: 'T_MY', name: 'My chờ hàng về', productCode: '', createdAt: 0, isDefault: true }
+    ];
+
     // =====================================================
     // SECTION 2: STATE MANAGEMENT
     // =====================================================
@@ -162,7 +167,14 @@
             return this._tTagDefinitions;
         },
         setTTagDefinitions(defs) {
-            this._tTagDefinitions = Array.isArray(defs) ? defs : [];
+            const arr = Array.isArray(defs) ? defs : [];
+            // Ensure default T-tags are always present
+            for (const def of DEFAULT_TTAG_DEFS) {
+                if (!arr.some(d => d.id === def.id)) {
+                    arr.unshift({ ...def });
+                }
+            }
+            this._tTagDefinitions = arr;
         },
         getTTagName(tagId) {
             const def = this._tTagDefinitions.find(d => d.id === tagId);
@@ -1446,7 +1458,8 @@
                 const escapedFk = fk.replace(/'/g, "\\'");
                 const count = tTagCounts[def.id] || 0;
                 const pcLabel = def.productCode ? `<span style="color:#6b7280;font-size:11px;margin-left:4px;font-weight:500;">${def.productCode}</span>` : '';
-                const deleteBtn = `<button class="ptag-ttag-panel-delete-v2" onclick="window._ptagDeleteTTagDefAndOrders('${escapedFk.replace('ttag_', '')}'); event.stopPropagation();" title="Xóa tag và gỡ khỏi tất cả đơn">&times;</button>`;
+                const isDefaultTag = DEFAULT_TTAG_DEFS.some(d => d.id === def.id);
+                const deleteBtn = isDefaultTag ? '' : `<button class="ptag-ttag-panel-delete-v2" onclick="window._ptagDeleteTTagDefAndOrders('${escapedFk.replace('ttag_', '')}'); event.stopPropagation();" title="Xóa tag và gỡ khỏi tất cả đơn">&times;</button>`;
                 html += `<div class="ptag-panel-card ${activeFilter === fk ? 'active' : ''}" onclick="window._ptagSetFilter('${escapedFk}')" data-search="${_ptagNormalize(def.name + ' ' + (def.productCode || ''))}">
                     <div class="ptag-panel-card-icon ptag-panel-card-icon--sm" style="background:#8b5cf6;">
                         <span style="font-size:12px;">\u{1F3F7}\uFE0F</span>
@@ -1982,7 +1995,10 @@
     }
 
     function _ttagRenderManagerList() {
-        const defs = ProcessingTagState.getTTagDefinitions();
+        const allDefs = ProcessingTagState.getTTagDefinitions();
+        // Hide default T-tags from manager modal
+        const defaultIds = new Set(DEFAULT_TTAG_DEFS.map(d => d.id));
+        const defs = allDefs.filter(d => !defaultIds.has(d.id));
         const counts = _ttagGetCounts();
         const totalOrders = Object.values(counts).reduce((s, c) => s + c, 0);
 
@@ -2497,6 +2513,11 @@
     }
 
     async function _ptagDeleteTTagDefAndOrders(tagId) {
+        // Prevent deletion of default T-tags
+        if (DEFAULT_TTAG_DEFS.some(d => d.id === tagId)) {
+            alert('Tag mặc định không thể xóa.');
+            return;
+        }
         const defs = ProcessingTagState.getTTagDefinitions();
         const tagName = ProcessingTagState.getTTagName(tagId) || tagId;
         const orders = _ttagGetOrdersForTag(tagId);
@@ -2528,6 +2549,10 @@
     }
 
     function _ptagDeleteTTagDef(tagId) {
+        if (DEFAULT_TTAG_DEFS.some(d => d.id === tagId)) {
+            alert('Tag mặc định không thể xóa.');
+            return;
+        }
         const defs = ProcessingTagState.getTTagDefinitions();
         let count = 0;
         for (const [, data] of ProcessingTagState.getAllOrders()) {
