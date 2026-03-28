@@ -534,7 +534,8 @@
                                 orderId: String(order.Id),
                                 orderCode: order.Code || order.Id,
                                 action: 'flag',
-                                flagKey: customFlagKey
+                                flagKey: customFlagKey,
+                                _flagLabel: tag.Name
                             });
                         }
                     }
@@ -601,15 +602,17 @@
             return;
         }
 
-        // 4. Pre-save all custom flags before executing (avoid race conditions)
-        let hasNewCustomFlags = false;
+        // 4. Pre-save all custom flags before executing (avoid SSE overwrite race condition)
+        const newCustomFlagKeys = new Set();
         for (const task of uniqueTasks) {
             if (task.action === 'flag' && task.flagKey.startsWith('CUSTOM_')) {
-                hasNewCustomFlags = true;
+                newCustomFlagKeys.add(task.flagKey);
             }
         }
-        if (hasNewCustomFlags) {
+        if (newCustomFlagKeys.size > 0) {
+            // Save custom flags to API first, then wait for SSE to settle
             await _saveCustomFlagsToAPI();
+            await new Promise(r => setTimeout(r, 500));
         }
 
         // 5. Confirm
@@ -661,7 +664,33 @@
             }
         }
 
-        // 7. Save mappings
+        // 7. Re-save custom flags after all toggles (SSE may have overwritten during execution)
+        if (newCustomFlagKeys.size > 0) {
+            // Re-ensure custom flags exist in state (SSE may have wiped them)
+            for (const task of uniqueTasks) {
+                if (task.action === 'flag' && task.flagKey.startsWith('CUSTOM_') && task._flagLabel) {
+                    if (!window.ProcessingTagState._customFlags.has(task.flagKey)) {
+                        window.ProcessingTagState._customFlags.set(task.flagKey, { label: task._flagLabel, color: '#7c3aed' });
+                    }
+                }
+            }
+            await _saveCustomFlagsToAPI();
+            // Refresh all visible rows to show correct labels
+            if (typeof window.renderPanelContent === 'function') window.renderPanelContent();
+            document.querySelectorAll('td[data-column="processing-tag"]').forEach(cell => {
+                const row = cell.closest('tr');
+                if (!row) return;
+                const orderId = row.getAttribute('data-order-id');
+                if (!orderId) return;
+                const allOrds = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
+                const order = allOrds.find(o => String(o.Id) === String(orderId));
+                if (order && typeof window.renderProcessingTagCell === 'function') {
+                    cell.innerHTML = window.renderProcessingTagCell(orderId, order.Code || '');
+                }
+            });
+        }
+
+        // 8. Save mappings
         saveMappingsToStorage();
         console.log(SYNC_LOG, msg);
     }
