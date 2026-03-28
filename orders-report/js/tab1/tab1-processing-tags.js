@@ -670,12 +670,7 @@
         // 2. Flag badges (đặc điểm) — SECOND — with × to remove
         (data.flags || []).forEach(f => {
             const fl = PTAG_FLAGS[f];
-            if (!fl) return; // Skip unknown flags (legacy CUSTOM_xxx)
-            let label = fl.label;
-            // Show note content for KHAC flag
-            if (f === 'KHAC' && data.note) {
-                label = `${fl.label}: ${data.note}`;
-            }
+            const label = fl ? fl.label : (ProcessingTagState._customFlags?.get(f)?.label || f);
             const removeBtn = `<button class="ptag-badge-remove" onclick="window._ptagToggleFlag('${oid}', '${f}'); event.stopPropagation();" title="Xóa flag">&times;</button>`;
             badges += `<span class="ptag-flag-badge ptag-badge-removable">${label}${removeBtn}</span>`;
         });
@@ -737,7 +732,13 @@
         for (const [key, flag] of Object.entries(PTAG_FLAGS)) {
             tags.push({ type: 'tag', key: `flag:${key}`, label: `${flag.icon} ${flag.label}`, isFlag: true, flagKey: key, color: '#7c3aed', auto: flag.auto });
         }
-        // Custom tags are now mapped to KHAC flag — no separate entries needed
+        // Custom flags
+        const customFlags = ProcessingTagState._customFlags;
+        if (customFlags && customFlags.size > 0) {
+            for (const [key, cf] of customFlags) {
+                tags.push({ type: 'tag', key: `flag:${key}`, label: cf.label, isFlag: true, flagKey: key, color: cf.color || '#7c3aed' });
+            }
+        }
         return tags;
     }
 
@@ -769,12 +770,12 @@
         // Flags
         (data.flags || []).forEach(f => {
             const fl = PTAG_FLAGS[f];
-            if (!fl) return; // Skip unknown flags (legacy CUSTOM_xxx)
-            let label = `${fl.icon} ${fl.label}`;
-            if (f === 'KHAC' && data.note) {
-                label = `${fl.icon} ${fl.label}: ${data.note}`;
+            if (fl) {
+                selected.push({ key: `flag:${f}`, label: `${fl.icon} ${fl.label}`, isFlag: true, flagKey: f, color: '#7c3aed' });
+            } else {
+                const cf = ProcessingTagState._customFlags?.get(f);
+                if (cf) selected.push({ key: `flag:${f}`, label: cf.label, isFlag: true, flagKey: f, color: cf.color || '#7c3aed' });
             }
-            selected.push({ key: `flag:${f}`, label, isFlag: true, flagKey: f, color: '#7c3aed' });
         });
         return selected;
     }
@@ -987,37 +988,27 @@
         items[idx].scrollIntoView({ block: 'nearest' });
     }
 
-    // Create custom tag from search input — maps to KHAC flag with note
-    async function _ptagCreateCustomTag(label) {
+    // Create custom tag from search input
+    function _ptagCreateCustomTag(label) {
         const orderId = _ddOrderId;
         if (!orderId) return;
-
-        let data = ProcessingTagState.getOrderData(orderId);
-        if (!data) {
-            data = { category: null, subTag: null, subState: null, flags: [], tTags: [], note: '', assignedAt: Date.now() };
-        }
-
-        // Ensure KHAC flag is added
-        const flags = data.flags || [];
-        if (!flags.includes('KHAC')) {
-            flags.push('KHAC');
-            data.flags = flags;
-        }
-
-        // Append label to note (comma-separated if existing note)
-        const existingNote = (data.note || '').trim();
-        data.note = existingNote ? `${existingNote}, ${label}` : label;
-
-        _ptagEnsureCode(orderId, data);
-        ProcessingTagState.setOrderData(orderId, data);
-        _ptagAddHistory(orderId, 'ADD_FLAG', 'KHAC');
-        _ptagRefreshRow(orderId);
-        renderPanelContent();
-        await saveProcessingTagToAPI(orderId, data);
+        const key = 'CUSTOM_' + Date.now();
+        if (!ProcessingTagState._customFlags) ProcessingTagState._customFlags = new Map();
+        ProcessingTagState._customFlags.set(key, { label, color: '#7c3aed' });
+        // Toggle this flag onto the order
+        toggleOrderFlag(orderId, key);
+        // Save custom flags config to API
+        _ptagSaveCustomFlags();
         _ptagRefreshDropdownState();
     }
 
-    // _ptagSaveCustomFlags removed — custom tags now use KHAC flag with note
+    // Save custom flags config to API (persisted under __ptag_custom_flags__)
+    async function _ptagSaveCustomFlags() {
+        const customFlags = ProcessingTagState._customFlags;
+        if (!customFlags) return;
+        const data = { customFlags: Object.fromEntries(customFlags) };
+        await saveProcessingTagToAPI('__ptag_custom_flags__', data);
+    }
 
     function _ptagCloseDropdown() {
         if (_currentDropdown) {
@@ -1185,9 +1176,15 @@
                 subStateCounts[ss] = (subStateCounts[ss] || 0) + 1;
             }
             // Count flags for ALL orders (flags are independent of category)
+            // Custom flags (CUSTOM_xxx) count under KHAC as well
+            let hasCustomFlag = false;
             (data.flags || []).forEach(f => {
                 flagCounts[f] = (flagCounts[f] || 0) + 1;
+                if (f.startsWith('CUSTOM_')) hasCustomFlag = true;
             });
+            if (hasCustomFlag && !(data.flags || []).includes('KHAC')) {
+                flagCounts['KHAC'] = (flagCounts['KHAC'] || 0) + 1;
+            }
             if (data.subTag) {
                 subTagCounts[data.subTag] = (subTagCounts[data.subTag] || 0) + 1;
             }
@@ -1285,6 +1282,27 @@
                 <span class="ptag-panel-card-count">${count}</span>
                 ${_tooltipHtml(fk)}
             </div>`;
+            // Show custom tags list under "Khác"
+            if (key === 'KHAC') {
+                const customFlags = ProcessingTagState._customFlags;
+                if (customFlags && customFlags.size > 0) {
+                    const expanded = activeFlagFilters.has('KHAC');
+                    html += `<div class="ptag-custom-flags-list" style="margin-left:28px;${expanded ? '' : 'display:none;'}">`;
+                    for (const [cfKey, cf] of customFlags) {
+                        const cfChecked = activeFlagFilters.has(cfKey) ? 'checked' : '';
+                        const cfCount = flagCounts[cfKey] || 0;
+                        html += `<div class="ptag-panel-flag-item" style="padding:3px 8px;font-size:13px;" data-search="${_ptagNormalize(cf.label)}">
+                            <label class="ptag-flag-checkbox">
+                                <input type="checkbox" ${cfChecked} onchange="window._ptagToggleFlagFilter('${cfKey}'); event.stopPropagation();" />
+                                <span style="font-size:13px;flex-shrink:0;">🏷️</span>
+                                <span class="ptag-flag-label" style="font-size:13px;">${cf.label}</span>
+                            </label>
+                            <span class="ptag-panel-card-count" style="font-size:12px;">${cfCount}</span>
+                        </div>`;
+                    }
+                    html += `</div>`;
+                }
+            }
         }
         html += `</div>`;
 
@@ -1389,6 +1407,15 @@
         const set = ProcessingTagState._activeFlagFilters;
         if (set.has(flagKey)) {
             set.delete(flagKey);
+            // Unchecking KHAC also clears all individual custom flag filters
+            if (flagKey === 'KHAC') {
+                const customFlags = ProcessingTagState._customFlags;
+                if (customFlags) {
+                    for (const cfKey of customFlags.keys()) {
+                        set.delete(cfKey);
+                    }
+                }
+            }
         } else {
             set.add(flagKey);
         }
@@ -2459,7 +2486,12 @@
                 passesFlag = false;
             } else {
                 const orderFlags = data.flags || [];
-                passesFlag = [...flagFilters].some(f => orderFlags.includes(f));
+                passesFlag = [...flagFilters].some(f => {
+                    if (orderFlags.includes(f)) return true;
+                    // KHAC filter also matches orders with any CUSTOM_xxx flag
+                    if (f === 'KHAC') return orderFlags.some(of => of.startsWith('CUSTOM_'));
+                    return false;
+                });
             }
         }
 
