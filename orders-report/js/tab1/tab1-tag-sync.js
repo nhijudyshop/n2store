@@ -359,7 +359,7 @@
             return;
         }
 
-        const allOrders = window.allData || [];
+        const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
         if (allOrders.length === 0) {
             if (window.notificationManager) {
                 window.notificationManager.warning('Không có đơn hàng nào để đồng bộ!', 3000);
