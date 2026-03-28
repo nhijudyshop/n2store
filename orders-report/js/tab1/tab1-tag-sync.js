@@ -601,10 +601,21 @@
             return;
         }
 
-        // 4. Confirm
+        // 4. Pre-save all custom flags before executing (avoid race conditions)
+        let hasNewCustomFlags = false;
+        for (const task of uniqueTasks) {
+            if (task.action === 'flag' && task.flagKey.startsWith('CUSTOM_')) {
+                hasNewCustomFlags = true;
+            }
+        }
+        if (hasNewCustomFlags) {
+            await _saveCustomFlagsToAPI();
+        }
+
+        // 5. Confirm
         if (!confirm(`Sẽ đồng bộ Tag XL cho ${uniqueTasks.length} thao tác trên các đơn hàng. Tiếp tục?`)) return;
 
-        // 5. Execute with progress
+        // 6. Execute with progress
         const syncBtn = document.getElementById('tagSyncExecuteBtn');
         if (syncBtn) {
             syncBtn.disabled = true;
@@ -660,11 +671,11 @@
     // =====================================================
 
     function _getOrCreateCustomFlag(label) {
-        // Check if custom flag with this label already exists
+        // Check if custom flag with this label already exists (case-insensitive)
         const customFlags = window.ProcessingTagState?._customFlags;
         if (customFlags) {
             for (const [key, cf] of customFlags) {
-                if (cf.label === label) return key;
+                if ((cf.label || '').toLowerCase() === label.toLowerCase()) return key;
             }
         }
         // Create new custom flag
@@ -673,8 +684,6 @@
             window.ProcessingTagState._customFlags = new Map();
         }
         window.ProcessingTagState._customFlags.set(key, { label, color: '#7c3aed' });
-        // Save custom flags config to API
-        _saveCustomFlagsToAPI();
         return key;
     }
 
