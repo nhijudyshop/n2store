@@ -220,14 +220,18 @@ async function openSaleModalInSocialTab(orderId) {
 
     window._lastSocialSaleOrderId = orderId;
 
-    // Save current tags and remove them from order (restore on cancel)
+    // Save current tags and remove them from order
+    // _savedTags persists on order for restore on TPOS cancel ("Nhờ hủy đơn")
+    // _savedTagsBeforeSale is in-memory for restore on sale modal close
     if (order.tags && order.tags.length > 0) {
-        _savedTagsBeforeSale = { orderId, tags: [...order.tags] };
+        const tagsCopy = [...order.tags];
+        _savedTagsBeforeSale = { orderId, tags: tagsCopy };
+        order._savedTags = tagsCopy;
         order.tags = [];
         order.updatedAt = Date.now();
         saveSocialOrdersToStorage();
-        if (typeof updateSocialOrderTags === 'function') {
-            updateSocialOrderTags(orderId, []);
+        if (typeof updateSocialOrder === 'function') {
+            updateSocialOrder(orderId, { tags: [], _savedTags: tagsCopy });
         }
         if (typeof performTableSearch === 'function') {
             performTableSearch();

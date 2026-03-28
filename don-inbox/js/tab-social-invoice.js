@@ -457,7 +457,7 @@
                 console.log(`[SOCIAL-INVOICE] Deleted invoice from InvoiceStatusStore: ${saleOnlineId}`);
             }
 
-            // Step 4: Update social order status back to "draft" (Nhap) + auto-tag "XÓA ĐƠN LÀM LẠI"
+            // Step 4: Update social order status back to "draft" (Nhap) + restore saved tags + auto-tag "XÓA ĐƠN LÀM LẠI"
             const socialOrder = window.SocialOrderState?.orders?.find(o => o.id === socialOrderId);
             if (socialOrder) {
                 socialOrder.status = 'draft';
@@ -465,27 +465,36 @@
                 delete socialOrder.invoiceNumber;
                 delete socialOrder.invoiceCreatedBy;
 
-                // Auto-assign "XÓA ĐƠN LÀM LẠI" tag
+                // Restore tags that were removed when creating the order
+                let restoredTags = [];
+                if (socialOrder._savedTags && socialOrder._savedTags.length > 0) {
+                    restoredTags = [...socialOrder._savedTags];
+                    delete socialOrder._savedTags;
+                    console.log(`[SOCIAL-INVOICE] Restored ${restoredTags.length} saved tags for order: ${socialOrderId}`);
+                }
+
+                // Auto-assign "XÓA ĐƠN LÀM LẠI" tag on top of restored tags
                 const cancelTagName = 'XÓA ĐƠN LÀM LẠI';
                 const cancelTag = window.SocialOrderState?.tags?.find(t => t.name === cancelTagName);
                 if (cancelTag) {
-                    const existingTags = socialOrder.tags || [];
-                    const alreadyHasTag = existingTags.some(t => t.id === cancelTag.id);
+                    const alreadyHasTag = restoredTags.some(t => t.id === cancelTag.id);
                     if (!alreadyHasTag) {
-                        socialOrder.tags = [...existingTags, { id: cancelTag.id, name: cancelTag.name, color: cancelTag.color }];
-                        socialOrder.updatedAt = Date.now();
+                        restoredTags.push({ id: cancelTag.id, name: cancelTag.name, color: cancelTag.color });
                         console.log(`[SOCIAL-INVOICE] Auto-assigned "${cancelTagName}" tag to order: ${socialOrderId}`);
                     }
                 } else {
                     console.warn(`[SOCIAL-INVOICE] Tag "${cancelTagName}" not found in SocialOrderState.tags`);
                 }
 
+                socialOrder.tags = restoredTags;
+                socialOrder.updatedAt = Date.now();
+
                 // Save to storage + Firebase
                 if (typeof saveSocialOrdersToStorage === 'function') {
                     saveSocialOrdersToStorage();
                 }
                 if (typeof updateSocialOrder === 'function') {
-                    updateSocialOrder(socialOrderId, { status: 'draft' });
+                    updateSocialOrder(socialOrderId, { status: 'draft', _savedTags: null });
                 }
                 // Sync tags to Firestore separately
                 if (socialOrder.tags && typeof updateSocialOrderTags === 'function') {
@@ -664,14 +673,15 @@
             // Order created successfully → tags stay removed
             _savedTagsBeforeSale = null;
         } else if (!clearSelection && typeof _savedTagsBeforeSale !== 'undefined' && _savedTagsBeforeSale) {
-            // Cancelled → restore saved tags
+            // Sale modal cancelled (closed without creating) → restore saved tags
             const { orderId, tags } = _savedTagsBeforeSale;
             const order = SocialOrderState?.orders?.find(o => o.id === orderId);
             if (order) {
                 order.tags = tags;
+                delete order._savedTags;
                 order.updatedAt = Date.now();
                 if (typeof saveSocialOrdersToStorage === 'function') saveSocialOrdersToStorage();
-                if (typeof updateSocialOrderTags === 'function') updateSocialOrderTags(orderId, tags);
+                if (typeof updateSocialOrder === 'function') updateSocialOrder(orderId, { tags, _savedTags: null });
                 if (typeof performTableSearch === 'function') performTableSearch();
             }
             _savedTagsBeforeSale = null;
