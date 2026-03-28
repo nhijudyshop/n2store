@@ -1202,6 +1202,19 @@
             }
         }
 
+        // Auto-cleanup custom flags that no order references anymore
+        const customFlags = ProcessingTagState._customFlags;
+        if (customFlags && customFlags.size > 0) {
+            let cleaned = false;
+            for (const cfKey of [...customFlags.keys()]) {
+                if (!flagCounts[cfKey]) {
+                    customFlags.delete(cfKey);
+                    cleaned = true;
+                }
+            }
+            if (cleaned) _ptagSaveCustomFlags();
+        }
+
         const activeFilter = ProcessingTagState._activeFilter;
         const activeFlagFilters = ProcessingTagState._activeFlagFilters;
 
@@ -1282,13 +1295,14 @@
                 <span class="ptag-panel-card-count">${count}</span>
                 ${_tooltipHtml(fk)}
             </div>`;
-            // Show custom tags list under "Khác"
+            // Show custom tags list under "Khác" — only tags with orders
             if (key === 'KHAC') {
                 const customFlags = ProcessingTagState._customFlags;
-                if (customFlags && customFlags.size > 0) {
+                const activeCustom = customFlags ? [...customFlags].filter(([k]) => flagCounts[k] > 0) : [];
+                if (activeCustom.length > 0) {
                     const expanded = activeFlagFilters.has('KHAC');
                     html += `<div class="ptag-custom-flags-list" style="margin-left:28px;${expanded ? '' : 'display:none;'}">`;
-                    for (const [cfKey, cf] of customFlags) {
+                    for (const [cfKey, cf] of activeCustom) {
                         const cfChecked = activeFlagFilters.has(cfKey) ? 'checked' : '';
                         const cfCount = flagCounts[cfKey] || 0;
                         html += `<div class="ptag-panel-flag-item" style="padding:3px 8px;font-size:13px;" data-search="${_ptagNormalize(cf.label)}">
