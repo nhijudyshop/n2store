@@ -320,6 +320,7 @@
         // For each orphan key, find orders that have it, then find matching TPOS tag name
         // Strategy: collect all TPOS tag names from orders with this flag,
         // pick the most common one that isn't already a known label
+        let repairedCount = 0;
         for (const key of orphanKeys) {
             const tagNameCounts = {};
             for (const [orderId, data] of taggedOrders) {
@@ -340,13 +341,19 @@
             for (const [name, count] of Object.entries(tagNameCounts)) {
                 if (count > bestCount) { bestLabel = name; bestCount = count; }
             }
-            const label = bestLabel || key;
-            customFlags.set(key, { label, color: '#7c3aed' });
-            knownLabels.add(label.toLowerCase());
+            // Only repair if we found a real label — do NOT fallback to key as label
+            // (manual custom tags have no TPOS match, so fallback would corrupt their names)
+            if (bestLabel) {
+                customFlags.set(key, { label: bestLabel, color: '#7c3aed' });
+                knownLabels.add(bestLabel.toLowerCase());
+                repairedCount++;
+            }
         }
 
-        console.log(`${PTAG_LOG} Repaired ${orphanKeys.size} orphan custom flag(s)`);
-        _ptagSaveCustomFlags();
+        if (repairedCount > 0) {
+            console.log(`${PTAG_LOG} Repaired ${repairedCount} orphan custom flag(s)`);
+            _ptagSaveCustomFlags();
+        }
     }
 
     async function saveProcessingTagToAPI(orderId, data) {
@@ -1176,16 +1183,16 @@
     }
 
     // Create custom tag from search input
-    function _ptagCreateCustomTag(label) {
+    async function _ptagCreateCustomTag(label) {
         const orderId = _ddOrderId;
         if (!orderId) return;
-        const key = 'CUSTOM_' + Date.now();
+        const key = 'CUSTOM_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
         if (!ProcessingTagState._customFlags) ProcessingTagState._customFlags = new Map();
         ProcessingTagState._customFlags.set(key, { label, color: '#7c3aed' });
-        // Toggle this flag onto the order
-        toggleOrderFlag(orderId, key);
-        // Save custom flags config to API
-        _ptagSaveCustomFlags();
+        // Save custom flags registry FIRST to ensure label is persisted
+        await _ptagSaveCustomFlags();
+        // THEN toggle flag on order (so flag key always has a label in DB)
+        await toggleOrderFlag(orderId, key);
         _ptagRefreshDropdownState();
     }
 
