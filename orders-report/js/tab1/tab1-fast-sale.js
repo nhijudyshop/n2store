@@ -954,19 +954,23 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
             .reduce((sum, d) => sum + d.amount, 0);
         const realCKBalance = Math.max(0, (parseFloat(walletData?.balance) || 0) - returnGoodsTotal);
         if (realCKBalance > 0) {
-            let ckAmount = realCKBalance;
-            let ckDateStr;
-            if (walletData?.lastDepositAmount && walletData?.lastDepositDate && walletData?.lastDepositSource !== 'RETURN_GOODS') {
-                ckAmount = walletData.lastDepositAmount;
-                const depositDate = new Date(walletData.lastDepositDate);
-                ckDateStr = `${String(depositDate.getDate()).padStart(2, '0')}/${String(depositDate.getMonth() + 1).padStart(2, '0')}`;
+            if (walletData?.lastDepositSource === 'MANUAL_ADJUSTMENT') {
+                noteParts.push(walletData.lastDepositNote || 'Kiểm tra lại ghi chú công nợ');
             } else {
-                const today = new Date();
-                ckDateStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}`;
+                let ckAmount = realCKBalance;
+                let ckDateStr;
+                if (walletData?.lastDepositAmount && walletData?.lastDepositDate && walletData?.lastDepositSource !== 'RETURN_GOODS') {
+                    ckAmount = walletData.lastDepositAmount;
+                    const depositDate = new Date(walletData.lastDepositDate);
+                    ckDateStr = `${String(depositDate.getDate()).padStart(2, '0')}/${String(depositDate.getMonth() + 1).padStart(2, '0')}`;
+                } else {
+                    const today = new Date();
+                    ckDateStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}`;
+                }
+                const amountStr =
+                    ckAmount >= 1000 ? `${Math.round(ckAmount / 1000)}K` : ckAmount.toLocaleString('vi-VN');
+                noteParts.push(`CK ${amountStr} ACB ${ckDateStr}`);
             }
-            const amountStr =
-                ckAmount >= 1000 ? `${Math.round(ckAmount / 1000)}K` : ckAmount.toLocaleString('vi-VN');
-            noteParts.push(`CK ${amountStr} ACB ${ckDateStr}`);
         }
     }
 
