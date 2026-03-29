@@ -1348,6 +1348,7 @@
         // Only count tagged orders that exist in current allData
         const allDataIds = new Set(allOrders.map(o => String(o.Id)));
         let taggedCount = 0;
+        let hasCategoryCount = 0;
         const catCounts = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
         const subStateCounts = {};
         const flagCounts = {};
@@ -1357,6 +1358,9 @@
         for (const [orderId, data] of taggedOrders) {
             if (!allDataIds.has(orderId)) continue; // Skip stale/mismatched IDs
             taggedCount++;
+            if (data.category !== null && data.category !== undefined) {
+                hasCategoryCount++;
+            }
 
             catCounts[data.category] = (catCounts[data.category] || 0) + 1;
 
@@ -1380,7 +1384,7 @@
             }
         }
 
-        const untaggedCount = totalOrders - taggedCount;
+        const untaggedCount = totalOrders - hasCategoryCount;
 
         // Count T-tags from internal processing tag data
         for (const [orderId, data] of taggedOrders) {
@@ -1411,12 +1415,12 @@
                 <div class="ptag-panel-card-count">${totalOrders} đơn hàng</div>
             </div>
         </div>`;
-        html += `<div class="ptag-panel-card ${activeFilter === '__no_tag__' ? 'active' : ''}" onclick="window._ptagSetFilter('__no_tag__')" data-search="chua gan tag">
+        html += `<div class="ptag-panel-card ${activeFilter === '__no_tag__' ? 'active' : ''}" onclick="window._ptagSetFilter('__no_tag__')" data-search="chua gan tag xl">
             <div class="ptag-panel-card-icon" style="background:#d1d5db;">
                 <i class="fas fa-tag" style="color:#6b7280;font-size:14px;"></i>
             </div>
             <div class="ptag-panel-card-info">
-                <div class="ptag-panel-card-name">CHƯA GÁN TAG</div>
+                <div class="ptag-panel-card-name">CHƯA GÁN TAG XL</div>
                 <div class="ptag-panel-card-count">${untaggedCount} đơn hàng</div>
             </div>
         </div>`;
@@ -3409,7 +3413,7 @@
         let passesBase = true; // default: no base filter = pass
         if (hasBaseFilter) {
             if (filter === '__no_tag__') {
-                passesBase = !data;
+                passesBase = !data || data.category === null || data.category === undefined;
             } else if (!data) {
                 passesBase = false;
             } else if (filter.startsWith('cat_')) {
