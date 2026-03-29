@@ -213,7 +213,10 @@
         ProcessingTagState._activeFilter = null;
         try {
             const result = await _ptagFetch(`${PTAG_API_BASE}/${encodeURIComponent(campaignId)}`);
+            // Backup custom flags before clear (in case API doesn't return them)
+            const backupCustomFlags = new Map(ProcessingTagState._customFlags);
             ProcessingTagState.clear();
+            let loadedCustomFlags = false;
             if (result.data) {
                 for (const [orderId, data] of Object.entries(result.data)) {
                     if (orderId === '__ttag_config__') {
@@ -223,6 +226,7 @@
                     if (orderId === '__ptag_custom_flags__') {
                         if (data.customFlags) {
                             ProcessingTagState._customFlags = new Map(Object.entries(data.customFlags));
+                            loadedCustomFlags = true;
                         }
                         continue;
                     }
@@ -234,6 +238,13 @@
                     ProcessingTagState.setOrderData(orderId, data);
                 }
             }
+            // Restore backup if API didn't return custom flags
+            if (!loadedCustomFlags && backupCustomFlags.size > 0) {
+                ProcessingTagState._customFlags = backupCustomFlags;
+                console.log(`${PTAG_LOG} Restored ${backupCustomFlags.size} custom flags from backup`);
+            }
+            // Auto-repair: find orphan CUSTOM_xxx keys on orders that have no label in _customFlags
+            _ptagRepairOrphanCustomFlags();
             console.log(`${PTAG_LOG} Loaded ${result.count || 0} tags for campaign ${campaignId}`);
             _ptagReconcileIds();
             renderPanelContent();
@@ -282,6 +293,60 @@
         if (remaps.length > 0) {
             console.log(`${PTAG_LOG} Reconciled ${remaps.length} order ID(s) by Code cross-reference`);
         }
+    }
+
+    function _ptagRepairOrphanCustomFlags() {
+        const customFlags = ProcessingTagState._customFlags;
+        const taggedOrders = ProcessingTagState.getAllOrders();
+        const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
+
+        // Collect all CUSTOM_xxx keys used by orders that have no label
+        const orphanKeys = new Set();
+        for (const [, data] of taggedOrders) {
+            for (const f of (data.flags || [])) {
+                if (f.startsWith('CUSTOM_') && !customFlags.has(f)) {
+                    orphanKeys.add(f);
+                }
+            }
+        }
+        if (orphanKeys.size === 0) return;
+
+        // Build set of known custom flag labels for dedup
+        const knownLabels = new Set();
+        for (const [, cf] of customFlags) {
+            knownLabels.add((cf.label || '').toLowerCase());
+        }
+
+        // For each orphan key, find orders that have it, then find matching TPOS tag name
+        // Strategy: collect all TPOS tag names from orders with this flag,
+        // pick the most common one that isn't already a known label
+        for (const key of orphanKeys) {
+            const tagNameCounts = {};
+            for (const [orderId, data] of taggedOrders) {
+                if (!(data.flags || []).includes(key)) continue;
+                const tposOrder = allOrders.find(o => String(o.Id) === orderId);
+                if (!tposOrder) continue;
+                let tags = [];
+                try { tags = JSON.parse(tposOrder.Tags || '[]'); } catch (e) { continue; }
+                for (const tag of tags) {
+                    const name = (tag.Name || '').trim();
+                    if (name && !knownLabels.has(name.toLowerCase())) {
+                        tagNameCounts[name] = (tagNameCounts[name] || 0) + 1;
+                    }
+                }
+            }
+            // Pick the most common tag name as label
+            let bestLabel = null, bestCount = 0;
+            for (const [name, count] of Object.entries(tagNameCounts)) {
+                if (count > bestCount) { bestLabel = name; bestCount = count; }
+            }
+            const label = bestLabel || key;
+            customFlags.set(key, { label, color: '#7c3aed' });
+            knownLabels.add(label.toLowerCase());
+        }
+
+        console.log(`${PTAG_LOG} Repaired ${orphanKeys.size} orphan custom flag(s)`);
+        _ptagSaveCustomFlags();
     }
 
     async function saveProcessingTagToAPI(orderId, data) {
