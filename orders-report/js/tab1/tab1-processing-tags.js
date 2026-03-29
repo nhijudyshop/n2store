@@ -344,6 +344,20 @@
                         renderPanelContent();
                         return;
                     }
+                    if (orderId === '__ptag_custom_flags__' && data) {
+                        if (data.customFlags) {
+                            // Merge SSE custom flags with local (don't lose newly created ones)
+                            const incoming = new Map(Object.entries(data.customFlags));
+                            const local = ProcessingTagState._customFlags || new Map();
+                            // Merge: incoming wins for existing keys, but keep local-only keys
+                            for (const [k, v] of incoming) {
+                                local.set(k, v);
+                            }
+                            ProcessingTagState._customFlags = local;
+                        }
+                        renderPanelContent();
+                        return;
+                    }
                     if (orderId && data) {
                         ProcessingTagState.setOrderData(orderId, data);
                         _ptagRefreshRow(orderId);
@@ -1311,18 +1325,9 @@
             }
         }
 
-        // Auto-cleanup custom flags that no order references anymore
-        const customFlags = ProcessingTagState._customFlags;
-        if (customFlags && customFlags.size > 0) {
-            let cleaned = false;
-            for (const cfKey of [...customFlags.keys()]) {
-                if (!flagCounts[cfKey]) {
-                    customFlags.delete(cfKey);
-                    cleaned = true;
-                }
-            }
-            if (cleaned) _ptagSaveCustomFlags();
-        }
+        // Note: Do NOT auto-cleanup custom flags - they should persist
+        // even when no orders reference them (user may re-sync later).
+        // Custom flags are only removed when user manually deletes them.
 
         const activeFilter = ProcessingTagState._activeFilter;
         const activeFlagFilters = ProcessingTagState._activeFlagFilters;
@@ -1415,10 +1420,10 @@
                 <span class="ptag-panel-card-count">${count}</span>
                 ${_tooltipHtml(fk)}
             </div>`;
-            // Show custom tags list under "Khác" — only tags with orders
+            // Show custom tags list under "Khác" — show all custom flags
             if (key === 'KHAC') {
                 const customFlags = ProcessingTagState._customFlags;
-                const activeCustom = customFlags ? [...customFlags].filter(([k]) => flagCounts[k] > 0) : [];
+                const activeCustom = customFlags ? [...customFlags] : [];
                 if (activeCustom.length > 0) {
                     const expanded = activeFlagFilters.has('KHAC');
                     html += `<div class="ptag-custom-flags-list" style="margin-left:28px;${expanded ? '' : 'display:none;'}">`;
