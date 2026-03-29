@@ -145,7 +145,7 @@ router.get('/:customerId', async (req, res) => {
 
         // Get all deposit transactions (for payment note generation)
         const depositsResult = await db.query(`
-            SELECT amount, created_at, source
+            SELECT amount, created_at, source, note
             FROM wallet_transactions
             WHERE phone = $1 AND type = 'DEPOSIT'
             ORDER BY created_at ASC
@@ -170,14 +170,16 @@ router.get('/:customerId', async (req, res) => {
                 availableDeposits.push({
                     amount: depAmount - remainingWithdrawn,
                     date: dep.created_at,
-                    source: dep.source || 'BANK_TRANSFER'
+                    source: dep.source || 'BANK_TRANSFER',
+                    note: dep.note || null
                 });
                 remainingWithdrawn = 0;
             } else {
                 availableDeposits.push({
                     amount: depAmount,
                     date: dep.created_at,
-                    source: dep.source || 'BANK_TRANSFER'
+                    source: dep.source || 'BANK_TRANSFER',
+                    note: dep.note || null
                 });
             }
         }
@@ -464,7 +466,7 @@ router.post('/batch-summary', async (req, res) => {
         // Fetch last deposit transaction for each phone (for payment note generation)
         if (phonesForDeposit.length > 0) {
             const depositResult = await db.query(`
-                SELECT DISTINCT ON (phone) phone, amount, created_at, source
+                SELECT DISTINCT ON (phone) phone, amount, created_at, source, note
                 FROM wallet_transactions
                 WHERE phone = ANY($1) AND type = 'DEPOSIT'
                 ORDER BY phone, created_at DESC
@@ -475,6 +477,7 @@ router.post('/batch-summary', async (req, res) => {
                     walletMap[row.phone].lastDepositAmount = parseFloat(row.amount);
                     walletMap[row.phone].lastDepositDate = row.created_at;
                     walletMap[row.phone].lastDepositSource = row.source || 'BANK_TRANSFER';
+                    walletMap[row.phone].lastDepositNote = row.note || null;
                 }
             });
 

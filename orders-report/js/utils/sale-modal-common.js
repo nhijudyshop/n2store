@@ -1012,11 +1012,13 @@ async function fetchDebtForSaleModal(phone) {
             if (result.data.availableDeposits && result.data.availableDeposits.length > 0) {
                 currentSaleAvailableDeposits = result.data.availableDeposits;
                 const last = currentSaleAvailableDeposits[currentSaleAvailableDeposits.length - 1];
-                currentSaleLastDeposit = { amount: last.amount, date: last.date };
+                currentSaleLastDeposit = { amount: last.amount, date: last.date, source: last.source, note: last.note };
             } else if (result.data.lastDepositAmount && result.data.lastDepositDate) {
                 currentSaleLastDeposit = {
                     amount: parseFloat(result.data.lastDepositAmount),
-                    date: result.data.lastDepositDate
+                    date: result.data.lastDepositDate,
+                    source: result.data.lastDepositSource || 'BANK_TRANSFER',
+                    note: result.data.lastDepositNote || null
                 };
                 currentSaleAvailableDeposits = [currentSaleLastDeposit];
             } else {
@@ -1118,6 +1120,8 @@ function autoFillSaleNote() {
 
                 if (dep.source === 'RETURN_GOODS') {
                     noteParts.push(`TRỪ ${amountStr} TIỀN HÀNG KHÁCH GỬI Ở TỈNH LÊN`);
+                } else if (dep.source === 'MANUAL_ADJUSTMENT') {
+                    noteParts.push(dep.note || 'Kiểm tra lại ghi chú công nợ');
                 } else {
                     const depositDate = new Date(dep.date);
                     const dateStr = `${String(depositDate.getDate()).padStart(2, '0')}/${String(depositDate.getMonth() + 1).padStart(2, '0')}`;
