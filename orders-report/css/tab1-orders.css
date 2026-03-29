@@ -1056,6 +1056,28 @@ body {
     color: #374151;
 }
 
+.ttag-separator {
+    padding: 8px 16px 4px;
+    border-top: 2px solid #e9d5ff;
+    margin-top: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #7c3aed;
+    letter-spacing: 0.3px;
+}
+
+.tag-dropdown-item.ttag-item {
+    border-left: 3px solid #7c3aed;
+}
+
+.tag-dropdown-item.ttag-item .tag-item-name {
+    color: #6d28d9;
+}
+
+.tag-dropdown-item.ttag-item:hover {
+    background: #f5f3ff;
+}
+
 .tag-modal-footer {
     padding: 16px 24px;
     border-top: 1px solid #e5e7eb;

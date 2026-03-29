@@ -907,9 +907,11 @@
                 tags.push({ type: 'tag', key: `flag:${key}`, label: cf.label, isFlag: true, flagKey: key, color: cf.color || '#7c3aed' });
             }
         }
-        // Default T-tags — shown at bottom of dropdown as direct toggle
-        for (const def of DEFAULT_TTAG_DEFS) {
-            tags.push({ type: 'tag', key: `dtag:${def.id}`, label: `📦 ${def.name}`, isDefaultTTag: true, ttagId: def.id, color: '#8b5cf6' });
+        // All T-tag definitions — shown at bottom of dropdown as direct toggle
+        tags.push({ type: 'cat-label', label: '📦 TAG T CHỜ HÀNG' });
+        const allTTagDefs = ProcessingTagState.getTTagDefinitions();
+        for (const def of allTTagDefs) {
+            tags.push({ type: 'tag', key: `dtag:${def.id}`, label: def.name, isTTag: true, ttagId: def.id, color: '#8b5cf6' });
         }
         return tags;
     }
@@ -918,7 +920,7 @@
     function _ptagPillColor(tagInfo) {
         if (tagInfo.isCat) return tagInfo.color;
         if (tagInfo.isFlag) return '#7c3aed';
-        if (tagInfo.isDefaultTTag) return '#8b5cf6';
+        if (tagInfo.isDefaultTTag || tagInfo.isTTag) return '#8b5cf6';
         return '#6b7280';
     }
 
@@ -950,12 +952,11 @@
                 if (cf) selected.push({ key: `flag:${f}`, label: cf.label, isFlag: true, flagKey: f, color: cf.color || '#7c3aed' });
             }
         });
-        // Default T-tags
-        const defaultIds = new Set(DEFAULT_TTAG_DEFS.map(d => d.id));
+        // All assigned T-tags
         (data.tTags || []).forEach(t => {
-            if (defaultIds.has(t)) {
-                const def = DEFAULT_TTAG_DEFS.find(d => d.id === t);
-                selected.push({ key: `dtag:${t}`, label: `📦 ${def.name}`, isDefaultTTag: true, ttagId: t, color: '#8b5cf6' });
+            const def = ProcessingTagState.getTTagDef(t);
+            if (def) {
+                selected.push({ key: `dtag:${t}`, label: def.name, isTTag: true, ttagId: t, color: '#8b5cf6' });
             }
         });
         return selected;
@@ -3670,6 +3671,7 @@
     // T-tag business logic
     window.assignTTagToOrder = assignTTagToOrder;
     window.removeTTagFromOrder = removeTTagFromOrder;
+    window.saveTTagDefinitions = saveTTagDefinitions;
 
     // History
     window._ptagShowHistory = _ptagRenderHistoryPopover;
