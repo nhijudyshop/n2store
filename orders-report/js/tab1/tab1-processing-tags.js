@@ -1492,7 +1492,8 @@
                 const customFlags = ProcessingTagState._customFlags;
                 const activeCustom = customFlags ? [...customFlags] : [];
                 if (activeCustom.length > 0) {
-                    const expanded = activeFlagFilters.has('KHAC');
+                    const expanded = activeFlagFilters.has('KHAC') ||
+                        [...activeFlagFilters].some(f => f.startsWith('CUSTOM_'));
                     html += `<div class="ptag-custom-flags-list" style="margin-left:28px;${expanded ? '' : 'display:none;'}">`;
                     for (const [cfKey, cf] of activeCustom) {
                         const cfChecked = activeFlagFilters.has(cfKey) ? 'checked' : '';
@@ -1625,6 +1626,10 @@
             }
         } else {
             set.add(flagKey);
+            // Selecting individual custom flag → remove KHAC catch-all so specific filter works
+            if (flagKey.startsWith('CUSTOM_')) {
+                set.delete('KHAC');
+            }
         }
         renderPanelContent();
         clearTimeout(_ptagFilterTimer);
