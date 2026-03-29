@@ -229,17 +229,24 @@ function generateRandomColor() {
 }
 
 // Auto-create Tag T chờ hàng when tag name matches "Tx ..." pattern
-async function autoCreateAndAddTTag(originalInput, digits, namePart) {
-    const tagId = `T${digits}`;
-    const name = namePart.toUpperCase();
+async function autoCreateAndAddTTag(fullName) {
+    const name = fullName.toUpperCase();
 
     try {
         if (window.notificationManager) {
-            window.notificationManager.info(`Đang tạo Tag T "${tagId} ${name}"...`);
+            window.notificationManager.info(`Đang tạo Tag T "${name}"...`);
         }
 
-        // Create new T-tag definition
+        // Auto-generate next available ID (same logic as _ttagMgrConfirmCreate)
         const defs = window.ProcessingTagState.getTTagDefinitions();
+        let nextNum = 1;
+        for (const d of defs) {
+            const match = d.id.match(/^T(\d+)/);
+            if (match) nextNum = Math.max(nextNum, parseInt(match[1]) + 1);
+        }
+        const tagId = `T${nextNum}`;
+
+        // Create new T-tag definition (name includes Tx prefix, e.g. "T5 ÁO SMI X")
         const newDef = { id: tagId, name: name, productCode: '', createdAt: Date.now() };
         defs.push(newDef);
         window.ProcessingTagState.setTTagDefinitions(defs);
@@ -258,7 +265,7 @@ async function autoCreateAndAddTTag(originalInput, digits, namePart) {
         renderTagList("");
 
         if (window.notificationManager) {
-            window.notificationManager.success(`Đã tạo và gán ${tagId} "${name}"!`);
+            window.notificationManager.success(`Đã tạo và gán "${name}"!`);
         }
 
     } catch (error) {
@@ -282,7 +289,7 @@ async function selectTTag(tagId) {
 
         const def = window.ProcessingTagState?.getTTagDef(tagId);
         if (window.notificationManager) {
-            window.notificationManager.success(`Đã gán ${tagId} "${def?.name || tagId}"!`);
+            window.notificationManager.success(`Đã gán "${def?.name || tagId}"!`);
         }
     } catch (error) {
         console.error('[SELECT-TTAG] Error assigning T-tag:', error);
@@ -297,9 +304,10 @@ async function autoCreateAndAddTag(tagName) {
     if (!tagName || tagName.trim() === '') return;
 
     // Detect T-tag pattern: "T<digits> <name>" (e.g., "T15 áo thun đen")
-    const ttagMatch = tagName.trim().match(/^T(\d+)\s+(.+)$/i);
+    // Tag T names always include the Tx prefix as part of the name
+    const ttagMatch = tagName.trim().match(/^T\d+\s+.+$/i);
     if (ttagMatch && window.ProcessingTagState && window.saveTTagDefinitions) {
-        return autoCreateAndAddTTag(tagName.trim(), ttagMatch[1], ttagMatch[2].trim());
+        return autoCreateAndAddTTag(tagName.trim());
     }
 
     const name = tagName.trim().toUpperCase(); // Convert to uppercase for consistency
@@ -1113,11 +1121,10 @@ function renderTagList(searchQuery = "") {
             // Don't show already assigned T-tags
             if (assignedTTags.includes(def.id)) return false;
 
-            // Apply search filter
+            // Apply search filter (name already includes Tx prefix, e.g. "T5 ÁO SMI X")
             if (!searchQuery) return true;
             const query = searchQuery.toLowerCase();
-            const fullLabel = `${def.id} ${def.name}`.toLowerCase();
-            return fullLabel.includes(query);
+            return def.name.toLowerCase().includes(query);
         });
     }
 
@@ -1150,7 +1157,7 @@ function renderTagList(searchQuery = "") {
                 if (isFirst) isFirst = false;
                 return `
             <div class="tag-dropdown-item ttag-item ${highlighted}" onclick="selectTTag('${def.id}')" data-ttag-id="${def.id}">
-                <div class="tag-item-name"><strong>${def.id}</strong> ${def.name}</div>
+                <div class="tag-item-name">${def.name}</div>
             </div>`;
             })
             .join("");
