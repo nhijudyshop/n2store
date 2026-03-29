@@ -871,6 +871,8 @@
             if (st.category !== 2) continue;
             tags.push({ type: 'tag', key: `cat:2:${key}`, label: st.label, isCat: true, cat: 2, subTag: key, color: PTAG_CATEGORY_COLORS[2].border });
         }
+        // Soạn hàng — shortcut to assign PHIẾU SOẠN HÀNG (cat 5) from MỤC XỬ LÝ
+        tags.push({ type: 'tag', key: 'cat:5:null', label: '📋 Soạn hàng', isCat: true, cat: 5, subTag: null, color: PTAG_CATEGORY_COLORS[5].border });
         // Cat 3 — KHÔNG CẦN CHỐT
         tags.push({ type: 'cat-label', label: `${PTAG_CATEGORY_META[3].emoji} KHÔNG CẦN CHỐT` });
         for (const [key, st] of Object.entries(PTAG_SUBTAGS)) {
@@ -886,9 +888,6 @@
         // Cat 0 — HOÀN TẤT
         tags.push({ type: 'cat-label', label: `${PTAG_CATEGORY_META[0].emoji} HOÀN TẤT` });
         tags.push({ type: 'tag', key: 'cat:0:null', label: 'ĐÃ RA ĐƠN', isCat: true, cat: 0, subTag: null, color: PTAG_CATEGORY_COLORS[0].border });
-        // Cat 5 — PHIẾU SOẠN HÀNG
-        tags.push({ type: 'cat-label', label: `${PTAG_CATEGORY_META[5].emoji} PHIẾU SOẠN HÀNG` });
-        tags.push({ type: 'tag', key: 'cat:5:null', label: 'Phiếu Soạn Hàng', isCat: true, cat: 5, subTag: null, color: PTAG_CATEGORY_COLORS[5].border });
         // Flags — ĐẶC ĐIỂM ĐƠN HÀNG
         tags.push({ type: 'cat-label', label: '🏷️ ĐẶC ĐIỂM ĐƠN HÀNG' });
         for (const [key, flag] of Object.entries(PTAG_FLAGS)) {
