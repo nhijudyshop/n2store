@@ -228,9 +228,64 @@ function generateRandomColor() {
     return colors[Math.floor(Math.random() * colors.length)];
 }
 
+// Auto-create Tag T chờ hàng when tag name matches "Tx ..." pattern
+async function autoCreateAndAddTTag(originalInput, digits, namePart) {
+    const tagId = `T${digits}`;
+    const name = namePart.toUpperCase();
+
+    try {
+        if (window.notificationManager) {
+            window.notificationManager.info(`Đang tạo Tag T "${tagId} ${name}"...`);
+        }
+
+        // Check if T-tag definition already exists
+        let def = window.ProcessingTagState?.getTTagDef(tagId);
+
+        if (!def) {
+            // Create new T-tag definition
+            const defs = window.ProcessingTagState.getTTagDefinitions();
+            const newDef = { id: tagId, name: name, productCode: '', createdAt: Date.now() };
+            defs.push(newDef);
+            window.ProcessingTagState.setTTagDefinitions(defs);
+            await window.saveTTagDefinitions();
+            console.log('[AUTO-CREATE-TAG] Created T-tag definition:', tagId, name);
+        } else {
+            console.log('[AUTO-CREATE-TAG] T-tag definition already exists:', tagId);
+        }
+
+        // Assign Tag T to current order
+        if (!currentEditingOrderId) {
+            throw new Error('Không có đơn hàng đang chỉnh sửa');
+        }
+        await window.assignTTagToOrder(currentEditingOrderId, tagId);
+
+        // Clear search input and update UI
+        const searchInput = document.getElementById("tagSearchInput");
+        if (searchInput) searchInput.value = "";
+        renderTagList("");
+
+        if (window.notificationManager) {
+            const label = def ? `Đã gán ${tagId} "${def.name}"` : `Đã tạo và gán ${tagId} "${name}"`;
+            window.notificationManager.success(label);
+        }
+
+    } catch (error) {
+        console.error('[AUTO-CREATE-TAG] Error creating T-tag:', error);
+        if (window.notificationManager) {
+            window.notificationManager.error('Lỗi tạo Tag T: ' + error.message);
+        }
+    }
+}
+
 // Auto-create tag when search yields no results and user presses Enter
 async function autoCreateAndAddTag(tagName) {
     if (!tagName || tagName.trim() === '') return;
+
+    // Detect T-tag pattern: "T<digits> <name>" (e.g., "T15 áo thun đen")
+    const ttagMatch = tagName.trim().match(/^T(\d+)\s+(.+)$/i);
+    if (ttagMatch && window.ProcessingTagState && window.saveTTagDefinitions) {
+        return autoCreateAndAddTTag(tagName.trim(), ttagMatch[1], ttagMatch[2].trim());
+    }
 
     const name = tagName.trim().toUpperCase(); // Convert to uppercase for consistency
     const color = generateRandomColor();

@@ -3670,6 +3670,7 @@
     // T-tag business logic
     window.assignTTagToOrder = assignTTagToOrder;
     window.removeTTagFromOrder = removeTTagFromOrder;
+    window.saveTTagDefinitions = saveTTagDefinitions;
 
     // History
     window._ptagShowHistory = _ptagRenderHistoryPopover;
