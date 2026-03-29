@@ -238,20 +238,13 @@ async function autoCreateAndAddTTag(originalInput, digits, namePart) {
             window.notificationManager.info(`Đang tạo Tag T "${tagId} ${name}"...`);
         }
 
-        // Check if T-tag definition already exists
-        let def = window.ProcessingTagState?.getTTagDef(tagId);
-
-        if (!def) {
-            // Create new T-tag definition
-            const defs = window.ProcessingTagState.getTTagDefinitions();
-            const newDef = { id: tagId, name: name, productCode: '', createdAt: Date.now() };
-            defs.push(newDef);
-            window.ProcessingTagState.setTTagDefinitions(defs);
-            await window.saveTTagDefinitions();
-            console.log('[AUTO-CREATE-TAG] Created T-tag definition:', tagId, name);
-        } else {
-            console.log('[AUTO-CREATE-TAG] T-tag definition already exists:', tagId);
-        }
+        // Create new T-tag definition
+        const defs = window.ProcessingTagState.getTTagDefinitions();
+        const newDef = { id: tagId, name: name, productCode: '', createdAt: Date.now() };
+        defs.push(newDef);
+        window.ProcessingTagState.setTTagDefinitions(defs);
+        await window.saveTTagDefinitions();
+        console.log('[AUTO-CREATE-TAG] Created T-tag definition:', tagId, name);
 
         // Assign Tag T to current order
         if (!currentEditingOrderId) {
@@ -265,14 +258,36 @@ async function autoCreateAndAddTTag(originalInput, digits, namePart) {
         renderTagList("");
 
         if (window.notificationManager) {
-            const label = def ? `Đã gán ${tagId} "${def.name}"` : `Đã tạo và gán ${tagId} "${name}"`;
-            window.notificationManager.success(label);
+            window.notificationManager.success(`Đã tạo và gán ${tagId} "${name}"!`);
         }
 
     } catch (error) {
         console.error('[AUTO-CREATE-TAG] Error creating T-tag:', error);
         if (window.notificationManager) {
             window.notificationManager.error('Lỗi tạo Tag T: ' + error.message);
+        }
+    }
+}
+
+// Select existing Tag T from dropdown and assign to current order
+async function selectTTag(tagId) {
+    try {
+        if (!currentEditingOrderId) return;
+
+        await window.assignTTagToOrder(currentEditingOrderId, tagId);
+
+        const searchInput = document.getElementById("tagSearchInput");
+        if (searchInput) searchInput.value = "";
+        renderTagList("");
+
+        const def = window.ProcessingTagState?.getTTagDef(tagId);
+        if (window.notificationManager) {
+            window.notificationManager.success(`Đã gán ${tagId} "${def?.name || tagId}"!`);
+        }
+    } catch (error) {
+        console.error('[SELECT-TTAG] Error assigning T-tag:', error);
+        if (window.notificationManager) {
+            window.notificationManager.error('Lỗi gán Tag T: ' + error.message);
         }
     }
 }
@@ -1067,7 +1082,7 @@ function closeTagModal() {
 
 function renderTagList(searchQuery = "") {
     const tagList = document.getElementById("tagList");
-    if (availableTags.length === 0) {
+    if (availableTags.length === 0 && !window.ProcessingTagState) {
         tagList.innerHTML = `<div class="no-tags-message"><i class="fas fa-exclamation-circle"></i><p>Không có tag nào</p></div>`;
         return;
     }
@@ -1087,20 +1102,61 @@ function renderTagList(searchQuery = "") {
         );
     });
 
-    if (filteredTags.length === 0) {
+    // Get Tag T chờ hàng definitions
+    let filteredTTags = [];
+    if (window.ProcessingTagState) {
+        const allTTags = window.ProcessingTagState.getTTagDefinitions() || [];
+        const orderData = currentEditingOrderId ? window.ProcessingTagState.getOrderData(currentEditingOrderId) : null;
+        const assignedTTags = orderData?.tTags || [];
+
+        filteredTTags = allTTags.filter((def) => {
+            // Don't show already assigned T-tags
+            if (assignedTTags.includes(def.id)) return false;
+
+            // Apply search filter
+            if (!searchQuery) return true;
+            const query = searchQuery.toLowerCase();
+            const fullLabel = `${def.id} ${def.name}`.toLowerCase();
+            return fullLabel.includes(query);
+        });
+    }
+
+    if (filteredTags.length === 0 && filteredTTags.length === 0) {
         tagList.innerHTML = `<div class="no-tags-message"><i class="fas fa-search"></i><p>Không tìm thấy tag phù hợp</p></div>`;
         return;
     }
 
-    tagList.innerHTML = filteredTags
-        .map((tag, index) => {
-            const isFirstItem = index === 0;
+    let html = '';
+    let isFirst = true;
+
+    // Render regular tags (tag đặc điểm)
+    html += filteredTags
+        .map((tag) => {
+            const highlighted = isFirst ? 'highlighted' : '';
+            if (isFirst) isFirst = false;
             return `
-            <div class="tag-dropdown-item ${isFirstItem ? 'highlighted' : ''}" onclick="toggleTag(${tag.Id})" data-tag-id="${tag.Id}">
+            <div class="tag-dropdown-item ${highlighted}" onclick="toggleTag(${tag.Id})" data-tag-id="${tag.Id}">
                 <div class="tag-item-name">${tag.Name}</div>
             </div>`;
         })
         .join("");
+
+    // Render Tag T chờ hàng section at bottom
+    if (filteredTTags.length > 0) {
+        html += `<div class="ttag-separator"><span>📦 Tag T Chờ Hàng</span></div>`;
+        html += filteredTTags
+            .map((def) => {
+                const highlighted = isFirst ? 'highlighted' : '';
+                if (isFirst) isFirst = false;
+                return `
+            <div class="tag-dropdown-item ttag-item ${highlighted}" onclick="selectTTag('${def.id}')" data-ttag-id="${def.id}">
+                <div class="tag-item-name"><strong>${def.id}</strong> ${def.name}</div>
+            </div>`;
+            })
+            .join("");
+    }
+
+    tagList.innerHTML = html;
 }
 
 function toggleTag(tagId) {
@@ -1164,14 +1220,21 @@ function handleTagInputKeydown(event) {
         // Find the highlighted tag (first one in the list)
         const highlightedTag = document.querySelector('.tag-dropdown-item.highlighted');
         if (highlightedTag) {
-            const tagId = highlightedTag.getAttribute('data-tag-id');
-            if (tagId) {
-                toggleTag(parseInt(tagId));
-                // Clear search input after selecting
-                document.getElementById("tagSearchInput").value = "";
-                // Re-render to show all available tags again
-                renderTagList("");
+            // Check if it's a Tag T chờ hàng
+            const ttagId = highlightedTag.getAttribute('data-ttag-id');
+            if (ttagId) {
+                selectTTag(ttagId);
                 pendingDeleteTagIndex = -1;
+            } else {
+                const tagId = highlightedTag.getAttribute('data-tag-id');
+                if (tagId) {
+                    toggleTag(parseInt(tagId));
+                    // Clear search input after selecting
+                    document.getElementById("tagSearchInput").value = "";
+                    // Re-render to show all available tags again
+                    renderTagList("");
+                    pendingDeleteTagIndex = -1;
+                }
             }
         } else if (inputValue.trim() !== '') {
             // No matching tag found - auto-create new tag with the search term
