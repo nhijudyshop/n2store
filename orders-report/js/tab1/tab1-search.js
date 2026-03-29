@@ -404,6 +404,36 @@ function performTableSearch() {
     updateSearchResultCount();
 }
 
+// Returns orders filtered by employee assignment (for non-admin users)
+// Used by sidebar panel to show correct counts per user
+window.getEmployeeFilteredOrders = function() {
+    const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
+    const isAdmin = window.authManager?.isAdminTemplate?.() || false;
+    if (!isAdmin && employeeRanges.length > 0) {
+        const auth = window.authManager ? window.authManager.getAuthState() : null;
+        const currentUserId = auth?.id || null;
+        const currentDisplayName = auth?.displayName || null;
+        const currentUserType = auth?.userType || null;
+
+        let userRange = null;
+        if (currentUserId) userRange = employeeRanges.find(r => r.id === currentUserId);
+        if (!userRange && currentDisplayName) userRange = employeeRanges.find(r => r.name === currentDisplayName);
+        if (!userRange && currentUserType) userRange = employeeRanges.find(r => r.name === currentUserType);
+        if (!userRange && currentUserType) {
+            const shortName = currentUserType.split('-')[0].trim();
+            userRange = employeeRanges.find(r => r.name === shortName);
+        }
+
+        if (userRange) {
+            return allOrders.filter(order => {
+                const stt = parseInt(order.SessionIndex);
+                return !isNaN(stt) && stt >= userRange.start && stt <= userRange.end;
+            });
+        }
+    }
+    return allOrders;
+};
+
 function matchesSearchQuery(order, query) {
     const searchableText = [
         String(order.SessionIndex || ''), // STT - Priority field

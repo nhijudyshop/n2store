@@ -1274,7 +1274,9 @@
         const body = document.getElementById('ptag-panel-body');
         if (!body) return;
 
-        const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
+        const allOrders = (typeof window.getEmployeeFilteredOrders === 'function')
+            ? window.getEmployeeFilteredOrders()
+            : ((typeof window.getAllOrders === 'function') ? window.getAllOrders() : []);
         const taggedOrders = ProcessingTagState.getAllOrders();
         const totalOrders = allOrders.length;
 
