@@ -243,7 +243,7 @@
                 const fl = FLAG_OPTIONS.find(f => f.key === mapping.flagKey);
                 if (fl) return `<span class="ts-ptag-display ts-flag-display">${fl.icon} ${fl.label}</span>`;
                 // Custom flag
-                const cf = window.ProcessingTagState?._customFlags?.get(mapping.flagKey);
+                const cf = window.ProcessingTagState?.getCustomFlagDef(mapping.flagKey);
                 if (cf) return `<span class="ts-ptag-display ts-flag-display">🏷️ ${cf.label}</span>`;
                 return `<span class="ts-ptag-display ts-flag-display">🏷️ ${mapping.flagKey}</span>`;
             }
@@ -383,15 +383,14 @@
             `;
         }
         // Custom flags
-        const customFlags = window.ProcessingTagState?._customFlags;
-        if (customFlags && customFlags.size > 0) {
-            for (const [key, cf] of customFlags) {
-                html += `
-                    <div class="ts-dropdown-item" onclick="window._tsSelectTarget('${rowId}', 'flag', null, null, '${_escAttr(key)}', null)">
-                        <span>🏷️ ${_escHtml(cf.label)}</span>
-                    </div>
-                `;
-            }
+        const customFlagDefs = window.ProcessingTagState?.getCustomFlagDefs() || [];
+        for (const cf of customFlagDefs) {
+            html += `
+                <div class="ts-dropdown-item" onclick="window._tsSelectTarget('${rowId}', 'flag', null, null, '${_escAttr(cf.id)}', null)">
+                    <span>🏷️ ${_escHtml(cf.label)}</span>
+                </div>
+            `;
+        }
         }
 
         // === T-TAGS ===
@@ -610,8 +609,8 @@
             }
         }
         if (newCustomFlagKeys.size > 0) {
-            // Save custom flags to API first, then wait for SSE to settle
-            await _saveCustomFlagsToAPI();
+            // Save custom flag definitions to API first, then wait for SSE to settle
+            await window.saveCustomFlagDefinitions();
             await new Promise(r => setTimeout(r, 500));
         }
 
@@ -667,14 +666,16 @@
         // 7. Re-save custom flags after all toggles (SSE may have overwritten during execution)
         if (newCustomFlagKeys.size > 0) {
             // Re-ensure custom flags exist in state (SSE may have wiped them)
+            const defs = window.ProcessingTagState.getCustomFlagDefs();
             for (const task of uniqueTasks) {
                 if (task.action === 'flag' && task.flagKey.startsWith('CUSTOM_') && task._flagLabel) {
-                    if (!window.ProcessingTagState._customFlags.has(task.flagKey)) {
-                        window.ProcessingTagState._customFlags.set(task.flagKey, { label: task._flagLabel, color: '#7c3aed' });
+                    if (!defs.some(d => d.id === task.flagKey)) {
+                        defs.push({ id: task.flagKey, label: task._flagLabel, color: '#7c3aed', createdAt: Date.now() });
                     }
                 }
             }
-            await _saveCustomFlagsToAPI();
+            window.ProcessingTagState.setCustomFlagDefs(defs);
+            await window.saveCustomFlagDefinitions();
             // Refresh all visible rows to show correct labels
             if (typeof window.renderPanelContent === 'function') window.renderPanelContent();
             document.querySelectorAll('td[data-column="processing-tag"]').forEach(cell => {
@@ -701,37 +702,16 @@
 
     function _getOrCreateCustomFlag(label) {
         // Check if custom flag with this label already exists (case-insensitive)
-        const customFlags = window.ProcessingTagState?._customFlags;
-        if (customFlags) {
-            for (const [key, cf] of customFlags) {
-                if ((cf.label || '').toLowerCase() === label.toLowerCase()) return key;
-            }
+        const defs = window.ProcessingTagState?.getCustomFlagDefs() || [];
+        for (const cf of defs) {
+            if ((cf.label || '').toLowerCase() === label.toLowerCase()) return cf.id;
         }
         // Create new custom flag
         const key = 'CUSTOM_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
-        if (!window.ProcessingTagState._customFlags) {
-            window.ProcessingTagState._customFlags = new Map();
-        }
-        window.ProcessingTagState._customFlags.set(key, { label, color: '#7c3aed' });
+        defs.push({ id: key, label, color: '#7c3aed', createdAt: Date.now() });
+        window.ProcessingTagState.setCustomFlagDefs(defs);
         return key;
     }
-
-    async function _saveCustomFlagsToAPI() {
-        try {
-            const customFlags = window.ProcessingTagState._customFlags;
-            if (!customFlags) return;
-            const data = { customFlags: Object.fromEntries(customFlags) };
-            const campaignId = window.ProcessingTagState._campaignId;
-            if (!campaignId) return;
-            const url = `https://n2store-fallback.onrender.com/api/realtime/processing-tags/${campaignId}/__ptag_custom_flags__`;
-            await fetch(url, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ data, updatedBy: window.currentUserName || 'system' })
-            });
-        } catch (e) {
-            console.warn(SYNC_LOG, 'Failed to save custom flags:', e);
-        }
     }
 
     // =====================================================

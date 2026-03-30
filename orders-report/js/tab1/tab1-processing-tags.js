@@ -3838,6 +3838,7 @@
     window.assignTTagToOrder = assignTTagToOrder;
     window.removeTTagFromOrder = removeTTagFromOrder;
     window.saveTTagDefinitions = saveTTagDefinitions;
+    window.saveCustomFlagDefinitions = saveCustomFlagDefinitions;
 
     // Cleanup empty tags
     window._ptagCleanupEmptyTags = _ptagCleanupEmptyTags;
