@@ -1323,7 +1323,7 @@
             } else {
                 el.classList.remove('highlighted');
                 const search = el.dataset.search || '';
-                const match = !norm || search.includes(norm);
+                const match = !norm || _ptagMatchTokens(search, norm);
                 el.style.display = match ? '' : 'none';
                 if (match) {
                     catHasVisibleItem = true;
@@ -1730,12 +1730,12 @@
         // First: filter individual items (cards, flags, headers)
         body.querySelectorAll('.ptag-panel-card, .ptag-panel-cat-header-v2, .ptag-panel-flag-item').forEach(el => {
             if (!el.dataset.search) return;
-            el.style.display = el.dataset.search.includes(norm) ? '' : 'none';
+            el.style.display = _ptagMatchTokens(el.dataset.search, norm) ? '' : 'none';
         });
 
         // Then: show/hide groups — visible if group itself matches OR any child card is visible
         body.querySelectorAll('.ptag-panel-group').forEach(group => {
-            const groupMatch = group.dataset.search && group.dataset.search.includes(norm);
+            const groupMatch = group.dataset.search && _ptagMatchTokens(group.dataset.search, norm);
             const hasVisibleChild = group.querySelector('.ptag-panel-card:not([style*="display: none"]), .ptag-panel-card:not([style*="display:none"])');
             if (groupMatch) {
                 // Group matches → show group + all children
@@ -1966,7 +1966,7 @@
         const filtered = defs.filter(def => {
             if (_ttagSelectedTags.includes(def.id)) return false;
             if (!q) return true;
-            return _ptagNormalize(def.name).includes(q);
+            return _ptagMatchTokens(_ptagNormalize(def.name), q);
         });
 
         if (filtered.length === 0 && !query.trim()) {
@@ -3653,6 +3653,12 @@
             .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
             .replace(/đ/g, 'd').replace(/Đ/g, 'D')
             .replace(/[^a-z0-9\s]/g, '').trim();
+    }
+
+    function _ptagMatchTokens(searchData, normalizedQuery) {
+        if (!normalizedQuery) return true;
+        const tokens = normalizedQuery.split(/\s+/).filter(Boolean);
+        return tokens.every(token => searchData.includes(token));
     }
 
     // =====================================================
