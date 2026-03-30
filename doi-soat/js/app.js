@@ -145,10 +145,9 @@
             }
         }
 
-        // Fallback: try localStorage
+        // Fallback: try localStorage (doi-soat uses dedicated key)
         try {
-            const companyId = window.ShopConfig?.getConfig?.()?.CompanyId || 1;
-            const key = 'bearer_token_data_' + companyId;
+            const key = 'bearer_token_data_doisoat';
             const stored = localStorage.getItem(key);
             if (stored) {
                 const data = JSON.parse(stored);

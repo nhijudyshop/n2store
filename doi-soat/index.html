@@ -32,6 +32,27 @@
         <script src="../shared/js/token-manager.js"></script>
         <script src="../shared/js/tpos-config.js"></script>
 
+        <!-- Override: doi-soat dùng account riêng "doisoatlive" -->
+        <script>
+        (function() {
+            var tm = window.tokenManager;
+            if (!tm) return;
+            tm.credentials = { grant_type: 'password', username: 'doisoatlive', password: 'Aa@123456987', client_id: 'tmtWebApp' };
+            tm.storageKey = 'bearer_token_data_doisoat';
+            tm.token = null;
+            tm.tokenExpiry = null;
+            tm.initFirestore = function() {
+                try {
+                    if (window.firebase && window.firebase.firestore && this.firestoreReady) {
+                        this.firestoreRef = window.firebase.firestore().collection('tokens').doc('tpos_token_doisoat');
+                        return true;
+                    }
+                    return false;
+                } catch (e) { return false; }
+            };
+        })();
+        </script>
+
         <!-- Lucide Icons -->
         <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
     </head>
