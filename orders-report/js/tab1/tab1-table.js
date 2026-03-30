@@ -1129,7 +1129,7 @@ function createRowHTML(order) {
             <td data-column="order-code">
                 <span>${highlight(order.Code)}</span>
             </td>
-            <td data-column="customer" ${typeof isRecentTransfer === 'function' && isRecentTransfer(order.Telephone) ? 'style="background: linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(16,185,129,0.03) 100%); position: relative;"' : ''}><div class="customer-name">${highlight(order.Name)}${typeof renderRecentTransferBadge === 'function' ? renderRecentTransferBadge(order.Telephone) : ''}</div>${partnerStatusHTML}</td>
+            <td data-column="customer"><div class="customer-name">${highlight(order.Name)}</div>${partnerStatusHTML}</td>
             <td data-column="phone" style="text-align: center;">
                 <div style="display: flex; align-items: center; justify-content: center; gap: 4px;">
                     ${order.Telephone ? `<i class="fas fa-copy copy-phone-btn" onclick="copyPhoneNumber('${order.Telephone}'); event.stopPropagation();" title="Copy SĐT" style="cursor: pointer; color: #9ca3af; font-size: 11px;"></i>` : ''}

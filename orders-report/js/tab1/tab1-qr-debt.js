@@ -292,87 +292,6 @@ async function batchFetchDebts(phones) {
 
 // =====================================================
 // RECENT TRANSFER TRACKING
-// Fetch phones that transferred within last 7 days
-// =====================================================
-
-// Map: phone → { amount, last_transfer_at }
-window.recentTransferPhones = new Map();
-
-async function fetchRecentTransfers() {
-    try {
-        const response = await fetch(`${QR_API_URL}/api/sepay/recent-transfers`);
-        const result = await response.json();
-        if (result.success && result.details) {
-            window.recentTransferPhones = new Map();
-            for (const r of result.details) {
-                window.recentTransferPhones.set(r.phone, parseFloat(r.transfer_amount) || 0);
-            }
-            console.log(`[RECENT-CK] ✅ Loaded ${window.recentTransferPhones.size} recent transfer phones`);
-        }
-    } catch (error) {
-        console.error('[RECENT-CK] Error fetching recent transfers:', error);
-    }
-}
-
-function isRecentTransfer(phone) {
-    if (!phone) return false;
-    const normalized = normalizePhoneForQR(phone);
-    return normalized && window.recentTransferPhones.has(normalized);
-}
-
-function renderRecentTransferBadge(phone) {
-    if (!phone) return '';
-    const normalized = normalizePhoneForQR(phone);
-    if (!normalized || !window.recentTransferPhones.has(normalized)) return '';
-    const amount = window.recentTransferPhones.get(normalized);
-    const formattedAmount = amount ? new Intl.NumberFormat('vi-VN').format(amount) + 'đ' : '';
-    return ` <span class="ck-badge" style="display: inline-block; background: #10b981; color: white; font-size: 10px; padding: 1px 5px; border-radius: 4px; font-weight: 600; vertical-align: middle;" title="Tổng CK 7 ngày: ${formattedAmount}">CK ${formattedAmount}</span>`;
-}
-
-/**
- * Update CK badges in table for a specific phone (or all phones)
- */
-function updateRecentTransferBadgesInTable(targetPhone) {
-    const normalized = targetPhone ? normalizePhoneForQR(targetPhone) : null;
-    document.querySelectorAll('td[data-column="customer"]').forEach(cell => {
-        const row = cell.closest('tr');
-        if (!row) return;
-        const phoneCell = row.querySelector('td[data-column="phone"]');
-        if (!phoneCell) return;
-        const rowPhone = normalizePhoneForQR(phoneCell.textContent.trim());
-        if (normalized && rowPhone !== normalized) return;
-
-        // Remove existing badge
-        const oldBadge = cell.querySelector('.ck-badge');
-        if (oldBadge) oldBadge.remove();
-
-        // Add new badge if phone is in recent transfers
-        if (rowPhone && window.recentTransferPhones.has(rowPhone)) {
-            const amount = window.recentTransferPhones.get(rowPhone);
-            const formattedAmount = amount ? new Intl.NumberFormat('vi-VN').format(amount) + 'đ' : '';
-            const nameDiv = cell.querySelector('.customer-name');
-            if (nameDiv) {
-                const badge = document.createElement('span');
-                badge.className = 'ck-badge';
-                badge.style.cssText = 'display: inline-block; background: #10b981; color: white; font-size: 10px; padding: 1px 5px; border-radius: 4px; font-weight: 600; vertical-align: middle; margin-left: 4px;';
-                badge.title = `Tổng CK 7 ngày: ${formattedAmount}`;
-                badge.textContent = `CK ${formattedAmount}`;
-                nameDiv.appendChild(badge);
-            }
-            // Add watermark background
-            cell.style.background = 'linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(16,185,129,0.03) 100%)';
-        } else {
-            cell.style.background = '';
-        }
-    });
-}
-
-// Fetch on load
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => setTimeout(fetchRecentTransfers, 500));
-} else {
-    setTimeout(fetchRecentTransfers, 500);
-}
 
 // Make QR and Debt functions globally accessible
 window.copyQRCode = copyQRCode;
@@ -507,21 +426,6 @@ function connectDebtRealtime() {
         });
 
         // Customer matched to transaction - update CK badge in realtime
-        debtEventSource.addEventListener('customer-info-updated', (e) => {
-            try {
-                const data = JSON.parse(e.data);
-                const phone = data.customer_phone;
-                if (phone) {
-                    console.log('[RECENT-CK] Realtime: new transfer matched to', phone);
-                    // Re-fetch recent transfers to get updated totals
-                    fetchRecentTransfers().then(() => {
-                        updateRecentTransferBadgesInTable(phone);
-                    });
-                }
-            } catch (err) {
-                console.error('[RECENT-CK] Error handling customer-info-updated:', err);
-            }
-        });
 
         // Connection error
         debtEventSource.onerror = (error) => {
