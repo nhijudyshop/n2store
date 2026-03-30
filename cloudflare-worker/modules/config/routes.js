@@ -66,6 +66,7 @@ export const ROUTES = {
     TICKETS_V2: { pattern: '/api/v2/tickets/*' },
     BALANCE_HISTORY_V2: { pattern: '/api/v2/balance-history/*' },
     ANALYTICS_V2: { pattern: '/api/v2/analytics/*' },
+    KHO_DI_CHO_V2: { pattern: '/api/v2/kho-di-cho/*' },
 
     // Customer 360 v1 (legacy)
     CUSTOMER_360: { pattern: '/api/customer360/*' },
@@ -124,6 +125,7 @@ export function matchRoute(pathname) {
     if (pathname.startsWith('/api/v2/balance-history/') || pathname === '/api/v2/balance-history') return 'BALANCE_HISTORY_V2';
     if (pathname.startsWith('/api/v2/pending-withdrawals/') || pathname === '/api/v2/pending-withdrawals') return 'WALLETS_V2';
     if (pathname.startsWith('/api/v2/analytics/') || pathname === '/api/v2/analytics') return 'ANALYTICS_V2';
+    if (pathname.startsWith('/api/v2/kho-di-cho/') || pathname === '/api/v2/kho-di-cho') return 'KHO_DI_CHO_V2';
 
     // Customer 360 v1 routes (legacy)
     if (pathname.startsWith('/api/customer360/')) return 'CUSTOMER_360';

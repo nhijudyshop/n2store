@@ -1,0 +1,190 @@
+<!--
+  Kho Di Cho - Market Warehouse
+  Theo doi san pham da dat mua tu NCC.
+  Du lieu luu tren Render (PostgreSQL).
+-->
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="public, max-age=31536000">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kho Di Cho - N2STORE</title>
+
+    <!-- Shared Styles -->
+    <link rel="stylesheet" href="../shared/css/modern.css">
+    <!-- Module Styles -->
+    <link rel="stylesheet" href="css/kho-di-cho.css">
+
+    <!-- ES Module: Shared utilities -->
+    <script type="module" src="../shared/esm/compat.js"></script>
+    <!-- Fallback for file:// protocol -->
+    <script>
+        if (window.location.protocol === 'file:') {
+            document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
+            document.write('<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>');
+        }
+    </script>
+    <!-- Navigation Manager -->
+    <script defer src="../shared/js/navigation-modern.js"></script>
+
+    <!-- Lucide Icons CDN -->
+    <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
+    <!-- Firebase Configuration (SHARED) -->
+    <script src="../shared/js/firebase-config.js"></script>
+
+    <!-- Token Manager & API Config -->
+    <script src="../shared/js/api-config.js"></script>
+    <script src="../shared/js/token-manager.js"></script>
+</head>
+<body>
+    <main class="main-content">
+        <!-- Header -->
+        <div class="page-header">
+            <div class="header-left">
+                <h1 class="page-title">
+                    <i data-lucide="shopping-basket"></i>
+                    Kho Di Cho
+                </h1>
+                <p class="page-subtitle">Theo doi hang da dat mua tu NCC</p>
+            </div>
+            <div class="header-right">
+                <div class="summary-cards">
+                    <div class="summary-card">
+                        <span class="summary-label">Tong SP</span>
+                        <span class="summary-value" id="totalProducts">0</span>
+                    </div>
+                    <div class="summary-card">
+                        <span class="summary-label">Tong SL</span>
+                        <span class="summary-value" id="totalQuantity">0</span>
+                    </div>
+                    <div class="summary-card accent">
+                        <span class="summary-label">Tong tien</span>
+                        <span class="summary-value" id="totalAmount">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="controls-bar">
+            <div class="search-box">
+                <i data-lucide="search" class="search-icon"></i>
+                <input type="text" id="searchInput" placeholder="Tim kiem theo ten, ma SP, bien the..." autocomplete="off">
+                <button id="clearSearch" class="btn-clear" title="Xoa tim kiem" style="display:none;">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+            <div class="controls-right">
+                <button id="btnRefresh" class="btn btn-secondary" title="Tai lai">
+                    <i data-lucide="refresh-cw"></i>
+                    <span class="btn-text">Tai lai</span>
+                </button>
+                <button id="btnExpandAll" class="btn btn-secondary" title="Mo rong tat ca">
+                    <i data-lucide="chevrons-down"></i>
+                    <span class="btn-text">Mo rong</span>
+                </button>
+                <button id="btnCollapseAll" class="btn btn-secondary" title="Thu gon tat ca">
+                    <i data-lucide="chevrons-up"></i>
+                    <span class="btn-text">Thu gon</span>
+                </button>
+                <button id="btnClearAll" class="btn btn-danger" title="Xoa toan bo kho">
+                    <i data-lucide="trash-2"></i>
+                    <span class="btn-text">Xoa kho</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Table -->
+        <div class="table-container">
+            <table class="data-table" id="dataTable">
+                <thead>
+                    <tr>
+                        <th class="col-stt">STT</th>
+                        <th class="col-code">Ma SP</th>
+                        <th class="col-name">Ten san pham</th>
+                        <th class="col-variant">Bien the</th>
+                        <th class="col-qty">So luong</th>
+                        <th class="col-price">Don gia</th>
+                        <th class="col-total">Thanh tien</th>
+                        <th class="col-actions">Thao tac</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                    <!-- Data rendered by JS -->
+                </tbody>
+            </table>
+
+            <!-- Empty state -->
+            <div id="emptyState" class="empty-state" style="display:none;">
+                <i data-lucide="package-open" class="empty-icon"></i>
+                <h3>Kho di cho trong</h3>
+                <p>San pham se duoc tu dong them vao khi tao don TPOS thanh cong tu trang Quan Ly Dat Hang.</p>
+            </div>
+
+            <!-- Loading state -->
+            <div id="loadingState" class="loading-state">
+                <div class="spinner"></div>
+                <p>Dang tai du lieu...</p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Edit Modal -->
+    <div id="editModal" class="modal-overlay" style="display:none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Sua san pham</h3>
+                <button class="modal-close" id="closeEditModal"><i data-lucide="x"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Ma SP</label>
+                    <input type="text" id="editProductCode" readonly>
+                </div>
+                <div class="form-group">
+                    <label>Ten san pham</label>
+                    <input type="text" id="editProductName" readonly>
+                </div>
+                <div class="form-group">
+                    <label>So luong</label>
+                    <input type="number" id="editQuantity" min="0">
+                </div>
+                <div class="form-group">
+                    <label>Don gia</label>
+                    <input type="number" id="editPrice" min="0">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelEdit">Huy</button>
+                <button class="btn btn-primary" id="saveEdit">Luu</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Modal -->
+    <div id="confirmModal" class="modal-overlay" style="display:none;">
+        <div class="modal-content modal-sm">
+            <div class="modal-header">
+                <h3 id="confirmTitle">Xac nhan</h3>
+                <button class="modal-close" id="closeConfirmModal"><i data-lucide="x"></i></button>
+            </div>
+            <div class="modal-body">
+                <p id="confirmMessage"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="cancelConfirm">Huy</button>
+                <button class="btn btn-danger" id="okConfirm">Xoa</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Module JS -->
+    <script src="js/main.js"></script>
+</body>
+</html>

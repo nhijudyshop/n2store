@@ -272,6 +272,14 @@ const MENU_CONFIG = [
         pageIdentifier: "product-warehouse",
         publicAccess: true,
     },
+    {
+        href: "../kho-di-cho/index.html",
+        icon: "shopping-basket",
+        text: "Kho Đi Chợ",
+        shortText: "Đi Chợ",
+        pageIdentifier: "kho-di-cho",
+        publicAccess: true,
+    },
 ];
 
 /**
@@ -480,7 +488,7 @@ const DEFAULT_GROUPS_CONFIG = [
     {
         name: "Kho & Nhập Hàng",
         icon: "package",
-        items: ["inventory-tracking", "purchase-orders", "nhanhang", "doi-soat", "product-warehouse"]
+        items: ["inventory-tracking", "purchase-orders", "nhanhang", "doi-soat", "product-warehouse", "kho-di-cho"]
     },
     {
         name: "Khách Hàng",

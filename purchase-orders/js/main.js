@@ -1411,6 +1411,33 @@ class PurchaseOrderController {
 
                     await Promise.allSettled(parallelTasks);
 
+                    // Sync products to Kho Di Cho (non-blocking)
+                    try {
+                        const khoDiChoItems = (singleOrder.items || []).map(item => ({
+                            product_code: item.productCode || '',
+                            parent_product_code: item.parentProductCode || null,
+                            product_name: item.productName || '',
+                            variant: item.variant || null,
+                            quantity: item.quantity || 1,
+                            purchase_price: item.purchasePrice || 0,
+                            source_po_id: singleOrder.id || ''
+                        })).filter(i => i.product_code && i.product_name);
+
+                        if (khoDiChoItems.length > 0) {
+                            fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/kho-di-cho/batch', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ items: khoDiChoItems })
+                            }).then(r => r.json()).then(res => {
+                                if (res.success) {
+                                    console.log('[KhoDiCho] Synced:', res.message);
+                                }
+                            }).catch(err => console.warn('[KhoDiCho] Sync failed:', err));
+                        }
+                    } catch (err) {
+                        console.warn('[KhoDiCho] Sync error:', err);
+                    }
+
                     // Open barcode selection modal with updated order data
                     if (tposResult.orderLines?.length > 0 && window.BarcodeLabelDialog) {
                         const updatedOrder = { ...singleOrder };
