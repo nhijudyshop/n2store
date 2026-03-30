@@ -255,6 +255,15 @@ const MENU_CONFIG = [
         adminOnly: true,
         permissionRequired: "project-tracker",
     },
+    {
+        href: "../service-costs/index.html",
+        icon: "wallet",
+        text: "Chi Phí Dịch Vụ",
+        shortText: "Chi Phí",
+        pageIdentifier: "service-costs",
+        adminOnly: true,
+        permissionRequired: "service-costs",
+    },
 ];
 
 /**
