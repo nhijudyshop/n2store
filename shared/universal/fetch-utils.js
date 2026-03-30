@@ -98,6 +98,7 @@ export async function safeFetch(url, options = {}, config = {}) {
 export async function fetchWithRetry(resource, options = {}, maxRetries = 3, initialDelay = 1000, timeout = 10000) {
     let lastError;
     let lastResponse;
+    let retryCount = 0;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
@@ -118,15 +119,18 @@ export async function fetchWithRetry(resource, options = {}, maxRetries = 3, ini
                     }
                 }
 
+                retryCount++;
                 console.warn(`[FETCH-RETRY] ${response.status === 429 ? 'Rate limited' : 'Server error'} ${response.status}, attempt ${attempt + 1}/${maxRetries + 1}, waiting ${delayMs}ms`);
                 lastResponse = response;
                 await delay(delayMs);
                 continue;
             }
 
+            response._retryCount = retryCount;
             return response;
         } catch (error) {
             lastError = error;
+            retryCount++;
             console.warn(`[FETCH-RETRY] Attempt ${attempt + 1}/${maxRetries + 1} failed:`, error.message);
 
             if (attempt < maxRetries) {
@@ -136,6 +140,9 @@ export async function fetchWithRetry(resource, options = {}, maxRetries = 3, ini
         }
     }
 
-    if (lastResponse) return lastResponse;
+    if (lastResponse) {
+        lastResponse._retryCount = retryCount;
+        return lastResponse;
+    }
     throw lastError;
 }

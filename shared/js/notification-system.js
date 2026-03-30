@@ -522,4 +522,16 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports = { NotificationManager, NOTIFICATION_CONFIG };
 }
 
+// Listen for TPOS retry events from tpos-client.js
+if (typeof window !== 'undefined') {
+    window.addEventListener('tpos-retry', (e) => {
+        const { retryCount } = e.detail || {};
+        if (retryCount > 0 && window.notificationManager) {
+            window.notificationManager.warning(
+                `TPOS server chậm — đã tự động retry ${retryCount} lần`, 5000
+            );
+        }
+    });
+}
+
 console.log('[Notification System] Module loaded');

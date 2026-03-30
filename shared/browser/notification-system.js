@@ -760,6 +760,22 @@ export function createNotificationManager(options = {}) {
 }
 
 // =====================================================
+// TPOS RETRY NOTIFICATION
+// =====================================================
+
+if (typeof window !== 'undefined') {
+    window.addEventListener('tpos-retry', (e) => {
+        const { retryCount } = e.detail || {};
+        if (retryCount > 0) {
+            const manager = getNotificationManager();
+            manager.warning(
+                `TPOS server chậm — đã tự động retry ${retryCount} lần`, 5000
+            );
+        }
+    });
+}
+
+// =====================================================
 // DEFAULT EXPORT
 // =====================================================
 

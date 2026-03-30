@@ -309,7 +309,7 @@ export class TPOSClient {
             await this.refreshToken();
 
             const newAuthHeader = await this.getAuthHeader();
-            return fetchWithTimeout(url, {
+            const retryResponse = await fetchWithTimeout(url, {
                 ...options,
                 headers: {
                     ...newAuthHeader,
@@ -317,9 +317,30 @@ export class TPOSClient {
                     ...options.headers
                 }
             }, this.config.API_TIMEOUT);
+
+            this._notifyRetry(retryResponse, url);
+            return retryResponse;
         }
 
+        this._notifyRetry(response, url);
         return response;
+    }
+
+    /**
+     * Notify browser when CF Worker retried a request
+     */
+    _notifyRetry(response, url) {
+        try {
+            const retryCount = response.headers.get('X-Retry-Count');
+            if (retryCount && parseInt(retryCount) > 0) {
+                console.warn(`[TPOS] Request retried ${retryCount}x: ${url}`);
+                if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('tpos-retry', {
+                        detail: { retryCount: parseInt(retryCount), url }
+                    }));
+                }
+            }
+        } catch (e) { /* ignore */ }
     }
 
     /**

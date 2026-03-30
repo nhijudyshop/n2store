@@ -12,6 +12,7 @@ export const CORS_HEADERS = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, Accept, tposappversion, x-tpos-lang, feature-version, X-Page-Access-Token, X-Auth-Data, X-User-Id',
+    'Access-Control-Expose-Headers': 'X-Retry-Count',
     'Access-Control-Max-Age': '86400',
 };
 
@@ -107,5 +108,9 @@ export function proxyResponseWithCors(response) {
     Object.entries(CORS_HEADERS).forEach(([key, value]) => {
         newResponse.headers.set(key, value);
     });
+    // Expose retry count to browser if request was retried
+    if (response._retryCount > 0) {
+        newResponse.headers.set('X-Retry-Count', String(response._retryCount));
+    }
     return newResponse;
 }
