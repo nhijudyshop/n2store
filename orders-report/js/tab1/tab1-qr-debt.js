@@ -314,6 +314,7 @@ function formatAmountShort(amount) {
 
 /**
  * Fetch wallet debt data for all phones in current view via batch API
+ * Automatically chunks into batches of 150 to respect API limits
  */
 async function fetchWalletDebtBatch(phones) {
     if (!phones || !Array.isArray(phones) || phones.length === 0) return;
@@ -321,33 +322,39 @@ async function fetchWalletDebtBatch(phones) {
     const uniquePhones = [...new Set(phones.map(p => normalizePhoneForQR(p)).filter(Boolean))];
     if (uniquePhones.length === 0) return;
 
-    console.log(`[WALLET-DEBT] Fetching ${uniquePhones.length} phones...`);
-    try {
-        const response = await fetch(`${QR_API_URL}/api/v2/wallets/batch-summary`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phones: uniquePhones })
-        });
+    const CHUNK_SIZE = 150;
+    const totalChunks = Math.ceil(uniquePhones.length / CHUNK_SIZE);
+    console.log(`[WALLET-DEBT] Fetching ${uniquePhones.length} phones in ${totalChunks} batch(es)...`);
 
-        if (!response.ok) {
-            console.error(`[WALLET-DEBT] ❌ HTTP ${response.status}`);
-            return;
-        }
+    for (let i = 0; i < uniquePhones.length; i += CHUNK_SIZE) {
+        const chunk = uniquePhones.slice(i, i + CHUNK_SIZE);
+        try {
+            const response = await fetch(`${QR_API_URL}/api/v2/wallets/batch-summary`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phones: chunk })
+            });
 
-        const result = await response.json();
-        if (result.success && result.data) {
-            for (const [phone, data] of Object.entries(result.data)) {
-                if ((data.total || 0) > 0) {
-                    window.walletDebtData.set(phone, data);
-                } else {
-                    window.walletDebtData.delete(phone);
+            if (!response.ok) {
+                console.error(`[WALLET-DEBT] ❌ HTTP ${response.status} for chunk ${Math.floor(i / CHUNK_SIZE) + 1}`);
+                continue;
+            }
+
+            const result = await response.json();
+            if (result.success && result.data) {
+                for (const [phone, data] of Object.entries(result.data)) {
+                    if ((data.total || 0) > 0) {
+                        window.walletDebtData.set(phone, data);
+                    } else {
+                        window.walletDebtData.delete(phone);
+                    }
                 }
             }
-            console.log(`[WALLET-DEBT] ✅ Loaded ${window.walletDebtData.size} wallets with balance`);
+        } catch (error) {
+            console.error(`[WALLET-DEBT] Error fetching chunk ${Math.floor(i / CHUNK_SIZE) + 1}:`, error);
         }
-    } catch (error) {
-        console.error('[WALLET-DEBT] Error fetching wallet data:', error);
     }
+    console.log(`[WALLET-DEBT] ✅ Total ${window.walletDebtData.size} wallets with balance`);
 }
 
 /**

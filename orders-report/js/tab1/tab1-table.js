@@ -348,16 +348,23 @@ function renderTable() {
         setTimeout(() => window.newMessagesNotifier.reapply(), 100);
     }
 
-    // Fetch wallet debt data for displayed phones and update badges
+    // Fetch wallet debt data for rendered rows only (not all displayedData)
+    // Use DOM to get actually rendered phones - avoids sending thousands of phones
     if (typeof fetchWalletDebtBatch === 'function') {
-        const phones = [...new Set(displayedData.map(o => o.Telephone).filter(Boolean))];
-        if (phones.length > 0) {
-            fetchWalletDebtBatch(phones).then(() => {
-                if (typeof updateWalletDebtBadgesInTable === 'function') {
-                    updateWalletDebtBadgesInTable();
-                }
+        setTimeout(() => {
+            const phones = [];
+            document.querySelectorAll('td[data-column="phone"]').forEach(cell => {
+                const p = cell.textContent.trim();
+                if (p) phones.push(p);
             });
-        }
+            if (phones.length > 0) {
+                fetchWalletDebtBatch([...new Set(phones)]).then(() => {
+                    if (typeof updateWalletDebtBadgesInTable === 'function') {
+                        updateWalletDebtBadgesInTable();
+                    }
+                });
+            }
+        }, 200);
     }
 }
 
@@ -1038,20 +1045,26 @@ function renderByEmployee() {
         });
     });
 
-    // Fetch wallet debt data for employee view
-    if (typeof fetchWalletDebtBatch === 'function') {
-        const phones = [...new Set(displayedData.map(o => o.Telephone).filter(Boolean))];
-        if (phones.length > 0) {
-            fetchWalletDebtBatch(phones).then(() => {
-                if (typeof updateWalletDebtBadgesInTable === 'function') {
-                    updateWalletDebtBadgesInTable();
-                }
-            });
-        }
-    }
-
     // Clear rendering flag after render is complete
     isRendering = false;
+
+    // Fetch wallet debt data for employee view (DOM-based, with chunking)
+    if (typeof fetchWalletDebtBatch === 'function') {
+        setTimeout(() => {
+            const phones = [];
+            document.querySelectorAll('td[data-column="phone"]').forEach(cell => {
+                const p = cell.textContent.trim();
+                if (p) phones.push(p);
+            });
+            if (phones.length > 0) {
+                fetchWalletDebtBatch([...new Set(phones)]).then(() => {
+                    if (typeof updateWalletDebtBadgesInTable === 'function') {
+                        updateWalletDebtBadgesInTable();
+                    }
+                });
+            }
+        }, 200);
+    }
 }
 
 function createRowHTML(order) {
