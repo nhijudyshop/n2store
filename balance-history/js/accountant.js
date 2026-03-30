@@ -2508,6 +2508,29 @@
 
             showNotification('Đã kiểm tra giao dịch thành công', 'success');
 
+            // Log to audit history
+            try {
+                if (window.AuditLogger) {
+                    const tx = state.approvedToday.find(t => t.id == currentReviewTxId) || {};
+                    window.AuditLogger.logAction('transaction_verify', {
+                        module: 'balance-history',
+                        description: 'Kiểm tra giao dịch #' + currentReviewTxId + (tx.linked_customer_phone ? ' (KH: ' + (tx.customer_name || '') + ' - ' + tx.linked_customer_phone + ')' : ''),
+                        oldData: { manager_reviewed: false },
+                        newData: {
+                            manager_reviewed: true,
+                            review_note: reviewNote,
+                            reviewed_by: reviewedBy,
+                            review_image_url: reviewImageUrl || null,
+                            txId: String(currentReviewTxId)
+                        },
+                        approverUserId: reviewedBy,
+                        approverUserName: reviewedBy,
+                        entityId: String(currentReviewTxId),
+                        entityType: 'balance_history'
+                    });
+                }
+            } catch (e) { /* audit log error - ignore */ }
+
         } catch (error) {
             console.error('[ACCOUNTANT] Manager review error:', error);
             showNotification(`Lỗi: ${error.message}`, 'error');
