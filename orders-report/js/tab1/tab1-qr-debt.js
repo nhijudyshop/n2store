@@ -291,48 +291,112 @@ async function batchFetchDebts(phones) {
 }
 
 // =====================================================
-// RECENT TRANSFER TRACKING
-// Fetch phones that transferred within last 7 days
+// WALLET DEBT BADGES - Hiển thị công nợ ví khách hàng
+// Badge theo nguồn: CK, Thu về, Khách gửi, Nạp Tay
 // =====================================================
 
-// Map: phone → { amount, last_transfer_at }
-window.recentTransferPhones = new Map();
+// Map: phone → { total, balance, virtualBalance, sourceBreakdown }
+window.walletDebtData = new Map();
 
-async function fetchRecentTransfers() {
-    try {
-        const response = await fetch(`${QR_API_URL}/api/sepay/recent-transfers`);
-        const result = await response.json();
-        if (result.success && result.details) {
-            window.recentTransferPhones = new Map();
-            for (const r of result.details) {
-                window.recentTransferPhones.set(r.phone, parseFloat(r.transfer_amount) || 0);
-            }
-            console.log(`[RECENT-CK] ✅ Loaded ${window.recentTransferPhones.size} recent transfer phones`);
-        }
-    } catch (error) {
-        console.error('[RECENT-CK] Error fetching recent transfers:', error);
-    }
-}
+const WALLET_DEBT_BADGE_CONFIG = {
+    BANK_TRANSFER:        { label: 'CK',        bg: '#10b981', icon: '💳' },
+    RETURN_GOODS:         { label: 'Khách gửi',  bg: '#8b5cf6', icon: '📦' },
+    VIRTUAL_CREDIT_ISSUE: { label: 'Thu về',     bg: '#f59e0b', icon: '🔄' },
+    MANUAL_ADJUSTMENT:    { label: 'Nạp Tay',   bg: '#3b82f6', icon: '✍️' },
+};
 
-function isRecentTransfer(phone) {
-    if (!phone) return false;
-    const normalized = normalizePhoneForQR(phone);
-    return normalized && window.recentTransferPhones.has(normalized);
-}
-
-function renderRecentTransferBadge(phone) {
-    if (!phone) return '';
-    const normalized = normalizePhoneForQR(phone);
-    if (!normalized || !window.recentTransferPhones.has(normalized)) return '';
-    const amount = window.recentTransferPhones.get(normalized);
-    const formattedAmount = amount ? new Intl.NumberFormat('vi-VN').format(amount) + 'đ' : '';
-    return ` <span class="ck-badge" style="display: inline-block; background: #10b981; color: white; font-size: 10px; padding: 1px 5px; border-radius: 4px; font-weight: 600; vertical-align: middle;" title="Tổng CK 7 ngày: ${formattedAmount}">CK ${formattedAmount}</span>`;
+function formatAmountShort(amount) {
+    if (!amount || amount <= 0) return '0';
+    if (amount >= 1000000) return (amount / 1000000).toFixed(1).replace('.0', '') + 'tr';
+    if (amount >= 1000) return Math.round(amount / 1000) + 'k';
+    return new Intl.NumberFormat('vi-VN').format(amount) + 'đ';
 }
 
 /**
- * Update CK badges in table for a specific phone (or all phones)
+ * Fetch wallet debt data for all phones in current view via batch API
  */
-function updateRecentTransferBadgesInTable(targetPhone) {
+async function fetchWalletDebtBatch(phones) {
+    if (!phones || !Array.isArray(phones) || phones.length === 0) return;
+
+    const uniquePhones = [...new Set(phones.map(p => normalizePhoneForQR(p)).filter(Boolean))];
+    if (uniquePhones.length === 0) return;
+
+    console.log(`[WALLET-DEBT] Fetching ${uniquePhones.length} phones...`);
+    try {
+        const response = await fetch(`${QR_API_URL}/api/v2/wallets/batch-summary`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phones: uniquePhones })
+        });
+
+        if (!response.ok) {
+            console.error(`[WALLET-DEBT] ❌ HTTP ${response.status}`);
+            return;
+        }
+
+        const result = await response.json();
+        if (result.success && result.data) {
+            for (const [phone, data] of Object.entries(result.data)) {
+                if ((data.total || 0) > 0) {
+                    window.walletDebtData.set(phone, data);
+                } else {
+                    window.walletDebtData.delete(phone);
+                }
+            }
+            console.log(`[WALLET-DEBT] ✅ Loaded ${window.walletDebtData.size} wallets with balance`);
+        }
+    } catch (error) {
+        console.error('[WALLET-DEBT] Error fetching wallet data:', error);
+    }
+}
+
+/**
+ * Check if phone has wallet debt (total > 0)
+ */
+function hasWalletDebt(phone) {
+    if (!phone) return false;
+    const normalized = normalizePhoneForQR(phone);
+    return normalized && window.walletDebtData.has(normalized);
+}
+
+/**
+ * Render wallet debt badges for a phone number
+ * Returns HTML string with one badge per active source
+ */
+function renderWalletDebtBadges(phone) {
+    if (!phone) return '';
+    const normalized = normalizePhoneForQR(phone);
+    if (!normalized || !window.walletDebtData.has(normalized)) return '';
+
+    const data = window.walletDebtData.get(normalized);
+    const sources = data.sourceBreakdown || {};
+    const total = data.total || 0;
+    if (total <= 0) return '';
+
+    // Build badges for each source that has positive amount
+    // Determine effective source amounts based on current balance/virtualBalance
+    const badges = [];
+    for (const [source, config] of Object.entries(WALLET_DEBT_BADGE_CONFIG)) {
+        const sourceAmount = sources[source] || 0;
+        if (sourceAmount <= 0) continue;
+
+        const shortAmt = formatAmountShort(sourceAmount);
+        badges.push(`<span class="wallet-debt-badge" data-source="${source}" onclick="window.openWalletDebtModal('${normalized}'); event.stopPropagation();" style="display:inline-block;background:${config.bg};color:white;font-size:10px;padding:1px 5px;border-radius:4px;font-weight:600;vertical-align:middle;margin-left:3px;cursor:pointer;white-space:nowrap;" title="${config.label}: ${new Intl.NumberFormat('vi-VN').format(sourceAmount)}đ">${config.label} ${shortAmt}</span>`);
+    }
+
+    // If no source breakdown available but total > 0, show generic badge
+    if (badges.length === 0 && total > 0) {
+        const shortAmt = formatAmountShort(total);
+        badges.push(`<span class="wallet-debt-badge" onclick="window.openWalletDebtModal('${normalized}'); event.stopPropagation();" style="display:inline-block;background:#10b981;color:white;font-size:10px;padding:1px 5px;border-radius:4px;font-weight:600;vertical-align:middle;margin-left:3px;cursor:pointer;white-space:nowrap;" title="Số dư ví: ${new Intl.NumberFormat('vi-VN').format(total)}đ">Ví ${shortAmt}</span>`);
+    }
+
+    return ' ' + badges.join(' ');
+}
+
+/**
+ * Update wallet debt badges in table for a specific phone (or all phones)
+ */
+function updateWalletDebtBadgesInTable(targetPhone) {
     const normalized = targetPhone ? normalizePhoneForQR(targetPhone) : null;
     document.querySelectorAll('td[data-column="customer"]').forEach(cell => {
         const row = cell.closest('tr');
@@ -342,24 +406,27 @@ function updateRecentTransferBadgesInTable(targetPhone) {
         const rowPhone = normalizePhoneForQR(phoneCell.textContent.trim());
         if (normalized && rowPhone !== normalized) return;
 
-        // Remove existing badge
-        const oldBadge = cell.querySelector('.ck-badge');
-        if (oldBadge) oldBadge.remove();
+        // Remove existing badges
+        cell.querySelectorAll('.wallet-debt-badge').forEach(b => b.remove());
 
-        // Add new badge if phone is in recent transfers
-        if (rowPhone && window.recentTransferPhones.has(rowPhone)) {
-            const amount = window.recentTransferPhones.get(rowPhone);
-            const formattedAmount = amount ? new Intl.NumberFormat('vi-VN').format(amount) + 'đ' : '';
-            const nameDiv = cell.querySelector('.customer-name');
-            if (nameDiv) {
-                const badge = document.createElement('span');
-                badge.className = 'ck-badge';
-                badge.style.cssText = 'display: inline-block; background: #10b981; color: white; font-size: 10px; padding: 1px 5px; border-radius: 4px; font-weight: 600; vertical-align: middle; margin-left: 4px;';
-                badge.title = `Tổng CK 7 ngày: ${formattedAmount}`;
-                badge.textContent = `CK ${formattedAmount}`;
-                nameDiv.appendChild(badge);
+        const nameDiv = cell.querySelector('.customer-name');
+        if (!nameDiv) return;
+
+        if (rowPhone && window.walletDebtData.has(rowPhone)) {
+            const data = window.walletDebtData.get(rowPhone);
+            if ((data.total || 0) <= 0) {
+                cell.style.background = '';
+                return;
             }
-            // Add watermark background
+
+            // Insert badges
+            const temp = document.createElement('span');
+            temp.innerHTML = renderWalletDebtBadges(rowPhone);
+            while (temp.firstChild) {
+                nameDiv.appendChild(temp.firstChild);
+            }
+
+            // Watermark background
             cell.style.background = 'linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(16,185,129,0.03) 100%)';
         } else {
             cell.style.background = '';
@@ -367,11 +434,180 @@ function updateRecentTransferBadgesInTable(targetPhone) {
     });
 }
 
-// Fetch on load
+/**
+ * Fetch wallet debt data on page load after table renders
+ */
+function initWalletDebtBadges() {
+    // Get all phones from current table
+    const phones = [];
+    document.querySelectorAll('td[data-column="phone"]').forEach(cell => {
+        const phone = cell.textContent.trim();
+        if (phone) phones.push(phone);
+    });
+
+    if (phones.length > 0) {
+        fetchWalletDebtBatch(phones).then(() => {
+            updateWalletDebtBadgesInTable();
+        });
+    }
+}
+
+// Auto-fetch on load
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => setTimeout(fetchRecentTransfers, 500));
+    document.addEventListener('DOMContentLoaded', () => setTimeout(initWalletDebtBadges, 1500));
 } else {
-    setTimeout(fetchRecentTransfers, 500);
+    setTimeout(initWalletDebtBadges, 1500);
+}
+
+// =====================================================
+// WALLET SSE REALTIME + TOAST NOTIFICATIONS
+// Listen for wallet balance changes via SSE
+// =====================================================
+
+let walletEventSource = null;
+let walletReconnectTimeout = null;
+let isWalletManualClose = false;
+const RENDER_SSE_URL = 'https://n2store-fallback.onrender.com';
+
+/**
+ * Check if current user is in employee mode (not admin)
+ */
+function isEmployeeMode() {
+    const isAdmin = window.authManager?.isAdminTemplate?.() || false;
+    return !isAdmin && (window.employeeRanges?.length > 0);
+}
+
+/**
+ * Get the set of phone numbers visible in current employee's orders
+ */
+function getEmployeePhones() {
+    const phones = new Set();
+    document.querySelectorAll('td[data-column="phone"]').forEach(cell => {
+        const phone = normalizePhoneForQR(cell.textContent.trim());
+        if (phone) phones.add(phone);
+    });
+    return phones;
+}
+
+/**
+ * Get customer name from table by phone
+ */
+function getCustomerNameByPhone(phone) {
+    const normalized = normalizePhoneForQR(phone);
+    const rows = document.querySelectorAll('tr[data-order-id]');
+    for (const row of rows) {
+        const phoneCell = row.querySelector('td[data-column="phone"]');
+        if (!phoneCell) continue;
+        const rowPhone = normalizePhoneForQR(phoneCell.textContent.trim());
+        if (rowPhone === normalized) {
+            const nameDiv = row.querySelector('.customer-name');
+            if (nameDiv) {
+                // Get text content without badge text
+                const clone = nameDiv.cloneNode(true);
+                clone.querySelectorAll('.wallet-debt-badge').forEach(b => b.remove());
+                return clone.textContent.trim();
+            }
+        }
+    }
+    return phone;
+}
+
+/**
+ * Connect to SSE for wallet updates (subscribe to "wallet" prefix for all events)
+ */
+function connectWalletSSE() {
+    if (walletEventSource) return;
+
+    try {
+        console.log('[WALLET-SSE] Connecting...');
+        const sseUrl = `${RENDER_SSE_URL}/api/realtime/sse?keys=${encodeURIComponent('wallet')}`;
+        walletEventSource = new EventSource(sseUrl);
+
+        walletEventSource.addEventListener('wallet_update', (e) => {
+            try {
+                const parsed = JSON.parse(e.data);
+                const eventData = parsed.data || parsed;
+                const phone = eventData.phone;
+                const wallet = eventData.wallet;
+                const transaction = eventData.transaction;
+
+                if (!phone || !wallet) return;
+
+                const normalized = normalizePhoneForQR(phone);
+                if (!normalized) return;
+
+                console.log(`[WALLET-SSE] Update for ${phone}: balance=${wallet.balance}, virtual=${wallet.virtual_balance}`);
+
+                const newTotal = (parseFloat(wallet.balance) || 0) + (parseFloat(wallet.virtual_balance) || 0);
+                const oldData = window.walletDebtData.get(normalized);
+                const oldTotal = oldData ? (oldData.total || 0) : 0;
+
+                // Update local wallet data
+                if (newTotal > 0) {
+                    // Merge source breakdown - add the new transaction source amount
+                    const existingSources = oldData?.sourceBreakdown || {};
+                    if (transaction?.source && transaction?.amount > 0) {
+                        existingSources[transaction.source] = (existingSources[transaction.source] || 0) + parseFloat(transaction.amount);
+                    }
+                    window.walletDebtData.set(normalized, {
+                        balance: parseFloat(wallet.balance) || 0,
+                        virtualBalance: parseFloat(wallet.virtual_balance) || 0,
+                        total: newTotal,
+                        sourceBreakdown: existingSources
+                    });
+                } else {
+                    window.walletDebtData.delete(normalized);
+                }
+
+                // Update badges in table
+                updateWalletDebtBadgesInTable(phone);
+
+                // Also update debt column
+                updateDebtCellsInTable(phone, newTotal);
+
+                // Toast notification: only when balance INCREASED + employee mode + phone in employee's orders
+                if (newTotal > oldTotal && isEmployeeMode()) {
+                    const employeePhones = getEmployeePhones();
+                    if (employeePhones.has(normalized)) {
+                        const increase = newTotal - oldTotal;
+                        const customerName = getCustomerNameByPhone(phone);
+                        showNotification(`Ví khách ${customerName} vừa tăng ${new Intl.NumberFormat('vi-VN').format(increase)}đ`, 'success');
+                    }
+                }
+            } catch (err) {
+                console.error('[WALLET-SSE] Error handling event:', err);
+            }
+        });
+
+        walletEventSource.addEventListener('connected', () => {
+            console.log('[WALLET-SSE] ✅ Connected');
+        });
+
+        walletEventSource.onerror = () => {
+            console.warn('[WALLET-SSE] Connection error');
+            if (walletEventSource) {
+                walletEventSource.close();
+                walletEventSource = null;
+            }
+            if (!isWalletManualClose) {
+                clearTimeout(walletReconnectTimeout);
+                walletReconnectTimeout = setTimeout(connectWalletSSE, 15000);
+            }
+        };
+
+    } catch (error) {
+        console.error('[WALLET-SSE] Failed to connect:', error);
+    }
+}
+
+function disconnectWalletSSE() {
+    isWalletManualClose = true;
+    clearTimeout(walletReconnectTimeout);
+    if (walletEventSource) {
+        walletEventSource.close();
+        walletEventSource = null;
+        console.log('[WALLET-SSE] Disconnected');
+    }
 }
 
 // Make QR and Debt functions globally accessible
@@ -386,10 +622,13 @@ window.copyQRImageUrl = copyQRImageUrl;
 window.renderDebtColumn = renderDebtColumn;
 window.fetchDebtForPhone = fetchDebtForPhone;
 window.batchFetchDebts = batchFetchDebts;
-window.fetchRecentTransfers = fetchRecentTransfers;
-window.isRecentTransfer = isRecentTransfer;
-window.renderRecentTransferBadge = renderRecentTransferBadge;
-window.updateRecentTransferBadgesInTable = updateRecentTransferBadgesInTable;
+window.hasWalletDebt = hasWalletDebt;
+window.renderWalletDebtBadges = renderWalletDebtBadges;
+window.updateWalletDebtBadgesInTable = updateWalletDebtBadgesInTable;
+window.fetchWalletDebtBatch = fetchWalletDebtBatch;
+window.initWalletDebtBadges = initWalletDebtBadges;
+window.connectWalletSSE = connectWalletSSE;
+window.disconnectWalletSSE = disconnectWalletSSE;
 
 // =====================================================
 // REALTIME DEBT UPDATES (SSE)
@@ -506,20 +745,19 @@ function connectDebtRealtime() {
             }
         });
 
-        // Customer matched to transaction - update CK badge in realtime
+        // Customer matched to transaction - refresh wallet debt badges
         debtEventSource.addEventListener('customer-info-updated', (e) => {
             try {
                 const data = JSON.parse(e.data);
                 const phone = data.customer_phone;
                 if (phone) {
-                    console.log('[RECENT-CK] Realtime: new transfer matched to', phone);
-                    // Re-fetch recent transfers to get updated totals
-                    fetchRecentTransfers().then(() => {
-                        updateRecentTransferBadgesInTable(phone);
+                    console.log('[WALLET-DEBT] Realtime: new transfer matched to', phone);
+                    fetchWalletDebtBatch([phone]).then(() => {
+                        updateWalletDebtBadgesInTable(phone);
                     });
                 }
             } catch (err) {
-                console.error('[RECENT-CK] Error handling customer-info-updated:', err);
+                console.error('[WALLET-DEBT] Error handling customer-info-updated:', err);
             }
         });
 
@@ -567,6 +805,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Delay connection to let page load first
     setTimeout(() => {
         connectDebtRealtime();
+        connectWalletSSE();
     }, 3000);
 });
 

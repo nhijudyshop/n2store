@@ -528,6 +528,25 @@ router.post('/batch-summary', async (req, res) => {
                     });
                 }
             });
+
+            // Fetch source breakdown for wallet debt badges
+            // Sum positive amounts (deposits/credits) by source, grouped by phone
+            const sourceBreakdownResult = await db.query(`
+                SELECT phone, source, SUM(amount) as total_amount
+                FROM wallet_transactions
+                WHERE phone = ANY($1) AND amount > 0
+                  AND source IN ('BANK_TRANSFER', 'RETURN_GOODS', 'MANUAL_ADJUSTMENT', 'VIRTUAL_CREDIT_ISSUE')
+                GROUP BY phone, source
+            `, [phonesForDeposit]);
+
+            sourceBreakdownResult.rows.forEach(row => {
+                if (walletMap[row.phone]) {
+                    if (!walletMap[row.phone].sourceBreakdown) {
+                        walletMap[row.phone].sourceBreakdown = {};
+                    }
+                    walletMap[row.phone].sourceBreakdown[row.source] = parseFloat(row.total_amount);
+                }
+            });
         }
 
         res.json({ success: true, data: walletMap });
