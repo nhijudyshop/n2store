@@ -84,7 +84,7 @@
         try {
             const [walletRes, txRes] = await Promise.all([
                 fetch(`${WALLET_API_URL}/v2/wallets/${encodeURIComponent(phone)}`),
-                fetch(`${WALLET_API_URL}/customer/${encodeURIComponent(phone)}/transactions?limit=20`)
+                fetch(`${WALLET_API_URL}/v2/wallets/${encodeURIComponent(phone)}/transactions?limit=20`)
             ]);
 
             if (walletRes.ok) {
