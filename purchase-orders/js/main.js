@@ -684,18 +684,34 @@ class PurchaseOrderController {
 
         const fmt = (n) => Number(n || 0).toLocaleString('vi-VN');
 
-        // Build item rows with readonly qty/price (double-click to edit)
-        const rowsHTML = items.map((item, idx) => {
+        // Group items by parentProductCode for expand/collapse display
+        const groupMap = new Map();
+        items.forEach((item, idx) => {
+            const parentCode = item.parentProductCode || '';
+            const itemCode = item.productCode || '';
+            const isVariant = parentCode && parentCode !== itemCode;
+            const groupKey = isVariant ? parentCode : `__s_${idx}`;
+            if (!groupMap.has(groupKey)) {
+                groupMap.set(groupKey, { parentCode: isVariant ? parentCode : '', name: item.productName || '', items: [] });
+            }
+            groupMap.get(groupKey).items.push({ item, idx });
+        });
+
+        const renderItemRow = (item, idx, stt, isChild, parentCode) => {
             const qty = item.quantity || 0;
             const price = item.purchasePrice || 0;
             const lineTotal = qty * price;
             const code = item.productCode || '';
             const name = item.productName || '';
             const variant = item.variant || '';
+            const bgStyle = isChild ? 'background: #fafbff;' : '';
+            const padLeft = isChild ? '24px' : '12px';
+            const parentAttr = isChild ? ` data-parent-code="${parentCode}"` : '';
+            const childClass = isChild ? ' po-child-row' : '';
             return `
-                <tr style="border-bottom: 1px solid #dee2e6;" data-idx="${idx}" data-tpos-id="${item.tposProductId || ''}" data-tpos-tmpl-id="${item.tposProductTmplId || ''}" data-code="${code}">
-                    <td style="padding: 10px 8px; text-align: center; color: #333; font-size: 14px; vertical-align: top; width: 40px; border-right: 1px solid #dee2e6;">${idx + 1}</td>
-                    <td style="padding: 10px 12px; font-size: 14px; border-right: 1px solid #dee2e6;">
+                <tr class="${childClass}" style="border-bottom: 1px solid #dee2e6; ${bgStyle}" data-idx="${idx}" data-tpos-id="${item.tposProductId || ''}" data-tpos-tmpl-id="${item.tposProductTmplId || ''}" data-code="${code}"${parentAttr}>
+                    <td style="padding: 10px 8px; text-align: center; color: #333; font-size: 14px; vertical-align: top; width: 40px; border-right: 1px solid #dee2e6;">${stt}</td>
+                    <td style="padding: 10px 12px 10px ${padLeft}; font-size: 14px; border-right: 1px solid #dee2e6;">
                         <div style="font-weight: 700; color: #000;">[${code}] ${name}</div>
                         <div style="color: #999; font-size: 12px; margin-top: 2px;">${variant || 'Ghi chú'}</div>
                     </td>
@@ -737,7 +753,44 @@ class PurchaseOrderController {
                         " title="Xóa dòng">&times;</span>
                     </td>
                 </tr>`;
-        }).join('');
+        };
+
+        let sttCounter = 0;
+        const rowsHTMLArr = [];
+        for (const [groupKey, group] of groupMap) {
+            const isGroup = !groupKey.startsWith('__s_');
+
+            if (isGroup) {
+                // Parent header row for grouped variants
+                rowsHTMLArr.push(`
+                    <tr class="po-parent-row" data-parent-code="${group.parentCode}" style="background: #eef2ff; cursor: pointer; border-bottom: 1px solid #c7d2fe; user-select: none;">
+                        <td style="padding: 10px 8px; text-align: center; color: #4f46e5; font-size: 14px; vertical-align: middle; width: 40px; border-right: 1px solid #c7d2fe;">
+                            <span class="po-expand-arrow" style="font-size: 10px; display: inline-block; transition: transform 0.2s;">&#9660;</span>
+                        </td>
+                        <td style="padding: 10px 12px; font-size: 14px; border-right: 1px solid #c7d2fe;">
+                            <div style="font-weight: 700; color: #312e81;">[${group.parentCode}] ${group.name}</div>
+                            <div style="color: #6366f1; font-size: 12px; margin-top: 2px;">${group.items.length} biến thể</div>
+                        </td>
+                        <td style="padding: 10px 4px; text-align: center; width: 100px; border-right: 1px solid #c7d2fe; font-weight: 700; font-size: 14px; color: #312e81;" class="po-group-qty" data-parent-code="${group.parentCode}">0</td>
+                        <td style="padding: 10px 4px; text-align: right; width: 200px; border-right: 1px solid #c7d2fe;"></td>
+                        <td style="padding: 10px 10px; text-align: right; font-size: 14px; font-weight: 700; width: 120px; white-space: nowrap; border-right: 1px solid #c7d2fe; color: #312e81;" class="po-group-total" data-parent-code="${group.parentCode}">0</td>
+                        <td style="padding: 10px 6px; text-align: center; width: 50px;"></td>
+                    </tr>
+                `);
+
+                // Child rows (always visible by default)
+                group.items.forEach(({ item, idx }) => {
+                    sttCounter++;
+                    rowsHTMLArr.push(renderItemRow(item, idx, sttCounter, true, group.parentCode));
+                });
+            } else {
+                // Standalone row (no parent grouping)
+                const { item, idx } = group.items[0];
+                sttCounter++;
+                rowsHTMLArr.push(renderItemRow(item, idx, sttCounter, false, ''));
+            }
+        }
+        const rowsHTML = rowsHTMLArr.join('');
 
         const overlay = document.createElement('div');
         overlay.style.cssText = `
@@ -958,6 +1011,27 @@ class PurchaseOrderController {
             overlay.querySelector('#poDecreaseDisplay').textContent = fmt(decrease);
             overlay.querySelector('#poCostsDisplay').textContent = fmt(costs);
             overlay.querySelector('#poFinalAmount').textContent = fmt(totalAmount - decrease + costs);
+
+            // Update parent group totals
+            overlay.querySelectorAll('.po-parent-row').forEach(parentRow => {
+                const pCode = parentRow.dataset.parentCode;
+                let groupQty = 0, groupAmount = 0;
+                overlay.querySelectorAll(`tr.po-child-row[data-parent-code="${pCode}"]`).forEach(childRow => {
+                    const cQty = parseFloat(childRow.querySelector('.po-qty')?.value) || 0;
+                    const cPrice = parseFloat(childRow.querySelector('.po-price')?.value) || 0;
+                    groupQty += cQty;
+                    groupAmount += cQty * cPrice;
+                });
+                const gqEl = parentRow.querySelector('.po-group-qty');
+                const gtEl = parentRow.querySelector('.po-group-total');
+                if (gqEl) gqEl.textContent = groupQty;
+                if (gtEl) gtEl.textContent = fmt(groupAmount);
+                // Remove parent row if no children left
+                if (overlay.querySelectorAll(`tr.po-child-row[data-parent-code="${pCode}"]`).length === 0) {
+                    parentRow.remove();
+                }
+            });
+
             updateButtonStates();
         };
         recalcAll();
@@ -1111,6 +1185,23 @@ class PurchaseOrderController {
                 if (row) {
                     row.remove();
                     recalcAll();
+                }
+            });
+        });
+
+        // Expand/collapse parent rows
+        overlay.querySelectorAll('.po-parent-row').forEach(parentRow => {
+            parentRow.addEventListener('click', () => {
+                const pCode = parentRow.dataset.parentCode;
+                const arrow = parentRow.querySelector('.po-expand-arrow');
+                const children = overlay.querySelectorAll(`tr.po-child-row[data-parent-code="${pCode}"]`);
+                const isExpanded = arrow.style.transform !== 'rotate(-90deg)';
+                if (isExpanded) {
+                    children.forEach(row => row.style.display = 'none');
+                    arrow.style.transform = 'rotate(-90deg)';
+                } else {
+                    children.forEach(row => row.style.display = '');
+                    arrow.style.transform = 'rotate(0deg)';
                 }
             });
         });
