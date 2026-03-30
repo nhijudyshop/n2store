@@ -302,10 +302,11 @@ window.walletDebtData = new Map();
 const WALLET_BATCH_API_URL = 'https://n2store-fallback.onrender.com/api';
 
 const WALLET_DEBT_BADGE_CONFIG = {
-    BANK_TRANSFER:        { label: 'CK',        bg: '#10b981', icon: '💳' },
-    RETURN_GOODS:         { label: 'Khách gửi',  bg: '#8b5cf6', icon: '📦' },
-    VIRTUAL_CREDIT_ISSUE: { label: 'Thu về',     bg: '#f59e0b', icon: '🔄' },
-    MANUAL_ADJUSTMENT:    { label: 'Nạp Tay',   bg: '#3b82f6', icon: '✍️' },
+    BANK_TRANSFER:        { label: 'CK',        bg: '#10b981' },
+    RETURN_GOODS:         { label: 'Khách gửi',  bg: '#8b5cf6' },
+    VIRTUAL_CREDIT_ISSUE: { label: 'Thu về',     bg: '#f59e0b' },
+    MANUAL_ADJUSTMENT:    { label: 'Nạp Tay',   bg: '#3b82f6' },
+    ORDER_CANCEL_REFUND:  { label: 'Hoàn đơn',  bg: '#ef4444' },
 };
 
 function formatAmountShort(amount) {

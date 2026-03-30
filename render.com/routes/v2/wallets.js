@@ -530,13 +530,35 @@ router.post('/batch-summary', async (req, res) => {
             });
 
             // Fetch source breakdown for wallet debt badges
-            // Sum positive amounts (deposits/credits) by source, grouped by phone
+            // LIFO: only include recent deposits that contribute to current balance
+            // Walk backwards from most recent deposit, accumulate until reaching current total
             const sourceBreakdownResult = await db.query(`
-                SELECT phone, source, SUM(amount) as total_amount
-                FROM wallet_transactions
-                WHERE phone = ANY($1) AND amount > 0
-                  AND source IN ('BANK_TRANSFER', 'RETURN_GOODS', 'MANUAL_ADJUSTMENT', 'VIRTUAL_CREDIT_ISSUE')
+                WITH deposits_ranked AS (
+                    SELECT
+                        wt.phone,
+                        wt.source,
+                        wt.amount,
+                        SUM(wt.amount) OVER (PARTITION BY wt.phone ORDER BY wt.created_at DESC) as cumsum
+                    FROM wallet_transactions wt
+                    WHERE wt.phone = ANY($1)
+                      AND wt.amount > 0
+                ),
+                contributing AS (
+                    SELECT
+                        dr.phone,
+                        dr.source,
+                        CASE
+                            WHEN dr.cumsum <= cw.balance + cw.virtual_balance THEN dr.amount
+                            ELSE GREATEST(0, (cw.balance + cw.virtual_balance) - (dr.cumsum - dr.amount))
+                        END as effective_amount
+                    FROM deposits_ranked dr
+                    JOIN customer_wallets cw ON cw.phone = dr.phone
+                    WHERE dr.cumsum - dr.amount < cw.balance + cw.virtual_balance
+                )
+                SELECT phone, source, SUM(effective_amount) as total_amount
+                FROM contributing
                 GROUP BY phone, source
+                HAVING SUM(effective_amount) > 0
             `, [phonesForDeposit]);
 
             sourceBreakdownResult.rows.forEach(row => {
