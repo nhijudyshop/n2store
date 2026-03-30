@@ -8,7 +8,6 @@
 import { fetchWithRetry, fetchWithTimeout } from '../utils/fetch-utils.js';
 import { jsonResponse, errorResponse, proxyResponseWithCors, CORS_HEADERS } from '../utils/cors-utils.js';
 import { buildTposHeaders, learnFromResponse, getDynamicHeader } from '../utils/header-learner.js';
-import { getCachedToken, cacheToken } from '../utils/token-cache.js';
 import { API_ENDPOINTS } from '../config/endpoints.js';
 
 /**
@@ -91,48 +90,18 @@ export async function handleTposExportStandardPrice(request, url) {
  * @param {string} pathname
  * @returns {Promise<Response>}
  */
-export async function handleTposOrderLines(request, pathname, env = {}) {
+export async function handleTposOrderLines(request, pathname) {
     const orderId = pathname.match(/^\/tpos\/order\/(\d+)\/lines$/)?.[1];
 
     console.log('[TPOS-ORDER-LINES] Fetching OrderLines for order:', orderId);
 
     try {
-        // Get or fetch TPOS token
-        let token = getCachedToken()?.access_token;
-
-        if (!token) {
-            console.log('[TPOS-ORDER-LINES] No cached token, fetching new one...');
-            const tposUsername = env.TPOS_USERNAME || 'nvkt';
-            const tposPassword = env.TPOS_PASSWORD || 'Aa@123456789';
-            const tposClientId = env.TPOS_CLIENT_ID || 'tmtWebApp';
-            const tokenResponse = await fetchWithRetry(API_ENDPOINTS.TPOS.TOKEN, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: `grant_type=password&username=${encodeURIComponent(tposUsername)}&password=${encodeURIComponent(tposPassword)}&client_id=${encodeURIComponent(tposClientId)}`,
-            }, 3, 1000, 10000);
-
-            if (!tokenResponse.ok) {
-                throw new Error('Failed to get TPOS token');
-            }
-
-            const tokenData = await tokenResponse.json();
-            cacheToken(tokenData);
-            token = tokenData.access_token;
-        }
-
-        // Fetch OrderLines
         const odataUrl = `${API_ENDPOINTS.TPOS.ODATA}/FastSaleOrder(${orderId})/OrderLines?$expand=Product,ProductUOM,Account,SaleLine,User`;
+        const tposHeaders = buildTposHeaders(request);
 
         const odataResponse = await fetchWithRetry(odataUrl, {
             method: 'GET',
-            headers: {
-                'Accept': '*/*',
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json;IEEE754Compatible=false;charset=utf-8',
-                'tposappversion': getDynamicHeader('tposappversion'),
-                'Referer': 'https://tomato.tpos.vn/',
-                'Origin': 'https://tomato.tpos.vn'
-            },
+            headers: tposHeaders,
         }, 3, 1000, 15000);
 
         if (!odataResponse.ok) {
@@ -161,7 +130,7 @@ export async function handleTposOrderLines(request, pathname, env = {}) {
  * @param {string} pathname
  * @returns {Promise<Response>}
  */
-export async function handleTposOrderLinesByRef(request, pathname, env = {}) {
+export async function handleTposOrderLinesByRef(request, pathname) {
     const refMatch = pathname.match(/^\/tpos\/order-ref\/(.+)\/lines$/);
     const orderRef = refMatch ? decodeURIComponent(refMatch[1]) : null;
 
@@ -172,27 +141,7 @@ export async function handleTposOrderLinesByRef(request, pathname, env = {}) {
     }
 
     try {
-        // Get token
-        let token = getCachedToken()?.access_token;
-
-        if (!token) {
-            const tposUsername = env.TPOS_USERNAME || 'nvkt';
-            const tposPassword = env.TPOS_PASSWORD || 'Aa@123456789';
-            const tposClientId = env.TPOS_CLIENT_ID || 'tmtWebApp';
-            const tokenResponse = await fetchWithRetry(API_ENDPOINTS.TPOS.TOKEN, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: `grant_type=password&username=${encodeURIComponent(tposUsername)}&password=${encodeURIComponent(tposPassword)}&client_id=${encodeURIComponent(tposClientId)}`,
-            }, 3, 1000, 10000);
-
-            if (!tokenResponse.ok) {
-                throw new Error('Failed to get TPOS token');
-            }
-
-            const tokenData = await tokenResponse.json();
-            cacheToken(tokenData);
-            token = tokenData.access_token;
-        }
+        const tposHeaders = buildTposHeaders(request);
 
         // Search for order by reference
         const encodedRef = encodeURIComponent(orderRef);
@@ -202,12 +151,7 @@ export async function handleTposOrderLinesByRef(request, pathname, env = {}) {
 
         const searchResponse = await fetchWithRetry(searchUrl, {
             method: 'GET',
-            headers: {
-                'Accept': 'application/json, text/javascript, */*; q=0.01',
-                'Authorization': `Bearer ${token}`,
-                'tposappversion': getDynamicHeader('tposappversion'),
-                'Referer': 'https://tomato.tpos.vn/',
-            },
+            headers: tposHeaders,
         }, 3, 1000, 15000);
 
         if (!searchResponse.ok) {
@@ -234,13 +178,7 @@ export async function handleTposOrderLinesByRef(request, pathname, env = {}) {
 
         const odataResponse = await fetchWithRetry(odataUrl, {
             method: 'GET',
-            headers: {
-                'Accept': '*/*',
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json;IEEE754Compatible=false;charset=utf-8',
-                'tposappversion': getDynamicHeader('tposappversion'),
-                'Referer': 'https://tomato.tpos.vn/',
-            },
+            headers: tposHeaders,
         }, 3, 1000, 15000);
 
         if (!odataResponse.ok) {
