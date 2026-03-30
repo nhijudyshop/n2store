@@ -28,7 +28,7 @@
         2: { name: 'MỤC XỬ LÝ', short: 'Xử lý', icon: 'fa-exclamation-triangle', emoji: '🟠' },
         3: { name: 'KHÔNG CẦN CHỐT', short: 'Ko cần chốt', icon: 'fa-minus-circle', emoji: '⚪' },
         4: { name: 'KHÁCH XÃ SAU CHỐT', short: 'Khách xã', icon: 'fa-times-circle', emoji: '🔴' },
-        5: { name: 'PHIẾU SOẠN HÀNG', short: 'Phiếu soạn', icon: 'fa-clipboard-list', emoji: '📋' }
+        5: { name: 'PHIẾU SOẠN HÀNG', short: 'Chờ Hàng đã In Phiếu Soạn', icon: 'fa-clipboard-list', emoji: '📋' }
     };
 
     const PTAG_CATEGORY_COLORS = {
