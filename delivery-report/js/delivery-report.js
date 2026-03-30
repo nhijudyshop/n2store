@@ -1223,7 +1223,13 @@
 
         // Check if already scanned
         if (state.scannedNumbers.has(match.Number)) {
-            if (isProvinceTab) hideProvinceColumns();
+            if (isProvinceTab) {
+                const group = state.provinceGroups[match.Number];
+                if (group) {
+                    renderProvinceView();
+                    showProvinceColumn(group);
+                }
+            }
             soundDuplicate.currentTime = 0; soundDuplicate.play();
             showScanFeedback('warning', `Đã quét rồi: ${value}`, true);
             return;
