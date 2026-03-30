@@ -32,6 +32,7 @@
             plan: 'Standard',
             costType: 'paid',
             monthlyCost: 25,
+            billingDay: 1,
             costNote: 'Server chính - API, webhooks, SSE realtime, Telegram webhook',
             region: 'Singapore',
             freeTier: 'Standard: 2GB RAM, 1 CPU, always-on',
@@ -57,6 +58,7 @@
             plan: 'Standard',
             costType: 'paid',
             monthlyCost: 25,
+            billingDay: 1,
             costNote: 'SSE Realtime server - cần always-on cho real-time connections',
             region: 'Singapore',
             freeTier: 'Standard: 2GB RAM, 1 CPU, always-on',
@@ -80,6 +82,7 @@
             plan: 'Starter',
             costType: 'paid',
             monthlyCost: 7,
+            billingDay: 1,
             costNote: 'TPOS-Pancake sync server',
             region: 'Singapore',
             freeTier: 'Starter: 512MB RAM, 0.5 CPU, always-on',
@@ -103,6 +106,7 @@
             plan: 'Starter',
             costType: 'paid',
             monthlyCost: 7,
+            billingDay: 1,
             costNote: 'Facebook integration server',
             region: 'Singapore',
             freeTier: 'Starter: 512MB RAM, 0.5 CPU, always-on',
@@ -126,6 +130,7 @@
             plan: 'Basic 256MB',
             costType: 'paid',
             monthlyCost: 6,
+            billingDay: 1,
             costNote: 'PostgreSQL v18, 256MB RAM, 1GB SSD',
             region: 'Singapore',
             freeTier: 'Free tier hết hạn sau 30 ngày. Basic 256MB: $6/mo',
@@ -193,6 +198,7 @@
             plan: 'Workers Paid ($5/mo)',
             costType: 'paid',
             monthlyCost: 5,
+            billingDay: 13,
             costNote: '$5/mo qua Stripe. Tháng 3/2026: ~615K requests, 0 errors. Included: 10M req/mo',
             region: 'Global Edge (auto)',
             freeTier: 'Workers Paid: 10M requests/tháng included, sau đó $0.30/1M. 30ms CPU/request',
@@ -598,12 +604,73 @@
     }
 
     // =========================================================
+    // BILLING ALERTS
+    // =========================================================
+    function getBillingAlerts() {
+        const BILLING_SCHEDULE = [
+            { name: 'Render (4 services + DB)', amount: 70, billingDay: 1 },
+            { name: 'Cloudflare Workers', amount: 5, billingDay: 13 },
+        ];
+
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const alerts = [];
+
+        BILLING_SCHEDULE.forEach(bill => {
+            let nextBilling = new Date(today.getFullYear(), today.getMonth(), bill.billingDay);
+            if (nextBilling < today) {
+                nextBilling = new Date(today.getFullYear(), today.getMonth() + 1, bill.billingDay);
+            }
+            const daysLeft = Math.ceil((nextBilling - today) / (1000 * 60 * 60 * 24));
+
+            if (daysLeft <= 3 && daysLeft >= 0) {
+                alerts.push({
+                    name: bill.name,
+                    amount: bill.amount,
+                    daysLeft,
+                    dateStr: `${nextBilling.getDate()}/${nextBilling.getMonth() + 1}/${nextBilling.getFullYear()}`,
+                });
+            }
+        });
+        return alerts;
+    }
+
+    function renderBillingAlerts() {
+        const alerts = getBillingAlerts();
+        if (alerts.length === 0) return;
+
+        const contentArea = document.querySelector('.content-area');
+        if (!contentArea) return;
+
+        const banner = document.createElement('div');
+        banner.className = 'billing-alert-banner';
+        banner.innerHTML = `
+            <div class="billing-alert-icon"><i data-lucide="alert-triangle"></i></div>
+            <div class="billing-alert-content">
+                <strong>S\u1EAFp t\u1EDBi h\u1EA1n thanh to\u00E1n!</strong>
+                <div class="billing-alert-items">
+                    ${alerts.map(a => `
+                        <div class="billing-alert-item">
+                            <span>${a.name}</span>
+                            <span class="billing-alert-amount">$${a.amount}</span>
+                            <span class="billing-alert-due">${a.daysLeft === 0 ? 'H\u00D4M NAY' : `c\u00F2n ${a.daysLeft} ng\u00E0y (${a.dateStr})`}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+
+        contentArea.insertBefore(banner, contentArea.firstChild);
+    }
+
+    // =========================================================
     // INIT
     // =========================================================
     function init() {
         const mainContainer = document.getElementById('mainContainer');
         if (mainContainer) mainContainer.style.display = 'block';
 
+        renderBillingAlerts();
         renderSummary();
         renderServicesGrid();
         renderCostTable();

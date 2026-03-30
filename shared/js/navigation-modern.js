@@ -1491,6 +1491,7 @@ class UnifiedNavigationManager {
                             <a href="${item.href}" class="mobile-menu-item ${item.pageIdentifier === this.currentPage ? 'active' : ''}">
                                 <i data-lucide="${item.icon}"></i>
                                 <span>${item.text}</span>
+                                ${item.pageIdentifier === 'service-costs' && this.getBillingAlerts().length > 0 ? `<span class="billing-alert-badge mobile">${this.getBillingAlerts().length}</span>` : ''}
                                 ${item.pageIdentifier === this.currentPage ? '<i data-lucide="check" class="check-icon"></i>' : ''}
                             </a>
                         `).join('')}
@@ -1516,6 +1517,7 @@ class UnifiedNavigationManager {
                             <a href="${item.href}" class="mobile-menu-item ${item.pageIdentifier === this.currentPage ? 'active' : ''}">
                                 <i data-lucide="${item.icon}"></i>
                                 <span>${item.text}</span>
+                                ${item.pageIdentifier === 'service-costs' && this.getBillingAlerts().length > 0 ? `<span class="billing-alert-badge mobile">${this.getBillingAlerts().length}</span>` : ''}
                                 ${item.pageIdentifier === this.currentPage ? '<i data-lucide="check" class="check-icon"></i>' : ''}
                             </a>
                         `).join('')}
@@ -1680,6 +1682,21 @@ class UnifiedNavigationManager {
             }
             .mobile-group-items .mobile-menu-item {
                 padding-left: 32px;
+            }
+            .mobile-menu-item { position: relative; }
+            .billing-alert-badge.mobile {
+                margin-left: auto;
+                min-width: 20px;
+                height: 20px;
+                padding: 0 6px;
+                border-radius: 10px;
+                background: #ef4444;
+                color: white;
+                font-size: 11px;
+                font-weight: 700;
+                display: flex;
+                align-items: center;
+                justify-content: center;
             }
         `;
         document.head.insertBefore(style, document.head.firstChild);
@@ -2182,9 +2199,19 @@ class UnifiedNavigationManager {
                 navItem.classList.add("active");
             }
 
+            // Check billing alerts for service-costs menu item
+            let badgeHtml = '';
+            if (menuItem.pageIdentifier === 'service-costs') {
+                const alerts = this.getBillingAlerts();
+                if (alerts.length > 0) {
+                    badgeHtml = `<span class="billing-alert-badge" title="${alerts.map(a => a.label).join(', ')}">${alerts.length}</span>`;
+                }
+            }
+
             navItem.innerHTML = `
                 <i data-lucide="${menuItem.icon}"></i>
                 <span>${menuItem.text}</span>
+                ${badgeHtml}
             `;
 
             itemsContainer.appendChild(navItem);
@@ -2366,6 +2393,30 @@ class UnifiedNavigationManager {
             .menu-group-items .nav-item {
                 padding-left: 20px;
                 font-size: 13px;
+            }
+            .nav-item { position: relative; }
+            .billing-alert-badge {
+                margin-left: auto;
+                min-width: 20px;
+                height: 20px;
+                padding: 0 6px;
+                border-radius: 10px;
+                background: #ef4444;
+                color: white;
+                font-size: 11px;
+                font-weight: 700;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                animation: billing-pulse 2s ease-in-out infinite;
+            }
+            .nav-item.active .billing-alert-badge {
+                background: white;
+                color: #ef4444;
+            }
+            @keyframes billing-pulse {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.6; }
             }
 
         `;
@@ -3074,6 +3125,47 @@ class UnifiedNavigationManager {
         }
 
         console.log("[Unified Nav] Fixed toggle button created");
+    }
+
+    /**
+     * Check upcoming billing dates within 3 days
+     * Returns array of alerts: [{ name, amount, dueDate, daysLeft, label }]
+     */
+    getBillingAlerts() {
+        const BILLING_SCHEDULE = [
+            { name: 'Render (4 services + DB)', amount: 70, billingDay: 1 },
+            { name: 'Cloudflare Workers', amount: 5, billingDay: 13 },
+        ];
+
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const alerts = [];
+
+        BILLING_SCHEDULE.forEach(bill => {
+            // Next billing date this month
+            let nextBilling = new Date(today.getFullYear(), today.getMonth(), bill.billingDay);
+            // If already passed this month, check next month
+            if (nextBilling < today) {
+                nextBilling = new Date(today.getFullYear(), today.getMonth() + 1, bill.billingDay);
+            }
+
+            const diffMs = nextBilling - today;
+            const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+            if (daysLeft <= 3 && daysLeft >= 0) {
+                alerts.push({
+                    name: bill.name,
+                    amount: bill.amount,
+                    dueDate: nextBilling,
+                    daysLeft,
+                    label: daysLeft === 0
+                        ? `${bill.name}: $${bill.amount} - HÔM NAY`
+                        : `${bill.name}: $${bill.amount} - còn ${daysLeft} ngày`,
+                });
+            }
+        });
+
+        return alerts;
     }
 
     restoreSidebarState() {

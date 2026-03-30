@@ -186,6 +186,67 @@ body {
 }
 
 /* =====================================================
+   BILLING ALERT BANNER
+   ===================================================== */
+.billing-alert-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: var(--border-radius);
+    margin-bottom: 1.5rem;
+    animation: alert-slide-in 0.3s ease;
+}
+
+@keyframes alert-slide-in {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.billing-alert-icon {
+    color: var(--danger);
+    flex-shrink: 0;
+    padding-top: 2px;
+}
+
+.billing-alert-content {
+    flex: 1;
+}
+
+.billing-alert-content strong {
+    color: var(--danger);
+    font-size: 0.95rem;
+    display: block;
+    margin-bottom: 0.5rem;
+}
+
+.billing-alert-items {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.billing-alert-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.billing-alert-amount {
+    color: var(--danger);
+    font-weight: 700;
+}
+
+.billing-alert-due {
+    color: var(--warning);
+    font-weight: 600;
+}
+
+/* =====================================================
    TOTAL SUMMARY CARDS
    ===================================================== */
 .total-summary {
