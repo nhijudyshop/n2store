@@ -619,6 +619,37 @@
     // =====================================================
     // EXCEL EXPORT
     // =====================================================
+    // Tab name mapping for filenames and sheet names
+    const TAB_LABELS = {
+        city: { name: 'ThanhPho', sheet: 'Thành phố' },
+        province: { name: 'Tinh', sheet: 'Tỉnh' },
+        shop: { name: 'BanHangShop', sheet: 'Bán hàng shop' },
+        return: { name: 'ThuVe', sheet: 'Thu về' },
+        all: { name: 'TatCa', sheet: 'Tất cả' }
+    };
+
+    function buildExcelRows(items) {
+        const wsData = [['#', 'Số', 'Khách hàng', 'ĐT', 'Địa chỉ', 'Công nợ']];
+        items.forEach((item, i) => {
+            wsData.push([
+                i + 1,
+                item.Number || '',
+                item.PartnerDisplayName || '',
+                item.Phone || '',
+                item.Address || '',
+                item.CashOnDelivery || 0
+            ]);
+        });
+        const total = items.reduce((sum, i) => sum + (i.CashOnDelivery || 0), 0);
+        wsData.push(['', '', '', '', 'Tổng:', total]);
+        return wsData;
+    }
+
+    function makeFileName(label) {
+        const now = new Date();
+        return `GiaoHang_${label}_${now.getDate()}-${now.getMonth()+1}-${now.getFullYear()}.xlsx`;
+    }
+
     async function exportExcel() {
         if (typeof XLSX === 'undefined') {
             alert('Thư viện XLSX chưa được tải. Vui lòng tải lại trang.');
@@ -629,37 +660,41 @@
         if (btn) { btn.disabled = true; btn.textContent = 'Đang xuất...'; }
 
         try {
-            // Use filtered data
-            const items = getFilteredData();
+            const state = DeliveryReportState;
+            const tab = state.traSoatMode ? state.activeTab : 'all';
+            const tabInfo = TAB_LABELS[tab] || TAB_LABELS.all;
 
-            const wsData = [
-                ['#', 'Số', 'Khách hàng', 'ĐT', 'Địa chỉ', 'Công nợ']
-            ];
+            if (tab === 'province' && state.traSoatMode) {
+                // Tỉnh tab: export 2 sheets (TOMATO + NAP)
+                exportExcelProvinceAll();
+                return;
+            }
 
-            items.forEach((item, i) => {
-                wsData.push([
-                    i + 1,
-                    item.Number || '',
-                    item.PartnerDisplayName || '',
-                    item.Phone || '',
-                    item.Address || '',
-                    item.CashOnDelivery || 0
-                ]);
-            });
+            const items = state.traSoatMode ? getTabFilteredData() : (state.allData || []);
+            const wsData = buildExcelRows(items);
 
             const ws = XLSX.utils.aoa_to_sheet(wsData);
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'Thống kê giao hàng');
-
-            const now = new Date();
-            const fileName = `ThongKeGiaoHang_${now.getDate()}-${now.getMonth()+1}-${now.getFullYear()}.xlsx`;
-            XLSX.writeFile(wb, fileName);
+            XLSX.utils.book_append_sheet(wb, ws, tabInfo.sheet);
+            XLSX.writeFile(wb, makeFileName(tabInfo.name));
         } catch (error) {
             console.error('[DELIVERY-REPORT] Export error:', error);
             alert('Lỗi khi xuất Excel: ' + error.message);
         } finally {
             if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-file-excel"></i> Xuất excel'; }
         }
+    }
+
+    function exportExcelProvinceAll() {
+        const provinceData = getTabFilteredData();
+        const groups = DeliveryReportState.provinceGroups;
+        const tomatoItems = provinceData.filter(item => groups[item.Number] === 'tomato');
+        const napItems = provinceData.filter(item => groups[item.Number] === 'nap');
+
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(buildExcelRows(tomatoItems)), 'TOMATO');
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(buildExcelRows(napItems)), 'NAP');
+        XLSX.writeFile(wb, makeFileName('Tinh_TOMATO_NAP'));
     }
 
     function exportExcelProvince(group) {
@@ -673,32 +708,11 @@
         const items = provinceData.filter(item => groups[item.Number] === group);
         const label = group.toUpperCase();
 
-        const wsData = [
-            ['#', 'Số', 'Khách hàng', 'ĐT', 'Địa chỉ', 'Công nợ']
-        ];
-
-        items.forEach((item, i) => {
-            wsData.push([
-                i + 1,
-                item.Number || '',
-                item.PartnerDisplayName || '',
-                item.Phone || '',
-                item.Address || '',
-                item.CashOnDelivery || 0
-            ]);
-        });
-
-        // Add total row
-        const total = items.reduce((sum, i) => sum + (i.CashOnDelivery || 0), 0);
-        wsData.push(['', '', '', '', 'Tổng:', total]);
-
+        const wsData = buildExcelRows(items);
         const ws = XLSX.utils.aoa_to_sheet(wsData);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, label);
-
-        const now = new Date();
-        const fileName = `GiaoHang_${label}_${now.getDate()}-${now.getMonth()+1}-${now.getFullYear()}.xlsx`;
-        XLSX.writeFile(wb, fileName);
+        XLSX.writeFile(wb, makeFileName(label));
     }
 
     // =====================================================
