@@ -383,7 +383,7 @@
             plan: 'Trả phí (cần xác nhận gói)',
             costType: 'paid',
             monthlyCost: 0,
-            billingDay: 1,
+            billingDay: 28,
             costNote: 'Giao dịch: T1/2026: 1,253 | T2: 181 | T3: 509. Free tier chỉ 50 GD/tháng → cần gói trả phí',
             region: 'Vietnam',
             freeTier: 'Free: 50 GD/tháng. Startup 120K đ/tháng: 180 GD. Gói cao hơn: 600-986K GD/tháng',
@@ -625,7 +625,7 @@
             { name: 'Render (4 services + DB)', amount: 70, billingDay: 1, warnBefore: 0, showDays: 3 },
             { name: 'Firebase (Blaze)', amount: 0, billingDay: 1, warnBefore: 0, showDays: 3, note: 'Ki\u1EC3m tra usage tr\u00EAn console' },
             { name: 'Cloudflare Workers', amount: 5, billingDay: 13, warnBefore: 0, showDays: 3 },
-            { name: 'SePay (ACB 75918)', amount: 0, billingDay: 1, warnBefore: 3, showDays: 0, note: 'Ki\u1EC3m tra g\u00F3i d\u1ECBch v\u1EE5 tr\u00EAn my.sepay.vn' },
+            { name: 'SePay (ACB 75918)', amount: 0, billingDay: 28, warnBefore: 3, showDays: 3, note: 'Ki\u1EC3m tra g\u00F3i d\u1ECBch v\u1EE5 tr\u00EAn my.sepay.vn' },
         ];
 
         const now = new Date();
