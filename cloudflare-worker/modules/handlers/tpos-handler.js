@@ -91,7 +91,7 @@ export async function handleTposExportStandardPrice(request, url) {
  * @param {string} pathname
  * @returns {Promise<Response>}
  */
-export async function handleTposOrderLines(request, pathname) {
+export async function handleTposOrderLines(request, pathname, env = {}) {
     const orderId = pathname.match(/^\/tpos\/order\/(\d+)\/lines$/)?.[1];
 
     console.log('[TPOS-ORDER-LINES] Fetching OrderLines for order:', orderId);
@@ -102,10 +102,13 @@ export async function handleTposOrderLines(request, pathname) {
 
         if (!token) {
             console.log('[TPOS-ORDER-LINES] No cached token, fetching new one...');
+            const tposUsername = env.TPOS_USERNAME || 'nvkt';
+            const tposPassword = env.TPOS_PASSWORD || 'Aa@123456789';
+            const tposClientId = env.TPOS_CLIENT_ID || 'tmtWebApp';
             const tokenResponse = await fetchWithRetry(API_ENDPOINTS.TPOS.TOKEN, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: 'grant_type=password&username=nvkt&password=Aa@123456789&client_id=tmtWebApp',
+                body: `grant_type=password&username=${encodeURIComponent(tposUsername)}&password=${encodeURIComponent(tposPassword)}&client_id=${encodeURIComponent(tposClientId)}`,
             }, 3, 1000, 10000);
 
             if (!tokenResponse.ok) {
@@ -158,7 +161,7 @@ export async function handleTposOrderLines(request, pathname) {
  * @param {string} pathname
  * @returns {Promise<Response>}
  */
-export async function handleTposOrderLinesByRef(request, pathname) {
+export async function handleTposOrderLinesByRef(request, pathname, env = {}) {
     const refMatch = pathname.match(/^\/tpos\/order-ref\/(.+)\/lines$/);
     const orderRef = refMatch ? decodeURIComponent(refMatch[1]) : null;
 
@@ -173,10 +176,13 @@ export async function handleTposOrderLinesByRef(request, pathname) {
         let token = getCachedToken()?.access_token;
 
         if (!token) {
+            const tposUsername = env.TPOS_USERNAME || 'nvkt';
+            const tposPassword = env.TPOS_PASSWORD || 'Aa@123456789';
+            const tposClientId = env.TPOS_CLIENT_ID || 'tmtWebApp';
             const tokenResponse = await fetchWithRetry(API_ENDPOINTS.TPOS.TOKEN, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: 'grant_type=password&username=nvkt&password=Aa@123456789&client_id=tmtWebApp',
+                body: `grant_type=password&username=${encodeURIComponent(tposUsername)}&password=${encodeURIComponent(tposPassword)}&client_id=${encodeURIComponent(tposClientId)}`,
             }, 3, 1000, 10000);
 
             if (!tokenResponse.ok) {

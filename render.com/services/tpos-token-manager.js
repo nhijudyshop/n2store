@@ -3,7 +3,7 @@
 // Auto-fetch and cache TPOS Bearer token from credentials
 // =====================================================
 
-const fetch = require('node-fetch');
+const { fetchWithRetry } = require('../../shared/node/fetch-utils.cjs');
 
 class TPOSTokenManager {
     constructor() {
@@ -64,13 +64,13 @@ class TPOSTokenManager {
                 client_id: clientId
             });
 
-            const response = await fetch(proxyUrl, {
+            const response = await fetchWithRetry(proxyUrl, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded'
                 },
                 body: body.toString()
-            });
+            }, 2, 1000, 10000);
 
             if (!response.ok) {
                 const errorText = await response.text();

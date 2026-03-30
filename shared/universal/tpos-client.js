@@ -294,14 +294,14 @@ export class TPOSClient {
     async fetch(url, options = {}) {
         const authHeader = await this.getAuthHeader();
 
-        const response = await fetch(url, {
+        const response = await fetchWithTimeout(url, {
             ...options,
             headers: {
                 ...authHeader,
                 'Content-Type': 'application/json',
                 ...options.headers
             }
-        });
+        }, this.config.API_TIMEOUT);
 
         // Handle 401 - try refresh and retry
         if (response.status === 401) {
@@ -309,14 +309,14 @@ export class TPOSClient {
             await this.refreshToken();
 
             const newAuthHeader = await this.getAuthHeader();
-            return fetch(url, {
+            return fetchWithTimeout(url, {
                 ...options,
                 headers: {
                     ...newAuthHeader,
                     'Content-Type': 'application/json',
                     ...options.headers
                 }
-            });
+            }, this.config.API_TIMEOUT);
         }
 
         return response;

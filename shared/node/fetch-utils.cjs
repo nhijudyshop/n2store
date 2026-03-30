@@ -1,28 +1,34 @@
 /**
- * Shared Fetch Utilities
- * Works in both Browser and Node.js environments
+ * Shared Fetch Utilities (CommonJS)
+ * CommonJS-compatible version for render.com and other Node.js services
  *
- * @module shared/universal/fetch-utils
+ * SOURCE OF TRUTH: /shared/universal/fetch-utils.js (ESM)
+ * When updating fetch logic, update BOTH files.
+ *
+ * @module shared/node/fetch-utils
  */
+
+const fetch = require('node-fetch');
+const AbortController = globalThis.AbortController;
 
 /**
  * Delays execution for a specified number of milliseconds
  * @param {number} ms - Milliseconds to delay
  * @returns {Promise<void>}
  */
-export function delay(ms) {
+function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 /**
  * Fetches a URL with a timeout
- * @param {string|Request} resource - The resource to fetch
- * @param {RequestInit} options - Fetch options
+ * @param {string} resource - The resource to fetch
+ * @param {object} options - Fetch options
  * @param {number} timeout - Timeout in milliseconds (default: 10000)
  * @returns {Promise<Response>}
  * @throws {Error} When request times out
  */
-export async function fetchWithTimeout(resource, options = {}, timeout = 10000) {
+async function fetchWithTimeout(resource, options = {}, timeout = 10000) {
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), timeout);
 
@@ -43,59 +49,16 @@ export async function fetchWithTimeout(resource, options = {}, timeout = 10000) 
 }
 
 /**
- * Simple fetch wrapper with default error handling
- * @param {string} url - URL to fetch
- * @param {RequestInit} options - Fetch options
- * @returns {Promise<any>} Parsed JSON response
- * @throws {Error} When response is not ok
- */
-export async function simpleFetch(url, options = {}) {
-    const response = await fetch(url, options);
-
-    if (!response.ok) {
-        const errorText = await response.text().catch(() => 'Unknown error');
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
-    }
-
-    return response.json();
-}
-
-/**
- * Fetch with automatic JSON parsing and error handling
- * @param {string} url - URL to fetch
- * @param {RequestInit} options - Fetch options
- * @param {object} config - Additional configuration
- * @param {number} config.timeout - Timeout in ms
- * @returns {Promise<{success: boolean, data?: any, error?: string}>}
- */
-export async function safeFetch(url, options = {}, config = {}) {
-    const { timeout = 10000 } = config;
-
-    try {
-        const response = await fetchWithTimeout(url, options, timeout);
-
-        if (!response.ok) {
-            const errorText = await response.text().catch(() => 'Unknown error');
-            return { success: false, error: `HTTP ${response.status}: ${errorText}` };
-        }
-
-        const data = await response.json();
-        return { success: true, data };
-    } catch (error) {
-        return { success: false, error: error.message };
-    }
-}
-
-/**
  * Fetch with retry logic and exponential backoff
- * @param {string|Request} resource - The resource to fetch
- * @param {RequestInit} options - Fetch options
+ * Retries on 5xx server errors, 429 rate limiting, and network errors
+ * @param {string} resource - The resource to fetch
+ * @param {object} options - Fetch options
  * @param {number} maxRetries - Maximum number of retries (default: 3)
  * @param {number} initialDelay - Initial delay in ms (default: 1000)
  * @param {number} timeout - Timeout per request in ms (default: 10000)
  * @returns {Promise<Response>}
  */
-export async function fetchWithRetry(resource, options = {}, maxRetries = 3, initialDelay = 1000, timeout = 10000) {
+async function fetchWithRetry(resource, options = {}, maxRetries = 3, initialDelay = 1000, timeout = 10000) {
     let lastError;
     let lastResponse;
 
@@ -139,3 +102,9 @@ export async function fetchWithRetry(resource, options = {}, maxRetries = 3, ini
     if (lastResponse) return lastResponse;
     throw lastError;
 }
+
+module.exports = {
+    delay,
+    fetchWithTimeout,
+    fetchWithRetry,
+};

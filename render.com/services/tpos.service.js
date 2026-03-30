@@ -1,5 +1,6 @@
-const fetch = require("node-fetch");
+const { fetchWithRetry, fetchWithTimeout } = require("../../shared/node/fetch-utils.cjs");
 const TPOS_CONFIG = require("../config/tpos.config");
+const tposTokenManager = require("./tpos-token-manager");
 const { randomDelay, getHeaders } = require("../helpers/utils");
 const { getDynamicHeaderManager } = require("../helpers/dynamic-header-manager");
 
@@ -12,7 +13,7 @@ async function uploadExcelToTPOS(excelBase64) {
     const url = `${TPOS_CONFIG.API_BASE}/ODataService.ActionImportSimple`;
     const headers = {
         ...getHeaders(),
-        authorization: TPOS_CONFIG.AUTH_TOKEN,
+        authorization: `Bearer ${await tposTokenManager.getToken()}`,
     };
 
     // 📤 Logging (if enabled)
@@ -24,7 +25,7 @@ async function uploadExcelToTPOS(excelBase64) {
         console.log("=".repeat(60));
     }
 
-    const response = await fetch(url, {
+    const response = await fetchWithTimeout(url, {
         method: "POST",
         headers: headers,
         body: JSON.stringify({
@@ -32,7 +33,7 @@ async function uploadExcelToTPOS(excelBase64) {
             file: excelBase64,
             version: "2701",
         }),
-    });
+    }, 30000);
 
     // 🔥 Learn from response headers
     await dynamicHeaderManager.learnFromResponse(response, { verbose: false });
@@ -70,7 +71,7 @@ async function getLatestProducts(count) {
     const url = `${TPOS_CONFIG.API_BASE}/ODataService.GetViewV2?${queryParams.toString()}`;
     const headers = {
         ...getHeaders(),
-        authorization: TPOS_CONFIG.AUTH_TOKEN,
+        authorization: `Bearer ${await tposTokenManager.getToken()}`,
     };
 
     // 📤 Logging (if enabled)
@@ -82,7 +83,7 @@ async function getLatestProducts(count) {
         console.log("=".repeat(60));
     }
 
-    const response = await fetch(url, { headers });
+    const response = await fetchWithRetry(url, { headers }, 2, 1000, 15000);
 
     // 🔥 Learn from response
     await dynamicHeaderManager.learnFromResponse(response, { verbose: false });
@@ -114,10 +115,10 @@ async function getProductDetail(productId) {
     const url = `${TPOS_CONFIG.API_BASE}(${productId})?$expand=${TPOS_CONFIG.EXPAND_PARAMS}`;
     const headers = {
         ...getHeaders(),
-        authorization: TPOS_CONFIG.AUTH_TOKEN,
+        authorization: `Bearer ${await tposTokenManager.getToken()}`,
     };
 
-    const response = await fetch(url, { headers });
+    const response = await fetchWithRetry(url, { headers }, 2, 1000, 15000);
 
     // 🔥 Learn from response
     await dynamicHeaderManager.learnFromResponse(response, { verbose: false });
@@ -155,7 +156,7 @@ async function updateProductWithImageAndAttributes(
     const url = `${TPOS_CONFIG.API_BASE}/ODataService.UpdateV2`;
     const headers = {
         ...getHeaders(),
-        authorization: TPOS_CONFIG.AUTH_TOKEN,
+        authorization: `Bearer ${await tposTokenManager.getToken()}`,
     };
 
     // 📤 Logging (if enabled)
@@ -167,11 +168,11 @@ async function updateProductWithImageAndAttributes(
         console.log("=".repeat(60));
     }
 
-    const response = await fetch(url, {
+    const response = await fetchWithTimeout(url, {
         method: "POST",
         headers: headers,
         body: JSON.stringify(payload),
-    });
+    }, 30000);
 
     // 🔥 Learn from response
     await dynamicHeaderManager.learnFromResponse(response, { verbose: false });

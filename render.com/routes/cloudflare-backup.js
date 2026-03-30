@@ -11,25 +11,7 @@ const router = express.Router();
 const { getDynamicHeaderManager } = require('../helpers/dynamic-header-manager');
 const dynamicHeaders = getDynamicHeaderManager();
 
-async function fetchWithTimeout(url, options = {}, timeout = 15000) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-    try {
-        const response = await fetch(url, {
-            ...options,
-            signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-        return response;
-    } catch (error) {
-        clearTimeout(timeoutId);
-        if (error.name === 'AbortError') {
-            throw new Error(`Request timeout after ${timeout}ms`);
-        }
-        throw error;
-    }
-}
+const { fetchWithTimeout } = require('../../shared/node/fetch-utils.cjs');
 
 // =====================================================
 // FACEBOOK/PANCAKE AVATAR PROXY
@@ -64,7 +46,7 @@ router.get('/fb-avatar', async (req, res) => {
                 'Referer': 'https://pancake.vn/'
             },
             redirect: 'follow'
-        });
+        }, 15000);
 
         if (pancakeRes.ok) {
             const contentType = pancakeRes.headers.get('content-type') || 'image/jpeg';
@@ -88,7 +70,7 @@ router.get('/fb-avatar', async (req, res) => {
                 'Accept': 'image/*,*/*'
             },
             redirect: 'follow'
-        });
+        }, 15000);
 
         if (fbRes.ok) {
             const contentType = fbRes.headers.get('content-type') || 'image/jpeg';
@@ -148,7 +130,7 @@ router.get('/pancake-avatar', async (req, res) => {
                 'Accept': 'image/*,*/*',
                 'Referer': 'https://pancake.vn/'
             }
-        });
+        }, 15000);
 
         if (response.ok) {
             const contentType = response.headers.get('content-type') || 'image/jpeg';
@@ -228,7 +210,7 @@ router.all('/proxy', async (req, res) => {
             fetchOptions.body = JSON.stringify(req.body);
         }
 
-        const response = await fetchWithTimeout(targetUrl, fetchOptions);
+        const response = await fetchWithTimeout(targetUrl, fetchOptions, 15000);
         const contentType = response.headers.get('content-type') || 'application/json';
 
         // Get response body
@@ -319,7 +301,7 @@ router.all('/pancake-direct/*', async (req, res) => {
             fetchOptions.body = JSON.stringify(req.body);
         }
 
-        const response = await fetchWithTimeout(targetUrl, fetchOptions);
+        const response = await fetchWithTimeout(targetUrl, fetchOptions, 15000);
         const data = await response.json();
 
         console.log('[PANCAKE-DIRECT] Response status:', response.status);
@@ -377,7 +359,7 @@ router.all('/pancake-official/*', async (req, res) => {
             fetchOptions.body = JSON.stringify(req.body);
         }
 
-        const response = await fetchWithTimeout(targetUrl, fetchOptions);
+        const response = await fetchWithTimeout(targetUrl, fetchOptions, 15000);
         const data = await response.json();
 
         console.log('[PANCAKE-OFFICIAL] Response status:', response.status);
@@ -422,7 +404,7 @@ router.post('/facebook-send', async (req, res) => {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
                 body: JSON.stringify({ message: messageText }),
-            });
+            }, 15000);
             const result = await resp.json();
 
             if (result.error) {
@@ -480,7 +462,7 @@ router.post('/facebook-send', async (req, res) => {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
                 body: JSON.stringify(baseFbBody)
-            });
+            }, 15000);
             const result = await resp.json();
             if (result.error) return { success: false, result, status: resp.status };
             return { success: true, result, tag: null };
@@ -494,7 +476,7 @@ router.post('/facebook-send', async (req, res) => {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
                 body: JSON.stringify(body)
-            });
+            }, 15000);
             const result = await resp.json();
             console.log(`[FACEBOOK-SEND] ${tag} response:`, JSON.stringify(result));
 
@@ -537,7 +519,7 @@ router.post('/facebook-send', async (req, res) => {
                 try {
                     const resp = await fetchWithTimeout(`${graphUrl}?${params.toString()}`, {
                         method: 'GET', headers: { 'Accept': 'application/json' }
-                    });
+                    }, 15000);
                     const data = await resp.json();
 
                     if (data.error) {
@@ -580,7 +562,7 @@ router.post('/facebook-send', async (req, res) => {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
             body: JSON.stringify({ message: messageText })
-        });
+        }, 15000);
         const result = await resp.json();
 
         if (result.error) {
@@ -743,7 +725,7 @@ router.all('/rest/*', async (req, res) => {
             fetchOptions.body = JSON.stringify(req.body);
         }
 
-        const response = await fetchWithTimeout(targetUrl, fetchOptions);
+        const response = await fetchWithTimeout(targetUrl, fetchOptions, 15000);
 
         console.log('[TPOS-REST-API] Response status:', response.status);
 
@@ -792,7 +774,7 @@ router.get('/facebook-graph', async (req, res) => {
         const fbUrl = `https://graph.facebook.com/v21.0/${graphPath}?${qs}`;
         console.log('[FB-GRAPH] Proxying:', fbUrl.replace(/access_token=[^&]+/, 'access_token=***'));
 
-        const resp = await fetchWithTimeout(fbUrl, { method: 'GET' });
+        const resp = await fetchWithTimeout(fbUrl, { method: 'GET' }, 15000);
         const data = await resp.json();
         return res.json(data);
     } catch (err) {

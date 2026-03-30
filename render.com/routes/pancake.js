@@ -15,25 +15,7 @@ const httpsAgent = new https.Agent({
     rejectUnauthorized: false
 });
 
-async function fetchWithTimeout(url, options = {}, timeout = 15000) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-    try {
-        const response = await fetch(url, {
-            ...options,
-            signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-        return response;
-    } catch (error) {
-        clearTimeout(timeoutId);
-        if (error.name === 'AbortError') {
-            throw new Error(`Request timeout after ${timeout}ms`);
-        }
-        throw error;
-    }
-}
+const { fetchWithTimeout } = require('../../shared/node/fetch-utils.cjs');
 
 // GET /api/pancake/* - Proxy all Pancake requests
 router.all('/*', async (req, res) => {
@@ -67,7 +49,7 @@ router.all('/*', async (req, res) => {
         }
 
         // Forward request to Pancake API
-        const response = await fetchWithTimeout(fullUrl, options);
+        const response = await fetchWithTimeout(fullUrl, options, 15000);
 
         if (!response.ok) {
             const errorText = await response.text();

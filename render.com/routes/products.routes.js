@@ -2,7 +2,8 @@ const express = require("express");
 const router = express.Router();
 const TPOS_CONFIG = require("../config/tpos.config");
 const { randomDelay, getHeaders } = require("../helpers/utils");
-const fetch = require("node-fetch");
+const { fetchWithRetry } = require("../../shared/node/fetch-utils.cjs");
+const tposTokenManager = require("../services/tpos-token-manager");
 
 /**
  * GET /products - Lấy danh sách sản phẩm
@@ -32,14 +33,15 @@ router.get("/products", async (req, res) => {
             $count: "true",
         });
 
-        const response = await fetch(
+        const response = await fetchWithRetry(
             `${TPOS_CONFIG.API_BASE}/ODataService.GetViewV2?${queryParams.toString()}`,
             {
                 headers: {
                     ...getHeaders(),
-                    authorization: TPOS_CONFIG.AUTH_TOKEN,
+                    authorization: `Bearer ${await tposTokenManager.getToken()}`,
                 },
             },
+            2, 1000, 15000,
         );
 
         if (!response.ok) {
@@ -101,14 +103,15 @@ router.get("/products/:id", async (req, res) => {
 
         await randomDelay(300, 800);
 
-        const response = await fetch(
+        const response = await fetchWithRetry(
             `${TPOS_CONFIG.API_BASE}(${id})?$expand=${TPOS_CONFIG.EXPAND_PARAMS}`,
             {
                 headers: {
                     ...getHeaders(),
-                    authorization: TPOS_CONFIG.AUTH_TOKEN,
+                    authorization: `Bearer ${await tposTokenManager.getToken()}`,
                 },
             },
+            2, 1000, 15000,
         );
 
         if (!response.ok) {

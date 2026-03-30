@@ -102,9 +102,9 @@ export default {
                 case 'TPOS_EXPORT_STANDARD':
                     return handleTposExportStandardPrice(request, url);
                 case 'TPOS_ORDER_LINES':
-                    return handleTposOrderLines(request, pathname);
+                    return handleTposOrderLines(request, pathname, env);
                 case 'TPOS_ORDER_REF_LINES':
-                    return handleTposOrderLinesByRef(request, pathname);
+                    return handleTposOrderLinesByRef(request, pathname, env);
                 case 'TPOS_REST':
                     return handleTposRest(request, url, pathname);
 

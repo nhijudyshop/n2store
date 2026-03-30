@@ -14,39 +14,7 @@
  */
 
 const tposTokenManager = require('./tpos-token-manager');
-const fetch = require('node-fetch');
-const AbortController = globalThis.AbortController || require('abort-controller');
-
-// =====================================================
-// UTILITY FUNCTIONS
-// =====================================================
-
-/**
- * Fetch with timeout to prevent hanging requests
- * @param {string} url - URL to fetch
- * @param {object} options - Fetch options
- * @param {number} timeout - Timeout in milliseconds (default: 15000ms = 15s)
- * @returns {Promise<Response>}
- */
-async function fetchWithTimeout(url, options = {}, timeout = 15000) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-    try {
-        const response = await fetch(url, {
-            ...options,
-            signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-        return response;
-    } catch (error) {
-        clearTimeout(timeoutId);
-        if (error.name === 'AbortError') {
-            throw new Error(`Request timeout after ${timeout}ms`);
-        }
-        throw error;
-    }
-}
+const { fetchWithRetry } = require('../../shared/node/fetch-utils.cjs');
 
 /**
  * Normalize phone number to 10-digit format (0XXXXXXXXX)
@@ -105,13 +73,13 @@ async function searchCustomerByPhone(phone) {
         // Call TPOS Partner API with full phone
         const tposUrl = `https://tomato.tpos.vn/odata/Partner/ODataService.GetViewV2?Type=Customer&Active=true&Phone=${fullPhone}&$top=10&$orderby=DateCreated+desc&$count=true`;
 
-        const response = await fetchWithTimeout(tposUrl, {
+        const response = await fetchWithRetry(tposUrl, {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
             }
-        }, 15000);
+        }, 2, 1000, 15000);
 
         if (!response.ok) {
             throw new Error(`TPOS API error: ${response.status} ${response.statusText}`);
@@ -219,13 +187,13 @@ async function getCustomerById(tposId) {
         // Call TPOS Partner API with ID filter
         const tposUrl = `https://tomato.tpos.vn/odata/Partner/ODataService.GetViewV2?Type=Customer&$filter=Id eq ${tposId}`;
 
-        const response = await fetchWithTimeout(tposUrl, {
+        const response = await fetchWithRetry(tposUrl, {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
             }
-        }, 15000);
+        }, 2, 1000, 15000);
 
         if (!response.ok) {
             throw new Error(`TPOS API error: ${response.status} ${response.statusText}`);
@@ -297,13 +265,13 @@ async function searchAllCustomersByPhone(phone) {
 
         const tposUrl = `https://tomato.tpos.vn/odata/Partner/ODataService.GetViewV2?Type=Customer&Active=true&Phone=${fullPhone}&$top=50&$orderby=DateCreated+desc&$count=true`;
 
-        const response = await fetchWithTimeout(tposUrl, {
+        const response = await fetchWithRetry(tposUrl, {
             method: 'GET',
             headers: {
                 'Authorization': `Bearer ${token}`,
                 'Content-Type': 'application/json'
             }
-        }, 15000);
+        }, 2, 1000, 15000);
 
         if (!response.ok) {
             throw new Error(`TPOS API error: ${response.status} ${response.statusText}`);

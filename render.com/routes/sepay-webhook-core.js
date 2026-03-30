@@ -5,8 +5,7 @@
 // =====================================================
 
 const fetch = require('node-fetch');
-// AbortController is global in Node.js 18+, but fallback for older versions
-const AbortController = globalThis.AbortController || require('abort-controller');
+const { fetchWithTimeout } = require('../../shared/node/fetch-utils.cjs');
 
 /**
  * Upsert phone into recent_transfer_phones with TOTAL amount from balance_history
@@ -37,32 +36,6 @@ async function upsertRecentTransfer(dbConn, phone) {
     }
 }
 
-/**
- * Fetch with timeout to prevent hanging requests
- * @param {string} url - URL to fetch
- * @param {object} options - Fetch options
- * @param {number} timeout - Timeout in milliseconds (default: 10000ms = 10s)
- * @returns {Promise<Response>}
- */
-async function fetchWithTimeout(url, options = {}, timeout = 10000) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-    try {
-        const response = await fetch(url, {
-            ...options,
-            signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-        return response;
-    } catch (error) {
-        clearTimeout(timeoutId);
-        if (error.name === 'AbortError') {
-            throw new Error(`Request timeout after ${timeout}ms`);
-        }
-        throw error;
-    }
-}
 
 /**
  * Helper function: Broadcast to all balance SSE clients

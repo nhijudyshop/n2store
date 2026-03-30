@@ -9,6 +9,7 @@
 export {
     delay,
     fetchWithTimeout,
+    fetchWithRetry,
     simpleFetch,
     safeFetch,
 } from './fetch-utils.js';

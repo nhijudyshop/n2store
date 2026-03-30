@@ -20,25 +20,7 @@ const httpsAgent = new https.Agent({
     rejectUnauthorized: false
 });
 
-async function fetchWithTimeout(url, options = {}, timeout = 10000) { // 10 second timeout for token
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-    try {
-        const response = await fetch(url, {
-            ...options,
-            signal: controller.signal
-        });
-        clearTimeout(timeoutId);
-        return response;
-    } catch (error) {
-        clearTimeout(timeoutId);
-        if (error.name === 'AbortError') {
-            throw new Error(`Request timeout after ${timeout}ms`);
-        }
-        throw error;
-    }
-}
+const { fetchWithTimeout } = require('../../shared/node/fetch-utils.cjs');
 
 // =====================================================
 // TPOS TOKEN CACHE (In-memory)
@@ -134,7 +116,7 @@ router.post('/', async (req, res) => {
             method: 'POST',
             headers: {
                 'accept': 'application/json, text/plain, */*',
-                'content-type': 'application/json;charset=UTF-8',
+                'content-type': 'application/x-www-form-urlencoded',
                 'tposappversion': dynamicHeaders.getHeader('tposappversion'),
                 'x-tpos-lang': 'vi',
                 'Referer': 'https://tomato.tpos.vn/'
