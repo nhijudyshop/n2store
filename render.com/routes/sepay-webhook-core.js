@@ -1601,6 +1601,11 @@ function registerRoutes(router, deps) {
                     month: `${now.getMonth() + 1}/${now.getFullYear()}`,
                     // From dashboard scrape
                     dashboard: dashboardData || null,
+                    _envCheck: {
+                        hasUsername: !!process.env.SEPAY_USERNAME,
+                        hasPassword: !!process.env.SEPAY_PASSWORD,
+                        hasApiKey: !!(process.env.SEPAY_API_KEY || process.env.SEPAY_API),
+                    },
                     fetchedAt: now.toISOString(),
                 }
             });
