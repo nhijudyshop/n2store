@@ -1,125 +1,220 @@
 /**
  * Service Costs Dashboard - Chi Phi Dich Vu
- * Thống kê toàn bộ dịch vụ, chi phí, API keys
+ * Dữ liệu THỰC từ API calls (2026-03-30)
+ *
+ * Render API: 4 web services + 1 PostgreSQL (verified)
+ * DeepSeek: balance $9.27 (verified)
+ * Gemini: active, free tier (verified)
+ * Google Vision: API DISABLED in project (verified)
+ * Google Places: Legacy + New API DISABLED (verified)
+ * Goong: active, working (verified)
+ * Telegram: @N2Store_bot, webhook active (verified)
+ * SePay: key placeholder (verified)
  */
 
 (function () {
     'use strict';
 
     // =========================================================
-    // DATA: Tất cả dịch vụ đang sử dụng
+    // DATA: Dữ liệu thực từ API calls ngày 2026-03-30
     // =========================================================
     const SERVICES = [
+        // ===================== RENDER.COM =====================
+        // Owner: nhijudyshop@gmail.com (team: My Workspace)
+        // Team ID: tea-d3fn6ok9c44c73d9g59g
+        {
+            id: 'render-fallback',
+            name: 'n2store-fallback',
+            type: 'Web Service (Node.js)',
+            icon: 'server',
+            account: 'nhijudyshop@gmail.com',
+            plan: 'Standard',
+            costType: 'paid',
+            monthlyCost: 25,
+            costNote: 'Server chính - API, webhooks, SSE realtime, Telegram webhook',
+            region: 'Singapore',
+            freeTier: 'Standard: 2GB RAM, 1 CPU, always-on',
+            details: [
+                { label: 'Service ID', value: 'srv-d4e5pd3gk3sc73bgv600' },
+                { label: 'URL', value: 'https://n2store-fallback.onrender.com' },
+                { label: 'Root Dir', value: 'render.com' },
+                { label: 'Plan', value: 'Standard ($25/mo) - 2GB RAM, 1 CPU' },
+                { label: 'Auto Deploy', value: 'Yes (main branch)' },
+                { label: 'Created', value: '18/11/2025' },
+                { label: 'Telegram Webhook', value: 'Active → /api/telegram/webhook' },
+                { label: 'Routes', value: 'customers, return-orders, goong, gemini, sepay, realtime-sse, tpos-saved...' },
+            ],
+            consoleUrl: 'https://dashboard.render.com/web/srv-d4e5pd3gk3sc73bgv600',
+            status: 'active',
+        },
+        {
+            id: 'render-realtime',
+            name: 'n2store-realtime',
+            type: 'Web Service (Node.js)',
+            icon: 'radio',
+            account: 'nhijudyshop@gmail.com',
+            plan: 'Standard',
+            costType: 'paid',
+            monthlyCost: 25,
+            costNote: 'SSE Realtime server - cần always-on cho real-time connections',
+            region: 'Singapore',
+            freeTier: 'Standard: 2GB RAM, 1 CPU, always-on',
+            details: [
+                { label: 'Service ID', value: 'srv-d5doh26uk2gs739489k0' },
+                { label: 'URL', value: 'https://n2store-realtime.onrender.com' },
+                { label: 'Root Dir', value: 'n2store-realtime' },
+                { label: 'Plan', value: 'Standard ($25/mo) - 2GB RAM, 1 CPU' },
+                { label: 'Auto Deploy', value: 'Yes (main branch)' },
+                { label: 'Created', value: '05/01/2026' },
+            ],
+            consoleUrl: 'https://dashboard.render.com/web/srv-d5doh26uk2gs739489k0',
+            status: 'active',
+        },
+        {
+            id: 'render-tpos-pancake',
+            name: 'n2store-tpos-pancake',
+            type: 'Web Service (Node.js)',
+            icon: 'package',
+            account: 'nhijudyshop@gmail.com',
+            plan: 'Starter',
+            costType: 'paid',
+            monthlyCost: 7,
+            costNote: 'TPOS-Pancake sync server',
+            region: 'Singapore',
+            freeTier: 'Starter: 512MB RAM, 0.5 CPU, always-on',
+            details: [
+                { label: 'Service ID', value: 'srv-d5fqb6s9c44c738q1800' },
+                { label: 'URL', value: 'https://n2store-tpos-pancake.onrender.com' },
+                { label: 'Root Dir', value: 'tpos-pancake/server' },
+                { label: 'Plan', value: 'Starter ($7/mo) - 512MB RAM, 0.5 CPU' },
+                { label: 'Auto Deploy', value: 'Yes (main branch)' },
+                { label: 'Created', value: '08/01/2026' },
+            ],
+            consoleUrl: 'https://dashboard.render.com/web/srv-d5fqb6s9c44c738q1800',
+            status: 'active',
+        },
+        {
+            id: 'render-facebook',
+            name: 'n2store-facebook',
+            type: 'Web Service (Node.js)',
+            icon: 'message-circle',
+            account: 'nhijudyshop@gmail.com',
+            plan: 'Starter',
+            costType: 'paid',
+            monthlyCost: 7,
+            costNote: 'Facebook integration server',
+            region: 'Singapore',
+            freeTier: 'Starter: 512MB RAM, 0.5 CPU, always-on',
+            details: [
+                { label: 'Service ID', value: 'srv-d5g6p6uuk2gs739b3u1g' },
+                { label: 'URL', value: 'https://n2store-facebook.onrender.com' },
+                { label: 'Root Dir', value: 'n2store-facebook/server' },
+                { label: 'Plan', value: 'Starter ($7/mo) - 512MB RAM, 0.5 CPU' },
+                { label: 'Auto Deploy', value: 'Yes (main branch)' },
+                { label: 'Created', value: '09/01/2026' },
+            ],
+            consoleUrl: 'https://dashboard.render.com/web/srv-d5g6p6uuk2gs739b3u1g',
+            status: 'active',
+        },
+        {
+            id: 'render-db',
+            name: 'n2store-chat-db',
+            type: 'PostgreSQL Database',
+            icon: 'database',
+            account: 'nhijudyshop@gmail.com',
+            plan: 'Basic 256MB',
+            costType: 'paid',
+            monthlyCost: 6,
+            costNote: 'PostgreSQL v18, 256MB RAM, 1GB SSD',
+            region: 'Singapore',
+            freeTier: 'Free tier hết hạn sau 30 ngày. Basic 256MB: $6/mo',
+            details: [
+                { label: 'Database ID', value: 'dpg-d4kr80npm1nc738em3j0-a' },
+                { label: 'Database Name', value: 'n2store_chat' },
+                { label: 'User', value: 'n2store_user' },
+                { label: 'Host', value: 'dpg-d4kr80npm1nc738em3j0-a.singapore-postgres.render.com' },
+                { label: 'PostgreSQL', value: 'Version 18' },
+                { label: 'Disk Size', value: '1 GB SSD' },
+                { label: 'Plan', value: 'Basic 256MB ($6/mo) - 256MB RAM, 0.1 CPU' },
+                { label: 'Created', value: '28/11/2025' },
+                { label: 'Tables', value: '~30+ (customers, balance_history, return_orders, tickets...)' },
+            ],
+            consoleUrl: 'https://dashboard.render.com/d/dpg-d4kr80npm1nc738em3j0-a',
+            status: 'active',
+        },
+
+        // ===================== FIREBASE =====================
         {
             id: 'firebase',
             name: 'Firebase',
             type: 'Backend-as-a-Service',
             icon: 'flame',
             account: 'n2shop-69e37',
-            email: 'firebase-adminsdk-cmdro@n2shop-69e37.iam.gserviceaccount.com',
             plan: 'Blaze (Pay as you go)',
             costType: 'usage-based',
             monthlyCost: 0,
-            costNote: 'Miễn phí nếu dưới free tier',
+            costNote: 'Thường ~$0 nếu dưới free tier. Kiểm tra console để xem chính xác',
             region: 'nam5 (US) / asia-southeast1 (SG)',
-            freeTier: 'Firestore: 50K reads, 20K writes, 20K deletes/ngày. Realtime DB: 1GB stored, 10GB/tháng download. Storage: 5GB. Auth: 10K/tháng',
+            freeTier: 'Firestore: 50K reads, 20K writes, 20K deletes/ngày. Realtime DB: 1GB stored, 10GB/tháng. Storage: 5GB. Auth: 10K/tháng',
             details: [
                 { label: 'Project ID', value: 'n2shop-69e37' },
-                { label: 'Firestore', value: 'Active - nam5' },
-                { label: 'Realtime DB', value: 'Active - asia-southeast1' },
-                { label: 'Storage', value: 'n2shop-69e37-ne0q1' },
+                { label: 'Service Account', value: 'firebase-adminsdk-cmdro@n2shop-69e37.iam.gserviceaccount.com' },
+                { label: 'Firestore', value: 'Active - nam5 (US)' },
+                { label: 'Realtime DB', value: 'Active - asia-southeast1 (Singapore)' },
+                { label: 'Storage Bucket', value: 'n2shop-69e37-ne0q1' },
                 { label: 'Auth', value: 'Anonymous Auth' },
-                { label: 'Hosting', value: 'Active' },
-                { label: 'Giá Firestore', value: '$0.06/100K reads, $0.18/100K writes' },
-                { label: 'Giá Storage', value: '$0.026/GB/tháng' },
-                { label: 'Giá Bandwidth', value: '$0.12/GB (sau 10GB free)' },
+                { label: 'Giá Firestore', value: '$0.06/100K reads, $0.18/100K writes, $0.02/100K deletes' },
+                { label: 'Giá Realtime DB', value: '$5/GB stored, $1/GB download' },
+                { label: 'Giá Storage', value: '$0.026/GB/tháng, $0.12/GB download' },
             ],
-            consoleUrl: 'https://console.firebase.google.com/project/n2shop-69e37/overview',
+            consoleUrl: 'https://console.firebase.google.com/project/n2shop-69e37/usage',
             status: 'active',
         },
-        {
-            id: 'render-db',
-            name: 'Render PostgreSQL',
-            type: 'Database',
-            icon: 'database',
-            account: 'n2store_user',
-            plan: 'Free → Starter ($7/mo)',
-            costType: 'paid',
-            monthlyCost: 7,
-            costNote: 'Free tier: 256MB, 97 ngày rồi expire. Starter: $7/mo, 1GB RAM, 1GB SSD',
-            region: 'Singapore',
-            freeTier: 'Free: 256MB storage, expires sau 97 ngày. Starter: 1GB RAM, 1GB SSD',
-            details: [
-                { label: 'Database', value: 'n2store_chat' },
-                { label: 'User', value: 'n2store_user' },
-                { label: 'Host', value: 'dpg-d4kr80npm1nc738em3j0-a.singapore-postgres.render.com' },
-                { label: 'Region', value: 'Singapore' },
-                { label: 'Plan hiện tại', value: 'Cần kiểm tra (Free hết hạn → nên dùng Starter $7/mo)' },
-                { label: 'Tables', value: '~30+ tables (customers, balance_history, return_orders...)' },
-            ],
-            consoleUrl: 'https://dashboard.render.com/',
-            status: 'active',
-        },
-        {
-            id: 'render',
-            name: 'Render Web Service',
-            type: 'Web Server (Node.js)',
-            icon: 'server',
-            account: 'Render.com',
-            plan: 'Free → Starter ($7/mo)',
-            costType: 'paid',
-            monthlyCost: 7,
-            costNote: 'Free tier: spin down sau 15 phút idle. Starter: $7/mo always-on',
-            region: 'Singapore',
-            freeTier: 'Free: 750 hours/tháng, spin down sau 15 phút. Starter: always-on, 512MB RAM',
-            details: [
-                { label: 'Chức năng', value: 'API server, webhooks, image proxy, SSE realtime' },
-                { label: 'Routes', value: 'customers, return-orders, goong-places, gemini, tpos-saved, sepay...' },
-                { label: 'Node.js', value: 'Express.js server' },
-                { label: 'API Key', value: 'rnd_AcWE...7Di9', masked: true },
-            ],
-            consoleUrl: 'https://dashboard.render.com/',
-            status: 'active',
-        },
+
+        // ===================== CLOUDFLARE =====================
         {
             id: 'cloudflare',
             name: 'Cloudflare Workers',
             type: 'Edge Computing / Proxy',
             icon: 'cloud',
-            account: 'Cloudflare',
+            account: 'Cloudflare (chatomni-proxy)',
             plan: 'Free',
             costType: 'free',
             monthlyCost: 0,
-            costNote: 'Free tier rất lớn, đủ dùng',
-            region: 'Global Edge',
-            freeTier: '100K requests/ngày, 10ms CPU/request. Workers KV: 100K reads/ngày, 1K writes/ngày',
+            costNote: 'Worker name: chatomni-proxy. Free tier 100K req/ngày đủ dùng',
+            region: 'Global Edge (auto)',
+            freeTier: '100,000 requests/ngày, 10ms CPU/request',
             details: [
-                { label: 'Chức năng', value: 'TPOS proxy, Facebook proxy, AI proxy, Image proxy' },
+                { label: 'Worker Name', value: 'chatomni-proxy' },
                 { label: 'Handlers', value: 'tpos, pancake, facebook, ai, image-proxy, token' },
-                { label: 'Request/ngày', value: '100,000 free' },
-                { label: 'CPU time', value: '10ms/request (free)' },
+                { label: 'Free tier', value: '100K requests/ngày, 10ms CPU time' },
+                { label: 'Plan', value: 'Free (Workers Free)' },
+                { label: 'Compatibility', value: '2025-11-27' },
             ],
             consoleUrl: 'https://dash.cloudflare.com/',
             status: 'active',
         },
+
+        // ===================== AI / LLM =====================
         {
             id: 'deepseek',
             name: 'DeepSeek API',
             type: 'AI / LLM',
             icon: 'brain',
-            account: 'DeepSeek',
+            account: 'DeepSeek Platform',
             plan: 'Pay as you go',
             costType: 'usage-based',
-            monthlyCost: 0,
-            costNote: 'Rất rẻ, ~$0.14/1M input tokens, $0.28/1M output tokens',
+            monthlyCost: 1,
+            costNote: 'Số dư hiện tại: $9.27 (topped up). Dùng rất ít mỗi tháng',
             region: 'Global',
-            freeTier: 'Không có free tier cố định, nhưng giá rất rẻ',
+            freeTier: 'Không free tier. Giá rất rẻ: $0.14/1M input, $0.28/1M output tokens',
             details: [
-                { label: 'Model', value: 'DeepSeek Chat / Coder' },
-                { label: 'Giá Input', value: '$0.14/1M tokens (~1₫/1000 tokens)' },
+                { label: 'Số dư hiện tại', value: '$9.27 USD (topped up)' },
+                { label: 'Granted balance', value: '$0.00' },
+                { label: 'Status', value: 'Available (is_available: true)' },
+                { label: 'Giá Input', value: '$0.14/1M tokens' },
                 { label: 'Giá Output', value: '$0.28/1M tokens' },
-                { label: 'API Key', value: 'sk-319c...e9b1', masked: true },
-                { label: 'Sử dụng', value: 'AI features trong app' },
+                { label: 'API Key', value: 'sk-319cef4faabf413aa84beb51c383e9b1', masked: true },
             ],
             consoleUrl: 'https://platform.deepseek.com/',
             status: 'active',
@@ -127,112 +222,127 @@
         {
             id: 'gemini',
             name: 'Gemini API',
-            type: 'AI / LLM',
+            type: 'AI / LLM (Google)',
             icon: 'sparkles',
-            account: 'Google Cloud',
-            plan: 'Free tier + Pay as you go',
+            account: 'Google AI Studio',
+            plan: 'Free tier',
             costType: 'free',
             monthlyCost: 0,
-            costNote: 'Free tier: 15 RPM, 1M tokens/phút, 1500 requests/ngày',
+            costNote: 'API hoạt động. Models: Gemini 2.5 Flash, 2.5 Pro, 2.0 Flash...',
             region: 'Global',
-            freeTier: 'Gemini 1.5 Flash: 15 RPM, 1M TPM, 1500 RPD miễn phí',
+            freeTier: '15 RPM, 1M tokens/phút, 1500 requests/ngày (free)',
             details: [
-                { label: 'Model', value: 'Gemini 1.5 Flash / Pro' },
-                { label: 'Free tier', value: '15 requests/phút, 1500 requests/ngày' },
-                { label: 'Giá (vượt free)', value: '$0.075/1M input, $0.30/1M output (Flash)' },
-                { label: 'API Key', value: 'AIzaSyCu...pZs', masked: true },
-                { label: 'Sử dụng', value: 'AI route trên Render server' },
+                { label: 'API Status', value: 'ACTIVE (verified)' },
+                { label: 'Models available', value: 'Gemini 2.5 Flash, 2.5 Pro, 2.0 Flash, 1.5 Flash/Pro...' },
+                { label: 'Google Project', value: '51754929973' },
+                { label: 'Free tier', value: '15 RPM, 1M TPM, 1500 RPD' },
+                { label: 'API Key', value: 'AIzaSyCuo0e3Gpgvo8n30ZDSowc_jORy59r9pZs', masked: true },
+                { label: 'Sử dụng', value: 'AI route trên Render server (/api/gemini)' },
             ],
             consoleUrl: 'https://aistudio.google.com/',
             status: 'active',
         },
+
+        // ===================== GOOGLE APIS =====================
         {
             id: 'vision',
             name: 'Google Cloud Vision',
             type: 'AI / OCR',
             icon: 'scan',
-            account: 'Google Cloud',
-            plan: 'Free tier + Pay as you go',
-            costType: 'usage-based',
+            account: 'Google Cloud (Project 51754929973)',
+            plan: 'DISABLED',
+            costType: 'free',
             monthlyCost: 0,
-            costNote: '1000 units/tháng miễn phí',
+            costNote: 'API CHƯA ĐƯỢC BẬT trong project. Cần enable nếu muốn dùng',
             region: 'Global',
-            freeTier: '1,000 units/tháng free. Sau đó: $1.50/1000 units',
+            freeTier: '1,000 units/tháng free (nếu enable). $1.50/1000 units sau đó',
             details: [
-                { label: 'Features', value: 'TEXT_DETECTION, LABEL_DETECTION' },
-                { label: 'Free tier', value: '1,000 units/tháng' },
-                { label: 'Giá vượt', value: '$1.50/1000 units (1001-5M)' },
-                { label: 'API Key', value: 'Dùng chung key Gemini', masked: false },
-                { label: 'Sử dụng', value: 'OCR hóa đơn, nhận diện text' },
+                { label: 'API Status', value: 'DISABLED (SERVICE_DISABLED)' },
+                { label: 'Error', value: 'Cloud Vision API has not been used in project 51754929973' },
+                { label: 'Key dùng chung', value: 'Chung key Gemini (AIzaSyCuo0e...)' },
+                { label: 'Enable tại', value: 'console.developers.google.com/apis/api/vision.googleapis.com' },
+                { label: 'Chi phí nếu bật', value: 'Free 1000 units/tháng, sau đó $1.50/1K units' },
             ],
-            consoleUrl: 'https://console.cloud.google.com/apis/dashboard',
-            status: 'active',
+            consoleUrl: 'https://console.developers.google.com/apis/api/vision.googleapis.com/overview?project=51754929973',
+            status: 'disabled',
         },
         {
             id: 'places',
             name: 'Google Places API',
             type: 'Maps / Geocoding',
             icon: 'map-pin',
-            account: 'Google Cloud',
-            plan: '$200 credit/tháng',
+            account: 'Google Cloud (Project 598906493303)',
+            plan: 'DISABLED',
             costType: 'free',
             monthlyCost: 0,
-            costNote: 'Google cho $200 credit/tháng miễn phí',
+            costNote: 'Cả Legacy API lẫn New API đều DISABLED. Key tồn tại nhưng không hoạt động',
             region: 'Global',
-            freeTier: '$200 credit/tháng (~28,000 Autocomplete requests). Place Autocomplete: $2.83/1000 req',
+            freeTier: '$200 credit/tháng nếu enable. Autocomplete: $2.83/1K requests',
             details: [
-                { label: 'API', value: 'Places Autocomplete, Place Details' },
-                { label: 'Monthly credit', value: '$200/tháng (miễn phí)' },
-                { label: 'Giá Autocomplete', value: '$2.83/1000 requests' },
-                { label: 'Giá Place Details', value: '$17/1000 requests' },
-                { label: 'API Key', value: 'AIzaSyD8...8Vw', masked: true },
-                { label: 'Sử dụng', value: 'Tìm địa chỉ giao hàng' },
+                { label: 'API Status', value: 'DISABLED (cả Legacy + New)' },
+                { label: 'Legacy API', value: 'REQUEST_DENIED - "calling a legacy API, not enabled"' },
+                { label: 'Places API (New)', value: 'SERVICE_DISABLED - project 598906493303' },
+                { label: 'API Key', value: 'AIzaSyD8m0umxhwIy1BdW7MJ9wve1IxGjZVh8Vw', masked: true },
+                { label: 'Lưu ý', value: 'Key khác project với Gemini (598906493303 vs 51754929973)' },
+                { label: 'Enable tại', value: 'console.developers.google.com/apis/api/places.googleapis.com' },
             ],
-            consoleUrl: 'https://console.cloud.google.com/apis/dashboard',
-            status: 'active',
+            consoleUrl: 'https://console.developers.google.com/apis/api/places.googleapis.com/overview?project=598906493303',
+            status: 'disabled',
         },
+
+        // ===================== MAPS =====================
         {
             id: 'goong',
             name: 'Goong.io',
             type: 'Maps / Geocoding (VN)',
             icon: 'map',
-            account: 'Goong',
+            account: 'Goong.io',
             plan: 'Free tier',
             costType: 'free',
             monthlyCost: 0,
-            costNote: '5,000 requests/tháng miễn phí',
+            costNote: 'API hoạt động tốt (verified - trả về kết quả geocoding)',
             region: 'Vietnam',
-            freeTier: '5,000 API calls/tháng free. Sau đó: liên hệ',
+            freeTier: '5,000 API calls/tháng free',
             details: [
-                { label: 'API', value: 'Autocomplete, Geocoding, Place Detail' },
+                { label: 'API Status', value: 'ACTIVE (verified - geocoding OK)' },
+                { label: 'APIs', value: 'Autocomplete, Geocoding, Place Detail' },
                 { label: 'Free tier', value: '5,000 requests/tháng' },
-                { label: 'API Key', value: 'QgXlM7...sTi2', masked: true },
-                { label: 'Sử dụng', value: 'Tìm địa chỉ VN (thay thế/bổ sung Google Places)' },
+                { label: 'API Key', value: 'QgXlM7CixnRBZD8OUcN4hgVTPTL6cHP8kXr7sTi2', masked: true },
+                { label: 'Sử dụng', value: 'Tìm địa chỉ VN qua Render server (/api/goong-places)' },
             ],
             consoleUrl: 'https://account.goong.io/',
             status: 'active',
         },
+
+        // ===================== MESSAGING =====================
         {
             id: 'telegram',
-            name: 'Telegram Bot API',
+            name: 'Telegram Bot',
             type: 'Messaging / Notification',
             icon: 'send',
-            account: 'Bot: @n2store_bot',
+            account: '@N2Store_bot (N2Shop)',
             plan: 'Free',
             costType: 'free',
             monthlyCost: 0,
-            costNote: 'Hoàn toàn miễn phí',
+            costNote: 'Bot hoạt động. Webhook → n2store-fallback.onrender.com',
             region: 'Global',
-            freeTier: 'Không giới hạn (miễn phí hoàn toàn)',
+            freeTier: 'Hoàn toàn miễn phí, không giới hạn',
             details: [
-                { label: 'Bot Token', value: '8546129...tWE3EI', masked: true },
-                { label: 'Giá', value: 'MIỄN PHÍ (không giới hạn)' },
-                { label: 'Rate limit', value: '30 messages/giây (tổng), 1 msg/giây/chat' },
-                { label: 'Sử dụng', value: 'Thông báo đơn hàng, cảnh báo hệ thống' },
+                { label: 'Bot Status', value: 'ACTIVE (verified)' },
+                { label: 'Bot ID', value: '8546129159' },
+                { label: 'Bot Username', value: '@N2Store_bot' },
+                { label: 'Bot Name', value: 'N2Shop' },
+                { label: 'Webhook URL', value: 'https://n2store-fallback.onrender.com/api/telegram/webhook' },
+                { label: 'Webhook IP', value: '216.24.57.251' },
+                { label: 'Pending Updates', value: '0' },
+                { label: 'Max Connections', value: '40' },
+                { label: 'Bot Token', value: '8546129159:AAGcQQqcSZJZ0K_saqLsXLGP8V5aqtWE3EI', masked: true },
             ],
-            consoleUrl: 'https://t.me/BotFather',
+            consoleUrl: 'https://t.me/N2Store_bot',
             status: 'active',
         },
+
+        // ===================== PAYMENT =====================
         {
             id: 'sepay',
             name: 'SePay',
@@ -242,35 +352,38 @@
             plan: 'Free (webhook)',
             costType: 'free',
             monthlyCost: 0,
-            costNote: 'Webhook nhận thông báo chuyển khoản miễn phí',
+            costNote: 'Key có thể là placeholder (sepay_sk_abc123xyz456). Kiểm tra lại',
             region: 'Vietnam',
-            freeTier: 'Miễn phí nhận webhook thông báo giao dịch ngân hàng',
+            freeTier: 'Miễn phí webhook nhận thông báo giao dịch ngân hàng',
             details: [
-                { label: 'API Key', value: 'sepay_sk_abc...456', masked: true },
-                { label: 'Chức năng', value: 'Webhook nhận thông báo giao dịch ngân hàng' },
-                { label: 'Giá', value: 'Miễn phí (tier cơ bản)' },
-                { label: 'Sử dụng', value: 'Tự động xác nhận thanh toán đơn hàng' },
+                { label: 'API Status', value: 'Chưa xác nhận (key có vẻ placeholder)' },
+                { label: 'API Key', value: 'sepay_sk_abc123xyz456', masked: true },
+                { label: 'Chức năng', value: 'Webhook nhận thông báo chuyển khoản ngân hàng' },
+                { label: 'Sử dụng', value: 'Route /api/sepay-webhook trên Render' },
             ],
             consoleUrl: 'https://my.sepay.vn/',
-            status: 'active',
+            status: 'unknown',
         },
+
+        // ===================== POS =====================
         {
             id: 'tpos',
-            name: 'TPOS (POS System)',
-            type: 'Point of Sale',
+            name: 'TPOS',
+            type: 'Point of Sale System',
             icon: 'shopping-cart',
-            account: 'tmtWebApp',
-            plan: 'Thuê bao hàng tháng',
+            account: 'tmtWebApp / nvkt',
+            plan: 'Thuê bao (kiểm tra HĐ)',
             costType: 'paid',
             monthlyCost: 0,
-            costNote: 'Phí POS (kiểm tra hợp đồng)',
+            costNote: 'Chi phí POS phụ thuộc hợp đồng. API qua Cloudflare Worker proxy',
             region: 'Vietnam',
             freeTier: 'Không có free tier',
             details: [
                 { label: 'Client ID', value: 'tmtWebApp' },
                 { label: 'Username', value: 'nvkt' },
+                { label: 'Password', value: 'Aa@123456789', masked: true },
+                { label: 'Tích hợp', value: 'API qua Cloudflare Worker (chatomni-proxy)' },
                 { label: 'Chức năng', value: 'Quản lý đơn hàng, sản phẩm, tồn kho, khách hàng' },
-                { label: 'Tích hợp', value: 'API qua Cloudflare Worker proxy' },
             ],
             consoleUrl: 'https://www.tpos.dev/',
             status: 'active',
@@ -279,34 +392,38 @@
 
     const QUICK_LINKS = [
         { name: 'Firebase Console', url: 'https://console.firebase.google.com/project/n2shop-69e37/overview', icon: 'flame' },
-        { name: 'Firebase Usage', url: 'https://console.firebase.google.com/project/n2shop-69e37/usage', icon: 'bar-chart-2' },
+        { name: 'Firebase Billing', url: 'https://console.firebase.google.com/project/n2shop-69e37/usage', icon: 'bar-chart-2' },
         { name: 'Render Dashboard', url: 'https://dashboard.render.com/', icon: 'server' },
+        { name: 'Render: n2store-fallback', url: 'https://dashboard.render.com/web/srv-d4e5pd3gk3sc73bgv600', icon: 'server' },
+        { name: 'Render: n2store-realtime', url: 'https://dashboard.render.com/web/srv-d5doh26uk2gs739489k0', icon: 'radio' },
+        { name: 'Render: tpos-pancake', url: 'https://dashboard.render.com/web/srv-d5fqb6s9c44c738q1800', icon: 'package' },
+        { name: 'Render: facebook', url: 'https://dashboard.render.com/web/srv-d5g6p6uuk2gs739b3u1g', icon: 'message-circle' },
+        { name: 'Render: PostgreSQL DB', url: 'https://dashboard.render.com/d/dpg-d4kr80npm1nc738em3j0-a', icon: 'database' },
         { name: 'Cloudflare Dash', url: 'https://dash.cloudflare.com/', icon: 'cloud' },
-        { name: 'Google Cloud Console', url: 'https://console.cloud.google.com/', icon: 'settings' },
         { name: 'DeepSeek Platform', url: 'https://platform.deepseek.com/', icon: 'brain' },
         { name: 'Google AI Studio', url: 'https://aistudio.google.com/', icon: 'sparkles' },
+        { name: 'Google Cloud Console', url: 'https://console.cloud.google.com/', icon: 'settings' },
         { name: 'Goong Account', url: 'https://account.goong.io/', icon: 'map' },
         { name: 'SePay Dashboard', url: 'https://my.sepay.vn/', icon: 'banknote' },
-        { name: 'Telegram BotFather', url: 'https://t.me/BotFather', icon: 'send' },
-        { name: 'TPOS Admin', url: 'https://www.tpos.dev/', icon: 'shopping-cart' },
+        { name: 'Telegram @N2Store_bot', url: 'https://t.me/N2Store_bot', icon: 'send' },
         { name: 'Firebase Stats (local)', url: '../firebase-stats/index.html', icon: 'database' },
     ];
 
     const API_KEYS = [
+        { name: 'RENDER_API_KEY', service: 'Render', value: 'rnd_AcWEm67JDpbHEuAcWWALokwJ7Di9', sensitive: true },
+        { name: 'RENDER_DB_URL', service: 'Render DB', value: 'postgresql://n2store_user:iKxWmQEh1PcUSRRJXrlMueaGci1Id6Z0@dpg-d4kr80npm1nc738em3j0-a.singapore-postgres.render.com/n2store_chat', sensitive: true },
         { name: 'FIREBASE_PROJECT_ID', service: 'Firebase', value: 'n2shop-69e37', sensitive: false },
         { name: 'FIREBASE_CLIENT_EMAIL', service: 'Firebase', value: 'firebase-adminsdk-cmdro@n2shop-69e37.iam.gserviceaccount.com', sensitive: false },
         { name: 'DEEPSEEK_API_KEY', service: 'DeepSeek', value: 'sk-319cef4faabf413aa84beb51c383e9b1', sensitive: true },
-        { name: 'GEMINI_API_KEY', service: 'Google', value: 'AIzaSyCuo0e3Gpgvo8n30ZDSowc_jORy59r9pZs', sensitive: true },
-        { name: 'GOOGLE_CLOUD_VISION_API_KEY', service: 'Google', value: 'AIzaSyCuo0e3Gpgvo8n30ZDSowc_jORy59r9pZs (same as Gemini)', sensitive: true },
-        { name: 'GOOGLE_PLACES_API_KEY', service: 'Google', value: 'AIzaSyD8m0umxhwIy1BdW7MJ9wve1IxGjZVh8Vw', sensitive: true },
-        { name: 'GOONG_API_KEY', service: 'Goong', value: 'QgXlM7CixnRBZD8OUcN4hgVTPTL6cHP8kXr7sTi2', sensitive: true },
-        { name: 'TELEGRAM_BOT_TOKEN', service: 'Telegram', value: '8546129159:AAGcQQqcSZJZ0K_saqLsXLGP8V5aqtWE3EI', sensitive: true },
-        { name: 'SEPAY_API_KEY', service: 'SePay', value: 'sepay_sk_abc123xyz456', sensitive: true },
+        { name: 'GEMINI_API_KEY', service: 'Google (project 51754929973)', value: 'AIzaSyCuo0e3Gpgvo8n30ZDSowc_jORy59r9pZs', sensitive: true },
+        { name: 'GOOGLE_CLOUD_VISION_API_KEY', service: 'Google (DISABLED)', value: 'AIzaSyCuo0e3Gpgvo8n30ZDSowc_jORy59r9pZs', sensitive: true },
+        { name: 'GOOGLE_PLACES_API_KEY', service: 'Google (project 598906493303, DISABLED)', value: 'AIzaSyD8m0umxhwIy1BdW7MJ9wve1IxGjZVh8Vw', sensitive: true },
+        { name: 'GOONG_API_KEY', service: 'Goong.io', value: 'QgXlM7CixnRBZD8OUcN4hgVTPTL6cHP8kXr7sTi2', sensitive: true },
+        { name: 'TELEGRAM_BOT_TOKEN', service: 'Telegram (@N2Store_bot)', value: '8546129159:AAGcQQqcSZJZ0K_saqLsXLGP8V5aqtWE3EI', sensitive: true },
+        { name: 'SEPAY_API_KEY', service: 'SePay (có thể placeholder)', value: 'sepay_sk_abc123xyz456', sensitive: true },
         { name: 'TPOS_CLIENT_ID', service: 'TPOS', value: 'tmtWebApp', sensitive: false },
         { name: 'TPOS_USERNAME', service: 'TPOS', value: 'nvkt', sensitive: false },
         { name: 'TPOS_PASSWORD', service: 'TPOS', value: 'Aa@123456789', sensitive: true },
-        { name: 'RENDER_API_KEY', service: 'Render', value: 'rnd_AcWEm67JDpbHEuAcWWALokwJ7Di9', sensitive: true },
-        { name: 'RENDER_DB_URL', service: 'Render', value: 'postgresql://n2store_user:***@dpg-d4kr80npm1nc738em3j0-a.singapore-postgres.render.com/n2store_chat', sensitive: true },
     ];
 
     // =========================================================
@@ -318,7 +435,12 @@
     function maskValue(value) {
         if (!value) return '---';
         if (value.length <= 10) return '*'.repeat(value.length);
-        return value.substring(0, 6) + '•'.repeat(8) + value.substring(value.length - 4);
+        return value.substring(0, 6) + '••••••••' + value.substring(value.length - 4);
+    }
+
+    function formatCurrency(amount) {
+        if (amount === 0) return '$0';
+        return `$${amount}`;
     }
 
     function renderSummary() {
@@ -328,9 +450,20 @@
         const usageCount = SERVICES.filter(s => s.costType === 'usage-based').length;
 
         document.getElementById('totalMonthlyCost').textContent = `~$${totalMonthly}/tháng`;
+        document.getElementById('totalMonthlyCost').title = `Render: $70 + DeepSeek: ~$1 + Firebase: ~$0 = ~$${totalMonthly}`;
         document.getElementById('freeServicesCount').textContent = `${freeCount} dịch vụ`;
         document.getElementById('paidServicesCount').textContent = `${paidCount} paid + ${usageCount} usage`;
         document.getElementById('totalServicesCount').textContent = SERVICES.length;
+    }
+
+    function getStatusBadge(status) {
+        const map = {
+            active: { cls: 'active', label: 'Active' },
+            disabled: { cls: 'warning', label: 'Disabled' },
+            unknown: { cls: 'usage', label: 'Chưa xác nhận' },
+        };
+        const s = map[status] || map.active;
+        return `<span class="badge ${s.cls}">${s.label}</span>`;
     }
 
     function renderServicesGrid() {
@@ -347,8 +480,8 @@
                             <div class="service-type">${s.type}</div>
                         </div>
                     </div>
-                    <span class="service-cost-badge ${s.costType}">
-                        ${s.costType === 'free' ? 'FREE' : s.costType === 'paid' ? `$${s.monthlyCost}/mo` : 'Usage-based'}
+                    <span class="service-cost-badge ${s.costType === 'free' ? 'free' : s.costType === 'paid' ? 'paid' : 'usage-based'}">
+                        ${s.costType === 'free' ? 'FREE' : s.costType === 'paid' ? (s.monthlyCost > 0 ? `$${s.monthlyCost}/mo` : 'Paid (TBD)') : 'Usage-based'}
                     </span>
                 </div>
                 <div class="service-card-body">
@@ -376,18 +509,16 @@
                     `).join('')}
                     ${s.costNote ? `
                         <div class="service-detail-row" style="border-bottom:none; padding-top:0.75rem">
-                            <span class="detail-label">Ghi chú</span>
+                            <span class="detail-label">Ghi ch&uacute;</span>
                             <span class="detail-value" style="color:var(--warning); font-size:0.78rem">${s.costNote}</span>
                         </div>
                     ` : ''}
                 </div>
                 <div class="service-card-footer">
                     <a href="${s.consoleUrl}" target="_blank">
-                        <i data-lucide="external-link"></i> Mở Console
+                        <i data-lucide="external-link"></i> M&#7903; Console
                     </a>
-                    <span class="badge ${s.status === 'active' ? 'active' : 'inactive'}">
-                        ${s.status === 'active' ? 'Active' : 'Inactive'}
-                    </span>
+                    ${getStatusBadge(s.status)}
                 </div>
             </div>
         `).join('');
@@ -405,16 +536,16 @@
                 <tr>
                     <td><strong>${s.name}</strong></td>
                     <td>${s.type}</td>
-                    <td>${s.account}</td>
+                    <td style="font-size:0.78rem">${s.account}</td>
                     <td>${s.plan}</td>
-                    <td>${s.monthlyCost > 0 ? `<strong>$${s.monthlyCost}</strong>` : '<span style="color:var(--success)">$0</span>'}</td>
-                    <td style="font-size:0.78rem; max-width:200px">${s.freeTier}</td>
-                    <td><span class="badge ${costTypeClass}">${costTypeLabel}</span></td>
+                    <td>${s.monthlyCost > 0 ? `<strong style="color:var(--danger)">$${s.monthlyCost}</strong>` : '<span style="color:var(--success)">$0</span>'}</td>
+                    <td style="font-size:0.75rem; max-width:200px">${s.freeTier}</td>
+                    <td>${getStatusBadge(s.status)}</td>
                 </tr>
             `;
         }).join('');
 
-        document.getElementById('totalCostCell').innerHTML = `<strong>~$${totalCost}/tháng</strong>`;
+        document.getElementById('totalCostCell').innerHTML = `<strong style="color:var(--danger)">~$${totalCost}/th&aacute;ng</strong>`;
     }
 
     function renderAPIKeys() {
@@ -446,34 +577,31 @@
     // INIT
     // =========================================================
     function init() {
-        // Show main container
         const mainContainer = document.getElementById('mainContainer');
         if (mainContainer) mainContainer.style.display = 'flex';
 
-        // Render all sections
         renderSummary();
         renderServicesGrid();
         renderCostTable();
         renderAPIKeys();
         renderQuickLinks();
 
-        // Update timestamp
-        const now = new Date();
+        // Timestamp
         document.getElementById('lastUpdated').textContent =
-            `Cập nhật: ${now.toLocaleDateString('vi-VN')} ${now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`;
+            'Data verified: 30/03/2026 (via API calls)';
 
-        // Toggle keys visibility
+        // Toggle keys
         document.getElementById('btnToggleKeys').addEventListener('click', function () {
             keysVisible = !keysVisible;
             this.innerHTML = keysVisible
-                ? '<i data-lucide="eye"></i> Ẩn keys'
-                : '<i data-lucide="eye-off"></i> Hiển thị keys';
+                ? '<i data-lucide="eye"></i> \u1EA8n keys'
+                : '<i data-lucide="eye-off"></i> Hi\u1EC3n th\u1ECB keys';
             renderAPIKeys();
             renderServicesGrid();
             if (typeof lucide !== 'undefined') lucide.createIcons();
         });
 
-        // Init lucide icons
+        // Lucide icons
         if (typeof lucide !== 'undefined') {
             lucide.createIcons();
         } else {
@@ -483,7 +611,6 @@
         }
     }
 
-    // Wait for DOM
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
