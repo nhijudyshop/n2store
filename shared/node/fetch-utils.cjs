@@ -8,7 +8,8 @@
  * @module shared/node/fetch-utils
  */
 
-const fetch = require('node-fetch');
+// Node.js >= 18 has native fetch and AbortController - no external packages needed
+const fetch = globalThis.fetch;
 const AbortController = globalThis.AbortController;
 
 /**
@@ -61,6 +62,7 @@ async function fetchWithTimeout(resource, options = {}, timeout = 10000) {
 async function fetchWithRetry(resource, options = {}, maxRetries = 3, initialDelay = 1000, timeout = 10000) {
     let lastError;
     let lastResponse;
+    let retryCount = 0;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         try {
@@ -81,15 +83,18 @@ async function fetchWithRetry(resource, options = {}, maxRetries = 3, initialDel
                     }
                 }
 
+                retryCount++;
                 console.warn(`[FETCH-RETRY] ${response.status === 429 ? 'Rate limited' : 'Server error'} ${response.status}, attempt ${attempt + 1}/${maxRetries + 1}, waiting ${delayMs}ms`);
                 lastResponse = response;
                 await delay(delayMs);
                 continue;
             }
 
+            response._retryCount = retryCount;
             return response;
         } catch (error) {
             lastError = error;
+            retryCount++;
             console.warn(`[FETCH-RETRY] Attempt ${attempt + 1}/${maxRetries + 1} failed:`, error.message);
 
             if (attempt < maxRetries) {
@@ -99,7 +104,10 @@ async function fetchWithRetry(resource, options = {}, maxRetries = 3, initialDel
         }
     }
 
-    if (lastResponse) return lastResponse;
+    if (lastResponse) {
+        lastResponse._retryCount = retryCount;
+        return lastResponse;
+    }
     throw lastError;
 }
 
