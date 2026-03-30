@@ -2457,6 +2457,7 @@
     async function confirmManagerReview() {
         if (!currentReviewTxId) return;
 
+        const txId = currentReviewTxId; // Save locally before async ops
         const noteEl = document.getElementById('accReviewNote');
         const reviewNote = noteEl?.value?.trim() || '';
         const confirmBtn = document.getElementById('accReviewConfirmBtn');
@@ -2511,21 +2512,21 @@
             // Log to audit history
             try {
                 if (window.AuditLogger) {
-                    const tx = state.approvedToday.find(t => t.id == currentReviewTxId) || {};
+                    const tx = state.approvedToday.find(t => t.id == txId) || {};
                     window.AuditLogger.logAction('transaction_verify', {
                         module: 'balance-history',
-                        description: 'Kiểm tra giao dịch #' + currentReviewTxId + (tx.linked_customer_phone ? ' (KH: ' + (tx.customer_name || '') + ' - ' + tx.linked_customer_phone + ')' : ''),
+                        description: 'Kiểm tra giao dịch #' + txId + (tx.linked_customer_phone ? ' (KH: ' + (tx.customer_name || '') + ' - ' + tx.linked_customer_phone + ')' : ''),
                         oldData: { manager_reviewed: false },
                         newData: {
                             manager_reviewed: true,
                             review_note: reviewNote,
                             reviewed_by: reviewedBy,
                             review_image_url: reviewImageUrl || null,
-                            txId: String(currentReviewTxId)
+                            txId: String(txId)
                         },
                         approverUserId: reviewedBy,
                         approverUserName: reviewedBy,
-                        entityId: String(currentReviewTxId),
+                        entityId: String(txId),
                         entityType: 'balance_history'
                     });
                 }
