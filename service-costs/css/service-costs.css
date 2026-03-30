@@ -80,13 +80,7 @@ body {
 /* =====================================================
    LAYOUT
    ===================================================== */
-#mainContainer {
-    display: flex;
-    min-height: 100vh;
-}
-
 .main-content {
-    flex: 1;
     min-height: 100vh;
 }
 

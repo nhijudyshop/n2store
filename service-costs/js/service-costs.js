@@ -602,7 +602,7 @@
     // =========================================================
     function init() {
         const mainContainer = document.getElementById('mainContainer');
-        if (mainContainer) mainContainer.style.display = 'flex';
+        if (mainContainer) mainContainer.style.display = 'block';
 
         renderSummary();
         renderServicesGrid();
