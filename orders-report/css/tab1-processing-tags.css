@@ -536,6 +536,24 @@
     opacity: 1;
 }
 
+/* ----- FLAGS SECTION COLLAPSE ----- */
+.ptag-flags-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.ptag-flags-chevron {
+    font-size: 10px;
+    color: #7c3aed;
+    transition: transform 0.2s ease;
+    margin-right: 8px;
+}
+
+.ptag-flags-chevron.expanded {
+    transform: rotate(90deg);
+}
+
 /* ----- FLAG CHECKBOXES ----- */
 .ptag-panel-flag-item {
     display: flex;
