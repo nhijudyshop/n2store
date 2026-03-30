@@ -180,26 +180,38 @@
         },
 
         // ===================== CLOUDFLARE =====================
+        // Account: 27170a8625bb696ad1c253e6b221f59e
+        // Owner: TRUONG GIANG VO TR (nhijudyshop@gmail.com)
+        // Subdomain: nhijudyshop.workers.dev
+        // Created: 2025-11-15, Personal account, Free plan
         {
             id: 'cloudflare',
             name: 'Cloudflare Workers',
             type: 'Edge Computing / Proxy',
             icon: 'cloud',
-            account: 'Cloudflare (chatomni-proxy)',
-            plan: 'Free',
+            account: 'nhijudyshop@gmail.com (Personal)',
+            plan: 'Free (Standard usage model)',
             costType: 'free',
             monthlyCost: 0,
-            costNote: 'Worker name: chatomni-proxy. Free tier 100K req/ngày đủ dùng',
+            costNote: 'Tháng 3/2026: ~615K requests, 0 errors. Peak: 72K req/ngày (18/03). Free tier: 100K/ngày',
             region: 'Global Edge (auto)',
-            freeTier: '100,000 requests/ngày, 10ms CPU/request',
+            freeTier: '100,000 requests/ngày (~3M/tháng), 10ms CPU/request',
             details: [
+                { label: 'Account ID', value: '27170a8625bb696ad1c253e6b221f59e' },
+                { label: 'Account Type', value: 'Personal (Free)' },
+                { label: 'Owner', value: 'TRUONG GIANG VO TR' },
                 { label: 'Worker Name', value: 'chatomni-proxy' },
+                { label: 'Subdomain', value: 'nhijudyshop.workers.dev' },
+                { label: 'Usage Model', value: 'Standard' },
+                { label: 'Zones/Domains', value: '0 (không có custom domain trên CF)' },
+                { label: 'Tháng 3/2026', value: '~615,195 requests / 0 errors' },
+                { label: 'Peak ngày', value: '71,970 req (18/03) - dưới 100K free' },
+                { label: 'Avg/ngày', value: '~20,500 requests' },
                 { label: 'Handlers', value: 'tpos, pancake, facebook, ai, image-proxy, token' },
-                { label: 'Free tier', value: '100K requests/ngày, 10ms CPU time' },
-                { label: 'Plan', value: 'Free (Workers Free)' },
-                { label: 'Compatibility', value: '2025-11-27' },
+                { label: 'Deploy', value: 'Wrangler CLI, compatibility: 2025-11-27' },
+                { label: 'Created', value: '15/11/2025' },
             ],
-            consoleUrl: 'https://dash.cloudflare.com/',
+            consoleUrl: 'https://dash.cloudflare.com/27170a8625bb696ad1c253e6b221f59e/workers/services/view/chatomni-proxy/production',
             status: 'active',
         },
 
@@ -407,7 +419,8 @@
         { name: 'Render: tpos-pancake', url: 'https://dashboard.render.com/web/srv-d5fqb6s9c44c738q1800', icon: 'package' },
         { name: 'Render: facebook', url: 'https://dashboard.render.com/web/srv-d5g6p6uuk2gs739b3u1g', icon: 'message-circle' },
         { name: 'Render: PostgreSQL DB', url: 'https://dashboard.render.com/d/dpg-d4kr80npm1nc738em3j0-a', icon: 'database' },
-        { name: 'Cloudflare Dash', url: 'https://dash.cloudflare.com/', icon: 'cloud' },
+        { name: 'Cloudflare Workers', url: 'https://dash.cloudflare.com/27170a8625bb696ad1c253e6b221f59e/workers/services/view/chatomni-proxy/production', icon: 'cloud' },
+        { name: 'Cloudflare Analytics', url: 'https://dash.cloudflare.com/27170a8625bb696ad1c253e6b221f59e/workers/analytics', icon: 'bar-chart-2' },
         { name: 'DeepSeek Platform', url: 'https://platform.deepseek.com/', icon: 'brain' },
         { name: 'Google AI Studio', url: 'https://aistudio.google.com/', icon: 'sparkles' },
         { name: 'Google Cloud Console', url: 'https://console.cloud.google.com/', icon: 'settings' },
@@ -420,6 +433,7 @@
     const API_KEYS = [
         { name: 'RENDER_API_KEY', service: 'Render', value: 'rnd_AcWEm67JDpbHEuAcWWALokwJ7Di9', sensitive: true },
         { name: 'RENDER_DB_URL', service: 'Render DB', value: 'postgresql://n2store_user:iKxWmQEh1PcUSRRJXrlMueaGci1Id6Z0@dpg-d4kr80npm1nc738em3j0-a.singapore-postgres.render.com/n2store_chat', sensitive: true },
+        { name: 'CLOUDFLARE_GLOBAL_API', service: 'Cloudflare', value: 'f9cbd30e5a04a651f20b263f137b53b28b0a3', sensitive: true },
         { name: 'FIREBASE_PROJECT_ID', service: 'Firebase', value: 'n2shop-69e37', sensitive: false },
         { name: 'FIREBASE_CLIENT_EMAIL', service: 'Firebase', value: 'firebase-adminsdk-cmdro@n2shop-69e37.iam.gserviceaccount.com', sensitive: false },
         { name: 'DEEPSEEK_API_KEY', service: 'DeepSeek', value: 'sk-319cef4faabf413aa84beb51c383e9b1', sensitive: true },
