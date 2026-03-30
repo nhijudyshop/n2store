@@ -96,15 +96,7 @@
     // FILTER EVENTS
     // =====================================================
     function bindFilterEvents() {
-        const searchBtn = document.getElementById('drBtnSearch');
-        if (searchBtn) {
-            searchBtn.addEventListener('click', () => {
-                DeliveryReportState.currentPage = 1;
-                collectFilters();
-                saveFiltersToStorage();
-                fetchData();
-            });
-        }
+        // Search button is handled by onclick="DeliveryReport.search()" in HTML
 
         // Enter key on keyword
         const keywordInput = document.getElementById('drFilterKeyword');
@@ -143,20 +135,11 @@
             const saved = localStorage.getItem('dr_filters');
             if (saved) {
                 const f = JSON.parse(saved);
-                Object.assign(DeliveryReportState.filters, f);
-
-                // Apply to inputs (split datetime into date + time)
-                if (f.fromDate) {
-                    const [fd, ft] = f.fromDate.split('T');
-                    document.getElementById('drFilterFromDate').value = fd || '';
-                    document.getElementById('drFilterFromTime').value = ft || '00:00';
+                // Only restore keyword, not dates (dates always default to today)
+                if (f.keyword) {
+                    DeliveryReportState.filters.keyword = f.keyword;
+                    document.getElementById('drFilterKeyword').value = f.keyword;
                 }
-                if (f.toDate) {
-                    const [td, tt] = f.toDate.split('T');
-                    document.getElementById('drFilterToDate').value = td || '';
-                    document.getElementById('drFilterToTime').value = tt || '23:59';
-                }
-                if (f.keyword) document.getElementById('drFilterKeyword').value = f.keyword;
             }
         } catch (e) { /* ignore */ }
     }
@@ -243,6 +226,9 @@
             renderTable();
             renderStats();
             renderPagination();
+            if (DeliveryReportState.traSoatMode) {
+                updateScanCount();
+            }
         } catch (error) {
             console.error('[DELIVERY-REPORT] Fetch error:', error);
             showError('Lỗi khi tải dữ liệu: ' + error.message);
@@ -1036,7 +1022,7 @@
         if (!DeliveryReportState.traSoatMode) return;
         if (DeliveryReportState.activeTab === 'province') {
             renderProvinceView();
-        } else if (DeliveryReportState.activeTab !== 'all') {
+        } else {
             renderTable();
             renderPagination();
         }
