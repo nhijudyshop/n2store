@@ -3140,7 +3140,7 @@ class UnifiedNavigationManager {
             { name: 'Render (4 services + DB)', amount: 70, billingDay: 1, warnBefore: 0, showDays: 3 },
             { name: 'Firebase (Blaze)', amount: 0, billingDay: 1, warnBefore: 0, showDays: 3, note: 'Kiểm tra usage trên console' },
             { name: 'Cloudflare Workers', amount: 5, billingDay: 13, warnBefore: 0, showDays: 3 },
-            { name: 'SePay', amount: 0, billingDay: 1, warnBefore: 3, showDays: 0, note: 'Cần cập nhật key thật + ngày billing' },
+            { name: 'SePay (ACB 75918)', amount: 0, billingDay: 1, warnBefore: 3, showDays: 0, note: 'Kiểm tra gói trên my.sepay.vn' },
         ];
 
         const now = new Date();

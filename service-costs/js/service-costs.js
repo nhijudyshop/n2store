@@ -371,26 +371,38 @@
         },
 
         // ===================== PAYMENT =====================
+        // SePay: ACB 75918, tên LAI THUY YEN NHI
+        // Tổng 2,355 giao dịch. Jan: 1,253 | Feb: 181 | Mar (30/03): 509
+        // Real API key từ Render env SEPAY_API
         {
             id: 'sepay',
             name: 'SePay',
             type: 'Payment Gateway',
             icon: 'banknote',
-            account: 'SePay.vn',
-            plan: 'Free (webhook)',
-            costType: 'free',
+            account: 'ACB - 75918 (LAI THUY YEN NHI)',
+            plan: 'Trả phí (cần xác nhận gói)',
+            costType: 'paid',
             monthlyCost: 0,
-            costNote: 'Key có thể là placeholder (sepay_sk_abc123xyz456). Kiểm tra lại',
+            billingDay: 1,
+            costNote: 'Giao dịch: T1/2026: 1,253 | T2: 181 | T3: 509. Free tier chỉ 50 GD/tháng → cần gói trả phí',
             region: 'Vietnam',
-            freeTier: 'Miễn phí webhook nhận thông báo giao dịch ngân hàng',
+            freeTier: 'Free: 50 GD/tháng. Startup 120K đ/tháng: 180 GD. Gói cao hơn: 600-986K GD/tháng',
             details: [
-                { label: 'API Status', value: 'Chưa xác nhận (key có vẻ placeholder)' },
-                { label: 'API Key', value: 'sepay_sk_abc123xyz456', masked: true },
-                { label: 'Chức năng', value: 'Webhook nhận thông báo chuyển khoản ngân hàng' },
-                { label: 'Sử dụng', value: 'Route /api/sepay-webhook trên Render' },
+                { label: 'API Status', value: 'ACTIVE (verified)' },
+                { label: 'Ngân hàng', value: 'ACB - Tài khoản 75918' },
+                { label: 'Chủ TK', value: 'LAI THUY YEN NHI' },
+                { label: 'Bank Account ID', value: '37562' },
+                { label: 'Tổng giao dịch', value: '2,355 (all time)' },
+                { label: 'T1/2026', value: '1,253 giao dịch' },
+                { label: 'T2/2026', value: '181 giao dịch' },
+                { label: 'T3/2026', value: '509 giao dịch (đến 30/03)' },
+                { label: 'Free tier', value: '50 GD/tháng → VƯỢT (cần gói trả phí)' },
+                { label: 'API Key', value: 'E0ZG...OTBY (từ Render env)', masked: true },
+                { label: 'Chức năng', value: 'Webhook nhận thông báo chuyển khoản + API tra cứu GD' },
+                { label: 'Sử dụng', value: 'Route /api/sepay-webhook trên Render (n2store-fallback)' },
             ],
             consoleUrl: 'https://my.sepay.vn/',
-            status: 'unknown',
+            status: 'active',
         },
 
         // ===================== POS =====================
@@ -450,7 +462,7 @@
         { name: 'GOOGLE_PLACES_API_KEY', service: 'Google (project 598906493303, DISABLED)', value: 'AIzaSyD8m0umxhwIy1BdW7MJ9wve1IxGjZVh8Vw', sensitive: true },
         { name: 'GOONG_API_KEY', service: 'Goong.io', value: 'QgXlM7CixnRBZD8OUcN4hgVTPTL6cHP8kXr7sTi2', sensitive: true },
         { name: 'TELEGRAM_BOT_TOKEN', service: 'Telegram (@N2Store_bot)', value: '8546129159:AAGcQQqcSZJZ0K_saqLsXLGP8V5aqtWE3EI', sensitive: true },
-        { name: 'SEPAY_API_KEY', service: 'SePay (có thể placeholder)', value: 'sepay_sk_abc123xyz456', sensitive: true },
+        { name: 'SEPAY_API', service: 'SePay (ACB 75918)', value: 'E0ZGXZSECWKPFPNKJNYOXJGHQ1ODYCDH2U0WIIIBWRUVCMC8DMTUS5HQMYVZOTBY', sensitive: true },
         { name: 'TPOS_CLIENT_ID', service: 'TPOS', value: 'tmtWebApp', sensitive: false },
         { name: 'TPOS_USERNAME', service: 'TPOS', value: 'nvkt', sensitive: false },
         { name: 'TPOS_PASSWORD', service: 'TPOS', value: 'Aa@123456789', sensitive: true },
@@ -613,7 +625,7 @@
             { name: 'Render (4 services + DB)', amount: 70, billingDay: 1, warnBefore: 0, showDays: 3 },
             { name: 'Firebase (Blaze)', amount: 0, billingDay: 1, warnBefore: 0, showDays: 3, note: 'Ki\u1EC3m tra usage tr\u00EAn console' },
             { name: 'Cloudflare Workers', amount: 5, billingDay: 13, warnBefore: 0, showDays: 3 },
-            { name: 'SePay', amount: 0, billingDay: 1, warnBefore: 3, showDays: 0, note: 'C\u1EA7n c\u1EADp nh\u1EADt key th\u1EADt + ng\u00E0y billing' },
+            { name: 'SePay (ACB 75918)', amount: 0, billingDay: 1, warnBefore: 3, showDays: 0, note: 'Ki\u1EC3m tra g\u00F3i d\u1ECBch v\u1EE5 tr\u00EAn my.sepay.vn' },
         ];
 
         const now = new Date();
