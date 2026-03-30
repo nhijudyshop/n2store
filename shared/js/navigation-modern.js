@@ -3140,7 +3140,7 @@ class UnifiedNavigationManager {
             { name: 'Render (4 services + DB)', amount: 70, billingDay: 1, warnBefore: 0, showDays: 3 },
             { name: 'Firebase (Blaze)', amount: 0, billingDay: 1, warnBefore: 0, showDays: 3, note: 'Kiểm tra usage trên console' },
             { name: 'Cloudflare Workers', amount: 5, billingDay: 13, warnBefore: 0, showDays: 3 },
-            { name: 'SePay (ACB 75918)', amount: 0, billingDay: 28, warnBefore: 3, showDays: 3, note: 'Kiểm tra gói trên my.sepay.vn' },
+            { name: 'SePay VIP (589K đ)', amount: 589000, amountVND: true, billingDay: 28, warnBefore: 3, showDays: 3, note: 'Hóa đơn #24721 chưa thanh toán' },
         ];
 
         const now = new Date();
@@ -3159,17 +3159,14 @@ class UnifiedNavigationManager {
             let daysLeft = daysDiff;
             let isOverdue = false;
 
-            if (bill.warnBefore > 0) {
-                // SePay-type: warn X days before
-                if (daysDiff <= bill.warnBefore && daysDiff >= 0) {
-                    shouldAlert = true;
-                }
-            } else {
-                // Render/Firebase/CF-type: only show when overdue (on billing day or after)
-                if (daysDiff <= 0 && daysDiff >= -bill.showDays) {
-                    shouldAlert = true;
-                    isOverdue = true;
-                }
+            // Before billing day: alert if within warnBefore days
+            if (bill.warnBefore > 0 && daysDiff > 0 && daysDiff <= bill.warnBefore) {
+                shouldAlert = true;
+            }
+            // On or after billing day: alert if within showDays
+            if (bill.showDays > 0 && daysDiff <= 0 && daysDiff >= -bill.showDays) {
+                shouldAlert = true;
+                isOverdue = true;
             }
 
             if (shouldAlert) {
@@ -3187,6 +3184,7 @@ class UnifiedNavigationManager {
                 alerts.push({
                     name: bill.name,
                     amount: bill.amount,
+                    amountVND: bill.amountVND || false,
                     daysLeft: daysDiff,
                     isOverdue,
                     note: bill.note || '',
@@ -3221,7 +3219,7 @@ class UnifiedNavigationManager {
             </div>
             <div class="nav-billing-text">
                 ${alerts.map(a => {
-                    const amountStr = a.amount > 0 ? ` $${a.amount}` : '';
+                    const amountStr = a.amount > 0 ? (a.amountVND ? ` ${a.amount.toLocaleString('vi-VN')}đ` : ` $${a.amount}`) : '';
                     let timeStr;
                     if (a.isOverdue) {
                         timeStr = a.daysLeft === 0 ? 'hôm nay' : `quá hạn ${Math.abs(a.daysLeft)} ngày`;

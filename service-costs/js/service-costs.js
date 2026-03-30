@@ -380,25 +380,28 @@
             type: 'Payment Gateway',
             icon: 'banknote',
             account: 'ACB - 75918 (LAI THUY YEN NHI)',
-            plan: 'Trả phí (cần xác nhận gói)',
+            plan: 'VIP - 589,000đ/tháng (1,000 GD)',
             costType: 'paid',
-            monthlyCost: 0,
+            monthlyCost: 589000,
+            monthlyCostVND: true,
             billingDay: 28,
-            costNote: 'Giao dịch: T1/2026: 1,253 | T2: 181 | T3: 509. Free tier chỉ 50 GD/tháng → cần gói trả phí',
+            costNote: 'Gói VIP 589K đ/tháng. Hạn mức 1,000 GD. Đã dùng 78 GD tháng này. Hết hạn 2026-04-27',
             region: 'Vietnam',
-            freeTier: 'Free: 50 GD/tháng. Startup 120K đ/tháng: 180 GD. Gói cao hơn: 600-986K GD/tháng',
+            freeTier: 'Free: 50 GD/tháng. VIP 589K đ/tháng: 1,000 GD',
             details: [
-                { label: 'API Status', value: 'ACTIVE (verified)' },
+                { label: 'Gói dịch vụ', value: 'VIP' },
+                { label: 'Giá', value: '589,000 đ/tháng' },
+                { label: 'Hạn mức GD', value: '1,000 GD/tháng' },
+                { label: 'Đã dùng (T3/2026)', value: '78 / 1,000 GD' },
+                { label: 'Ngày hết hạn', value: '2026-04-27 (còn 28 ngày)' },
+                { label: 'Trạng thái', value: 'Đang hoạt động' },
+                { label: 'Số dư tài khoản', value: '0đ' },
+                { label: 'Hóa đơn #24721', value: '589,000đ - CHƯA THANH TOÁN (2026-03-28)' },
                 { label: 'Ngân hàng', value: 'ACB - Tài khoản 75918' },
                 { label: 'Chủ TK', value: 'LAI THUY YEN NHI' },
                 { label: 'Bank Account ID', value: '37562' },
-                { label: 'Tổng giao dịch', value: '2,355 (all time)' },
-                { label: 'T1/2026', value: '1,253 giao dịch' },
-                { label: 'T2/2026', value: '181 giao dịch' },
-                { label: 'T3/2026', value: '509 giao dịch (đến 30/03)' },
-                { label: 'Free tier', value: '50 GD/tháng → VƯỢT (cần gói trả phí)' },
                 { label: 'API Key', value: 'E0ZG...OTBY (từ Render env)', masked: true },
-                { label: 'Chức năng', value: 'Webhook nhận thông báo chuyển khoản + API tra cứu GD' },
+                { label: 'Chức năng', value: 'Webhook nhận thông báo CK + API tra cứu GD' },
                 { label: 'Sử dụng', value: 'Route /api/sepay-webhook trên Render (n2store-fallback)' },
             ],
             consoleUrl: 'https://my.sepay.vn/',
@@ -486,13 +489,17 @@
     }
 
     function renderSummary() {
-        const totalMonthly = SERVICES.reduce((sum, s) => sum + (s.monthlyCost || 0), 0);
+        const totalUSD = SERVICES.reduce((sum, s) => sum + (s.monthlyCostVND ? 0 : (s.monthlyCost || 0)), 0);
+        const totalVND = SERVICES.reduce((sum, s) => sum + (s.monthlyCostVND ? (s.monthlyCost || 0) : 0), 0);
         const freeCount = SERVICES.filter(s => s.costType === 'free').length;
         const paidCount = SERVICES.filter(s => s.costType === 'paid').length;
         const usageCount = SERVICES.filter(s => s.costType === 'usage-based').length;
 
-        document.getElementById('totalMonthlyCost').textContent = `~$${totalMonthly}/tháng`;
-        document.getElementById('totalMonthlyCost').title = `Render: $70 + DeepSeek: ~$1 + Firebase: ~$0 = ~$${totalMonthly}`;
+        const costStr = totalVND > 0
+            ? `~$${totalUSD} + ${totalVND.toLocaleString('vi-VN')}đ/tháng`
+            : `~$${totalUSD}/tháng`;
+        document.getElementById('totalMonthlyCost').textContent = costStr;
+        document.getElementById('totalMonthlyCost').title = `USD: $${totalUSD} (Render $70 + CF $5 + DeepSeek ~$1) | VND: ${totalVND.toLocaleString('vi-VN')}đ (SePay)`;
         document.getElementById('freeServicesCount').textContent = `${freeCount} dịch vụ`;
         document.getElementById('paidServicesCount').textContent = `${paidCount} paid + ${usageCount} usage`;
         document.getElementById('totalServicesCount').textContent = SERVICES.length;
@@ -523,7 +530,7 @@
                         </div>
                     </div>
                     <span class="service-cost-badge ${s.costType === 'free' ? 'free' : s.costType === 'paid' ? 'paid' : 'usage-based'}">
-                        ${s.costType === 'free' ? 'FREE' : s.costType === 'paid' ? (s.monthlyCost > 0 ? `$${s.monthlyCost}/mo` : 'Paid (TBD)') : 'Usage-based'}
+                        ${s.costType === 'free' ? 'FREE' : s.costType === 'paid' ? (s.monthlyCost > 0 ? (s.monthlyCostVND ? `${s.monthlyCost.toLocaleString('vi-VN')}đ/mo` : `$${s.monthlyCost}/mo`) : 'Paid (TBD)') : 'Usage-based'}
                     </span>
                 </div>
                 <div class="service-card-body">
@@ -566,12 +573,20 @@
         `).join('');
     }
 
+    function formatCost(s) {
+        if (s.monthlyCost <= 0) return '<span style="color:var(--success)">$0</span>';
+        if (s.monthlyCostVND) return `<strong style="color:var(--danger)">${s.monthlyCost.toLocaleString('vi-VN')}\u0111</strong>`;
+        return `<strong style="color:var(--danger)">$${s.monthlyCost}</strong>`;
+    }
+
     function renderCostTable() {
         const tbody = document.getElementById('costTable');
-        let totalCost = 0;
+        let totalUSD = 0;
+        let totalVND = 0;
 
         tbody.innerHTML = SERVICES.map(s => {
-            totalCost += s.monthlyCost || 0;
+            if (s.monthlyCostVND) totalVND += s.monthlyCost || 0;
+            else totalUSD += s.monthlyCost || 0;
             const costTypeClass = s.costType === 'free' ? 'free' : s.costType === 'paid' ? 'paid' : 'usage';
             const costTypeLabel = s.costType === 'free' ? 'Free' : s.costType === 'paid' ? 'Paid' : 'Usage';
             return `
@@ -580,14 +595,17 @@
                     <td>${s.type}</td>
                     <td style="font-size:0.78rem">${s.account}</td>
                     <td>${s.plan}</td>
-                    <td>${s.monthlyCost > 0 ? `<strong style="color:var(--danger)">$${s.monthlyCost}</strong>` : '<span style="color:var(--success)">$0</span>'}</td>
+                    <td>${formatCost(s)}</td>
                     <td style="font-size:0.75rem; max-width:200px">${s.freeTier}</td>
                     <td>${getStatusBadge(s.status)}</td>
                 </tr>
             `;
         }).join('');
 
-        document.getElementById('totalCostCell').innerHTML = `<strong style="color:var(--danger)">~$${totalCost}/th&aacute;ng</strong>`;
+        const totalStr = totalVND > 0
+            ? `~$${totalUSD} + ${totalVND.toLocaleString('vi-VN')}\u0111/th\u00E1ng`
+            : `~$${totalUSD}/th\u00E1ng`;
+        document.getElementById('totalCostCell').innerHTML = `<strong style="color:var(--danger)">${totalStr}</strong>`;
     }
 
     function renderAPIKeys() {
@@ -625,7 +643,7 @@
             { name: 'Render (4 services + DB)', amount: 70, billingDay: 1, warnBefore: 0, showDays: 3 },
             { name: 'Firebase (Blaze)', amount: 0, billingDay: 1, warnBefore: 0, showDays: 3, note: 'Ki\u1EC3m tra usage tr\u00EAn console' },
             { name: 'Cloudflare Workers', amount: 5, billingDay: 13, warnBefore: 0, showDays: 3 },
-            { name: 'SePay (ACB 75918)', amount: 0, billingDay: 28, warnBefore: 3, showDays: 3, note: 'Ki\u1EC3m tra g\u00F3i d\u1ECBch v\u1EE5 tr\u00EAn my.sepay.vn' },
+            { name: 'SePay VIP (589K \u0111)', amount: 589000, amountVND: true, billingDay: 28, warnBefore: 3, showDays: 3, note: 'H\u00F3a \u0111\u01A1n #24721 ch\u01B0a thanh to\u00E1n' },
         ];
 
         const now = new Date();
@@ -639,19 +657,21 @@
             let shouldAlert = false;
             let isOverdue = false;
 
-            if (bill.warnBefore > 0) {
-                if (daysDiff <= bill.warnBefore && daysDiff >= 0) shouldAlert = true;
-            } else {
-                if (daysDiff <= 0 && daysDiff >= -bill.showDays) {
-                    shouldAlert = true;
-                    isOverdue = true;
-                }
+            // Before billing day: alert if within warnBefore days
+            if (bill.warnBefore > 0 && daysDiff > 0 && daysDiff <= bill.warnBefore) {
+                shouldAlert = true;
+            }
+            // On or after billing day: alert if within showDays
+            if (bill.showDays > 0 && daysDiff <= 0 && daysDiff >= -bill.showDays) {
+                shouldAlert = true;
+                isOverdue = true;
             }
 
             if (shouldAlert) {
                 alerts.push({
                     name: bill.name,
                     amount: bill.amount,
+                    amountVND: bill.amountVND || false,
                     daysLeft: daysDiff,
                     isOverdue,
                     note: bill.note || '',
@@ -677,7 +697,7 @@
                 <strong>${alerts.some(a => a.isOverdue) ? 'T\u1EDBi h\u1EA1n thanh to\u00E1n!' : 'S\u1EAFp t\u1EDBi h\u1EA1n thanh to\u00E1n!'}</strong>
                 <div class="billing-alert-items">
                     ${alerts.map(a => {
-                        const amountStr = a.amount > 0 ? `$${a.amount}` : '';
+                        const amountStr = a.amount > 0 ? (a.amountVND ? `${a.amount.toLocaleString('vi-VN')}\u0111` : `$${a.amount}`) : '';
                         let timeStr;
                         if (a.isOverdue) {
                             timeStr = a.daysLeft === 0 ? 'H\u00D4M NAY' : `qu\u00E1 h\u1EA1n ${Math.abs(a.daysLeft)} ng\u00E0y`;
