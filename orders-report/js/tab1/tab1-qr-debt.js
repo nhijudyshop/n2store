@@ -434,30 +434,8 @@ function updateWalletDebtBadgesInTable(targetPhone) {
     });
 }
 
-/**
- * Fetch wallet debt data on page load after table renders
- */
-function initWalletDebtBadges() {
-    // Get all phones from current table
-    const phones = [];
-    document.querySelectorAll('td[data-column="phone"]').forEach(cell => {
-        const phone = cell.textContent.trim();
-        if (phone) phones.push(phone);
-    });
-
-    if (phones.length > 0) {
-        fetchWalletDebtBatch(phones).then(() => {
-            updateWalletDebtBadgesInTable();
-        });
-    }
-}
-
-// Auto-fetch on load
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => setTimeout(initWalletDebtBadges, 1500));
-} else {
-    setTimeout(initWalletDebtBadges, 1500);
-}
+// NOTE: Wallet debt fetch is triggered by renderTable()/loadMoreRows()/renderByEmployee()
+// in tab1-table.js after table DOM is ready. No DOMContentLoaded timer needed.
 
 // =====================================================
 // WALLET SSE REALTIME + TOAST NOTIFICATIONS
@@ -626,7 +604,6 @@ window.hasWalletDebt = hasWalletDebt;
 window.renderWalletDebtBadges = renderWalletDebtBadges;
 window.updateWalletDebtBadgesInTable = updateWalletDebtBadgesInTable;
 window.fetchWalletDebtBatch = fetchWalletDebtBatch;
-window.initWalletDebtBadges = initWalletDebtBadges;
 window.connectWalletSSE = connectWalletSSE;
 window.disconnectWalletSSE = disconnectWalletSSE;
 

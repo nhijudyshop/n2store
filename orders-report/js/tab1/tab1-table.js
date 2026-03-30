@@ -347,6 +347,18 @@ function renderTable() {
         // Small delay to ensure DOM is fully updated
         setTimeout(() => window.newMessagesNotifier.reapply(), 100);
     }
+
+    // Fetch wallet debt data for displayed phones and update badges
+    if (typeof fetchWalletDebtBatch === 'function') {
+        const phones = [...new Set(displayedData.map(o => o.Telephone).filter(Boolean))];
+        if (phones.length > 0) {
+            fetchWalletDebtBatch(phones).then(() => {
+                if (typeof updateWalletDebtBadgesInTable === 'function') {
+                    updateWalletDebtBadgesInTable();
+                }
+            });
+        }
+    }
 }
 
 function renderAllOrders() {
@@ -824,11 +836,17 @@ function loadMoreRows() {
         tbody.appendChild(newSpacer);
     }
 
-    // ⚠️ DISABLED: batchFetchDebts - API limit 200 phones per request
-    // const phonesToFetch = nextBatch.map(order => order.Telephone).filter(Boolean);
-    // if (phonesToFetch.length > 0 && typeof batchFetchDebts === 'function') {
-    //     batchFetchDebts(phonesToFetch);
-    // }
+    // Fetch wallet debt data for newly loaded rows
+    if (typeof fetchWalletDebtBatch === 'function') {
+        const phones = nextBatch.map(o => o.Telephone).filter(Boolean);
+        if (phones.length > 0) {
+            fetchWalletDebtBatch(phones).then(() => {
+                if (typeof updateWalletDebtBadgesInTable === 'function') {
+                    updateWalletDebtBadgesInTable();
+                }
+            });
+        }
+    }
 
     // Re-apply pending customer highlights to newly loaded rows
     if (window.newMessagesNotifier && window.newMessagesNotifier.reapply) {
@@ -1020,11 +1038,17 @@ function renderByEmployee() {
         });
     });
 
-    // ⚠️ DISABLED: batchFetchDebts - API limit 200 phones per request
-    // const phonesToFetch = displayedData.map(order => order.Telephone).filter(Boolean);
-    // if (phonesToFetch.length > 0 && typeof batchFetchDebts === 'function') {
-    //     batchFetchDebts(phonesToFetch);
-    // }
+    // Fetch wallet debt data for employee view
+    if (typeof fetchWalletDebtBatch === 'function') {
+        const phones = [...new Set(displayedData.map(o => o.Telephone).filter(Boolean))];
+        if (phones.length > 0) {
+            fetchWalletDebtBatch(phones).then(() => {
+                if (typeof updateWalletDebtBadgesInTable === 'function') {
+                    updateWalletDebtBadgesInTable();
+                }
+            });
+        }
+    }
 
     // Clear rendering flag after render is complete
     isRendering = false;
