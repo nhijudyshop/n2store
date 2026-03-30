@@ -1335,6 +1335,8 @@ function registerRoutes(router, deps) {
 
     /**
      * Login to my.sepay.vn and fetch subscription/invoice data
+     * Uses node-fetch (line 7) directly for proper cookie handling
+     * (fetchWithTimeout uses native undici fetch which lacks .headers.raw())
      */
     async function fetchSepayDashboard() {
         const username = process.env.SEPAY_USERNAME;
@@ -1352,64 +1354,79 @@ function registerRoutes(router, deps) {
         }
 
         try {
-            console.log('[SEPAY-DASHBOARD] Logging in to my.sepay.vn...');
+            console.log('[SEPAY-DASHBOARD] Logging in to my.sepay.vn as', username);
 
-            // Step 1: Login
-            const loginRes = await fetchWithTimeout('https://my.sepay.vn/login/do_login', {
+            const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+
+            // Step 1: GET login page first to get CSRF token / initial cookies
+            const loginPageRes = await fetch('https://my.sepay.vn/login', {
+                headers: { 'User-Agent': UA, 'Accept': 'text/html' },
+                redirect: 'follow',
+            });
+            const loginPageCookies = (loginPageRes.headers.raw()['set-cookie'] || []).map(c => c.split(';')[0]);
+            const loginPageHtml = await loginPageRes.text();
+
+            // Extract CSRF token if present
+            const csrfMatch = loginPageHtml.match(/name="_token"\s+value="([^"]+)"/) ||
+                              loginPageHtml.match(/csrf[_-]token['"]\s*(?:content|value)=['"]\s*([^'"]+)/i);
+            const csrfToken = csrfMatch ? csrfMatch[1] : '';
+
+            console.log('[SEPAY-DASHBOARD] Login page cookies:', loginPageCookies.length, '| CSRF:', csrfToken ? 'found' : 'none');
+
+            // Step 2: POST login
+            const loginBody = csrfToken
+                ? `email=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&_token=${encodeURIComponent(csrfToken)}`
+                : `email=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
+
+            const loginRes = await fetch('https://my.sepay.vn/login/do_login', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+                    'User-Agent': UA,
                     'Accept': 'application/json, text/javascript, */*; q=0.01',
                     'X-Requested-With': 'XMLHttpRequest',
                     'Origin': 'https://my.sepay.vn',
                     'Referer': 'https://my.sepay.vn/login',
+                    'Cookie': loginPageCookies.join('; '),
                 },
-                body: `email=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`,
+                body: loginBody,
                 redirect: 'manual',
-            }, 15000);
+            });
 
-            // Extract cookies from response
-            const rawHeaders = loginRes.headers.raw ? loginRes.headers.raw() : {};
-            const setCookieHeaders = rawHeaders['set-cookie'] || [];
-            const cookieStr = setCookieHeaders.map(c => c.split(';')[0]).join('; ');
-
-            if (!cookieStr) {
-                // Try alternate way to get cookies
-                const allCookies = loginRes.headers.get('set-cookie');
-                if (allCookies) {
-                    console.log('[SEPAY-DASHBOARD] Got cookies via get()');
-                }
-            }
+            // Combine all cookies (login page + login response)
+            const loginResCookies = (loginRes.headers.raw()['set-cookie'] || []).map(c => c.split(';')[0]);
+            const allCookies = [...loginPageCookies, ...loginResCookies];
+            const cookieStr = allCookies.join('; ');
 
             let loginData = null;
             try { loginData = await loginRes.json(); } catch (e) { /* not JSON */ }
 
-            console.log('[SEPAY-DASHBOARD] Login status:', loginRes.status, loginData?.status);
+            console.log('[SEPAY-DASHBOARD] Login response:', loginRes.status, '| cookies:', loginResCookies.length, '| data:', JSON.stringify(loginData));
 
-            if (!cookieStr && !loginData?.status) {
-                console.error('[SEPAY-DASHBOARD] Login failed - no cookies received');
-                return null;
+            if (!cookieStr || loginResCookies.length === 0) {
+                console.error('[SEPAY-DASHBOARD] Login failed - no session cookies');
+                return { _debug: { error: 'No session cookies', loginStatus: loginRes.status, loginData } };
             }
 
             const dashHeaders = {
                 'Cookie': cookieStr,
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+                'User-Agent': UA,
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
             };
 
-            // Step 2: Fetch dashboard pages in parallel
+            // Step 3: Fetch dashboard pages in parallel using node-fetch
             const [homeRes, invoicesRes] = await Promise.all([
-                fetchWithTimeout('https://my.sepay.vn/', { headers: dashHeaders, redirect: 'follow' }, 10000),
-                fetchWithTimeout('https://my.sepay.vn/invoices', { headers: dashHeaders, redirect: 'follow' }, 10000),
+                fetch('https://my.sepay.vn/', { headers: dashHeaders, redirect: 'follow' }),
+                fetch('https://my.sepay.vn/invoices', { headers: dashHeaders, redirect: 'follow' }),
             ]);
 
             const homeHtml = homeRes.ok ? await homeRes.text() : '';
             const invoicesHtml = invoicesRes.ok ? await invoicesRes.text() : '';
 
-            console.log('[SEPAY-DASHBOARD] Home page length:', homeHtml.length, '| Invoices page length:', invoicesHtml.length);
+            const isLoginPage = homeHtml.includes('do_login') || homeHtml.includes('/login');
+            console.log('[SEPAY-DASHBOARD] Home:', homeHtml.length, 'bytes | Invoices:', invoicesHtml.length, 'bytes | isLoginPage:', isLoginPage);
 
-            // Step 3: Parse subscription info from dashboard
+            // Step 4: Parse subscription info from dashboard
             const result = {
                 plan: null,
                 expiryDate: null,
@@ -1419,33 +1436,36 @@ function registerRoutes(router, deps) {
                 invoices: [],
             };
 
+            if (isLoginPage) {
+                console.error('[SEPAY-DASHBOARD] Session invalid - redirected to login page');
+                result._debug = { error: 'Redirected to login', homeLen: homeHtml.length };
+                return result;
+            }
+
             // Parse home/dashboard page for subscription data
-            // Look for plan name (VIP, Pro, Free, etc.)
-            const planMatch = homeHtml.match(/(?:Gói|Plan|Package)[:\s]*<[^>]*>([^<]+)</) ||
-                              homeHtml.match(/(?:gói dịch vụ|service plan)[:\s]*([^\n<]+)/i);
+            // Look for plan name
+            const planMatch = homeHtml.match(/(?:Gói|Plan|Package)\s*(?:dịch vụ)?[:\s]*<[^>]*>\s*([^<]+)/i) ||
+                              homeHtml.match(/class="[^"]*plan[^"]*"[^>]*>\s*([^<]+)/i);
             if (planMatch) result.plan = planMatch[1].trim();
 
-            // Look for expiry date
-            const expiryMatch = homeHtml.match(/(?:Hết hạn|Ngày hết hạn|Expir(?:y|es|ation))[:\s]*<[^>]*>([^<]+)</) ||
-                                homeHtml.match(/(\d{4}-\d{2}-\d{2})[^<]*(?:hết hạn|expir)/i) ||
-                                homeHtml.match(/(?:hết hạn|expir)[^<]*(\d{4}-\d{2}-\d{2})/i) ||
-                                homeHtml.match(/(?:hết hạn|expir)[^<]*(\d{2}\/\d{2}\/\d{4})/i);
+            // Look for expiry date in multiple formats
+            const expiryMatch = homeHtml.match(/(?:Hết hạn|hạn sử dụng|Ngày hết hạn|Expir(?:y|es|ation))\s*[:\s]*\s*(?:<[^>]*>\s*)*(\d{4}-\d{2}-\d{2}|\d{2}\/\d{2}\/\d{4}|\d{2}-\d{2}-\d{4})/i) ||
+                                homeHtml.match(/(\d{4}-\d{2}-\d{2})\s*(?:<[^>]*>\s*)*(?:hết hạn|expir)/i);
             if (expiryMatch) result.expiryDate = expiryMatch[1].trim();
 
-            // Look for transaction quota
-            const quotaMatch = homeHtml.match(/(\d[\d,.]*)\s*\/\s*(\d[\d,.]*)\s*(?:GD|giao dịch|transaction)/i);
+            // Look for transaction quota (e.g. "514 / 1,000 GD")
+            const quotaMatch = homeHtml.match(/([\d,.]+)\s*\/\s*([\d,.]+)\s*(?:GD|giao dịch|transaction)/i);
             if (quotaMatch) {
                 result.transactionUsed = parseInt(quotaMatch[1].replace(/[,.]/g, ''));
                 result.transactionQuota = parseInt(quotaMatch[2].replace(/[,.]/g, ''));
             }
 
             // Look for balance
-            const balanceMatch = homeHtml.match(/(?:Số dư|Balance)[:\s]*<[^>]*>([\d,.]+)\s*(?:đ|VND)/i);
+            const balanceMatch = homeHtml.match(/(?:Số dư|Balance)\s*[:\s]*(?:<[^>]*>\s*)*([\d,.]+)\s*(?:đ|VND)/i);
             if (balanceMatch) result.balance = balanceMatch[1].trim();
 
-            // Parse invoices page
-            // Look for invoice rows with status
-            const invoiceRegex = /#(\d+)[\s\S]*?(\d[\d,.]+)\s*(?:đ|VND)[\s\S]*?(Đã thanh toán|Chưa thanh toán|Paid|Unpaid|Quá hạn|Overdue)/gi;
+            // Parse invoices page for invoice list
+            const invoiceRegex = /#(\d+)[\s\S]{0,500}?([\d,.]+)\s*(?:đ|VND)[\s\S]{0,200}?(Đã thanh toán|Chưa thanh toán|Paid|Unpaid|Quá hạn|Overdue)/gi;
             let match;
             while ((match = invoiceRegex.exec(invoicesHtml)) !== null) {
                 result.invoices.push({
@@ -1455,33 +1475,31 @@ function registerRoutes(router, deps) {
                 });
             }
 
-            // If no structured data found, try to extract raw text snippets
-            if (!result.plan && !result.expiryDate) {
-                // Try to find any package/subscription info in the page
-                const vipMatch = homeHtml.match(/VIP/i);
-                const proMatch = homeHtml.match(/\bPro\b/i);
-                const freeMatch = homeHtml.match(/\bFree\b/i);
-                if (vipMatch) result.plan = 'VIP';
-                else if (proMatch) result.plan = 'Pro';
-                else if (freeMatch) result.plan = 'Free';
+            // Fallback: search for plan keywords
+            if (!result.plan) {
+                if (homeHtml.match(/\bVIP\b/)) result.plan = 'VIP';
+                else if (homeHtml.match(/\bPro\b/)) result.plan = 'Pro';
+                else if (homeHtml.match(/\bFree\b/i)) result.plan = 'Free';
             }
 
-            // Debug: save snippets for troubleshooting
+            // Debug info
             result._debug = {
                 homeTitle: (homeHtml.match(/<title>([^<]*)<\/title>/i) || [])[1] || '',
                 homeLen: homeHtml.length,
                 invoicesLen: invoicesHtml.length,
-                redirectedToLogin: homeHtml.includes('do_login') || homeHtml.includes('Đăng nhập'),
+                loginCookies: loginResCookies.length,
+                // Save first 2000 chars of home for debugging regex
+                homeSnippet: homeHtml.substring(0, 2000),
             };
 
-            // Cache the result
+            // Cache
             _sepayDashboardCache = result;
             _sepayDashboardCacheTime = Date.now();
 
             return result;
         } catch (error) {
             console.error('[SEPAY-DASHBOARD] Error:', error.message);
-            return null;
+            return { _debug: { error: error.message } };
         }
     }
 

@@ -876,7 +876,13 @@
 
         // Log debug info
         if (dashboard?._debug) {
-            console.log('[SePay Dashboard]', dashboard._debug);
+            console.log('[SePay Dashboard] debug:', dashboard._debug);
+            if (dashboard._debug.error) {
+                console.warn('[SePay Dashboard] Scrape error:', dashboard._debug.error);
+            }
+        }
+        if (!dashboard || (!dashboard.plan && !dashboard.expiryDate && dashboard?.invoices?.length === 0)) {
+            console.warn('[SePay Dashboard] No dashboard data scraped. API data only.');
         }
     }
 
