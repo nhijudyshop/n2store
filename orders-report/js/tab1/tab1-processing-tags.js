@@ -238,21 +238,9 @@
                         continue;
                     }
                     if (orderId === '__ptag_custom_flags__') {
-                        console.log(`${PTAG_LOG} Loading custom flags from server:`, JSON.stringify(data).substring(0, 200));
                         if (data.customFlagDefs) {
-                            // New format: array of definitions
                             ProcessingTagState.setCustomFlagDefs(data.customFlagDefs);
                             loadedCustomFlags = true;
-                            console.log(`${PTAG_LOG} Loaded ${data.customFlagDefs.length} custom flag defs (new format)`);
-                        } else if (data.customFlags) {
-                            // Old format: Map → convert to array + migrate
-                            const defs = Object.entries(data.customFlags).map(([id, cf]) => ({
-                                id, label: cf.label, color: cf.color || '#7c3aed', createdAt: 0
-                            }));
-                            ProcessingTagState.setCustomFlagDefs(defs);
-                            loadedCustomFlags = true;
-                            await saveCustomFlagDefinitions();
-                            console.log(`${PTAG_LOG} Migrated ${defs.length} custom flags to new format`);
                         }
                         continue;
                     }
@@ -389,9 +377,7 @@
     }
 
     async function saveCustomFlagDefinitions() {
-        const defs = ProcessingTagState.getCustomFlagDefs();
-        console.log(`${PTAG_LOG} Saving ${defs.length} custom flag definitions:`, defs.map(d => d.label));
-        const data = { customFlagDefs: defs };
+        const data = { customFlagDefs: ProcessingTagState.getCustomFlagDefs() };
         await saveProcessingTagToAPI('__ptag_custom_flags__', data);
     }
 
@@ -440,12 +426,6 @@
                     if (orderId === '__ptag_custom_flags__' && data) {
                         if (data.customFlagDefs) {
                             ProcessingTagState.setCustomFlagDefs(data.customFlagDefs);
-                        } else if (data.customFlags) {
-                            // Old format compat
-                            const defs = Object.entries(data.customFlags).map(([id, cf]) => ({
-                                id, label: cf.label, color: cf.color || '#7c3aed', createdAt: 0
-                            }));
-                            ProcessingTagState.setCustomFlagDefs(defs);
                         }
                         renderPanelContent();
                         return;
