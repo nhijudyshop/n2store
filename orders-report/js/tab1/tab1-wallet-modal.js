@@ -162,7 +162,10 @@
         if (transactions.length > 0) {
             txHTML = `
                 <div class="wdm-activity-header">
-                    <span>Hoạt động gần đây</span>
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <i class="fas fa-wallet" style="font-size:18px;color:#6366f1;"></i>
+                        <span style="font-size:12px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;">Hoạt động ví</span>
+                    </div>
                     <span class="wdm-activity-count">${transactions.length} hoạt động</span>
                 </div>
                 <div class="wdm-activity-list">
@@ -221,7 +224,7 @@
             <div class="wdm-tx-item" style="background:${bgColor};border:1px solid ${borderColor};">
                 <div class="wdm-tx-header">
                     <div class="wdm-tx-icon" style="background:${iconBg};">
-                        <span style="font-size:18px;font-weight:900;color:${iconColor};line-height:1;">${cfg.iconChar}</span>
+                        <span style="font-size:20px;font-weight:900;color:${iconColor};line-height:1;">${cfg.iconChar}</span>
                     </div>
                     <span class="wdm-tx-label" style="color:${amountColor};">${cfg.label}  ${sign}${formatCurrency(Math.abs(amount))}</span>
                 </div>
@@ -347,21 +350,21 @@
             padding: 0 14px 14px;
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 12px;
         }
         .wdm-tx-item {
             border-radius: 10px;
-            padding: 12px 14px;
+            padding: 14px 16px;
         }
         .wdm-tx-header {
             display: flex;
             align-items: center;
             gap: 10px;
-            margin-bottom: 6px;
+            margin-bottom: 8px;
         }
         .wdm-tx-icon {
-            width: 30px;
-            height: 30px;
+            width: 34px;
+            height: 34px;
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -369,24 +372,24 @@
             flex-shrink: 0;
         }
         .wdm-tx-label {
-            font-size: 14px;
+            font-size: 16px;
             font-weight: 800;
         }
         .wdm-tx-detail {
-            padding-left: 40px;
+            padding-left: 44px;
         }
         .wdm-tx-note {
-            font-size: 12px;
+            font-size: 13px;
             font-weight: 500;
             color: #475569;
-            line-height: 1.5;
+            line-height: 1.6;
             margin: 0;
         }
         .wdm-tx-balance {
-            font-size: 13px;
+            font-size: 14px;
             font-weight: 800;
             color: #1e293b;
-            margin: 4px 0 0;
+            margin: 6px 0 0;
         }
     `;
     document.head.appendChild(style);
