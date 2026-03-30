@@ -643,7 +643,8 @@
             { name: 'Render (4 services + DB)', amount: 70, billingDay: 1, warnBefore: 0, showDays: 3 },
             { name: 'Firebase (Blaze)', amount: 0, billingDay: 1, warnBefore: 0, showDays: 3, note: 'Ki\u1EC3m tra usage tr\u00EAn console' },
             { name: 'Cloudflare Workers', amount: 5, billingDay: 13, warnBefore: 0, showDays: 3 },
-            { name: 'SePay VIP (589K \u0111)', amount: 589000, amountVND: true, billingDay: 28, warnBefore: 3, showDays: 3, note: 'H\u00F3a \u0111\u01A1n #24721 ch\u01B0a thanh to\u00E1n' },
+            { name: 'SePay VIP (589K \u0111)', amount: 589000, amountVND: true, billingDay: 28, warnBefore: 3, showDays: 3, note: 'H\u00F3a \u0111\u01A1n #24721 ch\u01B0a thanh to\u00E1n',
+              payment: { invoiceId: '#24721', bank: 'MBBank', acc: '7788888678888', beneficiary: 'SEPAY JSC', content: 'SEP00024721', amountVND: 589000, qrUrl: 'https://qr.sepay.vn/img?bank=MBBank&acc=7788888678888&template=&amount=589000&des=SEP00024721', invoiceUrl: 'https://my.sepay.vn/invoices/details/24721' } },
         ];
 
         const now = new Date();
@@ -676,6 +677,7 @@
                     isOverdue,
                     note: bill.note || '',
                     dateStr: `${billingThisMonth.getDate()}/${billingThisMonth.getMonth() + 1}/${billingThisMonth.getFullYear()}`,
+                    payment: bill.payment || null,
                 });
             }
         });
@@ -689,35 +691,92 @@
         const contentArea = document.querySelector('.content-area');
         if (!contentArea) return;
 
+        const paymentAlerts = alerts.filter(a => a.payment);
+
         const banner = document.createElement('div');
         banner.className = 'billing-alert-banner';
         banner.innerHTML = `
-            <div class="billing-alert-icon"><i data-lucide="alert-triangle"></i></div>
-            <div class="billing-alert-content">
-                <strong>${alerts.some(a => a.isOverdue) ? 'T\u1EDBi h\u1EA1n thanh to\u00E1n!' : 'S\u1EAFp t\u1EDBi h\u1EA1n thanh to\u00E1n!'}</strong>
-                <div class="billing-alert-items">
-                    ${alerts.map(a => {
-                        const amountStr = a.amount > 0 ? (a.amountVND ? `${a.amount.toLocaleString('vi-VN')}\u0111` : `$${a.amount}`) : '';
-                        let timeStr;
-                        if (a.isOverdue) {
-                            timeStr = a.daysLeft === 0 ? 'H\u00D4M NAY' : `qu\u00E1 h\u1EA1n ${Math.abs(a.daysLeft)} ng\u00E0y`;
-                        } else {
-                            timeStr = a.daysLeft === 0 ? 'H\u00D4M NAY' : `c\u00F2n ${a.daysLeft} ng\u00E0y (${a.dateStr})`;
-                        }
-                        const noteStr = a.note ? ` <small style="opacity:0.7">${a.note}</small>` : '';
-                        return `
-                        <div class="billing-alert-item">
-                            <span>${a.name}</span>
-                            ${amountStr ? `<span class="billing-alert-amount">${amountStr}</span>` : ''}
-                            <span class="billing-alert-due ${a.isOverdue ? 'overdue' : ''}">${timeStr}</span>
-                            ${noteStr}
-                        </div>`;
-                    }).join('')}
+            <div class="billing-alert-header">
+                <div class="billing-alert-icon"><i data-lucide="alert-triangle"></i></div>
+                <div class="billing-alert-content">
+                    <strong>${alerts.some(a => a.isOverdue) ? 'T\u1EDBi h\u1EA1n thanh to\u00E1n!' : 'S\u1EAFp t\u1EDBi h\u1EA1n thanh to\u00E1n!'}</strong>
+                    <div class="billing-alert-items">
+                        ${alerts.map(a => {
+                            const amountStr = a.amount > 0 ? (a.amountVND ? `${a.amount.toLocaleString('vi-VN')}\u0111` : `$${a.amount}`) : '';
+                            let timeStr;
+                            if (a.isOverdue) {
+                                timeStr = a.daysLeft === 0 ? 'H\u00D4M NAY' : `qu\u00E1 h\u1EA1n ${Math.abs(a.daysLeft)} ng\u00E0y`;
+                            } else {
+                                timeStr = a.daysLeft === 0 ? 'H\u00D4M NAY' : `c\u00F2n ${a.daysLeft} ng\u00E0y (${a.dateStr})`;
+                            }
+                            const noteStr = a.note ? ` <small style="opacity:0.7">${a.note}</small>` : '';
+                            return `
+                            <div class="billing-alert-item">
+                                <span>${a.name}</span>
+                                ${amountStr ? `<span class="billing-alert-amount">${amountStr}</span>` : ''}
+                                <span class="billing-alert-due ${a.isOverdue ? 'overdue' : ''}">${timeStr}</span>
+                                ${noteStr}
+                            </div>`;
+                        }).join('')}
+                    </div>
                 </div>
+                ${paymentAlerts.length > 0 ? '<button class="billing-alert-toggle" id="billingToggle"><i data-lucide="chevron-down"></i> Chi ti\u1EBFt thanh to\u00E1n</button>' : ''}
             </div>
+            ${paymentAlerts.length > 0 ? `
+            <div class="billing-payment-details" id="billingPaymentDetails" style="display:none">
+                ${paymentAlerts.map(a => {
+                    const p = a.payment;
+                    return `
+                    <div class="billing-payment-card">
+                        <div class="billing-payment-qr">
+                            <img src="${p.qrUrl}" alt="QR thanh to\u00E1n" />
+                        </div>
+                        <div class="billing-payment-info">
+                            <div class="billing-payment-title">H\u00F3a \u0111\u01A1n ${p.invoiceId} \u2014 ${p.amountVND.toLocaleString('vi-VN')}\u0111</div>
+                            <table class="billing-payment-table">
+                                <tr><td>Ng\u00E2n h\u00E0ng</td><td><b>${p.bank}</b></td></tr>
+                                <tr><td>S\u1ED1 t\u00E0i kho\u1EA3n</td><td><b class="billing-copy" data-copy="${p.acc}">${p.acc} <i data-lucide="copy" style="width:14px;height:14px"></i></b></td></tr>
+                                <tr><td>Th\u1EE5 h\u01B0\u1EDFng</td><td><b>${p.beneficiary}</b></td></tr>
+                                <tr><td>N\u1ED9i dung CK</td><td><b class="billing-copy" data-copy="${p.content}">${p.content} <i data-lucide="copy" style="width:14px;height:14px"></i></b></td></tr>
+                                <tr><td>S\u1ED1 ti\u1EC1n</td><td><b>${p.amountVND.toLocaleString('vi-VN')}\u0111</b></td></tr>
+                            </table>
+                            <a href="${p.invoiceUrl}" target="_blank" class="billing-invoice-link"><i data-lucide="external-link" style="width:14px;height:14px"></i> Xem tr\u00EAn SePay</a>
+                        </div>
+                    </div>`;
+                }).join('')}
+            </div>` : ''}
         `;
 
         contentArea.insertBefore(banner, contentArea.firstChild);
+
+        // Toggle payment details
+        const toggleBtn = banner.querySelector('#billingToggle');
+        const details = banner.querySelector('#billingPaymentDetails');
+        if (toggleBtn && details) {
+            toggleBtn.addEventListener('click', () => {
+                const isOpen = details.style.display !== 'none';
+                details.style.display = isOpen ? 'none' : 'flex';
+                toggleBtn.innerHTML = isOpen
+                    ? '<i data-lucide="chevron-down"></i> Chi ti\u1EBFt thanh to\u00E1n'
+                    : '<i data-lucide="chevron-up"></i> Thu g\u1ECDn';
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            });
+        }
+
+        // Copy to clipboard
+        banner.querySelectorAll('.billing-copy').forEach(el => {
+            el.style.cursor = 'pointer';
+            el.addEventListener('click', () => {
+                navigator.clipboard.writeText(el.dataset.copy).then(() => {
+                    const orig = el.innerHTML;
+                    el.innerHTML = '<span style="color:#16a34a">\u0110\u00E3 copy!</span>';
+                    setTimeout(() => { el.innerHTML = orig; if (typeof lucide !== 'undefined') lucide.createIcons(); }, 1500);
+                });
+            });
+        });
+
+        // Re-render lucide icons for new elements
+        if (typeof lucide !== 'undefined') lucide.createIcons();
     }
 
     // =========================================================

@@ -3140,7 +3140,8 @@ class UnifiedNavigationManager {
             { name: 'Render (4 services + DB)', amount: 70, billingDay: 1, warnBefore: 0, showDays: 3 },
             { name: 'Firebase (Blaze)', amount: 0, billingDay: 1, warnBefore: 0, showDays: 3, note: 'Kiểm tra usage trên console' },
             { name: 'Cloudflare Workers', amount: 5, billingDay: 13, warnBefore: 0, showDays: 3 },
-            { name: 'SePay VIP (589K đ)', amount: 589000, amountVND: true, billingDay: 28, warnBefore: 3, showDays: 3, note: 'Hóa đơn #24721 chưa thanh toán' },
+            { name: 'SePay VIP (589K đ)', amount: 589000, amountVND: true, billingDay: 28, warnBefore: 3, showDays: 3, note: 'Hóa đơn #24721 chưa thanh toán',
+              payment: { invoiceId: '#24721', bank: 'MBBank', acc: '7788888678888', beneficiary: 'SEPAY JSC', content: 'SEP00024721', amountVND: 589000, qrUrl: 'https://qr.sepay.vn/img?bank=MBBank&acc=7788888678888&template=&amount=589000&des=SEP00024721', invoiceUrl: 'https://my.sepay.vn/invoices/details/24721' } },
         ];
 
         const now = new Date();
@@ -3189,6 +3190,7 @@ class UnifiedNavigationManager {
                     isOverdue,
                     note: bill.note || '',
                     label,
+                    payment: bill.payment || null,
                 });
             }
         });
@@ -3209,33 +3211,84 @@ class UnifiedNavigationManager {
         const mainContent = document.querySelector('.main-content');
         if (!mainContent) return;
 
-        const totalAmount = alerts.reduce((sum, a) => sum + a.amount, 0);
+        // Build payment detail panels for alerts that have payment info
+        const paymentAlerts = alerts.filter(a => a.payment);
+        let paymentDetailsHTML = '';
+        if (paymentAlerts.length > 0) {
+            paymentDetailsHTML = `
+                <div class="nav-billing-details" id="navBillingDetails" style="display:none">
+                    ${paymentAlerts.map(a => {
+                        const p = a.payment;
+                        return `
+                        <div class="nav-billing-payment">
+                            <div class="nav-billing-payment-qr">
+                                <img src="${p.qrUrl}" alt="QR thanh toán" />
+                            </div>
+                            <div class="nav-billing-payment-info">
+                                <div class="nav-billing-payment-title">Hóa đơn ${p.invoiceId} — ${p.amountVND.toLocaleString('vi-VN')}đ</div>
+                                <div class="nav-billing-payment-row"><span>Ngân hàng</span><b>${p.bank}</b></div>
+                                <div class="nav-billing-payment-row"><span>Số tài khoản</span><b class="nav-billing-copy" data-copy="${p.acc}">${p.acc} <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></b></div>
+                                <div class="nav-billing-payment-row"><span>Thụ hưởng</span><b>${p.beneficiary}</b></div>
+                                <div class="nav-billing-payment-row"><span>Nội dung CK</span><b class="nav-billing-copy" data-copy="${p.content}">${p.content} <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></b></div>
+                                <div class="nav-billing-payment-row"><span>Số tiền</span><b>${p.amountVND.toLocaleString('vi-VN')}đ</b></div>
+                                <a href="${p.invoiceUrl}" target="_blank" class="nav-billing-invoice-link">Xem trên SePay →</a>
+                            </div>
+                        </div>`;
+                    }).join('')}
+                </div>`;
+        }
 
         const banner = document.createElement('div');
         banner.className = 'nav-billing-banner';
         banner.innerHTML = `
-            <div class="nav-billing-icon">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
+            <div class="nav-billing-header">
+                <div class="nav-billing-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
+                </div>
+                <div class="nav-billing-text">
+                    ${alerts.map(a => {
+                        const amountStr = a.amount > 0 ? (a.amountVND ? ` ${a.amount.toLocaleString('vi-VN')}đ` : ` $${a.amount}`) : '';
+                        let timeStr;
+                        if (a.isOverdue) {
+                            timeStr = a.daysLeft === 0 ? 'hôm nay' : `quá hạn ${Math.abs(a.daysLeft)} ngày`;
+                        } else {
+                            timeStr = a.daysLeft === 0 ? 'hôm nay' : `còn ${a.daysLeft} ngày`;
+                        }
+                        const noteStr = a.note ? ` (${a.note})` : '';
+                        return `<span><b>${a.name}</b>${amountStr} — ${timeStr}${noteStr}</span>`;
+                    }).join('<span class="nav-billing-sep">|</span>')}
+                </div>
+                ${paymentAlerts.length > 0 ? '<button class="nav-billing-link" id="navBillingToggle">Chi tiết ▼</button>' : `<a href="${this.getServiceCostsUrl()}" class="nav-billing-link">Chi tiết →</a>`}
+                <button class="nav-billing-close" title="Đóng">✕</button>
             </div>
-            <div class="nav-billing-text">
-                ${alerts.map(a => {
-                    const amountStr = a.amount > 0 ? (a.amountVND ? ` ${a.amount.toLocaleString('vi-VN')}đ` : ` $${a.amount}`) : '';
-                    let timeStr;
-                    if (a.isOverdue) {
-                        timeStr = a.daysLeft === 0 ? 'hôm nay' : `quá hạn ${Math.abs(a.daysLeft)} ngày`;
-                    } else {
-                        timeStr = a.daysLeft === 0 ? 'hôm nay' : `còn ${a.daysLeft} ngày`;
-                    }
-                    const noteStr = a.note ? ` (${a.note})` : '';
-                    return `<span><b>${a.name}</b>${amountStr} — ${timeStr}${noteStr}</span>`;
-                }).join('<span class="nav-billing-sep">|</span>')}
-            </div>
-            <a href="${this.getServiceCostsUrl()}" class="nav-billing-link">Chi tiết →</a>
-            <button class="nav-billing-close" title="Đóng">✕</button>
+            ${paymentDetailsHTML}
         `;
 
         // Insert at the very top of main-content
         mainContent.insertBefore(banner, mainContent.firstChild);
+
+        // Toggle payment details
+        const toggleBtn = banner.querySelector('#navBillingToggle');
+        const detailsPanel = banner.querySelector('#navBillingDetails');
+        if (toggleBtn && detailsPanel) {
+            toggleBtn.addEventListener('click', () => {
+                const isOpen = detailsPanel.style.display !== 'none';
+                detailsPanel.style.display = isOpen ? 'none' : 'flex';
+                toggleBtn.textContent = isOpen ? 'Chi tiết ▼' : 'Thu gọn ▲';
+            });
+        }
+
+        // Copy to clipboard
+        banner.querySelectorAll('.nav-billing-copy').forEach(el => {
+            el.addEventListener('click', () => {
+                const text = el.dataset.copy;
+                navigator.clipboard.writeText(text).then(() => {
+                    const orig = el.innerHTML;
+                    el.innerHTML = '<span style="color:#4ade80">Đã copy!</span>';
+                    setTimeout(() => { el.innerHTML = orig; }, 1500);
+                });
+            });
+        });
 
         // Close button
         banner.querySelector('.nav-billing-close').addEventListener('click', () => {
@@ -3260,15 +3313,17 @@ class UnifiedNavigationManager {
         style.id = 'nav-billing-banner-styles';
         style.textContent = `
             .nav-billing-banner {
-                display: flex;
-                align-items: center;
-                gap: 10px;
-                padding: 10px 16px;
                 background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
                 color: white;
                 font-size: 13px;
                 font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
                 z-index: 100;
+            }
+            .nav-billing-header {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 10px 16px;
                 flex-wrap: wrap;
             }
             .nav-billing-icon {
@@ -3287,25 +3342,22 @@ class UnifiedNavigationManager {
                 gap: 6px;
                 flex-wrap: wrap;
             }
-            .nav-billing-text b {
-                font-weight: 600;
-            }
-            .nav-billing-sep {
-                opacity: 0.4;
-            }
+            .nav-billing-text b { font-weight: 600; }
+            .nav-billing-sep { opacity: 0.4; }
             .nav-billing-link {
                 color: white;
                 text-decoration: none;
                 font-weight: 600;
                 padding: 4px 12px;
                 background: rgba(255,255,255,0.2);
+                border: none;
                 border-radius: 6px;
                 white-space: nowrap;
+                cursor: pointer;
+                font-size: 13px;
                 transition: background 0.2s;
             }
-            .nav-billing-link:hover {
-                background: rgba(255,255,255,0.35);
-            }
+            .nav-billing-link:hover { background: rgba(255,255,255,0.35); }
             .nav-billing-close {
                 background: none;
                 border: none;
@@ -3316,15 +3368,79 @@ class UnifiedNavigationManager {
                 border-radius: 4px;
                 transition: all 0.2s;
             }
-            .nav-billing-close:hover {
-                color: white;
-                background: rgba(255,255,255,0.15);
+            .nav-billing-close:hover { color: white; background: rgba(255,255,255,0.15); }
+
+            /* Payment details panel */
+            .nav-billing-details {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 16px;
+                padding: 0 16px 16px;
             }
+            .nav-billing-payment {
+                display: flex;
+                gap: 16px;
+                background: rgba(255,255,255,0.12);
+                border-radius: 10px;
+                padding: 14px;
+                flex: 1;
+                min-width: 300px;
+            }
+            .nav-billing-payment-qr {
+                flex-shrink: 0;
+            }
+            .nav-billing-payment-qr img {
+                width: 140px;
+                height: 140px;
+                border-radius: 8px;
+                background: white;
+                padding: 4px;
+            }
+            .nav-billing-payment-info {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+                font-size: 13px;
+            }
+            .nav-billing-payment-title {
+                font-weight: 700;
+                font-size: 14px;
+                margin-bottom: 4px;
+            }
+            .nav-billing-payment-row {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 8px;
+            }
+            .nav-billing-payment-row span { opacity: 0.8; }
+            .nav-billing-payment-row b { font-weight: 600; }
+            .nav-billing-copy {
+                cursor: pointer;
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+                padding: 1px 6px;
+                border-radius: 4px;
+                transition: background 0.2s;
+            }
+            .nav-billing-copy:hover { background: rgba(255,255,255,0.15); }
+            .nav-billing-copy svg { opacity: 0.6; }
+            .nav-billing-invoice-link {
+                color: white;
+                text-decoration: underline;
+                font-size: 12px;
+                opacity: 0.8;
+                margin-top: 6px;
+            }
+            .nav-billing-invoice-link:hover { opacity: 1; }
+
             @media (max-width: 768px) {
-                .nav-billing-banner {
-                    font-size: 12px;
-                    padding: 8px 12px;
-                }
+                .nav-billing-header { font-size: 12px; padding: 8px 12px; }
+                .nav-billing-details { padding: 0 12px 12px; }
+                .nav-billing-payment { flex-direction: column; align-items: center; text-align: center; }
+                .nav-billing-payment-row { flex-direction: column; gap: 2px; }
             }
         `;
         document.head.appendChild(style);
