@@ -1319,6 +1319,67 @@ function registerRoutes(router, deps) {
             });
         }
     });
+
+    /**
+     * GET /api/sepay/account-status
+     * Fetch SePay account info: bank accounts + transaction count for current month
+     * Used by service-costs dashboard to auto-display SePay status
+     */
+    router.get('/account-status', async (req, res) => {
+        const SEPAY_API_KEY = process.env.SEPAY_API_KEY || process.env.SEPAY_API;
+        const SEPAY_ACCOUNT_NUMBER = process.env.SEPAY_ACCOUNT_NUMBER || '5354IBT1';
+
+        if (!SEPAY_API_KEY) {
+            return res.status(400).json({ success: false, error: 'SEPAY_API_KEY not configured' });
+        }
+
+        const headers = {
+            'Authorization': `Bearer ${SEPAY_API_KEY}`,
+            'Content-Type': 'application/json'
+        };
+
+        try {
+            // Current month date range
+            const now = new Date();
+            const startOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+            const endOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()}`;
+
+            // Fetch bank accounts and transaction count in parallel
+            const [accountsRes, countRes] = await Promise.all([
+                fetchWithTimeout('https://my.sepay.vn/userapi/bankaccounts/list', { method: 'GET', headers }, 10000),
+                fetchWithTimeout(`https://my.sepay.vn/userapi/transactions/count?account_number=${SEPAY_ACCOUNT_NUMBER}&transaction_date_min=${startOfMonth}&transaction_date_max=${endOfMonth}`, { method: 'GET', headers }, 10000),
+            ]);
+
+            const accountsData = accountsRes.ok ? await accountsRes.json() : null;
+            const countData = countRes.ok ? await countRes.json() : null;
+
+            // Extract bank account info
+            let bankAccount = null;
+            if (accountsData && accountsData.bankaccounts) {
+                bankAccount = accountsData.bankaccounts.find(a => a.account_number === SEPAY_ACCOUNT_NUMBER) || accountsData.bankaccounts[0] || null;
+            }
+
+            res.json({
+                success: true,
+                data: {
+                    bankAccount: bankAccount ? {
+                        accountNumber: bankAccount.account_number,
+                        accountHolder: bankAccount.account_holder_name,
+                        bankName: bankAccount.bank_short_name || bankAccount.bank_full_name,
+                        balance: bankAccount.accumulated,
+                        active: bankAccount.active === 1,
+                        lastTransaction: bankAccount.last_transaction,
+                    } : null,
+                    transactionCount: countData ? (countData.count_transactions || countData.transactions || 0) : 0,
+                    month: `${now.getMonth() + 1}/${now.getFullYear()}`,
+                    fetchedAt: now.toISOString(),
+                }
+            });
+        } catch (error) {
+            console.error('[SEPAY-ACCOUNT-STATUS] Error:', error.message);
+            res.status(500).json({ success: false, error: error.message });
+        }
+    });
 }
 
 module.exports = {

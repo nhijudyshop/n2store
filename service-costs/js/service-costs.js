@@ -385,24 +385,22 @@
             monthlyCost: 589000,
             monthlyCostVND: true,
             billingDay: 28,
-            costNote: 'Gói VIP 589K đ/tháng. Hạn mức 1,000 GD. Đã dùng 78 GD tháng này. Hết hạn 2026-04-27',
+            costNote: 'Đang tải dữ liệu từ API...',
             region: 'Vietnam',
             freeTier: 'Free: 50 GD/tháng. VIP 589K đ/tháng: 1,000 GD',
             details: [
                 { label: 'Gói dịch vụ', value: 'VIP' },
                 { label: 'Giá', value: '589,000 đ/tháng' },
                 { label: 'Hạn mức GD', value: '1,000 GD/tháng' },
-                { label: 'Đã dùng (T3/2026)', value: '78 / 1,000 GD' },
-                { label: 'Ngày hết hạn', value: '2026-04-27 (còn 28 ngày)' },
-                { label: 'Trạng thái', value: 'Đang hoạt động' },
-                { label: 'Số dư tài khoản', value: '0đ' },
-                { label: 'Hóa đơn #24721', value: '589,000đ - CHƯA THANH TOÁN (2026-03-28)' },
-                { label: 'Ngân hàng', value: 'ACB - Tài khoản 75918' },
-                { label: 'Chủ TK', value: 'LAI THUY YEN NHI' },
-                { label: 'Bank Account ID', value: '37562' },
+                { label: 'Đã dùng', value: 'Đang tải...', _liveKey: 'txCount' },
+                { label: 'Trạng thái', value: 'Đang tải...', _liveKey: 'status' },
+                { label: 'Số dư ngân hàng', value: 'Đang tải...', _liveKey: 'balance' },
+                { label: 'GD gần nhất', value: 'Đang tải...', _liveKey: 'lastTx' },
+                { label: 'Ngân hàng', value: 'Đang tải...', _liveKey: 'bankName' },
+                { label: 'Chủ TK', value: 'Đang tải...', _liveKey: 'accountHolder' },
                 { label: 'API Key', value: 'E0ZG...OTBY (từ Render env)', masked: true },
                 { label: 'Chức năng', value: 'Webhook nhận thông báo CK + API tra cứu GD' },
-                { label: 'Sử dụng', value: 'Route /api/sepay-webhook trên Render (n2store-fallback)' },
+                { label: 'Sử dụng', value: 'Route /api/sepay trên Render (n2store-fallback)' },
             ],
             consoleUrl: 'https://my.sepay.vn/',
             status: 'active',
@@ -789,6 +787,62 @@
     }
 
     // =========================================================
+    // LIVE DATA: Fetch SePay account status from Render API
+    // =========================================================
+    const RENDER_API_BASE = 'https://n2store-fallback.onrender.com';
+
+    async function fetchSepayLiveData() {
+        try {
+            const res = await fetch(`${RENDER_API_BASE}/api/sepay/account-status`);
+            if (!res.ok) return null;
+            const json = await res.json();
+            if (!json.success) return null;
+            return json.data;
+        } catch (e) {
+            console.warn('[SePay Live] Failed to fetch:', e.message);
+            return null;
+        }
+    }
+
+    function updateSepayCard(liveData) {
+        if (!liveData) return;
+
+        const sepayService = SERVICES.find(s => s.id === 'sepay');
+        if (!sepayService) return;
+
+        const { bankAccount, transactionCount, month } = liveData;
+
+        // Update details with live data
+        sepayService.details.forEach(d => {
+            if (d._liveKey === 'txCount') {
+                d.value = `${transactionCount} / 1,000 GD (T${month})`;
+            } else if (d._liveKey === 'status') {
+                d.value = bankAccount && bankAccount.active ? 'Đang hoạt động ✓' : 'Không xác định';
+            } else if (d._liveKey === 'balance') {
+                d.value = bankAccount ? `${Number(bankAccount.balance || 0).toLocaleString('vi-VN')}đ` : 'N/A';
+            } else if (d._liveKey === 'lastTx') {
+                d.value = bankAccount && bankAccount.lastTransaction
+                    ? new Date(bankAccount.lastTransaction).toLocaleString('vi-VN')
+                    : 'N/A';
+            } else if (d._liveKey === 'bankName') {
+                d.value = bankAccount ? `${bankAccount.bankName} - TK ${bankAccount.accountNumber}` : 'N/A';
+            } else if (d._liveKey === 'accountHolder') {
+                d.value = bankAccount ? bankAccount.accountHolder : 'N/A';
+            }
+        });
+
+        // Update costNote
+        sepayService.costNote = bankAccount && bankAccount.active
+            ? `Gói VIP 589K đ/tháng. Đã dùng ${transactionCount} / 1,000 GD (T${month})`
+            : 'Không thể kết nối SePay API';
+
+        // Re-render
+        renderServicesGrid();
+        renderCostTable();
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    // =========================================================
     // INIT
     // =========================================================
     function init() {
@@ -803,8 +857,9 @@
         renderQuickLinks();
 
         // Timestamp
+        const now = new Date();
         document.getElementById('lastUpdated').textContent =
-            'Data verified: 30/03/2026 (via API calls)';
+            `Data verified: ${now.toLocaleDateString('vi-VN')} (via API calls)`;
 
         // Toggle keys
         document.getElementById('btnToggleKeys').addEventListener('click', function () {
@@ -825,6 +880,11 @@
                 if (typeof lucide !== 'undefined') lucide.createIcons();
             });
         }
+
+        // Fetch live SePay data
+        fetchSepayLiveData().then(data => {
+            if (data) updateSepayCard(data);
+        });
     }
 
     if (document.readyState === 'loading') {
