@@ -3129,13 +3129,18 @@ class UnifiedNavigationManager {
     }
 
     /**
-     * Check upcoming billing dates within 3 days
-     * Returns array of alerts: [{ name, amount, dueDate, daysLeft, label }]
+     * Check billing alerts:
+     * - Render, Firebase, Cloudflare: show when OVERDUE (billing day arrived/passed)
+     * - SePay: show 3 days BEFORE billing day
      */
     getBillingAlerts() {
+        // warnBefore: 0 = only on/after billing day (overdue), 3 = warn 3 days before
+        // showDays: how many days to keep showing after billing day
         const BILLING_SCHEDULE = [
-            { name: 'Render (4 services + DB)', amount: 70, billingDay: 1 },
-            { name: 'Cloudflare Workers', amount: 5, billingDay: 13 },
+            { name: 'Render (4 services + DB)', amount: 70, billingDay: 1, warnBefore: 0, showDays: 3 },
+            { name: 'Firebase (Blaze)', amount: 0, billingDay: 1, warnBefore: 0, showDays: 3, note: 'Kiểm tra usage trên console' },
+            { name: 'Cloudflare Workers', amount: 5, billingDay: 13, warnBefore: 0, showDays: 3 },
+            { name: 'SePay', amount: 0, billingDay: 1, warnBefore: 3, showDays: 0, note: 'Cần cập nhật key thật + ngày billing' },
         ];
 
         const now = new Date();
@@ -3143,25 +3148,49 @@ class UnifiedNavigationManager {
         const alerts = [];
 
         BILLING_SCHEDULE.forEach(bill => {
-            // Next billing date this month
-            let nextBilling = new Date(today.getFullYear(), today.getMonth(), bill.billingDay);
-            // If already passed this month, check next month
-            if (nextBilling < today) {
-                nextBilling = new Date(today.getFullYear(), today.getMonth() + 1, bill.billingDay);
+            // Current month's billing date
+            let billingThisMonth = new Date(today.getFullYear(), today.getMonth(), bill.billingDay);
+
+            // Days since/until this month's billing
+            const diffMs = billingThisMonth - today;
+            const daysDiff = Math.round(diffMs / (1000 * 60 * 60 * 24)); // negative = overdue
+
+            let shouldAlert = false;
+            let daysLeft = daysDiff;
+            let isOverdue = false;
+
+            if (bill.warnBefore > 0) {
+                // SePay-type: warn X days before
+                if (daysDiff <= bill.warnBefore && daysDiff >= 0) {
+                    shouldAlert = true;
+                }
+            } else {
+                // Render/Firebase/CF-type: only show when overdue (on billing day or after)
+                if (daysDiff <= 0 && daysDiff >= -bill.showDays) {
+                    shouldAlert = true;
+                    isOverdue = true;
+                }
             }
 
-            const diffMs = nextBilling - today;
-            const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+            if (shouldAlert) {
+                let label;
+                if (isOverdue) {
+                    label = daysDiff === 0
+                        ? `${bill.name}: HÔM NAY là ngày thanh toán`
+                        : `${bill.name}: quá hạn ${Math.abs(daysDiff)} ngày`;
+                } else {
+                    label = daysDiff === 0
+                        ? `${bill.name}: HÔM NAY`
+                        : `${bill.name}: còn ${daysDiff} ngày`;
+                }
 
-            if (daysLeft <= 3 && daysLeft >= 0) {
                 alerts.push({
                     name: bill.name,
                     amount: bill.amount,
-                    dueDate: nextBilling,
-                    daysLeft,
-                    label: daysLeft === 0
-                        ? `${bill.name}: $${bill.amount} - HÔM NAY`
-                        : `${bill.name}: $${bill.amount} - còn ${daysLeft} ngày`,
+                    daysLeft: daysDiff,
+                    isOverdue,
+                    note: bill.note || '',
+                    label,
                 });
             }
         });
@@ -3191,7 +3220,17 @@ class UnifiedNavigationManager {
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
             </div>
             <div class="nav-billing-text">
-                ${alerts.map(a => `<span><b>${a.name}</b> $${a.amount} — ${a.daysLeft === 0 ? 'HÔM NAY' : `còn ${a.daysLeft} ngày`}</span>`).join('<span class="nav-billing-sep">|</span>')}
+                ${alerts.map(a => {
+                    const amountStr = a.amount > 0 ? ` $${a.amount}` : '';
+                    let timeStr;
+                    if (a.isOverdue) {
+                        timeStr = a.daysLeft === 0 ? 'hôm nay' : `quá hạn ${Math.abs(a.daysLeft)} ngày`;
+                    } else {
+                        timeStr = a.daysLeft === 0 ? 'hôm nay' : `còn ${a.daysLeft} ngày`;
+                    }
+                    const noteStr = a.note ? ` (${a.note})` : '';
+                    return `<span><b>${a.name}</b>${amountStr} — ${timeStr}${noteStr}</span>`;
+                }).join('<span class="nav-billing-sep">|</span>')}
             </div>
             <a href="${this.getServiceCostsUrl()}" class="nav-billing-link">Chi tiết →</a>
             <button class="nav-billing-close" title="Đóng">✕</button>

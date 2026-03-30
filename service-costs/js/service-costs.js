@@ -607,9 +607,13 @@
     // BILLING ALERTS
     // =========================================================
     function getBillingAlerts() {
+        // warnBefore: 0 = only on/after billing day (overdue), 3 = warn 3 days before
+        // showDays: how many days to keep showing after billing day
         const BILLING_SCHEDULE = [
-            { name: 'Render (4 services + DB)', amount: 70, billingDay: 1 },
-            { name: 'Cloudflare Workers', amount: 5, billingDay: 13 },
+            { name: 'Render (4 services + DB)', amount: 70, billingDay: 1, warnBefore: 0, showDays: 3 },
+            { name: 'Firebase (Blaze)', amount: 0, billingDay: 1, warnBefore: 0, showDays: 3, note: 'Ki\u1EC3m tra usage tr\u00EAn console' },
+            { name: 'Cloudflare Workers', amount: 5, billingDay: 13, warnBefore: 0, showDays: 3 },
+            { name: 'SePay', amount: 0, billingDay: 1, warnBefore: 3, showDays: 0, note: 'C\u1EA7n c\u1EADp nh\u1EADt key th\u1EADt + ng\u00E0y billing' },
         ];
 
         const now = new Date();
@@ -617,18 +621,29 @@
         const alerts = [];
 
         BILLING_SCHEDULE.forEach(bill => {
-            let nextBilling = new Date(today.getFullYear(), today.getMonth(), bill.billingDay);
-            if (nextBilling < today) {
-                nextBilling = new Date(today.getFullYear(), today.getMonth() + 1, bill.billingDay);
-            }
-            const daysLeft = Math.ceil((nextBilling - today) / (1000 * 60 * 60 * 24));
+            const billingThisMonth = new Date(today.getFullYear(), today.getMonth(), bill.billingDay);
+            const daysDiff = Math.round((billingThisMonth - today) / (1000 * 60 * 60 * 24));
 
-            if (daysLeft <= 3 && daysLeft >= 0) {
+            let shouldAlert = false;
+            let isOverdue = false;
+
+            if (bill.warnBefore > 0) {
+                if (daysDiff <= bill.warnBefore && daysDiff >= 0) shouldAlert = true;
+            } else {
+                if (daysDiff <= 0 && daysDiff >= -bill.showDays) {
+                    shouldAlert = true;
+                    isOverdue = true;
+                }
+            }
+
+            if (shouldAlert) {
                 alerts.push({
                     name: bill.name,
                     amount: bill.amount,
-                    daysLeft,
-                    dateStr: `${nextBilling.getDate()}/${nextBilling.getMonth() + 1}/${nextBilling.getFullYear()}`,
+                    daysLeft: daysDiff,
+                    isOverdue,
+                    note: bill.note || '',
+                    dateStr: `${billingThisMonth.getDate()}/${billingThisMonth.getMonth() + 1}/${billingThisMonth.getFullYear()}`,
                 });
             }
         });
@@ -647,15 +662,25 @@
         banner.innerHTML = `
             <div class="billing-alert-icon"><i data-lucide="alert-triangle"></i></div>
             <div class="billing-alert-content">
-                <strong>S\u1EAFp t\u1EDBi h\u1EA1n thanh to\u00E1n!</strong>
+                <strong>${alerts.some(a => a.isOverdue) ? 'T\u1EDBi h\u1EA1n thanh to\u00E1n!' : 'S\u1EAFp t\u1EDBi h\u1EA1n thanh to\u00E1n!'}</strong>
                 <div class="billing-alert-items">
-                    ${alerts.map(a => `
+                    ${alerts.map(a => {
+                        const amountStr = a.amount > 0 ? `$${a.amount}` : '';
+                        let timeStr;
+                        if (a.isOverdue) {
+                            timeStr = a.daysLeft === 0 ? 'H\u00D4M NAY' : `qu\u00E1 h\u1EA1n ${Math.abs(a.daysLeft)} ng\u00E0y`;
+                        } else {
+                            timeStr = a.daysLeft === 0 ? 'H\u00D4M NAY' : `c\u00F2n ${a.daysLeft} ng\u00E0y (${a.dateStr})`;
+                        }
+                        const noteStr = a.note ? ` <small style="opacity:0.7">${a.note}</small>` : '';
+                        return `
                         <div class="billing-alert-item">
                             <span>${a.name}</span>
-                            <span class="billing-alert-amount">$${a.amount}</span>
-                            <span class="billing-alert-due">${a.daysLeft === 0 ? 'H\u00D4M NAY' : `c\u00F2n ${a.daysLeft} ng\u00E0y (${a.dateStr})`}</span>
-                        </div>
-                    `).join('')}
+                            ${amountStr ? `<span class="billing-alert-amount">${amountStr}</span>` : ''}
+                            <span class="billing-alert-due ${a.isOverdue ? 'overdue' : ''}">${timeStr}</span>
+                            ${noteStr}
+                        </div>`;
+                    }).join('')}
                 </div>
             </div>
         `;

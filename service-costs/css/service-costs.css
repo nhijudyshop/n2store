@@ -246,6 +246,10 @@ body {
     font-weight: 600;
 }
 
+.billing-alert-due.overdue {
+    color: var(--danger);
+}
+
 /* =====================================================
    TOTAL SUMMARY CARDS
    ===================================================== */
