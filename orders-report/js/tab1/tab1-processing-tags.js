@@ -266,7 +266,6 @@
             }
 
             _ptagReconcileIds();
-            await _ptagMigrateOrphanCustomFlags();
             renderPanelContent();
             _ptagRefreshAllRows();
         } catch (e) {
@@ -312,39 +311,6 @@
 
         if (remaps.length > 0) {
             console.log(`${PTAG_LOG} Reconciled ${remaps.length} order ID(s) by Code cross-reference`);
-        }
-    }
-
-    /**
-     * Migration: remove orphan CUSTOM_ flags from order data that have no definition.
-     * Also cleans up related history entries.
-     */
-    async function _ptagMigrateOrphanCustomFlags() {
-        const knownIds = new Set(ProcessingTagState.getCustomFlagDefs().map(d => d.id));
-        let cleanedOrders = 0;
-
-        for (const [orderId, data] of ProcessingTagState.getAllOrders()) {
-            const flags = data.flags || [];
-            const orphans = flags.filter(f => f.startsWith('CUSTOM_') && !knownIds.has(f));
-            if (orphans.length === 0) continue;
-
-            // Remove orphan flags
-            data.flags = flags.filter(f => !orphans.includes(f));
-
-            // Remove related history entries
-            if (data.history) {
-                data.history = data.history.filter(h =>
-                    !((h.action === 'ADD_FLAG' || h.action === 'REMOVE_FLAG') && orphans.includes(h.value))
-                );
-            }
-
-            ProcessingTagState.setOrderData(orderId, data);
-            saveProcessingTagToAPI(orderId, data);
-            cleanedOrders++;
-        }
-
-        if (cleanedOrders > 0) {
-            console.log(`${PTAG_LOG} Migration: cleaned ${cleanedOrders} orders with orphan CUSTOM_ flags`);
         }
     }
 
