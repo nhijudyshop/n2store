@@ -3777,15 +3777,12 @@
 
     // --- Cleanup empty tags (custom flags + T-tags with 0 orders) ---
     async function _ptagCleanupEmptyTags() {
-        // Compute flag & T-tag counts (same logic as renderPanelContent)
-        const allOrders = window.allData || [];
-        const allDataIds = new Set(allOrders.map(o => String(o.Id)));
+        // Compute flag & T-tag counts from ALL tagged orders (across all campaigns)
         const taggedOrders = ProcessingTagState.getAllOrders();
         const flagCounts = {};
         const tTagCounts = {};
 
         for (const [orderId, data] of taggedOrders) {
-            if (!allDataIds.has(orderId)) continue;
             (data.flags || []).forEach(f => { flagCounts[f] = (flagCounts[f] || 0) + 1; });
             (data.tTags || []).forEach(t => { tTagCounts[t] = (tTagCounts[t] || 0) + 1; });
         }
