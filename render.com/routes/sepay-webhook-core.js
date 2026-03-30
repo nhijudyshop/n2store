@@ -1322,46 +1322,218 @@ function registerRoutes(router, deps) {
 
     /**
      * GET /api/sepay/account-status
-     * Fetch SePay account info: bank accounts + transaction count for current month
-     * Used by service-costs dashboard to auto-display SePay status
+     * Fetch SePay account info via:
+     * 1. SePay API (transactions, bank accounts) using API key
+     * 2. SePay dashboard (subscription, invoices) using username/password login
+     * Used by service-costs dashboard
      */
+
+    // Cache for dashboard data (avoid frequent logins)
+    let _sepayDashboardCache = null;
+    let _sepayDashboardCacheTime = 0;
+    const DASHBOARD_CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+
+    /**
+     * Login to my.sepay.vn and fetch subscription/invoice data
+     */
+    async function fetchSepayDashboard() {
+        const username = process.env.SEPAY_USERNAME;
+        const password = process.env.SEPAY_PASSWORD;
+
+        if (!username || !password) {
+            console.warn('[SEPAY-DASHBOARD] SEPAY_USERNAME or SEPAY_PASSWORD not configured');
+            return null;
+        }
+
+        // Check cache
+        if (_sepayDashboardCache && (Date.now() - _sepayDashboardCacheTime < DASHBOARD_CACHE_TTL)) {
+            console.log('[SEPAY-DASHBOARD] Returning cached data');
+            return _sepayDashboardCache;
+        }
+
+        try {
+            console.log('[SEPAY-DASHBOARD] Logging in to my.sepay.vn...');
+
+            // Step 1: Login
+            const loginRes = await fetchWithTimeout('https://my.sepay.vn/login/do_login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+                    'Accept': 'application/json, text/javascript, */*; q=0.01',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Origin': 'https://my.sepay.vn',
+                    'Referer': 'https://my.sepay.vn/login',
+                },
+                body: `email=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`,
+                redirect: 'manual',
+            }, 15000);
+
+            // Extract cookies from response
+            const rawHeaders = loginRes.headers.raw ? loginRes.headers.raw() : {};
+            const setCookieHeaders = rawHeaders['set-cookie'] || [];
+            const cookieStr = setCookieHeaders.map(c => c.split(';')[0]).join('; ');
+
+            if (!cookieStr) {
+                // Try alternate way to get cookies
+                const allCookies = loginRes.headers.get('set-cookie');
+                if (allCookies) {
+                    console.log('[SEPAY-DASHBOARD] Got cookies via get()');
+                }
+            }
+
+            let loginData = null;
+            try { loginData = await loginRes.json(); } catch (e) { /* not JSON */ }
+
+            console.log('[SEPAY-DASHBOARD] Login status:', loginRes.status, loginData?.status);
+
+            if (!cookieStr && !loginData?.status) {
+                console.error('[SEPAY-DASHBOARD] Login failed - no cookies received');
+                return null;
+            }
+
+            const dashHeaders = {
+                'Cookie': cookieStr,
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            };
+
+            // Step 2: Fetch dashboard pages in parallel
+            const [homeRes, invoicesRes] = await Promise.all([
+                fetchWithTimeout('https://my.sepay.vn/', { headers: dashHeaders, redirect: 'follow' }, 10000),
+                fetchWithTimeout('https://my.sepay.vn/invoices', { headers: dashHeaders, redirect: 'follow' }, 10000),
+            ]);
+
+            const homeHtml = homeRes.ok ? await homeRes.text() : '';
+            const invoicesHtml = invoicesRes.ok ? await invoicesRes.text() : '';
+
+            console.log('[SEPAY-DASHBOARD] Home page length:', homeHtml.length, '| Invoices page length:', invoicesHtml.length);
+
+            // Step 3: Parse subscription info from dashboard
+            const result = {
+                plan: null,
+                expiryDate: null,
+                transactionQuota: null,
+                transactionUsed: null,
+                balance: null,
+                invoices: [],
+            };
+
+            // Parse home/dashboard page for subscription data
+            // Look for plan name (VIP, Pro, Free, etc.)
+            const planMatch = homeHtml.match(/(?:Gói|Plan|Package)[:\s]*<[^>]*>([^<]+)</) ||
+                              homeHtml.match(/(?:gói dịch vụ|service plan)[:\s]*([^\n<]+)/i);
+            if (planMatch) result.plan = planMatch[1].trim();
+
+            // Look for expiry date
+            const expiryMatch = homeHtml.match(/(?:Hết hạn|Ngày hết hạn|Expir(?:y|es|ation))[:\s]*<[^>]*>([^<]+)</) ||
+                                homeHtml.match(/(\d{4}-\d{2}-\d{2})[^<]*(?:hết hạn|expir)/i) ||
+                                homeHtml.match(/(?:hết hạn|expir)[^<]*(\d{4}-\d{2}-\d{2})/i) ||
+                                homeHtml.match(/(?:hết hạn|expir)[^<]*(\d{2}\/\d{2}\/\d{4})/i);
+            if (expiryMatch) result.expiryDate = expiryMatch[1].trim();
+
+            // Look for transaction quota
+            const quotaMatch = homeHtml.match(/(\d[\d,.]*)\s*\/\s*(\d[\d,.]*)\s*(?:GD|giao dịch|transaction)/i);
+            if (quotaMatch) {
+                result.transactionUsed = parseInt(quotaMatch[1].replace(/[,.]/g, ''));
+                result.transactionQuota = parseInt(quotaMatch[2].replace(/[,.]/g, ''));
+            }
+
+            // Look for balance
+            const balanceMatch = homeHtml.match(/(?:Số dư|Balance)[:\s]*<[^>]*>([\d,.]+)\s*(?:đ|VND)/i);
+            if (balanceMatch) result.balance = balanceMatch[1].trim();
+
+            // Parse invoices page
+            // Look for invoice rows with status
+            const invoiceRegex = /#(\d+)[\s\S]*?(\d[\d,.]+)\s*(?:đ|VND)[\s\S]*?(Đã thanh toán|Chưa thanh toán|Paid|Unpaid|Quá hạn|Overdue)/gi;
+            let match;
+            while ((match = invoiceRegex.exec(invoicesHtml)) !== null) {
+                result.invoices.push({
+                    id: match[1],
+                    amount: match[2],
+                    status: match[3].trim(),
+                });
+            }
+
+            // If no structured data found, try to extract raw text snippets
+            if (!result.plan && !result.expiryDate) {
+                // Try to find any package/subscription info in the page
+                const vipMatch = homeHtml.match(/VIP/i);
+                const proMatch = homeHtml.match(/\bPro\b/i);
+                const freeMatch = homeHtml.match(/\bFree\b/i);
+                if (vipMatch) result.plan = 'VIP';
+                else if (proMatch) result.plan = 'Pro';
+                else if (freeMatch) result.plan = 'Free';
+            }
+
+            // Debug: save snippets for troubleshooting
+            result._debug = {
+                homeTitle: (homeHtml.match(/<title>([^<]*)<\/title>/i) || [])[1] || '',
+                homeLen: homeHtml.length,
+                invoicesLen: invoicesHtml.length,
+                redirectedToLogin: homeHtml.includes('do_login') || homeHtml.includes('Đăng nhập'),
+            };
+
+            // Cache the result
+            _sepayDashboardCache = result;
+            _sepayDashboardCacheTime = Date.now();
+
+            return result;
+        } catch (error) {
+            console.error('[SEPAY-DASHBOARD] Error:', error.message);
+            return null;
+        }
+    }
+
     router.get('/account-status', async (req, res) => {
         const SEPAY_API_KEY = process.env.SEPAY_API_KEY || process.env.SEPAY_API;
         const SEPAY_ACCOUNT_NUMBER = process.env.SEPAY_ACCOUNT_NUMBER || '5354IBT1';
 
-        if (!SEPAY_API_KEY) {
-            return res.status(400).json({ success: false, error: 'SEPAY_API_KEY not configured' });
-        }
-
-        const headers = {
-            'Authorization': `Bearer ${SEPAY_API_KEY}`,
-            'Content-Type': 'application/json'
-        };
-
         try {
-            // Current month date range
             const now = new Date();
             const startOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
             const endOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()}`;
 
-            // Fetch bank accounts and transaction count in parallel
-            const [accountsRes, countRes] = await Promise.all([
-                fetchWithTimeout('https://my.sepay.vn/userapi/bankaccounts/list', { method: 'GET', headers }, 10000),
-                fetchWithTimeout(`https://my.sepay.vn/userapi/transactions/count?account_number=${SEPAY_ACCOUNT_NUMBER}&transaction_date_min=${startOfMonth}&transaction_date_max=${endOfMonth}`, { method: 'GET', headers }, 10000),
-            ]);
+            // Fetch API data + dashboard data in parallel
+            const apiHeaders = SEPAY_API_KEY ? {
+                'Authorization': `Bearer ${SEPAY_API_KEY}`,
+                'Content-Type': 'application/json'
+            } : null;
 
-            const accountsData = accountsRes.ok ? await accountsRes.json() : null;
-            const countData = countRes.ok ? await countRes.json() : null;
+            const promises = [];
 
-            // Extract bank account info
+            // API calls (if key available)
+            if (apiHeaders) {
+                promises.push(
+                    fetchWithTimeout('https://my.sepay.vn/userapi/bankaccounts/list', { method: 'GET', headers: apiHeaders }, 10000)
+                        .then(r => r.ok ? r.json() : null).catch(() => null)
+                );
+                promises.push(
+                    fetchWithTimeout(`https://my.sepay.vn/userapi/transactions/count?account_number=${SEPAY_ACCOUNT_NUMBER}&transaction_date_min=${startOfMonth}&transaction_date_max=${endOfMonth}`, { method: 'GET', headers: apiHeaders }, 10000)
+                        .then(r => r.ok ? r.json() : null).catch(() => null)
+                );
+            } else {
+                promises.push(Promise.resolve(null));
+                promises.push(Promise.resolve(null));
+            }
+
+            // Dashboard scrape (login with username/password)
+            promises.push(fetchSepayDashboard());
+
+            const [accountsData, countData, dashboardData] = await Promise.all(promises);
+
+            // Extract bank account info from API
             let bankAccount = null;
             if (accountsData && accountsData.bankaccounts) {
                 bankAccount = accountsData.bankaccounts.find(a => a.account_number === SEPAY_ACCOUNT_NUMBER) || accountsData.bankaccounts[0] || null;
             }
 
+            const txCount = countData ? (countData.count_transactions || countData.transactions || 0) : 0;
+
             res.json({
                 success: true,
                 data: {
+                    // From SePay API
                     bankAccount: bankAccount ? {
                         accountNumber: bankAccount.account_number,
                         accountHolder: bankAccount.account_holder_name,
@@ -1370,8 +1542,10 @@ function registerRoutes(router, deps) {
                         active: bankAccount.active === 1,
                         lastTransaction: bankAccount.last_transaction,
                     } : null,
-                    transactionCount: countData ? (countData.count_transactions || countData.transactions || 0) : 0,
+                    transactionCount: txCount,
                     month: `${now.getMonth() + 1}/${now.getFullYear()}`,
+                    // From dashboard scrape
+                    dashboard: dashboardData || null,
                     fetchedAt: now.toISOString(),
                 }
             });

@@ -389,18 +389,17 @@
             region: 'Vietnam',
             freeTier: 'Free: 50 GD/tháng. VIP 589K đ/tháng: 1,000 GD',
             details: [
-                { label: 'Gói dịch vụ', value: 'VIP' },
-                { label: 'Giá', value: '589,000 đ/tháng' },
-                { label: 'Hạn mức GD', value: '1,000 GD/tháng' },
-                { label: 'Đã dùng', value: 'Đang tải...', _liveKey: 'txCount' },
-                { label: 'Trạng thái', value: 'Đang tải...', _liveKey: 'status' },
-                { label: 'Số dư ngân hàng', value: 'Đang tải...', _liveKey: 'balance' },
-                { label: 'GD gần nhất', value: 'Đang tải...', _liveKey: 'lastTx' },
-                { label: 'Ngân hàng', value: 'Đang tải...', _liveKey: 'bankName' },
-                { label: 'Chủ TK', value: 'Đang tải...', _liveKey: 'accountHolder' },
-                { label: 'API Key', value: 'E0ZG...OTBY (từ Render env)', masked: true },
-                { label: 'Chức năng', value: 'Webhook nhận thông báo CK + API tra cứu GD' },
-                { label: 'Sử dụng', value: 'Route /api/sepay trên Render (n2store-fallback)' },
+                { label: 'G\u00F3i d\u1ECBch v\u1EE5', value: '\u0110ang t\u1EA3i...', _liveKey: 'plan' },
+                { label: 'Gi\u00E1', value: '589,000 \u0111/th\u00E1ng' },
+                { label: '\u0110\u00E3 d\u00F9ng', value: '\u0110ang t\u1EA3i...', _liveKey: 'txCount' },
+                { label: 'Ng\u00E0y h\u1EBFt h\u1EA1n', value: '\u0110ang t\u1EA3i...', _liveKey: 'expiry' },
+                { label: 'H\u00F3a \u0111\u01A1n', value: '\u0110ang t\u1EA3i...', _liveKey: 'invoices' },
+                { label: 'Tr\u1EA1ng th\u00E1i', value: '\u0110ang t\u1EA3i...', _liveKey: 'status' },
+                { label: 'S\u1ED1 d\u01B0 ng\u00E2n h\u00E0ng', value: '\u0110ang t\u1EA3i...', _liveKey: 'balance' },
+                { label: 'GD g\u1EA7n nh\u1EA5t', value: '\u0110ang t\u1EA3i...', _liveKey: 'lastTx' },
+                { label: 'Ng\u00E2n h\u00E0ng', value: '\u0110ang t\u1EA3i...', _liveKey: 'bankName' },
+                { label: 'Ch\u1EE7 TK', value: '\u0110ang t\u1EA3i...', _liveKey: 'accountHolder' },
+                { label: 'API Key', value: 'E0ZG...OTBY (t\u1EEB Render env)', masked: true },
             ],
             consoleUrl: 'https://my.sepay.vn/',
             status: 'active',
@@ -810,36 +809,75 @@
         const sepayService = SERVICES.find(s => s.id === 'sepay');
         if (!sepayService) return;
 
-        const { bankAccount, transactionCount, month } = liveData;
+        const { bankAccount, transactionCount, month, dashboard } = liveData;
+
+        // Use dashboard data if available (from login scrape)
+        const plan = dashboard?.plan || 'VIP';
+        const expiry = dashboard?.expiryDate || null;
+        const txUsed = dashboard?.transactionUsed ?? transactionCount;
+        const txQuota = dashboard?.transactionQuota || 1000;
 
         // Update details with live data
         sepayService.details.forEach(d => {
             if (d._liveKey === 'txCount') {
-                d.value = `${transactionCount} / 1,000 GD (T${month})`;
+                d.value = `${txUsed} / ${txQuota.toLocaleString('vi-VN')} GD (T${month})`;
             } else if (d._liveKey === 'status') {
-                d.value = bankAccount && bankAccount.active ? 'Đang hoạt động ✓' : 'Không xác định';
+                const active = bankAccount?.active;
+                d.value = active ? '\u0110ang ho\u1EA1t \u0111\u1ED9ng \u2713' : 'Kh\u00F4ng x\u00E1c \u0111\u1ECBnh';
             } else if (d._liveKey === 'balance') {
-                d.value = bankAccount ? `${Number(bankAccount.balance || 0).toLocaleString('vi-VN')}đ` : 'N/A';
+                d.value = bankAccount ? `${Number(bankAccount.balance || 0).toLocaleString('vi-VN')}\u0111` : 'N/A';
             } else if (d._liveKey === 'lastTx') {
-                d.value = bankAccount && bankAccount.lastTransaction
+                d.value = bankAccount?.lastTransaction
                     ? new Date(bankAccount.lastTransaction).toLocaleString('vi-VN')
                     : 'N/A';
             } else if (d._liveKey === 'bankName') {
                 d.value = bankAccount ? `${bankAccount.bankName} - TK ${bankAccount.accountNumber}` : 'N/A';
             } else if (d._liveKey === 'accountHolder') {
                 d.value = bankAccount ? bankAccount.accountHolder : 'N/A';
+            } else if (d._liveKey === 'plan') {
+                d.value = plan;
+            } else if (d._liveKey === 'expiry') {
+                if (expiry) {
+                    const expiryDate = new Date(expiry);
+                    const daysLeft = Math.ceil((expiryDate - new Date()) / (1000 * 60 * 60 * 24));
+                    d.value = `${expiry} (c\u00F2n ${daysLeft} ng\u00E0y)`;
+                } else {
+                    d.value = 'Kh\u00F4ng l\u1EA5y \u0111\u01B0\u1EE3c t\u1EEB API';
+                }
+            } else if (d._liveKey === 'invoices') {
+                if (dashboard?.invoices?.length > 0) {
+                    const latest = dashboard.invoices[0];
+                    d.value = `#${latest.id} - ${latest.amount}\u0111 - ${latest.status}`;
+                } else {
+                    d.value = 'Kh\u00F4ng c\u00F3 h\u00F3a \u0111\u01A1n m\u1EDBi';
+                }
             }
         });
 
         // Update costNote
-        sepayService.costNote = bankAccount && bankAccount.active
-            ? `Gói VIP 589K đ/tháng. Đã dùng ${transactionCount} / 1,000 GD (T${month})`
-            : 'Không thể kết nối SePay API';
+        const statusParts = [];
+        statusParts.push(`G\u00F3i ${plan} 589K \u0111/th\u00E1ng`);
+        statusParts.push(`\u0110\u00E3 d\u00F9ng ${txUsed}/${txQuota.toLocaleString('vi-VN')} GD`);
+        if (expiry) {
+            const daysLeft = Math.ceil((new Date(expiry) - new Date()) / (1000 * 60 * 60 * 24));
+            statusParts.push(`H\u1EBFt h\u1EA1n ${expiry} (${daysLeft} ng\u00E0y)`);
+        }
+        sepayService.costNote = statusParts.join('. ');
+
+        // Update plan display
+        if (plan) {
+            sepayService.plan = `${plan} - 589,000\u0111/th\u00E1ng (${txQuota.toLocaleString('vi-VN')} GD)`;
+        }
 
         // Re-render
         renderServicesGrid();
         renderCostTable();
         if (typeof lucide !== 'undefined') lucide.createIcons();
+
+        // Log debug info
+        if (dashboard?._debug) {
+            console.log('[SePay Dashboard]', dashboard._debug);
+        }
     }
 
     // =========================================================
