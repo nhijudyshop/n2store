@@ -704,15 +704,25 @@ class PurchaseOrderController {
             const code = item.productCode || '';
             const name = item.productName || '';
             const variant = item.variant || '';
-            const bgStyle = isChild ? 'background: #fafbff;' : '';
+            const isFailed = item.tposSyncStatus === 'failed';
+            const bgStyle = isChild ? (isFailed ? 'background: #fef2f2;' : 'background: #fafbff;') : (isFailed ? 'background: #fef2f2;' : '');
             const padLeft = isChild ? '24px' : '12px';
             const parentAttr = isChild ? ` data-parent-code="${parentCode}"` : '';
             const childClass = isChild ? ' po-child-row' : '';
+            const failedBtnHtml = isFailed ? `
+                <button class="po-retry-btn" data-idx="${idx}" title="Lỗi: ${(item.tposSyncError || 'Unknown').replace(/"/g, '&quot;')}" style="
+                    display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px;
+                    border: 1px solid #fca5a5; border-radius: 4px; background: #fef2f2;
+                    color: #dc2626; cursor: pointer; font-size: 11px; margin-left: 6px; vertical-align: middle;
+                ">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                    Upload lại
+                </button>` : '';
             return `
                 <tr class="${childClass}" style="border-bottom: 1px solid #dee2e6; ${bgStyle}" data-idx="${idx}" data-tpos-id="${item.tposProductId || ''}" data-tpos-tmpl-id="${item.tposProductTmplId || ''}" data-code="${code}"${parentAttr}>
                     <td style="padding: 10px 8px; text-align: center; color: #333; font-size: 14px; vertical-align: top; width: 40px; border-right: 1px solid #dee2e6;">${stt}</td>
                     <td style="padding: 10px 12px 10px ${padLeft}; font-size: 14px; border-right: 1px solid #dee2e6;">
-                        <div style="font-weight: 700; color: #000;">[${code}] ${name}</div>
+                        <div style="font-weight: 700; color: ${isFailed ? '#dc2626' : '#000'};">[${code}] ${name}${failedBtnHtml}</div>
                         <div style="color: #999; font-size: 12px; margin-top: 2px;">${variant || 'Ghi chú'}</div>
                     </td>
                     <td style="padding: 10px 4px; text-align: center; width: 100px; border-right: 1px solid #dee2e6;">
@@ -893,6 +903,22 @@ class PurchaseOrderController {
                     </div>
                 </div>
 
+                <!-- Failed TPOS sync warning -->
+                <div id="poFailedSyncWarning" style="padding: 8px 20px; background: #fef2f2; border-top: 1px solid #fecaca; display: none;">
+                    <div style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #991b1b;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                        <span id="poFailedSyncText">Có sản phẩm upload TPOS thất bại</span>
+                        <button type="button" id="btnRetryAllSync" style="
+                            margin-left: auto; padding: 4px 12px; border: 1px solid #fca5a5; border-radius: 4px;
+                            background: white; color: #dc2626; cursor: pointer; font-size: 12px; font-weight: 600;
+                            display: flex; align-items: center; gap: 4px;
+                        ">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                            Upload lại tất cả
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Buttons -->
                 <div style="padding: 12px 20px; border-top: 1px solid #dee2e6; display: flex; gap: 8px; justify-content: flex-end; background: #f8f9fa;">
                     <button type="button" id="btnCancelPO" style="
@@ -934,11 +960,15 @@ class PurchaseOrderController {
 
             const zeroWarning = overlay.querySelector('#poZeroPriceWarning');
             const editWarning = overlay.querySelector('#poEditingWarning');
+            const failedSyncWarning = overlay.querySelector('#poFailedSyncWarning');
             const btnExcel = overlay.querySelector('#btnExportExcel');
             const btnTPOS = overlay.querySelector('#btnSubmitTPOS');
 
+            // Check for failed TPOS sync
+            const failedSyncCount = items.filter(i => i.tposSyncStatus === 'failed').length;
+
             const isEditing = editingPrices.size > 0;
-            const isBlocked = zeroPriceCount > 0 || isEditing;
+            const isBlocked = zeroPriceCount > 0 || isEditing || failedSyncCount > 0;
 
             // Zero-price warning
             if (zeroPriceCount > 0) {
@@ -947,6 +977,15 @@ class PurchaseOrderController {
                     `Có ${zeroPriceCount} sản phẩm giá 0. Tick checkbox bên cạnh đơn giá để cho phép.`;
             } else {
                 zeroWarning.style.display = 'none';
+            }
+
+            // Failed sync warning
+            if (failedSyncCount > 0) {
+                failedSyncWarning.style.display = 'block';
+                failedSyncWarning.querySelector('#poFailedSyncText').textContent =
+                    `Có ${failedSyncCount} sản phẩm upload TPOS thất bại. Upload lại trước khi xuất.`;
+            } else {
+                failedSyncWarning.style.display = 'none';
             }
 
             // Editing warning
@@ -1204,6 +1243,50 @@ class PurchaseOrderController {
                     arrow.style.transform = 'rotate(0deg)';
                 }
             });
+        });
+
+        // Helper: retry sync for specific items, then refresh UI
+        const handleRetrySync = async (retryItems) => {
+            if (!window.TPOSProductCreator || !singleOrder.id) return;
+            const result = await window.TPOSProductCreator.retrySyncItems(singleOrder.id, retryItems);
+            if (result) {
+                // Re-fetch updated order from Firestore
+                const updatedOrder = await this.dataManager.getOrder(singleOrder.id);
+                if (updatedOrder) {
+                    // Update local items array with fresh data
+                    const freshItems = updatedOrder.items || [];
+                    for (let i = 0; i < items.length; i++) {
+                        const fresh = freshItems.find(fi => fi.id === items[i].id);
+                        if (fresh) Object.assign(items[i], fresh);
+                    }
+                    // Re-render: close and re-open preview
+                    overlay.remove();
+                    this.showPurchaseOrderPreview(updatedOrder);
+                }
+            }
+        };
+
+        // Per-item retry buttons
+        overlay.querySelectorAll('.po-retry-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const idx = parseInt(btn.dataset.idx);
+                const item = items[idx];
+                if (!item) return;
+                btn.disabled = true;
+                btn.textContent = 'Đang upload...';
+                await handleRetrySync([item]);
+            });
+        });
+
+        // Retry all failed button
+        overlay.querySelector('#btnRetryAllSync')?.addEventListener('click', async () => {
+            const btn = overlay.querySelector('#btnRetryAllSync');
+            const failedItems = items.filter(i => i.tposSyncStatus === 'failed');
+            if (failedItems.length === 0) return;
+            btn.disabled = true;
+            btn.textContent = 'Đang upload...';
+            await handleRetrySync(failedItems);
         });
 
         // Export Excel button

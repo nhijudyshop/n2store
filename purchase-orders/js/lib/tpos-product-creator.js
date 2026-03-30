@@ -1020,6 +1020,23 @@ window.TPOSProductCreator = (function () {
     }
 
     /**
+     * Retry wrapper for processGroup — auto-retry up to 3 times on failure
+     */
+    async function retryProcessGroup(orderId, groupItems, maxRetries = 3) {
+        let lastResult;
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            lastResult = await processGroup(orderId, groupItems);
+            if (lastResult.success || lastResult.skipped) return lastResult;
+            if (attempt < maxRetries) {
+                const waitMs = 1000 * attempt;
+                console.warn(`[TPOSCreator] Retry ${attempt}/${maxRetries} for ${groupItems[0]?.productCode}, waiting ${waitMs}ms...`);
+                await new Promise(r => setTimeout(r, waitMs));
+            }
+        }
+        return lastResult;
+    }
+
+    /**
      * Main entry point: sync an order's items to TPOS (fire-and-forget)
      * @param {string} orderId - Firestore document ID
      * @param {Array} items - order items with productCode, selectedAttributeValueIds, etc.
@@ -1061,9 +1078,9 @@ window.TPOSProductCreator = (function () {
                     await updateSyncStatus(orderId, batchItemIds, 'processing', null, null);
                 }
 
-                // Launch all groups in this batch concurrently
+                // Launch all groups in this batch concurrently (with auto-retry 3x)
                 const batchResults = await Promise.allSettled(
-                    batch.map(([groupKey, groupItems]) => processGroup(orderId, groupItems))
+                    batch.map(([groupKey, groupItems]) => retryProcessGroup(orderId, groupItems))
                 );
 
                 // Collect results and batch-write to Firestore in ONE transaction
@@ -1133,12 +1150,85 @@ window.TPOSProductCreator = (function () {
         }
     }
 
+    /**
+     * Retry sync for specific failed items in an order.
+     * Called from UI when user clicks retry on failed products.
+     * @param {string} orderId - Firestore document ID
+     * @param {Array} failedItems - items to retry (with tposSyncStatus === 'failed')
+     * @returns {Object} { successCount, failCount, results }
+     */
+    async function retrySyncItems(orderId, failedItems) {
+        console.log(`[TPOSCreator] Retrying sync for ${failedItems.length} failed items in order ${orderId}`);
+
+        try {
+            await loadAttributeData();
+
+            const groups = groupOrderItems(failedItems);
+            if (groups.size === 0) return { successCount: 0, failCount: 0, results: [] };
+
+            const groupEntries = [...groups.entries()];
+            const results = [];
+
+            for (let i = 0; i < groupEntries.length; i += TPOS_SYNC_CONCURRENCY) {
+                const batch = groupEntries.slice(i, i + TPOS_SYNC_CONCURRENCY);
+
+                const batchItemIds = [];
+                for (const [, groupItems] of batch) {
+                    for (const item of groupItems) batchItemIds.push(item.id);
+                }
+                if (batchItemIds.length > 0) {
+                    await updateSyncStatus(orderId, batchItemIds, 'processing', null, null);
+                }
+
+                const batchResults = await Promise.allSettled(
+                    batch.map(([, groupItems]) => retryProcessGroup(orderId, groupItems))
+                );
+
+                const syncUpdates = [];
+                for (const r of batchResults) {
+                    const result = r.status === 'fulfilled'
+                        ? r.value
+                        : { success: false, error: r.reason?.message || 'Unknown error' };
+                    results.push(result);
+                    if (result.itemIds && result.syncData) {
+                        syncUpdates.push({ itemIds: result.itemIds, syncData: result.syncData });
+                    }
+                }
+                if (syncUpdates.length > 0) {
+                    await batchUpdateSyncResults(orderId, syncUpdates);
+                }
+
+                if (i + TPOS_SYNC_CONCURRENCY < groupEntries.length) {
+                    await new Promise(r => setTimeout(r, 300));
+                }
+            }
+
+            let successCount = 0, failCount = 0;
+            for (const r of results) { r.success ? successCount++ : failCount++; }
+
+            if (window.notificationManager) {
+                if (failCount === 0) {
+                    window.notificationManager.show(`Upload lại thành công ${successCount} sản phẩm!`, 'success');
+                } else {
+                    window.notificationManager.show(`Upload lại: ${successCount} OK, ${failCount} thất bại`, 'warning');
+                }
+            }
+
+            return { successCount, failCount, results };
+        } catch (error) {
+            console.error('[TPOSCreator] Retry sync failed:', error);
+            window.notificationManager?.show(`Lỗi upload lại: ${error.message}`, 'error');
+            return { successCount: 0, failCount: 1, error: error.message };
+        }
+    }
+
     // =====================================================
     // PUBLIC API
     // =====================================================
 
     return {
         syncOrderToTPOS,
+        retrySyncItems,
         // Exported for testing/debugging
         loadAttributeData,
         groupOrderItems,
