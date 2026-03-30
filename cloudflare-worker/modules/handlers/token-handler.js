@@ -59,8 +59,9 @@ export async function handleTokenRequest(request) {
     console.log(`[TOKEN-HANDLER] Cache miss for "${cacheKey}", fetching new token...`);
 
     try {
-        // Build headers
-        const headers = new Headers(request.headers);
+        // Build clean headers — only send what TPOS needs
+        const headers = new Headers();
+        headers.set('Content-Type', 'application/x-www-form-urlencoded');
         headers.set('Origin', 'https://tomato.tpos.vn/');
         headers.set('Referer', 'https://tomato.tpos.vn/');
 
