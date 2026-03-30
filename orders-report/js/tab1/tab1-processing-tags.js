@@ -212,8 +212,8 @@
         // Reset filter khi đổi campaign
         ProcessingTagState._activeFilter = null;
         try {
+            // Phase 1: Load config (ttag definitions, custom flags) from campaign endpoint
             const result = await _ptagFetch(`${PTAG_API_BASE}/${encodeURIComponent(campaignId)}`);
-            // Backup custom flags before clear (in case API doesn't return them)
             const backupCustomFlags = new Map(ProcessingTagState._customFlags);
             ProcessingTagState.clear();
             let loadedCustomFlags = false;
@@ -230,7 +230,7 @@
                         }
                         continue;
                     }
-                    // Normalize subState for cat 1 orders based on tTags
+                    // Still load campaign-based tags for backwards compatibility
                     if (data.category === PTAG_CATEGORIES.CHO_DI_DON) {
                         const hasTTags = (data.tTags || []).length > 0;
                         data.subState = hasTTags ? 'CHO_HANG' : 'OKIE_CHO_DI_DON';
@@ -238,14 +238,20 @@
                     ProcessingTagState.setOrderData(orderId, data);
                 }
             }
-            // Restore backup if API didn't return custom flags
             if (!loadedCustomFlags && backupCustomFlags.size > 0) {
                 ProcessingTagState._customFlags = backupCustomFlags;
                 console.log(`${PTAG_LOG} Restored ${backupCustomFlags.size} custom flags from backup`);
             }
-            // Auto-repair: find orphan CUSTOM_xxx keys on orders that have no label in _customFlags
             _ptagRepairOrphanCustomFlags();
             console.log(`${PTAG_LOG} Loaded ${result.count || 0} tags for campaign ${campaignId}`);
+
+            // Phase 2: Load by order codes (cross-campaign, covers date mode)
+            const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
+            const orderCodes = allOrders.map(o => String(o.Code)).filter(Boolean);
+            if (orderCodes.length > 0) {
+                await loadProcessingTagsByCodes(orderCodes);
+            }
+
             _ptagReconcileIds();
             renderPanelContent();
             _ptagRefreshAllRows();
@@ -293,6 +299,47 @@
         if (remaps.length > 0) {
             console.log(`${PTAG_LOG} Reconciled ${remaps.length} order ID(s) by Code cross-reference`);
         }
+    }
+
+    /**
+     * Load processing tags by order codes (cross-campaign, for date mode)
+     * @param {string[]} orderCodes - Array of order.Code values
+     */
+    async function loadProcessingTagsByCodes(orderCodes) {
+        if (!orderCodes || orderCodes.length === 0) return;
+
+        // Build code → current orderId map
+        const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
+        const codeToId = new Map();
+        allOrders.forEach(o => {
+            if (o.Code) codeToId.set(String(o.Code), String(o.Id));
+        });
+
+        // Chunk codes (max 500 per request)
+        const CHUNK = 500;
+        for (let i = 0; i < orderCodes.length; i += CHUNK) {
+            const chunk = orderCodes.slice(i, i + CHUNK);
+            try {
+                const result = await _ptagFetch(`${PTAG_API_BASE}/batch`, {
+                    method: 'POST',
+                    body: JSON.stringify({ codes: chunk })
+                });
+                if (result.data) {
+                    for (const [code, tagData] of Object.entries(result.data)) {
+                        const orderId = codeToId.get(String(code));
+                        if (!orderId) continue;
+                        // Normalize subState
+                        if (tagData.category === PTAG_CATEGORIES.CHO_DI_DON) {
+                            tagData.subState = (tagData.tTags || []).length > 0 ? 'CHO_HANG' : 'OKIE_CHO_DI_DON';
+                        }
+                        ProcessingTagState.setOrderData(orderId, tagData);
+                    }
+                }
+            } catch (e) {
+                console.error(`${PTAG_LOG} Batch load chunk failed:`, e);
+            }
+        }
+        console.log(`${PTAG_LOG} Loaded tags by code for ${orderCodes.length} orders`);
     }
 
     function _ptagRepairOrphanCustomFlags() {
@@ -400,7 +447,7 @@
             ProcessingTagState._pollInterval = null;
         }
 
-        const sseKey = 'processing_tags/' + campaignId;
+        const sseKey = 'processing_tags/' + campaignId + ',processing_tags_global';
         const sseUrl = `https://n2store-fallback.onrender.com/api/realtime/sse?keys=${encodeURIComponent(sseKey)}`;
 
         try {
@@ -410,7 +457,8 @@
             source.addEventListener('update', (e) => {
                 try {
                     const payload = JSON.parse(e.data);
-                    const { orderId, data } = payload.data || payload;
+                    const eventData = payload.data || payload;
+                    let { orderId, orderCode, data } = eventData;
                     if (orderId === '__ttag_config__' && data) {
                         ProcessingTagState.setTTagDefinitions(data.tTagDefinitions || []);
                         renderPanelContent();
@@ -418,10 +466,8 @@
                     }
                     if (orderId === '__ptag_custom_flags__' && data) {
                         if (data.customFlags) {
-                            // Merge SSE custom flags with local (don't lose newly created ones)
                             const incoming = new Map(Object.entries(data.customFlags));
                             const local = ProcessingTagState._customFlags || new Map();
-                            // Merge: incoming wins for existing keys, but keep local-only keys
                             for (const [k, v] of incoming) {
                                 local.set(k, v);
                             }
@@ -429,6 +475,12 @@
                         }
                         renderPanelContent();
                         return;
+                    }
+                    // Resolve orderId from orderCode (for global SSE events)
+                    if (orderCode && !orderId) {
+                        const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
+                        const match = allOrders.find(o => String(o.Code) === String(orderCode));
+                        if (match) orderId = String(match.Id);
                     }
                     if (orderId && data) {
                         ProcessingTagState.setOrderData(orderId, data);
@@ -773,6 +825,7 @@
             history: data.history || []
         };
 
+        _ptagEnsureCode(saleOnlineId, restored);
         ProcessingTagState.setOrderData(saleOnlineId, restored);
         _ptagAddHistory(saleOnlineId, 'AUTO_ROLLBACK', '', 'Hệ thống');
         _ptagRefreshRow(saleOnlineId);
