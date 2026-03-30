@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Chi Ph&iacute; D&#7883;ch V&#7909; - N2STORE</title>
+    <meta http-equiv="Cache-Control" content="public, max-age=31536000" />
+
+    <link rel="stylesheet" href="css/service-costs.css" />
+
+    <script type="module" src="../shared/esm/compat.js"></script>
+    <script>
+        if (window.location.protocol === 'file:') {
+            document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
+            document.write('<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>');
+        }
+    </script>
+    <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
+    <script defer src="../shared/js/navigation-modern.js"></script>
+</head>
+
+<body>
+    <!-- Access Denied -->
+    <div id="accessDenied" class="access-denied" style="display: none">
+        <h1><i data-lucide="shield-x"></i> Truy c&#7853;p b&#7883; t&#7915; ch&#7889;i</h1>
+        <p>B&#7841;n kh&ocirc;ng c&oacute; quy&#7873;n truy c&#7853;p v&agrave;o trang n&agrave;y.</p>
+        <a href="../index.html" class="btn btn-primary"><i data-lucide="arrow-left"></i> Quay v&#7873; trang ch&iacute;nh</a>
+    </div>
+
+    <!-- Main Container -->
+    <div id="mainContainer" style="display: none">
+        <main class="main-content">
+            <!-- Top Bar -->
+            <header class="top-bar">
+                <div class="top-bar-left">
+                    <button class="mobile-menu-btn" id="mobileMenuBtn">
+                        <i data-lucide="menu"></i>
+                    </button>
+                    <h1 class="page-title">
+                        <i data-lucide="wallet"></i>
+                        Chi Ph&iacute; D&#7883;ch V&#7909;
+                    </h1>
+                </div>
+                <div class="top-bar-right">
+                    <span class="last-updated" id="lastUpdated">C&#7853;p nh&#7853;t: --</span>
+                </div>
+            </header>
+
+            <!-- Content Area -->
+            <div class="content-area">
+
+                <!-- Total Summary -->
+                <div class="total-summary">
+                    <div class="total-card">
+                        <div class="total-icon"><i data-lucide="calculator"></i></div>
+                        <div class="total-info">
+                            <span class="total-label">T&#7893;ng chi ph&iacute; &#432;&#7899;c t&iacute;nh / th&aacute;ng</span>
+                            <span class="total-value" id="totalMonthlyCost">--</span>
+                        </div>
+                    </div>
+                    <div class="total-card free">
+                        <div class="total-icon"><i data-lucide="gift"></i></div>
+                        <div class="total-info">
+                            <span class="total-label">D&#7883;ch v&#7909; mi&#7877;n ph&iacute;</span>
+                            <span class="total-value" id="freeServicesCount">--</span>
+                        </div>
+                    </div>
+                    <div class="total-card paid">
+                        <div class="total-icon"><i data-lucide="credit-card"></i></div>
+                        <div class="total-info">
+                            <span class="total-label">D&#7883;ch v&#7909; tr&#7843; ph&iacute;</span>
+                            <span class="total-value" id="paidServicesCount">--</span>
+                        </div>
+                    </div>
+                    <div class="total-card services">
+                        <div class="total-icon"><i data-lucide="server"></i></div>
+                        <div class="total-info">
+                            <span class="total-label">T&#7893;ng d&#7883;ch v&#7909;</span>
+                            <span class="total-value" id="totalServicesCount">--</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Services Grid -->
+                <div class="services-grid" id="servicesGrid">
+                    <!-- Populated by JS -->
+                </div>
+
+                <!-- Cost Breakdown Table -->
+                <div class="cost-breakdown">
+                    <div class="section-header">
+                        <h2><i data-lucide="table"></i> B&#7843;ng t&#7893;ng h&#7907;p chi ph&iacute;</h2>
+                    </div>
+                    <div class="data-table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>D&#7883;ch v&#7909;</th>
+                                    <th>Lo&#7841;i</th>
+                                    <th>Account / Project</th>
+                                    <th>G&oacute;i / Plan</th>
+                                    <th>Chi ph&iacute; / th&aacute;ng</th>
+                                    <th>Gi&#7899;i h&#7841;n mi&#7877;n ph&iacute;</th>
+                                    <th>Tr&#7841;ng th&aacute;i</th>
+                                </tr>
+                            </thead>
+                            <tbody id="costTable">
+                                <!-- Populated by JS -->
+                            </tbody>
+                            <tfoot>
+                                <tr class="total-row">
+                                    <td colspan="4"><strong>T&#7892;NG C&#7896;NG</strong></td>
+                                    <td id="totalCostCell"><strong>--</strong></td>
+                                    <td colspan="2"></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- API Keys Overview -->
+                <div class="api-keys-section">
+                    <div class="section-header">
+                        <h2><i data-lucide="key"></i> API Keys & Credentials</h2>
+                        <button class="btn btn-sm btn-outline" id="btnToggleKeys">
+                            <i data-lucide="eye-off"></i> Hi&#7875;n th&#7883; keys
+                        </button>
+                    </div>
+                    <div class="keys-grid" id="keysGrid">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Quick Links -->
+                <div class="quick-links">
+                    <h3><i data-lucide="external-link"></i> Console & Dashboard Links</h3>
+                    <div class="links-grid" id="quickLinksGrid">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="js/service-costs.js"></script>
+</body>
+
+</html>
