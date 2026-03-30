@@ -1139,8 +1139,14 @@
                 if (input) input.value = '';
                 _ptagFilterDropdown('');
             } else if (input && input.value.trim()) {
-                // No match — create custom tag
-                _ptagCreateCustomTag(input.value.trim());
+                const val = input.value.trim();
+                // Detect T-tag pattern: "T<digits> <name>" → create Tag T chờ hàng
+                if (/^T\d+\s+.+/i.test(val)) {
+                    _ptagCreateTTagFromInput(val);
+                } else {
+                    // No match — create custom tag (tag đặc điểm)
+                    _ptagCreateCustomTag(val);
+                }
                 input.value = '';
                 _ptagFilterDropdown('');
             }
@@ -1195,6 +1201,71 @@
         // THEN toggle flag on order (so flag key always has a label in DB)
         await toggleOrderFlag(orderId, key);
         _ptagRefreshDropdownState();
+    }
+
+    // Create Tag T chờ hàng from dropdown input (when name matches "Tx ..." pattern)
+    async function _ptagCreateTTagFromInput(label) {
+        const orderId = _ddOrderId;
+        if (!orderId) return;
+        const name = label.toUpperCase();
+
+        // Auto-generate next available ID (same logic as _ttagMgrConfirmCreate)
+        const defs = ProcessingTagState.getTTagDefinitions();
+        let nextNum = 1;
+        for (const d of defs) {
+            const match = d.id.match(/^T(\d+)/);
+            if (match) nextNum = Math.max(nextNum, parseInt(match[1]) + 1);
+        }
+        const tagId = `T${nextNum}`;
+
+        // Create T-tag definition
+        const newDef = { id: tagId, name: name, productCode: '', createdAt: Date.now() };
+        defs.push(newDef);
+        ProcessingTagState.setTTagDefinitions(defs);
+        await saveTTagDefinitions();
+
+        // Assign to order
+        await assignTTagToOrder(orderId, tagId);
+
+        console.log(`${PTAG_LOG} Created T-tag from dropdown: ${tagId} "${name}"`);
+
+        // Rebuild dropdown to include new tag & refresh state
+        _ptagRebuildDropdownList();
+        _ptagRefreshDropdownState();
+    }
+
+    // Rebuild the tag list inside an open dropdown (after adding new T-tag)
+    function _ptagRebuildDropdownList() {
+        const dd = _currentDropdown;
+        if (!dd) return;
+        const orderId = _ddOrderId;
+        const allTags = _ptagBuildAllTags();
+        const selectedTags = _ptagGetSelectedTags(orderId);
+        const selectedKeys = new Set(selectedTags.map(t => t.key));
+
+        const listEl = dd.querySelector('.ptag-dd-list');
+        if (!listEl) return;
+
+        let html = '';
+        for (const tag of allTags) {
+            if (tag.type === 'cat-label') {
+                html += `<div class="ptag-dd-cat-label">${tag.label}</div>`;
+            } else {
+                const isSelected = selectedKeys.has(tag.key);
+                const cls = isSelected ? 'selected' : '';
+                const autoLabel = tag.auto ? ' <span class="ptag-auto-badge">auto</span>' : '';
+                html += `<div class="ptag-dd-tag-item ${cls}" data-key="${tag.key}" data-search="${_ptagNormalize(tag.label)}">${tag.label}${autoLabel}</div>`;
+            }
+        }
+        listEl.innerHTML = html;
+
+        // Re-attach click handlers
+        listEl.querySelectorAll('.ptag-dd-tag-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.stopPropagation();
+                _ptagDdSelectTag(item.dataset.key);
+            });
+        });
     }
 
     // Save custom flags config to API (persisted under __ptag_custom_flags__)
