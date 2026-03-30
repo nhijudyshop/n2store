@@ -953,6 +953,7 @@ class UnifiedNavigationManager {
             this.updateUserInfo();
             this.setupEventListeners();
             this.loadSettings();
+            this.showBillingAlertBanner();
 
             // Handle resize
             window.addEventListener("resize", () => this.handleResize());
@@ -3166,6 +3167,130 @@ class UnifiedNavigationManager {
         });
 
         return alerts;
+    }
+
+    /**
+     * Show billing alert banner at top of main content on ALL pages
+     */
+    showBillingAlertBanner() {
+        const alerts = this.getBillingAlerts();
+        if (alerts.length === 0) return;
+
+        // Don't duplicate
+        if (document.querySelector('.nav-billing-banner')) return;
+
+        const mainContent = document.querySelector('.main-content');
+        if (!mainContent) return;
+
+        const totalAmount = alerts.reduce((sum, a) => sum + a.amount, 0);
+
+        const banner = document.createElement('div');
+        banner.className = 'nav-billing-banner';
+        banner.innerHTML = `
+            <div class="nav-billing-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
+            </div>
+            <div class="nav-billing-text">
+                ${alerts.map(a => `<span><b>${a.name}</b> $${a.amount} — ${a.daysLeft === 0 ? 'HÔM NAY' : `còn ${a.daysLeft} ngày`}</span>`).join('<span class="nav-billing-sep">|</span>')}
+            </div>
+            <a href="${this.getServiceCostsUrl()}" class="nav-billing-link">Chi tiết →</a>
+            <button class="nav-billing-close" title="Đóng">✕</button>
+        `;
+
+        // Insert at the very top of main-content
+        mainContent.insertBefore(banner, mainContent.firstChild);
+
+        // Close button
+        banner.querySelector('.nav-billing-close').addEventListener('click', () => {
+            banner.remove();
+        });
+
+        // Inject styles
+        this.injectBillingBannerStyles();
+    }
+
+    getServiceCostsUrl() {
+        // Detect relative path based on current page
+        const path = window.location.pathname;
+        if (path.includes('/service-costs/')) return 'index.html';
+        // Most pages are one level deep
+        return '../service-costs/index.html';
+    }
+
+    injectBillingBannerStyles() {
+        if (document.getElementById('nav-billing-banner-styles')) return;
+        const style = document.createElement('style');
+        style.id = 'nav-billing-banner-styles';
+        style.textContent = `
+            .nav-billing-banner {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 10px 16px;
+                background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+                color: white;
+                font-size: 13px;
+                font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+                z-index: 100;
+                flex-wrap: wrap;
+            }
+            .nav-billing-icon {
+                flex-shrink: 0;
+                opacity: 0.9;
+                animation: nav-billing-pulse 2s ease-in-out infinite;
+            }
+            @keyframes nav-billing-pulse {
+                0%, 100% { opacity: 0.9; }
+                50% { opacity: 0.5; }
+            }
+            .nav-billing-text {
+                flex: 1;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                flex-wrap: wrap;
+            }
+            .nav-billing-text b {
+                font-weight: 600;
+            }
+            .nav-billing-sep {
+                opacity: 0.4;
+            }
+            .nav-billing-link {
+                color: white;
+                text-decoration: none;
+                font-weight: 600;
+                padding: 4px 12px;
+                background: rgba(255,255,255,0.2);
+                border-radius: 6px;
+                white-space: nowrap;
+                transition: background 0.2s;
+            }
+            .nav-billing-link:hover {
+                background: rgba(255,255,255,0.35);
+            }
+            .nav-billing-close {
+                background: none;
+                border: none;
+                color: rgba(255,255,255,0.6);
+                cursor: pointer;
+                font-size: 16px;
+                padding: 2px 6px;
+                border-radius: 4px;
+                transition: all 0.2s;
+            }
+            .nav-billing-close:hover {
+                color: white;
+                background: rgba(255,255,255,0.15);
+            }
+            @media (max-width: 768px) {
+                .nav-billing-banner {
+                    font-size: 12px;
+                    padding: 8px 12px;
+                }
+            }
+        `;
+        document.head.appendChild(style);
     }
 
     restoreSidebarState() {
