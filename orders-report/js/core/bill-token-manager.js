@@ -2,28 +2,25 @@
 // BILL TOKEN MANAGER - Separate TPOS Auth for Bill Creation
 //
 // Quản lý TPOS credentials riêng cho việc tạo bill (PBH)
-// - Lưu vào Firestore: users/{webUserId}.billCredentials
-// - Cache trong localStorage: bill_tpos_credentials
+// - Lưu lên Render backend: /api/tpos-credentials (per user per company)
+// - KHÔNG lưu credentials vào localStorage (chỉ cache token tạm thời trong memory)
 // =====================================================
 
 class BillTokenManager {
     constructor() {
         // Multi-company: use per-company storage keys
         this.companyId = BillTokenManager.getCompanyId();
-        this.storageKey = 'bill_tpos_credentials_' + this.companyId;
-        this.tokenStorageKey = 'bill_tpos_token_' + this.companyId;
-        this.API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/token';
+        this.RENDER_API = 'https://n2store-fallback.onrender.com/api/tpos-credentials';
+        this.TOKEN_API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/token';
 
         this.credentials = null; // { username, password } or { bearerToken }
         this.token = null;
         this.tokenExpiry = null;
+        this.refreshToken = null; // Keep refresh_token in memory
         this.isRefreshing = false;
 
-        // Migrate old single-key data to company 1 keys
-        this._migrateOldStorage();
-
-        // Load from localStorage immediately
-        this.loadFromStorage();
+        // Clean up old localStorage data (migration)
+        this._cleanupOldStorage();
 
         // Listen for company changes
         window.addEventListener('shopChanged', (e) => {
@@ -31,14 +28,11 @@ class BillTokenManager {
             if (newCompanyId !== this.companyId) {
                 console.log(`[BILL-TOKEN] Company changed: ${this.companyId} → ${newCompanyId}`);
                 this.companyId = newCompanyId;
-                this.storageKey = 'bill_tpos_credentials_' + this.companyId;
-                this.tokenStorageKey = 'bill_tpos_token_' + this.companyId;
-                // Reset state and reload for new company
+                // Reset state and reload from Render for new company
                 this.token = null;
                 this.tokenExpiry = null;
+                this.refreshToken = null;
                 this.credentials = null;
-                this.loadFromStorage();
-                // Re-init from Firestore for new company
                 this.init();
             }
         });
@@ -52,94 +46,22 @@ class BillTokenManager {
     }
 
     /**
-     * Migrate old single-key storage to company 1 keys
+     * Clean up old localStorage keys (one-time migration)
      */
-    _migrateOldStorage() {
+    _cleanupOldStorage() {
         try {
-            const oldCreds = localStorage.getItem('bill_tpos_credentials');
-            if (oldCreds && !localStorage.getItem('bill_tpos_credentials_1')) {
-                localStorage.setItem('bill_tpos_credentials_1', oldCreds);
-                localStorage.removeItem('bill_tpos_credentials');
-                console.log('[BILL-TOKEN] Migrated bill_tpos_credentials → bill_tpos_credentials_1');
-            }
-            const oldToken = localStorage.getItem('bill_tpos_token');
-            if (oldToken && !localStorage.getItem('bill_tpos_token_1')) {
-                localStorage.setItem('bill_tpos_token_1', oldToken);
-                localStorage.removeItem('bill_tpos_token');
-                console.log('[BILL-TOKEN] Migrated bill_tpos_token → bill_tpos_token_1');
-            }
+            // Remove all old credential keys from localStorage
+            const keysToRemove = [
+                'bill_tpos_credentials', 'bill_tpos_token',
+                'bill_tpos_credentials_1', 'bill_tpos_token_1',
+                'bill_tpos_credentials_2', 'bill_tpos_token_2'
+            ];
+            keysToRemove.forEach(key => localStorage.removeItem(key));
         } catch (e) { /* ignore */ }
     }
 
     // =====================================================
-    // STORAGE METHODS
-    // =====================================================
-
-    /**
-     * Load credentials from localStorage
-     */
-    loadFromStorage() {
-        try {
-            // Load credentials
-            const credStr = localStorage.getItem(this.storageKey);
-            if (credStr) {
-                this.credentials = JSON.parse(credStr);
-                console.log('[BILL-TOKEN] Loaded credentials from localStorage');
-            }
-
-            // Load cached token
-            const tokenStr = localStorage.getItem(this.tokenStorageKey);
-            if (tokenStr) {
-                const tokenData = JSON.parse(tokenStr);
-                this.token = tokenData.access_token;
-                this.tokenExpiry = tokenData.expires_at;
-
-                if (this.isTokenValid()) {
-                    console.log('[BILL-TOKEN] Valid token loaded from localStorage');
-                }
-            }
-        } catch (error) {
-            console.error('[BILL-TOKEN] Error loading from storage:', error);
-        }
-    }
-
-    /**
-     * Save credentials to localStorage
-     */
-    saveToStorage() {
-        try {
-            if (this.credentials) {
-                localStorage.setItem(this.storageKey, JSON.stringify(this.credentials));
-            }
-        } catch (error) {
-            console.error('[BILL-TOKEN] Error saving to storage:', error);
-        }
-    }
-
-    /**
-     * Save token to localStorage
-     */
-    saveTokenToStorage(tokenData) {
-        try {
-            localStorage.setItem(this.tokenStorageKey, JSON.stringify(tokenData));
-        } catch (error) {
-            console.error('[BILL-TOKEN] Error saving token to storage:', error);
-        }
-    }
-
-    /**
-     * Clear all stored data
-     */
-    clearStorage() {
-        localStorage.removeItem(this.storageKey);
-        localStorage.removeItem(this.tokenStorageKey);
-        this.credentials = null;
-        this.token = null;
-        this.tokenExpiry = null;
-    }
-
-    // =====================================================
-    // FIREBASE METHODS
+    // RENDER API METHODS (Source of Truth)
     // =====================================================
 
     /**
@@ -157,167 +79,155 @@ class BillTokenManager {
     }
 
     /**
-     * Get Firestore reference for current user's billCredentials
+     * Save credentials to Render backend
      */
-    getFirestoreRef() {
-        const userId = this.getWebUserId();
-        if (!userId) {
-            console.warn('[BILL-TOKEN] No web user ID, cannot get Firestore ref');
-            return null;
-        }
-
-        if (!window.firebase?.firestore) {
-            console.warn('[BILL-TOKEN] Firestore not available');
-            return null;
-        }
-
-        return window.firebase.firestore().collection('users').doc(userId);
-    }
-
-    /**
-     * Get Firestore field name for billCredentials (per-company)
-     * Company 1: 'billCredentials' (backward compat), Company 2+: 'billCredentials_2'
-     */
-    getBillCredentialsField() {
-        return this.companyId === 1 ? 'billCredentials' : 'billCredentials_' + this.companyId;
-    }
-
-    /**
-     * Save credentials to Firestore
-     * @param {boolean} retry - Whether to retry if auth not ready
-     * @param {string} refreshToken - Optional refresh_token to save
-     */
-    async saveToFirestore(retry = true, refreshToken = null) {
+    async saveToRender(refreshToken = null) {
         if (!this.credentials) {
             console.warn('[BILL-TOKEN] No credentials to save');
             return false;
         }
 
-        const ref = this.getFirestoreRef();
-        if (!ref) {
-            console.warn('[BILL-TOKEN] Cannot get Firestore ref (auth not ready?)');
-            // Schedule retry if auth not ready
-            if (retry && !this._pendingSave) {
+        const username = this.getWebUserId();
+        if (!username) {
+            console.warn('[BILL-TOKEN] Cannot save: no web user ID');
+            // Retry after 3s if auth not ready
+            if (!this._pendingSave) {
                 this._pendingSave = true;
-                this._pendingRefreshToken = refreshToken; // Store for retry
-                console.log('[BILL-TOKEN] Will retry save when auth is ready...');
                 setTimeout(() => {
                     this._pendingSave = false;
-                    this.saveToFirestore(false, this._pendingRefreshToken);
+                    this.saveToRender(refreshToken);
                 }, 3000);
             }
             return false;
         }
 
         try {
-            // Include refresh_token if available (from param or localStorage)
-            const cachedToken = this.getCachedTokenData();
-            const tokenToSave = refreshToken || cachedToken?.refresh_token;
-
-            const dataToSave = {
-                ...this.credentials,
-                updatedAt: Date.now()
+            const body = {
+                username,
+                companyId: this.companyId,
+                authType: this.credentials.bearerToken ? 'bearer' : 'password',
+                tposUsername: this.credentials.username || null,
+                tposPassword: this.credentials.password || null,
+                bearerToken: this.credentials.bearerToken || null,
+                refreshToken: refreshToken || this.refreshToken || null
             };
 
-            // Save refresh_token to Firestore for persistence across sessions
-            if (tokenToSave) {
-                dataToSave.refresh_token = tokenToSave;
+            const response = await fetch(this.RENDER_API, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+
+            const result = await response.json();
+            if (result.success) {
+                console.log(`[BILL-TOKEN] Credentials saved to Render (company ${this.companyId}):`,
+                    this.credentials.bearerToken ? 'bearerToken' : `username: ${this.credentials.username}`);
+                return true;
+            } else {
+                console.error('[BILL-TOKEN] Render save failed:', result.message);
+                return false;
             }
-
-            const field = this.getBillCredentialsField();
-            await ref.set({
-                [field]: dataToSave
-            }, { merge: true });
-
-            console.log(`[BILL-TOKEN] ✅ Credentials saved to Firestore (company ${this.companyId}):`,
-                this.credentials.bearerToken ? 'bearerToken' : `username: ${this.credentials.username}`,
-                tokenToSave ? '(with refresh_token)' : '(no refresh_token)');
-            return true;
         } catch (error) {
-            console.error('[BILL-TOKEN] Error saving to Firestore:', error);
+            console.error('[BILL-TOKEN] Error saving to Render:', error);
             return false;
         }
     }
 
     /**
-     * Save refresh_token to Firestore (called after successful token fetch)
+     * Save refresh_token to Render (called after successful token fetch)
      */
-    async saveRefreshTokenToFirestore(refreshToken) {
+    async saveRefreshTokenToRender(refreshToken) {
         if (!refreshToken) return false;
 
-        const ref = this.getFirestoreRef();
-        if (!ref) return false;
+        const username = this.getWebUserId();
+        if (!username) return false;
 
         try {
-            const field = this.getBillCredentialsField();
-            await ref.set({
-                [field]: {
-                    refresh_token: refreshToken,
-                    updatedAt: Date.now()
-                }
-            }, { merge: true });
+            const response = await fetch(`${this.RENDER_API}/refresh-token`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username,
+                    companyId: this.companyId,
+                    refreshToken
+                })
+            });
 
-            console.log(`[BILL-TOKEN] ✅ Refresh token saved to Firestore (company ${this.companyId})`);
-            return true;
+            const result = await response.json();
+            if (result.success) {
+                console.log(`[BILL-TOKEN] Refresh token saved to Render (company ${this.companyId})`);
+            }
+            return result.success;
         } catch (error) {
-            console.error('[BILL-TOKEN] Error saving refresh token to Firestore:', error);
+            console.error('[BILL-TOKEN] Error saving refresh token to Render:', error);
             return false;
         }
     }
 
     /**
-     * Load credentials from Firestore
+     * Load credentials from Render backend
      */
-    async loadFromFirestore() {
-        const ref = this.getFirestoreRef();
-        if (!ref) {
-            console.warn('[BILL-TOKEN] Cannot load from Firestore (auth not ready?)');
+    async loadFromRender() {
+        const username = this.getWebUserId();
+        if (!username) {
+            console.warn('[BILL-TOKEN] Cannot load from Render: no web user ID');
             return false;
         }
 
         try {
-            const doc = await ref.get();
-            if (!doc.exists) {
-                console.log('[BILL-TOKEN] No credentials in Firestore');
+            const url = `${this.RENDER_API}?username=${encodeURIComponent(username)}&company_id=${this.companyId}`;
+            const response = await fetch(url);
+            const result = await response.json();
+
+            if (!result.success || !result.data) {
+                console.log('[BILL-TOKEN] No credentials found on Render');
                 return false;
             }
 
-            const data = doc.data();
-            const field = this.getBillCredentialsField();
-            const billCreds = data[field];
+            const data = result.data;
 
-            if (billCreds) {
-                // Extract refresh_token before setting credentials
-                const refreshToken = billCreds.refresh_token;
-
-                // Set credentials (without refresh_token in credentials object)
-                this.credentials = {
-                    ...billCreds,
-                    refresh_token: undefined // Don't store in credentials
-                };
-                delete this.credentials.refresh_token;
-
-                this.saveToStorage(); // Cache credentials locally
-
-                // If we have a refresh_token from Firestore, save it to token storage
-                if (refreshToken) {
-                    const tokenData = {
-                        refresh_token: refreshToken,
-                        expires_at: 0 // Mark as expired so it will try to refresh
-                    };
-                    this.saveTokenToStorage(tokenData);
-                    console.log(`[BILL-TOKEN] ✅ Refresh token loaded from Firestore (company ${this.companyId})`);
-                }
-
-                console.log(`[BILL-TOKEN] ✅ Credentials loaded from Firestore (company ${this.companyId}):`,
-                    this.credentials.bearerToken ? 'bearerToken' : `username: ${this.credentials.username}`,
-                    refreshToken ? '(with refresh_token)' : '');
-                return true;
+            if (data.authType === 'bearer' && data.bearerToken) {
+                this.credentials = { bearerToken: data.bearerToken };
+            } else if (data.authType === 'password' && data.username && data.password) {
+                this.credentials = { username: data.username, password: data.password };
+            } else {
+                console.log('[BILL-TOKEN] Invalid credentials data from Render');
+                return false;
             }
 
-            return false;
+            // Store refresh_token in memory
+            if (data.refreshToken) {
+                this.refreshToken = data.refreshToken;
+            }
+
+            console.log(`[BILL-TOKEN] Credentials loaded from Render (company ${this.companyId}):`,
+                this.credentials.bearerToken ? 'bearerToken' : `username: ${this.credentials.username}`,
+                data.refreshToken ? '(with refresh_token)' : '');
+            return true;
         } catch (error) {
-            console.error('[BILL-TOKEN] Error loading from Firestore:', error);
+            console.error('[BILL-TOKEN] Error loading from Render:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Delete credentials from Render backend
+     */
+    async deleteFromRender() {
+        const username = this.getWebUserId();
+        if (!username) return false;
+
+        try {
+            const url = `${this.RENDER_API}?username=${encodeURIComponent(username)}&company_id=${this.companyId}`;
+            const response = await fetch(url, { method: 'DELETE' });
+            const result = await response.json();
+
+            if (result.success) {
+                console.log(`[BILL-TOKEN] Credentials deleted from Render (company ${this.companyId})`);
+            }
+            return result.success;
+        } catch (error) {
+            console.error('[BILL-TOKEN] Error deleting from Render:', error);
             return false;
         }
     }
@@ -354,20 +264,15 @@ class BillTokenManager {
             updatedAt: Date.now()
         };
 
-        // Get cached token data BEFORE clearing (to preserve refresh_token)
-        const cachedToken = this.getCachedTokenData();
-        const refreshToken = cachedToken?.refresh_token;
+        // Preserve existing refresh token
+        const existingRefresh = this.refreshToken;
 
         // Clear old token
         this.token = null;
         this.tokenExpiry = null;
-        localStorage.removeItem(this.tokenStorageKey);
 
-        // Save to localStorage
-        this.saveToStorage();
-
-        // Save to Firestore (pass refresh_token explicitly)
-        await this.saveToFirestore(true, refreshToken);
+        // Save to Render backend (source of truth)
+        await this.saveToRender(existingRefresh);
 
         console.log('[BILL-TOKEN] Credentials updated');
     }
@@ -385,21 +290,13 @@ class BillTokenManager {
             this.token = this.credentials.bearerToken;
             // Set expiry to 30 days from now (bearer tokens usually have long validity)
             this.tokenExpiry = Date.now() + (30 * 24 * 60 * 60 * 1000);
-
-            const tokenData = {
-                access_token: this.token,
-                expires_at: this.tokenExpiry
-            };
-            this.saveTokenToStorage(tokenData);
-
             return this.token;
         }
 
         // Try refresh token first if available
-        const cachedToken = this.getCachedTokenData();
-        if (cachedToken?.refresh_token) {
+        if (this.refreshToken) {
             try {
-                const refreshed = await this.refreshWithToken(cachedToken.refresh_token);
+                const refreshed = await this.refreshWithToken(this.refreshToken);
                 if (refreshed) {
                     console.log('[BILL-TOKEN] Token refreshed successfully');
                     return this.token;
@@ -420,7 +317,7 @@ class BillTokenManager {
 
         console.log(`[BILL-TOKEN] Fetching token for user: ${username} (company ${this.companyId})`);
 
-        const response = await fetch(this.API_URL, {
+        const response = await fetch(this.TOKEN_API_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded'
@@ -444,37 +341,14 @@ class BillTokenManager {
         this.token = data.access_token;
         this.tokenExpiry = Date.now() + (expiresIn * 1000);
 
-        // Save token data including refresh_token
-        const tokenData = {
-            access_token: this.token,
-            refresh_token: data.refresh_token,
-            expires_at: this.tokenExpiry,
-            expires_in: expiresIn
-        };
-        this.saveTokenToStorage(tokenData);
-
-        // Also save refresh_token to Firestore for persistence
+        // Save refresh_token in memory and to Render
         if (data.refresh_token) {
-            this.saveRefreshTokenToFirestore(data.refresh_token);
+            this.refreshToken = data.refresh_token;
+            this.saveRefreshTokenToRender(data.refresh_token);
         }
 
-        console.log('[BILL-TOKEN] Token fetched and cached');
+        console.log('[BILL-TOKEN] Token fetched and cached in memory');
         return this.token;
-    }
-
-    /**
-     * Get cached token data from localStorage
-     */
-    getCachedTokenData() {
-        try {
-            const tokenStr = localStorage.getItem(this.tokenStorageKey);
-            if (tokenStr) {
-                return JSON.parse(tokenStr);
-            }
-        } catch (error) {
-            console.error('[BILL-TOKEN] Error reading cached token:', error);
-        }
-        return null;
     }
 
     /**
@@ -490,7 +364,7 @@ class BillTokenManager {
 
         console.log('[BILL-TOKEN] Attempting to refresh token...');
 
-        const response = await fetch(this.API_URL, {
+        const response = await fetch(this.TOKEN_API_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded'
@@ -513,19 +387,13 @@ class BillTokenManager {
         this.token = data.access_token;
         this.tokenExpiry = Date.now() + (expiresIn * 1000);
 
-        // Save new token data (keep new refresh_token if provided)
+        // Save new refresh_token if provided
         const newRefreshToken = data.refresh_token || refreshToken;
-        const tokenData = {
-            access_token: this.token,
-            refresh_token: newRefreshToken,
-            expires_at: this.tokenExpiry,
-            expires_in: expiresIn
-        };
-        this.saveTokenToStorage(tokenData);
+        this.refreshToken = newRefreshToken;
 
-        // Save new refresh_token to Firestore if it changed
+        // Save new refresh_token to Render if it changed
         if (data.refresh_token) {
-            this.saveRefreshTokenToFirestore(data.refresh_token);
+            this.saveRefreshTokenToRender(data.refresh_token);
         }
 
         return true;
@@ -572,10 +440,10 @@ class BillTokenManager {
      */
     async testCredentials() {
         try {
-            // Clear existing token to force fetch (MUST clear localStorage too!)
+            // Clear existing token to force fetch
             this.token = null;
             this.tokenExpiry = null;
-            localStorage.removeItem(this.tokenStorageKey); // Clear cached token including refresh_token
+            this.refreshToken = null;
 
             await this.fetchToken();
             return { success: true, message: 'Xác thực thành công!' };
@@ -611,54 +479,59 @@ class BillTokenManager {
         return { configured: false };
     }
 
+    /**
+     * Clear all credentials (memory + Render)
+     */
+    async clearCredentials() {
+        this.credentials = null;
+        this.token = null;
+        this.tokenExpiry = null;
+        this.refreshToken = null;
+
+        // Delete from Render backend
+        await this.deleteFromRender();
+    }
+
     // =====================================================
     // INITIALIZATION
     // =====================================================
 
     /**
-     * Initialize - load from Firestore if no local credentials
+     * Initialize - load credentials from Render backend
      */
     async init() {
-        // Already have credentials from localStorage
-        if (this.hasCredentials()) {
-            console.log(`[BILL-TOKEN] ✅ Initialized with local credentials (company ${this.companyId}):`, this.credentials.username || 'bearer');
-            return;
-        }
-
-        // Try loading from Firestore if auth is ready
+        // Load from Render backend (source of truth)
         if (this.getWebUserId()) {
-            console.log('[BILL-TOKEN] Loading from Firestore...');
-            await this.loadFromFirestore();
+            console.log('[BILL-TOKEN] Loading from Render...');
+            await this.loadFromRender();
         } else {
-            // Auth not ready yet, retry after 2 seconds (by then table should be loaded)
+            // Auth not ready yet, retry after 2 seconds
             console.log('[BILL-TOKEN] Auth not ready, will retry in 2s...');
-            setTimeout(() => this._retryLoadFromFirestore(), 2000);
+            setTimeout(() => this._retryLoadFromRender(), 2000);
         }
 
-        // Default credentials if still none after loading
+        // Default credentials if none found
         if (!this.hasCredentials()) {
             console.log('[BILL-TOKEN] No credentials found, using default account');
             this.credentials = { username: 'nvqldonhang', password: 'Aa@123456987' };
-            this.saveToStorage();
         }
     }
 
     /**
-     * Retry loading from Firestore (called after delay)
+     * Retry loading from Render (called after delay)
      */
-    async _retryLoadFromFirestore() {
-        if (this.hasCredentials()) return; // Already loaded
+    async _retryLoadFromRender() {
+        if (this.hasCredentials()) return;
 
         if (this.getWebUserId()) {
-            console.log('[BILL-TOKEN] Retrying load from Firestore...');
-            await this.loadFromFirestore();
+            console.log('[BILL-TOKEN] Retrying load from Render...');
+            await this.loadFromRender();
         }
 
         // Default credentials if still none
         if (!this.hasCredentials()) {
             console.log('[BILL-TOKEN] No credentials found after retry, using default account');
             this.credentials = { username: 'nvqldonhang', password: 'Aa@123456987' };
-            this.saveToStorage();
         }
     }
 
@@ -670,9 +543,8 @@ class BillTokenManager {
             return true;
         }
 
-        // Try loading from Firestore
         if (this.getWebUserId()) {
-            return await this.loadFromFirestore();
+            return await this.loadFromRender();
         }
 
         return false;

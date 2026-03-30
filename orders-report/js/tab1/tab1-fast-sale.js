@@ -4317,10 +4317,10 @@ async function openTposAccountModal() {
     if (modal) {
         modal.classList.add('show');
 
-        // Try to reload from Firestore if no local credentials (for incognito mode)
+        // Try to reload from Render if no credentials in memory
         if (window.billTokenManager && !window.billTokenManager.hasCredentials()) {
-            console.log('[TPOS-ACCOUNT] No local credentials, trying to reload from Firestore...');
-            await window.billTokenManager.loadFromFirestore();
+            console.log('[TPOS-ACCOUNT] No credentials in memory, trying to reload from Render...');
+            await window.billTokenManager.loadFromRender();
         }
 
         updateTposAccountStatus();
@@ -4552,16 +4552,8 @@ async function clearTposAccount() {
     }
 
     try {
-        // Clear local storage
-        window.billTokenManager.clearStorage();
-
-        // Clear from Firestore
-        const ref = window.billTokenManager.getFirestoreRef();
-        if (ref) {
-            await ref.update({
-                billCredentials: firebase.firestore.FieldValue.delete(),
-            });
-        }
+        // Clear from memory + Render backend
+        await window.billTokenManager.clearCredentials();
 
         // Clear form inputs
         document.getElementById('tposUsername').value = '';

@@ -226,6 +226,7 @@ const dynamicHeadersRoutes = require('./routes/dynamic-headers.routes');
 const customer360Routes = require('./routes/customer-360');
 const v2Router = require('./routes/v2');  // Unified API v2
 const tposSavedRoutes = require('./routes/tpos-saved');
+const tposCredentialsRoutes = require('./routes/tpos-credentials');
 
 // Mount routes
 app.use('/api/token', tokenRoutes);
@@ -235,6 +236,7 @@ app.use('/api/image-proxy', imageProxyRoutes);
 app.use('/api/sepay', sepayWebhookRoutes);
 app.use('/api/customers', customersRoutes);
 app.use('/api/tpos-saved', tposSavedRoutes);
+app.use('/api/tpos-credentials', tposCredentialsRoutes);
 app.use('/api', customer360Routes);  // Customer 360° routes: /api/customer, /api/wallet, /api/ticket
 app.use('/api/v2', v2Router);  // Unified API v2: /api/v2/customers, /api/v2/wallets, /api/v2/tickets, /api/v2/analytics
 app.use('/api/return-orders', returnOrdersRoutes);
