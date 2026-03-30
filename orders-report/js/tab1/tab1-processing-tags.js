@@ -1733,14 +1733,32 @@
             el.style.display = _ptagMatchTokens(el.dataset.search, norm) ? '' : 'none';
         });
 
-        // Then: show/hide groups — visible if group itself matches OR any child card is visible
+        // Show/hide custom flags container based on search
+        body.querySelectorAll('.ptag-custom-flags-list').forEach(container => {
+            if (norm) {
+                const hasVisibleFlag = container.querySelector('.ptag-panel-flag-item:not([style*="display: none"]):not([style*="display:none"])');
+                container.style.display = hasVisibleFlag ? '' : 'none';
+            } else {
+                // Restore original collapsed/expanded state based on active filters
+                const flags = ProcessingTagState._activeFlagFilters;
+                const expanded = flags.has('KHAC') ||
+                    [...flags].some(f => f.startsWith('CUSTOM_'));
+                container.style.display = expanded ? '' : 'none';
+            }
+        });
+
+        // Then: show/hide groups — visible if group itself matches OR any child is visible
         body.querySelectorAll('.ptag-panel-group').forEach(group => {
             const groupMatch = group.dataset.search && _ptagMatchTokens(group.dataset.search, norm);
-            const hasVisibleChild = group.querySelector('.ptag-panel-card:not([style*="display: none"]), .ptag-panel-card:not([style*="display:none"])');
+            const hasVisibleChild = group.querySelector(
+                '.ptag-panel-card:not([style*="display: none"]):not([style*="display:none"]), ' +
+                '.ptag-panel-flag-item:not([style*="display: none"]):not([style*="display:none"])'
+            );
             if (groupMatch) {
                 // Group matches → show group + all children
                 group.style.display = '';
-                group.querySelectorAll('.ptag-panel-card, .ptag-panel-cat-header-v2').forEach(c => c.style.display = '');
+                group.querySelectorAll('.ptag-panel-card, .ptag-panel-cat-header-v2, .ptag-panel-flag-item').forEach(c => c.style.display = '');
+                group.querySelectorAll('.ptag-custom-flags-list').forEach(c => c.style.display = '');
             } else if (hasVisibleChild) {
                 // Some children match → show group + header, keep children filtered
                 group.style.display = '';
