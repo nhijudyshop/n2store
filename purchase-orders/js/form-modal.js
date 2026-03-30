@@ -1483,6 +1483,7 @@ class PurchaseOrderFormModal {
                                 color: #3b82f6;
                                 cursor: pointer;
                                 font-size: 14px;
+                                ${this.isEdit && this.order?.status === 'AWAITING_DELIVERY' ? 'display: none;' : ''}
                             ">Lưu nháp</button>
                             <button type="button" id="btnSubmit" style="
                                 height: 40px;
@@ -1494,6 +1495,7 @@ class PurchaseOrderFormModal {
                                 cursor: pointer;
                                 font-size: 14px;
                                 font-weight: 500;
+                                ${this.isEdit && this.order?.status === 'AWAITING_DELIVERY' ? 'display: none;' : ''}
                             ">${this.isEdit ? 'Cập nhật' : 'Tạo đơn hàng'}</button>
                         </div>
                     </div>
