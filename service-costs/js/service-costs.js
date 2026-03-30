@@ -2,7 +2,8 @@
  * Service Costs Dashboard - Chi Phi Dich Vu
  * Dữ liệu THỰC từ API calls (2026-03-30)
  *
- * Render API: 4 web services + 1 PostgreSQL (verified)
+ * Render API: 4 web services + 1 PostgreSQL = $70/mo (verified)
+ * Firebase: Blaze plan, 67 Firestore collections, 39 RTDB nodes, 3.58GB storage (verified via API)
  * DeepSeek: balance $9.27 (verified)
  * Gemini: active, free tier (verified)
  * Google Vision: API DISABLED in project (verified)
@@ -144,28 +145,35 @@
         },
 
         // ===================== FIREBASE =====================
+        // GCP Project: n2shop-69e37 (project number: 598906493303)
+        // Created: 2023-10-14, Blaze plan (pay as you go)
+        // Firestore: NATIVE mode, nam5, STANDARD edition
+        // Hosting: n2shop-69e37.web.app
         {
             id: 'firebase',
-            name: 'Firebase',
+            name: 'Firebase (Blaze Plan)',
             type: 'Backend-as-a-Service',
             icon: 'flame',
-            account: 'n2shop-69e37',
+            account: 'n2shop-69e37 (nhijudyshop@gmail.com)',
             plan: 'Blaze (Pay as you go)',
             costType: 'usage-based',
             monthlyCost: 0,
-            costNote: 'Thường ~$0 nếu dưới free tier. Kiểm tra console để xem chính xác',
+            costNote: 'Blaze plan - trả theo usage. Kiểm tra console để xem chi phí thực tế hàng tháng',
             region: 'nam5 (US) / asia-southeast1 (SG)',
-            freeTier: 'Firestore: 50K reads, 20K writes, 20K deletes/ngày. Realtime DB: 1GB stored, 10GB/tháng. Storage: 5GB. Auth: 10K/tháng',
+            freeTier: 'Firestore: 50K reads, 20K writes, 20K deletes/ngày. RTDB: 1GB stored, 10GB/tháng. Storage: 5GB. Auth: 10K/tháng',
             details: [
-                { label: 'Project ID', value: 'n2shop-69e37' },
-                { label: 'Service Account', value: 'firebase-adminsdk-cmdro@n2shop-69e37.iam.gserviceaccount.com' },
-                { label: 'Firestore', value: 'Active - nam5 (US)' },
-                { label: 'Realtime DB', value: 'Active - asia-southeast1 (Singapore)' },
-                { label: 'Storage Bucket', value: 'n2shop-69e37-ne0q1' },
+                { label: 'GCP Project', value: 'n2shop-69e37 (#598906493303)' },
+                { label: 'Created', value: '14/10/2023' },
+                { label: 'Firestore', value: '67 collections, ~10K+ documents (NATIVE mode, nam5)' },
+                { label: 'Top collections', value: 'edit_history: 5,979 | kpi_base: 1,382 | attendance_records: 571 | soquy_edit_history: 488' },
+                { label: 'Realtime DB', value: '39 nodes (asia-southeast1, Singapore)' },
+                { label: 'Storage', value: '3 buckets, 10,021 files = 3.58 GB / 5 GB free' },
+                { label: 'Main bucket', value: 'n2shop-69e37-ne0q1 (ASIA1, dual-region)' },
+                { label: 'Hosting', value: 'n2shop-69e37.web.app (DEFAULT_SITE)' },
                 { label: 'Auth', value: 'Anonymous Auth' },
                 { label: 'Giá Firestore', value: '$0.06/100K reads, $0.18/100K writes, $0.02/100K deletes' },
-                { label: 'Giá Realtime DB', value: '$5/GB stored, $1/GB download' },
-                { label: 'Giá Storage', value: '$0.026/GB/tháng, $0.12/GB download' },
+                { label: 'Giá Realtime DB', value: '$5/GB stored (sau 1GB), $1/GB download (sau 10GB)' },
+                { label: 'Giá Storage', value: '$0.026/GB/tháng (sau 5GB), $0.12/GB download' },
             ],
             consoleUrl: 'https://console.firebase.google.com/project/n2shop-69e37/usage',
             status: 'active',
