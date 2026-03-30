@@ -34,6 +34,47 @@ var firebaseConfig = window.firebaseConfig || FIREBASE_CONFIG;
 var _firestoreDB = _firestoreDB || null;
 var _realtimeDB = _realtimeDB || null;
 var _isFirebaseInitialized = _isFirebaseInitialized || false;
+var _isRecoveringCache = _isRecoveringCache || false;
+
+/**
+ * Clear corrupted Firestore IndexedDB cache
+ */
+async function clearFirestoreCache() {
+    if (_isRecoveringCache) return;
+    _isRecoveringCache = true;
+    try {
+        var databases = await indexedDB.databases();
+        var firestoreDBs = databases.filter(function(db) {
+            return db.name && db.name.includes('firestore');
+        });
+        await Promise.all(firestoreDBs.map(function(db) {
+            return new Promise(function(resolve) {
+                var req = indexedDB.deleteDatabase(db.name);
+                req.onsuccess = resolve;
+                req.onerror = resolve;
+                req.onblocked = resolve;
+            });
+        }));
+        console.log('[Firestore] Cleared corrupted IndexedDB cache');
+    } catch (e) {
+        console.warn('[Firestore] Could not clear cache:', e);
+    }
+}
+
+// Auto-recover from Firestore internal errors (IndexedDB corruption)
+if (typeof window !== 'undefined') {
+    window.addEventListener('unhandledrejection', function(event) {
+        var msg = (event.reason && event.reason.message) || '';
+        var stack = (event.reason && event.reason.stack) || '';
+        if ((msg.includes('INTERNAL ASSERTION FAILED') ||
+             (msg.includes('Cannot read properties of null') && stack.includes('firestore'))) &&
+            !_isRecoveringCache) {
+            console.error('[Firestore] Detected corrupted persistence, clearing cache...');
+            event.preventDefault();
+            clearFirestoreCache().then(function() { window.location.reload(); });
+        }
+    });
+}
 
 /**
  * Initialize Firebase app (core)
@@ -79,6 +120,9 @@ function initializeFirestore(options = {}) {
                             console.warn('[Firestore] Multiple tabs open, persistence in first tab only');
                         } else if (err.code === 'unimplemented') {
                             console.warn('[Firestore] Browser does not support persistence');
+                        } else {
+                            console.error('[Firestore] Persistence error, clearing corrupted cache:', err);
+                            clearFirestoreCache().then(function() { window.location.reload(); });
                         }
                     });
             } catch (e) {
