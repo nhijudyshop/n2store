@@ -79,11 +79,11 @@
                 allData = json.data || [];
                 applySearch(document.getElementById('searchInput').value);
             } else {
-                showToast('Khong tai duoc du lieu: ' + (json.error || ''), 'error');
+                showToast('Không tải được dữ liệu: ' + (json.error || ''), 'error');
             }
         } catch (err) {
             console.error('Load error:', err);
-            showToast('Loi ket noi server', 'error');
+            showToast('Lỗi kết nối server', 'error');
         }
         showLoading(false);
     }
@@ -176,7 +176,7 @@
                         </td>
                         <td class="col-name">
                             ${esc(group.parentName)}
-                            <span class="parent-badge">${group.children.length} bien the</span>
+                            <span class="parent-badge">${group.children.length} biến thể</span>
                         </td>
                         <td class="col-variant"></td>
                         <td class="col-qty text-right"><span class="qty-badge">${totalQty}</span></td>
@@ -197,10 +197,10 @@
                             <td class="col-price text-right price">${formatCurrency(parseFloat(child.purchase_price) || 0)}</td>
                             <td class="col-total text-right price">${formatCurrency((child.quantity || 0) * (parseFloat(child.purchase_price) || 0))}</td>
                             <td class="col-actions">
-                                <button class="action-btn edit" data-id="${child.id}" title="Sua">
+                                <button class="action-btn edit" data-id="${child.id}" title="Sửa">
                                     <i data-lucide="pencil"></i>
                                 </button>
-                                <button class="action-btn delete" data-id="${child.id}" data-name="${esc(child.product_code)}" title="Xoa">
+                                <button class="action-btn delete" data-id="${child.id}" data-name="${esc(child.product_code)}" title="Xóa">
                                     <i data-lucide="trash-2"></i>
                                 </button>
                             </td>
@@ -220,10 +220,10 @@
                         <td class="col-price text-right price">${formatCurrency(parseFloat(item.purchase_price) || 0)}</td>
                         <td class="col-total text-right price">${formatCurrency((item.quantity || 0) * (parseFloat(item.purchase_price) || 0))}</td>
                         <td class="col-actions">
-                            <button class="action-btn edit" data-id="${item.id}" title="Sua">
+                            <button class="action-btn edit" data-id="${item.id}" title="Sửa">
                                 <i data-lucide="pencil"></i>
                             </button>
-                            <button class="action-btn delete" data-id="${item.id}" data-name="${esc(item.product_code)}" title="Xoa">
+                            <button class="action-btn delete" data-id="${item.id}" data-name="${esc(item.product_code)}" title="Xóa">
                                 <i data-lucide="trash-2"></i>
                             </button>
                         </td>
@@ -399,14 +399,14 @@
             const json = await res.json();
 
             if (json.success) {
-                showToast('Da cap nhat thanh cong');
+                showToast('Đã cập nhật thành công');
                 closeEditModal();
                 loadData();
             } else {
-                showToast('Loi: ' + (json.error || ''), 'error');
+                showToast('Lỗi: ' + (json.error || ''), 'error');
             }
         } catch (err) {
-            showToast('Loi ket noi server', 'error');
+            showToast('Lỗi kết nối server', 'error');
         }
     }
 
@@ -417,9 +417,9 @@
     let pendingConfirmAction = null;
 
     function confirmDelete(id, name) {
-        document.getElementById('confirmTitle').textContent = 'Xac nhan xoa';
-        document.getElementById('confirmMessage').textContent = `Ban co chac muon xoa san pham "${name}" khoi kho?`;
-        document.getElementById('okConfirm').textContent = 'Xoa';
+        document.getElementById('confirmTitle').textContent = 'Xác nhận xóa';
+        document.getElementById('confirmMessage').textContent = `Bạn có chắc muốn xóa sản phẩm "${name}" khỏi kho?`;
+        document.getElementById('okConfirm').textContent = 'Xóa';
         document.getElementById('confirmModal').style.display = 'flex';
 
         pendingConfirmAction = async () => {
@@ -427,13 +427,13 @@
                 const res = await fetch(`${API_BASE}/${id}`, { method: 'DELETE' });
                 const json = await res.json();
                 if (json.success) {
-                    showToast('Da xoa san pham');
+                    showToast('Đã xóa sản phẩm');
                     loadData();
                 } else {
-                    showToast('Loi: ' + (json.error || ''), 'error');
+                    showToast('Lỗi: ' + (json.error || ''), 'error');
                 }
             } catch (err) {
-                showToast('Loi ket noi server', 'error');
+                showToast('Lỗi kết nối server', 'error');
             }
         };
 
@@ -445,13 +445,13 @@
 
     function confirmClearAll() {
         if (allData.length === 0) {
-            showToast('Kho dang trong', 'error');
+            showToast('Kho đang trống', 'error');
             return;
         }
 
-        document.getElementById('confirmTitle').textContent = 'Xoa toan bo kho';
-        document.getElementById('confirmMessage').textContent = `Ban co chac muon xoa tat ca ${allData.length} san pham khoi kho di cho? Hanh dong nay khong the hoan tac.`;
-        document.getElementById('okConfirm').textContent = 'Xoa tat ca';
+        document.getElementById('confirmTitle').textContent = 'Xóa toàn bộ kho';
+        document.getElementById('confirmMessage').textContent = `Bạn có chắc muốn xóa tất cả ${allData.length} sản phẩm khỏi kho đi chợ? Hành động này không thể hoàn tác.`;
+        document.getElementById('okConfirm').textContent = 'Xóa tất cả';
         document.getElementById('confirmModal').style.display = 'flex';
 
         pendingConfirmAction = async () => {
@@ -459,13 +459,13 @@
                 const res = await fetch(API_BASE, { method: 'DELETE' });
                 const json = await res.json();
                 if (json.success) {
-                    showToast('Da xoa toan bo kho');
+                    showToast('Đã xóa toàn bộ kho');
                     loadData();
                 } else {
-                    showToast('Loi: ' + (json.error || ''), 'error');
+                    showToast('Lỗi: ' + (json.error || ''), 'error');
                 }
             } catch (err) {
-                showToast('Loi ket noi server', 'error');
+                showToast('Lỗi kết nối server', 'error');
             }
         };
 
