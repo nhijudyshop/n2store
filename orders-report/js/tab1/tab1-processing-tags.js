@@ -1439,8 +1439,8 @@
                     <button class="ptag-panel-btn" title="Quản lý Tag T" onclick="window._ptagOpenTTagManager()" style="color:#7c3aed;">
                         <i class="fas fa-tags"></i>
                     </button>
-                    <button class="ptag-panel-btn" id="ptag-bulk-btn" title="Gán hàng loạt" onclick="window._ptagOpenBulkModal()">
-                        <i class="fas fa-layer-group"></i>
+                    <button class="ptag-panel-btn" id="ptag-cleanup-btn" title="Xóa Tag Đặc Điểm và Tag T chờ hàng không còn đơn" onclick="window._ptagCleanupEmptyTags()">
+                        <i class="fas fa-trash"></i>
                     </button>
                     <button class="ptag-panel-btn" title="Đóng" onclick="window._ptagTogglePanel()">
                         <i class="fas fa-times"></i>
@@ -3775,6 +3775,76 @@
     window.hasActiveProcessingTagFilters = hasActiveProcessingTagFilters;
     window.orderPassesProcessingTagFilter = orderPassesProcessingTagFilter;
 
+    // --- Cleanup empty tags (custom flags + T-tags with 0 orders) ---
+    async function _ptagCleanupEmptyTags() {
+        // Compute flag & T-tag counts (same logic as renderPanelContent)
+        const allOrders = window.allData || [];
+        const allDataIds = new Set(allOrders.map(o => String(o.Id)));
+        const taggedOrders = ProcessingTagState.getAllOrders();
+        const flagCounts = {};
+        const tTagCounts = {};
+
+        for (const [orderId, data] of taggedOrders) {
+            if (!allDataIds.has(orderId)) continue;
+            (data.flags || []).forEach(f => { flagCounts[f] = (flagCounts[f] || 0) + 1; });
+            (data.tTags || []).forEach(t => { tTagCounts[t] = (tTagCounts[t] || 0) + 1; });
+        }
+
+        // Find custom flags with 0 orders
+        const customFlags = ProcessingTagState._customFlags;
+        const emptyCustomFlags = [];
+        if (customFlags) {
+            for (const [cfKey, cf] of customFlags) {
+                if ((flagCounts[cfKey] || 0) === 0) {
+                    emptyCustomFlags.push({ key: cfKey, label: cf.label });
+                }
+            }
+        }
+
+        // Find non-default T-tags with 0 orders
+        const tTagDefs = ProcessingTagState.getTTagDefinitions();
+        const emptyTTags = [];
+        for (const def of tTagDefs) {
+            if (DEFAULT_TTAG_DEFS.some(d => d.id === def.id)) continue; // skip default
+            if ((tTagCounts[def.id] || 0) === 0) {
+                emptyTTags.push(def);
+            }
+        }
+
+        if (emptyCustomFlags.length === 0 && emptyTTags.length === 0) {
+            alert('Không có tag nào cần xóa (tất cả đều có đơn hàng).');
+            return;
+        }
+
+        const lines = [];
+        if (emptyCustomFlags.length > 0) {
+            lines.push(`${emptyCustomFlags.length} Tag Đặc Điểm: ${emptyCustomFlags.map(f => f.label).join(', ')}`);
+        }
+        if (emptyTTags.length > 0) {
+            lines.push(`${emptyTTags.length} Tag T: ${emptyTTags.map(t => t.name).join(', ')}`);
+        }
+        if (!confirm(`Xóa các tag không còn đơn hàng?\n\n${lines.join('\n')}`)) return;
+
+        // Delete empty custom flags
+        for (const cf of emptyCustomFlags) {
+            customFlags.delete(cf.key);
+        }
+        if (emptyCustomFlags.length > 0) {
+            await _ptagSaveCustomFlags();
+        }
+
+        // Delete empty T-tag definitions
+        if (emptyTTags.length > 0) {
+            const emptyTTagIds = new Set(emptyTTags.map(t => t.id));
+            const remaining = tTagDefs.filter(d => !emptyTTagIds.has(d.id));
+            ProcessingTagState.setTTagDefinitions(remaining);
+            await saveTTagDefinitions();
+        }
+
+        console.log(`${PTAG_LOG} Cleaned up ${emptyCustomFlags.length} empty custom flags + ${emptyTTags.length} empty T-tags`);
+        renderPanelContent();
+    }
+
     // UI internal (called from onclick)
     window._ptagOpenDropdown = _ptagOpenDropdown;
     window._ptagCloseDropdown = _ptagCloseDropdown;
@@ -3839,6 +3909,9 @@
     window.assignTTagToOrder = assignTTagToOrder;
     window.removeTTagFromOrder = removeTTagFromOrder;
     window.saveTTagDefinitions = saveTTagDefinitions;
+
+    // Cleanup empty tags
+    window._ptagCleanupEmptyTags = _ptagCleanupEmptyTags;
 
     // History
     window._ptagShowHistory = _ptagRenderHistoryPopover;
