@@ -134,7 +134,7 @@
         _sseSource: null,
         _pollInterval: null,
         _tTagDefinitions: [],
-        _customFlags: new Map(),
+        _customFlagDefs: [],
         _flagsSectionExpanded: false,
 
         getOrderData(orderId) {
@@ -189,6 +189,19 @@
             if (!def) return tagId;
             const pc = def.productCode ? ` · ${def.productCode}` : '';
             return `${def.name}${pc}`;
+        },
+        getCustomFlagDefs() {
+            return this._customFlagDefs;
+        },
+        setCustomFlagDefs(defs) {
+            this._customFlagDefs = Array.isArray(defs) ? defs : [];
+        },
+        getCustomFlagDef(flagId) {
+            return this._customFlagDefs.find(d => d.id === flagId) || null;
+        },
+        getCustomFlagLabel(flagId) {
+            const def = this._customFlagDefs.find(d => d.id === flagId);
+            return def ? def.label : flagId;
         }
     };
 
@@ -215,7 +228,7 @@
         try {
             // Phase 1: Load config (ttag definitions, custom flags) from campaign endpoint
             const result = await _ptagFetch(`${PTAG_API_BASE}/${encodeURIComponent(campaignId)}`);
-            const backupCustomFlags = new Map(ProcessingTagState._customFlags);
+            const backupCustomFlagDefs = [...ProcessingTagState._customFlagDefs];
             ProcessingTagState.clear();
             let loadedCustomFlags = false;
             if (result.data) {
@@ -225,9 +238,19 @@
                         continue;
                     }
                     if (orderId === '__ptag_custom_flags__') {
-                        if (data.customFlags) {
-                            ProcessingTagState._customFlags = new Map(Object.entries(data.customFlags));
+                        if (data.customFlagDefs) {
+                            // New format: array of definitions
+                            ProcessingTagState.setCustomFlagDefs(data.customFlagDefs);
                             loadedCustomFlags = true;
+                        } else if (data.customFlags) {
+                            // Old format: Map → convert to array
+                            const defs = Object.entries(data.customFlags).map(([id, cf]) => ({
+                                id, label: cf.label, color: cf.color || '#7c3aed', createdAt: 0
+                            }));
+                            ProcessingTagState.setCustomFlagDefs(defs);
+                            loadedCustomFlags = true;
+                            // Migrate to new format
+                            saveCustomFlagDefinitions();
                         }
                         continue;
                     }
@@ -239,11 +262,10 @@
                     ProcessingTagState.setOrderData(orderId, data);
                 }
             }
-            if (!loadedCustomFlags && backupCustomFlags.size > 0) {
-                ProcessingTagState._customFlags = backupCustomFlags;
-                console.log(`${PTAG_LOG} Restored ${backupCustomFlags.size} custom flags from backup`);
+            if (!loadedCustomFlags && backupCustomFlagDefs.length > 0) {
+                ProcessingTagState._customFlagDefs = backupCustomFlagDefs;
+                console.log(`${PTAG_LOG} Restored ${backupCustomFlagDefs.length} custom flag defs from backup`);
             }
-            _ptagRepairOrphanCustomFlags();
             console.log(`${PTAG_LOG} Loaded ${result.count || 0} tags for campaign ${campaignId}`);
 
             // Phase 2: Load by order codes (cross-campaign, covers date mode)
@@ -343,66 +365,7 @@
         console.log(`${PTAG_LOG} Loaded tags by code for ${orderCodes.length} orders`);
     }
 
-    function _ptagRepairOrphanCustomFlags() {
-        const customFlags = ProcessingTagState._customFlags;
-        const taggedOrders = ProcessingTagState.getAllOrders();
-        const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
 
-        // Collect all CUSTOM_xxx keys used by orders that have no label
-        const orphanKeys = new Set();
-        for (const [, data] of taggedOrders) {
-            for (const f of (data.flags || [])) {
-                if (f.startsWith('CUSTOM_') && !customFlags.has(f)) {
-                    orphanKeys.add(f);
-                }
-            }
-        }
-        if (orphanKeys.size === 0) return;
-
-        // Build set of known custom flag labels for dedup
-        const knownLabels = new Set();
-        for (const [, cf] of customFlags) {
-            knownLabels.add((cf.label || '').toLowerCase());
-        }
-
-        // For each orphan key, find orders that have it, then find matching TPOS tag name
-        // Strategy: collect all TPOS tag names from orders with this flag,
-        // pick the most common one that isn't already a known label
-        let repairedCount = 0;
-        for (const key of orphanKeys) {
-            const tagNameCounts = {};
-            for (const [orderId, data] of taggedOrders) {
-                if (!(data.flags || []).includes(key)) continue;
-                const tposOrder = allOrders.find(o => String(o.Id) === orderId);
-                if (!tposOrder) continue;
-                let tags = [];
-                try { tags = JSON.parse(tposOrder.Tags || '[]'); } catch (e) { continue; }
-                for (const tag of tags) {
-                    const name = (tag.Name || '').trim();
-                    if (name && !knownLabels.has(name.toLowerCase())) {
-                        tagNameCounts[name] = (tagNameCounts[name] || 0) + 1;
-                    }
-                }
-            }
-            // Pick the most common tag name as label
-            let bestLabel = null, bestCount = 0;
-            for (const [name, count] of Object.entries(tagNameCounts)) {
-                if (count > bestCount) { bestLabel = name; bestCount = count; }
-            }
-            // Only repair if we found a real label — do NOT fallback to key as label
-            // (manual custom tags have no TPOS match, so fallback would corrupt their names)
-            if (bestLabel) {
-                customFlags.set(key, { label: bestLabel, color: '#7c3aed' });
-                knownLabels.add(bestLabel.toLowerCase());
-                repairedCount++;
-            }
-        }
-
-        if (repairedCount > 0) {
-            console.log(`${PTAG_LOG} Repaired ${repairedCount} orphan custom flag(s)`);
-            _ptagSaveCustomFlags();
-        }
-    }
 
     async function saveProcessingTagToAPI(orderId, data) {
         const campaignId = ProcessingTagState._campaignId;
@@ -421,6 +384,11 @@
     async function saveTTagDefinitions() {
         const data = { tTagDefinitions: ProcessingTagState.getTTagDefinitions() };
         await saveProcessingTagToAPI('__ttag_config__', data);
+    }
+
+    async function saveCustomFlagDefinitions() {
+        const data = { customFlagDefs: ProcessingTagState.getCustomFlagDefs() };
+        await saveProcessingTagToAPI('__ptag_custom_flags__', data);
     }
 
     async function clearProcessingTagAPI(orderId) {
@@ -466,13 +434,14 @@
                         return;
                     }
                     if (orderId === '__ptag_custom_flags__' && data) {
-                        if (data.customFlags) {
-                            const incoming = new Map(Object.entries(data.customFlags));
-                            const local = ProcessingTagState._customFlags || new Map();
-                            for (const [k, v] of incoming) {
-                                local.set(k, v);
-                            }
-                            ProcessingTagState._customFlags = local;
+                        if (data.customFlagDefs) {
+                            ProcessingTagState.setCustomFlagDefs(data.customFlagDefs);
+                        } else if (data.customFlags) {
+                            // Old format compat
+                            const defs = Object.entries(data.customFlags).map(([id, cf]) => ({
+                                id, label: cf.label, color: cf.color || '#7c3aed', createdAt: 0
+                            }));
+                            ProcessingTagState.setCustomFlagDefs(defs);
                         }
                         renderPanelContent();
                         return;
@@ -877,7 +846,7 @@
         // 2. Flag badges (đặc điểm) — SECOND — with × to remove
         (data.flags || []).forEach(f => {
             const fl = PTAG_FLAGS[f];
-            const label = fl ? fl.label : (ProcessingTagState._customFlags?.get(f)?.label || f);
+            const label = fl ? fl.label : ProcessingTagState.getCustomFlagLabel(f);
             const removeBtn = `<button class="ptag-badge-remove" onclick="window._ptagToggleFlag('${oid}', '${f}'); event.stopPropagation();" title="Xóa flag">&times;</button>`;
             badges += `<span class="ptag-flag-badge ptag-badge-removable">${label}${removeBtn}</span>`;
         });
@@ -942,11 +911,9 @@
             tags.push({ type: 'tag', key: `flag:${key}`, label: `${flag.icon} ${flag.label}`, isFlag: true, flagKey: key, color: '#7c3aed', auto: flag.auto });
         }
         // Custom flags
-        const customFlags = ProcessingTagState._customFlags;
-        if (customFlags && customFlags.size > 0) {
-            for (const [key, cf] of customFlags) {
-                tags.push({ type: 'tag', key: `flag:${key}`, label: cf.label, isFlag: true, flagKey: key, color: cf.color || '#7c3aed' });
-            }
+        const customFlagDefs = ProcessingTagState.getCustomFlagDefs();
+        for (const cf of customFlagDefs) {
+            tags.push({ type: 'tag', key: `flag:${cf.id}`, label: cf.label, isFlag: true, flagKey: cf.id, color: cf.color || '#7c3aed' });
         }
         // All T-tag definitions — shown at bottom of dropdown as direct toggle
         tags.push({ type: 'cat-label', label: '📦 TAG T CHỜ HÀNG' });
@@ -989,7 +956,7 @@
             if (fl) {
                 selected.push({ key: `flag:${f}`, label: `${fl.icon} ${fl.label}`, isFlag: true, flagKey: f, color: '#7c3aed' });
             } else {
-                const cf = ProcessingTagState._customFlags?.get(f);
+                const cf = ProcessingTagState.getCustomFlagDef(f);
                 if (cf) selected.push({ key: `flag:${f}`, label: cf.label, isFlag: true, flagKey: f, color: cf.color || '#7c3aed' });
             }
         });
@@ -1235,11 +1202,12 @@
         const orderId = _ddOrderId;
         if (!orderId) return;
         const key = 'CUSTOM_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
-        if (!ProcessingTagState._customFlags) ProcessingTagState._customFlags = new Map();
-        ProcessingTagState._customFlags.set(key, { label, color: '#7c3aed' });
-        // Save custom flags registry FIRST to ensure label is persisted
-        await _ptagSaveCustomFlags();
-        // THEN toggle flag on order (so flag key always has a label in DB)
+        const defs = ProcessingTagState.getCustomFlagDefs();
+        defs.push({ id: key, label, color: '#7c3aed', createdAt: Date.now() });
+        ProcessingTagState.setCustomFlagDefs(defs);
+        // Save definitions FIRST to ensure label is persisted
+        await saveCustomFlagDefinitions();
+        // THEN toggle flag on order
         await toggleOrderFlag(orderId, key);
         _ptagRefreshDropdownState();
     }
@@ -1307,14 +1275,6 @@
                 _ptagDdSelectTag(item.dataset.key);
             });
         });
-    }
-
-    // Save custom flags config to API (persisted under __ptag_custom_flags__)
-    async function _ptagSaveCustomFlags() {
-        const customFlags = ProcessingTagState._customFlags;
-        if (!customFlags) return;
-        const data = { customFlags: Object.fromEntries(customFlags) };
-        await saveProcessingTagToAPI('__ptag_custom_flags__', data);
     }
 
     function _ptagCloseDropdown() {
@@ -1615,21 +1575,20 @@
             </div>`;
             // Show custom tags list under "Khác" — show all custom flags
             if (key === 'KHAC') {
-                const customFlags = ProcessingTagState._customFlags;
-                const activeCustom = customFlags ? [...customFlags] : [];
-                if (activeCustom.length > 0) {
+                const customFlagDefs = ProcessingTagState.getCustomFlagDefs();
+                if (customFlagDefs.length > 0) {
                     // Only show custom flags that have orders assigned
-                    const visibleCustom = activeCustom.filter(([cfKey]) => (flagCounts[cfKey] || 0) > 0);
+                    const visibleCustom = customFlagDefs.filter(cf => (flagCounts[cf.id] || 0) > 0);
                     if (visibleCustom.length > 0) {
                     const expanded = activeFlagFilters.has('KHAC') ||
                         [...activeFlagFilters].some(f => f.startsWith('CUSTOM_'));
                     html += `<div class="ptag-custom-flags-list" style="margin-left:28px;${expanded ? '' : 'display:none;'}">`;
-                    for (const [cfKey, cf] of visibleCustom) {
-                        const cfChecked = activeFlagFilters.has(cfKey) ? 'checked' : '';
-                        const cfCount = flagCounts[cfKey] || 0;
+                    for (const cf of visibleCustom) {
+                        const cfChecked = activeFlagFilters.has(cf.id) ? 'checked' : '';
+                        const cfCount = flagCounts[cf.id] || 0;
                         html += `<div class="ptag-panel-flag-item" style="padding:3px 8px;font-size:13px;" data-search="${_ptagNormalize(cf.label)}">
                             <label class="ptag-flag-checkbox">
-                                <input type="checkbox" ${cfChecked} onchange="window._ptagToggleFlagFilter('${cfKey}'); event.stopPropagation();" />
+                                <input type="checkbox" ${cfChecked} onchange="window._ptagToggleFlagFilter('${cf.id}'); event.stopPropagation();" />
                                 <span style="font-size:13px;flex-shrink:0;">🏷️</span>
                                 <span class="ptag-flag-label" style="font-size:13px;">${cf.label}</span>
                             </label>
@@ -1757,11 +1716,8 @@
             set.delete(flagKey);
             // Unchecking KHAC also clears all individual custom flag filters
             if (flagKey === 'KHAC') {
-                const customFlags = ProcessingTagState._customFlags;
-                if (customFlags) {
-                    for (const cfKey of customFlags.keys()) {
-                        set.delete(cfKey);
-                    }
+                for (const cf of ProcessingTagState.getCustomFlagDefs()) {
+                    set.delete(cf.id);
                 }
             }
         } else {
@@ -3775,25 +3731,14 @@
         }
 
         // Find custom flags with 0 orders
-        const customFlags = ProcessingTagState._customFlags;
-        const emptyCustomFlags = [];
-        if (customFlags) {
-            for (const [cfKey, cf] of customFlags) {
-                if ((flagCounts[cfKey] || 0) === 0) {
-                    emptyCustomFlags.push({ key: cfKey, label: cf.label });
-                }
-            }
-        }
+        const customFlagDefs = ProcessingTagState.getCustomFlagDefs();
+        const emptyCustomFlags = customFlagDefs.filter(cf => (flagCounts[cf.id] || 0) === 0);
 
         // Find non-default T-tags with 0 orders
         const tTagDefs = ProcessingTagState.getTTagDefinitions();
-        const emptyTTags = [];
-        for (const def of tTagDefs) {
-            if (DEFAULT_TTAG_DEFS.some(d => d.id === def.id)) continue; // skip default
-            if ((tTagCounts[def.id] || 0) === 0) {
-                emptyTTags.push(def);
-            }
-        }
+        const emptyTTags = tTagDefs.filter(def =>
+            !DEFAULT_TTAG_DEFS.some(d => d.id === def.id) && (tTagCounts[def.id] || 0) === 0
+        );
 
         if (emptyCustomFlags.length === 0 && emptyTTags.length === 0) {
             alert('Không có tag nào cần xóa (tất cả đều có đơn hàng).');
@@ -3810,11 +3755,11 @@
         if (!confirm(`Xóa các tag không còn đơn hàng?\n\n${lines.join('\n')}`)) return;
 
         // Delete empty custom flags
-        for (const cf of emptyCustomFlags) {
-            customFlags.delete(cf.key);
-        }
         if (emptyCustomFlags.length > 0) {
-            await _ptagSaveCustomFlags();
+            const emptyIds = new Set(emptyCustomFlags.map(cf => cf.id));
+            const remaining = customFlagDefs.filter(cf => !emptyIds.has(cf.id));
+            ProcessingTagState.setCustomFlagDefs(remaining);
+            await saveCustomFlagDefinitions();
         }
 
         // Delete empty T-tag definitions
