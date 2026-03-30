@@ -1631,10 +1631,13 @@
                 const customFlags = ProcessingTagState._customFlags;
                 const activeCustom = customFlags ? [...customFlags] : [];
                 if (activeCustom.length > 0) {
+                    // Only show custom flags that have orders assigned
+                    const visibleCustom = activeCustom.filter(([cfKey]) => (flagCounts[cfKey] || 0) > 0);
+                    if (visibleCustom.length > 0) {
                     const expanded = activeFlagFilters.has('KHAC') ||
                         [...activeFlagFilters].some(f => f.startsWith('CUSTOM_'));
                     html += `<div class="ptag-custom-flags-list" style="margin-left:28px;${expanded ? '' : 'display:none;'}">`;
-                    for (const [cfKey, cf] of activeCustom) {
+                    for (const [cfKey, cf] of visibleCustom) {
                         const cfChecked = activeFlagFilters.has(cfKey) ? 'checked' : '';
                         const cfCount = flagCounts[cfKey] || 0;
                         html += `<div class="ptag-panel-flag-item" style="padding:3px 8px;font-size:13px;" data-search="${_ptagNormalize(cf.label)}">
@@ -1647,6 +1650,7 @@
                         </div>`;
                     }
                     html += `</div>`;
+                    } // end if visibleCustom.length > 0
                 }
             }
         }
@@ -1697,6 +1701,8 @@
                 const count = tTagCounts[def.id] || 0;
                 const pcLabel = def.productCode ? `<span style="color:#6b7280;font-size:11px;margin-left:4px;font-weight:500;">${def.productCode}</span>` : '';
                 const isDefaultTag = DEFAULT_TTAG_DEFS.some(d => d.id === def.id);
+                // Hide non-default T-tags with 0 orders
+                if (count === 0 && !isDefaultTag) continue;
                 const deleteBtn = isDefaultTag ? '' : `<button class="ptag-ttag-panel-delete-v2" onclick="window._ptagDeleteTTagDefAndOrders('${escapedFk.replace('ttag_', '')}'); event.stopPropagation();" title="Xóa tag và gỡ khỏi tất cả đơn">&times;</button>`;
                 html += `<div class="ptag-panel-card ${activeFilter === fk ? 'active' : ''}" onclick="window._ptagSetFilter('${escapedFk}')" data-search="${_ptagNormalize(def.name + ' ' + (def.productCode || ''))}">
                     <div class="ptag-panel-card-icon ptag-panel-card-icon--sm" style="background:#8b5cf6;">
