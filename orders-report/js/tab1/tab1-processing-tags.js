@@ -616,22 +616,9 @@
         const existingFlags = ProcessingTagState.getOrderFlags(orderId);
         const newFlags = [];
 
-        // 1. Wallet → CK + Công nợ
-        try {
-            const wallet = window.WalletIntegration?.getWallet
-                ? await window.WalletIntegration.getWallet(phone)
-                : null;
-            if (wallet?.balance > 0 && !existingFlags.includes('CHUYEN_KHOAN')) {
-                newFlags.push('CHUYEN_KHOAN');
-            }
-            if (wallet?.virtual_balance > 0 && !existingFlags.includes('TRU_CONG_NO')) {
-                newFlags.push('TRU_CONG_NO');
-            }
-        } catch (e) {
-            console.warn(`${PTAG_LOG} Wallet check failed for ${phone}:`, e);
-        }
+        // Wallet CK + Công nợ: đã chuyển sang tab1-qr-debt.js (auto khi badge hiển thị)
 
-        // 2. Order Discount → Giảm giá
+        // Order Discount → Giảm giá
         try {
             const order = ((typeof window.getAllOrders === 'function') ? window.getAllOrders() : []).find(o => o.Id === orderId);
             if (order && parseFloat(order.Discount || 0) > 0 && !existingFlags.includes('GIAM_GIA')) {

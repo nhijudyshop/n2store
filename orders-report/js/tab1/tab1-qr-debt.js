@@ -439,6 +439,18 @@ function updateWalletDebtBadgesInTable(targetPhone) {
 
             // Watermark background
             cell.style.background = 'linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(16,185,129,0.03) 100%)';
+
+            // Auto-gắn tag CK / Trừ Công Nợ khi badge hiển thị
+            const orderId = row.getAttribute('data-order-id');
+            if (orderId && typeof window.toggleOrderFlag === 'function' && window.ProcessingTagState) {
+                const existingFlags = window.ProcessingTagState.getOrderFlags(orderId);
+                if ((data.balance || 0) > 0 && !existingFlags.includes('CHUYEN_KHOAN')) {
+                    window.toggleOrderFlag(orderId, 'CHUYEN_KHOAN');
+                }
+                if (((data.virtualBalance || data.virtual_balance) || 0) > 0 && !existingFlags.includes('TRU_CONG_NO')) {
+                    window.toggleOrderFlag(orderId, 'TRU_CONG_NO');
+                }
+            }
         } else {
             cell.style.background = '';
         }
