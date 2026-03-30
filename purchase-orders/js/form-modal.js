@@ -1253,6 +1253,40 @@ class PurchaseOrderFormModal {
                                 <line x1="5" y1="12" x2="19" y2="12"></line>
                             </svg>
                         </button>
+                        <button type="button" id="btnExportData" title="Export dữ liệu đơn hàng" style="
+                            height: 40px;
+                            width: 40px;
+                            border: 1px solid #d1d5db;
+                            border-radius: 8px;
+                            background: white;
+                            cursor: pointer;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                        ">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="7 10 12 15 17 10"></polyline>
+                                <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                        </button>
+                        <button type="button" id="btnImportData" title="Import dữ liệu đơn hàng" style="
+                            height: 40px;
+                            width: 40px;
+                            border: 1px solid #d1d5db;
+                            border-radius: 8px;
+                            background: white;
+                            cursor: pointer;
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                        ">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                                <polyline points="17 8 12 3 7 8"></polyline>
+                                <line x1="12" y1="3" x2="12" y2="15"></line>
+                            </svg>
+                        </button>
                         <button type="button" id="btnSettings" style="
                             height: 40px;
                             width: 40px;
@@ -1759,6 +1793,10 @@ class PurchaseOrderFormModal {
         };
         this.modalElement.querySelector('#btnAddProductTop')?.addEventListener('click', addProductHandler);
         this.modalElement.querySelector('#btnAddProduct')?.addEventListener('click', addProductHandler);
+
+        // Export / Import buttons
+        this.modalElement.querySelector('#btnExportData')?.addEventListener('click', () => this.exportOrderData());
+        this.modalElement.querySelector('#btnImportData')?.addEventListener('click', () => this.importOrderData());
 
         // Choose from inventory button
         this.modalElement.querySelector('#btnChooseInventory')?.addEventListener('click', () => {
@@ -2803,6 +2841,181 @@ class PurchaseOrderFormModal {
                 btn.innerHTML = originalText;
             }
         }
+    }
+
+    // ========================================
+    // IMPORT / EXPORT DATA
+    // ========================================
+
+    /**
+     * Export all current form data to a base64-encoded string and copy to clipboard
+     */
+    exportOrderData() {
+        this.collectFormData();
+
+        const exportData = {
+            _v: 1, // version for future compatibility
+            supplier: this.formData.supplier,
+            orderDate: this.formData.orderDate,
+            invoiceAmount: this.formData.invoiceAmount,
+            invoiceImages: this.formData.invoiceImages,
+            notes: this.formData.notes,
+            discountAmount: this.formData.discountAmount,
+            shippingFee: this.formData.shippingFee,
+            items: this.formData.items.map(item => ({
+                productName: item.productName,
+                variant: item.variant,
+                productCode: item.productCode,
+                quantity: item.quantity,
+                purchasePrice: item.purchasePrice,
+                sellingPrice: item.sellingPrice,
+                productImages: item.productImages,
+                priceImages: item.priceImages,
+                selectedAttributeValueIds: item.selectedAttributeValueIds,
+                tposProductId: item.tposProductId,
+                tposProductTmplId: item.tposProductTmplId,
+                tposSynced: item.tposSynced,
+                tposImageUrl: item.tposImageUrl
+            }))
+        };
+
+        const jsonStr = JSON.stringify(exportData);
+        const encoded = btoa(unescape(encodeURIComponent(jsonStr)));
+
+        navigator.clipboard.writeText(encoded).then(() => {
+            const itemCount = exportData.items.filter(i => i.productName?.trim()).length;
+            window.notificationManager?.show(
+                `Đã copy mã đơn hàng (${itemCount} sản phẩm, NCC: ${exportData.supplier || 'N/A'})`,
+                'success'
+            );
+        }).catch(() => {
+            // Fallback: show in a dialog for manual copy
+            this.showAlert(`Không thể tự động copy. Hãy copy đoạn mã bên dưới:\n\n${encoded}`);
+        });
+    }
+
+    /**
+     * Import order data from a base64-encoded string
+     */
+    async importOrderData() {
+        // Show import dialog
+        const encoded = await this._showImportDialog();
+        if (!encoded || !encoded.trim()) return;
+
+        try {
+            const jsonStr = decodeURIComponent(escape(atob(encoded.trim())));
+            const data = JSON.parse(jsonStr);
+
+            if (!data._v || !data.items) {
+                throw new Error('Dữ liệu không hợp lệ');
+            }
+
+            // Confirm if there's existing data
+            const hasExistingData = this.formData.items.some(i => i.productName?.trim());
+            if (hasExistingData) {
+                const ok = await this.showConfirm(
+                    'Đơn hàng hiện tại đã có dữ liệu. Import sẽ thay thế toàn bộ. Tiếp tục?',
+                    { title: 'Import dữ liệu', type: 'warning' }
+                );
+                if (!ok) return;
+            }
+
+            // Apply top-level fields
+            this.formData.supplier = data.supplier || '';
+            this.formData.orderDate = data.orderDate || new Date().toISOString().split('T')[0];
+            this.formData.invoiceAmount = data.invoiceAmount || '';
+            this.formData.invoiceImages = data.invoiceImages || [];
+            this.formData.notes = data.notes || '';
+            this.formData.discountAmount = data.discountAmount || '';
+            this.formData.shippingFee = data.shippingFee || '';
+
+            // Apply items
+            this.formData.items = (data.items || []).map(item => ({
+                id: `item_${Date.now()}_${this.itemCounter++}`,
+                productName: item.productName || '',
+                variant: item.variant || '',
+                productCode: item.productCode || '',
+                quantity: item.quantity || 1,
+                purchasePrice: item.purchasePrice || '',
+                sellingPrice: item.sellingPrice || '',
+                productImages: item.productImages || [],
+                priceImages: item.priceImages || [],
+                selectedAttributeValueIds: item.selectedAttributeValueIds || [],
+                tposProductId: item.tposProductId || '',
+                tposProductTmplId: item.tposProductTmplId || '',
+                tposSynced: item.tposSynced || false,
+                tposImageUrl: item.tposImageUrl || ''
+            }));
+
+            // If no items, add one empty row
+            if (this.formData.items.length === 0) {
+                this.addItem();
+            }
+
+            // Re-render the entire modal
+            this.close();
+            this.render();
+
+            const itemCount = this.formData.items.filter(i => i.productName?.trim()).length;
+            window.notificationManager?.show(
+                `Import thành công: ${itemCount} sản phẩm, NCC: ${data.supplier || 'N/A'}`,
+                'success'
+            );
+        } catch (err) {
+            console.error('[FormModal] Import error:', err);
+            this.showAlert('Mã import không hợp lệ. Vui lòng kiểm tra lại.');
+        }
+    }
+
+    /**
+     * Show import dialog with textarea for pasting encoded data
+     * @returns {Promise<string|null>}
+     */
+    _showImportDialog() {
+        return new Promise((resolve) => {
+            const overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+            overlay.innerHTML = `
+                <div style="background:white;border-radius:12px;padding:24px;width:500px;max-width:90vw;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                        <h3 style="margin:0;font-size:18px;color:#111827;">Import dữ liệu đơn hàng</h3>
+                    </div>
+                    <p style="margin:0 0 12px;font-size:13px;color:#6b7280;">Dán đoạn mã đã export vào ô bên dưới:</p>
+                    <textarea id="_importTextarea" style="
+                        width:100%;height:120px;padding:12px;border:1px solid #d1d5db;border-radius:8px;
+                        font-size:13px;font-family:monospace;resize:vertical;box-sizing:border-box;
+                    " placeholder="Dán mã import vào đây..."></textarea>
+                    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
+                        <button id="_importCancel" style="
+                            padding:8px 20px;border:1px solid #d1d5db;border-radius:8px;
+                            background:white;cursor:pointer;font-size:14px;
+                        ">Hủy</button>
+                        <button id="_importConfirm" style="
+                            padding:8px 20px;border:none;border-radius:8px;
+                            background:#3b82f6;color:white;cursor:pointer;font-size:14px;font-weight:500;
+                        ">Import</button>
+                    </div>
+                </div>
+            `;
+
+            const cleanup = (value) => { overlay.remove(); resolve(value); };
+
+            overlay.querySelector('#_importCancel').addEventListener('click', () => cleanup(null));
+            overlay.querySelector('#_importConfirm').addEventListener('click', () => {
+                cleanup(overlay.querySelector('#_importTextarea').value);
+            });
+            overlay.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') cleanup(null);
+            });
+
+            document.body.appendChild(overlay);
+            overlay.querySelector('#_importTextarea').focus();
+        });
     }
 
     /**
