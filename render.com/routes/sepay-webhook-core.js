@@ -1356,37 +1356,62 @@ function registerRoutes(router, deps) {
         try {
             console.log('[SEPAY-DASHBOARD] Logging in to my.sepay.vn as', username);
 
-            const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+            const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36';
 
-            // Step 1: GET login page first to get CSRF token / initial cookies
+            // Step 1: GET login page to get csrf_ap cookie
             const loginPageRes = await fetch('https://my.sepay.vn/login', {
-                headers: { 'User-Agent': UA, 'Accept': 'text/html' },
+                headers: {
+                    'User-Agent': UA,
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8',
+                    'sec-ch-ua': '"Chromium";v="146", "Not-A.Brand";v="24", "Google Chrome";v="146"',
+                    'sec-ch-ua-mobile': '?0',
+                    'sec-ch-ua-platform': '"macOS"',
+                    'sec-fetch-dest': 'document',
+                    'sec-fetch-mode': 'navigate',
+                    'sec-fetch-site': 'none',
+                    'sec-fetch-user': '?1',
+                    'upgrade-insecure-requests': '1',
+                },
                 redirect: 'follow',
             });
             const loginPageCookies = (loginPageRes.headers.raw()['set-cookie'] || []).map(c => c.split(';')[0]);
             const loginPageHtml = await loginPageRes.text();
 
-            // Extract CSRF token if present
-            const csrfMatch = loginPageHtml.match(/name="_token"\s+value="([^"]+)"/) ||
-                              loginPageHtml.match(/csrf[_-]token['"]\s*(?:content|value)=['"]\s*([^'"]+)/i);
-            const csrfToken = csrfMatch ? csrfMatch[1] : '';
+            // Check if Cloudflare challenged us
+            const isCfChallenge = loginPageHtml.includes('challenge-platform') || loginPageHtml.includes('cf-challenge');
+            if (isCfChallenge) {
+                console.error('[SEPAY-DASHBOARD] Blocked by Cloudflare challenge');
+                return { _debug: { error: 'Cloudflare challenge blocked', pageLen: loginPageHtml.length } };
+            }
 
-            console.log('[SEPAY-DASHBOARD] Login page cookies:', loginPageCookies.length, '| CSRF:', csrfToken ? 'found' : 'none');
+            // Extract csrf_ap from cookies (used as csrf_main in login body)
+            const csrfCookie = loginPageCookies.find(c => c.startsWith('csrf_ap='));
+            const csrfToken = csrfCookie ? csrfCookie.split('=')[1] : '';
 
-            // Step 2: POST login
-            const loginBody = csrfToken
-                ? `email=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}&_token=${encodeURIComponent(csrfToken)}`
-                : `email=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
+            console.log('[SEPAY-DASHBOARD] Login page cookies:', loginPageCookies.length,
+                '| csrf_ap:', csrfToken ? csrfToken.substring(0, 8) + '...' : 'NOT FOUND',
+                '| cf_challenge:', isCfChallenge);
+
+            // Step 2: POST login with csrf_main field (from csrf_ap cookie)
+            const loginBody = `csrf_main=${encodeURIComponent(csrfToken)}&email=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
 
             const loginRes = await fetch('https://my.sepay.vn/login/do_login', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
                     'User-Agent': UA,
                     'Accept': 'application/json, text/javascript, */*; q=0.01',
+                    'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8',
                     'X-Requested-With': 'XMLHttpRequest',
                     'Origin': 'https://my.sepay.vn',
                     'Referer': 'https://my.sepay.vn/login',
+                    'sec-ch-ua': '"Chromium";v="146", "Not-A.Brand";v="24", "Google Chrome";v="146"',
+                    'sec-ch-ua-mobile': '?0',
+                    'sec-ch-ua-platform': '"macOS"',
+                    'sec-fetch-dest': 'empty',
+                    'sec-fetch-mode': 'cors',
+                    'sec-fetch-site': 'same-origin',
                     'Cookie': loginPageCookies.join('; '),
                 },
                 body: loginBody,
@@ -1401,17 +1426,29 @@ function registerRoutes(router, deps) {
             let loginData = null;
             try { loginData = await loginRes.json(); } catch (e) { /* not JSON */ }
 
-            console.log('[SEPAY-DASHBOARD] Login response:', loginRes.status, '| cookies:', loginResCookies.length, '| data:', JSON.stringify(loginData));
+            console.log('[SEPAY-DASHBOARD] Login response:', loginRes.status,
+                '| new cookies:', loginResCookies.length,
+                '| data:', JSON.stringify(loginData));
 
-            if (!cookieStr || loginResCookies.length === 0) {
+            if (loginData && loginData.status === false) {
+                console.error('[SEPAY-DASHBOARD] Login rejected:', loginData.message || loginData);
+                return { _debug: { error: 'Login rejected', loginData } };
+            }
+
+            if (loginResCookies.length === 0) {
                 console.error('[SEPAY-DASHBOARD] Login failed - no session cookies');
-                return { _debug: { error: 'No session cookies', loginStatus: loginRes.status, loginData } };
+                return { _debug: { error: 'No session cookies after login', loginStatus: loginRes.status, loginData, pageCookies: loginPageCookies.length } };
             }
 
             const dashHeaders = {
                 'Cookie': cookieStr,
                 'User-Agent': UA,
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+                'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8',
+                'sec-fetch-dest': 'document',
+                'sec-fetch-mode': 'navigate',
+                'sec-fetch-site': 'same-origin',
+                'Referer': 'https://my.sepay.vn/',
             };
 
             // Step 3: Fetch dashboard pages in parallel using node-fetch
