@@ -298,6 +298,9 @@ async function batchFetchDebts(phones) {
 // Map: phone → { total, balance, virtualBalance, sourceBreakdown }
 window.walletDebtData = new Map();
 
+// Use direct Render API URL (same as WalletIntegration) - proxy may not handle POST correctly
+const WALLET_BATCH_API_URL = 'https://n2store-fallback.onrender.com/api';
+
 const WALLET_DEBT_BADGE_CONFIG = {
     BANK_TRANSFER:        { label: 'CK',        bg: '#10b981', icon: '💳' },
     RETURN_GOODS:         { label: 'Khách gửi',  bg: '#8b5cf6', icon: '📦' },
@@ -329,7 +332,7 @@ async function fetchWalletDebtBatch(phones) {
     for (let i = 0; i < uniquePhones.length; i += CHUNK_SIZE) {
         const chunk = uniquePhones.slice(i, i + CHUNK_SIZE);
         try {
-            const response = await fetch(`${QR_API_URL}/api/v2/wallets/batch-summary`, {
+            const response = await fetch(`${WALLET_BATCH_API_URL}/v2/wallets/batch-summary`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ phones: chunk })
@@ -441,8 +444,30 @@ function updateWalletDebtBadgesInTable(targetPhone) {
     });
 }
 
-// NOTE: Wallet debt fetch is triggered by renderTable()/loadMoreRows()/renderByEmployee()
-// in tab1-table.js after table DOM is ready. No DOMContentLoaded timer needed.
+/**
+ * Trigger wallet debt fetch for phones currently visible in the table.
+ * Called from renderTable(), loadMoreRows(), performTableSearch().
+ * Debounced to avoid multiple rapid calls.
+ */
+let _walletDebtFetchTimer = null;
+function triggerWalletDebtFetch() {
+    clearTimeout(_walletDebtFetchTimer);
+    _walletDebtFetchTimer = setTimeout(() => {
+        const phones = [];
+        document.querySelectorAll('td[data-column="phone"]').forEach(cell => {
+            const p = cell.textContent.trim();
+            if (p) phones.push(p);
+        });
+        const unique = [...new Set(phones)];
+        console.log(`[WALLET-DEBT] triggerWalletDebtFetch: found ${unique.length} phones in DOM`);
+        if (unique.length > 0) {
+            fetchWalletDebtBatch(unique).then(() => {
+                console.log(`[WALLET-DEBT] Fetch done, updating ${window.walletDebtData.size} badges`);
+                updateWalletDebtBadgesInTable();
+            }).catch(err => console.error('[WALLET-DEBT] Fetch error:', err));
+        }
+    }, 300);
+}
 
 // =====================================================
 // WALLET SSE REALTIME + TOAST NOTIFICATIONS
@@ -611,6 +636,7 @@ window.hasWalletDebt = hasWalletDebt;
 window.renderWalletDebtBadges = renderWalletDebtBadges;
 window.updateWalletDebtBadgesInTable = updateWalletDebtBadgesInTable;
 window.fetchWalletDebtBatch = fetchWalletDebtBatch;
+window.triggerWalletDebtFetch = triggerWalletDebtFetch;
 window.connectWalletSSE = connectWalletSSE;
 window.disconnectWalletSSE = disconnectWalletSSE;
 
