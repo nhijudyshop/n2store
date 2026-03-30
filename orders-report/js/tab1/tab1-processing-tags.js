@@ -135,6 +135,7 @@
         _pollInterval: null,
         _tTagDefinitions: [],
         _customFlags: new Map(),
+        _flagsSectionExpanded: false,
 
         getOrderData(orderId) {
             return this._orderData.get(String(orderId)) || null;
@@ -1604,11 +1605,14 @@
         }
         html += `</div>`;
 
-        // --- ĐẶC ĐIỂM ĐƠN HÀNG (Flags) — Independent section ---
+        // --- ĐẶC ĐIỂM ĐƠN HÀNG (Flags) — Independent section (collapsible) ---
+        const flagsExpanded = ProcessingTagState._flagsSectionExpanded || false;
         html += `<div class="ptag-panel-group" data-search="dac diem don hang tru cong no ck giam gia cho live giu don qua lay khac">
-            <div class="ptag-panel-cat-header-v2" style="border-left-color:#7c3aed;background:rgba(124,58,237,0.06);">
+            <div class="ptag-panel-cat-header-v2 ptag-flags-header" style="border-left-color:#7c3aed;background:rgba(124,58,237,0.06);cursor:pointer;" onclick="window._ptagToggleFlagsSection()">
                 <span class="ptag-cat-name" style="color:#5b21b6;">🏷️ ĐẶC ĐIỂM ĐƠN HÀNG</span>
-            </div>`;
+                <span class="ptag-flags-chevron${flagsExpanded ? ' expanded' : ''}">▶</span>
+            </div>
+            <div class="ptag-flags-body" style="${flagsExpanded ? '' : 'display:none;'}">`;
         for (const [key, flag] of Object.entries(PTAG_FLAGS)) {
             const fk = 'flag_' + key;
             const checked = activeFlagFilters.has(key) ? 'checked' : '';
@@ -1646,7 +1650,7 @@
                 }
             }
         }
-        html += `</div>`;
+        html += `</div></div>`;
 
         // --- Categories 2, 3, 4 ---
         for (const cat of [2, 3, 4]) {
@@ -1744,6 +1748,14 @@
                 window.performTableSearch();
             }
         }, 50);
+    }
+
+    function _ptagToggleFlagsSection() {
+        ProcessingTagState._flagsSectionExpanded = !ProcessingTagState._flagsSectionExpanded;
+        const body = document.querySelector('.ptag-flags-body');
+        const chevron = document.querySelector('.ptag-flags-chevron');
+        if (body) body.style.display = ProcessingTagState._flagsSectionExpanded ? '' : 'none';
+        if (chevron) chevron.classList.toggle('expanded', ProcessingTagState._flagsSectionExpanded);
     }
 
     function _ptagToggleFlagFilter(flagKey) {
@@ -3771,6 +3783,7 @@
     window._ptagSetFilter = _ptagSetFilter;
     window._ptagFilterPanel = _ptagFilterPanel;
     window._ptagToggleFlagFilter = _ptagToggleFlagFilter;
+    window._ptagToggleFlagsSection = _ptagToggleFlagsSection;
     window._ptagQuickAssign = _ptagQuickAssign;
     window._ptagOpenBulkModal = _ptagOpenBulkModal;
     window._ptagCloseBulkModal = _ptagCloseBulkModal;
