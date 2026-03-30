@@ -3,6 +3,9 @@
  * Handles /api/token endpoint - TPOS authentication
  * Caches tokens PER USERNAME to support multiple accounts
  *
+ * QUAN TRỌNG: KHÔNG dùng `new Headers(request.headers)` — browser headers
+ * gây TPOS reject 400. Xem docs/architecture/CLOUDFLARE-WORKER-HEADERS.md
+ *
  * @module cloudflare-worker/modules/handlers/token-handler
  */
 

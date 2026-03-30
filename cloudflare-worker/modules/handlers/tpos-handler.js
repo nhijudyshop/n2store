@@ -2,6 +2,9 @@
  * TPOS Handler
  * Handles TPOS API related endpoints
  *
+ * QUAN TRỌNG: Luôn dùng buildTposHeaders(request) thay vì new Headers(request.headers).
+ * Xem docs/architecture/CLOUDFLARE-WORKER-HEADERS.md
+ *
  * @module cloudflare-worker/modules/handlers/tpos-handler
  */
 
