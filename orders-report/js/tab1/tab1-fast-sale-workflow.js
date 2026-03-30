@@ -469,7 +469,7 @@
                 '';
             if (customerPhone) {
                 try {
-                    await logCancelOrderActivity(customerPhone, orderNumber, order, reason);
+                    await logCancelOrderActivity(customerPhone, orderNumber, order, reason, invoiceData?.Comment);
                 } catch (refundErr) {
                     console.error('[WORKFLOW] ❌ Wallet refund/activity failed:', refundErr.message);
                     window.notificationManager?.error(
@@ -1336,7 +1336,7 @@
                 '';
             if (customerPhone) {
                 try {
-                    await logCancelOrderActivity(customerPhone, orderNumber, order, reason);
+                    await logCancelOrderActivity(customerPhone, orderNumber, order, reason, invoiceData?.Comment);
                 } catch (refundErr) {
                     console.error('[WORKFLOW] ❌ Wallet refund/activity failed:', refundErr.message);
                     window.notificationManager?.error(
@@ -1426,7 +1426,7 @@
      * @param {Object} order - Order data
      * @param {string} reason - Cancellation reason
      */
-    async function logCancelOrderActivity(phone, orderNumber, order, reason) {
+    async function logCancelOrderActivity(phone, orderNumber, order, reason, originalNote) {
         const RENDER_API_URL = 'https://n2store-fallback.onrender.com';
         const performedBy = window.authManager?.getAuthState()?.username || 'system';
 
@@ -1457,6 +1457,7 @@
                             phone: normalizedPhone,
                             reason: reason,
                             created_by: performedBy,
+                            original_note: originalNote || '',
                         }),
                     }
                 );

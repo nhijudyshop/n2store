@@ -967,7 +967,7 @@ async function ensureActivityTypeConstraintForWallet(db) {
 
 router.post('/refund-by-order', async (req, res) => {
     const db = req.app.locals.chatDb;
-    const { order_id, phone, reason, created_by } = req.body;
+    const { order_id, phone, reason, created_by, original_note } = req.body;
 
     if (!order_id) {
         return res.status(400).json({ success: false, error: 'order_id is required' });
@@ -1076,14 +1076,18 @@ router.post('/refund-by-order', async (req, res) => {
                     UPDATE virtual_credits
                     SET remaining_amount = remaining_amount + $2,
                         status = 'ACTIVE',
+                        note = COALESCE($3, note),
                         updated_at = NOW()
                     WHERE id = $1
-                `, [credit.id, canRestore]);
+                `, [credit.id, canRestore, original_note || null]);
                 virtualRemaining -= canRestore;
             }
         }
 
         // Step 3: Log wallet transaction (refund)
+        const txNote = original_note
+            ? `${original_note} (hoàn từ đơn hủy #${order_id})`
+            : `Hoàn tiền hủy đơn #${order_id} (Thật: ${realUsed.toLocaleString()}đ, Công nợ: ${virtualUsed.toLocaleString()}đ)`;
         const txResult = await db.query(`
             INSERT INTO wallet_transactions
             (phone, wallet_id, type, amount, balance_before, balance_after, source, reference_id, note, created_by)
@@ -1096,7 +1100,7 @@ router.post('/refund-by-order', async (req, res) => {
             balanceBefore + virtualBefore,
             balanceBefore + virtualBefore + refundAmount,
             order_id,
-            `Hoàn tiền hủy đơn #${order_id} (Thật: ${realUsed.toLocaleString()}đ, Công nợ: ${virtualUsed.toLocaleString()}đ)`,
+            txNote,
             created_by || 'system'
         ]);
 

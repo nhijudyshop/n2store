@@ -923,7 +923,7 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
 
     // 1. Check wallet balance → generate note based on source type
     if (walletBalance > 0) {
-        // 1a. RETURN_SHIPPER virtual credits (Thu Về) → use ticket's internal_note
+        // 1a. Virtual credits → use ticket_note or note (supports RETURN_SHIPPER + refund from cancelled orders)
         if (walletData?.virtualCredits?.length > 0) {
             for (const vc of walletData.virtualCredits) {
                 if (vc.source_type === 'RETURN_SHIPPER') {
@@ -935,6 +935,9 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
                             : vc.remaining_amount.toLocaleString('vi-VN');
                         noteParts.push(`TRỪ ${vcAmountStr} CÔNG NỢ ẢO THU VỀ`);
                     }
+                } else if (vc.note) {
+                    // Virtual credit từ hủy đơn hoặc nguồn khác có note gốc
+                    noteParts.push(vc.note);
                 }
             }
         }
@@ -956,6 +959,8 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
         if (realCKBalance > 0) {
             if (walletData?.lastDepositSource === 'MANUAL_ADJUSTMENT') {
                 noteParts.push(walletData.lastDepositNote || 'Kiểm tra lại ghi chú công nợ');
+            } else if (walletData?.lastDepositSource === 'ORDER_CANCEL_REFUND' && walletData?.lastDepositNote) {
+                noteParts.push(walletData.lastDepositNote);
             } else {
                 let ckAmount = realCKBalance;
                 let ckDateStr;
