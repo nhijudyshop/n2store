@@ -1094,7 +1094,8 @@ function autoFillSaleNote() {
             for (const vc of vcList) {
                 if (vc.source_type === 'RETURN_SHIPPER') {
                     if (vc.ticket_note) {
-                        noteParts.push(vc.ticket_note);
+                        const hasReturnText = vc.ticket_note.toLowerCase().includes('thu về');
+                        noteParts.push(hasReturnText ? vc.ticket_note : `thu về ${vc.ticket_note}`);
                     } else {
                         const vcAmount = parseFloat(vc.remaining_amount);
                         const vcAmountStr = vcAmount >= 1000 ? `${Math.round(vcAmount / 1000)}K` : vcAmount;
