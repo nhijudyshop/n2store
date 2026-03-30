@@ -642,7 +642,7 @@
                     item.Number || '',
                     item.PartnerDisplayName || '',
                     item.Phone || '',
-                    item.FullAddress || item.Address || '',
+                    item.Address || '',
                     item.CashOnDelivery || 0
                 ]);
             });
@@ -683,7 +683,7 @@
                 item.Number || '',
                 item.PartnerDisplayName || '',
                 item.Phone || '',
-                item.FullAddress || item.Address || '',
+                item.Address || '',
                 item.CashOnDelivery || 0
             ]);
         });
