@@ -948,6 +948,52 @@ router.delete('/note-snapshots/cleanup', async (req, res) => {
 // =====================================================
 
 /**
+ * POST /api/realtime/processing-tags/batch
+ * Load processing tags by array of order codes (for date mode / cross-campaign lookup)
+ * Body: { codes: string[] }
+ */
+router.post('/processing-tags/batch', async (req, res) => {
+    try {
+        const { codes } = req.body;
+        const pool = req.app.locals.chatDb;
+
+        if (!pool) {
+            return res.status(500).json({ error: 'Database not available' });
+        }
+
+        if (!codes || !Array.isArray(codes) || codes.length === 0) {
+            return res.json({ success: true, data: {}, count: 0 });
+        }
+
+        // Limit to 500 codes per request
+        const limitedCodes = codes.slice(0, 500);
+
+        const result = await pool.query(
+            `SELECT order_code, order_id, campaign_id, data, updated_by, updated_at
+             FROM processing_tags
+             WHERE order_code = ANY($1::text[])`,
+            [limitedCodes]
+        );
+
+        const data = {};
+        for (const row of result.rows) {
+            data[row.order_code] = {
+                ...row.data,
+                orderId: row.order_id,
+                campaignId: row.campaign_id,
+                updatedBy: row.updated_by,
+                updatedAt: row.updated_at
+            };
+        }
+
+        res.json({ success: true, data, count: result.rowCount });
+    } catch (error) {
+        console.error('[REALTIME-DB] POST /processing-tags/batch error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
  * GET /api/realtime/processing-tags/:campaignId
  * Load tất cả processing tags cho 1 campaign
  */
@@ -1000,21 +1046,26 @@ router.put('/processing-tags/:campaignId/:orderId', async (req, res) => {
             return res.status(400).json({ error: 'Missing data in request body' });
         }
 
+        const orderCode = data?.code || null;
+
         await pool.query(`
-            INSERT INTO processing_tags (campaign_id, order_id, data, updated_by, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            INSERT INTO processing_tags (campaign_id, order_id, data, updated_by, order_code, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
             ON CONFLICT (campaign_id, order_id) DO UPDATE SET
                 data = $3,
                 updated_by = $4,
+                order_code = COALESCE($5, processing_tags.order_code),
                 updated_at = CURRENT_TIMESTAMP
-        `, [campaignId, orderId, JSON.stringify(data), updatedBy || null]);
+        `, [campaignId, orderId, JSON.stringify(data), updatedBy || null, orderCode]);
 
         // Notify SSE clients watching this campaign
         if (notifyClients) {
-            notifyClients('processing_tags/' + campaignId, { orderId, data, updatedBy }, 'update');
+            notifyClients('processing_tags/' + campaignId, { orderId, orderCode, data, updatedBy }, 'update');
+            // Also notify global subscribers (for date mode cross-campaign)
+            notifyClients('processing_tags_global', { orderId, orderCode, campaignId, data, updatedBy }, 'update');
         }
 
-        res.json({ success: true, campaignId, orderId });
+        res.json({ success: true, campaignId, orderId, orderCode });
     } catch (error) {
         console.error('[REALTIME-DB] PUT /processing-tags error:', error);
         res.status(500).json({ error: error.message });
@@ -1042,6 +1093,7 @@ router.delete('/processing-tags/:campaignId/:orderId', async (req, res) => {
         // Notify SSE clients
         if (notifyClients) {
             notifyClients('processing_tags/' + campaignId, { orderId }, 'deleted');
+            notifyClients('processing_tags_global', { orderId, campaignId }, 'deleted');
         }
 
         res.json({ success: true, deleted: result.rowCount > 0, campaignId, orderId });
