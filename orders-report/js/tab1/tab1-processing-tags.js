@@ -238,19 +238,21 @@
                         continue;
                     }
                     if (orderId === '__ptag_custom_flags__') {
+                        console.log(`${PTAG_LOG} Loading custom flags from server:`, JSON.stringify(data).substring(0, 200));
                         if (data.customFlagDefs) {
                             // New format: array of definitions
                             ProcessingTagState.setCustomFlagDefs(data.customFlagDefs);
                             loadedCustomFlags = true;
+                            console.log(`${PTAG_LOG} Loaded ${data.customFlagDefs.length} custom flag defs (new format)`);
                         } else if (data.customFlags) {
-                            // Old format: Map → convert to array
+                            // Old format: Map → convert to array + migrate
                             const defs = Object.entries(data.customFlags).map(([id, cf]) => ({
                                 id, label: cf.label, color: cf.color || '#7c3aed', createdAt: 0
                             }));
                             ProcessingTagState.setCustomFlagDefs(defs);
                             loadedCustomFlags = true;
-                            // Migrate to new format
-                            saveCustomFlagDefinitions();
+                            await saveCustomFlagDefinitions();
+                            console.log(`${PTAG_LOG} Migrated ${defs.length} custom flags to new format`);
                         }
                         continue;
                     }
@@ -387,7 +389,9 @@
     }
 
     async function saveCustomFlagDefinitions() {
-        const data = { customFlagDefs: ProcessingTagState.getCustomFlagDefs() };
+        const defs = ProcessingTagState.getCustomFlagDefs();
+        console.log(`${PTAG_LOG} Saving ${defs.length} custom flag definitions:`, defs.map(d => d.label));
+        const data = { customFlagDefs: defs };
         await saveProcessingTagToAPI('__ptag_custom_flags__', data);
     }
 
@@ -3634,7 +3638,7 @@
                 else if (PTAG_CATEGORY_META[cat]) label = PTAG_CATEGORY_META[cat].short;
                 else label = h.value;
             } else if (h.action === 'ADD_FLAG' || h.action === 'REMOVE_FLAG') {
-                label = PTAG_FLAGS[h.value]?.label || h.value;
+                label = PTAG_FLAGS[h.value]?.label || ProcessingTagState.getCustomFlagLabel(h.value);
             } else if (h.action === 'ADD_TTAG' || h.action === 'REMOVE_TTAG') {
                 label = ProcessingTagState.getTTagName(h.value);
             } else if (h.action === 'AUTO_HOAN_TAT') {
