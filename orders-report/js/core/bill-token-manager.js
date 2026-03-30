@@ -634,6 +634,13 @@ class BillTokenManager {
             console.log('[BILL-TOKEN] Auth not ready, will retry in 2s...');
             setTimeout(() => this._retryLoadFromFirestore(), 2000);
         }
+
+        // Default credentials if still none after loading
+        if (!this.hasCredentials()) {
+            console.log('[BILL-TOKEN] No credentials found, using default account');
+            this.credentials = { username: 'nvqldonhang', password: 'Aa@123456987' };
+            this.saveToStorage();
+        }
     }
 
     /**
@@ -645,6 +652,13 @@ class BillTokenManager {
         if (this.getWebUserId()) {
             console.log('[BILL-TOKEN] Retrying load from Firestore...');
             await this.loadFromFirestore();
+        }
+
+        // Default credentials if still none
+        if (!this.hasCredentials()) {
+            console.log('[BILL-TOKEN] No credentials found after retry, using default account');
+            this.credentials = { username: 'nvqldonhang', password: 'Aa@123456987' };
+            this.saveToStorage();
         }
     }
 
