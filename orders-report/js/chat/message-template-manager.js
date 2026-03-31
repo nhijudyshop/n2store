@@ -753,7 +753,7 @@ console.log('[TemplateMgr] Loading...');
         let messageContent = _replacePlaceholders(templateContent, orderData);
 
         // 3. Employee signature
-        const displayName = window.authManager?.getCurrentUser()?.displayName;
+        const displayName = window.authManager?.getUserInfo()?.displayName;
         if (displayName) messageContent += '\nNv. ' + displayName;
 
         // 4. Get chat info
@@ -952,7 +952,7 @@ console.log('[TemplateMgr] Loading...');
         if (window.kpiManager?.saveAutoBaseSnapshot && successOrders.length > 0) {
             try {
                 const campaignName = window.currentCampaignName || '';
-                const userId = window.authManager?.getCurrentUser()?.uid || '';
+                const userId = window.authManager?.getUserInfo()?.uid || '';
                 await window.kpiManager.saveAutoBaseSnapshot(successOrders, campaignName, userId);
             } catch (e) { /* ignore */ }
         }
@@ -1114,7 +1114,7 @@ console.log('[TemplateMgr] Loading...');
                     const od = _convertOrderData(fullOrder);
                     msg = _replacePlaceholders(msg, od);
                 }
-                const displayName = window.authManager?.getCurrentUser()?.displayName;
+                const displayName = window.authManager?.getUserInfo()?.displayName;
                 if (displayName) msg += '\nNv. ' + displayName;
 
                 await pdm.sendMessage(pageId, conv.id, { message: msg, type: 'reply_comment' });
