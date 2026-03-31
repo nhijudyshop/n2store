@@ -383,7 +383,7 @@
             const copySuccess = await copyToClipboard(finalContent);
 
             // Paste to input
-            const inputElement = document.getElementById('chatReplyInput');
+            const inputElement = document.getElementById('chatInput');
             if (inputElement) {
                 inputElement.value = finalContent;
                 inputElement.focus();

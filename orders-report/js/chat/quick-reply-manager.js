@@ -707,9 +707,9 @@ class QuickReplyManager {
     setupAutocomplete() {
         // Wait for DOM to be ready
         setTimeout(() => {
-            const chatInput = document.getElementById('chatReplyInput');
+            const chatInput = document.getElementById('chatInput');
             if (!chatInput) {
-                console.log('[QUICK-REPLY] ⚠️ chatReplyInput not found, autocomplete disabled');
+                console.log('[QUICK-REPLY] ⚠️ chatInput not found, autocomplete disabled');
                 return;
             }
 
@@ -869,7 +869,7 @@ class QuickReplyManager {
     }
 
     applyAutocompleteSuggestion(reply) {
-        const input = document.getElementById('chatReplyInput');
+        const input = document.getElementById('chatInput');
         if (!input) return;
 
         // DEBUG: Log reply object to check if imageUrl exists
@@ -902,14 +902,15 @@ class QuickReplyManager {
         const newValue = value.substring(0, lastSlashIndex) + reply.message + textAfterCursor;
         input.value = newValue;
 
-        // Set cursor position after inserted text
-        const newCursorPos = lastSlashIndex + reply.message.length;
-        input.setSelectionRange(newCursorPos, newCursorPos);
-
         this.hideAutocomplete();
         input.focus();
 
         console.log('[QUICK-REPLY] ✅ Applied autocomplete:', reply.shortcut);
+
+        // Auto-send the message immediately (no need for user to press Enter again)
+        if (window.sendMessage) {
+            setTimeout(() => window.sendMessage(), 50);
+        }
     }
 
     /**
