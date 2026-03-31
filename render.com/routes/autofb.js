@@ -105,23 +105,23 @@ async function solveCaptchaWithTesseract(svgString) {
 }
 
 // =====================================================
-// Combined solver: Gemini first, Tesseract fallback
+// Combined solver: Tesseract first (free), Gemini fallback
 // =====================================================
 
 async function solveCaptcha(svgString) {
-    // Try Gemini first (more accurate)
-    const geminiResult = await solveCaptchaWithGemini(svgString);
-    if (geminiResult) {
-        console.log(`[AUTOFB] Gemini solved: "${geminiResult}"`);
-        return geminiResult;
-    }
-
-    // Fallback to Tesseract
-    console.log('[AUTOFB] Gemini failed, trying Tesseract...');
+    // Try Tesseract first (free, no API cost)
     const tesseractResult = await solveCaptchaWithTesseract(svgString);
     if (tesseractResult) {
         console.log(`[AUTOFB] Tesseract solved: "${tesseractResult}"`);
         return tesseractResult;
+    }
+
+    // Fallback to Gemini (more accurate but costs $)
+    console.log('[AUTOFB] Tesseract failed, trying Gemini...');
+    const geminiResult = await solveCaptchaWithGemini(svgString);
+    if (geminiResult) {
+        console.log(`[AUTOFB] Gemini solved: "${geminiResult}"`);
+        return geminiResult;
     }
 
     return null;
