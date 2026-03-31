@@ -2386,6 +2386,10 @@ class InventoryPickerDialog {
             return idx !== -1 ? name.substring(idx + 1).trim() : name;
         };
 
+        // Helper: check if text contains ALL search words (multi-word fuzzy match)
+        const searchWords = this.searchTerm.split(/\s+/).filter(w => w.length > 0);
+        const matchesAllWords = (text) => searchWords.every(word => text.includes(word));
+
         // Require at least 2 characters - don't show all products to avoid lag
         if (this.searchTerm.length < 2) {
             this.filteredProducts = []; // Empty - will show search instruction
@@ -2397,14 +2401,13 @@ class InventoryPickerDialog {
                 if (mode === 'name') {
                     // Tìm theo tên: chỉ tìm trong phần sau []
                     const nameOnly = getNameWithoutBracket(fullName);
-                    return nameOnly.includes(this.searchTerm);
+                    return matchesAllWords(nameOnly);
                 }
-                if (mode === 'code') return code.includes(this.searchTerm);
-                return fullName.includes(this.searchTerm) || code.includes(this.searchTerm);
+                if (mode === 'code') return matchesAllWords(code);
+                return matchesAllWords(fullName) || matchesAllWords(code);
             });
 
-            // Sort: exact/earlier matches first
-            const term = this.searchTerm;
+            // Sort: exact/earlier matches first (score = sum of word positions)
             this.filteredProducts.sort((a, b) => {
                 const aFullName = (a.name || '').toLowerCase();
                 const aCode = (a.code || '').toLowerCase();
@@ -2413,16 +2416,23 @@ class InventoryPickerDialog {
 
                 const scoreName = (fullName) => {
                     const nameOnly = getNameWithoutBracket(fullName);
-                    const pos = nameOnly.indexOf(term);
-                    if (pos === -1) return 999;
-                    return pos;
+                    let total = 0;
+                    for (const word of searchWords) {
+                        const pos = nameOnly.indexOf(word);
+                        if (pos === -1) return 999;
+                        total += pos;
+                    }
+                    return total;
                 };
 
                 const scoreCode = (code) => {
-                    if (code === term) return -2;
-                    if (code.startsWith(term)) return -1;
-                    if (code.includes(term)) return 0;
-                    return 999;
+                    if (searchWords.length === 1) {
+                        const w = searchWords[0];
+                        if (code === w) return -2;
+                        if (code.startsWith(w)) return -1;
+                        if (code.includes(w)) return 0;
+                    }
+                    return matchesAllWords(code) ? 0 : 999;
                 };
 
                 if (mode === 'name') {
