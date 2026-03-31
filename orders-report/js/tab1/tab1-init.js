@@ -200,6 +200,57 @@ window.addEventListener("DOMContentLoaded", async function () {
         }
     }
 
+    // =====================================================
+    // OFFLINE PENDING CUSTOMERS - Fetch from server on startup
+    // =====================================================
+    async function _fetchOfflinePendingCustomers() {
+        try {
+            const API_BASE = 'https://n2store-fallback.onrender.com';
+            const resp = await fetch(`${API_BASE}/api/realtime/pending-customers?limit=500`);
+            if (!resp.ok) return;
+            const data = await resp.json();
+            if (!data.success || !data.customers?.length) return;
+
+            // Transform server format → notifier format
+            const pending = data.customers.map(c => ({
+                psid: c.psid,
+                pageId: c.page_id,
+                inboxCount: c.type === 'INBOX' ? (c.message_count || 1) : 0,
+                commentCount: c.type === 'COMMENT' ? (c.message_count || 1) : 0,
+                snippet: c.last_message_snippet || '',
+                timestamp: c.last_message_time ? new Date(c.last_message_time).getTime() : Date.now(),
+            }));
+
+            // Group by psid (server may have separate INBOX + COMMENT rows)
+            const grouped = new Map();
+            pending.forEach(p => {
+                const existing = grouped.get(p.psid);
+                if (existing) {
+                    existing.inboxCount += p.inboxCount;
+                    existing.commentCount += p.commentCount;
+                    if (p.timestamp > existing.timestamp) {
+                        existing.snippet = p.snippet;
+                        existing.timestamp = p.timestamp;
+                    }
+                } else {
+                    grouped.set(p.psid, { ...p });
+                }
+            });
+
+            window.newMessagesNotifier?.setPendingCustomers([...grouped.values()]);
+            console.log(`[Init] Loaded ${grouped.size} pending customers from server`);
+        } catch (e) {
+            console.warn('[Init] Failed to fetch offline pending:', e.message);
+        }
+    }
+
+    // Re-fetch pending on WebSocket reconnect (may have missed events)
+    window.addEventListener('realtimeStatusChanged', (e) => {
+        if (e.detail.connected) {
+            setTimeout(() => _fetchOfflinePendingCustomers(), 2000);
+        }
+    });
+
     // ⚡ OPTIMIZATION FIX: Defer TAG/KPI BASE listeners to reduce initial blocking
     // Previous: Setup immediately, blocking DOMContentLoaded
     // New: Defer by 1 second to allow UI to render first
@@ -243,6 +294,8 @@ window.addEventListener("DOMContentLoaded", async function () {
     // New: Run in background, show loading indicator
     initializeApp().then(() => {
         console.log('[APP] ✅ Initialization complete');
+        // Fetch offline pending customers after table is rendered
+        _fetchOfflinePendingCustomers();
     }).catch(err => {
         console.error('[APP] ❌ Initialization failed:', err);
         alert('Lỗi khởi tạo ứng dụng. Vui lòng refresh lại trang.');

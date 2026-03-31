@@ -44,6 +44,20 @@ window._getChatAvatarUrl = function(psid, pageId) {
 };
 
 // =====================================================
+// MARK REPLIED ON SERVER (clear pending_customers)
+// =====================================================
+
+function _markRepliedOnServer(psid, pageId) {
+    if (!psid) return;
+    const API_BASE = 'https://n2store-fallback.onrender.com';
+    fetch(`${API_BASE}/api/realtime/mark-replied`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ psid, pageId: pageId || null })
+    }).catch(() => {}); // Fire and forget
+}
+
+// =====================================================
 // MODAL LIFECYCLE
 // =====================================================
 
@@ -123,6 +137,9 @@ window.openChatModal = async function(orderId, pageId, psid, conversationType) {
     // Find conversation and load messages
     try {
         await _findAndLoadConversation(pageId, psid, conversationType);
+        // Clear pending badge for this customer (read messages)
+        window.newMessagesNotifier?.clearPendingForCustomer(psid);
+        _markRepliedOnServer(psid, pageId);
     } catch (e) {
         console.error('[Chat-Core] Error loading conversation:', e);
         if (messagesEl) {
