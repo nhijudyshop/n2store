@@ -23,6 +23,26 @@ window.currentSendPageId = null;        // override send from page
 window.currentReplyType = 'reply_comment'; // for COMMENT: 'reply_comment' | 'private_replies'
 window.isSendingMessage = false;
 
+/**
+ * Get avatar URL for a customer — same 4-tier fallback as inbox-chat.js
+ * Extracts direct avatar from currentConversationData, then falls back to proxy.
+ */
+window._getChatAvatarUrl = function(psid, pageId) {
+    const conv = window.currentConversationData || {};
+    const raw = conv._raw || {};
+    // Same priority as inbox: conv.avatar → from.picture → from.profile_pic → customers[].avatar
+    const directAvatar = conv.avatar
+        || raw.from?.picture?.data?.url
+        || raw.from?.profile_pic
+        || raw.customers?.[0]?.avatar
+        || conv.customers?.[0]?.avatar
+        || null;
+    if (window.pancakeDataManager?.getAvatarUrl) {
+        return window.pancakeDataManager.getAvatarUrl(psid, pageId, null, directAvatar);
+    }
+    return directAvatar || `https://graph.facebook.com/${psid}/picture?type=small`;
+};
+
 // =====================================================
 // MODAL LIFECYCLE
 // =====================================================
@@ -65,11 +85,12 @@ window.openChatModal = async function(orderId, pageId, psid, conversationType) {
     const nameEl = document.getElementById('chatCustomerName');
     if (nameEl) nameEl.textContent = window.currentCustomerName || 'Khách hàng';
 
-    // Update header avatar
+    // Update header avatar (same approach as inbox: extract direct avatar from conv data)
     const avatarEl = document.getElementById('chatCustomerAvatar');
     if (avatarEl && psid) {
         const initial = (window.currentCustomerName || 'K').charAt(0).toUpperCase();
-        avatarEl.innerHTML = `<img src="https://graph.facebook.com/${psid}/picture?type=small" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.style.display='none';this.parentElement.textContent='${initial}'">`;
+        const imgUrl = window._getChatAvatarUrl(psid, pageId);
+        avatarEl.innerHTML = `<img src="${imgUrl}" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.style.display='none';this.parentElement.textContent='${initial}'">`;
     }
 
     // Update type toggle

@@ -111,8 +111,8 @@ function _getAvatarContent(msg) {
     const initial = (msg.senderName || 'K').charAt(0).toUpperCase();
     if (psid) {
         const pageId = window.currentChatChannelId || '';
-        const imgUrl = window.pancakeDataManager?.getAvatarUrl
-            ? window.pancakeDataManager.getAvatarUrl(psid, pageId)
+        const imgUrl = window._getChatAvatarUrl
+            ? window._getChatAvatarUrl(psid, pageId)
             : `https://graph.facebook.com/${psid}/picture?type=small`;
         return `<img src="${imgUrl}" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.style.display='none';this.parentElement.textContent='${initial}'">`;
     }
