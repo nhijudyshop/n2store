@@ -137,6 +137,59 @@ let cachedToken = null;
 let cachedTokenExpiry = 0;
 
 // =====================================================
+// Ensure valid token (auto-login with env credentials)
+// =====================================================
+
+async function ensureToken() {
+    if (cachedToken && Date.now() < cachedTokenExpiry) {
+        return cachedToken;
+    }
+
+    const username = process.env.AUTOFB_USERNAME;
+    const password = process.env.AUTOFB_PASSWORD;
+    if (!username || !password) {
+        console.error('[AUTOFB] No AUTOFB_USERNAME/AUTOFB_PASSWORD configured');
+        return null;
+    }
+
+    console.log('[AUTOFB] Auto-login for payment...');
+    for (let attempt = 1; attempt <= 5; attempt++) {
+        try {
+            const captchaRes = await fetch(`${AUTOFB_BASE}/auth/captcha`, { headers: COMMON_HEADERS });
+            const captcha = await captchaRes.json();
+
+            const digits = await solveCaptcha(captcha.svg);
+            if (!digits) { console.log(`[AUTOFB] Attempt ${attempt}: captcha unreadable`); continue; }
+
+            const loginRes = await fetch(`${AUTOFB_BASE}/auth/login`, {
+                method: 'POST',
+                headers: { ...COMMON_HEADERS, 'Content-Type': 'application/json', 'x-timezone': 'Asia/Saigon' },
+                body: JSON.stringify({
+                    username, password,
+                    captcha_token: JSON.stringify({ captchaId: captcha.captchaId, captchaText: digits }),
+                }),
+            });
+
+            const result = await loginRes.json();
+            if (result.error_code?.includes('captcha')) { console.log(`[AUTOFB] Attempt ${attempt}: captcha wrong`); continue; }
+
+            if (result.isLoggedIn && result.token) {
+                cachedToken = result.token;
+                cachedTokenExpiry = Date.now() + 30 * 60 * 1000;
+                console.log(`[AUTOFB] Auto-login OK, attempt ${attempt}`);
+                return cachedToken;
+            }
+
+            console.error('[AUTOFB] Login failed:', result.error_code || result.message);
+            return null;
+        } catch (e) {
+            console.error(`[AUTOFB] Auto-login attempt ${attempt} error:`, e.message);
+        }
+    }
+    return null;
+}
+
+// =====================================================
 // Health check
 // =====================================================
 router.get('/', (req, res) => {
@@ -442,6 +495,51 @@ router.get('/api-balance', async (req, res) => {
         res.json({ success: true, data });
     } catch (e) {
         console.error('[AUTOFB-API] balance error:', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// =====================================================
+// POST /api/autofb/payment — Create deposit QR code
+// Body: { payment_amount, account_holder_name? }
+// =====================================================
+router.post('/payment', async (req, res) => {
+    const { payment_amount, account_holder_name } = req.body;
+
+    if (!payment_amount || payment_amount < 10000) {
+        return res.status(400).json({ success: false, error: 'Tối thiểu 10,000 VND' });
+    }
+
+    try {
+        const token = await ensureToken();
+        if (!token) {
+            return res.json({ success: false, error: 'Không thể đăng nhập AutoFB. Kiểm tra AUTOFB_USERNAME/AUTOFB_PASSWORD.' });
+        }
+
+        const payRes = await fetch(`${AUTOFB_BASE}/website/payment`, {
+            method: 'POST',
+            headers: {
+                ...COMMON_HEADERS,
+                'Content-Type': 'application/json',
+                'x-access-token': token,
+            },
+            body: JSON.stringify({
+                payment_method_id: 1,
+                payment_amount: Number(payment_amount),
+                account_holder_name: account_holder_name || process.env.AUTOFB_HOLDER_NAME || '',
+            }),
+        });
+
+        const data = await payRes.json();
+        console.log(`[AUTOFB] Payment response:`, JSON.stringify(data).substring(0, 300));
+
+        if (data.bank_name || data.QRCodeImage) {
+            return res.json({ success: true, data });
+        }
+
+        res.json({ success: false, error: data.message || 'Tạo mã nạp tiền thất bại', raw: data });
+    } catch (e) {
+        console.error('[AUTOFB] payment error:', e.message);
         res.status(500).json({ success: false, error: e.message });
     }
 });

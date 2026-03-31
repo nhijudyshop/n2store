@@ -46,9 +46,9 @@
                     <i data-lucide="wallet"></i>
                     <span id="balanceText">--</span>
                 </div>
-                <a href="https://autofb.pro/vi/wallet" target="_blank" class="btn btn-sm btn-outline" title="N&#7841;p ti&#7873;n">
+                <button class="btn btn-sm btn-outline" id="btnHeaderDeposit" title="N&#7841;p ti&#7873;n">
                     <i data-lucide="plus-circle"></i> N&#7841;p
-                </a>
+                </button>
             </div>
         </header>
 
@@ -227,7 +227,7 @@
                         <div class="deposit-notice">
                             <i data-lucide="info"></i>
                             <div>
-                                <p>N&#7841;p ti&#7873;n qua chuy&#7875;n kho&#7843;n ng&acirc;n h&agrave;ng tr&ecirc;n trang AutoFB.pro.</p>
+                                <p>N&#7841;p ti&#7873;n qua chuy&#7875;n kho&#7843;n ng&acirc;n h&agrave;ng.</p>
                                 <p>T&#7889;i thi&#7875;u: <strong>10,000 VND</strong></p>
                             </div>
                         </div>
@@ -254,19 +254,48 @@
                             </div>
                         </div>
 
-                        <!-- Open AutoFB Wallet -->
-                        <a href="https://autofb.pro/vi/wallet" target="_blank" class="btn btn-primary btn-lg btn-block" id="btnOpenWallet">
-                            <i data-lucide="external-link"></i> M&#7903; trang n&#7841;p ti&#7873;n AutoFB.pro
-                        </a>
+                        <!-- Create QR Button -->
+                        <button class="btn btn-primary btn-lg btn-block" id="btnCreateQR" disabled>
+                            <i data-lucide="qr-code"></i> T&#7841;o m&atilde; QR n&#7841;p ti&#7873;n
+                        </button>
 
-                        <div class="deposit-steps">
-                            <h4>H&#432;&#7899;ng d&#7851;n n&#7841;p:</h4>
-                            <ol>
-                                <li>Nh&#7845;n n&uacute;t <strong>"M&#7903; trang n&#7841;p ti&#7873;n"</strong> &#7903; tr&ecirc;n</li>
-                                <li>Nh&#7853;p s&#7889; ti&#7873;n c&#7847;n n&#7841;p</li>
-                                <li>Chuy&#7875;n kho&#7843;n theo th&ocirc;ng tin ng&acirc;n h&agrave;ng hi&#7875;n th&#7883;</li>
-                                <li>S&#7889; d&#432; s&#7869; &#273;&#432;&#7907;c c&#7853;p nh&#7853;t sau 1-5 ph&uacute;t</li>
-                            </ol>
+                        <!-- QR Result (hidden by default) -->
+                        <div class="qr-result" id="qrResult" style="display:none">
+                            <div class="qr-bank-info">
+                                <div class="qr-bank-row">
+                                    <span class="qr-label">Ng&acirc;n h&agrave;ng:</span>
+                                    <span class="qr-value" id="qrBankName">--</span>
+                                </div>
+                                <div class="qr-bank-row">
+                                    <span class="qr-label">S&#7889; t&agrave;i kho&#7843;n:</span>
+                                    <span class="qr-value" id="qrAccountNumber">--</span>
+                                    <button class="btn btn-sm btn-outline btn-copy" data-copy="qrAccountNumber" title="Copy">
+                                        <i data-lucide="copy"></i>
+                                    </button>
+                                </div>
+                                <div class="qr-bank-row">
+                                    <span class="qr-label">Ch&#7911; t&agrave;i kho&#7843;n:</span>
+                                    <span class="qr-value" id="qrAccountName">--</span>
+                                </div>
+                                <div class="qr-bank-row">
+                                    <span class="qr-label">S&#7889; ti&#7873;n:</span>
+                                    <span class="qr-value qr-amount" id="qrAmount">--</span>
+                                </div>
+                                <div class="qr-bank-row">
+                                    <span class="qr-label">N&#7897;i dung CK:</span>
+                                    <span class="qr-value" id="qrTransferContent">--</span>
+                                    <button class="btn btn-sm btn-outline btn-copy" data-copy="qrTransferContent" title="Copy">
+                                        <i data-lucide="copy"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="qr-image-container">
+                                <img id="qrImage" src="" alt="QR Code" />
+                            </div>
+                            <div class="qr-note">
+                                <i data-lucide="info"></i>
+                                <span>Qu&eacute;t m&atilde; QR ho&#7863;c chuy&#7875;n kho&#7843;n theo th&ocirc;ng tin tr&ecirc;n. S&#7889; d&#432; c&#7853;p nh&#7853;t sau 1-5 ph&uacute;t.</span>
+                            </div>
                         </div>
                     </div>
 

@@ -53,6 +53,7 @@ export const ROUTES = {
     AUTOFB_ORDER: { pattern: '/api/autofb-order', method: 'POST' },
     AUTOFB_ORDER_STATUS: { pattern: '/api/autofb-order-status', method: 'POST' },
     AUTOFB_CANCEL: { pattern: '/api/autofb-cancel', method: 'POST' },
+    AUTOFB_PAYMENT: { pattern: '/api/autofb-payment', method: 'POST' },
 
     // Proxy
     GENERIC_PROXY: { pattern: '/api/proxy' },
@@ -115,6 +116,7 @@ export function matchRoute(pathname) {
     if (pathname === '/api/autofb-order') return 'AUTOFB_ORDER';
     if (pathname === '/api/autofb-order-status') return 'AUTOFB_ORDER_STATUS';
     if (pathname === '/api/autofb-cancel') return 'AUTOFB_CANCEL';
+    if (pathname === '/api/autofb-payment') return 'AUTOFB_PAYMENT';
     if (pathname === '/api/proxy') return 'GENERIC_PROXY';
 
     // Pattern matches

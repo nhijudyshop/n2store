@@ -75,6 +75,13 @@
         return apiFetch('/api/autofb-cancel', { method: 'POST', body: { order_id: orderId } });
     }
 
+    async function createPayment(amount) {
+        return apiFetch('/api/autofb-payment', {
+            method: 'POST',
+            body: { payment_amount: amount },
+        });
+    }
+
     // =====================================================
     // RENDER SERVICES LIST
     // =====================================================
@@ -446,6 +453,11 @@
         document.getElementById('statPending').textContent = pending;
     }
 
+    function updateCreateQRButton() {
+        const amount = parseInt(document.getElementById('depositAmount').value) || 0;
+        document.getElementById('btnCreateQR').disabled = amount < 10000;
+    }
+
     function setupWalletEvents() {
         // Quick amount buttons
         document.querySelectorAll('.quick-amount-btn').forEach(btn => {
@@ -454,6 +466,7 @@
                 btn.classList.add('active');
                 document.getElementById('depositAmount').value = btn.dataset.amount;
                 updateDepositUSD();
+                updateCreateQRButton();
             });
         });
 
@@ -461,7 +474,62 @@
         document.getElementById('depositAmount').addEventListener('input', () => {
             document.querySelectorAll('.quick-amount-btn').forEach(b => b.classList.remove('active'));
             updateDepositUSD();
+            updateCreateQRButton();
         });
+
+        // Create QR button
+        document.getElementById('btnCreateQR').addEventListener('click', async () => {
+            const amount = parseInt(document.getElementById('depositAmount').value) || 0;
+            if (amount < 10000) return;
+
+            const btn = document.getElementById('btnCreateQR');
+            btn.disabled = true;
+            btn.innerHTML = '<i data-lucide="loader-2" class="animate-spin"></i> \u0110ang t\u1ea1o m\u00e3...';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+
+            try {
+                const result = await createPayment(amount);
+                if (result.success && result.data) {
+                    showQRResult(result.data, amount);
+                } else {
+                    alert(result.error || 'Kh\u00f4ng th\u1ec3 t\u1ea1o m\u00e3 QR');
+                }
+            } catch (e) {
+                alert('L\u1ed7i: ' + e.message);
+            }
+
+            btn.disabled = false;
+            btn.innerHTML = '<i data-lucide="qr-code"></i> T\u1ea1o m\u00e3 QR n\u1ea1p ti\u1ec1n';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            updateCreateQRButton();
+        });
+
+        // Copy buttons
+        document.querySelectorAll('.btn-copy').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const targetId = btn.dataset.copy;
+                const text = document.getElementById(targetId).textContent;
+                navigator.clipboard.writeText(text).then(() => {
+                    btn.innerHTML = '<i data-lucide="check"></i>';
+                    if (typeof lucide !== 'undefined') lucide.createIcons();
+                    setTimeout(() => {
+                        btn.innerHTML = '<i data-lucide="copy"></i>';
+                        if (typeof lucide !== 'undefined') lucide.createIcons();
+                    }, 1500);
+                });
+            });
+        });
+
+        // Header deposit button → switch to wallet tab
+        const headerBtn = document.getElementById('btnHeaderDeposit');
+        if (headerBtn) {
+            headerBtn.addEventListener('click', () => {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                document.querySelector('.tab-btn[data-tab="wallet"]').classList.add('active');
+                document.getElementById('tabWallet').classList.add('active');
+            });
+        }
 
         // Refresh balance
         document.getElementById('btnRefreshBalance').addEventListener('click', async () => {
@@ -474,6 +542,26 @@
             btn.innerHTML = '<i data-lucide="refresh-cw"></i> L\u00e0m m\u1edbi';
             if (typeof lucide !== 'undefined') lucide.createIcons();
         });
+    }
+
+    function showQRResult(data, amount) {
+        const container = document.getElementById('qrResult');
+        document.getElementById('qrBankName').textContent = data.bank_name || '--';
+        document.getElementById('qrAccountNumber').textContent = data.bank_account_number || '--';
+        document.getElementById('qrAccountName').textContent = data.bank_account_name || '--';
+        document.getElementById('qrAmount').textContent = Number(amount).toLocaleString() + ' VND';
+        document.getElementById('qrTransferContent').textContent = data.transfer_content || '--';
+
+        const qrImg = document.getElementById('qrImage');
+        if (data.QRCodeImage) {
+            qrImg.src = data.QRCodeImage;
+            qrImg.style.display = 'block';
+        } else {
+            qrImg.style.display = 'none';
+        }
+
+        container.style.display = 'block';
+        if (typeof lucide !== 'undefined') lucide.createIcons();
     }
 
     function updateDepositUSD() {

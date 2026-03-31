@@ -117,3 +117,20 @@ export async function handleAutofbCancel(request, url) {
         return errorResponse('Render proxy error: ' + e.message, 502);
     }
 }
+
+/**
+ * POST /api/autofb-payment — Create deposit QR code
+ */
+export async function handleAutofbPayment(request, url) {
+    if (request.method !== 'POST') return errorResponse('Use POST method', 405);
+
+    let body;
+    try { body = await request.json(); } catch { return errorResponse('Invalid JSON body', 400); }
+    if (!body.payment_amount) return errorResponse('Missing payment_amount', 400);
+
+    try {
+        return await proxyToRender('/api/autofb/payment', { method: 'POST', body });
+    } catch (e) {
+        return errorResponse('Render proxy error: ' + e.message, 502);
+    }
+}

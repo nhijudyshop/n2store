@@ -36,7 +36,7 @@ import {
 } from './modules/handlers/proxy-handler.js';
 import { handleDeepSeek, handleDeepSeekOcr } from './modules/handlers/ai-handler.js';
 import { handleSepayDashboard } from './modules/handlers/sepay-dashboard-handler.js';
-import { handleAutofbBalance, handleAutofbServices, handleAutofbApiBalance, handleAutofbOrder, handleAutofbOrderStatus, handleAutofbCancel } from './modules/handlers/autofb-handler.js';
+import { handleAutofbBalance, handleAutofbServices, handleAutofbApiBalance, handleAutofbOrder, handleAutofbOrderStatus, handleAutofbCancel, handleAutofbPayment } from './modules/handlers/autofb-handler.js';
 
 /**
  * Main fetch handler
@@ -133,6 +133,8 @@ export default {
                     return handleAutofbOrderStatus(request, url);
                 case 'AUTOFB_CANCEL':
                     return handleAutofbCancel(request, url);
+                case 'AUTOFB_PAYMENT':
+                    return handleAutofbPayment(request, url);
 
                 // Proxy
                 case 'GENERIC_PROXY':
