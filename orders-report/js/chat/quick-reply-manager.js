@@ -914,20 +914,15 @@ class QuickReplyManager {
     }
 
     /**
-     * Send quick reply with image - sends image first, then text message (independent requests)
-     * @param {string} imageUrl - URL of the image to send
-     * @param {string} message - Text message to send after the image
+     * Send quick reply with image - sends image first, then text message
+     * Uses pdm.sendMessage (Official API JSON) — same pattern as tab1-chat-messages.js
      */
     async sendQuickReplyWithImage(imageUrl, message) {
-        console.log('[QUICK-REPLY] 🚀 Sending quick reply with image');
-        console.log('[QUICK-REPLY] Image URL:', imageUrl);
-        console.log('[QUICK-REPLY] Message:', message);
-
+        console.log('[QUICK-REPLY] Sending quick reply with image:', imageUrl);
         window.isQuickReplySending = true;
 
         if (!window.currentConversationId || !window.currentChatChannelId) {
-            console.error('[QUICK-REPLY] ❌ Missing conversation info');
-            if (window.notificationManager) window.notificationManager.error('Không thể gửi: Thiếu thông tin cuộc hội thoại');
+            if (window.notificationManager) window.notificationManager.error('Thiếu thông tin cuộc hội thoại');
             window.isQuickReplySending = false;
             return;
         }
@@ -938,8 +933,10 @@ class QuickReplyManager {
 
             const channelId = window.currentSendPageId || window.currentChatChannelId;
             const conversationId = window.currentConversationId;
+            const pat = await pdm.getPageAccessToken(channelId);
+            if (!pat) throw new Error('Không tìm thấy page_access_token');
 
-            if (window.notificationManager) window.notificationManager.info('Đang gửi tin nhắn...', 3000);
+            if (window.notificationManager) window.notificationManager.info('Đang gửi...', 3000);
 
             // Add employee signature
             let finalMessage = message;
@@ -947,81 +944,122 @@ class QuickReplyManager {
                 || window.authManager?.getAuthState?.()?.displayName;
             if (displayName) finalMessage = message + '\nNv. ' + displayName;
 
-            // Step 1: Send image via Pancake internal API (content_url — image already on Pancake CDN)
-            console.log('[QUICK-REPLY] 📤 Sending image via content_url...');
-            const accessToken = await window.pancakeTokenManager?.getToken();
-            if (!accessToken) throw new Error('Không có access_token');
+            // Step 1: Send image
+            // Try content_url first (works if URL is from Pancake CDN upload)
+            let imageSent = false;
+            console.log('[QUICK-REPLY] Sending image via content_url...');
+            const imgResult = await pdm.sendMessage(channelId, conversationId, {
+                action: 'reply_inbox', message: '', content_url: imageUrl
+            }, pat);
 
-            const apiUrl = window.API_CONFIG.buildUrl.pancake(
-                `pages/${channelId}/conversations/${conversationId}/messages`,
-                `access_token=${accessToken}`
-            );
-
-            const formData = new FormData();
-            formData.append('action', 'reply_inbox');
-            formData.append('message', '');
-            formData.append('content_url', imageUrl);
-            formData.append('send_by_platform', 'web');
-
-            const imgRes = await fetch(apiUrl, { method: 'POST', body: formData });
-            const imgResult = await imgRes.json();
-            console.log('[QUICK-REPLY] Image API response:', imgResult);
-
-            if (imgResult.success === false) {
-                const errMsg = imgResult.message || imgResult.error || 'Image send failed';
-                const is24h = imgResult.e_code === 10 || (errMsg + '').includes('khoảng thời gian cho phép');
-                if (is24h) {
-                    if (window.notificationManager) window.notificationManager.show('⚠️ Không thể gửi (quá 24h). Vui lòng dùng COMMENT!', 'warning', 8000);
+            if (imgResult?.success !== false) {
+                imageSent = true;
+                console.log('[QUICK-REPLY] Image sent via content_url');
+            } else {
+                // Check 24h error
+                const errMsg = imgResult.message || '';
+                if (imgResult.e_code === 10 || errMsg.includes('khoảng thời gian cho phép')) {
+                    if (window.notificationManager) window.notificationManager.show('Không thể gửi (quá 24h). Vui lòng dùng COMMENT!', 'warning', 8000);
                     return;
                 }
-                // Fallback: download → upload → send via content_ids (Public API)
-                console.warn('[QUICK-REPLY] content_url failed, trying upload fallback...');
-                const downloaded = await fetch(imageUrl);
-                if (!downloaded.ok) throw new Error(errMsg);
-                const blob = await downloaded.blob();
-                const ext = imageUrl.match(/\.(jpg|jpeg|png|gif|webp)/i)?.[1] || 'jpg';
-                const file = new File([blob], `quick-reply.${ext}`, { type: blob.type || `image/${ext}` });
-                const uploadResult = await pdm.uploadImage(channelId, file);
-                const contentId = typeof uploadResult === 'object' ? (uploadResult.id || uploadResult.content_id) : uploadResult;
-                if (!contentId) throw new Error('Upload failed: ' + JSON.stringify(uploadResult));
-                const sendResult = await pdm.sendMessage(channelId, conversationId, { action: 'reply_inbox', content_ids: [contentId] });
-                if (sendResult?.success === false) throw new Error(sendResult.message || 'Send failed');
-            }
-            console.log('[QUICK-REPLY] ✅ Image sent');
 
-            // Step 2: Send text message
-            console.log('[QUICK-REPLY] 📤 Sending text message...');
-            const textResult = await pdm.sendMessage(channelId, conversationId, {
-                action: 'reply_inbox',
-                message: finalMessage
-            });
-            if (textResult && textResult.success === false) {
-                console.warn('[QUICK-REPLY] ⚠️ Text send failed (image already sent):', textResult.message);
-            } else {
-                console.log('[QUICK-REPLY] ✅ Text sent');
-            }
-
-            if (window.notificationManager) window.notificationManager.success('Đã gửi tin nhắn!', 3000);
-
-            // Refresh messages in UI
-            setTimeout(async () => {
+                // Fallback: download → upload → send via content_ids
+                console.log('[QUICK-REPLY] content_url failed, downloading and re-uploading...');
                 try {
-                    if (window.currentChatPSID && window.chatDataManager) {
-                        const response = await window.chatDataManager.fetchMessages(channelId, window.currentChatPSID);
-                        if (response.messages?.length > 0) {
-                            window.allChatMessages = response.messages;
-                            if (window.renderChatMessages) window.renderChatMessages(window.allChatMessages, false);
-                        }
+                    const downloaded = await fetch(imageUrl);
+                    if (!downloaded.ok) throw new Error('Download failed');
+                    const blob = await downloaded.blob();
+                    const ext = imageUrl.match(/\.(jpg|jpeg|png|gif|webp)/i)?.[1] || 'jpg';
+                    const file = new File([blob], `quick-reply.${ext}`, { type: blob.type || `image/${ext}` });
+
+                    const uploadResult = await pdm.uploadMedia(channelId, file, pat);
+                    if (uploadResult?.content_url) {
+                        const sendResult = await pdm.sendMessage(channelId, conversationId, {
+                            action: 'reply_inbox', message: '', content_url: uploadResult.content_url
+                        }, pat);
+                        if (sendResult?.success !== false) imageSent = true;
+                    } else if (uploadResult?.id) {
+                        const sendResult = await pdm.sendMessage(channelId, conversationId, {
+                            action: 'reply_inbox', content_ids: [uploadResult.id]
+                        }, pat);
+                        if (sendResult?.success !== false) imageSent = true;
                     }
-                } catch (e) { /* ignore refresh error */ }
-            }, 500);
+
+                    if (imageSent) {
+                        console.log('[QUICK-REPLY] Image sent via upload fallback');
+                    } else {
+                        console.warn('[QUICK-REPLY] Image upload fallback also failed');
+                    }
+                } catch (uploadErr) {
+                    console.warn('[QUICK-REPLY] Image upload fallback error:', uploadErr.message);
+                }
+            }
+
+            // Step 2: Send text (always attempt even if image failed)
+            console.log('[QUICK-REPLY] Sending text...');
+            const textResult = await pdm.sendMessage(channelId, conversationId, {
+                action: 'reply_inbox', message: finalMessage
+            }, pat);
+
+            const textSent = textResult?.success !== false;
+            if (textSent) console.log('[QUICK-REPLY] Text sent');
+
+            // Notify user
+            if (imageSent && textSent) {
+                if (window.notificationManager) window.notificationManager.success('Đã gửi!', 2000);
+            } else if (textSent) {
+                if (window.notificationManager) window.notificationManager.show('Đã gửi tin nhắn (ảnh gửi thất bại)', 'warning', 4000);
+            } else {
+                throw new Error(textResult?.message || 'Gửi thất bại');
+            }
+
+            // Refresh messages
+            this._refreshMessagesAfterSend(channelId, conversationId);
 
         } catch (error) {
-            console.error('[QUICK-REPLY] ❌ Error:', error);
+            console.error('[QUICK-REPLY] Error:', error);
             if (window.notificationManager) window.notificationManager.error('Lỗi: ' + error.message);
         } finally {
             setTimeout(() => { window.isQuickReplySending = false; }, 500);
         }
+    }
+
+    /** Refresh chat messages after quick reply send */
+    _refreshMessagesAfterSend(channelId, conversationId) {
+        setTimeout(async () => {
+            try {
+                const pdm = window.pancakeDataManager;
+                if (!pdm || window.currentConversationId !== conversationId) return;
+                pdm.clearMessagesCache(channelId, conversationId);
+                const result = await pdm.fetchMessages(channelId, conversationId);
+                if (result.messages?.length > 0 && window.currentConversationId === conversationId) {
+                    const pageId = channelId;
+                    const messages = result.messages.map(msg => {
+                        const isFromPage = msg.from?.id === pageId;
+                        return {
+                            id: msg.id,
+                            text: msg.original_message || (msg.message || '').replace(/<[^>]+>/g, ''),
+                            time: window._parseTimestamp?.(msg.inserted_at) || new Date(msg.inserted_at),
+                            sender: isFromPage ? 'shop' : 'customer',
+                            senderName: msg.from?.name || '',
+                            fromId: msg.from?.id || '',
+                            attachments: msg.attachments || [],
+                            reactions: (msg.attachments || []).filter(a => a.type === 'reaction'),
+                            reactionSummary: msg.reaction_summary || msg.reactions || null,
+                            isHidden: msg.is_hidden || false,
+                            isRemoved: msg.is_removed || false,
+                            canHide: msg.can_hide !== false,
+                            canRemove: msg.can_remove !== false,
+                            canLike: msg.can_like !== false,
+                            userLikes: msg.user_likes || false,
+                            privateReplyConversation: msg.private_reply_conversation || null,
+                        };
+                    });
+                    window.allChatMessages = messages;
+                    if (window.renderChatMessages) window.renderChatMessages(messages);
+                }
+            } catch (e) { /* ignore refresh error */ }
+        }, 2000);
     }
 
     hideAutocomplete() {
