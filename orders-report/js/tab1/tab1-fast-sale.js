@@ -3802,9 +3802,8 @@ async function printSuccessOrders(type) {
                     window.preGeneratedBillData?.get(orderNumber);
 
                 const sendOptions = {};
-                if (cachedData && cachedData.contentUrl && cachedData.contentId) {
+                if (cachedData && cachedData.contentId) {
                     console.log(`[FAST-SALE] ⚡ Using pre-generated bill for ${task.orderNumber}`);
-                    sendOptions.preGeneratedContentUrl = cachedData.contentUrl;
                     sendOptions.preGeneratedContentId = cachedData.contentId;
                 }
 

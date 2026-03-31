@@ -1343,26 +1343,24 @@
             // Convert blob to File for upload
             const imageFile = new File([imageBlob], `bill_${cacheKey}.png`, { type: 'image/png' });
 
-            // Upload to Pancake
+            // Upload to Pancake — API returns { id, type, success }
             const uploadResult = await window.pancakeDataManager.uploadImage(channelId, imageFile);
-            const contentUrl =
-                typeof uploadResult === 'string' ? uploadResult : uploadResult.content_url;
             const contentId =
                 typeof uploadResult === 'object'
-                    ? uploadResult.content_id || uploadResult.id
-                    : null;
+                    ? uploadResult.id || uploadResult.content_id
+                    : (typeof uploadResult === 'string' ? uploadResult : null);
 
-            if (contentUrl && contentId) {
+            if (contentId) {
                 // Cache for later use
                 window.preGeneratedBillData.set(cacheKey, {
-                    contentUrl,
                     contentId,
                     timestamp: Date.now(),
                 });
                 console.log(
                     '[INVOICE-STATUS] ✅ Bill pre-generated and cached:',
                     cacheKey,
-                    contentUrl
+                    'content_id:',
+                    contentId
                 );
             }
         } catch (error) {
@@ -1524,8 +1522,7 @@
             window.preGeneratedBillData?.get(enrichedOrder.Id) ||
             window.preGeneratedBillData?.get(enrichedOrder.Number);
         const sendOptions = {};
-        if (cachedData && cachedData.contentUrl && cachedData.contentId) {
-            sendOptions.preGeneratedContentUrl = cachedData.contentUrl;
+        if (cachedData && cachedData.contentId) {
             sendOptions.preGeneratedContentId = cachedData.contentId;
         }
 

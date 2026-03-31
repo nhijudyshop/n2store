@@ -1327,12 +1327,11 @@ ${
         }
 
         try {
-            let contentUrl = options.preGeneratedContentUrl || null;
             let contentId = options.preGeneratedContentId || null;
 
             // Use pre-generated content if available, otherwise generate and upload
-            if (contentUrl && contentId) {
-                console.log('[BILL-SERVICE] ⚡ Using pre-generated bill image:', contentUrl);
+            if (contentId) {
+                console.log('[BILL-SERVICE] ⚡ Using pre-generated content_id:', contentId);
             } else {
                 // Generate bill image using custom template (no TPOS API request)
                 console.log(
@@ -1357,18 +1356,20 @@ ${
 
                 const uploadResult = await window.pancakeDataManager.uploadImage(pageId, imageFile);
                 console.log('[BILL-SERVICE] Upload result:', JSON.stringify(uploadResult));
-                contentUrl =
-                    typeof uploadResult === 'string' ? uploadResult : (uploadResult.content_url || uploadResult.data?.content_url || uploadResult.url);
-                // IMPORTANT: Use content_id (hash), not id (UUID) - Pancake API expects content_id
-                contentId =
-                    typeof uploadResult === 'object'
-                        ? uploadResult.content_id || uploadResult.data?.content_id || uploadResult.id || uploadResult.data?.id
-                        : null;
 
-                if (!contentUrl) {
-                    throw new Error('Upload failed - no content_url returned');
+                // Pancake upload_contents API returns: { id, type/attachment_type, success }
+                // The "id" IS the content_id to use in content_ids[] when sending messages
+                // There is NO content_url — message and content_ids are mutually exclusive
+                if (typeof uploadResult === 'object' && uploadResult.success) {
+                    contentId = uploadResult.id || uploadResult.content_id;
+                } else if (typeof uploadResult === 'string') {
+                    contentId = uploadResult;
                 }
-                console.log('[BILL-SERVICE] Image uploaded:', contentUrl, 'content_id:', contentId);
+
+                if (!contentId) {
+                    throw new Error('Upload failed - no content id returned: ' + JSON.stringify(uploadResult));
+                }
+                console.log('[BILL-SERVICE] Image uploaded, content_id:', contentId);
             }
 
             // Step 3: Send message with image via Pancake API
@@ -1496,9 +1497,7 @@ ${
                     try {
                         const conv = window.buildConvData(pageId, psid);
                         conv.conversationId = convId;
-                        const billMessage = contentUrl
-                            ? `[Hóa đơn] ${contentUrl}`
-                            : '[Hóa đơn đã được tạo]';
+                        const billMessage = '[Hóa đơn đã được tạo]';
                         await window.sendViaExtension(billMessage, conv);
                         console.log('[BILL-SERVICE] Extension Bypass succeeded!');
                         return {
