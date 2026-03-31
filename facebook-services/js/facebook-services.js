@@ -1,0 +1,627 @@
+(function () {
+    'use strict';
+
+    // =====================================================
+    // CONFIG
+    // =====================================================
+
+    const CF_WORKER = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+    const RENDER_SERVER = 'https://n2store-fallback.onrender.com';
+    const HISTORY_KEY = 'autofb_order_history';
+    const USD_TO_VND = 25000;
+
+    // =====================================================
+    // STATE
+    // =====================================================
+
+    let allServices = [];
+    let selectedService = null;
+    let orderHistory = [];
+
+    // =====================================================
+    // API HELPERS
+    // =====================================================
+
+    async function apiFetch(path, options = {}) {
+        const url = `${CF_WORKER}${path}`;
+        const res = await fetch(url, {
+            method: options.method || 'GET',
+            headers: { 'Content-Type': 'application/json' },
+            ...(options.body ? { body: JSON.stringify(options.body) } : {}),
+        });
+        return res.json();
+    }
+
+    async function fetchServices() {
+        try {
+            const data = await apiFetch('/api/autofb-services');
+            if (data.success && Array.isArray(data.data)) {
+                return data.data;
+            }
+            // Try Render direct
+            const res = await fetch(`${RENDER_SERVER}/api/autofb/services`);
+            const fallback = await res.json();
+            if (fallback.success) return fallback.data;
+        } catch (e) {
+            console.error('[FB-SVC] fetchServices error:', e);
+        }
+        return [];
+    }
+
+    async function fetchBalance() {
+        try {
+            const data = await apiFetch('/api/autofb-api-balance');
+            if (data.success) return data.data;
+        } catch (e) {
+            console.error('[FB-SVC] fetchBalance error:', e);
+        }
+        return null;
+    }
+
+    async function createOrder(service, link, quantity, comments) {
+        const body = { service, link, quantity };
+        if (comments) body.comments = comments;
+        return apiFetch('/api/autofb-order', { method: 'POST', body });
+    }
+
+    async function checkOrderStatus(orderIds) {
+        if (Array.isArray(orderIds)) {
+            return apiFetch('/api/autofb-order-status', { method: 'POST', body: { order_ids: orderIds } });
+        }
+        return apiFetch('/api/autofb-order-status', { method: 'POST', body: { order_id: orderIds } });
+    }
+
+    async function cancelOrder(orderId) {
+        return apiFetch('/api/autofb-cancel', { method: 'POST', body: { order_id: orderId } });
+    }
+
+    // =====================================================
+    // RENDER SERVICES LIST
+    // =====================================================
+
+    function getCategories(services) {
+        const cats = new Map();
+        for (const s of services) {
+            const cat = s.category || 'Other';
+            cats.set(cat, (cats.get(cat) || 0) + 1);
+        }
+        return Array.from(cats.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+    }
+
+    function renderCategorySelect(categories) {
+        const sel = document.getElementById('categorySelect');
+        sel.innerHTML = '<option value="">T\u1ea5t c\u1ea3 danh m\u1ee5c</option>';
+        for (const [cat, count] of categories) {
+            const opt = document.createElement('option');
+            opt.value = cat;
+            opt.textContent = `${cat.trim()} (${count})`;
+            sel.appendChild(opt);
+        }
+    }
+
+    function renderServiceSelect(services) {
+        const sel = document.getElementById('serviceSelect');
+        sel.innerHTML = '<option value="">-- Ch\u1ecdn d\u1ecbch v\u1ee5 --</option>';
+        for (const s of services) {
+            const opt = document.createElement('option');
+            opt.value = s.service;
+            opt.textContent = `#${s.service} ${s.name} ($${s.rate}/1K)`;
+            sel.appendChild(opt);
+        }
+    }
+
+    function renderServicesList(services) {
+        const container = document.getElementById('servicesList');
+        if (!services.length) {
+            container.innerHTML = '<div class="loading-state"><span>Kh\u00f4ng t\u00ecm th\u1ea5y d\u1ecbch v\u1ee5</span></div>';
+            return;
+        }
+
+        container.innerHTML = services.map(s => `
+            <div class="service-item" data-id="${s.service}">
+                <div class="service-item-category">${(s.category || 'Other').trim()}</div>
+                <div class="service-item-name">#${s.service} ${s.name}</div>
+                <div class="service-item-meta">
+                    <span>$${s.rate}/1K</span>
+                    <span>Min: ${s.min}</span>
+                    <span>Max: ${Number(s.max).toLocaleString()}</span>
+                    ${s.refill ? '<span>Refill</span>' : ''}
+                    ${s.cancel ? '<span>Cancel</span>' : ''}
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function filterServices() {
+        const category = document.getElementById('categorySelect').value;
+        const search = document.getElementById('serviceSearch').value.toLowerCase().trim();
+
+        let filtered = allServices;
+        if (category) filtered = filtered.filter(s => s.category === category);
+        if (search) filtered = filtered.filter(s =>
+            s.name.toLowerCase().includes(search) ||
+            String(s.service).includes(search) ||
+            (s.category || '').toLowerCase().includes(search)
+        );
+
+        renderServicesList(filtered);
+        renderServiceSelect(filtered);
+    }
+
+    // =====================================================
+    // SELECT SERVICE
+    // =====================================================
+
+    function selectService(serviceId) {
+        selectedService = allServices.find(s => String(s.service) === String(serviceId)) || null;
+
+        // Update service select dropdown
+        document.getElementById('serviceSelect').value = serviceId || '';
+
+        // Highlight in list
+        document.querySelectorAll('.service-item').forEach(el => {
+            el.classList.toggle('selected', el.dataset.id === String(serviceId));
+        });
+
+        // Show/hide info
+        const infoCard = document.getElementById('serviceInfo');
+        if (!selectedService) {
+            infoCard.style.display = 'none';
+            return;
+        }
+
+        infoCard.style.display = 'block';
+        document.getElementById('serviceRate').textContent = `$${selectedService.rate} / 1000`;
+        document.getElementById('serviceMin').textContent = selectedService.min;
+        document.getElementById('serviceMax').textContent = Number(selectedService.max).toLocaleString();
+
+        // Show comments field for comment services
+        const isComment = (selectedService.category || '').toLowerCase().includes('comment')
+            || (selectedService.name || '').toLowerCase().includes('comment');
+        document.getElementById('commentsGroup').style.display = isComment ? 'block' : 'none';
+
+        // Set quantity min/max
+        const qtyInput = document.getElementById('quantityInput');
+        qtyInput.min = selectedService.min;
+        qtyInput.max = selectedService.max;
+        qtyInput.placeholder = `${selectedService.min} - ${Number(selectedService.max).toLocaleString()}`;
+
+        updateTotal();
+        updateSubmitButton();
+    }
+
+    // =====================================================
+    // PRICE CALCULATION
+    // =====================================================
+
+    function updateTotal() {
+        const qty = parseInt(document.getElementById('quantityInput').value) || 0;
+        const rate = selectedService ? parseFloat(selectedService.rate) : 0;
+        const total = (qty / 1000) * rate;
+        const totalVND = Math.round(total * USD_TO_VND);
+
+        document.getElementById('totalPrice').textContent = `$${total.toFixed(4)}`;
+        document.getElementById('totalPriceVND').textContent = `(${totalVND.toLocaleString()} \u0111)`;
+    }
+
+    function updateSubmitButton() {
+        const btn = document.getElementById('btnSubmitOrder');
+        const qty = parseInt(document.getElementById('quantityInput').value) || 0;
+        const link = document.getElementById('linkInput').value.trim();
+
+        const valid = selectedService && link && qty >= (selectedService.min || 1) && qty <= (selectedService.max || Infinity);
+        btn.disabled = !valid;
+    }
+
+    // =====================================================
+    // ORDER SUBMISSION
+    // =====================================================
+
+    async function submitOrder() {
+        const btn = document.getElementById('btnSubmitOrder');
+        btn.disabled = true;
+        btn.innerHTML = '<i data-lucide="loader-2" class="animate-spin"></i> \u0110ang \u0111\u1eb7t...';
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+
+        const link = document.getElementById('linkInput').value.trim();
+        const qty = parseInt(document.getElementById('quantityInput').value);
+        const comments = document.getElementById('commentsInput')?.value?.trim() || null;
+
+        try {
+            const result = await createOrder(selectedService.service, link, qty, comments);
+
+            if (result.success && result.data?.order_id) {
+                // Save to history
+                const order = {
+                    order_id: result.data.order_id,
+                    service_id: selectedService.service,
+                    service_name: selectedService.name,
+                    link,
+                    quantity: qty,
+                    rate: selectedService.rate,
+                    total: ((qty / 1000) * parseFloat(selectedService.rate)).toFixed(4),
+                    status: 'Pending',
+                    created_at: new Date().toISOString(),
+                };
+                orderHistory.unshift(order);
+                saveHistory();
+                renderHistory();
+
+                // Reset form
+                document.getElementById('linkInput').value = '';
+                document.getElementById('quantityInput').value = '';
+                document.getElementById('commentsInput').value = '';
+                updateTotal();
+
+                // Refresh balance
+                loadBalance();
+
+                alert(`\u0110\u1eb7t \u0111\u01a1n th\u00e0nh c\u00f4ng! Order ID: ${result.data.order_id}`);
+            } else {
+                alert(`L\u1ed7i: ${result.error || 'Kh\u00f4ng th\u1ec3 \u0111\u1eb7t \u0111\u01a1n'}`);
+            }
+        } catch (e) {
+            alert(`L\u1ed7i: ${e.message}`);
+        }
+
+        btn.disabled = false;
+        btn.innerHTML = '<i data-lucide="send"></i> \u0110\u1eb7t \u0110\u01a1n';
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        updateSubmitButton();
+    }
+
+    // =====================================================
+    // ORDER HISTORY
+    // =====================================================
+
+    function loadHistory() {
+        try {
+            orderHistory = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+        } catch { orderHistory = []; }
+    }
+
+    function saveHistory() {
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(orderHistory));
+    }
+
+    function renderHistory() {
+        const tbody = document.getElementById('historyTable');
+        if (!orderHistory.length) {
+            tbody.innerHTML = '<tr class="empty-row"><td colspan="8">Ch\u01b0a c\u00f3 \u0111\u01a1n h\u00e0ng n\u00e0o</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = orderHistory.map(o => {
+            const statusClass = getStatusClass(o.status);
+            const date = new Date(o.created_at);
+            const dateStr = `${date.getDate()}/${date.getMonth() + 1} ${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`;
+
+            return `<tr>
+                <td><strong>${o.order_id}</strong></td>
+                <td title="${o.service_name}">#${o.service_id}</td>
+                <td class="link-cell"><a href="${o.link}" target="_blank">${truncate(o.link, 30)}</a></td>
+                <td>${Number(o.quantity).toLocaleString()}</td>
+                <td>$${o.total}</td>
+                <td><span class="status-badge ${statusClass}">${o.status}</span></td>
+                <td>${dateStr}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline" onclick="window._fbSvc.checkStatus(${o.order_id})" title="Check status">
+                        <i data-lucide="refresh-cw"></i>
+                    </button>
+                    ${o.status === 'Pending' || o.status === 'Processing' ? `
+                    <button class="btn btn-sm btn-outline btn-danger" onclick="window._fbSvc.cancelOrd(${o.order_id})" title="Cancel">
+                        <i data-lucide="x"></i>
+                    </button>` : ''}
+                </td>
+            </tr>`;
+        }).join('');
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    function getStatusClass(status) {
+        if (!status) return '';
+        const s = status.toLowerCase();
+        if (s === 'completed') return 'status-completed';
+        if (s === 'pending') return 'status-pending';
+        if (s === 'processing' || s === 'in progress') return 'status-processing';
+        if (s === 'partial') return 'status-partial';
+        if (s === 'canceled' || s === 'cancelled' || s === 'refunded') return 'status-canceled';
+        return '';
+    }
+
+    function truncate(str, len) {
+        return str.length > len ? str.substring(0, len) + '...' : str;
+    }
+
+    async function refreshAllStatuses() {
+        const ids = orderHistory.filter(o => o.status !== 'Completed' && o.status !== 'Canceled' && o.status !== 'Cancelled').map(o => o.order_id);
+        if (!ids.length) return;
+
+        try {
+            const result = await checkOrderStatus(ids);
+            if (result.success && result.data) {
+                const statuses = result.data;
+                // Handle both single and multi-order responses
+                if (typeof statuses === 'object' && !Array.isArray(statuses)) {
+                    // Multi-order: { orderId: { status, ... } }
+                    for (const [id, info] of Object.entries(statuses)) {
+                        const order = orderHistory.find(o => String(o.order_id) === String(id));
+                        if (order && info.status) {
+                            order.status = capitalizeFirst(info.status);
+                            if (info.remains !== undefined) order.remains = info.remains;
+                        }
+                    }
+                } else if (statuses.status) {
+                    // Single order response
+                    const order = orderHistory.find(o => String(o.order_id) === String(ids[0]));
+                    if (order) order.status = capitalizeFirst(statuses.status);
+                }
+                saveHistory();
+                renderHistory();
+            }
+        } catch (e) {
+            console.error('[FB-SVC] refreshAllStatuses error:', e);
+        }
+    }
+
+    function capitalizeFirst(str) {
+        if (!str) return '';
+        return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+    }
+
+    // =====================================================
+    // FACEBOOK PAGE POSTS
+    // =====================================================
+
+    async function fetchFacebookPages() {
+        try {
+            const res = await fetch(`${RENDER_SERVER}/facebook/crm-teams`, {
+                headers: { 'Authorization': `Bearer ${getToken()}` }
+            });
+            if (!res.ok) return [];
+            const data = await res.json();
+            return data.data || data || [];
+        } catch { return []; }
+    }
+
+    async function fetchPagePosts(pageId) {
+        try {
+            const res = await fetch(`${RENDER_SERVER}/facebook/livevideo?pageid=${pageId}&limit=10`, {
+                headers: { 'Authorization': `Bearer ${getToken()}` }
+            });
+            if (!res.ok) return [];
+            const data = await res.json();
+            return data.data || [];
+        } catch { return []; }
+    }
+
+    function getToken() {
+        try {
+            const auth = JSON.parse(localStorage.getItem('bearer_token_data') || '{}');
+            return auth.access_token || '';
+        } catch { return ''; }
+    }
+
+    // =====================================================
+    // BALANCE
+    // =====================================================
+
+    async function loadBalance() {
+        const balData = await fetchBalance();
+        const el = document.getElementById('balanceText');
+        if (balData && balData.balance !== undefined) {
+            const vnd = Math.round(balData.balance * USD_TO_VND);
+            el.textContent = `$${Number(balData.balance).toFixed(2)} (~${vnd.toLocaleString()}\u0111)`;
+        } else {
+            el.textContent = 'L\u1ed7i';
+        }
+    }
+
+    // =====================================================
+    // TABS
+    // =====================================================
+
+    function setupTabs() {
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                btn.classList.add('active');
+                const tabId = 'tab' + capitalizeFirst(btn.dataset.tab);
+                document.getElementById(tabId).classList.add('active');
+            });
+        });
+    }
+
+    // =====================================================
+    // EVENT LISTENERS
+    // =====================================================
+
+    function setupEvents() {
+        // Category filter
+        document.getElementById('categorySelect').addEventListener('change', filterServices);
+
+        // Search
+        document.getElementById('serviceSearch').addEventListener('input', filterServices);
+
+        // Service select dropdown
+        document.getElementById('serviceSelect').addEventListener('change', (e) => {
+            selectService(e.target.value);
+        });
+
+        // Service list click
+        document.getElementById('servicesList').addEventListener('click', (e) => {
+            const item = e.target.closest('.service-item');
+            if (item) selectService(item.dataset.id);
+        });
+
+        // Quantity change
+        document.getElementById('quantityInput').addEventListener('input', () => {
+            updateTotal();
+            updateSubmitButton();
+        });
+
+        // Link change
+        document.getElementById('linkInput').addEventListener('input', updateSubmitButton);
+
+        // Submit
+        document.getElementById('btnSubmitOrder').addEventListener('click', submitOrder);
+
+        // Pick from page
+        document.getElementById('btnPickFromPage').addEventListener('click', async () => {
+            const group = document.getElementById('pagePostsGroup');
+            if (group.style.display === 'none') {
+                group.style.display = 'block';
+                const pages = await fetchFacebookPages();
+                const sel = document.getElementById('pageSelect');
+                sel.innerHTML = '<option value="">-- Ch\u1ecdn Page --</option>';
+                if (Array.isArray(pages)) {
+                    for (const p of pages) {
+                        const pageId = p.Facebook_PageId || p.id;
+                        const pageName = p.Facebook_PageName || p.name || pageId;
+                        if (pageId) {
+                            const opt = document.createElement('option');
+                            opt.value = pageId;
+                            opt.textContent = pageName;
+                            sel.appendChild(opt);
+                        }
+                    }
+                }
+            } else {
+                group.style.display = 'none';
+            }
+        });
+
+        // Page select
+        document.getElementById('pageSelect').addEventListener('change', async (e) => {
+            const pageId = e.target.value;
+            const postsList = document.getElementById('postsList');
+            if (!pageId) {
+                postsList.style.display = 'none';
+                return;
+            }
+
+            postsList.style.display = 'block';
+            postsList.innerHTML = '<div class="loading-state"><i data-lucide="loader-2" class="animate-spin"></i><span>\u0110ang t\u1ea3i...</span></div>';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+
+            const posts = await fetchPagePosts(pageId);
+            if (!posts.length) {
+                postsList.innerHTML = '<div class="loading-state"><span>Kh\u00f4ng c\u00f3 b\u00e0i vi\u1ebft</span></div>';
+                return;
+            }
+
+            postsList.innerHTML = posts.map(p => {
+                const link = `https://facebook.com/${pageId}/videos/${p.id || p.video_id || ''}`;
+                const title = p.title || p.description || 'Video';
+                const date = p.creation_time ? new Date(p.creation_time * 1000).toLocaleDateString('vi') : '';
+                return `<div class="post-item" data-link="${link}">
+                    <div class="post-item-title">${truncate(title, 60)}</div>
+                    <div class="post-item-date">${date}</div>
+                </div>`;
+            }).join('');
+
+            // Click post to fill link
+            postsList.querySelectorAll('.post-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    document.getElementById('linkInput').value = item.dataset.link;
+                    updateSubmitButton();
+                });
+            });
+        });
+
+        // Refresh all statuses
+        document.getElementById('btnRefreshAll').addEventListener('click', refreshAllStatuses);
+
+        // Clear history
+        document.getElementById('btnClearHistory').addEventListener('click', () => {
+            if (confirm('X\u00f3a to\u00e0n b\u1ed9 l\u1ecbch s\u1eed \u0111\u01a1n h\u00e0ng?')) {
+                orderHistory = [];
+                saveHistory();
+                renderHistory();
+            }
+        });
+    }
+
+    // =====================================================
+    // Expose functions for inline onclick
+    // =====================================================
+
+    window._fbSvc = {
+        async checkStatus(orderId) {
+            try {
+                const result = await checkOrderStatus(orderId);
+                if (result.success && result.data) {
+                    const status = result.data.status || 'Unknown';
+                    const order = orderHistory.find(o => String(o.order_id) === String(orderId));
+                    if (order) {
+                        order.status = capitalizeFirst(status);
+                        if (result.data.remains !== undefined) order.remains = result.data.remains;
+                        saveHistory();
+                        renderHistory();
+                    }
+                }
+            } catch (e) {
+                console.error('[FB-SVC] checkStatus error:', e);
+            }
+        },
+        async cancelOrd(orderId) {
+            if (!confirm(`H\u1ee7y \u0111\u01a1n #${orderId}?`)) return;
+            try {
+                const result = await cancelOrder(orderId);
+                if (result.success) {
+                    const order = orderHistory.find(o => String(o.order_id) === String(orderId));
+                    if (order) order.status = 'Canceled';
+                    saveHistory();
+                    renderHistory();
+                } else {
+                    alert(result.error || result.data?.error || 'Kh\u00f4ng th\u1ec3 h\u1ee7y');
+                }
+            } catch (e) {
+                alert('L\u1ed7i: ' + e.message);
+            }
+        }
+    };
+
+    // =====================================================
+    // INIT
+    // =====================================================
+
+    async function init() {
+        const mainContainer = document.getElementById('mainContainer');
+        if (mainContainer) mainContainer.style.display = 'block';
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+
+        setupTabs();
+        setupEvents();
+        loadHistory();
+        renderHistory();
+
+        // Load balance
+        loadBalance();
+
+        // Load services
+        allServices = await fetchServices();
+        if (allServices.length) {
+            const categories = getCategories(allServices);
+            renderCategorySelect(categories);
+            renderServiceSelect(allServices);
+            renderServicesList(allServices);
+        } else {
+            document.getElementById('servicesList').innerHTML = '<div class="loading-state"><span>Kh\u00f4ng th\u1ec3 t\u1ea3i d\u1ecbch v\u1ee5. Ki\u1ec3m tra API key.</span></div>';
+        }
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+
+        // Auto-refresh statuses
+        refreshAllStatuses();
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+})();

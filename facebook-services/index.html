@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>D&#7883;ch V&#7909; Facebook - N2STORE</title>
+    <meta http-equiv="Cache-Control" content="public, max-age=31536000" />
+
+    <link rel="stylesheet" href="css/facebook-services.css" />
+
+    <script type="module" src="../shared/esm/compat.js"></script>
+    <script>
+        if (window.location.protocol === 'file:') {
+            document.write('<script src="../shared/js/shared-auth-manager.js"><\/script>');
+            document.write('<script>if(typeof AuthManager!=="undefined")window.authManager=new AuthManager({redirectUrl:"../index.html"});<\/script>');
+        }
+    </script>
+    <script defer src="https://unpkg.com/lucide@0.294.0/dist/umd/lucide.min.js"></script>
+    <script defer src="../shared/js/navigation-modern.js"></script>
+</head>
+
+<body>
+    <!-- Access Denied -->
+    <div id="accessDenied" class="access-denied" style="display: none">
+        <h1><i data-lucide="shield-x"></i> Truy c&#7853;p b&#7883; t&#7915; ch&#7889;i</h1>
+        <p>B&#7841;n kh&ocirc;ng c&oacute; quy&#7873;n truy c&#7853;p.</p>
+        <a href="../index.html" class="btn btn-primary"><i data-lucide="arrow-left"></i> Quay v&#7873;</a>
+    </div>
+
+    <!-- Main Container -->
+    <main class="main-content" id="mainContainer" style="display: none">
+        <!-- Top Bar -->
+        <header class="top-bar">
+            <div class="top-bar-left">
+                <button class="mobile-menu-btn" id="mobileMenuBtn">
+                    <i data-lucide="menu"></i>
+                </button>
+                <h1 class="page-title">
+                    <i data-lucide="thumbs-up"></i>
+                    D&#7883;ch V&#7909; Facebook
+                </h1>
+            </div>
+            <div class="top-bar-right">
+                <div class="balance-display" id="balanceDisplay">
+                    <i data-lucide="wallet"></i>
+                    <span id="balanceText">--</span>
+                </div>
+                <a href="https://autofb.pro/vi/wallet" target="_blank" class="btn btn-sm btn-outline" title="N&#7841;p ti&#7873;n">
+                    <i data-lucide="plus-circle"></i> N&#7841;p
+                </a>
+            </div>
+        </header>
+
+        <!-- Tabs -->
+        <div class="tabs-bar">
+            <button class="tab-btn active" data-tab="order">
+                <i data-lucide="shopping-cart"></i> T&#7841;o &#272;&#417;n
+            </button>
+            <button class="tab-btn" data-tab="history">
+                <i data-lucide="history"></i> L&#7883;ch S&#7917; &#272;&#417;n
+            </button>
+        </div>
+
+        <!-- Tab: Create Order -->
+        <div class="tab-content active" id="tabOrder">
+            <div class="content-area">
+                <div class="order-layout">
+                    <!-- Left: Order Form -->
+                    <div class="order-form-panel">
+                        <!-- Category Filter -->
+                        <div class="form-group">
+                            <label><i data-lucide="filter"></i> Danh m&#7909;c</label>
+                            <select id="categorySelect" class="form-select">
+                                <option value="">T&#7845;t c&#7843; danh m&#7909;c</option>
+                            </select>
+                        </div>
+
+                        <!-- Service Select -->
+                        <div class="form-group">
+                            <label><i data-lucide="list"></i> D&#7883;ch v&#7909;</label>
+                            <select id="serviceSelect" class="form-select">
+                                <option value="">-- Ch&#7885;n d&#7883;ch v&#7909; --</option>
+                            </select>
+                        </div>
+
+                        <!-- Service Info -->
+                        <div class="service-info-card" id="serviceInfo" style="display:none">
+                            <div class="info-row">
+                                <span class="info-label">Gi&aacute;:</span>
+                                <span class="info-value" id="serviceRate">--</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Min:</span>
+                                <span class="info-value" id="serviceMin">--</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label">Max:</span>
+                                <span class="info-value" id="serviceMax">--</span>
+                            </div>
+                            <div class="info-row" id="serviceDescRow" style="display:none">
+                                <span class="info-label">M&ocirc; t&#7843;:</span>
+                                <span class="info-value" id="serviceDesc">--</span>
+                            </div>
+                        </div>
+
+                        <!-- Link Input -->
+                        <div class="form-group">
+                            <label><i data-lucide="link"></i> Link b&agrave;i vi&#7871;t</label>
+                            <div class="link-input-group">
+                                <input type="text" id="linkInput" class="form-input" placeholder="https://facebook.com/..." />
+                                <button class="btn btn-sm btn-outline" id="btnPickFromPage" title="L&#7845;y t&#7915; Page">
+                                    <i data-lucide="download"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Page Posts Dropdown (hidden by default) -->
+                        <div class="form-group" id="pagePostsGroup" style="display:none">
+                            <label><i data-lucide="file-text"></i> Ch&#7885;n b&agrave;i t&#7915; Page</label>
+                            <select id="pageSelect" class="form-select">
+                                <option value="">-- Ch&#7885;n Page --</option>
+                            </select>
+                            <div id="postsList" class="posts-list" style="display:none"></div>
+                        </div>
+
+                        <!-- Comments (for comment services) -->
+                        <div class="form-group" id="commentsGroup" style="display:none">
+                            <label><i data-lucide="message-square"></i> N&#7897;i dung comment</label>
+                            <textarea id="commentsInput" class="form-textarea" rows="4" placeholder="M&#7895;i d&ograve;ng 1 comment"></textarea>
+                        </div>
+
+                        <!-- Quantity -->
+                        <div class="form-group">
+                            <label><i data-lucide="hash"></i> S&#7889; l&#432;&#7907;ng</label>
+                            <input type="number" id="quantityInput" class="form-input" min="1" placeholder="Nh&#7853;p s&#7889; l&#432;&#7907;ng" />
+                        </div>
+
+                        <!-- Total -->
+                        <div class="total-estimate">
+                            <span>T&#7893;ng chi ph&iacute;:</span>
+                            <span class="total-price" id="totalPrice">$0.00</span>
+                            <span class="total-price-vnd" id="totalPriceVND">(0 &#273;)</span>
+                        </div>
+
+                        <!-- Submit -->
+                        <button class="btn btn-primary btn-lg btn-block" id="btnSubmitOrder" disabled>
+                            <i data-lucide="send"></i> &#272;&#7863;t &#272;&#417;n
+                        </button>
+                    </div>
+
+                    <!-- Right: Services Browser -->
+                    <div class="services-browser-panel">
+                        <div class="search-box">
+                            <i data-lucide="search"></i>
+                            <input type="text" id="serviceSearch" class="form-input" placeholder="T&igrave;m d&#7883;ch v&#7909;..." />
+                        </div>
+                        <div class="services-list" id="servicesList">
+                            <div class="loading-state">
+                                <i data-lucide="loader-2" class="animate-spin"></i>
+                                <span>&#272;ang t&#7843;i d&#7883;ch v&#7909;...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Order History -->
+        <div class="tab-content" id="tabHistory">
+            <div class="content-area">
+                <div class="history-header">
+                    <button class="btn btn-sm btn-outline" id="btnRefreshAll">
+                        <i data-lucide="refresh-cw"></i> C&#7853;p nh&#7853;t tr&#7841;ng th&aacute;i
+                    </button>
+                    <button class="btn btn-sm btn-outline btn-danger" id="btnClearHistory">
+                        <i data-lucide="trash-2"></i> X&oacute;a l&#7883;ch s&#7917;
+                    </button>
+                </div>
+                <div class="data-table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Order ID</th>
+                                <th>D&#7883;ch v&#7909;</th>
+                                <th>Link</th>
+                                <th>SL</th>
+                                <th>Gi&aacute;</th>
+                                <th>Tr&#7841;ng th&aacute;i</th>
+                                <th>Ng&agrave;y</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTable">
+                            <tr class="empty-row">
+                                <td colspan="8">Ch&#432;a c&oacute; &#273;&#417;n h&agrave;ng n&agrave;o</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="js/facebook-services.js"></script>
+</body>
+
+</html>
