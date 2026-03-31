@@ -287,7 +287,7 @@ function renderProductsTab(data) {
         (p, i) => `
         <tr class="product-row" data-index="${i}">
             <td>${i + 1}</td>
-            <td>${p.ImageUrl ? `<img src="${p.ImageUrl}" class="product-image">` : ""}</td>
+            <td>${p.ImageUrl ? `<img src="${p.ImageUrl}" class="product-image" loading="lazy">` : ""}</td>
             <td><div>${p.ProductNameGet || p.ProductName}</div><div style="font-size: 11px; color: #6b7280;">Mã: ${p.ProductCode || "N/A"}</div></td>
             <td style="text-align: center;"><div class="quantity-controls"><button onclick="updateProductQuantity(${i}, -1)" class="qty-btn"><i class="fas fa-minus"></i></button><input type="number" class="quantity-input" value="${p.Quantity || 1}" onchange="updateProductQuantity(${i}, 0, this.value)" min="1"><button onclick="updateProductQuantity(${i}, 1)" class="qty-btn"><i class="fas fa-plus"></i></button></div></td>
             <td style="text-align: right;">${(p.Price || 0).toLocaleString("vi-VN")}đ</td>
@@ -861,15 +861,12 @@ async function removeProduct(index) {
         }
     }
 
-    // Recalculate totals BEFORE re-rendering
-    recalculateTotals();
-
-    // Re-render products tab with updated data
-    switchEditTab("products");
+    // Surgical table update (preserves search input/results)
+    refreshProductsTableOnly();
 
     showSaveIndicator("success", "Đã xóa sản phẩm");
 
-    // 🔄 Refresh inline search UI to remove green highlight and badge
+    // Refresh inline search UI to remove green highlight and badge
     refreshInlineSearchUI();
 }
 
@@ -895,19 +892,53 @@ function saveProductDetail(index) {
     product.Price = newPrice;
 
     // Recalculate totals BEFORE re-rendering
-    recalculateTotals();
-
-    // Re-render products tab with updated data
-    switchEditTab("products");
+    // Surgical table update (preserves search input/results)
+    refreshProductsTableOnly();
 
     showSaveIndicator("success", "Giá đã cập nhật");
 
-    // 🔄 Refresh inline search UI (in case price affects display)
     refreshInlineSearchUI();
 }
 
 function cancelProductDetail() {
-    switchEditTab("products");
+    refreshProductsTableOnly();
+}
+
+/**
+ * Refresh only the products table tbody + totals.
+ * Does NOT destroy the search input/results area or re-init event listeners.
+ * Use this instead of switchEditTab("products") for in-tab data changes.
+ */
+function refreshProductsTableOnly() {
+    const tbody = document.getElementById('productsTableBody');
+    if (!tbody || !currentEditOrderData) return;
+
+    const data = currentEditOrderData;
+    if (!data.Details || data.Details.length === 0) {
+        // No products left - need full re-render to show empty state
+        switchEditTab('products');
+        return;
+    }
+
+    tbody.innerHTML = data.Details.map(
+        (p, i) => `
+        <tr class="product-row" data-index="${i}">
+            <td>${i + 1}</td>
+            <td>${p.ImageUrl ? `<img src="${p.ImageUrl}" class="product-image" loading="lazy">` : ""}</td>
+            <td><div>${p.ProductNameGet || p.ProductName}</div><div style="font-size: 11px; color: #6b7280;">Mã: ${p.ProductCode || "N/A"}</div></td>
+            <td style="text-align: center;"><div class="quantity-controls"><button onclick="updateProductQuantity(${i}, -1)" class="qty-btn"><i class="fas fa-minus"></i></button><input type="number" class="quantity-input" value="${p.Quantity || 1}" onchange="updateProductQuantity(${i}, 0, this.value)" min="1"><button onclick="updateProductQuantity(${i}, 1)" class="qty-btn"><i class="fas fa-plus"></i></button></div></td>
+            <td style="text-align: right;">${(p.Price || 0).toLocaleString("vi-VN")}đ</td>
+            <td style="text-align: right; font-weight: 600;">${((p.Quantity || 0) * (p.Price || 0)).toLocaleString("vi-VN")}đ</td>
+            <td><input type="text" class="note-input" value="${p.Note || ""}" onchange="updateProductNote(${i}, this.value)"></td>
+            <td style="text-align: center;"><div class="action-buttons"><button onclick="editProductDetail(${i})" class="btn-product-action btn-edit-item" title="Sửa"><i class="fas fa-edit"></i></button><button onclick="removeProduct(${i})" class="btn-product-action btn-delete-item" title="Xóa"><i class="fas fa-trash"></i></button></div></td>
+        </tr>`
+    ).join("");
+
+    // Update product count header
+    const h4 = tbody.closest('.info-card')?.querySelector('h4');
+    if (h4) h4.innerHTML = `<i class="fas fa-box"></i> Danh sách sản phẩm (${data.Details.length})`;
+
+    recalculateTotals();
 }
 
 function recalculateTotals() {
@@ -1187,7 +1218,8 @@ async function reloadExcelProducts() {
 
 function initInlineProductSearch() {
     const searchInput = document.getElementById("inlineProductSearch");
-    if (!searchInput) return;
+    if (!searchInput || searchInput.dataset.searchInit) return;
+    searchInput.dataset.searchInit = "1";
     searchInput.addEventListener("input", () => {
         const query = searchInput.value.trim();
         if (inlineSearchTimeout) clearTimeout(inlineSearchTimeout);
@@ -1355,17 +1387,9 @@ function updateProductItemUI(productId) {
 // REFRESH INLINE SEARCH UI AFTER ANY DATA CHANGE
 // =====================================================
 function refreshInlineSearchUI() {
-    // Get all product items currently displayed in search results
     const productItems = document.querySelectorAll('.inline-result-item');
+    if (productItems.length === 0) return;
 
-    if (productItems.length === 0) {
-        console.log('[REFRESH UI] No search results to refresh');
-        return;
-    }
-
-    console.log(`[REFRESH UI] Refreshing ${productItems.length} items in search results`);
-
-    // Create a map of current quantities
     const productsInOrder = new Map();
     if (currentEditOrderData && currentEditOrderData.Details) {
         currentEditOrderData.Details.forEach(detail => {
@@ -1373,7 +1397,6 @@ function refreshInlineSearchUI() {
         });
     }
 
-    // Update each product item
     productItems.forEach(item => {
         const productId = parseInt(item.getAttribute('data-product-id'));
         if (!productId) return;
@@ -1423,8 +1446,6 @@ function refreshInlineSearchUI() {
             }
         }
     });
-
-    console.log('[REFRESH UI] UI refresh completed');
 }
 
 async function addProductToOrderFromInline(productId) {
@@ -1564,11 +1585,8 @@ async function addProductToOrderFromInline(productId) {
             searchInput.select();
         }
 
-        // Recalculate totals BEFORE re-rendering
-        recalculateTotals();
-
-        // ✅ FIX: Use switchEditTab instead of renderTabContent to re-init event listeners
-        switchEditTab("products");
+        // Surgical table update (preserves search input/results + event listeners)
+        refreshProductsTableOnly();
 
         // KPI Audit Log - ghi nhận thêm sản phẩm từ edit modal (chỉ SP mới, không log khi tăng SL vì updateProductQuantity đã xử lý)
         if (window.kpiAuditLogger && existingProductIndex === -1) {
