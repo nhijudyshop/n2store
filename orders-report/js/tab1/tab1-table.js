@@ -1622,10 +1622,18 @@ const PARTNER_STATUS_OPTIONS = [
     { value: "#5bc0deff", text: "VIP" }
 ];
 
+let _pendingPartnerStatus = null; // { partnerId, color, text }
+
 function openPartnerStatusModal(partnerId, currentStatus) {
     const modal = document.getElementById('partnerStatusModal');
     const container = document.getElementById('partnerStatusOptions');
     if (!modal || !container) return;
+
+    _pendingPartnerStatus = null;
+    const noteEl = document.getElementById('partnerStatusNote');
+    const confirmBtn = document.getElementById('partnerStatusConfirmBtn');
+    if (noteEl) noteEl.value = '';
+    if (confirmBtn) { confirmBtn.disabled = true; confirmBtn.style.opacity = '0.5'; }
 
     // Populate options
     container.innerHTML = '';
@@ -1638,7 +1646,13 @@ function openPartnerStatusModal(partnerId, currentStatus) {
             <span class="status-color-dot" style="background-color: ${option.value};"></span>
             <span class="status-text">${option.text}</span>
         `;
-        btn.onclick = () => updatePartnerStatus(partnerId, option.value, option.text);
+        btn.onclick = () => {
+            // Highlight selected
+            container.querySelectorAll('.status-btn').forEach(b => b.classList.remove('selected'));
+            btn.classList.add('selected');
+            _pendingPartnerStatus = { partnerId, color: option.value, text: option.text };
+            if (confirmBtn) { confirmBtn.disabled = false; confirmBtn.style.opacity = '1'; }
+        };
         container.appendChild(btn);
     });
 
@@ -1648,15 +1662,22 @@ function openPartnerStatusModal(partnerId, currentStatus) {
 function closePartnerStatusModal() {
     const modal = document.getElementById('partnerStatusModal');
     if (modal) modal.classList.remove('show');
+    _pendingPartnerStatus = null;
 }
 
-async function updatePartnerStatus(partnerId, color, text) {
+async function confirmPartnerStatus() {
+    if (!_pendingPartnerStatus) return;
+    const { partnerId, color, text } = _pendingPartnerStatus;
+    const noteEl = document.getElementById('partnerStatusNote');
+    const note = noteEl ? noteEl.value.trim() : '';
+    await updatePartnerStatus(partnerId, color, text, note);
+}
+
+async function updatePartnerStatus(partnerId, color, text, note) {
     closePartnerStatusModal();
 
-    // Optimistic update (optional, but good for UX)
-    // For now, we'll wait for API success to ensure consistency
-
     try {
+        // 1. Update status via UpdateStatus API
         const url = `${API_CONFIG.WORKER_URL}/api/odata/Partner(${partnerId})/ODataService.UpdateStatus`;
         const headers = await window.tokenManager.getAuthHeader();
 
@@ -1671,6 +1692,28 @@ async function updatePartnerStatus(partnerId, color, text) {
         });
 
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+        // 2. If note provided, update Zalo field via GET + PUT
+        if (note) {
+            try {
+                const partnerUrl = `${API_CONFIG.WORKER_URL}/api/odata/Partner(${partnerId})`;
+                const getRes = await API_CONFIG.smartFetch(partnerUrl, {
+                    method: 'GET',
+                    headers: { ...headers, 'accept': 'application/json, text/plain, */*', 'feature-version': '2', 'x-tpos-lang': 'vi' }
+                });
+                if (getRes.ok) {
+                    const partnerData = await getRes.json();
+                    partnerData.Zalo = note;
+                    await API_CONFIG.smartFetch(partnerUrl, {
+                        method: 'PUT',
+                        headers: { ...headers, 'content-type': 'application/json;charset=UTF-8', 'accept': 'application/json, text/plain, */*', 'feature-version': '2', 'x-tpos-lang': 'vi' },
+                        body: JSON.stringify(partnerData)
+                    });
+                }
+            } catch (noteErr) {
+                console.error('[PARTNER] Update note failed:', noteErr);
+            }
+        }
 
         // Success
         window.notificationManager.show('Cập nhật trạng thái thành công', 'success');
