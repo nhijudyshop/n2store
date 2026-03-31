@@ -300,6 +300,70 @@ router.delete('/row/:table', async (req, res) => {
 });
 
 /**
+ * PUT /api/admin/data/row/:table
+ * Update a single row by primary key
+ */
+router.put('/row/:table', async (req, res) => {
+    try {
+        const db = req.app.locals.chatDb;
+        if (!db) return res.status(500).json({ error: 'Database not available' });
+
+        const tableName = req.params.table;
+        const tableInfo = ALL_TABLES[tableName];
+
+        // Check if table exists
+        if (!tableInfo) {
+            const checkExists = await db.query(
+                `SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = $1 AND table_type = 'BASE TABLE'`, [tableName]
+            );
+            if (checkExists.rows.length === 0) {
+                return res.status(400).json({ error: `Table "${tableName}" does not exist or is a view` });
+            }
+        }
+        if (tableInfo?.isView) {
+            return res.status(400).json({ error: 'Cannot update a view' });
+        }
+
+        const { pkValue, pkValues, updates } = req.body;
+
+        if (!updates || Object.keys(updates).length === 0) {
+            return res.status(400).json({ error: 'No updates provided' });
+        }
+
+        // Build SET clause
+        const setCols = Object.keys(updates);
+        const setValues = Object.values(updates);
+        const setClause = setCols.map((col, i) => `"${col}" = $${i + 1}`).join(', ');
+
+        if (tableInfo?.compositePk) {
+            if (!pkValues || Object.keys(pkValues).length !== tableInfo.compositePk.length) {
+                return res.status(400).json({ error: 'Missing composite primary key values' });
+            }
+            const conditions = tableInfo.compositePk.map((col, i) => `"${col}" = $${setCols.length + i + 1}`);
+            const whereValues = tableInfo.compositePk.map(col => pkValues[col]);
+            await db.query(
+                `UPDATE "${tableName}" SET ${setClause} WHERE ${conditions.join(' AND ')}`,
+                [...setValues, ...whereValues]
+            );
+        } else {
+            const pk = tableInfo?.pk || 'id';
+            if (!pkValue && pkValue !== 0) {
+                return res.status(400).json({ error: 'Missing primary key value (pkValue)' });
+            }
+            await db.query(
+                `UPDATE "${tableName}" SET ${setClause} WHERE "${pk}" = $${setCols.length + 1}`,
+                [...setValues, pkValue]
+            );
+        }
+
+        res.json({ success: true, message: 'Row updated' });
+    } catch (error) {
+        console.error(`[ADMIN-DATA] Error updating ${req.params.table}:`, error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
  * DELETE /api/admin/data/truncate/:table
  * Truncate entire table (delete all rows)
  */

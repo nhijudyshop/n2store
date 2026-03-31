@@ -27,6 +27,9 @@ let currentSearch = '';
 let tableData = null;
 let pendingDeleteAction = null;
 let searchTimeout = null;
+let loadedRows = [];
+let loadedColumns = [];
+let editingRowIdx = null;
 
 // Firebase state
 let fbCollections = [];
@@ -229,26 +232,36 @@ async function loadData() {
 
         tableEl.style.display = 'table';
 
+        // Store loaded data for index-based access
+        loadedRows = data.rows;
+        loadedColumns = data.columns;
+
         // Render header
         const cols = data.columns.map(c => c.column_name);
         tableHead.innerHTML = `<tr>
-            <th style="width:60px">Actions</th>
+            <th style="width:90px">Actions</th>
             ${cols.map(c => `<th>${c}</th>`).join('')}
         </tr>`;
 
-        // Render rows
+        // Check if table is a view (no edit/delete for views)
+        const isView = isCurrentTableView();
+
+        // Render rows using index-based references
         tableBody.innerHTML = data.rows.map((row, idx) => {
-            const pkValue = getPkValue(row);
             return `<tr>
                 <td class="cell-actions">
-                    <button class="btn-icon btn-icon-view" onclick='viewRow(${JSON.stringify(row).replace(/'/g, "\\'")})'
+                    <button class="btn-icon btn-icon-view" onclick="viewRowByIdx(${idx})"
                             title="Xem chi tiết">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                     </button>
-                    <button class="btn-icon" onclick='confirmDeleteRow(${JSON.stringify(pkValue).replace(/'/g, "\\'")})'
+                    ${!isView ? `<button class="btn-icon btn-icon-edit" onclick="editRowByIdx(${idx})"
+                            title="Sửa row">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    </button>
+                    <button class="btn-icon" onclick="deleteRowByIdx(${idx})"
                             title="Xóa row">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-                    </button>
+                    </button>` : ''}
                 </td>
                 ${cols.map(c => `<td>${renderCell(row[c])}</td>`).join('')}
             </tr>`;
@@ -361,11 +374,28 @@ function goToPage(page) {
 }
 
 // =====================================================
-// RENDER TAB - DELETE ROW
+// RENDER TAB - HELPERS
 // =====================================================
 
-function confirmDeleteRow(pkInfo) {
+function isCurrentTableView() {
+    if (!tableData) return false;
+    for (const tables of Object.values(tableData)) {
+        const tInfo = tables.find(t => t.name === currentTable);
+        if (tInfo) return !!tInfo.isView;
+    }
+    return false;
+}
+
+// =====================================================
+// RENDER TAB - DELETE ROW (index-based)
+// =====================================================
+
+function deleteRowByIdx(idx) {
+    const row = loadedRows[idx];
+    if (!row) return;
+    const pkInfo = getPkValue(row);
     pendingDeleteAction = { type: 'row', pkInfo };
+
     const modal = document.getElementById('confirmModal');
     document.getElementById('modalTitle').textContent = 'Xác nhận xóa row';
     let desc = '';
@@ -375,7 +405,7 @@ function confirmDeleteRow(pkInfo) {
         desc = `${pkInfo.pk} = ${pkInfo.value}`;
     }
     document.getElementById('modalBody').innerHTML =
-        `Bạn có chắc chắn muốn xóa row này?<br><strong>${escapeHtml(desc)}</strong><br><br>` +
+        `Bạn có chắc chắn muốn xóa row này?<br><strong>${escapeHtml(String(desc))}</strong><br><br>` +
         `<span style="color:var(--danger);font-size:0.8rem;">Hành động này không thể hoàn tác!</span>`;
     modal.style.display = 'flex';
 }
@@ -456,8 +486,150 @@ async function executeDelete() {
 }
 
 // =====================================================
-// RENDER TAB - VIEW ROW DETAIL
+// RENDER TAB - EDIT ROW
 // =====================================================
+
+function editRowByIdx(idx) {
+    const row = loadedRows[idx];
+    if (!row) return;
+    editingRowIdx = idx;
+
+    const modal = document.getElementById('editModal');
+    const body = document.getElementById('editModalBody');
+    const pkInfo = getPkValue(row);
+
+    // Get PK columns to mark as readonly
+    let pkCols = [];
+    if (pkInfo.compositePk) {
+        pkCols = Object.keys(pkInfo.pkValues);
+    } else if (pkInfo.pk) {
+        pkCols = [pkInfo.pk];
+    }
+
+    const cols = loadedColumns.map(c => c.column_name);
+    const colTypes = {};
+    loadedColumns.forEach(c => { colTypes[c.column_name] = c.data_type; });
+
+    body.innerHTML = cols.map(col => {
+        const val = row[col];
+        const isPk = pkCols.includes(col);
+        const dataType = colTypes[col] || 'text';
+        const isJson = typeof val === 'object' && val !== null;
+        const displayVal = val === null || val === undefined ? '' : (isJson ? JSON.stringify(val, null, 2) : String(val));
+
+        const isLongText = displayVal.length > 80 || isJson || dataType === 'text' || dataType === 'jsonb' || dataType === 'json';
+
+        return `<div class="edit-field">
+            <label class="edit-label">
+                ${escapeHtml(col)}
+                <span class="edit-type">${escapeHtml(dataType)}${isPk ? ' (PK)' : ''}</span>
+            </label>
+            ${isLongText
+                ? `<textarea class="edit-input" data-col="${escapeHtml(col)}" data-type="${escapeHtml(dataType)}" ${isPk ? 'readonly' : ''} rows="3">${escapeHtml(displayVal)}</textarea>`
+                : `<input class="edit-input" data-col="${escapeHtml(col)}" data-type="${escapeHtml(dataType)}" ${isPk ? 'readonly' : ''} value="${escapeHtml(displayVal)}">`
+            }
+            ${val === null ? '<span class="edit-null-hint">NULL</span>' : ''}
+        </div>`;
+    }).join('');
+
+    modal.style.display = 'flex';
+}
+
+async function saveEdit() {
+    if (editingRowIdx === null) return;
+    const row = loadedRows[editingRowIdx];
+    if (!row) return;
+
+    const pkInfo = getPkValue(row);
+    const inputs = document.querySelectorAll('#editModalBody .edit-input');
+    const updates = {};
+
+    // Get PK columns
+    let pkCols = [];
+    if (pkInfo.compositePk) {
+        pkCols = Object.keys(pkInfo.pkValues);
+    } else if (pkInfo.pk) {
+        pkCols = [pkInfo.pk];
+    }
+
+    inputs.forEach(input => {
+        const col = input.dataset.col;
+        const dataType = input.dataset.type;
+        if (pkCols.includes(col)) return; // skip PK fields
+
+        const newVal = input.tagName === 'TEXTAREA' ? input.value : input.value;
+        const oldVal = row[col];
+
+        // Convert value based on type
+        let parsedNew = newVal;
+        if (newVal === '' && oldVal === null) return; // still null, skip
+        if (newVal === '') {
+            parsedNew = null;
+        } else if (['integer', 'bigint', 'smallint', 'serial', 'bigserial'].includes(dataType)) {
+            parsedNew = parseInt(newVal);
+            if (isNaN(parsedNew)) { parsedNew = newVal; }
+        } else if (['numeric', 'decimal', 'real', 'double precision'].includes(dataType)) {
+            parsedNew = parseFloat(newVal);
+            if (isNaN(parsedNew)) { parsedNew = newVal; }
+        } else if (dataType === 'boolean') {
+            parsedNew = newVal === 'true' || newVal === '1';
+        } else if (['jsonb', 'json'].includes(dataType)) {
+            try { parsedNew = JSON.parse(newVal); } catch { parsedNew = newVal; }
+        }
+
+        // Compare with old value
+        const oldStr = oldVal === null || oldVal === undefined ? null : (typeof oldVal === 'object' ? JSON.stringify(oldVal) : String(oldVal));
+        const newStr = parsedNew === null ? null : (typeof parsedNew === 'object' ? JSON.stringify(parsedNew) : String(parsedNew));
+        if (oldStr !== newStr) {
+            updates[col] = parsedNew;
+        }
+    });
+
+    if (Object.keys(updates).length === 0) {
+        showToast('Không có thay đổi nào', 'info');
+        closeEditModal();
+        return;
+    }
+
+    // Build request body
+    const body = { updates };
+    if (pkInfo.compositePk) {
+        body.pkValues = pkInfo.pkValues;
+    } else {
+        body.pkValue = pkInfo.value;
+    }
+
+    try {
+        const resp = await fetch(`${API_BASE}/row/${currentTable}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        const data = await resp.json();
+        if (!data.success) throw new Error(data.error);
+        showToast('Cập nhật thành công', 'success');
+        closeEditModal();
+        loadData();
+    } catch (err) {
+        showToast('Lỗi: ' + err.message, 'error');
+        console.error('[DATA-MANAGER] Edit error:', err);
+    }
+}
+
+function closeEditModal() {
+    document.getElementById('editModal').style.display = 'none';
+    editingRowIdx = null;
+}
+
+// =====================================================
+// RENDER TAB - VIEW ROW DETAIL (index-based)
+// =====================================================
+
+function viewRowByIdx(idx) {
+    const row = loadedRows[idx];
+    if (!row) return;
+    viewRow(row);
+}
 
 function viewRow(row) {
     const modal = document.getElementById('detailModal');
@@ -1282,6 +1454,7 @@ document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
         document.querySelectorAll('.modal-overlay').forEach(m => m.style.display = 'none');
         pendingDeleteAction = null;
+        editingRowIdx = null;
     }
 });
 

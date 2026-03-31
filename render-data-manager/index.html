@@ -319,6 +319,21 @@
         </div>
     </div>
 
+    <!-- Edit Row Modal -->
+    <div class="modal-overlay" id="editModal" style="display:none;">
+        <div class="modal modal-lg">
+            <div class="modal-header">
+                <h3>Chỉnh sửa row</h3>
+                <button class="modal-close" onclick="closeEditModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="editModalBody"></div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeEditModal()">Hủy</button>
+                <button class="btn btn-primary" onclick="saveEdit()">Lưu thay đổi</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Container -->
     <div id="toastContainer" class="toast-container"></div>
 
