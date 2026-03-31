@@ -605,9 +605,13 @@
             // Auto sub-state from internal tTags
             data.subState = data.tTags.length > 0 ? 'CHO_HANG' : 'OKIE_CHO_DI_DON';
 
-            // Auto picking slip for single-SKU CHO_HANG orders
+            // Auto picking slip for single-SKU CHO_HANG orders (only on first time, preserve existing)
             if (data.subState === 'CHO_HANG') {
-                data.pickingSlipPrinted = await _ptagIsSingleSkuOrder(orderId);
+                if (existingData?.pickingSlipPrinted !== undefined) {
+                    data.pickingSlipPrinted = existingData.pickingSlipPrinted;
+                } else {
+                    data.pickingSlipPrinted = await _ptagIsSingleSkuOrder(orderId);
+                }
             }
 
             // Auto-detect flags from wallet
@@ -720,8 +724,8 @@
         // Auto sub-state ONLY when at Cat 1 "Okie Chờ Đi Đơn"
         if (data.category === PTAG_CATEGORIES.CHO_DI_DON && data.subState === 'OKIE_CHO_DI_DON') {
             data.subState = 'CHO_HANG';
-            // Auto picking slip for single-SKU orders
-            if (await _ptagIsSingleSkuOrder(orderId)) {
+            // Auto picking slip for single-SKU orders (only if not already set)
+            if (!data.pickingSlipPrinted && await _ptagIsSingleSkuOrder(orderId)) {
                 data.pickingSlipPrinted = true;
             }
         }
@@ -1670,7 +1674,7 @@
                     <span style="position:absolute;top:-6px;right:-6px;background:#10b981;color:#fff;font-size:9px;min-width:14px;height:14px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:600;">${subStateCounts['CHO_HANG_DA_IN'] || 0}</span>
                 </button>
                 <button class="ptag-panel-inline-icon ${activeFilter === 'sub_CHO_HANG_CHUA_IN' ? 'active' : ''}" onclick="window._ptagSetFilter('sub_CHO_HANG_CHUA_IN'); event.stopPropagation();" title="Chưa in phiếu (${subStateCounts['CHO_HANG_CHUA_IN'] || 0})" style="position:relative;width:28px;height:28px;border:2px solid ${activeFilter === 'sub_CHO_HANG_CHUA_IN' ? '#ef4444' : '#d1d5db'};border-radius:6px;background:${activeFilter === 'sub_CHO_HANG_CHUA_IN' ? 'rgba(239,68,68,0.08)' : '#fff'};cursor:pointer;display:flex;align-items:center;justify-content:center;">
-                    <i class="fas fa-print" style="font-size:12px;color:#ccc;"></i>
+                    <i class="fas fa-print" style="font-size:12px;color:#ef4444;"></i>
                     <i class="fas fa-times" style="position:absolute;font-size:8px;color:#ef4444;top:2px;right:2px;"></i>
                     <span style="position:absolute;top:-6px;right:-6px;background:#ef4444;color:#fff;font-size:9px;min-width:14px;height:14px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:600;">${subStateCounts['CHO_HANG_CHUA_IN'] || 0}</span>
                 </button>
