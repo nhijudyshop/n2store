@@ -135,7 +135,6 @@
     z-index: 5000;
     align-items: center;
     justify-content: center;
-    backdrop-filter: blur(2px);
 }
 
 .modal-overlay.show {
@@ -152,8 +151,9 @@
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
     animation: slideUp 0.3s ease-out;
+    will-change: transform;
 }
 
 .modal-large {
@@ -207,6 +207,8 @@
     padding: 20px;
     overflow-y: auto;
     flex: 1;
+    will-change: scroll-position;
+    contain: content;
 }
 
 .modal-footer {
