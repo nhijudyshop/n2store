@@ -735,7 +735,21 @@ console.log('[TemplateMgr] Loading...');
         let orderData;
         const templateContent = template.Content || template.BodyPlain || template.content || '';
         if (_needsFullData(templateContent)) {
-            const fullOrder = window.OrderStore ? window.OrderStore.get(order.orderId) : null;
+            // OrderStore only has list-level data (no Details/line items).
+            // Fetch full order with $expand=Details via getOrderDetails API.
+            let fullOrder = null;
+            if (window.getOrderDetails) {
+                try {
+                    fullOrder = await window.getOrderDetails(order.orderId);
+                } catch (e) {
+                    console.warn('[TemplateMgr] getOrderDetails failed:', e.message);
+                }
+            }
+            // Fallback to OrderStore if API failed
+            if (!fullOrder || !fullOrder.Details?.length) {
+                const storeOrder = window.OrderStore ? window.OrderStore.get(order.orderId) : null;
+                if (storeOrder?.Details?.length) fullOrder = storeOrder;
+            }
             orderData = fullOrder ? _convertOrderData(fullOrder) : {
                 code: order.Code || '', customerName: order.customerName || '',
                 phone: order.Phone || '', address: order.Address || '',

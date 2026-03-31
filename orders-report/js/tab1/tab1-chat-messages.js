@@ -108,11 +108,15 @@ window.renderChatMessages = function(messages) {
 
 function _getAvatarContent(msg) {
     const psid = msg.fromId || window.currentChatPSID || '';
+    const initial = (msg.senderName || 'K').charAt(0).toUpperCase();
     if (psid) {
-        const imgUrl = `https://graph.facebook.com/${psid}/picture?type=small`;
-        return `<img src="${imgUrl}" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.style.display='none';this.parentElement.textContent='${(msg.senderName || 'K').charAt(0).toUpperCase()}'">`;
+        const pageId = window.currentChatChannelId || '';
+        const imgUrl = window.pancakeDataManager?.getAvatarUrl
+            ? window.pancakeDataManager.getAvatarUrl(psid, pageId)
+            : `https://graph.facebook.com/${psid}/picture?type=small`;
+        return `<img src="${imgUrl}" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.style.display='none';this.parentElement.textContent='${initial}'">`;
     }
-    return (msg.senderName || 'K').charAt(0).toUpperCase();
+    return initial;
 }
 
 // =====================================================
@@ -519,7 +523,9 @@ function _formatTime(date) {
     if (!date) return '';
     if (!(date instanceof Date)) date = new Date(date);
     if (isNaN(date.getTime())) return '';
-    return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+    return new Intl.DateTimeFormat('vi-VN', {
+        hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh', hour12: false
+    }).format(date);
 }
 
 function _formatDate(date) {
@@ -527,15 +533,26 @@ function _formatDate(date) {
     if (!(date instanceof Date)) date = new Date(date);
     if (isNaN(date.getTime())) return '';
 
+    const vnFmt = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit'
+    });
     const now = new Date();
-    const isToday = date.toDateString() === now.toDateString();
-    const yesterday = new Date(now);
-    yesterday.setDate(yesterday.getDate() - 1);
-    const isYesterday = date.toDateString() === yesterday.toDateString();
+    const dateParts = vnFmt.formatToParts(date);
+    const nowParts = vnFmt.formatToParts(now);
+    const getVal = (parts, type) => parseInt(parts.find(p => p.type === type)?.value || '0');
 
-    if (isToday) return 'Hôm nay';
-    if (isYesterday) return 'Hôm qua';
-    return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    const isSameDay = getVal(dateParts, 'year') === getVal(nowParts, 'year') &&
+                      getVal(dateParts, 'month') === getVal(nowParts, 'month') &&
+                      getVal(dateParts, 'day') === getVal(nowParts, 'day');
+    if (isSameDay) return 'Hôm nay';
+
+    const vnDateObj = new Date(getVal(dateParts, 'year'), getVal(dateParts, 'month') - 1, getVal(dateParts, 'day'));
+    const vnNowObj = new Date(getVal(nowParts, 'year'), getVal(nowParts, 'month') - 1, getVal(nowParts, 'day'));
+    if (Math.floor((vnNowObj - vnDateObj) / 86400000) === 1) return 'Hôm qua';
+
+    return new Intl.DateTimeFormat('vi-VN', {
+        day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Ho_Chi_Minh'
+    }).format(date);
 }
 
 function _showToast(message, type) {

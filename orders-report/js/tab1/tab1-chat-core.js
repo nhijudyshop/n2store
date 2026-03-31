@@ -496,7 +496,13 @@ function _parseTimestamp(ts) {
         return ts > 1e12 ? new Date(ts) : new Date(ts * 1000);
     }
     if (typeof ts === 'string') {
-        const d = new Date(ts);
+        // Pancake API returns UTC timestamps without timezone suffix
+        // Append 'Z' to ensure correct UTC parsing (same as inbox-chat.js)
+        let s = ts;
+        if (!s.includes('Z') && !s.includes('+') && !s.includes('-', 10)) {
+            s += 'Z';
+        }
+        const d = new Date(s);
         return isNaN(d.getTime()) ? null : d;
     }
     return null;
