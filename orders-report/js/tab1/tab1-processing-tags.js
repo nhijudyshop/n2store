@@ -120,6 +120,64 @@
         { id: 'T_MY', name: 'MY THÊM CHỜ VỀ', productCode: '', createdAt: 0, isDefault: true }
     ];
 
+    // ── Flag color palette (for đặc điểm tags) ──
+    const PTAG_FLAG_COLOR_PALETTE = [
+        '#ef4444', '#f97316', '#f59e0b', '#22c55e', '#14b8a6',
+        '#3b82f6', '#6366f1', '#8b5cf6', '#ec4899', '#06b6d4',
+        '#84cc16', '#d946ef', '#0ea5e9', '#e11d48', '#7c3aed',
+        '#059669', '#dc2626', '#2563eb', '#9333ea', '#c026d3'
+    ];
+
+    // T-tag color constants
+    const PTAG_TTAG_COLOR_DARK_BLUE = '#1e3a5f';
+    const PTAG_TTAG_COLOR_YELLOW = '#d97706';
+    const PTAG_TTAG_YELLOW_NAMES = ['CHỜ HÀNG', 'MY THÊM CHỜ VỀ'];
+
+    function _ptagGetFlagColor(flagKey) {
+        const saved = JSON.parse(localStorage.getItem('ptag_flag_colors') || '{}');
+        if (saved[flagKey]) return saved[flagKey];
+        // For custom flags, check stored color
+        const cf = ProcessingTagState.getCustomFlagDef(flagKey);
+        if (cf?.color && cf.color !== '#7c3aed') {
+            saved[flagKey] = cf.color;
+            localStorage.setItem('ptag_flag_colors', JSON.stringify(saved));
+            return cf.color;
+        }
+        // Assign deterministic color based on index in palette
+        const builtinKeys = Object.keys(PTAG_FLAGS);
+        const idx = builtinKeys.indexOf(flagKey);
+        if (idx >= 0) {
+            const color = PTAG_FLAG_COLOR_PALETTE[idx % PTAG_FLAG_COLOR_PALETTE.length];
+            saved[flagKey] = color;
+            localStorage.setItem('ptag_flag_colors', JSON.stringify(saved));
+            return color;
+        }
+        // Random for custom flags without saved color
+        const color = PTAG_FLAG_COLOR_PALETTE[Math.floor(Math.random() * PTAG_FLAG_COLOR_PALETTE.length)];
+        saved[flagKey] = color;
+        localStorage.setItem('ptag_flag_colors', JSON.stringify(saved));
+        return color;
+    }
+
+    function _ptagSetFlagColor(flagKey, color) {
+        const saved = JSON.parse(localStorage.getItem('ptag_flag_colors') || '{}');
+        saved[flagKey] = color;
+        localStorage.setItem('ptag_flag_colors', JSON.stringify(saved));
+        const cf = ProcessingTagState.getCustomFlagDef(flagKey);
+        if (cf) {
+            cf.color = color;
+            saveCustomFlagDefinitions();
+        }
+    }
+
+    function _ptagGetTTagColor(tagId) {
+        const def = ProcessingTagState.getTTagDef(tagId);
+        if (!def) return PTAG_TTAG_COLOR_DARK_BLUE;
+        const nameUpper = (def.name || '').toUpperCase().trim();
+        if (PTAG_TTAG_YELLOW_NAMES.includes(nameUpper)) return PTAG_TTAG_COLOR_YELLOW;
+        return PTAG_TTAG_COLOR_DARK_BLUE;
+    }
+
     // =====================================================
     // SECTION 2: STATE MANAGEMENT
     // =====================================================
@@ -827,27 +885,34 @@
             }
         }
 
-        // 2. Flag badges (đặc điểm) — SECOND — with × to remove
+        // 2. Flag badges (đặc điểm) — inline row
+        let flagBadges = '';
         (data.flags || []).forEach(f => {
             const fl = PTAG_FLAGS[f];
             const label = fl ? fl.label : ProcessingTagState.getCustomFlagLabel(f);
+            const bgColor = _ptagGetFlagColor(f);
             const removeBtn = `<button class="ptag-badge-remove" onclick="window._ptagToggleFlag('${oid}', '${f}'); event.stopPropagation();" title="Xóa flag">&times;</button>`;
-            badges += `<span class="ptag-flag-badge ptag-badge-removable">${label}${removeBtn}</span>`;
+            flagBadges += `<span class="ptag-flag-badge ptag-badge-removable" style="background:${bgColor};">${label}${removeBtn}</span>`;
         });
 
-        // 3. T-tag badges — LAST — FULL display with × to remove
+        // 3. T-tag badges — each on its own line
+        let ttagBadges = '';
         const _tTags = data.tTags || [];
         _tTags.forEach(t => {
             const tLabel = ProcessingTagState.getTTagLabel(t);
+            const bgColor = _ptagGetTTagColor(t);
             const removeBtn = `<button class="ptag-badge-remove" onclick="window.removeTTagFromOrder('${oid}', '${t.replace(/'/g, "\\'")}'); event.stopPropagation();" title="Gỡ tag T">&times;</button>`;
-            badges += `<span class="ptag-ttag-badge ptag-badge-removable">${tLabel}${removeBtn}</span>`;
+            ttagBadges += `<span class="ptag-ttag-badge ptag-badge-removable" style="background:${bgColor};">${tLabel}${removeBtn}</span>`;
         });
 
         // History button (only when there's history)
         const hasHistory = (data.history || []).length > 0;
         const historyBtn = hasHistory ? `<button class="ptag-history-btn" onclick="window._ptagShowHistory('${oid}', this); event.stopPropagation();" title="Xem lịch sử tag"><i class="fas fa-history"></i></button>` : '';
 
-        const badgesRow = badges ? `<div class="ptag-cell-badges">${badges}${historyBtn}</div>` : '';
+        let badgesContent = badges;
+        if (flagBadges) badgesContent += `<div class="ptag-cell-flags-row">${flagBadges}</div>`;
+        if (ttagBadges) badgesContent += `<div class="ptag-cell-ttag-row">${ttagBadges}</div>`;
+        const badgesRow = badgesContent ? `<div class="ptag-cell-badges">${badgesContent}${historyBtn}</div>` : '';
         return `<div class="ptag-cell">${btns}${badgesRow}</div>`;
     }
 
@@ -892,18 +957,18 @@
         // Flags — ĐẶC ĐIỂM ĐƠN HÀNG
         tags.push({ type: 'cat-label', label: '🏷️ ĐẶC ĐIỂM ĐƠN HÀNG' });
         for (const [key, flag] of Object.entries(PTAG_FLAGS)) {
-            tags.push({ type: 'tag', key: `flag:${key}`, label: `${flag.icon} ${flag.label}`, isFlag: true, flagKey: key, color: '#7c3aed', auto: flag.auto });
+            tags.push({ type: 'tag', key: `flag:${key}`, label: `${flag.icon} ${flag.label}`, isFlag: true, flagKey: key, color: _ptagGetFlagColor(key), auto: flag.auto });
         }
         // Custom flags
         const customFlagDefs = ProcessingTagState.getCustomFlagDefs();
         for (const cf of customFlagDefs) {
-            tags.push({ type: 'tag', key: `flag:${cf.id}`, label: cf.label, isFlag: true, flagKey: cf.id, color: cf.color || '#7c3aed' });
+            tags.push({ type: 'tag', key: `flag:${cf.id}`, label: cf.label, isFlag: true, flagKey: cf.id, color: _ptagGetFlagColor(cf.id) });
         }
         // All T-tag definitions — shown at bottom of dropdown as direct toggle
         tags.push({ type: 'cat-label', label: '📦 TAG T CHỜ HÀNG' });
         const allTTagDefs = ProcessingTagState.getTTagDefinitions();
         for (const def of allTTagDefs) {
-            tags.push({ type: 'tag', key: `dtag:${def.id}`, label: def.name, isTTag: true, ttagId: def.id, color: '#8b5cf6' });
+            tags.push({ type: 'tag', key: `dtag:${def.id}`, label: def.name, isTTag: true, ttagId: def.id, color: _ptagGetTTagColor(def.id) });
         }
         return tags;
     }
@@ -911,8 +976,8 @@
     // Get pill color for a selected tag
     function _ptagPillColor(tagInfo) {
         if (tagInfo.isCat) return tagInfo.color;
-        if (tagInfo.isFlag) return '#7c3aed';
-        if (tagInfo.isDefaultTTag || tagInfo.isTTag) return '#8b5cf6';
+        if (tagInfo.isFlag) return _ptagGetFlagColor(tagInfo.flagKey);
+        if (tagInfo.isDefaultTTag || tagInfo.isTTag) return _ptagGetTTagColor(tagInfo.ttagId);
         return '#6b7280';
     }
 
@@ -938,17 +1003,17 @@
         (data.flags || []).forEach(f => {
             const fl = PTAG_FLAGS[f];
             if (fl) {
-                selected.push({ key: `flag:${f}`, label: `${fl.icon} ${fl.label}`, isFlag: true, flagKey: f, color: '#7c3aed' });
+                selected.push({ key: `flag:${f}`, label: `${fl.icon} ${fl.label}`, isFlag: true, flagKey: f, color: _ptagGetFlagColor(f) });
             } else {
                 const cf = ProcessingTagState.getCustomFlagDef(f);
-                if (cf) selected.push({ key: `flag:${f}`, label: cf.label, isFlag: true, flagKey: f, color: cf.color || '#7c3aed' });
+                if (cf) selected.push({ key: `flag:${f}`, label: cf.label, isFlag: true, flagKey: f, color: _ptagGetFlagColor(f) });
             }
         });
         // All assigned T-tags
         (data.tTags || []).forEach(t => {
             const def = ProcessingTagState.getTTagDef(t);
             if (def) {
-                selected.push({ key: `dtag:${t}`, label: def.name, isTTag: true, ttagId: t, color: '#8b5cf6' });
+                selected.push({ key: `dtag:${t}`, label: def.name, isTTag: true, ttagId: t, color: _ptagGetTTagColor(t) });
             }
         });
         return selected;
@@ -1186,8 +1251,10 @@
         const orderId = _ddOrderId;
         if (!orderId) return;
         const key = 'CUSTOM_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
+        const assignedColor = PTAG_FLAG_COLOR_PALETTE[Math.floor(Math.random() * PTAG_FLAG_COLOR_PALETTE.length)];
         const defs = ProcessingTagState.getCustomFlagDefs();
-        defs.push({ id: key, label, color: '#7c3aed', createdAt: Date.now() });
+        defs.push({ id: key, label, color: assignedColor, createdAt: Date.now() });
+        _ptagSetFlagColor(key, assignedColor);
         ProcessingTagState.setCustomFlagDefs(defs);
         // Save definitions FIRST to ensure label is persisted
         await saveCustomFlagDefinitions();
@@ -1548,14 +1615,16 @@
             const fk = 'flag_' + key;
             const checked = activeFlagFilters.has(key) ? 'checked' : '';
             const count = flagCounts[key] || 0;
+            const flagColor = _ptagGetFlagColor(key);
             html += `<div class="ptag-panel-flag-item" data-search="${_ptagNormalize(flag.label)}">
                 <label class="ptag-flag-checkbox">
                     <input type="checkbox" ${checked} onchange="window._ptagToggleFlagFilter('${key}'); event.stopPropagation();" />
-                    <span style="font-size:15px;flex-shrink:0;">${flag.icon}</span>
+                    <span style="width:10px;height:10px;border-radius:50%;background:${flagColor};display:inline-block;flex-shrink:0;"></span>
                     <span class="ptag-flag-label">${flag.label}</span>
                 </label>
                 <span class="ptag-panel-card-count">${count}</span>
                 ${_tooltipHtml(fk)}
+                <button class="ptag-color-edit-btn" onclick="window._ptagOpenFlagColorPicker('${key}', this); event.stopPropagation();" title="Đổi màu"><i class="fas fa-pen" style="font-size:10px;"></i></button>
             </div>`;
             // Show custom tags list under "Khác" — show all custom flags
             if (key === 'KHAC') {
@@ -1570,13 +1639,15 @@
                     for (const cf of visibleCustom) {
                         const cfChecked = activeFlagFilters.has(cf.id) ? 'checked' : '';
                         const cfCount = flagCounts[cf.id] || 0;
+                        const cfColor = _ptagGetFlagColor(cf.id);
                         html += `<div class="ptag-panel-flag-item" style="padding:3px 8px;font-size:13px;" data-search="${_ptagNormalize(cf.label)}">
                             <label class="ptag-flag-checkbox">
                                 <input type="checkbox" ${cfChecked} onchange="window._ptagToggleFlagFilter('${cf.id}'); event.stopPropagation();" />
-                                <span style="font-size:13px;flex-shrink:0;">🏷️</span>
+                                <span style="width:10px;height:10px;border-radius:50%;background:${cfColor};display:inline-block;flex-shrink:0;"></span>
                                 <span class="ptag-flag-label" style="font-size:13px;">${cf.label}</span>
                             </label>
                             <span class="ptag-panel-card-count" style="font-size:12px;">${cfCount}</span>
+                            <button class="ptag-color-edit-btn" onclick="window._ptagOpenFlagColorPicker('${cf.id}', this); event.stopPropagation();" title="Đổi màu"><i class="fas fa-pen" style="font-size:10px;"></i></button>
                         </div>`;
                     }
                     html += `</div>`;
@@ -1618,8 +1689,8 @@
         const totalTTagOrders = Object.values(tTagCounts).reduce((s, c) => s + c, 0);
         {
             html += `<div class="ptag-panel-group ptag-ttag-section" data-search="tag t cho hang">
-                <div class="ptag-panel-cat-header-v2" style="border-left-color:#8b5cf6;background:rgba(139,92,246,0.08);">
-                    <span class="ptag-cat-name" style="color:#5b21b6;">\u{1F4E6} TAG T CHỜ HÀNG (${totalTTagOrders} đơn)</span>
+                <div class="ptag-panel-cat-header-v2" style="border-left-color:${PTAG_TTAG_COLOR_DARK_BLUE};background:rgba(30,58,95,0.08);">
+                    <span class="ptag-cat-name" style="color:${PTAG_TTAG_COLOR_DARK_BLUE};">\u{1F4E6} TAG T CHỜ HÀNG (${totalTTagOrders} đơn)</span>
                     <span class="ptag-cat-count">${tTagDefs.length}</span>
                     <button class="ptag-panel-btn" style="display:inline-flex;width:20px;height:20px;font-size:10px;margin-left:4px;background:none;border:1px solid #d1d5db;border-radius:4px;cursor:pointer;align-items:center;justify-content:center;" onclick="window._ptagOpenTTagManager(); event.stopPropagation();" title="Quản lý Tag T">
                         <i class="fas fa-cog" style="font-size:9px;color:#6b7280;"></i>
@@ -1634,12 +1705,13 @@
                 // Hide non-default T-tags with 0 orders
                 if (count === 0 && !isDefaultTag) continue;
                 const deleteBtn = isDefaultTag ? '' : `<button class="ptag-ttag-panel-delete-v2" onclick="window._ptagDeleteTTagDefAndOrders('${escapedFk.replace('ttag_', '')}'); event.stopPropagation();" title="Xóa tag và gỡ khỏi tất cả đơn">&times;</button>`;
+                const ttagColor = _ptagGetTTagColor(def.id);
                 html += `<div class="ptag-panel-card ${activeFilter === fk ? 'active' : ''}" onclick="window._ptagSetFilter('${escapedFk}')" data-search="${_ptagNormalize(def.name + ' ' + (def.productCode || ''))}">
-                    <div class="ptag-panel-card-icon ptag-panel-card-icon--sm" style="background:#8b5cf6;">
+                    <div class="ptag-panel-card-icon ptag-panel-card-icon--sm" style="background:${ttagColor};">
                         <span style="font-size:12px;">\u{1F3F7}\uFE0F</span>
                     </div>
                     <div class="ptag-panel-card-info">
-                        <div class="ptag-panel-card-name" style="color:#7c3aed;">${def.name}${pcLabel}</div>
+                        <div class="ptag-panel-card-name" style="color:${ttagColor};">${def.name}${pcLabel}</div>
                         <div class="ptag-panel-card-count">${count} đơn hàng</div>
                     </div>
                     ${deleteBtn}
@@ -3829,6 +3901,44 @@
 
     // History
     window._ptagShowHistory = _ptagRenderHistoryPopover;
+
+    // Color picker for đặc điểm flags
+    function _ptagOpenFlagColorPicker(flagKey, anchorEl) {
+        document.querySelectorAll('.ptag-color-picker-popover').forEach(el => el.remove());
+        const currentColor = _ptagGetFlagColor(flagKey);
+        const rect = anchorEl.getBoundingClientRect();
+        let html = `<div class="ptag-color-picker-popover" style="top:${rect.bottom + 4}px;left:${rect.left}px;">`;
+        for (const c of PTAG_FLAG_COLOR_PALETTE) {
+            const sel = c === currentColor ? ' selected' : '';
+            html += `<div class="ptag-color-swatch${sel}" style="background:${c};" onclick="window._ptagApplyFlagColor('${flagKey}', '${c}'); event.stopPropagation();"></div>`;
+        }
+        html += `</div>`;
+        document.body.insertAdjacentHTML('beforeend', html);
+        setTimeout(() => {
+            document.addEventListener('click', function closer(e) {
+                if (!e.target.closest('.ptag-color-picker-popover')) {
+                    document.querySelectorAll('.ptag-color-picker-popover').forEach(el => el.remove());
+                    document.removeEventListener('click', closer);
+                }
+            });
+        }, 10);
+    }
+
+    function _ptagApplyFlagColor(flagKey, color) {
+        _ptagSetFlagColor(flagKey, color);
+        document.querySelectorAll('.ptag-color-picker-popover').forEach(el => el.remove());
+        renderPanelContent();
+        if (typeof window.refreshProcessingTagColumn === 'function') {
+            window.refreshProcessingTagColumn();
+        } else {
+            // Re-render all visible tag cells
+            const allData = ProcessingTagState._orderData;
+            allData.forEach((_, orderId) => _ptagRefreshRow(orderId));
+        }
+    }
+
+    window._ptagOpenFlagColorPicker = _ptagOpenFlagColorPicker;
+    window._ptagApplyFlagColor = _ptagApplyFlagColor;
 
     // State (for debugging)
     window.ProcessingTagState = ProcessingTagState;
