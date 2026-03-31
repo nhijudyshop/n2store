@@ -423,11 +423,12 @@ function confirmTruncate() {
 
 async function executeDelete() {
     if (!pendingDeleteAction) return;
+    const action = pendingDeleteAction;
     closeModal();
 
     try {
-        if (pendingDeleteAction.type === 'row') {
-            const pkInfo = pendingDeleteAction.pkInfo;
+        if (action.type === 'row') {
+            const pkInfo = action.pkInfo;
             const body = pkInfo.compositePk
                 ? { pkValues: pkInfo.pkValues }
                 : { pkValue: pkInfo.value };
@@ -441,7 +442,7 @@ async function executeDelete() {
             if (!data.success) throw new Error(data.error);
             showToast('Xóa row thành công', 'success');
 
-        } else if (pendingDeleteAction.type === 'truncate') {
+        } else if (action.type === 'truncate') {
             const resp = await fetch(`${API_BASE}/truncate/${currentTable}`, {
                 method: 'DELETE'
             });
@@ -449,8 +450,8 @@ async function executeDelete() {
             if (!data.success) throw new Error(data.error);
             showToast(`Đã xóa ${data.deletedRows} rows thành công`, 'success');
 
-        } else if (pendingDeleteAction.type === 'fb-doc') {
-            const docPath = pendingDeleteAction.docPath;
+        } else if (action.type === 'fb-doc') {
+            const docPath = action.docPath;
             const resp = await fetch(`${FB_API_BASE}/document/${docPath}`, {
                 method: 'DELETE'
             });
@@ -459,8 +460,8 @@ async function executeDelete() {
             showToast('Xóa document thành công', 'success');
             fbReloadCurrentCollection();
 
-        } else if (pendingDeleteAction.type === 'rtdb') {
-            const path = pendingDeleteAction.path;
+        } else if (action.type === 'rtdb') {
+            const path = action.path;
             const resp = await fetch(`${FB_API_BASE}/rtdb/value?path=${encodeURIComponent(path)}`, {
                 method: 'DELETE'
             });
@@ -472,7 +473,7 @@ async function executeDelete() {
         }
 
         // Refresh for render tab
-        if (pendingDeleteAction.type === 'row' || pendingDeleteAction.type === 'truncate') {
+        if (action.type === 'row' || action.type === 'truncate') {
             loadData();
             loadTableList();
         }
