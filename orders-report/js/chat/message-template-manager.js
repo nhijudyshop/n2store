@@ -798,7 +798,7 @@ console.log('[TemplateMgr] Loading...');
         for (const part of parts) {
             // [Primary] Pancake Official API
             try {
-                const result = await pdm.sendMessage(channelId, conv.id, { message: part, type: 'reply_inbox' });
+                const result = await pdm.sendMessage(channelId, conv.id, { action: 'reply_inbox', message: part });
                 // sendMessage returns { success, error } instead of throwing
                 if (result && result.success !== false && !result.error) {
                     sendSuccess = true;
@@ -870,6 +870,7 @@ console.log('[TemplateMgr] Loading...');
                 sendingState.successOrders.push(result);
                 markOrderSent(order.orderId, false);
             } catch (error) {
+                console.error('[TemplateMgr] ❌ Order failed:', order.Code, '-', error.message);
                 const errObj = {
                     orderId: order.orderId,
                     code: order.Code || '',
