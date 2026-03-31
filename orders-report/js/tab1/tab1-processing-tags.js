@@ -918,11 +918,9 @@
                 const ss = PTAG_SUBSTATES[data.subState] || PTAG_SUBSTATES.OKIE_CHO_DI_DON;
                 let label = ss.label;
                 let badgeColor = ss.color;
-                if (data.subState === 'CHO_HANG' && data.pickingSlipPrinted) {
-                    label = 'Đã in phiếu';
-                    badgeColor = '#10b981';
-                }
-                badges += `<span class="ptag-badge ptag-badge-removable" style="border-color:${badgeColor};color:${badgeColor};background:${badgeColor}12;">${label}${removeBtn}</span>`;
+                const printIcon = (data.subState === 'CHO_HANG' && data.pickingSlipPrinted)
+                    ? ' <i class="fas fa-print" style="font-size:10px;color:#10b981;margin-left:3px;"></i>' : '';
+                badges += `<span class="ptag-badge ptag-badge-removable" style="border-color:${badgeColor};color:${badgeColor};background:${badgeColor}12;">${label}${printIcon}${removeBtn}</span>`;
             } else {
                 const subTagDef = PTAG_SUBTAGS[data.subTag];
                 const label = subTagDef?.label || PTAG_CATEGORY_META[data.category]?.short || '';
