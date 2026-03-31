@@ -134,6 +134,16 @@ function _mapLegacyProduct(p) {
     return mapped;
 }
 
+function _isNonEmptyProduct(p) {
+    const name = (p.productName || '').trim();
+    const variant = (p.variant || '').trim();
+    const code = (p.productCode || '').trim();
+    const purchase = parseFloat(String(p.purchasePrice || 0).replace(/[,.]/g, '')) || 0;
+    const selling = parseFloat(String(p.sellingPrice || 0).replace(/[,.]/g, '')) || 0;
+    const hasImages = (p.productImages && p.productImages.length > 0) || (p.priceImages && p.priceImages.length > 0);
+    return name || variant || code || purchase > 0 || selling > 0 || hasImages;
+}
+
 function _initSocialProductSection(existingProducts = []) {
     if (!window.purchaseOrderFormModal) {
         console.warn('[SocialModal] purchaseOrderFormModal not available');
@@ -148,9 +158,10 @@ function _initSocialProductSection(existingProducts = []) {
     // 2. Trỏ modalElement vào container của modal social
     window.purchaseOrderFormModal.modalElement = document.getElementById('orderModalOverlay');
 
-    // 3. Load items
+    // 3. Load items (filter out empty rows)
     if (existingProducts.length > 0) {
-        window.purchaseOrderFormModal.formData.items = existingProducts.map((p, i) => {
+        const filtered = existingProducts.filter(p => _isNonEmptyProduct(p));
+        window.purchaseOrderFormModal.formData.items = filtered.map((p, i) => {
             const item = {
                 id: p.id || `item_${Date.now()}_${i}`,
                 productName: p.productName || '',
@@ -168,7 +179,7 @@ function _initSocialProductSection(existingProducts = []) {
             if (p.tposProductTmplId) item.tposProductTmplId = p.tposProductTmplId;
             return item;
         });
-        window.purchaseOrderFormModal.itemCounter = existingProducts.length;
+        window.purchaseOrderFormModal.itemCounter = filtered.length;
     }
 
     // 4. Render + bind
@@ -178,7 +189,9 @@ function _initSocialProductSection(existingProducts = []) {
 function _collectSocialProducts() {
     if (!window.purchaseOrderFormModal) return [];
     window.purchaseOrderFormModal.collectFormData();
-    return window.purchaseOrderFormModal.formData.items.map(item => {
+    // Filter out empty rows before saving
+    const items = window.purchaseOrderFormModal.formData.items.filter(item => _isNonEmptyProduct(item));
+    return items.map(item => {
         const mapped = {
             id: item.id,
             productName: item.productName || '',
