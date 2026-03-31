@@ -739,10 +739,6 @@ console.log('[TemplateMgr] Loading...');
         // 2. Replace placeholders
         let messageContent = _replacePlaceholders(templateContent, orderData);
 
-        // 3. Employee signature
-        const displayName = window.authManager?.getUserInfo()?.displayName;
-        if (displayName) messageContent += '\nNv. ' + displayName;
-
         // 4. Get chat info
         const channelId = order.channelId || order.pageId;
         const psid = order.psid;
@@ -942,8 +938,6 @@ console.log('[TemplateMgr] Loading...');
                                 phone: order.Phone || '', address: order.Address || '',
                                 totalAmount: order.AmountTotal || 0, products: []
                             });
-                            const displayName = window.authManager?.getUserInfo()?.displayName;
-                            if (displayName) msgContent += '\nNv. ' + displayName;
                             const parts = _splitMessageIntoParts(msgContent);
 
                             sendingState.extQueue.push({ order, parts, convData: extConvData });
@@ -1278,9 +1272,6 @@ console.log('[TemplateMgr] Loading...');
                     const od = _convertOrderData(fullOrder);
                     msg = _replacePlaceholders(msg, od);
                 }
-                const displayName = window.authManager?.getUserInfo()?.displayName;
-                if (displayName) msg += '\nNv. ' + displayName;
-
                 await pdm.sendMessage(pageId, conv.id, { message: msg, type: 'reply_comment' });
                 successCount++;
                 markOrderSent(errOrder.orderId, true);
