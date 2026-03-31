@@ -1393,7 +1393,7 @@ ${
                         psid
                     );
 
-                    if (result.success && result.conversations?.length > 0) {
+                    if (result.conversations?.length > 0) {
                         // Filter INBOX conversations (same as chat modal)
                         const inboxConversations = result.conversations.filter(
                             (conv) => conv.type === 'INBOX'
