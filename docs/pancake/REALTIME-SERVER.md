@@ -1,10 +1,12 @@
-# N2Store Pancake WebSocket Server - Hướng dẫn chi tiết
+# N2Store Pancake WebSocket - Hướng dẫn chi tiết
 
-> Server nhận tin nhắn Facebook Page realtime thông qua Pancake Phoenix WebSocket.
-> Deploy trên Render.com — service: `n2store-tpos-pancake`
+> Tài liệu về 2 hệ thống realtime nhận tin nhắn Facebook Page qua Pancake Phoenix WebSocket:
+> 1. **Render Server** (`tpos-pancake`) — server-side, always-on listener
+> 2. **Inbox Client** (`inbox/`) — browser-side, qua Cloudflare Worker proxy
 
 ## Mục lục
 
+### Part A: Render Server (tpos-pancake)
 1. [Tổng quan](#1-tổng-quan)
 2. [Kiến trúc hệ thống](#2-kiến-trúc-hệ-thống)
 3. [Luồng hoạt động](#3-luồng-hoạt-động)
@@ -17,6 +19,19 @@
 10. [Cấu hình & Triển khai](#10-cấu-hình--triển-khai)
 11. [Xử lý lỗi & Reconnect](#11-xử-lý-lỗi--reconnect)
 12. [Lưu ý quan trọng](#12-lưu-ý-quan-trọng)
+
+### Part B: Inbox Client (browser-side)
+13. [Inbox Realtime — Tổng quan](#13-inbox-realtime--tổng-quan)
+14. [Cloudflare Worker WebSocket Proxy](#14-cloudflare-worker-websocket-proxy)
+15. [PancakePhoenixSocket Class](#15-pancakephoenixsocket-class)
+16. [Luồng kết nối Inbox](#16-luồng-kết-nối-inbox)
+17. [Event Handling trong Inbox](#17-event-handling-trong-inbox)
+18. [Polling Fallback](#18-polling-fallback)
+19. [So sánh 2 hệ thống](#19-so-sánh-2-hệ-thống)
+
+---
+
+# Part A: Render Server (tpos-pancake)
 
 ---
 
@@ -526,3 +541,271 @@ Tối đa 10 lần thử → dừng (dùng POST /api/reconnect để thử lại
 - Render free plan: server sleep sau 15 phút không có request
 - Render paid plan: server luôn chạy, auto-restart khi crash
 - Mỗi lần restart → tự động load tokens từ Firebase và reconnect
+
+---
+---
+
+# Part B: Inbox Client (browser-side WebSocket)
+
+---
+
+## 13. Inbox Realtime — Tổng quan
+
+### Vấn đề
+Trang **Inbox Chat** (`inbox/index.html`) cần nhận tin nhắn mới realtime để hiển thị cho nhân viên bán hàng, mà không phụ thuộc vào Render server (có thể sleep/restart).
+
+### Giải pháp
+Inbox client kết nối **trực tiếp** tới Pancake Phoenix WebSocket từ browser, thông qua **Cloudflare Worker proxy** (vì browser không thể set custom `Origin` header cho WebSocket).
+
+### Kiến trúc
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  Browser (inbox/index.html)                             │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ PancakePhoenixSocket (inbox-chat.js:10-163)     │    │
+│  │ - Join channels: users:{uid}, multiple_pages    │    │
+│  │ - Heartbeat 30s, auto-reconnect                 │    │
+│  └──────────────────────┬──────────────────────────┘    │
+└─────────────────────────┼───────────────────────────────┘
+                          │ wss://
+                          ▼
+┌─────────────────────────────────────────────────────────┐
+│  Cloudflare Worker (chatomni-proxy)                     │
+│  Route: /ws/pancake                                     │
+│  - Override Origin → https://pancake.vn                 │
+│  - Override Host → pancake.vn                           │
+│  - Transparent WebSocket proxy (101 upgrade)            │
+│  File: cloudflare-worker/modules/handlers/              │
+│        pancake-handler.js:240-259                       │
+└──────────────────────┬──────────────────────────────────┘
+                       │ wss://
+                       ▼
+┌─────────────────────────────────────────────────────────┐
+│  Pancake Phoenix WebSocket Server                       │
+│  wss://pancake.vn/socket/websocket?vsn=2.0.0           │
+└─────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 14. Cloudflare Worker WebSocket Proxy
+
+### Tại sao cần proxy?
+- Browser WebSocket API **không cho phép** set custom `Origin` header
+- Pancake server **kiểm tra Origin** phải là `https://pancake.vn`
+- CF Worker nhận WS request từ browser → set đúng Origin/Host → forward tới Pancake
+
+### Code (pancake-handler.js)
+
+```javascript
+// cloudflare-worker/modules/handlers/pancake-handler.js:240-259
+export async function handlePancakeWebSocket(request, url) {
+    const targetUrl = new URL('https://pancake.vn/socket/websocket');
+    for (const [key, value] of url.searchParams) {
+        targetUrl.searchParams.set(key, value);
+    }
+
+    const headers = new Headers(request.headers);
+    headers.set('Host', 'pancake.vn');
+    headers.set('Origin', 'https://pancake.vn');
+
+    // CF Workers tự proxy WebSocket khi upstream trả 101
+    return fetch(targetUrl.toString(), {
+        method: request.method,
+        headers: headers,
+    });
+}
+```
+
+### Route mapping (worker.js)
+
+```javascript
+// WebSocket upgrade detected → check path
+if (request.headers.get('Upgrade') === 'websocket') {
+    if (pathname === '/ws/pancake' || pathname.startsWith('/ws/pancake')) {
+        return handlePancakeWebSocket(request, url);
+    }
+}
+```
+
+### URL
+- **Client connects to:** `wss://chatomni-proxy.nhijudyshop.workers.dev/ws/pancake?vsn=2.0.0`
+- **Worker proxies to:** `wss://pancake.vn/socket/websocket?vsn=2.0.0`
+
+---
+
+## 15. PancakePhoenixSocket Class
+
+### Vị trí
+`inbox/js/inbox-chat.js` (dòng 10-163)
+
+### Constructor
+
+```javascript
+class PancakePhoenixSocket {
+    constructor({ accessToken, userId, pageIds, onEvent, onStatusChange }) {
+        this.url = 'wss://chatomni-proxy.nhijudyshop.workers.dev/ws/pancake?vsn=2.0.0';
+        this.accessToken = accessToken;   // JWT token từ Pancake
+        this.userId = userId;             // Pancake user ID (decoded từ JWT)
+        this.pageIds = pageIds;           // Mảng pageIds đã discover
+        this.onEvent = onEvent;           // Callback nhận events
+        this.onStatusChange = onStatusChange; // Callback connected/disconnected
+        this.maxReconnect = 10;
+        // ...
+    }
+}
+```
+
+### Phoenix Protocol
+Giống hệt Part A (Section 4), sử dụng JSON arrays `[joinRef, ref, topic, event, payload]`.
+
+### Channels đăng ký
+
+| Channel | Payload |
+|---------|---------|
+| `users:{userId}` | `{ accessToken, userId, platform: 'web' }` |
+| `multiple_pages:{userId}` | `{ accessToken, userId, clientSession, pageIds, platform: 'web' }` |
+
+### Heartbeat
+- Gửi mỗi **30 giây**: `[null, ref, 'phoenix', 'heartbeat', {}]`
+- Timeout **10 giây** — nếu không nhận reply → đóng WS → trigger reconnect
+
+### Reconnect
+- Exponential backoff: 2s → 4s → 8s → ... → 60s (max)
+- Tối đa **10 lần** thử
+- Reset counter khi kết nối thành công
+
+---
+
+## 16. Luồng kết nối Inbox
+
+```
+1. User mở inbox/index.html
+     │
+2. inbox-main.js init()
+     │
+3. Load Pancake tokens từ Firebase (pancake_tokens/accounts)
+     │
+4. Discover pages qua Pancake API (GET /api/v1/pages)
+   (qua CF Worker proxy: /api/pancake/pages)
+     │
+5. Tạo PancakePhoenixSocket instance
+   (accessToken, userId, pageIds)
+     │
+6. socket.connect()
+     │
+     ├── 6a. WS → CF Worker (/ws/pancake)
+     │         → Pancake (wss://pancake.vn/socket/websocket)
+     │
+     ├── 6b. Join channel: users:{userId}
+     │
+     ├── 6c. Join channel: multiple_pages:{userId}
+     │
+     └── 6d. Start heartbeat (30s interval)
+     │
+7. Nhận events → cập nhật UI (conversation list, messages)
+     │
+8. Nếu WS fail → fallback polling mỗi 30 giây
+```
+
+### Lấy token để connect
+Inbox client lấy token từ **Firebase Firestore** (`pancake_tokens/accounts`), giống Render server. Client chọn account đầu tiên có token hợp lệ, decode JWT để lấy `userId`.
+
+---
+
+## 17. Event Handling trong Inbox
+
+### Events được xử lý
+
+| Event | Mô tả | Handler |
+|-------|--------|---------|
+| `pages:update_conversation` / `update_conversation` | Cập nhật hội thoại (snippet, unread, tags) | `handleConversationUpdate()` |
+| `pages:new_message` / `new_message` | Tin nhắn mới | `handleNewMessage()` |
+| `post_type_detected` | Phát hiện loại bài post (livestream) | `handlePostTypeDetected()` |
+
+### Xử lý update_conversation
+1. Parse payload → lấy `conversation` object
+2. Cập nhật `lastMessage`, `time`, `unread_count`, `type`, `tags`
+3. Re-sort danh sách hội thoại
+4. Nếu conversation đang mở → refresh messages
+
+### Xử lý new_message
+1. Parse payload → lấy `message` object
+2. Cập nhật conversation snippet + time
+3. Nếu conversation đang mở → fetch lại messages từ Pancake API
+4. Play notification sound (nếu từ khách hàng)
+
+### WebSocket Status UI
+
+```html
+<!-- inbox/index.html:149 -->
+<span class="ws-status disconnected" id="wsStatus" title="Realtime: Mất kết nối">
+    <i data-lucide="wifi-off"></i>
+</span>
+```
+
+| Trạng thái | Icon | CSS Class | Title |
+|------------|------|-----------|-------|
+| Connected | `wifi` | `ws-status connected` | Realtime: Đã kết nối |
+| Disconnected | `wifi-off` | `ws-status disconnected` | Realtime: Mất kết nối |
+
+---
+
+## 18. Polling Fallback
+
+Khi WebSocket không khả dụng (CF Worker down, Pancake chặn, v.v.), inbox tự động chuyển sang **HTTP polling**:
+
+```javascript
+// Mỗi 30 giây fetch lại danh sách hội thoại
+startAutoRefresh() {
+    this.autoRefreshInterval = setInterval(async () => {
+        await this.data.loadConversations(true); // force refresh
+        this._scheduleRender();
+        this.renderGroupStats();
+    }, 30000); // AUTO_REFRESH_INTERVAL = 30s
+}
+```
+
+### Cơ chế chuyển đổi
+- WS connected → **tắt polling** (realtime đủ nhanh)
+- WS disconnected → **bật polling** (30s interval)
+- WS reconnected → **tắt polling** lại
+- Chuyển đổi transparent, user chỉ thấy icon wifi thay đổi
+
+---
+
+## 19. So sánh 2 hệ thống
+
+| Tiêu chí | Render Server (`tpos-pancake`) | Inbox Client (browser) |
+|----------|-------------------------------|----------------------|
+| **Vị trí chạy** | Server-side (Render.com) | Client-side (browser) |
+| **Always-on** | Có (paid plan) / Sleep (free) | Chỉ khi user mở inbox |
+| **WS Endpoint** | Trực tiếp `wss://pancake.vn/socket/websocket` | Qua CF Worker `wss://chatomni-proxy.../ws/pancake` |
+| **Tại sao cần proxy** | Không cần (server set headers tự do) | Browser không set được Origin header |
+| **Multi-account** | Có (nhiều WS client song song) | Không (1 account tại 1 thời điểm) |
+| **Lưu events** | In-memory store (1000 events) | Không lưu (render trực tiếp lên UI) |
+| **REST API** | Có (`/api/status`, `/api/events`...) | Không |
+| **Fallback** | Chỉ reconnect | Polling 30s khi WS fail |
+| **Token source** | Firebase Firestore | Firebase Firestore (giống) |
+| **Code location** | `tpos-pancake/server/` | `inbox/js/inbox-chat.js:10-163` |
+| **Deploy** | Render.com Web Service | Static files (GitHub Pages / local) |
+
+### Khi nào dùng cái nào?
+- **Render Server**: Dùng cho backend processing, notification push, event logging — cần server luôn chạy
+- **Inbox Client**: Dùng cho UI realtime — chỉ cần khi nhân viên đang chat, nhẹ hơn và không phụ thuộc Render
+
+---
+
+## Key Files Reference
+
+| Component | File | Lines |
+|-----------|------|-------|
+| CF Worker WS proxy | `cloudflare-worker/modules/handlers/pancake-handler.js` | 240-259 |
+| CF Worker route | `cloudflare-worker/worker.js` | 57-61 |
+| Phoenix Socket class | `inbox/js/inbox-chat.js` | 10-163 |
+| Event handlers | `inbox/js/inbox-chat.js` | ~3500+ |
+| WS status UI | `inbox/index.html` | 149-151 |
+| Polling fallback | `inbox/js/inbox-chat.js` | `startAutoRefresh()` |
+| Render server | `tpos-pancake/server/server.js` | Full file |
