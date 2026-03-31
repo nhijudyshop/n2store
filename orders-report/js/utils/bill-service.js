@@ -1495,10 +1495,29 @@ ${
                 if (is24HourError && window.pancakeExtension?.connected && window.sendViaExtension) {
                     console.log('[BILL-SERVICE] 24h error - trying Extension Bypass...');
                     try {
-                        const conv = window.buildConvData(pageId, psid);
-                        conv.conversationId = convId;
-                        const billMessage = '[Hóa đơn đã được tạo]';
-                        await window.sendViaExtension(billMessage, conv);
+                        // Fetch messages API to get thread_id + global_id
+                        // (buildConvData relies on global state not set in bill context)
+                        const pdm = window.pancakeDataManager;
+                        const raw = { from_psid: psid };
+                        if (pdm) {
+                            try {
+                                const msgData = await pdm.fetchMessages(pageId, convId);
+                                if (msgData.conversation) {
+                                    const mc = msgData.conversation;
+                                    if (mc.thread_id) raw.thread_id = mc.thread_id;
+                                    if (mc.page_customer) raw.page_customer = mc.page_customer;
+                                }
+                            } catch (e) {
+                                console.warn('[BILL-SERVICE] Messages fetch for ext data failed:', e.message);
+                            }
+                        }
+                        const extConv = {
+                            pageId, psid, conversationId: convId, _raw: raw,
+                            customers: [], _messagesData: { customers: [] },
+                            updated_at: null, customerName: '', type: 'INBOX',
+                        };
+                        // Send bill image as text (extension can only send text, not content_ids)
+                        await window.sendViaExtension('[Hóa đơn đã được tạo]', extConv);
                         console.log('[BILL-SERVICE] Extension Bypass succeeded!');
                         return {
                             success: true,
