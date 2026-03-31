@@ -805,11 +805,12 @@ console.log('[TemplateMgr] Loading...');
                     console.log('[TemplateMgr] ✅ Message sent via Pancake API');
                     continue;
                 }
-                // API returned error
-                console.warn('[TemplateMgr] Pancake API full response:', JSON.stringify(result));
-                const errMsg = result?.error?.message || result?.error || 'Pancake API error';
-                console.warn('[TemplateMgr] Pancake API error:', errMsg);
+                // API returned error — Pancake uses flat { message, e_code, e_subcode } format
+                const errMsg = result?.error?.message || result?.message || result?.error || 'Pancake API error';
+                const is24h = result?.e_code === 10 || result?.e_subcode === 2018278 || (errMsg || '').includes('khoảng thời gian cho phép');
+                console.warn('[TemplateMgr] Pancake API error:', errMsg, is24h ? '(24h policy)' : '', result);
                 lastError = new Error(typeof errMsg === 'string' ? errMsg : JSON.stringify(errMsg));
+                lastError.is24HourError = is24h;
             } catch (apiErr) {
                 console.warn('[TemplateMgr] Pancake API exception:', apiErr.message);
                 lastError = apiErr;
@@ -877,7 +878,7 @@ console.log('[TemplateMgr] Loading...');
                     code: order.Code || '',
                     customerName: order.customerName || '',
                     error: error.message || 'Lỗi không xác định',
-                    is24HourError: (error.message || '').includes('24'),
+                    is24HourError: error.is24HourError || (error.message || '').includes('24'),
                     Facebook_PostId: order.Facebook_PostId || '',
                     Facebook_CommentId: order.Facebook_CommentId || ''
                 };
