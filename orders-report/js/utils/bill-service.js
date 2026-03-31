@@ -268,7 +268,7 @@ const BillService = (function () {
                 const total = quantity * price;
                 const productName = item.ProductName || item.ProductNameGet || '';
                 const khoDiChoSTT = window.KhoDiChoCache ? window.KhoDiChoCache.getSTT(item) : 0;
-                const displayName = `${productName} - ${khoDiChoSTT}`;
+                const displayName = `${khoDiChoSTT} - ${productName}`;
                 const uomName = item.ProductUOMName || 'Cái';
                 const note = item.Note || '';
 
