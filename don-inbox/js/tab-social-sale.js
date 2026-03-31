@@ -230,14 +230,7 @@ async function openSaleModalInSocialTab(orderId) {
         Address: order.address || '',
         TotalAmount: order.totalAmount || 0,
         Comment: order.note || '',
-        Details: (order.products || []).filter(p => {
-            const name = (p.productName || p.name || '').trim();
-            const code = (p.productCode || '').trim();
-            const variant = (p.variant || '').trim();
-            const price = parseFloat(String(p.sellingPrice || p.price || 0).replace(/[,.]/g, '')) || 0;
-            const purchase = parseFloat(String(p.purchasePrice || 0).replace(/[,.]/g, '')) || 0;
-            return name || code || variant || price > 0 || purchase > 0;
-        }).map((p) => ({
+        Details: (order.products || []).map((p) => ({
             ProductId: p.tposProductId || 0,
             ProductCode: p.productCode || '',
             ProductNameGet: p.productName || p.name || '',
