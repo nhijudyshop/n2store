@@ -645,6 +645,19 @@
         return wsData;
     }
 
+    function autoFitColumns(ws, wsData) {
+        const cols = wsData[0].map((_, colIdx) => {
+            let maxLen = 0;
+            for (const row of wsData) {
+                const val = row[colIdx];
+                const len = val != null ? String(val).length : 0;
+                if (len > maxLen) maxLen = len;
+            }
+            return { wch: Math.max(maxLen + 2, 4) };
+        });
+        ws['!cols'] = cols;
+    }
+
     function makeFileName(label) {
         const now = new Date();
         return `GiaoHang_${label}_${now.getDate()}-${now.getMonth()+1}-${now.getFullYear()}.xlsx`;
@@ -674,6 +687,7 @@
             const wsData = buildExcelRows(items);
 
             const ws = XLSX.utils.aoa_to_sheet(wsData);
+            autoFitColumns(ws, wsData);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, tabInfo.sheet);
             XLSX.writeFile(wb, makeFileName(tabInfo.name));
@@ -692,8 +706,14 @@
         const napItems = provinceData.filter(item => groups[item.Number] === 'nap');
 
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(buildExcelRows(tomatoItems)), 'TOMATO');
-        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(buildExcelRows(napItems)), 'NAP');
+        const tomatoRows = buildExcelRows(tomatoItems);
+        const tomatoWs = XLSX.utils.aoa_to_sheet(tomatoRows);
+        autoFitColumns(tomatoWs, tomatoRows);
+        const napRows = buildExcelRows(napItems);
+        const napWs = XLSX.utils.aoa_to_sheet(napRows);
+        autoFitColumns(napWs, napRows);
+        XLSX.utils.book_append_sheet(wb, tomatoWs, 'TOMATO');
+        XLSX.utils.book_append_sheet(wb, napWs, 'NAP');
         XLSX.writeFile(wb, makeFileName('Tinh_TOMATO_NAP'));
     }
 
@@ -710,6 +730,7 @@
 
         const wsData = buildExcelRows(items);
         const ws = XLSX.utils.aoa_to_sheet(wsData);
+        autoFitColumns(ws, wsData);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, label);
         XLSX.writeFile(wb, makeFileName(label));
