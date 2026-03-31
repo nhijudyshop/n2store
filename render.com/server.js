@@ -205,6 +205,7 @@ const telegramBotRoutes = require('./routes/telegram-bot');
 const uploadImageRoutes = require('./routes/upload');
 const quyTrinhRoutes = require('./routes/quy-trinh');
 const goongPlacesRoutes = require('./routes/goong-places');
+const autofbRoutes = require('./routes/autofb');
 
 // === FIREBASE REPLACEMENT ROUTES (SSE + PostgreSQL) ===
 const realtimeSseRoutes = require('./routes/realtime-sse');
@@ -247,6 +248,7 @@ app.use('/api/telegram', telegramBotRoutes);
 app.use('/api/upload', uploadImageRoutes);
 app.use('/api/quy-trinh', quyTrinhRoutes);
 app.use('/api/goong-places', goongPlacesRoutes);
+app.use('/api/autofb', autofbRoutes);
 
 // === FIREBASE REPLACEMENT ROUTES ===
 // SSE for realtime updates (replaces Firebase listeners)

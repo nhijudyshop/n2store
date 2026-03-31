@@ -921,27 +921,42 @@
     const AUTOFB_WARNING_THRESHOLD = 800000; // VND
 
     async function fetchAutofbLiveData() {
+        // Try Render server directly first (has sharp + Gemini Vision for captcha solving)
+        const RENDER_URL = 'https://n2store-fallback.onrender.com/api/autofb/balance';
+        const payload = { username: 'n2shop', password: 'nhijudyMS23' };
+
+        try {
+            const res = await fetch(RENDER_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+            if (res.ok) {
+                const json = await res.json();
+                if (json.success) return json.data;
+                console.warn('[AutoFB] Render server failed:', json.error);
+            }
+        } catch (e) {
+            console.warn('[AutoFB] Render server error:', e.message);
+        }
+
+        // Fallback: try CF Worker proxy
         try {
             const res = await fetch(`${CF_WORKER_BASE}/api/autofb-balance`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    username: 'n2shop',
-                    password: 'nhijudyMS23',
-                    gemini_key: 'AIzaSyCuo0e3Gpgvo8n30ZDSowc_jORy59r9pZs',
-                }),
+                body: JSON.stringify(payload),
             });
-            if (!res.ok) return null;
-            const json = await res.json();
-            if (!json.success) {
-                console.warn('[AutoFB] Failed:', json.error);
-                return null;
+            if (res.ok) {
+                const json = await res.json();
+                if (json.success) return json.data;
+                console.warn('[AutoFB] CF Worker failed:', json.error);
             }
-            return json.data;
         } catch (e) {
-            console.warn('[AutoFB Live] Failed to fetch:', e.message);
-            return null;
+            console.warn('[AutoFB] CF Worker error:', e.message);
         }
+
+        return null;
     }
 
     function updateAutofbCard(liveData) {
