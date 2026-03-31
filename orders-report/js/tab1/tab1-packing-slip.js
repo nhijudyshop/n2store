@@ -112,6 +112,8 @@ function renderPackingSlipProducts() {
 
     const rows = packingSlipOrderLines.map((line, idx) => {
         const productName = line.ProductName || line.ProductNameGet || line.Product?.Name || '';
+        const khoDiChoSTT = window.KhoDiChoCache ? window.KhoDiChoCache.getSTT(line) : 0;
+        const displayName = `${productName} - ${khoDiChoSTT}`;
         const productNote = line.Note || '';
         const qty = line.ProductUOMQty || line.Quantity || 1;
 
@@ -127,7 +129,7 @@ function renderPackingSlipProducts() {
                     </label>
                 </td>
                 <td style="padding:8px 6px; text-align:left; word-break:break-word;">
-                    ${productName}
+                    ${displayName}
                     ${productNote ? `<div style="font-size:11px; color:#f59e0b; margin-top:2px;"><i>${productNote}</i></div>` : ''}
                 </td>
                 <td style="padding:8px 6px; text-align:center;">${qty}</td>
@@ -304,6 +306,8 @@ function generatePackingSlipHTML(waitingIndices, notes = {}) {
 
     const productRows = lines.map((line, idx) => {
         const productName = line.ProductName || line.ProductNameGet || line.Product?.Name || '';
+        const khoDiChoSTT = window.KhoDiChoCache ? window.KhoDiChoCache.getSTT(line) : 0;
+        const displayName = `${productName} - ${khoDiChoSTT}`;
         const qty = line.ProductUOMQty || line.Quantity || 1;
         const price = line.PriceUnit || line.Price || 0;
         const isWaiting = waitingIndices.has(idx);
@@ -326,7 +330,7 @@ function generatePackingSlipHTML(waitingIndices, notes = {}) {
             <tr>
                 <td style="border:1px solid #000; padding:5px 4px; text-align:center;">${idx + 1}</td>
                 <td style="border:1px solid #000; padding:5px 4px; text-align:left; word-break:break-word; font-size:14px; font-weight:bold;">
-                    ${productName}
+                    ${displayName}
                 </td>
                 <td style="border:1px solid #000; padding:5px 4px; text-align:center;">${qty}</td>
                 <td style="border:1px solid #000; padding:5px 4px; text-align:right; font-size:11px;">${priceShort}</td>
