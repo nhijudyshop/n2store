@@ -672,7 +672,7 @@
                     if (!defs.some(d => d.id === task.flagKey)) {
                         const _palette = ['#ef4444','#f97316','#f59e0b','#22c55e','#14b8a6','#3b82f6','#6366f1','#8b5cf6','#ec4899','#06b6d4'];
                         const _randColor = _palette[Math.floor(Math.random() * _palette.length)];
-                        defs.push({ id: task.flagKey, label: task._flagLabel, color: _randColor, createdAt: Date.now() });
+                        defs.push({ id: task.flagKey, label: (task._flagLabel || '').toUpperCase(), color: _randColor, createdAt: Date.now() });
                     }
                 }
             }
@@ -712,7 +712,7 @@
         const key = 'CUSTOM_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
         const _palette = ['#ef4444','#f97316','#f59e0b','#22c55e','#14b8a6','#3b82f6','#6366f1','#8b5cf6','#ec4899','#06b6d4'];
         const _randColor = _palette[Math.floor(Math.random() * _palette.length)];
-        defs.push({ id: key, label, color: _randColor, createdAt: Date.now() });
+        defs.push({ id: key, label: (label || '').toUpperCase(), color: _randColor, createdAt: Date.now() });
         window.ProcessingTagState.setCustomFlagDefs(defs);
         return key;
     }

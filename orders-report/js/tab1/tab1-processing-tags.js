@@ -38,35 +38,35 @@
     };
 
     const PTAG_SUBSTATES = {
-        OKIE_CHO_DI_DON: { key: 'OKIE_CHO_DI_DON', label: 'Okie Chờ Đi Đơn', color: '#3b82f6' },
-        CHO_HANG:        { key: 'CHO_HANG',         label: 'Chờ Hàng',         color: '#f59e0b' }
+        OKIE_CHO_DI_DON: { key: 'OKIE_CHO_DI_DON', label: 'OKIE CHỜ ĐI ĐƠN', color: '#3b82f6' },
+        CHO_HANG:        { key: 'CHO_HANG',         label: 'CHỜ HÀNG',         color: '#f59e0b' }
     };
 
     const PTAG_FLAGS = {
-        TRU_CONG_NO:  { key: 'TRU_CONG_NO',  label: 'Trừ công nợ', auto: true,  icon: '\u{1F4B0}' },
-        CHUYEN_KHOAN: { key: 'CHUYEN_KHOAN', label: 'CK',          auto: true,  icon: '\u{1F4B3}' },
-        GIAM_GIA:     { key: 'GIAM_GIA',     label: 'Giảm giá',    auto: true,  icon: '\u{1F3F7}\uFE0F' },
-        CHO_LIVE:     { key: 'CHO_LIVE',     label: 'Chờ live',    auto: false, icon: '\u{1F4FA}' },
-        GIU_DON:      { key: 'GIU_DON',      label: 'Giữ đơn',     auto: false, icon: '\u{231B}' },
-        QUA_LAY:      { key: 'QUA_LAY',      label: 'Qua lấy',     auto: false, icon: '\u{1F3E0}' },
-        GOI_BAO_KHACH_HH: { key: 'GOI_BAO_KHACH_HH', label: 'Gọi báo khách HH', auto: false, icon: '\u{1F4DE}' },
-        KHAC:         { key: 'KHAC',         label: 'Khác',        auto: false, icon: '\u{1F4CB}', hasNote: true }
+        TRU_CONG_NO:  { key: 'TRU_CONG_NO',  label: 'TRỪ CÔNG NỢ', auto: true,  icon: '\u{1F4B0}' },
+        CHUYEN_KHOAN: { key: 'CHUYEN_KHOAN', label: 'CK',           auto: true,  icon: '\u{1F4B3}' },
+        GIAM_GIA:     { key: 'GIAM_GIA',     label: 'GIẢM GIÁ',    auto: true,  icon: '\u{1F3F7}\uFE0F' },
+        CHO_LIVE:     { key: 'CHO_LIVE',     label: 'CHỜ LIVE',     auto: false, icon: '\u{1F4FA}' },
+        GIU_DON:      { key: 'GIU_DON',      label: 'GIỮ ĐƠN',     auto: false, icon: '\u{231B}' },
+        QUA_LAY:      { key: 'QUA_LAY',      label: 'QUA LẤY',     auto: false, icon: '\u{1F3E0}' },
+        GOI_BAO_KHACH_HH: { key: 'GOI_BAO_KHACH_HH', label: 'GỌI BÁO KHÁCH HH', auto: false, icon: '\u{1F4DE}' },
+        KHAC:         { key: 'KHAC',         label: 'KHÁC',        auto: false, icon: '\u{1F4CB}', hasNote: true }
     };
 
     const PTAG_SUBTAGS = {
         // Category 2 — MỤC XỬ LÝ
-        CHUA_PHAN_HOI:  { key: 'CHUA_PHAN_HOI',  label: 'Đơn chưa phản hồi', category: 2 },
-        CHUA_DUNG_SP:   { key: 'CHUA_DUNG_SP',   label: 'Đơn chưa đúng SP',  category: 2 },
-        KHACH_MUON_XA:  { key: 'KHACH_MUON_XA',  label: 'Đơn khách muốn xã', category: 2 },
-        BAN_HANG:       { key: 'BAN_HANG',        label: 'Bán hàng',           category: 2 },
-        XU_LY_KHAC:     { key: 'XU_LY_KHAC',     label: 'Khác (ghi chú)',     category: 2, hasNote: true },
+        CHUA_PHAN_HOI:  { key: 'CHUA_PHAN_HOI',  label: 'ĐƠN CHƯA PHẢN HỒI', category: 2 },
+        CHUA_DUNG_SP:   { key: 'CHUA_DUNG_SP',   label: 'ĐƠN CHƯA ĐÚNG SP',  category: 2 },
+        KHACH_MUON_XA:  { key: 'KHACH_MUON_XA',  label: 'ĐƠN KHÁCH MUỐN XÃ', category: 2 },
+        BAN_HANG:       { key: 'BAN_HANG',        label: 'BÁN HÀNG',           category: 2 },
+        XU_LY_KHAC:     { key: 'XU_LY_KHAC',     label: 'KHÁC (GHI CHÚ)',     category: 2, hasNote: true },
         // Category 3 — KHÔNG CẦN CHỐT
-        DA_GOP_KHONG_CHOT: { key: 'DA_GOP_KHONG_CHOT', label: 'Đã gộp không chốt', category: 3 },
-        GIO_TRONG:          { key: 'GIO_TRONG',         label: 'Giỏ trống',         category: 3 },
+        DA_GOP_KHONG_CHOT: { key: 'DA_GOP_KHONG_CHOT', label: 'ĐÃ GỘP KHÔNG CHỐT', category: 3 },
+        GIO_TRONG:          { key: 'GIO_TRONG',         label: 'GIỎ TRỐNG',         category: 3 },
         // Category 4 — KHÁCH XÃ
-        NCC_HET_HANG:       { key: 'NCC_HET_HANG',      label: 'NCC hết hàng',              category: 4 },
-        KHACH_HUY_DON:      { key: 'KHACH_HUY_DON',     label: 'Khách hủy nguyên đơn',      category: 4 },
-        KHACH_KO_LIEN_LAC:  { key: 'KHACH_KO_LIEN_LAC', label: 'Khách không liên lạc được', category: 4 }
+        NCC_HET_HANG:       { key: 'NCC_HET_HANG',      label: 'NCC HẾT HÀNG',              category: 4 },
+        KHACH_HUY_DON:      { key: 'KHACH_HUY_DON',     label: 'KHÁCH HỦY NGUYÊN ĐƠN',      category: 4 },
+        KHACH_KO_LIEN_LAC:  { key: 'KHACH_KO_LIEN_LAC', label: 'KHÁCH KHÔNG LIÊN LẠC ĐƯỢC', category: 4 }
     };
 
     const PTAG_TOOLTIPS = {
@@ -243,8 +243,8 @@
         getTTagLabel(tagId) {
             const def = this._tTagDefinitions.find(d => d.id === tagId);
             if (!def) return tagId;
-            const pc = def.productCode ? ` · ${def.productCode}` : '';
-            return `${def.name}${pc}`;
+            const pc = def.productCode ? ` · ${def.productCode.toUpperCase()}` : '';
+            return `${(def.name || '').toUpperCase()}${pc}`;
         },
         getCustomFlagDefs() {
             return this._customFlagDefs;
@@ -257,7 +257,7 @@
         },
         getCustomFlagLabel(flagId) {
             const def = this._customFlagDefs.find(d => d.id === flagId);
-            return def ? def.label : flagId;
+            return def ? (def.label || '').toUpperCase() : flagId;
         }
     };
 
@@ -961,7 +961,7 @@
         const tags = [];
         // Cat 1 — CHỜ ĐI ĐƠN
         tags.push({ type: 'cat-label', label: `${PTAG_CATEGORY_META[1].emoji} CHỜ ĐI ĐƠN` });
-        tags.push({ type: 'tag', key: 'cat:1:null', label: 'Okie Chờ Đi Đơn', isCat: true, cat: 1, subTag: null, color: PTAG_CATEGORY_COLORS[1].border });
+        tags.push({ type: 'tag', key: 'cat:1:null', label: 'OKIE CHỜ ĐI ĐƠN', isCat: true, cat: 1, subTag: null, color: PTAG_CATEGORY_COLORS[1].border });
         // T-tag button
         tags.push({ type: 'tag', key: 'ttag-btn', label: '📦 Tag T Chờ Hàng', isTTagBtn: true, color: '#8b5cf6' });
         // Cat 2 — XỬ LÝ
@@ -995,7 +995,7 @@
         // Custom flags
         const customFlagDefs = ProcessingTagState.getCustomFlagDefs();
         for (const cf of customFlagDefs) {
-            tags.push({ type: 'tag', key: `flag:${cf.id}`, label: cf.label, isFlag: true, flagKey: cf.id, color: _ptagGetFlagColor(cf.id) });
+            tags.push({ type: 'tag', key: `flag:${cf.id}`, label: (cf.label || '').toUpperCase(), isFlag: true, flagKey: cf.id, color: _ptagGetFlagColor(cf.id) });
         }
         // All T-tag definitions — shown at bottom of dropdown as direct toggle
         tags.push({ type: 'cat-label', label: '📦 TAG T CHỜ HÀNG' });
@@ -1024,7 +1024,7 @@
         if (data.category !== null && data.category !== undefined) {
             const catColor = PTAG_CATEGORY_COLORS[data.category];
             if (data.category === PTAG_CATEGORIES.CHO_DI_DON) {
-                selected.push({ key: 'cat:1:null', label: 'Okie Chờ Đi Đơn', isCat: true, cat: 1, subTag: null, color: catColor.border });
+                selected.push({ key: 'cat:1:null', label: 'OKIE CHỜ ĐI ĐƠN', isCat: true, cat: 1, subTag: null, color: catColor.border });
             } else if (data.category === PTAG_CATEGORIES.HOAN_TAT) {
                 selected.push({ key: 'cat:0:null', label: 'ĐÃ RA ĐƠN', isCat: true, cat: 0, subTag: null, color: catColor.border });
             } else {
@@ -1044,7 +1044,7 @@
                 selected.push({ key: `flag:${f}`, label: `${fl.icon} ${fl.label}`, isFlag: true, flagKey: f, color: _ptagGetFlagColor(f) });
             } else {
                 const cf = ProcessingTagState.getCustomFlagDef(f);
-                if (cf) selected.push({ key: `flag:${f}`, label: cf.label, isFlag: true, flagKey: f, color: _ptagGetFlagColor(f) });
+                if (cf) selected.push({ key: `flag:${f}`, label: (cf.label || '').toUpperCase(), isFlag: true, flagKey: f, color: _ptagGetFlagColor(f) });
             }
         });
         // All assigned T-tags
@@ -1317,7 +1317,7 @@
         const key = 'CUSTOM_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
         const assignedColor = PTAG_FLAG_COLOR_PALETTE[Math.floor(Math.random() * PTAG_FLAG_COLOR_PALETTE.length)];
         const defs = ProcessingTagState.getCustomFlagDefs();
-        defs.push({ id: key, label, color: assignedColor, createdAt: Date.now() });
+        defs.push({ id: key, label: label.toUpperCase(), color: assignedColor, createdAt: Date.now() });
         _ptagSetFlagColor(key, assignedColor);
         ProcessingTagState.setCustomFlagDefs(defs);
         // Save definitions FIRST to ensure label is persisted
@@ -1728,7 +1728,7 @@
                             <label class="ptag-flag-checkbox">
                                 <input type="checkbox" ${cfChecked} onchange="window._ptagToggleFlagFilter('${cf.id}'); event.stopPropagation();" />
                                 <span style="width:10px;height:10px;border-radius:50%;background:${cfColor};display:inline-block;flex-shrink:0;"></span>
-                                <span class="ptag-flag-label" style="font-size:13px;">${cf.label}</span>
+                                <span class="ptag-flag-label" style="font-size:13px;">${(cf.label || '').toUpperCase()}</span>
                             </label>
                             <span class="ptag-panel-card-count" style="font-size:12px;">${cfCount}</span>
                             <button class="ptag-color-edit-btn" onclick="window._ptagOpenFlagColorPicker('${cf.id}', this); event.stopPropagation();" title="Đổi màu"><i class="fas fa-pen" style="font-size:10px;"></i></button>
@@ -1795,7 +1795,7 @@
                         <span style="font-size:12px;">\u{1F3F7}\uFE0F</span>
                     </div>
                     <div class="ptag-panel-card-info">
-                        <div class="ptag-panel-card-name" style="color:${ttagColor};">${def.name}${pcLabel}</div>
+                        <div class="ptag-panel-card-name" style="color:${ttagColor};">${(def.name || '').toUpperCase()}${pcLabel}</div>
                         <div class="ptag-panel-card-count">${count} đơn hàng</div>
                     </div>
                     ${deleteBtn}
@@ -1960,7 +1960,7 @@
         // Cat 1
         html += `<div class="ptag-bulk-group">
             <div class="ptag-bulk-cat" style="color:${PTAG_CATEGORY_COLORS[1].text};">${PTAG_CATEGORY_META[1].emoji} ${PTAG_CATEGORY_META[1].short}</div>
-            <label><input type="radio" name="ptag-bulk-choice" value="1:null" /> Okie Chờ Đi Đơn</label>
+            <label><input type="radio" name="ptag-bulk-choice" value="1:null" /> OKIE CHỜ ĐI ĐƠN</label>
         </div>`;
         // Cat 2
         html += `<div class="ptag-bulk-group">
@@ -2153,7 +2153,7 @@
         dropdown.innerHTML = filtered.map((def, idx) => {
             const escapedId = def.id.replace(/'/g, "\\'");
             return `<div class="ptag-ttag-dropdown-item ${idx === 0 ? 'highlighted' : ''}" onclick="window._ptagToggleTTagSelection('${escapedId}')" data-tag-id="${def.id}">
-                <span style="color:#7c3aed;font-weight:600;">${def.name}</span>
+                <span style="color:#7c3aed;font-weight:600;">${(def.name || '').toUpperCase()}</span>
             </div>`;
         }).join('');
     }
@@ -2495,7 +2495,7 @@
                     data-index="${i}" data-tag-id="${def.id}"
                     onclick="window._ttagMgrAddTag('${def.id.replace(/'/g, "\\'")}')"
                     onmouseenter="this.classList.add('highlighted')" onmouseleave="this.classList.remove('highlighted')">
-                    <span style="color:#7c3aed;font-weight:600;">${def.name}${pcLabel}</span>
+                    <span style="color:#7c3aed;font-weight:600;">${(def.name || '').toUpperCase()}${pcLabel}</span>
                     <span style="color:#9ca3af;font-size:12px;margin-left:auto;">${count} đơn</span>
                 </div>`;
             });
@@ -2586,7 +2586,7 @@
         const tagId = `T${nextNum}`;
 
         // Create definition
-        const newDef = { id: tagId, name, productCode, createdAt: Date.now() };
+        const newDef = { id: tagId, name: name.toUpperCase(), productCode, createdAt: Date.now() };
         defs.push(newDef);
         ProcessingTagState.setTTagDefinitions(defs);
         saveTTagDefinitions();
@@ -3306,7 +3306,7 @@
                         const escapedId = def.id.replace(/'/g, "\\'");
                         return `<div class="ttag-mgr-settings-row" id="ttagSettingsRow_${def.id}">
                             <div style="flex:1;min-width:0;">
-                                <div style="font-weight:600;color:#7c3aed;font-size:14px;" id="ttagSettingsName_${def.id}">${def.name}</div>
+                                <div style="font-weight:600;color:#7c3aed;font-size:14px;" id="ttagSettingsName_${def.id}">${(def.name || '').toUpperCase()}</div>
                                 <div style="font-size:12px;color:#6b7280;">
                                     ${def.productCode ? `Mã SP: <b>${def.productCode}</b> · ` : ''}${count} đơn · ID: ${def.id}
                                 </div>
@@ -3361,7 +3361,7 @@
     function _ttagMgrConfirmRename(tagId) {
         const nameInput = document.getElementById(`ttagRenameInput_${tagId}`);
         const pcInput = document.getElementById(`ttagRenamePCInput_${tagId}`);
-        const newName = (nameInput?.value || '').trim();
+        const newName = (nameInput?.value || '').trim().toUpperCase();
         const newPC = (pcInput?.value || '').trim().toUpperCase();
 
         if (!newName) { alert('Tên tag không được trống.'); return; }
