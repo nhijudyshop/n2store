@@ -876,91 +876,100 @@ window.updateCodReduceFromProducts = updateCodReduceFromProducts;
  * Step 2: For each ID, GET full partner data then PUT with updated status + note
  */
 async function markPartnerAsBoom(phone, noteText) {
-    if (!phone) return;
+    if (!phone) throw new Error('Không có số điện thoại khách');
 
-    try {
-        // Step 1: Search all Partner IDs by phone
-        const searchUrl = `${API_CONFIG.TPOS_ODATA}/Partner/ODataService.GetViewV2?Type=Customer&Active=true&Phone=${encodeURIComponent(phone)}&$top=50&$orderby=DateCreated+desc&$filter=Type+eq+'Customer'&$count=true`;
+    const headers = {
+        'Accept': 'application/json, text/plain, */*',
+        'Content-Type': 'application/json;charset=UTF-8',
+        'feature-version': '2',
+        'x-tpos-lang': 'vi'
+    };
 
-        const searchResponse = await window.tokenManager.authenticatedFetch(searchUrl, {
+    // Step 1: Search all Partner IDs by phone
+    const searchUrl = `${API_CONFIG.TPOS_ODATA}/Partner/ODataService.GetViewV2?Type=Customer&Active=true&Phone=${encodeURIComponent(phone)}&$top=50&$orderby=DateCreated+desc&$filter=Type+eq+'Customer'&$count=true`;
+
+    const searchResponse = await window.tokenManager.authenticatedFetch(searchUrl, {
+        method: 'GET',
+        headers
+    });
+
+    if (!searchResponse.ok) {
+        throw new Error(`Tìm khách thất bại (HTTP ${searchResponse.status})`);
+    }
+
+    const searchData = await searchResponse.json();
+    const partners = searchData.value || [];
+
+    if (partners.length === 0) {
+        console.log('[BOOM] No partners found for phone:', phone);
+        return;
+    }
+
+    console.log(`[BOOM] Found ${partners.length} partner(s) for phone ${phone}`);
+
+    // Step 2: GET full data for each partner & save originals for rollback
+    const partnerEntries = []; // { id, url, originalData, updatedData }
+    for (const partner of partners) {
+        const getUrl = `${API_CONFIG.TPOS_ODATA}/Partner(${partner.Id})`;
+        const getResponse = await window.tokenManager.authenticatedFetch(getUrl, {
             method: 'GET',
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
-            }
+            headers
         });
 
-        if (!searchResponse.ok) {
-            console.error('[BOOM] Failed to search partners:', searchResponse.status);
-            return;
+        if (!getResponse.ok) {
+            throw new Error(`Lấy thông tin khách ${partner.Id} thất bại (HTTP ${getResponse.status})`);
         }
 
-        const searchData = await searchResponse.json();
-        const partners = searchData.value || [];
+        const partnerData = await getResponse.json();
 
-        if (partners.length === 0) {
-            console.log('[BOOM] No partners found for phone:', phone);
-            return;
+        // Save original values for rollback
+        const originalData = JSON.parse(JSON.stringify(partnerData));
+
+        // Apply boom updates
+        partnerData.StatusStyle = '#d1332e';
+        partnerData.StatusText = 'Bom hàng';
+        if (noteText) {
+            partnerData.Zalo = noteText;
         }
 
-        console.log(`[BOOM] Found ${partners.length} partner(s) for phone ${phone}`);
+        partnerEntries.push({ id: partner.Id, url: getUrl, originalData, updatedData: partnerData });
+    }
 
-        // Step 2: For each partner, GET full data then PUT with updated status
-        const updatePromises = partners.map(async (partner) => {
-            try {
-                // GET full partner data
-                const getUrl = `${API_CONFIG.TPOS_ODATA}/Partner(${partner.Id})`;
-                const getResponse = await window.tokenManager.authenticatedFetch(getUrl, {
-                    method: 'GET',
-                    headers: {
-                        'Accept': 'application/json, text/plain, */*',
-                        'Content-Type': 'application/json;charset=UTF-8',
-                        'feature-version': '2',
-                        'x-tpos-lang': 'vi'
-                    }
-                });
-
-                if (!getResponse.ok) {
-                    console.error(`[BOOM] Failed to get partner ${partner.Id}:`, getResponse.status);
-                    return;
-                }
-
-                const partnerData = await getResponse.json();
-
-                // Update fields: StatusStyle, StatusText, Zalo (note)
-                partnerData.StatusStyle = '#d1332e';
-                partnerData.StatusText = 'Bom hàng';
-                if (noteText) {
-                    partnerData.Zalo = noteText;
-                }
-
-                // PUT updated partner data
-                const putResponse = await window.tokenManager.authenticatedFetch(getUrl, {
-                    method: 'PUT',
-                    headers: {
-                        'Accept': 'application/json, text/plain, */*',
-                        'Content-Type': 'application/json;charset=UTF-8',
-                        'feature-version': '2',
-                        'x-tpos-lang': 'vi'
-                    },
-                    body: JSON.stringify(partnerData)
-                });
-
-                if (!putResponse.ok) {
-                    console.error(`[BOOM] Failed to update partner ${partner.Id}:`, putResponse.status);
-                } else {
-                    console.log(`[BOOM] Successfully updated partner ${partner.Id} as "Bom hàng"`);
-                }
-            } catch (err) {
-                console.error(`[BOOM] Error updating partner ${partner.Id}:`, err);
-            }
+    // Step 3: PUT updated data for each partner, track successes for rollback
+    const updatedIds = [];
+    for (const entry of partnerEntries) {
+        const putResponse = await window.tokenManager.authenticatedFetch(entry.url, {
+            method: 'PUT',
+            headers,
+            body: JSON.stringify(entry.updatedData)
         });
 
-        // Run all updates in parallel
-        await Promise.all(updatePromises);
-        console.log('[BOOM] All partner updates completed');
-    } catch (err) {
-        console.error('[BOOM] Error in markPartnerAsBoom:', err);
+        if (!putResponse.ok) {
+            // Rollback all previously successful updates
+            console.error(`[BOOM] Failed to update partner ${entry.id}, rolling back ${updatedIds.length} partner(s)...`);
+            await _rollbackPartners(partnerEntries.filter(e => updatedIds.includes(e.id)), headers);
+            throw new Error(`Cập nhật khách ${entry.id} thất bại (HTTP ${putResponse.status})`);
+        }
+
+        updatedIds.push(entry.id);
+        console.log(`[BOOM] Successfully updated partner ${entry.id} as "Bom hàng"`);
+    }
+
+    console.log('[BOOM] All partner updates completed');
+}
+
+async function _rollbackPartners(entries, headers) {
+    for (const entry of entries) {
+        try {
+            await window.tokenManager.authenticatedFetch(entry.url, {
+                method: 'PUT',
+                headers,
+                body: JSON.stringify(entry.originalData)
+            });
+            console.log(`[BOOM] Rolled back partner ${entry.id}`);
+        } catch (err) {
+            console.error(`[BOOM] Failed to rollback partner ${entry.id}:`, err);
+        }
     }
 }
 
@@ -1199,11 +1208,13 @@ async function handleSubmitTicket() {
             const now = new Date();
             const dateStr = `${now.getDate()}/${now.getMonth() + 1}/${now.getFullYear()}`;
             const noteWithDate = note ? `${note} ${dateStr}` : dateStr;
-            markPartnerAsBoom(customerPhone, noteWithDate).then(() => {
+            try {
+                await markPartnerAsBoom(customerPhone, noteWithDate);
                 console.log('[APP] Partner boom status updated');
-            }).catch(err => {
+            } catch (err) {
                 console.error('[APP] Failed to update partner boom status:', err);
-            });
+                notificationManager.error(`Đánh boom TPOS thất bại: ${err.message}. Vui lòng đánh thủ công trên TPOS.`);
+            }
         }
 
         closeModal(elements.modalCreate);
