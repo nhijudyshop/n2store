@@ -914,11 +914,12 @@ class QuickReplyManager {
     }
 
     /**
-     * Send quick reply with image - sends image first, then text message
-     * Uses pdm.sendMessage (Official API JSON) — same pattern as tab1-chat-messages.js
+     * Send quick reply with image + text (2 separate requests)
+     * Per Pancake API docs: message and content_ids are MUTUALLY EXCLUSIVE
+     * Flow: download image → upload via upload_contents → send with content_ids → send text
      */
     async sendQuickReplyWithImage(imageUrl, message) {
-        console.log('[QUICK-REPLY] Sending quick reply with image:', imageUrl);
+        console.log('[QUICK-REPLY] Sending with image:', imageUrl);
         window.isQuickReplySending = true;
 
         if (!window.currentConversationId || !window.currentChatChannelId) {
@@ -944,58 +945,43 @@ class QuickReplyManager {
                 || window.authManager?.getAuthState?.()?.displayName;
             if (displayName) finalMessage = message + '\nNv. ' + displayName;
 
-            // Step 1: Send image
-            // Try content_url first (works if URL is from Pancake CDN upload)
+            // Step 1: Download image → upload → send with content_ids
             let imageSent = false;
-            console.log('[QUICK-REPLY] Sending image via content_url...');
-            const imgResult = await pdm.sendMessage(channelId, conversationId, {
-                action: 'reply_inbox', message: '', content_url: imageUrl
-            }, pat);
+            console.log('[QUICK-REPLY] Downloading image from CDN...');
+            const downloaded = await fetch(imageUrl);
+            if (!downloaded.ok) throw new Error('Tải ảnh thất bại');
+            const blob = await downloaded.blob();
+            const ext = imageUrl.match(/\.(jpg|jpeg|png|gif|webp)/i)?.[1] || 'jpg';
+            const file = new File([blob], `quick-reply.${ext}`, { type: blob.type || `image/${ext}` });
 
-            if (imgResult?.success !== false) {
-                imageSent = true;
-                console.log('[QUICK-REPLY] Image sent via content_url');
+            console.log('[QUICK-REPLY] Uploading image...');
+            const uploadResult = await pdm.uploadMedia(channelId, file, pat);
+            console.log('[QUICK-REPLY] Upload result:', uploadResult);
+
+            if (uploadResult?.id) {
+                // API docs: use content_ids (NOT content_url, NOT message — they're mutually exclusive)
+                const sendResult = await pdm.sendMessage(channelId, conversationId, {
+                    action: 'reply_inbox', content_ids: [uploadResult.id]
+                }, pat);
+                console.log('[QUICK-REPLY] Image send result:', sendResult);
+
+                if (sendResult?.success === false) {
+                    const errMsg = sendResult.message || '';
+                    if (sendResult.e_code === 10 || errMsg.includes('khoảng thời gian cho phép')) {
+                        if (window.notificationManager) window.notificationManager.show('Không thể gửi (quá 24h). Vui lòng dùng COMMENT!', 'warning', 8000);
+                        return;
+                    }
+                    console.warn('[QUICK-REPLY] Image send failed:', errMsg);
+                } else {
+                    imageSent = true;
+                    console.log('[QUICK-REPLY] Image sent');
+                }
             } else {
-                // Check 24h error
-                const errMsg = imgResult.message || '';
-                if (imgResult.e_code === 10 || errMsg.includes('khoảng thời gian cho phép')) {
-                    if (window.notificationManager) window.notificationManager.show('Không thể gửi (quá 24h). Vui lòng dùng COMMENT!', 'warning', 8000);
-                    return;
-                }
-
-                // Fallback: download → upload → send via content_ids
-                console.log('[QUICK-REPLY] content_url failed, downloading and re-uploading...');
-                try {
-                    const downloaded = await fetch(imageUrl);
-                    if (!downloaded.ok) throw new Error('Download failed');
-                    const blob = await downloaded.blob();
-                    const ext = imageUrl.match(/\.(jpg|jpeg|png|gif|webp)/i)?.[1] || 'jpg';
-                    const file = new File([blob], `quick-reply.${ext}`, { type: blob.type || `image/${ext}` });
-
-                    const uploadResult = await pdm.uploadMedia(channelId, file, pat);
-                    if (uploadResult?.content_url) {
-                        const sendResult = await pdm.sendMessage(channelId, conversationId, {
-                            action: 'reply_inbox', message: '', content_url: uploadResult.content_url
-                        }, pat);
-                        if (sendResult?.success !== false) imageSent = true;
-                    } else if (uploadResult?.id) {
-                        const sendResult = await pdm.sendMessage(channelId, conversationId, {
-                            action: 'reply_inbox', content_ids: [uploadResult.id]
-                        }, pat);
-                        if (sendResult?.success !== false) imageSent = true;
-                    }
-
-                    if (imageSent) {
-                        console.log('[QUICK-REPLY] Image sent via upload fallback');
-                    } else {
-                        console.warn('[QUICK-REPLY] Image upload fallback also failed');
-                    }
-                } catch (uploadErr) {
-                    console.warn('[QUICK-REPLY] Image upload fallback error:', uploadErr.message);
-                }
+                console.warn('[QUICK-REPLY] Upload returned no id:', uploadResult);
             }
 
-            // Step 2: Send text (always attempt even if image failed)
+            // Step 2: Send text separately (message and content_ids are mutually exclusive)
+            if (imageSent) await new Promise(r => setTimeout(r, 300)); // small delay between requests
             console.log('[QUICK-REPLY] Sending text...');
             const textResult = await pdm.sendMessage(channelId, conversationId, {
                 action: 'reply_inbox', message: finalMessage
@@ -1008,7 +994,7 @@ class QuickReplyManager {
             if (imageSent && textSent) {
                 if (window.notificationManager) window.notificationManager.success('Đã gửi!', 2000);
             } else if (textSent) {
-                if (window.notificationManager) window.notificationManager.show('Đã gửi tin nhắn (ảnh gửi thất bại)', 'warning', 4000);
+                if (window.notificationManager) window.notificationManager.show('Đã gửi tin nhắn (ảnh thất bại)', 'warning', 4000);
             } else {
                 throw new Error(textResult?.message || 'Gửi thất bại');
             }

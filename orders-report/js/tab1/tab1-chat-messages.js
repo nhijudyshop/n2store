@@ -320,19 +320,12 @@ window.sendMessage = async function() {
         const pat = await pdm.getPageAccessToken(pageId);
         if (!pat) throw new Error('Không tìm thấy page_access_token');
 
-        // Upload images first
+        // Upload images first (message and content_ids are MUTUALLY EXCLUSIVE per API docs)
         if (pendingImages.length > 0) {
             _showToast('Đang tải ảnh lên...', 'info');
             for (const file of pendingImages) {
                 const uploadResult = await pdm.uploadMedia(pageId, file, pat);
-                if (uploadResult?.content_url) {
-                    // Send image as separate message (content_url and message are mutually exclusive)
-                    await pdm.sendMessage(pageId, convId, {
-                        action: 'reply_inbox',
-                        message: '',
-                        content_url: uploadResult.content_url
-                    }, pat);
-                } else if (uploadResult?.id) {
+                if (uploadResult?.id) {
                     await pdm.sendMessage(pageId, convId, {
                         action: 'reply_inbox',
                         content_ids: [uploadResult.id]
