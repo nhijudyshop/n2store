@@ -435,13 +435,19 @@ body {
     box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 
+.section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
 .section-title {
     display: flex;
     align-items: center;
     gap: 8px;
     font-size: 22px;
     font-weight: 600;
-    margin-bottom: 16px;
     color: #333;
 }
 
