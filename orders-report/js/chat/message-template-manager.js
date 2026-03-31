@@ -806,6 +806,7 @@ console.log('[TemplateMgr] Loading...');
                     continue;
                 }
                 // API returned error
+                console.warn('[TemplateMgr] Pancake API full response:', JSON.stringify(result));
                 const errMsg = result?.error?.message || result?.error || 'Pancake API error';
                 console.warn('[TemplateMgr] Pancake API error:', errMsg);
                 lastError = new Error(typeof errMsg === 'string' ? errMsg : JSON.stringify(errMsg));
