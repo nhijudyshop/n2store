@@ -3156,8 +3156,7 @@ class UnifiedNavigationManager {
             { name: 'Render (4 services + DB)', amount: 70, billingDay: 1, warnBefore: 0, showDays: 3 },
             { name: 'Firebase (Blaze)', amount: 0, billingDay: 1, warnBefore: 0, showDays: 3, note: 'Kiểm tra usage trên console' },
             { name: 'Cloudflare Workers', amount: 5, billingDay: 13, warnBefore: 0, showDays: 3 },
-            { name: 'SePay VIP (589K đ)', amount: 589000, amountVND: true, billingDay: 28, warnBefore: 3, showDays: 3, note: 'Hóa đơn #24721 chưa thanh toán',
-              payment: { invoiceId: '#24721', bank: 'MBBank', acc: '7788888678888', beneficiary: 'SEPAY JSC', content: 'SEP00024721', amountVND: 589000, qrUrl: 'https://qr.sepay.vn/img?bank=MBBank&acc=7788888678888&template=&amount=589000&des=SEP00024721', invoiceUrl: 'https://my.sepay.vn/invoices/details/24721' } },
+            { name: 'SePay VIP (589K đ)', amount: 589000, amountVND: true, billingDay: 27, warnBefore: 3, showDays: 3 },
         ];
 
         const now = new Date();

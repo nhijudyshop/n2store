@@ -650,7 +650,7 @@
             { name: 'Render (4 services + DB)', amount: 70, billingDay: 1, warnBefore: 0, showDays: 3 },
             { name: 'Firebase (Blaze)', amount: 0, billingDay: 1, warnBefore: 0, showDays: 3, note: 'Ki\u1EC3m tra usage tr\u00EAn console' },
             { name: 'Cloudflare Workers', amount: 5, billingDay: 13, warnBefore: 0, showDays: 3 },
-            { name: 'SePay VIP (589K \u0111)', amount: 589000, amountVND: true, billingDay: 28, warnBefore: 3, showDays: 3 },
+            { name: 'SePay VIP (589K \u0111)', amount: 589000, amountVND: true, billingDay: 27, warnBefore: 3, showDays: 3 },
         ];
 
         const now = new Date();
