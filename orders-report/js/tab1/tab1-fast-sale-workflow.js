@@ -433,6 +433,38 @@
                 reason
             );
 
+            // Trả lại sản phẩm vào Kho Đi Chợ nếu đã hoàn thành đối soát (non-blocking)
+            if (invoiceData.StateCode === 'CrossCheckComplete' && invoiceData.OrderLines?.length) {
+                try {
+                    const restoreItems = invoiceData.OrderLines.map(line => {
+                        const nameStr = line.ProductName || line.Name || '';
+                        const codeMatch = nameStr.match(/\[([^\]]+)\]/);
+                        const productCode = codeMatch ? codeMatch[1].trim() : '';
+                        return {
+                            product_code: productCode,
+                            parent_product_code: null,
+                            product_name: nameStr,
+                            variant: null,
+                            quantity: Math.floor(line.ProductUOMQty || 1),
+                            purchase_price: line.PriceUnit || 0,
+                            source_po_id: 'cancel_' + (order.Number || order.Reference || saleOnlineId)
+                        };
+                    }).filter(i => i.product_code);
+
+                    if (restoreItems.length > 0) {
+                        fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/kho-di-cho/batch', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ items: restoreItems })
+                        }).then(r => r.json()).then(res => {
+                            if (res.success) console.log('[KhoDiCho] Trả kho:', res.message);
+                        }).catch(err => console.warn('[KhoDiCho] Trả kho lỗi:', err));
+                    }
+                } catch (err) {
+                    console.warn('[KhoDiCho] Restore error:', err);
+                }
+            }
+
             // Step 3: Delete from InvoiceStatusStore (localStorage + Firebase)
             if (window.InvoiceStatusStore?.delete) {
                 await window.InvoiceStatusStore.delete(saleOnlineId);
@@ -1299,6 +1331,38 @@
                 },
                 reason
             );
+
+            // Trả lại sản phẩm vào Kho Đi Chợ nếu đã hoàn thành đối soát (non-blocking)
+            if (invoiceData.StateCode === 'CrossCheckComplete' && invoiceData.OrderLines?.length) {
+                try {
+                    const restoreItems = invoiceData.OrderLines.map(line => {
+                        const nameStr = line.ProductName || line.Name || '';
+                        const codeMatch = nameStr.match(/\[([^\]]+)\]/);
+                        const productCode = codeMatch ? codeMatch[1].trim() : '';
+                        return {
+                            product_code: productCode,
+                            parent_product_code: null,
+                            product_name: nameStr,
+                            variant: null,
+                            quantity: Math.floor(line.ProductUOMQty || 1),
+                            purchase_price: line.PriceUnit || 0,
+                            source_po_id: 'cancel_' + (order.Number || order.Reference || saleOnlineId)
+                        };
+                    }).filter(i => i.product_code);
+
+                    if (restoreItems.length > 0) {
+                        fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/kho-di-cho/batch', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ items: restoreItems })
+                        }).then(r => r.json()).then(res => {
+                            if (res.success) console.log('[KhoDiCho] Trả kho:', res.message);
+                        }).catch(err => console.warn('[KhoDiCho] Trả kho lỗi:', err));
+                    }
+                } catch (err) {
+                    console.warn('[KhoDiCho] Restore error:', err);
+                }
+            }
 
             // Step 3: Delete from InvoiceStatusStore (localStorage + Firebase)
             if (window.InvoiceStatusStore?.delete) {
