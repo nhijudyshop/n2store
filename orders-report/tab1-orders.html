@@ -854,6 +854,9 @@
                             <textarea id="chatInput" placeholder="Nhập tin nhắn..." rows="1"
                                 onkeydown="if(event.key==='Enter'&&!event.shiftKey&&!window.quickReplyManager?.autocompleteActive){event.preventDefault();window.sendMessage();}"></textarea>
                             <div class="chat-toolbar">
+                                <button class="attach-btn" onclick="if(window.currentChatOrderId) openEditModal(window.currentChatOrderId)" title="Chỉnh sửa đơn hàng">
+                                    <i class="fas fa-pen"></i>
+                                </button>
                                 <button class="attach-btn" onclick="document.getElementById('chatImageInput').click()" title="Đính kèm ảnh">
                                     <i class="fas fa-paperclip"></i>
                                 </button>

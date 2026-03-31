@@ -62,6 +62,7 @@ window.openChatModal = async function(orderId, pageId, psid, conversationType) {
     conversationType = conversationType || 'INBOX';
 
     // Set state
+    window.currentChatOrderId = orderId;
     window.currentChatChannelId = pageId;
     window.currentChatPSID = psid;
     window.currentConversationType = conversationType;
