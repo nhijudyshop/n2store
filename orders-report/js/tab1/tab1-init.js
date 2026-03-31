@@ -150,11 +150,13 @@ window.addEventListener("DOMContentLoaded", async function () {
 
         // Start data manager init but DON'T WAIT - run in parallel with orders loading
         pancakeInitPromise = window.pancakeDataManager.initialize()
-            .then(success => {
+            .then(async success => {
                 if (success) {
                     console.log('[PANCAKE] ✅ PancakeDataManager initialized (background)');
                     // Set chatDataManager alias for compatibility
                     window.chatDataManager = window.pancakeDataManager;
+                    // Connect WebSocket for realtime messages
+                    _connectRealtimeWebSocket();
                 } else {
                     console.warn('[PANCAKE] ⚠️ PancakeDataManager initialization failed');
                     console.warn('[PANCAKE] Please set JWT token in Pancake Settings');
@@ -174,6 +176,28 @@ window.addEventListener("DOMContentLoaded", async function () {
         window.realtimeManager.initialize();
     } else {
         console.warn('[REALTIME] ⚠️ RealtimeManager not available');
+    }
+
+    // Connect WebSocket to Pancake for realtime messages
+    async function _connectRealtimeWebSocket() {
+        const ptm = window.pancakeTokenManager;
+        const pdm = window.pancakeDataManager;
+        if (!ptm || !pdm || !window.realtimeManager) return;
+        try {
+            const token = await ptm.getToken();
+            if (!token) return;
+            const decoded = ptm.decodeToken(token);
+            const userId = decoded?.uid || decoded?.user_id || decoded?.id;
+            const pageIds = pdm.pageIds || [];
+            if (!userId || !pageIds.length) {
+                console.warn('[REALTIME] Missing userId or pageIds for WebSocket');
+                return;
+            }
+            await window.realtimeManager.initWebSocket({ accessToken: token, userId, pageIds });
+            console.log('[REALTIME] ✅ WebSocket connected for realtime chat');
+        } catch (e) {
+            console.warn('[REALTIME] WebSocket connect error:', e.message);
+        }
     }
 
     // ⚡ OPTIMIZATION FIX: Defer TAG/KPI BASE listeners to reduce initial blocking

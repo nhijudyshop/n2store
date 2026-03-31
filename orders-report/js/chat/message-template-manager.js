@@ -106,6 +106,16 @@ console.log('[TemplateMgr] Loading...');
         _sentOrders.set(orderId, { viaComment: viaComment || false, timestamp: Date.now() });
         _failedOrders.delete(orderId); // remove from failed if was there
         _saveToStorage();
+
+        // Dispatch event for tab1-table.js badge updates (mirrors failedOrdersUpdated)
+        const sentIds = [], commentIds = [];
+        for (const [id, data] of _sentOrders) {
+            sentIds.push(id);
+            if (data.viaComment) commentIds.push(id);
+        }
+        window.dispatchEvent(new CustomEvent('sentOrdersUpdated', {
+            detail: { sentOrderIds: sentIds, sentViaCommentIds: commentIds }
+        }));
     }
 
     function markOrderFailed(orderId, error) {
