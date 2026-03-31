@@ -1833,12 +1833,23 @@
 
     let _ptagFilterTimer = null;
 
+    let _ptagSetFilterLock = false;
     function _ptagSetFilter(filterKey) {
-        ProcessingTagState._activeFilter = filterKey;
-        // Only clear flag filters when resetting to "TẤT CẢ" (null)
-        // Flags are independent of processing tag filters otherwise
-        if (filterKey === null) {
+        // Debounce double-click
+        if (_ptagSetFilterLock) return;
+        _ptagSetFilterLock = true;
+        setTimeout(() => { _ptagSetFilterLock = false; }, 300);
+
+        // Toggle: click same filter again → deselect (back to TẤT CẢ)
+        if (ProcessingTagState._activeFilter === filterKey && filterKey !== null) {
+            ProcessingTagState._activeFilter = null;
             ProcessingTagState._activeFlagFilters.clear();
+        } else {
+            ProcessingTagState._activeFilter = filterKey;
+            // Only clear flag filters when resetting to "TẤT CẢ" (null)
+            if (filterKey === null) {
+                ProcessingTagState._activeFlagFilters.clear();
+            }
         }
         renderPanelContent();
         // Debounce table re-render to avoid redundant work on rapid clicks
@@ -1858,7 +1869,13 @@
         if (chevron) chevron.classList.toggle('expanded', ProcessingTagState._flagsSectionExpanded);
     }
 
+    let _ptagFlagFilterLock = false;
     function _ptagToggleFlagFilter(flagKey) {
+        // Debounce double-click
+        if (_ptagFlagFilterLock) return;
+        _ptagFlagFilterLock = true;
+        setTimeout(() => { _ptagFlagFilterLock = false; }, 300);
+
         const set = ProcessingTagState._activeFlagFilters;
         if (set.has(flagKey)) {
             set.delete(flagKey);
