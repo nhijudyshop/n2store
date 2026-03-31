@@ -1,6 +1,6 @@
 // =====================================================
 // AUTOFB.PRO BALANCE ROUTE
-// Login with SVG captcha solving via sharp + Tesseract.js
+// Login with SVG captcha solving via sharp + Gemini Vision (+ Tesseract fallback)
 // =====================================================
 
 const express = require('express');
@@ -8,6 +8,7 @@ const router = express.Router();
 const sharp = require('sharp');
 const Tesseract = require('tesseract.js');
 
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const AUTOFB_BASE = 'https://autofb.pro';
 
 const COMMON_HEADERS = {
@@ -19,22 +20,18 @@ const COMMON_HEADERS = {
 };
 
 // =====================================================
-// SVG Captcha → PNG → Tesseract OCR
+// SVG Captcha Processing
 // =====================================================
 
 function cleanCaptchaSvg(svg) {
-    // Remove noise lines (stroke paths with fill="none")
     let cleaned = svg.replace(/<path[^>]*fill="none"[^>]*\/>/g, '');
-    // Background white first
     cleaned = cleaned.replace('fill="#f0f0f0"', 'fill="#ffffff"');
-    // Then digits black (skip the white background)
     cleaned = cleaned.replace(/fill="#(?!ffffff)[a-fA-F0-9]{6}"/g, 'fill="#000000"');
     return cleaned;
 }
 
 async function svgToPngBuffer(svgString) {
     const cleanSvg = cleanCaptchaSvg(svgString);
-    // Scale up 5x for better OCR
     const scaledSvg = cleanSvg
         .replace('width="250"', 'width="1250"')
         .replace('height="50"', 'height="250"');
@@ -46,6 +43,48 @@ async function svgToPngBuffer(svgString) {
         .png()
         .toBuffer();
 }
+
+// =====================================================
+// Gemini Vision OCR (primary)
+// =====================================================
+
+async function solveCaptchaWithGemini(svgString) {
+    if (!GEMINI_API_KEY) return null;
+
+    const pngBuffer = await svgToPngBuffer(svgString);
+    const pngBase64 = pngBuffer.toString('base64');
+
+    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
+
+    const res = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            contents: [{
+                parts: [
+                    { text: 'This captcha image contains exactly 4 numerical digits (0-9). What are the 4 digits? Reply with ONLY the 4 digits, nothing else.' },
+                    { inline_data: { mime_type: 'image/png', data: pngBase64 } }
+                ]
+            }],
+            generationConfig: { temperature: 0, maxOutputTokens: 10 }
+        })
+    });
+
+    if (!res.ok) {
+        const err = await res.text();
+        console.error(`[AUTOFB] Gemini API error: ${res.status} ${err.substring(0, 200)}`);
+        return null;
+    }
+
+    const data = await res.json();
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+    const digits = text.replace(/[^0-9]/g, '');
+    return digits.length === 4 ? digits : null;
+}
+
+// =====================================================
+// Tesseract OCR (fallback)
+// =====================================================
 
 async function solveCaptchaWithTesseract(svgString) {
     const pngBuffer = await svgToPngBuffer(svgString);
@@ -65,7 +104,30 @@ async function solveCaptchaWithTesseract(svgString) {
     return /^\d{4}$/.test(digits) ? digits : null;
 }
 
-// Cache token in memory (avoid re-login on every request)
+// =====================================================
+// Combined solver: Gemini first, Tesseract fallback
+// =====================================================
+
+async function solveCaptcha(svgString) {
+    // Try Gemini first (more accurate)
+    const geminiResult = await solveCaptchaWithGemini(svgString);
+    if (geminiResult) {
+        console.log(`[AUTOFB] Gemini solved: "${geminiResult}"`);
+        return geminiResult;
+    }
+
+    // Fallback to Tesseract
+    console.log('[AUTOFB] Gemini failed, trying Tesseract...');
+    const tesseractResult = await solveCaptchaWithTesseract(svgString);
+    if (tesseractResult) {
+        console.log(`[AUTOFB] Tesseract solved: "${tesseractResult}"`);
+        return tesseractResult;
+    }
+
+    return null;
+}
+
+// Cache token in memory
 let cachedToken = null;
 let cachedTokenExpiry = 0;
 
@@ -75,7 +137,8 @@ let cachedTokenExpiry = 0;
 router.get('/', (req, res) => {
     res.json({
         status: 'ok',
-        service: 'AutoFB.pro Balance (Tesseract OCR)',
+        service: 'AutoFB.pro Balance',
+        hasGeminiKey: !!GEMINI_API_KEY,
         hasCachedToken: !!cachedToken && Date.now() < cachedTokenExpiry,
     });
 });
@@ -90,19 +153,19 @@ router.get('/test-captcha', async (req, res) => {
         });
         const captcha = await captchaRes.json();
 
-        let ocrResult = null;
-        let ocrError = null;
+        let geminiResult = null, tesseractResult = null, error = null;
         try {
-            ocrResult = await solveCaptchaWithTesseract(captcha.svg);
-        } catch (e) {
-            ocrError = e.message;
-        }
+            geminiResult = await solveCaptchaWithGemini(captcha.svg);
+        } catch (e) { error = 'gemini: ' + e.message; }
+        try {
+            tesseractResult = await solveCaptchaWithTesseract(captcha.svg);
+        } catch (e) { error = (error ? error + '; ' : '') + 'tesseract: ' + e.message; }
 
         res.json({
             captchaId: captcha.captchaId,
-            svgLength: captcha.svg?.length,
-            ocrResult,
-            ocrError,
+            geminiResult,
+            tesseractResult,
+            error,
         });
     } catch (e) {
         res.status(500).json({ error: e.message });
@@ -111,20 +174,15 @@ router.get('/test-captcha', async (req, res) => {
 
 // =====================================================
 // POST /api/autofb/balance
-// Body: { username, password }
-// Returns: { success, data: { balance, balanceVND, username } }
 // =====================================================
 router.post('/balance', async (req, res) => {
     const { username, password } = req.body;
 
     if (!username || !password) {
-        return res.status(400).json({
-            success: false,
-            error: 'Missing username or password',
-        });
+        return res.status(400).json({ success: false, error: 'Missing username or password' });
     }
 
-    // If we have a cached token, try to use it first
+    // Try cached token first
     if (cachedToken && Date.now() < cachedTokenExpiry) {
         try {
             const balanceData = await fetchBalanceWithToken(cachedToken);
@@ -132,11 +190,7 @@ router.post('/balance', async (req, res) => {
                 console.log(`[AUTOFB] Used cached token, balance: ${balanceData.balance}`);
                 return res.json({
                     success: true,
-                    data: {
-                        ...balanceData,
-                        fromCache: true,
-                        fetchedAt: new Date().toISOString(),
-                    }
+                    data: { ...balanceData, fromCache: true, fetchedAt: new Date().toISOString() }
                 });
             }
         } catch (e) {
@@ -157,13 +211,12 @@ router.post('/balance', async (req, res) => {
             const captcha = await captchaRes.json();
             console.log(`[AUTOFB] Attempt ${attempt}: captchaId=${captcha.captchaId}`);
 
-            // 2. Solve with Tesseract OCR (SVG → PNG → OCR)
-            const digits = await solveCaptchaWithTesseract(captcha.svg);
+            // 2. Solve captcha (Gemini → Tesseract fallback)
+            const digits = await solveCaptcha(captcha.svg);
             if (!digits) {
-                console.log(`[AUTOFB] Attempt ${attempt}: OCR could not read 4 digits`);
+                console.log(`[AUTOFB] Attempt ${attempt}: Could not read captcha`);
                 continue;
             }
-            console.log(`[AUTOFB] Attempt ${attempt}: OCR solved → "${digits}"`);
 
             // 3. Login
             const loginRes = await fetch(`${AUTOFB_BASE}/auth/login`, {
@@ -196,7 +249,6 @@ router.post('/balance', async (req, res) => {
                 const balance = result.user?.balance || 0;
                 const balanceVND = Math.round(balance * 25000);
 
-                // Cache token for 30 minutes
                 cachedToken = result.token;
                 cachedTokenExpiry = Date.now() + 30 * 60 * 1000;
 
@@ -205,8 +257,7 @@ router.post('/balance', async (req, res) => {
                 return res.json({
                     success: true,
                     data: {
-                        balance,
-                        balanceVND,
+                        balance, balanceVND,
                         username: result.user?.username,
                         level: result.user?.level,
                         is2FAEnabled: result.is2FAEnabled,
@@ -235,7 +286,7 @@ router.post('/balance', async (req, res) => {
 });
 
 // =====================================================
-// Fetch balance using existing token (skip captcha)
+// Fetch balance using existing token
 // =====================================================
 async function fetchBalanceWithToken(token) {
     const res = await fetch(`${AUTOFB_BASE}/user/get-user-info`, {
