@@ -1582,6 +1582,13 @@ console.log('[TemplateMgr] Loading...');
             if (!psid && storeOrder?.Facebook_ASUserId) psid = storeOrder.Facebook_ASUserId;
             if (!pageId && storeOrder?.Facebook_PostId) pageId = storeOrder.Facebook_PostId.split('_')[0];
 
+            // Skip orders where psid = pageId (page messaging itself — no real customer)
+            if (psid && pageId && psid === pageId) {
+                console.warn(`[TemplateMgr] ⚠️ Skipping order ${storeOrder?.Code || orderId}: psid === pageId (${psid}) — không có PSID khách hàng`);
+                filteredCount++;
+                return;
+            }
+
             allOrders.push({
                 orderId,
                 pageId,
@@ -1599,7 +1606,7 @@ console.log('[TemplateMgr] Loading...');
         });
 
         if (filteredCount > 0 && window.notificationManager) {
-            window.notificationManager.show(`Đã bỏ qua ${filteredCount} đơn đã gửi trong 24h`, 'info');
+            window.notificationManager.show(`Đã bỏ qua ${filteredCount} đơn (đã gửi hoặc thiếu PSID khách hàng)`, 'info');
         }
 
         if (allOrders.length === 0) {
