@@ -607,7 +607,7 @@
 
             // Auto picking slip for single-SKU CHO_HANG orders
             if (data.subState === 'CHO_HANG') {
-                data.pickingSlipPrinted = _ptagIsSingleSkuOrder(orderId);
+                data.pickingSlipPrinted = await _ptagIsSingleSkuOrder(orderId);
             }
 
             // Auto-detect flags from wallet
@@ -721,7 +721,7 @@
         if (data.category === PTAG_CATEGORIES.CHO_DI_DON && data.subState === 'OKIE_CHO_DI_DON') {
             data.subState = 'CHO_HANG';
             // Auto picking slip for single-SKU orders
-            if (_ptagIsSingleSkuOrder(orderId)) {
+            if (await _ptagIsSingleSkuOrder(orderId)) {
                 data.pickingSlipPrinted = true;
             }
         }
@@ -858,11 +858,35 @@
     }
 
     /** Check if order has only 1 unique product code (for auto picking slip) */
-    function _ptagIsSingleSkuOrder(orderId) {
-        const order = ((typeof window.getAllOrders === 'function') ? window.getAllOrders() : []).find(o => o.Id === orderId);
-        if (!order || !Array.isArray(order.Details) || order.Details.length === 0) return false;
-        const uniqueCodes = new Set(order.Details.map(d => (d.ProductCode || '').toUpperCase()).filter(c => c));
-        return uniqueCodes.size === 1;
+    async function _ptagIsSingleSkuOrder(orderId) {
+        const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
+        const order = allOrders.find(o => o.Id === orderId);
+
+        // 1. Check Details already loaded in allData
+        if (order && Array.isArray(order.Details) && order.Details.length > 0) {
+            const uniqueCodes = new Set(order.Details.map(d => (d.ProductCode || '').toUpperCase()).filter(c => c));
+            return uniqueCodes.size === 1;
+        }
+
+        // 2. Fetch Details from TPOS API
+        try {
+            if (!window.tokenManager) return false;
+            const resp = await window.tokenManager.authenticatedFetch(
+                `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details`,
+                { headers: { 'accept': 'application/json', 'content-type': 'application/json' } }
+            );
+            if (!resp.ok) return false;
+            const data = await resp.json();
+            const details = data.Details || [];
+            if (details.length === 0) return false;
+            // Cache Details back into order for future use
+            if (order) order.Details = details;
+            const uniqueCodes = new Set(details.map(d => (d.ProductCode || '').toUpperCase()).filter(c => c));
+            return uniqueCodes.size === 1;
+        } catch (e) {
+            console.warn(`${PTAG_LOG} Failed to fetch order details for single-SKU check:`, e);
+            return false;
+        }
     }
 
     /** Inject order Code into data before saving (for cross-referencing after reload) */
