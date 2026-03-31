@@ -1663,39 +1663,31 @@
         for (const [key, ss] of Object.entries(PTAG_SUBSTATES)) {
             const fk = 'sub_' + key;
             const ssIcon = key === 'OKIE_CHO_DI_DON' ? 'fa-check' : 'fa-hourglass-half';
-            html += `<div class="ptag-panel-card ${activeFilter === fk ? 'active' : ''}" onclick="window._ptagSetFilter('${fk}')" data-search="${_ptagNormalize(ss.label)}">
+            // CHO_HANG: inline filter icons for Đã in phiếu / Chưa in phiếu
+            const inlineIcons = key === 'CHO_HANG' ? `<div style="display:flex;gap:4px;margin-left:auto;flex-shrink:0;">
+                <button class="ptag-panel-inline-icon ${activeFilter === 'sub_CHO_HANG_DA_IN' ? 'active' : ''}" onclick="window._ptagSetFilter('sub_CHO_HANG_DA_IN'); event.stopPropagation();" title="Đã in phiếu (${subStateCounts['CHO_HANG_DA_IN'] || 0})" style="position:relative;width:28px;height:28px;border:2px solid ${activeFilter === 'sub_CHO_HANG_DA_IN' ? '#10b981' : '#d1d5db'};border-radius:6px;background:${activeFilter === 'sub_CHO_HANG_DA_IN' ? 'rgba(16,185,129,0.12)' : '#fff'};cursor:pointer;display:flex;align-items:center;justify-content:center;">
+                    <i class="fas fa-print" style="font-size:12px;color:#10b981;"></i>
+                    <span style="position:absolute;top:-6px;right:-6px;background:#10b981;color:#fff;font-size:9px;min-width:14px;height:14px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:600;">${subStateCounts['CHO_HANG_DA_IN'] || 0}</span>
+                </button>
+                <button class="ptag-panel-inline-icon ${activeFilter === 'sub_CHO_HANG_CHUA_IN' ? 'active' : ''}" onclick="window._ptagSetFilter('sub_CHO_HANG_CHUA_IN'); event.stopPropagation();" title="Chưa in phiếu (${subStateCounts['CHO_HANG_CHUA_IN'] || 0})" style="position:relative;width:28px;height:28px;border:2px solid ${activeFilter === 'sub_CHO_HANG_CHUA_IN' ? '#ef4444' : '#d1d5db'};border-radius:6px;background:${activeFilter === 'sub_CHO_HANG_CHUA_IN' ? 'rgba(239,68,68,0.08)' : '#fff'};cursor:pointer;display:flex;align-items:center;justify-content:center;">
+                    <i class="fas fa-print" style="font-size:12px;color:#ccc;"></i>
+                    <i class="fas fa-times" style="position:absolute;font-size:8px;color:#ef4444;top:2px;right:2px;"></i>
+                    <span style="position:absolute;top:-6px;right:-6px;background:#ef4444;color:#fff;font-size:9px;min-width:14px;height:14px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:600;">${subStateCounts['CHO_HANG_CHUA_IN'] || 0}</span>
+                </button>
+            </div>` : '';
+            html += `<div class="ptag-panel-card ${activeFilter === fk ? 'active' : ''}" onclick="window._ptagSetFilter('${fk}')" data-search="${_ptagNormalize(ss.label)} da in phieu chua in phieu">
                 <div class="ptag-panel-card-icon" style="background:${ss.color};">
                     <i class="fas ${ssIcon}" style="color:#fff;font-size:13px;"></i>
                 </div>
-                <div class="ptag-panel-card-info">
-                    <div class="ptag-panel-card-name">${ss.label}</div>
-                    <div class="ptag-panel-card-count">${subStateCounts[key] || 0} đơn hàng</div>
+                <div class="ptag-panel-card-info" style="display:flex;align-items:center;gap:8px;flex:1;min-width:0;">
+                    <div style="min-width:0;">
+                        <div class="ptag-panel-card-name">${ss.label}</div>
+                        <div class="ptag-panel-card-count">${subStateCounts[key] || 0} đơn hàng</div>
+                    </div>
+                    ${inlineIcons}
                 </div>
                 ${_tooltipHtml(fk)}
             </div>`;
-            // CHO_HANG sub-cards: Đã in phiếu / Chưa in phiếu
-            if (key === 'CHO_HANG') {
-                html += `<div class="ptag-panel-card ${activeFilter === 'sub_CHO_HANG_DA_IN' ? 'active' : ''}" onclick="window._ptagSetFilter('sub_CHO_HANG_DA_IN')" data-search="da in phieu soan" style="margin-left:16px;">
-                    <div class="ptag-panel-card-icon" style="background:#10b981;">
-                        <i class="fas fa-print" style="color:#fff;font-size:13px;"></i>
-                    </div>
-                    <div class="ptag-panel-card-info">
-                        <div class="ptag-panel-card-name">Đã in phiếu</div>
-                        <div class="ptag-panel-card-count">${subStateCounts['CHO_HANG_DA_IN'] || 0} đơn hàng</div>
-                    </div>
-                    ${_tooltipHtml('sub_CHO_HANG_DA_IN')}
-                </div>`;
-                html += `<div class="ptag-panel-card ${activeFilter === 'sub_CHO_HANG_CHUA_IN' ? 'active' : ''}" onclick="window._ptagSetFilter('sub_CHO_HANG_CHUA_IN')" data-search="chua in phieu soan" style="margin-left:16px;">
-                    <div class="ptag-panel-card-icon" style="background:#f59e0b;">
-                        <i class="fas fa-hourglass-half" style="color:#fff;font-size:13px;"></i>
-                    </div>
-                    <div class="ptag-panel-card-info">
-                        <div class="ptag-panel-card-name">Chưa in phiếu</div>
-                        <div class="ptag-panel-card-count">${subStateCounts['CHO_HANG_CHUA_IN'] || 0} đơn hàng</div>
-                    </div>
-                    ${_tooltipHtml('sub_CHO_HANG_CHUA_IN')}
-                </div>`;
-            }
         }
         html += `</div>`;
 
