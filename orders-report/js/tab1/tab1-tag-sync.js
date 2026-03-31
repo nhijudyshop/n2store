@@ -391,7 +391,6 @@
                 </div>
             `;
         }
-        }
 
         // === T-TAGS ===
         const tTagDefs = window.ProcessingTagState?.getTTagDefinitions() || [];
@@ -715,7 +714,6 @@
         defs.push({ id: key, label: (label || '').toUpperCase(), color: _randColor, createdAt: Date.now() });
         window.ProcessingTagState.setCustomFlagDefs(defs);
         return key;
-    }
     }
 
     // =====================================================
