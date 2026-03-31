@@ -859,16 +859,6 @@
 
     /** Check if order has only 1 unique product code (for auto picking slip) */
     async function _ptagIsSingleSkuOrder(orderId) {
-        const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
-        const order = allOrders.find(o => o.Id === orderId);
-
-        // 1. Check Details already loaded in allData
-        if (order && Array.isArray(order.Details) && order.Details.length > 0) {
-            const uniqueCodes = new Set(order.Details.map(d => (d.ProductCode || '').toUpperCase()).filter(c => c));
-            return uniqueCodes.size === 1;
-        }
-
-        // 2. Fetch Details from TPOS API
         try {
             if (!window.tokenManager) return false;
             const resp = await window.tokenManager.authenticatedFetch(
@@ -879,8 +869,6 @@
             const data = await resp.json();
             const details = data.Details || [];
             if (details.length === 0) return false;
-            // Cache Details back into order for future use
-            if (order) order.Details = details;
             const uniqueCodes = new Set(details.map(d => (d.ProductCode || '').toUpperCase()).filter(c => c));
             return uniqueCodes.size === 1;
         } catch (e) {
