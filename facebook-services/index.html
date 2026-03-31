@@ -60,6 +60,9 @@
             <button class="tab-btn" data-tab="history">
                 <i data-lucide="history"></i> L&#7883;ch S&#7917; &#272;&#417;n
             </button>
+            <button class="tab-btn" data-tab="wallet">
+                <i data-lucide="wallet"></i> N&#7841;p Ti&#7873;n
+            </button>
         </div>
 
         <!-- Tab: Create Order -->
@@ -197,6 +200,98 @@
                             </tr>
                         </tbody>
                     </table>
+                </div>
+            </div>
+        </div>
+        <!-- Tab: Wallet / Nạp Tiền -->
+        <div class="tab-content" id="tabWallet">
+            <div class="content-area">
+                <div class="wallet-layout">
+                    <!-- Balance Card -->
+                    <div class="wallet-balance-card">
+                        <div class="wallet-balance-header">
+                            <i data-lucide="wallet"></i>
+                            <span>S&#7889; d&#432; t&agrave;i kho&#7843;n</span>
+                        </div>
+                        <div class="wallet-balance-amount" id="walletBalanceUSD">--</div>
+                        <div class="wallet-balance-vnd" id="walletBalanceVND">--</div>
+                        <button class="btn btn-sm btn-outline" id="btnRefreshBalance" style="margin-top:0.75rem">
+                            <i data-lucide="refresh-cw"></i> L&agrave;m m&#7899;i
+                        </button>
+                    </div>
+
+                    <!-- Deposit Section -->
+                    <div class="wallet-deposit-section">
+                        <h3><i data-lucide="plus-circle"></i> N&#7841;p ti&#7873;n</h3>
+
+                        <div class="deposit-notice">
+                            <i data-lucide="info"></i>
+                            <div>
+                                <p>N&#7841;p ti&#7873;n qua chuy&#7875;n kho&#7843;n ng&acirc;n h&agrave;ng tr&ecirc;n trang AutoFB.pro.</p>
+                                <p>T&#7889;i thi&#7875;u: <strong>10,000 VND</strong></p>
+                            </div>
+                        </div>
+
+                        <!-- Quick Amount Buttons -->
+                        <div class="quick-amounts">
+                            <label>Ch&#7885;n s&#7889; ti&#7873;n n&#7841;p:</label>
+                            <div class="quick-amounts-grid">
+                                <button class="quick-amount-btn" data-amount="50000">50,000&#273;</button>
+                                <button class="quick-amount-btn" data-amount="100000">100,000&#273;</button>
+                                <button class="quick-amount-btn" data-amount="200000">200,000&#273;</button>
+                                <button class="quick-amount-btn" data-amount="500000">500,000&#273;</button>
+                                <button class="quick-amount-btn" data-amount="1000000">1,000,000&#273;</button>
+                                <button class="quick-amount-btn" data-amount="2000000">2,000,000&#273;</button>
+                            </div>
+                        </div>
+
+                        <!-- Custom Amount -->
+                        <div class="form-group">
+                            <label><i data-lucide="banknote"></i> Ho&#7863;c nh&#7853;p s&#7889; ti&#7873;n</label>
+                            <div class="deposit-amount-group">
+                                <input type="number" id="depositAmount" class="form-input" placeholder="Nh&#7853;p s&#7889; ti&#7873;n (VND)" min="10000" step="1000" />
+                                <span class="deposit-usd" id="depositUSD">~$0.00</span>
+                            </div>
+                        </div>
+
+                        <!-- Open AutoFB Wallet -->
+                        <a href="https://autofb.pro/vi/wallet" target="_blank" class="btn btn-primary btn-lg btn-block" id="btnOpenWallet">
+                            <i data-lucide="external-link"></i> M&#7903; trang n&#7841;p ti&#7873;n AutoFB.pro
+                        </a>
+
+                        <div class="deposit-steps">
+                            <h4>H&#432;&#7899;ng d&#7851;n n&#7841;p:</h4>
+                            <ol>
+                                <li>Nh&#7845;n n&uacute;t <strong>"M&#7903; trang n&#7841;p ti&#7873;n"</strong> &#7903; tr&ecirc;n</li>
+                                <li>Nh&#7853;p s&#7889; ti&#7873;n c&#7847;n n&#7841;p</li>
+                                <li>Chuy&#7875;n kho&#7843;n theo th&ocirc;ng tin ng&acirc;n h&agrave;ng hi&#7875;n th&#7883;</li>
+                                <li>S&#7889; d&#432; s&#7869; &#273;&#432;&#7907;c c&#7853;p nh&#7853;t sau 1-5 ph&uacute;t</li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <!-- Spending Summary -->
+                    <div class="wallet-spending-section">
+                        <h3><i data-lucide="bar-chart-3"></i> Th&#7889;ng k&ecirc; chi ti&ecirc;u</h3>
+                        <div class="spending-stats" id="spendingStats">
+                            <div class="stat-card">
+                                <div class="stat-label">T&#7893;ng &#273;&#417;n</div>
+                                <div class="stat-value" id="statTotalOrders">0</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-label">&#272;&#227; chi</div>
+                                <div class="stat-value" id="statTotalSpent">$0.00</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-label">&#272;&#417;n th&agrave;nh c&ocirc;ng</div>
+                                <div class="stat-value" id="statCompleted">0</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-label">&#272;ang x&#7917; l&yacute;</div>
+                                <div class="stat-value" id="statPending">0</div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

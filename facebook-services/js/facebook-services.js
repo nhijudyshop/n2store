@@ -246,6 +246,7 @@
                 orderHistory.unshift(order);
                 saveHistory();
                 renderHistory();
+                updateSpendingStats();
 
                 // Reset form
                 document.getElementById('linkInput').value = '';
@@ -407,15 +408,78 @@
     // BALANCE
     // =====================================================
 
+    let currentBalance = null;
+
     async function loadBalance() {
         const balData = await fetchBalance();
         const el = document.getElementById('balanceText');
         if (balData && balData.balance !== undefined) {
-            const vnd = Math.round(balData.balance * USD_TO_VND);
-            el.textContent = `$${Number(balData.balance).toFixed(2)} (~${vnd.toLocaleString()}\u0111)`;
+            currentBalance = Number(balData.balance);
+            const vnd = Math.round(currentBalance * USD_TO_VND);
+            el.textContent = `$${currentBalance.toFixed(2)} (~${vnd.toLocaleString()}\u0111)`;
+            updateWalletBalance();
         } else {
             el.textContent = 'L\u1ed7i';
         }
+    }
+
+    // =====================================================
+    // WALLET TAB
+    // =====================================================
+
+    function updateWalletBalance() {
+        if (currentBalance === null) return;
+        const vnd = Math.round(currentBalance * USD_TO_VND);
+        document.getElementById('walletBalanceUSD').textContent = `$${currentBalance.toFixed(2)}`;
+        document.getElementById('walletBalanceVND').textContent = `~${vnd.toLocaleString()} VND`;
+    }
+
+    function updateSpendingStats() {
+        const total = orderHistory.length;
+        const spent = orderHistory.reduce((sum, o) => sum + parseFloat(o.total || 0), 0);
+        const completed = orderHistory.filter(o => o.status === 'Completed').length;
+        const pending = orderHistory.filter(o => o.status === 'Pending' || o.status === 'Processing' || o.status === 'In progress').length;
+
+        document.getElementById('statTotalOrders').textContent = total;
+        document.getElementById('statTotalSpent').textContent = `$${spent.toFixed(2)}`;
+        document.getElementById('statCompleted').textContent = completed;
+        document.getElementById('statPending').textContent = pending;
+    }
+
+    function setupWalletEvents() {
+        // Quick amount buttons
+        document.querySelectorAll('.quick-amount-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.quick-amount-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                document.getElementById('depositAmount').value = btn.dataset.amount;
+                updateDepositUSD();
+            });
+        });
+
+        // Deposit amount input
+        document.getElementById('depositAmount').addEventListener('input', () => {
+            document.querySelectorAll('.quick-amount-btn').forEach(b => b.classList.remove('active'));
+            updateDepositUSD();
+        });
+
+        // Refresh balance
+        document.getElementById('btnRefreshBalance').addEventListener('click', async () => {
+            const btn = document.getElementById('btnRefreshBalance');
+            btn.disabled = true;
+            btn.innerHTML = '<i data-lucide="loader-2" class="animate-spin"></i> \u0110ang t\u1ea3i...';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            await loadBalance();
+            btn.disabled = false;
+            btn.innerHTML = '<i data-lucide="refresh-cw"></i> L\u00e0m m\u1edbi';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        });
+    }
+
+    function updateDepositUSD() {
+        const vnd = parseInt(document.getElementById('depositAmount').value) || 0;
+        const usd = vnd / USD_TO_VND;
+        document.getElementById('depositUSD').textContent = `~$${usd.toFixed(2)}`;
     }
 
     // =====================================================
@@ -531,6 +595,9 @@
             });
         });
 
+        // Wallet events
+        setupWalletEvents();
+
         // Refresh all statuses
         document.getElementById('btnRefreshAll').addEventListener('click', refreshAllStatuses);
 
@@ -599,8 +666,9 @@
         loadHistory();
         renderHistory();
 
-        // Load balance
+        // Load balance + wallet stats
         loadBalance();
+        updateSpendingStats();
 
         // Load services
         allServices = await fetchServices();

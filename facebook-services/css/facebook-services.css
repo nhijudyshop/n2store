@@ -434,6 +434,205 @@ body {
 .link-cell a { color: var(--primary-light); text-decoration: none; }
 .link-cell a:hover { text-decoration: underline; }
 
+/* ===== Wallet Tab ===== */
+.wallet-layout {
+    display: grid;
+    grid-template-columns: 300px 1fr;
+    gap: 1.5rem;
+}
+
+.wallet-balance-card {
+    background: linear-gradient(135deg, #1e40af, #3b82f6);
+    border-radius: var(--border-radius);
+    padding: 1.5rem;
+    text-align: center;
+    grid-column: 1;
+}
+
+.wallet-balance-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    color: rgba(255,255,255,0.8);
+    font-size: 0.9rem;
+    margin-bottom: 0.75rem;
+}
+
+.wallet-balance-amount {
+    font-size: 2rem;
+    font-weight: 700;
+    color: white;
+}
+
+.wallet-balance-vnd {
+    font-size: 1rem;
+    color: rgba(255,255,255,0.7);
+    margin-top: 0.25rem;
+}
+
+.wallet-deposit-section {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 1.25rem;
+    grid-column: 2;
+}
+
+.wallet-deposit-section h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1rem;
+    margin-bottom: 1rem;
+}
+
+.deposit-notice {
+    display: flex;
+    gap: 0.75rem;
+    background: rgba(59,130,246,0.1);
+    border: 1px solid rgba(59,130,246,0.25);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 1rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.deposit-notice i { color: var(--primary-light); flex-shrink: 0; margin-top: 2px; }
+.deposit-notice p { margin: 0 0 0.25rem; }
+.deposit-notice p:last-child { margin-bottom: 0; }
+
+.quick-amounts { margin-bottom: 1rem; }
+.quick-amounts label {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+.quick-amounts-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+}
+
+.quick-amount-btn {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-primary);
+    padding: 0.5rem;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.15s;
+}
+
+.quick-amount-btn:hover {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+}
+
+.quick-amount-btn.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: white;
+}
+
+.deposit-amount-group {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.deposit-amount-group .form-input { flex: 1; }
+
+.deposit-usd {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
+.deposit-steps {
+    margin-top: 1.25rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.deposit-steps h4 {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+}
+
+.deposit-steps ol {
+    padding-left: 1.25rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    line-height: 1.8;
+}
+
+.deposit-steps ol strong { color: var(--text-primary); }
+
+.wallet-spending-section {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    padding: 1.25rem;
+    grid-column: 1 / -1;
+}
+
+.wallet-spending-section h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1rem;
+    margin-bottom: 1rem;
+}
+
+.spending-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+}
+
+.stat-card {
+    background: var(--bg-tertiary);
+    border-radius: 8px;
+    padding: 1rem;
+    text-align: center;
+}
+
+.stat-label {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.35rem;
+}
+
+.stat-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+@media (max-width: 1024px) {
+    .wallet-layout {
+        grid-template-columns: 1fr;
+    }
+    .wallet-balance-card { grid-column: 1; }
+    .wallet-deposit-section { grid-column: 1; }
+    .wallet-spending-section { grid-column: 1; }
+    .spending-stats { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 480px) {
+    .quick-amounts-grid { grid-template-columns: repeat(2, 1fr); }
+    .spending-stats { grid-template-columns: 1fr 1fr; }
+}
+
 /* ===== Responsive ===== */
 @media (max-width: 1024px) {
     .order-layout {
