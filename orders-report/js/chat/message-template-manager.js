@@ -832,62 +832,87 @@ console.log('[TemplateMgr] Loading...');
                 lastError = apiErr;
             }
 
-            // [Fallback 1] Extension Bypass (24h policy workaround)
-            // buildConvData relies on global state (window.currentConversationData) not set in bulk mode.
-            // Instead: fetch messages API to get thread_id + page_customer.global_id, then build conv data directly.
-            if (window.sendViaExtension && window.pancakeExtension?.connected) {
+            // [Fallback 1] Extension Bypass → queue for background (don't block main loop)
+            // Extension processes one message at a time, so we queue all 24h orders
+            // and process them sequentially after all API sends complete.
+            if (lastError?.is24HourError && window.sendViaExtension && window.pancakeExtension?.connected) {
+                // Lazily build ext conv data (fetch messages for thread_id & global_id)
+                if (!_extConvData) {
+                    const raw = { from_psid: psid };
+                    try {
+                        const msgData = await pdm.fetchMessages(channelId, conv.id);
+                        if (msgData.conversation) {
+                            const mc = msgData.conversation;
+                            if (mc.thread_id) raw.thread_id = mc.thread_id;
+                            if (mc.page_customer) raw.page_customer = mc.page_customer;
+                        }
+                        if (!raw.thread_id && conv.thread_id) raw.thread_id = conv.thread_id;
+                        if (!raw.page_customer?.global_id && conv.page_customer?.global_id) {
+                            if (!raw.page_customer) raw.page_customer = {};
+                            raw.page_customer.global_id = conv.page_customer.global_id;
+                        }
+                        _extConvData = {
+                            pageId: channelId, psid, conversationId: conv.id, _raw: raw,
+                            customers: msgData.customers || [],
+                            _messagesData: { customers: msgData.customers || [] },
+                            updated_at: conv.updated_at || null,
+                            customerName: order.customerName || conv.from?.name || '',
+                            type: conv.type || 'INBOX', from: conv.from || null,
+                        };
+                    } catch (e) {
+                        console.warn('[TemplateMgr] Messages fetch for extension data failed:', e.message);
+                        _extConvData = {
+                            pageId: channelId, psid, conversationId: conv.id, _raw: raw,
+                            customers: [], _messagesData: { customers: [] },
+                            updated_at: conv.updated_at || null,
+                            customerName: order.customerName || conv.from?.name || '',
+                            type: conv.type || 'INBOX', from: conv.from || null,
+                        };
+                    }
+                    console.log('[TemplateMgr] Extension conv data:', {
+                        thread_id: _extConvData._raw.thread_id || null,
+                        global_id: _extConvData._raw.page_customer?.global_id || null,
+                    });
+                }
+                // Queue ALL remaining parts for background extension processing
+                const partIndex = parts.indexOf(part);
+                sendingState.extQueue.push({
+                    order, parts: parts.slice(partIndex), convData: _extConvData
+                });
+                sendSuccess = true; // tentatively mark success (extension will confirm later)
+                console.log('[TemplateMgr] 📋 Queued for extension bypass:', order.Code, `(${parts.length - partIndex} parts)`);
+                break; // exit parts loop — all remaining parts handled by extension queue
+            }
+
+            // [Fallback 2] Extension Bypass (inline, for non-24h errors when extension is connected)
+            if (window.sendViaExtension && window.pancakeExtension?.connected && !lastError?.is24HourError) {
                 try {
-                    // Lazily fetch messages to enrich conv with thread_id & global_id (once per order)
                     if (!_extConvData) {
                         const raw = { from_psid: psid };
                         try {
                             const msgData = await pdm.fetchMessages(channelId, conv.id);
-                            // Messages endpoint returns thread_id, page_customer.global_id
-                            // that conversations LIST endpoint may not have
                             if (msgData.conversation) {
                                 const mc = msgData.conversation;
                                 if (mc.thread_id) raw.thread_id = mc.thread_id;
                                 if (mc.page_customer) raw.page_customer = mc.page_customer;
                             }
-                            // Also check the conv object itself (some API versions include it)
-                            if (!raw.thread_id && conv.thread_id) raw.thread_id = conv.thread_id;
-                            if (!raw.page_customer?.global_id && conv.page_customer?.global_id) {
-                                if (!raw.page_customer) raw.page_customer = {};
-                                raw.page_customer.global_id = conv.page_customer.global_id;
-                            }
                             _extConvData = {
-                                pageId: channelId,
-                                psid: psid,
-                                conversationId: conv.id,
-                                _raw: raw,
+                                pageId: channelId, psid, conversationId: conv.id, _raw: raw,
                                 customers: msgData.customers || [],
                                 _messagesData: { customers: msgData.customers || [] },
                                 updated_at: conv.updated_at || null,
                                 customerName: order.customerName || conv.from?.name || '',
-                                type: conv.type || 'INBOX',
-                                from: conv.from || null,
+                                type: conv.type || 'INBOX', from: conv.from || null,
                             };
                         } catch (e) {
-                            console.warn('[TemplateMgr] Messages fetch for extension data failed:', e.message);
-                            // Fallback: use what we have from conversations listing
                             _extConvData = {
-                                pageId: channelId,
-                                psid: psid,
-                                conversationId: conv.id,
-                                _raw: raw,
-                                customers: [],
-                                _messagesData: { customers: [] },
+                                pageId: channelId, psid, conversationId: conv.id, _raw: raw,
+                                customers: [], _messagesData: { customers: [] },
                                 updated_at: conv.updated_at || null,
                                 customerName: order.customerName || conv.from?.name || '',
-                                type: conv.type || 'INBOX',
-                                from: conv.from || null,
+                                type: conv.type || 'INBOX', from: conv.from || null,
                             };
                         }
-                        console.log('[TemplateMgr] Extension conv data:', {
-                            thread_id: _extConvData._raw.thread_id || null,
-                            global_id: _extConvData._raw.page_customer?.global_id || null,
-                            customers_global_id: _extConvData.customers?.[0]?.global_id || null,
-                        });
                     }
                     await window.sendViaExtension(part, _extConvData);
                     sendSuccess = true;
@@ -900,7 +925,7 @@ console.log('[TemplateMgr] Loading...');
                 }
             }
 
-            // [Fallback 2] Facebook Tag
+            // [Fallback 3] Facebook Tag
             try {
                 const tagResult = await _sendViaFacebookTag(order, part, channelId, psid);
                 if (tagResult.success) {
@@ -933,31 +958,101 @@ console.log('[TemplateMgr] Loading...');
     }
 
     async function _processAccountQueue(orders, account, template, delay, sendingState) {
+        const CONCURRENCY = 3;
+        const pending = new Set();
+
         for (const order of orders) {
             if (!sendingState.isSending) break;
 
-            try {
-                const result = await _processSingleOrder(order, template, account, sendingState);
-                sendingState.successOrders.push(result);
-                markOrderSent(order.orderId, false);
-            } catch (error) {
-                console.error('[TemplateMgr] ❌ Order failed:', order.Code, '-', error.message);
-                const errObj = {
-                    orderId: order.orderId,
-                    code: order.Code || '',
-                    customerName: order.customerName || '',
-                    error: error.message || 'Lỗi không xác định',
-                    is24HourError: error.is24HourError || (error.message || '').includes('24'),
-                    Facebook_PostId: order.Facebook_PostId || '',
-                    Facebook_CommentId: order.Facebook_CommentId || ''
-                };
-                sendingState.errorOrders.push(errObj);
-                markOrderFailed(order.orderId, error.message);
+            const task = (async () => {
+                try {
+                    const result = await _processSingleOrder(order, template, account, sendingState);
+                    sendingState.successOrders.push(result);
+                    markOrderSent(order.orderId, false);
+                } catch (error) {
+                    console.error('[TemplateMgr] ❌ Order failed:', order.Code, '-', error.message);
+                    sendingState.errorOrders.push({
+                        orderId: order.orderId,
+                        code: order.Code || '',
+                        customerName: order.customerName || '',
+                        error: error.message || 'Lỗi không xác định',
+                        is24HourError: error.is24HourError || (error.message || '').includes('24'),
+                        Facebook_PostId: order.Facebook_PostId || '',
+                        Facebook_CommentId: order.Facebook_CommentId || ''
+                    });
+                    markOrderFailed(order.orderId, error.message);
+                }
+
+                sendingState.totalProcessed++;
+                if (typeof sendingState.onProgress === 'function') {
+                    sendingState.onProgress(
+                        sendingState.totalProcessed,
+                        sendingState.totalToProcess,
+                        sendingState.totalToProcess,
+                        sendingState.successOrders.length,
+                        sendingState.errorOrders.length
+                    );
+                }
+            })();
+
+            pending.add(task);
+            task.finally(() => pending.delete(task));
+
+            // Wait if pool is full (max CONCURRENCY concurrent tasks)
+            if (pending.size >= CONCURRENCY) {
+                await Promise.race(pending);
             }
 
-            sendingState.totalProcessed++;
+            // Delay between starting new tasks
+            if (delay > 0 && sendingState.isSending) {
+                await new Promise(r => setTimeout(r, delay * 1000));
+            }
+        }
 
-            // Progress callback
+        // Wait for remaining tasks to complete
+        if (pending.size > 0) {
+            await Promise.allSettled([...pending]);
+        }
+    }
+
+    // =====================================================
+    // EXTENSION QUEUE - Background processing (sequential)
+    // Extension processes one message at a time, so run after all API sends complete.
+    // =====================================================
+
+    async function _processExtensionQueue(sendingState) {
+        const queue = sendingState.extQueue || [];
+        if (queue.length === 0) return;
+
+        console.log(`[TemplateMgr] 🔄 Processing extension queue: ${queue.length} orders`);
+
+        for (const item of queue) {
+            if (!sendingState.isSending) break;
+
+            try {
+                for (const part of item.parts) {
+                    await window.sendViaExtension(part, item.convData);
+                }
+                console.log('[TemplateMgr] ✅ Extension sent:', item.order.Code);
+                // Already marked as tentative success in phase 1 — keep it
+            } catch (extErr) {
+                console.error('[TemplateMgr] ❌ Extension failed:', item.order.Code, extErr.message);
+                // Move from success to error
+                const idx = sendingState.successOrders.findIndex(s => s.Id === item.order.orderId);
+                if (idx >= 0) sendingState.successOrders.splice(idx, 1);
+                sendingState.errorOrders.push({
+                    orderId: item.order.orderId,
+                    code: item.order.Code || '',
+                    customerName: item.order.customerName || '',
+                    error: extErr.message || 'Extension gửi thất bại',
+                    is24HourError: true,
+                    Facebook_PostId: item.order.Facebook_PostId || '',
+                    Facebook_CommentId: item.order.Facebook_CommentId || ''
+                });
+                markOrderFailed(item.order.orderId, extErr.message);
+            }
+
+            // Update progress
             if (typeof sendingState.onProgress === 'function') {
                 sendingState.onProgress(
                     sendingState.totalProcessed,
@@ -967,12 +1062,9 @@ console.log('[TemplateMgr] Loading...');
                     sendingState.errorOrders.length
                 );
             }
-
-            // Delay between messages
-            if (delay > 0 && sendingState.isSending) {
-                await new Promise(r => setTimeout(r, delay * 1000));
-            }
         }
+
+        console.log(`[TemplateMgr] ✅ Extension queue done: ${queue.length} processed`);
     }
 
     // =====================================================
@@ -1716,6 +1808,7 @@ console.log('[TemplateMgr] Loading...');
             isSending: true,
             successOrders: [],
             errorOrders: [],
+            extQueue: [],           // Extension bypass queue (processed after all API sends)
             totalProcessed: 0,
             totalToProcess: orders.length,
             onProgress: (processed, total, totalToProcess, sent, failed) => {
@@ -1730,12 +1823,19 @@ console.log('[TemplateMgr] Loading...');
             // Distribute orders to accounts (page-aware round-robin)
             const accountQueues = _distributeOrdersToAccounts(orders, accounts);
 
-            // Create parallel workers per account
+            // Phase 1: Concurrent API sends (up to 3 orders per account in parallel)
             const workers = accounts.map((account, idx) =>
                 _processAccountQueue(accountQueues[idx] || [], account, template, delay, sendingState)
             );
-
             await Promise.all(workers);
+
+            // Phase 2: Extension bypass queue (sequential — extension processes one at a time)
+            if (sendingState.extQueue.length > 0) {
+                console.log(`[TemplateMgr] 📋 Extension queue: ${sendingState.extQueue.length} orders pending`);
+                document.getElementById('msgProgressText').textContent =
+                    `Extension bypass: 0/${sendingState.extQueue.length}...`;
+                await _processExtensionQueue(sendingState);
+            }
         } catch (error) {
             console.error('[TemplateMgr] Send error:', error);
         }
