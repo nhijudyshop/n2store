@@ -947,45 +947,49 @@ class QuickReplyManager {
                 || window.authManager?.getAuthState?.()?.displayName;
             if (displayName) finalMessage = message + '\nNv. ' + displayName;
 
-            // Step 1: Download image from URL → Blob
-            console.log('[QUICK-REPLY] 📥 Downloading image...');
-            const imgResponse = await fetch(imageUrl);
-            if (!imgResponse.ok) throw new Error('Không tải được hình ảnh: ' + imgResponse.status);
-            const imgBlob = await imgResponse.blob();
-            const ext = imageUrl.match(/\.(jpg|jpeg|png|gif|webp)/i)?.[1] || 'jpg';
-            const imageFile = new File([imgBlob], `quick-reply.${ext}`, { type: imgBlob.type || `image/${ext}` });
-            console.log('[QUICK-REPLY] 📥 Downloaded:', imageFile.size, 'bytes');
+            // Step 1: Send image via Pancake internal API (content_url — image already on Pancake CDN)
+            console.log('[QUICK-REPLY] 📤 Sending image via content_url...');
+            const accessToken = await window.pancakeTokenManager?.getToken();
+            if (!accessToken) throw new Error('Không có access_token');
 
-            // Step 2: Upload image via Pancake upload API → get content_id
-            console.log('[QUICK-REPLY] 📤 Uploading image...');
-            const uploadResult = await pdm.uploadImage(channelId, imageFile);
-            let contentId = null;
-            if (typeof uploadResult === 'object' && uploadResult.success) {
-                contentId = uploadResult.id || uploadResult.content_id;
-            } else if (typeof uploadResult === 'string') {
-                contentId = uploadResult;
-            }
-            if (!contentId) throw new Error('Upload failed: ' + JSON.stringify(uploadResult));
-            console.log('[QUICK-REPLY] ✅ Uploaded, content_id:', contentId);
+            const apiUrl = window.API_CONFIG.buildUrl.pancake(
+                `pages/${channelId}/conversations/${conversationId}/messages`,
+                `access_token=${accessToken}`
+            );
 
-            // Step 3: Send image via content_ids
-            console.log('[QUICK-REPLY] 📤 Sending image message...');
-            const imgResult = await pdm.sendMessage(channelId, conversationId, {
-                action: 'reply_inbox',
-                content_ids: [contentId]
-            });
-            if (imgResult && imgResult.success === false) {
+            const formData = new FormData();
+            formData.append('action', 'reply_inbox');
+            formData.append('message', '');
+            formData.append('content_url', imageUrl);
+            formData.append('send_by_platform', 'web');
+
+            const imgRes = await fetch(apiUrl, { method: 'POST', body: formData });
+            const imgResult = await imgRes.json();
+            console.log('[QUICK-REPLY] Image API response:', imgResult);
+
+            if (imgResult.success === false) {
                 const errMsg = imgResult.message || imgResult.error || 'Image send failed';
                 const is24h = imgResult.e_code === 10 || (errMsg + '').includes('khoảng thời gian cho phép');
                 if (is24h) {
                     if (window.notificationManager) window.notificationManager.show('⚠️ Không thể gửi (quá 24h). Vui lòng dùng COMMENT!', 'warning', 8000);
                     return;
                 }
-                throw new Error(errMsg);
+                // Fallback: download → upload → send via content_ids (Public API)
+                console.warn('[QUICK-REPLY] content_url failed, trying upload fallback...');
+                const downloaded = await fetch(imageUrl);
+                if (!downloaded.ok) throw new Error(errMsg);
+                const blob = await downloaded.blob();
+                const ext = imageUrl.match(/\.(jpg|jpeg|png|gif|webp)/i)?.[1] || 'jpg';
+                const file = new File([blob], `quick-reply.${ext}`, { type: blob.type || `image/${ext}` });
+                const uploadResult = await pdm.uploadImage(channelId, file);
+                const contentId = typeof uploadResult === 'object' ? (uploadResult.id || uploadResult.content_id) : uploadResult;
+                if (!contentId) throw new Error('Upload failed: ' + JSON.stringify(uploadResult));
+                const sendResult = await pdm.sendMessage(channelId, conversationId, { action: 'reply_inbox', content_ids: [contentId] });
+                if (sendResult?.success === false) throw new Error(sendResult.message || 'Send failed');
             }
             console.log('[QUICK-REPLY] ✅ Image sent');
 
-            // Step 4: Send text message
+            // Step 2: Send text message
             console.log('[QUICK-REPLY] 📤 Sending text message...');
             const textResult = await pdm.sendMessage(channelId, conversationId, {
                 action: 'reply_inbox',
