@@ -48,6 +48,11 @@ export const ROUTES = {
 
     // AutoFB
     AUTOFB_BALANCE: { pattern: '/api/autofb-balance', method: 'POST' },
+    AUTOFB_SERVICES: { pattern: '/api/autofb-services', method: 'GET' },
+    AUTOFB_API_BALANCE: { pattern: '/api/autofb-api-balance', method: 'GET' },
+    AUTOFB_ORDER: { pattern: '/api/autofb-order', method: 'POST' },
+    AUTOFB_ORDER_STATUS: { pattern: '/api/autofb-order-status', method: 'POST' },
+    AUTOFB_CANCEL: { pattern: '/api/autofb-cancel', method: 'POST' },
 
     // Proxy
     GENERIC_PROXY: { pattern: '/api/proxy' },
@@ -105,6 +110,11 @@ export function matchRoute(pathname) {
     if (pathname === '/api/Product/ExportFileWithStandardPriceV2') return 'TPOS_EXPORT_STANDARD';
     if (pathname === '/api/sepay-dashboard') return 'SEPAY_DASHBOARD';
     if (pathname === '/api/autofb-balance') return 'AUTOFB_BALANCE';
+    if (pathname === '/api/autofb-services') return 'AUTOFB_SERVICES';
+    if (pathname === '/api/autofb-api-balance') return 'AUTOFB_API_BALANCE';
+    if (pathname === '/api/autofb-order') return 'AUTOFB_ORDER';
+    if (pathname === '/api/autofb-order-status') return 'AUTOFB_ORDER_STATUS';
+    if (pathname === '/api/autofb-cancel') return 'AUTOFB_CANCEL';
     if (pathname === '/api/proxy') return 'GENERIC_PROXY';
 
     // Pattern matches

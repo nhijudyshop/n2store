@@ -36,7 +36,7 @@ import {
 } from './modules/handlers/proxy-handler.js';
 import { handleDeepSeek, handleDeepSeekOcr } from './modules/handlers/ai-handler.js';
 import { handleSepayDashboard } from './modules/handlers/sepay-dashboard-handler.js';
-import { handleAutofbBalance } from './modules/handlers/autofb-handler.js';
+import { handleAutofbBalance, handleAutofbServices, handleAutofbApiBalance, handleAutofbOrder, handleAutofbOrderStatus, handleAutofbCancel } from './modules/handlers/autofb-handler.js';
 
 /**
  * Main fetch handler
@@ -120,9 +120,19 @@ export default {
                 case 'SEPAY_DASHBOARD':
                     return handleSepayDashboard(request, url);
 
-                // AutoFB Balance (login + captcha solve via Gemini)
+                // AutoFB
                 case 'AUTOFB_BALANCE':
                     return handleAutofbBalance(request, url);
+                case 'AUTOFB_SERVICES':
+                    return handleAutofbServices(request, url);
+                case 'AUTOFB_API_BALANCE':
+                    return handleAutofbApiBalance(request, url);
+                case 'AUTOFB_ORDER':
+                    return handleAutofbOrder(request, url);
+                case 'AUTOFB_ORDER_STATUS':
+                    return handleAutofbOrderStatus(request, url);
+                case 'AUTOFB_CANCEL':
+                    return handleAutofbCancel(request, url);
 
                 // Proxy
                 case 'GENERIC_PROXY':

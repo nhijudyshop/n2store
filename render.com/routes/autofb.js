@@ -9,7 +9,12 @@ const sharp = require('sharp');
 const Tesseract = require('tesseract.js');
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const AUTOFB_API_KEY = process.env.AUTOFB_API_KEY;
 const AUTOFB_BASE = 'https://autofb.pro';
+
+// Services cache (5 min TTL)
+let servicesCache = null;
+let servicesCacheExpiry = 0;
 
 const COMMON_HEADERS = {
     'Accept': '*/*',
@@ -308,5 +313,137 @@ async function fetchBalanceWithToken(token) {
         level: data.level || data.user?.level,
     };
 }
+
+// =====================================================
+// AutoFB API Proxy (uses API key, no captcha needed)
+// =====================================================
+
+async function callAutofbApi(params) {
+    if (!AUTOFB_API_KEY) throw new Error('AUTOFB_API_KEY not configured');
+
+    const body = new URLSearchParams({ key: AUTOFB_API_KEY, ...params });
+
+    const res = await fetch(`${AUTOFB_BASE}/api/v2`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString(),
+    });
+
+    return res.json();
+}
+
+// =====================================================
+// GET /api/autofb/services — List all services (cached 5 min)
+// =====================================================
+router.get('/services', async (req, res) => {
+    try {
+        // Return cached if fresh
+        if (servicesCache && Date.now() < servicesCacheExpiry) {
+            return res.json({ success: true, data: servicesCache, fromCache: true });
+        }
+
+        const data = await callAutofbApi({ action: 'services' });
+
+        if (Array.isArray(data)) {
+            servicesCache = data;
+            servicesCacheExpiry = Date.now() + 5 * 60 * 1000;
+            console.log(`[AUTOFB-API] Cached ${data.length} services`);
+            return res.json({ success: true, data });
+        }
+
+        res.json({ success: false, error: data.error || 'Failed to fetch services', raw: data });
+    } catch (e) {
+        console.error('[AUTOFB-API] services error:', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// =====================================================
+// POST /api/autofb/order — Create order
+// Body: { service, link, quantity, comments? }
+// =====================================================
+router.post('/order', async (req, res) => {
+    const { service, link, quantity, comments } = req.body;
+
+    if (!service || !link || !quantity) {
+        return res.status(400).json({ success: false, error: 'Missing service, link, or quantity' });
+    }
+
+    try {
+        const params = { action: 'add', service, link, quantity: String(quantity) };
+        if (comments) params.comments = comments;
+
+        const data = await callAutofbApi(params);
+        console.log(`[AUTOFB-API] Order created:`, JSON.stringify(data));
+
+        if (data.order) {
+            return res.json({ success: true, data: { order_id: data.order } });
+        }
+
+        res.json({ success: false, error: data.error || 'Failed to create order', raw: data });
+    } catch (e) {
+        console.error('[AUTOFB-API] order error:', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// =====================================================
+// POST /api/autofb/order-status — Check order status
+// Body: { order_id } or { order_ids: [id1, id2, ...] }
+// =====================================================
+router.post('/order-status', async (req, res) => {
+    const { order_id, order_ids } = req.body;
+
+    if (!order_id && !order_ids) {
+        return res.status(400).json({ success: false, error: 'Missing order_id or order_ids' });
+    }
+
+    try {
+        let data;
+        if (order_ids && Array.isArray(order_ids)) {
+            data = await callAutofbApi({ action: 'status', orders: order_ids.join(',') });
+        } else {
+            data = await callAutofbApi({ action: 'status', order: String(order_id) });
+        }
+
+        res.json({ success: true, data });
+    } catch (e) {
+        console.error('[AUTOFB-API] order-status error:', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// =====================================================
+// POST /api/autofb/cancel — Cancel order
+// Body: { order_id }
+// =====================================================
+router.post('/cancel', async (req, res) => {
+    const { order_id } = req.body;
+
+    if (!order_id) {
+        return res.status(400).json({ success: false, error: 'Missing order_id' });
+    }
+
+    try {
+        const data = await callAutofbApi({ action: 'cancel', order: String(order_id) });
+        res.json({ success: true, data });
+    } catch (e) {
+        console.error('[AUTOFB-API] cancel error:', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
+// =====================================================
+// GET /api/autofb/api-balance — Check API balance (no captcha)
+// =====================================================
+router.get('/api-balance', async (req, res) => {
+    try {
+        const data = await callAutofbApi({ action: 'balance' });
+        res.json({ success: true, data });
+    } catch (e) {
+        console.error('[AUTOFB-API] balance error:', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
 
 module.exports = router;
