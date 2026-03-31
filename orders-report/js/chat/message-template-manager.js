@@ -1056,7 +1056,9 @@ console.log('[TemplateMgr] Loading...');
         const queue = sendingState.extQueue || [];
         if (queue.length === 0) return;
 
-        console.log(`[TemplateMgr] 🔄 Processing extension queue: ${queue.length} orders`);
+        const extTotal = queue.length;
+        let extDone = 0;
+        console.log(`[TemplateMgr] 🔄 Processing extension queue: ${extTotal} orders`);
 
         for (const item of queue) {
             if (!sendingState.isSending) break;
@@ -1066,7 +1068,7 @@ console.log('[TemplateMgr] Loading...');
                     await window.sendViaExtension(part, item.convData);
                 }
                 console.log('[TemplateMgr] ✅ Extension sent:', item.order.Code);
-                // Already marked as tentative success in phase 1 — keep it
+                markOrderSent(item.order.orderId, false);
             } catch (extErr) {
                 console.error('[TemplateMgr] ❌ Extension failed:', item.order.Code, extErr.message);
                 // Move from success to error
@@ -1084,19 +1086,23 @@ console.log('[TemplateMgr] Loading...');
                 markOrderFailed(item.order.orderId, extErr.message);
             }
 
-            // Update progress
+            extDone++;
+            sendingState.totalProcessed++;
+
+            // Update progress with extension-specific text
+            const progressText = document.getElementById('msgProgressText');
+            if (progressText) {
+                progressText.textContent = `Extension: ${extDone}/${extTotal} (✓${sendingState.successOrders.length} ✗${sendingState.errorOrders.length})`;
+            }
             if (typeof sendingState.onProgress === 'function') {
                 sendingState.onProgress(
-                    sendingState.totalProcessed,
-                    sendingState.totalToProcess,
-                    sendingState.totalToProcess,
-                    sendingState.successOrders.length,
-                    sendingState.errorOrders.length
+                    sendingState.totalProcessed, sendingState.totalToProcess, sendingState.totalToProcess,
+                    sendingState.successOrders.length, sendingState.errorOrders.length
                 );
             }
         }
 
-        console.log(`[TemplateMgr] ✅ Extension queue done: ${queue.length} processed`);
+        console.log(`[TemplateMgr] ✅ Extension queue done: ${extTotal} processed`);
     }
 
     // =====================================================
@@ -1864,9 +1870,17 @@ console.log('[TemplateMgr] Loading...');
 
             // Phase 2: Extension bypass queue (sequential — extension processes one at a time)
             if (sendingState.extQueue.length > 0) {
-                console.log(`[TemplateMgr] 📋 Extension queue: ${sendingState.extQueue.length} orders pending`);
+                const extCount = sendingState.extQueue.length;
+                console.log(`[TemplateMgr] 📋 Extension queue: ${extCount} orders pending`);
+
+                // Adjust progress: subtract ext-queued orders so bar reflects real completion
+                sendingState.totalProcessed = Math.max(0, sendingState.totalProcessed - extCount);
+                _updateProgress(
+                    sendingState.totalProcessed, sendingState.totalToProcess, sendingState.totalToProcess,
+                    sendingState.successOrders.length - extCount, sendingState.errorOrders.length
+                );
                 document.getElementById('msgProgressText').textContent =
-                    `Extension bypass: 0/${sendingState.extQueue.length}...`;
+                    `Extension: 0/${extCount}...`;
                 await _processExtensionQueue(sendingState);
             }
         } catch (error) {
