@@ -92,6 +92,44 @@ router.get('/', (req, res) => {
 });
 
 // =====================================================
+// GET /api/autofb/test-captcha — Debug captcha solving
+// =====================================================
+router.get('/test-captcha', async (req, res) => {
+    try {
+        // 1. Fetch captcha
+        const captchaRes = await fetch(`${AUTOFB_BASE}/auth/captcha`, {
+            headers: COMMON_HEADERS,
+        });
+        const captcha = await captchaRes.json();
+
+        // 2. Clean & convert
+        const cleanSvg = cleanCaptchaSvg(captcha.svg);
+        const pngBase64 = await svgToPngBase64(captcha.svg);
+
+        // 3. Solve with Gemini
+        let geminiResult = null;
+        let geminiError = null;
+        try {
+            geminiResult = await solveCaptchaWithGemini(captcha.svg);
+        } catch (e) {
+            geminiError = e.message;
+        }
+
+        res.json({
+            captchaId: captcha.captchaId,
+            svgLength: captcha.svg?.length,
+            cleanSvgLength: cleanSvg?.length,
+            pngBase64Length: pngBase64?.length,
+            geminiResult,
+            geminiError,
+            pngPreview: `data:image/png;base64,${pngBase64.substring(0, 100)}...`,
+        });
+    } catch (e) {
+        res.status(500).json({ error: e.message, stack: e.stack });
+    }
+});
+
+// =====================================================
 // POST /api/autofb/balance
 // Body: { username, password }
 // Returns: { success, data: { balance, balanceVND, username } }
