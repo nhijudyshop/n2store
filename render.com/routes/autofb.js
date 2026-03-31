@@ -1,13 +1,13 @@
 // =====================================================
 // AUTOFB.PRO BALANCE ROUTE
-// Login with SVG captcha solving via sharp + Gemini Vision
+// Login with SVG captcha solving via sharp + Tesseract.js
 // =====================================================
 
 const express = require('express');
 const router = express.Router();
 const sharp = require('sharp');
+const Tesseract = require('tesseract.js');
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const AUTOFB_BASE = 'https://autofb.pro';
 
 const COMMON_HEADERS = {
@@ -19,66 +19,55 @@ const COMMON_HEADERS = {
 };
 
 // =====================================================
-// SVG Captcha → PNG → Gemini Vision OCR
+// SVG Captcha → PNG → Tesseract OCR
 // =====================================================
 
 function cleanCaptchaSvg(svg) {
     // Remove noise lines (stroke paths with fill="none")
     let cleaned = svg.replace(/<path[^>]*fill="none"[^>]*\/>/g, '');
-    // Background white, digits black
+    // Background white first
     cleaned = cleaned.replace('fill="#f0f0f0"', 'fill="#ffffff"');
+    // Then digits black (skip the white background)
     cleaned = cleaned.replace(/fill="#(?!ffffff)[a-fA-F0-9]{6}"/g, 'fill="#000000"');
     return cleaned;
 }
 
-async function svgToPngBase64(svgString) {
+async function svgToPngBuffer(svgString) {
     const cleanSvg = cleanCaptchaSvg(svgString);
-    // Scale up for better OCR
+    // Scale up 5x for better OCR
     const scaledSvg = cleanSvg
-        .replace('width="250"', 'width="1000"')
-        .replace('height="50"', 'height="200"');
+        .replace('width="250"', 'width="1250"')
+        .replace('height="50"', 'height="250"');
 
-    const pngBuffer = await sharp(Buffer.from(scaledSvg))
+    return sharp(Buffer.from(scaledSvg))
         .flatten({ background: '#ffffff' })
         .threshold(128)
-        .extend({ top: 20, bottom: 20, left: 20, right: 20, background: '#ffffff' })
+        .extend({ top: 40, bottom: 40, left: 40, right: 40, background: '#ffffff' })
         .png()
         .toBuffer();
-
-    return pngBuffer.toString('base64');
 }
 
-async function solveCaptchaWithGemini(svgString) {
-    if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured');
+async function solveCaptchaWithTesseract(svgString) {
+    const pngBuffer = await svgToPngBuffer(svgString);
 
-    const pngBase64 = await svgToPngBase64(svgString);
-
-    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
-
-    const res = await fetch(apiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            contents: [{
-                parts: [
-                    { text: 'This captcha image contains exactly 4 numerical digits (0-9). What are the 4 digits? Reply with ONLY the 4 digits, nothing else.' },
-                    { inline_data: { mime_type: 'image/png', data: pngBase64 } }
-                ]
-            }],
-            generationConfig: { temperature: 0, maxOutputTokens: 10 }
-        })
+    const worker = await Tesseract.createWorker('eng');
+    await worker.setParameters({
+        tessedit_char_whitelist: '0123456789',
+        tessedit_pageseg_mode: Tesseract.PSM.SINGLE_LINE,
     });
 
-    if (!res.ok) {
-        const err = await res.text();
-        throw new Error(`Gemini API error: ${res.status} ${err.substring(0, 200)}`);
-    }
+    const { data: { text, confidence } } = await worker.recognize(pngBuffer);
+    await worker.terminate();
 
-    const data = await res.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
-    const digits = text.replace(/[^0-9]/g, '');
-    return digits.length === 4 ? digits : null;
+    const digits = text.trim().replace(/\s+/g, '');
+    console.log(`[AUTOFB] Tesseract OCR: "${digits}" (confidence: ${confidence.toFixed(1)}%)`);
+
+    return /^\d{4}$/.test(digits) ? digits : null;
 }
+
+// Cache token in memory (avoid re-login on every request)
+let cachedToken = null;
+let cachedTokenExpiry = 0;
 
 // =====================================================
 // Health check
@@ -86,8 +75,8 @@ async function solveCaptchaWithGemini(svgString) {
 router.get('/', (req, res) => {
     res.json({
         status: 'ok',
-        service: 'AutoFB.pro Balance',
-        hasGeminiKey: !!GEMINI_API_KEY,
+        service: 'AutoFB.pro Balance (Tesseract OCR)',
+        hasCachedToken: !!cachedToken && Date.now() < cachedTokenExpiry,
     });
 });
 
@@ -96,36 +85,27 @@ router.get('/', (req, res) => {
 // =====================================================
 router.get('/test-captcha', async (req, res) => {
     try {
-        // 1. Fetch captcha
         const captchaRes = await fetch(`${AUTOFB_BASE}/auth/captcha`, {
             headers: COMMON_HEADERS,
         });
         const captcha = await captchaRes.json();
 
-        // 2. Clean & convert
-        const cleanSvg = cleanCaptchaSvg(captcha.svg);
-        const pngBase64 = await svgToPngBase64(captcha.svg);
-
-        // 3. Solve with Gemini
-        let geminiResult = null;
-        let geminiError = null;
+        let ocrResult = null;
+        let ocrError = null;
         try {
-            geminiResult = await solveCaptchaWithGemini(captcha.svg);
+            ocrResult = await solveCaptchaWithTesseract(captcha.svg);
         } catch (e) {
-            geminiError = e.message;
+            ocrError = e.message;
         }
 
         res.json({
             captchaId: captcha.captchaId,
             svgLength: captcha.svg?.length,
-            cleanSvgLength: cleanSvg?.length,
-            pngBase64Length: pngBase64?.length,
-            geminiResult,
-            geminiError,
-            pngPreview: `data:image/png;base64,${pngBase64.substring(0, 100)}...`,
+            ocrResult,
+            ocrError,
         });
     } catch (e) {
-        res.status(500).json({ error: e.message, stack: e.stack });
+        res.status(500).json({ error: e.message });
     }
 });
 
@@ -144,11 +124,25 @@ router.post('/balance', async (req, res) => {
         });
     }
 
-    if (!GEMINI_API_KEY) {
-        return res.status(500).json({
-            success: false,
-            error: 'GEMINI_API_KEY not configured on server',
-        });
+    // If we have a cached token, try to use it first
+    if (cachedToken && Date.now() < cachedTokenExpiry) {
+        try {
+            const balanceData = await fetchBalanceWithToken(cachedToken);
+            if (balanceData) {
+                console.log(`[AUTOFB] Used cached token, balance: ${balanceData.balance}`);
+                return res.json({
+                    success: true,
+                    data: {
+                        ...balanceData,
+                        fromCache: true,
+                        fetchedAt: new Date().toISOString(),
+                    }
+                });
+            }
+        } catch (e) {
+            console.log('[AUTOFB] Cached token expired, re-login...');
+            cachedToken = null;
+        }
     }
 
     console.log('[AUTOFB] Starting login for:', username);
@@ -163,13 +157,13 @@ router.post('/balance', async (req, res) => {
             const captcha = await captchaRes.json();
             console.log(`[AUTOFB] Attempt ${attempt}: captchaId=${captcha.captchaId}`);
 
-            // 2. Solve with Gemini Vision (SVG → PNG → Gemini)
-            const digits = await solveCaptchaWithGemini(captcha.svg);
+            // 2. Solve with Tesseract OCR (SVG → PNG → OCR)
+            const digits = await solveCaptchaWithTesseract(captcha.svg);
             if (!digits) {
-                console.log(`[AUTOFB] Attempt ${attempt}: Gemini could not read captcha`);
+                console.log(`[AUTOFB] Attempt ${attempt}: OCR could not read 4 digits`);
                 continue;
             }
-            console.log(`[AUTOFB] Attempt ${attempt}: Gemini solved → "${digits}"`);
+            console.log(`[AUTOFB] Attempt ${attempt}: OCR solved → "${digits}"`);
 
             // 3. Login
             const loginRes = await fetch(`${AUTOFB_BASE}/auth/login`, {
@@ -202,7 +196,11 @@ router.post('/balance', async (req, res) => {
                 const balance = result.user?.balance || 0;
                 const balanceVND = Math.round(balance * 25000);
 
-                console.log(`[AUTOFB] ✅ Login OK! Balance: ${balance} (~${balanceVND.toLocaleString()} VND), attempt ${attempt}`);
+                // Cache token for 30 minutes
+                cachedToken = result.token;
+                cachedTokenExpiry = Date.now() + 30 * 60 * 1000;
+
+                console.log(`[AUTOFB] Login OK! Balance: ${balance} (~${balanceVND.toLocaleString()} VND), attempt ${attempt}`);
 
                 return res.json({
                     success: true,
@@ -235,5 +233,29 @@ router.post('/balance', async (req, res) => {
         error: `Failed to solve captcha after ${MAX_RETRIES} attempts`,
     });
 });
+
+// =====================================================
+// Fetch balance using existing token (skip captcha)
+// =====================================================
+async function fetchBalanceWithToken(token) {
+    const res = await fetch(`${AUTOFB_BASE}/user/get-user-info`, {
+        headers: {
+            ...COMMON_HEADERS,
+            'Authorization': `Bearer ${token}`,
+        },
+    });
+
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data || data.error_code) return null;
+
+    const balance = data.balance || data.user?.balance || 0;
+    return {
+        balance,
+        balanceVND: Math.round(balance * 25000),
+        username: data.username || data.user?.username,
+        level: data.level || data.user?.level,
+    };
+}
 
 module.exports = router;
