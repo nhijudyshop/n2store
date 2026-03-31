@@ -267,6 +267,8 @@ const BillService = (function () {
                 const price = item.PriceUnit || item.Price || 0;
                 const total = quantity * price;
                 const productName = item.ProductName || item.ProductNameGet || '';
+                const khoDiChoSTT = window.KhoDiChoCache ? window.KhoDiChoCache.getSTT(item) : 0;
+                const displayName = `${productName} - ${khoDiChoSTT}`;
                 const uomName = item.ProductUOMName || 'Cái';
                 const note = item.Note || '';
 
@@ -277,7 +279,7 @@ const BillService = (function () {
                 return `                        <tr>
                             <td class="PaddingProduct word-break" colspan="3" style="border-bottom:none">
                                     <label>
-                                        ${productName}${note ? ` <span style="font-weight:bold">(${note})</span>` : ''}
+                                        ${displayName}${note ? ` <span style="font-weight:bold">(${note})</span>` : ''}
 
                                                                             </label>
 
