@@ -35,6 +35,7 @@ import {
     handleCustomer360Proxy
 } from './modules/handlers/proxy-handler.js';
 import { handleDeepSeek, handleDeepSeekOcr } from './modules/handlers/ai-handler.js';
+import { handleSepayDashboard } from './modules/handlers/sepay-dashboard-handler.js';
 
 /**
  * Main fetch handler
@@ -113,6 +114,10 @@ export default {
                     return handleDeepSeek(request, url);
                 case 'DEEPSEEK_OCR':
                     return handleDeepSeekOcr(request, url);
+
+                // SePay Dashboard (direct login + scrape)
+                case 'SEPAY_DASHBOARD':
+                    return handleSepayDashboard(request, url);
 
                 // Proxy
                 case 'GENERIC_PROXY':

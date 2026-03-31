@@ -4,7 +4,6 @@
 // failed queue, and shared helper functions
 // =====================================================
 
-const fetch = require('node-fetch');
 const { fetchWithTimeout } = require('../../shared/node/fetch-utils.cjs');
 
 /**
@@ -1320,226 +1319,15 @@ function registerRoutes(router, deps) {
         }
     });
 
+    // =========================================================
+    // SEPAY ACCOUNT STATUS (API data only)
+    // Dashboard/subscription data now handled by CF Worker
+    // =========================================================
+
     /**
      * GET /api/sepay/account-status
-     * Fetch SePay account info via:
-     * 1. SePay API (transactions, bank accounts) using API key
-     * 2. SePay dashboard (subscription, invoices) using username/password login
-     * Used by service-costs dashboard
+     * SePay API data: bank accounts + transaction count
      */
-
-    // Cache for dashboard data (avoid frequent logins)
-    let _sepayDashboardCache = null;
-    let _sepayDashboardCacheTime = 0;
-    const DASHBOARD_CACHE_TTL = 30 * 60 * 1000; // 30 minutes
-
-    /**
-     * Login to my.sepay.vn and fetch subscription/invoice data
-     * Uses node-fetch (line 7) directly for proper cookie handling
-     * (fetchWithTimeout uses native undici fetch which lacks .headers.raw())
-     */
-    async function fetchSepayDashboard() {
-        const username = process.env.SEPAY_USERNAME;
-        const password = process.env.SEPAY_PASSWORD;
-
-        if (!username || !password) {
-            console.warn('[SEPAY-DASHBOARD] SEPAY_USERNAME or SEPAY_PASSWORD not configured');
-            return null;
-        }
-
-        // Check cache
-        if (_sepayDashboardCache && (Date.now() - _sepayDashboardCacheTime < DASHBOARD_CACHE_TTL)) {
-            console.log('[SEPAY-DASHBOARD] Returning cached data');
-            return _sepayDashboardCache;
-        }
-
-        try {
-            console.log('[SEPAY-DASHBOARD] Logging in to my.sepay.vn as', username);
-
-            const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36';
-
-            // Step 1: GET login page to get csrf_ap cookie
-            const loginPageRes = await fetch('https://my.sepay.vn/login', {
-                headers: {
-                    'User-Agent': UA,
-                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-                    'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8',
-                    'sec-ch-ua': '"Chromium";v="146", "Not-A.Brand";v="24", "Google Chrome";v="146"',
-                    'sec-ch-ua-mobile': '?0',
-                    'sec-ch-ua-platform': '"macOS"',
-                    'sec-fetch-dest': 'document',
-                    'sec-fetch-mode': 'navigate',
-                    'sec-fetch-site': 'none',
-                    'sec-fetch-user': '?1',
-                    'upgrade-insecure-requests': '1',
-                },
-                redirect: 'follow',
-            });
-            const loginPageCookies = (loginPageRes.headers.raw()['set-cookie'] || []).map(c => c.split(';')[0]);
-            const loginPageHtml = await loginPageRes.text();
-
-            // Check if Cloudflare challenged us
-            const isCfChallenge = loginPageHtml.includes('challenge-platform') || loginPageHtml.includes('cf-challenge');
-            if (isCfChallenge) {
-                console.error('[SEPAY-DASHBOARD] Blocked by Cloudflare challenge');
-                return { _debug: { error: 'Cloudflare challenge blocked', pageLen: loginPageHtml.length } };
-            }
-
-            // Extract csrf_ap from cookies (used as csrf_main in login body)
-            const csrfCookie = loginPageCookies.find(c => c.startsWith('csrf_ap='));
-            const csrfToken = csrfCookie ? csrfCookie.split('=')[1] : '';
-
-            console.log('[SEPAY-DASHBOARD] Login page cookies:', loginPageCookies.length,
-                '| csrf_ap:', csrfToken ? csrfToken.substring(0, 8) + '...' : 'NOT FOUND',
-                '| cf_challenge:', isCfChallenge);
-
-            // Step 2: POST login with csrf_main field (from csrf_ap cookie)
-            const loginBody = `csrf_main=${encodeURIComponent(csrfToken)}&email=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
-
-            const loginRes = await fetch('https://my.sepay.vn/login/do_login', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-                    'User-Agent': UA,
-                    'Accept': 'application/json, text/javascript, */*; q=0.01',
-                    'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'Origin': 'https://my.sepay.vn',
-                    'Referer': 'https://my.sepay.vn/login',
-                    'sec-ch-ua': '"Chromium";v="146", "Not-A.Brand";v="24", "Google Chrome";v="146"',
-                    'sec-ch-ua-mobile': '?0',
-                    'sec-ch-ua-platform': '"macOS"',
-                    'sec-fetch-dest': 'empty',
-                    'sec-fetch-mode': 'cors',
-                    'sec-fetch-site': 'same-origin',
-                    'Cookie': loginPageCookies.join('; '),
-                },
-                body: loginBody,
-                redirect: 'manual',
-            });
-
-            // Combine all cookies (login page + login response)
-            const loginResCookies = (loginRes.headers.raw()['set-cookie'] || []).map(c => c.split(';')[0]);
-            const allCookies = [...loginPageCookies, ...loginResCookies];
-            const cookieStr = allCookies.join('; ');
-
-            let loginData = null;
-            try { loginData = await loginRes.json(); } catch (e) { /* not JSON */ }
-
-            console.log('[SEPAY-DASHBOARD] Login response:', loginRes.status,
-                '| new cookies:', loginResCookies.length,
-                '| data:', JSON.stringify(loginData));
-
-            if (loginData && loginData.status === false) {
-                console.error('[SEPAY-DASHBOARD] Login rejected:', loginData.message || loginData);
-                return { _debug: { error: 'Login rejected', loginData } };
-            }
-
-            if (loginResCookies.length === 0) {
-                console.error('[SEPAY-DASHBOARD] Login failed - no session cookies');
-                return { _debug: { error: 'No session cookies after login', loginStatus: loginRes.status, loginData, pageCookies: loginPageCookies.length } };
-            }
-
-            const dashHeaders = {
-                'Cookie': cookieStr,
-                'User-Agent': UA,
-                'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-                'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8',
-                'sec-fetch-dest': 'document',
-                'sec-fetch-mode': 'navigate',
-                'sec-fetch-site': 'same-origin',
-                'Referer': 'https://my.sepay.vn/',
-            };
-
-            // Step 3: Fetch dashboard pages in parallel using node-fetch
-            const [homeRes, invoicesRes] = await Promise.all([
-                fetch('https://my.sepay.vn/', { headers: dashHeaders, redirect: 'follow' }),
-                fetch('https://my.sepay.vn/invoices', { headers: dashHeaders, redirect: 'follow' }),
-            ]);
-
-            const homeHtml = homeRes.ok ? await homeRes.text() : '';
-            const invoicesHtml = invoicesRes.ok ? await invoicesRes.text() : '';
-
-            const isLoginPage = homeHtml.includes('do_login') || homeHtml.includes('/login');
-            console.log('[SEPAY-DASHBOARD] Home:', homeHtml.length, 'bytes | Invoices:', invoicesHtml.length, 'bytes | isLoginPage:', isLoginPage);
-
-            // Step 4: Parse subscription info from dashboard
-            const result = {
-                plan: null,
-                expiryDate: null,
-                transactionQuota: null,
-                transactionUsed: null,
-                balance: null,
-                invoices: [],
-            };
-
-            if (isLoginPage) {
-                console.error('[SEPAY-DASHBOARD] Session invalid - redirected to login page');
-                result._debug = { error: 'Redirected to login', homeLen: homeHtml.length };
-                return result;
-            }
-
-            // Parse home/dashboard page for subscription data
-            // Look for plan name
-            const planMatch = homeHtml.match(/(?:Gói|Plan|Package)\s*(?:dịch vụ)?[:\s]*<[^>]*>\s*([^<]+)/i) ||
-                              homeHtml.match(/class="[^"]*plan[^"]*"[^>]*>\s*([^<]+)/i);
-            if (planMatch) result.plan = planMatch[1].trim();
-
-            // Look for expiry date in multiple formats
-            const expiryMatch = homeHtml.match(/(?:Hết hạn|hạn sử dụng|Ngày hết hạn|Expir(?:y|es|ation))\s*[:\s]*\s*(?:<[^>]*>\s*)*(\d{4}-\d{2}-\d{2}|\d{2}\/\d{2}\/\d{4}|\d{2}-\d{2}-\d{4})/i) ||
-                                homeHtml.match(/(\d{4}-\d{2}-\d{2})\s*(?:<[^>]*>\s*)*(?:hết hạn|expir)/i);
-            if (expiryMatch) result.expiryDate = expiryMatch[1].trim();
-
-            // Look for transaction quota (e.g. "514 / 1,000 GD")
-            const quotaMatch = homeHtml.match(/([\d,.]+)\s*\/\s*([\d,.]+)\s*(?:GD|giao dịch|transaction)/i);
-            if (quotaMatch) {
-                result.transactionUsed = parseInt(quotaMatch[1].replace(/[,.]/g, ''));
-                result.transactionQuota = parseInt(quotaMatch[2].replace(/[,.]/g, ''));
-            }
-
-            // Look for balance
-            const balanceMatch = homeHtml.match(/(?:Số dư|Balance)\s*[:\s]*(?:<[^>]*>\s*)*([\d,.]+)\s*(?:đ|VND)/i);
-            if (balanceMatch) result.balance = balanceMatch[1].trim();
-
-            // Parse invoices page for invoice list
-            const invoiceRegex = /#(\d+)[\s\S]{0,500}?([\d,.]+)\s*(?:đ|VND)[\s\S]{0,200}?(Đã thanh toán|Chưa thanh toán|Paid|Unpaid|Quá hạn|Overdue)/gi;
-            let match;
-            while ((match = invoiceRegex.exec(invoicesHtml)) !== null) {
-                result.invoices.push({
-                    id: match[1],
-                    amount: match[2],
-                    status: match[3].trim(),
-                });
-            }
-
-            // Fallback: search for plan keywords
-            if (!result.plan) {
-                if (homeHtml.match(/\bVIP\b/)) result.plan = 'VIP';
-                else if (homeHtml.match(/\bPro\b/)) result.plan = 'Pro';
-                else if (homeHtml.match(/\bFree\b/i)) result.plan = 'Free';
-            }
-
-            // Debug info
-            result._debug = {
-                homeTitle: (homeHtml.match(/<title>([^<]*)<\/title>/i) || [])[1] || '',
-                homeLen: homeHtml.length,
-                invoicesLen: invoicesHtml.length,
-                loginCookies: loginResCookies.length,
-                // Save first 2000 chars of home for debugging regex
-                homeSnippet: homeHtml.substring(0, 2000),
-            };
-
-            // Cache
-            _sepayDashboardCache = result;
-            _sepayDashboardCacheTime = Date.now();
-
-            return result;
-        } catch (error) {
-            console.error('[SEPAY-DASHBOARD] Error:', error.message);
-            return { _debug: { error: error.message } };
-        }
-    }
-
     router.get('/account-status', async (req, res) => {
         const SEPAY_API_KEY = process.env.SEPAY_API_KEY || process.env.SEPAY_API;
         const SEPAY_ACCOUNT_NUMBER = process.env.SEPAY_ACCOUNT_NUMBER || '5354IBT1';
@@ -1549,46 +1337,30 @@ function registerRoutes(router, deps) {
             const startOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
             const endOfMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()}`;
 
-            // Fetch API data + dashboard data in parallel
             const apiHeaders = SEPAY_API_KEY ? {
                 'Authorization': `Bearer ${SEPAY_API_KEY}`,
                 'Content-Type': 'application/json'
             } : null;
 
-            const promises = [];
-
-            // API calls (if key available)
-            if (apiHeaders) {
-                promises.push(
-                    fetchWithTimeout('https://my.sepay.vn/userapi/bankaccounts/list', { method: 'GET', headers: apiHeaders }, 10000)
-                        .then(r => r.ok ? r.json() : null).catch(() => null)
-                );
-                promises.push(
-                    fetchWithTimeout(`https://my.sepay.vn/userapi/transactions/count?account_number=${SEPAY_ACCOUNT_NUMBER}&transaction_date_min=${startOfMonth}&transaction_date_max=${endOfMonth}`, { method: 'GET', headers: apiHeaders }, 10000)
-                        .then(r => r.ok ? r.json() : null).catch(() => null)
-                );
-            } else {
-                promises.push(Promise.resolve(null));
-                promises.push(Promise.resolve(null));
+            if (!apiHeaders) {
+                return res.status(400).json({ success: false, error: 'SEPAY_API_KEY not configured' });
             }
 
-            // Dashboard scrape (login with username/password)
-            promises.push(fetchSepayDashboard());
+            const [accountsData, countData] = await Promise.all([
+                fetchWithTimeout('https://my.sepay.vn/userapi/bankaccounts/list', { method: 'GET', headers: apiHeaders }, 10000)
+                    .then(r => r.ok ? r.json() : null).catch(() => null),
+                fetchWithTimeout(`https://my.sepay.vn/userapi/transactions/count?account_number=${SEPAY_ACCOUNT_NUMBER}&transaction_date_min=${startOfMonth}&transaction_date_max=${endOfMonth}`, { method: 'GET', headers: apiHeaders }, 10000)
+                    .then(r => r.ok ? r.json() : null).catch(() => null),
+            ]);
 
-            const [accountsData, countData, dashboardData] = await Promise.all(promises);
-
-            // Extract bank account info from API
             let bankAccount = null;
-            if (accountsData && accountsData.bankaccounts) {
+            if (accountsData?.bankaccounts) {
                 bankAccount = accountsData.bankaccounts.find(a => a.account_number === SEPAY_ACCOUNT_NUMBER) || accountsData.bankaccounts[0] || null;
             }
-
-            const txCount = countData ? (countData.count_transactions || countData.transactions || 0) : 0;
 
             res.json({
                 success: true,
                 data: {
-                    // From SePay API
                     bankAccount: bankAccount ? {
                         accountNumber: bankAccount.account_number,
                         accountHolder: bankAccount.account_holder_name,
@@ -1597,15 +1369,8 @@ function registerRoutes(router, deps) {
                         active: bankAccount.active === 1,
                         lastTransaction: bankAccount.last_transaction,
                     } : null,
-                    transactionCount: txCount,
+                    transactionCount: countData ? (countData.count_transactions || countData.transactions || 0) : 0,
                     month: `${now.getMonth() + 1}/${now.getFullYear()}`,
-                    // From dashboard scrape
-                    dashboard: dashboardData || null,
-                    _envCheck: {
-                        hasUsername: !!process.env.SEPAY_USERNAME,
-                        hasPassword: !!process.env.SEPAY_PASSWORD,
-                        hasApiKey: !!(process.env.SEPAY_API_KEY || process.env.SEPAY_API),
-                    },
                     fetchedAt: now.toISOString(),
                 }
             });

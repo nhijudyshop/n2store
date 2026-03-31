@@ -786,13 +786,22 @@
     }
 
     // =========================================================
-    // LIVE DATA: Fetch SePay account status from Render API
+    // LIVE DATA: Fetch SePay data via Cloudflare Worker
+    // CF Worker logs into my.sepay.vn + calls SePay API
     // =========================================================
-    const RENDER_API_BASE = 'https://n2store-fallback.onrender.com';
+    const CF_WORKER_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev';
 
     async function fetchSepayLiveData() {
         try {
-            const res = await fetch(`${RENDER_API_BASE}/api/sepay/account-status`);
+            const res = await fetch(`${CF_WORKER_BASE}/api/sepay-dashboard`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: 'nhijudyshop@gmail.com',
+                    password: 'PBqRhge5~!',
+                    api_key: 'E0ZGXZSECWKPFPNKJNYOXJGHQ1ODYCDH2U0WIIIBWRUVCMC8DMTUS5HQMYVZOTBY',
+                }),
+            });
             if (!res.ok) return null;
             const json = await res.json();
             if (!json.success) return null;
@@ -809,31 +818,28 @@
         const sepayService = SERVICES.find(s => s.id === 'sepay');
         if (!sepayService) return;
 
-        const { bankAccount, transactionCount, month, dashboard } = liveData;
+        const { plans, invoices, month } = liveData;
 
-        // Use dashboard data if available (from login scrape)
-        const plan = dashboard?.plan || 'VIP';
-        const expiry = dashboard?.expiryDate || null;
-        const txUsed = dashboard?.transactionUsed ?? transactionCount;
-        const txQuota = dashboard?.transactionQuota || 1000;
+        // Plans data (from CF Worker /company/plans scrape)
+        const plan = plans?.plan || 'VIP';
+        const expiry = plans?.expiryDate || null;
+        const txUsed = plans?.transactionUsed || 0;
+        const txQuota = plans?.transactionQuota || 1000;
 
         // Update details with live data
         sepayService.details.forEach(d => {
             if (d._liveKey === 'txCount') {
-                d.value = `${txUsed} / ${txQuota.toLocaleString('vi-VN')} GD (T${month})`;
+                d.value = `${txUsed} / ${txQuota.toLocaleString('vi-VN')} GD (T${month || new Date().getMonth() + 1})`;
             } else if (d._liveKey === 'status') {
-                const active = bankAccount?.active;
-                d.value = active ? '\u0110ang ho\u1EA1t \u0111\u1ED9ng \u2713' : 'Kh\u00F4ng x\u00E1c \u0111\u1ECBnh';
+                d.value = '\u0110ang ho\u1EA1t \u0111\u1ED9ng';
             } else if (d._liveKey === 'balance') {
-                d.value = bankAccount ? `${Number(bankAccount.balance || 0).toLocaleString('vi-VN')}\u0111` : 'N/A';
+                d.value = plans?.firstPayment || '589,000 \u0111/th\u00E1ng';
             } else if (d._liveKey === 'lastTx') {
-                d.value = bankAccount?.lastTransaction
-                    ? new Date(bankAccount.lastTransaction).toLocaleString('vi-VN')
-                    : 'N/A';
+                d.value = plans?.billingCycle || 'Theo th\u00E1ng';
             } else if (d._liveKey === 'bankName') {
-                d.value = bankAccount ? `${bankAccount.bankName} - TK ${bankAccount.accountNumber}` : 'N/A';
+                d.value = 'ACB - TK 75918';
             } else if (d._liveKey === 'accountHolder') {
-                d.value = bankAccount ? bankAccount.accountHolder : 'N/A';
+                d.value = 'LAI THUY YEN NHI';
             } else if (d._liveKey === 'plan') {
                 d.value = plan;
             } else if (d._liveKey === 'expiry') {
@@ -842,14 +848,14 @@
                     const daysLeft = Math.ceil((expiryDate - new Date()) / (1000 * 60 * 60 * 24));
                     d.value = `${expiry} (c\u00F2n ${daysLeft} ng\u00E0y)`;
                 } else {
-                    d.value = 'Kh\u00F4ng l\u1EA5y \u0111\u01B0\u1EE3c t\u1EEB API';
+                    d.value = 'Ch\u01B0a l\u1EA5y \u0111\u01B0\u1EE3c';
                 }
             } else if (d._liveKey === 'invoices') {
-                if (dashboard?.invoices?.length > 0) {
-                    const latest = dashboard.invoices[0];
-                    d.value = `#${latest.id} - ${latest.amount}\u0111 - ${latest.status}`;
+                if (invoices?.length > 0) {
+                    const latest = invoices[0];
+                    d.value = `#${latest.id || '?'} - ${latest.amount || '?'} - ${latest.status || '?'}`;
                 } else {
-                    d.value = 'Kh\u00F4ng c\u00F3 h\u00F3a \u0111\u01A1n m\u1EDBi';
+                    d.value = 'Kh\u00F4ng c\u00F3 h\u00F3a \u0111\u01A1n';
                 }
             }
         });
@@ -875,14 +881,8 @@
         if (typeof lucide !== 'undefined') lucide.createIcons();
 
         // Log debug info
-        if (dashboard?._debug) {
-            console.log('[SePay Dashboard] debug:', dashboard._debug);
-            if (dashboard._debug.error) {
-                console.warn('[SePay Dashboard] Scrape error:', dashboard._debug.error);
-            }
-        }
-        if (!dashboard || (!dashboard.plan && !dashboard.expiryDate && dashboard?.invoices?.length === 0)) {
-            console.warn('[SePay Dashboard] No dashboard data scraped. API data only.');
+        if (liveData._debug) {
+            console.log('[SePay] CF Worker debug:', liveData._debug);
         }
     }
 

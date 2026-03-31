@@ -43,6 +43,9 @@ export const ROUTES = {
     DEEPSEEK: { pattern: '/api/deepseek', method: 'POST' },
     DEEPSEEK_OCR: { pattern: '/api/deepseek-ocr', method: 'POST' },
 
+    // SePay
+    SEPAY_DASHBOARD: { pattern: '/api/sepay-dashboard', method: 'POST' },
+
     // Proxy
     GENERIC_PROXY: { pattern: '/api/proxy' },
     SEPAY: { pattern: '/api/sepay/*' },
@@ -97,6 +100,7 @@ export function matchRoute(pathname) {
     if (pathname === '/api/deepseek-ocr') return 'DEEPSEEK_OCR';
     if (pathname === '/api/Product/ExportProductV2') return 'TPOS_EXPORT_V2';
     if (pathname === '/api/Product/ExportFileWithStandardPriceV2') return 'TPOS_EXPORT_STANDARD';
+    if (pathname === '/api/sepay-dashboard') return 'SEPAY_DASHBOARD';
     if (pathname === '/api/proxy') return 'GENERIC_PROXY';
 
     // Pattern matches
