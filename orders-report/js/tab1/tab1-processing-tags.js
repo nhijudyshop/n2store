@@ -18,8 +18,7 @@
         CHO_DI_DON: 1,
         XU_LY: 2,
         KHONG_CAN_CHOT: 3,
-        KHACH_XA: 4,
-        PHIEU_SOAN_HANG: 5
+        KHACH_XA: 4
     };
 
     const PTAG_CATEGORY_META = {
@@ -27,8 +26,7 @@
         1: { name: 'CHỜ ĐI ĐƠN (OKE)', short: 'Chờ đi đơn', icon: 'fa-clock', emoji: '🔵' },
         2: { name: 'MỤC XỬ LÝ', short: 'Xử lý', icon: 'fa-exclamation-triangle', emoji: '🟠' },
         3: { name: 'KHÔNG CẦN CHỐT', short: 'Ko cần chốt', icon: 'fa-minus-circle', emoji: '⚪' },
-        4: { name: 'KHÁCH XÃ SAU CHỐT', short: 'Khách xã', icon: 'fa-times-circle', emoji: '🔴' },
-        5: { name: 'PHIẾU SOẠN HÀNG', short: 'Chờ Hàng đã In Phiếu Soạn', icon: 'fa-clipboard-list', emoji: '📋' }
+        4: { name: 'KHÁCH XÃ SAU CHỐT', short: 'Khách xã', icon: 'fa-times-circle', emoji: '🔴' }
     };
 
     const PTAG_CATEGORY_COLORS = {
@@ -36,8 +34,7 @@
         1: { bg: 'rgba(59,130,246,0.08)', border: '#3b82f6', text: '#1e40af' },
         2: { bg: 'rgba(245,158,11,0.08)', border: '#f59e0b', text: '#92400e' },
         3: { bg: 'rgba(107,114,128,0.08)', border: '#6b7280', text: '#374151' },
-        4: { bg: 'rgba(239,68,68,0.08)', border: '#ef4444', text: '#991b1b' },
-        5: { bg: 'rgba(245,158,11,0.12)', border: '#f59e0b', text: '#92400e' }
+        4: { bg: 'rgba(239,68,68,0.08)', border: '#ef4444', text: '#991b1b' }
     };
 
     const PTAG_SUBSTATES = {
@@ -79,10 +76,11 @@
         cat_2: 'Đơn cần seller xử lý vấn đề trước khi có thể ra bill.',
         cat_3: 'Đơn không cần xử lý chốt đơn.',
         cat_4: 'Khách hủy hoặc không liên lạc được sau chốt đơn.',
-        cat_5: 'Đơn đã in phiếu soạn hàng. Tự động khi bấm In Phiếu Soạn Hàng.',
         // Sub-states
         sub_OKIE_CHO_DI_DON: 'Đủ hàng, sẵn sàng ra bill. Không có tag T nào.',
         sub_CHO_HANG: 'Thiếu hàng, chờ hàng về. Có ít nhất 1 tag T.',
+        sub_CHO_HANG_DA_IN: 'Đơn chờ hàng đã in phiếu soạn hoặc chỉ có 1 mã SP.',
+        sub_CHO_HANG_CHUA_IN: 'Đơn chờ hàng chưa in phiếu soạn.',
         // Flags
         flag_TRU_CONG_NO: 'Ví khách có virtual balance (công nợ ảo). Auto-detect từ ví.',
         flag_CHUYEN_KHOAN: 'Ví khách có real balance (đã chuyển khoản). Auto-detect từ ví.',
@@ -303,6 +301,12 @@
                         continue;
                     }
                     // Still load campaign-based tags for backwards compatibility
+                    // Migrate legacy category 5 → CHO_DI_DON + CHO_HANG + pickingSlipPrinted
+                    if (data.category === 5) {
+                        data.category = PTAG_CATEGORIES.CHO_DI_DON;
+                        data.subState = 'CHO_HANG';
+                        data.pickingSlipPrinted = true;
+                    }
                     if (data.category === PTAG_CATEGORIES.CHO_DI_DON) {
                         const hasTTags = (data.tTags || []).length > 0;
                         data.subState = hasTTags ? 'CHO_HANG' : 'OKIE_CHO_DI_DON';
@@ -399,6 +403,12 @@
                     for (const [code, tagData] of Object.entries(result.data)) {
                         const orderId = codeToId.get(String(code));
                         if (!orderId) continue;
+                        // Migrate legacy category 5 → CHO_DI_DON + CHO_HANG + pickingSlipPrinted
+                        if (tagData.category === 5) {
+                            tagData.category = PTAG_CATEGORIES.CHO_DI_DON;
+                            tagData.subState = 'CHO_HANG';
+                            tagData.pickingSlipPrinted = true;
+                        }
                         // Normalize subState
                         if (tagData.category === PTAG_CATEGORIES.CHO_DI_DON) {
                             tagData.subState = (tagData.tTags || []).length > 0 ? 'CHO_HANG' : 'OKIE_CHO_DI_DON';
@@ -595,6 +605,11 @@
             // Auto sub-state from internal tTags
             data.subState = data.tTags.length > 0 ? 'CHO_HANG' : 'OKIE_CHO_DI_DON';
 
+            // Auto picking slip for single-SKU CHO_HANG orders
+            if (data.subState === 'CHO_HANG') {
+                data.pickingSlipPrinted = _ptagIsSingleSkuOrder(orderId);
+            }
+
             // Auto-detect flags from wallet
             const phone = _ptagGetOrderPhone(orderId);
             if (phone) {
@@ -705,6 +720,10 @@
         // Auto sub-state ONLY when at Cat 1 "Okie Chờ Đi Đơn"
         if (data.category === PTAG_CATEGORIES.CHO_DI_DON && data.subState === 'OKIE_CHO_DI_DON') {
             data.subState = 'CHO_HANG';
+            // Auto picking slip for single-SKU orders
+            if (_ptagIsSingleSkuOrder(orderId)) {
+                data.pickingSlipPrinted = true;
+            }
         }
         _ptagEnsureCode(orderId, data);
         ProcessingTagState.setOrderData(orderId, data);
@@ -771,7 +790,7 @@
         saveProcessingTagToAPI(saleOnlineId, data);
     }
 
-    // Auto transition: packing slip printed → PHIẾU SOẠN HÀNG
+    // Auto transition: packing slip printed → mark pickingSlipPrinted
     function onPtagPackingSlipPrinted(saleOnlineId) {
         let data = ProcessingTagState.getOrderData(saleOnlineId);
 
@@ -779,24 +798,17 @@
             data = { category: null, subTag: null, subState: null, flags: [], tTags: [], note: '', assignedAt: Date.now() };
         }
 
-        // Already in PHIEU_SOAN_HANG → skip
-        if (data.category === PTAG_CATEGORIES.PHIEU_SOAN_HANG) return;
+        // Already printed → skip
+        if (data.pickingSlipPrinted) return;
 
-        const snapshot = {
-            category: data.category,
-            subTag: data.subTag,
-            subState: data.subState,
-            flags: [...(data.flags || [])],
-            tTags: [...(data.tTags || [])],
-            note: data.note
-        };
+        data.pickingSlipPrinted = true;
 
-        // Keep flags + tTags, only change category
-        data.category = PTAG_CATEGORIES.PHIEU_SOAN_HANG;
-        data.subTag = null;
-        data.subState = null;
-        data.assignedAt = Date.now();
-        data.previousPosition = snapshot;
+        // Nếu chưa có category → set CHO_DI_DON + CHO_HANG
+        if (data.category === null || data.category === undefined) {
+            data.category = PTAG_CATEGORIES.CHO_DI_DON;
+            data.subState = 'CHO_HANG';
+            data.assignedAt = Date.now();
+        }
 
         _ptagEnsureCode(saleOnlineId, data);
         ProcessingTagState.setOrderData(saleOnlineId, data);
@@ -824,6 +836,13 @@
             history: data.history || []
         };
 
+        // Migrate legacy category 5 in restored data
+        if (restored.category === 5) {
+            restored.category = PTAG_CATEGORIES.CHO_DI_DON;
+            restored.subState = (restored.tTags || []).length > 0 ? 'CHO_HANG' : 'OKIE_CHO_DI_DON';
+            restored.pickingSlipPrinted = true;
+        }
+
         _ptagEnsureCode(saleOnlineId, restored);
         ProcessingTagState.setOrderData(saleOnlineId, restored);
         _ptagAddHistory(saleOnlineId, 'AUTO_ROLLBACK', '', 'Hệ thống');
@@ -836,6 +855,14 @@
     function _ptagGetOrderPhone(orderId) {
         const order = ((typeof window.getAllOrders === 'function') ? window.getAllOrders() : []).find(o => o.Id === orderId);
         return order?.Telephone || order?.Phone || '';
+    }
+
+    /** Check if order has only 1 unique product code (for auto picking slip) */
+    function _ptagIsSingleSkuOrder(orderId) {
+        const order = ((typeof window.getAllOrders === 'function') ? window.getAllOrders() : []).find(o => o.Id === orderId);
+        if (!order || !Array.isArray(order.Details) || order.Details.length === 0) return false;
+        const uniqueCodes = new Set(order.Details.map(d => (d.ProductCode || '').toUpperCase()).filter(c => c));
+        return uniqueCodes.size === 1;
     }
 
     /** Inject order Code into data before saving (for cross-referencing after reload) */
@@ -877,7 +904,13 @@
                 badges += `<span class="ptag-badge ptag-cat-0 ptag-badge-removable">🟢 ĐÃ RA ĐƠN${removeBtn}</span>`;
             } else if (data.category === PTAG_CATEGORIES.CHO_DI_DON) {
                 const ss = PTAG_SUBSTATES[data.subState] || PTAG_SUBSTATES.OKIE_CHO_DI_DON;
-                badges += `<span class="ptag-badge ptag-badge-removable" style="border-color:${ss.color};color:${ss.color};background:${ss.color}12;">${ss.label}${removeBtn}</span>`;
+                let label = ss.label;
+                let badgeColor = ss.color;
+                if (data.subState === 'CHO_HANG' && data.pickingSlipPrinted) {
+                    label = 'Đã in phiếu';
+                    badgeColor = '#10b981';
+                }
+                badges += `<span class="ptag-badge ptag-badge-removable" style="border-color:${badgeColor};color:${badgeColor};background:${badgeColor}12;">${label}${removeBtn}</span>`;
             } else {
                 const subTagDef = PTAG_SUBTAGS[data.subTag];
                 const label = subTagDef?.label || PTAG_CATEGORY_META[data.category]?.short || '';
@@ -937,8 +970,8 @@
             if (st.category !== 2) continue;
             tags.push({ type: 'tag', key: `cat:2:${key}`, label: st.label, isCat: true, cat: 2, subTag: key, color: PTAG_CATEGORY_COLORS[2].border });
         }
-        // Soạn hàng — shortcut to assign PHIẾU SOẠN HÀNG (cat 5) from MỤC XỬ LÝ
-        tags.push({ type: 'tag', key: 'cat:5:null', label: '📋 Soạn hàng', isCat: true, cat: 5, subTag: null, color: PTAG_CATEGORY_COLORS[5].border });
+        // Đã in phiếu soạn — toggle pickingSlipPrinted on CHO_HANG orders
+        tags.push({ type: 'tag', key: 'picking-slip', label: '📋 Đã in phiếu soạn', isPickingSlip: true, color: '#10b981' });
         // Cat 3 — KHÔNG CẦN CHỐT
         tags.push({ type: 'cat-label', label: `${PTAG_CATEGORY_META[3].emoji} KHÔNG CẦN CHỐT` });
         for (const [key, st] of Object.entries(PTAG_SUBTAGS)) {
@@ -975,6 +1008,7 @@
 
     // Get pill color for a selected tag
     function _ptagPillColor(tagInfo) {
+        if (tagInfo.isPickingSlip) return '#10b981';
         if (tagInfo.isCat) return tagInfo.color;
         if (tagInfo.isFlag) return _ptagGetFlagColor(tagInfo.flagKey);
         if (tagInfo.isDefaultTTag || tagInfo.isTTag) return _ptagGetTTagColor(tagInfo.ttagId);
@@ -998,6 +1032,10 @@
                 const label = st?.label || PTAG_CATEGORY_META[data.category]?.short || '';
                 selected.push({ key: `cat:${data.category}:${data.subTag}`, label, isCat: true, cat: data.category, subTag: data.subTag, color: catColor.border });
             }
+        }
+        // Picking slip status
+        if (data.pickingSlipPrinted) {
+            selected.push({ key: 'picking-slip', label: '📋 Đã in phiếu soạn', isPickingSlip: true, color: '#10b981' });
         }
         // Flags
         (data.flags || []).forEach(f => {
@@ -1105,6 +1143,21 @@
             return;
         }
 
+        if (key === 'picking-slip') {
+            // Toggle pickingSlipPrinted on current order
+            let data = ProcessingTagState.getOrderData(orderId);
+            if (data) {
+                data.pickingSlipPrinted = !data.pickingSlipPrinted;
+                _ptagAddHistory(orderId, data.pickingSlipPrinted ? 'SET_PHIEU_SOAN' : 'UNSET_PHIEU_SOAN', '', '');
+                ProcessingTagState.setOrderData(orderId, data);
+                _ptagRefreshRow(orderId);
+                renderPanelContent();
+                saveProcessingTagToAPI(orderId, data);
+            }
+            _ptagRefreshDropdownState();
+            return;
+        }
+
         if (key.startsWith('dtag:')) {
             // Default T-tag — toggle directly
             const ttagId = key.replace('dtag:', '');
@@ -1136,7 +1189,18 @@
         const orderId = _ddOrderId;
         if (!orderId) return;
 
-        if (key.startsWith('dtag:')) {
+        if (key === 'picking-slip') {
+            // Remove picking slip status
+            const data = ProcessingTagState.getOrderData(orderId);
+            if (data) {
+                data.pickingSlipPrinted = false;
+                _ptagAddHistory(orderId, 'UNSET_PHIEU_SOAN', '', '');
+                ProcessingTagState.setOrderData(orderId, data);
+                _ptagRefreshRow(orderId);
+                renderPanelContent();
+                saveProcessingTagToAPI(orderId, data);
+            }
+        } else if (key.startsWith('dtag:')) {
             const ttagId = key.replace('dtag:', '');
             removeTTagFromOrder(orderId, ttagId);
         } else if (key.startsWith('cat:')) {
@@ -1479,7 +1543,7 @@
         const allDataIds = new Set(allOrders.map(o => String(o.Id)));
         let taggedCount = 0;
         let hasCategoryCount = 0;
-        const catCounts = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+        const catCounts = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0 };
         const subStateCounts = {};
         const flagCounts = {};
         const subTagCounts = {};
@@ -1498,6 +1562,14 @@
                 // Derive subState from tTags (source of truth) for accurate counting
                 const ss = (data.tTags || []).length > 0 ? 'CHO_HANG' : 'OKIE_CHO_DI_DON';
                 subStateCounts[ss] = (subStateCounts[ss] || 0) + 1;
+                // Sub-sub count for CHO_HANG: đã in phiếu / chưa in phiếu
+                if (ss === 'CHO_HANG') {
+                    if (data.pickingSlipPrinted) {
+                        subStateCounts['CHO_HANG_DA_IN'] = (subStateCounts['CHO_HANG_DA_IN'] || 0) + 1;
+                    } else {
+                        subStateCounts['CHO_HANG_CHUA_IN'] = (subStateCounts['CHO_HANG_CHUA_IN'] || 0) + 1;
+                    }
+                }
             }
             // Count flags for ALL orders (flags are independent of category)
             // Custom flags (CUSTOM_xxx) count under KHAC as well
@@ -1567,17 +1639,6 @@
             ${_tooltipHtml('cat_0')}
         </div>`;
 
-        // --- Category 5 — PHIẾU SOẠN HÀNG ---
-        html += `<div class="ptag-panel-card ${activeFilter === 'cat_5' ? 'active' : ''}" onclick="window._ptagSetFilter('cat_5')" data-search="${_ptagNormalize(PTAG_CATEGORY_META[5].name)}">
-            <div class="ptag-panel-card-icon" style="background:${PTAG_CATEGORY_COLORS[5].border};">
-                <i class="fas ${PTAG_CATEGORY_META[5].icon}" style="color:#fff;font-size:14px;"></i>
-            </div>
-            <div class="ptag-panel-card-info">
-                <div class="ptag-panel-card-name">${PTAG_CATEGORY_META[5].emoji} ${PTAG_CATEGORY_META[5].name}</div>
-                <div class="ptag-panel-card-count">${catCounts[5]} đơn hàng</div>
-            </div>
-        </div>`;
-
         // --- Category 1 — CHỜ ĐI ĐƠN + sub-states ---
         html += `<div class="ptag-panel-group" data-search="cho di don oke okie cho hang">
             <div class="ptag-panel-cat-header-v2 ${activeFilter === 'cat_1' ? 'active' : ''}" style="border-left-color:${PTAG_CATEGORY_COLORS[1].border};background:${PTAG_CATEGORY_COLORS[1].bg};" onclick="window._ptagSetFilter('cat_1')">
@@ -1600,6 +1661,29 @@
                 </div>
                 ${_tooltipHtml(fk)}
             </div>`;
+            // CHO_HANG sub-cards: Đã in phiếu / Chưa in phiếu
+            if (key === 'CHO_HANG') {
+                html += `<div class="ptag-panel-card ${activeFilter === 'sub_CHO_HANG_DA_IN' ? 'active' : ''}" onclick="window._ptagSetFilter('sub_CHO_HANG_DA_IN')" data-search="da in phieu soan" style="margin-left:16px;">
+                    <div class="ptag-panel-card-icon" style="background:#10b981;">
+                        <i class="fas fa-print" style="color:#fff;font-size:13px;"></i>
+                    </div>
+                    <div class="ptag-panel-card-info">
+                        <div class="ptag-panel-card-name">Đã in phiếu</div>
+                        <div class="ptag-panel-card-count">${subStateCounts['CHO_HANG_DA_IN'] || 0} đơn hàng</div>
+                    </div>
+                    ${_tooltipHtml('sub_CHO_HANG_DA_IN')}
+                </div>`;
+                html += `<div class="ptag-panel-card ${activeFilter === 'sub_CHO_HANG_CHUA_IN' ? 'active' : ''}" onclick="window._ptagSetFilter('sub_CHO_HANG_CHUA_IN')" data-search="chua in phieu soan" style="margin-left:16px;">
+                    <div class="ptag-panel-card-icon" style="background:#f59e0b;">
+                        <i class="fas fa-hourglass-half" style="color:#fff;font-size:13px;"></i>
+                    </div>
+                    <div class="ptag-panel-card-info">
+                        <div class="ptag-panel-card-name">Chưa in phiếu</div>
+                        <div class="ptag-panel-card-count">${subStateCounts['CHO_HANG_CHUA_IN'] || 0} đơn hàng</div>
+                    </div>
+                    ${_tooltipHtml('sub_CHO_HANG_CHUA_IN')}
+                </div>`;
+            }
         }
         html += `</div>`;
 
@@ -3592,6 +3676,10 @@
                     passesBase = false;
                 } else if (subKey === 'CHO_HANG') {
                     passesBase = (data.tTags || []).length > 0;
+                } else if (subKey === 'CHO_HANG_DA_IN') {
+                    passesBase = (data.tTags || []).length > 0 && data.pickingSlipPrinted === true;
+                } else if (subKey === 'CHO_HANG_CHUA_IN') {
+                    passesBase = (data.tTags || []).length > 0 && !data.pickingSlipPrinted;
                 } else {
                     passesBase = (data.tTags || []).length === 0;
                 }
