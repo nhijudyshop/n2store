@@ -1,3 +1,5 @@
+# Không được chỉnh sửa md này, muốn chỉnh sửa phải hỏi trước
+
 # Bulk Facebook Messaging - Kiến trúc & Luồng xử lý
 
 > Module gửi tin nhắn Facebook hàng loạt cho đơn hàng trong `orders-report`.
