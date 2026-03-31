@@ -129,7 +129,7 @@
     ];
 
     // T-tag color constants
-    const PTAG_TTAG_COLOR_DARK_BLUE = '#1e3a5f';
+    const PTAG_TTAG_COLOR_BLUE = '#3b82f6';
     const PTAG_TTAG_COLOR_YELLOW = '#d97706';
     const PTAG_TTAG_YELLOW_NAMES = ['CHỜ HÀNG', 'MY THÊM CHỜ VỀ'];
 
@@ -172,10 +172,10 @@
 
     function _ptagGetTTagColor(tagId) {
         const def = ProcessingTagState.getTTagDef(tagId);
-        if (!def) return PTAG_TTAG_COLOR_DARK_BLUE;
+        if (!def) return PTAG_TTAG_COLOR_BLUE;
         const nameUpper = (def.name || '').toUpperCase().trim();
         if (PTAG_TTAG_YELLOW_NAMES.includes(nameUpper)) return PTAG_TTAG_COLOR_YELLOW;
-        return PTAG_TTAG_COLOR_DARK_BLUE;
+        return PTAG_TTAG_COLOR_BLUE;
     }
 
     // =====================================================
@@ -1689,8 +1689,8 @@
         const totalTTagOrders = Object.values(tTagCounts).reduce((s, c) => s + c, 0);
         {
             html += `<div class="ptag-panel-group ptag-ttag-section" data-search="tag t cho hang">
-                <div class="ptag-panel-cat-header-v2" style="border-left-color:${PTAG_TTAG_COLOR_DARK_BLUE};background:rgba(30,58,95,0.08);">
-                    <span class="ptag-cat-name" style="color:${PTAG_TTAG_COLOR_DARK_BLUE};">\u{1F4E6} TAG T CHỜ HÀNG (${totalTTagOrders} đơn)</span>
+                <div class="ptag-panel-cat-header-v2" style="border-left-color:${PTAG_TTAG_COLOR_BLUE};background:rgba(59,130,246,0.08);">
+                    <span class="ptag-cat-name" style="color:${PTAG_TTAG_COLOR_BLUE};">\u{1F4E6} TAG T CHỜ HÀNG (${totalTTagOrders} đơn)</span>
                     <span class="ptag-cat-count">${tTagDefs.length}</span>
                     <button class="ptag-panel-btn" style="display:inline-flex;width:20px;height:20px;font-size:10px;margin-left:4px;background:none;border:1px solid #d1d5db;border-radius:4px;cursor:pointer;align-items:center;justify-content:center;" onclick="window._ptagOpenTTagManager(); event.stopPropagation();" title="Quản lý Tag T">
                         <i class="fas fa-cog" style="font-size:9px;color:#6b7280;"></i>

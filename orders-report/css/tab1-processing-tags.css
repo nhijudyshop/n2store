@@ -67,15 +67,20 @@
 .ptag-flag-badge {
     display: inline-flex;
     align-items: center;
-    padding: 2px 6px;
-    border-radius: 3px;
-    font-size: 12px;
-    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
     color: white;
     white-space: nowrap;
-    line-height: 1.3;
+    line-height: 1.4;
     border: none;
+    cursor: pointer;
+    transition: opacity 0.15s;
     /* background-color set via inline style per flag */
+}
+.ptag-flag-badge:hover {
+    opacity: 0.8;
 }
 .ptag-flag-badge .ptag-badge-remove {
     background: rgba(255,255,255,0.2);
@@ -780,16 +785,21 @@
 .ptag-ttag-badge {
     display: inline-flex;
     align-items: center;
-    padding: 2px 6px;
-    border-radius: 3px;
-    font-size: 12px;
-    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
     color: white;
-    background: #1e3a5f;
+    background: #3b82f6;
     border: none;
     white-space: nowrap;
-    line-height: 1.3;
+    line-height: 1.4;
+    cursor: pointer;
+    transition: opacity 0.15s;
     /* background-color can be overridden via inline style */
+}
+.ptag-ttag-badge:hover {
+    opacity: 0.8;
 }
 .ptag-ttag-badge .ptag-badge-remove {
     background: rgba(255,255,255,0.2);
