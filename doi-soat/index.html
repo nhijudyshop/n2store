@@ -110,21 +110,89 @@
 
         <!-- Page 2: Product Reconciliation -->
         <div id="reconcilePage" class="page">
-            <header class="top-bar reconcile-bar">
-                <div class="top-bar-left">
-                    <h1 class="page-title">
-                        Đối soát sản phẩm: <span id="orderNumber" class="order-number"></span>
-                        <span id="orderStatus" class="status-badge"></span>
-                    </h1>
+            <!-- Sticky barcode scanner -->
+            <div class="sticky-scanner">
+                <div class="product-scan-row">
+                    <input
+                        type="text"
+                        id="productBarcodeInput"
+                        class="search-input"
+                        placeholder="Quét mã"
+                    />
+                    <button class="btn btn-scan" id="productScanBtn">
+                        <svg viewBox="0 0 24 20" width="20" height="16">
+                            <rect x="2" y="2" width="2" height="16" fill="currentColor"/>
+                            <rect x="6" y="2" width="1" height="16" fill="currentColor"/>
+                            <rect x="9" y="2" width="3" height="16" fill="currentColor"/>
+                            <rect x="14" y="2" width="1" height="16" fill="currentColor"/>
+                            <rect x="17" y="2" width="2" height="16" fill="currentColor"/>
+                            <rect x="21" y="2" width="1" height="16" fill="currentColor"/>
+                        </svg>
+                        Quét mã
+                    </button>
+                    <label class="auto-clear-toggle" title="Bật: chế độ máy quét (auto-clear 1s). Tắt: nhập tay">
+                        <input type="checkbox" id="autoClearToggle" checked />
+                        <span>Máy quét</span>
+                    </label>
                 </div>
-                <div class="top-bar-right">
-                    <button class="btn btn-success" id="saveBtn">Lưu</button>
+                <div class="manual-entry-row" id="manualEntryRow" style="display:none;">
+                    <input
+                        type="text"
+                        id="manualUserName"
+                        class="search-input"
+                        placeholder="Tên người nhập tay"
+                    />
+                    <input
+                        type="text"
+                        id="manualNote"
+                        class="search-input"
+                        placeholder="Ghi chú"
+                        style="margin-top:6px;"
+                    />
                 </div>
-            </header>
+            </div>
 
             <main class="reconcile-container">
                 <!-- Inline Message -->
                 <div id="inlineMsg" class="inline-msg" style="display:none;"></div>
+
+                <!-- Product Table (always visible) -->
+                <div class="product-section">
+                    <div class="section-header">
+                        <h3 class="section-title">
+                            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                            </svg>
+                            Danh sách sản phẩm
+                        </h3>
+                        <button class="btn btn-default" id="backBtn">Quay lại</button>
+                    </div>
+                    <div class="table-container">
+                        <table class="product-table">
+                            <thead>
+                                <tr>
+                                    <th>STT</th>
+                                    <th>Sản phẩm</th>
+                                    <th>Số lượng</th>
+                                    <th>Số tiền</th>
+                                    <th>Tổng tiền</th>
+                                    <th>Trạng thái</th>
+                                </tr>
+                            </thead>
+                            <tbody id="productTableBody">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Order info (moved below product list) -->
+                <div class="order-info-bar">
+                    <h1 class="page-title">
+                        Đối soát sản phẩm: <span id="orderNumber" class="order-number"></span>
+                        <span id="orderStatus" class="status-badge"></span>
+                    </h1>
+                    <button class="btn btn-success" id="saveBtn">Lưu</button>
+                </div>
 
                 <!-- Tabs -->
                 <div class="tab-nav">
@@ -134,80 +202,7 @@
 
                 <!-- Tab: Thông tin đối soát -->
                 <div id="reconcileTab" class="tab-content active">
-                    <!-- Product Table -->
-                    <div class="product-section">
-                        <div class="section-header">
-                            <h3 class="section-title">
-                                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-                                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
-                                </svg>
-                                Danh sách sản phẩm
-                            </h3>
-                            <button class="btn btn-default" id="backBtn">Quay lại</button>
-                        </div>
-                        <div class="table-container">
-                            <table class="product-table">
-                                <thead>
-                                    <tr>
-                                        <th>STT</th>
-                                        <th>Sản phẩm</th>
-                                        <th>Số lượng</th>
-                                        <th>Số tiền</th>
-                                        <th>Tổng tiền</th>
-                                        <th>Trạng thái</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="productTableBody">
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-
                     <div class="info-section">
-                        <div class="info-row">
-                            <div class="info-group">
-                                <label>Quét mã vạch sản phẩm</label>
-                                <div class="product-scan-row">
-                                    <input
-                                        type="text"
-                                        id="productBarcodeInput"
-                                        class="search-input"
-                                        placeholder="Quét mã"
-                                    />
-                                    <button class="btn btn-scan" id="productScanBtn">
-                                        <svg viewBox="0 0 24 20" width="20" height="16">
-                                            <rect x="2" y="2" width="2" height="16" fill="currentColor"/>
-                                            <rect x="6" y="2" width="1" height="16" fill="currentColor"/>
-                                            <rect x="9" y="2" width="3" height="16" fill="currentColor"/>
-                                            <rect x="14" y="2" width="1" height="16" fill="currentColor"/>
-                                            <rect x="17" y="2" width="2" height="16" fill="currentColor"/>
-                                            <rect x="21" y="2" width="1" height="16" fill="currentColor"/>
-                                        </svg>
-                                        Quét mã
-                                    </button>
-                                    <label class="auto-clear-toggle" title="Bật: chế độ máy quét (auto-clear 1s). Tắt: nhập tay">
-                                        <input type="checkbox" id="autoClearToggle" checked />
-                                        <span>Máy quét</span>
-                                    </label>
-                                </div>
-                                <div class="manual-entry-row" id="manualEntryRow" style="display:none;">
-                                    <input
-                                        type="text"
-                                        id="manualUserName"
-                                        class="search-input"
-                                        placeholder="Tên người nhập tay"
-                                    />
-                                    <input
-                                        type="text"
-                                        id="manualNote"
-                                        class="search-input"
-                                        placeholder="Ghi chú"
-                                        style="margin-top:6px;"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
                         <div class="info-row info-meta">
                             <div class="info-group">
                                 <label>Khách hàng:</label>

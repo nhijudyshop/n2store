@@ -261,6 +261,43 @@ body {
 /* =====================================================
    Reconcile Page
    ===================================================== */
+.sticky-scanner {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: #fff;
+    padding: 12px 20px;
+    border-bottom: 1px solid #e0e0e0;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+}
+
+.sticky-scanner .product-scan-row {
+    display: flex;
+    gap: 8px;
+}
+
+.sticky-scanner .search-input {
+    font-size: 22px;
+    padding: 12px 16px;
+    border-radius: 4px;
+}
+
+.sticky-scanner .btn-scan {
+    font-size: 20px;
+    padding: 10px 20px;
+}
+
+.order-info-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 20px;
+    margin-top: 16px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
 .reconcile-container {
     padding: 0 20px 20px;
     font-size: 24px;
