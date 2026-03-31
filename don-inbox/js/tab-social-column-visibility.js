@@ -58,30 +58,25 @@ function saveColumnVisibilityToStorage(settings) {
 // ===== APPLY VISIBILITY =====
 
 /**
- * Apply column visibility to table
+ * Apply column visibility to table using a <style> element.
+ * This is O(1) instead of O(n*columns) - no need to touch every td.
  */
+let _columnStyleEl = null;
 function applyColumnVisibility(settings) {
-    console.log('[COLUMN] Applying column visibility:', settings);
+    if (!_columnStyleEl) {
+        _columnStyleEl = document.createElement('style');
+        _columnStyleEl.id = 'social-column-visibility-style';
+        document.head.appendChild(_columnStyleEl);
+    }
 
-    // Apply to table headers
-    document.querySelectorAll('th[data-column]').forEach((th) => {
-        const column = th.getAttribute('data-column');
-        if (settings[column] === false) {
-            th.classList.add('hidden');
-        } else {
-            th.classList.remove('hidden');
+    // Build CSS rules for hidden columns
+    const rules = [];
+    for (const [column, visible] of Object.entries(settings)) {
+        if (visible === false) {
+            rules.push(`th[data-column="${column}"], td[data-column="${column}"] { display: none !important; }`);
         }
-    });
-
-    // Apply to table cells
-    document.querySelectorAll('td[data-column]').forEach((td) => {
-        const column = td.getAttribute('data-column');
-        if (settings[column] === false) {
-            td.classList.add('hidden');
-        } else {
-            td.classList.remove('hidden');
-        }
-    });
+    }
+    _columnStyleEl.textContent = rules.join('\n');
 }
 
 /**

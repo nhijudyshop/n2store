@@ -379,8 +379,12 @@ function renderTagPanelCards() {
 }
 
 // ===== FILTER TAG PANEL CARDS =====
+let _tagPanelSearchTimer = null;
 function filterTagPanelCards() {
-    renderTagPanelCards();
+    if (_tagPanelSearchTimer) clearTimeout(_tagPanelSearchTimer);
+    _tagPanelSearchTimer = setTimeout(() => {
+        renderTagPanelCards();
+    }, 200);
 }
 
 function getTagOrderCounts() {
@@ -468,14 +472,9 @@ function performTableSearchWithNoTag() {
         if (sourceValue !== 'all' && order.source !== sourceValue) return false;
         // No tag filter
         if (order.tags && order.tags.length > 0) return false;
-        // Search filter (accent-insensitive)
+        // Search filter (accent-insensitive, cached)
         if (searchTerm) {
-            const searchFields = removeDiacritics(
-                [order.id, order.customerName, order.phone, order.address, order.note]
-                    .filter(Boolean)
-                    .join(' ')
-            );
-            if (!searchFields.includes(searchTerm)) return false;
+            if (!getOrderSearchFields(order).includes(searchTerm)) return false;
         }
         return true;
     });

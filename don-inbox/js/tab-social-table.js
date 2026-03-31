@@ -8,6 +8,28 @@ function removeDiacritics(str) {
     return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
 }
 
+// Cache for order search fields to avoid recomputing removeDiacritics on every keystroke
+const _searchFieldsCache = new Map();
+function getOrderSearchFields(order) {
+    const cacheKey = order.id + '_' + (order.updatedAt || 0);
+    let cached = _searchFieldsCache.get(cacheKey);
+    if (cached) return cached;
+
+    cached = removeDiacritics(
+        [order.id, order.customerName, order.phone, order.address, order.note]
+            .filter(Boolean)
+            .join(' ')
+    );
+    _searchFieldsCache.set(cacheKey, cached);
+
+    // Keep cache size bounded
+    if (_searchFieldsCache.size > 2000) {
+        const firstKey = _searchFieldsCache.keys().next().value;
+        _searchFieldsCache.delete(firstKey);
+    }
+    return cached;
+}
+
 // ===== TABLE RENDERING =====
 function renderTable() {
     const tbody = document.getElementById('tableBody');
@@ -37,11 +59,7 @@ function renderTable() {
 
     tbody.innerHTML = html;
 
-    // Apply column visibility after rendering
-    if (window.socialColumnVisibility) {
-        const settings = window.socialColumnVisibility.load();
-        window.socialColumnVisibility.apply(settings);
-    }
+    // Column visibility is handled by CSS <style> element - no per-cell work needed
 
     // Update page info
     const pageInfo = document.getElementById('pageInfo');
@@ -277,6 +295,15 @@ function openNoteImagePreview(src) {
 
 // ===== FILTERING & SEARCH =====
 
+// Debounce utility for search
+let _searchDebounceTimer = null;
+function debouncedTableSearch() {
+    if (_searchDebounceTimer) clearTimeout(_searchDebounceTimer);
+    _searchDebounceTimer = setTimeout(() => {
+        performTableSearch();
+    }, 250);
+}
+
 // Date filter state
 let currentDateFilter = 'all';
 let customDateFrom = null;
@@ -420,21 +447,9 @@ function performTableSearch() {
             if (!hasTag) return false;
         }
 
-        // Search filter (accent-insensitive)
+        // Search filter (accent-insensitive, cached)
         if (searchTerm) {
-            const searchFields = removeDiacritics(
-                [
-                    order.id,
-                    order.customerName,
-                    order.phone,
-                    order.address,
-                    order.note,
-                ]
-                    .filter(Boolean)
-                    .join(' ')
-            );
-
-            if (!searchFields.includes(searchTerm)) {
+            if (!getOrderSearchFields(order).includes(searchTerm)) {
                 return false;
             }
         }
@@ -447,8 +462,8 @@ function performTableSearch() {
     updateSearchResultCount();
     updateSearchClearButton();
 
-    // Update tag panel counts if visible
-    if (typeof renderTagPanelCards === 'function') {
+    // Update tag panel counts only if panel is open
+    if (typeof renderTagPanelCards === 'function' && typeof isTagPanelOpen !== 'undefined' && isTagPanelOpen) {
         renderTagPanelCards();
     }
 }
@@ -694,6 +709,7 @@ async function changeSocialOrderStatus(orderId, newStatus) {
 // ===== EXPORTS =====
 window.renderTable = renderTable;
 window.performTableSearch = performTableSearch;
+window.debouncedTableSearch = debouncedTableSearch;
 window.clearSearch = clearSearch;
 window.setDateFilter = setDateFilter;
 window.toggleCustomDateRange = toggleCustomDateRange;

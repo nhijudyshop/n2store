@@ -101,6 +101,12 @@ function closeOrderModal() {
         modal.classList.remove('show');
     }
 
+    // Clear pending phone lookup timeout
+    if (_tposPhoneLookupTimeout) {
+        clearTimeout(_tposPhoneLookupTimeout);
+        _tposPhoneLookupTimeout = null;
+    }
+
     // Cleanup purchaseOrderFormModal reference
     if (window.purchaseOrderFormModal) {
         window.purchaseOrderFormModal.modalElement = null;

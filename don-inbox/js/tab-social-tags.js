@@ -146,11 +146,15 @@ function removeSelectedTag(tagId) {
 }
 
 // ===== FILTER TAGS =====
+let _tagFilterTimer = null;
 function filterTags() {
-    const input = document.getElementById('tagSearchInput');
-    const term = input?.value || '';
-    highlightedTagIndex = -1;
-    renderTagList(term);
+    if (_tagFilterTimer) clearTimeout(_tagFilterTimer);
+    _tagFilterTimer = setTimeout(() => {
+        const input = document.getElementById('tagSearchInput');
+        const term = input?.value || '';
+        highlightedTagIndex = -1;
+        renderTagList(term);
+    }, 150);
 }
 
 // ===== KEYBOARD NAVIGATION =====
