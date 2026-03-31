@@ -405,6 +405,33 @@
             status: 'active',
         },
 
+        // ===================== AUTOFB =====================
+        // AutoFB.pro - Facebook automation service
+        // Account: n2shop, balance in credits (1 credit ≈ 25,000 VND)
+        {
+            id: 'autofb',
+            name: 'AutoFB.pro',
+            type: 'Facebook Automation',
+            icon: 'bot',
+            account: 'n2shop (level 1)',
+            plan: 'Pay as you go',
+            costType: 'usage-based',
+            monthlyCost: 0,
+            costNote: '\u0110ang t\u1EA3i d\u1EEF li\u1EC7u...',
+            region: 'Vietnam',
+            freeTier: 'Kh\u00F4ng c\u00F3 free tier. N\u1EA1p ti\u1EC1n d\u00F9ng d\u1EA7n',
+            details: [
+                { label: 'S\u1ED1 d\u01B0', value: '\u0110ang t\u1EA3i...', _liveKey: 'balance' },
+                { label: 'S\u1ED1 d\u01B0 (VN\u0110)', value: '\u0110ang t\u1EA3i...', _liveKey: 'balanceVND' },
+                { label: 'Username', value: 'n2shop' },
+                { label: 'H\u1EA1ng th\u00E0nh vi\u00EAn', value: 'Level 1' },
+                { label: 'Thanh to\u00E1n', value: 'Vietcombank (n\u1EA1p qua web)' },
+                { label: 'C\u1EADp nh\u1EADt', value: '\u0110ang t\u1EA3i...', _liveKey: 'fetchedAt' },
+            ],
+            consoleUrl: 'https://autofb.pro/vi/wallet',
+            status: 'active',
+        },
+
         // ===================== POS =====================
         {
             id: 'tpos',
@@ -456,6 +483,7 @@
         { name: 'Google Cloud Console', url: 'https://console.cloud.google.com/', icon: 'settings' },
         { name: 'Goong Account', url: 'https://account.goong.io/', icon: 'map' },
         { name: 'SePay Dashboard', url: 'https://my.sepay.vn/', icon: 'banknote' },
+        { name: 'AutoFB Wallet', url: 'https://autofb.pro/vi/wallet', icon: 'bot' },
         { name: 'Telegram @N2Store_bot', url: 'https://t.me/N2Store_bot', icon: 'send' },
         { name: 'Firebase Stats (local)', url: '../firebase-stats/index.html', icon: 'database' },
     ];
@@ -887,6 +915,113 @@
     }
 
     // =========================================================
+    // LIVE DATA: AutoFB balance via CF Worker
+    // CF Worker fetches captcha, solves with Gemini, logs in
+    // =========================================================
+    const AUTOFB_WARNING_THRESHOLD = 800000; // VND
+
+    async function fetchAutofbLiveData() {
+        try {
+            const res = await fetch(`${CF_WORKER_BASE}/api/autofb-balance`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username: 'n2shop',
+                    password: 'nhijudyMS23',
+                    gemini_key: 'AIzaSyCuo0e3Gpgvo8n30ZDSowc_jORy59r9pZs',
+                }),
+            });
+            if (!res.ok) return null;
+            const json = await res.json();
+            if (!json.success) {
+                console.warn('[AutoFB] Failed:', json.error);
+                return null;
+            }
+            return json.data;
+        } catch (e) {
+            console.warn('[AutoFB Live] Failed to fetch:', e.message);
+            return null;
+        }
+    }
+
+    function updateAutofbCard(liveData) {
+        if (!liveData) return;
+
+        const autofbService = SERVICES.find(s => s.id === 'autofb');
+        if (!autofbService) return;
+
+        const { balance, balanceVND, username } = liveData;
+
+        // Update details with live data
+        autofbService.details.forEach(d => {
+            if (d._liveKey === 'balance') {
+                d.value = `$${balance.toFixed(2)} USD (credits)`;
+            } else if (d._liveKey === 'balanceVND') {
+                const formatted = balanceVND.toLocaleString('vi-VN');
+                const isLow = balanceVND < AUTOFB_WARNING_THRESHOLD;
+                d.value = `${formatted} vn\u0111${isLow ? ' \u26A0\uFE0F TH\u1EA4P' : ''}`;
+            } else if (d._liveKey === 'fetchedAt') {
+                const date = new Date(liveData.fetchedAt);
+                d.value = date.toLocaleString('vi-VN');
+            }
+        });
+
+        // Update costNote
+        const formatted = balanceVND.toLocaleString('vi-VN');
+        if (balanceVND < AUTOFB_WARNING_THRESHOLD) {
+            autofbService.costNote = `S\u1ED1 d\u01B0: ${formatted} vn\u0111 - C\u1EA6N N\u1EA0P TH\u00CAM! (d\u01B0\u1EDBi ${AUTOFB_WARNING_THRESHOLD.toLocaleString('vi-VN')}\u0111)`;
+        } else {
+            autofbService.costNote = `S\u1ED1 d\u01B0: ${formatted} vn\u0111`;
+        }
+
+        // Update account
+        autofbService.account = `${username || 'n2shop'} (level ${liveData.level || 1})`;
+
+        // Re-render
+        renderServicesGrid();
+        renderCostTable();
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+
+        // Show warning banner if balance is low
+        if (balanceVND < AUTOFB_WARNING_THRESHOLD) {
+            showAutofbLowBalanceWarning(balanceVND);
+        }
+    }
+
+    function showAutofbLowBalanceWarning(balanceVND) {
+        const contentArea = document.querySelector('.content-area');
+        if (!contentArea) return;
+
+        // Don't add duplicate
+        if (document.getElementById('autofbWarningBanner')) return;
+
+        const banner = document.createElement('div');
+        banner.id = 'autofbWarningBanner';
+        banner.className = 'autofb-warning-banner';
+        banner.innerHTML = `
+            <div class="autofb-warning-content">
+                <div class="autofb-warning-icon"><i data-lucide="alert-triangle"></i></div>
+                <div>
+                    <strong>AutoFB.pro - S\u1ED1 d\u01B0 th\u1EA5p!</strong>
+                    <div>S\u1ED1 d\u01B0 hi\u1EC7n t\u1EA1i: <strong>${balanceVND.toLocaleString('vi-VN')} vn\u0111</strong> (d\u01B0\u1EDBi ng\u01B0\u1EE1ng ${AUTOFB_WARNING_THRESHOLD.toLocaleString('vi-VN')}\u0111)</div>
+                    <div style="margin-top:4px"><a href="https://autofb.pro/vi/wallet" target="_blank" style="color:#fbbf24;text-decoration:underline">N\u1EA1p ti\u1EC1n ngay →</a></div>
+                </div>
+                <button onclick="this.parentElement.parentElement.remove()" style="margin-left:auto;background:none;border:none;color:#fbbf24;cursor:pointer;font-size:1.2rem">\u00D7</button>
+            </div>
+        `;
+
+        // Insert after billing alerts (or at top)
+        const billingBanner = contentArea.querySelector('.billing-alert-banner');
+        if (billingBanner) {
+            billingBanner.after(banner);
+        } else {
+            contentArea.insertBefore(banner, contentArea.firstChild);
+        }
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    // =========================================================
     // INIT
     // =========================================================
     function init() {
@@ -928,6 +1063,11 @@
         // Fetch live SePay data
         fetchSepayLiveData().then(data => {
             if (data) updateSepayCard(data);
+        });
+
+        // Fetch live AutoFB balance
+        fetchAutofbLiveData().then(data => {
+            if (data) updateAutofbCard(data);
         });
     }
 

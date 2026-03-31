@@ -34,6 +34,7 @@
     --telegram-color: #26a5e4;
     --sepay-color: #22c55e;
     --tpos-color: #f472b6;
+    --autofb-color: #3b82f6;
     --goong-color: #06b6d4;
 }
 
@@ -188,6 +189,38 @@ body {
 /* =====================================================
    BILLING ALERT BANNER
    ===================================================== */
+/* AutoFB Low Balance Warning */
+.autofb-warning-banner {
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    border-radius: var(--border-radius);
+    margin-bottom: 1.5rem;
+    animation: alert-slide-in 0.3s ease;
+}
+
+.autofb-warning-content {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+}
+
+.autofb-warning-icon {
+    color: var(--warning);
+    flex-shrink: 0;
+    padding-top: 2px;
+}
+
+.autofb-warning-content strong {
+    color: var(--warning);
+}
+
+.autofb-warning-content div {
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
 .billing-alert-banner {
     background: rgba(239, 68, 68, 0.1);
     border: 1px solid rgba(239, 68, 68, 0.3);
@@ -611,6 +644,7 @@ body {
 .service-card[data-service="goong"] .service-logo { background: rgba(6, 182, 212, 0.15); color: var(--goong-color); }
 .service-card[data-service="telegram"] .service-logo { background: rgba(38, 165, 228, 0.15); color: var(--telegram-color); }
 .service-card[data-service="sepay"] .service-logo { background: rgba(34, 197, 94, 0.15); color: var(--sepay-color); }
+.service-card[data-service="autofb"] .service-logo { background: rgba(59, 130, 246, 0.15); color: var(--autofb-color); }
 .service-card[data-service="tpos"] .service-logo { background: rgba(244, 114, 182, 0.15); color: var(--tpos-color); }
 .service-card[data-service="render-db"] .service-logo { background: rgba(70, 227, 183, 0.15); color: var(--render-color); }
 
