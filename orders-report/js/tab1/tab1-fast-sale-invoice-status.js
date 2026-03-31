@@ -161,6 +161,9 @@
                 // Sync to FulfillmentData in parent frame
                 this._syncToFulfillmentData();
                 setTimeout(() => this._syncToFulfillmentData(), 2000);
+
+                // Refresh StateCode from TPOS (async, don't block init)
+                setTimeout(() => this.refreshStateCode(), 3000);
             } catch (e) {
                 console.error('[INVOICE-STATUS] Error initializing store:', e);
                 this._initialized = true;
@@ -893,6 +896,105 @@
             // Batch save all entries to API
             this._batchMode = false;
             this._saveBatchToAPI(Array.from(this._myKeys));
+        },
+
+        /**
+         * Refresh StateCode from TPOS API for invoices that are still "None" (Chưa đối soát)
+         * Fetches current StateCode from TPOS and updates store + DB
+         */
+        async refreshStateCode() {
+            if (!window.tokenManager?.authenticatedFetch) {
+                console.warn('[INVOICE-STATUS] tokenManager not available, skip refreshStateCode');
+                return;
+            }
+
+            // Collect invoice TPOS IDs that need refresh (StateCode is None/empty and State is open/paid)
+            const toRefresh = []; // { compoundKey, tposId, saleOnlineId }
+            this._data.forEach((value, key) => {
+                const stateCode = value.StateCode || 'None';
+                const state = value.State || '';
+                const tposId = value.Id;
+                // Only refresh "None" state invoices that are open/paid (not draft/cancel)
+                if (stateCode === 'None' && tposId && (state === 'open' || state === 'paid')) {
+                    toRefresh.push({
+                        compoundKey: key,
+                        tposId: tposId,
+                        saleOnlineId: value.SaleOnlineId || extractSaleOnlineId(key),
+                    });
+                }
+            });
+
+            if (toRefresh.length === 0) {
+                console.log('[INVOICE-STATUS] No invoices need StateCode refresh');
+                return;
+            }
+
+            console.log(`[INVOICE-STATUS] Refreshing StateCode for ${toRefresh.length} invoices...`);
+
+            // Batch query TPOS by IDs (max 20 per request to avoid URL length issues)
+            const BATCH_SIZE = 20;
+            const updatedKeys = [];
+            const keysToSaveAPI = [];
+
+            for (let i = 0; i < toRefresh.length; i += BATCH_SIZE) {
+                const batch = toRefresh.slice(i, i + BATCH_SIZE);
+                const idFilter = batch.map(item => `Id eq ${item.tposId}`).join(' or ');
+                const filter = `(Type eq 'invoice' and (${idFilter}))`;
+                const select = 'Id,StateCode,State,ShowState,IsMergeCancel';
+
+                const url = `${window.API_CONFIG?.TPOS_ODATA || 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata'}/FastSaleOrder/ODataService.GetView?$select=${encodeURIComponent(select)}&$filter=${encodeURIComponent(filter)}&$top=${batch.length}`;
+
+                try {
+                    const response = await window.tokenManager.authenticatedFetch(url, {
+                        method: 'GET',
+                        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+                    });
+
+                    if (!response.ok) {
+                        console.warn(`[INVOICE-STATUS] TPOS refresh batch failed: ${response.status}`);
+                        continue;
+                    }
+
+                    const data = await response.json();
+                    const tposOrders = data.value || [];
+
+                    // Map TPOS results by Id for quick lookup
+                    const tposMap = new Map();
+                    tposOrders.forEach(o => tposMap.set(o.Id, o));
+
+                    // Update store entries with fresh StateCode
+                    batch.forEach(item => {
+                        const tposOrder = tposMap.get(item.tposId);
+                        if (tposOrder) {
+                            const storeEntry = this._data.get(item.compoundKey);
+                            if (storeEntry) {
+                                const newStateCode = tposOrder.StateCode || 'None';
+                                const oldStateCode = storeEntry.StateCode || 'None';
+                                if (newStateCode !== oldStateCode) {
+                                    storeEntry.StateCode = newStateCode;
+                                    storeEntry.State = tposOrder.State || storeEntry.State;
+                                    storeEntry.ShowState = tposOrder.ShowState || storeEntry.ShowState;
+                                    storeEntry.IsMergeCancel = tposOrder.IsMergeCancel || false;
+                                    this._data.set(item.compoundKey, storeEntry);
+                                    updatedKeys.push(item.saleOnlineId);
+                                    keysToSaveAPI.push(item.compoundKey);
+                                    console.log(`[INVOICE-STATUS] StateCode updated: ${storeEntry.Number} ${oldStateCode} → ${newStateCode}`);
+                                }
+                            }
+                        }
+                    });
+                } catch (e) {
+                    console.warn('[INVOICE-STATUS] TPOS refresh batch error:', e.message);
+                }
+            }
+
+            // Save updated entries to API
+            if (keysToSaveAPI.length > 0) {
+                this._saveBatchToAPI(keysToSaveAPI);
+                // Re-render updated UI cells
+                this._refreshInvoiceStatusUI(updatedKeys);
+                console.log(`[INVOICE-STATUS] StateCode refreshed: ${updatedKeys.length} invoices updated`);
+            }
         },
 
         /**
