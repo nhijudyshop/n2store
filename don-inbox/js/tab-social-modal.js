@@ -169,8 +169,6 @@ function _initSocialProductSection(existingProducts = []) {
             return item;
         });
         window.purchaseOrderFormModal.itemCounter = existingProducts.length;
-    } else {
-        window.purchaseOrderFormModal.addItem();
     }
 
     // 4. Render + bind
