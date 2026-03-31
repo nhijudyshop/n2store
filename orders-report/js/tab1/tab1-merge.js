@@ -1705,6 +1705,14 @@ async function assignTagsAfterMerge(cluster) {
             console.log(`[MERGE-TAG] ✅ Assigned "${MERGED_ORDER_TAG_NAME}" to source order STT ${sourceOrder.SessionIndex}`);
         }
 
+        // Step 6: Assign Tag XL (Processing Tags) — mirror TPOS tag logic
+        const ptagResult = await assignTagXLAfterMerge(cluster);
+        if (ptagResult.success) {
+            console.log(`[MERGE-TAG] ✅ Tag XL assigned successfully for cluster ${cluster.phone}`);
+        } else {
+            console.warn(`[MERGE-TAG] ⚠️ Tag XL assignment failed for cluster ${cluster.phone}:`, ptagResult.error);
+        }
+
         // Clear cache
         window.cacheManager.clear("orders");
 
@@ -1721,6 +1729,107 @@ async function assignTagsAfterMerge(cluster) {
             success: false,
             error: error.message
         };
+    }
+}
+
+/**
+ * Gán Tag XL (Processing Tags) sau khi gộp đơn — tương tự logic gán TPOS tags
+ * Target order: nhận tất cả Tag XL (category, flags, tTags) từ mọi đơn trong cluster
+ * Source orders: gán KHÔNG CẦN CHỐT / Đã gộp không chốt (category 3, subTag DA_GOP_KHONG_CHOT)
+ */
+async function assignTagXLAfterMerge(cluster) {
+    try {
+        if (!window.ProcessingTagState || !window.assignOrderCategory) {
+            console.warn('[MERGE-PTAG] ProcessingTagState or assignOrderCategory not available, skipping Tag XL assignment');
+            return { success: false, error: 'Processing Tags module not loaded' };
+        }
+
+        console.log('[MERGE-PTAG] Starting Tag XL assignment for cluster:', cluster.phone);
+
+        // --- TARGET ORDER: gộp tất cả Tag XL từ mọi đơn ---
+        const targetId = String(cluster.targetOrder.Id);
+
+        // Collect Tag XL data from ALL orders
+        let bestCategory = null;
+        let bestSubTag = null;
+        const allFlags = new Set();
+        const allTTags = new Set();
+
+        // Process target order first (priority), then source orders
+        const allOrders = [cluster.targetOrder, ...cluster.sourceOrders];
+        for (const order of allOrders) {
+            const ptagData = window.ProcessingTagState.getOrderData(String(order.Id));
+            if (!ptagData) continue;
+
+            // Category: ưu tiên đơn đầu tiên có category (target first)
+            // Skip "Đã gộp không chốt" categories from previous merges
+            if (ptagData.category !== null && ptagData.category !== undefined) {
+                const isOldMergeTag = (ptagData.category === 3 && ptagData.subTag === 'DA_GOP_KHONG_CHOT');
+                if (!isOldMergeTag && bestCategory === null) {
+                    bestCategory = ptagData.category;
+                    bestSubTag = ptagData.subTag;
+                }
+            }
+
+            // Merge all flags from every order
+            (ptagData.flags || []).forEach(f => allFlags.add(f));
+
+            // Merge all tTags from every order
+            (ptagData.tTags || []).forEach(t => allTTags.add(t));
+        }
+
+        // Set merged Tag XL data to target order
+        if (bestCategory !== null || allFlags.size > 0 || allTTags.size > 0) {
+            const existingData = window.ProcessingTagState.getOrderData(targetId) || {};
+            const finalCategory = bestCategory ?? existingData.category ?? null;
+            const finalSubTag = bestSubTag ?? existingData.subTag ?? null;
+            const mergedFlags = [...allFlags];
+            const mergedTTags = [...allTTags];
+
+            // Use assignOrderCategory to set category + save to API
+            if (finalCategory !== null) {
+                await window.assignOrderCategory(targetId, finalCategory, {
+                    subTag: finalSubTag,
+                    flags: mergedFlags
+                });
+            }
+
+            // Ensure tTags and any extra flags are preserved
+            const updatedData = window.ProcessingTagState.getOrderData(targetId);
+            if (updatedData) {
+                updatedData.tTags = mergedTTags;
+                updatedData.flags = [...new Set([...(updatedData.flags || []), ...mergedFlags])];
+                window.ProcessingTagState.setOrderData(targetId, updatedData);
+            }
+
+            console.log(`[MERGE-PTAG] ✅ Target STT ${cluster.targetOrder.SessionIndex}: cat=${finalCategory}, subTag=${finalSubTag}, flags=[${mergedFlags}], tTags=[${mergedTTags}]`);
+        } else {
+            console.log(`[MERGE-PTAG] Target STT ${cluster.targetOrder.SessionIndex}: no Tag XL data to merge`);
+        }
+
+        // --- SOURCE ORDERS: gán KHÔNG CẦN CHỐT / Đã gộp không chốt ---
+        for (const sourceOrder of cluster.sourceOrders) {
+            const sourceId = String(sourceOrder.Id);
+
+            // Clear existing Tag XL first
+            if (window.clearProcessingTag) {
+                await window.clearProcessingTag(sourceId);
+            }
+
+            // Assign category 3 (KHÔNG CẦN CHỐT) with subTag DA_GOP_KHONG_CHOT
+            await window.assignOrderCategory(sourceId, 3, { subTag: 'DA_GOP_KHONG_CHOT' });
+            console.log(`[MERGE-PTAG] ✅ Source STT ${sourceOrder.SessionIndex}: KHÔNG CẦN CHỐT / Đã gộp không chốt`);
+        }
+
+        // Refresh panel if visible
+        if (window.renderPanelContent) {
+            window.renderPanelContent();
+        }
+
+        return { success: true };
+    } catch (error) {
+        console.error('[MERGE-PTAG] Error assigning Tag XL:', error);
+        return { success: false, error: error.message };
     }
 }
 
