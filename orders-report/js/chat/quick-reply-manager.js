@@ -611,10 +611,10 @@ class QuickReplyManager {
         console.log('[QUICK-REPLY] ✅ Selected reply:', reply.shortcut || reply.id);
 
         // Check if this reply has an imageUrl - send image first, then text
-        if (reply.imageUrl) {
-            console.log('[QUICK-REPLY] 🖼️ Reply has imageUrl, sending image first then text');
+        if (reply.imageUrl || reply.contentId) {
+            console.log('[QUICK-REPLY] 🖼️ Reply has image, sending...');
             this.closeModal();
-            this.sendQuickReplyWithImage(reply.imageUrl, reply.message);
+            this.sendQuickReplyWithImage(reply);
             return;
         }
 
@@ -759,10 +759,19 @@ class QuickReplyManager {
             input.value = '';
             input.style.height = 'auto';
 
-            // Send the hardcoded image and message directly
-            const camonImageUrl = 'https://content.pancake.vn/2-25/2025/5/21/2c82b1de2b01a5ad96990f2a14277eaa22d65293.jpg';
-            const camonMessage = 'Dạ hàng của mình đã được lên bill , cám ơn chị yêu đã ủng hộ shop ạ ❤️';
-            this.sendQuickReplyWithImage(camonImageUrl, camonMessage);
+            // Find the CAMON reply from loaded templates (uses cached contentId if available)
+            const camonReply = this.replies.find(r =>
+                this.removeVietnameseDiacritics(r.shortcut || '').toUpperCase() === 'CAMON'
+            );
+            if (camonReply) {
+                this.sendQuickReplyWithImage(camonReply);
+            } else {
+                // Fallback if not found in templates
+                this.sendQuickReplyWithImage({
+                    imageUrl: 'https://content.pancake.vn/2-25/2025/5/21/2c82b1de2b01a5ad96990f2a14277eaa22d65293.jpg',
+                    message: 'Dạ hàng của mình đã được lên bill , cám ơn chị yêu đã ủng hộ shop ạ ❤️'
+                });
+            }
             return;
         }
 
@@ -876,9 +885,9 @@ class QuickReplyManager {
         console.log('[QUICK-REPLY] 📋 Selected reply:', JSON.stringify(reply, null, 2));
         console.log('[QUICK-REPLY] 🖼️ Has imageUrl?', !!reply.imageUrl, '→', reply.imageUrl);
 
-        // Check if this reply has an imageUrl - send image first, then text
-        if (reply.imageUrl) {
-            console.log('[QUICK-REPLY] 🖼️ Reply has imageUrl, sending image first then text');
+        // Check if this reply has an imageUrl or contentId - send image first, then text
+        if (reply.imageUrl || reply.contentId) {
+            console.log('[QUICK-REPLY] 🖼️ Reply has image, sending...');
             this.hideAutocomplete();
 
             // Clear the entire input field
@@ -886,7 +895,7 @@ class QuickReplyManager {
             input.style.height = 'auto';
 
             // Send image first, then text
-            this.sendQuickReplyWithImage(reply.imageUrl, reply.message);
+            this.sendQuickReplyWithImage(reply);
             return;
         }
 
@@ -916,10 +925,15 @@ class QuickReplyManager {
     /**
      * Send quick reply with image + text (2 separate requests)
      * Per Pancake API docs: message and content_ids are MUTUALLY EXCLUSIVE
-     * Flow: download image → upload via upload_contents → send with content_ids → send text
+     *
+     * Optimization: if reply has a cached contentId, skip download+upload and send directly.
+     * On first send without contentId, upload once and cache it back to Firebase.
+     *
+     * @param {Object} reply - The quick reply object { id, imageUrl, message, contentId?, ... }
      */
-    async sendQuickReplyWithImage(imageUrl, message) {
-        console.log('[QUICK-REPLY] Sending with image:', imageUrl);
+    async sendQuickReplyWithImage(reply) {
+        const { imageUrl, message, contentId: cachedContentId, id: replyId } = reply;
+        console.log('[QUICK-REPLY] Sending with image:', imageUrl, 'cachedContentId:', cachedContentId || 'none');
         window.isQuickReplySending = true;
 
         if (!window.currentConversationId || !window.currentChatChannelId) {
@@ -945,23 +959,37 @@ class QuickReplyManager {
                 || window.authManager?.getAuthState?.()?.displayName;
             if (displayName) finalMessage = message + '\nNv. ' + displayName;
 
-            // Step 1: Download image → upload → send with content_ids
+            // Step 1: Get content_id — from cache or upload
+            let contentId = cachedContentId;
             let imageSent = false;
-            console.log('[QUICK-REPLY] Downloading image from CDN...');
-            const downloaded = await fetch(imageUrl);
-            if (!downloaded.ok) throw new Error('Tải ảnh thất bại');
-            const blob = await downloaded.blob();
-            const ext = imageUrl.match(/\.(jpg|jpeg|png|gif|webp)/i)?.[1] || 'jpg';
-            const file = new File([blob], `quick-reply.${ext}`, { type: blob.type || `image/${ext}` });
 
-            console.log('[QUICK-REPLY] Uploading image...');
-            const uploadResult = await pdm.uploadMedia(channelId, file, pat);
-            console.log('[QUICK-REPLY] Upload result:', uploadResult);
+            if (!contentId && imageUrl) {
+                // No cached contentId → download + upload (first time only)
+                console.log('[QUICK-REPLY] No cached contentId, downloading + uploading...');
+                const downloaded = await fetch(imageUrl);
+                if (!downloaded.ok) throw new Error('Tải ảnh thất bại');
+                const blob = await downloaded.blob();
+                const ext = imageUrl.match(/\.(jpg|jpeg|png|gif|webp)/i)?.[1] || 'jpg';
+                const file = new File([blob], `quick-reply.${ext}`, { type: blob.type || `image/${ext}` });
 
-            if (uploadResult?.id) {
-                // API docs: use content_ids (NOT content_url, NOT message — they're mutually exclusive)
+                const uploadResult = await pdm.uploadMedia(channelId, file, pat);
+                console.log('[QUICK-REPLY] Upload result:', uploadResult);
+
+                if (uploadResult?.id) {
+                    contentId = uploadResult.id;
+                    // Cache contentId back to template for future sends
+                    this._cacheContentId(replyId, contentId);
+                } else {
+                    console.warn('[QUICK-REPLY] Upload returned no id:', uploadResult);
+                }
+            } else if (contentId) {
+                console.log('[QUICK-REPLY] ⚡ Using cached contentId:', contentId);
+            }
+
+            // Step 2: Send image with content_ids
+            if (contentId) {
                 const sendResult = await pdm.sendMessage(channelId, conversationId, {
-                    action: 'reply_inbox', content_ids: [uploadResult.id]
+                    action: 'reply_inbox', content_ids: [contentId]
                 }, pat);
                 console.log('[QUICK-REPLY] Image send result:', sendResult);
 
@@ -971,24 +999,42 @@ class QuickReplyManager {
                         if (window.notificationManager) window.notificationManager.show('Không thể gửi (quá 24h). Vui lòng dùng COMMENT!', 'warning', 8000);
                         return;
                     }
-                    console.warn('[QUICK-REPLY] Image send failed:', errMsg);
+                    // If cached contentId expired/invalid, try re-upload
+                    if (cachedContentId && imageUrl) {
+                        console.warn('[QUICK-REPLY] Cached contentId failed, re-uploading...');
+                        const downloaded = await fetch(imageUrl);
+                        if (downloaded.ok) {
+                            const blob = await downloaded.blob();
+                            const ext = imageUrl.match(/\.(jpg|jpeg|png|gif|webp)/i)?.[1] || 'jpg';
+                            const file = new File([blob], `quick-reply.${ext}`, { type: blob.type || `image/${ext}` });
+                            const uploadResult = await pdm.uploadMedia(channelId, file, pat);
+                            if (uploadResult?.id) {
+                                const retryResult = await pdm.sendMessage(channelId, conversationId, {
+                                    action: 'reply_inbox', content_ids: [uploadResult.id]
+                                }, pat);
+                                if (retryResult?.success !== false) {
+                                    imageSent = true;
+                                    this._cacheContentId(replyId, uploadResult.id);
+                                }
+                            }
+                        }
+                    }
+                    if (!imageSent) console.warn('[QUICK-REPLY] Image send failed:', errMsg);
                 } else {
                     imageSent = true;
-                    console.log('[QUICK-REPLY] Image sent');
+                    console.log('[QUICK-REPLY] ✅ Image sent');
                 }
-            } else {
-                console.warn('[QUICK-REPLY] Upload returned no id:', uploadResult);
             }
 
-            // Step 2: Send text separately (message and content_ids are mutually exclusive)
-            if (imageSent) await new Promise(r => setTimeout(r, 300)); // small delay between requests
+            // Step 3: Send text separately (message and content_ids are mutually exclusive)
+            if (imageSent) await new Promise(r => setTimeout(r, 300));
             console.log('[QUICK-REPLY] Sending text...');
             const textResult = await pdm.sendMessage(channelId, conversationId, {
                 action: 'reply_inbox', message: finalMessage
             }, pat);
 
             const textSent = textResult?.success !== false;
-            if (textSent) console.log('[QUICK-REPLY] Text sent');
+            if (textSent) console.log('[QUICK-REPLY] ✅ Text sent');
 
             // Notify user
             if (imageSent && textSent) {
@@ -1007,6 +1053,30 @@ class QuickReplyManager {
             if (window.notificationManager) window.notificationManager.error('Lỗi: ' + error.message);
         } finally {
             setTimeout(() => { window.isQuickReplySending = false; }, 500);
+        }
+    }
+
+    /**
+     * Cache contentId back to template in memory + Firebase
+     * So next send uses cached contentId directly (no download+upload)
+     */
+    async _cacheContentId(replyId, contentId) {
+        if (!replyId || !contentId) return;
+        const reply = this.replies.find(r => r.id === replyId);
+        if (!reply) return;
+
+        reply.contentId = contentId;
+        console.log('[QUICK-REPLY] 💾 Caching contentId for reply', replyId, ':', contentId);
+
+        // Save to cache + Firebase in background (don't await to avoid blocking send)
+        this.saveToCache().catch(() => {});
+        if (this.db) {
+            try {
+                await this.saveReplies();
+                console.log('[QUICK-REPLY] ✅ contentId saved to Firebase');
+            } catch (e) {
+                console.warn('[QUICK-REPLY] ⚠️ Failed to save contentId to Firebase:', e);
+            }
         }
     }
 
@@ -1291,6 +1361,12 @@ class QuickReplyManager {
             imageUrlInput.value = '';
         }
 
+        // Also clear contentId when removing image from editing template
+        if (this.currentEditingTemplateId !== null) {
+            const reply = this.replies.find(r => r.id === this.currentEditingTemplateId);
+            if (reply) delete reply.contentId;
+        }
+
         this.updateTemplateImagePreview('');
 
         if (window.notificationManager) {
@@ -1298,29 +1374,42 @@ class QuickReplyManager {
         }
     }
 
+    /** Convert blob to data URL for preview storage */
+    _blobToDataUrl(blob) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+    }
+
+    /**
+     * Upload template image via upload_contents API
+     * Returns { contentId } — the content_id for sending with content_ids
+     */
     async uploadTemplateImage(blob) {
-        console.log('[QUICK-REPLY] 📤 Uploading template image...');
+        console.log('[QUICK-REPLY] 📤 Uploading template image via upload_contents...');
 
         try {
-            // Get a page ID for uploading (use first available)
             const channelId = window.currentChatChannelId || window.currentSendPageId;
-            if (!channelId) {
-                throw new Error('Không tìm thấy page ID để upload');
-            }
+            if (!channelId) throw new Error('Không tìm thấy page ID để upload');
 
-            // Upload via pancakeDataManager
-            if (!window.pancakeDataManager) {
-                throw new Error('PancakeDataManager not available');
-            }
+            const pdm = window.pancakeDataManager;
+            if (!pdm) throw new Error('PancakeDataManager not available');
 
-            const result = await window.pancakeDataManager.uploadImage(channelId, blob);
+            const pat = await pdm.getPageAccessToken(channelId);
+            if (!pat) throw new Error('Không tìm thấy page_access_token');
+
+            // upload_contents returns { id: "content_id", attachment_type: "PHOTO" }
+            const result = await pdm.uploadMedia(channelId, blob, pat);
             console.log('[QUICK-REPLY] ✅ Image uploaded:', result);
 
-            if (result && result.content_url) {
-                return result.content_url;
+            if (result?.id) {
+                return { contentId: result.id };
             }
 
-            throw new Error('Upload không trả về URL');
+            throw new Error('Upload không trả về content_id');
         } catch (error) {
             console.error('[QUICK-REPLY] ❌ Image upload failed:', error);
             throw error;
@@ -1353,6 +1442,8 @@ class QuickReplyManager {
             return;
         }
 
+        let contentId = null; // Pancake content_id for direct sending
+
         try {
             // Upload pending image if exists
             if (this.pendingTemplateImageBlob) {
@@ -1361,14 +1452,19 @@ class QuickReplyManager {
                 }
 
                 try {
-                    imageUrl = await this.uploadTemplateImage(this.pendingTemplateImageBlob);
-                    console.log('[QUICK-REPLY] ✅ Image uploaded, URL:', imageUrl);
+                    const uploadResult = await this.uploadTemplateImage(this.pendingTemplateImageBlob);
+                    contentId = uploadResult.contentId;
+                    // Keep existing imageUrl for display, or use blob preview
+                    if (!imageUrl) {
+                        // No CDN URL available for new uploads — store a data URL for preview
+                        imageUrl = await this._blobToDataUrl(this.pendingTemplateImageBlob);
+                    }
+                    console.log('[QUICK-REPLY] ✅ Image uploaded, contentId:', contentId);
                 } catch (uploadError) {
                     console.error('[QUICK-REPLY] ❌ Image upload failed:', uploadError);
                     if (window.notificationManager) {
                         window.notificationManager.error('Upload hình thất bại: ' + uploadError.message);
                     }
-                    // Don't save without the image if user added one
                     return;
                 }
             }
@@ -1385,10 +1481,9 @@ class QuickReplyManager {
                     message: message
                 };
 
-                // Add imageUrl if exists
-                if (imageUrl) {
-                    newReply.imageUrl = imageUrl;
-                }
+                // Add imageUrl + contentId if exists
+                if (imageUrl) newReply.imageUrl = imageUrl;
+                if (contentId) newReply.contentId = contentId;
 
                 this.replies.push(newReply);
                 await this.saveReplies();
@@ -1413,7 +1508,8 @@ class QuickReplyManager {
                     topic: reply.topic,
                     topicColor: reply.topicColor,
                     message: reply.message,
-                    imageUrl: reply.imageUrl
+                    imageUrl: reply.imageUrl,
+                    contentId: reply.contentId
                 };
 
                 reply.shortcut = shortcut;
@@ -1421,12 +1517,19 @@ class QuickReplyManager {
                 reply.topicColor = topicColor;
                 reply.message = message;
 
-                // Handle imageUrl - set or clear
+                // Handle imageUrl + contentId
                 if (imageUrl) {
                     reply.imageUrl = imageUrl;
                 } else {
                     delete reply.imageUrl;
                 }
+                if (contentId) {
+                    reply.contentId = contentId;
+                } else if (this.pendingTemplateImageBlob) {
+                    // New image was uploaded but no contentId — shouldn't happen
+                    delete reply.contentId;
+                }
+                // If no new image uploaded, keep existing contentId
 
                 try {
                     await this.saveReplies();
@@ -1443,11 +1546,10 @@ class QuickReplyManager {
                     reply.topic = oldValues.topic;
                     reply.topicColor = oldValues.topicColor;
                     reply.message = oldValues.message;
-                    if (oldValues.imageUrl) {
-                        reply.imageUrl = oldValues.imageUrl;
-                    } else {
-                        delete reply.imageUrl;
-                    }
+                    if (oldValues.imageUrl) reply.imageUrl = oldValues.imageUrl;
+                    else delete reply.imageUrl;
+                    if (oldValues.contentId) reply.contentId = oldValues.contentId;
+                    else delete reply.contentId;
                     throw error;
                 }
             }
