@@ -299,6 +299,8 @@ async function _loadMessages(pageId, conversationId, customerId) {
                 senderName: msg.from?.name || '',
                 fromId: msg.from?.id || '',
                 attachments: msg.attachments || [],
+                reactions: (msg.attachments || []).filter(a => a.type === 'reaction'),
+                reactionSummary: msg.reaction_summary || msg.reactions || null,
                 isHidden: msg.is_hidden || false,
                 isRemoved: msg.is_removed || false,
                 canHide: msg.can_hide !== false,

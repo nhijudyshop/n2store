@@ -17,10 +17,16 @@ window.renderChatMessages = function(messages) {
     const container = document.getElementById('chatMessages');
     if (!container) return;
 
+    // Update post info banner & deleted comment banner
+    _renderPostInfoBanner();
+
     if (!messages || messages.length === 0) {
         container.innerHTML = '<div class="chat-empty-state"><p>Chưa có tin nhắn</p></div>';
+        _updateDeletedBanner(messages);
         return;
     }
+
+    const isCommentConv = window.currentConversationType === 'COMMENT';
 
     let lastDate = '';
     const html = messages
@@ -42,6 +48,8 @@ window.renderChatMessages = function(messages) {
             const isOutgoing = msg.sender === 'shop';
             const isHidden = msg.isHidden || false;
             const isRemoved = msg.isRemoved || false;
+            const isPrivateReply = isCommentConv && !!msg.privateReplyConversation;
+            const isCommentMsg = isCommentConv && !isPrivateReply;
 
             // Attachments
             let mediaHtml = '';
@@ -56,15 +64,44 @@ window.renderChatMessages = function(messages) {
                 textHtml = `<div class="message-text">${_formatMessageText(msg.text)}</div>`;
             }
 
-            // Status
-            let statusClass = '';
-            if (isRemoved) statusClass = ' removed';
-            if (isHidden) statusClass = ' hidden-msg';
+            // Empty message placeholder
+            if (!mediaHtml && !textHtml) {
+                textHtml = '<div class="message-text" style="opacity:0.5">[Tin nhắn trống]</div>';
+            }
+
+            // Reaction summary (like inbox)
+            let reactionsHtml = '';
+            const reactionSummary = msg.reactionSummary;
+            if (reactionSummary && typeof reactionSummary === 'object') {
+                const icons = { LIKE: '👍', LOVE: '❤️', HAHA: '😆', WOW: '😮', SAD: '😢', ANGRY: '😠', CARE: '🤗' };
+                const parts = Object.entries(reactionSummary)
+                    .filter(([, count]) => count > 0)
+                    .map(([type, count]) => `<span class="reaction-badge">${icons[type] || '👍'}${count > 1 ? ' ' + count : ''}</span>`);
+                if (parts.length > 0) {
+                    reactionsHtml = `<div class="message-reaction-summary">${parts.join('')}</div>`;
+                }
+            }
+
+            // Status indicator icons
+            let statusIndicator = '';
+            if (isRemoved) {
+                statusIndicator = '<span class="msg-status-indicator removed" title="Đã xóa"><i class="fas fa-trash-alt"></i></span>';
+            } else if (isHidden) {
+                statusIndicator = '<span class="msg-status-indicator hidden-msg" title="Đã ẩn"><i class="fas fa-eye-slash"></i></span>';
+            }
+
+            // Type badge (comment vs private reply)
+            let typeIcon = '';
+            if (isCommentConv) {
+                typeIcon = isPrivateReply
+                    ? '<span class="msg-type-icon type-inbox" title="Nhắn riêng"><i class="fas fa-lock"></i></span>'
+                    : '<span class="msg-type-icon type-comment" title="Bình luận"><i class="fas fa-comment"></i></span>';
+            }
 
             // Reply type badge
             let replyBadge = '';
-            if (msg.privateReplyConversation) {
-                replyBadge = '<span class="msg-reply-badge private">Nhắn riêng</span>';
+            if (isPrivateReply) {
+                replyBadge = '<span class="msg-reply-badge private"><i class="fas fa-lock"></i> Nhắn riêng</span>';
             }
 
             // Sender name (for outgoing from shop staff)
@@ -72,8 +109,18 @@ window.renderChatMessages = function(messages) {
                 ? `<span class="message-sender-name">${_escapeHtml(msg.senderName)}</span>`
                 : '';
 
-            // Actions
-            const actionsHtml = _buildMessageActions(msg);
+            // CSS classes
+            const classes = [
+                'message-row',
+                isOutgoing ? 'outgoing' : 'incoming',
+                isCommentMsg ? 'is-comment' : '',
+                isPrivateReply ? 'is-private-reply' : '',
+                isRemoved ? 'is-removed' : '',
+                isHidden ? 'is-hidden' : '',
+            ].filter(Boolean).join(' ');
+
+            // Actions (hover)
+            const actionsHtml = _buildMessageActions(msg, isCommentConv);
 
             // Avatar
             const avatarHtml = !isOutgoing
@@ -82,24 +129,30 @@ window.renderChatMessages = function(messages) {
 
             return `
                 ${dateSeparator}
-                <div class="message-row ${isOutgoing ? 'outgoing' : 'incoming'}${statusClass}" data-msg-id="${msg.id}">
+                <div class="${classes}" data-msg-id="${msg.id}">
                     ${avatarHtml}
                     <div class="message-bubble">
-                        ${actionsHtml}
                         ${mediaHtml}
                         ${textHtml}
+                        ${reactionsHtml}
                         <div class="message-meta">
+                            ${typeIcon}
+                            ${statusIndicator}
                             ${replyBadge}
                             ${senderHtml}
                             <span class="message-time">${_formatTime(msg.time)}</span>
                         </div>
                     </div>
+                    ${actionsHtml}
                 </div>
             `;
         }).join('');
 
     container.innerHTML = html;
     container.scrollTop = container.scrollHeight;
+
+    // Check if all customer comments are deleted
+    _updateDeletedBanner(messages);
 };
 
 // =====================================================
@@ -178,23 +231,34 @@ function _renderAttachments(attachments) {
     }).join('');
 }
 
-function _buildMessageActions(msg) {
-    if (msg.sender !== 'customer') return '';
+function _buildMessageActions(msg, isCommentConv) {
+    if (msg.isRemoved) return ''; // Can't act on deleted messages
 
     const actions = [];
-    actions.push(`<button class="msg-action-btn" onclick="window.setReplyMessage('${msg.id}')" title="Trả lời">↩</button>`);
 
-    if (window.currentConversationType === 'COMMENT') {
+    // Reply button (all messages)
+    if (msg.sender === 'customer') {
+        actions.push(`<button class="msg-action-btn" onclick="window.setReplyMessage('${msg.id}')" title="Trả lời"><i class="fas fa-reply"></i></button>`);
+    }
+
+    // Comment-specific actions
+    if (isCommentConv) {
         if (msg.canLike) {
-            actions.push(`<button class="msg-action-btn" onclick="window.toggleLikeComment('${msg.id}')" title="Thích">👍</button>`);
+            const likeClass = msg.userLikes ? ' active' : '';
+            actions.push(`<button class="msg-action-btn${likeClass}" onclick="window.toggleLikeComment('${msg.id}')" title="${msg.userLikes ? 'Bỏ thích' : 'Thích'}"><i class="fas fa-thumbs-up"></i></button>`);
         }
-        if (msg.canHide) {
-            actions.push(`<button class="msg-action-btn" onclick="window.toggleHideComment('${msg.id}')" title="Ẩn">👁</button>`);
+        if (msg.canHide && msg.sender === 'customer') {
+            const hideIcon = msg.isHidden ? 'fa-eye' : 'fa-eye-slash';
+            const hideTitle = msg.isHidden ? 'Hiện' : 'Ẩn';
+            actions.push(`<button class="msg-action-btn" onclick="window.toggleHideComment('${msg.id}')" title="${hideTitle}"><i class="fas ${hideIcon}"></i></button>`);
+        }
+        if (msg.canRemove) {
+            actions.push(`<button class="msg-action-btn danger" onclick="window.deleteComment('${msg.id}')" title="Xóa bình luận"><i class="fas fa-trash-alt"></i></button>`);
         }
     }
 
     if (actions.length === 0) return '';
-    return `<div class="message-actions">${actions.join('')}</div>`;
+    return `<div class="msg-hover-actions">${actions.join('')}</div>`;
 }
 
 // =====================================================
@@ -305,8 +369,15 @@ window.sendMessage = async function() {
                             senderName: msg.from?.name || '',
                             fromId: msg.from?.id || '',
                             attachments: msg.attachments || [],
+                            reactions: (msg.attachments || []).filter(a => a.type === 'reaction'),
+                            reactionSummary: msg.reaction_summary || msg.reactions || null,
                             isHidden: msg.is_hidden || false,
                             isRemoved: msg.is_removed || false,
+                            canHide: msg.can_hide !== false,
+                            canRemove: msg.can_remove !== false,
+                            canLike: msg.can_like !== false,
+                            userLikes: msg.user_likes || false,
+                            privateReplyConversation: msg.private_reply_conversation || null,
                         };
                     });
                     window.allChatMessages = messages;
@@ -495,6 +566,99 @@ window.toggleHideComment = async function(msgId) {
         msg.isHidden = true;
     }
     window.renderChatMessages(window.allChatMessages);
+};
+
+// =====================================================
+// POST INFO BANNER (COMMENT view)
+// =====================================================
+
+function _renderPostInfoBanner() {
+    const banner = document.getElementById('chatPostInfoBanner');
+    if (!banner) return;
+
+    const post = window.currentConversationData?._messagesData?.post;
+    if (!post || window.currentConversationType !== 'COMMENT') {
+        banner.style.display = 'none';
+        return;
+    }
+
+    const thumbnail = post.attachments?.data?.[0]?.url || '';
+    const postUrl = post.attachments?.target?.url || '';
+    const title = post.message || '';
+    const truncated = title.length > 100 ? title.substring(0, 100) + '..' : title;
+    const isLive = post.type === 'livestream';
+    const liveStatus = post.live_video_status;
+    const badge = isLive
+        ? `<span class="post-badge ${liveStatus === 'vod' ? 'vod' : 'live'}">${liveStatus === 'vod' ? 'VOD' : 'LIVE'}</span>`
+        : `<span class="post-badge">${_escapeHtml(post.type || 'POST')}</span>`;
+
+    banner.innerHTML = `
+        ${thumbnail ? `<img class="post-thumb" src="${thumbnail}" alt="" onclick="${postUrl ? `window.open('${postUrl.replace(/'/g, "\\'")}','_blank')` : ''}" style="cursor:${postUrl ? 'pointer' : 'default'}">` : ''}
+        <div class="post-info-content">
+            <div class="post-info-header">${badge} <span class="post-page-name">${_escapeHtml(post.from?.name || '')}</span></div>
+            <div class="post-title" title="${_escapeHtml(title)}">${_escapeHtml(truncated)}</div>
+            ${postUrl ? `<a class="post-link" href="${postUrl}" target="_blank" rel="noopener"><i class="fas fa-external-link-alt"></i> Xem trên Facebook</a>` : ''}
+        </div>
+    `;
+    banner.style.display = 'flex';
+}
+
+// =====================================================
+// DELETED COMMENT BANNER
+// =====================================================
+
+function _updateDeletedBanner(messages) {
+    const banner = document.getElementById('chatDeletedBanner');
+    if (!banner) return;
+
+    if (window.currentConversationType !== 'COMMENT' || !messages || messages.length === 0) {
+        banner.style.display = 'none';
+        return;
+    }
+
+    // Check if ALL customer comments are removed
+    const customerMsgs = messages.filter(m => m.sender === 'customer');
+    const allRemoved = customerMsgs.length > 0 && customerMsgs.every(m => m.isRemoved);
+
+    if (allRemoved) {
+        banner.style.display = 'flex';
+        // Disable input
+        const input = document.getElementById('chatInput');
+        if (input) { input.disabled = true; input.placeholder = 'Không thể trả lời — bình luận đã bị xóa'; }
+        const sendBtn = document.querySelector('.send-btn');
+        if (sendBtn) sendBtn.disabled = true;
+    } else {
+        banner.style.display = 'none';
+        // Re-enable input
+        const input = document.getElementById('chatInput');
+        if (input) { input.disabled = false; input.placeholder = 'Nhập tin nhắn... (/ để mở gợi ý)'; }
+    }
+}
+
+// =====================================================
+// DELETE COMMENT
+// =====================================================
+
+window.deleteComment = async function(msgId) {
+    if (!confirm('Xóa bình luận này? Hành động không thể hoàn tác.')) return;
+
+    const pdm = window.pancakeDataManager;
+    if (!pdm) return;
+
+    try {
+        await pdm.deleteComment(window.currentChatChannelId, msgId);
+        // Update local state
+        const msg = window.allChatMessages.find(m => m.id === msgId);
+        if (msg) {
+            msg.isRemoved = true;
+            msg.canRemove = false;
+        }
+        window.renderChatMessages(window.allChatMessages);
+        _showToast('Đã xóa bình luận', 'success');
+    } catch (err) {
+        console.error('[Chat-Msg] Delete comment error:', err);
+        _showToast('Lỗi xóa bình luận: ' + err.message, 'error');
+    }
 };
 
 // =====================================================
