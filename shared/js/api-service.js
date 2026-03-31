@@ -630,6 +630,35 @@ const ApiService = {
     },
 
     /**
+     * Cancel a ticket (set status to CANCELLED)
+     * Handles virtual credit cancellation for RETURN_SHIPPER
+     * @param {string} ticketCode - Ticket code or ID
+     * @param {Object} options - { performed_by, reason }
+     * @returns {Promise<Object>} Cancel result
+     */
+    async cancelTicket(ticketCode, options = {}) {
+        try {
+            const response = await fetch(`${this.RENDER_API_URL}/v2/tickets/${ticketCode}/cancel`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(options)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || errorData.error || 'Failed to cancel ticket');
+            }
+
+            const result = await response.json();
+            console.log('[API-V2] Ticket cancelled:', ticketCode);
+            return result;
+        } catch (error) {
+            console.error('[API-V2] Cancel ticket failed:', error);
+            throw error;
+        }
+    },
+
+    /**
      * Check if a ticket can be deleted
      * @param {string} ticketId - Ticket code or ID
      */

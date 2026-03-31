@@ -593,6 +593,153 @@ router.get('/:id/can-delete', async (req, res) => {
 });
 
 /**
+ * POST /api/v2/tickets/:id/cancel
+ * Cancel ticket (set status to CANCELLED)
+ * For RETURN_SHIPPER: Also cancels unused virtual credit
+ */
+router.post('/:id/cancel', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    const { id } = req.params;
+    const { performed_by, reason } = req.body;
+
+    try {
+        await db.query('BEGIN');
+
+        // Find ticket
+        const findResult = await db.query(`
+            SELECT * FROM customer_tickets
+            WHERE (ticket_code = $1 OR firebase_id = $1 OR id = $2) AND status NOT IN ('DELETED', 'CANCELLED')
+            FOR UPDATE
+        `, [id, parseInt(id) || 0]);
+
+        if (findResult.rows.length === 0) {
+            await db.query('ROLLBACK');
+            return res.status(404).json({ success: false, error: 'Ticket not found or already cancelled' });
+        }
+
+        const ticket = findResult.rows[0];
+
+        // =====================================================
+        // RETURN_SHIPPER: Check and cancel unused virtual credit
+        // =====================================================
+        let virtualCreditCancelled = false;
+        if (ticket.type === 'RETURN_SHIPPER') {
+            const creditResult = await db.query(`
+                SELECT id, original_amount, remaining_amount, used_in_orders, wallet_id
+                FROM virtual_credits
+                WHERE source_id IN ($1, $2) AND source_type = 'RETURN_SHIPPER' AND status = 'ACTIVE'
+            `, [ticket.ticket_code, ticket.order_id]);
+
+            if (creditResult.rows.length > 0) {
+                const vc = creditResult.rows[0];
+                const usedOrders = vc.used_in_orders || [];
+                const originalAmount = parseFloat(vc.original_amount);
+                const remainingAmount = parseFloat(vc.remaining_amount);
+
+                // Check if virtual credit has been used - BLOCK CANCEL
+                if (usedOrders.length > 0 || remainingAmount < originalAmount) {
+                    await db.query('ROLLBACK');
+                    return res.status(400).json({
+                        success: false,
+                        error: 'CANNOT_CANCEL_USED_CREDIT',
+                        message: `Không thể hủy: Công nợ ảo đã được sử dụng (đã dùng: ${(originalAmount - remainingAmount).toLocaleString()}đ)`
+                    });
+                }
+
+                // Cancel unused virtual credit
+                await db.query(`
+                    UPDATE virtual_credits
+                    SET status = 'CANCELLED', updated_at = NOW()
+                    WHERE id = $1
+                `, [vc.id]);
+
+                // Update wallet virtual_balance and log transaction
+                if (vc.wallet_id) {
+                    const walletBefore = await db.query(
+                        'SELECT virtual_balance FROM customer_wallets WHERE id = $1',
+                        [vc.wallet_id]
+                    );
+                    const virtualBalanceBefore = parseFloat(walletBefore.rows[0]?.virtual_balance || 0);
+                    const virtualBalanceAfter = virtualBalanceBefore - originalAmount;
+
+                    await db.query(`
+                        UPDATE customer_wallets
+                        SET virtual_balance = virtual_balance - $1, updated_at = NOW()
+                        WHERE id = $2
+                    `, [originalAmount, vc.wallet_id]);
+
+                    await db.query(`
+                        INSERT INTO wallet_transactions (
+                            phone, wallet_id, type, amount,
+                            virtual_balance_before, virtual_balance_after,
+                            source, reference_type, reference_id, note
+                        ) VALUES ($1, $2, 'VIRTUAL_CANCEL', $3, $4, $5,
+                            'VIRTUAL_CREDIT_CANCEL', 'ticket', $6, $7)
+                    `, [
+                        ticket.phone,
+                        vc.wallet_id,
+                        -originalAmount,
+                        virtualBalanceBefore,
+                        virtualBalanceAfter,
+                        ticket.ticket_code,
+                        `Thu hồi công nợ ảo - Hủy phiếu ${ticket.ticket_code}`
+                    ]);
+                }
+
+                virtualCreditCancelled = true;
+                console.log(`[Tickets V2] Cancelled virtual credit ${vc.id} (${originalAmount}đ) for cancelled ticket ${ticket.ticket_code}`);
+            }
+        }
+
+        // Update action history
+        const actionLog = {
+            action: 'cancelled',
+            old_status: ticket.status,
+            new_status: 'CANCELLED',
+            performed_by: performed_by || 'system',
+            performed_at: new Date().toISOString(),
+            reason: reason || ''
+        };
+        const actionHistory = ticket.action_history || [];
+        actionHistory.push(actionLog);
+
+        // Set status to CANCELLED
+        await db.query(`
+            UPDATE customer_tickets
+            SET status = 'CANCELLED', action_history = $2, updated_at = NOW()
+            WHERE id = $1
+        `, [ticket.id, JSON.stringify(actionHistory)]);
+
+        // Log activity
+        const activityTitle = virtualCreditCancelled
+            ? `Hủy ticket ${ticket.ticket_code} + Hủy công nợ ảo`
+            : `Hủy ticket ${ticket.ticket_code}`;
+        await db.query(`
+            INSERT INTO customer_activities (phone, customer_id, activity_type, title, reference_type, reference_id, icon, color)
+            VALUES ($1, $2, 'TICKET_CANCELLED', $3, 'ticket', $4, 'x-circle', 'gray')
+        `, [ticket.phone, ticket.customer_id, activityTitle, ticket.ticket_code]);
+
+        await db.query('COMMIT');
+
+        // Fetch updated ticket
+        const updatedResult = await db.query('SELECT * FROM customer_tickets WHERE id = $1', [ticket.id]);
+
+        // Notify SSE clients
+        sseRouter.notifyClients('tickets', { action: 'cancelled', ticket: updatedResult.rows[0] }, 'update');
+
+        res.json({
+            success: true,
+            message: 'Ticket cancelled',
+            data: updatedResult.rows[0],
+            virtualCreditCancelled
+        });
+    } catch (error) {
+        await db.query('ROLLBACK');
+        handleError(res, error, 'Failed to cancel ticket');
+    }
+});
+
+/**
  * DELETE /api/v2/tickets/:id
  * Delete ticket (soft or hard delete)
  * For RETURN_SHIPPER: Also cancels unused virtual credit
