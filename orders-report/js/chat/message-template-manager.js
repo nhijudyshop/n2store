@@ -843,9 +843,8 @@ console.log('[TemplateMgr] Loading...');
             }
 
             // [Fallback 1] Extension Bypass → queue for background (don't block main loop)
-            // Extension processes one message at a time, so we queue all 24h orders
-            // and process them sequentially after all API sends complete.
-            if (lastError?.is24HourError && window.sendViaExtension && window.pancakeExtension?.connected) {
+            // Queue ALL failed orders for extension (not just 24h — user: "bị lỗi gì cứ đưa vào queue")
+            if (lastError && window.sendViaExtension && window.pancakeExtension?.connected) {
                 // Lazily build ext conv data (fetch messages for thread_id & global_id)
                 if (!_extConvData) {
                     const raw = { from_psid: psid };
@@ -894,48 +893,7 @@ console.log('[TemplateMgr] Loading...');
                 break; // exit parts loop — all remaining parts handled by extension queue
             }
 
-            // [Fallback 2] Extension Bypass (inline, for non-24h errors when extension is connected)
-            if (window.sendViaExtension && window.pancakeExtension?.connected && !lastError?.is24HourError) {
-                try {
-                    if (!_extConvData) {
-                        const raw = { from_psid: psid };
-                        try {
-                            const msgData = await pdm.fetchMessages(channelId, conv.id);
-                            if (msgData.conversation) {
-                                const mc = msgData.conversation;
-                                if (mc.thread_id) raw.thread_id = mc.thread_id;
-                                if (mc.page_customer) raw.page_customer = mc.page_customer;
-                            }
-                            _extConvData = {
-                                pageId: channelId, psid, conversationId: conv.id, _raw: raw,
-                                customers: msgData.customers || [],
-                                _messagesData: { customers: msgData.customers || [] },
-                                updated_at: conv.updated_at || null,
-                                customerName: order.customerName || conv.from?.name || '',
-                                type: conv.type || 'INBOX', from: conv.from || null,
-                            };
-                        } catch (e) {
-                            _extConvData = {
-                                pageId: channelId, psid, conversationId: conv.id, _raw: raw,
-                                customers: [], _messagesData: { customers: [] },
-                                updated_at: conv.updated_at || null,
-                                customerName: order.customerName || conv.from?.name || '',
-                                type: conv.type || 'INBOX', from: conv.from || null,
-                            };
-                        }
-                    }
-                    await window.sendViaExtension(part, _extConvData);
-                    sendSuccess = true;
-                    lastError = null;
-                    console.log('[TemplateMgr] ✅ Message sent via Extension');
-                    continue;
-                } catch (extErr) {
-                    console.warn('[TemplateMgr] Extension fallback failed:', extErr.message);
-                    lastError = extErr;
-                }
-            }
-
-            // [Fallback 3] Facebook Tag
+            // [Fallback 2] Facebook Tag
             try {
                 const tagResult = await _sendViaFacebookTag(order, part, channelId, psid);
                 if (tagResult.success) {
@@ -981,16 +939,80 @@ console.log('[TemplateMgr] Loading...');
                     markOrderSent(order.orderId, false);
                 } catch (error) {
                     console.error('[TemplateMgr] ❌ Order failed:', order.Code, '-', error.message);
-                    sendingState.errorOrders.push({
-                        orderId: order.orderId,
-                        code: order.Code || '',
-                        customerName: order.customerName || '',
-                        error: error.message || 'Lỗi không xác định',
-                        is24HourError: error.is24HourError || (error.message || '').includes('24'),
-                        Facebook_PostId: order.Facebook_PostId || '',
-                        Facebook_CommentId: order.Facebook_CommentId || ''
-                    });
-                    markOrderFailed(order.orderId, error.message);
+
+                    // Try extension bypass for ANY error (user: "bị lỗi gì cứ đưa vào queue extension")
+                    if (window.sendViaExtension && window.pancakeExtension?.connected && order.psid && order.channelId) {
+                        try {
+                            const pdm = window.pancakeDataManager;
+                            const raw = { from_psid: order.psid };
+                            let extConvData;
+                            // Try to fetch thread_id/global_id for extension
+                            const conv = pdm?.inboxMapByPSID?.get(String(order.psid));
+                            if (conv && pdm?.fetchMessages) {
+                                try {
+                                    const msgData = await pdm.fetchMessages(order.channelId, conv.id);
+                                    if (msgData.conversation) {
+                                        if (msgData.conversation.thread_id) raw.thread_id = msgData.conversation.thread_id;
+                                        if (msgData.conversation.page_customer) raw.page_customer = msgData.conversation.page_customer;
+                                    }
+                                    extConvData = {
+                                        pageId: order.channelId, psid: order.psid, conversationId: conv.id, _raw: raw,
+                                        customers: msgData.customers || [], _messagesData: { customers: msgData.customers || [] },
+                                        updated_at: conv.updated_at || null, customerName: order.customerName || '',
+                                        type: conv.type || 'INBOX', from: conv.from || null,
+                                    };
+                                } catch (e) { /* fallback below */ }
+                            }
+                            if (!extConvData) {
+                                extConvData = {
+                                    pageId: order.channelId, psid: order.psid, conversationId: conv?.id || '', _raw: raw,
+                                    customers: [], _messagesData: { customers: [] },
+                                    updated_at: null, customerName: order.customerName || '',
+                                    type: 'INBOX', from: null,
+                                };
+                            }
+
+                            // Build message content for extension queue
+                            const tplContent = template.Content || template.BodyPlain || template.content || '';
+                            let msgContent = _replacePlaceholders(tplContent, {
+                                code: order.Code || '', customerName: order.customerName || '',
+                                phone: order.Phone || '', address: order.Address || '',
+                                totalAmount: order.AmountTotal || 0, products: []
+                            });
+                            const displayName = window.authManager?.getUserInfo()?.displayName;
+                            if (displayName) msgContent += '\nNv. ' + displayName;
+                            const parts = _splitMessageIntoParts(msgContent);
+
+                            sendingState.extQueue.push({ order, parts, convData: extConvData });
+                            sendingState.successOrders.push({
+                                Id: order.orderId, code: order.Code || '',
+                                customerName: order.customerName || '',
+                                account: account?.name || 'default', usedTag: null
+                            });
+                            console.log('[TemplateMgr] 📋 Error → queued for extension:', order.Code, '-', error.message);
+                        } catch (extBuildErr) {
+                            console.warn('[TemplateMgr] Extension queue build failed:', extBuildErr.message);
+                            sendingState.errorOrders.push({
+                                orderId: order.orderId, code: order.Code || '',
+                                customerName: order.customerName || '',
+                                error: error.message || 'Lỗi không xác định',
+                                is24HourError: false,
+                                Facebook_PostId: order.Facebook_PostId || '',
+                                Facebook_CommentId: order.Facebook_CommentId || ''
+                            });
+                            markOrderFailed(order.orderId, error.message);
+                        }
+                    } else {
+                        sendingState.errorOrders.push({
+                            orderId: order.orderId, code: order.Code || '',
+                            customerName: order.customerName || '',
+                            error: error.message || 'Lỗi không xác định',
+                            is24HourError: error.is24HourError || (error.message || '').includes('24'),
+                            Facebook_PostId: order.Facebook_PostId || '',
+                            Facebook_CommentId: order.Facebook_CommentId || ''
+                        });
+                        markOrderFailed(order.orderId, error.message);
+                    }
                 }
 
                 sendingState.totalProcessed++;
@@ -1661,15 +1683,16 @@ console.log('[TemplateMgr] Loading...');
                 return;
             }
 
+            // Get data from DOM row (if visible) and/or OrderStore
             const row = document.querySelector(`tr[data-order-id="${orderId}"]`);
-            if (!row) return;
-
-            // Enrich from OrderStore
             const storeOrder = window.OrderStore ? window.OrderStore.get(orderId) : null;
             const pdm = window.pancakeDataManager;
 
-            let pageId = row.dataset.pageId || '';
-            let psid = row.dataset.psid || '';
+            // Skip if neither row nor store data exists
+            if (!row && !storeOrder) return;
+
+            let pageId = row?.dataset?.pageId || '';
+            let psid = row?.dataset?.psid || '';
 
             // Try getChatInfoForOrder for better data
             if (storeOrder && pdm?.getChatInfoForOrder) {
@@ -1696,7 +1719,7 @@ console.log('[TemplateMgr] Loading...');
                 pageId,
                 channelId: pageId,
                 psid,
-                customerName: storeOrder?.PartnerName || storeOrder?.CustomerName || row.querySelector('.customer-name')?.textContent?.trim() || '',
+                customerName: storeOrder?.PartnerName || storeOrder?.CustomerName || row?.querySelector('.customer-name')?.textContent?.trim() || '',
                 Code: storeOrder?.Code || '',
                 Phone: storeOrder?.ReceiverPhone || storeOrder?.Partner?.Telephone || '',
                 Address: storeOrder?.ReceiverAddress || storeOrder?.Partner?.Address || '',
