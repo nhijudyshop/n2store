@@ -1356,12 +1356,13 @@ ${
                 }
 
                 const uploadResult = await window.pancakeDataManager.uploadImage(pageId, imageFile);
+                console.log('[BILL-SERVICE] Upload result:', JSON.stringify(uploadResult));
                 contentUrl =
-                    typeof uploadResult === 'string' ? uploadResult : uploadResult.content_url;
+                    typeof uploadResult === 'string' ? uploadResult : (uploadResult.content_url || uploadResult.data?.content_url || uploadResult.url);
                 // IMPORTANT: Use content_id (hash), not id (UUID) - Pancake API expects content_id
                 contentId =
                     typeof uploadResult === 'object'
-                        ? uploadResult.content_id || uploadResult.id
+                        ? uploadResult.content_id || uploadResult.data?.content_id || uploadResult.id || uploadResult.data?.id
                         : null;
 
                 if (!contentUrl) {
