@@ -448,20 +448,6 @@ console.log('[TemplateMgr] Loading...');
         }
     }
 
-    /**
-     * Determine shipping fee from address
-     * City addresses: ~30,000đ, Province: ~40,000đ
-     * Freeship: City > 1,500,000đ | Province > 3,000,000đ
-     */
-    function _getShippingFeeFromAddress(address, extraAddress) {
-        const fullAddr = ((address || '') + ' ' + (extraAddress || '')).toLowerCase();
-        const cityKeywords = ['hồ chí minh', 'hcm', 'tp.hcm', 'tphcm', 'sài gòn', 'saigon',
-            'hà nội', 'hanoi', 'đà nẵng', 'da nang', 'cần thơ', 'can tho', 'hải phòng', 'hai phong',
-            'biên hòa', 'bien hoa', 'thủ đức', 'thu duc', 'quận', 'quan'];
-        const isCity = cityKeywords.some(kw => fullAddr.includes(kw));
-        return { fee: isCity ? 30000 : 40000, isProvince: !isCity };
-    }
-
     function _convertOrderData(fullOrderData) {
         if (!fullOrderData) return null;
         const products = (fullOrderData.Details || [])
@@ -533,41 +519,18 @@ console.log('[TemplateMgr] Loading...');
             });
             const productList = formattedProducts.map(fp => fp.line).join('\n');
 
-            // Shipping fee
-            const { fee: baseShippingFee, isProvince } = _getShippingFeeFromAddress(orderData.address, orderData.extraAddress);
-            const orderTotal = hasAnyDiscount
-                ? (orderData.totalAmount || 0) - totalDiscountAmount
-                : (orderData.totalAmount || 0);
-
-            let shippingFee = baseShippingFee;
-            let isFreeship = false;
-            if (!isProvince && orderTotal > 1500000) { shippingFee = 0; isFreeship = true; }
-            else if (isProvince && orderTotal > 3000000) { shippingFee = 0; isFreeship = true; }
-
-            const shipLine = isFreeship
-                ? 'Phí ship: FREESHIP 🎁'
-                : `Phí ship: ${_formatCurrency(shippingFee)}`;
-
             let totalSection;
             if (hasAnyDiscount) {
                 const originalTotal = orderData.totalAmount || 0;
                 const afterDiscount = originalTotal - totalDiscountAmount;
-                const finalTotal = afterDiscount + shippingFee;
                 totalSection = [
                     `Tổng : ${_formatCurrency(originalTotal)}`,
                     `Giảm giá: ${_formatCurrency(totalDiscountAmount)}`,
-                    `Tổng tiền: ${_formatCurrency(afterDiscount)}`,
-                    shipLine,
-                    `Tổng thanh toán: ${_formatCurrency(finalTotal)}`
+                    `Tổng tiền: ${_formatCurrency(afterDiscount)}`
                 ].join('\n');
             } else {
                 const totalAmount = orderData.totalAmount || 0;
-                const finalTotal = totalAmount + shippingFee;
-                totalSection = [
-                    `Tổng tiền: ${_formatCurrency(totalAmount)}`,
-                    shipLine,
-                    `Tổng thanh toán: ${_formatCurrency(finalTotal)}`
-                ].join('\n');
+                totalSection = `Tổng tiền: ${_formatCurrency(totalAmount)}`;
             }
             result = result.replace(/{order\.details}/g, `${productList}\n\n${totalSection}`);
         } else {
