@@ -81,6 +81,11 @@ window.openChatModal = async function(orderId, pageId, psid, conversationType) {
     modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
 
+    // Click outside modal content to close
+    modal.onclick = function(e) {
+        if (e.target === modal) window.closeChatModal();
+    };
+
     // Update header
     const nameEl = document.getElementById('chatCustomerName');
     if (nameEl) nameEl.textContent = window.currentCustomerName || 'Khách hàng';

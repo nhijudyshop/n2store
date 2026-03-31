@@ -802,6 +802,7 @@ class QuickReplyManager {
             this.renderAutocomplete();
         } else if (e.key === 'Enter' && this.selectedSuggestionIndex >= 0) {
             e.preventDefault();
+            e.stopImmediatePropagation(); // Prevent chat send handler from firing "/"
             const selected = this.currentSuggestions[this.selectedSuggestionIndex];
             if (selected) {
                 this.applyAutocompleteSuggestion(selected);
@@ -921,247 +922,100 @@ class QuickReplyManager {
         console.log('[QUICK-REPLY] Image URL:', imageUrl);
         console.log('[QUICK-REPLY] Message:', message);
 
-        // Set flag to prevent duplicate send validation alert
         window.isQuickReplySending = true;
 
-        // Check if we have the required info
         if (!window.currentConversationId || !window.currentChatChannelId) {
             console.error('[QUICK-REPLY] ❌ Missing conversation info');
-            if (window.notificationManager) {
-                window.notificationManager.error('Không thể gửi: Thiếu thông tin cuộc hội thoại');
-            }
+            if (window.notificationManager) window.notificationManager.error('Không thể gửi: Thiếu thông tin cuộc hội thoại');
             window.isQuickReplySending = false;
             return;
         }
 
         try {
+            const pdm = window.pancakeDataManager;
+            if (!pdm) throw new Error('pancakeDataManager not available');
+
             const channelId = window.currentSendPageId || window.currentChatChannelId;
             const conversationId = window.currentConversationId;
-            const customerId = window.currentCustomerUUID;
 
-            // Get page_access_token for Official API (pages.fm)
-            const pageAccessToken = await window.pancakeTokenManager?.getOrGeneratePageAccessToken(channelId);
-            if (!pageAccessToken) {
-                throw new Error('Không tìm thấy page_access_token');
-            }
-
-            // Show loading indicator
-            if (window.notificationManager) {
-                window.notificationManager.info('Đang gửi tin nhắn...', 3000);
-            }
-
-            // Build query params for Official API
-            let queryParams = `page_access_token=${pageAccessToken}`;
-            if (customerId) {
-                queryParams += `&customer_id=${customerId}`;
-            }
-
-            const apiUrl = window.API_CONFIG.buildUrl.pancakeOfficial(
-                `pages/${channelId}/conversations/${conversationId}/messages`,
-                pageAccessToken
-            ) + (customerId ? `&customer_id=${customerId}` : '');
+            if (window.notificationManager) window.notificationManager.info('Đang gửi tin nhắn...', 3000);
 
             // Add employee signature
             let finalMessage = message;
-            const auth = window.authManager ? window.authManager.getAuthState() : null;
-            const displayName = auth && auth.displayName ? auth.displayName : null;
-            if (displayName) {
-                finalMessage = message + '\nNv. ' + displayName;
+            const displayName = window.authManager?.getUserInfo?.()?.displayName
+                || window.authManager?.getAuthState?.()?.displayName;
+            if (displayName) finalMessage = message + '\nNv. ' + displayName;
+
+            // Step 1: Download image from URL → Blob
+            console.log('[QUICK-REPLY] 📥 Downloading image...');
+            const imgResponse = await fetch(imageUrl);
+            if (!imgResponse.ok) throw new Error('Không tải được hình ảnh: ' + imgResponse.status);
+            const imgBlob = await imgResponse.blob();
+            const ext = imageUrl.match(/\.(jpg|jpeg|png|gif|webp)/i)?.[1] || 'jpg';
+            const imageFile = new File([imgBlob], `quick-reply.${ext}`, { type: imgBlob.type || `image/${ext}` });
+            console.log('[QUICK-REPLY] 📥 Downloaded:', imageFile.size, 'bytes');
+
+            // Step 2: Upload image via Pancake upload API → get content_id
+            console.log('[QUICK-REPLY] 📤 Uploading image...');
+            const uploadResult = await pdm.uploadImage(channelId, imageFile);
+            let contentId = null;
+            if (typeof uploadResult === 'object' && uploadResult.success) {
+                contentId = uploadResult.id || uploadResult.content_id;
+            } else if (typeof uploadResult === 'string') {
+                contentId = uploadResult;
+            }
+            if (!contentId) throw new Error('Upload failed: ' + JSON.stringify(uploadResult));
+            console.log('[QUICK-REPLY] ✅ Uploaded, content_id:', contentId);
+
+            // Step 3: Send image via content_ids
+            console.log('[QUICK-REPLY] 📤 Sending image message...');
+            const imgResult = await pdm.sendMessage(channelId, conversationId, {
+                action: 'reply_inbox',
+                content_ids: [contentId]
+            });
+            if (imgResult && imgResult.success === false) {
+                const errMsg = imgResult.message || imgResult.error || 'Image send failed';
+                const is24h = imgResult.e_code === 10 || (errMsg + '').includes('khoảng thời gian cho phép');
+                if (is24h) {
+                    if (window.notificationManager) window.notificationManager.show('⚠️ Không thể gửi (quá 24h). Vui lòng dùng COMMENT!', 'warning', 8000);
+                    return;
+                }
+                throw new Error(errMsg);
+            }
+            console.log('[QUICK-REPLY] ✅ Image sent');
+
+            // Step 4: Send text message
+            console.log('[QUICK-REPLY] 📤 Sending text message...');
+            const textResult = await pdm.sendMessage(channelId, conversationId, {
+                action: 'reply_inbox',
+                message: finalMessage
+            });
+            if (textResult && textResult.success === false) {
+                console.warn('[QUICK-REPLY] ⚠️ Text send failed (image already sent):', textResult.message);
+            } else {
+                console.log('[QUICK-REPLY] ✅ Text sent');
             }
 
-            // Send IMAGE and TEXT independently (image first, then text after 300ms)
-            // Image request - via proxy to avoid CORS
-            const sendImage = async () => {
-                console.log('[QUICK-REPLY] 📤 Sending image...');
-
-                // Build Pancake Official API URL via proxy (avoid CORS issues)
-                const pancakeApiUrl = window.API_CONFIG.buildUrl.pancakeOfficial(
-                    `pages/${channelId}/conversations/${conversationId}/messages`,
-                    pageAccessToken
-                ) + (customerId ? `&customer_id=${customerId}` : '');
-
-                // Pancake API chính thức dùng JSON với content_ids
-                // Tuy nhiên, quick-reply dùng external URL (content_url) nên vẫn cần gửi theo cách cũ
-                // TODO: Upload image trước rồi dùng content_ids
-                const imagePayload = {
-                    action: 'reply_inbox',
-                    message: ''  // Empty message, just image
-                    // NOTE: Không có content_ids vì đây là external URL
-                    // Pancake có thể hỗ trợ content_url nhưng không có trong docs chính thức
-                };
-
-                console.log('[QUICK-REPLY] Payload:', imagePayload);
-                console.log('[QUICK-REPLY] API URL:', pancakeApiUrl);
-                console.log('[QUICK-REPLY] ⚠️ Note: Using external imageUrl, may not work with official API');
-
-                // Call Pancake API via proxy (avoid CORS)
-                const imageResponse = await API_CONFIG.smartFetch(pancakeApiUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    },
-                    body: JSON.stringify(imagePayload)
-                }, 1, true); // maxRetries=1, skipFallback=true: chỉ gọi 1 lần, không retry
-
-                if (!imageResponse.ok) {
-                    const errorText = await imageResponse.text();
-                    console.error('[QUICK-REPLY] ❌ Image send HTTP failed:', errorText);
-                    return { success: false, error: 'Gửi hình ảnh thất bại (HTTP)' };
-                }
-
-                const imageResult = await imageResponse.json();
-                console.log('[QUICK-REPLY] Image API response:', imageResult);
-
-                // Check API success field
-                if (!imageResult.success) {
-                    console.error('[QUICK-REPLY] ❌ Image send API failed:', imageResult.message || imageResult.error);
-
-                    // Check for 24-hour policy error
-                    const is24HourError = (imageResult.e_code === 10 && imageResult.e_subcode === 2018278) ||
-                        (imageResult.message && imageResult.message.includes('khoảng thời gian cho phép'));
-                    if (is24HourError) {
-                        return { success: false, error: '24H_POLICY_ERROR', is24HourError: true };
-                    }
-
-                    // Check for user unavailable error (551)
-                    const isUserUnavailable = (imageResult.e_code === 551) ||
-                        (imageResult.message && imageResult.message.includes('không có mặt'));
-                    if (isUserUnavailable) {
-                        return { success: false, error: 'USER_UNAVAILABLE', isUserUnavailable: true };
-                    }
-
-                    return { success: false, error: imageResult.message || 'Gửi hình ảnh thất bại (API)' };
-                }
-
-                console.log('[QUICK-REPLY] ✅ Image sent successfully');
-                return { success: true, data: imageResult };
-            };
-
-            // Text request (with small delay to ensure image is sent first)
-            const sendText = async () => {
-                // Small delay to ensure image is sent first
-                await new Promise(resolve => setTimeout(resolve, 300));
-
-                console.log('[QUICK-REPLY] 📤 Sending text message...');
-
-                // Build Pancake Official API URL via proxy (avoid CORS issues)
-                const pancakeApiUrl = window.API_CONFIG.buildUrl.pancakeOfficial(
-                    `pages/${channelId}/conversations/${conversationId}/messages`,
-                    pageAccessToken
-                ) + (customerId ? `&customer_id=${customerId}` : '');
-
-                // Pancake API chính thức dùng JSON
-                const textPayload = {
-                    action: 'reply_inbox',
-                    message: finalMessage
-                };
-
-                // Call Pancake API via proxy (avoid CORS)
-                const textResponse = await API_CONFIG.smartFetch(pancakeApiUrl, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json'
-                    },
-                    body: JSON.stringify(textPayload)
-                }, 1, true); // maxRetries=1, skipFallback=true: chỉ gọi 1 lần, không retry
-
-                if (!textResponse.ok) {
-                    const errorText = await textResponse.text();
-                    console.error('[QUICK-REPLY] ❌ Text send HTTP failed:', errorText);
-                    return { success: false, error: 'Gửi tin nhắn thất bại (HTTP)' };
-                }
-
-                const textResult = await textResponse.json();
-                console.log('[QUICK-REPLY] Text API response:', textResult);
-
-                // Check API success field
-                if (!textResult.success) {
-                    console.error('[QUICK-REPLY] ❌ Text send API failed:', textResult.message || textResult.error);
-
-                    // Check for 24-hour policy error
-                    const is24HourError = (textResult.e_code === 10 && textResult.e_subcode === 2018278) ||
-                        (textResult.message && textResult.message.includes('khoảng thời gian cho phép'));
-                    if (is24HourError) {
-                        return { success: false, error: '24H_POLICY_ERROR', is24HourError: true };
-                    }
-
-                    // Check for user unavailable error (551)
-                    const isUserUnavailable = (textResult.e_code === 551) ||
-                        (textResult.message && textResult.message.includes('không có mặt'));
-                    if (isUserUnavailable) {
-                        return { success: false, error: 'USER_UNAVAILABLE', isUserUnavailable: true };
-                    }
-
-                    return { success: false, error: textResult.message || 'Gửi tin nhắn thất bại (API)' };
-                }
-
-                console.log('[QUICK-REPLY] ✅ Text sent successfully');
-                return { success: true, data: textResult };
-            };
-
-            // Send both independently using Promise.all
-            const [imageResult, textResult] = await Promise.all([sendImage(), sendText()]);
-
-            // Check results
-            if (!imageResult.success || !textResult.success) {
-                // Check for 24h or user unavailable errors
-                const has24HourError = imageResult.is24HourError || textResult.is24HourError;
-                const hasUserUnavailable = imageResult.isUserUnavailable || textResult.isUserUnavailable;
-
-                if (has24HourError || hasUserUnavailable) {
-                    const errorType = has24HourError ? '24h policy' : 'user unavailable (551)';
-                    console.warn(`[QUICK-REPLY] ⚠️ ${errorType} error detected`);
-
-                    const warningMsg = has24HourError
-                        ? '⚠️ Không thể gửi (quá 24h). Vui lòng dùng COMMENT!'
-                        : '⚠️ Người dùng không có mặt. Vui lòng dùng COMMENT!';
-                    if (window.notificationManager) {
-                        window.notificationManager.show(warningMsg, 'warning', 8000);
-                    }
-                    return; // Don't throw error for these cases
-                }
-
-                const errors = [];
-                if (!imageResult.success) errors.push(imageResult.error);
-                if (!textResult.success) errors.push(textResult.error);
-                throw new Error(errors.join(', '));
-            }
-
-            // Success notification
-            if (window.notificationManager) {
-                window.notificationManager.success('Đã gửi tin nhắn cảm ơn!', 3000);
-            }
+            if (window.notificationManager) window.notificationManager.success('Đã gửi tin nhắn!', 3000);
 
             // Refresh messages in UI
             setTimeout(async () => {
                 try {
                     if (window.currentChatPSID && window.chatDataManager) {
                         const response = await window.chatDataManager.fetchMessages(channelId, window.currentChatPSID);
-                        if (response.messages && response.messages.length > 0) {
+                        if (response.messages?.length > 0) {
                             window.allChatMessages = response.messages;
-                            if (window.renderChatMessages) {
-                                window.renderChatMessages(window.allChatMessages, false);
-                            }
-                            console.log('[QUICK-REPLY] ✅ Messages refreshed');
+                            if (window.renderChatMessages) window.renderChatMessages(window.allChatMessages, false);
                         }
                     }
-                } catch (refreshError) {
-                    console.warn('[QUICK-REPLY] ⚠️ Failed to refresh messages:', refreshError);
-                }
-            }, 300);
+                } catch (e) { /* ignore refresh error */ }
+            }, 500);
 
         } catch (error) {
             console.error('[QUICK-REPLY] ❌ Error:', error);
-            if (window.notificationManager) {
-                window.notificationManager.error('Lỗi: ' + error.message);
-            }
+            if (window.notificationManager) window.notificationManager.error('Lỗi: ' + error.message);
         } finally {
-            // Clear flag after sending completes (with delay to prevent race condition)
-            setTimeout(() => {
-                window.isQuickReplySending = false;
-            }, 500);
+            setTimeout(() => { window.isQuickReplySending = false; }, 500);
         }
     }
 
