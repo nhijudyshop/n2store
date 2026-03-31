@@ -39,17 +39,17 @@ function openCreateOrderModal() {
         title.innerHTML = '<i class="fas fa-plus-circle"></i> Tạo đơn hàng mới';
     }
 
-    // Init product section with empty list
-    _initSocialProductSection([]);
-
-    // Clear note images preview
-    renderNoteImagesPreview();
-
-    // Show modal
+    // Show modal FIRST for instant feedback
     const modal = document.getElementById('orderModalOverlay');
     if (modal) {
         modal.classList.add('show');
     }
+
+    // Defer heavy product init to next frame
+    requestAnimationFrame(() => {
+        _initSocialProductSection([]);
+        renderNoteImagesPreview();
+    });
 }
 
 function openEditOrderModal(orderId) {
@@ -82,17 +82,17 @@ function openEditOrderModal(orderId) {
         title.innerHTML = `<i class="fas fa-edit"></i> Sửa đơn hàng ${order.id}`;
     }
 
-    // Init product section with existing products
-    _initSocialProductSection(mappedProducts);
-
-    // Render note images preview
-    renderNoteImagesPreview();
-
-    // Show modal
+    // Show modal FIRST for instant feedback
     const modal = document.getElementById('orderModalOverlay');
     if (modal) {
         modal.classList.add('show');
     }
+
+    // Defer heavy product init to next frame
+    requestAnimationFrame(() => {
+        _initSocialProductSection(mappedProducts);
+        renderNoteImagesPreview();
+    });
 }
 
 function closeOrderModal() {

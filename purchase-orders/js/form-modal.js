@@ -1741,7 +1741,11 @@ class PurchaseOrderFormModal {
         const tbody = this.modalElement?.querySelector('#itemsTableBody');
         if (tbody) {
             tbody.innerHTML = this.renderItemRows();
-            this.bindItemEvents();
+            if (!tbody._delegated) {
+                this.bindItemEvents();
+            } else {
+                this._rebindImageCellEvents(tbody);
+            }
         }
         this.updateTotals();
     }
@@ -2147,158 +2151,139 @@ class PurchaseOrderFormModal {
         const tbody = this.modalElement?.querySelector('#itemsTableBody');
         if (!tbody) return;
 
-        // Textarea changes (productName)
-        tbody.querySelectorAll('textarea[data-field]').forEach(textarea => {
-            textarea.addEventListener('input', (e) => {
-                const row = e.target.closest('tr');
-                const itemId = row?.dataset.itemId;
-                const field = e.target.dataset.field;
-                const item = this.formData.items.find(i => i.id === itemId);
+        // Mark delegation as set up (survives innerHTML replacement of children)
+        tbody._delegated = true;
 
-                if (item && field) {
-                    item[field] = e.target.value;
+        // === DELEGATED: input event (textarea + input fields) ===
+        tbody.addEventListener('input', (e) => {
+            const target = e.target;
+            const field = target.dataset?.field;
+            if (!field) return;
+            const row = target.closest('tr[data-item-id]');
+            const itemId = row?.dataset.itemId;
+            const item = this.formData.items.find(i => i.id === itemId);
+            if (!item) return;
 
-                    // Update tooltip to show full text on hover
-                    e.target.title = e.target.value;
-
-                    if (field === 'productName') {
-                        if (e.target.value.trim()) {
-                            if (this.formData.items.indexOf(item) === 0) {
-                                this.autoDetectSupplier(e.target.value);
-                            }
-                        } else {
-                            if (!item._manualCodeEdit) {
-                                item.productCode = '';
-                                const codeInput = row?.querySelector('input[data-field="productCode"]');
-                                if (codeInput) codeInput.value = '';
-                            }
+            if (target.tagName === 'TEXTAREA') {
+                item[field] = target.value;
+                target.title = target.value;
+                if (field === 'productName') {
+                    if (target.value.trim()) {
+                        if (this.formData.items.indexOf(item) === 0) {
+                            this.autoDetectSupplier(target.value);
+                        }
+                    } else {
+                        if (!item._manualCodeEdit) {
+                            item.productCode = '';
+                            const codeInput = row?.querySelector('input[data-field="productCode"]');
+                            if (codeInput) codeInput.value = '';
                         }
                     }
                 }
-            });
-
-            // Auto-generate product code once on blur (leaving the field)
-            if (textarea.dataset.field === 'productName') {
-                textarea.addEventListener('blur', (e) => {
-                    const row = e.target.closest('tr');
-                    const itemId = row?.dataset.itemId;
-                    const item = this.formData.items.find(i => i.id === itemId);
-                    if (item && e.target.value.trim() && !item.productCode?.trim()) {
-                        this.autoGenerateProductCode(item);
-                    }
-                });
+            } else if (target.tagName === 'INPUT') {
+                item[field] = target.value;
+                this.updateTotals();
+                if (field === 'purchasePrice' || field === 'quantity') {
+                    const price = this.parsePrice(item.purchasePrice);
+                    const qty = parseInt(item.quantity) || 0;
+                    const subtotalCell = row?.querySelector('.subtotal-cell');
+                    if (subtotalCell) subtotalCell.textContent = this.formatNumber(price * qty) + ' đ';
+                }
+                if (field === 'purchasePrice' || field === 'sellingPrice') {
+                    this.updatePriceInputBorders(row);
+                }
+                if (field === 'productCode') {
+                    item._manualCodeEdit = true;
+                }
             }
         });
 
-        // Input changes
-        tbody.querySelectorAll('input[data-field]').forEach(input => {
-            input.addEventListener('input', (e) => {
-                const row = e.target.closest('tr');
-                const itemId = row?.dataset.itemId;
-                const field = e.target.dataset.field;
-                const item = this.formData.items.find(i => i.id === itemId);
+        // === DELEGATED: focusout event (replaces per-element blur) ===
+        tbody.addEventListener('focusout', (e) => {
+            const target = e.target;
+            const field = target.dataset?.field;
+            if (!field) return;
+            const row = target.closest('tr[data-item-id]');
+            const itemId = row?.dataset.itemId;
+            const item = this.formData.items.find(i => i.id === itemId);
 
-                if (item && field) {
-                    item[field] = e.target.value;
-                    this.updateTotals();
+            // Textarea productName: auto-generate code on blur
+            if (target.tagName === 'TEXTAREA' && field === 'productName') {
+                if (item && target.value.trim() && !item.productCode?.trim()) {
+                    this.autoGenerateProductCode(item);
+                }
+                return;
+            }
 
-                    // Update per-row subtotal (parsePrice handles ×1000)
-                    if (field === 'purchasePrice' || field === 'quantity') {
-                        const price = this.parsePrice(item.purchasePrice);
-                        const qty = parseInt(item.quantity) || 0;
-                        const subtotalCell = row?.querySelector('.subtotal-cell');
-                        if (subtotalCell) subtotalCell.textContent = this.formatNumber(price * qty) + ' đ';
-                    }
-
-                    // Update price input red borders dynamically
-                    if (field === 'purchasePrice' || field === 'sellingPrice') {
+            // Input price/quantity: format display on blur
+            if (target.tagName === 'INPUT' && target.type === 'text' && ['purchasePrice', 'sellingPrice', 'quantity'].includes(field)) {
+                const isPriceField = (field === 'purchasePrice' || field === 'sellingPrice');
+                const raw = isPriceField ? this.parsePrice(target.value) : (parseFloat(String(target.value).replace(/[,.]/g, '')) || 0);
+                if (raw) {
+                    target.value = raw.toLocaleString('vi-VN');
+                    if (item && field) {
+                        item[field] = target.value;
+                        this.updateTotals();
+                        if (field === 'purchasePrice') {
+                            const qty = parseInt(item.quantity) || 0;
+                            const subtotalCell = row?.querySelector('.subtotal-cell');
+                            if (subtotalCell) subtotalCell.textContent = this.formatNumber(raw * qty) + ' đ';
+                        }
                         this.updatePriceInputBorders(row);
                     }
-
-                    // Mark as manual edit if user changes product code
-                    if (field === 'productCode') {
-                        item._manualCodeEdit = true;
-                    }
                 }
-            });
+                return;
+            }
 
-            // On blur: format display + apply ×1000 + sync formData
-            if (['purchasePrice', 'sellingPrice', 'quantity'].includes(input.dataset.field) && input.type === 'text') {
-                input.addEventListener('blur', (e) => {
-                    const field = e.target.dataset.field;
-                    const isPriceField = (field === 'purchasePrice' || field === 'sellingPrice');
-                    const raw = isPriceField ? this.parsePrice(e.target.value) : (parseFloat(String(e.target.value).replace(/[,.]/g, '')) || 0);
-
-                    if (raw) {
-                        e.target.value = raw.toLocaleString('vi-VN');
-                        const row = e.target.closest('tr[data-item-id]');
-                        const itemId = row?.dataset.itemId;
-                        const item = this.formData.items.find(i => i.id === itemId);
-                        if (item && field) {
-                            item[field] = e.target.value;
-                            this.updateTotals();
-                            if (field === 'purchasePrice') {
-                                const qty = parseInt(item.quantity) || 0;
-                                const subtotalCell = row?.querySelector('.subtotal-cell');
-                                if (subtotalCell) subtotalCell.textContent = this.formatNumber(raw * qty) + ' đ';
+            // Input productCode: re-lock + auto-complete prefix on blur
+            if (target.tagName === 'INPUT' && field === 'productCode') {
+                const value = target.value.trim();
+                if (value && item && window.ProductCodeGenerator?.isPurePrefix(value)) {
+                    target.style.color = '#9ca3af';
+                    target.value = value.toUpperCase() + '...';
+                    (async () => {
+                        try {
+                            const code = await window.ProductCodeGenerator.generateCodeWithPrefix(value, this.formData.items);
+                            if (code) {
+                                item.productCode = code;
+                                item._manualCodeEdit = true;
+                                target.value = code;
+                            } else {
+                                target.value = value.toUpperCase();
+                                if (window.notificationManager) {
+                                    window.notificationManager.show(
+                                        `Không tạo được mã ${value.toUpperCase()}xx. Vui lòng nhập mã đầy đủ.`,
+                                        'warning'
+                                    );
+                                }
                             }
-                            this.updatePriceInputBorders(row);
+                        } catch (err) {
+                            console.error('Auto-complete prefix failed:', err);
+                            target.value = value.toUpperCase();
                         }
-                    }
-                });
+                        target.style.color = '';
+                    })();
+                }
+                target.readOnly = true;
+                target.style.background = '#f9fafb';
+                target.style.cursor = 'default';
+                return;
             }
         });
 
-        // Double-click on productCode input to enable editing
-        tbody.querySelectorAll('input[data-field="productCode"]').forEach(input => {
-            input.addEventListener('dblclick', (e) => {
-                e.target.readOnly = false;
-                e.target.style.background = 'white';
-                e.target.style.cursor = 'text';
-                e.target.focus();
-                e.target.select();
-            });
-            // Re-lock on blur + auto-complete prefix to sequential code
-            input.addEventListener('blur', async (e) => {
-                const value = e.target.value.trim();
-                const row = e.target.closest('tr[data-item-id]');
-                const itemId = row?.dataset.itemId;
-                const item = this.formData.items.find(i => i.id === itemId);
-
-                // Auto-complete: if user typed a pure prefix (e.g., "MM"), generate MMxx
-                if (value && item && window.ProductCodeGenerator?.isPurePrefix(value)) {
-                    e.target.style.color = '#9ca3af';
-                    e.target.value = value.toUpperCase() + '...';
-                    try {
-                        const code = await window.ProductCodeGenerator.generateCodeWithPrefix(
-                            value,
-                            this.formData.items
-                        );
-                        if (code) {
-                            item.productCode = code;
-                            item._manualCodeEdit = true;
-                            e.target.value = code;
-                        } else {
-                            e.target.value = value.toUpperCase();
-                            if (window.notificationManager) {
-                                window.notificationManager.show(
-                                    `Không tạo được mã ${value.toUpperCase()}xx. Vui lòng nhập mã đầy đủ.`,
-                                    'warning'
-                                );
-                            }
-                        }
-                    } catch (err) {
-                        console.error('Auto-complete prefix failed:', err);
-                        e.target.value = value.toUpperCase();
-                    }
-                    e.target.style.color = '';
-                }
-
-                e.target.readOnly = true;
-                e.target.style.background = '#f9fafb';
-                e.target.style.cursor = 'default';
-            });
+        // === DELEGATED: dblclick for productCode editing ===
+        tbody.addEventListener('dblclick', (e) => {
+            const target = e.target;
+            if (target.tagName === 'INPUT' && target.dataset?.field === 'productCode') {
+                target.readOnly = false;
+                target.style.background = 'white';
+                target.style.cursor = 'text';
+                target.focus();
+                target.select();
+            }
         });
+
+        // (textarea, input, productCode handlers are now delegated above)
 
         // Format + ×1000 + preview for discount, shipping, invoice inputs
         const previewMap = {
@@ -2410,12 +2395,13 @@ class PurchaseOrderFormModal {
             }
         });
 
-        // Action buttons
-        tbody.querySelectorAll('button[data-action]').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                const row = e.target.closest('tr');
-                const itemId = row?.dataset.itemId;
-                const action = e.target.closest('button').dataset.action;
+        // === DELEGATED: click for action buttons ===
+        tbody.addEventListener('click', async (e) => {
+            const btn = e.target.closest('button[data-action]');
+            if (!btn) return;
+            const row = btn.closest('tr[data-item-id]');
+            const itemId = row?.dataset.itemId;
+            const action = btn.dataset.action;
 
                 if (action === 'refreshCode' && itemId) {
                     const item = this.formData.items.find(i => i.id === itemId);
@@ -2433,8 +2419,7 @@ class PurchaseOrderFormModal {
                     // Toggle manual edit mode
                     item._manualCodeEdit = !item._manualCodeEdit;
 
-                    const codeInput = e.target.closest('td')?.querySelector('input[data-field="productCode"]');
-                    const btn = e.target.closest('button[data-action="editCode"]');
+                    const codeInput = btn.closest('td')?.querySelector('input[data-field="productCode"]');
 
                     if (item._manualCodeEdit) {
                         // Switch to edit mode (Check icon)
@@ -2572,19 +2557,21 @@ class PurchaseOrderFormModal {
                     }
                 }
             });
-        });
 
-        // Bind image events for each row
+        // Image events (must rebind after each innerHTML replacement)
+        this._rebindImageCellEvents(tbody);
+    }
+
+    /**
+     * Rebind image cell events after innerHTML replacement
+     */
+    _rebindImageCellEvents(tbody) {
         tbody.querySelectorAll('tr[data-item-id]').forEach(row => {
             const itemId = row.dataset.itemId;
-
-            // Product images cell
             const productCell = row.querySelector('[data-image-type="product"]');
             if (productCell) {
                 this.bindItemImageCellEvents(productCell, itemId, 'product');
             }
-
-            // Price images cell
             const priceCell = row.querySelector('[data-image-type="price"]');
             if (priceCell) {
                 this.bindItemImageCellEvents(priceCell, itemId, 'price');
