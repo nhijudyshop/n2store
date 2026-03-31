@@ -607,7 +607,7 @@
 
             // Auto picking slip for single-SKU CHO_HANG orders
             if (data.subState === 'CHO_HANG') {
-                data.pickingSlipPrinted = _ptagIsSingleSkuOrder(orderId);
+                data.pickingSlipPrinted = await _ptagIsSingleSkuOrder(orderId);
             }
 
             // Auto-detect flags from wallet
@@ -721,7 +721,7 @@
         if (data.category === PTAG_CATEGORIES.CHO_DI_DON && data.subState === 'OKIE_CHO_DI_DON') {
             data.subState = 'CHO_HANG';
             // Auto picking slip for single-SKU orders
-            if (_ptagIsSingleSkuOrder(orderId)) {
+            if (await _ptagIsSingleSkuOrder(orderId)) {
                 data.pickingSlipPrinted = true;
             }
         }
@@ -858,11 +858,34 @@
     }
 
     /** Check if order has only 1 unique product code (for auto picking slip) */
-    function _ptagIsSingleSkuOrder(orderId) {
-        const order = ((typeof window.getAllOrders === 'function') ? window.getAllOrders() : []).find(o => o.Id === orderId);
-        if (!order || !Array.isArray(order.Details) || order.Details.length === 0) return false;
-        const uniqueCodes = new Set(order.Details.map(d => (d.ProductCode || '').toUpperCase()).filter(c => c));
-        return uniqueCodes.size === 1;
+    async function _ptagIsSingleSkuOrder(orderId) {
+        const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
+        const order = allOrders.find(o => o.Id === orderId);
+
+        // 1. Check Details from allData (populated if report was run)
+        if (order && Array.isArray(order.Details) && order.Details.length > 0) {
+            const uniqueCodes = new Set(order.Details.map(d => (d.ProductCode || '').toUpperCase()).filter(c => c));
+            return uniqueCodes.size === 1;
+        }
+
+        // 2. Check report_order_details cache (Firestore)
+        let reportOrders = _reportOrderDetailsCache?.orders;
+        if (!reportOrders) {
+            reportOrders = await _ptagLoadReportOrderDetails();
+        }
+        if (reportOrders && reportOrders.length > 0) {
+            // Match by Code (cross-reference key) or Id
+            const orderCode = order?.Code ? String(order.Code) : null;
+            const match = reportOrders.find(ro =>
+                (orderCode && String(ro.Code) === orderCode) || String(ro.Id) === String(orderId)
+            );
+            if (match && Array.isArray(match.Details) && match.Details.length > 0) {
+                const uniqueCodes = new Set(match.Details.map(d => (d.ProductCode || '').toUpperCase()).filter(c => c));
+                return uniqueCodes.size === 1;
+            }
+        }
+
+        return false;
     }
 
     /** Inject order Code into data before saving (for cross-referencing after reload) */
