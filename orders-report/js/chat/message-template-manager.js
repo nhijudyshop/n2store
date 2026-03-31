@@ -794,6 +794,8 @@ console.log('[TemplateMgr] Loading...');
         // 7. Send via Pancake API
         let sendSuccess = false;
         let lastError = null;
+        // Lazily fetched: messages data to enrich conv with thread_id + global_id for extension
+        let _extConvData = null;
 
         for (const part of parts) {
             // [Primary] Pancake Official API
@@ -816,11 +818,64 @@ console.log('[TemplateMgr] Loading...');
                 lastError = apiErr;
             }
 
-            // [Fallback 1] Extension Bypass
+            // [Fallback 1] Extension Bypass (24h policy workaround)
+            // buildConvData relies on global state (window.currentConversationData) not set in bulk mode.
+            // Instead: fetch messages API to get thread_id + page_customer.global_id, then build conv data directly.
             if (window.sendViaExtension && window.pancakeExtension?.connected) {
                 try {
-                    const convData = window.buildConvData ? window.buildConvData(channelId, psid) : { pageId: channelId, psid };
-                    await window.sendViaExtension(part, convData);
+                    // Lazily fetch messages to enrich conv with thread_id & global_id (once per order)
+                    if (!_extConvData) {
+                        const raw = { from_psid: psid };
+                        try {
+                            const msgData = await pdm.fetchMessages(channelId, conv.id);
+                            // Messages endpoint returns thread_id, page_customer.global_id
+                            // that conversations LIST endpoint may not have
+                            if (msgData.conversation) {
+                                const mc = msgData.conversation;
+                                if (mc.thread_id) raw.thread_id = mc.thread_id;
+                                if (mc.page_customer) raw.page_customer = mc.page_customer;
+                            }
+                            // Also check the conv object itself (some API versions include it)
+                            if (!raw.thread_id && conv.thread_id) raw.thread_id = conv.thread_id;
+                            if (!raw.page_customer?.global_id && conv.page_customer?.global_id) {
+                                if (!raw.page_customer) raw.page_customer = {};
+                                raw.page_customer.global_id = conv.page_customer.global_id;
+                            }
+                            _extConvData = {
+                                pageId: channelId,
+                                psid: psid,
+                                conversationId: conv.id,
+                                _raw: raw,
+                                customers: msgData.customers || [],
+                                _messagesData: { customers: msgData.customers || [] },
+                                updated_at: conv.updated_at || null,
+                                customerName: order.customerName || conv.from?.name || '',
+                                type: conv.type || 'INBOX',
+                                from: conv.from || null,
+                            };
+                        } catch (e) {
+                            console.warn('[TemplateMgr] Messages fetch for extension data failed:', e.message);
+                            // Fallback: use what we have from conversations listing
+                            _extConvData = {
+                                pageId: channelId,
+                                psid: psid,
+                                conversationId: conv.id,
+                                _raw: raw,
+                                customers: [],
+                                _messagesData: { customers: [] },
+                                updated_at: conv.updated_at || null,
+                                customerName: order.customerName || conv.from?.name || '',
+                                type: conv.type || 'INBOX',
+                                from: conv.from || null,
+                            };
+                        }
+                        console.log('[TemplateMgr] Extension conv data:', {
+                            thread_id: _extConvData._raw.thread_id || null,
+                            global_id: _extConvData._raw.page_customer?.global_id || null,
+                            customers_global_id: _extConvData.customers?.[0]?.global_id || null,
+                        });
+                    }
+                    await window.sendViaExtension(part, _extConvData);
                     sendSuccess = true;
                     lastError = null;
                     console.log('[TemplateMgr] ✅ Message sent via Extension');
