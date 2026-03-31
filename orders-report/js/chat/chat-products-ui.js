@@ -362,7 +362,7 @@ console.log('[ChatProducts-UI] Loading...');
         const isDraft = p.isDraft === true;
         const isFromDropped = p.IsFromDropped === true;
         const imgHtml = imgUrl
-            ? `<img src="${imgUrl}" class="chat-product-image" onclick="window.showImageZoom && showImageZoom('${imgUrl.replace(/'/g, "\\'")}')" title="Xem ảnh">`
+            ? `<img src="${imgUrl}" class="chat-product-image" onclick="window.showImageZoom && showImageZoom('${imgUrl.replace(/'/g, "\\'")}')" oncontextmenu="window.sendImageToChat && sendImageToChat('${imgUrl.replace(/'/g, "\\'")}', '${productName.replace(/'/g, "\\'")}', ${p.ProductId}); return false;" title="Click: Xem ảnh | Chuột phải: Gửi ảnh">`
             : `<div class="chat-product-image" style="background: linear-gradient(135deg, #f59e0b, #fbbf24); display: flex; align-items: center; justify-content: center;"><i class="fas fa-box" style="color: white; font-size: 16px;"></i></div>`;
 
         return `
