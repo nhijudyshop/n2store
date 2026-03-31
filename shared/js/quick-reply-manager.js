@@ -814,6 +814,7 @@ class QuickReplyManager {
             this.renderAutocomplete();
         } else if (e.key === 'Enter' && this.selectedSuggestionIndex >= 0) {
             e.preventDefault();
+            e.stopImmediatePropagation(); // Prevent chat send handler from firing
             const selected = this.currentSuggestions[this.selectedSuggestionIndex];
             if (selected) {
                 this.applyAutocompleteSuggestion(selected);
