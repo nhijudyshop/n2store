@@ -248,14 +248,29 @@ class RealtimeManager {
     // --- Internal: Handle WebSocket event ---
     _handleEvent(event, payload) {
         this.lastEventTimestamp = Date.now();
+        console.log('[Realtime] Event received:', event, payload?.conversation_id || payload?.id || '');
 
-        // Dispatch to registered handlers
+        // Dispatch to registered handlers for exact event name
         const handlers = this.eventHandlers.get(event) || [];
         for (const handler of handlers) {
             try {
                 handler(payload);
             } catch (e) {
                 console.error('[Realtime] Handler error for', event, ':', e);
+            }
+        }
+
+        // Also dispatch with 'pages:' prefix for compatibility
+        // Pancake Phoenix sends 'new_message' but handlers register for 'pages:new_message'
+        if (!event.startsWith('pages:')) {
+            const prefixed = `pages:${event}`;
+            const prefixedHandlers = this.eventHandlers.get(prefixed) || [];
+            for (const handler of prefixedHandlers) {
+                try {
+                    handler(payload);
+                } catch (e) {
+                    console.error('[Realtime] Handler error for', prefixed, ':', e);
+                }
             }
         }
 

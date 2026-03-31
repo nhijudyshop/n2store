@@ -182,12 +182,33 @@ console.log('[Notifier] Loading...');
         if (!window.realtimeManager) return;
 
         window.realtimeManager.on('pages:new_message', (payload) => {
-            onNewConversationEvent(payload);
+            console.log('[Notifier] new_message event:', payload?.conversation_id || '');
+            // Pancake raw format: { message: { from: { id } }, page_id, conversation_id }
+            const msg = payload?.message || payload;
+            const normalized = {
+                psid: String(msg?.from?.id || payload?.from_psid || payload?.from?.id || ''),
+                pageId: String(payload?.page_id || msg?.page_id || ''),
+                snippet: msg?.message || msg?.original_message || '',
+                type: 'INBOX',
+                inboxCount: 1,
+            };
+            if (normalized.psid) onNewConversationEvent(normalized);
         });
 
         window.realtimeManager.on('pages:update_conversation', (payload) => {
-            if (payload?.unread_count > 0) {
-                onNewConversationEvent(payload);
+            console.log('[Notifier] update_conversation event:', payload?.id || payload?.conversation?.id || '');
+            // Pancake raw format: { conversation: { from_psid, page_id, unread_count, type, snippet } }
+            const conv = payload?.conversation || payload;
+            const unread = conv?.unread_count || payload?.unread_count || 0;
+            if (unread > 0) {
+                const normalized = {
+                    psid: String(conv?.from_psid || conv?.from?.id || conv?.customers?.[0]?.fb_id || payload?.from_psid || ''),
+                    pageId: String(conv?.page_id || payload?.page_id || ''),
+                    snippet: conv?.snippet || '',
+                    type: conv?.type || 'INBOX',
+                    unread_count: unread,
+                };
+                if (normalized.psid) onNewConversationEvent(normalized);
             }
         });
     }
