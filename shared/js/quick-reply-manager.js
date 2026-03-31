@@ -716,9 +716,52 @@ class QuickReplyManager {
 
             this._autocompleteInput = chatInput;
 
-            // Attach event listeners
+            // Attach input listener for autocomplete filtering
             chatInput.addEventListener('input', (e) => this.handleAutocompleteInput(e));
-            chatInput.addEventListener('keydown', (e) => this.handleAutocompleteKeydown(e));
+
+            // SINGLE keydown handler: replaces inline onkeydown to avoid race conditions.
+            // Handles BOTH autocomplete navigation AND Enter-to-send.
+            chatInput.onkeydown = (e) => {
+                // Autocomplete takes ABSOLUTE priority when active
+                if (this.autocompleteActive) {
+                    if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        this.selectedSuggestionIndex = Math.min(
+                            this.selectedSuggestionIndex + 1,
+                            this.currentSuggestions.length - 1
+                        );
+                        this.renderAutocomplete();
+                        return;
+                    }
+                    if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        this.selectedSuggestionIndex = Math.max(this.selectedSuggestionIndex - 1, 0);
+                        this.renderAutocomplete();
+                        return;
+                    }
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        e.stopImmediatePropagation();
+                        if (this.selectedSuggestionIndex >= 0) {
+                            const selected = this.currentSuggestions[this.selectedSuggestionIndex];
+                            if (selected) this.applyAutocompleteSuggestion(selected);
+                        }
+                        return; // NEVER fall through to sendMessage
+                    }
+                    if (e.key === 'Escape') {
+                        this.hideAutocomplete();
+                        return;
+                    }
+                    // Other keys: let them through (typing more chars)
+                    return;
+                }
+
+                // Normal mode: Enter sends message (Shift+Enter = newline)
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    window.sendMessage?.();
+                }
+            };
 
             console.log('[QUICK-REPLY] ✅ Autocomplete setup on #' + chatInput.id);
         }, 1000);
@@ -798,31 +841,8 @@ class QuickReplyManager {
         }
     }
 
-    handleAutocompleteKeydown(e) {
-        if (!this.autocompleteActive) return;
-
-        if (e.key === 'ArrowDown') {
-            e.preventDefault();
-            this.selectedSuggestionIndex = Math.min(
-                this.selectedSuggestionIndex + 1,
-                this.currentSuggestions.length - 1
-            );
-            this.renderAutocomplete();
-        } else if (e.key === 'ArrowUp') {
-            e.preventDefault();
-            this.selectedSuggestionIndex = Math.max(this.selectedSuggestionIndex - 1, 0);
-            this.renderAutocomplete();
-        } else if (e.key === 'Enter' && this.selectedSuggestionIndex >= 0) {
-            e.preventDefault();
-            e.stopImmediatePropagation(); // Prevent chat send handler from firing
-            const selected = this.currentSuggestions[this.selectedSuggestionIndex];
-            if (selected) {
-                this.applyAutocompleteSuggestion(selected);
-            }
-        } else if (e.key === 'Escape') {
-            this.hideAutocomplete();
-        }
-    }
+    // handleAutocompleteKeydown is now integrated into the single onkeydown handler
+    // in setupAutocomplete() to eliminate race conditions with the send handler.
 
     showAutocomplete(inputElement, query, slashIndex) {
         this.autocompleteActive = true;
