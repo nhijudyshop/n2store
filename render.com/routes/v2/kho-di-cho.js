@@ -214,6 +214,76 @@ router.post('/batch', async (req, res) => {
 });
 
 /**
+ * POST /api/v2/kho-di-cho/subtract
+ * Subtract quantities after doi-soat success
+ * - Match by product_code (case-insensitive, diacritics-removed)
+ * - Subtract quantity, delete row if reaches 0
+ */
+router.post('/subtract', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    await ensureTable(db);
+
+    const { items } = req.body;
+
+    if (!items || !Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ success: false, error: 'items array is required' });
+    }
+
+    const client = await db.connect();
+    try {
+        await client.query('BEGIN');
+
+        const results = { subtracted: 0, removed: 0, not_found: 0 };
+
+        for (const item of items) {
+            const { product_code, quantity } = item;
+            if (!product_code) continue;
+
+            const code = product_code.toUpperCase().trim();
+            const subQty = quantity || 1;
+
+            // Find by product_code (case-insensitive)
+            const existing = await client.query(
+                'SELECT id, quantity FROM kho_di_cho WHERE UPPER(product_code) = $1',
+                [code]
+            );
+
+            if (existing.rows.length === 0) {
+                results.not_found++;
+                continue;
+            }
+
+            const row = existing.rows[0];
+            const newQty = (row.quantity || 0) - subQty;
+
+            if (newQty <= 0) {
+                await client.query('DELETE FROM kho_di_cho WHERE id = $1', [row.id]);
+                results.removed++;
+            } else {
+                await client.query(
+                    'UPDATE kho_di_cho SET quantity = $1, updated_at = NOW() WHERE id = $2',
+                    [newQty, row.id]
+                );
+                results.subtracted++;
+            }
+        }
+
+        await client.query('COMMIT');
+
+        res.json({
+            success: true,
+            message: `Trừ kho: ${results.subtracted} cập nhật, ${results.removed} xóa, ${results.not_found} không tìm thấy`,
+            results
+        });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        handleError(res, error, 'Subtract failed');
+    } finally {
+        client.release();
+    }
+});
+
+/**
  * PATCH /api/v2/kho-di-cho/:id
  * Update a product (quantity, price, etc.)
  */

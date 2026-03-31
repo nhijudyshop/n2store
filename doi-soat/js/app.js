@@ -580,6 +580,27 @@
             if (result.Success) {
                 const orderNum = currentOrder.Number || currentOrder.MoveName || '';
                 const productList = contents;
+
+                // Trừ số lượng sản phẩm trong Kho Đi Chợ (non-blocking)
+                try {
+                    const subtractItems = currentOrder.OrderLines.map(line => ({
+                        product_code: extractBarcode(line) || '',
+                        quantity: Math.floor(line.ProductUOMQty || 1)
+                    })).filter(i => i.product_code);
+
+                    if (subtractItems.length > 0) {
+                        fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/v2/kho-di-cho/subtract', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ items: subtractItems })
+                        }).then(r => r.json()).then(res => {
+                            if (res.success) console.log('[KhoDiCho] Trừ kho:', res.message);
+                        }).catch(err => console.warn('[KhoDiCho] Trừ kho lỗi:', err));
+                    }
+                } catch (err) {
+                    console.warn('[KhoDiCho] Subtract error:', err);
+                }
+
                 goBack();
                 showSuccessBanner(orderNum, productList);
             } else {
