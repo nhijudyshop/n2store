@@ -1329,7 +1329,10 @@
         const assignedColor = PTAG_FLAG_COLOR_PALETTE[Math.floor(Math.random() * PTAG_FLAG_COLOR_PALETTE.length)];
         const defs = ProcessingTagState.getCustomFlagDefs();
         defs.push({ id: key, label: label.toUpperCase(), color: assignedColor, createdAt: Date.now() });
-        _ptagSetFlagColor(key, assignedColor);
+        // Save color to localStorage directly (avoid _ptagSetFlagColor which triggers duplicate saveCustomFlagDefinitions)
+        const _savedColors = JSON.parse(localStorage.getItem('ptag_flag_colors') || '{}');
+        _savedColors[key] = assignedColor;
+        localStorage.setItem('ptag_flag_colors', JSON.stringify(_savedColors));
         ProcessingTagState.setCustomFlagDefs(defs);
         // Save definitions FIRST to ensure label is persisted
         await saveCustomFlagDefinitions();

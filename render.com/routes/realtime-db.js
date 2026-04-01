@@ -1057,6 +1057,7 @@ router.put('/processing-tags/:campaignId/:orderId', async (req, res) => {
         const client = await pool.connect();
         try {
             await client.query('BEGIN');
+            await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [orderCode]);
             await client.query(
                 `DELETE FROM processing_tags WHERE order_code = $1 OR (campaign_id = $2 AND order_id = $3)`,
                 [orderCode, campaignId, orderId]
