@@ -261,36 +261,38 @@
 
                         <!-- QR Result (hidden by default) -->
                         <div class="qr-result" id="qrResult" style="display:none">
-                            <div class="qr-bank-info">
-                                <div class="qr-bank-row">
-                                    <span class="qr-label">Ng&acirc;n h&agrave;ng:</span>
-                                    <span class="qr-value" id="qrBankName">--</span>
+                            <div class="qr-content">
+                                <div class="qr-bank-info">
+                                    <div class="qr-bank-row">
+                                        <span class="qr-label">Ng&acirc;n h&agrave;ng:</span>
+                                        <span class="qr-value" id="qrBankName">--</span>
+                                    </div>
+                                    <div class="qr-bank-row">
+                                        <span class="qr-label">S&#7889; t&agrave;i kho&#7843;n:</span>
+                                        <span class="qr-value" id="qrAccountNumber">--</span>
+                                        <button class="btn btn-sm btn-outline btn-copy" data-copy="qrAccountNumber" title="Copy">
+                                            <i data-lucide="copy"></i>
+                                        </button>
+                                    </div>
+                                    <div class="qr-bank-row">
+                                        <span class="qr-label">Ch&#7911; t&agrave;i kho&#7843;n:</span>
+                                        <span class="qr-value" id="qrAccountName">--</span>
+                                    </div>
+                                    <div class="qr-bank-row">
+                                        <span class="qr-label">S&#7889; ti&#7873;n:</span>
+                                        <span class="qr-value qr-amount" id="qrAmount">--</span>
+                                    </div>
+                                    <div class="qr-bank-row">
+                                        <span class="qr-label">N&#7897;i dung CK:</span>
+                                        <span class="qr-value" id="qrTransferContent">--</span>
+                                        <button class="btn btn-sm btn-outline btn-copy" data-copy="qrTransferContent" title="Copy">
+                                            <i data-lucide="copy"></i>
+                                        </button>
+                                    </div>
                                 </div>
-                                <div class="qr-bank-row">
-                                    <span class="qr-label">S&#7889; t&agrave;i kho&#7843;n:</span>
-                                    <span class="qr-value" id="qrAccountNumber">--</span>
-                                    <button class="btn btn-sm btn-outline btn-copy" data-copy="qrAccountNumber" title="Copy">
-                                        <i data-lucide="copy"></i>
-                                    </button>
+                                <div class="qr-image-container">
+                                    <img id="qrImage" src="" alt="QR Code" />
                                 </div>
-                                <div class="qr-bank-row">
-                                    <span class="qr-label">Ch&#7911; t&agrave;i kho&#7843;n:</span>
-                                    <span class="qr-value" id="qrAccountName">--</span>
-                                </div>
-                                <div class="qr-bank-row">
-                                    <span class="qr-label">S&#7889; ti&#7873;n:</span>
-                                    <span class="qr-value qr-amount" id="qrAmount">--</span>
-                                </div>
-                                <div class="qr-bank-row">
-                                    <span class="qr-label">N&#7897;i dung CK:</span>
-                                    <span class="qr-value" id="qrTransferContent">--</span>
-                                    <button class="btn btn-sm btn-outline btn-copy" data-copy="qrTransferContent" title="Copy">
-                                        <i data-lucide="copy"></i>
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="qr-image-container">
-                                <img id="qrImage" src="" alt="QR Code" />
                             </div>
                             <div class="qr-note">
                                 <i data-lucide="info"></i>
