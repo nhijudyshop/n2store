@@ -2093,6 +2093,110 @@ function showSaveIndicator(type, message) {
 // ===============================================
 const _productDetailCache = new Map();
 
+// ---- Standalone stock fetch for product detail ----
+const _detailStockMap = new Map(); // ProductCode (uppercase) → { qty }
+let _detailStockLoading = false;
+let _detailStockPromise = null;
+
+async function _ensureDetailStockLoaded() {
+    if (_detailStockMap.size > 0) return;
+    if (_detailStockLoading) return _detailStockPromise;
+
+    _detailStockLoading = true;
+    _detailStockPromise = (async () => {
+        try {
+            const PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+            const headers = window.tokenManager
+                ? await window.tokenManager.getAuthHeader()
+                : {};
+
+            const response = await fetch(`${PROXY_URL}/api/Product/ExportProductV2?Active=true`, {
+                method: 'POST',
+                headers: {
+                    ...headers,
+                    'Content-Type': 'application/json',
+                    'feature-version': '2',
+                },
+                body: JSON.stringify({
+                    data: JSON.stringify({
+                        Filter: {
+                            logic: 'and',
+                            filters: [{ field: 'Active', operator: 'eq', value: true }],
+                        },
+                    }),
+                    ids: [],
+                }),
+            });
+
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+            const blob = await response.blob();
+            if (typeof XLSX === 'undefined') throw new Error('XLSX library not loaded');
+
+            const arrayBuffer = await blob.arrayBuffer();
+            const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
+            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+            if (jsonData.length === 0) return;
+
+            const columnNames = Object.keys(jsonData[0]);
+
+            // Find stock column
+            const stockCandidates = ['SL Tồn kho', 'Tồn kho', 'SL tồn kho', 'Số lượng tồn', 'Số lượng thực tế', 'SL thực tế', 'QtyAvailable', 'Qty Available', 'SL Tồn', 'Tồn', 'Stock'];
+            let stockCol = stockCandidates.find(c => columnNames.includes(c));
+            if (!stockCol) stockCol = columnNames.find(col => { const l = col.toLowerCase(); return l.includes('tồn') || l.includes('qty') || l.includes('stock'); });
+
+            // Find product code column
+            const codeCandidates = ['Mã sản phẩm', 'Mã SP', 'Mã', 'DefaultCode', 'Code', 'Mã sản phẩm (*)'];
+            let codeCol = codeCandidates.find(c => columnNames.includes(c));
+            if (!codeCol) codeCol = columnNames.find(col => { const l = col.toLowerCase(); return l.includes('mã') && !l.includes('nhóm'); });
+
+            if (!stockCol || !codeCol) return;
+
+            jsonData.forEach(row => {
+                const code = String(row[codeCol] || '').toUpperCase().trim();
+                if (!code) return;
+                _detailStockMap.set(code, { qty: parseFloat(row[stockCol]) || 0 });
+            });
+
+            console.log(`[PRODUCT-DETAIL] Stock loaded: ${_detailStockMap.size} products`);
+        } catch (err) {
+            console.warn('[PRODUCT-DETAIL] Stock fetch failed:', err.message);
+        } finally {
+            _detailStockLoading = false;
+            _detailStockPromise = null;
+        }
+    })();
+    return _detailStockPromise;
+}
+
+function _renderDetailStockHeader() {
+    return '<th style="padding: 6px 12px; text-align: center; width: 80px; font-weight: 600;">Tồn kho</th>';
+}
+
+function _renderDetailStockCell(detail) {
+    const rawCode = detail.ProductCode || detail.DefaultCode;
+    if (!rawCode) return '<td style="padding: 6px 12px; text-align: center; width: 80px; color: #9ca3af; border-bottom: 1px solid #e5e7eb;">-</td>';
+
+    const stock = _detailStockMap.get(rawCode.toUpperCase().trim());
+    const qty = stock ? stock.qty : 0;
+    const needed = detail.Quantity || 0;
+
+    let color, icon;
+    if (qty >= needed) {
+        color = '#10b981';
+        icon = '<i class="fas fa-check-circle" style="margin-right:3px;"></i>';
+    } else if (qty > 0) {
+        color = '#f59e0b';
+        icon = '<i class="fas fa-exclamation-triangle" style="margin-right:3px;"></i>';
+    } else {
+        color = '#ef4444';
+        icon = '<i class="fas fa-times-circle" style="margin-right:3px;"></i>';
+    }
+
+    return `<td style="padding: 6px 12px; text-align: center; width: 80px; color: ${color}; font-weight: 500; border-bottom: 1px solid #e5e7eb;">${icon}${qty}</td>`;
+}
+
 async function toggleProductDetail(orderId, sttCell) {
     const tr = sttCell.closest('tr');
     const existingDetailRow = tr.nextElementSibling;
@@ -2141,7 +2245,10 @@ async function toggleProductDetail(orderId, sttCell) {
             return;
         }
 
-        const _stockEngine = window.StockStatusEngine;
+        // Auto-load stock data (standalone fetch, không dùng chung StockStatusEngine)
+        await _ensureDetailStockLoaded();
+        const hasStock = _detailStockMap.size > 0;
+
         const escapeHtml = (str) => str ? str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') : '';
         const rows = details.map((p, i) => `
             <tr>
@@ -2155,7 +2262,7 @@ async function toggleProductDetail(orderId, sttCell) {
                 </td>
                 <td style="padding: 6px 12px; border-bottom: 1px solid #e5e7eb; text-align: center; width: 60px;">${p.Quantity || 0}</td>
                 <td style="padding: 6px 12px; border-bottom: 1px solid #e5e7eb; text-align: right; width: 100px;">${(p.Price || 0).toLocaleString('vi-VN')}</td>
-                ${_stockEngine?._checked ? _stockEngine.renderStockColumnCell(p) : ''}
+                ${hasStock ? _renderDetailStockCell(p) : ''}
             </tr>
         `).join('');
 
@@ -2167,7 +2274,7 @@ async function toggleProductDetail(orderId, sttCell) {
                             <th style="padding: 6px 12px; text-align: left; font-weight: 600;">Sản phẩm</th>
                             <th style="padding: 6px 12px; text-align: center; width: 60px; font-weight: 600;">Số lượng</th>
                             <th style="padding: 6px 12px; text-align: right; width: 100px; font-weight: 600;">Đơn giá</th>
-                            ${window.StockStatusEngine?._checked ? window.StockStatusEngine.renderStockColumnHeader() : ''}
+                            ${hasStock ? _renderDetailStockHeader() : ''}
                         </tr>
                     </thead>
                     <tbody>${rows}</tbody>
