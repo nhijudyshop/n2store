@@ -2389,7 +2389,49 @@ const SoquyUI = (function () {
                 </div>`;
         });
 
-        if (activePredefined.length === 0 && dynamic.length === 0) {
+        // Find orphaned categories: exist in vouchers but NOT in meta lists
+        const allKnownNames = new Set();
+        activePredefined.forEach(c => allKnownNames.add(String(c).toLowerCase()));
+        dynamic.forEach(c => allKnownNames.add(db.getCategoryName(c).toLowerCase()));
+
+        const orphanedCategories = new Map();
+        (state.vouchers || []).forEach(v => {
+            let vt = v.type;
+            if (vt === 'payment') vt = v.businessAccounting ? 'payment_kd' : 'payment_cn';
+            if (vt !== vType) return;
+            const cat = v.category || '';
+            if (cat && !allKnownNames.has(cat.toLowerCase()) && !orphanedCategories.has(cat)) {
+                const srcCode = (vType !== config.VOUCHER_TYPES.PAYMENT_CN) ? (v.sourceCode || v.source || '') : '';
+                orphanedCategories.set(cat, srcCode);
+            }
+        });
+
+        orphanedCategories.forEach((srcCode, catName) => {
+            const displayName = srcCode ? `${srcCode} ${catName}` : catName;
+            const sourceBadge = srcCode
+                ? `<span class="category-item-badge category-item-badge--source">${escapeHtml(srcCode)}</span>`
+                : '';
+            html += `
+                <div class="category-item" data-category="${escapeHtml(catName)}" data-source="orphaned">
+                    <label class="category-check-label">
+                        <input type="checkbox" class="category-item-checkbox" value="${escapeHtml(catName)}" data-source="orphaned">
+                        <span class="category-check-custom"></span>
+                    </label>
+                    <div class="category-item-info">
+                        <div class="category-item-name">${escapeHtml(displayName)}</div>
+                    </div>
+                    ${sourceBadge}
+                    <span class="category-item-badge category-item-badge--orphaned">Từ giao dịch</span>
+                    <button class="category-item-edit" data-category="${escapeHtml(catName)}" data-source="orphaned" title="Sửa tên">
+                        <i data-lucide="pencil"></i>
+                    </button>
+                    <button class="category-item-delete" data-category="${escapeHtml(catName)}" data-source="orphaned" title="Xóa">
+                        <i data-lucide="trash-2"></i>
+                    </button>
+                </div>`;
+        });
+
+        if (activePredefined.length === 0 && dynamic.length === 0 && orphanedCategories.size === 0) {
             html = `
                 <div class="category-list-empty">
                     <i data-lucide="inbox"></i>

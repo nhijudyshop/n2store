@@ -1037,31 +1037,32 @@ const SoquyDatabase = (function () {
         const docId = getCategoryDocId(voucherType);
 
         try {
-            // 1. Update category in soquy_meta
+            // 1. Update category in soquy_meta (if it exists there)
             const docRef = config.soquyMetaRef.doc(docId);
             const doc = await docRef.get();
-            if (!doc.exists) return;
+            let metaUpdated = false;
 
-            let items = doc.data().items || [];
-            let updated = false;
+            if (doc.exists) {
+                let items = doc.data().items || [];
 
-            items = items.map(item => {
-                const name = getCategoryName(item);
-                if (name.toLowerCase() === oldName.toLowerCase()) {
-                    updated = true;
-                    if (typeof item === 'object' && item !== null) {
-                        return { ...item, name: newName };
+                items = items.map(item => {
+                    const name = getCategoryName(item);
+                    if (name.toLowerCase() === oldName.toLowerCase()) {
+                        metaUpdated = true;
+                        if (typeof item === 'object' && item !== null) {
+                            return { ...item, name: newName };
+                        }
+                        return newName;
                     }
-                    return newName;
+                    return item;
+                });
+
+                if (metaUpdated) {
+                    await docRef.set({ items, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
                 }
-                return item;
-            });
+            }
 
-            if (!updated) return;
-
-            await docRef.set({ items, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
-
-            // 2. Update all vouchers with the old category name
+            // 2. Update all vouchers with the old category name in Firestore
             const vouchersSnap = await config.soquyCollectionRef
                 .where('category', '==', oldName)
                 .get();
@@ -1080,20 +1081,51 @@ const SoquyDatabase = (function () {
                 console.log(`[SoquyDB] Updated ${batchCount} vouchers: category "${oldName}" → "${newName}"`);
             }
 
-            // 3. Update local state - dynamic list
-            const dynamicList = getCategoryDynamicList(voucherType);
-            dynamicList.forEach((item, idx) => {
-                const name = getCategoryName(item);
-                if (name.toLowerCase() === oldName.toLowerCase()) {
-                    if (typeof item === 'object' && item !== null) {
-                        dynamicList[idx] = { ...item, name: newName };
+            // 3. If oldName was orphaned (not in meta), auto-add newName to meta
+            if (!metaUpdated) {
+                const freshDoc = await docRef.get();
+                let items = freshDoc.exists ? (freshDoc.data().items || []) : [];
+                const alreadyExists = items.some(item =>
+                    getCategoryName(item).toLowerCase() === newName.toLowerCase()
+                );
+                if (!alreadyExists) {
+                    if (isSourceLinkedType(voucherType)) {
+                        const srcCode = (state.vouchers || []).find(v => v.category === oldName)?.sourceCode || '';
+                        items.push({ name: newName, sourceCode: srcCode });
                     } else {
-                        dynamicList[idx] = newName;
+                        items.push(newName);
+                    }
+                    await docRef.set({ items, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+                }
+            }
+
+            // 4. Update local state - dynamic list
+            const dynamicList = getCategoryDynamicList(voucherType);
+            if (metaUpdated) {
+                dynamicList.forEach((item, idx) => {
+                    const name = getCategoryName(item);
+                    if (name.toLowerCase() === oldName.toLowerCase()) {
+                        if (typeof item === 'object' && item !== null) {
+                            dynamicList[idx] = { ...item, name: newName };
+                        } else {
+                            dynamicList[idx] = newName;
+                        }
+                    }
+                });
+            } else {
+                // Orphaned: add newName to local dynamic list if not already there
+                const alreadyLocal = dynamicList.some(c => getCategoryName(c).toLowerCase() === newName.toLowerCase());
+                if (!alreadyLocal) {
+                    if (isSourceLinkedType(voucherType)) {
+                        const srcCode = (state.vouchers || []).find(v => v.category === oldName)?.sourceCode || '';
+                        dynamicList.push({ name: newName, sourceCode: srcCode });
+                    } else {
+                        dynamicList.push(newName);
                     }
                 }
-            });
+            }
 
-            // 4. Update local state - loaded vouchers
+            // 5. Update local state - loaded vouchers
             if (state.vouchers) {
                 state.vouchers.forEach(v => {
                     if (v.category === oldName) {
