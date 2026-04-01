@@ -70,7 +70,7 @@ async function clearFirestoreCache() {
                 req.onblocked = resolve;
             })
         ));
-        console.log('[Firestore] Cleared corrupted IndexedDB cache');
+        // Cache cleared successfully
     } catch (e) {
         console.warn('[Firestore] Could not clear cache:', e);
     }
@@ -110,7 +110,7 @@ export function initializeFirebaseApp() {
 
         if (!firebase.apps.length) {
             firebase.initializeApp(FIREBASE_CONFIG);
-            console.log('[Firebase] App initialized');
+            // App initialized
         }
 
         _isFirebaseInitialized = true;
@@ -157,7 +157,7 @@ export function initializeFirestore(options = {}) {
             try {
                 _firestoreDB.enablePersistence({ synchronizeTabs })
                     .then(() => {
-                        console.log('[Firestore] Offline persistence enabled');
+                        // Offline persistence enabled
                     })
                     .catch((err) => {
                         if (err.code === 'failed-precondition') {
@@ -175,7 +175,7 @@ export function initializeFirestore(options = {}) {
         }
 
         _isFirestoreInitialized = true;
-        console.log('[Firestore] Initialized successfully');
+        // Firestore initialized
 
         // Set global for legacy compatibility
         if (typeof window !== 'undefined') {
@@ -209,7 +209,7 @@ export function initializeRealtimeDB() {
     try {
         _realtimeDB = firebase.database();
         _isRealtimeDBInitialized = true;
-        console.log('[RealtimeDB] Initialized successfully');
+        // RealtimeDB initialized
 
         return _realtimeDB;
     } catch (error) {
