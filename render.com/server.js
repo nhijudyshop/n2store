@@ -217,6 +217,7 @@ const adminRenderRoutes = require('./routes/admin-render');
 const invoiceStatusRoutes = require('./routes/invoice-status');
 const socialOrdersRoutes = require('./routes/social-orders');
 const attendanceRoutes = require('./routes/attendance');
+const admsRoutes = require('./routes/adms');
 const usersRoutes = require('./routes/users');
 const quickRepliesRoutes = require('./routes/quick-replies');
 
@@ -265,6 +266,8 @@ app.use('/api/admin/render', adminRenderRoutes);
 app.use('/api/invoice-status', invoiceStatusRoutes);
 app.use('/api/social-orders', socialOrdersRoutes);
 app.use('/api/attendance', attendanceRoutes);
+// ADMS: ZKTeco machine pushes attendance data directly (no PC needed)
+app.use('/iclock', (req, res, next) => { req.pool = chatDbPool; next(); }, admsRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/quick-replies', quickRepliesRoutes);
 
