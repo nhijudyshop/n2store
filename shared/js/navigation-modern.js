@@ -316,7 +316,6 @@ function selectiveLogoutStorage() {
         sessionStorage.removeItem(key);
     });
 
-    console.log('[Navigation] Selective logout completed - module data preserved');
 }
 
 // localStorage key for custom menu names (cache)
@@ -363,8 +362,6 @@ function isCacheValid() {
         const isValid = (now - cacheTime) < CACHE_EXPIRY_MS;
 
         if (isValid) {
-            const remainingHours = Math.round((CACHE_EXPIRY_MS - (now - cacheTime)) / (60 * 60 * 1000));
-            console.log(`[Menu Names] Cache valid, expires in ~${remainingHours}h`);
         }
 
         return isValid;
@@ -381,11 +378,9 @@ async function loadCustomMenuNamesFromFirebase() {
         const hasCache = localStorage.getItem(CUSTOM_MENU_NAMES_KEY);
 
         if (hasCache && isCacheValid()) {
-            console.log('[Menu Names] Using cached data (not expired)');
             return getCustomMenuNames();
         }
 
-        console.log('[Menu Names] Cache expired or missing, fetching from API...');
         const authData = JSON.parse(localStorage.getItem('loginindex_auth') || '{}');
         const token = authData.token;
 
@@ -398,11 +393,9 @@ async function loadCustomMenuNamesFromFirebase() {
             cachedMenuNames = data.value?.names || data.value || {};
             localStorage.setItem(CUSTOM_MENU_NAMES_KEY, JSON.stringify(cachedMenuNames));
             localStorage.setItem(CUSTOM_MENU_NAMES_TIMESTAMP_KEY, Date.now().toString());
-            console.log('[Menu Names] Loaded from API:', Object.keys(cachedMenuNames).length, 'custom names');
         } else if (resp.status === 404) {
             cachedMenuNames = {};
             localStorage.setItem(CUSTOM_MENU_NAMES_TIMESTAMP_KEY, Date.now().toString());
-            console.log('[Menu Names] No custom names saved yet');
         } else {
             console.warn('[Menu Names] API error:', resp.status);
             return getCustomMenuNames();
@@ -442,7 +435,6 @@ async function saveCustomMenuNames(customNames) {
         });
 
         if (resp.ok) {
-            console.log('[Menu Names] Saved to API successfully');
         } else {
             console.warn('[Menu Names] API save failed:', resp.status);
         }
@@ -531,13 +523,10 @@ const MenuLayoutStore = {
      * Initialize the store - load from API or localStorage
      */
     async init() {
-        console.log('[MenuLayout] Initializing...');
-
         // Try to load from localStorage cache first
         const cachedLayout = this._loadFromLocalStorage();
         if (cachedLayout && this._isCacheValid()) {
             this._layout = cachedLayout;
-            console.log('[MenuLayout] Loaded from cache');
         }
 
         // Load from API (async)
@@ -606,10 +595,8 @@ const MenuLayoutStore = {
                 // Check if value has actual layout data (groups array)
                 this._layout = (val && val.groups && val.groups.length > 0) ? val : this.getDefaultLayout();
                 this._saveToLocalStorage();
-                console.log('[MenuLayout] Loaded from API:', this._layout.groups?.length, 'groups');
             } else if (resp.status === 404) {
                 this._layout = this.getDefaultLayout();
-                console.log('[MenuLayout] No saved layout, using default');
             } else {
                 console.warn('[MenuLayout] API error:', resp.status);
                 if (!this._layout) {
@@ -652,8 +639,6 @@ const MenuLayoutStore = {
                     if (newTime > currentTime) {
                         this._layout = newLayout;
                         this._saveToLocalStorage();
-                        console.log('[MenuLayout] Updated from API - groups:', newLayout.groups?.length);
-
                         if (window.navigationManager && !this._isEditing) {
                             window.navigationManager.renderNavigation();
                         }
@@ -664,7 +649,6 @@ const MenuLayoutStore = {
             }
         }, 5 * 60 * 1000); // Poll every 5 minutes
 
-        console.log('[MenuLayout] Polling setup successfully (5 min interval)');
     },
 
     /**
@@ -758,7 +742,6 @@ const MenuLayoutStore = {
             .map(item => item.pageIdentifier);
 
         if (newItems.length > 0) {
-            console.log('[MenuLayout] Found new menu items:', newItems);
             return {
                 ...layout,
                 ungroupedItems: [...(layout.ungroupedItems || []), ...newItems]
@@ -808,8 +791,6 @@ const MenuLayoutStore = {
         this._layout = layoutCopy;
         this._saveToLocalStorage();
 
-        console.log('[MenuLayout] Layout updated locally - groups:', layoutCopy.groups?.length);
-
         // Debounce API save
         clearTimeout(this._saveTimeout);
         this._saveTimeout = setTimeout(async () => {
@@ -834,7 +815,6 @@ const MenuLayoutStore = {
                 });
 
                 if (resp.ok) {
-                    console.log('[MenuLayout] Saved to API successfully');
                 } else {
                     console.warn('[MenuLayout] API save failed:', resp.status);
                 }
@@ -898,7 +878,6 @@ function mergeAdminPermissions(existingPerms) {
     Object.keys(defaultPerms).forEach(pageId => {
         if (!merged[pageId]) {
             merged[pageId] = defaultPerms[pageId];
-            console.log(`[Admin Merge] Added missing permission for: ${pageId}`);
         }
     });
 
@@ -918,15 +897,10 @@ class UnifiedNavigationManager {
     }
 
     async init() {
-        console.log("[Unified Nav] Starting initialization...");
-
         // Check authentication - use window.authManager explicitly
         const auth = window.authManager;
         const authData = auth ? auth.getAuthData() : null;
-        console.log("[Unified Nav] Auth check - authManager exists:", !!auth, "| authData:", authData);
-
         if (!auth || !auth.isAuthenticated()) {
-            console.log("[Unified Nav] User not authenticated, redirecting...");
             selectiveLogoutStorage();
             sessionStorage.clear();
             window.location.href = "../index.html";
@@ -942,23 +916,12 @@ class UnifiedNavigationManager {
             // Check isAdmin flag, roleTemplate, and legacy userType
             const userType = localStorage.getItem("userType") || "";
             this.isAdminTemplate = authData.isAdmin === true || authData.roleTemplate === 'admin' || userType.startsWith("admin");
-            console.log("[Unified Nav] isAdmin:", this.isAdminTemplate, "| roleTemplate:", authData.roleTemplate);
-
             // Load permissions
             await this.loadUserPermissions();
-            console.log(
-                "[Unified Nav] Permissions loaded:",
-                this.userPermissions,
-            );
-
             // Get current page
             this.currentPage = this.getCurrentPageIdentifier();
-            console.log("[Unified Nav] Current page:", this.currentPage);
-
             // Check page access
             const hasAccess = this.checkPageAccess();
-            console.log("[Unified Nav] Has access to page:", hasAccess);
-
             if (!hasAccess) {
                 this.showAccessDenied();
                 return;
@@ -983,7 +946,6 @@ class UnifiedNavigationManager {
             // Handle resize
             window.addEventListener("resize", () => this.handleResize());
 
-            console.log("[Unified Nav] Initialization complete!");
         } catch (error) {
             console.error("[Unified Nav] Initialization error:", error);
         }
@@ -991,10 +953,6 @@ class UnifiedNavigationManager {
 
     detectDevice() {
         this.isMobile = window.innerWidth <= 768;
-        console.log(
-            "[Unified Nav] Device type:",
-            this.isMobile ? "Mobile" : "Desktop",
-        );
     }
 
     handleResize() {
@@ -1003,7 +961,6 @@ class UnifiedNavigationManager {
 
         // Rebuild UI if device type changed
         if (wasMobile !== this.isMobile) {
-            console.log("[Unified Nav] Device type changed, rebuilding UI...");
             this.renderNavigation();
             this.setupEventListeners();
             if (typeof lucide !== "undefined") {
@@ -1053,10 +1010,6 @@ class UnifiedNavigationManager {
                     const storage = localStorage.getItem("loginindex_auth") ? localStorage : sessionStorage;
                     storage.setItem("loginindex_auth", JSON.stringify(userAuth));
 
-                    console.log(
-                        "[Permission Load] Admin bypass: granted all",
-                        Object.keys(merged).length, "pages"
-                    );
                     return;
                 }
 
@@ -1065,10 +1018,6 @@ class UnifiedNavigationManager {
                     this.userDetailedPermissions = userAuth.detailedPermissions;
                     // Derive userPermissions from detailedPermissions for menu display
                     this.userPermissions = this._getAccessiblePagesFromDetailed(userAuth.detailedPermissions);
-                    console.log(
-                        "[Permission Load] Loaded detailedPermissions:",
-                        Object.keys(this.userDetailedPermissions).length, "pages configured"
-                    );
                     return;
                 }
             }
@@ -1126,7 +1075,6 @@ class UnifiedNavigationManager {
                         authData.isAdmin = true;
                         localStorage.setItem("loginindex_auth", JSON.stringify(authData));
 
-                        console.log("[Permission Load] Admin bypass from Firebase: granted all", Object.keys(merged).length, "pages");
                         return;
                     }
 
@@ -1143,10 +1091,6 @@ class UnifiedNavigationManager {
                             JSON.stringify(authData),
                         );
 
-                        console.log(
-                            "[Permission Load] Loaded detailedPermissions from Firebase:",
-                            Object.keys(this.userDetailedPermissions).length, "pages"
-                        );
                         return;
                     }
                 } else {
@@ -1164,9 +1108,6 @@ class UnifiedNavigationManager {
 
         this.userPermissions = [];
         this.userDetailedPermissions = null;
-        console.log(
-            "[Permission Load] No permissions loaded, defaulting to empty",
-        );
     }
 
     /**
@@ -1216,7 +1157,6 @@ class UnifiedNavigationManager {
 
     getCurrentPageIdentifier() {
         const path = window.location.pathname;
-        console.log("[Unified Nav] Current path:", path);
 
         const normalizedPath = path.toLowerCase().replace(/\/$/, "");
 
@@ -1235,27 +1175,21 @@ class UnifiedNavigationManager {
 
             for (const pattern of patterns) {
                 if (pattern.test(path)) {
-                    console.log(
-                        `[Unified Nav] Matched page: ${item.pageIdentifier} using pattern: ${pattern}`,
-                    );
                     return item.pageIdentifier;
                 }
             }
         }
 
-        console.log("[Unified Nav] No page identifier matched");
         return null;
     }
 
     checkPageAccess() {
         if (!this.currentPage) {
-            console.log("[Permission Check] No current page, allowing access");
             return true;
         }
 
         // Admin bypass - grant access to all pages
         if (this.isAdminTemplate) {
-            console.log("[Permission Check] Admin bypass, allowing access");
             return true;
         }
 
@@ -1264,14 +1198,10 @@ class UnifiedNavigationManager {
         );
 
         if (!pageInfo) {
-            console.log(
-                "[Permission Check] Page not in MENU_CONFIG, allowing access",
-            );
             return true;
         }
 
         if (pageInfo.publicAccess) {
-            console.log("[Permission Check] Public page, allowing access");
             return true;
         }
 
@@ -1279,14 +1209,6 @@ class UnifiedNavigationManager {
         const hasPermission = this.userPermissions.includes(
             pageInfo.permissionRequired,
         );
-
-        console.log("[Permission Check] Details:", {
-            currentPage: this.currentPage,
-            requiredPermission: pageInfo.permissionRequired,
-            userPermissions: this.userPermissions,
-            roleTemplate: this.isAdminTemplate ? 'admin' : 'other',
-            hasAccess: hasPermission,
-        });
 
         return hasPermission;
     }
@@ -1296,8 +1218,6 @@ class UnifiedNavigationManager {
     // =====================================================
 
     renderNavigation() {
-        console.log("[Unified Nav] Rendering navigation...");
-
         if (this.isMobile) {
             this.renderMobileNavigation();
         } else {
@@ -1310,14 +1230,11 @@ class UnifiedNavigationManager {
     // =====================================================
 
     renderMobileNavigation() {
-        console.log("[Unified Nav] Rendering mobile UI...");
-
         this.injectMobileStyles();
 
         const sidebar = document.getElementById("sidebar");
         if (sidebar) {
             sidebar.style.display = "none";
-            console.log("[Unified Nav] Desktop sidebar hidden");
         }
 
         const existingTopBar = document.querySelector(".mobile-top-bar");
@@ -1333,19 +1250,14 @@ class UnifiedNavigationManager {
             mainContent.style.paddingTop = "60px";
             mainContent.style.paddingBottom = "70px";
             mainContent.style.position = "relative";
-            console.log("[Unified Nav] Main content padding adjusted");
         }
 
         document.body.style.paddingTop = "60px";
         document.body.style.paddingBottom = "65px";
 
         const bottomNavCheck = document.querySelector(".mobile-bottom-nav");
-        if (bottomNavCheck) {
-            console.log("[Unified Nav] ✅ Mobile bottom nav exists in DOM");
-        } else {
-            console.error(
-                "[Unified Nav] ❌ Mobile bottom nav NOT found in DOM!",
-            );
+        if (!bottomNavCheck) {
+            console.error("[Unified Nav] Mobile bottom nav NOT found in DOM!");
         }
     }
 
@@ -1427,18 +1339,7 @@ class UnifiedNavigationManager {
 
         const accessiblePages = this.getAccessiblePages();
 
-        console.log(
-            "[Mobile Nav] Total accessible pages:",
-            accessiblePages.length,
-        );
-        console.log("[Mobile Nav] Current page identifier:", this.currentPage);
-
         const bottomNavPages = accessiblePages.slice(0, 5);
-
-        console.log(
-            "[Mobile Nav] Bottom nav pages:",
-            bottomNavPages.map((p) => p.pageIdentifier),
-        );
 
         bottomNavPages.forEach((item) => {
             const navItem = document.createElement("a");
@@ -1447,7 +1348,6 @@ class UnifiedNavigationManager {
 
             if (item.pageIdentifier === this.currentPage) {
                 navItem.classList.add("active");
-                console.log("[Mobile Nav] Active page:", item.pageIdentifier);
             }
 
             navItem.innerHTML = `
@@ -1473,12 +1373,6 @@ class UnifiedNavigationManager {
         }
 
         document.body.appendChild(bottomNav);
-
-        console.log(
-            "[Mobile Nav] Bottom nav created with",
-            bottomNav.children.length,
-            "items",
-        );
 
         if (typeof lucide !== "undefined") {
             lucide.createIcons();
@@ -1733,8 +1627,6 @@ class UnifiedNavigationManager {
     // =====================================================
 
     renderDesktopNavigation() {
-        console.log("[Unified Nav] Rendering desktop UI...");
-
         // Auto-create sidebar + main-content wrapper if page doesn't have them
         this.ensureDesktopStructure();
 
@@ -1766,8 +1658,6 @@ class UnifiedNavigationManager {
      */
     ensureDesktopStructure() {
         if (document.getElementById("sidebar")) return; // Already has sidebar
-
-        console.log("[Unified Nav] Sidebar not found, auto-creating...");
 
         // Inject sidebar CSS (with hardcoded fallbacks for pages without modern.css)
         this.injectSidebarStyles();
@@ -1831,7 +1721,6 @@ class UnifiedNavigationManager {
             document.body.insertBefore(sidebar, document.body.firstChild);
         }
 
-        console.log("[Unified Nav] Sidebar auto-created successfully");
     }
 
     /**
@@ -2043,7 +1932,6 @@ class UnifiedNavigationManager {
 
         select.addEventListener('change', (e) => {
             window.ShopConfig.setShop(e.target.value);
-            console.log('[ShopSelector] Switched to:', e.target.value);
             // Reload page to re-init TokenManager with new company
             // Pages that handle shop change in-place (e.g. purchase-orders)
             // should set window._shopChangeNoReload = true before this fires
@@ -2111,8 +1999,6 @@ class UnifiedNavigationManager {
     }
 
     renderDesktopSidebar() {
-        console.log("[Unified Nav] Rendering desktop sidebar...");
-
         const sidebarNav = document.querySelector(".sidebar-nav");
         if (!sidebarNav) {
             console.error("[Unified Nav] Sidebar nav element not found!");
@@ -2156,15 +2042,10 @@ class UnifiedNavigationManager {
 
         sidebarNav.appendChild(groupsContainer);
 
-        console.log(
-            `[Unified Nav] Rendered ${renderedCount} desktop menu items in ${filteredLayout.groups.length} groups`,
-        );
-
         this.addSettingsToNavigation(sidebarNav);
 
         if (typeof lucide !== "undefined") {
             lucide.createIcons();
-            console.log("[Unified Nav] Lucide icons initialized");
         }
 
         // Setup event listeners
@@ -2487,7 +2368,6 @@ class UnifiedNavigationManager {
             document.head.insertBefore(style, document.head.firstChild);
         }
 
-        console.log("[Unified Nav] Settings button added");
     }
 
     // =====================================================
@@ -3077,7 +2957,6 @@ class UnifiedNavigationManager {
         this.createFixedToggleButton();
         this.restoreSidebarState();
 
-        console.log("[Unified Nav] Sidebar toggle initialized");
     }
 
     toggleSidebar() {
@@ -3107,7 +2986,6 @@ class UnifiedNavigationManager {
             }
         }
 
-        console.log("[Unified Nav] Sidebar hidden");
     }
 
     showSidebar() {
@@ -3126,7 +3004,6 @@ class UnifiedNavigationManager {
             }
         }
 
-        console.log("[Unified Nav] Sidebar shown");
     }
 
     createFixedToggleButton() {
@@ -3150,7 +3027,6 @@ class UnifiedNavigationManager {
             lucide.createIcons();
         }
 
-        console.log("[Unified Nav] Fixed toggle button created");
     }
 
     /**
@@ -3498,7 +3374,6 @@ class UnifiedNavigationManager {
                     }
                 }
 
-                console.log("[Unified Nav] Sidebar state restored: collapsed");
             }
         }
     }
@@ -3563,7 +3438,6 @@ class UnifiedNavigationManager {
             userRole.textContent = roleMap[checkLogin] || "User";
         }
 
-        console.log("[Unified Nav] User info updated");
     }
 
     setupEventListeners() {
@@ -3617,7 +3491,6 @@ class UnifiedNavigationManager {
             });
         }
 
-        console.log("[Unified Nav] Event listeners setup complete");
     }
 
     getAccessiblePages() {
@@ -3630,11 +3503,6 @@ class UnifiedNavigationManager {
             return this.userPermissions.includes(item.permissionRequired);
         });
 
-        console.log(
-            "[Get Accessible] Found",
-            accessible.length,
-            "accessible pages",
-        );
         return accessible;
     }
 
@@ -4123,7 +3991,6 @@ class UnifiedNavigationManager {
                     lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
                 });
 
-                console.log("[Edit DisplayName] Updated Firebase successfully");
             } else {
                 this.showToast("Không thể kết nối Firebase!", "error");
                 return false;
@@ -4137,13 +4004,11 @@ class UnifiedNavigationManager {
             // Update localStorage if exists
             if (localStorage.getItem("loginindex_auth")) {
                 localStorage.setItem("loginindex_auth", authDataString);
-                console.log("[Edit DisplayName] Updated localStorage");
             }
 
             // Update sessionStorage if exists
             if (sessionStorage.getItem("loginindex_auth")) {
                 sessionStorage.setItem("loginindex_auth", authDataString);
-                console.log("[Edit DisplayName] Updated sessionStorage");
             }
 
             return true;
@@ -4170,7 +4035,6 @@ class UnifiedNavigationManager {
             userName.textContent = userInfo.displayName || "User";
         }
 
-        console.log("[Unified Nav] User info refreshed");
     }
 
     // =====================================================
@@ -4184,7 +4048,6 @@ class UnifiedNavigationManager {
         const savedTheme = localStorage.getItem("appTheme") || "light";
         this.applyTheme(savedTheme);
 
-        console.log("[Unified Nav] Settings loaded");
     }
 
     applyFontSize(size) {
@@ -4194,7 +4057,6 @@ class UnifiedNavigationManager {
             `${limitedSize}px`,
         );
         document.body.style.fontSize = `${limitedSize}px`;
-        console.log(`[Unified Nav] Font size applied: ${limitedSize}px`);
     }
 
     saveFontSize(size) {
@@ -4208,7 +4070,6 @@ class UnifiedNavigationManager {
         } else {
             document.documentElement.classList.remove("dark-mode");
         }
-        console.log(`[Unified Nav] Theme applied: ${theme}`);
     }
 
     saveTheme(theme) {
@@ -4583,7 +4444,6 @@ class UnifiedNavigationManager {
                     statusEl.textContent = `OK! Account ${creds.username} switched to Company ${targetCompanyId}. Token saved.`;
                     statusEl.style.color = '#22c55e';
                 }
-                console.log(`[Settings] SwitchCompany: ${creds.username} → Company ${targetCompanyId} OK`);
             } catch (err) {
                 console.error('[Settings] SwitchCompany error:', err);
                 if (statusEl) {
@@ -4708,7 +4568,6 @@ class UnifiedNavigationManager {
                                 defaultPrefix: newDefaultPrefix,
                                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                             });
-                        console.log('[Settings] Prefix rules saved:', validRules.length, 'rules');
                     }
 
                     // Clear ProductCodeGenerator cache
@@ -5963,7 +5822,6 @@ function waitForDependencies(callback, maxRetries = 15, delay = 300) {
     const resolve = () => {
         if (resolved) return;
         resolved = true;
-        console.log("[Unified Nav] Dependencies ready!");
         callback();
     };
 
@@ -5983,12 +5841,6 @@ function waitForDependencies(callback, maxRetries = 15, delay = 300) {
         } else if (retries < maxRetries) {
             retries++;
             // Debug: show what's available on first retry
-            if (retries === 1) {
-                console.log('[Unified Nav] Debug - _esmLoaded:', window._esmLoaded);
-                console.log('[Unified Nav] Debug - _authReady:', window._authReady);
-                console.log('[Unified Nav] Debug - window.authManager:', typeof window.authManager);
-            }
-            console.log(`[Unified Nav] Waiting... (${retries}/${maxRetries})`);
             setTimeout(check, delay);
         } else {
             console.error("[Unified Nav] Dependencies failed, redirecting...");
@@ -6005,7 +5857,6 @@ function waitForDependencies(callback, maxRetries = 15, delay = 300) {
 let unifiedNavigationManager;
 
 document.addEventListener("DOMContentLoaded", () => {
-    console.log("[Unified Nav] DOM loaded...");
     waitForDependencies(() => {
         unifiedNavigationManager = new UnifiedNavigationManager();
         window.navigationManager = unifiedNavigationManager;
@@ -6047,7 +5898,6 @@ class VersionChecker {
         if (this.unsubscribeListener) {
             this.unsubscribeListener();
             this.unsubscribeListener = null;
-            console.log('[VERSION] Firestore listener cleaned up');
         }
     }
 
@@ -6082,7 +5932,6 @@ class VersionChecker {
             // Check for Firestore instead of Realtime Database
             if (window.firebase && window.firebase.firestore && typeof window.firebase.firestore === 'function') {
                 this.firebaseRef = window.firebase.firestore().collection('app_config').doc('version');
-                console.log('[VERSION] ✅ Firestore reference initialized');
                 return;
             }
 
@@ -6104,18 +5953,14 @@ class VersionChecker {
         this.isChecking = true;
 
         try {
-            console.log('[VERSION] Checking version...');
-            console.log('[VERSION] Local version:', this.localVersion);
 
             // Get version from Firestore
             const doc = await this.firebaseRef.get();
             const firebaseVersion = doc.exists ? doc.data() : null;
 
-            console.log('[VERSION] Firestore version:', firebaseVersion);
 
             // If Firestore has no version, publish local version
             if (!firebaseVersion) {
-                console.log('[VERSION] No version in Firestore, publishing local version...');
                 await this.publishVersion();
                 this.isChecking = false;
                 return;
@@ -6135,7 +5980,6 @@ class VersionChecker {
                 // Force logout and reload
                 this.forceLogout();
             } else {
-                console.log('[VERSION] ✅ Version OK (build', this.localVersion.build, 'at', this.localVersion.timestamp + ')');
             }
 
         } catch (error) {
@@ -6155,7 +5999,6 @@ class VersionChecker {
 
         try {
             await this.firebaseRef.set(this.localVersion);
-            console.log('[VERSION] ✅ Version published to Firestore:', this.localVersion);
         } catch (error) {
             console.error('[VERSION] Error publishing version:', error);
         }
@@ -6200,7 +6043,6 @@ class VersionChecker {
             }
         });
 
-        console.log('[VERSION] ✅ Version listener setup complete (Firestore)');
     }
 
     /**
@@ -6208,7 +6050,6 @@ class VersionChecker {
      * CHANGED: Now only shows notification, user must manually reload
      */
     forceLogout() {
-        console.log('[VERSION] ⚠️ Version mismatch detected, showing notification...');
 
         // Show notification for user to manually reload
         if (window.notificationManager) {
@@ -6225,14 +6066,12 @@ class VersionChecker {
 
         // DO NOT auto-logout - let user decide when to reload
         // This prevents unexpected logouts
-        console.log('[VERSION] User should manually reload to update');
     }
 
     /**
      * Manual version publish (call this when you want to force all users to logout)
      */
     async forceVersionUpdate() {
-        console.log('[VERSION] 📢 Force version update triggered');
         await this.publishVersion();
     }
 }
@@ -6243,7 +6082,6 @@ setTimeout(() => {
         const versionChecker = new VersionChecker();
         window.versionChecker = versionChecker;
         versionChecker.init();
-        console.log('[VERSION] Version Checker initialized');
 
         // Cleanup on page unload to prevent memory leaks
         window.addEventListener('beforeunload', () => {
@@ -6259,7 +6097,6 @@ setTimeout(() => {
 (function loadAIChatWidget() {
     // Check if already loaded
     if (window.AIChatWidget) {
-        console.log('[AI Widget] Already loaded');
         return;
     }
 
@@ -6283,5 +6120,4 @@ setTimeout(() => {
     script.onerror = () => console.warn('[AI Widget] Failed to load widget script');
     document.head.appendChild(script);
 
-    console.log('[AI Widget] Loading from:', basePath + 'ai-chat-widget.js');
 })();
