@@ -108,21 +108,12 @@ window.openChatModal = async function(orderId, pageId, psid, conversationType) {
     const phoneEl = document.getElementById('chatPhoneNumber');
     if (phoneEl) phoneEl.textContent = window.currentChatPhone || '';
 
-    // Load debt badge
-    const debtBadge = document.getElementById('chatDebtBadge');
-    if (debtBadge && window.currentChatPhone) {
-        debtBadge.style.display = 'inline-flex';
-        debtBadge.onclick = function(e) {
-            e.stopPropagation();
-            if (typeof window.openWalletDebtModal === 'function') {
-                window.openWalletDebtModal(window.currentChatPhone);
-            }
-        };
-        if (typeof window.loadChatDebt === 'function') {
-            window.loadChatDebt(window.currentChatPhone);
-        }
-    } else if (debtBadge) {
-        debtBadge.style.display = 'none';
+    // Render debt badges using the same function as the customer column
+    const debtContainer = document.getElementById('chatDebtBadgesContainer');
+    if (debtContainer) {
+        debtContainer.innerHTML = typeof renderWalletDebtBadges === 'function'
+            ? renderWalletDebtBadges(window.currentChatPhone)
+            : '';
     }
 
     // Update header avatar (same approach as inbox: extract direct avatar from conv data)

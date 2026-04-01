@@ -114,30 +114,6 @@
     letter-spacing: 0.3px;
 }
 
-.chat-debt-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 11px;
-    font-weight: 600;
-    padding: 2px 8px;
-    border-radius: 10px;
-    background: rgba(255, 255, 255, 0.18);
-    color: #4ade80;
-    cursor: pointer;
-    transition: all 0.15s;
-    white-space: nowrap;
-}
-
-.chat-debt-badge:hover {
-    background: rgba(255, 255, 255, 0.28);
-    transform: scale(1.05);
-}
-
-.chat-debt-badge i {
-    font-size: 10px;
-}
-
 .chat-badges {
     display: flex;
     gap: 4px;
