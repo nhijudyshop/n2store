@@ -761,10 +761,12 @@ function generateTemplatePermissions(templateId) {
 
         switch (templateId) {
             case "manager":
-                // Manager có hầu hết quyền, trừ delete user và restore history
+                // Manager có hầu hết quyền, trừ delete user, restore history, và view_all_transactions (sổ quỹ)
                 pagePermissions.push(pageId);
                 Object.keys(page.detailedPermissions).forEach(subKey => {
                     if (pageId === "user-management" && subKey === "delete") {
+                        detailedPermissions[pageId][subKey] = false;
+                    } else if (subKey === "view_all_transactions") {
                         detailedPermissions[pageId][subKey] = false;
                     } else {
                         detailedPermissions[pageId][subKey] = true;
@@ -841,26 +843,36 @@ function generateTemplatePermissions(templateId) {
 
             case "staff":
                 // Staff chỉ có quyền view và edit ở các trang không phải admin
+                // Loại trừ view_all_transactions (chỉ admin mới coi toàn bộ giao dịch sổ quỹ)
                 if (!page.adminOnly) {
                     pagePermissions.push(pageId);
                     Object.keys(page.detailedPermissions).forEach(subKey => {
-                        detailedPermissions[pageId][subKey] =
-                            subKey === "view" ||
-                            subKey === "edit" ||
-                            subKey === "update" ||
-                            subKey.startsWith("view");
+                        if (subKey === "view_all_transactions") {
+                            detailedPermissions[pageId][subKey] = false;
+                        } else {
+                            detailedPermissions[pageId][subKey] =
+                                subKey === "view" ||
+                                subKey === "edit" ||
+                                subKey === "update" ||
+                                subKey.startsWith("view");
+                        }
                     });
                 }
                 break;
 
             case "viewer":
                 // Viewer chỉ có quyền view ở các trang không phải admin
+                // Loại trừ view_all_transactions (chỉ admin mới coi toàn bộ giao dịch sổ quỹ)
                 if (!page.adminOnly) {
                     pagePermissions.push(pageId);
                     Object.keys(page.detailedPermissions).forEach(subKey => {
-                        detailedPermissions[pageId][subKey] =
-                            subKey === "view" ||
-                            subKey.startsWith("view");
+                        if (subKey === "view_all_transactions") {
+                            detailedPermissions[pageId][subKey] = false;
+                        } else {
+                            detailedPermissions[pageId][subKey] =
+                                subKey === "view" ||
+                                subKey.startsWith("view");
+                        }
                     });
                 }
                 break;
