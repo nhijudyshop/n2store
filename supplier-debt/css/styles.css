@@ -535,6 +535,27 @@
     opacity: 1;
 }
 
+/* Sortable column headers */
+.data-table th.sortable-header {
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.15s;
+}
+
+.data-table th.sortable-header:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.data-table th.sortable-header .sort-icon {
+    font-size: 11px;
+    opacity: 0.9;
+}
+
+.data-table th.sorted-asc,
+.data-table th.sorted-desc {
+    background: rgba(255, 255, 255, 0.1);
+}
+
 .data-table tbody tr {
     border-bottom: 1px solid #e2e8f0;
 }

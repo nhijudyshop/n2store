@@ -96,7 +96,7 @@
                     </div>
 
                     <div class="filter-actions">
-                        <button class="btn btn-primary" id="btnSearch" style="display: none;">
+                        <button class="btn btn-primary" id="btnSearch">
                             <i data-lucide="search"></i> Tìm kiếm
                         </button>
                         <button class="btn btn-success" id="btnExport" style="display: none;">
@@ -158,21 +158,24 @@
                                     <i data-lucide="filter" style="width: 12px; height: 12px;"></i>
                                 </button>
                             </th>
-                            <th class="col-number" data-col="debit">
+                            <th class="col-number sortable-header" data-col="debit" data-sort-field="Debit" onclick="toggleColumnSort('Debit')">
                                 Phát sinh
-                                <button class="filter-btn" data-column="debit">
+                                <span class="sort-icon" id="sort-icon-Debit"></span>
+                                <button class="filter-btn" data-column="debit" onclick="event.stopPropagation()">
                                     <i data-lucide="filter" style="width: 12px; height: 12px;"></i>
                                 </button>
                             </th>
-                            <th class="col-number" data-col="credit">
+                            <th class="col-number sortable-header" data-col="credit" data-sort-field="Credit" onclick="toggleColumnSort('Credit')">
                                 Thanh toán
-                                <button class="filter-btn" data-column="credit">
+                                <span class="sort-icon" id="sort-icon-Credit"></span>
+                                <button class="filter-btn" data-column="credit" onclick="event.stopPropagation()">
                                     <i data-lucide="filter" style="width: 12px; height: 12px;"></i>
                                 </button>
                             </th>
-                            <th class="col-number" data-col="end">
+                            <th class="col-number sortable-header" data-col="end" data-sort-field="End" onclick="toggleColumnSort('End')">
                                 Nợ cuối kỳ
-                                <button class="filter-btn" data-column="end">
+                                <span class="sort-icon" id="sort-icon-End"></span>
+                                <button class="filter-btn" data-column="end" onclick="event.stopPropagation()">
                                     <i data-lucide="filter" style="width: 12px; height: 12px;"></i>
                                 </button>
                             </th>

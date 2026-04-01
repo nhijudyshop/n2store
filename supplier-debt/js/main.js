@@ -364,6 +364,9 @@ const State = {
     dateTo: null,
     display: 'all',
     selectedSupplier: '',
+    // Sort state for columns
+    sortField: null,   // 'Debit', 'Credit', 'End' or null
+    sortOrder: null,    // 'asc', 'desc' or null
     // Expanded row state
     expandedRows: new Map(), // partnerId -> { congNo, info, invoices, debtDetails, activeTab, ... }
     // Column visibility state
@@ -584,13 +587,11 @@ function initDateInputs() {
     DOM.dateFromDisplay.value = formatDate(firstDay);
     DOM.dateToDisplay.value = formatDate(lastDay);
 
-    // Sync display input with hidden datetime-local input
+    // Sync display input with state (no auto-fetch, user clicks Search)
     DOM.dateFromDisplay.addEventListener('change', function() {
         const parsed = parseVietnameseDate(this.value);
         if (parsed) {
             State.dateFrom = parsed;
-            State.currentPage = 1;
-            fetchData();
         }
     });
 
@@ -599,19 +600,15 @@ function initDateInputs() {
         if (parsed) {
             State.dateTo = parsed;
             State.dateTo.setHours(23, 59, 59, 999);
-            State.currentPage = 1;
-            fetchData();
         }
     });
 
-    // Handle hidden input clicks
+    // Handle hidden input (calendar picker) changes
     DOM.dateFrom.addEventListener('change', function() {
         if (this.value) {
             const date = new Date(this.value);
             State.dateFrom = date;
             DOM.dateFromDisplay.value = formatDate(date);
-            State.currentPage = 1;
-            fetchData();
         }
     });
 
@@ -621,8 +618,6 @@ function initDateInputs() {
             date.setHours(23, 59, 59, 999);
             State.dateTo = date;
             DOM.dateToDisplay.value = formatDate(date);
-            State.currentPage = 1;
-            fetchData();
         }
     });
 
@@ -754,10 +749,66 @@ function applySupplierFilter() {
     } else {
         State.filteredData = [...State.data];
     }
-    // Sort by Code A->Z with numeric sorting (B1, B2, B3... B10, MM...)
-    State.filteredData.sort((a, b) =>
-        (a.Code || '').localeCompare(b.Code || '', 'vi', { numeric: true })
-    );
+
+    // Apply column sort if set, otherwise default sort by Code
+    if (State.sortField && State.sortOrder) {
+        const field = State.sortField;
+        const asc = State.sortOrder === 'asc';
+        State.filteredData.sort((a, b) => {
+            const valA = a[field] || 0;
+            const valB = b[field] || 0;
+            return asc ? valA - valB : valB - valA;
+        });
+    } else {
+        // Default: Sort by Code A->Z with numeric sorting (B1, B2, B3... B10, MM...)
+        State.filteredData.sort((a, b) =>
+            (a.Code || '').localeCompare(b.Code || '', 'vi', { numeric: true })
+        );
+    }
+}
+
+// =====================================================
+// COLUMN SORTING
+// =====================================================
+
+function toggleColumnSort(field) {
+    if (State.sortField === field) {
+        // Cycle: asc -> desc -> none
+        if (State.sortOrder === 'asc') {
+            State.sortOrder = 'desc';
+        } else {
+            State.sortField = null;
+            State.sortOrder = null;
+        }
+    } else {
+        State.sortField = field;
+        State.sortOrder = 'asc';
+    }
+
+    updateSortIcons();
+    applySupplierFilter();
+    renderTable();
+    calculateTotals();
+}
+
+function updateSortIcons() {
+    // Clear all sort icons
+    ['Debit', 'Credit', 'End'].forEach(f => {
+        const icon = document.getElementById(`sort-icon-${f}`);
+        if (icon) {
+            icon.textContent = '';
+            icon.closest('th')?.classList.remove('sorted-asc', 'sorted-desc');
+        }
+    });
+
+    // Set active sort icon
+    if (State.sortField && State.sortOrder) {
+        const icon = document.getElementById(`sort-icon-${State.sortField}`);
+        if (icon) {
+            icon.textContent = State.sortOrder === 'asc' ? ' ▲' : ' ▼';
+            icon.closest('th')?.classList.add(State.sortOrder === 'asc' ? 'sorted-asc' : 'sorted-desc');
+        }
+    }
 }
 
 // =====================================================
