@@ -2186,9 +2186,13 @@ function renderActionButtons(ticket) {
     }
 
     // Icon buttons for Edit/Cancel
-    // Check delete permission to show/hide cancel button
+    // Cancel only allowed when NO action has been performed yet:
+    // - Status must be PENDING_GOODS (chưa nhận hàng, chưa thanh toán)
+    // - RETURN_SHIPPER: chưa cấp công nợ ảo
     const canCancel = window.authManager?.hasDetailedPermission('issue-tracking', 'delete');
-    const cancelButton = (canCancel && ticket.status !== 'CANCELLED')
+    const hasVirtualCredit = !!(ticket.virtualCreditId || ticket.virtual_credit_id);
+    const isUntouched = ticket.status === 'PENDING_GOODS' && !(ticket.type === 'RETURN_SHIPPER' && hasVirtualCredit);
+    const cancelButton = (canCancel && isUntouched)
         ? `<button onclick="cancelTicket('${id}')" title="Hủy phiếu" style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px;opacity:0.6;transition:opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6">🚫</button>`
         : '';
 
@@ -2383,8 +2387,7 @@ window.editTicket = function (firebaseId) {
 
 /**
  * Cancel ticket (requires 'delete' permission)
- * Sets status to CANCELLED instead of deleting
- * For RETURN_SHIPPER: Cancels unused virtual credit
+ * Only allowed when NO action has been performed (PENDING_GOODS, no credit issued)
  */
 window.cancelTicket = async function (firebaseId) {
     // Check permission first
@@ -2404,41 +2407,20 @@ window.cancelTicket = async function (firebaseId) {
     const displayCode = ticket.ticketCode || `#${firebaseId.slice(-4)}`;
 
     // =====================================================
-    // RETURN_SHIPPER: Check if virtual credit can be cancelled
+    // Frontend guard: Only allow cancel on untouched tickets
     // =====================================================
-    if (ticket.type === 'RETURN_SHIPPER') {
-        try {
-            const checkData = await ApiService.canDeleteTicket(ticketIdentifier);
-
-            if (!checkData.canDelete) {
-                notificationManager.error(
-                    checkData.reason || 'Không thể hủy: Công nợ ảo đã được sử dụng',
-                    6000,
-                    'Không thể hủy'
-                );
-                return;
-            }
-
-            // Show warning if virtual credit will be cancelled
-            if (checkData.virtualCreditId) {
-                const confirmWithCredit = confirm(
-                    `Xác nhận HỦY phiếu ${displayCode} - ${ticket.orderId}?\n\n` +
-                    `⚠️ Lưu ý: Công nợ ảo ${(parseFloat(ticket.money) || 0).toLocaleString()}đ sẽ bị HỦY!`
-                );
-                if (!confirmWithCredit) return;
-            } else {
-                const confirmed = confirm(`Xác nhận HỦY phiếu ${displayCode} - ${ticket.orderId}?`);
-                if (!confirmed) return;
-            }
-        } catch (checkError) {
-            console.error('[CANCEL] Can-delete check failed:', checkError);
-            const confirmed = confirm(`Xác nhận HỦY phiếu ${displayCode} - ${ticket.orderId}?`);
-            if (!confirmed) return;
-        }
-    } else {
-        const confirmed = confirm(`Xác nhận HỦY phiếu ${displayCode} - ${ticket.orderId}?`);
-        if (!confirmed) return;
+    const hasVirtualCredit = !!(ticket.virtualCreditId || ticket.virtual_credit_id);
+    if (ticket.status !== 'PENDING_GOODS') {
+        notificationManager.error('Không thể hủy: Phiếu đã được xử lý. Chỉ có thể hủy phiếu chưa thực hiện thao tác nào.', 6000, 'Không thể hủy');
+        return;
     }
+    if (ticket.type === 'RETURN_SHIPPER' && hasVirtualCredit) {
+        notificationManager.error('Không thể hủy: Đã cấp công nợ ảo cho phiếu này.', 6000, 'Không thể hủy');
+        return;
+    }
+
+    const confirmed = confirm(`Xác nhận HỦY phiếu ${displayCode} - ${ticket.orderId}?`);
+    if (!confirmed) return;
 
     showLoading(true);
     try {
@@ -2459,22 +2441,14 @@ window.cancelTicket = async function (firebaseId) {
                     },
                     newData: { status: 'CANCELLED' },
                     entityId: ticket.ticketCode || firebaseId,
-                    entityType: 'ticket',
-                    metadata: ticket.type === 'RETURN_SHIPPER' ? {
-                        virtualCreditCancelled: true,
-                        virtualCreditAmount: parseFloat(ticket.money) || 0
-                    } : undefined
+                    entityType: 'ticket'
                 });
             }
         } catch (e) { console.warn('[AuditLog] cancel log failed:', e); }
         notificationManager.success('Đã hủy phiếu thành công!', 3000, 'Hủy phiếu');
     } catch (error) {
         console.error('Cancel ticket failed:', error);
-        if (error.message?.includes('Công nợ ảo đã được sử dụng')) {
-            notificationManager.error(error.message, 6000, 'Không thể hủy');
-        } else {
-            notificationManager.error('Lỗi khi hủy phiếu: ' + error.message, 5000, 'Lỗi');
-        }
+        notificationManager.error(error.message || 'Lỗi khi hủy phiếu', 6000, 'Không thể hủy');
     } finally {
         showLoading(false);
     }

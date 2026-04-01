@@ -525,7 +525,8 @@ router.post('/:id/resolve', async (req, res) => {
 
 /**
  * GET /api/v2/tickets/:id/can-delete
- * Check if ticket can be deleted (virtual credit not used)
+ * Check if ticket can be cancelled/deleted
+ * Only allowed when no action has been performed (PENDING_GOODS, no credit issued)
  */
 router.get('/:id/can-delete', async (req, res) => {
     const db = req.app.locals.chatDb;
@@ -544,48 +545,31 @@ router.get('/:id/can-delete', async (req, res) => {
 
         const ticket = findResult.rows[0];
 
-        // Check if ticket is RETURN_SHIPPER with virtual credit
-        if (ticket.type === 'RETURN_SHIPPER') {
-            // Check for linked virtual credit
-            const creditResult = await db.query(`
-                SELECT id, original_amount, remaining_amount, used_in_orders, status
-                FROM virtual_credits
-                WHERE source_id IN ($1, $2) AND source_type = 'RETURN_SHIPPER' AND status = 'ACTIVE'
-                LIMIT 1
-            `, [ticket.ticket_code, ticket.order_id]);
-
-            if (creditResult.rows.length > 0) {
-                const vc = creditResult.rows[0];
-                const usedOrders = vc.used_in_orders || [];
-                const originalAmount = parseFloat(vc.original_amount);
-                const remainingAmount = parseFloat(vc.remaining_amount);
-
-                // Check if virtual credit has been used
-                if (usedOrders.length > 0 || remainingAmount < originalAmount) {
-                    return res.json({
-                        success: true,
-                        canDelete: false,
-                        reason: `Công nợ ảo đã được sử dụng (đã dùng: ${(originalAmount - remainingAmount).toLocaleString()}đ, còn lại: ${remainingAmount.toLocaleString()}đ)`,
-                        virtualCredit: {
-                            id: vc.id,
-                            originalAmount: originalAmount,
-                            remainingAmount: remainingAmount,
-                            usedOrdersCount: usedOrders.length
-                        }
-                    });
-                }
-
-                // Virtual credit exists but not used - can delete
-                return res.json({
-                    success: true,
-                    canDelete: true,
-                    virtualCreditId: vc.id,
-                    message: 'Công nợ ảo chưa sử dụng sẽ được hủy khi xóa ticket'
-                });
-            }
+        // Block if not PENDING_GOODS (actions already performed)
+        if (ticket.status !== 'PENDING_GOODS') {
+            const statusLabels = {
+                'PENDING_FINANCE': 'đã nhận hàng (chờ đối soát)',
+                'COMPLETED': 'đã hoàn tất',
+                'CANCELLED': 'đã hủy',
+                'DELETED': 'đã xóa'
+            };
+            return res.json({
+                success: true,
+                canDelete: false,
+                reason: `Phiếu ${statusLabels[ticket.status] || ticket.status}. Chỉ có thể hủy phiếu chưa thực hiện thao tác nào.`
+            });
         }
 
-        // No virtual credit linked - can delete
+        // RETURN_SHIPPER: Block if virtual credit already issued
+        if (ticket.type === 'RETURN_SHIPPER' && ticket.virtual_credit_id) {
+            return res.json({
+                success: true,
+                canDelete: false,
+                reason: 'Đã cấp công nợ ảo cho phiếu này. Không thể hủy.'
+            });
+        }
+
+        // Untouched ticket - can cancel
         res.json({ success: true, canDelete: true });
     } catch (error) {
         handleError(res, error, 'Failed to check delete permission');
@@ -595,7 +579,7 @@ router.get('/:id/can-delete', async (req, res) => {
 /**
  * POST /api/v2/tickets/:id/cancel
  * Cancel ticket (set status to CANCELLED)
- * For RETURN_SHIPPER: Also cancels unused virtual credit
+ * Only allowed when NO action has been performed (PENDING_GOODS, no credit issued)
  */
 router.post('/:id/cancel', async (req, res) => {
     const db = req.app.locals.chatDb;
@@ -620,7 +604,36 @@ router.post('/:id/cancel', async (req, res) => {
         const ticket = findResult.rows[0];
 
         // =====================================================
-        // RETURN_SHIPPER: Check and cancel unused virtual credit
+        // BLOCK cancel if any action has been performed
+        // Only allow cancel on PENDING_GOODS with no operations done
+        // =====================================================
+        if (ticket.status !== 'PENDING_GOODS') {
+            await db.query('ROLLBACK');
+            const statusLabels = {
+                'PENDING_FINANCE': 'đã nhận hàng (chờ đối soát)',
+                'COMPLETED': 'đã hoàn tất',
+                'PENDING': 'đang chờ xử lý'
+            };
+            const label = statusLabels[ticket.status] || ticket.status;
+            return res.status(400).json({
+                success: false,
+                error: 'CANNOT_CANCEL_PROCESSED',
+                message: `Không thể hủy: Phiếu ${label}. Chỉ có thể hủy phiếu chưa thực hiện thao tác nào.`
+            });
+        }
+
+        // RETURN_SHIPPER: Block if virtual credit already issued
+        if (ticket.type === 'RETURN_SHIPPER' && ticket.virtual_credit_id) {
+            await db.query('ROLLBACK');
+            return res.status(400).json({
+                success: false,
+                error: 'CANNOT_CANCEL_CREDIT_ISSUED',
+                message: 'Không thể hủy: Đã cấp công nợ ảo cho phiếu này.'
+            });
+        }
+
+        // =====================================================
+        // RETURN_SHIPPER: Check virtual credit edge case (source_id lookup)
         // =====================================================
         let virtualCreditCancelled = false;
         if (ticket.type === 'RETURN_SHIPPER') {
