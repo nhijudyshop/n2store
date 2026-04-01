@@ -3809,7 +3809,7 @@
                 const subTag = h.value?.split(':')[1];
                 if (subTag && PTAG_SUBTAGS[subTag]) label = PTAG_SUBTAGS[subTag].label;
                 else if (PTAG_CATEGORY_META[cat]) label = PTAG_CATEGORY_META[cat].short;
-                else label = h.value || 'tag';
+                else label = 'Xóa phân loại';
             } else if (h.action === 'AUTO_HOAN_TAT') {
                 label = 'ĐÃ RA ĐƠN (auto)';
             } else if (h.action === 'AUTO_ROLLBACK') {
