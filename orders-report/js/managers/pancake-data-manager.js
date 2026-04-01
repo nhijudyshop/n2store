@@ -4,8 +4,6 @@
    Uses shared pancakeTokenManager for JWT + page_access_token
    ===================================================== */
 
-console.log('[PDM] Loading...');
-
 // =====================================================
 // CONFIG & URL BUILDERS
 // =====================================================
@@ -131,13 +129,11 @@ class PancakeDataManager {
     // --- Initialize (called from tab1-init.js) ---
     async initialize() {
         try {
-            console.log('[PDM] Initializing...');
             if (!this.tm) {
                 console.warn('[PDM] pancakeTokenManager not available');
                 return false;
             }
             await this.fetchPages();
-            console.log('[PDM] Initialized, pages:', this.pages.length);
             return true;
         } catch (e) {
             console.error('[PDM] Init error:', e);
@@ -168,7 +164,6 @@ class PancakeDataManager {
                 if (this.tm?.extractPageTokensFromPages) {
                     this.tm.extractPageTokensFromPages(this.pages);
                 }
-                console.log(`[PDM] Fetched ${this.pages.length} pages`);
                 return this.pages;
             }
             return [];
@@ -773,4 +768,3 @@ window.PancakeRequestQueue = PancakeRequestQueue;
 // Backwards compatibility
 window.chatDataManager = window.pancakeDataManager;
 
-console.log('[PDM] Loaded.');
