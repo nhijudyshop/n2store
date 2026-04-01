@@ -2380,6 +2380,9 @@ const SoquyUI = (function () {
                     </div>
                     ${sourceBadge}
                     <span class="category-item-badge category-item-badge--dynamic">Tùy chỉnh</span>
+                    <button class="category-item-edit" data-category="${escapeHtml(catName)}" data-source="dynamic" title="Sửa tên">
+                        <i data-lucide="pencil"></i>
+                    </button>
                     <button class="category-item-delete" data-category="${escapeHtml(catName)}" data-source="dynamic" title="Xóa">
                         <i data-lucide="trash-2"></i>
                     </button>
@@ -2415,9 +2418,160 @@ const SoquyUI = (function () {
             });
         });
 
+        // Bind edit buttons for dynamic categories
+        listContainer.querySelectorAll('.category-item-edit').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const catName = btn.dataset.category;
+                if (!catName) return;
+                startInlineCategoryEdit(btn.closest('.category-item'), catName);
+            });
+        });
+
         // Bind checkbox change events
         listContainer.querySelectorAll('.category-item-checkbox').forEach(cb => {
             cb.addEventListener('change', updateDeleteSelectedButton);
+        });
+    }
+
+    /**
+     * Start inline editing for a category item
+     */
+    function startInlineCategoryEdit(itemEl, oldName) {
+        if (!itemEl) return;
+        const infoEl = itemEl.querySelector('.category-item-info');
+        const nameEl = itemEl.querySelector('.category-item-name');
+        if (!infoEl || !nameEl) return;
+
+        // Hide other elements
+        itemEl.querySelectorAll('.category-item-badge, .category-item-edit, .category-item-delete, .category-check-label').forEach(el => {
+            el.style.display = 'none';
+        });
+
+        // Replace name with input
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'category-item-edit-input';
+        input.value = oldName;
+        nameEl.style.display = 'none';
+        infoEl.appendChild(input);
+
+        // Add save/cancel buttons
+        const actions = document.createElement('div');
+        actions.className = 'category-item-edit-actions';
+        actions.innerHTML = `
+            <button class="category-item-edit-save" title="Lưu"><i data-lucide="check"></i></button>
+            <button class="category-item-edit-cancel" title="Hủy"><i data-lucide="x"></i></button>
+        `;
+        itemEl.appendChild(actions);
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+
+        input.focus();
+        input.select();
+
+        const vType = categoryTabToVoucherType(_categoryModalTab);
+
+        const saveEdit = async () => {
+            const newName = input.value.trim();
+            if (!newName || newName === oldName) {
+                renderCategoryList();
+                return;
+            }
+            try {
+                await db.renameDynamicCategory(oldName, newName, vType);
+                showNotification(`Đã đổi tên "${oldName}" → "${newName}"`, 'success');
+                renderCategoryList();
+                populateCategoryDropdowns();
+            } catch (error) {
+                console.error('[SoquyUI] Error renaming category:', error);
+                showNotification('Lỗi khi đổi tên danh mục', 'error');
+                renderCategoryList();
+            }
+        };
+
+        const cancelEdit = () => renderCategoryList();
+
+        actions.querySelector('.category-item-edit-save').addEventListener('click', (e) => {
+            e.stopPropagation();
+            saveEdit();
+        });
+        actions.querySelector('.category-item-edit-cancel').addEventListener('click', (e) => {
+            e.stopPropagation();
+            cancelEdit();
+        });
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); saveEdit(); }
+            if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
+        });
+    }
+
+    /**
+     * Start inline editing for a source item
+     */
+    function startInlineSourceEdit(itemEl, code, oldName) {
+        if (!itemEl) return;
+        const infoEl = itemEl.querySelector('.category-item-info');
+        const nameEl = itemEl.querySelector('.category-item-name');
+        if (!infoEl || !nameEl) return;
+
+        // Hide other elements
+        itemEl.querySelectorAll('.category-item-badge, .category-item-edit, .category-item-delete, .category-check-label, .source-default-btn').forEach(el => {
+            el.style.display = 'none';
+        });
+
+        // Replace name with input (only edit the name part, keep code visible)
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'category-item-edit-input';
+        input.value = oldName;
+        nameEl.innerHTML = `<strong>${escapeHtml(code)}</strong> - `;
+        infoEl.appendChild(input);
+
+        // Add save/cancel buttons
+        const actions = document.createElement('div');
+        actions.className = 'category-item-edit-actions';
+        actions.innerHTML = `
+            <button class="category-item-edit-save" title="Lưu"><i data-lucide="check"></i></button>
+            <button class="category-item-edit-cancel" title="Hủy"><i data-lucide="x"></i></button>
+        `;
+        itemEl.appendChild(actions);
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+
+        input.focus();
+        input.select();
+
+        const saveEdit = async () => {
+            const newName = input.value.trim();
+            if (!newName || newName === oldName) {
+                renderSourcesInCategoryModal();
+                return;
+            }
+            try {
+                await db.renameSource(code, newName);
+                showNotification(`Đã đổi tên nguồn ${code}: "${oldName}" → "${newName}"`, 'success');
+                populateCategorySourceDropdown();
+                populateCategoryDropdowns();
+                renderSourcesInCategoryModal();
+            } catch (error) {
+                console.error('[SoquyUI] Error renaming source:', error);
+                showNotification('Lỗi khi đổi tên nguồn', 'error');
+                renderSourcesInCategoryModal();
+            }
+        };
+
+        const cancelEdit = () => renderSourcesInCategoryModal();
+
+        actions.querySelector('.category-item-edit-save').addEventListener('click', (e) => {
+            e.stopPropagation();
+            saveEdit();
+        });
+        actions.querySelector('.category-item-edit-cancel').addEventListener('click', (e) => {
+            e.stopPropagation();
+            cancelEdit();
+        });
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); saveEdit(); }
+            if (e.key === 'Escape') { e.preventDefault(); cancelEdit(); }
         });
     }
 
@@ -2618,6 +2772,9 @@ const SoquyUI = (function () {
                         <i data-lucide="${isDefault ? 'star' : 'star'}"></i>
                         ${isDefault ? 'Mặc định' : 'Mặc định'}
                     </button>
+                    <button class="category-item-edit source-edit-btn" data-source-code="${escapeHtml(code)}" data-source-name="${escapeHtml(name)}" title="Sửa tên">
+                        <i data-lucide="pencil"></i>
+                    </button>
                     <button class="category-item-delete" data-source-code="${escapeHtml(code)}" title="Xóa">
                         <i data-lucide="trash-2"></i>
                     </button>
@@ -2660,6 +2817,17 @@ const SoquyUI = (function () {
                     console.error('[SoquyUI] Error setting default source:', error);
                     showNotification('Lỗi khi đặt nguồn mặc định', 'error');
                 }
+            });
+        });
+
+        // Bind source edit buttons
+        listContainer.querySelectorAll('.source-edit-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const code = btn.dataset.sourceCode;
+                const name = btn.dataset.sourceName;
+                if (!code) return;
+                startInlineSourceEdit(btn.closest('.category-item'), code, name);
             });
         });
 

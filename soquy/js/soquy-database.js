@@ -1027,6 +1027,114 @@ const SoquyDatabase = (function () {
     }
 
     /**
+     * Rename a dynamic category
+     */
+    async function renameDynamicCategory(oldName, newName, voucherType) {
+        oldName = String(oldName || '').trim();
+        newName = String(newName || '').trim();
+        if (!oldName || !newName || oldName === newName) return;
+
+        const docId = getCategoryDocId(voucherType);
+
+        try {
+            const docRef = config.soquyMetaRef.doc(docId);
+            const doc = await docRef.get();
+            if (!doc.exists) return;
+
+            let items = doc.data().items || [];
+            let updated = false;
+
+            items = items.map(item => {
+                const name = getCategoryName(item);
+                if (name.toLowerCase() === oldName.toLowerCase()) {
+                    updated = true;
+                    if (typeof item === 'object' && item !== null) {
+                        return { ...item, name: newName };
+                    }
+                    return newName;
+                }
+                return item;
+            });
+
+            if (!updated) return;
+
+            await docRef.set({ items, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+
+            // Update local state
+            const dynamicList = getCategoryDynamicList(voucherType);
+            dynamicList.forEach((item, idx) => {
+                const name = getCategoryName(item);
+                if (name.toLowerCase() === oldName.toLowerCase()) {
+                    if (typeof item === 'object' && item !== null) {
+                        dynamicList[idx] = { ...item, name: newName };
+                    } else {
+                        dynamicList[idx] = newName;
+                    }
+                }
+            });
+
+            console.log('[SoquyDB] Renamed category:', oldName, '→', newName);
+
+            if (window.SoquyEditHistory) {
+                SoquyEditHistory.logEditHistory('category_rename', {
+                    extra: { oldName, newName, voucherType },
+                    description: `Đổi tên danh mục "${oldName}" → "${newName}"`
+                });
+            }
+        } catch (error) {
+            console.error('[SoquyDB] Error renaming category:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Rename a source (update name, keep code)
+     */
+    async function renameSource(code, newName) {
+        code = String(code || '').trim();
+        newName = String(newName || '').trim();
+        if (!code || !newName) return;
+
+        try {
+            const docRef = config.soquyMetaRef.doc('sources');
+            const doc = await docRef.get();
+            if (!doc.exists) return;
+
+            let items = doc.data().items || [];
+            items = items.map(s => typeof s === 'string' ? { code: s, name: s } : s);
+
+            let updated = false;
+            items = items.map(s => {
+                if (s.code === code) {
+                    updated = true;
+                    return { ...s, name: newName };
+                }
+                return s;
+            });
+
+            if (!updated) return;
+
+            await docRef.set({ items, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+
+            // Update local state
+            const src = state.dynamicSources.find(s => s.code === code);
+            if (src) src.name = newName;
+
+            console.log('[SoquyDB] Renamed source:', code, '→', newName);
+
+            if (window.SoquyEditHistory) {
+                SoquyEditHistory.logEditHistory('source_rename', {
+                    extra: { sourceCode: code, newName },
+                    description: `Đổi tên nguồn ${code} → "${newName}"`
+                });
+            }
+        } catch (error) {
+            console.error('[SoquyDB] Error renaming source:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Auto-add a creator if not already known
      */
     async function autoAddCreator(creatorName) {
@@ -1309,6 +1417,8 @@ const SoquyDatabase = (function () {
         deleteDynamicCategories,
         removePredefinedCategory,
         removePredefinedCategories,
+        renameDynamicCategory,
+        renameSource,
         autoAddCreator,
         addSource,
         deleteDynamicSources,

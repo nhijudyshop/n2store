@@ -2230,6 +2230,97 @@
     fill: #f59e0b;
 }
 
+.category-item-edit {
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: transparent;
+    color: #94a3b8;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+}
+
+.category-item-edit:hover {
+    background: #eff6ff;
+    color: #2563eb;
+}
+
+.category-item-edit i,
+.category-item-edit svg {
+    width: 14px;
+    height: 14px;
+}
+
+.category-item-edit-input {
+    flex: 1;
+    min-width: 0;
+    padding: 4px 8px;
+    border: 1px solid #3b82f6;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #1e293b;
+    outline: none;
+    background: #fff;
+}
+
+.category-item-edit-input:focus {
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.category-item-edit-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.category-item-edit-save,
+.category-item-edit-cancel {
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s ease;
+    flex-shrink: 0;
+}
+
+.category-item-edit-save {
+    background: #ecfdf5;
+    color: #16a34a;
+}
+
+.category-item-edit-save:hover {
+    background: #dcfce7;
+    color: #15803d;
+}
+
+.category-item-edit-cancel {
+    background: #f1f5f9;
+    color: #64748b;
+}
+
+.category-item-edit-cancel:hover {
+    background: #e2e8f0;
+    color: #475569;
+}
+
+.category-item-edit-save i,
+.category-item-edit-save svg,
+.category-item-edit-cancel i,
+.category-item-edit-cancel svg {
+    width: 14px;
+    height: 14px;
+}
+
 .category-item-delete {
     width: 28px;
     height: 28px;
