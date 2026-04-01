@@ -34,7 +34,6 @@ class UserStorageManager {
                 }
 
                 this.userIdentifier = identifier;
-                console.log('[USER-STORAGE] Initialized for user:', this.userIdentifier, '(from userType:', authState.userType + ')');
                 return true;
             } else {
                 console.warn('[USER-STORAGE] No authenticated user found');
@@ -96,7 +95,6 @@ class UserStorageManager {
             const key = this.getUserLocalStorageKey(baseKey);
             const jsonData = JSON.stringify(data);
             localStorage.setItem(key, jsonData);
-            console.log(`[USER-STORAGE] ✅ Saved to localStorage:`, key);
             return true;
         } catch (error) {
             console.error('[USER-STORAGE] ❌ Error saving to localStorage:', error);
@@ -115,10 +113,8 @@ class UserStorageManager {
             const jsonData = localStorage.getItem(key);
             if (jsonData) {
                 const data = JSON.parse(jsonData);
-                console.log(`[USER-STORAGE] ✅ Loaded from localStorage:`, key);
                 return data;
             }
-            console.log(`[USER-STORAGE] ℹ️ No data in localStorage for key:`, key);
             return null;
         } catch (error) {
             console.error('[USER-STORAGE] ❌ Error loading from localStorage:', error);
@@ -134,7 +130,6 @@ class UserStorageManager {
         try {
             const key = this.getUserLocalStorageKey(baseKey);
             localStorage.removeItem(key);
-            console.log(`[USER-STORAGE] ✅ Removed from localStorage:`, key);
             return true;
         } catch (error) {
             console.error('[USER-STORAGE] ❌ Error removing from localStorage:', error);
@@ -153,7 +148,6 @@ class UserStorageManager {
         try {
             const path = this.getUserFirebasePath(basePath);
             await database.ref(path).set(data);
-            console.log(`[USER-STORAGE] ✅ Saved to Firebase:`, path);
             return true;
         } catch (error) {
             console.error('[USER-STORAGE] ❌ Error saving to Firebase:', error);
@@ -173,10 +167,8 @@ class UserStorageManager {
             const snapshot = await database.ref(path).once('value');
             const data = snapshot.val();
             if (data) {
-                console.log(`[USER-STORAGE] ✅ Loaded from Firebase:`, path);
                 return data;
             }
-            console.log(`[USER-STORAGE] ℹ️ No data in Firebase for path:`, path);
             return null;
         } catch (error) {
             console.error('[USER-STORAGE] ❌ Error loading from Firebase:', error);
@@ -194,7 +186,6 @@ class UserStorageManager {
     listenToFirebase(database, basePath, callback) {
         try {
             const path = this.getUserFirebasePath(basePath);
-            console.log(`[USER-STORAGE] 🔔 Listening to Firebase:`, path);
 
             database.ref(path).on('value', (snapshot) => {
                 callback(snapshot);
@@ -203,7 +194,6 @@ class UserStorageManager {
             // Return unsubscribe function
             return () => {
                 database.ref(path).off('value', callback);
-                console.log(`[USER-STORAGE] 🔕 Stopped listening to Firebase:`, path);
             };
         } catch (error) {
             console.error('[USER-STORAGE] ❌ Error setting up Firebase listener:', error);
@@ -239,7 +229,6 @@ class UserStorageManager {
             console.error('[USER-STORAGE] localStorage save failed:', error);
         }
 
-        console.log('[USER-STORAGE] Save results:', results);
         return results;
     }
 
@@ -255,7 +244,6 @@ class UserStorageManager {
         try {
             const firebaseData = await this.loadFromFirebase(database, basePath);
             if (firebaseData !== null) {
-                console.log('[USER-STORAGE] ✅ Loaded from Firebase (priority)');
                 // Sync to localStorage as cache
                 this.saveToLocalStorage(baseKey, firebaseData);
                 return firebaseData;
@@ -268,7 +256,6 @@ class UserStorageManager {
         try {
             const localData = this.loadFromLocalStorage(baseKey);
             if (localData !== null) {
-                console.log('[USER-STORAGE] ⚠️ Loaded from localStorage (fallback)');
                 // Try to sync back to Firebase
                 if (database && basePath) {
                     this.saveToFirebase(database, basePath, localData).catch(err => {
@@ -281,7 +268,6 @@ class UserStorageManager {
             console.error('[USER-STORAGE] localStorage load failed:', error);
         }
 
-        console.log('[USER-STORAGE] ℹ️ No data found in Firebase or localStorage');
         return null;
     }
 
@@ -303,7 +289,6 @@ class UserStorageManager {
             const path = this.getUserFirebasePath(basePath);
             await database.ref(path).remove();
             results.firebase = true;
-            console.log('[USER-STORAGE] ✅ Cleared Firebase:', path);
         } catch (error) {
             console.error('[USER-STORAGE] ❌ Error clearing Firebase:', error);
         }
@@ -328,13 +313,11 @@ if (typeof window !== 'undefined') {
     // Initialize immediately if authManager is ready
     if (window.authManager) {
         window.userStorageManager = new UserStorageManager();
-        console.log('[USER-STORAGE] UserStorageManager initialized');
     } else {
         // Wait for authManager to be ready
         const checkAuthManager = setInterval(() => {
             if (window.authManager) {
                 window.userStorageManager = new UserStorageManager();
-                console.log('[USER-STORAGE] UserStorageManager initialized (delayed)');
                 clearInterval(checkAuthManager);
             }
         }, 100);
@@ -349,5 +332,3 @@ if (typeof window !== 'undefined') {
         }, 5000);
     }
 }
-
-console.log('[USER-STORAGE] User Storage Manager loaded');
