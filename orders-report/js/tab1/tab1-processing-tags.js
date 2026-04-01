@@ -683,8 +683,9 @@
     }
 
     async function clearProcessingTag(orderId) {
-        _ptagAddHistory(orderId, 'REMOVE_CATEGORY', '');
         const data = ProcessingTagState.getOrderData(orderId);
+        const removedValue = data ? `${data.category}:${data.subTag || ''}` : '';
+        _ptagAddHistory(orderId, 'REMOVE_CATEGORY', removedValue);
         if (data) {
             const hasFlags = (data.flags || []).length > 0;
             const hasTTags = (data.tTags || []).length > 0;
@@ -3779,7 +3780,10 @@
             ADD_TTAG: '+',
             REMOVE_TTAG: '-',
             AUTO_HOAN_TAT: '→',
-            AUTO_ROLLBACK: '←'
+            AUTO_ROLLBACK: '←',
+            SET_PHIEU_SOAN: '+',
+            UNSET_PHIEU_SOAN: '-',
+            AUTO_PHIEU_SOAN: '+'
         };
 
         history.slice(0, 20).forEach(h => {
@@ -3800,10 +3804,20 @@
                 label = PTAG_FLAGS[h.value]?.label || ProcessingTagState.getCustomFlagLabel(h.value);
             } else if (h.action === 'ADD_TTAG' || h.action === 'REMOVE_TTAG') {
                 label = ProcessingTagState.getTTagName(h.value);
+            } else if (h.action === 'REMOVE_CATEGORY') {
+                const cat = parseInt(h.value?.split(':')[0]);
+                const subTag = h.value?.split(':')[1];
+                if (subTag && PTAG_SUBTAGS[subTag]) label = PTAG_SUBTAGS[subTag].label;
+                else if (PTAG_CATEGORY_META[cat]) label = PTAG_CATEGORY_META[cat].short;
+                else label = h.value || 'tag';
             } else if (h.action === 'AUTO_HOAN_TAT') {
                 label = 'ĐÃ RA ĐƠN (auto)';
             } else if (h.action === 'AUTO_ROLLBACK') {
                 label = 'Rollback (auto)';
+            } else if (h.action === 'SET_PHIEU_SOAN' || h.action === 'UNSET_PHIEU_SOAN') {
+                label = 'Phiếu soạn hàng';
+            } else if (h.action === 'AUTO_PHIEU_SOAN') {
+                label = 'Phiếu soạn (auto)';
             }
 
             html += `<div class="ptag-history-item">
