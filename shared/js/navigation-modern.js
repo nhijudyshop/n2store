@@ -3030,16 +3030,15 @@ class UnifiedNavigationManager {
     }
 
     /**
-     * Check billing alerts:
-     * - Render, Firebase, Cloudflare: show when OVERDUE (billing day arrived/passed)
+     * Check billing alerts (manual payment services only):
+     * - Cloudflare: show when OVERDUE (billing day arrived/passed)
      * - SePay: show 3 days BEFORE billing day
+     * Note: Render + Firebase auto-pay → warning chỉ khi downgrade (check via API trong service-costs)
      */
     getBillingAlerts() {
-        // warnBefore: 0 = only on/after billing day (overdue), 3 = warn 3 days before
-        // showDays: how many days to keep showing after billing day
+        // Render + Firebase auto-pay → chỉ warning khi downgrade (check riêng via API)
+        // Chỉ giữ các dịch vụ cần nhắc thanh toán thủ công
         const BILLING_SCHEDULE = [
-            { name: 'Render (4 services + DB)', amount: 70, billingDay: 1, warnBefore: 0, showDays: 3 },
-            { name: 'Firebase (Blaze)', amount: 0, billingDay: 1, warnBefore: 0, showDays: 3, note: 'Kiểm tra usage trên console' },
             { name: 'Cloudflare Workers', amount: 5, billingDay: 13, warnBefore: 0, showDays: 3 },
             { name: 'SePay VIP (589K đ)', amount: 589000, amountVND: true, billingDay: 27, warnBefore: 3, showDays: 3 },
         ];
