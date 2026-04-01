@@ -669,14 +669,86 @@
     }
 
     // =========================================================
+    // RENDER DOWNGRADE DETECTION
+    // Render auto-pay → chỉ warning khi service bị downgrade
+    // =========================================================
+    const RENDER_EXPECTED_PLANS = {
+        'n2store-fallback': 'standard',
+        'n2store-realtime': 'standard',
+        'n2store-tpos-pancake': 'starter',
+        'n2store-facebook': 'starter',
+    };
+
+    async function checkRenderPlans() {
+        try {
+            const res = await fetch('https://n2store-fallback.onrender.com/api/admin/render/services');
+            if (!res.ok) return;
+            const { success, services } = await res.json();
+            if (!success || !services) return;
+
+            const downgraded = [];
+            for (const svc of services) {
+                const expected = RENDER_EXPECTED_PLANS[svc.name];
+                if (!expected) continue;
+                const actual = (svc.plan || '').toLowerCase();
+                if (actual !== expected) {
+                    downgraded.push({
+                        name: svc.name,
+                        expected,
+                        actual: svc.plan || 'unknown',
+                        suspended: svc.status !== 'active',
+                    });
+                }
+            }
+
+            if (downgraded.length > 0) {
+                showRenderDowngradeWarning(downgraded);
+            }
+        } catch (e) {
+            console.warn('[ServiceCosts] Render plan check failed:', e.message);
+        }
+    }
+
+    function showRenderDowngradeWarning(downgraded) {
+        const contentArea = document.querySelector('.content-area');
+        if (!contentArea || document.getElementById('renderDowngradeBanner')) return;
+
+        const banner = document.createElement('div');
+        banner.id = 'renderDowngradeBanner';
+        banner.className = 'billing-alert-banner';
+        banner.innerHTML = `
+            <div class="billing-alert-header">
+                <div class="billing-alert-icon"><i data-lucide="alert-triangle"></i></div>
+                <div class="billing-alert-content">
+                    <strong>Render bị downgrade - Kiểm tra thanh toán!</strong>
+                    <div class="billing-alert-items">
+                        ${downgraded.map(d => `
+                        <div class="billing-alert-item">
+                            <span>${d.name}</span>
+                            <span class="billing-alert-due overdue">${d.expected} → ${d.actual}${d.suspended ? ' (suspended)' : ''}</span>
+                        </div>`).join('')}
+                    </div>
+                </div>
+                <a href="https://dashboard.render.com/billing" target="_blank" class="billing-alert-toggle" style="text-decoration:none">
+                    <i data-lucide="external-link"></i> Render Billing
+                </a>
+            </div>
+        `;
+
+        // Insert at top
+        contentArea.insertBefore(banner, contentArea.firstChild);
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    // =========================================================
     // BILLING ALERTS
     // =========================================================
     function getBillingAlerts() {
         // warnBefore: 0 = only on/after billing day (overdue), 3 = warn 3 days before
         // showDays: how many days to keep showing after billing day
+        // Render + Firebase auto-pay → chỉ warning khi downgrade (check via API)
+        // Chỉ giữ các dịch vụ cần nhắc thanh toán thủ công
         const BILLING_SCHEDULE = [
-            { name: 'Render (4 services + DB)', amount: 70, billingDay: 1, warnBefore: 0, showDays: 3 },
-            { name: 'Firebase (Blaze)', amount: 0, billingDay: 1, warnBefore: 0, showDays: 3, note: 'Ki\u1EC3m tra usage tr\u00EAn console' },
             { name: 'Cloudflare Workers', amount: 5, billingDay: 13, warnBefore: 0, showDays: 3 },
             { name: 'SePay VIP (589K \u0111)', amount: 589000, amountVND: true, billingDay: 27, warnBefore: 3, showDays: 3 },
         ];
@@ -1084,6 +1156,9 @@
         fetchAutofbLiveData().then(data => {
             if (data) updateAutofbCard(data);
         });
+
+        // Check Render plans for downgrade
+        checkRenderPlans();
     }
 
     if (document.readyState === 'loading') {
