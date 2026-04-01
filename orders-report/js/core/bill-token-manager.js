@@ -26,7 +26,6 @@ class BillTokenManager {
         window.addEventListener('shopChanged', (e) => {
             const newCompanyId = e.detail?.config?.CompanyId || 1;
             if (newCompanyId !== this.companyId) {
-                console.log(`[BILL-TOKEN] Company changed: ${this.companyId} → ${newCompanyId}`);
                 this.companyId = newCompanyId;
                 // Reset state and reload from Render for new company
                 this.token = null;
@@ -120,8 +119,6 @@ class BillTokenManager {
 
             const result = await response.json();
             if (result.success) {
-                console.log(`[BILL-TOKEN] Credentials saved to Render (company ${this.companyId}):`,
-                    this.credentials.bearerToken ? 'bearerToken' : `username: ${this.credentials.username}`);
                 return true;
             } else {
                 console.error('[BILL-TOKEN] Render save failed:', result.message);
@@ -155,7 +152,6 @@ class BillTokenManager {
 
             const result = await response.json();
             if (result.success) {
-                console.log(`[BILL-TOKEN] Refresh token saved to Render (company ${this.companyId})`);
             }
             return result.success;
         } catch (error) {
@@ -180,7 +176,6 @@ class BillTokenManager {
             const result = await response.json();
 
             if (!result.success || !result.data) {
-                console.log('[BILL-TOKEN] No credentials found on Render');
                 return false;
             }
 
@@ -191,7 +186,6 @@ class BillTokenManager {
             } else if (data.authType === 'password' && data.username && data.password) {
                 this.credentials = { username: data.username, password: data.password };
             } else {
-                console.log('[BILL-TOKEN] Invalid credentials data from Render');
                 return false;
             }
 
@@ -200,9 +194,6 @@ class BillTokenManager {
                 this.refreshToken = data.refreshToken;
             }
 
-            console.log(`[BILL-TOKEN] Credentials loaded from Render (company ${this.companyId}):`,
-                this.credentials.bearerToken ? 'bearerToken' : `username: ${this.credentials.username}`,
-                data.refreshToken ? '(with refresh_token)' : '');
             return true;
         } catch (error) {
             console.error('[BILL-TOKEN] Error loading from Render:', error);
@@ -223,7 +214,6 @@ class BillTokenManager {
             const result = await response.json();
 
             if (result.success) {
-                console.log(`[BILL-TOKEN] Credentials deleted from Render (company ${this.companyId})`);
             }
             return result.success;
         } catch (error) {
@@ -274,7 +264,6 @@ class BillTokenManager {
         // Save to Render backend (source of truth)
         await this.saveToRender(existingRefresh);
 
-        console.log('[BILL-TOKEN] Credentials updated');
     }
 
     /**
@@ -298,7 +287,6 @@ class BillTokenManager {
             try {
                 const refreshed = await this.refreshWithToken(this.refreshToken);
                 if (refreshed) {
-                    console.log('[BILL-TOKEN] Token refreshed successfully');
                     return this.token;
                 }
             } catch (error) {
@@ -314,8 +302,6 @@ class BillTokenManager {
         formData.append('username', username);
         formData.append('password', password);
         formData.append('client_id', 'tmtWebApp');
-
-        console.log(`[BILL-TOKEN] Fetching token for user: ${username} (company ${this.companyId})`);
 
         const response = await fetch(this.TOKEN_API_URL, {
             method: 'POST',
@@ -347,7 +333,6 @@ class BillTokenManager {
             this.saveRefreshTokenToRender(data.refresh_token);
         }
 
-        console.log('[BILL-TOKEN] Token fetched and cached in memory');
         return this.token;
     }
 
@@ -361,8 +346,6 @@ class BillTokenManager {
         formData.append('grant_type', 'refresh_token');
         formData.append('refresh_token', refreshToken);
         formData.append('client_id', 'tmtWebApp');
-
-        console.log('[BILL-TOKEN] Attempting to refresh token...');
 
         const response = await fetch(this.TOKEN_API_URL, {
             method: 'POST',
@@ -502,17 +485,14 @@ class BillTokenManager {
     async init() {
         // Load from Render backend (source of truth)
         if (this.getWebUserId()) {
-            console.log('[BILL-TOKEN] Loading from Render...');
             await this.loadFromRender();
         } else {
             // Auth not ready yet, retry after 2 seconds
-            console.log('[BILL-TOKEN] Auth not ready, will retry in 2s...');
             setTimeout(() => this._retryLoadFromRender(), 2000);
         }
 
         // Default credentials if none found
         if (!this.hasCredentials()) {
-            console.log('[BILL-TOKEN] No credentials found, using default account');
             this.credentials = { username: 'nvqldonhang', password: 'Aa@123456987' };
         }
     }
@@ -524,13 +504,11 @@ class BillTokenManager {
         if (this.hasCredentials()) return;
 
         if (this.getWebUserId()) {
-            console.log('[BILL-TOKEN] Retrying load from Render...');
             await this.loadFromRender();
         }
 
         // Default credentials if still none
         if (!this.hasCredentials()) {
-            console.log('[BILL-TOKEN] No credentials found after retry, using default account');
             this.credentials = { username: 'nvqldonhang', password: 'Aa@123456987' };
         }
     }
@@ -562,5 +540,3 @@ if (document.readyState === 'loading') {
 } else {
     window.billTokenManager.init();
 }
-
-console.log('[BILL-TOKEN] BillTokenManager loaded');

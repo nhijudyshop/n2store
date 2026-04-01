@@ -985,8 +985,6 @@
             // Combine user message with page context
             const userMessageWithContext = `${contextText}\n\n[CÂUHỎI CỦA USER]\n${text}`;
 
-            console.log('[AI Chat] Sending with context:', pageContext);
-
             let response, data, aiText;
 
             if (isDeepSeek) {
@@ -1111,12 +1109,10 @@
     // =========================================================
 
     function init() {
-        console.log('[AI Chat Widget] Initializing...');
         injectStyles();
         injectDependencies();
         createWidget();
         setupEventListeners();
-        console.log('[AI Chat Widget] Ready!');
     }
 
     // Export to global

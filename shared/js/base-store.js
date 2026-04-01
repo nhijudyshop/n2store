@@ -89,14 +89,12 @@
             // 2. Fallback to localStorage if Firestore fails
             if (!loadedFromFirestore) {
                 this._loadFromLocal();
-                console.log('[BaseStore:' + this.collectionPath + '] Offline mode — loaded ' + this._data.size + ' entries from localStorage');
             }
 
             // 3. Cleanup old entries
             this._cleanupOldEntries();
 
             this._initialized = true;
-            console.log('[BaseStore:' + this.collectionPath + '] Initialized with ' + this._data.size + ' entries');
 
             // 4. Notify subscribers
             this._notifySubscribers();
@@ -127,7 +125,6 @@
 
         // Don't setup if already listening
         if (this._unsubscribe) {
-            console.log('[BaseStore:' + this.collectionPath + '] Real-time listener already active');
             return;
         }
 
@@ -151,7 +148,6 @@
                     self._attemptReconnect();
                 });
 
-            console.log('[BaseStore:' + this.collectionPath + '] Real-time listener active');
         } catch (e) {
             console.error('[BaseStore:' + this.collectionPath + '] Failed to setup real-time listener:', e);
             this._attemptReconnect();
@@ -239,7 +235,6 @@
         // Clear subscribers
         this._subscribers = [];
 
-        console.log('[BaseStore:' + this.collectionPath + '] Destroyed');
     };
 
     // =====================================================
@@ -290,7 +285,6 @@
             // Cache to localStorage
             this._saveToLocal();
 
-            console.log('[BaseStore:' + this.collectionPath + '] Loaded ' + this._data.size + ' entries from Firestore');
             return true;
         } catch (e) {
             console.error('[BaseStore:' + this.collectionPath + '] Firestore load error:', e);
@@ -445,7 +439,6 @@
         });
 
         if (removedCount > 0) {
-            console.log('[BaseStore:' + this.collectionPath + '] Cleaned up ' + removedCount + ' old entries');
             this._saveToLocal();
         }
     };
@@ -471,7 +464,6 @@
             RECONNECT_MAX_DELAY
         );
 
-        console.log('[BaseStore:' + this.collectionPath + '] Reconnecting in ' + delay + 'ms (attempt ' + this._reconnectAttempts + '/' + MAX_RECONNECT_ATTEMPTS + ')');
 
         var self = this;
         this._reconnectTimer = setTimeout(function () {

@@ -198,5 +198,3 @@ if (typeof window !== "undefined") {
     window.convertToTimestamp = convertToTimestamp;
     window.numberWithCommas = numberWithCommas;
 }
-
-console.log("[Date Utils] Module loaded");

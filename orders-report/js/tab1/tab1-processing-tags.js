@@ -4064,6 +4064,5 @@
     // State (for debugging)
     window.ProcessingTagState = ProcessingTagState;
 
-    console.log(`${PTAG_LOG} Module loaded`);
 
 })();

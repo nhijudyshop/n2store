@@ -202,5 +202,3 @@ if (typeof window !== "undefined") {
     window.getInputValue = getInputValue;
     window.setInputValue = setInputValue;
 }
-
-console.log("[Form Utils] Module loaded");

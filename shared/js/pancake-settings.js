@@ -549,8 +549,6 @@ const TAG_FILTER_LIMIT = 12; // Show only 12 tags initially
  */
 window.loadAvailableTags = async function() {
     try {
-        console.log('[TAG-FILTER] Loading available tags from API...');
-
         const response = await window.tokenManager.authenticatedFetch("https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag?$format=json&$count=true&$top=1000", {
             headers: {
                 "accept": "application/json",
@@ -567,7 +565,6 @@ window.loadAvailableTags = async function() {
 
         if (data.value && Array.isArray(data.value)) {
             window.availableTags = data.value;
-            console.log(`[TAG-FILTER] Loaded ${data.value.length} tags from API`);
             window.populateTagFilterOptions();
         } else {
             throw new Error('Invalid response format');
@@ -613,7 +610,6 @@ window.getTagSettings = function() {
 window.setTagSettings = function(settings) {
     try {
         localStorage.setItem(TAG_SETTINGS_KEY, JSON.stringify(settings));
-        console.log('[TAG-SETTINGS] Tag settings saved');
     } catch (error) {
         console.error('[TAG-SETTINGS] Error saving tag settings:', error);
     }
@@ -791,8 +787,6 @@ window.toggleChatAPISource = function() {
     const newSource = window.chatAPISettings.toggle();
     const displayName = window.chatAPISettings.getDisplayName(newSource);
 
-    console.log(`[CHAT-API-TOGGLE] Switched to: ${displayName}`);
-
     // Update UI label
     window.updateChatAPISourceLabel();
 
@@ -805,7 +799,6 @@ window.toggleChatAPISource = function() {
 
     // Reload table để hiển thị dữ liệu mới
     if (typeof performSearch === 'function') {
-        console.log('[CHAT-API-TOGGLE] Reloading table...');
         performSearch();
     } else {
         console.warn('[CHAT-API-TOGGLE] performSearch function not found, please reload manually');
@@ -877,7 +870,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Listen for API source changes from other sources
     window.addEventListener('chatApiSourceChanged', function (e) {
-        console.log('[CHAT-API-TOGGLE] API source changed:', e.detail.source);
         window.updateChatAPISourceLabel();
         window.updateRealtimeCheckbox();
     });
@@ -931,7 +923,6 @@ async function loadPagesToSelector() {
         });
         selector.innerHTML = options;
 
-        console.log('[PAGE-TOKEN] Loaded', pages.length, 'pages to selector');
     } catch (error) {
         console.error('[PAGE-TOKEN] Error loading pages:', error);
         selector.innerHTML = '<option value="">-- Lỗi tải pages --</option>';
@@ -1101,7 +1092,6 @@ window.refreshPageTokensList = async function() {
         });
 
         listDiv.innerHTML = html;
-        console.log('[PAGE-TOKEN] Displayed', tokens.length, 'page tokens');
     } catch (error) {
         console.error('[PAGE-TOKEN] Error refreshing page tokens list:', error);
         listDiv.innerHTML = `
@@ -1161,5 +1151,3 @@ window.openPancakeSettingsModal = async function() {
     await originalOpenPancakeSettingsModal();
     await window.refreshPageTokensList();
 };
-
-console.log('[TAB1-PANCAKE-SETTINGS] Module loaded');

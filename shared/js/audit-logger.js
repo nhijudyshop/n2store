@@ -96,7 +96,6 @@ window.AuditLogger = (function () {
                 var auth = window.firebase.auth();
                 if (auth.currentUser) { resolve(true); return; }
                 auth.signInAnonymously().then(function() {
-                    console.log('[AuditLogger] Anonymous auth OK');
                     resolve(true);
                 }).catch(function(err) {
                     console.warn('[AuditLogger] Anonymous auth failed:', err.message);
@@ -132,8 +131,6 @@ window.AuditLogger = (function () {
     }
 
     function logAction(actionType, details) {
-        console.log('[AuditLogger] logAction called:', actionType, details ? details.module : 'no-details');
-
         if (!isValidActionType(actionType)) {
             console.warn('[AuditLogger] Invalid actionType:', actionType);
             return;
@@ -157,7 +154,6 @@ window.AuditLogger = (function () {
                     return;
                 }
                 db.collection(COLLECTION_NAME).add(record).then(function(docRef) {
-                    console.log('[AuditLogger] SUCCESS - doc written:', docRef.id);
                 }).catch(function(error) {
                     console.error('[AuditLogger] FAILED to write:', error.code, error.message);
                 });
@@ -166,8 +162,6 @@ window.AuditLogger = (function () {
             console.error('[AuditLogger] Error in logAction:', error);
         }
     }
-
-    console.log('[AuditLogger] Module loaded. firebase available:', typeof window.firebase !== 'undefined');
 
     return {
         logAction: logAction,
