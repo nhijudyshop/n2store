@@ -654,7 +654,6 @@
         if (modal) modal.classList.add('show');
         document.getElementById('postLoading').style.display = 'flex';
         document.getElementById('postList').innerHTML = '';
-        if (typeof lucide !== 'undefined') lucide.createIcons();
 
         if (cachedPancakePosts.length === 0) {
             fetchPancakePosts();
@@ -739,7 +738,6 @@
                     </button>
                 </div>
             `;
-            if (typeof lucide !== 'undefined') lucide.createIcons();
         }
     }
 
@@ -754,7 +752,13 @@
         }
 
         const imgProxy = `${CF_WORKER}/api/image-proxy?url=`;
-        const html = posts.map(post => {
+        const listEl = document.getElementById('postList');
+
+        // Use DocumentFragment + event delegation for performance
+        const fragment = document.createDocumentFragment();
+        const container = document.createElement('div');
+
+        for (const post of posts) {
             const thumb = post.attachments?.data?.[0]?.url || null;
             const multiImg = (post.attachments?.data?.length || 0) > 1;
             let title = post.message || 'Kh\u00f4ng c\u00f3 ti\u00eau \u0111\u1ec1';
@@ -765,40 +769,50 @@
             const timeStr = date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 
             const postUrl = post.attachments?.target?.url || `https://www.facebook.com/${post.id}`;
-            const thumbUrl = thumb ? imgProxy + encodeURIComponent(thumb) : '';
 
-            let typeIcon = '';
-            if (post.type === 'livestream') typeIcon = '<span class="type-icon">LIVE</span>';
-            else if (post.type === 'video') typeIcon = '<span class="type-icon">VIDEO</span>';
+            let typeLabel = '';
+            if (post.type === 'livestream') typeLabel = '<span class="type-icon">LIVE</span>';
+            else if (post.type === 'video') typeLabel = '<span class="type-icon">VIDEO</span>';
 
-            const safeTitle = title.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-            const safeUrl = postUrl.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            let meta = '';
+            if (post.comment_count > 0) meta += `<span>\u{1F4AC} ${post.comment_count}</span>`;
+            if (post.share_count > 0) meta += `<span>\u{1F504} ${post.share_count}</span>`;
+            if (post.phone_number_count > 0) meta += `<span>\u{1F4DE} ${post.phone_number_count}</span>`;
 
-            return `<div class="fb-post-item" onclick="selectPancakePost('${safeUrl}')">
-                <div class="fb-post-thumb">
-                    ${thumb ? `<img src="${thumbUrl}" alt="" onerror="this.style.display='none'">` : '<i data-lucide="image" class="no-img"></i>'}
+            const row = document.createElement('div');
+            row.className = 'fb-post-item';
+            row.dataset.url = postUrl;
+            row.dataset.id = post.id;
+            row.innerHTML = `<div class="fb-post-thumb">
+                    ${thumb ? `<img src="${imgProxy}${encodeURIComponent(thumb)}" alt="" loading="lazy" onerror="this.style.display='none'">` : '<span class="no-img">\u{1F5BC}</span>'}
                     ${multiImg ? `<span class="type-icon">+${post.attachments.data.length - 1}</span>` : ''}
-                    ${typeIcon}
+                    ${typeLabel}
                 </div>
                 <div class="fb-post-info">
                     <div class="fb-post-title">${title}</div>
                     <div class="fb-post-date">${dateStr} ${timeStr}</div>
-                    <div class="fb-post-meta">
-                        ${post.comment_count > 0 ? `<span><i data-lucide="message-circle" style="width:12px;height:12px;"></i> ${post.comment_count}</span>` : ''}
-                        ${post.share_count > 0 ? `<span><i data-lucide="share-2" style="width:12px;height:12px;"></i> ${post.share_count}</span>` : ''}
-                        ${post.phone_number_count > 0 ? `<span><i data-lucide="phone" style="width:12px;height:12px;"></i> ${post.phone_number_count}</span>` : ''}
-                    </div>
+                    ${meta ? `<div class="fb-post-meta">${meta}</div>` : ''}
                 </div>
                 <div class="fb-post-actions">
-                    <button class="fb-post-copy-btn" onclick="event.stopPropagation();navigator.clipboard.writeText('${post.id}')" title="Copy ID">
-                        <i data-lucide="copy" style="width:12px;height:12px;"></i> ID
-                    </button>
-                </div>
-            </div>`;
-        }).join('');
+                    <button class="fb-post-copy-btn" data-copy-id="${post.id}" title="Copy ID">\u{1F4CB} ID</button>
+                </div>`;
+            fragment.appendChild(row);
+        }
 
-        document.getElementById('postList').innerHTML = html;
-        if (typeof lucide !== 'undefined') lucide.createIcons();
+        listEl.innerHTML = '';
+        listEl.appendChild(fragment);
+
+        // Event delegation for clicks
+        listEl.onclick = (e) => {
+            const copyBtn = e.target.closest('.fb-post-copy-btn');
+            if (copyBtn) {
+                e.stopPropagation();
+                navigator.clipboard.writeText(copyBtn.dataset.copyId);
+                return;
+            }
+            const item = e.target.closest('.fb-post-item');
+            if (item) selectPancakePost(item.dataset.url);
+        };
     }
 
     function filterPancakePosts() {
@@ -821,7 +835,6 @@
         cachedPancakePosts = [];
         document.getElementById('postLoading').style.display = 'flex';
         document.getElementById('postList').innerHTML = '';
-        if (typeof lucide !== 'undefined') lucide.createIcons();
         fetchPancakePosts();
     }
 
