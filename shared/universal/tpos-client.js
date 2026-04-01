@@ -554,6 +554,4 @@ export function createNodeTPOSClient(options = {}) {
     });
 }
 
-console.log('[TPOS-CLIENT] Module loaded');
-
 export default TPOSClient;

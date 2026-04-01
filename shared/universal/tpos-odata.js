@@ -419,6 +419,4 @@ export function createODataService(client) {
     return new TPOSODataService(client);
 }
 
-console.log('[TPOS-ODATA] Module loaded');
-
 export default TPOSODataService;

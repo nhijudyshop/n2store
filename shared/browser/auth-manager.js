@@ -362,6 +362,4 @@ export function isAuthenticated() {
 // Standalone getRoleInfo — REMOVED from auth-manager
 // Moved to common-utils.js as it's a UI display helper, not a permission check
 
-console.log('[AUTH-MANAGER] Module loaded');
-
 export default AuthManager;

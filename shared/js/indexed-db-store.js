@@ -22,7 +22,7 @@ class IndexedDBStorage {
         try {
             this.db = await this.openDatabase();
             this.isReady = true;
-            console.log(`[IndexedDB] ✅ Database "${this.dbName}" initialized`);
+            // DB ready
             return true;
         } catch (error) {
             console.error('[IndexedDB] ❌ Failed to initialize:', error);
@@ -50,7 +50,7 @@ class IndexedDBStorage {
                 if (!db.objectStoreNames.contains(this.STORE_NAME)) {
                     const store = db.createObjectStore(this.STORE_NAME, { keyPath: 'key' });
                     store.createIndex('timestamp', 'timestamp', { unique: false });
-                    console.log('[IndexedDB] Created object store:', this.STORE_NAME);
+                    // Object store created
                 }
             };
         });
@@ -88,7 +88,7 @@ class IndexedDBStorage {
                 const request = store.put(data);
 
                 request.onsuccess = () => {
-                    console.log(`[IndexedDB] ✅ Saved: ${key}`);
+                    // Saved OK
                     resolve(true);
                 };
 
@@ -152,7 +152,7 @@ class IndexedDBStorage {
                 const request = store.delete(key);
 
                 request.onsuccess = () => {
-                    console.log(`[IndexedDB] 🗑️ Removed: ${key}`);
+                    // Removed
                     resolve(true);
                 };
 
@@ -218,7 +218,7 @@ class IndexedDBStorage {
                 const request = store.clear();
 
                 request.onsuccess = () => {
-                    console.log('[IndexedDB] 🗑️ Cleared all data');
+                    // Cleared
                     resolve(true);
                 };
 
@@ -317,14 +317,14 @@ class IndexedDBStorage {
                 localStorage.removeItem(key);
 
                 results.success.push(key);
-                console.log(`[IndexedDB] ✅ Migrated: ${key}`);
+                // Migrated
             } catch (error) {
                 console.error(`[IndexedDB] ❌ Failed to migrate ${key}:`, error);
                 results.failed.push({ key, error: error.message });
             }
         }
 
-        console.log('[IndexedDB] Migration complete:', results);
+        // Migration complete
         return results;
     }
 }
@@ -340,4 +340,3 @@ window.isIndexedDBSupported = () => {
     return !!window.indexedDB;
 };
 
-console.log('[IndexedDB] 📦 IndexedDB Storage Utility loaded');

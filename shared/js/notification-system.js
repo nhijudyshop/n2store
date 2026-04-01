@@ -534,4 +534,3 @@ if (typeof window !== 'undefined') {
     });
 }
 
-console.log('[Notification System] Module loaded');

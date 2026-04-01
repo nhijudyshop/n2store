@@ -88,7 +88,7 @@ function initializeFirebaseApp() {
 
         if (!firebase.apps.length) {
             firebase.initializeApp(FIREBASE_CONFIG);
-            console.log('[Firebase] App initialized');
+            // Firebase initialized
         }
 
         _isFirebaseInitialized = true;
@@ -114,7 +114,7 @@ function initializeFirestore(options = {}) {
         if (enablePersistence) {
             try {
                 _firestoreDB.enablePersistence({ synchronizeTabs })
-                    .then(() => console.log('[Firestore] Offline persistence enabled'))
+                    .then(() => {})
                     .catch((err) => {
                         if (err.code === 'failed-precondition') {
                             console.warn('[Firestore] Multiple tabs open, persistence in first tab only');
@@ -131,7 +131,7 @@ function initializeFirestore(options = {}) {
         }
 
         window.db = _firestoreDB;
-        console.log('[Firestore] Initialized successfully');
+        // Firestore initialized
         return _firestoreDB;
     } catch (error) {
         console.error('[Firestore] Initialization error:', error);
@@ -235,7 +235,6 @@ if (typeof module !== 'undefined' && module.exports) {
     };
 }
 
-console.log('[Firebase Config] Module loaded');
 
 // Auto-initialize Firebase when script loads
 if (typeof firebase !== 'undefined') {

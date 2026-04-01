@@ -636,6 +636,4 @@ export const CommonUtils = {
     init: initializeCommonUtils
 };
 
-console.log('[COMMON-UTILS] Module loaded');
-
 export default CommonUtils;

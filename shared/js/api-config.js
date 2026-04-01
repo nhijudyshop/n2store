@@ -125,8 +125,3 @@ if (typeof window !== 'undefined') {
     window.API_CONFIG = API_CONFIG;
 }
 
-console.log('[API-CONFIG] Loaded:', {
-    worker: WORKER_URL,
-    tposOData: API_CONFIG.TPOS_ODATA,
-    pancake: API_CONFIG.PANCAKE
-});

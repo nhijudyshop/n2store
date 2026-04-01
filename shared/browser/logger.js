@@ -252,6 +252,4 @@ export function overrideConsoleInProduction() {
     };
 }
 
-console.log('[LOGGER] Module loaded, production mode:', isProduction());
-
 export default logger;

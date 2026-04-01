@@ -314,6 +314,4 @@ export const {
     waitFor
 } = DOMUtils;
 
-console.log('[DOM-UTILS] Module loaded');
-
 export default DOMUtils;

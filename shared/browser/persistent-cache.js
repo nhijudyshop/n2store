@@ -341,6 +341,4 @@ export function getPersistentCache(config = {}) {
     return defaultInstance;
 }
 
-console.log('[PERSISTENT-CACHE] Module loaded');
-
 export default PersistentCacheManager;

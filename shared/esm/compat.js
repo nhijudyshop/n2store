@@ -230,7 +230,6 @@ if (typeof window !== 'undefined') {
                 rememberDuration: 30 * 24 * 60 * 60 * 1000  // 30 days
             });
             window.authManager = authManager;
-            console.log('[ESM Compat] AuthManager auto-initialized');
         } catch (e) {
             console.warn('[ESM Compat] Failed to auto-init AuthManager:', e);
         }
@@ -240,7 +239,6 @@ if (typeof window !== 'undefined') {
     if (!window.notificationManager && getNotificationManager) {
         try {
             window.notificationManager = getNotificationManager();
-            console.log('[ESM Compat] NotificationManager auto-initialized');
         } catch (e) {
             console.warn('[ESM Compat] Failed to auto-init NotificationManager:', e);
         }
@@ -249,5 +247,4 @@ if (typeof window !== 'undefined') {
     // Dispatch event to signal modules are loaded
     window.dispatchEvent(new CustomEvent('sharedModulesLoaded'));
 
-    console.log('[ESM Compat] All shared modules loaded and exported to window');
 }
