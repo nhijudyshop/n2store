@@ -3,8 +3,6 @@
    Bulk send templates, track sent/failed orders
    ===================================================== */
 
-console.log('[TemplateMgr] Loading...');
-
 (function() {
     'use strict';
 
@@ -239,7 +237,6 @@ console.log('[TemplateMgr] Loading...');
             }
         }
 
-        console.log('[TemplateMgr] Bulk send complete:', results);
         return results;
     }
 
@@ -630,7 +627,6 @@ console.log('[TemplateMgr] Loading...');
         for (const pid of uniquePageIds) {
             const token = window.pancakeTokenManager.getPageAccessToken(pid);
             if (token) {
-                console.log('[TemplateMgr] ✅ PAT cached for page:', pid);
             } else {
                 missingPages.push(pid);
                 console.warn('[TemplateMgr] ⚠️ No PAT found for page:', pid, '- Admin cần thêm token qua "Quản lý Pancake Accounts"');
@@ -699,11 +695,6 @@ console.log('[TemplateMgr] Loading...');
         const pdm = window.pancakeDataManager;
         if (!pdm) throw new Error('pancakeDataManager not available');
 
-        console.log('[TemplateMgr] Processing order:', order.orderId, order.Code, {
-            channelId: order.channelId, pageId: order.pageId, psid: order.psid,
-            customerName: order.customerName
-        });
-
         // 1. Get full order data if needed
         let orderData;
         const templateContent = template.Content || template.BodyPlain || template.content || '';
@@ -765,11 +756,8 @@ console.log('[TemplateMgr] Loading...');
 
         if (!conv) {
             console.error('[TemplateMgr] ❌ No conversation found for psid:', psid, 'in page:', channelId);
-            console.log('[TemplateMgr] inboxMapByPSID size:', pdm.inboxMapByPSID?.size || 0);
             throw new Error('Không tìm thấy cuộc hội thoại INBOX cho psid: ' + psid);
         }
-
-        console.log('[TemplateMgr] ✅ Found conversation:', conv.id, 'for psid:', psid);
 
         // 6. Split message if too long
         const parts = _splitMessageIntoParts(messageContent);
@@ -787,7 +775,6 @@ console.log('[TemplateMgr] Loading...');
                 // sendMessage returns { success, error } instead of throwing
                 if (result && result.success !== false && !result.error) {
                     sendSuccess = true;
-                    console.log('[TemplateMgr] ✅ Message sent via Pancake API');
                     continue;
                 }
                 // API returned error — Pancake uses flat { message, e_code, e_subcode } format
@@ -837,10 +824,6 @@ console.log('[TemplateMgr] Loading...');
                             type: conv.type || 'INBOX', from: conv.from || null,
                         };
                     }
-                    console.log('[TemplateMgr] Extension conv data:', {
-                        thread_id: _extConvData._raw.thread_id || null,
-                        global_id: _extConvData._raw.page_customer?.global_id || null,
-                    });
                 }
                 // Queue ALL remaining parts for background extension processing
                 const partIndex = parts.indexOf(part);
@@ -848,7 +831,6 @@ console.log('[TemplateMgr] Loading...');
                     order, parts: parts.slice(partIndex), convData: _extConvData
                 });
                 sendSuccess = true; // tentatively mark success (extension will confirm later)
-                console.log('[TemplateMgr] 📋 Queued for extension bypass:', order.Code, `(${parts.length - partIndex} parts)`);
                 break; // exit parts loop — all remaining parts handled by extension queue
             }
 
@@ -859,7 +841,6 @@ console.log('[TemplateMgr] Loading...');
                     sendSuccess = true;
                     lastError = null;
                     order._usedTag = tagResult.used_tag;
-                    console.log('[TemplateMgr] ✅ Message sent via Facebook Tag:', tagResult.used_tag);
                     continue;
                 }
                 console.warn('[TemplateMgr] Facebook Tag failed:', tagResult.error || tagResult);
@@ -946,7 +927,6 @@ console.log('[TemplateMgr] Loading...');
                                 customerName: order.customerName || '',
                                 account: account?.name || 'default', usedTag: null
                             });
-                            console.log('[TemplateMgr] 📋 Error → queued for extension:', order.Code, '-', error.message);
                         } catch (extBuildErr) {
                             console.warn('[TemplateMgr] Extension queue build failed:', extBuildErr.message);
                             sendingState.errorOrders.push({
@@ -1015,8 +995,6 @@ console.log('[TemplateMgr] Loading...');
 
         const extTotal = queue.length;
         let extDone = 0;
-        console.log(`[TemplateMgr] 🔄 Processing extension queue: ${extTotal} orders`);
-
         for (const item of queue) {
             if (!sendingState.isSending) break;
 
@@ -1024,7 +1002,6 @@ console.log('[TemplateMgr] Loading...');
                 for (const part of item.parts) {
                     await window.sendViaExtension(part, item.convData);
                 }
-                console.log('[TemplateMgr] ✅ Extension sent:', item.order.Code);
                 markOrderSent(item.order.orderId, false);
             } catch (extErr) {
                 console.error('[TemplateMgr] ❌ Extension failed:', item.order.Code, extErr.message);
@@ -1059,7 +1036,6 @@ console.log('[TemplateMgr] Loading...');
             }
         }
 
-        console.log(`[TemplateMgr] ✅ Extension queue done: ${extTotal} processed`);
     }
 
     // =====================================================
@@ -1149,7 +1125,6 @@ console.log('[TemplateMgr] Loading...');
             ];
             defaults.forEach(t => { batch.set(ref.doc(), t); });
             await batch.commit();
-            console.log('[TemplateMgr] Seeded 4 default templates');
         } catch (e) {
             console.error('[TemplateMgr] Seed error:', e);
         }
@@ -1701,16 +1676,6 @@ console.log('[TemplateMgr] Loading...');
 
         _modalOrders = allOrders;
 
-        // Debug: log order data for troubleshooting
-        console.log('[TemplateMgr] Modal orders prepared:', allOrders.length);
-        allOrders.forEach((o, i) => {
-            console.log(`[TemplateMgr] Order ${i + 1}:`, {
-                orderId: o.orderId, Code: o.Code,
-                pageId: o.pageId, channelId: o.channelId,
-                psid: o.psid, customerName: o.customerName
-            });
-        });
-
         // Create modal DOM if needed
         _createModalDOM();
 
@@ -1825,8 +1790,6 @@ console.log('[TemplateMgr] Loading...');
             // Phase 2: Extension bypass queue (sequential — extension processes one at a time)
             if (sendingState.extQueue.length > 0) {
                 const extCount = sendingState.extQueue.length;
-                console.log(`[TemplateMgr] 📋 Extension queue: ${extCount} orders pending`);
-
                 // Adjust progress: subtract ext-queued orders so bar reflects real completion
                 sendingState.totalProcessed = Math.max(0, sendingState.totalProcessed - extCount);
                 _updateProgress(
@@ -1938,5 +1901,3 @@ console.log('[TemplateMgr] Loading...');
     };
 
 })();
-
-console.log('[TemplateMgr] Loaded.');

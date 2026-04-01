@@ -220,7 +220,6 @@ function performTableSearch() {
                 const stt = parseInt(order.SessionIndex);
                 return !isNaN(stt) && stt >= userRange.start && stt <= userRange.end;
             });
-            console.log(`[FILTER] ✅ User "${currentDisplayName}" filtered to STT ${userRange.start}-${userRange.end}: ${tempData.length} orders`);
 
             // Disable toggle button — user already sees only their assigned orders
             if (typeof _setEmployeeToggleBtnDisabled === 'function') _setEmployeeToggleBtnDisabled(true);
@@ -294,7 +293,6 @@ function performTableSearch() {
                 return false;
             }
         });
-        console.log(`[FILTER] Applied ${selectedTags.length} tag filters, remaining orders: ${tempData.length}`);
     }
 
     // Apply Excluded Tags filter (hide orders with certain tags)
@@ -314,20 +312,17 @@ function performTableSearch() {
                 return true;
             }
         });
-        console.log(`[FILTER] Excluded ${excludedTags.length} tags, remaining orders: ${tempData.length}`);
     }
 
 
     // Apply Stock Status filter
     if (window.StockStatusEngine?._checked && window.StockStatusEngine._activeFilter) {
         tempData = tempData.filter(order => window.StockStatusEngine.passesStockFilter(String(order.Id)));
-        console.log(`[FILTER] Applied stock status filter (${window.StockStatusEngine._activeFilter}), remaining orders: ${tempData.length}`);
     }
 
     // Apply Processing Tag filter (base filter OR flag checkboxes)
     if (typeof window.hasActiveProcessingTagFilters === 'function' && window.hasActiveProcessingTagFilters()) {
         tempData = tempData.filter(order => window.orderPassesProcessingTagFilter(order.Id));
-        console.log(`[FILTER] Applied processing tag filter (${window.getActiveProcessingTagFilter()}), remaining orders: ${tempData.length}`);
     }
 
     filteredData = tempData;
@@ -545,13 +540,11 @@ async function loadCampaignList(skip = 0, startDateLocal = null, endDateLocal = 
             // OPTIMIZATION: Only fetch necessary fields for campaign list
             url = `${API_CONFIG.WORKER_URL}/api/odata/SaleOnline_Order/ODataService.GetView?$top=3000&$skip=${skip}&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}&$count=true&$select=LiveCampaignId,LiveCampaignName,DateCreated`;
 
-            console.log(`[CAMPAIGNS] Loading campaigns with skip=${skip}, date range: ${startDateLocal} to ${endDateLocal}, autoLoad=${autoLoad}`);
         } else {
             // Fallback: không có date filter - Tải 3000 đơn hàng
             // OPTIMIZATION: Only fetch necessary fields for campaign list
             url = `${API_CONFIG.WORKER_URL}/api/odata/SaleOnline_Order/ODataService.GetView?$top=3000&$skip=${skip}&$orderby=DateCreated desc&$count=true&$select=LiveCampaignId,LiveCampaignName,DateCreated`;
 
-            console.log(`[CAMPAIGNS] Loading campaigns with skip=${skip}, no date filter, autoLoad=${autoLoad}`);
         }
 
         const headers = await window.tokenManager.getAuthHeader();
@@ -563,7 +556,6 @@ async function loadCampaignList(skip = 0, startDateLocal = null, endDateLocal = 
         const orders = data.value || [];
         const totalCount = data["@odata.count"] || 0;
 
-        console.log(`[CAMPAIGNS] Loaded ${orders.length} orders out of ${totalCount} total`);
 
         // 🎯 BƯỚC 1: GỘP CÁC CHIẾN DỊCH THEO LiveCampaignId
         const campaignsByCampaignId = new Map(); // key: LiveCampaignId, value: { name, dates: Set }
@@ -691,7 +683,6 @@ async function loadCampaignList(skip = 0, startDateLocal = null, endDateLocal = 
             });
         });
 
-        console.log(`[CAMPAIGNS] Found ${mergedCampaigns.length} unique campaigns (merged from ${orders.length} orders)`);
 
         showLoading(false);
 
@@ -750,7 +741,6 @@ async function populateCampaignFilter(campaigns, autoLoad = false) {
 
         if (savedPrefs && savedPrefs.isCustomMode) {
             // 🎯 Restore CUSTOM mode from Firebase
-            console.log('[FILTER-PREFS] Restoring CUSTOM mode from Firebase');
             select.value = 'custom';
 
             // Set custom date from Firebase
@@ -763,12 +753,10 @@ async function populateCampaignFilter(campaigns, autoLoad = false) {
             selectedCampaign = { isCustom: true };
 
             // Custom mode: no campaign selected, clear employee ranges
-            console.log('[EMPLOYEE] Custom mode - no campaign, clearing employee ranges');
             await loadEmployeeRangesForCampaign(null);
 
             if (autoLoad && savedPrefs.customStartDate) {
                 // 🎯 Auto-load data with saved custom date
-                console.log('[AUTO-LOAD] Tự động tải dữ liệu với custom date:', savedPrefs.customStartDate);
 
                 if (window.notificationManager) {
                     window.notificationManager.info(
@@ -781,7 +769,6 @@ async function populateCampaignFilter(campaigns, autoLoad = false) {
                 await handleSearch();
 
                 if (window.realtimeManager) {
-                    console.log('[AUTO-CONNECT] Connecting to Realtime Server (24/7)...');
                     window.realtimeManager.connectServerMode();
                 }
             }
@@ -802,7 +789,6 @@ async function populateCampaignFilter(campaigns, autoLoad = false) {
                             const campaign = JSON.parse(optionCampaign);
                             if (campaign.displayName === savedName) {
                                 foundOptionIndex = i;
-                                console.log('[FILTER-PREFS] ✅ Found campaign by displayName:', savedName, '→ index:', i);
                                 break;
                             }
                         } catch (e) { }
@@ -815,19 +801,16 @@ async function populateCampaignFilter(campaigns, autoLoad = false) {
                 for (let i = 0; i < select.options.length; i++) {
                     if (select.options[i].value === String(savedValue)) {
                         foundOptionIndex = i;
-                        console.log('[FILTER-PREFS] Found campaign by index (fallback):', savedValue);
                         break;
                     }
                 }
             }
 
             if (foundOptionIndex !== -1) {
-                console.log('[FILTER-PREFS] Restoring saved campaign selection:', savedName || savedValue);
                 select.selectedIndex = foundOptionIndex;
                 customDateContainer.style.display = "none";
             } else {
                 // Saved campaign not in current list, use first campaign
-                console.log('[FILTER-PREFS] Saved campaign not found, using first campaign');
                 select.value = 0;
                 customDateContainer.style.display = "none";
             }
@@ -840,17 +823,14 @@ async function populateCampaignFilter(campaigns, autoLoad = false) {
 
             // ⭐ Load employee ranges for the selected campaign
             if (selectedCampaign?.displayName) {
-                console.log(`[EMPLOYEE] Auto-loading employee ranges for: ${selectedCampaign.displayName}`);
                 await loadEmployeeRangesForCampaign(selectedCampaign.displayName);
 
                 if (allData.length > 0) {
-                    console.log(`[EMPLOYEE] Re-rendering table with ${employeeRanges.length} employee ranges`);
                     performTableSearch();
                 }
             }
 
             if (autoLoad) {
-                console.log('[AUTO-LOAD] Tự động tải dữ liệu chiến dịch:', selectedCampaign?.displayName || campaigns[0].displayName);
 
                 if (window.notificationManager) {
                     window.notificationManager.info(
@@ -863,7 +843,6 @@ async function populateCampaignFilter(campaigns, autoLoad = false) {
                 await handleSearch();
 
                 if (window.realtimeManager) {
-                    console.log('[AUTO-CONNECT] Connecting to Realtime Server (24/7)...');
                     window.realtimeManager.connectServerMode();
                 }
             }
@@ -880,17 +859,14 @@ async function populateCampaignFilter(campaigns, autoLoad = false) {
 
             // ⭐ Load employee ranges for the selected campaign
             if (selectedCampaign?.displayName) {
-                console.log(`[EMPLOYEE] Auto-loading employee ranges for: ${selectedCampaign.displayName}`);
                 await loadEmployeeRangesForCampaign(selectedCampaign.displayName);
 
                 if (allData.length > 0) {
-                    console.log(`[EMPLOYEE] Re-rendering table with ${employeeRanges.length} employee ranges`);
                     performTableSearch();
                 }
             }
 
             if (autoLoad) {
-                console.log('[AUTO-LOAD] Tự động tải dữ liệu chiến dịch:', campaigns[0].displayName);
 
                 if (window.notificationManager) {
                     window.notificationManager.info(
@@ -903,11 +879,9 @@ async function populateCampaignFilter(campaigns, autoLoad = false) {
                 await handleSearch();
 
                 if (window.realtimeManager) {
-                    console.log('[AUTO-CONNECT] Connecting to Realtime Server (24/7)...');
                     window.realtimeManager.connectServerMode();
                 }
             } else {
-                console.log('[MANUAL-SELECT] Đã chọn chiến dịch đầu tiên (chờ người dùng bấm Tải):', campaigns[0].displayName);
             }
         }
     }
@@ -924,7 +898,6 @@ async function handleCampaignChange() {
     const customDateContainer = document.getElementById("customDateFilterContainer");
     if (selectedCampaign?.isCustom) {
         customDateContainer.style.display = "flex";
-        console.log('[CUSTOM-FILTER] Custom mode selected - showing custom date input');
 
         // Set default custom date to start of today if empty
         const customStartDateInput = document.getElementById("customStartDate");
@@ -942,7 +915,6 @@ async function handleCampaignChange() {
         });
 
         // Custom mode: no campaign selected, clear employee ranges
-        console.log('[EMPLOYEE] Custom mode - no campaign, clearing employee ranges');
         await loadEmployeeRangesForCampaign(null);
 
         // Don't auto-search yet, wait for user to confirm custom date
@@ -967,27 +939,19 @@ async function handleCampaignChange() {
 
     // ⭐ QUAN TRỌNG: Load employee ranges TRƯỚC KHI load dữ liệu
     // để đảm bảo bảng được phân chia đúng ngay từ đầu
-    console.log('[CAMPAIGN-SWITCH] 🔄 Starting campaign switch...');
-    console.log('[CAMPAIGN-SWITCH] selectedCampaign:', selectedCampaign);
 
     if (selectedCampaign?.displayName) {
-        console.log(`[CAMPAIGN-SWITCH] 📊 Loading employee ranges for campaign: "${selectedCampaign.displayName}"`);
         await loadEmployeeRangesForCampaign(selectedCampaign.displayName);
-        console.log(`[CAMPAIGN-SWITCH] ✅ Employee ranges loaded. Count: ${window.employeeRanges?.length || 0}`);
-        console.log(`[CAMPAIGN-SWITCH] 📋 Ranges:`, window.employeeRanges);
     } else {
-        console.log('[CAMPAIGN-SWITCH] No campaign selected, clearing employee ranges');
         await loadEmployeeRangesForCampaign(null);
     }
 
     // Tự động load dữ liệu khi chọn chiến dịch
     if (selectedCampaign?.campaignId || selectedCampaign?.campaignIds) {
-        console.log('[CAMPAIGN-SWITCH] ⭐ Fetching orders with employee ranges applied...');
         await handleSearch();
 
         // 🎯 AUTO-CONNECT REALTIME SERVER
         if (window.realtimeManager) {
-            console.log('[AUTO-CONNECT] Connecting to Realtime Server (24/7)...');
             window.realtimeManager.connectServerMode();
         }
 
@@ -999,7 +963,6 @@ async function handleCampaignChange() {
             type: 'CAMPAIGN_CHANGED_FOR_TAB3',
             campaignNames: selectedCampaign?.campaignNames || []
         }, '*');
-        console.log('[CAMPAIGN-SWITCH] 📤 Notified Tab3 about campaign:', selectedCampaign?.campaignNames);
     }
 }
 
@@ -1009,7 +972,6 @@ async function handleCustomDateChange() {
     const customEndDateInput = document.getElementById("customEndDate");
 
     if (!customStartDateInput.value) {
-        console.log('[CUSTOM-FILTER] Start date cleared, waiting for valid date...');
         return;
     }
 
@@ -1019,7 +981,6 @@ async function handleCustomDateChange() {
     endDate.setHours(0, 0, 0, 0);
     customEndDateInput.value = formatDateTimeLocal(endDate);
 
-    console.log(`[CUSTOM-FILTER] Date range: ${customStartDateInput.value} -> ${customEndDateInput.value}`);
 
     // Ensure custom mode is set
     selectedCampaign = { isCustom: true };
@@ -1058,11 +1019,9 @@ async function handleCustomEndDateChange() {
     const customEndDateInput = document.getElementById("customEndDate");
 
     if (!customStartDateInput.value || !customEndDateInput.value) {
-        console.log('[CUSTOM-FILTER] Missing start or end date...');
         return;
     }
 
-    console.log(`[CUSTOM-FILTER] End date changed: ${customStartDateInput.value} -> ${customEndDateInput.value}`);
 
     // Ensure custom mode is set
     selectedCampaign = { isCustom: true };
@@ -1149,7 +1108,6 @@ async function handleSearch() {
 
     // Abort any ongoing background loading
     if (isLoadingInBackground) {
-        console.log('[PROGRESSIVE] Aborting background loading for new search...');
         loadingAborted = true;
         // Wait a bit for background loading to stop
         await new Promise(resolve => setTimeout(resolve, 200));
@@ -1191,7 +1149,6 @@ function scheduleRender(isFinalRender = false) {
             clearTimeout(pendingRenderTimeout);
             pendingRenderTimeout = null;
         }
-        console.log('[PROGRESSIVE] Final render triggered');
         performTableSearch();
         updateSearchResultCount();
         return;
@@ -1204,7 +1161,6 @@ function scheduleRender(isFinalRender = false) {
 
     // Schedule render sau RENDER_DEBOUNCE_MS
     pendingRenderTimeout = setTimeout(() => {
-        console.log('[PROGRESSIVE] Debounced render triggered');
         performTableSearch();
         updateSearchResultCount();
         pendingRenderTimeout = null;
@@ -1214,7 +1170,6 @@ function scheduleRender(isFinalRender = false) {
 async function fetchOrders() {
     // Prevent duplicate calls
     if (isFetchingOrders) {
-        console.log('[FETCH-ORDERS] Already fetching, skipping duplicate call...');
         return;
     }
     isFetchingOrders = true;
@@ -1238,7 +1193,6 @@ async function fetchOrders() {
         const customStartDate = convertToUTC(customStartDateValue);
         const customEndDate = convertToUTC(customEndDateValue);
         filter = `(DateCreated ge ${customStartDate} and DateCreated le ${customEndDate})`;
-        console.log(`[FETCH-CUSTOM] Fetching orders: ${customStartDateValue} -> ${customEndDateValue}`);
 
         const PAGE_SIZE = 200; // Batch size for parallel fetching (smaller = faster response)
         // With 1090 orders: ceil(1090/200) = 6 parallel requests
@@ -1255,7 +1209,6 @@ async function fetchOrders() {
         const headers = await window.tokenManager.getAuthHeader();
 
         // ===== PHASE 1: Quick count request (top=1) =====
-        console.log('[PARALLEL] Getting total count...');
         const countUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order/ODataService.GetView?$top=1&$skip=0&$orderby=DateCreated desc&$filter=${encodeURIComponent(filter)}&$count=true`;
         const countResponse = await fetch(countUrl, {
             headers: { ...headers, accept: "application/json" },
@@ -1264,7 +1217,6 @@ async function fetchOrders() {
         const countData = await countResponse.json();
         totalCount = countData["@odata.count"] || 0;
 
-        console.log(`[PARALLEL] Total count: ${totalCount}`);
 
         // Show UI with loading state
         document.getElementById("statsBar").style.display = "flex";
@@ -1277,7 +1229,6 @@ async function fetchOrders() {
         for (let skipOffset = 0; skipOffset < totalCount; skipOffset += PAGE_SIZE) {
             batches.push(skipOffset);
         }
-        console.log(`[PARALLEL] Fetching ${batches.length} batches in parallel:`, batches);
 
         // Hàm fetch 1 batch với retry (tự động retry khi 429/502/503/network error)
         async function fetchBatchWithRetry(batchUrl, batchHeaders, skipValue, index, maxRetries = 2) {
@@ -1319,7 +1270,6 @@ async function fetchOrders() {
 
                     const data = await response.json();
                     const orders = data.value || [];
-                    console.log(`[PARALLEL] Batch ${index + 1} (skip=${skipValue}): ${orders.length} orders${attempt > 0 ? ` (retry #${attempt})` : ''}`);
                     return { skipValue, orders, error: false };
 
                 } catch (err) {
@@ -1372,18 +1322,12 @@ async function fetchOrders() {
         }
 
         // ===== LOG CHI TIẾT ĐỂ DEBUG =====
-        console.log(`[PARALLEL] ===== KẾT QUẢ TẢI ĐƠN =====`);
-        console.log(`[PARALLEL] Tổng count từ API: ${totalCount}`);
-        console.log(`[PARALLEL] Số batch: ${batches.length}, thành công: ${batches.length - failedBatches.length}, thất bại: ${failedBatches.length}`);
         for (const result of results) {
             const status = result.error ? '❌ FAIL' : '✅ OK';
-            console.log(`[PARALLEL]   Batch skip=${result.skipValue}: ${status} - ${result.orders.length} orders${result.status ? ` (HTTP ${result.status})` : ''}`);
         }
-        console.log(`[PARALLEL] Tổng đơn nhận được: ${allData.length}/${totalCount}`);
         if (allData.length < totalCount) {
             console.warn(`[PARALLEL] ⚠️ THIẾU ${totalCount - allData.length} ĐƠN HÀNG!`);
         }
-        console.log(`[PARALLEL] ================================`);
 
         // Cảnh báo user nếu có batch fail sau retry
         if (failedBatches.length > 0 && window.notificationManager) {
@@ -1462,7 +1406,6 @@ async function fetchOrders() {
                     if (window.pancakeDataManager) {
                         await window.pancakeDataManager.fetchConversations(true);
                     }
-                    console.log('[CHAT] ✅ Conversations loaded');
 
                     // Update chat columns without full re-render (use setTimeout to not block)
                     setTimeout(() => updateChatColumnsOnly(), 0);
@@ -1531,11 +1474,9 @@ async function assignEmptyCartTagToSelected() {
             return;
         }
 
-        console.log(`[ASSIGN-TAG] Processing ${selectedOrderIds.length} selected orders...`);
 
         // Load tags nếu chưa có
         if (availableTags.length === 0) {
-            console.log('[ASSIGN-TAG] Loading tags...');
             await loadAvailableTags();
         }
 
@@ -1553,7 +1494,6 @@ async function assignEmptyCartTagToSelected() {
             return;
         }
 
-        console.log('[ASSIGN-TAG] Found "GIỎ TRỐNG" tag:', emptyCartTag);
 
         // Lọc các đơn hàng có TotalQuantity = 0 và chưa có tag "GIỎ TRỐNG"
         const ordersNeedingTag = allData.filter(order => {
@@ -1582,7 +1522,6 @@ async function assignEmptyCartTagToSelected() {
         });
 
         if (ordersNeedingTag.length === 0) {
-            console.log('[ASSIGN-TAG] No selected orders with TotalQuantity = 0 need "GIỎ TRỐNG" tag');
 
             // Đếm số đơn có số lượng > 0
             const nonZeroCount = allData.filter(order =>
@@ -1604,7 +1543,6 @@ async function assignEmptyCartTagToSelected() {
             return;
         }
 
-        console.log(`[ASSIGN-TAG] Found ${ordersNeedingTag.length} orders needing "GIỎ TRỐNG" tag`);
 
         // Thông báo cho user
         if (window.notificationManager) {
@@ -1669,7 +1607,6 @@ async function assignEmptyCartTagToSelected() {
                     const updatedData = { Tags: JSON.stringify(newTags) };
                     updateOrderInTable(order.Id, updatedData);
                     successCount++;
-                    console.log(`[ASSIGN-TAG] ✓ Tagged order ${order.Code}`);
                 } else {
                     failCount++;
                     console.error(`[ASSIGN-TAG] ✗ Failed to tag order ${order.Code}: HTTP ${response.status}`);
@@ -1685,7 +1622,6 @@ async function assignEmptyCartTagToSelected() {
         }
 
         // Thông báo kết quả
-        console.log(`[ASSIGN-TAG] Completed: ${successCount} success, ${failCount} failed`);
 
         if (window.notificationManager) {
             if (successCount > 0) {

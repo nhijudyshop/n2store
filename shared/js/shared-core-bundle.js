@@ -33,7 +33,6 @@
 
     // Prevent double-loading
     if (window.CORE_BUNDLE_LOADED) {
-        console.log('[Core Bundle] Already loaded, skipping');
         return;
     }
 
@@ -451,7 +450,6 @@ function blockPageInteractions() {
     // Vô hiệu hóa drag & drop
     document.addEventListener("dragstart", preventDefaultAction, true);
 
-    console.log("Page interactions blocked for loading");
 }
 
 /**
@@ -488,7 +486,6 @@ function unblockPageInteractions() {
     // Kích hoạt lại drag & drop
     document.removeEventListener("dragstart", preventDefaultAction, true);
 
-    console.log("Page interactions unblocked");
 }
 
 /**
@@ -801,8 +798,6 @@ function setupPerformanceMonitoring() {
             const loadTime =
                 performance.timing.loadEventEnd -
                 performance.timing.navigationStart;
-            console.log("Page load time:", loadTime + "ms");
-
             if (loadTime < 2000) {
                 showStatusMessage("Tải trang nhanh!", "success");
             } else if (loadTime > 5000) {
@@ -861,7 +856,6 @@ function initializeCommonUtils() {
     // Setup error handling
     setupErrorHandling();
 
-    console.log("Common UI Utilities initialized");
 }
 
 /**
@@ -1006,7 +1000,6 @@ function initializePageTitle() {
             updateTitleWithRoleEnhanced(titleElement, auth);
         }
 
-        console.log("Page title updated with role icon");
     } catch (error) {
         console.error("Error updating page title:", error);
     }
@@ -1613,7 +1606,6 @@ if (typeof window !== "undefined") {
     window.numberWithCommas = numberWithCommas;
 }
 
-console.log("[Date Utils] Module loaded");
 
 
 
@@ -1825,7 +1817,6 @@ if (typeof window !== "undefined") {
     window.setInputValue = setInputValue;
 }
 
-console.log("[Form Utils] Module loaded");
 
 
 
@@ -2654,7 +2645,6 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports = { NotificationManager, NOTIFICATION_CONFIG };
 }
 
-console.log('[Notification System] Module loaded');
 
 
 
@@ -2690,7 +2680,6 @@ if (typeof window !== 'undefined' && !window._sharedAuthManagerWarned) {
 
 // Prevent redeclaration if already loaded
 if (typeof window !== 'undefined' && window.AuthManager) {
-    console.log('⚠️ AuthManager already loaded, skipping redeclaration');
 } else {
     class AuthManager {
     constructor(options = {}) {
@@ -2985,7 +2974,6 @@ if (typeof window !== 'undefined' && window.AuthManager) {
                 sessionDuration: 8 * 60 * 60 * 1000,
                 rememberDuration: 30 * 24 * 60 * 60 * 1000
             });
-            console.log('[Core Bundle] AuthManager auto-initialized');
         } catch (e) {
             console.warn('[Core Bundle] Failed to auto-init AuthManager:', e);
         }
@@ -2995,7 +2983,6 @@ if (typeof window !== 'undefined' && window.AuthManager) {
     if (typeof NotificationManager !== 'undefined' && !window.notificationManager) {
         try {
             window.notificationManager = new NotificationManager();
-            console.log('[Core Bundle] NotificationManager auto-initialized');
         } catch (e) {
             console.warn('[Core Bundle] Failed to auto-init NotificationManager:', e);
         }
@@ -3004,7 +2991,5 @@ if (typeof window !== 'undefined' && window.AuthManager) {
     // Dispatch event to signal core utilities are loaded
     document.dispatchEvent(new CustomEvent('coreUtilitiesLoaded'));
     window.dispatchEvent(new CustomEvent('sharedModulesLoaded'));
-
-    console.log('[Core Bundle] All core utilities loaded');
 
 })(typeof window !== 'undefined' ? window : this);

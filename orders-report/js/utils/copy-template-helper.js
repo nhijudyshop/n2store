@@ -398,14 +398,10 @@
                 showToast('Đã paste mẫu (copy thất bại)', 'error');
             }
 
-            console.log('[CopyTemplate] Template copied successfully');
-
         } catch (error) {
             console.error('[CopyTemplate] Error:', error);
             showToast('Lỗi khi copy mẫu: ' + error.message, 'error');
         }
     };
-
-    console.log('[CopyTemplate] copy-template-helper.js loaded');
 
 })();

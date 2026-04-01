@@ -229,7 +229,6 @@ const OrderStore = {
             });
         }
         this._initialized = true;
-        console.log(`[OrderStore] ✅ Initialized with ${this._orders.size} orders, ${this._ordersBySTT.size} STT indexed`);
     },
 
     /**
@@ -247,7 +246,6 @@ const OrderStore = {
                 }
             }
         });
-        console.log(`[OrderStore] ➕ Added batch of ${orders.length} orders, total: ${this._orders.size}, STT: ${this._ordersBySTT.size}`);
     },
 
     /**
@@ -325,7 +323,6 @@ const OrderStore = {
         this._orders.clear();
         this._ordersBySTT.clear();
         this._initialized = false;
-        console.log('[OrderStore] 🗑️ Cleared');
     },
 
     /**
@@ -345,7 +342,6 @@ const OrderStore = {
             }
         });
         this._initialized = true;
-        console.log(`[OrderStore] 🔄 Synced from array: ${this._orders.size} orders, ${this._ordersBySTT.size} STT indexed`);
     }
 };
 
@@ -414,11 +410,9 @@ const orderDetailsCache = new Map(); // Map<orderId, { data, timestamp }>
 function getOrderDetailsFromCache(orderId) {
     const cached = orderDetailsCache.get(orderId);
     if (cached && (Date.now() - cached.timestamp) < ORDER_DETAILS_CACHE_TTL) {
-        console.log(`[CACHE] ✅ Order details cache HIT for ${orderId}`);
         return cached.data;
     }
     if (cached) {
-        console.log(`[CACHE] ⏰ Order details cache EXPIRED for ${orderId}`);
         orderDetailsCache.delete(orderId);
     }
     return null;
@@ -431,13 +425,10 @@ function getOrderDetailsFromCache(orderId) {
  */
 function saveOrderDetailsToCache(orderId, data) {
     orderDetailsCache.set(orderId, { data, timestamp: Date.now() });
-    console.log(`[CACHE] 💾 Order details cached for ${orderId} (TTL: ${ORDER_DETAILS_CACHE_TTL / 1000}s)`);
-
     // Clean up old entries (keep max 50 entries)
     if (orderDetailsCache.size > 50) {
         const oldestKey = orderDetailsCache.keys().next().value;
         orderDetailsCache.delete(oldestKey);
-        console.log(`[CACHE] 🧹 Evicted oldest cache entry`);
     }
 }
 
@@ -449,7 +440,6 @@ function saveOrderDetailsToCache(orderId, data) {
 function invalidateOrderDetailsCache(orderId) {
     if (orderDetailsCache.has(orderId)) {
         orderDetailsCache.delete(orderId);
-        console.log(`[CACHE] 🗑️ Invalidated order details cache for ${orderId}`);
     }
 }
 

@@ -40,7 +40,6 @@
 
                 this.cacheCollection = firebase.firestore().collection('pancake_images');
                 this.isInitialized = true;
-                console.log('[FIREBASE-CACHE] ✅ Initialized successfully (Firestore)');
                 return true;
 
             } catch (error) {
@@ -118,10 +117,8 @@
 
                 if (doc.exists) {
                     const data = doc.data();
-                    console.log(`[FIREBASE-CACHE] ✅ Cache HIT for "${cacheKey}":`, data.content_id);
                     return data;
                 } else {
-                    console.log(`[FIREBASE-CACHE] ❌ Cache MISS for "${cacheKey}"`);
                     return null;
                 }
 
@@ -192,7 +189,6 @@
 
                 await this.cacheCollection.doc(cacheKey).set(cacheData);
 
-                console.log(`[FIREBASE-CACHE] ✅ Saved to cache: "${cacheKey}", content_id:`, contentId);
                 return true;
 
             } catch (error) {
@@ -231,7 +227,6 @@
                 }
 
                 await this.cacheCollection.doc(cacheKey).delete();
-                console.log(`[FIREBASE-CACHE] ✅ Cleared cache for "${cacheKey}"`);
                 return true;
 
             } catch (error) {
@@ -268,7 +263,5 @@
 
     // Initialize and expose globally
     window.firebaseImageCache = new FirebaseImageCache();
-
-    console.log('[FIREBASE-CACHE] Module loaded (Firestore version)');
 
 })();

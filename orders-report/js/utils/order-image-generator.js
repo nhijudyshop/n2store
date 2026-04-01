@@ -13,9 +13,7 @@ class OrderImageGenerator {
     }
 
     log(...args) {
-        if (this.DEBUG_MODE) {
-            console.log('[IMAGE-GEN]', ...args);
-        }
+        // Debug logging disabled
     }
 
     init() {
@@ -377,8 +375,6 @@ if (document.readyState === 'loading') {
 }
 
 function initOrderImageGenerator() {
-    console.log('%c🎨 ORDER IMAGE GENERATOR', 'background: #8b5cf6; color: white; padding: 8px; font-weight: bold;');
     const orderImageGenerator = new OrderImageGenerator();
     window.orderImageGenerator = orderImageGenerator;
-    console.log('✅ OrderImageGenerator initialized and ready');
 }

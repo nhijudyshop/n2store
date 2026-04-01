@@ -3,8 +3,6 @@
    Applies unread badges and row highlights to order table
    ===================================================== */
 
-console.log('[Notifier] Loading...');
-
 (function() {
     'use strict';
 
@@ -182,7 +180,6 @@ console.log('[Notifier] Loading...');
         if (!window.realtimeManager) return;
 
         window.realtimeManager.on('pages:new_message', (payload) => {
-            console.log('[Notifier] new_message event:', payload?.conversation_id || '');
             // Pancake raw format: { message: { from: { id } }, page_id, conversation_id }
             const msg = payload?.message || payload;
             const normalized = {
@@ -196,7 +193,6 @@ console.log('[Notifier] Loading...');
         });
 
         window.realtimeManager.on('pages:update_conversation', (payload) => {
-            console.log('[Notifier] update_conversation event:', payload?.id || payload?.conversation?.id || '');
             // Pancake raw format: { conversation: { from_psid, page_id, unread_count, type, snippet } }
             const conv = payload?.conversation || payload;
             const unread = conv?.unread_count || payload?.unread_count || 0;
@@ -271,5 +267,3 @@ console.log('[Notifier] Loading...');
     };
 
 })();
-
-console.log('[Notifier] Loaded.');

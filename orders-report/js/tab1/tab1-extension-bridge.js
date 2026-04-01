@@ -9,8 +9,6 @@
 //   main.html has a relay bridge that forwards messages both ways.
 //   Flow: Extension ↔ contentscript ↔ main.html relay ↔ iframe (this code)
 
-console.log('[Tab1-ExtBridge] Loading...');
-
 // ===== Extension state (same as inbox-main.js window.pancakeExtension) =====
 window.pancakeExtension = { connected: false, lastEvents: [] };
 
@@ -39,7 +37,6 @@ function initExtensionPages(pageIds) {
     window._extensionPageIds = pageIds;
     if (window.pancakeExtension.connected) {
         _postToExtension({ type: 'PREINITIALIZE_PAGES', pageIds: pageIds });
-        console.log('[Tab1-ExtBridge] Sent PREINITIALIZE_PAGES:', pageIds);
     }
 }
 
@@ -66,43 +63,27 @@ async function sendViaExtension(text, conv) {
 
     // Try 1: Cache
     if (globalUserId) {
-        console.log('[EXT-SEND] Cache hit globalUserId:', globalUserId);
     }
 
     // Try 2: page_customer.global_id
     if (!globalUserId) {
         globalUserId = raw.page_customer?.global_id || null;
-        if (globalUserId) console.log('[EXT-SEND] Got globalUserId from page_customer:', globalUserId);
     }
 
     // Try 2b: customers[].global_id (from messages API response)
     if (!globalUserId && conv._messagesData?.customers?.length) {
         globalUserId = conv._messagesData.customers[0].global_id || null;
-        if (globalUserId) console.log('[EXT-SEND] Got globalUserId from _messagesData.customers[]:', globalUserId);
     }
 
     // Try 2c: conv.customers[] directly
     if (!globalUserId && conv.customers?.length) {
         globalUserId = conv.customers[0].global_id || null;
-        if (globalUserId) console.log('[EXT-SEND] Got globalUserId from conv.customers[]:', globalUserId);
     }
 
     // Try 3: GET_GLOBAL_ID_FOR_CONV via extension (needs Facebook thread_id, NOT PSID!)
     const fbThreadId = raw.thread_id || null;
 
-    console.log('[EXT-SEND] Extension send:', {
-        pageId: conv.pageId, psid, globalUserId, fbThreadId,
-        _sources: {
-            cache: window._globalIdCache[cacheKey] || null,
-            page_customer: raw.page_customer?.global_id || null,
-            messagesData_customers: conv._messagesData?.customers?.[0]?.global_id || null,
-            conv_customers: conv.customers?.[0]?.global_id || null,
-            thread_id: fbThreadId,
-        }
-    });
-
     if (!globalUserId && fbThreadId) {
-        console.log('[EXT-SEND] No global_id, trying GET_GLOBAL_ID_FOR_CONV with thread_id:', fbThreadId);
         const taskId = Date.now();
 
         globalUserId = await new Promise((resolve) => {
@@ -118,7 +99,6 @@ async function sendViaExtension(text, conv) {
                 if (d.type === 'GET_GLOBAL_ID_FOR_CONV_SUCCESS' && d.taskId === taskId) {
                     clearTimeout(timeout);
                     window.removeEventListener('message', handler);
-                    console.log('[EXT-SEND] Got globalUserId from extension:', d.globalId);
                     resolve(d.globalId);
                 }
                 if (d.type === 'GET_GLOBAL_ID_FOR_CONV_FAILURE' && d.taskId === taskId) {
@@ -170,7 +150,6 @@ async function sendViaExtension(text, conv) {
             if (d.type === 'REPLY_INBOX_PHOTO_SUCCESS' && d.taskId === sendTaskId) {
                 clearTimeout(timeout);
                 window.removeEventListener('message', handler);
-                console.log('[EXT-SEND] SUCCESS:', d.messageId);
                 resolve(d);
             }
             if (d.type === 'REPLY_INBOX_PHOTO_FAILURE' && d.taskId === sendTaskId) {
@@ -205,7 +184,6 @@ async function sendViaExtension(text, conv) {
         };
 
         _postToExtension(payload);
-        console.log('[EXT-SEND] Sent REPLY_INBOX_PHOTO:', { pageId: conv.pageId, psid, globalUserId });
     });
 }
 
@@ -272,13 +250,6 @@ function buildConvData(pageId, psid) {
         }
     }
 
-    console.log('[EXT-SEND] buildConvData result:', {
-        thread_id: conv._raw.thread_id || null,
-        global_id: conv._raw.page_customer?.global_id || null,
-        customers_global_id: conv.customers?.[0]?.global_id || null,
-        messagesData_global_id: conv._messagesData?.customers?.[0]?.global_id || null,
-    });
-
     return conv;
 }
 
@@ -306,20 +277,17 @@ window.addEventListener('message', function(e) {
     if (isExtEvent) {
         window.pancakeExtension.lastEvents.push({ type: type, time: new Date().toISOString(), data: d });
         if (window.pancakeExtension.lastEvents.length > 50) window.pancakeExtension.lastEvents.shift();
-        console.log('[EXT-EVENT]', type, d);
     }
 
     // EXTENSION_LOADED (relayed from main.html)
     if (type === 'EXTENSION_LOADED' && d.from === 'EXTENSION') {
         window.pancakeExtension.connected = true;
-        console.log('[Tab1-ExtBridge] Extension connected!');
         if (window.notificationManager) {
             window.notificationManager.show('Pancake Extension đã kết nối', 'success');
         }
         // Send PREINITIALIZE_PAGES if we have page IDs
         if (window._extensionPageIds?.length) {
             _postToExtension({ type: 'PREINITIALIZE_PAGES', pageIds: window._extensionPageIds });
-            console.log('[Tab1-ExtBridge] Sent PREINITIALIZE_PAGES:', window._extensionPageIds);
         }
     }
 
@@ -327,7 +295,6 @@ window.addEventListener('message', function(e) {
     if (type === 'EXT_BRIDGE_PROBE_RESPONSE') {
         if (d.connected && !window.pancakeExtension.connected) {
             window.pancakeExtension.connected = true;
-            console.log('[Tab1-ExtBridge] Extension was already connected (probe)');
             if (window.notificationManager) {
                 window.notificationManager.show('Pancake Extension đã kết nối', 'success');
             }
@@ -347,7 +314,6 @@ window.addEventListener('message', function(e) {
 // PROBE: Check if extension already connected
 // =====================================================
 if (window.parent !== window) {
-    console.log('[Tab1-ExtBridge] In iframe, probing parent...');
     window.parent.postMessage({ type: 'EXT_BRIDGE_PROBE' }, '*');
 
     setTimeout(function() {
@@ -363,4 +329,3 @@ if (window.parent !== window) {
     }, 5000);
 }
 
-console.log('[Tab1-ExtBridge] Loaded - iframe:', window.parent !== window);
