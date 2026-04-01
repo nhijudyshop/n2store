@@ -914,7 +914,7 @@
             const catColor = PTAG_CATEGORY_COLORS[data.category];
             const removeBtn = `<button class="ptag-badge-remove" onclick="window._ptagClear('${oid}'); event.stopPropagation();" title="Xóa tag">&times;</button>`;
             if (data.category === PTAG_CATEGORIES.HOAN_TAT) {
-                badges += `<span class="ptag-badge ptag-cat-0 ptag-badge-removable">🟢 ĐÃ RA ĐƠN${removeBtn}</span>`;
+                badges += `<span class="ptag-badge ptag-cat-0">🟢 ĐÃ RA ĐƠN</span>`;
             } else if (data.category === PTAG_CATEGORIES.CHO_DI_DON) {
                 const ss = PTAG_SUBSTATES[data.subState] || PTAG_SUBSTATES.OKIE_CHO_DI_DON;
                 let label = ss.label;
