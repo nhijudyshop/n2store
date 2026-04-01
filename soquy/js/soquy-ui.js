@@ -1712,9 +1712,14 @@ const SoquyUI = (function () {
         // Category filter
         if (state.categoryFilter) {
             const cat = state.categoryFilter.toLowerCase();
-            vouchers = vouchers.filter(v =>
-                String(v.category || '').toLowerCase().includes(cat)
-            );
+            vouchers = vouchers.filter(v => {
+                const srcCode = v.sourceCode || v.source || '';
+                const catName = v.category || '';
+                const displayName = (srcCode && catName && v.type !== 'payment_cn')
+                    ? `${srcCode} ${catName}`
+                    : catName;
+                return String(displayName).toLowerCase().includes(cat);
+            });
         }
 
         // Creator filter
