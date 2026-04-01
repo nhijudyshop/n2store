@@ -50,7 +50,6 @@ export class CacheManager {
             await this.loadFromStorage();
 
             this.isReady = true;
-            console.log('[CACHE] Cache manager initialized with IndexedDB');
         } catch (error) {
             console.error('[CACHE] Failed to initialize storage:', error);
             // Fallback to memory-only mode
@@ -62,8 +61,6 @@ export class CacheManager {
         try {
             const stored = localStorage.getItem(this.storageKey);
             if (stored) {
-                console.log('[CACHE] Migrating from localStorage to IndexedDB...');
-
                 const cacheData = JSON.parse(stored);
 
                 // Save to IndexedDB
@@ -73,8 +70,6 @@ export class CacheManager {
 
                 // Remove from localStorage
                 localStorage.removeItem(this.storageKey);
-
-                console.log('[CACHE] Migration complete');
             }
         } catch (error) {
             console.warn('[CACHE] Migration failed:', error);
@@ -87,13 +82,11 @@ export class CacheManager {
 
             if (this.storage && this.storage.isReady) {
                 await this.storage.setItem(this.storageKey, cacheData);
-                console.log(`[CACHE] Saved ${cacheData.length} items to IndexedDB`);
             } else {
                 // Fallback to localStorage for small data
                 const jsonData = JSON.stringify(cacheData);
                 if (jsonData.length < 4 * 1024 * 1024) { // 4MB limit for safety
                     localStorage.setItem(this.storageKey, jsonData);
-                    console.log(`[CACHE] Saved ${cacheData.length} items to localStorage (fallback)`);
                 } else {
                     console.warn('[CACHE] Data too large for localStorage, skipping save');
                 }
@@ -125,21 +118,17 @@ export class CacheManager {
             }
 
             if (!cacheData) {
-                console.log('[CACHE] No cached data found');
                 return;
             }
 
             const now = Date.now();
-            let validCount = 0;
 
             cacheData.forEach(([key, value]) => {
                 if (value.expires > now) {
                     this.cache.set(key, value);
-                    validCount++;
                 }
             });
 
-            console.log(`[CACHE] Loaded ${validCount} valid items from storage`);
         } catch (error) {
             console.warn('[CACHE] Cannot load from storage:', error);
         }
@@ -181,7 +170,6 @@ export class CacheManager {
 
         if (cached && cached.expires > Date.now()) {
             this.stats.hits++;
-            console.log(`[CACHE] HIT: ${cacheKey}`);
             return cached.value;
         }
 
@@ -191,7 +179,6 @@ export class CacheManager {
         }
 
         this.stats.misses++;
-        console.log(`[CACHE] MISS: ${cacheKey}`);
         return null;
     }
 
@@ -220,7 +207,6 @@ export class CacheManager {
                     cleared++;
                 }
             }
-            console.log(`[CACHE] Cleared ${cleared} items of type: ${type}`);
         } else {
             this.cache.clear();
 
@@ -229,8 +215,6 @@ export class CacheManager {
                 await this.storage.removeItem(this.storageKey);
             }
             localStorage.removeItem(this.storageKey);
-
-            console.log('[CACHE] Cleared all cache');
         }
         this.stats = { hits: 0, misses: 0 };
         await this.saveToStorage();
@@ -251,7 +235,6 @@ export class CacheManager {
         }
         if (cleaned > 0) {
             this.saveToStorage();
-            console.log(`[CACHE] Cleaned ${cleaned} expired entries`);
         }
         return cleaned;
     }
@@ -270,7 +253,6 @@ export class CacheManager {
             }
         }
         this.saveToStorage();
-        console.log(`[CACHE] Invalidated ${invalidated} entries matching: ${pattern}`);
         return invalidated;
     }
 
