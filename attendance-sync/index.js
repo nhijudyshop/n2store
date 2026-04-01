@@ -1,5 +1,5 @@
 const ZK = require('./zk');
-const fb = require('./firebase');
+const fb = require('./api');
 const fs = require('fs');
 const path = require('path');
 

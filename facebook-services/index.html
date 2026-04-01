@@ -118,14 +118,7 @@
                             </div>
                         </div>
 
-                        <!-- Page Posts Dropdown (hidden by default) -->
-                        <div class="form-group" id="pagePostsGroup" style="display:none">
-                            <label><i data-lucide="file-text"></i> Ch&#7885;n b&agrave;i t&#7915; Page</label>
-                            <select id="pageSelect" class="form-select">
-                                <option value="">-- Ch&#7885;n Page --</option>
-                            </select>
-                            <div id="postsList" class="posts-list" style="display:none"></div>
-                        </div>
+                        <!-- (Page Posts removed - replaced by post selection modal) -->
 
                         <!-- Comments (for comment services) -->
                         <div class="form-group" id="commentsGroup" style="display:none">
@@ -328,6 +321,28 @@
         </div>
     </main>
 
+    <!-- Post Selection Modal -->
+    <div class="fb-post-modal-overlay" id="postModal">
+        <div class="fb-post-modal">
+            <div class="fb-post-modal-header">
+                <h3><i data-lucide="facebook"></i> Ch&#7885;n b&agrave;i vi&#7871;t</h3>
+                <button class="fb-post-modal-close" onclick="closePostModal()">&times;</button>
+            </div>
+            <div class="fb-post-modal-body">
+                <div class="fb-post-filter">
+                    <i data-lucide="search"></i>
+                    <input type="text" id="postFilterInput" placeholder="N&#7897;i dung b&agrave;i vi&#7871;t" oninput="filterPancakePosts()" />
+                </div>
+                <div class="fb-post-loading" id="postLoading">
+                    <i data-lucide="loader-2" class="animate-spin"></i>
+                    <span>&#272;ang t&#7843;i danh s&aacute;ch b&agrave;i vi&#7871;t...</span>
+                </div>
+                <div class="fb-post-list" id="postList"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../shared/js/pancake-token-manager.js"></script>
     <script src="js/facebook-services.js"></script>
 </body>
 

@@ -620,67 +620,9 @@
         // Submit
         document.getElementById('btnSubmitOrder').addEventListener('click', submitOrder);
 
-        // Pick from page
-        document.getElementById('btnPickFromPage').addEventListener('click', async () => {
-            const group = document.getElementById('pagePostsGroup');
-            if (group.style.display === 'none') {
-                group.style.display = 'block';
-                const pages = await fetchFacebookPages();
-                const sel = document.getElementById('pageSelect');
-                sel.innerHTML = '<option value="">-- Ch\u1ecdn Page --</option>';
-                if (Array.isArray(pages)) {
-                    for (const p of pages) {
-                        const pageId = p.Facebook_PageId || p.id;
-                        const pageName = p.Facebook_PageName || p.name || pageId;
-                        if (pageId) {
-                            const opt = document.createElement('option');
-                            opt.value = pageId;
-                            opt.textContent = pageName;
-                            sel.appendChild(opt);
-                        }
-                    }
-                }
-            } else {
-                group.style.display = 'none';
-            }
-        });
-
-        // Page select
-        document.getElementById('pageSelect').addEventListener('change', async (e) => {
-            const pageId = e.target.value;
-            const postsList = document.getElementById('postsList');
-            if (!pageId) {
-                postsList.style.display = 'none';
-                return;
-            }
-
-            postsList.style.display = 'block';
-            postsList.innerHTML = '<div class="loading-state"><i data-lucide="loader-2" class="animate-spin"></i><span>\u0110ang t\u1ea3i...</span></div>';
-            if (typeof lucide !== 'undefined') lucide.createIcons();
-
-            const posts = await fetchPagePosts(pageId);
-            if (!posts.length) {
-                postsList.innerHTML = '<div class="loading-state"><span>Kh\u00f4ng c\u00f3 b\u00e0i vi\u1ebft</span></div>';
-                return;
-            }
-
-            postsList.innerHTML = posts.map(p => {
-                const link = `https://facebook.com/${pageId}/videos/${p.id || p.video_id || ''}`;
-                const title = p.title || p.description || 'Video';
-                const date = p.creation_time ? new Date(p.creation_time * 1000).toLocaleDateString('vi') : '';
-                return `<div class="post-item" data-link="${link}">
-                    <div class="post-item-title">${truncate(title, 60)}</div>
-                    <div class="post-item-date">${date}</div>
-                </div>`;
-            }).join('');
-
-            // Click post to fill link
-            postsList.querySelectorAll('.post-item').forEach(item => {
-                item.addEventListener('click', () => {
-                    document.getElementById('linkInput').value = item.dataset.link;
-                    updateSubmitButton();
-                });
-            });
+        // Pick from page → open post selection modal
+        document.getElementById('btnPickFromPage').addEventListener('click', () => {
+            openPostModal();
         });
 
         // Wallet events
@@ -698,6 +640,197 @@
             }
         });
     }
+
+    // =====================================================
+    // POST SELECTION MODAL (Pancake API)
+    // =====================================================
+
+    const PANCAKE_PAGE_ID = '270136663390370'; // NhiJudy Store
+    let cachedPancakePosts = [];
+    let filteredPancakePosts = [];
+
+    function openPostModal() {
+        const modal = document.getElementById('postModal');
+        if (modal) modal.classList.add('show');
+        document.getElementById('postLoading').style.display = 'flex';
+        document.getElementById('postList').innerHTML = '';
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+
+        if (cachedPancakePosts.length === 0) {
+            fetchPancakePosts();
+        } else {
+            renderPancakePosts(cachedPancakePosts);
+        }
+    }
+
+    function closePostModal() {
+        const modal = document.getElementById('postModal');
+        if (modal) modal.classList.remove('show');
+    }
+
+    async function fetchPancakePosts() {
+        try {
+            if (!window.pancakeTokenManager) {
+                throw new Error('PancakeTokenManager ch\u01b0a kh\u1edfi t\u1ea1o');
+            }
+
+            // Strategy 1: Try internal API with all JWT accounts
+            const accounts = window.pancakeTokenManager.getAllAccounts();
+            const entries = Object.entries(accounts);
+            entries.sort(([, a], [, b]) => {
+                if (a.name === 'K\u1ef9 Thu\u1eadt NJD') return -1;
+                if (b.name === 'K\u1ef9 Thu\u1eadt NJD') return 1;
+                return 0;
+            });
+
+            for (const [, account] of entries) {
+                if (!account.token) continue;
+                console.log('[FB-SVC] Trying account:', account.name);
+                const url = `${CF_WORKER}/api/pancake-direct/pages/posts?types=&current_count=0&page_id=${PANCAKE_PAGE_ID}&jwt=${encodeURIComponent(account.token)}&page_ids=${PANCAKE_PAGE_ID}&access_token=${encodeURIComponent(account.token)}`;
+                try {
+                    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                    const result = await res.json();
+                    if (result.success && result.data) {
+                        cachedPancakePosts = result.data;
+                        filteredPancakePosts = cachedPancakePosts;
+                        renderPancakePosts(cachedPancakePosts);
+                        console.log('[FB-SVC] Loaded', cachedPancakePosts.length, 'posts via', account.name);
+                        return;
+                    }
+                    console.warn('[FB-SVC] Account', account.name, 'failed:', result.message);
+                } catch (e) {
+                    console.warn('[FB-SVC] Account', account.name, 'error:', e.message);
+                }
+            }
+
+            // Strategy 2: Fallback to official API with page_access_token
+            console.log('[FB-SVC] Trying official API...');
+            let pat = window.pancakeTokenManager.getPageAccessToken(PANCAKE_PAGE_ID);
+            if (!pat && window.pancakeTokenManager.generatePageAccessToken) {
+                pat = await window.pancakeTokenManager.generatePageAccessToken(PANCAKE_PAGE_ID);
+            }
+            if (pat) {
+                const now = Math.floor(Date.now() / 1000);
+                const since = now - (90 * 24 * 60 * 60);
+                const url = `${CF_WORKER}/api/pancake-official/pages/${PANCAKE_PAGE_ID}/posts?page_access_token=${encodeURIComponent(pat)}&since=${since}&until=${now}&page_number=1&page_size=30`;
+                const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                const result = await res.json();
+                if (result.success && result.posts) {
+                    cachedPancakePosts = result.posts;
+                    filteredPancakePosts = cachedPancakePosts;
+                    renderPancakePosts(cachedPancakePosts);
+                    console.log('[FB-SVC] Loaded', cachedPancakePosts.length, 'posts via official API');
+                    return;
+                }
+            }
+
+            throw new Error('Phi\u00ean \u0111\u0103ng nh\u1eadp Pancake \u0111\u00e3 h\u1ebft h\u1ea1n');
+        } catch (error) {
+            console.error('[FB-SVC] fetchPancakePosts error:', error);
+            document.getElementById('postLoading').style.display = 'none';
+            document.getElementById('postList').innerHTML = `
+                <div style="padding: 40px; text-align: center; color: var(--danger);">
+                    <i data-lucide="alert-circle" style="width:32px;height:32px;margin:0 auto 12px;display:block;"></i>
+                    <p>Kh\u00f4ng th\u1ec3 t\u1ea3i danh s\u00e1ch b\u00e0i vi\u1ebft.</p>
+                    <p style="font-size: 11px; color: var(--text-muted); margin-top: 8px;">${error.message}</p>
+                    <button onclick="retryFetchPosts()"
+                        style="margin-top: 12px; padding: 8px 20px; background: var(--primary); color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                        <i data-lucide="refresh-cw" style="width:14px;height:14px;display:inline;"></i> Th\u1eed l\u1ea1i
+                    </button>
+                </div>
+            `;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+    }
+
+    function renderPancakePosts(posts) {
+        document.getElementById('postLoading').style.display = 'none';
+        if (!posts || posts.length === 0) {
+            document.getElementById('postList').innerHTML = `
+                <div style="padding: 40px; text-align: center; color: var(--text-muted);">
+                    <p>Kh\u00f4ng c\u00f3 b\u00e0i vi\u1ebft n\u00e0o.</p>
+                </div>`;
+            return;
+        }
+
+        const imgProxy = `${CF_WORKER}/api/image-proxy?url=`;
+        const html = posts.map(post => {
+            const thumb = post.attachments?.data?.[0]?.url || null;
+            const multiImg = (post.attachments?.data?.length || 0) > 1;
+            let title = post.message || 'Kh\u00f4ng c\u00f3 ti\u00eau \u0111\u1ec1';
+            if (title.length > 80) title = title.substring(0, 80) + '...';
+
+            const date = new Date(post.inserted_at);
+            const dateStr = date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            const timeStr = date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+
+            const postUrl = post.attachments?.target?.url || `https://www.facebook.com/${post.id}`;
+            const thumbUrl = thumb ? imgProxy + encodeURIComponent(thumb) : '';
+
+            let typeIcon = '';
+            if (post.type === 'livestream') typeIcon = '<span class="type-icon">LIVE</span>';
+            else if (post.type === 'video') typeIcon = '<span class="type-icon">VIDEO</span>';
+
+            const safeTitle = title.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            const safeUrl = postUrl.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+
+            return `<div class="fb-post-item" onclick="selectPancakePost('${safeUrl}')">
+                <div class="fb-post-thumb">
+                    ${thumb ? `<img src="${thumbUrl}" alt="" onerror="this.style.display='none'">` : '<i data-lucide="image" class="no-img"></i>'}
+                    ${multiImg ? `<span class="type-icon">+${post.attachments.data.length - 1}</span>` : ''}
+                    ${typeIcon}
+                </div>
+                <div class="fb-post-info">
+                    <div class="fb-post-title">${title}</div>
+                    <div class="fb-post-date">${dateStr} ${timeStr}</div>
+                    <div class="fb-post-meta">
+                        ${post.comment_count > 0 ? `<span><i data-lucide="message-circle" style="width:12px;height:12px;"></i> ${post.comment_count}</span>` : ''}
+                        ${post.share_count > 0 ? `<span><i data-lucide="share-2" style="width:12px;height:12px;"></i> ${post.share_count}</span>` : ''}
+                        ${post.phone_number_count > 0 ? `<span><i data-lucide="phone" style="width:12px;height:12px;"></i> ${post.phone_number_count}</span>` : ''}
+                    </div>
+                </div>
+                <div class="fb-post-actions">
+                    <button class="fb-post-copy-btn" onclick="event.stopPropagation();navigator.clipboard.writeText('${post.id}')" title="Copy ID">
+                        <i data-lucide="copy" style="width:12px;height:12px;"></i> ID
+                    </button>
+                </div>
+            </div>`;
+        }).join('');
+
+        document.getElementById('postList').innerHTML = html;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    function filterPancakePosts() {
+        const term = document.getElementById('postFilterInput').value.toLowerCase().trim();
+        if (!term) {
+            filteredPancakePosts = cachedPancakePosts;
+        } else {
+            filteredPancakePosts = cachedPancakePosts.filter(p => (p.message || '').toLowerCase().includes(term));
+        }
+        renderPancakePosts(filteredPancakePosts);
+    }
+
+    function selectPancakePost(postUrl) {
+        document.getElementById('linkInput').value = postUrl;
+        updateSubmitButton();
+        closePostModal();
+    }
+
+    function retryFetchPosts() {
+        cachedPancakePosts = [];
+        document.getElementById('postLoading').style.display = 'flex';
+        document.getElementById('postList').innerHTML = '';
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        fetchPancakePosts();
+    }
+
+    // Expose modal functions for inline onclick
+    window.openPostModal = openPostModal;
+    window.closePostModal = closePostModal;
+    window.filterPancakePosts = filterPancakePosts;
+    window.selectPancakePost = selectPancakePost;
+    window.retryFetchPosts = retryFetchPosts;
 
     // =====================================================
     // Expose functions for inline onclick
@@ -748,6 +881,11 @@
         if (mainContainer) mainContainer.style.display = 'block';
 
         if (typeof lucide !== 'undefined') lucide.createIcons();
+
+        // Initialize PancakeTokenManager for post selection
+        if (window.pancakeTokenManager && window.pancakeTokenManager.init) {
+            window.pancakeTokenManager.init().catch(e => console.warn('[FB-SVC] PancakeToken init:', e.message));
+        }
 
         setupTabs();
         setupEvents();

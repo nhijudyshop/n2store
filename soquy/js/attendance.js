@@ -7,17 +7,48 @@
     'use strict';
 
     // ================================================================
+    // API CLIENT (replaces Firestore)
+    // ================================================================
+    const ATTENDANCE_API = 'https://n2store-fallback.onrender.com/api/attendance';
+
+    async function apiGet(path) {
+        const res = await fetch(ATTENDANCE_API + path);
+        if (!res.ok) throw new Error(`API error ${res.status}`);
+        return res.json();
+    }
+    async function apiPost(path, body) {
+        const res = await fetch(ATTENDANCE_API + path, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        if (!res.ok) throw new Error(`API error ${res.status}`);
+        return res.json();
+    }
+    async function apiPut(path, body) {
+        const res = await fetch(ATTENDANCE_API + path, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        if (!res.ok) throw new Error(`API error ${res.status}`);
+        return res.json();
+    }
+    async function apiPatch(path, body) {
+        const res = await fetch(ATTENDANCE_API + path, {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        if (!res.ok) throw new Error(`API error ${res.status}`);
+        return res.json();
+    }
+    async function apiDelete(path) {
+        const res = await fetch(ATTENDANCE_API + path, { method: 'DELETE' });
+        if (!res.ok) throw new Error(`API error ${res.status}`);
+        return res.json();
+    }
+
+    // ================================================================
     // CONSTANTS
     // ================================================================
-    const COLLECTIONS = {
-        records: 'attendance_records',
-        deviceUsers: 'attendance_device_users',
-        commands: 'attendance_commands',
-        syncStatus: 'attendance_sync_status',
-        fullday: 'attendance_fullday',
-        allowances: 'attendance_allowances',
-        payroll: 'attendance_payroll',
-    };
 
     const DAY_NAMES = ['Chủ nhật', 'Thứ hai', 'Thứ ba', 'Thứ tư', 'Thứ năm', 'Thứ sáu', 'Thứ bảy'];
     const SHORT_DAY_NAMES = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
@@ -36,12 +67,11 @@
     // ================================================================
     // STATE
     // ================================================================
-    let db = null;
     let currentWeekStart = null; // Monday of current view
     let employees = [];          // From attendance_device_users
     let weekRecords = [];        // Attendance records for current week
     let syncStatus = null;       // Sync service status
-    let unsubSyncStatus = null;  // Firestore listener unsubscribe
+    let syncStatusInterval = null; // Polling interval for sync status
     let showHidden = false;      // Toggle hiển thị nhân viên ẩn
     let viewPeriod = 'month';    // always 'month'
     let currentMonth = null;     // { year, month } for monthly view
@@ -60,25 +90,14 @@
         return hiddenEmployees.has(String(empId));
     }
 
-    // displayName: tên hiển thị do user đặt, lưu trên Firestore
-    // Device sync chỉ ghi field "name", không đụng "displayName"
-    function applyDisplayNames() {
-        employees.forEach(emp => {
-            emp._deviceName = emp.name; // Lưu tên gốc từ máy chấm công
-            if (emp.displayName) {
-                emp.name = emp.displayName;
-            }
-        });
-    }
-
-    // Full-day salary override — lưu trên Firestore
+    // Full-day salary override — lưu trên server
     let fullDayOverrides = new Set();
 
     async function loadFullDayOverrides() {
         try {
-            const snapshot = await serverGet(db.collection(COLLECTIONS.fullday));
+            const data = await apiGet('/fullday');
             fullDayOverrides = new Set();
-            snapshot.forEach(doc => fullDayOverrides.add(doc.id));
+            (data.rows || []).forEach(row => fullDayOverrides.add(row.id));
             console.log(`[Attendance] Loaded ${fullDayOverrides.size} fullday overrides`);
         } catch (err) {
             console.error('[Attendance] Lỗi load fullday:', err);
@@ -94,14 +113,10 @@
         try {
             if (fullDayOverrides.has(key)) {
                 fullDayOverrides.delete(key);
-                await db.collection(COLLECTIONS.fullday).doc(key).delete();
+                await apiDelete('/fullday/' + key);
             } else {
                 fullDayOverrides.add(key);
-                await db.collection(COLLECTIONS.fullday).doc(key).set({
-                    empId: String(empId),
-                    dateKey: dateKey,
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
+                await apiPost('/fullday/' + key, {});
             }
         } catch (err) {
             console.error('[Attendance] Lỗi toggle fullday:', err);
@@ -111,7 +126,7 @@
         renderSchedule();
     }
 
-    // Allowances (Phụ cấp) — lưu trên Firestore theo tháng
+    // Allowances (Phụ cấp) — lưu trên server theo tháng
     // Key: empId_YYYY-MM, value: amount (VND)
     let monthlyAllowances = {}; // { 'empId_YYYY-MM': amount }
 
@@ -119,12 +134,10 @@
         if (!currentMonth) return;
         const monthKey = `${currentMonth.year}-${String(currentMonth.month).padStart(2, '0')}`;
         try {
-            const snapshot = await serverGet(db.collection(COLLECTIONS.allowances)
-                .where('monthKey', '==', monthKey));
+            const data = await apiGet('/allowances?monthKey=' + monthKey);
             monthlyAllowances = {};
-            snapshot.forEach(doc => {
-                const data = doc.data();
-                monthlyAllowances[`${data.empId}_${data.monthKey}`] = data.amount || 0;
+            (data.rows || []).forEach(row => {
+                monthlyAllowances[`${row.emp_id}_${row.month_key}`] = row.amount || 0;
             });
             console.log(`[Attendance] Loaded ${Object.keys(monthlyAllowances).length} allowances for ${monthKey}`);
         } catch (err) {
@@ -144,14 +157,13 @@
         const docId = `${empId}_${monthKey}`;
         try {
             if (amount === 0) {
-                await db.collection(COLLECTIONS.allowances).doc(docId).delete();
+                await apiDelete('/allowances/' + docId);
                 delete monthlyAllowances[docId];
             } else {
-                await db.collection(COLLECTIONS.allowances).doc(docId).set({
+                await apiPut('/allowances/' + docId, {
                     empId: String(empId),
                     monthKey: monthKey,
-                    amount: amount,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    amount: amount
                 });
                 monthlyAllowances[docId] = amount;
             }
@@ -216,12 +228,23 @@
         if (!currentMonth) return;
         const monthKey = `${currentMonth.year}-${String(currentMonth.month).padStart(2, '0')}`;
         try {
-            const snapshot = await serverGet(db.collection(COLLECTIONS.payroll)
-                .where('monthKey', '==', monthKey));
+            const data = await apiGet('/payroll?monthKey=' + monthKey);
             payrollDataMap = {};
-            snapshot.forEach(doc => {
-                const data = doc.data();
-                payrollDataMap[String(data.empId)] = data;
+            (data.rows || []).forEach(row => {
+                // Map snake_case → camelCase for frontend compatibility
+                payrollDataMap[String(row.emp_id)] = {
+                    empId: row.emp_id,
+                    monthKey: row.month_key,
+                    thuongItems: row.thuong_items || [],
+                    giamTruItems: row.giam_tru_items || [],
+                    daTraItems: row.da_tra_items || [],
+                    allowances: row.allowances || [],
+                    ghiChu: row.ghi_chu || '',
+                    salaryDaysOverride: row.salary_days_override || null,
+                    otHoursOverride: row.ot_hours_override || null,
+                    giamTruLateOverride: row.giam_tru_late_override,
+                    giamTruNote: row.giam_tru_note || '',
+                };
             });
             console.log(`[Attendance] Loaded ${Object.keys(payrollDataMap).length} payroll docs for ${monthKey}`);
         } catch (err) {
@@ -264,12 +287,11 @@
         const monthKey = `${currentMonth.year}-${String(currentMonth.month).padStart(2, '0')}`;
         const docId = `${empId}_${monthKey}`;
         try {
-            await db.collection(COLLECTIONS.payroll).doc(docId).set({
+            await apiPut('/payroll/' + docId, {
                 empId: String(empId),
                 monthKey: monthKey,
                 [field]: value,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
+            });
             // Update local cache
             if (!payrollDataMap[String(empId)]) {
                 payrollDataMap[String(empId)] = { empId: String(empId), monthKey };
@@ -286,12 +308,11 @@
         const monthKey = `${currentMonth.year}-${String(currentMonth.month).padStart(2, '0')}`;
         const docId = `${empId}_${monthKey}`;
         try {
-            await db.collection(COLLECTIONS.payroll).doc(docId).set({
+            await apiPut('/payroll/' + docId, {
                 empId: String(empId),
                 monthKey: monthKey,
                 allowances: items,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
+            });
             if (!payrollDataMap[String(empId)]) {
                 payrollDataMap[String(empId)] = { empId: String(empId), monthKey };
             }
@@ -308,12 +329,11 @@
         const docId = `${empId}_${monthKey}`;
         const field = type === 'salary' ? 'salaryDaysOverride' : 'otHoursOverride';
         try {
-            await db.collection(COLLECTIONS.payroll).doc(docId).set({
+            await apiPut('/payroll/' + docId, {
                 empId: String(empId),
                 monthKey: monthKey,
                 [field]: data,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
+            });
             if (!payrollDataMap[String(empId)]) {
                 payrollDataMap[String(empId)] = { empId: String(empId), monthKey };
             }
@@ -574,12 +594,6 @@
     // INIT
     // ================================================================
     function init() {
-        db = firebase.firestore();
-        if (!db) {
-            console.error('[Attendance] Firestore chưa khởi tạo');
-            return;
-        }
-
         currentWeekStart = getMonday(new Date());
         const now = new Date();
         currentMonth = { year: now.getFullYear(), month: now.getMonth() + 1 };
@@ -665,24 +679,22 @@
     // DATA LOADING
     // ================================================================
 
-    /** Firestore get() force server, fallback cache */
-    async function serverGet(query) {
-        try {
-            return await query.get({ source: 'server' });
-        } catch (e) {
-            return await query.get();
-        }
-    }
-
     /** Load danh sách nhân viên từ máy chấm công */
     async function loadEmployees() {
         try {
-            const snapshot = await serverGet(db.collection(COLLECTIONS.deviceUsers));
-            employees = [];
-            snapshot.forEach(doc => {
-                employees.push({ ...doc.data(), id: doc.id });
-            });
-            applyDisplayNames();
+            const data = await apiGet('/device-users');
+            employees = (data.rows || []).map(row => ({
+                id: row.user_id,
+                userId: row.user_id,
+                uid: row.uid,
+                name: row.display_name || row.name,
+                displayName: row.display_name || null,
+                _deviceName: row.name,
+                role: row.role,
+                dailyRate: row.daily_rate,
+                workStart: row.work_start,
+                workEnd: row.work_end,
+            }));
             employees.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'vi'));
             console.log(`[Attendance] Loaded ${employees.length} employees`);
         } catch (err) {
@@ -698,14 +710,15 @@
         const endKey = toDateKey(dates[6]);
 
         try {
-            const snapshot = await serverGet(db.collection(COLLECTIONS.records)
-                .where('dateKey', '>=', startKey)
-                .where('dateKey', '<=', endKey));
-
-            weekRecords = [];
-            snapshot.forEach(doc => {
-                weekRecords.push({ id: doc.id, ...doc.data() });
-            });
+            const data = await apiGet('/records?start=' + startKey + '&end=' + endKey);
+            weekRecords = (data.rows || []).map(row => ({
+                id: row.id,
+                deviceUserId: row.device_user_id,
+                dateKey: row.date_key,
+                checkTime: new Date(row.check_time),
+                type: row.type,
+                source: row.source,
+            }));
 
             console.log(`[Attendance] Loaded ${weekRecords.length} records (${startKey} → ${endKey})`);
         } catch (err) {
@@ -731,14 +744,15 @@
         const endKey = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
         try {
-            const snapshot = await serverGet(db.collection(COLLECTIONS.records)
-                .where('dateKey', '>=', startKey)
-                .where('dateKey', '<=', endKey));
-
-            monthRecords = [];
-            snapshot.forEach(doc => {
-                monthRecords.push({ id: doc.id, ...doc.data() });
-            });
+            const data = await apiGet('/records?start=' + startKey + '&end=' + endKey);
+            monthRecords = (data.rows || []).map(row => ({
+                id: row.id,
+                deviceUserId: row.device_user_id,
+                dateKey: row.date_key,
+                checkTime: new Date(row.check_time),
+                type: row.type,
+                source: row.source,
+            }));
             console.log(`[Attendance] Month: ${monthRecords.length} records (${startKey} → ${endKey})`);
         } catch (err) {
             console.error('[Attendance] Lỗi load month data:', err);
@@ -749,18 +763,25 @@
         renderMonthlySchedule();
     }
 
-    /** Lắng nghe trạng thái sync (real-time) */
+    /** Poll trạng thái sync mỗi 10s */
     function listenSyncStatus() {
-        if (unsubSyncStatus) unsubSyncStatus();
+        if (syncStatusInterval) clearInterval(syncStatusInterval);
 
-        unsubSyncStatus = db.collection(COLLECTIONS.syncStatus)
-            .doc('current')
-            .onSnapshot(doc => {
-                syncStatus = doc.exists ? doc.data() : null;
+        async function poll() {
+            try {
+                const data = await apiGet('/sync-status');
+                syncStatus = data.row ? {
+                    connected: data.row.connected,
+                    lastSyncTime: data.row.last_sync_time,
+                    lastError: data.row.last_error,
+                } : null;
                 renderSyncStatus();
-            }, err => {
-                console.warn('[Attendance] Lỗi listen sync status:', err);
-            });
+            } catch (e) {
+                // Silent
+            }
+        }
+        poll();
+        syncStatusInterval = setInterval(poll, 10000);
     }
 
     // ================================================================
@@ -1834,7 +1855,7 @@
                         emp.displayName = newName;
                         try {
                             if (!isTest) {
-                                await db.collection(COLLECTIONS.deviceUsers).doc(docId).update({ displayName: newName });
+                                await apiPatch('/device-users/' + docId, { display_name: newName });
                             }
                             showNotification(`Đã đổi tên: ${emp._deviceName || oldName} → ${newName}`, 'success');
                             renderMonthlySchedule();
@@ -1853,7 +1874,7 @@
                         emp.dailyRate = newRate;
                         try {
                             if (!isTest) {
-                                await db.collection(COLLECTIONS.deviceUsers).doc(docId).update({ dailyRate: newRate });
+                                await apiPatch('/device-users/' + docId, { daily_rate: newRate });
                             }
                             showNotification(`Đã cập nhật lương: ${formatVND(newRate)}đ/ngày`, 'success');
                             renderMonthlySchedule();
@@ -1873,7 +1894,7 @@
                         emp.workStart = newStart;
                         try {
                             if (!isTest) {
-                                await db.collection(COLLECTIONS.deviceUsers).doc(docId).update({ workStart: newStart });
+                                await apiPatch('/device-users/' + docId, { work_start: newStart });
                             }
                             showNotification(`Giờ vào: ${newStart}:00`, 'success');
                             renderMonthlySchedule();
@@ -1893,7 +1914,7 @@
                         emp.workEnd = newEnd;
                         try {
                             if (!isTest) {
-                                await db.collection(COLLECTIONS.deviceUsers).doc(docId).update({ workEnd: newEnd });
+                                await apiPatch('/device-users/' + docId, { work_end: newEnd });
                             }
                             showNotification(`Giờ ra: ${newEnd}:00`, 'success');
                             renderMonthlySchedule();
@@ -2567,19 +2588,10 @@
                     empId: String(empId),
                     monthKey,
                     giamTruItems: cleanItems,
-                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    giamTruLateOverride: lateOverride != null ? lateOverride : null,
+                    giamTruNote: giamTruNote || null,
                 };
-                if (lateOverride != null) {
-                    data.giamTruLateOverride = lateOverride;
-                } else {
-                    data.giamTruLateOverride = firebase.firestore.FieldValue.delete();
-                }
-                if (giamTruNote) {
-                    data.giamTruNote = giamTruNote;
-                } else {
-                    data.giamTruNote = firebase.firestore.FieldValue.delete();
-                }
-                await db.collection(COLLECTIONS.payroll).doc(docId).set(data, { merge: true });
+                await apiPut('/payroll/' + docId, data);
                 // Update local cache
                 if (!payrollDataMap[String(empId)]) {
                     payrollDataMap[String(empId)] = { empId: String(empId), monthKey };
@@ -3137,12 +3149,7 @@ ${d.ghiChu ? `<div style="margin-top:12px; font-style:italic; font-size:12px;"><
     /** Yêu cầu sync ngay lập tức */
     async function sendSyncCommand() {
         try {
-            await db.collection(COLLECTIONS.commands).add({
-                action: 'sync_now',
-                status: 'pending',
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                createdBy: 'web_admin',
-            });
+            await apiPost('/commands', { action: 'sync_now', created_by: 'web_admin' });
             showNotification('Đã gửi lệnh đồng bộ', 'success');
             // Reload data sau 5s
             setTimeout(() => loadWeekData(), 5000);
@@ -3154,13 +3161,11 @@ ${d.ghiChu ? `<div style="margin-top:12px; font-style:italic; font-size:12px;"><
     /** Thêm user vào máy chấm công (bước 1 trước khi đăng ký vân tay) */
     async function addDeviceUser(name, deviceUserId) {
         try {
-            await db.collection(COLLECTIONS.commands).add({
+            await apiPost('/commands', {
                 action: 'add_user',
-                employeeName: name,
-                deviceUserId: String(deviceUserId),
-                status: 'pending',
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                createdBy: 'web_admin',
+                employee_name: name,
+                device_user_id: String(deviceUserId),
+                created_by: 'web_admin',
             });
             showNotification(`Đang thêm "${name}" vào máy chấm công...`, 'info');
         } catch (err) {
@@ -3171,13 +3176,11 @@ ${d.ghiChu ? `<div style="margin-top:12px; font-style:italic; font-size:12px;"><
     /** Yêu cầu đăng ký vân tay */
     async function enrollFingerprint(name, deviceUserId) {
         try {
-            await db.collection(COLLECTIONS.commands).add({
+            await apiPost('/commands', {
                 action: 'enroll_fingerprint',
-                employeeName: name,
-                deviceUserId: String(deviceUserId),
-                status: 'pending',
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                createdBy: 'web_admin',
+                employee_name: name,
+                device_user_id: String(deviceUserId),
+                created_by: 'web_admin',
             });
             showNotification(`Đang đăng ký vân tay cho "${name}". Nhân viên cần đến máy chấm công để quẹt tay.`, 'info');
         } catch (err) {
@@ -3427,7 +3430,7 @@ ${d.ghiChu ? `<div style="margin-top:12px; font-style:italic; font-size:12px;"><
                         );
                         for (const rec of existing) {
                             if (!String(rec.id).startsWith('test_')) {
-                                await db.collection(COLLECTIONS.records).doc(rec.id).delete();
+                                await apiDelete('/records/' + rec.id);
                             }
                         }
                         // Remove from both arrays
@@ -3470,7 +3473,7 @@ ${d.ghiChu ? `<div style="margin-top:12px; font-style:italic; font-size:12px;"><
                     );
                     for (const rec of existing) {
                         if (!String(rec.id).startsWith('test_')) {
-                            await db.collection(COLLECTIONS.records).doc(rec.id).delete();
+                            await apiDelete('/records/' + rec.id);
                         }
                     }
                     weekRecords = weekRecords.filter(r =>
@@ -3484,14 +3487,14 @@ ${d.ghiChu ? `<div style="margin-top:12px; font-style:italic; font-size:12px;"><
                     if (inOn && newIn) {
                         const [inH, inM] = newIn.split(':').map(Number);
                         const checkInDate = new Date(dp[0], dp[1] - 1, dp[2], inH, inM, 0, 0);
-                        const inDoc = await db.collection(COLLECTIONS.records).add({
-                            deviceUserId: String(empId),
-                            dateKey: dateKey,
-                            checkTime: checkInDate,
+                        const inResult = await apiPost('/records', {
+                            device_user_id: String(empId),
+                            date_key: dateKey,
+                            check_time: checkInDate.toISOString(),
                             type: 0,
                             source: 'manual_edit'
                         });
-                        const rec = { id: inDoc.id, deviceUserId: String(empId), dateKey, checkTime: checkInDate, type: 0, source: 'manual_edit' };
+                        const rec = { id: inResult.id, deviceUserId: String(empId), dateKey, checkTime: checkInDate, type: 0, source: 'manual_edit' };
                         weekRecords.push(rec);
                         monthRecords.push(rec);
                     }
@@ -3500,14 +3503,14 @@ ${d.ghiChu ? `<div style="margin-top:12px; font-style:italic; font-size:12px;"><
                     if (outOn && newOut) {
                         const [outH, outM] = newOut.split(':').map(Number);
                         const checkOutDate = new Date(dp[0], dp[1] - 1, dp[2], outH, outM, 0, 0);
-                        const outDoc = await db.collection(COLLECTIONS.records).add({
-                            deviceUserId: String(empId),
-                            dateKey: dateKey,
-                            checkTime: checkOutDate,
+                        const outResult = await apiPost('/records', {
+                            device_user_id: String(empId),
+                            date_key: dateKey,
+                            check_time: checkOutDate.toISOString(),
                             type: 1,
                             source: 'manual_edit'
                         });
-                        const rec = { id: outDoc.id, deviceUserId: String(empId), dateKey, checkTime: checkOutDate, type: 1, source: 'manual_edit' };
+                        const rec = { id: outResult.id, deviceUserId: String(empId), dateKey, checkTime: checkOutDate, type: 1, source: 'manual_edit' };
                         weekRecords.push(rec);
                         monthRecords.push(rec);
                     }
@@ -3539,7 +3542,7 @@ ${d.ghiChu ? `<div style="margin-top:12px; font-style:italic; font-size:12px;"><
                     );
                     for (const rec of existing) {
                         if (!String(rec.id).startsWith('test_')) {
-                            await db.collection(COLLECTIONS.records).doc(rec.id).delete();
+                            await apiDelete('/records/' + rec.id);
                         }
                     }
                     weekRecords = weekRecords.filter(r =>
@@ -3598,11 +3601,9 @@ ${d.ghiChu ? `<div style="margin-top:12px; font-style:italic; font-size:12px;"><
 
                 try {
                     const docId = String(emp.id || emp.userId);
-                    // Test employees (in-memory only) → skip Firestore
+                    // Test employees (in-memory only) → skip API
                     if (!docId.startsWith('test_')) {
-                        await db.collection(COLLECTIONS.deviceUsers).doc(docId).update({
-                            dailyRate: newRate
-                        });
+                        await apiPatch('/device-users/' + docId, { daily_rate: newRate });
                     }
                     emp.dailyRate = newRate;
                     modal.style.display = 'none';
