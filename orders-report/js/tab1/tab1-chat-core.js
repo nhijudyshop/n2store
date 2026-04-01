@@ -106,7 +106,15 @@ window.openChatModal = async function(orderId, pageId, psid, conversationType) {
 
     // Get customer name and phone from order row
     const orderRow = document.querySelector(`tr[data-order-id="${orderId}"]`);
-    window.currentCustomerName = orderRow?.querySelector('.customer-name')?.textContent?.trim() || '';
+    // Extract name only, excluding wallet debt badge text
+    const nameEl_ = orderRow?.querySelector('.customer-name');
+    if (nameEl_) {
+        const clone = nameEl_.cloneNode(true);
+        clone.querySelectorAll('.wallet-debt-badge').forEach(b => b.remove());
+        window.currentCustomerName = clone.textContent.trim();
+    } else {
+        window.currentCustomerName = '';
+    }
     window.currentChatPhone = orderRow?.querySelector('td[data-column="phone"] span')?.textContent?.trim() || '';
 
     // Show modal
