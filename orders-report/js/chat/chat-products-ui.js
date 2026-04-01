@@ -787,15 +787,98 @@ console.log('[ChatProducts-UI] Loading...');
     };
 
     /**
-     * Send image to chat
+     * Send product image to chat via Pancake API
+     * Downloads image → uploads via upload_contents → sends with content_ids
      */
-    window.sendImageToChat = function (imageUrl, productName, productId, productCode) {
-        const input = document.getElementById('chatInput');
-        if (!input) return;
+    window.sendImageToChat = async function (imageUrl, productName, productId, productCode) {
+        if (!imageUrl) {
+            if (window.notificationManager) window.notificationManager.error('Sản phẩm không có ảnh');
+            return;
+        }
+        if (!window.currentConversationId || !window.currentChatChannelId) {
+            if (window.notificationManager) window.notificationManager.error('Chưa mở cuộc hội thoại');
+            return;
+        }
 
-        // Set the product name in input
-        input.value = productName || '';
-        input.focus();
+        const pdm = window.pancakeDataManager;
+        if (!pdm) {
+            if (window.notificationManager) window.notificationManager.error('PancakeDataManager chưa sẵn sàng');
+            return;
+        }
+
+        try {
+            if (window.notificationManager) window.notificationManager.info('Đang gửi ảnh...', 5000);
+
+            const channelId = window.currentSendPageId || window.currentChatChannelId;
+            const conversationId = window.currentConversationId;
+            const pat = await pdm.getPageAccessToken(channelId);
+            if (!pat) throw new Error('Không tìm thấy page_access_token');
+
+            // Download image
+            const resp = await fetch(imageUrl);
+            if (!resp.ok) throw new Error('Tải ảnh thất bại');
+            const blob = await resp.blob();
+            const ext = imageUrl.match(/\.(jpg|jpeg|png|gif|webp)/i)?.[1] || 'jpg';
+            const file = new File([blob], `product-${productId || 'img'}.${ext}`, { type: blob.type || `image/${ext}` });
+
+            // Upload via upload_contents API
+            const uploadResult = await pdm.uploadMedia(channelId, file, pat);
+            if (!uploadResult?.id) throw new Error('Upload không trả về content_id');
+
+            // Send image with content_ids
+            const sendResult = await pdm.sendMessage(channelId, conversationId, {
+                action: 'reply_inbox', content_ids: [uploadResult.id]
+            }, pat);
+
+            if (sendResult?.success === false) {
+                const errMsg = sendResult.message || '';
+                if (sendResult.e_code === 10 || errMsg.includes('khoảng thời gian cho phép')) {
+                    if (window.notificationManager) window.notificationManager.show('Không thể gửi (quá 24h)', 'warning', 5000);
+                    return;
+                }
+                throw new Error(errMsg || 'Gửi ảnh thất bại');
+            }
+
+            if (window.notificationManager) window.notificationManager.success('Đã gửi ảnh!', 2000);
+
+            // Refresh messages after send
+            setTimeout(async () => {
+                try {
+                    if (window.currentConversationId !== conversationId) return;
+                    pdm.clearMessagesCache?.(channelId, conversationId);
+                    const result = await pdm.fetchMessages(channelId, conversationId);
+                    if (result.messages?.length > 0 && window.currentConversationId === conversationId) {
+                        const messages = result.messages.map(msg => {
+                            const isFromPage = msg.from?.id === channelId;
+                            return {
+                                id: msg.id,
+                                text: msg.original_message || (msg.message || '').replace(/<[^>]+>/g, ''),
+                                time: window._parseTimestamp?.(msg.inserted_at) || new Date(msg.inserted_at),
+                                sender: isFromPage ? 'shop' : 'customer',
+                                senderName: msg.from?.name || '',
+                                fromId: msg.from?.id || '',
+                                attachments: msg.attachments || [],
+                                reactions: (msg.attachments || []).filter(a => a.type === 'reaction'),
+                                reactionSummary: msg.reaction_summary || msg.reactions || null,
+                                isHidden: msg.is_hidden || false,
+                                isRemoved: msg.is_removed || false,
+                                canHide: msg.can_hide !== false,
+                                canRemove: msg.can_remove !== false,
+                                canLike: msg.can_like !== false,
+                                userLikes: msg.user_likes || false,
+                                privateReplyConversation: msg.private_reply_conversation || null,
+                            };
+                        });
+                        window.allChatMessages = messages;
+                        if (window.renderChatMessages) window.renderChatMessages(messages);
+                    }
+                } catch (e) { /* ignore refresh error */ }
+            }, 2000);
+
+        } catch (error) {
+            console.error('[ChatProducts] sendImageToChat error:', error);
+            if (window.notificationManager) window.notificationManager.error('Lỗi gửi ảnh: ' + error.message);
+        }
     };
 
     // =====================================================
