@@ -114,6 +114,14 @@
     letter-spacing: 0.3px;
 }
 
+/* Override wallet debt badges inside chat header: all green, larger */
+.chat-header-sub .wallet-debt-badge {
+    background: #10b981 !important;
+    font-size: 14px !important;
+    padding: 3px 8px !important;
+    border-radius: 6px !important;
+}
+
 .chat-copy-phone {
     font-size: 13px;
     color: rgba(255, 255, 255, 0.5);
