@@ -1008,17 +1008,40 @@ router.get('/processing-tags/:campaignId', async (req, res) => {
 
         const result = await pool.query(
             `SELECT order_id, data, updated_by, updated_at FROM processing_tags
-             WHERE campaign_id = $1 OR order_code LIKE '\\_\\_%'`,
+             WHERE campaign_id = $1 OR order_code LIKE '\\_\\_%'
+             OR (order_id LIKE '\\_\\_%' AND order_code IS NULL)`,
             [campaignId]
         );
 
         const data = {};
         for (const row of result.rows) {
-            data[row.order_id] = {
-                ...row.data,
-                updatedBy: row.updated_by,
-                updatedAt: row.updated_at
-            };
+            const key = row.order_id;
+            if (data[key] && key.startsWith('__')) {
+                // Merge config records from multiple campaigns (deduplicate by id)
+                const existing = data[key];
+                if (row.data.tTagDefinitions) {
+                    if (!existing.tTagDefinitions) existing.tTagDefinitions = [];
+                    for (const def of row.data.tTagDefinitions) {
+                        if (!existing.tTagDefinitions.some(d => d.id === def.id)) {
+                            existing.tTagDefinitions.push(def);
+                        }
+                    }
+                }
+                if (row.data.customFlagDefs) {
+                    if (!existing.customFlagDefs) existing.customFlagDefs = [];
+                    for (const def of row.data.customFlagDefs) {
+                        if (!existing.customFlagDefs.some(d => d.id === def.id)) {
+                            existing.customFlagDefs.push(def);
+                        }
+                    }
+                }
+            } else {
+                data[key] = {
+                    ...row.data,
+                    updatedBy: row.updated_by,
+                    updatedAt: row.updated_at
+                };
+            }
         }
 
         res.json({ success: true, data, count: result.rowCount });
@@ -1058,10 +1081,19 @@ router.put('/processing-tags/:campaignId/:orderId', async (req, res) => {
         try {
             await client.query('BEGIN');
             await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [orderCode]);
-            await client.query(
-                `DELETE FROM processing_tags WHERE order_code = $1 OR (campaign_id = $2 AND order_id = $3)`,
-                [orderCode, campaignId, orderId]
-            );
+            if (orderId.startsWith('__')) {
+                // Config records: clean up ALL duplicates across all campaigns
+                await client.query(
+                    `DELETE FROM processing_tags WHERE order_code = $1 OR order_id = $2`,
+                    [orderCode, orderId]
+                );
+            } else {
+                // Normal order records: only current campaign + order_code match
+                await client.query(
+                    `DELETE FROM processing_tags WHERE order_code = $1 OR (campaign_id = $2 AND order_id = $3)`,
+                    [orderCode, campaignId, orderId]
+                );
+            }
             await client.query(
                 `INSERT INTO processing_tags (campaign_id, order_id, data, updated_by, order_code, created_at, updated_at)
                  VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
