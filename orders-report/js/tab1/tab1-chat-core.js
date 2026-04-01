@@ -138,6 +138,11 @@ window.openChatModal = async function(orderId, pageId, psid, conversationType) {
         // Clear pending badge for this customer (read messages)
         window.newMessagesNotifier?.clearPendingForCustomer(psid);
         _markRepliedOnServer(psid, pageId);
+        // Auto-focus chat input so user can type immediately
+        setTimeout(() => {
+            const chatInputEl = document.getElementById('chatInput');
+            if (chatInputEl) chatInputEl.focus();
+        }, 100);
     } catch (e) {
         console.error('[Chat-Core] Error loading conversation:', e);
         if (messagesEl) {
