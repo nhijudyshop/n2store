@@ -704,6 +704,13 @@ async function fetchData() {
         renderPagination();
         calculateTotals();
 
+        // Notify user
+        const dateFromStr = formatDate(State.dateFrom);
+        const dateToStr = formatDate(State.dateTo);
+        if (window.notificationManager) {
+            window.notificationManager.success(`Đã tải ${State.filteredData.length} NCC (${dateFromStr} - ${dateToStr})`);
+        }
+
     } catch (error) {
         console.error('[SupplierDebt] Error fetching data:', error);
         if (window.notificationManager) {
@@ -789,6 +796,18 @@ function toggleColumnSort(field) {
     applySupplierFilter();
     renderTable();
     calculateTotals();
+
+    // Notify user
+    if (window.notificationManager) {
+        const fieldLabels = { Debit: 'Phát sinh', Credit: 'Thanh toán', End: 'Nợ cuối kỳ' };
+        if (State.sortField && State.sortOrder) {
+            const label = fieldLabels[State.sortField];
+            const orderLabel = State.sortOrder === 'asc' ? 'nhỏ → lớn' : 'lớn → nhỏ';
+            window.notificationManager.info(`Sắp xếp ${label}: ${orderLabel}`);
+        } else {
+            window.notificationManager.info('Đã bỏ sắp xếp, về mặc định theo mã NCC');
+        }
+    }
 }
 
 function updateSortIcons() {
