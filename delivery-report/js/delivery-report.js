@@ -874,6 +874,12 @@
         const isProvince = DeliveryReportState.activeTab === 'province' && DeliveryReportState.traSoatMode;
         if (tomatoBtn) tomatoBtn.style.display = isProvince ? '' : 'none';
         if (napBtn) napBtn.style.display = isProvince ? '' : 'none';
+
+        // All-groups export buttons
+        const isAll = DeliveryReportState.activeTab === 'all' && DeliveryReportState.traSoatMode;
+        document.querySelectorAll('.dr-btn-group-export').forEach(btn => {
+            btn.style.display = isAll ? '' : 'none';
+        });
     }
 
     function setScanFilter(filter) {
@@ -1320,7 +1326,6 @@
 
             let html = `<div class="dr-province-header ${GROUP_HEADER_CLASS[key]}">
                 ${GROUP_LABELS[key]} <span class="dr-province-count">${scannedItems.length}/${allItems.length}</span>
-                <button class="dr-group-export-btn" onclick="DeliveryReport.exportExcelGroup('${key}')" title="Xuất Excel ${GROUP_LABELS[key]}"><i class="fas fa-file-excel"></i> Xuất</button>
                 <div class="dr-province-total">${formatMoney(totalCOD)}</div>
             </div>`;
 
@@ -1353,6 +1358,9 @@
             if (el) el.style.display = g === group ? '' : 'none';
         });
         highlightProvinceColumn(group);
+        // Scroll matched group to top
+        const colEl = document.getElementById(GROUP_COL_MAP[group]);
+        if (colEl) colEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
     function showAllGroupColumns() {

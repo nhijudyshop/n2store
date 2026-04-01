@@ -727,21 +727,6 @@
     grid-template-columns: 1fr;
 }
 
-/* Export button inside group header */
-.dr-group-export-btn {
-    background: rgba(255,255,255,0.4);
-    border: 1px solid rgba(255,255,255,0.5);
-    border-radius: 4px;
-    padding: 2px 8px;
-    font-size: 11px;
-    cursor: pointer;
-    color: inherit;
-    font-weight: 600;
-    transition: background 0.2s;
-}
-.dr-group-export-btn:hover {
-    background: rgba(255,255,255,0.7);
-}
 
 .dr-province-count {
     font-size: 13px;
