@@ -77,16 +77,16 @@ router.get('/cdata', async (req, res) => {
     res.set('Content-Type', 'text/plain');
     res.send([
         `GET OPTION FROM: ${sn}`,
-        'Stamp=0',
-        'OpStamp=0',
-        'PhotoStamp=0',
-        'ErrorDelay=60',
+        'ATTLOGStamp=0',
+        'OPERLOGStamp=9999',
+        'ATTPHOTOStamp=9999',
+        'ErrorDelay=30',
         'Delay=10',
         'TransTimes=00:00;14:05',
         'TransInterval=1',
-        'TransFlag=TransData AttLog',
+        'TransFlag=1111000000',
         'Realtime=1',
-        'TimeZone=7',
+        'Encrypt=0',
     ].join('\r\n'));
 });
 
@@ -106,6 +106,8 @@ router.post('/cdata', async (req, res) => {
     console.log('[ADMS] Push from', sn, '| table:', table, '| stamp:', stamp, '| body length:', body.length);
 
     await ensureTables(req.pool);
+
+    let totalInserted = 0;
 
     if (table.toUpperCase() === 'ATTLOG' && body.trim()) {
         const lines = body.trim().split('\n');
@@ -158,6 +160,7 @@ router.post('/cdata', async (req, res) => {
             client.release();
         }
 
+        totalInserted = inserted;
         console.log('[ADMS] ATTLOG:', inserted, 'inserted,', skipped, 'skipped');
 
         // Update sync status
@@ -176,7 +179,7 @@ router.post('/cdata', async (req, res) => {
     }
 
     res.set('Content-Type', 'text/plain');
-    res.send('OK');
+    res.send('OK: ' + totalInserted);
 });
 
 /**
