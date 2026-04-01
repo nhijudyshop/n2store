@@ -24,7 +24,6 @@ function normalizeEmployeeRanges(data) {
         for (const key of keys) {
             result.push(data[key]);
         }
-        console.log(`[REPORT] Converted object with ${keys.length} keys to array`);
         return result;
     }
 
@@ -46,7 +45,6 @@ async function loadEmployeeRanges() {
                 const campaignData = campaignDoc.data();
                 if (campaignData && campaignData[safeName]) {
                     employeeRanges = normalizeEmployeeRanges(campaignData[safeName]);
-                    console.log('[REPORT] ✅ Loaded campaign-specific employee ranges:', employeeRanges.length);
                     return;
                 }
             }
@@ -54,7 +52,6 @@ async function loadEmployeeRanges() {
 
         // No campaign or no config found for this campaign
         employeeRanges = [];
-        console.log('[REPORT] ⚠️ No employee ranges for current campaign');
     } catch (error) {
         console.error('[REPORT] ❌ Error loading employee ranges:', error);
         employeeRanges = [];
@@ -71,7 +68,6 @@ async function loadAvailableTagsFromFirebase() {
         const snapshot = await database.collection('settings').doc('tags').get();
         const data = snapshot.exists ? snapshot.data() : null;
         availableTags = data?.tags || [];
-        console.log('[REPORT] ✅ Loaded available tags:', availableTags.length);
     } catch (error) {
         console.error('[REPORT] ❌ Error loading available tags:', error);
         availableTags = [];
@@ -93,7 +89,6 @@ async function loadTrackedTags() {
         } else {
             trackedTags = [...DEFAULT_TRACKED_TAGS];
         }
-        console.log('[REPORT] ✅ Loaded tracked tags:', trackedTags.length);
     } catch (error) {
         console.error('[REPORT] ❌ Error loading tracked tags:', error);
         trackedTags = [...DEFAULT_TRACKED_TAGS];
@@ -108,7 +103,6 @@ async function saveTrackedTags() {
 
     try {
         await database.collection('settings').doc('tracked_tags').set({ tags: trackedTags });
-        console.log('[REPORT] ✅ Saved tracked tags');
     } catch (error) {
         console.error('[REPORT] ❌ Error saving tracked tags:', error);
     }
@@ -119,16 +113,12 @@ async function saveTrackedTags() {
  */
 async function requestAndSaveEmployeeRanges() {
     return new Promise((resolve) => {
-        console.log('[REPORT] 📡 Requesting employee ranges from Tab1...');
-
         // Set up one-time listener for response
         const handler = async (event) => {
             if (event.data.type === 'EMPLOYEE_RANGES_RESPONSE') {
                 window.removeEventListener('message', handler);
 
                 const ranges = event.data.ranges || [];
-                console.log('[REPORT] ✅ Received employee ranges:', ranges.length);
-
                 if (ranges.length > 0 && database && currentTableName) {
                     try {
                         // Save to campaign-specific path using Firestore
@@ -137,7 +127,6 @@ async function requestAndSaveEmployeeRanges() {
                             { [safeName]: ranges },
                             { merge: true }
                         );
-                        console.log('[REPORT] ✅ Saved employee ranges to Firebase for:', currentTableName);
                     } catch (error) {
                         console.error('[REPORT] ❌ Error saving employee ranges:', error);
                     }
@@ -157,7 +146,6 @@ async function requestAndSaveEmployeeRanges() {
         // Timeout after 5 seconds
         setTimeout(() => {
             window.removeEventListener('message', handler);
-            console.log('[REPORT] ⏱️ Employee ranges request timed out');
             resolve([]);
         }, 5000);
     });
@@ -978,7 +966,6 @@ function renderStatisticsFromAllOrders() {
     if (orders.length === 0) {
         statsContainer.style.display = 'none';
         emptyState.style.display = 'block';
-        console.log('[REPORT] ℹ️ No orders from Tab1, showing empty state');
         return;
     }
 
@@ -1002,7 +989,6 @@ function renderStatisticsFromAllOrders() {
     // Calculate and render discount statistics
     renderDiscountStatistics(orders);
 
-    console.log('[REPORT] ✅ Statistics rendered from allOrders (' + orders.length + ' orders)');
 }
 
 /**
@@ -1043,7 +1029,6 @@ function renderStatistics() {
     // Calculate and render discount statistics
     renderDiscountStatistics(orders);
 
-    console.log('[REPORT] ✅ Statistics rendered from cachedOrderDetails');
 }
 
 /**

@@ -5,8 +5,6 @@
 // INITIALIZATION
 // =====================================================
 document.addEventListener('DOMContentLoaded', async function () {
-    console.log('[REPORT] Page loaded, initializing...');
-
     // Initialize analysis tab visibility based on permissions (with safe check)
     if (typeof initAnalysisTabVisibility === 'function') {
         initAnalysisTabVisibility();
@@ -25,16 +23,12 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     // Load default table name from Firebase (same as tab1) to auto-select on page refresh
     currentTableName = await loadDefaultTableNameFromFirebase();
-    console.log('[REPORT] 📋 Default table set to:', currentTableName);
-
     // Load statistics settings
     await Promise.all([
         loadEmployeeRanges(),
         loadAvailableTagsFromFirebase(),
         loadTrackedTags()
     ]);
-    console.log('[REPORT] 📊 Statistics settings loaded');
-
     // Load available tables from Firebase (for Chi tiết đã tải dropdown)
     await loadAvailableTables();
 
@@ -44,15 +38,10 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     // ⚡ OPTIMIZATION FIX: Don't render statistics on init - wait for Tab1 data
     // renderStatistics() will be called after receiving data from Tab1
-    console.log('[REPORT] ⏳ Waiting for Tab1 data before rendering statistics...');
-
     // Initialize discount stats UI
     if (window.discountStatsUI) {
         window.discountStatsUI.init();
-        console.log('[REPORT] 💰 Discount Stats UI initialized');
     }
-
-    console.log(`[REPORT] 🎉 Firebase init complete. cachedOrders for "${currentTableName}": ${cachedOrderDetails[currentTableName]?.orders?.length || 0}`);
 
     // =====================================================
     // EXCEL AUTO-FETCH - DISABLED FOR PERFORMANCE
@@ -75,8 +64,6 @@ document.addEventListener('DOMContentLoaded', async function () {
                 const hasValidOrders = cached.orders && cached.orders.length > 0;
 
                 if (cacheAge < 5 * 60 * 1000 && hasValidOrders) {
-                    console.log(`[REPORT] 📦 Using cached Excel data from sessionStorage (${cached.orders.length} orders)`);
-
                     // Load cached data into cachedOrderDetails for display
                     if (currentTableName) {
                         const cacheData = {
@@ -97,16 +84,13 @@ document.addEventListener('DOMContentLoaded', async function () {
                         updateCachedCountBadge();
                         renderCachedDetailsTab();
 
-                        console.log(`[REPORT] ✅ Session cache loaded into "Chi tiết đã tải" for "${currentTableName}"`);
                     }
                 } else if (!hasValidOrders) {
-                    console.log('[REPORT] ⚠️ Session cache exists but has no orders - use manual fetch button');
                 }
             } catch (e) {
                 console.warn('[REPORT] Failed to parse session cache:', e);
             }
         } else {
-            console.log('[REPORT] ℹ️ No session cache - use manual fetch button or wait for Tab1 data');
         }
 
         //    ... (Excel fetch code removed for performance)
@@ -116,7 +100,6 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
 
     // ⚡ Try loading from IndexedDB first (shared with Tab1), fallback to postMessage
-    console.log('[REPORT] 📡 Loading orders data...');
     let loadedFromIDB = false;
     if (window.indexedDBStorage) {
         try {
@@ -124,8 +107,6 @@ document.addEventListener('DOMContentLoaded', async function () {
             if (cached && cached.orders && cached.orders.length > 0) {
                 allOrders = cached.orders;
                 loadedFromIDB = true;
-                console.log('[REPORT] ✅ Loaded from IndexedDB:', allOrders.length, 'orders');
-
                 // Detect campaign name
                 if (allOrders.length > 0) {
                     const rawCampaign = allOrders[0].LiveCampaignName || 'Unknown';
@@ -151,7 +132,6 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     // Always request fresh data from Tab1 (will update if newer)
     if (!loadedFromIDB) {
-        console.log('[REPORT] 📡 Requesting Tab1 data for Tổng quan...');
         requestDataFromTab1();
     }
 });

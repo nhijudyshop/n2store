@@ -360,9 +360,6 @@
                 }
             });
             if (clearedCount > 0) {
-                console.log(
-                    `[INVOICE-STATUS] Real-time: Cleared UI for ${clearedCount} deleted orders`
-                );
             }
         },
 
@@ -389,9 +386,6 @@
             });
 
             fd.syncFromStore(grouped);
-            console.log(
-                `[INVOICE-STATUS] Synced ${Object.keys(grouped).length} orders to FulfillmentData`
-            );
         },
 
         /**
@@ -753,10 +747,6 @@
                         if (order.Partner) {
                             order.Partner.Street = requestAddress;
                         }
-                        console.log(
-                            '[INVOICE-STATUS] Enriched address from request:',
-                            requestAddress
-                        );
                     }
                 } else {
                     console.warn(
@@ -821,10 +811,6 @@
                             if (fastSaleData?.ReceiverAddress) {
                                 order.ReceiverAddress = fastSaleData.ReceiverAddress;
                                 order.Address = fastSaleData.ReceiverAddress;
-                                console.log(
-                                    '[INVOICE-STATUS] Address from fastSaleOrdersData:',
-                                    fastSaleData.ReceiverAddress
-                                );
                             }
 
                             this.set(soId, order, originalOrder);
@@ -862,10 +848,6 @@
                             if (fastSaleData?.ReceiverAddress) {
                                 order.ReceiverAddress = fastSaleData.ReceiverAddress;
                                 order.Address = fastSaleData.ReceiverAddress;
-                                console.log(
-                                    '[INVOICE-STATUS] Address from fastSaleOrdersData:',
-                                    fastSaleData.ReceiverAddress
-                                );
                             }
 
                             this.set(soId, order, originalOrder);
@@ -1364,10 +1346,6 @@
             let billHTML = null;
 
             if (typeof window.generateCustomBillHTML === 'function') {
-                console.log(
-                    '[INVOICE-STATUS] Generating custom bill for preview, walletBalance:',
-                    walletBalance
-                );
                 billHTML = window.generateCustomBillHTML(enrichedOrder, { walletBalance });
             }
 
@@ -1445,12 +1423,6 @@
                     contentId,
                     timestamp: Date.now(),
                 });
-                console.log(
-                    '[INVOICE-STATUS] ✅ Bill pre-generated and cached:',
-                    cacheKey,
-                    'content_id:',
-                    contentId
-                );
             }
         } catch (error) {
             console.warn(
@@ -2115,10 +2087,6 @@
             return;
         }
 
-        console.log(
-            `[INVOICE-STATUS] Printing ${type} for ${orderIds.length} orders (auto-send DISABLED)`
-        );
-
         if (type === 'invoice') {
             const fastSaleOrdersData = window.fastSaleOrdersData || [];
             const displayedData = window.displayedData || [];
@@ -2225,10 +2193,6 @@
             return;
         }
 
-        console.log(
-            `[INVOICE-STATUS] Invoice confirmed for order ${saleOnlineId}, updating status and tags...`
-        );
-
         try {
             const headers = await window.tokenManager?.getAuthHeader();
             if (!headers) {
@@ -2266,10 +2230,6 @@
                 });
 
                 if (statusResponse.ok) {
-                    console.log(
-                        `[INVOICE-STATUS] ✅ Status updated to "Đơn hàng" for order ${saleOnlineId}`
-                    );
-
                     // Update local data using OrderStore.update()
                     if (window.OrderStore) {
                         window.OrderStore.update(saleOnlineId, {

@@ -115,7 +115,6 @@
             };
 
             await collection.add(historyRecord);
-            console.log('[ORDER-HISTORY] ✅ Saved order history:', historyRecord.reference);
             updateBadgeCount();
             return true;
         } catch (error) {
@@ -177,7 +176,6 @@
             }
 
             await batch.commit();
-            console.log(`[ORDER-HISTORY] ✅ Saved ${ordersData.length} orders to history`);
             updateBadgeCount();
             return true;
         } catch (error) {
@@ -216,7 +214,6 @@
             // Sort by date descending (most recent first)
             campaignsList = Array.from(campaignsMap.values()).sort((a, b) => b.date - a.date);
 
-            console.log(`[ORDER-HISTORY] Found ${campaignsList.length} campaigns (by name)`);
             renderCampaignDropdown();
         } catch (error) {
             console.error('[ORDER-HISTORY] Error loading campaigns:', error);
@@ -268,8 +265,6 @@
                 return;
             }
 
-            console.log(`[ORDER-HISTORY] Loading history for campaign: ${campaignName}`);
-
             // Query by campaign NAME (not ID) - works across both pages
             const snapshot = await collection
                 .where('liveCampaignName', '==', campaignName)
@@ -293,10 +288,6 @@
                 }
             });
 
-            console.log(
-                `[ORDER-HISTORY] Loaded ${historyData.length} records for campaign "${campaignName}"`
-            );
-
             // Reset to page 1 when loading new data
             currentPage = 1;
             applyFilters();
@@ -318,7 +309,6 @@
             const snapshot = await collection.where('expiresAt', '<', now).limit(100).get();
 
             if (snapshot.empty) {
-                console.log('[ORDER-HISTORY] No expired records to clean');
                 return;
             }
 
@@ -328,7 +318,6 @@
             });
 
             await batch.commit();
-            console.log(`[ORDER-HISTORY] Cleaned ${snapshot.size} expired records`);
         } catch (error) {
             console.error('[ORDER-HISTORY] Error cleaning expired records:', error);
         }
@@ -1121,8 +1110,6 @@
     // =====================================================
 
     function init() {
-        console.log('[ORDER-HISTORY] Initializing...');
-
         const modal = document.getElementById('orderHistoryModal');
         if (modal) {
             modal.querySelector('.modal-overlay')?.addEventListener('click', hideModal);
@@ -1155,7 +1142,6 @@
         // Cleanup expired records on init (background)
         setTimeout(() => cleanupExpiredRecords(), 5000);
 
-        console.log('[ORDER-HISTORY] ✅ Initialized');
     }
 
     // =====================================================

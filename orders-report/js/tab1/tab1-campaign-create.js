@@ -103,8 +103,6 @@ window.saveNewCampaign = async function() {
         // Add to local cache
         window.campaignManager.allCampaigns[campaignId] = campaignData;
 
-        console.log('[USER-CAMPAIGNS] Saved campaign:', name);
-
         // Check if this is the first campaign or user has no active campaign
         const isFirstCampaign = Object.keys(window.campaignManager.allCampaigns).length === 1;
         const hasNoActiveCampaign = !window.campaignManager.activeCampaignId;
@@ -151,4 +149,3 @@ window.saveNewCampaign = async function() {
     }
 };
 
-console.log('[TAB1-CAMPAIGN-CREATE] Module loaded');

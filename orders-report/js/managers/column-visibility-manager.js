@@ -261,7 +261,6 @@ document.addEventListener('keydown', function (e) {
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function () {
-    console.log('[COLUMN] Column visibility manager loaded');
     // Initialize will be called after table is rendered
     // Show excluded tags display immediately (will update when tags are loaded)
     updateExcludedTagsMainDisplay();
@@ -271,7 +270,6 @@ document.addEventListener('DOMContentLoaded', function () {
     if (excludedTags.length > 0 && (!window.availableTags || window.availableTags.length === 0)) {
         const retryInterval = setInterval(() => {
             if (window.availableTags && window.availableTags.length > 0) {
-                console.log('[COLUMN] Tags loaded, updating excluded tags display');
                 updateExcludedTagsMainDisplay();
                 clearInterval(retryInterval);
             }
@@ -319,7 +317,6 @@ function saveExcludedTagsToStorage(tagIds) {
     }
     try {
         localStorage.setItem(EXCLUDED_TAGS_KEY, JSON.stringify(tagIds));
-        console.log('[COLUMN] Excluded tags saved:', tagIds);
     } catch (error) {
         console.error('[COLUMN] Error saving excluded tags:', error);
     }

@@ -13,7 +13,7 @@ window.saveDateModePreference = async function(pref) {
             { dateMode: pref },
             { merge: true }
         );
-        console.log('[DATE-MODE] Saved preference:', pref);
+
     } catch (error) {
         console.error('[DATE-MODE] Error saving preference:', error);
     }
@@ -204,4 +204,3 @@ function formatDatetimeLocal(date) {
     return `${y}-${m}-${d}T${h}:${min}`;
 }
 
-console.log('[TAB1-DATE-MODE] Module loaded');

@@ -46,7 +46,6 @@ window.saveActiveCampaign = async function (campaignId) {
         window.campaignManager.activeCampaignId = campaignId;
         window.campaignManager.activeCampaign = window.campaignManager.allCampaigns[campaignId];
 
-        console.log('[CAMPAIGN] Saved active campaign:', campaignId);
         return true;
     } catch (error) {
         console.error('[CAMPAIGN] Error saving active campaign:', error);
@@ -108,7 +107,6 @@ window.updateCampaignSettingsUI = function (campaign) {
             endDate.value = campaign.customEndDate || '';
         }
 
-        console.log('[CAMPAIGN-SYNC] Synced dates:', campaign.customStartDate, '->', campaign.customEndDate);
     }
 };
 
@@ -601,12 +599,10 @@ window.applyUserCampaign = async function () {
 
             // For custom campaigns, directly trigger search since date is already set
             // ⭐ CRITICAL: Load employee ranges for this campaign BEFORE search
-            console.log('[CAMPAIGN] 📊 Loading employee ranges for campaign:', campaign.name);
             if (typeof loadEmployeeRangesForCampaign === 'function') {
                 await loadEmployeeRangesForCampaign(campaign.name);
             }
 
-            console.log('[CAMPAIGN] Custom campaign, directly triggering search for:', campaign.name);
             if (typeof handleSearch === 'function') {
                 await handleSearch();
             }
@@ -623,7 +619,6 @@ window.applyUserCampaign = async function () {
         } else {
             // For non-custom campaigns, use handleCampaignChange (which saves filter prefs)
             if (typeof handleCampaignChange === 'function') {
-                console.log('[CAMPAIGN] Reloading orders for campaign:', campaign.name);
                 await handleCampaignChange();
             }
         }
@@ -719,12 +714,10 @@ window.applyCampaignSettings = async function () {
 
                 // For custom campaigns, directly trigger search since date is already set
                 // ⭐ CRITICAL: Load employee ranges for this campaign BEFORE search
-                console.log('[CAMPAIGN] 📊 Loading employee ranges for campaign:', campaign.name);
                 if (typeof loadEmployeeRangesForCampaign === 'function') {
                     await loadEmployeeRangesForCampaign(campaign.name);
                 }
 
-                console.log('[CAMPAIGN] Custom campaign, directly triggering search for:', campaign.name);
                 if (typeof handleSearch === 'function') {
                     await handleSearch();
                 }
@@ -741,7 +734,6 @@ window.applyCampaignSettings = async function () {
             } else {
                 // For non-custom campaigns, use handleCampaignChange (which saves filter prefs)
                 if (typeof handleCampaignChange === 'function') {
-                    console.log('[CAMPAIGN] Campaign changed, reloading orders for:', campaign.name);
                     await handleCampaignChange();
                 }
             }
@@ -761,4 +753,3 @@ window.applyCampaignSettings = async function () {
     }
 };
 
-console.log('[TAB1-CAMPAIGN-SYSTEM] Module loaded');

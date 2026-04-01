@@ -10,7 +10,6 @@
 let database = null;
 try {
     database = firebase.database();
-    console.log('[NOTE-TRACKER] Firebase Realtime Database reference obtained');
 } catch (error) {
     console.error('[NOTE-TRACKER] Firebase Realtime Database reference error:', error);
 }
@@ -20,7 +19,6 @@ let firestoreDb = null;
 try {
     firestoreDb = firebase.firestore();
     window.firestoreDb = firestoreDb; // Expose globally for debugging
-    console.log('[TAB1] Firestore reference obtained');
 } catch (error) {
     console.error('[TAB1] Firestore reference error:', error);
 }
@@ -67,7 +65,6 @@ function getFilterPrefsPath() {
  */
 async function saveFilterPreferencesToFirebase(prefs) {
     // No-op: Dates are now stored in campaign objects
-    console.log('[FILTER-PREFS] ⚠️ DEPRECATED - Dates stored in campaign now');
     return;
 }
 
@@ -78,7 +75,6 @@ async function saveFilterPreferencesToFirebase(prefs) {
  */
 async function loadFilterPreferencesFromFirebase() {
     // No-op: Dates are now loaded from campaign objects
-    console.log('[FILTER-PREFS] ⚠️ DEPRECATED - Dates loaded from campaign now');
     return null;
 }
 
@@ -114,15 +110,6 @@ async function emitTagUpdateToFirebase(orderId, tags) {
         // ✅ Validate and normalize tags array
         const normalizedTags = Array.isArray(tags) ? tags : [];
 
-        console.log('[TAG-REALTIME] Preparing to emit:', {
-            orderId,
-            orderCode: order.Code,
-            STT: order.SessionIndex,
-            tagsCount: normalizedTags.length,
-            tags: normalizedTags,
-            updatedBy: userName
-        });
-
         // Emit to Firebase
         const updateData = {
             orderId: orderId,
@@ -137,8 +124,6 @@ async function emitTagUpdateToFirebase(orderId, tags) {
         const refPath = `tag_updates/${orderId}`;
         await database.ref(refPath).set(updateData);
 
-        console.log('[TAG-REALTIME] ✅ Tag update emitted successfully to Firebase:', refPath);
-        console.log('[TAG-REALTIME] Data written:', updateData);
     } catch (error) {
         console.error('[TAG-REALTIME] ❌ Error emitting tag update:', error);
         console.error('[TAG-REALTIME] Error stack:', error.stack);
@@ -151,7 +136,6 @@ async function emitTagUpdateToFirebase(orderId, tags) {
 function setupTagRealtimeListeners() {
     // Prevent duplicate setup
     if (tagListenersSetup) {
-        console.log('[TAG-REALTIME] Listeners already setup, skipping...');
         return;
     }
 
@@ -163,14 +147,9 @@ function setupTagRealtimeListeners() {
         // Không tải toàn bộ lịch sử tag_updates cũ (có thể 10,000+ records)
         // ═══════════════════════════════════════════════════════════════════
         const startTime = Date.now();
-        console.log('[TAG-REALTIME] Setting up Firebase listener on:', refPath);
-        console.log('[TAG-REALTIME] Only listening for updates after:', new Date(startTime).toLocaleString());
-
         // Get current user name
         const auth = window.authManager ? window.authManager.getAuthState() : null;
         const currentUserName = auth && auth.displayName ? auth.displayName : 'Unknown';
-        console.log('[TAG-REALTIME] Current user:', currentUserName);
-
         // ═══════════════════════════════════════════════════════════════════
         // PHASE D: Query với orderByChild + startAt để chỉ nhận updates mới
         // ═══════════════════════════════════════════════════════════════════
@@ -179,13 +158,10 @@ function setupTagRealtimeListeners() {
         // Listen for tag updates (child_changed on existing entries)
         tagUpdatesRef.on('child_changed', (snapshot) => {
             const updateData = snapshot.val();
-            console.log('[TAG-REALTIME] Firebase tag update received:', updateData);
-
             // Only process if update is from another user
             if (updateData.updatedBy !== currentUserName) {
                 handleRealtimeTagUpdate(updateData, 'firebase');
             } else {
-                console.log('[TAG-REALTIME] Skipping own update');
             }
         });
 
@@ -193,24 +169,19 @@ function setupTagRealtimeListeners() {
         // Nhờ startAt(startTime), Firebase chỉ gửi các entries mới
         tagUpdatesRef.on('child_added', (snapshot) => {
             const updateData = snapshot.val();
-            console.log('[TAG-REALTIME] Firebase new tag update:', updateData);
-
             // Only process if update is from another user
             if (updateData.updatedBy !== currentUserName) {
                 handleRealtimeTagUpdate(updateData, 'firebase');
             } else {
-                console.log('[TAG-REALTIME] Skipping own update');
             }
         });
 
         tagListenersSetup = true;
-        console.log('[TAG-REALTIME] ✅ Firebase listeners setup complete (optimized with startAt)');
     }
 
     // 2. Setup WebSocket listener (for future backend support)
     window.addEventListener('realtimeOrderTagsUpdate', (event) => {
         const updateData = event.detail;
-        console.log('[TAG-REALTIME] WebSocket tag update received:', updateData);
         handleRealtimeTagUpdate(updateData, 'websocket');
     });
 }
@@ -221,8 +192,6 @@ function setupTagRealtimeListeners() {
 function handleRealtimeTagUpdate(updateData, source) {
     const { orderId, orderCode, STT, tags, updatedBy } = updateData;
 
-    console.log(`[TAG-REALTIME] Processing update from ${source}:`, updateData);
-
     // ✅ Validate tags - treat undefined/null as empty array for "delete all tags" case
     const normalizedTags = tags === undefined || tags === null ? [] : tags;
     if (!Array.isArray(normalizedTags)) {
@@ -230,8 +199,6 @@ function handleRealtimeTagUpdate(updateData, source) {
         console.error('[TAG-REALTIME] Full updateData:', updateData);
         return;
     }
-
-    console.log('[TAG-REALTIME] Normalized tags:', normalizedTags);
 
     // ═══════════════════════════════════════════════════════════════════
     // PHASE A OPTIMIZATION: Sử dụng OrderStore O(1) lookup thay vì findIndex
@@ -241,13 +208,11 @@ function handleRealtimeTagUpdate(updateData, source) {
     // This prevents unnecessary re-renders for orders not in current user's view
     const orderInDisplayed = displayedData.find(o => o.Id === orderId);
     if (!orderInDisplayed) {
-        console.log('[TAG-REALTIME] Order not in displayed data (not my range), skipping update');
         // Still update OrderStore and allData silently for data consistency
 
         // Update via OrderStore O(1)
         if (window.OrderStore && window.OrderStore.isInitialized) {
             window.OrderStore.update(orderId, { Tags: JSON.stringify(normalizedTags) });
-            console.log('[TAG-REALTIME] ✅ Updated silently via OrderStore O(1)');
         } else {
             // Fallback to findIndex if OrderStore not ready
             const indexInAll = allData.findIndex(o => o.Id === orderId);
@@ -282,8 +247,6 @@ function handleRealtimeTagUpdate(updateData, source) {
  * PHASE A OPTIMIZED: Sử dụng OrderStore O(1) thay vì 3x findIndex O(n)
  */
 function updateTagCellOnly(orderId, orderCode, tags) {
-    console.log('[TAG-REALTIME] Updating only TAG cell for order:', orderId);
-
     // 1. Update data arrays first
     const tagsJson = JSON.stringify(tags);
 
@@ -295,7 +258,6 @@ function updateTagCellOnly(orderId, orderCode, tags) {
     if (window.OrderStore && window.OrderStore.isInitialized) {
         // O(1) update - cập nhật trong OrderStore
         window.OrderStore.update(orderId, { Tags: tagsJson });
-        console.log('[TAG-REALTIME] ✅ Updated Tags via OrderStore O(1)');
     }
 
     // Vẫn cập nhật filteredData và displayedData vì chúng là các arrays riêng
@@ -316,21 +278,18 @@ function updateTagCellOnly(orderId, orderCode, tags) {
         // Order might be in employee section tables
         const allCheckboxes = document.querySelectorAll(`input[type="checkbox"][value="${orderId}"]`);
         if (allCheckboxes.length === 0) {
-            console.log('[TAG-REALTIME] Row not found in DOM, skipping cell update');
             return;
         }
     }
 
     const row = checkbox ? checkbox.closest('tr') : document.querySelector(`input[type="checkbox"][value="${orderId}"]`)?.closest('tr');
     if (!row) {
-        console.log('[TAG-REALTIME] Row not found in DOM');
         return;
     }
 
     // 3. Find the TAG cell
     const tagCell = row.querySelector('td[data-column="tag"]');
     if (!tagCell) {
-        console.log('[TAG-REALTIME] TAG cell not found');
         return;
     }
 
@@ -355,7 +314,6 @@ function updateTagCellOnly(orderId, orderCode, tags) {
         </div>
     `;
 
-    console.log('[TAG-REALTIME] ✓ TAG cell updated successfully (no scroll change)');
 }
 
 /**
@@ -365,7 +323,6 @@ function cleanupTagRealtimeListeners() {
     if (database) {
         const refPath = `tag_updates`;
         database.ref(refPath).off();
-        console.log('[TAG-REALTIME] Cleaned up Firebase listeners for:', refPath);
     }
 }
 
@@ -374,45 +331,25 @@ function cleanupTagRealtimeListeners() {
  * Call from Console: testTagListeners()
  */
 window.testTagListeners = function () {
-    console.log('=== TAG REALTIME LISTENER TEST ===');
-    console.log('1. Firebase:', database ? '✅ Available' : '❌ Not available');
-    console.log('2. Listeners setup:', tagListenersSetup ? '✅ Yes' : '❌ No');
-
     const auth = window.authManager ? window.authManager.getAuthState() : null;
     const currentUser = auth && auth.displayName ? auth.displayName : 'Unknown';
-    console.log('3. Current user:', currentUser);
-
-    console.log('4. Orders loaded:', allData ? allData.length : 0);
-
     if (database) {
-        console.log('\n🔥 Setting up test listener...');
-
         // Add a one-time listener to test
         database.ref('tag_updates').once('value', (snapshot) => {
-            console.log('✅ Firebase connection working!');
-            console.log('Total TAG updates in database:', snapshot.numChildren());
         });
 
         // Listen for any changes
         const testRef = database.ref('tag_updates');
         const testListener = (snapshot) => {
-            console.log('🔥🔥🔥 FIREBASE EVENT TRIGGERED! 🔥🔥🔥');
-            console.log('Event type: child_changed');
-            console.log('Data:', snapshot.val());
         };
 
         testRef.on('child_changed', testListener);
-        console.log('✅ Test listener attached');
-        console.log('Now save a TAG and watch for 🔥 events...');
-
         // Cleanup after 30 seconds
         setTimeout(() => {
             testRef.off('child_changed', testListener);
-            console.log('🧹 Test listener removed');
         }, 30000);
     }
 
-    console.log('\n=== TEST COMPLETE ===');
 };
 
 // =====================================================
@@ -439,8 +376,6 @@ async function preloadKPIBaseStatus() {
             ordersWithKPIBase.add(orderId);
         }
 
-        console.log(`[KPI-BASE] Preloaded ${ordersWithKPIBase.size} orders with BASE`);
-
         // Re-render table if data is already loaded
         if (allData && allData.length > 0) {
             performTableSearch();
@@ -465,8 +400,6 @@ function setupKPIBaseRealtimeListener() {
     kpiBaseRef.on('child_added', (snapshot) => {
         const orderId = snapshot.key;
         ordersWithKPIBase.add(orderId);
-        console.log('[KPI-BASE] BASE added for order:', orderId);
-
         // Update the specific row if visible
         updateKPIBaseIndicator(orderId, true);
     });
@@ -474,13 +407,10 @@ function setupKPIBaseRealtimeListener() {
     kpiBaseRef.on('child_removed', (snapshot) => {
         const orderId = snapshot.key;
         ordersWithKPIBase.delete(orderId);
-        console.log('[KPI-BASE] BASE removed for order:', orderId);
-
         // Update the specific row if visible
         updateKPIBaseIndicator(orderId, false);
     });
 
-    console.log('[KPI-BASE] Realtime listener setup complete');
 }
 
 /**
@@ -525,7 +455,6 @@ function cleanupKPIBaseRealtimeListener() {
     if (kpiBaseRef) {
         kpiBaseRef.off();
         kpiBaseRef = null;
-        console.log('[KPI-BASE] Realtime listeners cleaned up');
     }
 }
 

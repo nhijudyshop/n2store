@@ -32,7 +32,6 @@ async function initDeliveryCarrierCache() {
             const cached = await window.indexedDBStorage.getItem(DELIVERY_CARRIER_CACHE_KEY);
             if (cached) {
                 deliveryCarrierCacheMemory = cached;
-                console.log('[DELIVERY-CARRIER] Loaded cache from IndexedDB');
             }
         }
 
@@ -43,7 +42,6 @@ async function initDeliveryCarrierCache() {
             deliveryCarrierCacheMemory = parsed;
             localStorage.removeItem(DELIVERY_CARRIER_CACHE_KEY);
             saveDeliveryCarriersAsync(parsed);
-            console.log('[DELIVERY-CARRIER] Migrated cache from localStorage to IndexedDB');
         }
 
         deliveryCarrierCacheLoaded = true;
@@ -101,7 +99,6 @@ function saveDeliveryCarriersToCache(carriers) {
 async function fetchDeliveryCarriers() {
     const cached = getCachedDeliveryCarriers();
     if (cached) {
-        console.log('[DELIVERY-CARRIER] Using cached data:', cached.length, 'carriers');
         return cached;
     }
 
@@ -134,7 +131,6 @@ async function fetchDeliveryCarriers() {
 
         const data = await response.json();
         const carriers = data.value || [];
-        console.log('[DELIVERY-CARRIER] Fetched:', carriers.length, 'carriers');
         saveDeliveryCarriersToCache(carriers);
         return carriers;
     } catch (error) {
@@ -409,8 +405,6 @@ window.getCachedDeliveryCarriers = getCachedDeliveryCarriers;
 // SMART DELIVERY PARTNER SELECTION
 // =====================================================
 function smartSelectDeliveryPartner(address, extraAddress = null) {
-    console.log('[SMART-DELIVERY] Starting smart selection...');
-
     const select = document.getElementById('saleDeliveryPartner');
     if (!select || select.options.length <= 1) return;
 

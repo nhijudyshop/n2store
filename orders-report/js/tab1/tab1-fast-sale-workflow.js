@@ -43,7 +43,6 @@
             try {
                 await this._loadFromAPI();
                 this._initialized = true;
-                console.log(`[INVOICE-DELETE] Store initialized with ${this._data.size} entries`);
             } catch (e) {
                 console.error('[INVOICE-DELETE] Error initializing store:', e);
                 this._initialized = true;
@@ -55,7 +54,6 @@
          */
         async _loadFromAPI() {
             try {
-                console.log('[INVOICE-DELETE] Loading from API...');
                 const response = await fetch(`${DELETE_API_BASE}/load`);
                 if (!response.ok) throw new Error(`API load failed: ${response.status}`);
 
@@ -78,7 +76,6 @@
                     this._data.set(key, value);
                 });
 
-                console.log(`[INVOICE-DELETE] Loaded ${this._data.size} entries from API`);
                 return true;
             } catch (e) {
                 console.error('[INVOICE-DELETE] API load error:', e);
@@ -92,7 +89,6 @@
         destroy() {
             this._data.clear();
             this._initialized = false;
-            console.log('[INVOICE-DELETE] Store destroyed');
         },
 
         /**
@@ -145,9 +141,6 @@
                 console.error('[INVOICE-DELETE] API save error:', e);
             }
 
-            console.log(
-                `[INVOICE-DELETE] Added cancelled order: ${saleOnlineId} (key: ${key}), reason: ${reason}`
-            );
             return entry;
         },
 
@@ -176,7 +169,6 @@
                 console.error('[INVOICE-DELETE] API toggle-hidden error:', e);
             }
 
-            console.log(`[INVOICE-DELETE] Toggled hidden for ${key}: ${entry.hidden}`);
             return entry.hidden;
         },
 
@@ -196,7 +188,6 @@
                 await fetch(`${DELETE_API_BASE}/entries/${encodeURIComponent(key)}`, {
                     method: 'DELETE',
                 });
-                console.log(`[INVOICE-DELETE] Deleted entry from API: ${key}`);
             } catch (e) {
                 console.error('[INVOICE-DELETE] API delete error:', e);
             }
@@ -217,7 +208,6 @@
         async reload() {
             this._data.clear();
             await this._loadFromAPI();
-            console.log(`[INVOICE-DELETE] Reloaded ${this._data.size} entries from API`);
         },
     };
 
@@ -386,7 +376,6 @@
             // Parse ID to integer - API requires Int64, not string
             const fastSaleOrderId = parseInt(order.Id, 10);
             if (fastSaleOrderId && !isNaN(fastSaleOrderId)) {
-                console.log(`[WORKFLOW] Calling TPOS API to cancel order ID: ${fastSaleOrderId}`);
                 const cancelResponse = await window.tokenManager.authenticatedFetch(
                     'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/ODataService.ActionCancel',
                     {
@@ -415,7 +404,6 @@
                 // Handle empty response (API may return 200/204 with no body)
                 const responseText = await cancelResponse.text();
                 const cancelResult = responseText ? JSON.parse(responseText) : { success: true };
-                console.log('[WORKFLOW] TPOS cancel result:', cancelResult);
             } else {
                 console.warn(
                     '[WORKFLOW] No valid FastSaleOrder ID found, skipping TPOS cancel API'
@@ -457,8 +445,7 @@
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ items: restoreItems })
                         }).then(r => r.json()).then(res => {
-                            if (res.success) console.log('[KhoDiCho] Trả kho:', res.message);
-                        }).catch(err => console.warn('[KhoDiCho] Trả kho lỗi:', err));
+                            if (res.success)                        }).catch(err => console.warn('[KhoDiCho] Trả kho lỗi:', err));
                     }
                 } catch (err) {
                     console.warn('[KhoDiCho] Restore error:', err);
@@ -468,7 +455,6 @@
             // Step 3: Delete from InvoiceStatusStore (localStorage + Firebase)
             if (window.InvoiceStatusStore?.delete) {
                 await window.InvoiceStatusStore.delete(saleOnlineId);
-                console.log(`[WORKFLOW] Deleted invoice from InvoiceStatusStore: ${saleOnlineId}`);
                 // Hook: Processing tag rollback to previous position
                 if (window.onPtagBillCancelled) window.onPtagBillCancelled(saleOnlineId);
             }
@@ -476,7 +462,6 @@
             // Re-add "OK + định danh" tag using quickAssignTag (same as quick-tag-ok button)
             const orderCode = order.Reference || order.Number || '';
             if (typeof window.quickAssignTag === 'function') {
-                console.log(`[WORKFLOW] Adding OK tag to cancelled order: ${saleOnlineId}`);
                 await window.quickAssignTag(saleOnlineId, orderCode, 'ok');
             } else {
                 console.warn('[WORKFLOW] quickAssignTag function not available');
@@ -484,7 +469,6 @@
 
             // Step 5: Update SaleOnline order status to "Nháp"
             if (typeof window.updateOrderStatus === 'function') {
-                console.log(`[WORKFLOW] Updating order status to "Nháp": ${saleOnlineId}`);
                 await window.updateOrderStatus(saleOnlineId, 'Nháp', 'Nháp', '#f0ad4e');
             } else {
                 console.warn('[WORKFLOW] updateOrderStatus function not available');
@@ -645,8 +629,6 @@
         }
 
         // Tag not found - create new one
-        console.log(`[WORKFLOW] Tag "${tagName}" not found, creating...`);
-
         try {
             const headers = await window.tokenManager.getAuthHeader();
             const color = generateRandomColor();
@@ -680,8 +662,6 @@
             }
 
             const newTag = await response.json();
-            console.log(`[WORKFLOW] Created tag "${tagName}":`, newTag);
-
             // Remove @odata.context
             if (newTag['@odata.context']) {
                 delete newTag['@odata.context'];
@@ -728,10 +708,6 @@
                 throw new Error(`API Error: ${response.status}`);
             }
 
-            console.log(
-                `[WORKFLOW] Assigned tags to order ${orderId}:`,
-                tags.map((t) => t.Name)
-            );
             return true;
         } catch (e) {
             console.error(`[WORKFLOW] Error assigning tags to order ${orderId}:`, e);
@@ -802,7 +778,6 @@
 
         // Check if tag already exists
         if (currentTags.some((t) => t.Id === tagToAdd.Id)) {
-            console.log(`[WORKFLOW] Tag "${tagToAdd.Name}" already exists on order ${orderId}`);
             return true;
         }
 
@@ -841,9 +816,6 @@
         });
 
         if (success) {
-            console.log(
-                `[WORKFLOW] Added "Âm Mã" tag to failed order: ${order.Reference || saleOnlineId}`
-            );
         }
 
         return success;
@@ -855,8 +827,6 @@
      */
     async function processFailedOrders(failedOrders) {
         if (!failedOrders || failedOrders.length === 0) return;
-
-        console.log(`[WORKFLOW] Processing ${failedOrders.length} failed orders...`);
 
         let successCount = 0;
         let failCount = 0;
@@ -874,9 +844,6 @@
             window.notificationManager?.info(`Đã gắn tag "Âm Mã" cho ${successCount} đơn thất bại`);
         }
 
-        console.log(
-            `[WORKFLOW] Failed orders processed: ${successCount} success, ${failCount} failed`
-        );
     }
 
     /**
@@ -892,13 +859,8 @@
         );
 
         if (ordersToProcess.length === 0) {
-            console.log('[WORKFLOW] No successful orders to remove OK tag');
             return;
         }
-
-        console.log(
-            `[WORKFLOW] Auto removing "OK + NV" tag from ${ordersToProcess.length} successful orders...`
-        );
 
         let successCount = 0;
         for (const order of ordersToProcess) {
@@ -939,7 +901,6 @@
             );
         }
 
-        console.log(`[WORKFLOW] Success orders processed: ${successCount} tags removed`);
     }
 
     /**
@@ -947,18 +908,9 @@
      * @param {array} successOrders - Array of success order data
      */
     async function autoSendBillsIfEnabled(successOrders) {
-        console.log(
-            '[WORKFLOW] autoSendBillsIfEnabled called with',
-            successOrders?.length,
-            'orders'
-        );
-
         // Check setting from Bill Template Settings
         const billSettings = window.getBillTemplateSettings ? window.getBillTemplateSettings() : {};
-        console.log('[WORKFLOW] autoSendOnSuccess setting:', billSettings.autoSendOnSuccess);
-
         if (!billSettings.autoSendOnSuccess) {
-            console.log('[WORKFLOW] Auto send bill is disabled');
             return;
         }
 
@@ -968,19 +920,10 @@
         const ordersToSend = successOrders.filter(
             (order) => order.ShowState === 'Đã thanh toán' || order.ShowState === 'Đã xác nhận'
         );
-        console.log(
-            '[WORKFLOW] Orders eligible (Đã thanh toán/Đã xác nhận):',
-            ordersToSend.length,
-            'ShowStates:',
-            successOrders.map((o) => o.ShowState)
-        );
-
         if (ordersToSend.length === 0) {
-            console.log('[WORKFLOW] No orders eligible for auto bill sending');
             return;
         }
 
-        console.log(`[WORKFLOW] Auto sending bills for ${ordersToSend.length} orders...`);
         window.notificationManager?.info(`Đang tự động gửi bill cho ${ordersToSend.length} đơn...`);
 
         // Use existing sendBillManually function for each order
@@ -1285,7 +1228,6 @@
             // Parse ID to integer - API requires Int64, not string
             const fastSaleOrderId = parseInt(order.Id, 10);
             if (fastSaleOrderId && !isNaN(fastSaleOrderId)) {
-                console.log(`[WORKFLOW] Calling TPOS API to cancel order ID: ${fastSaleOrderId}`);
                 const cancelResponse = await window.tokenManager.authenticatedFetch(
                     'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/ODataService.ActionCancel',
                     {
@@ -1314,7 +1256,6 @@
                 // Handle empty response (API may return 200/204 with no body)
                 const responseText = await cancelResponse.text();
                 const cancelResult = responseText ? JSON.parse(responseText) : { success: true };
-                console.log('[WORKFLOW] TPOS cancel result:', cancelResult);
             } else {
                 console.warn(
                     '[WORKFLOW] No valid FastSaleOrder ID found, skipping TPOS cancel API'
@@ -1356,8 +1297,7 @@
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ items: restoreItems })
                         }).then(r => r.json()).then(res => {
-                            if (res.success) console.log('[KhoDiCho] Trả kho:', res.message);
-                        }).catch(err => console.warn('[KhoDiCho] Trả kho lỗi:', err));
+                            if (res.success)                        }).catch(err => console.warn('[KhoDiCho] Trả kho lỗi:', err));
                     }
                 } catch (err) {
                     console.warn('[KhoDiCho] Restore error:', err);
@@ -1367,7 +1307,6 @@
             // Step 3: Delete from InvoiceStatusStore (localStorage + Firebase)
             if (window.InvoiceStatusStore?.delete) {
                 await window.InvoiceStatusStore.delete(saleOnlineId);
-                console.log(`[WORKFLOW] Deleted invoice from InvoiceStatusStore: ${saleOnlineId}`);
                 // Hook: Processing tag rollback to previous position
                 if (window.onPtagBillCancelled) window.onPtagBillCancelled(saleOnlineId);
             }
@@ -1375,7 +1314,6 @@
             // Step 4: Add "OK + định danh" tag using quickAssignTag
             const orderCode = order.Reference || order.Number || '';
             if (typeof window.quickAssignTag === 'function') {
-                console.log(`[WORKFLOW] Adding OK tag to cancelled order: ${saleOnlineId}`);
                 await window.quickAssignTag(saleOnlineId, orderCode, 'ok');
             } else {
                 console.warn('[WORKFLOW] quickAssignTag function not available');
@@ -1383,7 +1321,6 @@
 
             // Step 5: Update SaleOnline order status to "Nháp"
             if (typeof window.updateOrderStatus === 'function') {
-                console.log(`[WORKFLOW] Updating order status to "Nháp": ${saleOnlineId}`);
                 await window.updateOrderStatus(saleOnlineId, 'Nháp', 'Nháp', '#f0ad4e');
             } else {
                 console.warn('[WORKFLOW] updateOrderStatus function not available');
@@ -1500,17 +1437,12 @@
                 normalizedPhone = '0' + normalizedPhone.substring(2);
             }
 
-            console.log(
-                `[WORKFLOW] logCancelOrderActivity: phone=${normalizedPhone}, order=${orderNumber}`
-            );
-
             const amountTotal = parseFloat(order.AmountTotal) || 0;
             const customerName = order.Partner?.Name || order.PartnerDisplayName || '';
 
             // Step 1: Try to refund wallet if debt was used
             let refundResult = null;
             try {
-                console.log(`[WORKFLOW] Calling refund-by-order for ${orderNumber}...`);
                 const refundResponse = await fetch(
                     `${RENDER_API_URL}/api/v2/wallets/refund-by-order`,
                     {
@@ -1536,23 +1468,13 @@
                     refundResult = await refundResponse.json();
 
                     if (refundResult.success && refundResult.refunded) {
-                        console.log(
-                            `[WORKFLOW] ✅ Wallet refunded for order ${orderNumber}: ${refundResult.data.refund_amount}đ`
-                        );
                         window.notificationManager?.info(
                             `Đã hoàn ${refundResult.data.refund_amount.toLocaleString('vi-VN')}đ vào ví khách (Thật: ${refundResult.data.real_refunded.toLocaleString('vi-VN')}đ, CN: ${refundResult.data.virtual_refunded.toLocaleString('vi-VN')}đ)`,
                             5000
                         );
                     } else if (refundResult.success && refundResult.cancelled_pending) {
-                        console.log(
-                            `[WORKFLOW] ✅ Pending withdrawal cancelled for order ${orderNumber}`
-                        );
                         window.notificationManager?.info('Đã hủy giao dịch trừ ví chờ xử lý');
                     } else {
-                        console.log(
-                            `[WORKFLOW] Refund result for ${orderNumber}:`,
-                            refundResult.message || 'no withdrawal found'
-                        );
                     }
                 }
             } catch (refundError) {
@@ -1582,7 +1504,6 @@
                 metadata.virtual_refunded = refundResult.data.virtual_refunded;
             }
 
-            console.log(`[WORKFLOW] Posting cancel activity for ${normalizedPhone}...`);
             const activityResponse = await fetch(
                 `${RENDER_API_URL}/api/v2/customers/${normalizedPhone}/activities`,
                 {
@@ -1609,9 +1530,6 @@
                     errText
                 );
             } else {
-                console.log(
-                    `[WORKFLOW] ✅ Cancel activity logged for order ${orderNumber}, phone: ${normalizedPhone}`
-                );
             }
         } catch (error) {
             console.error('[WORKFLOW] ❌ Error logging cancel activity:', error.message);
@@ -1624,7 +1542,6 @@
 
     async function initWorkflow() {
         await InvoiceStatusDeleteStore.init();
-        console.log('[WORKFLOW] Fast Sale Workflow initialized');
     }
 
     // Initialize when DOM ready

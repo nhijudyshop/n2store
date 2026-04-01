@@ -114,7 +114,6 @@ const KPICommission = {
         return action || '';
     },
 
-
     // ========================================
     // EMPLOYEE NAME RESOLUTION (20.1 - Bug #4 fix)
     // ========================================
@@ -257,7 +256,6 @@ const KPICommission = {
         }
 
         if (staleCount > 0) {
-            console.log(`[KPI Tab] Detected ${staleCount} stale orders (BASE missing)`);
         }
 
         return statsData;
@@ -298,7 +296,6 @@ const KPICommission = {
     // INIT (12.2)
     // ========================================
     async init() {
-        console.log('[KPI Tab] Initializing...');
         try {
             this.state.isLoading = true;
             this.showEl('kpiTableLoading');
@@ -311,7 +308,6 @@ const KPICommission = {
 
             await this.applyFilters();
             this.reinitIcons();
-            console.log('[KPI Tab] ✓ Initialized');
         } catch (error) {
             console.error('[KPI Tab] Init error:', error);
             this.hideEl('kpiTableLoading');
@@ -351,8 +347,6 @@ const KPICommission = {
             }
 
             this.state.statsData = allStats;
-            console.log('[KPI Tab] Loaded statistics for', allStats.length, 'users');
-
             // Bug #4 fix: Check for empty data → render empty state
             if (allStats.length === 0) {
                 this.renderEmptyState();
@@ -455,7 +449,6 @@ const KPICommission = {
             console.error('[KPI Tab] Error loading employees:', error);
         }
     },
-
 
     // ========================================
     // APPLY FILTERS (12.4)
@@ -619,7 +612,6 @@ const KPICommission = {
 
         return results.sort((a, b) => b.totalKPI - a.totalKPI); // Sort by KPI descending
     },
-
 
     // ========================================
     // MODAL L1: SHOW EMPLOYEE ORDERS (12.8)
@@ -787,7 +779,6 @@ const KPICommission = {
         this.hideEl('modalOrderDetails');
         this.state.currentOrderId = null;
     },
-
 
     // ========================================
     // RENDER NET KPI TAB (12.10)
@@ -1070,7 +1061,6 @@ const KPICommission = {
         }
     },
 
-
     // ========================================
     // RENDER ALL PRODUCTS TAB (12.12)
     // ========================================
@@ -1345,7 +1335,6 @@ const KPICommission = {
         tbody.innerHTML = html;
     },
 
-
     // ========================================
     // EXPORT EXCEL (12.15)
     // ========================================
@@ -1402,8 +1391,6 @@ const KPICommission = {
             const fileName = `KPI_Report_${dateStr}.xlsx`;
 
             XLSX.writeFile(wb, fileName);
-            console.log('[KPI Tab] Exported Excel:', fileName);
-
         } catch (error) {
             console.error('[KPI Tab] Export error:', error);
             alert('Lỗi khi xuất Excel: ' + error.message);
@@ -1414,8 +1401,6 @@ const KPICommission = {
     // REFRESH DATA (12.16)
     // ========================================
     async refreshData() {
-        console.log('[KPI Tab] Refreshing data...');
-
         this.showEl('kpiTableLoading');
         this.hideEl('kpiTableEmpty');
         this.hideEl('kpiTableWrapper');
@@ -1437,7 +1422,6 @@ const KPICommission = {
             await this.loadAllStatistics();
             await this.applyFilters();
             this.reinitIcons();
-            console.log('[KPI Tab] ✓ Data refreshed');
         } catch (error) {
             console.error('[KPI Tab] Refresh error:', error);
             this.hideEl('kpiTableLoading');

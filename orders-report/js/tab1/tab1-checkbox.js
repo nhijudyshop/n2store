@@ -32,8 +32,6 @@ document.addEventListener('DOMContentLoaded', function () {
  * Open quick reply modal for inserting into chat input
  */
 window.openChatTemplateModal = function() {
-    console.log('🔔 Opening quick reply modal...');
-
     if (!window.quickReplyManager) {
         console.error('❌ QuickReplyManager not initialized');
         if (window.notificationManager) {
@@ -45,7 +43,5 @@ window.openChatTemplateModal = function() {
     // Open quick reply modal with target input
     window.quickReplyManager.openModal('chatReplyInput');
 
-    console.log('✅ Quick reply modal opened');
 };
 
-console.log('[TAB1-CHECKBOX] Module loaded');

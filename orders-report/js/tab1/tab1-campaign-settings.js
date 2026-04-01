@@ -81,4 +81,3 @@ window.handleLoadCampaignsFromModal = function() {
     }
 };
 
-console.log('[TAB1-CAMPAIGN-SETTINGS] Module loaded');

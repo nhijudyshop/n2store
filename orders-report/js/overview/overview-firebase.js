@@ -12,7 +12,6 @@
  */
 async function loadDefaultTableNameFromFirebase() {
     if (!database) {
-        console.log('[REPORT] Firestore not available for loading default table name');
         return 'Bảng 1'; // Default fallback
     }
 
@@ -20,7 +19,6 @@ async function loadDefaultTableNameFromFirebase() {
         const doc = await database.collection('settings').doc('table_name').get();
         const data = doc.exists ? doc.data() : null;
         if (data && data.name) {
-            console.log('[REPORT] ✅ Loaded default table name from Firestore:', data.name);
             return data.name;
         }
     } catch (error) {
@@ -31,14 +29,12 @@ async function loadDefaultTableNameFromFirebase() {
     try {
         const stored = localStorage.getItem('orders_table_name');
         if (stored) {
-            console.log('[REPORT] ✅ Loaded default table name from localStorage:', stored);
             return stored;
         }
     } catch (e) {
         console.error('[REPORT] ❌ Error loading from localStorage:', e);
     }
 
-    console.log('[REPORT] Using default table name: Bảng 1');
     return 'Bảng 1'; // Default
 }
 
@@ -94,8 +90,6 @@ async function saveToFirebase(tableName, data) {
 
         // Check if we need to chunk (Firestore 1MB limit)
         if (totalOrders > ORDERS_CHUNK_SIZE) {
-            console.log(`[REPORT] Large dataset (${totalOrders} orders), splitting into chunks...`);
-
             // Save metadata document (without orders) - use actual count, not stale metadata
             await docRef.set({
                 tableName: tableName,
@@ -145,7 +139,6 @@ async function saveToFirebase(tableName, data) {
                 await writeBatch.commit();
             }
 
-            console.log(`[REPORT] ✅ Saved ${totalOrders} orders in ${Math.ceil(totalOrders / ORDERS_CHUNK_SIZE)} chunks`);
         } else {
             // Small dataset - save directly (use actual count, not stale metadata)
             await docRef.set({
@@ -159,7 +152,6 @@ async function saveToFirebase(tableName, data) {
                 updatedAt: firebase.firestore.FieldValue.serverTimestamp()
             }, { merge: true });
 
-            console.log(`[REPORT] ✅ Saved to Firestore with table name: ${tableName}`);
         }
 
         // Update Firebase status and broadcast
@@ -191,8 +183,6 @@ async function loadFromFirebase(tableName) {
 
             // Check if data is chunked
             if (data.isChunked) {
-                console.log(`[REPORT] Loading chunked data (${data.chunkCount} chunks)...`);
-
                 // Load all chunks
                 const chunksSnapshot = await docRef.collection('order_chunks')
                     .orderBy('chunkIndex')
@@ -207,8 +197,6 @@ async function loadFromFirebase(tableName) {
                 });
 
                 data.orders = allOrders;
-                console.log(`[REPORT] ✅ Loaded ${allOrders.length} orders from ${chunksSnapshot.size} chunks`);
-
                 // Fix metadata mismatch: correct totalOrders/successCount if they don't match actual chunks
                 const actualCount = allOrders.length;
                 if (data.totalOrders !== actualCount || data.successCount !== actualCount) {
@@ -224,7 +212,6 @@ async function loadFromFirebase(tableName) {
                     }).catch(err => console.warn('[REPORT] Failed to correct metadata:', err));
                 }
             } else {
-                console.log(`[REPORT] ✅ Loaded from Firestore: ${tableName}, orders: ${data.orders?.length || 0}`);
             }
 
             // Update Firebase status
@@ -234,7 +221,6 @@ async function loadFromFirebase(tableName) {
 
             return data;
         } else {
-            console.log(`[REPORT] ⚠️ No Firestore data for table: ${tableName}`);
             return null;
         }
     } catch (error) {

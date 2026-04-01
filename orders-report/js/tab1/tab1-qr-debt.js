@@ -26,7 +26,6 @@ async function initDebtCache() {
             const cached = await window.indexedDBStorage.getItem(DEBT_CACHE_KEY);
             if (cached) {
                 debtCacheMemory = cached;
-                console.log('[DEBT] ✅ Loaded cache from IndexedDB');
             }
         }
 
@@ -37,7 +36,6 @@ async function initDebtCache() {
             Object.assign(debtCacheMemory, parsed);
             localStorage.removeItem(DEBT_CACHE_KEY);
             await saveDebtCacheAsync();
-            console.log('[DEBT] 🔄 Migrated cache from localStorage to IndexedDB');
         }
 
         debtCacheLoaded = true;
@@ -226,17 +224,12 @@ async function batchFetchDebts(phones) {
 
     // Double-check before API call to prevent 400 errors
     if (!Array.isArray(uncachedPhones) || uncachedPhones.length === 0) {
-        console.log('[WALLET-BATCH] No uncached phones to fetch, skipping API call');
         return;
     }
-
-    console.log(`[WALLET-BATCH] Fetching ${uncachedPhones.length} phones in ONE request...`);
 
     try {
         // Call wallet batch API - ONE request for ALL phones!
         const requestBody = JSON.stringify({ phones: uncachedPhones });
-        console.log('[WALLET-BATCH] Request body:', requestBody);
-
         const response = await fetch(`${QR_API_URL}/api/v2/wallets/batch-summary`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -257,8 +250,6 @@ async function batchFetchDebts(phones) {
         const result = await response.json();
 
         if (result.success && result.data) {
-            console.log(`[WALLET-BATCH] ✅ Received ${Object.keys(result.data).length} results`);
-
             // Update cache and UI for all phones
             for (const [phone, walletData] of Object.entries(result.data)) {
                 // Total = balance + virtualBalance
@@ -328,8 +319,6 @@ async function fetchWalletDebtBatch(phones) {
 
     const CHUNK_SIZE = 150;
     const totalChunks = Math.ceil(uniquePhones.length / CHUNK_SIZE);
-    console.log(`[WALLET-DEBT] Fetching ${uniquePhones.length} phones in ${totalChunks} batch(es)...`);
-
     for (let i = 0; i < uniquePhones.length; i += CHUNK_SIZE) {
         const chunk = uniquePhones.slice(i, i + CHUNK_SIZE);
         try {
@@ -358,7 +347,6 @@ async function fetchWalletDebtBatch(phones) {
             console.error(`[WALLET-DEBT] Error fetching chunk ${Math.floor(i / CHUNK_SIZE) + 1}:`, error);
         }
     }
-    console.log(`[WALLET-DEBT] ✅ Total ${window.walletDebtData.size} wallets with balance`);
 }
 
 /**
@@ -472,10 +460,8 @@ function triggerWalletDebtFetch() {
             if (p) phones.push(p);
         });
         const unique = [...new Set(phones)];
-        console.log(`[WALLET-DEBT] triggerWalletDebtFetch: found ${unique.length} phones in DOM`);
         if (unique.length > 0) {
             fetchWalletDebtBatch(unique).then(() => {
-                console.log(`[WALLET-DEBT] Fetch done, updating ${window.walletDebtData.size} badges`);
                 updateWalletDebtBadgesInTable();
             }).catch(err => console.error('[WALLET-DEBT] Fetch error:', err));
         }
@@ -542,7 +528,6 @@ function connectWalletSSE() {
     if (walletEventSource) return;
 
     try {
-        console.log('[WALLET-SSE] Connecting...');
         const sseUrl = `${RENDER_SSE_URL}/api/realtime/sse?keys=${encodeURIComponent('wallet')}`;
         walletEventSource = new EventSource(sseUrl);
 
@@ -558,8 +543,6 @@ function connectWalletSSE() {
 
                 const normalized = normalizePhoneForQR(phone);
                 if (!normalized) return;
-
-                console.log(`[WALLET-SSE] Update for ${phone}: balance=${wallet.balance}, virtual=${wallet.virtual_balance}`);
 
                 const newTotal = (parseFloat(wallet.balance) || 0) + (parseFloat(wallet.virtual_balance) || 0);
                 const oldData = window.walletDebtData.get(normalized);
@@ -603,7 +586,6 @@ function connectWalletSSE() {
         });
 
         walletEventSource.addEventListener('connected', () => {
-            console.log('[WALLET-SSE] ✅ Connected');
         });
 
         walletEventSource.onerror = () => {
@@ -629,7 +611,6 @@ function disconnectWalletSSE() {
     if (walletEventSource) {
         walletEventSource.close();
         walletEventSource = null;
-        console.log('[WALLET-SSE] Disconnected');
     }
 }
 
@@ -699,8 +680,6 @@ async function handleDebtTransaction(transaction) {
     const phone = extractPhoneFromTransaction(transaction);
 
     if (phone) {
-        console.log(`[DEBT-REALTIME] New transaction for phone ${phone}, refreshing debt...`);
-
         // Invalidate cache for this phone
         const cache = getDebtCache();
         delete cache[phone];
@@ -749,19 +728,16 @@ function connectDebtRealtime() {
     if (debtEventSource) return; // Already connected
 
     try {
-        console.log('[DEBT-REALTIME] Connecting to SSE endpoint...');
         debtEventSource = new EventSource(`${QR_API_URL}/api/sepay/stream`);
 
         // Connection established
         debtEventSource.addEventListener('connected', (e) => {
-            console.log('[DEBT-REALTIME] ✅ Connected to SSE');
         });
 
         // New transaction received
         debtEventSource.addEventListener('new-transaction', (e) => {
             try {
                 const transaction = JSON.parse(e.data);
-                console.log('[DEBT-REALTIME] New transaction:', transaction.content?.substring(0, 50));
                 handleDebtTransaction(transaction);
             } catch (err) {
                 console.error('[DEBT-REALTIME] Error parsing transaction:', err);
@@ -774,7 +750,6 @@ function connectDebtRealtime() {
                 const data = JSON.parse(e.data);
                 const phone = data.customer_phone;
                 if (phone) {
-                    console.log('[WALLET-DEBT] Realtime: new transfer matched to', phone);
                     fetchWalletDebtBatch([phone]).then(() => {
                         updateWalletDebtBadgesInTable(phone);
                     });
@@ -798,7 +773,6 @@ function connectDebtRealtime() {
             if (!isDebtManualClose) {
                 clearTimeout(debtReconnectTimeout);
                 debtReconnectTimeout = setTimeout(() => {
-                    console.log('[DEBT-REALTIME] Attempting to reconnect...');
                     connectDebtRealtime();
                 }, 10000);
             }
@@ -819,7 +793,6 @@ function disconnectDebtRealtime() {
     if (debtEventSource) {
         debtEventSource.close();
         debtEventSource = null;
-        console.log('[DEBT-REALTIME] Disconnected from SSE');
     }
 }
 
@@ -854,8 +827,6 @@ let currentSaleVirtualCredits = []; // [{ remaining_amount, source_type, source_
  * Open Sale Button Modal and fetch order details from API
  */
 async function openSaleButtonModal() {
-    console.log('[SALE-MODAL] Opening Sale Button Modal...');
-
     // Get the selected order ID (should be exactly 1)
     if (selectedOrderIds.size !== 1) {
         if (window.notificationManager) {
@@ -891,8 +862,6 @@ async function openSaleButtonModal() {
     }
 
     currentSaleOrderData = order;
-    console.log('[SALE-MODAL] Selected order:', order);
-
     // Reset form fields to avoid stale data from previous order
     const discountEl = document.getElementById('saleDiscount');
     if (discountEl) discountEl.value = 0;
@@ -947,7 +916,6 @@ async function openSaleButtonModal() {
             if (confirmDebtBtn) confirmDebtBtn.style.display = 'inline-flex';
             const editPrepaidBtnAdmin = document.getElementById('editPrepaidBtn');
             if (editPrepaidBtnAdmin) editPrepaidBtnAdmin.style.display = 'none';
-            console.log('[SALE-MODAL] Admin detected - Công nợ field enabled with confirm button');
         } else {
             prepaidAmountField.disabled = true;
             prepaidAmountField.style.background = '#f3f4f6';
@@ -1056,8 +1024,6 @@ async function openSaleButtonModal() {
  * @param {Object} socialOrder - Social order data mapped from tab-social
  */
 async function openSaleModalFromSocialOrder(socialOrder) {
-    console.log('[SALE-MODAL] Opening from social order:', socialOrder);
-
     // Block if order has pending wallet adjustment
     if (socialOrder.id && window.WalletAdjustmentStore?.isPending(socialOrder.id)) {
         const adj = window.WalletAdjustmentStore.get(socialOrder.id);
@@ -1271,8 +1237,6 @@ async function confirmDebtUpdate() {
     }
 
     try {
-        console.log('[DEBT-UPDATE] Updating debt for phone:', phone, 'to:', newDebt);
-
         const response = await fetch(`${QR_API_URL}/api/sepay/update-debt`, {
             method: 'POST',
             headers: {
@@ -1288,7 +1252,6 @@ async function confirmDebtUpdate() {
         const result = await response.json();
 
         if (result.success) {
-            console.log('[DEBT-UPDATE] ✅ Success:', result);
             if (window.notificationManager) {
                 window.notificationManager.success(`Đã cập nhật Công nợ: ${newDebt.toLocaleString('vi-VN')}đ`);
             }
@@ -1305,12 +1268,8 @@ async function confirmDebtUpdate() {
                 const cache = getDebtCache();
                 delete cache[normalizedPhone];
                 saveDebtCache(cache);
-                console.log('[DEBT-UPDATE] Cache invalidated for phone:', normalizedPhone);
-
                 // Update debt cells in the orders table immediately
                 updateDebtCellsInTable(normalizedPhone, newDebt);
-                console.log('[DEBT-UPDATE] Table cells updated for phone:', normalizedPhone);
-
                 // Also update "Nợ cũ" display in modal
                 const oldDebtField = document.getElementById('saleOldDebt');
                 if (oldDebtField) {
@@ -1364,8 +1323,6 @@ function switchSaleTab(tabName) {
  * Fetch order details (partner, orderLines) from TPOS API
  */
 async function fetchOrderDetailsForSale(orderUuid) {
-    console.log('[SALE-MODAL] Fetching order details for UUID:', orderUuid);
-
     try {
         if (!window.tokenManager) {
             console.warn('[SALE-MODAL] No tokenManager found');
@@ -1386,8 +1343,6 @@ async function fetchOrderDetailsForSale(orderUuid) {
         }
 
         const data = await response.json();
-        console.log('[SALE-MODAL] Order details response:', data);
-
         return data;
 
     } catch (error) {
