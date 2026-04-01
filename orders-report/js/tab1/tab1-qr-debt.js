@@ -568,6 +568,9 @@ function connectWalletSSE() {
                 // Update badges in table
                 updateWalletDebtBadgesInTable(phone);
 
+                // Also update debt badges in chat modal if open for this phone
+                updateChatDebtBadges(normalized);
+
                 // Also update debt column
                 updateDebtCellsInTable(phone, newTotal);
 
@@ -614,6 +617,19 @@ function disconnectWalletSSE() {
     }
 }
 
+/**
+ * Update debt badges in chat modal header if it's open for this phone
+ */
+function updateChatDebtBadges(normalizedPhone) {
+    const container = document.getElementById('chatDebtBadgesContainer');
+    if (!container) return;
+    const chatPhone = window.currentChatPhone;
+    if (!chatPhone) return;
+    const normalizedChatPhone = normalizePhoneForQR(chatPhone);
+    if (normalizedChatPhone !== normalizedPhone) return;
+    container.innerHTML = renderWalletDebtBadges(chatPhone);
+}
+
 // Make QR and Debt functions globally accessible
 window.copyQRCode = copyQRCode;
 window.getOrCreateQRForPhone = getOrCreateQRForPhone;
@@ -629,6 +645,7 @@ window.batchFetchDebts = batchFetchDebts;
 window.hasWalletDebt = hasWalletDebt;
 window.renderWalletDebtBadges = renderWalletDebtBadges;
 window.updateWalletDebtBadgesInTable = updateWalletDebtBadgesInTable;
+window.updateChatDebtBadges = updateChatDebtBadges;
 window.fetchWalletDebtBatch = fetchWalletDebtBatch;
 window.triggerWalletDebtFetch = triggerWalletDebtFetch;
 window.connectWalletSSE = connectWalletSSE;
@@ -752,6 +769,7 @@ function connectDebtRealtime() {
                 if (phone) {
                     fetchWalletDebtBatch([phone]).then(() => {
                         updateWalletDebtBadgesInTable(phone);
+                        updateChatDebtBadges(normalizePhoneForQR(phone));
                     });
                 }
             } catch (err) {
