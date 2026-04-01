@@ -1048,15 +1048,29 @@ router.put('/processing-tags/:campaignId/:orderId', async (req, res) => {
 
         const orderCode = data?.code || null;
 
-        await pool.query(`
-            INSERT INTO processing_tags (campaign_id, order_id, data, updated_by, order_code, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-            ON CONFLICT (campaign_id, order_id) DO UPDATE SET
-                data = $3,
-                updated_by = $4,
-                order_code = COALESCE($5, processing_tags.order_code),
-                updated_at = CURRENT_TIMESTAMP
-        `, [campaignId, orderId, JSON.stringify(data), updatedBy || null, orderCode]);
+        if (orderCode) {
+            // Normal orders: use order_code as unique key (cross-campaign)
+            await pool.query(`
+                INSERT INTO processing_tags (campaign_id, order_id, data, updated_by, order_code, created_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                ON CONFLICT (order_code) WHERE order_code IS NOT NULL DO UPDATE SET
+                    campaign_id = $1,
+                    order_id = $2,
+                    data = $3,
+                    updated_by = $4,
+                    updated_at = CURRENT_TIMESTAMP
+            `, [campaignId, orderId, JSON.stringify(data), updatedBy || null, orderCode]);
+        } else {
+            // Config records (__ttag_config__, __ptag_custom_flags__): use campaign_id + order_id
+            await pool.query(`
+                INSERT INTO processing_tags (campaign_id, order_id, data, updated_by, order_code, created_at, updated_at)
+                VALUES ($1, $2, $3, $4, NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                ON CONFLICT (campaign_id, order_id) DO UPDATE SET
+                    data = $3,
+                    updated_by = $4,
+                    updated_at = CURRENT_TIMESTAMP
+            `, [campaignId, orderId, JSON.stringify(data), updatedBy || null]);
+        }
 
         // Notify SSE clients watching this campaign
         if (notifyClients) {
