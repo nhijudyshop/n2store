@@ -530,14 +530,16 @@ router.post('/payment', async (req, res) => {
             }),
         });
 
-        const data = await payRes.json();
-        console.log(`[AUTOFB] Payment response:`, JSON.stringify(data).substring(0, 300));
+        const raw = await payRes.json();
+        console.log(`[AUTOFB] Payment response:`, JSON.stringify(raw).substring(0, 300));
 
-        if (data.bank_name || data.QRCodeImage) {
-            return res.json({ success: true, data });
+        // Response format: { data: { bank_name, bank_account_number, ... }, code: 200 }
+        const paymentData = raw.data || raw;
+        if (paymentData.bank_name || paymentData.QRCodeImage) {
+            return res.json({ success: true, data: paymentData });
         }
 
-        res.json({ success: false, error: data.message || 'Tạo mã nạp tiền thất bại', raw: data });
+        res.json({ success: false, error: raw.message || paymentData.message || 'Tạo mã nạp tiền thất bại', raw });
     } catch (e) {
         console.error('[AUTOFB] payment error:', e.message);
         res.status(500).json({ success: false, error: e.message });
