@@ -1163,6 +1163,7 @@
                 ProcessingTagState.setOrderData(orderId, data);
                 _ptagRefreshRow(orderId);
                 renderPanelContent();
+                _ptagEnsureCode(orderId, data);
                 saveProcessingTagToAPI(orderId, data);
             }
             _ptagRefreshDropdownState();
@@ -1209,6 +1210,7 @@
                 ProcessingTagState.setOrderData(orderId, data);
                 _ptagRefreshRow(orderId);
                 renderPanelContent();
+                _ptagEnsureCode(orderId, data);
                 saveProcessingTagToAPI(orderId, data);
             }
         } else if (key.startsWith('dtag:')) {

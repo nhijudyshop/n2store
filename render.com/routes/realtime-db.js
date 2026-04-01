@@ -1337,18 +1337,30 @@ router.delete('/processing-tags/:campaignId/:orderId', async (req, res) => {
             return res.status(500).json({ error: 'Database not available' });
         }
 
-        const result = await pool.query(
-            'DELETE FROM processing_tags WHERE campaign_id = $1 AND order_id = $2 RETURNING id',
+        // Find order_code for proper cross-campaign cleanup
+        const findResult = await pool.query(
+            `SELECT order_code FROM processing_tags
+             WHERE (campaign_id = $1 AND order_id = $2) OR order_code = $2
+             LIMIT 1`,
             [campaignId, orderId]
         );
+        const orderCode = findResult.rows[0]?.order_code || null;
 
-        // Notify SSE clients
+        // Delete by order_code (cross-campaign) OR legacy (campaign_id + order_id)
+        const result = await pool.query(
+            `DELETE FROM processing_tags
+             WHERE order_code = $1 OR (campaign_id = $2 AND order_id = $3)
+             RETURNING id`,
+            [orderCode || orderId, campaignId, orderId]
+        );
+
+        // Notify SSE clients with orderCode for cross-campaign matching
         if (notifyClients) {
-            notifyClients('processing_tags/' + campaignId, { orderId }, 'deleted');
-            notifyClients('processing_tags_global', { orderId, campaignId }, 'deleted');
+            notifyClients('processing_tags/' + campaignId, { orderId, orderCode }, 'deleted');
+            notifyClients('processing_tags_global', { orderId, orderCode, campaignId }, 'deleted');
         }
 
-        res.json({ success: true, deleted: result.rowCount > 0, campaignId, orderId });
+        res.json({ success: true, deleted: result.rowCount > 0, campaignId, orderId, orderCode });
     } catch (error) {
         console.error('[REALTIME-DB] DELETE /processing-tags error:', error);
         res.status(500).json({ error: error.message });
