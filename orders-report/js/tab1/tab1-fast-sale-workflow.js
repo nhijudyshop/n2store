@@ -445,7 +445,8 @@
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ items: restoreItems })
                         }).then(r => r.json()).then(res => {
-                            if (res.success)                        }).catch(err => console.warn('[KhoDiCho] Trả kho lỗi:', err));
+                            if (res.success) console.log('[KhoDiCho] Đã trả kho:', restoreItems.length, 'SP');
+                        }).catch(err => console.warn('[KhoDiCho] Trả kho lỗi:', err));
                     }
                 } catch (err) {
                     console.warn('[KhoDiCho] Restore error:', err);
@@ -1297,7 +1298,8 @@
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ items: restoreItems })
                         }).then(r => r.json()).then(res => {
-                            if (res.success)                        }).catch(err => console.warn('[KhoDiCho] Trả kho lỗi:', err));
+                            if (res.success) console.log('[KhoDiCho] Đã trả kho:', restoreItems.length, 'SP');
+                        }).catch(err => console.warn('[KhoDiCho] Trả kho lỗi:', err));
                     }
                 } catch (err) {
                     console.warn('[KhoDiCho] Restore error:', err);

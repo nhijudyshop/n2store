@@ -801,8 +801,12 @@
             const pat = await pdm.getPageAccessToken(channelId);
             if (!pat) throw new Error('Không tìm thấy page_access_token');
 
-            // Download image
-            const resp = await fetch(imageUrl);
+            // Download image (use proxy for CORS-blocked TPOS images)
+            const PROXY_BASE = 'https://n2store-fallback.onrender.com/api/image-proxy';
+            const fetchUrl = imageUrl.includes('tpos.vn')
+                ? `${PROXY_BASE}?url=${encodeURIComponent(imageUrl)}`
+                : imageUrl;
+            const resp = await fetch(fetchUrl);
             if (!resp.ok) throw new Error('Tải ảnh thất bại');
             const blob = await resp.blob();
             const ext = imageUrl.match(/\.(jpg|jpeg|png|gif|webp)/i)?.[1] || 'jpg';
