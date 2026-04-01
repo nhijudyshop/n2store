@@ -1007,7 +1007,8 @@ router.get('/processing-tags/:campaignId', async (req, res) => {
         }
 
         const result = await pool.query(
-            'SELECT order_id, data, updated_by, updated_at FROM processing_tags WHERE campaign_id = $1',
+            `SELECT order_id, data, updated_by, updated_at FROM processing_tags
+             WHERE campaign_id = $1 OR order_code LIKE '\\_\\_%'`,
             [campaignId]
         );
 
@@ -1048,17 +1049,30 @@ router.put('/processing-tags/:campaignId/:orderId', async (req, res) => {
 
         // order_code is THE unique key: use data.code for orders, orderId for config records
         const orderCode = data?.code || orderId;
+        const dataJson = JSON.stringify(data);
+        const updatedByVal = updatedBy || null;
 
-        await pool.query(`
-            INSERT INTO processing_tags (campaign_id, order_id, data, updated_by, order_code, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-            ON CONFLICT (order_code) WHERE order_code IS NOT NULL DO UPDATE SET
-                campaign_id = $1,
-                order_id = $2,
-                data = $3,
-                updated_by = $4,
-                updated_at = CURRENT_TIMESTAMP
-        `, [campaignId, orderId, JSON.stringify(data), updatedBy || null, orderCode]);
+        // Transaction: DELETE conflicting rows (by order_code OR legacy campaign+order), then INSERT fresh
+        // Handles both new order_code-based records and legacy records with NULL order_code
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            await client.query(
+                `DELETE FROM processing_tags WHERE order_code = $1 OR (campaign_id = $2 AND order_id = $3)`,
+                [orderCode, campaignId, orderId]
+            );
+            await client.query(
+                `INSERT INTO processing_tags (campaign_id, order_id, data, updated_by, order_code, created_at, updated_at)
+                 VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+                [campaignId, orderId, dataJson, updatedByVal, orderCode]
+            );
+            await client.query('COMMIT');
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
 
         // Notify SSE clients watching this campaign
         if (notifyClients) {
