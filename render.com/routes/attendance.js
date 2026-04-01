@@ -32,11 +32,11 @@ async function ensureTables(pool) {
             CREATE TABLE IF NOT EXISTS attendance_records (
                 id VARCHAR(100) PRIMARY KEY,
                 device_user_id VARCHAR(20) NOT NULL,
-                check_time TIMESTAMP NOT NULL,
+                check_time TIMESTAMPTZ NOT NULL,
                 date_key VARCHAR(10) NOT NULL,
                 type INTEGER DEFAULT 0,
                 source VARCHAR(20) DEFAULT 'device',
-                synced_at TIMESTAMP DEFAULT NOW()
+                synced_at TIMESTAMPTZ DEFAULT NOW()
             );
             CREATE INDEX IF NOT EXISTS idx_att_records_date_key ON attendance_records(date_key);
             CREATE INDEX IF NOT EXISTS idx_att_records_user_date ON attendance_records(device_user_id, date_key);
