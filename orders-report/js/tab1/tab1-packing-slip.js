@@ -223,6 +223,14 @@ function printPackingSlip() {
     if (saleOnlineId && window.onPtagPackingSlipPrinted) {
         window.onPtagPackingSlipPrinted(String(saleOnlineId));
     }
+
+    // Clear bulk selection after printing
+    if (typeof deselectAllOrders === 'function') {
+        deselectAllOrders();
+    }
+
+    // Close the packing slip modal
+    closePackingSlipModal();
 }
 
 /**

@@ -3142,6 +3142,11 @@ function showFastSaleResultsModal(results) {
     if (fastSaleResultsData.failed.length > 0 && window.processFailedOrders) {
         setTimeout(() => window.processFailedOrders(fastSaleResultsData.failed), 400);
     }
+
+    // Clear bulk selection after showing results - user has moved to results view
+    if (typeof deselectAllOrders === 'function') {
+        deselectAllOrders();
+    }
 }
 
 /**
