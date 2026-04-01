@@ -627,9 +627,7 @@ function updateChatDebtBadges(normalizedPhone) {
     if (!chatPhone) return;
     const normalizedChatPhone = normalizePhoneForQR(chatPhone);
     if (normalizedChatPhone !== normalizedPhone) return;
-    container.innerHTML = typeof window._renderChatDebtBadge === 'function'
-        ? window._renderChatDebtBadge(chatPhone)
-        : '';
+    container.innerHTML = renderWalletDebtBadges(chatPhone);
 }
 
 // Make QR and Debt functions globally accessible

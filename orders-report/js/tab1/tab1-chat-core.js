@@ -56,22 +56,8 @@ function _markRepliedOnServer(psid, pageId) {
 }
 
 // =====================================================
-// CHAT DEBT BADGE (green total badge)
+// CHAT DEBT BADGE - reuses renderWalletDebtBadges() from customer column
 // =====================================================
-
-/**
- * Render a single green badge showing total wallet debt for chat header.
- * Click opens wallet modal (same as customer column badge).
- */
-function _renderChatDebtBadge(phone) {
-    if (!phone || typeof hasWalletDebt !== 'function' || !hasWalletDebt(phone)) return '';
-    const normalized = typeof normalizePhoneForQR === 'function' ? normalizePhoneForQR(phone) : phone;
-    const data = window.walletDebtData?.get(normalized);
-    if (!data || !data.total || data.total <= 0) return '';
-    const shortAmt = typeof formatAmountShort === 'function' ? formatAmountShort(data.total) : data.total + 'đ';
-    return `<span class="chat-debt-total-badge" onclick="window.openWalletDebtModal('${normalized}'); event.stopPropagation();" title="Công nợ: ${new Intl.NumberFormat('vi-VN').format(data.total)}đ"><i class="fas fa-wallet"></i> ${shortAmt}</span>`;
-}
-window._renderChatDebtBadge = _renderChatDebtBadge;
 
 // =====================================================
 // MODAL LIFECYCLE
@@ -154,7 +140,8 @@ window.openChatModal = async function(orderId, pageId, psid, conversationType) {
     // Render total debt badge (green)
     const debtContainer = document.getElementById('chatDebtBadgesContainer');
     if (debtContainer) {
-        debtContainer.innerHTML = _renderChatDebtBadge(window.currentChatPhone);
+        debtContainer.innerHTML = typeof renderWalletDebtBadges === 'function'
+            ? renderWalletDebtBadges(window.currentChatPhone) : '';
     }
 
     // Update header avatar (same approach as inbox: extract direct avatar from conv data)
