@@ -54,7 +54,6 @@ export class TokenManager {
         if (typeof window !== 'undefined') {
             window.addEventListener('storage', (e) => {
                 if (e.key === this.storageKey) {
-                    console.log('[TOKEN] Token updated in another tab, reloading...');
                     this.loadFromStorage();
                 }
             });
@@ -78,7 +77,6 @@ export class TokenManager {
             this.initFirestore();
             await this.init();
             this.isInitialized = true;
-            console.log(`[TOKEN] Token Manager initialized (company ${this.companyId}, key: ${this.storageKey})`);
         })();
 
         return this.initPromise;
@@ -96,7 +94,6 @@ export class TokenManager {
         while (retries < maxRetries) {
             // Check for Firestore instead of Realtime Database
             if (window.firebase?.firestore && typeof window.firebase.firestore === 'function') {
-                console.log('[TOKEN] Firestore SDK is ready');
                 this.firestoreReady = true;
                 return;
             }
@@ -116,7 +113,6 @@ export class TokenManager {
                 this.firestoreRef = window.firebase.firestore()
                     .collection(this.firestoreCollection)
                     .doc(this.firestoreDocId);
-                console.log('[TOKEN] Firestore reference initialized');
                 return true;
             }
             return false;
@@ -150,8 +146,6 @@ export class TokenManager {
      * Initialize token - try localStorage first, then Firebase
      */
     async init() {
-        console.log('[TOKEN] Initializing Token Manager...');
-
         // Migrate old 'bearer_token_data' → 'bearer_token_data_1' if needed
         if (this.companyId === 1) {
             try {
@@ -159,7 +153,6 @@ export class TokenManager {
                 if (oldData && !localStorage.getItem(this.storageKey)) {
                     localStorage.setItem(this.storageKey, oldData);
                     localStorage.removeItem('bearer_token_data');
-                    console.log('[TOKEN] Migrated bearer_token_data → ' + this.storageKey);
                 }
             } catch (e) { /* ignore */ }
         }
@@ -167,7 +160,6 @@ export class TokenManager {
         // Try localStorage first
         this.loadFromStorage();
         if (this.isTokenValid()) {
-            console.log('[TOKEN] Valid token loaded from localStorage');
             return;
         }
 
@@ -178,14 +170,13 @@ export class TokenManager {
             this.tokenExpiry = firebaseToken.expires_at;
             try {
                 localStorage.setItem(this.storageKey, JSON.stringify(firebaseToken));
-                console.log('[TOKEN] Valid token loaded from Firestore');
             } catch (error) {
                 console.error('[TOKEN] Error syncing Firestore token:', error);
             }
             return;
         }
 
-        console.log('[TOKEN] No valid token found, will fetch on first request');
+        // No valid token found, will fetch on first request
     }
 
     /**
@@ -221,7 +212,6 @@ export class TokenManager {
 
         try {
             await this.firestoreRef.set(tokenData, { merge: true });
-            console.log('[TOKEN] Token saved to Firestore');
         } catch (error) {
             console.error('[TOKEN] Error saving to Firestore:', error);
         }
@@ -285,8 +275,6 @@ export class TokenManager {
             localStorage.setItem(this.storageKey, JSON.stringify(dataToSave));
             this.token = tokenData.access_token;
             this.tokenExpiry = expiresAt;
-
-            console.log('[TOKEN] Token saved, expires:', new Date(expiresAt).toLocaleString());
 
             // Save to Firestore for new tokens
             if (tokenData.expires_in && !tokenData.issued_at) {
@@ -370,7 +358,6 @@ export class TokenManager {
      */
     async refreshWithToken(refreshToken) {
         try {
-            console.log(`[TOKEN] Refreshing token for company ${this.companyId} using refresh_token...`);
             const response = await fetch(this.API_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -383,7 +370,6 @@ export class TokenManager {
             const data = await response.json();
             if (!data.access_token) return false;
             await this.saveToStorage(data);
-            console.log(`[TOKEN] Token refreshed OK for company ${this.companyId}`);
             return true;
         } catch (e) {
             console.warn('[TOKEN] Refresh token error:', e);
@@ -396,7 +382,6 @@ export class TokenManager {
      * Each company has its own TPOS account, no SwitchCompany needed
      */
     async passwordLogin() {
-        console.log(`[TOKEN] Password login with ${this.credentials.username} for company ${this.companyId}...`);
         const formData = new URLSearchParams();
         formData.append('grant_type', this.credentials.grant_type);
         formData.append('username', this.credentials.username);
@@ -428,7 +413,6 @@ export class TokenManager {
         this.token = data.access_token;
         this.tokenExpiry = expiresAt;
 
-        console.log(`[TOKEN] Password login OK, company ${this.companyId} token saved`);
         return { data, tokenData };
     }
 
@@ -436,7 +420,6 @@ export class TokenManager {
      * SwitchCompany + refresh_token → get token for Company 2+
      */
     async switchCompanyToken(loginResult) {
-        console.log(`[TOKEN] Switching to company ${this.companyId}...`);
         const { data: loginData } = loginResult;
         const accessToken = loginData.access_token;
         const refreshToken = loginData.refresh_token;
@@ -459,7 +442,6 @@ export class TokenManager {
         });
 
         if (!switchResp.ok) throw new Error(`SwitchCompany failed: ${switchResp.status}`);
-        console.log(`[TOKEN] SwitchCompany(${this.companyId}) OK`);
 
         // Step 2: Refresh token → new token for target company
         const refreshResp = await fetch(this.API_URL, {
@@ -475,7 +457,6 @@ export class TokenManager {
 
         const newTokenData = await refreshResp.json();
         await this.saveToStorage(newTokenData);
-        console.log(`[TOKEN] Company ${this.companyId} token saved`);
     }
 
     /**
@@ -499,7 +480,6 @@ export class TokenManager {
             // Step 2: Direct password login with per-company credentials
             await this.passwordLogin();
 
-            console.log(`[TOKEN] Token obtained for company ${this.companyId}`);
             return this.token;
 
         } catch (error) {
@@ -564,7 +544,6 @@ export class TokenManager {
             });
 
             if (response.status === 401) {
-                console.log(`[TOKEN] 401 for company ${this.companyId}, invalidating and retrying...`);
                 this.invalidateAccessToken();
                 const newHeaders = await this.getAuthHeader();
                 return await fetch(url, {
@@ -605,7 +584,6 @@ export class TokenManager {
      * Manual refresh
      */
     async refresh() {
-        console.log('[TOKEN] Manual refresh requested');
         await this.clearToken();
         return await this.fetchNewToken();
     }
