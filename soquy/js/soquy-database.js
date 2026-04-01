@@ -252,6 +252,12 @@ const SoquyDatabase = (function () {
             const { startDate } = getDateRange();
             if (!startDate) return 0;
 
+            // Permission-based creator filter: non-admin only sees own transactions
+            const canViewAll = typeof SoquyPermissions !== 'undefined'
+                ? SoquyPermissions.canViewAllTransactions()
+                : true;
+            const currentUser = !canViewAll ? getCurrentUserName() : '';
+
             // Server-side filter: only fetch vouchers BEFORE startDate
             const startTimestamp = firebase.firestore.Timestamp.fromDate(startDate);
             let query = config.soquyCollectionRef
@@ -266,6 +272,8 @@ const SoquyDatabase = (function () {
                 if (data.status !== config.VOUCHER_STATUS.PAID) return;
                 // Fund type filter
                 if (fundType !== config.FUND_TYPES.ALL && data.fundType !== fundType) return;
+                // Creator filter: non-admin only counts own transactions
+                if (!canViewAll && data.createdBy !== currentUser) return;
                 // Normalize legacy type
                 const type = data.type === 'payment'
                     ? (data.businessAccounting ? 'payment_kd' : 'payment_cn')
