@@ -77,9 +77,9 @@ router.get('/cdata', async (req, res) => {
     res.set('Content-Type', 'text/plain');
     res.send([
         `GET OPTION FROM: ${sn}`,
-        'Stamp=9999',
-        'OpStamp=9999',
-        'PhotoStamp=9999',
+        'Stamp=0',
+        'OpStamp=0',
+        'PhotoStamp=0',
         'ErrorDelay=60',
         'Delay=10',
         'TransTimes=00:00;14:05',
