@@ -689,6 +689,12 @@
                 return;
             }
 
+            if (tab === 'all' && state.traSoatMode) {
+                // Tất cả tab: export 5 sheets
+                exportExcelAllGroups();
+                return;
+            }
+
             const items = state.traSoatMode ? getTabFilteredData() : (state.allData || []);
             const wsData = buildExcelRows(items);
 
@@ -740,6 +746,40 @@
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, label);
         XLSX.writeFile(wb, makeFileName(label));
+    }
+
+    function exportExcelAllGroups() {
+        const allData = DeliveryReportState.allData || [];
+        const wb = XLSX.utils.book_new();
+        const groupKeys = ['tomato', 'nap', 'city', 'shop', 'return'];
+
+        groupKeys.forEach(key => {
+            const items = allData.filter(item => getItemGroup(item) === key);
+            if (items.length === 0) return;
+            const rows = buildExcelRows(items);
+            const ws = XLSX.utils.aoa_to_sheet(rows);
+            autoFitColumns(ws, rows);
+            XLSX.utils.book_append_sheet(wb, ws, GROUP_LABELS[key]);
+        });
+
+        XLSX.writeFile(wb, makeFileName('TatCa_5Nhom'));
+    }
+
+    function exportExcelGroup(group) {
+        if (typeof XLSX === 'undefined') {
+            alert('Thư viện XLSX chưa được tải. Vui lòng tải lại trang.');
+            return;
+        }
+        const allData = DeliveryReportState.allData || [];
+        const items = allData.filter(item => getItemGroup(item) === group);
+        const label = GROUP_LABELS[group] || group.toUpperCase();
+
+        const wsData = buildExcelRows(items);
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+        autoFitColumns(ws, wsData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, label);
+        XLSX.writeFile(wb, makeFileName(label.replace(/\s+/g, '_')));
     }
 
     // =====================================================
@@ -1280,6 +1320,7 @@
 
             let html = `<div class="dr-province-header ${GROUP_HEADER_CLASS[key]}">
                 ${GROUP_LABELS[key]} <span class="dr-province-count">${scannedItems.length}/${allItems.length}</span>
+                <button class="dr-group-export-btn" onclick="DeliveryReport.exportExcelGroup('${key}')" title="Xuất Excel ${GROUP_LABELS[key]}"><i class="fas fa-file-excel"></i> Xuất</button>
                 <div class="dr-province-total">${formatMoney(totalCOD)}</div>
             </div>`;
 
@@ -1552,6 +1593,7 @@
         },
         exportExcel: exportExcel,
         exportExcelProvince: exportExcelProvince,
+        exportExcelGroup: exportExcelGroup,
         traSoat: traSoat,
         setTab: setTab,
         setScanFilter: setScanFilter,
