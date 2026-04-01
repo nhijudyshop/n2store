@@ -184,12 +184,10 @@
             plainTextOutside = plainText;
 
             if (encodedContent) {
-                console.log('[NOTE] Found encoded content in [""], decoding...');
                 decodedContent = decodeFullNote(encodedContent) || '';
             } else {
                 const decoded = decodeFullNote(currentNote);
                 if (decoded) {
-                    console.log('[NOTE] Legacy encoded note, decoding...');
                     decodedContent = decoded;
                     plainTextOutside = '';
                 } else {
@@ -210,13 +208,10 @@
             contentToEncode = productLines;
         }
 
-        console.log('[NOTE] Content to encode:\n', contentToEncode);
-
         let finalNote = '';
 
         if (contentToEncode.trim() !== '') {
             const encoded = encodeFullNote(contentToEncode);
-            console.log('[NOTE] Encoded content length:', encoded.length);
 
             if (plainTextOutside.trim() !== '') {
                 finalNote = `${plainTextOutside}\n${encoded}`;
@@ -280,7 +275,6 @@
 
             bearerToken = data.access_token;
             tokenExpiry = Date.now() + (data.expires_in * 1000);
-            console.log('[AUTH] ✅ Token received (server-side cached)');
 
             return data.access_token;
         } catch (error) {
@@ -291,11 +285,9 @@
 
     async function getValidToken() {
         if (bearerToken && tokenExpiry && tokenExpiry > Date.now() + 300000) {
-            console.log('[AUTH] ✅ Using locally cached token');
             return bearerToken;
         }
 
-        console.log('[AUTH] Token expired or not available, fetching new token...');
         return await getAuthToken();
     }
 
@@ -369,7 +361,6 @@
                 };
             });
 
-            console.log(`Đã load ${productsData.length} sản phẩm`);
         } catch (error) {
             console.error('Error loading products:', error);
             showNotification('Lỗi khi tải dữ liệu sản phẩm: ' + error.message, 'error');
@@ -388,16 +379,13 @@
                     ordersData = cached.orders;
                     if (cached.activeCampaignNames) {
                         activeCampaignNames = cached.activeCampaignNames;
-                        console.log('[ORDERS] Campaign filter:', activeCampaignNames);
                     }
-                    console.log('[ORDERS] ✅ Loaded from IndexedDB:', ordersData.length, 'orders');
                     updateOrdersCount();
                     showNotification(`📦 Đã load ${ordersData.length} đơn hàng`);
                     return;
                 }
             }
             // Fallback: request from Tab1 via postMessage
-            console.log('[ORDERS] IndexedDB empty, requesting from tab1...');
             requestOrdersDataFromTab1();
         } catch (error) {
             console.error('Error loading orders:', error);
@@ -411,7 +399,6 @@
             window.parent.postMessage({
                 type: 'REQUEST_ORDERS_DATA_FROM_TAB3'
             }, '*');
-            console.log('📤 Đã gửi request lấy orders data từ tab1');
         }
     }
 
@@ -445,12 +432,9 @@
                 _version: 1
             };
 
-            console.log('[SAVE] 💾 Saving to LocalStorage with timestamp:', dataWithTimestamp._timestamp);
-
             const performSave = () => {
                 try {
                     localStorage.setItem('orders_productAssignments', JSON.stringify(dataWithTimestamp));
-                    console.log('[SAVE] ✅ LocalStorage save success');
 
                     window.dispatchEvent(new Event('storage'));
                 } catch (error) {
@@ -477,8 +461,6 @@
 
     function loadAssignmentsFromLocalStorage() {
         try {
-            console.log('[INIT] 🔄 Loading assignments from LocalStorage...');
-
             const storedData = localStorage.getItem('orders_productAssignments');
 
             if (storedData) {
@@ -486,17 +468,13 @@
 
                 if (parsedData && parsedData.assignments && Array.isArray(parsedData.assignments)) {
                     assignments = parsedData.assignments;
-                    console.log('[INIT] ✅ Loaded from LocalStorage:', assignments.length, 'assignments');
                 } else if (Array.isArray(parsedData)) {
-                    console.log('[INIT] 📦 Old LocalStorage format detected, migrating...');
                     assignments = parsedData;
                     saveAssignments();
                 } else {
-                    console.log('[INIT] ⚠️ Invalid data in LocalStorage');
                     assignments = [];
                 }
             } else {
-                console.log('[INIT] 📭 LocalStorage is empty');
                 assignments = [];
             }
 
@@ -504,7 +482,6 @@
             if (window._tab3 && window._tab3.fn.renderAssignmentTable) {
                 window._tab3.fn.renderAssignmentTable();
             }
-            console.log('[INIT] ✅ Initial load complete, assignments count:', assignments.length);
         } catch (error) {
             console.error('[INIT] ❌ Error loading from LocalStorage:', error);
             assignments = [];
@@ -515,11 +492,8 @@
     }
 
     function setupLocalStorageListeners() {
-        console.log('[SYNC] 🔧 Setting up LocalStorage listeners');
-
         window.addEventListener('storage', (event) => {
             if (event.key === 'orders_productAssignments') {
-                console.log('[SYNC] 🔔 LocalStorage changed (from another tab)');
                 loadAssignmentsFromLocalStorage();
                 showNotification('🔄 Dữ liệu đã được cập nhật từ tab khác');
             }
@@ -539,9 +513,6 @@
 
     window.addEventListener('load', async () => {
         try {
-            console.log('[INIT] 🚀 Initializing Tab3 Product Assignment...');
-            console.log('[INIT] ✅ Using server-side token caching (Cloudflare Worker & Render.com)');
-
             userStorageManager = window.userStorageManager;
             if (!userStorageManager) {
                 console.warn('[INIT] ⚠️ UserStorageManager not available, creating fallback');
@@ -550,21 +521,16 @@
                     getUserIdentifier: () => 'guest'
                 };
             }
-            console.log('[INIT] 📱 User identifier:', userStorageManager.getUserIdentifier ? userStorageManager.getUserIdentifier() : 'guest');
 
             await getValidToken();
             loadOrdersData();
 
-            console.log('[INIT] 📱 Loading from LocalStorage...');
             loadAssignmentsFromLocalStorage();
 
-            console.log('[INIT] 🔧 Setting up listeners...');
             setupLocalStorageListeners();
 
             await loadProductsData();
             updateOrdersCount();
-
-            console.log('[INIT] ✅ Initialization complete!');
         } catch (error) {
             console.error('[INIT] ❌ Initialization error:', error);
             showNotification('Lỗi khởi tạo: ' + error.message, 'error');
@@ -576,7 +542,6 @@
         if (event.data.type === 'ORDERS_DATA_UPDATE' || event.data.type === 'ORDERS_DATA_RESPONSE_TAB3') {
             ordersData = event.data.orders;
             ordersDataRequestAttempts = 0;
-            console.log('[ORDERS] ✅ Updated orders data in memory:', ordersData.length, 'orders');
 
             updateOrdersCount();
 
@@ -587,7 +552,6 @@
 
         if (event.data.type === 'CAMPAIGN_CHANGED_FOR_TAB3') {
             activeCampaignNames = event.data.campaignNames || [];
-            console.log('[CAMPAIGN] ✅ Updated campaign filter:', activeCampaignNames);
         }
     });
 

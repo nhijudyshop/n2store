@@ -29,7 +29,6 @@ window.addEventListener("DOMContentLoaded", async function () {
                 }
             }
             const totalSizeMB = (totalSize / (1024 * 1024)).toFixed(2);
-            console.log(`[STORAGE] Current localStorage usage: ${totalSizeMB} MB`);
 
             // If over 4MB (localStorage limit is usually 5-10MB), clean up
             if (totalSize > 4 * 1024 * 1024) {
@@ -56,17 +55,13 @@ window.addEventListener("DOMContentLoaded", async function () {
 
                 keysToClean.forEach(key => {
                     localStorage.removeItem(key);
-                    console.log(`[STORAGE] Removed: ${key}`);
                 });
-
-                console.log(`[STORAGE] ✅ Cleaned ${keysToClean.length} items`);
             }
         } catch (e) {
             console.warn('[STORAGE] Error checking localStorage:', e);
         }
     })();
 
-    console.log("[CACHE] Clearing all cache on page load...");
     if (window.cacheManager) {
         window.cacheManager.clear("orders");
         window.cacheManager.clear("campaigns");
@@ -117,7 +112,6 @@ window.addEventListener("DOMContentLoaded", async function () {
             const selectedOption = e.target.options[e.target.selectedIndex];
             if (selectedOption && selectedOption.dataset.campaign) {
                 const campaign = JSON.parse(selectedOption.dataset.campaign);
-                console.log(`[EMPLOYEE] Campaign changed in drawer, loading ranges for: ${campaign.displayName}`);
                 loadEmployeeRangesForCampaign(campaign.displayName).then(() => {
                     // Re-render table with new ranges
                     if (window.userEmployeeLoader && window.userEmployeeLoader.getUsers().length > 0) {
@@ -130,11 +124,8 @@ window.addEventListener("DOMContentLoaded", async function () {
 
     // Initialize TPOS Token Manager Firebase connection
     if (window.tokenManager) {
-        console.log('[TOKEN] Retrying Firebase initialization for TokenManager...');
-        if (window.tokenManager.retryFirebaseInit()) {
-            console.log('[TOKEN] ✅ Firebase connection established');
-        } else {
-            console.warn('[TOKEN] ⚠️ Firebase still not available, using localStorage only');
+        if (!window.tokenManager.retryFirebaseInit()) {
+            console.warn('[TOKEN] Firebase still not available, using localStorage only');
         }
     }
 
@@ -143,8 +134,6 @@ window.addEventListener("DOMContentLoaded", async function () {
     // Chat columns will show "-" initially, then re-render when Pancake is ready
     let pancakeInitPromise = null;
     if (window.pancakeTokenManager && window.pancakeDataManager) {
-        console.log('[PANCAKE] Initializing Pancake managers (background)...');
-
         // Initialize token manager first (sync)
         window.pancakeTokenManager.initialize();
 
@@ -152,7 +141,6 @@ window.addEventListener("DOMContentLoaded", async function () {
         pancakeInitPromise = window.pancakeDataManager.initialize()
             .then(async success => {
                 if (success) {
-                    console.log('[PANCAKE] ✅ PancakeDataManager initialized (background)');
                     // Set chatDataManager alias for compatibility
                     window.chatDataManager = window.pancakeDataManager;
                     // Connect WebSocket for realtime messages
@@ -172,7 +160,6 @@ window.addEventListener("DOMContentLoaded", async function () {
     }
     // Initialize Realtime Manager (instance already created by realtime-manager.js)
     if (window.realtimeManager) {
-        console.log('[REALTIME] Initializing RealtimeManager...');
         window.realtimeManager.initialize();
     } else {
         console.warn('[REALTIME] ⚠️ RealtimeManager not available');
@@ -194,7 +181,6 @@ window.addEventListener("DOMContentLoaded", async function () {
                 return;
             }
             await window.realtimeManager.initWebSocket({ accessToken: token, userId, pageIds });
-            console.log('[REALTIME] ✅ WebSocket connected for realtime chat');
         } catch (e) {
             console.warn('[REALTIME] WebSocket connect error:', e.message);
         }
@@ -238,7 +224,6 @@ window.addEventListener("DOMContentLoaded", async function () {
             });
 
             window.newMessagesNotifier?.setPendingCustomers([...grouped.values()]);
-            console.log(`[Init] Loaded ${grouped.size} pending customers from server`);
         } catch (e) {
             console.warn('[Init] Failed to fetch offline pending:', e.message);
         }
@@ -256,7 +241,6 @@ window.addEventListener("DOMContentLoaded", async function () {
     // New: Defer by 1 second to allow UI to render first
     if (database) {
         setTimeout(() => {
-            console.log('[TAG-REALTIME] Setting up Firebase TAG listeners (deferred)...');
             setupTagRealtimeListeners();
 
             // TEMPORARILY DISABLED - KPI BASE feature
@@ -286,14 +270,11 @@ window.addEventListener("DOMContentLoaded", async function () {
 
     // 🎯 ĐƠN GIẢN HÓA: Dùng Campaign System mới (merged)
     // Flow: Load campaigns → Check active → Fetch orders (1 lần duy nhất)
-    console.log('[AUTO-LOAD] Khởi tạo App...');
-    console.log('[AUTO-LOAD] chatDataManager available:', !!window.chatDataManager);
 
     // ⚡ OPTIMIZATION FIX: Make initializeApp() non-blocking
     // Previous: await initializeApp() blocked everything
     // New: Run in background, show loading indicator
     initializeApp().then(() => {
-        console.log('[APP] ✅ Initialization complete');
         // Fetch offline pending customers after table is rendered
         _fetchOfflinePendingCustomers();
     }).catch(err => {
@@ -305,7 +286,6 @@ window.addEventListener("DOMContentLoaded", async function () {
     if (pancakeInitPromise) {
         pancakeInitPromise.then(success => {
             if (success && allData.length > 0 && window.chatDataManager) {
-                console.log('[PANCAKE] Re-rendering table with chat data after background init...');
                 // Re-render table to show chat columns now that chatDataManager is ready
                 performTableSearch();
             }
@@ -359,7 +339,6 @@ window.addEventListener("DOMContentLoaded", async function () {
     // ⚡ NEW: Listen for token requests from Overview tab (via main.html)
     window.addEventListener('message', async function (event) {
         if (event.data.type === 'REQUEST_TOKEN') {
-            console.log('[TAB1] 🔑 Token requested, responding...');
             try {
                 if (!window.tokenManager) {
                     throw new Error('tokenManager not available');
@@ -370,7 +349,6 @@ window.addEventListener("DOMContentLoaded", async function () {
                     requestId: event.data.requestId,
                     token: token
                 }, '*');
-                console.log('[TAB1] ✅ Token sent successfully');
             } catch (error) {
                 console.error('[TAB1] ❌ Error getting token:', error);
                 window.parent.postMessage({
@@ -404,7 +382,6 @@ window.addEventListener("DOMContentLoaded", async function () {
                 type: 'ORDERS_DATA_RESPONSE_TAB3',
                 orders: orders
             }, '*');
-            console.log('[TAB1] 📤 Sent orders data to Tab3:', orders.length, 'orders');
         }
 
         // Handle orders data request from Overview tab
@@ -418,12 +395,10 @@ window.addEventListener("DOMContentLoaded", async function () {
                 orders: orders,
                 tableName: tableName
             }, '*');
-            console.log('[TAB1] 📤 Sent orders data to Overview:', orders.length, 'orders, table:', tableName);
         }
 
         // Handle retail sale from Social tab
         if (event.data.type === 'OPEN_RETAIL_SALE_FROM_SOCIAL') {
-            console.log('[TAB1] 🧾 Received social order data for retail sale:', event.data.orderData);
             openSaleModalFromSocialOrder(event.data.orderData);
         }
     });
@@ -504,14 +479,11 @@ const MAX_FIREBASE_WAIT_ATTEMPTS = 20; // 20 × 500ms = 10 seconds max
 async function initializeApp() {
     // Prevent duplicate initialization
     if (appInitialized) {
-        console.log('[APP] Already initialized, skipping...');
         return;
     }
     appInitialized = true;
 
     try {
-        console.log('[APP] 🚀 Initializing...');
-
         // 1. Wait for Firebase to be ready (with timeout)
         if (typeof firebase === 'undefined' || !firebase.database) {
             firebaseWaitAttempts++;
@@ -523,7 +495,6 @@ async function initializeApp() {
                 return;
             }
 
-            console.log(`[APP] Waiting for Firebase... (attempt ${firebaseWaitAttempts}/${MAX_FIREBASE_WAIT_ATTEMPTS})`);
             appInitialized = false; // Reset flag so it can retry
             setTimeout(initializeApp, 500);
             return;
@@ -534,9 +505,7 @@ async function initializeApp() {
 
         // 1.5. Wait for Firebase Auth to resolve (critical for incognito tabs)
         // Without this, currentUser is null and we get a wrong userId from localStorage
-        console.log('[APP] Waiting for Firebase Auth state...');
         const authUser = await waitForAuthState();
-        console.log('[APP] Auth state resolved:', authUser ? authUser.uid : 'not authenticated');
 
         // Set current user ID
         window.campaignManager = window.campaignManager || {
@@ -547,31 +516,25 @@ async function initializeApp() {
             initialized: false
         };
         window.campaignManager.currentUserId = getCurrentUserId();
-        console.log('[APP] User ID:', window.campaignManager.currentUserId);
 
         // 2. Load data in PARALLEL for speed
-        console.log('[APP] Loading data in parallel...');
         const [campaigns, activeCampaignId, _] = await Promise.all([
             loadAllCampaigns(),
             loadActiveCampaignId(),
             Promise.resolve() // Employee ranges loaded per-campaign, not globally
         ]);
-        console.log('[APP] Data loaded - Campaigns:', Object.keys(campaigns).length, 'Active:', activeCampaignId);
 
         // 3. ⭐ CHECK ACTIVE CAMPAIGN FIRST (Fast path)
         if (activeCampaignId && campaigns[activeCampaignId]) {
             const campaign = campaigns[activeCampaignId];
-            console.log('[APP] Found active campaign:', campaign.name);
 
             // Check if campaign has dates
             if (campaign.customStartDate) {
                 // ✅ Happy path - Load ngay!
-                console.log('[APP] ✅ Fast path - Campaign has dates, loading orders...');
                 await continueAfterCampaignSelect(activeCampaignId);
                 return;
             } else {
                 // ❌ Campaign doesn't have dates
-                console.log('[APP] ⚠️ Campaign has no dates, showing modal...');
                 showCampaignNoDatesModal(activeCampaignId);
                 return;
             }
@@ -580,13 +543,11 @@ async function initializeApp() {
         // 4. No active campaign → Check if campaigns exist to show selection
         if (Object.keys(campaigns).length > 0) {
             // Campaigns exist but no active campaign saved → show selection modal
-            console.log('[APP] Campaigns exist but no active campaign, showing selection modal...');
             showSelectCampaignModal();
             return;
         }
 
         // 5. No campaigns exist at all → show create modal
-        console.log('[APP] No campaigns found, showing create modal...');
         showNoCampaignsModal();
 
     } catch (error) {
@@ -647,8 +608,6 @@ async function loadActiveCampaignId() {
  */
 async function continueAfterCampaignSelect(campaignId) {
     try {
-        console.log('[APP] continueAfterCampaignSelect:', campaignId);
-
         const campaign = window.campaignManager.allCampaigns[campaignId];
         if (!campaign) {
             console.error('[APP] Campaign not found:', campaignId);
@@ -675,17 +634,13 @@ async function continueAfterCampaignSelect(campaignId) {
         if (startDateInput) startDateInput.value = startDate;
         if (endDateInput) endDateInput.value = endDate;
 
-        console.log('[APP] Dates set:', startDate, '->', endDate);
-
         // Set selectedCampaign to custom mode
         selectedCampaign = { isCustom: true };
 
         // Check if date mode is enabled - override campaign dates
         if (typeof window.initDateMode === 'function') {
             const dateModeActive = await window.initDateMode();
-            if (dateModeActive) {
-                console.log('[APP] Date mode active - using date mode dates instead of campaign dates');
-            }
+            // date mode active - using date mode dates instead of campaign dates
         }
 
         // Update UI label
@@ -709,7 +664,6 @@ async function continueAfterCampaignSelect(campaignId) {
 
         // ⭐ CRITICAL: Load employee ranges for this campaign BEFORE fetching orders
         // This ensures the filter works correctly from the start
-        console.log('[APP] 📊 Loading employee ranges for campaign:', campaign.name);
         if (typeof loadEmployeeRangesForCampaign === 'function') {
             await loadEmployeeRangesForCampaign(campaign.name);
         } else {
@@ -718,16 +672,12 @@ async function continueAfterCampaignSelect(campaignId) {
 
 
         // ⭐ FETCH ORDERS (1 lần duy nhất)
-        console.log('[APP] ⭐ Fetching orders...');
         await handleSearch();
 
         // Connect realtime
         if (window.realtimeManager) {
-            console.log('[APP] Connecting to Realtime Server...');
             window.realtimeManager.connectServerMode();
         }
-
-        console.log('[APP] ✅ Initialization complete for campaign:', campaign.name);
 
     } catch (error) {
         console.error('[APP] ❌ Error in continueAfterCampaignSelect:', error);
