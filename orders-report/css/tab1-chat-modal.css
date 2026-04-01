@@ -92,7 +92,7 @@
 
 .chat-customer-name {
     font-weight: 600;
-    font-size: 14px;
+    font-size: 21px;
     color: #fff;
     white-space: nowrap;
     overflow: hidden;
@@ -102,16 +102,52 @@
 .chat-header-sub {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     margin-top: 2px;
     flex-wrap: wrap;
 }
 
 .chat-phone-number {
-    font-size: 12px;
+    font-size: 18px;
     color: rgba(255, 255, 255, 0.75);
     font-weight: 500;
     letter-spacing: 0.3px;
+}
+
+.chat-copy-phone {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.chat-copy-phone:hover {
+    color: #fff;
+    transform: scale(1.15);
+}
+
+.chat-debt-total-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 15px;
+    font-weight: 700;
+    padding: 2px 10px;
+    border-radius: 10px;
+    background: #10b981;
+    color: #fff;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+}
+
+.chat-debt-total-badge:hover {
+    background: #059669;
+    transform: scale(1.05);
+}
+
+.chat-debt-total-badge i {
+    font-size: 12px;
 }
 
 .chat-badges {

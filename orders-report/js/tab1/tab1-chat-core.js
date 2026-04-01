@@ -56,6 +56,24 @@ function _markRepliedOnServer(psid, pageId) {
 }
 
 // =====================================================
+// CHAT DEBT BADGE (green total badge)
+// =====================================================
+
+/**
+ * Render a single green badge showing total wallet debt for chat header.
+ * Click opens wallet modal (same as customer column badge).
+ */
+function _renderChatDebtBadge(phone) {
+    if (!phone || typeof hasWalletDebt !== 'function' || !hasWalletDebt(phone)) return '';
+    const normalized = typeof normalizePhoneForQR === 'function' ? normalizePhoneForQR(phone) : phone;
+    const data = window.walletDebtData?.get(normalized);
+    if (!data || !data.total || data.total <= 0) return '';
+    const shortAmt = typeof formatAmountShort === 'function' ? formatAmountShort(data.total) : data.total + 'đ';
+    return `<span class="chat-debt-total-badge" onclick="window.openWalletDebtModal('${normalized}'); event.stopPropagation();" title="Công nợ: ${new Intl.NumberFormat('vi-VN').format(data.total)}đ"><i class="fas fa-wallet"></i> ${shortAmt}</span>`;
+}
+window._renderChatDebtBadge = _renderChatDebtBadge;
+
+// =====================================================
 // MODAL LIFECYCLE
 // =====================================================
 
@@ -108,12 +126,27 @@ window.openChatModal = async function(orderId, pageId, psid, conversationType) {
     const phoneEl = document.getElementById('chatPhoneNumber');
     if (phoneEl) phoneEl.textContent = window.currentChatPhone || '';
 
-    // Render debt badges using the same function as the customer column
+    // Show/hide copy phone icon
+    const copyPhoneBtn = document.getElementById('chatCopyPhone');
+    if (copyPhoneBtn) {
+        copyPhoneBtn.style.display = window.currentChatPhone ? 'inline' : 'none';
+        copyPhoneBtn.onclick = function(e) {
+            e.stopPropagation();
+            navigator.clipboard.writeText(window.currentChatPhone).then(() => {
+                copyPhoneBtn.className = 'fas fa-check chat-copy-phone';
+                copyPhoneBtn.style.color = '#4ade80';
+                setTimeout(() => {
+                    copyPhoneBtn.className = 'fas fa-copy chat-copy-phone';
+                    copyPhoneBtn.style.color = '';
+                }, 1500);
+            });
+        };
+    }
+
+    // Render total debt badge (green)
     const debtContainer = document.getElementById('chatDebtBadgesContainer');
     if (debtContainer) {
-        debtContainer.innerHTML = typeof renderWalletDebtBadges === 'function'
-            ? renderWalletDebtBadges(window.currentChatPhone)
-            : '';
+        debtContainer.innerHTML = _renderChatDebtBadge(window.currentChatPhone);
     }
 
     // Update header avatar (same approach as inbox: extract direct avatar from conv data)
