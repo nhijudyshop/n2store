@@ -467,8 +467,6 @@ const WalletIntegration = (function() {
             virtualCredits = customer360.virtual_credits || wallet.virtualCredits || [];
         } else {
             // Fallback: fetch wallet data directly (customer may not exist in customers table)
-            console.log('[WALLET-MODAL] Customer360 not found, trying wallet API...');
-
             try {
                 const walletData = await getWallet(normalizedPhone);
                 if (walletData) {
@@ -487,7 +485,6 @@ const WalletIntegration = (function() {
             if (txResponse.ok) {
                 const txResult = await txResponse.json();
                 recentTransactions = txResult.data || [];
-                console.log('[WALLET-MODAL] Fetched transactions:', recentTransactions.length);
             }
         } catch (txError) {
             console.warn('[WALLET-MODAL] Could not fetch transactions:', txError.message);
@@ -643,7 +640,6 @@ const WalletIntegration = (function() {
             await refreshWalletBatch(phones);
         }, CONFIG.POLLING_INTERVAL);
 
-        console.log('[WALLET] Polling started');
     }
 
     /**
@@ -653,7 +649,6 @@ const WalletIntegration = (function() {
         if (pollingInterval) {
             clearInterval(pollingInterval);
             pollingInterval = null;
-            console.log('[WALLET] Polling stopped');
         }
     }
 
@@ -755,4 +750,3 @@ const WalletIntegration = (function() {
 // Export for global access
 window.WalletIntegration = WalletIntegration;
 
-console.log('[WALLET] WalletIntegration module loaded');

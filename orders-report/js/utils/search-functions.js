@@ -34,10 +34,7 @@ async function showAddProductForm() {
     try {
         // If not loaded or should fetch new, load Excel
         if (!manager.isLoaded || shouldFetchNew) {
-            console.log("[SEARCH] Fetching Excel products...");
             await manager.fetchExcelProducts(!manager.isLoaded);
-        } else {
-            console.log("[SEARCH] Using cached Excel data");
         }
     } catch (error) {
         console.error("[SEARCH] Error loading products:", error);
@@ -59,8 +56,6 @@ async function showAddProductForm() {
 
     // Update stats display
     updateProductStatsDisplay();
-
-    console.log("[SEARCH] Product modal opened");
 }
 
 function hideAddProductForm() {
@@ -75,8 +70,6 @@ function hideAddProductForm() {
     // Update state
     isProductModalOpen = false;
     lastModalCloseTime = Date.now();
-
-    console.log("[SEARCH] Product modal closed");
 }
 
 // ========================================
@@ -104,7 +97,6 @@ async function searchProducts(query) {
         try {
             // Ensure products are loaded
             if (!manager.isLoaded) {
-                console.log("[SEARCH] Products not loaded, fetching...");
                 await manager.fetchExcelProducts();
             }
 
@@ -116,10 +108,6 @@ async function searchProducts(query) {
                     '<div class="no-results">Không tìm thấy sản phẩm nào</div>';
                 return;
             }
-
-            console.log(
-                `[SEARCH] Found ${products.length} products for "${query}"`,
-            );
 
             // Render search results
             const resultsHTML = products
@@ -214,10 +202,6 @@ async function selectProductFromSuggestion(productId, suggestionData) {
             }
         }
 
-        console.log(
-            `[SEARCH] Selected product ${productId}, needs full details: ${needsFullDetails}`,
-        );
-
         // Get full product details
         const fullProduct = await manager.getFullProductDetails(productId);
 
@@ -258,8 +242,6 @@ async function selectProductFromSuggestion(productId, suggestionData) {
 
 async function addProductToOrder(fullProduct) {
     try {
-        console.log("[SEARCH] Adding product to order:", fullProduct.Id);
-
         // Prepare product data for order
         const productData = {
             Id: fullProduct.Id,
@@ -294,8 +276,6 @@ async function addProductToOrder(fullProduct) {
                 Quantity: 1,
                 TotalAmount: productData.Price,
             });
-
-            console.log("[SEARCH] Product added to order items");
         }
 
         // Show success notification
@@ -420,8 +400,6 @@ function addProductCountBadge() {
 // ========================================
 
 document.addEventListener("DOMContentLoaded", function () {
-    console.log("[SEARCH] Initializing enhanced search functions...");
-
     // Wait a bit for the UI to be ready
     setTimeout(() => {
         addRefreshButton();
@@ -443,7 +421,6 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
-    console.log("[SEARCH] Enhanced search functions initialized");
 });
 
 // ========================================
@@ -455,4 +432,3 @@ window.showAddProductForm = showAddProductForm;
 window.hideAddProductForm = hideAddProductForm;
 window.searchProducts = searchProducts;
 
-console.log("[SEARCH] Enhanced search functions V2 loaded");

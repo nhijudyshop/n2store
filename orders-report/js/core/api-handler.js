@@ -48,8 +48,6 @@ async function callAPI(endpoint, method = 'GET', body = null) {
             options.body = JSON.stringify(body);
         }
 
-        console.log('API Call (Proxy):', proxyUrl, options);
-
         const response = await fetch(proxyUrl, options);
 
         // Handle non-JSON responses (e.g. proxy errors)
@@ -131,8 +129,7 @@ async function searchFullAddress(address) {
 
     // Fallback to 34tinhthanh.com search API
     try {
-        console.log('Fallback: Using 34tinhthanh.com search API');
-        const searchResults = await searchByName(address);
+            const searchResults = await searchByName(address);
 
         if (searchResults && searchResults.length > 0) {
             // Format results to match vnhub API format
@@ -174,8 +171,6 @@ async function searchFullAddressVnhub(address) {
     // Construct proxy URL with custom headers
     const proxyUrl = `${ADDRESS_API_CONFIG.proxyURL}?url=${encodeURIComponent(targetUrl)}&headers=${encodeURIComponent(JSON.stringify(customHeaders))}`;
 
-    console.log('Full Address Search (VNHub Proxy):', proxyUrl);
-
     const response = await fetch(proxyUrl, {
         method: 'POST',
         headers: {
@@ -191,6 +186,3 @@ async function searchFullAddressVnhub(address) {
     return await response.json();
 }
 
-// Log thông tin khi trang được load
-console.log('API Handler loaded successfully (34tinhthanh.com + tienich.vnhub.com)!');
-console.log('API Base URL:', ADDRESS_API_CONFIG.baseURL);

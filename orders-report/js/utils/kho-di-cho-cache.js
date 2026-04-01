@@ -47,7 +47,6 @@ const KhoDiChoCache = (function () {
         });
 
         _loaded = true;
-        console.log(`[KHO-DI-CHO-CACHE] Built map: ${_sttMap.size} products`);
     }
 
     /**
@@ -71,7 +70,6 @@ const KhoDiChoCache = (function () {
             const data = localStorage.getItem(LS_KEY);
             if (data && Date.now() - timestamp < CACHE_TTL) {
                 buildMap(JSON.parse(data));
-                console.log('[KHO-DI-CHO-CACHE] Loaded from localStorage');
                 return true;
             }
         } catch (e) {
@@ -170,4 +168,3 @@ window.KhoDiChoCache = KhoDiChoCache;
 // Auto-load on script load (non-blocking)
 KhoDiChoCache.load();
 
-console.log('[KHO-DI-CHO-CACHE] Module loaded');

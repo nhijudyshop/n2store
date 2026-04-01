@@ -58,18 +58,6 @@ const BillService = (function () {
      * @returns {string} HTML content for the bill (EXACT TPOS format)
      */
     function generateCustomBillHTML(orderResult, options = {}) {
-        console.log('[BILL-SERVICE] generateCustomBillHTML called');
-        console.log('[BILL-SERVICE] orderResult:', {
-            Number: orderResult?.Number,
-            Reference: orderResult?.Reference,
-            CarrierName: orderResult?.CarrierName,
-            State: orderResult?.State,
-            ShowState: orderResult?.ShowState,
-            SessionIndex: orderResult?.SessionIndex,
-            PartnerDisplayName: orderResult?.PartnerDisplayName,
-            hasOrderLines: !!(orderResult?.OrderLines || orderResult?.orderLines),
-        });
-
         // Support both saleButtonModal (uses currentSaleOrderData) and FastSale (uses orderResult directly)
         const currentSaleOrderData = options.currentSaleOrderData || null;
         const order = currentSaleOrderData || orderResult;
@@ -240,24 +228,6 @@ const BillService = (function () {
         const orderLines =
             order?.orderLines || orderResult?.OrderLines || orderResult?.orderLines || [];
 
-        // Debug log key variables (AFTER orderLines is defined)
-        const walletSource = options.walletBalance
-            ? 'options'
-            : isModalVisible && document.getElementById('salePrepaidAmount')?.value
-              ? 'form'
-              : 'orderResult';
-        console.log('[BILL-SERVICE] Bill variables:', {
-            shopName,
-            carrierName,
-            billNumber,
-            sellerName,
-            sttDisplay,
-            shippingFee,
-            discount,
-            walletBalance,
-            walletSource,
-            orderLinesCount: orderLines.length,
-        });
         let totalQuantity = 0;
         let totalAmount = 0;
 
@@ -315,16 +285,6 @@ ${uomName}                            </td>
 
         // Còn lại = tổng tiền - trả trước
         const codAmount = Math.max(0, finalTotal - safePrepaidAmount);
-
-        console.log('[BILL-SERVICE] Calculation:', {
-            totalAmount: safeTotalAmount,
-            discount: safeDiscount,
-            shippingFee: safeShippingFee,
-            finalTotal,
-            walletBalance: safeWalletBalance,
-            prepaidAmount: safePrepaidAmount,
-            codAmount,
-        });
 
         // ========== EXACT TPOS HTML TEMPLATE ==========
         // CSS and structure copied directly from TPOS API response (html_bill.txt)
@@ -1059,8 +1019,6 @@ ${
      * @param {Object} options - Optional parameters
      */
     function openPrintPopup(orderResult, options = {}) {
-        console.log('[BILL-SERVICE] Opening print popup with custom bill...');
-
         // Generate custom bill HTML
         const html = generateCustomBillHTML(orderResult, options);
 
@@ -1110,8 +1068,6 @@ ${
      * @param {Object} options - Optional parameters
      */
     function openCombinedPrintPopup(orders, options = {}) {
-        console.log('[BILL-SERVICE] Opening combined print popup for', orders.length, 'bills...');
-
         if (!orders || orders.length === 0) {
             console.warn('[BILL-SERVICE] No orders to print');
             return;
@@ -1227,7 +1183,6 @@ ${
         // Fallback if onload doesn't fire
         setTimeout(triggerPrint, 2000);
 
-        console.log('[BILL-SERVICE] Combined print popup opened successfully');
     }
 
     /**
@@ -1237,8 +1192,6 @@ ${
      * @returns {Promise<Blob>} - Image blob
      */
     async function generateBillImage(orderResult, options = {}) {
-        console.log('[BILL-SERVICE] Generating bill image...');
-
         // Use pre-generated HTML if provided (e.g., TPOS bill), otherwise fall back to custom bill
         const html = options.billHtml || generateCustomBillHTML(orderResult, options);
 
@@ -1269,7 +1222,6 @@ ${
 
             // Get actual content height (add small padding)
             const contentHeight = iframeBody.scrollHeight + 20;
-            console.log('[BILL-SERVICE] Content height:', contentHeight);
 
             // Check if html2canvas is available
             if (typeof html2canvas === 'undefined') {
@@ -1296,7 +1248,6 @@ ${
                 canvas.toBlob(resolve, 'image/png');
             });
 
-            console.log('[BILL-SERVICE] Bill image generated:', blob.size, 'bytes');
             return blob;
         } catch (error) {
             document.body.removeChild(iframe);
@@ -1317,10 +1268,6 @@ ${
      * @returns {Promise<{success: boolean, error?: string, messageId?: string}>}
      */
     async function sendBillToCustomer(orderResult, pageId, psid, options = {}) {
-        console.log('[BILL-SERVICE] ========================================');
-        console.log('[BILL-SERVICE] Sending bill image to customer...');
-        console.log('[BILL-SERVICE] Page ID:', pageId, 'PSID:', psid);
-
         if (!pageId || !psid) {
             console.warn('[BILL-SERVICE] Missing pageId or psid, cannot send bill');
             return { success: false, error: 'Missing pageId or psid' };
@@ -1331,12 +1278,9 @@ ${
 
             // Use pre-generated content if available, otherwise generate and upload
             if (contentId) {
-                console.log('[BILL-SERVICE] ⚡ Using pre-generated content_id:', contentId);
+                // Use pre-generated content_id
             } else {
                 // Generate bill image using custom template (no TPOS API request)
-                console.log(
-                    '[BILL-SERVICE] Step 1: Generating bill image using custom template...'
-                );
                 const imageBlob = await generateBillImage(orderResult, options);
 
                 // Convert blob to File for upload
@@ -1349,13 +1293,11 @@ ${
                 );
 
                 // Step 2: Upload image to Pancake
-                console.log('[BILL-SERVICE] Step 2: Uploading image to Pancake...');
                 if (!window.pancakeDataManager) {
                     throw new Error('PancakeDataManager not available');
                 }
 
                 const uploadResult = await window.pancakeDataManager.uploadImage(pageId, imageFile);
-                console.log('[BILL-SERVICE] Upload result:', JSON.stringify(uploadResult));
 
                 // Pancake upload_contents API returns: { id, type/attachment_type, success }
                 // The "id" IS the content_id to use in content_ids[] when sending messages
@@ -1369,23 +1311,15 @@ ${
                 if (!contentId) {
                     throw new Error('Upload failed - no content id returned: ' + JSON.stringify(uploadResult));
                 }
-                console.log('[BILL-SERVICE] Image uploaded, content_id:', contentId);
             }
 
             // Step 3: Send message with image via Pancake API
-            console.log('[BILL-SERVICE] Step 3: Sending message with image...');
 
             // Get conversation ID - same logic as chat modal (openChatModal)
             // Uses fetchConversationsByCustomerFbId to ensure we get real conversation data
             let convId = null;
 
             if (window.pancakeDataManager) {
-                console.log(
-                    '[BILL-SERVICE] Fetching conversation by customer fb_id:',
-                    psid,
-                    'pageId:',
-                    pageId
-                );
                 try {
                     // Same method as chat modal uses in tab1-chat.js line 1888
                     const result = await window.pancakeDataManager.fetchConversationsByCustomerFbId(
@@ -1401,14 +1335,9 @@ ${
 
                         if (inboxConversations.length > 0) {
                             convId = inboxConversations[0].id;
-                            console.log('[BILL-SERVICE] ✅ Got INBOX conversation ID:', convId);
                         } else {
                             // Fallback to first conversation if no INBOX found
                             convId = result.conversations[0].id;
-                            console.log(
-                                '[BILL-SERVICE] ✅ Got conversation ID (fallback):',
-                                convId
-                            );
                         }
                     } else {
                         console.warn('[BILL-SERVICE] No conversations found for customer');
@@ -1423,7 +1352,6 @@ ${
 
             // No fallback - must have real conversation ID from Pancake
             if (!convId) {
-                console.warn('[BILL-SERVICE] No conversation ID found for PSID:', psid);
                 return {
                     success: false,
                     error: 'Không tìm thấy conversation. Khách hàng chưa có tin nhắn với page này.',
@@ -1450,13 +1378,6 @@ ${
                 action: 'reply_inbox',
                 content_ids: contentId ? [contentId] : [],
             };
-
-            console.log('[BILL-SERVICE] Sending via Official API v1 (page_access_token)');
-            console.log(
-                '[BILL-SERVICE] URL:',
-                sendUrl.replace(/page_access_token=[^&]+/, 'page_access_token=***')
-            );
-            console.log('[BILL-SERVICE] content_id:', contentId);
 
             // Fire additional messages in parallel (fire and forget - don't wait)
             sendAdditionalBillMessages(pageId, convId, pageAccessToken);
@@ -1493,7 +1414,6 @@ ${
                         sendResult.message.includes('khoảng thời gian cho phép'));
 
                 if (is24HourError && window.pancakeExtension?.connected && window.sendViaExtension) {
-                    console.log('[BILL-SERVICE] 24h error - trying Extension Bypass...');
                     try {
                         // Fetch messages API to get thread_id + global_id
                         // (buildConvData relies on global state not set in bill context)
@@ -1518,7 +1438,6 @@ ${
                         };
                         // Send bill image as text (extension can only send text, not content_ids)
                         await window.sendViaExtension('[Hóa đơn đã được tạo]', extConv);
-                        console.log('[BILL-SERVICE] Extension Bypass succeeded!');
                         return {
                             success: true,
                             messageId: `ext_${Date.now()}`,
@@ -1537,7 +1456,6 @@ ${
                 };
             }
 
-            console.log('[BILL-SERVICE] ✅ Bill sent successfully:', sendResult);
             return { success: true, messageId: sendResult.id };
         } catch (error) {
             console.error('[BILL-SERVICE] Error sending bill:', error);
@@ -1556,8 +1474,6 @@ ${
      * @param {string} pageAccessToken - Page access token
      */
     function sendAdditionalBillMessages(pageId, convId, pageAccessToken) {
-        console.log('[BILL-SERVICE] [ADDITIONAL] Sending additional messages...');
-
         // Build URL using Official API v1 (page_access_token)
         const baseUrl = window.API_CONFIG.buildUrl.pancakeOfficial(
             `pages/${pageId}/conversations/${convId}/messages`,
@@ -1593,14 +1509,7 @@ ${
                 }
                 return response.json();
             })
-            .then((result) => {
-                const success = result.success !== false && !result.httpError;
-                console.log(
-                    '[BILL-SERVICE] [ADDITIONAL] Image message:',
-                    success ? '✅' : '❌',
-                    result
-                );
-            })
+            .then(() => {})
             .catch((error) => {
                 console.warn('[BILL-SERVICE] [ADDITIONAL] Image message error:', error.message);
             });
@@ -1616,14 +1525,7 @@ ${
                 }
                 return response.json();
             })
-            .then((result) => {
-                const success = result.success !== false && !result.httpError;
-                console.log(
-                    '[BILL-SERVICE] [ADDITIONAL] Thank you message:',
-                    success ? '✅' : '❌',
-                    result
-                );
-            })
+            .then(() => {})
             .catch((error) => {
                 console.warn('[BILL-SERVICE] [ADDITIONAL] Thank you message error:', error.message);
             });
@@ -1640,8 +1542,6 @@ ${
      */
     async function fetchTPOSBillHTML(orderId, headers, orderData) {
         try {
-            console.log('[BILL-SERVICE] Fetching TPOS bill HTML for order:', orderId);
-
             const printUrl = `https://chatomni-proxy.nhijudyshop.workers.dev/api/fastsaleorder/print1?ids=${orderId}`;
             const response = await API_CONFIG.smartFetch(printUrl, {
                 method: 'GET',
@@ -1660,8 +1560,6 @@ ${
                 throw new Error('No HTML returned from TPOS API');
             }
 
-            console.log('[BILL-SERVICE] TPOS bill HTML fetched successfully');
-
             // Get STT from order data
             let sttDisplay = '';
             if (orderData?.IsMerged && orderData?.OriginalOrders?.length > 1) {
@@ -1672,8 +1570,6 @@ ${
             } else {
                 sttDisplay = orderData?.SessionIndex || '';
             }
-            console.log('[BILL-SERVICE] STT display value:', sttDisplay);
-
             // Modify HTML to add STT below "Người bán" if STT exists
             let modifiedHtml = result.html;
             if (sttDisplay) {
@@ -1686,7 +1582,6 @@ ${
                         nguoiBanRegex,
                         `$1\n                            <div><strong>STT:</strong> ${sttDisplay}</div>`
                     );
-                    console.log('[BILL-SERVICE] Added STT to TPOS bill:', sttDisplay);
                 }
             }
 
@@ -1699,7 +1594,6 @@ ${
                         codRegex,
                         `<span style="font-weight:bold">** CÓ ĐƠN THU VỀ **</span><br/>\n$1`
                     );
-                    console.log('[BILL-SERVICE] Added "CÓ ĐƠN THU VỀ" to TPOS bill');
                 }
             }
 
@@ -1715,8 +1609,6 @@ ${
      * @param {string} html - HTML content to print
      */
     function openPrintPopupWithHtml(html) {
-        console.log('[BILL-SERVICE] Opening print popup with TPOS HTML...');
-
         const printWindow = window.open('', '_blank', 'width=800,height=600,scrollbars=yes');
 
         if (!printWindow) {
@@ -1758,35 +1650,17 @@ ${
      * @param {object} headers - Auth headers for TPOS API
      */
     async function openCombinedTPOSPrintPopup(orders, headers) {
-        console.log(
-            '[BILL-SERVICE] Opening combined TPOS print popup for',
-            orders.length,
-            'orders...'
-        );
-        console.log(
-            '[BILL-SERVICE] Orders data:',
-            orders.map((o) => ({ orderId: o.orderId, hasOrderData: !!o.orderData }))
-        );
-
         if (!orders || orders.length === 0) {
             console.warn('[BILL-SERVICE] No orders to print');
             return;
         }
 
         // Fetch all TPOS bills in parallel
-        console.log('[BILL-SERVICE] Fetching TPOS bills...');
         const billPromises = orders.map(({ orderId, orderData }) => {
-            console.log('[BILL-SERVICE] Fetching bill for orderId:', orderId);
             return fetchTPOSBillHTML(orderId, headers, orderData);
         });
 
         const bills = await Promise.all(billPromises);
-        console.log(
-            '[BILL-SERVICE] Fetched bills count:',
-            bills.length,
-            'Valid:',
-            bills.filter((h) => h !== null).length
-        );
         const validBills = bills.filter((html) => html !== null);
 
         if (validBills.length === 0) {
@@ -1855,7 +1729,6 @@ ${
             openPrintPopupWithHtml(html);
         } else {
             // Fallback to custom bill
-            console.log('[BILL-SERVICE] Falling back to custom bill...');
             openPrintPopup({ Id: orderId }, { currentSaleOrderData: orderData });
         }
     }
@@ -1890,4 +1763,3 @@ window.openPrintPopupWithHtml = BillService.openPrintPopupWithHtml;
 window.openCombinedTPOSPrintPopup = BillService.openCombinedTPOSPrintPopup;
 window.fetchAndPrintTPOSBill = BillService.fetchAndPrintTPOSBill;
 
-console.log('[BILL-SERVICE] Bill Service loaded successfully');

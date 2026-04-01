@@ -20,10 +20,6 @@ window.compressImage = async function compressImage(
     maxWidthOrHeight = 1920,
     initialQuality = 0.85
 ) {
-    console.log(`[COMPRESS] Starting compression for: ${file.name || 'image'}`);
-    console.log(`[COMPRESS] Original size: ${(file.size / 1024).toFixed(2)} KB`);
-    console.log(`[COMPRESS] Target: ${(maxSizeBytes / 1024).toFixed(2)} KB`);
-
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
 
@@ -47,9 +43,6 @@ window.compressImage = async function compressImage(
                             width = Math.round((width / height) * maxWidthOrHeight);
                             height = maxWidthOrHeight;
                         }
-                        console.log(`[COMPRESS] Resized to: ${width}x${height}px`);
-                    } else {
-                        console.log(`[COMPRESS] No resize needed: ${width}x${height}px`);
                     }
 
                     // Create canvas
@@ -69,19 +62,14 @@ window.compressImage = async function compressImage(
 
                     // First attempt
                     blob = await canvasToBlob(canvas, quality);
-                    console.log(`[COMPRESS] Attempt 1: quality=${quality.toFixed(2)}, size=${(blob.size / 1024).toFixed(2)} KB`);
 
                     // If first attempt is already under limit, return it
                     if (blob.size <= maxSizeBytes) {
-                        console.log(`[COMPRESS] ✅ Success on first try!`);
-
                         // ⭐ Convert to File object
                         const originalName = file.name || 'image.png';
                         const nameWithoutExt = originalName.replace(/\.[^/.]+$/, '');
                         const compressedFileName = `${nameWithoutExt}_compressed.jpg`;
                         const fileObject = new File([blob], compressedFileName, { type: 'image/jpeg' });
-
-                        console.log(`[COMPRESS] Created File object: ${compressedFileName}, type: ${fileObject.type}`);
 
                         resolve({
                             blob: fileObject,
@@ -111,8 +99,6 @@ window.compressImage = async function compressImage(
                         quality = (minQuality + maxQuality) / 2;
                         blob = await canvasToBlob(canvas, quality);
 
-                        console.log(`[COMPRESS] Attempt ${attempt + 1}: quality=${quality.toFixed(2)}, size=${(blob.size / 1024).toFixed(2)} KB`);
-
                         if (blob.size <= maxSizeBytes) {
                             break;
                         }
@@ -120,9 +106,7 @@ window.compressImage = async function compressImage(
 
                     // Final check
                     if (blob.size > maxSizeBytes) {
-                        console.warn(`[COMPRESS] ⚠️ Could not compress below ${(maxSizeBytes / 1024).toFixed(2)} KB, final size: ${(blob.size / 1024).toFixed(2)} KB`);
-                    } else {
-                        console.log(`[COMPRESS] ✅ Compression successful!`);
+                        console.warn(`[COMPRESS] Could not compress below ${(maxSizeBytes / 1024).toFixed(2)} KB, final size: ${(blob.size / 1024).toFixed(2)} KB`);
                     }
 
                     // ⭐ Convert Blob to File object with proper name and type
@@ -131,8 +115,6 @@ window.compressImage = async function compressImage(
                     const nameWithoutExt = originalName.replace(/\.[^/.]+$/, '');
                     const compressedFileName = `${nameWithoutExt}_compressed.jpg`;
                     const fileObject = new File([blob], compressedFileName, { type: 'image/jpeg' });
-
-                    console.log(`[COMPRESS] Created File object: ${compressedFileName}, type: ${fileObject.type}`);
 
                     resolve({
                         blob: fileObject,  // Now it's a File, not just a Blob
@@ -199,4 +181,3 @@ window.getImageDimensionsOnly = async function getImageDimensionsOnly(file) {
     });
 };
 
-console.log('[IMAGE-COMPRESSOR] ✅ Image compressor utility loaded');
