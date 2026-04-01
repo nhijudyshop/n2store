@@ -3057,14 +3057,27 @@ ${d.ghiChu ? `<div style="margin-top:12px; font-style:italic; font-size:12px;"><
             });
         }
 
-        // Reload button
+        // Reload button — with notification
         const btnReload = document.getElementById('btnSchedReload');
         if (btnReload) {
-            btnReload.addEventListener('click', () => {
-                loadEmployees().then(() => {
-                    if (viewPeriod === 'month') loadMonthData();
-                    else loadWeekData();
-                });
+            btnReload.addEventListener('click', async () => {
+                // Spin icon
+                const icon = btnReload.querySelector('i, svg');
+                if (icon) icon.style.animation = 'spin 0.8s linear infinite';
+                btnReload.disabled = true;
+                showNotification('Đang tải lại dữ liệu...', 'info');
+                try {
+                    await loadEmployees();
+                    if (viewPeriod === 'month') await loadMonthData();
+                    else await loadWeekData();
+                    const now = new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+                    showNotification(`Đã cập nhật lúc ${now} — ${employees.length} NV, ${viewPeriod === 'month' ? monthRecords.length : weekRecords.length} records`, 'success');
+                } catch (err) {
+                    showNotification('Lỗi tải dữ liệu: ' + err.message, 'error');
+                } finally {
+                    if (icon) icon.style.animation = '';
+                    btnReload.disabled = false;
+                }
             });
         }
 
@@ -3821,7 +3834,121 @@ ${d.ghiChu ? `<div style="margin-top:12px; font-style:italic; font-size:12px;"><
             const lastBtn = headerRight.querySelector('.ts-btn:last-child');
             headerRight.insertBefore(btn, lastBtn);
         });
+
+        // Inject Database button
+        const headerRight = document.querySelector('#viewSchedule .ts-header-right') || document.querySelector('#viewTimesheet .ts-header-right');
+        if (headerRight) {
+            const dbBtn = document.createElement('button');
+            dbBtn.className = 'ts-btn';
+            dbBtn.style.cssText = 'background:#f0f5ff; color:#1d39c4; border:1px solid #adc6ff;';
+            dbBtn.innerHTML = '<i data-lucide="database" style="width:14px; height:14px;"></i> DB';
+            dbBtn.title = 'Xem dữ liệu Render Database';
+            dbBtn.addEventListener('click', showDatabaseModal);
+            const reloadBtn = headerRight.querySelector('#btnSchedReload');
+            if (reloadBtn) headerRight.insertBefore(dbBtn, reloadBtn);
+            else headerRight.appendChild(dbBtn);
+        }
+
         refreshIcons();
+    }
+
+    /** Modal hiện thông tin database Render */
+    async function showDatabaseModal() {
+        let modal = document.getElementById('dbInfoModal');
+        if (modal) modal.remove();
+
+        modal = document.createElement('div');
+        modal.id = 'dbInfoModal';
+        modal.style.cssText = 'position:fixed; inset:0; z-index:10000; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.4);';
+        modal.innerHTML = `
+            <div style="background:#fff; border-radius:12px; padding:24px; width:600px; max-height:80vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,0.2);">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+                    <div style="font-size:16px; font-weight:600; color:#1e293b;">Render Database — Attendance</div>
+                    <button onclick="document.getElementById('dbInfoModal').remove()" style="border:none; background:none; font-size:20px; cursor:pointer; color:#8c8c8c;">✕</button>
+                </div>
+                <div id="dbInfoContent" style="font-size:13px; color:#475569;">
+                    <div style="text-align:center; padding:20px;">Đang tải...</div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+
+        const content = document.getElementById('dbInfoContent');
+        try {
+            const [empRes, statusRes] = await Promise.all([
+                apiGet('/device-users'),
+                apiGet('/sync-status'),
+            ]);
+
+            // Get record count for current month
+            const monthKey = currentMonth ? `${currentMonth.year}-${String(currentMonth.month).padStart(2, '0')}` : '';
+            const y = currentMonth?.year || new Date().getFullYear();
+            const m = currentMonth?.month || (new Date().getMonth() + 1);
+            const startKey = `${y}-${String(m).padStart(2, '0')}-01`;
+            const lastDay = new Date(y, m, 0).getDate();
+            const endKey = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+            const recRes = await apiGet('/records?start=' + startKey + '&end=' + endKey);
+
+            const payRes = await apiGet('/payroll?monthKey=' + monthKey);
+
+            const emps = empRes.rows || [];
+            const recs = recRes.rows || [];
+            const status = statusRes.row;
+            const payrolls = payRes.rows || [];
+
+            const syncTime = status?.last_sync_time ? new Date(status.last_sync_time).toLocaleString('vi-VN') : 'N/A';
+            const syncStatus = status?.connected ? '<span style="color:#52c41a;">Connected</span>' : '<span style="color:#f5222d;">Disconnected</span>';
+
+            // Count records per employee
+            const recByEmp = {};
+            recs.forEach(r => { recByEmp[r.device_user_id] = (recByEmp[r.device_user_id] || 0) + 1; });
+
+            content.innerHTML = `
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">
+                    <div style="background:#f6ffed; border:1px solid #b7eb8f; border-radius:8px; padding:12px;">
+                        <div style="font-size:11px; color:#52c41a; font-weight:600;">SYNC STATUS</div>
+                        <div style="font-size:18px; font-weight:700; margin-top:4px;">${syncStatus}</div>
+                        <div style="font-size:11px; color:#8c8c8c; margin-top:2px;">Last: ${syncTime}</div>
+                    </div>
+                    <div style="background:#f0f5ff; border:1px solid #adc6ff; border-radius:8px; padding:12px;">
+                        <div style="font-size:11px; color:#1d39c4; font-weight:600;">DATABASE</div>
+                        <div style="font-size:18px; font-weight:700; margin-top:4px;">${emps.length} NV</div>
+                        <div style="font-size:11px; color:#8c8c8c; margin-top:2px;">${recs.length} records (Th.${m}/${y}), ${payrolls.length} payroll</div>
+                    </div>
+                </div>
+
+                <div style="font-size:12px; font-weight:600; color:#1e293b; margin-bottom:8px;">Nhân viên trong DB</div>
+                <table style="width:100%; border-collapse:collapse; font-size:12px;">
+                    <thead>
+                        <tr style="background:#fafafa; border-bottom:1px solid #f0f0f0;">
+                            <th style="padding:6px 8px; text-align:left;">ID</th>
+                            <th style="padding:6px 8px; text-align:left;">Tên máy</th>
+                            <th style="padding:6px 8px; text-align:left;">Tên hiển thị</th>
+                            <th style="padding:6px 8px; text-align:right;">Lương/ngày</th>
+                            <th style="padding:6px 8px; text-align:right;">Records</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${emps.sort((a, b) => Number(a.user_id) - Number(b.user_id)).map(e => `
+                            <tr style="border-bottom:1px solid #f5f5f5;">
+                                <td style="padding:5px 8px; color:#8c8c8c;">${e.user_id}</td>
+                                <td style="padding:5px 8px;">${escapeHtml(e.name || '')}</td>
+                                <td style="padding:5px 8px; font-weight:500;">${e.display_name ? escapeHtml(e.display_name) : '<span style="color:#d9d9d9;">—</span>'}</td>
+                                <td style="padding:5px 8px; text-align:right;">${formatVND(e.daily_rate || 200000)}</td>
+                                <td style="padding:5px 8px; text-align:right;">${recByEmp[e.user_id] || 0}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+
+                <div style="margin-top:16px; padding:10px; background:#fffbe6; border:1px solid #ffe58f; border-radius:8px; font-size:11px; color:#ad6800;">
+                    API: ${ATTENDANCE_API}
+                </div>
+            `;
+        } catch (err) {
+            content.innerHTML = `<div style="color:#f5222d; padding:20px; text-align:center;">Lỗi: ${err.message}</div>`;
+        }
     }
 
     // ================================================================
