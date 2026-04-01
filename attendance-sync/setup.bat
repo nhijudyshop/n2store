@@ -14,15 +14,6 @@ if errorlevel 1 (
 for /f "tokens=*" %%a in ('node -v') do set NV=%%a
 echo Node.js: %NV%
 
-:: Check Firebase key
-if not exist "serviceAccountKey.json" (
-    echo [ERROR] Missing serviceAccountKey.json
-    echo   Copy your Firebase service account key to this folder.
-    pause
-    exit /b 1
-)
-echo Firebase key: OK
-
 :: Install dependencies
 echo.
 echo Installing dependencies...
