@@ -235,6 +235,33 @@ router.post('/', async (req, res) => {
             }
         }
 
+        // FRAUD PREVENTION: Check for duplicate BOOM/FIX_COD tickets (1 order = 1 ticket per type)
+        if ((type === 'BOOM' || type === 'FIX_COD') && order_id) {
+            const existingTicket = await db.query(`
+                SELECT id, ticket_code, type
+                FROM customer_tickets
+                WHERE order_id = $1
+                  AND type = $2
+                  AND status != 'CANCELLED'
+                LIMIT 1
+            `, [order_id, type]);
+
+            if (existingTicket.rows.length > 0) {
+                const existing = existingTicket.rows[0];
+                const typeLabel = type === 'BOOM' ? 'Boom Hàng' : 'Fix COD';
+                return res.status(400).json({
+                    success: false,
+                    error: 'DUPLICATE_TICKET',
+                    message: `Đơn hàng ${order_id} đã có ticket ${typeLabel}: ${existing.ticket_code}`,
+                    existing_ticket: {
+                        id: existing.id,
+                        ticket_code: existing.ticket_code,
+                        type: existing.type
+                    }
+                });
+            }
+        }
+
         // Get or create customer
         const customerId = await getOrCreateCustomer(db, normalizedPhone, customer_name);
 

@@ -9,6 +9,8 @@ let selectedOrder = null;
 let currentTicketSubscription = null;
 let currentCustomer = null; // NEW: Store current customer info
 let selectedOldOrder = null; // NEW: Store selected old order for RETURN_OLD_ORDER
+let isSubmitting = false; // Prevent double-click on submit
+let isProcessingAction = false; // Prevent double-click on confirm action
 
 // Settings Management
 const SETTINGS_KEY = 'issue_tracking_settings';
@@ -994,6 +996,9 @@ function checkExistingReturnTicket(orderId) {
 }
 
 async function handleSubmitTicket() {
+    // Prevent double-click
+    if (isSubmitting) return;
+
     // If selectedOrder is a minimal object for a new customer
     const isNewCustomerTicket = selectedOrder && !selectedOrder.tposCode;
 
@@ -1147,6 +1152,30 @@ async function handleSubmitTicket() {
         }
     }
 
+    // VALIDATION: Check for duplicate BOOM tickets (1 đơn = 1 ticket boom)
+    if (type === 'BOOM' && tposOrderId) {
+        const existingBoom = TICKETS.find(t =>
+            t.orderId === tposOrderId &&
+            t.type === 'BOOM' &&
+            t.status !== 'CANCELLED'
+        );
+        if (existingBoom) {
+            return alert(`Đơn hàng này đã có ticket Boom!\n\nMã ticket: ${existingBoom.code}\n\nMỗi đơn chỉ được tạo 1 ticket Boom.`);
+        }
+    }
+
+    // VALIDATION: Check for duplicate FIX_COD tickets (1 đơn = 1 ticket fix COD)
+    if (type === 'FIX_COD' && tposOrderId) {
+        const existingFixCod = TICKETS.find(t =>
+            t.orderId === tposOrderId &&
+            t.type === 'FIX_COD' &&
+            t.status !== 'CANCELLED'
+        );
+        if (existingFixCod) {
+            return alert(`Đơn hàng này đã có ticket Fix COD!\n\nMã ticket: ${existingFixCod.code}\n\nMỗi đơn chỉ được tạo 1 ticket Fix COD.`);
+        }
+    }
+
 
     // Lấy thông tin đơn cũ cho RETURN_OLD_ORDER
     const fixCodReason = type === 'FIX_COD' ? document.getElementById('fix-cod-reason').value : null;
@@ -1173,6 +1202,10 @@ async function handleSubmitTicket() {
         returnFromOrderId: isReturnOldOrder ? selectedOldOrder?.tposCode : null,
         returnFromTposId: isReturnOldOrder ? selectedOldOrder?.id : null
     };
+
+    isSubmitting = true;
+    const btnSubmit = document.getElementById('btn-submit-ticket');
+    btnSubmit.disabled = true;
 
     showLoading(true);
     try {
@@ -1225,6 +1258,8 @@ async function handleSubmitTicket() {
         alert("Lỗi khi tạo sự vụ: " + error.message);
     } finally {
         showLoading(false);
+        isSubmitting = false;
+        btnSubmit.disabled = false;
     }
 }
 
@@ -1255,12 +1290,17 @@ window.promptAction = function (id, action) {
 
 async function handleConfirmAction() {
     if (!pendingActionTicketId) return;
+    if (isProcessingAction) return;
 
     const ticket = TICKETS.find(t => t.firebaseId === pendingActionTicketId);
     if (!ticket) {
         notificationManager.error('Không tìm thấy phiếu');
         return;
     }
+
+    isProcessingAction = true;
+    const btnConfirmYes = document.getElementById('btn-confirm-yes');
+    if (btnConfirmYes) btnConfirmYes.disabled = true;
 
     // Close confirm modal first
     closeModal(elements.modalConfirm);
@@ -1516,6 +1556,10 @@ async function handleConfirmAction() {
         }
 
         notificationManager.error(error.message, 5000, 'Lỗi xử lý');
+    } finally {
+        isProcessingAction = false;
+        const btnConfirmYes = document.getElementById('btn-confirm-yes');
+        if (btnConfirmYes) btnConfirmYes.disabled = false;
     }
 }
 
