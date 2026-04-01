@@ -2,8 +2,6 @@
    TAB1 CHAT REALTIME - Handle realtime events in chat context
    ===================================================== */
 
-console.log('[Chat-RT] Loading...');
-
 /**
  * Handle new message from realtime (WebSocket or polling)
  * Called from tab1-chat-core.js _startRealtimeForChat()
@@ -57,7 +55,6 @@ window.handleNewMessage = function(payload) {
         messagesEl.scrollTop = messagesEl.scrollHeight;
     }
 
-    console.log('[Chat-RT] New message appended:', parsed.id, parsed.text?.substring(0, 50));
 };
 
 /**
@@ -81,4 +78,3 @@ window.handleConversationUpdate = function(payload) {
     }
 };
 
-console.log('[Chat-RT] Loaded.');

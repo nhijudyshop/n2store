@@ -8,8 +8,6 @@
    - updateChatProductNote: update product note
    ===================================================== */
 
-console.log('[ChatProducts-Actions] Loading...');
-
 (function () {
     'use strict';
 
@@ -523,7 +521,6 @@ console.log('[ChatProducts-Actions] Loading...');
 
             const ref = window.firebase.database().ref(`held_products/${orderId}/${productId}/${userId}`);
             await ref.remove();
-            console.log('[ChatProducts-Actions] Removed held product from Firebase:', productId);
         } catch (e) {
             console.error('[ChatProducts-Actions] Firebase remove error:', e);
         }
@@ -569,5 +566,4 @@ console.log('[ChatProducts-Actions] Loading...');
         }
     }
 
-    console.log('[ChatProducts-Actions] Loaded successfully');
 })();

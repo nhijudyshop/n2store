@@ -3,8 +3,6 @@
    Adapted from inbox/js/inbox-chat.js
    ===================================================== */
 
-console.log('[Chat-Msg] Loading...');
-
 // =====================================================
 // MESSAGE RENDERING
 // =====================================================
@@ -409,11 +407,9 @@ async function _sendInbox(pdm, pageId, convId, text, pat, replyData) {
 
     try {
         const result = await _sendApi(pdm, pageId, convId, payload, pat);
-        console.log('[Chat-Msg] reply_inbox succeeded:', result);
     } catch (err) {
         // Fallback: Extension Bypass 24h
         if (window.pancakeExtension?.connected && window.sendViaExtension) {
-            console.log('[Chat-Msg] API failed, trying Extension Bypass...', err.message);
             _showToast('Đang gửi qua Extension...', 'warning');
             const conv = window.buildConvData(pageId, window.currentChatPSID);
             await window.sendViaExtension(text, conv);
@@ -716,11 +712,9 @@ function _showToast(message, type) {
     if (window.notificationManager?.show) {
         window.notificationManager.show(message, type);
     } else {
-        console.log(`[Toast-${type}]`, message);
     }
 }
 
 // Expose escapeHtml globally (used by other modules)
 window.escapeHtml = _escapeHtml;
 
-console.log('[Chat-Msg] Loaded.');

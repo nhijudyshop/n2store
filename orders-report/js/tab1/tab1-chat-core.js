@@ -3,8 +3,6 @@
    Adapted from inbox/js/inbox-chat.js InboxChatController
    ===================================================== */
 
-console.log('[Chat-Core] Loading...');
-
 // =====================================================
 // GLOBAL STATE
 // =====================================================
@@ -230,7 +228,6 @@ async function _findAndLoadConversation(pageId, psid, type) {
     // Step 2: If not in cache, use direct customer lookup API
     // GET /api/v1/pages/{pageId}/customers/{fbId}/conversations
     if (!conv) {
-        console.log('[Chat-Core] Not in cache, using customer lookup API for PSID:', psid);
         const result = await pdm.fetchConversationsByCustomerFbId(pageId, psid);
         const convs = result.conversations || [];
 
@@ -240,13 +237,11 @@ async function _findAndLoadConversation(pageId, psid, type) {
         // If no exact type match, use any conversation
         if (!conv && convs.length > 0) {
             conv = convs[0];
-            console.log('[Chat-Core] No', type, 'conversation found, using', conv.type);
         }
     }
 
     // Step 3: Fallback - try multi-page search if single page returned nothing
     if (!conv) {
-        console.log('[Chat-Core] Single page lookup failed, trying multi-page search...');
         const result = await pdm.fetchConversationsByCustomerIdMultiPage(psid);
         const convs = result.conversations || [];
 
@@ -271,7 +266,6 @@ async function _findAndLoadConversation(pageId, psid, type) {
     // Use correct pageId from conversation (may differ from order's pageId)
     const convPageId = conv.page_id || pageId;
     if (convPageId !== pageId) {
-        console.log('[Chat-Core] Conversation on different page:', convPageId, '(order page:', pageId, ')');
         window.currentChatChannelId = convPageId;
         window.currentSendPageId = convPageId;
     }
@@ -558,4 +552,3 @@ function _parseTimestamp(ts) {
 window._parseTimestamp = _parseTimestamp;
 window._stripHtml = _stripHtml;
 
-console.log('[Chat-Core] Loaded.');

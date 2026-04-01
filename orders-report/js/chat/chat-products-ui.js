@@ -6,8 +6,6 @@
    - Total, count, BASE status
    ===================================================== */
 
-console.log('[ChatProducts-UI] Loading...');
-
 (function () {
     'use strict';
 
@@ -129,8 +127,6 @@ console.log('[ChatProducts-UI] Loading...');
             return;
         }
 
-        console.log('[ChatProducts-UI] Loading order products for:', orderId);
-
         const container = document.getElementById('chatProductsTableContainer');
         if (container) {
             container.innerHTML = `
@@ -152,13 +148,6 @@ console.log('[ChatProducts-UI] Loading...');
                 }
                 return;
             }
-
-            console.log(
-                '[ChatProducts-UI] Order loaded:',
-                orderId,
-                'Products:',
-                orderData.Details?.length || 0
-            );
 
             // Store globally for other modules
             window.currentChatOrderData = orderData;
@@ -199,7 +188,6 @@ console.log('[ChatProducts-UI] Loading...');
         // Check cache
         const cached = orderDetailsCache.get(orderId);
         if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-            console.log('[ChatProducts-UI] Using cached order details for', orderId);
             return JSON.parse(JSON.stringify(cached.data));
         }
 
@@ -751,7 +739,6 @@ console.log('[ChatProducts-UI] Loading...');
                 uomName: heldProduct?.UOMName || 'Cái',
             });
 
-            console.log('[ChatProducts-UI] Synced held product to Firebase:', productId);
         } catch (e) {
             console.error('[ChatProducts-UI] Firebase sync error:', e);
         }
@@ -929,5 +916,4 @@ console.log('[ChatProducts-UI] Loading...');
         window.initChatProductSearch();
     }
 
-    console.log('[ChatProducts-UI] Loaded successfully');
 })();

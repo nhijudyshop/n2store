@@ -2,8 +2,6 @@
    TAB1 CHAT IMAGES - Image upload & preview
    ===================================================== */
 
-console.log('[Chat-Img] Loading...');
-
 // Pending images for upload
 let _pendingImages = [];
 
@@ -123,4 +121,3 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-console.log('[Chat-Img] Loaded.');

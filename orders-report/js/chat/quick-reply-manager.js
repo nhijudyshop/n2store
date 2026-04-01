@@ -18,7 +18,6 @@ class QuickReplyManager {
     }
 
     init() {
-        console.log('[QUICK-REPLY] 🚀 Initializing...');
         this.createModalDOM();
         this.createSettingsModalDOM();
         this.createTemplateInputModalDOM();
@@ -42,7 +41,6 @@ class QuickReplyManager {
             // Check if Firebase is initialized
             if (typeof firebase !== 'undefined' && firebase.firestore) {
                 this.db = firebase.firestore();
-                console.log('[QUICK-REPLY] ✅ Firebase Firestore initialized');
             } else {
                 console.warn('[QUICK-REPLY] ⚠️ Firebase not available, using localStorage only');
             }
@@ -97,7 +95,6 @@ class QuickReplyManager {
         `;
 
         document.body.insertAdjacentHTML('beforeend', settingsHTML);
-        console.log('[QUICK-REPLY] ✅ Settings modal DOM created');
     }
 
     createTemplateInputModalDOM() {
@@ -213,12 +210,10 @@ class QuickReplyManager {
 
         document.body.insertAdjacentHTML('beforeend', inputModalHTML);
         this.setupTemplateImagePaste();
-        console.log('[QUICK-REPLY] ✅ Template input modal DOM created');
     }
 
     createModalDOM() {
         if (document.getElementById('quickReplyModal')) {
-            console.log('[QUICK-REPLY] ⚠️ Modal already exists');
             return;
         }
 
@@ -268,7 +263,6 @@ class QuickReplyManager {
         `;
 
         document.body.insertAdjacentHTML('beforeend', modalHTML);
-        console.log('[QUICK-REPLY] ✅ Modal DOM created');
     }
 
     attachEventListeners() {
@@ -288,11 +282,9 @@ class QuickReplyManager {
             }
         });
 
-        console.log('[QUICK-REPLY] ✅ Event listeners attached');
     }
 
     async loadReplies() {
-        console.log('[QUICK-REPLY] 📥 Loading replies...');
 
         // Try to load from IndexedDB first (faster)
         let stored = null;
@@ -315,8 +307,7 @@ class QuickReplyManager {
                     if (window.indexedDBStorage) {
                         await window.indexedDBStorage.setItem(this.STORAGE_KEY, stored);
                         localStorage.removeItem(this.STORAGE_KEY);
-                        console.log('[QUICK-REPLY] 🔄 Migrated from localStorage to IndexedDB');
-                    }
+                        }
                 } catch (e) {
                     console.error('[QUICK-REPLY] ❌ Error parsing localStorage:', e);
                 }
@@ -325,14 +316,12 @@ class QuickReplyManager {
 
         if (stored && Array.isArray(stored)) {
             this.replies = stored;
-            console.log('[QUICK-REPLY] ✅ Loaded', this.replies.length, 'replies from cache');
             return;
         }
 
         // If no cache, load from Firebase and cache it
         if (this.db) {
             try {
-                console.log('[QUICK-REPLY] 🔄 Loading from Firebase...');
                 const snapshot = await this.db.collection(this.FIREBASE_COLLECTION)
                     .orderBy('id', 'asc')
                     .get();
@@ -346,10 +335,8 @@ class QuickReplyManager {
                     // Cache to IndexedDB
                     await this.saveToCache();
 
-                    console.log('[QUICK-REPLY] ✅ Loaded', this.replies.length, 'replies from Firebase');
                     return;
                 } else {
-                    console.log('[QUICK-REPLY] ℹ️ No replies in Firebase, using defaults...');
                     this.replies = this.getDefaultReplies();
                     // Cache defaults to IndexedDB
                     await this.saveToCache();
@@ -361,7 +348,6 @@ class QuickReplyManager {
                 await this.saveToCache();
             }
         } else {
-            console.log('[QUICK-REPLY] ⚠️ Firebase not available, using default replies');
             this.replies = this.getDefaultReplies();
             await this.saveToCache();
         }
@@ -371,10 +357,8 @@ class QuickReplyManager {
         try {
             if (window.indexedDBStorage) {
                 await window.indexedDBStorage.setItem(this.STORAGE_KEY, this.replies);
-                console.log('[QUICK-REPLY] 💾 Saved to IndexedDB cache');
             } else {
                 localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.replies));
-                console.log('[QUICK-REPLY] 💾 Saved to localStorage (fallback)');
             }
         } catch (error) {
             console.error('[QUICK-REPLY] ❌ Failed to save cache:', error);
@@ -472,12 +456,10 @@ class QuickReplyManager {
     }
 
     async saveReplies() {
-        console.log('[QUICK-REPLY] 💾 Saving replies to Firebase...');
 
         // Save to Firebase
         if (this.db) {
             try {
-                console.log('[QUICK-REPLY] 🔄 Syncing to Firebase...');
 
                 // Use batch write for better performance
                 const batch = this.db.batch();
@@ -497,16 +479,13 @@ class QuickReplyManager {
                 });
 
                 await batch.commit();
-                console.log('[QUICK-REPLY] ✅ Synced', this.replies.length, 'replies to Firebase');
 
                 // Clear cache and reload from Firebase to get fresh data
-                console.log('[QUICK-REPLY] 🗑️ Clearing cache...');
                 if (window.indexedDBStorage) {
                     await window.indexedDBStorage.removeItem(this.STORAGE_KEY);
                 }
                 localStorage.removeItem(this.STORAGE_KEY);
 
-                console.log('[QUICK-REPLY] 🔄 Reloading from Firebase...');
                 await this.loadReplies();
 
             } catch (error) {
@@ -520,7 +499,6 @@ class QuickReplyManager {
     }
 
     async openModal(targetInputId) {
-        console.log('[QUICK-REPLY] 📂 Opening modal for input:', targetInputId);
 
         this.targetInputId = targetInputId;
 
@@ -535,7 +513,6 @@ class QuickReplyManager {
     }
 
     closeModal() {
-        console.log('[QUICK-REPLY] 🚪 Closing modal');
 
         const modal = document.getElementById('quickReplyModal');
         modal?.classList.remove('active');
@@ -597,7 +574,6 @@ class QuickReplyManager {
         }).join('');
 
         bodyEl.innerHTML = repliesHTML;
-        console.log('[QUICK-REPLY] ✅ Rendered', this.replies.length, 'replies');
     }
 
     selectReply(replyId) {
@@ -608,11 +584,8 @@ class QuickReplyManager {
             return;
         }
 
-        console.log('[QUICK-REPLY] ✅ Selected reply:', reply.shortcut || reply.id);
-
         // Check if this reply has an imageUrl - send image first, then text
         if (reply.imageUrl || reply.contentId) {
-            console.log('[QUICK-REPLY] 🖼️ Reply has image, sending...');
             this.closeModal();
             this.sendQuickReplyWithImage(reply);
             return;
@@ -645,7 +618,6 @@ class QuickReplyManager {
         const newValue = currentValue ? `${currentValue}\n${message}` : message;
         inputElement.value = newValue;
 
-        console.log('[QUICK-REPLY] ✅ Inserted message to input');
 
         // Show notification
         if (window.notificationManager) {
@@ -701,7 +673,6 @@ class QuickReplyManager {
         `;
 
         document.body.insertAdjacentHTML('beforeend', autocompleteHTML);
-        console.log('[QUICK-REPLY] ✅ Autocomplete DOM created');
     }
 
     setupAutocomplete() {
@@ -709,7 +680,6 @@ class QuickReplyManager {
         setTimeout(() => {
             const chatInput = document.getElementById('chatInput');
             if (!chatInput) {
-                console.log('[QUICK-REPLY] ⚠️ chatInput not found, autocomplete disabled');
                 return;
             }
 
@@ -717,7 +687,6 @@ class QuickReplyManager {
             chatInput.addEventListener('input', (e) => this.handleAutocompleteInput(e));
             chatInput.addEventListener('keydown', (e) => this.handleAutocompleteKeydown(e));
 
-            console.log('[QUICK-REPLY] ✅ Autocomplete setup complete');
         }, 1000);
     }
 
@@ -752,7 +721,6 @@ class QuickReplyManager {
         // Immediately sends image + text without needing Enter
         // =====================================================
         if (query.toUpperCase() === 'CAMON') {
-            console.log('[QUICK-REPLY] 🚀 Auto-sending /CAMON quick reply');
             this.hideAutocomplete();
 
             // Clear the entire input field
@@ -881,13 +849,8 @@ class QuickReplyManager {
         const input = document.getElementById('chatInput');
         if (!input) return;
 
-        // DEBUG: Log reply object to check if imageUrl exists
-        console.log('[QUICK-REPLY] 📋 Selected reply:', JSON.stringify(reply, null, 2));
-        console.log('[QUICK-REPLY] 🖼️ Has imageUrl?', !!reply.imageUrl, '→', reply.imageUrl);
-
         // Check if this reply has an imageUrl or contentId - send image first, then text
         if (reply.imageUrl || reply.contentId) {
-            console.log('[QUICK-REPLY] 🖼️ Reply has image, sending...');
             this.hideAutocomplete();
 
             // Clear the entire input field
@@ -914,7 +877,6 @@ class QuickReplyManager {
         this.hideAutocomplete();
         input.focus();
 
-        console.log('[QUICK-REPLY] ✅ Applied autocomplete:', reply.shortcut);
 
         // Auto-send the message immediately (no need for user to press Enter again)
         if (window.sendMessage) {
@@ -933,7 +895,6 @@ class QuickReplyManager {
      */
     async sendQuickReplyWithImage(reply) {
         const { imageUrl, message, contentId: cachedContentId, id: replyId } = reply;
-        console.log('[QUICK-REPLY] Sending with image:', imageUrl, 'cachedContentId:', cachedContentId || 'none');
         window.isQuickReplySending = true;
 
         if (!window.currentConversationId || !window.currentChatChannelId) {
@@ -965,7 +926,6 @@ class QuickReplyManager {
 
             if (!contentId && imageUrl) {
                 // No cached contentId → download + upload (first time only)
-                console.log('[QUICK-REPLY] No cached contentId, downloading + uploading...');
                 const downloaded = await fetch(imageUrl);
                 if (!downloaded.ok) throw new Error('Tải ảnh thất bại');
                 const blob = await downloaded.blob();
@@ -973,7 +933,6 @@ class QuickReplyManager {
                 const file = new File([blob], `quick-reply.${ext}`, { type: blob.type || `image/${ext}` });
 
                 const uploadResult = await pdm.uploadMedia(channelId, file, pat);
-                console.log('[QUICK-REPLY] Upload result:', uploadResult);
 
                 if (uploadResult?.id) {
                     contentId = uploadResult.id;
@@ -983,7 +942,6 @@ class QuickReplyManager {
                     console.warn('[QUICK-REPLY] Upload returned no id:', uploadResult);
                 }
             } else if (contentId) {
-                console.log('[QUICK-REPLY] ⚡ Using cached contentId:', contentId);
             }
 
             // Step 2: Send image with content_ids
@@ -991,7 +949,6 @@ class QuickReplyManager {
                 const sendResult = await pdm.sendMessage(channelId, conversationId, {
                     action: 'reply_inbox', content_ids: [contentId]
                 }, pat);
-                console.log('[QUICK-REPLY] Image send result:', sendResult);
 
                 if (sendResult?.success === false) {
                     const errMsg = sendResult.message || '';
@@ -1022,19 +979,16 @@ class QuickReplyManager {
                     if (!imageSent) console.warn('[QUICK-REPLY] Image send failed:', errMsg);
                 } else {
                     imageSent = true;
-                    console.log('[QUICK-REPLY] ✅ Image sent');
                 }
             }
 
             // Step 3: Send text separately (message and content_ids are mutually exclusive)
             if (imageSent) await new Promise(r => setTimeout(r, 300));
-            console.log('[QUICK-REPLY] Sending text...');
             const textResult = await pdm.sendMessage(channelId, conversationId, {
                 action: 'reply_inbox', message: finalMessage
             }, pat);
 
             const textSent = textResult?.success !== false;
-            if (textSent) console.log('[QUICK-REPLY] ✅ Text sent');
 
             // Notify user
             if (imageSent && textSent) {
@@ -1066,14 +1020,12 @@ class QuickReplyManager {
         if (!reply) return;
 
         reply.contentId = contentId;
-        console.log('[QUICK-REPLY] 💾 Caching contentId for reply', replyId, ':', contentId);
 
         // Save to cache + Firebase in background (don't await to avoid blocking send)
         this.saveToCache().catch(() => {});
         if (this.db) {
             try {
                 await this.saveReplies();
-                console.log('[QUICK-REPLY] ✅ contentId saved to Firebase');
             } catch (e) {
                 console.warn('[QUICK-REPLY] ⚠️ Failed to save contentId to Firebase:', e);
             }
@@ -1134,7 +1086,6 @@ class QuickReplyManager {
     // =====================================================
 
     openSettings() {
-        console.log('[QUICK-REPLY] ⚙️ Opening settings...');
 
         const modal = document.getElementById('quickReplySettingsModal');
         modal?.classList.add('active');
@@ -1143,7 +1094,6 @@ class QuickReplyManager {
     }
 
     closeSettings() {
-        console.log('[QUICK-REPLY] ⚙️ Closing settings...');
 
         const modal = document.getElementById('quickReplySettingsModal');
         modal?.classList.remove('active');
@@ -1284,7 +1234,6 @@ class QuickReplyManager {
             const modal = document.getElementById('templateInputModal');
             if (modal) {
                 modal.addEventListener('paste', (e) => this.handleTemplateImagePaste(e));
-                console.log('[QUICK-REPLY] ✅ Template image paste listener attached');
             }
         }, 100);
     }
@@ -1315,7 +1264,6 @@ class QuickReplyManager {
     }
 
     async processTemplateImage(blob) {
-        console.log('[QUICK-REPLY] 🖼️ Processing template image...');
 
         // Store the blob for upload when saving
         this.pendingTemplateImageBlob = blob;
@@ -1352,7 +1300,6 @@ class QuickReplyManager {
     }
 
     removeTemplateImage() {
-        console.log('[QUICK-REPLY] 🗑️ Removing template image');
 
         this.pendingTemplateImageBlob = null;
 
@@ -1389,7 +1336,6 @@ class QuickReplyManager {
      * Returns { contentId } — the content_id for sending with content_ids
      */
     async uploadTemplateImage(blob) {
-        console.log('[QUICK-REPLY] 📤 Uploading template image via upload_contents...');
 
         try {
             const channelId = window.currentChatChannelId || window.currentSendPageId;
@@ -1403,7 +1349,6 @@ class QuickReplyManager {
 
             // upload_contents returns { id: "content_id", attachment_type: "PHOTO" }
             const result = await pdm.uploadMedia(channelId, blob, pat);
-            console.log('[QUICK-REPLY] ✅ Image uploaded:', result);
 
             if (result?.id) {
                 return { contentId: result.id };
@@ -1459,7 +1404,6 @@ class QuickReplyManager {
                         // No CDN URL available for new uploads — store a data URL for preview
                         imageUrl = await this._blobToDataUrl(this.pendingTemplateImageBlob);
                     }
-                    console.log('[QUICK-REPLY] ✅ Image uploaded, contentId:', contentId);
                 } catch (uploadError) {
                     console.error('[QUICK-REPLY] ❌ Image upload failed:', uploadError);
                     if (window.notificationManager) {
@@ -1493,7 +1437,6 @@ class QuickReplyManager {
                     window.notificationManager.success('Đã thêm mẫu tin nhắn mới!');
                 }
 
-                console.log('[QUICK-REPLY] ✅ Added new template:', shortcut);
             } else {
                 // Editing existing template
                 const reply = this.replies.find(r => r.id === this.currentEditingTemplateId);
@@ -1539,7 +1482,6 @@ class QuickReplyManager {
                         window.notificationManager.success('Đã cập nhật mẫu tin nhắn!');
                     }
 
-                    console.log('[QUICK-REPLY] ✅ Updated template:', this.currentEditingTemplateId);
                 } catch (error) {
                     // Rollback if save failed
                     reply.shortcut = oldValues.shortcut;
@@ -1602,7 +1544,6 @@ class QuickReplyManager {
                 window.notificationManager.success('Đã xóa mẫu tin nhắn!');
             }
 
-            console.log('[QUICK-REPLY] ✅ Deleted template:', id);
         } catch (error) {
             // Rollback if save failed
             this.replies = oldReplies;
@@ -1626,8 +1567,6 @@ if (document.readyState === 'loading') {
 }
 
 function initQuickReplyManager() {
-    console.log('%c🚀 QUICK REPLY MANAGER', 'background: #667eea; color: white; padding: 8px; font-weight: bold;');
     const quickReplyManager = new QuickReplyManager();
     window.quickReplyManager = quickReplyManager;
-    console.log('✅ QuickReplyManager initialized and ready');
 }
