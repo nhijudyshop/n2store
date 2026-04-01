@@ -779,12 +779,16 @@
             if (post.share_count > 0) meta += `<span>\u{1F504} ${post.share_count}</span>`;
             if (post.phone_number_count > 0) meta += `<span>\u{1F4DE} ${post.phone_number_count}</span>`;
 
+            const thumbUrl = thumb ? imgProxy + encodeURIComponent(thumb) : '';
+
             const row = document.createElement('div');
             row.className = 'fb-post-item';
             row.dataset.url = postUrl;
             row.dataset.id = post.id;
+            row.dataset.thumb = thumbUrl;
+            row.dataset.title = title;
             row.innerHTML = `<div class="fb-post-thumb">
-                    ${thumb ? `<img src="${imgProxy}${encodeURIComponent(thumb)}" alt="" loading="lazy" onerror="this.style.display='none'">` : '<span class="no-img">\u{1F5BC}</span>'}
+                    ${thumb ? `<img src="${thumbUrl}" alt="" loading="lazy" onerror="this.style.display='none'">` : '<span class="no-img">\u{1F5BC}</span>'}
                     ${multiImg ? `<span class="type-icon">+${post.attachments.data.length - 1}</span>` : ''}
                     ${typeLabel}
                 </div>
@@ -811,7 +815,7 @@
                 return;
             }
             const item = e.target.closest('.fb-post-item');
-            if (item) selectPancakePost(item.dataset.url);
+            if (item) selectPancakePost(item.dataset.url, item.dataset.thumb, item.dataset.title);
         };
     }
 
@@ -825,10 +829,33 @@
         renderPancakePosts(filteredPancakePosts);
     }
 
-    function selectPancakePost(postUrl) {
+    function selectPancakePost(postUrl, thumbUrl, title) {
         document.getElementById('linkInput').value = postUrl;
         updateSubmitButton();
+
+        // Show preview
+        const preview = document.getElementById('selectedPostPreview');
+        const thumbImg = document.getElementById('selectedPostThumb');
+        const titleEl = document.getElementById('selectedPostTitle');
+        if (preview && thumbImg && titleEl) {
+            if (thumbUrl) {
+                thumbImg.src = thumbUrl;
+                thumbImg.style.display = 'block';
+            } else {
+                thumbImg.style.display = 'none';
+            }
+            titleEl.textContent = title || 'B\u00e0i vi\u1ebft \u0111\u00e3 ch\u1ecdn';
+            preview.style.display = 'flex';
+        }
+
         closePostModal();
+    }
+
+    function clearSelectedPost() {
+        document.getElementById('linkInput').value = '';
+        updateSubmitButton();
+        const preview = document.getElementById('selectedPostPreview');
+        if (preview) preview.style.display = 'none';
     }
 
     function retryFetchPosts() {
@@ -843,6 +870,7 @@
     window.closePostModal = closePostModal;
     window.filterPancakePosts = filterPancakePosts;
     window.selectPancakePost = selectPancakePost;
+    window.clearSelectedPost = clearSelectedPost;
     window.retryFetchPosts = retryFetchPosts;
 
     // =====================================================

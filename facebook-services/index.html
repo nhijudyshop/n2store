@@ -118,7 +118,14 @@
                             </div>
                         </div>
 
-                        <!-- (Page Posts removed - replaced by post selection modal) -->
+                        <!-- Selected Post Preview -->
+                        <div class="selected-post-preview" id="selectedPostPreview" style="display:none">
+                            <img id="selectedPostThumb" src="" alt="" />
+                            <div class="selected-post-info">
+                                <div class="selected-post-title" id="selectedPostTitle"></div>
+                                <button type="button" class="selected-post-clear" onclick="clearSelectedPost()" title="X&oacute;a">&times;</button>
+                            </div>
+                        </div>
 
                         <!-- Comments (for comment services) -->
                         <div class="form-group" id="commentsGroup" style="display:none">
