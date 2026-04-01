@@ -142,8 +142,6 @@ function applyEmployeeRanges() {
     const sanitizedName = sanitizeCampaignName(campaign.displayName);
     const campaignInfo = `cho chiến dịch "${campaign.displayName}"`;
 
-    console.log(`[EMPLOYEE] Saving ranges for campaign: ${campaign.displayName} (key: ${sanitizedName})`);
-
     if (!db) {
         alert('❌ Lỗi: Không thể kết nối Firestore');
         return;
@@ -241,8 +239,6 @@ function populateEmployeeCampaignSelector() {
         select.selectedIndex = 1;
     }
 
-    console.log(`[EMPLOYEE] Populated campaign selector with ${count} campaigns (current: ${currentCampaignName || 'none'})`);
-
     // Load ranges for the selected campaign
     const selectedOption = select.options[select.selectedIndex];
     if (selectedOption && selectedOption.dataset.campaign) {
@@ -310,15 +306,11 @@ function checkAdminPermission() {
 // Helper function to convert Firebase object to array if needed
 function normalizeEmployeeRanges(data) {
     if (!data) {
-        console.log('[EMPLOYEE] normalizeEmployeeRanges: data is null/undefined');
         return [];
     }
 
-    console.log('[EMPLOYEE] normalizeEmployeeRanges input:', typeof data, Array.isArray(data) ? 'array' : 'object', data);
-
     // If already an array, return it
     if (Array.isArray(data)) {
-        console.log('[EMPLOYEE] Data is already an array with', data.length, 'items');
         return data;
     }
 
@@ -337,7 +329,6 @@ function normalizeEmployeeRanges(data) {
                     result.push(data[key]);
                 }
             }
-            console.log(`[EMPLOYEE] Converted object with ${numericKeys.length} numeric keys to array`);
         } else {
             // No numeric keys - maybe keys are user IDs or other strings
             // Check if values have the expected structure (name, start, end)
@@ -351,13 +342,11 @@ function normalizeEmployeeRanges(data) {
                     result.push(item);
                 }
             }
-            console.log(`[EMPLOYEE] Converted object with ${allKeys.length} non-numeric keys to array (${result.length} valid items)`);
         }
 
         return result;
     }
 
-    console.log('[EMPLOYEE] Data type not recognized:', typeof data);
     return [];
 }
 
@@ -376,7 +365,6 @@ function loadEmployeeRangesForCampaign(campaignName = null) {
 
     if (!campaignName) {
         // No campaign selected → clear employee ranges (no general config)
-        console.log('[EMPLOYEE] No campaign selected, clearing employee ranges');
         employeeRanges = [];
         window.employeeRanges = [];
         stopEmployeeRangesListener();
@@ -387,8 +375,6 @@ function loadEmployeeRangesForCampaign(campaignName = null) {
 
     // Load from campaign-specific config
     const sanitizedName = sanitizeCampaignName(campaignName);
-    console.log(`[EMPLOYEE] 🔍 Loading ranges for campaign: "${campaignName}" (key: "${sanitizedName}")`);
-
     // Start real-time listener for this campaign
     startEmployeeRangesListener(campaignName);
 
@@ -396,19 +382,11 @@ function loadEmployeeRangesForCampaign(campaignName = null) {
     return db.collection('settings').doc('employee_ranges_by_campaign').get()
         .then((doc) => {
             const allCampaignRanges = doc.exists ? doc.data() : {};
-            console.log(`[EMPLOYEE] 🔍 All campaigns in Firebase:`, Object.keys(allCampaignRanges));
-
             const data = allCampaignRanges[sanitizedName];
             const normalized = normalizeEmployeeRanges(data);
 
             employeeRanges = normalized;
             window.employeeRanges = employeeRanges;
-
-            if (normalized.length > 0) {
-                console.log(`[EMPLOYEE] ✅ Loaded ${employeeRanges.length} ranges for campaign: ${campaignName}`, employeeRanges);
-            } else {
-                console.log(`[EMPLOYEE] ⚠️ No ranges configured for campaign: ${campaignName}`);
-            }
 
             // Update employee table if drawer is open
             const drawer = document.getElementById('employeeDrawer');
@@ -435,14 +413,12 @@ function startEmployeeRangesListener(campaignName) {
 
     // Don't restart listener if already listening to the same campaign
     if (_currentListeningCampaign === sanitizedName && _employeeRangesUnsubscribe) {
-        console.log(`[EMPLOYEE] Already listening to campaign: ${campaignName}`);
         return;
     }
 
     // Stop previous listener
     stopEmployeeRangesListener();
 
-    console.log(`[EMPLOYEE] 🔄 Starting real-time listener for campaign: ${campaignName} (key: ${sanitizedName})`);
     _currentListeningCampaign = sanitizedName;
 
     _employeeRangesUnsubscribe = db.collection('settings').doc('employee_ranges_by_campaign')
@@ -458,8 +434,6 @@ function startEmployeeRangesListener(campaignName) {
             if (oldJSON !== newJSON) {
                 employeeRanges = normalized;
                 window.employeeRanges = employeeRanges;
-                console.log(`[EMPLOYEE] 🔄 Real-time sync: ${employeeRanges.length} ranges for campaign "${campaignName}"`);
-
                 // Re-apply filter to current view
                 if (typeof performTableSearch === 'function') {
                     performTableSearch();
@@ -486,7 +460,6 @@ function stopEmployeeRangesListener() {
         _employeeRangesUnsubscribe();
         _employeeRangesUnsubscribe = null;
         _currentListeningCampaign = null;
-        console.log('[EMPLOYEE] 🛑 Stopped real-time listener');
     }
 }
 
@@ -565,6 +538,5 @@ function toggleEmployeeViewMode() {
         performTableSearch();
     }
 
-    console.log(`[EMPLOYEE] View mode: ${employeeViewMode ? 'grouped by employee' : 'all orders'}`);
 }
 

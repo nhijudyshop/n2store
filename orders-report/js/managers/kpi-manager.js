@@ -75,7 +75,6 @@
                 .get();
 
             const exists = doc.exists;
-            console.log(`[KPI] checkKPIBaseExists(${orderId}):`, exists);
             return exists;
         } catch (error) {
             console.error('[KPI] Error checking BASE exists:', error);
@@ -109,12 +108,10 @@
                 .get();
 
             if (!doc.exists) {
-                console.log(`[KPI] No BASE found for order: ${orderId}`);
                 return null;
             }
 
             const data = doc.data();
-            console.log(`[KPI] Got BASE for order ${orderId}:`, data);
             return data;
         } catch (error) {
             console.error('[KPI] Error getting BASE:', error);
@@ -151,7 +148,6 @@
                 .get();
 
             if (!doc.exists) {
-                console.log(`[KPI] No report data found for campaign: ${campaignName}`);
                 return null;
             }
 
@@ -161,7 +157,6 @@
             const order = orders.find(o => o.Id === orderId || o.id === orderId);
 
             if (!order) {
-                console.log(`[KPI] Order ${orderId} not found in campaign ${campaignName}`);
                 return null;
             }
 
@@ -172,12 +167,6 @@
                 productId: d.ProductId || null,
                 productName: d.ProductName || d.Name || ''
             })).filter(d => d.code);
-
-            console.log(`[KPI] Got order details from Firestore:`, {
-                orderId,
-                campaignName,
-                productsCount: details.length
-            });
 
             return details;
 
@@ -297,12 +286,6 @@
                     userId: userId
                 }, { merge: true });
 
-                console.log('[KPI] ✓ Saved statistics (transaction):', {
-                    userId,
-                    date,
-                    orderId: statistics.orderId
-                });
-
             } catch (error) {
                 console.error('[KPI] Error saving statistics:', error);
                 throw error;
@@ -347,7 +330,6 @@
                 Quantity: d.Quantity || 1,
                 Price: d.Price || 0
             })).filter(p => p.ProductCode);
-            console.log(`[KPI] ✓ Fetched ${products.length} products from API for order ${orderId}`);
             return products;
         } catch (e) {
             console.error('[KPI] fetchProducts API failed:', e);
@@ -536,7 +518,6 @@
                     console.error(`[KPI] saveAutoBaseSnapshot batch attempt ${attempt}/${maxRetries} failed:`, error);
                     if (attempt < maxRetries) {
                         const delay = Math.pow(2, attempt - 1) * 1000; // 1s, 2s, 4s
-                        console.log(`[KPI] Retrying in ${delay}ms...`);
                         await sleep(delay);
                     } else {
                         failed += chunk.length - skipped;
@@ -546,7 +527,6 @@
             }
         }
 
-        console.log('[KPI] ✓ saveAutoBaseSnapshot complete:', { saved, skipped, failed, failedBaseOrders: failedBaseOrders.length });
         return { saved, skipped, failed, failedBaseOrders };
     }
 
@@ -574,7 +554,6 @@
             // 1. Get BASE snapshot
             const base = await getKPIBase(orderId);
             if (!base) {
-                console.log('[KPI] calculateNetKPI: No BASE found, KPI = 0');
                 return emptyResult;
             }
 
@@ -678,15 +657,6 @@
 
             const kpiAmount = totalNet * KPI_AMOUNT_PER_DIFFERENCE;
 
-            console.log('[KPI] calculateNetKPI result:', {
-                orderId,
-                employeeUserId,
-                baseProductCount: baseProductIds.size,
-                newProductsTracked: Object.keys(netPerProduct).length,
-                totalNet,
-                kpiAmount
-            });
-
             return {
                 netProducts: totalNet,
                 kpiAmount: kpiAmount,
@@ -713,8 +683,6 @@
      */
     async function cleanupStaleStatistics(orderId) {
         if (!orderId) return;
-
-        console.log(`[KPI] Cleaning up stale statistics for order ${orderId}`);
 
         try {
             if (!window.firebase || !window.firebase.firestore) {
@@ -760,9 +728,6 @@
 
             if (updateCount > 0) {
                 await batch.commit();
-                console.log(`[KPI] ✓ Cleaned up stale statistics for order ${orderId} from ${updateCount} document(s)`);
-            } else {
-                console.log(`[KPI] No stale statistics found for order ${orderId}`);
             }
 
         } catch (error) {
@@ -785,7 +750,6 @@
             // Get BASE to determine the order's STT and campaign
             const base = await getKPIBase(orderId);
             if (!base) {
-                console.log('[KPI] recalculateAndSaveKPI: No BASE, skipping');
                 // ⚠️ BUGFIX (Bug #3): Cleanup stale statistics when BASE missing
                 await cleanupStaleStatistics(orderId);
                 return null;
@@ -820,13 +784,6 @@
                 kpi: result.kpiAmount,
                 hasDiscrepancy: false,
                 details: result.details
-            });
-
-            console.log('[KPI] ✓ recalculateAndSaveKPI:', {
-                orderId,
-                assignedEmployee: employeeUserId,
-                netProducts: result.netProducts,
-                kpiAmount: result.kpiAmount
             });
 
             // Update KPI badge + show toast (non-blocking)
@@ -1021,7 +978,6 @@
                                 const from = employeeRange.from || employeeRange.start || 0;
                                 const to = employeeRange.to || employeeRange.end || Infinity;
                                 const inRange = orderSTT >= from && orderSTT <= to;
-                                console.log(`[KPI] isOrderInEmployeeRange (campaign): STT=${orderSTT}, range=${from}-${to}, inRange=${inRange}`);
                                 return inRange;
                             }
                         }
@@ -1046,7 +1002,6 @@
                         const from = employeeRange.from || employeeRange.start || 0;
                         const to = employeeRange.to || employeeRange.end || Infinity;
                         const inRange = orderSTT >= from && orderSTT <= to;
-                        console.log(`[KPI] isOrderInEmployeeRange (general): STT=${orderSTT}, range=${from}-${to}, inRange=${inRange}`);
                         return inRange;
                     }
                 }
@@ -1055,7 +1010,6 @@
             }
 
             // No range found for this employee
-            console.log(`[KPI] No employee range found for userId=${userId}`);
             return false;
 
         } catch (error) {
@@ -1204,12 +1158,6 @@
                 }
             }
 
-            console.log('[KPI] reconcileKPI result:', {
-                orderId,
-                hasDiscrepancy: result.hasDiscrepancy,
-                discrepancyCount: result.discrepancies.length
-            });
-
             return result;
 
         } catch (error) {
@@ -1235,8 +1183,6 @@
         }
 
         try {
-            console.log('[KPI] Calculating KPI for campaign:', campaignName);
-
             const safeTableName = campaignName.replace(/[.$#\[\]\/]/g, '_');
             const campaignDoc = await window.firebase.firestore()
                 .collection('report_order_details')
@@ -1245,7 +1191,6 @@
 
             const campaignData = campaignDoc.exists ? campaignDoc.data() : null;
             if (!campaignData || !campaignData.orders) {
-                console.log('[KPI] No orders found in campaign:', campaignName);
                 return { success: 0, failed: 0, results: [] };
             }
 
@@ -1272,10 +1217,6 @@
                     failed++;
                 }
             }
-
-            console.log('[KPI] Campaign KPI calculation complete:', {
-                success, failed, skippedNoBase, totalOrders: campaignOrders.length
-            });
 
             return { success, failed, skippedNoBase, results };
 
@@ -1494,7 +1435,5 @@
         // Constants
         KPI_AMOUNT_PER_DIFFERENCE
     };
-
-    console.log('[KPI] ✓ KPI Manager initialized (refactored: AUTO BASE + NET KPI)');
 
 })();

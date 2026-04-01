@@ -4,8 +4,6 @@
    Plus polling fallback from n2store-realtime server
    ===================================================== */
 
-console.log('[Realtime] Loading...');
-
 // =====================================================
 // PANCAKE PHOENIX WEBSOCKET
 // =====================================================
@@ -35,7 +33,6 @@ class PancakePhoenixSocket {
 
     connect() {
         if (this.ws) this.disconnect();
-        console.log('[PHOENIX] Connecting to', this.url);
 
         try {
             this.ws = new WebSocket(this.url);
@@ -66,7 +63,6 @@ class PancakePhoenixSocket {
     }
 
     _onOpen() {
-        console.log('[PHOENIX] Connected, joining channels...');
         this.reconnectAttempts = 0;
 
         // Join user channel
@@ -84,7 +80,6 @@ class PancakePhoenixSocket {
     }
 
     _onClose(e) {
-        console.log('[PHOENIX] Disconnected, code:', e.code, 'reason:', e.reason);
         this.isConnected = false;
         this.joinedChannels.clear();
         this._stopHeartbeat();
@@ -107,7 +102,6 @@ class PancakePhoenixSocket {
                 // Channel join reply
                 if (payload?.status === 'ok') {
                     this.joinedChannels.add(topic);
-                    console.log('[PHOENIX] Joined:', topic);
                     if (!this.isConnected && this.joinedChannels.size > 0) {
                         this.isConnected = true;
                         this.onStatusChange(true);
@@ -165,7 +159,6 @@ class PancakePhoenixSocket {
         }
         const delay = Math.min(2000 * Math.pow(2, this.reconnectAttempts), 60000);
         this.reconnectAttempts++;
-        console.log(`[PHOENIX] Reconnecting in ${delay / 1000}s (attempt ${this.reconnectAttempts}/${this.maxReconnect})`);
         this.reconnectTimer = setTimeout(() => this.connect(), delay);
     }
 }
@@ -196,7 +189,6 @@ class RealtimeManager {
             onEvent: (event, payload) => this._handleEvent(event, payload),
             onStatusChange: (connected) => {
                 this.isConnected = connected;
-                console.log('[Realtime] WebSocket status:', connected ? 'CONNECTED' : 'DISCONNECTED');
 
                 // Dispatch status event for UI
                 window.dispatchEvent(new CustomEvent('realtimeStatusChanged', {
@@ -248,7 +240,6 @@ class RealtimeManager {
     // --- Internal: Handle WebSocket event ---
     _handleEvent(event, payload) {
         this.lastEventTimestamp = Date.now();
-        console.log('[Realtime] Event received:', event, payload?.conversation_id || payload?.id || '');
 
         // Dispatch to registered handlers for exact event name
         const handlers = this.eventHandlers.get(event) || [];
@@ -290,7 +281,6 @@ class RealtimeManager {
      * Sets up event listeners for chat realtime updates
      */
     initialize() {
-        console.log('[Realtime] Initialized. Ready for connectServerMode() or initWebSocket().');
     }
 
     /**
@@ -310,4 +300,3 @@ class RealtimeManager {
 window.realtimeManager = new RealtimeManager();
 window.PancakePhoenixSocket = PancakePhoenixSocket;
 
-console.log('[Realtime] Loaded.');

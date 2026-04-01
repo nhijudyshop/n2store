@@ -21,9 +21,6 @@ class EnhancedProductSearchManager {
     }
 
     init() {
-        console.log(
-            "[PRODUCT] Initializing Enhanced Product Search Manager V2...",
-        );
         this.loadFromCache();
         this.loadFullProductCache();
     }
@@ -36,7 +33,6 @@ class EnhancedProductSearchManager {
         try {
             const cached = sessionStorage.getItem(this.storageKey);
             if (!cached) {
-                console.log("[PRODUCT] No Excel cache found");
                 return false;
             }
 
@@ -44,7 +40,6 @@ class EnhancedProductSearchManager {
             const age = Date.now() - data.timestamp;
 
             if (age > this.CACHE_DURATION) {
-                console.log("[PRODUCT] Excel cache expired");
                 sessionStorage.removeItem(this.storageKey);
                 return false;
             }
@@ -54,13 +49,6 @@ class EnhancedProductSearchManager {
                 "vi-VN",
             );
             this.isLoaded = this.excelProducts.length > 0;
-
-            console.log(
-                `[PRODUCT] Loaded ${this.excelProducts.length} products from cache`,
-            );
-            console.log(
-                `[PRODUCT] Cache age: ${Math.floor(age / 1000 / 60)} minutes`,
-            );
 
             return true;
         } catch (error) {
@@ -78,10 +66,6 @@ class EnhancedProductSearchManager {
 
             sessionStorage.setItem(this.storageKey, JSON.stringify(cacheData));
             this.lastFetchTime = new Date().toLocaleString("vi-VN");
-
-            console.log(
-                `[PRODUCT] Saved ${this.excelProducts.length} products to cache`,
-            );
         } catch (error) {
             console.error("[PRODUCT] Error saving to cache:", error);
 
@@ -109,10 +93,6 @@ class EnhancedProductSearchManager {
             Object.entries(data).forEach(([id, product]) => {
                 this.fullProductCache.set(parseInt(id), product);
             });
-
-            console.log(
-                `[PRODUCT] Loaded ${this.fullProductCache.size} full products from cache`,
-            );
         } catch (error) {
             console.error("[PRODUCT] Error loading full product cache:", error);
         }
@@ -127,9 +107,6 @@ class EnhancedProductSearchManager {
             });
 
             localStorage.setItem(this.fullProductsKey, JSON.stringify(data));
-            console.log(
-                `[PRODUCT] Saved ${this.fullProductCache.size} full products to cache`,
-            );
         } catch (error) {
             console.error("[PRODUCT] Error saving full product cache:", error);
         }
@@ -142,15 +119,11 @@ class EnhancedProductSearchManager {
     async fetchExcelProducts(force = false) {
         // If already loaded and not forced, return
         if (this.isLoaded && !force) {
-            console.log("[PRODUCT] Excel already loaded");
             return this.excelProducts;
         }
 
         // If currently loading, wait for it
         if (this.isLoading) {
-            console.log(
-                "[PRODUCT] Excel fetch already in progress, waiting...",
-            );
             return this.waitForLoad();
         }
 
@@ -172,8 +145,6 @@ class EnhancedProductSearchManager {
                     },
                 );
             }
-
-            console.log("[PRODUCT] Fetching Excel from POST endpoint...");
 
             // Get auth headers
             const headers = await window.tokenManager.getAuthHeader();
@@ -200,9 +171,6 @@ class EnhancedProductSearchManager {
 
             // Get blob data
             const blob = await response.blob();
-            console.log(
-                `[PRODUCT] Received Excel file: ${(blob.size / 1024).toFixed(2)} KB`,
-            );
 
             // Parse Excel
             const products = await this.parseExcelBlob(blob);
@@ -228,9 +196,6 @@ class EnhancedProductSearchManager {
                 );
             }
 
-            console.log(
-                `[PRODUCT] Successfully loaded ${products.length} products from Excel`,
-            );
             return products;
         } catch (error) {
             console.error("[PRODUCT] Error fetching Excel:", error);
@@ -295,12 +260,6 @@ class EnhancedProductSearchManager {
                         const products = [];
                         const headers = jsonData[0];
 
-                        console.log("[PRODUCT] Excel structure:", {
-                            sheet: workbook.SheetNames[0],
-                            headers: headers,
-                            totalRows: jsonData.length - 1,
-                        });
-
                         for (let i = 1; i < jsonData.length; i++) {
                             const row = jsonData[i];
 
@@ -357,13 +316,6 @@ class EnhancedProductSearchManager {
 
                             products.push(product);
                         }
-
-                        console.log(
-                            `[PRODUCT] Parsed ${products.length} products from Excel`,
-                        );
-                        console.log(
-                            `[PRODUCT] Enriched products: ${products.filter((p) => p.HasFullDetails).length}`,
-                        );
 
                         resolve(products);
                     } catch (error) {
@@ -423,9 +375,6 @@ class EnhancedProductSearchManager {
             return priority[a._matchType] - priority[b._matchType];
         });
 
-        console.log(
-            `[PRODUCT] Search "${query}" found ${results.length} results`,
-        );
         return results;
     }
 
@@ -436,18 +385,11 @@ class EnhancedProductSearchManager {
     async getFullProductDetails(productId, forceRefresh = false) {
         // Check cache first (if not forced)
         if (!forceRefresh && this.fullProductCache.has(productId)) {
-            console.log(
-                `[PRODUCT] Using cached full details for product ${productId}`,
-            );
             return this.fullProductCache.get(productId);
         }
 
         // Fetch from API
         try {
-            console.log(
-                `[PRODUCT] Fetching full details for product ${productId}`,
-            );
-
             const headers = await window.tokenManager.getAuthHeader();
             const url = `${this.PRODUCT_API_BASE}(${productId})?$expand=UOM,Categ,UOMPO,POSCateg,AttributeValues`;
 
@@ -467,7 +409,6 @@ class EnhancedProductSearchManager {
                     );
 
                     // Try to refresh Excel cache
-                    console.log("[PRODUCT] Refreshing Excel cache...");
                     await this.fetchExcelProducts(true);
 
                     // Check if product exists in new Excel
@@ -496,9 +437,6 @@ class EnhancedProductSearchManager {
             // Update Excel suggestion with full details
             this.updateExcelSuggestion(productId, fullProduct);
 
-            console.log(
-                `[PRODUCT] Successfully fetched and cached product ${productId}`,
-            );
             return fullProduct;
         } catch (error) {
             console.error(
@@ -549,9 +487,6 @@ class EnhancedProductSearchManager {
 
             // Save updated cache
             this.saveToCache();
-            console.log(
-                `[PRODUCT] Updated Excel suggestion for product ${productId} with full details`,
-            );
         }
     }
 
@@ -587,9 +522,6 @@ class EnhancedProductSearchManager {
 
         if (enrichedCount > 0) {
             this.saveToCache();
-            console.log(
-                `[PRODUCT] Enriched ${enrichedCount} suggestions from cached full products`,
-            );
         }
     }
 
@@ -640,7 +572,6 @@ class EnhancedProductSearchManager {
     }
 
     async refresh() {
-        console.log("[PRODUCT] Manual refresh requested");
         sessionStorage.removeItem(this.storageKey);
         this.isLoaded = false;
         return await this.fetchExcelProducts(true);
@@ -653,7 +584,6 @@ class EnhancedProductSearchManager {
         this.fullProductCache.clear();
         this.isLoaded = false;
         this.lastFetchTime = null;
-        console.log("[PRODUCT] All caches cleared");
     }
 
     // Check if product exists in Excel
@@ -676,5 +606,3 @@ window.enhancedProductSearchManager = enhancedProductSearchManager;
 
 // Backward compatibility
 window.productSearchManager = enhancedProductSearchManager;
-
-console.log("[PRODUCT] Enhanced Product Search Manager V2 initialized");

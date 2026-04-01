@@ -70,8 +70,6 @@
     function showSuccess(message) {
         if (window.notificationManager) {
             window.notificationManager.show(message, 'success');
-        } else {
-            console.log('[HELD-PRODUCTS] Success:', message);
         }
     }
 
@@ -97,7 +95,6 @@
      */
     window.saveHeldProducts = async function () {
         if (!window.firebase) {
-            console.log('[HELD-PRODUCTS] Firebase not available');
             return false;
         }
 
@@ -109,13 +106,10 @@
 
         const orderId = window.currentChatOrderData?.Id;
         if (!orderId) {
-            console.log('[HELD-PRODUCTS] No current order');
             return false;
         }
 
         try {
-            console.log('[HELD-PRODUCTS] Saving held products for user:', userId, 'order:', orderId);
-
             const heldRef = window.firebase.database().ref(`held_products/${orderId}`);
             const snapshot = await heldRef.once('value');
             const orderProducts = snapshot.val() || {};
@@ -130,8 +124,6 @@
                     savedCount++;
                 }
             }
-
-            console.log(`[HELD-PRODUCTS] ✓ Saved ${savedCount} held products`);
 
             if (savedCount > 0) {
                 showSuccess(`Đã lưu ${savedCount} sản phẩm đang giữ`);
@@ -161,7 +153,6 @@
      */
     window.cleanupHeldProducts = async function () {
         if (!window.firebase) {
-            console.log('[HELD-PRODUCTS] Firebase not available');
             return;
         }
 
@@ -173,13 +164,10 @@
 
         const orderId = window.currentChatOrderData?.Id;
         if (!orderId) {
-            console.log('[HELD-PRODUCTS] No current order');
             return;
         }
 
         try {
-            console.log('[HELD-PRODUCTS] Cleaning up temporary held products for user:', userId, 'order:', orderId);
-
             // Get all held products for this user in this order
             const heldRef = window.firebase.database().ref(`held_products/${orderId}`);
             const snapshot = await heldRef.once('value');
@@ -199,7 +187,6 @@
                     // Only cleanup temporary holds (isDraft === false)
                     // Saved holds (isDraft === true) are persisted
                     if (holderData.isDraft === true) {
-                        console.log('[HELD-PRODUCTS] Skipping saved product:', productId);
                         continue;
                     }
 
@@ -217,7 +204,6 @@
                                 Quantity: (current.Quantity || 0) + heldQuantity
                             };
                         });
-                        console.log('[HELD-PRODUCTS] Returned', heldQuantity, 'to existing dropped product:', productId);
                     } else if (firebaseDb && holderData.productName) {
                         // Product from search - add new entry to dropped
                         const newDroppedItem = {
@@ -234,7 +220,6 @@
                             addedDate: new Date().toLocaleString('vi-VN')
                         };
                         await firebaseDb.ref(DROPPED_PRODUCTS_COLLECTION).push(newDroppedItem);
-                        console.log('[HELD-PRODUCTS] Added', heldQuantity, 'to new dropped product:', productId);
                     }
 
                     // Remove this user's hold from Firebase
@@ -247,8 +232,6 @@
                     }
                 }
             }
-
-            console.log(`[HELD-PRODUCTS] ✓ Cleaned up ${cleanupCount} temporary held products`);
 
         } catch (error) {
             console.error('[HELD-PRODUCTS] ❌ Error cleaning up:', error);
@@ -288,11 +271,9 @@
                     quantity: quantity,
                     timestamp: Date.now()
                 });
-                console.log('[HELD-PRODUCTS] ✓ Updated quantity to', quantity, 'for productId:', normalizedProductId);
             } else {
                 // Remove if quantity is 0
                 await ref.remove();
-                console.log('[HELD-PRODUCTS] ✓ Removed (quantity = 0) for productId:', normalizedProductId);
 
                 // Clear heldBy if no one else is holding
                 if (typeof window.clearHeldByIfNotHeld === 'function') {
@@ -328,12 +309,8 @@
         if (!userId || !orderId) return;
 
         try {
-            console.log('[HELD-PRODUCTS] Removing held product:', normalizedProductId);
-
             const ref = window.firebase.database().ref(`held_products/${orderId}/${normalizedProductId}/${userId}`);
             await ref.remove();
-
-            console.log('[HELD-PRODUCTS] ✓ Removed from Firebase, productId:', normalizedProductId);
 
             // Clear heldBy from dropped products if no one else is holding
             if (typeof window.clearHeldByIfNotHeld === 'function') {
@@ -362,20 +339,15 @@
         // IMPORTANT: Cleanup any existing listener before setting up new one
         // This prevents duplicate listeners when switching between orders
         if (window.heldProductsListener) {
-            console.log('[HELD-PRODUCTS] Cleaning up existing listener before setup');
             window.heldProductsListener.off();
             window.heldProductsListener = null;
         }
-
-        console.log('[HELD-PRODUCTS] Setting up realtime listener for order:', orderId);
 
         const heldRef = window.firebase.database().ref(`held_products/${orderId}`);
 
         // Listen for changes
         heldRef.on('value', (snapshot) => {
             const heldData = snapshot.val() || {};
-
-            console.log('[HELD-PRODUCTS] Realtime update received:', Object.keys(heldData).length, 'products');
 
             // Update window.currentChatOrderData.Details with held products
             if (window.currentChatOrderData && window.currentChatOrderData.Details) {
@@ -520,7 +492,6 @@
      */
     window.cleanupHeldProductsListener = function () {
         if (window.heldProductsListener) {
-            console.log('[HELD-PRODUCTS] Cleaning up listener');
             window.heldProductsListener.off();
             window.heldProductsListener = null;
         }
@@ -542,8 +513,6 @@
         if (!userId) return;
 
         try {
-            console.log('[HELD-PRODUCTS] Cleaning up temporary held products for user:', userId);
-
             // Get dependencies
             const droppedProducts = typeof window.getDroppedProducts === 'function' ? window.getDroppedProducts() : [];
             const firebaseDb = typeof window.getDroppedFirebaseDb === 'function' ? window.getDroppedFirebaseDb() : null;
@@ -605,9 +574,6 @@
             // Perform batch removal of held products
             if (cleanupCount > 0) {
                 await heldProductsRef.update(updates);
-                console.log(`[HELD-PRODUCTS] ✓ Cleaned up ${cleanupCount} temporary held products, skipped ${skippedCount} saved`);
-            } else {
-                console.log(`[HELD-PRODUCTS] No temporary held products to clean up (${skippedCount} saved)`);
             }
 
         } catch (error) {
@@ -633,7 +599,6 @@
                 pending: true
             };
             localStorage.setItem('orders_held_cleanup_pending', JSON.stringify(cleanupInfo));
-            console.log('[HELD-PRODUCTS] Marked cleanup as pending for next session');
         } catch (e) {
             console.error('[HELD-PRODUCTS] Failed to mark cleanup pending:', e);
         }
@@ -652,7 +617,6 @@
 
             // If cleanup was pending less than 1 hour ago, complete it
             if (cleanupInfo.pending && (Date.now() - cleanupInfo.timestamp) < 3600000) {
-                console.log('[HELD-PRODUCTS] Found pending cleanup from previous session');
                 await window.cleanupAllUserHeldProducts();
             }
 
@@ -664,7 +628,5 @@
             localStorage.removeItem('orders_held_cleanup_pending');
         }
     };
-
-    console.log('[HELD-PRODUCTS-MANAGER] Loaded');
 
 })();

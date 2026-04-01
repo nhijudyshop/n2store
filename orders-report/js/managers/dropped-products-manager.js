@@ -148,8 +148,6 @@
     window.initDroppedProductsManager = async function () {
         if (isInitialized) return;
 
-        console.log('[DROPPED-PRODUCTS] Initializing Firebase-only multi-user mode...');
-
         try {
             // Check Firebase availability
             if (!window.firebase || !window.firebase.database) {
@@ -160,7 +158,6 @@
 
             // Ensure Firebase is initialized (config from shared/js/firebase-config.js)
             if (!window.firebase.apps.length) {
-                console.log('[DROPPED-PRODUCTS] Firebase not initialized, initializing now...');
                 if (typeof FIREBASE_CONFIG !== 'undefined') {
                     window.firebase.initializeApp(FIREBASE_CONFIG);
                 } else if (typeof firebaseConfig !== 'undefined') {
@@ -181,7 +178,6 @@
             // REMOVED: loadHistoryFromFirebase() - không còn sử dụng
 
             isInitialized = true;
-            console.log('[DROPPED-PRODUCTS] ✓ Initialized with Firebase realtime multi-user sync');
 
             // Render initial loading state
             renderDroppedProductsTable();
@@ -201,10 +197,6 @@
         if (!firebaseDb) return;
 
         try {
-            console.log(
-                '[DROPPED-PRODUCTS] Setting up granular realtime listeners for dropped_products'
-            );
-
             droppedProductsRef = firebaseDb.ref(DROPPED_PRODUCTS_COLLECTION);
 
             // Handle new items
@@ -235,14 +227,8 @@
                         ProductId: parseInt(itemData.ProductId) || itemData.ProductId, // Normalize to number
                     });
 
-                    // Log for debugging (skip during initial load to reduce spam)
+                    // Notification for other users (skip during initial load)
                     if (!isFirstLoad) {
-                        console.log(
-                            '[DROPPED-PRODUCTS] ✓ Item added by user:',
-                            itemId,
-                            itemData.ProductNameGet
-                        );
-
                         // Real-time notification for sale_removed items
                         if (itemData.reason === 'sale_removed') {
                             const removedBy = itemData.removedBy || 'Sale';
@@ -282,11 +268,6 @@
                             ...itemData,
                             ProductId: parseInt(itemData.ProductId) || itemData.ProductId, // Normalize to number
                         };
-                        console.log(
-                            '[DROPPED-PRODUCTS] ✓ Item updated by user:',
-                            itemId,
-                            itemData.ProductNameGet
-                        );
                     } else {
                         console.warn('[DROPPED-PRODUCTS] ⚠️ Update for non-existent item:', itemId);
                     }
@@ -309,13 +290,7 @@
                     const existingIndex = droppedProducts.findIndex((p) => p.id === itemId);
 
                     if (existingIndex > -1) {
-                        const removedItem = droppedProducts[existingIndex];
                         droppedProducts.splice(existingIndex, 1);
-                        console.log(
-                            '[DROPPED-PRODUCTS] ✓ Item removed by user:',
-                            itemId,
-                            removedItem.ProductNameGet
-                        );
                     } else {
                         console.warn('[DROPPED-PRODUCTS] ⚠️ Remove for non-existent item:', itemId);
                     }
@@ -331,12 +306,6 @@
             // Mark first load complete after initial sync
             setTimeout(() => {
                 isFirstLoad = false;
-                console.log(
-                    '[DROPPED-PRODUCTS] ✓ Initial sync complete:',
-                    droppedProducts.length,
-                    'items loaded'
-                );
-                console.log('[DROPPED-PRODUCTS] ✓ Real-time multi-user mode active');
             }, 1000);
         } catch (error) {
             console.error('[DROPPED-PRODUCTS] Error setting up listeners:', error);
@@ -370,8 +339,6 @@
      * Cleanup Firebase listeners
      */
     window.cleanupDroppedProductsManager = function () {
-        console.log('[DROPPED-PRODUCTS] Cleaning up listeners...');
-
         if (droppedProductsRef) {
             droppedProductsRef.off();
             droppedProductsRef = null;
@@ -380,7 +347,6 @@
         // REMOVED: historyRef cleanup - không còn sử dụng
 
         isInitialized = false;
-        console.log('[DROPPED-PRODUCTS] Cleanup complete');
     };
 
     /**
@@ -395,20 +361,13 @@
         }
 
         try {
-            console.log('[DROPPED-PRODUCTS] Initializing product search...');
-
             // Load Excel data for search
             await window.ProductSearchModule.loadExcelData(
-                () => {
-                    console.log('[DROPPED-PRODUCTS] Loading product data...');
-                },
-                () => {
-                    console.log('[DROPPED-PRODUCTS] Product data loaded');
-                }
+                () => {},
+                () => {}
             );
 
             productSearchInitialized = true;
-            console.log('[DROPPED-PRODUCTS] ✓ Product search initialized');
         } catch (error) {
             console.error('[DROPPED-PRODUCTS] Error initializing product search:', error);
             showError('Lỗi khởi tạo tìm kiếm sản phẩm: ' + error.message);
@@ -481,8 +440,6 @@
         }
 
         try {
-            console.log('[DROPPED-PRODUCTS] Loading product details for:', productId);
-
             // Load full product details
             const result = await window.ProductSearchModule.loadProductDetails(productId, {
                 autoAddVariants: false, // Don't auto-add variants for dropped products
@@ -543,14 +500,6 @@
             return;
         }
 
-        console.log(
-            '[DROPPED-PRODUCTS] Adding product:',
-            product.ProductNameGet,
-            'qty:',
-            quantity,
-            'reason:',
-            reason
-        );
         // Note: holderName parameter is deprecated - heldBy is now computed dynamically from held_products
         // metadata: optional object { removedBy, removedFromOrderSTT, removedFromCustomer, removedAt }
 
@@ -605,7 +554,6 @@
                     return updates;
                 });
 
-                console.log('[DROPPED-PRODUCTS] ✓ Quantity updated via transaction');
             } else {
                 // New product - push to Firebase (listener will update UI)
                 // Get campaign info from current context
@@ -647,8 +595,7 @@
                     newItem.removedAt = metadata.removedAt || Date.now();
                 }
 
-                const newRef = await firebaseDb.ref(DROPPED_PRODUCTS_COLLECTION).push(newItem);
-                console.log('[DROPPED-PRODUCTS] ✓ New item created:', newRef.key);
+                await firebaseDb.ref(DROPPED_PRODUCTS_COLLECTION).push(newItem);
             }
 
             // Add to history
@@ -732,8 +679,6 @@
         if (!firebaseDb) return false;
 
         try {
-            console.log('[DROPPED-PRODUCTS] Checking if product is still held:', productId);
-
             const heldProductsRef = firebaseDb.ref('held_products');
             const snapshot = await heldProductsRef.once('value');
             const allOrders = snapshot.val() || {};
@@ -750,18 +695,11 @@
                 for (const userId in productHolders) {
                     const holderData = productHolders[userId];
                     if (holderData && (parseInt(holderData.quantity) || 0) > 0) {
-                        console.log(
-                            '[DROPPED-PRODUCTS] Product still held by:',
-                            holderData.displayName,
-                            'in order:',
-                            orderId
-                        );
                         return true;
                     }
                 }
             }
 
-            console.log('[DROPPED-PRODUCTS] Product no longer held by anyone');
             return false;
         } catch (error) {
             console.error('[DROPPED-PRODUCTS] Error checking held status:', error);
@@ -785,16 +723,10 @@
                 return;
             }
 
-            console.log(
-                '[DROPPED-PRODUCTS] Checking if product should be cleaned up:',
-                normalizedProductId
-            );
-
             // Check if product still has holders
             const holders = await window.getProductHolders(normalizedProductId);
 
             if (holders.length > 0) {
-                console.log('[DROPPED-PRODUCTS] Product still has holders:', holders);
                 return; // Don't clean up, still being held
             }
 
@@ -802,29 +734,17 @@
             const droppedProduct = droppedProducts.find((p) => p.ProductId === normalizedProductId);
 
             if (!droppedProduct) {
-                console.log('[DROPPED-PRODUCTS] Product not found in dropped list');
                 return;
             }
 
             // Check if quantity is 0
             if ((droppedProduct.Quantity || 0) > 0) {
-                console.log(
-                    '[DROPPED-PRODUCTS] Product still has quantity:',
-                    droppedProduct.Quantity
-                );
                 return; // Don't clean up, still has stock
             }
 
             // Product has quantity=0 and no holders -> remove from Firebase
-            console.log(
-                '[DROPPED-PRODUCTS] Cleaning up zero-quantity product with no holders:',
-                normalizedProductId
-            );
-
             const itemRef = firebaseDb.ref(`${DROPPED_PRODUCTS_COLLECTION}/${droppedProduct.id}`);
             await itemRef.remove();
-
-            console.log('[DROPPED-PRODUCTS] ✓ Cleaned up product:', normalizedProductId);
         } catch (error) {
             console.error('[DROPPED-PRODUCTS] Error during cleanup:', error);
         }
@@ -868,7 +788,6 @@
         try {
             // Delete from Firebase - listener will update UI
             await firebaseDb.ref(`${DROPPED_PRODUCTS_COLLECTION}/${product.id}`).remove();
-            console.log('[DROPPED-PRODUCTS] ✓ Item deleted:', product.id);
             showSuccess('Đã xóa khỏi hàng rớt - xả');
         } catch (error) {
             console.error('[DROPPED-PRODUCTS] ❌ Error removing from Firebase:', error);
@@ -888,7 +807,6 @@
 
         try {
             await firebaseDb.ref(`${DROPPED_PRODUCTS_COLLECTION}/${product.id}`).remove();
-            console.log('[DROPPED-PRODUCTS] ✓ Removed by ProductId:', productId);
         } catch (error) {
             console.error('[DROPPED-PRODUCTS] ❌ Error removing by ProductId:', error);
         }
@@ -932,7 +850,6 @@
                 };
             });
 
-            console.log('[DROPPED-PRODUCTS] ✓ Quantity updated via transaction');
             // Listener will update UI automatically
         } catch (error) {
             console.error('[DROPPED-PRODUCTS] ❌ Error updating quantity:', error);
@@ -997,10 +914,6 @@
             if (existingHeldIndex > -1) {
                 // Product already in held list - increment quantity
                 window.currentChatOrderData.Details[existingHeldIndex].Quantity += 1;
-                console.log(
-                    '[DROPPED-PRODUCTS] Merged with existing held product, new qty:',
-                    window.currentChatOrderData.Details[existingHeldIndex].Quantity
-                );
             } else {
                 // Add as NEW held item - PRESERVE original name from dropped products
                 window.currentChatOrderData.Details.push({
@@ -1079,12 +992,6 @@
                             };
                         });
 
-                        console.log('[DROPPED-PRODUCTS] ✓ Synced to Firebase held_products:', {
-                            orderId,
-                            productId,
-                            userId,
-                            quantity: heldQuantity,
-                        });
                     } else {
                         console.warn(
                             '[DROPPED-PRODUCTS] No userId found, cannot sync to Firebase held_products'
@@ -1126,10 +1033,6 @@
                     Quantity: Math.max(0, newQty),
                 };
             });
-
-            if (result.committed) {
-                console.log('[DROPPED-PRODUCTS] ✓ Quantity decremented via transaction');
-            }
 
             // Add to history
             await addHistoryItem({
@@ -1560,7 +1463,6 @@
         try {
             // Remove all from Firebase - listener will clear UI
             await firebaseDb.ref(DROPPED_PRODUCTS_COLLECTION).remove();
-            console.log('[DROPPED-PRODUCTS] ✓ All items cleared');
             showSuccess('Đã xóa tất cả hàng rớt - xả');
         } catch (error) {
             console.error('[DROPPED-PRODUCTS] ❌ Error clearing from Firebase:', error);
@@ -1599,5 +1501,4 @@
         setTimeout(initDroppedProductsManager, 500);
     }
 
-    console.log('[DROPPED-PRODUCTS] Firebase-only multi-user manager loaded');
 })();

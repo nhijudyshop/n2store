@@ -27,7 +27,6 @@ class StandardPriceManager {
     }
 
     async init() {
-        console.log("[STANDARD-PRICE] Initializing Standard Price Manager with IndexedDB...");
         try {
             await this.openDatabase();
             await this.loadFromCache();
@@ -51,7 +50,6 @@ class StandardPriceManager {
 
             request.onsuccess = (event) => {
                 this.db = event.target.result;
-                console.log("[STANDARD-PRICE] IndexedDB opened successfully");
                 resolve(this.db);
             };
 
@@ -61,7 +59,6 @@ class StandardPriceManager {
                 // Create object store if not exists
                 if (!db.objectStoreNames.contains(this.STORE_NAME)) {
                     db.createObjectStore(this.STORE_NAME, { keyPath: "key" });
-                    console.log("[STANDARD-PRICE] Object store created");
                 }
             };
         });
@@ -74,14 +71,12 @@ class StandardPriceManager {
     async loadFromCache() {
         try {
             if (!this.db) {
-                console.log("[STANDARD-PRICE] Database not ready");
                 return false;
             }
 
             const cached = await this.getFromIndexedDB(this.CACHE_KEY);
 
             if (!cached) {
-                console.log("[STANDARD-PRICE] No cache found in IndexedDB");
                 // Try migrate from localStorage
                 await this.migrateFromLocalStorage();
                 return false;
@@ -90,7 +85,6 @@ class StandardPriceManager {
             const age = Date.now() - cached.timestamp;
 
             if (age > this.CACHE_DURATION) {
-                console.log("[STANDARD-PRICE] Cache expired");
                 await this.deleteFromIndexedDB(this.CACHE_KEY);
                 return false;
             }
@@ -107,9 +101,6 @@ class StandardPriceManager {
 
             this.lastFetchTime = new Date(cached.timestamp).toLocaleString("vi-VN");
             this.isLoaded = this.products.size > 0;
-
-            console.log(`[STANDARD-PRICE] Loaded ${this.products.size} products from IndexedDB cache`);
-            console.log(`[STANDARD-PRICE] Cache age: ${Math.floor(age / 1000 / 60)} minutes`);
 
             return true;
         } catch (error) {
@@ -134,8 +125,6 @@ class StandardPriceManager {
 
             await this.saveToIndexedDB(cacheData);
             this.lastFetchTime = new Date().toLocaleString("vi-VN");
-
-            console.log(`[STANDARD-PRICE] Saved ${productsArray.length} products to IndexedDB cache`);
         } catch (error) {
             console.error("[STANDARD-PRICE] Error saving to IndexedDB:", error);
         }
@@ -198,8 +187,6 @@ class StandardPriceManager {
 
             if (!cached) return;
 
-            console.log("[STANDARD-PRICE] Migrating from localStorage to IndexedDB...");
-
             const data = JSON.parse(cached);
             const age = Date.now() - data.timestamp;
 
@@ -218,13 +205,10 @@ class StandardPriceManager {
 
                 // Save to IndexedDB
                 await this.saveToCache();
-
-                console.log(`[STANDARD-PRICE] Migrated ${this.products.size} products from localStorage`);
             }
 
             // Remove from localStorage to free space
             localStorage.removeItem(oldKey);
-            console.log("[STANDARD-PRICE] Cleared old localStorage cache");
 
         } catch (error) {
             console.error("[STANDARD-PRICE] Migration error:", error);
@@ -238,13 +222,11 @@ class StandardPriceManager {
     async fetchProducts(force = false) {
         // If already loaded and not forced, return
         if (this.isLoaded && !force) {
-            console.log("[STANDARD-PRICE] Data already loaded");
             return this.products;
         }
 
         // If currently loading, wait for it
         if (this.isLoading) {
-            console.log("[STANDARD-PRICE] Fetch already in progress, waiting...");
             return this.waitForLoad();
         }
 
@@ -266,8 +248,6 @@ class StandardPriceManager {
                     }
                 );
             }
-
-            console.log("[STANDARD-PRICE] Fetching from API...");
 
             // Get auth headers
             const headers = await window.tokenManager.getAuthHeader();
@@ -292,7 +272,6 @@ class StandardPriceManager {
 
             // Get blob data
             const blob = await response.blob();
-            console.log(`[STANDARD-PRICE] Received Excel file: ${(blob.size / 1024).toFixed(2)} KB`);
 
             // Parse Excel
             const products = await this.parseExcelBlob(blob);
@@ -325,7 +304,6 @@ class StandardPriceManager {
                 );
             }
 
-            console.log(`[STANDARD-PRICE] Successfully loaded ${products.length} products`);
             return this.products;
         } catch (error) {
             console.error("[STANDARD-PRICE] Error fetching:", error);
@@ -388,12 +366,6 @@ class StandardPriceManager {
                         const products = [];
                         const headers = jsonData[0];
 
-                        console.log("[STANDARD-PRICE] Excel structure:", {
-                            sheet: workbook.SheetNames[0],
-                            headers: headers,
-                            totalRows: jsonData.length - 1,
-                        });
-
                         for (let i = 1; i < jsonData.length; i++) {
                             const row = jsonData[i];
 
@@ -428,7 +400,6 @@ class StandardPriceManager {
                             products.push(product);
                         }
 
-                        console.log(`[STANDARD-PRICE] Parsed ${products.length} products from Excel`);
                         resolve(products);
                     } catch (error) {
                         console.error("[STANDARD-PRICE] Error parsing Excel:", error);
