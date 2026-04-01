@@ -1517,6 +1517,9 @@
                     <button class="ptag-panel-btn" title="Quản lý Tag T" onclick="window._ptagOpenTTagManager()" style="color:#7c3aed;">
                         <i class="fas fa-tags"></i>
                     </button>
+                    <button class="ptag-panel-btn" title="Lịch sử Tag" onclick="window._ptagOpenGlobalHistory()" style="color:#3b82f6;">
+                        <i class="fas fa-clock-rotate-left"></i>
+                    </button>
                     <button class="ptag-panel-btn" id="ptag-cleanup-btn" title="Xóa Tag Đặc Điểm và Tag T chờ hàng không còn đơn" onclick="window._ptagCleanupEmptyTags()">
                         <i class="fas fa-trash"></i>
                     </button>
@@ -3743,6 +3746,27 @@
         };
     }
 
+    function _ptagResolveDisplayName(action, value) {
+        if (action === 'SET_CATEGORY' || action === 'REMOVE_CATEGORY') {
+            const cat = parseInt(value?.split(':')[0]);
+            const subTag = value?.split(':')[1];
+            if (subTag && PTAG_SUBTAGS[subTag]) return PTAG_SUBTAGS[subTag].label;
+            if (PTAG_CATEGORY_META[cat]) return PTAG_CATEGORY_META[cat].short;
+            return value || '';
+        }
+        if (action === 'ADD_FLAG' || action === 'REMOVE_FLAG') {
+            return PTAG_FLAGS[value]?.label || ProcessingTagState.getCustomFlagLabel(value) || value;
+        }
+        if (action === 'ADD_TTAG' || action === 'REMOVE_TTAG') {
+            return ProcessingTagState.getTTagName(value) || value;
+        }
+        if (action === 'AUTO_HOAN_TAT') return 'ĐÃ RA ĐƠN (auto)';
+        if (action === 'AUTO_ROLLBACK') return 'Rollback (auto)';
+        if (action === 'SET_PHIEU_SOAN' || action === 'UNSET_PHIEU_SOAN') return 'Phiếu soạn hàng';
+        if (action === 'AUTO_PHIEU_SOAN') return 'Phiếu soạn (auto)';
+        return value || '';
+    }
+
     function _ptagAddHistory(orderId, action, value, userName) {
         const data = ProcessingTagState.getOrderData(orderId);
         if (!data) return;
@@ -3751,6 +3775,7 @@
         data.history.push({
             action,
             value: value || '',
+            displayName: _ptagResolveDisplayName(action, value),
             user: userInfo.user,
             userId: userInfo.userId,
             timestamp: Date.now()
@@ -3797,33 +3822,8 @@
             const sign = ACTION_LABELS[h.action] || '·';
             const signClass = sign === '+' || sign === '→' ? 'add' : sign === '-' || sign === '←' ? 'remove' : '';
 
-            // Resolve display label
-            let label = h.value;
-            if (h.action === 'SET_CATEGORY') {
-                const cat = parseInt(h.value?.split(':')[0]);
-                const subTag = h.value?.split(':')[1];
-                if (subTag && PTAG_SUBTAGS[subTag]) label = PTAG_SUBTAGS[subTag].label;
-                else if (PTAG_CATEGORY_META[cat]) label = PTAG_CATEGORY_META[cat].short;
-                else label = h.value;
-            } else if (h.action === 'ADD_FLAG' || h.action === 'REMOVE_FLAG') {
-                label = PTAG_FLAGS[h.value]?.label || ProcessingTagState.getCustomFlagLabel(h.value);
-            } else if (h.action === 'ADD_TTAG' || h.action === 'REMOVE_TTAG') {
-                label = ProcessingTagState.getTTagName(h.value);
-            } else if (h.action === 'REMOVE_CATEGORY') {
-                const cat = parseInt(h.value?.split(':')[0]);
-                const subTag = h.value?.split(':')[1];
-                if (subTag && PTAG_SUBTAGS[subTag]) label = PTAG_SUBTAGS[subTag].label;
-                else if (PTAG_CATEGORY_META[cat]) label = PTAG_CATEGORY_META[cat].short;
-                else label = 'Xóa phân loại';
-            } else if (h.action === 'AUTO_HOAN_TAT') {
-                label = 'ĐÃ RA ĐƠN (auto)';
-            } else if (h.action === 'AUTO_ROLLBACK') {
-                label = 'Rollback (auto)';
-            } else if (h.action === 'SET_PHIEU_SOAN' || h.action === 'UNSET_PHIEU_SOAN') {
-                label = 'Phiếu soạn hàng';
-            } else if (h.action === 'AUTO_PHIEU_SOAN') {
-                label = 'Phiếu soạn (auto)';
-            }
+            // Resolve display label - ưu tiên displayName đã lưu sẵn, fallback resolve từ value (entries cũ)
+            const label = h.displayName || _ptagResolveDisplayName(h.action, h.value);
 
             html += `<div class="ptag-history-item">
                 <span class="ptag-history-date">${dateStr}</span>
@@ -3873,6 +3873,229 @@
         if (!normalizedQuery) return true;
         const tokens = normalizedQuery.split(/\s+/).filter(Boolean);
         return tokens.every(token => searchData.includes(token));
+    }
+
+    // =====================================================
+    // SECTION 10C: GLOBAL TAG HISTORY MODAL
+    // =====================================================
+
+    const PTAG_ACTION_META = {
+        SET_CATEGORY:    { sign: '+', cls: 'add', group: 'category', label: 'Gán phân loại' },
+        REMOVE_CATEGORY: { sign: '-', cls: 'remove', group: 'category', label: 'Xóa phân loại' },
+        ADD_FLAG:        { sign: '+', cls: 'add', group: 'flag', label: 'Thêm đặc điểm' },
+        REMOVE_FLAG:     { sign: '-', cls: 'remove', group: 'flag', label: 'Xóa đặc điểm' },
+        ADD_TTAG:        { sign: '+', cls: 'add', group: 'ttag', label: 'Thêm Tag T' },
+        REMOVE_TTAG:     { sign: '-', cls: 'remove', group: 'ttag', label: 'Xóa Tag T' },
+        AUTO_HOAN_TAT:   { sign: '→', cls: 'auto', group: 'auto', label: 'Auto hoàn tất' },
+        AUTO_ROLLBACK:   { sign: '←', cls: 'auto', group: 'auto', label: 'Auto rollback' },
+        SET_PHIEU_SOAN:  { sign: '+', cls: 'add', group: 'phieu', label: 'Đánh dấu phiếu soạn' },
+        UNSET_PHIEU_SOAN:{ sign: '-', cls: 'remove', group: 'phieu', label: 'Bỏ phiếu soạn' },
+        AUTO_PHIEU_SOAN: { sign: '+', cls: 'auto', group: 'phieu', label: 'Auto phiếu soạn' }
+    };
+
+    let _globalHistoryCache = [];
+    let _globalHistoryFiltered = [];
+    let _globalHistoryPage = 0;
+    const _globalHistoryPageSize = 50;
+
+    function _ptagAggregateAllHistory() {
+        const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
+        const orderLookup = new Map();
+        allOrders.forEach(o => {
+            orderLookup.set(String(o.Id), { stt: o.STT || o.Stt || '', code: o.Code || '' });
+        });
+
+        const entries = [];
+        const taggedOrders = ProcessingTagState.getAllOrders();
+        for (const [orderId, data] of taggedOrders) {
+            if (!data.history || data.history.length === 0) continue;
+            const lookup = orderLookup.get(String(orderId)) || { stt: '', code: '' };
+            const orderCode = data._orderCode || data.code || lookup.code || '';
+            data.history.forEach(h => {
+                entries.push({
+                    ...h,
+                    orderId,
+                    orderSTT: lookup.stt,
+                    orderCode
+                });
+            });
+        }
+        entries.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        return entries;
+    }
+
+    function _ptagGHApplyFilters() {
+        const orderInput = document.getElementById('ptag-gh-filter-order');
+        const actionSelect = document.getElementById('ptag-gh-filter-action');
+        const userInput = document.getElementById('ptag-gh-filter-user');
+
+        const orderQuery = _ptagNormalize(orderInput?.value || '');
+        const actionGroup = actionSelect?.value || '';
+        const userQuery = _ptagNormalize(userInput?.value || '');
+
+        _globalHistoryFiltered = _globalHistoryCache.filter(entry => {
+            if (orderQuery) {
+                const sttStr = String(entry.orderSTT || '');
+                const codeStr = _ptagNormalize(entry.orderCode || '');
+                if (!sttStr.includes(orderQuery) && !codeStr.includes(orderQuery)) return false;
+            }
+            if (actionGroup) {
+                const meta = PTAG_ACTION_META[entry.action];
+                if (!meta || meta.group !== actionGroup) return false;
+            }
+            if (userQuery) {
+                const userName = _ptagNormalize(entry.user || '');
+                if (!userName.includes(userQuery)) return false;
+            }
+            return true;
+        });
+        _globalHistoryPage = 0;
+    }
+
+    function _ptagRenderGlobalHistoryList() {
+        const body = document.getElementById('ptag-gh-body');
+        if (!body) return;
+
+        const total = _globalHistoryFiltered.length;
+        const totalPages = Math.max(1, Math.ceil(total / _globalHistoryPageSize));
+        if (_globalHistoryPage >= totalPages) _globalHistoryPage = totalPages - 1;
+        const start = _globalHistoryPage * _globalHistoryPageSize;
+        const pageItems = _globalHistoryFiltered.slice(start, start + _globalHistoryPageSize);
+
+        if (total === 0) {
+            body.innerHTML = `<div class="ptag-gh-empty">
+                <i class="fas fa-inbox" style="font-size:28px;color:#d1d5db;margin-bottom:8px;"></i>
+                <div style="color:#9ca3af;font-size:13px;">Không có lịch sử nào</div>
+            </div>`;
+        } else {
+            let html = '';
+            pageItems.forEach(h => {
+                const date = new Date(h.timestamp);
+                const dateStr = `${String(date.getDate()).padStart(2,'0')}/${String(date.getMonth()+1).padStart(2,'0')} ${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}`;
+                const meta = PTAG_ACTION_META[h.action] || { sign: '·', cls: '' };
+                const label = h.displayName || _ptagResolveDisplayName(h.action, h.value);
+                const sttDisplay = h.orderSTT ? `STT ${h.orderSTT}` : (h.orderCode || h.orderId || '?');
+                const actionLabel = meta.label || h.action;
+
+                html += `<div class="ptag-gh-item">
+                    <span class="ptag-gh-time">${dateStr}</span>
+                    <span class="ptag-gh-order" title="${h.orderCode || ''}">${sttDisplay}</span>
+                    <span class="ptag-gh-user" title="${h.user || ''}">${h.user || ''}</span>
+                    <span class="ptag-gh-sign ${meta.cls}">${meta.sign}</span>
+                    <span class="ptag-gh-action-type" title="${actionLabel}">${actionLabel}</span>
+                    <span class="ptag-gh-label" title="${label}">${label}</span>
+                </div>`;
+            });
+            body.innerHTML = html;
+        }
+
+        // Update pagination
+        const pageInfo = document.getElementById('ptag-gh-page-info');
+        if (pageInfo) pageInfo.textContent = `Trang ${_globalHistoryPage + 1} / ${totalPages} (${total} mục)`;
+        const prevBtn = document.getElementById('ptag-gh-prev');
+        const nextBtn = document.getElementById('ptag-gh-next');
+        if (prevBtn) prevBtn.disabled = _globalHistoryPage <= 0;
+        if (nextBtn) nextBtn.disabled = _globalHistoryPage >= totalPages - 1;
+    }
+
+    function _ptagOpenGlobalHistory() {
+        // Remove existing modal
+        const existing = document.getElementById('ptag-global-history-modal');
+        if (existing) existing.remove();
+
+        // Aggregate history from all orders
+        _globalHistoryCache = _ptagAggregateAllHistory();
+        _globalHistoryFiltered = [..._globalHistoryCache];
+        _globalHistoryPage = 0;
+
+        const modal = document.createElement('div');
+        modal.id = 'ptag-global-history-modal';
+        modal.className = 'ptag-gh-overlay';
+        modal.innerHTML = `
+            <div class="ptag-gh-modal">
+                <div class="ptag-gh-header">
+                    <div>
+                        <div class="ptag-gh-title"><i class="fas fa-clock-rotate-left"></i> Lịch Sử Tag</div>
+                        <div class="ptag-gh-subtitle">${_globalHistoryCache.length} thao tác</div>
+                    </div>
+                    <button class="ptag-gh-close-btn" onclick="window._ptagCloseGlobalHistory()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="ptag-gh-filters">
+                    <input type="text" id="ptag-gh-filter-order" class="ptag-gh-filter-input" placeholder="Tìm đơn (STT/Mã)..." oninput="window._ptagGHFilterChanged()" />
+                    <select id="ptag-gh-filter-action" class="ptag-gh-filter-select" onchange="window._ptagGHFilterChanged()">
+                        <option value="">Tất cả loại</option>
+                        <option value="category">Phân loại</option>
+                        <option value="flag">Đặc điểm</option>
+                        <option value="ttag">Tag T</option>
+                        <option value="auto">Tự động</option>
+                        <option value="phieu">Phiếu soạn</option>
+                    </select>
+                    <input type="text" id="ptag-gh-filter-user" class="ptag-gh-filter-input" placeholder="Tìm user..." oninput="window._ptagGHFilterChanged()" />
+                    <button class="ptag-gh-clear-btn" onclick="window._ptagGHClearFilters()" title="Xóa bộ lọc">
+                        <i class="fas fa-eraser"></i>
+                    </button>
+                </div>
+                <div class="ptag-gh-body" id="ptag-gh-body"></div>
+                <div class="ptag-gh-footer">
+                    <span id="ptag-gh-page-info" class="ptag-gh-page-info"></span>
+                    <div class="ptag-gh-page-btns">
+                        <button id="ptag-gh-prev" class="ptag-gh-page-btn" onclick="window._ptagGHPrevPage()">← Trước</button>
+                        <button id="ptag-gh-next" class="ptag-gh-page-btn" onclick="window._ptagGHNextPage()">Sau →</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // Click overlay to close
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) _ptagCloseGlobalHistory();
+        });
+
+        document.body.appendChild(modal);
+        _ptagRenderGlobalHistoryList();
+    }
+
+    function _ptagCloseGlobalHistory() {
+        const modal = document.getElementById('ptag-global-history-modal');
+        if (modal) modal.remove();
+        _globalHistoryCache = [];
+        _globalHistoryFiltered = [];
+    }
+
+    function _ptagGHFilterChanged() {
+        _ptagGHApplyFilters();
+        _ptagRenderGlobalHistoryList();
+    }
+
+    function _ptagGHNextPage() {
+        const totalPages = Math.max(1, Math.ceil(_globalHistoryFiltered.length / _globalHistoryPageSize));
+        if (_globalHistoryPage < totalPages - 1) {
+            _globalHistoryPage++;
+            _ptagRenderGlobalHistoryList();
+            document.getElementById('ptag-gh-body')?.scrollTo(0, 0);
+        }
+    }
+
+    function _ptagGHPrevPage() {
+        if (_globalHistoryPage > 0) {
+            _globalHistoryPage--;
+            _ptagRenderGlobalHistoryList();
+            document.getElementById('ptag-gh-body')?.scrollTo(0, 0);
+        }
+    }
+
+    function _ptagGHClearFilters() {
+        const orderInput = document.getElementById('ptag-gh-filter-order');
+        const actionSelect = document.getElementById('ptag-gh-filter-action');
+        const userInput = document.getElementById('ptag-gh-filter-user');
+        if (orderInput) orderInput.value = '';
+        if (actionSelect) actionSelect.value = '';
+        if (userInput) userInput.value = '';
+        _globalHistoryFiltered = [..._globalHistoryCache];
+        _globalHistoryPage = 0;
+        _ptagRenderGlobalHistoryList();
     }
 
     // =====================================================
@@ -4027,6 +4250,14 @@
 
     // History
     window._ptagShowHistory = _ptagRenderHistoryPopover;
+
+    // Global tag history modal
+    window._ptagOpenGlobalHistory = _ptagOpenGlobalHistory;
+    window._ptagCloseGlobalHistory = _ptagCloseGlobalHistory;
+    window._ptagGHFilterChanged = _ptagGHFilterChanged;
+    window._ptagGHNextPage = _ptagGHNextPage;
+    window._ptagGHPrevPage = _ptagGHPrevPage;
+    window._ptagGHClearFilters = _ptagGHClearFilters;
 
     // Color picker for đặc điểm flags
     function _ptagOpenFlagColorPicker(flagKey, anchorEl) {
