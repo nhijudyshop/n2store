@@ -386,60 +386,76 @@ function closePostSelectionModal() {
 
 async function fetchFacebookPosts() {
     try {
-        // Get JWT token from "Kỹ Thuật NJD" account specifically
-        let jwtToken = null;
-        if (window.pancakeTokenManager) {
-            // Get all accounts and find "Kỹ Thuật NJD"
-            const accounts = window.pancakeTokenManager.getAllAccounts();
-            for (const [accountId, account] of Object.entries(accounts)) {
-                if (account.name === 'Kỹ Thuật NJD') {
-                    jwtToken = account.token;
-                    console.log('[SOCIAL-POST] Using token from account:', account.name);
-                    break;
-                }
-            }
-
-            // Fallback to active account if "Kỹ Thuật NJD" not found
-            if (!jwtToken) {
-                console.log('[SOCIAL-POST] Account "Kỹ Thuật NJD" not found, using active account');
-                jwtToken = await window.pancakeTokenManager.getToken();
-            }
+        if (!window.pancakeTokenManager) {
+            throw new Error('PancakeTokenManager chưa khởi tạo');
         }
 
-        if (!jwtToken) {
-            document.getElementById('postLoading').style.display = 'none';
-            document.getElementById('postList').innerHTML = `
-                <div style="padding: 40px; text-align: center; color: #ef4444;">
-                    <i class="fas fa-exclamation-triangle" style="font-size: 32px; margin-bottom: 12px;"></i>
-                    <p>Chưa đăng nhập Pancake. Vui lòng cài đặt JWT token trong tab Quản Lý Đơn Hàng.</p>
-                </div>
-            `;
-            return;
-        }
+        // Strategy 1: Try internal API with JWT tokens (try all accounts)
+        const accounts = window.pancakeTokenManager.getAllAccounts();
+        const accountEntries = Object.entries(accounts);
 
-        // Fetch posts via Cloudflare worker
-        // Note: access_token must be passed in URL for Pancake API, jwt is for cloudflare worker headers
-        const url = `${BASE_URL}/api/pancake-direct/pages/posts?types=&current_count=0&page_id=${PAGE_ID}&jwt=${encodeURIComponent(jwtToken)}&page_ids=${PAGE_ID}&access_token=${encodeURIComponent(jwtToken)}`;
-
-        console.log('[SOCIAL-POST] Fetching posts from:', url);
-
-        const response = await fetch(url, {
-            method: 'GET',
-            headers: {
-                'Accept': 'application/json'
-            }
+        // Sort: "Kỹ Thuật NJD" first, then others
+        accountEntries.sort(([, a], [, b]) => {
+            if (a.name === 'Kỹ Thuật NJD') return -1;
+            if (b.name === 'Kỹ Thuật NJD') return 1;
+            return 0;
         });
 
-        const result = await response.json();
+        for (const [accountId, account] of accountEntries) {
+            if (!account.token) continue;
+            console.log('[SOCIAL-POST] Trying account:', account.name);
 
-        if (result.success && result.data) {
-            cachedPosts = result.data;
-            filteredPosts = cachedPosts;
-            renderPostList(cachedPosts);
-            console.log('[SOCIAL-POST] Loaded', cachedPosts.length, 'posts');
-        } else {
-            throw new Error(result.message || 'Failed to load posts');
+            const url = `${BASE_URL}/api/pancake-direct/pages/posts?types=&current_count=0&page_id=${PAGE_ID}&jwt=${encodeURIComponent(account.token)}&page_ids=${PAGE_ID}&access_token=${encodeURIComponent(account.token)}`;
+
+            try {
+                const response = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                const result = await response.json();
+
+                if (result.success && result.data) {
+                    cachedPosts = result.data;
+                    filteredPosts = cachedPosts;
+                    renderPostList(cachedPosts);
+                    console.log('[SOCIAL-POST] Loaded', cachedPosts.length, 'posts via account:', account.name);
+                    return;
+                }
+
+                console.warn('[SOCIAL-POST] Account', account.name, 'failed:', result.message);
+            } catch (e) {
+                console.warn('[SOCIAL-POST] Account', account.name, 'error:', e.message);
+            }
         }
+
+        // Strategy 2: Fallback to official API with page_access_token
+        console.log('[SOCIAL-POST] All JWT accounts failed, trying official API with page_access_token...');
+        let pageAccessToken = window.pancakeTokenManager.getPageAccessToken(PAGE_ID);
+
+        if (!pageAccessToken && window.pancakeTokenManager.generatePageAccessToken) {
+            console.log('[SOCIAL-POST] Generating new page_access_token...');
+            pageAccessToken = await window.pancakeTokenManager.generatePageAccessToken(PAGE_ID);
+        }
+
+        if (pageAccessToken) {
+            const now = Math.floor(Date.now() / 1000);
+            const since = now - (90 * 24 * 60 * 60); // 90 days ago
+            const officialUrl = `${BASE_URL}/api/pancake-official/pages/${PAGE_ID}/posts?page_access_token=${encodeURIComponent(pageAccessToken)}&since=${since}&until=${now}&page_number=1&page_size=30`;
+
+            console.log('[SOCIAL-POST] Fetching from official API...');
+            const response = await fetch(officialUrl, { headers: { 'Accept': 'application/json' } });
+            const result = await response.json();
+
+            if (result.success && result.posts) {
+                cachedPosts = result.posts;
+                filteredPosts = cachedPosts;
+                renderPostList(cachedPosts);
+                console.log('[SOCIAL-POST] Loaded', cachedPosts.length, 'posts via official API');
+                return;
+            }
+
+            console.warn('[SOCIAL-POST] Official API failed:', result.message || result.error_code);
+        }
+
+        // All strategies failed
+        throw new Error('Phiên đăng nhập Pancake đã hết hạn. Vui lòng đăng nhập lại tại pancake.vn');
 
     } catch (error) {
         console.error('[SOCIAL-POST] Error fetching posts:', error);
@@ -449,6 +465,10 @@ async function fetchFacebookPosts() {
                 <i class="fas fa-exclamation-circle" style="font-size: 32px; margin-bottom: 12px;"></i>
                 <p>Không thể tải danh sách bài viết. Vui lòng thử lại.</p>
                 <p style="font-size: 11px; color: #6b7280; margin-top: 8px;">${error.message}</p>
+                <button onclick="cachedPosts=[];fetchFacebookPosts();document.getElementById('postLoading').style.display='flex';this.parentElement.remove();"
+                    style="margin-top: 12px; padding: 8px 20px; background: #6366f1; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                    <i class="fas fa-redo"></i> Thử lại
+                </button>
             </div>
         `;
     }
