@@ -948,6 +948,39 @@ router.delete('/note-snapshots/cleanup', async (req, res) => {
 // =====================================================
 
 /**
+ * GET /api/realtime/processing-tags/debug-config
+ * Debug endpoint: show all __ttag_config__ and __ptag_custom_flags__ records
+ */
+router.get('/processing-tags/debug-config', async (req, res) => {
+    try {
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+
+        const result = await pool.query(
+            `SELECT id, campaign_id, order_id, order_code, data, updated_at
+             FROM processing_tags
+             WHERE order_id LIKE '\\_\\_%'
+             ORDER BY order_id, updated_at DESC`
+        );
+
+        const records = result.rows.map(r => ({
+            id: r.id,
+            campaign_id: r.campaign_id,
+            order_id: r.order_id,
+            order_code: r.order_code,
+            tTagDefinitions_count: r.data?.tTagDefinitions?.length || 0,
+            tTagDefinitions_ids: (r.data?.tTagDefinitions || []).map(d => `${d.id}:${d.name}`),
+            customFlagDefs_count: r.data?.customFlagDefs?.length || 0,
+            updated_at: r.updated_at
+        }));
+
+        res.json({ success: true, records, count: result.rowCount });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
  * POST /api/realtime/processing-tags/batch
  * Load processing tags by array of order codes (for date mode / cross-campaign lookup)
  * Body: { codes: string[] }
