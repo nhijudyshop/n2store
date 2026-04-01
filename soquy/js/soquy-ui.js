@@ -2482,6 +2482,7 @@ const SoquyUI = (function () {
                 showNotification(`Đã đổi tên "${oldName}" → "${newName}"`, 'success');
                 renderCategoryList();
                 populateCategoryDropdowns();
+                refilterLocally();
             } catch (error) {
                 console.error('[SoquyUI] Error renaming category:', error);
                 showNotification('Lỗi khi đổi tên danh mục', 'error');
@@ -2551,6 +2552,7 @@ const SoquyUI = (function () {
                 showNotification(`Đã đổi tên nguồn ${code}: "${oldName}" → "${newName}"`, 'success');
                 populateCategorySourceDropdown();
                 populateCategoryDropdowns();
+                refilterLocally();
                 renderSourcesInCategoryModal();
             } catch (error) {
                 console.error('[SoquyUI] Error renaming source:', error);

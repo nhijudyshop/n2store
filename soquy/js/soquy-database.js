@@ -1027,7 +1027,7 @@ const SoquyDatabase = (function () {
     }
 
     /**
-     * Rename a dynamic category
+     * Rename a dynamic category and update all existing vouchers
      */
     async function renameDynamicCategory(oldName, newName, voucherType) {
         oldName = String(oldName || '').trim();
@@ -1037,6 +1037,7 @@ const SoquyDatabase = (function () {
         const docId = getCategoryDocId(voucherType);
 
         try {
+            // 1. Update category in soquy_meta
             const docRef = config.soquyMetaRef.doc(docId);
             const doc = await docRef.get();
             if (!doc.exists) return;
@@ -1060,7 +1061,26 @@ const SoquyDatabase = (function () {
 
             await docRef.set({ items, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
 
-            // Update local state
+            // 2. Update all vouchers with the old category name
+            const vouchersSnap = await config.soquyCollectionRef
+                .where('category', '==', oldName)
+                .get();
+
+            if (!vouchersSnap.empty) {
+                const batch = firebase.firestore().batch();
+                let batchCount = 0;
+                vouchersSnap.forEach(vDoc => {
+                    batch.update(vDoc.ref, {
+                        category: newName,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    batchCount++;
+                });
+                await batch.commit();
+                console.log(`[SoquyDB] Updated ${batchCount} vouchers: category "${oldName}" → "${newName}"`);
+            }
+
+            // 3. Update local state - dynamic list
             const dynamicList = getCategoryDynamicList(voucherType);
             dynamicList.forEach((item, idx) => {
                 const name = getCategoryName(item);
@@ -1072,6 +1092,15 @@ const SoquyDatabase = (function () {
                     }
                 }
             });
+
+            // 4. Update local state - loaded vouchers
+            if (state.vouchers) {
+                state.vouchers.forEach(v => {
+                    if (v.category === oldName) {
+                        v.category = newName;
+                    }
+                });
+            }
 
             console.log('[SoquyDB] Renamed category:', oldName, '→', newName);
 
