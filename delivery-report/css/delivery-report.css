@@ -664,7 +664,10 @@
     border-bottom-color: #16a34a;
 }
 
-.dr-province-col.active-scan .dr-province-header-nap {
+.dr-province-col.active-scan .dr-province-header-nap,
+.dr-province-col.active-scan .dr-province-header-city,
+.dr-province-col.active-scan .dr-province-header-shop,
+.dr-province-col.active-scan .dr-province-header-return {
     background: #22c55e;
     color: white;
     border-bottom-color: #16a34a;
@@ -699,6 +702,29 @@
     background: #dbeafe;
     color: #1e40af;
     border-bottom: 2px solid #93c5fd;
+}
+
+.dr-province-header-city {
+    background: #fef3c7;
+    color: #b45309;
+    border-bottom: 2px solid #fcd34d;
+}
+
+.dr-province-header-shop {
+    background: #d1fae5;
+    color: #047857;
+    border-bottom: 2px solid #6ee7b7;
+}
+
+.dr-province-header-return {
+    background: #f3e8ff;
+    color: #7c3aed;
+    border-bottom: 2px solid #c4b5fd;
+}
+
+/* All-groups 5-column grid for "Tất cả" tab */
+.dr-province-grid.all-groups {
+    grid-template-columns: repeat(5, 1fr);
 }
 
 .dr-province-count {
@@ -824,6 +850,10 @@
 /* Responsive province grid */
 @media (max-width: 768px) {
     .dr-province-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .dr-province-grid.all-groups {
         grid-template-columns: 1fr;
     }
 

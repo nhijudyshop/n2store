@@ -321,16 +321,22 @@
     // RENDER TABLE
     // =====================================================
     function renderTable() {
-        // Province tab in tra soát mode uses special 2-column view
+        // Multi-column views in tra soát mode
         if (DeliveryReportState.traSoatMode && DeliveryReportState.activeTab === 'province') {
             renderProvinceView();
+            return;
+        }
+        if (DeliveryReportState.traSoatMode && DeliveryReportState.activeTab === 'all') {
+            renderAllGroupsView();
             return;
         }
 
         // Ensure normal table is visible
         const provinceView = document.getElementById('drProvinceView');
         const tableWrapper = document.getElementById('drTableWrapper');
+        const grid = document.getElementById('drProvinceGrid');
         if (provinceView) provinceView.style.display = 'none';
+        if (grid) grid.classList.remove('all-groups');
         if (tableWrapper) tableWrapper.style.display = '';
 
         const tbody = document.getElementById('drTableBody');
@@ -762,15 +768,15 @@
             state.scanFilter = 'unscanned';
             state.currentPage = 1;
 
-            // Load scanned numbers from server + setup cross-machine sync
+            // Load scanned numbers + province groups from server + setup cross-machine sync
             await loadScannedNumbers();
+            await ensureProvinceGroups();
             setupRealtimeSync();
 
             updateTabUI();
             updateProvinceExportButtons();
             document.addEventListener('keydown', onBarcodeKeydown);
-            renderTable();
-            renderPagination();
+            renderAllGroupsView();
             updateScanCount();
         } else {
             // Exit scan mode
@@ -780,9 +786,11 @@
             }
             if (bar) bar.style.display = 'none';
 
-            // Hide province view if active
+            // Hide province/all-groups view if active
             const provinceView = document.getElementById('drProvinceView');
             if (provinceView) provinceView.style.display = 'none';
+            const grid = document.getElementById('drProvinceGrid');
+            if (grid) grid.classList.remove('all-groups');
             const tableWrapper = document.getElementById('drTableWrapper');
             if (tableWrapper) tableWrapper.style.display = '';
 
@@ -810,6 +818,9 @@
         if (tab === 'province' && DeliveryReportState.traSoatMode) {
             await ensureProvinceGroups();
             renderProvinceView();
+        } else if (tab === 'all' && DeliveryReportState.traSoatMode) {
+            await ensureProvinceGroups();
+            renderAllGroupsView();
         } else {
             renderTable();
             renderPagination();
@@ -839,6 +850,8 @@
 
         if (DeliveryReportState.activeTab === 'province' && DeliveryReportState.traSoatMode) {
             renderProvinceView();
+        } else if (DeliveryReportState.activeTab === 'all' && DeliveryReportState.traSoatMode) {
+            renderAllGroupsView();
         } else {
             renderTable();
             renderPagination();
@@ -882,6 +895,31 @@
     function isReturnItem(item) {
         return removeTones(item.DeliveryNote || '').toUpperCase().includes('THU VE');
     }
+
+    // Determine which group an item belongs to (for "all" tab 5-column view)
+    function getItemGroup(item) {
+        if (isReturnItem(item)) return 'return';
+        const nc = normalizeCarrier(item.CarrierName);
+        if (nc === 'THÀNH PHỐ') return 'city';
+        if (nc === 'BÁN HÀNG SHOP') return 'shop';
+        return DeliveryReportState.provinceGroups[item.Number] || 'nap';
+    }
+
+    const GROUP_COL_MAP = {
+        tomato: 'drColTomato', nap: 'drColNap',
+        city: 'drColCity', shop: 'drColShop', return: 'drColReturn'
+    };
+
+    const GROUP_LABELS = {
+        tomato: 'TOMATO', nap: 'NAP',
+        city: 'THÀNH PHỐ', shop: 'BÁN HÀNG SHOP', return: 'THU VỀ'
+    };
+
+    const GROUP_HEADER_CLASS = {
+        tomato: 'dr-province-header-tomato', nap: 'dr-province-header-nap',
+        city: 'dr-province-header-city', shop: 'dr-province-header-shop',
+        return: 'dr-province-header-return'
+    };
 
     function getTabFilteredData() {
         let data = DeliveryReportState.allData || [];
@@ -1035,9 +1073,14 @@
                 if (!doc.exists) return;
                 DeliveryReportState.provinceGroups = doc.data().groups || {};
                 DeliveryReportState._provinceGroupsLoaded = true;
-                if (DeliveryReportState.activeTab === 'province' && DeliveryReportState.traSoatMode) {
-                    renderProvinceView();
-                    updateScanCount();
+                if (DeliveryReportState.traSoatMode) {
+                    if (DeliveryReportState.activeTab === 'province') {
+                        renderProvinceView();
+                        updateScanCount();
+                    } else if (DeliveryReportState.activeTab === 'all') {
+                        renderAllGroupsView();
+                        updateScanCount();
+                    }
                 }
             });
     }
@@ -1057,6 +1100,8 @@
         if (!DeliveryReportState.traSoatMode) return;
         if (DeliveryReportState.activeTab === 'province') {
             renderProvinceView();
+        } else if (DeliveryReportState.activeTab === 'all') {
+            renderAllGroupsView();
         } else {
             renderTable();
             renderPagination();
@@ -1099,12 +1144,19 @@
     // =====================================================
     function renderProvinceView() {
         const view = document.getElementById('drProvinceView');
+        const grid = document.getElementById('drProvinceGrid');
         const tableWrapper = document.getElementById('drTableWrapper');
         if (!view) return;
 
-        // Show province view, hide table
+        // Show province view (2-column), hide table + extra columns
         view.style.display = '';
+        if (grid) grid.classList.remove('all-groups');
         if (tableWrapper) tableWrapper.style.display = 'none';
+        // Hide city/shop/return columns (only used in "all" tab)
+        ['drColCity', 'drColShop', 'drColReturn'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+        });
 
         const provinceData = getTabFilteredData();
         const groups = DeliveryReportState.provinceGroups;
@@ -1187,12 +1239,102 @@
         document.getElementById('drColNap').innerHTML = napHtml;
     }
 
+    // =====================================================
+    // ALL GROUPS VIEW - 5-Column Layout (TOMATO/NAP/CITY/SHOP/RETURN)
+    // =====================================================
+    function renderAllGroupsView() {
+        const view = document.getElementById('drProvinceView');
+        const grid = document.getElementById('drProvinceGrid');
+        const tableWrapper = document.getElementById('drTableWrapper');
+        if (!view) return;
+
+        view.style.display = '';
+        if (tableWrapper) tableWrapper.style.display = 'none';
+        if (grid) grid.classList.add('all-groups');
+
+        const allData = DeliveryReportState.allData || [];
+        const groups = DeliveryReportState.provinceGroups;
+        const scanned = DeliveryReportState.scannedNumbers;
+        const showScanned = DeliveryReportState.scanFilter === 'scanned';
+
+        // Classify all items into 5 groups
+        const grouped = { tomato: [], nap: [], city: [], shop: [], return: [] };
+        allData.forEach(item => {
+            const g = getItemGroup(item);
+            if (grouped[g]) grouped[g].push(item);
+        });
+
+        // Render each column
+        const groupKeys = ['tomato', 'nap', 'city', 'shop', 'return'];
+        groupKeys.forEach(key => {
+            const colEl = document.getElementById(GROUP_COL_MAP[key]);
+            if (!colEl) return;
+            colEl.style.display = '';
+
+            const allItems = grouped[key];
+            const scannedItems = allItems.filter(i => scanned.has(i.Number));
+            const viewItems = allItems.filter(item =>
+                showScanned ? scanned.has(item.Number) : !scanned.has(item.Number)
+            );
+            const totalCOD = viewItems.reduce((sum, i) => sum + (i.CashOnDelivery || 0), 0);
+
+            let html = `<div class="dr-province-header ${GROUP_HEADER_CLASS[key]}">
+                ${GROUP_LABELS[key]} <span class="dr-province-count">${scannedItems.length}/${allItems.length}</span>
+                <div class="dr-province-total">${formatMoney(totalCOD)}</div>
+            </div>`;
+
+            viewItems.forEach(item => {
+                const isItemScanned = scanned.has(item.Number);
+                html += `<div class="dr-province-item ${isItemScanned ? 'scanned' : ''}">
+                    <div class="dr-province-left">
+                        <span class="dr-province-num">${escapeHtml(item.Number)}</span>
+                        <span class="dr-province-customer">${escapeHtml(item.PartnerDisplayName || '')}</span>
+                    </div>
+                    <div class="dr-province-right">
+                        <span class="dr-province-date">${formatDate(item.DateInvoice)}</span>
+                        <span class="dr-province-amount">${formatMoney(item.CashOnDelivery || 0)}</span>
+                        ${showScanned ? `<button class="dr-btn-unscan" onclick="DeliveryReport.unscanItem('${escapeHtml(item.Number)}')" title="Xóa quét"><i class="fas fa-times"></i></button>` : ''}
+                    </div>
+                </div>`;
+            });
+
+            if (viewItems.length === 0) {
+                html += `<div class="dr-province-item" style="justify-content:center;color:#9ca3af;padding:20px;">Không có dữ liệu</div>`;
+            }
+
+            colEl.innerHTML = html;
+        });
+    }
+
+    function showGroupColumn(group) {
+        Object.entries(GROUP_COL_MAP).forEach(([g, id]) => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = g === group ? '' : 'none';
+        });
+        highlightProvinceColumn(group);
+    }
+
+    function showAllGroupColumns() {
+        Object.values(GROUP_COL_MAP).forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = '';
+        });
+        document.querySelectorAll('.dr-province-col').forEach(el => el.classList.remove('active-scan'));
+    }
+
+    function hideAllGroupColumns() {
+        Object.values(GROUP_COL_MAP).forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+        });
+    }
+
     function highlightProvinceColumn(column) {
         // Remove from all columns
         document.querySelectorAll('.dr-province-col').forEach(el => el.classList.remove('active-scan'));
 
         // Add persistent highlight to the scanned column
-        const colId = column === 'tomato' ? 'drColTomato' : 'drColNap';
+        const colId = GROUP_COL_MAP[column] || (column === 'tomato' ? 'drColTomato' : 'drColNap');
         const colEl = document.getElementById(colId);
         if (colEl) colEl.classList.add('active-scan');
     }
@@ -1223,20 +1365,14 @@
         console.log('[DELIVERY-REPORT] Scanned:', value);
         const state = DeliveryReportState;
         const isProvinceTab = state.activeTab === 'province' && state.traSoatMode;
-
-        // Block scanning on "Tất cả" tab
-        if (state.activeTab === 'all') {
-            if (isProvinceTab) hideProvinceColumns();
-            soundError.currentTime = 0; soundError.play();
-            showScanFeedback(false, 'Vui lòng chọn tab cụ thể để quét!', true);
-            return;
-        }
+        const isAllTab = state.activeTab === 'all' && state.traSoatMode;
+        const isMultiColView = isProvinceTab || isAllTab;
 
         // Find matching item by Number (case-insensitive)
         const upperValue = value.toUpperCase();
         const match = (state.allData || []).find(item => (item.Number || '').toUpperCase() === upperValue);
         if (!match) {
-            if (isProvinceTab) hideProvinceColumns();
+            if (isMultiColView) isAllTab ? hideAllGroupColumns() : hideProvinceColumns();
             soundError.currentTime = 0; soundError.play();
             showScanFeedback(false, `Không tìm thấy: ${value}`, true);
             return;
@@ -1244,7 +1380,11 @@
 
         // Check if already scanned
         if (state.scannedNumbers.has(match.Number)) {
-            if (isProvinceTab) {
+            if (isAllTab) {
+                const group = getItemGroup(match);
+                renderAllGroupsView();
+                showGroupColumn(group);
+            } else if (isProvinceTab) {
                 const group = state.provinceGroups[match.Number];
                 if (group) {
                     renderProvinceView();
@@ -1256,31 +1396,33 @@
             return;
         }
 
-        // Tab-aware scanning: check if item belongs to current tab
-        const normalizedCarrier = normalizeCarrier(match.CarrierName);
-        const matchIsReturn = isReturnItem(match);
-        let belongsToTab = false;
+        // Tab-aware scanning (skip tab check for "all" tab)
+        if (!isAllTab) {
+            const normalizedCarrier = normalizeCarrier(match.CarrierName);
+            const matchIsReturn = isReturnItem(match);
+            let belongsToTab = false;
 
-        const isCity = normalizedCarrier === 'THÀNH PHỐ';
-        const isShop = normalizedCarrier === 'BÁN HÀNG SHOP';
-        const isProvince = normalizedCarrier && !isCity && !isShop;
+            const isCity = normalizedCarrier === 'THÀNH PHỐ';
+            const isShop = normalizedCarrier === 'BÁN HÀNG SHOP';
+            const isProvince = normalizedCarrier && !isCity && !isShop;
 
-        if (state.activeTab === 'return' && matchIsReturn) belongsToTab = true;
-        else if (state.activeTab === 'city' && isCity && !matchIsReturn) belongsToTab = true;
-        else if (state.activeTab === 'province' && isProvince && !matchIsReturn) belongsToTab = true;
-        else if (state.activeTab === 'shop' && isShop && !matchIsReturn) belongsToTab = true;
+            if (state.activeTab === 'return' && matchIsReturn) belongsToTab = true;
+            else if (state.activeTab === 'city' && isCity && !matchIsReturn) belongsToTab = true;
+            else if (state.activeTab === 'province' && isProvince && !matchIsReturn) belongsToTab = true;
+            else if (state.activeTab === 'shop' && isShop && !matchIsReturn) belongsToTab = true;
 
-        if (!belongsToTab) {
-            let correctTab = 'khác';
-            if (matchIsReturn) correctTab = 'Thu về';
-            else if (isCity) correctTab = 'Thành phố';
-            else if (isProvince) correctTab = 'Tỉnh';
-            else if (isShop) correctTab = 'Bán hàng shop';
+            if (!belongsToTab) {
+                let correctTab = 'khác';
+                if (matchIsReturn) correctTab = 'Thu về';
+                else if (isCity) correctTab = 'Thành phố';
+                else if (isProvince) correctTab = 'Tỉnh';
+                else if (isShop) correctTab = 'Bán hàng shop';
 
-            if (isProvinceTab) hideProvinceColumns();
-            soundError.currentTime = 0; soundError.play();
-            showScanFeedback('wrong-tab', `${value} thuộc tab "${correctTab}"!`, true);
-            return;
+                if (isProvinceTab) hideProvinceColumns();
+                soundError.currentTime = 0; soundError.play();
+                showScanFeedback('wrong-tab', `${value} thuộc tab "${correctTab}"!`, true);
+                return;
+            }
         }
 
         // Mark as scanned
@@ -1289,21 +1431,27 @@
         // Save to Firestore for cross-machine sync
         saveScannedNumbers();
 
-        // Province tab: show only the column the item belongs to
-        if (isProvinceTab) {
+        // Update view based on active tab
+        if (isAllTab) {
+            const group = getItemGroup(match);
+            renderAllGroupsView();
+            showGroupColumn(group);
+            updateScanCount();
+            showScanFeedback(true, `${match.Number} → ${GROUP_LABELS[group]}`, false);
+        } else if (isProvinceTab) {
             renderProvinceView();
             const group = state.provinceGroups[match.Number];
             if (group) {
                 showProvinceColumn(group);
             }
+            updateScanCount();
+            showScanFeedback(true, `${match.Number} → ${(group || '').toUpperCase()}`, false);
         } else {
             renderTable();
             renderPagination();
+            updateScanCount();
+            showScanFeedback(true, `${match.Number}`, false);
         }
-
-        updateScanCount();
-        const groupLabel = isProvinceTab ? ` → ${(state.provinceGroups[match.Number] || '').toUpperCase()}` : '';
-        showScanFeedback(true, `${match.Number}${groupLabel}`, false);
     }
 
     function hideProvinceColumns() {
