@@ -218,6 +218,7 @@ const invoiceStatusRoutes = require('./routes/invoice-status');
 const socialOrdersRoutes = require('./routes/social-orders');
 const attendanceRoutes = require('./routes/attendance');
 const usersRoutes = require('./routes/users');
+const quickRepliesRoutes = require('./routes/quick-replies');
 
 // === ROUTES MERGED FROM /api ===
 const uploadRoutes = require('./routes/upload.routes');
@@ -265,6 +266,7 @@ app.use('/api/invoice-status', invoiceStatusRoutes);
 app.use('/api/social-orders', socialOrdersRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/users', usersRoutes);
+app.use('/api/quick-replies', quickRepliesRoutes);
 
 // Initialize SSE notifiers in realtime-db routes
 const { initializeNotifiers } = require('./routes/realtime-db');
