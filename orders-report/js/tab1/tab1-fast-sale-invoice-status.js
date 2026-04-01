@@ -146,8 +146,6 @@
                 await this._loadFromAPI();
 
                 this._initialized = true;
-                console.log(`[INVOICE-STATUS] Store initialized with ${this._data.size} entries`);
-
                 // Re-render all invoice status cells after init
                 if (this._data.size > 0) {
                     const allKeys = [];
@@ -186,8 +184,6 @@
         async _loadFromAPI() {
             try {
                 const myUsername = this._getUsername();
-                console.log('[INVOICE-STATUS] Loading from API...');
-
                 const response = await fetch(`${API_BASE}/load`);
                 if (!response.ok) throw new Error(`API load failed: ${response.status}`);
 
@@ -244,7 +240,6 @@
                 // Populate sentBills
                 (result.sentBills || []).forEach(id => this._sentBills.add(id));
 
-                console.log(`[INVOICE-STATUS] Loaded ${this._data.size} entries from API (my keys: ${this._myKeys.size})`);
                 return true;
             } catch (e) {
                 console.error('[INVOICE-STATUS] API load error:', e);
@@ -309,7 +304,6 @@
                 if (!response.ok) {
                     console.error('[INVOICE-STATUS] Batch save API error:', response.status);
                 } else {
-                    console.log(`[INVOICE-STATUS] Batch saved ${entries.length} entries to API`);
                 }
             } catch (e) {
                 console.error('[INVOICE-STATUS] Batch save error:', e);
@@ -344,7 +338,6 @@
                 }
             });
             if (updatedCount > 0) {
-                console.log(`[INVOICE-STATUS] Real-time: Updated UI for ${updatedCount} orders`);
             }
         },
 
@@ -409,7 +402,6 @@
             this._sentBills.clear();
             this._myKeys.clear();
             this._initialized = false;
-            console.log('[INVOICE-STATUS] Store destroyed');
         },
 
         /**
@@ -567,7 +559,6 @@
                     method: 'DELETE',
                 });
                 if (response.ok) {
-                    console.log(`[INVOICE-STATUS] Deleted invoice ${targetKey} from API`);
                 }
             } catch (e) {
                 console.error('[INVOICE-STATUS] API delete error:', e);
@@ -733,11 +724,6 @@
                     if (discount > 0) {
                         order.Discount = discount;
                     }
-                    console.log('[INVOICE-STATUS] Enriched payment data:', {
-                        Reference: order.Reference,
-                        PaymentAmount: order.PaymentAmount,
-                        Discount: order.Discount,
-                    });
                 }
                 return order;
             };
@@ -803,7 +789,6 @@
                             order.Carrier = {};
                         }
                         order.Carrier.Name = carrierName;
-                        console.log('[INVOICE-STATUS] Enriched carrier from request:', carrierName);
                     }
                 }
                 return order;
@@ -891,8 +876,6 @@
                 });
             }
 
-            console.log(`[INVOICE-STATUS] Stored ${this._data.size} invoice entries`);
-
             // Batch save all entries to API
             this._batchMode = false;
             this._saveBatchToAPI(Array.from(this._myKeys));
@@ -930,7 +913,6 @@
             });
 
             if (toRefreshMap.size === 0) {
-                console.log('[INVOICE-STATUS] No invoices need StateCode refresh');
                 return;
             }
 
@@ -938,8 +920,6 @@
             if (!earliestDate) {
                 earliestDate = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
             }
-
-            console.log(`[INVOICE-STATUS] Refreshing StateCode for ${toRefreshMap.size} invoices (from ${earliestDate.toLocaleDateString()})...`);
 
             const tposOData = window.API_CONFIG?.TPOS_ODATA || 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata';
             const updatedKeys = [];
@@ -988,7 +968,6 @@
                                     this._data.set(match.compoundKey, storeEntry);
                                     updatedKeys.push(match.saleOnlineId);
                                     keysToSaveAPI.push(match.compoundKey);
-                                    console.log(`[INVOICE-STATUS] StateCode updated: ${storeEntry.Number} None → ${newStateCode}`);
                                 }
                             }
                         }
@@ -1007,9 +986,7 @@
             if (keysToSaveAPI.length > 0) {
                 this._saveBatchToAPI(keysToSaveAPI);
                 this._refreshInvoiceStatusUI(updatedKeys);
-                console.log(`[INVOICE-STATUS] StateCode refreshed: ${updatedKeys.length} invoices updated`);
             } else {
-                console.log('[INVOICE-STATUS] StateCode refresh: no changes from TPOS');
             }
         },
 
@@ -1021,7 +998,6 @@
                 const response = await fetch(`${API_BASE}/cleanup`, { method: 'DELETE' });
                 if (response.ok) {
                     const result = await response.json();
-                    console.log('[INVOICE-STATUS] Cleanup result:', result.cleaned);
                 }
             } catch (e) {
                 console.error('[INVOICE-STATUS] Cleanup error:', e);
@@ -1076,7 +1052,6 @@
             });
             this._refreshInvoiceStatusUI(allKeys);
             this._syncToFulfillmentData();
-            console.log(`[INVOICE-STATUS] Reloaded ${this._data.size} entries from API`);
         },
     };
 
@@ -1410,8 +1385,6 @@
                 iframeDoc.write(billHTML);
                 iframeDoc.close();
 
-                console.log('[INVOICE-STATUS] Custom bill loaded in iframe');
-
                 // Pre-generate bill image in background (don't await - fire and forget)
                 // This makes sending instant when user clicks "Gửi"
                 if (
@@ -1444,8 +1417,6 @@
      */
     async function preGenerateBillInBackground(enrichedOrder, channelId, billHtml, walletBalance) {
         const cacheKey = enrichedOrder.Id || enrichedOrder.Number;
-        console.log('[INVOICE-STATUS] 🎨 Pre-generating bill image for:', cacheKey);
-
         try {
             // Initialize cache if not exists
             if (!window.preGeneratedBillData) {
@@ -1561,7 +1532,6 @@
 
         // Use TPOS bill if order has TPOS ID
         if (tposOrderId && typeof window.fetchAndPrintTPOSBill === 'function') {
-            console.log('[INVOICE-STATUS] Printing TPOS bill for order:', tposOrderId);
             const headers = await getBillAuthHeader();
             const orderData = enrichedOrder.SessionIndex
                 ? enrichedOrder
@@ -1570,7 +1540,6 @@
         } else if (typeof window.openCombinedPrintPopup === 'function') {
             // Fallback to custom bill
             window.openCombinedPrintPopup([enrichedOrder]);
-            console.log('[INVOICE-STATUS] Opened custom print popup for bill');
         } else {
             window.notificationManager?.error('Không thể mở cửa sổ in', 5000);
         }
@@ -1592,7 +1561,6 @@
 
         // 1. Open print popup first (TPOS bill if available)
         if (tposOrderId && typeof window.fetchAndPrintTPOSBill === 'function') {
-            console.log('[INVOICE-STATUS] Printing TPOS bill for order:', tposOrderId);
             const headers = await getBillAuthHeader();
             const orderData = enrichedOrder.SessionIndex
                 ? enrichedOrder
@@ -1600,7 +1568,6 @@
             window.fetchAndPrintTPOSBill(tposOrderId, headers, orderData);
         } else if (typeof window.openCombinedPrintPopup === 'function') {
             window.openCombinedPrintPopup([enrichedOrder]);
-            console.log('[INVOICE-STATUS] Opened custom print popup for bill');
         }
 
         // 2. Close modal immediately and show sending notification
@@ -1633,8 +1600,6 @@
         source,
         resultIndex
     ) {
-        console.log('[INVOICE-STATUS] Sending bill for:', orderCode);
-
         // Check for pre-generated bill data
         const cachedData =
             window.preGeneratedBillData?.get(enrichedOrder.Id) ||
@@ -1651,8 +1616,6 @@
         const result = await window.sendBillToCustomer(enrichedOrder, channelId, psid, sendOptions);
 
         if (result.success) {
-            console.log(`[INVOICE-STATUS] ✅ Bill sent for ${orderCode}`);
-
             // Mark as sent
             InvoiceStatusStore.markBillSent(orderId);
 
@@ -1738,7 +1701,6 @@
             );
             if (districtInfo) {
                 carrierName = getCarrierNameFromDistrict(districtInfo);
-                console.log('[INVOICE-STATUS] Auto-detected carrier from address:', carrierName);
             }
         }
 
@@ -2353,8 +2315,6 @@
             const okTags = orderTags.filter(t => t.Name && t.Name.toUpperCase().startsWith('OK '));
 
             if (okTags.length > 0) {
-                console.log(`[INVOICE-STATUS] Found ${okTags.length} OK tags to remove:`, okTags.map(t => t.Name));
-
                 // Filter out OK tags
                 const newOrderTags = orderTags.filter(t => !t.Name || !t.Name.toUpperCase().startsWith('OK '));
 
@@ -2376,8 +2336,6 @@
                 );
 
                 if (tagResponse.ok) {
-                    console.log(`[INVOICE-STATUS] ✅ Removed OK tags from order ${saleOnlineId}`);
-
                     // Update local data
                     const newTagsJson = JSON.stringify(newOrderTags);
                     order.Tags = newTagsJson;
@@ -2416,8 +2374,6 @@
         if (!apiResult) return;
 
         const allOrders = [...(apiResult.OrdersSucessed || []), ...(apiResult.OrdersError || [])];
-
-        console.log(`[INVOICE-STATUS] Updating ${allOrders.length} cells in main table`);
 
         // Inject entries into FulfillmentData immediately
         const fd = window.parent?.FulfillmentData || window.FulfillmentData;
@@ -2501,7 +2457,6 @@
             window.updateActionButtons();
         }
 
-        console.log('[INVOICE-STATUS] Cleared checkboxes for processed orders');
     }
 
     // =====================================================
@@ -2542,7 +2497,6 @@
             }, 2000);
         };
 
-        console.log('[INVOICE-STATUS] Hooked showFastSaleResultsModal');
         return true;
     }
 
@@ -2555,8 +2509,6 @@
     async function init() {
         if (_initStarted) return;
         _initStarted = true;
-
-        console.log('[INVOICE-STATUS] Initializing module v3.0 (PostgreSQL API)...');
 
         // Initialize store (async - loads from API)
         await InvoiceStatusStore.init();
@@ -2625,7 +2577,6 @@
 
         // No flush needed - API calls are immediate (no debounce)
 
-        console.log('[INVOICE-STATUS] Module initialized successfully');
     }
 
     // =====================================================
