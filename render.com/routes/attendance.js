@@ -266,6 +266,18 @@ router.post('/records', async (req, res) => {
     }
 });
 
+/** DELETE /records/clear-all — Delete all records (for re-sync) */
+router.delete('/records/clear-all', async (req, res) => {
+    try {
+        const result = await req.pool.query('DELETE FROM attendance_records');
+        console.log('[ATTENDANCE] Cleared all records:', result.rowCount);
+        res.json({ success: true, deleted: result.rowCount });
+    } catch (error) {
+        console.error('[ATTENDANCE] DELETE /records/clear-all error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 /** DELETE /records/:id — Delete single record */
 router.delete('/records/:id', async (req, res) => {
     try {

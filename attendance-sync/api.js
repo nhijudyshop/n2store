@@ -32,18 +32,28 @@ function init() {
 
 async function uploadRecords(records) {
     if (!records.length) return 0;
-    const rows = records.map(r => {
+    const validStart = new Date('2020-01-01').getTime();
+    const validEnd = Date.now() + 86400000; // tomorrow
+    const rows = [];
+    let skipped = 0;
+    for (const r of records) {
         const t = new Date(r.recordTime || Date.now());
         const uid = String(r.deviceUserId || '');
-        return {
+        // Skip records with invalid timestamps (before 2020 or future)
+        if (!uid || uid === '0' || t.getTime() < validStart || t.getTime() > validEnd) {
+            skipped++;
+            continue;
+        }
+        rows.push({
             id: uid + '_' + t.getTime(),
             device_user_id: uid,
             check_time: t.toISOString(),
             date_key: dk(t),
             type: r.type || 0,
             source: 'device',
-        };
-    });
+        });
+    }
+    if (skipped > 0) console.log('[api] skipped ' + skipped + ' invalid records (bad timestamp or uid)');
 
     let total = 0;
     // Batch in chunks of 500
