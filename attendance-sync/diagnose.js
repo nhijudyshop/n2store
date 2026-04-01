@@ -4,58 +4,74 @@ function hex(buf) {
   return buf.toString('hex').match(/../g).join(' ');
 }
 
+function decodeTime(t) {
+  const s = t % 60; t = (t - s) / 60;
+  const m = t % 60; t = (t - m) / 60;
+  const h = t % 24; t = (t - h) / 24;
+  const d = (t % 31) + 1; t = (t - (d - 1)) / 31;
+  const mo = t % 12; t = (t - mo) / 12;
+  return new Date(t + 2000, mo, d, h, m, s);
+}
+
 (async () => {
   const zk = new ZK('192.168.1.201', 4370, 10000, 0);
   await zk.connect();
 
-  // === 1. Read raw attendance data to analyze chunk boundary ===
-  console.log('=== RAW CHUNK ANALYSIS ===');
-  const raw = await zk.readWithBuffer(13); // CMD_GET_ATTEND = 13
-  console.log('Raw data size:', raw.length, 'bytes');
-  console.log('Expected records (40-byte):', Math.floor(raw.length / 40));
-  console.log('Chunk boundary at:', 16384, 'bytes (MAX_CHUNK)');
-  console.log('Records in chunk 1:', Math.floor(16384 / 40), '(409 * 40 = 16360)');
-  console.log('');
-
-  // Show bytes around chunk boundary (16360-16440)
-  if (raw.length > 16440) {
-    console.log('=== BYTES AROUND CHUNK BOUNDARY (record 409-411) ===');
-    // Record 409 (last in chunk 1): bytes 16320-16359
-    console.log('Record 409 (bytes 16320-16359) - last in chunk 1:');
-    console.log('  ' + hex(raw.slice(16320, 16360)));
-    // Bytes 16360-16383 (end of chunk 1, start of record 410)
-    console.log('Record 410 (bytes 16360-16399) - CROSSES chunk boundary:');
-    console.log('  ' + hex(raw.slice(16360, 16400)));
-    // Record 411 (first fully in chunk 2): bytes 16400-16439
-    console.log('Record 411 (bytes 16400-16439) - first full in chunk 2:');
-    console.log('  ' + hex(raw.slice(16400, 16440)));
-    console.log('');
-  }
-
-  // Show first and last 40 bytes (first and last record)
-  console.log('=== FIRST RECORD (bytes 0-39) ===');
-  console.log('  ' + hex(raw.slice(0, 40)));
-  console.log('=== LAST RECORD (bytes ' + (raw.length - 40) + '-' + (raw.length - 1) + ') ===');
-  console.log('  ' + hex(raw.slice(raw.length - 40)));
-  console.log('');
-
-  // === 2. Parse and show records around boundary ===
-  console.log('=== PARSED RECORDS AROUND BOUNDARY ===');
+  // === 1. Get parsed records ===
   const recs = await zk.getAttendances();
   console.log('Total parsed:', recs.length);
 
   const valid = recs.filter(r => r.deviceUserId !== '0' && !r.recordTime.includes('1999'));
   const bad = recs.filter(r => r.deviceUserId === '0' || r.recordTime.includes('1999'));
   console.log('Valid:', valid.length, '| Bad:', bad.length);
+  if (valid.length) console.log('Last valid:', valid[valid.length - 1]);
+  if (bad.length) console.log('First bad:', bad[0]);
   console.log('');
 
-  // Show records 405-415 (around the boundary)
-  console.log('Records around position 409:');
-  for (let i = Math.max(0, 405); i < Math.min(recs.length, 415); i++) {
-    const r = recs[i];
-    const marker = (i === 409) ? ' <<<< CHUNK BOUNDARY' : '';
-    console.log(`  [${i}] user=${r.deviceUserId.padStart(3)} time=${r.recordTime} type=${r.type}${marker}`);
+  // === 2. Read raw data again to inspect hex ===
+  console.log('=== RAW DATA ANALYSIS ===');
+  const raw = await zk.readWithBuffer(13); // CMD_GET_ATTEND
+  console.log('Raw size:', raw.length, 'bytes');
+  console.log('Records if 40-byte:', Math.floor(raw.length / 40));
+  console.log('');
+
+  // Try parsing manually with 40-byte format, tsOff=27
+  console.log('=== MANUAL PARSE (40-byte, tsOff=27) ===');
+  // Find where records go bad
+  let firstBadIdx = -1;
+  for (let i = 0; i + 40 <= raw.length; i += 40) {
+    const recNum = i / 40;
+    const userIdStr = raw.slice(i + 2, i + 26).toString('ascii').split('\0').shift().trim();
+    let uid = parseInt(userIdStr);
+    if (isNaN(uid) || uid <= 0) uid = raw.readUInt16LE(i);
+    const tsRaw = raw.readUInt32LE(i + 27);
+    const time = decodeTime(tsRaw);
+
+    // Show records around boundaries
+    if (recNum >= 405 && recNum <= 415) {
+      console.log(`  [${recNum}] uid=${String(uid).padStart(3)} tsRaw=${tsRaw} time=${time.toISOString()} hex=${hex(raw.slice(i, i + 40))}`);
+    }
+
+    if (firstBadIdx === -1 && (uid === 0 || tsRaw === 0)) {
+      firstBadIdx = recNum;
+    }
   }
+  console.log('');
+  console.log('First bad record index:', firstBadIdx);
+
+  // Show the first bad record and the one before it
+  if (firstBadIdx > 0) {
+    const goodOff = (firstBadIdx - 1) * 40;
+    const badOff = firstBadIdx * 40;
+    console.log('');
+    console.log('Last good [' + (firstBadIdx - 1) + '] hex:', hex(raw.slice(goodOff, goodOff + 40)));
+    console.log('First bad [' + firstBadIdx + '] hex:', hex(raw.slice(badOff, badOff + 40)));
+  }
+
+  // Show first and last records
+  console.log('');
+  console.log('First record [0] hex:', hex(raw.slice(0, 40)));
+  console.log('Last record [' + (Math.floor(raw.length / 40) - 1) + '] hex:', hex(raw.slice(raw.length - (raw.length % 40 || 40) - 40, raw.length)));
 
   await zk.disconnect();
   console.log('\nDONE');

@@ -531,8 +531,6 @@ class ZK {
       if (this.debug) console.log('  [readWithBuffer] large data: totalSize=' + totalSize);
 
       // Read chunks via CMD 1504
-      // IMPORTANT: Use _cmd (not _cmdData) to avoid _extract() incorrectly
-      // stripping 4 bytes from CMD_DATA responses (no size prefix in chunk reads)
       const MAX_CHUNK = 16384;
       const chunks = [];
       let offset = 0;
@@ -543,18 +541,8 @@ class ZK {
         chunkReq.writeInt32LE(offset, 0);
         chunkReq.writeInt32LE(reqSize, 4);
 
-        const res = await this._cmd(CMD_DATA_RDY, chunkReq);
-        let chunkData = res.data || Buffer.alloc(0);
-
-        // First chunk may have a 4-byte total size prefix — strip it if present
-        if (offset === 0 && chunkData.length > 4) {
-          const maybeSize = chunkData.readUInt32LE(0);
-          if (maybeSize === totalSize || maybeSize === totalSize - 4) {
-            chunkData = chunkData.slice(4);
-          }
-        }
-
-        if (!chunkData.length) break;
+        const chunkData = await this._cmdData(CMD_DATA_RDY, chunkReq);
+        if (!chunkData || !chunkData.length) break;
         chunks.push(chunkData);
         offset += chunkData.length;
 
