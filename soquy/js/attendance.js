@@ -1,6 +1,6 @@
 /**
  * Attendance Module - Quản lý chấm công
- * Đọc dữ liệu từ Firestore (được sync bởi attendance-sync service)
+ * Đọc dữ liệu từ Render API (PostgreSQL, sync bởi attendance-sync service)
  * Hiển thị bảng chấm công theo tuần trên web
  */
 (function () {
