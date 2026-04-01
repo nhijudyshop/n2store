@@ -86,9 +86,10 @@ window.openChatModal = async function(orderId, pageId, psid, conversationType) {
     window.currentSendPageId = pageId;
     window.isSendingMessage = false;
 
-    // Get customer name from order row
+    // Get customer name and phone from order row
     const orderRow = document.querySelector(`tr[data-order-id="${orderId}"]`);
     window.currentCustomerName = orderRow?.querySelector('.customer-name')?.textContent?.trim() || '';
+    window.currentChatPhone = orderRow?.querySelector('td[data-column="phone"] span')?.textContent?.trim() || '';
 
     // Show modal
     modal.style.display = 'flex';
@@ -102,6 +103,27 @@ window.openChatModal = async function(orderId, pageId, psid, conversationType) {
     // Update header
     const nameEl = document.getElementById('chatCustomerName');
     if (nameEl) nameEl.textContent = window.currentCustomerName || 'Khách hàng';
+
+    // Update phone number display
+    const phoneEl = document.getElementById('chatPhoneNumber');
+    if (phoneEl) phoneEl.textContent = window.currentChatPhone || '';
+
+    // Load debt badge
+    const debtBadge = document.getElementById('chatDebtBadge');
+    if (debtBadge && window.currentChatPhone) {
+        debtBadge.style.display = 'inline-flex';
+        debtBadge.onclick = function(e) {
+            e.stopPropagation();
+            if (typeof window.openWalletDebtModal === 'function') {
+                window.openWalletDebtModal(window.currentChatPhone);
+            }
+        };
+        if (typeof window.loadChatDebt === 'function') {
+            window.loadChatDebt(window.currentChatPhone);
+        }
+    } else if (debtBadge) {
+        debtBadge.style.display = 'none';
+    }
 
     // Update header avatar (same approach as inbox: extract direct avatar from conv data)
     const avatarEl = document.getElementById('chatCustomerAvatar');
