@@ -804,6 +804,12 @@ async function executeBulkTagModalAssignment() {
                         const tagExistsOnReplacement = replacementCurrentTags.some(t => t.Id === tagInfo.Id);
                         if (tagExistsOnReplacement) {
                             console.log(`[BULK-TAG-MODAL] Tag already exists on replacement order ${replacementOrder.Code}`);
+                            // Transfer processing tags (flags + tTags) from blocked order to replacement
+                            try {
+                                if (window.transferProcessingTags) {
+                                    await window.transferProcessingTags(order.Id, replacementOrder.Id);
+                                }
+                            } catch (e) { console.warn('[BULK-TAG-MODAL] Transfer processing tags failed:', e); }
                             successSTT.push({
                                 original: originalSTT,
                                 redirectTo: replacementOrder.SessionIndex,
@@ -851,6 +857,13 @@ async function executeBulkTagModalAssignment() {
 
                             // Emit Firebase update for replacement order
                             await emitTagUpdateToFirebase(replacementOrder.Id, replacementUpdatedTags);
+
+                            // Transfer processing tags (flags + tTags) from blocked order to replacement
+                            try {
+                                if (window.transferProcessingTags) {
+                                    await window.transferProcessingTags(order.Id, replacementOrder.Id);
+                                }
+                            } catch (e) { console.warn('[BULK-TAG-MODAL] Transfer processing tags failed:', e); }
 
                             // Record success with redirect info
                             successSTT.push({

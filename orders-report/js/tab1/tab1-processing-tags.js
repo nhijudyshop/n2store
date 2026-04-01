@@ -750,6 +750,73 @@
         await saveProcessingTagToAPI(orderId, data);
     }
 
+    // Transfer processing tags (flags + tTags) from source order to target order
+    // Used when redirecting from "ĐÃ GỘP KO CHỐT" order to replacement order
+    // Only merges flags + tTags, does NOT touch category/subTag of target
+    async function transferProcessingTags(sourceOrderId, targetOrderId) {
+        const sourceData = ProcessingTagState.getOrderData(sourceOrderId);
+        if (!sourceData) return { transferred: false, reason: 'no_source_data' };
+
+        const sourceFlags = sourceData.flags || [];
+        const sourceTTags = sourceData.tTags || [];
+        if (sourceFlags.length === 0 && sourceTTags.length === 0) {
+            return { transferred: false, reason: 'nothing_to_transfer' };
+        }
+
+        console.log(`${PTAG_LOG} Transferring processing tags from ${sourceOrderId} to ${targetOrderId} (flags: ${sourceFlags.length}, tTags: ${sourceTTags.length})`);
+
+        // Get or create target data
+        let targetData = ProcessingTagState.getOrderData(targetOrderId) || {
+            category: null, subTag: null, subState: null,
+            flags: [], tTags: [], note: '', assignedAt: Date.now()
+        };
+
+        // Union merge flags (add flags from source that target doesn't have)
+        const targetFlags = targetData.flags || [];
+        const newFlags = sourceFlags.filter(f => !targetFlags.includes(f));
+        targetData.flags = [...targetFlags, ...newFlags];
+
+        // Union merge tTags
+        const targetTTags = targetData.tTags || [];
+        const newTTags = sourceTTags.filter(t => !targetTTags.includes(t));
+        targetData.tTags = [...targetTTags, ...newTTags];
+
+        // Auto subState for category 1 CHO_DI_DON when tTags added
+        if (targetData.category === PTAG_CATEGORIES.CHO_DI_DON && targetData.tTags.length > 0) {
+            targetData.subState = 'CHO_HANG';
+        }
+
+        _ptagEnsureCode(targetOrderId, targetData);
+        ProcessingTagState.setOrderData(targetOrderId, targetData);
+
+        // History
+        const sourceCode = sourceData.code || sourceOrderId;
+        const targetCode = targetData.code || targetOrderId;
+        _ptagAddHistory(targetOrderId, 'TRANSFER_IN', sourceCode);
+        _ptagAddHistory(sourceOrderId, 'TRANSFER_OUT', targetCode);
+
+        // Clear source flags + tTags (keep category untouched)
+        sourceData.flags = [];
+        sourceData.tTags = [];
+        ProcessingTagState.setOrderData(sourceOrderId, sourceData);
+
+        // Save both to API
+        await saveProcessingTagToAPI(targetOrderId, targetData);
+        await saveProcessingTagToAPI(sourceOrderId, sourceData);
+
+        // Refresh UI
+        _ptagRefreshRow(targetOrderId);
+        _ptagRefreshRow(sourceOrderId);
+        renderPanelContent();
+
+        console.log(`${PTAG_LOG} Transfer complete: ${newFlags.length} flags, ${newTTags.length} tTags added to ${targetOrderId}`);
+        return {
+            transferred: true,
+            flagsAdded: newFlags,
+            tTagsAdded: newTTags
+        };
+    }
+
     // DEPRECATED — T-tags now managed internally, not from TPOS
     // Kept as no-op to avoid breaking call sites in tab1-tags.js
     function onPtagOrderTagsChanged(orderId, newTags) {
@@ -3764,6 +3831,8 @@
         if (action === 'AUTO_ROLLBACK') return 'Rollback (auto)';
         if (action === 'SET_PHIEU_SOAN' || action === 'UNSET_PHIEU_SOAN') return 'Phiếu soạn hàng';
         if (action === 'AUTO_PHIEU_SOAN') return 'Phiếu soạn (auto)';
+        if (action === 'TRANSFER_IN') return `Nhận tag XL từ đơn ${value}`;
+        if (action === 'TRANSFER_OUT') return `Chuyển tag XL sang đơn ${value}`;
         return value || '';
     }
 
@@ -3890,7 +3959,9 @@
         AUTO_ROLLBACK:   { sign: '←', cls: 'auto', group: 'auto', label: 'Auto rollback' },
         SET_PHIEU_SOAN:  { sign: '+', cls: 'add', group: 'phieu', label: 'Đánh dấu phiếu soạn' },
         UNSET_PHIEU_SOAN:{ sign: '-', cls: 'remove', group: 'phieu', label: 'Bỏ phiếu soạn' },
-        AUTO_PHIEU_SOAN: { sign: '+', cls: 'auto', group: 'phieu', label: 'Auto phiếu soạn' }
+        AUTO_PHIEU_SOAN: { sign: '+', cls: 'auto', group: 'phieu', label: 'Auto phiếu soạn' },
+        TRANSFER_IN:     { sign: '←', cls: 'add', group: 'transfer', label: 'Nhận tag XL' },
+        TRANSFER_OUT:    { sign: '→', cls: 'remove', group: 'transfer', label: 'Chuyển tag XL' }
     };
 
     let _globalHistoryCache = [];
@@ -4109,6 +4180,7 @@
     window.assignOrderCategory = assignOrderCategory;
     window.toggleOrderFlag = toggleOrderFlag;
     window.clearProcessingTag = clearProcessingTag;
+    window.transferProcessingTags = transferProcessingTags;
     window.renderProcessingTagCell = renderProcessingTagCell;
     window.renderPanelContent = renderPanelContent;
 
