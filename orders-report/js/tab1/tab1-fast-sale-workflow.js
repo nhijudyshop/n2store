@@ -802,6 +802,24 @@
             return false;
         }
 
+        // Reset order status back to "Nháp" on TPOS
+        // (TPOS auto-changes to "Đơn hàng" even when creation fails)
+        try {
+            const headers = await window.tokenManager.getAuthHeader();
+            const statusUrl = `${window.API_CONFIG?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev'}/api/odata/SaleOnline_Order/OdataService.UpdateStatusSaleOnline?Id=${saleOnlineId}&Status=${encodeURIComponent('Nháp')}`;
+            await API_CONFIG.smartFetch(statusUrl, {
+                method: 'POST',
+                headers: {
+                    ...headers,
+                    'content-type': 'application/json;charset=utf-8',
+                },
+                body: null,
+            });
+            console.log('[WORKFLOW] Reset order status to Nháp:', saleOnlineId);
+        } catch (statusErr) {
+            console.warn('[WORKFLOW] Failed to reset status to Nháp:', statusErr);
+        }
+
         // Find or create "Âm Mã" tag
         const amMaTag = await findOrCreateTag('ÂM MÃ');
 
