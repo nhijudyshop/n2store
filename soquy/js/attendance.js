@@ -77,6 +77,7 @@
     let currentMonth = null;     // { year, month } for monthly view
     let monthRecords = [];       // Records for entire month
     let monthlyEmpData = [];     // Cached monthly calc data for detail view
+    let monthViewMode = localStorage.getItem('att_viewMode') || 'dot'; // 'dot' | 'payroll'
 
     // Load hidden employees from localStorage
     const HIDDEN_KEY = 'attendance_hidden_employees';
@@ -1513,6 +1514,131 @@
             scLabel.textContent = `${monthNames[currentMonth.month]} ${currentMonth.year}`;
         }
 
+        // Update toggle button icon
+        const btnToggle = document.getElementById('btnToggleView');
+        if (btnToggle) {
+            const icon = monthViewMode === 'dot' ? 'table' : 'circle-dot';
+            btnToggle.innerHTML = `<i data-lucide="${icon}" style="width:14px;height:14px;"></i>`;
+            btnToggle.title = monthViewMode === 'dot' ? 'Chuyển bảng lương' : 'Chuyển chấm công';
+        }
+
+        if (monthViewMode === 'dot') {
+            renderDotGridView(thead, tbody);
+        } else {
+            renderPayrollView(thead, tbody);
+        }
+    }
+
+    // ================================================================
+    // DOT GRID VIEW — KiotViet style attendance dots
+    // ================================================================
+
+    function renderDotGridView(thead, tbody) {
+        const y = currentMonth.year, m = currentMonth.month;
+        const lastDay = new Date(y, m, 0).getDate();
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const dayLabels = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+
+        // Header: Nhân viên | day columns
+        let headerHtml = '<th style="min-width:120px; position:sticky; left:0; background:#fff; z-index:2;">Nhân viên</th>';
+        for (let d = 1; d <= lastDay; d++) {
+            const dow = new Date(y, m - 1, d).getDay();
+            const isSunday = dow === 0;
+            headerHtml += `<th style="width:36px; text-align:center; font-size:11px; padding:4px 2px;${isSunday ? ' color:#ef4444;' : ''}">
+                <div>${dayLabels[dow]}</div>
+                <div style="font-weight:700;">${String(d).padStart(2, '0')}</div>
+            </th>`;
+        }
+        thead.innerHTML = headerHtml;
+
+        if (employees.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="${lastDay + 1}" style="text-align:center; padding:40px; color:#94a3b8;">Chưa có dữ liệu</td></tr>`;
+            return;
+        }
+
+        // Compute data for each employee
+        const empData = employees.map(emp => {
+            const empId = String(emp.userId || emp.uid || emp.id);
+            return calculatePayrollRow(emp, empId);
+        });
+        empData.sort((a, b) => b.tongLuong - a.tongLuong);
+        monthlyEmpData = empData;
+
+        const visibleData = empData.filter(d => !isHidden(d.empId));
+
+        // Legend
+        let html = '';
+
+        visibleData.forEach(d => {
+            const { emp, empId } = d;
+            const empSched = { workStart: emp.workStart, workEnd: emp.workEnd };
+            const empRate = emp.dailyRate || SALARY.DAILY_RATE;
+
+            html += `<tr>`;
+            html += `<td style="position:sticky; left:0; background:#fff; z-index:1; white-space:nowrap; font-size:13px; font-weight:500; padding:8px 10px; cursor:pointer;"
+                onclick="window._attendance.showAttendanceDetailModal('${empId}')">${escapeHtml(emp.name || 'N/A')}</td>`;
+
+            for (let day = 1; day <= lastDay; day++) {
+                const dateKey = `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                const date = new Date(y, m - 1, day);
+                const dayRecs = monthRecords.filter(r => String(r.deviceUserId) === empId && r.dateKey === dateKey);
+                const cellData = processDayRecords(dayRecs);
+                const sal = calculateDaySalary(cellData, empRate, isFullDay(empId, dateKey), empSched);
+
+                let dotColor = '', dotTitle = '';
+
+                if (date > today) {
+                    // Future — empty
+                    html += '<td></td>';
+                    continue;
+                }
+
+                if (cellData.status === 'absent') {
+                    if (isFullDay(empId, dateKey)) {
+                        dotColor = '#1890ff'; // blue — counted as full
+                        dotTitle = date.getDay() === 0 && emp.sundayFull ? 'CN đủ công' : 'Nghỉ shop';
+                    } else {
+                        dotColor = '#d1d5db'; // gray — nghỉ
+                        dotTitle = 'Nghỉ làm';
+                    }
+                } else if (cellData.status === 'incomplete') {
+                    dotColor = '#ef4444'; // red — thiếu
+                    dotTitle = 'Chấm công thiếu';
+                } else if (sal.lateMinutes > 0) {
+                    dotColor = '#f59e0b'; // orange/amber — muộn/về sớm
+                    dotTitle = `Đi muộn ${sal.lateMinutes}p`;
+                } else {
+                    dotColor = '#1890ff'; // blue — đúng giờ
+                    dotTitle = 'Đúng giờ';
+                }
+
+                html += `<td style="text-align:center; padding:6px 2px;" title="${dotTitle}">
+                    <div style="width:10px; height:10px; border-radius:50%; background:${dotColor}; margin:auto; cursor:pointer;"
+                        onclick="window._attendance.showDetail('${empId}','${dateKey}')"></div>
+                </td>`;
+            }
+            html += '</tr>';
+        });
+
+        // Legend row
+        html += `<tr><td colspan="${lastDay + 1}" style="border:none; padding:16px 10px;">
+            <div style="display:flex; gap:20px; justify-content:center; flex-wrap:wrap; font-size:12px; color:#64748b;">
+                <span><span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#1890ff; vertical-align:middle; margin-right:4px;"></span> Đúng giờ</span>
+                <span><span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#f59e0b; vertical-align:middle; margin-right:4px;"></span> Đi muộn / Về sớm</span>
+                <span><span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#ef4444; vertical-align:middle; margin-right:4px;"></span> Chấm công thiếu</span>
+                <span><span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:#d1d5db; vertical-align:middle; margin-right:4px;"></span> Nghỉ làm</span>
+            </div>
+        </td></tr>`;
+
+        tbody.innerHTML = html;
+    }
+
+    // ================================================================
+    // PAYROLL TABLE VIEW — Bảng tính lương chi tiết
+    // ================================================================
+
+    function renderPayrollView(thead, tbody) {
         // Header - KiotViet style
         thead.innerHTML = `
             <th style="width:40px;"></th>
@@ -3222,6 +3348,17 @@ ${d.ghiChu ? `<div style="margin-top:12px; font-style:italic; font-size:12px;"><
         const btnSettings = document.getElementById('btnPayrollSettings');
         if (btnSettings) {
             btnSettings.addEventListener('click', () => showPayrollSettingsModal());
+        }
+
+        // Toggle view button (dot grid ↔ payroll table)
+        const btnToggleView = document.getElementById('btnToggleView');
+        if (btnToggleView) {
+            btnToggleView.addEventListener('click', () => {
+                monthViewMode = monthViewMode === 'dot' ? 'payroll' : 'dot';
+                localStorage.setItem('att_viewMode', monthViewMode);
+                renderMonthlySchedule();
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            });
         }
 
         // "Chọn" button in timesheet → go to this week
