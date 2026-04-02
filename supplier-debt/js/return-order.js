@@ -152,7 +152,9 @@ window.ReturnOrderModal = (function () {
             return;
         }
 
-        list.innerHTML = S.products.map(p => {
+        // Build with DocumentFragment + lazy image loading via IntersectionObserver
+        const fragment = document.createDocumentFragment();
+        S.products.forEach(p => {
             const code = p.DefaultCode || '';
             const name = p.NameGet || p.Name || '';
             const unit = p.UOMName || 'Cái';
@@ -163,23 +165,54 @@ window.ReturnOrderModal = (function () {
             const stockClass = stock > 0 ? 'stock-value' : (stock === 0 ? 'stock-zero' : 'stock-negative');
             const forecastClass = forecast > 0 ? 'stock-value' : (forecast < 0 ? 'stock-negative' : 'stock-zero');
 
-            const imgSrc = p.ImageUrl ? `${PROXY_URL}/api/odata/ProductTemplate(${p.Id})/GetImage?Width=80&Height=80` : '';
-
-            return `
-                <div class="return-product-row" data-product-id="${p.Id}" onclick="ReturnOrderModal._addProduct(${p.Id})">
-                    ${imgSrc
-                    ? `<img class="return-product-img" src="${imgSrc}" onerror="this.outerHTML='<div class=\\'return-product-img-placeholder\\'>SP</div>'" loading="lazy">`
-                    : '<div class="return-product-img-placeholder">SP</div>'
-                }
-                    <div class="return-product-info">
-                        <div class="return-product-name">${code ? `<span class="product-code">[${escHtml(code)}]</span> ` : ''}${escHtml(name)}</div>
-                        <div class="return-product-stock">Tồn kho: <span class="${stockClass}">${fmt(stock)}</span> / Tồn dự báo: <span class="${forecastClass}">${fmt(forecast)}</span></div>
-                    </div>
-                    <div class="return-product-unit">${escHtml(unit)}</div>
-                    <div class="return-product-price">${fmt(price)}</div>
+            const row = document.createElement('div');
+            row.className = 'return-product-row';
+            row.dataset.productId = p.Id;
+            row.innerHTML = `
+                <div class="return-product-img-placeholder" data-img-id="${p.Id}">${escHtml(code.substring(0, 4) || 'SP')}</div>
+                <div class="return-product-info">
+                    <div class="return-product-name">${code ? `<span class="product-code">[${escHtml(code)}]</span> ` : ''}${escHtml(name)}</div>
+                    <div class="return-product-stock">Tồn kho: <span class="${stockClass}">${fmt(stock)}</span> / Tồn dự báo: <span class="${forecastClass}">${fmt(forecast)}</span></div>
                 </div>
+                <div class="return-product-unit">${escHtml(unit)}</div>
+                <div class="return-product-price">${fmt(price)}</div>
             `;
-        }).join('');
+            fragment.appendChild(row);
+        });
+
+        list.innerHTML = '';
+        list.appendChild(fragment);
+
+        // Lazy load images with IntersectionObserver (no scroll lag)
+        lazyLoadProductImages(list);
+    }
+
+    // Lazy load images only when row is visible in viewport
+    function lazyLoadProductImages(container) {
+        if (!window.IntersectionObserver) return; // fallback: no images on old browsers
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (!entry.isIntersecting) return;
+                const placeholder = entry.target.querySelector('[data-img-id]');
+                if (!placeholder || placeholder.dataset.loaded) return;
+
+                const productId = placeholder.dataset.imgId;
+                placeholder.dataset.loaded = '1';
+
+                const img = new Image();
+                img.className = 'return-product-img';
+                img.src = `${PROXY_URL}/api/odata/ProductTemplate(${productId})/GetImage?Width=60&Height=60`;
+                img.onload = () => {
+                    placeholder.replaceWith(img);
+                };
+                // On error, keep placeholder text (no action needed)
+
+                observer.unobserve(entry.target);
+            });
+        }, { root: container, rootMargin: '100px' });
+
+        container.querySelectorAll('.return-product-row').forEach(row => observer.observe(row));
     }
 
     function renderProductPagination() {
@@ -193,15 +226,15 @@ window.ReturnOrderModal = (function () {
         }
 
         let html = '';
-        if (S.productPage > 1) html += `<button class="btn-page" onclick="ReturnOrderModal._goProductPage(${S.productPage - 1})">&laquo;</button>`;
+        if (S.productPage > 1) html += `<button class="btn-page" data-page="${S.productPage - 1}">&laquo;</button>`;
 
         const start = Math.max(1, S.productPage - 2);
         const end = Math.min(totalPages, start + 4);
         for (let i = start; i <= end; i++) {
-            html += `<button class="btn-page ${i === S.productPage ? 'active' : ''}" onclick="ReturnOrderModal._goProductPage(${i})">${i}</button>`;
+            html += `<button class="btn-page ${i === S.productPage ? 'active' : ''}" data-page="${i}">${i}</button>`;
         }
 
-        if (S.productPage < totalPages) html += `<button class="btn-page" onclick="ReturnOrderModal._goProductPage(${S.productPage + 1})">&raquo;</button>`;
+        if (S.productPage < totalPages) html += `<button class="btn-page" data-page="${S.productPage + 1}">&raquo;</button>`;
         html += `<span class="return-product-page-info">${S.productTotal} SP</span>`;
 
         wrap.innerHTML = html;
@@ -763,6 +796,22 @@ window.ReturnOrderModal = (function () {
             const wrapper = $('returnSupplierWrapper');
             if (dropdown && wrapper && !wrapper.contains(e.target)) {
                 dropdown.style.display = 'none';
+            }
+        });
+
+        // Event delegation: product list clicks
+        $('returnProductList')?.addEventListener('click', (e) => {
+            const row = e.target.closest('.return-product-row');
+            if (row && row.dataset.productId) {
+                _addProduct(parseInt(row.dataset.productId));
+            }
+        });
+
+        // Event delegation: pagination clicks
+        $('returnProductPagination')?.addEventListener('click', (e) => {
+            const btn = e.target.closest('.btn-page');
+            if (btn && btn.dataset.page) {
+                _goProductPage(parseInt(btn.dataset.page));
             }
         });
 
