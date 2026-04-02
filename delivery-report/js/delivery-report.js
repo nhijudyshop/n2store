@@ -991,10 +991,28 @@
     // =====================================================
     function getProvinceData() {
         const data = DeliveryReportState.allData || [];
-        // Province = everything NOT city and NOT shop
+        // Province = everything NOT city, NOT shop, NOT return
         return data.filter(item => {
             const nc = normalizeCarrier(item.CarrierName);
-            return nc && nc !== 'THÀNH PHỐ' && nc !== 'BÁN HÀNG SHOP';
+            return nc && nc !== 'THÀNH PHỐ' && nc !== 'BÁN HÀNG SHOP' && !isReturnItem(item);
+        });
+    }
+
+    // Assign TOMATO/NAP: TOMATO gets ~20-22% of total AmountTotal
+    function assignTomatoNap(items, groups) {
+        const sorted = [...items].sort((a, b) => (a.AmountTotal || 0) - (b.AmountTotal || 0));
+        const totalAmount = sorted.reduce((sum, i) => sum + (i.AmountTotal || 0), 0);
+        const targetAmount = totalAmount * 0.21; // midpoint of 20-22%
+        let tomatoSum = 0;
+
+        sorted.forEach((item, index) => {
+            const amt = item.AmountTotal || 0;
+            if (tomatoSum < targetAmount || index === 0) {
+                groups[item.Number] = 'tomato';
+                tomatoSum += amt;
+            } else {
+                groups[item.Number] = 'nap';
+            }
         });
     }
 
@@ -1171,16 +1189,7 @@
         const unassigned = provinceData.filter(item => !state.provinceGroups[item.Number]);
 
         if (unassigned.length > 0) {
-            // Sort by price ascending - smallest goes to TOMATO
-            const sorted = [...unassigned].sort((a, b) => (a.AmountTotal || 0) - (b.AmountTotal || 0));
-
-            // 1/4 cheapest → TOMATO, 3/4 rest → NAP
-            const tomatoCount = Math.max(1, Math.round(sorted.length / 4));
-
-            sorted.forEach((item, index) => {
-                state.provinceGroups[item.Number] = index < tomatoCount ? 'tomato' : 'nap';
-            });
-
+            assignTomatoNap(unassigned, state.provinceGroups);
             await saveProvinceGroups(state.provinceGroups);
         }
     }
@@ -1211,11 +1220,7 @@
         // Auto-assign items without group (fallback if ensureProvinceGroups didn't run)
         const unassigned = provinceData.filter(item => !groups[item.Number]);
         if (unassigned.length > 0) {
-            const sorted = [...unassigned].sort((a, b) => (a.AmountTotal || 0) - (b.AmountTotal || 0));
-            const tomatoCount = Math.max(1, Math.round(sorted.length / 4));
-            sorted.forEach((item, index) => {
-                groups[item.Number] = index < tomatoCount ? 'tomato' : 'nap';
-            });
+            assignTomatoNap(unassigned, groups);
             saveProvinceGroups(groups);
         }
 
