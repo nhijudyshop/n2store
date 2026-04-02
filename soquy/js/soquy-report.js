@@ -151,9 +151,14 @@ const SoquyReport = (function () {
         // Category filter
         if (reportState.categoryFilter) {
             const cat = reportState.categoryFilter.toLowerCase();
-            vouchers = vouchers.filter(v =>
-                String(v.category || '').toLowerCase().includes(cat)
-            );
+            vouchers = vouchers.filter(v => {
+                const srcCode = v.sourceCode || v.source || '';
+                const catName = v.category || '';
+                const displayName = (srcCode && catName && v.type !== 'payment_cn')
+                    ? `${srcCode} ${catName}`
+                    : catName;
+                return String(displayName).toLowerCase().includes(cat);
+            });
         }
 
         // Source filter
