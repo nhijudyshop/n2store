@@ -3083,27 +3083,6 @@ const RefundOrders = {
         }
     },
 
-    async _confirmOne(orderId) {
-        // Step 1: GET full order details
-        const getUrl = `${CONFIG.API_BASE}/FastPurchaseOrder(${orderId})?$expand=Partner,OrderLines($expand=Product,ProductUOM,Account),Company,Journal,PickingType,Account,PaymentJournal,User`;
-        const getResp = await tposFetch(getUrl);
-        if (!getResp.ok) throw new Error(`GET ${orderId} failed: HTTP ${getResp.status}`);
-        const orderData = await getResp.json();
-
-        // Step 2: PUT with FormAction: 'SaveAndPrint' to confirm
-        orderData.FormAction = 'SaveAndPrint';
-        const putUrl = `${CONFIG.API_BASE}/FastPurchaseOrder(${orderId})`;
-        const putResp = await tposFetch(putUrl, {
-            method: 'PUT',
-            body: JSON.stringify(orderData)
-        });
-        if (!putResp.ok) {
-            const errText = await putResp.text().catch(() => '');
-            throw new Error(`PUT ${orderId} failed: HTTP ${putResp.status} ${errText}`);
-        }
-        return orderId;
-    },
-
     async confirmSelected() {
         if (this._selectedIds.size === 0) return;
 
@@ -3113,9 +3092,15 @@ const RefundOrders = {
         try {
             const loadingId = window.notificationManager?.info?.(`Đang xác nhận ${count} đơn trả hàng...`);
 
-            // Confirm each order sequentially (GET + PUT per order)
-            for (const id of ids) {
-                await this._confirmOne(id);
+            // POST ActionInvoiceOpen with all selected IDs
+            const url = `${CONFIG.API_BASE}/FastPurchaseOrder/ODataService.ActionInvoiceOpen`;
+            const resp = await tposFetch(url, {
+                method: 'POST',
+                body: JSON.stringify({ ids })
+            });
+            if (!resp.ok) {
+                const errText = await resp.text().catch(() => '');
+                throw new Error(`HTTP ${resp.status} ${errText}`);
             }
 
             if (loadingId) window.notificationManager?.remove?.(loadingId);
