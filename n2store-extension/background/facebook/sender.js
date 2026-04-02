@@ -57,7 +57,8 @@ export async function handleReplyInboxPhoto(data, sendResponse) {
     await updateDynamicRules(pageId);
 
     // Build send parameters
-    // IMPORTANT: __user must be pageId (not admin userId) when sending as a page
+    // NOTE: __user stays as admin userId (from session.userId) - Pancake does this too
+    // request_user_id = pageId tells Facebook which page is sending
     const params = buildSendParams({
       session,
       pageId,
@@ -69,8 +70,6 @@ export async function handleReplyInboxPhoto(data, sendResponse) {
       replyMessage,
       isBusiness,
     });
-    // Override __user to pageId (Pancake Extension does this)
-    params.__user = pageId;
 
     // Send the message
     const referer = `${CONFIG.FB_BUSINESS_INBOX}?page_id=${pageId}`;
@@ -144,7 +143,6 @@ export async function handleReplyInboxPhoto(data, sendResponse) {
         log.info(MODULE, 'Retrying with session restart...');
         session = await initPage(pageId);
         params.fb_dtsg = session.token;
-        params.__user = pageId;
         const retryRes = await fetch(CONFIG.FB_MESSAGING_SEND, {
           method: 'POST',
           headers: buildFbHeaders(referer),
@@ -189,21 +187,24 @@ export async function handleReplyInboxPhoto(data, sendResponse) {
 function buildSendParams({ session, pageId, message, attachmentType, files, globalUserId, threadId, replyMessage, isBusiness }) {
   const offlineThreadingId = generateOfflineThreadingID();
 
+  // Match Pancake Extension's exact parameter format
   const params = {
-    ...buildBaseParams(session),
     body: message || '',
-    has_attachment: files && files.length > 0 ? 'true' : 'false',
+    offline_threading_id: offlineThreadingId,
+    source: 'source:page_unified_inbox',
+    timestamp: Date.now().toString(),
+    request_user_id: pageId,
+    // Merge base params (fb_dtsg, __user=adminUserId, __a, __req, etc.)
+    ...buildBaseParams(session),
+    // Facebook-specific params (must match Pancake exactly)
     'specific_to_list[0]': `fbid:${globalUserId}`,
     'specific_to_list[1]': `fbid:${pageId}`,
     other_user_fbid: globalUserId,
-    offline_threading_id: offlineThreadingId,
     message_id: offlineThreadingId,
-    source: 'source:titan:web',
-    timestamp: Date.now().toString(),
-    'ui_push_phase': 'V3',
-    request_user_id: pageId,
-    'tags[0]': 'page_messaging',
+    client: 'mercury',
+    action_type: 'ma-type:user-generated-message',
     ephemeral_ttl_mode: '0',
+    has_attachment: files && files.length > 0 ? true : false,
   };
 
   // Add attachments based on type

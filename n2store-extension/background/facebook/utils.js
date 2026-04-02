@@ -60,16 +60,10 @@ export function generateReqId() {
  * Build standard Facebook headers
  */
 export function buildFbHeaders(referer) {
+  // Match Pancake Extension: minimal headers, let browser handle the rest
+  // declarativeNetRequest handles Origin/Referer
   return {
     'Content-Type': 'application/x-www-form-urlencoded',
-    'Accept': '*/*',
-    'Accept-Language': 'en-US,en;q=0.9',
-    'Sec-Fetch-Dest': 'empty',
-    'Sec-Fetch-Mode': 'cors',
-    'Sec-Fetch-Site': 'same-origin',
-    'X-ASBD-ID': '129477',
-    'X-FB-LSD': '',
-    ...(referer ? { 'Referer': referer } : {}),
   };
 }
 
