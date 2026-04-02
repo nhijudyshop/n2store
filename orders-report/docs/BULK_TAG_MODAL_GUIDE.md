@@ -1,7 +1,7 @@
 # Hướng Dẫn Chi Tiết Modal "Gán Tag Hàng Loạt" - Tab 1
 
 > **Tài liệu tham khảo kỹ thuật đầy đủ về tính năng Gán Tag Hàng Loạt**  
-> **Cập nhật:** 2025-12-17
+> **Cập nhật:** 2026-04-01
 
 ---
 
@@ -34,9 +34,12 @@ Modal **"Gán Tag Hàng Loạt"** cho phép người dùng:
 - **Tab:** Tab 1 - Orders (Đơn hàng)
 - **URL:** https://nhijudyshop.github.io/n2store
 - **File chính:**
-  - HTML: `orders-report/tab1-orders.html` (dòng 2513-2617)
-  - JS: `orders-report/tab1-orders.js` (dòng 2891-4177)
-  - CSS: `orders-report/tab1-orders.css` (dòng 5219-6215)
+  - HTML: `orders-report/tab1-orders.html`
+  - JS: `orders-report/js/tab1/tab1-bulk-tags.js` (logic modal chính)
+  - JS: `orders-report/js/tab1/tab1-tags.js` (TPOS API tag, loadAvailableTags)
+  - JS: `orders-report/js/tab1/tab1-table.js` (updateOrderInTable)
+  - JS: `orders-report/js/tab1/tab1-firebase.js` (emitTagUpdateToFirebase)
+  - CSS: `orders-report/css/tab1-processing-tags.css`
 
 ### 1.3 Nút mở Modal
 
