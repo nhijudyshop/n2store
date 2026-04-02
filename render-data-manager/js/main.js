@@ -49,6 +49,10 @@ let rtdbChildren = [];
 let rsServices = [];
 let rsCurrentService = null;
 
+// API Reference state
+let apiInitialized = false;
+let apiCurrentCategory = null;
+
 // =====================================================
 // INIT
 // =====================================================
@@ -74,7 +78,7 @@ function switchTab(tab) {
         el.classList.remove('active');
     });
 
-    const tabMap = { render: 'renderTab', firebase: 'firebaseTab', rtdb: 'rtdbTab', renderSvc: 'renderSvcTab' };
+    const tabMap = { render: 'renderTab', firebase: 'firebaseTab', rtdb: 'rtdbTab', renderSvc: 'renderSvcTab', apiRef: 'apiRefTab' };
     document.getElementById(tabMap[tab]).classList.add('active');
 
     // Lazy load on first switch
@@ -84,6 +88,8 @@ function switchTab(tab) {
         rtdbLoadRoot();
     } else if (tab === 'renderSvc' && rsServices.length === 0) {
         rsLoadServices();
+    } else if (tab === 'apiRef' && !apiInitialized) {
+        apiInit();
     }
 
     lucide.createIcons();
@@ -94,6 +100,7 @@ function refreshCurrentTab() {
     else if (activeTab === 'firebase') fbRefresh();
     else if (activeTab === 'rtdb') rtdbRefresh();
     else if (activeTab === 'renderSvc') rsRefresh();
+    else if (activeTab === 'apiRef') apiInit();
 }
 
 // =====================================================
@@ -1475,4 +1482,460 @@ function showToast(message, type = 'info') {
         toast.style.transition = 'all 0.3s';
         setTimeout(() => toast.remove(), 300);
     }, 3000);
+}
+
+// =====================================================
+// API REFERENCE TAB
+// =====================================================
+
+const API_REFERENCE = {
+    'Health & Debug': {
+        icon: '💚',
+        desc: 'Server health check & diagnostics',
+        endpoints: [
+            { method: 'GET', path: '/health', desc: 'Server health + database connection status' },
+            { method: 'GET', path: '/api/debug/time', desc: 'Server time diagnostic (UTC, Vietnam time, timezone)' },
+            { method: 'GET', path: '/', desc: 'Root - API info & endpoint list' }
+        ]
+    },
+    'TPOS Token & OData': {
+        icon: '🔑',
+        desc: 'TPOS authentication & OData proxy',
+        endpoints: [
+            { method: 'POST', path: '/api/token', desc: 'Get TPOS token (cached 23h)' },
+            { method: 'GET', path: '/api/odata/*', desc: 'TPOS OData proxy (products, orders, customers...)' },
+            { method: 'GET', path: '/api/rest/*', desc: 'TPOS REST API v2.0 proxy' }
+        ]
+    },
+    'TPOS Credentials': {
+        icon: '🔐',
+        desc: 'TPOS credential management',
+        endpoints: [
+            { method: 'GET', path: '/api/tpos-credentials', desc: 'List all TPOS credential sets' },
+            { method: 'POST', path: '/api/tpos-credentials', desc: 'Save a TPOS credential set' },
+            { method: 'DELETE', path: '/api/tpos-credentials/:id', desc: 'Delete a credential set' }
+        ]
+    },
+    'TPOS Saved Data': {
+        icon: '💾',
+        desc: 'Cached TPOS data (products, categories)',
+        endpoints: [
+            { method: 'GET', path: '/api/tpos-saved/products', desc: 'Get cached products list' },
+            { method: 'POST', path: '/api/tpos-saved/products', desc: 'Save/update cached products' },
+            { method: 'GET', path: '/api/tpos-saved/categories', desc: 'Get cached categories' },
+            { method: 'POST', path: '/api/tpos-saved/categories', desc: 'Save/update cached categories' }
+        ]
+    },
+    'Pancake API': {
+        icon: '🥞',
+        desc: 'Pancake.vn proxy for messaging & pages',
+        endpoints: [
+            { method: 'GET', path: '/api/pancake/*', desc: 'Pancake API proxy (conversations, messages, pages)' },
+            { method: 'ALL', path: '/api/pancake-direct/*', desc: 'Pancake 24h bypass (direct proxy)' },
+            { method: 'ALL', path: '/api/pancake-official/*', desc: 'pages.fm Public API proxy' }
+        ]
+    },
+    'Facebook': {
+        icon: '📘',
+        desc: 'Facebook messaging & media',
+        endpoints: [
+            { method: 'POST', path: '/api/facebook-send', desc: 'Send Facebook message with MESSAGE_TAG' },
+            { method: 'GET', path: '/api/fb-avatar', desc: 'Get Facebook/Pancake avatar (cached)' },
+            { method: 'GET', path: '/api/pancake-avatar', desc: 'Get Pancake content avatar' }
+        ]
+    },
+    'Realtime - Pancake WS': {
+        icon: '🔴',
+        desc: 'Pancake WebSocket client (server-side)',
+        endpoints: [
+            { method: 'POST', path: '/api/realtime/start', desc: 'Start Pancake WebSocket (saves credentials for auto-reconnect)' },
+            { method: 'POST', path: '/api/realtime/stop', desc: 'Stop Pancake WebSocket (disables auto-reconnect)' },
+            { method: 'GET', path: '/api/realtime/status', desc: 'Get Pancake WS status (connected, pageIds, clients)' },
+            { method: 'GET', path: '/api/realtime/new-messages?since={ts}', desc: 'Get new messages since timestamp' },
+            { method: 'GET', path: '/api/realtime/summary?since={ts}', desc: 'Get summary count of unread updates' },
+            { method: 'POST', path: '/api/realtime/mark-seen', desc: 'Mark updates as seen' },
+            { method: 'DELETE', path: '/api/realtime/cleanup?days={n}', desc: 'Cleanup records older than N days' }
+        ]
+    },
+    'Realtime - TPOS WS': {
+        icon: '📡',
+        desc: 'TPOS WebSocket client (orders, chatomni)',
+        endpoints: [
+            { method: 'POST', path: '/api/realtime/tpos/start', desc: 'Start TPOS WebSocket (auto-reconnect enabled)' },
+            { method: 'POST', path: '/api/realtime/tpos/stop', desc: 'Stop TPOS WebSocket (disables auto-reconnect)' },
+            { method: 'GET', path: '/api/realtime/tpos/status', desc: 'Get TPOS WS status (connected, room, ping/pong)' }
+        ]
+    },
+    'Realtime - SSE': {
+        icon: '📺',
+        desc: 'Server-Sent Events for browser real-time updates',
+        endpoints: [
+            { method: 'GET', path: '/api/realtime/sse?keys=k1,k2', desc: 'Subscribe to SSE stream (replaces Firebase listeners)' },
+            { method: 'GET', path: '/api/realtime/sse/stats', desc: 'SSE connection statistics' },
+            { method: 'POST', path: '/api/realtime/sse/test', desc: 'Send test message to SSE clients' }
+        ]
+    },
+    'Realtime - KV Store': {
+        icon: '🗄️',
+        desc: 'Key-Value store (replaces Firebase Realtime DB)',
+        endpoints: [
+            { method: 'GET', path: '/api/realtime/kv/:key', desc: 'Get value from KV store' },
+            { method: 'PUT', path: '/api/realtime/kv/:key', desc: 'Set/update value in KV store' },
+            { method: 'DELETE', path: '/api/realtime/kv/:key', desc: 'Delete key from KV store' },
+            { method: 'GET', path: '/api/realtime/kvlist', desc: 'List all KV keys' }
+        ]
+    },
+    'Customers (Legacy)': {
+        icon: '👥',
+        desc: 'Legacy customer API (PostgreSQL)',
+        endpoints: [
+            { method: 'GET', path: '/api/customers', desc: 'List customers (paginated)' },
+            { method: 'GET', path: '/api/customers/search?q=...', desc: 'Search customers by name/phone' },
+            { method: 'GET', path: '/api/customers/:id', desc: 'Get customer by ID' },
+            { method: 'POST', path: '/api/customers', desc: 'Create customer' },
+            { method: 'PUT', path: '/api/customers/:id', desc: 'Update customer' },
+            { method: 'DELETE', path: '/api/customers/:id', desc: 'Delete customer' }
+        ]
+    },
+    'Customer 360° (v2)': {
+        icon: '🎯',
+        desc: 'Unified Customer 360 API - full customer view',
+        endpoints: [
+            { method: 'GET', path: '/api/v2/customers', desc: 'List customers (filter by tier/segment/status)' },
+            { method: 'GET', path: '/api/v2/customers/stats', desc: 'Customer statistics summary' },
+            { method: 'GET', path: '/api/v2/customers/duplicates', desc: 'Detect duplicate phone numbers' },
+            { method: 'GET', path: '/api/v2/customers/recent', desc: 'Recently active customers' },
+            { method: 'GET', path: '/api/v2/customers/:id', desc: 'Customer 360° view (by ID or phone)' },
+            { method: 'GET', path: '/api/v2/customers/:id/quick-view', desc: 'Quick info for modals/tooltips' },
+            { method: 'GET', path: '/api/v2/customers/:id/activity', desc: 'Activity timeline' },
+            { method: 'GET', path: '/api/v2/customers/:id/rfm', desc: 'RFM analysis (Recency, Frequency, Monetary)' },
+            { method: 'GET', path: '/api/v2/customers/:id/transactions', desc: 'Consolidated transaction history' },
+            { method: 'POST', path: '/api/v2/customers', desc: 'Create customer' },
+            { method: 'POST', path: '/api/v2/customers/batch', desc: 'Batch lookup multiple customers' },
+            { method: 'POST', path: '/api/v2/customers/search', desc: 'Advanced search' },
+            { method: 'POST', path: '/api/v2/customers/import', desc: 'Batch import/upsert (80k+ records)' },
+            { method: 'PATCH', path: '/api/v2/customers/:id', desc: 'Update customer' },
+            { method: 'DELETE', path: '/api/v2/customers/:id', desc: 'Delete customer' },
+            { method: 'POST', path: '/api/v2/customers/:id/notes', desc: 'Add customer note' }
+        ]
+    },
+    'Wallets (v2)': {
+        icon: '💰',
+        desc: 'Customer wallet management (deposit, credit, withdraw)',
+        endpoints: [
+            { method: 'GET', path: '/api/v2/wallets/:customerId', desc: 'Get wallet summary (real + virtual balance)' },
+            { method: 'GET', path: '/api/v2/wallets/:phone/available-balance', desc: 'Available balance (minus pending withdrawals)' },
+            { method: 'POST', path: '/api/v2/wallets/:customerId/deposit', desc: 'Add real balance' },
+            { method: 'POST', path: '/api/v2/wallets/:customerId/credit', desc: 'Add virtual credit (with expiry)' },
+            { method: 'POST', path: '/api/v2/wallets/:customerId/withdraw', desc: 'FIFO withdrawal from wallet' },
+            { method: 'GET', path: '/api/v2/wallets/:customerId/transactions', desc: 'Transaction history' },
+            { method: 'POST', path: '/api/v2/wallets/batch-summary', desc: 'Batch wallet lookup' },
+            { method: 'POST', path: '/api/v2/wallets/cron/expire', desc: 'Expire virtual credits (cron job)' },
+            { method: 'POST', path: '/api/v2/wallets/cron/process-bank', desc: 'Process bank transactions (cron job)' }
+        ]
+    },
+    'Tickets (v2)': {
+        icon: '🎫',
+        desc: 'Customer support ticket management',
+        endpoints: [
+            { method: 'GET', path: '/api/v2/tickets', desc: 'List tickets (filter by status/priority/assignee)' },
+            { method: 'GET', path: '/api/v2/tickets/stats', desc: 'Ticket statistics (open/resolved/avg time)' },
+            { method: 'GET', path: '/api/v2/tickets/:id', desc: 'Get ticket detail' },
+            { method: 'POST', path: '/api/v2/tickets', desc: 'Create ticket' },
+            { method: 'PATCH', path: '/api/v2/tickets/:id', desc: 'Update ticket' },
+            { method: 'POST', path: '/api/v2/tickets/:id/notes', desc: 'Add internal note to ticket' },
+            { method: 'POST', path: '/api/v2/tickets/:id/resolve', desc: 'Resolve ticket with compensation' },
+            { method: 'DELETE', path: '/api/v2/tickets/:id', desc: 'Delete ticket' }
+        ]
+    },
+    'Balance History (v2)': {
+        icon: '🏦',
+        desc: 'Bank transfer matching & balance operations',
+        endpoints: [
+            { method: 'GET', path: '/api/v2/balance-history', desc: 'List balance history (transfers, matches)' },
+            { method: 'GET', path: '/api/v2/balance-history/stats', desc: 'Balance statistics' },
+            { method: 'GET', path: '/api/v2/balance-history/daily-summary', desc: 'Daily wallet summary' },
+            { method: 'POST', path: '/api/v2/balance-history/match-transfer', desc: 'Link bank transfer to customer wallet' },
+            { method: 'POST', path: '/api/v2/balance-history/auto-approve-toggle', desc: 'Toggle auto-approval for transfers' },
+            { method: 'POST', path: '/api/v2/balance-history/manual-deposit', desc: 'Manual balance adjustment' }
+        ]
+    },
+    'Pending Withdrawals (v2)': {
+        icon: '⏳',
+        desc: 'Pending withdrawal request management',
+        endpoints: [
+            { method: 'GET', path: '/api/v2/pending-withdrawals', desc: 'List pending withdrawals' },
+            { method: 'GET', path: '/api/v2/pending-withdrawals/stats', desc: 'Withdrawal statistics' },
+            { method: 'PATCH', path: '/api/v2/pending-withdrawals/:id', desc: 'Approve/reject withdrawal' },
+            { method: 'DELETE', path: '/api/v2/pending-withdrawals/:id', desc: 'Cancel withdrawal request' }
+        ]
+    },
+    'Analytics (v2)': {
+        icon: '📊',
+        desc: 'Dashboard metrics & reporting',
+        endpoints: [
+            { method: 'GET', path: '/api/v2/analytics/dashboard', desc: 'Dashboard metrics (customers, wallets, tickets)' },
+            { method: 'GET', path: '/api/v2/analytics/customers/trends', desc: 'Customer trends over time' },
+            { method: 'GET', path: '/api/v2/analytics/wallets/stats', desc: 'Wallet statistics breakdown' },
+            { method: 'GET', path: '/api/v2/analytics/tickets/stats', desc: 'Ticket resolution metrics' },
+            { method: 'GET', path: '/api/v2/analytics/reports/daily', desc: 'Daily reports' },
+            { method: 'GET', path: '/api/v2/analytics/reports/monthly', desc: 'Monthly reports' }
+        ]
+    },
+    'SePay Webhook': {
+        icon: '💳',
+        desc: 'SePay payment gateway integration',
+        endpoints: [
+            { method: 'POST', path: '/api/sepay/webhook', desc: 'SePay webhook receiver (bank transfer notifications)' },
+            { method: 'GET', path: '/api/sepay/balance', desc: 'Get SePay account balance' },
+            { method: 'GET', path: '/api/sepay/transactions', desc: 'Recent SePay transactions' }
+        ]
+    },
+    'Invoice Status': {
+        icon: '🧾',
+        desc: 'Invoice status tracking',
+        endpoints: [
+            { method: 'GET', path: '/api/invoice-status/list', desc: 'List invoice statuses' },
+            { method: 'POST', path: '/api/invoice-status/save', desc: 'Save invoice status' },
+            { method: 'DELETE', path: '/api/invoice-status/delete/:id', desc: 'Delete invoice status' }
+        ]
+    },
+    'Social Orders': {
+        icon: '🛒',
+        desc: 'Order management from social platforms',
+        endpoints: [
+            { method: 'GET', path: '/api/social-orders', desc: 'List social orders' },
+            { method: 'POST', path: '/api/social-orders', desc: 'Create social order' },
+            { method: 'PUT', path: '/api/social-orders/:id', desc: 'Update social order' },
+            { method: 'DELETE', path: '/api/social-orders/:id', desc: 'Delete social order' }
+        ]
+    },
+    'Return Orders': {
+        icon: '↩️',
+        desc: 'Return order management',
+        endpoints: [
+            { method: 'GET', path: '/api/return-orders', desc: 'List return orders' },
+            { method: 'POST', path: '/api/return-orders', desc: 'Create return order' },
+            { method: 'PUT', path: '/api/return-orders/:id', desc: 'Update return order' },
+            { method: 'DELETE', path: '/api/return-orders/:id', desc: 'Delete return order' }
+        ]
+    },
+    'Telegram Bot': {
+        icon: '🤖',
+        desc: 'Telegram bot with Gemini AI',
+        endpoints: [
+            { method: 'GET', path: '/api/telegram', desc: 'Bot status & info' },
+            { method: 'POST', path: '/api/telegram/webhook', desc: 'Telegram webhook handler (Gemini AI response)' },
+            { method: 'POST', path: '/api/telegram/setWebhook', desc: 'Set webhook URL' },
+            { method: 'GET', path: '/api/telegram/webhookInfo', desc: 'Get current webhook info' },
+            { method: 'POST', path: '/api/telegram/deleteWebhook', desc: 'Delete webhook' }
+        ]
+    },
+    'AI Services': {
+        icon: '🧠',
+        desc: 'Gemini & DeepSeek AI integration',
+        endpoints: [
+            { method: 'POST', path: '/api/gemini/chat', desc: 'Gemini AI chat completion' },
+            { method: 'POST', path: '/api/gemini/vision', desc: 'Gemini Vision (image analysis)' },
+            { method: 'POST', path: '/api/deepseek/chat', desc: 'DeepSeek AI chat completion' },
+            { method: 'POST', path: '/api/google-vision/ocr', desc: 'Google Cloud Vision OCR' }
+        ]
+    },
+    'Upload & Media': {
+        icon: '📤',
+        desc: 'Image upload & proxy',
+        endpoints: [
+            { method: 'POST', path: '/api/upload/image', desc: 'Upload image to Firebase Storage' },
+            { method: 'DELETE', path: '/api/upload/image', desc: 'Delete image from Firebase Storage' },
+            { method: 'GET', path: '/api/upload/health', desc: 'Upload service health check' },
+            { method: 'GET', path: '/api/image-proxy?url=...', desc: 'Image proxy (bypass CORS)' }
+        ]
+    },
+    'Attendance (ADMS)': {
+        icon: '⏰',
+        desc: 'ZKTeco attendance machine integration',
+        endpoints: [
+            { method: 'GET', path: '/api/attendance', desc: 'List attendance records' },
+            { method: 'POST', path: '/api/attendance/sync', desc: 'Sync attendance from ZKTeco' },
+            { method: 'GET', path: '/api/attendance/stats', desc: 'Attendance statistics' },
+            { method: 'GET', path: '/iclock/cdata', desc: 'ADMS: ZKTeco machine push endpoint (GET)' },
+            { method: 'POST', path: '/iclock/cdata', desc: 'ADMS: ZKTeco machine push attendance data' },
+            { method: 'GET', path: '/iclock/getrequest', desc: 'ADMS: ZKTeco poll for commands' }
+        ]
+    },
+    'AutoFB': {
+        icon: '🤖',
+        desc: 'Automated Facebook operations',
+        endpoints: [
+            { method: 'POST', path: '/api/autofb/login', desc: 'AutoFB login (solve captcha)' },
+            { method: 'POST', path: '/api/autofb/action', desc: 'Execute automated Facebook action' },
+            { method: 'GET', path: '/api/autofb/status', desc: 'AutoFB session status' }
+        ]
+    },
+    'Quick Replies': {
+        icon: '💬',
+        desc: 'Quick reply templates for messaging',
+        endpoints: [
+            { method: 'GET', path: '/api/quick-replies', desc: 'List all quick reply templates' },
+            { method: 'POST', path: '/api/quick-replies', desc: 'Create quick reply' },
+            { method: 'PUT', path: '/api/quick-replies/:id', desc: 'Update quick reply' },
+            { method: 'DELETE', path: '/api/quick-replies/:id', desc: 'Delete quick reply' }
+        ]
+    },
+    'Users': {
+        icon: '👤',
+        desc: 'User management',
+        endpoints: [
+            { method: 'GET', path: '/api/users', desc: 'List users' },
+            { method: 'POST', path: '/api/users', desc: 'Create user' },
+            { method: 'PUT', path: '/api/users/:id', desc: 'Update user' },
+            { method: 'DELETE', path: '/api/users/:id', desc: 'Delete user' }
+        ]
+    },
+    'Goong Maps': {
+        icon: '🗺️',
+        desc: 'Goong.io location/place search',
+        endpoints: [
+            { method: 'GET', path: '/api/goong-places/autocomplete?input=...', desc: 'Place autocomplete search' },
+            { method: 'GET', path: '/api/goong-places/detail?place_id=...', desc: 'Place detail by ID' },
+            { method: 'GET', path: '/api/goong-places/geocode?latlng=...', desc: 'Reverse geocode (lat,lng to address)' }
+        ]
+    },
+    'Admin - Data Browser': {
+        icon: '🗃️',
+        desc: 'PostgreSQL data browser (used by this Data Manager)',
+        endpoints: [
+            { method: 'GET', path: '/api/admin/data/tables', desc: 'List all tables with row counts & metadata' },
+            { method: 'GET', path: '/api/admin/data/browse/:table?page=&limit=&search=', desc: 'Browse table data (paginated, searchable)' },
+            { method: 'PUT', path: '/api/admin/data/row/:table', desc: 'Update row by primary key' },
+            { method: 'DELETE', path: '/api/admin/data/row/:table', desc: 'Delete row by primary key' },
+            { method: 'DELETE', path: '/api/admin/data/truncate/:table', desc: 'Truncate table (delete all rows)' }
+        ]
+    },
+    'Admin - Firebase': {
+        icon: '🔥',
+        desc: 'Firestore & Realtime DB browser',
+        endpoints: [
+            { method: 'GET', path: '/api/admin/firebase/collections', desc: 'List top-level Firestore collections' },
+            { method: 'GET', path: '/api/admin/firebase/browse/*', desc: 'Browse Firestore collection documents' },
+            { method: 'GET', path: '/api/admin/firebase/document/*', desc: 'Get single document + subcollections' },
+            { method: 'DELETE', path: '/api/admin/firebase/document/*', desc: 'Delete Firestore document' },
+            { method: 'GET', path: '/api/admin/firebase/rtdb/browse?path=/', desc: 'Browse Realtime DB at path' },
+            { method: 'GET', path: '/api/admin/firebase/rtdb/value?path=/', desc: 'Get full value at RTDB path' },
+            { method: 'DELETE', path: '/api/admin/firebase/rtdb/value?path=/', desc: 'Delete RTDB data at path' }
+        ]
+    },
+    'Admin - Render Services': {
+        icon: '☁️',
+        desc: 'Render.com service & env var management',
+        endpoints: [
+            { method: 'GET', path: '/api/admin/render/status', desc: 'Check if RENDER_API_KEY is configured' },
+            { method: 'GET', path: '/api/admin/render/services', desc: 'List all Render services' },
+            { method: 'GET', path: '/api/admin/render/services/:id/env', desc: 'Get service environment variables' }
+        ]
+    }
+};
+
+function apiInit() {
+    apiInitialized = true;
+    const container = document.getElementById('apiCategoryList');
+
+    // Count totals
+    let totalEndpoints = 0;
+    let totalCategories = 0;
+    for (const [, cat] of Object.entries(API_REFERENCE)) {
+        totalEndpoints += cat.endpoints.length;
+        totalCategories++;
+    }
+
+    document.getElementById('apiStats').innerHTML =
+        `<strong>${totalCategories}</strong> categories &middot; <strong>${totalEndpoints}</strong> endpoints<br>` +
+        `<span style="font-size:0.75rem;">Base URL: <code style="background:var(--gray-100);padding:2px 6px;border-radius:3px;">https://n2store-fallback.onrender.com</code></span>`;
+
+    apiRenderCategoryList();
+    lucide.createIcons();
+}
+
+function apiRenderCategoryList(filter = '') {
+    const container = document.getElementById('apiCategoryList');
+    const lower = filter.toLowerCase();
+    let html = '';
+
+    for (const [name, cat] of Object.entries(API_REFERENCE)) {
+        // Filter by category name, desc, or endpoint paths/desc
+        if (lower) {
+            const matchCat = name.toLowerCase().includes(lower) || cat.desc.toLowerCase().includes(lower);
+            const matchEndpoint = cat.endpoints.some(e =>
+                e.path.toLowerCase().includes(lower) || e.desc.toLowerCase().includes(lower)
+            );
+            if (!matchCat && !matchEndpoint) continue;
+        }
+
+        const isActive = apiCurrentCategory === name;
+        html += `<div class="table-item ${isActive ? 'active' : ''}" onclick="apiSelectCategory('${escapeHtml(name)}')">
+            <span class="table-item-info">
+                <span class="table-item-name">${cat.icon} ${escapeHtml(name)}</span>
+                <span class="table-item-used">${escapeHtml(cat.desc)}</span>
+            </span>
+            <span class="row-count">${cat.endpoints.length}</span>
+        </div>`;
+    }
+
+    container.innerHTML = html || '<div class="loading-placeholder">Không tìm thấy endpoint nào</div>';
+}
+
+function apiFilterEndpoints(value) {
+    apiRenderCategoryList(value);
+
+    // If filtering and currently showing a category, also filter the endpoint list
+    if (apiCurrentCategory && value) {
+        apiSelectCategory(apiCurrentCategory, value);
+    }
+}
+
+function apiSelectCategory(name, searchFilter = '') {
+    const cat = API_REFERENCE[name];
+    if (!cat) return;
+    apiCurrentCategory = name;
+
+    // Update sidebar
+    apiRenderCategoryList(document.getElementById('apiSearch').value);
+
+    document.getElementById('apiWelcomePanel').style.display = 'none';
+    document.getElementById('apiDataPanel').style.display = 'flex';
+    document.getElementById('apiCategoryName').textContent = `${cat.icon} ${name}`;
+    document.getElementById('apiCategoryDesc').textContent = cat.desc;
+
+    const lower = searchFilter.toLowerCase();
+    const endpoints = lower
+        ? cat.endpoints.filter(e => e.path.toLowerCase().includes(lower) || e.desc.toLowerCase().includes(lower))
+        : cat.endpoints;
+
+    document.getElementById('apiEndpointCount').textContent = `${endpoints.length} endpoints`;
+
+    const container = document.getElementById('apiEndpointList');
+    container.innerHTML = endpoints.map(e => {
+        const methodClass = `api-method-${e.method.toLowerCase()}`;
+        return `<div class="api-endpoint-card">
+            <div class="api-endpoint-header">
+                <span class="api-method ${methodClass}">${e.method}</span>
+                <code class="api-path">${escapeHtml(e.path)}</code>
+                <button class="btn-icon btn-icon-view" onclick="apiCopyPath('${escapeHtml(e.path)}')" title="Copy URL" style="margin-left:auto;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                </button>
+            </div>
+            <div class="api-endpoint-desc">${escapeHtml(e.desc)}</div>
+        </div>`;
+    }).join('');
+
+    lucide.createIcons();
+}
+
+function apiCopyPath(path) {
+    const base = window.location.hostname === 'localhost'
+        ? 'http://localhost:3000'
+        : 'https://n2store-fallback.onrender.com';
+    navigator.clipboard.writeText(base + path).then(() => {
+        showToast('Đã copy URL', 'success');
+    });
 }

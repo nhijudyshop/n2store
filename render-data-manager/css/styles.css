@@ -921,6 +921,62 @@ textarea.edit-input {
 }
 
 /* =====================================================
+   API REFERENCE
+   ===================================================== */
+
+.api-endpoint-card {
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    margin-bottom: 8px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.api-endpoint-card:hover {
+    border-color: var(--primary-light);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.06);
+}
+
+.api-endpoint-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.api-method {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    min-width: 52px;
+    text-align: center;
+    letter-spacing: 0.02em;
+}
+
+.api-method-get { background: #dcfce7; color: #16a34a; }
+.api-method-post { background: #dbeafe; color: #2563eb; }
+.api-method-put { background: #fef3c7; color: #d97706; }
+.api-method-patch { background: #fce7f3; color: #db2777; }
+.api-method-delete { background: #fef2f2; color: #dc2626; }
+.api-method-all { background: #ede9fe; color: #7c3aed; }
+
+.api-path {
+    font-family: "SF Mono", "Fira Code", monospace;
+    font-size: 0.8rem;
+    color: var(--gray-800);
+    word-break: break-all;
+}
+
+.api-endpoint-desc {
+    font-size: 0.78rem;
+    color: var(--gray-500);
+    margin-top: 6px;
+    padding-left: 62px;
+}
+
+/* =====================================================
    RESPONSIVE
    ===================================================== */
 

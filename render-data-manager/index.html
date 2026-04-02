@@ -48,6 +48,9 @@
             <button class="tab-btn" data-tab="renderSvc" onclick="switchTab('renderSvc')">
                 <i data-lucide="cloud"></i> Render Services
             </button>
+            <button class="tab-btn" data-tab="apiRef" onclick="switchTab('apiRef')">
+                <i data-lucide="book-open"></i> API Reference
+            </button>
         </div>
 
         <!-- ============================================= -->
@@ -290,6 +293,45 @@
             </div>
         </div>
     </div>
+
+        <!-- ============================================= -->
+        <!-- API REFERENCE TAB -->
+        <!-- ============================================= -->
+        <div class="tab-content" id="apiRefTab">
+            <div class="layout">
+                <!-- Sidebar - Categories -->
+                <aside class="sidebar-tables" id="apiSidebar">
+                    <div class="sidebar-search">
+                        <input type="text" id="apiSearch" placeholder="Tìm endpoint..." oninput="apiFilterEndpoints(this.value)">
+                    </div>
+                    <div id="apiCategoryList" class="table-groups"></div>
+                </aside>
+
+                <!-- Main Content Area -->
+                <main class="data-area">
+                    <div id="apiWelcomePanel" class="welcome-panel">
+                        <i data-lucide="book-open" class="welcome-icon"></i>
+                        <h2>API Reference</h2>
+                        <p>Chọn category từ sidebar để xem chi tiết endpoints</p>
+                        <div id="apiStats" style="margin-top:16px;font-size:0.82rem;color:var(--gray-500);"></div>
+                    </div>
+
+                    <div id="apiDataPanel" class="data-panel" style="display:none;">
+                        <div class="data-header">
+                            <div class="data-title">
+                                <h2 id="apiCategoryName">-</h2>
+                                <span id="apiEndpointCount" class="badge">0 endpoints</span>
+                            </div>
+                            <div class="data-actions">
+                                <span id="apiCategoryDesc" style="font-size:0.78rem;color:var(--gray-500);"></span>
+                            </div>
+                        </div>
+
+                        <div class="table-wrapper" id="apiEndpointList" style="padding:16px 20px;"></div>
+                    </div>
+                </main>
+            </div>
+        </div>
 
     <!-- Confirm Delete Modal -->
     <div class="modal-overlay" id="confirmModal" style="display:none;">
