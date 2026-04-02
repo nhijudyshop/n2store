@@ -28,4 +28,12 @@ export const CONFIG = {
 
   // Extension
   EXTENSION_NAME: 'N2Store Messenger',
+
+  // Server endpoints
+  RENDER_SSE_URL: 'https://n2store-fallback.onrender.com',
+  RENDER_API_URL: 'https://n2store-fallback.onrender.com',
+  CF_WORKER_URL: 'https://chatomni-proxy.nhijudyshop.workers.dev',
+
+  // N2Store web app
+  WEB_BASE_URL: 'https://nhijudyshop.workers.dev',
 };

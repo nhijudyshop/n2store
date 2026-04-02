@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>N2Store - Cai dat</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-size: 14px;
+      color: #333;
+      background: #f5f5f5;
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    .header img { width: 40px; height: 40px; border-radius: 8px; }
+    .header h1 { font-size: 20px; color: #1a1a1a; }
+    .header .subtitle { font-size: 12px; color: #999; }
+
+    .section {
+      background: #fff;
+      border: 1px solid #e8e8e8;
+      border-radius: 12px;
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+    .section-title {
+      padding: 12px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #666;
+      background: #fafafa;
+      border-bottom: 1px solid #f0f0f0;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      border-bottom: 1px solid #f5f5f5;
+    }
+    .setting-row:last-child { border-bottom: none; }
+    .setting-info { flex: 1; }
+    .setting-label { font-size: 14px; color: #333; font-weight: 500; }
+    .setting-desc { font-size: 11px; color: #999; margin-top: 2px; }
+
+    /* Toggle switch */
+    .switch {
+      position: relative;
+      width: 44px;
+      height: 24px;
+      flex-shrink: 0;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      inset: 0;
+      background: #ccc;
+      border-radius: 24px;
+      transition: 0.2s;
+    }
+    .slider::before {
+      content: '';
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      left: 2px;
+      bottom: 2px;
+      background: #fff;
+      border-radius: 50%;
+      transition: 0.2s;
+    }
+    .switch input:checked + .slider { background: #4caf50; }
+    .switch input:checked + .slider::before { transform: translateX(20px); }
+
+    /* Buttons */
+    .btn-row {
+      padding: 12px 16px;
+      display: flex;
+      gap: 8px;
+    }
+    .btn {
+      padding: 8px 16px;
+      border: 1px solid #e0e0e0;
+      background: #fff;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.15s;
+    }
+    .btn:hover { background: #f0f0f0; }
+    .btn.primary { background: #c5a028; color: #fff; border-color: #b08e20; }
+    .btn.primary:hover { background: #b08e20; }
+    .btn.danger { background: #fff; color: #e53935; border-color: #ffcdd2; }
+    .btn.danger:hover { background: #ffebee; }
+
+    /* Status */
+    .status-row {
+      padding: 10px 16px;
+      font-size: 12px;
+      color: #666;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border-bottom: 1px solid #f5f5f5;
+    }
+    .status-row:last-child { border-bottom: none; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .dot.green { background: #4caf50; }
+    .dot.yellow { background: #ff9800; }
+    .dot.red { background: #f44336; }
+
+    .saved-toast {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #333;
+      color: #fff;
+      padding: 8px 20px;
+      border-radius: 20px;
+      font-size: 13px;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+    }
+    .saved-toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <img src="../images/icon-128.png" alt="N2Store">
+      <div>
+        <h1>N2Store Messenger</h1>
+        <div class="subtitle" id="versionText">v1.0.0</div>
+      </div>
+    </div>
+
+    <!-- Connection Status -->
+    <div class="section">
+      <div class="section-title">Trang thai ket noi</div>
+      <div class="status-row">
+        <span class="dot green"></span>
+        <span>Extension: Dang chay</span>
+      </div>
+      <div class="status-row">
+        <span class="dot" id="fbDot"></span>
+        <span id="fbStatusText">Facebook: Dang kiem tra...</span>
+      </div>
+      <div class="status-row">
+        <span class="dot" id="sseDot"></span>
+        <span id="sseStatusText">SSE: Dang kiem tra...</span>
+      </div>
+      <div class="status-row">
+        <span class="dot" id="tabDot"></span>
+        <span id="tabStatusText">Tabs: Dang kiem tra...</span>
+      </div>
+    </div>
+
+    <!-- Notification Settings -->
+    <div class="section">
+      <div class="section-title">Cai dat thong bao</div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">Bat thong bao</div>
+          <div class="setting-desc">Hien thi chrome notification khi co su kien</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="notifEnabled" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">Am thanh</div>
+          <div class="setting-desc">Phat am thanh khi co thong bao</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="notifSound" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">Ket noi SSE (real-time)</div>
+          <div class="setting-desc">Nhan thong bao tu server (chuyen khoan, don hang, tin nhan)</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" id="sseEnabled" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Notification Types -->
+    <div class="section">
+      <div class="section-title">Loai thong bao</div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">Gui tin nhan thanh cong / that bai</div>
+          <div class="setting-desc">Thong bao khi gui tin nhan qua extension</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" class="notif-type" data-type="msg_sent" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">Upload anh</div>
+          <div class="setting-desc">Thong bao khi upload anh thanh cong / that bai</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" class="notif-type" data-type="upload_done" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">Xac dinh khach hang (Global ID)</div>
+          <div class="setting-desc">Thong bao khi resolve Global ID thanh cong / that bai</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" class="notif-type" data-type="global_id_resolved" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">Ket noi Facebook</div>
+          <div class="setting-desc">Thong bao khi ket noi / mat ket noi Facebook</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" class="notif-type" data-type="session_ready" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">Chuyen khoan moi (SePay)</div>
+          <div class="setting-desc">Thong bao khi co giao dich ngan hang moi</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" class="notif-type" data-type="new_transaction" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">Cap nhat vi khach hang</div>
+          <div class="setting-desc">Thong bao khi nap / rut vi</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" class="notif-type" data-type="wallet_update" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">San pham bi hold</div>
+          <div class="setting-desc">Canh bao khi san pham dang bi hold</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" class="notif-type" data-type="held_product" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">Tin nhan moi</div>
+          <div class="setting-desc">Thong bao khi co tin nhan khach hang moi</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" class="notif-type" data-type="new_message" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">Cap nhat xu ly don</div>
+          <div class="setting-desc">Thong bao khi don hang thay doi trang thai</div>
+        </div>
+        <label class="switch">
+          <input type="checkbox" class="notif-type" data-type="processing_update" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="section">
+      <div class="section-title">Hanh dong</div>
+      <div class="btn-row">
+        <button class="btn primary" id="saveBtn">Luu cai dat</button>
+        <button class="btn" id="testBtn">Test thong bao</button>
+        <button class="btn danger" id="clearDataBtn">Xoa du lieu</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="saved-toast" id="savedToast">Da luu!</div>
+
+  <script src="settings.js"></script>
+</body>
+</html>
