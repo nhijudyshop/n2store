@@ -206,11 +206,13 @@ function saveOrderTags() {
 
     const orderIndex = SocialOrderState.orders.findIndex((o) => o.id === currentTagOrderId);
     if (orderIndex > -1) {
+        const oldTags = [...(SocialOrderState.orders[orderIndex].tags || [])];
         SocialOrderState.orders[orderIndex].tags = [...selectedTags];
         SocialOrderState.orders[orderIndex].updatedAt = Date.now();
         saveSocialOrdersToStorage();
         // Fire-and-forget: sync to Firestore
         updateSocialOrderTags(currentTagOrderId, [...selectedTags]);
+        if (window.InboxHistory) InboxHistory.logTagChange(SocialOrderState.orders[orderIndex], oldTags, selectedTags);
 
         showNotification('Đã cập nhật tags', 'success');
         performTableSearch(); // Re-render table
@@ -279,6 +281,7 @@ function saveBulkTags() {
     });
 
     saveSocialOrdersToStorage();
+    if (window.InboxHistory) InboxHistory.logBulkTagChange([...SocialOrderState.selectedOrders], selectedTags);
     showNotification(`Đã gán tags cho ${updatedCount} đơn hàng`, 'success');
     performTableSearch();
 

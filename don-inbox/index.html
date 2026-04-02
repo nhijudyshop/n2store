@@ -95,6 +95,13 @@
                                 Cài đặt cột
                             </button>
                             <button
+                                class="btn-primary btn-history"
+                                onclick="openHistoryModal()"
+                            >
+                                <i class="fas fa-history"></i>
+                                Lịch sử
+                            </button>
+                            <button
                                 class="btn-primary btn-tag-panel-toggle"
                                 id="btnToggleTagPanel"
                                 onclick="toggleTagPanel()"
@@ -1913,6 +1920,60 @@
         </div>
         <!-- ===== END BILL PREVIEW SEND MODAL ===== -->
 
+        <!-- ===== HISTORY MODAL ===== -->
+        <div class="history-modal-overlay" id="historyModal">
+            <div class="history-modal">
+                <!-- Header -->
+                <div class="history-modal-header">
+                    <div class="history-modal-title">
+                        <i class="fas fa-history"></i>
+                        Lịch sử thao tác
+                        <span class="history-total-count" id="historyTotalCount"></span>
+                    </div>
+                    <button class="history-modal-close" onclick="closeHistoryModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+
+                <!-- Toolbar: Search + Filters -->
+                <div class="history-toolbar">
+                    <div class="history-search-wrap">
+                        <i class="fas fa-search"></i>
+                        <input type="text" class="history-search-input" id="historySearchInput"
+                            placeholder="Tìm theo tên KH, SĐT, mã đơn..."
+                            oninput="searchHistoryDebounced()">
+                    </div>
+                    <div class="history-filters">
+                        <button class="history-filter-btn active" data-filter="all" onclick="filterHistory('all')">Tất cả</button>
+                        <button class="history-filter-btn" data-filter="create" onclick="filterHistory('create')"><i class="fas fa-plus-circle" style="color:#10b981"></i> Tạo đơn</button>
+                        <button class="history-filter-btn" data-filter="update" onclick="filterHistory('update')"><i class="fas fa-edit" style="color:#3b82f6"></i> Cập nhật</button>
+                        <button class="history-filter-btn" data-filter="delete" onclick="filterHistory('delete')"><i class="fas fa-trash-alt" style="color:#ef4444"></i> Xóa đơn</button>
+                        <button class="history-filter-btn" data-filter="bulk_delete" onclick="filterHistory('bulk_delete')"><i class="fas fa-trash" style="color:#dc2626"></i> Xóa loạt</button>
+                        <button class="history-filter-btn" data-filter="tag_change" onclick="filterHistory('tag_change')"><i class="fas fa-tags" style="color:#f59e0b"></i> Đổi tag</button>
+                        <button class="history-filter-btn" data-filter="bulk_tag" onclick="filterHistory('bulk_tag')"><i class="fas fa-tags" style="color:#d97706"></i> Tag loạt</button>
+                        <button class="history-filter-btn" data-filter="status_change" onclick="filterHistory('status_change')"><i class="fas fa-exchange-alt" style="color:#8b5cf6"></i> Trạng thái</button>
+                    </div>
+                </div>
+
+                <!-- Body -->
+                <div class="history-modal-body" id="historyListContainer">
+                    <div style="text-align:center;padding:60px 20px;color:#9ca3af;">
+                        <i class="fas fa-history" style="font-size:36px;margin-bottom:12px;display:block;"></i>
+                        Nhấn để tải lịch sử...
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="history-modal-footer">
+                    <button class="history-clear-btn" onclick="clearHistoryConfirm()">
+                        <i class="fas fa-trash-alt"></i> Xóa toàn bộ lịch sử
+                    </button>
+                    <span style="font-size:12px;color:#9ca3af;">Dữ liệu lưu trên server, không bị ảnh hưởng khi xóa đơn</span>
+                </div>
+            </div>
+        </div>
+        <!-- ===== END HISTORY MODAL ===== -->
+
         <!-- Sale Modal Dependencies (shared with Tab1) -->
         <script src="../orders-report/js/core/api-config.js"></script>
         <script src="../orders-report/js/core/bill-token-manager.js"></script>
@@ -1929,6 +1990,7 @@
         <script src="js/tab-social-table.js"></script>
         <script src="js/tab-social-modal.js"></script>
         <script src="js/tab-social-firebase.js"></script>
+        <script src="js/tab-social-history.js"></script>
         <script src="js/tab-social-tags.js"></script>
         <script src="js/tab-social-panel.js"></script>
 

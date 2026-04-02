@@ -281,6 +281,7 @@ function saveOrder() {
             saveSocialOrdersToStorage();
             // Fire-and-forget: sync to Firestore
             updateSocialOrder(orderId, SocialOrderState.orders[orderIndex]);
+            if (window.InboxHistory) InboxHistory.logUpdate(SocialOrderState.orders[orderIndex]);
             showNotification('Đã cập nhật đơn hàng', 'success');
 
             // Fire-and-forget: sync updated products to TPOS
@@ -322,6 +323,7 @@ function saveOrder() {
         saveSocialOrdersToStorage();
         // Fire-and-forget: sync to Firestore
         createSocialOrder(newOrder);
+        if (window.InboxHistory) InboxHistory.logCreate(newOrder);
         showNotification('Đã tạo đơn hàng mới', 'success');
 
         // Fire-and-forget: sync products to TPOS
@@ -350,6 +352,7 @@ document.addEventListener('keydown', function (e) {
         closeOrderModal();
         closeTagModal();
         closeConfirmDeleteModal();
+        if (typeof closeHistoryModal === 'function') closeHistoryModal();
     }
 });
 
