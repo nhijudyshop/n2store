@@ -93,6 +93,9 @@
                         Hủy
                         <span class="badge" id="badge-cancelled" style="background:#ef4444;">0</span>
                     </button>
+                    <button class="tab-btn" data-tab="history">
+                        Lịch sử
+                    </button>
                 </div>
 
                 <!-- Guide Section (Dynamic) -->
@@ -108,7 +111,7 @@
                 </div>
 
                 <!-- Filters (Simplified) -->
-                <div class="filters-bar">
+                <div class="filters-bar" id="default-filters">
                     <input type="text" id="search-ticket" placeholder="Tìm theo SĐT, Mã đơn..." class="search-input">
                     <select id="filter-type" class="select-input">
                         <option value="all">Tất cả loại</option>
@@ -117,6 +120,28 @@
                         <option value="RETURN_CLIENT">Khách gửi</option>
                         <option value="FIX_COD">Sửa COD</option>
                     </select>
+                </div>
+
+                <!-- History Filters (shown only on History tab) -->
+                <div class="filters-bar hidden" id="history-filters">
+                    <input type="text" id="history-search" placeholder="Tìm theo Tên, SĐT, Mã đơn..." class="search-input">
+                    <select id="history-filter-type" class="select-input">
+                        <option value="all">Tất cả loại</option>
+                        <option value="BOOM">Không Nhận Hàng</option>
+                        <option value="RETURN_SHIPPER">Thu về (Shipper)</option>
+                        <option value="RETURN_CLIENT">Khách gửi</option>
+                        <option value="FIX_COD">Sửa COD</option>
+                        <option value="OTHER">Khác</option>
+                    </select>
+                    <select id="history-filter-status" class="select-input">
+                        <option value="all">Tất cả trạng thái</option>
+                        <option value="PENDING_GOODS">Chờ nhận hàng</option>
+                        <option value="PENDING_FINANCE">Chờ đối soát</option>
+                        <option value="COMPLETED">Hoàn tất</option>
+                        <option value="CANCELLED">Đã hủy</option>
+                    </select>
+                    <input type="date" id="history-date-from" class="date-input" title="Từ ngày">
+                    <input type="date" id="history-date-to" class="date-input" title="Đến ngày">
                 </div>
 
                 <!-- Data Table -->
@@ -462,6 +487,16 @@ Ví dụ:
             <div class="modal-actions" style="margin-top: 20px;">
                 <button id="btn-save-settings" class="btn btn-primary">Lưu cài đặt</button>
                 <button class="btn btn-secondary close-modal-btn">Đóng</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Ticket History Timeline -->
+    <div id="modal-ticket-history" class="modal">
+        <div class="modal-content large-modal">
+            <span class="close-modal">&times;</span>
+            <div id="history-modal-content">
+                <!-- Populated by JS -->
             </div>
         </div>
     </div>
