@@ -1,0 +1,30 @@
+[
+  {
+    "id": 1,
+    "priority": 1,
+    "action": {
+      "type": "modifyHeaders",
+      "requestHeaders": [
+        {
+          "header": "Origin",
+          "operation": "set",
+          "value": "https://www.facebook.com"
+        },
+        {
+          "header": "Accept",
+          "operation": "set",
+          "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+        }
+      ]
+    },
+    "condition": {
+      "requestDomains": [
+        "facebook.com",
+        "business.facebook.com",
+        "upload-business.facebook.com",
+        "p-upload.facebook.com"
+      ],
+      "resourceTypes": ["xmlhttprequest"]
+    }
+  }
+]

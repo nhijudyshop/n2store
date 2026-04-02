@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>N2Store Messenger</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-left">
+        <img src="../images/icon-32.png" alt="N2Store" class="logo">
+        <span class="title">N2Store</span>
+        <span class="version" id="version">v1.0.0</span>
+      </div>
+      <button class="settings-btn" id="settingsBtn" title="Settings">&#9881;</button>
+    </div>
+
+    <!-- Status -->
+    <div class="status-bar">
+      <div class="status-item">
+        <span class="status-dot" id="extStatus"></span>
+        <span>Extension</span>
+      </div>
+      <div class="status-item">
+        <span class="status-dot" id="fbStatus"></span>
+        <span>Facebook</span>
+      </div>
+      <div class="status-item">
+        <span class="status-dot" id="tabStatus"></span>
+        <span id="tabCount">0 tabs</span>
+      </div>
+    </div>
+
+    <!-- Dashboard -->
+    <div class="dashboard" id="dashboard">
+      <div class="stat-card">
+        <div class="stat-value" id="sessionCount">0</div>
+        <div class="stat-label">FB Pages</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="cacheCount">0</div>
+        <div class="stat-label">Cached IDs</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="msgCount">0</div>
+        <div class="stat-label">Messages</div>
+      </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="actions">
+      <button class="action-btn" id="openInbox" title="Open Inbox">
+        <span>&#128172;</span> Inbox
+      </button>
+      <button class="action-btn" id="openOrders" title="Open Orders">
+        <span>&#128230;</span> Orders
+      </button>
+      <button class="action-btn" id="refreshBtn" title="Refresh sessions">
+        <span>&#128260;</span> Refresh
+      </button>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="activity">
+      <div class="activity-header">Recent Activity</div>
+      <div class="activity-list" id="activityList">
+        <div class="activity-empty">No recent activity</div>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

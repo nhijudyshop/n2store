@@ -1,0 +1,69 @@
+{
+  "manifest_version": 3,
+  "name": "N2Store Messenger",
+  "short_name": "N2Store",
+  "version": "1.0.0",
+  "description": "N2Store unified messaging & management extension",
+  "icons": {
+    "16": "images/icon-16.png",
+    "32": "images/icon-32.png",
+    "48": "images/icon-48.png",
+    "128": "images/icon-128.png"
+  },
+  "background": {
+    "service_worker": "background/service-worker.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.nhijudyshop.workers.dev/*",
+        "https://nhijudyshop.workers.dev/*",
+        "https://nhijudyshop.github.io/*"
+      ],
+      "js": ["content/contentscript.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "images/icon-16.png",
+      "32": "images/icon-32.png"
+    }
+  },
+  "permissions": [
+    "cookies",
+    "storage",
+    "offscreen",
+    "declarativeNetRequestWithHostAccess",
+    "notifications",
+    "alarms"
+  ],
+  "host_permissions": [
+    "*://business.facebook.com/*",
+    "*://www.business.facebook.com/*",
+    "*://upload-business.facebook.com/*",
+    "*://www.facebook.com/*",
+    "*://web.facebook.com/*",
+    "*://graph.facebook.com/*",
+    "*://p-upload.facebook.com/*",
+    "https://*.nhijudyshop.workers.dev/*",
+    "https://nhijudyshop.github.io/*"
+  ],
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "rules",
+        "enabled": true,
+        "path": "rules.json"
+      }
+    ]
+  },
+  "web_accessible_resources": [
+    {
+      "matches": ["<all_urls>"],
+      "resources": ["pages/offscreen.html"]
+    }
+  ]
+}
