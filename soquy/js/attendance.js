@@ -518,7 +518,7 @@
             const cellData = processDayRecords(dayRecs);
             const sal = calculateDaySalary(cellData, empRate, isFullDay(empId, dateKey), empSched);
             totalLate += sal.lateDeduction;
-            if (sal.totalSalary > 0) workedDays++;
+            if (cellData.status !== 'absent' && cellData.status !== 'incomplete') workedDays++;
             if (sal.lateDeduction > 0) lateDays.push({ dateKey, minutes: sal.lateMinutes, amount: sal.lateDeduction });
             if (sal.otPay > 0) otDays.push({ dateKey, minutes: sal.otMinutes, amount: sal.otPay });
         }
