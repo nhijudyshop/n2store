@@ -851,8 +851,8 @@
                             }
 
                             this.set(soId, order, originalOrder);
-                            // Auto-transition processing tag to HOÀN TẤT
-                            if (window.onPtagBillCreated) window.onPtagBillCreated(String(soId));
+                            // Do NOT auto-transition processing tag for failed orders
+                            // Failed orders get reset to "Nháp" and tagged "ÂM MÃ" instead
                         });
                     }
                 });
