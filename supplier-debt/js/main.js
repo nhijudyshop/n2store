@@ -641,9 +641,12 @@ function initDateInputs() {
     });
 
     // Click calendar icon to open date picker
-    document.querySelectorAll('.date-input-wrapper .date-icon').forEach(icon => {
-        icon.addEventListener('click', function() {
-            const hiddenInput = this.parentElement.querySelector('.date-input-hidden');
+    // Use event delegation on wrapper because Lucide replaces <i> with <svg>, removing direct listeners
+    document.querySelectorAll('.date-input-wrapper').forEach(wrapper => {
+        wrapper.addEventListener('click', function(e) {
+            const icon = wrapper.querySelector('.date-icon');
+            if (!icon || (!icon.contains(e.target) && e.target !== icon)) return;
+            const hiddenInput = wrapper.querySelector('.date-input-hidden');
             if (hiddenInput) {
                 hiddenInput.style.pointerEvents = 'auto';
                 hiddenInput.showPicker();
