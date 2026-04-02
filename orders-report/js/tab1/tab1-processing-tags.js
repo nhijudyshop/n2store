@@ -3039,6 +3039,13 @@
         }
     }
 
+    function _ttagMgrNormalizePhone(phone) {
+        if (!phone) return '';
+        let cleaned = phone.replace(/\D/g, '');
+        if (cleaned.startsWith('84')) cleaned = '0' + cleaned.substring(2);
+        return cleaned;
+    }
+
     async function _ttagMgrExecuteAssign() {
         const selectedTags = _ttagMgrData.filter(t => _ttagMgrSelectedRows.has(t.tagId) && t.sttList.length > 0);
         if (selectedTags.length === 0) {
@@ -3053,11 +3060,54 @@
         for (const tagEntry of selectedTags) {
             const successSTT = [];
             const failedSTT = [];
+            const redirectedSTT = [];
 
             for (const stt of tagEntry.sttList) {
                 const order = window.OrderStore?.getBySTT(stt) || allOrders.find(o => o.SessionIndex === stt);
                 if (!order) { failedSTT.push(stt); continue; }
 
+                // Check for "ĐÃ GỘP KO CHỐT" TPOS tag → redirect to replacement order
+                const rawTags = order.Tags ? JSON.parse(order.Tags) : [];
+                const hasBlockedTag = rawTags.some(t => t.Name === "ĐÃ GỘP KO CHỐT");
+
+                if (hasBlockedTag) {
+                    const originalSTT = order.SessionIndex;
+                    const normalizedPhone = _ttagMgrNormalizePhone(order.Telephone);
+
+                    if (!normalizedPhone) {
+                        console.warn(`${PTAG_LOG} Order ${order.Code} has "ĐÃ GỘP KO CHỐT" but no phone number`);
+                        failedSTT.push(stt);
+                        continue;
+                    }
+
+                    const samePhoneOrders = allOrders.filter(o =>
+                        o.Id !== order.Id && _ttagMgrNormalizePhone(o.Telephone) === normalizedPhone
+                    );
+
+                    if (samePhoneOrders.length === 0) {
+                        console.warn(`${PTAG_LOG} No replacement order found for phone ${normalizedPhone}`);
+                        failedSTT.push(stt);
+                        continue;
+                    }
+
+                    const replacementOrder = samePhoneOrders.sort((a, b) => b.SessionIndex - a.SessionIndex)[0];
+                    console.log(`${PTAG_LOG} Redirecting T-tag from STT ${originalSTT} (${order.Code}) → STT ${replacementOrder.SessionIndex} (${replacementOrder.Code})`);
+
+                    try {
+                        await assignTTagToOrder(replacementOrder.Id, tagEntry.tagId);
+                        // Transfer processing tags (flags + tTags) from blocked order to replacement
+                        try {
+                            await transferProcessingTags(order.Id, replacementOrder.Id);
+                        } catch (e) { console.warn(`${PTAG_LOG} Transfer processing tags failed:`, e); }
+                        redirectedSTT.push({ original: originalSTT, redirectTo: replacementOrder.SessionIndex });
+                    } catch (e) {
+                        console.error(`${PTAG_LOG} Failed to assign ${tagEntry.tagId} to replacement STT ${replacementOrder.SessionIndex}:`, e);
+                        failedSTT.push(stt);
+                    }
+                    continue;
+                }
+
+                // Normal flow (no blocked tag)
                 try {
                     await assignTTagToOrder(order.Id, tagEntry.tagId);
                     successSTT.push(stt);
@@ -3067,19 +3117,20 @@
                 }
             }
 
-            if (successSTT.length > 0) {
-                successResults.push({ tagName: tagEntry.tagName, productCode: tagEntry.productCode, sttList: successSTT });
+            if (successSTT.length > 0 || redirectedSTT.length > 0) {
+                successResults.push({ tagName: tagEntry.tagName, productCode: tagEntry.productCode, sttList: successSTT, redirectedList: redirectedSTT });
             }
             if (failedSTT.length > 0) {
                 failedResults.push({ tagName: tagEntry.tagName, sttList: failedSTT, reason: 'Không tìm thấy đơn hoặc lỗi API' });
             }
         }
 
-        // Remove successful rows/STTs from table
+        // Remove successful rows/STTs from table (including redirected ones)
         for (const success of successResults) {
             const tagEntry = _ttagMgrData.find(d => d.tagName === success.tagName);
             if (tagEntry) {
-                tagEntry.sttList = tagEntry.sttList.filter(s => !success.sttList.includes(s));
+                const allSuccessSTT = [...success.sttList, ...(success.redirectedList || []).map(r => r.original)];
+                tagEntry.sttList = tagEntry.sttList.filter(s => !allSuccessSTT.includes(s));
                 if (tagEntry.sttList.length === 0) {
                     _ttagMgrData = _ttagMgrData.filter(d => d.tagId !== tagEntry.tagId);
                     _ttagMgrSelectedRows.delete(tagEntry.tagId);
@@ -3159,7 +3210,7 @@
     }
 
     function _ttagMgrShowResult(successResults, failedResults, actionLabel) {
-        const totalSuccess = successResults.reduce((sum, r) => sum + r.sttList.length, 0);
+        const totalSuccess = successResults.reduce((sum, r) => sum + r.sttList.length + (r.redirectedList || []).length, 0);
         const totalFailed = failedResults.reduce((sum, r) => sum + r.sttList.length, 0);
 
         // Notification
@@ -3176,10 +3227,20 @@
         if (successResults.length > 0) {
             successHtml = `<div style="margin-bottom:12px;">
                 <div style="font-weight:600;color:#10b981;margin-bottom:6px;"><i class="fas fa-check-circle"></i> Thành công (${totalSuccess} đơn)</div>
-                ${successResults.map(r => `<div style="padding:4px 0;font-size:13px;">
-                    <span style="color:#7c3aed;font-weight:600;">${r.tagName}:</span>
-                    <span style="color:#374151;">STT ${r.sttList.join(', ')}</span>
-                </div>`).join('')}
+                ${successResults.map(r => {
+                    let html = `<div style="padding:4px 0;font-size:13px;">
+                        <span style="color:#7c3aed;font-weight:600;">${r.tagName}:</span>
+                        <span style="color:#374151;">${r.sttList.length > 0 ? 'STT ' + r.sttList.join(', ') : ''}</span>
+                    </div>`;
+                    if (r.redirectedList && r.redirectedList.length > 0) {
+                        html += r.redirectedList.map(rd =>
+                            `<div style="padding:2px 0 2px 12px;font-size:12px;color:#6b7280;">
+                                ↳ STT ${rd.original} → chuyển sang STT ${rd.redirectTo} (đơn gộp)
+                            </div>`
+                        ).join('');
+                    }
+                    return html;
+                }).join('')}
             </div>`;
         }
 
