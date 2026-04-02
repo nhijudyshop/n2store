@@ -1379,11 +1379,10 @@ async function fetchOrders() {
         updateSearchResultCount();
         showInfoBanner(`✅ Đã tải ${allData.length} đơn hàng.`);
 
-        // Init Processing Tags (Tag Xử Lý) for this campaign
-        const ptagCampaignId = window.campaignManager?.activeCampaignId || 'default';
+        // Init Processing Tags (Tag Xử Lý)
         if (window.loadProcessingTags) {
-            window.loadProcessingTags(ptagCampaignId);
-            if (window.setupProcessingTagSSE) window.setupProcessingTagSSE(ptagCampaignId);
+            window.loadProcessingTags();
+            if (window.setupProcessingTagSSE) window.setupProcessingTagSSE();
             if (window.initProcessingTagPanel) window.initProcessingTagPanel();
         }
 

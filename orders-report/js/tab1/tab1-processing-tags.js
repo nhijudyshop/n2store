@@ -187,7 +187,6 @@
         _panelPinned: JSON.parse(localStorage.getItem('ptag_panel_pinned') || 'false'),
         _activeFilter: null,
         _activeFlagFilters: new Set(),
-        _campaignId: null,
         _sseSource: null,
         _pollInterval: null,
         _tTagDefinitions: [],
@@ -309,50 +308,33 @@
         return response.json();
     }
 
-    async function loadProcessingTags(campaignId) {
-        ProcessingTagState._campaignId = campaignId;
-        // Reset filter khi đổi campaign
+    async function loadProcessingTags() {
         ProcessingTagState._activeFilter = null;
         try {
-            // Phase 1: Load config (ttag definitions, custom flags) from campaign endpoint
-            const result = await _ptagFetch(`${PTAG_API_BASE}/${encodeURIComponent(campaignId)}`);
+            // 1. Load config (T-tag definitions, custom flags) từ endpoint riêng
             const backupCustomFlagDefs = [...ProcessingTagState._customFlagDefs];
             ProcessingTagState.clear();
             let loadedCustomFlags = false;
-            if (result.data) {
-                for (const [key, data] of Object.entries(result.data)) {
-                    if (key === '__ttag_config__') {
-                        ProcessingTagState.setTTagDefinitions(data.tTagDefinitions || []);
-                        continue;
+            try {
+                const configResult = await _ptagFetch(`${PTAG_API_BASE}/config`);
+                if (configResult.data) {
+                    if (configResult.data.__ttag_config__) {
+                        ProcessingTagState.setTTagDefinitions(configResult.data.__ttag_config__.tTagDefinitions || []);
                     }
-                    if (key === '__ptag_custom_flags__') {
-                        if (data.customFlagDefs) {
-                            ProcessingTagState.setCustomFlagDefs(data.customFlagDefs);
-                            loadedCustomFlags = true;
-                        }
-                        continue;
+                    if (configResult.data.__ptag_custom_flags__?.customFlagDefs) {
+                        ProcessingTagState.setCustomFlagDefs(configResult.data.__ptag_custom_flags__.customFlagDefs);
+                        loadedCustomFlags = true;
                     }
-                    // key = orderCode (nếu có) hoặc orderId (dữ liệu cũ)
-                    // Migrate legacy category 5 → CHO_DI_DON + CHO_HANG + pickingSlipPrinted
-                    if (data.category === 5) {
-                        data.category = PTAG_CATEGORIES.CHO_DI_DON;
-                        data.subState = 'CHO_HANG';
-                        data.pickingSlipPrinted = true;
-                    }
-                    if (data.category === PTAG_CATEGORIES.CHO_DI_DON) {
-                        const hasTTags = (data.tTags || []).length > 0;
-                        data.subState = hasTTags ? 'CHO_HANG' : 'OKIE_CHO_DI_DON';
-                    }
-                    ProcessingTagState.setOrderData(key, data);
                 }
+            } catch (e) {
+                console.warn(`${PTAG_LOG} Failed to load config:`, e);
             }
             if (!loadedCustomFlags && backupCustomFlagDefs.length > 0) {
                 ProcessingTagState._customFlagDefs = backupCustomFlagDefs;
                 console.log(`${PTAG_LOG} Restored ${backupCustomFlagDefs.length} custom flag defs from backup`);
             }
-            console.log(`${PTAG_LOG} Loaded ${result.count || 0} tags for campaign ${campaignId}`);
 
-            // Phase 2: Load by order codes (cross-campaign, covers date mode)
+            // 2. Load ALL order tags bằng batch endpoint (orderCode only)
             const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
             const orderCodes = allOrders.map(o => String(o.Code)).filter(Boolean);
             if (orderCodes.length > 0) {
@@ -362,6 +344,7 @@
             _ptagReconcileIds();
             renderPanelContent();
             _ptagRefreshAllRows();
+            console.log(`${PTAG_LOG} Loaded tags for ${orderCodes.length} orders`);
         } catch (e) {
             console.error(`${PTAG_LOG} Failed to load tags:`, e);
         }
@@ -462,13 +445,11 @@
 
 
     async function saveProcessingTagToAPI(orderCode, data) {
-        const campaignId = ProcessingTagState._campaignId;
         try {
             const userName = window.authManager?.getAuthState()?.username || '';
-            const orderId = _ptagResolveId(orderCode) || null;
             await _ptagFetch(
                 `${PTAG_API_BASE}/by-code/${encodeURIComponent(orderCode)}`,
-                { method: 'PUT', body: JSON.stringify({ data, updatedBy: userName, campaignId, orderId }) }
+                { method: 'PUT', body: JSON.stringify({ data, updatedBy: userName }) }
             );
         } catch (e) {
             console.error(`${PTAG_LOG} Failed to save tag for ${orderCode}:`, e);
@@ -497,7 +478,7 @@
     }
 
     // SSE realtime listener
-    function setupProcessingTagSSE(campaignId) {
+    function setupProcessingTagSSE() {
         // Cleanup previous
         if (ProcessingTagState._sseSource) {
             ProcessingTagState._sseSource.close();
@@ -508,7 +489,7 @@
             ProcessingTagState._pollInterval = null;
         }
 
-        const sseKey = 'processing_tags/' + campaignId + ',processing_tags_global';
+        const sseKey = 'processing_tags_global';
         const sseUrl = `https://n2store-fallback.onrender.com/api/realtime/sse?keys=${encodeURIComponent(sseKey)}`;
 
         try {
@@ -519,28 +500,25 @@
                 try {
                     const payload = JSON.parse(e.data);
                     const eventData = payload.data || payload;
-                    let { orderId, orderCode, data } = eventData;
-                    // Config records: check cả orderId lẫn orderCode
-                    const configKey = orderCode || orderId;
-                    if (configKey === '__ttag_config__' && data) {
+                    const { orderCode, data } = eventData;
+                    if (!orderCode || !data) return;
+                    // Config records
+                    if (orderCode === '__ttag_config__') {
                         ProcessingTagState.setTTagDefinitions(data.tTagDefinitions || []);
                         renderPanelContent();
                         return;
                     }
-                    if (configKey === '__ptag_custom_flags__' && data) {
+                    if (orderCode === '__ptag_custom_flags__') {
                         if (data.customFlagDefs) {
                             ProcessingTagState.setCustomFlagDefs(data.customFlagDefs);
                         }
                         renderPanelContent();
                         return;
                     }
-                    // Ưu tiên orderCode, fallback orderId cho dữ liệu cũ
-                    const key = orderCode || orderId;
-                    if (key && data) {
-                        ProcessingTagState.setOrderData(key, data);
-                        _ptagRefreshRow(key);
-                        renderPanelContent();
-                    }
+                    // Order tag update
+                    ProcessingTagState.setOrderData(orderCode, data);
+                    _ptagRefreshRow(orderCode);
+                    renderPanelContent();
                 } catch (err) {
                     console.warn(`${PTAG_LOG} SSE parse error:`, err);
                 }
@@ -549,11 +527,10 @@
             source.addEventListener('deleted', (e) => {
                 try {
                     const payload = JSON.parse(e.data);
-                    const { orderId, orderCode } = payload.data || payload;
-                    const key = orderCode || orderId;
-                    if (key) {
-                        ProcessingTagState.removeOrder(key);
-                        _ptagRefreshRow(key);
+                    const { orderCode } = payload.data || payload;
+                    if (orderCode) {
+                        ProcessingTagState.removeOrder(orderCode);
+                        _ptagRefreshRow(orderCode);
                         renderPanelContent();
                     }
                 } catch (err) {
@@ -565,20 +542,20 @@
                 console.warn(`${PTAG_LOG} SSE disconnected, falling back to polling`);
                 source.close();
                 ProcessingTagState._sseSource = null;
-                _ptagStartPolling(campaignId);
+                _ptagStartPolling();
             };
 
             console.log(`${PTAG_LOG} SSE connected for ${sseKey}`);
         } catch (e) {
             console.warn(`${PTAG_LOG} SSE failed, using polling:`, e);
-            _ptagStartPolling(campaignId);
+            _ptagStartPolling();
         }
     }
 
-    function _ptagStartPolling(campaignId) {
+    function _ptagStartPolling() {
         if (ProcessingTagState._pollInterval) return;
         ProcessingTagState._pollInterval = setInterval(() => {
-            loadProcessingTags(campaignId);
+            loadProcessingTags();
         }, 15000);
         console.log(`${PTAG_LOG} Polling started (15s interval)`);
     }

@@ -494,10 +494,10 @@
             return;
         }
 
-        // 2. Check prerequisites
-        if (!window.ProcessingTagState || !window.ProcessingTagState._campaignId) {
+        // 2. Check prerequisites — cần có dữ liệu đơn hàng
+        if (!window.ProcessingTagState || window.ProcessingTagState._orderData.size === 0) {
             if (window.notificationManager) {
-                window.notificationManager.error('Chưa chọn chiến dịch. Vui lòng chọn chiến dịch trước!', 3000);
+                window.notificationManager.error('Chưa tải dữ liệu đơn hàng. Vui lòng tải đơn trước!', 3000);
             }
             return;
         }
