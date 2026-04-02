@@ -998,19 +998,30 @@
         });
     }
 
-    // Assign TOMATO/NAP: random pick, TOMATO ~20-22% of total AmountTotal
-    function assignTomatoNap(items, groups) {
-        const totalAmount = items.reduce((sum, i) => sum + (i.AmountTotal || 0), 0);
-        const targetAmount = totalAmount * 0.21;
+    // Assign TOMATO/NAP: random pick, TOMATO ~20-22% of total AmountTotal (all items)
+    function assignTomatoNap(unassignedItems, groups) {
+        // Calculate based on ALL province items (assigned + unassigned)
+        const allProvinceData = getProvinceData();
+        const grandTotal = allProvinceData.reduce((sum, i) => sum + (i.AmountTotal || 0), 0);
+        const targetAmount = grandTotal * 0.21;
+
+        // Sum of existing TOMATO assignments
+        const existingTomatoSum = allProvinceData
+            .filter(i => groups[i.Number] === 'tomato')
+            .reduce((sum, i) => sum + (i.AmountTotal || 0), 0);
+
+        // Remaining budget for new TOMATO assignments
+        const remainingBudget = targetAmount - existingTomatoSum;
+
         // Shuffle randomly
-        const shuffled = [...items].sort(() => Math.random() - 0.5);
-        let tomatoSum = 0;
+        const shuffled = [...unassignedItems].sort(() => Math.random() - 0.5);
+        let newTomatoSum = 0;
 
         shuffled.forEach(item => {
             const amt = item.AmountTotal || 0;
-            if (tomatoSum + amt <= targetAmount || tomatoSum === 0) {
+            if (remainingBudget > 0 && (newTomatoSum + amt <= remainingBudget || (newTomatoSum === 0 && existingTomatoSum === 0))) {
                 groups[item.Number] = 'tomato';
-                tomatoSum += amt;
+                newTomatoSum += amt;
             } else {
                 groups[item.Number] = 'nap';
             }
