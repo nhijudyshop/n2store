@@ -2269,12 +2269,19 @@ function renderActionButtons(ticket) {
     }
 
     // Icon buttons for Edit/Cancel
-    // Cancel only allowed when NO action has been performed yet:
-    // - Status must be PENDING_GOODS (chưa nhận hàng, chưa thanh toán)
-    // - RETURN_SHIPPER: chưa cấp công nợ ảo
+    // Cancel allowed when:
+    // - Status must be PENDING_GOODS
+    // - RETURN_SHIPPER with virtual credit: only if credit is UNUSED
     const canCancel = window.authManager?.hasDetailedPermission('issue-tracking', 'delete');
     const hasVirtualCredit = !!(ticket.virtualCreditId || ticket.virtual_credit_id);
-    const isUntouched = ticket.status === 'PENDING_GOODS' && !(ticket.type === 'RETURN_SHIPPER' && hasVirtualCredit);
+    let isUntouched = ticket.status === 'PENDING_GOODS';
+    if (ticket.type === 'RETURN_SHIPPER' && hasVirtualCredit) {
+        // Check if virtual credit has been used (partially or fully)
+        const vcUsed = (ticket.vcUsedInOrders && ticket.vcUsedInOrders.length > 0) ||
+                       (ticket.vcRemainingAmount != null && ticket.vcOriginalAmount != null &&
+                        parseFloat(ticket.vcRemainingAmount) < parseFloat(ticket.vcOriginalAmount));
+        isUntouched = !vcUsed;
+    }
     const cancelButton = (canCancel && isUntouched)
         ? `<button onclick="cancelTicket('${id}')" title="Hủy phiếu" style="background:none;border:none;cursor:pointer;font-size:14px;padding:4px;opacity:0.6;transition:opacity 0.2s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.6">🚫</button>`
         : '';
@@ -2491,27 +2498,64 @@ window.cancelTicket = async function (firebaseId) {
 
     // =====================================================
     // Frontend guard: Only allow cancel on untouched tickets
+    // For RETURN_SHIPPER with virtual credit: allow if credit unused
     // =====================================================
     const hasVirtualCredit = !!(ticket.virtualCreditId || ticket.virtual_credit_id);
     if (ticket.status !== 'PENDING_GOODS') {
         notificationManager.error('Không thể hủy: Phiếu đã được xử lý. Chỉ có thể hủy phiếu chưa thực hiện thao tác nào.', 6000, 'Không thể hủy');
         return;
     }
+
+    // RETURN_SHIPPER with virtual credit: check usage (frontend guard - 1st verification)
     if (ticket.type === 'RETURN_SHIPPER' && hasVirtualCredit) {
-        notificationManager.error('Không thể hủy: Đã cấp công nợ ảo cho phiếu này.', 6000, 'Không thể hủy');
-        return;
+        const vcUsed = (ticket.vcUsedInOrders && ticket.vcUsedInOrders.length > 0) ||
+                       (ticket.vcRemainingAmount != null && ticket.vcOriginalAmount != null &&
+                        parseFloat(ticket.vcRemainingAmount) < parseFloat(ticket.vcOriginalAmount));
+        if (vcUsed) {
+            const usedAmount = parseFloat(ticket.vcOriginalAmount || 0) - parseFloat(ticket.vcRemainingAmount || 0);
+            notificationManager.error(
+                `Không thể hủy: Công nợ ảo đã được sử dụng (đã dùng: ${usedAmount.toLocaleString()}đ / ${parseFloat(ticket.vcOriginalAmount || 0).toLocaleString()}đ).`,
+                6000, 'Không thể hủy'
+            );
+            return;
+        }
     }
 
-    const confirmed = confirm(`Xác nhận HỦY phiếu ${displayCode} - ${ticket.orderId}?`);
+    // Build confirmation message
+    let confirmMsg = `Xác nhận HỦY phiếu ${displayCode} - ${ticket.orderId}?`;
+    if (ticket.type === 'RETURN_SHIPPER' && hasVirtualCredit) {
+        const creditAmount = parseFloat(ticket.vcOriginalAmount || ticket.money || 0);
+        confirmMsg += `\n\n⚠️ Công nợ ảo ${creditAmount.toLocaleString()}đ sẽ bị thu hồi từ ví khách hàng.`;
+    }
+    const confirmed = confirm(confirmMsg);
     if (!confirmed) return;
 
     showLoading(true);
     try {
-        await ApiService.cancelTicket(ticketIdentifier);
-        console.log('[CANCEL] Ticket cancelled successfully:', firebaseId);
+        // Call cancel API (backend performs 2nd verification in transaction)
+        const result = await ApiService.cancelTicket(ticketIdentifier);
+        console.log('[CANCEL] Ticket cancelled successfully:', firebaseId, result);
+
+        // Verify virtual credit was actually cancelled (if applicable)
+        if (ticket.type === 'RETURN_SHIPPER' && hasVirtualCredit) {
+            if (result?.virtualCreditCancelled) {
+                console.log('[CANCEL] Virtual credit successfully revoked for ticket:', displayCode);
+                notificationManager.success(
+                    `Đã hủy phiếu và thu hồi công nợ ảo ${parseFloat(ticket.vcOriginalAmount || ticket.money || 0).toLocaleString()}đ`,
+                    4000, 'Hủy phiếu + Thu hồi công nợ'
+                );
+            } else {
+                console.warn('[CANCEL] Virtual credit cancellation not confirmed in response');
+                notificationManager.success('Đã hủy phiếu thành công!', 3000, 'Hủy phiếu');
+            }
+        } else {
+            notificationManager.success('Đã hủy phiếu thành công!', 3000, 'Hủy phiếu');
+        }
+
+        // Audit log
         try {
             if (window.AuditLogger) {
-                window.AuditLogger.logAction('cancel', {
+                const auditData = {
                     module: 'issue-tracking',
                     description: 'Hủy phiếu ' + displayCode + ' - Đơn ' + (ticket.orderId || '') + ' - KH ' + (ticket.phone || ticket.customerId || ''),
                     oldData: {
@@ -2525,10 +2569,15 @@ window.cancelTicket = async function (firebaseId) {
                     newData: { status: 'CANCELLED' },
                     entityId: ticket.ticketCode || firebaseId,
                     entityType: 'ticket'
-                });
+                };
+                if (result?.virtualCreditCancelled) {
+                    auditData.description += ' + Thu hồi công nợ ảo ' + parseFloat(ticket.vcOriginalAmount || ticket.money || 0).toLocaleString() + 'đ';
+                    auditData.newData.virtualCreditCancelled = true;
+                    auditData.newData.creditAmountRevoked = parseFloat(ticket.vcOriginalAmount || ticket.money || 0);
+                }
+                window.AuditLogger.logAction('cancel', auditData);
             }
         } catch (e) { console.warn('[AuditLog] cancel log failed:', e); }
-        notificationManager.success('Đã hủy phiếu thành công!', 3000, 'Hủy phiếu');
     } catch (error) {
         console.error('Cancel ticket failed:', error);
         notificationManager.error(error.message || 'Lỗi khi hủy phiếu', 6000, 'Không thể hủy');

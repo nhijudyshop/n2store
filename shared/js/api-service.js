@@ -431,6 +431,9 @@ const ApiService = {
                     amount: ticket.virtual_credit_amount,
                     status: 'ACTIVE'
                 } : null,
+                vcRemainingAmount: ticket.vc_remaining_amount,
+                vcOriginalAmount: ticket.vc_original_amount,
+                vcUsedInOrders: ticket.vc_used_in_orders,
                 returnFromOrderId: ticket.return_from_order_id,
                 returnFromTposId: ticket.return_from_tpos_id,
                 createdAt: new Date(ticket.created_at).getTime(),
@@ -499,6 +502,9 @@ const ApiService = {
                                 amount: ticket.virtual_credit_amount,
                                 status: 'ACTIVE'
                             } : null,
+                            vcRemainingAmount: ticket.vc_remaining_amount,
+                            vcOriginalAmount: ticket.vc_original_amount,
+                            vcUsedInOrders: ticket.vc_used_in_orders,
                             returnFromOrderId: ticket.return_from_order_id,
                             returnFromTposId: ticket.return_from_tpos_id,
                             createdAt: new Date(ticket.created_at).getTime(),
