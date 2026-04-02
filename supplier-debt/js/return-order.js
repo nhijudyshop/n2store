@@ -628,8 +628,7 @@ window.ReturnOrderModal = (function () {
                     ProductId: line.productId,
                     ProductUOMId: line.uomId,
                     Discount: 0,
-                    PriceSubTotal: line.quantity * line.price,
-                    Type: 'refund'
+                    PriceSubTotal: line.quantity * line.price
                 }))
             };
 
