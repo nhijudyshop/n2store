@@ -1414,8 +1414,17 @@ const SoquyUI = (function () {
     function restoreFilterUI() {
         // Restore time filter
         const timeSelect = document.getElementById('timeFilterSelect');
-        if (timeSelect && state.timeFilter !== 'custom') {
-            timeSelect.value = state.timeFilter;
+        const presetRadio = document.getElementById('timeFilterPreset');
+        const customRadio = document.getElementById('timeFilterCustom');
+        if (state.timeFilter === 'custom') {
+            if (customRadio) customRadio.checked = true;
+            const startInput = document.getElementById('customStartDate');
+            const endInput = document.getElementById('customEndDate');
+            if (startInput && state.customStartDate) startInput.value = state.customStartDate;
+            if (endInput && state.customEndDate) endInput.value = state.customEndDate;
+        } else {
+            if (presetRadio) presetRadio.checked = true;
+            if (timeSelect) timeSelect.value = state.timeFilter;
         }
 
         // Restore voucher type checkboxes

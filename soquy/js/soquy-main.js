@@ -44,6 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function initElements() {
         // Time filter
         els.timeFilterSelect = document.getElementById('timeFilterSelect');
+        els.timeFilterPreset = document.getElementById('timeFilterPreset');
         els.timeFilterCustom = document.getElementById('timeFilterCustom');
         els.customStartDate = document.getElementById('customStartDate');
         els.customEndDate = document.getElementById('customEndDate');
@@ -189,8 +190,19 @@ document.addEventListener('DOMContentLoaded', () => {
         // Time filter select
         if (els.timeFilterSelect) {
             els.timeFilterSelect.addEventListener('change', (e) => {
+                if (els.timeFilterPreset) els.timeFilterPreset.checked = true;
                 ui.handleTimeFilterChange(e.target.value);
                 ui.saveFilterState();
+            });
+        }
+
+        // Preset radio button (switch back from custom to month/quarter/year)
+        if (els.timeFilterPreset) {
+            els.timeFilterPreset.addEventListener('change', () => {
+                if (els.timeFilterPreset.checked) {
+                    ui.handleTimeFilterChange(els.timeFilterSelect.value);
+                    ui.saveFilterState();
+                }
             });
         }
 
@@ -199,6 +211,10 @@ document.addEventListener('DOMContentLoaded', () => {
             els.timeFilterCustom.addEventListener('change', () => {
                 if (els.timeFilterCustom.checked) {
                     state.timeFilter = config.TIME_FILTERS.CUSTOM;
+                    ui.saveFilterState();
+                    if (state.customStartDate && state.customEndDate) {
+                        ui.refreshData();
+                    }
                 }
             });
         }
