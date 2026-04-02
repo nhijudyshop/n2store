@@ -2365,9 +2365,6 @@ const SoquyUI = (function () {
                         <div class="category-item-name">${escapeHtml(cat)}</div>
                     </div>
                     <span class="category-item-badge category-item-badge--predefined">Mặc định</span>
-                    <button class="category-item-delete" data-category="${escapeHtml(cat)}" data-source="predefined" title="Xóa">
-                        <i data-lucide="trash-2"></i>
-                    </button>
                 </div>`;
         });
 
@@ -2391,9 +2388,6 @@ const SoquyUI = (function () {
                     <span class="category-item-badge category-item-badge--dynamic">Tùy chỉnh</span>
                     <button class="category-item-edit" data-category="${escapeHtml(catName)}" data-source="dynamic" title="Sửa tên">
                         <i data-lucide="pencil"></i>
-                    </button>
-                    <button class="category-item-delete" data-category="${escapeHtml(catName)}" data-source="dynamic" title="Xóa">
-                        <i data-lucide="trash-2"></i>
                     </button>
                 </div>`;
         });
@@ -2434,9 +2428,6 @@ const SoquyUI = (function () {
                     <button class="category-item-edit" data-category="${escapeHtml(catName)}" data-source="orphaned" title="Sửa tên">
                         <i data-lucide="pencil"></i>
                     </button>
-                    <button class="category-item-delete" data-category="${escapeHtml(catName)}" data-source="orphaned" title="Xóa">
-                        <i data-lucide="trash-2"></i>
-                    </button>
                 </div>`;
         });
 
@@ -2457,17 +2448,6 @@ const SoquyUI = (function () {
         updateDeleteSelectedButton();
 
         if (typeof lucide !== 'undefined') lucide.createIcons();
-
-        // Bind individual delete buttons
-        listContainer.querySelectorAll('.category-item-delete').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                e.stopPropagation();
-                const cat = btn.dataset.category;
-                const source = btn.dataset.source;
-                if (!cat) return;
-                await deleteSingleCategory(cat, source);
-            });
-        });
 
         // Bind edit buttons for dynamic categories
         listContainer.querySelectorAll('.category-item-edit').forEach(btn => {
