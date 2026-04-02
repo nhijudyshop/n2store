@@ -532,6 +532,9 @@
             ${s.noProducts > 0 ? `<span class="stock-summary-item stock-summary-noproducts" title="Đơn không có chi tiết SP">
                 <i class="fas fa-circle"></i> ${s.noProducts} không có SP
             </span>` : ''}
+            ${StockStatusEngine._activeFilter === 'zero-stock' ? `<span class="stock-summary-item" style="background:#fef2f2;color:#dc2626;border-color:#fecaca;">
+                <i class="fas fa-box-open"></i> Lọc tồn kho = 0
+            </span>` : ''}
             ${StockStatusEngine._activeFilter ? `<span class="stock-summary-item stock-summary-clear" onclick="window.StockStatusEngine.filterByStatus(null)" title="Xóa bộ lọc">
                 <i class="fas fa-times"></i> Xóa lọc
             </span>` : ''}
@@ -578,6 +581,11 @@
      */
     function passesStockFilter(orderId) {
         if (!StockStatusEngine._checked || !StockStatusEngine._activeFilter) return true;
+
+        if (StockStatusEngine._activeFilter === 'zero-stock') {
+            return passesZeroStockFilter(String(orderId));
+        }
+
         const status = StockStatusEngine._orderStatus.get(String(orderId));
 
         if (StockStatusEngine._activeFilter === 'sufficient') {
@@ -612,6 +620,178 @@
                 Thiếu ${s.insufficient}
             </span>
         `;
+    }
+
+    // =====================================================
+    // [G] ZERO STOCK FILTER (Tồn kho = 0)
+    // =====================================================
+
+    /**
+     * Get all products with stock = 0 that appear in campaign orders
+     */
+    function getZeroStockProducts() {
+        const stockMap = StockStatusEngine._stockMap;
+        const orderProducts = StockStatusEngine._orderProducts;
+
+        // Aggregate: code → { name, totalOrdered, orderIds }
+        const agg = new Map();
+        orderProducts.forEach((products, orderId) => {
+            products.forEach(p => {
+                const codeUpper = (p.code || '').toUpperCase();
+                if (!codeUpper) return;
+                if (!agg.has(codeUpper)) {
+                    agg.set(codeUpper, { code: p.code, name: p.name, totalOrdered: 0, orderIds: new Set() });
+                }
+                const entry = agg.get(codeUpper);
+                entry.totalOrdered += (p.qty || 0);
+                entry.orderIds.add(orderId);
+            });
+        });
+
+        // Filter to only products with stock = 0
+        const result = [];
+        agg.forEach((info, codeUpper) => {
+            const stock = stockMap.get(codeUpper);
+            const stockQty = stock ? stock.qty : 0;
+            if (stockQty === 0) {
+                result.push({
+                    code: info.code,
+                    name: info.name || (stock ? stock.name : ''),
+                    stockQty: 0,
+                    totalOrdered: info.totalOrdered,
+                    orderCount: info.orderIds.size,
+                });
+            }
+        });
+
+        // Sort by totalOrdered descending
+        result.sort((a, b) => b.totalOrdered - a.totalOrdered);
+        return result;
+    }
+
+    /**
+     * Show modal with zero-stock products list
+     */
+    function showZeroStockModal(products) {
+        // Remove existing modal if any
+        const existing = document.getElementById('zeroStockModal');
+        if (existing) existing.remove();
+
+        const overlay = document.createElement('div');
+        overlay.id = 'zeroStockModal';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;';
+        overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+
+        const rows = products.map((p, i) => `
+            <tr style="border-bottom:1px solid #f0f0f0;">
+                <td style="padding:8px 12px;text-align:center;color:#888;">${i + 1}</td>
+                <td style="padding:8px 12px;font-weight:600;color:#1e40af;">${p.code}</td>
+                <td style="padding:8px 12px;">${p.name}</td>
+                <td style="padding:8px 12px;text-align:center;font-weight:600;color:#ef4444;">0</td>
+                <td style="padding:8px 12px;text-align:center;font-weight:600;">${p.totalOrdered}</td>
+                <td style="padding:8px 12px;text-align:center;">${p.orderCount}</td>
+            </tr>
+        `).join('');
+
+        overlay.innerHTML = `
+            <div style="background:#fff;border-radius:12px;width:90%;max-width:800px;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                <div style="padding:20px 24px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;">
+                    <div>
+                        <h3 style="margin:0;font-size:18px;color:#1e293b;"><i class="fas fa-box-open" style="color:#ef4444;margin-right:8px;"></i>Sản phẩm tồn kho = 0</h3>
+                        <p style="margin:4px 0 0;font-size:13px;color:#64748b;">${products.length} sản phẩm có tồn kho bằng 0 trong các đơn chiến dịch</p>
+                    </div>
+                    <button onclick="document.getElementById('zeroStockModal').remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;padding:4px 8px;">&times;</button>
+                </div>
+                <div style="flex:1;overflow-y:auto;padding:0;">
+                    <table style="width:100%;border-collapse:collapse;font-size:14px;">
+                        <thead>
+                            <tr style="background:#f8fafc;position:sticky;top:0;">
+                                <th style="padding:10px 12px;text-align:center;color:#64748b;font-weight:600;width:50px;">STT</th>
+                                <th style="padding:10px 12px;text-align:left;color:#64748b;font-weight:600;">Mã SP</th>
+                                <th style="padding:10px 12px;text-align:left;color:#64748b;font-weight:600;">Tên SP</th>
+                                <th style="padding:10px 12px;text-align:center;color:#64748b;font-weight:600;">Tồn kho</th>
+                                <th style="padding:10px 12px;text-align:center;color:#64748b;font-weight:600;">Tổng SL đặt</th>
+                                <th style="padding:10px 12px;text-align:center;color:#64748b;font-weight:600;">Số đơn</th>
+                            </tr>
+                        </thead>
+                        <tbody>${rows}</tbody>
+                    </table>
+                </div>
+                <div style="padding:16px 24px;border-top:1px solid #e5e7eb;display:flex;justify-content:flex-end;gap:10px;">
+                    <button onclick="window.StockStatusEngine._filterByZeroStock()" style="padding:8px 20px;background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px;font-weight:500;">
+                        <i class="fas fa-filter"></i> Lọc đơn hàng
+                    </button>
+                    <button onclick="document.getElementById('zeroStockModal').remove()" style="padding:8px 20px;background:#f1f5f9;color:#475569;border:none;border-radius:6px;cursor:pointer;font-size:14px;">
+                        Đóng
+                    </button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(overlay);
+    }
+
+    /**
+     * Filter orders to show only those containing zero-stock products
+     */
+    function filterByZeroStock() {
+        // Close modal
+        const modal = document.getElementById('zeroStockModal');
+        if (modal) modal.remove();
+
+        // Set filter
+        StockStatusEngine._activeFilter = 'zero-stock';
+        updateSummaryBar();
+
+        if (typeof performTableSearch === 'function') {
+            performTableSearch();
+        }
+
+        // Count matching orders
+        const allOrders = window.getAllOrders ? window.getAllOrders() : [];
+        const matchCount = allOrders.filter(o => passesZeroStockFilter(String(o.Id))).length;
+
+        if (window.notificationManager) {
+            window.notificationManager.info(
+                `Đang lọc ${matchCount} đơn chứa sản phẩm tồn kho = 0`,
+                4000, 'Tồn kho'
+            );
+        }
+    }
+
+    /**
+     * Check if order contains any product with stock = 0
+     */
+    function passesZeroStockFilter(orderId) {
+        const products = StockStatusEngine._orderProducts.get(String(orderId));
+        if (!products) return false;
+        return products.some(p => {
+            const codeUpper = (p.code || '').toUpperCase();
+            const stock = StockStatusEngine._stockMap.get(codeUpper);
+            return !stock || stock.qty === 0;
+        });
+    }
+
+    /**
+     * Public entry: Show zero stock products
+     */
+    function showZeroStock() {
+        if (!StockStatusEngine._checked) {
+            if (window.notificationManager) {
+                window.notificationManager.warning('Hãy bấm "Kiểm tra tồn kho" trước', 4000);
+            }
+            return;
+        }
+
+        const products = getZeroStockProducts();
+        if (products.length === 0) {
+            if (window.notificationManager) {
+                window.notificationManager.success('Không có sản phẩm tồn kho = 0 trong chiến dịch', 4000);
+            }
+            return;
+        }
+
+        showZeroStockModal(products);
     }
 
     // =====================================================
@@ -718,6 +898,8 @@
     StockStatusEngine.getStockRowClass = getStockRowClass;
     StockStatusEngine.passesStockFilter = passesStockFilter;
     StockStatusEngine.filterByStatus = filterByStatus;
+    StockStatusEngine.showZeroStock = showZeroStock;
+    StockStatusEngine._filterByZeroStock = filterByZeroStock;
 
     // Expose globally
     window.StockStatusEngine = StockStatusEngine;
