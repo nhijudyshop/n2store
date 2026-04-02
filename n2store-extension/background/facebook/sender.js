@@ -73,7 +73,7 @@ export async function handleReplyInboxPhoto(data, sendResponse) {
 
     // Send the message
     const referer = `${CONFIG.FB_BUSINESS_INBOX}?page_id=${pageId}`;
-    const headers = buildFbHeaders(referer);
+    const headers = buildFbHeaders(referer, session.msgrRegion);
     const body = encodeFormData(params);
 
     log.info(MODULE, `[DEBUG] POST ${CONFIG.FB_MESSAGING_SEND}`);
@@ -145,7 +145,7 @@ export async function handleReplyInboxPhoto(data, sendResponse) {
         params.fb_dtsg = session.token;
         const retryRes = await fetch(CONFIG.FB_MESSAGING_SEND, {
           method: 'POST',
-          headers: buildFbHeaders(referer),
+          headers: buildFbHeaders(referer, session.msgrRegion),
           body: encodeFormData(params),
           credentials: 'include',
         });

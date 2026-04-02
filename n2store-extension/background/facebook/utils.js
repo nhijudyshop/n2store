@@ -59,12 +59,15 @@ export function generateReqId() {
 /**
  * Build standard Facebook headers
  */
-export function buildFbHeaders(referer) {
-  // Match Pancake Extension: minimal headers, let browser handle the rest
-  // declarativeNetRequest handles Origin/Referer
-  return {
+export function buildFbHeaders(referer, msgrRegion) {
+  // Match Pancake Extension headers
+  const headers = {
     'Content-Type': 'application/x-www-form-urlencoded',
   };
+  if (msgrRegion) {
+    headers['X-MSGR-Region'] = msgrRegion;
+  }
+  return headers;
 }
 
 /**
@@ -72,29 +75,44 @@ export function buildFbHeaders(referer) {
  * Only includes params that have actual values (Facebook 500s on empty required params)
  */
 export function buildBaseParams(dtsgData) {
+  // Match Pancake Extension's exact base params format
   const params = {
-    fb_dtsg: dtsgData.token,
     __user: dtsgData.userId || '0',
     __a: '1',
     __req: generateReqId(),
+    __csr: '',
     __beoa: '0',
-    dpr: '1',
+    dpr: dtsgData.pr || '2',
     __ccg: 'EXCELLENT',
     __comet_req: '0',
-    __s: '',
+    __s: generateWebSessionId(),
   };
 
-  // Only add optional params if they have values
-  if (dtsgData.jazoest) params.jazoest = dtsgData.jazoest;
-  if (dtsgData.lsd) params.lsd = dtsgData.lsd;
-  if (dtsgData.hs) params.__hs = dtsgData.hs;
+  // Always include these if available (Pancake always includes them)
   if (dtsgData.rev) params.__rev = dtsgData.rev;
   if (dtsgData.hsi) params.__hsi = dtsgData.hsi;
+  if (dtsgData.hs) params.__hs = dtsgData.hs;
   if (dtsgData.spinR) params.__spin_r = dtsgData.spinR;
   if (dtsgData.spinB) params.__spin_b = dtsgData.spinB;
   if (dtsgData.spinT) params.__spin_t = dtsgData.spinT;
+  if (dtsgData.pkgCohort) params.__pc = dtsgData.pkgCohort;
+
+  // fb_dtsg + jazoest + lsd (always at the end like Pancake)
+  params.fb_dtsg = dtsgData.token;
+  if (dtsgData.jazoest) params.jazoest = dtsgData.jazoest;
+  if (dtsgData.lsd) params.lsd = dtsgData.lsd;
+  params.__usid = 'null';
 
   return params;
+}
+
+/**
+ * Generate web session ID (__s parameter)
+ * Format: 3 random base36 segments separated by colons (e.g., "3pyq6w:mpjeak:4r63y7")
+ */
+function generateWebSessionId() {
+  const segment = () => Math.random().toString(36).substring(2, 8);
+  return `${segment()}:${segment()}:${segment()}`;
 }
 
 /**

@@ -86,6 +86,7 @@ async function _doInitPage(pageId) {
   log.info(MODULE, `  userId: ${sessionData.userId || 'NULL'}, rev: ${sessionData.rev || 'NULL'}`);
   log.info(MODULE, `  hs: ${sessionData.hs || 'NULL'}, hsi: ${sessionData.hsi || 'NULL'}`);
   log.info(MODULE, `  spinR: ${sessionData.spinR || 'NULL'}, spinB: ${sessionData.spinB || 'NULL'}, spinT: ${sessionData.spinT || 'NULL'}`);
+  log.info(MODULE, `  pkgCohort: ${sessionData.pkgCohort || 'NULL'}, pr: ${sessionData.pr || 'NULL'}, msgrRegion: ${sessionData.msgrRegion || 'NULL'}`);
   return sessionData;
 }
 
@@ -132,6 +133,9 @@ function extractSessionData(html, pageId) {
     spinR: null,
     spinB: null,
     spinT: null,
+    pkgCohort: null,
+    pr: null,
+    msgrRegion: null,
     pageId,
   };
 
@@ -186,6 +190,18 @@ function extractSessionData(html, pageId) {
 
   const spinTMatch = html.match(/"__spin_t":(\d+)/);
   if (spinTMatch) data.spinT = spinTMatch[1];
+
+  // Extract pkg_cohort (__pc)
+  const pcMatch = html.match(/"pkg_cohort":"([^"]+)"/);
+  if (pcMatch) data.pkgCohort = pcMatch[1];
+
+  // Extract device pixel ratio (dpr)
+  const prMatch = html.match(/"pr":(\d+(?:\.\d+)?)/);
+  if (prMatch) data.pr = prMatch[1];
+
+  // Extract msgrRegion (X-MSGR-Region header)
+  const msgrMatch = html.match(/"msgrRegion":"([^"]+)"/);
+  if (msgrMatch) data.msgrRegion = msgrMatch[1];
 
   return data;
 }
