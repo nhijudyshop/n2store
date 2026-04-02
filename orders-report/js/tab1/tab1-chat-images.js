@@ -60,6 +60,39 @@ function _addToPreview(file) {
 }
 
 /**
+ * Fetch image URL as blob, with CF Worker proxy fallback for CORS
+ */
+const IMAGE_PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/image-proxy';
+
+async function _fetchImageAsBlob(imgUrl) {
+    // Skip data URLs - already a blob-like format
+    if (imgUrl.startsWith('data:')) {
+        const res = await fetch(imgUrl);
+        return res.blob();
+    }
+
+    // Try direct fetch first
+    try {
+        const res = await fetch(imgUrl, { mode: 'cors' });
+        const blob = await res.blob();
+        if (blob.type.startsWith('image/')) return blob;
+    } catch (_) { /* CORS blocked, try proxy */ }
+
+    // Fallback: CF Worker image proxy
+    try {
+        const proxyUrl = `${IMAGE_PROXY_URL}?url=${encodeURIComponent(imgUrl)}`;
+        const res = await fetch(proxyUrl);
+        if (!res.ok) throw new Error(res.status);
+        const blob = await res.blob();
+        if (blob.type.startsWith('image/')) return blob;
+    } catch (err) {
+        console.warn('[Chat] Cannot fetch image via proxy:', imgUrl, err);
+    }
+
+    return null;
+}
+
+/**
  * Remove image from preview
  */
 window.removeImagePreview = function(index) {
@@ -138,20 +171,13 @@ document.addEventListener('DOMContentLoaded', function() {
             if (imgMatch && imgMatch[1]) {
                 e.preventDefault();
                 const imgUrl = imgMatch[1];
-                // Fetch image URL as blob
-                fetch(imgUrl, { mode: 'cors' })
-                    .then(r => r.blob())
-                    .then(blob => {
-                        if (blob.type.startsWith('image/')) {
-                            const file = new File([blob], 'pasted-image.jpg', { type: blob.type });
-                            window.addImageToPreview(file);
-                        }
-                    })
-                    .catch(() => {
-                        // CORS blocked - try no-cors (opaque response, won't work for preview)
-                        // Show error to user
-                        console.warn('[Chat] Cannot fetch copied image (CORS):', imgUrl);
-                    });
+                // Try direct fetch first, fallback to CF Worker proxy on CORS error
+                _fetchImageAsBlob(imgUrl).then(blob => {
+                    if (blob) {
+                        const file = new File([blob], 'pasted-image.jpg', { type: blob.type });
+                        window.addImageToPreview(file);
+                    }
+                });
                 return;
             }
         }
