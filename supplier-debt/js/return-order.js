@@ -222,20 +222,41 @@ window.ReturnOrderModal = (function () {
     // ADD / REMOVE / EDIT ORDER LINES
     // =====================================================
 
-    function _addProduct(productId) {
+    async function _addProduct(productId) {
         const product = S.products.find(p => p.Id === productId);
         if (!product) return;
 
-        // Check if already in order
-        const existing = S.orderLines.find(l => l.productId === productId);
+        // Check if already in order (by template ID)
+        const existing = S.orderLines.find(l => l.templateId === productId);
         if (existing) {
             existing.quantity += 1;
             renderOrderLines();
             return;
         }
 
+        // GetViewV2 returns ProductTemplate IDs, but TPOS FastPurchaseOrder needs Product variant IDs
+        // Fetch the first variant's ID from the template
+        let variantId = productId;
+        let variantData = null;
+        try {
+            const resp = await tposFetch(
+                `${PROXY_URL}/api/odata/ProductTemplate(${productId})?$select=Id&$expand=ProductVariants($select=Id,Name,NameGet,DefaultCode,Barcode,PurchasePrice,Price,UOMId,UOMName,Active,ProductTmplId,Weight,DiscountSale,DiscountPurchase,ImageUrl;$top=1)`
+            );
+            if (resp.ok) {
+                const data = await resp.json();
+                if (data.ProductVariants?.length > 0) {
+                    variantData = data.ProductVariants[0];
+                    variantId = variantData.Id;
+                }
+            }
+        } catch (e) {
+            console.warn('[ReturnOrder] Failed to fetch variant, using template ID:', e);
+        }
+
         S.orderLines.push({
-            productId: product.Id,
+            templateId: productId,
+            productId: variantId,
+            variantData: variantData,
             product: product,
             name: product.NameGet || product.Name || '',
             code: product.DefaultCode || '',
@@ -615,9 +636,45 @@ window.ReturnOrderModal = (function () {
                 Partner: partner,
                 Account: config.Account,
 
-                // Order lines - Product must match TPOS ProductModel (variant, not template)
+                // Order lines - use variant data (fetched when product was added)
                 OrderLines: S.orderLines.map(line => {
+                    const v = line.variantData; // variant from ProductVariants expand
                     const p = line.product || {};
+                    const productObj = v ? {
+                        Id: v.Id,
+                        Name: v.Name,
+                        UOMId: v.UOMId || line.uomId,
+                        UOMName: v.UOMName || p.UOMName,
+                        NameGet: v.NameGet || p.NameGet,
+                        Barcode: v.Barcode || v.DefaultCode || p.DefaultCode || null,
+                        Price: v.Price || p.ListPrice || 0,
+                        DefaultCode: v.DefaultCode || p.DefaultCode,
+                        ProductTmplId: v.ProductTmplId || line.templateId,
+                        PurchaseOK: true,
+                        SaleOK: true,
+                        PurchasePrice: v.PurchasePrice || p.PurchasePrice || 0,
+                        DiscountSale: v.DiscountSale || 0,
+                        Weight: v.Weight || 0,
+                        DiscountPurchase: v.DiscountPurchase || 0,
+                        ImageUrl: v.ImageUrl || p.ImageUrl || null,
+                        Active: v.Active !== false,
+                        Factor: 1
+                    } : {
+                        Id: line.productId,
+                        Name: p.Name,
+                        UOMId: line.uomId,
+                        UOMName: p.UOMName,
+                        NameGet: p.NameGet,
+                        Barcode: p.DefaultCode || null,
+                        Price: p.ListPrice || 0,
+                        DefaultCode: p.DefaultCode,
+                        ProductTmplId: line.templateId || p.Id,
+                        PurchaseOK: true,
+                        SaleOK: true,
+                        PurchasePrice: p.PurchasePrice || 0,
+                        Active: true,
+                        Factor: 1
+                    };
                     return {
                         Name: line.name,
                         ProductId: line.productId,
@@ -626,26 +683,7 @@ window.ReturnOrderModal = (function () {
                         ProductQty: line.quantity,
                         PriceUnit: line.price,
                         Discount: 0,
-                        Product: {
-                            Id: p.Id,
-                            Name: p.Name,
-                            UOMId: line.uomId,
-                            UOMName: p.UOMName,
-                            NameGet: p.NameGet,
-                            Barcode: p.Barcode || p.DefaultCode || null,
-                            Price: p.ListPrice || 0,
-                            DefaultCode: p.DefaultCode,
-                            ProductTmplId: p.Id,
-                            PurchaseOK: true,
-                            SaleOK: true,
-                            PurchasePrice: p.PurchasePrice || 0,
-                            DiscountSale: p.DiscountSale || 0,
-                            Weight: p.Weight || 0,
-                            DiscountPurchase: p.DiscountPurchase || 0,
-                            ImageUrl: p.ImageUrl || null,
-                            Active: p.Active !== false,
-                            Factor: 1
-                        },
+                        Product: productObj,
                         Account: config.Account,
                         AccountId: config.AccountId,
                         PriceRecent: null,
