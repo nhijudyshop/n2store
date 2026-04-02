@@ -985,6 +985,104 @@
     }
 
     // =====================================================
+    // EXTENSION-ONLY MODE - Build queue for all orders (skip Pancake API)
+    // =====================================================
+
+    async function _buildExtensionQueueForAll(orders, template, sendingState) {
+        const pdm = window.pancakeDataManager;
+        const templateContent = template.Content || template.BodyPlain || template.content || '';
+        const progressText = document.getElementById('msgProgressText');
+
+        for (const order of orders) {
+            if (!sendingState.isSending) break;
+            if (progressText) progressText.textContent = `Chuẩn bị: ${sendingState.extQueue.length + sendingState.errorOrders.length}/${orders.length}...`;
+
+            try {
+                // 1. Build order data + replace placeholders
+                let orderData;
+                if (_needsFullData(templateContent)) {
+                    let fullOrder = window.getOrderDetails ? await window.getOrderDetails(order.orderId).catch(() => null) : null;
+                    if (!fullOrder?.Details?.length) {
+                        const storeOrder = window.OrderStore?.get(order.orderId);
+                        if (storeOrder?.Details?.length) fullOrder = storeOrder;
+                    }
+                    orderData = fullOrder ? _convertOrderData(fullOrder) : {
+                        code: order.Code || '', customerName: order.customerName || '',
+                        phone: order.Phone || '', address: order.Address || '',
+                        totalAmount: order.AmountTotal || 0, products: []
+                    };
+                } else {
+                    orderData = {
+                        code: order.Code || '', customerName: order.customerName || '',
+                        phone: order.Phone || '', address: order.Address || '',
+                        totalAmount: order.AmountTotal || 0, products: []
+                    };
+                }
+
+                const messageContent = _replacePlaceholders(templateContent, orderData);
+                const parts = _splitMessageIntoParts(messageContent);
+
+                // 2. Find conversation
+                const channelId = order.channelId || order.pageId;
+                const psid = order.psid;
+                if (!channelId || !psid) throw new Error('Thiếu channelId/psid');
+
+                let conv = pdm?.inboxMapByPSID?.get(String(psid));
+                if (!conv && pdm?.fetchConversationsByCustomerFbId) {
+                    await pdm.fetchConversationsByCustomerFbId(channelId, psid).catch(() => {});
+                    conv = pdm?.inboxMapByPSID?.get(String(psid));
+                }
+                if (!conv) throw new Error('Không tìm thấy conversation cho psid: ' + psid);
+
+                // 3. Build extConvData with thread_id + global_id
+                const raw = { from_psid: psid };
+                try {
+                    const msgData = await pdm.fetchMessages(channelId, conv.id);
+                    if (msgData.conversation) {
+                        if (msgData.conversation.thread_id) raw.thread_id = msgData.conversation.thread_id;
+                        if (msgData.conversation.page_customer) raw.page_customer = msgData.conversation.page_customer;
+                    }
+                    if (!raw.thread_id && conv.thread_id) raw.thread_id = conv.thread_id;
+                    if (!raw.page_customer?.global_id && conv.page_customer?.global_id) {
+                        if (!raw.page_customer) raw.page_customer = {};
+                        raw.page_customer.global_id = conv.page_customer.global_id;
+                    }
+                } catch (e) { /* ignore fetch error */ }
+
+                const extConvData = {
+                    pageId: channelId, psid, conversationId: conv.id, _raw: raw,
+                    customers: [], _messagesData: { customers: [] },
+                    updated_at: conv.updated_at || null,
+                    customerName: order.customerName || conv.from?.name || '',
+                    type: conv.type || 'INBOX', from: conv.from || null,
+                };
+
+                // 4. Queue for extension sending
+                sendingState.extQueue.push({ order, parts, convData: extConvData });
+                sendingState.successOrders.push({
+                    Id: order.orderId, code: order.Code || '',
+                    customerName: order.customerName || '',
+                    account: 'Extension', usedTag: null
+                });
+            } catch (err) {
+                console.warn('[TemplateMgr] Extension build failed:', order.Code, err.message);
+                sendingState.errorOrders.push({
+                    orderId: order.orderId, code: order.Code || '',
+                    customerName: order.customerName || '',
+                    error: err.message, is24HourError: false,
+                    Facebook_PostId: order.Facebook_PostId || '',
+                    Facebook_CommentId: order.Facebook_CommentId || ''
+                });
+                markOrderFailed(order.orderId, err.message);
+            }
+        }
+
+        // Reset counters — actual sending tracked by _processExtensionQueue
+        sendingState.totalProcessed = 0;
+        sendingState.totalToProcess = sendingState.extQueue.length;
+    }
+
+    // =====================================================
     // EXTENSION QUEUE - Background processing (sequential)
     // Extension processes one message at a time, so run after all API sends complete.
     // =====================================================
@@ -1336,9 +1434,9 @@
                             <i class="fas fa-clock"></i> DELAY
                             <input type="number" id="msgSendDelay" value="1" min="0" max="30"> giây
                         </span>
-                        <span class="message-setting-item">
+                        <span class="message-setting-item msg-api-toggle" id="msgApiToggle" title="Nhấn để đổi API" style="cursor:pointer;user-select:none;border-radius:4px;padding:2px 6px;transition:background .2s">
                             <i class="fas fa-plug"></i> API
-                            <strong>Pancake</strong>
+                            <strong id="msgApiLabel">Pancake</strong>
                         </span>
                         <button class="message-btn-history" id="msgBtnHistory">
                             <i class="fas fa-history"></i> Lịch sử
@@ -1394,6 +1492,20 @@
 
         // New template
         document.getElementById('msgNewTemplate').onclick = () => _openNewTemplateForm();
+
+        // API toggle (Pancake ↔ N2Store)
+        document.getElementById('msgApiToggle').onclick = () => {
+            const label = document.getElementById('msgApiLabel');
+            if (label.textContent === 'Pancake') {
+                label.textContent = 'N2Store';
+                label.style.color = '#7c3aed';
+                label.closest('.msg-api-toggle').style.background = '#f3f0ff';
+            } else {
+                label.textContent = 'Pancake';
+                label.style.color = '';
+                label.closest('.msg-api-toggle').style.background = '';
+            }
+        };
 
         // Send
         document.getElementById('msgBtnSend').onclick = () => _handleSend();
@@ -1774,34 +1886,56 @@
             }
         };
 
+        // Check API mode: N2Store (extension-only) vs Pancake
+        const useExtension = document.getElementById('msgApiLabel')?.textContent === 'N2Store';
+
         try {
-            // Pre-fetch page access tokens
-            await _prefetchPageAccessTokens(orders);
+            if (useExtension) {
+                // Validate extension is connected
+                if (!window.pancakeExtension?.connected || !window.sendViaExtension) {
+                    throw new Error('Extension N2Store chưa kết nối! Kiểm tra extension đã cài và trang đã load.');
+                }
 
-            // Distribute orders to accounts (page-aware round-robin)
-            const accountQueues = _distributeOrdersToAccounts(orders, accounts);
+                // Extension-only mode: build queue for all orders, then send sequentially
+                document.getElementById('msgProgressText').textContent = 'Chuẩn bị dữ liệu Extension...';
+                await _buildExtensionQueueForAll(orders, template, sendingState);
 
-            // Phase 1: Concurrent API sends (up to 3 orders per account in parallel)
-            const workers = accounts.map((account, idx) =>
-                _processAccountQueue(accountQueues[idx] || [], account, template, delay, sendingState)
-            );
-            await Promise.all(workers);
+                if (sendingState.extQueue.length > 0) {
+                    document.getElementById('msgProgressText').textContent =
+                        `Extension: 0/${sendingState.extQueue.length}...`;
+                    await _processExtensionQueue(sendingState);
+                }
+            } else {
+                // Pancake API mode (existing flow)
+                // Pre-fetch page access tokens
+                await _prefetchPageAccessTokens(orders);
 
-            // Phase 2: Extension bypass queue (sequential — extension processes one at a time)
-            if (sendingState.extQueue.length > 0) {
-                const extCount = sendingState.extQueue.length;
-                // Adjust progress: subtract ext-queued orders so bar reflects real completion
-                sendingState.totalProcessed = Math.max(0, sendingState.totalProcessed - extCount);
-                _updateProgress(
-                    sendingState.totalProcessed, sendingState.totalToProcess, sendingState.totalToProcess,
-                    sendingState.successOrders.length - extCount, sendingState.errorOrders.length
+                // Distribute orders to accounts (page-aware round-robin)
+                const accountQueues = _distributeOrdersToAccounts(orders, accounts);
+
+                // Phase 1: Concurrent API sends (up to 3 orders per account in parallel)
+                const workers = accounts.map((account, idx) =>
+                    _processAccountQueue(accountQueues[idx] || [], account, template, delay, sendingState)
                 );
-                document.getElementById('msgProgressText').textContent =
-                    `Extension: 0/${extCount}...`;
-                await _processExtensionQueue(sendingState);
+                await Promise.all(workers);
+
+                // Phase 2: Extension bypass queue (sequential — extension processes one at a time)
+                if (sendingState.extQueue.length > 0) {
+                    const extCount = sendingState.extQueue.length;
+                    // Adjust progress: subtract ext-queued orders so bar reflects real completion
+                    sendingState.totalProcessed = Math.max(0, sendingState.totalProcessed - extCount);
+                    _updateProgress(
+                        sendingState.totalProcessed, sendingState.totalToProcess, sendingState.totalToProcess,
+                        sendingState.successOrders.length - extCount, sendingState.errorOrders.length
+                    );
+                    document.getElementById('msgProgressText').textContent =
+                        `Extension: 0/${extCount}...`;
+                    await _processExtensionQueue(sendingState);
+                }
             }
         } catch (error) {
             console.error('[TemplateMgr] Send error:', error);
+            if (window.notificationManager) window.notificationManager.show(error.message, 'error');
         }
 
         // Show completion
