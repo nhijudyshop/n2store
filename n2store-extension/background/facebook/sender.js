@@ -57,6 +57,7 @@ export async function handleReplyInboxPhoto(data, sendResponse) {
     await updateDynamicRules(pageId);
 
     // Build send parameters
+    // IMPORTANT: __user must be pageId (not admin userId) when sending as a page
     const params = buildSendParams({
       session,
       pageId,
@@ -68,6 +69,8 @@ export async function handleReplyInboxPhoto(data, sendResponse) {
       replyMessage,
       isBusiness,
     });
+    // Override __user to pageId (Pancake Extension does this)
+    params.__user = pageId;
 
     // Send the message
     const referer = `${CONFIG.FB_BUSINESS_INBOX}?page_id=${pageId}`;
@@ -77,6 +80,22 @@ export async function handleReplyInboxPhoto(data, sendResponse) {
     log.info(MODULE, `[DEBUG] POST ${CONFIG.FB_MESSAGING_SEND}`);
     log.info(MODULE, `[DEBUG] Session: fb_dtsg=${session.token?.substring(0, 15)}..., userId=${session.userId}, pageId=${pageId}`);
     log.info(MODULE, `[DEBUG] Params: globalUserId=${globalUserId}, threadId=${threadId}, attachmentType=${attachmentType}, body_len=${(message || '').length}`);
+
+    // Check cookies
+    try {
+      const cookies = await chrome.cookies.getAll({ domain: '.facebook.com' });
+      const cookieNames = cookies.map(c => c.name);
+      const hasCUser = cookieNames.includes('c_user');
+      const hasXs = cookieNames.includes('xs');
+      log.info(MODULE, `[DEBUG] Cookies: total=${cookies.length}, c_user=${hasCUser}, xs=${hasXs}`);
+      if (!hasCUser || !hasXs) {
+        log.error(MODULE, '[DEBUG] CRITICAL: Missing Facebook session cookies! User may not be logged in.');
+      }
+    } catch (e) {
+      log.warn(MODULE, `[DEBUG] Cannot read cookies: ${e.message}`);
+    }
+
+    log.info(MODULE, `[DEBUG] Request body (first 500): ${body.substring(0, 500)}`);
 
     const response = await fetch(CONFIG.FB_MESSAGING_SEND, {
       method: 'POST',
@@ -123,6 +142,7 @@ export async function handleReplyInboxPhoto(data, sendResponse) {
         session = await initPage(pageId);
         // Retry once
         params.fb_dtsg = session.token;
+        params.__user = pageId;
         const retryRes = await fetch(CONFIG.FB_MESSAGING_SEND, {
           method: 'POST',
           headers: buildFbHeaders(referer),

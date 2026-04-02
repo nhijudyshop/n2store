@@ -64,36 +64,43 @@ export function buildFbHeaders(referer) {
     'Content-Type': 'application/x-www-form-urlencoded',
     'Accept': '*/*',
     'Accept-Language': 'en-US,en;q=0.9',
-    'X-FB-Friendly-Name': 'MessengerMPSendMessage',
     'Sec-Fetch-Dest': 'empty',
     'Sec-Fetch-Mode': 'cors',
     'Sec-Fetch-Site': 'same-origin',
+    'X-ASBD-ID': '129477',
+    'X-FB-LSD': '',
     ...(referer ? { 'Referer': referer } : {}),
   };
 }
 
 /**
  * Build base Facebook form params
+ * Only includes params that have actual values (Facebook 500s on empty required params)
  */
 export function buildBaseParams(dtsgData) {
-  return {
+  const params = {
     fb_dtsg: dtsgData.token,
-    jazoest: dtsgData.jazoest || '',
-    lsd: dtsgData.lsd || '',
     __user: dtsgData.userId || '0',
     __a: '1',
     __req: generateReqId(),
-    __hs: dtsgData.hs || '',
+    __beoa: '0',
     dpr: '1',
     __ccg: 'EXCELLENT',
-    __rev: dtsgData.rev || '',
-    __s: '',
-    __hsi: dtsgData.hsi || '',
     __comet_req: '0',
-    __spin_r: dtsgData.spinR || '',
-    __spin_b: dtsgData.spinB || '',
-    __spin_t: dtsgData.spinT || '',
+    __s: '',
   };
+
+  // Only add optional params if they have values
+  if (dtsgData.jazoest) params.jazoest = dtsgData.jazoest;
+  if (dtsgData.lsd) params.lsd = dtsgData.lsd;
+  if (dtsgData.hs) params.__hs = dtsgData.hs;
+  if (dtsgData.rev) params.__rev = dtsgData.rev;
+  if (dtsgData.hsi) params.__hsi = dtsgData.hsi;
+  if (dtsgData.spinR) params.__spin_r = dtsgData.spinR;
+  if (dtsgData.spinB) params.__spin_b = dtsgData.spinB;
+  if (dtsgData.spinT) params.__spin_t = dtsgData.spinT;
+
+  return params;
 }
 
 /**
