@@ -1263,6 +1263,7 @@
                 <div class="dr-province-left">
                     <span class="dr-province-num">${escapeHtml(item.Number)}</span>
                     <span class="dr-province-customer">${escapeHtml(item.PartnerDisplayName || '')}</span>
+                    ${item.Phone ? `<span class="dr-province-phone">${escapeHtml(item.Phone)}</span>` : ''}
                 </div>
                 <div class="dr-province-right">
                     <span class="dr-province-date">${formatDate(item.DateInvoice)}</span>
@@ -1286,6 +1287,7 @@
                 <div class="dr-province-left">
                     <span class="dr-province-num">${escapeHtml(item.Number)}</span>
                     <span class="dr-province-customer">${escapeHtml(item.PartnerDisplayName || '')}</span>
+                    ${item.Phone ? `<span class="dr-province-phone">${escapeHtml(item.Phone)}</span>` : ''}
                 </div>
                 <div class="dr-province-right">
                     <span class="dr-province-date">${formatDate(item.DateInvoice)}</span>
@@ -1352,6 +1354,7 @@
                     <div class="dr-province-left">
                         <span class="dr-province-num">${escapeHtml(item.Number)}</span>
                         <span class="dr-province-customer">${escapeHtml(item.PartnerDisplayName || '')}</span>
+                        ${item.Phone ? `<span class="dr-province-phone">${escapeHtml(item.Phone)}</span>` : ''}
                     </div>
                     <div class="dr-province-right">
                         <span class="dr-province-date">${formatDate(item.DateInvoice)}</span>
