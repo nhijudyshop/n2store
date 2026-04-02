@@ -104,8 +104,44 @@
         }
     }
 
+    // Shop holidays — ngày nghỉ shop, tính công đủ cho tất cả NV
+    let shopHolidays = new Set();
+
+    async function loadShopHolidays() {
+        try {
+            const data = await apiGet('/shop-holidays');
+            shopHolidays = new Set();
+            (data.rows || []).forEach(row => shopHolidays.add(row.date_key));
+            console.log(`[Attendance] Loaded ${shopHolidays.size} shop holidays`);
+        } catch (err) {
+            console.error('[Attendance] Lỗi load shop holidays:', err);
+        }
+    }
+
+    function isShopHoliday(dateKey) {
+        return shopHolidays.has(dateKey);
+    }
+
+    async function toggleShopHoliday(dateKey) {
+        try {
+            if (shopHolidays.has(dateKey)) {
+                shopHolidays.delete(dateKey);
+                await apiDelete('/shop-holidays/' + dateKey);
+            } else {
+                shopHolidays.add(dateKey);
+                await apiPost('/shop-holidays', { date_key: dateKey });
+            }
+        } catch (err) {
+            console.error('[Attendance] Lỗi toggle shop holiday:', err);
+            showNotification('Lỗi lưu ngày nghỉ shop: ' + err.message, 'error');
+        }
+        renderShopHolidaysGrid();
+        renderTimesheet();
+        renderSchedule();
+    }
+
     function isFullDay(empId, dateKey) {
-        return fullDayOverrides.has(`${empId}_${dateKey}`);
+        return fullDayOverrides.has(`${empId}_${dateKey}`) || shopHolidays.has(dateKey);
     }
 
     async function toggleFullDay(empId, dateKey) {
@@ -518,7 +554,11 @@
             const cellData = processDayRecords(dayRecs);
             const sal = calculateDaySalary(cellData, empRate, isFullDay(empId, dateKey), empSched);
             totalLate += sal.lateDeduction;
-            if (cellData.status !== 'absent' && cellData.status !== 'incomplete') workedDays++;
+            if (cellData.status !== 'absent' && cellData.status !== 'incomplete') {
+                workedDays++;
+            } else if (isShopHoliday(dateKey)) {
+                workedDays++; // Ngày nghỉ shop = tính công
+            }
             if (sal.lateDeduction > 0) lateDays.push({ dateKey, minutes: sal.lateMinutes, amount: sal.lateDeduction });
             if (sal.otPay > 0) otDays.push({ dateKey, minutes: sal.otMinutes, amount: sal.otPay });
         }
@@ -600,7 +640,7 @@
 
         bindEvents();
         injectTestButton();
-        Promise.all([loadEmployees(), loadFullDayOverrides()]).then(() => {
+        Promise.all([loadEmployees(), loadFullDayOverrides(), loadShopHolidays()]).then(() => {
             loadMonthData();
         });
         listenSyncStatus();
@@ -1024,6 +1064,13 @@
         const result = { baseSalary: 0, lateDeduction: 0, lateMinutes: 0, otPay: 0, otMinutes: 0, totalSalary: 0, dailyRate: rate };
 
         if (cellData.status === 'absent' || cellData.status === 'incomplete') {
+            // Shop holiday: tính công đủ dù nghỉ
+            if (forceFullDay) {
+                result.baseSalary = rate;
+                result.totalSalary = rate;
+                result.fullDayOverride = true;
+                return result;
+            }
             return result;
         }
 
@@ -1772,6 +1819,36 @@
     // ================================================================
 
     /** Modal: Thiết lập nhân viên */
+    /** Render shop holidays grid trong settings modal */
+    function renderShopHolidaysGrid() {
+        const grid = document.getElementById('shopHolidaysGrid');
+        if (!grid) return;
+
+        const y = currentYear, m = currentMonth;
+        const lastDay = new Date(y, m, 0).getDate();
+        const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+
+        let html = '';
+        for (let d = 1; d <= lastDay; d++) {
+            const dateKey = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            const isHoliday = shopHolidays.has(dateKey);
+            const dow = new Date(y, m - 1, d).getDay();
+            const dayName = dayNames[dow];
+            const isSunday = dow === 0;
+
+            html += `<div onclick="window._attendance.toggleShopHoliday('${dateKey}')"
+                style="width: 42px; height: 42px; border-radius: 6px; display: flex; flex-direction: column;
+                    align-items: center; justify-content: center; cursor: pointer; font-size: 12px;
+                    border: 1px solid ${isHoliday ? '#ef4444' : '#e5e7eb'};
+                    background: ${isHoliday ? '#fef2f2' : '#fff'};
+                    color: ${isHoliday ? '#ef4444' : isSunday ? '#ef4444' : '#374151'};">
+                <div style="font-weight: 600;">${d}</div>
+                <div style="font-size: 9px; color: ${isSunday ? '#ef4444' : '#8c8c8c'};">${dayName}</div>
+            </div>`;
+        }
+        grid.innerHTML = html;
+    }
+
     let _settingsEventsBound = false;
     function showPayrollSettingsModal() {
         const modal = document.getElementById('payrollSettingsModal');
@@ -1779,6 +1856,9 @@
 
         const tbody = modal.querySelector('#payrollSettingsTable tbody');
         if (!tbody) return;
+
+        // Render shop holidays grid
+        renderShopHolidaysGrid();
 
         let html = '';
         const sortedEmps = [...employees].sort((a, b) => (a.name || '').localeCompare(b.name || '', 'vi'));
@@ -2872,8 +2952,14 @@ ${d.ghiChu ? `<div style="margin-top:12px; font-style:italic; font-size:12px;"><
             let timeText = '';
 
             if (cellData.status === 'absent') {
-                absentCount++;
-                statusText = 'Nghỉ';
+                if (isShopHoliday(dateKey)) {
+                    totalWorked++;
+                    statusClass = 'ontime';
+                    statusText = 'Nghỉ shop';
+                } else {
+                    absentCount++;
+                    statusText = 'Nghỉ';
+                }
             } else if (cellData.status === 'incomplete') {
                 incompleteCount++;
                 statusClass = 'incomplete';
@@ -3967,6 +4053,7 @@ ${d.ghiChu ? `<div style="margin-top:12px; font-style:italic; font-size:12px;"><
         unhideEmployee,
         toggleHidden,
         toggleFullDay,
+        toggleShopHoliday,
         showMonthlyDetail,
         showAllowanceModal,
         saveAllowance,

@@ -65,6 +65,11 @@ async function ensureTables(pool) {
                 created_at TIMESTAMP DEFAULT NOW()
             );
 
+            CREATE TABLE IF NOT EXISTS attendance_shop_holidays (
+                date_key VARCHAR(10) PRIMARY KEY,
+                created_at TIMESTAMP DEFAULT NOW()
+            );
+
             CREATE TABLE IF NOT EXISTS attendance_allowances (
                 id VARCHAR(50) PRIMARY KEY,
                 emp_id VARCHAR(20) NOT NULL,
@@ -397,6 +402,49 @@ router.delete('/fullday/:id', async (req, res) => {
         res.json({ success: true });
     } catch (error) {
         console.error('[ATTENDANCE] DELETE /fullday error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// =====================================================
+// SHOP HOLIDAYS (ngày nghỉ shop — tính công đủ cho tất cả NV)
+// =====================================================
+
+/** GET /shop-holidays — Get all shop holidays */
+router.get('/shop-holidays', async (req, res) => {
+    try {
+        const result = await req.pool.query('SELECT * FROM attendance_shop_holidays ORDER BY date_key');
+        res.json({ success: true, rows: result.rows });
+    } catch (error) {
+        console.error('[ATTENDANCE] GET /shop-holidays error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/** POST /shop-holidays — Add a shop holiday */
+router.post('/shop-holidays', async (req, res) => {
+    try {
+        const { date_key } = req.body;
+        if (!date_key) return res.status(400).json({ error: 'date_key required' });
+        await req.pool.query(`
+            INSERT INTO attendance_shop_holidays (date_key, created_at)
+            VALUES ($1, NOW())
+            ON CONFLICT (date_key) DO NOTHING
+        `, [date_key]);
+        res.json({ success: true });
+    } catch (error) {
+        console.error('[ATTENDANCE] POST /shop-holidays error:', error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/** DELETE /shop-holidays/:dateKey — Remove a shop holiday */
+router.delete('/shop-holidays/:dateKey', async (req, res) => {
+    try {
+        await req.pool.query('DELETE FROM attendance_shop_holidays WHERE date_key = $1', [req.params.dateKey]);
+        res.json({ success: true });
+    } catch (error) {
+        console.error('[ATTENDANCE] DELETE /shop-holidays error:', error.message);
         res.status(500).json({ error: error.message });
     }
 });
