@@ -26,6 +26,7 @@
         provinceGroups: {}, // { Number: 'tomato' | 'nap' }
         _provinceGroupsLoaded: false,
         lastScannedColumn: null, // 'tomato' | 'nap'
+        _focusedGroup: null, // focused group in all-tab after scan
         _scannedListener: null,
         _groupsListener: null,
 
@@ -852,6 +853,7 @@
     async function setTab(tab) {
         DeliveryReportState.activeTab = tab;
         DeliveryReportState.currentPage = 1;
+        DeliveryReportState._focusedGroup = null;
         updateTabUI();
         updateProvinceExportButtons();
 
@@ -885,6 +887,7 @@
     function setScanFilter(filter) {
         DeliveryReportState.scanFilter = filter;
         DeliveryReportState.currentPage = 1;
+        DeliveryReportState._focusedGroup = null;
 
         // Update UI
         const select = document.getElementById('drScanFilterSelect');
@@ -1350,9 +1353,20 @@
 
             colEl.innerHTML = html;
         });
+
+        // Re-apply focused group (hide others) after re-render
+        const focused = DeliveryReportState._focusedGroup;
+        if (focused) {
+            Object.entries(GROUP_COL_MAP).forEach(([g, id]) => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = g === focused ? '' : 'none';
+            });
+            highlightProvinceColumn(focused);
+        }
     }
 
     function showGroupColumn(group) {
+        DeliveryReportState._focusedGroup = group;
         Object.entries(GROUP_COL_MAP).forEach(([g, id]) => {
             const el = document.getElementById(id);
             if (el) el.style.display = g === group ? '' : 'none';
@@ -1364,6 +1378,7 @@
     }
 
     function showAllGroupColumns() {
+        DeliveryReportState._focusedGroup = null;
         Object.values(GROUP_COL_MAP).forEach(id => {
             const el = document.getElementById(id);
             if (el) el.style.display = '';
