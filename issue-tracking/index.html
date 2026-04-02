@@ -277,6 +277,10 @@
                     <div class="field-group hidden" data-type="RETURN">
                         <div class="form-group">
                             <label>Sản phẩm hoàn về</label>
+                            <div style="display:flex;gap:8px;margin-bottom:6px;">
+                                <button type="button" onclick="toggleAllProducts(true)" style="padding:4px 10px;font-size:12px;border:1px solid #cbd5e1;border-radius:4px;background:#f8fafc;cursor:pointer;">Chọn tất cả</button>
+                                <button type="button" onclick="toggleAllProducts(false)" style="padding:4px 10px;font-size:12px;border:1px solid #cbd5e1;border-radius:4px;background:#f8fafc;cursor:pointer;">Bỏ tất cả</button>
+                            </div>
                             <div id="product-checklist" class="product-checklist">
                                 <!-- Checkboxes generated from order products -->
                             </div>
@@ -328,6 +332,10 @@
                             <!-- Sản phẩm của đơn cũ được chọn -->
                             <div id="old-order-products-section" class="hidden">
                                 <label style="font-weight:500;margin-bottom:8px;display:block;">Chọn sản phẩm trả:</label>
+                                <div style="display:flex;gap:8px;margin-bottom:6px;">
+                                    <button type="button" onclick="toggleAllProducts(true, 'old-order-product-checklist')" style="padding:4px 10px;font-size:12px;border:1px solid #cbd5e1;border-radius:4px;background:#f8fafc;cursor:pointer;">Chọn tất cả</button>
+                                    <button type="button" onclick="toggleAllProducts(false, 'old-order-product-checklist')" style="padding:4px 10px;font-size:12px;border:1px solid #cbd5e1;border-radius:4px;background:#f8fafc;cursor:pointer;">Bỏ tất cả</button>
+                                </div>
                                 <div id="old-order-product-checklist" class="product-checklist">
                                     <!-- Checkboxes sản phẩm sẽ render ở đây -->
                                 </div>
