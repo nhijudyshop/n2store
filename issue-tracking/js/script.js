@@ -1966,6 +1966,27 @@ flowchart TD
 };
 
 function renderDashboard(tabName, searchTerm = '') {
+    // Toggle filter bars based on tab
+    const defaultFilters = document.getElementById('default-filters');
+    const historyFilters = document.getElementById('history-filters');
+    if (tabName === 'history') {
+        if (defaultFilters) defaultFilters.classList.add('hidden');
+        if (historyFilters) historyFilters.classList.remove('hidden');
+    } else {
+        if (defaultFilters) defaultFilters.classList.remove('hidden');
+        if (historyFilters) historyFilters.classList.add('hidden');
+    }
+
+    // Update table headers based on tab
+    updateTableHeaders(tabName);
+
+    // History tab has its own render function
+    if (tabName === 'history') {
+        const guidePanel = document.getElementById('tab-guide');
+        if (guidePanel) guidePanel.classList.add('hidden');
+        return renderHistoryTab();
+    }
+
     // 1. Update Guide
     const guidePanel = document.getElementById('tab-guide');
     const guideContent = document.getElementById('guide-content');
@@ -2719,4 +2740,493 @@ document.addEventListener('DOMContentLoaded', function() {
     if (btnSearchOldOrder) {
         btnSearchOldOrder.addEventListener('click', searchOldOrders);
     }
+
+    // History tab filter listeners
+    initHistoryFilters();
 });
+
+// =====================================================
+// HISTORY TAB - Full ticket history with timeline
+// =====================================================
+
+/**
+ * Initialize history tab filter event listeners
+ */
+function initHistoryFilters() {
+    const searchInput = document.getElementById('history-search');
+    const filterType = document.getElementById('history-filter-type');
+    const filterStatus = document.getElementById('history-filter-status');
+    const dateFrom = document.getElementById('history-date-from');
+    const dateTo = document.getElementById('history-date-to');
+
+    let debounceTimer = null;
+
+    const triggerRender = () => {
+        const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab;
+        if (activeTab === 'history') renderHistoryTab();
+    };
+
+    if (searchInput) {
+        searchInput.addEventListener('input', () => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(triggerRender, 300);
+        });
+    }
+    if (filterType) filterType.addEventListener('change', triggerRender);
+    if (filterStatus) filterStatus.addEventListener('change', triggerRender);
+    if (dateFrom) dateFrom.addEventListener('change', triggerRender);
+    if (dateTo) dateTo.addEventListener('change', triggerRender);
+}
+
+/**
+ * Update table headers based on current tab
+ */
+function updateTableHeaders(tabName) {
+    const thead = document.querySelector('.data-table thead tr');
+    if (!thead) return;
+
+    if (tabName === 'history') {
+        thead.innerHTML = `
+            <th style="width:7%;">Mã đơn / ID</th>
+            <th style="width:11%;">Khách hàng</th>
+            <th style="width:9%;">Loại & Kênh</th>
+            <th>Ghi Chú / Sản Phẩm</th>
+            <th style="width:10%;">Trạng thái</th>
+            <th style="width:14%;">Tiến trình</th>
+            <th style="width:9%;">Chi tiết</th>
+        `;
+    } else {
+        thead.innerHTML = `
+            <th style="width:8%;">Mã đơn / ID</th>
+            <th style="width:12%;">Khách hàng</th>
+            <th style="width:9%;">Loại & Kênh</th>
+            <th>Ghi Chú / Sản Phẩm</th>
+            <th style="width:10%;">Tài chính</th>
+            <th style="width:14%;">Hành động</th>
+        `;
+    }
+}
+
+/**
+ * Render the History tab content
+ */
+function renderHistoryTab() {
+    // Read filter values
+    const searchTerm = (document.getElementById('history-search')?.value || '').toLowerCase().trim();
+    const filterType = document.getElementById('history-filter-type')?.value || 'all';
+    const filterStatus = document.getElementById('history-filter-status')?.value || 'all';
+    const dateFrom = document.getElementById('history-date-from')?.value;
+    const dateTo = document.getElementById('history-date-to')?.value;
+
+    // Start with all tickets
+    let filtered = [...TICKETS];
+
+    // Filter by search text
+    if (searchTerm) {
+        filtered = filtered.filter(t =>
+            (t.phone && t.phone.includes(searchTerm)) ||
+            (t.orderId && t.orderId.toLowerCase().includes(searchTerm)) ||
+            (t.customer && t.customer.toLowerCase().includes(searchTerm)) ||
+            (t.firebaseId && t.firebaseId.toLowerCase().includes(searchTerm))
+        );
+    }
+
+    // Filter by type
+    if (filterType !== 'all') {
+        filtered = filtered.filter(t => t.type === filterType);
+    }
+
+    // Filter by status
+    if (filterStatus !== 'all') {
+        filtered = filtered.filter(t => t.status === filterStatus);
+    }
+
+    // Filter by date range (based on createdAt)
+    if (dateFrom) {
+        const fromTs = new Date(dateFrom).getTime();
+        filtered = filtered.filter(t => (t.createdAt || 0) >= fromTs);
+    }
+    if (dateTo) {
+        const toTs = new Date(dateTo).getTime() + 86400000; // end of day
+        filtered = filtered.filter(t => (t.createdAt || 0) < toTs);
+    }
+
+    // Sort by updatedAt (newest first), fallback to createdAt
+    filtered.sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0));
+
+    // Render table with history-specific columns
+    elements.ticketList.innerHTML = '';
+
+    if (filtered.length === 0) {
+        elements.ticketList.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-muted);">Không tìm thấy phiếu nào</td></tr>`;
+        return 0;
+    }
+
+    filtered.forEach(t => {
+        const tr = document.createElement('tr');
+        tr.style.cursor = 'pointer';
+        tr.addEventListener('click', () => showTicketHistory(t.firebaseId));
+
+        const orderIdStr = String(t.orderId || '');
+        const orderIdParts = orderIdStr.split('/');
+        const last5Digits = orderIdParts.length > 0 ? orderIdParts[orderIdParts.length - 1] : orderIdStr;
+
+        const customerName = t.customer || 'N/A';
+        const customerPhone = t.phone || 'N/A';
+
+        // Build timeline summary
+        const timelineSummary = buildTimelineSummaryHTML(t);
+
+        // Status badge
+        const statusBadge = getStatusBadgeHTML(t.status);
+
+        tr.innerHTML = `
+            <td>
+                <div style="font-weight:bold;font-size:13px;">
+                    <span style="color:#3b82f6;">${last5Digits}</span>
+                </div>
+                <div style="font-size:11px;color:#64748b;">#${t.tposId || '---'}</div>
+            </td>
+            <td>
+                <div style="font-weight:500;color:#1e293b;">${customerName}</div>
+                <div style="font-weight:500;color:#1e293b;">${customerPhone}</div>
+            </td>
+            <td>
+                ${renderTypeBadge(t.type, t.fixCodReason, t.boomReason)}
+            </td>
+            <td>
+                ${renderProductsList(t)}
+            </td>
+            <td class="history-status-cell">
+                ${statusBadge}
+                <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">
+                    ${formatDateShort(t.createdAt)}
+                </div>
+            </td>
+            <td>
+                <div class="history-timeline-summary">${timelineSummary}</div>
+            </td>
+            <td>
+                <button class="btn-view-history" onclick="event.stopPropagation(); showTicketHistory('${t.firebaseId}')">
+                    Xem chi tiết
+                </button>
+            </td>
+        `;
+        elements.ticketList.appendChild(tr);
+    });
+
+    return filtered.length;
+}
+
+/**
+ * Get status badge HTML for history tab
+ */
+function getStatusBadgeHTML(status) {
+    const map = {
+        'PENDING_GOODS': { cls: 'pending-goods', text: 'Chờ nhận hàng' },
+        'PENDING_FINANCE': { cls: 'pending-finance', text: 'Chờ đối soát' },
+        'COMPLETED': { cls: 'completed', text: 'Hoàn tất' },
+        'CANCELLED': { cls: 'cancelled', text: 'Đã hủy' }
+    };
+    const info = map[status] || { cls: '', text: status };
+    return `<span class="status-badge-sm ${info.cls}">${info.text}</span>`;
+}
+
+/**
+ * Format date short (dd/MM/yyyy)
+ */
+function formatDateShort(timestamp) {
+    if (!timestamp) return '---';
+    const d = new Date(timestamp);
+    return d.toLocaleDateString('vi-VN');
+}
+
+/**
+ * Format date with time (dd/MM/yyyy HH:mm)
+ */
+function formatDateTime(timestamp) {
+    if (!timestamp) return '---';
+    const d = new Date(timestamp);
+    return d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+}
+
+/**
+ * Build a short timeline summary for the history table row
+ */
+function buildTimelineSummaryHTML(ticket) {
+    const steps = buildTicketTimeline(ticket);
+    return steps.map(s => {
+        const icon = s.done ? '✓' : (s.active ? '◉' : '○');
+        const cls = s.done ? 'step-done' : (s.active ? 'step-current' : '');
+        return `<span class="step ${cls}">${icon} ${s.label}</span>`;
+    }).join('');
+}
+
+/**
+ * Build ticket timeline steps from ticket data
+ * Returns array of { label, time, done, active, cancelled, detail }
+ */
+function buildTicketTimeline(ticket) {
+    const steps = [];
+    const status = ticket.status;
+
+    // Step 1: Created
+    steps.push({
+        label: 'Tạo phiếu',
+        time: ticket.createdAt,
+        done: true,
+        active: false,
+        cancelled: false,
+        detail: `Loại: ${translateType(ticket.type)}`
+    });
+
+    // Step 2: Virtual Credit (only for RETURN_SHIPPER)
+    if (ticket.type === 'RETURN_SHIPPER') {
+        const hasCredit = !!(ticket.virtualCreditId || ticket.virtual_credit_id);
+        steps.push({
+            label: 'Cấp công nợ ảo',
+            time: null,
+            done: hasCredit,
+            active: !hasCredit && status === 'PENDING_GOODS',
+            cancelled: status === 'CANCELLED' && !hasCredit,
+            detail: hasCredit ? `ID: ${ticket.virtualCreditId || ticket.virtual_credit_id}` : ''
+        });
+    }
+
+    // Step 3: Receive goods (for types that require it)
+    const needsGoods = ['BOOM', 'RETURN_SHIPPER', 'RETURN_CLIENT', 'FIX_COD'].includes(ticket.type)
+        && !(ticket.type === 'FIX_COD' && !['REJECT_PARTIAL', 'RETURN_OLD_ORDER'].includes(ticket.fixCodReason));
+    if (needsGoods) {
+        const receivedAt = ticket.receivedAt || ticket.received_at;
+        const received = !!receivedAt || status === 'PENDING_FINANCE' || status === 'COMPLETED';
+        steps.push({
+            label: 'Nhận hàng',
+            time: receivedAt ? new Date(receivedAt).getTime() : null,
+            done: received,
+            active: !received && status === 'PENDING_GOODS',
+            cancelled: status === 'CANCELLED' && !received,
+            detail: ticket.refundNumber ? `Phiếu trả: ${ticket.refundNumber}` : ''
+        });
+    }
+
+    // Step 4: Payment/Settlement (for BOOM, FIX_COD)
+    if (ticket.type === 'BOOM' || ticket.type === 'FIX_COD') {
+        const settledAt = ticket.settled_at || ticket.completedAt || ticket.completed_at;
+        const settled = status === 'COMPLETED';
+        steps.push({
+            label: 'Thanh toán',
+            time: settled ? (settledAt ? new Date(settledAt).getTime() : null) : null,
+            done: settled,
+            active: status === 'PENDING_FINANCE',
+            cancelled: status === 'CANCELLED',
+            detail: settled ? formatCurrency(ticket.money) : ''
+        });
+    }
+
+    // Step 5: Final status
+    if (status === 'COMPLETED') {
+        const completedAt = ticket.completedAt || ticket.completed_at;
+        steps.push({
+            label: 'Hoàn tất',
+            time: completedAt ? new Date(completedAt).getTime() : null,
+            done: true,
+            active: false,
+            cancelled: false,
+            detail: ''
+        });
+    } else if (status === 'CANCELLED') {
+        steps.push({
+            label: 'Đã hủy',
+            time: ticket.updatedAt || null,
+            done: false,
+            active: false,
+            cancelled: true,
+            detail: ''
+        });
+    }
+
+    return steps;
+}
+
+/**
+ * Translate ticket type to Vietnamese
+ */
+function translateType(type) {
+    const map = {
+        'BOOM': 'Không Nhận Hàng',
+        'RETURN_SHIPPER': 'Thu về (Shipper)',
+        'RETURN_CLIENT': 'Khách gửi',
+        'FIX_COD': 'Sửa COD',
+        'OTHER': 'Khác'
+    };
+    return map[type] || type;
+}
+
+/**
+ * Show ticket history modal with full timeline
+ */
+window.showTicketHistory = async function(firebaseId) {
+    const ticket = TICKETS.find(t => t.firebaseId === firebaseId);
+    if (!ticket) {
+        alert('Không tìm thấy phiếu');
+        return;
+    }
+
+    const modal = document.getElementById('modal-ticket-history');
+    const contentEl = document.getElementById('history-modal-content');
+
+    // Build timeline from ticket data
+    const steps = buildTicketTimeline(ticket);
+
+    // Try to fetch audit logs from Firestore
+    let auditLogs = [];
+    try {
+        auditLogs = await fetchAuditLogs(ticket.firebaseId);
+    } catch (e) {
+        console.warn('[History] Could not fetch audit logs:', e);
+    }
+
+    // Merge audit log info into timeline steps
+    const enrichedSteps = enrichTimelineWithAuditLogs(steps, auditLogs);
+
+    // Build modal HTML
+    const orderIdStr = String(ticket.orderId || '');
+    const statusBadge = getStatusBadgeHTML(ticket.status);
+
+    contentEl.innerHTML = `
+        <div class="history-modal-header">
+            <div>
+                <h2>Lịch sử phiếu ${ticket.firebaseId || ''}</h2>
+                <div style="margin-top:4px;">${statusBadge}</div>
+            </div>
+        </div>
+
+        <div class="history-modal-info">
+            <div class="info-item">
+                <label>Khách hàng</label>
+                <span>${ticket.customer || 'N/A'}</span>
+            </div>
+            <div class="info-item">
+                <label>Số điện thoại</label>
+                <span>${ticket.phone || 'N/A'}</span>
+            </div>
+            <div class="info-item">
+                <label>Mã đơn hàng</label>
+                <span>${orderIdStr}</span>
+            </div>
+            <div class="info-item">
+                <label>Loại sự vụ</label>
+                <span>${renderTypeBadge(ticket.type, ticket.fixCodReason, ticket.boomReason)}</span>
+            </div>
+            <div class="info-item">
+                <label>Số tiền</label>
+                <span style="font-weight:700;color:${(ticket.type === 'BOOM' || ticket.type === 'FIX_COD') ? '#ef4444' : '#1e293b'};">
+                    ${formatCurrency(ticket.money)}
+                </span>
+            </div>
+            <div class="info-item">
+                <label>Ghi chú</label>
+                <span>${ticket.note || '—'}</span>
+            </div>
+        </div>
+
+        <h3 style="margin-bottom:16px;font-size:16px;">Dòng thời gian xử lý</h3>
+        <div class="ticket-timeline">
+            ${enrichedSteps.map(step => {
+                const stateClass = step.cancelled ? 'cancelled' : (step.done ? 'done' : (step.active ? 'active' : ''));
+                return `
+                    <div class="timeline-item ${stateClass}">
+                        <div class="timeline-dot"></div>
+                        <div class="timeline-content">
+                            <div class="timeline-title">${step.label}</div>
+                            ${step.time ? `<div class="timeline-time">${formatDateTime(step.time)}</div>` : ''}
+                            ${step.performer ? `<div class="timeline-performer">Bởi: ${step.performer}</div>` : ''}
+                            ${step.detail ? `<div class="timeline-detail">${step.detail}</div>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+
+        ${ticket.products && ticket.products.length > 0 ? `
+            <h3 style="margin:20px 0 12px;font-size:16px;">Sản phẩm</h3>
+            <div style="font-size:13px;">${renderProductsList(ticket)}</div>
+        ` : ''}
+    `;
+
+    openModal(modal);
+};
+
+/**
+ * Fetch audit logs for a specific ticket from Firestore edit_history
+ */
+async function fetchAuditLogs(ticketCode) {
+    try {
+        let db = null;
+        if (typeof window.initializeFirestore === 'function') {
+            db = window.initializeFirestore({ enablePersistence: false });
+        } else if (typeof window.getFirestore === 'function') {
+            db = window.getFirestore();
+        } else if (window.firebase && typeof window.firebase.firestore === 'function') {
+            db = window.firebase.firestore();
+        }
+
+        if (!db) return [];
+
+        const snapshot = await db.collection('edit_history')
+            .where('module', '==', 'issue-tracking')
+            .where('entityId', '==', ticketCode)
+            .orderBy('timestamp', 'asc')
+            .get();
+
+        return snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                actionType: data.actionType,
+                timestamp: data.timestamp?.toDate?.() ? data.timestamp.toDate().getTime() : data.timestamp,
+                performer: data.performerUserName || data.performerUserId || '',
+                description: data.description || '',
+                oldData: data.oldData,
+                newData: data.newData
+            };
+        });
+    } catch (e) {
+        console.warn('[History] Firestore query failed:', e);
+        return [];
+    }
+}
+
+/**
+ * Enrich timeline steps with audit log performer info
+ */
+function enrichTimelineWithAuditLogs(steps, auditLogs) {
+    const actionMap = {
+        'ticket_create': 'Tạo phiếu',
+        'ticket_add_debt': 'Cấp công nợ ảo',
+        'ticket_receive_goods': 'Nhận hàng',
+        'ticket_payment': 'Thanh toán',
+        'delete': 'Đã hủy'
+    };
+
+    return steps.map(step => {
+        const enriched = { ...step };
+
+        // Find matching audit log
+        const matchingLog = auditLogs.find(log => {
+            const mappedLabel = actionMap[log.actionType];
+            return mappedLabel === step.label;
+        });
+
+        if (matchingLog) {
+            if (!enriched.time && matchingLog.timestamp) {
+                enriched.time = matchingLog.timestamp;
+            }
+            enriched.performer = matchingLog.performer;
+            if (matchingLog.description && !enriched.detail) {
+                enriched.detail = matchingLog.description;
+            }
+        }
+
+        return enriched;
+    });
+}
