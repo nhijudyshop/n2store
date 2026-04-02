@@ -615,35 +615,40 @@ window.ReturnOrderModal = (function () {
                 Partner: partner,
                 Account: config.Account,
 
-                // Order lines - strip Product to only TPOS-accepted fields
+                // Order lines - Product must match TPOS ProductModel (variant, not template)
                 OrderLines: S.orderLines.map(line => {
                     const p = line.product || {};
                     return {
-                        ProductUOM: { Id: line.uomId, Name: line.uom },
                         Name: line.name,
-                        Account: config.Account,
-                        PriceUnit: line.price,
-                        AccountId: config.AccountId,
-                        PriceRecent: line.price,
+                        ProductId: line.productId,
+                        ProductUOMId: line.uomId,
+                        ProductUOM: { Id: line.uomId, Name: line.uom },
                         ProductQty: line.quantity,
+                        PriceUnit: line.price,
+                        Discount: 0,
                         Product: {
                             Id: p.Id,
                             Name: p.Name,
-                            NameGet: p.NameGet,
-                            DefaultCode: p.DefaultCode,
-                            Barcode: p.Barcode || null,
-                            ListPrice: p.ListPrice,
-                            PurchasePrice: p.PurchasePrice,
+                            UOMId: line.uomId,
                             UOMName: p.UOMName,
-                            Active: p.Active,
-                            Type: p.Type,
-                            CompanyId: p.CompanyId,
+                            NameGet: p.NameGet,
+                            Barcode: p.Barcode || p.DefaultCode || null,
+                            Price: p.ListPrice || 0,
+                            DefaultCode: p.DefaultCode,
+                            ProductTmplId: p.Id,
+                            PurchaseOK: true,
+                            SaleOK: true,
+                            PurchasePrice: p.PurchasePrice || 0,
+                            DiscountSale: p.DiscountSale || 0,
                             Weight: p.Weight || 0,
-                            ImageUrl: p.ImageUrl || null
+                            DiscountPurchase: p.DiscountPurchase || 0,
+                            ImageUrl: p.ImageUrl || null,
+                            Active: p.Active !== false,
+                            Factor: 1
                         },
-                        ProductId: line.productId,
-                        ProductUOMId: line.uomId,
-                        Discount: 0,
+                        Account: config.Account,
+                        AccountId: config.AccountId,
+                        PriceRecent: null,
                         PriceSubTotal: line.quantity * line.price
                     };
                 })
@@ -752,9 +757,7 @@ window.ReturnOrderModal = (function () {
         });
 
         // Action buttons
-        $('btnReturnConfirmPrint')?.addEventListener('click', () => submitReturn('SaveAndPrint'));
-        $('btnReturnConfirmView')?.addEventListener('click', () => submitReturn('SaveAndPrint'));
-        $('btnReturnSave')?.addEventListener('click', () => submitReturn('Save'));
+        $('btnReturnSave')?.addEventListener('click', () => submitReturn(null));
 
         // Product search
         const searchInput = $('returnProductSearch');
