@@ -141,13 +141,16 @@
     }
 
     function isFullDay(empId, dateKey) {
-        if (fullDayOverrides.has(`${empId}_${dateKey}`) || shopHolidays.has(dateKey)) return true;
-        // Sunday full day per employee
+        if (fullDayOverrides.has(`${empId}_${dateKey}`)) return true;
         const d = new Date(dateKey + 'T00:00:00');
-        if (d.getDay() === 0) {
+        const isSunday = d.getDay() === 0;
+        // CN: chỉ tính lương nếu NV có setting sundayFull, shop holiday không áp dụng
+        if (isSunday) {
             const emp = employees.find(e => String(e.userId || e.uid || e.id) === String(empId));
-            if (emp && emp.sundayFull) return true;
+            return !!(emp && emp.sundayFull);
         }
+        // Ngày thường: shop holiday áp dụng
+        if (shopHolidays.has(dateKey)) return true;
         return false;
     }
 
@@ -2996,14 +2999,14 @@ ${d.ghiChu ? `<div style="margin-top:12px; font-style:italic; font-size:12px;"><
             let timeText = '';
 
             if (cellData.status === 'absent') {
-                if (isShopHoliday(dateKey)) {
-                    totalWorked++;
-                    statusClass = 'ontime';
-                    statusText = 'Nghỉ shop';
-                } else if (dow === 0 && emp.sundayFull) {
+                if (dow === 0 && emp.sundayFull) {
                     totalWorked++;
                     statusClass = 'ontime';
                     statusText = 'CN đủ công';
+                } else if (dow !== 0 && isShopHoliday(dateKey)) {
+                    totalWorked++;
+                    statusClass = 'ontime';
+                    statusText = 'Nghỉ shop';
                 } else {
                     absentCount++;
                     statusText = 'Nghỉ';
