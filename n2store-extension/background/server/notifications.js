@@ -4,78 +4,79 @@ import { log } from '../../shared/logger.js';
 import { addActivity, incrementBadge, getPreferences, saveNotification } from '../sync/storage.js';
 
 const MODULE = 'Notif';
-const BASE_URL = 'https://nhijudyshop.workers.dev';
+const INBOX_URL = 'https://nhijudyshop.workers.dev/inbox/';
+const ORDERS_URL = 'https://nhijudyshop.github.io/n2store/orders-report/main.html';
 
 // Notification type definitions: icon, title template, body template, click URL
 const NOTIF_TYPES = {
   msg_sent: {
-    title: 'Tin nhan da gui',
+    title: 'Tin nhắn đã gửi',
     icon: 'MSG_SENT',
-    getUrl: (d) => `${BASE_URL}/inbox/`,
+    getUrl: (d) => INBOX_URL,
   },
   msg_failed: {
-    title: 'Gui tin nhan that bai',
+    title: 'Gửi tin nhắn thất bại',
     icon: 'MSG_FAIL',
-    getUrl: (d) => `${BASE_URL}/inbox/`,
+    getUrl: (d) => INBOX_URL,
   },
   upload_done: {
-    title: 'Upload anh thanh cong',
+    title: 'Upload ảnh thành công',
     icon: 'UPLOAD',
-    getUrl: (d) => `${BASE_URL}/inbox/`,
+    getUrl: (d) => INBOX_URL,
   },
   upload_failed: {
-    title: 'Upload anh that bai',
+    title: 'Upload ảnh thất bại',
     icon: 'UPLOAD_FAIL',
-    getUrl: (d) => `${BASE_URL}/inbox/`,
+    getUrl: (d) => INBOX_URL,
   },
   global_id_resolved: {
-    title: 'Da xac dinh khach hang',
+    title: 'Đã xác định khách hàng',
     icon: 'ID',
-    getUrl: (d) => `${BASE_URL}/inbox/`,
+    getUrl: (d) => INBOX_URL,
   },
   global_id_failed: {
-    title: 'Khong xac dinh duoc khach hang',
+    title: 'Không xác định được khách hàng',
     icon: 'ID_FAIL',
-    getUrl: (d) => `${BASE_URL}/inbox/`,
+    getUrl: (d) => INBOX_URL,
   },
   session_ready: {
-    title: 'Facebook da ket noi',
+    title: 'Facebook đã kết nối',
     icon: 'FB_OK',
     getUrl: () => null,
   },
   session_failed: {
-    title: 'Ket noi Facebook that bai',
+    title: 'Kết nối Facebook thất bại',
     icon: 'FB_FAIL',
     getUrl: () => null,
   },
   // SSE events from Render server
   new_transaction: {
-    title: 'Chuyen khoan moi',
+    title: 'Chuyển khoản mới',
     icon: 'BANK',
-    getUrl: (d) => `${BASE_URL}/orders-report/#tab1`,
+    getUrl: (d) => ORDERS_URL,
   },
   wallet_update: {
-    title: 'Cap nhat vi khach hang',
+    title: 'Cập nhật ví khách hàng',
     icon: 'WALLET',
-    getUrl: (d) => `${BASE_URL}/orders-report/#tab1`,
+    getUrl: (d) => ORDERS_URL,
   },
   held_product: {
-    title: 'San pham bi hold',
+    title: 'Sản phẩm bị hold',
     icon: 'HOLD',
-    getUrl: (d) => `${BASE_URL}/orders-report/#tab1`,
+    getUrl: (d) => ORDERS_URL,
   },
   new_message: {
-    title: 'Tin nhan moi',
+    title: 'Tin nhắn mới',
     icon: 'NEW_MSG',
-    getUrl: (d) => `${BASE_URL}/inbox/`,
+    getUrl: (d) => INBOX_URL,
   },
   processing_update: {
-    title: 'Cap nhat xu ly don',
+    title: 'Cập nhật xử lý đơn',
     icon: 'ORDER',
-    getUrl: (d) => `${BASE_URL}/orders-report/#tab1`,
+    getUrl: (d) => ORDERS_URL,
   },
   extension_error: {
-    title: 'Loi Extension',
+    title: 'Lỗi Extension',
     icon: 'ERROR',
     getUrl: () => null,
   },
@@ -171,9 +172,9 @@ export function setupNotificationClickHandlers() {
 
     const button = info.buttons[buttonIndex];
     if (button?.action === 'open_inbox') {
-      await openOrFocusTab(`${BASE_URL}/inbox/`);
+      await openOrFocusTab(INBOX_URL);
     } else if (button?.action === 'open_orders') {
-      await openOrFocusTab(`${BASE_URL}/orders-report/#tab1`);
+      await openOrFocusTab(ORDERS_URL);
     } else if (button?.action === 'open_url' && button.url) {
       await openOrFocusTab(button.url);
     } else if (button?.action === 'dismiss') {

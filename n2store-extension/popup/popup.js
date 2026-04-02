@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   document.getElementById('openOrders').addEventListener('click', () => {
-    chrome.tabs.create({ url: 'https://nhijudyshop.workers.dev/orders-report/' });
+    chrome.tabs.create({ url: 'https://nhijudyshop.github.io/n2store/orders-report/main.html' });
     window.close();
   });
 
@@ -251,7 +251,7 @@ function getNotifUrl(type) {
     return `${base}/inbox/`;
   }
   if (['new_transaction', 'wallet_update', 'held_product', 'processing_update'].includes(type)) {
-    return `${base}/orders-report/`;
+    return 'https://nhijudyshop.github.io/n2store/orders-report/main.html';
   }
   return null;
 }

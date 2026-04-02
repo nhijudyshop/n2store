@@ -1,56 +1,56 @@
 # N2Store Messenger - Chrome Extension
 
-> Extension rieng cua N2Store, thay the Pancake Extension V2
+> Extension riêng của N2Store, thay thế Pancake Extension V2
 > Chrome Manifest V3 | ES Modules | Clean architecture
 
 ---
 
-## 1. Tong quan
+## 1. Tổng quan
 
-N2Store Messenger la Chrome Extension cho phep:
+N2Store Messenger là Chrome Extension cho phép:
 
-- **Gui tin nhan bypass 24h** qua Facebook Business Suite internal API
-- **Upload anh/video/file** len Facebook tu URL
+- **Gửi tin nhắn bypass 24h** qua Facebook Business Suite internal API
+- **Upload ảnh/video/file** lên Facebook từ URL
 - **Resolve Global ID** (thread_id → globalUserId) qua GraphQL
-- **Thong bao real-time** tu server (chuyen khoan, don hang, tin nhan moi)
-- **Badge counter** tren icon extension
-- **Popup dashboard** voi thong ke + hanh dong nhanh
+- **Thông báo real-time** từ server (chuyển khoản, đơn hàng, tin nhắn mới)
+- **Badge counter** trên icon extension
+- **Popup dashboard** với thống kê + hành động nhanh
 
-### Tai sao can Extension?
+### Tại sao cần Extension?
 
-| Kenh gui | Gioi han 24h? | Endpoint |
+| Kênh gửi | Giới hạn 24h? | Endpoint |
 |----------|---------------|----------|
-| Facebook Graph API | **CO** | `graph.facebook.com` |
-| Pancake API | **CO** (dung Graph API) | `pages.fm/api/public_api/v1` |
-| Business Suite Web (extension) | **KHONG** | `business.facebook.com/messaging/send/` |
+| Facebook Graph API | **CÓ** | `graph.facebook.com` |
+| Pancake API | **CÓ** (dùng Graph API) | `pages.fm/api/public_api/v1` |
+| Business Suite Web (extension) | **KHÔNG** | `business.facebook.com/messaging/send/` |
 
-Extension mo phong cach Facebook Business Suite gui tin nhan — Facebook coi day la "human-operated interface" nen khong ap dung 24h rule.
+Extension mô phỏng cách Facebook Business Suite gửi tin nhắn — Facebook coi đây là "human-operated interface" nên không áp dụng 24h rule.
 
 ---
 
-## 2. Cai dat
+## 2. Cài đặt
 
-1. Mo Chrome → `chrome://extensions/`
-2. Bat **Developer mode** (goc tren phai)
-3. Click **"Load unpacked"** → chon folder `n2store-extension/`
-4. Extension icon (logo N2Store) xuat hien tren toolbar
-5. **TAT** Pancake Extension neu dang dung (khong dung 2 cai cung luc)
+1. Mở Chrome → `chrome://extensions/`
+2. Bật **Developer mode** (góc trên phải)
+3. Click **"Load unpacked"** → chọn folder `n2store-extension/`
+4. Extension icon (logo N2Store) xuất hiện trên toolbar
+5. **TẮT** Pancake Extension nếu đang dùng (không dùng 2 cái cùng lúc)
 
-### Yeu cau
+### Yêu cầu
 
 - Chrome 110+ (Manifest V3)
-- Da dang nhap Facebook tren cung Chrome profile
-- Da dang nhap N2Store web app
+- Đã đăng nhập Facebook trên cùng Chrome profile
+- Đã đăng nhập N2Store web app
 
 ---
 
-## 3. Kien truc
+## 3. Kiến trúc
 
 ```
 n2store-extension/
 ├── manifest.json                     # MV3 config, permissions, rules
 ├── rules.json                        # DeclarativeNetRequest (Origin/Accept headers)
-├── images/                           # Icon 16/32/48/128px (tu logo.jpg)
+├── images/                           # Icon 16/32/48/128px (từ logo.jpg)
 │
 ├── background/                       # Service Worker (ES Modules)
 │   ├── service-worker.js            # Entry point — message router
@@ -61,8 +61,8 @@ n2store-extension/
 │   │   ├── global-id.js             # GET_GLOBAL_ID_FOR_CONV (3 strategies)
 │   │   └── utils.js                 # parseFbRes, generateOfflineThreadingID
 │   ├── server/
-│   │   ├── notifications.js         # chrome.notifications dispatcher (14 types)
-│   │   └── sse-listener.js          # SSE real-time tu Render server
+│   │   ├── notifications.js         # chrome.notifications dispatcher (14 loại)
+│   │   └── sse-listener.js          # SSE real-time từ Render server
 │   └── sync/
 │       ├── storage.js               # Activity log, badge, preferences
 │       └── badge.js                 # Badge counter re-export
@@ -77,7 +77,7 @@ n2store-extension/
 │
 ├── pages/
 │   ├── offscreen.html + .js         # HTML parsing, keep-alive
-│   ├── settings.html + .js          # Settings page
+│   ├── settings.html + .js          # Trang cài đặt
 │
 └── shared/
     ├── constants.js                 # Message types, error codes
@@ -85,17 +85,17 @@ n2store-extension/
     └── logger.js                    # [N2EXT] structured logging
 ```
 
-### Luong du lieu
+### Luồng dữ liệu
 
 ```
 Trang web (nhijudyshop)
   │ window.postMessage({ type: 'REPLY_INBOX_PHOTO', ... })
   ▼
-contentscript.js (inject vao trang)
+contentscript.js (inject vào trang)
   │ chrome.runtime.connect (port)
   ▼
 service-worker.js (background)
-  │ Route toi handler tuong ung
+  │ Route tới handler tương ứng
   ├── facebook/sender.js ──► POST business.facebook.com/messaging/send/
   ├── facebook/uploader.js ──► POST upload-business.facebook.com/upload.php
   ├── facebook/global-id.js ──► POST business.facebook.com/api/graphql/
@@ -108,83 +108,83 @@ contentscript.js → window.postMessage → trang web
 
 ---
 
-## 4. Tinh nang
+## 4. Tính năng
 
 ### 4.1 Facebook Messaging (Core)
 
-| Tinh nang | Message Type | Trang thai |
+| Tính năng | Message Type | Trạng thái |
 |-----------|-------------|------------|
-| Gui text bypass 24h | `REPLY_INBOX_PHOTO` (SEND_TEXT_ONLY) | Done |
-| Gui anh bypass 24h | `UPLOAD_INBOX_PHOTO` → `REPLY_INBOX_PHOTO` (PHOTO) | Done |
-| Gui video/file/sticker | `REPLY_INBOX_PHOTO` (VIDEO/FILE/STICKER/AUDIO) | Done |
-| Lay fb_dtsg | `PREINITIALIZE_PAGES`, `GET_BUSINESS_CONTEXT` | Done |
+| Gửi text bypass 24h | `REPLY_INBOX_PHOTO` (SEND_TEXT_ONLY) | Done |
+| Gửi ảnh bypass 24h | `UPLOAD_INBOX_PHOTO` → `REPLY_INBOX_PHOTO` (PHOTO) | Done |
+| Gửi video/file/sticker | `REPLY_INBOX_PHOTO` (VIDEO/FILE/STICKER/AUDIO) | Done |
+| Lấy fb_dtsg | `PREINITIALIZE_PAGES`, `GET_BUSINESS_CONTEXT` | Done |
 | Resolve Global ID | `GET_GLOBAL_ID_FOR_CONV` | Done |
 | Keep-alive | `WAKE_UP` (10s) + chrome.alarms (30s) | Done |
 | Header modification | DeclarativeNetRequest (Origin, Referer) | Done |
-| Gui comment | `SEND_COMMENT`, `EDIT_COMMENT` | Stub (Phase 2) |
-| Nhan rieng | `SEND_PRIVATE_REPLY` | Stub (Phase 2) |
+| Gửi comment | `SEND_COMMENT`, `EDIT_COMMENT` | Stub (Phase 2) |
+| Nhắn riêng | `SEND_PRIVATE_REPLY` | Stub (Phase 2) |
 | React message | `REACT_MESSAGE` | Stub (Phase 2) |
 | Block user | `BLOCK_FACEBOOK_USER` | Stub (Phase 2) |
 
-### 4.2 Thong bao (Notifications)
+### 4.2 Thông báo (Notifications)
 
-| Loai thong bao | Khi nao | Click mo |
+| Loại thông báo | Khi nào | Click mở |
 |----------------|---------|----------|
-| Tin nhan da gui | Gui thanh cong qua extension | Inbox |
-| Gui tin that bai | Loi khi gui | Inbox |
-| Upload anh thanh cong | Upload xong | Inbox |
-| Upload anh that bai | Loi upload | Inbox |
-| Xac dinh khach hang | Global ID resolved | Inbox |
-| KH khong xac dinh | Global ID failed | Inbox |
-| FB da ket noi | fb_dtsg extracted | — |
-| FB mat ket noi | Session failed | — |
-| Chuyen khoan moi | SSE: SePay transaction | Don hang |
-| Cap nhat vi | SSE: wallet update | Don hang |
-| San pham bi hold | SSE: held product | Don hang |
-| Tin nhan moi | SSE: new message | Inbox |
-| Cap nhat xu ly don | SSE: processing update | Don hang |
+| Tin nhắn đã gửi | Gửi thành công qua extension | Inbox |
+| Gửi tin thất bại | Lỗi khi gửi | Inbox |
+| Upload ảnh thành công | Upload xong | Inbox |
+| Upload ảnh thất bại | Lỗi upload | Inbox |
+| Xác định khách hàng | Global ID resolved | Inbox |
+| KH không xác định | Global ID failed | Inbox |
+| FB đã kết nối | fb_dtsg extracted | — |
+| FB mất kết nối | Session failed | — |
+| Chuyển khoản mới | SSE: SePay transaction | Đơn hàng |
+| Cập nhật ví | SSE: wallet update | Đơn hàng |
+| Sản phẩm bị hold | SSE: held product | Đơn hàng |
+| Tin nhắn mới | SSE: new message | Inbox |
+| Cập nhật xử lý đơn | SSE: processing update | Đơn hàng |
 
 ### 4.3 Popup UI
 
 3 tabs:
 
-- **Tong quan**: Dashboard (FB Pages, Da gui, That bai, Chua doc) + Quick Actions (Mo Inbox, Don hang, Lam moi) + SSE toggle
-- **Thong bao**: Notification center voi unread indicators, type badges (GUI/LOI/BANK/HOLD/...), time-ago
-- **Hoat dong**: Activity log cac su kien gan day
+- **Tổng quan**: Dashboard (FB Pages, Đã gửi, Thất bại, Chưa đọc) + Quick Actions (Mở Inbox, Đơn hàng, Làm mới) + SSE toggle
+- **Thông báo**: Notification center với unread indicators, type badges (GỬI/LỖI/BANK/HOLD/...), time-ago
+- **Hoạt động**: Activity log các sự kiện gần đây
 
-### 4.4 Settings Page
+### 4.4 Trang cài đặt (Settings)
 
-Mo tu popup (icon gear) hoac `chrome://extensions` → Options:
+Mở từ popup (icon gear) hoặc `chrome://extensions` → Options:
 
-- Trang thai ket noi (Extension, Facebook, SSE, Tabs)
-- Bat/tat thong bao toan cuc
-- Bat/tat am thanh
-- Bat/tat SSE real-time
-- Toggle tung loai thong bao (10 loai)
+- Trạng thái kết nối (Extension, Facebook, SSE, Tabs)
+- Bật/tắt thông báo toàn cục
+- Bật/tắt âm thanh
+- Bật/tắt SSE real-time
+- Toggle từng loại thông báo (10 loại)
 - Test notification
-- Xoa du lieu (activity + notifications)
+- Xóa dữ liệu (activity + notifications)
 
 ---
 
 ## 5. API Compatibility
 
-### 100% tuong thich voi Pancake Extension
+### 100% tương thích với Pancake Extension
 
-Extension giu **dung format message** cua Pancake Extension:
-- Cung message type names (`REPLY_INBOX_PHOTO`, etc.)
-- Cung payload fields (`pageId`, `message`, `attachmentType`, `files`, `globalUserId`, etc.)
-- Cung response format (`*_SUCCESS`, `*_FAILURE`)
+Extension giữ **đúng format message** của Pancake Extension:
+- Cùng message type names (`REPLY_INBOX_PHOTO`, etc.)
+- Cùng payload fields (`pageId`, `message`, `attachmentType`, `files`, `globalUserId`, etc.)
+- Cùng response format (`*_SUCCESS`, `*_FAILURE`)
 
-→ `inbox-main.js` va `inbox-chat.js` **KHONG can sua** khi switch extension.
+→ `inbox-main.js` và `inbox-chat.js` **KHÔNG cần sửa** khi switch extension.
 
-### Message format tham khao
+### Message format tham khảo
 
-**Gui text:**
+**Gửi text:**
 ```javascript
 window.postMessage({
     type: 'REPLY_INBOX_PHOTO',
     pageId: '112678138086607',
-    message: 'Xin chao!',
+    message: 'Xin chào!',
     attachmentType: 'SEND_TEXT_ONLY',
     files: [],
     globalUserId: '100001957832900',
@@ -197,7 +197,7 @@ window.postMessage({
 }, '*');
 ```
 
-**Upload anh:**
+**Upload ảnh:**
 ```javascript
 window.postMessage({
     type: 'UPLOAD_INBOX_PHOTO',
@@ -211,13 +211,13 @@ window.postMessage({
 }, '*');
 // → UPLOAD_INBOX_PHOTO_SUCCESS { fbId: "123456789" }
 
-// Gui anh voi fbId:
+// Gửi ảnh với fbId:
 window.postMessage({
     type: 'REPLY_INBOX_PHOTO',
     attachmentType: 'PHOTO',
     files: ['123456789'],
     message: '',
-    // ... cac field khac giong text
+    // ... các field khác giống text
 }, '*');
 ```
 
@@ -226,7 +226,7 @@ window.postMessage({
 window.postMessage({
     type: 'GET_GLOBAL_ID_FOR_CONV',
     pageId: '112678138086607',
-    threadId: '34116166741365151',   // thread_id (KHONG phai PSID)
+    threadId: '34116166741365151',   // thread_id (KHÔNG phải PSID)
     threadKey: 't_34116166741365151',
     isBusiness: true,
     taskId: Date.now(),
@@ -237,31 +237,39 @@ window.postMessage({
 
 ---
 
-## 6. Cau hinh
+## 6. Cấu hình
 
 ### Endpoints (shared/config.js)
 
-| Config | Gia tri | Mo ta |
+| Config | Giá trị | Mô tả |
 |--------|---------|-------|
 | `RENDER_SSE_URL` | `https://n2store-fallback.onrender.com` | SSE real-time server |
 | `RENDER_API_URL` | `https://n2store-fallback.onrender.com` | Render API |
 | `CF_WORKER_URL` | `https://chatomni-proxy.nhijudyshop.workers.dev` | Cloudflare Worker proxy |
-| `WEB_BASE_URL` | `https://nhijudyshop.workers.dev` | N2Store web app |
+| `WEB_BASE_URL` | `https://nhijudyshop.workers.dev` | N2Store web app (CF Worker) |
+| `WEB_GITHUB_URL` | `https://nhijudyshop.github.io/n2store/orders-report/main.html` | N2Store web app (GitHub Pages) |
+
+### Web App Links
+
+Extension hỗ trợ 2 domains cho web app:
+
+- **CF Worker**: `https://nhijudyshop.workers.dev` — primary
+- **GitHub Pages**: `https://nhijudyshop.github.io/n2store/orders-report/main.html` — backup/alternative
 
 ### Permissions
 
-| Permission | Muc dich |
+| Permission | Mục đích |
 |------------|----------|
-| `cookies` | Doc Facebook session cookies (c_user, xs) |
+| `cookies` | Đọc Facebook session cookies (c_user, xs) |
 | `storage` | chrome.storage cho cache, preferences, activity |
 | `offscreen` | Offscreen document (DOM parsing, keep-alive) |
-| `declarativeNetRequestWithHostAccess` | Sua headers (Origin, Referer) |
+| `declarativeNetRequestWithHostAccess` | Sửa headers (Origin, Referer) |
 | `notifications` | Chrome notifications |
 | `alarms` | Keep-alive backup timer |
 
 ### Content Script Domains
 
-Extension inject vao:
+Extension inject vào:
 - `nhijudyshop.workers.dev`
 - `nhijudyshop.github.io`
 
@@ -275,45 +283,45 @@ Extension inject vao:
 
 ---
 
-## 7. Luu y quan trong
+## 7. Lưu ý quan trọng
 
 ### 7.1 isBusiness: false
 
-Truong `isBusiness` trong REPLY_INBOX_PHOTO **PHAI la `false`**. Day la cach pancake.vn gui. Neu `true`, extension xu ly flow khac va co the fail.
+Trường `isBusiness` trong REPLY_INBOX_PHOTO **PHẢI là `false`**. Đây là cách pancake.vn gửi. Nếu `true`, extension xử lý flow khác và có thể fail.
 
 ### 7.2 PSID ≠ thread_id ≠ globalUserId
 
-| ID | Vi du | Dung cho |
+| ID | Ví dụ | Dùng cho |
 |----|-------|----------|
 | PSID | `26140045085657251` | `REPLY_INBOX_PHOTO.threadId` (OK) |
-| thread_id | `34116166741365151` | `GET_GLOBAL_ID_FOR_CONV` (BAT BUOC) |
-| globalUserId | `100001957832900` | `REPLY_INBOX_PHOTO.globalUserId` (BAT BUOC) |
+| thread_id | `34116166741365151` | `GET_GLOBAL_ID_FOR_CONV` (BẮT BUỘC) |
+| globalUserId | `100001957832900` | `REPLY_INBOX_PHOTO.globalUserId` (BẮT BUỘC) |
 
 ### 7.3 fb_dtsg
 
-- CSRF token cua Facebook, **chi lay duoc tu HTML** (khong qua API)
-- Extension tu quan ly qua `PREINITIALIZE_PAGES` va `GET_BUSINESS_CONTEXT`
-- Can user **da dang nhap Facebook** tren cung Chrome profile
-- 3 phuong phap extract: DTSGInitialData regex → hidden input → async_get_token
+- CSRF token của Facebook, **chỉ lấy được từ HTML** (không qua API)
+- Extension tự quản lý qua `PREINITIALIZE_PAGES` và `GET_BUSINESS_CONTEXT`
+- Cần user **đã đăng nhập Facebook** trên cùng Chrome profile
+- 3 phương pháp extract: DTSGInitialData regex → hidden input → async_get_token
 
 ### 7.4 Service Worker Lifecycle
 
-- Service Worker tat sau **30s idle** → contentscript gui `WAKE_UP` moi 10s
-- chrome.alarms gui keepAlive moi 30s (backup)
-- Offscreen.js gui keepAlive moi 20s
-- Dung ES Modules (`type: "module"` trong manifest)
+- Service Worker tắt sau **30s idle** → contentscript gửi `WAKE_UP` mỗi 10s
+- chrome.alarms gửi keepAlive mỗi 30s (backup)
+- Offscreen.js gửi keepAlive mỗi 20s
+- Dùng ES Modules (`type: "module"` trong manifest)
 
 ### 7.5 Global ID Cache
 
 - Cache trong `chrome.storage.local` (persist across restart)
 - TTL: 24h
-- Lan dau resolve: ~30-40s (GraphQL query nang)
-- Lan sau: instant (tu cache)
+- Lần đầu resolve: ~30-40s (GraphQL query nặng)
+- Lần sau: instant (từ cache)
 - 3 strategies: ThreadlistQuery → thread_info.php → GraphQL friendly_name
 
 ### 7.6 SSE Reconnect
 
-- Auto-reconnect khi mat ket noi
+- Auto-reconnect khi mất kết nối
 - Exponential backoff: 1s → 2s → 4s → 8s → ... → 60s max
 - Subscribe keys: `wallet`, `held_products`, `new_messages`, `processing_tags`
 
@@ -321,10 +329,10 @@ Truong `isBusiness` trong REPLY_INBOX_PHOTO **PHAI la `false`**. Day la cach pan
 
 ## 8. Debug
 
-### Console commands (tren trang nhijudyshop)
+### Console commands (trên trang nhijudyshop)
 
 ```javascript
-// Kiem tra extension
+// Kiểm tra extension
 window.pancakeExtension
 // → { connected: true, lastEvents: [...] }
 
@@ -346,7 +354,7 @@ Chrome → `chrome://extensions/` → N2Store Messenger → "Inspect views: serv
 [N2EXT][FB-Session] Session initialized for page 112678138086607, fb_dtsg: AQ...
 [N2EXT][SSE] SSE connected: {"connectionId":"..."}
 [N2EXT][FB-Sender] Message sent successfully: mid.$...
-[N2EXT][Notif] Notification shown: [msg_sent] Khach hang: Xin chao!
+[N2EXT][Notif] Notification shown: [msg_sent] Khách hàng: Xin chào!
 ```
 
 ### Log prefixes
@@ -366,20 +374,20 @@ Chrome → `chrome://extensions/` → N2Store Messenger → "Inspect views: serv
 
 ---
 
-## 9. So sanh voi Pancake Extension
+## 9. So sánh với Pancake Extension
 
 | | Pancake Extension | N2Store Extension |
 |-|-------------------|-------------------|
-| **Code** | 589KB minified, 1 file | ~2,500 lines, 26 files ES Modules |
-| **Doc duoc** | Khong (obfuscated) | Co (clean code) |
-| **Sua duoc** | Khong | Co |
-| **Platforms** | FB + IG + LINE + Zalo | FB only (N2Store chi can) |
-| **Notifications** | Khong | 14 loai + SSE real-time |
-| **Popup** | Khong | Dashboard + Notification center |
-| **Settings** | Khong | Full settings page |
-| **Badge** | Khong | Unread counter |
-| **SSE** | Khong | Connect Render server |
-| **API compatible** | — | 100% (inbox-chat.js khong can sua) |
+| **Code** | 589KB minified, 1 file | ~2,500 dòng, 26 files ES Modules |
+| **Đọc được** | Không (obfuscated) | Có (clean code) |
+| **Sửa được** | Không | Có |
+| **Platforms** | FB + IG + LINE + Zalo | FB only (N2Store chỉ cần) |
+| **Thông báo** | Không | 14 loại + SSE real-time |
+| **Popup** | Không | Dashboard + Notification center |
+| **Cài đặt** | Không | Full settings page |
+| **Badge** | Không | Unread counter |
+| **SSE** | Không | Kết nối Render server |
+| **API compatible** | — | 100% (inbox-chat.js không cần sửa) |
 
 ---
 
@@ -392,10 +400,10 @@ Chrome → `chrome://extensions/` → N2Store Messenger → "Inspect views: serv
 - [x] Global ID resolver (3 strategies)
 - [x] Content script bridge
 - [x] DeclarativeNetRequest rules
-- [x] Notification system (14 types)
+- [x] Hệ thống thông báo (14 loại)
 - [x] SSE real-time listener
 - [x] Popup UI (3 tabs)
-- [x] Settings page
+- [x] Trang cài đặt
 - [x] Badge counter
 - [x] Activity log
 
@@ -409,7 +417,7 @@ Chrome → `chrome://extensions/` → N2Store Messenger → "Inspect views: serv
 - [ ] DOWNLOAD_FILE, LOAD_FACEBOOK_MESSAGES
 
 ### Phase 3 (Future)
-- [ ] Quick reply templates tu popup
-- [ ] Product search tu popup
-- [ ] KPI weekly summary notification
+- [ ] Quick reply templates từ popup
+- [ ] Tìm kiếm sản phẩm từ popup
+- [ ] Thông báo tổng hợp KPI hàng tuần
 - [ ] Cross-tab sync via SharedWorker
