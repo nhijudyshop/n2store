@@ -350,6 +350,24 @@ window.sendMessage = async function() {
                     await window.sendImagesViaExtension(pendingImages, text, conv);
                     _showToast('Đã gửi qua Extension (bypass 24h)', 'success');
                     imagesSentViaExtension = true;
+
+                    // Optimistic UI: show sent images immediately
+                    for (const file of pendingImages) {
+                        const dataUrl = await new Promise(r => {
+                            const reader = new FileReader();
+                            reader.onload = () => r(reader.result);
+                            reader.readAsDataURL(file);
+                        });
+                        window.allChatMessages.push({
+                            id: 'opt_img_' + Date.now() + Math.random(),
+                            text: '',
+                            time: new Date(),
+                            sender: 'shop',
+                            senderName: '',
+                            attachments: [{ type: 'image', url: dataUrl }],
+                        });
+                    }
+                    window.renderChatMessages(window.allChatMessages);
                 } else {
                     throw imgErr;
                 }
@@ -365,7 +383,9 @@ window.sendMessage = async function() {
             }
         }
 
-        // Reload messages after 2s to get server-confirmed versions
+        // Reload messages to get server-confirmed versions
+        // Extension sends go directly to Facebook → Pancake needs longer to sync
+        const reloadDelay = imagesSentViaExtension ? 5000 : 2000;
         setTimeout(async () => {
             if (window.currentConversationId === convId) {
                 pdm.clearMessagesCache(pageId, convId);
@@ -397,7 +417,7 @@ window.sendMessage = async function() {
                     window.renderChatMessages(messages);
                 }
             }
-        }, 2000);
+        }, reloadDelay);
 
     } catch (error) {
         console.error('[Chat-Msg] Send error:', error);
