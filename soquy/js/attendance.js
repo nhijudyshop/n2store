@@ -1844,7 +1844,7 @@
         const grid = document.getElementById('shopHolidaysGrid');
         if (!grid) return;
 
-        const y = currentYear, m = currentMonth;
+        const y = currentMonth.year, m = currentMonth.month;
         const lastDay = new Date(y, m, 0).getDate();
         const dayNames = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 
