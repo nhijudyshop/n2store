@@ -26,6 +26,7 @@ async function ensureTables(pool) {
                 daily_rate INTEGER DEFAULT 200000,
                 work_start INTEGER DEFAULT 8,
                 work_end INTEGER DEFAULT 20,
+                sunday_full BOOLEAN DEFAULT FALSE,
                 updated_at TIMESTAMP DEFAULT NOW()
             );
 
@@ -100,6 +101,9 @@ async function ensureTables(pool) {
             );
             CREATE INDEX IF NOT EXISTS idx_att_commands_status ON attendance_commands(status);
         `);
+        // Add columns that may not exist yet (safe for existing tables)
+        await pool.query(`ALTER TABLE attendance_device_users ADD COLUMN IF NOT EXISTS sunday_full BOOLEAN DEFAULT FALSE`).catch(() => {});
+
         _tablesCreated = true;
         console.log('[ATTENDANCE] Tables created/verified');
     } catch (error) {
@@ -167,7 +171,7 @@ router.patch('/device-users/:userId', async (req, res) => {
     try {
         const { userId } = req.params;
         const fields = req.body;
-        const allowed = ['display_name', 'daily_rate', 'work_start', 'work_end'];
+        const allowed = ['display_name', 'daily_rate', 'work_start', 'work_end', 'sunday_full'];
         const sets = [];
         const vals = [];
         let i = 1;

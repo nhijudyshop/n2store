@@ -141,7 +141,14 @@
     }
 
     function isFullDay(empId, dateKey) {
-        return fullDayOverrides.has(`${empId}_${dateKey}`) || shopHolidays.has(dateKey);
+        if (fullDayOverrides.has(`${empId}_${dateKey}`) || shopHolidays.has(dateKey)) return true;
+        // Sunday full day per employee
+        const d = new Date(dateKey + 'T00:00:00');
+        if (d.getDay() === 0) {
+            const emp = employees.find(e => String(e.userId || e.uid || e.id) === String(empId));
+            if (emp && emp.sundayFull) return true;
+        }
+        return false;
     }
 
     async function toggleFullDay(empId, dateKey) {
@@ -556,8 +563,8 @@
             totalLate += sal.lateDeduction;
             if (cellData.status !== 'absent' && cellData.status !== 'incomplete') {
                 workedDays++;
-            } else if (isShopHoliday(dateKey)) {
-                workedDays++; // Ngày nghỉ shop = tính công
+            } else if (isFullDay(empId, dateKey)) {
+                workedDays++; // Nghỉ shop / CN đủ công = tính công
             }
             if (sal.lateDeduction > 0) lateDays.push({ dateKey, minutes: sal.lateMinutes, amount: sal.lateDeduction });
             if (sal.otPay > 0) otDays.push({ dateKey, minutes: sal.otMinutes, amount: sal.otPay });
@@ -734,6 +741,7 @@
                 dailyRate: row.daily_rate,
                 workStart: row.work_start,
                 workEnd: row.work_end,
+                sundayFull: row.sunday_full || false,
             }));
             employees.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'vi'));
             console.log(`[Attendance] Loaded ${employees.length} employees`);
@@ -1407,6 +1415,18 @@
 
         // Nghỉ
         if (status === 'absent') {
+            const forceDay = isFullDay(empId, dateKey);
+            if (forceDay) {
+                const isSunday = date.getDay() === 0 && emp.sundayFull;
+                const lbl = isSunday ? 'CN đủ công' : 'Nghỉ shop';
+                return `
+                    <div class="ts-block" style="border-left:3px solid #52c41a; background:#f6ffed; cursor:pointer; text-align:center;"
+                         onclick="window._attendance.showDetail('${empId}','${dateKey}')">
+                        <div style="color:#389e0d; font-size:11px;">${lbl}</div>
+                        <div style="font-size:10px; color:#8c8c8c; margin-top:2px;">${formatVND(emp.dailyRate || SALARY.DAILY_RATE)}đ</div>
+                    </div>
+                `;
+            }
             return `
                 <div class="ts-block" style="border-left:3px solid #d9d9d9; background:#fafafa; cursor:pointer; text-align:center;"
                      onclick="window._attendance.showDetail('${empId}','${dateKey}')">
@@ -1894,6 +1914,11 @@
                         <input type="number" class="payroll-settings-input settings-work-end" data-emp-id="${empId}"
                             value="${workEnd}" min="0" max="23" step="1" style="text-align:center; width:55px;">
                     </td>
+                    <td style="text-align:center;">
+                        <input type="checkbox" class="settings-sunday-full" data-emp-id="${empId}"
+                            ${emp.sundayFull ? 'checked' : ''} style="cursor:pointer;"
+                            title="Tính đủ công Chủ nhật">
+                    </td>
                 </tr>
             `;
         });
@@ -1913,6 +1938,25 @@
                         unhideEmployee(empId);
                     } else {
                         hideEmployee(empId);
+                    }
+                }
+
+                if (e.target.classList.contains('settings-sunday-full')) {
+                    const empId = e.target.dataset.empId;
+                    const emp = employees.find(em => String(em.userId || em.uid || em.id) === empId);
+                    if (!emp) return;
+                    const val = e.target.checked;
+                    emp.sundayFull = val;
+                    const docId = String(emp.id || emp.userId);
+                    if (!docId.startsWith('test_')) {
+                        apiPatch('/device-users/' + docId, { sunday_full: val }).then(() => {
+                            showNotification(val ? 'CN: tính đủ công' : 'CN: không tính', 'success');
+                            renderMonthlySchedule();
+                        }).catch(err => {
+                            emp.sundayFull = !val;
+                            e.target.checked = !val;
+                            showNotification('Lỗi: ' + err.message, 'error');
+                        });
                     }
                 }
             });
@@ -2956,6 +3000,10 @@ ${d.ghiChu ? `<div style="margin-top:12px; font-style:italic; font-size:12px;"><
                     totalWorked++;
                     statusClass = 'ontime';
                     statusText = 'Nghỉ shop';
+                } else if (dow === 0 && emp.sundayFull) {
+                    totalWorked++;
+                    statusClass = 'ontime';
+                    statusText = 'CN đủ công';
                 } else {
                     absentCount++;
                     statusText = 'Nghỉ';
