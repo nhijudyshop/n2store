@@ -1259,8 +1259,120 @@ router.get('/processing-tags/:campaignId', async (req, res) => {
 });
 
 /**
+ * PUT /api/realtime/processing-tags/by-code/:orderCode
+ * Upsert processing tag bằng orderCode (key chính mới)
+ * IMPORTANT: Phải đặt TRƯỚC /:campaignId/:orderId để Express match đúng
+ * Body: { data: {...}, updatedBy: string, campaignId?: string, orderId?: string }
+ */
+router.put('/processing-tags/by-code/:orderCode', async (req, res) => {
+    try {
+        const { orderCode } = req.params;
+        const { data, updatedBy, campaignId, orderId } = req.body;
+        const pool = req.app.locals.chatDb;
+
+        if (!pool) {
+            return res.status(500).json({ error: 'Database not available' });
+        }
+
+        if (!data) {
+            return res.status(400).json({ error: 'Missing data in request body' });
+        }
+
+        const dataJson = JSON.stringify(data);
+        const updatedByVal = updatedBy || null;
+        const campaignIdVal = campaignId || null;
+        const orderIdVal = orderId || null;
+
+        const client = await pool.connect();
+        try {
+            await client.query('BEGIN');
+            await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [orderCode]);
+            if (orderCode.startsWith('__')) {
+                // Config records: clean up ALL duplicates across all campaigns
+                await client.query(
+                    `DELETE FROM processing_tags WHERE order_code = $1 OR order_id = $1`,
+                    [orderCode]
+                );
+            } else {
+                // Normal order records: delete by order_code
+                await client.query(
+                    `DELETE FROM processing_tags WHERE order_code = $1`,
+                    [orderCode]
+                );
+            }
+            await client.query(
+                `INSERT INTO processing_tags (campaign_id, order_id, data, updated_by, order_code, created_at, updated_at)
+                 VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+                [campaignIdVal, orderIdVal, dataJson, updatedByVal, orderCode]
+            );
+            await client.query('COMMIT');
+        } catch (err) {
+            await client.query('ROLLBACK');
+            throw err;
+        } finally {
+            client.release();
+        }
+
+        // Notify SSE clients
+        if (notifyClients) {
+            if (campaignIdVal) {
+                notifyClients('processing_tags/' + campaignIdVal, { orderId: orderIdVal, orderCode, data, updatedBy }, 'update');
+            }
+            notifyClients('processing_tags_global', { orderId: orderIdVal, orderCode, campaignId: campaignIdVal, data, updatedBy }, 'update');
+        }
+
+        res.json({ success: true, orderCode, campaignId: campaignIdVal, orderId: orderIdVal });
+    } catch (error) {
+        console.error('[REALTIME-DB] PUT /processing-tags/by-code error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * DELETE /api/realtime/processing-tags/by-code/:orderCode
+ * Xóa processing tag bằng orderCode
+ * IMPORTANT: Phải đặt TRƯỚC /:campaignId/:orderId để Express match đúng
+ */
+router.delete('/processing-tags/by-code/:orderCode', async (req, res) => {
+    try {
+        const { orderCode } = req.params;
+        const pool = req.app.locals.chatDb;
+
+        if (!pool) {
+            return res.status(500).json({ error: 'Database not available' });
+        }
+
+        // Find campaign_id for SSE notification
+        const findResult = await pool.query(
+            `SELECT campaign_id, order_id FROM processing_tags WHERE order_code = $1 LIMIT 1`,
+            [orderCode]
+        );
+        const campaignId = findResult.rows[0]?.campaign_id || null;
+        const orderId = findResult.rows[0]?.order_id || null;
+
+        const result = await pool.query(
+            `DELETE FROM processing_tags WHERE order_code = $1 RETURNING id`,
+            [orderCode]
+        );
+
+        // Notify SSE clients
+        if (notifyClients) {
+            if (campaignId) {
+                notifyClients('processing_tags/' + campaignId, { orderId, orderCode }, 'deleted');
+            }
+            notifyClients('processing_tags_global', { orderId, orderCode, campaignId }, 'deleted');
+        }
+
+        res.json({ success: true, deleted: result.rowCount > 0, orderCode, campaignId, orderId });
+    } catch (error) {
+        console.error('[REALTIME-DB] DELETE /processing-tags/by-code error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
  * PUT /api/realtime/processing-tags/:campaignId/:orderId
- * Upsert processing tag cho 1 đơn hàng
+ * Upsert processing tag cho 1 đơn hàng (LEGACY - backward compatible)
  * Body: { data: {...}, updatedBy: string }
  */
 router.put('/processing-tags/:campaignId/:orderId', async (req, res) => {
@@ -1371,116 +1483,6 @@ router.delete('/processing-tags/:campaignId/:orderId', async (req, res) => {
     }
 });
 
-
-/**
- * PUT /api/realtime/processing-tags/by-code/:orderCode
- * Upsert processing tag bằng orderCode (key chính mới)
- * Body: { data: {...}, updatedBy: string, campaignId?: string, orderId?: string }
- */
-router.put('/processing-tags/by-code/:orderCode', async (req, res) => {
-    try {
-        const { orderCode } = req.params;
-        const { data, updatedBy, campaignId, orderId } = req.body;
-        const pool = req.app.locals.chatDb;
-
-        if (!pool) {
-            return res.status(500).json({ error: 'Database not available' });
-        }
-
-        if (!data) {
-            return res.status(400).json({ error: 'Missing data in request body' });
-        }
-
-        const dataJson = JSON.stringify(data);
-        const updatedByVal = updatedBy || null;
-        const campaignIdVal = campaignId || null;
-        const orderIdVal = orderId || null;
-
-        const client = await pool.connect();
-        try {
-            await client.query('BEGIN');
-            await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [orderCode]);
-            if (orderCode.startsWith('__')) {
-                // Config records: clean up ALL duplicates across all campaigns
-                await client.query(
-                    `DELETE FROM processing_tags WHERE order_code = $1 OR order_id = $1`,
-                    [orderCode]
-                );
-            } else {
-                // Normal order records: delete by order_code
-                await client.query(
-                    `DELETE FROM processing_tags WHERE order_code = $1`,
-                    [orderCode]
-                );
-            }
-            await client.query(
-                `INSERT INTO processing_tags (campaign_id, order_id, data, updated_by, order_code, created_at, updated_at)
-                 VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-                [campaignIdVal, orderIdVal, dataJson, updatedByVal, orderCode]
-            );
-            await client.query('COMMIT');
-        } catch (err) {
-            await client.query('ROLLBACK');
-            throw err;
-        } finally {
-            client.release();
-        }
-
-        // Notify SSE clients
-        if (notifyClients) {
-            if (campaignIdVal) {
-                notifyClients('processing_tags/' + campaignIdVal, { orderId: orderIdVal, orderCode, data, updatedBy }, 'update');
-            }
-            notifyClients('processing_tags_global', { orderId: orderIdVal, orderCode, campaignId: campaignIdVal, data, updatedBy }, 'update');
-        }
-
-        res.json({ success: true, orderCode, campaignId: campaignIdVal, orderId: orderIdVal });
-    } catch (error) {
-        console.error('[REALTIME-DB] PUT /processing-tags/by-code error:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-/**
- * DELETE /api/realtime/processing-tags/by-code/:orderCode
- * Xóa processing tag bằng orderCode
- */
-router.delete('/processing-tags/by-code/:orderCode', async (req, res) => {
-    try {
-        const { orderCode } = req.params;
-        const pool = req.app.locals.chatDb;
-
-        if (!pool) {
-            return res.status(500).json({ error: 'Database not available' });
-        }
-
-        // Find campaign_id for SSE notification
-        const findResult = await pool.query(
-            `SELECT campaign_id, order_id FROM processing_tags WHERE order_code = $1 LIMIT 1`,
-            [orderCode]
-        );
-        const campaignId = findResult.rows[0]?.campaign_id || null;
-        const orderId = findResult.rows[0]?.order_id || null;
-
-        const result = await pool.query(
-            `DELETE FROM processing_tags WHERE order_code = $1 RETURNING id`,
-            [orderCode]
-        );
-
-        // Notify SSE clients
-        if (notifyClients) {
-            if (campaignId) {
-                notifyClients('processing_tags/' + campaignId, { orderId, orderCode }, 'deleted');
-            }
-            notifyClients('processing_tags_global', { orderId, orderCode, campaignId }, 'deleted');
-        }
-
-        res.json({ success: true, deleted: result.rowCount > 0, orderCode, campaignId, orderId });
-    } catch (error) {
-        console.error('[REALTIME-DB] DELETE /processing-tags/by-code error:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
 
 // =====================================================
 // EXPORTS
