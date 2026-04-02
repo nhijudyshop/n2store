@@ -649,7 +649,7 @@ window.ReturnOrderModal = (function () {
             const result = await response.json();
             console.log('[ReturnOrder] Return order created:', result.Id, result.Number, result.ShowState);
 
-            if (loadingId) window.notificationManager?.dismiss?.(loadingId);
+            if (loadingId) window.notificationManager?.remove?.(loadingId);
             window.notificationManager?.success(`Đã tạo đơn trả hàng: ${result.Number || result.Id}`);
 
             close();
@@ -661,7 +661,7 @@ window.ReturnOrderModal = (function () {
 
         } catch (err) {
             console.error('[ReturnOrder] Submit error:', err);
-            if (loadingId) window.notificationManager?.dismiss?.(loadingId);
+            if (loadingId) window.notificationManager?.remove?.(loadingId);
             window.notificationManager?.error(`Lỗi tạo đơn trả hàng: ${err.message}`);
         } finally {
             S.isSubmitting = false;
