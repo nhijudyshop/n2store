@@ -253,8 +253,188 @@ function buildConvData(pageId, psid) {
     return conv;
 }
 
+/**
+ * Upload a single image via extension (UPLOAD_INBOX_PHOTO)
+ * @param {File|Blob} file - Image file
+ * @param {string} pageId
+ * @returns {Promise<string>} fbId from Facebook
+ */
+async function uploadImageViaExtension(file, pageId) {
+    // Convert File to data URL so extension can fetch it
+    const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+    });
+
+    // Upload data URL as a blob URL won't work cross-context
+    // Instead, upload to CF Worker first, then give extension the URL
+    const blob = new Blob([file], { type: file.type });
+    const blobUrl = URL.createObjectURL(blob);
+
+    // Extension needs a fetchable URL. Data URLs work in extension context.
+    const taskId = Date.now() + Math.random();
+    const uploadId = `upload_${Date.now()}`;
+
+    return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+            window.removeEventListener('message', handler);
+            reject(new Error('UPLOAD_INBOX_PHOTO timeout (60s)'));
+        }, 60000);
+
+        const handler = (e) => {
+            const d = e.data;
+            if (!d?.type || d.taskId !== taskId) return;
+            if (d.type === 'UPLOAD_INBOX_PHOTO_SUCCESS') {
+                clearTimeout(timeout);
+                window.removeEventListener('message', handler);
+                URL.revokeObjectURL(blobUrl);
+                resolve(d.fbId);
+            }
+            if (d.type === 'UPLOAD_INBOX_PHOTO_FAILURE') {
+                clearTimeout(timeout);
+                window.removeEventListener('message', handler);
+                URL.revokeObjectURL(blobUrl);
+                reject(new Error(d.error || 'Upload failed'));
+            }
+        };
+        window.addEventListener('message', handler);
+
+        _postToExtension({
+            type: 'UPLOAD_INBOX_PHOTO',
+            pageId,
+            photoUrl: dataUrl,
+            name: file.name || 'image.jpg',
+            taskId,
+            uploadId,
+            from: 'WEBPAGE'
+        });
+    });
+}
+
+/**
+ * Upload images and send via extension (bypass 24h)
+ * @param {File[]} images - Array of image files
+ * @param {string} text - Optional text message
+ * @param {Object} conv - Conversation data (from buildConvData)
+ */
+async function sendImagesViaExtension(images, text, conv) {
+    if (!window.pancakeExtension.connected) {
+        throw new Error('Extension chưa kết nối');
+    }
+
+    const pageId = conv.pageId;
+
+    // Step 1: Upload each image → get fbIds
+    const fbIds = [];
+    for (const file of images) {
+        const fbId = await uploadImageViaExtension(file, pageId);
+        fbIds.push(fbId);
+    }
+
+    // Step 2: Send images via REPLY_INBOX_PHOTO
+    if (fbIds.length > 0) {
+        await sendViaExtensionWithAttachments(conv, '', 'PHOTO', fbIds);
+    }
+
+    // Step 3: Send text if any (separate message, same as inbox pattern)
+    if (text) {
+        await sendViaExtension(text, conv);
+    }
+}
+
+/**
+ * Send message via extension with attachment support
+ * Extended version of sendViaExtension that supports files array
+ */
+async function sendViaExtensionWithAttachments(conv, text, attachmentType, files) {
+    if (!window.pancakeExtension.connected) {
+        throw new Error('Extension chưa kết nối');
+    }
+
+    const raw = conv._raw || {};
+    const psid = conv.psid || raw.from_psid || raw.from?.id || '';
+    const conversationUpdatedTime = conv.updated_at ? new Date(conv.updated_at).getTime() : Date.now();
+    const accessToken = window.pancakeTokenManager?.currentToken || '';
+
+    // Resolve globalUserId (reuse cache from sendViaExtension)
+    const cacheKey = conv.conversationId || conv.id || `${conv.pageId}_${psid}`;
+    let globalUserId = window._globalIdCache[cacheKey] || null;
+
+    if (!globalUserId) {
+        globalUserId = raw.page_customer?.global_id || null;
+    }
+    if (!globalUserId && conv._messagesData?.customers?.length) {
+        globalUserId = conv._messagesData.customers[0].global_id || null;
+    }
+    if (!globalUserId && conv.customers?.length) {
+        globalUserId = conv.customers[0].global_id || null;
+    }
+
+    // Try GET_GLOBAL_ID_FOR_CONV
+    const fbThreadId = raw.thread_id || null;
+    if (!globalUserId && fbThreadId) {
+        const taskId = Date.now();
+        globalUserId = await new Promise((resolve) => {
+            const timeout = setTimeout(() => { window.removeEventListener('message', h); resolve(null); }, 60000);
+            const h = (e) => {
+                const d = e.data;
+                if (!d?.type || d.taskId !== taskId) return;
+                if (d.type === 'GET_GLOBAL_ID_FOR_CONV_SUCCESS') { clearTimeout(timeout); window.removeEventListener('message', h); resolve(d.globalId); }
+                if (d.type === 'GET_GLOBAL_ID_FOR_CONV_FAILURE') { clearTimeout(timeout); window.removeEventListener('message', h); resolve(null); }
+            };
+            window.addEventListener('message', h);
+            _postToExtension({ type: 'GET_GLOBAL_ID_FOR_CONV', pageId: conv.pageId, threadId: fbThreadId, threadKey: 't_' + fbThreadId, isBusiness: true, conversationUpdatedTime, customerName: conv.customerName || '', convType: conv.type || 'INBOX', postId: null, convId: null, taskId, from: 'WEBPAGE' });
+        });
+    }
+
+    if (!globalUserId) {
+        throw new Error('Không tìm được Global Facebook ID');
+    }
+    window._globalIdCache[cacheKey] = globalUserId;
+
+    // Send REPLY_INBOX_PHOTO with attachments
+    const sendTaskId = Date.now();
+
+    return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => { window.removeEventListener('message', handler); reject(new Error('Extension timeout (60s)')); }, 60000);
+        const handler = (e) => {
+            const d = e.data;
+            if (!d?.type || d.taskId !== sendTaskId) return;
+            if (d.type === 'REPLY_INBOX_PHOTO_SUCCESS') { clearTimeout(timeout); window.removeEventListener('message', handler); resolve(d); }
+            if (d.type === 'REPLY_INBOX_PHOTO_FAILURE') { clearTimeout(timeout); window.removeEventListener('message', handler); reject(new Error(d.error || 'Gửi ảnh thất bại')); }
+        };
+        window.addEventListener('message', handler);
+
+        _postToExtension({
+            type: 'REPLY_INBOX_PHOTO',
+            pageId: conv.pageId,
+            igPageId: null,
+            accessToken,
+            tryResizeImage: true,
+            contentIds: [],
+            files: files || [],
+            message: text || '',
+            attachmentType: attachmentType || 'SEND_TEXT_ONLY',
+            globalUserId,
+            platform: 'facebook',
+            replyMessage: null,
+            threadId: psid,
+            convId: 't_' + psid,
+            customerName: conv.customerName || '',
+            conversationUpdatedTime,
+            photoUrls: [],
+            isBusiness: false,
+            taskId: sendTaskId,
+            from: 'WEBPAGE'
+        });
+    });
+}
+
 // Expose functions globally
 window.sendViaExtension = sendViaExtension;
+window.sendImagesViaExtension = sendImagesViaExtension;
 window.buildConvData = buildConvData;
 window.initExtensionPages = initExtensionPages;
 

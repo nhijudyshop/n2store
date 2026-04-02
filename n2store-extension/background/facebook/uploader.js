@@ -125,13 +125,18 @@ async function uploadToFacebook(blob, filename, session, pageId) {
   }
 
   // Extract fbId from response
-  // Response format: { payload: { metadata: [{ fbid: "12345", preview_uri: "..." }] } }
+  // Facebook returns metadata as object {"0": {...}} or array [{...}]
   const metadata = result?.payload?.metadata;
-  if (metadata && metadata.length > 0) {
-    return {
-      fbId: String(metadata[0].fbid || metadata[0].image_id),
-      previewUri: metadata[0].preview_uri || metadata[0].src || null,
-    };
+  if (metadata) {
+    const first = Array.isArray(metadata)
+      ? metadata[0]
+      : (metadata[0] || metadata['0'] || Object.values(metadata)[0]);
+    if (first) {
+      return {
+        fbId: String(first.fbid || first.image_id),
+        previewUri: first.preview_uri || first.src || null,
+      };
+    }
   }
 
   // Alternative response format

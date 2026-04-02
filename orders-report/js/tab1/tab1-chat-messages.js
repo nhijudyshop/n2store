@@ -318,25 +318,40 @@ window.sendMessage = async function() {
         const pat = await pdm.getPageAccessToken(pageId);
         if (!pat) throw new Error('Không tìm thấy page_access_token');
 
-        // Upload images first (message and content_ids are MUTUALLY EXCLUSIVE per API docs)
+        // Upload & send images
+        let imagesSentViaExtension = false;
         if (pendingImages.length > 0) {
-            _showToast('Đang tải ảnh lên...', 'info');
-            for (const file of pendingImages) {
-                const uploadResult = await pdm.uploadMedia(pageId, file, pat);
-                if (uploadResult?.id) {
-                    await pdm.sendMessage(pageId, convId, {
-                        action: 'reply_inbox',
-                        content_ids: [uploadResult.id]
-                    }, pat);
+            try {
+                _showToast('Đang tải ảnh lên...', 'info');
+                for (const file of pendingImages) {
+                    const uploadResult = await pdm.uploadMedia(pageId, file, pat);
+                    if (uploadResult?.id) {
+                        await pdm.sendMessage(pageId, convId, {
+                            action: 'reply_inbox',
+                            content_ids: [uploadResult.id]
+                        }, pat);
+                    } else {
+                        console.warn('[Chat-Msg] Upload failed:', uploadResult);
+                    }
+                }
+                if (text) await new Promise(r => setTimeout(r, 300));
+            } catch (imgErr) {
+                // Fallback: send images via extension (bypass 24h)
+                console.warn('[Chat-Msg] Image send via Pancake failed:', imgErr.message);
+                if (window.pancakeExtension?.connected && window.sendImagesViaExtension) {
+                    _showToast('Đang gửi ảnh qua Extension...', 'warning');
+                    const conv = window.buildConvData(pageId, window.currentChatPSID);
+                    await window.sendImagesViaExtension(pendingImages, text, conv);
+                    _showToast('Đã gửi qua Extension (bypass 24h)', 'success');
+                    imagesSentViaExtension = true;
                 } else {
-                    console.warn('[Chat-Msg] Upload failed:', uploadResult);
+                    throw imgErr;
                 }
             }
-            if (text) await new Promise(r => setTimeout(r, 300));
         }
 
-        // Send text
-        if (text) {
+        // Send text (skip if already sent with images via extension)
+        if (text && !imagesSentViaExtension) {
             if (window.currentConversationType === 'COMMENT') {
                 await _sendComment(pdm, pageId, convId, text, pat, replyData);
             } else {
