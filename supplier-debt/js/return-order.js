@@ -152,7 +152,6 @@ window.ReturnOrderModal = (function () {
             return;
         }
 
-        // Build with DocumentFragment + lazy image loading via IntersectionObserver
         const fragment = document.createDocumentFragment();
         S.products.forEach(p => {
             const code = p.DefaultCode || '';
@@ -161,6 +160,7 @@ window.ReturnOrderModal = (function () {
             const price = p.PurchasePrice || p.ListPrice || 0;
             const stock = p.QtyAvailable ?? 0;
             const forecast = p.VirtualAvailable ?? 0;
+            const imageUrl = p.ImageUrl;
 
             const stockClass = stock > 0 ? 'stock-value' : (stock === 0 ? 'stock-zero' : 'stock-negative');
             const forecastClass = forecast > 0 ? 'stock-value' : (forecast < 0 ? 'stock-negative' : 'stock-zero');
@@ -168,8 +168,13 @@ window.ReturnOrderModal = (function () {
             const row = document.createElement('div');
             row.className = 'return-product-row';
             row.dataset.productId = p.Id;
+
+            const imgHtml = imageUrl
+                ? `<img class="return-product-img" src="${imageUrl}" loading="lazy" onerror="this.outerHTML='<div class=\\'return-product-img-placeholder\\'>${escHtml(code.substring(0, 4) || 'SP')}</div>'">`
+                : `<div class="return-product-img-placeholder">${escHtml(code.substring(0, 4) || 'SP')}</div>`;
+
             row.innerHTML = `
-                <div class="return-product-img-placeholder" data-img-id="${p.Id}">${escHtml(code.substring(0, 4) || 'SP')}</div>
+                ${imgHtml}
                 <div class="return-product-info">
                     <div class="return-product-name">${code ? `<span class="product-code">[${escHtml(code)}]</span> ` : ''}${escHtml(name)}</div>
                     <div class="return-product-stock">Tồn kho: <span class="${stockClass}">${fmt(stock)}</span> / Tồn dự báo: <span class="${forecastClass}">${fmt(forecast)}</span></div>
@@ -182,37 +187,6 @@ window.ReturnOrderModal = (function () {
 
         list.innerHTML = '';
         list.appendChild(fragment);
-
-        // Lazy load images with IntersectionObserver (no scroll lag)
-        lazyLoadProductImages(list);
-    }
-
-    // Lazy load images only when row is visible in viewport
-    function lazyLoadProductImages(container) {
-        if (!window.IntersectionObserver) return; // fallback: no images on old browsers
-
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (!entry.isIntersecting) return;
-                const placeholder = entry.target.querySelector('[data-img-id]');
-                if (!placeholder || placeholder.dataset.loaded) return;
-
-                const productId = placeholder.dataset.imgId;
-                placeholder.dataset.loaded = '1';
-
-                const img = new Image();
-                img.className = 'return-product-img';
-                img.src = `${PROXY_URL}/api/odata/ProductTemplate(${productId})/GetImage?Width=60&Height=60`;
-                img.onload = () => {
-                    placeholder.replaceWith(img);
-                };
-                // On error, keep placeholder text (no action needed)
-
-                observer.unobserve(entry.target);
-            });
-        }, { root: container, rootMargin: '100px' });
-
-        container.querySelectorAll('.return-product-row').forEach(row => observer.observe(row));
     }
 
     function renderProductPagination() {
@@ -284,13 +258,24 @@ window.ReturnOrderModal = (function () {
         const qty = parseInt(val, 10);
         if (isNaN(qty) || qty < 1) return;
         S.orderLines[index].quantity = qty;
-        renderOrderLines();
+        // Update only the total cell for this row instead of full re-render
+        const row = document.querySelector(`tr[data-line-index="${index}"]`);
+        if (row) {
+            const totalCell = row.querySelector('.col-total');
+            if (totalCell) totalCell.textContent = fmt(S.orderLines[index].quantity * S.orderLines[index].price);
+        }
+        renderSummary();
     }
 
     function updateLinePrice(index, val) {
         const price = parseFmt(val);
         S.orderLines[index].price = price;
-        renderOrderLines();
+        const row = document.querySelector(`tr[data-line-index="${index}"]`);
+        if (row) {
+            const totalCell = row.querySelector('.col-total');
+            if (totalCell) totalCell.textContent = fmt(S.orderLines[index].quantity * price);
+        }
+        renderSummary();
     }
 
     // =====================================================
@@ -299,34 +284,29 @@ window.ReturnOrderModal = (function () {
 
     function renderOrderLines() {
         const tbody = $('returnOrderLines');
-        const summary = $('returnOrderSummary');
         if (!tbody) return;
 
         if (!S.orderLines.length) {
             tbody.innerHTML = `<tr><td colspan="6"><div class="return-order-empty"><svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" x2="21" y1="6" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg><div>Chọn sản phẩm từ danh sách bên trái</div></div></td></tr>`;
-            if (summary) renderSummary();
+            renderSummary();
             return;
         }
 
         tbody.innerHTML = S.orderLines.map((line, i) => `
-            <tr>
+            <tr data-line-index="${i}">
                 <td class="col-stt">${i + 1}</td>
                 <td class="col-product">
                     <div class="product-name-cell">${line.code ? `[${escHtml(line.code)}] ` : ''}${escHtml(line.name)}</div>
                 </td>
                 <td class="col-qty">
-                    <input type="number" class="qty-input" value="${line.quantity}" min="1"
-                        onchange="ReturnOrderModal._updateQty(${i}, this.value)"
-                        onkeyup="ReturnOrderModal._updateQty(${i}, this.value)">
+                    <input type="number" class="qty-input" value="${line.quantity}" min="1" data-line="${i}" data-field="qty">
                 </td>
                 <td class="col-price">
-                    <input type="text" class="price-input" value="${fmt(line.price)}"
-                        onchange="ReturnOrderModal._updatePrice(${i}, this.value)"
-                        oninput="this.value = this.value.replace(/[^0-9.]/g,'')">
+                    <input type="text" class="price-input" value="${fmt(line.price)}" data-line="${i}" data-field="price">
                 </td>
                 <td class="col-total">${fmt(line.quantity * line.price)}</td>
                 <td class="col-action">
-                    <button class="btn-remove-line" onclick="ReturnOrderModal._removeLine(${i})" title="Xóa">&times;</button>
+                    <button class="btn-remove-line" data-line="${i}" title="Xóa">&times;</button>
                 </td>
             </tr>
         `).join('');
@@ -484,16 +464,21 @@ window.ReturnOrderModal = (function () {
 
     async function fetchPaymentMethods() {
         try {
-            const url = `${PROXY_URL}/api/odata/AccountJournal?$filter=${encodeURIComponent("Type eq 'cash' or Type eq 'bank'")}`;
+            const url = `${PROXY_URL}/api/odata/AccountJournal?$filter=${encodeURIComponent("Type eq 'cash' or Type eq 'bank'")}&$select=Id,Name,Type`;
             const resp = await tposFetch(url);
             if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
             const data = await resp.json();
-            S.paymentMethods = data.value || [];
+            // Deduplicate by Name (API can return duplicates across companies)
+            const seen = new Set();
+            S.paymentMethods = (data.value || []).filter(m => {
+                if (seen.has(m.Name)) return false;
+                seen.add(m.Name);
+                return true;
+            });
             renderPaymentMethods();
         } catch (err) {
             console.error('[ReturnOrder] fetchPaymentMethods error:', err);
-            // Default
-            S.paymentMethods = [{ Id: 1, Name: 'Tiền mặt', Type: 'cash' }];
+            S.paymentMethods = [{ Id: 8, Name: 'Ngân hàng', Type: 'bank' }, { Id: 1, Name: 'Tiền mặt', Type: 'cash' }];
             renderPaymentMethods();
         }
     }
@@ -502,12 +487,13 @@ window.ReturnOrderModal = (function () {
         const select = $('returnPaymentMethod');
         if (!select) return;
 
+        // Default to bank
         select.innerHTML = S.paymentMethods.map(m =>
-            `<option value="${m.Id}" ${m.Type === 'cash' ? 'selected' : ''}>${escHtml(m.Name)}</option>`
+            `<option value="${m.Id}" ${m.Type === 'bank' ? 'selected' : ''}>${escHtml(m.Name)}</option>`
         ).join('');
 
         if (S.paymentMethods.length > 0) {
-            S.paymentMethodId = S.paymentMethods.find(m => m.Type === 'cash')?.Id || S.paymentMethods[0].Id;
+            S.paymentMethodId = S.paymentMethods.find(m => m.Type === 'bank')?.Id || S.paymentMethods[0].Id;
         }
     }
 
@@ -815,6 +801,27 @@ window.ReturnOrderModal = (function () {
             }
         });
 
+        // Event delegation: order lines table (qty, price, remove)
+        const orderLinesTable = $('returnOrderLines');
+        if (orderLinesTable) {
+            orderLinesTable.addEventListener('click', (e) => {
+                const removeBtn = e.target.closest('.btn-remove-line');
+                if (removeBtn && removeBtn.dataset.line != null) {
+                    removeLine(parseInt(removeBtn.dataset.line));
+                }
+            });
+            orderLinesTable.addEventListener('change', (e) => {
+                const input = e.target;
+                const lineIdx = parseInt(input.dataset.line);
+                if (isNaN(lineIdx)) return;
+                if (input.dataset.field === 'qty') {
+                    updateLineQty(lineIdx, input.value);
+                } else if (input.dataset.field === 'price') {
+                    updateLinePrice(lineIdx, input.value);
+                }
+            });
+        }
+
         // Keyboard shortcuts
         document.addEventListener('keydown', (e) => {
             const modal = $('returnOrderModal');
@@ -841,12 +848,7 @@ window.ReturnOrderModal = (function () {
     return {
         open,
         close,
-        // Exposed for inline onclick handlers
-        _addProduct,
-        _removeLine: removeLine,
-        _updateQty: updateLineQty,
-        _updatePrice: updateLinePrice,
-        _goProductPage,
+        // Exposed for inline handlers still in use (supplier dropdown, discount)
         _selectSupplier,
         _clearSupplier,
         _setDiscount

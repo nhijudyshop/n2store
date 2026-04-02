@@ -161,6 +161,8 @@
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
+    contain: layout style;
+    -webkit-overflow-scrolling: touch;
 }
 
 /* Product row */
@@ -171,7 +173,7 @@
     border-bottom: 1px solid #f1f5f9;
     cursor: pointer;
     align-items: center;
-    transition: background 0.1s;
+    contain: layout style;
 }
 
 .return-product-row:hover {
@@ -423,6 +425,7 @@
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
+    contain: layout style;
 }
 
 .return-order-table {
