@@ -819,16 +819,20 @@ function openCachedOrderDetail(index) {
 // =====================================================
 function updateStats() {
     const totalOrders = allOrders.length;
-    const totalAmount = allOrders.reduce((sum, order) => sum + (order.TotalAmount || 0), 0);
+    const uniqueProductCodes = new Set();
     const totalProducts = allOrders.reduce((sum, order) => {
         const details = order.Details || [];
+        details.forEach(d => {
+            const code = d.ProductCode || d.productCode || '';
+            if (code) uniqueProductCodes.add(code);
+        });
         return sum + details.reduce((s, d) => s + (d.Quantity || 0), 0);
     }, 0);
     const uniqueCustomers = new Set(allOrders.map(order => order.Telephone || order.PartnerPhone).filter(Boolean));
 
     document.getElementById('statTotalOrders').textContent = totalOrders.toLocaleString('vi-VN');
-    document.getElementById('statTotalAmount').textContent = formatCurrency(totalAmount);
     document.getElementById('statTotalProducts').textContent = totalProducts.toLocaleString('vi-VN');
+    document.getElementById('statUniqueProducts').textContent = uniqueProductCodes.size.toLocaleString('vi-VN') + ' mã SP';
     document.getElementById('statTotalCustomers').textContent = uniqueCustomers.size.toLocaleString('vi-VN');
 }
 
