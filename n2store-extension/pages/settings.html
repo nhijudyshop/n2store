@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>N2Store - Cai dat</title>
+  <title>N2Store - Cài đặt</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -156,33 +156,33 @@
 
     <!-- Connection Status -->
     <div class="section">
-      <div class="section-title">Trang thai ket noi</div>
+      <div class="section-title">Trạng thái kết nối</div>
       <div class="status-row">
         <span class="dot green"></span>
-        <span>Extension: Dang chay</span>
+        <span>Extension: Đang chạy</span>
       </div>
       <div class="status-row">
         <span class="dot" id="fbDot"></span>
-        <span id="fbStatusText">Facebook: Dang kiem tra...</span>
+        <span id="fbStatusText">Facebook: Đang kiểm tra...</span>
       </div>
       <div class="status-row">
         <span class="dot" id="sseDot"></span>
-        <span id="sseStatusText">SSE: Dang kiem tra...</span>
+        <span id="sseStatusText">SSE: Đang kiểm tra...</span>
       </div>
       <div class="status-row">
         <span class="dot" id="tabDot"></span>
-        <span id="tabStatusText">Tabs: Dang kiem tra...</span>
+        <span id="tabStatusText">Tabs: Đang kiểm tra...</span>
       </div>
     </div>
 
     <!-- Notification Settings -->
     <div class="section">
-      <div class="section-title">Cai dat thong bao</div>
+      <div class="section-title">Cài đặt thông báo</div>
 
       <div class="setting-row">
         <div class="setting-info">
-          <div class="setting-label">Bat thong bao</div>
-          <div class="setting-desc">Hien thi chrome notification khi co su kien</div>
+          <div class="setting-label">Bật thông báo</div>
+          <div class="setting-desc">Hiển thị chrome notification khi có sự kiện</div>
         </div>
         <label class="switch">
           <input type="checkbox" id="notifEnabled" checked>
@@ -192,8 +192,8 @@
 
       <div class="setting-row">
         <div class="setting-info">
-          <div class="setting-label">Am thanh</div>
-          <div class="setting-desc">Phat am thanh khi co thong bao</div>
+          <div class="setting-label">Âm thanh</div>
+          <div class="setting-desc">Phát âm thanh khi có thông báo</div>
         </div>
         <label class="switch">
           <input type="checkbox" id="notifSound" checked>
@@ -203,8 +203,8 @@
 
       <div class="setting-row">
         <div class="setting-info">
-          <div class="setting-label">Ket noi SSE (real-time)</div>
-          <div class="setting-desc">Nhan thong bao tu server (chuyen khoan, don hang, tin nhan)</div>
+          <div class="setting-label">Kết nối SSE (real-time)</div>
+          <div class="setting-desc">Nhận thông báo từ server (chuyển khoản, đơn hàng, tin nhắn)</div>
         </div>
         <label class="switch">
           <input type="checkbox" id="sseEnabled" checked>
@@ -215,12 +215,12 @@
 
     <!-- Notification Types -->
     <div class="section">
-      <div class="section-title">Loai thong bao</div>
+      <div class="section-title">Loại thông báo</div>
 
       <div class="setting-row">
         <div class="setting-info">
-          <div class="setting-label">Gui tin nhan thanh cong / that bai</div>
-          <div class="setting-desc">Thong bao khi gui tin nhan qua extension</div>
+          <div class="setting-label">Gửi tin nhắn thành công / thất bại</div>
+          <div class="setting-desc">Thông báo khi gửi tin nhắn qua extension</div>
         </div>
         <label class="switch">
           <input type="checkbox" class="notif-type" data-type="msg_sent" checked>
@@ -230,8 +230,8 @@
 
       <div class="setting-row">
         <div class="setting-info">
-          <div class="setting-label">Upload anh</div>
-          <div class="setting-desc">Thong bao khi upload anh thanh cong / that bai</div>
+          <div class="setting-label">Upload ảnh</div>
+          <div class="setting-desc">Thông báo khi upload ảnh thành công / thất bại</div>
         </div>
         <label class="switch">
           <input type="checkbox" class="notif-type" data-type="upload_done" checked>
@@ -241,8 +241,8 @@
 
       <div class="setting-row">
         <div class="setting-info">
-          <div class="setting-label">Xac dinh khach hang (Global ID)</div>
-          <div class="setting-desc">Thong bao khi resolve Global ID thanh cong / that bai</div>
+          <div class="setting-label">Xác định khách hàng (Global ID)</div>
+          <div class="setting-desc">Thông báo khi resolve Global ID thành công / thất bại</div>
         </div>
         <label class="switch">
           <input type="checkbox" class="notif-type" data-type="global_id_resolved" checked>
@@ -252,8 +252,8 @@
 
       <div class="setting-row">
         <div class="setting-info">
-          <div class="setting-label">Ket noi Facebook</div>
-          <div class="setting-desc">Thong bao khi ket noi / mat ket noi Facebook</div>
+          <div class="setting-label">Kết nối Facebook</div>
+          <div class="setting-desc">Thông báo khi kết nối / mất kết nối Facebook</div>
         </div>
         <label class="switch">
           <input type="checkbox" class="notif-type" data-type="session_ready" checked>
@@ -263,8 +263,8 @@
 
       <div class="setting-row">
         <div class="setting-info">
-          <div class="setting-label">Chuyen khoan moi (SePay)</div>
-          <div class="setting-desc">Thong bao khi co giao dich ngan hang moi</div>
+          <div class="setting-label">Chuyển khoản mới (SePay)</div>
+          <div class="setting-desc">Thông báo khi có giao dịch ngân hàng mới</div>
         </div>
         <label class="switch">
           <input type="checkbox" class="notif-type" data-type="new_transaction" checked>
@@ -274,8 +274,8 @@
 
       <div class="setting-row">
         <div class="setting-info">
-          <div class="setting-label">Cap nhat vi khach hang</div>
-          <div class="setting-desc">Thong bao khi nap / rut vi</div>
+          <div class="setting-label">Cập nhật ví khách hàng</div>
+          <div class="setting-desc">Thông báo khi nạp / rút ví</div>
         </div>
         <label class="switch">
           <input type="checkbox" class="notif-type" data-type="wallet_update" checked>
@@ -285,8 +285,8 @@
 
       <div class="setting-row">
         <div class="setting-info">
-          <div class="setting-label">San pham bi hold</div>
-          <div class="setting-desc">Canh bao khi san pham dang bi hold</div>
+          <div class="setting-label">Sản phẩm bị hold</div>
+          <div class="setting-desc">Cảnh báo khi sản phẩm đang bị hold</div>
         </div>
         <label class="switch">
           <input type="checkbox" class="notif-type" data-type="held_product" checked>
@@ -296,8 +296,8 @@
 
       <div class="setting-row">
         <div class="setting-info">
-          <div class="setting-label">Tin nhan moi</div>
-          <div class="setting-desc">Thong bao khi co tin nhan khach hang moi</div>
+          <div class="setting-label">Tin nhắn mới</div>
+          <div class="setting-desc">Thông báo khi có tin nhắn khách hàng mới</div>
         </div>
         <label class="switch">
           <input type="checkbox" class="notif-type" data-type="new_message" checked>
@@ -307,8 +307,8 @@
 
       <div class="setting-row">
         <div class="setting-info">
-          <div class="setting-label">Cap nhat xu ly don</div>
-          <div class="setting-desc">Thong bao khi don hang thay doi trang thai</div>
+          <div class="setting-label">Cập nhật xử lý đơn</div>
+          <div class="setting-desc">Thông báo khi đơn hàng thay đổi trạng thái</div>
         </div>
         <label class="switch">
           <input type="checkbox" class="notif-type" data-type="processing_update" checked>
@@ -319,16 +319,16 @@
 
     <!-- Actions -->
     <div class="section">
-      <div class="section-title">Hanh dong</div>
+      <div class="section-title">Hành động</div>
       <div class="btn-row">
-        <button class="btn primary" id="saveBtn">Luu cai dat</button>
-        <button class="btn" id="testBtn">Test thong bao</button>
-        <button class="btn danger" id="clearDataBtn">Xoa du lieu</button>
+        <button class="btn primary" id="saveBtn">Lưu cài đặt</button>
+        <button class="btn" id="testBtn">Test thông báo</button>
+        <button class="btn danger" id="clearDataBtn">Xóa dữ liệu</button>
       </div>
     </div>
   </div>
 
-  <div class="saved-toast" id="savedToast">Da luu!</div>
+  <div class="saved-toast" id="savedToast">Đã lưu!</div>
 
   <script src="settings.js"></script>
 </body>

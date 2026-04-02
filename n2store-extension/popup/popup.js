@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     await chrome.runtime.sendMessage({
       type: 'TEST_NOTIFICATION',
       notifType: 'msg_sent',
-      body: 'Test: Tin nhan da gui thanh cong!'
+      body: 'Test: Tin nhắn đã gửi thành công!'
     });
   });
 
@@ -149,7 +149,7 @@ async function loadNotifications() {
     const container = document.getElementById('notifList');
 
     if (!notifications || notifications.length === 0) {
-      container.innerHTML = '<div class="empty-state">Chua co thong bao nao</div>';
+      container.innerHTML = '<div class="empty-state">Chưa có thông báo nào</div>';
       return;
     }
 
@@ -192,7 +192,7 @@ async function loadActivity() {
     const container = document.getElementById('activityList');
 
     if (!activity || activity.length === 0) {
-      container.innerHTML = '<div class="empty-state">Chua co hoat dong nao</div>';
+      container.innerHTML = '<div class="empty-state">Chưa có hoạt động nào</div>';
       return;
     }
 
@@ -227,8 +227,8 @@ function getNotifIcon(type) {
 
 function getTypeBadge(type) {
   const badges = {
-    msg_sent: '<span class="type-badge success">GUI</span>',
-    msg_failed: '<span class="type-badge error">LOI</span>',
+    msg_sent: '<span class="type-badge success">GỬI</span>',
+    msg_failed: '<span class="type-badge error">LỖI</span>',
     upload_done: '<span class="type-badge success">UPLOAD</span>',
     upload_failed: '<span class="type-badge error">UPLOAD</span>',
     global_id_resolved: '<span class="type-badge info">ID</span>',
@@ -236,10 +236,10 @@ function getTypeBadge(type) {
     session_ready: '<span class="type-badge success">FB</span>',
     session_failed: '<span class="type-badge error">FB</span>',
     new_transaction: '<span class="type-badge bank">BANK</span>',
-    wallet_update: '<span class="type-badge bank">VI</span>',
+    wallet_update: '<span class="type-badge bank">VÍ</span>',
     held_product: '<span class="type-badge warning">HOLD</span>',
     new_message: '<span class="type-badge info">MSG</span>',
-    processing_update: '<span class="type-badge info">DON</span>',
+    processing_update: '<span class="type-badge info">ĐƠN</span>',
     extension_error: '<span class="type-badge error">ERR</span>',
   };
   return badges[type] || '';
@@ -259,9 +259,9 @@ function getNotifUrl(type) {
 function formatTimeAgo(ts) {
   if (!ts) return '';
   const diff = Date.now() - ts;
-  if (diff < 60000) return 'Vua xong';
-  if (diff < 3600000) return `${Math.floor(diff / 60000)} phut truoc`;
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)} gio truoc`;
+  if (diff < 60000) return 'Vừa xong';
+  if (diff < 3600000) return `${Math.floor(diff / 60000)} phút trước`;
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)} giờ trước`;
   return new Date(ts).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 

@@ -13,18 +13,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     await chrome.runtime.sendMessage({
       type: 'TEST_NOTIFICATION',
       notifType: 'new_transaction',
-      body: 'Test: 500,000d tu VCB - TT DON 1234'
+      body: 'Test: 500,000đ từ VCB - TT ĐƠN 1234'
     });
-    showToast('Da gui test notification!');
+    showToast('Đã gửi test notification!');
   });
 
   // Clear data
   document.getElementById('clearDataBtn').addEventListener('click', async () => {
-    if (confirm('Xoa toan bo du lieu thong bao va hoat dong?')) {
+    if (confirm('Xóa toàn bộ dữ liệu thông báo và hoạt động?')) {
       await chrome.runtime.sendMessage({ type: 'CLEAR_ACTIVITY' });
       await chrome.runtime.sendMessage({ type: 'MARK_ALL_READ' });
       await chrome.runtime.sendMessage({ type: 'RESET_BADGE' });
-      showToast('Da xoa du lieu!');
+      showToast('Đã xóa dữ liệu!');
     }
   });
 });
@@ -74,10 +74,10 @@ async function saveSettings() {
 
   try {
     await chrome.runtime.sendMessage({ type: 'SAVE_PREFERENCES', prefs });
-    showToast('Da luu cai dat!');
+    showToast('Đã lưu cài đặt!');
   } catch (err) {
     console.error('Save error:', err);
-    showToast('Loi khi luu!');
+    showToast('Lỗi khi lưu!');
   }
 }
 
@@ -91,10 +91,10 @@ async function loadStatus() {
     const fbText = document.getElementById('fbStatusText');
     if (status.sessionCount > 0) {
       fbDot.classList.add('green');
-      fbText.textContent = `Facebook: ${status.sessionCount} trang da ket noi`;
+      fbText.textContent = `Facebook: ${status.sessionCount} trang đã kết nối`;
     } else {
       fbDot.classList.add('yellow');
-      fbText.textContent = 'Facebook: Chua ket noi (mo Inbox de khoi tao)';
+      fbText.textContent = 'Facebook: Chưa kết nối (mở Inbox để khởi tạo)';
     }
 
     // SSE
@@ -102,10 +102,10 @@ async function loadStatus() {
     const sseText = document.getElementById('sseStatusText');
     if (status.sse?.connected) {
       sseDot.classList.add('green');
-      sseText.textContent = 'SSE: Dang ket noi (real-time)';
+      sseText.textContent = 'SSE: Đang kết nối (real-time)';
     } else {
       sseDot.classList.add('red');
-      sseText.textContent = `SSE: Chua ket noi (retry: ${status.sse?.reconnectAttempts || 0})`;
+      sseText.textContent = `SSE: Chưa kết nối (retry: ${status.sse?.reconnectAttempts || 0})`;
     }
 
     // Tabs
@@ -115,7 +115,7 @@ async function loadStatus() {
     const tabDot = document.getElementById('tabDot');
     const tabText = document.getElementById('tabStatusText');
     tabDot.classList.add(tabs.length > 0 ? 'green' : 'red');
-    tabText.textContent = `Tabs: ${tabs.length} tab dang mo`;
+    tabText.textContent = `Tabs: ${tabs.length} tab đang mở`;
   } catch (err) {
     console.error('Status error:', err);
   }

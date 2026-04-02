@@ -16,8 +16,8 @@
         <span class="version" id="version">v1.0.0</span>
       </div>
       <div class="header-right">
-        <button class="icon-btn" id="testNotifBtn" title="Test notification">&#128276;</button>
-        <button class="icon-btn" id="settingsBtn" title="Cai dat">&#9881;</button>
+        <button class="icon-btn" id="testNotifBtn" title="Test thông báo">&#128276;</button>
+        <button class="icon-btn" id="settingsBtn" title="Cài đặt">&#9881;</button>
       </div>
     </div>
 
@@ -43,11 +43,11 @@
 
     <!-- Tab Navigation -->
     <div class="tab-nav">
-      <button class="tab-btn active" data-tab="dashboard">Tong quan</button>
+      <button class="tab-btn active" data-tab="dashboard">Tổng quan</button>
       <button class="tab-btn" data-tab="notifications">
-        Thong bao <span class="badge-small" id="notifBadge" style="display:none">0</span>
+        Thông báo <span class="badge-small" id="notifBadge" style="display:none">0</span>
       </button>
-      <button class="tab-btn" data-tab="activity">Hoat dong</button>
+      <button class="tab-btn" data-tab="activity">Hoạt động</button>
     </div>
 
     <!-- Tab: Dashboard -->
@@ -59,38 +59,38 @@
         </div>
         <div class="stat-card">
           <div class="stat-value" id="msgCount">0</div>
-          <div class="stat-label">Da gui</div>
+          <div class="stat-label">Đã gửi</div>
         </div>
         <div class="stat-card">
           <div class="stat-value" id="msgFailed">0</div>
-          <div class="stat-label">That bai</div>
+          <div class="stat-label">Thất bại</div>
         </div>
         <div class="stat-card">
           <div class="stat-value" id="unreadCount">0</div>
-          <div class="stat-label">Chua doc</div>
+          <div class="stat-label">Chưa đọc</div>
         </div>
       </div>
 
       <!-- Quick Actions -->
-      <div class="section-title">Hanh dong nhanh</div>
+      <div class="section-title">Hành động nhanh</div>
       <div class="actions">
         <button class="action-btn primary" id="openInbox">
           <span class="action-icon">&#128172;</span>
-          <span>Mo Inbox</span>
+          <span>Mở Inbox</span>
         </button>
         <button class="action-btn" id="openOrders">
           <span class="action-icon">&#128230;</span>
-          <span>Don hang</span>
+          <span>Đơn hàng</span>
         </button>
         <button class="action-btn" id="refreshBtn">
           <span class="action-icon">&#128260;</span>
-          <span>Lam moi</span>
+          <span>Làm mới</span>
         </button>
       </div>
 
       <!-- SSE Toggle -->
       <div class="toggle-row">
-        <span>Nhan thong bao real-time (SSE)</span>
+        <span>Nhận thông báo real-time (SSE)</span>
         <label class="switch">
           <input type="checkbox" id="sseToggle" checked>
           <span class="slider"></span>
@@ -101,22 +101,22 @@
     <!-- Tab: Notifications -->
     <div class="tab-content" id="tab-notifications">
       <div class="notif-header">
-        <span>Thong bao gan day</span>
-        <button class="text-btn" id="markAllReadBtn">Danh dau da doc</button>
+        <span>Thông báo gần đây</span>
+        <button class="text-btn" id="markAllReadBtn">Đánh dấu đã đọc</button>
       </div>
       <div class="notif-list" id="notifList">
-        <div class="empty-state">Chua co thong bao nao</div>
+        <div class="empty-state">Chưa có thông báo nào</div>
       </div>
     </div>
 
     <!-- Tab: Activity -->
     <div class="tab-content" id="tab-activity">
       <div class="notif-header">
-        <span>Nhat ky hoat dong</span>
-        <button class="text-btn" id="clearActivityBtn">Xoa tat ca</button>
+        <span>Nhật ký hoạt động</span>
+        <button class="text-btn" id="clearActivityBtn">Xóa tất cả</button>
       </div>
       <div class="activity-list" id="activityList">
-        <div class="empty-state">Chua co hoat dong nao</div>
+        <div class="empty-state">Chưa có hoạt động nào</div>
       </div>
     </div>
   </div>
