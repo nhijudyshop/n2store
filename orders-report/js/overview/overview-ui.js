@@ -819,9 +819,12 @@ function openCachedOrderDetail(index) {
 // =====================================================
 function updateStats() {
     const totalOrders = allOrders.length;
-    const totalAmount = allOrders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
-    const totalProducts = allOrders.reduce((sum, order) => sum + (order.quantity || 0), 0);
-    const uniqueCustomers = new Set(allOrders.map(order => order.phone).filter(Boolean));
+    const totalAmount = allOrders.reduce((sum, order) => sum + (order.TotalAmount || 0), 0);
+    const totalProducts = allOrders.reduce((sum, order) => {
+        const details = order.Details || [];
+        return sum + details.reduce((s, d) => s + (d.Quantity || 0), 0);
+    }, 0);
+    const uniqueCustomers = new Set(allOrders.map(order => order.Telephone || order.PartnerPhone).filter(Boolean));
 
     document.getElementById('statTotalOrders').textContent = totalOrders.toLocaleString('vi-VN');
     document.getElementById('statTotalAmount').textContent = formatCurrency(totalAmount);
