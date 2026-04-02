@@ -326,10 +326,16 @@ window.sendMessage = async function() {
                 for (const file of pendingImages) {
                     const uploadResult = await pdm.uploadMedia(pageId, file, pat);
                     if (uploadResult?.id) {
-                        await pdm.sendMessage(pageId, convId, {
+                        const sendResult = await pdm.sendMessage(pageId, convId, {
                             action: 'reply_inbox',
                             content_ids: [uploadResult.id]
                         }, pat);
+                        // Pancake returns {success:false} on 24h error, NOT throw
+                        if (sendResult && sendResult.success === false) {
+                            const err = new Error(sendResult.message || 'Image send failed');
+                            err.fbError = _parseFbError(JSON.stringify(sendResult));
+                            throw err;
+                        }
                     } else {
                         console.warn('[Chat-Msg] Upload failed:', uploadResult);
                     }
