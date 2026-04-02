@@ -57,6 +57,22 @@ async function ensureTables(pool) {
                 image TEXT,
                 updated_at BIGINT
             );
+
+            CREATE TABLE IF NOT EXISTS social_orders_history (
+                id SERIAL PRIMARY KEY,
+                action VARCHAR(30),
+                order_id VARCHAR(50),
+                order_stt INTEGER,
+                customer_name VARCHAR(255),
+                phone VARCHAR(20),
+                details TEXT,
+                snapshot JSONB,
+                user_email VARCHAR(255),
+                created_at BIGINT
+            );
+            CREATE INDEX IF NOT EXISTS idx_soh_created ON social_orders_history(created_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_soh_action ON social_orders_history(action);
+            CREATE INDEX IF NOT EXISTS idx_soh_order ON social_orders_history(order_id);
         `);
         _tablesCreated = true;
         console.log('[SOCIAL-ORDERS] Tables created/verified');
@@ -581,5 +597,118 @@ function mapRowToOrder(row) {
         _source: 'render' // Mark source for hybrid loading
     };
 }
+
+// =====================================================
+// HISTORY - Lịch sử thao tác (independent of order data)
+// =====================================================
+
+/**
+ * GET /api/social-orders/history
+ * Query: action, search, limit, offset
+ */
+router.get('/history', async (req, res) => {
+    try {
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+        await ensureTables(pool);
+
+        const { action, search, limit = 200, offset = 0 } = req.query;
+        const limitNum = Math.min(500, Math.max(1, parseInt(limit)));
+        const offsetNum = Math.max(0, parseInt(offset) || 0);
+
+        const conditions = [];
+        const params = [];
+
+        if (action && action !== 'all') {
+            params.push(action);
+            conditions.push(`action = $${params.length}`);
+        }
+
+        if (search) {
+            params.push(`%${search}%`);
+            const idx = params.length;
+            conditions.push(`(customer_name ILIKE $${idx} OR phone ILIKE $${idx} OR order_id ILIKE $${idx} OR details ILIKE $${idx})`);
+        }
+
+        const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
+
+        const countResult = await pool.query(
+            `SELECT COUNT(*) FROM social_orders_history ${whereClause}`,
+            params
+        );
+        const total = parseInt(countResult.rows[0].count);
+
+        const queryParams = [...params, limitNum, offsetNum];
+        const result = await pool.query(
+            `SELECT * FROM social_orders_history ${whereClause} ORDER BY created_at DESC LIMIT $${queryParams.length - 1} OFFSET $${queryParams.length}`,
+            queryParams
+        );
+
+        res.json({
+            success: true,
+            entries: result.rows.map(row => ({
+                id: row.id,
+                action: row.action,
+                orderId: row.order_id,
+                orderStt: row.order_stt,
+                customerName: row.customer_name,
+                phone: row.phone,
+                details: row.details,
+                snapshot: row.snapshot,
+                userEmail: row.user_email,
+                timestamp: parseInt(row.created_at) || 0
+            })),
+            total,
+            hasMore: offsetNum + result.rows.length < total
+        });
+    } catch (error) {
+        console.error('[SOCIAL-ORDERS] GET /history error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * POST /api/social-orders/history
+ * Body: { action, orderId, orderStt, customerName, phone, details, snapshot, userEmail }
+ */
+router.post('/history', async (req, res) => {
+    try {
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+        await ensureTables(pool);
+
+        const { action, orderId, orderStt, customerName, phone, details, snapshot, userEmail } = req.body;
+        if (!action) return res.status(400).json({ error: 'action required' });
+
+        await pool.query(
+            `INSERT INTO social_orders_history (action, order_id, order_stt, customer_name, phone, details, snapshot, user_email, created_at)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+            [action, orderId || null, orderStt || null, customerName || null, phone || null, details || null, snapshot ? JSON.stringify(snapshot) : null, userEmail || null, Date.now()]
+        );
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('[SOCIAL-ORDERS] POST /history error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * DELETE /api/social-orders/history
+ * Clears all history entries
+ */
+router.delete('/history', async (req, res) => {
+    try {
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+        await ensureTables(pool);
+
+        const result = await pool.query('DELETE FROM social_orders_history');
+        res.json({ success: true, deleted: result.rowCount });
+    } catch (error) {
+        console.error('[SOCIAL-ORDERS] DELETE /history error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
 
 module.exports = router;

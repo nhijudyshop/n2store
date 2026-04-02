@@ -604,10 +604,12 @@ function confirmDelete() {
 
     const index = SocialOrderState.orders.findIndex((o) => o.id === pendingDeleteOrderId);
     if (index > -1) {
+        const deletedOrder = { ...SocialOrderState.orders[index] };
         SocialOrderState.orders.splice(index, 1);
         saveSocialOrdersToStorage();
         // Fire-and-forget: sync to Firestore
         deleteSocialOrder(pendingDeleteOrderId);
+        if (window.InboxHistory) InboxHistory.logDelete(deletedOrder);
         showNotification('Đã xóa đơn hàng', 'success');
         performTableSearch();
     }
@@ -622,6 +624,7 @@ function deleteSelectedOrders() {
     if (confirm(`Bạn có chắc muốn xóa ${count} đơn đã chọn?`)) {
         // Remove selected orders
         const deletedIds = [...SocialOrderState.selectedOrders];
+        const deletedOrders = SocialOrderState.orders.filter(o => SocialOrderState.selectedOrders.has(o.id)).map(o => ({ ...o }));
         SocialOrderState.orders = SocialOrderState.orders.filter(
             (o) => !SocialOrderState.selectedOrders.has(o.id)
         );
@@ -629,6 +632,7 @@ function deleteSelectedOrders() {
         saveSocialOrdersToStorage();
         // Fire-and-forget: sync to Firestore
         bulkDeleteSocialOrders(deletedIds);
+        if (window.InboxHistory) InboxHistory.logBulkDelete(deletedOrders);
 
         showNotification(`Đã xóa ${count} đơn hàng`, 'success');
         performTableSearch();
@@ -699,6 +703,7 @@ async function changeSocialOrderStatus(orderId, newStatus) {
         await updateSocialOrder(orderId, { status: newStatus });
     }
 
+    if (window.InboxHistory) InboxHistory.logStatusChange(order, oldStatus, newStatus);
     const statusLabel = STATUS_CONFIG[newStatus]?.label || newStatus;
     showNotification(`Đã chuyển trạng thái thành "${statusLabel}"`, 'success');
 
