@@ -1676,3 +1676,141 @@
     color: #6366f1;
     white-space: nowrap;
 }
+
+/* =====================================================
+   REFUND ORDERS (DRAFT) TABLE
+   ===================================================== */
+
+.refund-orders-section {
+    margin: 12px 0;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    background: #fff;
+    overflow: hidden;
+}
+
+.refund-orders-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 14px;
+    background: #fef3c7;
+    border-bottom: 1px solid #fcd34d;
+}
+
+.refund-orders-header h4 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #92400e;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.refund-orders-count {
+    font-size: 12px;
+    color: #92400e;
+    font-weight: 500;
+}
+
+.refund-orders-table-wrap {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.refund-orders-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.refund-orders-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: #f8fafc;
+}
+
+.refund-orders-table th {
+    padding: 7px 12px;
+    text-align: left;
+    font-weight: 600;
+    color: #475569;
+    font-size: 12px;
+    border-bottom: 2px solid #e2e8f0;
+    white-space: nowrap;
+}
+
+.refund-orders-table td {
+    padding: 7px 12px;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle;
+}
+
+.refund-orders-table tbody tr:hover {
+    background: #fffbeb;
+}
+
+.refund-orders-table .refund-col-check {
+    text-align: center;
+    width: 40px;
+}
+
+.refund-orders-table .refund-col-supplier {
+    font-weight: 500;
+    color: #1e293b;
+}
+
+.refund-orders-table .refund-col-date {
+    white-space: nowrap;
+}
+
+.refund-orders-table .refund-col-amount {
+    text-align: right;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* Inline date editing */
+.refund-date-display {
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 3px;
+    display: inline-block;
+}
+
+.refund-date-display:hover {
+    background: #eef2ff;
+    color: #4338ca;
+}
+
+.refund-date-input {
+    padding: 3px 6px;
+    border: 1px solid #6366f1;
+    border-radius: 3px;
+    font-size: 13px;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+}
+
+/* Sort arrow */
+.refund-col-date .sort-arrow {
+    font-size: 11px;
+    opacity: 0.6;
+}
+
+/* Actions bar */
+.refund-orders-actions {
+    padding: 8px 14px;
+    border-top: 1px solid #e2e8f0;
+    background: #f8fafc;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-sm {
+    font-size: 12px;
+    padding: 4px 10px;
+}

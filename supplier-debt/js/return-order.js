@@ -714,10 +714,9 @@ window.ReturnOrderModal = (function () {
 
             close();
 
-            // Refresh supplier debt data if available
-            if (typeof fetchData === 'function') {
-                fetchData();
-            }
+            // Refresh supplier debt data and refund orders table
+            if (typeof fetchData === 'function') fetchData();
+            if (typeof RefundOrders !== 'undefined') RefundOrders.fetch();
 
         } catch (err) {
             console.error('[ReturnOrder] Submit error:', err);

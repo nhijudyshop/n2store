@@ -2997,6 +2997,259 @@ function initCreateSupplierModal() {
 }
 
 // =====================================================
+// REFUND ORDERS (DRAFT) TABLE
+// =====================================================
+
+const RefundOrders = {
+    _data: [],
+    _sortAsc: false, // default desc (newest first)
+    _selectedIds: new Set(),
+
+    async fetch() {
+        try {
+            const url = `${CONFIG.API_BASE}/FastPurchaseOrder/OdataService.GetView?$filter=${encodeURIComponent("Type eq 'refund' and State eq 'draft'")}&$orderby=DateInvoice desc&$top=50&$count=true`;
+            const resp = await tposFetch(url);
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            const result = await resp.json();
+            this._data = result.value || [];
+            this._selectedIds.clear();
+            this.render();
+        } catch (err) {
+            console.error('[RefundOrders] Fetch error:', err);
+        }
+    },
+
+    render() {
+        const section = document.getElementById('refundOrdersSection');
+        const tbody = document.getElementById('refundOrdersBody');
+        const countEl = document.getElementById('refundOrdersCount');
+        if (!section || !tbody) return;
+
+        if (this._data.length === 0) {
+            section.style.display = 'none';
+            return;
+        }
+
+        section.style.display = '';
+
+        // Sort
+        const sorted = [...this._data].sort((a, b) => {
+            const da = new Date(a.DateInvoice || 0);
+            const db = new Date(b.DateInvoice || 0);
+            return this._sortAsc ? da - db : db - da;
+        });
+
+        countEl.textContent = `(${this._data.length})`;
+
+        tbody.innerHTML = sorted.map(order => {
+            const id = order.Id;
+            const supplier = order.PartnerDisplayName || order.PartnerName || '—';
+            const date = this._formatDate(order.DateInvoice);
+            const dateVal = this._toInputDate(order.DateInvoice);
+            const amount = formatNumber(order.AmountTotal || 0);
+            const checked = this._selectedIds.has(id) ? 'checked' : '';
+
+            return `<tr data-id="${id}">
+                <td style="text-align:center;"><input type="checkbox" class="refund-row-check" data-id="${id}" ${checked}></td>
+                <td>${escapeHtml(supplier)}</td>
+                <td>
+                    <span class="refund-date-display" data-id="${id}">${date}</span>
+                    <input type="date" class="refund-date-input" data-id="${id}" value="${dateVal}" style="display:none;">
+                </td>
+                <td style="text-align:right;">${amount}</td>
+            </tr>`;
+        }).join('');
+
+        this._updateActions();
+        lucide?.createIcons?.({ nodes: [section] });
+    },
+
+    _formatDate(isoStr) {
+        if (!isoStr) return '—';
+        const d = new Date(isoStr);
+        return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+    },
+
+    _toInputDate(isoStr) {
+        if (!isoStr) return '';
+        const d = new Date(isoStr);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    },
+
+    _updateActions() {
+        const actionsEl = document.getElementById('refundOrdersActions');
+        if (actionsEl) {
+            actionsEl.style.display = this._selectedIds.size > 0 ? '' : 'none';
+        }
+    },
+
+    async confirmSelected() {
+        if (this._selectedIds.size === 0) return;
+
+        const ids = Array.from(this._selectedIds);
+        const count = ids.length;
+
+        try {
+            const loadingId = window.notificationManager?.info?.(`Đang xác nhận ${count} đơn trả hàng...`);
+
+            const url = `${CONFIG.API_BASE}/FastPurchaseOrder/ODataService.ActionInvoiceOpenV2`;
+            const resp = await tposFetch(url, {
+                method: 'POST',
+                body: JSON.stringify({ ids })
+            });
+
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+            if (loadingId) window.notificationManager?.remove?.(loadingId);
+            window.notificationManager?.success?.(`Đã xác nhận ${count} đơn trả hàng`);
+
+            // Remove confirmed orders from local data and re-render
+            this._data = this._data.filter(o => !this._selectedIds.has(o.Id));
+            this._selectedIds.clear();
+            this.render();
+
+            // Refresh main debt table
+            fetchData();
+
+        } catch (err) {
+            console.error('[RefundOrders] Confirm error:', err);
+            window.notificationManager?.error?.(`Lỗi xác nhận: ${err.message}`);
+        }
+    },
+
+    async updateDate(orderId, newDateStr) {
+        try {
+            // Step 1: GET full order details
+            const getUrl = `${CONFIG.API_BASE}/FastPurchaseOrder(${orderId})?$expand=Partner,OrderLines($expand=Product,ProductUOM,Account),Company,Journal,PickingType,Account,PaymentJournal,User`;
+            const getResp = await tposFetch(getUrl);
+            if (!getResp.ok) throw new Error(`GET failed: HTTP ${getResp.status}`);
+            const orderData = await getResp.json();
+
+            // Step 2: Build new DateInvoice with selected date + current time
+            const now = new Date();
+            const [year, month, day] = newDateStr.split('-').map(Number);
+            const newDate = new Date(year, month - 1, day, now.getHours(), now.getMinutes(), now.getSeconds());
+            const offset = '+07:00';
+            const isoDate = `${newDate.getFullYear()}-${String(newDate.getMonth() + 1).padStart(2, '0')}-${String(newDate.getDate()).padStart(2, '0')}T${String(newDate.getHours()).padStart(2, '0')}:${String(newDate.getMinutes()).padStart(2, '0')}:${String(newDate.getSeconds()).padStart(2, '0')}${offset}`;
+
+            orderData.DateInvoice = isoDate;
+
+            // Step 3: PUT updated order
+            const putUrl = `${CONFIG.API_BASE}/FastPurchaseOrder(${orderId})`;
+            const putResp = await tposFetch(putUrl, {
+                method: 'PUT',
+                body: JSON.stringify(orderData)
+            });
+
+            if (!putResp.ok) throw new Error(`PUT failed: HTTP ${putResp.status}`);
+
+            // Update local data
+            const order = this._data.find(o => o.Id === orderId);
+            if (order) {
+                order.DateInvoice = isoDate;
+            }
+
+            window.notificationManager?.success?.('Đã cập nhật ngày đơn hàng');
+            this.render();
+
+        } catch (err) {
+            console.error('[RefundOrders] Update date error:', err);
+            window.notificationManager?.error?.(`Lỗi cập nhật ngày: ${err.message}`);
+            this.render(); // Re-render to reset date display
+        }
+    },
+
+    initEvents() {
+        const tbody = document.getElementById('refundOrdersBody');
+        const checkAll = document.getElementById('refundCheckAll');
+        const sortDate = document.getElementById('refundSortDate');
+        const btnConfirm = document.getElementById('btnConfirmRefunds');
+
+        // Event delegation on tbody
+        tbody?.addEventListener('change', (e) => {
+            // Row checkbox
+            if (e.target.classList.contains('refund-row-check')) {
+                const id = Number(e.target.dataset.id);
+                if (e.target.checked) {
+                    this._selectedIds.add(id);
+                } else {
+                    this._selectedIds.delete(id);
+                }
+                this._updateActions();
+                // Update check-all state
+                if (checkAll) {
+                    checkAll.checked = this._data.length > 0 && this._selectedIds.size === this._data.length;
+                }
+            }
+
+            // Date input change
+            if (e.target.classList.contains('refund-date-input')) {
+                const id = Number(e.target.dataset.id);
+                const newDate = e.target.value;
+                if (newDate) {
+                    this.updateDate(id, newDate);
+                }
+                // Hide input, show display
+                e.target.style.display = 'none';
+                const display = e.target.previousElementSibling;
+                if (display) display.style.display = '';
+            }
+        });
+
+        // Click on date display → show date input
+        tbody?.addEventListener('click', (e) => {
+            const dateDisplay = e.target.closest('.refund-date-display');
+            if (dateDisplay) {
+                dateDisplay.style.display = 'none';
+                const input = dateDisplay.nextElementSibling;
+                if (input) {
+                    input.style.display = '';
+                    input.focus();
+                    input.showPicker?.();
+                }
+            }
+        });
+
+        // Hide date input on blur
+        tbody?.addEventListener('focusout', (e) => {
+            if (e.target.classList.contains('refund-date-input')) {
+                setTimeout(() => {
+                    e.target.style.display = 'none';
+                    const display = e.target.previousElementSibling;
+                    if (display) display.style.display = '';
+                }, 200);
+            }
+        });
+
+        // Check all
+        checkAll?.addEventListener('change', (e) => {
+            this._selectedIds.clear();
+            if (e.target.checked) {
+                this._data.forEach(o => this._selectedIds.add(o.Id));
+            }
+            this.render();
+        });
+
+        // Sort by date
+        sortDate?.addEventListener('click', () => {
+            this._sortAsc = !this._sortAsc;
+            const arrow = sortDate.querySelector('.sort-arrow');
+            if (arrow) arrow.innerHTML = this._sortAsc ? '&uarr;' : '&darr;';
+            this.render();
+        });
+
+        // Confirm button
+        btnConfirm?.addEventListener('click', () => {
+            const count = this._selectedIds.size;
+            if (count === 0) return;
+            if (confirm(`Xác nhận ${count} đơn trả hàng đã trả?`)) {
+                this.confirmSelected();
+            }
+        });
+    }
+};
+
+// =====================================================
 // RETURN ORDER BUTTON
 // =====================================================
 
@@ -3171,6 +3424,9 @@ async function init() {
     // Initialize return order button
     initReturnOrderButton();
 
+    // Initialize refund orders table
+    RefundOrders.initEvents();
+
     // Initialize searchable supplier dropdown
     initSearchableSupplierDropdown();
 
@@ -3180,8 +3436,11 @@ async function init() {
     // Initialize supplier notes store
     await SupplierNotesStore.init();
 
-    // Load initial data
-    await fetchData();
+    // Load initial data and refund orders in parallel
+    await Promise.all([
+        fetchData(),
+        RefundOrders.fetch()
+    ]);
 
     console.log('[SupplierDebt] Initialization complete');
 }
