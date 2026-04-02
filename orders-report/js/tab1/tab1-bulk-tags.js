@@ -807,7 +807,7 @@ async function executeBulkTagModalAssignment() {
                             // Transfer processing tags (flags + tTags) from blocked order to replacement
                             try {
                                 if (window.transferProcessingTags) {
-                                    await window.transferProcessingTags(order.Id, replacementOrder.Id);
+                                    await window.transferProcessingTags(String(order.Code), String(replacementOrder.Code));
                                 }
                             } catch (e) { console.warn('[BULK-TAG-MODAL] Transfer processing tags failed:', e); }
                             successSTT.push({
@@ -861,7 +861,7 @@ async function executeBulkTagModalAssignment() {
                             // Transfer processing tags (flags + tTags) from blocked order to replacement
                             try {
                                 if (window.transferProcessingTags) {
-                                    await window.transferProcessingTags(order.Id, replacementOrder.Id);
+                                    await window.transferProcessingTags(String(order.Code), String(replacementOrder.Code));
                                 }
                             } catch (e) { console.warn('[BULK-TAG-MODAL] Transfer processing tags failed:', e); }
 
