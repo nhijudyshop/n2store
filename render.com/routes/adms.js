@@ -1,15 +1,15 @@
 /**
- * ADMS (Automatic Data Master Server) Protocol Handler
- * Receives push data from ZKTeco DG-600 timekeeping machine.
+ * ADMS (Automatic Data Master Server) Protocol Handler v2
+ * Receives push data from ZKTeco DG-600 (Ronald Jack) timekeeping machine.
  *
- * The machine pushes attendance logs via HTTP instead of
- * needing a PC to poll via ZK protocol.
+ * Protocol spec: ZKTeco PUSH SDK Communication Protocol V2.0.1
  *
- * Protocol endpoints:
+ * Endpoints:
  *   GET  /iclock/cdata       — Device heartbeat / registration
- *   POST /iclock/cdata       — Device pushes attendance data
+ *   POST /iclock/cdata       — Device pushes attendance/operation data
  *   GET  /iclock/getrequest  — Device polls for commands
  *   POST /iclock/devicecmd   — Device reports command results
+ *   POST /iclock/querydata   — Device reports DATA QUERY results
  */
 
 const express = require('express');
@@ -17,6 +17,10 @@ const router = express.Router();
 
 // Parse raw text body (machine sends text/plain, not JSON)
 router.use(express.text({ type: '*/*', limit: '1mb' }));
+
+// Track if CHECK command has been sent since last boot
+let checkSent = false;
+let dataQuerySent = false;
 
 // Ensure attendance tables exist
 let tablesReady = false;
@@ -46,16 +50,99 @@ function dateKey(d) {
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
 
+// Parse and insert ATTLOG records (shared between /cdata and /querydata)
+async function parseAndInsertAttlog(body, pool) {
+    const lines = body.trim().split(/\r?\n/);
+    let inserted = 0;
+    let skipped = 0;
+    const validStart = new Date('2020-01-01').getTime();
+    const validEnd = Date.now() + 86400000;
+    const samples = [];
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        for (const line of lines) {
+            const parts = line.trim().split('\t');
+            if (parts.length < 2) { skipped++; continue; }
+
+            const pin = parts[0].trim();
+            const datetime = parts[1].trim();
+            const status = parseInt(parts[2]) || 0;
+
+            // Log first 3 records for debug
+            if (samples.length < 3) {
+                samples.push({ pin, datetime, status, fields: parts.length });
+            }
+
+            if (!pin || pin === '0') { skipped++; continue; }
+
+            // Parse datetime — machine sends LOCAL time (Vietnam UTC+7)
+            const checkTime = new Date(datetime + '+07:00');
+            if (isNaN(checkTime.getTime()) || checkTime.getTime() < validStart || checkTime.getTime() > validEnd) {
+                skipped++;
+                continue;
+            }
+
+            const dk = dateKey(checkTime);
+            const id = pin + '_' + checkTime.getTime();
+
+            await client.query(`
+                INSERT INTO attendance_records (id, device_user_id, check_time, date_key, type, source, synced_at)
+                VALUES ($1, $2, $3, $4, $5, 'adms', NOW())
+                ON CONFLICT (id) DO UPDATE SET
+                    check_time = EXCLUDED.check_time,
+                    date_key = EXCLUDED.date_key,
+                    type = EXCLUDED.type,
+                    synced_at = NOW()
+            `, [id, pin, checkTime.toISOString(), dk, status]);
+            inserted++;
+        }
+
+        await client.query('COMMIT');
+    } catch (e) {
+        await client.query('ROLLBACK');
+        console.error('[ADMS] Insert error:', e.message);
+    } finally {
+        client.release();
+    }
+
+    console.log('[ADMS] ATTLOG result:', inserted, 'inserted,', skipped, 'skipped, total lines:', lines.length);
+    if (samples.length > 0) {
+        console.log('[ADMS] Sample records:', JSON.stringify(samples));
+    }
+
+    // Update sync status
+    try {
+        await pool.query(`
+            INSERT INTO attendance_sync_status (id, connected, last_sync_time, updated_at)
+            VALUES ('current', TRUE, NOW(), NOW())
+            ON CONFLICT (id) DO UPDATE SET connected = TRUE, last_sync_time = NOW(), updated_at = NOW()
+        `);
+    } catch (e) { /* ignore */ }
+
+    return inserted;
+}
+
 /**
  * GET /iclock/cdata — Device heartbeat / registration
  * Machine sends: ?SN=<serial>&options=all&pushver=2.4.1&language=XX
- * Server responds with configuration options
+ * Server responds with configuration options (CRLF separated)
  */
 router.get('/cdata', async (req, res) => {
     const sn = req.query.SN || req.query.sn || 'unknown';
-    console.log('[ADMS] Heartbeat from device:', sn, 'query:', JSON.stringify(req.query));
+    const pushver = req.query.pushver || '?';
+    console.log('[ADMS] === HEARTBEAT ===');
+    console.log('[ADMS] Device SN:', sn, '| pushver:', pushver);
+    console.log('[ADMS] Full query:', JSON.stringify(req.query));
+    console.log('[ADMS] Headers:', JSON.stringify(req.headers));
 
     await ensureTables(req.pool);
+
+    // Reset command flags on new heartbeat (device just connected/reconnected)
+    checkSent = false;
+    dataQuerySent = false;
 
     // Update sync status
     try {
@@ -70,32 +157,38 @@ router.get('/cdata', async (req, res) => {
         `);
     } catch (e) { /* ignore */ }
 
-    // Respond with device configuration
-    // Realtime=1 → push data immediately when someone checks in
-    // TransFlag=TransData AttLog → push attendance logs
-    // TimeZone=7 → UTC+7 (Vietnam)
-    res.set('Content-Type', 'text/plain');
-    res.send([
+    // Respond with device configuration per ZKTeco PUSH Protocol spec
+    const config = [
         `GET OPTION FROM: ${sn}`,
-        'ATTLOGStamp=0',
-        'OPERLOGStamp=9999',
-        'ATTPHOTOStamp=9999',
-        'ErrorDelay=30',
-        'Delay=10',
-        'TransTimes=00:00;14:05',
-        'TransInterval=1',
-        'TransFlag=1111000000',
-        'Realtime=1',
-        'Encrypt=0',
-    ].join('\r\n'));
+        'ATTLOGStamp=0',                   // 0 = force re-send ALL attendance records
+        'OPERLOGStamp=0',                  // 0 = force re-send ALL operation logs
+        'ATTPHOTOStamp=0',                 // 0 = force re-send ALL photos
+        'ErrorDelay=30',                   // Retry after 30s on error
+        'Delay=10',                        // Poll getrequest every 10s
+        'TransTimes=00:00;14:05',          // Scheduled upload times
+        'TransInterval=1',                 // Upload interval in minutes
+        'TransFlag=1111000000',            // Bitmask: TransData|AttLog|OpLog|Photo enabled
+        'Realtime=1',                      // Push immediately on new scan
+        'Encrypt=0',                       // No encryption
+        'ServerVer=3.4.1 2020-06-07',      // MANDATORY: server version string
+        'PushProtVer=2.4.1',               // Protocol version negotiation
+        'TimeZone=7',                      // UTC+7 Vietnam
+        'ResLogDay=18250',                 // Max log retention days
+        'ResLogDelCount=10000',            // Delete count when full
+        'ResLogCount=50000',               // Max log count
+    ].join('\r\n');
+
+    console.log('[ADMS] Sending config:\n' + config);
+
+    res.set('Content-Type', 'text/plain');
+    res.send(config);
 });
 
 /**
- * POST /iclock/cdata — Device pushes attendance data
+ * POST /iclock/cdata — Device pushes attendance/operation data
  * Machine sends: ?SN=<serial>&table=ATTLOG&Stamp=<stamp>
- * Body (tab-separated lines):
+ * Body (tab-separated lines, CRLF or LF):
  *   PIN\tDatetime\tStatus\tVerify\tWorkcode\tReserved1\tReserved2
- *   Example: 1\t2026-04-01 08:00:00\t0\t1\t0\t0\t0
  */
 router.post('/cdata', async (req, res) => {
     const sn = req.query.SN || req.query.sn || 'unknown';
@@ -103,93 +196,63 @@ router.post('/cdata', async (req, res) => {
     const stamp = req.query.Stamp || '';
 
     const body = typeof req.body === 'string' ? req.body : '';
-    console.log('[ADMS] Push from', sn, '| table:', table, '| stamp:', stamp, '| body length:', body.length);
+    console.log('[ADMS] === DATA PUSH ===');
+    console.log('[ADMS] Device:', sn, '| table:', table, '| stamp:', stamp);
+    console.log('[ADMS] Body length:', body.length, '| body preview:', body.substring(0, 500));
 
     await ensureTables(req.pool);
 
     let totalInserted = 0;
 
     if (table.toUpperCase() === 'ATTLOG' && body.trim()) {
-        const lines = body.trim().split('\n');
-        let inserted = 0;
-        let skipped = 0;
-        const validStart = new Date('2020-01-01').getTime();
-        const validEnd = Date.now() + 86400000;
-
-        const client = await req.pool.connect();
-        try {
-            await client.query('BEGIN');
-
-            for (const line of lines) {
-                const parts = line.trim().split('\t');
-                if (parts.length < 2) continue;
-
-                const pin = parts[0].trim(); // Employee PIN/ID
-                const datetime = parts[1].trim(); // "2026-04-01 08:00:00"
-                const status = parseInt(parts[2]) || 0; // Check-in/out status
-
-                if (!pin || pin === '0') { skipped++; continue; }
-
-                // Parse datetime — machine sends LOCAL time (Vietnam UTC+7)
-                const checkTime = new Date(datetime + '+07:00');
-                if (isNaN(checkTime.getTime()) || checkTime.getTime() < validStart || checkTime.getTime() > validEnd) {
-                    skipped++;
-                    continue;
-                }
-
-                const dk = dateKey(checkTime);
-                const id = pin + '_' + checkTime.getTime();
-
-                await client.query(`
-                    INSERT INTO attendance_records (id, device_user_id, check_time, date_key, type, source, synced_at)
-                    VALUES ($1, $2, $3, $4, $5, 'adms', NOW())
-                    ON CONFLICT (id) DO UPDATE SET
-                        check_time = EXCLUDED.check_time,
-                        date_key = EXCLUDED.date_key,
-                        type = EXCLUDED.type,
-                        synced_at = NOW()
-                `, [id, pin, checkTime.toISOString(), dk, status]);
-                inserted++;
-            }
-
-            await client.query('COMMIT');
-        } catch (e) {
-            await client.query('ROLLBACK');
-            console.error('[ADMS] Insert error:', e.message);
-        } finally {
-            client.release();
-        }
-
-        totalInserted = inserted;
-        console.log('[ADMS] ATTLOG:', inserted, 'inserted,', skipped, 'skipped');
-
-        // Update sync status
-        try {
-            await req.pool.query(`
-                INSERT INTO attendance_sync_status (id, connected, last_sync_time, updated_at)
-                VALUES ('current', TRUE, NOW(), NOW())
-                ON CONFLICT (id) DO UPDATE SET connected = TRUE, last_sync_time = NOW(), updated_at = NOW()
-            `);
-        } catch (e) { /* ignore */ }
+        totalInserted = await parseAndInsertAttlog(body, req.pool);
     } else if (table.toUpperCase() === 'OPERLOG' && body.trim()) {
-        // Operation logs (user add/delete, etc.) — log but don't process
-        console.log('[ADMS] OPERLOG:', body.substring(0, 200));
+        console.log('[ADMS] OPERLOG full body:', body.substring(0, 1000));
     } else {
-        console.log('[ADMS] Unknown table:', table, '| body:', body.substring(0, 200));
+        console.log('[ADMS] Other table:', table, '| body:', body.substring(0, 500));
     }
 
+    const response = 'OK: ' + totalInserted;
+    console.log('[ADMS] Response:', response);
+
     res.set('Content-Type', 'text/plain');
-    res.send('OK: ' + totalInserted);
+    res.send(response);
 });
 
 /**
  * GET /iclock/getrequest — Device polls for commands
- * Server responds with pending commands or empty string
+ * Server responds with command or "OK" (no pending commands)
+ *
+ * Command sequence after heartbeat:
+ *   1st poll → CHECK (force device to re-evaluate and resync data)
+ *   2nd poll → DATA QUERY ATTLOG (explicit query for all records)
+ *   subsequent → check DB for user-queued commands, else OK
  */
 router.get('/getrequest', async (req, res) => {
     const sn = req.query.SN || req.query.sn || 'unknown';
+    console.log('[ADMS] getrequest from', sn, '| checkSent:', checkSent, '| dataQuerySent:', dataQuerySent);
 
-    // Check for pending commands
+    // Step 1: Send CHECK command to force device to re-check data
+    if (!checkSent) {
+        checkSent = true;
+        const cmd = 'C:1:CHECK';
+        console.log('[ADMS] Sending CHECK command to', sn);
+        res.set('Content-Type', 'text/plain');
+        res.send(cmd);
+        return;
+    }
+
+    // Step 2: Send DATA QUERY to explicitly request all ATTLOG records
+    if (!dataQuerySent) {
+        dataQuerySent = true;
+        const cmd = 'C:2:DATA QUERY ATTLOG StartTime=2025-01-01 00:00:00\tEndTime=2026-12-31 23:59:59';
+        console.log('[ADMS] Sending DATA QUERY ATTLOG to', sn);
+        res.set('Content-Type', 'text/plain');
+        res.send(cmd);
+        return;
+    }
+
+    // Step 3: Check for user-queued commands in DB
     try {
         const result = await req.pool.query(`
             UPDATE attendance_commands
@@ -206,14 +269,13 @@ router.get('/getrequest', async (req, res) => {
 
         if (result.rows.length > 0) {
             const cmd = result.rows[0];
-            console.log('[ADMS] Sending command to', sn, ':', cmd.action);
-            // Format: C:<id>:<command>
+            console.log('[ADMS] Sending DB command to', sn, ':', cmd.action);
             res.set('Content-Type', 'text/plain');
             res.send(`C:${cmd.id}:${cmd.action}`);
             return;
         }
     } catch (e) {
-        console.error('[ADMS] getrequest error:', e.message);
+        console.error('[ADMS] getrequest DB error:', e.message);
     }
 
     res.set('Content-Type', 'text/plain');
@@ -222,14 +284,23 @@ router.get('/getrequest', async (req, res) => {
 
 /**
  * POST /iclock/devicecmd — Device reports command execution results
+ * Body: ID=<cmd_id>&Return=<code>&CMD=<command>
+ *   Return=0 → success, Return=-1 → failure
  */
 router.post('/devicecmd', async (req, res) => {
     const sn = req.query.SN || req.query.sn || 'unknown';
     const body = typeof req.body === 'string' ? req.body : '';
-    console.log('[ADMS] Command result from', sn, ':', body.substring(0, 200));
+    console.log('[ADMS] === COMMAND RESULT ===');
+    console.log('[ADMS] Device:', sn, '| result:', body);
 
     // Parse result: ID=<id>&Return=<code>&CMD=<command>
     const idMatch = body.match(/ID=(\d+)/);
+    const returnMatch = body.match(/Return=(-?\d+)/);
+    const returnCode = returnMatch ? parseInt(returnMatch[1]) : null;
+
+    console.log('[ADMS] Command ID:', idMatch?.[1], '| Return code:', returnCode,
+        returnCode === 0 ? '(SUCCESS)' : '(FAILED)');
+
     if (idMatch) {
         try {
             await req.pool.query(
@@ -241,6 +312,35 @@ router.post('/devicecmd', async (req, res) => {
 
     res.set('Content-Type', 'text/plain');
     res.send('OK');
+});
+
+/**
+ * POST /iclock/querydata — Device reports DATA QUERY results
+ * Machine sends query results here (separate from /cdata)
+ * Body format same as ATTLOG: tab-separated records
+ */
+router.post('/querydata', async (req, res) => {
+    const sn = req.query.SN || req.query.sn || 'unknown';
+    const type = req.query.type || '';
+    const cmdid = req.query.cmdid || '';
+    const body = typeof req.body === 'string' ? req.body : '';
+
+    console.log('[ADMS] === QUERY DATA RESULT ===');
+    console.log('[ADMS] Device:', sn, '| type:', type, '| cmdid:', cmdid);
+    console.log('[ADMS] Body length:', body.length, '| body preview:', body.substring(0, 500));
+
+    await ensureTables(req.pool);
+
+    let totalInserted = 0;
+    if (body.trim()) {
+        totalInserted = await parseAndInsertAttlog(body, req.pool);
+    }
+
+    const response = 'OK: ' + totalInserted;
+    console.log('[ADMS] Response:', response);
+
+    res.set('Content-Type', 'text/plain');
+    res.send(response);
 });
 
 module.exports = router;
