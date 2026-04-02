@@ -55,7 +55,12 @@ export async function initPage(pageId) {
     }
   }
 
-  log.info(MODULE, `Session initialized for page ${pageId}, fb_dtsg: ${sessionData.token.substring(0, 10)}...`);
+  log.info(MODULE, `Session initialized for page ${pageId}:`);
+  log.info(MODULE, `  fb_dtsg: ${sessionData.token?.substring(0, 20)}...`);
+  log.info(MODULE, `  lsd: ${sessionData.lsd || 'NULL'}, jazoest: ${sessionData.jazoest || 'NULL'}`);
+  log.info(MODULE, `  userId: ${sessionData.userId || 'NULL'}, rev: ${sessionData.rev || 'NULL'}`);
+  log.info(MODULE, `  hs: ${sessionData.hs || 'NULL'}, hsi: ${sessionData.hsi || 'NULL'}`);
+  log.info(MODULE, `  spinR: ${sessionData.spinR || 'NULL'}, spinB: ${sessionData.spinB || 'NULL'}, spinT: ${sessionData.spinT || 'NULL'}`);
   return sessionData;
 }
 

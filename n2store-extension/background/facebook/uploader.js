@@ -106,13 +106,18 @@ async function uploadToFacebook(blob, filename, session, pageId) {
     credentials: 'include',
   });
 
+  log.info(MODULE, `[DEBUG] Upload response: status=${response.status}, type=${response.headers.get('content-type')}`);
+
   const text = await response.text();
+  log.info(MODULE, `[DEBUG] Upload response body (${text.length} chars): ${text.substring(0, 500)}`);
+
   let result;
   try {
     result = parseFbRes(text);
   } catch (e) {
-    log.error(MODULE, 'Failed to parse upload response:', text.substring(0, 300));
-    throw new Error('Failed to parse Facebook upload response');
+    log.error(MODULE, `[DEBUG] Upload parse error: ${e.message}`);
+    log.error(MODULE, `[DEBUG] Full upload response: ${text.substring(0, 1000)}`);
+    throw new Error(`Failed to parse Facebook upload response: ${e.message}`);
   }
 
   if (result.error) {

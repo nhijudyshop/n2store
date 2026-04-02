@@ -71,20 +71,44 @@ export async function handleReplyInboxPhoto(data, sendResponse) {
 
     // Send the message
     const referer = `${CONFIG.FB_BUSINESS_INBOX}?page_id=${pageId}`;
+    const headers = buildFbHeaders(referer);
+    const body = encodeFormData(params);
+
+    log.info(MODULE, `[DEBUG] POST ${CONFIG.FB_MESSAGING_SEND}`);
+    log.info(MODULE, `[DEBUG] Session: fb_dtsg=${session.token?.substring(0, 15)}..., userId=${session.userId}, pageId=${pageId}`);
+    log.info(MODULE, `[DEBUG] Params: globalUserId=${globalUserId}, threadId=${threadId}, attachmentType=${attachmentType}, body_len=${(message || '').length}`);
+
     const response = await fetch(CONFIG.FB_MESSAGING_SEND, {
       method: 'POST',
-      headers: buildFbHeaders(referer),
-      body: encodeFormData(params),
+      headers,
+      body,
       credentials: 'include',
     });
 
+    log.info(MODULE, `[DEBUG] Response: status=${response.status} ${response.statusText}, type=${response.headers.get('content-type')}`);
+
     const text = await response.text();
+    log.info(MODULE, `[DEBUG] Response body (${text.length} chars): ${text.substring(0, 500)}`);
+
+    if (response.status !== 200) {
+      throw new Error(`Facebook returned HTTP ${response.status}: ${text.substring(0, 200)}`);
+    }
+
     let result;
     try {
       result = parseFbRes(text);
     } catch (e) {
-      log.error(MODULE, 'Failed to parse FB response:', text.substring(0, 200));
-      throw new Error('Failed to parse Facebook response');
+      log.error(MODULE, `[DEBUG] Parse error: ${e.message}`);
+      log.error(MODULE, `[DEBUG] Full response (first 1000 chars): ${text.substring(0, 1000)}`);
+      throw new Error(`Failed to parse Facebook response: ${e.message}`);
+    }
+
+    log.info(MODULE, `[DEBUG] Parsed result keys: ${Object.keys(result).join(', ')}`);
+    if (result.error) {
+      log.info(MODULE, `[DEBUG] FB error object: ${JSON.stringify(result.error).substring(0, 500)}`);
+    }
+    if (result.payload) {
+      log.info(MODULE, `[DEBUG] Payload actions: ${JSON.stringify(result.payload?.actions?.map(a => a.message_id)).substring(0, 200)}`);
     }
 
     // Check for errors in response

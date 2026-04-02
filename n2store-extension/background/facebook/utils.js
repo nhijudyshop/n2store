@@ -2,10 +2,39 @@
 
 /**
  * Parse Facebook response format: for (;;);{json}
+ * Also handles other FB response formats
  */
 export function parseFbRes(text) {
-  const cleaned = text.replace(/^for \(;;\);/, '');
-  return JSON.parse(cleaned);
+  if (!text || text.length === 0) {
+    throw new Error('Empty response from Facebook');
+  }
+
+  // Try standard format: for (;;);{json}
+  if (text.startsWith('for (;;);')) {
+    const cleaned = text.substring(9); // "for (;;);".length === 9
+    return JSON.parse(cleaned);
+  }
+
+  // Try direct JSON
+  if (text.startsWith('{') || text.startsWith('[')) {
+    return JSON.parse(text);
+  }
+
+  // Try other FB prefixes
+  const prefixes = ['for(;;);', 'while(1);', 'for (;;); '];
+  for (const prefix of prefixes) {
+    if (text.startsWith(prefix)) {
+      return JSON.parse(text.substring(prefix.length));
+    }
+  }
+
+  // If HTML, extract useful info
+  if (text.includes('<!DOCTYPE') || text.includes('<html')) {
+    const titleMatch = text.match(/<title>([^<]*)<\/title>/i);
+    throw new Error(`Facebook returned HTML page: "${titleMatch?.[1] || 'unknown'}". Possibly redirected to login or error page.`);
+  }
+
+  throw new Error(`Unexpected response format. Starts with: "${text.substring(0, 80)}"`);
 }
 
 /**
