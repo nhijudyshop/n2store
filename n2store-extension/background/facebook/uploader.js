@@ -90,6 +90,9 @@ async function uploadToFacebook(blob, filename, session, pageId) {
   // Add upload metadata
   formData.append('farr', fieldName);
   formData.append('upload_id', `upload_${Date.now()}`);
+  // Associate upload with page context (so send-as-page can find the image)
+  formData.append('request_user_id', pageId);
+  formData.append('av', pageId);
 
   const referer = `https://business.facebook.com/latest/inbox/all?page_id=${pageId}`;
 
