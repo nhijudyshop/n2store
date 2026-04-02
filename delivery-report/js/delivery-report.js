@@ -215,7 +215,7 @@
             }
 
             const result = await response.json();
-            DeliveryReportState.allData = (result.value || []).filter(item => item.StateCode === 'CrossCheckComplete');
+            DeliveryReportState.allData = result.value || [];
 
             // Debug: check DeliveryNote field
             const withNote = DeliveryReportState.allData.filter(i => i.DeliveryNote);
