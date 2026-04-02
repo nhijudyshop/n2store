@@ -1576,8 +1576,11 @@
             const empRate = emp.dailyRate || SALARY.DAILY_RATE;
 
             html += `<tr>`;
-            html += `<td style="position:sticky; left:0; background:#fff; z-index:1; white-space:nowrap; font-size:13px; font-weight:500; padding:8px 10px; cursor:pointer;"
-                onclick="window._attendance.showAttendanceDetailModal('${empId}')">${escapeHtml(emp.name || 'N/A')}</td>`;
+            html += `<td style="position:sticky; left:0; background:#fff; z-index:1; white-space:nowrap; font-size:13px; padding:8px 10px; cursor:pointer;"
+                onclick="window._attendance.showAttendanceDetailModal('${empId}')">
+                <span style="font-weight:500;">${escapeHtml(emp.name || 'N/A')}</span>
+                <span style="font-size:11px; color:#1890ff; margin-left:6px;">${d.workedDays}</span>
+            </td>`;
 
             for (let day = 1; day <= lastDay; day++) {
                 const dateKey = `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
