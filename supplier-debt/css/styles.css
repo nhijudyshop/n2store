@@ -402,6 +402,15 @@
     background: #475569;
 }
 
+.btn-warning {
+    background: #f59e0b;
+    color: white;
+}
+
+.btn-warning:hover {
+    background: #d97706;
+}
+
 /* Column Toggle Dropdown */
 .column-toggle-wrapper {
     position: relative;

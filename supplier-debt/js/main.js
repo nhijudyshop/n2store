@@ -2997,6 +2997,20 @@ function initCreateSupplierModal() {
 }
 
 // =====================================================
+// RETURN ORDER BUTTON
+// =====================================================
+
+function initReturnOrderButton() {
+    document.getElementById('btnReturnOrder')?.addEventListener('click', () => {
+        if (window.ReturnOrderModal) {
+            window.ReturnOrderModal.open();
+        } else {
+            console.error('[SupplierDebt] ReturnOrderModal not loaded');
+        }
+    });
+}
+
+// =====================================================
 // SEARCHABLE SUPPLIER DROPDOWN
 // =====================================================
 
@@ -3153,6 +3167,9 @@ async function init() {
 
     // Initialize create supplier modal
     initCreateSupplierModal();
+
+    // Initialize return order button
+    initReturnOrderButton();
 
     // Initialize searchable supplier dropdown
     initSearchableSupplierDropdown();
