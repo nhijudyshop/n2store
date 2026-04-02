@@ -60,7 +60,8 @@ router.get('/', async (req, res) => {
         order_id,
         assigned_to,
         priority,
-        customer_id
+        customer_id,
+        search
     } = req.query;
 
     try {
@@ -100,6 +101,11 @@ router.get('/', async (req, res) => {
         if (customer_id) {
             query += ` AND t.customer_id = $${paramIndex++}`;
             params.push(parseInt(customer_id));
+        }
+        if (search) {
+            query += ` AND (t.phone LIKE $${paramIndex} OR t.customer_name ILIKE $${paramIndex} OR t.order_id ILIKE $${paramIndex} OR t.ticket_code ILIKE $${paramIndex})`;
+            params.push(`%${search}%`);
+            paramIndex++;
         }
 
         // Count total

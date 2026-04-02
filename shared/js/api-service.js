@@ -400,6 +400,50 @@ const ApiService = {
     },
 
     /**
+     * Search tickets server-side (partial match on phone, customer, order_id, ticket_code)
+     */
+    async searchTicketsServer(query) {
+        if (!query || query.length < 3) return [];
+        try {
+            const url = `${this.RENDER_API_URL}/v2/tickets?search=${encodeURIComponent(query)}&limit=50`;
+            const response = await fetch(url);
+            if (!response.ok) return [];
+            const result = await response.json();
+            if (!result.success || !result.data) return [];
+            return result.data.map(ticket => ({
+                ...ticket,
+                firebaseId: ticket.ticket_code,
+                ticketCode: ticket.ticket_code,
+                orderId: ticket.order_id,
+                tposId: ticket.tpos_order_id,
+                trackingCode: ticket.tracking_code,
+                customer: ticket.customer_name,
+                originalCod: ticket.original_cod,
+                newCod: ticket.new_cod,
+                money: ticket.refund_amount,
+                fixReason: ticket.fix_cod_reason,
+                fixCodReason: ticket.fix_cod_reason,
+                boomReason: ticket.boom_reason,
+                note: ticket.internal_note,
+                virtualCreditId: ticket.virtual_credit_id,
+                virtual_credit_id: ticket.virtual_credit_id,
+                virtualCredit: ticket.virtual_credit_amount ? {
+                    amount: ticket.virtual_credit_amount,
+                    status: 'ACTIVE'
+                } : null,
+                returnFromOrderId: ticket.return_from_order_id,
+                returnFromTposId: ticket.return_from_tpos_id,
+                createdAt: new Date(ticket.created_at).getTime(),
+                updatedAt: ticket.updated_at ? new Date(ticket.updated_at).getTime() : null,
+                completedAt: ticket.completed_at ? new Date(ticket.completed_at).getTime() : null
+            }));
+        } catch (error) {
+            console.error('[API-V2] Search tickets failed:', error);
+            return [];
+        }
+    },
+
+    /**
      * Listen to tickets (real-time for Firebase, polling for PostgreSQL)
      * @param {Function} callback - (tickets) => void
      * @param {Object} filters - Optional filters { status, type, phone }
@@ -420,7 +464,7 @@ const ApiService = {
                     if (filters.status) params.append('status', filters.status);
                     if (filters.type) params.append('type', filters.type);
                     if (filters.phone) params.append('phone', filters.phone);
-                    params.append('limit', '100');
+                    params.append('limit', '500');
 
                     const url = `${this.RENDER_API_URL}/v2/tickets${params.toString() ? '?' + params.toString() : ''}`;
                     const response = await fetch(url);

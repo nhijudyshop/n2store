@@ -207,13 +207,37 @@ function initModalHandlers() {
         });
     });
 
-    // Dashboard Search Input Listener
+    // Dashboard Search Input Listener (with server-side fallback)
+    let searchDebounceTimer = null;
     const searchInput = document.getElementById('search-ticket');
     if (searchInput) {
         searchInput.addEventListener('input', (e) => {
             const term = e.target.value.toLowerCase().trim();
             const activeTab = document.querySelector('.tab-btn.active').dataset.tab;
-            renderDashboard(activeTab, term);
+            const localCount = renderDashboard(activeTab, term);
+
+            // If no local results and search term >= 3 chars, try server-side search
+            clearTimeout(searchDebounceTimer);
+            if (localCount === 0 && term.length >= 3) {
+                searchDebounceTimer = setTimeout(async () => {
+                    try {
+                        const serverResults = await ApiService.searchTicketsServer(term);
+                        if (serverResults.length > 0 && searchInput.value.toLowerCase().trim() === term) {
+                            // Merge server results into TICKETS (avoid duplicates)
+                            const existingIds = new Set(TICKETS.map(t => t.ticketCode));
+                            const newTickets = serverResults.filter(t => !existingIds.has(t.ticketCode));
+                            if (newTickets.length > 0) {
+                                TICKETS.push(...newTickets);
+                                console.log(`[SEARCH] Added ${newTickets.length} tickets from server`);
+                            }
+                            // Re-render with merged data
+                            renderDashboard(activeTab, term);
+                        }
+                    } catch (err) {
+                        console.error('[SEARCH] Server search failed:', err);
+                    }
+                }, 500);
+            }
         });
     }
 
@@ -2054,6 +2078,8 @@ function renderDashboard(tabName, searchTerm = '') {
         `;
         elements.ticketList.appendChild(tr);
     });
+
+    return filtered.length;
 }
 
 function renderProductsList(ticket) {
