@@ -998,16 +998,17 @@
         });
     }
 
-    // Assign TOMATO/NAP: TOMATO gets ~20-22% of total AmountTotal
+    // Assign TOMATO/NAP: random pick, TOMATO ~20-22% of total AmountTotal
     function assignTomatoNap(items, groups) {
-        const sorted = [...items].sort((a, b) => (a.AmountTotal || 0) - (b.AmountTotal || 0));
-        const totalAmount = sorted.reduce((sum, i) => sum + (i.AmountTotal || 0), 0);
-        const targetAmount = totalAmount * 0.21; // midpoint of 20-22%
+        const totalAmount = items.reduce((sum, i) => sum + (i.AmountTotal || 0), 0);
+        const targetAmount = totalAmount * 0.21;
+        // Shuffle randomly
+        const shuffled = [...items].sort(() => Math.random() - 0.5);
         let tomatoSum = 0;
 
-        sorted.forEach((item, index) => {
+        shuffled.forEach(item => {
             const amt = item.AmountTotal || 0;
-            if (tomatoSum < targetAmount || index === 0) {
+            if (tomatoSum + amt <= targetAmount || tomatoSum === 0) {
                 groups[item.Number] = 'tomato';
                 tomatoSum += amt;
             } else {
