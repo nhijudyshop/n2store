@@ -1453,7 +1453,7 @@
                 }
             }
             soundDuplicate.currentTime = 0; soundDuplicate.play();
-            showScanFeedback('warning', `Đã quét rồi: ${value}`, true);
+            showScanFeedback('warning', `Đã quét rồi: ${match.Number} - ${match.PartnerDisplayName || ''}`, true);
             return;
         }
 
@@ -1481,7 +1481,7 @@
 
                 if (isProvinceTab) hideProvinceColumns();
                 soundError.currentTime = 0; soundError.play();
-                showScanFeedback('wrong-tab', `${value} thuộc tab "${correctTab}"!`, true);
+                showScanFeedback('wrong-tab', `${match.Number} - ${match.PartnerDisplayName || ''} thuộc tab "${correctTab}"!`, true);
                 return;
             }
         }
@@ -1489,16 +1489,17 @@
         // Mark as scanned
         state.scannedNumbers.add(match.Number);
 
-        // Save to Firestore for cross-machine sync
+        // Save to Firestore
         saveScannedNumbers();
 
         // Update view based on active tab
+        const customerName = match.PartnerDisplayName || '';
         if (isAllTab) {
             const group = getItemGroup(match);
             renderAllGroupsView();
             showGroupColumn(group);
             updateScanCount();
-            showScanFeedback(true, `${match.Number} → ${GROUP_LABELS[group]}`, false);
+            showScanFeedback(true, `${match.Number} - ${customerName} → ${GROUP_LABELS[group]}`, false);
         } else if (isProvinceTab) {
             renderProvinceView();
             const group = state.provinceGroups[match.Number];
@@ -1506,12 +1507,12 @@
                 showProvinceColumn(group);
             }
             updateScanCount();
-            showScanFeedback(true, `${match.Number} → ${(group || '').toUpperCase()}`, false);
+            showScanFeedback(true, `${match.Number} - ${customerName} → ${(group || '').toUpperCase()}`, false);
         } else {
             renderTable();
             renderPagination();
             updateScanCount();
-            showScanFeedback(true, `${match.Number}`, false);
+            showScanFeedback(true, `${match.Number} - ${customerName}`, false);
         }
     }
 
