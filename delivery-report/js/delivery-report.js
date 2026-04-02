@@ -809,10 +809,9 @@
             state.scanFilter = 'unscanned';
             state.currentPage = 1;
 
-            // Load scanned numbers + province groups from server + setup cross-machine sync
+            // Load scanned numbers + province groups from server
             await loadScannedNumbers();
             await ensureProvinceGroups();
-            setupRealtimeSync();
 
             updateTabUI();
             updateProvinceExportButtons();
@@ -835,8 +834,6 @@
             const tableWrapper = document.getElementById('drTableWrapper');
             if (tableWrapper) tableWrapper.style.display = '';
 
-            // Teardown cross-machine sync
-            teardownRealtimeSync();
 
             state.scannedNumbers = new Set();
             state.activeTab = 'all';
