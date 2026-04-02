@@ -114,14 +114,23 @@ async function checkApiConnection() {
 }
 
 // Load users
+function renderSkeletonLoading(container, count = 5) {
+    let html = '';
+    for (let i = 0; i < count; i++) {
+        html += `<div class="skeleton-user-item">
+            <div class="skeleton skeleton-avatar"></div>
+            <div class="skeleton-details">
+                <div class="skeleton skeleton-text-lg"></div>
+                <div class="skeleton skeleton-text-sm"></div>
+            </div>
+        </div>`;
+    }
+    container.innerHTML = html;
+}
+
 async function loadUsers() {
     const userList = document.getElementById("userList");
-    userList.innerHTML =
-        '<div class="empty-state show"><i data-lucide="loader" class="spinning"></i><h3>Dang tai du lieu...</h3></div>';
-
-    if (typeof lucide !== "undefined") {
-        lucide.createIcons();
-    }
+    renderSkeletonLoading(userList, 5);
 
     try {
         const data = await UserAPI.fetch('/');
@@ -129,7 +138,7 @@ async function loadUsers() {
 
         if (users.length === 0) {
             userList.innerHTML =
-                '<div class="empty-state show"><i data-lucide="user-x"></i><h3>Khong co tai khoan nao</h3></div>';
+                '<div class="empty-state show"><div class="empty-state-icon-wrapper"><i data-lucide="user-x"></i></div><h3>Không có tài khoản nào</h3></div>';
             if (typeof lucide !== "undefined") {
                 lucide.createIcons();
             }
@@ -145,7 +154,7 @@ async function loadUsers() {
 
         renderUserList(users);
     } catch (error) {
-        userList.innerHTML = `<div class="empty-state show"><i data-lucide="alert-circle"></i><h3>Loi tai danh sach</h3><p>${error.message}</p></div>`;
+        userList.innerHTML = `<div class="empty-state show"><div class="empty-state-icon-wrapper"><i data-lucide="alert-circle"></i></div><h3>Lỗi tải danh sách</h3><p>${error.message}</p><button class="btn btn-primary" onclick="loadUsers()"><i data-lucide="refresh-cw"></i> Thử lại</button></div>`;
         if (typeof lucide !== "undefined") {
             lucide.createIcons();
         }
@@ -415,6 +424,7 @@ function renderUserList(users) {
                                 <i data-lucide="${roleInfo.icon}"></i>
                                 ${roleInfo.name}
                             </span>
+                            ${user.totpEnabled ? '<span class="user-role-badge" style="background: #d1fae5; color: #059669; border: 1px solid #05966930;"><i data-lucide="shield-check"></i> 2FA</span>' : ''}
                             <span><i data-lucide="layout-grid" style="width:14px;height:14px;display:inline-block;vertical-align:middle"></i> ${accessiblePagesCount} trang</span>
                             <span><i data-lucide="shield-check" style="width:14px;height:14px;display:inline-block;vertical-align:middle"></i> ${permissionCount}/${totalPerms} quyen</span>
                             <span><i data-lucide="calendar" style="width:14px;height:14px;display:inline-block;vertical-align:middle"></i> ${createdDate}${updatedDate}</span>
@@ -428,6 +438,7 @@ function renderUserList(users) {
                     <button class="btn-icon" onclick="viewUserPermissions('${user.id}')" title="Xem quyen">
                         <i data-lucide="eye"></i>
                     </button>
+                    ${user.totpEnabled ? `<button class="btn-icon" onclick="reset2FA('${user.id}')" title="Reset 2FA"><i data-lucide="key-round"></i></button>` : ''}
                     <button class="btn-icon danger" onclick="deleteUser('${user.id}')" title="Xoa">
                         <i data-lucide="trash-2"></i>
                     </button>
@@ -711,6 +722,126 @@ async function createUser() {
             window.notify.remove(loadingId);
         }
         showError("Loi tao tai khoan: " + error.message);
+    }
+}
+
+// =====================================================
+// 2FA MANAGEMENT
+// =====================================================
+
+async function reset2FA(username) {
+    if (!confirm(`Reset 2FA cho user "${username}"?\n\nUser sẽ phải thiết lập lại Google Authenticator.`)) {
+        return;
+    }
+
+    try {
+        await UserAPI.fetch('/2fa/reset', {
+            method: 'POST',
+            body: JSON.stringify({ username })
+        });
+        showSuccess(`Đã reset 2FA cho ${username}`);
+        loadUsers();
+    } catch (error) {
+        showError('Lỗi reset 2FA: ' + error.message);
+    }
+}
+
+async function setup2FA() {
+    try {
+        const data = await UserAPI.fetch('/2fa/setup', { method: 'POST' });
+
+        // Show modal with QR code
+        const modal = document.createElement('div');
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 480px;">
+                <div class="bulk-template-modal">
+                    <div class="modal-header">
+                        <h3><i data-lucide="shield-check"></i> Thiết lập 2FA</h3>
+                        <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">
+                            <i data-lucide="x"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body" style="text-align: center;">
+                        <p style="margin-bottom: 16px; color: var(--text-secondary);">Quét mã QR bằng Google Authenticator:</p>
+                        <img src="${data.qrCode}" alt="QR Code" style="width: 200px; height: 200px; margin: 0 auto 16px; display: block; border-radius: 8px;" />
+                        <p style="font-size: 12px; color: var(--text-tertiary); margin-bottom: 16px;">Hoặc nhập key thủ công: <code style="background: var(--gray-100); padding: 2px 8px; border-radius: 4px; font-size: 11px; word-break: break-all;">${data.secret}</code></p>
+                        <div style="margin-top: 16px;">
+                            <label style="display: block; font-weight: 500; margin-bottom: 8px;">Nhập mã 6 chữ số để xác nhận:</label>
+                            <input type="text" id="setup2FACode" maxlength="6" inputmode="numeric" pattern="[0-9]{6}" style="width: 200px; text-align: center; font-size: 24px; letter-spacing: 8px; font-weight: 600; padding: 12px; border: 2px solid var(--border); border-radius: 8px;" placeholder="000000" />
+                        </div>
+                    </div>
+                    <div class="modal-footer" style="display: flex; gap: 8px; justify-content: flex-end; padding: 16px; border-top: 1px solid var(--border);">
+                        <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Hủy</button>
+                        <button class="btn btn-primary" id="confirm2FASetup">Xác nhận</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+
+        document.getElementById('confirm2FASetup').addEventListener('click', async () => {
+            const code = document.getElementById('setup2FACode').value.trim();
+            if (code.length !== 6) {
+                showError('Vui lòng nhập đủ 6 chữ số');
+                return;
+            }
+            try {
+                const verifyData = await UserAPI.fetch('/2fa/verify-setup', {
+                    method: 'POST',
+                    body: JSON.stringify({ totpCode: code })
+                });
+                modal.remove();
+
+                // Show backup codes
+                const backupModal = document.createElement('div');
+                backupModal.className = 'modal-overlay';
+                backupModal.innerHTML = `
+                    <div class="modal-content" style="max-width: 480px;">
+                        <div class="bulk-template-modal">
+                            <div class="modal-header" style="background: linear-gradient(135deg, #10b981, #059669);">
+                                <h3><i data-lucide="check-circle"></i> 2FA Đã Kích Hoạt!</h3>
+                            </div>
+                            <div class="modal-body" style="text-align: center;">
+                                <p style="margin-bottom: 16px; color: var(--text-secondary);">Lưu lại 10 mã dự phòng này. Mỗi mã chỉ dùng được 1 lần:</p>
+                                <div style="background: var(--gray-50); border: 1px solid var(--border); border-radius: 8px; padding: 16px; font-family: monospace; font-size: 16px; letter-spacing: 2px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                                    ${verifyData.backupCodes.map(code => `<span>${code}</span>`).join('')}
+                                </div>
+                                <button class="btn btn-secondary" style="margin-top: 16px;" onclick="navigator.clipboard.writeText('${verifyData.backupCodes.join('\\n')}'); this.textContent='Đã copy!';">
+                                    <i data-lucide="copy"></i> Copy mã dự phòng
+                                </button>
+                            </div>
+                            <div class="modal-footer" style="display: flex; justify-content: flex-end; padding: 16px; border-top: 1px solid var(--border);">
+                                <button class="btn btn-primary" onclick="this.closest('.modal-overlay').remove()">Đã lưu, đóng</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(backupModal);
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+                showSuccess('2FA đã được kích hoạt thành công!');
+            } catch (err) {
+                showError('Mã không hợp lệ: ' + err.message);
+            }
+        });
+    } catch (error) {
+        showError('Lỗi thiết lập 2FA: ' + error.message);
+    }
+}
+
+async function disable2FA() {
+    const code = prompt('Nhập mã 6 chữ số từ Google Authenticator để tắt 2FA:');
+    if (!code) return;
+
+    try {
+        await UserAPI.fetch('/2fa/disable', {
+            method: 'POST',
+            body: JSON.stringify({ totpCode: code.trim() })
+        });
+        showSuccess('2FA đã được tắt');
+    } catch (error) {
+        showError('Lỗi tắt 2FA: ' + error.message);
     }
 }
 
@@ -1188,4 +1319,25 @@ document.addEventListener("DOMContentLoaded", function () {
     console.log("User Management initialized with Render API");
 
     initAdminToggle();
+    update2FAButton();
 });
+
+async function update2FAButton() {
+    const btn = document.getElementById('btn2FA');
+    if (!btn) return;
+    try {
+        const status = await UserAPI.fetch('/2fa/status');
+        if (status.enabled) {
+            btn.innerHTML = '<i data-lucide="shield-check"></i><span>2FA ON</span>';
+            btn.style.background = '#d1fae5';
+            btn.style.color = '#059669';
+            btn.style.border = '1px solid #05966930';
+            btn.onclick = () => {
+                if (confirm('2FA đang bật. Bạn muốn tắt 2FA?')) disable2FA();
+            };
+        }
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    } catch (e) {
+        // Silently fail - button stays as setup
+    }
+}

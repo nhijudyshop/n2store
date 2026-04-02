@@ -2,9 +2,10 @@
 // LOGIN SYSTEM - Render API Version
 // =====================================================
 
-const LOGIN_API_URL = window.location.hostname === 'localhost'
-    ? 'http://localhost:3000/api/users/login'
-    : 'https://n2store-fallback.onrender.com/api/users/login';
+const API_BASE_URL = window.location.hostname === 'localhost'
+    ? 'http://localhost:3000/api/users'
+    : 'https://n2store-fallback.onrender.com/api/users';
+const LOGIN_API_URL = `${API_BASE_URL}/login`;
 
 document.addEventListener("DOMContentLoaded", function () {
     const AUTH_CONFIG = {
@@ -55,6 +56,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
             if (!response.ok || !data.success) {
                 handleFailedLogin();
+                return;
+            }
+
+            // Check if 2FA is required
+            if (data.requires2FA) {
+                loginAttempts = 0;
+                show2FAForm(data.tempToken, rememberMe);
                 return;
             }
 
@@ -290,6 +298,190 @@ document.addEventListener("DOMContentLoaded", function () {
 
         if (usernameInput) usernameInput.addEventListener("keypress", handleKeyPress);
         if (passwordInput) passwordInput.addEventListener("keypress", handleKeyPress);
+    }
+
+    // =====================================================
+    // 2FA TOTP VERIFICATION
+    // =====================================================
+
+    function show2FAForm(tempToken, rememberMe) {
+        const loginForm = document.getElementById("loginForm");
+        if (!loginForm) return;
+
+        // Store original form content for back button
+        const originalHTML = loginForm.innerHTML;
+
+        loginForm.innerHTML = `
+            <div class="totp-form">
+                <div style="text-align: center; margin-bottom: 24px;">
+                    <div style="width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(135deg, #6366f1, #8b5cf6); display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    </div>
+                    <h3 style="font-size: 20px; font-weight: 600; margin-bottom: 8px;">Xác thực 2 bước</h3>
+                    <p style="color: #6b7280; font-size: 14px;">Nhập mã 6 chữ số từ Google Authenticator</p>
+                </div>
+                <div class="totp-inputs" style="display: flex; gap: 8px; justify-content: center; margin-bottom: 20px;">
+                    <input type="text" class="totp-digit" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="one-time-code" style="width: 48px; height: 56px; text-align: center; font-size: 24px; font-weight: 600; border: 2px solid #e5e7eb; border-radius: 12px; outline: none; transition: border-color 0.2s;" />
+                    <input type="text" class="totp-digit" maxlength="1" inputmode="numeric" pattern="[0-9]" style="width: 48px; height: 56px; text-align: center; font-size: 24px; font-weight: 600; border: 2px solid #e5e7eb; border-radius: 12px; outline: none; transition: border-color 0.2s;" />
+                    <input type="text" class="totp-digit" maxlength="1" inputmode="numeric" pattern="[0-9]" style="width: 48px; height: 56px; text-align: center; font-size: 24px; font-weight: 600; border: 2px solid #e5e7eb; border-radius: 12px; outline: none; transition: border-color 0.2s;" />
+                    <div style="width: 12px; display: flex; align-items: center; justify-content: center; color: #9ca3af;">-</div>
+                    <input type="text" class="totp-digit" maxlength="1" inputmode="numeric" pattern="[0-9]" style="width: 48px; height: 56px; text-align: center; font-size: 24px; font-weight: 600; border: 2px solid #e5e7eb; border-radius: 12px; outline: none; transition: border-color 0.2s;" />
+                    <input type="text" class="totp-digit" maxlength="1" inputmode="numeric" pattern="[0-9]" style="width: 48px; height: 56px; text-align: center; font-size: 24px; font-weight: 600; border: 2px solid #e5e7eb; border-radius: 12px; outline: none; transition: border-color 0.2s;" />
+                    <input type="text" class="totp-digit" maxlength="1" inputmode="numeric" pattern="[0-9]" style="width: 48px; height: 56px; text-align: center; font-size: 24px; font-weight: 600; border: 2px solid #e5e7eb; border-radius: 12px; outline: none; transition: border-color 0.2s;" />
+                </div>
+                <button type="button" id="verify2FABtn" style="width: 100%; padding: 12px; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; margin-bottom: 12px;">
+                    Xác nhận
+                </button>
+                <div style="text-align: center;">
+                    <button type="button" id="back2FABtn" style="background: none; border: none; color: #6366f1; cursor: pointer; font-size: 14px; text-decoration: underline;">
+                        Quay lại đăng nhập
+                    </button>
+                </div>
+                <div style="text-align: center; margin-top: 12px;">
+                    <button type="button" id="useBackupBtn" style="background: none; border: none; color: #9ca3af; cursor: pointer; font-size: 13px;">
+                        Sử dụng mã dự phòng
+                    </button>
+                </div>
+            </div>
+        `;
+
+        // Setup 2FA digit inputs
+        const digits = loginForm.querySelectorAll('.totp-digit');
+        digits.forEach((input, index) => {
+            input.addEventListener('input', (e) => {
+                const val = e.target.value.replace(/[^0-9]/g, '');
+                e.target.value = val;
+                if (val && index < digits.length - 1) {
+                    digits[index + 1].focus();
+                }
+                // Auto-submit when all 6 digits entered
+                const code = Array.from(digits).map(d => d.value).join('');
+                if (code.length === 6) {
+                    verify2FA(tempToken, code, rememberMe);
+                }
+            });
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Backspace' && !e.target.value && index > 0) {
+                    digits[index - 1].focus();
+                }
+            });
+            input.addEventListener('focus', function() {
+                this.style.borderColor = '#6366f1';
+            });
+            input.addEventListener('blur', function() {
+                this.style.borderColor = '#e5e7eb';
+            });
+            // Handle paste
+            input.addEventListener('paste', (e) => {
+                e.preventDefault();
+                const pasted = (e.clipboardData.getData('text') || '').replace(/[^0-9]/g, '');
+                if (pasted.length >= 6) {
+                    digits.forEach((d, i) => { d.value = pasted[i] || ''; });
+                    verify2FA(tempToken, pasted.substring(0, 6), rememberMe);
+                }
+            });
+        });
+        digits[0].focus();
+
+        // Verify button
+        document.getElementById('verify2FABtn').addEventListener('click', () => {
+            const code = Array.from(digits).map(d => d.value).join('');
+            if (code.length !== 6) {
+                showError('Vui lòng nhập đủ 6 chữ số');
+                return;
+            }
+            verify2FA(tempToken, code, rememberMe);
+        });
+
+        // Back button
+        document.getElementById('back2FABtn').addEventListener('click', () => {
+            loginForm.innerHTML = originalHTML;
+            setupEventListeners();
+        });
+
+        // Backup code button
+        document.getElementById('useBackupBtn').addEventListener('click', () => {
+            const code = prompt('Nhập mã dự phòng (backup code):');
+            if (code && code.trim()) {
+                verify2FA(tempToken, code.trim(), rememberMe);
+            }
+        });
+    }
+
+    async function verify2FA(tempToken, totpCode, rememberMe) {
+        const verifyBtn = document.getElementById('verify2FABtn');
+        if (verifyBtn) {
+            verifyBtn.disabled = true;
+            verifyBtn.textContent = 'Đang xác thực...';
+        }
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/login/verify-totp`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tempToken, totpCode })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok || !data.success) {
+                showError(data.error || 'Mã xác thực không hợp lệ');
+                // Clear inputs
+                document.querySelectorAll('.totp-digit').forEach(d => { d.value = ''; });
+                document.querySelector('.totp-digit')?.focus();
+                return;
+            }
+
+            // 2FA verified, complete login
+            const user = data.user;
+            const now = Date.now();
+            const AUTH_CONFIG_DURATION = rememberMe ? 30 * 24 * 60 * 60 * 1000 : 8 * 60 * 60 * 1000;
+
+            const authData = {
+                isLoggedIn: "true",
+                username: user.username,
+                displayName: user.displayName,
+                token: data.token,
+                userId: user.userId,
+                detailedPermissions: user.detailedPermissions || {},
+                roleTemplate: user.roleTemplate || 'custom',
+                isAdmin: user.isAdmin || false,
+                checkLogin: (user.roleTemplate || 'user').toString(),
+                userType: `${user.username}-authenticated`,
+                timestamp: now,
+                expiresAt: now + AUTH_CONFIG_DURATION,
+                lastActivity: now,
+                loginTime: new Date().toISOString(),
+                isRemembered: rememberMe,
+            };
+
+            const authDataString = JSON.stringify(authData);
+
+            if (rememberMe) {
+                localStorage.setItem("loginindex_auth", authDataString);
+                localStorage.setItem("remember_login_preference", "true");
+                localStorage.setItem("isLoggedIn", "true");
+                localStorage.setItem("userType", authData.userType);
+                localStorage.setItem("checkLogin", authData.checkLogin);
+                sessionStorage.removeItem("loginindex_auth");
+            } else {
+                sessionStorage.setItem("loginindex_auth", authDataString);
+                localStorage.removeItem("loginindex_auth");
+                localStorage.removeItem("remember_login_preference");
+            }
+
+            showSuccess(`Xác thực thành công! Chào mừng ${user.displayName}`);
+            setTimeout(() => { redirectToMainApp(); }, 1500);
+
+        } catch (error) {
+            console.error('2FA verify error:', error);
+            showError('Không thể kết nối server');
+        } finally {
+            if (verifyBtn) {
+                verifyBtn.disabled = false;
+                verifyBtn.textContent = 'Xác nhận';
+            }
+        }
     }
 
     function initialize() {

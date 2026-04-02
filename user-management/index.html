@@ -55,12 +55,43 @@
 
     <!-- Main Container (Hidden until auth check) -->
     <div id="mainContainer" style="display: none">
+        <!-- Mobile Tab Header (Dropdown Style) -->
+        <div class="mobile-tab-header" id="mobileTabHeader">
+            <div class="mobile-header-content" onclick="toggleMobileDropdown()">
+                <div class="mobile-header-left">
+                    <i data-lucide="users" class="mobile-logo-icon"></i>
+                    <span class="mobile-header-title" id="mobileHeaderTitle">Quản Lý Users</span>
+                </div>
+                <i data-lucide="chevron-down" class="mobile-header-arrow" id="mobileHeaderArrow"></i>
+            </div>
+            <div class="mobile-tab-dropdown" id="mobileTabDropdown">
+                <div class="mobile-dropdown-item active" onclick="switchMobileTab('manage', 'Quản Lý Users')" data-mobile-tab="manage">
+                    <i data-lucide="users"></i><span>Quản Lý Users</span><i data-lucide="check" class="check-icon"></i>
+                </div>
+                <div class="mobile-dropdown-item" onclick="switchMobileTab('create', 'Tạo Mới')" data-mobile-tab="create">
+                    <i data-lucide="user-plus"></i><span>Tạo Mới</span><i data-lucide="check" class="check-icon"></i>
+                </div>
+                <div class="mobile-dropdown-item" onclick="switchMobileTab('permissions', 'Quyền Truy Cập')" data-mobile-tab="permissions">
+                    <i data-lucide="shield-check"></i><span>Quyền Truy Cập</span><i data-lucide="check" class="check-icon"></i>
+                </div>
+                <div class="mobile-dropdown-item" onclick="switchMobileTab('decode-tool', 'Giải Mã')" data-mobile-tab="decode-tool">
+                    <i data-lucide="lock-keyhole"></i><span>Giải Mã</span><i data-lucide="check" class="check-icon"></i>
+                </div>
+                <div class="mobile-dropdown-item" onclick="switchMobileTab('menu-rename', 'Đổi Tên Menu')" data-mobile-tab="menu-rename">
+                    <i data-lucide="edit-3"></i><span>Đổi Tên Menu</span><i data-lucide="check" class="check-icon"></i>
+                </div>
+                <div class="mobile-dropdown-item" onclick="switchMobileTab('templates', 'Quản Lý Templates')" data-mobile-tab="templates">
+                    <i data-lucide="layout-template"></i><span>Quản Lý Templates</span><i data-lucide="check" class="check-icon"></i>
+                </div>
+            </div>
+            <div class="mobile-dropdown-overlay" id="mobileDropdownOverlay" onclick="closeMobileDropdown()"></div>
+        </div>
         <!-- Main Content -->
         <main class="main-content">
             <!-- Top Bar -->
             <header class="top-bar">
                 <div class="top-bar-left">
-                    <button class="btn-icon" id="menuToggle">
+                    <button class="btn-icon" id="menuToggle" aria-label="Mở menu">
                         <i data-lucide="menu"></i>
                     </button>
                     <div class="breadcrumb">
@@ -69,11 +100,15 @@
                     </div>
                 </div>
                 <div class="top-bar-right">
+                    <button class="btn btn-secondary" id="btn2FA" onclick="setup2FA()" title="Thiết lập 2FA cho tài khoản của bạn">
+                        <i data-lucide="shield"></i>
+                        <span>2FA</span>
+                    </button>
                     <button class="btn btn-primary" id="btnShowCreate">
                         <i data-lucide="user-plus"></i>
                         <span>Tạo User</span>
                     </button>
-                    <button class="btn-icon" id="btnRefresh" title="Làm mới">
+                    <button class="btn-icon" id="btnRefresh" title="Làm mới" aria-label="Làm mới danh sách">
                         <i data-lucide="refresh-cw"></i>
                     </button>
                     <div class="search-box">
@@ -86,28 +121,28 @@
             <!-- Tab Navigation -->
             <section class="card" style="margin: 0 var(--spacing-xl) var(--spacing-xl)">
                 <div class="card-header" style="border-bottom: none; padding-bottom: 0">
-                    <div class="category-tabs" style="margin: 0">
-                        <button class="tab-btn active" data-tab="manage">
+                    <div class="category-tabs" style="margin: 0" role="tablist" aria-label="Quản lý tài khoản">
+                        <button class="tab-btn active" data-tab="manage" role="tab" aria-selected="true" aria-controls="manage" id="tab-manage">
                             <i data-lucide="users"></i>
                             Quản Lý Users
                         </button>
-                        <button class="tab-btn" data-tab="create">
+                        <button class="tab-btn" data-tab="create" role="tab" aria-selected="false" aria-controls="create" id="tab-create">
                             <i data-lucide="user-plus"></i>
                             Tạo Mới
                         </button>
-                        <button class="tab-btn" data-tab="permissions">
+                        <button class="tab-btn" data-tab="permissions" role="tab" aria-selected="false" aria-controls="permissions" id="tab-permissions">
                             <i data-lucide="shield-check"></i>
                             Quyền Truy Cập
                         </button>
-                        <button class="tab-btn" data-tab="decode-tool">
+                        <button class="tab-btn" data-tab="decode-tool" role="tab" aria-selected="false" aria-controls="decode-tool" id="tab-decode-tool">
                             <i data-lucide="lock-keyhole"></i>
                             Giải Mã
                         </button>
-                        <button class="tab-btn" data-tab="menu-rename">
+                        <button class="tab-btn" data-tab="menu-rename" role="tab" aria-selected="false" aria-controls="menu-rename" id="tab-menu-rename">
                             <i data-lucide="edit-3"></i>
                             Đổi Tên Menu
                         </button>
-                        <button class="tab-btn" data-tab="templates">
+                        <button class="tab-btn" data-tab="templates" role="tab" aria-selected="false" aria-controls="templates" id="tab-templates">
                             <i data-lucide="layout-template"></i>
                             Quản Lý Templates
                         </button>
@@ -116,7 +151,7 @@
             </section>
 
             <!-- Tab: Quản Lý Users -->
-            <div id="manage" class="tab-content active">
+            <div id="manage" class="tab-content active" role="tabpanel" aria-labelledby="tab-manage">
                 <!-- API Status -->
                 <section class="card">
                     <div class="card-header">
@@ -153,9 +188,14 @@
                     <div class="card-body">
                         <div id="userList" class="user-list-modern">
                             <div class="empty-state show">
-                                <i data-lucide="users"></i>
+                                <div class="empty-state-icon-wrapper">
+                                    <i data-lucide="users"></i>
+                                </div>
                                 <h3>Chưa có dữ liệu</h3>
-                                <p>Nhấn "Tải Danh Sách" để xem users</p>
+                                <p>Danh sách tài khoản sẽ hiển thị sau khi tải</p>
+                                <button class="btn btn-primary" onclick="loadUsers()">
+                                    <i data-lucide="download"></i> Tải Danh Sách
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -240,7 +280,7 @@
             </div>
 
             <!-- Tab: Tạo User Mới -->
-            <div id="create" class="tab-content">
+            <div id="create" class="tab-content" role="tabpanel" aria-labelledby="tab-create">
                 <section class="card">
                     <div class="card-header">
                         <div class="card-title">
@@ -308,7 +348,7 @@
             </div>
 
             <!-- Tab: Permissions Overview -->
-            <div id="permissions" class="tab-content">
+            <div id="permissions" class="tab-content" role="tabpanel" aria-labelledby="tab-permissions">
                 <section class="card">
                     <div class="card-header">
                         <div class="card-title">
@@ -339,7 +379,7 @@
             </div>
 
             <!-- Tab: Decode Tool -->
-            <div id="decode-tool" class="tab-content">
+            <div id="decode-tool" class="tab-content" role="tabpanel" aria-labelledby="tab-decode-tool">
                 <section class="card">
                     <div class="card-header">
                         <div class="card-title">
@@ -431,7 +471,7 @@
             </div>
 
             <!-- Tab: Menu Rename -->
-            <div id="menu-rename" class="tab-content">
+            <div id="menu-rename" class="tab-content" role="tabpanel" aria-labelledby="tab-menu-rename">
                 <div id="menuRenameContainer">
                     <div class="empty-state show">
                         <i data-lucide="edit-3"></i>
@@ -441,7 +481,7 @@
             </div>
 
             <!-- Tab: Template Management -->
-            <div id="templates" class="tab-content">
+            <div id="templates" class="tab-content" role="tabpanel" aria-labelledby="tab-templates">
                 <section class="card">
                     <div class="card-header">
                         <div class="card-title">
@@ -548,8 +588,9 @@
 
                     document
                         .querySelectorAll(".tab-btn")
-                        .forEach((b) => b.classList.remove("active"));
+                        .forEach((b) => { b.classList.remove("active"); b.setAttribute("aria-selected", "false"); });
                     btn.classList.add("active");
+                    btn.setAttribute("aria-selected", "true");
 
                     document
                         .querySelectorAll(".tab-content")
@@ -583,6 +624,47 @@
                     }, 50);
                 });
             });
+
+            // Mobile tab dropdown functions
+            window.toggleMobileDropdown = function() {
+                const dropdown = document.getElementById('mobileTabDropdown');
+                const overlay = document.getElementById('mobileDropdownOverlay');
+                const arrow = document.getElementById('mobileHeaderArrow');
+                if (dropdown.classList.contains('show')) {
+                    closeMobileDropdown();
+                } else {
+                    dropdown.classList.add('show');
+                    overlay.classList.add('show');
+                    arrow.style.transform = 'rotate(180deg)';
+                }
+            };
+
+            window.closeMobileDropdown = function() {
+                const dropdown = document.getElementById('mobileTabDropdown');
+                const overlay = document.getElementById('mobileDropdownOverlay');
+                const arrow = document.getElementById('mobileHeaderArrow');
+                dropdown.classList.remove('show');
+                overlay.classList.remove('show');
+                arrow.style.transform = 'rotate(0deg)';
+            };
+
+            window.switchMobileTab = function(tabName, title) {
+                // Click the corresponding desktop tab button
+                const tabBtn = document.querySelector(`.tab-btn[data-tab="${tabName}"]`);
+                if (tabBtn) tabBtn.click();
+
+                // Update mobile header
+                const titleEl = document.getElementById('mobileHeaderTitle');
+                if (titleEl) titleEl.textContent = title;
+
+                // Update active state in dropdown
+                document.querySelectorAll('.mobile-dropdown-item').forEach(item => {
+                    item.classList.remove('active');
+                    if (item.dataset.mobileTab === tabName) item.classList.add('active');
+                });
+
+                closeMobileDropdown();
+            };
 
             // Button handlers
             document

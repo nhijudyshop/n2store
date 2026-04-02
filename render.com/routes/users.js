@@ -9,6 +9,8 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const { verifyToken, requireUserMgmt, JWT_SECRET } = require('../middleware/auth');
+const OTPAuth = require('otpauth');
+const QRCode = require('qrcode');
 
 // =====================================================
 // HELPERS
@@ -37,7 +39,7 @@ function generateToken(user, rememberMe = false) {
     return jwt.sign(payload, JWT_SECRET, { expiresIn });
 }
 
-/** Format user row for API response (never expose password) */
+/** Format user row for API response (never expose password or TOTP secret) */
 function formatUser(row) {
     return {
         id: row.username,
@@ -48,6 +50,8 @@ function formatUser(row) {
         isAdmin: row.is_admin || false,
         detailedPermissions: row.detailed_permissions || {},
         userId: row.user_id || null,
+        totpEnabled: row.totp_enabled || false,
+        twoFaEnabledAt: row.two_fa_enabled_at || null,
         createdAt: row.created_at,
         createdBy: row.created_by,
         updatedAt: row.updated_at,
@@ -108,6 +112,21 @@ router.post('/login', async (req, res) => {
                 [newHash, 'bcrypt', normalizedUsername]
             );
             console.log(`[USERS] Upgraded password hash for ${normalizedUsername} to bcrypt`);
+        }
+
+        // Check if 2FA is enabled
+        if (user.totp_enabled && user.totp_secret) {
+            // Generate a short-lived temp token (5 min) for 2FA verification step
+            const tempToken = jwt.sign(
+                { username: normalizedUsername, purpose: '2fa_verify', rememberMe: !!rememberMe },
+                JWT_SECRET,
+                { expiresIn: '5m' }
+            );
+            return res.json({
+                success: true,
+                requires2FA: true,
+                tempToken
+            });
         }
 
         // Generate or ensure userId for chat system
@@ -613,6 +632,319 @@ router.post('/migrate/bulk', async (req, res) => {
     } catch (error) {
         console.error('[USERS] Migration error:', error);
         res.status(500).json({ error: 'Migration failed: ' + error.message });
+    }
+});
+
+// =====================================================
+// 2FA (TOTP) ENDPOINTS
+// =====================================================
+
+/** Verify TOTP code against secret */
+function verifyTOTP(secret, token) {
+    const totp = new OTPAuth.TOTP({
+        issuer: 'N2Store',
+        algorithm: 'SHA1',
+        digits: 6,
+        period: 30,
+        secret: OTPAuth.Secret.fromBase32(secret)
+    });
+    // Allow 1 step window (±30s) for clock drift
+    const delta = totp.validate({ token, window: 1 });
+    return delta !== null;
+}
+
+// POST /login/verify-totp - Verify TOTP after password login
+router.post('/login/verify-totp', async (req, res) => {
+    try {
+        const pool = req.app.locals.chatDb;
+        const { tempToken, totpCode } = req.body;
+
+        if (!tempToken || !totpCode) {
+            return res.status(400).json({ error: 'tempToken and totpCode required' });
+        }
+
+        // Verify temp token
+        let decoded;
+        try {
+            decoded = jwt.verify(tempToken, JWT_SECRET);
+        } catch (err) {
+            return res.status(401).json({ error: 'Token expired or invalid. Please login again.' });
+        }
+
+        if (decoded.purpose !== '2fa_verify') {
+            return res.status(401).json({ error: 'Invalid token type' });
+        }
+
+        const username = decoded.username;
+        const rememberMe = decoded.rememberMe;
+
+        // Get user
+        const result = await pool.query('SELECT * FROM app_users WHERE username = $1', [username]);
+        if (result.rows.length === 0) {
+            return res.status(401).json({ error: 'User not found' });
+        }
+
+        const user = result.rows[0];
+        const code = totpCode.replace(/\s/g, '');
+
+        // Try TOTP verification
+        let verified = false;
+        if (code.length === 6 && verifyTOTP(user.totp_secret, code)) {
+            verified = true;
+        }
+
+        // Try backup codes if TOTP failed
+        if (!verified && user.totp_backup_codes && Array.isArray(user.totp_backup_codes)) {
+            const backupIndex = user.totp_backup_codes.findIndex(bc => bc === code);
+            if (backupIndex !== -1) {
+                verified = true;
+                // Remove used backup code
+                const updatedCodes = [...user.totp_backup_codes];
+                updatedCodes.splice(backupIndex, 1);
+                await pool.query(
+                    'UPDATE app_users SET totp_backup_codes = $1 WHERE username = $2',
+                    [updatedCodes, username]
+                );
+                console.log(`[2FA] Backup code used by ${username}. ${updatedCodes.length} remaining.`);
+            }
+        }
+
+        if (!verified) {
+            return res.status(401).json({ error: 'Invalid verification code' });
+        }
+
+        // Generate userId if missing
+        let userId = user.user_id;
+        if (!userId) {
+            userId = `user_${username}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            await pool.query(
+                'UPDATE app_users SET user_id = $1, user_id_created_at = NOW() WHERE username = $2',
+                [userId, username]
+            );
+        }
+
+        const token = generateToken(user, rememberMe);
+
+        res.json({
+            success: true,
+            token,
+            user: {
+                ...formatUser(user),
+                userId
+            }
+        });
+
+    } catch (error) {
+        console.error('[2FA] TOTP verify error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// POST /2fa/setup - Start 2FA setup (returns QR code)
+router.post('/2fa/setup', verifyToken, async (req, res) => {
+    try {
+        const pool = req.app.locals.chatDb;
+        const username = req.user.username;
+
+        // Check if already enabled
+        const result = await pool.query('SELECT totp_enabled FROM app_users WHERE username = $1', [username]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        if (result.rows[0].totp_enabled) {
+            return res.status(400).json({ error: '2FA is already enabled. Disable first to re-setup.' });
+        }
+
+        // Generate new TOTP secret
+        const secret = new OTPAuth.Secret({ size: 20 });
+        const totp = new OTPAuth.TOTP({
+            issuer: 'N2Store',
+            label: username,
+            algorithm: 'SHA1',
+            digits: 6,
+            period: 30,
+            secret
+        });
+
+        const otpauthUrl = totp.toString();
+        const qrCodeDataUrl = await QRCode.toDataURL(otpauthUrl);
+
+        // Store secret temporarily (not enabled yet until verify-setup)
+        await pool.query(
+            'UPDATE app_users SET totp_secret = $1 WHERE username = $2',
+            [secret.base32, username]
+        );
+
+        res.json({
+            success: true,
+            qrCode: qrCodeDataUrl,
+            secret: secret.base32,
+            otpauthUrl
+        });
+
+    } catch (error) {
+        console.error('[2FA] Setup error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// POST /2fa/verify-setup - Confirm 2FA setup with a TOTP code
+router.post('/2fa/verify-setup', verifyToken, async (req, res) => {
+    try {
+        const pool = req.app.locals.chatDb;
+        const username = req.user.username;
+        const { totpCode } = req.body;
+
+        if (!totpCode) {
+            return res.status(400).json({ error: 'TOTP code required' });
+        }
+
+        // Get user's pending secret
+        const result = await pool.query(
+            'SELECT totp_secret, totp_enabled FROM app_users WHERE username = $1',
+            [username]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const user = result.rows[0];
+        if (!user.totp_secret) {
+            return res.status(400).json({ error: 'No 2FA setup in progress. Call /2fa/setup first.' });
+        }
+
+        if (user.totp_enabled) {
+            return res.status(400).json({ error: '2FA is already enabled' });
+        }
+
+        // Verify the code
+        const code = totpCode.replace(/\s/g, '');
+        if (!verifyTOTP(user.totp_secret, code)) {
+            return res.status(400).json({ error: 'Invalid code. Please try again.' });
+        }
+
+        // Generate 10 backup codes
+        const backupCodes = [];
+        for (let i = 0; i < 10; i++) {
+            backupCodes.push(crypto.randomBytes(4).toString('hex'));
+        }
+
+        // Enable 2FA
+        await pool.query(
+            `UPDATE app_users SET totp_enabled = true, totp_backup_codes = $1, two_fa_enabled_at = NOW(), updated_at = NOW() WHERE username = $2`,
+            [backupCodes, username]
+        );
+
+        console.log(`[2FA] Enabled for user: ${username}`);
+
+        res.json({
+            success: true,
+            message: '2FA enabled successfully',
+            backupCodes
+        });
+
+    } catch (error) {
+        console.error('[2FA] Verify setup error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// POST /2fa/disable - Disable 2FA (requires current TOTP code)
+router.post('/2fa/disable', verifyToken, async (req, res) => {
+    try {
+        const pool = req.app.locals.chatDb;
+        const username = req.user.username;
+        const { totpCode } = req.body;
+
+        if (!totpCode) {
+            return res.status(400).json({ error: 'TOTP code required to disable 2FA' });
+        }
+
+        const result = await pool.query(
+            'SELECT totp_secret, totp_enabled FROM app_users WHERE username = $1',
+            [username]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const user = result.rows[0];
+        if (!user.totp_enabled) {
+            return res.status(400).json({ error: '2FA is not enabled' });
+        }
+
+        // Verify the code
+        const code = totpCode.replace(/\s/g, '');
+        if (!verifyTOTP(user.totp_secret, code)) {
+            return res.status(401).json({ error: 'Invalid code' });
+        }
+
+        // Disable 2FA
+        await pool.query(
+            'UPDATE app_users SET totp_enabled = false, totp_secret = NULL, totp_backup_codes = NULL, two_fa_enabled_at = NULL, updated_at = NOW() WHERE username = $1',
+            [username]
+        );
+
+        console.log(`[2FA] Disabled for user: ${username}`);
+
+        res.json({ success: true, message: '2FA disabled successfully' });
+
+    } catch (error) {
+        console.error('[2FA] Disable error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// POST /2fa/reset - Admin resets 2FA for another user
+router.post('/2fa/reset', verifyToken, requireUserMgmt, async (req, res) => {
+    try {
+        const pool = req.app.locals.chatDb;
+        const { username } = req.body;
+
+        if (!username) {
+            return res.status(400).json({ error: 'Username required' });
+        }
+
+        await pool.query(
+            'UPDATE app_users SET totp_enabled = false, totp_secret = NULL, totp_backup_codes = NULL, two_fa_enabled_at = NULL, updated_at = NOW() WHERE username = $1',
+            [username.trim().toLowerCase()]
+        );
+
+        console.log(`[2FA] Admin ${req.user.username} reset 2FA for user: ${username}`);
+
+        res.json({ success: true, message: `2FA reset for ${username}` });
+
+    } catch (error) {
+        console.error('[2FA] Reset error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+// GET /2fa/status - Get current user's 2FA status
+router.get('/2fa/status', verifyToken, async (req, res) => {
+    try {
+        const pool = req.app.locals.chatDb;
+        const result = await pool.query(
+            'SELECT totp_enabled, two_fa_enabled_at, totp_backup_codes FROM app_users WHERE username = $1',
+            [req.user.username]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const user = result.rows[0];
+        res.json({
+            enabled: user.totp_enabled || false,
+            enabledAt: user.two_fa_enabled_at,
+            backupCodesRemaining: user.totp_backup_codes ? user.totp_backup_codes.length : 0
+        });
+
+    } catch (error) {
+        console.error('[2FA] Status error:', error);
+        res.status(500).json({ error: 'Server error' });
     }
 });
 
