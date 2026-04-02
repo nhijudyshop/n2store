@@ -615,21 +615,38 @@ window.ReturnOrderModal = (function () {
                 Partner: partner,
                 Account: config.Account,
 
-                // Order lines
-                OrderLines: S.orderLines.map(line => ({
-                    ProductUOM: { Id: line.uomId, Name: line.uom },
-                    Name: line.name,
-                    Account: config.Account,
-                    PriceUnit: line.price,
-                    AccountId: config.AccountId,
-                    PriceRecent: line.price,
-                    ProductQty: line.quantity,
-                    Product: line.product,
-                    ProductId: line.productId,
-                    ProductUOMId: line.uomId,
-                    Discount: 0,
-                    PriceSubTotal: line.quantity * line.price
-                }))
+                // Order lines - strip Product to only TPOS-accepted fields
+                OrderLines: S.orderLines.map(line => {
+                    const p = line.product || {};
+                    return {
+                        ProductUOM: { Id: line.uomId, Name: line.uom },
+                        Name: line.name,
+                        Account: config.Account,
+                        PriceUnit: line.price,
+                        AccountId: config.AccountId,
+                        PriceRecent: line.price,
+                        ProductQty: line.quantity,
+                        Product: {
+                            Id: p.Id,
+                            Name: p.Name,
+                            NameGet: p.NameGet,
+                            DefaultCode: p.DefaultCode,
+                            Barcode: p.Barcode || null,
+                            ListPrice: p.ListPrice,
+                            PurchasePrice: p.PurchasePrice,
+                            UOMName: p.UOMName,
+                            Active: p.Active,
+                            Type: p.Type,
+                            CompanyId: p.CompanyId,
+                            Weight: p.Weight || 0,
+                            ImageUrl: p.ImageUrl || null
+                        },
+                        ProductId: line.productId,
+                        ProductUOMId: line.uomId,
+                        Discount: 0,
+                        PriceSubTotal: line.quantity * line.price
+                    };
+                })
             };
 
             console.log('[ReturnOrder] Submitting return order:', payload);
