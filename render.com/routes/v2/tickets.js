@@ -67,20 +67,16 @@ router.get('/', async (req, res) => {
     try {
         let query = `
             SELECT t.*, c.name as customer_full_name,
-                   vc_data.remaining_amount as vc_remaining_amount,
-                   vc_data.original_amount as vc_original_amount,
-                   vc_data.used_in_orders as vc_used_in_orders
+                   vc.remaining_amount as vc_remaining_amount,
+                   vc.original_amount as vc_original_amount,
+                   vc.used_in_orders as vc_used_in_orders
             FROM customer_tickets t
             LEFT JOIN customers c ON t.customer_id = c.id
-            LEFT JOIN LATERAL (
-                SELECT remaining_amount, original_amount, used_in_orders
-                FROM virtual_credits
-                WHERE source_id IN (t.ticket_code, t.order_id)
-                  AND source_type = 'RETURN_SHIPPER'
-                  AND status = 'ACTIVE'
-                ORDER BY issued_at DESC
-                LIMIT 1
-            ) vc_data ON true
+            LEFT JOIN virtual_credits vc ON (
+                vc.source_id = t.ticket_code
+                AND vc.source_type = 'RETURN_SHIPPER'
+                AND vc.status = 'ACTIVE'
+            )
             WHERE t.status != 'DELETED'
         `;
         const params = [];
@@ -120,8 +116,9 @@ router.get('/', async (req, res) => {
             paramIndex++;
         }
 
-        // Count total (use simplified query without JOINs for performance)
-        const countQuery = query.replace(/SELECT[\s\S]*?FROM customer_tickets t[\s\S]*?WHERE/, 'SELECT COUNT(*) FROM customer_tickets t WHERE');
+        // Count total (simplified query without JOINs for performance)
+        const whereClause = query.split('WHERE t.status')[1];
+        const countQuery = `SELECT COUNT(*) FROM customer_tickets t WHERE t.status${whereClause}`;
         const countResult = await db.query(countQuery, params);
         const total = parseInt(countResult.rows[0].count);
 
