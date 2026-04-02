@@ -1442,7 +1442,30 @@
         }
     }
 
-    function processScan(value) {
+    async function checkCrossCheckStatus(orderNumber) {
+        try {
+            const token = await getToken();
+            if (!token) return null;
+            const encoded = encodeURIComponent(orderNumber);
+            const url = `https://tomato.tpos.vn/odata/FastSaleOrder/ODataService.GetView?&$top=1&$filter=(Type+eq+'invoice'+and+contains(Number,'${encoded}'))&$select=Number,StateCode`;
+            const res = await fetch(url, {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json',
+                    'tposappversion': window.TPOS_CONFIG?.tposAppVersion || '5.12.29.1'
+                }
+            });
+            if (!res.ok) return null;
+            const data = await res.json();
+            const item = (data.value || [])[0];
+            return item?.StateCode || null;
+        } catch (e) {
+            console.warn('[DELIVERY-REPORT] checkCrossCheckStatus error:', e);
+            return null;
+        }
+    }
+
+    async function processScan(value) {
         console.log('[DELIVERY-REPORT] Scanned:', value);
         const state = DeliveryReportState;
         const isProvinceTab = state.activeTab === 'province' && state.traSoatMode;
@@ -1504,6 +1527,16 @@
                 showScanFeedback('wrong-tab', `${match.Number} - ${match.PartnerDisplayName || ''} thuộc tab "${correctTab}"!`, true);
                 return;
             }
+        }
+
+        // Check CrossCheckComplete status from TPOS
+        showScanFeedback('warning', `Đang kiểm tra đối soát: ${match.Number}...`, false);
+        const stateCode = await checkCrossCheckStatus(match.Number);
+        if (stateCode !== 'CrossCheckComplete') {
+            if (isMultiColView) isAllTab ? hideAllGroupColumns() : hideProvinceColumns();
+            soundError.currentTime = 0; soundError.play();
+            showScanFeedback(false, `${match.Number} - ${match.PartnerDisplayName || ''} chưa đối soát (${stateCode || 'không rõ'})`, true);
+            return;
         }
 
         // Mark as scanned
