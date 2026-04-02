@@ -526,11 +526,10 @@
                         if ((tag.Name || '').toLowerCase().startsWith(mapping.prefix.toLowerCase())) {
                             const customFlagKey = _getOrCreateCustomFlag(tag.Name);
                             // Check if order already has this flag
-                            const existing = window.ProcessingTagState.getOrderData(String(order.Id));
+                            const existing = window.ProcessingTagState.getOrderData(String(order.Code));
                             if (existing && (existing.flags || []).includes(customFlagKey)) continue;
                             tasks.push({
-                                orderId: String(order.Id),
-                                orderCode: order.Code || order.Id,
+                                orderCode: String(order.Code),
                                 action: 'flag',
                                 flagKey: customFlagKey,
                                 _flagLabel: tag.Name
@@ -548,35 +547,32 @@
                     const hasTag = orderTags.some(t => t.Id === mapping.tposTagId);
                     if (!hasTag) continue;
 
-                    const oid = String(order.Id);
+                    const oc = String(order.Code);
 
                     if (mapping.targetType === 'category') {
-                        const existing = window.ProcessingTagState.getOrderData(oid);
+                        const existing = window.ProcessingTagState.getOrderData(oc);
                         if (existing && existing.category === mapping.ptagCategory) {
                             if (!mapping.ptagSubTag || existing.subTag === mapping.ptagSubTag) continue;
                         }
                         tasks.push({
-                            orderId: oid,
-                            orderCode: order.Code || order.Id,
+                            orderCode: oc,
                             action: 'category',
                             category: mapping.ptagCategory,
                             subTag: mapping.ptagSubTag
                         });
                     } else if (mapping.targetType === 'flag') {
-                        const existing = window.ProcessingTagState.getOrderData(oid);
+                        const existing = window.ProcessingTagState.getOrderData(oc);
                         if (existing && (existing.flags || []).includes(mapping.flagKey)) continue;
                         tasks.push({
-                            orderId: oid,
-                            orderCode: order.Code || order.Id,
+                            orderCode: oc,
                             action: 'flag',
                             flagKey: mapping.flagKey
                         });
                     } else if (mapping.targetType === 'ttag') {
-                        const existing = window.ProcessingTagState.getOrderData(oid);
+                        const existing = window.ProcessingTagState.getOrderData(oc);
                         if (existing && (existing.tTags || []).includes(mapping.ttagId)) continue;
                         tasks.push({
-                            orderId: oid,
-                            orderCode: order.Code || order.Id,
+                            orderCode: oc,
                             action: 'ttag',
                             ttagId: mapping.ttagId
                         });
@@ -585,10 +581,10 @@
             }
         }
 
-        // Deduplicate: keep last task per orderId+action+key combo
+        // Deduplicate: keep last task per orderCode+action+key combo
         const taskMap = new Map();
         for (const t of tasks) {
-            const key = `${t.orderId}|${t.action}|${t.flagKey || t.ttagId || t.category}`;
+            const key = `${t.orderCode}|${t.action}|${t.flagKey || t.ttagId || t.category}`;
             taskMap.set(key, t);
         }
         const uniqueTasks = [...taskMap.values()];
@@ -632,15 +628,15 @@
                 if (task.action === 'category') {
                     const opts = {};
                     if (task.subTag) opts.subTag = task.subTag;
-                    await window.assignOrderCategory(task.orderId, task.category, opts);
+                    await window.assignOrderCategory(task.orderCode, task.category, opts);
                 } else if (task.action === 'flag') {
-                    await window.toggleOrderFlag(task.orderId, task.flagKey);
+                    await window.toggleOrderFlag(task.orderCode, task.flagKey);
                 } else if (task.action === 'ttag') {
-                    await window.assignTTagToOrder(task.orderId, task.ttagId);
+                    await window.assignTTagToOrder(task.orderCode, task.ttagId);
                 }
                 success++;
             } catch (err) {
-                console.error(SYNC_LOG, 'Failed for order', task.orderId, err);
+                console.error(SYNC_LOG, 'Failed for order', task.orderCode, err);
                 failed++;
             }
             _showProgress(success + failed, total);
@@ -687,7 +683,7 @@
                 const allOrds = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
                 const order = allOrds.find(o => String(o.Id) === String(orderId));
                 if (order && typeof window.renderProcessingTagCell === 'function') {
-                    cell.innerHTML = window.renderProcessingTagCell(orderId, order.Code || '');
+                    cell.innerHTML = window.renderProcessingTagCell(String(order.Code));
                 }
             });
         }

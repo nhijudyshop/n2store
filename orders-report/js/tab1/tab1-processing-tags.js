@@ -181,7 +181,8 @@
     // =====================================================
 
     const ProcessingTagState = {
-        _orderData: new Map(),
+        _orderData: new Map(),         // Key = orderCode (hoặc orderId cho dữ liệu cũ)
+        _idToCodeIndex: new Map(),     // orderId → orderCode mapping (lookup ngược)
         _panelOpen: false,
         _panelPinned: JSON.parse(localStorage.getItem('ptag_panel_pinned') || 'false'),
         _activeFilter: null,
@@ -193,32 +194,45 @@
         _customFlagDefs: [],
         _flagsSectionExpanded: false,
 
-        getOrderData(orderId) {
+        // Primary lookup: bằng orderCode (key chính)
+        getOrderData(orderCode) {
+            return this._orderData.get(String(orderCode)) || null;
+        },
+        // Fallback lookup: bằng orderId cho dữ liệu cũ
+        getOrderDataByIdFallback(orderId) {
+            const code = this._idToCodeIndex.get(String(orderId));
+            if (code) return this._orderData.get(code);
+            // Dữ liệu cũ không có orderCode: key trong Map chính là orderId
             return this._orderData.get(String(orderId)) || null;
         },
-        setOrderData(orderId, data) {
-            this._orderData.set(String(orderId), data);
+        setOrderData(key, data) {
+            this._orderData.set(String(key), data);
+            // Xây index ngược: nếu data có orderId, map nó về key
+            if (data?.orderId) {
+                this._idToCodeIndex.set(String(data.orderId), String(key));
+            }
         },
-        updateOrder(orderId, updates) {
-            const current = this._orderData.get(String(orderId));
+        updateOrder(orderCode, updates) {
+            const current = this._orderData.get(String(orderCode));
             if (current) {
                 Object.assign(current, updates);
             }
         },
-        getOrderFlags(orderId) {
-            return this._orderData.get(String(orderId))?.flags || [];
+        getOrderFlags(orderCode) {
+            return this._orderData.get(String(orderCode))?.flags || [];
         },
-        removeOrder(orderId) {
-            this._orderData.delete(String(orderId));
+        removeOrder(orderCode) {
+            this._orderData.delete(String(orderCode));
         },
-        hasOrder(orderId) {
-            return this._orderData.has(String(orderId));
+        hasOrder(orderCode) {
+            return this._orderData.has(String(orderCode));
         },
         getAllOrders() {
             return this._orderData;
         },
         clear() {
             this._orderData.clear();
+            this._idToCodeIndex.clear();
         },
         getTTagDefinitions() {
             return this._tTagDefinitions;
@@ -261,6 +275,24 @@
         }
     };
 
+    // Helper: resolve orderId → orderCode
+    function _ptagResolveCode(orderId) {
+        // 1. Check index cache trước
+        const cached = ProcessingTagState._idToCodeIndex.get(String(orderId));
+        if (cached) return cached;
+        // 2. Tìm trong allOrders
+        const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
+        const order = allOrders.find(o => String(o.Id) === String(orderId));
+        return order?.Code ? String(order.Code) : null;
+    }
+
+    // Helper: resolve orderCode → orderId
+    function _ptagResolveId(orderCode) {
+        const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
+        const order = allOrders.find(o => String(o.Code) === String(orderCode));
+        return order?.Id ? String(order.Id) : null;
+    }
+
     // =====================================================
     // SECTION 3: API LAYER
     // =====================================================
@@ -288,19 +320,19 @@
             ProcessingTagState.clear();
             let loadedCustomFlags = false;
             if (result.data) {
-                for (const [orderId, data] of Object.entries(result.data)) {
-                    if (orderId === '__ttag_config__') {
+                for (const [key, data] of Object.entries(result.data)) {
+                    if (key === '__ttag_config__') {
                         ProcessingTagState.setTTagDefinitions(data.tTagDefinitions || []);
                         continue;
                     }
-                    if (orderId === '__ptag_custom_flags__') {
+                    if (key === '__ptag_custom_flags__') {
                         if (data.customFlagDefs) {
                             ProcessingTagState.setCustomFlagDefs(data.customFlagDefs);
                             loadedCustomFlags = true;
                         }
                         continue;
                     }
-                    // Still load campaign-based tags for backwards compatibility
+                    // key = orderCode (nếu có) hoặc orderId (dữ liệu cũ)
                     // Migrate legacy category 5 → CHO_DI_DON + CHO_HANG + pickingSlipPrinted
                     if (data.category === 5) {
                         data.category = PTAG_CATEGORIES.CHO_DI_DON;
@@ -311,7 +343,7 @@
                         const hasTTags = (data.tTags || []).length > 0;
                         data.subState = hasTTags ? 'CHO_HANG' : 'OKIE_CHO_DI_DON';
                     }
-                    ProcessingTagState.setOrderData(orderId, data);
+                    ProcessingTagState.setOrderData(key, data);
                 }
             }
             if (!loadedCustomFlags && backupCustomFlagDefs.length > 0) {
@@ -336,43 +368,55 @@
     }
 
     /**
-     * Re-map processing tag IDs to match current allData order IDs.
-     * Uses order Code (Mã ĐH) as cross-reference key — unique per order on TPOS.
-     * Fixes the issue where order.Id changes between page loads.
+     * Reconcile dữ liệu cũ (key = orderId) → chuyển sang key = orderCode.
+     * Chỉ xử lý entries có key là orderId (UUID dài), không phải orderCode (số ngắn).
+     * Dữ liệu mới đã dùng orderCode làm key nên không cần reconcile.
      */
     function _ptagReconcileIds() {
         const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
         if (allOrders.length === 0) return;
 
-        const allDataIds = new Set(allOrders.map(o => String(o.Id)));
-        const codeToTableId = new Map();
+        const codeToOrder = new Map();
         allOrders.forEach(o => {
-            if (o.Code) codeToTableId.set(String(o.Code), String(o.Id));
+            if (o.Code) codeToOrder.set(String(o.Code), o);
+        });
+        const idToOrder = new Map();
+        allOrders.forEach(o => {
+            if (o.Id) idToOrder.set(String(o.Id), o);
         });
 
         const remaps = [];
-        for (const [orderId, data] of ProcessingTagState.getAllOrders()) {
-            if (allDataIds.has(orderId)) continue; // Already matches
-            const code = String(data.code || '');
-            if (code && codeToTableId.has(code)) {
-                const newId = codeToTableId.get(code);
-                if (newId !== orderId) {
-                    remaps.push({ oldId: orderId, newId, data });
+        for (const [key, data] of ProcessingTagState.getAllOrders()) {
+            // Nếu key đã là orderCode (có trong codeToOrder) → đã OK
+            if (codeToOrder.has(key)) continue;
+            // Nếu key là orderId → cần remap sang orderCode
+            const order = idToOrder.get(key);
+            if (order?.Code) {
+                const newKey = String(order.Code);
+                if (newKey !== key) {
+                    remaps.push({ oldKey: key, newKey, data });
+                }
+            } else {
+                // Key không match orderId lẫn orderCode → có thể là record từ code cũ
+                const code = String(data.code || '');
+                if (code && codeToOrder.has(code) && !ProcessingTagState.hasOrder(code)) {
+                    remaps.push({ oldKey: key, newKey: code, data });
                 }
             }
         }
 
-        for (const { oldId, newId, data } of remaps) {
-            if (ProcessingTagState.hasOrder(newId)) continue;
-            ProcessingTagState.removeOrder(oldId);
-            ProcessingTagState.setOrderData(newId, data);
-            saveProcessingTagToAPI(newId, data);
-            clearProcessingTagAPI(oldId);
-            console.log(`${PTAG_LOG} Re-mapped order: ${oldId} → ${newId} (Code: ${data.code})`);
+        for (const { oldKey, newKey, data } of remaps) {
+            if (ProcessingTagState.hasOrder(newKey)) continue;
+            ProcessingTagState.removeOrder(oldKey);
+            data.code = newKey; // Đảm bảo data.code = orderCode
+            ProcessingTagState.setOrderData(newKey, data);
+            // Save lại bằng orderCode endpoint mới
+            saveProcessingTagToAPI(newKey, data);
+            console.log(`${PTAG_LOG} Reconciled: ${oldKey} → ${newKey} (orderCode)`);
         }
 
         if (remaps.length > 0) {
-            console.log(`${PTAG_LOG} Reconciled ${remaps.length} order ID(s) by Code cross-reference`);
+            console.log(`${PTAG_LOG} Reconciled ${remaps.length} legacy entry(ies) to orderCode keys`);
         }
     }
 
@@ -382,13 +426,6 @@
      */
     async function loadProcessingTagsByCodes(orderCodes) {
         if (!orderCodes || orderCodes.length === 0) return;
-
-        // Build code → current orderId map
-        const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
-        const codeToId = new Map();
-        allOrders.forEach(o => {
-            if (o.Code) codeToId.set(String(o.Code), String(o.Id));
-        });
 
         // Chunk codes (max 500 per request)
         const CHUNK = 500;
@@ -401,8 +438,6 @@
                 });
                 if (result.data) {
                     for (const [code, tagData] of Object.entries(result.data)) {
-                        const orderId = codeToId.get(String(code));
-                        if (!orderId) continue;
                         // Migrate legacy category 5 → CHO_DI_DON + CHO_HANG + pickingSlipPrinted
                         if (tagData.category === 5) {
                             tagData.category = PTAG_CATEGORIES.CHO_DI_DON;
@@ -413,7 +448,8 @@
                         if (tagData.category === PTAG_CATEGORIES.CHO_DI_DON) {
                             tagData.subState = (tagData.tTags || []).length > 0 ? 'CHO_HANG' : 'OKIE_CHO_DI_DON';
                         }
-                        ProcessingTagState.setOrderData(orderId, tagData);
+                        // Store trực tiếp bằng orderCode
+                        ProcessingTagState.setOrderData(code, tagData);
                     }
                 }
             } catch (e) {
@@ -425,17 +461,17 @@
 
 
 
-    async function saveProcessingTagToAPI(orderId, data) {
+    async function saveProcessingTagToAPI(orderCode, data) {
         const campaignId = ProcessingTagState._campaignId;
-        if (!campaignId) return;
         try {
             const userName = window.authManager?.getAuthState()?.username || '';
+            const orderId = _ptagResolveId(orderCode) || null;
             await _ptagFetch(
-                `${PTAG_API_BASE}/${encodeURIComponent(campaignId)}/${encodeURIComponent(orderId)}`,
-                { method: 'PUT', body: JSON.stringify({ data, updatedBy: userName }) }
+                `${PTAG_API_BASE}/by-code/${encodeURIComponent(orderCode)}`,
+                { method: 'PUT', body: JSON.stringify({ data, updatedBy: userName, campaignId, orderId }) }
             );
         } catch (e) {
-            console.error(`${PTAG_LOG} Failed to save tag for ${orderId}:`, e);
+            console.error(`${PTAG_LOG} Failed to save tag for ${orderCode}:`, e);
         }
     }
 
@@ -449,16 +485,14 @@
         await saveProcessingTagToAPI('__ptag_custom_flags__', data);
     }
 
-    async function clearProcessingTagAPI(orderId) {
-        const campaignId = ProcessingTagState._campaignId;
-        if (!campaignId) return;
+    async function clearProcessingTagAPI(orderCode) {
         try {
             await _ptagFetch(
-                `${PTAG_API_BASE}/${encodeURIComponent(campaignId)}/${encodeURIComponent(orderId)}`,
+                `${PTAG_API_BASE}/by-code/${encodeURIComponent(orderCode)}`,
                 { method: 'DELETE' }
             );
         } catch (e) {
-            console.error(`${PTAG_LOG} Failed to clear tag for ${orderId}:`, e);
+            console.error(`${PTAG_LOG} Failed to clear tag for ${orderCode}:`, e);
         }
     }
 
@@ -486,27 +520,25 @@
                     const payload = JSON.parse(e.data);
                     const eventData = payload.data || payload;
                     let { orderId, orderCode, data } = eventData;
-                    if (orderId === '__ttag_config__' && data) {
+                    // Config records: check cả orderId lẫn orderCode
+                    const configKey = orderCode || orderId;
+                    if (configKey === '__ttag_config__' && data) {
                         ProcessingTagState.setTTagDefinitions(data.tTagDefinitions || []);
                         renderPanelContent();
                         return;
                     }
-                    if (orderId === '__ptag_custom_flags__' && data) {
+                    if (configKey === '__ptag_custom_flags__' && data) {
                         if (data.customFlagDefs) {
                             ProcessingTagState.setCustomFlagDefs(data.customFlagDefs);
                         }
                         renderPanelContent();
                         return;
                     }
-                    // Resolve orderId from orderCode (for global SSE events)
-                    if (orderCode && !orderId) {
-                        const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
-                        const match = allOrders.find(o => String(o.Code) === String(orderCode));
-                        if (match) orderId = String(match.Id);
-                    }
-                    if (orderId && data) {
-                        ProcessingTagState.setOrderData(orderId, data);
-                        _ptagRefreshRow(orderId);
+                    // Ưu tiên orderCode, fallback orderId cho dữ liệu cũ
+                    const key = orderCode || orderId;
+                    if (key && data) {
+                        ProcessingTagState.setOrderData(key, data);
+                        _ptagRefreshRow(key);
                         renderPanelContent();
                     }
                 } catch (err) {
@@ -517,10 +549,11 @@
             source.addEventListener('deleted', (e) => {
                 try {
                     const payload = JSON.parse(e.data);
-                    const { orderId } = payload.data || payload;
-                    if (orderId) {
-                        ProcessingTagState.removeOrder(orderId);
-                        _ptagRefreshRow(orderId);
+                    const { orderId, orderCode } = payload.data || payload;
+                    const key = orderCode || orderId;
+                    if (key) {
+                        ProcessingTagState.removeOrder(key);
+                        _ptagRefreshRow(key);
                         renderPanelContent();
                     }
                 } catch (err) {
@@ -550,14 +583,14 @@
         console.log(`${PTAG_LOG} Polling started (15s interval)`);
     }
 
-    function _ptagRefreshRow(orderId) {
-        // Re-render the processing tag cell for this order in the table
-        const row = document.querySelector(`tr[data-order-id="${orderId}"]`);
+    function _ptagRefreshRow(orderCode) {
+        // Resolve orderCode → orderId cho DOM query (data-order-id vẫn dùng orderId)
+        const orderId = _ptagResolveId(orderCode);
+        const row = orderId ? document.querySelector(`tr[data-order-id="${orderId}"]`) : null;
         if (!row) return;
         const cell = row.querySelector('td[data-column="processing-tag"]');
         if (!cell) return;
-        const order = ((typeof window.getAllOrders === 'function') ? window.getAllOrders() : []).find(o => o.Id === orderId);
-        cell.innerHTML = renderProcessingTagCell(orderId, order?.Code || '');
+        cell.innerHTML = renderProcessingTagCell(orderCode);
 
         // Re-filter table if any processing tag filter is active
         if (hasActiveProcessingTagFilters() && typeof window.performTableSearch === 'function') {
@@ -575,8 +608,9 @@
             if (!row) return;
             const orderId = row.getAttribute('data-order-id');
             if (!orderId) return;
-            const order = ((typeof window.getAllOrders === 'function') ? window.getAllOrders() : []).find(o => o.Id === orderId);
-            cell.innerHTML = renderProcessingTagCell(orderId, order?.Code || '');
+            const orderCode = _ptagResolveCode(orderId);
+            if (!orderCode) return;
+            cell.innerHTML = renderProcessingTagCell(orderCode);
         });
     }
 
@@ -584,8 +618,8 @@
     // SECTION 4: CORE BUSINESS LOGIC
     // =====================================================
 
-    async function assignOrderCategory(orderId, category, options = {}) {
-        const existingData = ProcessingTagState.getOrderData(orderId);
+    async function assignOrderCategory(orderCode, category, options = {}) {
+        const existingData = ProcessingTagState.getOrderData(orderCode);
         // Preserve existing flags when changing category
         const existingFlags = existingData?.flags || [];
         const newFlags = options.flags || [];
@@ -607,13 +641,13 @@
 
             // Auto picking slip for single-SKU CHO_HANG orders
             if (data.subState === 'CHO_HANG') {
-                data.pickingSlipPrinted = await _ptagIsSingleSkuOrder(orderId);
+                data.pickingSlipPrinted = await _ptagIsSingleSkuOrder(orderCode);
             }
 
             // Auto-detect flags from wallet
-            const phone = _ptagGetOrderPhone(orderId);
+            const phone = _ptagGetOrderPhone(orderCode);
             if (phone) {
-                const autoFlags = await autoDetectFlags(orderId, phone);
+                const autoFlags = await autoDetectFlags(orderCode, phone);
                 data.flags = [...new Set([...data.flags, ...autoFlags])];
             }
         }
@@ -621,32 +655,32 @@
         // Preserve history from existing data
         data.history = existingData?.history || [];
 
-        _ptagEnsureCode(orderId, data);
-        ProcessingTagState.setOrderData(orderId, data);
+        _ptagEnsureCode(orderCode, data);
+        ProcessingTagState.setOrderData(orderCode, data);
 
         // Log history
         const catValue = `${category}:${options.subTag || ''}`;
-        _ptagAddHistory(orderId, 'SET_CATEGORY', catValue);
+        _ptagAddHistory(orderCode, 'SET_CATEGORY', catValue);
         // Log auto-detected flags
         if (category === PTAG_CATEGORIES.CHO_DI_DON) {
             const autoFlags = data.flags.filter(f => !existingFlags.includes(f) && !newFlags.includes(f));
-            autoFlags.forEach(f => _ptagAddHistory(orderId, 'ADD_FLAG', f, 'Hệ thống'));
+            autoFlags.forEach(f => _ptagAddHistory(orderCode, 'ADD_FLAG', f, 'Hệ thống'));
         }
 
-        _ptagRefreshRow(orderId);
+        _ptagRefreshRow(orderCode);
         renderPanelContent();
-        await saveProcessingTagToAPI(orderId, data);
+        await saveProcessingTagToAPI(orderCode, data);
     }
 
-    async function autoDetectFlags(orderId, phone) {
-        const existingFlags = ProcessingTagState.getOrderFlags(orderId);
+    async function autoDetectFlags(orderCode, phone) {
+        const existingFlags = ProcessingTagState.getOrderFlags(orderCode);
         const newFlags = [];
 
         // Wallet CK + Công nợ: đã chuyển sang tab1-qr-debt.js (auto khi badge hiển thị)
 
         // Order Discount → Giảm giá
         try {
-            const order = ((typeof window.getAllOrders === 'function') ? window.getAllOrders() : []).find(o => o.Id === orderId);
+            const order = ((typeof window.getAllOrders === 'function') ? window.getAllOrders() : []).find(o => String(o.Code) === String(orderCode));
             if (order && parseFloat(order.Discount || 0) > 0 && !existingFlags.includes('GIAM_GIA')) {
                 newFlags.push('GIAM_GIA');
             }
@@ -657,8 +691,8 @@
         return newFlags;
     }
 
-    async function toggleOrderFlag(orderId, flagKey) {
-        let data = ProcessingTagState.getOrderData(orderId);
+    async function toggleOrderFlag(orderCode, flagKey) {
+        let data = ProcessingTagState.getOrderData(orderCode);
         // If no data yet, create a minimal entry with just flags (no category)
         if (!data) {
             data = { category: null, subTag: null, subState: null, flags: [], tTags: [], note: '', assignedAt: Date.now() };
@@ -674,18 +708,18 @@
         }
         data.flags = flags;
 
-        _ptagEnsureCode(orderId, data);
-        ProcessingTagState.setOrderData(orderId, data);
-        _ptagAddHistory(orderId, isAdding ? 'ADD_FLAG' : 'REMOVE_FLAG', flagKey);
-        _ptagRefreshRow(orderId);
+        _ptagEnsureCode(orderCode, data);
+        ProcessingTagState.setOrderData(orderCode, data);
+        _ptagAddHistory(orderCode, isAdding ? 'ADD_FLAG' : 'REMOVE_FLAG', flagKey);
+        _ptagRefreshRow(orderCode);
         renderPanelContent();
-        await saveProcessingTagToAPI(orderId, data);
+        await saveProcessingTagToAPI(orderCode, data);
     }
 
-    async function clearProcessingTag(orderId) {
-        const data = ProcessingTagState.getOrderData(orderId);
+    async function clearProcessingTag(orderCode) {
+        const data = ProcessingTagState.getOrderData(orderCode);
         const removedValue = data ? `${data.category}:${data.subTag || ''}` : '';
-        _ptagAddHistory(orderId, 'REMOVE_CATEGORY', removedValue);
+        _ptagAddHistory(orderCode, 'REMOVE_CATEGORY', removedValue);
         if (data) {
             const hasFlags = (data.flags || []).length > 0;
             const hasTTags = (data.tTags || []).length > 0;
@@ -694,23 +728,23 @@
                 data.category = null;
                 data.subTag = null;
                 data.subState = null;
-                ProcessingTagState.setOrderData(orderId, data);
-                _ptagRefreshRow(orderId);
+                ProcessingTagState.setOrderData(orderCode, data);
+                _ptagRefreshRow(orderCode);
                 renderPanelContent();
-                await saveProcessingTagToAPI(orderId, data);
+                await saveProcessingTagToAPI(orderCode, data);
                 return;
             }
         }
         // Nothing left → fully remove
-        ProcessingTagState.removeOrder(orderId);
-        _ptagRefreshRow(orderId);
+        ProcessingTagState.removeOrder(orderCode);
+        _ptagRefreshRow(orderCode);
         renderPanelContent();
-        await clearProcessingTagAPI(orderId);
+        await clearProcessingTagAPI(orderCode);
     }
 
     // T-tag assignment functions — works for ANY order state
-    async function assignTTagToOrder(orderId, tagId) {
-        let data = ProcessingTagState.getOrderData(orderId);
+    async function assignTTagToOrder(orderCode, tagId) {
+        let data = ProcessingTagState.getOrderData(orderCode);
         if (!data) {
             // Create minimal data for orders without processing tag
             data = { tTags: [] };
@@ -722,39 +756,39 @@
         if (data.category === PTAG_CATEGORIES.CHO_DI_DON && data.subState === 'OKIE_CHO_DI_DON') {
             data.subState = 'CHO_HANG';
             // Auto picking slip for single-SKU orders
-            if (await _ptagIsSingleSkuOrder(orderId)) {
+            if (await _ptagIsSingleSkuOrder(orderCode)) {
                 data.pickingSlipPrinted = true;
             }
         }
-        _ptagEnsureCode(orderId, data);
-        ProcessingTagState.setOrderData(orderId, data);
-        _ptagAddHistory(orderId, 'ADD_TTAG', tagId);
-        _ptagRefreshRow(orderId);
+        _ptagEnsureCode(orderCode, data);
+        ProcessingTagState.setOrderData(orderCode, data);
+        _ptagAddHistory(orderCode, 'ADD_TTAG', tagId);
+        _ptagRefreshRow(orderCode);
         renderPanelContent();
-        await saveProcessingTagToAPI(orderId, data);
+        await saveProcessingTagToAPI(orderCode, data);
     }
 
-    async function removeTTagFromOrder(orderId, tagId) {
-        const data = ProcessingTagState.getOrderData(orderId);
+    async function removeTTagFromOrder(orderCode, tagId) {
+        const data = ProcessingTagState.getOrderData(orderCode);
         if (!data) return;
         data.tTags = (data.tTags || []).filter(t => t !== tagId);
         // Auto sub-state ONLY when at Cat 1 "Chờ Hàng" and all T-tags removed
         if (data.category === PTAG_CATEGORIES.CHO_DI_DON && data.subState === 'CHO_HANG' && data.tTags.length === 0) {
             data.subState = 'OKIE_CHO_DI_DON';
         }
-        _ptagEnsureCode(orderId, data);
-        ProcessingTagState.setOrderData(orderId, data);
-        _ptagAddHistory(orderId, 'REMOVE_TTAG', tagId);
-        _ptagRefreshRow(orderId);
+        _ptagEnsureCode(orderCode, data);
+        ProcessingTagState.setOrderData(orderCode, data);
+        _ptagAddHistory(orderCode, 'REMOVE_TTAG', tagId);
+        _ptagRefreshRow(orderCode);
         renderPanelContent();
-        await saveProcessingTagToAPI(orderId, data);
+        await saveProcessingTagToAPI(orderCode, data);
     }
 
     // Transfer processing tags (flags + tTags) from source order to target order
     // Used when redirecting from "ĐÃ GỘP KO CHỐT" order to replacement order
     // Only merges flags + tTags, does NOT touch category/subTag of target
-    async function transferProcessingTags(sourceOrderId, targetOrderId) {
-        const sourceData = ProcessingTagState.getOrderData(sourceOrderId);
+    async function transferProcessingTags(sourceOrderCode, targetOrderCode) {
+        const sourceData = ProcessingTagState.getOrderData(sourceOrderCode);
         if (!sourceData) return { transferred: false, reason: 'no_source_data' };
 
         const sourceFlags = sourceData.flags || [];
@@ -763,10 +797,10 @@
             return { transferred: false, reason: 'nothing_to_transfer' };
         }
 
-        console.log(`${PTAG_LOG} Transferring processing tags from ${sourceOrderId} to ${targetOrderId} (flags: ${sourceFlags.length}, tTags: ${sourceTTags.length})`);
+        console.log(`${PTAG_LOG} Transferring processing tags from ${sourceOrderCode} to ${targetOrderCode} (flags: ${sourceFlags.length}, tTags: ${sourceTTags.length})`);
 
         // Get or create target data
-        let targetData = ProcessingTagState.getOrderData(targetOrderId) || {
+        let targetData = ProcessingTagState.getOrderData(targetOrderCode) || {
             category: null, subTag: null, subState: null,
             flags: [], tTags: [], note: '', assignedAt: Date.now()
         };
@@ -786,30 +820,28 @@
             targetData.subState = 'CHO_HANG';
         }
 
-        _ptagEnsureCode(targetOrderId, targetData);
-        ProcessingTagState.setOrderData(targetOrderId, targetData);
+        _ptagEnsureCode(targetOrderCode, targetData);
+        ProcessingTagState.setOrderData(targetOrderCode, targetData);
 
         // History
-        const sourceCode = sourceData.code || sourceOrderId;
-        const targetCode = targetData.code || targetOrderId;
-        _ptagAddHistory(targetOrderId, 'TRANSFER_IN', sourceCode);
-        _ptagAddHistory(sourceOrderId, 'TRANSFER_OUT', targetCode);
+        _ptagAddHistory(targetOrderCode, 'TRANSFER_IN', sourceOrderCode);
+        _ptagAddHistory(sourceOrderCode, 'TRANSFER_OUT', targetOrderCode);
 
         // Clear source flags + tTags (keep category untouched)
         sourceData.flags = [];
         sourceData.tTags = [];
-        ProcessingTagState.setOrderData(sourceOrderId, sourceData);
+        ProcessingTagState.setOrderData(sourceOrderCode, sourceData);
 
         // Save both to API
-        await saveProcessingTagToAPI(targetOrderId, targetData);
-        await saveProcessingTagToAPI(sourceOrderId, sourceData);
+        await saveProcessingTagToAPI(targetOrderCode, targetData);
+        await saveProcessingTagToAPI(sourceOrderCode, sourceData);
 
         // Refresh UI
-        _ptagRefreshRow(targetOrderId);
-        _ptagRefreshRow(sourceOrderId);
+        _ptagRefreshRow(targetOrderCode);
+        _ptagRefreshRow(sourceOrderCode);
         renderPanelContent();
 
-        console.log(`${PTAG_LOG} Transfer complete: ${newFlags.length} flags, ${newTTags.length} tTags added to ${targetOrderId}`);
+        console.log(`${PTAG_LOG} Transfer complete: ${newFlags.length} flags, ${newTTags.length} tTags added to ${targetOrderCode}`);
         return {
             transferred: true,
             flagsAdded: newFlags,
@@ -824,8 +856,10 @@
     }
 
     // Auto transition: bill created → ĐÃ RA ĐƠN
+    // saleOnlineId = orderId từ TPOS, cần resolve sang orderCode
     function onPtagBillCreated(saleOnlineId) {
-        let data = ProcessingTagState.getOrderData(saleOnlineId);
+        const orderCode = _ptagResolveCode(saleOnlineId) || saleOnlineId;
+        let data = ProcessingTagState.getOrderData(orderCode) || ProcessingTagState.getOrderDataByIdFallback(saleOnlineId);
 
         if (!data) {
             data = { category: null, subTag: null, subState: null, flags: [], tTags: [], note: '', assignedAt: Date.now() };
@@ -850,17 +884,19 @@
         data.assignedAt = Date.now();
         data.previousPosition = snapshot;
 
-        _ptagEnsureCode(saleOnlineId, data);
-        ProcessingTagState.setOrderData(saleOnlineId, data);
-        _ptagAddHistory(saleOnlineId, 'AUTO_HOAN_TAT', '', 'Hệ thống');
-        _ptagRefreshRow(saleOnlineId);
+        _ptagEnsureCode(orderCode, data);
+        ProcessingTagState.setOrderData(orderCode, data);
+        _ptagAddHistory(orderCode, 'AUTO_HOAN_TAT', '', 'Hệ thống');
+        _ptagRefreshRow(orderCode);
         renderPanelContent();
-        saveProcessingTagToAPI(saleOnlineId, data);
+        saveProcessingTagToAPI(orderCode, data);
     }
 
     // Auto transition: packing slip printed → mark pickingSlipPrinted
+    // saleOnlineId = orderId từ TPOS, cần resolve sang orderCode
     function onPtagPackingSlipPrinted(saleOnlineId) {
-        let data = ProcessingTagState.getOrderData(saleOnlineId);
+        const orderCode = _ptagResolveCode(saleOnlineId) || saleOnlineId;
+        let data = ProcessingTagState.getOrderData(orderCode) || ProcessingTagState.getOrderDataByIdFallback(saleOnlineId);
 
         if (!data) {
             data = { category: null, subTag: null, subState: null, flags: [], tTags: [], note: '', assignedAt: Date.now() };
@@ -878,17 +914,19 @@
             data.assignedAt = Date.now();
         }
 
-        _ptagEnsureCode(saleOnlineId, data);
-        ProcessingTagState.setOrderData(saleOnlineId, data);
-        _ptagAddHistory(saleOnlineId, 'AUTO_PHIEU_SOAN', '', 'Hệ thống');
-        _ptagRefreshRow(saleOnlineId);
+        _ptagEnsureCode(orderCode, data);
+        ProcessingTagState.setOrderData(orderCode, data);
+        _ptagAddHistory(orderCode, 'AUTO_PHIEU_SOAN', '', 'Hệ thống');
+        _ptagRefreshRow(orderCode);
         renderPanelContent();
-        saveProcessingTagToAPI(saleOnlineId, data);
+        saveProcessingTagToAPI(orderCode, data);
     }
 
     // Auto rollback: bill cancelled → restore previous position
+    // saleOnlineId = orderId từ TPOS, cần resolve sang orderCode
     function onPtagBillCancelled(saleOnlineId) {
-        const data = ProcessingTagState.getOrderData(saleOnlineId);
+        const orderCode = _ptagResolveCode(saleOnlineId) || saleOnlineId;
+        const data = ProcessingTagState.getOrderData(orderCode) || ProcessingTagState.getOrderDataByIdFallback(saleOnlineId);
         if (!data?.previousPosition) return;
 
         const prev = data.previousPosition;
@@ -911,24 +949,27 @@
             restored.pickingSlipPrinted = true;
         }
 
-        _ptagEnsureCode(saleOnlineId, restored);
-        ProcessingTagState.setOrderData(saleOnlineId, restored);
-        _ptagAddHistory(saleOnlineId, 'AUTO_ROLLBACK', '', 'Hệ thống');
-        _ptagRefreshRow(saleOnlineId);
+        _ptagEnsureCode(orderCode, restored);
+        ProcessingTagState.setOrderData(orderCode, restored);
+        _ptagAddHistory(orderCode, 'AUTO_ROLLBACK', '', 'Hệ thống');
+        _ptagRefreshRow(orderCode);
         renderPanelContent();
-        saveProcessingTagToAPI(saleOnlineId, restored);
+        saveProcessingTagToAPI(orderCode, restored);
     }
 
     // Helpers
-    function _ptagGetOrderPhone(orderId) {
-        const order = ((typeof window.getAllOrders === 'function') ? window.getAllOrders() : []).find(o => o.Id === orderId);
+    function _ptagGetOrderPhone(orderCode) {
+        const order = ((typeof window.getAllOrders === 'function') ? window.getAllOrders() : []).find(o => String(o.Code) === String(orderCode));
         return order?.Telephone || order?.Phone || '';
     }
 
     /** Check if order has only 1 unique product code (for auto picking slip) */
-    async function _ptagIsSingleSkuOrder(orderId) {
+    async function _ptagIsSingleSkuOrder(orderCode) {
         try {
             if (!window.tokenManager) return false;
+            // OData API cần orderId, resolve từ orderCode
+            const orderId = _ptagResolveId(orderCode);
+            if (!orderId) return false;
             const resp = await window.tokenManager.authenticatedFetch(
                 `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order(${orderId})?$expand=Details`,
                 { headers: { 'accept': 'application/json', 'content-type': 'application/json' } }
@@ -945,11 +986,10 @@
         }
     }
 
-    /** Inject order Code into data before saving (for cross-referencing after reload) */
-    function _ptagEnsureCode(orderId, data) {
+    /** Ensure data.code = orderCode (for cross-referencing) */
+    function _ptagEnsureCode(orderCode, data) {
         if (!data.code) {
-            const order = ((typeof window.getAllOrders === 'function') ? window.getAllOrders() : []).find(o => String(o.Id) === String(orderId));
-            if (order?.Code) data.code = order.Code;
+            data.code = orderCode;
         }
     }
 
@@ -957,14 +997,14 @@
     // SECTION 5: UI — TABLE CELL RENDERING
     // =====================================================
 
-    function renderProcessingTagCell(orderId, orderCode) {
-        const data = ProcessingTagState.getOrderData(orderId);
+    function renderProcessingTagCell(orderCode) {
+        const data = ProcessingTagState.getOrderData(orderCode);
 
         // Buttons row: [🏷 tags] [⏰ wait] [✓ ok] — identical to TPOS tag column
         const btns = `<div class="ptag-cell-buttons">` +
-            `<button class="ptag-tag-btn" onclick="window._ptagOpenDropdown('${orderId}', '${orderCode}', this); event.stopPropagation();" title="Chọn trạng thái"><i class="fas fa-tags"></i></button>` +
-            `<button class="ptag-quick-btn ptag-quick-btn--wait" onclick="window._ptagQuickAssign('${orderId}', 'wait'); event.stopPropagation();" title="Đơn chưa phản hồi"><i class="fas fa-clock"></i></button>` +
-            `<button class="ptag-quick-btn ptag-quick-btn--ok" onclick="window._ptagQuickAssign('${orderId}', 'ok'); event.stopPropagation();" title="Okie Chờ Đi Đơn"><i class="fas fa-check"></i></button>` +
+            `<button class="ptag-tag-btn" onclick="window._ptagOpenDropdown('${orderCode}', this); event.stopPropagation();" title="Chọn trạng thái"><i class="fas fa-tags"></i></button>` +
+            `<button class="ptag-quick-btn ptag-quick-btn--wait" onclick="window._ptagQuickAssign('${orderCode}', 'wait'); event.stopPropagation();" title="Đơn chưa phản hồi"><i class="fas fa-clock"></i></button>` +
+            `<button class="ptag-quick-btn ptag-quick-btn--ok" onclick="window._ptagQuickAssign('${orderCode}', 'ok'); event.stopPropagation();" title="Okie Chờ Đi Đơn"><i class="fas fa-check"></i></button>` +
             `</div>`;
 
         if (!data) {
@@ -974,12 +1014,12 @@
         // Build badges: tag xử lý → flags → tTags (display priority order)
         // All badges have × button for quick removal
         let badges = '';
-        const oid = orderId; // shorthand for onclick
+        const oc = orderCode; // shorthand for onclick
 
         // 1. Category badge (tag xử lý) — FIRST — with × to remove
         if (data.category !== null && data.category !== undefined) {
             const catColor = PTAG_CATEGORY_COLORS[data.category];
-            const removeBtn = `<button class="ptag-badge-remove" onclick="window._ptagClear('${oid}'); event.stopPropagation();" title="Xóa tag">&times;</button>`;
+            const removeBtn = `<button class="ptag-badge-remove" onclick="window._ptagClear('${oc}'); event.stopPropagation();" title="Xóa tag">&times;</button>`;
             if (data.category === PTAG_CATEGORIES.HOAN_TAT) {
                 badges += `<span class="ptag-badge ptag-cat-0">🟢 ĐÃ RA ĐƠN</span>`;
             } else if (data.category === PTAG_CATEGORIES.CHO_DI_DON) {
@@ -1002,7 +1042,7 @@
             const fl = PTAG_FLAGS[f];
             const label = fl ? fl.label : ProcessingTagState.getCustomFlagLabel(f);
             const bgColor = _ptagGetFlagColor(f);
-            const removeBtn = `<button class="ptag-badge-remove" onclick="window._ptagToggleFlag('${oid}', '${f}'); event.stopPropagation();" title="Xóa flag">&times;</button>`;
+            const removeBtn = `<button class="ptag-badge-remove" onclick="window._ptagToggleFlag('${oc}', '${f}'); event.stopPropagation();" title="Xóa flag">&times;</button>`;
             flagBadges += `<span class="ptag-flag-badge ptag-badge-removable" style="background:${bgColor};">${label}${removeBtn}</span>`;
         });
 
@@ -1012,13 +1052,13 @@
         _tTags.forEach(t => {
             const tLabel = ProcessingTagState.getTTagLabel(t);
             const bgColor = _ptagGetTTagColor(t);
-            const removeBtn = `<button class="ptag-badge-remove" onclick="window.removeTTagFromOrder('${oid}', '${t.replace(/'/g, "\\'")}'); event.stopPropagation();" title="Gỡ tag T">&times;</button>`;
+            const removeBtn = `<button class="ptag-badge-remove" onclick="window.removeTTagFromOrder('${oc}', '${t.replace(/'/g, "\\'")}'); event.stopPropagation();" title="Gỡ tag T">&times;</button>`;
             ttagBadges += `<span class="ptag-ttag-badge ptag-badge-removable" style="background:${bgColor};">${tLabel}${removeBtn}</span>`;
         });
 
         // History button (only when there's history)
         const hasHistory = (data.history || []).length > 0;
-        const historyBtn = hasHistory ? `<button class="ptag-history-btn" onclick="window._ptagShowHistory('${oid}', this); event.stopPropagation();" title="Xem lịch sử tag"><i class="fas fa-history"></i></button>` : '';
+        const historyBtn = hasHistory ? `<button class="ptag-history-btn" onclick="window._ptagShowHistory('${oc}', this); event.stopPropagation();" title="Xem lịch sử tag"><i class="fas fa-history"></i></button>` : '';
 
         let badgesContent = badges;
         if (flagBadges) badgesContent += `<div class="ptag-cell-flags-row">${flagBadges}</div>`;
@@ -1032,7 +1072,7 @@
     // =====================================================
 
     let _currentDropdown = null;
-    let _ddOrderId = null;
+    let _ddOrderCode = null;
 
     // Build the full list of all tags for the dropdown (flat, grouped by category)
     function _ptagBuildAllTags() {
@@ -1094,8 +1134,8 @@
     }
 
     // Get all currently selected tags for an order as tag-info objects
-    function _ptagGetSelectedTags(orderId) {
-        const data = ProcessingTagState.getOrderData(orderId);
+    function _ptagGetSelectedTags(orderCode) {
+        const data = ProcessingTagState.getOrderData(orderCode);
         if (!data) return [];
         const selected = [];
         // Category tag
@@ -1135,17 +1175,17 @@
         return selected;
     }
 
-    function _ptagOpenDropdown(orderId, orderCode, anchorEl) {
+    function _ptagOpenDropdown(orderCode, anchorEl) {
         _ptagCloseDropdown();
 
         const rect = anchorEl.getBoundingClientRect();
-        _ddOrderId = orderId;
+        _ddOrderCode = orderCode;
         const allTags = _ptagBuildAllTags();
-        const selectedTags = _ptagGetSelectedTags(orderId);
+        const selectedTags = _ptagGetSelectedTags(orderCode);
         const selectedKeys = new Set(selectedTags.map(t => t.key));
 
         // Build HTML
-        let html = `<div class="ptag-dropdown" id="ptag-dropdown" data-order-id="${orderId}">`;
+        let html = `<div class="ptag-dropdown" id="ptag-dropdown" data-order-code="${orderCode}">`;
 
         // Input container: pills + search input
         html += `<div class="ptag-dd-input-container">`;
@@ -1212,26 +1252,26 @@
 
     // Select a tag from dropdown
     function _ptagDdSelectTag(key) {
-        const orderId = _ddOrderId;
-        if (!orderId) return;
+        const orderCode = _ddOrderCode;
+        if (!orderCode) return;
 
         if (key === 'ttag-btn') {
             _ptagCloseDropdown();
-            _ptagOpenTTagModal(orderId);
+            _ptagOpenTTagModal(orderCode);
             return;
         }
 
         if (key === 'picking-slip') {
             // Toggle pickingSlipPrinted on current order
-            let data = ProcessingTagState.getOrderData(orderId);
+            let data = ProcessingTagState.getOrderData(orderCode);
             if (data) {
                 data.pickingSlipPrinted = !data.pickingSlipPrinted;
-                _ptagAddHistory(orderId, data.pickingSlipPrinted ? 'SET_PHIEU_SOAN' : 'UNSET_PHIEU_SOAN', '', '');
-                ProcessingTagState.setOrderData(orderId, data);
-                _ptagRefreshRow(orderId);
+                _ptagAddHistory(orderCode, data.pickingSlipPrinted ? 'SET_PHIEU_SOAN' : 'UNSET_PHIEU_SOAN', '', '');
+                ProcessingTagState.setOrderData(orderCode, data);
+                _ptagRefreshRow(orderCode);
                 renderPanelContent();
-                _ptagEnsureCode(orderId, data);
-                saveProcessingTagToAPI(orderId, data);
+                _ptagEnsureCode(orderCode, data);
+                saveProcessingTagToAPI(orderCode, data);
             }
             _ptagRefreshDropdownState();
             return;
@@ -1240,12 +1280,12 @@
         if (key.startsWith('dtag:')) {
             // Default T-tag — toggle directly
             const ttagId = key.replace('dtag:', '');
-            const data = ProcessingTagState.getOrderData(orderId);
+            const data = ProcessingTagState.getOrderData(orderCode);
             const hasTTag = data?.tTags?.includes(ttagId);
             if (hasTTag) {
-                removeTTagFromOrder(orderId, ttagId);
+                removeTTagFromOrder(orderCode, ttagId);
             } else {
-                assignTTagToOrder(orderId, ttagId);
+                assignTTagToOrder(orderCode, ttagId);
             }
         } else if (key.startsWith('cat:')) {
             // Processing tag — parse cat:N:subTag
@@ -1253,10 +1293,10 @@
             const cat = parseInt(parts[1]);
             const subTag = parts[2] === 'null' ? null : parts[2];
             // This replaces any existing processing tag (implicit rule)
-            assignOrderCategory(orderId, cat, { subTag });
+            assignOrderCategory(orderCode, cat, { subTag });
         } else if (key.startsWith('flag:')) {
             const flagKey = key.replace('flag:', '');
-            toggleOrderFlag(orderId, flagKey);
+            toggleOrderFlag(orderCode, flagKey);
         }
 
         // Refresh dropdown pills and selected state (don't close — TPOS style)
@@ -1265,30 +1305,30 @@
 
     // Remove a pill from dropdown
     function _ptagDdRemovePill(key) {
-        const orderId = _ddOrderId;
-        if (!orderId) return;
+        const orderCode = _ddOrderCode;
+        if (!orderCode) return;
 
         if (key === 'picking-slip') {
             // Remove picking slip status
-            const data = ProcessingTagState.getOrderData(orderId);
+            const data = ProcessingTagState.getOrderData(orderCode);
             if (data) {
                 data.pickingSlipPrinted = false;
-                _ptagAddHistory(orderId, 'UNSET_PHIEU_SOAN', '', '');
-                ProcessingTagState.setOrderData(orderId, data);
-                _ptagRefreshRow(orderId);
+                _ptagAddHistory(orderCode, 'UNSET_PHIEU_SOAN', '', '');
+                ProcessingTagState.setOrderData(orderCode, data);
+                _ptagRefreshRow(orderCode);
                 renderPanelContent();
-                _ptagEnsureCode(orderId, data);
-                saveProcessingTagToAPI(orderId, data);
+                _ptagEnsureCode(orderCode, data);
+                saveProcessingTagToAPI(orderCode, data);
             }
         } else if (key.startsWith('dtag:')) {
             const ttagId = key.replace('dtag:', '');
-            removeTTagFromOrder(orderId, ttagId);
+            removeTTagFromOrder(orderCode, ttagId);
         } else if (key.startsWith('cat:')) {
             // Remove processing tag = clear category
-            clearProcessingTag(orderId);
+            clearProcessingTag(orderCode);
         } else if (key.startsWith('flag:')) {
             const flagKey = key.replace('flag:', '');
-            toggleOrderFlag(orderId, flagKey);
+            toggleOrderFlag(orderCode, flagKey);
         }
 
         _ptagRefreshDropdownState();
@@ -1298,8 +1338,8 @@
     function _ptagRefreshDropdownState() {
         const dd = _currentDropdown;
         if (!dd) return;
-        const orderId = _ddOrderId;
-        const selectedTags = _ptagGetSelectedTags(orderId);
+        const orderCode = _ddOrderCode;
+        const selectedTags = _ptagGetSelectedTags(orderCode);
         const selectedKeys = new Set(selectedTags.map(t => t.key));
 
         // Refresh pills
@@ -1392,8 +1432,8 @@
 
     // Create custom tag from search input
     async function _ptagCreateCustomTag(label) {
-        const orderId = _ddOrderId;
-        if (!orderId) return;
+        const orderCode = _ddOrderCode;
+        if (!orderCode) return;
         const key = 'CUSTOM_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
         const assignedColor = PTAG_FLAG_COLOR_PALETTE[Math.floor(Math.random() * PTAG_FLAG_COLOR_PALETTE.length)];
         const defs = ProcessingTagState.getCustomFlagDefs();
@@ -1406,14 +1446,14 @@
         // Save definitions FIRST to ensure label is persisted
         await saveCustomFlagDefinitions();
         // THEN toggle flag on order
-        await toggleOrderFlag(orderId, key);
+        await toggleOrderFlag(orderCode, key);
         _ptagRefreshDropdownState();
     }
 
     // Create Tag T chờ hàng from dropdown input (when name matches "Tx ..." pattern)
     async function _ptagCreateTTagFromInput(label) {
-        const orderId = _ddOrderId;
-        if (!orderId) return;
+        const orderCode = _ddOrderCode;
+        if (!orderCode) return;
         const name = label.toUpperCase();
 
         // Auto-generate next available ID (same logic as _ttagMgrConfirmCreate)
@@ -1432,7 +1472,7 @@
         await saveTTagDefinitions();
 
         // Assign to order
-        await assignTTagToOrder(orderId, tagId);
+        await assignTTagToOrder(orderCode, tagId);
 
         console.log(`${PTAG_LOG} Created T-tag from dropdown: ${tagId} "${name}"`);
 
@@ -1445,9 +1485,9 @@
     function _ptagRebuildDropdownList() {
         const dd = _currentDropdown;
         if (!dd) return;
-        const orderId = _ddOrderId;
+        const orderCode = _ddOrderCode;
         const allTags = _ptagBuildAllTags();
-        const selectedTags = _ptagGetSelectedTags(orderId);
+        const selectedTags = _ptagGetSelectedTags(orderCode);
         const selectedKeys = new Set(selectedTags.map(t => t.key));
 
         const listEl = dd.querySelector('.ptag-dd-list');
@@ -1480,7 +1520,7 @@
             _currentDropdown.remove();
             _currentDropdown = null;
         }
-        _ddOrderId = null;
+        _ddOrderCode = null;
         document.removeEventListener('click', _ptagCloseOnOutside);
         document.removeEventListener('keydown', _ptagCloseOnEsc);
     }
@@ -1541,27 +1581,27 @@
         }
     }
 
-    function _ptagAssign(orderId, category, subTag) {
-        assignOrderCategory(orderId, category, { subTag });
+    function _ptagAssign(orderCode, category, subTag) {
+        assignOrderCategory(orderCode, category, { subTag });
     }
 
-    function _ptagToggleFlag(orderId, flagKey) {
-        toggleOrderFlag(orderId, flagKey);
+    function _ptagToggleFlag(orderCode, flagKey) {
+        toggleOrderFlag(orderCode, flagKey);
     }
 
-    function _ptagClear(orderId) {
-        clearProcessingTag(orderId);
+    function _ptagClear(orderCode) {
+        clearProcessingTag(orderCode);
     }
 
     // =====================================================
     // SECTION 7: UI — PANEL (SIDEBAR)
     // =====================================================
 
-    function _ptagQuickAssign(orderId, type) {
+    function _ptagQuickAssign(orderCode, type) {
         if (type === 'ok') {
-            assignOrderCategory(orderId, PTAG_CATEGORIES.CHO_DI_DON, { subTag: null });
+            assignOrderCategory(orderCode, PTAG_CATEGORIES.CHO_DI_DON, { subTag: null });
         } else if (type === 'wait') {
-            assignOrderCategory(orderId, PTAG_CATEGORIES.XU_LY, { subTag: 'CHUA_PHAN_HOI' });
+            assignOrderCategory(orderCode, PTAG_CATEGORIES.XU_LY, { subTag: 'CHUA_PHAN_HOI' });
         }
     }
 
@@ -1625,8 +1665,8 @@
         const taggedOrders = ProcessingTagState.getAllOrders();
         const totalOrders = allOrders.length;
 
-        // Only count tagged orders that exist in current allData
-        const allDataIds = new Set(allOrders.map(o => String(o.Id)));
+        // Only count tagged orders that exist in current allData (key = orderCode)
+        const allDataCodes = new Set(allOrders.map(o => String(o.Code)).filter(Boolean));
         let taggedCount = 0;
         let hasCategoryCount = 0;
         const catCounts = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0 };
@@ -1635,8 +1675,8 @@
         const subTagCounts = {};
         const tTagCounts = {};
 
-        for (const [orderId, data] of taggedOrders) {
-            if (!allDataIds.has(orderId)) continue; // Skip stale/mismatched IDs
+        for (const [key, data] of taggedOrders) {
+            if (!allDataCodes.has(key)) continue; // Skip stale/mismatched keys
             taggedCount++;
             if (data.category !== null && data.category !== undefined) {
                 hasCategoryCount++;
@@ -1675,8 +1715,8 @@
         const untaggedCount = totalOrders - hasCategoryCount;
 
         // Count T-tags from internal processing tag data
-        for (const [orderId, data] of taggedOrders) {
-            if (!allDataIds.has(orderId)) continue;
+        for (const [key, data] of taggedOrders) {
+            if (!allDataCodes.has(key)) continue;
             if (data.tTags) {
                 for (const tagId of data.tTags) {
                     tTagCounts[tagId] = (tTagCounts[tagId] || 0) + 1;
@@ -2118,7 +2158,7 @@
         _ptagCloseBulkModal();
 
         for (const order of orders) {
-            await assignOrderCategory(order.Id, category, { subTag: subTag === 'null' ? null : subTag });
+            await assignOrderCategory(String(order.Code), category, { subTag: subTag === 'null' ? null : subTag });
         }
 
         console.log(`${PTAG_LOG} Bulk assigned ${orders.length} orders to category ${category}`);
@@ -2147,23 +2187,20 @@
     // SECTION 8B: T-TAG MODAL (UX giống TPOS tag modal)
     // =====================================================
 
-    let _ttagModalOrderId = null;
+    let _ttagModalOrderCode = null;
     let _ttagSelectedTags = [];
     let _ttagPendingDeleteIndex = -1;
 
-    async function _ptagOpenTTagModal(orderId) {
-        const data = ProcessingTagState.getOrderData(orderId);
+    async function _ptagOpenTTagModal(orderCode) {
+        const data = ProcessingTagState.getOrderData(orderCode);
 
-        _ttagModalOrderId = orderId;
+        _ttagModalOrderCode = orderCode;
         _ttagSelectedTags = [...(data?.tTags || [])];
         _ttagPendingDeleteIndex = -1;
 
         // Remove existing modal
         const existing = document.getElementById('ptag-ttag-modal');
         if (existing) existing.remove();
-
-        const order = ((typeof window.getAllOrders === 'function') ? window.getAllOrders() : []).find(o => o.Id === orderId);
-        const orderCode = order?.Code || '';
 
         const modal = document.createElement('div');
         modal.id = 'ptag-ttag-modal';
@@ -2199,7 +2236,7 @@
     function _ptagCloseTTagModal() {
         const modal = document.getElementById('ptag-ttag-modal');
         if (modal) modal.remove();
-        _ttagModalOrderId = null;
+        _ttagModalOrderCode = null;
         _ttagSelectedTags = [];
         _ttagPendingDeleteIndex = -1;
     }
@@ -2359,9 +2396,9 @@
     }
 
     async function _ptagSaveTTags() {
-        if (!_ttagModalOrderId) return;
-        const orderId = _ttagModalOrderId;
-        let data = ProcessingTagState.getOrderData(orderId);
+        if (!_ttagModalOrderCode) return;
+        const orderCode = _ttagModalOrderCode;
+        let data = ProcessingTagState.getOrderData(orderCode);
 
         if (!data) {
             // Create minimal data for orders without processing tag
@@ -2379,14 +2416,14 @@
             }
         }
 
-        _ptagEnsureCode(orderId, data);
-        ProcessingTagState.setOrderData(orderId, data);
-        _ptagRefreshRow(orderId);
+        _ptagEnsureCode(orderCode, data);
+        ProcessingTagState.setOrderData(orderCode, data);
+        _ptagRefreshRow(orderCode);
         renderPanelContent();
-        await saveProcessingTagToAPI(orderId, data);
+        await saveProcessingTagToAPI(orderCode, data);
 
         _ptagCloseTTagModal();
-        console.log(`${PTAG_LOG} Saved ${data.tTags.length} T-tags for order ${orderId}`);
+        console.log(`${PTAG_LOG} Saved ${data.tTags.length} T-tags for order ${orderCode}`);
     }
 
     // =====================================================
@@ -2415,10 +2452,10 @@
     function _ttagGetOrdersForTag(tagId) {
         const orders = [];
         const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
-        for (const [orderId, data] of ProcessingTagState.getAllOrders()) {
+        for (const [orderCode, data] of ProcessingTagState.getAllOrders()) {
             if (data.tTags && data.tTags.includes(tagId)) {
-                const order = allOrders.find(o => String(o.Id) === String(orderId));
-                orders.push({ orderId, stt: order?.SessionIndex || '?', name: order?.PartnerName || order?.Name || '', phone: order?.Telephone || '' });
+                const order = allOrders.find(o => String(o.Code) === String(orderCode));
+                orders.push({ orderId: order?.Id, orderCode, stt: order?.SessionIndex || '?', name: order?.PartnerName || order?.Name || '', phone: order?.Telephone || '' });
             }
         }
         return orders.sort((a, b) => (a.stt || 0) - (b.stt || 0));
@@ -3094,10 +3131,10 @@
                     console.log(`${PTAG_LOG} Redirecting T-tag from STT ${originalSTT} (${order.Code}) → STT ${replacementOrder.SessionIndex} (${replacementOrder.Code})`);
 
                     try {
-                        await assignTTagToOrder(replacementOrder.Id, tagEntry.tagId);
+                        await assignTTagToOrder(String(replacementOrder.Code), tagEntry.tagId);
                         // Transfer processing tags (flags + tTags) from blocked order to replacement
                         try {
-                            await transferProcessingTags(order.Id, replacementOrder.Id);
+                            await transferProcessingTags(String(order.Code), String(replacementOrder.Code));
                         } catch (e) { console.warn(`${PTAG_LOG} Transfer processing tags failed:`, e); }
                         redirectedSTT.push({ original: originalSTT, redirectTo: replacementOrder.SessionIndex });
                     } catch (e) {
@@ -3109,7 +3146,7 @@
 
                 // Normal flow (no blocked tag)
                 try {
-                    await assignTTagToOrder(order.Id, tagEntry.tagId);
+                    await assignTTagToOrder(String(order.Code), tagEntry.tagId);
                     successSTT.push(stt);
                 } catch (e) {
                     console.error(`${PTAG_LOG} Failed to assign ${tagEntry.tagId} to STT ${stt}:`, e);
@@ -3171,7 +3208,7 @@
                 if (!order) { failedSTT.push(stt); continue; }
 
                 try {
-                    await removeTTagFromOrder(order.Id, tagEntry.tagId);
+                    await removeTTagFromOrder(String(order.Code), tagEntry.tagId);
                     successSTT.push(stt);
                 } catch (e) {
                     console.error(`${PTAG_LOG} Failed to remove ${tagEntry.tagId} from STT ${stt}:`, e);
@@ -3534,7 +3571,7 @@
             // Refresh all table rows that have this tag to show the new name
             const ordersWithTag = _ttagGetOrdersForTag(tagId);
             for (const o of ordersWithTag) {
-                _ptagRefreshRow(o.orderId);
+                _ptagRefreshRow(o.orderCode);
             }
 
             console.log(`${PTAG_LOG} Renamed tag ${tagId} to "${newName}" (PC: ${newPC}), refreshed ${ordersWithTag.length} rows`);
@@ -3696,11 +3733,11 @@
             if (order && !seenIds.has(oid)) { matchingOrders.push(order); seenIds.add(oid); }
         }
 
-        const existingOrderIds = new Set();
-        for (const [orderId, data] of ProcessingTagState.getAllOrders()) {
-            if (data.tTags && data.tTags.includes(tagId)) existingOrderIds.add(String(orderId));
+        const existingOrderCodes = new Set();
+        for (const [key, data] of ProcessingTagState.getAllOrders()) {
+            if (data.tTags && data.tTags.includes(tagId)) existingOrderCodes.add(String(key));
         }
-        const newOrders = matchingOrders.filter(o => !existingOrderIds.has(String(o.Id)));
+        const newOrders = matchingOrders.filter(o => !existingOrderCodes.has(String(o.Code)));
 
         if (newOrders.length === 0) {
             alert(matchingOrders.length > 0
@@ -3710,7 +3747,7 @@
         }
 
         for (const o of newOrders) {
-            await assignTTagToOrder(o.Id, tagId);
+            await assignTTagToOrder(String(o.Code), tagId);
         }
         console.log(`${PTAG_LOG} Assigned tag ${tagId} to ${newOrders.length} orders via SP search (legacy)`);
         renderPanelContent();
@@ -3740,7 +3777,7 @@
         if (!confirm(msg)) return;
 
         for (const o of orders) {
-            await removeTTagFromOrder(o.orderId, tagId);
+            await removeTTagFromOrder(o.orderCode, tagId);
         }
 
         const idx = defs.findIndex(d => d.id === tagId);
@@ -3788,7 +3825,8 @@
         return ProcessingTagState._activeFilter !== null || ProcessingTagState._activeFlagFilters.size > 0;
     }
 
-    function orderPassesProcessingTagFilter(orderId) {
+    // Accepts orderCode hoặc orderId (tự resolve)
+    function orderPassesProcessingTagFilter(orderCodeOrId) {
         const filter = ProcessingTagState._activeFilter;
         const flagFilters = ProcessingTagState._activeFlagFilters;
         const hasBaseFilter = filter !== null;
@@ -3797,7 +3835,9 @@
         // No filters active — show all
         if (!hasBaseFilter && !hasFlagFilter) return true;
 
-        const data = ProcessingTagState.getOrderData(orderId);
+        // Thử lookup bằng orderCode trước, fallback orderId
+        const data = ProcessingTagState.getOrderData(orderCodeOrId)
+            || ProcessingTagState.getOrderDataByIdFallback(orderCodeOrId);
 
         // --- Evaluate flag filter independently ---
         let passesFlag = true; // default: no flag filter = pass
@@ -3897,8 +3937,8 @@
         return value || '';
     }
 
-    function _ptagAddHistory(orderId, action, value, userName) {
-        const data = ProcessingTagState.getOrderData(orderId);
+    function _ptagAddHistory(orderCode, action, value, userName) {
+        const data = ProcessingTagState.getOrderData(orderCode);
         if (!data) return;
         if (!data.history) data.history = [];
         const userInfo = userName ? { user: userName, userId: null } : _ptagGetCurrentUser();
@@ -3914,16 +3954,16 @@
         if (data.history.length > 50) data.history = data.history.slice(-50);
     }
 
-    function _ptagGetHistory(orderId) {
-        const data = ProcessingTagState.getOrderData(orderId);
+    function _ptagGetHistory(orderCode) {
+        const data = ProcessingTagState.getOrderData(orderCode);
         return (data?.history || []).slice().reverse(); // newest first
     }
 
-    function _ptagRenderHistoryPopover(orderId, anchorEl) {
+    function _ptagRenderHistoryPopover(orderCode, anchorEl) {
         // Remove existing popover
         document.querySelectorAll('.ptag-history-popover').forEach(p => p.remove());
 
-        const history = _ptagGetHistory(orderId);
+        const history = _ptagGetHistory(orderCode);
         if (history.length === 0) return;
 
         const popover = document.createElement('div');
@@ -4034,21 +4074,20 @@
         const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
         const orderLookup = new Map();
         allOrders.forEach(o => {
-            orderLookup.set(String(o.Id), { stt: o.STT || o.Stt || '', code: o.Code || '' });
+            if (o.Code) orderLookup.set(String(o.Code), { stt: o.STT || o.Stt || '', code: o.Code || '' });
         });
 
         const entries = [];
         const taggedOrders = ProcessingTagState.getAllOrders();
-        for (const [orderId, data] of taggedOrders) {
+        for (const [key, data] of taggedOrders) {
             if (!data.history || data.history.length === 0) continue;
-            const lookup = orderLookup.get(String(orderId)) || { stt: '', code: '' };
-            const orderCode = data._orderCode || data.code || lookup.code || '';
+            const lookup = orderLookup.get(String(key)) || { stt: '', code: key };
+            const orderCode = data.code || lookup.code || key;
             data.history.forEach(h => {
                 entries.push({
                     ...h,
-                    orderId,
-                    orderSTT: lookup.stt,
-                    orderCode
+                    orderCode,
+                    orderSTT: lookup.stt
                 });
             });
         }
@@ -4106,7 +4145,7 @@
                 const dateStr = `${String(date.getDate()).padStart(2,'0')}/${String(date.getMonth()+1).padStart(2,'0')} ${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}`;
                 const meta = PTAG_ACTION_META[h.action] || { sign: '·', cls: '' };
                 const label = h.displayName || _ptagResolveDisplayName(h.action, h.value);
-                const sttDisplay = h.orderSTT ? `STT ${h.orderSTT}` : (h.orderCode || h.orderId || '?');
+                const sttDisplay = h.orderSTT ? `STT ${h.orderSTT}` : (h.orderCode || '?');
                 const actionLabel = meta.label || h.action;
 
                 html += `<div class="ptag-gh-item">
@@ -4234,6 +4273,10 @@
     // SECTION 11: WINDOW EXPORTS
     // =====================================================
 
+    // Helpers (exposed for external callers)
+    window._ptagResolveCode = _ptagResolveCode;
+    window._ptagResolveId = _ptagResolveId;
+
     // Core functions
     window.loadProcessingTags = loadProcessingTags;
     window.setupProcessingTagSSE = setupProcessingTagSSE;
@@ -4263,7 +4306,7 @@
         const flagCounts = {};
         const tTagCounts = {};
 
-        for (const [orderId, data] of taggedOrders) {
+        for (const [key, data] of taggedOrders) {
             (data.flags || []).forEach(f => { flagCounts[f] = (flagCounts[f] || 0) + 1; });
             (data.tTags || []).forEach(t => { tTagCounts[t] = (tTagCounts[t] || 0) + 1; });
         }
@@ -4423,7 +4466,7 @@
         } else {
             // Re-render all visible tag cells
             const allData = ProcessingTagState._orderData;
-            allData.forEach((_, orderId) => _ptagRefreshRow(orderId));
+            allData.forEach((_, key) => _ptagRefreshRow(key));
         }
     }
 

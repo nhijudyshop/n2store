@@ -1126,7 +1126,7 @@ function createRowHTML(order) {
             </td>
 
             <td data-column="processing-tag">
-                ${typeof window.renderProcessingTagCell === 'function' ? window.renderProcessingTagCell(order.Id, order.Code) : '<span style="color:#9ca3af;">-</span>'}
+                ${typeof window.renderProcessingTagCell === 'function' ? window.renderProcessingTagCell(String(order.Code)) : '<span style="color:#9ca3af;">-</span>'}
             </td>
 
             <td data-column="order-code">

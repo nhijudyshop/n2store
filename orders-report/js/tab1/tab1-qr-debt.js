@@ -430,13 +430,14 @@ function updateWalletDebtBadgesInTable(targetPhone) {
 
             // Auto-gắn tag CK / Trừ Công Nợ khi badge hiển thị
             const orderId = row.getAttribute('data-order-id');
-            if (orderId && typeof window.toggleOrderFlag === 'function' && window.ProcessingTagState) {
-                const existingFlags = window.ProcessingTagState.getOrderFlags(orderId);
+            const orderCode = row.getAttribute('data-order-code') || (orderId && window._ptagResolveCode ? window._ptagResolveCode(orderId) : null);
+            if (orderCode && typeof window.toggleOrderFlag === 'function' && window.ProcessingTagState) {
+                const existingFlags = window.ProcessingTagState.getOrderFlags(orderCode);
                 if ((data.balance || 0) > 0 && !existingFlags.includes('CHUYEN_KHOAN')) {
-                    window.toggleOrderFlag(orderId, 'CHUYEN_KHOAN');
+                    window.toggleOrderFlag(orderCode, 'CHUYEN_KHOAN');
                 }
                 if (((data.virtualBalance || data.virtual_balance) || 0) > 0 && !existingFlags.includes('TRU_CONG_NO')) {
-                    window.toggleOrderFlag(orderId, 'TRU_CONG_NO');
+                    window.toggleOrderFlag(orderCode, 'TRU_CONG_NO');
                 }
             }
         } else {

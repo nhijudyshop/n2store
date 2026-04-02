@@ -1747,7 +1747,7 @@ async function assignTagXLAfterMerge(cluster) {
         console.log('[MERGE-PTAG] Starting Tag XL assignment for cluster:', cluster.phone);
 
         // --- TARGET ORDER: gộp tất cả Tag XL từ mọi đơn ---
-        const targetId = String(cluster.targetOrder.Id);
+        const targetCode = String(cluster.targetOrder.Code);
 
         // Collect Tag XL data from ALL orders
         let bestCategory = null;
@@ -1758,7 +1758,7 @@ async function assignTagXLAfterMerge(cluster) {
         // Process target order first (priority), then source orders
         const allOrders = [cluster.targetOrder, ...cluster.sourceOrders];
         for (const order of allOrders) {
-            const ptagData = window.ProcessingTagState.getOrderData(String(order.Id));
+            const ptagData = window.ProcessingTagState.getOrderData(String(order.Code));
             if (!ptagData) continue;
 
             // Category: ưu tiên đơn đầu tiên có category (target first)
@@ -1780,7 +1780,7 @@ async function assignTagXLAfterMerge(cluster) {
 
         // Set merged Tag XL data to target order
         if (bestCategory !== null || allFlags.size > 0 || allTTags.size > 0) {
-            const existingData = window.ProcessingTagState.getOrderData(targetId) || {};
+            const existingData = window.ProcessingTagState.getOrderData(targetCode) || {};
             const finalCategory = bestCategory ?? existingData.category ?? null;
             const finalSubTag = bestSubTag ?? existingData.subTag ?? null;
             const mergedFlags = [...allFlags];
@@ -1788,18 +1788,18 @@ async function assignTagXLAfterMerge(cluster) {
 
             // Use assignOrderCategory to set category + save to API
             if (finalCategory !== null) {
-                await window.assignOrderCategory(targetId, finalCategory, {
+                await window.assignOrderCategory(targetCode, finalCategory, {
                     subTag: finalSubTag,
                     flags: mergedFlags
                 });
             }
 
             // Ensure tTags and any extra flags are preserved
-            const updatedData = window.ProcessingTagState.getOrderData(targetId);
+            const updatedData = window.ProcessingTagState.getOrderData(targetCode);
             if (updatedData) {
                 updatedData.tTags = mergedTTags;
                 updatedData.flags = [...new Set([...(updatedData.flags || []), ...mergedFlags])];
-                window.ProcessingTagState.setOrderData(targetId, updatedData);
+                window.ProcessingTagState.setOrderData(targetCode, updatedData);
             }
 
             console.log(`[MERGE-PTAG] ✅ Target STT ${cluster.targetOrder.SessionIndex}: cat=${finalCategory}, subTag=${finalSubTag}, flags=[${mergedFlags}], tTags=[${mergedTTags}]`);
@@ -1809,15 +1809,15 @@ async function assignTagXLAfterMerge(cluster) {
 
         // --- SOURCE ORDERS: gán KHÔNG CẦN CHỐT / Đã gộp không chốt ---
         for (const sourceOrder of cluster.sourceOrders) {
-            const sourceId = String(sourceOrder.Id);
+            const sourceCode = String(sourceOrder.Code);
 
             // Clear existing Tag XL first
             if (window.clearProcessingTag) {
-                await window.clearProcessingTag(sourceId);
+                await window.clearProcessingTag(sourceCode);
             }
 
             // Assign category 3 (KHÔNG CẦN CHỐT) with subTag DA_GOP_KHONG_CHOT
-            await window.assignOrderCategory(sourceId, 3, { subTag: 'DA_GOP_KHONG_CHOT' });
+            await window.assignOrderCategory(sourceCode, 3, { subTag: 'DA_GOP_KHONG_CHOT' });
             console.log(`[MERGE-PTAG] ✅ Source STT ${sourceOrder.SessionIndex}: KHÔNG CẦN CHỐT / Đã gộp không chốt`);
         }
 

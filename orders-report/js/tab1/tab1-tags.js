@@ -253,11 +253,12 @@ async function autoCreateAndAddTTag(fullName) {
         await window.saveTTagDefinitions();
         console.log('[AUTO-CREATE-TAG] Created T-tag definition:', tagId, name);
 
-        // Assign Tag T to current order
+        // Assign Tag T to current order (resolve orderId → orderCode)
         if (!currentEditingOrderId) {
             throw new Error('Không có đơn hàng đang chỉnh sửa');
         }
-        await window.assignTTagToOrder(currentEditingOrderId, tagId);
+        const orderCode = window._ptagResolveCode ? window._ptagResolveCode(currentEditingOrderId) : currentEditingOrderId;
+        await window.assignTTagToOrder(orderCode, tagId);
 
         // Clear search input and update UI
         const searchInput = document.getElementById("tagSearchInput");
@@ -280,8 +281,8 @@ async function autoCreateAndAddTTag(fullName) {
 async function selectTTag(tagId) {
     try {
         if (!currentEditingOrderId) return;
-
-        await window.assignTTagToOrder(currentEditingOrderId, tagId);
+        const orderCode = window._ptagResolveCode ? window._ptagResolveCode(currentEditingOrderId) : currentEditingOrderId;
+        await window.assignTTagToOrder(orderCode, tagId);
 
         const searchInput = document.getElementById("tagSearchInput");
         if (searchInput) searchInput.value = "";
@@ -1114,7 +1115,8 @@ function renderTagList(searchQuery = "") {
     let filteredTTags = [];
     if (window.ProcessingTagState) {
         const allTTags = window.ProcessingTagState.getTTagDefinitions() || [];
-        const orderData = currentEditingOrderId ? window.ProcessingTagState.getOrderData(currentEditingOrderId) : null;
+        const _oc = currentEditingOrderId && window._ptagResolveCode ? window._ptagResolveCode(currentEditingOrderId) : currentEditingOrderId;
+        const orderData = _oc ? window.ProcessingTagState.getOrderData(_oc) : null;
         const assignedTTags = orderData?.tTags || [];
 
         filteredTTags = allTTags.filter((def) => {
