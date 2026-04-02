@@ -521,9 +521,13 @@ window.ReturnOrderModal = (function () {
             const config = getConfig();
             const now = new Date();
 
-            // Read form values
+            // Read form values - combine selected date with current machine time
             const dateInput = $('returnOrderDate');
-            const orderDate = dateInput?.value ? new Date(dateInput.value) : now;
+            let orderDate = now;
+            if (dateInput?.value) {
+                const [y, m, d] = dateInput.value.split('-').map(Number);
+                orderDate = new Date(y, m - 1, d, now.getHours(), now.getMinutes(), now.getSeconds());
+            }
             const paymentMethodSelect = $('returnPaymentMethod');
             const paymentMethodId = paymentMethodSelect ? parseInt(paymentMethodSelect.value) : config.PaymentJournalId;
             const paymentMethod = S.paymentMethods.find(m => m.Id === paymentMethodId) || { Id: config.PaymentJournalId, Name: 'Tiền mặt', Type: 'cash', TypeGet: 'Tiền mặt' };
@@ -680,12 +684,11 @@ window.ReturnOrderModal = (function () {
         const modal = $('returnOrderModal');
         if (modal) modal.classList.add('show');
 
-        // Set default date
+        // Set default date (date only, time uses current machine time on submit)
         const dateInput = $('returnOrderDate');
         if (dateInput) {
             const now = new Date();
-            const offset = now.getTimezoneOffset() * 60000;
-            dateInput.value = new Date(now - offset).toISOString().slice(0, 16);
+            dateInput.value = now.toISOString().slice(0, 10);
         }
 
         // Load data
