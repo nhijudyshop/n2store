@@ -1434,9 +1434,9 @@
                             <i class="fas fa-clock"></i> DELAY
                             <input type="number" id="msgSendDelay" value="1" min="0" max="30"> giây
                         </span>
-                        <span class="message-setting-item msg-api-toggle" id="msgApiToggle" title="Nhấn để đổi API" style="cursor:pointer;user-select:none;border-radius:4px;padding:2px 6px;transition:background .2s">
+                        <span class="message-setting-item msg-api-toggle" id="msgApiToggle" title="Nhấn để đổi API" style="cursor:pointer;user-select:none;border-radius:4px;padding:2px 6px;transition:background .2s;background:#f3f0ff">
                             <i class="fas fa-plug"></i> API
-                            <strong id="msgApiLabel">Pancake</strong>
+                            <strong id="msgApiLabel" style="color:#7c3aed">N2Store</strong>
                         </span>
                         <button class="message-btn-history" id="msgBtnHistory">
                             <i class="fas fa-history"></i> Lịch sử
