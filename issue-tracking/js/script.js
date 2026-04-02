@@ -890,6 +890,18 @@ function updateCodReduceFromProducts() {
 // Expose for checkbox/quantity change events
 window.updateCodReduceFromProducts = updateCodReduceFromProducts;
 
+// Toggle all product checkboxes (select all / deselect all)
+window.toggleAllProducts = function (selectAll, containerId = 'product-checklist') {
+    const checkboxes = document.querySelectorAll(`#${containerId} input[type="checkbox"]`);
+    checkboxes.forEach(cb => { cb.checked = selectAll; });
+    // Update COD calculation
+    if (containerId === 'old-order-product-checklist') {
+        if (typeof updateCodReduceFromOldOrderProducts === 'function') updateCodReduceFromOldOrderProducts();
+    } else {
+        updateCodReduceFromProducts();
+    }
+};
+
 /**
  * Check if a RETURN ticket already exists for this order
  * Prevents creating duplicate RETURN_CLIENT or RETURN_SHIPPER tickets
@@ -1002,16 +1014,17 @@ async function _rollbackPartners(entries, headers) {
 function checkExistingReturnTicket(orderId) {
     if (!orderId) return { exists: false, ticketCode: null };
 
-    // Search in local TICKETS array for existing RETURN tickets
+    // Search in local TICKETS array for existing RETURN tickets (exclude CANCELLED)
     const existingTicket = TICKETS.find(ticket =>
         ticket.orderId === orderId &&
-        (ticket.type === 'RETURN_CLIENT' || ticket.type === 'RETURN_SHIPPER')
+        (ticket.type === 'RETURN_CLIENT' || ticket.type === 'RETURN_SHIPPER') &&
+        ticket.status !== 'CANCELLED'
     );
 
     if (existingTicket) {
         return {
             exists: true,
-            ticketCode: existingTicket.code,
+            ticketCode: existingTicket.ticketCode,
             ticketType: existingTicket.type
         };
     }
