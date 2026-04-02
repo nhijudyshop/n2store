@@ -18,9 +18,11 @@ const router = express.Router();
 // Parse raw text body (machine sends text/plain, not JSON)
 router.use(express.text({ type: '*/*', limit: '1mb' }));
 
-// Track if CHECK command has been sent since last boot
+// Track command state per device (reset on heartbeat)
 let checkSent = false;
 let dataQuerySent = false;
+// Cached stamp value (loaded from DB on first heartbeat)
+let cachedStamp = null;
 
 // Ensure attendance tables exist
 let tablesReady = false;
@@ -157,12 +159,24 @@ router.get('/cdata', async (req, res) => {
         `);
     } catch (e) { /* ignore */ }
 
+    // Get last stamp from sync_status (incremental mode)
+    let attlogStamp = 0;
+    try {
+        const r = await req.pool.query(`SELECT last_stamp FROM attendance_sync_status WHERE id = 'current'`);
+        if (r.rows.length > 0 && r.rows[0].last_stamp) {
+            attlogStamp = parseInt(r.rows[0].last_stamp) || 0;
+        }
+    } catch (e) { /* column may not exist yet */ }
+
+    cachedStamp = attlogStamp;
+    console.log('[ADMS] Using ATTLOGStamp:', attlogStamp);
+
     // Respond with device configuration per ZKTeco PUSH Protocol spec
     const config = [
         `GET OPTION FROM: ${sn}`,
-        'ATTLOGStamp=0',                   // 0 = force re-send ALL attendance records
-        'OPERLOGStamp=0',                  // 0 = force re-send ALL operation logs
-        'ATTPHOTOStamp=0',                 // 0 = force re-send ALL photos
+        `ATTLOGStamp=${attlogStamp}`,       // 0 = re-send ALL, >0 = incremental
+        'OPERLOGStamp=9999',               // Don't need operation logs
+        'ATTPHOTOStamp=9999',              // Don't need photos
         'ErrorDelay=30',                   // Retry after 30s on error
         'Delay=10',                        // Poll getrequest every 10s
         'TransTimes=00:00;14:05',          // Scheduled upload times
@@ -206,6 +220,22 @@ router.post('/cdata', async (req, res) => {
 
     if (table.toUpperCase() === 'ATTLOG' && body.trim()) {
         totalInserted = await parseAndInsertAttlog(body, req.pool);
+
+        // Save stamp for incremental mode (device sends current stamp in query)
+        if (stamp && totalInserted > 0) {
+            try {
+                await req.pool.query(`
+                    UPDATE attendance_sync_status SET last_stamp = $1, updated_at = NOW() WHERE id = 'current'
+                `, [stamp]);
+                console.log('[ADMS] Saved stamp:', stamp);
+            } catch (e) {
+                // Column may not exist, add it
+                try {
+                    await req.pool.query(`ALTER TABLE attendance_sync_status ADD COLUMN IF NOT EXISTS last_stamp VARCHAR(50)`);
+                    await req.pool.query(`UPDATE attendance_sync_status SET last_stamp = $1 WHERE id = 'current'`, [stamp]);
+                } catch (e2) { /* ignore */ }
+            }
+        }
     } else if (table.toUpperCase() === 'OPERLOG' && body.trim()) {
         console.log('[ADMS] OPERLOG full body:', body.substring(0, 1000));
     } else {
@@ -232,8 +262,8 @@ router.get('/getrequest', async (req, res) => {
     const sn = req.query.SN || req.query.sn || 'unknown';
     console.log('[ADMS] getrequest from', sn, '| checkSent:', checkSent, '| dataQuerySent:', dataQuerySent);
 
-    // Step 1: Send CHECK command to force device to re-check data
-    if (!checkSent) {
+    // Send CHECK once after heartbeat to force re-sync (only if stamp=0 / first time)
+    if (!checkSent && cachedStamp === 0) {
         checkSent = true;
         const cmd = 'C:1:CHECK';
         console.log('[ADMS] Sending CHECK command to', sn);
@@ -242,17 +272,7 @@ router.get('/getrequest', async (req, res) => {
         return;
     }
 
-    // Step 2: Send DATA QUERY to explicitly request all ATTLOG records
-    if (!dataQuerySent) {
-        dataQuerySent = true;
-        const cmd = 'C:2:DATA QUERY ATTLOG StartTime=2025-01-01 00:00:00\tEndTime=2026-12-31 23:59:59';
-        console.log('[ADMS] Sending DATA QUERY ATTLOG to', sn);
-        res.set('Content-Type', 'text/plain');
-        res.send(cmd);
-        return;
-    }
-
-    // Step 3: Check for user-queued commands in DB
+    // Check for user-queued commands in DB
     try {
         const result = await req.pool.query(`
             UPDATE attendance_commands
