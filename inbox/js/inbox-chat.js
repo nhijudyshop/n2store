@@ -2095,20 +2095,34 @@ class InboxChatController {
             );
 
             // Send image first if pending (like orders-report pattern)
+            let imageContentUrl = null;
             if (hasImage) {
                 showToast('Đang tải ảnh lên...', 'info');
                 const pdm = window.inboxPancakeAPI;
                 if (!pdm) throw new Error('pancakeDataManager not available');
 
                 const uploadResult = await pdm.uploadImage(sendPageId, imageFile);
-                if (!uploadResult?.content_url) throw new Error('Upload ảnh thất bại');
+                imageContentUrl = uploadResult?.content_url || uploadResult?.url || null;
+                if (!imageContentUrl) throw new Error('Upload ảnh thất bại');
 
-                await this._sendApi(url, {
-                    action: 'reply_inbox',
-                    message: '',
-                    content_url: uploadResult.content_url
-                });
-                console.log('[InboxChat] Image sent successfully');
+                try {
+                    await this._sendApi(url, {
+                        action: 'reply_inbox',
+                        message: '',
+                        content_url: imageContentUrl
+                    });
+                    console.log('[InboxChat] Image sent successfully via API');
+                } catch (imgErr) {
+                    // Image send failed (24h/551) → fallback to extension
+                    if (window.pancakeExtension?.connected) {
+                        console.log('[InboxChat] Image API failed, trying extension...', imgErr.message);
+                        showToast('Đang gửi ảnh qua Extension (bypass 24h)...', 'warning');
+                        await this._sendViaExtension('', conv, imageContentUrl);
+                        console.log('[InboxChat] Image sent via extension');
+                    } else {
+                        throw imgErr;
+                    }
+                }
             }
 
             // Send text (with 300ms delay if image was also sent)
@@ -2181,7 +2195,7 @@ class InboxChatController {
     // Cache: conversationId → globalUserId (avoid 40s wait on repeat sends)
     _globalIdCache = {};
 
-    async _sendViaExtension(text, conv) {
+    async _sendViaExtension(text, conv, imageUrl = null) {
         const raw = conv._raw || {};
         const psid = conv.psid || raw.from_psid || raw.from?.id || '';
         const conversationUpdatedTime = conv.time ? conv.time.getTime() : Date.now();
@@ -2277,59 +2291,146 @@ class InboxChatController {
             console.log('[EXT-SEND] Cached globalUserId for', cacheKey);
         }
 
-        // Send REPLY_INBOX_PHOTO with globalUserId
-        const sendTaskId = Date.now();
+        // Upload image via extension if provided
+        let files = [];
+        let attachmentType = 'SEND_TEXT_ONLY';
+
+        if (imageUrl) {
+            try {
+                console.log('[EXT-SEND] Uploading image via extension before sending...');
+                showToast('Đang tải ảnh lên qua Extension...', 'info');
+                const uploadResult = await this._uploadViaExtension(imageUrl, conv);
+                if (uploadResult?.fbId) {
+                    files = [uploadResult.fbId];
+                    attachmentType = 'PHOTO';
+                    console.log('[EXT-SEND] Image uploaded, fbId:', uploadResult.fbId);
+                }
+            } catch (uploadErr) {
+                console.error('[EXT-SEND] Image upload failed, sending text only:', uploadErr.message);
+                showToast('Upload ảnh thất bại, chỉ gửi text', 'warning');
+            }
+        }
+
+        // If we have image + text, send image first, then text separately
+        const hasImageToSend = attachmentType === 'PHOTO';
+        const hasTextToSend = !!text;
+
+        const sendOneMessage = (msgText, msgAttachmentType, msgFiles) => {
+            const sendTaskId = Date.now();
+            return new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => {
+                    window.removeEventListener('message', handler);
+                    console.error('[EXT-SEND] TIMEOUT after 60s for REPLY_INBOX_PHOTO');
+                    console.error('[EXT-SEND] Recent extension events:', window.pancakeExtension?.lastEvents?.slice(-5));
+                    reject(new Error('Extension send timeout (60s)'));
+                }, 60000);
+
+                const handler = (e) => {
+                    if (e.source !== window) return;
+                    if (e.data?.type === 'REPLY_INBOX_PHOTO_SUCCESS' && e.data?.taskId === sendTaskId) {
+                        clearTimeout(timeout);
+                        window.removeEventListener('message', handler);
+                        console.log('[EXT-SEND] SUCCESS:', JSON.stringify(e.data, null, 2));
+                        resolve(e.data);
+                    }
+                    if (e.data?.type === 'REPLY_INBOX_PHOTO_FAILURE' && e.data?.taskId === sendTaskId) {
+                        clearTimeout(timeout);
+                        window.removeEventListener('message', handler);
+                        console.error('[EXT-SEND] FAILURE:', JSON.stringify(e.data, null, 2));
+                        reject(new Error(e.data?.error || 'Extension send failed'));
+                    }
+                };
+                window.addEventListener('message', handler);
+
+                const payload = {
+                    type: 'REPLY_INBOX_PHOTO',
+                    pageId: conv.pageId,
+                    igPageId: null,
+                    accessToken: accessToken,
+                    tryResizeImage: true,
+                    contentIds: [],
+                    message: msgText,
+                    attachmentType: msgAttachmentType,
+                    files: msgFiles,
+                    globalUserId: globalUserId,
+                    platform: 'facebook',
+                    replyMessage: null,
+                    threadId: psid,
+                    convId: 't_' + psid,
+                    customerName: conv.customerName || conv.name || '',
+                    conversationUpdatedTime: conversationUpdatedTime,
+                    photoUrls: [],
+                    isBusiness: false,
+                    taskId: sendTaskId,
+                    from: 'WEBPAGE'
+                };
+
+                window.postMessage(payload, '*');
+                console.log('[EXT-SEND] Sent REPLY_INBOX_PHOTO:', { attachmentType: msgAttachmentType, files: msgFiles, hasText: !!msgText });
+            });
+        };
+
+        // Send image first (if any), then text
+        if (hasImageToSend) {
+            await sendOneMessage('', 'PHOTO', files);
+            showToast('Đã gửi ảnh qua Extension (bypass 24h)', 'success');
+            if (hasTextToSend) {
+                await new Promise(r => setTimeout(r, 500)); // Brief delay between image and text
+                await sendOneMessage(text, 'SEND_TEXT_ONLY', []);
+                showToast('Đã gửi text qua Extension (bypass 24h)', 'success');
+            }
+        } else if (hasTextToSend) {
+            await sendOneMessage(text, 'SEND_TEXT_ONLY', []);
+            showToast('Đã gửi qua Extension (bypass 24h)', 'success');
+        }
+    }
+
+    /**
+     * Upload image via Pancake Extension (UPLOAD_INBOX_PHOTO → Facebook)
+     * Flow: photoUrl → extension downloads blob → uploads to upload-business.facebook.com → returns fbId
+     * @param {string} photoUrl - Public URL of the image (must be fetchable by extension background.js)
+     * @param {Object} conv - Conversation object
+     * @returns {Promise<{fbId: string, previewUri: string}>}
+     */
+    async _uploadViaExtension(photoUrl, conv) {
+        const taskId = Date.now();
+        const uploadId = 'upload_' + taskId;
+
+        console.log('[EXT-UPLOAD] Uploading image via extension:', { photoUrl, pageId: conv.pageId, taskId });
 
         return new Promise((resolve, reject) => {
             const timeout = setTimeout(() => {
                 window.removeEventListener('message', handler);
-                console.error('[EXT-SEND] ⏰ TIMEOUT after 60s for REPLY_INBOX_PHOTO');
-                console.error('[EXT-SEND] Recent extension events:', window.pancakeExtension?.lastEvents?.slice(-5));
-                reject(new Error('Extension send timeout (60s)'));
+                console.error('[EXT-UPLOAD] TIMEOUT after 60s for UPLOAD_INBOX_PHOTO');
+                reject(new Error('Upload ảnh qua extension timeout (60s)'));
             }, 60000);
 
             const handler = (e) => {
                 if (e.source !== window) return;
-                if (e.data?.type === 'REPLY_INBOX_PHOTO_SUCCESS' && e.data?.taskId === sendTaskId) {
+                if (e.data?.type === 'UPLOAD_INBOX_PHOTO_SUCCESS' && e.data?.taskId === taskId) {
                     clearTimeout(timeout);
                     window.removeEventListener('message', handler);
-                    console.log('[EXT-SEND] ✅ SUCCESS:', JSON.stringify(e.data, null, 2));
-                    showToast('Đã gửi qua Extension (bypass 24h)', 'success');
-                    resolve(e.data);
+                    console.log('[EXT-UPLOAD] SUCCESS:', { fbId: e.data.fbId, previewUri: e.data.previewUri });
+                    resolve({ fbId: e.data.fbId, previewUri: e.data.previewUri });
                 }
-                if (e.data?.type === 'REPLY_INBOX_PHOTO_FAILURE' && e.data?.taskId === sendTaskId) {
+                if (e.data?.type === 'UPLOAD_INBOX_PHOTO_FAILURE' && e.data?.taskId === taskId) {
                     clearTimeout(timeout);
                     window.removeEventListener('message', handler);
-                    console.error('[EXT-SEND] ❌ FAILURE:', JSON.stringify(e.data, null, 2));
-                    reject(new Error(e.data?.error || 'Extension send failed'));
+                    console.error('[EXT-UPLOAD] FAILURE:', e.data);
+                    reject(new Error('Upload ảnh qua extension thất bại'));
                 }
             };
             window.addEventListener('message', handler);
 
-            const payload = {
-                type: 'REPLY_INBOX_PHOTO',
+            window.postMessage({
+                type: 'UPLOAD_INBOX_PHOTO',
                 pageId: conv.pageId,
-                igPageId: null,
-                accessToken: accessToken,
-                tryResizeImage: true,
-                contentIds: [],
-                message: text,
-                attachmentType: 'SEND_TEXT_ONLY',
-                globalUserId: globalUserId,
+                photoUrl: photoUrl,
+                name: 'image.jpg',
                 platform: 'facebook',
-                replyMessage: null,
-                threadId: psid,
-                convId: 't_' + psid,
-                customerName: conv.customerName || conv.name || '',
-                conversationUpdatedTime: conversationUpdatedTime,
-                photoUrls: [],
-                isBusiness: false,
-                taskId: sendTaskId,
+                taskId, uploadId,
                 from: 'WEBPAGE'
-            };
-
-            window.postMessage(payload, '*');
-            console.log('[EXT-SEND] 📤 Sent REPLY_INBOX_PHOTO:', JSON.stringify(payload, null, 2));
+            }, '*');
         });
     }
 

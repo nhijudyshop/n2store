@@ -334,30 +334,98 @@ Mặc dù gửi qua Business Suite endpoint, trường `isBusiness` trong payloa
 
 ---
 
+## Gửi ảnh qua Extension (bypass 24h)
+
+Extension hỗ trợ gửi ảnh qua 2 bước:
+
+### Bước 1: UPLOAD_INBOX_PHOTO (upload ảnh lên Facebook)
+
+```javascript
+window.postMessage({
+    type: 'UPLOAD_INBOX_PHOTO',
+    pageId: '112678138086607',
+    photoUrl: 'https://content.pancake.vn/...',  // URL public của ảnh
+    name: 'image.jpg',
+    platform: 'facebook',
+    taskId: Date.now(),
+    uploadId: 'upload_' + Date.now(),
+    from: 'WEBPAGE'
+}, '*');
+// → UPLOAD_INBOX_PHOTO_SUCCESS { fbId: "123456", previewUri: "..." }
+```
+
+Extension download ảnh từ URL → upload tới `upload-business.facebook.com/ajax/mercury/upload.php` → trả về Facebook `fbId`.
+
+### Bước 2: REPLY_INBOX_PHOTO với attachmentType: 'PHOTO'
+
+```javascript
+window.postMessage({
+    type: 'REPLY_INBOX_PHOTO',
+    attachmentType: 'PHOTO',            // ← PHOTO thay vì SEND_TEXT_ONLY
+    files: ['123456'],                   // ← fbId từ UPLOAD_INBOX_PHOTO_SUCCESS
+    message: '',                         // Ảnh gửi riêng, text gửi message sau
+    // ... các field khác giống text-only
+}, '*');
+```
+
+Extension đóng gói thành `image_ids[]` → POST `business.facebook.com/messaging/send/`
+
+### Các attachmentType được hỗ trợ
+
+| attachmentType | files[] chứa | Mô tả |
+|---|---|---|
+| `SEND_TEXT_ONLY` | `[]` | Chỉ text (hiện tại) |
+| `PHOTO` | `[fbId]` | Ảnh (image_ids[]) |
+| `VIDEO` | `[fbId]` | Video (video_ids[]) |
+| `FILE` | `[fbId]` | File (file_ids[]) |
+| `STICKER` | `[stickerId]` | Sticker (sticker_id) |
+| `AUDIO` | `[fbId]` | Audio (audio_ids[]) |
+
+### Trong n2store: Upload ảnh lên Pancake trước → dùng content_url cho extension
+
+```
+1. pdm.uploadImage(pageId, imageFile) → content_url (Pancake CDN)
+2. Thử gửi qua Pancake API (reply_inbox + content_url)
+3. Nếu 24h fail → _sendViaExtension('', conv, content_url)
+   a. UPLOAD_INBOX_PHOTO: content_url → extension → Facebook fbId
+   b. REPLY_INBOX_PHOTO: attachmentType='PHOTO', files=[fbId]
+4. Nếu có text → gửi text riêng (SEND_TEXT_ONLY)
+```
+
+---
+
 ## Fallback Logic trong inbox-chat.js
 
 ```javascript
-// inbox-chat.js - _sendInbox()
+// inbox-chat.js - _sendInbox() (TEXT)
 async _sendInbox(url, text, conv, replyData) {
     try {
-        // Thử gửi qua Pancake API trước (Graph API - bị 24h)
         await this._sendApi(url, { action: 'reply_inbox', message: text });
     } catch (err) {
-        // Nếu API fail (24h, 551, etc.) → fallback qua Extension
         if (window.pancakeExtension?.connected) {
             await this._sendViaExtension(text, conv);
             return;
         }
-        throw err; // Không có extension → throw error
+        throw err;
     }
 }
+
+// inbox-chat.js - sendMessage() (IMAGE + TEXT)
+// Image: API fail → _sendViaExtension('', conv, imageContentUrl)
+// Text: _sendInbox() → API fail → _sendViaExtension(text, conv)
 ```
 
-**Flow:**
+**Flow (text):**
 1. Gửi qua Pancake API (Graph API) → nếu OK thì xong
 2. Nếu lỗi 24h/551 → check `window.pancakeExtension.connected`
-3. Nếu extension connected → `_sendViaExtension()` với `page_customer.global_id`
+3. Nếu extension connected → `_sendViaExtension(text, conv)`
 4. Nếu không có extension → show error toast
+
+**Flow (ảnh + text):**
+1. Upload ảnh lên Pancake → content_url
+2. Gửi ảnh qua API (reply_inbox + content_url) → nếu OK → tiếp
+3. Nếu 24h → `_sendViaExtension('', conv, content_url)` → upload + send ảnh qua extension
+4. Gửi text qua API → nếu 24h → `_sendViaExtension(text, conv)` → send text qua extension
 
 ---
 
@@ -543,16 +611,19 @@ Các databases của Pancake:
 13. **Bug 7:** `accessToken` (Pancake JWT) thiếu trong payload → thêm `window.inboxTokenManager.getTokenSync()`
 14. **Fix 5:** Thêm `customers[0].global_id` từ messages response làm fallback (~1-2s thay vì ~30-40s extension)
 15. **Confirmed:** Extension chấp nhận PSID làm threadId trong REPLY_INBOX_PHOTO (dùng globalUserId cho API call chính)
+16. **Feature:** Thêm gửi ảnh qua extension — UPLOAD_INBOX_PHOTO → REPLY_INBOX_PHOTO (attachmentType='PHOTO', files=[fbId])
+17. **Flow:** Upload ảnh lên Pancake → API fail 24h → extension upload ảnh lên Facebook → gửi tin nhắn ảnh bypass 24h
 
 ---
 
 ## Tham chiếu code hiện tại
 
 - **Extension bridge:** [inbox-main.js:204-337](inbox/js/inbox-main.js#L204-L337)
-- **Send via extension:** [inbox-chat.js:2184-2320](inbox/js/inbox-chat.js#L2184-L2320) — `_sendViaExtension()`
-- **Global ID cache:** [inbox-chat.js:2182](inbox/js/inbox-chat.js#L2182) — `_globalIdCache = {}`
+- **Send via extension (text+image):** `inbox-chat.js` — `_sendViaExtension(text, conv, imageUrl)`
+- **Upload via extension:** `inbox-chat.js` — `_uploadViaExtension(photoUrl, conv)`
+- **Global ID cache:** `inbox-chat.js` — `_globalIdCache = {}`
+- **Image fallback in sendMessage:** `inbox-chat.js` — `sendMessage()` image block with extension fallback
 - **Merge thread_id from messages:** [inbox-chat.js:1535-1553](inbox/js/inbox-chat.js#L1535-L1553) — `result.conversation` → `conv._raw`
-- **Fallback trigger:** [inbox-chat.js:2132-2150](inbox/js/inbox-chat.js#L2132-L2150)
 - **mapConversation (raw data):** [inbox-data.js:465-486](inbox/js/inbox-data.js#L465-L486)
 - **Manifest (domains):** [pancake-extension/manifest.json](pancake-extension/manifest.json)
 - **Content script:** [pancake-extension/scripts/contentscript.js](pancake-extension/scripts/contentscript.js)
