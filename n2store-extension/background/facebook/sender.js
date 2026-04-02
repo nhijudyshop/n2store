@@ -122,25 +122,27 @@ export async function handleReplyInboxPhoto(data, sendResponse) {
       throw new Error(`Failed to parse Facebook response: ${e.message}`);
     }
 
-    log.info(MODULE, `[DEBUG] Parsed result keys: ${Object.keys(result).join(', ')}`);
-    if (result.error) {
-      log.info(MODULE, `[DEBUG] FB error object: ${JSON.stringify(result.error).substring(0, 500)}`);
-    }
-    if (result.payload) {
-      log.info(MODULE, `[DEBUG] Payload actions: ${JSON.stringify(result.payload?.actions?.map(a => a.message_id)).substring(0, 200)}`);
-    }
+    // Log full result structure for debugging
+    log.info(MODULE, `[DEBUG] Full result: ${JSON.stringify(result).substring(0, 1500)}`);
+    log.info(MODULE, `[DEBUG] Result keys: ${Object.keys(result).join(', ')}`);
+    log.info(MODULE, `[DEBUG] __ar=${result.__ar}, error=${JSON.stringify(result.error)}, errorSummary=${result.errorSummary}`);
 
     // Check for errors in response
-    if (result.error) {
-      const fbError = result.error;
-      log.error(MODULE, `FB error: code=${fbError.code}, subcode=${fbError.error_subcode}`, fbError.message);
+    // Facebook errors can be in multiple formats:
+    // 1. { error: { code, error_subcode, message } } - standard API error
+    // 2. { error: 1545002 } - numeric error code
+    // 3. { error: true, errorSummary: "..." } - boolean error with summary
+    // 4. { __ar: 0, errorSummary: "..." } - no explicit error field but __ar=0
+    const hasError = result.error || result.__ar === 0;
+    if (hasError) {
+      const errorInfo = extractFbError(result);
+      log.error(MODULE, `FB error: ${JSON.stringify(errorInfo)}`);
 
       // Determine retry strategy
-      const strategy = getRetryStrategy(fbError);
+      const strategy = getRetryStrategy(errorInfo);
       if (strategy === 'restartInbox') {
         log.info(MODULE, 'Retrying with session restart...');
         session = await initPage(pageId);
-        // Retry once
         params.fb_dtsg = session.token;
         params.__user = pageId;
         const retryRes = await fetch(CONFIG.FB_MESSAGING_SEND, {
@@ -151,9 +153,10 @@ export async function handleReplyInboxPhoto(data, sendResponse) {
         });
         const retryText = await retryRes.text();
         result = parseFbRes(retryText);
-        if (result.error) throw new Error(result.error.message || 'Retry failed');
+        const retryError = extractFbError(result);
+        if (retryError) throw new Error(retryError.message);
       } else {
-        throw new Error(fbError.message || `FB Error ${fbError.code}/${fbError.error_subcode}`);
+        throw new Error(errorInfo.message);
       }
     }
 
@@ -228,15 +231,85 @@ function buildSendParams({ session, pageId, message, attachmentType, files, glob
 }
 
 /**
+ * Extract error info from Facebook response (handles all formats)
+ * Returns { code, subcode, message } or null if no error
+ */
+function extractFbError(result) {
+  if (!result) return null;
+
+  // No error
+  if (!result.error && result.__ar !== 0) return null;
+
+  const error = result.error;
+
+  // Format 1: Standard API error object
+  if (error && typeof error === 'object') {
+    return {
+      code: error.code || error.error_code,
+      subcode: error.error_subcode || error.subcode,
+      message: error.message || error.error_msg || error.errorSummary
+        || result.errorSummary
+        || `FB Error ${error.code || '?'}/${error.error_subcode || '?'}`,
+    };
+  }
+
+  // Format 2: Numeric error code (e.g., { error: 1545002, errorSummary: "..." })
+  if (typeof error === 'number') {
+    return {
+      code: error,
+      subcode: error,
+      message: result.errorSummary || result.errorDescription || `FB Error code: ${error}`,
+    };
+  }
+
+  // Format 3: Boolean error (e.g., { error: true, errorSummary: "..." })
+  if (error === true) {
+    return {
+      code: null,
+      subcode: null,
+      message: result.errorSummary || result.errorDescription || 'Facebook returned an error (no details)',
+    };
+  }
+
+  // Format 4: String error
+  if (typeof error === 'string') {
+    return {
+      code: null,
+      subcode: null,
+      message: error,
+    };
+  }
+
+  // Format 5: __ar=0 without error field
+  if (result.__ar === 0 && !error) {
+    return {
+      code: null,
+      subcode: null,
+      message: result.errorSummary || result.errorDescription || 'Facebook request failed (__ar=0)',
+    };
+  }
+
+  return {
+    code: null,
+    subcode: null,
+    message: `Unknown FB error: ${JSON.stringify(error).substring(0, 200)}`,
+  };
+}
+
+/**
  * Determine retry strategy based on Facebook error
  */
-function getRetryStrategy(fbError) {
-  const subcode = fbError.error_subcode;
+function getRetryStrategy(errorInfo) {
+  const subcode = errorInfo?.subcode;
 
   if (subcode === FB_ERRORS.TEMPORARY_ERROR.subcode) return 'restartInbox';
   if (subcode === FB_ERRORS.BLOCKED_RETRY_SOCKET.subcode) return 'retryUsingSocket';
   if (subcode === FB_ERRORS.UPLOAD_BLOCKED.subcode) return 'reuploadPhotos';
   if (subcode === FB_ERRORS.RATE_LIMITED.subcode) return 'cannotRetry';
+
+  // For temporary/server errors, try restart
+  const code = errorInfo?.code;
+  if (code === 2 || code === 1) return 'restartInbox'; // FB temporary error codes
 
   return 'cannotRetry';
 }

@@ -8,11 +8,15 @@ const MODULE = 'FB-Session';
 // Cache: pageId → { token, lsd, jazoest, userId, rev, hs, hsi, spinR, spinB, spinT, timestamp }
 const sessionCache = new Map();
 
+// Pending init promises to deduplicate concurrent initPage() calls
+const pendingInits = new Map();
+
 // GraphQL doc_ids cache
 let docIds = null;
 
 /**
  * Initialize a Facebook page session - extract fb_dtsg and session data
+ * Uses promise deduplication to prevent concurrent fetches for the same pageId
  */
 export async function initPage(pageId) {
   // Check cache first
@@ -22,6 +26,27 @@ export async function initPage(pageId) {
     return cached;
   }
 
+  // Deduplicate: if another initPage(pageId) is already in progress, wait for it
+  if (pendingInits.has(pageId)) {
+    log.info(MODULE, `Waiting for in-progress init for page ${pageId}...`);
+    return pendingInits.get(pageId);
+  }
+
+  const initPromise = _doInitPage(pageId);
+  pendingInits.set(pageId, initPromise);
+
+  try {
+    const result = await initPromise;
+    return result;
+  } finally {
+    pendingInits.delete(pageId);
+  }
+}
+
+/**
+ * Internal: actual session initialization logic
+ */
+async function _doInitPage(pageId) {
   log.info(MODULE, `Initializing session for page ${pageId}...`);
 
   const url = `${CONFIG.FB_BUSINESS_INBOX}?page_id=${pageId}`;
