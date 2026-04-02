@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Quick actions
   document.getElementById('openInbox').addEventListener('click', () => {
-    chrome.tabs.create({ url: 'https://nhijudyshop.workers.dev/inbox/' });
+    chrome.tabs.create({ url: 'https://nhijudyshop.github.io/n2store/inbox/index.html' });
     window.close();
   });
 
@@ -246,9 +246,8 @@ function getTypeBadge(type) {
 }
 
 function getNotifUrl(type) {
-  const base = 'https://nhijudyshop.workers.dev';
   if (['msg_sent', 'msg_failed', 'new_message', 'global_id_resolved', 'global_id_failed', 'upload_done', 'upload_failed'].includes(type)) {
-    return `${base}/inbox/`;
+    return 'https://nhijudyshop.github.io/n2store/inbox/index.html';
   }
   if (['new_transaction', 'wallet_update', 'held_product', 'processing_update'].includes(type)) {
     return 'https://nhijudyshop.github.io/n2store/orders-report/main.html';
