@@ -819,20 +819,29 @@ function openCachedOrderDetail(index) {
 // =====================================================
 function updateStats() {
     const totalOrders = allOrders.length;
+
+    // TotalQuantity is available on raw orders from tab1 (TPOS API field)
+    const totalProducts = allOrders.reduce((sum, order) => sum + (order.TotalQuantity || 0), 0);
+
+    // Count unique product codes from cachedOrderDetails if available (Details are only in cached data)
     const uniqueProductCodes = new Set();
-    const totalProducts = allOrders.reduce((sum, order) => {
-        const details = order.Details || [];
-        details.forEach(d => {
-            const code = d.ProductCode || d.productCode || '';
-            if (code) uniqueProductCodes.add(code);
+    const cached = currentTableName && cachedOrderDetails[currentTableName];
+    if (cached && cached.orders) {
+        cached.orders.forEach(order => {
+            (order.Details || []).forEach(d => {
+                const code = d.ProductCode || d.productCode || '';
+                if (code) uniqueProductCodes.add(code);
+            });
         });
-        return sum + details.reduce((s, d) => s + (d.Quantity || 0), 0);
-    }, 0);
+    }
+
     const uniqueCustomers = new Set(allOrders.map(order => order.Telephone || order.PartnerPhone).filter(Boolean));
 
     document.getElementById('statTotalOrders').textContent = totalOrders.toLocaleString('vi-VN');
     document.getElementById('statTotalProducts').textContent = totalProducts.toLocaleString('vi-VN');
-    document.getElementById('statUniqueProducts').textContent = uniqueProductCodes.size.toLocaleString('vi-VN') + ' mã SP';
+    document.getElementById('statUniqueProducts').textContent = uniqueProductCodes.size > 0
+        ? uniqueProductCodes.size.toLocaleString('vi-VN') + ' mã SP'
+        : '';
     document.getElementById('statTotalCustomers').textContent = uniqueCustomers.size.toLocaleString('vi-VN');
 }
 
