@@ -360,27 +360,28 @@ function updateLiveStatsBadges(badges) {
  * Used in both global header and employee header
  */
 function _buildMiniSummary(stats) {
-    const items = [];
     const untagged = stats.untaggedOrders.length;
+    let html = '';
 
-    // ⚠️ CHƯA GÁN TAG XL (only if > 0)
+    // Line 2: ⚠️ CHƯA GÁN TAG XL (only if > 0)
     if (untagged > 0) {
-        items.push(`<span style="background:#fef2f2; color:#dc2626; padding:3px 8px; border-radius:6px; font-size:12px; font-weight:600;">⚠️ ${untagged}</span>`);
+        html += `<div style="margin-top:6px;"><span style="background:#fef2f2; color:#dc2626; padding:4px 12px; border-radius:8px; font-size:14px; font-weight:700;">⚠️ Chưa gán: ${untagged}</span></div>`;
     }
 
-    // 5 categories
+    // Line 3: 5 categories with names
+    const catItems = [];
     for (let cat = 0; cat <= 4; cat++) {
         const meta = PTAG_CATEGORY_META[cat];
         const count = stats.catCounts[cat];
-        let label = `${meta.emoji} ${count}`;
-        // Cat 1: show sub-state breakdown
+        let label = `${meta.emoji} ${meta.short}: <strong>${count}</strong>`;
         if (cat === 1) {
-            label = `${meta.emoji} ${count} (${stats.subStateCounts.OKIE_CHO_DI_DON} Okie, ${stats.subStateCounts.CHO_HANG} Chờ)`;
+            label = `${meta.emoji} ${meta.short}: <strong>${count}</strong> (${stats.subStateCounts.OKIE_CHO_DI_DON} Okie, ${stats.subStateCounts.CHO_HANG} Chờ)`;
         }
-        items.push(`<span style="color:${meta.color}; font-size:12px; font-weight:600;">${label}</span>`);
+        catItems.push(`<span style="color:${meta.color}; font-size:14px; font-weight:600;">${label}</span>`);
     }
+    html += `<div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-top:5px;">${catItems.join('<span style="color:#d1d5db;">|</span>')}</div>`;
 
-    return `<div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:4px;">${items.join('')}</div>`;
+    return html;
 }
 
 /**
@@ -1110,7 +1111,7 @@ function _buildStatRow(key, displayName, color, icon, count, total, totalAmount,
     if (opts.highlight) {
         bgStyle = 'background: rgba(239, 68, 68, 0.08);';
     } else if (opts.isCategoryRow && color) {
-        bgStyle = `background: ${color}08;`; // very light tint of category color
+        bgStyle = `background: ${color}18;`; // light tint of category color
     }
 
     const iconHtml = icon
@@ -1224,17 +1225,24 @@ function renderTagXLStatsTable(stats) {
 
     tbody.innerHTML = _buildTagXLRows(stats);
 
-    // Render mini-summary under badges
-    const badgesContainer = document.getElementById('liveStatsBadges');
-    if (badgesContainer) {
-        // Remove old mini-summary if any
-        const oldSummary = badgesContainer.querySelector('.ptag-mini-summary');
-        if (oldSummary) oldSummary.remove();
-        const summaryEl = document.createElement('div');
-        summaryEl.className = 'ptag-mini-summary';
-        summaryEl.innerHTML = _buildMiniSummary(stats);
-        badgesContainer.after(summaryEl);
+    // Render mini-summary under header h2 (inside tagStatsSection)
+    const section = document.getElementById('tagStatsSection');
+    if (section) {
+        // Remove old mini-summary
+        const old = section.querySelector('.ptag-mini-summary');
+        if (old) old.remove();
+        const h2 = section.querySelector('h2');
+        if (h2) {
+            const el = document.createElement('div');
+            el.className = 'ptag-mini-summary';
+            el.style.cssText = 'padding: 0 0 8px 0;';
+            el.innerHTML = _buildMiniSummary(stats);
+            h2.after(el);
+        }
     }
+
+    // Make table collapsible — default collapsed
+    _makeCollapsible('tagStatsSection');
 }
 
 /**
@@ -1255,7 +1263,7 @@ function renderEmployeeTagXLStats(employeeStats) {
         return;
     }
 
-    container.innerHTML = employeeStats.map(emp => {
+    container.innerHTML = employeeStats.map((emp, idx) => {
         const { badges } = emp;
 
         // Build employee-specific onclick functions by overriding _buildStatRow's onclick
@@ -1264,24 +1272,27 @@ function renderEmployeeTagXLStats(employeeStats) {
             `viewEmployeeTagXLOrders('${emp.name}', ${emp.start}, ${emp.end}, '$1')`
         );
 
-        // Mini summary for this employee
         const empMiniSummary = _buildMiniSummary(emp.stats);
+        const empId = `empCard_${idx}`;
 
         return `
-        <div class="employee-card">
-            <div class="employee-live-header">
+        <div class="employee-card" id="${empId}">
+            <div class="employee-live-header" style="cursor:pointer;" onclick="_toggleEmpCard('${empId}')">
                 <div class="employee-title">
-                    <i class="fas fa-user"></i>
-                    <span class="emp-name">${emp.name}</span>
-                    <span class="employee-stt">STT ${emp.start} - ${emp.end}</span>
-                    <div class="live-stats-badges" style="display: flex; align-items: center; flex-wrap: wrap;">
-                        <span class="live-badge badge-total">${badges.total} ĐƠN</span>
-                        <span class="live-badge badge-chot" style="background: #22c55e;">${badges.donChot} ĐƠN CHỐT</span>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <i class="fas fa-chevron-right ptag-collapse-icon" style="font-size:11px; color:#94a3b8; transition:transform 0.2s;"></i>
+                        <i class="fas fa-user"></i>
+                        <span class="emp-name">${emp.name}</span>
+                        <span class="employee-stt">STT ${emp.start} - ${emp.end}</span>
+                        <div class="live-stats-badges" style="display: flex; align-items: center; flex-wrap: wrap;">
+                            <span class="live-badge badge-total">${badges.total} ĐƠN</span>
+                            <span class="live-badge badge-chot" style="background: #22c55e;">${badges.donChot} ĐƠN CHỐT</span>
+                        </div>
                     </div>
                     ${empMiniSummary}
                 </div>
             </div>
-            <div class="stats-table-wrapper">
+            <div class="stats-table-wrapper" style="display:none;">
                 <table class="stats-table employee-stats-table">
                     <thead>
                         <tr>
@@ -1299,6 +1310,57 @@ function renderEmployeeTagXLStats(employeeStats) {
             </div>
         </div>`;
     }).join('');
+}
+
+// =====================================================
+// TAG XL COLLAPSIBLE HELPERS
+// =====================================================
+
+/**
+ * Make a section collapsible (default collapsed). Click h2 to toggle.
+ */
+function _makeCollapsible(sectionId) {
+    const section = document.getElementById(sectionId);
+    if (!section || section.dataset.collapsible) return;
+    section.dataset.collapsible = 'true';
+
+    const h2 = section.querySelector('h2');
+    const wrapper = section.querySelector('.stats-table-wrapper');
+    if (!h2 || !wrapper) return;
+
+    // Add chevron icon
+    if (!h2.querySelector('.ptag-collapse-icon')) {
+        const icon = document.createElement('i');
+        icon.className = 'fas fa-chevron-right ptag-collapse-icon';
+        icon.style.cssText = 'font-size:12px; color:#94a3b8; transition:transform 0.2s; margin-right:6px;';
+        h2.insertBefore(icon, h2.firstChild);
+    }
+
+    // Default collapsed
+    wrapper.style.display = 'none';
+    h2.style.cursor = 'pointer';
+
+    h2.onclick = () => {
+        const isHidden = wrapper.style.display === 'none';
+        wrapper.style.display = isHidden ? '' : 'none';
+        const chevron = h2.querySelector('.ptag-collapse-icon');
+        if (chevron) chevron.style.transform = isHidden ? 'rotate(90deg)' : '';
+    };
+}
+
+/**
+ * Toggle employee card collapse
+ */
+function _toggleEmpCard(empId) {
+    const card = document.getElementById(empId);
+    if (!card) return;
+    const wrapper = card.querySelector('.stats-table-wrapper');
+    const icon = card.querySelector('.ptag-collapse-icon');
+    if (!wrapper) return;
+
+    const isHidden = wrapper.style.display === 'none';
+    wrapper.style.display = isHidden ? '' : 'none';
+    if (icon) icon.style.transform = isHidden ? 'rotate(90deg)' : '';
 }
 
 // =====================================================
