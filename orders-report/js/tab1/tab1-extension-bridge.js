@@ -80,10 +80,12 @@ async function sendViaExtension(text, conv) {
         globalUserId = conv.customers[0].global_id || null;
     }
 
-    // Try 3: GET_GLOBAL_ID_FOR_CONV via extension (needs Facebook thread_id, NOT PSID!)
+    // Try 3: GET_GLOBAL_ID_FOR_CONV via extension
+    // Now supports 5 strategies: threadId-based (1-3) + customerName-based (4-5)
     const fbThreadId = raw.thread_id || null;
+    const custName = conv.customerName || conv.from?.name || '';
 
-    if (!globalUserId && fbThreadId) {
+    if (!globalUserId && (fbThreadId || custName)) {
         const taskId = Date.now();
 
         globalUserId = await new Promise((resolve) => {
@@ -114,17 +116,17 @@ async function sendViaExtension(text, conv) {
                 type: 'GET_GLOBAL_ID_FOR_CONV',
                 pageId: conv.pageId,
                 threadId: fbThreadId,
-                threadKey: 't_' + fbThreadId,
+                threadKey: fbThreadId ? 't_' + fbThreadId : null,
                 isBusiness: true,
                 conversationUpdatedTime,
-                customerName: conv.customerName || conv.from?.name || '',
+                customerName: custName,
                 convType: conv.type || 'INBOX',
                 postId: null, convId: null,
                 taskId, from: 'WEBPAGE'
             });
         });
     } else if (!globalUserId) {
-        console.warn('[EXT-SEND] No global_id AND no thread_id in conversation data');
+        console.warn('[EXT-SEND] No global_id, no thread_id, no customerName');
     }
 
     if (!globalUserId) {

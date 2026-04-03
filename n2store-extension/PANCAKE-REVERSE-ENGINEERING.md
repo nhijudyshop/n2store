@@ -556,30 +556,79 @@ upload_id=upload_{timestamp}
 
 ## 10. Global ID Resolution (GET_GLOBAL_ID_FOR_CONV)
 
-### 10.1. GraphQL Query
+### 10.1. Pancake Extension's Fe class — 5 strategies
 
-```
-POST https://business.facebook.com/api/graphql/
-doc_id={PagesManagerInboxAdminAssignerRootQuery docId}
-variables={"threadKey":"t_{threadId}","pageId":"{pageId}"}
-```
+Reverse-engineered from `background.js` class `Fe`:
 
-### 10.2. Response path
-
+**Strategy 1: PagesManagerInboxAdminAssignerRootQuery** (needs threadId)
 ```
-data.messaging_page_admin_assigner
-    .messaging_unified_thread
-    .all_participants
-    .nodes[].messaging_actor
-    .id  ← Global User ID
+POST /api/graphql/
+variables={"pageID":"{pageId}","commItemID":"{threadId}"}
+→ data.commItem.target_id = globalId
 ```
 
-### 10.3. Fallback chain (inbox-chat.js)
+**Strategy 2: PagesManagerInboxQueryUtilCommItemHeaderMercuryQuery** (needs threadKey + cquick_token)
+```
+POST /api/graphql/
+variables={"pageID":"{pageId}","messageThreadID":"t_{threadId}"}
+extra: cquick, cquick_token, ctarget, av
+→ data.page.page_comm_item_for_message_thread.target_id = globalId
+```
+
+**Strategy 3: findThread — MessengerGraphQLThreadlistFetcher** (needs customerName OR threadId)
+```
+POST /api/graphql/  (batch)
+variables={"limit":20,"tags":["INBOX"],"before":{timeCursor}}
+→ Loads 20 threads at a time, matches by:
+  - page_comm_item.id === threadId
+  - page_comm_item.comm_source_id === threadId
+  - participant name === customerName
+→ found.thread_key.other_user_id = globalId
+Paginates up to 200 threads. Tries categories: main → done → page_background → spam
+```
+
+**Strategy 4: getUserInboxByName — PagesManagerInboxCustomerSearchQuery** (needs customerName)
+```
+POST /api/graphql/
+variables={"pageID":"{pageId}","channel":"MESSENGER","count":5,"searchTerm":"{customerName}"}
+→ data.page.page_unified_customer_search.edges[].node
+  .unified_contact_comms_facebook.edges[].node.target_id = globalId
+```
+
+**Strategy 5: globalIdFromThread** — simple extraction after findThread
+```javascript
+// Just returns thread_key.other_user_id from the found thread node
+```
+
+### 10.2. Response paths (multiple)
+
+```
+// Strategy 1
+data.commItem.target_id
+
+// Strategy 2
+data.page.page_comm_item_for_message_thread.target_id
+
+// Strategy 3 (findThread)
+node.thread_key.other_user_id
+node.all_participants.edges[].node.messaging_actor.id (non-page)
+
+// Strategy 4 (search by name)
+data.page.page_unified_customer_search.edges[].node
+    .unified_contact_comms_facebook.edges[].node.target_id
+
+// Generic deep search
+data.node.messaging_actor.id
+data.message_thread.all_participants.nodes[].messaging_actor.id
+obj.other_user_fbid
+```
+
+### 10.3. Fallback chain (inbox-chat.js → extension)
 
 1. Cache: `_globalIdCache[convId]`
 2. Pancake API data: `conv._raw.page_customer?.global_id`
 3. Messages data: `conv._messagesData?.customers?.[0]?.global_id`
-4. Extension: `GET_GLOBAL_ID_FOR_CONV` (GraphQL, 30-40s)
+4. Extension: `GET_GLOBAL_ID_FOR_CONV` (5 strategies above, needs threadId OR customerName)
 
 ---
 

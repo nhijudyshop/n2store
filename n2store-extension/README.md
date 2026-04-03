@@ -294,7 +294,8 @@ Trường `isBusiness` trong REPLY_INBOX_PHOTO **PHẢI là `false`**. Đây là
 | ID | Ví dụ | Dùng cho |
 |----|-------|----------|
 | PSID | `26140045085657251` | `REPLY_INBOX_PHOTO.threadId` (OK) |
-| thread_id | `34116166741365151` | `GET_GLOBAL_ID_FOR_CONV` (BẮT BUỘC) |
+| thread_id | `34116166741365151` | `GET_GLOBAL_ID_FOR_CONV` strategies 1-3 |
+| customerName | `Tran Thi My Hang` | `GET_GLOBAL_ID_FOR_CONV` strategies 4-5 (fallback khi không có thread_id) |
 | globalUserId | `100001957832900` | `REPLY_INBOX_PHOTO.globalUserId` (BẮT BUỘC) |
 
 ### 7.3 fb_dtsg
@@ -311,13 +312,22 @@ Trường `isBusiness` trong REPLY_INBOX_PHOTO **PHẢI là `false`**. Đây là
 - Offscreen.js gửi keepAlive mỗi 20s
 - Dùng ES Modules (`type: "module"` trong manifest)
 
-### 7.5 Global ID Cache
+### 7.5 Global ID Resolution (5 strategies)
 
 - Cache trong `chrome.storage.local` (persist across restart)
 - TTL: 24h
-- Lần đầu resolve: ~30-40s (GraphQL query nặng)
+- Lần đầu resolve: ~5-40s tùy strategy
 - Lần sau: instant (từ cache)
-- 3 strategies: ThreadlistQuery → thread_info.php → GraphQL friendly_name
+
+| # | Strategy | Cần | Doc ID? | Nguồn |
+|---|----------|-----|---------|-------|
+| 1 | MessengerThreadlistQuery | thread_id | Có | N2Store |
+| 2 | thread_info.php (mercury) | thread_id | Không | N2Store |
+| 3 | PagesManagerInboxAdminAssignerRootQuery | thread_id | Không | Pancake |
+| 4 | findThread (load thread list, match by name) | customerName | Có | Pancake |
+| 5 | getUserInboxByName (search by name) | customerName | Có | Pancake |
+
+Strategies 4+5 là fallback khi không có `thread_id` — tìm trong danh sách thread hoặc search bằng tên khách.
 
 ### 7.6 SSE Reconnect
 
