@@ -1668,17 +1668,13 @@
         return `<span class="ptag-tooltip-trigger" data-tooltip="${text.replace(/"/g, '&quot;')}" onclick="event.stopPropagation();">?</span>`;
     }
 
-    function renderPanelContent() {
-        const body = document.getElementById('ptag-panel-body');
-        if (!body) return;
-
+    function _ptagComputeCounts() {
         const allOrders = (typeof window.getEmployeeFilteredOrders === 'function')
             ? window.getEmployeeFilteredOrders()
             : ((typeof window.getAllOrders === 'function') ? window.getAllOrders() : []);
         const taggedOrders = ProcessingTagState.getAllOrders();
         const totalOrders = allOrders.length;
 
-        // Only count tagged orders that exist in current allData (key = orderCode)
         const allDataCodes = new Set(allOrders.map(o => String(o.Code)).filter(Boolean));
         let taggedCount = 0;
         let hasCategoryCount = 0;
@@ -1689,7 +1685,7 @@
         const tTagCounts = {};
 
         for (const [key, data] of taggedOrders) {
-            if (!allDataCodes.has(key)) continue; // Skip stale/mismatched keys
+            if (!allDataCodes.has(key)) continue;
             taggedCount++;
             if (data.category !== null && data.category !== undefined) {
                 hasCategoryCount++;
@@ -1698,10 +1694,8 @@
             catCounts[data.category] = (catCounts[data.category] || 0) + 1;
 
             if (data.category === PTAG_CATEGORIES.CHO_DI_DON) {
-                // Derive subState from tTags (source of truth) for accurate counting
                 const ss = (data.tTags || []).length > 0 ? 'CHO_HANG' : 'OKIE_CHO_DI_DON';
                 subStateCounts[ss] = (subStateCounts[ss] || 0) + 1;
-                // Sub-sub count for CHO_HANG: đã in phiếu / chưa in phiếu
                 if (ss === 'CHO_HANG') {
                     if (data.pickingSlipPrinted) {
                         subStateCounts['CHO_HANG_DA_IN'] = (subStateCounts['CHO_HANG_DA_IN'] || 0) + 1;
@@ -1710,8 +1704,6 @@
                     }
                 }
             }
-            // Count flags for ALL orders (flags are independent of category)
-            // Custom flags (CUSTOM_xxx) count under KHAC as well
             let hasCustomFlag = false;
             (data.flags || []).forEach(f => {
                 flagCounts[f] = (flagCounts[f] || 0) + 1;
@@ -1727,7 +1719,6 @@
 
         const untaggedCount = totalOrders - hasCategoryCount;
 
-        // Count T-tags from internal processing tag data
         for (const [key, data] of taggedOrders) {
             if (!allDataCodes.has(key)) continue;
             if (data.tTags) {
@@ -1737,9 +1728,14 @@
             }
         }
 
-        // Note: Do NOT auto-cleanup custom flags - they should persist
-        // even when no orders reference them (user may re-sync later).
-        // Custom flags are only removed when user manually deletes them.
+        return { totalOrders, taggedCount, untaggedCount, catCounts, subStateCounts, flagCounts, subTagCounts, tTagCounts };
+    }
+
+    function renderPanelContent() {
+        const body = document.getElementById('ptag-panel-body');
+        if (!body) return;
+
+        const { totalOrders, taggedCount, untaggedCount, catCounts, subStateCounts, flagCounts, subTagCounts, tTagCounts } = _ptagComputeCounts();
 
         const activeFilter = ProcessingTagState._activeFilter;
         const activeFlagFilters = ProcessingTagState._activeFlagFilters;
@@ -1940,6 +1936,213 @@
         }
 
         body.innerHTML = html;
+
+        // Sync Tag XL dropdown filter bar
+        _ptagXlUpdateSelectedText();
+        if (document.getElementById('ptagXlFilterDropdown')?.classList.contains('open')) {
+            _ptagXlRenderDropdown();
+        }
+    }
+
+    // =====================================================
+    // SECTION: TAG XL FILTER DROPDOWN (filter bar)
+    // =====================================================
+
+    function _ptagXlToggleDropdown() {
+        const dropdown = document.getElementById('ptagXlFilterDropdown');
+        if (!dropdown) return;
+        const isOpen = dropdown.classList.contains('open');
+
+        // Close all other dropdowns
+        document.querySelectorAll('.tag-filter-dropdown.open').forEach(d => d.classList.remove('open'));
+
+        if (!isOpen) {
+            dropdown.classList.add('open');
+            _ptagXlRenderDropdown();
+            setTimeout(() => {
+                const input = document.getElementById('ptagXlFilterSearchInput');
+                if (input) { input.value = ''; input.focus(); }
+            }, 50);
+        }
+    }
+
+    function _ptagXlFilterSearch(query) {
+        const norm = _ptagNormalize(query);
+        document.querySelectorAll('#ptagXlFilterOptions [data-search]').forEach(el => {
+            el.style.display = _ptagMatchTokens(el.dataset.search, norm) ? '' : 'none';
+        });
+    }
+
+    function _ptagXlUpdateSelectedText() {
+        const el = document.getElementById('ptagXlFilterText');
+        if (!el) return;
+
+        const filter = ProcessingTagState._activeFilter;
+        const flagFilters = ProcessingTagState._activeFlagFilters;
+        const parts = [];
+
+        if (filter === null && flagFilters.size === 0) {
+            el.textContent = 'Tất cả';
+            el.style.color = '';
+            return;
+        }
+
+        if (filter === '__no_tag__') {
+            parts.push('Chưa gán');
+        } else if (filter && filter.startsWith('cat_')) {
+            const catId = parseInt(filter.replace('cat_', ''));
+            const meta = PTAG_CATEGORY_META[catId];
+            if (meta) parts.push(meta.short);
+        } else if (filter && filter.startsWith('sub_')) {
+            const subKey = filter.replace('sub_', '');
+            const ss = PTAG_SUBSTATES[subKey];
+            if (ss) parts.push(ss.label);
+            else parts.push(subKey);
+        } else if (filter && filter.startsWith('subtag_')) {
+            const stKey = filter.replace('subtag_', '');
+            const st = PTAG_SUBTAGS[stKey];
+            if (st) parts.push(st.label);
+        } else if (filter && filter.startsWith('flag_')) {
+            const fKey = filter.replace('flag_', '');
+            const fl = PTAG_FLAGS[fKey];
+            if (fl) parts.push(fl.label);
+        } else if (filter && filter.startsWith('ttag_')) {
+            const tId = filter.replace('ttag_', '');
+            const def = ProcessingTagState.getTTagDefinitions().find(d => d.id === tId);
+            parts.push(def ? def.name : tId);
+        }
+
+        if (flagFilters.size > 0) {
+            for (const fk of flagFilters) {
+                const fl = PTAG_FLAGS[fk];
+                if (fl) parts.push(fl.label);
+                else {
+                    const cf = ProcessingTagState.getCustomFlagDef(fk);
+                    if (cf) parts.push(cf.label);
+                }
+            }
+        }
+
+        const text = parts.join(' + ');
+        el.textContent = text.length > 25 ? text.substring(0, 23) + '…' : text;
+        el.style.color = '#7c3aed';
+    }
+
+    function _ptagXlRenderDropdown() {
+        const container = document.getElementById('ptagXlFilterOptions');
+        if (!container) return;
+
+        const { totalOrders, untaggedCount, catCounts, subStateCounts, flagCounts, subTagCounts, tTagCounts } = _ptagComputeCounts();
+        const activeFilter = ProcessingTagState._activeFilter;
+        const activeFlagFilters = ProcessingTagState._activeFlagFilters;
+
+        let html = '';
+
+        // --- Special: TẤT CẢ ---
+        html += `<div class="ptag-xl-option ${activeFilter === null && activeFlagFilters.size === 0 ? 'active' : ''}"
+            onclick="window._ptagSetFilter(null)" data-search="tat ca">
+            <span>🌐 Tất cả</span>
+            <span class="ptag-xl-count">${totalOrders}</span>
+        </div>`;
+
+        // --- Special: CHƯA GÁN TAG XL ---
+        html += `<div class="ptag-xl-option ${activeFilter === '__no_tag__' ? 'active' : ''}"
+            onclick="window._ptagSetFilter('__no_tag__')" data-search="chua gan tag xl">
+            <span>🏷️ Chưa gán Tag XL</span>
+            <span class="ptag-xl-count">${untaggedCount}</span>
+        </div>`;
+
+        // --- Section: PHÂN LOẠI ---
+        html += `<div class="ptag-xl-section-header" data-search="phan loai category">PHÂN LOẠI</div>`;
+
+        // Category 0 — ĐÃ RA ĐƠN
+        html += `<div class="ptag-xl-option ${activeFilter === 'cat_0' ? 'active' : ''}"
+            onclick="window._ptagSetFilter('cat_0')" data-search="${_ptagNormalize(PTAG_CATEGORY_META[0].name)}">
+            <span>${PTAG_CATEGORY_META[0].emoji} ${PTAG_CATEGORY_META[0].name}</span>
+            <span class="ptag-xl-count">${catCounts[0]}</span>
+        </div>`;
+
+        // Category 1 — CHỜ ĐI ĐƠN + sub-states
+        html += `<div class="ptag-xl-option ${activeFilter === 'cat_1' ? 'active' : ''}"
+            onclick="window._ptagSetFilter('cat_1')" data-search="${_ptagNormalize(PTAG_CATEGORY_META[1].name)} cho di don oke">
+            <span>${PTAG_CATEGORY_META[1].emoji} ${PTAG_CATEGORY_META[1].name}</span>
+            <span class="ptag-xl-count">${catCounts[1]}</span>
+        </div>`;
+
+        // Sub-states for cat 1
+        for (const [ssKey, ss] of Object.entries(PTAG_SUBSTATES)) {
+            const fk = 'sub_' + ssKey;
+            html += `<div class="ptag-xl-option ptag-xl-option--indent ${activeFilter === fk ? 'active' : ''}"
+                onclick="window._ptagSetFilter('${fk}')" data-search="${_ptagNormalize(ss.label)}">
+                <span style="color:${ss.color};">↳ ${ss.label}</span>
+                <span class="ptag-xl-count">${subStateCounts[ssKey] || 0}</span>
+            </div>`;
+        }
+
+        // Categories 2, 3, 4 with sub-tags
+        for (const cat of [2, 3, 4]) {
+            const meta = PTAG_CATEGORY_META[cat];
+            const colors = PTAG_CATEGORY_COLORS[cat];
+            html += `<div class="ptag-xl-option ${activeFilter === 'cat_' + cat ? 'active' : ''}"
+                onclick="window._ptagSetFilter('cat_${cat}')" data-search="${_ptagNormalize(meta.name)}">
+                <span>${meta.emoji} ${meta.name}</span>
+                <span class="ptag-xl-count">${catCounts[cat]}</span>
+            </div>`;
+
+            // Sub-tags for this category
+            for (const [stKey, st] of Object.entries(PTAG_SUBTAGS)) {
+                if (st.category !== cat) continue;
+                const fk = 'subtag_' + stKey;
+                const icon = PTAG_SUBTAG_ICONS[stKey] || '•';
+                html += `<div class="ptag-xl-option ptag-xl-option--indent ${activeFilter === fk ? 'active' : ''}"
+                    onclick="window._ptagSetFilter('${fk}')" data-search="${_ptagNormalize(st.label)}">
+                    <span>↳ ${icon} ${st.label}</span>
+                    <span class="ptag-xl-count">${subTagCounts[stKey] || 0}</span>
+                </div>`;
+            }
+        }
+
+        // --- Section: ĐẶC ĐIỂM (FLAGS) ---
+        html += `<div class="ptag-xl-section-header" data-search="dac diem flag">ĐẶC ĐIỂM</div>`;
+
+        for (const [key, flag] of Object.entries(PTAG_FLAGS)) {
+            const checked = activeFlagFilters.has(key) ? 'checked' : '';
+            html += `<div class="ptag-xl-flag-row" data-search="${_ptagNormalize(flag.label)}"
+                onclick="window._ptagToggleFlagFilter('${key}')">
+                <input type="checkbox" ${checked} onclick="event.stopPropagation()" onchange="window._ptagToggleFlagFilter('${key}')" />
+                <span>${flag.icon} ${flag.label}</span>
+                <span class="ptag-xl-count">${flagCounts[key] || 0}</span>
+            </div>`;
+        }
+
+        // Custom flags under KHÁC
+        const customFlags = ProcessingTagState.getCustomFlagDefs();
+        for (const cf of customFlags) {
+            const checked = activeFlagFilters.has(cf.id) ? 'checked' : '';
+            html += `<div class="ptag-xl-flag-row ptag-xl-option--indent" data-search="${_ptagNormalize(cf.label)}"
+                onclick="window._ptagToggleFlagFilter('${cf.id}')">
+                <input type="checkbox" ${checked} onclick="event.stopPropagation()" onchange="window._ptagToggleFlagFilter('${cf.id}')" />
+                <span>📋 ${cf.label}</span>
+                <span class="ptag-xl-count">${flagCounts[cf.id] || 0}</span>
+            </div>`;
+        }
+
+        // --- Section: TAG T (if any) ---
+        const tTagDefs = ProcessingTagState.getTTagDefinitions();
+        if (tTagDefs.length > 0) {
+            html += `<div class="ptag-xl-section-header" data-search="tag t cho hang">TAG T (CHỜ HÀNG)</div>`;
+            for (const def of tTagDefs) {
+                const fk = 'ttag_' + def.id;
+                const escapedFk = fk.replace(/'/g, "\\'");
+                html += `<div class="ptag-xl-option ${activeFilter === fk ? 'active' : ''}"
+                    onclick="window._ptagSetFilter('${escapedFk}')" data-search="${_ptagNormalize(def.name + ' ' + (def.productCode || ''))}">
+                    <span>🏷️ ${ProcessingTagState.getTTagLabel(def.id)}</span>
+                    <span class="ptag-xl-count">${tTagCounts[def.id] || 0}</span>
+                </div>`;
+            }
+        }
+
+        container.innerHTML = html;
     }
 
     function _ptagTogglePanel() {
@@ -4429,6 +4632,9 @@
     window._ptagTogglePanel = _ptagTogglePanel;
     window._ptagTogglePin = _ptagTogglePin;
     window._ptagSetFilter = _ptagSetFilter;
+    // Tag XL filter dropdown (filter bar)
+    window._ptagXlToggleDropdown = _ptagXlToggleDropdown;
+    window._ptagXlFilterSearch = _ptagXlFilterSearch;
     window._ptagFilterPanel = _ptagFilterPanel;
     window._ptagToggleFlagFilter = _ptagToggleFlagFilter;
     window._ptagToggleFlagsSection = _ptagToggleFlagsSection;

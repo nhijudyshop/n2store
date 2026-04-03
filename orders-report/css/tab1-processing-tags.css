@@ -2120,3 +2120,83 @@
     opacity: 0.4;
     cursor: not-allowed;
 }
+
+/* =====================================================
+   TAG XL FILTER DROPDOWN (filter bar)
+   ===================================================== */
+
+.ptag-xl-filter .tag-filter-selected {
+    border-color: #c4b5fd;
+    min-width: 80px;
+}
+.ptag-xl-filter .tag-filter-selected:hover {
+    border-color: #7c3aed;
+}
+.ptag-xl-filter.open .tag-filter-selected {
+    border-color: #7c3aed;
+    box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.15);
+}
+
+.ptag-xl-option {
+    padding: 7px 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: #374151;
+    transition: background 0.15s;
+    border-left: 3px solid transparent;
+}
+.ptag-xl-option:hover {
+    background: #f5f3ff;
+}
+.ptag-xl-option.active {
+    background: #ede9fe;
+    border-left-color: #7c3aed;
+    font-weight: 600;
+}
+.ptag-xl-option--indent {
+    padding-left: 28px;
+    font-size: 11px;
+}
+
+.ptag-xl-section-header {
+    padding: 6px 12px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: #f9fafb;
+    border-top: 1px solid #e5e7eb;
+    border-bottom: 1px solid #f3f4f6;
+    margin-top: 2px;
+}
+
+.ptag-xl-count {
+    margin-left: auto;
+    font-size: 11px;
+    color: #9ca3af;
+    font-weight: 500;
+    min-width: 20px;
+    text-align: right;
+}
+
+.ptag-xl-flag-row {
+    padding: 6px 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.ptag-xl-flag-row:hover {
+    background: #f5f3ff;
+}
+.ptag-xl-flag-row input[type="checkbox"] {
+    margin: 0;
+    cursor: pointer;
+    accent-color: #7c3aed;
+}

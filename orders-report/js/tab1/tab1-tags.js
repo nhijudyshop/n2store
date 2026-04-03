@@ -1985,5 +1985,9 @@ document.addEventListener('click', function(event) {
     if (excludeDropdown && !excludeDropdown.contains(event.target)) {
         window.closeExcludeTagFilterDropdown();
     }
+    const ptagXlDropdown = document.getElementById('ptagXlFilterDropdown');
+    if (ptagXlDropdown && !ptagXlDropdown.contains(event.target)) {
+        ptagXlDropdown.classList.remove('open');
+    }
 });
 
