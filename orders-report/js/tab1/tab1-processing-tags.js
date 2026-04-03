@@ -4039,26 +4039,18 @@
 
     /** Xóa cuốn chiếu: entry nào tạo > 30 ngày thì xóa, entry < 30 ngày vẫn giữ */
     function _ptagCleanupOldHistory() {
-        const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
-        const cutoff = Date.now() - THIRTY_DAYS;
+        const SIXTY_DAYS = 60 * 24 * 60 * 60 * 1000;
+        const cutoff = Date.now() - SIXTY_DAYS;
         for (const [key, history] of ProcessingTagState._historyStore) {
-            const filtered = history.filter(h => (h.timestamp || 0) >= cutoff);
-            if (filtered.length === 0) {
-                // Xóa khỏi memory
+            if (!history || history.length === 0) continue;
+            // Lấy timestamp của entry cuối cùng (mới nhất)
+            const lastTimestamp = Math.max(...history.map(h => h.timestamp || 0));
+            if (lastTimestamp < cutoff) {
+                // Entry cuối đã > 60 ngày → xóa toàn bộ history
                 ProcessingTagState._historyStore.delete(key);
                 // Nếu order không còn tag data → xóa row trên server luôn
                 if (!ProcessingTagState.hasOrder(key)) {
                     clearProcessingTagAPI(key);
-                }
-            } else if (filtered.length < history.length) {
-                ProcessingTagState._historyStore.set(key, filtered);
-                // Cập nhật history đã cleanup lên server (nếu order không còn tag data)
-                if (!ProcessingTagState.hasOrder(key)) {
-                    const userName = window.authManager?.getAuthState()?.username || '';
-                    _ptagFetch(
-                        `${PTAG_API_BASE}/by-code/${encodeURIComponent(key)}`,
-                        { method: 'PUT', body: JSON.stringify({ data: { history: filtered }, updatedBy: userName }) }
-                    ).catch(() => {});
                 }
             }
         }
