@@ -1016,6 +1016,7 @@
             `<button class="ptag-tag-btn" onclick="window._ptagOpenDropdown('${orderCode}', this); event.stopPropagation();" title="Chọn trạng thái"><i class="fas fa-tags"></i></button>` +
             `<button class="ptag-quick-btn ptag-quick-btn--wait" onclick="window._ptagQuickAssign('${orderCode}', 'wait'); event.stopPropagation();" title="Đơn chưa phản hồi"><i class="fas fa-clock"></i></button>` +
             `<button class="ptag-quick-btn ptag-quick-btn--ok" onclick="window._ptagQuickAssign('${orderCode}', 'ok'); event.stopPropagation();" title="Okie Chờ Đi Đơn"><i class="fas fa-check"></i></button>` +
+            `<button class="ptag-history-btn" onclick="window._ptagShowHistory('${orderCode}', this); event.stopPropagation();" title="Xem lịch sử tag"><i class="fas fa-history"></i></button>` +
             `</div>`;
 
         if (!data) {
@@ -1067,14 +1068,10 @@
             ttagBadges += `<span class="ptag-ttag-badge ptag-badge-removable" style="background:${bgColor};">${tLabel}${removeBtn}</span>`;
         });
 
-        // History button (only when there's history)
-        const hasHistory = (data.history || []).length > 0;
-        const historyBtn = hasHistory ? `<button class="ptag-history-btn" onclick="window._ptagShowHistory('${oc}', this); event.stopPropagation();" title="Xem lịch sử tag"><i class="fas fa-history"></i></button>` : '';
-
         let badgesContent = badges;
         if (flagBadges) badgesContent += `<div class="ptag-cell-flags-row">${flagBadges}</div>`;
         if (ttagBadges) badgesContent += `<div class="ptag-cell-ttag-row">${ttagBadges}</div>`;
-        const badgesRow = badgesContent ? `<div class="ptag-cell-badges">${badgesContent}${historyBtn}</div>` : '';
+        const badgesRow = badgesContent ? `<div class="ptag-cell-badges">${badgesContent}</div>` : '';
         return `<div class="ptag-cell">${btns}${badgesRow}</div>`;
     }
 
@@ -3973,7 +3970,19 @@
         document.querySelectorAll('.ptag-history-popover').forEach(p => p.remove());
 
         const history = _ptagGetHistory(orderCode);
-        if (history.length === 0) return;
+
+        if (history.length === 0) {
+            const popover = document.createElement('div');
+            popover.className = 'ptag-history-popover';
+            popover.innerHTML = '<div class="ptag-history-title">Lịch sử tag</div><div style="padding:8px 12px;color:#9ca3af;font-size:12px;">Chưa có lịch sử</div>';
+            document.body.appendChild(popover);
+            const rect = anchorEl.getBoundingClientRect();
+            popover.style.top = (rect.bottom + 4) + 'px';
+            popover.style.left = rect.left + 'px';
+            const closeHandler = (e) => { if (!popover.contains(e.target) && e.target !== anchorEl) { popover.remove(); document.removeEventListener('click', closeHandler); } };
+            setTimeout(() => document.addEventListener('click', closeHandler), 0);
+            return;
+        }
 
         const popover = document.createElement('div');
         popover.className = 'ptag-history-popover';
