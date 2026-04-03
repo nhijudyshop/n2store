@@ -126,86 +126,45 @@ const KPICommission = {
      */
     async resolveEmployeeName(userId) {
         if (!userId) return 'Không xác định';
-
-        // Special case: unassigned
         if (userId === 'unassigned') {
             this.state.employeeNameCache[userId] = 'Chưa phân công';
             return 'Chưa phân công';
         }
-
-        // Check cache first
         if (this.state.employeeNameCache[userId]) {
             return this.state.employeeNameCache[userId];
         }
 
         let name = null;
-        const db = this.getDb();
 
-        // Source 1: kpi_statistics (already loaded in state)
+        // Source 1: statsData (already loaded from PostgreSQL)
+        for (const stat of this.state.statsData) {
+            if (stat.userId === userId && stat.userName && stat.userName !== userId) {
+                name = stat.userName;
+                break;
+            }
+        }
+
+        // Source 2: employee_ranges (Firebase settings - admin panel)
         if (!name) {
-            for (const stat of this.state.statsData) {
-                if (stat.userId === userId && stat.userName && stat.userName !== userId) {
-                    name = stat.userName;
-                    break;
-                }
-            }
-        }
-
-        // Source 2: kpi_base collection
-        if (!name && db) {
-            try {
-                const baseSnap = await db.collection('kpi_base')
-                    .where('userId', '==', userId).limit(1).get();
-                if (!baseSnap.empty) {
-                    const baseName = baseSnap.docs[0].data().userName;
-                    if (baseName && baseName !== userId) name = baseName;
-                }
-            } catch (e) {
-                console.warn('[KPI Tab] resolveEmployeeName: kpi_base lookup failed:', e.message);
-            }
-        }
-
-        // Source 3: settings/employee_ranges
-        if (!name && db) {
-            try {
-                const rangesDoc = await db.collection('settings').doc('employee_ranges').get();
-                if (rangesDoc.exists) {
-                    const ranges = rangesDoc.data().ranges || [];
-                    const found = ranges.find(r => (r.userId || r.id) === userId);
-                    if (found) {
-                        const foundName = found.userName || found.name;
-                        if (foundName) name = foundName;
+            const db = this.getDb();
+            if (db) {
+                try {
+                    const rangesDoc = await db.collection('settings').doc('employee_ranges').get();
+                    if (rangesDoc.exists) {
+                        const ranges = rangesDoc.data().ranges || [];
+                        const found = ranges.find(r => (r.userId || r.id) === userId);
+                        if (found) name = found.userName || found.name || null;
                     }
-                }
-            } catch (e) {
-                console.warn('[KPI Tab] resolveEmployeeName: employee_ranges lookup failed:', e.message);
+                } catch (e) {}
             }
         }
 
-        // Source 4: users collection
-        if (!name && db) {
-            try {
-                const userDoc = await db.collection('users').doc(userId).get();
-                if (userDoc.exists) {
-                    const userData = userDoc.data();
-                    name = userData.displayName || userData.name || null;
-                }
-            } catch (e) {
-                console.warn('[KPI Tab] resolveEmployeeName: users lookup failed:', e.message);
-            }
-        }
+        // Source 3: admin pattern
+        if (!name && userId.startsWith('user_admin_')) name = 'Administrator';
 
-        // Detect admin pattern
-        if (!name && userId.startsWith('user_admin_')) {
-            name = 'Administrator';
-        }
+        // Fallback
+        if (!name) name = `Nhân viên (${userId})`;
 
-        // Fallback: formatted userId (never raw userId alone)
-        if (!name) {
-            name = `Nhân viên (${userId})`;
-        }
-
-        // Cache the result
         this.state.employeeNameCache[userId] = name;
         return name;
     },
@@ -219,23 +178,19 @@ const KPICommission = {
      * @param {string[]} userIds - array of unique user IDs
      */
     async batchResolveEmployeeNames(userIds) {
-        const db = this.getDb();
-        if (!db || !userIds || userIds.length === 0) return;
+        if (!userIds || userIds.length === 0) return;
 
-        // Handle special cases first
+        // Special cases
         for (const uid of userIds) {
-            if (uid === 'unassigned') {
-                this.state.employeeNameCache[uid] = 'Chưa phân công';
-            } else if (uid.startsWith('user_admin_')) {
-                this.state.employeeNameCache[uid] = 'Administrator';
-            }
+            if (uid === 'unassigned') this.state.employeeNameCache[uid] = 'Chưa phân công';
+            else if (uid.startsWith('user_admin_')) this.state.employeeNameCache[uid] = 'Administrator';
         }
 
         const unresolved = userIds.filter(id => !this.state.employeeNameCache[id]);
         if (unresolved.length === 0) return;
 
-        // Source 1: Check statsData for userName
-        for (const uid of [...unresolved]) {
+        // Source 1: statsData (already from PostgreSQL)
+        for (const uid of unresolved) {
             for (const stat of this.state.statsData) {
                 if (stat.userId === uid && stat.userName && stat.userName !== uid) {
                     this.state.employeeNameCache[uid] = stat.userName;
@@ -244,74 +199,28 @@ const KPICommission = {
             }
         }
 
-        // Source 2: Load employee_ranges once
+        // Source 2: employee_ranges (Firebase settings - admin panel)
         let stillUnresolved = unresolved.filter(id => !this.state.employeeNameCache[id]);
         if (stillUnresolved.length > 0) {
-            try {
-                const rangesDoc = await db.collection('settings').doc('employee_ranges').get();
-                if (rangesDoc.exists) {
-                    const ranges = rangesDoc.data().ranges || [];
-                    for (const uid of stillUnresolved) {
-                        const found = ranges.find(r => (r.userId || r.id) === uid);
-                        if (found) {
-                            const name = found.userName || found.name;
-                            if (name) this.state.employeeNameCache[uid] = name;
-                        }
-                    }
-                }
-            } catch (e) {
-                console.warn('[KPI Tab] batchResolve: employee_ranges failed:', e.message);
-            }
-        }
-
-        // Source 3: Batch query kpi_base (chunks of 10 for Firestore 'in' limit)
-        stillUnresolved = unresolved.filter(id => !this.state.employeeNameCache[id]);
-        if (stillUnresolved.length > 0) {
-            const chunks = [];
-            for (let i = 0; i < stillUnresolved.length; i += 10) {
-                chunks.push(stillUnresolved.slice(i, i + 10));
-            }
-            const basePromises = chunks.map(chunk =>
-                db.collection('kpi_base').where('userId', 'in', chunk).limit(chunk.length).get()
-            );
-            try {
-                const baseResults = await Promise.all(basePromises);
-                for (const snap of baseResults) {
-                    snap.forEach(doc => {
-                        const data = doc.data();
-                        if (data.userId && data.userName && data.userName !== data.userId) {
-                            if (!this.state.employeeNameCache[data.userId]) {
-                                this.state.employeeNameCache[data.userId] = data.userName;
+            const db = this.getDb();
+            if (db) {
+                try {
+                    const rangesDoc = await db.collection('settings').doc('employee_ranges').get();
+                    if (rangesDoc.exists) {
+                        const ranges = rangesDoc.data().ranges || [];
+                        for (const uid of stillUnresolved) {
+                            const found = ranges.find(r => (r.userId || r.id) === uid);
+                            if (found) {
+                                const name = found.userName || found.name;
+                                if (name) this.state.employeeNameCache[uid] = name;
                             }
                         }
-                    });
-                }
-            } catch (e) {
-                console.warn('[KPI Tab] batchResolve: kpi_base batch failed:', e.message);
-            }
-        }
-
-        // Source 4: Batch query users collection
-        stillUnresolved = unresolved.filter(id => !this.state.employeeNameCache[id]);
-        if (stillUnresolved.length > 0) {
-            const userPromises = stillUnresolved.map(uid =>
-                db.collection('users').doc(uid).get().catch(() => null)
-            );
-            try {
-                const userResults = await Promise.all(userPromises);
-                userResults.forEach((doc, i) => {
-                    if (doc && doc.exists) {
-                        const data = doc.data();
-                        const name = data.displayName || data.name;
-                        if (name) this.state.employeeNameCache[stillUnresolved[i]] = name;
                     }
-                });
-            } catch (e) {
-                console.warn('[KPI Tab] batchResolve: users batch failed:', e.message);
+                } catch (e) {}
             }
         }
 
-        // Fallback for any still unresolved
+        // Fallback
         for (const uid of unresolved) {
             if (!this.state.employeeNameCache[uid]) {
                 this.state.employeeNameCache[uid] = `Nhân viên (${uid})`;
@@ -330,52 +239,47 @@ const KPICommission = {
      * @returns {Promise<Array>} statsData with stale markers
      */
     async detectStaleStatistics(statsData) {
-        const db = this.getDb();
-        if (!db || !statsData || statsData.length === 0) return statsData;
+        if (!statsData || statsData.length === 0) return statsData;
+        const KPI_API = 'https://n2store-fallback.onrender.com/api/realtime';
 
-        // Collect all unique orderIds from statistics
-        const allOrderIds = new Set();
+        // Collect all unique orderCodes from statistics
+        const allOrderCodes = new Set();
         for (const stat of statsData) {
             for (const dateData of Object.values(stat.dates || {})) {
                 for (const order of (dateData.orders || [])) {
-                    if (order.orderId) allOrderIds.add(order.orderId);
+                    if (order.orderCode) allOrderCodes.add(order.orderCode);
                 }
             }
         }
 
-        if (allOrderIds.size === 0) return statsData;
+        if (allOrderCodes.size === 0) return statsData;
 
-        // Batch check BASE existence (chunks of 10 for Firestore 'in' query limit)
-        const existingBases = new Set();
-        const orderIdArray = [...allOrderIds];
-
-        for (let i = 0; i < orderIdArray.length; i += 10) {
-            const chunk = orderIdArray.slice(i, i + 10);
-            try {
-                const snap = await db.collection('kpi_base')
-                    .where(firebase.firestore.FieldPath.documentId(), 'in', chunk)
-                    .get();
-                snap.forEach(doc => existingBases.add(doc.id));
-            } catch (e) {
-                console.warn('[KPI Tab] detectStaleStatistics: batch query failed for chunk:', e.message);
+        // Batch check BASE existence via REST API
+        let existingBases = new Set();
+        try {
+            const res = await fetch(`${KPI_API}/kpi-base/check-exists`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderCodes: [...allOrderCodes] })
+            });
+            if (res.ok) {
+                const data = await res.json();
+                existingBases = new Set(data.existing || []);
             }
+        } catch (e) {
+            console.warn('[KPI Tab] detectStaleStatistics: check-exists failed:', e.message);
         }
 
         // Mark stale orders (BASE missing)
-        let staleCount = 0;
         for (const stat of statsData) {
             for (const dateData of Object.values(stat.dates || {})) {
                 for (const order of (dateData.orders || [])) {
-                    if (order.orderId && !existingBases.has(order.orderId)) {
+                    if (order.orderCode && !existingBases.has(order.orderCode)) {
                         order._stale = true;
                         order._staleReason = 'BASE đã bị xóa';
-                        staleCount++;
                     }
                 }
             }
-        }
-
-        if (staleCount > 0) {
         }
 
         return statsData;

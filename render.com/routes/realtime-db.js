@@ -348,6 +348,78 @@ router.delete('/held-products/:orderId', async (req, res) => {
 // =====================================================
 
 /**
+ * POST /api/realtime/kpi-base/batch
+ * Batch UPSERT KPI bases (for saveAutoBaseSnapshot)
+ * IMPORTANT: Must be registered BEFORE /:orderCode routes
+ */
+router.post('/kpi-base/batch', async (req, res) => {
+    try {
+        const { bases } = req.body;
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+
+        if (!Array.isArray(bases) || bases.length === 0) {
+            return res.status(400).json({ error: 'bases must be a non-empty array' });
+        }
+
+        const client = await pool.connect();
+        let saved = 0, skipped = 0;
+        try {
+            await client.query('BEGIN');
+            for (const b of bases) {
+                if (!b.orderCode || !b.products) { skipped++; continue; }
+                const result = await client.query(`
+                    INSERT INTO kpi_base (order_code, order_id, campaign_id, campaign_name, user_id, user_name, stt, products)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                    ON CONFLICT (order_code) DO NOTHING
+                `, [b.orderCode, b.orderId || null, b.campaignId || null, b.campaignName || null,
+                    b.userId || null, b.userName || null, b.stt || 0, JSON.stringify(b.products)]);
+                if (result.rowCount > 0) saved++;
+                else skipped++;
+            }
+            await client.query('COMMIT');
+        } catch (e) {
+            await client.query('ROLLBACK');
+            throw e;
+        } finally {
+            client.release();
+        }
+
+        res.json({ success: true, saved, skipped });
+    } catch (error) {
+        console.error('[REALTIME-DB] POST /kpi-base/batch error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * POST /api/realtime/kpi-base/check-exists
+ * Check which orderCodes already have BASE
+ * IMPORTANT: Must be registered BEFORE /:orderCode routes
+ */
+router.post('/kpi-base/check-exists', async (req, res) => {
+    try {
+        const { orderCodes } = req.body;
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+
+        if (!Array.isArray(orderCodes) || orderCodes.length === 0) {
+            return res.json({ existing: [] });
+        }
+
+        const result = await pool.query(
+            'SELECT order_code FROM kpi_base WHERE order_code = ANY($1::text[])',
+            [orderCodes]
+        );
+
+        res.json({ existing: result.rows.map(r => r.order_code) });
+    } catch (error) {
+        console.error('[REALTIME-DB] POST /kpi-base/check-exists error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
  * GET /api/realtime/kpi-base/:orderCode
  * Get KPI base data by order code
  */
@@ -408,76 +480,6 @@ router.put('/kpi-base/:orderCode', async (req, res) => {
         res.json({ success: true, orderCode });
     } catch (error) {
         console.error('[REALTIME-DB] PUT /kpi-base error:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-/**
- * POST /api/realtime/kpi-base/batch
- * Batch UPSERT KPI bases (for saveAutoBaseSnapshot)
- */
-router.post('/kpi-base/batch', async (req, res) => {
-    try {
-        const { bases } = req.body;
-        const pool = req.app.locals.chatDb;
-        if (!pool) return res.status(500).json({ error: 'Database not available' });
-
-        if (!Array.isArray(bases) || bases.length === 0) {
-            return res.status(400).json({ error: 'bases must be a non-empty array' });
-        }
-
-        const client = await pool.connect();
-        let saved = 0, skipped = 0;
-        try {
-            await client.query('BEGIN');
-            for (const b of bases) {
-                if (!b.orderCode || !b.products) { skipped++; continue; }
-                const result = await client.query(`
-                    INSERT INTO kpi_base (order_code, order_id, campaign_id, campaign_name, user_id, user_name, stt, products)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-                    ON CONFLICT (order_code) DO NOTHING
-                `, [b.orderCode, b.orderId || null, b.campaignId || null, b.campaignName || null,
-                    b.userId || null, b.userName || null, b.stt || 0, JSON.stringify(b.products)]);
-                if (result.rowCount > 0) saved++;
-                else skipped++;
-            }
-            await client.query('COMMIT');
-        } catch (e) {
-            await client.query('ROLLBACK');
-            throw e;
-        } finally {
-            client.release();
-        }
-
-        res.json({ success: true, saved, skipped });
-    } catch (error) {
-        console.error('[REALTIME-DB] POST /kpi-base/batch error:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-/**
- * POST /api/realtime/kpi-base/check-exists
- * Check which orderCodes already have BASE
- */
-router.post('/kpi-base/check-exists', async (req, res) => {
-    try {
-        const { orderCodes } = req.body;
-        const pool = req.app.locals.chatDb;
-        if (!pool) return res.status(500).json({ error: 'Database not available' });
-
-        if (!Array.isArray(orderCodes) || orderCodes.length === 0) {
-            return res.json({ existing: [] });
-        }
-
-        const result = await pool.query(
-            'SELECT order_code FROM kpi_base WHERE order_code = ANY($1::text[])',
-            [orderCodes]
-        );
-
-        res.json({ existing: result.rows.map(r => r.order_code) });
-    } catch (error) {
-        console.error('[REALTIME-DB] POST /kpi-base/check-exists error:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -712,6 +714,26 @@ router.put('/kpi-statistics/:userId/:date', async (req, res) => {
         res.json({ success: true, userId, date });
     } catch (error) {
         console.error('[REALTIME-DB] PUT /kpi-statistics error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * DELETE /api/realtime/kpi-statistics/:userId/:date
+ */
+router.delete('/kpi-statistics/:userId/:date', async (req, res) => {
+    try {
+        const { userId, date } = req.params;
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+
+        const result = await pool.query(
+            'DELETE FROM kpi_statistics WHERE user_id = $1 AND stat_date = $2',
+            [userId, date]
+        );
+        res.json({ success: true, deleted: result.rowCount > 0 });
+    } catch (error) {
+        console.error('[REALTIME-DB] DELETE /kpi-statistics error:', error);
         res.status(500).json({ error: error.message });
     }
 });
