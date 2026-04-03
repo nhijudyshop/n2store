@@ -140,7 +140,7 @@
                 window.invalidateOrderDetailsCache(orderData.Id);
             }
 
-            // KPI audit log
+            // KPI audit log + recalculate
             if (window.kpiAuditLogger) {
                 const source = heldProduct.IsFromDropped ? 'chat_from_dropped' : 'chat_confirm_held';
                 window.kpiAuditLogger.logProductAction({
@@ -151,6 +151,12 @@
                     productName: heldProduct.ProductName || heldProduct.Name || '',
                     quantity: quantity,
                     source: source
+                }).then(() => {
+                    if (window.kpiManager && window.kpiManager.recalculateAndSaveKPI) {
+                        window.kpiManager.recalculateAndSaveKPI(String(orderData.Id));
+                    }
+                }).catch(err => {
+                    console.warn('[ChatProducts-Actions] KPI recalculate failed (non-blocking):', err);
                 });
             }
 
@@ -393,7 +399,7 @@
                 window.invalidateOrderDetailsCache(orderData.Id);
             }
 
-            // KPI audit log
+            // KPI audit log + recalculate
             if (window.kpiAuditLogger) {
                 window.kpiAuditLogger.logProductAction({
                     orderId: orderData.Id,
@@ -403,6 +409,12 @@
                     productName: mainProduct.ProductName || mainProduct.Name || '',
                     quantity: 1,
                     source: 'chat_decrease'
+                }).then(() => {
+                    if (window.kpiManager && window.kpiManager.recalculateAndSaveKPI) {
+                        window.kpiManager.recalculateAndSaveKPI(String(orderData.Id));
+                    }
+                }).catch(err => {
+                    console.warn('[ChatProducts-Actions] KPI recalculate failed (non-blocking):', err);
                 });
             }
 
