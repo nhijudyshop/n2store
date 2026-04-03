@@ -339,6 +339,98 @@ const SupplierNotesStore = {
     }
 };
 
+// =====================================================
+// REFUND DATE STORE (Firebase) - Web-managed dates for refund orders
+// =====================================================
+
+const RefundDateStore = {
+    _data: new Map(),
+    _unsubscribe: null,
+    _isListening: false,
+    COLLECTION: 'supplier_debt_refund_dates',
+
+    _getDocRef() {
+        const db = window.db || (typeof getFirestore === 'function' ? getFirestore() : null);
+        if (!db) return null;
+        return db.collection(this.COLLECTION).doc('dates');
+    },
+
+    async init() {
+        try {
+            const saved = localStorage.getItem('supplierDebt_refundDates');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                for (const [k, v] of Object.entries(parsed)) {
+                    this._data.set(k, typeof v === 'string' ? { date: v, number: '' } : v);
+                }
+            }
+        } catch (e) { /* ignore */ }
+
+        const docRef = this._getDocRef();
+        if (docRef) {
+            try {
+                const doc = await docRef.get();
+                if (doc.exists && doc.data()?.data) {
+                    this._data = new Map(Object.entries(doc.data().data));
+                    this._saveLocal();
+                }
+            } catch (e) { console.error('[RefundDateStore] Firestore load error:', e); }
+
+            this._unsubscribe = docRef.onSnapshot((doc) => {
+                if (doc.exists && doc.data()?.data) {
+                    this._isListening = true;
+                    this._data = new Map(Object.entries(doc.data().data));
+                    this._saveLocal();
+                    this._isListening = false;
+                }
+            }, (err) => console.error('[RefundDateStore] Listener error:', err));
+        }
+        console.log('[RefundDateStore] Initialized with', this._data.size, 'entries');
+    },
+
+    _saveLocal() {
+        try { localStorage.setItem('supplierDebt_refundDates', JSON.stringify(Object.fromEntries(this._data))); } catch (e) { /* ignore */ }
+    },
+
+    get(orderId) {
+        const entry = this._data.get(String(orderId));
+        return entry?.date || '';
+    },
+
+    getByMoveName(moveName) {
+        for (const [, entry] of this._data) {
+            if (entry.number === moveName) return entry.date;
+        }
+        return '';
+    },
+
+    async set(orderId, date, number) {
+        const key = String(orderId);
+        this._data.set(key, { date, number: number || '' });
+        this._saveLocal();
+
+        const docRef = this._getDocRef();
+        if (docRef && !this._isListening) {
+            try {
+                await docRef.set({ data: Object.fromEntries(this._data), lastUpdated: Date.now() }, { merge: true });
+            } catch (e) { console.error('[RefundDateStore] Save error:', e); }
+        }
+    },
+
+    async delete(orderId) {
+        const key = String(orderId);
+        this._data.delete(key);
+        this._saveLocal();
+
+        const docRef = this._getDocRef();
+        if (docRef && !this._isListening) {
+            try {
+                await docRef.update({ [`data.${key}`]: firebase.firestore.FieldValue.delete(), lastUpdated: Date.now() });
+            } catch (e) { console.error('[RefundDateStore] Delete error:', e); }
+        }
+    }
+};
+
 // Column definitions for visibility toggle
 const COLUMNS = [
     { id: 'code', index: 1, label: 'Mã NCC' },
@@ -1269,9 +1361,10 @@ function renderCongNoTab(partnerId) {
         : (congNo.length > 0 ? (congNo[0].Begin || 0) : 0);
 
     congNo.forEach((item, index) => {
-        const dateStr = formatDateFromISO(item.Date);
-        const tposNote = item.Ref || '';
         const moveName = item.MoveName || '';
+        const webDate = RefundDateStore.getByMoveName(moveName);
+        const dateStr = webDate || formatDateFromISO(item.Date);
+        const tposNote = item.Ref || '';
         const webNote = WebNotesStore.get(supplierCode, moveName);
         const noteHistory = WebNotesStore.getHistory(supplierCode, moveName);
         // Determine note button class:
@@ -3044,8 +3137,9 @@ const RefundOrders = {
         tbody.innerHTML = sorted.map(order => {
             const id = order.Id;
             const supplier = order.PartnerDisplayName || order.PartnerName || '—';
-            const date = this._formatDate(order.DateInvoice);
-            const dateVal = this._toInputDate(order.DateInvoice);
+            const webDate = RefundDateStore.get(order.Id);
+            const date = webDate || this._formatDate(order.DateInvoice);
+            const dateVal = webDate ? this._webDateToInput(webDate) : this._toInputDate(order.DateInvoice);
             const amount = formatNumber(order.AmountTotal || 0);
             const checked = this._selectedIds.has(id) ? 'checked' : '';
 
@@ -3074,6 +3168,13 @@ const RefundOrders = {
         if (!isoStr) return '';
         const d = new Date(isoStr);
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    },
+
+    // Convert dd/mm/yyyy → yyyy-mm-dd for <input type="date">
+    _webDateToInput(ddmmyyyy) {
+        if (!ddmmyyyy) return '';
+        const [d, m, y] = ddmmyyyy.split('/');
+        return `${y}-${m}-${d}`;
     },
 
     _updateActions() {
@@ -3122,43 +3223,17 @@ const RefundOrders = {
 
     async updateDate(orderId, newDateStr) {
         try {
-            // Step 1: GET full order details
-            const getUrl = `${CONFIG.API_BASE}/FastPurchaseOrder(${orderId})?$expand=Partner,OrderLines($expand=Product,ProductUOM,Account),Company,Journal,PickingType,Account,PaymentJournal,User`;
-            const getResp = await tposFetch(getUrl);
-            if (!getResp.ok) throw new Error(`GET failed: HTTP ${getResp.status}`);
-            const orderData = await getResp.json();
-
-            // Step 2: Build new DateInvoice with selected date + current time
-            const now = new Date();
-            const [year, month, day] = newDateStr.split('-').map(Number);
-            const newDate = new Date(year, month - 1, day, now.getHours(), now.getMinutes(), now.getSeconds());
-            const offset = '+07:00';
-            const isoDate = `${newDate.getFullYear()}-${String(newDate.getMonth() + 1).padStart(2, '0')}-${String(newDate.getDate()).padStart(2, '0')}T${String(newDate.getHours()).padStart(2, '0')}:${String(newDate.getMinutes()).padStart(2, '0')}:${String(newDate.getSeconds()).padStart(2, '0')}${offset}`;
-
-            orderData.DateInvoice = isoDate;
-
-            // Step 3: PUT updated order
-            const putUrl = `${CONFIG.API_BASE}/FastPurchaseOrder(${orderId})`;
-            const putResp = await tposFetch(putUrl, {
-                method: 'PUT',
-                body: JSON.stringify(orderData)
-            });
-
-            if (!putResp.ok) throw new Error(`PUT failed: HTTP ${putResp.status}`);
-
-            // Update local data
             const order = this._data.find(o => o.Id === orderId);
-            if (order) {
-                order.DateInvoice = isoDate;
-            }
-
+            const number = order?.Number || '';
+            // Convert yyyy-mm-dd → dd/mm/yyyy for display
+            const [y, m, d] = newDateStr.split('-');
+            const displayDate = `${d}/${m}/${y}`;
+            await RefundDateStore.set(orderId, displayDate, number);
             window.notificationManager?.success?.('Đã cập nhật ngày đơn hàng');
             this.render();
-
         } catch (err) {
             console.error('[RefundOrders] Update date error:', err);
             window.notificationManager?.error?.(`Lỗi cập nhật ngày: ${err.message}`);
-            this.render(); // Re-render to reset date display
         }
     },
 
@@ -3442,11 +3517,12 @@ async function init() {
     // Initialize searchable supplier dropdown
     initSearchableSupplierDropdown();
 
-    // Initialize web notes store
-    await WebNotesStore.init();
-
-    // Initialize supplier notes store
-    await SupplierNotesStore.init();
+    // Initialize stores (Firebase)
+    await Promise.all([
+        WebNotesStore.init(),
+        SupplierNotesStore.init(),
+        RefundDateStore.init()
+    ]);
 
     // Load initial data and refund orders in parallel
     await Promise.all([
