@@ -479,28 +479,32 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
-// Convert all images to base64 to avoid tainted canvas
-async function convertImagesToBase64() {
+// Convert all images to base64 via canvas (works with file:// protocol)
+function convertImagesToBase64() {
   const imgs = document.querySelectorAll('img');
   for (const img of imgs) {
     if (img.src.startsWith('data:')) continue;
-    try {
-      const resp = await fetch(img.src);
-      const blob = await resp.blob();
-      const reader = new FileReader();
-      const dataUrl = await new Promise((resolve) => {
-        reader.onload = () => resolve(reader.result);
-        reader.readAsDataURL(blob);
-      });
-      img.src = dataUrl;
-    } catch (e) {
-      console.warn('Could not convert image:', img.src, e);
+    if (!img.complete || !img.naturalWidth) {
+      img.onload = function() { inlineImage(this); };
+      continue;
     }
+    inlineImage(img);
+  }
+}
+function inlineImage(img) {
+  try {
+    const c = document.createElement('canvas');
+    c.width = img.naturalWidth;
+    c.height = img.naturalHeight;
+    c.getContext('2d').drawImage(img, 0, 0);
+    img.src = c.toDataURL('image/png');
+  } catch (e) {
+    console.warn('Could not inline image:', e);
   }
 }
 
 // Run on load
-convertImagesToBase64();
+window.addEventListener('load', convertImagesToBase64);
 
 async function downloadAsset(elementId, width, height, filename) {
   const el = document.getElementById(elementId);
@@ -512,7 +516,7 @@ async function downloadAsset(elementId, width, height, filename) {
   btn.disabled = true;
 
   try {
-    await convertImagesToBase64();
+    convertImagesToBase64();
     const canvas = await html2canvas(el, {
       width, height,
       scale: 1,
@@ -549,7 +553,7 @@ async function downloadAll() {
   btn.innerHTML = '<span class="dl-icon">⏳</span> Dang tai 0/3...';
   btn.disabled = true;
 
-  await convertImagesToBase64();
+  convertImagesToBase64();
 
   for (let i = 0; i < assets.length; i++) {
     const a = assets[i];
