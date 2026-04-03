@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>N2Store - Chrome Web Store Assets</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1a1a2e; color: #fff; padding: 40px; }
+  h1 { text-align: center; margin-bottom: 10px; color: #c5a028; }
+  .instructions { text-align: center; color: #888; margin-bottom: 40px; font-size: 14px; }
+  .asset-section { margin-bottom: 60px; }
+  .asset-label { color: #c5a028; font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+  .asset-size { color: #666; font-size: 13px; margin-bottom: 16px; }
+  .asset-wrapper { display: inline-block; border: 2px dashed #333; position: relative; }
+  .asset-wrapper::after { content: attr(data-size); position: absolute; bottom: -24px; left: 0; color: #555; font-size: 11px; }
+
+  .download-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 20px; margin-bottom: 12px;
+    background: #c5a028; color: #fff; border: none; border-radius: 8px;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    transition: background 0.2s;
+  }
+  .download-btn:hover { background: #b08e20; }
+  .download-btn:active { transform: scale(0.97); }
+  .download-btn .dl-icon { font-size: 16px; }
+  .download-all {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 14px 28px; margin-bottom: 40px;
+    background: linear-gradient(135deg, #c5a028, #d4b03a); color: #fff; border: none; border-radius: 10px;
+    font-size: 16px; font-weight: 700; cursor: pointer;
+    transition: all 0.2s; box-shadow: 0 4px 16px rgba(197,160,40,0.3);
+  }
+  .download-all:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(197,160,40,0.4); }
+
+  /* ============ SCREENSHOT 1280x800 ============ */
+  .screenshot {
+    width: 1280px; height: 800px;
+    background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+    display: flex; align-items: center; justify-content: center;
+    position: relative; overflow: hidden;
+  }
+  .screenshot .bg-pattern {
+    position: absolute; inset: 0;
+    background-image: radial-gradient(circle at 20% 50%, rgba(197,160,40,0.08) 0%, transparent 50%),
+                      radial-gradient(circle at 80% 20%, rgba(197,160,40,0.05) 0%, transparent 40%),
+                      radial-gradient(circle at 60% 80%, rgba(100,100,255,0.04) 0%, transparent 40%);
+  }
+  .screenshot .content {
+    position: relative; z-index: 1;
+    display: flex; align-items: center; gap: 60px;
+  }
+  .screenshot .left-side {
+    display: flex; flex-direction: column; align-items: flex-start; max-width: 560px;
+  }
+  .screenshot .logo-row {
+    display: flex; align-items: center; gap: 16px; margin-bottom: 24px;
+  }
+  .screenshot .logo-img {
+    width: 72px; height: 72px; border-radius: 16px;
+    box-shadow: 0 4px 24px rgba(197,160,40,0.3);
+  }
+  .screenshot .logo-text {
+    font-size: 48px; font-weight: 800; color: #fff;
+    letter-spacing: -1px;
+  }
+  .screenshot .logo-text span { color: #c5a028; }
+  .screenshot .tagline {
+    font-size: 22px; color: #aaa; line-height: 1.5; margin-bottom: 32px;
+  }
+  .screenshot .features {
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .screenshot .feature-item {
+    display: flex; align-items: center; gap: 12px;
+    font-size: 17px; color: #ccc;
+  }
+  .screenshot .feature-icon {
+    width: 36px; height: 36px; border-radius: 10px;
+    background: rgba(197,160,40,0.15); display: flex; align-items: center;
+    justify-content: center; font-size: 18px; flex-shrink: 0;
+  }
+
+  /* Popup mockup in screenshot */
+  .screenshot .popup-mock {
+    width: 360px; background: #f5f5f5; border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5); overflow: hidden;
+    font-size: 13px; color: #333;
+  }
+  .popup-mock .pm-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 14px; background: #fff; border-bottom: 1px solid #eee;
+  }
+  .popup-mock .pm-header-left {
+    display: flex; align-items: center; gap: 8px;
+  }
+  .popup-mock .pm-logo {
+    width: 28px; height: 28px; border-radius: 6px;
+  }
+  .popup-mock .pm-title { font-weight: 700; font-size: 16px; color: #1a1a1a; }
+  .popup-mock .pm-version { font-size: 10px; color: #999; background: #eee; padding: 2px 6px; border-radius: 3px; }
+  .popup-mock .pm-header-right { color: #999; font-size: 16px; }
+
+  .popup-mock .pm-status {
+    display: flex; gap: 12px; padding: 10px 14px; background: #fff;
+    margin: 10px 14px; border-radius: 8px; border: 1px solid #e8e8e8;
+  }
+  .popup-mock .pm-status-item {
+    display: flex; align-items: center; gap: 5px; font-size: 11px; color: #666;
+  }
+  .popup-mock .pm-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+  }
+  .pm-dot.green { background: #4caf50; }
+  .pm-dot.yellow { background: #ff9800; }
+  .pm-dot.red { background: #f44336; }
+
+  .popup-mock .pm-tabs {
+    display: flex; gap: 2px; margin: 0 14px 10px; background: #e8e8e8;
+    border-radius: 8px; padding: 3px;
+  }
+  .popup-mock .pm-tab {
+    flex: 1; padding: 7px 4px; text-align: center; border-radius: 6px;
+    font-size: 11px; font-weight: 500; color: #666;
+  }
+  .popup-mock .pm-tab.active {
+    background: #fff; color: #1a1a1a; box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+
+  .popup-mock .pm-stats {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+    margin: 0 14px 10px;
+  }
+  .popup-mock .pm-stat {
+    background: #fff; border: 1px solid #e8e8e8; border-radius: 8px;
+    padding: 10px 4px; text-align: center;
+  }
+  .popup-mock .pm-stat-value { font-size: 20px; font-weight: 700; color: #c5a028; }
+  .popup-mock .pm-stat-label { font-size: 9px; color: #999; margin-top: 2px; }
+
+  .popup-mock .pm-section-title {
+    font-size: 10px; font-weight: 600; color: #999; text-transform: uppercase;
+    letter-spacing: 0.5px; margin: 0 14px 6px;
+  }
+  .popup-mock .pm-actions {
+    display: flex; gap: 6px; margin: 0 14px 10px;
+  }
+  .popup-mock .pm-action {
+    flex: 1; padding: 10px 6px; border: 1px solid #e0e0e0; background: #fff;
+    border-radius: 8px; text-align: center; font-size: 11px;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+  }
+  .popup-mock .pm-action.primary {
+    background: #c5a028; color: #fff; border-color: #b08e20;
+  }
+  .popup-mock .pm-action-icon { font-size: 18px; }
+
+  .popup-mock .pm-toggle {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px; margin: 0 14px 14px; background: #fff;
+    border: 1px solid #e8e8e8; border-radius: 8px; font-size: 12px; color: #555;
+  }
+  .popup-mock .pm-switch {
+    width: 36px; height: 20px; background: #4caf50; border-radius: 20px;
+    position: relative;
+  }
+  .popup-mock .pm-switch::before {
+    content: ''; position: absolute; width: 16px; height: 16px;
+    left: 18px; top: 2px; background: #fff; border-radius: 50%;
+  }
+
+  /* ============ PROMO SMALL 440x280 ============ */
+  .promo-small {
+    width: 440px; height: 280px;
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    display: flex; align-items: center; justify-content: center;
+    position: relative; overflow: hidden;
+  }
+  .promo-small .bg-glow {
+    position: absolute; width: 300px; height: 300px; border-radius: 50%;
+    background: rgba(197,160,40,0.1); filter: blur(60px);
+    top: -100px; right: -80px;
+  }
+  .promo-small .inner {
+    position: relative; z-index: 1; text-align: center;
+    display: flex; flex-direction: column; align-items: center; gap: 12px;
+  }
+  .promo-small .ps-logo {
+    width: 56px; height: 56px; border-radius: 14px;
+    box-shadow: 0 4px 20px rgba(197,160,40,0.3);
+  }
+  .promo-small .ps-name {
+    font-size: 28px; font-weight: 800; color: #fff;
+  }
+  .promo-small .ps-name span { color: #c5a028; }
+  .promo-small .ps-tagline {
+    font-size: 13px; color: #888; max-width: 320px; line-height: 1.4;
+  }
+  .promo-small .ps-badges {
+    display: flex; gap: 8px; margin-top: 4px;
+  }
+  .promo-small .ps-badge {
+    font-size: 10px; padding: 4px 10px; border-radius: 12px;
+    background: rgba(197,160,40,0.15); color: #c5a028; font-weight: 600;
+  }
+
+  /* ============ MARQUEE 1400x560 ============ */
+  .marquee {
+    width: 1400px; height: 560px;
+    background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+    display: flex; align-items: center; justify-content: center;
+    position: relative; overflow: hidden;
+  }
+  .marquee .bg-circles {
+    position: absolute; inset: 0;
+  }
+  .marquee .bg-circles .c1 {
+    position: absolute; width: 500px; height: 500px; border-radius: 50%;
+    background: rgba(197,160,40,0.06); filter: blur(80px);
+    top: -150px; left: -100px;
+  }
+  .marquee .bg-circles .c2 {
+    position: absolute; width: 400px; height: 400px; border-radius: 50%;
+    background: rgba(100,100,255,0.04); filter: blur(80px);
+    bottom: -100px; right: -50px;
+  }
+  .marquee .inner {
+    position: relative; z-index: 1;
+    display: flex; align-items: center; gap: 80px;
+  }
+  .marquee .left {
+    display: flex; flex-direction: column; gap: 20px; max-width: 600px;
+  }
+  .marquee .m-logo-row {
+    display: flex; align-items: center; gap: 16px;
+  }
+  .marquee .m-logo {
+    width: 64px; height: 64px; border-radius: 16px;
+    box-shadow: 0 4px 24px rgba(197,160,40,0.3);
+  }
+  .marquee .m-name {
+    font-size: 44px; font-weight: 800; color: #fff;
+  }
+  .marquee .m-name span { color: #c5a028; }
+  .marquee .m-tagline {
+    font-size: 20px; color: #999; line-height: 1.5;
+  }
+  .marquee .m-features {
+    display: flex; gap: 16px; flex-wrap: wrap;
+  }
+  .marquee .m-feat {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 16px; background: rgba(255,255,255,0.06);
+    border-radius: 10px; font-size: 14px; color: #ccc;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+  .marquee .m-feat-icon { font-size: 18px; }
+
+  /* Popup in marquee */
+  .marquee .popup-mini {
+    width: 320px; background: #f5f5f5; border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5); overflow: hidden;
+    font-size: 12px; color: #333; transform: perspective(800px) rotateY(-5deg);
+  }
+  .marquee .popup-mini .mm-header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 12px; background: #fff; border-bottom: 1px solid #eee;
+  }
+  .marquee .popup-mini .mm-logo { width: 24px; height: 24px; border-radius: 5px; }
+  .marquee .popup-mini .mm-title { font-weight: 700; font-size: 14px; }
+  .marquee .popup-mini .mm-status {
+    display: flex; gap: 10px; padding: 8px 12px;
+    margin: 8px 12px; background: #fff; border-radius: 6px;
+    border: 1px solid #e8e8e8;
+  }
+  .marquee .popup-mini .mm-status-item {
+    display: flex; align-items: center; gap: 4px; font-size: 10px; color: #666;
+  }
+  .marquee .popup-mini .mm-dot { width: 7px; height: 7px; border-radius: 50%; }
+  .marquee .popup-mini .mm-stats {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px;
+    margin: 0 12px 8px;
+  }
+  .marquee .popup-mini .mm-stat {
+    background: #fff; border: 1px solid #e8e8e8; border-radius: 6px;
+    padding: 6px 2px; text-align: center;
+  }
+  .marquee .popup-mini .mm-stat-val { font-size: 16px; font-weight: 700; color: #c5a028; }
+  .marquee .popup-mini .mm-stat-lbl { font-size: 8px; color: #999; }
+  .marquee .popup-mini .mm-actions {
+    display: flex; gap: 4px; margin: 0 12px 12px;
+  }
+  .marquee .popup-mini .mm-action {
+    flex: 1; padding: 8px 4px; border: 1px solid #e0e0e0; background: #fff;
+    border-radius: 6px; text-align: center; font-size: 10px;
+  }
+  .marquee .popup-mini .mm-action.primary {
+    background: #c5a028; color: #fff; border-color: #b08e20;
+  }
+</style>
+</head>
+<body>
+<h1>Chrome Web Store Assets - N2Store Messenger</h1>
+<p class="instructions">
+  Nhan nut ben duoi de tai PNG. Hoac tai tat ca cung luc.
+</p>
+<div style="text-align:center">
+  <button class="download-all" onclick="downloadAll()">
+    <span class="dl-icon">⬇</span> Tai tat ca (3 anh)
+  </button>
+</div>
+
+<!-- ============ SCREENSHOT 1280x800 ============ -->
+<div class="asset-section">
+  <div class="asset-label">1. Screenshot (bat buoc)</div>
+  <div class="asset-size">1280 x 800 — JPEG hoac PNG 24 bit</div>
+  <button class="download-btn" onclick="downloadAsset('screenshot', 1280, 800, 'n2store-screenshot-1280x800.png')">
+    <span class="dl-icon">⬇</span> Tai Screenshot (1280x800)
+  </button>
+  <div class="asset-wrapper" data-size="1280x800">
+    <div class="screenshot" id="screenshot">
+      <div class="bg-pattern"></div>
+      <div class="content">
+        <div class="left-side">
+          <div class="logo-row">
+            <img src="images/icon-128.png" class="logo-img" alt="N2Store">
+            <div class="logo-text">N2<span>Store</span> Messenger</div>
+          </div>
+          <div class="tagline">
+            Quan ly tin nhan Facebook Pages,<br>
+            gui tin hang loat, tich hop don hang.
+          </div>
+          <div class="features">
+            <div class="feature-item">
+              <div class="feature-icon">💬</div>
+              <span>Gui tin nhan text, hinh anh, sticker</span>
+            </div>
+            <div class="feature-item">
+              <div class="feature-icon">📦</div>
+              <span>Gui hang loat theo danh sach don hang</span>
+            </div>
+            <div class="feature-item">
+              <div class="feature-icon">💬</div>
+              <span>Comment & Private Reply tren Posts</span>
+            </div>
+            <div class="feature-item">
+              <div class="feature-icon">🔔</div>
+              <span>Thong bao real-time (SSE)</span>
+            </div>
+            <div class="feature-item">
+              <div class="feature-icon">🔗</div>
+              <span>Tu dong resolve Global Facebook ID</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Popup mockup -->
+        <div class="popup-mock">
+          <div class="pm-header">
+            <div class="pm-header-left">
+              <img src="images/icon-128.png" class="pm-logo" alt="">
+              <span class="pm-title">N2Store</span>
+              <span class="pm-version">v1.0.0</span>
+            </div>
+            <div class="pm-header-right">⚙</div>
+          </div>
+          <div class="pm-status">
+            <div class="pm-status-item"><div class="pm-dot green"></div> Extension</div>
+            <div class="pm-status-item"><div class="pm-dot green"></div> Facebook</div>
+            <div class="pm-status-item"><div class="pm-dot green"></div> SSE</div>
+            <div class="pm-status-item"><div class="pm-dot yellow"></div> 3 tabs</div>
+          </div>
+          <div class="pm-tabs">
+            <div class="pm-tab active">Tong quan</div>
+            <div class="pm-tab">Thong bao</div>
+            <div class="pm-tab">Hoat dong</div>
+          </div>
+          <div class="pm-stats">
+            <div class="pm-stat"><div class="pm-stat-value">5</div><div class="pm-stat-label">FB Pages</div></div>
+            <div class="pm-stat"><div class="pm-stat-value">127</div><div class="pm-stat-label">Da gui</div></div>
+            <div class="pm-stat"><div class="pm-stat-value">2</div><div class="pm-stat-label">That bai</div></div>
+            <div class="pm-stat"><div class="pm-stat-value">14</div><div class="pm-stat-label">Chua doc</div></div>
+          </div>
+          <div class="pm-section-title">Hanh dong nhanh</div>
+          <div class="pm-actions">
+            <div class="pm-action primary"><div class="pm-action-icon">💬</div>Mo Inbox</div>
+            <div class="pm-action"><div class="pm-action-icon">📦</div>Don hang</div>
+            <div class="pm-action"><div class="pm-action-icon">🔄</div>Lam moi</div>
+          </div>
+          <div class="pm-toggle">
+            <span>Nhan thong bao real-time (SSE)</span>
+            <div class="pm-switch"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ PROMO SMALL 440x280 ============ -->
+<div class="asset-section">
+  <div class="asset-label">2. O quang cao nho (optional)</div>
+  <div class="asset-size">440 x 280 — JPEG hoac PNG 24 bit</div>
+  <button class="download-btn" onclick="downloadAsset('promo-small', 440, 280, 'n2store-promo-440x280.png')">
+    <span class="dl-icon">⬇</span> Tai Promo Small (440x280)
+  </button>
+  <div class="asset-wrapper" data-size="440x280">
+    <div class="promo-small" id="promo-small">
+      <div class="bg-glow"></div>
+      <div class="inner">
+        <img src="images/icon-128.png" class="ps-logo" alt="">
+        <div class="ps-name">N2<span>Store</span> Messenger</div>
+        <div class="ps-tagline">Quan ly tin nhan Facebook Pages, gui tin hang loat, tich hop don hang N2Store.</div>
+        <div class="ps-badges">
+          <span class="ps-badge">Messenger</span>
+          <span class="ps-badge">Bulk Send</span>
+          <span class="ps-badge">Real-time</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ MARQUEE 1400x560 ============ -->
+<div class="asset-section">
+  <div class="asset-label">3. O quang cao marquee (optional)</div>
+  <div class="asset-size">1400 x 560 — JPEG hoac PNG 24 bit</div>
+  <button class="download-btn" onclick="downloadAsset('marquee', 1400, 560, 'n2store-marquee-1400x560.png')">
+    <span class="dl-icon">⬇</span> Tai Marquee (1400x560)
+  </button>
+  <div class="asset-wrapper" data-size="1400x560">
+    <div class="marquee" id="marquee">
+      <div class="bg-circles"><div class="c1"></div><div class="c2"></div></div>
+      <div class="inner">
+        <div class="left">
+          <div class="m-logo-row">
+            <img src="images/icon-128.png" class="m-logo" alt="">
+            <div class="m-name">N2<span>Store</span> Messenger</div>
+          </div>
+          <div class="m-tagline">
+            Gui tin nhan Facebook Pages truc tiep tu trinh duyet.<br>
+            Tich hop quan ly don hang, gui hang loat, thong bao real-time.
+          </div>
+          <div class="m-features">
+            <div class="m-feat"><span class="m-feat-icon">💬</span> Messenger API</div>
+            <div class="m-feat"><span class="m-feat-icon">📦</span> Bulk Send</div>
+            <div class="m-feat"><span class="m-feat-icon">🔔</span> Real-time SSE</div>
+            <div class="m-feat"><span class="m-feat-icon">💬</span> Comment & Reply</div>
+          </div>
+        </div>
+
+        <!-- Mini popup -->
+        <div class="popup-mini">
+          <div class="mm-header">
+            <img src="images/icon-128.png" class="mm-logo" alt="">
+            <span class="mm-title">N2Store</span>
+          </div>
+          <div class="mm-status">
+            <div class="mm-status-item"><div class="mm-dot green"></div> Extension</div>
+            <div class="mm-status-item"><div class="mm-dot green"></div> Facebook</div>
+            <div class="mm-status-item"><div class="mm-dot green"></div> SSE</div>
+          </div>
+          <div class="mm-stats">
+            <div class="mm-stat"><div class="mm-stat-val">5</div><div class="mm-stat-lbl">Pages</div></div>
+            <div class="mm-stat"><div class="mm-stat-val">127</div><div class="mm-stat-lbl">Sent</div></div>
+            <div class="mm-stat"><div class="mm-stat-val">2</div><div class="mm-stat-lbl">Failed</div></div>
+            <div class="mm-stat"><div class="mm-stat-val">14</div><div class="mm-stat-lbl">Unread</div></div>
+          </div>
+          <div class="mm-actions">
+            <div class="mm-action primary">Mo Inbox</div>
+            <div class="mm-action">Don hang</div>
+            <div class="mm-action">Lam moi</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script>
+// Convert all images to base64 to avoid tainted canvas
+async function convertImagesToBase64() {
+  const imgs = document.querySelectorAll('img');
+  for (const img of imgs) {
+    if (img.src.startsWith('data:')) continue;
+    try {
+      const resp = await fetch(img.src);
+      const blob = await resp.blob();
+      const reader = new FileReader();
+      const dataUrl = await new Promise((resolve) => {
+        reader.onload = () => resolve(reader.result);
+        reader.readAsDataURL(blob);
+      });
+      img.src = dataUrl;
+    } catch (e) {
+      console.warn('Could not convert image:', img.src, e);
+    }
+  }
+}
+
+// Run on load
+convertImagesToBase64();
+
+async function downloadAsset(elementId, width, height, filename) {
+  const el = document.getElementById(elementId);
+  if (!el) return alert('Element not found: ' + elementId);
+
+  const btn = event.target.closest('.download-btn');
+  const origText = btn.innerHTML;
+  btn.innerHTML = '<span class="dl-icon">⏳</span> Dang xu ly...';
+  btn.disabled = true;
+
+  try {
+    await convertImagesToBase64();
+    const canvas = await html2canvas(el, {
+      width, height,
+      scale: 1,
+      useCORS: true,
+      allowTaint: false,
+      backgroundColor: null,
+      logging: false,
+    });
+
+    const link = document.createElement('a');
+    link.download = filename;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+
+    btn.innerHTML = '<span class="dl-icon">✅</span> Da tai!';
+    setTimeout(() => { btn.innerHTML = origText; btn.disabled = false; }, 2000);
+  } catch (err) {
+    console.error('Download error:', err);
+    btn.innerHTML = origText;
+    btn.disabled = false;
+    alert('Loi: ' + err.message);
+  }
+}
+
+async function downloadAll() {
+  const assets = [
+    { id: 'screenshot', w: 1280, h: 800, name: 'n2store-screenshot-1280x800.png' },
+    { id: 'promo-small', w: 440, h: 280, name: 'n2store-promo-440x280.png' },
+    { id: 'marquee', w: 1400, h: 560, name: 'n2store-marquee-1400x560.png' },
+  ];
+
+  const btn = event.target.closest('.download-all');
+  const origText = btn.innerHTML;
+  btn.innerHTML = '<span class="dl-icon">⏳</span> Dang tai 0/3...';
+  btn.disabled = true;
+
+  await convertImagesToBase64();
+
+  for (let i = 0; i < assets.length; i++) {
+    const a = assets[i];
+    btn.innerHTML = `<span class="dl-icon">⏳</span> Dang tai ${i + 1}/3...`;
+    try {
+      const el = document.getElementById(a.id);
+      const canvas = await html2canvas(el, {
+        width: a.w, height: a.h, scale: 1,
+        useCORS: true, allowTaint: false, backgroundColor: null, logging: false,
+      });
+      const link = document.createElement('a');
+      link.download = a.name;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      await new Promise(r => setTimeout(r, 500));
+    } catch (err) {
+      console.error('Error downloading ' + a.name, err);
+    }
+  }
+
+  btn.innerHTML = '<span class="dl-icon">✅</span> Da tai tat ca!';
+  setTimeout(() => { btn.innerHTML = origText; btn.disabled = false; }, 3000);
+}
+</script>
+</body>
+</html>
