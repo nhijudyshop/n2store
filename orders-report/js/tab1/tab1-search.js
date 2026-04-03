@@ -321,10 +321,10 @@ function performTableSearch() {
     }
 
     // Apply Processing Tag filter (base filter OR flag checkboxes)
+    // Use order.Code (orderCode) as primary key since ProcessingTagState is keyed by orderCode,
+    // fallback to order.Id for backward compatibility with old data
     if (typeof window.hasActiveProcessingTagFilters === 'function' && window.hasActiveProcessingTagFilters()) {
-        const beforeCount = tempData.length;
-        tempData = tempData.filter(order => window.orderPassesProcessingTagFilter(order.Id));
-        console.log(`[DEBUG TABLE FILTER] Processing tag filter: ${beforeCount} → ${tempData.length} (filter=${window.ProcessingTagState?._activeFilter}). Passed orders:`, tempData.map(o => ({ Id: o.Id, Code: o.Code, STT: o.SessionIndex })));
+        tempData = tempData.filter(order => window.orderPassesProcessingTagFilter(String(order.Code || order.Id)));
     }
 
     filteredData = tempData;
