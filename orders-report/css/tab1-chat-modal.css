@@ -1785,7 +1785,7 @@
     width: 100%;
     border-collapse: collapse;
     font-size: 12px;
-    table-layout: fixed;
+    table-layout: auto;
 }
 
 .chat-products-table th {
@@ -1802,30 +1802,39 @@
 }
 
 .chat-products-table td {
-    padding: 10px 16px;
-    vertical-align: middle;
+    padding: 12px 8px;
+    vertical-align: top;
+}
+
+.chat-products-table td:first-child {
+    padding-left: 16px;
+    width: 80px !important;
+    min-width: 80px;
+}
+
+.chat-products-table td:last-child {
+    padding-right: 16px;
 }
 
 .chat-products-table tbody tr {
     transition: background 0.1s;
+    border-bottom: 1px solid #f1f5f9;
 }
 
 .chat-products-table tbody tr:hover {
     background: rgba(248, 250, 252, 0.3);
 }
 
-/* Product name */
+/* Product name - wrap instead of truncate */
 .chat-product-name {
     font-size: 13px;
     font-weight: 700;
     color: #1e293b;
     margin-bottom: 2px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    max-width: 100%;
     line-height: 1.4;
-    text-transform: uppercase;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
 }
 
 .chat-product-name.held {
@@ -1836,16 +1845,26 @@
 .chat-product-info-cell {
     overflow: hidden;
     min-width: 0;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
-/* Product image in table */
+/* Product image in table - override JS inline td width */
 .chat-product-image {
-    width: 80px;
-    height: 80px;
+    width: 72px;
+    height: 72px;
+    min-width: 72px;
     border-radius: 8px;
     object-fit: cover;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
     background: var(--ap-surface-container-low);
+    ring: 1px solid #f1f5f9;
+}
+
+/* Override JS inline width on image td */
+.chat-product-row td[style*="width: 48px"] {
+    width: 80px !important;
+    min-width: 80px !important;
 }
 
 /* Quantity controls */
