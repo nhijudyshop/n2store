@@ -3020,20 +3020,17 @@ const RefundOrders = {
     },
 
     render() {
-        const section = document.getElementById('refundOrdersSection');
-        const banner = document.getElementById('refundOrdersBanner');
+        const wrap = document.getElementById('refundOrdersWrap');
         const tbody = document.getElementById('refundOrdersBody');
         const countEl = document.getElementById('refundOrdersCount');
-        if (!section || !tbody) return;
+        if (!wrap || !tbody) return;
 
         if (this._data.length === 0) {
-            section.style.display = 'none';
-            if (banner) banner.style.display = 'none';
+            wrap.style.display = 'none';
             return;
         }
 
-        section.style.display = '';
-        if (banner) banner.style.display = '';
+        wrap.style.display = '';
 
         // Sort
         const sorted = [...this._data].sort((a, b) => {
@@ -3170,6 +3167,15 @@ const RefundOrders = {
         const checkAll = document.getElementById('refundCheckAll');
         const sortDate = document.getElementById('refundSortDate');
         const btnConfirm = document.getElementById('btnConfirmRefunds');
+        const banner = document.getElementById('refundOrdersBanner');
+        const wrap = document.getElementById('refundOrdersWrap');
+        const body = document.getElementById('refundOrdersSection');
+
+        // Banner click → toggle table
+        banner?.addEventListener('click', () => {
+            const isExpanded = wrap.classList.toggle('expanded');
+            body.style.display = isExpanded ? '' : 'none';
+        });
 
         // Event delegation on tbody
         tbody?.addEventListener('change', (e) => {

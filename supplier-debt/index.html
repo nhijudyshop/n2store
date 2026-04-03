@@ -139,8 +139,16 @@
                     </div>
                 </div>
 
-                <!-- Refund Orders Table (inside filter) -->
-                <div class="refund-orders-section" id="refundOrdersSection" style="display: none;">
+            </div>
+
+            <!-- Refund Orders: Banner + Collapsible Table -->
+            <div class="refund-orders-wrap" id="refundOrdersWrap" style="display: none;">
+                <div class="refund-orders-banner" id="refundOrdersBanner">
+                    <i data-lucide="undo-2" style="width:16px;height:16px;"></i>
+                    <span>Đơn trả hàng (Nháp) <span id="refundOrdersCount"></span></span>
+                    <i data-lucide="chevron-down" class="refund-toggle-icon" style="width:16px;height:16px;margin-left:auto;"></i>
+                </div>
+                <div class="refund-orders-body" id="refundOrdersSection" style="display: none;">
                     <div class="refund-orders-table-wrap">
                         <table class="refund-orders-table" id="refundOrdersTable">
                             <thead>
@@ -164,12 +172,6 @@
                         </button>
                     </div>
                 </div>
-            </div>
-
-            <!-- Refund Orders Banner (always visible outside filter) -->
-            <div class="refund-orders-banner" id="refundOrdersBanner" style="display: none;">
-                <i data-lucide="undo-2" style="width:16px;height:16px;"></i>
-                <span>Đơn trả hàng (Nháp) <span id="refundOrdersCount"></span></span>
             </div>
 
             <!-- Loading Indicator -->

@@ -1681,30 +1681,37 @@
    REFUND ORDERS (DRAFT) TABLE
    ===================================================== */
 
+.refund-orders-wrap {
+    margin-bottom: 8px;
+    border: 1px solid #fcd34d;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
 .refund-orders-banner {
     display: flex;
     align-items: center;
     gap: 6px;
     padding: 8px 14px;
     background: #fef3c7;
-    border: 1px solid #fcd34d;
-    border-radius: 6px;
-    margin-bottom: 8px;
     font-size: 13px;
     font-weight: 600;
     color: #92400e;
+    cursor: pointer;
+    user-select: none;
 }
 
-.refund-orders-banner .refund-orders-count {
-    font-weight: 500;
+.refund-orders-banner .refund-toggle-icon {
+    transition: transform 0.2s;
 }
 
-.refund-orders-section {
-    margin: 12px 0 0;
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
+.refund-orders-wrap.expanded .refund-toggle-icon {
+    transform: rotate(180deg);
+}
+
+.refund-orders-body {
+    border-top: 1px solid #fcd34d;
     background: #fff;
-    overflow: hidden;
 }
 
 .refund-orders-count {
