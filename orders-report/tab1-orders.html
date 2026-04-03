@@ -298,6 +298,31 @@
                     </button>
                 </div>
 
+                <!-- Tag XL Filter -->
+                <div class="search-filter-dropdown" style="display: flex; align-items: center; gap: 6px; position: relative;">
+                    <label style="font-size: 12px; font-weight: 500; color: #059669;">
+                        <i class="fas fa-tasks"></i> Tag XL:
+                    </label>
+                    <div class="tag-filter-dropdown ptag-xl-filter" id="ptagXlFilterDropdown">
+                        <div class="tag-filter-selected" onclick="window._ptagXlToggleDropdown && window._ptagXlToggleDropdown()" id="ptagXlFilterSelected">
+                            <span id="ptagXlFilterText">Tất cả</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </div>
+                        <div class="tag-filter-menu" id="ptagXlFilterMenu" style="min-width: 320px;">
+                            <div class="tag-filter-search">
+                                <i class="fas fa-search"></i>
+                                <input type="text" id="ptagXlFilterSearchInput" placeholder="Tìm tag XL..." oninput="window._ptagXlFilterSearch && window._ptagXlFilterSearch(this.value)">
+                            </div>
+                            <div class="tag-filter-actions" style="display: flex; gap: 8px; padding: 8px 12px; border-bottom: 1px solid #e5e7eb;">
+                                <button onclick="window._ptagSetFilter && window._ptagSetFilter(null)" style="flex: 1; padding: 4px 8px; font-size: 11px; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 4px; cursor: pointer;"><i class="fas fa-times"></i> Bỏ lọc</button>
+                            </div>
+                            <div class="ptag-xl-filter-options" id="ptagXlFilterOptions" style="max-height: 400px; overflow-y: auto;">
+                                <!-- Populated by JS -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- TAG Filter with Multi-Select -->
                 <div class="search-filter-dropdown" style="display: flex; align-items: center; gap: 6px; position: relative;">
                     <label style="font-size: 12px; font-weight: 500; color: #6b7280;">TAG:</label>
@@ -343,31 +368,6 @@
                             </div>
                             <div class="tag-filter-options" id="excludeTagFilterOptions" style="max-height: 300px; overflow-y: auto;">
                                 <!-- Options populated by JS -->
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Tag XL Filter -->
-                <div class="search-filter-dropdown" style="display: flex; align-items: center; gap: 6px; position: relative;">
-                    <label style="font-size: 12px; font-weight: 500; color: #7c3aed;">
-                        <i class="fas fa-tasks"></i> Tag XL:
-                    </label>
-                    <div class="tag-filter-dropdown ptag-xl-filter" id="ptagXlFilterDropdown">
-                        <div class="tag-filter-selected" onclick="window._ptagXlToggleDropdown && window._ptagXlToggleDropdown()" id="ptagXlFilterSelected">
-                            <span id="ptagXlFilterText">Tất cả</span>
-                            <i class="fas fa-chevron-down"></i>
-                        </div>
-                        <div class="tag-filter-menu" id="ptagXlFilterMenu" style="min-width: 320px;">
-                            <div class="tag-filter-search">
-                                <i class="fas fa-search"></i>
-                                <input type="text" id="ptagXlFilterSearchInput" placeholder="Tìm tag XL..." oninput="window._ptagXlFilterSearch && window._ptagXlFilterSearch(this.value)">
-                            </div>
-                            <div class="tag-filter-actions" style="display: flex; gap: 8px; padding: 8px 12px; border-bottom: 1px solid #e5e7eb;">
-                                <button onclick="window._ptagSetFilter && window._ptagSetFilter(null)" style="flex: 1; padding: 4px 8px; font-size: 11px; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 4px; cursor: pointer;"><i class="fas fa-times"></i> Bỏ lọc</button>
-                            </div>
-                            <div class="ptag-xl-filter-options" id="ptagXlFilterOptions" style="max-height: 400px; overflow-y: auto;">
-                                <!-- Populated by JS -->
                             </div>
                         </div>
                     </div>

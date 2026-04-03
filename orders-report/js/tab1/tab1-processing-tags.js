@@ -2025,7 +2025,6 @@
 
         const text = parts.join(' + ');
         el.textContent = text.length > 25 ? text.substring(0, 23) + '…' : text;
-        el.style.color = '#7c3aed';
     }
 
     function _ptagXlRenderDropdown() {
