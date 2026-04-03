@@ -51,6 +51,7 @@ router.post('/run-migration', async (req, res) => {
                 'realtime_updates',
                 'realtime_kv',
                 'kpi_base',
+                'kpi_audit_log',
                 'kpi_statistics',
                 'held_products',
                 'tag_updates',
@@ -68,6 +69,7 @@ router.post('/run-migration', async (req, res) => {
             'realtime_updates',
             'realtime_kv',
             'kpi_base',
+            'kpi_audit_log',
             'kpi_statistics',
             'held_products',
             'tag_updates',
@@ -101,6 +103,52 @@ router.post('/run-migration', async (req, res) => {
             message: error.message,
             stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
+    }
+});
+
+/**
+ * POST /api/admin/run-kpi-migration
+ * Reset KPI tables for Render PostgreSQL (orderCode as primary key)
+ */
+router.post('/run-kpi-migration', async (req, res) => {
+    try {
+        const db = req.app.locals.chatDb;
+        if (!db) {
+            return res.status(500).json({ error: 'Database not available' });
+        }
+
+        const migrationPath = path.join(__dirname, '../migrations/038_reset_kpi_tables.sql');
+        if (!fs.existsSync(migrationPath)) {
+            return res.status(404).json({ error: 'Migration file not found', path: migrationPath });
+        }
+
+        const migrationSQL = fs.readFileSync(migrationPath, 'utf8');
+        console.log('[MIGRATION] Starting KPI tables reset...');
+
+        const startTime = Date.now();
+        await db.query(migrationSQL);
+        const duration = Date.now() - startTime;
+
+        // Verify tables
+        const tableCheck = await db.query(`
+            SELECT table_name FROM information_schema.tables
+            WHERE table_schema = 'public'
+            AND table_name IN ('kpi_base', 'kpi_audit_log', 'kpi_statistics')
+            ORDER BY table_name
+        `);
+
+        const created = tableCheck.rows.map(r => r.table_name);
+        console.log('[MIGRATION] ✅ KPI migration completed in', duration, 'ms. Tables:', created);
+
+        res.json({
+            success: true,
+            message: 'KPI migration completed',
+            duration: duration + 'ms',
+            tables: created
+        });
+    } catch (error) {
+        console.error('[MIGRATION] ❌ KPI migration error:', error);
+        res.status(500).json({ error: 'KPI migration failed', message: error.message });
     }
 });
 
@@ -238,6 +286,7 @@ router.get('/check-tables', async (req, res) => {
             'realtime_updates',
             'realtime_kv',
             'kpi_base',
+            'kpi_audit_log',
             'kpi_statistics',
             'held_products',
             'tag_updates',
