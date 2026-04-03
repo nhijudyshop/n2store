@@ -1885,6 +1885,10 @@
     color: #6366f1;
     background: #eef2ff;
 }
+.ptag-custom-flag-delete-btn:hover:not(:disabled) {
+    color: #ef4444;
+    background: #fef2f2;
+}
 
 /* =====================================================
    GLOBAL TAG HISTORY MODAL
