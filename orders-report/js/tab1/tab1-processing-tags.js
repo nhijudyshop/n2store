@@ -1843,8 +1843,8 @@
             if (key === 'KHAC') {
                 const customFlagDefs = ProcessingTagState.getCustomFlagDefs();
                 if (customFlagDefs.length > 0) {
-                    // Only show custom flags that have orders assigned
-                    const visibleCustom = customFlagDefs.filter(cf => (flagCounts[cf.id] || 0) > 0);
+                    // Show all custom flags (including 0-order ones so user can delete them)
+                    const visibleCustom = customFlagDefs;
                     if (visibleCustom.length > 0) {
                     const expanded = activeFlagFilters.has('KHAC') ||
                         [...activeFlagFilters].some(f => f.startsWith('CUSTOM_'));
@@ -1861,6 +1861,10 @@
                             </label>
                             <span class="ptag-panel-card-count" style="font-size:12px;">${cfCount}</span>
                             <button class="ptag-color-edit-btn" onclick="window._ptagOpenFlagColorPicker('${cf.id}', this); event.stopPropagation();" title="Đổi màu"><i class="fas fa-pen" style="font-size:10px;"></i></button>
+                            ${cfCount === 0
+                                ? `<button class="ptag-color-edit-btn ptag-custom-flag-delete-btn" onclick="window._ptagDeleteCustomFlag('${cf.id}'); event.stopPropagation();" title="Xóa tag"><i class="fas fa-trash-alt" style="font-size:10px;"></i></button>`
+                                : `<button class="ptag-color-edit-btn ptag-custom-flag-delete-btn" disabled title="Tag đang có ${cfCount} đơn hàng, không thể xóa" style="opacity:0.3;cursor:not-allowed;"><i class="fas fa-trash-alt" style="font-size:10px;"></i></button>`
+                            }
                         </div>`;
                     }
                     html += `</div>`;
@@ -4372,6 +4376,30 @@
         renderPanelContent();
     }
 
+    async function _ptagDeleteCustomFlag(flagId) {
+        const customFlagDefs = ProcessingTagState.getCustomFlagDefs();
+        const flagDef = customFlagDefs.find(cf => cf.id === flagId);
+        if (!flagDef) return;
+
+        // Re-check usage count at delete time (safety against stale UI)
+        let count = 0;
+        for (const [, data] of ProcessingTagState.getAllOrders()) {
+            if (data.flags && data.flags.includes(flagId)) count++;
+        }
+        if (count > 0) {
+            alert(`Tag "${flagDef.label}" đang có ${count} đơn hàng. Không thể xóa.`);
+            return;
+        }
+
+        if (!confirm(`Xóa tag đặc điểm "${flagDef.label}"?`)) return;
+
+        const remaining = customFlagDefs.filter(cf => cf.id !== flagId);
+        ProcessingTagState.setCustomFlagDefs(remaining);
+        await saveCustomFlagDefinitions();
+        console.log(`${PTAG_LOG} Deleted custom flag: ${flagDef.label} (${flagId})`);
+        renderPanelContent();
+    }
+
     // UI internal (called from onclick)
     window._ptagOpenDropdown = _ptagOpenDropdown;
     window._ptagCloseDropdown = _ptagCloseDropdown;
@@ -4387,6 +4415,7 @@
     window._ptagFilterPanel = _ptagFilterPanel;
     window._ptagToggleFlagFilter = _ptagToggleFlagFilter;
     window._ptagToggleFlagsSection = _ptagToggleFlagsSection;
+    window._ptagDeleteCustomFlag = _ptagDeleteCustomFlag;
     window._ptagQuickAssign = _ptagQuickAssign;
     window._ptagOpenBulkModal = _ptagOpenBulkModal;
     window._ptagCloseBulkModal = _ptagCloseBulkModal;
