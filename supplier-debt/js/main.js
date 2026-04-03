@@ -3021,16 +3021,19 @@ const RefundOrders = {
 
     render() {
         const section = document.getElementById('refundOrdersSection');
+        const banner = document.getElementById('refundOrdersBanner');
         const tbody = document.getElementById('refundOrdersBody');
         const countEl = document.getElementById('refundOrdersCount');
         if (!section || !tbody) return;
 
         if (this._data.length === 0) {
             section.style.display = 'none';
+            if (banner) banner.style.display = 'none';
             return;
         }
 
         section.style.display = '';
+        if (banner) banner.style.display = '';
 
         // Sort
         const sorted = [...this._data].sort((a, b) => {

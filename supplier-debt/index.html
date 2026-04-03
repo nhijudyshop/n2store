@@ -139,35 +139,37 @@
                     </div>
                 </div>
 
+                <!-- Refund Orders Table (inside filter) -->
+                <div class="refund-orders-section" id="refundOrdersSection" style="display: none;">
+                    <div class="refund-orders-table-wrap">
+                        <table class="refund-orders-table" id="refundOrdersTable">
+                            <thead>
+                                <tr>
+                                    <th style="width:40px; text-align:center;">
+                                        <input type="checkbox" id="refundCheckAll" title="Chọn tất cả">
+                                    </th>
+                                    <th>Nhà cung cấp</th>
+                                    <th class="refund-col-date" id="refundSortDate" style="cursor:pointer;">
+                                        Ngày đơn hàng <span class="sort-arrow">&darr;</span>
+                                    </th>
+                                    <th style="text-align:right;">Tổng tiền</th>
+                                </tr>
+                            </thead>
+                            <tbody id="refundOrdersBody"></tbody>
+                        </table>
+                    </div>
+                    <div class="refund-orders-actions" id="refundOrdersActions" style="display:none;">
+                        <button class="btn btn-success btn-sm" id="btnConfirmRefunds">
+                            <i data-lucide="check" style="width:14px;height:14px;"></i> Xác nhận đã trả hàng
+                        </button>
+                    </div>
+                </div>
             </div>
 
-            <!-- Refund Orders (Draft) Table -->
-            <div class="refund-orders-section" id="refundOrdersSection" style="display: none;">
-                <div class="refund-orders-header">
-                    <h4><i data-lucide="undo-2" style="width:16px;height:16px;"></i> Đơn trả hàng (Nháp) <span class="refund-orders-count" id="refundOrdersCount"></span></h4>
-                </div>
-                <div class="refund-orders-table-wrap">
-                    <table class="refund-orders-table" id="refundOrdersTable">
-                        <thead>
-                            <tr>
-                                <th style="width:40px; text-align:center;">
-                                    <input type="checkbox" id="refundCheckAll" title="Chọn tất cả">
-                                </th>
-                                <th>Nhà cung cấp</th>
-                                <th class="refund-col-date" id="refundSortDate" style="cursor:pointer;">
-                                    Ngày đơn hàng <span class="sort-arrow">&darr;</span>
-                                </th>
-                                <th style="text-align:right;">Tổng tiền</th>
-                            </tr>
-                        </thead>
-                        <tbody id="refundOrdersBody"></tbody>
-                    </table>
-                </div>
-                <div class="refund-orders-actions" id="refundOrdersActions" style="display:none;">
-                    <button class="btn btn-success btn-sm" id="btnConfirmRefunds">
-                        <i data-lucide="check" style="width:14px;height:14px;"></i> Xác nhận đã trả hàng
-                    </button>
-                </div>
+            <!-- Refund Orders Banner (always visible outside filter) -->
+            <div class="refund-orders-banner" id="refundOrdersBanner" style="display: none;">
+                <i data-lucide="undo-2" style="width:16px;height:16px;"></i>
+                <span>Đơn trả hàng (Nháp) <span id="refundOrdersCount"></span></span>
             </div>
 
             <!-- Loading Indicator -->
