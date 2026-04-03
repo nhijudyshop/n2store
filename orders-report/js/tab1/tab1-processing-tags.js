@@ -4044,9 +4044,22 @@
         for (const [key, history] of ProcessingTagState._historyStore) {
             const filtered = history.filter(h => (h.timestamp || 0) >= cutoff);
             if (filtered.length === 0) {
+                // Xóa khỏi memory
                 ProcessingTagState._historyStore.delete(key);
+                // Nếu order không còn tag data → xóa row trên server luôn
+                if (!ProcessingTagState.hasOrder(key)) {
+                    clearProcessingTagAPI(key);
+                }
             } else if (filtered.length < history.length) {
                 ProcessingTagState._historyStore.set(key, filtered);
+                // Cập nhật history đã cleanup lên server (nếu order không còn tag data)
+                if (!ProcessingTagState.hasOrder(key)) {
+                    const userName = window.authManager?.getAuthState()?.username || '';
+                    _ptagFetch(
+                        `${PTAG_API_BASE}/by-code/${encodeURIComponent(key)}`,
+                        { method: 'PUT', body: JSON.stringify({ data: { history: filtered }, updatedBy: userName }) }
+                    ).catch(() => {});
+                }
             }
         }
     }
