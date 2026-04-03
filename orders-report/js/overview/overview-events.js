@@ -38,6 +38,7 @@ window.addEventListener('message', function (event) {
         }
 
         allOrders = event.data.orders || [];
+        processingTagsMap = event.data.processingTags || {};
         currentTableName = tab1TableName;
         justReceivedFromTab1 = true; // Prevent auto-load from Firebase
 

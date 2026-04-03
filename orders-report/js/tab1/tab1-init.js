@@ -390,10 +390,26 @@ window.addEventListener("DOMContentLoaded", async function () {
             // Get current table name from campaign manager
             const campaign = window.campaignManager?.activeCampaign;
             const tableName = campaign?.name || localStorage.getItem('orders_table_name') || 'Bảng 1';
+
+            // Serialize ProcessingTagState data for overview statistics
+            const ptagData = {};
+            if (window.ProcessingTagState) {
+                for (const [code, data] of window.ProcessingTagState.getAllOrders()) {
+                    ptagData[code] = {
+                        category: data.category,
+                        subTag: data.subTag,
+                        subState: data.subState,
+                        flags: data.flags || [],
+                        tTags: data.tTags || []
+                    };
+                }
+            }
+
             window.parent.postMessage({
                 type: 'ORDERS_DATA_RESPONSE_OVERVIEW',
                 orders: orders,
-                tableName: tableName
+                tableName: tableName,
+                processingTags: ptagData
             }, '*');
         }
 

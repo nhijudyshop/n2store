@@ -82,10 +82,11 @@ const conversationFetchRequestedFor = new Set();
 // STATISTICS STATE
 // =====================================================
 let employeeRanges = []; // Employee assignment ranges from Tab1
-let availableTags = []; // Tags from TPOS
-let trackedTags = []; // Tags currently being tracked for statistics
+let processingTagsMap = {}; // Tag XL data from Tab1's ProcessingTagState
+let availableTags = []; // LEGACY: Tags from TPOS (kept for "Chi tiết đã tải" tab)
+let trackedTags = []; // LEGACY: Tags currently being tracked
 
-// Default tracked tag patterns
+// LEGACY: Default tracked tag patterns
 const DEFAULT_TRACKED_TAGS = [
     { pattern: 'giỏ trống', type: 'exact', displayName: 'Giỏ Trống', color: '#f59e0b' },
     { pattern: 'xả khách lạ', type: 'exact', displayName: 'Xả Khách Lạ', color: '#ef4444' },
@@ -98,6 +99,45 @@ const DEFAULT_TRACKED_TAGS = [
     { pattern: 'chờ hàng', type: 'exact', displayName: 'Chờ Hàng', color: '#6366f1' },
     { pattern: 'xả đơn', type: 'startsWith', displayName: 'Xả Đơn', color: '#14b8a6' }
 ];
+
+// =====================================================
+// TAG XL CONSTANTS (mirrored from tab1-processing-tags.js)
+// =====================================================
+const PTAG_CATEGORY_META = {
+    0: { name: 'ĐÃ RA ĐƠN', short: 'ĐÃ RA ĐƠN', icon: 'fa-check-circle', emoji: '🟢', color: '#10b981' },
+    1: { name: 'CHỜ ĐI ĐƠN (OKE)', short: 'CHỜ ĐI ĐƠN', icon: 'fa-clock', emoji: '🔵', color: '#3b82f6' },
+    2: { name: 'MỤC XỬ LÝ', short: 'XỬ LÝ', icon: 'fa-exclamation-triangle', emoji: '🟠', color: '#f59e0b' },
+    3: { name: 'KHÔNG CẦN CHỐT', short: 'KO CẦN CHỐT', icon: 'fa-minus-circle', emoji: '⚪', color: '#6b7280' },
+    4: { name: 'KHÁCH XÃ SAU CHỐT', short: 'KHÁCH XÃ', icon: 'fa-times-circle', emoji: '🔴', color: '#ef4444' }
+};
+
+const PTAG_SUBSTATES_META = {
+    OKIE_CHO_DI_DON: { label: 'OKIE CHỜ ĐI ĐƠN', color: '#3b82f6' },
+    CHO_HANG: { label: 'CHỜ HÀNG', color: '#f59e0b' }
+};
+
+const PTAG_SUBTAGS_META = {
+    // Category 2
+    CHUA_PHAN_HOI: { label: 'ĐƠN CHƯA PHẢN HỒI', category: 2, icon: '💬' },
+    CHUA_DUNG_SP: { label: 'ĐƠN CHƯA ĐÚNG SP', category: 2, icon: '📦' },
+    KHACH_MUON_XA: { label: 'ĐƠN KHÁCH MUỐN XÃ', category: 2, icon: '🙏' },
+    BAN_HANG: { label: 'BÁN HÀNG', category: 2, icon: '🛒' },
+    XU_LY_KHAC: { label: 'KHÁC (GHI CHÚ)', category: 2, icon: '📋' },
+    // Category 3
+    DA_GOP_KHONG_CHOT: { label: 'ĐÃ GỘP KHÔNG CHỐT', category: 3, icon: '🔗' },
+    GIO_TRONG: { label: 'GIỎ TRỐNG', category: 3, icon: '🛒' },
+    // Category 4
+    NCC_HET_HANG: { label: 'NCC HẾT HÀNG', category: 4, icon: '🚫' },
+    KHACH_HUY_DON: { label: 'KHÁCH HỦY NGUYÊN ĐƠN', category: 4, icon: '❌' },
+    KHACH_KO_LIEN_LAC: { label: 'KHÁCH KHÔNG LIÊN LẠC ĐƯỢC', category: 4, icon: '📵' }
+};
+
+const PTAG_FLAGS_META = {
+    CHO_LIVE: { label: 'CHỜ LIVE', icon: '📺', color: '#ec4899' },
+    QUA_LAY: { label: 'QUA LẤY', icon: '🏠', color: '#3b82f6' },
+    GIU_DON: { label: 'GIỮ ĐƠN', icon: '⌛', color: '#8b5cf6' },
+    GIAM_GIA: { label: 'GIẢM GIÁ', icon: '🏷️', color: '#f59e0b' }
+};
 
 // Firebase paths for statistics
 const TRACKED_TAGS_PATH = 'settings/tracked_tags';

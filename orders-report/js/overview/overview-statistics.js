@@ -212,272 +212,192 @@ function parseOrderTags(tagsData) {
     }
 }
 
-// Predefined tags for Live Order Statistics
-const LIVE_STAT_TAGS = [
-    { key: 'ordered', displayName: 'ĐÃ RA ĐƠN', color: '#22c55e', isSpecial: true, countAsChot: true },
-    { key: 'cho_hang_ve', patterns: ['chờ hàng về', 'chờ hàng'], displayName: 'CHỜ HÀNG VỀ', color: '#6366f1', countAsChot: true },
-    { key: 'xa_don', patterns: ['xả đơn', 'xã đơn'], displayName: 'XẢ ĐƠN', color: '#14b8a6', countAsChot: true },
-    { key: 'ok', patterns: ['ok'], displayName: 'OK', color: '#22c55e', countAsChot: true },
-    { key: 'xu_ly', patterns: ['xử lý'], displayName: 'XỬ LÝ', color: '#f97316', countAsChot: true },
-    { key: 'cho_live', patterns: ['chờ live'], displayName: 'CHỜ LIVE', color: '#ec4899', countAsChot: true },
-    { key: 'qua_lay', patterns: ['qua lấy'], displayName: 'QUA LẤY', color: '#3b82f6', countAsChot: true },
-    { key: 'gio_trong', patterns: ['giỏ trống'], displayName: 'GIỎ TRỐNG', color: '#f59e0b', countAsChot: false },
-    { key: 'gop', patterns: ['đã gộp ko chốt', 'đã gộp không chốt'], displayName: 'GỘP', color: '#8b5cf6', countAsChot: false }
-];
+// =====================================================
+// TAG XL STATISTICS (replaces TPOS tag-based statistics)
+// =====================================================
 
 /**
- * Calculate tag statistics from cached orders for Live Order Statistics
+ * Shared helper: compute tag XL counts from a subset of orders
+ * Returns detailed breakdown by category, sub-state, sub-tag, and selected flags
  */
-function calculateTagStats(orders) {
-    const totalOrders = orders.length;
+function computeTagXLCounts(orderSubset, ptagMap) {
+    const total = orderSubset.length;
+    const catCounts = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0 };
+    const catAmounts = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0 };
+    const catOrders = { 0: [], 1: [], 2: [], 3: [], 4: [] };
+    const subStateCounts = { OKIE_CHO_DI_DON: 0, CHO_HANG: 0 };
+    const subStateAmounts = { OKIE_CHO_DI_DON: 0, CHO_HANG: 0 };
+    const subStateOrders = { OKIE_CHO_DI_DON: [], CHO_HANG: [] };
+    const subTagCounts = {};
+    const subTagAmounts = {};
+    const subTagOrders = {};
+    // Initialize sub-tag counters
+    for (const key of Object.keys(PTAG_SUBTAGS_META)) {
+        subTagCounts[key] = 0;
+        subTagAmounts[key] = 0;
+        subTagOrders[key] = [];
+    }
+    // Flag counters (only the 3 displayed: CHO_LIVE, QUA_LAY+GIU_DON, GIAM_GIA)
+    const flagCounts = { CHO_LIVE: 0, QUA_LAY_GIU_DON: 0, GIAM_GIA: 0 };
+    const flagAmounts = { CHO_LIVE: 0, QUA_LAY_GIU_DON: 0, GIAM_GIA: 0 };
+    const flagOrders = { CHO_LIVE: [], QUA_LAY_GIU_DON: [], GIAM_GIA: [] };
 
-    // Initialize stats for each predefined tag
-    const tagStatsMap = new Map();
-    LIVE_STAT_TAGS.forEach(tag => {
-        tagStatsMap.set(tag.key, {
-            pattern: tag.key,
-            type: tag.isSpecial ? 'special' : 'tag',
-            displayName: tag.displayName,
-            color: tag.color,
-            count: 0,
-            totalAmount: 0,
-            orders: [],
-            isSpecial: tag.isSpecial || false,
-            countAsChot: tag.countAsChot
-        });
-    });
+    const untaggedOrders = [];
+    let untaggedAmount = 0;
 
-    // Track unique orders per category to avoid double counting
-    const ordersPerCategory = new Map();
-    LIVE_STAT_TAGS.forEach(tag => {
-        ordersPerCategory.set(tag.key, new Set());
-    });
-
-    // Track duplicate tags per order
-    const orderTagsMap = new Map(); // orderId -> Set of tag keys
-
-    // Count orders for each category
-    orders.forEach(order => {
-        const orderTags = parseOrderTags(order.Tags);
-        const orderAmount = order.TotalAmount || 0;
-        const statusText = order.StatusText || order.Status || '';
-        const orderId = order.Id || order.Code;
-
-        // Initialize tag set for this order
-        if (!orderTagsMap.has(orderId)) {
-            orderTagsMap.set(orderId, { tagKeys: new Set(), order: order });
-        }
-
-        // Check for Ordered status (ĐÃ RA ĐƠN)
-        if (statusText === 'Đơn hàng') {
-            const stat = tagStatsMap.get('ordered');
-            if (!ordersPerCategory.get('ordered').has(orderId)) {
-                ordersPerCategory.get('ordered').add(orderId);
-                stat.count++;
-                stat.totalAmount += orderAmount;
-                stat.orders.push(order);
-            }
-            // Mark this order as having a valid tag (ĐÃ RA ĐƠN counts)
-            orderTagsMap.get(orderId).tagKeys.add('ordered');
-        }
-
-        // Check each order's tags against predefined patterns
-        orderTags.forEach(orderTag => {
-            const tagName = (orderTag.Name || orderTag.name || '').toLowerCase().trim();
-            if (!tagName) return;
-
-            LIVE_STAT_TAGS.forEach(liveTag => {
-                if (liveTag.isSpecial) return; // Skip special tags (handled above)
-
-                const patterns = liveTag.patterns || [];
-                const matches = patterns.some(p => tagName.startsWith(p));
-
-                if (matches) {
-                    const stat = tagStatsMap.get(liveTag.key);
-                    if (!ordersPerCategory.get(liveTag.key).has(orderId)) {
-                        ordersPerCategory.get(liveTag.key).add(orderId);
-                        stat.count++;
-                        stat.totalAmount += orderAmount;
-                        stat.orders.push(order);
-                    }
-                    // Track this tag for duplicate detection
-                    orderTagsMap.get(orderId).tagKeys.add(liveTag.key);
-                }
-            });
-        });
-    });
-
-    // Find orders with duplicate tags (more than 1 tag from LIVE_STAT_TAGS)
-    // NOTE: Now includes 'ordered' status as a tag for duplicate checking
-    const duplicateOrders = [];
-    let hasUnacceptableDuplicate = false;
-
-    // Acceptable duplicate combinations: (cho_live + cho_hang_ve) OR (qua_lay + cho_hang_ve)
-    const isAcceptableDuplicate = (tagKeys) => {
-        const keys = Array.from(tagKeys);
-        if (keys.length !== 2) return false;
-        const sorted = keys.sort().join(',');
-        return sorted === 'cho_hang_ve,cho_live' || sorted === 'cho_hang_ve,qua_lay';
-    };
-
-    orderTagsMap.forEach((data, orderId) => {
-        // Include 'ordered' when checking for duplicates (ĐÃ RA ĐƠN counts as a tag)
-        const tagKeys = data.tagKeys;
-
-        if (tagKeys.size > 1) {
-            duplicateOrders.push({ ...data.order, _matchedTagKeys: Array.from(tagKeys) });
-            if (!isAcceptableDuplicate(tagKeys)) {
-                hasUnacceptableDuplicate = true;
-            }
-        }
-    });
-
-    // Validate GIỎ TRỐNG logic
-    // 1. Orders with "giỏ trống" tag but product count > 0 → invalid
-    // 2. Orders with product count = 0 but no "giỏ trống" or "đã gộp ko chốt" tag → invalid
+    // GIỎ TRỐNG validation
     let hasGioTrongValidationError = false;
     const gioTrongInvalidOrders = [];
 
-    orders.forEach(order => {
-        const orderId = order.Id || order.Code;
+    orderSubset.forEach(order => {
+        const code = String(order.Code || '');
+        const amount = order.TotalAmount || 0;
+        const tagData = ptagMap[code];
         const productCount = order.Details?.length || 0;
-        const orderData = orderTagsMap.get(orderId);
-        const tagKeys = orderData?.tagKeys || new Set();
 
-        const hasGioTrongTag = tagKeys.has('gio_trong');
-        const hasGopTag = tagKeys.has('gop');
+        if (!tagData || tagData.category === null || tagData.category === undefined) {
+            untaggedOrders.push(order);
+            untaggedAmount += amount;
+            return;
+        }
 
-        // Case 1: Has giỏ trống tag but has products
-        if (hasGioTrongTag && productCount > 0) {
+        const cat = tagData.category;
+        if (catCounts[cat] !== undefined) {
+            catCounts[cat]++;
+            catAmounts[cat] += amount;
+            catOrders[cat].push(order);
+        }
+
+        // Sub-states for cat 1
+        if (cat === 1) {
+            const ss = tagData.subState || 'OKIE_CHO_DI_DON';
+            if (subStateCounts[ss] !== undefined) {
+                subStateCounts[ss]++;
+                subStateAmounts[ss] += amount;
+                subStateOrders[ss].push(order);
+            }
+        }
+
+        // Sub-tags for cat 2, 3, 4
+        if ((cat === 2 || cat === 3 || cat === 4) && tagData.subTag) {
+            if (subTagCounts[tagData.subTag] !== undefined) {
+                subTagCounts[tagData.subTag]++;
+                subTagAmounts[tagData.subTag] += amount;
+                subTagOrders[tagData.subTag].push(order);
+            }
+        }
+
+        // Flags (count across all categories)
+        const flags = tagData.flags || [];
+        if (flags.includes('CHO_LIVE')) {
+            flagCounts.CHO_LIVE++;
+            flagAmounts.CHO_LIVE += amount;
+            flagOrders.CHO_LIVE.push(order);
+        }
+        if (flags.includes('QUA_LAY') || flags.includes('GIU_DON')) {
+            flagCounts.QUA_LAY_GIU_DON++;
+            flagAmounts.QUA_LAY_GIU_DON += amount;
+            flagOrders.QUA_LAY_GIU_DON.push(order);
+        }
+        if (flags.includes('GIAM_GIA')) {
+            flagCounts.GIAM_GIA++;
+            flagAmounts.GIAM_GIA += amount;
+            flagOrders.GIAM_GIA.push(order);
+        }
+
+        // GIỎ TRỐNG validation
+        const isGioTrong = cat === 3 && tagData.subTag === 'GIO_TRONG';
+        const isGop = cat === 3 && tagData.subTag === 'DA_GOP_KHONG_CHOT';
+        if (isGioTrong && productCount > 0) {
             hasGioTrongValidationError = true;
             gioTrongInvalidOrders.push(order);
         }
-
-        // Case 2: No products but missing giỏ trống or gộp tag
-        if (productCount === 0 && !hasGioTrongTag && !hasGopTag) {
+        if (productCount === 0 && !isGioTrong && !isGop) {
             hasGioTrongValidationError = true;
             gioTrongInvalidOrders.push(order);
         }
     });
 
-    // Add validation error flag to gio_trong stat
-    const gioTrongStat = tagStatsMap.get('gio_trong');
-    gioTrongStat.hasValidationError = hasGioTrongValidationError;
-    gioTrongStat.invalidOrders = gioTrongInvalidOrders;
+    // Badge calculations
+    const Z = subTagCounts.GIO_TRONG || 0;
+    const K = subTagCounts.DA_GOP_KHONG_CHOT || 0;
+    const Y = total - Z - K; // calculated đơn chốt
+    const H = catCounts[0] + catCounts[1] + catCounts[2] + catCounts[4]; // actual đơn chốt
 
-    // Calculate percentages and prepare final stats
-    const allStats = [];
-    tagStatsMap.forEach((stat, key) => {
-        stat.percentage = totalOrders > 0 ? ((stat.count / totalOrders) * 100).toFixed(1) : 0;
-        allStats.push(stat);
-    });
-
-    // Add duplicate tag stat
-    const duplicateStat = {
-        pattern: 'tag_trung',
-        type: 'duplicate',
-        displayName: 'TAG TRÙNG',
-        color: hasUnacceptableDuplicate ? '#ef4444' : '#22c55e',
-        count: duplicateOrders.length,
-        totalAmount: duplicateOrders.reduce((sum, o) => sum + (o.TotalAmount || 0), 0),
-        orders: duplicateOrders,
-        isSpecial: false,
-        isDuplicate: true,
-        hasUnacceptableDuplicate: hasUnacceptableDuplicate,
-        percentage: totalOrders > 0 ? ((duplicateOrders.length / totalOrders) * 100).toFixed(1) : 0
+    return {
+        total, catCounts, catAmounts, catOrders,
+        subStateCounts, subStateAmounts, subStateOrders,
+        subTagCounts, subTagAmounts, subTagOrders,
+        flagCounts, flagAmounts, flagOrders,
+        untaggedOrders, untaggedAmount,
+        hasGioTrongValidationError, gioTrongInvalidOrders,
+        badges: { total, donChot: Y, gioTrong: Z, gop: K, actualChot: H }
     };
-    allStats.push(duplicateStat);
-
-    // Find orders not matching any predefined tags (GẮN SAI TAG)
-    const wrongTagOrders = [];
-    orderTagsMap.forEach((data, orderId) => {
-        // Order has no tags from LIVE_STAT_TAGS
-        if (data.tagKeys.size === 0) {
-            wrongTagOrders.push(data.order);
-        }
-    });
-
-    // Add "GẮN SAI TAG" stat
-    const wrongTagStat = {
-        pattern: 'gan_sai_tag',
-        key: 'gan_sai_tag',
-        type: 'wrong_tag',
-        displayName: 'GẮN SAI TAG',
-        color: wrongTagOrders.length > 0 ? '#ef4444' : '#22c55e',
-        count: wrongTagOrders.length,
-        totalAmount: wrongTagOrders.reduce((sum, o) => sum + (o.TotalAmount || 0), 0),
-        orders: wrongTagOrders,
-        isSpecial: false,
-        isWrongTag: true,
-        hasError: wrongTagOrders.length > 0,
-        percentage: totalOrders > 0 ? ((wrongTagOrders.length / totalOrders) * 100).toFixed(1) : 0
-    };
-    allStats.push(wrongTagStat);
-
-    // Calculate header badge values
-    const gioTrongCount = tagStatsMap.get('gio_trong').count;
-    const gopCount = tagStatsMap.get('gop').count;
-
-    // x = total orders
-    const x = totalOrders;
-    // Z = giỏ trống
-    const Z = gioTrongCount;
-    // K = gộp
-    const K = gopCount;
-    // Y = x - Z - K (calculated "đơn chốt")
-    const Y = x - Z - K;
-
-    // H = sum of all countAsChot tags - duplicate count (actual "đơn chốt")
-    let H = 0;
-    tagStatsMap.forEach((stat, key) => {
-        if (stat.countAsChot) {
-            H += stat.count;
-        }
-    });
-    H = H - duplicateOrders.length;
-
-    // Update header badges
-    updateLiveStatsBadges(x, Y, Z, K, H, hasUnacceptableDuplicate);
-
-    return allStats;
 }
 
 /**
- * Update the Live Stats badges in the header
+ * Calculate tag XL statistics from orders + processingTagsMap
  */
-function updateLiveStatsBadges(totalDon, donChot, gioTrong, gop, actualChot, hasUnacceptableDuplicate) {
+function calculateTagXLStats(orders) {
+    return computeTagXLCounts(orders, processingTagsMap);
+}
+
+/**
+ * Update the Live Stats badges in the header (Tag XL version)
+ */
+function updateLiveStatsBadges(badges) {
     const badgeTotalDon = document.getElementById('badgeTotalDon');
     const badgeDonChot = document.getElementById('badgeDonChot');
-    const badgeGioTrong = document.getElementById('badgeGioTrong');
-    const badgeGop = document.getElementById('badgeGop');
 
-    if (badgeTotalDon) badgeTotalDon.textContent = `${totalDon} ĐƠN`;
+    if (badgeTotalDon) badgeTotalDon.textContent = `${badges.total} ĐƠN`;
     if (badgeDonChot) {
-        badgeDonChot.textContent = `${donChot} ĐƠN CHỐT`;
-        // GREEN if: Y = H AND no unacceptable duplicates (TAG TRÙNG is green)
-        // RED otherwise
-        if (donChot === actualChot && !hasUnacceptableDuplicate) {
+        badgeDonChot.textContent = `${badges.donChot} ĐƠN CHỐT`;
+        if (badges.donChot === badges.actualChot) {
             badgeDonChot.classList.remove('mismatch');
         } else {
             badgeDonChot.classList.add('mismatch');
         }
     }
-    if (badgeGioTrong) badgeGioTrong.textContent = `${gioTrong} GIỎ TRỐNG`;
-    if (badgeGop) badgeGop.textContent = `${gop} GỘP`;
 }
 
 /**
- * Get mismatch reason for employee badge
+ * Get mismatch reason for employee badge (Tag XL version)
  * Y = tính toán (tổng - giỏ trống - gộp)
- * H = thực tế (sum countAsChot - duplicates)
+ * H = thực tế (cat 0 + cat 1 + cat 2 + cat 4)
  */
-function getMismatchReason(Y, H, hasUnacceptableDuplicate, duplicateOrders, wrongTagOrders) {
+function getMismatchReason(Y, H, untaggedOrders) {
     const reasons = [];
 
     if (Y !== H) {
         const diff = Y - H;
         if (diff > 0) {
-            // Y > H: Có đơn chưa gắn tag chốt
+            reasons.push({
+                type: 'missing_tags',
+                text: `Thiếu ${diff} đơn chưa gắn tag XL`,
+                count: untaggedOrders.length,
+                orders: untaggedOrders
+            });
+        } else {
+            reasons.push({
+                type: 'excess_tags',
+                text: `Dư ${Math.abs(diff)} tag chốt`,
+                count: Math.abs(diff),
+                orders: []
+            });
+        }
+    }
+
+    return reasons;
+}
+
+// Legacy getMismatchReason compatibility (old signature)
+// kept for renderStatistics() legacy function
+function _legacyGetMismatchReason(Y, H, hasUnacceptableDuplicate, duplicateOrders, wrongTagOrders) {
+    const reasons = [];
+
+    if (Y !== H) {
+        const diff = Y - H;
+        if (diff > 0) {
             reasons.push({
                 type: 'missing_tags',
                 text: `Thiếu ${diff} đơn chưa gắn tag chốt`,
@@ -485,7 +405,6 @@ function getMismatchReason(Y, H, hasUnacceptableDuplicate, duplicateOrders, wron
                 orders: wrongTagOrders
             });
         } else {
-            // Y < H: Tag count vượt quá (có thể do logic tính toán)
             reasons.push({
                 type: 'excess_tags',
                 text: `Dư ${Math.abs(diff)} tag chốt`,
@@ -508,9 +427,129 @@ function getMismatchReason(Y, H, hasUnacceptableDuplicate, duplicateOrders, wron
 }
 
 /**
- * Calculate employee-based tag statistics using LIVE_STAT_TAGS
+ * Calculate employee-based tag XL statistics
  */
+function calculateEmployeeTagXLStats(orders) {
+    if (!employeeRanges.length) return [];
+
+    return employeeRanges.map(emp => {
+        const empOrders = orders.filter(order => {
+            const stt = parseInt(order.SessionIndex || 0);
+            return stt >= emp.start && stt <= emp.end;
+        });
+
+        if (empOrders.length === 0) return null;
+
+        const stats = computeTagXLCounts(empOrders, processingTagsMap);
+        const { badges } = stats;
+        const isMismatch = badges.donChot !== badges.actualChot;
+
+        return {
+            name: emp.name,
+            start: emp.start,
+            end: emp.end,
+            totalOrders: empOrders.length,
+            stats: stats,
+            allOrders: empOrders,
+            badges: badges,
+            isMismatch: isMismatch,
+            mismatchReason: isMismatch ? getMismatchReason(badges.donChot, badges.actualChot, stats.untaggedOrders) : []
+        };
+    }).filter(e => e !== null && e.totalOrders > 0);
+}
+
+// =====================================================
+// LEGACY TPOS FUNCTIONS (kept for "Chi tiết đã tải" tab)
+// =====================================================
+
+// Predefined tags for Live Order Statistics (LEGACY — used by renderStatistics only)
+const LIVE_STAT_TAGS = [
+    { key: 'ordered', displayName: 'ĐÃ RA ĐƠN', color: '#22c55e', isSpecial: true, countAsChot: true },
+    { key: 'cho_hang_ve', patterns: ['chờ hàng về', 'chờ hàng'], displayName: 'CHỜ HÀNG VỀ', color: '#6366f1', countAsChot: true },
+    { key: 'xa_don', patterns: ['xả đơn', 'xã đơn'], displayName: 'XẢ ĐƠN', color: '#14b8a6', countAsChot: true },
+    { key: 'ok', patterns: ['ok'], displayName: 'OK', color: '#22c55e', countAsChot: true },
+    { key: 'xu_ly', patterns: ['xử lý'], displayName: 'XỬ LÝ', color: '#f97316', countAsChot: true },
+    { key: 'cho_live', patterns: ['chờ live'], displayName: 'CHỜ LIVE', color: '#ec4899', countAsChot: true },
+    { key: 'qua_lay', patterns: ['qua lấy'], displayName: 'QUA LẤY', color: '#3b82f6', countAsChot: true },
+    { key: 'gio_trong', patterns: ['giỏ trống'], displayName: 'GIỎ TRỐNG', color: '#f59e0b', countAsChot: false },
+    { key: 'gop', patterns: ['đã gộp ko chốt', 'đã gộp không chốt'], displayName: 'GỘP', color: '#8b5cf6', countAsChot: false }
+];
+
+/**
+ * LEGACY: Calculate tag statistics from TPOS tags
+ */
+function calculateTagStats(orders) {
+    const totalOrders = orders.length;
+    const tagStatsMap = new Map();
+    LIVE_STAT_TAGS.forEach(tag => {
+        tagStatsMap.set(tag.key, {
+            pattern: tag.key, type: tag.isSpecial ? 'special' : 'tag',
+            displayName: tag.displayName, color: tag.color, count: 0,
+            totalAmount: 0, orders: [], isSpecial: tag.isSpecial || false, countAsChot: tag.countAsChot
+        });
+    });
+    const ordersPerCategory = new Map();
+    LIVE_STAT_TAGS.forEach(tag => ordersPerCategory.set(tag.key, new Set()));
+    const orderTagsMap = new Map();
+
+    orders.forEach(order => {
+        const orderTags = parseOrderTags(order.Tags);
+        const orderAmount = order.TotalAmount || 0;
+        const statusText = order.StatusText || order.Status || '';
+        const orderId = order.Id || order.Code;
+        if (!orderTagsMap.has(orderId)) orderTagsMap.set(orderId, { tagKeys: new Set(), order });
+
+        if (statusText === 'Đơn hàng') {
+            const stat = tagStatsMap.get('ordered');
+            if (!ordersPerCategory.get('ordered').has(orderId)) {
+                ordersPerCategory.get('ordered').add(orderId);
+                stat.count++; stat.totalAmount += orderAmount; stat.orders.push(order);
+            }
+            orderTagsMap.get(orderId).tagKeys.add('ordered');
+        }
+
+        orderTags.forEach(orderTag => {
+            const tagName = (orderTag.Name || orderTag.name || '').toLowerCase().trim();
+            if (!tagName) return;
+            LIVE_STAT_TAGS.forEach(liveTag => {
+                if (liveTag.isSpecial) return;
+                if ((liveTag.patterns || []).some(p => tagName.startsWith(p))) {
+                    const stat = tagStatsMap.get(liveTag.key);
+                    if (!ordersPerCategory.get(liveTag.key).has(orderId)) {
+                        ordersPerCategory.get(liveTag.key).add(orderId);
+                        stat.count++; stat.totalAmount += orderAmount; stat.orders.push(order);
+                    }
+                    orderTagsMap.get(orderId).tagKeys.add(liveTag.key);
+                }
+            });
+        });
+    });
+
+    const allStats = [];
+    tagStatsMap.forEach((stat) => {
+        stat.percentage = totalOrders > 0 ? ((stat.count / totalOrders) * 100).toFixed(1) : 0;
+        allStats.push(stat);
+    });
+
+    const wrongTagOrders = [];
+    orderTagsMap.forEach((data) => { if (data.tagKeys.size === 0) wrongTagOrders.push(data.order); });
+    allStats.push({
+        pattern: 'gan_sai_tag', key: 'gan_sai_tag', type: 'wrong_tag', displayName: 'GẮN SAI TAG',
+        color: wrongTagOrders.length > 0 ? '#ef4444' : '#22c55e', count: wrongTagOrders.length,
+        totalAmount: wrongTagOrders.reduce((s, o) => s + (o.TotalAmount || 0), 0), orders: wrongTagOrders,
+        isWrongTag: true, hasError: wrongTagOrders.length > 0,
+        percentage: totalOrders > 0 ? ((wrongTagOrders.length / totalOrders) * 100).toFixed(1) : 0
+    });
+
+    return allStats;
+}
+
+/** LEGACY: alias for backward compatibility */
 function calculateEmployeeTagStats(orders) {
+    return calculateEmployeeTagStats_legacy(orders);
+}
+
+function calculateEmployeeTagStats_legacy(orders) {
     if (!employeeRanges.length) return [];
 
     const employeeStats = [];
@@ -734,7 +773,7 @@ function calculateEmployeeTagStats(orders) {
             // Mismatch details for debugging
             duplicateOrders: duplicateOrders,
             wrongTagOrders: wrongTagOrders,
-            mismatchReason: getMismatchReason(Y, H, hasUnacceptableDuplicate, duplicateOrders, wrongTagOrders)
+            mismatchReason: _legacyGetMismatchReason(Y, H, hasUnacceptableDuplicate, duplicateOrders, wrongTagOrders)
         });
     });
 
@@ -972,15 +1011,18 @@ function renderStatisticsFromAllOrders() {
     statsContainer.style.display = 'block';
     emptyState.style.display = 'none';
 
-    // Calculate all stats
-    const tagStats = calculateTagStats(orders);
-    const employeeStats = calculateEmployeeTagStats(orders);
+    // Calculate Tag XL stats
+    const tagXLStats = calculateTagXLStats(orders);
+    const employeeStats = calculateEmployeeTagXLStats(orders);
 
-    // Render tag stats
-    renderTagStatsTable(tagStats, orders.length);
+    // Update header badges
+    updateLiveStatsBadges(tagXLStats.badges);
+
+    // Render tag XL stats table
+    renderTagXLStatsTable(tagXLStats);
 
     // Render employee stats
-    renderEmployeeStats(employeeStats, orders);
+    renderEmployeeTagXLStats(employeeStats);
 
     // Calculate and render empty cart reasons
     const emptyCartReasons = calculateEmptyCartReasons(orders);
@@ -1030,6 +1072,338 @@ function renderStatistics() {
     renderDiscountStatistics(orders);
 
 }
+
+// =====================================================
+// TAG XL RENDERING FUNCTIONS
+// =====================================================
+
+/**
+ * Helper: build a stat row HTML
+ */
+function _buildStatRow(key, displayName, color, icon, count, total, totalAmount, opts = {}) {
+    const pct = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
+    const indent = opts.indent ? 'padding-left: 32px;' : '';
+    const fontWeight = opts.indent ? 'normal' : 'bold';
+    const bgStyle = opts.highlight ? `background: rgba(239, 68, 68, 0.08);` : '';
+    const rowClass = opts.rowClass || '';
+
+    const iconHtml = icon
+        ? `<span style="margin-right: 6px;">${icon}</span>`
+        : (color ? `<span class="tag-color" style="background-color: ${color}; display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 8px;"></span>` : '');
+
+    return `
+    <tr class="${rowClass}" style="${bgStyle}">
+        <td style="${indent}">
+            <div class="tag-cell" style="font-weight: ${fontWeight};">
+                ${iconHtml}
+                <span>${displayName}</span>
+            </div>
+        </td>
+        <td><strong>${count.toLocaleString('vi-VN')}</strong></td>
+        <td class="percentage">${pct}%</td>
+        <td class="amount">${formatCurrency(totalAmount)}</td>
+        <td>
+            <button class="btn-view-detail" onclick="viewTagXLOrders('${key}')" title="Xem chi tiết">
+                <i class="fas fa-eye"></i>
+            </button>
+        </td>
+    </tr>`;
+}
+
+/**
+ * Build rows HTML for a tag XL stats object (used by both global and employee tables)
+ */
+function _buildTagXLRows(stats, empPrefix) {
+    const total = stats.total;
+    const onclickPrefix = empPrefix || '';
+    let rows = '';
+
+    // Cat 0 — ĐÃ RA ĐƠN
+    const cat0 = PTAG_CATEGORY_META[0];
+    rows += _buildStatRow('cat_0', `${cat0.emoji} ${cat0.short}`, cat0.color, null, stats.catCounts[0], total, stats.catAmounts[0]);
+
+    // Cat 1 — CHỜ ĐI ĐƠN
+    const cat1 = PTAG_CATEGORY_META[1];
+    rows += _buildStatRow('cat_1', `${cat1.emoji} ${cat1.short}`, cat1.color, null, stats.catCounts[1], total, stats.catAmounts[1]);
+    // Sub-states
+    const ssOkie = PTAG_SUBSTATES_META.OKIE_CHO_DI_DON;
+    rows += _buildStatRow('sub_OKIE_CHO_DI_DON', ssOkie.label, ssOkie.color, null, stats.subStateCounts.OKIE_CHO_DI_DON, total, stats.subStateAmounts.OKIE_CHO_DI_DON, { indent: true });
+    const ssCho = PTAG_SUBSTATES_META.CHO_HANG;
+    rows += _buildStatRow('sub_CHO_HANG', ssCho.label, ssCho.color, null, stats.subStateCounts.CHO_HANG, total, stats.subStateAmounts.CHO_HANG, { indent: true });
+
+    // Cat 2 — XỬ LÝ
+    const cat2 = PTAG_CATEGORY_META[2];
+    rows += _buildStatRow('cat_2', `${cat2.emoji} ${cat2.short}`, cat2.color, null, stats.catCounts[2], total, stats.catAmounts[2]);
+    for (const [key, meta] of Object.entries(PTAG_SUBTAGS_META)) {
+        if (meta.category === 2) {
+            rows += _buildStatRow(`subtag_${key}`, meta.label, null, meta.icon, stats.subTagCounts[key] || 0, total, stats.subTagAmounts[key] || 0, { indent: true });
+        }
+    }
+
+    // Cat 3 — KHÔNG CẦN CHỐT
+    const cat3 = PTAG_CATEGORY_META[3];
+    rows += _buildStatRow('cat_3', `${cat3.emoji} ${cat3.short}`, cat3.color, null, stats.catCounts[3], total, stats.catAmounts[3]);
+    for (const [key, meta] of Object.entries(PTAG_SUBTAGS_META)) {
+        if (meta.category === 3) {
+            const highlight = key === 'GIO_TRONG' && stats.hasGioTrongValidationError;
+            rows += _buildStatRow(`subtag_${key}`, meta.label, null, meta.icon, stats.subTagCounts[key] || 0, total, stats.subTagAmounts[key] || 0, {
+                indent: true,
+                highlight: highlight,
+                rowClass: highlight ? 'duplicate-row-red' : ''
+            });
+        }
+    }
+
+    // Cat 4 — KHÁCH XÃ
+    const cat4 = PTAG_CATEGORY_META[4];
+    rows += _buildStatRow('cat_4', `${cat4.emoji} ${cat4.short}`, cat4.color, null, stats.catCounts[4], total, stats.catAmounts[4]);
+    for (const [key, meta] of Object.entries(PTAG_SUBTAGS_META)) {
+        if (meta.category === 4) {
+            rows += _buildStatRow(`subtag_${key}`, meta.label, null, meta.icon, stats.subTagCounts[key] || 0, total, stats.subTagAmounts[key] || 0, { indent: true });
+        }
+    }
+
+    // CHƯA GÁN TAG XL
+    const untaggedCount = stats.untaggedOrders.length;
+    const untaggedColor = untaggedCount > 0 ? '#ef4444' : '#22c55e';
+    rows += _buildStatRow('untagged', '⚠️ CHƯA GÁN TAG XL', untaggedColor, null, untaggedCount, total, stats.untaggedAmount, {
+        rowClass: untaggedCount > 0 ? 'duplicate-row-red' : 'duplicate-row-green'
+    });
+
+    // Separator + Flag rows (info only, not counted in main stats)
+    rows += `<tr><td colspan="5" style="padding: 6px 12px; background: #f8fafc; font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Thông tin thêm (không tính vào đơn chốt)</td></tr>`;
+
+    // Chờ live
+    const fChoLive = PTAG_FLAGS_META.CHO_LIVE;
+    rows += _buildStatRow('flag_CHO_LIVE', `${fChoLive.icon} ${fChoLive.label}`, fChoLive.color, null, stats.flagCounts.CHO_LIVE, total, stats.flagAmounts.CHO_LIVE);
+
+    // Qua lấy + Giữ đơn (merged)
+    rows += _buildStatRow('flag_QUA_LAY_GIU_DON', '🏠⌛ QUA LẤY + GIỮ ĐƠN', '#8b5cf6', null, stats.flagCounts.QUA_LAY_GIU_DON, total, stats.flagAmounts.QUA_LAY_GIU_DON);
+
+    // Giảm giá
+    const fGiamGia = PTAG_FLAGS_META.GIAM_GIA;
+    rows += _buildStatRow('flag_GIAM_GIA', `${fGiamGia.icon} ${fGiamGia.label}`, fGiamGia.color, null, stats.flagCounts.GIAM_GIA, total, stats.flagAmounts.GIAM_GIA);
+
+    return rows;
+}
+
+/**
+ * Render Tag XL statistics table (main/global)
+ */
+function renderTagXLStatsTable(stats) {
+    const tbody = document.getElementById('tagStatsBody');
+    if (!tbody) return;
+
+    if (stats.total === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #999;">Không có dữ liệu</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = _buildTagXLRows(stats);
+}
+
+/**
+ * Render Tag XL employee statistics
+ */
+function renderEmployeeTagXLStats(employeeStats) {
+    const container = document.getElementById('employeeStatsContainer');
+    if (!container) return;
+
+    if (employeeStats.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state" style="padding: 30px;">
+                <i class="fas fa-user-slash" style="font-size: 40px; color: #ddd;"></i>
+                <h3 style="color: #999;">Chưa cài đặt phân chia nhân viên</h3>
+                <p style="color: #999;">Vui lòng cài đặt phân chia nhân viên ở tab "Quản Lý Đơn Hàng"</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = employeeStats.map(emp => {
+        const { badges, isMismatch, mismatchReason } = emp;
+        const chotBadgeClass = isMismatch ? 'badge-chot mismatch' : 'badge-chot';
+
+        let mismatchHtml = '';
+        if (isMismatch && mismatchReason.length > 0) {
+            const reasonTexts = mismatchReason.map(r => r.text).join(', ');
+            const totalMismatchOrders = mismatchReason.reduce((sum, r) => sum + r.orders.length, 0);
+            mismatchHtml = `
+                <div class="mismatch-info" style="display: flex; align-items: center; gap: 8px; margin-left: 10px;">
+                    <span class="mismatch-reason" style="background: #fef2f2; color: #dc2626; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600;">
+                        <i class="fas fa-exclamation-circle" style="margin-right: 4px;"></i>
+                        ${reasonTexts}
+                    </span>
+                    ${totalMismatchOrders > 0 ? `
+                    <button class="btn-view-mismatch" onclick="viewMismatchOrdersXL('${emp.name}', ${emp.start}, ${emp.end})"
+                        style="background: #fee2e2; color: #dc2626; border: none; padding: 4px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 600;">
+                        <i class="fas fa-eye"></i> Xem ${totalMismatchOrders} đơn
+                    </button>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        // Build employee-specific onclick functions by overriding _buildStatRow's onclick
+        const empStatsRows = _buildTagXLRows(emp.stats).replace(
+            /viewTagXLOrders\('([^']+)'\)/g,
+            `viewEmployeeTagXLOrders('${emp.name}', ${emp.start}, ${emp.end}, '$1')`
+        );
+
+        return `
+        <div class="employee-card">
+            <div class="employee-live-header">
+                <div class="employee-title">
+                    <i class="fas fa-user"></i>
+                    <span class="emp-name">${emp.name}</span>
+                    <span class="employee-stt">STT ${emp.start} - ${emp.end}</span>
+                    <div class="live-stats-badges" style="display: flex; align-items: center; flex-wrap: wrap;">
+                        <span class="live-badge badge-total">${badges.total} ĐƠN</span>
+                        <span class="live-badge ${chotBadgeClass}">${badges.donChot} ĐƠN CHỐT</span>
+                        ${mismatchHtml}
+                    </div>
+                </div>
+            </div>
+            <div class="stats-table-wrapper">
+                <table class="stats-table employee-stats-table">
+                    <thead>
+                        <tr>
+                            <th>Tag XL</th>
+                            <th>Số đơn</th>
+                            <th>Tỷ lệ</th>
+                            <th>Tổng tiền</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${empStatsRows}
+                    </tbody>
+                </table>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+// =====================================================
+// TAG XL VIEW DETAIL FUNCTIONS
+// =====================================================
+
+/**
+ * View orders by Tag XL key (category, sub-tag, flag, untagged)
+ */
+function viewTagXLOrders(key) {
+    const orders = allOrders || [];
+    const result = _filterOrdersByTagXLKey(orders, processingTagsMap, key);
+    showOrdersDetailModal(`Đơn hàng: ${result.displayName}`, result.orders);
+}
+
+/**
+ * View orders by Tag XL key for a specific employee
+ */
+function viewEmployeeTagXLOrders(empName, start, end, key) {
+    const orders = (allOrders || []).filter(order => {
+        const stt = parseInt(order.SessionIndex || 0);
+        return stt >= start && stt <= end;
+    });
+    const result = _filterOrdersByTagXLKey(orders, processingTagsMap, key);
+
+    // Special handling for GIO_TRONG validation
+    if (key === 'subtag_GIO_TRONG') {
+        const stats = computeTagXLCounts(orders, processingTagsMap);
+        if (stats.hasGioTrongValidationError && stats.gioTrongInvalidOrders.length > 0) {
+            showGioTrongValidationModal(result.orders, stats.gioTrongInvalidOrders, `${empName} - `);
+            return;
+        }
+    }
+
+    showOrdersDetailModal(`${empName} - ${result.displayName}`, result.orders);
+}
+
+/**
+ * View mismatch (untagged) orders for employee
+ */
+function viewMismatchOrdersXL(empName, start, end) {
+    const orders = (allOrders || []).filter(order => {
+        const stt = parseInt(order.SessionIndex || 0);
+        return stt >= start && stt <= end;
+    });
+    const result = _filterOrdersByTagXLKey(orders, processingTagsMap, 'untagged');
+    showOrdersDetailModal(`${empName} - CHƯA GÁN TAG XL (${result.orders.length} đơn)`, result.orders);
+}
+
+/**
+ * Filter orders by tag XL key — shared helper
+ */
+function _filterOrdersByTagXLKey(orders, ptagMap, key) {
+    let filtered = [];
+    let displayName = key;
+
+    if (key === 'untagged') {
+        displayName = 'CHƯA GÁN TAG XL';
+        filtered = orders.filter(o => {
+            const td = ptagMap[String(o.Code || '')];
+            return !td || td.category === null || td.category === undefined;
+        });
+    } else if (key.startsWith('cat_')) {
+        const cat = parseInt(key.replace('cat_', ''));
+        const meta = PTAG_CATEGORY_META[cat];
+        displayName = meta ? `${meta.emoji} ${meta.short}` : key;
+        filtered = orders.filter(o => {
+            const td = ptagMap[String(o.Code || '')];
+            return td && td.category === cat;
+        });
+    } else if (key.startsWith('sub_')) {
+        const ss = key.replace('sub_', '');
+        const meta = PTAG_SUBSTATES_META[ss];
+        displayName = meta ? meta.label : ss;
+        filtered = orders.filter(o => {
+            const td = ptagMap[String(o.Code || '')];
+            return td && td.category === 1 && (td.subState || 'OKIE_CHO_DI_DON') === ss;
+        });
+    } else if (key.startsWith('subtag_')) {
+        const st = key.replace('subtag_', '');
+        const meta = PTAG_SUBTAGS_META[st];
+        displayName = meta ? meta.label : st;
+        filtered = orders.filter(o => {
+            const td = ptagMap[String(o.Code || '')];
+            return td && td.subTag === st;
+        });
+
+        // Special handling for GIO_TRONG validation
+        if (st === 'GIO_TRONG') {
+            const stats = computeTagXLCounts(orders, ptagMap);
+            if (stats.hasGioTrongValidationError && stats.gioTrongInvalidOrders.length > 0) {
+                showGioTrongValidationModal(filtered, stats.gioTrongInvalidOrders);
+                return { orders: filtered, displayName };
+            }
+        }
+    } else if (key === 'flag_CHO_LIVE') {
+        displayName = '📺 CHỜ LIVE';
+        filtered = orders.filter(o => {
+            const td = ptagMap[String(o.Code || '')];
+            return td && (td.flags || []).includes('CHO_LIVE');
+        });
+    } else if (key === 'flag_QUA_LAY_GIU_DON') {
+        displayName = '🏠⌛ QUA LẤY + GIỮ ĐƠN';
+        filtered = orders.filter(o => {
+            const td = ptagMap[String(o.Code || '')];
+            const flags = td?.flags || [];
+            return flags.includes('QUA_LAY') || flags.includes('GIU_DON');
+        });
+    } else if (key === 'flag_GIAM_GIA') {
+        displayName = '🏷️ GIẢM GIÁ';
+        filtered = orders.filter(o => {
+            const td = ptagMap[String(o.Code || '')];
+            return td && (td.flags || []).includes('GIAM_GIA');
+        });
+    }
+
+    return { orders: filtered, displayName };
+}
+
+// =====================================================
+// LEGACY RENDERING FUNCTIONS (kept for renderStatistics / "Chi tiết đã tải" tab)
+// =====================================================
 
 /**
  * Render tag statistics table
