@@ -1723,13 +1723,22 @@
         const untaggedCount = totalOrders - hasCategoryCount;
 
         // Count T-tags from internal processing tag data
+        const _debugTMyOrders = []; // DEBUG
         for (const [key, data] of taggedOrders) {
             if (!allDataCodes.has(key)) continue;
             if (data.tTags) {
                 for (const tagId of data.tTags) {
                     tTagCounts[tagId] = (tTagCounts[tagId] || 0) + 1;
+                    // DEBUG: track T_MY orders
+                    if (tagId === 'T_MY') {
+                        _debugTMyOrders.push({ key, orderId: data.orderId, tTags: data.tTags, category: data.category });
+                    }
                 }
             }
+        }
+        // DEBUG: log T_MY sidebar count details
+        if (_debugTMyOrders.length > 0) {
+            console.log(`[DEBUG SIDEBAR COUNT] T_MY count=${_debugTMyOrders.length}, allDataCodes.size=${allDataCodes.size}, orders:`, _debugTMyOrders);
         }
 
         // Note: Do NOT auto-cleanup custom flags - they should persist
@@ -3904,6 +3913,14 @@
             else if (filter.startsWith('ttag_')) {
                 const tagId = filter.replace('ttag_', '');
                 passesBase = (data.tTags || []).includes(tagId);
+            }
+        }
+
+        // DEBUG: log T-tag filter mismatches
+        if (hasBaseFilter && filter && filter.startsWith('ttag_')) {
+            const tagId = filter.replace('ttag_', '');
+            if (!passesBase) {
+                console.log(`[DEBUG T-TAG FILTER] REJECTED orderCodeOrId=${orderCodeOrId}, data=${data ? JSON.stringify({tTags: data.tTags, category: data.category, orderId: data.orderId}) : 'NULL'}, filter=${filter}`);
             }
         }
 
