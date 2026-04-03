@@ -192,6 +192,21 @@
         _tTagDefinitions: [],
         _customFlagDefs: [],
         _flagsSectionExpanded: false,
+        _historyStore: new Map(),  // Key = orderCode, Value = history[] — TÁCH RIÊNG, không bị removeOrder() xóa
+
+        getHistory(orderCode) {
+            return this._historyStore.get(String(orderCode)) || [];
+        },
+        addHistoryEntry(orderCode, entry) {
+            const key = String(orderCode);
+            if (!this._historyStore.has(key)) this._historyStore.set(key, []);
+            const history = this._historyStore.get(key);
+            history.push(entry);
+            if (history.length > 50) this._historyStore.set(key, history.slice(-50));
+        },
+        getAllHistoryOrders() {
+            return this._historyStore;
+        },
 
         // Primary lookup: bằng orderCode (key chính)
         getOrderData(orderCode) {
@@ -232,6 +247,7 @@
         clear() {
             this._orderData.clear();
             this._idToCodeIndex.clear();
+            this._historyStore.clear();
         },
         getTTagDefinitions() {
             return this._tTagDefinitions;
@@ -342,6 +358,7 @@
             }
 
             _ptagReconcileIds();
+            _ptagCleanupOldHistory();
             renderPanelContent();
             _ptagRefreshAllRows();
             console.log(`${PTAG_LOG} Loaded tags for ${orderCodes.length} orders`);
@@ -433,6 +450,10 @@
                         }
                         // Store trực tiếp bằng orderCode
                         ProcessingTagState.setOrderData(code, tagData);
+                        // Extract history vào _historyStore (tách riêng khỏi tag data)
+                        if (tagData.history && tagData.history.length > 0) {
+                            ProcessingTagState._historyStore.set(code, tagData.history);
+                        }
                     }
                 }
             } catch (e) {
@@ -447,9 +468,11 @@
     async function saveProcessingTagToAPI(orderCode, data) {
         try {
             const userName = window.authManager?.getAuthState()?.username || '';
+            // Gắn history từ _historyStore vào data trước khi gửi lên server
+            const dataWithHistory = { ...data, history: ProcessingTagState.getHistory(orderCode) };
             await _ptagFetch(
                 `${PTAG_API_BASE}/by-code/${encodeURIComponent(orderCode)}`,
-                { method: 'PUT', body: JSON.stringify({ data, updatedBy: userName }) }
+                { method: 'PUT', body: JSON.stringify({ data: dataWithHistory, updatedBy: userName }) }
             );
         } catch (e) {
             console.error(`${PTAG_LOG} Failed to save tag for ${orderCode}:`, e);
@@ -517,6 +540,10 @@
                     }
                     // Order tag update
                     ProcessingTagState.setOrderData(orderCode, data);
+                    // Extract history vào _historyStore (tách riêng)
+                    if (data.history) {
+                        ProcessingTagState._historyStore.set(orderCode, data.history);
+                    }
                     _ptagRefreshRow(orderCode);
                     renderPanelContent();
                 } catch (err) {
@@ -629,9 +656,6 @@
             }
         }
 
-        // Preserve history from existing data
-        data.history = existingData?.history || [];
-
         _ptagEnsureCode(orderCode, data);
         ProcessingTagState.setOrderData(orderCode, data);
 
@@ -712,11 +736,21 @@
                 return;
             }
         }
-        // Nothing left → fully remove
+        // Nothing left → xóa tag data local, nhưng giữ history trên server
+        const history = ProcessingTagState.getHistory(orderCode);
         ProcessingTagState.removeOrder(orderCode);
         _ptagRefreshRow(orderCode);
         renderPanelContent();
-        await clearProcessingTagAPI(orderCode);
+        if (history.length > 0) {
+            // PUT history-only để server giữ history (không gọi DELETE)
+            const userName = window.authManager?.getAuthState()?.username || '';
+            await _ptagFetch(
+                `${PTAG_API_BASE}/by-code/${encodeURIComponent(orderCode)}`,
+                { method: 'PUT', body: JSON.stringify({ data: { history }, updatedBy: userName }) }
+            );
+        } else {
+            await clearProcessingTagAPI(orderCode);
+        }
     }
 
     // T-tag assignment functions — works for ANY order state
@@ -3915,11 +3949,8 @@
     }
 
     function _ptagAddHistory(orderCode, action, value, userName) {
-        const data = ProcessingTagState.getOrderData(orderCode);
-        if (!data) return;
-        if (!data.history) data.history = [];
         const userInfo = userName ? { user: userName, userId: null } : _ptagGetCurrentUser();
-        data.history.push({
+        ProcessingTagState.addHistoryEntry(orderCode, {
             action,
             value: value || '',
             displayName: _ptagResolveDisplayName(action, value),
@@ -3927,13 +3958,10 @@
             userId: userInfo.userId,
             timestamp: Date.now()
         });
-        // Keep max 50 entries per order to avoid data bloat
-        if (data.history.length > 50) data.history = data.history.slice(-50);
     }
 
     function _ptagGetHistory(orderCode) {
-        const data = ProcessingTagState.getOrderData(orderCode);
-        return (data?.history || []).slice().reverse(); // newest first
+        return ProcessingTagState.getHistory(orderCode).slice().reverse(); // newest first
     }
 
     function _ptagRenderHistoryPopover(orderCode, anchorEl) {
@@ -4009,6 +4037,20 @@
     // SECTION 10B: UTILITIES
     // =====================================================
 
+    /** Xóa cuốn chiếu: entry nào tạo > 30 ngày thì xóa, entry < 30 ngày vẫn giữ */
+    function _ptagCleanupOldHistory() {
+        const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+        const cutoff = Date.now() - THIRTY_DAYS;
+        for (const [key, history] of ProcessingTagState._historyStore) {
+            const filtered = history.filter(h => (h.timestamp || 0) >= cutoff);
+            if (filtered.length === 0) {
+                ProcessingTagState._historyStore.delete(key);
+            } else if (filtered.length < history.length) {
+                ProcessingTagState._historyStore.set(key, filtered);
+            }
+        }
+    }
+
     function _ptagNormalize(str) {
         return (str || '').toLowerCase()
             .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
@@ -4055,15 +4097,13 @@
         });
 
         const entries = [];
-        const taggedOrders = ProcessingTagState.getAllOrders();
-        for (const [key, data] of taggedOrders) {
-            if (!data.history || data.history.length === 0) continue;
+        for (const [key, history] of ProcessingTagState.getAllHistoryOrders()) {
+            if (!history || history.length === 0) continue;
             const lookup = orderLookup.get(String(key)) || { stt: '', code: key };
-            const orderCode = data.code || lookup.code || key;
-            data.history.forEach(h => {
+            history.forEach(h => {
                 entries.push({
                     ...h,
-                    orderCode,
+                    orderCode: lookup.code || key,
                     orderSTT: lookup.stt
                 });
             });
