@@ -392,6 +392,9 @@ const KPICommission = {
                 this.state.employeeNameCache[stat.userId] = stat.userName;
             }
 
+            // Detect stale statistics (BASE missing)
+            await this.detectStaleStatistics(allStats);
+
         } catch (error) {
             console.error('[KPI Tab] Error loading statistics:', error);
         }
@@ -958,7 +961,7 @@ const KPICommission = {
                 let rowClass = '';
                 let extraLabel = '';
 
-                if (log.out_of_range === true) {
+                if (log.outOfRange === true || log.out_of_range === true) {
                     rowClass = 'audit-row-out-of-range';
                     extraLabel = '<span class="out-of-range-label">Ngoài phạm vi</span>';
                 } else if (nonChatSources.includes(log.source)) {
@@ -967,7 +970,7 @@ const KPICommission = {
 
                 html += `<tr class="${rowClass}">
                     <td>${idx + 1}</td>
-                    <td>${this.formatTimestamp(log.timestamp)}</td>
+                    <td>${this.formatTimestamp(log.createdAt || log.timestamp)}</td>
                     <td>${this.escapeHtml(log.userName || log.userId || '---')}${extraLabel}</td>
                     <td><span class="${this.getActionClass(log.action)}">${this.getActionLabel(log.action)}</span></td>
                     <td>${this.escapeHtml(log.productCode || '---')}</td>
@@ -1139,7 +1142,6 @@ const KPICommission = {
             const infoEl = document.getElementById('baseSnapshotInfo');
             if (infoEl) {
                 const mergeNote = '';
-                    : '';
                 infoEl.innerHTML = `
                     <div class="base-info-item">
                         <i data-lucide="clock"></i>

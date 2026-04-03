@@ -412,10 +412,11 @@
         if (!statusEl) return;
 
         try {
-            if (window.firebase && window.firebase.firestore) {
-                const db = window.firebase.firestore();
-                const doc = await db.collection('kpi_base').doc(orderId).get();
-                if (doc.exists) {
+            // Use REST API via kpiManager (Render PostgreSQL)
+            const orderCode = (window.OrderStore?.get(orderId))?.Code || '';
+            if (window.kpiManager && orderCode) {
+                const hasBase = await window.kpiManager.checkKPIBaseExists(orderCode);
+                if (hasBase) {
                     statusEl.textContent = 'Có BASE';
                     statusEl.classList.add('has-base');
                 } else {
