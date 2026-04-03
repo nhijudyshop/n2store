@@ -318,11 +318,8 @@ function computeTagXLCounts(orderSubset, ptagMap) {
         }
     });
 
-    // Badge calculations
-    const Z = subTagCounts.GIO_TRONG || 0;
-    const K = subTagCounts.DA_GOP_KHONG_CHOT || 0;
-    const Y = total - Z - K; // calculated đơn chốt
-    const H = catCounts[0] + catCounts[1] + catCounts[2] + catCounts[4]; // actual đơn chốt
+    // Badge: đơn chốt = cat 0 (ĐÃ RA ĐƠN) + cat 1 (CHỜ ĐI ĐƠN) + cat 2 (XỬ LÝ)
+    const donChot = catCounts[0] + catCounts[1] + catCounts[2];
 
     return {
         total, catCounts, catAmounts, catOrders,
@@ -331,7 +328,7 @@ function computeTagXLCounts(orderSubset, ptagMap) {
         flagCounts, flagAmounts, flagOrders,
         untaggedOrders, untaggedAmount,
         hasGioTrongValidationError, gioTrongInvalidOrders,
-        badges: { total, donChot: Y, gioTrong: Z, gop: K, actualChot: H }
+        badges: { total, donChot }
     };
 }
 
@@ -352,12 +349,38 @@ function updateLiveStatsBadges(badges) {
     if (badgeTotalDon) badgeTotalDon.textContent = `${badges.total} ĐƠN`;
     if (badgeDonChot) {
         badgeDonChot.textContent = `${badges.donChot} ĐƠN CHỐT`;
-        if (badges.donChot === badges.actualChot) {
-            badgeDonChot.classList.remove('mismatch');
-        } else {
-            badgeDonChot.classList.add('mismatch');
-        }
+        badgeDonChot.classList.remove('mismatch');
+        // Always green — donChot = cat 0 + cat 1 + cat 2
+        badgeDonChot.style.background = '#22c55e';
     }
+}
+
+/**
+ * Build mini-summary HTML: 6 items showing category counts inline
+ * Used in both global header and employee header
+ */
+function _buildMiniSummary(stats) {
+    const items = [];
+    const untagged = stats.untaggedOrders.length;
+
+    // ⚠️ CHƯA GÁN TAG XL (only if > 0)
+    if (untagged > 0) {
+        items.push(`<span style="background:#fef2f2; color:#dc2626; padding:3px 8px; border-radius:6px; font-size:12px; font-weight:600;">⚠️ ${untagged}</span>`);
+    }
+
+    // 5 categories
+    for (let cat = 0; cat <= 4; cat++) {
+        const meta = PTAG_CATEGORY_META[cat];
+        const count = stats.catCounts[cat];
+        let label = `${meta.emoji} ${count}`;
+        // Cat 1: show sub-state breakdown
+        if (cat === 1) {
+            label = `${meta.emoji} ${count} (${stats.subStateCounts.OKIE_CHO_DI_DON} Okie, ${stats.subStateCounts.CHO_HANG} Chờ)`;
+        }
+        items.push(`<span style="color:${meta.color}; font-size:12px; font-weight:600;">${label}</span>`);
+    }
+
+    return `<div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:4px;">${items.join('')}</div>`;
 }
 
 /**
@@ -441,8 +464,6 @@ function calculateEmployeeTagXLStats(orders) {
         if (empOrders.length === 0) return null;
 
         const stats = computeTagXLCounts(empOrders, processingTagsMap);
-        const { badges } = stats;
-        const isMismatch = badges.donChot !== badges.actualChot;
 
         return {
             name: emp.name,
@@ -451,9 +472,7 @@ function calculateEmployeeTagXLStats(orders) {
             totalOrders: empOrders.length,
             stats: stats,
             allOrders: empOrders,
-            badges: badges,
-            isMismatch: isMismatch,
-            mismatchReason: isMismatch ? getMismatchReason(badges.donChot, badges.actualChot, stats.untaggedOrders) : []
+            badges: stats.badges
         };
     }).filter(e => e !== null && e.totalOrders > 0);
 }
@@ -1084,8 +1103,15 @@ function _buildStatRow(key, displayName, color, icon, count, total, totalAmount,
     const pct = total > 0 ? ((count / total) * 100).toFixed(1) : 0;
     const indent = opts.indent ? 'padding-left: 32px;' : '';
     const fontWeight = opts.indent ? 'normal' : 'bold';
-    const bgStyle = opts.highlight ? `background: rgba(239, 68, 68, 0.08);` : '';
     const rowClass = opts.rowClass || '';
+
+    // Category rows get a subtle background to distinguish from sub-rows
+    let bgStyle = '';
+    if (opts.highlight) {
+        bgStyle = 'background: rgba(239, 68, 68, 0.08);';
+    } else if (opts.isCategoryRow && color) {
+        bgStyle = `background: ${color}08;`; // very light tint of category color
+    }
 
     const iconHtml = icon
         ? `<span style="margin-right: 6px;">${icon}</span>`
@@ -1113,74 +1139,71 @@ function _buildStatRow(key, displayName, color, icon, count, total, totalAmount,
 /**
  * Build rows HTML for a tag XL stats object (used by both global and employee tables)
  */
-function _buildTagXLRows(stats, empPrefix) {
+function _buildTagXLRows(stats) {
     const total = stats.total;
-    const onclickPrefix = empPrefix || '';
     let rows = '';
 
-    // Cat 0 — ĐÃ RA ĐƠN
+    // ⚠️ CHƯA GÁN TAG XL — first row, hide if 0
+    const untaggedCount = stats.untaggedOrders.length;
+    if (untaggedCount > 0) {
+        rows += _buildStatRow('untagged', '⚠️ CHƯA GÁN TAG XL', '#ef4444', null, untaggedCount, total, stats.untaggedAmount, {
+            rowClass: 'duplicate-row-red', isCategoryRow: true
+        });
+    }
+
+    // Cat 0 — ĐÃ RA ĐƠN (category row with light bg)
     const cat0 = PTAG_CATEGORY_META[0];
-    rows += _buildStatRow('cat_0', `${cat0.emoji} ${cat0.short}`, cat0.color, null, stats.catCounts[0], total, stats.catAmounts[0]);
+    rows += _buildStatRow('cat_0', `${cat0.emoji} ${cat0.short}`, cat0.color, null, stats.catCounts[0], total, stats.catAmounts[0], { isCategoryRow: true });
 
-    // Cat 1 — CHỜ ĐI ĐƠN
+    // Cat 1 — CHỜ ĐI ĐƠN (category row with light bg)
     const cat1 = PTAG_CATEGORY_META[1];
-    rows += _buildStatRow('cat_1', `${cat1.emoji} ${cat1.short}`, cat1.color, null, stats.catCounts[1], total, stats.catAmounts[1]);
-    // Sub-states
-    const ssOkie = PTAG_SUBSTATES_META.OKIE_CHO_DI_DON;
-    rows += _buildStatRow('sub_OKIE_CHO_DI_DON', ssOkie.label, ssOkie.color, null, stats.subStateCounts.OKIE_CHO_DI_DON, total, stats.subStateAmounts.OKIE_CHO_DI_DON, { indent: true });
-    const ssCho = PTAG_SUBSTATES_META.CHO_HANG;
-    rows += _buildStatRow('sub_CHO_HANG', ssCho.label, ssCho.color, null, stats.subStateCounts.CHO_HANG, total, stats.subStateAmounts.CHO_HANG, { indent: true });
+    rows += _buildStatRow('cat_1', `${cat1.emoji} ${cat1.short}`, cat1.color, null, stats.catCounts[1], total, stats.catAmounts[1], { isCategoryRow: true });
+    // Sub-states — hide if 0
+    if (stats.subStateCounts.OKIE_CHO_DI_DON > 0) {
+        const ssOkie = PTAG_SUBSTATES_META.OKIE_CHO_DI_DON;
+        rows += _buildStatRow('sub_OKIE_CHO_DI_DON', ssOkie.label, ssOkie.color, null, stats.subStateCounts.OKIE_CHO_DI_DON, total, stats.subStateAmounts.OKIE_CHO_DI_DON, { indent: true });
+    }
+    if (stats.subStateCounts.CHO_HANG > 0) {
+        const ssCho = PTAG_SUBSTATES_META.CHO_HANG;
+        rows += _buildStatRow('sub_CHO_HANG', ssCho.label, ssCho.color, null, stats.subStateCounts.CHO_HANG, total, stats.subStateAmounts.CHO_HANG, { indent: true });
+    }
 
-    // Cat 2 — XỬ LÝ
+    // Cat 2 — XỬ LÝ (category row with light bg)
     const cat2 = PTAG_CATEGORY_META[2];
-    rows += _buildStatRow('cat_2', `${cat2.emoji} ${cat2.short}`, cat2.color, null, stats.catCounts[2], total, stats.catAmounts[2]);
+    rows += _buildStatRow('cat_2', `${cat2.emoji} ${cat2.short}`, cat2.color, null, stats.catCounts[2], total, stats.catAmounts[2], { isCategoryRow: true });
     for (const [key, meta] of Object.entries(PTAG_SUBTAGS_META)) {
-        if (meta.category === 2) {
-            rows += _buildStatRow(`subtag_${key}`, meta.label, null, meta.icon, stats.subTagCounts[key] || 0, total, stats.subTagAmounts[key] || 0, { indent: true });
+        if (meta.category === 2 && (stats.subTagCounts[key] || 0) > 0) {
+            rows += _buildStatRow(`subtag_${key}`, meta.label, null, meta.icon, stats.subTagCounts[key], total, stats.subTagAmounts[key] || 0, { indent: true });
         }
     }
 
-    // Cat 3 — KHÔNG CẦN CHỐT
+    // Cat 3 — KHÔNG CẦN CHỐT (category row with light bg)
     const cat3 = PTAG_CATEGORY_META[3];
-    rows += _buildStatRow('cat_3', `${cat3.emoji} ${cat3.short}`, cat3.color, null, stats.catCounts[3], total, stats.catAmounts[3]);
+    rows += _buildStatRow('cat_3', `${cat3.emoji} ${cat3.short}`, cat3.color, null, stats.catCounts[3], total, stats.catAmounts[3], { isCategoryRow: true });
     for (const [key, meta] of Object.entries(PTAG_SUBTAGS_META)) {
-        if (meta.category === 3) {
+        if (meta.category === 3 && (stats.subTagCounts[key] || 0) > 0) {
             const highlight = key === 'GIO_TRONG' && stats.hasGioTrongValidationError;
-            rows += _buildStatRow(`subtag_${key}`, meta.label, null, meta.icon, stats.subTagCounts[key] || 0, total, stats.subTagAmounts[key] || 0, {
-                indent: true,
-                highlight: highlight,
-                rowClass: highlight ? 'duplicate-row-red' : ''
+            rows += _buildStatRow(`subtag_${key}`, meta.label, null, meta.icon, stats.subTagCounts[key], total, stats.subTagAmounts[key] || 0, {
+                indent: true, highlight, rowClass: highlight ? 'duplicate-row-red' : ''
             });
         }
     }
 
-    // Cat 4 — KHÁCH XÃ
+    // Cat 4 — KHÁCH XÃ (category row with light bg)
     const cat4 = PTAG_CATEGORY_META[4];
-    rows += _buildStatRow('cat_4', `${cat4.emoji} ${cat4.short}`, cat4.color, null, stats.catCounts[4], total, stats.catAmounts[4]);
+    rows += _buildStatRow('cat_4', `${cat4.emoji} ${cat4.short}`, cat4.color, null, stats.catCounts[4], total, stats.catAmounts[4], { isCategoryRow: true });
     for (const [key, meta] of Object.entries(PTAG_SUBTAGS_META)) {
-        if (meta.category === 4) {
-            rows += _buildStatRow(`subtag_${key}`, meta.label, null, meta.icon, stats.subTagCounts[key] || 0, total, stats.subTagAmounts[key] || 0, { indent: true });
+        if (meta.category === 4 && (stats.subTagCounts[key] || 0) > 0) {
+            rows += _buildStatRow(`subtag_${key}`, meta.label, null, meta.icon, stats.subTagCounts[key], total, stats.subTagAmounts[key] || 0, { indent: true });
         }
     }
 
-    // CHƯA GÁN TAG XL
-    const untaggedCount = stats.untaggedOrders.length;
-    const untaggedColor = untaggedCount > 0 ? '#ef4444' : '#22c55e';
-    rows += _buildStatRow('untagged', '⚠️ CHƯA GÁN TAG XL', untaggedColor, null, untaggedCount, total, stats.untaggedAmount, {
-        rowClass: untaggedCount > 0 ? 'duplicate-row-red' : 'duplicate-row-green'
-    });
-
-    // Separator + Flag rows (info only, not counted in main stats)
+    // Separator + Flag rows (info only)
     rows += `<tr><td colspan="5" style="padding: 6px 12px; background: #f8fafc; font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Thông tin thêm (không tính vào đơn chốt)</td></tr>`;
 
-    // Chờ live
     const fChoLive = PTAG_FLAGS_META.CHO_LIVE;
     rows += _buildStatRow('flag_CHO_LIVE', `${fChoLive.icon} ${fChoLive.label}`, fChoLive.color, null, stats.flagCounts.CHO_LIVE, total, stats.flagAmounts.CHO_LIVE);
-
-    // Qua lấy + Giữ đơn (merged)
     rows += _buildStatRow('flag_QUA_LAY_GIU_DON', '🏠⌛ QUA LẤY + GIỮ ĐƠN', '#8b5cf6', null, stats.flagCounts.QUA_LAY_GIU_DON, total, stats.flagAmounts.QUA_LAY_GIU_DON);
-
-    // Giảm giá
     const fGiamGia = PTAG_FLAGS_META.GIAM_GIA;
     rows += _buildStatRow('flag_GIAM_GIA', `${fGiamGia.icon} ${fGiamGia.label}`, fGiamGia.color, null, stats.flagCounts.GIAM_GIA, total, stats.flagAmounts.GIAM_GIA);
 
@@ -1200,6 +1223,18 @@ function renderTagXLStatsTable(stats) {
     }
 
     tbody.innerHTML = _buildTagXLRows(stats);
+
+    // Render mini-summary under badges
+    const badgesContainer = document.getElementById('liveStatsBadges');
+    if (badgesContainer) {
+        // Remove old mini-summary if any
+        const oldSummary = badgesContainer.querySelector('.ptag-mini-summary');
+        if (oldSummary) oldSummary.remove();
+        const summaryEl = document.createElement('div');
+        summaryEl.className = 'ptag-mini-summary';
+        summaryEl.innerHTML = _buildMiniSummary(stats);
+        badgesContainer.after(summaryEl);
+    }
 }
 
 /**
@@ -1221,34 +1256,16 @@ function renderEmployeeTagXLStats(employeeStats) {
     }
 
     container.innerHTML = employeeStats.map(emp => {
-        const { badges, isMismatch, mismatchReason } = emp;
-        const chotBadgeClass = isMismatch ? 'badge-chot mismatch' : 'badge-chot';
-
-        let mismatchHtml = '';
-        if (isMismatch && mismatchReason.length > 0) {
-            const reasonTexts = mismatchReason.map(r => r.text).join(', ');
-            const totalMismatchOrders = mismatchReason.reduce((sum, r) => sum + r.orders.length, 0);
-            mismatchHtml = `
-                <div class="mismatch-info" style="display: flex; align-items: center; gap: 8px; margin-left: 10px;">
-                    <span class="mismatch-reason" style="background: #fef2f2; color: #dc2626; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 600;">
-                        <i class="fas fa-exclamation-circle" style="margin-right: 4px;"></i>
-                        ${reasonTexts}
-                    </span>
-                    ${totalMismatchOrders > 0 ? `
-                    <button class="btn-view-mismatch" onclick="viewMismatchOrdersXL('${emp.name}', ${emp.start}, ${emp.end})"
-                        style="background: #fee2e2; color: #dc2626; border: none; padding: 4px 10px; border-radius: 6px; font-size: 12px; cursor: pointer; font-weight: 600;">
-                        <i class="fas fa-eye"></i> Xem ${totalMismatchOrders} đơn
-                    </button>
-                    ` : ''}
-                </div>
-            `;
-        }
+        const { badges } = emp;
 
         // Build employee-specific onclick functions by overriding _buildStatRow's onclick
         const empStatsRows = _buildTagXLRows(emp.stats).replace(
             /viewTagXLOrders\('([^']+)'\)/g,
             `viewEmployeeTagXLOrders('${emp.name}', ${emp.start}, ${emp.end}, '$1')`
         );
+
+        // Mini summary for this employee
+        const empMiniSummary = _buildMiniSummary(emp.stats);
 
         return `
         <div class="employee-card">
@@ -1259,9 +1276,9 @@ function renderEmployeeTagXLStats(employeeStats) {
                     <span class="employee-stt">STT ${emp.start} - ${emp.end}</span>
                     <div class="live-stats-badges" style="display: flex; align-items: center; flex-wrap: wrap;">
                         <span class="live-badge badge-total">${badges.total} ĐƠN</span>
-                        <span class="live-badge ${chotBadgeClass}">${badges.donChot} ĐƠN CHỐT</span>
-                        ${mismatchHtml}
+                        <span class="live-badge badge-chot" style="background: #22c55e;">${badges.donChot} ĐƠN CHỐT</span>
                     </div>
+                    ${empMiniSummary}
                 </div>
             </div>
             <div class="stats-table-wrapper">
