@@ -348,22 +348,16 @@ router.delete('/held-products/:orderId', async (req, res) => {
 // =====================================================
 
 /**
- * GET /api/realtime/kpi-base/:orderId
- * Get KPI base data for an order
+ * GET /api/realtime/kpi-base/:orderCode
+ * Get KPI base data by order code
  */
-router.get('/kpi-base/:orderId', async (req, res) => {
+router.get('/kpi-base/:orderCode', async (req, res) => {
     try {
-        const { orderId } = req.params;
+        const { orderCode } = req.params;
         const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
 
-        if (!pool) {
-            return res.status(500).json({ error: 'Database not available' });
-        }
-
-        const result = await pool.query(
-            'SELECT * FROM kpi_base WHERE order_id = $1',
-            [orderId]
-        );
+        const result = await pool.query('SELECT * FROM kpi_base WHERE order_code = $1', [orderCode]);
 
         if (result.rows.length === 0) {
             return res.json({ exists: false, data: null });
@@ -373,14 +367,15 @@ router.get('/kpi-base/:orderId', async (req, res) => {
         res.json({
             exists: true,
             data: {
+                orderCode: row.order_code,
                 orderId: row.order_id,
+                campaignId: row.campaign_id,
                 campaignName: row.campaign_name,
                 userId: row.user_id,
                 userName: row.user_name,
                 stt: row.stt,
                 products: row.products,
-                createdAt: row.created_at,
-                updatedAt: row.updated_at
+                createdAt: row.created_at
             }
         });
     } catch (error) {
@@ -390,48 +385,27 @@ router.get('/kpi-base/:orderId', async (req, res) => {
 });
 
 /**
- * PUT /api/realtime/kpi-base/:orderId
- * Save KPI base data
+ * PUT /api/realtime/kpi-base/:orderCode
+ * UPSERT single KPI base
  */
-router.put('/kpi-base/:orderId', async (req, res) => {
+router.put('/kpi-base/:orderCode', async (req, res) => {
     try {
-        const { orderId } = req.params;
-        const { campaignName, userId, userName, stt, products } = req.body;
+        const { orderCode } = req.params;
+        const { orderId, campaignId, campaignName, userId, userName, stt, products } = req.body;
         const pool = req.app.locals.chatDb;
-
-        if (!pool) {
-            return res.status(500).json({ error: 'Database not available' });
-        }
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
 
         if (!products || !Array.isArray(products)) {
             return res.status(400).json({ error: 'products must be an array' });
         }
 
         await pool.query(`
-            INSERT INTO kpi_base (order_id, campaign_name, user_id, user_name, stt, products, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-            ON CONFLICT (order_id) DO UPDATE SET
-                campaign_name = $2,
-                user_id = $3,
-                user_name = $4,
-                stt = $5,
-                products = $6,
-                updated_at = CURRENT_TIMESTAMP
-        `, [orderId, campaignName, userId, userName, stt, JSON.stringify(products)]);
+            INSERT INTO kpi_base (order_code, order_id, campaign_id, campaign_name, user_id, user_name, stt, products)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            ON CONFLICT (order_code) DO NOTHING
+        `, [orderCode, orderId, campaignId, campaignName, userId, userName, stt || 0, JSON.stringify(products)]);
 
-        // Notify SSE clients
-        if (notifyClientsWildcard) {
-            notifyClientsWildcard(`kpi_base/${orderId}`, {
-                orderId,
-                campaignName,
-                userId,
-                products
-            }, 'update');
-        }
-
-        console.log(`[REALTIME-DB] Updated KPI base for order: ${orderId}`);
-
-        res.json({ success: true, orderId });
+        res.json({ success: true, orderCode });
     } catch (error) {
         console.error('[REALTIME-DB] PUT /kpi-base error:', error);
         res.status(500).json({ error: error.message });
@@ -439,34 +413,205 @@ router.put('/kpi-base/:orderId', async (req, res) => {
 });
 
 /**
- * DELETE /api/realtime/kpi-base/:orderId
- * Delete KPI base data
+ * POST /api/realtime/kpi-base/batch
+ * Batch UPSERT KPI bases (for saveAutoBaseSnapshot)
  */
-router.delete('/kpi-base/:orderId', async (req, res) => {
+router.post('/kpi-base/batch', async (req, res) => {
     try {
-        const { orderId } = req.params;
+        const { bases } = req.body;
         const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
 
-        if (!pool) {
-            return res.status(500).json({ error: 'Database not available' });
+        if (!Array.isArray(bases) || bases.length === 0) {
+            return res.status(400).json({ error: 'bases must be a non-empty array' });
+        }
+
+        const client = await pool.connect();
+        let saved = 0, skipped = 0;
+        try {
+            await client.query('BEGIN');
+            for (const b of bases) {
+                if (!b.orderCode || !b.products) { skipped++; continue; }
+                const result = await client.query(`
+                    INSERT INTO kpi_base (order_code, order_id, campaign_id, campaign_name, user_id, user_name, stt, products)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                    ON CONFLICT (order_code) DO NOTHING
+                `, [b.orderCode, b.orderId || null, b.campaignId || null, b.campaignName || null,
+                    b.userId || null, b.userName || null, b.stt || 0, JSON.stringify(b.products)]);
+                if (result.rowCount > 0) saved++;
+                else skipped++;
+            }
+            await client.query('COMMIT');
+        } catch (e) {
+            await client.query('ROLLBACK');
+            throw e;
+        } finally {
+            client.release();
+        }
+
+        res.json({ success: true, saved, skipped });
+    } catch (error) {
+        console.error('[REALTIME-DB] POST /kpi-base/batch error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * POST /api/realtime/kpi-base/check-exists
+ * Check which orderCodes already have BASE
+ */
+router.post('/kpi-base/check-exists', async (req, res) => {
+    try {
+        const { orderCodes } = req.body;
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+
+        if (!Array.isArray(orderCodes) || orderCodes.length === 0) {
+            return res.json({ existing: [] });
         }
 
         const result = await pool.query(
-            'DELETE FROM kpi_base WHERE order_id = $1 RETURNING *',
-            [orderId]
+            'SELECT order_code FROM kpi_base WHERE order_code = ANY($1::text[])',
+            [orderCodes]
         );
 
-        // Notify SSE clients
-        if (notifyClientsWildcard) {
-            notifyClientsWildcard(`kpi_base/${orderId}`, null, 'deleted');
-        }
+        res.json({ existing: result.rows.map(r => r.order_code) });
+    } catch (error) {
+        console.error('[REALTIME-DB] POST /kpi-base/check-exists error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
 
-        res.json({
-            success: true,
-            deleted: result.rowCount > 0
-        });
+/**
+ * DELETE /api/realtime/kpi-base/:orderCode
+ */
+router.delete('/kpi-base/:orderCode', async (req, res) => {
+    try {
+        const { orderCode } = req.params;
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+
+        const result = await pool.query('DELETE FROM kpi_base WHERE order_code = $1', [orderCode]);
+        res.json({ success: true, deleted: result.rowCount > 0 });
     } catch (error) {
         console.error('[REALTIME-DB] DELETE /kpi-base error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// =====================================================
+// KPI AUDIT LOG API
+// =====================================================
+
+/**
+ * POST /api/realtime/kpi-audit-log
+ * Log a single product action
+ */
+router.post('/kpi-audit-log', async (req, res) => {
+    try {
+        const { orderCode, orderId, action, productId, productCode, productName,
+                quantity, source, userId, userName, campaignId, campaignName, outOfRange } = req.body;
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+
+        if (!orderCode || !action || !productCode) {
+            return res.status(400).json({ error: 'orderCode, action, productCode required' });
+        }
+
+        const result = await pool.query(`
+            INSERT INTO kpi_audit_log (order_code, order_id, action, product_id, product_code, product_name,
+                quantity, source, user_id, user_name, campaign_id, campaign_name, out_of_range)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            RETURNING id
+        `, [orderCode, orderId, action, productId, productCode, productName || '',
+            quantity || 1, source, userId, userName, campaignId, campaignName, outOfRange || false]);
+
+        res.json({ success: true, id: result.rows[0].id });
+    } catch (error) {
+        console.error('[REALTIME-DB] POST /kpi-audit-log error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * POST /api/realtime/kpi-audit-log/batch
+ * Batch log multiple entries (offline queue flush)
+ */
+router.post('/kpi-audit-log/batch', async (req, res) => {
+    try {
+        const { entries } = req.body;
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+
+        if (!Array.isArray(entries) || entries.length === 0) {
+            return res.json({ success: true, count: 0 });
+        }
+
+        const client = await pool.connect();
+        let count = 0;
+        try {
+            await client.query('BEGIN');
+            for (const e of entries) {
+                if (!e.orderCode || !e.action || !e.productCode) continue;
+                await client.query(`
+                    INSERT INTO kpi_audit_log (order_code, order_id, action, product_id, product_code, product_name,
+                        quantity, source, user_id, user_name, campaign_id, campaign_name, out_of_range)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                `, [e.orderCode, e.orderId, e.action, e.productId, e.productCode, e.productName || '',
+                    e.quantity || 1, e.source, e.userId, e.userName, e.campaignId, e.campaignName, e.outOfRange || false]);
+                count++;
+            }
+            await client.query('COMMIT');
+        } catch (e) {
+            await client.query('ROLLBACK');
+            throw e;
+        } finally {
+            client.release();
+        }
+
+        res.json({ success: true, count });
+    } catch (error) {
+        console.error('[REALTIME-DB] POST /kpi-audit-log/batch error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * GET /api/realtime/kpi-audit-log/:orderCode
+ * Get all audit logs for an order (sorted by created_at ASC)
+ */
+router.get('/kpi-audit-log/:orderCode', async (req, res) => {
+    try {
+        const { orderCode } = req.params;
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+
+        const result = await pool.query(
+            'SELECT * FROM kpi_audit_log WHERE order_code = $1 ORDER BY created_at ASC',
+            [orderCode]
+        );
+
+        res.json({
+            logs: result.rows.map(r => ({
+                id: r.id,
+                orderCode: r.order_code,
+                orderId: r.order_id,
+                action: r.action,
+                productId: r.product_id,
+                productCode: r.product_code,
+                productName: r.product_name,
+                quantity: r.quantity,
+                source: r.source,
+                userId: r.user_id,
+                userName: r.user_name,
+                campaignId: r.campaign_id,
+                campaignName: r.campaign_name,
+                outOfRange: r.out_of_range,
+                createdAt: r.created_at
+            }))
+        });
+    } catch (error) {
+        console.error('[REALTIME-DB] GET /kpi-audit-log error:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -476,34 +621,28 @@ router.delete('/kpi-base/:orderId', async (req, res) => {
 // =====================================================
 
 /**
- * GET /api/realtime/kpi-statistics/:userId/:date
- * Get KPI statistics for user on specific date
+ * GET /api/realtime/kpi-statistics
+ * Get ALL KPI statistics (for KPI tab display - replaces N+1 Firestore queries)
  */
-router.get('/kpi-statistics/:userId/:date', async (req, res) => {
+router.get('/kpi-statistics', async (req, res) => {
     try {
-        const { userId, date } = req.params;
-        const { campaignName } = req.query;
         const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
 
-        if (!pool) {
-            return res.status(500).json({ error: 'Database not available' });
-        }
-
-        let query, params;
-
-        if (campaignName) {
-            query = 'SELECT * FROM kpi_statistics WHERE user_id = $1 AND stat_date = $2 AND campaign_name = $3';
-            params = [userId, date, campaignName];
-        } else {
-            query = 'SELECT * FROM kpi_statistics WHERE user_id = $1 AND stat_date = $2';
-            params = [userId, date];
-        }
-
-        const result = await pool.query(query, params);
+        const result = await pool.query(
+            'SELECT user_id, user_name, stat_date, total_net_products, total_kpi, orders, updated_at FROM kpi_statistics ORDER BY stat_date DESC, user_id'
+        );
 
         res.json({
-            success: true,
-            statistics: result.rows
+            statistics: result.rows.map(r => ({
+                userId: r.user_id,
+                userName: r.user_name,
+                date: r.stat_date,
+                totalNetProducts: r.total_net_products,
+                totalKPI: parseFloat(r.total_kpi),
+                orders: r.orders || [],
+                updatedAt: r.updated_at
+            }))
         });
     } catch (error) {
         console.error('[REALTIME-DB] GET /kpi-statistics error:', error);
@@ -512,49 +651,63 @@ router.get('/kpi-statistics/:userId/:date', async (req, res) => {
 });
 
 /**
+ * GET /api/realtime/kpi-statistics/:userId/:date
+ * Get KPI statistics for specific user and date
+ */
+router.get('/kpi-statistics/:userId/:date', async (req, res) => {
+    try {
+        const { userId, date } = req.params;
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+
+        const result = await pool.query(
+            'SELECT * FROM kpi_statistics WHERE user_id = $1 AND stat_date = $2',
+            [userId, date]
+        );
+
+        if (result.rows.length === 0) {
+            return res.json({ exists: false, data: null });
+        }
+
+        const r = result.rows[0];
+        res.json({
+            exists: true,
+            data: {
+                userId: r.user_id,
+                userName: r.user_name,
+                date: r.stat_date,
+                totalNetProducts: r.total_net_products,
+                totalKPI: parseFloat(r.total_kpi),
+                orders: r.orders || []
+            }
+        });
+    } catch (error) {
+        console.error('[REALTIME-DB] GET /kpi-statistics/:userId/:date error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
  * PUT /api/realtime/kpi-statistics/:userId/:date
- * Update KPI statistics
+ * UPSERT KPI statistics for user on date
  */
 router.put('/kpi-statistics/:userId/:date', async (req, res) => {
     try {
         const { userId, date } = req.params;
-        const { campaignName, totalDifferences, totalAmount, orderCount, data } = req.body;
+        const { userName, totalNetProducts, totalKPI, orders } = req.body;
         const pool = req.app.locals.chatDb;
-
-        if (!pool) {
-            return res.status(500).json({ error: 'Database not available' });
-        }
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
 
         await pool.query(`
-            INSERT INTO kpi_statistics (user_id, stat_date, campaign_name, total_differences, total_amount, order_count, data, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-            ON CONFLICT (user_id, stat_date, campaign_name) DO UPDATE SET
-                total_differences = $4,
-                total_amount = $5,
-                order_count = $6,
-                data = $7,
+            INSERT INTO kpi_statistics (user_id, user_name, stat_date, total_net_products, total_kpi, orders, updated_at)
+            VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
+            ON CONFLICT (user_id, stat_date) DO UPDATE SET
+                user_name = COALESCE($2, kpi_statistics.user_name),
+                total_net_products = $4,
+                total_kpi = $5,
+                orders = $6,
                 updated_at = CURRENT_TIMESTAMP
-        `, [
-            userId,
-            date,
-            campaignName || null,
-            totalDifferences || 0,
-            totalAmount || 0,
-            orderCount || 0,
-            data ? JSON.stringify(data) : null
-        ]);
-
-        // Notify SSE clients
-        if (notifyClients) {
-            notifyClients(`kpi_statistics/${userId}/${date}`, {
-                userId,
-                date,
-                campaignName,
-                totalDifferences,
-                totalAmount,
-                orderCount
-            }, 'update');
-        }
+        `, [userId, userName || null, date, totalNetProducts || 0, totalKPI || 0, JSON.stringify(orders || [])]);
 
         res.json({ success: true, userId, date });
     } catch (error) {

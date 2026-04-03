@@ -140,11 +140,13 @@
                 window.invalidateOrderDetailsCache(orderData.Id);
             }
 
-            // KPI audit log + recalculate
+            // KPI audit log + recalculate (Render PostgreSQL)
             if (window.kpiAuditLogger) {
                 const source = heldProduct.IsFromDropped ? 'chat_from_dropped' : 'chat_confirm_held';
+                const orderCode = orderData.Code || (window.OrderStore?.get(orderData.Id))?.Code || '';
                 window.kpiAuditLogger.logProductAction({
-                    orderId: orderData.Id,
+                    orderCode: orderCode,
+                    orderId: String(orderData.Id),
                     action: 'add',
                     productId: productId,
                     productCode: heldProduct.ProductCode || heldProduct.Code || '',
@@ -152,8 +154,8 @@
                     quantity: quantity,
                     source: source
                 }).then(() => {
-                    if (window.kpiManager && window.kpiManager.recalculateAndSaveKPI) {
-                        window.kpiManager.recalculateAndSaveKPI(String(orderData.Id));
+                    if (window.kpiManager && window.kpiManager.recalculateAndSaveKPI && orderCode) {
+                        window.kpiManager.recalculateAndSaveKPI(orderCode);
                     }
                 }).catch(err => {
                     console.warn('[ChatProducts-Actions] KPI recalculate failed (non-blocking):', err);
@@ -399,10 +401,12 @@
                 window.invalidateOrderDetailsCache(orderData.Id);
             }
 
-            // KPI audit log + recalculate
+            // KPI audit log + recalculate (Render PostgreSQL)
             if (window.kpiAuditLogger) {
+                const orderCode = orderData.Code || (window.OrderStore?.get(orderData.Id))?.Code || '';
                 window.kpiAuditLogger.logProductAction({
-                    orderId: orderData.Id,
+                    orderCode: orderCode,
+                    orderId: String(orderData.Id),
                     action: 'remove',
                     productId: productId,
                     productCode: mainProduct.ProductCode || mainProduct.Code || '',
@@ -410,8 +414,8 @@
                     quantity: 1,
                     source: 'chat_decrease'
                 }).then(() => {
-                    if (window.kpiManager && window.kpiManager.recalculateAndSaveKPI) {
-                        window.kpiManager.recalculateAndSaveKPI(String(orderData.Id));
+                    if (window.kpiManager && window.kpiManager.recalculateAndSaveKPI && orderCode) {
+                        window.kpiManager.recalculateAndSaveKPI(orderCode);
                     }
                 }).catch(err => {
                     console.warn('[ChatProducts-Actions] KPI recalculate failed (non-blocking):', err);

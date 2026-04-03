@@ -787,12 +787,14 @@ function updateProductQuantity(index, change, value = null) {
     if (newQty < 1) newQty = 1;
     product.Quantity = newQty;
 
-    // KPI Audit Log - ghi nhận thay đổi số lượng
+    // KPI Audit Log - ghi nhận thay đổi số lượng (Render PostgreSQL)
     if (window.kpiAuditLogger && change !== 0) {
         const orderId = currentEditOrderData.Id;
+        const orderCode = currentEditOrderData.Code || (window.OrderStore?.get(orderId))?.Code || '';
         const action = change > 0 ? 'add' : 'remove';
         const qty = Math.abs(change);
         window.kpiAuditLogger.logProductAction({
+            orderCode: orderCode,
             orderId: String(orderId),
             action: action,
             productId: parseInt(product.ProductId),
@@ -801,8 +803,8 @@ function updateProductQuantity(index, change, value = null) {
             quantity: qty,
             source: 'edit_modal_quantity'
         }).then(() => {
-            if (window.kpiManager && window.kpiManager.recalculateAndSaveKPI) {
-                window.kpiManager.recalculateAndSaveKPI(String(orderId));
+            if (window.kpiManager && window.kpiManager.recalculateAndSaveKPI && orderCode) {
+                window.kpiManager.recalculateAndSaveKPI(orderCode);
             }
         }).catch(err => {
             console.warn('[EDIT-MODAL] KPI audit log failed (non-blocking):', err);
@@ -840,11 +842,13 @@ async function removeProduct(index) {
     // Remove product from array
     currentEditOrderData.Details.splice(index, 1);
 
-    // KPI Audit Log - ghi nhận xóa sản phẩm
+    // KPI Audit Log - ghi nhận xóa sản phẩm (Render PostgreSQL)
     if (window.kpiAuditLogger) {
         try {
             const orderId = currentEditOrderData.Id;
+            const orderCode = currentEditOrderData.Code || (window.OrderStore?.get(orderId))?.Code || '';
             await window.kpiAuditLogger.logProductAction({
+                orderCode: orderCode,
                 orderId: String(orderId),
                 action: 'remove',
                 productId: parseInt(product.ProductId),
@@ -853,8 +857,8 @@ async function removeProduct(index) {
                 quantity: product.Quantity || 1,
                 source: 'edit_modal_remove'
             });
-            if (window.kpiManager && window.kpiManager.recalculateAndSaveKPI) {
-                await window.kpiManager.recalculateAndSaveKPI(String(orderId));
+            if (window.kpiManager && window.kpiManager.recalculateAndSaveKPI && orderCode) {
+                await window.kpiManager.recalculateAndSaveKPI(orderCode);
             }
         } catch (kpiError) {
             console.warn('[EDIT-MODAL] KPI audit log failed (non-blocking):', kpiError);
@@ -1588,12 +1592,14 @@ async function addProductToOrderFromInline(productId) {
         // Surgical table update (preserves search input/results + event listeners)
         refreshProductsTableOnly();
 
-        // KPI Audit Log - ghi nhận thêm sản phẩm từ edit modal (chỉ SP mới, không log khi tăng SL vì updateProductQuantity đã xử lý)
+        // KPI Audit Log - thêm SP từ edit modal (Render PostgreSQL)
         if (window.kpiAuditLogger && existingProductIndex === -1) {
             try {
                 const orderId = currentEditOrderData.Id;
+                const orderCode = currentEditOrderData.Code || (window.OrderStore?.get(orderId))?.Code || '';
                 const addedProduct = currentEditOrderData.Details.find(p => p.ProductId == productId);
                 await window.kpiAuditLogger.logProductAction({
+                    orderCode: orderCode,
                     orderId: String(orderId),
                     action: 'add',
                     productId: parseInt(productId),
@@ -1602,8 +1608,8 @@ async function addProductToOrderFromInline(productId) {
                     quantity: 1,
                     source: 'edit_modal_inline'
                 });
-                if (window.kpiManager && window.kpiManager.recalculateAndSaveKPI) {
-                    await window.kpiManager.recalculateAndSaveKPI(String(orderId));
+                if (window.kpiManager && window.kpiManager.recalculateAndSaveKPI && orderCode) {
+                    await window.kpiManager.recalculateAndSaveKPI(orderCode);
                 }
             } catch (kpiError) {
                 console.warn('[INLINE ADD] KPI audit log failed (non-blocking):', kpiError);

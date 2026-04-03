@@ -356,11 +356,13 @@ async function addProductToSaleFromSearch(productId) {
             await updateSaleOrderWithAPI();
             console.log('[SALE-ADD-PRODUCT] ✅ Order updated successfully via API');
 
-            // KPI Audit Log - ghi nhận thêm sản phẩm từ sale modal
+            // KPI Audit Log - thêm SP từ sale modal (Render PostgreSQL)
             if (window.kpiAuditLogger) {
                 try {
                     const orderId = currentSaleOrderData.Id;
+                    const orderCode = currentSaleOrderData.Code || (window.OrderStore?.get(orderId))?.Code || '';
                     await window.kpiAuditLogger.logProductAction({
+                        orderCode: orderCode,
                         orderId: String(orderId),
                         action: 'add',
                         productId: parseInt(productId),
@@ -369,8 +371,8 @@ async function addProductToSaleFromSearch(productId) {
                         quantity: 1,
                         source: 'sale_modal',
                     });
-                    if (window.kpiManager && window.kpiManager.recalculateAndSaveKPI) {
-                        await window.kpiManager.recalculateAndSaveKPI(String(orderId));
+                    if (window.kpiManager && window.kpiManager.recalculateAndSaveKPI && orderCode) {
+                        await window.kpiManager.recalculateAndSaveKPI(orderCode);
                     }
                 } catch (kpiError) {
                     console.warn(

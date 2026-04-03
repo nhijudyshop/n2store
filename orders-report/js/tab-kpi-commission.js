@@ -422,12 +422,10 @@ const KPICommission = {
             this.hideEl('kpiTableEmpty');
             this.hideEl('kpiTableWrapper');
 
-            // Parallel: campaigns + statistics (independent)
-            await Promise.all([
-                this.loadCampaignOptions(),
-                this.loadAllStatistics()
-            ]);
-            // Sequential: employee options depends on statsData
+            // Load all stats from PostgreSQL (1 REST call)
+            await this.loadAllStatistics();
+            // Derive filters from loaded data
+            await this.loadCampaignOptions();
             await this.loadEmployeeOptions();
 
             await this.applyFilters();
@@ -442,50 +440,52 @@ const KPICommission = {
     },
 
     // ========================================
-    // LOAD DATA FROM FIRESTORE
+    // LOAD DATA FROM RENDER PostgreSQL
     // ========================================
     async loadAllStatistics() {
-        const db = this.getDb();
-        if (!db) return;
+        const KPI_API = 'https://n2store-fallback.onrender.com/api/realtime';
 
         try {
-            const usersSnapshot = await db.collection('kpi_statistics').get();
+            const res = await fetch(`${KPI_API}/kpi-statistics`);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+            const rows = data.statistics || [];
 
-            // Parallel: fetch all date subcollections concurrently
-            const datePromises = usersSnapshot.docs.map(async (userDoc) => {
-                const userId = userDoc.id;
-                const datesSnapshot = await db
-                    .collection('kpi_statistics')
-                    .doc(userId)
-                    .collection('dates')
-                    .get();
-
-                const dates = {};
-                for (const dateDoc of datesSnapshot.docs) {
-                    dates[dateDoc.id] = dateDoc.data();
-                }
-                return { userId, dates };
-            });
-
-            const results = await Promise.all(datePromises);
-            const allStats = results.filter(r => Object.keys(r.dates).length > 0)
-                .map(r => ({ userId: r.userId, userName: r.userId, dates: r.dates }));
-
-            this.state.statsData = allStats;
-            // Bug #4 fix: Check for empty data → render empty state
-            if (allStats.length === 0) {
+            if (rows.length === 0) {
+                this.state.statsData = [];
                 this.renderEmptyState();
                 return;
             }
 
-            // Bug #4 fix: Detect stale statistics (BASE missing)
-            await this.detectStaleStatistics(allStats);
+            // Group by userId → dates
+            const userMap = {};
+            for (const row of rows) {
+                if (!userMap[row.userId]) {
+                    userMap[row.userId] = { userId: row.userId, userName: row.userName || row.userId, dates: {} };
+                }
+                const dateKey = typeof row.date === 'string' ? row.date.substring(0, 10) : String(row.date);
+                userMap[row.userId].dates[dateKey] = {
+                    totalNetProducts: row.totalNetProducts || 0,
+                    totalKPI: row.totalKPI || 0,
+                    orders: row.orders || []
+                };
+                // Use userName from row if available
+                if (row.userName && row.userName !== row.userId) {
+                    userMap[row.userId].userName = row.userName;
+                }
+            }
 
-            // Batch resolve employee names (instead of N sequential calls)
-            const allUserIds = [...new Set(allStats.map(s => s.userId))];
-            await this.batchResolveEmployeeNames(allUserIds);
+            const allStats = Object.values(userMap);
+            this.state.statsData = allStats;
+
+            // Handle unassigned and admin display names
             for (const stat of allStats) {
-                stat.userName = this.state.employeeNameCache[stat.userId] || stat.userId;
+                if (stat.userId === 'unassigned') {
+                    stat.userName = 'Chưa phân công';
+                } else if (stat.userId.startsWith('user_admin_') && stat.userName === stat.userId) {
+                    stat.userName = 'Administrator';
+                }
+                this.state.employeeNameCache[stat.userId] = stat.userName;
             }
 
         } catch (error) {
@@ -497,30 +497,25 @@ const KPICommission = {
     // LOAD CAMPAIGN OPTIONS (12.3)
     // ========================================
     async loadCampaignOptions() {
-        const db = this.getDb();
-        if (!db) return;
-
         const select = document.getElementById('kpiFilterCampaign');
         if (!select) return;
 
-        try {
-            const snapshot = await db.collection('campaigns').get();
-            const campaigns = [];
-            snapshot.forEach(doc => {
-                const name = doc.data().name;
-                if (name) campaigns.push(name);
-            });
-
-            campaigns.sort();
-            campaigns.forEach(name => {
-                const opt = document.createElement('option');
-                opt.value = name;
-                opt.textContent = name;
-                select.appendChild(opt);
-            });
-        } catch (error) {
-            console.error('[KPI Tab] Error loading campaigns:', error);
+        // Derive campaigns from loaded statsData
+        const campaigns = new Set();
+        for (const stat of this.state.statsData) {
+            for (const dateData of Object.values(stat.dates || {})) {
+                for (const order of (dateData.orders || [])) {
+                    if (order.campaignName) campaigns.add(order.campaignName);
+                }
+            }
         }
+
+        [...campaigns].sort().forEach(name => {
+            const opt = document.createElement('option');
+            opt.value = name;
+            opt.textContent = name;
+            select.appendChild(opt);
+        });
     },
 
     // ========================================
@@ -898,12 +893,13 @@ const KPICommission = {
         this.hideEl('kpiCompareWrapper');
 
         try {
-            const db = this.getDb();
-            if (!db) throw new Error('Firestore not available');
+            // Find orderCode from current employee orders
+            const orderData = this.state.currentEmployeeOrders.find(o => o.orderId === orderId);
+            const orderCode = orderData?.orderCode || orderId;
 
-            // 1. Get BASE
-            const baseDoc = await db.collection('kpi_base').doc(orderId).get();
-            if (!baseDoc.exists) {
+            // 1. Get BASE from REST API
+            const base = window.kpiManager ? await window.kpiManager.getKPIBase(orderCode) : null;
+            if (!base) {
                 this.hideEl('kpiCompareLoading');
                 this.showEl('kpiCompareEmpty');
                 const emptyEl = document.getElementById('kpiCompareEmpty');
@@ -911,32 +907,16 @@ const KPICommission = {
                 return;
             }
 
-            const base = baseDoc.data();
             const baseProductIds = new Set();
             (base.products || []).forEach(p => {
                 const pid = p.ProductId || p.productId;
                 if (pid) baseProductIds.add(Number(pid));
             });
 
-            // 2. Get audit logs (with fallback if composite index missing)
+            // 2. Get audit logs from REST API
             let auditLogs = [];
-            try {
-                const logsSnapshot = await db.collection('kpi_audit_log')
-                    .where('orderId', '==', orderId)
-                    .orderBy('timestamp', 'asc')
-                    .get();
-                auditLogs = logsSnapshot.docs.map(doc => doc.data());
-            } catch (indexErr) {
-                console.warn('[KPI Tab] Composite index query failed, using fallback:', indexErr.message);
-                const fallbackSnapshot = await db.collection('kpi_audit_log')
-                    .where('orderId', '==', orderId)
-                    .get();
-                auditLogs = fallbackSnapshot.docs.map(doc => doc.data());
-                auditLogs.sort((a, b) => {
-                    const tsA = a.timestamp && a.timestamp.seconds ? a.timestamp.seconds : 0;
-                    const tsB = b.timestamp && b.timestamp.seconds ? b.timestamp.seconds : 0;
-                    return tsA - tsB;
-                });
+            if (window.kpiAuditLogger) {
+                auditLogs = await window.kpiAuditLogger.getAuditLogsForOrder(orderCode);
             }
 
             // 3. Filter only NEW products (not in BASE)
@@ -1034,28 +1014,13 @@ const KPICommission = {
         this.hideEl('auditLogWrapper');
 
         try {
-            const db = this.getDb();
-            if (!db) throw new Error('Firestore not available');
+            const orderData = this.state.currentEmployeeOrders.find(o => o.orderId === orderId);
+            const orderCode = orderData?.orderCode || orderId;
 
-            // Get audit logs (with fallback if composite index missing)
+            // Get audit logs from REST API
             let auditLogs = [];
-            try {
-                const logsSnapshot = await db.collection('kpi_audit_log')
-                    .where('orderId', '==', orderId)
-                    .orderBy('timestamp', 'asc')
-                    .get();
-                auditLogs = logsSnapshot.docs.map(doc => doc.data());
-            } catch (indexErr) {
-                console.warn('[KPI Tab] Composite index query failed in audit tab, using fallback:', indexErr.message);
-                const fallbackSnapshot = await db.collection('kpi_audit_log')
-                    .where('orderId', '==', orderId)
-                    .get();
-                auditLogs = fallbackSnapshot.docs.map(doc => doc.data());
-                auditLogs.sort((a, b) => {
-                    const tsA = a.timestamp && a.timestamp.seconds ? a.timestamp.seconds : 0;
-                    const tsB = b.timestamp && b.timestamp.seconds ? b.timestamp.seconds : 0;
-                    return tsA - tsB;
-                });
+            if (window.kpiAuditLogger) {
+                auditLogs = await window.kpiAuditLogger.getAuditLogsForOrder(orderCode);
             }
 
             this.hideEl('auditLogLoading');
@@ -1067,9 +1032,8 @@ const KPICommission = {
 
             this.showEl('auditLogWrapper');
 
-            // Get BASE for summary calculation
-            const baseDoc = await db.collection('kpi_base').doc(orderId).get();
-            const base = baseDoc.exists ? baseDoc.data() : null;
+            // Get BASE from REST API
+            const base = window.kpiManager ? await window.kpiManager.getKPIBase(orderCode) : null;
             const baseProductIds = new Set();
             if (base) {
                 (base.products || []).forEach(p => {
@@ -1253,31 +1217,29 @@ const KPICommission = {
         this.hideEl('baseProductsContent');
 
         try {
-            const db = this.getDb();
-            if (!db) throw new Error('Firestore not available');
+            const orderData = this.state.currentEmployeeOrders.find(o => o.orderId === orderId);
+            const orderCode = orderData?.orderCode || orderId;
 
-            const doc = await db.collection('kpi_base').doc(orderId).get();
+            const base = window.kpiManager ? await window.kpiManager.getKPIBase(orderCode) : null;
 
             this.hideEl('baseProductsLoading');
 
-            if (!doc.exists) {
+            if (!base) {
                 this.showEl('baseProductsEmpty');
                 return;
             }
 
-            const base = doc.data();
             this.showEl('baseProductsContent');
 
             // Render info
             const infoEl = document.getElementById('baseSnapshotInfo');
             if (infoEl) {
-                const mergeNote = base.superseded_by_merge
-                    ? '<span style="color:#d97706;font-weight:600;"> (Đã được merge)</span>'
+                const mergeNote = '';
                     : '';
                 infoEl.innerHTML = `
                     <div class="base-info-item">
                         <i data-lucide="clock"></i>
-                        <span>Thời gian: ${this.formatTimestamp(base.timestamp)}</span>
+                        <span>Thời gian: ${this.formatTimestamp(base.createdAt || base.timestamp)}</span>
                     </div>
                     <div class="base-info-item">
                         <i data-lucide="user"></i>
