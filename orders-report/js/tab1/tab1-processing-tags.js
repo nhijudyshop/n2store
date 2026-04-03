@@ -4043,15 +4043,13 @@
         const cutoff = Date.now() - SIXTY_DAYS;
         for (const [key, history] of ProcessingTagState._historyStore) {
             if (!history || history.length === 0) continue;
-            // Lấy timestamp của entry cuối cùng (mới nhất)
+            // Lấy timestamp của entry cuối cùng (mới nhất = lần update cuối)
             const lastTimestamp = Math.max(...history.map(h => h.timestamp || 0));
             if (lastTimestamp < cutoff) {
-                // Entry cuối đã > 60 ngày → xóa toàn bộ history
+                // 60 ngày không có thay đổi → xóa nguyên row (tag data + history)
                 ProcessingTagState._historyStore.delete(key);
-                // Nếu order không còn tag data → xóa row trên server luôn
-                if (!ProcessingTagState.hasOrder(key)) {
-                    clearProcessingTagAPI(key);
-                }
+                ProcessingTagState.removeOrder(key);
+                clearProcessingTagAPI(key);
             }
         }
     }
