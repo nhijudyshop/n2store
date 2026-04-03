@@ -3032,6 +3032,15 @@ const RefundOrders = {
 
         section.style.display = '';
 
+        // Auto-expand filter section if collapsed
+        const filterSection = document.getElementById('filterSection');
+        const filterBtn = document.getElementById('btnFilterToggle');
+        if (filterSection && filterSection.style.display === 'none') {
+            filterSection.style.display = '';
+            filterBtn?.classList.add('active');
+            lucide?.createIcons?.({ nodes: [filterSection] });
+        }
+
         // Sort
         const sorted = [...this._data].sort((a, b) => {
             const da = new Date(a.DateInvoice || 0);
