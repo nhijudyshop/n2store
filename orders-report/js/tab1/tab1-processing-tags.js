@@ -997,10 +997,15 @@
         }
     }
 
-    /** Ensure data.code = orderCode (for cross-referencing) */
+    /** Ensure data.code = orderCode + gắn campaignId tham khảo */
     function _ptagEnsureCode(orderCode, data) {
         if (!data.code) {
             data.code = orderCode;
+        }
+        // Lưu campaignId hiện tại làm giá trị tham khảo (1 orderCode có thể nằm trong nhiều campaign)
+        const activeCampaignId = window.campaignManager?.activeCampaignId || null;
+        if (activeCampaignId) {
+            data.campaignId = activeCampaignId;
         }
     }
 
