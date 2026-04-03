@@ -1667,9 +1667,12 @@
         const body = document.getElementById('ptag-panel-body');
         if (!body) return;
 
-        const allOrders = (typeof window.getEmployeeFilteredOrders === 'function')
-            ? window.getEmployeeFilteredOrders()
-            : ((typeof window.getAllOrders === 'function') ? window.getAllOrders() : []);
+        // Use pre-processing-tag filtered data (accounts for Ẩn, TAG, status, etc.)
+        // Falls back to employee-filtered orders if table search hasn't run yet
+        const allOrders = window._preProcessingTagData
+            || ((typeof window.getEmployeeFilteredOrders === 'function')
+                ? window.getEmployeeFilteredOrders()
+                : ((typeof window.getAllOrders === 'function') ? window.getAllOrders() : []));
         const taggedOrders = ProcessingTagState.getAllOrders();
         const totalOrders = allOrders.length;
 
