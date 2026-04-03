@@ -1036,12 +1036,14 @@
 
                 // 3. Build extConvData with thread_id + global_id
                 const raw = { from_psid: psid };
+                let msgCustomers = [];
                 try {
                     const msgData = await pdm.fetchMessages(channelId, conv.id);
                     if (msgData.conversation) {
                         if (msgData.conversation.thread_id) raw.thread_id = msgData.conversation.thread_id;
                         if (msgData.conversation.page_customer) raw.page_customer = msgData.conversation.page_customer;
                     }
+                    if (msgData.customers?.length) msgCustomers = msgData.customers;
                     if (!raw.thread_id && conv.thread_id) raw.thread_id = conv.thread_id;
                     if (!raw.page_customer?.global_id && conv.page_customer?.global_id) {
                         if (!raw.page_customer) raw.page_customer = {};
@@ -1049,9 +1051,19 @@
                     }
                 } catch (e) { /* ignore fetch error */ }
 
+                // Fallback: lấy global_id từ conv.customers[] (cache)
+                if (!raw.page_customer?.global_id && conv.customers?.length) {
+                    const custGlobal = conv.customers.find(c => c.global_id)?.global_id;
+                    if (custGlobal) {
+                        if (!raw.page_customer) raw.page_customer = {};
+                        raw.page_customer.global_id = custGlobal;
+                    }
+                }
+
+                const customers = msgCustomers.length ? msgCustomers : (conv.customers || []);
                 const extConvData = {
                     pageId: channelId, psid, conversationId: conv.id, _raw: raw,
-                    customers: [], _messagesData: { customers: [] },
+                    customers, _messagesData: { customers },
                     updated_at: conv.updated_at || null,
                     customerName: order.customerName || conv.from?.name || '',
                     type: conv.type || 'INBOX', from: conv.from || null,
@@ -1102,6 +1114,26 @@
                 }
                 markOrderSent(item.order.orderId, false);
             } catch (extErr) {
+                // Retry: nếu lỗi global_id → thử buildConvData (cách modal chat)
+                if (extErr.message.includes('Global Facebook ID') && window.buildConvData) {
+                    try {
+                        console.log('[TemplateMgr] 🔄 Retry with buildConvData:', item.order.Code);
+                        const enrichedConv = window.buildConvData(item.convData.pageId, item.convData.psid);
+                        for (const part of item.parts) {
+                            await window.sendViaExtension(part, enrichedConv);
+                        }
+                        markOrderSent(item.order.orderId, false);
+                        extDone++;
+                        sendingState.totalProcessed++;
+                        const progressText = document.getElementById('msgProgressText');
+                        if (progressText) {
+                            progressText.textContent = `Extension: ${extDone}/${extTotal} (✓${sendingState.successOrders.length} ✗${sendingState.errorOrders.length})`;
+                        }
+                        continue;
+                    } catch (retryErr) {
+                        extErr = retryErr;
+                    }
+                }
                 console.error('[TemplateMgr] ❌ Extension failed:', item.order.Code, extErr.message);
                 // Move from success to error
                 const idx = sendingState.successOrders.findIndex(s => s.Id === item.order.orderId);
