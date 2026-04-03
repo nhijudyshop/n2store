@@ -472,7 +472,7 @@
             const dataWithHistory = { ...data, history: ProcessingTagState.getHistory(orderCode) };
             await _ptagFetch(
                 `${PTAG_API_BASE}/by-code/${encodeURIComponent(orderCode)}`,
-                { method: 'PUT', body: JSON.stringify({ data: dataWithHistory, updatedBy: userName }) }
+                { method: 'PUT', body: JSON.stringify({ data: dataWithHistory, updatedBy: userName, campaignId: data.campaignId || null }) }
             );
         } catch (e) {
             console.error(`${PTAG_LOG} Failed to save tag for ${orderCode}:`, e);

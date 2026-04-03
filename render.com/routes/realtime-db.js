@@ -1486,12 +1486,12 @@ router.get('/processing-tags/:campaignId', async (req, res) => {
 /**
  * PUT /api/realtime/processing-tags/by-code/:orderCode
  * Upsert processing tag bằng orderCode (key chính duy nhất)
- * Body: { data: {...}, updatedBy: string }
+ * Body: { data: {...}, updatedBy: string, campaignId?: string }
  */
 router.put('/processing-tags/by-code/:orderCode', async (req, res) => {
     try {
         const { orderCode } = req.params;
-        const { data, updatedBy } = req.body;
+        const { data, updatedBy, campaignId } = req.body;
         const pool = req.app.locals.chatDb;
 
         if (!pool) {
@@ -1504,6 +1504,7 @@ router.put('/processing-tags/by-code/:orderCode', async (req, res) => {
 
         const dataJson = JSON.stringify(data);
         const updatedByVal = updatedBy || null;
+        const campaignIdVal = campaignId || null;
 
         const client = await pool.connect();
         try {
@@ -1515,9 +1516,9 @@ router.put('/processing-tags/by-code/:orderCode', async (req, res) => {
                 [orderCode]
             );
             await client.query(
-                `INSERT INTO processing_tags (data, updated_by, order_code, created_at, updated_at)
-                 VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-                [dataJson, updatedByVal, orderCode]
+                `INSERT INTO processing_tags (data, updated_by, order_code, campaign_id, created_at, updated_at)
+                 VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+                [dataJson, updatedByVal, orderCode, campaignIdVal]
             );
             await client.query('COMMIT');
         } catch (err) {
