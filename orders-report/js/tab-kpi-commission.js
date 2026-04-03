@@ -127,12 +127,6 @@ const KPICommission = {
     async resolveEmployeeName(userId) {
         if (!userId) return 'Không xác định';
 
-        // Special case: unassigned
-        if (userId === 'unassigned') {
-            this.state.employeeNameCache[userId] = 'Chưa phân công';
-            return 'Chưa phân công';
-        }
-
         // Check cache first
         if (this.state.employeeNameCache[userId]) {
             return this.state.employeeNameCache[userId];
@@ -195,11 +189,6 @@ const KPICommission = {
             }
         }
 
-        // Detect admin pattern
-        if (!name && userId.startsWith('user_admin_')) {
-            name = 'Administrator';
-        }
-
         // Fallback: formatted userId (never raw userId alone)
         if (!name) {
             name = `Nhân viên (${userId})`;
@@ -208,115 +197,6 @@ const KPICommission = {
         // Cache the result
         this.state.employeeNameCache[userId] = name;
         return name;
-    },
-
-    // ========================================
-    // BATCH RESOLVE EMPLOYEE NAMES (Performance optimization)
-    // ========================================
-    /**
-     * Resolve employee names in batch to avoid N+1 Firestore queries.
-     * Loads employee_ranges once, then batch queries kpi_base and users.
-     * @param {string[]} userIds - array of unique user IDs
-     */
-    async batchResolveEmployeeNames(userIds) {
-        const db = this.getDb();
-        if (!db || !userIds || userIds.length === 0) return;
-
-        // Handle special cases first
-        for (const uid of userIds) {
-            if (uid === 'unassigned') {
-                this.state.employeeNameCache[uid] = 'Chưa phân công';
-            } else if (uid.startsWith('user_admin_')) {
-                this.state.employeeNameCache[uid] = 'Administrator';
-            }
-        }
-
-        const unresolved = userIds.filter(id => !this.state.employeeNameCache[id]);
-        if (unresolved.length === 0) return;
-
-        // Source 1: Check statsData for userName
-        for (const uid of [...unresolved]) {
-            for (const stat of this.state.statsData) {
-                if (stat.userId === uid && stat.userName && stat.userName !== uid) {
-                    this.state.employeeNameCache[uid] = stat.userName;
-                    break;
-                }
-            }
-        }
-
-        // Source 2: Load employee_ranges once
-        let stillUnresolved = unresolved.filter(id => !this.state.employeeNameCache[id]);
-        if (stillUnresolved.length > 0) {
-            try {
-                const rangesDoc = await db.collection('settings').doc('employee_ranges').get();
-                if (rangesDoc.exists) {
-                    const ranges = rangesDoc.data().ranges || [];
-                    for (const uid of stillUnresolved) {
-                        const found = ranges.find(r => (r.userId || r.id) === uid);
-                        if (found) {
-                            const name = found.userName || found.name;
-                            if (name) this.state.employeeNameCache[uid] = name;
-                        }
-                    }
-                }
-            } catch (e) {
-                console.warn('[KPI Tab] batchResolve: employee_ranges failed:', e.message);
-            }
-        }
-
-        // Source 3: Batch query kpi_base (chunks of 10 for Firestore 'in' limit)
-        stillUnresolved = unresolved.filter(id => !this.state.employeeNameCache[id]);
-        if (stillUnresolved.length > 0) {
-            const chunks = [];
-            for (let i = 0; i < stillUnresolved.length; i += 10) {
-                chunks.push(stillUnresolved.slice(i, i + 10));
-            }
-            const basePromises = chunks.map(chunk =>
-                db.collection('kpi_base').where('userId', 'in', chunk).limit(chunk.length).get()
-            );
-            try {
-                const baseResults = await Promise.all(basePromises);
-                for (const snap of baseResults) {
-                    snap.forEach(doc => {
-                        const data = doc.data();
-                        if (data.userId && data.userName && data.userName !== data.userId) {
-                            if (!this.state.employeeNameCache[data.userId]) {
-                                this.state.employeeNameCache[data.userId] = data.userName;
-                            }
-                        }
-                    });
-                }
-            } catch (e) {
-                console.warn('[KPI Tab] batchResolve: kpi_base batch failed:', e.message);
-            }
-        }
-
-        // Source 4: Batch query users collection
-        stillUnresolved = unresolved.filter(id => !this.state.employeeNameCache[id]);
-        if (stillUnresolved.length > 0) {
-            const userPromises = stillUnresolved.map(uid =>
-                db.collection('users').doc(uid).get().catch(() => null)
-            );
-            try {
-                const userResults = await Promise.all(userPromises);
-                userResults.forEach((doc, i) => {
-                    if (doc && doc.exists) {
-                        const data = doc.data();
-                        const name = data.displayName || data.name;
-                        if (name) this.state.employeeNameCache[stillUnresolved[i]] = name;
-                    }
-                });
-            } catch (e) {
-                console.warn('[KPI Tab] batchResolve: users batch failed:', e.message);
-            }
-        }
-
-        // Fallback for any still unresolved
-        for (const uid of unresolved) {
-            if (!this.state.employeeNameCache[uid]) {
-                this.state.employeeNameCache[uid] = `Nhân viên (${uid})`;
-            }
-        }
     },
 
     // ========================================
@@ -422,13 +302,9 @@ const KPICommission = {
             this.hideEl('kpiTableEmpty');
             this.hideEl('kpiTableWrapper');
 
-            // Parallel: campaigns + statistics (independent)
-            await Promise.all([
-                this.loadCampaignOptions(),
-                this.loadAllStatistics()
-            ]);
-            // Sequential: employee options depends on statsData
+            await this.loadCampaignOptions();
             await this.loadEmployeeOptions();
+            await this.loadAllStatistics();
 
             await this.applyFilters();
             this.reinitIcons();
@@ -450,9 +326,9 @@ const KPICommission = {
 
         try {
             const usersSnapshot = await db.collection('kpi_statistics').get();
+            const allStats = [];
 
-            // Parallel: fetch all date subcollections concurrently
-            const datePromises = usersSnapshot.docs.map(async (userDoc) => {
+            for (const userDoc of usersSnapshot.docs) {
                 const userId = userDoc.id;
                 const datesSnapshot = await db
                     .collection('kpi_statistics')
@@ -464,12 +340,11 @@ const KPICommission = {
                 for (const dateDoc of datesSnapshot.docs) {
                     dates[dateDoc.id] = dateDoc.data();
                 }
-                return { userId, dates };
-            });
 
-            const results = await Promise.all(datePromises);
-            const allStats = results.filter(r => Object.keys(r.dates).length > 0)
-                .map(r => ({ userId: r.userId, userName: r.userId, dates: r.dates }));
+                if (Object.keys(dates).length > 0) {
+                    allStats.push({ userId, userName: userId, dates });
+                }
+            }
 
             this.state.statsData = allStats;
             // Bug #4 fix: Check for empty data → render empty state
@@ -481,11 +356,9 @@ const KPICommission = {
             // Bug #4 fix: Detect stale statistics (BASE missing)
             await this.detectStaleStatistics(allStats);
 
-            // Batch resolve employee names (instead of N sequential calls)
-            const allUserIds = [...new Set(allStats.map(s => s.userId))];
-            await this.batchResolveEmployeeNames(allUserIds);
+            // Bug #4 fix: Resolve employee names for each userId
             for (const stat of allStats) {
-                stat.userName = this.state.employeeNameCache[stat.userId] || stat.userId;
+                stat.userName = await this.resolveEmployeeName(stat.userId);
             }
 
         } catch (error) {
@@ -527,15 +400,41 @@ const KPICommission = {
     // LOAD EMPLOYEE OPTIONS (12.3)
     // ========================================
     async loadEmployeeOptions() {
+        const db = this.getDb();
+        if (!db) return;
+
         const select = document.getElementById('kpiFilterEmployee');
         if (!select) return;
 
         try {
-            // Use already-loaded statsData + cached names from batchResolve
+            // Get employee list from kpi_statistics collection (users who have KPI data)
+            const usersSnapshot = await db.collection('kpi_statistics').get();
             const employees = new Map();
+
+            for (const userDoc of usersSnapshot.docs) {
+                const userId = userDoc.id;
+                // Try to get name from kpi_base entries
+                employees.set(userId, userId);
+            }
+
+            // Try to resolve names from kpi_base
+            try {
+                const baseSnapshot = await db.collection('kpi_base').limit(200).get();
+                baseSnapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (data.userId && data.userName) {
+                        employees.set(data.userId, data.userName);
+                    }
+                });
+            } catch (e) {
+                console.warn('[KPI Tab] Could not resolve employee names from kpi_base:', e);
+            }
+
+            // Also update statsData with resolved names
             for (const stat of this.state.statsData) {
-                const name = this.state.employeeNameCache[stat.userId] || stat.userName || stat.userId;
-                employees.set(stat.userId, name);
+                if (employees.has(stat.userId)) {
+                    stat.userName = employees.get(stat.userId);
+                }
             }
 
             // Populate dropdown
@@ -543,11 +442,7 @@ const KPICommission = {
             sorted.forEach(([id, name]) => {
                 const opt = document.createElement('option');
                 opt.value = id;
-                if (id === 'unassigned') {
-                    opt.textContent = 'Chưa phân công';
-                } else {
-                    opt.textContent = name && name !== id ? name : id;
-                }
+                opt.textContent = name !== id ? `${name} (${id})` : id;
                 select.appendChild(opt);
             });
         } catch (error) {
@@ -767,9 +662,8 @@ const KPICommission = {
         if (searchVal) {
             orders = orders.filter(o => {
                 const oid = (o.orderId || '').toLowerCase();
-                const code = (o.orderCode || '').toLowerCase();
-                const stt = String(o.stt != null ? o.stt : '').toLowerCase();
-                return oid.includes(searchVal) || code.includes(searchVal) || stt.includes(searchVal);
+                const stt = String(o.stt || '').toLowerCase();
+                return oid.includes(searchVal) || stt.includes(searchVal);
             });
         }
 
@@ -799,8 +693,8 @@ const KPICommission = {
                 : '<span class="status-badge status-ok">✅ OK</span>';
 
             html += `<tr>
-                <td>${order.stt != null ? this.escapeHtml(String(order.stt)) : '---'}</td>
-                <td><a class="order-link" onclick="KPICommission.showOrderDetails('${this.escapeHtml(order.orderId)}')">${this.escapeHtml(order.orderCode || order.orderId)}</a></td>
+                <td>${this.escapeHtml(String(order.stt || '---'))}</td>
+                <td><a class="order-link" onclick="KPICommission.showOrderDetails('${this.escapeHtml(order.orderId)}')">${this.escapeHtml(order.orderId)}</a></td>
                 <td>${this.escapeHtml(order.campaignName || '---')}</td>
                 <td>${order.netProducts || 0}</td>
                 <td>${this.formatCurrency(order.kpi || 0)}</td>
@@ -825,12 +719,9 @@ const KPICommission = {
 
         this.state.currentOrderId = orderId;
 
-        // Set header - show orderCode instead of raw orderId
+        // Set header
         const orderIdEl = document.getElementById('modalL2OrderId');
-        if (orderIdEl) {
-            const order = this.state.currentEmployeeOrders.find(o => o.orderId === orderId);
-            orderIdEl.textContent = order?.orderCode || orderId;
-        }
+        if (orderIdEl) orderIdEl.textContent = orderId;
 
         // Reset to first tab
         this.switchOrderTab('kpi-compare');
@@ -1372,7 +1263,6 @@ const KPICommission = {
 
                     results.push({
                         orderId: order.orderId,
-                        orderCode: order.orderCode || '',
                         stt: order.stt,
                         expectedNet: order.netProducts || 0,
                         actualNet: result.hasDiscrepancy ? '?' : (order.netProducts || 0),
@@ -1382,7 +1272,6 @@ const KPICommission = {
                 } catch (e) {
                     console.error('[KPI Tab] Reconciliation error for order:', order.orderId, e);
                     results.push({
-                        orderCode: order.orderCode || '',
                         orderId: order.orderId,
                         stt: order.stt,
                         expectedNet: order.netProducts || 0,
@@ -1434,8 +1323,8 @@ const KPICommission = {
                 : '<span class="status-badge status-ok">✅ OK</span>';
 
             html += `<tr>
-                <td>${this.escapeHtml(r.orderCode || r.orderId)}</td>
-                <td>${r.stt != null ? r.stt : '---'}</td>
+                <td>${this.escapeHtml(r.orderId)}</td>
+                <td>${r.stt || '---'}</td>
                 <td>${r.expectedNet}</td>
                 <td>${r.actualNet}</td>
                 <td class="${deltaClass}">${typeof delta === 'number' ? (delta >= 0 ? '+' : '') + delta : delta}</td>

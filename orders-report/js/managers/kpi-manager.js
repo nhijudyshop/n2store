@@ -246,7 +246,6 @@
 
                         currentStats.orders[existingOrderIndex] = {
                             orderId: statistics.orderId,
-                            orderCode: statistics.orderCode || '',
                             stt: statistics.stt,
                             campaignId: statistics.campaignId || null,
                             campaignName: statistics.campaignName || null,
@@ -259,7 +258,6 @@
                     } else {
                         currentStats.orders.push({
                             orderId: statistics.orderId,
-                            orderCode: statistics.orderCode || '',
                             stt: statistics.stt,
                             campaignId: statistics.campaignId || null,
                             campaignName: statistics.campaignName || null,
@@ -496,7 +494,6 @@
 
                         const baseData = {
                             orderId: orderId,
-                            orderCode: order.Code || order.code || '',
                             campaignId: campaignId,
                             campaignName: campaignName,
                             timestamp: window.firebase.firestore.FieldValue.serverTimestamp(),
@@ -780,7 +777,6 @@
             const date = getCurrentDateString();
             await saveKPIStatistics(employeeUserId, date, {
                 orderId: orderId,
-                orderCode: base.orderCode || '',
                 stt: base.stt || 0,
                 campaignId: base.campaignId || null,
                 campaignName: base.campaignName || null,
