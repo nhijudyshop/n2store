@@ -151,10 +151,21 @@
 
             orderCodes.push(orderCode);
 
-            // Get STT
-            const stt = parseInt(order.STT || order.stt
+            // Get STT - try multiple sources
+            // successOrders doesn't have STT, so fallback to reportOrder and OrderStore
+            const storeOrder = window.OrderStore ? window.OrderStore.get(orderId) : null;
+            const stt = parseInt(
+                order.STT || order.stt
                 || (reportOrder && (reportOrder.STT || reportOrder.SessionIndex || reportOrder.stt))
+                || (storeOrder && (storeOrder.SessionIndex || storeOrder.STT || storeOrder.stt))
                 || 0) || 0;
+            if (!stt) {
+                console.warn(`[KPI] STT=0 for order ${orderCode} (orderId=${orderId})`);
+                console.warn('[KPI] Debug: reportOrder keys=', reportOrder ? Object.keys(reportOrder) : 'NULL');
+                console.warn('[KPI] Debug: storeOrder keys=', storeOrder ? Object.keys(storeOrder).slice(0, 10) : 'NULL');
+                if (reportOrder) console.warn('[KPI] reportOrder STT fields:', { STT: reportOrder.STT, SessionIndex: reportOrder.SessionIndex, stt: reportOrder.stt });
+                if (storeOrder) console.warn('[KPI] storeOrder STT fields:', { SessionIndex: storeOrder.SessionIndex, STT: storeOrder.STT, stt: storeOrder.stt });
+            }
 
             // Get products (3-tier fallback)
             let products = [];
@@ -369,7 +380,19 @@
             if (!base) return null;
             if (!base.products || base.products.length === 0) return null;
 
-            const stt = base.stt || 0;
+            // Recover STT if BASE has 0
+            let stt = base.stt || 0;
+            if (!stt && base.orderId && window.OrderStore) {
+                const storeOrder = window.OrderStore.get(base.orderId);
+                if (storeOrder) {
+                    stt = parseInt(storeOrder.SessionIndex || storeOrder.STT || storeOrder.stt || 0) || 0;
+                    if (stt) {
+                        // Update BASE with recovered STT
+                        try { await kpiAPI('PUT', `/kpi-base/${encodeURIComponent(orderCode)}`, { ...base, stt }); } catch (e) {}
+                        console.log(`[KPI] Recovered STT=${stt} for ${orderCode}`);
+                    }
+                }
+            }
             const assignedEmployee = await getAssignedEmployeeForSTT(stt, base.campaignName);
             const employeeUserId = assignedEmployee.userId;
 
