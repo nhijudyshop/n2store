@@ -4052,14 +4052,17 @@
 
     /** Xóa cuốn chiếu: entry nào tạo > 30 ngày thì xóa, entry < 30 ngày vẫn giữ */
     function _ptagCleanupOldHistory() {
-        const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
-        const cutoff = Date.now() - THIRTY_DAYS;
+        const SIXTY_DAYS = 60 * 24 * 60 * 60 * 1000;
+        const cutoff = Date.now() - SIXTY_DAYS;
         for (const [key, history] of ProcessingTagState._historyStore) {
-            const filtered = history.filter(h => (h.timestamp || 0) >= cutoff);
-            if (filtered.length === 0) {
+            if (!history || history.length === 0) continue;
+            // Lấy timestamp của entry cuối cùng (mới nhất = lần update cuối)
+            const lastTimestamp = Math.max(...history.map(h => h.timestamp || 0));
+            if (lastTimestamp < cutoff) {
+                // 60 ngày không có thay đổi → xóa nguyên row (tag data + history)
                 ProcessingTagState._historyStore.delete(key);
-            } else if (filtered.length < history.length) {
-                ProcessingTagState._historyStore.set(key, filtered);
+                ProcessingTagState.removeOrder(key);
+                clearProcessingTagAPI(key);
             }
         }
     }
