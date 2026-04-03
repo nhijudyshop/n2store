@@ -320,9 +320,6 @@ function performTableSearch() {
         tempData = tempData.filter(order => window.StockStatusEngine.passesStockFilter(String(order.Id)));
     }
 
-    // Save pre-processing-tag data so sidebar can count from the same filtered set
-    window._preProcessingTagData = tempData;
-
     // Apply Processing Tag filter (base filter OR flag checkboxes)
     if (typeof window.hasActiveProcessingTagFilters === 'function' && window.hasActiveProcessingTagFilters()) {
         tempData = tempData.filter(order => window.orderPassesProcessingTagFilter(order.Id));
@@ -400,11 +397,6 @@ function performTableSearch() {
     updateStats();
     updatePageInfo();
     updateSearchResultCount();
-
-    // Refresh sidebar panel counts to match table-filtered data
-    if (typeof window.renderPanelContent === 'function') {
-        window.renderPanelContent();
-    }
 }
 
 // Returns orders filtered by employee assignment (for non-admin users)
