@@ -432,9 +432,83 @@ async function sendViaExtensionWithAttachments(conv, text, attachmentType, files
     });
 }
 
+/**
+ * Send comment via extension (SEND_COMMENT)
+ * @param {string} text - Comment text
+ * @param {string} pageId - Page ID
+ * @param {string} postId - Post ID (ft_ent_identifier)
+ * @param {string} commentId - Parent comment ID to reply to (optional)
+ * @returns {Promise<Object>} { commentId }
+ */
+async function sendCommentViaExtension(text, pageId, postId, commentId) {
+    if (!window.pancakeExtension.connected) {
+        throw new Error('Extension chưa kết nối');
+    }
+
+    const taskId = Date.now() + Math.random();
+
+    return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => { window.removeEventListener('message', handler); reject(new Error('Extension comment timeout (30s)')); }, 30000);
+        const handler = (e) => {
+            const d = e.data;
+            if (!d?.type || d.taskId !== taskId) return;
+            if (d.type === 'SEND_COMMENT_SUCCESS') { clearTimeout(timeout); window.removeEventListener('message', handler); resolve(d); }
+            if (d.type === 'SEND_COMMENT_FAILURE') { clearTimeout(timeout); window.removeEventListener('message', handler); reject(new Error(d.error || 'Extension comment failed')); }
+        };
+        window.addEventListener('message', handler);
+
+        _postToExtension({
+            type: 'SEND_COMMENT',
+            pageId,
+            postId: postId || '',
+            commentId: commentId || '',
+            message: text,
+            taskId,
+            from: 'WEBPAGE'
+        });
+    });
+}
+
+/**
+ * Send private reply via extension (SEND_PRIVATE_REPLY)
+ * @param {string} text - Message text
+ * @param {string} pageId - Page ID
+ * @param {string} commentId - Comment ID to reply to
+ * @returns {Promise<Object>} { threadId }
+ */
+async function sendPrivateReplyViaExtension(text, pageId, commentId) {
+    if (!window.pancakeExtension.connected) {
+        throw new Error('Extension chưa kết nối');
+    }
+
+    const taskId = Date.now() + Math.random();
+
+    return new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => { window.removeEventListener('message', handler); reject(new Error('Extension private reply timeout (30s)')); }, 30000);
+        const handler = (e) => {
+            const d = e.data;
+            if (!d?.type || d.taskId !== taskId) return;
+            if (d.type === 'SEND_PRIVATE_REPLY_SUCCESS') { clearTimeout(timeout); window.removeEventListener('message', handler); resolve(d); }
+            if (d.type === 'SEND_PRIVATE_REPLY_FAILURE') { clearTimeout(timeout); window.removeEventListener('message', handler); reject(new Error(d.error || 'Extension private reply failed')); }
+        };
+        window.addEventListener('message', handler);
+
+        _postToExtension({
+            type: 'SEND_PRIVATE_REPLY',
+            pageId,
+            commentId,
+            message: text,
+            taskId,
+            from: 'WEBPAGE'
+        });
+    });
+}
+
 // Expose functions globally
 window.sendViaExtension = sendViaExtension;
 window.sendImagesViaExtension = sendImagesViaExtension;
+window.sendCommentViaExtension = sendCommentViaExtension;
+window.sendPrivateReplyViaExtension = sendPrivateReplyViaExtension;
 window.buildConvData = buildConvData;
 window.initExtensionPages = initExtensionPages;
 
@@ -451,6 +525,7 @@ window.addEventListener('message', function(e) {
         type.includes('UPLOAD_INBOX') || type.includes('PREINITIALIZE') ||
         type.includes('BUSINESS_CONTEXT') || type.includes('GLOBAL_ID') ||
         type.includes('BATCH_GET') || type.includes('CHECK_EXTENSION') ||
+        type.includes('SEND_COMMENT') || type.includes('SEND_PRIVATE_REPLY') ||
         type === 'EXT_BRIDGE_PROBE_RESPONSE' ||
         (d.from === 'EXTENSION');
 

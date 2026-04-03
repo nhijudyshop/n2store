@@ -473,6 +473,7 @@ async function _sendComment(pdm, pageId, convId, text, pat, replyData) {
     const type = window.currentReplyType || 'reply_comment';
 
     if (type === 'reply_comment') {
+        // Chain: Pancake reply_comment → Extension SEND_COMMENT → Pancake private_replies → Extension SEND_PRIVATE_REPLY → Extension inbox
         try {
             await _sendApi(pdm, pageId, convId, {
                 action: 'reply_comment', message_id: messageId, message: text
@@ -480,7 +481,19 @@ async function _sendComment(pdm, pageId, convId, text, pat, replyData) {
             return;
         } catch (err) {
             console.warn('[Chat-Msg] reply_comment failed:', err.message);
-            // Fallback: private_replies
+
+            // Fallback 1: Extension SEND_COMMENT (real comment, not inbox)
+            if (window.pancakeExtension?.connected && window.sendCommentViaExtension) {
+                try {
+                    await window.sendCommentViaExtension(text, pageId, postId, messageId);
+                    _showToast('Đã bình luận qua Extension', 'success');
+                    return;
+                } catch (extErr) {
+                    console.warn('[Chat-Msg] Extension SEND_COMMENT failed:', extErr.message);
+                }
+            }
+
+            // Fallback 2: Pancake private_replies
             try {
                 await _sendApi(pdm, pageId, convId, {
                     action: 'private_replies', post_id: postId, message_id: messageId, from_id: fromId, message: text
@@ -488,11 +501,22 @@ async function _sendComment(pdm, pageId, convId, text, pat, replyData) {
                 _showToast('Bình luận thất bại, đã gửi nhắn riêng', 'warning');
                 return;
             } catch (err2) {
-                // Fallback: Extension
+                // Fallback 3: Extension SEND_PRIVATE_REPLY
+                if (window.pancakeExtension?.connected && window.sendPrivateReplyViaExtension) {
+                    try {
+                        await window.sendPrivateReplyViaExtension(text, pageId, messageId);
+                        _showToast('Đã nhắn riêng qua Extension', 'success');
+                        return;
+                    } catch (extErr2) {
+                        console.warn('[Chat-Msg] Extension SEND_PRIVATE_REPLY failed:', extErr2.message);
+                    }
+                }
+
+                // Fallback 4: Extension inbox (text only)
                 if (window.pancakeExtension?.connected && window.sendViaExtension) {
                     const convData = window.buildConvData(pageId, window.currentChatPSID);
                     await window.sendViaExtension(text, convData);
-                    _showToast('Đã gửi qua Extension', 'success');
+                    _showToast('Đã gửi qua Extension (Messenger)', 'success');
                     return;
                 }
                 throw err;
@@ -500,6 +524,7 @@ async function _sendComment(pdm, pageId, convId, text, pat, replyData) {
         }
     } else {
         // private_replies mode
+        // Chain: Pancake private_replies → Extension SEND_PRIVATE_REPLY → Pancake reply_inbox → Extension inbox
         try {
             await _sendApi(pdm, pageId, convId, {
                 action: 'private_replies', post_id: postId, message_id: messageId, from_id: fromId, message: text
@@ -507,17 +532,28 @@ async function _sendComment(pdm, pageId, convId, text, pat, replyData) {
             _showToast('Đã nhắn riêng', 'info');
             return;
         } catch (err) {
-            // Fallback: reply_inbox
+            // Fallback 1: Extension SEND_PRIVATE_REPLY
+            if (window.pancakeExtension?.connected && window.sendPrivateReplyViaExtension) {
+                try {
+                    await window.sendPrivateReplyViaExtension(text, pageId, messageId);
+                    _showToast('Đã nhắn riêng qua Extension', 'success');
+                    return;
+                } catch (extErr) {
+                    console.warn('[Chat-Msg] Extension SEND_PRIVATE_REPLY failed:', extErr.message);
+                }
+            }
+
+            // Fallback 2: Pancake reply_inbox
             try {
                 await _sendApi(pdm, pageId, convId, { action: 'reply_inbox', message: text }, pat);
                 _showToast('Đã gửi qua Messenger', 'info');
                 return;
             } catch (err2) {
-                // Fallback: Extension
+                // Fallback 3: Extension inbox
                 if (window.pancakeExtension?.connected && window.sendViaExtension) {
                     const convData = window.buildConvData(pageId, window.currentChatPSID);
                     await window.sendViaExtension(text, convData);
-                    _showToast('Đã gửi qua Extension', 'success');
+                    _showToast('Đã gửi qua Extension (Messenger)', 'success');
                     return;
                 }
                 throw err;

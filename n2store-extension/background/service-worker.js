@@ -8,6 +8,7 @@ import { handleReplyInboxPhoto } from './facebook/sender.js';
 import { handleUploadInboxPhoto } from './facebook/uploader.js';
 import { handleGetGlobalIdForConv, loadCacheFromStorage } from './facebook/global-id.js';
 import { handlePreinitializePages, handleGetBusinessContext, getAllSessions } from './facebook/session.js';
+import { handleSendComment, handleSendPrivateReply } from './facebook/commenter.js';
 import { showNotification, setupNotificationClickHandlers } from './server/notifications.js';
 import { startSSE, stopSSE, restartSSE, getSSEStatus } from './server/sse-listener.js';
 import {
@@ -281,11 +282,15 @@ async function handleMessage(msg, tabId, port, asyncSendResponse) {
       sendResponse({ success: true });
       break;
 
-    // === Comments (Phase 2 - stub) ===
+    // === Comments (Phase 2) ===
     case MSG.SEND_COMMENT:
+      await handleSendComment(msg, sendResponse);
+      break;
+    case MSG.SEND_PRIVATE_REPLY:
+      await handleSendPrivateReply(msg, sendResponse);
+      break;
     case MSG.EDIT_COMMENT:
     case MSG.REMOVE_COMMENT:
-    case MSG.SEND_PRIVATE_REPLY:
       sendResponse({ type: `${type}_FAILURE`, taskId: msg.taskId, error: 'Chua ho tro (Phase 2)' });
       break;
 

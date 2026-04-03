@@ -775,6 +775,7 @@ class QuickReplyManager {
             }
 
             // Step 2: Send image
+            let imageFallbackToExtension = false;
             if (contentId) {
                 const sendResult = await pdm.sendMessage(channelId, conversationId, {
                     action: 'reply_inbox', content_ids: [contentId]
@@ -782,12 +783,10 @@ class QuickReplyManager {
 
                 if (sendResult?.success === false) {
                     const errMsg = sendResult.message || '';
-                    if (sendResult.e_code === 10 || errMsg.includes('khoảng thời gian cho phép')) {
-                        if (window.notificationManager) window.notificationManager.show('Không thể gửi (quá 24h). Vui lòng dùng COMMENT!', 'warning', 8000);
-                        return;
-                    }
-                    // Re-upload if cached contentId expired
-                    if (cachedContentId && imageUrl) {
+                    const is24h = sendResult.e_code === 10 || errMsg.includes('khoảng thời gian cho phép');
+
+                    if (!is24h && cachedContentId && imageUrl) {
+                        // Re-upload if cached contentId expired
                         console.warn('[QUICK-REPLY] Cached contentId failed, re-uploading...');
                         const downloaded = await fetch(imageUrl);
                         if (downloaded.ok) {
@@ -806,6 +805,25 @@ class QuickReplyManager {
                             }
                         }
                     }
+
+                    // Extension fallback for image
+                    if (!imageSent && window.pancakeExtension?.connected && window.sendImagesViaExtension && imageUrl) {
+                        console.warn('[QUICK-REPLY] Image send failed, trying extension bypass...');
+                        try {
+                            const downloaded = await fetch(imageUrl);
+                            if (downloaded.ok) {
+                                const blob = await downloaded.blob();
+                                const ext = imageUrl.match(/\.(jpg|jpeg|png|gif|webp)/i)?.[1] || 'jpg';
+                                const file = new File([blob], `quick-reply.${ext}`, { type: blob.type || `image/${ext}` });
+                                const conv = window.buildConvData(channelId, window.currentChatPSID);
+                                await window.sendImagesViaExtension([file], null, conv);
+                                imageSent = true;
+                                imageFallbackToExtension = true;
+                            }
+                        } catch (extErr) {
+                            console.error('[QUICK-REPLY] Extension image fallback failed:', extErr.message);
+                        }
+                    }
                     if (!imageSent) console.warn('[QUICK-REPLY] Image send failed:', errMsg);
                 } else {
                     imageSent = true;
@@ -818,10 +836,24 @@ class QuickReplyManager {
                 action: 'reply_inbox', message: finalMessage
             }, pat);
 
-            const textSent = textResult?.success !== false;
+            let textSent = textResult?.success !== false;
+
+            // Extension fallback for text
+            if (!textSent && window.pancakeExtension?.connected && window.sendViaExtension) {
+                console.warn('[QUICK-REPLY] Text send failed, trying extension bypass...');
+                try {
+                    const conv = window.buildConvData(channelId, window.currentChatPSID);
+                    await window.sendViaExtension(finalMessage, conv);
+                    textSent = true;
+                    imageFallbackToExtension = true;
+                } catch (extErr) {
+                    console.error('[QUICK-REPLY] Extension text fallback failed:', extErr.message);
+                }
+            }
 
             if (imageSent && textSent) {
-                if (window.notificationManager) window.notificationManager.success('Đã gửi!', 2000);
+                const viaExt = imageFallbackToExtension ? ' (qua Extension)' : '';
+                if (window.notificationManager) window.notificationManager.success('Đã gửi!' + viaExt, 2000);
             } else if (textSent) {
                 if (window.notificationManager) window.notificationManager.show('Đã gửi tin nhắn (ảnh thất bại)', 'warning', 4000);
             } else {

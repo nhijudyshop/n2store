@@ -688,7 +688,11 @@
                     type === 'GET_BUSINESS_CONTEXT_SUCCESS' ||
                     type === 'GET_BUSINESS_CONTEXT_FAILURE' ||
                     type === 'BATCH_GET_GLOBAL_ID_SUCCESS' ||
-                    type === 'BATCH_GET_GLOBAL_ID_FAILURE'
+                    type === 'BATCH_GET_GLOBAL_ID_FAILURE' ||
+                    type === 'SEND_COMMENT_SUCCESS' ||
+                    type === 'SEND_COMMENT_FAILURE' ||
+                    type === 'SEND_PRIVATE_REPLY_SUCCESS' ||
+                    type === 'SEND_PRIVATE_REPLY_FAILURE'
                 );
 
                 if (isExtResponse) {
@@ -720,6 +724,8 @@
                     type === 'GET_GLOBAL_ID_FOR_CONV' ||
                     type === 'GET_BUSINESS_CONTEXT' ||
                     type === 'BATCH_GET_GLOBAL_ID' ||
+                    type === 'SEND_COMMENT' ||
+                    type === 'SEND_PRIVATE_REPLY' ||
                     type === 'CHECK_EXTENSION' ||
                     type === 'EXT_BRIDGE_PROBE'
                 );
