@@ -493,12 +493,23 @@ function toOpaqueDataURL(srcCanvas) {
 
 async function renderAsset(elementId, width, height) {
   const el = document.getElementById(elementId);
-  return html2canvas(el, {
+  const canvas = await html2canvas(el, {
     width, height, scale: 1,
+    windowWidth: width, windowHeight: height,
     useCORS: true, allowTaint: false,
     backgroundColor: '#0f0c29',
     logging: false,
   });
+  console.log(`[renderAsset] ${elementId}: canvas=${canvas.width}x${canvas.height}, expected=${width}x${height}`);
+  // Force exact size if html2canvas produced different dimensions
+  if (canvas.width !== width || canvas.height !== height) {
+    const c2 = document.createElement('canvas');
+    c2.width = width;
+    c2.height = height;
+    c2.getContext('2d').drawImage(canvas, 0, 0, width, height);
+    return c2;
+  }
+  return canvas;
 }
 
 async function downloadAsset(elementId, width, height, filename) {
