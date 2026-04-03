@@ -494,15 +494,24 @@
                             continue;
                         }
 
+                        // Get STT and Code from reportOrder (report_order_details) as primary source
+                        // successOrders only has {Id, code, customerName} - no STT/Code/Details
+                        const sttValue = order.STT || order.stt
+                            || (reportOrder && (reportOrder.STT || reportOrder.SessionIndex || reportOrder.stt))
+                            || 0;
+                        const orderCodeValue = order.Code || order.code
+                            || (reportOrder && (reportOrder.Code || reportOrder.code))
+                            || '';
+
                         const baseData = {
                             orderId: orderId,
-                            orderCode: order.Code || order.code || '',
+                            orderCode: orderCodeValue,
                             campaignId: campaignId,
                             campaignName: campaignName,
                             timestamp: window.firebase.firestore.FieldValue.serverTimestamp(),
                             userId: userId,
                             userName: userName,
-                            stt: order.STT || order.stt || 0,
+                            stt: sttValue,
                             products: products
                         };
 
@@ -765,9 +774,51 @@
                 return null;
             }
 
+            // If BASE has STT=0 (legacy data), try to recover from report_order_details or OrderStore
+            let stt = base.stt;
+            if (!stt) {
+                try {
+                    // Try OrderStore (live data from tab1)
+                    if (window.OrderStore) {
+                        const storeOrder = window.OrderStore.get(orderId);
+                        if (storeOrder && (storeOrder.SessionIndex || storeOrder.STT)) {
+                            stt = parseInt(storeOrder.SessionIndex || storeOrder.STT) || 0;
+                        }
+                    }
+                    // Try report_order_details (raw Firestore lookup)
+                    if (!stt && base.campaignName) {
+                        const safeTable = (base.campaignName || '').replace(/[.$#\[\]\/]/g, '_');
+                        if (safeTable) {
+                            const db = window.firebase.firestore();
+                            const doc = await db.collection('report_order_details').doc(safeTable).get();
+                            if (doc.exists) {
+                                const reportOrder = (doc.data().orders || []).find(o => (o.Id || o.id) === orderId);
+                                if (reportOrder) {
+                                    stt = parseInt(reportOrder.STT || reportOrder.SessionIndex || reportOrder.stt) || 0;
+                                    // Also recover orderCode if missing
+                                    if (!base.orderCode && (reportOrder.Code || reportOrder.code)) {
+                                        await db.collection(KPI_BASE_COLLECTION).doc(orderId).update({
+                                            orderCode: reportOrder.Code || reportOrder.code || ''
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    // Update BASE with recovered STT + orderCode if found
+                    if (stt) {
+                        const db = window.firebase.firestore();
+                        await db.collection(KPI_BASE_COLLECTION).doc(orderId).update({ stt });
+                        console.log(`[KPI] Recovered STT=${stt} for order ${orderId}`);
+                    }
+                } catch (e) {
+                    console.warn('[KPI] STT recovery failed:', e.message);
+                }
+            }
+
             // ⚠️ BUGFIX (Bug #2): Determine employee via Employee_Range (STT → employee),
             // NOT using base.userId (who sent the bulk message)
-            const assignedEmployee = await getAssignedEmployeeForSTT(base.stt, base.campaignName);
+            const assignedEmployee = await getAssignedEmployeeForSTT(stt, base.campaignName);
             const employeeUserId = assignedEmployee.userId;
 
             // When "unassigned", pass null to calculateNetKPI so it doesn't filter by userId
@@ -781,7 +832,7 @@
             await saveKPIStatistics(employeeUserId, date, {
                 orderId: orderId,
                 orderCode: base.orderCode || '',
-                stt: base.stt || 0,
+                stt: stt || base.stt || 0,
                 campaignId: base.campaignId || null,
                 campaignName: base.campaignName || null,
                 netProducts: result.netProducts,
