@@ -19,6 +19,20 @@ let docIds = null;
 let preloadPromise = null;
 
 /**
+ * Wait for doc_id preloading to finish (JS bundle extraction)
+ * Call this before attempting strategies that need doc_ids
+ */
+export async function waitForDocIds(timeoutMs = 15000) {
+  if (!preloadPromise) return;
+  try {
+    await Promise.race([
+      preloadPromise,
+      new Promise(resolve => setTimeout(resolve, timeoutMs)),
+    ]);
+  } catch {}
+}
+
+/**
  * Initialize a Facebook page session - extract fb_dtsg and session data
  * Uses promise deduplication to prevent concurrent fetches for the same pageId
  */
@@ -311,17 +325,27 @@ function _logImportantDocIds() {
     log.info(MODULE, 'No doc_ids available yet');
     return;
   }
+  // Log both legacy and new query names
   const important = [
     'PagesManagerInboxAdminAssignerRootQuery',
-    'PagesManagerInboxQueryUtilCommItemHeaderMercuryQuery',
+    'BusinessCometInboxThreadDetailHeaderQuery',
+    'BizInboxThreadDetailHeaderQuery',
     'MessengerThreadlistWebGraphQLQuery',
     'MessengerThreadlistQuery',
-    'BizInboxCustomerRelaySearchSourceQuery',
     'MessengerGraphQLThreadlistFetcher',
+    'useMWGetFetchUserThreadNavigationDataQuery',
+    'BizInboxCustomerRelaySearchSourceQuery',
+    'BizInboxSearchResultFacebookListQuery',
   ];
   log.info(MODULE, `Total doc_ids: ${Object.keys(allDocIds).length}`);
   for (const name of important) {
-    log.info(MODULE, `  doc_id[${name}]: ${allDocIds[name] || 'NOT FOUND'}`);
+    if (allDocIds[name]) {
+      log.info(MODULE, `  ✓ ${name}: ${allDocIds[name]}`);
+    }
+  }
+  const foundCount = important.filter(n => allDocIds[n]).length;
+  if (foundCount === 0) {
+    log.info(MODULE, '  ⚠ None of the important doc_ids found');
   }
 }
 

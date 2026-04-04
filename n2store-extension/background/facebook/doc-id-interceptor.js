@@ -45,47 +45,72 @@ export function startInterceptor() {
 
 /**
  * Handle intercepted GraphQL request
+ * Parses both formData and raw request bodies
  */
 function onGraphQLRequest(details) {
   try {
     const formData = details.requestBody?.formData;
-    if (!formData) return;
 
-    // Single request: doc_id + fb_api_req_friendly_name
-    const docId = formData.doc_id?.[0];
-    const name = formData.fb_api_req_friendly_name?.[0];
+    if (formData) {
+      // Single request: doc_id + fb_api_req_friendly_name
+      const docId = formData.doc_id?.[0];
+      const name = formData.fb_api_req_friendly_name?.[0];
 
-    if (docId && name) {
-      const existing = docIdMap.get(name);
-      if (existing !== docId) {
-        docIdMap.set(name, docId);
-        log.debug(MODULE, `${name} → ${docId}`);
-        debouncedSave();
+      if (docId && name) {
+        _addDocId(name, docId);
+      }
+
+      // Batch request: multiple queries in variables[0..N]
+      for (const key of Object.keys(formData)) {
+        if (key.startsWith('queries')) {
+          try {
+            const val = formData[key]?.[0];
+            if (val) {
+              const parsed = JSON.parse(val);
+              if (parsed?.doc_id && parsed?.query_name) {
+                _addDocId(parsed.query_name, parsed.doc_id);
+              }
+            }
+          } catch { /* not JSON, skip */ }
+        }
       }
     }
 
-    // Batch request: multiple queries in variables[0..N]
-    // Some Facebook pages batch multiple GraphQL queries
-    for (const key of Object.keys(formData)) {
-      if (key.startsWith('queries')) {
-        try {
-          const val = formData[key]?.[0];
-          if (val) {
-            const parsed = JSON.parse(val);
-            if (parsed?.doc_id && parsed?.query_name) {
-              const existing = docIdMap.get(parsed.query_name);
-              if (existing !== parsed.doc_id) {
-                docIdMap.set(parsed.query_name, parsed.doc_id);
-                log.debug(MODULE, `batch: ${parsed.query_name} → ${parsed.doc_id}`);
-                debouncedSave();
-              }
-            }
+    // Also handle raw request bodies (some GraphQL requests use JSON body)
+    const raw = details.requestBody?.raw;
+    if (raw && raw.length > 0 && raw[0]?.bytes) {
+      try {
+        const decoder = new TextDecoder();
+        const body = decoder.decode(raw[0].bytes);
+
+        // Try URL-encoded format first
+        const params = new URLSearchParams(body);
+        const docId = params.get('doc_id');
+        const name = params.get('fb_api_req_friendly_name');
+        if (docId && name) {
+          _addDocId(name, docId);
+        }
+
+        // Try JSON format
+        if (body.startsWith('{')) {
+          const json = JSON.parse(body);
+          if (json.doc_id && json.fb_api_req_friendly_name) {
+            _addDocId(json.fb_api_req_friendly_name, json.doc_id);
           }
-        } catch { /* not JSON, skip */ }
-      }
+        }
+      } catch { /* parsing failed, skip */ }
     }
   } catch (err) {
     // Silent — don't break the request
+  }
+}
+
+function _addDocId(name, docId) {
+  const existing = docIdMap.get(name);
+  if (existing !== docId) {
+    docIdMap.set(name, docId);
+    log.debug(MODULE, `${name} → ${docId}`);
+    debouncedSave();
   }
 }
 
