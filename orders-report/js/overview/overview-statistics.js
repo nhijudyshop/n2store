@@ -289,18 +289,20 @@ function computeTagXLCounts(orderSubset, ptagMap) {
         }
 
         // Flags (count across all categories)
+        // flags can be strings or objects {id, name} — normalize with helper
         const flags = tagData.flags || [];
-        if (flags.includes('CHO_LIVE')) {
+        const _fid = f => (typeof f === 'object' && f !== null) ? f.id : f;
+        if (flags.some(f => _fid(f) === 'CHO_LIVE')) {
             flagCounts.CHO_LIVE++;
             flagAmounts.CHO_LIVE += amount;
             flagOrders.CHO_LIVE.push(order);
         }
-        if (flags.includes('QUA_LAY') || flags.includes('GIU_DON')) {
+        if (flags.some(f => _fid(f) === 'QUA_LAY' || _fid(f) === 'GIU_DON')) {
             flagCounts.QUA_LAY_GIU_DON++;
             flagAmounts.QUA_LAY_GIU_DON += amount;
             flagOrders.QUA_LAY_GIU_DON.push(order);
         }
-        if (flags.includes('GIAM_GIA')) {
+        if (flags.some(f => _fid(f) === 'GIAM_GIA')) {
             flagCounts.GIAM_GIA++;
             flagAmounts.GIAM_GIA += amount;
             flagOrders.GIAM_GIA.push(order);
