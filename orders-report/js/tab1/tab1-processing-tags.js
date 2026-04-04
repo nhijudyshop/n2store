@@ -131,6 +131,23 @@
     const PTAG_TTAG_COLOR_YELLOW = '#d97706';
     const PTAG_TTAG_YELLOW_NAMES = ['CHỜ HÀNG', 'MY THÊM CHỜ VỀ'];
 
+    // ---- Normalize helpers: support both old (string) and new ({id, name}) formats ----
+    function _ptagFlagId(f) { return (typeof f === 'object' && f !== null) ? f.id : f; }
+    function _ptagTTagId(t) { return (typeof t === 'object' && t !== null) ? t.id : t; }
+
+    function _ptagNormalizeFlag(f) {
+        if (typeof f === 'object' && f !== null && f.id) return f;
+        const fl = PTAG_FLAGS[f];
+        const name = fl ? fl.label : (ProcessingTagState.getCustomFlagLabel(f) || f);
+        return { id: f, name };
+    }
+    function _ptagNormalizeTTag(t) {
+        if (typeof t === 'object' && t !== null && t.id) return t;
+        return { id: t, name: ProcessingTagState.getTTagName(t) || t };
+    }
+    function _ptagNormalizeFlags(arr) { return (arr || []).map(_ptagNormalizeFlag); }
+    function _ptagNormalizeTTags(arr) { return (arr || []).map(_ptagNormalizeTTag); }
+
     function _ptagGetFlagColor(flagKey) {
         const saved = JSON.parse(localStorage.getItem('ptag_flag_colors') || '{}');
         if (saved[flagKey]) return saved[flagKey];
@@ -221,6 +238,11 @@
             return this._orderData.get(String(orderId)) || null;
         },
         setOrderData(key, data) {
+            // Auto-normalize flags/tTags from old string format to new {id, name} format
+            if (data) {
+                if (data.flags) data.flags = _ptagNormalizeFlags(data.flags);
+                if (data.tTags) data.tTags = _ptagNormalizeTTags(data.tTags);
+            }
             this._orderData.set(String(key), data);
             // Xây index ngược: nếu data có orderId, map nó về key
             if (data?.orderId) {
@@ -673,12 +695,16 @@
         const existingData = ProcessingTagState.getOrderData(orderCode);
         // Preserve existing flags when changing category
         const existingFlags = existingData?.flags || [];
-        const newFlags = options.flags || [];
+        const newFlags = (options.flags || []).map(f => _ptagNormalizeFlag(f));
+        // Merge flags by ID, dedup
+        const flagMap = new Map();
+        for (const f of existingFlags) { const nf = _ptagNormalizeFlag(f); flagMap.set(nf.id, nf); }
+        for (const f of newFlags) { flagMap.set(f.id, f); }
         const data = {
             category,
             subTag: options.subTag || null,
             subState: null,
-            flags: [...new Set([...existingFlags, ...newFlags])],
+            flags: [...flagMap.values()],
             tTags: existingData?.tTags ? [...existingData.tTags] : [],
             note: options.note || '',
             assignedAt: Date.now(),
@@ -698,8 +724,12 @@
             // Auto-detect flags from wallet
             const phone = _ptagGetOrderPhone(orderCode);
             if (phone) {
-                const autoFlags = await autoDetectFlags(orderCode, phone);
-                data.flags = [...new Set([...data.flags, ...autoFlags])];
+                const autoFlagKeys = await autoDetectFlags(orderCode, phone);
+                for (const fk of autoFlagKeys) {
+                    if (!data.flags.some(f => _ptagFlagId(f) === fk)) {
+                        data.flags.push(_ptagNormalizeFlag(fk));
+                    }
+                }
             }
         }
 
@@ -711,8 +741,10 @@
         _ptagAddHistory(orderCode, 'SET_CATEGORY', catValue, options.source || null);
         // Log auto-detected flags
         if (category === PTAG_CATEGORIES.CHO_DI_DON) {
-            const autoFlags = data.flags.filter(f => !existingFlags.includes(f) && !newFlags.includes(f));
-            autoFlags.forEach(f => _ptagAddHistory(orderCode, 'ADD_FLAG', f, 'Hệ thống'));
+            const existingFlagIds = new Set(existingFlags.map(f => _ptagFlagId(f)));
+            const newFlagIds = new Set(newFlags.map(f => _ptagFlagId(f)));
+            const autoFlags = data.flags.filter(f => !existingFlagIds.has(_ptagFlagId(f)) && !newFlagIds.has(_ptagFlagId(f)));
+            autoFlags.forEach(f => _ptagAddHistory(orderCode, 'ADD_FLAG', _ptagFlagId(f), 'Hệ thống'));
         }
 
         _ptagRefreshRow(orderCode);
@@ -739,12 +771,14 @@
         }
 
         const flags = data.flags || [];
-        const idx = flags.indexOf(flagKey);
+        const idx = flags.findIndex(f => _ptagFlagId(f) === flagKey);
         const isAdding = idx < 0;
         if (idx >= 0) {
             flags.splice(idx, 1);
         } else {
-            flags.push(flagKey);
+            const fl = PTAG_FLAGS[flagKey];
+            const name = fl ? fl.label : (ProcessingTagState.getCustomFlagLabel(flagKey) || flagKey);
+            flags.push({ id: flagKey, name });
         }
         data.flags = flags;
 
@@ -804,7 +838,9 @@
             data = { tTags: [] };
         }
         const tTags = data.tTags || [];
-        if (!tTags.includes(tagId)) tTags.push(tagId);
+        if (!tTags.some(t => _ptagTTagId(t) === tagId)) {
+            tTags.push({ id: tagId, name: ProcessingTagState.getTTagName(tagId) || tagId });
+        }
         data.tTags = tTags;
         // Auto sub-state ONLY when at Cat 1 "Okie Chờ Đi Đơn"
         if (data.category === PTAG_CATEGORIES.CHO_DI_DON && data.subState === 'OKIE_CHO_DI_DON') {
@@ -825,7 +861,7 @@
     async function removeTTagFromOrder(orderCode, tagId) {
         const data = ProcessingTagState.getOrderData(orderCode);
         if (!data) return;
-        data.tTags = (data.tTags || []).filter(t => t !== tagId);
+        data.tTags = (data.tTags || []).filter(t => _ptagTTagId(t) !== tagId);
         // Auto sub-state ONLY when at Cat 1 "Chờ Hàng" and all T-tags removed
         if (data.category === PTAG_CATEGORIES.CHO_DI_DON && data.subState === 'CHO_HANG' && data.tTags.length === 0) {
             data.subState = 'OKIE_CHO_DI_DON';
@@ -859,14 +895,16 @@
             flags: [], tTags: [], note: '', assignedAt: Date.now()
         };
 
-        // Union merge flags (add flags from source that target doesn't have)
+        // Union merge flags by ID (add flags from source that target doesn't have)
         const targetFlags = targetData.flags || [];
-        const newFlags = sourceFlags.filter(f => !targetFlags.includes(f));
+        const targetFlagIds = new Set(targetFlags.map(f => _ptagFlagId(f)));
+        const newFlags = sourceFlags.filter(f => !targetFlagIds.has(_ptagFlagId(f)));
         targetData.flags = [...targetFlags, ...newFlags];
 
-        // Union merge tTags
+        // Union merge tTags by ID
         const targetTTags = targetData.tTags || [];
-        const newTTags = sourceTTags.filter(t => !targetTTags.includes(t));
+        const targetTTagIds = new Set(targetTTags.map(t => _ptagTTagId(t)));
+        const newTTags = sourceTTags.filter(t => !targetTTagIds.has(_ptagTTagId(t)));
         targetData.tTags = [...targetTTags, ...newTTags];
 
         // Auto subState for category 1 CHO_DI_DON when tTags added
@@ -1107,10 +1145,12 @@
         // 2. Flag badges (đặc điểm) — inline row
         let flagBadges = '';
         (data.flags || []).forEach(f => {
-            const fl = PTAG_FLAGS[f];
-            const label = fl ? fl.label : ProcessingTagState.getCustomFlagLabel(f);
-            const bgColor = _ptagGetFlagColor(f);
-            const removeBtn = `<button class="ptag-badge-remove" onclick="window._ptagToggleFlag('${oc}', '${f}'); event.stopPropagation();" title="Xóa flag">&times;</button>`;
+            const fId = _ptagFlagId(f);
+            const fl = PTAG_FLAGS[fId];
+            // Prefer stored name, fallback to lookup
+            const label = (typeof f === 'object' && f.name) ? f.name : (fl ? fl.label : ProcessingTagState.getCustomFlagLabel(fId));
+            const bgColor = _ptagGetFlagColor(fId);
+            const removeBtn = `<button class="ptag-badge-remove" onclick="window._ptagToggleFlag('${oc}', '${fId}'); event.stopPropagation();" title="Xóa flag">&times;</button>`;
             flagBadges += `<span class="ptag-flag-badge ptag-badge-removable" style="background:${bgColor};">${label}${removeBtn}</span>`;
         });
 
@@ -1118,9 +1158,11 @@
         let ttagBadges = '';
         const _tTags = data.tTags || [];
         _tTags.forEach(t => {
-            const tLabel = ProcessingTagState.getTTagLabel(t);
-            const bgColor = _ptagGetTTagColor(t);
-            const removeBtn = `<button class="ptag-badge-remove" onclick="window.removeTTagFromOrder('${oc}', '${t.replace(/'/g, "\\'")}'); event.stopPropagation();" title="Gỡ tag T">&times;</button>`;
+            const tId = _ptagTTagId(t);
+            // Prefer stored name, fallback to lookup
+            const tLabel = (typeof t === 'object' && t.name) ? t.name.toUpperCase() : ProcessingTagState.getTTagLabel(tId);
+            const bgColor = _ptagGetTTagColor(tId);
+            const removeBtn = `<button class="ptag-badge-remove" onclick="window.removeTTagFromOrder('${oc}', '${tId.replace(/'/g, "\\'")}'); event.stopPropagation();" title="Gỡ tag T">&times;</button>`;
             ttagBadges += `<span class="ptag-ttag-badge ptag-badge-removable" style="background:${bgColor};">${tLabel}${removeBtn}</span>`;
         });
 
@@ -1221,20 +1263,21 @@
         }
         // Flags
         (data.flags || []).forEach(f => {
-            const fl = PTAG_FLAGS[f];
+            const fId = _ptagFlagId(f);
+            const fl = PTAG_FLAGS[fId];
             if (fl) {
-                selected.push({ key: `flag:${f}`, label: `${fl.icon} ${fl.label}`, isFlag: true, flagKey: f, color: _ptagGetFlagColor(f) });
+                selected.push({ key: `flag:${fId}`, label: `${fl.icon} ${fl.label}`, isFlag: true, flagKey: fId, color: _ptagGetFlagColor(fId) });
             } else {
-                const cf = ProcessingTagState.getCustomFlagDef(f);
-                if (cf) selected.push({ key: `flag:${f}`, label: (cf.label || '').toUpperCase(), isFlag: true, flagKey: f, color: _ptagGetFlagColor(f) });
+                const label = (typeof f === 'object' && f.name) ? f.name : ProcessingTagState.getCustomFlagLabel(fId);
+                if (label) selected.push({ key: `flag:${fId}`, label: String(label).toUpperCase(), isFlag: true, flagKey: fId, color: _ptagGetFlagColor(fId) });
             }
         });
         // All assigned T-tags
         (data.tTags || []).forEach(t => {
-            const def = ProcessingTagState.getTTagDef(t);
-            if (def) {
-                selected.push({ key: `dtag:${t}`, label: def.name, isTTag: true, ttagId: t, color: _ptagGetTTagColor(t) });
-            }
+            const tId = _ptagTTagId(t);
+            const def = ProcessingTagState.getTTagDef(tId);
+            const name = (typeof t === 'object' && t.name) ? t.name : (def ? def.name : tId);
+            selected.push({ key: `dtag:${tId}`, label: name, isTTag: true, ttagId: tId, color: _ptagGetTTagColor(tId) });
         });
         return selected;
     }
@@ -1345,7 +1388,7 @@
             // Default T-tag — toggle directly
             const ttagId = key.replace('dtag:', '');
             const data = ProcessingTagState.getOrderData(orderCode);
-            const hasTTag = data?.tTags?.includes(ttagId);
+            const hasTTag = data?.tTags?.some(t => _ptagTTagId(t) === ttagId);
             if (hasTTag) {
                 removeTTagFromOrder(orderCode, ttagId);
             } else {
@@ -1757,10 +1800,11 @@
             }
             let hasCustomFlag = false;
             (data.flags || []).forEach(f => {
-                flagCounts[f] = (flagCounts[f] || 0) + 1;
-                if (f.startsWith('CUSTOM_')) hasCustomFlag = true;
+                const fId = _ptagFlagId(f);
+                flagCounts[fId] = (flagCounts[fId] || 0) + 1;
+                if (fId.startsWith('CUSTOM_')) hasCustomFlag = true;
             });
-            if (hasCustomFlag && !(data.flags || []).includes('KHAC')) {
+            if (hasCustomFlag && !(data.flags || []).some(f => _ptagFlagId(f) === 'KHAC')) {
                 flagCounts['KHAC'] = (flagCounts['KHAC'] || 0) + 1;
             }
             if (data.subTag) {
@@ -2723,7 +2767,7 @@
         const orders = [];
         const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
         for (const [orderCode, data] of ProcessingTagState.getAllOrders()) {
-            if (data.tTags && data.tTags.includes(tagId)) {
+            if (data.tTags && data.tTags.some(t => _ptagTTagId(t) === tagId)) {
                 const order = allOrders.find(o => String(o.Code) === String(orderCode));
                 orders.push({ orderId: order?.Id, orderCode, stt: order?.SessionIndex || '?', name: order?.PartnerName || order?.Name || '', phone: order?.Telephone || '' });
             }
@@ -4005,7 +4049,7 @@
 
         const existingOrderCodes = new Set();
         for (const [key, data] of ProcessingTagState.getAllOrders()) {
-            if (data.tTags && data.tTags.includes(tagId)) existingOrderCodes.add(String(key));
+            if (data.tTags && data.tTags.some(t => _ptagTTagId(t) === tagId)) existingOrderCodes.add(String(key));
         }
         const newOrders = matchingOrders.filter(o => !existingOrderCodes.has(String(o.Code)));
 
@@ -4070,7 +4114,7 @@
         const tagName = ProcessingTagState.getTTagName(tagId) || tagId;
         let count = 0;
         for (const [, data] of ProcessingTagState.getAllOrders()) {
-            if (data.tTags && data.tTags.includes(tagId)) count++;
+            if (data.tTags && data.tTags.some(t => _ptagTTagId(t) === tagId)) count++;
         }
         if (count > 0 && !confirm(`Tag "${tagName}" đang được dùng cho ${count} đơn. Xóa definition sẽ không xóa tag khỏi các đơn. Tiếp tục?`)) return;
 
@@ -4152,7 +4196,7 @@
             }
             // Flag filter — works across all categories
             else if (filter.startsWith('flag_')) {
-                passesBase = (data.flags || []).includes(filter.replace('flag_', ''));
+                passesBase = (data.flags || []).some(f => _ptagFlagId(f) === filter.replace('flag_', ''));
             }
             // Sub-tag filter (cat 2,3,4)
             else if (filter.startsWith('subtag_')) {
@@ -4161,7 +4205,7 @@
             // T-tag filter (from internal tTags, not TPOS)
             else if (filter.startsWith('ttag_')) {
                 const tagId = filter.replace('ttag_', '');
-                passesBase = (data.tTags || []).includes(tagId);
+                passesBase = (data.tTags || []).some(t => _ptagTTagId(t) === tagId);
             }
         }
 
@@ -4598,8 +4642,8 @@
         const tTagCounts = {};
 
         for (const [key, data] of taggedOrders) {
-            (data.flags || []).forEach(f => { flagCounts[f] = (flagCounts[f] || 0) + 1; });
-            (data.tTags || []).forEach(t => { tTagCounts[t] = (tTagCounts[t] || 0) + 1; });
+            (data.flags || []).forEach(f => { const fId = _ptagFlagId(f); flagCounts[fId] = (flagCounts[fId] || 0) + 1; });
+            (data.tTags || []).forEach(t => { const tId = _ptagTTagId(t); tTagCounts[tId] = (tTagCounts[tId] || 0) + 1; });
         }
 
         // Find custom flags with 0 orders
@@ -4654,7 +4698,7 @@
         // Re-check usage count at delete time (safety against stale UI)
         let count = 0;
         for (const [, data] of ProcessingTagState.getAllOrders()) {
-            if (data.flags && data.flags.includes(flagId)) count++;
+            if (data.flags && data.flags.some(f => _ptagFlagId(f) === flagId)) count++;
         }
         if (count > 0) {
             alert(`Tag "${flagDef.label}" đang có ${count} đơn hàng. Không thể xóa.`);

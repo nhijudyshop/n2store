@@ -1662,8 +1662,8 @@ async function assignTagXLAfterMerge(cluster) {
         // Collect Tag XL data from ALL orders
         let bestCategory = null;
         let bestSubTag = null;
-        const allFlags = new Set();
-        const allTTags = new Set();
+        const allFlags = new Map(); // key=flagId, value=flag object
+        const allTTags = new Map(); // key=tTagId, value=tTag object
 
         // Process target order first (priority), then source orders
         const allOrders = [cluster.targetOrder, ...cluster.sourceOrders];
@@ -1681,11 +1681,17 @@ async function assignTagXLAfterMerge(cluster) {
                 }
             }
 
-            // Merge all flags from every order
-            (ptagData.flags || []).forEach(f => allFlags.add(f));
+            // Merge all flags from every order (dedup by ID)
+            (ptagData.flags || []).forEach(f => {
+                const fId = typeof f === 'object' && f !== null ? f.id : f;
+                if (!allFlags.has(fId)) allFlags.set(fId, f);
+            });
 
-            // Merge all tTags from every order
-            (ptagData.tTags || []).forEach(t => allTTags.add(t));
+            // Merge all tTags from every order (dedup by ID)
+            (ptagData.tTags || []).forEach(t => {
+                const tId = typeof t === 'object' && t !== null ? t.id : t;
+                if (!allTTags.has(tId)) allTTags.set(tId, t);
+            });
         }
 
         // Set merged Tag XL data to target order
@@ -1693,8 +1699,8 @@ async function assignTagXLAfterMerge(cluster) {
             const existingData = window.ProcessingTagState.getOrderData(targetCode) || {};
             const finalCategory = bestCategory ?? existingData.category ?? null;
             const finalSubTag = bestSubTag ?? existingData.subTag ?? null;
-            const mergedFlags = [...allFlags];
-            const mergedTTags = [...allTTags];
+            const mergedFlags = [...allFlags.values()];
+            const mergedTTags = [...allTTags.values()];
 
             // Use assignOrderCategory to set category + save to API
             if (finalCategory !== null) {
@@ -1708,11 +1714,15 @@ async function assignTagXLAfterMerge(cluster) {
             const updatedData = window.ProcessingTagState.getOrderData(targetCode);
             if (updatedData) {
                 updatedData.tTags = mergedTTags;
-                updatedData.flags = [...new Set([...(updatedData.flags || []), ...mergedFlags])];
+                // Dedup flags by ID
+                const flagMap = new Map();
+                for (const f of (updatedData.flags || [])) { const fId = typeof f === 'object' && f !== null ? f.id : f; flagMap.set(fId, f); }
+                for (const f of mergedFlags) { const fId = typeof f === 'object' && f !== null ? f.id : f; flagMap.set(fId, f); }
+                updatedData.flags = [...flagMap.values()];
                 window.ProcessingTagState.setOrderData(targetCode, updatedData);
             }
 
-            console.log(`[MERGE-PTAG] ✅ Target STT ${cluster.targetOrder.SessionIndex}: cat=${finalCategory}, subTag=${finalSubTag}, flags=[${mergedFlags}], tTags=[${mergedTTags}]`);
+            console.log(`[MERGE-PTAG] ✅ Target STT ${cluster.targetOrder.SessionIndex}: cat=${finalCategory}, subTag=${finalSubTag}, flags=${mergedFlags.length}, tTags=${mergedTTags.length}`);
         } else {
             console.log(`[MERGE-PTAG] Target STT ${cluster.targetOrder.SessionIndex}: no Tag XL data to merge`);
         }

@@ -1460,20 +1460,20 @@ function _filterOrdersByTagXLKey(orders, ptagMap, key) {
         displayName = '📺 CHỜ LIVE';
         filtered = orders.filter(o => {
             const td = ptagMap[String(o.Code || '')];
-            return td && (td.flags || []).includes('CHO_LIVE');
+            return td && (td.flags || []).some(f => (typeof f === 'object' ? f.id : f) === 'CHO_LIVE');
         });
     } else if (key === 'flag_QUA_LAY_GIU_DON') {
         displayName = '🏠⌛ QUA LẤY + GIỮ ĐƠN';
         filtered = orders.filter(o => {
             const td = ptagMap[String(o.Code || '')];
             const flags = td?.flags || [];
-            return flags.includes('QUA_LAY') || flags.includes('GIU_DON');
+            return flags.some(f => { const id = typeof f === 'object' ? f.id : f; return id === 'QUA_LAY' || id === 'GIU_DON'; });
         });
     } else if (key === 'flag_GIAM_GIA') {
         displayName = '🏷️ GIẢM GIÁ';
         filtered = orders.filter(o => {
             const td = ptagMap[String(o.Code || '')];
-            return td && (td.flags || []).includes('GIAM_GIA');
+            return td && (td.flags || []).some(f => (typeof f === 'object' ? f.id : f) === 'GIAM_GIA');
         });
     }
 

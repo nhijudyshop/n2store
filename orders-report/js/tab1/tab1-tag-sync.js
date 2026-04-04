@@ -527,7 +527,7 @@
                             const customFlagKey = _getOrCreateCustomFlag(tag.Name);
                             // Check if order already has this flag
                             const existing = window.ProcessingTagState.getOrderData(String(order.Code));
-                            if (existing && (existing.flags || []).includes(customFlagKey)) continue;
+                            if (existing && (existing.flags || []).some(f => (typeof f === 'object' ? f.id : f) === customFlagKey)) continue;
                             tasks.push({
                                 orderCode: String(order.Code),
                                 action: 'flag',
@@ -562,7 +562,7 @@
                         });
                     } else if (mapping.targetType === 'flag') {
                         const existing = window.ProcessingTagState.getOrderData(oc);
-                        if (existing && (existing.flags || []).includes(mapping.flagKey)) continue;
+                        if (existing && (existing.flags || []).some(f => (typeof f === 'object' ? f.id : f) === mapping.flagKey)) continue;
                         tasks.push({
                             orderCode: oc,
                             action: 'flag',
@@ -570,7 +570,7 @@
                         });
                     } else if (mapping.targetType === 'ttag') {
                         const existing = window.ProcessingTagState.getOrderData(oc);
-                        if (existing && (existing.tTags || []).includes(mapping.ttagId)) continue;
+                        if (existing && (existing.tTags || []).some(t => (typeof t === 'object' ? t.id : t) === mapping.ttagId)) continue;
                         tasks.push({
                             orderCode: oc,
                             action: 'ttag',
