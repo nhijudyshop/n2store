@@ -8,6 +8,12 @@
 
 ## 2026-04-04
 
+### [orders] Fix unread badges bị đè bởi sentOrdersUpdated + auto-push token lên server ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-table.js`, `orders-report/js/tab1/tab1-init.js` |
+| **Chi tiết** | 3 fixes: (1) `sentOrdersUpdated` event dùng `td.innerHTML` đè mất badge "X MỚI" unread — fix: save `.new-msg-badge` trước innerHTML rồi prepend lại. (2) Tương tự `failedOrdersUpdated` đè `.new-cmt-badge` trong cột comments. (3) Server có 0 pending_customers vì token Pancake expired — thêm `_pushTokenToServer()` tự động gửi fresh token lên server mỗi khi browser WS connect. |
+
 ### [orders] Fix realtime: WS diagnostics + chat polling fallback + convId bug ✅
 | | |
 |---|---|

@@ -185,8 +185,27 @@ window.addEventListener("DOMContentLoaded", async function () {
             }
             console.log(`[REALTIME] Connecting WebSocket: userId=${userId}, pages=${pageIds.length}`);
             await window.realtimeManager.initWebSocket({ accessToken: token, userId, pageIds });
+
+            // Also push fresh token to server for its own WS connection (pending_customers tracking)
+            _pushTokenToServer(token, userId, pageIds);
         } catch (e) {
             console.error('[REALTIME] WebSocket connect error:', e.message);
+        }
+    }
+
+    // Push fresh Pancake token to server so it can maintain its own WS connection
+    async function _pushTokenToServer(token, userId, pageIds) {
+        try {
+            const resp = await fetch('https://n2store-fallback.onrender.com/api/realtime/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token, userId, pageIds })
+            });
+            if (resp.ok) {
+                console.log('[REALTIME] Pushed fresh token to server');
+            }
+        } catch (e) {
+            // Silent fail - server push is best-effort
         }
     }
 

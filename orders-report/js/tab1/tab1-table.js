@@ -673,6 +673,9 @@ window.addEventListener('failedOrdersUpdated', (event) => {
 
         // Only update if state changed
         if (isFailed && !currentlyShowingFailed) {
+            // Preserve existing unread badges (.new-cmt-badge) before replacing content
+            const existingBadge = td.querySelector('.new-cmt-badge');
+
             // Mark as failed with quick fix button
             td.innerHTML = `
                 <button onclick="window.messageTemplateManager?.openQuickCommentReply('${orderId}')"
@@ -685,11 +688,20 @@ window.addEventListener('failedOrdersUpdated', (event) => {
                     <i class="fas fa-comment-dots" style="font-size: 10px; margin-left: 2px;"></i>
                 </button>`;
             td.title = '⚠️ Gửi tin nhắn thất bại - Click để gửi qua bình luận';
+
+            // Re-insert unread badge if it existed
+            if (existingBadge) td.prepend(existingBadge);
         } else if (!isFailed && currentlyShowingFailed) {
+            // Preserve existing unread badges
+            const existingBadge = td.querySelector('.new-cmt-badge');
+
             // Clear failed state
             td.innerHTML = '−';
             td.style.color = '#9ca3af';
             td.title = 'Click để xem bình luận';
+
+            // Re-insert unread badge if it existed
+            if (existingBadge) td.prepend(existingBadge);
         }
     });
 
@@ -737,11 +749,19 @@ window.addEventListener('sentOrdersUpdated', (event) => {
             const isViaComment = commentIds.has(orderId);
             const icon = isViaComment ? 'fa-comment-dots' : 'fa-check-circle';
             const label = isViaComment ? 'Đã gửi (BL)' : 'Đã gửi';
+
+            // Preserve existing unread badges (.new-msg-badge) before replacing content
+            const existingBadge = td.querySelector('.new-msg-badge');
+
             td.innerHTML = `
                 <span style="display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border: 1px solid #bbf7d0; border-radius: 6px; color: #16a34a; font-size: 11px; font-weight: 500;">
                     <i class="fas ${icon}" style="font-size: 10px;"></i> ${label}
                 </span>`;
             td.title = '✅ Đã gửi tin nhắn';
+
+            // Re-insert unread badge if it existed
+            if (existingBadge) td.prepend(existingBadge);
+
             // Update click handler for via-comment orders
             if (isViaComment) {
                 const existingOnclick = td.getAttribute('onclick') || '';
