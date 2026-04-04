@@ -67,8 +67,15 @@ window.renderChatMessages = function(messages) {
                 textHtml = '<div class="message-text" style="opacity:0.5">[Tin nhắn trống]</div>';
             }
 
-            // Reaction summary (like inbox)
+            // Reactions from attachments (emoji reactions on inbox messages)
             let reactionsHtml = '';
+            const reactions = msg.reactions || [];
+            if (reactions.length > 0) {
+                const emojis = reactions.map(r => r.emoji || '❤️').join('');
+                reactionsHtml = `<span class="message-reactions">${emojis}</span>`;
+            }
+
+            // Reaction summary (like/love counts on comments)
             const reactionSummary = msg.reactionSummary;
             if (reactionSummary && typeof reactionSummary === 'object') {
                 const icons = { LIKE: '👍', LOVE: '❤️', HAHA: '😆', WOW: '😮', SAD: '😢', ANGRY: '😠', CARE: '🤗' };
@@ -76,7 +83,7 @@ window.renderChatMessages = function(messages) {
                     .filter(([, count]) => count > 0)
                     .map(([type, count]) => `<span class="reaction-badge">${icons[type] || '👍'}${count > 1 ? ' ' + count : ''}</span>`);
                 if (parts.length > 0) {
-                    reactionsHtml = `<div class="message-reaction-summary">${parts.join('')}</div>`;
+                    reactionsHtml += `<div class="message-reaction-summary">${parts.join('')}</div>`;
                 }
             }
 

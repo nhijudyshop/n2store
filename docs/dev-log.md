@@ -8,6 +8,12 @@
 
 ## 2026-04-04
 
+### [chat] Hiển thị reaction emoji trên tin nhắn trong chat modal ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-chat-messages.js`, `orders-report/css/tab1-chat-modal.css` |
+| **Chi tiết** | Bug: code chỉ render `reactionSummary` (comment counts) mà bỏ qua `msg.reactions` (emoji attachments từ inbox). Fix: thêm render `reactions` array (hiển thị emoji như ❤️) + thêm CSS `.message-reactions`. |
+
 ### [inbox] Thêm chữ ký nhân viên vào inbox chat ✅
 | | |
 |---|---|

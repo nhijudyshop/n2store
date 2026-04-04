@@ -2211,6 +2211,21 @@ div.chat-product-image i {
     }
 }
 
+/* ===== Reactions (emoji from attachments) ===== */
+.message-reactions {
+    display: inline-block;
+    font-size: 14px;
+    padding: 1px 6px;
+    background: rgba(0, 0, 0, 0.04);
+    border-radius: 10px;
+    margin-top: 4px;
+    cursor: default;
+}
+
+.message-row.outgoing .message-reactions {
+    background: rgba(68, 65, 196, 0.06);
+}
+
 /* ===== Reaction Summary ===== */
 .message-reaction-summary {
     display: flex;
