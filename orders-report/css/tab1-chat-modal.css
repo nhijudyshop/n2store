@@ -1226,6 +1226,79 @@
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
+/* ===== Inline Emoji Picker (chat toolbar) ===== */
+.chat-emoji-picker {
+    background: var(--ap-surface-container-lowest);
+    border: 1px solid #f1f5f9;
+    border-radius: 12px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+    margin-top: 4px;
+}
+
+.chat-emoji-categories {
+    display: flex;
+    gap: 2px;
+    padding: 8px 8px 4px;
+    border-bottom: 1px solid #f1f5f9;
+    overflow-x: auto;
+}
+
+.chat-emoji-categories .emoji-cat {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.1s;
+    flex-shrink: 0;
+    padding: 0;
+}
+
+.chat-emoji-categories .emoji-cat:hover {
+    background: var(--ap-surface-container-low);
+}
+
+.chat-emoji-categories .emoji-cat.active {
+    background: #eef2ff;
+}
+
+.chat-emoji-grid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 2px;
+    padding: 8px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.chat-emoji-grid::-webkit-scrollbar { width: 4px; }
+.chat-emoji-grid::-webkit-scrollbar-thumb { background: var(--ap-surface-container-highest); border-radius: 10px; }
+
+.chat-emoji-grid .emoji-item {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    border-radius: 8px;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    transition: background 0.1s;
+    padding: 0;
+}
+
+.chat-emoji-grid .emoji-item:hover {
+    background: var(--ap-surface-container-low);
+}
+
 /* ===== Sticker/Emoji Picker Overlay ===== */
 .sticker-picker-overlay {
     display: none;

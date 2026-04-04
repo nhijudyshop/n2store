@@ -913,6 +913,9 @@
                                         <span class="material-symbols-outlined">attach_file</span>
                                     </button>
                                     <input type="file" id="chatImageInput" accept="image/*" multiple style="display:none">
+                                    <button class="attach-btn" id="chatEmojiBtn" onclick="window.toggleEmojiPicker?.()" title="Chèn emoji">
+                                        <span class="material-symbols-outlined">emoji_emotions</span>
+                                    </button>
                                     <button class="attach-btn" onclick="window.quickReplyManager?.openModal('chatInput')" title="Mẫu trả lời nhanh">
                                         <span class="material-symbols-outlined">flash_on</span>
                                     </button>
@@ -927,6 +930,19 @@
                                     </button>
                                 </div>
                             </div>
+                        </div>
+                        <!-- Emoji Picker -->
+                        <div class="chat-emoji-picker" id="chatEmojiPicker" style="display:none;">
+                            <div class="chat-emoji-categories" id="chatEmojiCategories">
+                                <button class="emoji-cat active" data-cat="recent" title="Gần đây">🕐</button>
+                                <button class="emoji-cat" data-cat="smileys" title="Mặt cười">😊</button>
+                                <button class="emoji-cat" data-cat="gestures" title="Cử chỉ">👋</button>
+                                <button class="emoji-cat" data-cat="hearts" title="Trái tim">❤️</button>
+                                <button class="emoji-cat" data-cat="animals" title="Động vật">🐱</button>
+                                <button class="emoji-cat" data-cat="food" title="Đồ ăn">🍔</button>
+                                <button class="emoji-cat" data-cat="objects" title="Đồ vật">💡</button>
+                            </div>
+                            <div class="chat-emoji-grid" id="chatEmojiGrid"></div>
                         </div>
                     </div>
                 </div>

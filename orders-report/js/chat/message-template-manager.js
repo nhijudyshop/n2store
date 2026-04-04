@@ -1979,6 +1979,11 @@
         sendingState.isSending = false;
         await _saveCampaignResults(template, accounts, delay, sendingState.successOrders, sendingState.errorOrders);
 
+        // Notify chat module to refresh immediately (if chat modal is open)
+        window.dispatchEvent(new CustomEvent('bulkSendCompleted', {
+            detail: { successCount, errorCount }
+        }));
+
         // Re-enable UI
         sendBtn.disabled = false;
         sendBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Gửi tin nhắn';

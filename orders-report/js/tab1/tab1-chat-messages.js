@@ -832,3 +832,81 @@ function _showToast(message, type) {
 // Expose escapeHtml globally (used by other modules)
 window.escapeHtml = _escapeHtml;
 
+// =====================================================
+// EMOJI PICKER
+// =====================================================
+
+(function() {
+    const emojiData = {
+        recent: ['😊', '👍', '❤️', '😂', '🙏', '😍', '🔥', '✨'],
+        smileys: ['😀','😃','😄','😁','😆','😅','🤣','😂','🙂','😊','😇','🥰','😍','🤩','😘','😗','😚','😙','🥲','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🫢','🤫','🤔','🫡','🤐','🤨','😐','😑','😶','🫥','😏','😒','🙄','😬','🤥','😌','😔','😪','🤤','😴','😷','🤒','🤕','🤢','🤮','🥵','🥶','🥴','😵','🤯','🤠','🥳','🥸','😎','🤓','🧐','😕','🫤','😟','🙁','😮','😯','😲','😳','🥺','🥹','😦','😧','😨','😰','😥','😢','😭','😱','😖','😣','😞','😓','😩','😫','🥱','😤','😡','😠','🤬'],
+        gestures: ['👋','🤚','🖐️','✋','🖖','🫱','🫲','🫳','🫴','👌','🤌','🤏','✌️','🤞','🫰','🤟','🤘','🤙','👈','👉','👆','🖕','👇','☝️','🫵','👍','👎','✊','👊','🤛','🤜','👏','🙌','🫶','👐','🤲','🤝','🙏','✍️','💅','🤳','💪','🦾','🦿','🦵','🦶','👂','🦻','👃','🫀','🫁','🧠','🦷','🦴','👀','👁️','👅','👄','🫦'],
+        hearts: ['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❤️‍🔥','❤️‍🩹','❣️','💕','💞','💓','💗','💖','💘','💝','💟','♥️','🫶','💏','💑','👪'],
+        animals: ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🙈','🙉','🙊','🐒','🐔','🐧','🐦','🐤','🐣','🐥','🦆','🦅','🦉','🦇','🐺','🐗','🐴','🦄','🐝','🪱','🐛','🦋','🐌','🐞','🐜','🪰','🪲','🪳','🦟','🦗','🕷️','🦂','🐢','🐍','🦎','🦖','🦕','🐙','🦑','🦐','🦞','🦀','🪸','🐡','🐠','🐟','🐬','🐳','🐋','🦈','🐊','🐅','🐆','🦓','🦍','🦧','🐘','🦣','🦛','🦏','🐪','🐫','🦒','🦘','🦬','🐃','🐂','🐄','🐎','🐖','🐏','🐑','🦙','🐐','🦌','🐕','🐩','🦮','🐕‍🦺','🐈','🐈‍⬛','🪶','🐓','🦃','🦤','🦚','🦜','🦢','🦩','🕊️','🐇','🦝','🦨','🦡','🦫','🦦','🦥','🐁','🐀','🐿️','🦔'],
+        food: ['🍎','🍐','🍊','🍋','🍌','🍉','🍇','🍓','🫐','🍈','🍒','🍑','🥭','🍍','🥥','🥝','🍅','🍆','🥑','🥦','🥬','🥒','🌶️','🫑','🌽','🥕','🫒','🧄','🧅','🥔','🍠','🫘','🥐','🥯','🍞','🥖','🥨','🧀','🥚','🍳','🧈','🥞','🧇','🥓','🥩','🍗','🍖','🌭','🍔','🍟','🍕','🫓','🥪','🥙','🧆','🌮','🌯','🫔','🥗','🥘','🫕','🥫','🍝','🍜','🍲','🍛','🍣','🍱','🥟','🦪','🍤','🍙','🍚','🍘','🍥','🥠','🥮','🍢','🍡','🍧','🍨','🍦','🥧','🧁','🍰','🎂','🍮','🍭','🍬','🍫','🍿','🍩','🍪','🌰','🥜','🍯','🥛','🍼','🫖','☕','🍵','🧃','🥤','🧋','🍶','🍺','🍻','🥂','🍷','🥃','🍸','🍹','🧉','🍾','🫗'],
+        objects: ['💡','🔦','🏮','🪔','📱','💻','⌨️','🖥️','🖨️','🖱️','🖲️','💾','💿','📀','📷','📸','📹','🎥','📽️','🎞️','📞','☎️','📟','📠','📺','📻','🎙️','🎚️','🎛️','🧭','⏱️','⏲️','⏰','🕰️','⌛','⏳','📡','🔋','🪫','🔌','💵','💴','💶','💷','🪙','💰','💳','💎','⚖️','🪜','🧰','🪛','🔧','🔨','⚒️','🛠️','⛏️','🪚','🔩','⚙️']
+    };
+
+    // Load recent from localStorage
+    try {
+        const saved = localStorage.getItem('chat_recent_emojis');
+        if (saved) emojiData.recent = JSON.parse(saved);
+    } catch(e) {}
+
+    function renderGrid(category) {
+        const grid = document.getElementById('chatEmojiGrid');
+        if (!grid || !emojiData[category]) return;
+        grid.innerHTML = emojiData[category].map(e => `<button class="emoji-item">${e}</button>`).join('');
+    }
+
+    window.toggleEmojiPicker = function() {
+        const picker = document.getElementById('chatEmojiPicker');
+        if (!picker) return;
+        const vis = picker.style.display !== 'none';
+        picker.style.display = vis ? 'none' : 'block';
+        if (!vis) renderGrid('recent');
+    };
+
+    // Category click
+    document.addEventListener('click', function(e) {
+        const picker = document.getElementById('chatEmojiPicker');
+        if (!picker) return;
+
+        // Category tab
+        const cat = e.target.closest('#chatEmojiCategories .emoji-cat');
+        if (cat) {
+            picker.querySelectorAll('.emoji-cat').forEach(c => c.classList.remove('active'));
+            cat.classList.add('active');
+            renderGrid(cat.dataset.cat);
+            return;
+        }
+
+        // Emoji item click
+        const item = e.target.closest('#chatEmojiGrid .emoji-item');
+        if (item) {
+            const emoji = item.textContent;
+            const input = document.getElementById('chatInput');
+            if (input) {
+                const start = input.selectionStart;
+                const end = input.selectionEnd;
+                input.value = input.value.substring(0, start) + emoji + input.value.substring(end);
+                input.selectionStart = input.selectionEnd = start + emoji.length;
+                input.focus();
+            }
+            // Save to recent
+            const idx = emojiData.recent.indexOf(emoji);
+            if (idx > -1) emojiData.recent.splice(idx, 1);
+            emojiData.recent.unshift(emoji);
+            emojiData.recent = emojiData.recent.slice(0, 24);
+            localStorage.setItem('chat_recent_emojis', JSON.stringify(emojiData.recent));
+            return;
+        }
+
+        // Click outside to close
+        const btn = document.getElementById('chatEmojiBtn');
+        if (picker.style.display !== 'none' && !picker.contains(e.target) && e.target !== btn && !btn?.contains(e.target)) {
+            picker.style.display = 'none';
+        }
+    });
+})();
+

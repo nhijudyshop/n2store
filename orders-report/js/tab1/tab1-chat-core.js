@@ -579,6 +579,26 @@ function _startRealtimeForChat() {
         });
     }
 
+    // Listen for bulk send completion → immediate refresh
+    if (!window._bulkSendListenerRegistered) {
+        window._bulkSendListenerRegistered = true;
+        window.addEventListener('bulkSendCompleted', async () => {
+            const convId = window.currentConversationId;
+            const pageId = window.currentChatChannelId;
+            if (!convId || !pageId || !window.pancakeDataManager) return;
+            try {
+                window.pancakeDataManager.clearMessagesCache(pageId, convId);
+                const result = await window.pancakeDataManager.fetchMessages(pageId, convId);
+                if (!result.messages?.length || window.currentConversationId !== convId) return;
+                const existingIds = new Set(window.allChatMessages.map(m => String(m.id)));
+                const newMsgs = result.messages.filter(m => !existingIds.has(String(m.id)));
+                for (const msg of newMsgs) {
+                    window.handleNewMessage?.({ message: msg, page_id: pageId });
+                }
+            } catch (e) { /* silent */ }
+        });
+    }
+
     // Polling fallback: refresh messages every 15s while chat is open
     // Covers case when WebSocket is disconnected or events are missed
     _stopChatPolling();
