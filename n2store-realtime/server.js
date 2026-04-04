@@ -204,7 +204,7 @@ async function upsertPendingCustomer(data) {
 }
 
 /**
- * Auto-cleanup: Delete pending_customers older than 3 days
+ * Auto-cleanup: Delete pending_customers older than 30 days
  */
 async function cleanupExpiredPendingCustomers() {
     if (!dbPool) return;
@@ -212,11 +212,11 @@ async function cleanupExpiredPendingCustomers() {
     try {
         const result = await dbPool.query(`
             DELETE FROM pending_customers
-            WHERE last_message_time < NOW() - INTERVAL '7 days'
+            WHERE last_message_time < NOW() - INTERVAL '30 days'
         `);
 
         if (result.rowCount > 0) {
-            console.log(`[DATABASE] 🧹 Cleaned up ${result.rowCount} expired pending customers (>3 days)`);
+            console.log(`[DATABASE] 🧹 Cleaned up ${result.rowCount} expired pending customers (>30 days)`);
         }
     } catch (error) {
         console.error('[DATABASE] Error cleaning up expired customers:', error.message);

@@ -398,6 +398,13 @@ window.sendMessage = async function() {
             }
         }
 
+        // Mark as replied: clear pending_customers from both Render DBs + browser badge
+        const psid = window.currentChatPSID;
+        if (psid) {
+            window.newMessagesNotifier?.clearPendingForCustomer(psid);
+            if (typeof _markRepliedOnServer === 'function') _markRepliedOnServer(psid, pageId);
+        }
+
         // Reload messages to get server-confirmed versions
         // Extension sends go directly to Facebook → Pancake needs longer to sync
         const reloadDelay = imagesSentViaExtension ? 5000 : 2000;

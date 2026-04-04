@@ -47,12 +47,11 @@ window._getChatAvatarUrl = function(psid, pageId) {
 
 function _markRepliedOnServer(psid, pageId) {
     if (!psid) return;
-    const API_BASE = 'https://n2store-fallback.onrender.com';
-    fetch(`${API_BASE}/api/realtime/mark-replied`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ psid, pageId: pageId || null })
-    }).catch(() => {}); // Fire and forget
+    const body = JSON.stringify({ psid, pageId: pageId || null });
+    const opts = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body };
+    // Fire and forget to BOTH servers
+    fetch('https://n2store-fallback.onrender.com/api/realtime/mark-replied', opts).catch(() => {});
+    fetch('https://n2store-realtime.onrender.com/api/realtime/mark-replied', opts).catch(() => {});
 }
 
 // =====================================================
