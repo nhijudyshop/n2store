@@ -266,14 +266,19 @@
         },
         getTTagName(tagId) {
             const def = this._tTagDefinitions.find(d => d.id === tagId);
-            return def ? def.name : tagId;
+            if (def) return def.name;
+            console.warn(`${PTAG_LOG} T-tag definition missing for ID: ${tagId}`);
+            return `⚠ ${tagId}`;
         },
         getTTagDef(tagId) {
             return this._tTagDefinitions.find(d => d.id === tagId) || null;
         },
         getTTagLabel(tagId) {
             const def = this._tTagDefinitions.find(d => d.id === tagId);
-            if (!def) return tagId;
+            if (!def) {
+                console.warn(`${PTAG_LOG} T-tag definition missing for ID: ${tagId}`);
+                return `⚠ ${tagId}`;
+            }
             const pc = def.productCode ? ` · ${def.productCode.toUpperCase()}` : '';
             return `${(def.name || '').toUpperCase()}${pc}`;
         },
@@ -288,7 +293,9 @@
         },
         getCustomFlagLabel(flagId) {
             const def = this._customFlagDefs.find(d => d.id === flagId);
-            return def ? (def.label || '').toUpperCase() : flagId;
+            if (def) return (def.label || '').toUpperCase();
+            console.warn(`${PTAG_LOG} Custom flag definition missing for ID: ${flagId}`);
+            return `⚠ ${flagId.slice(-8)}`;
         }
     };
 
@@ -332,13 +339,16 @@
         try {
             // 1. Load config (T-tag definitions, custom flags) từ endpoint riêng
             // KHÔNG gọi clear() — dùng incremental update để tránh window trống data
+            const backupTTagDefs = [...ProcessingTagState._tTagDefinitions];
             const backupCustomFlagDefs = [...ProcessingTagState._customFlagDefs];
+            let loadedTTags = false;
             let loadedCustomFlags = false;
             try {
                 const configResult = await _ptagFetch(`${PTAG_API_BASE}/config`);
                 if (configResult.data) {
-                    if (configResult.data.__ttag_config__) {
-                        ProcessingTagState.setTTagDefinitions(configResult.data.__ttag_config__.tTagDefinitions || []);
+                    if (configResult.data.__ttag_config__?.tTagDefinitions?.length) {
+                        ProcessingTagState.setTTagDefinitions(configResult.data.__ttag_config__.tTagDefinitions);
+                        loadedTTags = true;
                     }
                     if (configResult.data.__ptag_custom_flags__?.customFlagDefs) {
                         ProcessingTagState.setCustomFlagDefs(configResult.data.__ptag_custom_flags__.customFlagDefs);
@@ -347,6 +357,10 @@
                 }
             } catch (e) {
                 console.warn(`${PTAG_LOG} Failed to load config:`, e);
+            }
+            if (!loadedTTags && backupTTagDefs.length > 0) {
+                ProcessingTagState._tTagDefinitions = backupTTagDefs;
+                console.log(`${PTAG_LOG} Restored ${backupTTagDefs.length} T-tag defs from backup`);
             }
             if (!loadedCustomFlags && backupCustomFlagDefs.length > 0) {
                 ProcessingTagState._customFlagDefs = backupCustomFlagDefs;
@@ -501,6 +515,25 @@
     async function saveCustomFlagDefinitions() {
         const data = { customFlagDefs: ProcessingTagState.getCustomFlagDefs() };
         await saveProcessingTagToAPI('__ptag_custom_flags__', data);
+    }
+
+    /**
+     * Atomic merge for config: add/remove defs without full-replace race condition.
+     * Use this instead of saveTTagDefinitions/saveCustomFlagDefinitions when possible.
+     */
+    async function mergeConfigDefs(configKey, addDefs, removeDefs) {
+        try {
+            const userName = window.authManager?.getAuthState()?.username || '';
+            await _ptagFetch(`${PTAG_API_BASE}/config-merge`, {
+                method: 'PATCH',
+                body: JSON.stringify({ configKey, addDefs: addDefs || [], removeDefs: removeDefs || [], updatedBy: userName })
+            });
+        } catch (e) {
+            console.error(`${PTAG_LOG} Failed to merge config ${configKey}:`, e);
+            // Fallback: full save (last resort)
+            if (configKey === '__ttag_config__') await saveTTagDefinitions();
+            else if (configKey === '__ptag_custom_flags__') await saveCustomFlagDefinitions();
+        }
     }
 
     async function clearProcessingTagAPI(orderCode) {
@@ -1500,7 +1533,7 @@
         const newDef = { id: tagId, name: name, productCode: '', createdAt: Date.now() };
         defs.push(newDef);
         ProcessingTagState.setTTagDefinitions(defs);
-        await saveTTagDefinitions();
+        await mergeConfigDefs('__ttag_config__', [newDef]);
 
         // Assign to order
         await assignTTagToOrder(orderCode, tagId);
@@ -2621,7 +2654,7 @@
         const newDef = { id: upperName, name: upperName, productCode: productCode || '', createdAt: Date.now() };
         defs.push(newDef);
         ProcessingTagState.setTTagDefinitions(defs);
-        saveTTagDefinitions();
+        mergeConfigDefs('__ttag_config__', [newDef]);
 
         // Add to selection
         _ttagSelectedTags.push(upperName);
@@ -2958,7 +2991,7 @@
         const newDef = { id: tagId, name: name.toUpperCase(), productCode, createdAt: Date.now() };
         defs.push(newDef);
         ProcessingTagState.setTTagDefinitions(defs);
-        saveTTagDefinitions();
+        mergeConfigDefs('__ttag_config__', [newDef]);
 
         console.log(`${PTAG_LOG} Created T-tag: ${tagId} (${productCode || 'no PC'} - ${name})`);
 
@@ -4021,7 +4054,7 @@
         if (idx >= 0) {
             defs.splice(idx, 1);
             ProcessingTagState.setTTagDefinitions(defs);
-            saveTTagDefinitions();
+            mergeConfigDefs('__ttag_config__', [], [tagId]);
         }
 
         console.log(`${PTAG_LOG} Deleted tag ${tagId} definition + removed from ${count} orders`);
@@ -4045,7 +4078,7 @@
         if (idx >= 0) {
             defs.splice(idx, 1);
             ProcessingTagState.setTTagDefinitions(defs);
-            saveTTagDefinitions();
+            mergeConfigDefs('__ttag_config__', [], [tagId]);
             renderPanelContent();
         }
     }
@@ -4595,18 +4628,18 @@
 
         // Delete empty custom flags
         if (emptyCustomFlags.length > 0) {
-            const emptyIds = new Set(emptyCustomFlags.map(cf => cf.id));
-            const remaining = customFlagDefs.filter(cf => !emptyIds.has(cf.id));
+            const emptyIds = emptyCustomFlags.map(cf => cf.id);
+            const remaining = customFlagDefs.filter(cf => !new Set(emptyIds).has(cf.id));
             ProcessingTagState.setCustomFlagDefs(remaining);
-            await saveCustomFlagDefinitions();
+            await mergeConfigDefs('__ptag_custom_flags__', [], emptyIds);
         }
 
         // Delete empty T-tag definitions
         if (emptyTTags.length > 0) {
-            const emptyTTagIds = new Set(emptyTTags.map(t => t.id));
-            const remaining = tTagDefs.filter(d => !emptyTTagIds.has(d.id));
+            const emptyTTagIds = emptyTTags.map(t => t.id);
+            const remaining = tTagDefs.filter(d => !new Set(emptyTTagIds).has(d.id));
             ProcessingTagState.setTTagDefinitions(remaining);
-            await saveTTagDefinitions();
+            await mergeConfigDefs('__ttag_config__', [], emptyTTagIds);
         }
 
         console.log(`${PTAG_LOG} Cleaned up ${emptyCustomFlags.length} empty custom flags + ${emptyTTags.length} empty T-tags`);
@@ -4632,7 +4665,7 @@
 
         const remaining = customFlagDefs.filter(cf => cf.id !== flagId);
         ProcessingTagState.setCustomFlagDefs(remaining);
-        await saveCustomFlagDefinitions();
+        await mergeConfigDefs('__ptag_custom_flags__', [], [flagId]);
         console.log(`${PTAG_LOG} Deleted custom flag: ${flagDef.label} (${flagId})`);
         renderPanelContent();
     }
@@ -4706,6 +4739,7 @@
     window.removeTTagFromOrder = removeTTagFromOrder;
     window.saveTTagDefinitions = saveTTagDefinitions;
     window.saveCustomFlagDefinitions = saveCustomFlagDefinitions;
+    window.mergeConfigDefs = mergeConfigDefs;
 
     // Cleanup empty tags
     window._ptagCleanupEmptyTags = _ptagCleanupEmptyTags;

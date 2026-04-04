@@ -596,17 +596,13 @@
             return;
         }
 
-        // 4. Pre-save all custom flags before executing (avoid SSE overwrite race condition)
+        // 4. Custom flags are now persisted immediately via mergeConfigDefs in _getOrCreateCustomFlag.
+        //    No pre-save needed — atomic merge prevents race conditions.
         const newCustomFlagKeys = new Set();
         for (const task of uniqueTasks) {
             if (task.action === 'flag' && task.flagKey.startsWith('CUSTOM_')) {
                 newCustomFlagKeys.add(task.flagKey);
             }
-        }
-        if (newCustomFlagKeys.size > 0) {
-            // Save custom flag definitions to API first, then wait for SSE to settle
-            await window.saveCustomFlagDefinitions();
-            await new Promise(r => setTimeout(r, 500));
         }
 
         // 5. Confirm
@@ -658,21 +654,27 @@
             }
         }
 
-        // 7. Re-save custom flags after all toggles (SSE may have overwritten during execution)
+        // 7. Re-ensure custom flags in state (SSE may have wiped them) — use atomic merge
         if (newCustomFlagKeys.size > 0) {
-            // Re-ensure custom flags exist in state (SSE may have wiped them)
             const defs = window.ProcessingTagState.getCustomFlagDefs();
+            const missingDefs = [];
             for (const task of uniqueTasks) {
                 if (task.action === 'flag' && task.flagKey.startsWith('CUSTOM_') && task._flagLabel) {
                     if (!defs.some(d => d.id === task.flagKey)) {
                         const _palette = ['#ef4444','#f97316','#f59e0b','#22c55e','#14b8a6','#3b82f6','#6366f1','#8b5cf6','#ec4899','#06b6d4'];
                         const _randColor = _palette[Math.floor(Math.random() * _palette.length)];
-                        defs.push({ id: task.flagKey, label: (task._flagLabel || '').toUpperCase(), color: _randColor, createdAt: Date.now() });
+                        const newDef = { id: task.flagKey, label: (task._flagLabel || '').toUpperCase(), color: _randColor, createdAt: Date.now() };
+                        defs.push(newDef);
+                        missingDefs.push(newDef);
                     }
                 }
             }
-            window.ProcessingTagState.setCustomFlagDefs(defs);
-            await window.saveCustomFlagDefinitions();
+            if (missingDefs.length > 0) {
+                window.ProcessingTagState.setCustomFlagDefs(defs);
+                if (typeof window.mergeConfigDefs === 'function') {
+                    await window.mergeConfigDefs('__ptag_custom_flags__', missingDefs);
+                }
+            }
             // Refresh all visible rows to show correct labels
             if (typeof window.renderPanelContent === 'function') window.renderPanelContent();
             document.querySelectorAll('td[data-column="processing-tag"]').forEach(cell => {
@@ -707,8 +709,13 @@
         const key = 'CUSTOM_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
         const _palette = ['#ef4444','#f97316','#f59e0b','#22c55e','#14b8a6','#3b82f6','#6366f1','#8b5cf6','#ec4899','#06b6d4'];
         const _randColor = _palette[Math.floor(Math.random() * _palette.length)];
-        defs.push({ id: key, label: (label || '').toUpperCase(), color: _randColor, createdAt: Date.now() });
+        const newDef = { id: key, label: (label || '').toUpperCase(), color: _randColor, createdAt: Date.now() };
+        defs.push(newDef);
         window.ProcessingTagState.setCustomFlagDefs(defs);
+        // Immediately persist via atomic merge to prevent SSE overwrite race condition
+        if (typeof window.mergeConfigDefs === 'function') {
+            window.mergeConfigDefs('__ptag_custom_flags__', [newDef]);
+        }
         return key;
     }
 

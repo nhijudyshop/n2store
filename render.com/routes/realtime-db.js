@@ -1124,76 +1124,91 @@ router.delete('/note-snapshots/cleanup', async (req, res) => {
 
 /**
  * GET /api/realtime/processing-tags/debug-config
- * Debug endpoint: show all __ttag_config__ and __ptag_custom_flags__ records
- * Also shows orphaned tTag IDs used in orders but missing from definitions
+ * Debug endpoint: show all config records + orphaned tTags + orphaned custom flags
+ * Query param: ?repair=true → auto-repair orphans
  */
 router.get('/processing-tags/debug-config', async (req, res) => {
     try {
         const pool = req.app.locals.chatDb;
         if (!pool) return res.status(500).json({ error: 'Database not available' });
+        const autoRepair = req.query.repair === 'true';
 
-        // Get config records
+        // Get config records (use order_code, which is the actual key)
         const configResult = await pool.query(
-            `SELECT id, campaign_id, order_id, order_code, data, updated_at
+            `SELECT id, order_code, data, updated_by, updated_at
              FROM processing_tags
-             WHERE order_id LIKE '\\_\\_%'
-             ORDER BY order_id, updated_at DESC`
+             WHERE order_code LIKE '\\_%' ESCAPE '\\'
+             ORDER BY order_code, updated_at DESC`
         );
 
         const records = configResult.rows.map(r => ({
             id: r.id,
-            campaign_id: r.campaign_id,
-            order_id: r.order_id,
             order_code: r.order_code,
             tTagDefinitions_count: r.data?.tTagDefinitions?.length || 0,
             tTagDefinitions_ids: (r.data?.tTagDefinitions || []).map(d => `${d.id}:${d.name}`),
             customFlagDefs_count: r.data?.customFlagDefs?.length || 0,
+            customFlagDefs_ids: (r.data?.customFlagDefs || []).map(d => `${d.id}:${d.label}`),
+            updated_by: r.updated_by,
             updated_at: r.updated_at
         }));
 
-        // Find all tTag IDs used in order data
-        const orderResult = await pool.query(
+        // --- Orphaned T-tags ---
+        const ttagResult = await pool.query(
             `SELECT DISTINCT jsonb_array_elements_text(data->'tTags') as tag_id
              FROM processing_tags
-             WHERE data->'tTags' IS NOT NULL
-             AND order_id NOT LIKE '\\_\\_%'`
+             WHERE data ? 'tTags' AND jsonb_array_length(data->'tTags') > 0
+             AND order_code NOT LIKE '\\_%' ESCAPE '\\'`
         );
-        const usedTagIds = orderResult.rows.map(r => r.tag_id);
+        const usedTagIds = ttagResult.rows.map(r => r.tag_id);
+        const configRow = configResult.rows.find(r => r.order_code === '__ttag_config__');
+        const definedTTagIds = new Set((configRow?.data?.tTagDefinitions || []).map(d => d.id));
+        const orphanedTTags = usedTagIds.filter(id => !definedTTagIds.has(id));
 
-        // Find definitions
-        const configRow = configResult.rows.find(r => r.order_id === '__ttag_config__' && r.data?.tTagDefinitions);
-        const definedIds = new Set((configRow?.data?.tTagDefinitions || []).map(d => d.id));
-        const orphanedIds = usedTagIds.filter(id => !definedIds.has(id));
+        // --- Orphaned Custom Flags ---
+        const flagResult = await pool.query(
+            `SELECT DISTINCT jsonb_array_elements_text(data->'flags') as flag_id
+             FROM processing_tags
+             WHERE data ? 'flags' AND jsonb_array_length(data->'flags') > 0
+             AND order_code NOT LIKE '\\_%' ESCAPE '\\'`
+        );
+        const usedFlagIds = flagResult.rows.map(r => r.flag_id).filter(f => f.startsWith('CUSTOM_'));
+        const flagRow = configResult.rows.find(r => r.order_code === '__ptag_custom_flags__');
+        const definedFlagIds = new Set((flagRow?.data?.customFlagDefs || []).map(d => d.id));
+        const orphanedFlags = usedFlagIds.filter(id => !definedFlagIds.has(id));
 
-        // Count orders per orphaned tag
-        const orphanDetails = {};
-        if (orphanedIds.length > 0) {
-            const countResult = await pool.query(
-                `SELECT tag_id, count(*) as order_count
-                 FROM (
-                     SELECT jsonb_array_elements_text(data->'tTags') as tag_id, order_code
-                     FROM processing_tags
-                     WHERE data->'tTags' IS NOT NULL
-                     AND order_id NOT LIKE '\\_\\_%'
-                 ) sub
-                 WHERE tag_id = ANY($1::text[])
-                 GROUP BY tag_id
-                 ORDER BY tag_id`,
-                [orphanedIds]
-            );
-            for (const row of countResult.rows) {
-                orphanDetails[row.tag_id] = parseInt(row.order_count);
-            }
+        // Count orders per orphan
+        const orphanTTagDetails = {};
+        const orphanFlagDetails = {};
+        if (orphanedTTags.length > 0) {
+            const r = await pool.query(
+                `SELECT tag_id, count(*) as cnt FROM (
+                    SELECT jsonb_array_elements_text(data->'tTags') as tag_id
+                    FROM processing_tags WHERE data ? 'tTags' AND order_code NOT LIKE '\\_%' ESCAPE '\\'
+                ) sub WHERE tag_id = ANY($1::text[]) GROUP BY tag_id`, [orphanedTTags]);
+            r.rows.forEach(row => orphanTTagDetails[row.tag_id] = +row.cnt);
+        }
+        if (orphanedFlags.length > 0) {
+            const r = await pool.query(
+                `SELECT flag_id, count(*) as cnt FROM (
+                    SELECT jsonb_array_elements_text(data->'flags') as flag_id
+                    FROM processing_tags WHERE data ? 'flags' AND order_code NOT LIKE '\\_%' ESCAPE '\\'
+                ) sub WHERE flag_id = ANY($1::text[]) GROUP BY flag_id`, [orphanedFlags]);
+            r.rows.forEach(row => orphanFlagDetails[row.flag_id] = +row.cnt);
+        }
+
+        let repairResult = null;
+        if (autoRepair && (orphanedTTags.length > 0 || orphanedFlags.length > 0)) {
+            repairResult = await _repairOrphans(pool, orphanedTTags, orphanedFlags, configRow, flagRow, notifyClients);
         }
 
         res.json({
             success: true,
             records,
-            config_count: configResult.rowCount,
-            usedTagIds,
-            definedIds: [...definedIds],
-            orphanedTagIds: orphanDetails,
-            orphanedCount: orphanedIds.length
+            orphanedTTags: orphanTTagDetails,
+            orphanedFlags: orphanFlagDetails,
+            orphanedTTagCount: orphanedTTags.length,
+            orphanedFlagCount: orphanedFlags.length,
+            repairResult
         });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -1202,128 +1217,207 @@ router.get('/processing-tags/debug-config', async (req, res) => {
 
 /**
  * POST /api/realtime/processing-tags/repair-orphaned-ttags
- * Find tTag IDs used in orders but missing from definitions, create placeholder definitions
+ * Find tTag + custom flag IDs used in orders but missing from definitions, create placeholders
  */
 router.post('/processing-tags/repair-orphaned-ttags', async (req, res) => {
     try {
         const pool = req.app.locals.chatDb;
         if (!pool) return res.status(500).json({ error: 'Database not available' });
 
-        // 1. Find all unique tTag IDs used in orders
-        const orderResult = await pool.query(
+        // Find orphaned T-tags
+        const ttagResult = await pool.query(
             `SELECT DISTINCT jsonb_array_elements_text(data->'tTags') as tag_id
              FROM processing_tags
-             WHERE data->'tTags' IS NOT NULL
-             AND order_id NOT LIKE '\\_\\_%'`
+             WHERE data ? 'tTags' AND jsonb_array_length(data->'tTags') > 0
+             AND order_code NOT LIKE '\\_%' ESCAPE '\\'`
         );
-        const usedTagIds = new Set(orderResult.rows.map(r => r.tag_id));
-
-        // 2. Get current config (merge all __ttag_config__ records)
         const configResult = await pool.query(
-            `SELECT data FROM processing_tags WHERE order_id = '__ttag_config__' ORDER BY updated_at DESC`
+            `SELECT data FROM processing_tags WHERE order_code = '__ttag_config__' LIMIT 1`
         );
+        const configRow = configResult.rows[0] || null;
+        const definedTTagIds = new Set((configRow?.data?.tTagDefinitions || []).map(d => d.id));
+        const orphanedTTags = ttagResult.rows.map(r => r.tag_id).filter(id => !definedTTagIds.has(id));
 
-        let allDefs = [];
-        for (const row of configResult.rows) {
-            const defs = row.data?.tTagDefinitions || [];
-            for (const def of defs) {
-                if (!allDefs.some(d => d.id === def.id)) {
-                    allDefs.push(def);
-                }
-            }
-        }
-
-        // 3. Also merge from old orphaned __ttag_config__ records (NULL order_code)
-        const oldConfigResult = await pool.query(
-            `SELECT data FROM processing_tags WHERE order_id = '__ttag_config__' AND order_code IS NULL`
+        // Find orphaned custom flags
+        const flagResult = await pool.query(
+            `SELECT DISTINCT jsonb_array_elements_text(data->'flags') as flag_id
+             FROM processing_tags
+             WHERE data ? 'flags' AND jsonb_array_length(data->'flags') > 0
+             AND order_code NOT LIKE '\\_%' ESCAPE '\\'`
         );
-        for (const row of oldConfigResult.rows) {
-            const defs = row.data?.tTagDefinitions || [];
-            for (const def of defs) {
-                if (!allDefs.some(d => d.id === def.id)) {
-                    allDefs.push(def);
-                }
-            }
-        }
-
-        // 4. Find orphaned IDs and create placeholder definitions
-        const definedIds = new Set(allDefs.map(d => d.id));
-        const orphaned = [];
-        for (const tagId of usedTagIds) {
-            if (!definedIds.has(tagId)) {
-                orphaned.push(tagId);
-                allDefs.push({
-                    id: tagId,
-                    name: `[RECOVERED] ${tagId}`,
-                    productCode: '',
-                    createdAt: Date.now(),
-                    isRecovered: true
-                });
-            }
-        }
-
-        if (orphaned.length === 0) {
-            return res.json({ success: true, message: 'No orphaned tags found', definitionsCount: allDefs.length });
-        }
-
-        // 5. Also merge custom flag defs from orphaned __ptag_custom_flags__ records
-        const customFlagResult = await pool.query(
-            `SELECT data FROM processing_tags WHERE order_id = '__ptag_custom_flags__' ORDER BY updated_at DESC`
+        const flagConfigResult = await pool.query(
+            `SELECT data FROM processing_tags WHERE order_code = '__ptag_custom_flags__' LIMIT 1`
         );
-        let allCustomFlags = [];
-        for (const row of customFlagResult.rows) {
-            const defs = row.data?.customFlagDefs || [];
-            for (const def of defs) {
-                if (!allCustomFlags.some(d => d.id === def.id)) {
-                    allCustomFlags.push(def);
-                }
-            }
+        const flagRow = flagConfigResult.rows[0] || null;
+        const definedFlagIds = new Set((flagRow?.data?.customFlagDefs || []).map(d => d.id));
+        const orphanedFlags = flagResult.rows.map(r => r.flag_id).filter(f => f.startsWith('CUSTOM_') && !definedFlagIds.has(f));
+
+        if (orphanedTTags.length === 0 && orphanedFlags.length === 0) {
+            return res.json({ success: true, message: 'No orphans found' });
         }
 
-        // 6. Save consolidated __ttag_config__
-        const configData = JSON.stringify({ tTagDefinitions: allDefs });
+        const result = await _repairOrphans(pool, orphanedTTags, orphanedFlags, configRow, flagRow, notifyClients);
+        res.json({ success: true, ...result });
+    } catch (error) {
+        console.error('[REALTIME-DB] repair-orphaned-ttags error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * PATCH /api/realtime/processing-tags/config-merge
+ * Atomic merge for config records — prevents race condition overwrites.
+ * Body: { configKey: "__ptag_custom_flags__"|"__ttag_config__", addDefs: [...], removeDefs: ["id1",...] }
+ */
+router.patch('/processing-tags/config-merge', async (req, res) => {
+    try {
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+
+        const { configKey, addDefs, removeDefs, updatedBy } = req.body;
+        if (!configKey || !['__ttag_config__', '__ptag_custom_flags__'].includes(configKey)) {
+            return res.status(400).json({ error: 'Invalid configKey' });
+        }
+
+        const isTTag = configKey === '__ttag_config__';
+        const arrayField = isTTag ? 'tTagDefinitions' : 'customFlagDefs';
+
         const client = await pool.connect();
         try {
             await client.query('BEGIN');
-            await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', ['__ttag_config__']);
-            await client.query(`DELETE FROM processing_tags WHERE order_id = '__ttag_config__'`);
-            await client.query(
-                `INSERT INTO processing_tags (campaign_id, order_id, data, updated_by, order_code, created_at, updated_at)
-                 VALUES ('__global__', '__ttag_config__', $1, 'repair-script', '__ttag_config__', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-                [configData]
-            );
+            await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [configKey]);
 
-            // 7. Also consolidate __ptag_custom_flags__ if there are orphaned records
-            if (allCustomFlags.length > 0) {
-                const flagData = JSON.stringify({ customFlagDefs: allCustomFlags });
-                await client.query(`DELETE FROM processing_tags WHERE order_id = '__ptag_custom_flags__'`);
-                await client.query(
-                    `INSERT INTO processing_tags (campaign_id, order_id, data, updated_by, order_code, created_at, updated_at)
-                     VALUES ('__global__', '__ptag_custom_flags__', $1, 'repair-script', '__ptag_custom_flags__', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-                    [flagData]
-                );
+            // Read current config
+            const current = await client.query(
+                `SELECT data FROM processing_tags WHERE order_code = $1 LIMIT 1`, [configKey]
+            );
+            let defs = current.rows[0]?.data?.[arrayField] || [];
+
+            // Remove defs by ID
+            const removeSet = new Set(removeDefs || []);
+            if (removeSet.size > 0) {
+                defs = defs.filter(d => !removeSet.has(d.id));
             }
 
+            // Add new defs (skip if ID already exists)
+            if (Array.isArray(addDefs)) {
+                for (const newDef of addDefs) {
+                    if (!defs.some(d => d.id === newDef.id)) {
+                        defs.push(newDef);
+                    }
+                }
+            }
+
+            const data = { [arrayField]: defs };
+            const dataJson = JSON.stringify(data);
+
+            // Upsert
+            if (current.rows.length > 0) {
+                await client.query(
+                    `UPDATE processing_tags SET data = $1, updated_by = $2, updated_at = CURRENT_TIMESTAMP WHERE order_code = $3`,
+                    [dataJson, updatedBy || null, configKey]
+                );
+            } else {
+                await client.query(
+                    `INSERT INTO processing_tags (data, updated_by, order_code, created_at, updated_at)
+                     VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+                    [dataJson, updatedBy || null, configKey]
+                );
+            }
             await client.query('COMMIT');
+
+            // SSE broadcast
+            if (notifyClients) {
+                notifyClients('processing_tags_global', { orderCode: configKey, data }, 'update');
+            }
+
+            res.json({ success: true, configKey, totalDefs: defs.length });
         } catch (err) {
             await client.query('ROLLBACK');
             throw err;
         } finally {
             client.release();
         }
-
-        res.json({
-            success: true,
-            repairedTagIds: orphaned,
-            totalDefinitions: allDefs.length,
-            totalCustomFlags: allCustomFlags.length,
-            message: `Repaired ${orphaned.length} orphaned tag definitions. Custom flags consolidated: ${allCustomFlags.length}`
-        });
     } catch (error) {
-        console.error('[REALTIME-DB] repair-orphaned-ttags error:', error);
+        console.error('[REALTIME-DB] PATCH config-merge error:', error);
         res.status(500).json({ error: error.message });
     }
 });
+
+/**
+ * Helper: repair orphaned T-tags and custom flags
+ */
+async function _repairOrphans(pool, orphanedTTags, orphanedFlags, ttagConfigRow, flagConfigRow, notifyClients) {
+    const ttagDefs = [...(ttagConfigRow?.data?.tTagDefinitions || [])];
+    const flagDefs = [...(flagConfigRow?.data?.customFlagDefs || [])];
+
+    // Create placeholder T-tag definitions
+    for (const tagId of orphanedTTags) {
+        ttagDefs.push({
+            id: tagId,
+            name: `[RECOVERED] ${tagId}`,
+            productCode: '',
+            createdAt: Date.now(),
+            isRecovered: true
+        });
+    }
+
+    // Create placeholder custom flag definitions
+    const palette = ['#ef4444','#f97316','#f59e0b','#22c55e','#14b8a6','#3b82f6','#6366f1','#8b5cf6','#ec4899','#06b6d4'];
+    for (const flagId of orphanedFlags) {
+        flagDefs.push({
+            id: flagId,
+            label: `[RECOVERED] ${flagId.slice(-8)}`,
+            color: palette[Math.floor(Math.random() * palette.length)],
+            createdAt: Date.now(),
+            isRecovered: true
+        });
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        if (orphanedTTags.length > 0) {
+            await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', ['__ttag_config__']);
+            const data = { tTagDefinitions: ttagDefs };
+            await client.query(`DELETE FROM processing_tags WHERE order_code = '__ttag_config__'`);
+            await client.query(
+                `INSERT INTO processing_tags (data, updated_by, order_code, created_at, updated_at)
+                 VALUES ($1, 'repair-script', '__ttag_config__', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+                [JSON.stringify(data)]
+            );
+            if (notifyClients) notifyClients('processing_tags_global', { orderCode: '__ttag_config__', data }, 'update');
+        }
+
+        if (orphanedFlags.length > 0) {
+            await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', ['__ptag_custom_flags__']);
+            const data = { customFlagDefs: flagDefs };
+            await client.query(`DELETE FROM processing_tags WHERE order_code = '__ptag_custom_flags__'`);
+            await client.query(
+                `INSERT INTO processing_tags (data, updated_by, order_code, created_at, updated_at)
+                 VALUES ($1, 'repair-script', '__ptag_custom_flags__', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+                [JSON.stringify(data)]
+            );
+            if (notifyClients) notifyClients('processing_tags_global', { orderCode: '__ptag_custom_flags__', data }, 'update');
+        }
+
+        await client.query('COMMIT');
+    } catch (err) {
+        await client.query('ROLLBACK');
+        throw err;
+    } finally {
+        client.release();
+    }
+
+    return {
+        repairedTTags: orphanedTTags,
+        repairedFlags: orphanedFlags,
+        totalTTagDefs: ttagDefs.length,
+        totalFlagDefs: flagDefs.length,
+        message: `Repaired ${orphanedTTags.length} T-tags + ${orphanedFlags.length} custom flags`
+    };
+}
 
 /**
  * POST /api/realtime/processing-tags/batch
