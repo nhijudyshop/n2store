@@ -1,11 +1,12 @@
 // Facebook Global ID Resolver
 // Handles GET_GLOBAL_ID_FOR_CONV - resolves thread_id to globalUserId via GraphQL
-// 5 strategies (matching Pancake Extension):
-//   1. MessengerThreadlistQuery (doc_id)
-//   2. thread_info.php (mercury)
-//   3. PagesManagerInboxAdminAssignerRootQuery (GraphQL friendly_name)
-//   4. findThread - load thread list, match by threadId/customerName (Pancake style)
-//   5. getUserInboxByName - search customer by name (Pancake style)
+// 6 strategies matching Pancake Extension priority:
+//   1. PagesManagerInboxAdminAssignerRootQuery (doc_id + commItemID) — Pancake #1
+//   2. PagesManagerInboxQueryUtilCommItemHeaderMercuryQuery (cquick_token) — Pancake #2
+//   3. MessengerThreadlistQuery (doc_id, our extra)
+//   4. thread_info.php (mercury, our extra)
+//   5. findThread — thread list search: main→done→page_background→spam→retry — Pancake #3
+//   6. getUserInboxByName — BizInboxCustomerRelaySearchSourceQuery — Pancake #4
 import { CONFIG } from '../../shared/config.js';
 import { log } from '../../shared/logger.js';
 import { initPage, getSession, getDocIds } from './session.js';
@@ -16,7 +17,7 @@ const MODULE = 'FB-GlobalID';
 // Persistent cache: threadId → globalId
 const globalIdCache = new Map();
 
-// Thread cache: avoid re-fetching thread lists
+// Thread cache: avoid re-fetching thread lists (pageId:commItemId → thread node)
 const threadCache = new Map();
 
 /**
@@ -77,6 +78,7 @@ export async function handleGetGlobalIdForConv(data, sendResponse) {
     const globalId = await resolveGlobalId(session, pageId, threadId, isBusiness, {
       customerName,
       conversationUpdatedTime,
+      threadKey,
     });
 
     if (globalId) {
@@ -107,52 +109,73 @@ export async function handleGetGlobalIdForConv(data, sendResponse) {
 
 /**
  * Resolve global ID via Facebook GraphQL
- * Uses 5 strategies in order (matching Pancake Extension)
+ * Strategy order matches Pancake Extension priority
  */
 async function resolveGlobalId(session, pageId, threadId, isBusiness, extra = {}) {
   const docIds = getDocIds();
-  const { customerName, conversationUpdatedTime } = extra;
+  const { customerName, conversationUpdatedTime, threadKey } = extra;
 
-  // Strategies that require threadId
   const strategies = [];
 
-  if (threadId) {
-    strategies.push(
-      () => queryViaThreadlist(session, pageId, threadId, docIds),
-      () => queryViaInboxSearch(session, pageId, threadId),
-      () => queryViaGraphQL(session, pageId, threadId),
-    );
+  // --- Pancake Strategy 1: PagesManagerInboxAdminAssignerRootQuery ---
+  if (threadId && docIds?.['PagesManagerInboxAdminAssignerRootQuery']) {
+    strategies.push({
+      name: 'AdminAssignerRootQuery',
+      fn: () => queryViaAdminAssigner(session, pageId, threadId, docIds),
+    });
   }
 
-  // Strategy 4: findThread — works with threadId OR customerName
+  // --- Pancake Strategy 2: PagesManagerInboxQueryUtilCommItemHeaderMercuryQuery (cquick_token) ---
+  if (threadKey && session.cquickToken && docIds?.['PagesManagerInboxQueryUtilCommItemHeaderMercuryQuery']) {
+    strategies.push({
+      name: 'CommItemHeaderMercuryQuery',
+      fn: () => queryViaCommItemHeader(session, pageId, threadKey, docIds),
+    });
+  }
+
+  // --- Our extra strategies ---
+  if (threadId) {
+    strategies.push({
+      name: 'MessengerThreadlistQuery',
+      fn: () => queryViaThreadlist(session, pageId, threadId, docIds),
+    });
+    strategies.push({
+      name: 'thread_info.php',
+      fn: () => queryViaInboxSearch(session, pageId, threadId),
+    });
+  }
+
+  // --- Pancake Strategy 3: findThread (thread list search) ---
   if (threadId || customerName) {
-    strategies.push(
-      () => findThread(session, pageId, docIds, {
+    strategies.push({
+      name: 'findThread',
+      fn: () => findThread(session, pageId, docIds, {
         threadId,
         customerName,
         timeCursor: conversationUpdatedTime
           ? conversationUpdatedTime + 60000
           : Date.now(),
       }),
-    );
+    });
   }
 
-  // Strategy 5: getUserInboxByName — only needs customerName
+  // --- Pancake Strategy 4: getUserInboxByName ---
   if (customerName) {
-    strategies.push(
-      () => getUserInboxByName(session, pageId, docIds, customerName, threadId),
-    );
+    strategies.push({
+      name: 'getUserInboxByName',
+      fn: () => getUserInboxByName(session, pageId, docIds, customerName, threadId),
+    });
   }
 
   for (const [i, strategy] of strategies.entries()) {
     try {
-      const result = await strategy();
+      const result = await strategy.fn();
       if (result) {
-        log.info(MODULE, `Strategy ${i + 1} succeeded`);
+        log.info(MODULE, `Strategy ${i + 1}/${strategies.length} [${strategy.name}] succeeded`);
         return result;
       }
     } catch (err) {
-      log.debug(MODULE, `Strategy ${i + 1} failed: ${err.message}`);
+      log.debug(MODULE, `Strategy ${i + 1}/${strategies.length} [${strategy.name}] failed: ${err.message}`);
     }
   }
 
@@ -160,11 +183,123 @@ async function resolveGlobalId(session, pageId, threadId, isBusiness, extra = {}
 }
 
 // ============================================================
-// Strategy 1: Query via MessengerThreadlistQuery doc_id
+// Strategy 1: PagesManagerInboxAdminAssignerRootQuery (Pancake #1)
+// Uses doc_id + { pageID, commItemID } — NOT threadKey
+// ============================================================
+async function queryViaAdminAssigner(session, pageId, threadId, docIds) {
+  const queryName = 'PagesManagerInboxAdminAssignerRootQuery';
+  const docId = docIds?.[queryName];
+
+  if (!docId) {
+    log.debug(MODULE, `No doc_id for ${queryName}`);
+    return null;
+  }
+
+  const variables = JSON.stringify({
+    pageID: pageId,
+    commItemID: threadId,
+  });
+
+  const params = {
+    ...buildBaseParams(session),
+    av: pageId,
+    doc_id: docId,
+    variables,
+    fb_api_caller_class: 'RelayModern',
+    fb_api_req_friendly_name: queryName,
+  };
+
+  const referer = `https://business.facebook.com/latest/inbox/all?page_id=${pageId}`;
+  const response = await fetch(CONFIG.FB_GRAPHQL, {
+    method: 'POST',
+    headers: buildFbHeaders(referer),
+    body: encodeFormData(params),
+    credentials: 'include',
+  });
+
+  const text = await response.text();
+  const result = parseFbRes(text);
+
+  // Check for rate limit — don't delete doc_id
+  if (result?.errors?.some(e => /rate limit/i.test(e.message))) {
+    log.debug(MODULE, `${queryName}: rate limited`);
+    return null;
+  }
+
+  // Pancake path: data.commItem.target_id
+  if (result?.data?.commItem?.target_id) {
+    return result.data.commItem.target_id;
+  }
+
+  return null;
+}
+
+// ============================================================
+// Strategy 2: PagesManagerInboxQueryUtilCommItemHeaderMercuryQuery (Pancake #2)
+// Uses cquick_token + { pageID, messageThreadID }
+// ============================================================
+async function queryViaCommItemHeader(session, pageId, threadKey, docIds) {
+  const queryName = 'PagesManagerInboxQueryUtilCommItemHeaderMercuryQuery';
+  const docId = docIds?.[queryName];
+
+  if (!docId || !session.cquickToken) {
+    log.debug(MODULE, `No doc_id or cquick_token for ${queryName}`);
+    return null;
+  }
+
+  const variables = JSON.stringify({
+    pageID: pageId,
+    messageThreadID: threadKey,
+  });
+
+  const params = {
+    ...buildBaseParams(session),
+    av: pageId,
+    doc_id: docId,
+    variables,
+    fb_api_caller_class: 'RelayModern',
+    fb_api_req_friendly_name: queryName,
+    // CQuick params (Pancake's compat iframe mechanism)
+    cquick: 'jsc_c_d',
+    cquick_token: session.cquickToken,
+    ctarget: 'https%3A%2F%2Fwww.facebook.com',
+  };
+
+  const referer = `https://business.facebook.com/latest/inbox/all?page_id=${pageId}`;
+  const response = await fetch(CONFIG.FB_GRAPHQL, {
+    method: 'POST',
+    headers: buildFbHeaders(referer),
+    body: encodeFormData(params),
+    credentials: 'include',
+  });
+
+  const text = await response.text();
+  const result = parseFbRes(text);
+
+  // Check for rate limit
+  if (result?.errors?.some(e => /rate limit/i.test(e.message))) {
+    log.debug(MODULE, `${queryName}: rate limited`);
+    return null;
+  }
+
+  // Pancake path: data.page.page_comm_item_for_message_thread.target_id
+  const targetId = result?.data?.page?.page_comm_item_for_message_thread?.target_id;
+  if (targetId) return targetId;
+
+  // Fallback: data.commItem.target_id
+  if (result?.data?.commItem?.target_id) {
+    return result.data.commItem.target_id;
+  }
+
+  return null;
+}
+
+// ============================================================
+// Strategy 3: Query via MessengerThreadlistQuery doc_id (our extra)
 // ============================================================
 async function queryViaThreadlist(session, pageId, threadId, docIds) {
   const queryName = 'MessengerThreadlistQuery';
-  const docId = docIds?.[queryName] || docIds?.['LSPlatformGraphQLLightspeedRequestQuery'];
+  const docId = docIds?.[queryName] || docIds?.['MessengerThreadlistWebGraphQLQuery'];
 
   if (!docId) {
     log.debug(MODULE, 'No doc_id found for threadlist query');
@@ -201,7 +336,7 @@ async function queryViaThreadlist(session, pageId, threadId, docIds) {
 }
 
 // ============================================================
-// Strategy 2: Query via inbox search (thread_info.php)
+// Strategy 4: Query via inbox search (thread_info.php) (our extra)
 // ============================================================
 async function queryViaInboxSearch(session, pageId, threadId) {
   const params = {
@@ -234,48 +369,19 @@ async function queryViaInboxSearch(session, pageId, threadId) {
 }
 
 // ============================================================
-// Strategy 3: PagesManagerInboxAdminAssignerRootQuery
+// Strategy 5: findThread — load thread list, match by name/id (Pancake #3)
+// Category chain: main → done → page_background → spam → retry(now)
+// Uses MessengerThreadlistWebGraphQLQuery / MessengerThreadlistQuery doc_id
 // ============================================================
-async function queryViaGraphQL(session, pageId, threadId) {
-  const variables = JSON.stringify({
-    threadKey: `t_${threadId}`,
-    pageId,
-  });
 
-  const params = {
-    ...buildBaseParams(session),
-    variables,
-    fb_api_caller_class: 'RelayModern',
-    fb_api_req_friendly_name: 'PagesManagerInboxAdminAssignerRootQuery',
-    server_timestamps: 'true',
-  };
+// Category progression: Pancake searches all 5 steps
+const CATEGORY_CHAIN = ['main', 'done', 'page_background', 'spam'];
 
-  const referer = `https://business.facebook.com/latest/inbox/all?page_id=${pageId}`;
-  const response = await fetch(CONFIG.FB_GRAPHQL, {
-    method: 'POST',
-    headers: buildFbHeaders(referer),
-    body: encodeFormData(params),
-    credentials: 'include',
-  });
-
-  const text = await response.text();
-  const result = parseFbRes(text);
-
-  // Pancake path: data.commItem.target_id
-  if (result?.data?.commItem?.target_id) {
-    return result.data.commItem.target_id;
-  }
-
-  return extractGlobalIdFromGraphQL(result);
-}
-
-// ============================================================
-// Strategy 4: findThread — load thread list, match by name/id
-// Reverse-engineered from Pancake Extension's Fe.findThread()
-// Uses MessengerGraphQLThreadlistFetcher batch query
-// ============================================================
 async function findThread(session, pageId, docIds, opts) {
-  const { threadId, customerName, timeCursor, count = 0, category = 'main' } = opts;
+  const {
+    threadId, customerName, timeCursor,
+    count = 0, category = 'main', isRetryWithNow = false,
+  } = opts;
 
   // Check thread cache first
   if (threadId) {
@@ -286,29 +392,28 @@ async function findThread(session, pageId, docIds, opts) {
     }
   }
 
-  // Need doc_id for MessengerGraphQLThreadlistFetcher
-  const docId = docIds?.['MessengerGraphQLThreadlistFetcher']
-    || docIds?.['MessengerGraphQLThreadFetcher']
-    || docIds?.['LSPlatformGraphQLLightspeedRequestQuery'];
+  // Need doc_id: try MessengerThreadlistWebGraphQLQuery first (Pancake primary), then fallback
+  const docId = docIds?.['MessengerThreadlistWebGraphQLQuery']
+    || docIds?.['MessengerThreadlistQuery']
+    || docIds?.['MessengerGraphQLThreadlistFetcher']
+    || docIds?.['MessengerGraphQLThreadFetcher'];
 
   if (!docId) {
     log.debug(MODULE, 'No doc_id for threadlist fetcher');
     return null;
   }
 
-  // Map category to FB tags
+  // Map category to FB tags (matching Pancake exactly)
   const tagsMap = {
     main: ['INBOX'],
     done: ['ARCHIVED'],
     page_background: ['PAGE_BACKGROUND'],
     spam: ['OTHER'],
   };
-  const tags = tagsMap[category] || ['INBOX', 'ARCHIVED'];
+  const tags = tagsMap[category] || ['INBOX'];
 
   const referer = `https://business.facebook.com/latest/inbox/all?page_id=${pageId}`;
-  const headers = buildFbHeaders(referer);
 
-  // Use graphqlbatch format (same as Pancake)
   const queryParams = JSON.stringify({
     limit: 20,
     tags,
@@ -331,7 +436,7 @@ async function findThread(session, pageId, docIds, opts) {
 
   const response = await fetch(CONFIG.FB_GRAPHQL, {
     method: 'POST',
-    headers,
+    headers: buildFbHeaders(referer),
     body: encodeFormData(params),
     credentials: 'include',
   });
@@ -346,11 +451,7 @@ async function findThread(session, pageId, docIds, opts) {
 
   if (nodes.length === 0) {
     log.debug(MODULE, `findThread: no threads in category=${category}`);
-    // Try next category
-    if (category === 'main') {
-      return findThread(session, pageId, docIds, { ...opts, category: 'done', count });
-    }
-    return null;
+    return _tryNextCategory(session, pageId, docIds, opts);
   }
 
   // Cache all threads for future lookups
@@ -359,12 +460,27 @@ async function findThread(session, pageId, docIds, opts) {
     if (commId) {
       threadCache.set(`${pageId}:${commId}`, node);
     }
+    // Also cache by comm_source_id
+    const commSourceId = node.page_comm_item?.comm_source_id;
+    if (commSourceId && commSourceId !== commId) {
+      threadCache.set(`${pageId}:${commSourceId}`, node);
+    }
   }
 
   // Search for matching thread
   let found = null;
 
   for (const node of nodes) {
+    // Check isAllActorArePage (Pancake: both participants are Pages)
+    if (_isAllActorArePage(node) && threadId) {
+      const participantIds = (node.all_participants?.edges || [])
+        .map(e => e?.node?.messaging_actor?.id);
+      if (participantIds.includes(threadId)) {
+        found = node;
+        break;
+      }
+    }
+
     // Match by threadId (page_comm_item.id or comm_source_id)
     if (threadId) {
       const commId = node.page_comm_item?.id;
@@ -387,27 +503,7 @@ async function findThread(session, pageId, docIds, opts) {
   }
 
   if (found) {
-    // Extract global ID: thread_key.other_user_id (Pancake's approach)
-    const otherId = found.thread_key?.other_user_id;
-    if (otherId) {
-      log.info(MODULE, `findThread: found via thread_key.other_user_id=${otherId}`);
-      return otherId;
-    }
-
-    // Fallback: extract from participants
-    const edges = found.all_participants?.edges || [];
-    for (const edge of edges) {
-      const actor = edge?.node?.messaging_actor;
-      if (actor?.id && !actor.is_managed_page && String(actor.id) !== String(pageId)) {
-        log.info(MODULE, `findThread: found via participant=${actor.id}`);
-        return actor.id;
-      }
-    }
-
-    // Fallback: page_comm_item.target_id
-    if (found.page_comm_item?.target_id) {
-      return found.page_comm_item.target_id;
-    }
+    return _extractGlobalIdFromThread(found, pageId);
   }
 
   // Paginate: try more threads (max 200)
@@ -424,24 +520,108 @@ async function findThread(session, pageId, docIds, opts) {
   }
 
   // Try next category
-  if (category === 'main') {
-    return findThread(session, pageId, docIds, { ...opts, category: 'done', count: 0 });
+  return _tryNextCategory(session, pageId, docIds, opts);
+}
+
+/**
+ * Progress to next category in chain: main → done → page_background → spam → retry(now)
+ */
+function _tryNextCategory(session, pageId, docIds, opts) {
+  const { category = 'main', isRetryWithNow = false } = opts;
+
+  const currentIdx = CATEGORY_CHAIN.indexOf(category);
+  const nextIdx = currentIdx + 1;
+
+  if (nextIdx < CATEGORY_CHAIN.length) {
+    // Move to next category
+    return findThread(session, pageId, docIds, {
+      ...opts,
+      category: CATEGORY_CHAIN[nextIdx],
+      count: 0,
+      timeCursor: opts.timeCursor, // keep original cursor
+    });
+  }
+
+  // All categories exhausted — Pancake retries from 'main' with current timestamp
+  if (!isRetryWithNow) {
+    log.debug(MODULE, 'findThread: all categories exhausted, retrying from main with current time');
+    return findThread(session, pageId, docIds, {
+      ...opts,
+      category: 'main',
+      count: 0,
+      timeCursor: Date.now(),
+      isRetryWithNow: true,
+    });
+  }
+
+  // Already retried with current time — give up
+  return null;
+}
+
+/**
+ * Check if all participants in a thread are Pages (Pancake: isAllActorArePage)
+ */
+function _isAllActorArePage(thread) {
+  const edges = thread.all_participants?.edges;
+  if (!edges || edges.length !== 2) return false;
+  return !edges.find(e => e?.node?.messaging_actor?.__typename !== 'Page');
+}
+
+/**
+ * Extract global ID from a found thread node
+ */
+function _extractGlobalIdFromThread(thread, pageId) {
+  // Primary: thread_key.other_user_id (Pancake's main approach)
+  const otherId = thread.thread_key?.other_user_id;
+  if (otherId) {
+    log.info(MODULE, `findThread: found via thread_key.other_user_id=${otherId}`);
+    return otherId;
+  }
+
+  // Fallback: extract from participants (non-page actor)
+  const edges = thread.all_participants?.edges || [];
+  for (const edge of edges) {
+    const actor = edge?.node?.messaging_actor;
+    if (actor?.id && String(actor.id) !== String(pageId)) {
+      // Skip if the actor is a managed page (unless isAllActorArePage)
+      if (!actor.is_managed_page || _isAllActorArePage(thread)) {
+        log.info(MODULE, `findThread: found via participant=${actor.id}`);
+        return actor.id;
+      }
+    }
+  }
+
+  // Fallback: page_comm_item.target_id
+  if (thread.page_comm_item?.target_id) {
+    log.info(MODULE, `findThread: found via page_comm_item.target_id=${thread.page_comm_item.target_id}`);
+    return thread.page_comm_item.target_id;
   }
 
   return null;
 }
 
 // ============================================================
-// Strategy 5: getUserInboxByName — search customer by name
-// Reverse-engineered from Pancake Extension's Fe.getUserInboxByName()
-// Uses PagesManagerInboxCustomerSearchQuery
+// Strategy 6: getUserInboxByName — search customer by name (Pancake #4)
+// Uses BizInboxCustomerRelaySearchSourceQuery (Pancake's actual query name)
+// Fallback: PagesManagerInboxCustomerSearchQuery, PagesManagerInboxUnifiedCustomerSearchQuery
 // ============================================================
 async function getUserInboxByName(session, pageId, docIds, customerName, threadId) {
   if (!customerName) return null;
 
-  // Try to find the right doc_id
-  let docId = docIds?.['PagesManagerInboxCustomerSearchQuery']
+  // Try Pancake's actual query name first, then fallbacks
+  let docId = docIds?.['BizInboxCustomerRelaySearchSourceQuery']
+    || docIds?.['PagesManagerInboxCustomerSearchQuery']
     || docIds?.['PagesManagerInboxUnifiedCustomerSearchQuery'];
+
+  // Determine the friendly name based on which doc_id we found
+  let queryFriendlyName = 'BizInboxCustomerRelaySearchSourceQuery';
+  if (!docIds?.['BizInboxCustomerRelaySearchSourceQuery']) {
+    if (docIds?.['PagesManagerInboxCustomerSearchQuery']) {
+      queryFriendlyName = 'PagesManagerInboxCustomerSearchQuery';
+    } else if (docIds?.['PagesManagerInboxUnifiedCustomerSearchQuery']) {
+      queryFriendlyName = 'PagesManagerInboxUnifiedCustomerSearchQuery';
+    }
+  }
 
   // If no doc_id, try to load from inbox page
   if (!docId) {
@@ -454,13 +634,15 @@ async function getUserInboxByName(session, pageId, docIds, customerName, threadI
       });
       const html = await resp.text();
 
-      // Extract doc_ids from HTML
+      // Extract doc_ids from HTML — look for customer search queries
       const regex = /"docID":"(\d+)","queryName":"([^"]+)"/g;
       let match;
       while ((match = regex.exec(html)) !== null) {
-        if (match[2].includes('CustomerSearch') || match[2].includes('UnifiedCustomerSearch')) {
+        const name = match[2];
+        if (name.includes('BizInboxCustomerRelay') || name.includes('CustomerSearch') || name.includes('UnifiedCustomerSearch')) {
           docId = match[1];
-          log.info(MODULE, `Found CustomerSearch doc_id: ${docId} (${match[2]})`);
+          queryFriendlyName = name;
+          log.info(MODULE, `Found CustomerSearch doc_id: ${docId} (${name})`);
           break;
         }
       }
@@ -488,7 +670,7 @@ async function getUserInboxByName(session, pageId, docIds, customerName, threadI
     doc_id: docId,
     variables,
     fb_api_caller_class: 'RelayModern',
-    fb_api_req_friendly_name: 'PagesManagerInboxCustomerSearchQuery',
+    fb_api_req_friendly_name: queryFriendlyName,
     server_timestamps: 'true',
   };
 
@@ -542,11 +724,16 @@ async function getUserInboxByName(session, pageId, docIds, customerName, threadI
 function extractGlobalIdFromGraphQL(result) {
   if (!result) return null;
 
-  // Path 1: data.node.messaging_actor.id
+  // Path 1: data.commItem.target_id (Pancake's AdminAssigner path)
+  if (result?.data?.commItem?.target_id) {
+    return result.data.commItem.target_id;
+  }
+
+  // Path 2: data.node.messaging_actor.id
   const actor = result?.data?.node?.messaging_actor;
   if (actor?.id) return actor.id;
 
-  // Path 2: data.message_thread.all_participants.nodes[].messaging_actor.id
+  // Path 3: data.message_thread.all_participants.nodes[].messaging_actor.id
   const participants = result?.data?.message_thread?.all_participants?.nodes;
   if (participants && participants.length > 0) {
     for (const p of participants) {
@@ -555,11 +742,6 @@ function extractGlobalIdFromGraphQL(result) {
         return id;
       }
     }
-  }
-
-  // Path 3: data.commItem.target_id (Pancake style)
-  if (result?.data?.commItem?.target_id) {
-    return result.data.commItem.target_id;
   }
 
   // Path 4: Walk the entire response looking for user-like IDs

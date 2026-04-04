@@ -136,6 +136,7 @@ function extractSessionData(html, pageId) {
     pkgCohort: null,
     pr: null,
     msgrRegion: null,
+    cquickToken: null,
     pageId,
   };
 
@@ -202,6 +203,10 @@ function extractSessionData(html, pageId) {
   // Extract msgrRegion (X-MSGR-Region header)
   const msgrMatch = html.match(/"msgrRegion":"([^"]+)"/);
   if (msgrMatch) data.msgrRegion = msgrMatch[1];
+
+  // Extract compat_iframe_token (cquick_token) for PagesManagerInboxQueryUtilCommItemHeaderMercuryQuery
+  const cquickMatch = html.match(/"compat_iframe_token":"([^"]+)"/);
+  if (cquickMatch) data.cquickToken = cquickMatch[1];
 
   return data;
 }
