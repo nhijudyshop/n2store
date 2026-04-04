@@ -38,7 +38,8 @@
     "offscreen",
     "declarativeNetRequestWithHostAccess",
     "notifications",
-    "alarms"
+    "alarms",
+    "webRequest"
   ],
   "host_permissions": [
     "*://business.facebook.com/*",

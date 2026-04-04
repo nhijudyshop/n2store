@@ -9,6 +9,7 @@ import { handleUploadInboxPhoto } from './facebook/uploader.js';
 import { handleGetGlobalIdForConv, loadCacheFromStorage } from './facebook/global-id.js';
 import { handlePreinitializePages, handleGetBusinessContext, getAllSessions } from './facebook/session.js';
 import { handleSendComment, handleSendPrivateReply } from './facebook/commenter.js';
+import { startInterceptor, getInterceptedCount } from './facebook/doc-id-interceptor.js';
 import { showNotification, setupNotificationClickHandlers } from './server/notifications.js';
 import { startSSE, stopSSE, restartSSE, getSSEStatus } from './server/sse-listener.js';
 import {
@@ -34,6 +35,7 @@ log.info(MODULE, `N2Store Extension v${VERSION} (build ${BUILD}) starting...`);
 (async () => {
   await initStorage();
   await loadCacheFromStorage();
+  startInterceptor();
   setupNotificationClickHandlers();
   startSSE();
   log.info(MODULE, 'All subsystems initialized');
@@ -219,6 +221,7 @@ async function handleMessage(msg, tabId, port, asyncSendResponse) {
         fbConnected: getAllSessions && Object.keys(getAllSessions()).length > 0,
         sessionCount: getAllSessions ? Object.keys(getAllSessions()).length : 0,
         cacheCount: 0, // TODO: expose from global-id.js
+        docIdCount: getInterceptedCount(),
         msgCount: msgSentCount,
         msgFailed: msgFailCount,
         sse: getSSEStatus(),

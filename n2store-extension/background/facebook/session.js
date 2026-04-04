@@ -2,6 +2,7 @@
 // Handles fb_dtsg extraction, page initialization, and session caching
 import { CONFIG } from '../../shared/config.js';
 import { log } from '../../shared/logger.js';
+import { getInterceptedDocIds } from './doc-id-interceptor.js';
 
 const MODULE = 'FB-Session';
 
@@ -121,10 +122,14 @@ export function getAllSessions() {
 }
 
 /**
- * Get cached GraphQL doc_ids
+ * Get GraphQL doc_ids — merges HTML-extracted + webRequest-intercepted
+ * Intercepted doc_ids take priority (they're real, current values from the page)
  */
 export function getDocIds() {
-  return docIds;
+  const htmlIds = docIds || {};
+  const interceptedIds = getInterceptedDocIds() || {};
+  const merged = { ...htmlIds, ...interceptedIds };
+  return Object.keys(merged).length > 0 ? merged : null;
 }
 
 /**
