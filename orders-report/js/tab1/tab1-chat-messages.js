@@ -278,10 +278,18 @@ window.sendMessage = async function() {
     if (window.isSendingMessage || !window.currentConversationId) return;
 
     const inputEl = document.getElementById('chatInput');
-    const text = inputEl?.value?.trim() || '';
+    const rawText = inputEl?.value?.trim() || '';
     const pendingImages = window.getPendingImages ? window.getPendingImages() : [];
 
-    if (!text && pendingImages.length === 0) return;
+    if (!rawText && pendingImages.length === 0) return;
+
+    // Add employee signature
+    let text = rawText;
+    if (rawText) {
+        const displayName = window.authManager?.getUserInfo?.()?.displayName
+            || window.authManager?.getAuthState?.()?.displayName;
+        if (displayName) text = rawText + '\nNv. ' + displayName;
+    }
 
     // COMMENT: reply_comment requires a reply target
     if (!pendingImages.length && window.currentConversationType === 'COMMENT' &&

@@ -8,6 +8,12 @@
 
 ## 2026-04-04
 
+### [chat] Thêm chữ ký nhân viên vào chat modal (orders-report) ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-chat-messages.js` |
+| **Chi tiết** | `window.sendMessage()` gửi text trực tiếp không có chữ ký. Thêm `\nNv. [displayName]` giống inbox-chat.js. Quick-reply đã có sẵn, chỉ thiếu khi gõ trực tiếp. |
+
 ### [chat] Hiển thị reaction emoji trên tin nhắn trong chat modal ✅
 | | |
 |---|---|
