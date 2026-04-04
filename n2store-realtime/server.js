@@ -212,7 +212,7 @@ async function cleanupExpiredPendingCustomers() {
     try {
         const result = await dbPool.query(`
             DELETE FROM pending_customers
-            WHERE last_message_time < NOW() - INTERVAL '3 days'
+            WHERE last_message_time < NOW() - INTERVAL '7 days'
         `);
 
         if (result.rowCount > 0) {
