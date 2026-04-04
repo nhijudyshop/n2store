@@ -706,7 +706,7 @@
         return newFlags;
     }
 
-    async function toggleOrderFlag(orderCode, flagKey) {
+    async function toggleOrderFlag(orderCode, flagKey, source) {
         let data = ProcessingTagState.getOrderData(orderCode);
         // If no data yet, create a minimal entry with just flags (no category)
         if (!data) {
@@ -730,7 +730,7 @@
 
         _ptagEnsureCode(orderCode, data);
         ProcessingTagState.setOrderData(orderCode, data);
-        _ptagAddHistory(orderCode, isAdding ? 'ADD_FLAG' : 'REMOVE_FLAG', flagKey);
+        _ptagAddHistory(orderCode, isAdding ? 'ADD_FLAG' : 'REMOVE_FLAG', flagKey, source || null);
         _ptagRefreshRow(orderCode);
         renderPanelContent();
         await saveProcessingTagToAPI(orderCode, data);
