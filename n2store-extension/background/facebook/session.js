@@ -97,13 +97,22 @@ async function _doInitPage(pageId) {
     log.info(MODULE, `Extracted ${Object.keys(htmlDocIds).length} doc_ids from Business Suite HTML`);
   }
 
-  // Fetch JS bundles from Business Suite page (Messenger/Inbox queries live here)
+  // Load doc_ids: compat view (Pancake's approach) + JS bundles + www.facebook.com
   // Non-blocking: runs in background
   if (!preloadPromise) {
-    preloadPromise = _fetchJsBundlesForDocIds(html, 'BizSuite').then(() => {
-      // Also fetch from www.facebook.com for additional doc_ids
-      return _fetchJsBundlesForDocIds(null, 'www.facebook.com');
-    }).catch(err => {
+    preloadPromise = (async () => {
+      // Step 1: Load compat view — this is where PagesManager doc_ids live
+      // Pancake's key technique: append cquick params to get legacy inbox view
+      if (sessionData.cquickToken) {
+        await _loadCompatViewDocIds(pageId, sessionData.cquickToken);
+      }
+
+      // Step 2: Fetch JS bundles from Business Suite page
+      await _fetchJsBundlesForDocIds(html, 'BizSuite');
+
+      // Step 3: Fetch from www.facebook.com for additional doc_ids
+      await _fetchJsBundlesForDocIds(null, 'www.facebook.com');
+    })().catch(err => {
       log.error(MODULE, 'preloadDocIds failed:', err.message);
     });
   }
@@ -347,6 +356,168 @@ function _logImportantDocIds() {
   if (foundCount === 0) {
     log.info(MODULE, '  ⚠ None of the important doc_ids found');
   }
+}
+
+/**
+ * Load compat view and extract doc_ids (Pancake's key approach)
+ *
+ * When Business Suite loads, it creates a "compat iframe" for legacy Messenger components.
+ * The compat view URL = inbox URL + ?cquick=jsc_c_d&cquick_token=TOKEN&ctarget=...
+ * This view contains the PagesManager* doc_ids that the modern SPA doesn't have.
+ *
+ * Pancake flow:
+ *   1. Fetch inbox page
+ *   2. Check for compat_iframe_token
+ *   3. Load compat view (same URL + cquick params)
+ *   4. Extract rsrcMap → find MessengerGraphQLThreadlistFetcher.bs JS URLs
+ *   5. Fetch those JS files → extract PagesManager doc_ids
+ */
+async function _loadCompatViewDocIds(pageId, cquickToken) {
+  const inboxUrl = `https://business.facebook.com/latest/inbox/messenger?asset_id=${pageId}`;
+  const compatUrl = `${inboxUrl}&cquick=jsc_c_d&cquick_token=${cquickToken}&ctarget=https%3A%2F%2Fwww.facebook.com`;
+
+  log.info(MODULE, `CompatView: loading for page ${pageId}...`);
+
+  try {
+    const response = await fetch(compatUrl, {
+      credentials: 'include',
+      headers: {
+        'Accept': 'text/html,application/xhtml+xml',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+    });
+
+    if (!response.ok) {
+      log.error(MODULE, `CompatView: HTTP ${response.status}`);
+      return;
+    }
+
+    const html = await response.text();
+    log.info(MODULE, `CompatView: ${html.length} bytes`);
+
+    // Extract doc_ids from compat view HTML
+    const compatDocIds = extractDocIds(html);
+    if (compatDocIds) {
+      const count = Object.keys(compatDocIds).length;
+      docIds = { ...(docIds || {}), ...compatDocIds };
+      log.info(MODULE, `CompatView: ${count} doc_ids from inline HTML`);
+    }
+
+    // Extract rsrcMap JS URLs for specific Messenger modules
+    const moduleJsUrls = _extractRsrcMapModuleUrls(html);
+    if (moduleJsUrls.length > 0) {
+      log.info(MODULE, `CompatView: ${moduleJsUrls.length} module JS URLs from rsrcMap`);
+
+      // Fetch module JS files and extract doc_ids
+      const results = await Promise.allSettled(
+        moduleJsUrls.map(url =>
+          fetch(url, { credentials: 'omit' })
+            .then(r => r.ok ? r.text() : '')
+            .catch(() => '')
+        )
+      );
+
+      let foundCount = 0;
+      for (const result of results) {
+        if (result.status !== 'fulfilled' || !result.value) continue;
+        const jsIds = extractDocIds(result.value);
+        if (jsIds) {
+          foundCount += Object.keys(jsIds).length;
+          docIds = { ...(docIds || {}), ...jsIds };
+        }
+      }
+      log.info(MODULE, `CompatView: ${foundCount} doc_ids from ${moduleJsUrls.length} rsrcMap modules`);
+    }
+
+    // Also fetch <script src="..."> from the compat view (like _fetchJsBundlesForDocIds)
+    const scriptUrls = [];
+    const srcRegex = /<script[^>]+src="(https:\/\/static[^"]+\.js[^"]*)"/g;
+    let m;
+    while ((m = srcRegex.exec(html)) !== null) {
+      scriptUrls.push(m[1]);
+    }
+
+    if (scriptUrls.length > 0) {
+      log.info(MODULE, `CompatView: ${scriptUrls.length} script URLs, fetching...`);
+      let scriptFoundCount = 0;
+      for (let i = 0; i < scriptUrls.length; i += 10) {
+        const batch = scriptUrls.slice(i, i + 10);
+        const batchResults = await Promise.allSettled(
+          batch.map(url =>
+            fetch(url, { credentials: 'omit' })
+              .then(r => r.ok ? r.text() : '')
+              .catch(() => '')
+          )
+        );
+        for (const result of batchResults) {
+          if (result.status !== 'fulfilled' || !result.value) continue;
+          const jsIds = extractDocIds(result.value);
+          if (jsIds) {
+            scriptFoundCount += Object.keys(jsIds).length;
+            docIds = { ...(docIds || {}), ...jsIds };
+          }
+        }
+      }
+      log.info(MODULE, `CompatView: ${scriptFoundCount} doc_ids from ${scriptUrls.length} script bundles`);
+    }
+
+    _logImportantDocIds();
+  } catch (err) {
+    log.error(MODULE, `CompatView: failed:`, err.message);
+  }
+}
+
+/**
+ * Extract JS URLs for specific Messenger modules from rsrcMap in HTML
+ * Pancake looks for:
+ *   - "MessengerGraphQLThreadlistFetcher.bs" → JS URL with threadlist doc_ids
+ *   - "MessengerPlatformVerticalListItemAttachment.react" → JS URL with inbox doc_ids
+ *   - "PagesManagerInboxAdminAssignerRootQuery" module references
+ *
+ * rsrcMap format: "rsrcMap":{"ModuleName":{"type":"js","src":"https://static...js",...}}
+ */
+function _extractRsrcMapModuleUrls(html) {
+  const urls = new Set();
+
+  // Target module names that contain inbox/messenger doc_ids
+  const targetModules = [
+    'MessengerGraphQLThreadlistFetcher',
+    'MessengerPlatformVerticalListItemAttachment',
+    'PagesManagerInbox',
+    'AdminAssigner',
+    'CommItemHeader',
+    'InboxCustomerSearch',
+  ];
+
+  // Method 1: Find module entries in rsrcMap with their src URLs
+  // Format: "ModuleName.bs":{"type":"js","src":"https://...","...}
+  for (const moduleName of targetModules) {
+    const regex = new RegExp(
+      `"${moduleName}[^"]*"\\s*:\\s*\\{[^}]*?"src"\\s*:\\s*"([^"]+\\.js[^"]*)"`,
+      'g'
+    );
+    let match;
+    while ((match = regex.exec(html)) !== null) {
+      urls.add(match[1]);
+      log.debug(MODULE, `rsrcMap: found ${moduleName} → ${match[1].substring(0, 80)}`);
+    }
+  }
+
+  // Method 2: Find src URLs from "r" arrays in rsrcMap entries
+  // Some entries use: {"type":"js","src":"...","d":[],"r":["dep1","dep2"]}
+  // We also want to look for loadResources() calls
+  const loadResourcesRegex = /loadResources\(\s*\[([^\]]+)\]/g;
+  let m;
+  while ((m = loadResourcesRegex.exec(html)) !== null) {
+    const urlList = m[1].match(/"(https:\/\/static[^"]+\.js[^"]*)"/g);
+    if (urlList) {
+      for (const url of urlList) {
+        urls.add(url.replace(/"/g, ''));
+      }
+    }
+  }
+
+  return [...urls];
 }
 
 /**
