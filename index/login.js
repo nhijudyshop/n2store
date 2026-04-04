@@ -109,6 +109,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 localStorage.setItem("isLoggedIn", "true");
                 localStorage.setItem("userType", authData.userType);
                 localStorage.setItem("checkLogin", authData.checkLogin);
+                localStorage.setItem("displayName", user.displayName || '');
                 sessionStorage.removeItem("loginindex_auth");
             } else {
                 sessionStorage.setItem("loginindex_auth", authDataString);
@@ -117,6 +118,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 localStorage.removeItem("isLoggedIn");
                 localStorage.removeItem("userType");
                 localStorage.removeItem("checkLogin");
+                localStorage.removeItem("displayName");
             }
 
             const durationText = rememberMe ? "30 ngay" : "phien lam viec hien tai";
@@ -194,6 +196,7 @@ document.addEventListener("DOMContentLoaded", function () {
         localStorage.removeItem("isLoggedIn");
         localStorage.removeItem("userType");
         localStorage.removeItem("checkLogin");
+        localStorage.removeItem("displayName");
         sessionStorage.removeItem("justLoggedIn");
     }
 
@@ -463,11 +466,13 @@ document.addEventListener("DOMContentLoaded", function () {
                 localStorage.setItem("isLoggedIn", "true");
                 localStorage.setItem("userType", authData.userType);
                 localStorage.setItem("checkLogin", authData.checkLogin);
+                localStorage.setItem("displayName", user.displayName || '');
                 sessionStorage.removeItem("loginindex_auth");
             } else {
                 sessionStorage.setItem("loginindex_auth", authDataString);
                 localStorage.removeItem("loginindex_auth");
                 localStorage.removeItem("remember_login_preference");
+                localStorage.removeItem("displayName");
             }
 
             showSuccess(`Xác thực thành công! Chào mừng ${user.displayName}`);
