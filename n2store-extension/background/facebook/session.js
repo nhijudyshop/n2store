@@ -76,17 +76,20 @@ async function _doInitPage(pageId) {
   sessionData.timestamp = Date.now();
   sessionCache.set(pageId, sessionData);
 
-  // Extract doc_ids from Business Suite HTML
+  // Extract doc_ids from Business Suite HTML inline scripts
   const htmlDocIds = extractDocIds(html);
   if (htmlDocIds) {
     docIds = { ...(docIds || {}), ...htmlDocIds };
     log.info(MODULE, `Extracted ${Object.keys(htmlDocIds).length} doc_ids from Business Suite HTML`);
   }
 
-  // Proactively load doc_ids from www.facebook.com (like Pancake)
+  // Fetch JS bundles from Business Suite page (Messenger/Inbox queries live here)
   // Non-blocking: runs in background
   if (!preloadPromise) {
-    preloadPromise = preloadDocIds().catch(err => {
+    preloadPromise = _fetchJsBundlesForDocIds(html, 'BizSuite').then(() => {
+      // Also fetch from www.facebook.com for additional doc_ids
+      return _fetchJsBundlesForDocIds(null, 'www.facebook.com');
+    }).catch(err => {
       log.error(MODULE, 'preloadDocIds failed:', err.message);
     });
   }
@@ -232,79 +235,68 @@ function extractSessionData(html, pageId) {
 
 /**
  * Extract GraphQL doc_ids from HTML or JS content
- * Handles multiple formats used by Facebook's bundled code
+ * Based on actual Facebook formats found via debugging:
+ *
+ * HTML format:
+ *   "queryID":"12345","variables":[],"queryName":"SomeQuery"
+ *
+ * JS bundle format (_facebookRelayOperation):
+ *   __d("SomeQuery_facebookRelayOperation",[],(function(t,n,r,o,a,i){a.exports="12345"}),null);
+ *
+ * JS bundle format (PreloadableConcreteRequest):
+ *   params:{id:n("SomeQuery_facebookRelayOperation"),... name:"SomeQuery"}
  */
 function extractDocIds(content) {
   const ids = {};
   let match;
 
-  // Pattern 1: "docID":"123456","queryName":"SomeQuery"
-  const regex1 = /"docID":"(\d+)","queryName":"([^"]+)"/g;
-  while ((match = regex1.exec(content)) !== null) {
+  // === Pattern A: HTML preloader format (CONFIRMED working) ===
+  // "queryID":"24509960031928090","variables":[],"queryName":"CometSettingsBadgeQuery"
+  const regexA1 = /"queryID":"(\d{5,})"[^}]*?"queryName":"([^"]+)"/g;
+  while ((match = regexA1.exec(content)) !== null) {
     ids[match[2]] = match[1];
   }
-
-  // Pattern 2: __d("SomeQuery",{...,"__dr":"123456"...})
-  const regex2 = /__d\("([^"]+)"[^}]*"__dr":"(\d+)"/g;
-  while ((match = regex2.exec(content)) !== null) {
+  // Reverse order: queryName first
+  const regexA2 = /"queryName":"([^"]+)"[^}]*?"queryID":"(\d{5,})"/g;
+  while ((match = regexA2.exec(content)) !== null) {
     if (!ids[match[1]]) ids[match[1]] = match[2];
   }
 
-  // Pattern 3: operationKind:"query",name:"SomeQuery",id:"123456"
-  const regex3 = /operationKind:"[^"]*",name:"([^"]+)",id:"(\d+)"/g;
-  while ((match = regex3.exec(content)) !== null) {
+  // === Pattern B: _facebookRelayOperation (CONFIRMED working) ===
+  // __d("SecuredActionBlockDialogQuery_facebookRelayOperation",[],(function(t,n,r,o,a,i){a.exports="25888131174151444"}),null);
+  // Key fix: [^}]* instead of [^)]* — the function body has () but not } before exports
+  const regexB = /"([^"]+)_facebookRelayOperation"[^}]*\.exports="(\d{5,})"/g;
+  while ((match = regexB.exec(content)) !== null) {
     if (!ids[match[1]]) ids[match[1]] = match[2];
   }
 
-  // Pattern 4: id:"123456",...,name:"SomeQuery" (reverse order)
-  const regex4 = /id:"(\d+)"[^}]*?name:"([^"]+)"/g;
-  while ((match = regex4.exec(content)) !== null) {
+  // === Pattern C: docID + queryName (legacy format) ===
+  const regexC = /"docID":"(\d+)","queryName":"([^"]+)"/g;
+  while ((match = regexC.exec(content)) !== null) {
     if (!ids[match[2]]) ids[match[2]] = match[1];
   }
 
-  // Pattern 5: Relay artifact — __d("SomeQuery_facebookRelayOperation",...exports="123456")
-  const regex5 = /__d\("([^"]+_facebookRelayOperation)"[^)]*exports="(\d+)"/g;
-  while ((match = regex5.exec(content)) !== null) {
-    const name = match[1].replace('_facebookRelayOperation', '');
-    if (!ids[name]) ids[name] = match[2];
-  }
-
-  // Pattern 6: Relay module — e.exports="123456" in __d("SomeQuery.graphql",...)
-  // Format: __d("SomeQuery.graphql",[...],function(...){e.exports="123456"})
-  const regex6 = /__d\("([^"]+)\.graphql"[^)]*?e\.exports="(\d+)"/g;
-  while ((match = regex6.exec(content)) !== null) {
-    if (!ids[match[1]]) ids[match[1]] = match[2];
-  }
-
-  // Pattern 7: Relay params — {params:{name:"SomeQuery",id:"123456",...}}
-  const regex7 = /params:\s*\{[^}]*?name:\s*"([^"]+)"[^}]*?id:\s*"(\d{5,})"/g;
-  while ((match = regex7.exec(content)) !== null) {
-    if (!ids[match[1]]) ids[match[1]] = match[2];
-  }
-
-  // Pattern 8: Minified Relay — {name:"SomeQuery",id:"123456",operationKind:...}
-  const regex8 = /\{name:"([^"]+)",id:"(\d{5,})",(?:metadata:\{[^}]*\},)?operationKind:/g;
-  while ((match = regex8.exec(content)) !== null) {
-    if (!ids[match[1]]) ids[match[1]] = match[2];
-  }
-
-  // Pattern 9: Relay hash — n.exports="123456" (common minified form)
-  // Only match near query-like identifiers
-  const regex9 = /__d\("([A-Z][a-zA-Z]+(?:Query|Mutation|Subscription))[^"]*"[^)]*?\.exports="(\d{5,})"/g;
-  while ((match = regex9.exec(content)) !== null) {
-    if (!ids[match[1]]) ids[match[1]] = match[2];
-  }
-
-  // Pattern 10: queryID:"123456" with nearby queryName
-  const regex10 = /queryID:"(\d{5,})"[^}]*?queryName:"([^"]+)"/g;
-  while ((match = regex10.exec(content)) !== null) {
+  // === Pattern D: Unquoted keys (some JS bundles) ===
+  // queryID:"12345",...,queryName:"SomeQuery"
+  const regexD1 = /queryID:"(\d{5,})"[^}]*?queryName:"([^"]+)"/g;
+  while ((match = regexD1.exec(content)) !== null) {
     if (!ids[match[2]]) ids[match[2]] = match[1];
   }
-
-  // Pattern 11: Reverse — queryName first, then queryID
-  const regex11 = /queryName:"([^"]+)"[^}]*?queryID:"(\d{5,})"/g;
-  while ((match = regex11.exec(content)) !== null) {
+  const regexD2 = /queryName:"([^"]+)"[^}]*?queryID:"(\d{5,})"/g;
+  while ((match = regexD2.exec(content)) !== null) {
     if (!ids[match[1]]) ids[match[1]] = match[2];
+  }
+
+  // === Pattern E: PreloadableConcreteRequest params ===
+  // params:{id:n("SomeQuery_facebookRelayOperation"),...name:"SomeQuery"}
+  const regexE = /params:\{id:[a-z]\("([^"]+)_facebookRelayOperation"\)[^}]*?name:"([^"]+)"/g;
+  while ((match = regexE.exec(content)) !== null) {
+    // The id is resolved at runtime from the _facebookRelayOperation module
+    // We just record the query name here — the actual ID comes from Pattern B
+    // But if we can find the ID directly:
+    if (!ids[match[2]] && !ids[match[1]]) {
+      // Mark as needing resolution — will be filled by Pattern B
+    }
   }
 
   return Object.keys(ids).length > 0 ? ids : null;
@@ -334,58 +326,48 @@ function _logImportantDocIds() {
 }
 
 /**
- * Proactively load doc_ids by fetching www.facebook.com + JS bundles
- * Like Pancake extension does on startup
+ * Fetch JS bundles from an HTML page and extract doc_ids
+ * @param {string|null} html - Pre-fetched HTML, or null to fetch www.facebook.com
+ * @param {string} label - Label for logging
  */
-async function preloadDocIds() {
-  log.info(MODULE, 'Preloading doc_ids from www.facebook.com...');
-
-  const resp = await fetch('https://www.facebook.com/', {
-    credentials: 'include',
-    headers: {
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.9',
-      'Cache-Control': 'max-age=0',
-      'Sec-Fetch-Dest': 'empty',
-      'Sec-Fetch-Mode': 'cors',
-      'Sec-Fetch-Site': 'same-origin',
-    },
-  });
-
-  if (!resp.ok) {
-    log.error(MODULE, `www.facebook.com returned ${resp.status}`);
-    return;
+async function _fetchJsBundlesForDocIds(html, label) {
+  // If no HTML provided, fetch www.facebook.com
+  if (!html) {
+    try {
+      const resp = await fetch('https://www.facebook.com/', {
+        credentials: 'include',
+        headers: { 'Accept': 'text/html', 'Accept-Language': 'en-US,en;q=0.9' },
+      });
+      if (!resp.ok) { log.error(MODULE, `${label}: HTTP ${resp.status}`); return; }
+      html = await resp.text();
+    } catch (err) { log.error(MODULE, `${label}: fetch failed:`, err.message); return; }
   }
 
-  const html = await resp.text();
-  log.info(MODULE, `www.facebook.com HTML: ${html.length} bytes`);
+  log.info(MODULE, `${label}: scanning ${html.length} bytes for JS bundle URLs...`);
 
-  // Extract doc_ids from inline scripts
+  // Extract doc_ids from inline HTML
   const inlineIds = extractDocIds(html);
   if (inlineIds) {
     const count = Object.keys(inlineIds).length;
     docIds = { ...(docIds || {}), ...inlineIds };
-    log.info(MODULE, `Found ${count} doc_ids from www.facebook.com inline scripts`);
+    log.info(MODULE, `${label}: ${count} doc_ids from inline HTML`);
   }
 
-  // Extract <script src="..."> URLs pointing to JS bundles
+  // Extract <script src="..."> URLs
   const scriptUrls = [];
   const srcRegex = /<script[^>]+src="(https:\/\/static[^"]+\.js[^"]*)"/g;
   let m;
   while ((m = srcRegex.exec(html)) !== null) {
     scriptUrls.push(m[1]);
   }
-  log.info(MODULE, `Found ${scriptUrls.length} script URLs in HTML`);
+  log.info(MODULE, `${label}: ${scriptUrls.length} script URLs found`);
 
   if (scriptUrls.length === 0) return;
 
-  // Fetch JS bundles in batches of 10, max 50 total
-  // No credentials needed for static CDN files
-  const toFetch = scriptUrls.slice(0, 50);
+  // Fetch all JS bundles in batches of 10
   let foundCount = 0;
-
-  for (let i = 0; i < toFetch.length; i += 10) {
-    const batch = toFetch.slice(i, i + 10);
+  for (let i = 0; i < scriptUrls.length; i += 10) {
+    const batch = scriptUrls.slice(i, i + 10);
     const results = await Promise.allSettled(
       batch.map(url =>
         fetch(url, { credentials: 'omit' })
@@ -396,18 +378,16 @@ async function preloadDocIds() {
 
     for (const result of results) {
       if (result.status !== 'fulfilled' || !result.value) continue;
-      const jsContent = result.value;
-      const jsIds = extractDocIds(jsContent);
+      const jsIds = extractDocIds(result.value);
       if (jsIds) {
-        const newCount = Object.keys(jsIds).length;
+        foundCount += Object.keys(jsIds).length;
         docIds = { ...(docIds || {}), ...jsIds };
-        foundCount += newCount;
       }
     }
   }
 
   const total = docIds ? Object.keys(docIds).length : 0;
-  log.info(MODULE, `preloadDocIds done: ${foundCount} new from JS bundles, ${total} total`);
+  log.info(MODULE, `${label}: ${foundCount} new doc_ids from ${scriptUrls.length} JS bundles, ${total} total`);
   _logImportantDocIds();
 }
 
