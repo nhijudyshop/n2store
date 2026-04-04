@@ -1817,8 +1817,9 @@
         for (const [key, data] of taggedOrders) {
             if (!allDataCodes.has(key)) continue;
             if (data.tTags) {
-                for (const tagId of data.tTags) {
-                    tTagCounts[tagId] = (tTagCounts[tagId] || 0) + 1;
+                for (const t of data.tTags) {
+                    const tId = _ptagTTagId(t);
+                    tTagCounts[tId] = (tTagCounts[tId] || 0) + 1;
                 }
             }
         }
@@ -4160,10 +4161,11 @@
                 passesFlag = false;
             } else {
                 const orderFlags = data.flags || [];
+                const orderFlagIds = orderFlags.map(of => _ptagFlagId(of));
                 passesFlag = [...flagFilters].some(f => {
-                    if (orderFlags.includes(f)) return true;
+                    if (orderFlagIds.includes(f)) return true;
                     // KHAC filter also matches orders with any CUSTOM_xxx flag
-                    if (f === 'KHAC') return orderFlags.some(of => of.startsWith('CUSTOM_'));
+                    if (f === 'KHAC') return orderFlagIds.some(id => id.startsWith('CUSTOM_'));
                     return false;
                 });
             }
