@@ -1,11 +1,12 @@
 // Facebook Global ID Resolver
 // Handles GET_GLOBAL_ID_FOR_CONV - resolves thread_id to globalUserId via GraphQL
-// 6 strategies matching Pancake Extension priority:
-//   1. PagesManagerInboxAdminAssignerRootQuery (doc_id + commItemID) — Pancake #1
-//   2. PagesManagerInboxQueryUtilCommItemHeaderMercuryQuery (cquick_token) — Pancake #2
-//   3. MessengerThreadlistQuery (doc_id, our extra)
-//   4. thread_info.php (mercury, our extra)
-//   5. findThread — thread list search: main→done→page_background→spam→retry — Pancake #3
+// 6 strategies (priority order):
+//   1. AdminAssigner (doc_id) — PagesManagerInboxAdminAssignerRootQuery (if cached)
+//   2. CommItemHeaderMercuryQuery (cquick_token + doc_id)
+//   3. findThread — thread list search: main→done→page_background→spam→retry — Pancake #3
+//      Uses MessengerThreadlistQuery doc_id (reliably found in JS bundles)
+//   4. ConversationPage — HTML scraping (no doc_id needed)
+//   5. thread_info.php (Mercury, no doc_id needed)
 //   6. getUserInboxByName — BizInboxCustomerRelaySearchSourceQuery — Pancake #4
 import { CONFIG } from '../../shared/config.js';
 import { log } from '../../shared/logger.js';
@@ -16,7 +17,8 @@ import { parseFbRes, buildBaseParams, encodeFormData, buildFbHeaders } from './u
 // PagesManager* → BusinessComet*/BizInbox* (2024+)
 const ADMIN_ASSIGNER_NAMES = [
   'PagesManagerInboxAdminAssignerRootQuery',
-  'BusinessCometInboxThreadDetailHeaderQuery',
+  // NOTE: BusinessCometInboxThreadDetailHeaderQuery returns UI component data (ubi_thread_detail),
+  // NOT data.commItem.target_id — removed because it's the WRONG query for global ID resolution
   'BizInboxThreadDetailHeaderQuery',
 ];
 const COMM_ITEM_HEADER_NAMES = [
@@ -168,7 +170,8 @@ async function resolveGlobalId(session, pageId, threadId, isBusiness, extra = {}
   log.info(MODULE, `  customerSearch: ${customerSearch.docId ? customerSearch.queryName : 'NONE'}`);
   log.info(MODULE, `  cquickToken: ${session.cquickToken ? 'yes' : 'no'}`);
 
-  // --- Strategy 1: AdminAssigner/ThreadDetailHeader (with doc_id) ---
+  // --- Strategy 1: AdminAssigner (with doc_id) ---
+  // Works if PagesManagerInboxAdminAssignerRootQuery doc_id is cached/found
   if (threadId && adminAssigner.docId) {
     strategies.push({
       name: `${adminAssigner.queryName} (doc_id)`,
@@ -176,7 +179,7 @@ async function resolveGlobalId(session, pageId, threadId, isBusiness, extra = {}
     });
   }
 
-  // --- Strategy 2: CommItemHeaderMercuryQuery (cquick_token) ---
+  // --- Strategy 2: CommItemHeaderMercuryQuery (cquick_token + doc_id) ---
   if (threadKey && session.cquickToken && commItemHeader.docId) {
     strategies.push({
       name: commItemHeader.queryName,
@@ -184,11 +187,19 @@ async function resolveGlobalId(session, pageId, threadId, isBusiness, extra = {}
     });
   }
 
-  // --- Strategy 3: AdminAssigner WITHOUT doc_id (friendly_name only) ---
-  if (threadId) {
+  // --- Strategy 3: findThread (Pancake #3 — most reliable with MessengerThreadlistQuery) ---
+  // Searches thread lists across categories: main → done → page_background → spam
+  // Uses MessengerThreadlistQuery doc_id which we CAN reliably find in JS bundles
+  if ((threadId || customerName) && threadlist.docId) {
     strategies.push({
-      name: 'AdminAssigner (friendly_name)',
-      fn: () => queryViaAdminAssignerFriendlyName(session, pageId, threadId),
+      name: 'findThread',
+      fn: () => findThread(session, pageId, docIds, {
+        threadId,
+        customerName,
+        timeCursor: conversationUpdatedTime
+          ? conversationUpdatedTime + 60000
+          : Date.now(),
+      }),
     });
   }
 
@@ -208,29 +219,7 @@ async function resolveGlobalId(session, pageId, threadId, isBusiness, extra = {}
     });
   }
 
-  // --- Strategy 6: MessengerThreadlistQuery ---
-  if (threadId && threadlist.docId) {
-    strategies.push({
-      name: threadlist.queryName,
-      fn: () => queryViaThreadlist(session, pageId, threadId, threadlist.docId, threadlist.queryName),
-    });
-  }
-
-  // --- Strategy 7: findThread (thread list search across categories) ---
-  if ((threadId || customerName) && threadlist.docId) {
-    strategies.push({
-      name: 'findThread',
-      fn: () => findThread(session, pageId, docIds, {
-        threadId,
-        customerName,
-        timeCursor: conversationUpdatedTime
-          ? conversationUpdatedTime + 60000
-          : Date.now(),
-      }),
-    });
-  }
-
-  // --- Strategy 8: getUserInboxByName (customer search) ---
+  // --- Strategy 6: getUserInboxByName (Pancake #4 — customer search) ---
   if (customerName) {
     strategies.push({
       name: 'getUserInboxByName',
@@ -327,45 +316,6 @@ async function queryViaAdminAssigner(session, pageId, threadId, docId, queryName
 }
 
 // ============================================================
-// Strategy: AdminAssignerRootQuery WITHOUT doc_id (friendly_name fallback)
-// Facebook sometimes resolves queries by name even without doc_id
-// ============================================================
-async function queryViaAdminAssignerFriendlyName(session, pageId, threadId) {
-  const queryName = 'PagesManagerInboxAdminAssignerRootQuery';
-
-  const variables = JSON.stringify({
-    pageID: pageId,
-    commItemID: threadId,
-  });
-
-  const params = {
-    ...buildBaseParams(session),
-    av: pageId,
-    variables,
-    fb_api_caller_class: 'RelayModern',
-    fb_api_req_friendly_name: queryName,
-    server_timestamps: 'true',
-  };
-
-  const referer = `https://business.facebook.com/latest/inbox/all?page_id=${pageId}`;
-  const response = await fetch(CONFIG.FB_GRAPHQL, {
-    method: 'POST',
-    headers: buildFbHeaders(referer),
-    body: encodeFormData(params),
-    credentials: 'include',
-  });
-
-  const text = await response.text();
-  const result = parseFbRes(text);
-
-  if (result?.data?.commItem?.target_id) {
-    return result.data.commItem.target_id;
-  }
-
-  return extractGlobalIdFromGraphQL(result);
-}
-
-// ============================================================
 // Strategy 2: CommItemHeaderMercuryQuery (Pancake #2)
 // Uses cquick_token + { pageID, messageThreadID }
 // ============================================================
@@ -414,49 +364,6 @@ async function queryViaCommItemHeader(session, pageId, threadKey, docId, queryNa
 
   if (result?.data?.commItem?.target_id) {
     return result.data.commItem.target_id;
-  }
-
-  return extractGlobalIdFromGraphQL(result);
-}
-
-// ============================================================
-// Strategy: Query via threadlist doc_id (direct thread lookup)
-// ============================================================
-async function queryViaThreadlist(session, pageId, threadId, docId, queryName) {
-  if (!docId) {
-    log.debug(MODULE, 'No doc_id found for threadlist query');
-    return null;
-  }
-
-  const variables = JSON.stringify({
-    pageId,
-    threadIds: [threadId],
-    limit: 1,
-  });
-
-  const params = {
-    ...buildBaseParams(session),
-    doc_id: docId,
-    variables,
-    fb_api_caller_class: 'RelayModern',
-    fb_api_req_friendly_name: queryName,
-    server_timestamps: 'true',
-  };
-
-  const referer = `https://business.facebook.com/latest/inbox/all?page_id=${pageId}`;
-  const response = await fetch(CONFIG.FB_GRAPHQL, {
-    method: 'POST',
-    headers: buildFbHeaders(referer),
-    body: encodeFormData(params),
-    credentials: 'include',
-  });
-
-  const text = await response.text();
-  log.debug(MODULE, `${queryName}: response ${text.length} bytes`);
-  const result = parseFbRes(text);
-
-  if (result?.errors?.length > 0) {
-    log.info(MODULE, `${queryName}: errors: ${JSON.stringify(result.errors.map(e => e.message || e.summary)).substring(0, 300)}`);
   }
 
   return extractGlobalIdFromGraphQL(result);

@@ -322,6 +322,35 @@ function extractDocIds(content) {
     }
   }
 
+  // === Pattern F: operationKind/name/id (Pancake pattern 1) ===
+  // {operationKind:"query",name:"SomeQuery",id:"12345"}
+  const regexF = /operationKind:"(?:query|mutation|subscription)",name:"([^"]+)",id:"(\d{5,})"/g;
+  while ((match = regexF.exec(content)) !== null) {
+    if (!ids[match[1]]) ids[match[1]] = match[2];
+  }
+
+  // === Pattern G: id/name in Relay operation object (Pancake pattern 2) ===
+  // ** THIS is what found MessengerThreadlistQuery: 34388012574175272 **
+  // {id:"12345",metadata:{},name:"SomeQuery"} or {id:"12345",name:"SomeQuery"}
+  const regexG = /\{id:"(\d{5,})"(?:,metadata:\{[^}]*\})?,name:"([^"]+)"/g;
+  while ((match = regexG.exec(content)) !== null) {
+    if (!ids[match[2]]) ids[match[2]] = match[1];
+  }
+
+  // === Pattern H: __getDocID in module definition (Pancake pattern 3) ===
+  // __d("SomeName",[],...__getDocID=function(){return"12345"})
+  const regexH = /__d\("([^"]+)"[\s\S]{0,500}?__getDocID\s*=\s*function\(\)\s*\{\s*return\s*"(\d{5,})"\s*\}/g;
+  while ((match = regexH.exec(content)) !== null) {
+    if (!ids[match[1]]) ids[match[1]] = match[2];
+  }
+
+  // === Pattern I: _instagramRelayOperation (Pancake pattern 5) ===
+  // __d("SomeQuery_instagramRelayOperation",[],(function(t,n,r,o,a,i){a.exports="12345"}),null)
+  const regexI = /"([^"]+)_instagramRelayOperation"[^}]*\.exports="(\d{5,})"/g;
+  while ((match = regexI.exec(content)) !== null) {
+    if (!ids[match[1]]) ids[match[1]] = match[2];
+  }
+
   return Object.keys(ids).length > 0 ? ids : null;
 }
 
@@ -373,8 +402,8 @@ function _logImportantDocIds() {
  *   5. Fetch those JS files → extract PagesManager doc_ids
  */
 async function _loadCompatViewDocIds(pageId, cquickToken) {
-  // Pancake format: bare inbox URL + cquick params (NO asset_id — that prevents compat mode)
-  const compatUrl = `https://business.facebook.com/latest/inbox/messenger?cquick=jsc_c_d&cquick_token=${cquickToken}&ctarget=https%3A%2F%2Fwww.facebook.com`;
+  // Pancake format: inbox URL with asset_id + nav_ref=diode_page_inbox + cquick params
+  const compatUrl = `https://business.facebook.com/latest/inbox/messenger?asset_id=${pageId}&nav_ref=diode_page_inbox&cquick=jsc_c_d&cquick_token=${cquickToken}&ctarget=https%3A%2F%2Fwww.facebook.com`;
 
   log.info(MODULE, `CompatView: loading for page ${pageId}...`);
 
@@ -413,45 +442,26 @@ async function _loadCompatViewDocIds(pageId, cquickToken) {
       log.info(MODULE, `CompatView: ${count} doc_ids from inline HTML`);
     }
 
-    // Extract rsrcMap JS URLs for specific Messenger modules
-    const moduleJsUrls = _extractRsrcMapModuleUrls(html);
-    if (moduleJsUrls.length > 0) {
-      log.info(MODULE, `CompatView: ${moduleJsUrls.length} module JS URLs from rsrcMap`);
+    // Extract ALL JS URLs from rsrcMap (Pancake's approach: load ALL resources)
+    const rsrcMapUrls = _extractAllRsrcMapUrls(html);
 
-      // Fetch module JS files and extract doc_ids
-      const results = await Promise.allSettled(
-        moduleJsUrls.map(url =>
-          fetch(url, { credentials: 'omit' })
-            .then(r => r.ok ? r.text() : '')
-            .catch(() => '')
-        )
-      );
-
-      let foundCount = 0;
-      for (const result of results) {
-        if (result.status !== 'fulfilled' || !result.value) continue;
-        const jsIds = extractDocIds(result.value);
-        if (jsIds) {
-          foundCount += Object.keys(jsIds).length;
-          docIds = { ...(docIds || {}), ...jsIds };
-        }
-      }
-      log.info(MODULE, `CompatView: ${foundCount} doc_ids from ${moduleJsUrls.length} rsrcMap modules`);
-    }
-
-    // Also fetch <script src="..."> from the compat view (like _fetchJsBundlesForDocIds)
-    const scriptUrls = [];
-    const srcRegex = /<script[^>]+src="(https:\/\/static[^"]+\.js[^"]*)"/g;
+    // Also collect <script src="..."> URLs
+    const scriptUrls = new Set();
+    const scriptSrcRegex = /<script[^>]+src="(https:\/\/[^"]+\.js[^"]*)"/g;
     let m;
-    while ((m = srcRegex.exec(html)) !== null) {
-      scriptUrls.push(m[1]);
+    while ((m = scriptSrcRegex.exec(html)) !== null) {
+      scriptUrls.add(m[1]);
     }
 
-    if (scriptUrls.length > 0) {
-      log.info(MODULE, `CompatView: ${scriptUrls.length} script URLs, fetching...`);
-      let scriptFoundCount = 0;
-      for (let i = 0; i < scriptUrls.length; i += 10) {
-        const batch = scriptUrls.slice(i, i + 10);
+    // Merge all unique URLs: rsrcMap + script tags
+    const allUrls = [...new Set([...rsrcMapUrls, ...scriptUrls])];
+    log.info(MODULE, `CompatView: ${allUrls.length} total JS URLs (${rsrcMapUrls.length} rsrcMap + ${scriptUrls.size} script tags)`);
+
+    if (allUrls.length > 0) {
+      let totalFound = 0;
+      // Fetch in batches of 20 (like Pancake)
+      for (let i = 0; i < allUrls.length; i += 20) {
+        const batch = allUrls.slice(i, i + 20);
         const batchResults = await Promise.allSettled(
           batch.map(url =>
             fetch(url, { credentials: 'omit' })
@@ -463,12 +473,16 @@ async function _loadCompatViewDocIds(pageId, cquickToken) {
           if (result.status !== 'fulfilled' || !result.value) continue;
           const jsIds = extractDocIds(result.value);
           if (jsIds) {
-            scriptFoundCount += Object.keys(jsIds).length;
+            totalFound += Object.keys(jsIds).length;
             docIds = { ...(docIds || {}), ...jsIds };
           }
         }
+        // Log progress every 100 URLs
+        if ((i + 20) % 100 === 0 || i + 20 >= allUrls.length) {
+          log.info(MODULE, `CompatView: fetched ${Math.min(i + 20, allUrls.length)}/${allUrls.length} JS files, ${totalFound} doc_ids so far`);
+        }
       }
-      log.info(MODULE, `CompatView: ${scriptFoundCount} doc_ids from ${scriptUrls.length} script bundles`);
+      log.info(MODULE, `CompatView: ${totalFound} doc_ids from ${allUrls.length} JS files`);
     }
 
     _logImportantDocIds();
@@ -478,48 +492,34 @@ async function _loadCompatViewDocIds(pageId, cquickToken) {
 }
 
 /**
- * Extract JS URLs for specific Messenger modules from rsrcMap in HTML
- * Pancake looks for:
- *   - "MessengerGraphQLThreadlistFetcher.bs" → JS URL with threadlist doc_ids
- *   - "MessengerPlatformVerticalListItemAttachment.react" → JS URL with inbox doc_ids
- *   - "PagesManagerInboxAdminAssignerRootQuery" module references
+ * Extract ALL JS URLs from rsrcMap in HTML (Pancake's approach)
+ *
+ * Pancake loads ALL rsrcMap resources (5000+ modules), not just targeted ones.
+ * This maximizes doc_id extraction. The rsrcMap maps module names to JS bundle URLs.
  *
  * rsrcMap format: "rsrcMap":{"ModuleName":{"type":"js","src":"https://static...js",...}}
  */
-function _extractRsrcMapModuleUrls(html) {
+function _extractAllRsrcMapUrls(html) {
   const urls = new Set();
 
-  // Target module names that contain inbox/messenger doc_ids
-  const targetModules = [
-    'MessengerGraphQLThreadlistFetcher',
-    'MessengerPlatformVerticalListItemAttachment',
-    'PagesManagerInbox',
-    'AdminAssigner',
-    'CommItemHeader',
-    'InboxCustomerSearch',
-  ];
-
-  // Method 1: Find module entries in rsrcMap with their src URLs
-  // Format: "ModuleName.bs":{"type":"js","src":"https://...","...}
-  for (const moduleName of targetModules) {
-    const regex = new RegExp(
-      `"${moduleName}[^"]*"\\s*:\\s*\\{[^}]*?"src"\\s*:\\s*"([^"]+\\.js[^"]*)"`,
-      'g'
-    );
-    let match;
-    while ((match = regex.exec(html)) !== null) {
-      urls.add(match[1]);
-      log.debug(MODULE, `rsrcMap: found ${moduleName} → ${match[1].substring(0, 80)}`);
-    }
+  // Method 1: Extract ALL "src" values for type:"js" entries in rsrcMap
+  // Matches: "type":"js","src":"https://static.xx.fbcdn.net/rsrc.php/..."
+  const srcRegex = /"type":"js","src":"(https:\/\/[^"]+\.js[^"]*)"/g;
+  let match;
+  while ((match = srcRegex.exec(html)) !== null) {
+    urls.add(match[1]);
+  }
+  // Also reverse order: "src":"...","type":"js"
+  const srcRegex2 = /"src":"(https:\/\/[^"]+\.js[^"]*)","type":"js"/g;
+  while ((match = srcRegex2.exec(html)) !== null) {
+    urls.add(match[1]);
   }
 
-  // Method 2: Find src URLs from "r" arrays in rsrcMap entries
-  // Some entries use: {"type":"js","src":"...","d":[],"r":["dep1","dep2"]}
-  // We also want to look for loadResources() calls
+  // Method 2: loadResources() calls
   const loadResourcesRegex = /loadResources\(\s*\[([^\]]+)\]/g;
   let m;
   while ((m = loadResourcesRegex.exec(html)) !== null) {
-    const urlList = m[1].match(/"(https:\/\/static[^"]+\.js[^"]*)"/g);
+    const urlList = m[1].match(/"(https:\/\/[^"]+\.js[^"]*)"/g);
     if (urlList) {
       for (const url of urlList) {
         urls.add(url.replace(/"/g, ''));
@@ -527,6 +527,7 @@ function _extractRsrcMapModuleUrls(html) {
     }
   }
 
+  log.info(MODULE, `rsrcMap: extracted ${urls.size} JS URLs`);
   return [...urls];
 }
 
