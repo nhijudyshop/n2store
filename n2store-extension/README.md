@@ -11,7 +11,7 @@ N2Store Messenger là Chrome Extension cho phép:
 
 - **Gửi tin nhắn bypass 24h** qua Facebook Business Suite internal API
 - **Upload ảnh/video/file** lên Facebook từ URL
-- **Resolve Global ID** (thread_id/customerName → globalUserId) qua GraphQL (5 strategies)
+- **Resolve Global ID** (thread_id/customerName → globalUserId) qua GraphQL (6 strategies)
 - **Gửi comment & private reply** qua Facebook internal API
 - **Thông báo real-time** từ server (chuyển khoản, đơn hàng, tin nhắn mới)
 - **Badge counter** trên icon extension
@@ -59,7 +59,7 @@ n2store-extension/
 │   │   ├── session.js               # fb_dtsg extraction, page init
 │   │   ├── sender.js                # REPLY_INBOX_PHOTO, buildSendParams
 │   │   ├── uploader.js              # UPLOAD_INBOX_PHOTO
-│   │   ├── global-id.js             # GET_GLOBAL_ID_FOR_CONV (5 strategies)
+│   │   ├── global-id.js             # GET_GLOBAL_ID_FOR_CONV (6 strategies)
 │   │   ├── commenter.js             # SEND_COMMENT, SEND_PRIVATE_REPLY
 │   │   └── utils.js                 # parseFbRes, generateOfflineThreadingID
 │   ├── server/
@@ -121,7 +121,7 @@ contentscript.js → window.postMessage → trang web
 | Gửi ảnh bypass 24h | `UPLOAD_INBOX_PHOTO` → `REPLY_INBOX_PHOTO` (PHOTO) | Done |
 | Gửi video/file/sticker | `REPLY_INBOX_PHOTO` (VIDEO/FILE/STICKER/AUDIO) | Done |
 | Lấy fb_dtsg | `PREINITIALIZE_PAGES`, `GET_BUSINESS_CONTEXT` | Done |
-| Resolve Global ID | `GET_GLOBAL_ID_FOR_CONV` (5 strategies) | Done |
+| Resolve Global ID | `GET_GLOBAL_ID_FOR_CONV` (6 strategies) | Done |
 | Gửi comment | `SEND_COMMENT` | Done |
 | Nhắn riêng | `SEND_PRIVATE_REPLY` | Done |
 | Keep-alive | `WAKE_UP` (10s) + chrome.alarms (30s) | Done |
@@ -407,15 +407,15 @@ chrome.declarativeNetRequest.updateDynamicRules({
 
 ---
 
-## 7. Global ID Resolution (5 strategies)
+## 7. Global ID Resolution (6 strategies)
 
 ### PSID ≠ thread_id ≠ globalUserId
 
 | ID | Ví dụ | Dùng cho |
 |----|-------|----------|
 | PSID | `26140045085657251` | `REPLY_INBOX_PHOTO.threadId` (OK) |
-| thread_id | `34116166741365151` | Strategies 1-3 |
-| customerName | `Tran Thi My Hang` | Strategies 4-5 (fallback khi không có thread_id) |
+| thread_id | `34116166741365151` | Strategies 1-4 |
+| customerName | `Tran Thi My Hang` | Strategies 3, 6 (fallback khi không có thread_id) |
 | globalUserId | `100001957832900` | `REPLY_INBOX_PHOTO.globalUserId` (BẮT BUỘC) |
 
 ### Cache
@@ -425,15 +425,57 @@ chrome.declarativeNetRequest.updateDynamicRules({
 - Lần đầu resolve: ~5-40s tùy strategy
 - Lần sau: instant (từ cache)
 
-### Strategy 1: MessengerThreadlistQuery (cần thread_id + doc_id)
+### Strategy 1: AdminAssigner (cần thread_id + doc_id)
 
 ```
 POST /api/graphql/
-doc_id={MessengerThreadlistQuery}
-variables={"pageId":"{pageId}","threadIds":["{threadId}"],"limit":1}
+doc_id={PagesManagerInboxAdminAssignerRootQuery}
+variables={"pageID":"{pageId}","commItemID":"{threadId}"}
+→ data.commItem.target_id = globalId
 ```
 
-### Strategy 2: thread_info.php (cần thread_id)
+> **⚠ LƯU Ý:** `PagesManagerInboxAdminAssignerRootQuery` doc_id đã bị Facebook xóa khỏi JS bundles (tính đến 04/2026). Chỉ hoạt động nếu doc_id còn trong cache. Xem [Troubleshooting doc_ids](#73-doc_id-extraction--pancake-patterns).
+
+### Strategy 2: CommItemHeaderMercuryQuery (cần threadKey + cquick_token + doc_id)
+
+```
+POST /api/graphql/
+doc_id={PagesManagerInboxQueryUtilCommItemHeaderMercuryQuery}
+variables={"pageID":"{pageId}","messageThreadID":"{threadKey}"}
+cquick=jsc_c_d&cquick_token={token}
+→ data.page.page_comm_item_for_message_thread.target_id = globalId
+```
+
+### Strategy 3: findThread ⭐ (cần threadId OR customerName + doc_id)
+
+**Strategy chính — đáng tin nhất** vì dùng `MessengerThreadlistQuery` doc_id (luôn tìm được trong JS bundles).
+
+Reverse-engineered từ Pancake class `Fe.findThread()`.
+
+```
+POST /api/graphql/
+doc_id={MessengerThreadlistQuery}    ← doc_id: 34388012574175272 (tính đến 04/2026)
+variables={"limit":20,"tags":["INBOX"],"before":{timeCursor},"isWorkUser":false,...}
+```
+
+- Loads 20 threads per page, matches by:
+  - `page_comm_item.id === threadId`
+  - `page_comm_item.comm_source_id === threadId`
+  - Participant name === customerName
+- Paginates up to 200 threads
+- Tries categories: main → done → page_background → spam → retry(now)
+- Extract: `found.thread_key.other_user_id`
+
+### Strategy 4: ConversationPage (cần thread_id, không cần doc_id)
+
+Scrape HTML từ Business Suite conversation page, tìm `target_id` trong SSR data.
+
+```
+GET /latest/inbox/all?asset_id={pageId}&selected_item_id={threadId}&mailbox_id=&thread_type=FB_MESSAGE
+→ Regex parse HTML for: "commItem":{..."target_id":"USERID"}, "other_user_id", etc.
+```
+
+### Strategy 5: thread_info.php (cần thread_id, không cần doc_id)
 
 ```
 POST /ajax/mercury/thread_info.php
@@ -442,40 +484,13 @@ request_user_id={pageId}
 → payload.threads[0].participants[].fbid (non-page)
 ```
 
-### Strategy 3: PagesManagerInboxAdminAssignerRootQuery (cần thread_id)
-
-```
-POST /api/graphql/
-fb_api_req_friendly_name=PagesManagerInboxAdminAssignerRootQuery
-variables={"threadKey":"t_{threadId}","pageId":"{pageId}"}
-→ data.commItem.target_id = globalId
-```
-
-### Strategy 4: findThread (cần customerName OR thread_id)
-
-Reverse-engineered từ Pancake class `Fe.findThread()`.
-
-```
-POST /api/graphql/
-doc_id={MessengerGraphQLThreadlistFetcher}
-variables={"limit":20,"tags":["INBOX"],"before":{timeCursor}}
-```
-
-- Loads 20 threads per page, matches by:
-  - `page_comm_item.id === threadId`
-  - `page_comm_item.comm_source_id === threadId`
-  - Participant name === customerName
-- Paginates up to 200 threads
-- Tries categories: main → done
-- Extract: `found.thread_key.other_user_id`
-
-### Strategy 5: getUserInboxByName (cần customerName)
+### Strategy 6: getUserInboxByName (cần customerName)
 
 Reverse-engineered từ Pancake class `Fe.getUserInboxByName()`.
 
 ```
 POST /api/graphql/
-doc_id={PagesManagerInboxCustomerSearchQuery}
+doc_id={BizInboxCustomerRelaySearchSourceQuery}
 variables={"pageID":"{pageId}","channel":"MESSENGER","count":5,"searchTerm":"{customerName}"}
 → data.page.page_unified_customer_search.edges[].node
     .unified_contact_comms_facebook.edges[].node.target_id = globalId
@@ -484,14 +499,56 @@ variables={"pageID":"{pageId}","channel":"MESSENGER","count":5,"searchTerm":"{cu
 ### Response paths (tất cả strategies)
 
 ```
-data.commItem.target_id                              // Strategy 3
-data.page.page_comm_item_for_message_thread.target_id // Pancake strategy 2
-node.thread_key.other_user_id                         // Strategy 4
-node.all_participants.edges[].node.messaging_actor.id  // Fallback
-data.page.page_unified_customer_search...target_id    // Strategy 5
+data.commItem.target_id                              // Strategy 1
+data.page.page_comm_item_for_message_thread.target_id // Strategy 2
+node.thread_key.other_user_id                         // Strategy 3 (findThread)
+node.all_participants.edges[].node.messaging_actor.id  // Strategy 3 fallback
+data.page.page_unified_customer_search...target_id    // Strategy 6
 data.node.messaging_actor.id                          // Generic
 obj.other_user_fbid                                   // Deep search
 ```
+
+### 7.1 Thứ tự ưu tiên
+
+```
+1. AdminAssigner (doc_id)         ← Nhanh nhưng doc_id hiếm khi có
+2. CommItemHeader (cquick+doc_id) ← Nhanh nhưng cần cquick_token + doc_id
+3. findThread ⭐                  ← CHÍNH: dùng MessengerThreadlistQuery (luôn có doc_id)
+4. ConversationPage               ← Scrape HTML, chậm
+5. thread_info.php                ← Mercury endpoint, chậm
+6. getUserInboxByName             ← Chỉ khi có customerName
+```
+
+### 7.2 Bài học quan trọng từ debug (04/2026)
+
+| Vấn đề | Chi tiết |
+|---------|----------|
+| **`PagesManagerInboxAdminAssignerRootQuery` đã bị xóa** | Facebook không còn ship doc_id này trong bất kỳ JS bundle nào (đã scan 5,454 files). Pancake có thể vẫn hoạt động vì dùng cached doc_id từ localStorage. |
+| **`BusinessCometInboxThreadDetailHeaderQuery` trả sai data** | Trả về `data.viewer.ubi_thread_detail` (UI component renderer), KHÔNG phải `data.commItem.target_id`. Đã xóa khỏi ADMIN_ASSIGNER_NAMES. |
+| **`AdminAssigner` without doc_id luôn fail** | Gửi `fb_api_req_friendly_name` mà không có `doc_id` → Facebook trả lỗi `"Must provide either query_id or q, but not both"`. |
+| **`MessengerThreadlistQuery` là key** | Doc_id `34388012574175272` tìm được qua Pattern G (id/metadata/name trong Relay operation object). Đây là strategy đáng tin nhất. |
+
+### 7.3 Doc_id extraction — Pancake patterns
+
+Extension dùng **9 regex patterns** để extract doc_ids từ Facebook JS bundles (5 pattern gốc + 4 pattern từ Pancake):
+
+| Pattern | Format | Ví dụ |
+|---------|--------|-------|
+| A | `"queryID":"ID"..."queryName":"NAME"` | HTML preloader |
+| B | `"NAME_facebookRelayOperation"...exports="ID"` | Relay operation module |
+| C | `"docID":"ID","queryName":"NAME"` | Legacy format |
+| D | `queryID:"ID"...queryName:"NAME"` (unquoted) | JS bundle |
+| E | `params:{id:n("NAME_facebookRelayOperation")...}` | PreloadableConcreteRequest |
+| **F** ⭐ | `operationKind:"query",name:"NAME",id:"ID"` | **Pancake pattern 1** |
+| **G** ⭐ | `{id:"ID",metadata:{},name:"NAME"}` | **Pancake pattern 2 — tìm được MessengerThreadlistQuery** |
+| **H** | `__d("NAME"...__getDocID=function(){return"ID"})` | **Pancake pattern 3** |
+| **I** | `"NAME_instagramRelayOperation"...exports="ID"` | **Pancake pattern 5** |
+
+**Compat view** (legacy inbox page) chứa rsrcMap với ~5,400 JS modules. Extension fetch ALL để extract doc_ids (giống Pancake).
+
+URL format: `https://business.facebook.com/latest/inbox/messenger?asset_id={pageId}&nav_ref=diode_page_inbox&cquick=jsc_c_d&cquick_token={token}&ctarget=https%3A%2F%2Fwww.facebook.com`
+
+> **⚠ LƯU Ý:** Compat view URL **PHẢI** có `asset_id` + `nav_ref=diode_page_inbox`. Nếu chỉ có `asset_id` mà thiếu `nav_ref` → response chỉ ~1.5KB (bị redirect). Nếu bỏ cả hai thì cũng hoạt động (~1.3MB) nhưng nên giữ đúng format Pancake.
 
 ---
 
@@ -580,7 +637,47 @@ Trường `isBusiness` trong REPLY_INBOX_PHOTO **PHẢI là `false`**. Đây là
 - Offscreen.js gửi keepAlive mỗi 20s
 - Dùng ES Modules (`type: "module"` trong manifest)
 
-### 10.4 SSE Reconnect
+### 10.4 Global ID Resolution — Troubleshooting
+
+**Triệu chứng:** `GET_GLOBAL_ID_FOR_CONV_FAILURE: "Could not resolve globalUserId"`
+
+**Kiểm tra theo thứ tự:**
+
+1. **Có `MessengerThreadlistQuery` doc_id không?**
+   - Mở SW console → tìm log `✓ MessengerThreadlistQuery: 34388012574175272`
+   - Nếu không có → `extractDocIds` thiếu Pattern G, hoặc compat view bị lỗi
+   - Fix: kiểm tra compat view URL, kiểm tra rsrcMap fetch
+
+2. **findThread có chạy không?**
+   - Log: `[FB-GlobalID] [3/6] Trying findThread...`
+   - Nếu skip → thiếu doc_id hoặc thiếu cả threadId lẫn customerName
+   - Nếu chạy nhưng fail → thread không nằm trong INBOX/ARCHIVED/PAGE_BACKGROUND/OTHER (200 threads/category)
+
+3. **Compat view load thành công không?**
+   - Log: `CompatView: XXXX bytes` — cần > 100KB
+   - Nếu < 5KB → URL sai hoặc cquick_token hết hạn
+   - Cần cả `asset_id` + `nav_ref=diode_page_inbox` trong URL
+
+4. **Doc_ids nào available?**
+   - Log: `Total doc_ids: XXX`
+   - Quan trọng nhất: `MessengerThreadlistQuery` (cho findThread)
+   - `PagesManagerInboxAdminAssignerRootQuery` gần như không còn tìm được (Facebook đã xóa)
+
+5. **Facebook thay đổi query names/format?**
+   - Check Pancake extension logs để so sánh
+   - Facebook đổi tên queries định kỳ: `PagesManager*` → `BusinessComet*` → `BizInbox*`
+   - Nếu doc_id mới dùng format khác → cần thêm regex pattern vào `extractDocIds` trong `session.js`
+
+**Debug nhanh — paste vào SW console:**
+```javascript
+// Xem tất cả doc_ids đã extract
+chrome.storage.local.get(null, d => {
+  const keys = Object.keys(d).filter(k => k.includes('docId') || k.includes('doc_id'));
+  console.log('Doc ID storage keys:', keys);
+});
+```
+
+### 10.5 SSE Reconnect
 
 - Auto-reconnect khi mất kết nối
 - Exponential backoff: 1s → 2s → 4s → 8s → ... → 60s max
@@ -642,7 +739,7 @@ Chrome → `chrome://extensions/` → N2Store Messenger → "Inspect views: serv
 | **Đọc được** | Không (obfuscated) | Có (clean code) |
 | **Sửa được** | Không | Có |
 | **Platforms** | FB + IG + LINE + Zalo | FB only (N2Store chỉ cần) |
-| **Global ID** | 5 strategies | 5 strategies (matched) |
+| **Global ID** | 5 strategies | 6 strategies (matched + ConversationPage scraping) |
 | **Comment/Reply** | Có | Có (SEND_COMMENT, SEND_PRIVATE_REPLY) |
 | **Thông báo** | Không | 14 loại + SSE real-time |
 | **Popup** | Không | Dashboard + Notification center |
@@ -659,7 +756,7 @@ Chrome → `chrome://extensions/` → N2Store Messenger → "Inspect views: serv
 - [x] Facebook session manager (fb_dtsg)
 - [x] Inbox sender (REPLY_INBOX_PHOTO)
 - [x] Image uploader (UPLOAD_INBOX_PHOTO)
-- [x] Global ID resolver (5 strategies)
+- [x] Global ID resolver (6 strategies, Pancake regex patterns)
 - [x] Content script bridge
 - [x] DeclarativeNetRequest rules
 - [x] Hệ thống thông báo (14 loại)
