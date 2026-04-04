@@ -434,10 +434,11 @@ function updateWalletDebtBadgesInTable(targetPhone) {
             const orderCode = row.getAttribute('data-order-code') || (orderId && window._ptagResolveCode ? window._ptagResolveCode(orderId) : null);
             if (orderCode && typeof window.toggleOrderFlag === 'function' && window.ProcessingTagState && window.ProcessingTagState._isLoaded) {
                 const existingFlags = window.ProcessingTagState.getOrderFlags(orderCode);
-                if ((data.balance || 0) > 0 && !existingFlags.includes('CHUYEN_KHOAN')) {
+                const existingFlagIds = existingFlags.map(f => typeof f === 'object' ? f.id : f);
+                if ((data.balance || 0) > 0 && !existingFlagIds.includes('CHUYEN_KHOAN')) {
                     window.toggleOrderFlag(orderCode, 'CHUYEN_KHOAN', 'Tự Động');
                 }
-                if (((data.virtualBalance || data.virtual_balance) || 0) > 0 && !existingFlags.includes('TRU_CONG_NO')) {
+                if (((data.virtualBalance || data.virtual_balance) || 0) > 0 && !existingFlagIds.includes('TRU_CONG_NO')) {
                     window.toggleOrderFlag(orderCode, 'TRU_CONG_NO', 'Tự Động');
                 }
             }
