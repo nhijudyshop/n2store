@@ -3155,7 +3155,7 @@ const RefundOrders = {
         }).join('');
 
         this._updateActions();
-        lucide?.createIcons?.({ nodes: [section] });
+        lucide?.createIcons?.({ nodes: [wrap] });
     },
 
     _formatDate(isoStr) {
