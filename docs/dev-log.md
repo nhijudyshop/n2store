@@ -8,11 +8,11 @@
 
 ## 2026-04-04
 
-### [orders] Fix bill send extension bypass + thêm /CAMON sau bill ✅
+### [orders] Fix bill send extension bypass: gửi hình bill + CAMON image qua extension ✅
 | | |
 |---|---|
 | **Files** | `orders-report/js/utils/bill-service.js` |
-| **Chi tiết** | 3 fixes: (1) Extension bypass extConv thiếu customerName, customers → extract từ msgData + fallback từ orderResult → global_id resolve được. (2) `sendAdditionalBillMessages` (CAMON image+text) chuyển từ fire trước bill send → fire SAU bill thành công. (3) Khi bill gửi qua extension bypass, cũng gửi kèm CAMON text. Thêm chữ ký nhân viên vào CAMON text ở cả 2 paths (API + extension). |
+| **Chi tiết** | Extension bypass trước chỉ gửi text `[Hóa đơn đã được tạo]`, không gửi hình. Fix: (1) Hoist `billImageFile` → dùng `sendImagesViaExtension` gửi hình bill thật. (2) CAMON qua extension: download imageUrl → File → `sendImagesViaExtension([camonFile], camonText)` gửi cả hình + text. (3) extConv populate customerName/customers từ msgData + orderResult. (4) `sendAdditionalBillMessages` chuyển fire SAU bill thành công. (5) Thêm chữ ký nhân viên vào CAMON text cả 2 paths. |
 
 ### [chat] Fix reply comment: detect post-not-exist, stop fallback chain sớm ✅
 | | |

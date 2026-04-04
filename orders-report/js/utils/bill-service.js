@@ -1275,6 +1275,7 @@ ${
 
         try {
             let contentId = options.preGeneratedContentId || null;
+            let billImageFile = null; // Keep for extension fallback
 
             // Use pre-generated content if available, otherwise generate and upload
             if (contentId) {
@@ -1284,13 +1285,14 @@ ${
                 const imageBlob = await generateBillImage(orderResult, options);
 
                 // Convert blob to File for upload
-                const imageFile = new File(
+                billImageFile = new File(
                     [imageBlob],
                     `bill_${orderResult?.Number || Date.now()}.png`,
                     {
                         type: 'image/png',
                     }
                 );
+                const imageFile = billImageFile;
 
                 // Step 2: Upload image to Pancake
                 if (!window.pancakeDataManager) {
@@ -1410,7 +1412,7 @@ ${
                     (sendResult.message &&
                         sendResult.message.includes('khoảng thời gian cho phép'));
 
-                if (is24HourError && window.pancakeExtension?.connected && window.sendViaExtension) {
+                if (is24HourError && window.pancakeExtension?.connected && window.sendImagesViaExtension) {
                     try {
                         // Fetch messages API to get thread_id + global_id + customers
                         const pdm = window.pancakeDataManager;
@@ -1446,19 +1448,37 @@ ${
                             updated_at: null, customerName, type: 'INBOX',
                         };
 
-                        // Send bill notification via extension
-                        await window.sendViaExtension('[Hóa đơn đã được tạo]', extConv);
+                        // Regenerate bill image if not available (preGenerated path)
+                        if (!billImageFile) {
+                            const blob = await generateBillImage(orderResult, options);
+                            billImageFile = new File([blob], `bill_${orderResult?.Number || Date.now()}.png`, { type: 'image/png' });
+                        }
 
-                        // Also send CAMON text via extension (fire and forget)
+                        // Send actual bill IMAGE via extension (not just text)
+                        await window.sendImagesViaExtension([billImageFile], null, extConv);
+
+                        // Send CAMON (image + text) via extension
                         try {
                             const camonReply = window.quickReplyManager?.replies?.find(r =>
                                 (r.shortcut || '').toUpperCase() === 'CAMON'
                             );
+                            const camonImageUrl = camonReply?.imageUrl || 'https://content.pancake.vn/2-25/2025/5/21/2c82b1de2b01a5ad96990f2a14277eaa22d65293.jpg';
                             let camonText = camonReply?.message || 'Dạ hàng của mình đã được lên bill , cám ơn chị yêu đã ủng hộ shop ạ ❤️';
                             const displayName = window.authManager?.getUserInfo?.()?.displayName
                                 || window.authManager?.getAuthState?.()?.displayName;
                             if (displayName) camonText += '\nNv. ' + displayName;
-                            await window.sendViaExtension(camonText, extConv);
+
+                            // Download CAMON image → File → send via extension
+                            const camonResp = await fetch(camonImageUrl);
+                            if (camonResp.ok) {
+                                const camonBlob = await camonResp.blob();
+                                const ext = camonImageUrl.match(/\.(jpg|jpeg|png|gif|webp)/i)?.[1] || 'jpg';
+                                const camonFile = new File([camonBlob], `camon.${ext}`, { type: camonBlob.type || `image/${ext}` });
+                                await window.sendImagesViaExtension([camonFile], camonText, extConv);
+                            } else {
+                                // Image download failed, send text only
+                                await window.sendViaExtension(camonText, extConv);
+                            }
                         } catch (camonErr) {
                             console.warn('[BILL-SERVICE] CAMON via extension failed:', camonErr.message);
                         }
