@@ -118,6 +118,15 @@ Khi code phần mới (feature, module, page mới), **luôn hỏi người dùn
 
 Use environment variables or `.pgpass` file for PostgreSQL credentials. Never hardcode passwords.
 
+## Dev Log — Theo dõi tiến trình code
+
+**BẮT BUỘC:** Sau mỗi lần sửa code (commit), cập nhật `docs/dev-log.md`:
+- Thêm entry mới ở **đầu** file (mới nhất ở trên)
+- Format: `### [Mô tả]` + Files + Chi tiết + Status
+- Nếu ngày mới, thêm heading `## [NGÀY]`
+
+Đây là file theo dõi liên tục — mọi thay đổi code đều phải ghi lại.
+
 ## Git Workflow
 
 **Auto commit & push**: Khi hoàn thành task, tự động commit và push mà không cần hỏi user. Commit message ngắn gọn, rõ ràng.
