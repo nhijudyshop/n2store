@@ -760,9 +760,7 @@ class QuickReplyManager {
             let imageSent = false;
 
             if (!contentId && imageUrl) {
-                const downloaded = await fetch(imageUrl);
-                if (!downloaded.ok) throw new Error('Tải ảnh thất bại');
-                const blob = await downloaded.blob();
+                const blob = await window.imageBlobCache.getOrFetch(imageUrl);
                 const ext = imageUrl.match(/\.(jpg|jpeg|png|gif|webp)/i)?.[1] || 'jpg';
                 const file = new File([blob], `quick-reply.${ext}`, { type: blob.type || `image/${ext}` });
 
@@ -788,9 +786,8 @@ class QuickReplyManager {
                     if (!is24h && cachedContentId && imageUrl) {
                         // Re-upload if cached contentId expired
                         console.warn('[QUICK-REPLY] Cached contentId failed, re-uploading...');
-                        const downloaded = await fetch(imageUrl);
-                        if (downloaded.ok) {
-                            const blob = await downloaded.blob();
+                        try {
+                            const blob = await window.imageBlobCache.getOrFetch(imageUrl);
                             const ext = imageUrl.match(/\.(jpg|jpeg|png|gif|webp)/i)?.[1] || 'jpg';
                             const file = new File([blob], `quick-reply.${ext}`, { type: blob.type || `image/${ext}` });
                             const uploadResult = await pdm.uploadMedia(channelId, file, pat);
@@ -803,6 +800,8 @@ class QuickReplyManager {
                                     this._cacheContentId(replyId, uploadResult.id);
                                 }
                             }
+                        } catch (reuploadErr) {
+                            console.warn('[QUICK-REPLY] Re-upload failed:', reuploadErr.message);
                         }
                     }
 
@@ -810,16 +809,13 @@ class QuickReplyManager {
                     if (!imageSent && window.pancakeExtension?.connected && window.sendImagesViaExtension && imageUrl) {
                         console.warn('[QUICK-REPLY] Image send failed, trying extension bypass...');
                         try {
-                            const downloaded = await fetch(imageUrl);
-                            if (downloaded.ok) {
-                                const blob = await downloaded.blob();
-                                const ext = imageUrl.match(/\.(jpg|jpeg|png|gif|webp)/i)?.[1] || 'jpg';
-                                const file = new File([blob], `quick-reply.${ext}`, { type: blob.type || `image/${ext}` });
-                                const conv = window.buildConvData(channelId, window.currentChatPSID);
-                                await window.sendImagesViaExtension([file], null, conv);
-                                imageSent = true;
-                                imageFallbackToExtension = true;
-                            }
+                            const blob = await window.imageBlobCache.getOrFetch(imageUrl);
+                            const ext = imageUrl.match(/\.(jpg|jpeg|png|gif|webp)/i)?.[1] || 'jpg';
+                            const file = new File([blob], `quick-reply.${ext}`, { type: blob.type || `image/${ext}` });
+                            const conv = window.buildConvData(channelId, window.currentChatPSID);
+                            await window.sendImagesViaExtension([file], null, conv);
+                            imageSent = true;
+                            imageFallbackToExtension = true;
                         } catch (extErr) {
                             console.error('[QUICK-REPLY] Extension image fallback failed:', extErr.message);
                         }

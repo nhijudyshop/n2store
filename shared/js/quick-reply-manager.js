@@ -3,6 +3,80 @@
 // Storage: Render PostgreSQL (source of truth) + IndexedDB cache
 // =====================================================
 
+// =====================================================
+// IMAGE BLOB CACHE - IndexedDB cache for downloaded image URLs
+// Avoids re-downloading the same images (CAMON, etc.) every send
+// Usage: const blob = await window.imageBlobCache.getOrFetch(url);
+// =====================================================
+class ImageBlobCache {
+    constructor(dbName = 'imageBlobCacheDB', storeName = 'blobs', maxAgeDays = 7) {
+        this.dbName = dbName;
+        this.storeName = storeName;
+        this.maxAgeMs = maxAgeDays * 24 * 60 * 60 * 1000;
+        this._db = null;
+        this._dbPromise = null;
+    }
+
+    _openDB() {
+        if (this._dbPromise) return this._dbPromise;
+        this._dbPromise = new Promise((resolve, reject) => {
+            const req = indexedDB.open(this.dbName, 1);
+            req.onupgradeneeded = (e) => {
+                const db = e.target.result;
+                if (!db.objectStoreNames.contains(this.storeName)) {
+                    db.createObjectStore(this.storeName, { keyPath: 'url' });
+                }
+            };
+            req.onsuccess = (e) => { this._db = e.target.result; resolve(this._db); };
+            req.onerror = (e) => { this._dbPromise = null; reject(e.target.error); };
+        });
+        return this._dbPromise;
+    }
+
+    async get(url) {
+        try {
+            const db = await this._openDB();
+            return new Promise((resolve) => {
+                const tx = db.transaction(this.storeName, 'readonly');
+                const req = tx.objectStore(this.storeName).get(url);
+                req.onsuccess = () => {
+                    const entry = req.result;
+                    if (entry && (Date.now() - entry.cachedAt < this.maxAgeMs)) {
+                        resolve(entry.blob);
+                    } else {
+                        resolve(null);
+                    }
+                };
+                req.onerror = () => resolve(null);
+            });
+        } catch { return null; }
+    }
+
+    async put(url, blob) {
+        try {
+            const db = await this._openDB();
+            const tx = db.transaction(this.storeName, 'readwrite');
+            tx.objectStore(this.storeName).put({ url, blob, cachedAt: Date.now() });
+        } catch { /* silent */ }
+    }
+
+    /** Get cached blob or fetch + cache. Returns Blob. */
+    async getOrFetch(url) {
+        const cached = await this.get(url);
+        if (cached) {
+            console.log('[IMG-CACHE] Hit:', url.substring(0, 60));
+            return cached;
+        }
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error(`Image download failed: ${resp.status}`);
+        const blob = await resp.blob();
+        this.put(url, blob).catch(() => {}); // background save
+        console.log('[IMG-CACHE] Miss, cached:', url.substring(0, 60));
+        return blob;
+    }
+}
+window.imageBlobCache = new ImageBlobCache();
+
 class QuickReplyManager {
     constructor() {
         this.replies = [];
@@ -760,9 +834,7 @@ class QuickReplyManager {
             let imageSent = false;
 
             if (!contentId && imageUrl) {
-                const downloaded = await fetch(imageUrl);
-                if (!downloaded.ok) throw new Error('Tải ảnh thất bại');
-                const blob = await downloaded.blob();
+                const blob = await window.imageBlobCache.getOrFetch(imageUrl);
                 const ext = imageUrl.match(/\.(jpg|jpeg|png|gif|webp)/i)?.[1] || 'jpg';
                 const file = new File([blob], `quick-reply.${ext}`, { type: blob.type || `image/${ext}` });
 
@@ -789,9 +861,8 @@ class QuickReplyManager {
                     // Re-upload if cached contentId expired
                     if (cachedContentId && imageUrl) {
                         console.warn('[QUICK-REPLY] Cached contentId failed, re-uploading...');
-                        const downloaded = await fetch(imageUrl);
-                        if (downloaded.ok) {
-                            const blob = await downloaded.blob();
+                        try {
+                            const blob = await window.imageBlobCache.getOrFetch(imageUrl);
                             const ext = imageUrl.match(/\.(jpg|jpeg|png|gif|webp)/i)?.[1] || 'jpg';
                             const file = new File([blob], `quick-reply.${ext}`, { type: blob.type || `image/${ext}` });
                             const uploadResult = await pdm.uploadMedia(channelId, file, pat);
@@ -804,6 +875,8 @@ class QuickReplyManager {
                                     this._cacheContentId(replyId, uploadResult.id);
                                 }
                             }
+                        } catch (reuploadErr) {
+                            console.warn('[QUICK-REPLY] Re-upload failed:', reuploadErr.message);
                         }
                     }
                     if (!imageSent) console.warn('[QUICK-REPLY] Image send failed:', errMsg);

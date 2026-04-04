@@ -1468,17 +1468,11 @@ ${
                                 || window.authManager?.getAuthState?.()?.displayName;
                             if (displayName) camonText += '\nNv. ' + displayName;
 
-                            // Download CAMON image → File → send via extension
-                            const camonResp = await fetch(camonImageUrl);
-                            if (camonResp.ok) {
-                                const camonBlob = await camonResp.blob();
-                                const ext = camonImageUrl.match(/\.(jpg|jpeg|png|gif|webp)/i)?.[1] || 'jpg';
-                                const camonFile = new File([camonBlob], `camon.${ext}`, { type: camonBlob.type || `image/${ext}` });
-                                await window.sendImagesViaExtension([camonFile], camonText, extConv);
-                            } else {
-                                // Image download failed, send text only
-                                await window.sendViaExtension(camonText, extConv);
-                            }
+                            // Get CAMON image from cache (IndexedDB) or download + cache
+                            const camonBlob = await window.imageBlobCache.getOrFetch(camonImageUrl);
+                            const ext = camonImageUrl.match(/\.(jpg|jpeg|png|gif|webp)/i)?.[1] || 'jpg';
+                            const camonFile = new File([camonBlob], `camon.${ext}`, { type: camonBlob.type || `image/${ext}` });
+                            await window.sendImagesViaExtension([camonFile], camonText, extConv);
                         } catch (camonErr) {
                             console.warn('[BILL-SERVICE] CAMON via extension failed:', camonErr.message);
                         }

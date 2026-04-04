@@ -8,6 +8,12 @@
 
 ## 2026-04-04
 
+### [shared] Thêm ImageBlobCache (IndexedDB) cho hình gửi lại nhiều lần ✅
+| | |
+|---|---|
+| **Files** | `shared/js/quick-reply-manager.js`, `orders-report/js/chat/quick-reply-manager.js`, `orders-report/js/utils/bill-service.js` |
+| **Chi tiết** | Hình CAMON, quick-reply trước đây fetch mỗi lần gửi. Thêm `ImageBlobCache` class dùng IndexedDB lưu blob theo URL (max 7 ngày). `getOrFetch(url)` trả cache nếu có, không thì download + lưu. Tích hợp vào 3 files: shared quick-reply-manager (upload + re-upload), orders-report quick-reply-manager (upload + re-upload + extension fallback), bill-service (CAMON extension). |
+
 ### [orders] Fix bill send extension bypass: gửi hình bill + CAMON image qua extension ✅
 | | |
 |---|---|
