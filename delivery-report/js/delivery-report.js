@@ -957,7 +957,7 @@
     };
 
     const GROUP_LABELS = {
-        tomato: 'TOMATO', nap: 'NAP',
+        tomato: 'TOMATO', nap: 'TỈNH NAP',
         city: 'THÀNH PHỐ', shop: 'BÁN HÀNG SHOP', return: 'THU VỀ'
     };
 
@@ -1278,7 +1278,7 @@
 
         // Render NAP column
         let napHtml = `<div class="dr-province-header dr-province-header-nap">
-            NAP <span class="dr-province-count">${napScannedCount}/${allNap.length}</span>
+            TỈNH NAP <span class="dr-province-count">${napScannedCount}/${allNap.length}</span>
             <div class="dr-province-total">${formatMoney(napCOD)}</div>
         </div>`;
         napItems.forEach(item => {
@@ -1560,7 +1560,7 @@
                 showProvinceColumn(group);
             }
             updateScanCount();
-            showScanFeedback(true, `${match.Number} - ${customerName} → ${(group || '').toUpperCase()}`, false);
+            showScanFeedback(true, `${match.Number} - ${customerName} → ${GROUP_LABELS[group] || (group || '').toUpperCase()}`, false);
         } else {
             renderTable();
             renderPagination();
