@@ -497,6 +497,14 @@ async function _sendComment(pdm, pageId, convId, text, pat, replyData) {
         } catch (err) {
             console.warn('[Chat-Msg] reply_comment failed:', err.message);
 
+            // Post/comment no longer exists (code 100) — no fallback will work
+            const isPostGone = err.fbError?.eCode === 100 ||
+                err.message?.includes('does not exist') ||
+                err.message?.includes('does not support');
+            if (isPostGone) {
+                throw new Error('Bài viết/bình luận không còn tồn tại trên Facebook hoặc page không có quyền truy cập.');
+            }
+
             // Fallback 1: Extension SEND_COMMENT (real comment, not inbox)
             if (window.pancakeExtension?.connected && window.sendCommentViaExtension) {
                 try {

@@ -8,6 +8,12 @@
 
 ## 2026-04-04
 
+### [chat] Fix reply comment: detect post-not-exist, stop fallback chain sớm ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-chat-messages.js` |
+| **Chi tiết** | Reply comment trên post cũ (2022) bị xóa → Pancake API trả `(#100, 33) Object does not exist` → code fallback qua 5 methods rồi hiện lỗi "Global Facebook ID" gây nhầm. Fix: detect error code 100 hoặc "does not exist" → throw ngay "Bài viết/bình luận không còn tồn tại" → không chạy fallback chain vô ích. |
+
 ### [chat] Fix lỗi "Không tìm được Global Facebook ID" khi gửi qua Extension ✅
 | | |
 |---|---|
