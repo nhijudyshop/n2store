@@ -8,6 +8,12 @@
 
 ## 2026-04-04
 
+### [chat] Fix lỗi "Không tìm được Global Facebook ID" khi gửi qua Extension ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-chat-messages.js`, `orders-report/js/tab1/tab1-extension-bridge.js`, `orders-report/js/tab1/tab1-chat-core.js` |
+| **Chi tiết** | 3 fixes: (1) `_sendInbox` chỉ fallback extension khi lỗi 24h, không fallback cho lỗi khác. (2) `sendViaExtension` detect `thread_id === psid` → skip thread_id vì PSID làm extension resolve sai. (3) `_loadMessages` cache global_id ngay khi load tin nhắn. |
+
 ### [chat] Thêm chữ ký nhân viên vào chat modal (orders-report) ✅
 | | |
 |---|---|

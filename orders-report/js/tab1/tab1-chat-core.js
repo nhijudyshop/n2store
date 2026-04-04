@@ -342,6 +342,18 @@ async function _loadMessages(pageId, conversationId, customerId) {
                 post: result.post || null,
                 activities: result.activities || [],
             };
+
+            // Proactive global_id caching — cache immediately when available
+            if (!window._globalIdCache) window._globalIdCache = {};
+            const cacheKey = conversationId || `${pageId}_${window.currentChatPSID}`;
+            if (!window._globalIdCache[cacheKey]) {
+                const gid = rc.page_customer?.global_id
+                    || (result.customers || []).find(c => c.global_id)?.global_id;
+                if (gid) {
+                    window._globalIdCache[cacheKey] = gid;
+                    console.log('[Chat-Core] Cached global_id:', gid, 'for', cacheKey);
+                }
+            }
         }
 
         // Map messages

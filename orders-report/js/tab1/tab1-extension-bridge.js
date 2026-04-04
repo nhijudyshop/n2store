@@ -82,7 +82,12 @@ async function sendViaExtension(text, conv) {
 
     // Try 3: GET_GLOBAL_ID_FOR_CONV via extension
     // Now supports 5 strategies: threadId-based (1-3) + customerName-based (4-5)
-    const fbThreadId = raw.thread_id || null;
+    // IMPORTANT: Skip thread_id if it equals psid — PSID confuses thread-based strategies
+    let fbThreadId = raw.thread_id || null;
+    if (fbThreadId && fbThreadId === psid) {
+        console.warn('[EXT-SEND] thread_id === psid, skipping thread_id (would confuse extension)');
+        fbThreadId = null;
+    }
     const custName = conv.customerName || conv.from?.name || '';
 
     if (!globalUserId && (fbThreadId || custName)) {

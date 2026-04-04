@@ -464,9 +464,9 @@ async function _sendInbox(pdm, pageId, convId, text, pat, replyData) {
     try {
         const result = await _sendApi(pdm, pageId, convId, payload, pat);
     } catch (err) {
-        // Fallback: Extension Bypass 24h
-        if (window.pancakeExtension?.connected && window.sendViaExtension) {
-            _showToast('Đang gửi qua Extension...', 'warning');
+        // Only fallback to extension for 24h errors (not auth/network issues)
+        if (err.fbError?.is24HourError && window.pancakeExtension?.connected && window.sendViaExtension) {
+            _showToast('Quá 24h — đang gửi qua Extension...', 'warning');
             const conv = window.buildConvData(pageId, window.currentChatPSID);
             await window.sendViaExtension(text, conv);
             _showToast('Đã gửi qua Extension (bypass 24h)', 'success');
