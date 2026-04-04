@@ -76,7 +76,22 @@ async function _doInitPage(pageId) {
   if (!docIds) {
     docIds = extractDocIds(html);
     if (docIds) {
-      log.info(MODULE, `Extracted ${Object.keys(docIds).length} GraphQL doc_ids`);
+      const keys = Object.keys(docIds);
+      log.info(MODULE, `Extracted ${keys.length} GraphQL doc_ids`);
+      // Log important doc_ids for debugging global-id resolution
+      const important = [
+        'PagesManagerInboxAdminAssignerRootQuery',
+        'PagesManagerInboxQueryUtilCommItemHeaderMercuryQuery',
+        'MessengerThreadlistWebGraphQLQuery',
+        'MessengerThreadlistQuery',
+        'BizInboxCustomerRelaySearchSourceQuery',
+        'MessengerGraphQLThreadlistFetcher',
+      ];
+      for (const name of important) {
+        log.info(MODULE, `  doc_id[${name}]: ${docIds[name] || 'NOT FOUND'}`);
+      }
+    } else {
+      log.info(MODULE, 'No doc_ids extracted from HTML');
     }
   }
 
@@ -87,6 +102,7 @@ async function _doInitPage(pageId) {
   log.info(MODULE, `  hs: ${sessionData.hs || 'NULL'}, hsi: ${sessionData.hsi || 'NULL'}`);
   log.info(MODULE, `  spinR: ${sessionData.spinR || 'NULL'}, spinB: ${sessionData.spinB || 'NULL'}, spinT: ${sessionData.spinT || 'NULL'}`);
   log.info(MODULE, `  pkgCohort: ${sessionData.pkgCohort || 'NULL'}, pr: ${sessionData.pr || 'NULL'}, msgrRegion: ${sessionData.msgrRegion || 'NULL'}`);
+  log.info(MODULE, `  cquickToken: ${sessionData.cquickToken ? sessionData.cquickToken.substring(0, 20) + '...' : 'NULL'}`);
   return sessionData;
 }
 
@@ -217,20 +233,37 @@ function extractSessionData(html, pageId) {
  */
 function extractDocIds(html) {
   const ids = {};
-
-  // Pattern: "docID":"123456","queryName":"SomeQuery"
-  const regex = /"docID":"(\d+)","queryName":"([^"]+)"/g;
   let match;
-  while ((match = regex.exec(html)) !== null) {
+
+  // Pattern 1: "docID":"123456","queryName":"SomeQuery"
+  const regex1 = /"docID":"(\d+)","queryName":"([^"]+)"/g;
+  while ((match = regex1.exec(html)) !== null) {
     ids[match[2]] = match[1];
   }
 
-  // Alternative pattern: __d("SomeQuery",{...,"__dr":"123456"...})
-  const altRegex = /__d\("([^"]+)"[^}]*"__dr":"(\d+)"/g;
-  while ((match = altRegex.exec(html)) !== null) {
-    if (!ids[match[1]]) {
-      ids[match[1]] = match[2];
-    }
+  // Pattern 2: __d("SomeQuery",{...,"__dr":"123456"...})
+  const regex2 = /__d\("([^"]+)"[^}]*"__dr":"(\d+)"/g;
+  while ((match = regex2.exec(html)) !== null) {
+    if (!ids[match[1]]) ids[match[1]] = match[2];
+  }
+
+  // Pattern 3: operationKind:"query",name:"SomeQuery",id:"123456" (Pancake pattern)
+  const regex3 = /operationKind:"[^"]*",name:"([^"]+)",id:"(\d+)"/g;
+  while ((match = regex3.exec(html)) !== null) {
+    if (!ids[match[1]]) ids[match[1]] = match[2];
+  }
+
+  // Pattern 4: id:"123456",...,name:"SomeQuery" (reverse order)
+  const regex4 = /id:"(\d+)"[^}]*?name:"([^"]+)"/g;
+  while ((match = regex4.exec(html)) !== null) {
+    if (!ids[match[2]]) ids[match[2]] = match[1];
+  }
+
+  // Pattern 5: __getDocID=function(){return"123456"} with nearby query name
+  const regex5 = /__d\("([^"]+_facebookRelayOperation)"[^)]*exports="(\d+)"/g;
+  while ((match = regex5.exec(html)) !== null) {
+    const name = match[1].replace('_facebookRelayOperation', '');
+    if (!ids[name]) ids[name] = match[2];
   }
 
   return Object.keys(ids).length > 0 ? ids : null;

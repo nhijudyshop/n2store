@@ -117,10 +117,12 @@ async function resolveGlobalId(session, pageId, threadId, isBusiness, extra = {}
 
   const strategies = [];
 
-  // --- Pancake Strategy 1: PagesManagerInboxAdminAssignerRootQuery ---
+  log.info(MODULE, `Available doc_ids: ${docIds ? Object.keys(docIds).length : 0}, cquickToken: ${session.cquickToken ? 'yes' : 'no'}`);
+
+  // --- Pancake Strategy 1: PagesManagerInboxAdminAssignerRootQuery (with doc_id) ---
   if (threadId && docIds?.['PagesManagerInboxAdminAssignerRootQuery']) {
     strategies.push({
-      name: 'AdminAssignerRootQuery',
+      name: 'AdminAssignerRootQuery (doc_id)',
       fn: () => queryViaAdminAssigner(session, pageId, threadId, docIds),
     });
   }
@@ -130,6 +132,14 @@ async function resolveGlobalId(session, pageId, threadId, isBusiness, extra = {}
     strategies.push({
       name: 'CommItemHeaderMercuryQuery',
       fn: () => queryViaCommItemHeader(session, pageId, threadKey, docIds),
+    });
+  }
+
+  // --- Strategy: AdminAssignerRootQuery WITHOUT doc_id (friendly_name only) ---
+  if (threadId) {
+    strategies.push({
+      name: 'AdminAssignerRootQuery (friendly_name)',
+      fn: () => queryViaAdminAssignerFriendlyName(session, pageId, threadId),
     });
   }
 
@@ -167,18 +177,23 @@ async function resolveGlobalId(session, pageId, threadId, isBusiness, extra = {}
     });
   }
 
+  log.info(MODULE, `Trying ${strategies.length} strategies: ${strategies.map(s => s.name).join(', ')}`);
+
   for (const [i, strategy] of strategies.entries()) {
     try {
+      log.info(MODULE, `[${i + 1}/${strategies.length}] Trying ${strategy.name}...`);
       const result = await strategy.fn();
       if (result) {
-        log.info(MODULE, `Strategy ${i + 1}/${strategies.length} [${strategy.name}] succeeded`);
+        log.info(MODULE, `[${i + 1}/${strategies.length}] ${strategy.name} → SUCCESS: ${result}`);
         return result;
       }
+      log.info(MODULE, `[${i + 1}/${strategies.length}] ${strategy.name} → returned null`);
     } catch (err) {
-      log.debug(MODULE, `Strategy ${i + 1}/${strategies.length} [${strategy.name}] failed: ${err.message}`);
+      log.info(MODULE, `[${i + 1}/${strategies.length}] ${strategy.name} → ERROR: ${err.message}`);
     }
   }
 
+  log.info(MODULE, 'All strategies exhausted, returning null');
   return null;
 }
 
@@ -231,7 +246,46 @@ async function queryViaAdminAssigner(session, pageId, threadId, docIds) {
     return result.data.commItem.target_id;
   }
 
-  return null;
+  return extractGlobalIdFromGraphQL(result);
+}
+
+// ============================================================
+// Strategy: AdminAssignerRootQuery WITHOUT doc_id (friendly_name fallback)
+// Facebook sometimes resolves queries by name even without doc_id
+// ============================================================
+async function queryViaAdminAssignerFriendlyName(session, pageId, threadId) {
+  const queryName = 'PagesManagerInboxAdminAssignerRootQuery';
+
+  const variables = JSON.stringify({
+    pageID: pageId,
+    commItemID: threadId,
+  });
+
+  const params = {
+    ...buildBaseParams(session),
+    av: pageId,
+    variables,
+    fb_api_caller_class: 'RelayModern',
+    fb_api_req_friendly_name: queryName,
+    server_timestamps: 'true',
+  };
+
+  const referer = `https://business.facebook.com/latest/inbox/all?page_id=${pageId}`;
+  const response = await fetch(CONFIG.FB_GRAPHQL, {
+    method: 'POST',
+    headers: buildFbHeaders(referer),
+    body: encodeFormData(params),
+    credentials: 'include',
+  });
+
+  const text = await response.text();
+  const result = parseFbRes(text);
+
+  if (result?.data?.commItem?.target_id) {
+    return result.data.commItem.target_id;
+  }
+
+  return extractGlobalIdFromGraphQL(result);
 }
 
 // ============================================================
