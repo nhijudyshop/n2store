@@ -377,6 +377,10 @@ function _buildMiniSummary(stats) {
         let label = `${meta.emoji} ${meta.short}: <strong>${count}</strong>`;
         if (cat === 1) {
             label = `${meta.emoji} ${meta.short}: <strong>${count}</strong> (${stats.subStateCounts.OKIE_CHO_DI_DON} Okie, ${stats.subStateCounts.CHO_HANG} Chờ)`;
+        } else if (cat === 3) {
+            const gioTrong = stats.subTagCounts.GIO_TRONG || 0;
+            const gop = stats.subTagCounts.DA_GOP_KHONG_CHOT || 0;
+            label = `${meta.emoji} ${meta.short}: <strong>${count}</strong> (${gioTrong} Trống, ${gop} Gộp)`;
         }
         catItems.push(`<span style="color:${meta.color}; font-size:14px; font-weight:600;">${label}</span>`);
     }
