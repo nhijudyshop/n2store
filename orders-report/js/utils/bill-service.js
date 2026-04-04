@@ -1379,9 +1379,6 @@ ${
                 content_ids: contentId ? [contentId] : [],
             };
 
-            // Fire additional messages in parallel (fire and forget - don't wait)
-            sendAdditionalBillMessages(pageId, convId, pageAccessToken);
-
             const sendResponse = await fetch(sendUrl, {
                 method: 'POST',
                 headers: {
@@ -1415,10 +1412,12 @@ ${
 
                 if (is24HourError && window.pancakeExtension?.connected && window.sendViaExtension) {
                     try {
-                        // Fetch messages API to get thread_id + global_id
-                        // (buildConvData relies on global state not set in bill context)
+                        // Fetch messages API to get thread_id + global_id + customers
                         const pdm = window.pancakeDataManager;
                         const raw = { from_psid: psid };
+                        let customers = [];
+                        let customerName = '';
+
                         if (pdm) {
                             try {
                                 const msgData = await pdm.fetchMessages(pageId, convId);
@@ -1426,18 +1425,44 @@ ${
                                     const mc = msgData.conversation;
                                     if (mc.thread_id) raw.thread_id = mc.thread_id;
                                     if (mc.page_customer) raw.page_customer = mc.page_customer;
+                                    customerName = mc.page_customer?.name || '';
+                                }
+                                if (msgData.customers?.length) {
+                                    customers = msgData.customers;
                                 }
                             } catch (e) {
                                 console.warn('[BILL-SERVICE] Messages fetch for ext data failed:', e.message);
                             }
                         }
+
+                        // Fallback customerName from orderResult
+                        if (!customerName && orderResult) {
+                            customerName = orderResult.Partner?.Name || orderResult.PartnerDisplayName || orderResult.ReceiverName || '';
+                        }
+
                         const extConv = {
                             pageId, psid, conversationId: convId, _raw: raw,
-                            customers: [], _messagesData: { customers: [] },
-                            updated_at: null, customerName: '', type: 'INBOX',
+                            customers, _messagesData: { customers },
+                            updated_at: null, customerName, type: 'INBOX',
                         };
-                        // Send bill image as text (extension can only send text, not content_ids)
+
+                        // Send bill notification via extension
                         await window.sendViaExtension('[Hóa đơn đã được tạo]', extConv);
+
+                        // Also send CAMON text via extension (fire and forget)
+                        try {
+                            const camonReply = window.quickReplyManager?.replies?.find(r =>
+                                (r.shortcut || '').toUpperCase() === 'CAMON'
+                            );
+                            let camonText = camonReply?.message || 'Dạ hàng của mình đã được lên bill , cám ơn chị yêu đã ủng hộ shop ạ ❤️';
+                            const displayName = window.authManager?.getUserInfo?.()?.displayName
+                                || window.authManager?.getAuthState?.()?.displayName;
+                            if (displayName) camonText += '\nNv. ' + displayName;
+                            await window.sendViaExtension(camonText, extConv);
+                        } catch (camonErr) {
+                            console.warn('[BILL-SERVICE] CAMON via extension failed:', camonErr.message);
+                        }
+
                         return {
                             success: true,
                             messageId: `ext_${Date.now()}`,
@@ -1456,6 +1481,9 @@ ${
                 };
             }
 
+            // Bill sent successfully — now fire CAMON (image + text) in background
+            sendAdditionalBillMessages(pageId, convId, pageAccessToken);
+
             return { success: true, messageId: sendResult.id };
         } catch (error) {
             console.error('[BILL-SERVICE] Error sending bill:', error);
@@ -1466,8 +1494,8 @@ ${
     // sendViaFacebookAPI() removed - 24h fallback now uses Extension Bypass (sendViaExtension)
 
     /**
-     * Send additional messages after bill send (image + thank you message)
-     * Fires in parallel with bill send - fire and forget
+     * Send CAMON quick reply after successful bill send (image + thank you message)
+     * Fires after bill success - fire and forget
      * Uses Official API v1 with page_access_token
      * @param {string} pageId - Facebook Page ID
      * @param {string} convId - Conversation ID
@@ -1485,16 +1513,28 @@ ${
             Accept: 'application/json',
         };
 
+        // Get CAMON template from quick reply manager (or use defaults)
+        const camonReply = window.quickReplyManager?.replies?.find(r =>
+            (r.shortcut || '').toUpperCase() === 'CAMON'
+        );
+        const camonImageContentId = camonReply?.contentId || '4d0b73b0-8d3f-4dfa-bb9b-11a82096734d';
+        let camonText = camonReply?.message || 'Dạ hàng của mình đã được lên bill , cám ơn chị yêu đã ủng hộ shop ạ ❤️';
+
+        // Add employee signature
+        const displayName = window.authManager?.getUserInfo?.()?.displayName
+            || window.authManager?.getAuthState?.()?.displayName;
+        if (displayName) camonText += '\nNv. ' + displayName;
+
         // Message 1: Send image via content_ids (Official API docs §3.3)
         const imagePayload = {
             action: 'reply_inbox',
-            content_ids: ['4d0b73b0-8d3f-4dfa-bb9b-11a82096734d'],
+            content_ids: [camonImageContentId],
         };
 
-        // Message 2: Send thank you text
+        // Message 2: Send thank you text with signature
         const textPayload = {
             action: 'reply_inbox',
-            message: 'Dạ hàng của mình đã được lên bill , cám ơn chị yêu đã ủng hộ shop ạ ❤️',
+            message: camonText,
         };
 
         // Fire both requests without waiting (fire and forget)
