@@ -45,7 +45,7 @@
     const PTAG_FLAGS = {
         TRU_CONG_NO:  { key: 'TRU_CONG_NO',  label: 'TRỪ CÔNG NỢ', auto: true,  icon: '\u{1F4B0}' },
         CHUYEN_KHOAN: { key: 'CHUYEN_KHOAN', label: 'CK',           auto: true,  icon: '\u{1F4B3}' },
-        GIAM_GIA:     { key: 'GIAM_GIA',     label: 'GIẢM GIÁ',    auto: true,  icon: '\u{1F3F7}\uFE0F' },
+        GIAM_GIA:     { key: 'GIAM_GIA',     label: 'GIẢM GIÁ',    auto: false, icon: '\u{1F3F7}\uFE0F' },
         CHO_LIVE:     { key: 'CHO_LIVE',     label: 'CHỜ LIVE',     auto: false, icon: '\u{1F4FA}' },
         GIU_DON:      { key: 'GIU_DON',      label: 'GIỮ ĐƠN',     auto: false, icon: '\u{231B}' },
         QUA_LAY:      { key: 'QUA_LAY',      label: 'QUA LẤY',     auto: false, icon: '\u{1F3E0}' },
@@ -84,7 +84,7 @@
         // Flags
         flag_TRU_CONG_NO: 'Ví khách có virtual balance (công nợ ảo). Auto-detect từ ví.',
         flag_CHUYEN_KHOAN: 'Ví khách có real balance (đã chuyển khoản). Auto-detect từ ví.',
-        flag_GIAM_GIA: 'Đơn có chiết khấu/sale. Auto-detect từ data.',
+        flag_GIAM_GIA: 'Đơn có chiết khấu/sale. Đánh thủ công.',
         flag_CHO_LIVE: 'Chờ gộp vào live sau, in phiếu soạn hàng ghi chú.',
         flag_GIU_DON: 'Giữ 10-20 ngày, khách đã CK đủ nhưng chưa muốn nhận.',
         flag_QUA_LAY: 'Khách qua shop lấy, soạn hàng để kệ qua lấy.',
@@ -675,7 +675,7 @@
 
         // Log history
         const catValue = `${category}:${options.subTag || ''}`;
-        _ptagAddHistory(orderCode, 'SET_CATEGORY', catValue);
+        _ptagAddHistory(orderCode, 'SET_CATEGORY', catValue, options.source || null);
         // Log auto-detected flags
         if (category === PTAG_CATEGORIES.CHO_DI_DON) {
             const autoFlags = data.flags.filter(f => !existingFlags.includes(f) && !newFlags.includes(f));
@@ -688,22 +688,9 @@
     }
 
     async function autoDetectFlags(orderCode, phone) {
-        const existingFlags = ProcessingTagState.getOrderFlags(orderCode);
-        const newFlags = [];
-
         // Wallet CK + Công nợ: đã chuyển sang tab1-qr-debt.js (auto khi badge hiển thị)
-
-        // Order Discount → Giảm giá
-        try {
-            const order = ((typeof window.getAllOrders === 'function') ? window.getAllOrders() : []).find(o => String(o.Code) === String(orderCode));
-            if (order && parseFloat(order.Discount || 0) > 0 && !existingFlags.includes('GIAM_GIA')) {
-                newFlags.push('GIAM_GIA');
-            }
-        } catch (e) {
-            console.warn(`${PTAG_LOG} Discount check failed:`, e);
-        }
-
-        return newFlags;
+        // Giảm Giá: đã bỏ auto-detect, chuyển sang đánh thủ công
+        return [];
     }
 
     async function toggleOrderFlag(orderCode, flagKey, source) {
@@ -773,9 +760,13 @@
     }
 
     // T-tag assignment functions — works for ANY order state
-    async function assignTTagToOrder(orderCode, tagId) {
+    async function assignTTagToOrder(orderCode, tagId, source) {
         let data = ProcessingTagState.getOrderData(orderCode);
         if (!data) {
+            if (!ProcessingTagState._isLoaded) {
+                console.warn(`${PTAG_LOG} Skip assignTTagToOrder(${orderCode}) — data not loaded yet`);
+                return;
+            }
             // Create minimal data for orders without processing tag
             data = { tTags: [] };
         }
@@ -792,7 +783,7 @@
         }
         _ptagEnsureCode(orderCode, data);
         ProcessingTagState.setOrderData(orderCode, data);
-        _ptagAddHistory(orderCode, 'ADD_TTAG', tagId);
+        _ptagAddHistory(orderCode, 'ADD_TTAG', tagId, source || null);
         _ptagRefreshRow(orderCode);
         renderPanelContent();
         await saveProcessingTagToAPI(orderCode, data);
@@ -892,6 +883,10 @@
         let data = ProcessingTagState.getOrderData(orderCode) || ProcessingTagState.getOrderDataByIdFallback(saleOnlineId);
 
         if (!data) {
+            if (!ProcessingTagState._isLoaded) {
+                console.warn(`${PTAG_LOG} Skip onPtagBillCreated(${orderCode}) — data not loaded yet`);
+                return;
+            }
             data = { category: null, subTag: null, subState: null, flags: [], tTags: [], note: '', assignedAt: Date.now() };
         }
 
@@ -929,6 +924,10 @@
         let data = ProcessingTagState.getOrderData(orderCode) || ProcessingTagState.getOrderDataByIdFallback(saleOnlineId);
 
         if (!data) {
+            if (!ProcessingTagState._isLoaded) {
+                console.warn(`${PTAG_LOG} Skip onPtagPackingSlipPrinted(${orderCode}) — data not loaded yet`);
+                return;
+            }
             data = { category: null, subTag: null, subState: null, flags: [], tTags: [], note: '', assignedAt: Date.now() };
         }
 

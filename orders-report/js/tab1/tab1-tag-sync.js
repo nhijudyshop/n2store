@@ -626,13 +626,13 @@
         for (const task of uniqueTasks) {
             try {
                 if (task.action === 'category') {
-                    const opts = {};
+                    const opts = { source: 'Đồng bộ Tag' };
                     if (task.subTag) opts.subTag = task.subTag;
                     await window.assignOrderCategory(task.orderCode, task.category, opts);
                 } else if (task.action === 'flag') {
-                    await window.toggleOrderFlag(task.orderCode, task.flagKey);
+                    await window.toggleOrderFlag(task.orderCode, task.flagKey, 'Đồng bộ Tag');
                 } else if (task.action === 'ttag') {
-                    await window.assignTTagToOrder(task.orderCode, task.ttagId);
+                    await window.assignTTagToOrder(task.orderCode, task.ttagId, 'Đồng bộ Tag');
                 }
                 success++;
             } catch (err) {
