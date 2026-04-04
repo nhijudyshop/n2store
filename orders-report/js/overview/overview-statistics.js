@@ -256,6 +256,27 @@ function computeTagXLCounts(orderSubset, ptagMap) {
         const tagData = ptagMap[code];
         const productCount = order.Details?.length || 0;
 
+        // Flags: count across ALL orders (including untagged) — must be before early return
+        if (tagData) {
+            const flags = tagData.flags || [];
+            const _fid = f => (typeof f === 'object' && f !== null) ? f.id : f;
+            if (flags.some(f => _fid(f) === 'CHO_LIVE')) {
+                flagCounts.CHO_LIVE++;
+                flagAmounts.CHO_LIVE += amount;
+                flagOrders.CHO_LIVE.push(order);
+            }
+            if (flags.some(f => _fid(f) === 'QUA_LAY' || _fid(f) === 'GIU_DON')) {
+                flagCounts.QUA_LAY_GIU_DON++;
+                flagAmounts.QUA_LAY_GIU_DON += amount;
+                flagOrders.QUA_LAY_GIU_DON.push(order);
+            }
+            if (flags.some(f => _fid(f) === 'GIAM_GIA')) {
+                flagCounts.GIAM_GIA++;
+                flagAmounts.GIAM_GIA += amount;
+                flagOrders.GIAM_GIA.push(order);
+            }
+        }
+
         if (!tagData || tagData.category === null || tagData.category === undefined) {
             untaggedOrders.push(order);
             untaggedAmount += amount;
@@ -286,26 +307,6 @@ function computeTagXLCounts(orderSubset, ptagMap) {
                 subTagAmounts[tagData.subTag] += amount;
                 subTagOrders[tagData.subTag].push(order);
             }
-        }
-
-        // Flags (count across all categories)
-        // flags can be strings or objects {id, name} — normalize with helper
-        const flags = tagData.flags || [];
-        const _fid = f => (typeof f === 'object' && f !== null) ? f.id : f;
-        if (flags.some(f => _fid(f) === 'CHO_LIVE')) {
-            flagCounts.CHO_LIVE++;
-            flagAmounts.CHO_LIVE += amount;
-            flagOrders.CHO_LIVE.push(order);
-        }
-        if (flags.some(f => _fid(f) === 'QUA_LAY' || _fid(f) === 'GIU_DON')) {
-            flagCounts.QUA_LAY_GIU_DON++;
-            flagAmounts.QUA_LAY_GIU_DON += amount;
-            flagOrders.QUA_LAY_GIU_DON.push(order);
-        }
-        if (flags.some(f => _fid(f) === 'GIAM_GIA')) {
-            flagCounts.GIAM_GIA++;
-            flagAmounts.GIAM_GIA += amount;
-            flagOrders.GIAM_GIA.push(order);
         }
 
         // GIỎ TRỐNG validation
