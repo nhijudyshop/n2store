@@ -474,10 +474,16 @@ async function _sendInbox(pdm, pageId, convId, text, pat, replyData) {
         // Only fallback to extension for 24h errors (not auth/network issues)
         if (err.fbError?.is24HourError && window.pancakeExtension?.connected && window.sendViaExtension) {
             _showToast('Quá 24h — đang gửi qua Extension...', 'warning');
-            const conv = window.buildConvData(pageId, window.currentChatPSID);
-            await window.sendViaExtension(text, conv);
-            _showToast('Đã gửi qua Extension (bypass 24h)', 'success');
-            return;
+            try {
+                const conv = window.buildConvData(pageId, window.currentChatPSID);
+                await window.sendViaExtension(text, conv);
+                _showToast('Đã gửi qua Extension (bypass 24h)', 'success');
+                return;
+            } catch (extErr) {
+                // Extension fallback also failed — throw original 24h error, not extension error
+                console.warn('[Chat-Msg] Extension fallback failed:', extErr.message);
+                throw err;
+            }
         }
         throw err;
     }
