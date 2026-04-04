@@ -2038,6 +2038,14 @@ class InboxChatController {
         // Need either text or image
         if (!text && !hasImage) return;
 
+        // Add employee signature
+        let finalText = text;
+        if (text) {
+            const displayName = window.authManager?.getUserInfo?.()?.displayName
+                || window.authManager?.getAuthState?.()?.displayName;
+            if (displayName) finalText = text + '\nNv. ' + displayName;
+        }
+
         const conv = this.data.getConversation(this.activeConversationId);
         if (!conv) return;
 
@@ -2130,9 +2138,9 @@ class InboxChatController {
                 if (hasImage) await new Promise(r => setTimeout(r, 300));
 
                 if (conv.type === 'COMMENT') {
-                    await this._sendComment(url, text, conv, replyData, replyType);
+                    await this._sendComment(url, finalText, conv, replyData, replyType);
                 } else {
-                    await this._sendInbox(url, text, conv, replyData);
+                    await this._sendInbox(url, finalText, conv, replyData);
                 }
             }
 
