@@ -8,6 +8,12 @@
 
 ## 2026-04-04
 
+### [orders] Đổi "NAP" → "TỈNH NAP" trong delivery-report ✅
+| | |
+|---|---|
+| **Files** | `delivery-report/js/delivery-report.js` |
+| **Chi tiết** | Đổi tên hiển thị "NAP" thành "TỈNH NAP" ở 2 nơi: (1) Header province view "NAP 115/229" → "TỈNH NAP 115/229", (2) Thông báo scan feedback dùng GROUP_LABELS thay vì hardcode. Không đụng export buttons, Excel sheet names hay logic. |
+
 ### [realtime] Fix root cause: page không có subscription → WS join fail ✅
 | | |
 |---|---|
