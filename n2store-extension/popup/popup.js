@@ -61,6 +61,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     await chrome.runtime.sendMessage({ type: 'TOGGLE_SSE', enabled: sseToggle.checked });
   });
 
+  // Stat card clicks
+  document.querySelectorAll('.stat-card.clickable').forEach(card => {
+    card.addEventListener('click', () => handleStatClick(card.dataset.stat));
+  });
+
   // Mark all read
   document.getElementById('markAllReadBtn').addEventListener('click', async () => {
     await chrome.runtime.sendMessage({ type: 'MARK_ALL_READ' });
@@ -141,11 +146,71 @@ function updateNotifBadge(count) {
   }
 }
 
+// === STAT CARD DETAIL ===
+
+let _activeStatCard = null;
+
+async function handleStatClick(stat) {
+  const detail = document.getElementById('statDetail');
+  const cards = document.querySelectorAll('.stat-card.clickable');
+
+  // Toggle off if clicking same card
+  if (_activeStatCard === stat) {
+    _activeStatCard = null;
+    detail.style.display = 'none';
+    cards.forEach(c => c.classList.remove('active'));
+    return;
+  }
+
+  _activeStatCard = stat;
+  cards.forEach(c => c.classList.toggle('active', c.dataset.stat === stat));
+
+  if (stat === 'pages') {
+    detail.innerHTML = '<div class="stat-detail-title">Loading...</div>';
+    detail.style.display = 'block';
+    try {
+      const { pages } = await chrome.runtime.sendMessage({ type: 'GET_SESSION_DETAILS' });
+      if (!pages || pages.length === 0) {
+        detail.innerHTML = '<div class="empty-state">Chưa kết nối trang nào</div>';
+      } else {
+        detail.innerHTML = `<div class="stat-detail-title">Trang Facebook đã kết nối</div>` +
+          pages.map(p =>
+            `<div class="stat-detail-item">
+              <span class="stat-detail-id">${p.id}</span>
+              <span class="stat-detail-meta">${p.age} phút trước</span>
+            </div>`
+          ).join('');
+      }
+    } catch (err) {
+      detail.innerHTML = '<div class="empty-state">Lỗi tải dữ liệu</div>';
+    }
+  } else if (stat === 'sent') {
+    // Switch to notifications tab, filtered by msg_sent
+    switchTab('notifications');
+    _activeStatCard = null;
+    detail.style.display = 'none';
+    cards.forEach(c => c.classList.remove('active'));
+    await loadNotifications('msg_sent');
+  } else if (stat === 'failed') {
+    switchTab('notifications');
+    _activeStatCard = null;
+    detail.style.display = 'none';
+    cards.forEach(c => c.classList.remove('active'));
+    await loadNotifications('msg_failed');
+  } else if (stat === 'unread') {
+    switchTab('notifications');
+    _activeStatCard = null;
+    detail.style.display = 'none';
+    cards.forEach(c => c.classList.remove('active'));
+    await loadNotifications('unread');
+  }
+}
+
 // === NOTIFICATIONS ===
 
-async function loadNotifications() {
+async function loadNotifications(filter) {
   try {
-    const { notifications } = await chrome.runtime.sendMessage({ type: 'GET_NOTIFICATIONS', limit: 30 });
+    const { notifications } = await chrome.runtime.sendMessage({ type: 'GET_NOTIFICATIONS', limit: 50 });
     const container = document.getElementById('notifList');
 
     if (!notifications || notifications.length === 0) {
@@ -153,13 +218,38 @@ async function loadNotifications() {
       return;
     }
 
+    // Apply filter
+    let filtered = [...notifications].reverse();
+    let filterLabel = '';
+    if (filter === 'unread') {
+      filtered = filtered.filter(n => !n.read);
+      filterLabel = 'Chưa đọc';
+    } else if (filter) {
+      filtered = filtered.filter(n => n.type === filter);
+      filterLabel = filter === 'msg_sent' ? 'Đã gửi' : 'Thất bại';
+    }
+
+    if (filtered.length === 0) {
+      const msg = filterLabel ? `Không có thông báo "${filterLabel}"` : 'Chưa có thông báo nào';
+      container.innerHTML = `<div class="empty-state">${msg}</div>`;
+      return;
+    }
+
     container.innerHTML = '';
-    // Show newest first
-    notifications.reverse().forEach(notif => {
+
+    // Show filter indicator
+    if (filter) {
+      const filterBar = document.createElement('div');
+      filterBar.className = 'filter-bar';
+      filterBar.innerHTML = `<span>Lọc: ${filterLabel} (${filtered.length})</span><button class="text-btn" id="clearFilterBtn">Xóa lọc</button>`;
+      container.appendChild(filterBar);
+      filterBar.querySelector('#clearFilterBtn').addEventListener('click', () => loadNotifications());
+    }
+
+    filtered.forEach(notif => {
       const div = document.createElement('div');
       div.className = `notif-item${notif.read ? '' : ' unread'}`;
 
-      const icon = getNotifIcon(notif.type);
       const badge = getTypeBadge(notif.type);
       const time = formatTimeAgo(notif.timestamp);
 
@@ -168,7 +258,6 @@ async function loadNotifications() {
         <div class="notif-time">${time}</div>
       `;
 
-      // Click to open relevant page
       div.addEventListener('click', () => {
         const url = getNotifUrl(notif.type);
         if (url) {

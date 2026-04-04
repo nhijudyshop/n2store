@@ -122,12 +122,9 @@ async function handleMessage(msg, tabId, port, asyncSendResponse) {
         const results = await handlePreinitializePages(msg);
         sendResponse({ type: 'PREINITIALIZE_PAGES_DONE', results, taskId: msg.taskId });
 
-        // Notify on session init
+        // Only notify on failure (session_ready is too noisy)
         const pageCount = Object.keys(results).length;
         const successCount = Object.values(results).filter(r => r.success).length;
-        if (successCount > 0) {
-          showNotification('session_ready', `${successCount}/${pageCount} trang Facebook da san sang`);
-        }
         if (successCount < pageCount) {
           const failedPages = Object.entries(results).filter(([, r]) => !r.success).map(([id]) => id);
           showNotification('session_failed', `Khong ket noi duoc: ${failedPages.join(', ')}`);
@@ -230,8 +227,17 @@ async function handleMessage(msg, tabId, port, asyncSendResponse) {
       });
       break;
 
+    case 'GET_SESSION_DETAILS':
+      sendResponse({
+        pages: Object.entries(getAllSessions ? getAllSessions() : {}).map(([id, s]) => ({
+          id,
+          age: Math.round((Date.now() - (s.timestamp || 0)) / 60000),
+        })),
+      });
+      break;
+
     case 'REFRESH_SESSIONS':
-      showNotification('session_ready', 'Dang lam moi phien...');
+      log.info(MODULE, 'Refreshing sessions...');
       break;
 
     case 'RESET_BADGE':

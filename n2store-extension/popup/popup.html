@@ -53,23 +53,24 @@
     <!-- Tab: Dashboard -->
     <div class="tab-content active" id="tab-dashboard">
       <div class="dashboard">
-        <div class="stat-card">
+        <div class="stat-card clickable" data-stat="pages">
           <div class="stat-value" id="sessionCount">0</div>
           <div class="stat-label">FB Pages</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card clickable" data-stat="sent">
           <div class="stat-value" id="msgCount">0</div>
           <div class="stat-label">Đã gửi</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card clickable" data-stat="failed">
           <div class="stat-value" id="msgFailed">0</div>
           <div class="stat-label">Thất bại</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card clickable" data-stat="unread">
           <div class="stat-value" id="unreadCount">0</div>
           <div class="stat-label">Chưa đọc</div>
         </div>
       </div>
+      <div class="stat-detail" id="statDetail" style="display:none"></div>
 
       <!-- Quick Actions -->
       <div class="section-title">Hành động nhanh</div>
