@@ -234,6 +234,9 @@ window.closeChatModal = function() {
     if (modal) modal.style.display = 'none';
     document.body.style.overflow = '';
 
+    // Stop chat polling
+    _stopChatPolling();
+
     // Cleanup state
     window.currentConversationId = null;
     window.currentConversationType = null;
@@ -566,10 +569,8 @@ function _updateExtensionBadge() {
 }
 
 function _startRealtimeForChat() {
-    if (!window.realtimeManager) return;
-
-    // Register handlers if not already done
-    if (!window._chatRealtimeRegistered) {
+    // Register WS handlers if not already done
+    if (window.realtimeManager && !window._chatRealtimeRegistered) {
         window._chatRealtimeRegistered = true;
 
         window.realtimeManager.on('pages:new_message', (payload) => {
@@ -579,6 +580,40 @@ function _startRealtimeForChat() {
         window.realtimeManager.on('pages:update_conversation', (payload) => {
             if (window.handleConversationUpdate) window.handleConversationUpdate(payload);
         });
+    }
+
+    // Polling fallback: refresh messages every 15s while chat is open
+    // Covers case when WebSocket is disconnected or events are missed
+    _stopChatPolling();
+    window._chatPollTimer = setInterval(async () => {
+        const convId = window.currentConversationId;
+        const pageId = window.currentChatChannelId;
+        if (!convId || !pageId || !window.pancakeDataManager) return;
+
+        try {
+            window.pancakeDataManager.clearMessagesCache(pageId, convId);
+            const result = await window.pancakeDataManager.fetchMessages(pageId, convId);
+            if (!result.messages?.length || window.currentConversationId !== convId) return;
+
+            // Check for new messages not already in allChatMessages
+            const existingIds = new Set(window.allChatMessages.map(m => String(m.id)));
+            const newMsgs = result.messages.filter(m => !existingIds.has(String(m.id)));
+            if (newMsgs.length === 0) return;
+
+            // Append each new message via handleNewMessage
+            for (const msg of newMsgs) {
+                window.handleNewMessage?.({ message: msg, page_id: pageId });
+            }
+        } catch (e) {
+            // Silent fail - polling is best-effort
+        }
+    }, 15000);
+}
+
+function _stopChatPolling() {
+    if (window._chatPollTimer) {
+        clearInterval(window._chatPollTimer);
+        window._chatPollTimer = null;
     }
 }
 

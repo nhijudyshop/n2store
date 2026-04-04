@@ -172,17 +172,21 @@ window.addEventListener("DOMContentLoaded", async function () {
         if (!ptm || !pdm || !window.realtimeManager) return;
         try {
             const token = await ptm.getToken();
-            if (!token) return;
+            if (!token) {
+                console.warn('[REALTIME] No Pancake token available for WebSocket');
+                return;
+            }
             const decoded = ptm.decodeToken(token);
             const userId = decoded?.uid || decoded?.user_id || decoded?.id;
             const pageIds = pdm.pageIds || [];
             if (!userId || !pageIds.length) {
-                console.warn('[REALTIME] Missing userId or pageIds for WebSocket');
+                console.warn('[REALTIME] Missing userId or pageIds for WebSocket', { userId, pageCount: pageIds.length });
                 return;
             }
+            console.log(`[REALTIME] Connecting WebSocket: userId=${userId}, pages=${pageIds.length}`);
             await window.realtimeManager.initWebSocket({ accessToken: token, userId, pageIds });
         } catch (e) {
-            console.warn('[REALTIME] WebSocket connect error:', e.message);
+            console.error('[REALTIME] WebSocket connect error:', e.message);
         }
     }
 
@@ -223,17 +227,35 @@ window.addEventListener("DOMContentLoaded", async function () {
                 }
             });
 
-            window.newMessagesNotifier?.setPendingCustomers([...grouped.values()]);
+            const pendingList = [...grouped.values()];
+            console.log(`[REALTIME] Loaded ${pendingList.length} pending customers from server`);
+            window.newMessagesNotifier?.setPendingCustomers(pendingList);
         } catch (e) {
-            console.warn('[Init] Failed to fetch offline pending:', e.message);
+            console.warn('[REALTIME] Failed to fetch offline pending:', e.message);
         }
     }
 
     // Re-fetch pending on WebSocket reconnect (may have missed events)
+    // Also update visual WS status indicator
     window.addEventListener('realtimeStatusChanged', (e) => {
-        if (e.detail.connected) {
+        const connected = e.detail.connected;
+        console.log(`[REALTIME] WebSocket ${connected ? '🟢 CONNECTED' : '🔴 DISCONNECTED'}`);
+        if (connected) {
             setTimeout(() => _fetchOfflinePendingCustomers(), 2000);
         }
+        // Update visual badge (next to "Cài đặt cột" button)
+        let badge = document.getElementById('wsStatusBadge');
+        if (!badge) {
+            badge = document.createElement('span');
+            badge.id = 'wsStatusBadge';
+            badge.style.cssText = 'display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:600;margin-left:8px;cursor:help;';
+            const toolbar = document.querySelector('.filter-bar') || document.querySelector('.toolbar-right');
+            if (toolbar) toolbar.appendChild(badge);
+        }
+        badge.style.background = connected ? '#d1fae5' : '#fee2e2';
+        badge.style.color = connected ? '#059669' : '#dc2626';
+        badge.textContent = connected ? '● WS' : '○ WS';
+        badge.title = connected ? 'Pancake WebSocket: Connected — tin nhắn realtime hoạt động' : 'Pancake WebSocket: Disconnected — dùng polling fallback';
     });
 
     // ⚡ OPTIMIZATION FIX: Defer TAG/KPI BASE listeners to reduce initial blocking

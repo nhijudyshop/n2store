@@ -8,6 +8,12 @@
 
 ## 2026-04-04
 
+### [orders] Fix realtime: WS diagnostics + chat polling fallback + convId bug ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/managers/realtime-manager.js`, `orders-report/js/tab1/tab1-chat-realtime.js`, `orders-report/js/tab1/tab1-chat-core.js`, `orders-report/js/tab1/tab1-init.js` |
+| **Chi tiết** | 4 fixes: (1) Thêm console logging vào WS lifecycle (connect, join, events, close) để debug. (2) Fix `handleNewMessage` bug: `conversation_id` nằm trong `payload.message.conversation_id`, không phải `payload.conversation_id`. (3) Thêm polling fallback 15s cho chat modal khi WS không hoạt động — poll fetchMessages + append new msgs. (4) Thêm WS status badge `● WS` / `○ WS` trên toolbar + log khi pending customers load. |
+
 ### [shared] Thêm ImageBlobCache (IndexedDB) cho hình gửi lại nhiều lần ✅
 | | |
 |---|---|

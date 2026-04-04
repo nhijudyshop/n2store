@@ -63,6 +63,7 @@ class PancakePhoenixSocket {
     }
 
     _onOpen() {
+        console.log('[PHOENIX] ✅ WebSocket connected to Pancake');
         this.reconnectAttempts = 0;
 
         // Join user channel
@@ -71,6 +72,7 @@ class PancakePhoenixSocket {
         });
 
         // Join multi-page channel
+        console.log(`[PHOENIX] Joining channels for userId=${this.userId}, ${this.pageIds.length} pages`);
         this._joinChannel(`multiple_pages:${this.userId}`, {
             accessToken: this.accessToken, userId: this.userId,
             clientSession: this.clientSession, pageIds: this.pageIds, platform: 'web'
@@ -80,6 +82,7 @@ class PancakePhoenixSocket {
     }
 
     _onClose(e) {
+        console.warn(`[PHOENIX] ❌ WebSocket closed: code=${e.code}, reason=${e.reason || 'none'}`);
         this.isConnected = false;
         this.joinedChannels.clear();
         this._stopHeartbeat();
@@ -102,12 +105,14 @@ class PancakePhoenixSocket {
                 // Channel join reply
                 if (payload?.status === 'ok') {
                     this.joinedChannels.add(topic);
+                    console.log(`[PHOENIX] ✅ Joined channel: ${topic}`);
                     if (!this.isConnected && this.joinedChannels.size > 0) {
                         this.isConnected = true;
                         this.onStatusChange(true);
+                        console.log('[PHOENIX] 🟢 Realtime READY — listening for messages');
                     }
                 } else if (payload?.status === 'error') {
-                    console.warn('[PHOENIX] Join error:', topic, payload?.response?.reason || payload);
+                    console.error('[PHOENIX] ❌ Join FAILED:', topic, payload?.response?.reason || payload);
                 }
                 return;
             }
@@ -240,6 +245,11 @@ class RealtimeManager {
     // --- Internal: Handle WebSocket event ---
     _handleEvent(event, payload) {
         this.lastEventTimestamp = Date.now();
+        // Log important events (skip noisy ones)
+        if (event.includes('message') || event.includes('conversation')) {
+            const snippet = payload?.conversation?.snippet || payload?.message?.message || '';
+            console.log(`[PHOENIX] 📨 Event: ${event}`, snippet ? `"${snippet.substring(0, 50)}"` : '');
+        }
 
         // Dispatch to registered handlers for exact event name
         const handlers = this.eventHandlers.get(event) || [];

@@ -9,16 +9,16 @@
 window.handleNewMessage = function(payload) {
     if (!payload || !window.currentConversationId) return;
 
+    const msg = payload.message || payload;
+    if (!msg || !msg.id) return;
+
     // Check if this message belongs to current conversation
-    const convId = payload.conversation_id || payload.convId;
+    const convId = msg.conversation_id || payload.conversation_id || payload.convId;
     if (convId && String(convId) !== String(window.currentConversationId)) return;
 
     // Check pageId match
-    const pageId = payload.page_id || payload.pageId;
+    const pageId = msg.page_id || payload.page_id || payload.pageId;
     if (pageId && String(pageId) !== String(window.currentChatChannelId)) return;
-
-    const msg = payload.message || payload;
-    if (!msg || !msg.id) return;
 
     // Skip if already in messages list
     if (window.allChatMessages.some(m => String(m.id) === String(msg.id))) return;
