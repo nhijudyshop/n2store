@@ -366,9 +366,21 @@ function _buildMiniSummary(stats) {
     const untagged = stats.untaggedOrders.length;
     let html = '';
 
-    // Line 2: ⚠️ CHƯA GÁN TAG XL (only if > 0)
+    // Line 2: ⚠️ CHƯA GÁN + 📺 CHỜ LIVE + 🏠⌛ GIỮ ĐƠN + QUA LẤY
+    const line2Items = [];
     if (untagged > 0) {
-        html += `<div style="margin-top:6px;"><span style="background:#fef2f2; color:#dc2626; padding:4px 12px; border-radius:8px; font-size:14px; font-weight:700;">⚠️ Chưa gán: ${untagged}</span></div>`;
+        line2Items.push(`<span style="background:#fef2f2; color:#dc2626; padding:4px 12px; border-radius:8px; font-size:14px; font-weight:700;">⚠️ Chưa gán: ${untagged}</span>`);
+    }
+    const choLive = stats.flagCounts?.CHO_LIVE || 0;
+    const quaLayGiuDon = stats.flagCounts?.QUA_LAY_GIU_DON || 0;
+    if (choLive > 0) {
+        line2Items.push(`<span style="background:#fdf2f8; color:#ec4899; padding:4px 12px; border-radius:8px; font-size:14px; font-weight:700;">📺 Chờ Live: ${choLive}</span>`);
+    }
+    if (quaLayGiuDon > 0) {
+        line2Items.push(`<span style="background:#ede9fe; color:#8b5cf6; padding:4px 12px; border-radius:8px; font-size:14px; font-weight:700;">🏠⌛ Giữ Đơn + Qua Lấy: ${quaLayGiuDon}</span>`);
+    }
+    if (line2Items.length > 0) {
+        html += `<div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-top:6px;">${line2Items.join('')}</div>`;
     }
 
     // Line 3: 5 categories with names
