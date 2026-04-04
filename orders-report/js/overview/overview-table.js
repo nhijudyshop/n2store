@@ -276,7 +276,7 @@ async function _doLoadTableDataFromFirebase(tableName) {
         // Update statistics (with error handling)
         try {
             await loadEmployeeRanges();
-            renderStatistics();
+            renderStatisticsFromAllOrders();
         } catch (err) {
             console.warn('[REPORT] Statistics render failed:', err);
         }

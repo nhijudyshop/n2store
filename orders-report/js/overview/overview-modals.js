@@ -88,7 +88,7 @@ async function toggleTrackedTag(tagName, color) {
 
     await saveTrackedTags();
     renderTagList();
-    renderStatistics();
+    renderStatisticsFromAllOrders();
 }
 
 /**

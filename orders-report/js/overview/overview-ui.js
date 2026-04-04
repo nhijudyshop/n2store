@@ -160,7 +160,7 @@ async function executeExcelFetch() {
 
         // Update statistics
         await loadEmployeeRanges();
-        renderStatistics();
+        renderStatisticsFromAllOrders();
 
         // Show success message
         alert(`✅ Đã tải dữ liệu từ Excel!\n- Số đơn hàng: ${parsedOrders.length}\n- Bảng: ${currentTableName}\n- Đã lưu vào Firebase`);
@@ -304,7 +304,7 @@ async function executeAPIFetch() {
 
         // Update statistics
         await loadEmployeeRanges();
-        renderStatistics();
+        renderStatisticsFromAllOrders();
 
         // Show completion message
         const firebaseMsg = firebaseSaved ? '✅ Đã lưu Firebase' : '❌ Lỗi lưu Firebase';
@@ -776,7 +776,7 @@ async function reloadFromExcel() {
 
         // Step 8: Reload statistics
         await loadEmployeeRanges();
-        renderStatistics();
+        renderStatisticsFromAllOrders();
 
         // Show success message
         const firebaseMsg = firebaseSaved ? '✅ Đã lưu Firebase' : '❌ Lỗi lưu Firebase';
@@ -1575,7 +1575,7 @@ async function syncAllDataFromTab1() {
         console.log('[REPORT] ✅ Data synced and saved to Firebase');
 
         // Refresh statistics and UI
-        renderStatistics();
+        renderStatisticsFromAllOrders();
         renderCachedDetailsTab();
         updateCachedCountBadge();
 
