@@ -833,6 +833,16 @@
 
             if (window.notificationManager) window.notificationManager.success('Đã gửi ảnh!', 2000);
 
+            // Mark as replied: clear pending_customers from DB + browser badge
+            const psid = window.currentChatPSID;
+            if (psid) {
+                window.newMessagesNotifier?.clearPendingForCustomer(psid);
+                const body = JSON.stringify({ psid, pageId: channelId || null });
+                const opts = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body };
+                fetch('https://n2store-fallback.onrender.com/api/realtime/mark-replied', opts).catch(() => {});
+                fetch('https://n2store-realtime.onrender.com/api/realtime/mark-replied', opts).catch(() => {});
+            }
+
             // Refresh messages after send
             setTimeout(async () => {
                 try {
