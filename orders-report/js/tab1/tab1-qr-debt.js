@@ -431,7 +431,7 @@ function updateWalletDebtBadgesInTable(targetPhone) {
             // Auto-gắn tag CK / Trừ Công Nợ khi badge hiển thị
             const orderId = row.getAttribute('data-order-id');
             const orderCode = row.getAttribute('data-order-code') || (orderId && window._ptagResolveCode ? window._ptagResolveCode(orderId) : null);
-            if (orderCode && typeof window.toggleOrderFlag === 'function' && window.ProcessingTagState) {
+            if (orderCode && typeof window.toggleOrderFlag === 'function' && window.ProcessingTagState && window.ProcessingTagState._isLoaded) {
                 const existingFlags = window.ProcessingTagState.getOrderFlags(orderCode);
                 if ((data.balance || 0) > 0 && !existingFlags.includes('CHUYEN_KHOAN')) {
                     window.toggleOrderFlag(orderCode, 'CHUYEN_KHOAN');

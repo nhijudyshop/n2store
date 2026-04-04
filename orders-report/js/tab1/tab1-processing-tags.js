@@ -192,6 +192,7 @@
         _tTagDefinitions: [],
         _customFlagDefs: [],
         _flagsSectionExpanded: false,
+        _isLoaded: false,          // true khi data đã load xong từ API — guard cho auto-tag
         _historyStore: new Map(),  // Key = orderCode, Value = history[] — TÁCH RIÊNG, không bị removeOrder() xóa
 
         getHistory(orderCode) {
@@ -248,6 +249,7 @@
             this._orderData.clear();
             this._idToCodeIndex.clear();
             this._historyStore.clear();
+            this._isLoaded = false;
         },
         getTTagDefinitions() {
             return this._tTagDefinitions;
@@ -326,10 +328,11 @@
 
     async function loadProcessingTags() {
         ProcessingTagState._activeFilter = null;
+        ProcessingTagState._isLoaded = false;
         try {
             // 1. Load config (T-tag definitions, custom flags) từ endpoint riêng
+            // KHÔNG gọi clear() — dùng incremental update để tránh window trống data
             const backupCustomFlagDefs = [...ProcessingTagState._customFlagDefs];
-            ProcessingTagState.clear();
             let loadedCustomFlags = false;
             try {
                 const configResult = await _ptagFetch(`${PTAG_API_BASE}/config`);
@@ -351,16 +354,27 @@
             }
 
             // 2. Load ALL order tags bằng batch endpoint (orderCode only)
+            // loadProcessingTagsByCodes gọi setOrderData() cho từng order → merge vào _orderData
             const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
             const orderCodes = allOrders.map(o => String(o.Code)).filter(Boolean);
             if (orderCodes.length > 0) {
                 await loadProcessingTagsByCodes(orderCodes);
             }
 
+            // 3. Xóa stale keys: orders không còn trong table hiện tại
+            const validCodes = new Set(orderCodes);
+            for (const key of [...ProcessingTagState._orderData.keys()]) {
+                if (!validCodes.has(key)) {
+                    ProcessingTagState._orderData.delete(key);
+                    ProcessingTagState._historyStore.delete(key);
+                }
+            }
+
             _ptagReconcileIds();
             _ptagCleanupOldHistory();
             renderPanelContent();
             _ptagRefreshAllRows();
+            ProcessingTagState._isLoaded = true;
             console.log(`${PTAG_LOG} Loaded tags for ${orderCodes.length} orders`);
         } catch (e) {
             console.error(`${PTAG_LOG} Failed to load tags:`, e);
@@ -696,6 +710,11 @@
         let data = ProcessingTagState.getOrderData(orderCode);
         // If no data yet, create a minimal entry with just flags (no category)
         if (!data) {
+            // Nếu data chưa load từ API, KHÔNG tạo entry blank để tránh ghi đè server data
+            if (!ProcessingTagState._isLoaded) {
+                console.warn(`${PTAG_LOG} Skip toggleOrderFlag(${orderCode}, ${flagKey}) — data not loaded yet`);
+                return;
+            }
             data = { category: null, subTag: null, subState: null, flags: [], tTags: [], note: '', assignedAt: Date.now() };
         }
 
