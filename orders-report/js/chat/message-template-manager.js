@@ -1326,7 +1326,7 @@
                     ${c.errorCount > 0 ? `
                         <div class="msg-history-actions">
                             <button class="message-send-btn msg-retry-comment-btn" data-campaign-index="${i}">
-                                <i class="fas fa-comment"></i> Gửi ${c.errorCount} đơn thất bại qua Comment
+                                <i class="fas fa-redo"></i> Gửi lại ${c.errorCount} đơn thất bại
                             </button>
                         </div>
                     ` : ''}
@@ -1363,13 +1363,8 @@
         for (const errOrder of campaign.errorOrders) {
             try {
                 const psid = errOrder.psid || '';
-                const conv = pdm.commentMapByPSID?.get(String(psid));
-                if (!conv) {
-                    failCount++;
-                    continue;
-                }
+                const pageId = errOrder.pageId || '';
 
-                const pageId = conv.page_id || errOrder.pageId || '';
                 // Rebuild message from template
                 let msg = campaign.templateContent || '';
                 const fullOrder = window.OrderStore ? window.OrderStore.get(errOrder.orderId) : null;
@@ -1377,9 +1372,11 @@
                     const od = _convertOrderData(fullOrder);
                     msg = _replacePlaceholders(msg, od);
                 }
-                await pdm.sendMessage(pageId, conv.id, { message: msg, type: 'reply_comment' });
+
+                // Use same inbox logic with extension fallback
+                await _sendAsInbox(pageId, psid, msg, errOrder.orderId);
                 successCount++;
-                markOrderSent(errOrder.orderId, true);
+                markOrderSent(errOrder.orderId, false);
             } catch (e) {
                 failCount++;
             }
@@ -1388,7 +1385,7 @@
 
         if (window.notificationManager) {
             window.notificationManager.show(
-                `Comment: ${successCount} thành công, ${failCount} thất bại`,
+                `Gửi lại: ${successCount} thành công, ${failCount} thất bại`,
                 failCount === 0 ? 'success' : 'warning'
             );
         }
