@@ -8,6 +8,12 @@
 
 ## 2026-04-04
 
+### [realtime] Fix root cause: page không có subscription → WS join fail ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/managers/realtime-manager.js`, `orders-report/js/tab1/tab1-init.js` |
+| **Chi tiết** | Root cause: `pdm.pageIds` trả 4 pages nhưng page `193642490509664` không có Pancake subscription → `multiple_pages:` channel join bị reject "Gói cước hết hạn" → browser + server không nhận events. Fix: (1) Retry logic: khi join fail, thử lại bỏ từng page để tìm page lỗi. (2) Push fresh token (Kỹ Thuật NJD) + 3 pages đúng lên cả 2 server → server đã nhận events thành công. (3) Auto-push token lên server khi browser WS connect. |
+
 ### [orders] Fix unread badges bị đè bởi sentOrdersUpdated + auto-push token lên server ✅
 | | |
 |---|---|

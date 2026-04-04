@@ -72,7 +72,10 @@ class PancakePhoenixSocket {
         });
 
         // Join multi-page channel
-        console.log(`[PHOENIX] Joining channels for userId=${this.userId}, ${this.pageIds.length} pages`);
+        console.log(`[PHOENIX] Joining channels for userId=${this.userId}, ${this.pageIds.length} pages: [${this.pageIds.join(', ')}]`);
+        this._allPageIds = [...this.pageIds]; // Save for retry logic
+        this._retryIndex = 0;
+        this._retryExhausted = false;
         this._joinChannel(`multiple_pages:${this.userId}`, {
             accessToken: this.accessToken, userId: this.userId,
             clientSession: this.clientSession, pageIds: this.pageIds, platform: 'web'
@@ -112,7 +115,27 @@ class PancakePhoenixSocket {
                         console.log('[PHOENIX] 🟢 Realtime READY — listening for messages');
                     }
                 } else if (payload?.status === 'error') {
-                    console.error('[PHOENIX] ❌ Join FAILED:', topic, payload?.response?.reason || payload);
+                    const reason = payload?.response?.message || payload?.response?.reason || JSON.stringify(payload?.response);
+                    console.error(`[PHOENIX] ❌ Join FAILED: ${topic} — ${reason}`);
+
+                    // If multiple_pages join failed, retry removing one page at a time
+                    if (topic.startsWith('multiple_pages:') && this._allPageIds && !this._retryExhausted) {
+                        this._retryIndex = (this._retryIndex || 0) + 1;
+                        if (this._retryIndex <= this._allPageIds.length) {
+                            // Try without page at current retry index (0-based: skip index retryIndex-1)
+                            const skipIdx = this._retryIndex - 1;
+                            const retryPages = this._allPageIds.filter((_, i) => i !== skipIdx);
+                            console.warn(`[PHOENIX] 🔄 Retry ${this._retryIndex}/${this._allPageIds.length}: without page ${this._allPageIds[skipIdx]} → [${retryPages.join(', ')}]`);
+                            this.pageIds = retryPages;
+                            this._joinChannel(`multiple_pages:${this.userId}`, {
+                                accessToken: this.accessToken, userId: this.userId,
+                                clientSession: this.clientSession, pageIds: retryPages, platform: 'web'
+                            });
+                        } else {
+                            this._retryExhausted = true;
+                            console.error('[PHOENIX] ❌ All page combinations failed. Check Pancake subscription.');
+                        }
+                    }
                 }
                 return;
             }
