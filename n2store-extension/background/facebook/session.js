@@ -373,8 +373,8 @@ function _logImportantDocIds() {
  *   5. Fetch those JS files → extract PagesManager doc_ids
  */
 async function _loadCompatViewDocIds(pageId, cquickToken) {
-  const inboxUrl = `https://business.facebook.com/latest/inbox/messenger?asset_id=${pageId}`;
-  const compatUrl = `${inboxUrl}&cquick=jsc_c_d&cquick_token=${cquickToken}&ctarget=https%3A%2F%2Fwww.facebook.com`;
+  // Pancake format: bare inbox URL + cquick params (NO asset_id — that prevents compat mode)
+  const compatUrl = `https://business.facebook.com/latest/inbox/messenger?cquick=jsc_c_d&cquick_token=${cquickToken}&ctarget=https%3A%2F%2Fwww.facebook.com`;
 
   log.info(MODULE, `CompatView: loading for page ${pageId}...`);
 
@@ -392,8 +392,18 @@ async function _loadCompatViewDocIds(pageId, cquickToken) {
       return;
     }
 
+    // Check if redirected
+    if (response.url !== compatUrl) {
+      log.info(MODULE, `CompatView: redirected to ${response.url.substring(0, 100)}`);
+    }
+
     const html = await response.text();
-    log.info(MODULE, `CompatView: ${html.length} bytes`);
+    log.info(MODULE, `CompatView: ${html.length} bytes, first 300: ${html.substring(0, 300)}`);
+
+    // Check if we got actual page HTML vs redirect
+    if (html.length < 5000) {
+      log.info(MODULE, `CompatView: full response (small): ${html.substring(0, 1500)}`);
+    }
 
     // Extract doc_ids from compat view HTML
     const compatDocIds = extractDocIds(html);

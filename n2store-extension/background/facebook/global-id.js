@@ -28,7 +28,7 @@ const THREADLIST_NAMES = [
   'MessengerThreadlistQuery',
   'MessengerGraphQLThreadlistFetcher',
   'MessengerGraphQLThreadFetcher',
-  'useMWGetFetchUserThreadNavigationDataQuery',
+  // NOTE: useMWGetFetchUserThreadNavigationDataQuery has different variable format — don't include here
 ];
 const CUSTOMER_SEARCH_NAMES = [
   'BizInboxCustomerRelaySearchSourceQuery',
@@ -292,19 +292,30 @@ async function queryViaAdminAssigner(session, pageId, threadId, docId, queryName
   });
 
   const text = await response.text();
-  log.debug(MODULE, `${queryName}: response ${text.length} bytes, first 200: ${text.substring(0, 200)}`);
+  log.info(MODULE, `${queryName}: response ${text.length} bytes, first 500: ${text.substring(0, 500)}`);
 
   const result = parseFbRes(text);
 
   // Check for rate limit
   if (result?.errors?.some(e => /rate limit/i.test(e.message))) {
-    log.debug(MODULE, `${queryName}: rate limited`);
+    log.info(MODULE, `${queryName}: rate limited`);
     return null;
   }
 
   // Log errors for debugging
   if (result?.errors?.length > 0) {
     log.info(MODULE, `${queryName}: GraphQL errors: ${JSON.stringify(result.errors.map(e => e.message || e.description || e.summary)).substring(0, 300)}`);
+  }
+
+  // Log response structure for debugging
+  if (result?.data) {
+    log.info(MODULE, `${queryName}: data keys: ${JSON.stringify(Object.keys(result.data))}`);
+    // Log nested structure
+    for (const [key, val] of Object.entries(result.data)) {
+      if (val && typeof val === 'object') {
+        log.info(MODULE, `${queryName}: data.${key} keys: ${JSON.stringify(Object.keys(val)).substring(0, 200)}`);
+      }
+    }
   }
 
   // Pancake path: data.commItem.target_id
@@ -534,7 +545,12 @@ async function queryViaConversationPage(session, pageId, threadId) {
     return otherUserGlobal[1];
   }
 
-  log.debug(MODULE, 'ConversationPage: no target_id found in HTML');
+  // Debug: show what patterns exist in the HTML
+  const hasSelectedItem = html.includes('"selectedItem"');
+  const hasTargetId = html.includes('target_id');
+  const hasOtherUser = html.includes('other_user_id');
+  const hasCommItem = html.includes('commItem');
+  log.info(MODULE, `ConversationPage: no target_id extracted. HTML ${html.length} bytes, hasSelectedItem=${hasSelectedItem}, hasTargetId=${hasTargetId}, hasOtherUser=${hasOtherUser}, hasCommItem=${hasCommItem}`);
   return null;
 }
 
