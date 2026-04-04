@@ -1,3 +1,4 @@
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 /**
  * Shop Configuration - Multi-company selector (NJD LIVE / NJD SHOP)
  * Load NON-deferred, BEFORE any token-manager script.

@@ -1,3 +1,4 @@
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 // Facebook Global ID Resolver
 // Handles GET_GLOBAL_ID_FOR_CONV - resolves thread_id to globalUserId via GraphQL
 // 6 strategies (priority order):

@@ -1,3 +1,4 @@
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 /**
  * Firebase Statistics Dashboard
  * Thống kê toàn bộ dữ liệu Firebase sử dụng trong dự án

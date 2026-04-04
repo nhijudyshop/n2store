@@ -1,3 +1,4 @@
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 /**
  * KPI Audit Logger - Ghi audit log sản phẩm thêm/bớt
  * 100% Render PostgreSQL via REST API

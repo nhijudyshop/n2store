@@ -1,3 +1,4 @@
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 // =====================================================
 // PERMISSIONS REGISTRY - Single Source of Truth
 // Quản lý tập trung tất cả pages và permissions

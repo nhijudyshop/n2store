@@ -1,3 +1,4 @@
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 // =====================================================
 // GOONG.IO PLACES API PROXY ROUTE
 // Proxy requests to Goong.io Autocomplete API with server-side API key

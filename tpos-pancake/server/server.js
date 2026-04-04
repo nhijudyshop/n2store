@@ -1,3 +1,4 @@
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 // =====================================================
 // N2STORE PANCAKE WEBSOCKET CLIENT (Multi-Account)
 // Nhận tin nhắn Facebook Page realtime qua Pancake Phoenix WebSocket

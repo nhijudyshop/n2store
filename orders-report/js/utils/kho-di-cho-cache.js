@@ -1,3 +1,4 @@
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 /**
  * Kho Di Cho Cache - Pre-loads product STT data for bill generation
  * Used by BillService to append kho đi chợ STT numbers to product names on bills

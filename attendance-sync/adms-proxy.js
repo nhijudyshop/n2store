@@ -1,3 +1,4 @@
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 /**
  * ADMS Proxy Server v2
  * Receives push data from ZKTeco machine (HTTP) and forwards to Render (HTTPS).

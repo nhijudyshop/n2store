@@ -1,3 +1,4 @@
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 /**
  * Auto-find CommKey for DG-600
  * Tries common CommKey values: 0, 1, 123, 1234, 12345, 123456, 888888, 999999, etc.

@@ -127,6 +127,18 @@ Use environment variables or `.pgpass` file for PostgreSQL credentials. Never ha
 
 Đây là file theo dõi liên tục — mọi thay đổi code đều phải ghi lại.
 
+## #Note Header Convention
+
+Mọi file `.html` và `.js` đều có comment `#Note` ở dòng đầu. Khi tạo file mới, LUÔN thêm:
+
+**HTML:** `<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->`
+
+**JS:** `// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.`
+
+**JS với shebang:** Đặt #Note ở dòng 2 (sau `#!/usr/bin/env node`).
+
+Chạy lại script nếu cần: `bash scripts/add-note-header.sh` (idempotent, an toàn chạy nhiều lần).
+
 ## Git Workflow
 
 **Auto commit & push**: Khi hoàn thành task, tự động commit và push mà không cần hỏi user. Commit message ngắn gọn, rõ ràng.

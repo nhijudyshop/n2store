@@ -1,3 +1,4 @@
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 const { fetchWithRetry, fetchWithTimeout } = require("../../shared/node/fetch-utils.cjs");
 const TPOS_CONFIG = require("../config/tpos.config");
 const tposTokenManager = require("./tpos-token-manager");

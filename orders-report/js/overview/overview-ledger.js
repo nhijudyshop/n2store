@@ -1,3 +1,4 @@
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 // =====================================================
 // OVERVIEW - LEDGER: Sổ Sách Live Order Tracking
 // Tích hợp trong tab Báo Cáo Tổng Hợp

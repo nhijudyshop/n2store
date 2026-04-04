@@ -1,3 +1,4 @@
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 /* =====================================================
    REALTIME MANAGER - Pancake Phoenix WebSocket + Polling Fallback
    Exact copy of PancakePhoenixSocket from inbox/js/inbox-chat.js

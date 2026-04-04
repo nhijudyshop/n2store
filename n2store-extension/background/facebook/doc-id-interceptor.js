@@ -1,3 +1,4 @@
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 // Facebook GraphQL doc_id interceptor
 // Passively captures doc_id + query name pairs from the page's own GraphQL requests
 // via chrome.webRequest.onBeforeRequest — no JS bundle parsing needed

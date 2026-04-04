@@ -1,3 +1,4 @@
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 // main.js - Entry point for Customer 360 Hub
 import { PermissionHelper } from './utils/permissions.js';
 import { CustomerSearchModule } from './modules/customer-search.js';

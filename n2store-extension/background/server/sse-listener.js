@@ -1,3 +1,4 @@
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 // N2Store Extension - SSE Real-time Event Listener
 // Connects to Render server SSE for wallet, held products, transactions, messages
 import { log } from '../../shared/logger.js';

@@ -1,3 +1,4 @@
+// #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 /**
  * COMMON UI UTILITIES
  * SOURCE OF TRUTH - UI utilities for notifications, loading, and common interactions
