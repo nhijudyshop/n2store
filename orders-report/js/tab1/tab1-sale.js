@@ -981,6 +981,12 @@ async function confirmAndPrintSale() {
             console.log('[SALE-CONFIRM] Storing invoice status...');
             window.InvoiceStatusStore.storeFromApiResult(result);
 
+            // Tính đúng PaymentAmount = min(wallet, COD) thay vì lưu toàn bộ wallet balance
+            const saleCodForStore = parseFloat(document.getElementById('saleCOD')?.value) || 0;
+            const actualPaymentForStore = saleCodForStore > 0
+                ? Math.min(savedWalletBalance, saleCodForStore)
+                : savedWalletBalance;
+
             // For social orders: store directly by social order ID
             // (storeFromApiResult skips orders with empty SaleOnlineIds)
             if (currentSaleOrderData?._isSocialOrder && window._lastSocialSaleOrderId) {
@@ -988,7 +994,7 @@ async function confirmAndPrintSale() {
                 const orderData = successOrders[0];
                 if (orderData) {
                     // Enrich with form values before storing
-                    orderData.PaymentAmount = savedWalletBalance;
+                    orderData.PaymentAmount = actualPaymentForStore;
                     orderData.Discount = savedDiscount;
                     orderData.CarrierName = savedCarrierName;
                     window.InvoiceStatusStore.set(socialId, orderData, currentSaleOrderData);
@@ -1004,12 +1010,12 @@ async function confirmAndPrintSale() {
             if (saleOnlineId) {
                 const storedData = window.InvoiceStatusStore.get(saleOnlineId);
                 if (storedData) {
-                    storedData.PaymentAmount = savedWalletBalance;
+                    storedData.PaymentAmount = actualPaymentForStore;
                     storedData.Discount = savedDiscount;
                     storedData.CarrierName = savedCarrierName;
                     window.InvoiceStatusStore.set(saleOnlineId, storedData, currentSaleOrderData);
                     console.log('[SALE-CONFIRM] Updated InvoiceStatusStore with form values:', {
-                        PaymentAmount: savedWalletBalance,
+                        PaymentAmount: actualPaymentForStore,
                         Discount: savedDiscount,
                         CarrierName: savedCarrierName,
                     });
@@ -1056,6 +1062,17 @@ async function confirmAndPrintSale() {
                 const performedBy = window.authManager?.getAuthState()?.username || 'system';
                 const normalizedPhone = normalizePhoneForQR(customerPhone);
 
+                // Build detailed note with breakdown
+                const goodsValue = parseFloat(document.getElementById('saleGoodsValue')?.value) || 0;
+                const shippingFee = parseFloat(document.getElementById('saleShippingFee')?.value) || 0;
+                const discountVal = parseFloat(document.getElementById('saleDiscount')?.value) || 0;
+
+                let saleNote = `Thanh toán công nợ qua COD đơn hàng #${orderNumber}`;
+                saleNote += ` (Hàng: ${goodsValue.toLocaleString('vi-VN')}đ`;
+                if (shippingFee > 0) saleNote += ` + Ship: ${shippingFee.toLocaleString('vi-VN')}đ`;
+                if (discountVal > 0) saleNote += ` - Giảm: ${discountVal.toLocaleString('vi-VN')}đ`;
+                saleNote += ` = ${codAmount.toLocaleString('vi-VN')}đ)`;
+
                 // Use pending-withdrawals API on Render server directly (not via CF Worker)
                 // The API will: 1) Record pending, 2) Try withdraw, 3) Cron will retry if failed
                 const RENDER_API_URL = 'https://n2store-fallback.onrender.com';
@@ -1068,7 +1085,7 @@ async function confirmAndPrintSale() {
                         phone: normalizedPhone,
                         amount: actualPayment,
                         source: 'SALE_ORDER',
-                        note: `Thanh toán công nợ qua COD đơn hàng #${orderNumber}`,
+                        note: saleNote,
                         created_by: performedBy,
                     }),
                 })

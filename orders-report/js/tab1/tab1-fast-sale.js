@@ -2867,16 +2867,27 @@ async function processWalletWithdrawalsForSuccessOrders() {
                 (parseFloat(walletData.virtualBalance) || 0);
             if (totalWalletBalance <= 0) continue;
 
-            // Get COD amount (CashOnDelivery or AmountTotal)
-            const codAmount =
-                parseFloat(order.CashOnDelivery) || parseFloat(order.AmountTotal) || 0;
-            if (codAmount <= 0) continue;
+            // PaymentAmount = số tiền trừ ví, đã tính đúng khi tạo đơn (bao gồm ship)
+            const orderPaymentAmount = parseFloat(order.PaymentAmount) || 0;
+            if (orderPaymentAmount <= 0) continue;
 
-            // Calculate how much to withdraw (min of wallet balance and COD amount)
-            const withdrawAmount = Math.min(totalWalletBalance, codAmount);
+            // Calculate how much to withdraw (min of wallet balance and payment amount)
+            const withdrawAmount = Math.min(totalWalletBalance, orderPaymentAmount);
             if (withdrawAmount <= 0) continue;
 
             const orderNumber = order.Number || order.Code || order.Reference || 'N/A';
+
+            // Build detailed note with breakdown
+            const amountTotal = parseFloat(order.AmountTotal) || 0;
+            const deliveryPrice = parseFloat(order.DeliveryPrice) || 0;
+            const decreaseAmount = parseFloat(order.DecreaseAmount) || 0;
+            const totalPayment = amountTotal + deliveryPrice - decreaseAmount;
+
+            let noteDetails = `Thanh toán công nợ qua PBH hàng loạt đơn #${orderNumber}`;
+            noteDetails += ` (Hàng: ${amountTotal.toLocaleString('vi-VN')}đ`;
+            if (deliveryPrice > 0) noteDetails += ` + Ship: ${deliveryPrice.toLocaleString('vi-VN')}đ`;
+            if (decreaseAmount > 0) noteDetails += ` - Giảm: ${decreaseAmount.toLocaleString('vi-VN')}đ`;
+            noteDetails += ` = ${totalPayment.toLocaleString('vi-VN')}đ)`;
 
             console.log(
                 `[FAST-SALE] Creating pending withdrawal for order ${orderNumber}, phone: ${normalizedPhone}, amount: ${withdrawAmount}`
@@ -2894,7 +2905,7 @@ async function processWalletWithdrawalsForSuccessOrders() {
                     phone: normalizedPhone,
                     amount: withdrawAmount,
                     source: 'FAST_SALE',
-                    note: `Thanh toán công nợ qua PBH hàng loạt đơn #${orderNumber}`,
+                    note: noteDetails,
                     created_by: performedBy,
                 }),
             });
