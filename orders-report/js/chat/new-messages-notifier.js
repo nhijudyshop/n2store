@@ -34,8 +34,6 @@
     // =====================================================
 
     function _applyBadgesToRows() {
-        if (!_pendingCustomers.length) return;
-
         // Build lookup map: psid → pending data
         const pendingMap = new Map();
         _pendingCustomers.forEach(pc => {
@@ -58,8 +56,6 @@
             }
         });
 
-        if (pendingMap.size === 0) return;
-
         // Find all table rows with psid
         const rows = document.querySelectorAll('tr[data-psid], tr[data-fb-id]');
         rows.forEach(row => {
@@ -68,8 +64,9 @@
 
             const pending = pendingMap.get(String(psid));
             if (!pending) {
-                // Remove highlights if no longer pending
+                // Remove highlights and badges if no longer pending
                 row.classList.remove('pending-customer-row');
+                row.querySelectorAll('.new-msg-badge, .new-cmt-badge').forEach(el => el.remove());
                 return;
             }
 
