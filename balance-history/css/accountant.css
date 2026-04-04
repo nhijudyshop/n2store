@@ -221,6 +221,104 @@
     color: white !important;
 }
 
+/* Failed Withdrawal Alert Bar */
+.acc-alert-bar.failed-withdrawal {
+    background: linear-gradient(90deg, #fdf2f8 0%, #fce7f3 100%);
+    border: 1px solid #f472b6;
+    border-left: 4px solid #be185d;
+}
+
+.acc-alert-bar.failed-withdrawal .alert-content {
+    color: #831843;
+    font-weight: 600;
+}
+
+.acc-alert-bar.failed-withdrawal .alert-action {
+    background: #be185d;
+}
+
+.acc-alert-bar.failed-withdrawal .alert-action:hover {
+    background: #9d174d;
+}
+
+/* Failed Withdrawal badge */
+.failed-wd-badge {
+    background: #be185d !important;
+    color: white !important;
+}
+
+/* Failed Withdrawal Stats Summary */
+.failed-wd-stats {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.failed-wd-stat-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 12px 18px;
+    min-width: 140px;
+    text-align: center;
+}
+
+.failed-wd-stat-card .stat-label {
+    font-size: 11px;
+    color: #64748b;
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.failed-wd-stat-card .stat-value {
+    font-size: 22px;
+    font-weight: 800;
+    margin-top: 4px;
+}
+
+.failed-wd-stat-card.failed .stat-value { color: #dc2626; }
+.failed-wd-stat-card.pending .stat-value { color: #f59e0b; }
+.failed-wd-stat-card.completed .stat-value { color: #10b981; }
+.failed-wd-stat-card .stat-amount {
+    font-size: 12px;
+    color: #94a3b8;
+    margin-top: 2px;
+}
+
+/* Retry button in table */
+.failed-wd-retry-btn {
+    background: #3b82f6;
+    color: white;
+    border: none;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.failed-wd-retry-btn:hover { background: #2563eb; }
+.failed-wd-retry-btn:disabled { background: #94a3b8; cursor: not-allowed; }
+
+/* Error text in table */
+.failed-wd-error {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #dc2626;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.failed-wd-error:hover {
+    white-space: normal;
+    word-break: break-word;
+}
+
 /* =====================================================
    SUB-TABS
    ===================================================== */

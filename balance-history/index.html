@@ -566,6 +566,15 @@
                     <button class="alert-action" onclick="AccountantModule.switchSubTab('walletAdj')">Xem ngay</button>
                 </div>
 
+                <!-- Alert Bar: Failed Wallet Withdrawals -->
+                <div class="acc-alert-bar failed-withdrawal hidden" id="accFailedWithdrawalBar">
+                    <div class="alert-content">
+                        <span class="alert-icon">🚨</span>
+                        <span class="alert-text" id="accFailedWithdrawalText">0 giao dịch trừ ví thất bại</span>
+                    </div>
+                    <button class="alert-action" onclick="AccountantModule.switchSubTab('failedWithdrawal')">Xem ngay</button>
+                </div>
+
                 <!-- Sub-tabs -->
                 <div class="acc-sub-tabs" id="accSubTabs">
                     <button class="acc-sub-tab active" data-tab="pending" id="accTabPending">
@@ -581,6 +590,11 @@
                         <i data-lucide="wallet" style="width:16px;height:16px"></i>
                         Điều Chỉnh Công Nợ
                         <span class="tab-badge wallet-adj-badge" id="accWalletAdjBadge" style="display: none; background: #dc2626;">0</span>
+                    </button>
+                    <button class="acc-sub-tab" data-tab="failedWithdrawal" id="accTabFailedWithdrawal" onclick="AccountantModule.switchSubTab('failedWithdrawal')">
+                        <i data-lucide="alert-triangle" style="width:16px;height:16px"></i>
+                        Trừ Ví Thất Bại
+                        <span class="tab-badge failed-wd-badge" id="accFailedWdBadge" style="display: none; background: #dc2626;">0</span>
                     </button>
                 </div>
 
@@ -823,6 +837,48 @@
                         </table>
                     </div>
                 </div><!-- End Wallet Adjustment Panel -->
+
+                <!-- ========== SUB-PANEL: Failed Wallet Withdrawals ========== -->
+                <div class="acc-sub-panel" data-panel="failedWithdrawal" id="accPanelFailedWithdrawal">
+                    <div class="acc-queue-header">
+                        <div class="queue-title">
+                            <i data-lucide="alert-triangle" style="width:20px;height:20px"></i>
+                            Trừ ví thất bại — cần xử lý thủ công
+                        </div>
+                        <button class="acc-btn acc-btn-sm" onclick="AccountantModule.loadFailedWithdrawals()">
+                            <i data-lucide="refresh-cw" style="width:14px;height:14px"></i> Tải lại
+                        </button>
+                    </div>
+
+                    <!-- Stats summary -->
+                    <div id="accFailedWdStats" class="failed-wd-stats" style="display:none;"></div>
+
+                    <div class="table-container">
+                        <table class="acc-approved-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Mã đơn</th>
+                                    <th>SĐT</th>
+                                    <th>Số tiền</th>
+                                    <th>Nguồn</th>
+                                    <th>Lỗi</th>
+                                    <th>Retry</th>
+                                    <th>Người tạo</th>
+                                    <th>Thời gian</th>
+                                    <th>Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody id="accFailedWdTableBody">
+                                <tr>
+                                    <td colspan="10" class="acc-empty-state">
+                                        <div class="empty-text">Không có giao dịch trừ ví thất bại</div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div><!-- End Failed Withdrawal Panel -->
 
             </div><!-- End Verification/Accountant Panel -->
 

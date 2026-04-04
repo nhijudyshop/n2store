@@ -574,6 +574,9 @@
             case 'walletAdj':
                 loadWalletAdjustments();
                 break;
+            case 'failedWithdrawal':
+                loadFailedWithdrawals();
+                break;
         }
 
         // Reinitialize Lucide icons
@@ -597,6 +600,9 @@
 
             state.stats = result.stats;
             renderDashboard();
+
+            // Also load failed withdrawal stats (separate API)
+            loadFailedWithdrawalStats();
 
         } catch (error) {
             console.error('[ACCOUNTANT] Stats error:', error);
@@ -2816,6 +2822,177 @@
     }
 
     // =====================================================
+    // FAILED WALLET WITHDRAWALS (Trừ ví thất bại)
+    // =====================================================
+
+    const RENDER_API_URL = 'https://n2store-fallback.onrender.com';
+
+    /**
+     * Load failed withdrawal stats and update UI
+     */
+    async function loadFailedWithdrawalStats() {
+        try {
+            const response = await fetch(`${RENDER_API_URL}/api/v2/pending-withdrawals/stats`);
+            const result = await response.json();
+
+            if (!result.success) return;
+
+            const data = result.data;
+            const failedInfo = data.by_status?.FAILED || { count: 0, total_amount: 0 };
+            const pendingInfo = data.by_status?.PENDING || { count: 0, total_amount: 0 };
+
+            // Update alert bar
+            const alertBar = document.getElementById('accFailedWithdrawalBar');
+            const totalIssues = failedInfo.count + pendingInfo.count;
+            if (alertBar) {
+                if (failedInfo.count > 0) {
+                    alertBar.classList.remove('hidden');
+                    const textEl = document.getElementById('accFailedWithdrawalText');
+                    if (textEl) {
+                        textEl.textContent = `${failedInfo.count} giao dịch trừ ví thất bại (${failedInfo.total_amount.toLocaleString('vi-VN')}đ)`;
+                    }
+                } else {
+                    alertBar.classList.add('hidden');
+                }
+            }
+
+            // Update badge
+            const badge = document.getElementById('accFailedWdBadge');
+            if (badge) {
+                badge.textContent = failedInfo.count;
+                badge.style.display = failedInfo.count > 0 ? 'inline' : 'none';
+            }
+
+            // Update stats summary
+            const statsEl = document.getElementById('accFailedWdStats');
+            if (statsEl) {
+                const completedInfo = data.by_status?.COMPLETED || { count: 0, total_amount: 0 };
+                statsEl.style.display = 'flex';
+                statsEl.innerHTML = `
+                    <div class="failed-wd-stat-card failed">
+                        <div class="stat-label">Thất bại</div>
+                        <div class="stat-value">${failedInfo.count}</div>
+                        <div class="stat-amount">${failedInfo.total_amount.toLocaleString('vi-VN')}đ</div>
+                    </div>
+                    <div class="failed-wd-stat-card pending">
+                        <div class="stat-label">Đang chờ</div>
+                        <div class="stat-value">${pendingInfo.count}</div>
+                        <div class="stat-amount">${pendingInfo.total_amount.toLocaleString('vi-VN')}đ</div>
+                    </div>
+                    <div class="failed-wd-stat-card completed">
+                        <div class="stat-label">Hoàn thành</div>
+                        <div class="stat-value">${completedInfo.count}</div>
+                        <div class="stat-amount">${completedInfo.total_amount.toLocaleString('vi-VN')}đ</div>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error('[ACCOUNTANT] Failed to load withdrawal stats:', error);
+        }
+    }
+
+    /**
+     * Load and render failed withdrawals list
+     */
+    async function loadFailedWithdrawals() {
+        const tbody = document.getElementById('accFailedWdTableBody');
+        if (!tbody) return;
+
+        tbody.innerHTML = `<tr><td colspan="10" class="acc-empty-state"><div class="empty-text">Đang tải...</div></td></tr>`;
+
+        try {
+            // Fetch both FAILED and PENDING records
+            const [failedRes, pendingRes] = await Promise.all([
+                fetch(`${RENDER_API_URL}/api/v2/pending-withdrawals?status=FAILED&limit=50`).then(r => r.json()),
+                fetch(`${RENDER_API_URL}/api/v2/pending-withdrawals?status=PENDING&limit=50`).then(r => r.json()),
+            ]);
+
+            const failedRows = (failedRes.success ? failedRes.data : []).map(r => ({ ...r, _displayStatus: 'FAILED' }));
+            const pendingRows = (pendingRes.success ? pendingRes.data : []).map(r => ({ ...r, _displayStatus: 'PENDING' }));
+
+            const allRows = [...failedRows, ...pendingRows];
+
+            if (allRows.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="10" class="acc-empty-state"><div class="empty-text">Không có giao dịch trừ ví thất bại</div></td></tr>`;
+                loadFailedWithdrawalStats();
+                return;
+            }
+
+            tbody.innerHTML = allRows.map((row, idx) => {
+                const isFailed = row._displayStatus === 'FAILED';
+                const createdAt = row.created_at ? new Date(row.created_at).toLocaleString('vi-VN') : '—';
+                const updatedAt = row.updated_at ? new Date(row.updated_at).toLocaleString('vi-VN') : '';
+                const amount = parseFloat(row.amount) || 0;
+                const sourceLabel = row.source === 'FAST_SALE' ? 'PBH Loạt' : row.source === 'SALE_ORDER' ? 'PBH Lẻ' : (row.source || '—');
+
+                const statusHtml = isFailed
+                    ? '<span style="background:#fee2e2;color:#991b1b;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;">Thất bại</span>'
+                    : '<span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;">Đang chờ</span>';
+
+                const retryBtn = `<button class="failed-wd-retry-btn" onclick="AccountantModule.retryWithdrawal(${row.id})" title="Thử lại trừ ví">
+                    <i data-lucide="refresh-cw" style="width:12px;height:12px"></i> Retry
+                </button>`;
+
+                return `<tr style="${isFailed ? 'background:#fef2f2;' : ''}">
+                    <td>${idx + 1}</td>
+                    <td><strong>${row.order_id || '—'}</strong></td>
+                    <td>${row.phone || '—'}${row.customer_name ? `<br><small style="color:#6b7280;">${row.customer_name}</small>` : ''}</td>
+                    <td style="color:#dc2626;font-weight:700;">${amount.toLocaleString('vi-VN')}đ</td>
+                    <td>${sourceLabel}</td>
+                    <td><div class="failed-wd-error" title="${(row.last_error || '').replace(/"/g, '&quot;')}">${row.last_error || '—'}</div></td>
+                    <td>${row.retry_count || 0}/${row.max_retries || 5} ${statusHtml}</td>
+                    <td>${row.created_by || '—'}</td>
+                    <td>${createdAt}${updatedAt ? `<br><small style="color:#94a3b8;">Cập nhật: ${updatedAt}</small>` : ''}</td>
+                    <td>${retryBtn}</td>
+                </tr>`;
+            }).join('');
+
+            loadFailedWithdrawalStats();
+
+            if (window.lucide) lucide.createIcons();
+        } catch (error) {
+            console.error('[ACCOUNTANT] Failed to load withdrawals:', error);
+            tbody.innerHTML = `<tr><td colspan="10" class="acc-empty-state"><div class="empty-text" style="color:#dc2626;">Lỗi tải dữ liệu: ${error.message}</div></td></tr>`;
+        }
+    }
+
+    /**
+     * Retry a failed withdrawal
+     */
+    async function retryWithdrawal(id) {
+        if (!confirm(`Thử lại trừ ví cho giao dịch #${id}?`)) return;
+
+        try {
+            const response = await fetch(`${RENDER_API_URL}/api/v2/pending-withdrawals/${id}/retry`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+            });
+            const result = await response.json();
+
+            if (result.success) {
+                if (window.notificationManager) {
+                    const msg = result.result?.success
+                        ? `Trừ ví thành công cho giao dịch #${id}`
+                        : `Đã ghi nhận retry cho giao dịch #${id}, sẽ xử lý tiếp`;
+                    window.notificationManager.show(msg, result.result?.success ? 'success' : 'info');
+                }
+            } else {
+                if (window.notificationManager) {
+                    window.notificationManager.show(`Retry thất bại: ${result.error}`, 'error');
+                }
+            }
+
+            // Reload list
+            loadFailedWithdrawals();
+        } catch (error) {
+            console.error('[ACCOUNTANT] Retry failed:', error);
+            if (window.notificationManager) {
+                window.notificationManager.show(`Lỗi: ${error.message}`, 'error');
+            }
+        }
+    }
+
+    // =====================================================
     // PUBLIC API
     // =====================================================
 
@@ -2861,7 +3038,11 @@
         loadWalletAdjustments,
         completeWalletAdjustment,
         deleteWalletAdjustment,
-        showWalletAdjustments
+        showWalletAdjustments,
+        // Failed Wallet Withdrawal functions (trừ ví thất bại)
+        loadFailedWithdrawals,
+        loadFailedWithdrawalStats,
+        retryWithdrawal
     };
 
     // Auto-initialize when DOM is ready
