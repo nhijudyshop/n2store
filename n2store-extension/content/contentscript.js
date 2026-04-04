@@ -82,8 +82,14 @@
 
   let port = null;
   let wakeUpTimer = null;
+  let _dead = false; // Extension context invalidated — stop all retries
+
+  function _isDead(err) {
+    return _dead || (err && /invalidated|Extension context/i.test(err.message));
+  }
 
   function connect() {
+    if (_dead) return;
     try {
       port = chrome.runtime.connect({ name: 'n2store_tab' });
 
@@ -98,9 +104,15 @@
       });
 
       port.onDisconnect.addListener(() => {
-        console.log('[N2EXT] Port disconnected, reconnecting in 1s...');
         port = null;
         if (wakeUpTimer) clearInterval(wakeUpTimer);
+        const lastErr = chrome.runtime.lastError;
+        if (_isDead(lastErr)) {
+          _dead = true;
+          console.warn('[N2EXT] Extension context invalidated. Reload page to reconnect.');
+          return;
+        }
+        console.log('[N2EXT] Port disconnected, reconnecting in 1s...');
         setTimeout(connect, 1000);
       });
 
@@ -111,6 +123,7 @@
           if (port) port.postMessage({ type: 'WAKE_UP' });
         } catch (e) {
           clearInterval(wakeUpTimer);
+          if (_isDead(e)) { _dead = true; return; }
           console.log('[N2EXT] WAKE_UP failed, reconnecting...');
           setTimeout(connect, 1000);
         }
@@ -118,6 +131,11 @@
 
       console.log('[N2EXT] Connected to service worker');
     } catch (err) {
+      if (_isDead(err)) {
+        _dead = true;
+        console.warn('[N2EXT] Extension context invalidated. Reload page to reconnect.');
+        return;
+      }
       console.error('[N2EXT] Failed to connect:', err.message);
       setTimeout(connect, 2000);
     }
