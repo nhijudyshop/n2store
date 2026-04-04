@@ -1871,6 +1871,24 @@
             ${_tooltipHtml('cat_0')}
         </div>`;
 
+        // --- Mini stat boxes: Chờ Live | Giữ Đơn + Qua Lấy ---
+        {
+            const choLiveCount = flagCounts['CHO_LIVE'] || 0;
+            const giuDonQuaLayCount = (flagCounts['GIU_DON'] || 0) + (flagCounts['QUA_LAY'] || 0);
+            html += `<div class="ptag-panel-mini-stats" data-search="cho live giu don qua lay">
+                <div class="ptag-mini-stat-box ${activeFlagFilters.has('CHO_LIVE') ? 'active' : ''}" onclick="window._ptagToggleFlagFilter('CHO_LIVE')" title="Đơn có flag Chờ Live">
+                    <span class="ptag-mini-stat-icon">📺</span>
+                    <span class="ptag-mini-stat-label">Chờ Live</span>
+                    <span class="ptag-mini-stat-count">${choLiveCount}</span>
+                </div>
+                <div class="ptag-mini-stat-box ${activeFlagFilters.has('GIU_DON') || activeFlagFilters.has('QUA_LAY') ? 'active' : ''}" onclick="window._ptagToggleGiuDonQuaLay()" title="Đơn có flag Giữ Đơn hoặc Qua Lấy">
+                    <span class="ptag-mini-stat-icon">⌛🏠</span>
+                    <span class="ptag-mini-stat-label">Giữ Đơn + Qua Lấy</span>
+                    <span class="ptag-mini-stat-count">${giuDonQuaLayCount}</span>
+                </div>
+            </div>`;
+        }
+
         // --- Category 1 — CHỜ ĐI ĐƠN + sub-states ---
         html += `<div class="ptag-panel-group" data-search="cho di don oke okie cho hang">
             <div class="ptag-panel-cat-header-v2 ${activeFilter === 'cat_1' ? 'active' : ''}" style="border-left-color:${PTAG_CATEGORY_COLORS[1].border};background:${PTAG_CATEGORY_COLORS[1].bg};" onclick="window._ptagSetFilter('cat_1')">
@@ -2317,6 +2335,25 @@
             if (flagKey.startsWith('CUSTOM_')) {
                 set.delete('KHAC');
             }
+        }
+        renderPanelContent();
+        clearTimeout(_ptagFilterTimer);
+        _ptagFilterTimer = setTimeout(() => {
+            if (typeof window.performTableSearch === 'function') {
+                window.performTableSearch();
+            }
+        }, 50);
+    }
+
+    function _ptagToggleGiuDonQuaLay() {
+        const set = ProcessingTagState._activeFlagFilters;
+        const bothActive = set.has('GIU_DON') && set.has('QUA_LAY');
+        if (bothActive) {
+            set.delete('GIU_DON');
+            set.delete('QUA_LAY');
+        } else {
+            set.add('GIU_DON');
+            set.add('QUA_LAY');
         }
         renderPanelContent();
         clearTimeout(_ptagFilterTimer);
@@ -4734,6 +4771,7 @@
     window._ptagXlFilterSearch = _ptagXlFilterSearch;
     window._ptagFilterPanel = _ptagFilterPanel;
     window._ptagToggleFlagFilter = _ptagToggleFlagFilter;
+    window._ptagToggleGiuDonQuaLay = _ptagToggleGiuDonQuaLay;
     window._ptagToggleFlagsSection = _ptagToggleFlagsSection;
     window._ptagDeleteCustomFlag = _ptagDeleteCustomFlag;
     window._ptagQuickAssign = _ptagQuickAssign;
