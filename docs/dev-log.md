@@ -8,6 +8,12 @@
 
 ## 2026-04-05
 
+### [orders] Delivery report — confirm dialog on unscan + per-group delete-all buttons ✅
+| | |
+|---|---|
+| **Files** | `delivery-report/js/delivery-report.js`, `delivery-report/css/delivery-report.css` |
+| **Chi tiết** | Xóa từng đơn hiện confirm "Chắc chắn đơn X đã được đưa vào kho xử lý?". Thêm nút "Xóa" riêng cho từng bảng nhóm (TOMATO/NAP/CITY/SHOP/RETURN) khi xem đơn đã quét. |
+
 ### [orders] Fix RefundDateStore — save MoveName after confirming draft refund orders ✅
 | | |
 |---|---|
