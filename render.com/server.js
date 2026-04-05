@@ -506,6 +506,24 @@ class RealtimeClient {
                 type: 'pages:new_message',
                 payload: payload
             });
+
+            // Also save to pending_customers (only if message is FROM customer, not from page)
+            if (this.db && msg) {
+                const fromPsid = msg.from?.id;
+                const pageId = msg.page_id || payload.page_id;
+                if (fromPsid && pageId && String(fromPsid) !== String(pageId)) {
+                    const updateData = {
+                        conversationId: msg.conversation_id,
+                        type: 'INBOX',
+                        snippet: msg.message || msg.original_message || '',
+                        pageId: pageId,
+                        psid: fromPsid,
+                        customerName: msg.from?.name
+                    };
+                    upsertPendingCustomer(this.db, updateData)
+                        .catch(err => console.error('[SERVER-WS] Failed to upsert from new_message:', err.message));
+                }
+            }
         }
     }
 }

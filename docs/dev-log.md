@@ -8,6 +8,12 @@
 
 ## 2026-04-05
 
+### [chat] Fix unread badge system — localStorage persistence + server backup ✅
+| | |
+|---|---|
+| **Files** | `render.com/server.js`, `orders-report/js/chat/new-messages-notifier.js` |
+| **Chi tiết** | **5 vấn đề**: (1) Refresh mất badge — in-memory only, (2) Server chỉ save `update_conversation` bỏ qua `new_message`, (3) Server spin down mất events, (4) Badge count không update khi có tin mới, (5) `setPendingCustomers()` replace thay vì merge. **Fixes**: Server: thêm `upsertPendingCustomer()` cho `pages:new_message` (chỉ tin từ khách, không từ page). Browser: localStorage persistence (`n2s_pending_customers` key) — load ngay khi init, save mỗi khi thay đổi. `setPendingCustomers()` giờ merge server data với existing (lấy count cao hơn). `_upsertBadge()` helper mới — update badge text nếu đã tồn tại thay vì skip. Badges survive refresh ngay lập tức từ localStorage, sau đó server data merge vào. |
+
 ### [orders] Fix flag counts hiển thị 0 trong thống kê Tổng quan ✅
 | | |
 |---|---|
