@@ -709,14 +709,16 @@ onPtagBillCancelled(saleOnlineId)
 onPtagPackingSlipPrinted(saleOnlineId)
   → Skip nếu đã marked pickingSlipPrinted = true
   → Set pickingSlipPrinted = true
-  → NẾU chưa có category nào → auto gán:
+  → NẾU đơn KHÔNG phải Cat 0 (HOÀN TẤT) → auto gán:
     └── category = 1 (CHỜ ĐI ĐƠN)
     └── subState = 'CHO_HANG'
+    └── Áp dụng cho: chưa gán tag, Cat 2, Cat 3, Cat 4 → đều chuyển sang Cat 1
+    └── SKIP: Cat 0 (ĐÃ RA ĐƠN) — đơn đã ra bill không bị ghi đè
   → Log history: 'AUTO_PHIEU_SOAN' by 'Hệ thống'
   → Sync API + refresh UI
 ```
 
-**Ý nghĩa**: In phiếu soạn hàng nhưng đơn chưa gán tag → hệ thống tự gán Cat 1 / Chờ Hàng.
+**Ý nghĩa**: In phiếu soạn hàng → hệ thống tự gán Cat 1 / Chờ Hàng cho mọi đơn, trừ đơn đã HOÀN TẤT (Cat 0).
 
 ---
 
