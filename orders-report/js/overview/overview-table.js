@@ -84,6 +84,21 @@ async function loadAvailableTables() {
 
         console.log(`[REPORT] ✅ Loaded ${reports.length} reports + ${addedNames.size - reports.length} campaigns from API`);
 
+        // 🔄 SYNC: If no table selected, try to use active campaign from parent
+        if (!currentTableName) {
+            try {
+                const activeCampaign = window.parent?.campaignManager?.activeCampaign;
+                if (activeCampaign?.name) {
+                    // Find matching table/campaign in our list
+                    const matchName = activeCampaign.name.replace(/[.$#\[\]\/]/g, '_');
+                    if (tableMetadata[matchName] || tableMetadata[activeCampaign.name]) {
+                        currentTableName = tableMetadata[matchName] ? matchName : activeCampaign.name;
+                        console.log(`[REPORT] 🔄 Auto-selected table from activeCampaign: "${currentTableName}"`);
+                    }
+                }
+            } catch (e) { /* cross-origin or no parent */ }
+        }
+
         // Select current table if exists
         if (currentTableName) {
             // Check if currentTableName option exists in dropdown

@@ -553,30 +553,42 @@ window.applyUserCampaign = async function () {
     }
     window.updateCampaignSettingsUI(campaign);
 
-    // Apply time frame and RELOAD orders
+    // 🔄 SYNC: Find matching option in campaignFilter dropdown by campaign name
     const campaignFilter = document.getElementById('campaignFilter');
-    if (campaignFilter && campaign.timeFrame) {
-        campaignFilter.value = campaign.timeFrame;
+    if (campaignFilter) {
+        let matchedIndex = -1;
 
-        // Apply custom start date if needed
-        if (campaign.timeFrame === 'custom' && campaign.customStartDate) {
+        // Try to find Shopify campaign matching this DB campaign name
+        if (typeof _findFilterOptionByDbCampaignName === 'function') {
+            matchedIndex = _findFilterOptionByDbCampaignName(campaign.name);
+        }
+
+        if (matchedIndex !== -1) {
+            // Found matching Shopify campaign - select it and trigger change
+            campaignFilter.selectedIndex = matchedIndex;
+            console.log(`[SYNC] 🔄 Modal → campaignFilter: matched "${campaign.name}" at index ${matchedIndex}`);
+
+            if (typeof handleCampaignChange === 'function') {
+                await handleCampaignChange();
+            }
+        } else if (campaign.timeFrame === 'custom' && campaign.customStartDate) {
+            // Fallback: use custom date mode
+            campaignFilter.value = 'custom';
+
             const customStartDate = document.getElementById('customStartDate');
             if (customStartDate) {
                 customStartDate.value = campaign.customStartDate;
             }
 
-            // Show custom date container
             const customDateContainer = document.getElementById('customDateFilterContainer');
             if (customDateContainer) {
                 customDateContainer.style.display = 'flex';
             }
 
-            // Set selectedCampaign for custom mode
             if (typeof selectedCampaign !== 'undefined') {
                 selectedCampaign = { isCustom: true };
             }
 
-            // SYNC: Save filter preferences to Firebase for page refresh
             if (typeof saveFilterPreferencesToFirebase === 'function') {
                 saveFilterPreferencesToFirebase({
                     selectedCampaignValue: 'custom',
@@ -585,8 +597,6 @@ window.applyUserCampaign = async function () {
                 });
             }
 
-            // For custom campaigns, directly trigger search since date is already set
-            // ⭐ CRITICAL: Load employee ranges for this campaign BEFORE search
             if (typeof loadEmployeeRangesForCampaign === 'function') {
                 await loadEmployeeRangesForCampaign(campaign.name);
             }
@@ -595,19 +605,12 @@ window.applyUserCampaign = async function () {
                 await handleSearch();
             }
 
-            // Setup TAG listeners
             if (typeof setupTagRealtimeListeners === 'function') {
                 setupTagRealtimeListeners();
             }
 
-            // Connect realtime server
             if (window.realtimeManager) {
                 window.realtimeManager.connectServerMode();
-            }
-        } else {
-            // For non-custom campaigns, use handleCampaignChange (which saves filter prefs)
-            if (typeof handleCampaignChange === 'function') {
-                await handleCampaignChange();
             }
         }
     }

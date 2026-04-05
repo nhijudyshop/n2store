@@ -70,7 +70,7 @@
     let isFirstLoad = true;
 
     // Campaign filter state for dropped products
-    let currentCampaignFilter = 'all'; // 'all' | 'current' | specific campaignId
+    let currentCampaignFilter = 'current'; // 'all' | 'current' | specific campaignId (default to current campaign for sync)
 
     // Loading states for better UX during multi-user operations
     let operationsInProgress = new Set();
