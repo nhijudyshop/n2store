@@ -23,6 +23,11 @@
       ],
       "js": ["content/contentscript.js"],
       "run_at": "document_end"
+    },
+    {
+      "matches": ["*://tomato.tpos.vn/*"],
+      "js": ["content/tpos-interceptor.js"],
+      "run_at": "document_end"
     }
   ],
   "action": {
@@ -50,7 +55,8 @@
     "*://graph.facebook.com/*",
     "*://p-upload.facebook.com/*",
     "https://*.nhijudyshop.workers.dev/*",
-    "https://nhijudyshop.github.io/*"
+    "https://nhijudyshop.github.io/*",
+    "*://tomato.tpos.vn/*"
   ],
   "declarative_net_request": {
     "rule_resources": [

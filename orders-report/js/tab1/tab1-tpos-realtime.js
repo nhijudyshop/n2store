@@ -66,6 +66,8 @@
             handleNewOrder(data.data);
         } else if (data.type === 'tpos:order-update') {
             handleOrderUpdate(data.data);
+        } else if (data.type === 'tpos:tag-assigned') {
+            handleTagAssigned(data);
         }
     }
 
@@ -125,6 +127,39 @@
         if (typeof updateOrderInTable === 'function') {
             updateOrderInTable(existingOrder.Id, updatedOrder);
             console.log('[TPOS-RT] Updated order in table:', code);
+        }
+    }
+
+    async function handleTagAssigned(data) {
+        const orderId = data.orderId;
+        const tags = data.tags;
+        if (!orderId || !tags) return;
+
+        // Deduplicate
+        const dedupeKey = `tag_${orderId}`;
+        if (isRecentlyProcessed(dedupeKey)) return;
+        markProcessed(dedupeKey);
+
+        // Find order in table by TPOS UUID
+        let existingOrder = null;
+        if (typeof allData !== 'undefined') {
+            existingOrder = allData.find(o => o.Id === orderId);
+        }
+        if (!existingOrder) return; // Order not in current view
+
+        console.log('[TPOS-RT] Tag assigned on TPOS:', existingOrder.Code, tags.map(t => t.Name));
+
+        // Convert tags to the format used by our table (JSON string)
+        const tagsJson = JSON.stringify(tags.map(t => ({
+            Id: t.Id,
+            Name: t.Name,
+            Color: t.Color || '#999'
+        })));
+
+        // Update tags in table (inline update, no full re-render)
+        if (typeof updateOrderInTable === 'function') {
+            updateOrderInTable(orderId, { Tags: tagsJson });
+            console.log('[TPOS-RT] Tags updated in table:', existingOrder.Code);
         }
     }
 

@@ -1035,6 +1035,20 @@ app.get('/api/tpos-log/all', (req, res) => {
 });
 // ============== END TPOS LOG ENDPOINTS ==============
 
+// ============== TPOS EXTENSION EVENTS ==============
+// Receives events from N2Store Chrome Extension (e.g., tag assignments on TPOS)
+// and broadcasts to all connected WebSocket clients
+app.post('/api/tpos-events/broadcast', (req, res) => {
+    const event = req.body;
+    if (!event || !event.type) {
+        return res.status(400).json({ error: 'Missing event type' });
+    }
+    console.log('[TPOS-EXT] Event from extension:', event.type, event.orderId || '');
+    broadcastToClients(event);
+    res.json({ success: true, broadcasted: true });
+});
+// ============== END TPOS EXTENSION EVENTS ==============
+
 // 404 handler
 app.use((req, res) => {
     res.status(404).json({
