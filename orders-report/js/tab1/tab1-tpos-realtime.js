@@ -16,6 +16,7 @@
 
     // ===== WebSocket Connection =====
     function connect() {
+        if (!enabled) return;
         if (ws && ws.readyState <= 1) return; // CONNECTING or OPEN
 
         try {
@@ -53,6 +54,7 @@
     }
 
     function scheduleReconnect() {
+        if (!enabled) return;
         if (reconnectAttempts >= MAX_RECONNECT) return;
         const delay = Math.min(3000 * Math.pow(1.5, reconnectAttempts), 60000);
         reconnectAttempts++;
@@ -256,22 +258,56 @@
         }, 3000);
     }
 
-    // ===== Status Indicator =====
+    let enabled = true; // User can toggle on/off
+
+    // ===== Status Indicator (inline toggle button) =====
     function updateStatusIndicator(connected) {
-        let indicator = document.getElementById('tpos-rt-status');
-        if (!indicator) {
-            indicator = document.createElement('div');
-            indicator.id = 'tpos-rt-status';
-            indicator.title = 'TPOS Real-time';
-            indicator.style.cssText = 'position:fixed;bottom:12px;left:12px;width:10px;height:10px;border-radius:50%;z-index:9999;transition:background .3s;cursor:pointer';
-            indicator.addEventListener('click', () => {
-                const status = ws?.readyState === 1 ? 'Connected' : 'Disconnected';
-                const count = typeof allData !== 'undefined' ? allData.length : 0;
-                alert(`TPOS Real-time: ${status}\nOrders in table: ${count}\nReconnect attempts: ${reconnectAttempts}`);
-            });
-            document.body.appendChild(indicator);
+        const dot = document.getElementById('tposRtDot');
+        const label = document.getElementById('tposRtLabel');
+        const btn = document.getElementById('tposRtToggle');
+        if (!dot || !label || !btn) return;
+
+        if (!enabled) {
+            dot.style.background = '#d1d5db';
+            label.textContent = 'RT tắt';
+            btn.style.borderColor = '#d1d5db';
+            btn.style.background = '#f9fafb';
+            btn.title = 'Real-time đang tắt — click để bật';
+        } else if (connected) {
+            dot.style.background = '#22c55e';
+            label.textContent = 'RT';
+            btn.style.borderColor = '#86efac';
+            btn.style.background = '#f0fdf4';
+            btn.title = 'Real-time đang kết nối — click để tắt';
+        } else {
+            dot.style.background = '#ef4444';
+            label.textContent = 'RT...';
+            btn.style.borderColor = '#fca5a5';
+            btn.style.background = '#fef2f2';
+            btn.title = 'Real-time đang kết nối lại — click để tắt';
         }
-        indicator.style.background = connected ? '#22c55e' : '#ef4444';
+    }
+
+    function disconnect() {
+        clearTimeout(reconnectTimer);
+        if (ws) {
+            ws.onclose = null; // Prevent auto-reconnect
+            ws.close();
+            ws = null;
+        }
+        updateStatusIndicator(false);
+    }
+
+    function toggle() {
+        enabled = !enabled;
+        if (enabled) {
+            reconnectAttempts = 0;
+            connect();
+            console.log('[TPOS-RT] Enabled');
+        } else {
+            disconnect();
+            console.log('[TPOS-RT] Disabled');
+        }
     }
 
     // ===== Utilities =====
@@ -341,13 +377,16 @@
         setTimeout(init, 3000);
     }
 
-    // Expose for debugging
+    // Expose for UI toggle + debugging
     window.tposRealtime = {
         getStatus: () => ({
+            enabled,
             connected: ws?.readyState === 1,
             reconnectAttempts,
             recentlyProcessed: recentlyProcessed.size
         }),
-        reconnect: () => { reconnectAttempts = 0; connect(); }
+        toggle,
+        reconnect: () => { reconnectAttempts = 0; connect(); },
+        disconnect
     };
 })();
