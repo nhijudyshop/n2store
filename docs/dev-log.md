@@ -8,6 +8,12 @@
 
 ## 2026-04-05
 
+### [orders] Fix RefundDateStore — save MoveName after confirming draft refund orders ✅
+| | |
+|---|---|
+| **Files** | `supplier-debt/js/main.js` |
+| **Chi tiết** | `RefundDateStore` lưu custom date cho đơn trả hàng nháp nhưng field `number` (MoveName) luôn trống vì đơn nháp chưa được TPOS gán Number. Fix: sau `ActionInvoiceOpen` (xác nhận đơn), re-fetch đơn đã confirm để lấy Number mới (BILL/xxxx) và cập nhật vào RefundDateStore → `getByMoveName()` có thể map custom date sang tab Công nợ. Dọn 2 entries trống (54772, 54943) trong Firestore. |
+
 ### [chat] Fix unread badge system — localStorage persistence + server backup ✅
 | | |
 |---|---|
