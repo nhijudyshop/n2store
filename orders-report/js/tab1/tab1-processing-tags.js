@@ -977,11 +977,10 @@
     // TPOS → TAG XL reverse sync: when TPOS tags change, auto-sync to TAG XL
     // Called from tab1-tags.js after saveOrderTags / quickAssignTag
     function onPtagOrderTagsChanged(orderId, newTags) {
-        if (window.syncTPOSToPtag) {
-            window.syncTPOSToPtag(orderId, newTags).catch(e =>
-                console.warn(`${PTAG_LOG} TPOS→XL sync failed:`, e.message)
-            );
-        }
+        if (!orderId || !window.syncTPOSToPtag) return;
+        window.syncTPOSToPtag(orderId, newTags).catch(e =>
+            console.warn(`${PTAG_LOG} TPOS→XL sync failed:`, e.message)
+        );
     }
 
     // Auto transition: bill created → ĐÃ RA ĐƠN
