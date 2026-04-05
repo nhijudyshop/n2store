@@ -60,19 +60,48 @@ window.handleNewMessage = function(payload) {
 
 /**
  * Handle conversation update from realtime
+ * Pancake sends update_conversation (NOT new_message) for incoming customer messages.
+ * When the current chat matches, fetch and display new messages immediately.
  */
 window.handleConversationUpdate = function(payload) {
     if (!payload) return;
 
-    const convId = payload.conversation_id || payload.id;
-    if (!convId) return;
+    const conv = payload.conversation || payload;
+    const convId = payload.conversation_id || conv?.id || payload.id;
+    const fromPsid = String(conv?.from?.id || conv?.from_psid || '');
 
-    // If this is the current conversation, update data
-    if (String(convId) === String(window.currentConversationId)) {
-        if (payload.updated_at && window.currentConversationData) {
-            window.currentConversationData.updated_at = payload.updated_at;
-        }
-        // markAsRead removed — only mark read on successful send (tab1-chat-messages.js)
+    // Match current open chat by convId OR by customer psid
+    const isCurrentConv = (
+        (window.currentConversationId && convId && String(convId) === String(window.currentConversationId)) ||
+        (window.currentChatPSID && fromPsid && String(fromPsid) === String(window.currentChatPSID))
+    );
+
+    if (!isCurrentConv) return;
+
+    if (conv?.updated_at && window.currentConversationData) {
+        window.currentConversationData.updated_at = conv.updated_at;
     }
+
+    // Debounced fetch — multiple update events may fire rapidly
+    clearTimeout(window._chatUpdateDebounce);
+    window._chatUpdateDebounce = setTimeout(async () => {
+        const pageId = window.currentChatChannelId;
+        const currentConvId = window.currentConversationId;
+        if (!pageId || !currentConvId || !window.pancakeDataManager) return;
+
+        try {
+            window.pancakeDataManager.clearMessagesCache(pageId, currentConvId);
+            const result = await window.pancakeDataManager.fetchMessages(pageId, currentConvId);
+            if (!result.messages?.length || window.currentConversationId !== currentConvId) return;
+
+            // Only append NEW messages (not already displayed)
+            const existingIds = new Set(window.allChatMessages.map(m => String(m.id)));
+            const newMsgs = result.messages.filter(m => !existingIds.has(String(m.id)));
+
+            for (const msg of newMsgs) {
+                window.handleNewMessage?.({ message: msg, page_id: pageId });
+            }
+        } catch (e) { /* silent */ }
+    }, 300);
 };
 
