@@ -1008,8 +1008,8 @@
 
         data.pickingSlipPrinted = true;
 
-        // Auto gán Cat 1 / CHO_HANG — trừ đơn đã HOÀN TẤT (Cat 0)
-        if (data.category !== PTAG_CATEGORIES.HOAN_TAT) {
+        // Auto gán Cat 1 / CHO_HANG khi: chưa có category hoặc đang ở Cat 2 (Xử Lý)
+        if (data.category == null || data.category === PTAG_CATEGORIES.XU_LY) {
             data.category = PTAG_CATEGORIES.CHO_DI_DON;
             data.subState = 'CHO_HANG';
             data.assignedAt = Date.now();
