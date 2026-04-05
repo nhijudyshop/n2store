@@ -412,7 +412,7 @@ Mỗi row hiển thị trong cell Tag XL:
 
 ```
 ┌──────────────────────────────────────┐
-│ [🏷] [⏰] [✓] [📜]                 │  ← Quick action buttons
+│ [🏷] [🖨] [⏰] [✓] [📜]            │  ← Quick action buttons
 │ 🔵 OKIE CHỜ ĐI ĐƠN                │  ← Category badge
 │ 💳 CK  🏷️ GG  📦 T_MY             │  ← Flag + T-tag badges
 └──────────────────────────────────────┘
@@ -420,6 +420,7 @@ Mỗi row hiển thị trong cell Tag XL:
 
 **Quick action buttons**:
 - `[🏷]` — Mở dropdown gán tag (tất cả options)
+- `[🖨]` — Toggle "Đã in phiếu soạn" (pickingSlipPrinted). Nếu chưa có cat hoặc Cat 2 → auto chuyển Cat 1 / CHO_HANG
 - `[⏰]` — Quick assign "Chưa phản hồi" (Cat 2)
 - `[✓]` — Quick assign "OKIE CHỜ ĐI ĐƠN" (Cat 1)
 - `[📜]` — Xem lịch sử thay đổi tag
@@ -651,6 +652,9 @@ removeTTagFromOrder(orderCode, tagId)
 `pickingSlipPrinted` giờ chỉ được set `true` khi:
 1. User **in phiếu soạn hàng thực tế** → `onPtagPackingSlipPrinted()` (section 8.8)
 2. User **toggle thủ công** "📋 Đã in phiếu soạn" trong dropdown tag
+3. User **bấm icon 🖨 (print)** trên cột Tag XL → quick toggle
+
+Cả 3 cách đều có cùng logic: nếu đơn chưa có cat hoặc đang Cat 2 → auto chuyển Cat 1 / CHO_HANG.
 
 ---
 
@@ -721,6 +725,10 @@ onPtagPackingSlipPrinted(saleOnlineId)
 ```
 
 **Ý nghĩa**: In phiếu soạn hàng → đơn chưa gán tag hoặc đang ở Cat 2 (Xử Lý) tự chuyển sang Cat 1 / Chờ Hàng. Các Cat khác giữ nguyên.
+
+**Lưu ý**: Logic auto-assign Cat 1/CHO_HANG này cũng áp dụng cho:
+- Toggle thủ công "📋 Đã in phiếu soạn" trong dropdown tag
+- Quick button 🖨 (print) trên cột Tag XL
 
 ---
 

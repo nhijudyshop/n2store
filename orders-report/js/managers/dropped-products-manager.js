@@ -70,32 +70,7 @@
     let isFirstLoad = true;
 
     // Campaign filter state for dropped products
-    let currentCampaignFilter = 'current'; // 'all' | 'current' | specific campaignId (default to current campaign for sync)
-
-    /**
-     * Get all Shopify campaign IDs belonging to the active DB campaign.
-     * Uses Tab1's selectedCampaign.campaignIds (Shopify UUIDs) as primary source.
-     * Falls back to currentChatOrderData.LiveCampaignId.
-     */
-    function _getCurrentCampaignIds() {
-        const ids = new Set();
-
-        // Source 1: Tab1's selected campaign has Shopify campaign IDs
-        try {
-            const tab1Win = window.parent?.document?.getElementById('ordersFrame')?.contentWindow;
-            const shopifyIds = tab1Win?.selectedCampaign?.campaignIds;
-            if (Array.isArray(shopifyIds) && shopifyIds.length > 0) {
-                shopifyIds.forEach(id => ids.add(String(id)));
-            }
-        } catch (e) { /* cross-origin */ }
-
-        // Source 2: Current chat order's campaign ID
-        if (window.currentChatOrderData?.LiveCampaignId) {
-            ids.add(String(window.currentChatOrderData.LiveCampaignId));
-        }
-
-        return Array.from(ids);
-    }
+    let currentCampaignFilter = 'all'; // 'all' | 'current' | specific campaignId
 
     // Loading states for better UX during multi-user operations
     let operationsInProgress = new Set();
@@ -126,15 +101,7 @@
     function getFilteredDroppedProducts() {
         if (currentCampaignFilter === 'all') return null; // null = show all
 
-        if (currentCampaignFilter === 'current') {
-            // Collect ALL Shopify campaign IDs for the active DB campaign
-            const currentCampaignIds = _getCurrentCampaignIds();
-
-            if (currentCampaignIds.length === 0) return null; // No current campaign, show all
-            return droppedProducts.filter((p) => currentCampaignIds.includes(String(p.campaignId)));
-        }
-
-        // Specific campaign ID
+        // Filter by specific campaign ID
         return droppedProducts.filter((p) => String(p.campaignId) === currentCampaignFilter);
     }
 
@@ -166,10 +133,8 @@
      * Filter dropped products by campaign — called from dropdown
      */
     window.filterDroppedByCampaign = function (filterValue) {
-        console.log('[DROPPED-DEBUG] 🔄 Dropdown changed to:', filterValue);
         currentCampaignFilter = filterValue;
         const filtered = getFilteredDroppedProducts();
-        console.log('[DROPPED-DEBUG] Filtered result:', filtered ? `${filtered.length} products` : 'null (show all)');
         renderDroppedProductsTable(filtered);
     };
 
