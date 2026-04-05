@@ -392,8 +392,9 @@
     z-index: 10;
     background: #fff;
     padding: 8px 10px 6px;
-    border-bottom: 1px solid #e5e7eb;
-    margin-bottom: 4px;
+    margin-bottom: 0;
+    border-bottom: 2px solid #e5e7eb;
+    box-shadow: 0 4px 6px -2px rgba(0,0,0,0.08);
 }
 
 .ptag-summary-row {
