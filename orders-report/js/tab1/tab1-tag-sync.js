@@ -912,7 +912,7 @@
             const headers = await window.tokenManager.getAuthHeader();
             const payload = {
                 Tags: currentTags.map(t => ({ Id: t.Id, Color: t.Color, Name: t.Name })),
-                OrderId: parseInt(orderId)
+                OrderId: orderId
             };
             const response = await API_CONFIG.smartFetch(
                 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag',
