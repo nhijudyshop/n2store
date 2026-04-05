@@ -1167,7 +1167,7 @@
 
         // 1. Category badge (tag xử lý) — FIRST — không có nút × (category không thể xóa, chỉ chuyển)
         if (data.category !== null && data.category !== undefined) {
-            const catColor = PTAG_CATEGORY_COLORS[data.category];
+            const catColor = PTAG_CATEGORY_COLORS[data.category] || PTAG_CATEGORY_COLORS[2];
             if (data.category === PTAG_CATEGORIES.HOAN_TAT) {
                 badges += `<span class="ptag-badge ptag-cat-0">🟢 ĐÃ RA ĐƠN</span>`;
             } else if (data.category === PTAG_CATEGORIES.CHO_DI_DON) {
