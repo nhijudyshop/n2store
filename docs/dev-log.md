@@ -8,6 +8,12 @@
 
 ## 2026-04-05
 
+### [chat] Fix private_replies false error + UI not updating ✅
+| | |
+|---|---|
+| **Files** | `inbox/js/inbox-chat.js`, `orders-report/js/tab1/tab1-chat-messages.js` |
+| **Chi tiết** | Pancake API `private_replies` gửi tin nhắn thành công lên Facebook nhưng trả về `success:false` → code chạy vào fallback chain → tất cả fail (COMMENT conv không có global_id) → hiện lỗi + UI không reload. Fix: gọi API trực tiếp thay vì qua `_sendApi()`, chỉ throw khi lỗi rõ ràng (post deleted, code 100). Các lỗi khác treat as success → UI cập nhật bình thường. |
+
 ### [chat] Chat panel — default Nhắn riêng + load bình luận mới nhất + page selector ✅
 | | |
 |---|---|
