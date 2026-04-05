@@ -343,6 +343,123 @@ router.delete('/held-products/:orderId', async (req, res) => {
     }
 });
 
+/**
+ * GET /api/realtime/held-products/by-product/:productId
+ * Get all holders of a specific product across ALL orders
+ * Used by getProductHolders() and isProductStillHeld()
+ */
+router.get('/held-products/by-product/:productId', async (req, res) => {
+    try {
+        const { productId } = req.params;
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+
+        const result = await pool.query(
+            `SELECT order_id, product_id, user_id, data, is_draft
+             FROM held_products
+             WHERE product_id = $1 AND (data->>'quantity')::int > 0`,
+            [String(productId)]
+        );
+
+        const holders = result.rows.map(row => ({
+            name: row.data?.displayName || row.user_id,
+            campaign: row.data?.campaignName || '',
+            stt: row.data?.stt || '',
+            quantity: parseInt(row.data?.quantity) || 0,
+            orderId: row.order_id,
+            userId: row.user_id,
+            isDraft: row.is_draft,
+        }));
+
+        res.json({ holders });
+    } catch (error) {
+        console.error('[REALTIME-DB] GET /held-products/by-product error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * PATCH /api/realtime/held-products/:orderId/:productId/:userId/draft
+ * Update isDraft flag (saveHeldProducts)
+ */
+router.patch('/held-products/:orderId/:productId/:userId/draft', async (req, res) => {
+    try {
+        const { orderId, productId, userId } = req.params;
+        const { isDraft } = req.body;
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+
+        const result = await pool.query(
+            `UPDATE held_products SET is_draft = $4, updated_at = CURRENT_TIMESTAMP
+             WHERE order_id = $1 AND product_id = $2 AND user_id = $3 RETURNING *`,
+            [orderId, productId, userId, isDraft !== false]
+        );
+
+        if (result.rowCount === 0) return res.status(404).json({ error: 'Not found' });
+
+        if (notifyClientsWildcard) {
+            notifyClientsWildcard(`held_products/${orderId}`, {
+                productId, userId, isDraft: isDraft !== false
+            }, 'update');
+        }
+
+        res.json({ success: true });
+    } catch (error) {
+        console.error('[REALTIME-DB] PATCH /held-products draft error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * PATCH /api/realtime/held-products/:orderId/:productId/:userId/quantity
+ * Atomic quantity update in JSONB data
+ */
+router.patch('/held-products/:orderId/:productId/:userId/quantity', async (req, res) => {
+    try {
+        const { orderId, productId, userId } = req.params;
+        const { quantity } = req.body;
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+
+        if (quantity <= 0) {
+            // Remove if quantity is 0
+            await pool.query(
+                'DELETE FROM held_products WHERE order_id = $1 AND product_id = $2 AND user_id = $3',
+                [orderId, productId, userId]
+            );
+
+            if (notifyClientsWildcard) {
+                notifyClientsWildcard(`held_products/${orderId}`, {
+                    productId, userId, deleted: true
+                }, 'deleted');
+            }
+
+            return res.json({ success: true, deleted: true });
+        }
+
+        const result = await pool.query(
+            `UPDATE held_products
+             SET data = jsonb_set(data, '{quantity}', $4::text::jsonb),
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE order_id = $1 AND product_id = $2 AND user_id = $3 RETURNING *`,
+            [orderId, productId, userId, JSON.stringify(quantity)]
+        );
+
+        if (result.rowCount === 0) return res.status(404).json({ error: 'Not found' });
+
+        if (notifyClientsWildcard) {
+            notifyClientsWildcard(`held_products/${orderId}`, {
+                productId, userId, quantity
+            }, 'update');
+        }
+
+        res.json({ success: true, quantity });
+    } catch (error) {
+        console.error('[REALTIME-DB] PATCH /held-products quantity error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // =====================================================
 // KPI BASE API
 // Thay thế: firebase.database().ref('kpi_base')
@@ -865,47 +982,51 @@ router.get('/tag-updates/since/:timestamp', async (req, res) => {
 
 // =====================================================
 // DROPPED PRODUCTS API (Multi-User Collaboration)
+// Replaced Firebase Realtime DB → PostgreSQL + SSE
 // =====================================================
 
 /**
+ * Helper: convert PG row to Firebase-compatible object
+ */
+function droppedRowToObj(row) {
+    return {
+        ProductId: row.product_id,
+        ProductCode: row.product_code,
+        ProductName: row.product_name,
+        ProductNameGet: row.product_name_get,
+        ImageUrl: row.image_url,
+        Price: row.price ? parseFloat(row.price) : 0,
+        Quantity: row.quantity || 0,
+        UOMName: row.uom_name || 'Cái',
+        reason: row.reason,
+        campaignId: row.campaign_id,
+        campaignName: row.campaign_name,
+        removedBy: row.removed_by,
+        removedFromOrderSTT: row.removed_from_order_stt,
+        removedFromCustomer: row.removed_from_customer,
+        removedAt: row.removed_at,
+        addedDate: row.added_date,
+        addedAt: row.created_at ? new Date(row.created_at).getTime() : null,
+    };
+}
+
+/**
  * GET /api/realtime/dropped-products
- * Get all dropped products (optionally filtered by user)
+ * Get all dropped products (shared data)
  */
 router.get('/dropped-products', async (req, res) => {
     try {
-        const { userId } = req.query;
         const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
 
-        if (!pool) {
-            return res.status(500).json({ error: 'Database not available' });
-        }
+        const result = await pool.query(
+            'SELECT * FROM dropped_products ORDER BY created_at DESC LIMIT 500'
+        );
 
-        let query, params;
-        if (userId) {
-            query = 'SELECT * FROM dropped_products WHERE user_id = $1 ORDER BY created_at DESC';
-            params = [userId];
-        } else {
-            query = 'SELECT * FROM dropped_products ORDER BY created_at DESC LIMIT 100';
-            params = [];
-        }
-
-        const result = await pool.query(query, params);
-
-        // Convert to Firebase-like structure
+        // Return Firebase-like structure: { [id]: { ...data } }
         const products = {};
         result.rows.forEach(row => {
-            products[row.id] = {
-                productCode: row.product_code,
-                productName: row.product_name,
-                size: row.size,
-                quantity: row.quantity,
-                userId: row.user_id,
-                userName: row.user_name,
-                orderId: row.order_id,
-                isDraft: row.is_draft,
-                createdAt: row.created_at,
-                updatedAt: row.updated_at
-            };
+            products[row.id] = droppedRowToObj(row);
         });
 
         res.json(products);
@@ -917,49 +1038,67 @@ router.get('/dropped-products', async (req, res) => {
 
 /**
  * PUT /api/realtime/dropped-products/:id
- * Add or update a dropped product
+ * Add or update a dropped product (full upsert)
  */
 router.put('/dropped-products/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        const { productCode, productName, size, quantity, userId, userName, orderId, isDraft } = req.body;
+        const b = req.body;
         const pool = req.app.locals.chatDb;
-
-        if (!pool) {
-            return res.status(500).json({ error: 'Database not available' });
-        }
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
 
         await pool.query(`
-            INSERT INTO dropped_products (id, product_code, product_name, size, quantity, user_id, user_name, order_id, is_draft, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            INSERT INTO dropped_products (
+                id, product_id, product_code, product_name, product_name_get,
+                image_url, price, quantity, uom_name, reason,
+                campaign_id, campaign_name, removed_by, removed_from_order_stt,
+                removed_from_customer, removed_at, added_date, created_at, updated_at
+            ) VALUES (
+                $1, $2, $3, $4, $5,
+                $6, $7, $8, $9, $10,
+                $11, $12, $13, $14,
+                $15, $16, $17, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+            )
             ON CONFLICT (id) DO UPDATE SET
-                product_code = $2,
-                product_name = $3,
-                size = $4,
-                quantity = $5,
-                user_id = $6,
-                user_name = $7,
-                order_id = $8,
-                is_draft = $9,
+                product_id = COALESCE($2, dropped_products.product_id),
+                product_code = COALESCE($3, dropped_products.product_code),
+                product_name = COALESCE($4, dropped_products.product_name),
+                product_name_get = COALESCE($5, dropped_products.product_name_get),
+                image_url = COALESCE($6, dropped_products.image_url),
+                price = COALESCE($7, dropped_products.price),
+                quantity = $8,
+                uom_name = COALESCE($9, dropped_products.uom_name),
+                reason = COALESCE($10, dropped_products.reason),
+                campaign_id = COALESCE($11, dropped_products.campaign_id),
+                campaign_name = COALESCE($12, dropped_products.campaign_name),
+                removed_by = COALESCE($13, dropped_products.removed_by),
+                removed_from_order_stt = COALESCE($14, dropped_products.removed_from_order_stt),
+                removed_from_customer = COALESCE($15, dropped_products.removed_from_customer),
+                removed_at = COALESCE($16, dropped_products.removed_at),
+                added_date = COALESCE($17, dropped_products.added_date),
                 updated_at = CURRENT_TIMESTAMP
-        `, [id, productCode, productName, size, quantity || 1, userId, userName, orderId, isDraft || false]);
+        `, [
+            id,
+            b.ProductId || b.productId || null,
+            b.ProductCode || b.productCode || null,
+            b.ProductName || b.productName || null,
+            b.ProductNameGet || b.productNameGet || null,
+            b.ImageUrl || b.imageUrl || null,
+            b.Price || b.price || 0,
+            b.Quantity != null ? b.Quantity : (b.quantity != null ? b.quantity : 1),
+            b.UOMName || b.uomName || 'Cái',
+            b.reason || null,
+            b.campaignId || null,
+            b.campaignName || null,
+            b.removedBy || null,
+            b.removedFromOrderSTT || null,
+            b.removedFromCustomer || null,
+            b.removedAt || b.removedAt === 0 ? b.removedAt : null,
+            b.addedDate || new Date().toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh' }),
+        ]);
 
-        // Notify SSE clients
-        if (notifyClients) {
-            notifyClients('dropped_products', {
-                id,
-                productCode,
-                productName,
-                size,
-                quantity,
-                userId,
-                userName,
-                orderId,
-                isDraft
-            }, 'update');
-        }
-
-        console.log(`[REALTIME-DB] Dropped product added/updated: ${id} by ${userName}`);
+        const sseData = { id, ...b };
+        if (notifyClients) notifyClients('dropped_products', sseData, 'update');
 
         res.json({ success: true, id });
     } catch (error) {
@@ -969,37 +1108,155 @@ router.put('/dropped-products/:id', async (req, res) => {
 });
 
 /**
+ * PATCH /api/realtime/dropped-products/:id/quantity
+ * Atomic quantity update (replaces Firebase transaction)
+ * Body: { change: +1/-1 } or { value: 5 }
+ */
+router.patch('/dropped-products/:id/quantity', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { change, value, reason, removedBy, removedFromOrderSTT, removedFromCustomer, removedAt } = req.body;
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+
+        let result;
+        const extraSets = [];
+        const extraParams = [];
+        let paramIdx = 2; // $1 = id
+
+        if (reason) { extraSets.push(`reason = $${++paramIdx}`); extraParams.push(reason); }
+        if (removedBy) { extraSets.push(`removed_by = $${++paramIdx}`); extraParams.push(removedBy); }
+        if (removedFromOrderSTT) { extraSets.push(`removed_from_order_stt = $${++paramIdx}`); extraParams.push(removedFromOrderSTT); }
+        if (removedFromCustomer) { extraSets.push(`removed_from_customer = $${++paramIdx}`); extraParams.push(removedFromCustomer); }
+        if (removedAt != null) { extraSets.push(`removed_at = $${++paramIdx}`); extraParams.push(removedAt); }
+
+        const extraSetStr = extraSets.length > 0 ? ', ' + extraSets.join(', ') : '';
+
+        if (value != null) {
+            // Set absolute value
+            result = await pool.query(
+                `UPDATE dropped_products SET quantity = $2${extraSetStr}, updated_at = CURRENT_TIMESTAMP
+                 WHERE id = $1 RETURNING *`,
+                [id, Math.max(0, parseInt(value)), ...extraParams]
+            );
+        } else if (change != null) {
+            // Atomic increment/decrement
+            result = await pool.query(
+                `UPDATE dropped_products SET quantity = GREATEST(0, quantity + $2)${extraSetStr}, updated_at = CURRENT_TIMESTAMP
+                 WHERE id = $1 RETURNING *`,
+                [id, parseInt(change), ...extraParams]
+            );
+        } else {
+            return res.status(400).json({ error: 'Provide "change" or "value"' });
+        }
+
+        if (result.rowCount === 0) {
+            return res.status(404).json({ error: 'Product not found' });
+        }
+
+        const row = result.rows[0];
+        const sseData = { id, ...droppedRowToObj(row) };
+        if (notifyClients) notifyClients('dropped_products', sseData, 'update');
+
+        res.json({ success: true, id, quantity: row.quantity });
+    } catch (error) {
+        console.error('[REALTIME-DB] PATCH /dropped-products quantity error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * PATCH /api/realtime/dropped-products/:id
+ * Update specific fields of a dropped product (partial update)
+ */
+router.patch('/dropped-products/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const b = req.body;
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+
+        const sets = [];
+        const params = [id];
+        let idx = 1;
+
+        const fieldMap = {
+            campaignId: 'campaign_id', campaignName: 'campaign_name',
+            reason: 'reason', removedBy: 'removed_by',
+            removedFromOrderSTT: 'removed_from_order_stt',
+            removedFromCustomer: 'removed_from_customer',
+            removedAt: 'removed_at', addedDate: 'added_date',
+        };
+
+        for (const [jsKey, pgCol] of Object.entries(fieldMap)) {
+            if (b[jsKey] !== undefined) {
+                sets.push(`${pgCol} = $${++idx}`);
+                params.push(b[jsKey]);
+            }
+        }
+
+        if (sets.length === 0) return res.status(400).json({ error: 'No fields to update' });
+
+        const result = await pool.query(
+            `UPDATE dropped_products SET ${sets.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *`,
+            params
+        );
+
+        if (result.rowCount === 0) return res.status(404).json({ error: 'Not found' });
+
+        const row = result.rows[0];
+        if (notifyClients) notifyClients('dropped_products', { id, ...droppedRowToObj(row) }, 'update');
+
+        res.json({ success: true, id });
+    } catch (error) {
+        console.error('[REALTIME-DB] PATCH /dropped-products error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * DELETE /api/realtime/dropped-products/all
+ * Clear all dropped products
+ * NOTE: This route MUST be before /:id to avoid matching "all" as an id
+ */
+router.delete('/dropped-products/all', async (req, res) => {
+    try {
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+
+        const result = await pool.query('DELETE FROM dropped_products RETURNING id');
+
+        if (notifyClients) notifyClients('dropped_products', { cleared: true, count: result.rowCount }, 'deleted');
+
+        console.log(`[REALTIME-DB] Cleared all ${result.rowCount} dropped products`);
+        res.json({ success: true, deletedCount: result.rowCount });
+    } catch (error) {
+        console.error('[REALTIME-DB] DELETE /dropped-products/all error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
  * DELETE /api/realtime/dropped-products/:id
- * Remove a dropped product
+ * Remove a single dropped product
  */
 router.delete('/dropped-products/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const pool = req.app.locals.chatDb;
-
-        if (!pool) {
-            return res.status(500).json({ error: 'Database not available' });
-        }
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
 
         const result = await pool.query(
             'DELETE FROM dropped_products WHERE id = $1 RETURNING *',
             [id]
         );
 
-        // Notify SSE clients
         if (notifyClients) {
-            notifyClients('dropped_products', {
-                id,
-                deleted: true
-            }, 'deleted');
+            notifyClients('dropped_products', { id, deleted: true }, 'deleted');
         }
 
         console.log(`[REALTIME-DB] Dropped product deleted: ${id}`);
-
-        res.json({
-            success: true,
-            deleted: result.rowCount > 0
-        });
+        res.json({ success: true, deleted: result.rowCount > 0 });
     } catch (error) {
         console.error('[REALTIME-DB] DELETE /dropped-products error:', error);
         res.status(500).json({ error: error.message });

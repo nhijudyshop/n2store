@@ -8,6 +8,12 @@
 
 ## 2026-04-05
 
+### [orders][render] Migration dropped_products & held_products: Firebase RTDB → PostgreSQL ✅
+| | |
+|---|---|
+| **Files** | `render.com/routes/realtime-db.js`, `orders-report/js/managers/dropped-products-manager.js`, `orders-report/js/managers/held-products-manager.js`, `render.com/migrations/040_update_dropped_products_schema.sql` (MỚI), `render.com/scripts/migrate-dropped-held-to-pg.js` (MỚI) |
+| **Chi tiết** | 1) ALTER TABLE `dropped_products` thêm 13 columns thiếu (product_id, image_url, price, reason, campaign_id/name, removed_by, etc.). 2) Backend: rewrite dropped_products routes (GET all, PUT upsert, PATCH quantity atomic, PATCH fields, DELETE all/single) + thêm held_products routes (GET by-product, PATCH draft, PATCH quantity). 3) Frontend `dropped-products-manager.js`: rewrite hoàn toàn Firebase → Render API + SSE (EventSource). Firebase `transaction()` → PG atomic `quantity + $change`. Firebase `push()` → client-generated `dp_` ID. 4) Frontend `held-products-manager.js`: rewrite hoàn toàn Firebase → Render API + SSE. 5) Data migration script: 2 dropped products + 1 held product migrated thành công. Strategy: PG only, không dual-write. |
+
 ### [chat] Fix sender UI not updating after private reply ✅
 | | |
 |---|---|
