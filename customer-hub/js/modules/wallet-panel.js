@@ -637,7 +637,7 @@ export class WalletPanelModule {
         const ext = file.name?.split('.').pop() || 'jpg';
         const fileName = `wallet_${this.customerPhone}_${timestamp}.${ext}`;
 
-        const response = await fetch('https://n2shop.onrender.com/api/upload/image', {
+        const response = await fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/upload/image', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
