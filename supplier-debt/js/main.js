@@ -3191,6 +3191,9 @@ const RefundOrders = {
         const ids = Array.from(this._selectedIds);
         const count = ids.length;
 
+        // Collect ids that have custom dates — need to update their MoveName after confirm
+        const idsWithDates = ids.filter(id => RefundDateStore.get(id));
+
         try {
             const loadingId = window.notificationManager?.info?.(`Đang xác nhận ${count} đơn trả hàng...`);
 
@@ -3203,6 +3206,29 @@ const RefundOrders = {
             if (!resp.ok) {
                 const errText = await resp.text().catch(() => '');
                 throw new Error(`HTTP ${resp.status} ${errText}`);
+            }
+
+            // After confirm, re-fetch to get assigned Number (BILL/xxxx) and update RefundDateStore
+            if (idsWithDates.length > 0) {
+                try {
+                    const filter = idsWithDates.map(id => `Id eq ${id}`).join(' or ');
+                    const fetchUrl = `${CONFIG.API_BASE}/FastPurchaseOrder/OdataService.GetView?$filter=${encodeURIComponent(filter)}&$top=${idsWithDates.length}`;
+                    const fetchResp = await tposFetch(fetchUrl);
+                    if (fetchResp.ok) {
+                        const result = await fetchResp.json();
+                        for (const order of (result.value || [])) {
+                            if (order.Number) {
+                                const existingDate = RefundDateStore.get(order.Id);
+                                if (existingDate) {
+                                    await RefundDateStore.set(order.Id, existingDate, order.Number);
+                                    console.log(`[RefundOrders] Updated MoveName for ${order.Id}: ${order.Number}`);
+                                }
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error('[RefundOrders] Update MoveName after confirm error:', e);
+                }
             }
 
             if (loadingId) window.notificationManager?.remove?.(loadingId);
