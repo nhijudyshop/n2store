@@ -23,7 +23,7 @@
 const express = require('express');
 const router = express.Router();
 const { normalizePhone } = require('../../utils/customer-helpers');
-const { processManualDeposit, issueVirtualCredit } = require('../../services/wallet-event-processor');
+const { processManualDeposit, processDeposit, issueVirtualCredit } = require('../../services/wallet-event-processor');
 
 // =====================================================
 // UTILITY FUNCTIONS
@@ -609,8 +609,6 @@ router.post('/cron/process-bank', async (req, res) => {
     const { limit = 100 } = req.body;
 
     try {
-        await db.query('BEGIN');
-
         // Get unprocessed bank transactions with linked customer
         const unprocessedResult = await db.query(`
             SELECT
@@ -639,39 +637,25 @@ router.post('/cron/process-bank', async (req, res) => {
                     continue;
                 }
 
-                // Get or create wallet
-                const walletResult = await db.query(`
-                    INSERT INTO customer_wallets (phone, balance)
-                    VALUES ($1, 0)
-                    ON CONFLICT (phone) DO UPDATE SET updated_at = NOW()
-                    RETURNING *
-                `, [normalizedPhone]);
+                // Use processDeposit for wallet update + SSE emission (has idempotency check)
+                const result = await processDeposit(
+                    db,
+                    normalizedPhone,
+                    parseFloat(tx.amount),
+                    tx.id,
+                    tx.description || 'Chuyển khoản ngân hàng',
+                    null,
+                    tx.transaction_date
+                );
 
-                const wallet = walletResult.rows[0];
-                const newBalance = parseFloat(wallet.balance) + parseFloat(tx.amount);
-
-                // Update wallet
-                await db.query(`
-                    UPDATE customer_wallets
-                    SET balance = $2, total_deposited = total_deposited + $3, updated_at = NOW()
-                    WHERE id = $1
-                `, [wallet.id, newBalance, tx.amount]);
-
-                // Log wallet transaction
-                await db.query(`
-                    INSERT INTO wallet_transactions
-                    (phone, wallet_id, type, amount, balance_before, balance_after, source, reference_id, note)
-                    VALUES ($1, $2, 'DEPOSIT', $3, $4, $5, 'BANK_TRANSFER', $6, $7)
-                `, [normalizedPhone, wallet.id, tx.amount, wallet.balance, newBalance, tx.id, tx.description]);
-
-                // Mark as processed
+                // Mark as processed (processDeposit checks but doesn't set wallet_processed)
                 await db.query(`
                     UPDATE balance_history
                     SET wallet_processed = TRUE, customer_phone = $2
                     WHERE id = $1
                 `, [tx.id, normalizedPhone]);
 
-                // Log activity
+                // Log activity (not handled by processWalletEvent)
                 await db.query(`
                     INSERT INTO customer_activities (phone, activity_type, title, description, icon, color)
                     VALUES ($1, 'WALLET_DEPOSIT', $2, $3, 'account_balance', 'green')
@@ -681,14 +665,12 @@ router.post('/cron/process-bank', async (req, res) => {
                     id: tx.id,
                     phone: normalizedPhone,
                     amount: parseFloat(tx.amount),
-                    newBalance
+                    newBalance: parseFloat(result.wallet.balance)
                 });
             } catch (txError) {
                 errors.push({ id: tx.id, error: txError.message });
             }
         }
-
-        await db.query('COMMIT');
 
         res.json({
             success: true,

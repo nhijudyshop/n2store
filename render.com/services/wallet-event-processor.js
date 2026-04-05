@@ -478,16 +478,22 @@ async function issueVirtualCredit(db, phone, amount, ticketId, reason, expiresIn
             const updatedWallet = updateResult.rows[0];
             console.log(`[WALLET-PROCESSOR] ✅ Virtual credit issued successfully: ${phone} +${amount}đ (virtual_balance: ${newVirtualBalance})`);
 
-            // Emit SSE event for realtime update
-            walletEvents.emit('wallet-updated', {
+            // Emit SSE event for realtime update (must use 'wallet:update' to match SSE route listener)
+            const eventData = {
                 phone,
                 wallet: updatedWallet,
-                type: 'VIRTUAL_CREDIT',
-                amount,
-                ticketId,
-                reason,
+                transaction: {
+                    type: 'VIRTUAL_CREDIT',
+                    amount: parseFloat(amount),
+                    source: 'VIRTUAL_CREDIT_ISSUE',
+                    referenceType: 'virtual_credit',
+                    referenceId: String(virtualCreditId),
+                    note: reason
+                },
                 timestamp: new Date().toISOString()
-            });
+            };
+            walletEvents.emit('wallet:update', eventData);
+            walletEvents.emit(`wallet:${phone}`, eventData);
 
             return {
                 success: true,
