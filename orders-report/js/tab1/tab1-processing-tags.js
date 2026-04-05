@@ -1369,15 +1369,22 @@
         if (key === 'picking-slip') {
             // Toggle pickingSlipPrinted on current order
             let data = ProcessingTagState.getOrderData(orderCode);
-            if (data) {
-                data.pickingSlipPrinted = !data.pickingSlipPrinted;
-                _ptagAddHistory(orderCode, data.pickingSlipPrinted ? 'SET_PHIEU_SOAN' : 'UNSET_PHIEU_SOAN', '', '');
-                ProcessingTagState.setOrderData(orderCode, data);
-                _ptagRefreshRow(orderCode);
-                renderPanelContent();
-                _ptagEnsureCode(orderCode, data);
-                saveProcessingTagToAPI(orderCode, data);
+            if (!data) {
+                data = { category: null, subTag: null, subState: null, flags: [], tTags: [], note: '', assignedAt: Date.now() };
             }
+            data.pickingSlipPrinted = !data.pickingSlipPrinted;
+            _ptagAddHistory(orderCode, data.pickingSlipPrinted ? 'SET_PHIEU_SOAN' : 'UNSET_PHIEU_SOAN', '', '');
+            // Auto gán Cat 1 / CHO_HANG khi bật — giống onPtagPackingSlipPrinted
+            if (data.pickingSlipPrinted && (data.category == null || data.category === PTAG_CATEGORIES.XU_LY)) {
+                data.category = PTAG_CATEGORIES.CHO_DI_DON;
+                data.subState = 'CHO_HANG';
+                data.assignedAt = Date.now();
+            }
+            _ptagEnsureCode(orderCode, data);
+            ProcessingTagState.setOrderData(orderCode, data);
+            _ptagRefreshRow(orderCode);
+            renderPanelContent();
+            saveProcessingTagToAPI(orderCode, data);
             _ptagRefreshDropdownState();
             return;
         }
