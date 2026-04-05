@@ -599,32 +599,7 @@ function _startRealtimeForChat() {
         });
     }
 
-    // Polling fallback: refresh messages every 15s while chat is open
-    // Covers case when WebSocket is disconnected or events are missed
-    _stopChatPolling();
-    window._chatPollTimer = setInterval(async () => {
-        const convId = window.currentConversationId;
-        const pageId = window.currentChatChannelId;
-        if (!convId || !pageId || !window.pancakeDataManager) return;
-
-        try {
-            window.pancakeDataManager.clearMessagesCache(pageId, convId);
-            const result = await window.pancakeDataManager.fetchMessages(pageId, convId);
-            if (!result.messages?.length || window.currentConversationId !== convId) return;
-
-            // Check for new messages not already in allChatMessages
-            const existingIds = new Set(window.allChatMessages.map(m => String(m.id)));
-            const newMsgs = result.messages.filter(m => !existingIds.has(String(m.id)));
-            if (newMsgs.length === 0) return;
-
-            // Append each new message via handleNewMessage
-            for (const msg of newMsgs) {
-                window.handleNewMessage?.({ message: msg, page_id: pageId });
-            }
-        } catch (e) {
-            // Silent fail - polling is best-effort
-        }
-    }, 15000);
+    // Polling removed — rely entirely on WS real-time (handleNewMessage)
 }
 
 function _stopChatPolling() {
