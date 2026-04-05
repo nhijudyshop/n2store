@@ -387,6 +387,10 @@
 
 /* ----- SUMMARY STATS (3 dòng tổng quan + filter) ----- */
 .ptag-summary-stats {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: #fff;
     padding: 8px 10px 6px;
     border-bottom: 1px solid #e5e7eb;
     margin-bottom: 4px;
