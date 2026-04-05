@@ -51,6 +51,9 @@
         GIU_DON:      { key: 'GIU_DON',      label: 'GIỮ ĐƠN',     auto: false, icon: '\u{231B}' },
         QUA_LAY:      { key: 'QUA_LAY',      label: 'QUA LẤY',     auto: false, icon: '\u{1F3E0}' },
         GOI_BAO_KHACH_HH: { key: 'GOI_BAO_KHACH_HH', label: 'GỌI BÁO KHÁCH HH', auto: false, icon: '\u{1F4DE}' },
+        KHACH_BOOM:   { key: 'KHACH_BOOM',   label: 'KHÁCH BOOM',     auto: false, icon: '\u{1F4A5}' },
+        THE_KHACH_LA: { key: 'THE_KHACH_LA', label: 'THẺ KHÁCH LẠ',   auto: false, icon: '\u{1FAAA}' },
+        DA_DI_DON_GAP:{ key: 'DA_DI_DON_GAP',label: 'ĐÃ ĐI ĐƠN GẤP', auto: false, icon: '\u{26A1}' },
         KHAC:         { key: 'KHAC',         label: 'KHÁC',        auto: false, icon: '\u{1F4CB}', hasNote: true }
     };
 
@@ -90,6 +93,9 @@
         flag_CHO_LIVE: 'Chờ gộp vào live sau, in phiếu soạn hàng ghi chú.',
         flag_GIU_DON: 'Giữ 10-20 ngày, khách đã CK đủ nhưng chưa muốn nhận.',
         flag_QUA_LAY: 'Khách qua shop lấy, soạn hàng để kệ qua lấy.',
+        flag_KHACH_BOOM: 'Khách boom/hủy đơn.',
+        flag_THE_KHACH_LA: 'Thẻ khách lạ.',
+        flag_DA_DI_DON_GAP: 'Đơn đã đi gấp.',
         flag_KHAC: 'Ghi chú tự do cho trường hợp đặc biệt.',
         // Sub-tags cat 2
         subtag_CHUA_PHAN_HOI: 'Khách chưa trả lời tin nhắn + chưa gọi được.',
@@ -750,6 +756,17 @@
         _ptagRefreshRow(orderCode);
         renderPanelContent();
         await saveProcessingTagToAPI(orderCode, data);
+
+        // Sync TAG XL → TPOS: gán subtag có mapping
+        if (options.subTag && window.syncPtagToTPOS) {
+            window.syncPtagToTPOS(orderCode, 'add', `subtag:${options.subTag}`).catch(e =>
+                console.warn('[PTAG-TPOS] Sync failed:', e.message));
+            // Remove TPOS tag cũ nếu chuyển từ subtag khác
+            if (existingData?.subTag && existingData.subTag !== options.subTag) {
+                window.syncPtagToTPOS(orderCode, 'remove', `subtag:${existingData.subTag}`).catch(e =>
+                    console.warn('[PTAG-TPOS] Remove old subtag sync failed:', e.message));
+            }
+        }
     }
 
     async function autoDetectFlags(orderCode, phone) {
@@ -788,6 +805,13 @@
         _ptagRefreshRow(orderCode);
         renderPanelContent();
         await saveProcessingTagToAPI(orderCode, data);
+
+        // Sync TAG XL → TPOS
+        if (window.syncPtagToTPOS) {
+            const keyPrefix = flagKey.startsWith('CUSTOM_') ? 'custom' : 'flag';
+            window.syncPtagToTPOS(orderCode, isAdding ? 'add' : 'remove', `${keyPrefix}:${flagKey}`).catch(e =>
+                console.warn('[PTAG-TPOS] Flag sync failed:', e.message));
+        }
     }
 
     async function clearProcessingTag(orderCode) {
@@ -853,6 +877,12 @@
         _ptagRefreshRow(orderCode);
         renderPanelContent();
         await saveProcessingTagToAPI(orderCode, data);
+
+        // Sync TAG XL → TPOS
+        if (window.syncPtagToTPOS) {
+            window.syncPtagToTPOS(orderCode, 'add', `ttag:${tagId}`).catch(e =>
+                console.warn('[PTAG-TPOS] T-tag sync failed:', e.message));
+        }
     }
 
     async function removeTTagFromOrder(orderCode, tagId) {
@@ -869,6 +899,12 @@
         _ptagRefreshRow(orderCode);
         renderPanelContent();
         await saveProcessingTagToAPI(orderCode, data);
+
+        // Sync TAG XL → TPOS
+        if (window.syncPtagToTPOS) {
+            window.syncPtagToTPOS(orderCode, 'remove', `ttag:${tagId}`).catch(e =>
+                console.warn('[PTAG-TPOS] T-tag remove sync failed:', e.message));
+        }
     }
 
     // Transfer processing tags (flags + tTags) from source order to target order

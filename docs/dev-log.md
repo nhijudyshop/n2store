@@ -8,6 +8,12 @@
 
 ## 2026-04-05
 
+### [orders] TAG XL → TPOS auto sync + 3 built-in flags mới ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-processing-tags.js`, `orders-report/js/tab1/tab1-tag-sync.js` |
+| **Chi tiết** | 1) Thêm 3 built-in flags mới vào PTAG_FLAGS: KHÁCH BOOM 💥, THẺ KHÁCH LẠ 🪪, ĐÃ ĐI ĐƠN GẤP ⚡ + tooltips. 2) Tạo mapping `PTAG_TO_TPOS_MAP` (TAG XL ↔ TPOS): GIỎ TRỐNG, KHÁCH BOOM, MY THÊM CHỜ VỀ, THẺ KHÁCH LẠ, ĐÃ ĐI ĐƠN GẤP, TRỪ CÔNG NỢ + custom flags. 3) `syncPtagToTPOS()`: auto sync khi gán/bỏ TAG XL → add/remove TPOS tag tương ứng. Fallback chain: cache → reload tags → create new TPOS tag. 4) Hook fire-and-forget vào 4 hàm: `assignOrderCategory`, `toggleOrderFlag`, `assignTTagToOrder`, `removeTTagFromOrder`. |
+
 ### [orders][render] Migration dropped_products & held_products: Firebase RTDB → PostgreSQL ✅
 | | |
 |---|---|
