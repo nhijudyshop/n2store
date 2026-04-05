@@ -72,10 +72,7 @@ window.handleConversationUpdate = function(payload) {
         if (payload.updated_at && window.currentConversationData) {
             window.currentConversationData.updated_at = payload.updated_at;
         }
-        // Mark as read if chat is open
-        if (window.pancakeDataManager && window.currentChatChannelId) {
-            window.pancakeDataManager.markAsRead(window.currentChatChannelId, convId).catch(() => {});
-        }
+        // markAsRead removed — only mark read on successful send (tab1-chat-messages.js)
     }
 };
 
