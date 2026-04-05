@@ -1866,34 +1866,34 @@
             html += `<div class="ptag-summary-stats" data-search="tat ca tong don chot ra don oke xu ly chua gan">
                 <!-- Dòng 1: Công thức -->
                 <div class="ptag-summary-row ptag-summary-formula">
-                    <span>Tổng </span>
+                    <span>TỔNG </span>
                     <span class="ptag-stat-num ptag-stat-clickable ${activeFilter === null && activeFlagFilters.size === 0 ? 'active' : ''}" onclick="window._ptagSetFilter(null)">${totalOrders}</span>
                     <span> - </span>
                     <span class="ptag-stat-num ptag-stat-clickable ${activeFilter === 'cat_3' ? 'active' : ''}" onclick="window._ptagSetFilter('cat_3')">${koCan}</span>
-                    <span class="ptag-formula-detail"> (<span class="ptag-stat-clickable ${activeFilter === 'subtag_GIO_TRONG' ? 'active' : ''}" onclick="window._ptagSetFilter('subtag_GIO_TRONG')">${gioTrong}</span> Trống + <span class="ptag-stat-clickable ${activeFilter === 'subtag_DA_GOP_KHONG_CHOT' ? 'active' : ''}" onclick="window._ptagSetFilter('subtag_DA_GOP_KHONG_CHOT')">${daGop}</span> Gộp)</span>
+                    <span class="ptag-formula-detail"> (<span class="ptag-stat-clickable ${activeFilter === 'subtag_GIO_TRONG' ? 'active' : ''}" onclick="window._ptagSetFilter('subtag_GIO_TRONG')">${gioTrong}</span> TRỐNG + <span class="ptag-stat-clickable ${activeFilter === 'subtag_DA_GOP_KHONG_CHOT' ? 'active' : ''}" onclick="window._ptagSetFilter('subtag_DA_GOP_KHONG_CHOT')">${daGop}</span> GỘP)</span>
                     <span> = </span>
                     <span class="ptag-stat-num ptag-stat-highlight ptag-stat-clickable ${activeFilter === '__don_chot__' ? 'active' : ''}" onclick="window._ptagSetFilter('__don_chot__')">${donChot}</span>
-                    <span> Đơn Chốt</span>
+                    <span class="ptag-stat-highlight"> CHỐT</span>
                 </div>
 
-                <!-- Dòng 2: Ra Đơn + Oke -->
+                <!-- Dòng 2: RA ĐƠN + OKE -->
                 <div class="ptag-summary-row">
-                    <div class="ptag-stat-box ptag-stat-green ${activeFilter === 'cat_0' ? 'active' : ''}" onclick="window._ptagSetFilter('cat_0')">
-                        <span class="ptag-stat-num">${raDon}</span> <span>Ra Đơn</span>
+                    <div class="ptag-stat-box ptag-stat-green ptag-stat-box-sm ${activeFilter === 'cat_0' ? 'active' : ''}" onclick="window._ptagSetFilter('cat_0')">
+                        <span class="ptag-stat-num">${raDon}</span> <span>RA ĐƠN</span>
                     </div>
-                    <div class="ptag-stat-box ptag-stat-blue ${activeFilter === 'cat_1' ? 'active' : ''}" onclick="window._ptagSetFilter('cat_1')">
-                        <span class="ptag-stat-num">${oke}</span> <span>Oke</span>
+                    <div class="ptag-stat-box ptag-stat-blue ptag-stat-box-lg ${activeFilter === 'cat_1' ? 'active' : ''}" onclick="window._ptagSetFilter('cat_1')">
+                        <span class="ptag-stat-num">${oke}</span> <span>OKE</span>
                         <span class="ptag-stat-sub">(<span class="ptag-stat-clickable ${activeFilter === 'sub_OKIE_CHO_DI_DON' ? 'active' : ''}" onclick="window._ptagSetFilter('sub_OKIE_CHO_DI_DON'); event.stopPropagation();"><i class="fas fa-check"></i>${diDon}</span> + <span class="ptag-stat-clickable ${activeFilter === 'sub_CHO_HANG' ? 'active' : ''}" onclick="window._ptagSetFilter('sub_CHO_HANG'); event.stopPropagation();"><i class="fas fa-clock"></i>${choHang}</span>)</span>
                     </div>
                 </div>
 
-                <!-- Dòng 3: Xử Lý + Chưa Gán -->
+                <!-- Dòng 3: XỬ LÝ + CHƯA GÁN -->
                 <div class="ptag-summary-row">
-                    <div class="ptag-stat-box ptag-stat-amber ${activeFilter === 'cat_2' ? 'active' : ''}" onclick="window._ptagSetFilter('cat_2')">
-                        <span class="ptag-stat-num">${xuLy}</span> <span>Xử Lý</span>
+                    <div class="ptag-stat-box ptag-stat-amber ptag-stat-box-sm ${activeFilter === 'cat_2' ? 'active' : ''}" onclick="window._ptagSetFilter('cat_2')">
+                        <span class="ptag-stat-num">${xuLy}</span> <span>XỬ LÝ</span>
                     </div>
-                    <div class="ptag-stat-box ptag-stat-gray ${activeFilter === '__no_tag__' ? 'active' : ''}" onclick="window._ptagSetFilter('__no_tag__')">
-                        <span class="ptag-stat-num">${untaggedCount}</span> <span>Chưa Gán</span>
+                    <div class="ptag-stat-box ptag-stat-gray ptag-stat-box-lg ${activeFilter === '__no_tag__' ? 'active' : ''}" onclick="window._ptagSetFilter('__no_tag__')">
+                        <span class="ptag-stat-num">${untaggedCount}</span> <span>CHƯA GÁN</span>
                     </div>
                 </div>
             </div>`;
