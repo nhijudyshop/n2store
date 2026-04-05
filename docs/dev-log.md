@@ -8,6 +8,12 @@
 
 ## 2026-04-05
 
+### [orders] Delivery report — permission gate tra soát + yêu cầu hủy đơn ✅
+| | |
+|---|---|
+| **Files** | `delivery-report/js/delivery-report.js`, `delivery-report/js/cancel-request.js` (MỚI), `delivery-report/index.html`, `delivery-report/css/delivery-report.css` |
+| **Chi tiết** | 1) Chỉ admin + "Phước đẹp trai" mới bật tra soát và xóa quét (canTraSoat helper + guard 4 functions + ẩn nút). 2) Tab "Yêu cầu hủy" luôn hiện — nút toggle danh sách + badge pending, modal chọn đơn (search + checkbox) + lý do, lưu Firestore subcollection `delivery_report/data/cancel_requests/{id}` với displayName người yêu cầu, realtime listener. |
+
 ### [orders] Delivery report — confirm dialog on unscan + per-group delete-all buttons ✅
 | | |
 |---|---|
