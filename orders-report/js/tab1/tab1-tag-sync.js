@@ -857,8 +857,15 @@
      * @param {'add'|'remove'} action - Add or remove TPOS tag
      * @param {string} tagXLKey - TAG XL key (e.g. 'flag:KHACH_BOOM', 'subtag:GIO_TRONG')
      */
+    // Guard flags to prevent infinite sync loops
+    let _isSyncingFromTPOS = false; // skip TAG XL → TPOS when reverse sync is in progress
+    let _isSyncingToTPOS = false;   // skip TPOS → TAG XL when forward sync is in progress
+
     async function syncPtagToTPOS(orderCode, action, tagXLKey) {
         try {
+            // Skip if triggered by TPOS → TAG XL reverse sync
+            if (_isSyncingFromTPOS) return;
+
             // 1. Resolve TPOS tag name
             const tposName = _resolvePtagToTPOSName(tagXLKey);
             if (!tposName) return; // No mapping → skip
@@ -908,32 +915,37 @@
                 currentTags = currentTags.filter(t => t.Id !== tposTag.Id);
             }
 
-            // 6. Call AssignTag API
-            const headers = await window.tokenManager.getAuthHeader();
-            const payload = {
-                Tags: currentTags.map(t => ({ Id: t.Id, Color: t.Color, Name: t.Name })),
-                OrderId: orderId
-            };
-            const response = await API_CONFIG.smartFetch(
-                'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag',
-                {
-                    method: 'POST',
-                    headers: { ...headers, 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                    body: JSON.stringify(payload)
-                }
-            );
-            if (!response.ok) throw new Error(`AssignTag HTTP ${response.status}`);
+            // 6. Call AssignTag API — set guard to prevent reverse sync loop
+            _isSyncingToTPOS = true;
+            try {
+                const headers = await window.tokenManager.getAuthHeader();
+                const payload = {
+                    Tags: currentTags.map(t => ({ Id: t.Id, Color: t.Color, Name: t.Name })),
+                    OrderId: orderId
+                };
+                const response = await API_CONFIG.smartFetch(
+                    'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag',
+                    {
+                        method: 'POST',
+                        headers: { ...headers, 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                        body: JSON.stringify(payload)
+                    }
+                );
+                if (!response.ok) throw new Error(`AssignTag HTTP ${response.status}`);
 
-            // 7. Update local table data + Firebase
-            const tagsJson = JSON.stringify(currentTags);
-            if (typeof updateOrderInTable === 'function') {
-                updateOrderInTable(orderId, { Tags: tagsJson });
-            }
-            if (typeof updateRowTagsOnly === 'function') {
-                updateRowTagsOnly(orderId, tagsJson, orderCode);
-            }
-            if (typeof emitTagUpdateToFirebase === 'function') {
-                emitTagUpdateToFirebase(orderId, currentTags);
+                // 7. Update local table data + Firebase
+                const tagsJson = JSON.stringify(currentTags);
+                if (typeof updateOrderInTable === 'function') {
+                    updateOrderInTable(orderId, { Tags: tagsJson });
+                }
+                if (typeof updateRowTagsOnly === 'function') {
+                    updateRowTagsOnly(orderId, tagsJson, orderCode);
+                }
+                if (typeof emitTagUpdateToFirebase === 'function') {
+                    emitTagUpdateToFirebase(orderId, currentTags);
+                }
+            } finally {
+                _isSyncingToTPOS = false;
             }
 
             console.log(`${SYNC_LOG} [TPOS-SYNC] ${action.toUpperCase()} "${tposName}" → order ${orderCode} (TPOS ID: ${tposTag.Id})`);
@@ -958,5 +970,129 @@
     window._tsRemoveRow = _tsRemoveRow;
     window.executeTagSync = executeTagSync;
     window.syncPtagToTPOS = syncPtagToTPOS;
+
+    // =====================================================
+    // TPOS → TAG XL AUTO SYNC (REVERSE DIRECTION)
+    // Khi gán/xóa TPOS tag, tự động gán/xóa TAG XL tương ứng
+    // =====================================================
+
+    // Build reverse mapping: TPOS name (uppercase) → TAG XL key
+    const TPOS_TO_PTAG_MAP = {};
+    for (const [xlKey, tposName] of Object.entries(PTAG_TO_TPOS_MAP)) {
+        TPOS_TO_PTAG_MAP[tposName.toUpperCase()] = xlKey;
+    }
+
+    /**
+     * Called when TPOS tags change (from tab1-tags.js saveOrderTags/quickAssignTag)
+     * Compares new TPOS tags against reverse mapping and syncs TAG XL accordingly
+     * @param {string} orderId - Order GUID
+     * @param {Array} newTags - Array of {Id, Name, Color} TPOS tags
+     */
+    async function syncTPOSToPtag(orderId, newTags) {
+        // Skip if this change was triggered by our own TAG XL → TPOS sync
+        if (_isSyncingToTPOS) {
+            console.log(`${SYNC_LOG} [TPOS→XL] Skip reverse sync — triggered by TAG XL → TPOS`);
+            return;
+        }
+
+        // Set guard to prevent TAG XL → TPOS loop when we call toggleOrderFlag etc.
+        _isSyncingFromTPOS = true;
+        try {
+            // Resolve orderId → orderCode
+            const resolveCode = window._ptagResolveCode || (function(id) {
+                const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
+                const order = allOrders.find(o => String(o.Id) === String(id));
+                return order?.Code ? String(order.Code) : null;
+            });
+            const orderCode = resolveCode(orderId);
+            if (!orderCode) {
+                console.warn(`${SYNC_LOG} [TPOS→XL] Cannot resolve orderCode for ${orderId}`);
+                return;
+            }
+
+            // Get current TAG XL data
+            const data = window.ProcessingTagState?.getOrderData(orderCode);
+            const currentFlags = (data?.flags || []).map(f => f.id || f);
+            const currentTTags = (data?.tTags || []).map(t => t.id || t);
+            const currentSubTag = data?.subTag || null;
+
+            // Build set of TPOS tag names (uppercase) for fast lookup
+            const tposNames = new Set((newTags || []).map(t => (t.Name || '').toUpperCase()));
+
+            let changed = false;
+
+            // Check each mapping entry: should TAG XL have it?
+            for (const [tposNameUpper, xlKey] of Object.entries(TPOS_TO_PTAG_MAP)) {
+                const hasTPOS = tposNames.has(tposNameUpper);
+                const [type, key] = xlKey.split(':');
+
+                if (type === 'flag') {
+                    const hasXL = currentFlags.includes(key);
+                    if (hasTPOS && !hasXL) {
+                        // TPOS has it, TAG XL doesn't → add flag
+                        console.log(`${SYNC_LOG} [TPOS→XL] ADD flag ${key} for ${orderCode}`);
+                        await window.toggleOrderFlag(orderCode, key, 'TPOS-SYNC');
+                        changed = true;
+                    } else if (!hasTPOS && hasXL) {
+                        // TPOS removed it, TAG XL still has it → remove flag
+                        console.log(`${SYNC_LOG} [TPOS→XL] REMOVE flag ${key} for ${orderCode}`);
+                        await window.toggleOrderFlag(orderCode, key, 'TPOS-SYNC');
+                        changed = true;
+                    }
+                } else if (type === 'ttag') {
+                    const hasTTag = currentTTags.includes(key);
+                    if (hasTPOS && !hasTTag) {
+                        console.log(`${SYNC_LOG} [TPOS→XL] ADD ttag ${key} for ${orderCode}`);
+                        await window.assignTTagToOrder(orderCode, key, 'TPOS-SYNC');
+                        changed = true;
+                    } else if (!hasTPOS && hasTTag) {
+                        console.log(`${SYNC_LOG} [TPOS→XL] REMOVE ttag ${key} for ${orderCode}`);
+                        await window.removeTTagFromOrder(orderCode, key);
+                        changed = true;
+                    }
+                } else if (type === 'subtag') {
+                    if (hasTPOS && currentSubTag !== key) {
+                        // TPOS has it, but TAG XL doesn't have this subtag → need to assign category with subtag
+                        // Find which category this subtag belongs to
+                        const subtagDef = window.PTAG_SUBTAGS?.[key];
+                        if (subtagDef) {
+                            console.log(`${SYNC_LOG} [TPOS→XL] ADD subtag ${key} (cat ${subtagDef.category}) for ${orderCode}`);
+                            await window.assignOrderCategory(orderCode, { category: subtagDef.category, subTag: key });
+                            changed = true;
+                        }
+                    }
+                    // Note: removing subtag via TPOS is complex (which category to revert to?), skip for now
+                }
+            }
+
+            // Also check custom flags: TPOS tags that match custom flag labels
+            const customDefs = window.ProcessingTagState?.getCustomFlagDefs?.() || [];
+            for (const def of customDefs) {
+                const customLabel = (def.label || '').toUpperCase();
+                if (!customLabel) continue;
+                const hasTPOS = tposNames.has(customLabel);
+                const hasXL = currentFlags.includes(def.id);
+                if (hasTPOS && !hasXL) {
+                    console.log(`${SYNC_LOG} [TPOS→XL] ADD custom flag ${def.id} for ${orderCode}`);
+                    await window.toggleOrderFlag(orderCode, def.id, 'TPOS-SYNC');
+                    changed = true;
+                } else if (!hasTPOS && hasXL) {
+                    console.log(`${SYNC_LOG} [TPOS→XL] REMOVE custom flag ${def.id} for ${orderCode}`);
+                    await window.toggleOrderFlag(orderCode, def.id, 'TPOS-SYNC');
+                    changed = true;
+                }
+            }
+
+            if (changed) {
+                console.log(`${SYNC_LOG} [TPOS→XL] Sync completed for ${orderCode}`);
+            }
+        } catch (e) {
+            console.warn(`${SYNC_LOG} [TPOS→XL] Failed:`, e.message);
+        } finally {
+            _isSyncingFromTPOS = false;
+        }
+    }
+
+    window.syncTPOSToPtag = syncTPOSToPtag;
 
 })();

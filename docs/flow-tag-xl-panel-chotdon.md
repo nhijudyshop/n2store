@@ -958,10 +958,13 @@ Dạ c xem okee để e đi đơn cho mình c nhé 😍
 
 ---
 
-## 11. Tag XL → TPOS Auto Sync (Đồng bộ ngược)
+## 11. Bidirectional TAG XL ↔ TPOS Auto Sync
 
-> Khi seller gán/bỏ TAG XL, hệ thống **tự động** gán/xóa TPOS tag tương ứng cho đơn hàng.
-> Chiều ngược với Section 10 (TPOS → Tag XL là manual sync).
+> Hệ thống đồng bộ **2 chiều tự động** giữa TAG XL và TPOS tags.
+> Gán TAG XL → auto thêm TPOS tag. Gán TPOS tag → auto thêm TAG XL.
+> Guard flags chống infinite loop.
+
+### 11a. TAG XL → TPOS Auto Sync
 
 ### File: `tab1-tag-sync.js` (phần cuối file)
 
@@ -1056,6 +1059,79 @@ VD: Custom flag label "GIẢM GIÁ 50%" → TPOS tag name "GIẢM GIÁ 50%"
 - TPOS tag tạo mới dùng random color từ palette 20 màu
 - Không sync cho category/subtag **không có** trong mapping (VD: Cat 0, Cat 1, Cat 4 subtags)
 
+### 11b. TPOS → TAG XL Auto Sync (Reverse Direction)
+
+> Khi seller gán/xóa TPOS tag (qua TAG modal hoặc quick assign/remove), hệ thống tự động gán/xóa TAG XL tương ứng.
+
+#### File: `tab1-tag-sync.js` → `syncTPOSToPtag(orderId, newTags)`
+
+#### Reverse Mapping: `TPOS_TO_PTAG_MAP`
+
+Build tự động từ `PTAG_TO_TPOS_MAP` (reverse keys ↔ values):
+
+| TPOS Tag Name | → TAG XL Key |
+|---------------|-------------|
+| `GIỎ TRỐNG` | `subtag:GIO_TRONG` |
+| `TRỪ CÔNG NỢ` | `flag:TRU_CONG_NO` |
+| `KHÁCH BOOM` | `flag:KHACH_BOOM` |
+| `THẺ KHÁCH LẠ` | `flag:THE_KHACH_LA` |
+| `ĐÃ ĐI ĐƠN GẤP` | `flag:DA_DI_DON_GAP` |
+| `MY THÊM CHỜ VỀ` | `ttag:T_MY` |
+| Custom flag labels | Custom flag IDs |
+
+#### Trigger Points
+
+| Hàm (tab1-tags.js) | Gọi hook | Khi nào |
+|-----|------|---------|
+| `saveOrderTags()` | `onPtagOrderTagsChanged(orderId, tags)` | Lưu tags từ TAG modal |
+| `quickAssignTag()` | `onPtagOrderTagsChanged(orderId, tags)` | Quick assign OK/XỬ LÝ |
+| `quickRemoveTag()` | `onPtagOrderTagsChanged(orderId, tags)` | Quick remove single tag |
+
+#### Flow
+
+```
+Seller gán TPOS tag "KHÁCH BOOM" qua TAG modal
+  │
+  ├── 1. TPOS tag lưu bình thường (AssignTag API)
+  │
+  └── 2. onPtagOrderTagsChanged(orderId, newTags)
+          │
+          └── syncTPOSToPtag(orderId, newTags)
+              │
+              ├── Check guard: _isSyncingToTPOS? → skip (do TAG XL→TPOS trigger)
+              │
+              ├── Set guard: _isSyncingFromTPOS = true
+              │
+              ├── Resolve orderId → orderCode
+              │
+              ├── Get current TAG XL data (flags, tTags, subTag)
+              │
+              ├── For each TPOS_TO_PTAG_MAP entry:
+              │   ├── TPOS has tag + TAG XL missing → toggleOrderFlag/assignTTag/assignCategory
+              │   └── TPOS missing tag + TAG XL has it → toggleOrderFlag/removeTTag
+              │
+              ├── Check custom flags: TPOS name matches custom flag label
+              │
+              └── Reset guard: _isSyncingFromTPOS = false
+```
+
+#### Guard Flags (Chống Infinite Loop)
+
+| Flag | Mục đích | Set khi | Check khi |
+|------|----------|---------|-----------|
+| `_isSyncingToTPOS` | Skip TPOS→XL reverse sync | `syncPtagToTPOS` gọi AssignTag API | `syncTPOSToPtag` bắt đầu |
+| `_isSyncingFromTPOS` | Skip TAG XL→TPOS forward sync | `syncTPOSToPtag` gọi toggleOrderFlag etc. | `syncPtagToTPOS` bắt đầu |
+
+```
+TAG XL → TPOS: toggleOrderFlag → syncPtagToTPOS → [_isSyncingToTPOS=true] → AssignTag → updateRow
+                                                                            → onPtagOrderTagsChanged
+                                                                              → syncTPOSToPtag → SKIP (guard)
+
+TPOS → TAG XL: saveOrderTags → onPtagOrderTagsChanged → syncTPOSToPtag → [_isSyncingFromTPOS=true]
+                                                                         → toggleOrderFlag
+                                                                           → syncPtagToTPOS → SKIP (guard)
+```
+
 ---
 
 ## 12. File Map
@@ -1090,3 +1166,5 @@ VD: Custom flag label "GIẢM GIÁ 50%" → TPOS tag name "GIẢM GIÁ 50%"
 | `renderProcessingTagCell(code)` | Render cell Tag XL trong table |
 | `copyOrderTemplate()` | Copy mẫu chốt đơn |
 | `syncPtagToTPOS(code, action, key)` | Auto sync TAG XL → TPOS tag |
+| `syncTPOSToPtag(orderId, newTags)` | Auto sync TPOS → TAG XL (reverse) |
+| `onPtagOrderTagsChanged(orderId, tags)` | Hook: TPOS tags changed → trigger reverse sync |

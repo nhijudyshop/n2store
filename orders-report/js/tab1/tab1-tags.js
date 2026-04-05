@@ -821,6 +821,9 @@ async function quickRemoveTag(orderId, orderCode, tagId) {
 
         console.log('[QUICK-TAG] Tag removed successfully:', tagToRemove.Name, 'ID:', tagToRemove.Id, 'from order:', orderCode);
 
+        // Hook: Notify processing tags about TPOS tag change (for TPOS → TAG XL sync)
+        if (window.onPtagOrderTagsChanged) window.onPtagOrderTagsChanged(orderId, newOrderTags);
+
         // Re-apply filters to hide order if it no longer matches the current tag filter
         const currentTagFilter = document.getElementById('tagFilter')?.value || 'all';
         if (currentTagFilter !== 'all') {

@@ -974,10 +974,14 @@
         };
     }
 
-    // DEPRECATED — T-tags now managed internally, not from TPOS
-    // Kept as no-op to avoid breaking call sites in tab1-tags.js
+    // TPOS → TAG XL reverse sync: when TPOS tags change, auto-sync to TAG XL
+    // Called from tab1-tags.js after saveOrderTags / quickAssignTag
     function onPtagOrderTagsChanged(orderId, newTags) {
-        // no-op
+        if (window.syncTPOSToPtag) {
+            window.syncTPOSToPtag(orderId, newTags).catch(e =>
+                console.warn(`${PTAG_LOG} TPOS→XL sync failed:`, e.message)
+            );
+        }
     }
 
     // Auto transition: bill created → ĐÃ RA ĐƠN
@@ -4728,6 +4732,7 @@
     // Helpers (exposed for external callers)
     window._ptagResolveCode = _ptagResolveCode;
     window._ptagResolveId = _ptagResolveId;
+    window.PTAG_SUBTAGS = PTAG_SUBTAGS;
 
     // Core functions
     window.loadProcessingTags = loadProcessingTags;
