@@ -108,6 +108,20 @@
                         campaignInfoFromTab1?.activeCampaignId) ||
                     ''
             );
+
+            // DEBUG: Log campaign matching info
+            const uniqueCampaigns = getUniqueCampaigns();
+            console.log('[DROPPED-DEBUG] 🔍 Filter = "current"');
+            console.log('[DROPPED-DEBUG] currentChatOrderData?.LiveCampaignId:', window.currentChatOrderData?.LiveCampaignId);
+            console.log('[DROPPED-DEBUG] campaignInfoFromTab1?.activeCampaignId:', typeof campaignInfoFromTab1 !== 'undefined' ? campaignInfoFromTab1?.activeCampaignId : 'undefined');
+            console.log('[DROPPED-DEBUG] → Resolved currentCampaignId:', currentCampaignId || '(empty)');
+            console.log('[DROPPED-DEBUG] All dropped products campaigns:', Object.fromEntries(uniqueCampaigns));
+            console.log('[DROPPED-DEBUG] Total dropped products:', droppedProducts.length);
+            if (currentCampaignId) {
+                const matched = droppedProducts.filter((p) => String(p.campaignId) === currentCampaignId);
+                console.log('[DROPPED-DEBUG] Matched products for current campaign:', matched.length);
+            }
+
             if (!currentCampaignId) return null; // No current campaign, show all
             return droppedProducts.filter((p) => String(p.campaignId) === currentCampaignId);
         }
@@ -133,8 +147,10 @@
      * Filter dropped products by campaign — called from dropdown
      */
     window.filterDroppedByCampaign = function (filterValue) {
+        console.log('[DROPPED-DEBUG] 🔄 Dropdown changed to:', filterValue);
         currentCampaignFilter = filterValue;
         const filtered = getFilteredDroppedProducts();
+        console.log('[DROPPED-DEBUG] Filtered result:', filtered ? `${filtered.length} products` : 'null (show all)');
         renderDroppedProductsTable(filtered);
     };
 
