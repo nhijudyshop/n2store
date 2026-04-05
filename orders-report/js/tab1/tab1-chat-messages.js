@@ -561,41 +561,24 @@ async function _sendComment(pdm, pageId, convId, text, pat, replyData) {
         }
     } else {
         // private_replies mode
-        // Chain: Pancake private_replies → Extension SEND_PRIVATE_REPLY → Pancake reply_inbox → Extension inbox
-        try {
-            await _sendApi(pdm, pageId, convId, {
-                action: 'private_replies', post_id: postId, message_id: messageId, from_id: fromId, message: text
-            }, pat);
-            _showToast('Đã nhắn riêng', 'info');
-            return;
-        } catch (err) {
-            // Fallback 1: Extension SEND_PRIVATE_REPLY
-            if (window.pancakeExtension?.connected && window.sendPrivateReplyViaExtension) {
-                try {
-                    await window.sendPrivateReplyViaExtension(text, pageId, messageId);
-                    _showToast('Đã nhắn riêng qua Extension', 'success');
-                    return;
-                } catch (extErr) {
-                    console.warn('[Chat-Msg] Extension SEND_PRIVATE_REPLY failed:', extErr.message);
-                }
-            }
+        // Pancake API often sends message successfully to Facebook but returns success:false
+        // → Use pdm.sendMessage() directly, only throw on clear Facebook errors
+        const result = await pdm.sendMessage(pageId, convId, {
+            action: 'private_replies', post_id: postId, message_id: messageId, from_id: fromId, message: text
+        }, pat);
 
-            // Fallback 2: Pancake reply_inbox
-            try {
-                await _sendApi(pdm, pageId, convId, { action: 'reply_inbox', message: text }, pat);
-                _showToast('Đã gửi qua Messenger', 'info');
-                return;
-            } catch (err2) {
-                // Fallback 3: Extension inbox
-                if (window.pancakeExtension?.connected && window.sendViaExtension) {
-                    const convData = window.buildConvData(pageId, window.currentChatPSID);
-                    await window.sendViaExtension(text, convData);
-                    _showToast('Đã gửi qua Extension (Messenger)', 'success');
-                    return;
-                }
-                throw err;
+        if (result?.success === false) {
+            const errStr = JSON.stringify(result);
+            // Only throw on clear Facebook errors (post deleted, no permission)
+            const isPostGone = errStr.includes('does not exist') || errStr.includes('"code":100')
+                || errStr.includes('does not support');
+            if (isPostGone) {
+                throw new Error('Bài viết/bình luận không còn trên Facebook hoặc page không có quyền.');
             }
+            // Other "errors" — message was likely sent. Log warning but treat as success.
+            console.warn('[Chat-Msg] private_replies response (treating as success):', result);
         }
+        _showToast('Đã nhắn riêng', 'info');
     }
 }
 

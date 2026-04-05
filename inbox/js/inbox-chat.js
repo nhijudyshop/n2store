@@ -2477,32 +2477,31 @@ class InboxChatController {
             }
         } else {
             // Private reply — send private message to commenter
+            // Pancake API often sends message successfully but returns success:false
+            // → Call fetch directly, only throw on clear Facebook errors
             console.log('[InboxChat] Sending private_replies:', { postId, messageId, fromId });
-            try {
-                await this._sendApi(url, { action: 'private_replies', post_id: postId, message_id: messageId, from_id: fromId, message: text });
-                console.log('[InboxChat] private_replies succeeded');
-                showToast('Đã nhắn riêng cho người bình luận', 'info');
-                return;
-            } catch (err) {
-                console.warn('[InboxChat] private_replies failed:', err.message);
-                // Fallback to reply_inbox
-                console.log('[InboxChat] Fallback to reply_inbox...');
-                try {
-                    await this._sendApi(url, { action: 'reply_inbox', message: text });
-                    showToast('Đã gửi qua Messenger', 'info');
-                    return;
-                } catch (err2) {
-                    console.warn('[InboxChat] reply_inbox fallback failed:', err2.message);
-                    // Fallback to Extension (bypass 24h)
-                    if (window.pancakeExtension?.connected) {
-                        console.log('[InboxChat] Both APIs failed, trying Pancake Extension for private reply...');
-                        showToast('Đang gửi nhắn riêng qua Extension...', 'warning');
-                        await this._sendViaExtension(text, conv);
-                        return;
-                    }
-                    throw err; // Throw original error
+            const payload = { action: 'private_replies', post_id: postId, message_id: messageId, from_id: fromId, message: text };
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const respText = await response.text();
+            let data;
+            try { data = JSON.parse(respText); } catch { data = null; }
+
+            if (data?.success === false) {
+                const errStr = JSON.stringify(data);
+                const isPostGone = errStr.includes('does not exist') || errStr.includes('"code":100')
+                    || errStr.includes('does not support');
+                if (isPostGone) {
+                    throw new Error('Bài viết/bình luận không còn trên Facebook hoặc page không có quyền.');
                 }
+                // Other "errors" — message was likely sent. Treat as success.
+                console.warn('[InboxChat] private_replies response (treating as success):', data);
             }
+            console.log('[InboxChat] private_replies sent');
+            showToast('Đã nhắn riêng cho người bình luận', 'info');
         }
     }
 
