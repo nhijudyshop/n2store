@@ -84,19 +84,46 @@ async function loadAvailableTables() {
 
         console.log(`[REPORT] ✅ Loaded ${reports.length} reports + ${addedNames.size - reports.length} campaigns from API`);
 
-        // 🔄 SYNC: If no table selected, try to use active campaign from parent
+        // 🔄 SYNC: If no table selected, auto-select from active campaign or first report
         if (!currentTableName) {
+            let matched = false;
+
+            // Strategy 1: Get active campaign from Tab1 iframe
             try {
-                const activeCampaign = window.parent?.campaignManager?.activeCampaign;
-                if (activeCampaign?.name) {
-                    // Find matching table/campaign in our list
-                    const matchName = activeCampaign.name.replace(/[.$#\[\]\/]/g, '_');
-                    if (tableMetadata[matchName] || tableMetadata[activeCampaign.name]) {
-                        currentTableName = tableMetadata[matchName] ? matchName : activeCampaign.name;
-                        console.log(`[REPORT] 🔄 Auto-selected table from activeCampaign: "${currentTableName}"`);
+                const tab1Win = window.parent?.document?.getElementById('ordersFrame')?.contentWindow;
+                const activeName = tab1Win?.campaignManager?.activeCampaign?.name;
+                if (activeName) {
+                    // Try exact match, then sanitized match, then fuzzy match
+                    const sanitized = activeName.replace(/[.$#\[\]\/]/g, '_');
+                    if (tableMetadata[activeName]) {
+                        currentTableName = activeName;
+                        matched = true;
+                    } else if (tableMetadata[sanitized]) {
+                        currentTableName = sanitized;
+                        matched = true;
+                    } else {
+                        // Fuzzy: find table whose name contains the campaign name (or vice versa)
+                        const norm = activeName.replace(/[_\/.\-]/g, ' ').toLowerCase().trim();
+                        for (const tName of Object.keys(tableMetadata)) {
+                            const tNorm = tName.replace(/[_\/.\-]/g, ' ').toLowerCase().trim();
+                            if (tNorm.includes(norm) || norm.includes(tNorm)) {
+                                currentTableName = tName;
+                                matched = true;
+                                break;
+                            }
+                        }
                     }
+                    console.log(`[REPORT] 🔄 Active campaign "${activeName}" → table: ${matched ? currentTableName : 'no match'}`);
                 }
-            } catch (e) { /* cross-origin or no parent */ }
+            } catch (e) {
+                console.log('[REPORT] Cannot access Tab1 campaignManager:', e.message);
+            }
+
+            // Strategy 2: Auto-select first report with data
+            if (!matched && reports.length > 0) {
+                currentTableName = reports[0].tableName;
+                console.log(`[REPORT] 🔄 Auto-selected first report: "${currentTableName}"`);
+            }
         }
 
         // Select current table if exists
