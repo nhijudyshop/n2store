@@ -1105,6 +1105,7 @@
         // Buttons row: [🏷 tags] [⏰ wait] [✓ ok] — identical to TPOS tag column
         const btns = `<div class="ptag-cell-buttons">` +
             `<button class="ptag-tag-btn" onclick="window._ptagOpenDropdown('${orderCode}', this); event.stopPropagation();" title="Chọn trạng thái"><i class="fas fa-tags"></i></button>` +
+            `<button class="ptag-quick-btn ptag-quick-btn--print" onclick="window._ptagQuickAssign('${orderCode}', 'print'); event.stopPropagation();" title="Đánh dấu đã in phiếu soạn"><i class="fas fa-print"></i></button>` +
             `<button class="ptag-quick-btn ptag-quick-btn--wait" onclick="window._ptagQuickAssign('${orderCode}', 'wait'); event.stopPropagation();" title="Đơn chưa phản hồi"><i class="fas fa-clock"></i></button>` +
             `<button class="ptag-quick-btn ptag-quick-btn--ok" onclick="window._ptagQuickAssign('${orderCode}', 'ok'); event.stopPropagation();" title="Okie Chờ Đi Đơn"><i class="fas fa-check"></i></button>` +
             `<button class="ptag-history-btn" onclick="window._ptagShowHistory('${orderCode}', this); event.stopPropagation();" title="Xem lịch sử tag"><i class="fas fa-history"></i></button>` +
@@ -1716,6 +1717,24 @@
             assignOrderCategory(orderCode, PTAG_CATEGORIES.CHO_DI_DON, { subTag: null });
         } else if (type === 'wait') {
             assignOrderCategory(orderCode, PTAG_CATEGORIES.XU_LY, { subTag: 'CHUA_PHAN_HOI' });
+        } else if (type === 'print') {
+            // Toggle pickingSlipPrinted + auto Cat 1/CHO_HANG (giống dropdown toggle)
+            let data = ProcessingTagState.getOrderData(orderCode);
+            if (!data) {
+                data = { category: null, subTag: null, subState: null, flags: [], tTags: [], note: '', assignedAt: Date.now() };
+            }
+            data.pickingSlipPrinted = !data.pickingSlipPrinted;
+            _ptagAddHistory(orderCode, data.pickingSlipPrinted ? 'SET_PHIEU_SOAN' : 'UNSET_PHIEU_SOAN', '', '');
+            if (data.pickingSlipPrinted && (data.category == null || data.category === PTAG_CATEGORIES.XU_LY)) {
+                data.category = PTAG_CATEGORIES.CHO_DI_DON;
+                data.subState = 'CHO_HANG';
+                data.assignedAt = Date.now();
+            }
+            _ptagEnsureCode(orderCode, data);
+            ProcessingTagState.setOrderData(orderCode, data);
+            _ptagRefreshRow(orderCode);
+            renderPanelContent();
+            saveProcessingTagToAPI(orderCode, data);
         }
     }
 

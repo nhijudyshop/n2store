@@ -121,6 +121,16 @@
     color: #059669;
 }
 
+.ptag-quick-btn--print {
+    border-color: #6366f1;
+    color: #6366f1;
+}
+
+.ptag-quick-btn--print:hover {
+    background: #e0e7ff;
+    color: #4338ca;
+}
+
 .ptag-quick-btn--wait {
     /* default orange already set on .ptag-quick-btn */
 }
