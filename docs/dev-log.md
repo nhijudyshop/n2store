@@ -8,6 +8,12 @@
 
 ## 2026-04-05
 
+### [orders] Fix tiền ship bị reset khi xóa dòng đơn hàng trong phiếu bán hàng hàng loạt ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-fast-sale.js` |
+| **Chi tiết** | Khi xóa 1 dòng đơn hàng trong modal fast-sale, toàn bộ modal bị re-render qua `innerHTML` khiến tiền ship, carrier, ghi chú bị reset về mặc định. Fix: thêm `saveFastSaleFormState()` lưu form state (shipping fee, carrier, note, weight, wallet) vào `fastSaleOrdersData` trước khi re-render. `renderFastSaleOrderRow` và auto-carrier-select sử dụng giá trị đã lưu (`_user*` properties) thay vì giá trị mặc định. |
+
 ### [orders] Fix flag counts hiển thị 0 trong thống kê Tổng quan ✅
 | | |
 |---|---|
