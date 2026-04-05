@@ -398,13 +398,25 @@ function renderWalletDebtBadges(phone) {
  * Tách riêng khỏi badge rendering để tránh race condition.
  * Chỉ ADD flag mới, không ghi đè / xóa flag có sẵn.
  */
+/**
+ * Auto-tag CK / Trừ Công Nợ — retry nếu ProcessingTagState chưa loaded.
+ * Chỉ ADD flag mới, không ghi đè / xóa flag có sẵn.
+ * _walletAutoTagDone tracks phone set đã xử lý — chỉ re-run khi wallet data thay đổi.
+ */
 let _walletAutoTagTimer = null;
 let _walletAutoTagRetries = 0;
 const WALLET_AUTOTAG_MAX_RETRIES = 10;
+const _walletAutoTagDone = new Set(); // Track phones đã auto-tag xong
 
 function _scheduleWalletAutoTag() {
     clearTimeout(_walletAutoTagTimer);
     _walletAutoTagTimer = setTimeout(_applyWalletAutoTags, 300);
+}
+
+function _markWalletAutoTagDirty(phone) {
+    // Gọi khi wallet data thay đổi (SSE update) → cho phép re-run auto-tag cho phone này
+    const normalized = normalizePhoneForQR(phone);
+    if (normalized) _walletAutoTagDone.delete(normalized);
 }
 
 function _applyWalletAutoTags() {
@@ -412,7 +424,6 @@ function _applyWalletAutoTags() {
     if (!window.ProcessingTagState?._isLoaded || typeof window.toggleOrderFlag !== 'function') {
         _walletAutoTagRetries++;
         if (_walletAutoTagRetries <= WALLET_AUTOTAG_MAX_RETRIES) {
-            console.log(`[WALLET-AUTOTAG] _isLoaded=${window.ProcessingTagState?._isLoaded}, retry ${_walletAutoTagRetries}/${WALLET_AUTOTAG_MAX_RETRIES}...`);
             _walletAutoTagTimer = setTimeout(_applyWalletAutoTags, 1000);
         }
         return;
@@ -429,6 +440,9 @@ function _applyWalletAutoTags() {
         if (!phoneCell) return;
         const rowPhone = normalizePhoneForQR(phoneCell.textContent.trim());
         if (!rowPhone || !window.walletDebtData.has(rowPhone)) return;
+
+        // Skip nếu phone này đã xử lý xong (tránh lặp mỗi polling cycle)
+        if (_walletAutoTagDone.has(rowPhone)) return;
 
         const data = window.walletDebtData.get(rowPhone);
         if ((data.total || 0) <= 0) return;
@@ -448,6 +462,9 @@ function _applyWalletAutoTags() {
             window.toggleOrderFlag(orderCode, 'TRU_CONG_NO', 'Tự Động');
             taggedCount++;
         }
+
+        // Đánh dấu phone đã xử lý — không chạy lại cho polling tiếp theo
+        _walletAutoTagDone.add(rowPhone);
     });
 
     if (taggedCount > 0) {
@@ -598,6 +615,9 @@ function connectWalletSSE() {
                 const normalized = normalizePhoneForQR(phone);
                 if (!normalized) return;
 
+                // Mark phone dirty để auto-tag chạy lại cho phone này
+                _markWalletAutoTagDirty(phone);
+
                 const newTotal = (parseFloat(wallet.balance) || 0) + (parseFloat(wallet.virtual_balance) || 0);
                 const oldData = window.walletDebtData.get(normalized);
                 const oldTotal = oldData ? (oldData.total || 0) : 0;
@@ -700,6 +720,7 @@ window.hasWalletDebt = hasWalletDebt;
 window.renderWalletDebtBadges = renderWalletDebtBadges;
 window.updateWalletDebtBadgesInTable = updateWalletDebtBadgesInTable;
 window._applyWalletAutoTags = _applyWalletAutoTags;
+window._markWalletAutoTagDirty = _markWalletAutoTagDirty;
 window.updateChatDebtBadges = updateChatDebtBadges;
 window.fetchWalletDebtBatch = fetchWalletDebtBatch;
 window.triggerWalletDebtFetch = triggerWalletDebtFetch;
