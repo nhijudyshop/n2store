@@ -3,7 +3,7 @@
 // Runs on: tomato.tpos.vn
 
 (function () {
-  const API_URL = 'https://nhijudyshop.workers.dev/api/tpos-events/broadcast';
+  const API_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/tpos-events/broadcast';
   const ASSIGN_TAG_URL = 'TagSaleOnlineOrder/ODataService.AssignTag';
 
   const origOpen = XMLHttpRequest.prototype.open;
