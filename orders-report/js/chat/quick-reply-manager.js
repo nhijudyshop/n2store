@@ -653,15 +653,15 @@ class QuickReplyManager {
         const dropdown = document.getElementById('quickReplyAutocomplete');
         const inputRect = inputElement.getBoundingClientRect();
 
+        // Render content first
+        this.renderAutocomplete();
+
+        // Show and position above the input
         dropdown.style.left = inputRect.left + 'px';
         dropdown.style.width = Math.max(400, inputRect.width) + 'px';
-        dropdown.style.display = 'block';
-
-        // Position above the input
         dropdown.style.top = 'auto';
         dropdown.style.bottom = (window.innerHeight - inputRect.top + 4) + 'px';
-
-        this.renderAutocomplete();
+        dropdown.style.display = 'block';
     }
 
     renderAutocomplete() {
