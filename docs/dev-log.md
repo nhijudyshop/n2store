@@ -8,6 +8,12 @@
 
 ## 2026-04-05
 
+### [chat] Fix #551 user unavailable — extension fallback not triggered ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-chat-messages.js` |
+| **Chi tiết** | `_sendInbox()` chỉ check `is24HourError` cho extension fallback, nhưng lỗi #551 ("Người này hiện không có mặt") được classify là `isUserUnavailable` → không trigger fallback. Fix: fallback extension cho cả `is24HourError` và `isUserUnavailable`. Inbox side đã handle đúng (fallback cho mọi error). |
+
 ### [chat] Fix private_replies false error + UI not updating ✅
 | | |
 |---|---|
