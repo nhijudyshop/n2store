@@ -800,61 +800,22 @@ export class WalletPanelModule {
     _initImageLightbox() {
         if (window._walletShowImage) return;
 
-        // Lightbox on click
+        // Lightbox on click - z-index higher than any modal
         window._walletShowImage = (url) => {
             const overlay = document.createElement('div');
-            overlay.className = 'fixed inset-0 bg-black/70 z-[9999] flex items-center justify-center p-4 cursor-pointer';
-            overlay.innerHTML = `<img src="${url}" class="max-w-full max-h-full rounded-lg shadow-2xl object-contain" style="max-width:90vw;max-height:90vh">`;
+            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;cursor:pointer';
+            overlay.innerHTML = `<img src="${url}" style="max-width:90vw;max-height:90vh;border-radius:8px;box-shadow:0 8px 40px rgba(0,0,0,0.5);object-fit:contain">`;
             overlay.onclick = () => overlay.remove();
             document.body.appendChild(overlay);
         };
 
-        // Hover preview tooltip
-        let hoverEl = null;
-        const showHover = (thumb) => {
-            removeHover();
-            const rect = thumb.getBoundingClientRect();
-            hoverEl = document.createElement('div');
-            hoverEl.className = 'wallet-img-hover';
-            hoverEl.style.cssText = 'position:fixed;z-index:9998;pointer-events:none;padding:4px;background:#fff;border-radius:8px;box-shadow:0 8px 30px rgba(0,0,0,0.3);transition:opacity 0.15s;opacity:0';
-            const w = thumb.offsetWidth * 5;
-            const h = thumb.offsetHeight * 5;
-            hoverEl.innerHTML = `<img src="${thumb.src}" style="width:${w}px;height:${h}px;border-radius:6px;display:block;object-fit:cover">`;
-            document.body.appendChild(hoverEl);
-            // Position above or below thumb
-            requestAnimationFrame(() => {
-                if (!hoverEl) return;
-                const hw = hoverEl.offsetWidth;
-                const hh = hoverEl.offsetHeight;
-                let top = rect.top - hh - 8;
-                if (top < 8) top = rect.bottom + 8;
-                let left = rect.left + (rect.width / 2) - (hw / 2);
-                left = Math.max(8, Math.min(left, window.innerWidth - hw - 8));
-                hoverEl.style.top = top + 'px';
-                hoverEl.style.left = left + 'px';
-                hoverEl.style.opacity = '1';
-            });
-        };
-        const removeHover = () => {
-            if (hoverEl) { hoverEl.remove(); hoverEl = null; }
-        };
-
-        // Event delegation for click and hover
+        // Event delegation for click only
         document.addEventListener('click', (e) => {
             const thumb = e.target.closest('.wallet-tx-thumb');
             if (thumb) {
                 e.preventDefault();
-                removeHover();
                 window._walletShowImage(thumb.src);
             }
-        });
-        document.addEventListener('mouseover', (e) => {
-            const thumb = e.target.closest('.wallet-tx-thumb');
-            if (thumb) showHover(thumb);
-        });
-        document.addEventListener('mouseout', (e) => {
-            const thumb = e.target.closest('.wallet-tx-thumb');
-            if (thumb) removeHover();
         });
     }
 
