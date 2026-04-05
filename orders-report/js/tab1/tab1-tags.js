@@ -1340,10 +1340,12 @@ async function saveOrderTags() {
 
         window.cacheManager.clear("orders");
         showLoading(false);
-        closeTagModal();
 
-        // Hook: Notify processing tags about TPOS tag change (for T-tag auto sub-state)
-        if (window.onPtagOrderTagsChanged) window.onPtagOrderTagsChanged(currentEditingOrderId, currentOrderTags);
+        // Hook: Notify processing tags about TPOS tag change (BEFORE closeTagModal clears state)
+        const _hookOrderId = currentEditingOrderId;
+        const _hookTags = [...currentOrderTags];
+        closeTagModal();
+        if (window.onPtagOrderTagsChanged) window.onPtagOrderTagsChanged(_hookOrderId, _hookTags);
 
         if (window.notificationManager) {
             window.notificationManager.success(
