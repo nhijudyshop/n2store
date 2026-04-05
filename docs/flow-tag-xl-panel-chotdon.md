@@ -324,7 +324,7 @@ ptag-panel
     ├── Card: CHƯA GÁN TAG XL (untagged count)
     ├── Card: Cat 0 — ĐÃ RA ĐƠN 🟢
     ├── Card: Cat 1 — CHỜ ĐI ĐƠN 🔵
-    │   ├── Sub: Okie Chờ Đi Đơn
+    │   ├── Sub: Okie Chờ Đi Đơn (+ icon 🔵 lọc loại Chờ Live/Qua Lấy/Giữ Đơn)
     │   └── Sub: Chờ Hàng (+ icon in phiếu)
     ├── Section: ĐẶC ĐIỂM ĐƠN HÀNG (collapsible)
     │   ├── Flag: TRỪ CÔNG NỢ 💰 (count)
@@ -526,7 +526,8 @@ Events: update, deleted
 | `null` | Tất cả đơn |
 | `'__no_tag__'` | Đơn chưa gán tag |
 | `'cat_0'` → `'cat_4'` | Filter theo category |
-| `'sub_OKIE_CHO_DI_DON'` | Sub-state Cat 1 |
+| `'sub_OKIE_CHO_DI_DON'` | Sub-state Cat 1: Okie Chờ Đi Đơn |
+| `'sub_OKIE_NO_DELAY'` | Sub-state Cat 1: Okie loại Chờ Live / Qua Lấy / Giữ Đơn |
 | `'subtag_CHUA_PHAN_HOI'` | Sub-tag Cat 2/3/4 |
 | `'flag_TRU_CONG_NO'` | Flag filter |
 | `'ttag_T_MY'` | T-tag filter |
