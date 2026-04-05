@@ -327,15 +327,20 @@
 }
 
 /* Page selector */
-#sendPageSelector {
+#chatPageSelect {
     font-size: 11px;
     padding: 4px 8px;
     border: 1px solid var(--ap-outline-variant);
     border-radius: 8px;
     color: var(--ap-on-surface);
     background: #fff;
-    max-width: 120px;
+    max-width: 140px;
     font-family: var(--ap-font);
+    cursor: pointer;
+}
+
+#chatPageSelect:hover {
+    border-color: #4338ca;
 }
 
 /* Panel toggle button - icon only */

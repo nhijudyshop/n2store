@@ -406,9 +406,14 @@
                 </div>
             </div>
             <div class="search-info">
-                <div>
+                <div style="display:flex;align-items:center;gap:8px;">
                     <span class="search-result-count" id="searchResultCount">0</span>
                     <span> kết quả</span>
+                    <button id="tposRtToggle" onclick="window.tposRealtime?.toggle()" title="Bật/tắt cập nhật real-time từ TPOS"
+                        style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:12px;border:1px solid #d1d5db;background:#f9fafb;font-size:11px;cursor:pointer;color:#6b7280;transition:all .2s;">
+                        <span id="tposRtDot" style="width:7px;height:7px;border-radius:50%;background:#d1d5db;transition:background .3s;"></span>
+                        <span id="tposRtLabel">RT</span>
+                    </button>
                 </div>
                 <div style="display: flex; align-items: center; gap: 12px;">
                     <div class="search-tips">💡 Gõ để tìm kiếm nhanh</div>
@@ -857,7 +862,7 @@
                                 <option value="reply_comment">Trả lời công khai</option>
                                 <option value="private_replies">Nhắn riêng</option>
                             </select>
-                            <select id="sendPageSelector" style="display:none"></select>
+                            <select id="chatPageSelect" style="display:none" onchange="window.switchChatPage(this.value)"></select>
                             <button class="chat-panel-toggle-btn" id="chatPanelToggleBtn" onclick="window.toggleChatPanel()" title="Mở/đóng panel sản phẩm">
                                 <span class="material-symbols-outlined">dock_to_left</span>
                             </button>
@@ -900,7 +905,7 @@
                     <div class="chat-input-area">
                         <div class="chat-input-wrapper">
                             <textarea id="chatInput" placeholder="Nhập tin nhắn..." rows="2"
-                                onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();window.sendMessage?.();}"></textarea>
+                                onkeydown="if(event.key==='Enter'&&!event.shiftKey&&!window.quickReplyManager?.autocompleteActive){event.preventDefault();window.sendMessage?.();}"></textarea>
                             <div class="chat-toolbar">
                                 <div class="chat-toolbar-left">
                                     <button class="attach-btn" onclick="if(window.currentChatOrderId) openEditModal(window.currentChatOrderId)" title="Chỉnh sửa đơn hàng">
@@ -1132,7 +1137,7 @@
     <script src="js/utils/search-functions.js"></script>
     <script src="js/managers/column-visibility-manager.js"></script>
     <script src="js/managers/realtime-manager.js"></script>
-    <script src="js/chat/new-messages-notifier.js"></script>
+    <script src="js/chat/new-messages-notifier.js?v=3"></script>
     <script src="js/tab1/tab1-extension-bridge.js"></script>
     <!-- ⭐ Image Compressor for Pancake API (500KB limit) -->
     <script src="js/utils/image-compressor.js"></script>
@@ -1235,6 +1240,9 @@
     <script src="js/tab1/tab1-chat-realtime.js"></script>
     <script src="js/chat/chat-products-ui.js"></script>
     <script src="js/chat/chat-products-actions.js"></script>
+
+    <!-- TPOS Real-time Order Updates (auto-add new orders) -->
+    <script src="js/tab1/tab1-tpos-realtime.js"></script>
 
     <!-- Extracted JS files (formerly inline) -->
     <script src="js/tab1/tab1-checkbox.js"></script>
@@ -1905,7 +1913,7 @@
                 <button class="tag-btn-cancel" onclick="closeCampaignSettingsModal()">
                     Đóng
                 </button>
-                <button class="tag-btn-save" onclick="applyCampaignSettings()" style="background: #8b5cf6;">
+                <button class="tag-btn-save" onclick="applyCampaignSettings()" style="background: #8b5cf6; display: none;">
                     <i class="fas fa-check"></i> Áp dụng
                 </button>
             </div>
@@ -1974,6 +1982,9 @@
             </div>
         </div>
     </div>
+
+    <!-- Campaign API Client (PostgreSQL backend) -->
+    <script src="js/core/campaign-api.js"></script>
 
     <!-- Create Campaign Modal Script -->
     <script src="js/tab1/tab1-campaign-create.js"></script>

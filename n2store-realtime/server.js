@@ -463,32 +463,39 @@ class RealtimeClient {
         this.ws.send(JSON.stringify(userJoinMsg));
         console.log(`[PANCAKE-WS] Joining users:${this.userId} channel...`);
         console.log(`[PANCAKE-WS] Token (first 20 chars): ${this.token?.substring(0, 20)}...`);
-        console.log(`[PANCAKE-WS] Cookie present: ${!!this.cookie}, length: ${this.cookie?.length || 0}`);
 
-        // 2. Join Multiple Pages Channel
-        const pagesRef = this.makeRef();
-        const pagesJoinMsg = [
-            pagesRef, pagesRef, `multiple_pages:${this.userId}`, "phx_join",
-            {
-                accessToken: this.token,
-                userId: this.userId,
-                clientSession: this.generateClientSession(),
-                pageIds: this.pageIds,
-                platform: "web"
-            }
-        ];
-        this.ws.send(JSON.stringify(pagesJoinMsg));
-        console.log(`[PANCAKE-WS] Joining multiple_pages:${this.userId} with ${this.pageIds.length} pages: [${this.pageIds.join(', ')}]`);
+        // 2. Join Multiple Pages Channel (with retry state)
+        this._allPageIds = [...this.pageIds];
+        this._retryIndex = 0;
+        this._retryExhausted = false;
+        this._clientSession = this.generateClientSession();
+        this._joinMultiplePages(this.pageIds);
 
         // 3. Get Online Status
         setTimeout(() => {
             if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
             const statusRef = this.makeRef();
             const statusMsg = [
-                pagesRef, statusRef, `multiple_pages:${this.userId}`, "get_online_status", {}
+                null, statusRef, `multiple_pages:${this.userId}`, "get_online_status", {}
             ];
             this.ws.send(JSON.stringify(statusMsg));
-        }, 1000);
+        }, 2000);
+    }
+
+    _joinMultiplePages(pageIds) {
+        const pagesRef = this.makeRef();
+        const pagesJoinMsg = [
+            pagesRef, pagesRef, `multiple_pages:${this.userId}`, "phx_join",
+            {
+                accessToken: this.token,
+                userId: this.userId,
+                clientSession: this._clientSession,
+                pageIds: pageIds,
+                platform: "web"
+            }
+        ];
+        this.ws.send(JSON.stringify(pagesJoinMsg));
+        console.log(`[PANCAKE-WS] Joining multiple_pages:${this.userId} with ${pageIds.length} pages: [${pageIds.join(', ')}]`);
     }
 
     handleMessage(msg) {
@@ -501,6 +508,21 @@ class RealtimeClient {
             console.log(`[PANCAKE-WS] 📋 phx_reply [${topic}] status=${status}`, resp ? JSON.stringify(resp).substring(0, 200) : '');
             if (status === 'error') {
                 console.error(`[PANCAKE-WS] ❌ Channel join FAILED: ${topic}`, JSON.stringify(resp));
+
+                // Retry multiple_pages by removing one page at a time
+                if (topic.startsWith('multiple_pages:') && this._allPageIds && !this._retryExhausted) {
+                    this._retryIndex = (this._retryIndex || 0) + 1;
+                    if (this._retryIndex <= this._allPageIds.length) {
+                        const skipIdx = this._retryIndex - 1;
+                        const retryPages = this._allPageIds.filter((_, i) => i !== skipIdx);
+                        console.warn(`[PANCAKE-WS] 🔄 Retry ${this._retryIndex}/${this._allPageIds.length}: without page ${this._allPageIds[skipIdx]} → [${retryPages.join(', ')}]`);
+                        this.pageIds = retryPages;
+                        this._joinMultiplePages(retryPages);
+                    } else {
+                        this._retryExhausted = true;
+                        console.error('[PANCAKE-WS] ❌ All page combinations failed for multiple_pages channel.');
+                    }
+                }
             }
         } else if (event === 'phx_error') {
             console.error(`[PANCAKE-WS] ❌ phx_error [${topic}]`, JSON.stringify(payload).substring(0, 300));

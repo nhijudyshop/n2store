@@ -1407,13 +1407,15 @@ ${
                     message: sendResult.message,
                 });
 
-                // Check for 24-hour policy error - try Extension Bypass fallback
+                // Check for 24-hour policy error OR #551 user unavailable - try Extension Bypass fallback
                 const is24HourError =
                     (sendResult.e_code === 10 && sendResult.e_subcode === 2018278) ||
                     (sendResult.message &&
                         sendResult.message.includes('khoảng thời gian cho phép'));
+                const isUserUnavailable = sendResult.e_code === 551 ||
+                    (sendResult.message && sendResult.message.includes('không có mặt'));
 
-                if (is24HourError && window.pancakeExtension?.connected && window.sendImagesViaExtension) {
+                if ((is24HourError || isUserUnavailable) && window.pancakeExtension?.connected && window.sendImagesViaExtension) {
                     try {
                         // Fetch messages API to get thread_id + global_id + customers
                         const pdm = window.pancakeDataManager;

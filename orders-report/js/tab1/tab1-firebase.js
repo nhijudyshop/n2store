@@ -60,23 +60,32 @@ function getFilterPrefsPath() {
 }
 
 /**
- * [DEPRECATED] Save filter preferences to Firebase (per-user)
- * Dates are now stored in campaign objects directly.
- * This function is kept as a no-op stub for backward compatibility.
+ * Save filter preferences to PostgreSQL (per-user)
+ * Stores campaign filter selection so all dropdowns stay synced
  */
 async function saveFilterPreferencesToFirebase(prefs) {
-    // No-op: Dates are now stored in campaign objects
-    return;
+    try {
+        const userId = getFilterPrefsUserId();
+        if (!userId || !window.CampaignAPI) return;
+        await window.CampaignAPI.saveFilterPreferences(userId, prefs);
+    } catch (e) {
+        console.warn('[FILTER-PREFS] Save failed:', e);
+    }
 }
 
 /**
- * [DEPRECATED] Load filter preferences from Firebase (per-user)
- * Dates are now loaded from campaign objects directly.
- * This function is kept as a no-op stub for backward compatibility.
+ * Load filter preferences from PostgreSQL (per-user)
  */
 async function loadFilterPreferencesFromFirebase() {
-    // No-op: Dates are now loaded from campaign objects
-    return null;
+    try {
+        const userId = getFilterPrefsUserId();
+        if (!userId || !window.CampaignAPI) return null;
+        const data = await window.CampaignAPI.getUserPref(userId);
+        return data?.filterPreferences || null;
+    } catch (e) {
+        console.warn('[FILTER-PREFS] Load failed:', e);
+        return null;
+    }
 }
 
 // =====================================================

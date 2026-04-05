@@ -5,6 +5,110 @@
    ===================================================== */
 
 // =====================================================
+// PRIVATE REPLY MARKS STORE (Firestore sync, 7-day TTL)
+// =====================================================
+
+const PrivateReplyStore = {
+    _data: new Map(), // key: msgId → { timestamp, text, sender }
+    _initialized: false,
+    _unsubscribe: null,
+    _isListening: false,
+    _saveTimeout: null,
+    TTL: 7 * 24 * 60 * 60 * 1000, // 7 days
+
+    _getDocRef() {
+        return firebase.firestore().collection('private_reply_marks').doc('shared');
+    },
+
+    async init() {
+        if (this._initialized) return;
+        try {
+            const doc = await this._getDocRef().get();
+            if (doc.exists) {
+                const raw = doc.data()?.data || {};
+                this._data.clear();
+                const now = Date.now();
+                for (const [k, v] of Object.entries(raw)) {
+                    if (now - (v.timestamp || 0) < this.TTL) {
+                        this._data.set(k, v);
+                    }
+                }
+            }
+            this._setupListener();
+            this._initialized = true;
+        } catch (e) {
+            console.warn('[PrivateReplyStore] init error:', e.message);
+            this._initialized = true;
+        }
+    },
+
+    _setupListener() {
+        if (this._unsubscribe) return;
+        try {
+            this._unsubscribe = this._getDocRef().onSnapshot(doc => {
+                if (!doc.exists) return;
+                this._isListening = true;
+                const raw = doc.data()?.data || {};
+                const now = Date.now();
+                this._data.clear();
+                for (const [k, v] of Object.entries(raw)) {
+                    if (now - (v.timestamp || 0) < this.TTL) {
+                        this._data.set(k, v);
+                    }
+                }
+                // Re-render if chat is open
+                if (window.currentConversationType === 'COMMENT' && window.allChatMessages.length > 0) {
+                    window.renderChatMessages(window.allChatMessages);
+                }
+                this._isListening = false;
+            });
+        } catch (e) {
+            console.warn('[PrivateReplyStore] listener error:', e.message);
+        }
+    },
+
+    mark(msgId, text, senderName) {
+        this._data.set(msgId, { timestamp: Date.now(), text: text || '', sender: senderName || '' });
+        this._debounceSave();
+    },
+
+    has(msgId) {
+        return this._data.has(msgId);
+    },
+
+    _debounceSave() {
+        if (this._isListening) return;
+        clearTimeout(this._saveTimeout);
+        this._saveTimeout = setTimeout(() => this._save(), 1000);
+    },
+
+    async _save() {
+        try {
+            await this._getDocRef().set({
+                data: Object.fromEntries(this._data),
+                lastUpdated: Date.now()
+            }, { merge: true });
+        } catch (e) {
+            console.warn('[PrivateReplyStore] save error:', e.message);
+        }
+    },
+
+    destroy() {
+        if (this._unsubscribe) { this._unsubscribe(); this._unsubscribe = null; }
+        clearTimeout(this._saveTimeout);
+    }
+};
+
+window.PrivateReplyStore = PrivateReplyStore;
+
+// Init when firebase is ready
+if (typeof firebase !== 'undefined' && firebase.firestore) {
+    PrivateReplyStore.init();
+} else {
+    document.addEventListener('firebaseReady', () => PrivateReplyStore.init());
+}
+
+// =====================================================
 // MESSAGE RENDERING
 // =====================================================
 
@@ -47,7 +151,7 @@ window.renderChatMessages = function(messages) {
             const isOutgoing = msg.sender === 'shop';
             const isHidden = msg.isHidden || false;
             const isRemoved = msg.isRemoved || false;
-            const isPrivateReply = isCommentConv && !!msg.privateReplyConversation;
+            const isPrivateReply = isCommentConv && (!!msg.privateReplyConversation || PrivateReplyStore.has(msg.id));
             const isCommentMsg = isCommentConv && !isPrivateReply;
 
             // Attachments
@@ -435,7 +539,19 @@ window.sendMessage = async function() {
                             privateReplyConversation: msg.private_reply_conversation || null,
                         };
                     });
-                    window.allChatMessages = messages;
+                    // Auto-mark private reply messages in store (for cross-device sync)
+                    if (window.currentConversationType === 'COMMENT') {
+                        messages.forEach(m => {
+                            if (m.privateReplyConversation && !PrivateReplyStore.has(m.id)) {
+                                PrivateReplyStore.mark(m.id, m.text, m.senderName);
+                            }
+                        });
+                    }
+                    // Preserve optimistic private-reply messages (pr_*) not yet in server data
+                    const optimisticMsgs = window.allChatMessages.filter(m =>
+                        String(m.id).startsWith('pr_') && !messages.some(sm => sm.text === m.text && sm.sender === 'shop')
+                    );
+                    window.allChatMessages = [...messages, ...optimisticMsgs];
                     window.currentChatCursor = messages.length;
                     window.renderChatMessages(messages);
                 }
@@ -448,7 +564,7 @@ window.sendMessage = async function() {
         if (fb?.is24HourError) {
             _showToast('Đã quá 24h. Khách cần nhắn tin trước mới gửi lại được.', 'error');
         } else if (fb?.isUserUnavailable) {
-            _showToast('Không thể gửi: Khách chưa từng inbox hoặc đã block page.', 'error');
+            _showToast('Lỗi #551: Khách không có mặt. Extension cũng không gửi được.', 'error');
         } else {
             _showToast('Lỗi gửi tin nhắn: ' + error.message, 'error');
         }
@@ -472,16 +588,18 @@ async function _sendInbox(pdm, pageId, convId, text, pat, replyData) {
     try {
         const result = await _sendApi(pdm, pageId, convId, payload, pat);
     } catch (err) {
-        // Only fallback to extension for 24h errors (not auth/network issues)
-        if (err.fbError?.is24HourError && window.pancakeExtension?.connected && window.sendViaExtension) {
-            _showToast('Quá 24h — đang gửi qua Extension...', 'warning');
+        // Fallback to extension for 24h errors (#10/2018278) AND user unavailable (#551)
+        const canFallback = (err.fbError?.is24HourError || err.fbError?.isUserUnavailable)
+            && window.pancakeExtension?.connected && window.sendViaExtension;
+        if (canFallback) {
+            const reason = err.fbError?.is24HourError ? 'Quá 24h' : 'Người này không có mặt (#551)';
+            _showToast(`${reason} — đang gửi qua Extension...`, 'warning');
             try {
                 const conv = window.buildConvData(pageId, window.currentChatPSID);
                 await window.sendViaExtension(text, conv);
-                _showToast('Đã gửi qua Extension (bypass 24h)', 'success');
+                _showToast('Đã gửi qua Extension', 'success');
                 return;
             } catch (extErr) {
-                // Extension fallback also failed — throw original 24h error, not extension error
                 console.warn('[Chat-Msg] Extension fallback failed:', extErr.message);
                 throw err;
             }
@@ -561,41 +679,42 @@ async function _sendComment(pdm, pageId, convId, text, pat, replyData) {
         }
     } else {
         // private_replies mode
-        // Chain: Pancake private_replies → Extension SEND_PRIVATE_REPLY → Pancake reply_inbox → Extension inbox
-        try {
-            await _sendApi(pdm, pageId, convId, {
-                action: 'private_replies', post_id: postId, message_id: messageId, from_id: fromId, message: text
-            }, pat);
-            _showToast('Đã nhắn riêng', 'info');
-            return;
-        } catch (err) {
-            // Fallback 1: Extension SEND_PRIVATE_REPLY
-            if (window.pancakeExtension?.connected && window.sendPrivateReplyViaExtension) {
-                try {
-                    await window.sendPrivateReplyViaExtension(text, pageId, messageId);
-                    _showToast('Đã nhắn riêng qua Extension', 'success');
-                    return;
-                } catch (extErr) {
-                    console.warn('[Chat-Msg] Extension SEND_PRIVATE_REPLY failed:', extErr.message);
-                }
-            }
+        // Pancake API often sends message successfully to Facebook but returns success:false
+        // → Use pdm.sendMessage() directly, only throw on clear Facebook errors
+        const result = await pdm.sendMessage(pageId, convId, {
+            action: 'private_replies', post_id: postId, message_id: messageId, from_id: fromId, message: text
+        }, pat);
 
-            // Fallback 2: Pancake reply_inbox
-            try {
-                await _sendApi(pdm, pageId, convId, { action: 'reply_inbox', message: text }, pat);
-                _showToast('Đã gửi qua Messenger', 'info');
-                return;
-            } catch (err2) {
-                // Fallback 3: Extension inbox
-                if (window.pancakeExtension?.connected && window.sendViaExtension) {
-                    const convData = window.buildConvData(pageId, window.currentChatPSID);
-                    await window.sendViaExtension(text, convData);
-                    _showToast('Đã gửi qua Extension (Messenger)', 'success');
-                    return;
-                }
-                throw err;
+        if (result?.success === false) {
+            const errStr = JSON.stringify(result);
+            // Only throw on clear Facebook errors (post deleted, no permission)
+            const isPostGone = errStr.includes('does not exist') || errStr.includes('"code":100')
+                || errStr.includes('does not support');
+            if (isPostGone) {
+                throw new Error('Bài viết/bình luận không còn trên Facebook hoặc page không có quyền.');
             }
+            // Other "errors" — message was likely sent. Log warning but treat as success.
+            console.warn('[Chat-Msg] private_replies response (treating as success):', result);
         }
+
+        // Optimistic UI: add sent message immediately
+        const optId = 'pr_' + Date.now();
+        window.allChatMessages.push({
+            id: optId,
+            text,
+            time: new Date(),
+            sender: 'shop',
+            senderName: window.currentUser?.name || '',
+            attachments: [],
+            reactions: [],
+            privateReplyConversation: true,
+        });
+        window.renderChatMessages(window.allChatMessages);
+
+        // Mark in PrivateReplyStore for cross-device sync
+        PrivateReplyStore.mark(optId, text, window.currentUser?.name || '');
+
+        _showToast('Đã nhắn riêng', 'info');
     }
 }
 

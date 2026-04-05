@@ -1,15 +1,54 @@
 // #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
 /* =====================================================
-   NEW MESSAGES NOTIFIER - Rebuilt
+   NEW MESSAGES NOTIFIER - Rebuilt v2
    Applies unread badges and row highlights to order table
+   localStorage persistence + server merge + realtime updates
    ===================================================== */
 
 (function() {
     'use strict';
 
-    // Cached pending customers data
+    const LS_KEY = 'n2s_pending_customers';
+
+    // Cached pending customers data (persisted to localStorage)
     let _pendingCustomers = [];
     let _isApplying = false;
+    let _reapplyTimer = null;
+
+    // =====================================================
+    // LOCALSTORAGE PERSISTENCE
+    // =====================================================
+
+    function _saveToLocalStorage() {
+        try {
+            localStorage.setItem(LS_KEY, JSON.stringify(_pendingCustomers));
+        } catch(e) {}
+    }
+
+    function _loadFromLocalStorage() {
+        try {
+            const saved = localStorage.getItem(LS_KEY);
+            if (saved) return JSON.parse(saved);
+        } catch(e) {}
+        return [];
+    }
+
+    // Load immediately from localStorage (before server fetch completes)
+    _pendingCustomers = _loadFromLocalStorage();
+    console.log(`[NOTIFIER] Init: loaded ${_pendingCustomers.length} from localStorage`);
+
+    // Schedule initial reapply after DOM ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => setTimeout(reapply, 300));
+    } else {
+        setTimeout(reapply, 300);
+    }
+
+    // Safety net: reapply again after ALL resources loaded (images, etc.)
+    // This ensures badges appear even if table renders late
+    window.addEventListener('load', () => {
+        setTimeout(reapply, 500);
+    });
 
     // =====================================================
     // REAPPLY - Main method called by tab1-table.js
@@ -59,6 +98,7 @@
 
         // Find all table rows with psid
         const rows = document.querySelectorAll('tr[data-psid], tr[data-fb-id]');
+        let matched = 0;
         rows.forEach(row => {
             const psid = row.dataset.psid || row.dataset.fbId || '';
             if (!psid) return;
@@ -71,31 +111,45 @@
                 return;
             }
 
+            matched++;
             // Add row highlight
             row.classList.add('pending-customer-row');
 
-            // Update messages column badge
-            if (pending.inboxCount > 0) {
-                const msgCell = row.querySelector('td[data-column="messages"]');
-                if (msgCell && !msgCell.querySelector('.new-msg-badge')) {
-                    const badge = document.createElement('span');
-                    badge.className = 'new-msg-badge';
-                    badge.textContent = `${pending.inboxCount} MỚI`;
-                    msgCell.prepend(badge);
-                }
-            }
+            // Update messages column badge (create or update existing)
+            _upsertBadge(row, 'td[data-column="messages"]', 'new-msg-badge', pending.inboxCount);
 
-            // Update comments column badge
-            if (pending.commentCount > 0) {
-                const cmtCell = row.querySelector('td[data-column="comments"]');
-                if (cmtCell && !cmtCell.querySelector('.new-cmt-badge')) {
-                    const badge = document.createElement('span');
-                    badge.className = 'new-cmt-badge';
-                    badge.textContent = `${pending.commentCount} MỚI`;
-                    cmtCell.prepend(badge);
-                }
-            }
+            // Update comments column badge (create or update existing)
+            _upsertBadge(row, 'td[data-column="comments"]', 'new-cmt-badge', pending.commentCount);
         });
+
+        console.log(`[NOTIFIER] reapply: ${pendingMap.size} pending, ${rows.length} rows, ${matched} matched`);
+    }
+
+    /**
+     * Create or update a badge in a table cell.
+     * If count > 0: ensure badge exists with correct text.
+     * If count <= 0: remove badge if exists.
+     */
+    function _upsertBadge(row, cellSelector, badgeClass, count) {
+        const cell = row.querySelector(cellSelector);
+        if (!cell) return;
+
+        let badge = cell.querySelector(`.${badgeClass}`);
+
+        if (count > 0) {
+            if (badge) {
+                // Update existing badge text
+                badge.textContent = `${count} MỚI`;
+            } else {
+                // Create new badge
+                badge = document.createElement('span');
+                badge.className = badgeClass;
+                badge.textContent = `${count} MỚI`;
+                cell.prepend(badge);
+            }
+        } else if (badge) {
+            badge.remove();
+        }
     }
 
     // =====================================================
@@ -104,7 +158,7 @@
 
     /**
      * Called when new realtime events arrive.
-     * Updates _pendingCustomers and re-applies badges.
+     * Updates _pendingCustomers, saves to localStorage, and re-applies badges.
      */
     function onNewConversationEvent(event) {
         if (!event) return;
@@ -132,29 +186,67 @@
         existing.snippet = event.snippet || event.message || existing.snippet;
         existing.timestamp = Date.now();
 
+        // Persist to localStorage
+        _saveToLocalStorage();
+
         // Re-apply (debounced)
         clearTimeout(_reapplyTimer);
         _reapplyTimer = setTimeout(reapply, 200);
     }
 
-    let _reapplyTimer = null;
-
     /**
-     * Set pending customers data from external source (e.g. API fetch)
+     * Set pending customers data from external source (e.g. server API fetch).
+     * MERGES with existing data instead of replacing, so realtime + localStorage
+     * data is not lost if server has incomplete data.
      */
     function setPendingCustomers(customers) {
-        _pendingCustomers = customers || [];
+        if (!customers || !customers.length) {
+            // Server returned empty — keep existing data (from localStorage/realtime)
+            reapply();
+            return;
+        }
+
+        // Merge: existing data + server data
+        const merged = new Map();
+
+        // Load existing first (from localStorage/realtime)
+        _pendingCustomers.forEach(pc => {
+            const key = String(pc.psid || '');
+            if (key) merged.set(key, { ...pc });
+        });
+
+        // Merge server data (take higher count — server accumulates while browser offline)
+        customers.forEach(pc => {
+            const key = String(pc.psid || '');
+            if (!key) return;
+            const existing = merged.get(key);
+            if (existing) {
+                existing.inboxCount = Math.max(existing.inboxCount || 0, pc.inboxCount || 0);
+                existing.commentCount = Math.max(existing.commentCount || 0, pc.commentCount || 0);
+                if ((pc.timestamp || 0) > (existing.timestamp || 0)) {
+                    existing.snippet = pc.snippet || existing.snippet;
+                    existing.timestamp = pc.timestamp;
+                }
+                existing.pageId = pc.pageId || existing.pageId;
+            } else {
+                merged.set(key, { ...pc });
+            }
+        });
+
+        _pendingCustomers = [...merged.values()];
+        _saveToLocalStorage();
         reapply();
     }
 
     /**
-     * Clear pending status for a specific customer (e.g. after reading messages)
+     * Clear pending status for a specific customer (e.g. after sending reply)
      */
     function clearPendingForCustomer(psid) {
         if (!psid) return;
         _pendingCustomers = _pendingCustomers.filter(pc =>
             String(pc.psid || pc.from_psid || '') !== String(psid)
         );
+        _saveToLocalStorage();
         reapply();
     }
 
@@ -163,6 +255,7 @@
      */
     function clearAll() {
         _pendingCustomers = [];
+        _saveToLocalStorage();
         // Remove all highlights
         document.querySelectorAll('.pending-customer-row').forEach(row => {
             row.classList.remove('pending-customer-row');
@@ -194,13 +287,21 @@
             // Pancake raw format: { conversation: { from_psid, page_id, unread_count, type, snippet } }
             const conv = payload?.conversation || payload;
             const unread = conv?.unread_count || payload?.unread_count || 0;
-            if (unread > 0) {
+            const snippet = conv?.snippet || '';
+            const fromId = String(conv?.from_psid || conv?.from?.id || conv?.customers?.[0]?.fb_id || payload?.from_psid || '');
+            const pageId = String(conv?.page_id || payload?.page_id || '');
+
+            // Reactions: unread_count=0, seen=true, but snippet starts with [emoji Name]
+            // e.g. "[❤ Huỳnh Thành Đạt] ...\nNv. Administrator"
+            const isReaction = unread <= 0 && /^\[.{1,2}\s/.test(snippet) && fromId && fromId !== pageId;
+
+            if (unread > 0 || isReaction) {
                 const normalized = {
-                    psid: String(conv?.from_psid || conv?.from?.id || conv?.customers?.[0]?.fb_id || payload?.from_psid || ''),
-                    pageId: String(conv?.page_id || payload?.page_id || ''),
-                    snippet: conv?.snippet || '',
+                    psid: fromId,
+                    pageId: pageId,
+                    snippet: snippet,
                     type: conv?.type || 'INBOX',
-                    unread_count: unread,
+                    unread_count: unread || 1,
                 };
                 if (normalized.psid) onNewConversationEvent(normalized);
             }

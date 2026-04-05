@@ -51,6 +51,9 @@
         GIU_DON:      { key: 'GIU_DON',      label: 'GIỮ ĐƠN',     auto: false, icon: '\u{231B}' },
         QUA_LAY:      { key: 'QUA_LAY',      label: 'QUA LẤY',     auto: false, icon: '\u{1F3E0}' },
         GOI_BAO_KHACH_HH: { key: 'GOI_BAO_KHACH_HH', label: 'GỌI BÁO KHÁCH HH', auto: false, icon: '\u{1F4DE}' },
+        KHACH_BOOM:   { key: 'KHACH_BOOM',   label: 'KHÁCH BOOM',     auto: false, icon: '\u{1F4A5}' },
+        THE_KHACH_LA: { key: 'THE_KHACH_LA', label: 'THẺ KHÁCH LẠ',   auto: false, icon: '\u{1FAAA}' },
+        DA_DI_DON_GAP:{ key: 'DA_DI_DON_GAP',label: 'ĐÃ ĐI ĐƠN GẤP', auto: false, icon: '\u{26A1}' },
         KHAC:         { key: 'KHAC',         label: 'KHÁC',        auto: false, icon: '\u{1F4CB}', hasNote: true }
     };
 
@@ -79,8 +82,9 @@
         cat_4: 'Khách hủy hoặc không liên lạc được sau chốt đơn.',
         // Sub-states
         sub_OKIE_CHO_DI_DON: 'Đủ hàng, sẵn sàng ra bill. Không có tag T nào.',
+        sub_OKIE_NO_DELAY: 'Okie Chờ Đi Đơn — loại bỏ đơn có Chờ Live, Qua Lấy, Giữ Đơn.',
         sub_CHO_HANG: 'Thiếu hàng, chờ hàng về. Có ít nhất 1 tag T.',
-        sub_CHO_HANG_DA_IN: 'Đơn chờ hàng đã in phiếu soạn hoặc chỉ có 1 mã SP.',
+        sub_CHO_HANG_DA_IN: 'Đơn chờ hàng đã in phiếu soạn.',
         sub_CHO_HANG_CHUA_IN: 'Đơn chờ hàng chưa in phiếu soạn.',
         // Flags
         flag_TRU_CONG_NO: 'Ví khách có virtual balance (công nợ ảo). Auto-detect từ ví.',
@@ -89,6 +93,9 @@
         flag_CHO_LIVE: 'Chờ gộp vào live sau, in phiếu soạn hàng ghi chú.',
         flag_GIU_DON: 'Giữ 10-20 ngày, khách đã CK đủ nhưng chưa muốn nhận.',
         flag_QUA_LAY: 'Khách qua shop lấy, soạn hàng để kệ qua lấy.',
+        flag_KHACH_BOOM: 'Khách boom/hủy đơn.',
+        flag_THE_KHACH_LA: 'Thẻ khách lạ.',
+        flag_DA_DI_DON_GAP: 'Đơn đã đi gấp.',
         flag_KHAC: 'Ghi chú tự do cho trường hợp đặc biệt.',
         // Sub-tags cat 2
         subtag_CHUA_PHAN_HOI: 'Khách chưa trả lời tin nhắn + chưa gọi được.',
@@ -717,10 +724,8 @@
             // Auto sub-state from internal tTags
             data.subState = data.tTags.length > 0 ? 'CHO_HANG' : 'OKIE_CHO_DI_DON';
 
-            // Auto picking slip for single-SKU CHO_HANG orders
-            if (data.subState === 'CHO_HANG') {
-                data.pickingSlipPrinted = await _ptagIsSingleSkuOrder(orderCode);
-            }
+            // pickingSlipPrinted: chỉ đánh dấu khi user in phiếu hoặc toggle thủ công
+            // (đã bỏ auto single-SKU detection)
 
             // Auto-detect flags from wallet
             const phone = _ptagGetOrderPhone(orderCode);
@@ -751,6 +756,17 @@
         _ptagRefreshRow(orderCode);
         renderPanelContent();
         await saveProcessingTagToAPI(orderCode, data);
+
+        // Sync TAG XL → TPOS: gán subtag có mapping
+        if (options.subTag && window.syncPtagToTPOS) {
+            window.syncPtagToTPOS(orderCode, 'add', `subtag:${options.subTag}`).catch(e =>
+                console.warn('[PTAG-TPOS] Sync failed:', e.message));
+            // Remove TPOS tag cũ nếu chuyển từ subtag khác
+            if (existingData?.subTag && existingData.subTag !== options.subTag) {
+                window.syncPtagToTPOS(orderCode, 'remove', `subtag:${existingData.subTag}`).catch(e =>
+                    console.warn('[PTAG-TPOS] Remove old subtag sync failed:', e.message));
+            }
+        }
     }
 
     async function autoDetectFlags(orderCode, phone) {
@@ -789,6 +805,13 @@
         _ptagRefreshRow(orderCode);
         renderPanelContent();
         await saveProcessingTagToAPI(orderCode, data);
+
+        // Sync TAG XL → TPOS
+        if (window.syncPtagToTPOS) {
+            const keyPrefix = flagKey.startsWith('CUSTOM_') ? 'custom' : 'flag';
+            window.syncPtagToTPOS(orderCode, isAdding ? 'add' : 'remove', `${keyPrefix}:${flagKey}`).catch(e =>
+                console.warn('[PTAG-TPOS] Flag sync failed:', e.message));
+        }
     }
 
     async function clearProcessingTag(orderCode) {
@@ -846,10 +869,7 @@
         // Auto sub-state ONLY when at Cat 1 "Okie Chờ Đi Đơn"
         if (data.category === PTAG_CATEGORIES.CHO_DI_DON && data.subState === 'OKIE_CHO_DI_DON') {
             data.subState = 'CHO_HANG';
-            // Auto picking slip for single-SKU orders
-            if (await _ptagIsSingleSkuOrder(orderCode)) {
-                data.pickingSlipPrinted = true;
-            }
+            // pickingSlipPrinted: chỉ khi user in phiếu hoặc toggle thủ công
         }
         _ptagEnsureCode(orderCode, data);
         ProcessingTagState.setOrderData(orderCode, data);
@@ -857,6 +877,12 @@
         _ptagRefreshRow(orderCode);
         renderPanelContent();
         await saveProcessingTagToAPI(orderCode, data);
+
+        // Sync TAG XL → TPOS
+        if (window.syncPtagToTPOS) {
+            window.syncPtagToTPOS(orderCode, 'add', `ttag:${tagId}`).catch(e =>
+                console.warn('[PTAG-TPOS] T-tag sync failed:', e.message));
+        }
     }
 
     async function removeTTagFromOrder(orderCode, tagId) {
@@ -873,6 +899,12 @@
         _ptagRefreshRow(orderCode);
         renderPanelContent();
         await saveProcessingTagToAPI(orderCode, data);
+
+        // Sync TAG XL → TPOS
+        if (window.syncPtagToTPOS) {
+            window.syncPtagToTPOS(orderCode, 'remove', `ttag:${tagId}`).catch(e =>
+                console.warn('[PTAG-TPOS] T-tag remove sync failed:', e.message));
+        }
     }
 
     // Transfer processing tags (flags + tTags) from source order to target order
@@ -942,10 +974,13 @@
         };
     }
 
-    // DEPRECATED — T-tags now managed internally, not from TPOS
-    // Kept as no-op to avoid breaking call sites in tab1-tags.js
+    // TPOS → TAG XL reverse sync: when TPOS tags change, auto-sync to TAG XL
+    // Called from tab1-tags.js after saveOrderTags / quickAssignTag
     function onPtagOrderTagsChanged(orderId, newTags) {
-        // no-op
+        if (!orderId || !window.syncTPOSToPtag) return;
+        window.syncTPOSToPtag(orderId, newTags).catch(e =>
+            console.warn(`${PTAG_LOG} TPOS→XL sync failed:`, e.message)
+        );
     }
 
     // Auto transition: bill created → ĐÃ RA ĐƠN
@@ -1008,8 +1043,8 @@
 
         data.pickingSlipPrinted = true;
 
-        // Nếu chưa có category → set CHO_DI_DON + CHO_HANG
-        if (data.category === null || data.category === undefined) {
+        // Auto gán Cat 1 / CHO_HANG khi: chưa có category hoặc đang ở Cat 2 (Xử Lý)
+        if (data.category == null || data.category === PTAG_CATEGORIES.XU_LY) {
             data.category = PTAG_CATEGORIES.CHO_DI_DON;
             data.subState = 'CHO_HANG';
             data.assignedAt = Date.now();
@@ -1109,6 +1144,7 @@
         // Buttons row: [🏷 tags] [⏰ wait] [✓ ok] — identical to TPOS tag column
         const btns = `<div class="ptag-cell-buttons">` +
             `<button class="ptag-tag-btn" onclick="window._ptagOpenDropdown('${orderCode}', this); event.stopPropagation();" title="Chọn trạng thái"><i class="fas fa-tags"></i></button>` +
+            `<button class="ptag-quick-btn ptag-quick-btn--print" onclick="window._ptagQuickAssign('${orderCode}', 'print'); event.stopPropagation();" title="Đánh dấu đã in phiếu soạn"><i class="fas fa-print"></i></button>` +
             `<button class="ptag-quick-btn ptag-quick-btn--wait" onclick="window._ptagQuickAssign('${orderCode}', 'wait'); event.stopPropagation();" title="Đơn chưa phản hồi"><i class="fas fa-clock"></i></button>` +
             `<button class="ptag-quick-btn ptag-quick-btn--ok" onclick="window._ptagQuickAssign('${orderCode}', 'ok'); event.stopPropagation();" title="Okie Chờ Đi Đơn"><i class="fas fa-check"></i></button>` +
             `<button class="ptag-history-btn" onclick="window._ptagShowHistory('${orderCode}', this); event.stopPropagation();" title="Xem lịch sử tag"><i class="fas fa-history"></i></button>` +
@@ -1123,10 +1159,9 @@
         let badges = '';
         const oc = orderCode; // shorthand for onclick
 
-        // 1. Category badge (tag xử lý) — FIRST — with × to remove
+        // 1. Category badge (tag xử lý) — FIRST — không có nút × (category không thể xóa, chỉ chuyển)
         if (data.category !== null && data.category !== undefined) {
             const catColor = PTAG_CATEGORY_COLORS[data.category];
-            const removeBtn = `<button class="ptag-badge-remove" onclick="window._ptagClear('${oc}'); event.stopPropagation();" title="Xóa tag">&times;</button>`;
             if (data.category === PTAG_CATEGORIES.HOAN_TAT) {
                 badges += `<span class="ptag-badge ptag-cat-0">🟢 ĐÃ RA ĐƠN</span>`;
             } else if (data.category === PTAG_CATEGORIES.CHO_DI_DON) {
@@ -1135,11 +1170,11 @@
                 let badgeColor = ss.color;
                 const printIcon = (data.subState === 'CHO_HANG' && data.pickingSlipPrinted)
                     ? ' <i class="fas fa-print" style="font-size:10px;color:#10b981;margin-left:3px;"></i>' : '';
-                badges += `<span class="ptag-badge ptag-badge-removable" style="border-color:${badgeColor};color:${badgeColor};background:${badgeColor}12;">${label}${printIcon}${removeBtn}</span>`;
+                badges += `<span class="ptag-badge" style="border-color:${badgeColor};color:${badgeColor};background:${badgeColor}12;">${label}${printIcon}</span>`;
             } else {
                 const subTagDef = PTAG_SUBTAGS[data.subTag];
                 const label = subTagDef?.label || PTAG_CATEGORY_META[data.category]?.short || '';
-                badges += `<span class="ptag-badge ptag-badge-removable" style="border-color:${catColor.border};color:${catColor.text};background:${catColor.bg};">${label}${removeBtn}</span>`;
+                badges += `<span class="ptag-badge" style="border-color:${catColor.border};color:${catColor.text};background:${catColor.bg};">${label}</span>`;
             }
         }
 
@@ -1298,7 +1333,9 @@
         // Input container: pills + search input
         html += `<div class="ptag-dd-input-container">`;
         selectedTags.forEach(t => {
-            html += `<span class="ptag-dd-pill" style="background:${_ptagPillColor(t)};" data-key="${t.key}">${t.label} <button onclick="window._ptagDdRemovePill('${t.key}'); event.stopPropagation();">&times;</button></span>`;
+            const isCat = t.key.startsWith('cat:');
+            const removeHtml = isCat ? '' : ` <button onclick="window._ptagDdRemovePill('${t.key}'); event.stopPropagation();">&times;</button>`;
+            html += `<span class="ptag-dd-pill" style="background:${_ptagPillColor(t)};" data-key="${t.key}">${t.label}${removeHtml}</span>`;
         });
         html += `<input type="text" class="ptag-dd-input" id="ptag-dd-input" placeholder="Tìm tag..." />`;
         html += `</div>`;
@@ -1372,15 +1409,22 @@
         if (key === 'picking-slip') {
             // Toggle pickingSlipPrinted on current order
             let data = ProcessingTagState.getOrderData(orderCode);
-            if (data) {
-                data.pickingSlipPrinted = !data.pickingSlipPrinted;
-                _ptagAddHistory(orderCode, data.pickingSlipPrinted ? 'SET_PHIEU_SOAN' : 'UNSET_PHIEU_SOAN', '', '');
-                ProcessingTagState.setOrderData(orderCode, data);
-                _ptagRefreshRow(orderCode);
-                renderPanelContent();
-                _ptagEnsureCode(orderCode, data);
-                saveProcessingTagToAPI(orderCode, data);
+            if (!data) {
+                data = { category: null, subTag: null, subState: null, flags: [], tTags: [], note: '', assignedAt: Date.now() };
             }
+            data.pickingSlipPrinted = !data.pickingSlipPrinted;
+            _ptagAddHistory(orderCode, data.pickingSlipPrinted ? 'SET_PHIEU_SOAN' : 'UNSET_PHIEU_SOAN', '', '');
+            // Auto gán Cat 1 / CHO_HANG khi bật — giống onPtagPackingSlipPrinted
+            if (data.pickingSlipPrinted && (data.category == null || data.category === PTAG_CATEGORIES.XU_LY)) {
+                data.category = PTAG_CATEGORIES.CHO_DI_DON;
+                data.subState = 'CHO_HANG';
+                data.assignedAt = Date.now();
+            }
+            _ptagEnsureCode(orderCode, data);
+            ProcessingTagState.setOrderData(orderCode, data);
+            _ptagRefreshRow(orderCode);
+            renderPanelContent();
+            saveProcessingTagToAPI(orderCode, data);
             _ptagRefreshDropdownState();
             return;
         }
@@ -1432,8 +1476,8 @@
             const ttagId = key.replace('dtag:', '');
             removeTTagFromOrder(orderCode, ttagId);
         } else if (key.startsWith('cat:')) {
-            // Remove processing tag = clear category
-            clearProcessingTag(orderCode);
+            // Category không thể xóa — chỉ chuyển giữa các cat
+            return;
         } else if (key.startsWith('flag:')) {
             const flagKey = key.replace('flag:', '');
             toggleOrderFlag(orderCode, flagKey);
@@ -1462,7 +1506,9 @@
                 pill.className = 'ptag-dd-pill';
                 pill.style.background = _ptagPillColor(t);
                 pill.dataset.key = t.key;
-                pill.innerHTML = `${t.label} <button onclick="window._ptagDdRemovePill('${t.key}'); event.stopPropagation();">&times;</button>`;
+                const isCat = t.key.startsWith('cat:');
+                const removeHtml = isCat ? '' : ` <button onclick="window._ptagDdRemovePill('${t.key}'); event.stopPropagation();">&times;</button>`;
+                pill.innerHTML = `${t.label}${removeHtml}`;
                 container.insertBefore(pill, input);
             });
         }
@@ -1710,6 +1756,24 @@
             assignOrderCategory(orderCode, PTAG_CATEGORIES.CHO_DI_DON, { subTag: null });
         } else if (type === 'wait') {
             assignOrderCategory(orderCode, PTAG_CATEGORIES.XU_LY, { subTag: 'CHUA_PHAN_HOI' });
+        } else if (type === 'print') {
+            // Toggle pickingSlipPrinted + auto Cat 1/CHO_HANG (giống dropdown toggle)
+            let data = ProcessingTagState.getOrderData(orderCode);
+            if (!data) {
+                data = { category: null, subTag: null, subState: null, flags: [], tTags: [], note: '', assignedAt: Date.now() };
+            }
+            data.pickingSlipPrinted = !data.pickingSlipPrinted;
+            _ptagAddHistory(orderCode, data.pickingSlipPrinted ? 'SET_PHIEU_SOAN' : 'UNSET_PHIEU_SOAN', '', '');
+            if (data.pickingSlipPrinted && (data.category == null || data.category === PTAG_CATEGORIES.XU_LY)) {
+                data.category = PTAG_CATEGORIES.CHO_DI_DON;
+                data.subState = 'CHO_HANG';
+                data.assignedAt = Date.now();
+            }
+            _ptagEnsureCode(orderCode, data);
+            ProcessingTagState.setOrderData(orderCode, data);
+            _ptagRefreshRow(orderCode);
+            renderPanelContent();
+            saveProcessingTagToAPI(orderCode, data);
         }
     }
 
@@ -1743,8 +1807,10 @@
                     </button>
                 </div>
             </div>
-            <div class="ptag-panel-search">
-                <input type="text" placeholder="Tìm trạng thái..." oninput="window._ptagFilterPanel(this.value)" />
+            <div id="ptag-panel-summary">
+                <div class="ptag-panel-search">
+                    <input type="text" placeholder="Tìm trạng thái..." oninput="window._ptagFilterPanel(this.value)" />
+                </div>
             </div>
             <div class="ptag-panel-body" id="ptag-panel-body"></div>
         `;
@@ -1791,6 +1857,14 @@
             if (data.category === PTAG_CATEGORIES.CHO_DI_DON) {
                 const ss = (data.tTags || []).length > 0 ? 'CHO_HANG' : 'OKIE_CHO_DI_DON';
                 subStateCounts[ss] = (subStateCounts[ss] || 0) + 1;
+                // OKIE_NO_DELAY: Okie Chờ Đi Đơn mà KHÔNG có flag Chờ Live / Qua Lấy / Giữ Đơn
+                if (ss === 'OKIE_CHO_DI_DON') {
+                    const flagIds = (data.flags || []).map(f => _ptagFlagId(f));
+                    const hasDelay = flagIds.includes('CHO_LIVE') || flagIds.includes('QUA_LAY') || flagIds.includes('GIU_DON');
+                    if (!hasDelay) {
+                        subStateCounts['OKIE_NO_DELAY'] = (subStateCounts['OKIE_NO_DELAY'] || 0) + 1;
+                    }
+                }
                 if (ss === 'CHO_HANG') {
                     if (data.pickingSlipPrinted) {
                         subStateCounts['CHO_HANG_DA_IN'] = (subStateCounts['CHO_HANG_DA_IN'] || 0) + 1;
@@ -1837,39 +1911,67 @@
         const activeFilter = ProcessingTagState._activeFilter;
         const activeFlagFilters = ProcessingTagState._activeFlagFilters;
 
+        // --- Summary Stats: render vào container riêng (ngoài scroll area) ---
+        {
+            let summaryEl = document.getElementById('ptag-panel-summary-content');
+            if (!summaryEl) {
+                const container = document.getElementById('ptag-panel-summary');
+                if (container) {
+                    const div = document.createElement('div');
+                    div.id = 'ptag-panel-summary-content';
+                    container.appendChild(div);
+                    summaryEl = div;
+                }
+            }
+            if (summaryEl) {
+                const koCan = catCounts[3] || 0;
+                const gioTrong = subTagCounts['GIO_TRONG'] || 0;
+                const daGop = subTagCounts['DA_GOP_KHONG_CHOT'] || 0;
+                const donChot = totalOrders - koCan;
+                const raDon = catCounts[0] || 0;
+                const oke = catCounts[1] || 0;
+                const diDon = subStateCounts['OKIE_CHO_DI_DON'] || 0;
+                const choHang = subStateCounts['CHO_HANG'] || 0;
+                const xuLy = catCounts[2] || 0;
+
+                summaryEl.innerHTML = `<div class="ptag-summary-stats">
+                    <!-- Dòng 1: Công thức -->
+                    <div class="ptag-summary-row ptag-summary-formula">
+                        <span>TỔNG </span>
+                        <span class="ptag-stat-num ptag-stat-clickable ${activeFilter === null && activeFlagFilters.size === 0 ? 'active' : ''}" onclick="window._ptagSetFilter(null)">${totalOrders}</span>
+                        <span> - </span>
+                        <span class="ptag-stat-num ptag-stat-clickable ${activeFilter === 'cat_3' ? 'active' : ''}" onclick="window._ptagSetFilter('cat_3')">${koCan}</span>
+                        <span class="ptag-formula-detail"> (<span class="ptag-stat-clickable ${activeFilter === 'subtag_GIO_TRONG' ? 'active' : ''}" onclick="window._ptagSetFilter('subtag_GIO_TRONG')">${gioTrong}</span> TRỐNG + <span class="ptag-stat-clickable ${activeFilter === 'subtag_DA_GOP_KHONG_CHOT' ? 'active' : ''}" onclick="window._ptagSetFilter('subtag_DA_GOP_KHONG_CHOT')">${daGop}</span> GỘP)</span>
+                        <span> = </span>
+                        <span class="ptag-stat-num ptag-stat-highlight ptag-stat-clickable ${activeFilter === '__don_chot__' ? 'active' : ''}" onclick="window._ptagSetFilter('__don_chot__')">${donChot}</span>
+                        <span class="ptag-stat-highlight"> CHỐT</span>
+                    </div>
+
+                    <!-- Dòng 2: RA ĐƠN + OKE -->
+                    <div class="ptag-summary-row">
+                        <div class="ptag-stat-box ptag-stat-green ${activeFilter === 'cat_0' ? 'active' : ''}" onclick="window._ptagSetFilter('cat_0')">
+                            <span class="ptag-stat-num">${raDon}</span> <span>RA ĐƠN</span>
+                        </div>
+                        <div class="ptag-stat-box ptag-stat-blue ${activeFilter === 'cat_1' ? 'active' : ''}" onclick="window._ptagSetFilter('cat_1')">
+                            <span class="ptag-stat-num">${oke}</span> <span>OKE</span>
+                            <span class="ptag-stat-sub">(<span class="ptag-stat-clickable ${activeFilter === 'sub_OKIE_NO_DELAY' ? 'active' : ''}" onclick="window._ptagSetFilter('sub_OKIE_NO_DELAY'); event.stopPropagation();"><i class="fas fa-check" style="color:#10b981;"></i>${subStateCounts['OKIE_NO_DELAY'] || 0}</span> + <span class="ptag-stat-clickable ${activeFilter === 'sub_CHO_HANG' ? 'active' : ''}" onclick="window._ptagSetFilter('sub_CHO_HANG'); event.stopPropagation();"><i class="fas fa-clock" style="color:#f59e0b;"></i>${choHang}</span>)</span>
+                        </div>
+                    </div>
+
+                    <!-- Dòng 3: XỬ LÝ + CHƯA GÁN -->
+                    <div class="ptag-summary-row">
+                        <div class="ptag-stat-box ptag-stat-amber ${activeFilter === 'cat_2' ? 'active' : ''}" onclick="window._ptagSetFilter('cat_2')">
+                            <span class="ptag-stat-num">${xuLy}</span> <span>XỬ LÝ</span>
+                        </div>
+                        <div class="ptag-stat-box ptag-stat-gray ${activeFilter === '__no_tag__' ? 'active' : ''}" onclick="window._ptagSetFilter('__no_tag__')">
+                            <span class="ptag-stat-num">${untaggedCount}</span> <span>CHƯA GÁN</span>
+                        </div>
+                    </div>
+                </div>`;
+            }
+        }
+
         let html = '';
-
-        // --- Special filters: TẤT CẢ & CHƯA GÁN TAG ---
-        html += `<div class="ptag-panel-card ${activeFilter === null && activeFlagFilters.size === 0 ? 'active' : ''}" onclick="window._ptagSetFilter(null)" data-search="tat ca">
-            <div class="ptag-panel-card-icon" style="background:#6b7280;">
-                <i class="fas fa-globe" style="color:#fff;font-size:14px;"></i>
-            </div>
-            <div class="ptag-panel-card-info">
-                <div class="ptag-panel-card-name">TẤT CẢ</div>
-                <div class="ptag-panel-card-count">${totalOrders} đơn hàng</div>
-            </div>
-        </div>`;
-        html += `<div class="ptag-panel-card ${activeFilter === '__no_tag__' ? 'active' : ''}" onclick="window._ptagSetFilter('__no_tag__')" data-search="chua gan tag xl">
-            <div class="ptag-panel-card-icon" style="background:#d1d5db;">
-                <i class="fas fa-tag" style="color:#6b7280;font-size:14px;"></i>
-            </div>
-            <div class="ptag-panel-card-info">
-                <div class="ptag-panel-card-name">CHƯA GÁN TAG XL</div>
-                <div class="ptag-panel-card-count">${untaggedCount} đơn hàng</div>
-            </div>
-        </div>`;
-
-        // --- Category 0 — HOÀN TẤT ---
-        html += `<div class="ptag-panel-card ${activeFilter === 'cat_0' ? 'active' : ''}" onclick="window._ptagSetFilter('cat_0')" data-search="${_ptagNormalize(PTAG_CATEGORY_META[0].name)}">
-            <div class="ptag-panel-card-icon" style="background:${PTAG_CATEGORY_COLORS[0].border};">
-                <i class="fas ${PTAG_CATEGORY_META[0].icon}" style="color:#fff;font-size:14px;"></i>
-            </div>
-            <div class="ptag-panel-card-info">
-                <div class="ptag-panel-card-name">${PTAG_CATEGORY_META[0].emoji} ${PTAG_CATEGORY_META[0].name}</div>
-                <div class="ptag-panel-card-count">${catCounts[0]} đơn hàng</div>
-            </div>
-            ${_tooltipHtml('cat_0')}
-        </div>`;
 
         // --- Mini stat boxes: Chờ Live | Giữ Đơn + Qua Lấy ---
         {
@@ -1901,6 +2003,13 @@
         for (const [key, ss] of Object.entries(PTAG_SUBSTATES)) {
             const fk = 'sub_' + key;
             const ssIcon = key === 'OKIE_CHO_DI_DON' ? 'fa-check' : 'fa-hourglass-half';
+            // OKIE_CHO_DI_DON: inline filter icon to exclude Chờ Live / Qua Lấy / Giữ Đơn
+            const okieNoDelayIcon = key === 'OKIE_CHO_DI_DON' ? `<div style="display:flex;gap:4px;margin-left:auto;flex-shrink:0;">
+                <button class="ptag-panel-inline-icon ${activeFilter === 'sub_OKIE_NO_DELAY' ? 'active' : ''}" onclick="window._ptagSetFilter('sub_OKIE_NO_DELAY'); event.stopPropagation();" title="Loại Chờ Live, Qua Lấy, Giữ Đơn (${subStateCounts['OKIE_NO_DELAY'] || 0})" style="position:relative;width:28px;height:28px;border:2px solid ${activeFilter === 'sub_OKIE_NO_DELAY' ? '#3b82f6' : '#d1d5db'};border-radius:6px;background:${activeFilter === 'sub_OKIE_NO_DELAY' ? 'rgba(59,130,246,0.12)' : '#fff'};cursor:pointer;display:flex;align-items:center;justify-content:center;">
+                    <i class="fas fa-filter" style="font-size:11px;color:#3b82f6;"></i>
+                    <span style="position:absolute;top:-6px;right:-6px;background:#3b82f6;color:#fff;font-size:9px;min-width:14px;height:14px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:600;">${subStateCounts['OKIE_NO_DELAY'] || 0}</span>
+                </button>
+            </div>` : '';
             // CHO_HANG: inline filter icons for Đã in phiếu / Chưa in phiếu
             const inlineIcons = key === 'CHO_HANG' ? `<div style="display:flex;gap:4px;margin-left:auto;flex-shrink:0;">
                 <button class="ptag-panel-inline-icon ${activeFilter === 'sub_CHO_HANG_DA_IN' ? 'active' : ''}" onclick="window._ptagSetFilter('sub_CHO_HANG_DA_IN'); event.stopPropagation();" title="Đã in phiếu (${subStateCounts['CHO_HANG_DA_IN'] || 0})" style="position:relative;width:28px;height:28px;border:2px solid ${activeFilter === 'sub_CHO_HANG_DA_IN' ? '#10b981' : '#d1d5db'};border-radius:6px;background:${activeFilter === 'sub_CHO_HANG_DA_IN' ? 'rgba(16,185,129,0.12)' : '#fff'};cursor:pointer;display:flex;align-items:center;justify-content:center;">
@@ -1913,7 +2022,7 @@
                     <span style="position:absolute;top:-6px;right:-6px;background:#ef4444;color:#fff;font-size:9px;min-width:14px;height:14px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-weight:600;">${subStateCounts['CHO_HANG_CHUA_IN'] || 0}</span>
                 </button>
             </div>` : '';
-            html += `<div class="ptag-panel-card ${activeFilter === fk ? 'active' : ''}" onclick="window._ptagSetFilter('${fk}')" data-search="${_ptagNormalize(ss.label)} da in phieu chua in phieu">
+            html += `<div class="ptag-panel-card ${activeFilter === fk || (key === 'OKIE_CHO_DI_DON' && activeFilter === 'sub_OKIE_NO_DELAY') ? 'active' : ''}" onclick="window._ptagSetFilter('${fk}')" data-search="${_ptagNormalize(ss.label)} da in phieu chua in phieu">
                 <div class="ptag-panel-card-icon" style="background:${ss.color};">
                     <i class="fas ${ssIcon}" style="color:#fff;font-size:13px;"></i>
                 </div>
@@ -1922,7 +2031,7 @@
                         <div class="ptag-panel-card-name">${ss.label}</div>
                         <div class="ptag-panel-card-count">${subStateCounts[key] || 0} đơn hàng</div>
                     </div>
-                    ${inlineIcons}
+                    ${okieNoDelayIcon}${inlineIcons}
                 </div>
                 ${_tooltipHtml(fk)}
             </div>`;
@@ -2104,15 +2213,21 @@
 
         if (filter === '__no_tag__') {
             parts.push('Chưa gán');
+        } else if (filter === '__don_chot__') {
+            parts.push('Đơn Chốt');
         } else if (filter && filter.startsWith('cat_')) {
             const catId = parseInt(filter.replace('cat_', ''));
             const meta = PTAG_CATEGORY_META[catId];
             if (meta) parts.push(meta.short);
         } else if (filter && filter.startsWith('sub_')) {
             const subKey = filter.replace('sub_', '');
-            const ss = PTAG_SUBSTATES[subKey];
-            if (ss) parts.push(ss.label);
-            else parts.push(subKey);
+            if (subKey === 'OKIE_NO_DELAY') {
+                parts.push('Okie (ko delay)');
+            } else {
+                const ss = PTAG_SUBSTATES[subKey];
+                if (ss) parts.push(ss.label);
+                else parts.push(subKey);
+            }
         } else if (filter && filter.startsWith('subtag_')) {
             const stKey = filter.replace('subtag_', '');
             const st = PTAG_SUBTAGS[stKey];
@@ -3950,86 +4065,43 @@
     }
 
     /**
-     * Load order details from Firestore collection 'report_order_details'.
-     * Smart cache: checks updatedAt from main doc (1 read) before reloading chunks.
+     * Load order details from CampaignAPI (PostgreSQL).
+     * Smart cache: reuses cached data if tableName matches.
      */
     async function _ptagLoadReportOrderDetails() {
         const tableName = window.campaignManager?.activeCampaign?.name
             || localStorage.getItem('orders_table_name') || '';
         if (!tableName) return null;
 
-        const db = window.firestoreDb || (typeof firebase !== 'undefined' && firebase.firestore());
-        if (!db) {
-            console.warn(`${PTAG_LOG} Firestore not available for loading report order details`);
-            return null;
-        }
-
-        const safeTableName = tableName.replace(/[.$#\[\]\/]/g, '_');
-        const FIREBASE_PATH = 'report_order_details';
-
-        // If cache exists → check if data changed (1 lightweight Firestore read)
+        // Use cache if same table
         if (_reportOrderDetailsCache && _reportOrderDetailsCache.tableName === tableName) {
-            try {
-                const docRef = db.collection(FIREBASE_PATH).doc(safeTableName);
-                const doc = await docRef.get();
-                if (doc.exists) {
-                    const serverUpdatedAt = _tsToMillis(doc.data().updatedAt);
-                    const cachedUpdatedAt = _tsToMillis(_reportOrderDetailsCache.updatedAt);
-                    if (serverUpdatedAt > 0 && serverUpdatedAt === cachedUpdatedAt) {
-                        console.log(`${PTAG_LOG} Report data unchanged, using cache (${_reportOrderDetailsCache.orders.length} orders)`);
-                        return _reportOrderDetailsCache.orders;
-                    }
-                    console.log(`${PTAG_LOG} Report data updated on server, refreshing cache...`);
-                }
-            } catch (e) {
-                // If check fails, still use cache as fallback
-                console.warn(`${PTAG_LOG} Cache check failed, using existing cache`, e);
-                return _reportOrderDetailsCache.orders;
-            }
+            console.log(`${PTAG_LOG} Using cached report data (${_reportOrderDetailsCache.orders.length} orders)`);
+            return _reportOrderDetailsCache.orders;
         }
 
         // Prevent duplicate concurrent loads
         if (_reportOrderDetailsLoading) return _reportOrderDetailsLoading;
 
-        _reportOrderDetailsLoading = _ptagLoadReportOrderDetailsInner(tableName, db, safeTableName, FIREBASE_PATH);
+        _reportOrderDetailsLoading = (async () => {
+            try {
+                const report = await window.CampaignAPI.getReport(tableName);
+                const orders = report?.orders || [];
+                console.log(`${PTAG_LOG} Loaded ${orders.length} orders from API`);
+                _reportOrderDetailsCache = { tableName, orders, updatedAt: report?.updatedAt };
+                return orders;
+            } catch (e) {
+                if (e.message?.includes('404') || e.message?.includes('not found')) {
+                    console.log(`${PTAG_LOG} No report data for table: ${tableName}`);
+                    return null;
+                }
+                console.error(`${PTAG_LOG} Error loading report order details:`, e);
+                return null;
+            }
+        })();
         try {
             return await _reportOrderDetailsLoading;
         } finally {
             _reportOrderDetailsLoading = null;
-        }
-    }
-
-    async function _ptagLoadReportOrderDetailsInner(tableName, db, safeTableName, FIREBASE_PATH) {
-        try {
-            const docRef = db.collection(FIREBASE_PATH).doc(safeTableName);
-            const doc = await docRef.get();
-            if (!doc.exists) {
-                console.log(`${PTAG_LOG} No report data in Firestore for table: ${tableName}`);
-                return null;
-            }
-
-            const data = doc.data();
-            let orders;
-
-            if (data.isChunked) {
-                const chunksSnapshot = await docRef.collection('order_chunks')
-                    .orderBy('chunkIndex').get();
-                orders = [];
-                chunksSnapshot.forEach(chunkDoc => {
-                    const chunkData = chunkDoc.data();
-                    if (chunkData.orders) orders.push(...chunkData.orders);
-                });
-                console.log(`${PTAG_LOG} Loaded ${orders.length} orders from ${chunksSnapshot.size} chunks (report_order_details)`);
-            } else {
-                orders = data.orders || [];
-                console.log(`${PTAG_LOG} Loaded ${orders.length} orders from report_order_details`);
-            }
-
-            _reportOrderDetailsCache = { tableName, orders, updatedAt: data.updatedAt };
-            return orders;
-        } catch (e) {
-            console.error(`${PTAG_LOG} Error loading report order details:`, e);
-            return null;
         }
     }
 
@@ -4214,6 +4286,9 @@
         if (hasBaseFilter) {
             if (filter === '__no_tag__') {
                 passesBase = !data || data.category === null || data.category === undefined;
+            } else if (filter === '__don_chot__') {
+                // Đơn Chốt = tất cả trừ Cat 3 (Không cần chốt)
+                passesBase = !data || data.category === null || data.category === undefined || data.category !== 3;
             } else if (!data) {
                 passesBase = false;
             } else if (filter.startsWith('cat_')) {
@@ -4230,6 +4305,11 @@
                     passesBase = (data.tTags || []).length > 0 && data.pickingSlipPrinted === true;
                 } else if (subKey === 'CHO_HANG_CHUA_IN') {
                     passesBase = (data.tTags || []).length > 0 && !data.pickingSlipPrinted;
+                } else if (subKey === 'OKIE_NO_DELAY') {
+                    // Okie Chờ Đi Đơn — loại bỏ đơn có Chờ Live / Qua Lấy / Giữ Đơn
+                    const flagIds = (data.flags || []).map(f => _ptagFlagId(f));
+                    const hasDelay = flagIds.includes('CHO_LIVE') || flagIds.includes('QUA_LAY') || flagIds.includes('GIU_DON');
+                    passesBase = (data.tTags || []).length === 0 && !hasDelay;
                 } else {
                     passesBase = (data.tTags || []).length === 0;
                 }
@@ -4651,6 +4731,7 @@
     // Helpers (exposed for external callers)
     window._ptagResolveCode = _ptagResolveCode;
     window._ptagResolveId = _ptagResolveId;
+    window.PTAG_SUBTAGS = PTAG_SUBTAGS;
 
     // Core functions
     window.loadProcessingTags = loadProcessingTags;

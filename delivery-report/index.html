@@ -219,6 +219,26 @@
                 </div>
             </div>
 
+            <!-- Cancel Request Section -->
+            <div class="dr-cancel-section" id="drCancelSection">
+                <div class="dr-cancel-header">
+                    <button class="dr-btn dr-btn-danger" onclick="CancelRequest.toggleList()">
+                        <i class="fas fa-ban"></i> Yêu cầu hủy <span class="dr-cancel-badge" id="drCancelBadge" style="display:none;">0</span>
+                    </button>
+                </div>
+                <div class="dr-cancel-list-wrapper" id="drCancelListWrapper" style="display:none;">
+                    <div class="dr-cancel-list-header">
+                        <h3 style="margin:0;font-size:16px;">Danh sách yêu cầu hủy</h3>
+                        <button class="dr-btn dr-btn-primary" onclick="CancelRequest.openCreateModal()">
+                            <i class="fas fa-plus"></i> Tạo yêu cầu
+                        </button>
+                    </div>
+                    <div class="dr-cancel-list" id="drCancelList">
+                        <div style="text-align:center;color:#9ca3af;padding:20px;">Đang tải...</div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Data Table -->
             <div class="dr-table-wrapper" id="drTableWrapper">
                 <div class="dr-table-scroll">
@@ -278,6 +298,39 @@
 
         <!-- Delivery Report Logic -->
         <script src="js/delivery-report.js"></script>
+        <script src="js/cancel-request.js"></script>
+
+        <!-- Cancel Request Modal -->
+        <div class="cr-modal-overlay" id="drCancelModal">
+            <div class="cr-modal">
+                <div class="cr-modal-header">
+                    <h3 style="margin:0;font-size:18px;color:#ef4444;">Tạo yêu cầu hủy đơn</h3>
+                    <button class="cr-modal-close" onclick="CancelRequest.closeModal()">&times;</button>
+                </div>
+                <div class="cr-modal-body">
+                    <div style="margin-bottom:12px;">
+                        <input type="text" id="drCancelSearch" class="cr-form-input"
+                               placeholder="Tìm theo mã đơn, tên khách hàng, SĐT..."
+                               oninput="CancelRequest.filterOrders(this.value)" />
+                    </div>
+                    <div class="dr-cancel-order-list" id="drCancelOrderList"></div>
+                    <div id="drCancelReasonWrapper" style="display:none;margin-top:12px;">
+                        <label style="font-weight:600;margin-bottom:4px;display:block;">Lý do hủy:</label>
+                        <textarea id="drCancelReason" rows="3" class="cr-form-input"
+                                  placeholder="Nhập lý do yêu cầu hủy đơn..."></textarea>
+                    </div>
+                </div>
+                <div class="cr-modal-footer">
+                    <span id="drCancelSelectedCount" style="color:#6b7280;font-size:13px;">Chọn 0 đơn</span>
+                    <div style="display:flex;gap:8px;">
+                        <button class="dr-btn dr-btn-primary" id="drBtnSubmitCancel" onclick="CancelRequest.submit()" disabled>
+                            <i class="fas fa-paper-plane"></i> Gửi yêu cầu
+                        </button>
+                        <button class="dr-btn" style="background:#e5e7eb;color:#374151;" onclick="CancelRequest.closeModal()">Đóng</button>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <!-- Init -->
         <script>
@@ -296,6 +349,9 @@
                 if (typeof lucide !== 'undefined') lucide.createIcons();
                 if (window.DeliveryReport) {
                     window.DeliveryReport.init();
+                }
+                if (window.CancelRequest) {
+                    window.CancelRequest.init();
                 }
             });
         </script>

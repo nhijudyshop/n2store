@@ -19,7 +19,7 @@ window.currentChatCursor = null;        // pagination cursor (current_count)
 window.isLoadingMoreMessages = false;
 window.currentReplyMessage = null;      // reply-to context {id, text, sender}
 window.currentSendPageId = null;        // override send from page
-window.currentReplyType = 'reply_comment'; // for COMMENT: 'reply_comment' | 'private_replies'
+window.currentReplyType = 'private_replies'; // for COMMENT: 'reply_comment' | 'private_replies'
 window.isSendingMessage = false;
 
 /**
@@ -173,6 +173,9 @@ window.openChatModal = async function(orderId, pageId, psid, conversationType) {
         window.initExtensionPages(window.pancakeDataManager.pageIds);
     }
 
+    // Populate page selector for multi-page search
+    _populatePageSelector();
+
     // Find conversation and load messages
     try {
         await _findAndLoadConversation(pageId, psid, conversationType);
@@ -263,39 +266,56 @@ async function _findAndLoadConversation(pageId, psid, type) {
     const pdm = window.pancakeDataManager;
     if (!pdm) throw new Error('pancakeDataManager not available');
 
-    // Step 1: Try cached maps first
     let conv = null;
-    if (type === 'INBOX') {
-        conv = pdm.inboxMapByPSID.get(String(psid)) || pdm.inboxMapByFBID.get(String(psid));
-    } else {
-        conv = pdm.commentMapByPSID.get(String(psid)) || pdm.commentMapByFBID.get(String(psid));
-    }
 
-    // Step 2: If not in cache, use direct customer lookup API
-    // GET /api/v1/pages/{pageId}/customers/{fbId}/conversations
-    if (!conv) {
+    if (type === 'COMMENT') {
+        // COMMENT: Always fetch fresh from API (cache may hold stale/deleted conversations)
         const result = await pdm.fetchConversationsByCustomerFbId(pageId, psid);
-        const convs = result.conversations || [];
+        const commentConvs = (result.conversations || []).filter(c => c.type === 'COMMENT');
 
-        // Find matching type first
-        conv = convs.find(c => c.type === type);
-
-        // If no exact type match, use any conversation
-        if (!conv && convs.length > 0) {
-            conv = convs[0];
+        if (commentConvs.length > 0) {
+            // Sort by updated_at desc → pick most recent
+            commentConvs.sort((a, b) => {
+                const ta = new Date(a.updated_at || 0).getTime();
+                const tb = new Date(b.updated_at || 0).getTime();
+                return tb - ta;
+            });
+            conv = commentConvs[0];
         }
-    }
 
-    // Step 3: Fallback - try multi-page search if single page returned nothing
-    if (!conv) {
-        const result = await pdm.fetchConversationsByCustomerIdMultiPage(psid);
-        const convs = result.conversations || [];
+        // Fallback: multi-page search
+        if (!conv) {
+            const mpResult = await pdm.fetchConversationsByCustomerIdMultiPage(psid);
+            const mpConvs = (mpResult.conversations || []).filter(c => c.type === 'COMMENT');
+            if (mpConvs.length > 0) {
+                mpConvs.sort((a, b) => {
+                    const ta = new Date(a.updated_at || 0).getTime();
+                    const tb = new Date(b.updated_at || 0).getTime();
+                    return tb - ta;
+                });
+                // Prefer same page, then most recent across all pages
+                conv = mpConvs.find(c => String(c.page_id) === String(pageId)) || mpConvs[0];
+            }
+        }
+    } else {
+        // INBOX: Use cached maps first, then API fallback
+        conv = pdm.inboxMapByPSID.get(String(psid)) || pdm.inboxMapByFBID.get(String(psid));
 
-        // Find matching type on same page first, then any type on same page, then any
-        conv = convs.find(c => c.type === type && String(c.page_id) === String(pageId))
-            || convs.find(c => String(c.page_id) === String(pageId))
-            || convs.find(c => c.type === type)
-            || convs[0] || null;
+        if (!conv) {
+            const result = await pdm.fetchConversationsByCustomerFbId(pageId, psid);
+            const convs = result.conversations || [];
+            conv = convs.find(c => c.type === 'INBOX') || convs[0] || null;
+        }
+
+        // Fallback: multi-page search
+        if (!conv) {
+            const result = await pdm.fetchConversationsByCustomerIdMultiPage(psid);
+            const convs = result.conversations || [];
+            conv = convs.find(c => c.type === type && String(c.page_id) === String(pageId))
+                || convs.find(c => String(c.page_id) === String(pageId))
+                || convs.find(c => c.type === type)
+                || convs[0] || null;
+        }
     }
 
     if (!conv) {
@@ -314,6 +334,23 @@ async function _findAndLoadConversation(pageId, psid, type) {
     if (convPageId !== pageId) {
         window.currentChatChannelId = convPageId;
         window.currentSendPageId = convPageId;
+    }
+
+    // Enrich thread_id if missing (needed for extension bypass / GET_GLOBAL_ID_FOR_CONV)
+    // inboxMapByPSID cache and messages API often don't have thread_id,
+    // but conversation list API does. Fire background fetch to get it.
+    if (!conv.thread_id && type !== 'COMMENT') {
+        pdm.fetchConversationsByCustomerFbId(convPageId, psid).then(result => {
+            const apiConv = (result.conversations || []).find(c => c.id === conv.id);
+            if (apiConv?.thread_id && window.currentConversationData?.id === conv.id) {
+                window.currentConversationData.thread_id = apiConv.thread_id;
+                // Also set in _raw for buildConvData
+                if (window.currentConversationData._raw) {
+                    window.currentConversationData._raw.thread_id = apiConv.thread_id;
+                }
+                console.log('[Chat-Core] Enriched thread_id:', apiConv.thread_id);
+            }
+        }).catch(() => {});
     }
 
     // Load messages - customerId from customers array or from.id
@@ -335,7 +372,13 @@ async function _loadMessages(pageId, conversationId, customerId) {
         if (result.conversation) {
             const rc = result.conversation;
             if (!window.currentConversationData) window.currentConversationData = {};
+            // Preserve thread_id from conversation list API (messages API often lacks it)
+            const existingThreadId = window.currentConversationData.thread_id
+                || window.currentConversationData._raw?.thread_id;
             window.currentConversationData._raw = rc;
+            if (!rc.thread_id && existingThreadId) {
+                rc.thread_id = existingThreadId;
+            }
             window.currentConversationData.customers = result.customers || [];
             window.currentConversationData._messagesData = {
                 customers: result.customers || [],
@@ -381,6 +424,15 @@ async function _loadMessages(pageId, conversationId, customerId) {
                 privateReplyConversation: msg.private_reply_conversation || null,
             };
         });
+
+        // Auto-mark private reply messages in store (for cross-device sync)
+        if (window.currentConversationType === 'COMMENT' && window.PrivateReplyStore) {
+            messages.forEach(m => {
+                if (m.privateReplyConversation && !window.PrivateReplyStore.has(m.id)) {
+                    window.PrivateReplyStore.mark(m.id, m.text, m.senderName);
+                }
+            });
+        }
 
         window.allChatMessages = messages;
         window.currentChatCursor = messages.length;
@@ -543,14 +595,69 @@ function _updateTypeToggle(type) {
     const replyTypeSelect = document.getElementById('replyTypeSelect');
     if (replyTypeSelect) {
         replyTypeSelect.classList.toggle('hidden', type !== 'COMMENT');
+        if (type === 'COMMENT') {
+            replyTypeSelect.value = 'private_replies';
+            window.currentReplyType = 'private_replies';
+        }
     }
 
     // Update input placeholder
     const input = document.getElementById('chatInput');
     if (input) {
-        input.placeholder = type === 'COMMENT' ? 'Trả lời bình luận...' : 'Nhập tin nhắn...';
+        input.placeholder = type === 'COMMENT' ? 'Nhắn riêng cho khách...' : 'Nhập tin nhắn...';
     }
 }
+
+// =====================================================
+// PAGE SELECTOR (switch customer conversation to different page)
+// =====================================================
+
+function _populatePageSelector() {
+    const select = document.getElementById('chatPageSelect');
+    if (!select) return;
+
+    const pdm = window.pancakeDataManager;
+    if (!pdm || !pdm.pages || pdm.pages.length <= 1) {
+        select.style.display = 'none';
+        return;
+    }
+
+    select.style.display = '';
+    select.innerHTML = '';
+
+    for (const page of pdm.pages) {
+        const option = document.createElement('option');
+        option.value = page.id;
+        option.textContent = page.name || page.id;
+        if (String(page.id) === String(window.currentChatChannelId)) {
+            option.selected = true;
+        }
+        select.appendChild(option);
+    }
+}
+
+window.switchChatPage = async function(newPageId) {
+    if (!newPageId || String(newPageId) === String(window.currentChatChannelId)) return;
+
+    window.currentChatChannelId = newPageId;
+    window.currentSendPageId = newPageId;
+    window.currentConversationId = null;
+    window.currentConversationData = null;
+
+    const messagesEl = document.getElementById('chatMessages');
+    if (messagesEl) {
+        messagesEl.innerHTML = '<div class="chat-loading"><div class="loading-spinner"></div><p>Đang tải...</p></div>';
+    }
+
+    try {
+        await _findAndLoadConversation(newPageId, window.currentChatPSID, window.currentConversationType);
+    } catch (e) {
+        console.error('[Chat-Core] switchChatPage error:', e);
+        if (messagesEl) {
+            messagesEl.innerHTML = '<div class="chat-empty-state"><p>Không tìm thấy cuộc hội thoại trên trang này.</p></div>';
+        }
+    }
+};
 
 function _updateExtensionBadge() {
     const badge = document.getElementById('extensionBadge');
@@ -599,32 +706,7 @@ function _startRealtimeForChat() {
         });
     }
 
-    // Polling fallback: refresh messages every 15s while chat is open
-    // Covers case when WebSocket is disconnected or events are missed
-    _stopChatPolling();
-    window._chatPollTimer = setInterval(async () => {
-        const convId = window.currentConversationId;
-        const pageId = window.currentChatChannelId;
-        if (!convId || !pageId || !window.pancakeDataManager) return;
-
-        try {
-            window.pancakeDataManager.clearMessagesCache(pageId, convId);
-            const result = await window.pancakeDataManager.fetchMessages(pageId, convId);
-            if (!result.messages?.length || window.currentConversationId !== convId) return;
-
-            // Check for new messages not already in allChatMessages
-            const existingIds = new Set(window.allChatMessages.map(m => String(m.id)));
-            const newMsgs = result.messages.filter(m => !existingIds.has(String(m.id)));
-            if (newMsgs.length === 0) return;
-
-            // Append each new message via handleNewMessage
-            for (const msg of newMsgs) {
-                window.handleNewMessage?.({ message: msg, page_id: pageId });
-            }
-        } catch (e) {
-            // Silent fail - polling is best-effort
-        }
-    }, 15000);
+    // Polling removed — rely entirely on WS real-time (handleNewMessage)
 }
 
 function _stopChatPolling() {

@@ -152,6 +152,8 @@ export default {
                     return handleCustomer360Proxy(request, url, pathname);
                 case 'ADMIN_RENDER':
                     return handleCustomer360Proxy(request, url, pathname);
+                case 'TPOS_EVENTS':
+                    return handleCustomer360Proxy(request, url, pathname);
                 case 'REALTIME':
                     return handleRealtimeProxy(request, url, pathname);
                 case 'CHAT':

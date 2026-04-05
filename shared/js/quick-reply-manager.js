@@ -855,8 +855,11 @@ class QuickReplyManager {
 
                 if (sendResult?.success === false) {
                     const errMsg = sendResult.message || '';
-                    if (sendResult.e_code === 10 || errMsg.includes('khoảng thời gian cho phép')) {
-                        if (window.notificationManager) window.notificationManager.show('Không thể gửi (quá 24h). Vui lòng dùng COMMENT!', 'warning', 8000);
+                    const is24h = sendResult.e_code === 10 || errMsg.includes('khoảng thời gian cho phép');
+                    const is551 = sendResult.e_code === 551 || errMsg.includes('không có mặt');
+                    if (is24h || is551) {
+                        const msg = is551 ? 'Lỗi #551: Khách không có mặt.' : 'Không thể gửi (quá 24h). Vui lòng dùng COMMENT!';
+                        if (window.notificationManager) window.notificationManager.show(msg, 'warning', 8000);
                         return;
                     }
                     // Re-upload if cached contentId expired

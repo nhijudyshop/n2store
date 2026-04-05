@@ -1117,7 +1117,8 @@ function autoFillSaleNote() {
                 if (dep.source === 'RETURN_GOODS') {
                     noteParts.push(`TRỪ ${amountStr} TIỀN HÀNG KHÁCH GỬI Ở TỈNH LÊN`);
                 } else if (dep.source === 'MANUAL_ADJUSTMENT') {
-                    noteParts.push(dep.note || 'Kiểm tra lại ghi chú công nợ');
+                    const stripImg = (n) => n ? n.replace(/\n?\[Ảnh GD: [^\]]+\]/, '').trim() : n;
+                    noteParts.push(stripImg(dep.note) || 'Kiểm tra lại ghi chú công nợ');
                 } else {
                     const depositDate = new Date(dep.date);
                     const dateStr = `${String(depositDate.getDate()).padStart(2, '0')}/${String(depositDate.getMonth() + 1).padStart(2, '0')}`;

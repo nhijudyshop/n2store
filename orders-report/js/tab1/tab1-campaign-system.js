@@ -17,14 +17,13 @@ window.campaignManager = {
 // FIREBASE OPERATIONS
 // ============================================
 
-// Load all campaigns from Firestore
+// Load all campaigns from PostgreSQL API
 window.loadAllCampaigns = async function () {
     try {
-        const db = firebase.firestore();
-        const snapshot = await db.collection('campaigns').get();
+        const list = await window.CampaignAPI.loadAll();
         const campaigns = {};
-        snapshot.forEach(doc => {
-            campaigns[doc.id] = doc.data();
+        list.forEach(c => {
+            campaigns[c.id] = c;
         });
         window.campaignManager.allCampaigns = campaigns;
         return window.campaignManager.allCampaigns;
@@ -37,12 +36,8 @@ window.loadAllCampaigns = async function () {
 // Save active campaign ID for user
 window.saveActiveCampaign = async function (campaignId) {
     try {
-        const db = firebase.firestore();
         const userId = window.campaignManager.currentUserId;
-        await db.collection('user_preferences').doc(userId).set(
-            { activeCampaignId: campaignId },
-            { merge: true }
-        );
+        await window.CampaignAPI.setActiveCampaign(userId, campaignId);
 
         window.campaignManager.activeCampaignId = campaignId;
         window.campaignManager.activeCampaign = window.campaignManager.allCampaigns[campaignId];
@@ -242,14 +237,11 @@ window.saveCampaignDatesAndContinue = async function () {
     }
 
     try {
-        const db = firebase.firestore();
-
-        // Update campaign in Firestore
-        await db.collection('campaigns').doc(campaignId).update({
+        // Update campaign via API
+        await window.CampaignAPI.update(campaignId, {
             customStartDate: startDate,
             customEndDate: endDate || '',
             timeFrame: 'custom',
-            updatedAt: new Date().toISOString()
         });
 
         // Update local cache
@@ -418,16 +410,14 @@ window.saveEditCampaign = async function () {
     }
 
     try {
-        const db = firebase.firestore();
         const timeFrameLabel = 'Custom (lọc theo ngày tạo đơn)';
 
-        await db.collection('campaigns').doc(campaignId).update({
+        await window.CampaignAPI.update(campaignId, {
             name: name,
             timeFrame: 'custom',
             timeFrameLabel: timeFrameLabel,
             customStartDate: customStartDate,
             customEndDate: customEndDate || '',
-            updatedAt: new Date().toISOString()
         });
 
         // Update local cache
@@ -475,8 +465,7 @@ window.deleteCampaign = async function (campaignId) {
     }
 
     try {
-        const db = firebase.firestore();
-        await db.collection('campaigns').doc(campaignId).delete();
+        await window.CampaignAPI.delete(campaignId);
 
         // Remove from local cache
         delete window.campaignManager.allCampaigns[campaignId];
@@ -488,9 +477,7 @@ window.deleteCampaign = async function (campaignId) {
 
             // Clear user's active campaign
             const userId = window.campaignManager.currentUserId;
-            await db.collection('user_preferences').doc(userId).update({
-                activeCampaignId: firebase.firestore.FieldValue.delete()
-            });
+            await window.CampaignAPI.clearActiveCampaign(userId);
 
             // Show select modal if other campaigns exist
             const remainingCampaigns = Object.keys(window.campaignManager.allCampaigns).length;
@@ -566,30 +553,42 @@ window.applyUserCampaign = async function () {
     }
     window.updateCampaignSettingsUI(campaign);
 
-    // Apply time frame and RELOAD orders
+    // 🔄 SYNC: Find matching option in campaignFilter dropdown by campaign name
     const campaignFilter = document.getElementById('campaignFilter');
-    if (campaignFilter && campaign.timeFrame) {
-        campaignFilter.value = campaign.timeFrame;
+    if (campaignFilter) {
+        let matchedIndex = -1;
 
-        // Apply custom start date if needed
-        if (campaign.timeFrame === 'custom' && campaign.customStartDate) {
+        // Try to find Shopify campaign matching this DB campaign name
+        if (typeof _findFilterOptionByDbCampaignName === 'function') {
+            matchedIndex = _findFilterOptionByDbCampaignName(campaign.name);
+        }
+
+        if (matchedIndex !== -1) {
+            // Found matching Shopify campaign - select it and trigger change
+            campaignFilter.selectedIndex = matchedIndex;
+            console.log(`[SYNC] 🔄 Modal → campaignFilter: matched "${campaign.name}" at index ${matchedIndex}`);
+
+            if (typeof handleCampaignChange === 'function') {
+                await handleCampaignChange();
+            }
+        } else if (campaign.timeFrame === 'custom' && campaign.customStartDate) {
+            // Fallback: use custom date mode
+            campaignFilter.value = 'custom';
+
             const customStartDate = document.getElementById('customStartDate');
             if (customStartDate) {
                 customStartDate.value = campaign.customStartDate;
             }
 
-            // Show custom date container
             const customDateContainer = document.getElementById('customDateFilterContainer');
             if (customDateContainer) {
                 customDateContainer.style.display = 'flex';
             }
 
-            // Set selectedCampaign for custom mode
             if (typeof selectedCampaign !== 'undefined') {
                 selectedCampaign = { isCustom: true };
             }
 
-            // SYNC: Save filter preferences to Firebase for page refresh
             if (typeof saveFilterPreferencesToFirebase === 'function') {
                 saveFilterPreferencesToFirebase({
                     selectedCampaignValue: 'custom',
@@ -598,8 +597,6 @@ window.applyUserCampaign = async function () {
                 });
             }
 
-            // For custom campaigns, directly trigger search since date is already set
-            // ⭐ CRITICAL: Load employee ranges for this campaign BEFORE search
             if (typeof loadEmployeeRangesForCampaign === 'function') {
                 await loadEmployeeRangesForCampaign(campaign.name);
             }
@@ -608,19 +605,12 @@ window.applyUserCampaign = async function () {
                 await handleSearch();
             }
 
-            // Setup TAG listeners
             if (typeof setupTagRealtimeListeners === 'function') {
                 setupTagRealtimeListeners();
             }
 
-            // Connect realtime server
             if (window.realtimeManager) {
                 window.realtimeManager.connectServerMode();
-            }
-        } else {
-            // For non-custom campaigns, use handleCampaignChange (which saves filter prefs)
-            if (typeof handleCampaignChange === 'function') {
-                await handleCampaignChange();
             }
         }
     }

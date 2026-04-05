@@ -14,6 +14,72 @@
 | **Files** | `orders-report/js/tab1/tab1-fast-sale.js` |
 | **Chi tiết** | Khi xóa 1 dòng đơn hàng trong modal fast-sale, toàn bộ modal bị re-render qua `innerHTML` khiến tiền ship, carrier, ghi chú bị reset về mặc định. Fix: thêm `saveFastSaleFormState()` lưu form state (shipping fee, carrier, note, weight, wallet) vào `fastSaleOrdersData` trước khi re-render. `renderFastSaleOrderRow` và auto-carrier-select sử dụng giá trị đã lưu (`_user*` properties) thay vì giá trị mặc định. |
 
+### [orders] Bidirectional TAG XL ↔ TPOS auto sync + 3 built-in flags mới ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-processing-tags.js`, `orders-report/js/tab1/tab1-tag-sync.js`, `orders-report/js/tab1/tab1-tags.js` |
+| **Chi tiết** | 1) Thêm 3 built-in flags mới vào PTAG_FLAGS: KHÁCH BOOM 💥, THẺ KHÁCH LẠ 🪪, ĐÃ ĐI ĐƠN GẤP ⚡ + tooltips. 2) Tạo mapping `PTAG_TO_TPOS_MAP` (TAG XL ↔ TPOS): GIỎ TRỐNG, KHÁCH BOOM, MY THÊM CHỜ VỀ, THẺ KHÁCH LẠ, ĐÃ ĐI ĐƠN GẤP, TRỪ CÔNG NỢ + custom flags. 3) **TAG XL → TPOS**: `syncPtagToTPOS()` auto sync khi gán/bỏ TAG XL → add/remove TPOS tag. Fallback chain: cache → reload → create. Hook fire-and-forget vào 4 hàm. 4) **TPOS → TAG XL**: `syncTPOSToPtag()` reverse sync khi gán/bỏ TPOS tag → auto add/remove TAG XL flags/subtags/ttags tương ứng. Hook vào `onPtagOrderTagsChanged` (called from `saveOrderTags`, `quickAssignTag`, `quickRemoveTag`). 5) Guard flags `_isSyncingToTPOS` + `_isSyncingFromTPOS` chống infinite loop. |
+
+### [orders][render] Migration dropped_products & held_products: Firebase RTDB → PostgreSQL ✅
+| | |
+|---|---|
+| **Files** | `render.com/routes/realtime-db.js`, `orders-report/js/managers/dropped-products-manager.js`, `orders-report/js/managers/held-products-manager.js`, `render.com/migrations/040_update_dropped_products_schema.sql` (MỚI), `render.com/scripts/migrate-dropped-held-to-pg.js` (MỚI) |
+| **Chi tiết** | 1) ALTER TABLE `dropped_products` thêm 13 columns thiếu (product_id, image_url, price, reason, campaign_id/name, removed_by, etc.). 2) Backend: rewrite dropped_products routes (GET all, PUT upsert, PATCH quantity atomic, PATCH fields, DELETE all/single) + thêm held_products routes (GET by-product, PATCH draft, PATCH quantity). 3) Frontend `dropped-products-manager.js`: rewrite hoàn toàn Firebase → Render API + SSE (EventSource). Firebase `transaction()` → PG atomic `quantity + $change`. Firebase `push()` → client-generated `dp_` ID. 4) Frontend `held-products-manager.js`: rewrite hoàn toàn Firebase → Render API + SSE. 5) Data migration script: 2 dropped products + 1 held product migrated thành công. Strategy: PG only, không dual-write. |
+
+### [chat] Fix sender UI not updating after private reply ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-chat-messages.js` |
+| **Chi tiết** | 2 bugs: 1) `PrivateReplyStore._getDocRef()` dùng per-user doc → marks không sync giữa nhân viên → đổi sang shared doc `'shared'`. 2) Reload sau 2s ghi đè `allChatMessages = messages` → xóa mất tin nhắn optimistic `pr_*` chưa có trên server → preserve optimistic messages khi text chưa match server data. |
+
+### [chat] Private reply marks store + optimistic UI ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-chat-messages.js`, `orders-report/js/tab1/tab1-chat-core.js` |
+| **Chi tiết** | 1) `PrivateReplyStore`: Firestore collection `private_reply_marks`, real-time listener, 7-day TTL. Đánh dấu tin nhắn nhắn riêng → hiện badge "🔒 Nhắn riêng" + đổi màu, đồng bộ cross-device. 2) Optimistic UI: sau khi gửi nhắn riêng thành công → thêm tin nhắn vào UI ngay lập tức, không cần đợi reload. 3) Auto-mark: khi load messages từ Pancake, tự detect và store private reply messages. |
+
+### [chat] Fix #551 user unavailable — extension fallback toàn dự án ✅
+| | |
+|---|---|
+| **Files** | `tab1-chat-messages.js`, `chat-products-ui.js`, `bill-service.js`, `shared/quick-reply-manager.js` |
+| **Chi tiết** | Search toàn bộ dự án: nhiều chỗ chỉ check `is24HourError` (e_code 10) mà thiếu `isUserUnavailable` (#551). Fix: thêm check 551 ở tất cả send paths — `_sendInbox()` fallback extension, `chat-products-ui` gửi ảnh, `bill-service` hóa đơn, `shared/quick-reply-manager`. Các file đã OK: inbox `_sendInbox()` (fallback mọi error), `message-template-manager` (queue ALL errors), `inbox/quick-reply-manager` (check cả 2). |
+
+### [chat] Fix private_replies false error + UI not updating ✅
+| | |
+|---|---|
+| **Files** | `inbox/js/inbox-chat.js`, `orders-report/js/tab1/tab1-chat-messages.js` |
+| **Chi tiết** | Pancake API `private_replies` gửi tin nhắn thành công lên Facebook nhưng trả về `success:false` → code chạy vào fallback chain → tất cả fail (COMMENT conv không có global_id) → hiện lỗi + UI không reload. Fix: gọi API trực tiếp thay vì qua `_sendApi()`, chỉ throw khi lỗi rõ ràng (post deleted, code 100). Các lỗi khác treat as success → UI cập nhật bình thường. |
+
+### [chat] Chat panel — default Nhắn riêng + load bình luận mới nhất + page selector ✅
+| | |
+|---|---|
+| **Files** | `inbox/js/inbox-chat.js`, `orders-report/js/tab1/tab1-chat-core.js`, `orders-report/tab1-orders.html`, `orders-report/css/tab1-chat-modal.css` |
+| **Chi tiết** | 1) Dropdown reply type mặc định "Nhắn riêng" thay vì "Bình luận công khai" (cả inbox + orders-report). 2) Orders-report COMMENT tab luôn fetch fresh từ API thay vì dùng cache → load bình luận mới nhất, sort by updated_at. 3) Thêm page selector dropdown trong chat modal header — cho phép chuyển page xem tin nhắn/bình luận của khách trên page khác (ẩn nếu chỉ 1 page). |
+
+### [orders] Delivery report — permission gate tra soát + yêu cầu hủy đơn ✅
+| | |
+|---|---|
+| **Files** | `delivery-report/js/delivery-report.js`, `delivery-report/js/cancel-request.js` (MỚI), `delivery-report/index.html`, `delivery-report/css/delivery-report.css` |
+| **Chi tiết** | 1) Chỉ admin + "Phước đẹp trai" mới bật tra soát và xóa quét (canTraSoat helper + guard 4 functions + ẩn nút). 2) Tab "Yêu cầu hủy" luôn hiện — nút toggle danh sách + badge pending, modal chọn đơn (search + checkbox) + lý do, lưu Firestore subcollection `delivery_report/data/cancel_requests/{id}` với displayName người yêu cầu, realtime listener. |
+
+### [orders] Delivery report — confirm dialog on unscan + per-group delete-all buttons ✅
+| | |
+|---|---|
+| **Files** | `delivery-report/js/delivery-report.js`, `delivery-report/css/delivery-report.css` |
+| **Chi tiết** | Xóa từng đơn hiện confirm "Chắc chắn đơn X đã được đưa vào kho xử lý?". Thêm nút "Xóa" riêng cho từng bảng nhóm (TOMATO/NAP/CITY/SHOP/RETURN) khi xem đơn đã quét. |
+
+### [orders] Fix RefundDateStore — save MoveName after confirming draft refund orders ✅
+| | |
+|---|---|
+| **Files** | `supplier-debt/js/main.js` |
+| **Chi tiết** | `RefundDateStore` lưu custom date cho đơn trả hàng nháp nhưng field `number` (MoveName) luôn trống vì đơn nháp chưa được TPOS gán Number. Fix: sau `ActionInvoiceOpen` (xác nhận đơn), re-fetch đơn đã confirm để lấy Number mới (BILL/xxxx) và cập nhật vào RefundDateStore → `getByMoveName()` có thể map custom date sang tab Công nợ. Dọn 2 entries trống (54772, 54943) trong Firestore. |
+
+### [chat] Fix unread badge system — localStorage persistence + server backup ✅
+| | |
+|---|---|
+| **Files** | `render.com/server.js`, `orders-report/js/chat/new-messages-notifier.js` |
+| **Chi tiết** | **5 vấn đề**: (1) Refresh mất badge — in-memory only, (2) Server chỉ save `update_conversation` bỏ qua `new_message`, (3) Server spin down mất events, (4) Badge count không update khi có tin mới, (5) `setPendingCustomers()` replace thay vì merge. **Fixes**: Server: thêm `upsertPendingCustomer()` cho `pages:new_message` (chỉ tin từ khách, không từ page). Browser: localStorage persistence (`n2s_pending_customers` key) — load ngay khi init, save mỗi khi thay đổi. `setPendingCustomers()` giờ merge server data với existing (lấy count cao hơn). `_upsertBadge()` helper mới — update badge text nếu đã tồn tại thay vì skip. Badges survive refresh ngay lập tức từ localStorage, sau đó server data merge vào. |
+
 ### [orders] Fix flag counts hiển thị 0 trong thống kê Tổng quan ✅
 | | |
 |---|---|

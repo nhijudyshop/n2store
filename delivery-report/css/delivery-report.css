@@ -680,10 +680,10 @@
     font-size: 16px;
     text-align: center;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    flex-wrap: wrap;
+    gap: 4px;
 }
 
 .dr-province-total {
@@ -853,6 +853,97 @@
     background: #dc2626;
     color: #fff;
 }
+
+/* =====================================================
+   CANCEL REQUEST SECTION
+   ===================================================== */
+.dr-cancel-section { margin-bottom: 16px; }
+.dr-cancel-header { display: flex; gap: 8px; align-items: center; }
+
+.dr-btn-danger { background: #ef4444; color: white; }
+.dr-btn-danger:hover:not(:disabled) { background: #dc2626; }
+
+.dr-cancel-badge {
+    background: white; color: #ef4444;
+    font-size: 11px; font-weight: 700;
+    padding: 2px 7px; border-radius: 10px; margin-left: 4px;
+}
+
+.dr-cancel-list-wrapper {
+    background: white; border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    margin-top: 8px; overflow: hidden;
+}
+.dr-cancel-list-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 16px 20px; border-bottom: 1px solid #e5e7eb;
+}
+.dr-cancel-list { max-height: 400px; overflow-y: auto; }
+
+.dr-cancel-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 20px; border-bottom: 1px solid #f3f4f6; font-size: 13px;
+}
+.dr-cancel-item:last-child { border-bottom: none; }
+.dr-cancel-item-left { display: flex; flex-direction: column; gap: 2px; }
+.dr-cancel-item-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+.dr-cancel-status {
+    padding: 3px 8px; border-radius: 4px; font-size: 12px; font-weight: 500;
+}
+.dr-cancel-status.pending { background: #fef3c7; color: #92400e; }
+.dr-cancel-status.approved { background: #d1fae5; color: #065f46; }
+.dr-cancel-status.rejected { background: #fee2e2; color: #991b1b; }
+
+/* =====================================================
+   CANCEL REQUEST MODAL
+   ===================================================== */
+.cr-modal-overlay {
+    display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5); z-index: 10000;
+    align-items: center; justify-content: center;
+}
+.cr-modal-overlay.show { display: flex; }
+
+.cr-modal {
+    background: white; border-radius: 8px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    width: 90%; max-width: 700px; max-height: 90vh;
+    display: flex; flex-direction: column; overflow: hidden;
+}
+.cr-modal-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 16px 20px; border-bottom: 1px solid #e2e8f0; background: #f8fafc;
+}
+.cr-modal-close {
+    background: none; border: none; font-size: 24px;
+    color: #6b7280; cursor: pointer; line-height: 1;
+}
+.cr-modal-close:hover { color: #1f2937; }
+.cr-modal-body { padding: 20px; overflow-y: auto; flex: 1; }
+.cr-modal-footer {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 20px; border-top: 1px solid #e2e8f0; background: #f8fafc;
+}
+
+.cr-form-input {
+    width: 100%; padding: 8px 12px; border: 1px solid #d1d5db;
+    border-radius: 6px; font-size: 13px; font-family: inherit; box-sizing: border-box;
+}
+.cr-form-input:focus { outline: none; border-color: #4f87e8; box-shadow: 0 0 0 2px rgba(79,135,232,0.15); }
+
+.dr-cancel-order-list {
+    max-height: 300px; overflow-y: auto;
+    border: 1px solid #e5e7eb; border-radius: 6px;
+}
+.dr-cancel-order-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px; border-bottom: 1px solid #f3f4f6;
+    cursor: pointer; transition: background 0.1s;
+}
+.dr-cancel-order-item:hover { background: #f8fafc; }
+.dr-cancel-order-item.selected { background: #eff6ff; }
+.dr-cancel-order-item:last-child { border-bottom: none; }
 
 /* Responsive province grid */
 @media (max-width: 768px) {

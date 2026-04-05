@@ -326,6 +326,19 @@ async function handleMessage(msg, tabId, port, asyncSendResponse) {
       sendResponse({ type: `${type}_FAILURE`, taskId: msg.taskId, error: 'Chua ho tro' });
       break;
 
+    // === TPOS Interceptor Events ===
+    case 'tpos:tag-assigned':
+      log.info(MODULE, `TPOS tag assigned: ${msg.orderId}, tags: ${msg.tags?.map(t => t.Name).join(', ')}`);
+      // Forward to Render server for WebSocket broadcast
+      fetch(`${CONFIG.RENDER_API_URL}/api/tpos-events/broadcast`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(msg)
+      }).catch(err => log.warn(MODULE, 'Failed to forward TPOS event:', err.message));
+      // Also broadcast to connected N2Store tabs directly
+      broadcast({ type: 'tpos:tag-assigned', orderId: msg.orderId, tags: msg.tags });
+      break;
+
     default:
       log.debug(MODULE, `Unknown message type: ${type}`);
       break;

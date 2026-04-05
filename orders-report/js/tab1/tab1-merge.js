@@ -1732,12 +1732,8 @@ async function assignTagXLAfterMerge(cluster) {
         for (const sourceOrder of cluster.sourceOrders) {
             const sourceCode = String(sourceOrder.Code);
 
-            // Clear existing Tag XL first
-            if (window.clearProcessingTag) {
-                await window.clearProcessingTag(sourceCode);
-            }
-
             // Assign category 3 (KHÔNG CẦN CHỐT) with subTag DA_GOP_KHONG_CHOT
+            // assignOrderCategory tự overwrite category cũ — không cần clear trước
             await window.assignOrderCategory(sourceCode, 3, { subTag: 'DA_GOP_KHONG_CHOT' });
             console.log(`[MERGE-PTAG] ✅ Source STT ${sourceOrder.SessionIndex}: KHÔNG CẦN CHỐT / Đã gộp không chốt`);
         }

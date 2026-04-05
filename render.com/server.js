@@ -221,6 +221,7 @@ const attendanceRoutes = require('./routes/attendance');
 const admsRoutes = require('./routes/adms');
 const usersRoutes = require('./routes/users');
 const quickRepliesRoutes = require('./routes/quick-replies');
+const campaignsRoutes = require('./routes/campaigns');
 
 // === ROUTES MERGED FROM /api ===
 const uploadRoutes = require('./routes/upload.routes');
@@ -271,6 +272,7 @@ app.use('/api/attendance', attendanceRoutes);
 app.use('/iclock', (req, res, next) => { req.pool = chatDbPool; next(); }, admsRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/quick-replies', quickRepliesRoutes);
+app.use('/api/campaigns', campaignsRoutes);
 
 // Initialize SSE notifiers in realtime-db routes
 const { initializeNotifiers } = require('./routes/realtime-db');
@@ -506,6 +508,24 @@ class RealtimeClient {
                 type: 'pages:new_message',
                 payload: payload
             });
+
+            // Also save to pending_customers (only if message is FROM customer, not from page)
+            if (this.db && msg) {
+                const fromPsid = msg.from?.id;
+                const pageId = msg.page_id || payload.page_id;
+                if (fromPsid && pageId && String(fromPsid) !== String(pageId)) {
+                    const updateData = {
+                        conversationId: msg.conversation_id,
+                        type: 'INBOX',
+                        snippet: msg.message || msg.original_message || '',
+                        pageId: pageId,
+                        psid: fromPsid,
+                        customerName: msg.from?.name
+                    };
+                    upsertPendingCustomer(this.db, updateData)
+                        .catch(err => console.error('[SERVER-WS] Failed to upsert from new_message:', err.message));
+                }
+            }
         }
     }
 }
@@ -576,10 +596,11 @@ class TposRealtimeClient {
             console.log('[TPOS-WS] ✅ WebSocket connected, sending handshake...');
             this.reconnectAttempts = 0; // Reset on successful connect
 
-            // Socket.IO namespace connect
-            const namespaceMsg = '40/chatomni,';
+            // Socket.IO namespace connect with auth (TPOS requires token+room in namespace connect)
+            const authPayload = JSON.stringify({ token: this.token, room: this.room });
+            const namespaceMsg = `40/chatomni,${authPayload}`;
             this.ws.send(namespaceMsg);
-            console.log('[TPOS-WS] 📤 Sent namespace connect:', namespaceMsg);
+            console.log('[TPOS-WS] 📤 Sent namespace connect with auth (room:', this.room, ')');
         });
 
         this.ws.on('close', (code, reason) => {
@@ -627,6 +648,10 @@ class TposRealtimeClient {
             // Log all raw messages for debugging (can comment out after troubleshooting)
             if (!message.startsWith('2') && !message.startsWith('3')) {
                 console.log('[TPOS-WS] 📥 Raw message:', message.substring(0, 200)); // Truncate long messages
+            }
+            // Log raw messages to event logger (skip ping/pong)
+            if (tposEventLog.isLogging && !message.startsWith('2') && !message.startsWith('3')) {
+                tposEventLog.log({ type: 'raw-ws', message: message.substring(0, 2000) });
             }
             this.handleMessage(message);
         });
@@ -719,16 +744,18 @@ class TposRealtimeClient {
                 // payload is a serialized JSON string, need to parse it
                 const eventData = typeof payload === 'string' ? JSON.parse(payload) : payload;
 
-                // TPOS format: { C: "Conversation", d: { t: "SaleOnline_Order", ... } }
-                const context = eventData.C || eventData.Context;
+                // TPOS has 2 formats:
+                // 1. SaleOnline_Order/Product: { Type: "SaleOnline_Order", Message: "string", Data: {...}, EventName: "created" }
+                // 2. chatomni.on-message: { Conversation: {...}, Message: {object}, EventName: "chatomni.on-message" }
+                const context = eventData.C || eventData.Context || (eventData.Conversation ? 'Conversation' : null);
                 const data = eventData.d || eventData.data || eventData;
-                const eventType = data.t || data.Type || data.EventName;
+                const eventType = data.t || data.Type || data.EventName || eventData.EventName;
 
-                console.log('[TPOS-WS] 📦 TPOS Event:', {
-                    context: context,
-                    type: eventType,
-                    message: data.Message ? data.Message.substring(0, 50) + '...' : null
-                });
+                // Safe message extract (Message can be string or object)
+                const msgPreview = typeof data.Message === 'string' ? data.Message.substring(0, 80) :
+                    (typeof data.Message === 'object' && data.Message?.Message ? String(data.Message.Message).substring(0, 80) : null);
+
+                console.log('[TPOS-WS] 📦 Event:', eventType, msgPreview ? `| ${msgPreview}` : '');
 
                 // Broadcast parsed event data with structured format
                 broadcastToClients({
@@ -740,15 +767,10 @@ class TposRealtimeClient {
 
                 // Handle specific event types
                 if (eventType === 'SaleOnline_Order') {
-                    console.log('[TPOS-WS] 🔥 NEW ORDER:', data.Message);
+                    const eventAction = data.EventName || eventData.EventName;
+                    console.log('[TPOS-WS] 🔥 ORDER', eventAction?.toUpperCase() + ':', msgPreview);
                     broadcastToClients({
-                        type: 'tpos:new-order',
-                        data: data
-                    });
-                } else if (eventType === 'SaleOnline_Update') {
-                    console.log('[TPOS-WS] 📝 ORDER UPDATE:', data.Id);
-                    broadcastToClients({
-                        type: 'tpos:order-update',
+                        type: eventAction === 'updated' ? 'tpos:order-update' : 'tpos:new-order',
                         data: data
                     });
                 }
@@ -914,7 +936,11 @@ app.post('/api/realtime/tpos/stop', async (req, res) => {
 
 // API to get TPOS client status
 app.get('/api/realtime/tpos/status', (req, res) => {
-    res.json(tposRealtimeClient.getStatus());
+    res.json({
+        ...tposRealtimeClient.getStatus(),
+        wsReadyState: tposRealtimeClient.ws ? tposRealtimeClient.ws.readyState : null,
+        wsReadyStateLabel: tposRealtimeClient.ws ? ['CONNECTING','OPEN','CLOSING','CLOSED'][tposRealtimeClient.ws.readyState] : 'NO_WS'
+    });
 });
 
 // Root route
@@ -979,6 +1005,50 @@ app.get('/', (req, res) => {
     });
 });
 
+// ============== TPOS LOG ENDPOINTS ==============
+app.post('/api/tpos-log/start', (req, res) => {
+    const minutes = req.body?.minutes || 10;
+    tposEventLog.start(minutes);
+    res.json({ success: true, message: `Logging started for ${minutes} minutes`, willStopAt: new Date(Date.now() + minutes * 60 * 1000).toISOString() });
+});
+
+app.post('/api/tpos-log/stop', (req, res) => {
+    tposEventLog.stop();
+    res.json({ success: true, ...tposEventLog.getSummary() });
+});
+
+app.get('/api/tpos-log/summary', (req, res) => {
+    res.json(tposEventLog.getSummary());
+});
+
+app.get('/api/tpos-log/events', (req, res) => {
+    const { type, eventType, limit } = req.query;
+    let events = tposEventLog.events;
+    if (type) events = events.filter(e => e.type === type);
+    if (eventType) events = events.filter(e => e.eventType === eventType);
+    if (limit) events = events.slice(-parseInt(limit));
+    res.json({ total: events.length, events });
+});
+
+app.get('/api/tpos-log/all', (req, res) => {
+    res.json(tposEventLog.getAll());
+});
+// ============== END TPOS LOG ENDPOINTS ==============
+
+// ============== TPOS EXTENSION EVENTS ==============
+// Receives events from N2Store Chrome Extension (e.g., tag assignments on TPOS)
+// and broadcasts to all connected WebSocket clients
+app.post('/api/tpos-events/broadcast', (req, res) => {
+    const event = req.body;
+    if (!event || !event.type) {
+        return res.status(400).json({ error: 'Missing event type' });
+    }
+    console.log('[TPOS-EXT] Event from extension:', event.type, event.orderId || '');
+    broadcastToClients(event);
+    res.json({ success: true, broadcasted: true });
+});
+// ============== END TPOS EXTENSION EVENTS ==============
+
 // 404 handler
 app.use((req, res) => {
     res.status(404).json({
@@ -1013,8 +1083,93 @@ const server = http.createServer(app);
 // Create WebSocket Server for Frontend Clients
 const wss = new WebSocket.Server({ server });
 
+// ============== TPOS EVENT LOGGER ==============
+const tposEventLog = {
+    events: [],
+    isLogging: false,
+    startTime: null,
+    duration: 10 * 60 * 1000, // default 10 minutes
+    stopTimer: null,
+
+    start(durationMinutes = 10) {
+        this.events = [];
+        this.isLogging = true;
+        this.startTime = Date.now();
+        this.duration = durationMinutes * 60 * 1000;
+        clearTimeout(this.stopTimer);
+        this.stopTimer = setTimeout(() => this.stop(), this.duration);
+        console.log(`[TPOS-LOG] 📝 Started logging for ${durationMinutes} minutes`);
+    },
+
+    stop() {
+        this.isLogging = false;
+        clearTimeout(this.stopTimer);
+        const elapsed = this.startTime ? Math.round((Date.now() - this.startTime) / 1000) : 0;
+        console.log(`[TPOS-LOG] ⏹ Stopped after ${elapsed}s, captured ${this.events.length} events`);
+    },
+
+    log(data) {
+        if (!this.isLogging) return;
+        this.events.push({
+            timestamp: new Date().toISOString(),
+            elapsed: Math.round((Date.now() - this.startTime) / 1000),
+            ...data
+        });
+    },
+
+    getSummary() {
+        const typeCounts = {};
+        const eventTypes = {};
+        const samples = {};
+
+        this.events.forEach(e => {
+            // Count by broadcast type
+            const t = e.type || 'unknown';
+            typeCounts[t] = (typeCounts[t] || 0) + 1;
+
+            // Count by TPOS eventType
+            if (e.eventType) {
+                eventTypes[e.eventType] = (eventTypes[e.eventType] || 0) + 1;
+                // Keep first sample of each type
+                if (!samples[e.eventType]) {
+                    samples[e.eventType] = e;
+                }
+            }
+
+            // For raw events, track event names
+            if (e.type === 'tpos:event' && e.event) {
+                const key = `raw:${e.event}`;
+                eventTypes[key] = (eventTypes[key] || 0) + 1;
+                if (!samples[key]) samples[key] = e;
+            }
+        });
+
+        return {
+            isLogging: this.isLogging,
+            startTime: this.startTime ? new Date(this.startTime).toISOString() : null,
+            elapsedSeconds: this.startTime ? Math.round((Date.now() - this.startTime) / 1000) : 0,
+            totalEvents: this.events.length,
+            byBroadcastType: typeCounts,
+            byEventType: eventTypes,
+            samples
+        };
+    },
+
+    getAll() {
+        return {
+            ...this.getSummary(),
+            events: this.events
+        };
+    }
+};
+
+// (Log endpoints registered before 404 handler)
+// ============== END TPOS EVENT LOGGER ==============
+
 // Broadcast function
 const broadcastToClients = (data) => {
+    // Log event if logging is active
+    tposEventLog.log(data);
     let sentCount = 0;
     let totalClients = wss.clients.size;
     wss.clients.forEach((client) => {

@@ -57,6 +57,15 @@
     };
 
     // =====================================================
+    // PERMISSION HELPER
+    // =====================================================
+    function canTraSoat() {
+        if (!window.authManager) return false;
+        if (window.authManager.isAdmin()) return true;
+        return window.authManager.getUserInfo()?.displayName === 'Phước đẹp trai';
+    }
+
+    // =====================================================
     // INITIALIZATION
     // =====================================================
     function initDeliveryReport() {
@@ -65,6 +74,13 @@
         bindColumnToggle();
         applyColumnVisibility();
         loadFiltersFromStorage();
+
+        // Ẩn nút tra soát nếu không có quyền
+        if (!canTraSoat()) {
+            const btn = document.getElementById('drBtnTraSoat');
+            if (btn) btn.style.display = 'none';
+        }
+
         fetchData();
     }
 
@@ -793,6 +809,7 @@
     const soundDuplicate = new Audio('sound/trung.mp3');
 
     async function traSoat() {
+        if (!canTraSoat()) { alert('Bạn không có quyền sử dụng chức năng tra soát.'); return; }
         const state = DeliveryReportState;
         state.traSoatMode = !state.traSoatMode;
 
@@ -1112,16 +1129,31 @@
     }
 
     function unscanItem(number) {
+        if (!canTraSoat()) { alert('Bạn không có quyền xóa quét.'); return; }
+        if (!confirm(`Chắc chắn đơn ${number} đã được đưa vào kho xử lý?`)) return;
         DeliveryReportState.scannedNumbers.delete(number);
         saveScannedNumbers();
         refreshTraSoatView();
     }
 
     function unscanAllTab() {
+        if (!canTraSoat()) { alert('Bạn không có quyền xóa quét.'); return; }
         const tabData = getTabFilteredData();
         tabData.forEach(item => {
             DeliveryReportState.scannedNumbers.delete(item.Number);
         });
+        saveScannedNumbers();
+        refreshTraSoatView();
+    }
+
+    function unscanGroup(groupKey) {
+        if (!canTraSoat()) { alert('Bạn không có quyền xóa quét.'); return; }
+        const allData = DeliveryReportState.allData || [];
+        const scanned = DeliveryReportState.scannedNumbers;
+        const items = allData.filter(item => getItemGroup(item) === groupKey && scanned.has(item.Number));
+        if (items.length === 0) return;
+        if (!confirm(`Xóa tất cả ${items.length} đơn đã quét trong nhóm ${GROUP_LABELS[groupKey] || groupKey}?`)) return;
+        items.forEach(item => scanned.delete(item.Number));
         saveScannedNumbers();
         refreshTraSoatView();
     }
@@ -1255,8 +1287,11 @@
 
         // Render TOMATO column
         let tomatoHtml = `<div class="dr-province-header dr-province-header-tomato">
-            TOMATO <span class="dr-province-count">${tomatoScannedCount}/${allTomato.length}</span>
-            <div class="dr-province-total">${formatMoney(tomatoCOD)}</div>
+            <div>TOMATO <span class="dr-province-count">${tomatoScannedCount}/${allTomato.length}</span></div>
+            <div style="display:flex;align-items:center;gap:8px;">
+                <span class="dr-province-total" style="margin:0;">${formatMoney(tomatoCOD)}</span>
+                ${showScanned && tomatoItems.length > 0 ? `<button class="dr-btn-unscan-all" onclick="DeliveryReport.unscanGroup('tomato')" title="Xóa tất cả TOMATO"><i class="fas fa-trash"></i> Xóa</button>` : ''}
+            </div>
         </div>`;
         tomatoItems.forEach(item => {
             const isScanned = scanned.has(item.Number);
@@ -1279,8 +1314,11 @@
 
         // Render NAP column
         let napHtml = `<div class="dr-province-header dr-province-header-nap">
-            TỈNH NAP <span class="dr-province-count">${napScannedCount}/${allNap.length}</span>
-            <div class="dr-province-total">${formatMoney(napCOD)}</div>
+            <div>TỈNH NAP <span class="dr-province-count">${napScannedCount}/${allNap.length}</span></div>
+            <div style="display:flex;align-items:center;gap:8px;">
+                <span class="dr-province-total" style="margin:0;">${formatMoney(napCOD)}</span>
+                ${showScanned && napItems.length > 0 ? `<button class="dr-btn-unscan-all" onclick="DeliveryReport.unscanGroup('nap')" title="Xóa tất cả TỈNH NAP"><i class="fas fa-trash"></i> Xóa</button>` : ''}
+            </div>
         </div>`;
         napItems.forEach(item => {
             const isScanned = scanned.has(item.Number);
@@ -1345,8 +1383,11 @@
             const totalCOD = viewItems.reduce((sum, i) => sum + (i.CashOnDelivery || 0), 0);
 
             let html = `<div class="dr-province-header ${GROUP_HEADER_CLASS[key]}">
-                ${GROUP_LABELS[key]} <span class="dr-province-count">${scannedItems.length}/${allItems.length}</span>
-                <div class="dr-province-total">${formatMoney(totalCOD)}</div>
+                <div>${GROUP_LABELS[key]} <span class="dr-province-count">${scannedItems.length}/${allItems.length}</span></div>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <span class="dr-province-total" style="margin:0;">${formatMoney(totalCOD)}</span>
+                    ${showScanned && viewItems.length > 0 ? `<button class="dr-btn-unscan-all" onclick="DeliveryReport.unscanGroup('${key}')" title="Xóa tất cả nhóm ${GROUP_LABELS[key]}"><i class="fas fa-trash"></i> Xóa</button>` : ''}
+                </div>
             </div>`;
 
             viewItems.forEach(item => {
@@ -1469,6 +1510,13 @@
     async function processScan(value) {
         console.log('[DELIVERY-REPORT] Scanned:', value);
         const state = DeliveryReportState;
+
+        // Chỉ cho quét ở tab "Tất cả"
+        if (state.activeTab !== 'all') {
+            showScanFeedback(false, `Chuyển sang tab "Tất cả" để quét`, true);
+            return;
+        }
+
         const isProvinceTab = state.activeTab === 'province' && state.traSoatMode;
         const isAllTab = state.activeTab === 'all' && state.traSoatMode;
         const isMultiColView = isProvinceTab || isAllTab;
@@ -1674,6 +1722,7 @@
         setScanFilter: setScanFilter,
         unscanItem: unscanItem,
         unscanAllTab: unscanAllTab,
+        unscanGroup: unscanGroup,
         getState: () => DeliveryReportState
     };
 })();

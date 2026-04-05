@@ -593,10 +593,13 @@ export class CustomerProfileModule {
                             const iconColor = cfg.isCredit ? '#16a34a' : '#dc2626';
 
                             const date = tx.created_at ? new Date(tx.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
-                            const createdBy = tx.created_by && tx.created_by !== 'system' ? tx.created_by : '';
+                            const createdBy = (tx.created_by && tx.created_by !== 'system') ? tx.created_by
+                                : (tx.reference_id && tx.reference_id !== 'admin' && tx.reference_id.includes('@')) ? tx.reference_id : '';
 
-                            // Build note + date + operator on one line
-                            const note = tx.note || tx.source || '';
+                            // Extract image URL and clean note text
+                            const rawNote = tx.note || tx.source || '';
+                            const imgMatch = rawNote.match(/\[Ảnh GD: (https?:\/\/[^\]]+)\]/);
+                            const note = rawNote.replace(/\n?\[Ảnh GD: https?:\/\/[^\]]+\]/, '').trim();
                             let detailParts = [];
                             if (note) detailParts.push(note);
                             if (date) detailParts.push(date);
@@ -629,6 +632,7 @@ export class CustomerProfileModule {
                                     </div>
                                     <div style="padding-left: 44px;">
                                         <p style="font-size: 13px; font-weight: 500; color: #475569; line-height: 1.6;">${detailParts.join(' - ')}${operatorHtml}</p>
+                                        ${imgMatch ? `<img src="${imgMatch[1]}" class="wallet-tx-thumb" style="width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0;margin-top:6px;cursor:pointer" alt="Ảnh GD">` : ''}
                                         <p style="font-size: 14px; font-weight: 800; color: #1e293b; margin-top: 6px;">Thay đổi số dư: ${formatCurrency(totalBefore)} → ${formatCurrency(totalAfter)}</p>
                                     </div>
                                 </div>

@@ -1335,7 +1335,22 @@ function renderCongNoTab(partnerId) {
         return '<div class="detail-loading">Không có dữ liệu công nợ</div>';
     }
 
-    let tableHtml = `
+    // Sort by web date (if available) or TPOS date
+    const hasWebDates = congNo.some(item => RefundDateStore.getByMoveName(item.MoveName || ''));
+    const sortedCongNo = hasWebDates ? [...congNo].sort((a, b) => {
+        const aWebDate = RefundDateStore.getByMoveName(a.MoveName || '');
+        const bWebDate = RefundDateStore.getByMoveName(b.MoveName || '');
+        const aTime = aWebDate ? parseDDMMYYYY(aWebDate) : new Date(a.Date || 0).getTime();
+        const bTime = bWebDate ? parseDDMMYYYY(bWebDate) : new Date(b.Date || 0).getTime();
+        return aTime - bTime;
+    }) : congNo;
+
+    // Warn if paginated + web date sort (balance may be inaccurate across pages)
+    const paginationWarning = hasWebDates && total > CONFIG.DETAIL_PAGE_SIZE
+        ? '<div style="color:#dc2626;font-size:12px;padding:4px 8px;background:#fef2f2;border-radius:4px;margin-bottom:6px;">⚠ Dữ liệu có nhiều hơn 1 trang — Nợ đầu kỳ/cuối kỳ có thể không chính xác do sort theo ngày web.</div>'
+        : '';
+
+    let tableHtml = paginationWarning + `
         <table class="detail-table">
             <thead>
                 <tr>
@@ -1361,7 +1376,7 @@ function renderCongNoTab(partnerId) {
         ? prevPageEndBalance
         : (congNo.length > 0 ? (congNo[0].Begin || 0) : 0);
 
-    congNo.forEach((item, index) => {
+    sortedCongNo.forEach((item, index) => {
         const moveName = item.MoveName || '';
         const webDate = RefundDateStore.getByMoveName(moveName);
         const dateStr = webDate || formatDateFromISO(item.Date);
@@ -2618,6 +2633,12 @@ function initNoteEditModal() {
 // DATE FORMATTING HELPERS
 // =====================================================
 
+function parseDDMMYYYY(str) {
+    if (!str) return 0;
+    const [d, m, y] = str.split('/');
+    return new Date(+y, +m - 1, +d).getTime();
+}
+
 function formatDateFromISO(isoString) {
     if (!isoString) return '';
     const date = new Date(isoString);
@@ -3191,6 +3212,9 @@ const RefundOrders = {
         const ids = Array.from(this._selectedIds);
         const count = ids.length;
 
+        // Collect ids that have custom dates — need to update their MoveName after confirm
+        const idsWithDates = ids.filter(id => RefundDateStore.get(id));
+
         try {
             const loadingId = window.notificationManager?.info?.(`Đang xác nhận ${count} đơn trả hàng...`);
 
@@ -3203,6 +3227,29 @@ const RefundOrders = {
             if (!resp.ok) {
                 const errText = await resp.text().catch(() => '');
                 throw new Error(`HTTP ${resp.status} ${errText}`);
+            }
+
+            // After confirm, re-fetch to get assigned Number (BILL/xxxx) and update RefundDateStore
+            if (idsWithDates.length > 0) {
+                try {
+                    const filter = idsWithDates.map(id => `Id eq ${id}`).join(' or ');
+                    const fetchUrl = `${CONFIG.API_BASE}/FastPurchaseOrder/OdataService.GetView?$filter=${encodeURIComponent(filter)}&$top=${idsWithDates.length}`;
+                    const fetchResp = await tposFetch(fetchUrl);
+                    if (fetchResp.ok) {
+                        const result = await fetchResp.json();
+                        for (const order of (result.value || [])) {
+                            if (order.Number) {
+                                const existingDate = RefundDateStore.get(order.Id);
+                                if (existingDate) {
+                                    await RefundDateStore.set(order.Id, existingDate, order.Number);
+                                    console.log(`[RefundOrders] Updated MoveName for ${order.Id}: ${order.Number}`);
+                                }
+                            }
+                        }
+                    }
+                } catch (e) {
+                    console.error('[RefundOrders] Update MoveName after confirm error:', e);
+                }
             }
 
             if (loadingId) window.notificationManager?.remove?.(loadingId);

@@ -968,7 +968,7 @@ async function markPartnerAsBoom(phone, noteText) {
         partnerData.StatusStyle = '#d1332e';
         partnerData.StatusText = 'Bom hàng';
         if (noteText) {
-            partnerData.Zalo = noteText;
+            partnerData.Email = noteText;
         }
 
         partnerEntries.push({ id: partner.Id, url: getUrl, originalData, updatedData: partnerData });

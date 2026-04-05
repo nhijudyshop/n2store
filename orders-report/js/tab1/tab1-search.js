@@ -679,6 +679,7 @@ async function loadCampaignList(skip = 0, startDateLocal = null, endDateLocal = 
             mergedCampaigns.push({
                 campaignId: campaign.campaignIds[0], // For backward compatibility
                 campaignIds: campaign.campaignIds, // Array of all merged campaign IDs
+                campaignNames: campaign.campaignNames, // Raw Shopify campaign names (for sync matching)
                 displayName: displayName,
                 dates: dates,
                 latestDate: campaign.latestDate,
@@ -737,7 +738,7 @@ async function populateCampaignFilter(campaigns, autoLoad = false) {
     });
 
     if (campaigns.length > 0) {
-        // 🔥 Load saved preferences from Firebase
+        // 🔥 Load saved preferences from PostgreSQL
         const savedPrefs = await loadFilterPreferencesFromFirebase();
         const customDateContainer = document.getElementById("customDateFilterContainer");
         const customStartDateInput = document.getElementById("customStartDate");
@@ -850,8 +851,23 @@ async function populateCampaignFilter(campaigns, autoLoad = false) {
                 }
             }
         } else {
-            // 🎯 No saved preferences - use default (first campaign)
-            select.value = 0;
+            // 🔄 No saved preferences - try activeCampaignId, fallback to first campaign
+            let autoSelectedIndex = -1;
+
+            // Try to find option matching activeCampaignId
+            const activeCampaign = window.campaignManager?.activeCampaign;
+            if (activeCampaign?.name) {
+                autoSelectedIndex = _findFilterOptionByDbCampaignName(activeCampaign.name);
+                if (autoSelectedIndex !== -1) {
+                    console.log(`[SYNC] 🔄 Auto-selected campaignFilter from activeCampaign: "${activeCampaign.name}"`);
+                }
+            }
+
+            if (autoSelectedIndex !== -1) {
+                select.selectedIndex = autoSelectedIndex;
+            } else {
+                select.value = 0;
+            }
             customDateContainer.style.display = "none";
 
             // Manually update selectedCampaign state
@@ -870,10 +886,9 @@ async function populateCampaignFilter(campaigns, autoLoad = false) {
             }
 
             if (autoLoad) {
-
                 if (window.notificationManager) {
                     window.notificationManager.info(
-                        `Đang tải dữ liệu chiến dịch: ${campaigns[0].displayName}`,
+                        `Đang tải dữ liệu chiến dịch: ${selectedCampaign?.displayName || campaigns[0].displayName}`,
                         2000,
                         'Tự động tải'
                     );
@@ -884,7 +899,6 @@ async function populateCampaignFilter(campaigns, autoLoad = false) {
                 if (window.realtimeManager) {
                     window.realtimeManager.connectServerMode();
                 }
-            } else {
             }
         }
     }
@@ -925,15 +939,17 @@ async function handleCampaignChange() {
     } else {
         customDateContainer.style.display = "none";
 
-        // 🔥 Save campaign selection to Firebase (not custom mode)
-        // ⭐ FIX: Lưu displayName thay vì index để tránh lỗi khi thứ tự campaigns thay đổi
+        // 🔥 Save campaign selection + sync activeCampaignId
         if (select.value && select.value !== '' && selectedCampaign?.displayName) {
             saveFilterPreferencesToFirebase({
                 selectedCampaignValue: select.value,
-                selectedCampaignName: selectedCampaign.displayName, // ⭐ Lưu tên campaign
+                selectedCampaignName: selectedCampaign.displayName,
                 isCustomMode: false,
                 customStartDate: null
             });
+
+            // 🔄 SYNC: Update activeCampaignId to match selected Shopify campaign
+            _syncActiveCampaignFromFilter(selectedCampaign);
         }
     }
 
@@ -966,6 +982,67 @@ async function handleCampaignChange() {
             type: 'CAMPAIGN_CHANGED_FOR_TAB3',
             campaignNames: selectedCampaign?.campaignNames || []
         }, '*');
+    }
+}
+
+// 🔄 SYNC HELPERS: Match between Shopify campaigns and DB campaigns
+// Normalize name for fuzzy matching (remove dates, special chars)
+function _normalizeCampaignName(name) {
+    return name.replace(/[\d\/\\_.\-]+/g, ' ').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+// Find DB campaign ID that matches Shopify campaign names
+function _findMatchingDbCampaignId(shopifyCampaignNames) {
+    const allCampaigns = window.campaignManager?.allCampaigns || {};
+    for (const [id, campaign] of Object.entries(allCampaigns)) {
+        const dbNorm = _normalizeCampaignName(campaign.name);
+        if (!dbNorm) continue;
+        for (const shopifyName of (shopifyCampaignNames || [])) {
+            const shopNorm = _normalizeCampaignName(shopifyName);
+            if (dbNorm === shopNorm || dbNorm.includes(shopNorm) || shopNorm.includes(dbNorm)) {
+                return id;
+            }
+        }
+    }
+    return null;
+}
+
+// Find campaignFilter option index matching a DB campaign name
+function _findFilterOptionByDbCampaignName(dbCampaignName) {
+    const select = document.getElementById('campaignFilter');
+    if (!select || !dbCampaignName) return -1;
+    const dbNorm = _normalizeCampaignName(dbCampaignName);
+    if (!dbNorm) return -1;
+
+    for (let i = 0; i < select.options.length; i++) {
+        const optData = select.options[i].dataset.campaign;
+        if (!optData) continue;
+        try {
+            const c = JSON.parse(optData);
+            for (const name of (c.campaignNames || [])) {
+                const shopNorm = _normalizeCampaignName(name);
+                if (dbNorm === shopNorm || dbNorm.includes(shopNorm) || shopNorm.includes(dbNorm)) {
+                    return i;
+                }
+            }
+        } catch (e) { }
+    }
+    return -1;
+}
+
+// Sync activeCampaignId when user changes campaignFilter (#4 → #3)
+async function _syncActiveCampaignFromFilter(campaign) {
+    if (!campaign?.campaignNames || !window.campaignManager?.currentUserId) return;
+    const matchedId = _findMatchingDbCampaignId(campaign.campaignNames);
+    if (matchedId && matchedId !== window.campaignManager.activeCampaignId) {
+        window.campaignManager.activeCampaignId = matchedId;
+        window.campaignManager.activeCampaign = window.campaignManager.allCampaigns[matchedId];
+        try {
+            await window.CampaignAPI.setActiveCampaign(window.campaignManager.currentUserId, matchedId);
+            console.log(`[SYNC] 🔄 activeCampaignId updated to "${matchedId}" from campaignFilter`);
+        } catch (e) {
+            console.warn('[SYNC] Failed to save activeCampaignId:', e);
+        }
     }
 }
 

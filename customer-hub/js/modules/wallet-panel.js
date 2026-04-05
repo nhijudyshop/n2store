@@ -34,6 +34,7 @@ export class WalletPanelModule {
         this._currentTab = 'overview'; // 'overview' | 'manual-history'
         this._walletData = null;
         this._manualTxCache = null; // cached manual transactions
+        this._initImageLightbox();
     }
 
     async render(phone) {
@@ -316,7 +317,8 @@ export class WalletPanelModule {
         const expiry = (tx.type === 'VIRTUAL_CREDIT' && tx.expires_at)
             ? ` · HSD: ${new Date(tx.expires_at).toLocaleDateString('vi-VN')}`
             : '';
-        const creator = tx.created_by && tx.created_by !== 'system' ? tx.created_by : '';
+        const creator = (tx.created_by && tx.created_by !== 'system') ? tx.created_by
+            : (tx.reference_id && tx.reference_id !== 'admin' && tx.reference_id.includes('@')) ? tx.reference_id : '';
         const note = tx.note || tx.source || '';
 
         // Type icon mapping
@@ -339,7 +341,7 @@ export class WalletPanelModule {
                             <span class="text-[11px] font-bold text-slate-800 dark:text-slate-200">${TYPE_LABELS[tx.type] || 'Giao dịch'}</span>
                             <span class="text-[11px] font-bold tabular-nums" style="color: ${amountColor};">${sign}${this._formatCurrency(Math.abs(tx.amount))}</span>
                         </div>
-                        ${note ? `<p class="text-[10px] text-slate-500 truncate">${this._escapeHtml(note)}</p>` : ''}
+                        ${note ? this._renderNoteWithImage(note) : ''}
                         <div class="flex items-center gap-1 mt-0.5">
                             <span class="text-[9px] text-slate-400">${date}${expiry}</span>
                             ${creator ? `<span class="text-[9px] text-slate-400">·</span><span class="text-[9px] font-semibold" style="color: #ef4444;">${this._escapeHtml(creator)}</span>` : ''}
@@ -485,6 +487,20 @@ export class WalletPanelModule {
                     ` : ''}
                     <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Ghi chú (tùy chọn)</label>
                     <textarea name="note" rows="2" class="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-700 text-slate-900 dark:text-white mb-4" placeholder="Nhập ghi chú..."></textarea>
+                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Ảnh giao dịch (tùy chọn)</label>
+                    <div class="wallet-img-upload mb-4">
+                        <div class="wallet-img-dropzone relative border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg p-4 text-center cursor-pointer hover:border-blue-400 transition-colors" style="min-height:80px">
+                            <input type="file" accept="image/*" class="wallet-img-input absolute inset-0 opacity-0 cursor-pointer" style="z-index:2">
+                            <div class="wallet-img-placeholder pointer-events-none">
+                                <span class="material-symbols-outlined text-slate-400 text-3xl">add_photo_alternate</span>
+                                <p class="text-xs text-slate-400 mt-1">Nhấn để chọn ảnh hoặc dán (Ctrl+V)</p>
+                            </div>
+                            <div class="wallet-img-preview hidden">
+                                <img class="wallet-img-thumb max-h-32 mx-auto rounded" />
+                                <button type="button" class="wallet-img-remove absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600" style="z-index:3">&times;</button>
+                            </div>
+                        </div>
+                    </div>
                     <div class="error-msg hidden mb-4 p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg text-sm"></div>
                     <button class="submit-btn w-full py-3 px-4 text-white font-bold rounded-lg flex items-center justify-center gap-2" style="${cfg.btnStyle}">
                         <span class="material-symbols-outlined">${cfg.icon}</span> ${cfg.buttonText}
@@ -498,12 +514,57 @@ export class WalletPanelModule {
         modal.querySelector('.close-btn').onclick = close;
         modal.onclick = e => e.target === modal && close();
 
+        // --- Image upload/paste logic ---
+        let selectedImageFile = null;
+        const imgInput = modal.querySelector('.wallet-img-input');
+        const imgPlaceholder = modal.querySelector('.wallet-img-placeholder');
+        const imgPreview = modal.querySelector('.wallet-img-preview');
+        const imgThumb = modal.querySelector('.wallet-img-thumb');
+        const imgRemove = modal.querySelector('.wallet-img-remove');
+
+        const showImagePreview = (file) => {
+            if (!file || !file.type.startsWith('image/')) return;
+            if (file.size > 5 * 1024 * 1024) { alert('Ảnh quá lớn (tối đa 5MB)'); return; }
+            selectedImageFile = file;
+            const url = URL.createObjectURL(file);
+            imgThumb.src = url;
+            imgPlaceholder.classList.add('hidden');
+            imgPreview.classList.remove('hidden');
+        };
+
+        const clearImage = () => {
+            selectedImageFile = null;
+            imgInput.value = '';
+            if (imgThumb.src) URL.revokeObjectURL(imgThumb.src);
+            imgThumb.src = '';
+            imgPreview.classList.add('hidden');
+            imgPlaceholder.classList.remove('hidden');
+        };
+
+        imgInput.addEventListener('change', e => {
+            if (e.target.files?.[0]) showImagePreview(e.target.files[0]);
+        });
+        imgRemove.addEventListener('click', e => { e.stopPropagation(); clearImage(); });
+
+        // Paste support
+        modal.addEventListener('paste', e => {
+            const items = e.clipboardData?.items;
+            if (!items) return;
+            for (const item of items) {
+                if (item.type.startsWith('image/')) {
+                    e.preventDefault();
+                    showImagePreview(item.getAsFile());
+                    break;
+                }
+            }
+        });
+
         const submitBtn = modal.querySelector('.submit-btn');
         const errorDiv = modal.querySelector('.error-msg');
 
         submitBtn.onclick = async () => {
             const amount = parseFloat(modal.querySelector('[name="amount"]').value);
-            const note = modal.querySelector('[name="note"]').value.trim();
+            let note = modal.querySelector('[name="note"]').value.trim();
             const expiry = parseInt(modal.querySelector('[name="expiry"]')?.value) || 15;
 
             if (!amount || amount < 1000) {
@@ -516,6 +577,13 @@ export class WalletPanelModule {
             submitBtn.innerHTML = '<span class="animate-spin material-symbols-outlined">sync</span> Đang xử lý...';
 
             try {
+                // Upload image if selected
+                if (selectedImageFile) {
+                    submitBtn.innerHTML = '<span class="animate-spin material-symbols-outlined">sync</span> Đang tải ảnh...';
+                    const imageUrl = await this._uploadWalletImage(selectedImageFile);
+                    note = note ? `${note}\n[Ảnh GD: ${imageUrl}]` : `[Ảnh GD: ${imageUrl}]`;
+                }
+
                 const user = this._getCurrentUser();
                 const actionTypeMap = { deposit: 'wallet_add_debt', withdraw: 'wallet_subtract_debt', issue_vc: 'wallet_adjust_debt' };
                 const descMap = { deposit: `Nạp ${amount.toLocaleString('vi-VN')}đ vào ví ${this.customerPhone}`, withdraw: `Rút ${amount.toLocaleString('vi-VN')}đ từ ví ${this.customerPhone}`, issue_vc: `Cấp công nợ ảo ${amount.toLocaleString('vi-VN')}đ cho ${this.customerPhone} (${expiry} ngày)` };
@@ -557,6 +625,34 @@ export class WalletPanelModule {
         };
 
         modal.querySelector('[name="amount"]').focus();
+    }
+
+    async _uploadWalletImage(file) {
+        const reader = new FileReader();
+        const base64 = await new Promise((resolve, reject) => {
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+
+        const timestamp = Date.now();
+        const ext = file.name?.split('.').pop() || 'jpg';
+        const fileName = `wallet_${this.customerPhone}_${timestamp}.${ext}`;
+
+        const response = await fetch('https://chatomni-proxy.nhijudyshop.workers.dev/api/upload/image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                image: base64,
+                fileName,
+                folderPath: 'wallet-transactions',
+                mimeType: file.type
+            })
+        });
+
+        const result = await response.json();
+        if (!result.success) throw new Error(result.error || 'Upload ảnh thất bại');
+        return result.url;
     }
 
     async _showTransactionHistory() {
@@ -605,13 +701,15 @@ export class WalletPanelModule {
         const date = tx.created_at ? new Date(tx.created_at).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
         const expiry = (tx.type === 'VIRTUAL_CREDIT' && tx.expires_at)
             ? `<span class="text-orange-500 ml-1">• HSD: ${new Date(tx.expires_at).toLocaleDateString('vi-VN')}</span>` : '';
-        const createdBy = tx.created_by && tx.created_by !== 'system' ? ` · <span class="font-medium text-slate-500">${this._escapeHtml(tx.created_by)}</span>` : '';
+        const creator = (tx.created_by && tx.created_by !== 'system') ? tx.created_by
+            : (tx.reference_id && tx.reference_id !== 'admin' && tx.reference_id.includes('@')) ? tx.reference_id : '';
+        const createdBy = creator ? ` · <span class="font-medium" style="color:#ef4444">${this._escapeHtml(creator)}</span>` : '';
 
         return `
             <div class="flex items-center gap-3 p-3 rounded-lg ${bg}">
                 <div class="flex-1">
                     <p class="font-medium text-slate-800 dark:text-slate-200">${TYPE_LABELS[tx.type] || 'Giao dịch ví'}</p>
-                    <p class="text-xs text-slate-500">${this._escapeHtml(tx.note || tx.source || '')}</p>
+                    <div class="text-xs text-slate-500">${this._renderNoteWithImage(tx.note || tx.source || '')}</div>
                     <p class="text-xs text-slate-400">${date}${expiry}${createdBy}</p>
                 </div>
                 <p class="font-bold ${color}">${isCredit ? '+' : '-'}${this._formatCurrency(Math.abs(tx.amount))}</p>
@@ -679,6 +777,46 @@ export class WalletPanelModule {
             const u = JSON.parse(localStorage.getItem('n2shop_current_user') || '{}');
             return u.email || u.displayName || 'admin';
         } catch { return 'admin'; }
+    }
+
+    _renderNoteWithImage(note) {
+        const imgMatch = note.match(/\[Ảnh GD: (https?:\/\/[^\]]+)\]/);
+        const textPart = note.replace(/\n?\[Ảnh GD: https?:\/\/[^\]]+\]/, '').trim();
+        let html = '';
+        if (textPart && imgMatch) {
+            // Note + small thumbnail inline
+            html = `<div class="flex items-center gap-1.5">
+                <p class="text-[10px] text-slate-500 truncate flex-1">${this._escapeHtml(textPart)}</p>
+                <img src="${imgMatch[1]}" class="wallet-tx-thumb w-8 h-8 rounded border border-slate-200 dark:border-slate-600 object-cover cursor-pointer flex-shrink-0" alt="Ảnh GD">
+            </div>`;
+        } else if (textPart) {
+            html = `<p class="text-[10px] text-slate-500 truncate">${this._escapeHtml(textPart)}</p>`;
+        } else if (imgMatch) {
+            html = `<img src="${imgMatch[1]}" class="wallet-tx-thumb w-8 h-8 rounded border border-slate-200 dark:border-slate-600 object-cover cursor-pointer" alt="Ảnh GD">`;
+        }
+        return html;
+    }
+
+    _initImageLightbox() {
+        if (window._walletShowImage) return;
+
+        // Lightbox on click - z-index higher than any modal
+        window._walletShowImage = (url) => {
+            const overlay = document.createElement('div');
+            overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;cursor:pointer';
+            overlay.innerHTML = `<img src="${url}" style="max-width:90vw;max-height:90vh;border-radius:8px;box-shadow:0 8px 40px rgba(0,0,0,0.5);object-fit:contain">`;
+            overlay.onclick = () => overlay.remove();
+            document.body.appendChild(overlay);
+        };
+
+        // Event delegation for click only
+        document.addEventListener('click', (e) => {
+            const thumb = e.target.closest('.wallet-tx-thumb');
+            if (thumb) {
+                e.preventDefault();
+                window._walletShowImage(thumb.src);
+            }
+        });
     }
 
     _escapeHtml(text) {

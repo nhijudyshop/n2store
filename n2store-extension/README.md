@@ -70,7 +70,8 @@ n2store-extension/
 │       └── badge.js                 # Badge counter re-export
 │
 ├── content/
-│   └── contentscript.js             # Bridge: page ↔ service worker
+│   ├── contentscript.js             # Bridge: page ↔ service worker
+│   └── tpos-interceptor.js          # TPOS XHR interceptor (tag assignment)
 │
 ├── popup/
 │   ├── popup.html                   # Popup UI (3 tabs)
@@ -93,7 +94,7 @@ n2store-extension/
 Trang web (nhijudyshop)
   │ window.postMessage({ type: 'REPLY_INBOX_PHOTO', ... })
   ▼
-contentscript.js (inject vào trang)
+contentscript.js (inject vào trang nhijudyshop)
   │ chrome.runtime.connect (port)
   ▼
 service-worker.js (background)
@@ -107,6 +108,20 @@ service-worker.js (background)
   │
   ▼ (response)
 contentscript.js → window.postMessage → trang web
+
+TPOS Tag Interception (separate flow):
+
+tomato.tpos.vn (TPOS order list page)
+  │ User gán tag → XHR POST /TagSaleOnlineOrder/ODataService.AssignTag
+  ▼
+tpos-interceptor.js (inject vào trang TPOS)
+  │ Intercept XHR, on success: { type: 'tpos:tag-assigned', orderId, tags }
+  ├── chrome.runtime.sendMessage() → service-worker.js
+  └── fetch() → Render server /api/tpos-events/broadcast (fallback)
+  ▼
+service-worker.js
+  ├── Forward to Render server → WebSocket broadcast → N2Store web table updates
+  └── Broadcast to connected N2Store tabs directly
 ```
 
 ---
@@ -126,6 +141,7 @@ contentscript.js → window.postMessage → trang web
 | Nhắn riêng | `SEND_PRIVATE_REPLY` | Done |
 | Keep-alive | `WAKE_UP` (10s) + chrome.alarms (30s) | Done |
 | Header modification | DeclarativeNetRequest (Origin, Referer) | Done |
+| TPOS tag interception | XHR intercept → `tpos:tag-assigned` | Done |
 | React message | `REACT_MESSAGE` | Stub |
 | Block user | `BLOCK_FACEBOOK_USER` | Stub |
 
@@ -510,6 +526,7 @@ obj.other_user_fbid                                   // Deep search
 
 ### 7.1 Thứ tự ưu tiên
 
+**N2Store Extension (6 strategies):**
 ```
 1. AdminAssigner (doc_id)         ← Nhanh nhưng doc_id hiếm khi có
 2. CommItemHeader (cquick+doc_id) ← Nhanh nhưng cần cquick_token + doc_id
@@ -518,6 +535,22 @@ obj.other_user_fbid                                   // Deep search
 5. thread_info.php                ← Mercury endpoint, chậm
 6. getUserInboxByName             ← Chỉ khi có customerName
 ```
+
+**Pancake Extension v0.5.43 (4 strategies, từ `Me` class trong background.js):**
+```
+1. PagesManagerInboxAdminAssignerRootQuery  ← GraphQL: commItemID → target_id (cần threadId)
+2. PagesManagerInboxQueryUtilCommItemHeaderMercuryQuery ← GraphQL: messageThreadID → target_id (cần threadKey + cquick_token)
+3. findThread (MessengerGraphQLThreadlistFetcher) ← Load 20 threads/page, match by threadId OR customerName
+   - Paginates: main → done → page_background → spam (max 200/category)
+   - Tìm theo: page_comm_item.id === threadId || participant.name === customerName
+   - Extract: thread_key.other_user_id
+4. getUserInboxByName (page_unified_customer_search) ← GraphQL search by name, match by threadId
+   - ⚠ CẦN threadId để filter kết quả (null match không đáng tin)
+```
+
+> **Lưu ý quan trọng:** Pancake Extension KHÔNG có Strategy 4-5 của N2Store (ConversationPage scraping, thread_info.php). Khi Strategy 1-3 fail VÀ Strategy 4 không match được (vì threadId null) → `GET_GLOBAL_ID_FOR_CONV_FAILURE`.
+>
+> **Fix (04/2026):** `tab1-chat-core.js` enriches `thread_id` từ Pancake conversation list API (background fetch). API trả `thread_id` nhưng cache `inboxMapByPSID` và messages API thì không. Xem commit `a1fe2611`.
 
 ### 7.2 Bài học quan trọng từ debug (04/2026)
 
@@ -605,8 +638,9 @@ URL format: `https://business.facebook.com/latest/inbox/messenger?asset_id={page
 
 ### Content Script Domains
 
-- `nhijudyshop.workers.dev`
-- `nhijudyshop.github.io`
+- `nhijudyshop.workers.dev` — N2Store web app (contentscript.js)
+- `nhijudyshop.github.io` — N2Store web app (contentscript.js)
+- `tomato.tpos.vn` — TPOS order management (tpos-interceptor.js)
 
 ### Host Permissions
 
@@ -614,6 +648,7 @@ URL format: `https://business.facebook.com/latest/inbox/messenger?asset_id={page
 - `upload-business.facebook.com` — Upload photos
 - `www.facebook.com` — Comments, profile
 - `graph.facebook.com` — Graph API fallback
+- `tomato.tpos.vn` — TPOS tag assignment interception
 
 ---
 
@@ -677,7 +712,24 @@ chrome.storage.local.get(null, d => {
 });
 ```
 
-### 10.5 SSE Reconnect
+### 10.5 TPOS Tag Interception
+
+TPOS (tomato.tpos.vn) **không phát Socket.IO event** khi gán tag từ trang danh sách đơn hàng (`/app/saleOnline/order/list`). Chỉ có event khi tương tác trên trang chi tiết đơn (live page).
+
+**Giải pháp**: `tpos-interceptor.js` intercept XHR calls:
+
+```
+POST /odata/TagSaleOnlineOrder/ODataService.AssignTag
+Body: { Tags: [{Id, Name, Color}, ...], OrderId: "uuid" }
+```
+
+Khi XHR trả 2xx → gửi event `tpos:tag-assigned` qua 2 kênh:
+1. `chrome.runtime.sendMessage()` → service worker → forward to Render server → WebSocket broadcast
+2. `fetch()` trực tiếp đến Render server `/api/tpos-events/broadcast` (fallback)
+
+N2Store web app (`tab1-tpos-realtime.js`) nhận event qua WebSocket và cập nhật tags trong bảng đơn hàng mà không cần F5.
+
+### 10.6 SSE Reconnect
 
 - Auto-reconnect khi mất kết nối
 - Exponential backoff: 1s → 2s → 4s → 8s → ... → 60s max
@@ -739,13 +791,14 @@ Chrome → `chrome://extensions/` → N2Store Messenger → "Inspect views: serv
 | **Đọc được** | Không (obfuscated) | Có (clean code) |
 | **Sửa được** | Không | Có |
 | **Platforms** | FB + IG + LINE + Zalo | FB only (N2Store chỉ cần) |
-| **Global ID** | 5 strategies | 6 strategies (matched + ConversationPage scraping) |
+| **Global ID** | 4 strategies (Me class) | 6 strategies (matched + ConversationPage + thread_info.php) |
 | **Comment/Reply** | Có | Có (SEND_COMMENT, SEND_PRIVATE_REPLY) |
 | **Thông báo** | Không | 14 loại + SSE real-time |
 | **Popup** | Không | Dashboard + Notification center |
 | **Cài đặt** | Không | Full settings page |
 | **Badge** | Không | Unread counter |
 | **SSE** | Không | Kết nối Render server |
+| **TPOS integration** | Không | XHR intercept tag assignment → real-time sync |
 | **API compatible** | — | 100% (drop-in replacement) |
 
 ---
@@ -765,6 +818,7 @@ Chrome → `chrome://extensions/` → N2Store Messenger → "Inspect views: serv
 - [x] Trang cài đặt
 - [x] Badge counter + Activity log
 - [x] SEND_COMMENT, SEND_PRIVATE_REPLY
+- [x] TPOS tag interception (XHR intercept → WebSocket broadcast)
 
 ### Planned
 - [ ] REACT_MESSAGE

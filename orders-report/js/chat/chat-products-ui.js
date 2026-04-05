@@ -825,8 +825,10 @@
 
             if (sendResult?.success === false) {
                 const errMsg = sendResult.message || '';
-                if (sendResult.e_code === 10 || errMsg.includes('khoảng thời gian cho phép')) {
-                    if (window.notificationManager) window.notificationManager.show('Không thể gửi (quá 24h)', 'warning', 5000);
+                const is24h = sendResult.e_code === 10 || errMsg.includes('khoảng thời gian cho phép');
+                const is551 = sendResult.e_code === 551 || errMsg.includes('không có mặt');
+                if (is24h || is551) {
+                    if (window.notificationManager) window.notificationManager.show(is551 ? 'Lỗi #551: Khách không có mặt' : 'Không thể gửi (quá 24h)', 'warning', 5000);
                     return;
                 }
                 throw new Error(errMsg || 'Gửi ảnh thất bại');

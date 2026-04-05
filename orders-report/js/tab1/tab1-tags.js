@@ -821,6 +821,9 @@ async function quickRemoveTag(orderId, orderCode, tagId) {
 
         console.log('[QUICK-TAG] Tag removed successfully:', tagToRemove.Name, 'ID:', tagToRemove.Id, 'from order:', orderCode);
 
+        // Hook: Notify processing tags about TPOS tag change (for TPOS → TAG XL sync)
+        if (window.onPtagOrderTagsChanged) window.onPtagOrderTagsChanged(orderId, newOrderTags);
+
         // Re-apply filters to hide order if it no longer matches the current tag filter
         const currentTagFilter = document.getElementById('tagFilter')?.value || 'all';
         if (currentTagFilter !== 'all') {
@@ -1337,10 +1340,12 @@ async function saveOrderTags() {
 
         window.cacheManager.clear("orders");
         showLoading(false);
-        closeTagModal();
 
-        // Hook: Notify processing tags about TPOS tag change (for T-tag auto sub-state)
-        if (window.onPtagOrderTagsChanged) window.onPtagOrderTagsChanged(currentEditingOrderId, currentOrderTags);
+        // Hook: Notify processing tags about TPOS tag change (BEFORE closeTagModal clears state)
+        const _hookOrderId = currentEditingOrderId;
+        const _hookTags = [...currentOrderTags];
+        closeTagModal();
+        if (window.onPtagOrderTagsChanged) window.onPtagOrderTagsChanged(_hookOrderId, _hookTags);
 
         if (window.notificationManager) {
             window.notificationManager.success(

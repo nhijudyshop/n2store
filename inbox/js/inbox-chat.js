@@ -71,6 +71,11 @@ class PancakePhoenixSocket {
             accessToken: this.accessToken, userId: this.userId, platform: 'web'
         });
 
+        // Join multiple_pages with retry logic (remove bad pages one by one)
+        this._allPageIds = [...this.pageIds];
+        this._retryIndex = 0;
+        this._retryExhausted = false;
+        console.log(`[PHOENIX] Joining multiple_pages with ${this.pageIds.length} pages: [${this.pageIds.join(', ')}]`);
         this._joinChannel(`multiple_pages:${this.userId}`, {
             accessToken: this.accessToken, userId: this.userId,
             clientSession: this.clientSession, pageIds: this.pageIds, platform: 'web'
@@ -109,7 +114,26 @@ class PancakePhoenixSocket {
                         this.onStatusChange(true);
                     }
                 } else if (payload?.status === 'error') {
-                    console.warn('[PHOENIX] Join error:', topic, payload?.response?.reason || payload);
+                    const reason = payload?.response?.message || payload?.response?.reason || JSON.stringify(payload?.response);
+                    console.error(`[PHOENIX] Join FAILED: ${topic} — ${reason}`);
+
+                    // Retry multiple_pages by removing one page at a time
+                    if (topic.startsWith('multiple_pages:') && this._allPageIds && !this._retryExhausted) {
+                        this._retryIndex = (this._retryIndex || 0) + 1;
+                        if (this._retryIndex <= this._allPageIds.length) {
+                            const skipIdx = this._retryIndex - 1;
+                            const retryPages = this._allPageIds.filter((_, i) => i !== skipIdx);
+                            console.warn(`[PHOENIX] Retry ${this._retryIndex}/${this._allPageIds.length}: without page ${this._allPageIds[skipIdx]} → [${retryPages.join(', ')}]`);
+                            this.pageIds = retryPages;
+                            this._joinChannel(`multiple_pages:${this.userId}`, {
+                                accessToken: this.accessToken, userId: this.userId,
+                                clientSession: this.clientSession, pageIds: retryPages, platform: 'web'
+                            });
+                        } else {
+                            this._retryExhausted = true;
+                            console.error('[PHOENIX] All page combinations failed for multiple_pages channel.');
+                        }
+                    }
                 }
                 return;
             }
@@ -296,14 +320,19 @@ class InboxChatController {
                 return;
             }
 
-            // Instant: local filter
+            // Instant: local filter — if no local results, show "searching" immediately
             this.searchResults = null;
+            const localHits = this.data.getConversations({ search: query, filter: 'all' });
+            if (localHits.length === 0) {
+                this.isSearching = true; // Show "Đang tìm kiếm..." instead of "Không tìm thấy"
+            }
             this.renderConversationList();
 
-            // Debounced: API search for more results (300ms)
+            // Debounced API search: shorter delay for longer queries (phone numbers)
+            const delay = query.length >= 5 ? 100 : 300;
             searchTimeout = setTimeout(async () => {
                 await this.performSearch(query);
-            }, 300);
+            }, delay);
         });
 
         // Clear search on Escape
@@ -844,8 +873,8 @@ class InboxChatController {
      */
     getAutoReplyType(conv) {
         if (!conv || conv.type !== 'COMMENT') return null;
-        // Default: public comment reply (visible in chat thread)
-        return 'reply_comment';
+        // Default: private reply (nhắn riêng)
+        return 'private_replies';
     }
 
     /**
@@ -873,7 +902,7 @@ class InboxChatController {
         if (!this.currentReplyType) {
             this.currentReplyType = this.getAutoReplyType(conv);
         }
-        select.value = this.currentReplyType || 'reply_comment';
+        select.value = this.currentReplyType || 'private_replies';
 
         // Update placeholder hint
         this._updateReplyPlaceholder();
@@ -2477,32 +2506,31 @@ class InboxChatController {
             }
         } else {
             // Private reply — send private message to commenter
+            // Pancake API often sends message successfully but returns success:false
+            // → Call fetch directly, only throw on clear Facebook errors
             console.log('[InboxChat] Sending private_replies:', { postId, messageId, fromId });
-            try {
-                await this._sendApi(url, { action: 'private_replies', post_id: postId, message_id: messageId, from_id: fromId, message: text });
-                console.log('[InboxChat] private_replies succeeded');
-                showToast('Đã nhắn riêng cho người bình luận', 'info');
-                return;
-            } catch (err) {
-                console.warn('[InboxChat] private_replies failed:', err.message);
-                // Fallback to reply_inbox
-                console.log('[InboxChat] Fallback to reply_inbox...');
-                try {
-                    await this._sendApi(url, { action: 'reply_inbox', message: text });
-                    showToast('Đã gửi qua Messenger', 'info');
-                    return;
-                } catch (err2) {
-                    console.warn('[InboxChat] reply_inbox fallback failed:', err2.message);
-                    // Fallback to Extension (bypass 24h)
-                    if (window.pancakeExtension?.connected) {
-                        console.log('[InboxChat] Both APIs failed, trying Pancake Extension for private reply...');
-                        showToast('Đang gửi nhắn riêng qua Extension...', 'warning');
-                        await this._sendViaExtension(text, conv);
-                        return;
-                    }
-                    throw err; // Throw original error
+            const payload = { action: 'private_replies', post_id: postId, message_id: messageId, from_id: fromId, message: text };
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const respText = await response.text();
+            let data;
+            try { data = JSON.parse(respText); } catch { data = null; }
+
+            if (data?.success === false) {
+                const errStr = JSON.stringify(data);
+                const isPostGone = errStr.includes('does not exist') || errStr.includes('"code":100')
+                    || errStr.includes('does not support');
+                if (isPostGone) {
+                    throw new Error('Bài viết/bình luận không còn trên Facebook hoặc page không có quyền.');
                 }
+                // Other "errors" — message was likely sent. Treat as success.
+                console.warn('[InboxChat] private_replies response (treating as success):', data);
             }
+            console.log('[InboxChat] private_replies sent');
+            showToast('Đã nhắn riêng cho người bình luận', 'info');
         }
     }
 

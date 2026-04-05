@@ -4,31 +4,25 @@
 // Allows fetching orders by "last X days" instead of campaign dates
 // ============================================
 
-// Save date mode preference to Firestore
+// Save date mode preference via CampaignAPI
 window.saveDateModePreference = async function(pref) {
     try {
-        const db = firebase.firestore();
         const userId = window.campaignManager.currentUserId;
         if (!userId) return;
-        await db.collection('user_preferences').doc(userId).set(
-            { dateMode: pref },
-            { merge: true }
-        );
-
+        await window.CampaignAPI.saveFilterPreferences(userId, { dateMode: pref });
     } catch (error) {
         console.error('[DATE-MODE] Error saving preference:', error);
     }
 };
 
-// Load date mode preference from Firestore
+// Load date mode preference via CampaignAPI
 window.loadDateModePreference = async function() {
     try {
-        const db = firebase.firestore();
         const userId = window.campaignManager.currentUserId;
         if (!userId) return null;
-        const doc = await db.collection('user_preferences').doc(userId).get();
-        if (doc.exists && doc.data().dateMode) {
-            return doc.data().dateMode;
+        const data = await window.CampaignAPI.getUserPref(userId);
+        if (data.filterPreferences?.dateMode) {
+            return data.filterPreferences.dateMode;
         }
         return null;
     } catch (error) {
