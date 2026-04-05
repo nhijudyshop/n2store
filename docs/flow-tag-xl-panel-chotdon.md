@@ -548,7 +548,7 @@ Events: update, deleted
 | 5 | Auto Picking Slip (single-SKU) | **ACTIVE** | Gán Cat 1 CHO_HANG hoặc thêm T-tag | Set pickingSlipPrinted |
 | 6 | Auto Bill Created → Cat 0 | **ACTIVE** | Bill tạo thành công | Chuyển Cat 0 + lưu snapshot |
 | 7 | Auto Bill Cancelled → Rollback | **ACTIVE** | Bill bị hủy | Restore từ snapshot |
-| 8 | Auto Picking Slip Print | **ACTIVE** | In phiếu soạn hàng | Set pickingSlipPrinted + gán Cat 1 |
+| 8 | Auto Picking Slip Print | **ACTIVE** | In phiếu soạn hàng | Set pickingSlipPrinted + gán Cat 1 (chỉ cho chưa gán tag / Cat 2) |
 | 9 | Auto Transfer on Merge | **ACTIVE** | Gộp đơn | Union flags + tTags |
 | 10 | Auto Normalization on Load | **ACTIVE** | Load data từ API | Migrate cat 5, normalize subState |
 | 11 | Auto Tag Sync (TPOS) | **ACTIVE** | User click "Đồng bộ" | Apply mappings TPOS → Tag XL |
@@ -821,14 +821,14 @@ async function autoDetectFlags(orderCode, phone) {
   ┌──────────────┐   ┌─────────────────┐   ┌──────────────┐
   │ Cat 1: OKE   │   │ Cat 2: XỬ LÝ   │   │ Cat 3: KO CẦN│
   │              │   │                 │   │ Cat 4: XÃ    │
-  │ ┌──────────┐ │   └────────┬────────┘   └──────────────┘
-  │ │OKIE ĐI ĐƠN│◄──────────┘ (xử lý xong)
-  │ └─────┬────┘ │
-  │   ▲   │      │   Thêm T-tag (8.3)
-  │   │   ▼      │
-  │ ┌─┴────────┐ │   Tháo hết T-tag (8.4)
-  │ │ CHỜ HÀNG │ │
-  │ └──────────┘ │
+  │ ┌──────────┐ │   └───┬────────┬───┘   └──────────────┘
+  │ │OKIE ĐI ĐƠN│◄──────┘        │
+  │ └─────┬────┘ │  (xử lý xong)  │ In phiếu soạn hàng (8.8)
+  │   ▲   │      │                │
+  │   │   ▼      │   Thêm T-tag   │
+  │ ┌─┴────────┐ │   (8.3)        │
+  │ │ CHỜ HÀNG │◄┼────────────────┘
+  │ └──────────┘ │   Tháo hết T-tag (8.4) ↑↓
   └──────┬───────┘
          │
     Bill tạo thành công (8.6)
