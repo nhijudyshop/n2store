@@ -5,6 +5,111 @@
    ===================================================== */
 
 // =====================================================
+// PRIVATE REPLY MARKS STORE (Firestore sync, 7-day TTL)
+// =====================================================
+
+const PrivateReplyStore = {
+    _data: new Map(), // key: msgId → { timestamp, text, sender }
+    _initialized: false,
+    _unsubscribe: null,
+    _isListening: false,
+    _saveTimeout: null,
+    TTL: 7 * 24 * 60 * 60 * 1000, // 7 days
+
+    _getDocRef() {
+        const user = window.currentUser?.username || window.currentUser?.email || 'default';
+        return firebase.firestore().collection('private_reply_marks').doc(user);
+    },
+
+    async init() {
+        if (this._initialized) return;
+        try {
+            const doc = await this._getDocRef().get();
+            if (doc.exists) {
+                const raw = doc.data()?.data || {};
+                this._data.clear();
+                const now = Date.now();
+                for (const [k, v] of Object.entries(raw)) {
+                    if (now - (v.timestamp || 0) < this.TTL) {
+                        this._data.set(k, v);
+                    }
+                }
+            }
+            this._setupListener();
+            this._initialized = true;
+        } catch (e) {
+            console.warn('[PrivateReplyStore] init error:', e.message);
+            this._initialized = true;
+        }
+    },
+
+    _setupListener() {
+        if (this._unsubscribe) return;
+        try {
+            this._unsubscribe = this._getDocRef().onSnapshot(doc => {
+                if (!doc.exists) return;
+                this._isListening = true;
+                const raw = doc.data()?.data || {};
+                const now = Date.now();
+                this._data.clear();
+                for (const [k, v] of Object.entries(raw)) {
+                    if (now - (v.timestamp || 0) < this.TTL) {
+                        this._data.set(k, v);
+                    }
+                }
+                // Re-render if chat is open
+                if (window.currentConversationType === 'COMMENT' && window.allChatMessages.length > 0) {
+                    window.renderChatMessages(window.allChatMessages);
+                }
+                this._isListening = false;
+            });
+        } catch (e) {
+            console.warn('[PrivateReplyStore] listener error:', e.message);
+        }
+    },
+
+    mark(msgId, text, senderName) {
+        this._data.set(msgId, { timestamp: Date.now(), text: text || '', sender: senderName || '' });
+        this._debounceSave();
+    },
+
+    has(msgId) {
+        return this._data.has(msgId);
+    },
+
+    _debounceSave() {
+        if (this._isListening) return;
+        clearTimeout(this._saveTimeout);
+        this._saveTimeout = setTimeout(() => this._save(), 1000);
+    },
+
+    async _save() {
+        try {
+            await this._getDocRef().set({
+                data: Object.fromEntries(this._data),
+                lastUpdated: Date.now()
+            }, { merge: true });
+        } catch (e) {
+            console.warn('[PrivateReplyStore] save error:', e.message);
+        }
+    },
+
+    destroy() {
+        if (this._unsubscribe) { this._unsubscribe(); this._unsubscribe = null; }
+        clearTimeout(this._saveTimeout);
+    }
+};
+
+window.PrivateReplyStore = PrivateReplyStore;
+
+// Init when firebase is ready
+if (typeof firebase !== 'undefined' && firebase.firestore) {
+    PrivateReplyStore.init();
+} else {
+    document.addEventListener('firebaseReady', () => PrivateReplyStore.init());
+}
+
+// =====================================================
 // MESSAGE RENDERING
 // =====================================================
 
@@ -47,7 +152,7 @@ window.renderChatMessages = function(messages) {
             const isOutgoing = msg.sender === 'shop';
             const isHidden = msg.isHidden || false;
             const isRemoved = msg.isRemoved || false;
-            const isPrivateReply = isCommentConv && !!msg.privateReplyConversation;
+            const isPrivateReply = isCommentConv && (!!msg.privateReplyConversation || PrivateReplyStore.has(msg.id));
             const isCommentMsg = isCommentConv && !isPrivateReply;
 
             // Attachments
@@ -435,6 +540,14 @@ window.sendMessage = async function() {
                             privateReplyConversation: msg.private_reply_conversation || null,
                         };
                     });
+                    // Auto-mark private reply messages in store (for cross-device sync)
+                    if (window.currentConversationType === 'COMMENT') {
+                        messages.forEach(m => {
+                            if (m.privateReplyConversation && !PrivateReplyStore.has(m.id)) {
+                                PrivateReplyStore.mark(m.id, m.text, m.senderName);
+                            }
+                        });
+                    }
                     window.allChatMessages = messages;
                     window.currentChatCursor = messages.length;
                     window.renderChatMessages(messages);
@@ -580,6 +693,24 @@ async function _sendComment(pdm, pageId, convId, text, pat, replyData) {
             // Other "errors" — message was likely sent. Log warning but treat as success.
             console.warn('[Chat-Msg] private_replies response (treating as success):', result);
         }
+
+        // Optimistic UI: add sent message immediately
+        const optId = 'pr_' + Date.now();
+        window.allChatMessages.push({
+            id: optId,
+            text,
+            time: new Date(),
+            sender: 'shop',
+            senderName: window.currentUser?.name || '',
+            attachments: [],
+            reactions: [],
+            privateReplyConversation: true,
+        });
+        window.renderChatMessages(window.allChatMessages);
+
+        // Mark in PrivateReplyStore for cross-device sync
+        PrivateReplyStore.mark(optId, text, window.currentUser?.name || '');
+
         _showToast('Đã nhắn riêng', 'info');
     }
 }

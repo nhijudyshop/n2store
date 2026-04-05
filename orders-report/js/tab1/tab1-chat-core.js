@@ -425,6 +425,15 @@ async function _loadMessages(pageId, conversationId, customerId) {
             };
         });
 
+        // Auto-mark private reply messages in store (for cross-device sync)
+        if (window.currentConversationType === 'COMMENT' && window.PrivateReplyStore) {
+            messages.forEach(m => {
+                if (m.privateReplyConversation && !window.PrivateReplyStore.has(m.id)) {
+                    window.PrivateReplyStore.mark(m.id, m.text, m.senderName);
+                }
+            });
+        }
+
         window.allChatMessages = messages;
         window.currentChatCursor = messages.length;
 
