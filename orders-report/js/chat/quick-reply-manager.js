@@ -529,21 +529,11 @@ class QuickReplyManager {
                     ℹ️ Nhấn Enter hoặc Click chuột để chọn câu mẫu, nhấn phím ↓ ↑ để điều hướng
                     <span class="autocomplete-hint-close" onclick="quickReplyManager.hideAutocomplete()">✕</span>
                 </div>
-                <div id="quickReplyAutocompleteItems">
-                    <!-- Suggestions will be rendered here -->
-                </div>
+                <div id="quickReplyAutocompleteItems"></div>
             </div>
         `;
 
-        // Insert inside chat-input-area for reliable positioning above input
-        const chatInputArea = document.querySelector('.chat-input-area');
-        if (chatInputArea) {
-            chatInputArea.style.position = 'relative';
-            chatInputArea.insertAdjacentHTML('afterbegin', autocompleteHTML);
-        } else {
-            // Fallback to body if chat not ready yet
-            document.body.insertAdjacentHTML('beforeend', autocompleteHTML);
-        }
+        document.body.insertAdjacentHTML('beforeend', autocompleteHTML);
     }
 
     setupAutocomplete() {
@@ -659,12 +649,29 @@ class QuickReplyManager {
         this.selectedSuggestionIndex = 0;
 
         const dropdown = document.getElementById('quickReplyAutocomplete');
+        const inputRect = inputElement.getBoundingClientRect();
 
-        // Render content first
+        // Set width + horizontal position
+        dropdown.style.left = inputRect.left + 'px';
+        dropdown.style.width = Math.max(400, inputRect.width) + 'px';
+
+        // Render content first to measure height
         this.renderAutocomplete();
-
-        // Position above the input area using absolute positioning
+        dropdown.style.visibility = 'hidden';
         dropdown.style.display = 'block';
+
+        // Measure actual height then position ABOVE input
+        const dropdownHeight = dropdown.offsetHeight;
+        let topPos = inputRect.top - dropdownHeight - 4;
+
+        // Fallback: if near top of viewport, show below
+        if (topPos < 8) {
+            topPos = inputRect.bottom + 4;
+        }
+
+        dropdown.style.top = topPos + 'px';
+        dropdown.style.bottom = 'auto';
+        dropdown.style.visibility = 'visible';
     }
 
     renderAutocomplete() {
