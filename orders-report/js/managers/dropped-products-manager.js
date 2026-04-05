@@ -71,6 +71,7 @@
 
     // Campaign filter state for dropped products
     let currentCampaignFilter = 'all'; // 'all' | 'current' | specific campaignId
+    let hasAutoSelectedCampaignFilter = false; // Flag to auto-select active campaign once
 
     // Loading states for better UX during multi-user operations
     let operationsInProgress = new Set();
@@ -134,6 +135,7 @@
      */
     window.filterDroppedByCampaign = function (filterValue) {
         currentCampaignFilter = filterValue;
+        hasAutoSelectedCampaignFilter = true; // User manually chose, don't override
         const filtered = getFilteredDroppedProducts();
         renderDroppedProductsTable(filtered);
     };
@@ -1082,12 +1084,13 @@
             })
         );
 
-        // Auto-set default filter to active campaign on first load
+        // Auto-set default filter to active campaign (once, until user manually changes)
         const activeCampaignId = window.campaignManager?.activeCampaignId
             ? String(window.campaignManager.activeCampaignId)
             : null;
-        if (isFirstLoad && currentCampaignFilter === 'all' && activeCampaignId) {
+        if (!hasAutoSelectedCampaignFilter && currentCampaignFilter === 'all' && activeCampaignId) {
             currentCampaignFilter = activeCampaignId;
+            hasAutoSelectedCampaignFilter = true;
         }
 
         // Build campaign filter options from campaignManager + droppedProducts

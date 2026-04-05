@@ -84,8 +84,8 @@ async function loadAvailableTables() {
 
         console.log(`[REPORT] ✅ Loaded ${reports.length} reports + ${addedNames.size - reports.length} campaigns from API`);
 
-        // 🔄 SYNC: If no table selected, auto-select from active campaign or first report
-        if (!currentTableName) {
+        // 🔄 SYNC: Auto-select from active campaign (unless user manually chose a table)
+        if (!userManuallySelectedTable) {
             let matched = false;
 
             // Strategy 1: Get active campaign from Tab1 iframe
@@ -120,7 +120,7 @@ async function loadAvailableTables() {
             }
 
             // Strategy 2: Auto-select first report with data
-            if (!matched && reports.length > 0) {
+            if (!matched && !currentTableName && reports.length > 0) {
                 currentTableName = reports[0].tableName;
                 console.log(`[REPORT] 🔄 Auto-selected first report: "${currentTableName}"`);
             }
