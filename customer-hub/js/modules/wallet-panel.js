@@ -34,6 +34,7 @@ export class WalletPanelModule {
         this._currentTab = 'overview'; // 'overview' | 'manual-history'
         this._walletData = null;
         this._manualTxCache = null; // cached manual transactions
+        this._initImageLightbox();
     }
 
     async render(phone) {
@@ -316,7 +317,8 @@ export class WalletPanelModule {
         const expiry = (tx.type === 'VIRTUAL_CREDIT' && tx.expires_at)
             ? ` · HSD: ${new Date(tx.expires_at).toLocaleDateString('vi-VN')}`
             : '';
-        const creator = tx.created_by && tx.created_by !== 'system' ? tx.created_by : '';
+        const creator = (tx.created_by && tx.created_by !== 'system') ? tx.created_by
+            : (tx.reference_id && tx.reference_id !== 'admin' && tx.reference_id.includes('@')) ? tx.reference_id : '';
         const note = tx.note || tx.source || '';
 
         // Type icon mapping
@@ -778,11 +780,38 @@ export class WalletPanelModule {
     _renderNoteWithImage(note) {
         const imgMatch = note.match(/\[Ảnh GD: (https?:\/\/[^\]]+)\]/);
         const textPart = note.replace(/\n?\[Ảnh GD: https?:\/\/[^\]]+\]/, '').trim();
-        let html = textPart ? `<p class="text-[10px] text-slate-500 truncate">${this._escapeHtml(textPart)}</p>` : '';
-        if (imgMatch) {
-            html += `<a href="${imgMatch[1]}" target="_blank" rel="noopener" class="inline-block mt-1"><img src="${imgMatch[1]}" class="max-h-16 rounded border border-slate-200 dark:border-slate-600 hover:opacity-80 transition-opacity" alt="Ảnh giao dịch"></a>`;
+        let html = '';
+        if (textPart && imgMatch) {
+            // Note + small thumbnail inline
+            html = `<div class="flex items-center gap-1.5">
+                <p class="text-[10px] text-slate-500 truncate flex-1">${this._escapeHtml(textPart)}</p>
+                <img src="${imgMatch[1]}" class="wallet-tx-thumb w-8 h-8 rounded border border-slate-200 dark:border-slate-600 object-cover cursor-pointer flex-shrink-0" alt="Ảnh GD">
+            </div>`;
+        } else if (textPart) {
+            html = `<p class="text-[10px] text-slate-500 truncate">${this._escapeHtml(textPart)}</p>`;
+        } else if (imgMatch) {
+            html = `<img src="${imgMatch[1]}" class="wallet-tx-thumb w-8 h-8 rounded border border-slate-200 dark:border-slate-600 object-cover cursor-pointer" alt="Ảnh GD">`;
         }
         return html;
+    }
+
+    _initImageLightbox() {
+        if (window._walletShowImage) return;
+        window._walletShowImage = (url) => {
+            const overlay = document.createElement('div');
+            overlay.className = 'fixed inset-0 bg-black/70 z-[9999] flex items-center justify-center p-4 cursor-pointer';
+            overlay.innerHTML = `<img src="${url}" class="max-w-full max-h-full rounded-lg shadow-2xl object-contain" style="max-width:90vw;max-height:90vh">`;
+            overlay.onclick = () => overlay.remove();
+            document.body.appendChild(overlay);
+        };
+        // Delegate click on thumbnails
+        document.addEventListener('click', (e) => {
+            const thumb = e.target.closest('.wallet-tx-thumb');
+            if (thumb) {
+                e.preventDefault();
+                window._walletShowImage(thumb.src);
+            }
+        });
     }
 
     _escapeHtml(text) {
