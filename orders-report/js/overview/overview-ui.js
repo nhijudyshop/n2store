@@ -1293,16 +1293,6 @@ async function confirmSaveReport() {
         return;
     }
 
-    // Check if name already exists
-    const safeReportName = reportName.replace(/[.$#\[\]\/]/g, '_');
-    const existingDoc = await database.collection(FIREBASE_PATH).doc(safeReportName).get();
-
-    if (existingDoc.exists) {
-        if (!confirm(`Tên "${reportName}" đã tồn tại. Bạn có muốn ghi đè không?`)) {
-            return;
-        }
-    }
-
     // Get current data
     const currentData = cachedOrderDetails[currentTableName];
     if (!currentData) {
@@ -1311,20 +1301,16 @@ async function confirmSaveReport() {
     }
 
     try {
-        // Save to Firebase with isSavedCopy flag
-        const saveData = {
-            tableName: reportName,
-            orders: sanitizeForFirebase(currentData.orders),
-            fetchedAt: new Date().toISOString(),
+        // Save via CampaignAPI
+        await window.CampaignAPI.saveReport(reportName, {
+            orders: currentData.orders,
             totalOrders: currentData.orders.length,
             successCount: currentData.successCount || currentData.orders.length,
             errorCount: currentData.errorCount || 0,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            fetchedAt: new Date().toISOString(),
             isSavedCopy: true,
             originalCampaign: currentTableName
-        };
-
-        await database.collection(FIREBASE_PATH).doc(safeReportName).set(saveData);
+        });
 
         console.log(`[REPORT] ✅ Saved report copy: ${reportName}`);
 
@@ -1358,43 +1344,35 @@ function closeManageReportsModal() {
 // Load all reports for management modal
 async function loadAllReportsForManagement() {
     try {
-        const snapshot = await database.collection(FIREBASE_PATH).get();
-        const tables = {};
-        snapshot.forEach(doc => {
-            tables[doc.id] = doc.data();
-        });
+        const reports = await window.CampaignAPI.listReports();
 
         const tbody = document.getElementById('manageReportsTableBody');
         tbody.innerHTML = '';
 
-        const tableKeys = Object.keys(tables);
-
-        if (tableKeys.length === 0) {
+        if (reports.length === 0) {
             document.getElementById('manageReportsLoading').style.display = 'none';
             document.getElementById('manageReportsEmpty').style.display = 'block';
             return;
         }
 
         // Sort: Main reports first, then saved copies, both sorted by fetchedAt desc
-        tableKeys.sort((a, b) => {
-            const dataA = tables[a];
-            const dataB = tables[b];
-            const isCopyA = dataA.isSavedCopy || false;
-            const isCopyB = dataB.isSavedCopy || false;
+        reports.sort((a, b) => {
+            const isCopyA = a.isSavedCopy || false;
+            const isCopyB = b.isSavedCopy || false;
 
             if (isCopyA !== isCopyB) return isCopyA ? 1 : -1;
 
-            const dateA = dataA.fetchedAt ? new Date(dataA.fetchedAt).getTime() : 0;
-            const dateB = dataB.fetchedAt ? new Date(dataB.fetchedAt).getTime() : 0;
+            const dateA = a.fetchedAt ? new Date(a.fetchedAt).getTime() : 0;
+            const dateB = b.fetchedAt ? new Date(b.fetchedAt).getTime() : 0;
             return dateB - dateA;
         });
 
-        tableKeys.forEach(safeTableName => {
-            const tableData = tables[safeTableName];
-            const originalName = tableData.tableName || safeTableName.replace(/_/g, ' ');
-            const orderCount = tableData.totalOrders || tableData.orders?.length || 0;
-            const fetchedAt = tableData.fetchedAt ? new Date(tableData.fetchedAt).toLocaleString('vi-VN') : '-';
-            const isSavedCopy = tableData.isSavedCopy || false;
+        reports.forEach(report => {
+            const originalName = report.tableName;
+            const orderCount = report.totalOrders || 0;
+            const fetchedAt = report.fetchedAt ? new Date(report.fetchedAt).toLocaleString('vi-VN') : '-';
+            const isSavedCopy = report.isSavedCopy || false;
+            const safeTableName = originalName.replace(/[.$#\[\]\/]/g, '_');
 
             const icon = isSavedCopy ? '💾' : '📌';
             const typeLabel = isSavedCopy ? 'Bản lưu' : 'Chính';
@@ -1451,7 +1429,7 @@ async function deleteReport(safeTableName, displayName, isSavedCopy) {
     }
 
     try {
-        await database.collection(FIREBASE_PATH).doc(safeTableName).delete();
+        await window.CampaignAPI.deleteReport(displayName);
 
         console.log(`[REPORT] ✅ Deleted report: ${displayName}`);
 
@@ -1565,15 +1543,16 @@ async function syncAllDataFromTab1() {
 
         console.log(`[REPORT] 🔄 Updated ${updatedCount}/${currentData.orders.length} orders`);
 
-        // Save updated data to Firebase
-        const safeTableName = currentTableName.replace(/[.$#\[\]\/]/g, '_');
-        await database.collection(FIREBASE_PATH).doc(safeTableName).update({
-            orders: sanitizeForFirebase(currentData.orders),
-            lastSyncedAt: new Date().toISOString(),
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        // Save updated data via CampaignAPI
+        await window.CampaignAPI.saveReport(currentTableName, {
+            orders: currentData.orders,
+            totalOrders: currentData.orders.length,
+            successCount: currentData.successCount || currentData.orders.length,
+            errorCount: currentData.errorCount || 0,
+            fetchedAt: currentData.fetchedAt || new Date().toISOString(),
         });
 
-        console.log('[REPORT] ✅ Data synced and saved to Firebase');
+        console.log('[REPORT] ✅ Data synced and saved to PostgreSQL');
 
         // Refresh statistics and UI
         renderStatisticsFromAllOrders();

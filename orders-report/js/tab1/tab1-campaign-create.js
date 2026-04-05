@@ -83,23 +83,17 @@ window.saveNewCampaign = async function() {
     }
 
     try {
-        // Check if Firebase is available
-        if (typeof firebase === 'undefined' || !firebase.firestore) {
-            throw new Error('Firestore not available');
-        }
-
-        const db = firebase.firestore();
         const campaignId = 'campaign_' + Date.now();
 
         const campaignData = {
+            id: campaignId,
             name: name,
             customStartDate: customStartDate,
             customEndDate: customEndDate || '',
             timeFrame: 'custom',
-            createdAt: new Date().toISOString()
         };
 
-        await db.collection('campaigns').doc(campaignId).set(campaignData);
+        await window.CampaignAPI.create(campaignData);
 
         // Add to local cache
         window.campaignManager.allCampaigns[campaignId] = campaignData;

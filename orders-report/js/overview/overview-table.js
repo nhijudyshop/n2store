@@ -6,13 +6,8 @@
 // TABLE SELECTION & MANAGEMENT
 // =====================================================
 
-// Load available tables from Firebase (metadata only for dropdown)
+// Load available tables via CampaignAPI (PostgreSQL)
 async function loadAvailableTables() {
-    if (!database) {
-        console.error('[REPORT] Firebase not available');
-        return;
-    }
-
     // Prevent multiple simultaneous loads
     if (isLoadingTables) {
         console.log('[REPORT] ⏭️ Skipping loadAvailableTables - already loading');
@@ -25,43 +20,35 @@ async function loadAvailableTables() {
     showCachedDetailsLoading();
 
     try {
-        // Load both report tables and campaigns in parallel
-        const [tablesSnapshot, campaignsSnapshot] = await Promise.all([
-            database.collection(FIREBASE_PATH).get(),
-            database.collection('campaigns').get().catch(() => null)
+        // Load both reports and campaigns in parallel via API
+        const [reports, campaigns] = await Promise.all([
+            window.CampaignAPI.listReports(),
+            window.CampaignAPI.loadAll()
         ]);
-
-        const tables = {};
-        tablesSnapshot.forEach(doc => {
-            tables[doc.id] = doc.data();
-        });
 
         const selector = document.getElementById('tableSelector');
         selector.innerHTML = '<option value="">-- Chọn bảng --</option>';
 
-        // Only extract metadata for dropdown (don't keep full orders in memory)
         const tableMetadata = {};
-        const addedNames = new Set(); // Track names to avoid duplicates
+        const addedNames = new Set();
 
-        Object.keys(tables).forEach(safeTableName => {
-            const tableData = tables[safeTableName];
-            const originalName = tableData.tableName || safeTableName.replace(/_/g, ' ');
-            const orderCount = tableData.totalOrders || tableData.orders?.length || 0;
-            const fetchedAt = tableData.fetchedAt ? new Date(tableData.fetchedAt).toLocaleString('vi-VN') : '';
-            const isSavedCopy = tableData.isSavedCopy || false;
-            const originalCampaign = tableData.originalCampaign || null;
+        // Add report tables
+        reports.forEach(report => {
+            const originalName = report.tableName;
+            const orderCount = report.totalOrders || 0;
+            const fetchedAt = report.fetchedAt ? new Date(report.fetchedAt).toLocaleString('vi-VN') : '';
+            const isSavedCopy = report.isSavedCopy || false;
+            const originalCampaign = report.originalCampaign || null;
 
-            // Store only metadata (not full orders array)
             tableMetadata[originalName] = {
                 tableName: originalName,
-                safeTableName: safeTableName,
+                safeTableName: originalName.replace(/[.$#\[\]\/]/g, '_'),
                 orderCount: orderCount,
-                fetchedAt: tableData.fetchedAt,
+                fetchedAt: report.fetchedAt,
                 isSavedCopy: isSavedCopy,
                 originalCampaign: originalCampaign
             };
 
-            // Display with emoji: 📌 for main, 💾 for saved copy
             const icon = isSavedCopy ? '💾' : '📌';
             const typeLabel = isSavedCopy ? 'Bản lưu' : 'Chính';
 
@@ -73,32 +60,29 @@ async function loadAvailableTables() {
             addedNames.add(originalName);
         });
 
-        // Also add campaigns from Tab1 that don't have report data yet
-        if (campaignsSnapshot) {
-            campaignsSnapshot.forEach(doc => {
-                const campaign = doc.data();
-                const campaignName = campaign.name;
-                if (campaignName && !addedNames.has(campaignName)) {
-                    const option = document.createElement('option');
-                    option.value = campaignName;
-                    option.textContent = `⭐ ${campaignName} (chưa có dữ liệu)`;
-                    selector.appendChild(option);
-                    addedNames.add(campaignName);
-                    tableMetadata[campaignName] = {
-                        tableName: campaignName,
-                        safeTableName: campaignName.replace(/[.$#\[\]\/]/g, '_'),
-                        orderCount: 0,
-                        fetchedAt: null,
-                        isSavedCopy: false
-                    };
-                }
-            });
-        }
+        // Add campaigns that don't have report data yet
+        campaigns.forEach(campaign => {
+            const campaignName = campaign.name;
+            if (campaignName && !addedNames.has(campaignName)) {
+                const option = document.createElement('option');
+                option.value = campaignName;
+                option.textContent = `⭐ ${campaignName} (chưa có dữ liệu)`;
+                selector.appendChild(option);
+                addedNames.add(campaignName);
+                tableMetadata[campaignName] = {
+                    tableName: campaignName,
+                    safeTableName: campaignName.replace(/[.$#\[\]\/]/g, '_'),
+                    orderCount: 0,
+                    fetchedAt: null,
+                    isSavedCopy: false
+                };
+            }
+        });
 
-        // Store metadata globally for later reference
+        // Store metadata globally
         window._tableMetadata = tableMetadata;
 
-        console.log(`[REPORT] ✅ Loaded ${Object.keys(tables).length} tables + ${addedNames.size - Object.keys(tables).length} campaigns from Firebase`);
+        console.log(`[REPORT] ✅ Loaded ${reports.length} reports + ${addedNames.size - reports.length} campaigns from API`);
 
         // Select current table if exists
         if (currentTableName) {

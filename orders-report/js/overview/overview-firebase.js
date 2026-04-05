@@ -74,175 +74,65 @@ function sanitizeForFirebase(obj) {
 // Reduced from 200 to 100 because orders with detailed data can be ~7KB each
 const ORDERS_CHUNK_SIZE = 100; // ~100 orders per chunk to stay safely under 1MB
 
-// Save data to Firestore by table name - with chunking for large datasets
+// Save report data via CampaignAPI (PostgreSQL) — no chunking needed
 async function saveToFirebase(tableName, data) {
-    if (!database) {
-        console.error('[REPORT] Firestore database not initialized');
-        return false;
-    }
-
     try {
-        const safeTableName = tableName.replace(/[.$#\[\]\/]/g, '_');
-        const docRef = database.collection(FIREBASE_PATH).doc(safeTableName);
+        const orders = data.orders || [];
+        const totalOrders = orders.length;
 
-        // Sanitize orders data to remove invalid keys
-        const sanitizedOrders = sanitizeForFirebase(data.orders) || [];
-        const totalOrders = sanitizedOrders.length;
+        await window.CampaignAPI.saveReport(tableName, {
+            orders: orders,
+            totalOrders: totalOrders,
+            successCount: totalOrders,
+            errorCount: data.errorCount || 0,
+            fetchedAt: data.fetchedAt || new Date().toISOString(),
+            isSavedCopy: data.isSavedCopy || false,
+            originalCampaign: data.originalCampaign || null,
+        });
 
-        // Check if we need to chunk (Firestore 1MB limit)
-        if (totalOrders > ORDERS_CHUNK_SIZE) {
-            // Save metadata document (without orders) - use actual count, not stale metadata
-            await docRef.set({
-                tableName: tableName,
-                fetchedAt: data.fetchedAt,
-                totalOrders: totalOrders,
-                successCount: totalOrders,
-                errorCount: data.errorCount || 0,
-                isChunked: true,
-                chunkCount: Math.ceil(totalOrders / ORDERS_CHUNK_SIZE),
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-
-            // Use batched writes for better performance (fewer round-trips)
-            // Split into multiple batches to stay under Firestore 10MB batch size limit
-            // Each chunk doc ~700KB (100 orders × ~7KB), so max ~10 writes per batch
-            const BATCH_MAX_WRITES = 10;
-            const chunksCollection = docRef.collection('order_chunks');
-            const oldChunks = await chunksCollection.get();
-
-            // Phase 1: Delete old chunks in one batch (deletes are small, no size concern)
-            if (oldChunks.size > 0) {
-                const deleteBatch = database.batch();
-                oldChunks.docs.forEach(doc => deleteBatch.delete(doc.ref));
-                await deleteBatch.commit();
-            }
-
-            // Phase 2: Write new chunks in size-safe batches
-            const allChunks = [];
-            for (let i = 0; i < totalOrders; i += ORDERS_CHUNK_SIZE) {
-                const chunkIndex = Math.floor(i / ORDERS_CHUNK_SIZE);
-                allChunks.push({
-                    index: chunkIndex,
-                    data: sanitizedOrders.slice(i, i + ORDERS_CHUNK_SIZE)
-                });
-            }
-
-            for (let b = 0; b < allChunks.length; b += BATCH_MAX_WRITES) {
-                const writeBatch = database.batch();
-                const batchSlice = allChunks.slice(b, b + BATCH_MAX_WRITES);
-                batchSlice.forEach(c => {
-                    writeBatch.set(chunksCollection.doc(`chunk_${c.index}`), {
-                        orders: c.data,
-                        chunkIndex: c.index,
-                        orderCount: c.data.length
-                    });
-                });
-                await writeBatch.commit();
-            }
-
-        } else {
-            // Small dataset - save directly (use actual count, not stale metadata)
-            await docRef.set({
-                tableName: tableName,
-                orders: sanitizedOrders,
-                fetchedAt: data.fetchedAt,
-                totalOrders: totalOrders,
-                successCount: totalOrders,
-                errorCount: data.errorCount || 0,
-                isChunked: false,
-                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
-
-        }
-
-        // Update Firebase status and broadcast
+        // Update status and broadcast
         firebaseTableName = tableName;
         firebaseDataFetchedAt = data.fetchedAt;
         broadcastTableStatus();
 
         return true;
     } catch (error) {
-        console.error('[REPORT] ❌ Error saving to Firestore:', error);
+        console.error('[REPORT] ❌ Error saving report:', error);
         return false;
     }
 }
 
-// Load data from Firestore by table name - with chunking support
+// Load report data via CampaignAPI (PostgreSQL) — no chunking needed
 async function loadFromFirebase(tableName) {
-    if (!database) {
-        console.error('[REPORT] Firestore database not initialized');
-        return null;
-    }
-
     try {
-        const safeTableName = tableName.replace(/[.$#\[\]\/]/g, '_');
-        const docRef = database.collection(FIREBASE_PATH).doc(safeTableName);
-        const doc = await docRef.get();
+        const report = await window.CampaignAPI.getReport(tableName);
 
-        if (doc.exists) {
-            const data = doc.data();
+        // Update status
+        firebaseTableName = tableName;
+        firebaseDataFetchedAt = report.fetchedAt;
+        broadcastTableStatus();
 
-            // Check if data is chunked
-            if (data.isChunked) {
-                // Load all chunks
-                const chunksSnapshot = await docRef.collection('order_chunks')
-                    .orderBy('chunkIndex')
-                    .get();
-
-                const allOrders = [];
-                chunksSnapshot.forEach(chunkDoc => {
-                    const chunkData = chunkDoc.data();
-                    if (chunkData.orders) {
-                        allOrders.push(...chunkData.orders);
-                    }
-                });
-
-                data.orders = allOrders;
-                // Fix metadata mismatch: correct totalOrders/successCount if they don't match actual chunks
-                const actualCount = allOrders.length;
-                if (data.totalOrders !== actualCount || data.successCount !== actualCount) {
-                    console.warn(`[REPORT] ⚠️ Metadata mismatch: totalOrders=${data.totalOrders}, actual=${actualCount}. Correcting.`);
-                    data.totalOrders = actualCount;
-                    data.successCount = actualCount;
-
-                    // Fire-and-forget: update Firestore metadata to match reality
-                    docRef.update({
-                        totalOrders: actualCount,
-                        successCount: actualCount,
-                        metadataCorrectedAt: firebase.firestore.FieldValue.serverTimestamp()
-                    }).catch(err => console.warn('[REPORT] Failed to correct metadata:', err));
-                }
-            } else {
-            }
-
-            // Update Firebase status
-            firebaseTableName = tableName;
-            firebaseDataFetchedAt = data.fetchedAt;
-            broadcastTableStatus();
-
-            return data;
-        } else {
+        return report;
+    } catch (error) {
+        if (error.message?.includes('404') || error.message?.includes('not found')) {
             return null;
         }
-    } catch (error) {
-        console.error('[REPORT] ❌ Error loading from Firestore:', error);
+        console.error('[REPORT] ❌ Error loading report:', error);
         return null;
     }
 }
 
-// Check Firestore for current table data
+// Check report status via CampaignAPI
 async function checkFirebaseStatus() {
-    if (!currentTableName || !database) return;
+    if (!currentTableName) return;
 
     try {
-        const safeTableName = currentTableName.replace(/[.$#\[\]\/]/g, '_');
-        const docRef = database.collection(FIREBASE_PATH).doc(safeTableName);
-        const doc = await docRef.get();
+        const reports = await window.CampaignAPI.listReports();
+        const match = reports.find(r => r.tableName === currentTableName);
 
-        if (doc.exists) {
-            const data = doc.data();
+        if (match) {
             firebaseTableName = currentTableName;
-            firebaseDataFetchedAt = data.fetchedAt;
+            firebaseDataFetchedAt = match.fetchedAt;
         } else {
             firebaseTableName = null;
             firebaseDataFetchedAt = null;
@@ -250,7 +140,7 @@ async function checkFirebaseStatus() {
 
         broadcastTableStatus();
     } catch (error) {
-        console.error('[REPORT] Error checking Firestore status:', error);
+        console.error('[REPORT] Error checking report status:', error);
     }
 }
 

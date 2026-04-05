@@ -143,22 +143,8 @@ function applyEmployeeRanges() {
     const sanitizedName = sanitizeCampaignName(campaign.displayName);
     const campaignInfo = `cho chiến dịch "${campaign.displayName}"`;
 
-    if (!db) {
-        alert('❌ Lỗi: Không thể kết nối Firestore');
-        return;
-    }
-
-    const docRef = db.collection('settings').doc('employee_ranges_by_campaign');
-    docRef.get()
-        .then((doc) => {
-            const allCampaignRanges = doc.exists ? doc.data() : {};
-
-            // Update this campaign's ranges
-            allCampaignRanges[sanitizedName] = newRanges;
-
-            // Save back to Firestore
-            return docRef.set(allCampaignRanges);
-        })
+    // Save via CampaignAPI
+    window.CampaignAPI.saveEmployeeRanges(sanitizedName, newRanges)
         .then(() => {
             // Update local state immediately
             employeeRanges = newRanges;
@@ -175,8 +161,8 @@ function applyEmployeeRanges() {
             performTableSearch();
         })
         .catch((error) => {
-            console.error('[EMPLOYEE] Error saving ranges to Firestore:', error);
-            alert('❌ Lỗi khi lưu lên Firestore: ' + error.message);
+            console.error('[EMPLOYEE] Error saving employee ranges:', error);
+            alert('❌ Lỗi khi lưu: ' + error.message);
         });
 }
 
@@ -379,11 +365,9 @@ function loadEmployeeRangesForCampaign(campaignName = null) {
     // Start real-time listener for this campaign
     startEmployeeRangesListener(campaignName);
 
-    // Also do an immediate .get() so we can return a Promise that resolves when data is loaded
-    return db.collection('settings').doc('employee_ranges_by_campaign').get()
-        .then((doc) => {
-            const allCampaignRanges = doc.exists ? doc.data() : {};
-            const data = allCampaignRanges[sanitizedName];
+    // Load from PostgreSQL API
+    return window.CampaignAPI.getEmployeeRanges(sanitizedName)
+        .then((data) => {
             const normalized = normalizeEmployeeRanges(data);
 
             employeeRanges = normalized;
@@ -407,9 +391,6 @@ function loadEmployeeRangesForCampaign(campaignName = null) {
  * When any machine saves new ranges, all other machines will automatically receive the update.
  */
 function startEmployeeRangesListener(campaignName) {
-    const db = (typeof firestoreDb !== 'undefined' && firestoreDb) ? firestoreDb : window.firestoreDb;
-    if (!db) return;
-
     const sanitizedName = sanitizeCampaignName(campaignName);
 
     // Don't restart listener if already listening to the same campaign
@@ -417,15 +398,15 @@ function startEmployeeRangesListener(campaignName) {
         return;
     }
 
-    // Stop previous listener
+    // Stop previous listener/polling
     stopEmployeeRangesListener();
 
     _currentListeningCampaign = sanitizedName;
 
-    _employeeRangesUnsubscribe = db.collection('settings').doc('employee_ranges_by_campaign')
-        .onSnapshot((doc) => {
-            const allCampaignRanges = doc.exists ? doc.data() : {};
-            const data = allCampaignRanges[sanitizedName];
+    // Poll every 30s instead of Firestore onSnapshot (employee ranges rarely change)
+    const pollInterval = setInterval(async () => {
+        try {
+            const data = await window.CampaignAPI.getEmployeeRanges(sanitizedName);
             const normalized = normalizeEmployeeRanges(data);
 
             // Only update if data actually changed
@@ -448,9 +429,13 @@ function startEmployeeRangesListener(campaignName) {
                     }
                 }
             }
-        }, (error) => {
-            console.error('[EMPLOYEE] ❌ Real-time listener error:', error);
-        });
+        } catch (error) {
+            console.error('[EMPLOYEE] ❌ Polling error:', error);
+        }
+    }, 30000);
+
+    // Store cleanup function (same interface as Firestore unsubscribe)
+    _employeeRangesUnsubscribe = () => clearInterval(pollInterval);
 }
 
 /**

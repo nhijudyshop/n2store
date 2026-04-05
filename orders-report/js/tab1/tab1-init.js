@@ -635,14 +635,13 @@ function getCurrentUserId() {
 
 /**
  * Load active campaign ID from Firestore
- * Note: Must use Firestore to match saveActiveCampaign() in tab1-campaign-system.js
+ * Uses CampaignAPI (PostgreSQL backend)
  */
 async function loadActiveCampaignId() {
     try {
-        const db = firebase.firestore();
         const userId = window.campaignManager.currentUserId;
-        const docSnapshot = await db.collection('user_preferences').doc(userId).get();
-        const activeCampaignId = docSnapshot.exists ? docSnapshot.data().activeCampaignId : null;
+        const data = await window.CampaignAPI.getUserPref(userId);
+        const activeCampaignId = data.activeCampaignId || null;
 
         window.campaignManager.activeCampaignId = activeCampaignId;
         if (activeCampaignId && window.campaignManager.allCampaigns[activeCampaignId]) {

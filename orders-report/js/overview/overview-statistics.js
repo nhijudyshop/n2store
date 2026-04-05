@@ -32,22 +32,17 @@ function normalizeEmployeeRanges(data) {
 }
 
 /**
- * Load employee ranges from Firestore
+ * Load employee ranges from PostgreSQL API
  */
 async function loadEmployeeRanges() {
-    if (!database) return;
-
     try {
         // Only load campaign-specific ranges (no general config)
         if (currentTableName) {
             const safeName = currentTableName.replace(/[.$#\[\]\/]/g, '_');
-            const campaignDoc = await database.collection('settings').doc('employee_ranges_by_campaign').get();
-            if (campaignDoc.exists) {
-                const campaignData = campaignDoc.data();
-                if (campaignData && campaignData[safeName]) {
-                    employeeRanges = normalizeEmployeeRanges(campaignData[safeName]);
-                    return;
-                }
+            const data = await window.CampaignAPI.getEmployeeRanges(safeName);
+            if (data && data.length > 0) {
+                employeeRanges = normalizeEmployeeRanges(data);
+                return;
             }
         }
 

@@ -221,6 +221,7 @@ const attendanceRoutes = require('./routes/attendance');
 const admsRoutes = require('./routes/adms');
 const usersRoutes = require('./routes/users');
 const quickRepliesRoutes = require('./routes/quick-replies');
+const campaignsRoutes = require('./routes/campaigns');
 
 // === ROUTES MERGED FROM /api ===
 const uploadRoutes = require('./routes/upload.routes');
@@ -271,6 +272,7 @@ app.use('/api/attendance', attendanceRoutes);
 app.use('/iclock', (req, res, next) => { req.pool = chatDbPool; next(); }, admsRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/quick-replies', quickRepliesRoutes);
+app.use('/api/campaigns', campaignsRoutes);
 
 // Initialize SSE notifiers in realtime-db routes
 const { initializeNotifiers } = require('./routes/realtime-db');

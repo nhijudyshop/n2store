@@ -3973,86 +3973,43 @@
     }
 
     /**
-     * Load order details from Firestore collection 'report_order_details'.
-     * Smart cache: checks updatedAt from main doc (1 read) before reloading chunks.
+     * Load order details from CampaignAPI (PostgreSQL).
+     * Smart cache: reuses cached data if tableName matches.
      */
     async function _ptagLoadReportOrderDetails() {
         const tableName = window.campaignManager?.activeCampaign?.name
             || localStorage.getItem('orders_table_name') || '';
         if (!tableName) return null;
 
-        const db = window.firestoreDb || (typeof firebase !== 'undefined' && firebase.firestore());
-        if (!db) {
-            console.warn(`${PTAG_LOG} Firestore not available for loading report order details`);
-            return null;
-        }
-
-        const safeTableName = tableName.replace(/[.$#\[\]\/]/g, '_');
-        const FIREBASE_PATH = 'report_order_details';
-
-        // If cache exists → check if data changed (1 lightweight Firestore read)
+        // Use cache if same table
         if (_reportOrderDetailsCache && _reportOrderDetailsCache.tableName === tableName) {
-            try {
-                const docRef = db.collection(FIREBASE_PATH).doc(safeTableName);
-                const doc = await docRef.get();
-                if (doc.exists) {
-                    const serverUpdatedAt = _tsToMillis(doc.data().updatedAt);
-                    const cachedUpdatedAt = _tsToMillis(_reportOrderDetailsCache.updatedAt);
-                    if (serverUpdatedAt > 0 && serverUpdatedAt === cachedUpdatedAt) {
-                        console.log(`${PTAG_LOG} Report data unchanged, using cache (${_reportOrderDetailsCache.orders.length} orders)`);
-                        return _reportOrderDetailsCache.orders;
-                    }
-                    console.log(`${PTAG_LOG} Report data updated on server, refreshing cache...`);
-                }
-            } catch (e) {
-                // If check fails, still use cache as fallback
-                console.warn(`${PTAG_LOG} Cache check failed, using existing cache`, e);
-                return _reportOrderDetailsCache.orders;
-            }
+            console.log(`${PTAG_LOG} Using cached report data (${_reportOrderDetailsCache.orders.length} orders)`);
+            return _reportOrderDetailsCache.orders;
         }
 
         // Prevent duplicate concurrent loads
         if (_reportOrderDetailsLoading) return _reportOrderDetailsLoading;
 
-        _reportOrderDetailsLoading = _ptagLoadReportOrderDetailsInner(tableName, db, safeTableName, FIREBASE_PATH);
+        _reportOrderDetailsLoading = (async () => {
+            try {
+                const report = await window.CampaignAPI.getReport(tableName);
+                const orders = report?.orders || [];
+                console.log(`${PTAG_LOG} Loaded ${orders.length} orders from API`);
+                _reportOrderDetailsCache = { tableName, orders, updatedAt: report?.updatedAt };
+                return orders;
+            } catch (e) {
+                if (e.message?.includes('404') || e.message?.includes('not found')) {
+                    console.log(`${PTAG_LOG} No report data for table: ${tableName}`);
+                    return null;
+                }
+                console.error(`${PTAG_LOG} Error loading report order details:`, e);
+                return null;
+            }
+        })();
         try {
             return await _reportOrderDetailsLoading;
         } finally {
             _reportOrderDetailsLoading = null;
-        }
-    }
-
-    async function _ptagLoadReportOrderDetailsInner(tableName, db, safeTableName, FIREBASE_PATH) {
-        try {
-            const docRef = db.collection(FIREBASE_PATH).doc(safeTableName);
-            const doc = await docRef.get();
-            if (!doc.exists) {
-                console.log(`${PTAG_LOG} No report data in Firestore for table: ${tableName}`);
-                return null;
-            }
-
-            const data = doc.data();
-            let orders;
-
-            if (data.isChunked) {
-                const chunksSnapshot = await docRef.collection('order_chunks')
-                    .orderBy('chunkIndex').get();
-                orders = [];
-                chunksSnapshot.forEach(chunkDoc => {
-                    const chunkData = chunkDoc.data();
-                    if (chunkData.orders) orders.push(...chunkData.orders);
-                });
-                console.log(`${PTAG_LOG} Loaded ${orders.length} orders from ${chunksSnapshot.size} chunks (report_order_details)`);
-            } else {
-                orders = data.orders || [];
-                console.log(`${PTAG_LOG} Loaded ${orders.length} orders from report_order_details`);
-            }
-
-            _reportOrderDetailsCache = { tableName, orders, updatedAt: data.updatedAt };
-            return orders;
-        } catch (e) {
-            console.error(`${PTAG_LOG} Error loading report order details:`, e);
-            return null;
         }
     }
 
