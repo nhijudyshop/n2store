@@ -1714,7 +1714,7 @@ async function updatePartnerStatus(partnerId, color, text, note) {
 
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-        // 2. If note provided, update Zalo field via GET + PUT
+        // 2. If note provided, update Email field via GET + PUT
         if (note) {
             try {
                 const partnerUrl = `${API_CONFIG.WORKER_URL}/api/odata/Partner(${partnerId})`;
@@ -1724,7 +1724,7 @@ async function updatePartnerStatus(partnerId, color, text, note) {
                 });
                 if (getRes.ok) {
                     const partnerData = await getRes.json();
-                    partnerData.Zalo = note;
+                    partnerData.Email = note;
                     await API_CONFIG.smartFetch(partnerUrl, {
                         method: 'PUT',
                         headers: { ...headers, 'content-type': 'application/json;charset=UTF-8', 'accept': 'application/json, text/plain, */*', 'feature-version': '2', 'x-tpos-lang': 'vi' },
