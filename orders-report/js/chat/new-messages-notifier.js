@@ -287,13 +287,21 @@
             // Pancake raw format: { conversation: { from_psid, page_id, unread_count, type, snippet } }
             const conv = payload?.conversation || payload;
             const unread = conv?.unread_count || payload?.unread_count || 0;
-            if (unread > 0) {
+            const snippet = conv?.snippet || '';
+            const fromId = String(conv?.from_psid || conv?.from?.id || conv?.customers?.[0]?.fb_id || payload?.from_psid || '');
+            const pageId = String(conv?.page_id || payload?.page_id || '');
+
+            // Reactions: unread_count=0, seen=true, but snippet starts with [emoji Name]
+            // e.g. "[❤ Huỳnh Thành Đạt] ...\nNv. Administrator"
+            const isReaction = unread <= 0 && /^\[.{1,2}\s/.test(snippet) && fromId && fromId !== pageId;
+
+            if (unread > 0 || isReaction) {
                 const normalized = {
-                    psid: String(conv?.from_psid || conv?.from?.id || conv?.customers?.[0]?.fb_id || payload?.from_psid || ''),
-                    pageId: String(conv?.page_id || payload?.page_id || ''),
-                    snippet: conv?.snippet || '',
+                    psid: fromId,
+                    pageId: pageId,
+                    snippet: snippet,
                     type: conv?.type || 'INBOX',
-                    unread_count: unread,
+                    unread_count: unread || 1,
                 };
                 if (normalized.psid) onNewConversationEvent(normalized);
             }
