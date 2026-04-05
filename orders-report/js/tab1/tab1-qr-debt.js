@@ -410,6 +410,7 @@ const _walletAutoTagDone = new Set(); // Track phones đã auto-tag xong
 
 function _scheduleWalletAutoTag() {
     clearTimeout(_walletAutoTagTimer);
+    console.log(`[WALLET-AUTOTAG] Scheduled (300ms)`);
     _walletAutoTagTimer = setTimeout(_applyWalletAutoTags, 300);
 }
 
@@ -421,16 +422,28 @@ function _markWalletAutoTagDirty(phone) {
 
 function _applyWalletAutoTags() {
     // Guard: cần ProcessingTagState loaded + toggleOrderFlag available
-    if (!window.ProcessingTagState?._isLoaded || typeof window.toggleOrderFlag !== 'function') {
+    const isLoaded = window.ProcessingTagState?._isLoaded;
+    const hasToggle = typeof window.toggleOrderFlag === 'function';
+    const walletSize = window.walletDebtData?.size || 0;
+
+    if (!isLoaded || !hasToggle) {
         _walletAutoTagRetries++;
         if (_walletAutoTagRetries <= WALLET_AUTOTAG_MAX_RETRIES) {
+            console.log(`[WALLET-AUTOTAG] Waiting... _isLoaded=${isLoaded}, toggleOrderFlag=${hasToggle}, walletData=${walletSize}, retry ${_walletAutoTagRetries}/${WALLET_AUTOTAG_MAX_RETRIES}`);
             _walletAutoTagTimer = setTimeout(_applyWalletAutoTags, 1000);
+        } else {
+            console.warn(`[WALLET-AUTOTAG] ⚠️ Max retries reached. _isLoaded=${isLoaded}, toggleOrderFlag=${hasToggle}`);
         }
         return;
     }
 
     _walletAutoTagRetries = 0;
-    if (!window.walletDebtData || window.walletDebtData.size === 0) return;
+    if (!window.walletDebtData || walletSize === 0) {
+        console.log(`[WALLET-AUTOTAG] No wallet data (size=${walletSize}), skipping`);
+        return;
+    }
+
+    console.log(`[WALLET-AUTOTAG] Running auto-tag scan for ${walletSize} phones, done=${_walletAutoTagDone.size}`);
 
     let taggedCount = 0;
     document.querySelectorAll('td[data-column="customer"]').forEach(cell => {
