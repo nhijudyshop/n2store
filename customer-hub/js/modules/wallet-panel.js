@@ -701,7 +701,9 @@ export class WalletPanelModule {
         const date = tx.created_at ? new Date(tx.created_at).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
         const expiry = (tx.type === 'VIRTUAL_CREDIT' && tx.expires_at)
             ? `<span class="text-orange-500 ml-1">• HSD: ${new Date(tx.expires_at).toLocaleDateString('vi-VN')}</span>` : '';
-        const createdBy = tx.created_by && tx.created_by !== 'system' ? ` · <span class="font-medium text-slate-500">${this._escapeHtml(tx.created_by)}</span>` : '';
+        const creator = (tx.created_by && tx.created_by !== 'system') ? tx.created_by
+            : (tx.reference_id && tx.reference_id !== 'admin' && tx.reference_id.includes('@')) ? tx.reference_id : '';
+        const createdBy = creator ? ` · <span class="font-medium" style="color:#ef4444">${this._escapeHtml(creator)}</span>` : '';
 
         return `
             <div class="flex items-center gap-3 p-3 rounded-lg ${bg}">
@@ -797,6 +799,8 @@ export class WalletPanelModule {
 
     _initImageLightbox() {
         if (window._walletShowImage) return;
+
+        // Lightbox on click
         window._walletShowImage = (url) => {
             const overlay = document.createElement('div');
             overlay.className = 'fixed inset-0 bg-black/70 z-[9999] flex items-center justify-center p-4 cursor-pointer';
@@ -804,13 +808,51 @@ export class WalletPanelModule {
             overlay.onclick = () => overlay.remove();
             document.body.appendChild(overlay);
         };
-        // Delegate click on thumbnails
+
+        // Hover preview tooltip
+        let hoverEl = null;
+        const showHover = (thumb) => {
+            removeHover();
+            const rect = thumb.getBoundingClientRect();
+            hoverEl = document.createElement('div');
+            hoverEl.className = 'wallet-img-hover';
+            hoverEl.style.cssText = 'position:fixed;z-index:9998;pointer-events:none;padding:4px;background:#fff;border-radius:8px;box-shadow:0 8px 30px rgba(0,0,0,0.3);transition:opacity 0.15s;opacity:0';
+            hoverEl.innerHTML = `<img src="${thumb.src}" style="max-width:300px;max-height:300px;border-radius:6px;display:block;object-fit:contain">`;
+            document.body.appendChild(hoverEl);
+            // Position above or below thumb
+            requestAnimationFrame(() => {
+                if (!hoverEl) return;
+                const hw = hoverEl.offsetWidth;
+                const hh = hoverEl.offsetHeight;
+                let top = rect.top - hh - 8;
+                if (top < 8) top = rect.bottom + 8;
+                let left = rect.left + (rect.width / 2) - (hw / 2);
+                left = Math.max(8, Math.min(left, window.innerWidth - hw - 8));
+                hoverEl.style.top = top + 'px';
+                hoverEl.style.left = left + 'px';
+                hoverEl.style.opacity = '1';
+            });
+        };
+        const removeHover = () => {
+            if (hoverEl) { hoverEl.remove(); hoverEl = null; }
+        };
+
+        // Event delegation for click and hover
         document.addEventListener('click', (e) => {
             const thumb = e.target.closest('.wallet-tx-thumb');
             if (thumb) {
                 e.preventDefault();
+                removeHover();
                 window._walletShowImage(thumb.src);
             }
+        });
+        document.addEventListener('mouseover', (e) => {
+            const thumb = e.target.closest('.wallet-tx-thumb');
+            if (thumb) showHover(thumb);
+        });
+        document.addEventListener('mouseout', (e) => {
+            const thumb = e.target.closest('.wallet-tx-thumb');
+            if (thumb) removeHover();
         });
     }
 
