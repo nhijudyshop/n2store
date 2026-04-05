@@ -3,7 +3,7 @@
 // Runs on: tomato.tpos.vn
 
 (function () {
-  const RENDER_API = 'https://n2store-fallback.onrender.com/api/tpos-events/broadcast';
+  const API_URL = 'https://nhijudyshop.workers.dev/api/tpos-events/broadcast';
   const ASSIGN_TAG_URL = 'TagSaleOnlineOrder/ODataService.AssignTag';
 
   const origOpen = XMLHttpRequest.prototype.open;
@@ -35,7 +35,7 @@
             };
 
             // Send directly to Render server (MAIN world - no chrome.runtime access)
-            fetch(RENDER_API, {
+            fetch(API_URL, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(event)

@@ -39,6 +39,7 @@ export const ROUTES = {
     TPOS_ORDER_LINES: { pattern: '/tpos/order/:id/lines', method: 'GET' },
     TPOS_ORDER_REF_LINES: { pattern: '/tpos/order-ref/:ref/lines', method: 'GET' },
     TPOS_REST: { pattern: '/api/rest/*' },
+    TPOS_EVENTS: { pattern: '/api/tpos-events/*', method: 'POST' },
 
     // AI
     DEEPSEEK: { pattern: '/api/deepseek', method: 'POST' },
@@ -128,6 +129,7 @@ export function matchRoute(pathname) {
     if (pathname.startsWith('/api/pancake/')) return 'PANCAKE';
 
     if (pathname.startsWith('/api/rest/')) return 'TPOS_REST';
+    if (pathname.startsWith('/api/tpos-events/')) return 'TPOS_EVENTS';
 
     if (pathname.startsWith('/api/admin/firebase/')) return 'ADMIN_FIREBASE';
     if (pathname.startsWith('/api/admin/render/')) return 'ADMIN_RENDER';
