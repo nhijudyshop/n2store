@@ -1336,18 +1336,21 @@ function renderCongNoTab(partnerId) {
     }
 
     // Sort by web date (if available) or TPOS date
-    const sortedCongNo = [...congNo].sort((a, b) => {
-        const aMoveName = a.MoveName || '';
-        const bMoveName = b.MoveName || '';
-        const aWebDate = RefundDateStore.getByMoveName(aMoveName);
-        const bWebDate = RefundDateStore.getByMoveName(bMoveName);
-        // Parse date: web date is dd/mm/yyyy, TPOS date is ISO string
+    const hasWebDates = congNo.some(item => RefundDateStore.getByMoveName(item.MoveName || ''));
+    const sortedCongNo = hasWebDates ? [...congNo].sort((a, b) => {
+        const aWebDate = RefundDateStore.getByMoveName(a.MoveName || '');
+        const bWebDate = RefundDateStore.getByMoveName(b.MoveName || '');
         const aTime = aWebDate ? parseDDMMYYYY(aWebDate) : new Date(a.Date || 0).getTime();
         const bTime = bWebDate ? parseDDMMYYYY(bWebDate) : new Date(b.Date || 0).getTime();
         return aTime - bTime;
-    });
+    }) : congNo;
 
-    let tableHtml = `
+    // Warn if paginated + web date sort (balance may be inaccurate across pages)
+    const paginationWarning = hasWebDates && total > CONFIG.DETAIL_PAGE_SIZE
+        ? '<div style="color:#dc2626;font-size:12px;padding:4px 8px;background:#fef2f2;border-radius:4px;margin-bottom:6px;">⚠ Dữ liệu có nhiều hơn 1 trang — Nợ đầu kỳ/cuối kỳ có thể không chính xác do sort theo ngày web.</div>'
+        : '';
+
+    let tableHtml = paginationWarning + `
         <table class="detail-table">
             <thead>
                 <tr>
