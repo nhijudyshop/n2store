@@ -535,7 +535,15 @@ class QuickReplyManager {
             </div>
         `;
 
-        document.body.insertAdjacentHTML('beforeend', autocompleteHTML);
+        // Insert inside chat-input-area for reliable positioning above input
+        const chatInputArea = document.querySelector('.chat-input-area');
+        if (chatInputArea) {
+            chatInputArea.style.position = 'relative';
+            chatInputArea.insertAdjacentHTML('afterbegin', autocompleteHTML);
+        } else {
+            // Fallback to body if chat not ready yet
+            document.body.insertAdjacentHTML('beforeend', autocompleteHTML);
+        }
     }
 
     setupAutocomplete() {
@@ -651,16 +659,11 @@ class QuickReplyManager {
         this.selectedSuggestionIndex = 0;
 
         const dropdown = document.getElementById('quickReplyAutocomplete');
-        const inputRect = inputElement.getBoundingClientRect();
 
         // Render content first
         this.renderAutocomplete();
 
-        // Show and position above the input
-        dropdown.style.left = inputRect.left + 'px';
-        dropdown.style.width = Math.max(400, inputRect.width) + 'px';
-        dropdown.style.top = 'auto';
-        dropdown.style.bottom = (window.innerHeight - inputRect.top + 4) + 'px';
+        // Position above the input area using absolute positioning
         dropdown.style.display = 'block';
     }
 
