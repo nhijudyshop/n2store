@@ -8,6 +8,12 @@
 
 ## 2026-04-05
 
+### [chat] Chat panel — default Nhắn riêng + load bình luận mới nhất + page selector ✅
+| | |
+|---|---|
+| **Files** | `inbox/js/inbox-chat.js`, `orders-report/js/tab1/tab1-chat-core.js`, `orders-report/tab1-orders.html`, `orders-report/css/tab1-chat-modal.css` |
+| **Chi tiết** | 1) Dropdown reply type mặc định "Nhắn riêng" thay vì "Bình luận công khai" (cả inbox + orders-report). 2) Orders-report COMMENT tab luôn fetch fresh từ API thay vì dùng cache → load bình luận mới nhất, sort by updated_at. 3) Thêm page selector dropdown trong chat modal header — cho phép chuyển page xem tin nhắn/bình luận của khách trên page khác (ẩn nếu chỉ 1 page). |
+
 ### [orders] Delivery report — permission gate tra soát + yêu cầu hủy đơn ✅
 | | |
 |---|---|

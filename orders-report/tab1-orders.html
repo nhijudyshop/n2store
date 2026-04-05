@@ -857,7 +857,7 @@
                                 <option value="reply_comment">Trả lời công khai</option>
                                 <option value="private_replies">Nhắn riêng</option>
                             </select>
-                            <select id="sendPageSelector" style="display:none"></select>
+                            <select id="chatPageSelect" style="display:none" onchange="window.switchChatPage(this.value)"></select>
                             <button class="chat-panel-toggle-btn" id="chatPanelToggleBtn" onclick="window.toggleChatPanel()" title="Mở/đóng panel sản phẩm">
                                 <span class="material-symbols-outlined">dock_to_left</span>
                             </button>

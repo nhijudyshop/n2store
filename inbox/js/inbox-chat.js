@@ -844,8 +844,8 @@ class InboxChatController {
      */
     getAutoReplyType(conv) {
         if (!conv || conv.type !== 'COMMENT') return null;
-        // Default: public comment reply (visible in chat thread)
-        return 'reply_comment';
+        // Default: private reply (nhắn riêng)
+        return 'private_replies';
     }
 
     /**
@@ -873,7 +873,7 @@ class InboxChatController {
         if (!this.currentReplyType) {
             this.currentReplyType = this.getAutoReplyType(conv);
         }
-        select.value = this.currentReplyType || 'reply_comment';
+        select.value = this.currentReplyType || 'private_replies';
 
         // Update placeholder hint
         this._updateReplyPlaceholder();
