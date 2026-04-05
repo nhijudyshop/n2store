@@ -359,10 +359,13 @@
     background: rgba(255,255,255,0.35);
 }
 
-.ptag-panel-search {
-    padding: 8px 12px;
-    border-bottom: 1px solid #f3f4f6;
+#ptag-panel-summary {
     flex-shrink: 0;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.ptag-panel-search {
+    padding: 8px 12px 4px;
 }
 
 .ptag-panel-search input {
@@ -382,19 +385,12 @@
 .ptag-panel-body {
     flex: 1;
     overflow-y: auto;
-    padding: 8px 0;
+    padding: 0 0 8px 0;
 }
 
 /* ----- SUMMARY STATS (3 dòng tổng quan + filter) ----- */
 .ptag-summary-stats {
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    background: #fff;
-    padding: 8px 10px 6px;
-    margin-bottom: 0;
-    border-bottom: 2px solid #e5e7eb;
-    box-shadow: 0 4px 6px -2px rgba(0,0,0,0.08);
+    padding: 4px 10px 6px;
 }
 
 .ptag-summary-row {

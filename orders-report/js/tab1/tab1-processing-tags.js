@@ -1747,8 +1747,10 @@
                     </button>
                 </div>
             </div>
-            <div class="ptag-panel-search">
-                <input type="text" placeholder="Tìm trạng thái..." oninput="window._ptagFilterPanel(this.value)" />
+            <div id="ptag-panel-summary">
+                <div class="ptag-panel-search">
+                    <input type="text" placeholder="Tìm trạng thái..." oninput="window._ptagFilterPanel(this.value)" />
+                </div>
             </div>
             <div class="ptag-panel-body" id="ptag-panel-body"></div>
         `;
@@ -1849,55 +1851,67 @@
         const activeFilter = ProcessingTagState._activeFilter;
         const activeFlagFilters = ProcessingTagState._activeFlagFilters;
 
-        let html = '';
-
-        // --- Summary Stats: 3 dòng tổng quan + filter ---
+        // --- Summary Stats: render vào container riêng (ngoài scroll area) ---
         {
-            const koCan = catCounts[3] || 0;
-            const gioTrong = subTagCounts['GIO_TRONG'] || 0;
-            const daGop = subTagCounts['DA_GOP_KHONG_CHOT'] || 0;
-            const donChot = totalOrders - koCan;
-            const raDon = catCounts[0] || 0;
-            const oke = catCounts[1] || 0;
-            const diDon = subStateCounts['OKIE_CHO_DI_DON'] || 0;
-            const choHang = subStateCounts['CHO_HANG'] || 0;
-            const xuLy = catCounts[2] || 0;
+            let summaryEl = document.getElementById('ptag-panel-summary-content');
+            if (!summaryEl) {
+                const container = document.getElementById('ptag-panel-summary');
+                if (container) {
+                    const div = document.createElement('div');
+                    div.id = 'ptag-panel-summary-content';
+                    container.appendChild(div);
+                    summaryEl = div;
+                }
+            }
+            if (summaryEl) {
+                const koCan = catCounts[3] || 0;
+                const gioTrong = subTagCounts['GIO_TRONG'] || 0;
+                const daGop = subTagCounts['DA_GOP_KHONG_CHOT'] || 0;
+                const donChot = totalOrders - koCan;
+                const raDon = catCounts[0] || 0;
+                const oke = catCounts[1] || 0;
+                const diDon = subStateCounts['OKIE_CHO_DI_DON'] || 0;
+                const choHang = subStateCounts['CHO_HANG'] || 0;
+                const xuLy = catCounts[2] || 0;
 
-            html += `<div class="ptag-summary-stats" data-search="tat ca tong don chot ra don oke xu ly chua gan">
-                <!-- Dòng 1: Công thức -->
-                <div class="ptag-summary-row ptag-summary-formula">
-                    <span>Tổng </span>
-                    <span class="ptag-stat-num ptag-stat-clickable ${activeFilter === null && activeFlagFilters.size === 0 ? 'active' : ''}" onclick="window._ptagSetFilter(null)">${totalOrders}</span>
-                    <span> - </span>
-                    <span class="ptag-stat-num ptag-stat-clickable ${activeFilter === 'cat_3' ? 'active' : ''}" onclick="window._ptagSetFilter('cat_3')">${koCan}</span>
-                    <span class="ptag-formula-detail"> (<span class="ptag-stat-clickable ${activeFilter === 'subtag_GIO_TRONG' ? 'active' : ''}" onclick="window._ptagSetFilter('subtag_GIO_TRONG')">${gioTrong}</span> Trống + <span class="ptag-stat-clickable ${activeFilter === 'subtag_DA_GOP_KHONG_CHOT' ? 'active' : ''}" onclick="window._ptagSetFilter('subtag_DA_GOP_KHONG_CHOT')">${daGop}</span> Gộp)</span>
-                    <span> = </span>
-                    <span class="ptag-stat-num ptag-stat-highlight ptag-stat-clickable ${activeFilter === '__don_chot__' ? 'active' : ''}" onclick="window._ptagSetFilter('__don_chot__')">${donChot}</span>
-                    <span> Đơn Chốt</span>
-                </div>
+                summaryEl.innerHTML = `<div class="ptag-summary-stats">
+                    <!-- Dòng 1: Công thức -->
+                    <div class="ptag-summary-row ptag-summary-formula">
+                        <span>Tổng </span>
+                        <span class="ptag-stat-num ptag-stat-clickable ${activeFilter === null && activeFlagFilters.size === 0 ? 'active' : ''}" onclick="window._ptagSetFilter(null)">${totalOrders}</span>
+                        <span> - </span>
+                        <span class="ptag-stat-num ptag-stat-clickable ${activeFilter === 'cat_3' ? 'active' : ''}" onclick="window._ptagSetFilter('cat_3')">${koCan}</span>
+                        <span class="ptag-formula-detail"> (<span class="ptag-stat-clickable ${activeFilter === 'subtag_GIO_TRONG' ? 'active' : ''}" onclick="window._ptagSetFilter('subtag_GIO_TRONG')">${gioTrong}</span> Trống + <span class="ptag-stat-clickable ${activeFilter === 'subtag_DA_GOP_KHONG_CHOT' ? 'active' : ''}" onclick="window._ptagSetFilter('subtag_DA_GOP_KHONG_CHOT')">${daGop}</span> Gộp)</span>
+                        <span> = </span>
+                        <span class="ptag-stat-num ptag-stat-highlight ptag-stat-clickable ${activeFilter === '__don_chot__' ? 'active' : ''}" onclick="window._ptagSetFilter('__don_chot__')">${donChot}</span>
+                        <span> Đơn Chốt</span>
+                    </div>
 
-                <!-- Dòng 2: Ra Đơn + Oke -->
-                <div class="ptag-summary-row">
-                    <div class="ptag-stat-box ptag-stat-green ${activeFilter === 'cat_0' ? 'active' : ''}" onclick="window._ptagSetFilter('cat_0')">
-                        <span class="ptag-stat-num">${raDon}</span> <span>Ra Đơn</span>
+                    <!-- Dòng 2: Ra Đơn + Oke -->
+                    <div class="ptag-summary-row">
+                        <div class="ptag-stat-box ptag-stat-green ${activeFilter === 'cat_0' ? 'active' : ''}" onclick="window._ptagSetFilter('cat_0')">
+                            <span class="ptag-stat-num">${raDon}</span> <span>Ra Đơn</span>
+                        </div>
+                        <div class="ptag-stat-box ptag-stat-blue ${activeFilter === 'cat_1' ? 'active' : ''}" onclick="window._ptagSetFilter('cat_1')">
+                            <span class="ptag-stat-num">${oke}</span> <span>Oke</span>
+                            <span class="ptag-stat-sub">(<span class="ptag-stat-clickable ${activeFilter === 'sub_OKIE_CHO_DI_DON' ? 'active' : ''}" onclick="window._ptagSetFilter('sub_OKIE_CHO_DI_DON'); event.stopPropagation();"><i class="fas fa-check"></i>${diDon}</span> + <span class="ptag-stat-clickable ${activeFilter === 'sub_CHO_HANG' ? 'active' : ''}" onclick="window._ptagSetFilter('sub_CHO_HANG'); event.stopPropagation();"><i class="fas fa-clock"></i>${choHang}</span>)</span>
+                        </div>
                     </div>
-                    <div class="ptag-stat-box ptag-stat-blue ${activeFilter === 'cat_1' ? 'active' : ''}" onclick="window._ptagSetFilter('cat_1')">
-                        <span class="ptag-stat-num">${oke}</span> <span>Oke</span>
-                        <span class="ptag-stat-sub">(<span class="ptag-stat-clickable ${activeFilter === 'sub_OKIE_CHO_DI_DON' ? 'active' : ''}" onclick="window._ptagSetFilter('sub_OKIE_CHO_DI_DON'); event.stopPropagation();"><i class="fas fa-check"></i>${diDon}</span> + <span class="ptag-stat-clickable ${activeFilter === 'sub_CHO_HANG' ? 'active' : ''}" onclick="window._ptagSetFilter('sub_CHO_HANG'); event.stopPropagation();"><i class="fas fa-clock"></i>${choHang}</span>)</span>
-                    </div>
-                </div>
 
-                <!-- Dòng 3: Xử Lý + Chưa Gán -->
-                <div class="ptag-summary-row">
-                    <div class="ptag-stat-box ptag-stat-amber ${activeFilter === 'cat_2' ? 'active' : ''}" onclick="window._ptagSetFilter('cat_2')">
-                        <span class="ptag-stat-num">${xuLy}</span> <span>Xử Lý</span>
+                    <!-- Dòng 3: Xử Lý + Chưa Gán -->
+                    <div class="ptag-summary-row">
+                        <div class="ptag-stat-box ptag-stat-amber ${activeFilter === 'cat_2' ? 'active' : ''}" onclick="window._ptagSetFilter('cat_2')">
+                            <span class="ptag-stat-num">${xuLy}</span> <span>Xử Lý</span>
+                        </div>
+                        <div class="ptag-stat-box ptag-stat-gray ${activeFilter === '__no_tag__' ? 'active' : ''}" onclick="window._ptagSetFilter('__no_tag__')">
+                            <span class="ptag-stat-num">${untaggedCount}</span> <span>Chưa Gán</span>
+                        </div>
                     </div>
-                    <div class="ptag-stat-box ptag-stat-gray ${activeFilter === '__no_tag__' ? 'active' : ''}" onclick="window._ptagSetFilter('__no_tag__')">
-                        <span class="ptag-stat-num">${untaggedCount}</span> <span>Chưa Gán</span>
-                    </div>
-                </div>
-            </div>`;
+                </div>`;
+            }
         }
+
+        let html = '';
 
         // --- Mini stat boxes: Chờ Live | Giữ Đơn + Qua Lấy ---
         {
