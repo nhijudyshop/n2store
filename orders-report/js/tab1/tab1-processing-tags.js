@@ -422,9 +422,9 @@
             console.log(`${PTAG_LOG} Loaded tags for ${orderCodes.length} orders`);
 
             // Re-trigger auto-tag CK/Trừ Công Nợ cho wallet data đã load trước ProcessingTagState
-            if (typeof window.updateWalletDebtBadgesInTable === 'function' && window.walletDebtData && window.walletDebtData.size > 0) {
+            if (typeof window._applyWalletAutoTags === 'function' && window.walletDebtData && window.walletDebtData.size > 0) {
                 console.log(`${PTAG_LOG} Re-triggering wallet auto-tag (${window.walletDebtData.size} phones)`);
-                window.updateWalletDebtBadgesInTable();
+                window._applyWalletAutoTags();
             }
         } catch (e) {
             console.error(`${PTAG_LOG} Failed to load tags:`, e);

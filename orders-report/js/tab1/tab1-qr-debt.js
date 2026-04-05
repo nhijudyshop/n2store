@@ -394,6 +394,68 @@ function renderWalletDebtBadges(phone) {
 }
 
 /**
+ * Auto-tag CK / Trừ Công Nợ — retry nếu ProcessingTagState chưa loaded.
+ * Tách riêng khỏi badge rendering để tránh race condition.
+ * Chỉ ADD flag mới, không ghi đè / xóa flag có sẵn.
+ */
+let _walletAutoTagTimer = null;
+let _walletAutoTagRetries = 0;
+const WALLET_AUTOTAG_MAX_RETRIES = 10;
+
+function _scheduleWalletAutoTag() {
+    clearTimeout(_walletAutoTagTimer);
+    _walletAutoTagTimer = setTimeout(_applyWalletAutoTags, 300);
+}
+
+function _applyWalletAutoTags() {
+    // Guard: cần ProcessingTagState loaded + toggleOrderFlag available
+    if (!window.ProcessingTagState?._isLoaded || typeof window.toggleOrderFlag !== 'function') {
+        _walletAutoTagRetries++;
+        if (_walletAutoTagRetries <= WALLET_AUTOTAG_MAX_RETRIES) {
+            console.log(`[WALLET-AUTOTAG] _isLoaded=${window.ProcessingTagState?._isLoaded}, retry ${_walletAutoTagRetries}/${WALLET_AUTOTAG_MAX_RETRIES}...`);
+            _walletAutoTagTimer = setTimeout(_applyWalletAutoTags, 1000);
+        }
+        return;
+    }
+
+    _walletAutoTagRetries = 0;
+    if (!window.walletDebtData || window.walletDebtData.size === 0) return;
+
+    let taggedCount = 0;
+    document.querySelectorAll('td[data-column="customer"]').forEach(cell => {
+        const row = cell.closest('tr');
+        if (!row) return;
+        const phoneCell = row.querySelector('td[data-column="phone"]');
+        if (!phoneCell) return;
+        const rowPhone = normalizePhoneForQR(phoneCell.textContent.trim());
+        if (!rowPhone || !window.walletDebtData.has(rowPhone)) return;
+
+        const data = window.walletDebtData.get(rowPhone);
+        if ((data.total || 0) <= 0) return;
+
+        const orderId = row.getAttribute('data-order-id');
+        const orderCode = row.getAttribute('data-order-code') || (orderId && window._ptagResolveCode ? window._ptagResolveCode(orderId) : null);
+        if (!orderCode) return;
+
+        const existingFlags = window.ProcessingTagState.getOrderFlags(orderCode);
+        const existingFlagIds = existingFlags.map(f => typeof f === 'object' ? f.id : f);
+
+        if ((data.balance || 0) > 0 && !existingFlagIds.includes('CHUYEN_KHOAN')) {
+            window.toggleOrderFlag(orderCode, 'CHUYEN_KHOAN', 'Tự Động');
+            taggedCount++;
+        }
+        if (((data.virtualBalance || data.virtual_balance) || 0) > 0 && !existingFlagIds.includes('TRU_CONG_NO')) {
+            window.toggleOrderFlag(orderCode, 'TRU_CONG_NO', 'Tự Động');
+            taggedCount++;
+        }
+    });
+
+    if (taggedCount > 0) {
+        console.log(`[WALLET-AUTOTAG] ✅ Auto-tagged ${taggedCount} flags`);
+    }
+}
+
+/**
  * Update wallet debt badges in table for a specific phone (or all phones)
  */
 function updateWalletDebtBadgesInTable(targetPhone) {
@@ -429,28 +491,8 @@ function updateWalletDebtBadgesInTable(targetPhone) {
             // Watermark background
             cell.style.background = 'linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(16,185,129,0.03) 100%)';
 
-            // Auto-gắn tag CK / Trừ Công Nợ khi badge hiển thị
-            const orderId = row.getAttribute('data-order-id');
-            const orderCode = row.getAttribute('data-order-code') || (orderId && window._ptagResolveCode ? window._ptagResolveCode(orderId) : null);
-
-            // Debug: trace auto-tag logic
-            console.log(`[WALLET-AUTOTAG] Row phone=${rowPhone}, orderId=${orderId}, orderCode=${orderCode}, balance=${data.balance}, virtualBalance=${data.virtualBalance || data.virtual_balance}, _isLoaded=${window.ProcessingTagState?._isLoaded}, toggleOrderFlag=${typeof window.toggleOrderFlag}`);
-
-            if (orderCode && typeof window.toggleOrderFlag === 'function' && window.ProcessingTagState && window.ProcessingTagState._isLoaded) {
-                const existingFlags = window.ProcessingTagState.getOrderFlags(orderCode);
-                const existingFlagIds = existingFlags.map(f => typeof f === 'object' ? f.id : f);
-                console.log(`[WALLET-AUTOTAG] orderCode=${orderCode}, existingFlagIds=${JSON.stringify(existingFlagIds)}, needCK=${(data.balance || 0) > 0 && !existingFlagIds.includes('CHUYEN_KHOAN')}, needTCN=${((data.virtualBalance || data.virtual_balance || 0) > 0) && !existingFlagIds.includes('TRU_CONG_NO')}`);
-                if ((data.balance || 0) > 0 && !existingFlagIds.includes('CHUYEN_KHOAN')) {
-                    console.log(`[WALLET-AUTOTAG] ✅ Adding CHUYEN_KHOAN to ${orderCode}`);
-                    window.toggleOrderFlag(orderCode, 'CHUYEN_KHOAN', 'Tự Động');
-                }
-                if (((data.virtualBalance || data.virtual_balance) || 0) > 0 && !existingFlagIds.includes('TRU_CONG_NO')) {
-                    console.log(`[WALLET-AUTOTAG] ✅ Adding TRU_CONG_NO to ${orderCode}`);
-                    window.toggleOrderFlag(orderCode, 'TRU_CONG_NO', 'Tự Động');
-                }
-            } else {
-                console.warn(`[WALLET-AUTOTAG] ⚠️ Guard failed: orderCode=${orderCode}, toggleOrderFlag=${typeof window.toggleOrderFlag}, ProcessingTagState=${!!window.ProcessingTagState}, _isLoaded=${window.ProcessingTagState?._isLoaded}`);
-            }
+            // Schedule auto-tag CK / Trừ Công Nợ (tách ra function riêng để retry khi _isLoaded=false)
+            _scheduleWalletAutoTag();
         } else {
             cell.style.background = '';
         }
@@ -657,6 +699,7 @@ window.batchFetchDebts = batchFetchDebts;
 window.hasWalletDebt = hasWalletDebt;
 window.renderWalletDebtBadges = renderWalletDebtBadges;
 window.updateWalletDebtBadgesInTable = updateWalletDebtBadgesInTable;
+window._applyWalletAutoTags = _applyWalletAutoTags;
 window.updateChatDebtBadges = updateChatDebtBadges;
 window.fetchWalletDebtBatch = fetchWalletDebtBatch;
 window.triggerWalletDebtFetch = triggerWalletDebtFetch;
