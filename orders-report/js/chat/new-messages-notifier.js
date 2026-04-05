@@ -35,6 +35,7 @@
 
     // Load immediately from localStorage (before server fetch completes)
     _pendingCustomers = _loadFromLocalStorage();
+    console.log(`[NOTIFIER] Init: loaded ${_pendingCustomers.length} from localStorage`);
 
     // Schedule initial reapply after DOM ready
     if (document.readyState === 'loading') {
@@ -42,6 +43,12 @@
     } else {
         setTimeout(reapply, 300);
     }
+
+    // Safety net: reapply again after ALL resources loaded (images, etc.)
+    // This ensures badges appear even if table renders late
+    window.addEventListener('load', () => {
+        setTimeout(reapply, 500);
+    });
 
     // =====================================================
     // REAPPLY - Main method called by tab1-table.js
@@ -91,6 +98,7 @@
 
         // Find all table rows with psid
         const rows = document.querySelectorAll('tr[data-psid], tr[data-fb-id]');
+        let matched = 0;
         rows.forEach(row => {
             const psid = row.dataset.psid || row.dataset.fbId || '';
             if (!psid) return;
@@ -103,6 +111,7 @@
                 return;
             }
 
+            matched++;
             // Add row highlight
             row.classList.add('pending-customer-row');
 
@@ -112,6 +121,8 @@
             // Update comments column badge (create or update existing)
             _upsertBadge(row, 'td[data-column="comments"]', 'new-cmt-badge', pending.commentCount);
         });
+
+        console.log(`[NOTIFIER] reapply: ${pendingMap.size} pending, ${rows.length} rows, ${matched} matched`);
     }
 
     /**
