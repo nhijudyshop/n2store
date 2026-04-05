@@ -1007,6 +1007,36 @@ app.get('/', (req, res) => {
     });
 });
 
+// ============== TPOS LOG ENDPOINTS ==============
+app.post('/api/tpos-log/start', (req, res) => {
+    const minutes = req.body?.minutes || 10;
+    tposEventLog.start(minutes);
+    res.json({ success: true, message: `Logging started for ${minutes} minutes`, willStopAt: new Date(Date.now() + minutes * 60 * 1000).toISOString() });
+});
+
+app.post('/api/tpos-log/stop', (req, res) => {
+    tposEventLog.stop();
+    res.json({ success: true, ...tposEventLog.getSummary() });
+});
+
+app.get('/api/tpos-log/summary', (req, res) => {
+    res.json(tposEventLog.getSummary());
+});
+
+app.get('/api/tpos-log/events', (req, res) => {
+    const { type, eventType, limit } = req.query;
+    let events = tposEventLog.events;
+    if (type) events = events.filter(e => e.type === type);
+    if (eventType) events = events.filter(e => e.eventType === eventType);
+    if (limit) events = events.slice(-parseInt(limit));
+    res.json({ total: events.length, events });
+});
+
+app.get('/api/tpos-log/all', (req, res) => {
+    res.json(tposEventLog.getAll());
+});
+// ============== END TPOS LOG ENDPOINTS ==============
+
 // 404 handler
 app.use((req, res) => {
     res.status(404).json({
@@ -1121,34 +1151,7 @@ const tposEventLog = {
     }
 };
 
-// Log endpoints
-app.post('/api/tpos-log/start', (req, res) => {
-    const minutes = req.body?.minutes || 10;
-    tposEventLog.start(minutes);
-    res.json({ success: true, message: `Logging started for ${minutes} minutes`, willStopAt: new Date(Date.now() + minutes * 60 * 1000).toISOString() });
-});
-
-app.post('/api/tpos-log/stop', (req, res) => {
-    tposEventLog.stop();
-    res.json({ success: true, ...tposEventLog.getSummary() });
-});
-
-app.get('/api/tpos-log/summary', (req, res) => {
-    res.json(tposEventLog.getSummary());
-});
-
-app.get('/api/tpos-log/events', (req, res) => {
-    const { type, eventType, limit } = req.query;
-    let events = tposEventLog.events;
-    if (type) events = events.filter(e => e.type === type);
-    if (eventType) events = events.filter(e => e.eventType === eventType);
-    if (limit) events = events.slice(-parseInt(limit));
-    res.json({ total: events.length, events });
-});
-
-app.get('/api/tpos-log/all', (req, res) => {
-    res.json(tposEventLog.getAll());
-});
+// (Log endpoints registered before 404 handler)
 // ============== END TPOS EVENT LOGGER ==============
 
 // Broadcast function
