@@ -317,8 +317,8 @@ function computeTagXLCounts(orderSubset, ptagMap) {
         }
     });
 
-    // Badge: đơn chốt = cat 0 (ĐÃ RA ĐƠN) + cat 1 (CHỜ ĐI ĐƠN) + cat 2 (XỬ LÝ)
-    const donChot = catCounts[0] + catCounts[1] + catCounts[2];
+    // Badge: đơn chốt = tổng đơn - ko cần chốt (cat 3)
+    const donChot = total - (catCounts[3] || 0);
 
     return {
         total, catCounts, catAmounts, catOrders,
