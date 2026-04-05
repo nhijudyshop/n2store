@@ -27,7 +27,8 @@
     {
       "matches": ["*://tomato.tpos.vn/*"],
       "js": ["content/tpos-interceptor.js"],
-      "run_at": "document_end"
+      "run_at": "document_start",
+      "world": "MAIN"
     }
   ],
   "action": {

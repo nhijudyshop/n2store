@@ -34,12 +34,7 @@
               timestamp: new Date().toISOString()
             };
 
-            // Send via extension service worker (preferred)
-            if (chrome?.runtime?.sendMessage) {
-              chrome.runtime.sendMessage(event);
-            }
-
-            // Also send directly to Render server as fallback
+            // Send directly to Render server (MAIN world - no chrome.runtime access)
             fetch(RENDER_API, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
