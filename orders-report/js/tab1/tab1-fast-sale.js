@@ -957,11 +957,12 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
         const returnGoodsTotal = (walletData?.returnGoodsDeposits || [])
             .reduce((sum, d) => sum + d.amount, 0);
         const realCKBalance = Math.max(0, (parseFloat(walletData?.balance) || 0) - returnGoodsTotal);
+        const stripImg = (n) => n ? n.replace(/\n?\[Ảnh GD: [^\]]+\]/, '').trim() : n;
         if (realCKBalance > 0) {
             if (walletData?.lastDepositSource === 'MANUAL_ADJUSTMENT') {
-                noteParts.push(walletData.lastDepositNote || 'Kiểm tra lại ghi chú công nợ');
+                noteParts.push(stripImg(walletData.lastDepositNote) || 'Kiểm tra lại ghi chú công nợ');
             } else if (walletData?.lastDepositSource === 'ORDER_CANCEL_REFUND' && walletData?.lastDepositNote) {
-                noteParts.push(walletData.lastDepositNote);
+                noteParts.push(stripImg(walletData.lastDepositNote));
             } else {
                 let ckAmount = realCKBalance;
                 let ckDateStr;
