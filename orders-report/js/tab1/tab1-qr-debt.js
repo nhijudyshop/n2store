@@ -432,15 +432,24 @@ function updateWalletDebtBadgesInTable(targetPhone) {
             // Auto-gắn tag CK / Trừ Công Nợ khi badge hiển thị
             const orderId = row.getAttribute('data-order-id');
             const orderCode = row.getAttribute('data-order-code') || (orderId && window._ptagResolveCode ? window._ptagResolveCode(orderId) : null);
+
+            // Debug: trace auto-tag logic
+            console.log(`[WALLET-AUTOTAG] Row phone=${rowPhone}, orderId=${orderId}, orderCode=${orderCode}, balance=${data.balance}, virtualBalance=${data.virtualBalance || data.virtual_balance}, _isLoaded=${window.ProcessingTagState?._isLoaded}, toggleOrderFlag=${typeof window.toggleOrderFlag}`);
+
             if (orderCode && typeof window.toggleOrderFlag === 'function' && window.ProcessingTagState && window.ProcessingTagState._isLoaded) {
                 const existingFlags = window.ProcessingTagState.getOrderFlags(orderCode);
                 const existingFlagIds = existingFlags.map(f => typeof f === 'object' ? f.id : f);
+                console.log(`[WALLET-AUTOTAG] orderCode=${orderCode}, existingFlagIds=${JSON.stringify(existingFlagIds)}, needCK=${(data.balance || 0) > 0 && !existingFlagIds.includes('CHUYEN_KHOAN')}, needTCN=${((data.virtualBalance || data.virtual_balance || 0) > 0) && !existingFlagIds.includes('TRU_CONG_NO')}`);
                 if ((data.balance || 0) > 0 && !existingFlagIds.includes('CHUYEN_KHOAN')) {
+                    console.log(`[WALLET-AUTOTAG] ✅ Adding CHUYEN_KHOAN to ${orderCode}`);
                     window.toggleOrderFlag(orderCode, 'CHUYEN_KHOAN', 'Tự Động');
                 }
                 if (((data.virtualBalance || data.virtual_balance) || 0) > 0 && !existingFlagIds.includes('TRU_CONG_NO')) {
+                    console.log(`[WALLET-AUTOTAG] ✅ Adding TRU_CONG_NO to ${orderCode}`);
                     window.toggleOrderFlag(orderCode, 'TRU_CONG_NO', 'Tự Động');
                 }
+            } else {
+                console.warn(`[WALLET-AUTOTAG] ⚠️ Guard failed: orderCode=${orderCode}, toggleOrderFlag=${typeof window.toggleOrderFlag}, ProcessingTagState=${!!window.ProcessingTagState}, _isLoaded=${window.ProcessingTagState?._isLoaded}`);
             }
         } else {
             cell.style.background = '';
