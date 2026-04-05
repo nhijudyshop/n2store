@@ -1364,10 +1364,7 @@ function renderCongNoTab(partnerId) {
     congNo.forEach((item, index) => {
         const moveName = item.MoveName || '';
         const webDate = RefundDateStore.getByMoveName(moveName);
-        const tposDate = formatDateFromISO(item.Date);
-        const dateStr = webDate
-            ? `<span class="date-web" title="Ngày web">${webDate}</span><span class="date-tpos" title="Ngày TPOS">${tposDate}</span>`
-            : tposDate;
+        const dateStr = webDate || formatDateFromISO(item.Date);
         const tposNote = item.Ref || '';
         const webNote = WebNotesStore.get(supplierCode, moveName);
         const noteHistory = WebNotesStore.getHistory(supplierCode, moveName);
