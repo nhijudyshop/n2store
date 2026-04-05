@@ -16,7 +16,6 @@
 
     // ===== WebSocket Connection =====
     function connect() {
-        if (!enabled) return;
         if (ws && ws.readyState <= 1) return; // CONNECTING or OPEN
 
         try {
@@ -54,7 +53,6 @@
     }
 
     function scheduleReconnect() {
-        if (!enabled) return;
         if (reconnectAttempts >= MAX_RECONNECT) return;
         const delay = Math.min(3000 * Math.pow(1.5, reconnectAttempts), 60000);
         reconnectAttempts++;
@@ -76,6 +74,7 @@
     async function handleNewOrder(eventData) {
         const code = eventData?.Data?.Code || eventData?.Code;
         if (!code) return;
+        if (!tableUpdateEnabled) return;
 
         // Deduplicate (TPOS sends multiple events for same order)
         if (isRecentlyProcessed(code)) return;
@@ -106,6 +105,7 @@
         const code = eventData?.Data?.Code || eventData?.Code;
         const orderId = eventData?.Data?.Id || eventData?.Id;
         if (!code && !orderId) return;
+        if (!tableUpdateEnabled) return;
 
         // Deduplicate
         const dedupeKey = `upd_${code || orderId}`;
@@ -258,7 +258,7 @@
         }, 3000);
     }
 
-    let enabled = true; // User can toggle on/off
+    let tableUpdateEnabled = true; // Toggle: render new/updated orders into table
 
     // ===== Status Indicator (inline toggle button) =====
     function updateStatusIndicator(connected) {
@@ -267,47 +267,31 @@
         const btn = document.getElementById('tposRtToggle');
         if (!dot || !label || !btn) return;
 
-        if (!enabled) {
+        if (!tableUpdateEnabled) {
             dot.style.background = '#d1d5db';
             label.textContent = 'RT tắt';
             btn.style.borderColor = '#d1d5db';
             btn.style.background = '#f9fafb';
-            btn.title = 'Real-time đang tắt — click để bật';
+            btn.title = 'Cập nhật bảng real-time đang tắt — click để bật';
         } else if (connected) {
             dot.style.background = '#22c55e';
             label.textContent = 'RT';
             btn.style.borderColor = '#86efac';
             btn.style.background = '#f0fdf4';
-            btn.title = 'Real-time đang kết nối — click để tắt';
+            btn.title = 'Đơn mới tự thêm vào bảng — click để tắt';
         } else {
             dot.style.background = '#ef4444';
             label.textContent = 'RT...';
             btn.style.borderColor = '#fca5a5';
             btn.style.background = '#fef2f2';
-            btn.title = 'Real-time đang kết nối lại — click để tắt';
+            btn.title = 'Đang kết nối lại server — click để tắt cập nhật bảng';
         }
-    }
-
-    function disconnect() {
-        clearTimeout(reconnectTimer);
-        if (ws) {
-            ws.onclose = null; // Prevent auto-reconnect
-            ws.close();
-            ws = null;
-        }
-        updateStatusIndicator(false);
     }
 
     function toggle() {
-        enabled = !enabled;
-        if (enabled) {
-            reconnectAttempts = 0;
-            connect();
-            console.log('[TPOS-RT] Enabled');
-        } else {
-            disconnect();
-            console.log('[TPOS-RT] Disabled');
-        }
+        tableUpdateEnabled = !tableUpdateEnabled;
+        updateStatusIndicator(ws?.readyState === 1);
+        console.log('[TPOS-RT] Table updates:', tableUpdateEnabled ? 'ON' : 'OFF');
     }
 
     // ===== Utilities =====
@@ -380,13 +364,12 @@
     // Expose for UI toggle + debugging
     window.tposRealtime = {
         getStatus: () => ({
-            enabled,
+            tableUpdateEnabled,
             connected: ws?.readyState === 1,
             reconnectAttempts,
             recentlyProcessed: recentlyProcessed.size
         }),
         toggle,
-        reconnect: () => { reconnectAttempts = 0; connect(); },
-        disconnect
+        reconnect: () => { reconnectAttempts = 0; connect(); }
     };
 })();
