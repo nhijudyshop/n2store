@@ -39,6 +39,15 @@
 └─────────────────────────────────────────────────────────┘
 ```
 
+### Nguyên tắc: Category không thể xóa
+
+> **QUAN TRỌNG**: Khi đơn đã được gán category đầu tiên (bước vào xử lý), đơn **phải luôn nằm trong 1 category**. Seller chỉ có thể **chuyển** từ cat này sang cat khác, **không thể xóa** category để đơn trở về trạng thái "chưa gán".
+
+- Trên bảng: badge category **không có nút ×** để xóa
+- Trong dropdown: pill category **không có nút ×** để xóa
+- Flags và T-tags vẫn có thể xóa/toggle bình thường
+- Chỉ hệ thống (auto cleanup 60+ ngày) mới có thể xóa category
+
 ---
 
 ## 2. Cấu Trúc 5 Category

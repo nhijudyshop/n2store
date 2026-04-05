@@ -1124,10 +1124,9 @@
         let badges = '';
         const oc = orderCode; // shorthand for onclick
 
-        // 1. Category badge (tag xử lý) — FIRST — with × to remove
+        // 1. Category badge (tag xử lý) — FIRST — không có nút × (category không thể xóa, chỉ chuyển)
         if (data.category !== null && data.category !== undefined) {
             const catColor = PTAG_CATEGORY_COLORS[data.category];
-            const removeBtn = `<button class="ptag-badge-remove" onclick="window._ptagClear('${oc}'); event.stopPropagation();" title="Xóa tag">&times;</button>`;
             if (data.category === PTAG_CATEGORIES.HOAN_TAT) {
                 badges += `<span class="ptag-badge ptag-cat-0">🟢 ĐÃ RA ĐƠN</span>`;
             } else if (data.category === PTAG_CATEGORIES.CHO_DI_DON) {
@@ -1136,11 +1135,11 @@
                 let badgeColor = ss.color;
                 const printIcon = (data.subState === 'CHO_HANG' && data.pickingSlipPrinted)
                     ? ' <i class="fas fa-print" style="font-size:10px;color:#10b981;margin-left:3px;"></i>' : '';
-                badges += `<span class="ptag-badge ptag-badge-removable" style="border-color:${badgeColor};color:${badgeColor};background:${badgeColor}12;">${label}${printIcon}${removeBtn}</span>`;
+                badges += `<span class="ptag-badge" style="border-color:${badgeColor};color:${badgeColor};background:${badgeColor}12;">${label}${printIcon}</span>`;
             } else {
                 const subTagDef = PTAG_SUBTAGS[data.subTag];
                 const label = subTagDef?.label || PTAG_CATEGORY_META[data.category]?.short || '';
-                badges += `<span class="ptag-badge ptag-badge-removable" style="border-color:${catColor.border};color:${catColor.text};background:${catColor.bg};">${label}${removeBtn}</span>`;
+                badges += `<span class="ptag-badge" style="border-color:${catColor.border};color:${catColor.text};background:${catColor.bg};">${label}</span>`;
             }
         }
 
@@ -1299,7 +1298,9 @@
         // Input container: pills + search input
         html += `<div class="ptag-dd-input-container">`;
         selectedTags.forEach(t => {
-            html += `<span class="ptag-dd-pill" style="background:${_ptagPillColor(t)};" data-key="${t.key}">${t.label} <button onclick="window._ptagDdRemovePill('${t.key}'); event.stopPropagation();">&times;</button></span>`;
+            const isCat = t.key.startsWith('cat:');
+            const removeHtml = isCat ? '' : ` <button onclick="window._ptagDdRemovePill('${t.key}'); event.stopPropagation();">&times;</button>`;
+            html += `<span class="ptag-dd-pill" style="background:${_ptagPillColor(t)};" data-key="${t.key}">${t.label}${removeHtml}</span>`;
         });
         html += `<input type="text" class="ptag-dd-input" id="ptag-dd-input" placeholder="Tìm tag..." />`;
         html += `</div>`;
@@ -1433,8 +1434,8 @@
             const ttagId = key.replace('dtag:', '');
             removeTTagFromOrder(orderCode, ttagId);
         } else if (key.startsWith('cat:')) {
-            // Remove processing tag = clear category
-            clearProcessingTag(orderCode);
+            // Category không thể xóa — chỉ chuyển giữa các cat
+            return;
         } else if (key.startsWith('flag:')) {
             const flagKey = key.replace('flag:', '');
             toggleOrderFlag(orderCode, flagKey);
@@ -1463,7 +1464,9 @@
                 pill.className = 'ptag-dd-pill';
                 pill.style.background = _ptagPillColor(t);
                 pill.dataset.key = t.key;
-                pill.innerHTML = `${t.label} <button onclick="window._ptagDdRemovePill('${t.key}'); event.stopPropagation();">&times;</button>`;
+                const isCat = t.key.startsWith('cat:');
+                const removeHtml = isCat ? '' : ` <button onclick="window._ptagDdRemovePill('${t.key}'); event.stopPropagation();">&times;</button>`;
+                pill.innerHTML = `${t.label}${removeHtml}`;
                 container.insertBefore(pill, input);
             });
         }
