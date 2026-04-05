@@ -8,6 +8,12 @@
 
 ## 2026-04-05
 
+### [chat] Fix sender UI not updating after private reply ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-chat-messages.js` |
+| **Chi tiết** | 2 bugs: 1) `PrivateReplyStore._getDocRef()` dùng per-user doc → marks không sync giữa nhân viên → đổi sang shared doc `'shared'`. 2) Reload sau 2s ghi đè `allChatMessages = messages` → xóa mất tin nhắn optimistic `pr_*` chưa có trên server → preserve optimistic messages khi text chưa match server data. |
+
 ### [chat] Private reply marks store + optimistic UI ✅
 | | |
 |---|---|

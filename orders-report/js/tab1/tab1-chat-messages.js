@@ -17,8 +17,7 @@ const PrivateReplyStore = {
     TTL: 7 * 24 * 60 * 60 * 1000, // 7 days
 
     _getDocRef() {
-        const user = window.currentUser?.username || window.currentUser?.email || 'default';
-        return firebase.firestore().collection('private_reply_marks').doc(user);
+        return firebase.firestore().collection('private_reply_marks').doc('shared');
     },
 
     async init() {
@@ -548,7 +547,11 @@ window.sendMessage = async function() {
                             }
                         });
                     }
-                    window.allChatMessages = messages;
+                    // Preserve optimistic private-reply messages (pr_*) not yet in server data
+                    const optimisticMsgs = window.allChatMessages.filter(m =>
+                        String(m.id).startsWith('pr_') && !messages.some(sm => sm.text === m.text && sm.sender === 'shop')
+                    );
+                    window.allChatMessages = [...messages, ...optimisticMsgs];
                     window.currentChatCursor = messages.length;
                     window.renderChatMessages(messages);
                 }
