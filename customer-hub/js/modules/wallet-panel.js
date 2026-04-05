@@ -817,7 +817,9 @@ export class WalletPanelModule {
             hoverEl = document.createElement('div');
             hoverEl.className = 'wallet-img-hover';
             hoverEl.style.cssText = 'position:fixed;z-index:9998;pointer-events:none;padding:4px;background:#fff;border-radius:8px;box-shadow:0 8px 30px rgba(0,0,0,0.3);transition:opacity 0.15s;opacity:0';
-            hoverEl.innerHTML = `<img src="${thumb.src}" style="max-width:300px;max-height:300px;border-radius:6px;display:block;object-fit:contain">`;
+            const w = thumb.offsetWidth * 5;
+            const h = thumb.offsetHeight * 5;
+            hoverEl.innerHTML = `<img src="${thumb.src}" style="width:${w}px;height:${h}px;border-radius:6px;display:block;object-fit:cover">`;
             document.body.appendChild(hoverEl);
             // Position above or below thumb
             requestAnimationFrame(() => {
