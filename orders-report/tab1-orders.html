@@ -900,7 +900,7 @@
                     <div class="chat-input-area">
                         <div class="chat-input-wrapper">
                             <textarea id="chatInput" placeholder="Nhập tin nhắn..." rows="2"
-                                onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();window.sendMessage?.();}"></textarea>
+                                onkeydown="if(event.key==='Enter'&&!event.shiftKey&&!window.quickReplyManager?.autocompleteActive){event.preventDefault();window.sendMessage?.();}"></textarea>
                             <div class="chat-toolbar">
                                 <div class="chat-toolbar-left">
                                     <button class="attach-btn" onclick="if(window.currentChatOrderId) openEditModal(window.currentChatOrderId)" title="Chỉnh sửa đơn hàng">
