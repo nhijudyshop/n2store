@@ -1894,7 +1894,7 @@
                         </div>
                         <div class="ptag-stat-box ptag-stat-blue ${activeFilter === 'cat_1' ? 'active' : ''}" onclick="window._ptagSetFilter('cat_1')">
                             <span class="ptag-stat-num">${oke}</span> <span>OKE</span>
-                            <span class="ptag-stat-sub">(<span class="ptag-stat-clickable ${activeFilter === 'sub_OKIE_CHO_DI_DON' ? 'active' : ''}" onclick="window._ptagSetFilter('sub_OKIE_CHO_DI_DON'); event.stopPropagation();"><i class="fas fa-check"></i>${diDon}</span> + <span class="ptag-stat-clickable ${activeFilter === 'sub_CHO_HANG' ? 'active' : ''}" onclick="window._ptagSetFilter('sub_CHO_HANG'); event.stopPropagation();"><i class="fas fa-clock"></i>${choHang}</span>)</span>
+                            <span class="ptag-stat-sub">(<span class="ptag-stat-clickable ${activeFilter === 'sub_OKIE_NO_DELAY' ? 'active' : ''}" onclick="window._ptagSetFilter('sub_OKIE_NO_DELAY'); event.stopPropagation();"><i class="fas fa-check" style="color:#10b981;"></i>${subStateCounts['OKIE_NO_DELAY'] || 0}</span> + <span class="ptag-stat-clickable ${activeFilter === 'sub_CHO_HANG' ? 'active' : ''}" onclick="window._ptagSetFilter('sub_CHO_HANG'); event.stopPropagation();"><i class="fas fa-clock" style="color:#f59e0b;"></i>${choHang}</span>)</span>
                         </div>
                     </div>
 
