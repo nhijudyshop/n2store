@@ -1335,6 +1335,18 @@ function renderCongNoTab(partnerId) {
         return '<div class="detail-loading">Không có dữ liệu công nợ</div>';
     }
 
+    // Sort by web date (if available) or TPOS date
+    const sortedCongNo = [...congNo].sort((a, b) => {
+        const aMoveName = a.MoveName || '';
+        const bMoveName = b.MoveName || '';
+        const aWebDate = RefundDateStore.getByMoveName(aMoveName);
+        const bWebDate = RefundDateStore.getByMoveName(bMoveName);
+        // Parse date: web date is dd/mm/yyyy, TPOS date is ISO string
+        const aTime = aWebDate ? parseDDMMYYYY(aWebDate) : new Date(a.Date || 0).getTime();
+        const bTime = bWebDate ? parseDDMMYYYY(bWebDate) : new Date(b.Date || 0).getTime();
+        return aTime - bTime;
+    });
+
     let tableHtml = `
         <table class="detail-table">
             <thead>
@@ -1361,7 +1373,7 @@ function renderCongNoTab(partnerId) {
         ? prevPageEndBalance
         : (congNo.length > 0 ? (congNo[0].Begin || 0) : 0);
 
-    congNo.forEach((item, index) => {
+    sortedCongNo.forEach((item, index) => {
         const moveName = item.MoveName || '';
         const webDate = RefundDateStore.getByMoveName(moveName);
         const dateStr = webDate || formatDateFromISO(item.Date);
@@ -2617,6 +2629,12 @@ function initNoteEditModal() {
 // =====================================================
 // DATE FORMATTING HELPERS
 // =====================================================
+
+function parseDDMMYYYY(str) {
+    if (!str) return 0;
+    const [d, m, y] = str.split('/');
+    return new Date(+y, +m - 1, +d).getTime();
+}
 
 function formatDateFromISO(isoString) {
     if (!isoString) return '';
