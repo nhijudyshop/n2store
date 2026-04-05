@@ -336,6 +336,23 @@ async function _findAndLoadConversation(pageId, psid, type) {
         window.currentSendPageId = convPageId;
     }
 
+    // Enrich thread_id if missing (needed for extension bypass / GET_GLOBAL_ID_FOR_CONV)
+    // inboxMapByPSID cache and messages API often don't have thread_id,
+    // but conversation list API does. Fire background fetch to get it.
+    if (!conv.thread_id && type !== 'COMMENT') {
+        pdm.fetchConversationsByCustomerFbId(convPageId, psid).then(result => {
+            const apiConv = (result.conversations || []).find(c => c.id === conv.id);
+            if (apiConv?.thread_id && window.currentConversationData?.id === conv.id) {
+                window.currentConversationData.thread_id = apiConv.thread_id;
+                // Also set in _raw for buildConvData
+                if (window.currentConversationData._raw) {
+                    window.currentConversationData._raw.thread_id = apiConv.thread_id;
+                }
+                console.log('[Chat-Core] Enriched thread_id:', apiConv.thread_id);
+            }
+        }).catch(() => {});
+    }
+
     // Load messages - customerId from customers array or from.id
     const customerId = conv.customers?.[0]?.id || conv.customerId || conv.customer?.id || conv.from?.id || null;
     await _loadMessages(convPageId, conv.id, customerId);
@@ -355,7 +372,13 @@ async function _loadMessages(pageId, conversationId, customerId) {
         if (result.conversation) {
             const rc = result.conversation;
             if (!window.currentConversationData) window.currentConversationData = {};
+            // Preserve thread_id from conversation list API (messages API often lacks it)
+            const existingThreadId = window.currentConversationData.thread_id
+                || window.currentConversationData._raw?.thread_id;
             window.currentConversationData._raw = rc;
+            if (!rc.thread_id && existingThreadId) {
+                rc.thread_id = existingThreadId;
+            }
             window.currentConversationData.customers = result.customers || [];
             window.currentConversationData._messagesData = {
                 customers: result.customers || [],
