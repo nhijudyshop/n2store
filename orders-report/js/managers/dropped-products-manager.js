@@ -139,15 +139,26 @@
     }
 
     /**
-     * Get unique campaigns from dropped products for filter dropdown
+     * Get all campaigns from campaignManager (tab1) + dropped products
+     * Prioritizes campaignManager as source of truth, supplements with dropped products data
      */
-    function getUniqueCampaigns() {
+    function getAllCampaigns() {
         const campaigns = new Map(); // campaignId -> campaignName
+
+        // 1. Primary source: campaignManager from tab1
+        if (window.campaignManager?.allCampaigns) {
+            Object.entries(window.campaignManager.allCampaigns).forEach(([id, campaign]) => {
+                campaigns.set(String(id), campaign.name || campaign.displayName || id);
+            });
+        }
+
+        // 2. Supplement: campaigns from dropped products (for old campaigns with data but removed from campaignManager)
         droppedProducts.forEach((p) => {
-            if (p.campaignId && p.campaignName) {
+            if (p.campaignId && p.campaignName && !campaigns.has(String(p.campaignId))) {
                 campaigns.set(String(p.campaignId), p.campaignName);
             }
         });
+
         return campaigns;
     }
 
@@ -1106,12 +1117,23 @@
             })
         );
 
-        // Build campaign filter options (preserve selection state)
-        const uniqueCampaigns = getUniqueCampaigns();
-        let campaignOptions = `<option value="all"${currentCampaignFilter === 'all' ? ' selected' : ''}>Tất cả đợt live</option><option value="current"${currentCampaignFilter === 'current' ? ' selected' : ''}>Live hiện tại</option>`;
-        uniqueCampaigns.forEach((name, id) => {
+        // Auto-set default filter to active campaign on first load
+        const activeCampaignId = window.campaignManager?.activeCampaignId
+            ? String(window.campaignManager.activeCampaignId)
+            : null;
+        if (isFirstLoad && currentCampaignFilter === 'all' && activeCampaignId) {
+            currentCampaignFilter = activeCampaignId;
+        }
+
+        // Build campaign filter options from campaignManager + droppedProducts
+        const allCampaigns = getAllCampaigns();
+        const activeCampaignName = window.campaignManager?.activeCampaign?.name || 'Live hiện tại';
+        let campaignOptions = `<option value="all"${currentCampaignFilter === 'all' ? ' selected' : ''}>Tất cả đợt live</option>`;
+        allCampaigns.forEach((name, id) => {
+            const isActive = id === activeCampaignId;
+            const displayName = isActive ? `${name} (hiện tại)` : name;
             const selected = currentCampaignFilter === id ? ' selected' : '';
-            campaignOptions += `<option value="${id}"${selected}>${name}</option>`;
+            campaignOptions += `<option value="${id}"${selected}>${displayName}</option>`;
         });
 
         // Add search UI at the top
