@@ -385,6 +385,144 @@
     padding: 8px 0;
 }
 
+/* ----- SUMMARY STATS (3 dòng tổng quan + filter) ----- */
+.ptag-summary-stats {
+    padding: 8px 10px 6px;
+    border-bottom: 1px solid #e5e7eb;
+    margin-bottom: 4px;
+}
+
+.ptag-summary-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 5px;
+}
+
+.ptag-summary-row:last-child {
+    margin-bottom: 0;
+}
+
+/* Dòng 1: Công thức */
+.ptag-summary-formula {
+    font-size: 13px;
+    color: #374151;
+    flex-wrap: wrap;
+    line-height: 1.6;
+}
+
+.ptag-summary-formula .ptag-formula-detail {
+    font-size: 11.5px;
+    color: #6b7280;
+}
+
+.ptag-stat-num {
+    font-weight: 700;
+    font-size: 14px;
+}
+
+.ptag-stat-clickable {
+    cursor: pointer;
+    border-radius: 3px;
+    padding: 0 3px;
+    transition: all 0.15s;
+}
+
+.ptag-stat-clickable:hover {
+    background: rgba(102, 126, 234, 0.12);
+    text-decoration: underline;
+}
+
+.ptag-stat-clickable.active {
+    background: rgba(102, 126, 234, 0.18);
+    color: #4f46e5;
+    outline: 1.5px solid #667eea;
+    border-radius: 3px;
+}
+
+.ptag-stat-highlight {
+    color: #7c3aed;
+    font-size: 15px;
+}
+
+/* Dòng 2 & 3: Stat boxes */
+.ptag-stat-box {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex: 1;
+    padding: 6px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    border: 1.5px solid transparent;
+    transition: all 0.15s;
+}
+
+.ptag-stat-box:hover {
+    filter: brightness(0.95);
+}
+
+.ptag-stat-box.active {
+    border-color: #667eea;
+    box-shadow: 0 0 0 1px rgba(102, 126, 234, 0.25);
+}
+
+.ptag-stat-box .ptag-stat-num {
+    font-size: 16px;
+}
+
+.ptag-stat-box .ptag-stat-sub {
+    font-size: 11.5px;
+    color: inherit;
+    opacity: 0.8;
+    margin-left: 2px;
+    white-space: nowrap;
+}
+
+.ptag-stat-box .ptag-stat-sub .ptag-stat-clickable {
+    font-weight: 600;
+}
+
+.ptag-stat-box .ptag-stat-sub i {
+    font-size: 10px;
+    margin-right: 1px;
+}
+
+/* Color variants */
+.ptag-stat-green {
+    background: rgba(16, 185, 129, 0.10);
+    color: #059669;
+}
+.ptag-stat-green.active {
+    background: rgba(16, 185, 129, 0.18);
+}
+
+.ptag-stat-blue {
+    background: rgba(59, 130, 246, 0.10);
+    color: #2563eb;
+}
+.ptag-stat-blue.active {
+    background: rgba(59, 130, 246, 0.18);
+}
+
+.ptag-stat-amber {
+    background: rgba(245, 158, 11, 0.10);
+    color: #d97706;
+}
+.ptag-stat-amber.active {
+    background: rgba(245, 158, 11, 0.18);
+}
+
+.ptag-stat-gray {
+    background: rgba(107, 114, 128, 0.10);
+    color: #4b5563;
+}
+.ptag-stat-gray.active {
+    background: rgba(107, 114, 128, 0.18);
+}
+
 /* ----- CARD ITEMS ----- */
 .ptag-panel-card {
     display: flex;

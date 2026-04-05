@@ -1851,37 +1851,53 @@
 
         let html = '';
 
-        // --- Special filters: TẤT CẢ & CHƯA GÁN TAG ---
-        html += `<div class="ptag-panel-card ${activeFilter === null && activeFlagFilters.size === 0 ? 'active' : ''}" onclick="window._ptagSetFilter(null)" data-search="tat ca">
-            <div class="ptag-panel-card-icon" style="background:#6b7280;">
-                <i class="fas fa-globe" style="color:#fff;font-size:14px;"></i>
-            </div>
-            <div class="ptag-panel-card-info">
-                <div class="ptag-panel-card-name">TẤT CẢ</div>
-                <div class="ptag-panel-card-count">${totalOrders} đơn hàng</div>
-            </div>
-        </div>`;
-        html += `<div class="ptag-panel-card ${activeFilter === '__no_tag__' ? 'active' : ''}" onclick="window._ptagSetFilter('__no_tag__')" data-search="chua gan tag xl">
-            <div class="ptag-panel-card-icon" style="background:#d1d5db;">
-                <i class="fas fa-tag" style="color:#6b7280;font-size:14px;"></i>
-            </div>
-            <div class="ptag-panel-card-info">
-                <div class="ptag-panel-card-name">CHƯA GÁN TAG XL</div>
-                <div class="ptag-panel-card-count">${untaggedCount} đơn hàng</div>
-            </div>
-        </div>`;
+        // --- Summary Stats: 3 dòng tổng quan + filter ---
+        {
+            const koCan = catCounts[3] || 0;
+            const gioTrong = subTagCounts['GIO_TRONG'] || 0;
+            const daGop = subTagCounts['DA_GOP_KHONG_CHOT'] || 0;
+            const donChot = totalOrders - koCan;
+            const raDon = catCounts[0] || 0;
+            const oke = catCounts[1] || 0;
+            const diDon = subStateCounts['OKIE_CHO_DI_DON'] || 0;
+            const choHang = subStateCounts['CHO_HANG'] || 0;
+            const xuLy = catCounts[2] || 0;
 
-        // --- Category 0 — HOÀN TẤT ---
-        html += `<div class="ptag-panel-card ${activeFilter === 'cat_0' ? 'active' : ''}" onclick="window._ptagSetFilter('cat_0')" data-search="${_ptagNormalize(PTAG_CATEGORY_META[0].name)}">
-            <div class="ptag-panel-card-icon" style="background:${PTAG_CATEGORY_COLORS[0].border};">
-                <i class="fas ${PTAG_CATEGORY_META[0].icon}" style="color:#fff;font-size:14px;"></i>
-            </div>
-            <div class="ptag-panel-card-info">
-                <div class="ptag-panel-card-name">${PTAG_CATEGORY_META[0].emoji} ${PTAG_CATEGORY_META[0].name}</div>
-                <div class="ptag-panel-card-count">${catCounts[0]} đơn hàng</div>
-            </div>
-            ${_tooltipHtml('cat_0')}
-        </div>`;
+            html += `<div class="ptag-summary-stats" data-search="tat ca tong don chot ra don oke xu ly chua gan">
+                <!-- Dòng 1: Công thức -->
+                <div class="ptag-summary-row ptag-summary-formula">
+                    <span>Tổng </span>
+                    <span class="ptag-stat-num ptag-stat-clickable ${activeFilter === null && activeFlagFilters.size === 0 ? 'active' : ''}" onclick="window._ptagSetFilter(null)">${totalOrders}</span>
+                    <span> - </span>
+                    <span class="ptag-stat-num ptag-stat-clickable ${activeFilter === 'cat_3' ? 'active' : ''}" onclick="window._ptagSetFilter('cat_3')">${koCan}</span>
+                    <span class="ptag-formula-detail"> (<span class="ptag-stat-clickable ${activeFilter === 'subtag_GIO_TRONG' ? 'active' : ''}" onclick="window._ptagSetFilter('subtag_GIO_TRONG')">${gioTrong}</span> Trống + <span class="ptag-stat-clickable ${activeFilter === 'subtag_DA_GOP_KHONG_CHOT' ? 'active' : ''}" onclick="window._ptagSetFilter('subtag_DA_GOP_KHONG_CHOT')">${daGop}</span> Gộp)</span>
+                    <span> = </span>
+                    <span class="ptag-stat-num ptag-stat-highlight ptag-stat-clickable ${activeFilter === '__don_chot__' ? 'active' : ''}" onclick="window._ptagSetFilter('__don_chot__')">${donChot}</span>
+                    <span> Đơn Chốt</span>
+                </div>
+
+                <!-- Dòng 2: Ra Đơn + Oke -->
+                <div class="ptag-summary-row">
+                    <div class="ptag-stat-box ptag-stat-green ${activeFilter === 'cat_0' ? 'active' : ''}" onclick="window._ptagSetFilter('cat_0')">
+                        <span class="ptag-stat-num">${raDon}</span> <span>Ra Đơn</span>
+                    </div>
+                    <div class="ptag-stat-box ptag-stat-blue ${activeFilter === 'cat_1' ? 'active' : ''}" onclick="window._ptagSetFilter('cat_1')">
+                        <span class="ptag-stat-num">${oke}</span> <span>Oke</span>
+                        <span class="ptag-stat-sub">(<span class="ptag-stat-clickable ${activeFilter === 'sub_OKIE_CHO_DI_DON' ? 'active' : ''}" onclick="window._ptagSetFilter('sub_OKIE_CHO_DI_DON'); event.stopPropagation();"><i class="fas fa-check"></i>${diDon}</span> + <span class="ptag-stat-clickable ${activeFilter === 'sub_CHO_HANG' ? 'active' : ''}" onclick="window._ptagSetFilter('sub_CHO_HANG'); event.stopPropagation();"><i class="fas fa-clock"></i>${choHang}</span>)</span>
+                    </div>
+                </div>
+
+                <!-- Dòng 3: Xử Lý + Chưa Gán -->
+                <div class="ptag-summary-row">
+                    <div class="ptag-stat-box ptag-stat-amber ${activeFilter === 'cat_2' ? 'active' : ''}" onclick="window._ptagSetFilter('cat_2')">
+                        <span class="ptag-stat-num">${xuLy}</span> <span>Xử Lý</span>
+                    </div>
+                    <div class="ptag-stat-box ptag-stat-gray ${activeFilter === '__no_tag__' ? 'active' : ''}" onclick="window._ptagSetFilter('__no_tag__')">
+                        <span class="ptag-stat-num">${untaggedCount}</span> <span>Chưa Gán</span>
+                    </div>
+                </div>
+            </div>`;
+        }
 
         // --- Mini stat boxes: Chờ Live | Giữ Đơn + Qua Lấy ---
         {
@@ -2123,6 +2139,8 @@
 
         if (filter === '__no_tag__') {
             parts.push('Chưa gán');
+        } else if (filter === '__don_chot__') {
+            parts.push('Đơn Chốt');
         } else if (filter && filter.startsWith('cat_')) {
             const catId = parseInt(filter.replace('cat_', ''));
             const meta = PTAG_CATEGORY_META[catId];
@@ -4194,6 +4212,9 @@
         if (hasBaseFilter) {
             if (filter === '__no_tag__') {
                 passesBase = !data || data.category === null || data.category === undefined;
+            } else if (filter === '__don_chot__') {
+                // Đơn Chốt = tất cả trừ Cat 3 (Không cần chốt)
+                passesBase = !data || data.category === null || data.category === undefined || data.category !== 3;
             } else if (!data) {
                 passesBase = false;
             } else if (filter.startsWith('cat_')) {
