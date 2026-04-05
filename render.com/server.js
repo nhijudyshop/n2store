@@ -596,10 +596,11 @@ class TposRealtimeClient {
             console.log('[TPOS-WS] ✅ WebSocket connected, sending handshake...');
             this.reconnectAttempts = 0; // Reset on successful connect
 
-            // Socket.IO namespace connect
-            const namespaceMsg = '40/chatomni,';
+            // Socket.IO namespace connect with auth (TPOS requires token+room in namespace connect)
+            const authPayload = JSON.stringify({ token: this.token, room: this.room });
+            const namespaceMsg = `40/chatomni,${authPayload}`;
             this.ws.send(namespaceMsg);
-            console.log('[TPOS-WS] 📤 Sent namespace connect:', namespaceMsg);
+            console.log('[TPOS-WS] 📤 Sent namespace connect with auth (room:', this.room, ')');
         });
 
         this.ws.on('close', (code, reason) => {
