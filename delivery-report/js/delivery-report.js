@@ -1490,6 +1490,13 @@
     async function processScan(value) {
         console.log('[DELIVERY-REPORT] Scanned:', value);
         const state = DeliveryReportState;
+
+        // Chỉ cho quét ở tab "Tất cả"
+        if (state.activeTab !== 'all') {
+            showScanFeedback(false, `Chuyển sang tab "Tất cả" để quét`, true);
+            return;
+        }
+
         const isProvinceTab = state.activeTab === 'province' && state.traSoatMode;
         const isAllTab = state.activeTab === 'all' && state.traSoatMode;
         const isMultiColView = isProvinceTab || isAllTab;
