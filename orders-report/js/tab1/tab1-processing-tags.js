@@ -81,7 +81,7 @@
         sub_OKIE_CHO_DI_DON: 'Đủ hàng, sẵn sàng ra bill. Không có tag T nào.',
         sub_OKIE_NO_DELAY: 'Okie Chờ Đi Đơn — loại bỏ đơn có Chờ Live, Qua Lấy, Giữ Đơn.',
         sub_CHO_HANG: 'Thiếu hàng, chờ hàng về. Có ít nhất 1 tag T.',
-        sub_CHO_HANG_DA_IN: 'Đơn chờ hàng đã in phiếu soạn hoặc chỉ có 1 mã SP.',
+        sub_CHO_HANG_DA_IN: 'Đơn chờ hàng đã in phiếu soạn.',
         sub_CHO_HANG_CHUA_IN: 'Đơn chờ hàng chưa in phiếu soạn.',
         // Flags
         flag_TRU_CONG_NO: 'Ví khách có virtual balance (công nợ ảo). Auto-detect từ ví.',
@@ -718,10 +718,8 @@
             // Auto sub-state from internal tTags
             data.subState = data.tTags.length > 0 ? 'CHO_HANG' : 'OKIE_CHO_DI_DON';
 
-            // Auto picking slip for single-SKU CHO_HANG orders
-            if (data.subState === 'CHO_HANG') {
-                data.pickingSlipPrinted = await _ptagIsSingleSkuOrder(orderCode);
-            }
+            // pickingSlipPrinted: chỉ đánh dấu khi user in phiếu hoặc toggle thủ công
+            // (đã bỏ auto single-SKU detection)
 
             // Auto-detect flags from wallet
             const phone = _ptagGetOrderPhone(orderCode);
@@ -847,10 +845,7 @@
         // Auto sub-state ONLY when at Cat 1 "Okie Chờ Đi Đơn"
         if (data.category === PTAG_CATEGORIES.CHO_DI_DON && data.subState === 'OKIE_CHO_DI_DON') {
             data.subState = 'CHO_HANG';
-            // Auto picking slip for single-SKU orders
-            if (await _ptagIsSingleSkuOrder(orderCode)) {
-                data.pickingSlipPrinted = true;
-            }
+            // pickingSlipPrinted: chỉ khi user in phiếu hoặc toggle thủ công
         }
         _ptagEnsureCode(orderCode, data);
         ProcessingTagState.setOrderData(orderCode, data);

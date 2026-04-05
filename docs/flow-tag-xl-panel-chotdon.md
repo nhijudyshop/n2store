@@ -555,7 +555,7 @@ Events: update, deleted
 | 2 | Auto Sub-State (gán Cat 1) | **ACTIVE** | Gán category 1 | Set OKIE/CHO_HANG theo tTags |
 | 3 | Auto OKIE → CHO_HANG | **ACTIVE** | Thêm T-tag | Chuyển sub-state |
 | 4 | Auto CHO_HANG → OKIE | **ACTIVE** | Tháo hết T-tag | Chuyển sub-state |
-| 5 | Auto Picking Slip (single-SKU) | **ACTIVE** | Gán Cat 1 CHO_HANG hoặc thêm T-tag | Set pickingSlipPrinted |
+| 5 | ~~Auto Picking Slip (single-SKU)~~ | **DISABLED** | ~~Gán Cat 1 CHO_HANG~~ | ~~Set pickingSlipPrinted~~ |
 | 6 | Auto Bill Created → Cat 0 | **ACTIVE** | Bill tạo thành công | Chuyển Cat 0 + lưu snapshot |
 | 7 | Auto Bill Cancelled → Rollback | **ACTIVE** | Bill bị hủy | Restore từ snapshot |
 | 8 | Auto Picking Slip Print | **ACTIVE** | In phiếu soạn hàng | Set pickingSlipPrinted + gán Cat 1 (chỉ cho chưa gán tag / Cat 2) |
@@ -643,21 +643,14 @@ removeTTagFromOrder(orderCode, tagId)
 
 ---
 
-### 8.5 Auto Picking Slip (Single-SKU Detection)
+### 8.5 Auto Picking Slip (Single-SKU Detection) — ĐÃ XÓA
 
-**File**: `tab1-processing-tags.js:1068-1088`
-**Status**: ACTIVE
-**Trigger**: Khi gán Cat 1 với CHO_HANG sub-state, hoặc khi thêm T-tag vào đơn OKIE
+**Status**: **DISABLED** — đã bỏ auto-detect single-SKU
+**Lý do**: User tự đánh dấu "đã in phiếu" bằng tag trong dropdown hoặc bấm in phiếu soạn hàng thực tế.
 
-```
-_ptagIsSingleSkuOrder(orderCode)
-  → Fetch order details từ TPOS: SaleOnline_Order(id)?$expand=Details
-  → Đếm số ProductCode unique trong Details
-  → Nếu chỉ có 1 SKU unique → return true → pickingSlipPrinted = true
-  → Nếu > 1 SKU → return false → pickingSlipPrinted = false
-```
-
-**Ý nghĩa**: Đơn chỉ có 1 loại sản phẩm → coi như đã in phiếu soạn hàng (không cần in riêng). Hiển thị icon khác trên panel.
+`pickingSlipPrinted` giờ chỉ được set `true` khi:
+1. User **in phiếu soạn hàng thực tế** → `onPtagPackingSlipPrinted()` (section 8.8)
+2. User **toggle thủ công** "📋 Đã in phiếu soạn" trong dropdown tag
 
 ---
 
