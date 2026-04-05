@@ -166,6 +166,10 @@
             updateOrderInTable(orderId, { Tags: tagsJson });
             console.log('[TPOS-RT] Tags updated in table:', existingOrder.Code);
         }
+
+        // Hook: sync TPOS → TAG XL
+        const parsedTags = tags.map(t => ({ Id: t.Id, Name: t.Name, Color: t.Color || '#999' }));
+        if (window.onPtagOrderTagsChanged) window.onPtagOrderTagsChanged(orderId, parsedTags);
     }
 
     /**
