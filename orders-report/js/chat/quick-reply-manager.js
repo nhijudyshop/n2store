@@ -525,7 +525,13 @@ class QuickReplyManager {
 
         const autocompleteHTML = `
             <div class="quick-reply-autocomplete" id="quickReplyAutocomplete">
-                <!-- Suggestions will be rendered here -->
+                <div class="autocomplete-hint">
+                    ℹ️ Nhấn Enter hoặc Click chuột để chọn câu mẫu, nhấn phím ↓ ↑ để điều hướng
+                    <span class="autocomplete-hint-close" onclick="quickReplyManager.hideAutocomplete()">✕</span>
+                </div>
+                <div id="quickReplyAutocompleteItems">
+                    <!-- Suggestions will be rendered here -->
+                </div>
             </div>
         `;
 
@@ -648,15 +654,18 @@ class QuickReplyManager {
         const inputRect = inputElement.getBoundingClientRect();
 
         dropdown.style.left = inputRect.left + 'px';
-        dropdown.style.top = (inputRect.bottom + 4) + 'px';
         dropdown.style.width = Math.max(400, inputRect.width) + 'px';
         dropdown.style.display = 'block';
+
+        // Position above the input
+        dropdown.style.top = 'auto';
+        dropdown.style.bottom = (window.innerHeight - inputRect.top + 4) + 'px';
 
         this.renderAutocomplete();
     }
 
     renderAutocomplete() {
-        const dropdown = document.getElementById('quickReplyAutocomplete');
+        const dropdown = document.getElementById('quickReplyAutocompleteItems');
 
         const suggestionsHTML = this.currentSuggestions.map((reply, index) => {
             const isSelected = index === this.selectedSuggestionIndex;
