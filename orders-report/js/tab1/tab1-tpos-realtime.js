@@ -151,6 +151,9 @@
 
         console.log('[TPOS-RT] Tag assigned on TPOS:', existingOrder.Code, tags.map(t => t.Name));
 
+        // Enrich availableTags with any new tags from TPOS event
+        enrichAvailableTags(tags);
+
         // Convert tags to the format used by our table (JSON string)
         const tagsJson = JSON.stringify(tags.map(t => ({
             Id: t.Id,
@@ -162,6 +165,58 @@
         if (typeof updateOrderInTable === 'function') {
             updateOrderInTable(orderId, { Tags: tagsJson });
             console.log('[TPOS-RT] Tags updated in table:', existingOrder.Code);
+        }
+    }
+
+    /**
+     * Enrich availableTags with new tags from TPOS events.
+     * If a tag from TPOS is not in the local cache, add it so
+     * filters/modals work correctly. If availableTags is empty
+     * (not loaded yet), trigger a full refresh from API.
+     */
+    function enrichAvailableTags(tposTags) {
+        if (!Array.isArray(tposTags) || tposTags.length === 0) return;
+
+        const available = window.availableTags;
+
+        // Case 1: availableTags not loaded yet → trigger full load
+        if (!available || available.length === 0) {
+            console.log('[TPOS-RT] availableTags empty, triggering full tag load');
+            if (typeof loadAvailableTags === 'function') {
+                loadAvailableTags();
+            }
+            return;
+        }
+
+        // Case 2: Check each TPOS tag against local cache
+        let addedCount = 0;
+        const existingIds = new Set(available.map(t => String(t.Id)));
+
+        for (const tag of tposTags) {
+            if (!tag.Id) continue;
+            if (!existingIds.has(String(tag.Id))) {
+                // New tag — add to local cache
+                const newTag = {
+                    Id: tag.Id,
+                    Name: tag.Name || '',
+                    Color: tag.Color || '#999'
+                };
+                available.push(newTag);
+                existingIds.add(String(tag.Id));
+                addedCount++;
+                console.log('[TPOS-RT] Added new tag to availableTags:', newTag.Name, newTag.Id);
+            }
+        }
+
+        if (addedCount > 0) {
+            // Update cache and refresh filter dropdown
+            window.availableTags = available;
+            if (window.cacheManager) {
+                window.cacheManager.set('tags', available, 'tags');
+            }
+            if (typeof populateTagFilter === 'function') {
+                populateTagFilter();
+            }
         }
     }
 
