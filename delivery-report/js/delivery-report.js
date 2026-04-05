@@ -57,6 +57,15 @@
     };
 
     // =====================================================
+    // PERMISSION HELPER
+    // =====================================================
+    function canTraSoat() {
+        if (!window.authManager) return false;
+        if (window.authManager.isAdmin()) return true;
+        return window.authManager.getUserInfo()?.displayName === 'Phước đẹp trai';
+    }
+
+    // =====================================================
     // INITIALIZATION
     // =====================================================
     function initDeliveryReport() {
@@ -65,6 +74,13 @@
         bindColumnToggle();
         applyColumnVisibility();
         loadFiltersFromStorage();
+
+        // Ẩn nút tra soát nếu không có quyền
+        if (!canTraSoat()) {
+            const btn = document.getElementById('drBtnTraSoat');
+            if (btn) btn.style.display = 'none';
+        }
+
         fetchData();
     }
 
@@ -793,6 +809,7 @@
     const soundDuplicate = new Audio('sound/trung.mp3');
 
     async function traSoat() {
+        if (!canTraSoat()) { alert('Bạn không có quyền sử dụng chức năng tra soát.'); return; }
         const state = DeliveryReportState;
         state.traSoatMode = !state.traSoatMode;
 
@@ -1112,6 +1129,7 @@
     }
 
     function unscanItem(number) {
+        if (!canTraSoat()) { alert('Bạn không có quyền xóa quét.'); return; }
         if (!confirm(`Chắc chắn đơn ${number} đã được đưa vào kho xử lý?`)) return;
         DeliveryReportState.scannedNumbers.delete(number);
         saveScannedNumbers();
@@ -1119,6 +1137,7 @@
     }
 
     function unscanAllTab() {
+        if (!canTraSoat()) { alert('Bạn không có quyền xóa quét.'); return; }
         const tabData = getTabFilteredData();
         tabData.forEach(item => {
             DeliveryReportState.scannedNumbers.delete(item.Number);
@@ -1128,6 +1147,7 @@
     }
 
     function unscanGroup(groupKey) {
+        if (!canTraSoat()) { alert('Bạn không có quyền xóa quét.'); return; }
         const allData = DeliveryReportState.allData || [];
         const scanned = DeliveryReportState.scannedNumbers;
         const items = allData.filter(item => getItemGroup(item) === groupKey && scanned.has(item.Number));
