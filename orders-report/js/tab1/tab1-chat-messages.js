@@ -448,7 +448,7 @@ window.sendMessage = async function() {
         if (fb?.is24HourError) {
             _showToast('Đã quá 24h. Khách cần nhắn tin trước mới gửi lại được.', 'error');
         } else if (fb?.isUserUnavailable) {
-            _showToast('Không thể gửi: Khách chưa từng inbox hoặc đã block page.', 'error');
+            _showToast('Lỗi #551: Khách không có mặt. Extension cũng không gửi được.', 'error');
         } else {
             _showToast('Lỗi gửi tin nhắn: ' + error.message, 'error');
         }
@@ -472,16 +472,18 @@ async function _sendInbox(pdm, pageId, convId, text, pat, replyData) {
     try {
         const result = await _sendApi(pdm, pageId, convId, payload, pat);
     } catch (err) {
-        // Only fallback to extension for 24h errors (not auth/network issues)
-        if (err.fbError?.is24HourError && window.pancakeExtension?.connected && window.sendViaExtension) {
-            _showToast('Quá 24h — đang gửi qua Extension...', 'warning');
+        // Fallback to extension for 24h errors (#10/2018278) AND user unavailable (#551)
+        const canFallback = (err.fbError?.is24HourError || err.fbError?.isUserUnavailable)
+            && window.pancakeExtension?.connected && window.sendViaExtension;
+        if (canFallback) {
+            const reason = err.fbError?.is24HourError ? 'Quá 24h' : 'Người này không có mặt (#551)';
+            _showToast(`${reason} — đang gửi qua Extension...`, 'warning');
             try {
                 const conv = window.buildConvData(pageId, window.currentChatPSID);
                 await window.sendViaExtension(text, conv);
-                _showToast('Đã gửi qua Extension (bypass 24h)', 'success');
+                _showToast('Đã gửi qua Extension', 'success');
                 return;
             } catch (extErr) {
-                // Extension fallback also failed — throw original 24h error, not extension error
                 console.warn('[Chat-Msg] Extension fallback failed:', extErr.message);
                 throw err;
             }
