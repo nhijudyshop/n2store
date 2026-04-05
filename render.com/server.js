@@ -648,6 +648,10 @@ class TposRealtimeClient {
             if (!message.startsWith('2') && !message.startsWith('3')) {
                 console.log('[TPOS-WS] 📥 Raw message:', message.substring(0, 200)); // Truncate long messages
             }
+            // Log raw messages to event logger (skip ping/pong)
+            if (tposEventLog.isLogging && !message.startsWith('2') && !message.startsWith('3')) {
+                tposEventLog.log({ type: 'raw-ws', message: message.substring(0, 2000) });
+            }
             this.handleMessage(message);
         });
     }
@@ -934,7 +938,11 @@ app.post('/api/realtime/tpos/stop', async (req, res) => {
 
 // API to get TPOS client status
 app.get('/api/realtime/tpos/status', (req, res) => {
-    res.json(tposRealtimeClient.getStatus());
+    res.json({
+        ...tposRealtimeClient.getStatus(),
+        wsReadyState: tposRealtimeClient.ws ? tposRealtimeClient.ws.readyState : null,
+        wsReadyStateLabel: tposRealtimeClient.ws ? ['CONNECTING','OPEN','CLOSING','CLOSED'][tposRealtimeClient.ws.readyState] : 'NO_WS'
+    });
 });
 
 // Root route
