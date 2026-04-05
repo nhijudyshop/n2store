@@ -744,16 +744,18 @@ class TposRealtimeClient {
                 // payload is a serialized JSON string, need to parse it
                 const eventData = typeof payload === 'string' ? JSON.parse(payload) : payload;
 
-                // TPOS format: { C: "Conversation", d: { t: "SaleOnline_Order", ... } }
-                const context = eventData.C || eventData.Context;
+                // TPOS has 2 formats:
+                // 1. SaleOnline_Order/Product: { Type: "SaleOnline_Order", Message: "string", Data: {...}, EventName: "created" }
+                // 2. chatomni.on-message: { Conversation: {...}, Message: {object}, EventName: "chatomni.on-message" }
+                const context = eventData.C || eventData.Context || (eventData.Conversation ? 'Conversation' : null);
                 const data = eventData.d || eventData.data || eventData;
-                const eventType = data.t || data.Type || data.EventName;
+                const eventType = data.t || data.Type || data.EventName || eventData.EventName;
 
-                console.log('[TPOS-WS] 📦 TPOS Event:', {
-                    context: context,
-                    type: eventType,
-                    message: data.Message ? data.Message.substring(0, 50) + '...' : null
-                });
+                // Safe message extract (Message can be string or object)
+                const msgPreview = typeof data.Message === 'string' ? data.Message.substring(0, 80) :
+                    (typeof data.Message === 'object' && data.Message?.Message ? String(data.Message.Message).substring(0, 80) : null);
+
+                console.log('[TPOS-WS] 📦 Event:', eventType, msgPreview ? `| ${msgPreview}` : '');
 
                 // Broadcast parsed event data with structured format
                 broadcastToClients({
@@ -765,15 +767,10 @@ class TposRealtimeClient {
 
                 // Handle specific event types
                 if (eventType === 'SaleOnline_Order') {
-                    console.log('[TPOS-WS] 🔥 NEW ORDER:', data.Message);
+                    const eventAction = data.EventName || eventData.EventName;
+                    console.log('[TPOS-WS] 🔥 ORDER', eventAction?.toUpperCase() + ':', msgPreview);
                     broadcastToClients({
-                        type: 'tpos:new-order',
-                        data: data
-                    });
-                } else if (eventType === 'SaleOnline_Update') {
-                    console.log('[TPOS-WS] 📝 ORDER UPDATE:', data.Id);
-                    broadcastToClients({
-                        type: 'tpos:order-update',
+                        type: eventAction === 'updated' ? 'tpos:order-update' : 'tpos:new-order',
                         data: data
                     });
                 }
