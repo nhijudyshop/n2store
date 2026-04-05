@@ -1033,8 +1033,120 @@ const server = http.createServer(app);
 // Create WebSocket Server for Frontend Clients
 const wss = new WebSocket.Server({ server });
 
+// ============== TPOS EVENT LOGGER ==============
+const tposEventLog = {
+    events: [],
+    isLogging: false,
+    startTime: null,
+    duration: 10 * 60 * 1000, // default 10 minutes
+    stopTimer: null,
+
+    start(durationMinutes = 10) {
+        this.events = [];
+        this.isLogging = true;
+        this.startTime = Date.now();
+        this.duration = durationMinutes * 60 * 1000;
+        clearTimeout(this.stopTimer);
+        this.stopTimer = setTimeout(() => this.stop(), this.duration);
+        console.log(`[TPOS-LOG] 📝 Started logging for ${durationMinutes} minutes`);
+    },
+
+    stop() {
+        this.isLogging = false;
+        clearTimeout(this.stopTimer);
+        const elapsed = this.startTime ? Math.round((Date.now() - this.startTime) / 1000) : 0;
+        console.log(`[TPOS-LOG] ⏹ Stopped after ${elapsed}s, captured ${this.events.length} events`);
+    },
+
+    log(data) {
+        if (!this.isLogging) return;
+        this.events.push({
+            timestamp: new Date().toISOString(),
+            elapsed: Math.round((Date.now() - this.startTime) / 1000),
+            ...data
+        });
+    },
+
+    getSummary() {
+        const typeCounts = {};
+        const eventTypes = {};
+        const samples = {};
+
+        this.events.forEach(e => {
+            // Count by broadcast type
+            const t = e.type || 'unknown';
+            typeCounts[t] = (typeCounts[t] || 0) + 1;
+
+            // Count by TPOS eventType
+            if (e.eventType) {
+                eventTypes[e.eventType] = (eventTypes[e.eventType] || 0) + 1;
+                // Keep first sample of each type
+                if (!samples[e.eventType]) {
+                    samples[e.eventType] = e;
+                }
+            }
+
+            // For raw events, track event names
+            if (e.type === 'tpos:event' && e.event) {
+                const key = `raw:${e.event}`;
+                eventTypes[key] = (eventTypes[key] || 0) + 1;
+                if (!samples[key]) samples[key] = e;
+            }
+        });
+
+        return {
+            isLogging: this.isLogging,
+            startTime: this.startTime ? new Date(this.startTime).toISOString() : null,
+            elapsedSeconds: this.startTime ? Math.round((Date.now() - this.startTime) / 1000) : 0,
+            totalEvents: this.events.length,
+            byBroadcastType: typeCounts,
+            byEventType: eventTypes,
+            samples
+        };
+    },
+
+    getAll() {
+        return {
+            ...this.getSummary(),
+            events: this.events
+        };
+    }
+};
+
+// Log endpoints
+app.post('/api/tpos-log/start', (req, res) => {
+    const minutes = req.body?.minutes || 10;
+    tposEventLog.start(minutes);
+    res.json({ success: true, message: `Logging started for ${minutes} minutes`, willStopAt: new Date(Date.now() + minutes * 60 * 1000).toISOString() });
+});
+
+app.post('/api/tpos-log/stop', (req, res) => {
+    tposEventLog.stop();
+    res.json({ success: true, ...tposEventLog.getSummary() });
+});
+
+app.get('/api/tpos-log/summary', (req, res) => {
+    res.json(tposEventLog.getSummary());
+});
+
+app.get('/api/tpos-log/events', (req, res) => {
+    const { type, eventType, limit } = req.query;
+    let events = tposEventLog.events;
+    if (type) events = events.filter(e => e.type === type);
+    if (eventType) events = events.filter(e => e.eventType === eventType);
+    if (limit) events = events.slice(-parseInt(limit));
+    res.json({ total: events.length, events });
+});
+
+app.get('/api/tpos-log/all', (req, res) => {
+    res.json(tposEventLog.getAll());
+});
+// ============== END TPOS EVENT LOGGER ==============
+
 // Broadcast function
 const broadcastToClients = (data) => {
+    // Log event if logging is active
+    tposEventLog.log(data);
     let sentCount = 0;
     let totalClients = wss.clients.size;
     wss.clients.forEach((client) => {
