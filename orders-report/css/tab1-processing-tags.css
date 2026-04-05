@@ -475,15 +475,16 @@
 }
 
 .ptag-stat-box .ptag-stat-sub {
-    font-size: 11.5px;
+    font-size: 13px;
+    font-weight: 700;
     color: inherit;
-    opacity: 0.8;
     margin-left: 2px;
     white-space: nowrap;
 }
 
 .ptag-stat-box .ptag-stat-sub .ptag-stat-clickable {
-    font-weight: 600;
+    font-weight: 700;
+    font-size: 13px;
 }
 
 .ptag-stat-box .ptag-stat-sub i {
