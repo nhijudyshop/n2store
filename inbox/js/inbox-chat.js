@@ -320,14 +320,19 @@ class InboxChatController {
                 return;
             }
 
-            // Instant: local filter
+            // Instant: local filter — if no local results, show "searching" immediately
             this.searchResults = null;
+            const localHits = this.data.getConversations({ search: query, filter: 'all' });
+            if (localHits.length === 0) {
+                this.isSearching = true; // Show "Đang tìm kiếm..." instead of "Không tìm thấy"
+            }
             this.renderConversationList();
 
-            // Debounced: API search for more results (300ms)
+            // Debounced API search: shorter delay for longer queries (phone numbers)
+            const delay = query.length >= 5 ? 100 : 300;
             searchTimeout = setTimeout(async () => {
                 await this.performSearch(query);
-            }, 300);
+            }, delay);
         });
 
         // Clear search on Escape
