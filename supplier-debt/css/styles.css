@@ -1341,6 +1341,19 @@
     padding-right: 30px;
 }
 
+.date-web {
+    color: #059669;
+    font-weight: 600;
+    display: block;
+}
+
+.date-tpos {
+    color: #9ca3af;
+    font-size: 11px;
+    display: block;
+    text-decoration: line-through;
+}
+
 .note-tpos {
     color: #6b7280;
     font-size: 12px;
