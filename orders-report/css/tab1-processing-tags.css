@@ -2134,8 +2134,8 @@
 
 .ptag-row-history-popover {
     position: fixed;
-    width: 340px;
-    max-height: 420px;
+    width: 380px;
+    max-height: 460px;
     background: #fff;
     border: 1px solid #e5e7eb;
     border-radius: 8px;
@@ -2181,13 +2181,10 @@
 }
 .ptag-rh-list {
     overflow-y: auto;
-    max-height: 340px;
+    max-height: 380px;
 }
 .ptag-rh-item {
-    display: grid;
-    grid-template-columns: 75px 60px 1fr 14px 90px;
-    align-items: center;
-    gap: 6px;
+    display: block;
     padding: 6px 12px;
     border-bottom: 1px solid #f3f4f6;
     font-size: 11px;
@@ -2198,6 +2195,44 @@
 }
 .ptag-rh-item:hover {
     background: #f9fafb;
+}
+.ptag-rh-row1 {
+    display: grid;
+    grid-template-columns: 75px 60px 1fr 14px 90px;
+    align-items: center;
+    gap: 6px;
+}
+.ptag-rh-row2 {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 2px;
+    padding-left: 81px;
+    color: #6b7280;
+    font-size: 10.5px;
+    overflow: hidden;
+    white-space: nowrap;
+}
+.ptag-rh-row2 .ptag-rh-name {
+    color: #374151;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 140px;
+}
+.ptag-rh-row2 .ptag-rh-phone {
+    color: #6b7280;
+    font-variant-numeric: tabular-nums;
+}
+.ptag-rh-row2 .ptag-rh-code {
+    color: #9ca3af;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 10px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.ptag-rh-row2 .ptag-rh-sep {
+    color: #d1d5db;
 }
 .ptag-rh-time {
     color: #6b7280;

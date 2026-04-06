@@ -8,6 +8,13 @@
 
 ## 2026-04-06
 
+### [orders] Per-row history popover — show STT + tên + SĐT + mã đơn ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-processing-tags.js`, `orders-report/css/tab1-processing-tags.css` |
+| **Chi tiết** | User feedback popover lịch sử per-row hiện chỉ thấy time + STT/code (truncated) + user + sign + label → khó nhận ra đơn nào. Yêu cầu thêm STT, tên KH, SĐT. **Fix**: (1) `_ptagAggregateAllHistory()` — enrich `orderLookup` Map với 4 field thay vì 2: `stt: o.STT \|\| o.Stt \|\| o.SessionIndex`, `code`, `name: o.PartnerName \|\| o.Name`, `phone: o.Telephone`. Mỗi entry kèm thêm `orderName` + `orderPhone`. (2) `_ptagShowRowHistory()` row template chuyển từ 1-row grid 5 cột → block 2-line: row1 (grid cũ: time / STT / user / sign / label), row2 (flex: name · phone · code) — chỉ hiển thị field nào có data, dùng `<span class="ptag-rh-sep">·</span>` separator. Title attr cũng enrich với code+name+phone+action+label cho hover full info. (3) CSS `.ptag-rh-item` đổi `display: grid` → `display: block`, tách `.ptag-rh-row1` (giữ grid 5 cột cũ) + `.ptag-rh-row2` mới (flex, padding-left 81px để align với cột STT, font 10.5px gray). `.ptag-rh-name` weight 500 dark gray max-width 140px ellipsis, `.ptag-rh-phone` tabular-nums gray, `.ptag-rh-code` mono font 10px lighter. (4) Bump popover từ 340×420 → 380×460 (rộng hơn để fit name + phone + code line 2). Update `popW` trong logic position. **Verification**: `node --check` OK. **Limitation**: Đơn không nằm trong list visible hiện tại sẽ không có name/phone (chỉ có code) — vì lookup phụ thuộc `window.getAllOrders()`. |
+| **Status** | ✅ Done |
+
 ### [orders] Sync v3 `_findOrCreateTPOSTag` — `$filter` query thay vì pagination cap ✅
 | | |
 |---|---|

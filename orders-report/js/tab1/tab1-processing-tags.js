@@ -4600,18 +4600,25 @@
         const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
         const orderLookup = new Map();
         allOrders.forEach(o => {
-            if (o.Code) orderLookup.set(String(o.Code), { stt: o.STT || o.Stt || '', code: o.Code || '' });
+            if (o.Code) orderLookup.set(String(o.Code), {
+                stt: o.STT || o.Stt || o.SessionIndex || '',
+                code: o.Code || '',
+                name: o.PartnerName || o.Name || '',
+                phone: o.Telephone || ''
+            });
         });
 
         const entries = [];
         for (const [key, history] of ProcessingTagState.getAllHistoryOrders()) {
             if (!history || history.length === 0) continue;
-            const lookup = orderLookup.get(String(key)) || { stt: '', code: key };
+            const lookup = orderLookup.get(String(key)) || { stt: '', code: key, name: '', phone: '' };
             history.forEach(h => {
                 entries.push({
                     ...h,
                     orderCode: lookup.code || key,
-                    orderSTT: lookup.stt
+                    orderSTT: lookup.stt,
+                    orderName: lookup.name || '',
+                    orderPhone: lookup.phone || ''
                 });
             });
         }
@@ -4879,12 +4886,23 @@
                 const sttDisplay = h.orderSTT ? `STT ${h.orderSTT}` : (h.orderCode || '?');
                 const validDisplayName = h.displayName && !String(h.displayName).includes('[object Object]');
                 const label = validDisplayName ? h.displayName : _ptagResolveDisplayName(h.action, h.value);
-                html += `<div class="ptag-rh-item" title="${(h.orderCode || '') + ' · ' + (meta.label || h.action) + ' · ' + label}">
-                    <span class="ptag-rh-time">${dateStr}</span>
-                    <span class="ptag-rh-stt">${sttDisplay}</span>
-                    <span class="ptag-rh-user">${h.user || ''}</span>
-                    <span class="ptag-rh-sign ${meta.cls}">${meta.sign}</span>
-                    <span class="ptag-rh-label">${label}</span>
+                const escName = (h.orderName || '').replace(/"/g, '&quot;');
+                const escCode = (h.orderCode || '').replace(/"/g, '&quot;');
+                const titleAttr = `${escCode}${h.orderName ? ' · ' + escName : ''}${h.orderPhone ? ' · ' + h.orderPhone : ''} · ${meta.label || h.action} · ${label}`;
+                const row2Parts = [];
+                if (h.orderName) row2Parts.push(`<span class="ptag-rh-name">${h.orderName}</span>`);
+                if (h.orderPhone) row2Parts.push(`<span class="ptag-rh-phone">${h.orderPhone}</span>`);
+                if (h.orderCode) row2Parts.push(`<span class="ptag-rh-code">${h.orderCode}</span>`);
+                const row2Html = row2Parts.length ? `<div class="ptag-rh-row2">${row2Parts.join('<span class="ptag-rh-sep">·</span>')}</div>` : '';
+                html += `<div class="ptag-rh-item" title="${titleAttr}">
+                    <div class="ptag-rh-row1">
+                        <span class="ptag-rh-time">${dateStr}</span>
+                        <span class="ptag-rh-stt">${sttDisplay}</span>
+                        <span class="ptag-rh-user">${h.user || ''}</span>
+                        <span class="ptag-rh-sign ${meta.cls}">${meta.sign}</span>
+                        <span class="ptag-rh-label">${label}</span>
+                    </div>
+                    ${row2Html}
                 </div>`;
             });
             html += '</div>';
@@ -4896,9 +4914,9 @@
         popover.innerHTML = html;
         document.body.appendChild(popover);
 
-        // Position near anchor (popover ~340x360)
+        // Position near anchor (popover ~380x400)
         const rect = anchorEl.getBoundingClientRect();
-        const popW = 340, popH = popover.offsetHeight || 360;
+        const popW = 380, popH = popover.offsetHeight || 400;
         let top = rect.bottom + 4;
         let left = rect.right - popW; // align right edge with button
         if (top + popH > window.innerHeight) top = rect.top - popH - 4;
