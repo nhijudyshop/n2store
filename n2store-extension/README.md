@@ -79,7 +79,6 @@ n2store-extension/
 │   └── popup.css                    # Popup styles
 │
 ├── pages/
-│   ├── offscreen.html + .js         # HTML parsing, keep-alive
 │   ├── settings.html + .js          # Trang cài đặt
 │
 └── shared/
@@ -631,7 +630,6 @@ URL format: `https://business.facebook.com/latest/inbox/messenger?asset_id={page
 |------------|----------|
 | `cookies` | Đọc Facebook session cookies (c_user, xs) |
 | `storage` | chrome.storage cho cache, preferences, activity |
-| `offscreen` | Offscreen document (DOM parsing, keep-alive) |
 | `declarativeNetRequestWithHostAccess` | Sửa headers (Origin, Referer) |
 | `notifications` | Chrome notifications |
 | `alarms` | Keep-alive backup timer |

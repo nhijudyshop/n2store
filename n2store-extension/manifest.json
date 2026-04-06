@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "N2Store Messenger",
   "short_name": "N2Store",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "N2Store unified messaging & management extension",
   "icons": {
     "16": "images/icon-16.png",
@@ -41,7 +41,6 @@
   "permissions": [
     "cookies",
     "storage",
-    "offscreen",
     "declarativeNetRequestWithHostAccess",
     "notifications",
     "alarms",
@@ -67,11 +66,5 @@
         "path": "rules.json"
       }
     ]
-  },
-  "web_accessible_resources": [
-    {
-      "matches": ["<all_urls>"],
-      "resources": ["pages/offscreen.html"]
-    }
-  ]
+  }
 }
