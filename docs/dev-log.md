@@ -8,6 +8,12 @@
 
 ## 2026-04-06
 
+### [orders] Fix UI bug "[object Object]:" trong popover lịch sử tag ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-processing-tags.js` |
+| **Chi tiết** | Bug: popover lịch sử tag hiển thị `[object Object]:` cho entries SET_CATEGORY cũ. Nguyên nhân: code cũ trong tab1-tag-sync.js gọi `assignOrderCategory(orderCode, {category, subTag})` (object làm 2nd arg) → `${category}:${subTag}` template tạo ra `"[object Object]:"` được lưu vào history `value` + `displayName`. Đã fix code gốc rồi nhưng entries cũ vẫn corrupt trong storage. **Defensive fix**: 1) `_ptagResolveDisplayName()` detect `value` không phải string hoặc start with `[object` → return "Phân loại". 2) Cả 2 renderers (popover + global history) skip `displayName` nếu chứa `[object Object]`, fallback xuống resolver. |
+
 ### [orders] TAG XL ↔ TPOS sync — Category subtags ADD 2 chiều, REMOVE skip ✅
 | | |
 |---|---|

@@ -4356,11 +4356,15 @@
 
     function _ptagResolveDisplayName(action, value) {
         if (action === 'SET_CATEGORY' || action === 'REMOVE_CATEGORY') {
-            const cat = parseInt(value?.split(':')[0]);
-            const subTag = value?.split(':')[1];
+            // Defensive: handle malformed values (legacy bug stored "[object Object]:")
+            if (typeof value !== 'string' || value.startsWith('[object')) {
+                return 'Phân loại';
+            }
+            const cat = parseInt(value.split(':')[0]);
+            const subTag = value.split(':')[1];
             if (subTag && PTAG_SUBTAGS[subTag]) return PTAG_SUBTAGS[subTag].label;
             if (PTAG_CATEGORY_META[cat]) return PTAG_CATEGORY_META[cat].short;
-            return value || '';
+            return value || 'Phân loại';
         }
         if (action === 'ADD_FLAG' || action === 'REMOVE_FLAG') {
             return PTAG_FLAGS[value]?.label || ProcessingTagState.getCustomFlagLabel(value) || value;
@@ -4439,7 +4443,9 @@
             const signClass = sign === '+' || sign === '→' ? 'add' : sign === '-' || sign === '←' ? 'remove' : '';
 
             // Resolve display label - ưu tiên displayName đã lưu sẵn, fallback resolve từ value (entries cũ)
-            const label = h.displayName || _ptagResolveDisplayName(h.action, h.value);
+            // Skip displayName nếu chứa "[object Object]" (legacy bug)
+            const validDisplayName = h.displayName && !String(h.displayName).includes('[object Object]');
+            const label = validDisplayName ? h.displayName : _ptagResolveDisplayName(h.action, h.value);
 
             html += `<div class="ptag-history-item">
                 <span class="ptag-history-date">${dateStr}</span>
@@ -4605,7 +4611,9 @@
                 const date = new Date(h.timestamp);
                 const dateStr = `${String(date.getDate()).padStart(2,'0')}/${String(date.getMonth()+1).padStart(2,'0')} ${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}`;
                 const meta = PTAG_ACTION_META[h.action] || { sign: '·', cls: '' };
-                const label = h.displayName || _ptagResolveDisplayName(h.action, h.value);
+                // Skip displayName nếu chứa "[object Object]" (legacy bug)
+                const validDisplayName = h.displayName && !String(h.displayName).includes('[object Object]');
+                const label = validDisplayName ? h.displayName : _ptagResolveDisplayName(h.action, h.value);
                 const sttDisplay = h.orderSTT ? `STT ${h.orderSTT}` : (h.orderCode || '?');
                 const actionLabel = meta.label || h.action;
 
