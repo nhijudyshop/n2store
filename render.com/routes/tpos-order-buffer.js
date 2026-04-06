@@ -20,6 +20,7 @@ async function ensureTable(db) {
                 order_code VARCHAR(50) NOT NULL,
                 order_id VARCHAR(100),
                 event_type VARCHAR(20) DEFAULT 'created',
+                session_id INT,
                 session_index INT,
                 customer_name VARCHAR(255),
                 created_at TIMESTAMP DEFAULT NOW()
@@ -28,6 +29,10 @@ async function ensureTable(db) {
         await db.query(`
             CREATE INDEX IF NOT EXISTS idx_tpos_order_buffer_created_at
             ON tpos_order_buffer(created_at DESC)
+        `);
+        // Add session_id column if table already exists without it
+        await db.query(`
+            ALTER TABLE tpos_order_buffer ADD COLUMN IF NOT EXISTS session_id INT
         `);
         tableReady = true;
         console.log('[ORDER-BUFFER] Table ready');
@@ -48,15 +53,16 @@ async function saveOrderToBuffer(db, orderData) {
 
     const id = orderData?.Data?.Id || orderData?.Id || null;
     const eventAction = orderData?.EventName || 'created';
+    const sessionId = orderData?.Data?.Session || orderData?.Session || null;
     const sessionIndex = orderData?.Data?.SessionIndex || orderData?.SessionIndex || null;
     const customerName = orderData?.Data?.Facebook_UserName || orderData?.Facebook_UserName || null;
 
     try {
         const result = await db.query(
-            `INSERT INTO tpos_order_buffer (order_code, order_id, event_type, session_index, customer_name)
-             VALUES ($1, $2, $3, $4, $5)
+            `INSERT INTO tpos_order_buffer (order_code, order_id, event_type, session_id, session_index, customer_name)
+             VALUES ($1, $2, $3, $4, $5, $6)
              RETURNING id, created_at`,
-            [code, id, eventAction, sessionIndex, customerName]
+            [code, id, eventAction, sessionId, sessionIndex, customerName]
         );
         return result.rows[0];
     } catch (error) {
@@ -85,7 +91,7 @@ router.get('/', async (req, res) => {
             : new Date(Date.now() - 3 * 60 * 60 * 1000);
 
         const result = await db.query(
-            `SELECT order_code, order_id, event_type, session_index, customer_name, created_at
+            `SELECT order_code, order_id, event_type, session_id, session_index, customer_name, created_at
              FROM tpos_order_buffer
              WHERE created_at > $1
              ORDER BY created_at ASC
