@@ -1596,13 +1596,15 @@ function parseOrderTags(tagsJson, orderId, orderCode) {
         const escapeAttr = (str) => String(str).replace(/'/g, "\\'").replace(/"/g, "&quot;");
 
         return tags
-            .map(
-                (tag) =>
-                    `<div style="display: inline-flex; align-items: center; gap: 2px;">
-                        <span class="order-tag" style="background-color: ${tag.Color || "#6b7280"}; cursor: pointer;" onclick="openTagModal('${escapeAttr(orderId)}', '${escapeAttr(orderCode)}'); event.stopPropagation();" title="Quản lý tag">${tag.Name || ""}</span>
+            .map((tag) => {
+                // Defensive: coerce to string in case realtime sends malformed data
+                const tagName = String(tag.Name || "");
+                const tagColor = String(tag.Color || "#6b7280");
+                return `<div style="display: inline-flex; align-items: center; gap: 2px;">
+                        <span class="order-tag" style="background-color: ${tagColor}; cursor: pointer;" onclick="openTagModal('${escapeAttr(orderId)}', '${escapeAttr(orderCode)}'); event.stopPropagation();" title="Quản lý tag">${tagName}</span>
                         <button class="tag-remove-btn" onclick="quickRemoveTag('${escapeAttr(orderId)}', '${escapeAttr(orderCode)}', '${escapeAttr(tag.Id)}'); event.stopPropagation();" title="Xóa tag này">×</button>
-                    </div>`,
-            )
+                    </div>`;
+            })
             .join("");
     } catch (e) {
         return "";

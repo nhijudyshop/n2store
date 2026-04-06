@@ -706,6 +706,20 @@
     // =====================================================
 
     async function assignOrderCategory(orderCode, category, options = {}) {
+        // Defensive: coerce category to integer. If a caller passes an object
+        // (legacy bug), try to extract .category from it; otherwise abort to
+        // prevent storing "[object Object]:" as catValue in history.
+        if (typeof category === 'object' && category !== null) {
+            console.warn(`${PTAG_LOG} assignOrderCategory called with object as category, extracting .category`, category);
+            if (category.subTag && !options.subTag) options.subTag = category.subTag;
+            category = category.category;
+        }
+        category = parseInt(category);
+        if (!Number.isFinite(category) || category < 0 || category > 5) {
+            console.error(`${PTAG_LOG} assignOrderCategory: invalid category`, category, 'for order', orderCode);
+            return;
+        }
+
         const existingData = ProcessingTagState.getOrderData(orderCode);
         // Preserve existing flags when changing category
         const existingFlags = existingData?.flags || [];
@@ -4383,10 +4397,20 @@
 
     function _ptagAddHistory(orderCode, action, value, userName) {
         const userInfo = userName ? { user: userName, userId: null } : _ptagGetCurrentUser();
+        // Defensive: coerce value to string to prevent "[object Object]" storage
+        let safeValue = value;
+        if (value != null && typeof value !== 'string') {
+            console.warn(`${PTAG_LOG} _ptagAddHistory: non-string value`, { action, value });
+            safeValue = String(value);
+        }
+        if (typeof safeValue === 'string' && safeValue.includes('[object')) {
+            console.warn(`${PTAG_LOG} _ptagAddHistory: malformed value`, { action, value: safeValue });
+            safeValue = '';
+        }
         ProcessingTagState.addHistoryEntry(orderCode, {
             action,
-            value: value || '',
-            displayName: _ptagResolveDisplayName(action, value),
+            value: safeValue || '',
+            displayName: _ptagResolveDisplayName(action, safeValue),
             user: userInfo.user,
             userId: userInfo.userId,
             timestamp: Date.now()

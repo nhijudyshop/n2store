@@ -160,17 +160,20 @@
         }
         if (!existingOrder) return; // Order not in current view
 
-        console.log('[TPOS-RT] Tag assigned on TPOS:', existingOrder.Code, tags.map(t => t.Name));
+        // Defensive: normalize tag fields to strings (TPOS API sometimes sends Name as object)
+        const normalizedTags = tags.map(t => ({
+            Id: String(t.Id || ''),
+            Name: String(t.Name || ''),
+            Color: String(t.Color || '#999')
+        }));
+
+        console.log('[TPOS-RT] Tag assigned on TPOS:', existingOrder.Code, normalizedTags.map(t => t.Name));
 
         // Enrich availableTags with any new tags from TPOS event
-        enrichAvailableTags(tags);
+        enrichAvailableTags(normalizedTags);
 
         // Convert tags to the format used by our table (JSON string)
-        const tagsJson = JSON.stringify(tags.map(t => ({
-            Id: t.Id,
-            Name: t.Name,
-            Color: t.Color || '#999'
-        })));
+        const tagsJson = JSON.stringify(normalizedTags);
 
         // Update tags in table (inline update, no full re-render)
         if (typeof updateOrderInTable === 'function') {
@@ -179,8 +182,7 @@
         }
 
         // Hook: sync TPOS → TAG XL
-        const parsedTags = tags.map(t => ({ Id: t.Id, Name: t.Name, Color: t.Color || '#999' }));
-        if (window.onPtagOrderTagsChanged) window.onPtagOrderTagsChanged(orderId, parsedTags);
+        if (window.onPtagOrderTagsChanged) window.onPtagOrderTagsChanged(orderId, normalizedTags);
     }
 
     /**

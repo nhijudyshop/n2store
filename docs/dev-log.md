@@ -8,6 +8,12 @@
 
 ## 2026-04-06
 
+### [orders] Fix bug "[object Object]" qua TPOS realtime sync — defensive guards full chain ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-processing-tags.js`, `orders-report/js/tab1/tab1-tag-sync.js`, `orders-report/js/tab1/tab1-tpos-realtime.js`, `orders-report/js/tab1/tab1-table.js` |
+| **Chi tiết** | Bug tiếp diễn khi sync từ TPOS realtime via extension → web. Thêm defensive guards toàn chuỗi: 1) `assignOrderCategory()` validate `category` arg — nếu là object → extract `.category` + warn; coerce parseInt + check range 1-5, abort nếu invalid. 2) `_ptagAddHistory()` coerce `value` to string, replace bằng '' nếu chứa `[object`. 3) `syncTPOSToPtag()` defensive `String(t.Name \|\| '')` ở 3 chỗ (build tposNames, T-pattern, fallback KHAC). 4) `handleTagAssigned()` realtime — normalize tag fields to strings ngay khi nhận event từ extension. 5) `parseOrderTags()` (TPOS column render) coerce `tag.Name` + `tag.Color` to string. Mục tiêu: không bao giờ store hoặc render `[object Object]` dù data nguồn có corrupt. |
+
 ### [orders] Fix UI bug "[object Object]:" trong popover lịch sử tag ✅
 | | |
 |---|---|

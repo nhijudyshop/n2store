@@ -1040,7 +1040,8 @@
             const currentSubTag = data?.subTag || null;
 
             // Build set of TPOS tag names (uppercase) for fast lookup
-            const tposNames = new Set((newTags || []).map(t => (t.Name || '').toUpperCase()));
+            // Defensive: coerce Name to string in case realtime sends malformed data
+            const tposNames = new Set((newTags || []).map(t => String(t.Name || '').toUpperCase()));
 
             let changed = false;
 
@@ -1112,7 +1113,7 @@
 
             // ── Pattern: T[number] [description] → Tag T Chờ Hàng ──
             for (const tag of (newTags || [])) {
-                const tagName = (tag.Name || '').trim();
+                const tagName = String(tag.Name || '').trim();
                 if (!/^T\d+\s+/i.test(tagName)) continue;
                 const nameUpper = tagName.toUpperCase();
                 if (TPOS_TO_PTAG_MAP[nameUpper]) continue; // already handled by static map
@@ -1160,7 +1161,7 @@
             // Không auto-remove (nhiều TPOS tags có thể trigger KHAC, không biết khi nào nên gỡ).
             let hasUnknownTag = false;
             for (const tag of (newTags || [])) {
-                const name = (tag.Name || '').trim();
+                const name = String(tag.Name || '').trim();
                 if (!name) continue;
                 const upper = name.toUpperCase();
 
