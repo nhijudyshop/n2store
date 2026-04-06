@@ -8,6 +8,13 @@
 
 ## 2026-04-06
 
+### [inbox] Fix real-time conv list — read convs không bị đẩy lên trên unread ✅
+| | |
+|---|---|
+| **Files** | `inbox/js/inbox-chat.js` |
+| **Chi tiết** | Bug: khi shop reply một conversation (→ chuyển từ unread sang read) hoặc khi có tin mới tới một read conv, `_updateSingleConversationInList()` luôn `prepend` element lên đầu DOM, **bỏ qua** sort rule (unread-first). Kết quả: read convs nổi lên trên các unread convs — trái với sort canonical của `getConversations()`. **Fix**: Thêm 3 helper: 1) `_convSortRank(conv)` — return 1 nếu `unread > 0 && isCustomerLast !== false`, else 0 (khớp chính xác với sort trong `getConversations()`). 2) `_convSortTime(conv)` — normalize Date/number → timestamp ms. 3) `_findInsertionAnchor(conv, skipEl)` — walk qua siblings trong DOM, tìm element đầu tiên mà conv hiện tại nên chèn TRƯỚC nó (higher rank hoặc same rank + newer time). Rewrite `_updateSingleConversationInList()`: thay vì `prepend()` mù quáng, dùng `insertBefore(newEl, anchor)` tại vị trí đúng theo sort. Cover 2 case: (existing element → remove rồi insert lại) và (new conversation → insert ở đúng vị trí). Độ phức tạp O(n) per update nhưng chính xác 100% với sort rule. |
+| **Status** | ✅ Done |
+
 ### [inbox] Message bubbles — chữ to và đậm hơn ✅
 | | |
 |---|---|

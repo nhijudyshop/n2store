@@ -1113,6 +1113,48 @@ class InboxChatController {
      * Returns true if handled (no full re-render needed).
      * Only returns false when a full re-render is truly required.
      */
+    /**
+     * Compute the sort rank of a conversation.
+     * Matches the sort condition in getConversations() and the display condition
+     * in _buildConvItemHtml so DOM order stays in sync with the canonical sort.
+     */
+    _convSortRank(conv) {
+        return (conv.unread > 0 && conv.isCustomerLast !== false) ? 1 : 0;
+    }
+
+    _convSortTime(conv) {
+        const t = conv.time;
+        if (t instanceof Date) return t.getTime();
+        if (typeof t === 'number') return t;
+        return 0;
+    }
+
+    /**
+     * Find the correct DOM position for a conversation based on the unread-first
+     * sort (unread+customerLast → top, then by time DESC). Returns the element
+     * BEFORE which the item should be inserted, or null if it should be appended.
+     * `skipEl` is the currently-rendered element for the same conv (excluded from comparison).
+     */
+    _findInsertionAnchor(conv, skipEl) {
+        const myRank = this._convSortRank(conv);
+        const myTime = this._convSortTime(conv);
+        const siblings = this.elements.conversationList.children;
+        for (const el of siblings) {
+            if (el === skipEl) continue;
+            const sibId = el.dataset.id;
+            if (!sibId) continue;
+            const sib = this.data.getConversation(sibId);
+            if (!sib) continue;
+            const sibRank = this._convSortRank(sib);
+            const sibTime = this._convSortTime(sib);
+            // I come before this sibling if my rank is higher,
+            // or same rank but my time is newer.
+            if (myRank > sibRank) return el;
+            if (myRank === sibRank && myTime > sibTime) return el;
+        }
+        return null; // Append at end
+    }
+
     _updateSingleConversationInList(convId) {
         const conv = this.data.getConversation(convId);
         if (!conv) return true; // Nothing to render
@@ -1121,26 +1163,39 @@ class InboxChatController {
         if (this.selectedPageIds.size > 0 && !this.selectedPageIds.has(conv.pageId)) return true;
         if (this.currentTypeFilter !== 'all' && conv.type !== this.currentTypeFilter) return true;
 
-        const existingEl = this.elements.conversationList.querySelector(`[data-id="${conv.id}"]`);
+        const list = this.elements.conversationList;
+        const existingEl = list.querySelector(`[data-id="${conv.id}"]`);
 
         if (existingEl) {
-            // Replace content in-place
+            // Build replacement
             const newHtml = this._buildConvItemHtml(conv);
             const temp = document.createElement('div');
             temp.innerHTML = newHtml;
             const newEl = temp.firstElementChild;
-            existingEl.replaceWith(newEl);
-            // Move to top (most recent) if not already first
-            if (newEl !== this.elements.conversationList.firstElementChild) {
-                this.elements.conversationList.prepend(newEl);
+
+            // Find correct sorted position (excluding the current element from comparison)
+            const anchor = this._findInsertionAnchor(conv, existingEl);
+
+            // Remove old element first, then insert at the correct position
+            existingEl.remove();
+            if (anchor && anchor.parentNode === list) {
+                list.insertBefore(newEl, anchor);
+            } else {
+                list.appendChild(newEl);
             }
             this._debouncedCreateIcons();
         } else if (!this.searchQuery) {
-            // New conversation (no search active) — prepend to list
+            // New conversation (no search active) — insert at correct sorted position
             const newHtml = this._buildConvItemHtml(conv);
             const temp = document.createElement('div');
             temp.innerHTML = newHtml;
-            this.elements.conversationList.prepend(temp.firstElementChild);
+            const newEl = temp.firstElementChild;
+            const anchor = this._findInsertionAnchor(conv, null);
+            if (anchor && anchor.parentNode === list) {
+                list.insertBefore(newEl, anchor);
+            } else {
+                list.appendChild(newEl);
+            }
             this._debouncedCreateIcons();
         }
         // If search active and not in DOM → skip silently (data already in memory)
