@@ -1410,50 +1410,93 @@ const MERGE_TAG_COLOR = '#E3A21A';
 const MERGED_ORDER_TAG_NAME = 'ĐÃ GỘP KO CHỐT';
 
 /**
- * Ensure a tag exists, create if not found
+ * Query single tag by exact name từ TPOS via OData $filter.
+ * Trả về tag object hoặc null nếu không tồn tại.
+ * Tránh được vấn đề pagination ($top=1000) khi DB có >1000 tags.
+ */
+async function queryTPOSTagByName(tagName) {
+    try {
+        const headers = await window.tokenManager.getAuthHeader();
+        // OData escape: dấu nháy đơn → ''
+        const escapedName = String(tagName).replace(/'/g, "''");
+        const filterExpr = `Name eq '${escapedName}'`;
+        const url = `https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag?$format=json&$filter=${encodeURIComponent(filterExpr)}&$top=5`;
+
+        const resp = await API_CONFIG.smartFetch(url, {
+            method: 'GET',
+            headers: { ...headers, accept: 'application/json' }
+        });
+        if (!resp.ok) {
+            console.warn(`[MERGE-TAG] queryTPOSTagByName HTTP ${resp.status} for "${tagName}"`);
+            return null;
+        }
+        const data = await resp.json();
+        const list = Array.isArray(data?.value) ? data.value : [];
+        if (list.length === 0) return null;
+        // Ưu tiên exact-case match, fallback case-insensitive first
+        const exact = list.find(t => t?.Name === tagName);
+        return exact || list.find(t => t?.Name && t.Name.toLowerCase() === tagName.toLowerCase()) || null;
+    } catch (e) {
+        console.warn(`[MERGE-TAG] queryTPOSTagByName error for "${tagName}":`, e);
+        return null;
+    }
+}
+
+/**
+ * Sync 1 tag mới vào local cache (availableTags + Firebase).
+ */
+function _registerLocalTag(tag) {
+    if (!tag || tag.Id == null) return;
+    if (!Array.isArray(availableTags)) return;
+    if (availableTags.find(t => t.Id === tag.Id)) return;
+    availableTags.push(tag);
+    window.availableTags = availableTags;
+    try { window.cacheManager.set("tags", availableTags, "tags"); } catch {}
+    if (typeof database !== 'undefined' && database) {
+        database.ref('settings/tags').set(availableTags).catch(e =>
+            console.warn('[MERGE-TAG] Firebase tags save failed:', e)
+        );
+    }
+}
+
+/**
+ * Ensure a tag exists, create if not found.
+ *
+ * Lookup priority (tránh false-negative do pagination):
+ *   1. Local cache (`availableTags`) — fast path
+ *   2. OData `$filter=Name eq '...'` query — targeted, không bị giới hạn $top
+ *   3. POST tạo mới
+ *   4. Nếu POST 400 "Đã tồn tại" → re-query (1 lần) để recover tag từ server
+ *
  * @param {string} tagName - Tag name to ensure exists
  * @param {string} color - Hex color for new tag
  * @returns {Promise<Object>} Tag object with Id, Name, Color
  */
 async function ensureMergeTagExists(tagName, color = MERGE_TAG_COLOR) {
     try {
-        // IMPORTANT: Fetch fresh tags from API (không dùng cache để tránh duplicate)
-        console.log(`[MERGE-TAG] Fetching fresh tags from API before checking "${tagName}"...`);
-        const headers = await window.tokenManager.getAuthHeader();
-
-        const tagsResponse = await API_CONFIG.smartFetch(
-            'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag?$format=json&$count=true&$top=1000',
-            {
-                method: 'GET',
-                headers: {
-                    ...headers,
-                    'accept': 'application/json',
-                    'content-type': 'application/json',
-                },
+        // STEP 1: Local cache (case-insensitive)
+        if (Array.isArray(availableTags)) {
+            const local = availableTags.find(t =>
+                t?.Name && t.Name.toLowerCase() === tagName.toLowerCase()
+            );
+            if (local) {
+                console.log(`[MERGE-TAG] Tag "${tagName}" found in local cache:`, local);
+                return local;
             }
-        );
-
-        if (tagsResponse.ok) {
-            const tagsData = await tagsResponse.json();
-            availableTags = tagsData.value || [];
-            window.availableTags = availableTags;
-            window.cacheManager.set("tags", availableTags, "tags");
-            console.log(`[MERGE-TAG] Refreshed ${availableTags.length} tags from API`);
         }
 
-        // Check if tag already exists (case-insensitive)
-        const existingTag = availableTags.find(t =>
-            t.Name && t.Name.toLowerCase() === tagName.toLowerCase()
-        );
-
-        if (existingTag) {
-            console.log(`[MERGE-TAG] Tag "${tagName}" already exists:`, existingTag);
-            return existingTag;
+        // STEP 2: Targeted OData filter query (handles >1000 tags)
+        console.log(`[MERGE-TAG] Querying tag "${tagName}" via $filter...`);
+        const remote = await queryTPOSTagByName(tagName);
+        if (remote) {
+            console.log(`[MERGE-TAG] Tag "${tagName}" found via filter:`, remote);
+            _registerLocalTag(remote);
+            return remote;
         }
 
-        // Create new tag
+        // STEP 3: Create new tag
         console.log(`[MERGE-TAG] Creating new tag: "${tagName}" with color ${color}`);
-
+        const headers = await window.tokenManager.getAuthHeader();
         const response = await API_CONFIG.smartFetch(
             'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag',
             {
@@ -1463,39 +1506,33 @@ async function ensureMergeTagExists(tagName, color = MERGE_TAG_COLOR) {
                     'accept': 'application/json, text/plain, */*',
                     'content-type': 'application/json;charset=UTF-8',
                 },
-                body: JSON.stringify({
-                    Name: tagName,
-                    Color: color
-                })
+                body: JSON.stringify({ Name: tagName, Color: color })
             }
         );
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        if (response.ok) {
+            const newTag = await response.json();
+            if (newTag['@odata.context']) delete newTag['@odata.context'];
+            console.log('[MERGE-TAG] Tag created successfully:', newTag);
+            _registerLocalTag(newTag);
+            return newTag;
         }
 
-        const newTag = await response.json();
-        console.log('[MERGE-TAG] Tag created successfully:', newTag);
-
-        // Remove @odata.context
-        if (newTag['@odata.context']) {
-            delete newTag['@odata.context'];
+        // STEP 4: POST failed → check if it's "already exists" → re-query để recover
+        const errorText = await response.text();
+        const isDuplicate = response.status === 400 && /tồn tại|exist/i.test(errorText);
+        if (isDuplicate) {
+            console.warn(`[MERGE-TAG] POST said "đã tồn tại" — re-querying tag "${tagName}" to recover...`);
+            const recovered = await queryTPOSTagByName(tagName);
+            if (recovered) {
+                console.log(`[MERGE-TAG] Tag "${tagName}" recovered after duplicate error:`, recovered);
+                _registerLocalTag(recovered);
+                return recovered;
+            }
+            console.error(`[MERGE-TAG] Tag "${tagName}" exists on server but cannot be retrieved via $filter`);
         }
 
-        // Update local tags list
-        if (Array.isArray(availableTags)) {
-            availableTags.push(newTag);
-            window.availableTags = availableTags;
-            window.cacheManager.set("tags", availableTags, "tags");
-        }
-
-        // Save to Firebase
-        if (database) {
-            await database.ref('settings/tags').set(availableTags);
-        }
-
-        return newTag;
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
 
     } catch (error) {
         console.error('[MERGE-TAG] Error ensuring tag exists:', error);

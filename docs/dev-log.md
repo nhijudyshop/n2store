@@ -8,6 +8,13 @@
 
 ## 2026-04-06
 
+### [orders] Fix `ensureMergeTagExists` — `$filter` query thay vì `$top=1000` ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-merge.js` |
+| **Chi tiết** | User merge cluster STT 4/6/73 thành công (products + Tag XL OK) nhưng tag assignment cho TPOS column FAIL với error `400 "Đã tồn tại tag"` khi tạo `"Gộp 4 6 73"`. **Root cause**: `ensureMergeTagExists` (cũ) fetch full list `$top=1000` rồi search client-side. TPOS DB đã có >1000 tag (từ các merge group cũ tích lũy) → tag `"Gộp 4 6 73"` (tạo từ lần merge trước, hoặc bởi user khác) nằm ngoài top 1000 → local search trả null → POST tạo mới → server reject với `400 BusinessException "Đã tồn tại tag"` → throw → cả `assignTagsAfterMerge` fail → target order không nhận được TPOS tag merged. **Fix**: Refactor `ensureMergeTagExists` thành **4-step lookup**: (1) **Local cache** (`availableTags`, case-insensitive) — fast path. (2) **OData `$filter` query** qua helper mới `queryTPOSTagByName(tagName)` — escape single quote `'` → `''`, build expr `Name eq '...'`, `encodeURIComponent`, `$top=5` → targeted, không bị giới hạn pagination, scale với DB lớn. (3) **POST tạo mới** nếu vẫn không tìm thấy. (4) **Recovery**: Nếu POST trả `400` với body match `/tồn tại\|exist/i` → re-query qua `queryTPOSTagByName` 1 lần để lấy tag từ server (handle race condition khi tag được tạo bởi user khác giữa STEP 2 và STEP 3). **Helper mới `_registerLocalTag(tag)`**: Sync tag vào `availableTags` + `cacheManager` + Firebase `settings/tags`. Idempotent — skip nếu Id đã có. **Behavior preservation**: Return signature giữ nguyên (`{Id, Name, Color, ...}`), error path vẫn throw để caller `assignTagsAfterMerge` handle. **Verification**: `node --check` syntax OK. Sau fix: scenario "Gộp 4 6 73 đã tồn tại" → STEP 2 `$filter` tìm thấy → return ngay → assignTag flow tiếp tục thành công. |
+| **Status** | ✅ Done |
+
 ### [orders] Per-row history popover — nút clock trên từng row panel Chốt Đơn ✅
 | | |
 |---|---|
