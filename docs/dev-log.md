@@ -8,6 +8,13 @@
 
 ## 2026-04-06
 
+### [inbox] High-End Editorial UI redesign — "The Digital Curator" style ✅
+| | |
+|---|---|
+| **Files** | `inbox/index.html`, `inbox/css/inbox.css`, `inbox/css/quick-reply-modal.css` |
+| **Chi tiết** | Áp dụng design system từ `inbox/DESIGN.md` + `inbox/changelog.md` + reference templates (`inbox_modernized.css`, `quick_reply_modernized.css`, `code.html`). **1) Typography**: Thêm Google Fonts Manrope (headlines) + Inter (body) vào index.html. Mới var `--font-headline` (Manrope), `--font-body` (Inter). Headings dùng Manrope 700/800, letter-spacing -0.015em. **2) Color palette**: Chuyển sang Indigo (#3525cd) + Slate neutrals. Thêm Material surface hierarchy (--surface #f7f9fb, --surface-container-lowest #ffffff, --surface-container-high #e6e8ea). **3) Layout**: col1 320→380px, col3 360→400px. **4) "No-Line" rule**: Bỏ 1px borders giữa col-header/conversation-search/conversation-filters/chat-header/conv items/info-tabs — dùng tonal background shift thay thế. **5) Conversation list**: Avatar 44→52px, active state dùng border-left 4px primary + primary-bg, padding 14×24px, conv-name 15px semibold, conv-preview 13px. **6) Message bubbles**: radius 16→20px, bỏ border incoming dùng shadow-sm, outgoing dùng gradient primary→primary-container + shadow indigo. **7) Input area**: Wrapper 16px radius, focus state có ghost border, btn-send 36→44px FAB với gradient + shadow indigo. **8) Quick-reply-modal**: Rewrite full — glassmorphism overlay (backdrop-blur 12px), 24px radius modal, Manrope title, monospace shortcuts với indigo tag pill (#eef2ff bg), table header uppercase tracker, footer tonal bg. **9) Image zoom**: Upgrade với backdrop-blur, 16px radius, shadow đậm. Active state dùng primary accent bar 4px thay vì 3px. |
+| **Status** | ✅ Done |
+
 ### [orders] Fix bug "[object Object]" qua TPOS realtime sync — defensive guards full chain ✅
 | | |
 |---|---|
