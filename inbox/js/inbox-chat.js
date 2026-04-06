@@ -3445,6 +3445,10 @@ class InboxChatController {
             }
 
             showToast('Đã react', 'success');
+            this.data.markAsRead(this.activeConversationId);
+            if (!this._updateSingleConversationInList(this.activeConversationId)) {
+                this._scheduleRender();
+            }
             // Refresh messages to show updated reactions
             setTimeout(() => this.loadMessages(conv), 1000);
         } catch (error) {
