@@ -1425,9 +1425,8 @@ class InboxChatController {
             this.data.markAsUnread(convId);
             showToast('Đã đánh dấu chưa đọc', 'info');
         }
-        if (!this._updateSingleConversationInList(convId)) {
-            this.renderConversationList();
-        }
+        // Full re-render to re-apply unread-first sort (single-item update can't reorder)
+        this.renderConversationList();
         this.data.recalculateGroupCounts();
         this.renderGroupStats();
         this.updatePageUnreadCounts();

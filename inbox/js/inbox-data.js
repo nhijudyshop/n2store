@@ -239,10 +239,12 @@ class InboxDataManager {
             console.log(`[InboxData] Cached searchable pages:`, workingPageIds);
         }
 
-        // Sort: unread first, then by updated_at descending (matches Pancake API order)
+        // Sort: unread first (only if customer sent last — awaiting reply), then by updated_at desc
         allConversations.sort((a, b) => {
-            const aUnread = (a.unread_count || 0) > 0 ? 1 : 0;
-            const bUnread = (b.unread_count || 0) > 0 ? 1 : 0;
+            const aCustomerLast = a.last_sent_by?.id && a.last_sent_by.id !== a.page_id;
+            const bCustomerLast = b.last_sent_by?.id && b.last_sent_by.id !== b.page_id;
+            const aUnread = ((a.unread_count || 0) > 0 && aCustomerLast) ? 1 : 0;
+            const bUnread = ((b.unread_count || 0) > 0 && bCustomerLast) ? 1 : 0;
             if (aUnread !== bUnread) return bUnread - aUnread;
             const ta = new Date(a.updated_at || 0).getTime();
             const tb = new Date(b.updated_at || 0).getTime();
@@ -596,10 +598,11 @@ class InboxDataManager {
             });
         }
 
-        // Sort: unread first, then by updated_at descending (matches Pancake API order)
+        // Sort: unread first (only if customer sent last — awaiting reply), then by time desc
+        // Matches the display condition in _buildConvItemHtml so UI and sort stay in sync.
         result.sort((a, b) => {
-            const aUnread = a.unread > 0 ? 1 : 0;
-            const bUnread = b.unread > 0 ? 1 : 0;
+            const aUnread = (a.unread > 0 && a.isCustomerLast !== false) ? 1 : 0;
+            const bUnread = (b.unread > 0 && b.isCustomerLast !== false) ? 1 : 0;
             if (aUnread !== bUnread) return bUnread - aUnread;
             return b.time - a.time;
         });

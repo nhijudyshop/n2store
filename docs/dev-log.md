@@ -8,6 +8,13 @@
 
 ## 2026-04-06
 
+### [inbox] Fix sort — đẩy conversation unread (customer gửi cuối) lên top ✅
+| | |
+|---|---|
+| **Files** | `inbox/js/inbox-data.js`, `inbox/js/inbox-chat.js` |
+| **Chi tiết** | Sort cũ chỉ check `unread > 0` → không match với display condition `unread > 0 && isCustomerLast !== false`. Kết quả: convo đã reply nhưng vẫn bubble lên top, hoặc unread thật sự không lên top đúng thứ tự. **Fix**: 1) `getConversations()` sort dùng chung condition `(unread > 0 && isCustomerLast !== false)` khớp UI. 2) Initial fetch sort trong `fetchAllPagesConversations()` compute inline `customerLast = last_sent_by.id !== page_id`. 3) `toggleReadUnread()` bỏ `_updateSingleConversationInList` (chỉ update 1 item DOM) → dùng full `renderConversationList()` để re-apply sort (vị trí phải đổi khi mark/unmark). |
+| **Status** | ✅ Done |
+
 ### [inbox] High-End Editorial UI redesign — "The Digital Curator" style ✅
 | | |
 |---|---|
