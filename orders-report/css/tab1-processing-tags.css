@@ -2299,45 +2299,45 @@
 }
 .ptag-gh-modal {
     background: #fff;
-    border-radius: 12px;
-    width: 680px;
-    max-width: 95vw;
-    max-height: 85vh;
+    border-radius: 14px;
+    width: 1000px;
+    max-width: 96vw;
+    max-height: 90vh;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.18);
     overflow: hidden;
 }
 .ptag-gh-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 14px 18px;
+    padding: 18px 22px;
     background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
     color: #fff;
     flex-shrink: 0;
 }
 .ptag-gh-title {
-    font-size: 15px;
+    font-size: 20px;
     font-weight: 700;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 10px;
 }
 .ptag-gh-subtitle {
-    font-size: 11px;
-    opacity: 0.8;
-    margin-top: 2px;
+    font-size: 14px;
+    opacity: 0.9;
+    margin-top: 4px;
 }
 .ptag-gh-close-btn {
-    width: 30px;
-    height: 30px;
+    width: 38px;
+    height: 38px;
     border: none;
     background: rgba(255,255,255,0.15);
-    border-radius: 6px;
+    border-radius: 8px;
     color: #fff;
     cursor: pointer;
-    font-size: 13px;
+    font-size: 16px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -2349,19 +2349,19 @@
 .ptag-gh-filters {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 10px 16px;
+    gap: 10px;
+    padding: 14px 20px;
     border-bottom: 1px solid #f3f4f6;
     flex-shrink: 0;
     flex-wrap: wrap;
 }
 .ptag-gh-filter-input {
     flex: 1;
-    min-width: 100px;
-    padding: 6px 10px;
+    min-width: 140px;
+    padding: 10px 14px;
     border: 1px solid #e5e7eb;
-    border-radius: 6px;
-    font-size: 12px;
+    border-radius: 8px;
+    font-size: 15px;
     outline: none;
     box-sizing: border-box;
 }
@@ -2369,10 +2369,10 @@
     border-color: #6366f1;
 }
 .ptag-gh-filter-select {
-    padding: 6px 8px;
+    padding: 10px 12px;
     border: 1px solid #e5e7eb;
-    border-radius: 6px;
-    font-size: 12px;
+    border-radius: 8px;
+    font-size: 15px;
     outline: none;
     background: #fff;
     cursor: pointer;
@@ -2381,14 +2381,14 @@
     border-color: #6366f1;
 }
 .ptag-gh-clear-btn {
-    width: 30px;
-    height: 30px;
+    width: 40px;
+    height: 40px;
     border: 1px solid #e5e7eb;
     background: #fff;
-    border-radius: 6px;
+    border-radius: 8px;
     color: #9ca3af;
     cursor: pointer;
-    font-size: 12px;
+    font-size: 15px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -2402,69 +2402,70 @@
 .ptag-gh-body {
     flex: 1;
     overflow-y: auto;
-    min-height: 200px;
+    min-height: 280px;
 }
 .ptag-gh-item {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 7px 16px;
-    border-bottom: 1px solid #f9fafb;
-    font-size: 12px;
+    gap: 12px;
+    padding: 12px 20px;
+    border-bottom: 1px solid #f3f4f6;
+    font-size: 15px;
     transition: background 0.1s;
 }
 .ptag-gh-item:hover {
     background: #f9fafb;
 }
 .ptag-gh-time {
-    width: 76px;
+    width: 110px;
     flex-shrink: 0;
-    color: #9ca3af;
-    font-size: 10.5px;
+    color: #6b7280;
+    font-size: 14px;
     font-family: 'Consolas', monospace;
 }
 .ptag-gh-order {
-    width: 62px;
+    width: 100px;
     flex-shrink: 0;
-    font-weight: 600;
+    font-weight: 700;
     color: #6366f1;
-    font-size: 11px;
+    font-size: 15px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 .ptag-gh-user {
-    width: 65px;
+    width: 110px;
     flex-shrink: 0;
-    color: #6b7280;
-    font-size: 11px;
+    color: #4b5563;
+    font-size: 14px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 .ptag-gh-sign {
-    width: 16px;
+    width: 22px;
     flex-shrink: 0;
     font-weight: 700;
     text-align: center;
-    font-size: 13px;
+    font-size: 18px;
 }
 .ptag-gh-sign.add { color: #22c55e; }
 .ptag-gh-sign.remove { color: #ef4444; }
 .ptag-gh-sign.auto { color: #3b82f6; }
 .ptag-gh-action-type {
-    width: 90px;
+    width: 130px;
     flex-shrink: 0;
-    color: #6b7280;
-    font-size: 10.5px;
+    color: #4b5563;
+    font-size: 14px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 .ptag-gh-label {
     flex: 1;
-    font-weight: 500;
-    color: #374151;
+    font-weight: 600;
+    color: #1f2937;
+    font-size: 15px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -2474,31 +2475,32 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 40px 20px;
+    padding: 50px 20px;
+    font-size: 15px;
 }
 .ptag-gh-footer {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px 16px;
+    padding: 14px 20px;
     border-top: 1px solid #f3f4f6;
     flex-shrink: 0;
 }
 .ptag-gh-page-info {
-    color: #6b7280;
-    font-size: 12px;
+    color: #4b5563;
+    font-size: 15px;
 }
 .ptag-gh-page-btns {
     display: flex;
-    gap: 6px;
+    gap: 8px;
 }
 .ptag-gh-page-btn {
-    padding: 5px 12px;
+    padding: 9px 18px;
     border: 1px solid #e5e7eb;
-    border-radius: 6px;
+    border-radius: 8px;
     background: #fff;
     color: #374151;
-    font-size: 12px;
+    font-size: 15px;
     cursor: pointer;
     transition: all 0.15s;
 }

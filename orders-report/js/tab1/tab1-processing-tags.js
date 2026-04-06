@@ -4596,27 +4596,51 @@
     let _globalHistoryPage = 0;
     const _globalHistoryPageSize = 50;
 
+    // Returns the employeeRanges entry matching the current logged-in user (or null)
+    function _ptagGetCurrentEmployeeRange() {
+        const ranges = window.employeeRanges || [];
+        if (!ranges.length) return null;
+        const auth = window.authManager ? window.authManager.getAuthState() : null;
+        const currentUserId = auth?.id || null;
+        const currentDisplayName = auth?.displayName || null;
+        const currentUserType = auth?.userType || null;
+        let r = null;
+        if (currentUserId) r = ranges.find(x => x.id === currentUserId);
+        if (!r && currentDisplayName) r = ranges.find(x => x.name === currentDisplayName);
+        if (!r && currentUserType) r = ranges.find(x => x.name === currentUserType);
+        if (!r && currentUserType) {
+            const shortName = currentUserType.split('-')[0].trim();
+            r = ranges.find(x => x.name === shortName);
+        }
+        return r || null;
+    }
+
     function _ptagAggregateAllHistory() {
         const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
         const orderLookup = new Map();
         allOrders.forEach(o => {
-            if (o.Code) orderLookup.set(String(o.Code), {
-                stt: o.STT || o.Stt || o.SessionIndex || '',
-                code: o.Code || '',
-                name: o.PartnerName || o.Name || '',
-                phone: o.Telephone || ''
-            });
+            if (o.Code) {
+                const sttRaw = o.STT || o.Stt || o.SessionIndex || '';
+                orderLookup.set(String(o.Code), {
+                    stt: sttRaw,
+                    sttNum: parseInt(sttRaw, 10),
+                    code: o.Code || '',
+                    name: o.PartnerName || o.Name || '',
+                    phone: o.Telephone || ''
+                });
+            }
         });
 
         const entries = [];
         for (const [key, history] of ProcessingTagState.getAllHistoryOrders()) {
             if (!history || history.length === 0) continue;
-            const lookup = orderLookup.get(String(key)) || { stt: '', code: key, name: '', phone: '' };
+            const lookup = orderLookup.get(String(key)) || { stt: '', sttNum: NaN, code: key, name: '', phone: '' };
             history.forEach(h => {
                 entries.push({
                     ...h,
                     orderCode: lookup.code || key,
                     orderSTT: lookup.stt,
+                    orderSttNum: lookup.sttNum,
                     orderName: lookup.name || '',
                     orderPhone: lookup.phone || ''
                 });
@@ -4630,10 +4654,19 @@
         const orderInput = document.getElementById('ptag-gh-filter-order');
         const actionSelect = document.getElementById('ptag-gh-filter-action');
         const userInput = document.getElementById('ptag-gh-filter-user');
+        const empSelect = document.getElementById('ptag-gh-filter-employee');
 
         const orderQuery = _ptagNormalize(orderInput?.value || '');
         const actionGroup = actionSelect?.value || '';
         const userQuery = _ptagNormalize(userInput?.value || '');
+        const empValue = empSelect?.value || '';
+
+        // Resolve employee range from select value (id or name)
+        let empRange = null;
+        if (empValue) {
+            const ranges = window.employeeRanges || [];
+            empRange = ranges.find(r => (r.id && r.id === empValue) || r.name === empValue) || null;
+        }
 
         _globalHistoryFiltered = _globalHistoryCache.filter(entry => {
             if (orderQuery) {
@@ -4653,6 +4686,10 @@
             if (userQuery) {
                 const userName = _ptagNormalize(entry.user || '');
                 if (!userName.includes(userQuery)) return false;
+            }
+            if (empRange) {
+                const stt = entry.orderSttNum;
+                if (isNaN(stt) || stt < empRange.start || stt > empRange.end) return false;
             }
             return true;
         });
@@ -4717,6 +4754,19 @@
         _globalHistoryFiltered = [..._globalHistoryCache];
         _globalHistoryPage = 0;
 
+        // Build employee filter options + default selection (current user's range)
+        const ranges = window.employeeRanges || [];
+        const currentRange = _ptagGetCurrentEmployeeRange();
+        const defaultEmpValue = currentRange ? (currentRange.id || currentRange.name) : '';
+        const empOptionsHtml = ['<option value="">Tất cả nhân viên</option>']
+            .concat(ranges.map(r => {
+                const val = r.id || r.name || '';
+                const label = `${r.name || val} (${r.start}–${r.end})`;
+                const sel = val === defaultEmpValue ? ' selected' : '';
+                return `<option value="${val}"${sel}>${label}</option>`;
+            }))
+            .join('');
+
         const modal = document.createElement('div');
         modal.id = 'ptag-global-history-modal';
         modal.className = 'ptag-gh-overlay';
@@ -4743,6 +4793,9 @@
                         <option value="auto">Tự động</option>
                         <option value="phieu">Phiếu soạn</option>
                     </select>
+                    <select id="ptag-gh-filter-employee" class="ptag-gh-filter-select" onchange="window._ptagGHFilterChanged()" title="Lọc theo nhân viên (phân chia STT)">
+                        ${empOptionsHtml}
+                    </select>
                     <input type="text" id="ptag-gh-filter-user" class="ptag-gh-filter-input" placeholder="Tìm user..." oninput="window._ptagGHFilterChanged()" />
                     <button class="ptag-gh-clear-btn" onclick="window._ptagGHClearFilters()" title="Xóa bộ lọc">
                         <i class="fas fa-eraser"></i>
@@ -4765,7 +4818,7 @@
         });
 
         document.body.appendChild(modal);
-        // Apply default filter ('Tag XL + Chuyển đơn' selected in dropdown)
+        // Apply default filters (Tag XL + Chuyển đơn, current user's STT range)
         _ptagGHApplyFilters();
         _ptagRenderGlobalHistoryList();
     }
@@ -4803,11 +4856,12 @@
         const orderInput = document.getElementById('ptag-gh-filter-order');
         const actionSelect = document.getElementById('ptag-gh-filter-action');
         const userInput = document.getElementById('ptag-gh-filter-user');
+        const empSelect = document.getElementById('ptag-gh-filter-employee');
         if (orderInput) orderInput.value = '';
         if (actionSelect) actionSelect.value = '';
         if (userInput) userInput.value = '';
-        _globalHistoryFiltered = [..._globalHistoryCache];
-        _globalHistoryPage = 0;
+        if (empSelect) empSelect.value = ''; // Clear employee filter -> "Tất cả nhân viên"
+        _ptagGHApplyFilters();
         _ptagRenderGlobalHistoryList();
     }
 
