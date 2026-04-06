@@ -1864,6 +1864,15 @@
         return `<span class="ptag-tooltip-trigger" data-tooltip="${text.replace(/"/g, '&quot;')}" onclick="event.stopPropagation();">?</span>`;
     }
 
+    /**
+     * Inline history button — placed on each panel row.
+     * rowType: 'substate' | 'flag' | 'subtag' | 'ttag'
+     */
+    function _rowHistoryBtnHtml(rowType, rowId) {
+        const safeId = String(rowId).replace(/'/g, "\\'");
+        return `<button class="ptag-row-history-btn" onclick="window._ptagShowRowHistory('${rowType}','${safeId}',this); event.stopPropagation();" title="Lịch sử thêm/xóa tag này"><i class="fas fa-clock-rotate-left"></i></button>`;
+    }
+
     function _ptagComputeCounts() {
         const allOrders = (typeof window.getEmployeeFilteredOrders === 'function')
             ? window.getEmployeeFilteredOrders()
@@ -2072,6 +2081,7 @@
                     </div>
                     ${okieNoDelayIcon}${inlineIcons}
                 </div>
+                ${_rowHistoryBtnHtml('substate', key)}
                 ${_tooltipHtml(fk)}
             </div>`;
         }
@@ -2098,6 +2108,7 @@
                 </label>
                 <span class="ptag-panel-card-count">${count}</span>
                 ${_tooltipHtml(fk)}
+                ${_rowHistoryBtnHtml('flag', key)}
                 <button class="ptag-color-edit-btn" onclick="window._ptagOpenFlagColorPicker('${key}', this); event.stopPropagation();" title="Đổi màu"><i class="fas fa-pen" style="font-size:10px;"></i></button>
             </div>`;
             // Show custom tags list under "Khác" — show all custom flags
@@ -2121,6 +2132,7 @@
                                 <span class="ptag-flag-label" style="font-size:13px;">${(cf.label || '').toUpperCase()}</span>
                             </label>
                             <span class="ptag-panel-card-count" style="font-size:12px;">${cfCount}</span>
+                            ${_rowHistoryBtnHtml('flag', cf.id)}
                             <button class="ptag-color-edit-btn" onclick="window._ptagOpenFlagColorPicker('${cf.id}', this); event.stopPropagation();" title="Đổi màu"><i class="fas fa-pen" style="font-size:10px;"></i></button>
                             ${cfCount === 0
                                 ? `<button class="ptag-color-edit-btn ptag-custom-flag-delete-btn" onclick="window._ptagDeleteCustomFlag('${cf.id}'); event.stopPropagation();" title="Xóa tag"><i class="fas fa-trash-alt" style="font-size:10px;"></i></button>`
@@ -2156,6 +2168,7 @@
                         <div class="ptag-panel-card-name">${st.label}</div>
                         <div class="ptag-panel-card-count">${subTagCounts[key] || 0} đơn hàng</div>
                     </div>
+                    ${_rowHistoryBtnHtml('subtag', key)}
                     ${_tooltipHtml(fk)}
                 </div>`;
             }
@@ -2192,6 +2205,7 @@
                         <div class="ptag-panel-card-name" style="color:${ttagColor};">${(def.name || '').toUpperCase()}${pcLabel}</div>
                         <div class="ptag-panel-card-count">${count} đơn hàng</div>
                     </div>
+                    ${_rowHistoryBtnHtml('ttag', def.id)}
                     ${deleteBtn}
                 </div>`;
             }
@@ -4791,6 +4805,122 @@
     }
 
     // =====================================================
+    // SECTION 10D: PER-ROW HISTORY POPOVER
+    // =====================================================
+
+    /**
+     * Match a history entry against a specific panel row.
+     * @param {object} entry - history entry from _ptagAggregateAllHistory
+     * @param {string} rowType - 'substate' | 'flag' | 'subtag' | 'ttag'
+     * @param {string} rowId - row identifier (e.g. 'OKIE_CHO_DI_DON', 'TRU_CONG_NO', 'T_MY')
+     */
+    function _ptagMatchRowHistoryEntry(entry, rowType, rowId) {
+        const action = entry.action;
+        const value = entry.value || '';
+        if (rowType === 'substate') {
+            // Substate (OKIE_CHO_DI_DON / CHO_HANG) is auto-derived from tTags count.
+            // Show all events affecting category 1: SET_CATEGORY cat=1, ADD_TTAG, REMOVE_TTAG, TRANSFER_*
+            if (action === 'SET_CATEGORY') return value.startsWith('1:');
+            if (action === 'ADD_TTAG' || action === 'REMOVE_TTAG') return true;
+            if (action === 'TRANSFER_IN' || action === 'TRANSFER_OUT') return true;
+            return false;
+        }
+        if (rowType === 'flag') {
+            if (action !== 'ADD_FLAG' && action !== 'REMOVE_FLAG') return false;
+            return value === rowId;
+        }
+        if (rowType === 'subtag') {
+            // Subtag stored in SET_CATEGORY value as "cat:subTag"
+            if (action !== 'SET_CATEGORY') return false;
+            const parts = value.split(':');
+            return parts[1] === rowId;
+        }
+        if (rowType === 'ttag') {
+            if (action !== 'ADD_TTAG' && action !== 'REMOVE_TTAG') return false;
+            return value === rowId;
+        }
+        return false;
+    }
+
+    function _ptagGetRowHistoryTitle(rowType, rowId) {
+        if (rowType === 'substate') return PTAG_SUBSTATES[rowId]?.label || rowId;
+        if (rowType === 'flag') return PTAG_FLAGS[rowId]?.label || ProcessingTagState.getCustomFlagLabel(rowId) || rowId;
+        if (rowType === 'subtag') return PTAG_SUBTAGS[rowId]?.label || rowId;
+        if (rowType === 'ttag') return ProcessingTagState.getTTagName(rowId) || rowId;
+        return rowId;
+    }
+
+    function _ptagShowRowHistory(rowType, rowId, anchorEl) {
+        // Remove any existing row-history popovers
+        document.querySelectorAll('.ptag-row-history-popover').forEach(p => p.remove());
+
+        const allHistory = _ptagAggregateAllHistory();
+        const filtered = allHistory.filter(h => _ptagMatchRowHistoryEntry(h, rowType, rowId));
+        const items = filtered.slice(0, 20);
+        const title = _ptagGetRowHistoryTitle(rowType, rowId);
+
+        const popover = document.createElement('div');
+        popover.className = 'ptag-row-history-popover';
+
+        let html = `<div class="ptag-rh-title">
+            <i class="fas fa-clock-rotate-left"></i>
+            <span class="ptag-rh-title-text">${title}</span>
+            <span class="ptag-rh-count">${filtered.length}</span>
+        </div>`;
+
+        if (items.length === 0) {
+            html += `<div class="ptag-rh-empty">Chưa có lịch sử</div>`;
+        } else {
+            html += '<div class="ptag-rh-list">';
+            items.forEach(h => {
+                const date = new Date(h.timestamp);
+                const dateStr = `${String(date.getDate()).padStart(2,'0')}/${String(date.getMonth()+1).padStart(2,'0')} ${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}`;
+                const meta = PTAG_ACTION_META[h.action] || { sign: '·', cls: '', label: h.action };
+                const sttDisplay = h.orderSTT ? `STT ${h.orderSTT}` : (h.orderCode || '?');
+                const validDisplayName = h.displayName && !String(h.displayName).includes('[object Object]');
+                const label = validDisplayName ? h.displayName : _ptagResolveDisplayName(h.action, h.value);
+                html += `<div class="ptag-rh-item" title="${(h.orderCode || '') + ' · ' + (meta.label || h.action) + ' · ' + label}">
+                    <span class="ptag-rh-time">${dateStr}</span>
+                    <span class="ptag-rh-stt">${sttDisplay}</span>
+                    <span class="ptag-rh-user">${h.user || ''}</span>
+                    <span class="ptag-rh-sign ${meta.cls}">${meta.sign}</span>
+                    <span class="ptag-rh-label">${label}</span>
+                </div>`;
+            });
+            html += '</div>';
+            if (filtered.length > 20) {
+                html += `<div class="ptag-rh-more">+${filtered.length - 20} mục cũ hơn — bấm <i class="fas fa-clock-rotate-left"></i> ở header để xem hết</div>`;
+            }
+        }
+
+        popover.innerHTML = html;
+        document.body.appendChild(popover);
+
+        // Position near anchor (popover ~340x360)
+        const rect = anchorEl.getBoundingClientRect();
+        const popW = 340, popH = popover.offsetHeight || 360;
+        let top = rect.bottom + 4;
+        let left = rect.right - popW; // align right edge with button
+        if (top + popH > window.innerHeight) top = rect.top - popH - 4;
+        if (top < 4) top = 4;
+        if (left < 4) left = 4;
+        if (left + popW > window.innerWidth) left = window.innerWidth - popW - 4;
+        popover.style.top = top + 'px';
+        popover.style.left = left + 'px';
+
+        // Close on outside click
+        setTimeout(() => {
+            const closeHandler = (e) => {
+                if (!popover.contains(e.target) && e.target !== anchorEl) {
+                    popover.remove();
+                    document.removeEventListener('click', closeHandler);
+                }
+            };
+            document.addEventListener('click', closeHandler);
+        }, 10);
+    }
+
+    // =====================================================
     // SECTION 11: WINDOW EXPORTS
     // =====================================================
 
@@ -4985,6 +5115,9 @@
     window._ptagGHNextPage = _ptagGHNextPage;
     window._ptagGHPrevPage = _ptagGHPrevPage;
     window._ptagGHClearFilters = _ptagGHClearFilters;
+
+    // Per-row history popover
+    window._ptagShowRowHistory = _ptagShowRowHistory;
 
     // Color picker for đặc điểm flags
     function _ptagOpenFlagColorPicker(flagKey, anchorEl) {

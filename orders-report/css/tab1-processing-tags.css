@@ -2105,6 +2105,147 @@
 }
 
 /* =====================================================
+   ROW HISTORY BUTTON + POPOVER
+   ===================================================== */
+.ptag-row-history-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    color: #9ca3af;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 9px;
+    transition: all 0.15s;
+    margin-left: 4px;
+    flex-shrink: 0;
+}
+.ptag-row-history-btn:hover {
+    color: #3b82f6;
+    border-color: #3b82f6;
+    background: rgba(59, 130, 246, 0.08);
+}
+.ptag-row-history-btn i {
+    font-size: 9px;
+}
+
+.ptag-row-history-popover {
+    position: fixed;
+    width: 340px;
+    max-height: 420px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.04);
+    z-index: 10003;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    font-size: 12px;
+}
+.ptag-rh-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 12px;
+    background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+    color: #fff;
+    font-weight: 600;
+    font-size: 12px;
+    flex-shrink: 0;
+}
+.ptag-rh-title i {
+    font-size: 12px;
+}
+.ptag-rh-title-text {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.ptag-rh-count {
+    background: rgba(255, 255, 255, 0.25);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+}
+.ptag-rh-empty {
+    padding: 24px 12px;
+    text-align: center;
+    color: #9ca3af;
+    font-size: 12px;
+}
+.ptag-rh-list {
+    overflow-y: auto;
+    max-height: 340px;
+}
+.ptag-rh-item {
+    display: grid;
+    grid-template-columns: 75px 60px 1fr 14px 90px;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-bottom: 1px solid #f3f4f6;
+    font-size: 11px;
+    color: #374151;
+}
+.ptag-rh-item:last-child {
+    border-bottom: none;
+}
+.ptag-rh-item:hover {
+    background: #f9fafb;
+}
+.ptag-rh-time {
+    color: #6b7280;
+    font-variant-numeric: tabular-nums;
+}
+.ptag-rh-stt {
+    font-weight: 600;
+    color: #1f2937;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.ptag-rh-user {
+    color: #6b7280;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.ptag-rh-sign {
+    text-align: center;
+    font-weight: 700;
+    font-size: 13px;
+    color: #6b7280;
+}
+.ptag-rh-sign.add { color: #10b981; }
+.ptag-rh-sign.remove { color: #ef4444; }
+.ptag-rh-sign.auto { color: #3b82f6; }
+.ptag-rh-label {
+    color: #4b5563;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: right;
+}
+.ptag-rh-more {
+    padding: 8px 12px;
+    text-align: center;
+    color: #6b7280;
+    font-size: 11px;
+    background: #f9fafb;
+    border-top: 1px solid #e5e7eb;
+}
+.ptag-rh-more i {
+    color: #3b82f6;
+    margin: 0 2px;
+}
+
+/* =====================================================
    GLOBAL TAG HISTORY MODAL
    ===================================================== */
 .ptag-gh-overlay {

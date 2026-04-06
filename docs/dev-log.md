@@ -8,6 +8,13 @@
 
 ## 2026-04-06
 
+### [orders] Per-row history popover — nút clock trên từng row panel Chốt Đơn ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-processing-tags.js`, `orders-report/css/tab1-processing-tags.css` |
+| **Chi tiết** | User yêu cầu mỗi row trong panel Chốt Đơn (substate, flag, subtag, T-tag) có nút riêng để xem lịch sử thêm/xóa tag đó ở đơn nào. **Implementation**: (1) Helper inline `_rowHistoryBtnHtml(rowType, rowId)` (line 1869-1875) generate button 20×20px với icon `fa-clock-rotate-left`, escape single quotes trong rowId. (2) Chèn button vào 5 nơi trong `renderPanelContent()`: substate row (line 2073, type='substate'), built-in flag row (line 2101, type='flag'), custom flag row dưới KHÁC (line 2125, type='flag'), subtag row (line 2160, type='subtag'), T-tag row (line 2195, type='ttag'). Tất cả button có `event.stopPropagation()` để không trigger row click filter. (3) Section mới SECTION 10D `PER-ROW HISTORY POPOVER` (line 4793-4905) với 3 function: `_ptagMatchRowHistoryEntry(entry, rowType, rowId)` filter logic — substate match `SET_CATEGORY` value `1:*` + `ADD_TTAG`/`REMOVE_TTAG`/`TRANSFER_*` (vì substate auto-derive từ tTags count, không log riêng); flag match `ADD_FLAG`/`REMOVE_FLAG` value === rowId; subtag match `SET_CATEGORY` value `cat:subTag`; ttag match `ADD_TTAG`/`REMOVE_TTAG` value === rowId. `_ptagGetRowHistoryTitle()` resolve label từ enum (`PTAG_SUBSTATES`, `PTAG_FLAGS`, custom flag, `PTAG_SUBTAGS`, T-tag def name). `_ptagShowRowHistory(rowType, rowId, anchorEl)` aggregate qua `_ptagAggregateAllHistory()` (đã có), filter, take top 20, render popover. Mỗi item: time DD/MM HH:MM + STT/Code + user + sign (+/-/←/→) + label. Nếu > 20 entries → hiển thị footer "+N mục cũ hơn — bấm clock ở header để xem hết". (4) Position popover smart: align right edge với button, flip up nếu vượt viewport, clamp left/right. Close on outside click (skip nếu click vào anchorEl để tránh re-open). (5) CSS mới `.ptag-row-history-btn` (20×20px, gray border, hover xanh) + `.ptag-row-history-popover` (340×420px, header tím gradient, grid 5 cột) trong `tab1-processing-tags.css` (line 2107-2237). Sign colors: add green, remove red, auto blue. (6) Window export `_ptagShowRowHistory`. **Substate edge case**: OKIE_CHO_DI_DON và CHO_HANG đều show cùng dataset (vì substate transitions không log riêng, chỉ derived từ tTags count). User vẫn thấy được toàn bộ activity trong category 1 — đủ context để hiểu order nào vừa vào CHỜ ĐI ĐƠN, order nào vừa được gán T-tag (→ chuyển sang CHỜ HÀNG). |
+| **Status** | ✅ Done |
+
 ### [orders] Modal gộp đơn — preview "Sau Khi Gộp" hiển thị merged tags pills ✅
 | | |
 |---|---|
