@@ -4622,7 +4622,12 @@
             }
             if (actionGroup) {
                 const meta = PTAG_ACTION_META[entry.action];
-                if (!meta || meta.group !== actionGroup) return false;
+                if (!meta) return false;
+                if (actionGroup === 'ttag_transfer') {
+                    if (meta.group !== 'ttag' && meta.group !== 'transfer') return false;
+                } else if (meta.group !== actionGroup) {
+                    return false;
+                }
             }
             if (userQuery) {
                 const userName = _ptagNormalize(entry.user || '');
@@ -4708,10 +4713,12 @@
                 <div class="ptag-gh-filters">
                     <input type="text" id="ptag-gh-filter-order" class="ptag-gh-filter-input" placeholder="Tìm đơn (STT/Mã)..." oninput="window._ptagGHFilterChanged()" />
                     <select id="ptag-gh-filter-action" class="ptag-gh-filter-select" onchange="window._ptagGHFilterChanged()">
+                        <option value="ttag_transfer" selected>Tag XL + Chuyển đơn</option>
                         <option value="">Tất cả loại</option>
                         <option value="category">Phân loại</option>
                         <option value="flag">Đặc điểm</option>
-                        <option value="ttag">Tag T</option>
+                        <option value="ttag">Tag XL</option>
+                        <option value="transfer">Chuyển đơn</option>
                         <option value="auto">Tự động</option>
                         <option value="phieu">Phiếu soạn</option>
                     </select>
@@ -4737,6 +4744,8 @@
         });
 
         document.body.appendChild(modal);
+        // Apply default filter ('Tag XL + Chuyển đơn' selected in dropdown)
+        _ptagGHApplyFilters();
         _ptagRenderGlobalHistoryList();
     }
 

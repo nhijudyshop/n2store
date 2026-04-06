@@ -8,6 +8,13 @@
 
 ## 2026-04-06
 
+### [orders] Lịch sử Tag — default filter "Tag XL + Chuyển đơn" ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-processing-tags.js` |
+| **Chi tiết** | User yêu cầu xem lại lịch sử thêm/xóa Tag XL (T-tag) trong panel Chốt Đơn. Phát hiện feature **đã có sẵn**: icon clock ở header panel (`fa-clock-rotate-left`, line 1834-1836) → mở modal `_ptagOpenGlobalHistory()` (line 4684) với filter STT/mã đơn + loại action + user, pagination 50/trang, đã track `ADD_TTAG`/`REMOVE_TTAG`/`TRANSFER_IN`/`TRANSFER_OUT`. **Thiếu duy nhất**: dropdown filter loại không có option "Chuyển đơn" (group `transfer` đã định nghĩa trong `PTAG_ACTION_META` nhưng không xuất hiện ở UI), và mở modal mặc định show tất cả thay vì chỉ Tag XL + Chuyển đơn. **Fix**: (1) Thêm 3 option vào `<select id="ptag-gh-filter-action">` (line 4710): `"ttag_transfer"` ("Tag XL + Chuyển đơn", `selected`), `"transfer"` ("Chuyển đơn"), và đổi label `"ttag"` từ "Tag T" → "Tag XL" cho consistent với UI bảng. (2) Sửa `_ptagGHApplyFilters()` (line 4623-4630) handle group đặc biệt `ttag_transfer`: match `meta.group === 'ttag' \|\| meta.group === 'transfer'`. (3) Sửa `_ptagOpenGlobalHistory()` — thêm `_ptagGHApplyFilters()` call sau `appendChild` để áp dụng filter mặc định (trước đó set thẳng `_globalHistoryFiltered = [..._cache]` nên dropdown selected nhưng không filter). **KHÔNG đổi**: cleanup 60 ngày giữ nguyên (user yêu cầu), cột "Bảng/campaign" không thêm (user yêu cầu không cần). **Cleanup hiện hành**: `_ptagCleanupOldHistory()` (line 4531) xóa cả tag data + history nếu order > 60 ngày không update — không phải sliding window per-entry. |
+| **Status** | ✅ Done |
+
 ### [orders] Fix gộp đơn — Tag XL persistence + subState preservation + phone normalize ✅
 | | |
 |---|---|
