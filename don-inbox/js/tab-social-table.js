@@ -141,15 +141,24 @@ function renderTableRow(order, index) {
             </td>
             <td data-column="actions">
                 <div class="action-buttons">
-                    <button class="btn-edit-icon" onclick="openEditOrderModal('${order.id}')" title="Sửa đơn">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button class="tag-icon-btn-red" onclick="confirmDeleteOrder('${order.id}')" title="Xóa đơn">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                    <button class="btn-edit-icon" onclick="openRetailSaleFromSocial('${order.id}')" title="Tạo phiếu bán hàng lẻ" style="color: #10b981;">
-                        <i class="fas fa-receipt"></i>
-                    </button>
+                    ${order.status === 'cancelled' ? `
+                        <button class="btn-edit-icon" onclick="restoreOrder('${order.id}')" title="Khôi phục đơn" style="color: #10b981;">
+                            <i class="fas fa-undo"></i>
+                        </button>
+                        <button class="tag-icon-btn-red" onclick="confirmPermanentDeleteOrder('${order.id}')" title="Xóa vĩnh viễn">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    ` : `
+                        <button class="btn-edit-icon" onclick="openEditOrderModal('${order.id}')" title="Sửa đơn">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="tag-icon-btn-red" onclick="confirmCancelOrder('${order.id}')" title="Hủy đơn" style="color: #f59e0b;">
+                            <i class="fas fa-ban"></i>
+                        </button>
+                        <button class="btn-edit-icon" onclick="openRetailSaleFromSocial('${order.id}')" title="Tạo phiếu bán hàng lẻ" style="color: #10b981;">
+                            <i class="fas fa-receipt"></i>
+                        </button>
+                    `}
                 </div>
             </td>
             <td data-column="stt" style="text-align: center;">${order.stt || index + 1}</td>
@@ -558,6 +567,9 @@ function updateSelectionUI() {
         selectAllCheckbox.checked = count > 0 && count === visibleCount;
         selectAllCheckbox.indeterminate = count > 0 && count < visibleCount;
     }
+
+    // Refresh bulk action bar (cancel vs restore/permanent delete)
+    if (typeof updateBulkActionBar === 'function') updateBulkActionBar();
 }
 
 // ===== UTILITY ACTIONS =====
@@ -572,72 +584,261 @@ function copyPhone(phone) {
         });
 }
 
-// ===== DELETE =====
-let pendingDeleteOrderId = null;
+// ===== CANCEL / RESTORE / PERMANENT DELETE =====
+// Single pending action state — dispatched by confirmPendingAction()
+let pendingAction = null; // { type, ids, single }
 
-function confirmDeleteOrder(orderId) {
-    pendingDeleteOrderId = orderId;
-    const order = SocialOrderState.orders.find((o) => o.id === orderId);
-
+/**
+ * Configure the confirm modal UI based on action type.
+ */
+function _showConfirmModal({ titleText, titleColor, titleIcon, message, warning, info, btnText, btnIcon, btnColor }) {
     const modal = document.getElementById('confirmDeleteModal');
+    if (!modal) return;
+
+    const titleTextEl = document.getElementById('confirmDeleteTitleText');
+    const titleIconEl = document.getElementById('confirmDeleteTitleIcon');
     const messageEl = document.getElementById('confirmDeleteMessage');
+    const warningEl = document.getElementById('confirmDeleteWarning');
+    const infoEl = document.getElementById('confirmDeleteInfo');
+    const btnEl = document.getElementById('confirmDeleteButton');
+    const btnIconEl = document.getElementById('confirmDeleteButtonIcon');
+    const btnTextEl = document.getElementById('confirmDeleteButtonText');
 
-    if (messageEl) {
-        messageEl.innerHTML = `Bạn có chắc muốn xóa đơn <strong>${orderId}</strong>?<br>
-        <span style="color: #6b7280; font-size: 13px;">Khách: ${order?.customerName || 'N/A'}</span>`;
+    if (titleTextEl) titleTextEl.textContent = titleText;
+    if (titleIconEl) {
+        titleIconEl.className = `fas ${titleIcon}`;
+        titleIconEl.style.color = titleColor;
     }
+    if (messageEl) messageEl.innerHTML = message;
+    if (warningEl) warningEl.style.display = warning ? 'block' : 'none';
+    if (infoEl) infoEl.style.display = info ? 'block' : 'none';
+    if (btnIconEl) btnIconEl.className = `fas ${btnIcon}`;
+    if (btnTextEl) btnTextEl.textContent = btnText;
+    if (btnEl) btnEl.style.background = btnColor;
 
-    if (modal) {
-        modal.classList.add('show');
-    }
+    modal.classList.add('show');
 }
 
 function closeConfirmDeleteModal() {
     const modal = document.getElementById('confirmDeleteModal');
-    if (modal) {
-        modal.classList.remove('show');
-    }
-    pendingDeleteOrderId = null;
+    if (modal) modal.classList.remove('show');
+    pendingAction = null;
 }
 
-function confirmDelete() {
-    if (!pendingDeleteOrderId) return;
+// ---- SINGLE: CANCEL ----
+function confirmCancelOrder(orderId) {
+    const order = SocialOrderState.orders.find((o) => o.id === orderId);
+    if (!order) return;
+    pendingAction = { type: 'cancel', ids: [orderId], single: true };
+    _showConfirmModal({
+        titleText: 'Xác nhận hủy đơn',
+        titleColor: '#f59e0b',
+        titleIcon: 'fa-ban',
+        message: `Bạn có chắc muốn <strong>hủy</strong> đơn <strong>#${order.stt || orderId}</strong>?<br>
+            <span style="color:#6b7280; font-size:13px;">Khách: ${order.customerName || 'N/A'}</span>`,
+        warning: false,
+        info: true,
+        btnText: 'Hủy đơn',
+        btnIcon: 'fa-ban',
+        btnColor: '#f59e0b'
+    });
+}
 
-    const index = SocialOrderState.orders.findIndex((o) => o.id === pendingDeleteOrderId);
-    if (index > -1) {
-        const deletedOrder = { ...SocialOrderState.orders[index] };
-        SocialOrderState.orders.splice(index, 1);
-        saveSocialOrdersToStorage();
-        // Fire-and-forget: sync to Firestore
-        deleteSocialOrder(pendingDeleteOrderId);
-        if (window.InboxHistory) InboxHistory.logDelete(deletedOrder);
-        showNotification('Đã xóa đơn hàng', 'success');
-        performTableSearch();
+// ---- SINGLE: PERMANENT DELETE ----
+function confirmPermanentDeleteOrder(orderId) {
+    const order = SocialOrderState.orders.find((o) => o.id === orderId);
+    if (!order) return;
+    pendingAction = { type: 'permanent_delete', ids: [orderId], single: true };
+    _showConfirmModal({
+        titleText: 'Xóa vĩnh viễn',
+        titleColor: '#ef4444',
+        titleIcon: 'fa-exclamation-triangle',
+        message: `Bạn có chắc muốn <strong>xóa vĩnh viễn</strong> đơn <strong>#${order.stt || orderId}</strong>?<br>
+            <span style="color:#6b7280; font-size:13px;">Khách: ${order.customerName || 'N/A'}</span>`,
+        warning: true,
+        info: false,
+        btnText: 'Xóa vĩnh viễn',
+        btnIcon: 'fa-trash-alt',
+        btnColor: '#ef4444'
+    });
+}
+
+// ---- SINGLE: RESTORE (no modal, instant action) ----
+async function restoreOrder(orderId) {
+    const order = SocialOrderState.orders.find((o) => o.id === orderId);
+    if (!order) return;
+
+    order.status = 'draft';
+    order.updatedAt = Date.now();
+    saveSocialOrdersToStorage();
+
+    if (typeof updateSocialOrder === 'function') {
+        updateSocialOrder(orderId, { status: 'draft' }); // fire-and-forget
     }
+    if (window.InboxHistory && typeof InboxHistory.logRestore === 'function') {
+        InboxHistory.logRestore(order);
+    }
+    showNotification('Đã khôi phục đơn hàng', 'success');
+    performTableSearch();
+}
 
+// ---- DISPATCHER: confirm pending action from modal ----
+function confirmPendingAction() {
+    if (!pendingAction) { closeConfirmDeleteModal(); return; }
+
+    switch (pendingAction.type) {
+        case 'cancel':
+            _doCancel(pendingAction.ids);
+            break;
+        case 'permanent_delete':
+            _doPermanentDelete(pendingAction.ids);
+            break;
+        case 'bulk_cancel':
+            _doBulkCancel(pendingAction.ids);
+            break;
+        case 'bulk_permanent_delete':
+            _doPermanentDelete(pendingAction.ids);
+            break;
+    }
     closeConfirmDeleteModal();
 }
 
-function deleteSelectedOrders() {
+function _doCancel(ids) {
+    let count = 0;
+    ids.forEach((id) => {
+        const order = SocialOrderState.orders.find((o) => o.id === id);
+        if (!order) return;
+        order.status = 'cancelled';
+        order.updatedAt = Date.now();
+        if (typeof updateSocialOrder === 'function') {
+            updateSocialOrder(id, { status: 'cancelled' }); // fire-and-forget
+        }
+        if (window.InboxHistory && typeof InboxHistory.logCancel === 'function') {
+            InboxHistory.logCancel(order);
+        }
+        count++;
+    });
+    saveSocialOrdersToStorage();
+    SocialOrderState.selectedOrders.clear();
+    showNotification(count > 1 ? `Đã hủy ${count} đơn` : 'Đã hủy đơn', 'success');
+    performTableSearch();
+    if (typeof updateSelectionUI === 'function') updateSelectionUI();
+}
+
+function _doPermanentDelete(ids) {
+    const removed = SocialOrderState.orders.filter((o) => ids.includes(o.id)).map((o) => ({ ...o }));
+    SocialOrderState.orders = SocialOrderState.orders.filter((o) => !ids.includes(o.id));
+    SocialOrderState.selectedOrders.clear();
+    saveSocialOrdersToStorage();
+
+    // Fire-and-forget API call
+    if (ids.length === 1) {
+        if (typeof deleteSocialOrder === 'function') deleteSocialOrder(ids[0]);
+    } else {
+        if (typeof bulkDeleteSocialOrders === 'function') bulkDeleteSocialOrders(ids);
+    }
+
+    // Log
+    if (window.InboxHistory) {
+        if (ids.length === 1 && typeof InboxHistory.logPermanentDelete === 'function') {
+            InboxHistory.logPermanentDelete(removed[0]);
+        } else if (typeof InboxHistory.logBulkDelete === 'function') {
+            InboxHistory.logBulkDelete(removed);
+        }
+    }
+
+    showNotification(ids.length > 1 ? `Đã xóa vĩnh viễn ${ids.length} đơn` : 'Đã xóa vĩnh viễn đơn hàng', 'success');
+    performTableSearch();
+    if (typeof updateSelectionUI === 'function') updateSelectionUI();
+}
+
+// ---- BULK: CANCEL ----
+function cancelSelectedOrders() {
     const count = SocialOrderState.selectedOrders.size;
     if (count === 0) return;
+    const ids = [...SocialOrderState.selectedOrders];
+    pendingAction = { type: 'bulk_cancel', ids, single: false };
+    _showConfirmModal({
+        titleText: 'Xác nhận hủy hàng loạt',
+        titleColor: '#f59e0b',
+        titleIcon: 'fa-ban',
+        message: `Bạn có chắc muốn <strong>hủy ${count} đơn</strong> đã chọn?`,
+        warning: false,
+        info: true,
+        btnText: `Hủy ${count} đơn`,
+        btnIcon: 'fa-ban',
+        btnColor: '#f59e0b'
+    });
+}
 
-    if (confirm(`Bạn có chắc muốn xóa ${count} đơn đã chọn?`)) {
-        // Remove selected orders
-        const deletedIds = [...SocialOrderState.selectedOrders];
-        const deletedOrders = SocialOrderState.orders.filter(o => SocialOrderState.selectedOrders.has(o.id)).map(o => ({ ...o }));
-        SocialOrderState.orders = SocialOrderState.orders.filter(
-            (o) => !SocialOrderState.selectedOrders.has(o.id)
-        );
-        SocialOrderState.selectedOrders.clear();
-        saveSocialOrdersToStorage();
-        // Fire-and-forget: sync to Firestore
-        bulkDeleteSocialOrders(deletedIds);
-        if (window.InboxHistory) InboxHistory.logBulkDelete(deletedOrders);
+// ---- BULK: PERMANENT DELETE ----
+function permanentDeleteSelectedOrders() {
+    const count = SocialOrderState.selectedOrders.size;
+    if (count === 0) return;
+    const ids = [...SocialOrderState.selectedOrders];
+    pendingAction = { type: 'bulk_permanent_delete', ids, single: false };
+    _showConfirmModal({
+        titleText: 'Xóa vĩnh viễn hàng loạt',
+        titleColor: '#ef4444',
+        titleIcon: 'fa-exclamation-triangle',
+        message: `Bạn có chắc muốn <strong>xóa vĩnh viễn ${count} đơn</strong> đã chọn?`,
+        warning: true,
+        info: false,
+        btnText: `Xóa ${count} đơn`,
+        btnIcon: 'fa-trash-alt',
+        btnColor: '#ef4444'
+    });
+}
 
-        showNotification(`Đã xóa ${count} đơn hàng`, 'success');
-        performTableSearch();
-        updateSelectionUI();
+// ---- BULK: RESTORE (instant) ----
+function restoreSelectedOrders() {
+    const count = SocialOrderState.selectedOrders.size;
+    if (count === 0) return;
+    const ids = [...SocialOrderState.selectedOrders];
+    ids.forEach((id) => {
+        const order = SocialOrderState.orders.find((o) => o.id === id);
+        if (!order) return;
+        order.status = 'draft';
+        order.updatedAt = Date.now();
+        if (typeof updateSocialOrder === 'function') {
+            updateSocialOrder(id, { status: 'draft' });
+        }
+        if (window.InboxHistory && typeof InboxHistory.logRestore === 'function') {
+            InboxHistory.logRestore(order);
+        }
+    });
+    saveSocialOrdersToStorage();
+    SocialOrderState.selectedOrders.clear();
+    showNotification(`Đã khôi phục ${count} đơn`, 'success');
+    performTableSearch();
+    if (typeof updateSelectionUI === 'function') updateSelectionUI();
+}
+
+/**
+ * Render bulk action buttons based on current status filter.
+ * Called from updateSelectionUI() and performTableSearch().
+ */
+function updateBulkActionBar() {
+    const container = document.getElementById('bulkActionButtons');
+    if (!container) return;
+    const statusFilter = document.getElementById('statusFilter');
+    const currentFilter = statusFilter?.value || 'all';
+
+    if (currentFilter === 'cancelled') {
+        container.innerHTML = `
+            <button class="btn-primary" onclick="restoreSelectedOrders()" style="background:#10b981;">
+                <i class="fas fa-undo"></i> Khôi phục đã chọn
+            </button>
+            <button class="btn-primary" onclick="permanentDeleteSelectedOrders()" style="background:#ef4444;">
+                <i class="fas fa-trash-alt"></i> Xóa vĩnh viễn đã chọn
+            </button>
+        `;
+    } else {
+        container.innerHTML = `
+            <button class="btn-primary" onclick="cancelSelectedOrders()" style="background:#f59e0b;">
+                <i class="fas fa-ban"></i> Hủy đơn đã chọn
+            </button>
+        `;
     }
 }
 
@@ -724,10 +925,15 @@ window.populateTagFilter = populateTagFilter;
 window.toggleOrderSelection = toggleOrderSelection;
 window.toggleSelectAll = toggleSelectAll;
 window.copyPhone = copyPhone;
-window.confirmDeleteOrder = confirmDeleteOrder;
 window.closeConfirmDeleteModal = closeConfirmDeleteModal;
-window.confirmDelete = confirmDelete;
-window.deleteSelectedOrders = deleteSelectedOrders;
+window.confirmCancelOrder = confirmCancelOrder;
+window.confirmPermanentDeleteOrder = confirmPermanentDeleteOrder;
+window.restoreOrder = restoreOrder;
+window.confirmPendingAction = confirmPendingAction;
+window.cancelSelectedOrders = cancelSelectedOrders;
+window.permanentDeleteSelectedOrders = permanentDeleteSelectedOrders;
+window.restoreSelectedOrders = restoreSelectedOrders;
+window.updateBulkActionBar = updateBulkActionBar;
 window.updateSearchResultCount = updateSearchResultCount;
 window.changeSocialOrderStatus = changeSocialOrderStatus;
 window.openNoteImagePreview = openNoteImagePreview;

@@ -302,6 +302,70 @@ router.post('/entries/batch-delete', async (req, res) => {
     }
 });
 
+/**
+ * POST /api/social-orders/cleanup-cancelled
+ * Permanently delete cancelled orders older than 30 days.
+ * Protected by X-Cleanup-Secret header (env CLEANUP_SECRET).
+ * Called daily by GitHub Actions cron.
+ */
+router.post('/cleanup-cancelled', async (req, res) => {
+    // Auth via shared secret header
+    const secret = req.headers['x-cleanup-secret'];
+    if (!process.env.CLEANUP_SECRET) {
+        return res.status(500).json({ error: 'CLEANUP_SECRET not configured on server' });
+    }
+    if (!secret || secret !== process.env.CLEANUP_SECRET) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    try {
+        const pool = req.app.locals.chatDb;
+        if (!pool) return res.status(500).json({ error: 'Database not available' });
+        await ensureTables(pool);
+
+        const RETENTION_DAYS = 30;
+        const cutoff = Date.now() - (RETENTION_DAYS * 24 * 60 * 60 * 1000);
+
+        const result = await pool.query(
+            `DELETE FROM social_orders
+             WHERE status = 'cancelled' AND updated_at < $1
+             RETURNING id, stt, customer_name, phone`,
+            [cutoff]
+        );
+
+        // Log summary to history (single row)
+        if (result.rowCount > 0) {
+            try {
+                await pool.query(
+                    `INSERT INTO social_orders_history (action, details, snapshot, user_email, created_at)
+                     VALUES ($1, $2, $3, $4, $5)`,
+                    [
+                        'auto_cleanup',
+                        `Tự động xóa ${result.rowCount} đơn đã hủy cũ hơn ${RETENTION_DAYS} ngày`,
+                        JSON.stringify(result.rows),
+                        'system@cron',
+                        Date.now()
+                    ]
+                );
+            } catch (logErr) {
+                console.warn('[SOCIAL-ORDERS] cleanup log failed:', logErr.message);
+            }
+        }
+
+        console.log(`[SOCIAL-ORDERS] cleanup-cancelled: deleted ${result.rowCount} orders`);
+        res.json({
+            success: true,
+            deletedCount: result.rowCount,
+            retentionDays: RETENTION_DAYS,
+            cutoff,
+            ids: result.rows.map((r) => r.id)
+        });
+    } catch (error) {
+        console.error('[SOCIAL-ORDERS] POST /cleanup-cancelled error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // =====================================================
 // TAGS - LOAD / SAVE
 // =====================================================

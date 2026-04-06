@@ -1,0 +1,44 @@
+# #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes.
+name: Auto cleanup cancelled inbox orders
+
+# Mỗi ngày 02:00 Asia/Ho_Chi_Minh (UTC+7) = 19:00 UTC hôm trước
+# Gọi Render endpoint xoá vĩnh viễn các đơn status='cancelled' cũ hơn 30 ngày.
+on:
+  schedule:
+    - cron: '0 19 * * *'
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call cleanup-cancelled endpoint
+        env:
+          CLEANUP_SECRET: ${{ secrets.CLEANUP_SECRET }}
+        run: |
+          set -e
+          if [ -z "$CLEANUP_SECRET" ]; then
+            echo "::error::CLEANUP_SECRET secret is missing"
+            exit 1
+          fi
+
+          echo "Calling cleanup-cancelled endpoint..."
+          RESPONSE=$(curl -sS -w "\n__HTTP_CODE__%{http_code}" -X POST \
+            'https://n2store-fallback.onrender.com/api/social-orders/cleanup-cancelled' \
+            -H "X-Cleanup-Secret: $CLEANUP_SECRET" \
+            -H 'Content-Type: application/json' \
+            --max-time 120)
+
+          BODY=$(echo "$RESPONSE" | sed -e 's/__HTTP_CODE__.*//')
+          CODE=$(echo "$RESPONSE" | grep -o '__HTTP_CODE__[0-9]*' | sed 's/__HTTP_CODE__//')
+
+          echo "HTTP $CODE"
+          echo "Body: $BODY"
+
+          if [ "$CODE" != "200" ]; then
+            echo "::error::Cleanup endpoint returned HTTP $CODE"
+            exit 1
+          fi
+
+          DELETED=$(echo "$BODY" | python3 -c "import sys, json; print(json.load(sys.stdin).get('deletedCount', '?'))" 2>/dev/null || echo "?")
+          echo "::notice::Deleted $DELETED cancelled orders older than 30 days"

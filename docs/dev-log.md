@@ -8,6 +8,13 @@
 
 ## 2026-04-06
 
+### [inbox][render] Đơn Inbox — Soft-cancel + tab Đã hủy + auto-cleanup 30 ngày ✅
+| | |
+|---|---|
+| **Files** | `don-inbox/index.html`, `don-inbox/js/tab-social-table.js`, `don-inbox/js/tab-social-history.js`, `render.com/routes/social-orders.js`, `.github/workflows/cleanup-cancelled-orders.yml` (new) |
+| **Chi tiết** | Đổi hành vi nút 🗑️ "Xóa đơn" thành 🚫 "Hủy đơn" (soft-delete, set `status='cancelled'`). Tab "Đã hủy" hiển thị action buttons riêng: **Khôi phục** (undo → `draft`) và **Xóa vĩnh viễn** (DELETE thật). Filter status dropdown rút gọn còn 4 option: `Tất cả / Nháp / Đơn hàng / Đã hủy` (ẩn `processing`, `completed` — nhưng giữ trong `STATUS_CONFIG` để data cũ không vỡ, admin dropdown cell vẫn dùng được). **FE**: (1) `tab-social-table.js` — rewrite section DELETE thành action dispatcher (`pendingAction = {type, ids}`), thêm `confirmCancelOrder`, `confirmPermanentDeleteOrder`, `restoreOrder`, `confirmPendingAction`, `cancelSelectedOrders`, `permanentDeleteSelectedOrders`, `restoreSelectedOrders`, `updateBulkActionBar`. `renderTableRow()` render action column khác theo `order.status`. (2) `index.html` — dropdown filter 4 option, bulk action container `#bulkActionButtons` (render theo tab), modal generic với title/icon/button/warning động (thông báo "sẽ tự động xóa sau 30 ngày" khi hủy). (3) `tab-social-history.js` — thêm `logCancel`, `logRestore`, `logPermanentDelete`; thêm label mapping cho `cancel`/`restore`/`permanent_delete`/`auto_cleanup` trong `HISTORY_ACTION_CONFIG`. **BE**: Render route `social-orders.js` — thêm endpoint `POST /api/social-orders/cleanup-cancelled` bảo vệ bằng header `X-Cleanup-Secret` (env `CLEANUP_SECRET`), query `DELETE FROM social_orders WHERE status='cancelled' AND updated_at < (now - 30 days)`, log kết quả vào `social_orders_history` với action `auto_cleanup`. **Infra**: thêm env var `CLEANUP_SECRET` vào Render service `n2store-fallback` qua `PUT /v1/services/{id}/env-vars/{KEY}` (đã verify không ảnh hưởng 24 vars khác → 25 tổng). Tạo workflow `.github/workflows/cleanup-cancelled-orders.yml` chạy cron daily 19:00 UTC (= 02:00 ICT) + `workflow_dispatch`, curl endpoint với secret từ GitHub Secrets. |
+| **Status** | ✅ Done |
+
 ### [inbox] Fix real-time conv list — read convs không bị đẩy lên trên unread ✅
 | | |
 |---|---|
