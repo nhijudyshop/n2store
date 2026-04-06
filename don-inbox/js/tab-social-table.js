@@ -637,9 +637,21 @@ function closeConfirmDeleteModal() {
 
 // ---- SINGLE: CANCEL ----
 function confirmCancelOrder(orderId) {
+    console.log('[CANCEL-DEBUG] 1️⃣ confirmCancelOrder called', { orderId });
     const order = SocialOrderState.orders.find((o) => o.id === orderId);
-    if (!order) return;
+    if (!order) {
+        console.warn('[CANCEL-DEBUG] ❌ Order not found in state:', orderId);
+        return;
+    }
+    console.log('[CANCEL-DEBUG] 2️⃣ Found order:', {
+        id: order.id,
+        stt: order.stt,
+        customerName: order.customerName,
+        status: order.status,
+        existingNote: order.note
+    });
     pendingAction = { type: 'cancel', ids: [orderId], single: true };
+    console.log('[CANCEL-DEBUG] 3️⃣ pendingAction set:', pendingAction);
     _showConfirmModal({
         titleText: 'Xác nhận hủy đơn',
         titleColor: '#f59e0b',
@@ -653,6 +665,7 @@ function confirmCancelOrder(orderId) {
         btnColor: '#f59e0b',
         reasonInput: true
     });
+    console.log('[CANCEL-DEBUG] 4️⃣ Modal opened, waiting for user confirm...');
 }
 
 // ---- SINGLE: PERMANENT DELETE ----
@@ -695,15 +708,27 @@ async function restoreOrder(orderId) {
 
 // ---- DISPATCHER: confirm pending action from modal ----
 function confirmPendingAction() {
-    if (!pendingAction) { closeConfirmDeleteModal(); return; }
+    console.log('[CANCEL-DEBUG] 5️⃣ confirmPendingAction called', { pendingAction });
+    if (!pendingAction) {
+        console.warn('[CANCEL-DEBUG] ❌ No pendingAction, closing modal');
+        closeConfirmDeleteModal();
+        return;
+    }
 
     // Read cancel reason from textarea (only used for cancel / bulk_cancel)
     let reason = '';
     if (pendingAction.type === 'cancel' || pendingAction.type === 'bulk_cancel') {
         const reasonEl = document.getElementById('confirmCancelReason');
+        const rawValue = reasonEl ? reasonEl.value : '(textarea not found)';
         reason = (reasonEl && reasonEl.value ? reasonEl.value.trim() : '') || 'HẾT HÀNG';
+        console.log('[CANCEL-DEBUG] 6️⃣ Reason read from textarea:', {
+            rawValue,
+            cleaned: reason,
+            textareaFound: !!reasonEl
+        });
     }
 
+    console.log('[CANCEL-DEBUG] 7️⃣ Dispatching action type:', pendingAction.type);
     switch (pendingAction.type) {
         case 'cancel':
         case 'bulk_cancel':
@@ -713,8 +738,11 @@ function confirmPendingAction() {
         case 'bulk_permanent_delete':
             _doPermanentDelete(pendingAction.ids);
             break;
+        default:
+            console.warn('[CANCEL-DEBUG] ❌ Unknown action type:', pendingAction.type);
     }
     closeConfirmDeleteModal();
+    console.log('[CANCEL-DEBUG] ✅ confirmPendingAction done, modal closed');
 }
 
 /**
@@ -722,13 +750,18 @@ function confirmPendingAction() {
  * reason is visible in the Đã hủy tab without adding a new DB column.
  */
 function _doCancel(ids, reason) {
+    console.log('[CANCEL-DEBUG] 8️⃣ _doCancel called', { ids, reason });
     const cleanReason = (reason || 'HẾT HÀNG').trim();
     const marker = `[HỦY: ${cleanReason}]`;
+    console.log('[CANCEL-DEBUG] 9️⃣ Marker:', marker);
     let count = 0;
 
     ids.forEach((id) => {
         const order = SocialOrderState.orders.find((o) => o.id === id);
-        if (!order) return;
+        if (!order) {
+            console.warn('[CANCEL-DEBUG] ❌ Order not found for id:', id);
+            return;
+        }
 
         // Build new note: prepend marker, preserve any existing note below
         const existingNote = (order.note || '').trim();
@@ -736,20 +769,35 @@ function _doCancel(ids, reason) {
         const stripped = existingNote.replace(/^\[HỦY:[^\]]*\]\s*/i, '');
         const newNote = stripped ? `${marker}\n${stripped}` : marker;
 
+        console.log('[CANCEL-DEBUG] 🔟 Note transform for order', id, {
+            before: existingNote,
+            stripped,
+            after: newNote
+        });
+
         order.status = 'cancelled';
         order.note = newNote;
         order.updatedAt = Date.now();
 
         if (typeof updateSocialOrder === 'function') {
-            updateSocialOrder(id, { status: 'cancelled', note: newNote }); // fire-and-forget
+            console.log('[CANCEL-DEBUG] 📡 Calling updateSocialOrder (fire-and-forget)', {
+                id, payload: { status: 'cancelled', note: newNote }
+            });
+            updateSocialOrder(id, { status: 'cancelled', note: newNote })
+                .then((r) => console.log('[CANCEL-DEBUG] ✅ updateSocialOrder resolved for', id, r))
+                .catch((e) => console.error('[CANCEL-DEBUG] ❌ updateSocialOrder FAILED for', id, e));
+        } else {
+            console.warn('[CANCEL-DEBUG] ⚠️ updateSocialOrder is not a function');
         }
         if (window.InboxHistory && typeof InboxHistory.logCancel === 'function') {
             InboxHistory.logCancel(order, cleanReason);
+            console.log('[CANCEL-DEBUG] 📝 History logged for', id);
         }
         count++;
     });
 
     saveSocialOrdersToStorage();
+    console.log('[CANCEL-DEBUG] 💾 saveSocialOrdersToStorage done, count =', count);
     SocialOrderState.selectedOrders.clear();
     showNotification(
         count > 1 ? `Đã hủy ${count} đơn (${cleanReason})` : `Đã hủy đơn: ${cleanReason}`,
@@ -757,6 +805,7 @@ function _doCancel(ids, reason) {
     );
     performTableSearch();
     if (typeof updateSelectionUI === 'function') updateSelectionUI();
+    console.log('[CANCEL-DEBUG] 🏁 _doCancel finished');
 }
 
 function _doPermanentDelete(ids) {

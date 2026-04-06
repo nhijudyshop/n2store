@@ -163,16 +163,25 @@ async function createSocialOrder(order) {
 
 // ===== UPDATE ORDER (Render API only) =====
 async function updateSocialOrder(orderId, updates) {
+    console.log('[CANCEL-DEBUG] 📡 updateSocialOrder → API', {
+        orderId,
+        url: `${SOCIAL_API_BASE}/entries/${encodeURIComponent(orderId)}`,
+        payload: { ...updates, updatedAt: Date.now() }
+    });
     saveSocialOrdersToStorage();
 
     try {
-        await _apiFetch(`/entries/${encodeURIComponent(orderId)}`, {
+        const result = await _apiFetch(`/entries/${encodeURIComponent(orderId)}`, {
             method: 'PUT',
             body: JSON.stringify({ ...updates, updatedAt: Date.now() })
         });
         console.log('[SocialAPI] Updated order:', orderId);
+        console.log('[CANCEL-DEBUG] ✅ API response for', orderId, result);
+        return result;
     } catch (e) {
         console.error('[SocialAPI] Error updating order:', e.message);
+        console.error('[CANCEL-DEBUG] ❌ updateSocialOrder error for', orderId, e);
+        throw e;
     }
 }
 
