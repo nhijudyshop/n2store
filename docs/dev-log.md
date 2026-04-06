@@ -8,6 +8,13 @@
 
 ## 2026-04-06
 
+### [inbox] Message bubbles — chữ to và đậm hơn ✅
+| | |
+|---|---|
+| **Files** | `inbox/css/inbox.css` |
+| **Chi tiết** | User yêu cầu tăng kích thước chữ trong bong bóng tin nhắn chat (cho dễ đọc, đồng bộ với conversation list). **Fix**: 1) `.message-text`: 15px/normal → **17px/500**. 2) `.message-time`: 10px/opacity 0.7 → **12px/opacity 0.8/weight 500**, margin-top 2px → 4px. |
+| **Status** | ✅ Done |
+
 ### [inbox] Conversation list — chữ đậm to hơn + unread pop với background indigo ✅
 | | |
 |---|---|
