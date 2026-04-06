@@ -8,6 +8,13 @@
 
 ## 2026-04-06
 
+### [orders] Modal gộp đơn — preview "Sau Khi Gộp" hiển thị merged tags pills ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-merge.js` |
+| **Chi tiết** | User báo bug — modal "Gộp Sản Phẩm Đơn Trùng SĐT" cột **"Sau Khi Gộp (STT XX)"** trống không có tag pills nào, trong khi các cột STT nguồn/đích bên cạnh vẫn render đầy đủ tag pills. → Không xem trước được kết quả merge tags trước khi click "Xác nhận Gộp Đơn". **Root cause**: `renderClusterCard` (line 687-689) chỉ render text `Sau Khi Gộp` cho header `merged-col` mà không có logic compute merged tags. Logic merge tag thật ở `assignTagsAfterMerge` (line 1571) chỉ chạy SAU khi user xác nhận → preview hoàn toàn không tồn tại ở client-side. **Fix**: (1) Thêm pure helper `calculateMergedTagsPreview(cluster)` (sau `getOrderTagsArray` ~line 1527, ~50 dòng) — mirror exact filter + dedup logic của `assignTagsAfterMerge`: (a) `shouldExcludeTag()` filter `MERGED_ORDER_TAG_NAME` ('ĐÃ GỘP KO CHỐT') + tag bắt đầu bằng `'Gộp '` (merge group cũ), (b) target tags trước (priority hiển thị) → source tags sort theo `SessionIndex` ascending (deterministic), dedup by `tag.Id` qua `Map`, (c) thêm placeholder `{Id:'__preview_merge_group__', Name:'Gộp X Y Z', Color: MERGE_TAG_COLOR}` (tag thật sẽ tạo lúc confirm). (2) Sửa `renderClusterCard` (line 686-693) — compute `mergedTagsPreview` rồi render qua `renderMergeTagPills()` có sẵn vào header `merged-col`. Empty case (cluster không có tag) → render fallback `"Không có tag"` pill xám `#9ca3af`. **CSS**: Reuse `merge-header-tags` + `merge-tag-pill` class có sẵn ở `tab1-orders.css:3876` → không thêm CSS mới. **Backwards compatible**: `assignTagsAfterMerge` không bị chạm → behavior thực tế khi confirm merge giữ nguyên 100%, fix chỉ ở display layer. **Verification scenario** (screenshot user): STT 4 (CHỜ ĐI ĐƠN OKE, CHUYỂN KHOẢN, GIẢM GIÁ, T8 LÓT TULIP) + STT 6 (CHỜ ĐI ĐƠN OKE, T7 BÌNH SIÊU TỐC) + STT 73 đích (GIẢM GIÁ) → preview giờ hiển thị: GIẢM GIÁ (target) → CHỜ ĐI ĐƠN OKE → CHUYỂN KHOẢN → T8 LÓT TULIP (từ STT 4) → T7 BÌNH SIÊU TỐC (từ STT 6) → Gộp 4 6 73 (placeholder vàng). `node --check` syntax OK. |
+| **Status** | ✅ Done |
+
 ### [orders] Lịch sử Tag — default filter "Tag XL + Chuyển đơn" ✅
 | | |
 |---|---|

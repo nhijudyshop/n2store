@@ -683,9 +683,18 @@ function renderClusterCard(cluster) {
     const isSelected = selectedMergeClusters.has(cluster.id);
     const orderTitles = cluster.orders.map(o => `STT ${o.SessionIndex} - ${o.PartnerName || 'N/A'}`).join(' | ');
 
+    // Compute merged tags preview (mirror assignTagsAfterMerge logic)
+    const mergedTagsPreview = calculateMergedTagsPreview(cluster);
+    const mergedTagsHtml = mergedTagsPreview.length > 0
+        ? renderMergeTagPills(mergedTagsPreview)
+        : `<div class="merge-header-tags merge-empty"><span class="merge-tag-pill" style="background:#9ca3af;">Không có tag</span></div>`;
+
     // Build table headers
     const headers = [
-        `<th class="merged-col">Sau Khi Gộp<br><small>(STT ${cluster.targetOrder.SessionIndex})</small></th>`
+        `<th class="merged-col">
+            Sau Khi Gộp<br><small>(STT ${cluster.targetOrder.SessionIndex})</small>
+            ${mergedTagsHtml}
+        </th>`
     ];
 
     cluster.orders.forEach(order => {
@@ -1523,6 +1532,66 @@ function getOrderTagsArray(order) {
     }
 
     return [];
+}
+
+/**
+ * Tính toán preview merged tags cho cluster — pure function, mirror logic
+ * của assignTagsAfterMerge (filter merge tags cũ + dedup by Id + thêm
+ * "Gộp X Y Z" placeholder). Dùng để hiển thị preview trong modal trước khi
+ * user xác nhận gộp đơn.
+ *
+ * @param {Object} cluster - { targetOrder, sourceOrders, orders }
+ * @returns {Array<{Id, Name, Color}>} Danh sách tag dedup theo Id
+ */
+function calculateMergedTagsPreview(cluster) {
+    if (!cluster || !cluster.targetOrder) return [];
+
+    const allTags = new Map(); // dedup by tag.Id
+
+    // Filter giống hệt assignTagsAfterMerge — KHÔNG được lệch
+    const shouldExcludeTag = (tagName) => {
+        if (!tagName) return false;
+        if (tagName === MERGED_ORDER_TAG_NAME) return true;     // 'ĐÃ GỘP KO CHỐT'
+        if (tagName.startsWith('Gộp ')) return true;            // tag merge group cũ
+        return false;
+    };
+
+    // 1) Target tags trước (priority hiển thị)
+    const targetTags = getOrderTagsArray(cluster.targetOrder);
+    targetTags.forEach(t => {
+        if (t && t.Id != null && !shouldExcludeTag(t.Name)) {
+            allTags.set(t.Id, t);
+        }
+    });
+
+    // 2) Source tags theo STT ascending — đảm bảo deterministic
+    const sourceOrdersSorted = [...(cluster.sourceOrders || [])]
+        .sort((a, b) => (a.SessionIndex || 0) - (b.SessionIndex || 0));
+
+    sourceOrdersSorted.forEach(sourceOrder => {
+        const sourceTags = getOrderTagsArray(sourceOrder);
+        sourceTags.forEach(t => {
+            if (t && t.Id != null && !shouldExcludeTag(t.Name) && !allTags.has(t.Id)) {
+                allTags.set(t.Id, t);
+            }
+        });
+    });
+
+    // 3) Placeholder "Gộp X Y Z" tag (sẽ tạo thật khi confirm merge)
+    const allSTTs = (cluster.orders || [])
+        .map(o => o.SessionIndex)
+        .filter(s => s != null)
+        .sort((a, b) => a - b);
+    if (allSTTs.length > 0) {
+        const previewMergeTagName = `Gộp ${allSTTs.join(' ')}`;
+        allTags.set('__preview_merge_group__', {
+            Id: '__preview_merge_group__',
+            Name: previewMergeTagName,
+            Color: MERGE_TAG_COLOR
+        });
+    }
+
+    return Array.from(allTags.values());
 }
 
 /**
