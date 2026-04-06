@@ -1013,10 +1013,12 @@
             snapshotAt: Date.now()
         };
 
-        // Chuyển sang ĐÃ RA ĐƠN — giữ flags + tTags, chỉ reset subTag/subState
+        // Chuyển sang ĐÃ RA ĐƠN — clear tTags (Tx sản phẩm) + reset subTag/subState
+        // tTags đã được snapshot, sẽ restore khi hủy phiếu
         data.category = PTAG_CATEGORIES.HOAN_TAT;
         data.subTag = null;
         data.subState = null;
+        data.tTags = [];
         data.assignedAt = Date.now();
         data.previousPosition = snapshot;
 

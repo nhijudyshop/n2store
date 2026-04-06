@@ -8,6 +8,13 @@
 
 ## 2026-04-06
 
+### [orders] Auto detect GIẢM GIÁ + clear Tx tags khi tạo phiếu bán hàng ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/utils/sale-modal-common.js`, `orders-report/js/tab1/tab1-sale.js`, `orders-report/js/tab1/tab1-fast-sale.js`, `orders-report/js/tab1/tab1-processing-tags.js` |
+| **Chi tiết** | 2 thay đổi trong cùng commit: **(A) GIẢM GIÁ auto-detect**: Bỏ điều kiện gating "phải có TPOS tag GIẢM GIÁ" ở mọi nơi parse/apply discount từ ghi chú sản phẩm. Trước đây phải có tag "GIẢM GIÁ" thì discount mới được tính → user phàn nàn vì phải gán tag thủ công. Sau: discount luôn được auto-parse từ note (regex `^(\d+(?:[.,]\d+)?)\s*k$` hoặc plain number), khi `totalDiscount > 0` → tự động gán flag `GIAM_GIA` vào XL state qua helper mới `_ensureGiamGiaFlag(orderCode)` (idempotent — check flag tồn tại trước khi gọi `toggleOrderFlag`). Helper dùng `window.toggleOrderFlag` để tận dụng sync v3 hook → tự push tag "GIẢM GIÁ" sang TPOS. **5 vị trí gỡ gate**: (1) `sale-modal-common.js:populateSaleOrderLinesFromAPI()` — bỏ `const hasDiscountTag = currentSaleOrderHasDiscountTag()` (line 774), `notePrice = parseDiscountFromNoteForDisplay(productNote)` luôn (line 788), block render discount input bỏ điều kiện tag + thêm call `_ensureGiamGiaFlag(currentSaleOrderData?.Code)`. (2) `tab1-sale.js:1762` payload builder — bỏ `if (saleOrderHasDiscountTag(order))`, thêm call `window._ensureGiamGiaFlag(order.Code)`. (3) `tab1-fast-sale.js:960` `hasAnyDiscount` (cho auto-generate order note) — bỏ `hasDiscountTag &&`. (4) `tab1-fast-sale.js:1607` freeship calc — bỏ `if (orderHasDiscountTag(order))`. (5) `tab1-fast-sale.js:1805` payload builder — bỏ gate, thêm call `window._ensureGiamGiaFlag(saleOnlineOrder?.Code || order.Reference)`. Helper functions `currentSaleOrderHasDiscountTag` / `saleOrderHasDiscountTag` / `orderHasDiscountTag` giữ lại (dead code, không xóa để tránh side-effect). **(B) Clear Tx tags khi auto-transition ĐÃ RA ĐƠN**: User báo bug — tạo phiếu bán hàng thành công thì tag "ĐÃ RA ĐƠN" được gán nhưng các Tx sản phẩm (vd "T7 BÌNH SIÊU TỐC") vẫn còn ở cột TAG XL. Yêu cầu: clear Tx tags khi chuyển sang ĐÃ RA ĐƠN, nhưng lưu lại trong snapshot để khi hủy phiếu sẽ restore. Fix: `tab1-processing-tags.js:onPtagBillCreated()` thêm `data.tTags = []` ngay sau `data.subState = null`. Snapshot trong `previousPosition` đã lưu `tTags` từ commit trước → `onPtagBillCancelled` đã restore `tTags = [...prev.tTags]` sẵn → restore tự động hoạt động. Sync v3 hook đã có sẵn ở cuối cả 2 function → tự push xóa/restore Tx tag sang TPOS. |
+| **Status** | ✅ Done |
+
 ### [orders] Robust snapshot/restore cho onPtagBillCreated + onPtagBillCancelled + hook sync v3 ✅
 | | |
 |---|---|

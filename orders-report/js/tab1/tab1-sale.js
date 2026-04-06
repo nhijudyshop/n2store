@@ -1755,18 +1755,22 @@ function buildFastSaleOrderPayload() {
     const originalAmountTotal = orderLines.reduce((sum, line) => sum + (line.PriceTotal || 0), 0);
     const totalQuantity = orderLines.reduce((sum, line) => sum + (line.ProductUOMQty || 0), 0);
 
-    // 🔥 DISCOUNT LOGIC: Check for "GIẢM GIÁ" tag and apply discount from product notes
+    // 🔥 DISCOUNT LOGIC: Auto-detect discount from product notes (no tag gating)
     let decreaseAmountPayload = 0;
     let finalAmountTotalPayload = originalAmountTotal;
 
-    if (saleOrderHasDiscountTag(order)) {
+    {
         const { totalDiscount, discountedProducts } = calculateSaleOrderDiscount(order);
         if (totalDiscount > 0) {
             decreaseAmountPayload = totalDiscount;
             finalAmountTotalPayload = originalAmountTotal - decreaseAmountPayload;
             console.log(
-                `[SALE-PAYLOAD-DISCOUNT] Applied ${decreaseAmountPayload.toLocaleString('vi-VN')}đ discount`
+                `[SALE-PAYLOAD-DISCOUNT] Applied ${decreaseAmountPayload.toLocaleString('vi-VN')}đ discount (${discountedProducts.length} products)`
             );
+            // Auto-add GIAM_GIA flag to XL state (fire-and-forget) — sync v3 propagates to TPOS tag
+            if (typeof window._ensureGiamGiaFlag === 'function') {
+                window._ensureGiamGiaFlag(order.Code);
+            }
         }
     }
 

@@ -956,10 +956,9 @@ function renderFastSaleOrderRow(order, index, carriers = []) {
         ? order._userShippingFee
         : (order.DeliveryPrice || 35000);
 
-    // Check if order has discount tag and calculate discount
-    const hasDiscountTag = orderHasDiscountTag(order);
+    // Auto-detect discount from product notes (no tag gating)
     const { totalDiscount, discountedProducts } = calculateOrderDiscount(order);
-    const hasAnyDiscount = hasDiscountTag && totalDiscount > 0;
+    const hasAnyDiscount = totalDiscount > 0;
 
     // ========== AUTO-GENERATE ORDER NOTE ==========
     const noteParts = [];
@@ -1604,7 +1603,7 @@ function updateFastSaleShippingFee(index) {
                 0;
             let finalAmountTotal = originalAmountTotal;
 
-            if (orderHasDiscountTag(order)) {
+            {
                 const { totalDiscount } = calculateOrderDiscount(order);
                 if (totalDiscount > 0) {
                     finalAmountTotal = originalAmountTotal - totalDiscount;
@@ -1790,7 +1789,7 @@ function collectFastSaleData() {
         // Get current user ID from token or global context
         const currentUserId = window.tokenManager?.userId || window.currentUser?.Id || null;
 
-        // Calculate discount if order has "GIẢM GIÁ" tag
+        // Auto-detect discount from product notes (no tag gating)
         let decreaseAmount = 0;
         const originalAmountTotal =
             order.AmountTotal ||
@@ -1802,7 +1801,7 @@ function collectFastSaleData() {
             0;
         let finalAmountTotal = originalAmountTotal;
 
-        if (orderHasDiscountTag(order)) {
+        {
             const { totalDiscount, discountedProducts } = calculateOrderDiscount(order);
             if (totalDiscount > 0) {
                 decreaseAmount = totalDiscount;
@@ -1810,6 +1809,11 @@ function collectFastSaleData() {
                 console.log(
                     `[FAST-SALE] Order ${order.Reference}: Applied discount ${decreaseAmount.toLocaleString('vi-VN')}đ (${discountedProducts.length} products)`
                 );
+                // Auto-add GIAM_GIA flag to XL state (fire-and-forget) — sync v3 propagates to TPOS tag
+                if (typeof window._ensureGiamGiaFlag === 'function') {
+                    const orderCode = saleOnlineOrder?.Code || order.Reference;
+                    if (orderCode) window._ensureGiamGiaFlag(orderCode);
+                }
             }
         }
 

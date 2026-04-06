@@ -206,6 +206,28 @@ function currentSaleOrderHasDiscountTag() {
     return false;
 }
 
+/**
+ * Ensure order has GIAM_GIA flag in XL state (idempotent).
+ * Uses sync v3 to propagate to TPOS tag "GIẢM GIÁ".
+ * Called when discount is auto-detected from product notes.
+ * @param {string} orderCode - SaleOnlineOrder Code (e.g. "SO12345")
+ */
+async function _ensureGiamGiaFlag(orderCode) {
+    if (!orderCode) return;
+    if (typeof window.toggleOrderFlag !== 'function') return;
+    try {
+        const xlData = window.ProcessingTagState?.getOrderData?.(orderCode);
+        const flags = xlData?.flags || [];
+        const hasFlag = flags.some(f => (f?.id || f) === 'GIAM_GIA');
+        if (hasFlag) return;
+        await window.toggleOrderFlag(orderCode, 'GIAM_GIA', 'auto-discount');
+        console.log('[SALE-DISCOUNT] Auto-added GIAM_GIA flag for', orderCode);
+    } catch (e) {
+        console.warn('[SALE-DISCOUNT] Failed to auto-add GIAM_GIA flag:', e?.message || e);
+    }
+}
+window._ensureGiamGiaFlag = _ensureGiamGiaFlag;
+
 // =====================================================
 // DELIVERY CARRIER DROPDOWN
 // =====================================================
@@ -749,7 +771,6 @@ function populateSaleOrderLinesFromAPI(orderLines) {
     }
 
     currentSaleOrderData.orderLines = orderLines;
-    const hasDiscountTag = currentSaleOrderHasDiscountTag();
 
     let totalQuantity = 0;
     let totalAmount = 0;
@@ -763,7 +784,7 @@ function populateSaleOrderLinesFromAPI(orderLines) {
         const productName = item.Product?.NameGet || item.ProductName || '';
         const productNote = item.Note || '';
 
-        const notePrice = hasDiscountTag ? parseDiscountFromNoteForDisplay(productNote) : 0;
+        const notePrice = parseDiscountFromNoteForDisplay(productNote);
         const discountPerUnit = notePrice > 0 ? Math.max(0, price - notePrice) : 0;
         const productDiscount = discountPerUnit * qty;
         const isDiscountedProduct = productDiscount > 0;
@@ -818,7 +839,7 @@ function populateSaleOrderLinesFromAPI(orderLines) {
 
     container.innerHTML = itemsHTML;
 
-    if (hasDiscountTag && totalDiscount > 0) {
+    if (totalDiscount > 0) {
         const discountInput = document.getElementById('saleDiscount');
         if (discountInput) discountInput.value = totalDiscount;
         const discountEl = document.getElementById('saleDiscountFromTag');
@@ -826,6 +847,8 @@ function populateSaleOrderLinesFromAPI(orderLines) {
             discountEl.textContent = `-${totalDiscount.toLocaleString('vi-VN')}`;
             discountEl.parentElement.style.display = 'flex';
         }
+        // Auto-add GIAM_GIA flag to XL state (fire-and-forget) — sync v3 propagates to TPOS tag
+        _ensureGiamGiaFlag(currentSaleOrderData?.Code);
     }
 
     updateSaleTotals(totalQuantity, totalAmount);
