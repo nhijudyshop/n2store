@@ -8,15 +8,13 @@
     const RENDER_WS_URL = 'wss://n2store-fallback.onrender.com';
     const RENDER_API_URL = 'https://n2store-fallback.onrender.com';
     const ODATA_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order/ODataService.GetView';
-    const BUFFER_POLL_INTERVAL = 45000; // 45 seconds
 
     let ws = null;
     let reconnectTimer = null;
     let reconnectAttempts = 0;
     const MAX_RECONNECT = 15;
     const recentlyProcessed = new Map(); // Code -> timestamp, deduplicate
-    let bufferPollTimer = null;
-    let lastBufferCheck = Date.now();
+    let lastReceivedSTT = 0; // Track highest STT received via real-time
 
     // ===== WebSocket Connection =====
     function connect() {
@@ -103,6 +101,15 @@
         const customerName = eventData?.Data?.Facebook_UserName || order.Name || '';
         const nv = extractEmployeeName(eventData?.Message);
         showNewOrderToast(code, customerName, nv, order.SessionIndex);
+
+        // STT gap detection: check if we missed orders between last and current
+        const newSTT = order.SessionIndex || eventData?.Data?.SessionIndex;
+        if (newSTT && lastReceivedSTT > 0 && newSTT > lastReceivedSTT + 1) {
+            const gap = newSTT - lastReceivedSTT - 1;
+            console.log(`[TPOS-RT] STT gap detected: ${lastReceivedSTT} → ${newSTT} (${gap} missing)`);
+            fetchMissingFromBuffer(lastReceivedSTT + 1, newSTT - 1);
+        }
+        if (newSTT) lastReceivedSTT = Math.max(lastReceivedSTT, newSTT);
     }
 
     async function handleOrderUpdate(eventData) {
@@ -406,64 +413,49 @@
     `;
     document.head.appendChild(style);
 
-    // ===== Buffer Catch-Up Polling =====
-    // Periodically checks server-side buffer for orders missed during disconnection
-    async function pollOrderBuffer() {
-        if (!tableUpdateEnabled) return;
-        if (typeof allData === 'undefined' || !window.tokenManager) return;
-
+    // ===== STT Gap Detection: Fetch Missing Orders =====
+    // When we detect a gap in SessionIndex, query buffer for missing orders
+    async function fetchMissingFromBuffer(fromSTT, toSTT) {
         try {
-            const url = `${RENDER_API_URL}/api/tpos/order-buffer?since=${lastBufferCheck}`;
+            // Query buffer for recent entries (last 3 hours covers most gaps)
+            const since = Date.now() - 3 * 60 * 60 * 1000;
+            const url = `${RENDER_API_URL}/api/tpos/order-buffer?since=${since}`;
             const response = await fetch(url);
             if (!response.ok) return;
 
             const result = await response.json();
-            if (!result.success) return;
+            if (!result.success || !result.data || result.data.length === 0) return;
 
-            // Update timestamp for next poll (use server time to avoid clock skew)
-            lastBufferCheck = result.serverTime || Date.now();
-
-            if (!result.data || result.data.length === 0) return;
-
-            // Find orders we don't have locally
+            // Filter buffer for entries in the missing STT range
             const missingCodes = [];
             for (const entry of result.data) {
+                const stt = entry.session_index;
                 const code = entry.order_code;
                 if (!code) continue;
+                if (stt && (stt < fromSTT || stt > toSTT)) continue;
                 if (allData.find(o => o.Code === code)) continue;
-                if (isRecentlyProcessed(code)) continue;
                 if (!missingCodes.includes(code)) missingCodes.push(code);
             }
 
             if (missingCodes.length === 0) return;
 
-            console.log('[TPOS-RT] Buffer catch-up: found', missingCodes.length, 'missing orders:', missingCodes);
+            console.log(`[TPOS-RT] Fetching ${missingCodes.length} missing orders (STT ${fromSTT}-${toSTT}):`, missingCodes);
 
             for (const code of missingCodes) {
-                if (allData.find(o => o.Code === code)) continue; // re-check
+                if (allData.find(o => o.Code === code)) continue;
                 const order = await fetchOrderByCode(code);
                 if (order) {
                     addOrderToTable(order);
                     markProcessed(code);
-                    console.log('[TPOS-RT] Buffer catch-up: added order', code);
+                    console.log('[TPOS-RT] Gap fill: added order', code, 'STT:', order.SessionIndex);
                 }
-                // Rate limit if many missing
                 if (missingCodes.length > 3) {
                     await new Promise(r => setTimeout(r, 300));
                 }
             }
         } catch (e) {
-            // Silent fail - buffer polling is supplementary
+            console.warn('[TPOS-RT] Gap fill error:', e.message);
         }
-    }
-
-    function startBufferPolling() {
-        if (bufferPollTimer) clearInterval(bufferPollTimer);
-        // Delay first poll 10s to let real-time connect first
-        setTimeout(() => {
-            pollOrderBuffer();
-            bufferPollTimer = setInterval(pollOrderBuffer, BUFFER_POLL_INTERVAL);
-        }, 10000);
     }
 
     // ===== Initialize =====
@@ -475,7 +467,12 @@
         }
         console.log('[TPOS-RT] Initializing real-time order updates...');
         connect();
-        startBufferPolling();
+
+        // Set initial lastReceivedSTT from current data
+        if (allData.length > 0) {
+            lastReceivedSTT = Math.max(...allData.map(o => o.SessionIndex || 0));
+            console.log('[TPOS-RT] Initial max STT:', lastReceivedSTT);
+        }
     }
 
     // Start after DOM loaded
@@ -492,11 +489,10 @@
             connected: ws?.readyState === 1,
             reconnectAttempts,
             recentlyProcessed: recentlyProcessed.size,
-            lastBufferCheck: new Date(lastBufferCheck).toISOString(),
-            bufferPolling: !!bufferPollTimer
+            lastReceivedSTT
         }),
         toggle,
         reconnect: () => { reconnectAttempts = 0; connect(); },
-        pollNow: pollOrderBuffer
+        checkGap: (fromSTT, toSTT) => fetchMissingFromBuffer(fromSTT, toSTT)
     };
 })();
