@@ -6,13 +6,17 @@
 
 (function () {
     const RENDER_WS_URL = 'wss://n2store-fallback.onrender.com';
+    const RENDER_API_URL = 'https://n2store-fallback.onrender.com';
     const ODATA_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order/ODataService.GetView';
+    const BUFFER_POLL_INTERVAL = 45000; // 45 seconds
 
     let ws = null;
     let reconnectTimer = null;
     let reconnectAttempts = 0;
     const MAX_RECONNECT = 15;
     const recentlyProcessed = new Map(); // Code -> timestamp, deduplicate
+    let bufferPollTimer = null;
+    let lastBufferCheck = Date.now();
 
     // ===== WebSocket Connection =====
     function connect() {
@@ -402,6 +406,66 @@
     `;
     document.head.appendChild(style);
 
+    // ===== Buffer Catch-Up Polling =====
+    // Periodically checks server-side buffer for orders missed during disconnection
+    async function pollOrderBuffer() {
+        if (!tableUpdateEnabled) return;
+        if (typeof allData === 'undefined' || !window.tokenManager) return;
+
+        try {
+            const url = `${RENDER_API_URL}/api/tpos/order-buffer?since=${lastBufferCheck}`;
+            const response = await fetch(url);
+            if (!response.ok) return;
+
+            const result = await response.json();
+            if (!result.success) return;
+
+            // Update timestamp for next poll (use server time to avoid clock skew)
+            lastBufferCheck = result.serverTime || Date.now();
+
+            if (!result.data || result.data.length === 0) return;
+
+            // Find orders we don't have locally
+            const missingCodes = [];
+            for (const entry of result.data) {
+                const code = entry.order_code;
+                if (!code) continue;
+                if (allData.find(o => o.Code === code)) continue;
+                if (isRecentlyProcessed(code)) continue;
+                if (!missingCodes.includes(code)) missingCodes.push(code);
+            }
+
+            if (missingCodes.length === 0) return;
+
+            console.log('[TPOS-RT] Buffer catch-up: found', missingCodes.length, 'missing orders:', missingCodes);
+
+            for (const code of missingCodes) {
+                if (allData.find(o => o.Code === code)) continue; // re-check
+                const order = await fetchOrderByCode(code);
+                if (order) {
+                    addOrderToTable(order);
+                    markProcessed(code);
+                    console.log('[TPOS-RT] Buffer catch-up: added order', code);
+                }
+                // Rate limit if many missing
+                if (missingCodes.length > 3) {
+                    await new Promise(r => setTimeout(r, 300));
+                }
+            }
+        } catch (e) {
+            // Silent fail - buffer polling is supplementary
+        }
+    }
+
+    function startBufferPolling() {
+        if (bufferPollTimer) clearInterval(bufferPollTimer);
+        // Delay first poll 10s to let real-time connect first
+        setTimeout(() => {
+            pollOrderBuffer();
+            bufferPollTimer = setInterval(pollOrderBuffer, BUFFER_POLL_INTERVAL);
+        }, 10000);
+    }
+
     // ===== Initialize =====
     // Wait for page to be ready (allData, tokenManager, etc.)
     function init() {
@@ -411,6 +475,7 @@
         }
         console.log('[TPOS-RT] Initializing real-time order updates...');
         connect();
+        startBufferPolling();
     }
 
     // Start after DOM loaded
@@ -426,9 +491,12 @@
             tableUpdateEnabled,
             connected: ws?.readyState === 1,
             reconnectAttempts,
-            recentlyProcessed: recentlyProcessed.size
+            recentlyProcessed: recentlyProcessed.size,
+            lastBufferCheck: new Date(lastBufferCheck).toISOString(),
+            bufferPolling: !!bufferPollTimer
         }),
         toggle,
-        reconnect: () => { reconnectAttempts = 0; connect(); }
+        reconnect: () => { reconnectAttempts = 0; connect(); },
+        pollNow: pollOrderBuffer
     };
 })();

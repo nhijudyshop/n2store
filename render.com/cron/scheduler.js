@@ -8,6 +8,7 @@ const { processDeposit } = require('../services/wallet-event-processor');
 
 // Import pending withdrawals processor
 const { processWithdrawal } = require('../routes/v2/pending-withdrawals');
+const { cleanupOrderBuffer } = require('../routes/tpos-order-buffer');
 
 // Chạy mỗi giờ để expire virtual credits
 cron.schedule('0 * * * *', async () => {
@@ -225,6 +226,17 @@ cron.schedule('0 3 * * *', async () => {
         console.log(`[CRON] ✅ Cleaned up ${result.rowCount} expired recent transfer phones`);
     } catch (error) {
         console.error('[CRON] ❌ Error cleaning up recent_transfer_phones:', error.message);
+    }
+});
+
+// Clean up old order buffer entries (keep last 3 days)
+cron.schedule('0 4 * * *', async () => {
+    console.log('[CRON] Running cleanup tpos_order_buffer...');
+    try {
+        const deleted = await cleanupOrderBuffer(db);
+        console.log(`[CRON] Cleaned up ${deleted} old order buffer entries`);
+    } catch (error) {
+        console.error('[CRON] Error cleaning up tpos_order_buffer:', error.message);
     }
 });
 

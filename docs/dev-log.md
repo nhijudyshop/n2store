@@ -6,6 +6,14 @@
 
 ---
 
+## 2026-04-06
+
+### [render][orders] Server-side order buffer — chống mất đơn real-time ✅
+| | |
+|---|---|
+| **Files** | `render.com/routes/tpos-order-buffer.js` (MỚI), `render.com/server.js`, `render.com/cron/scheduler.js`, `orders-report/js/tab1/tab1-tpos-realtime.js` |
+| **Chi tiết** | Khi client mất kết nối WebSocket (rớt mạng, server restart), event đơn mới từ TPOS bị mất. Fix: 1) Server lưu mọi event `SaleOnline_Order` vào PostgreSQL `tpos_order_buffer` table (fire-and-forget). 2) API endpoint `GET /api/tpos/order-buffer?since=<timestamp>` trả danh sách đơn buffered. 3) Client poll mỗi 45s, so sánh với `allData`, fetch đơn thiếu từ TPOS OData. 4) Cron cleanup tự xóa entries > 3 ngày. Debug: `window.tposRealtime.pollNow()`, `window.tposRealtime.getStatus()`. |
+
 ## 2026-04-05
 
 ### [orders] Fix tiền ship bị reset khi xóa dòng đơn hàng trong phiếu bán hàng hàng loạt ✅

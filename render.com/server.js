@@ -233,6 +233,7 @@ const customer360Routes = require('./routes/customer-360');
 const v2Router = require('./routes/v2');  // Unified API v2
 const tposSavedRoutes = require('./routes/tpos-saved');
 const tposCredentialsRoutes = require('./routes/tpos-credentials');
+const { saveOrderToBuffer } = require('./routes/tpos-order-buffer');
 
 // Mount routes
 app.use('/api/token', tokenRoutes);
@@ -273,6 +274,7 @@ app.use('/iclock', (req, res, next) => { req.pool = chatDbPool; next(); }, admsR
 app.use('/api/users', usersRoutes);
 app.use('/api/quick-replies', quickRepliesRoutes);
 app.use('/api/campaigns', campaignsRoutes);
+app.use('/api/tpos/order-buffer', require('./routes/tpos-order-buffer'));
 
 // Initialize SSE notifiers in realtime-db routes
 const { initializeNotifiers } = require('./routes/realtime-db');
@@ -773,6 +775,9 @@ class TposRealtimeClient {
                         type: eventAction === 'updated' ? 'tpos:order-update' : 'tpos:new-order',
                         data: data
                     });
+
+                    // Save to buffer for catch-up polling (fire-and-forget)
+                    saveOrderToBuffer(chatDbPool, data).catch(() => {});
                 }
 
             } catch (e) {
