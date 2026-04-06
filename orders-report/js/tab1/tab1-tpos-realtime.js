@@ -70,7 +70,23 @@
             handleOrderUpdate(data.data);
         } else if (data.type === 'tpos:tag-assigned') {
             handleTagAssigned(data);
+        } else if (data.type === 'tpos:invoice-list-updated') {
+            handleInvoiceListUpdate(data);
         }
+    }
+
+    function handleInvoiceListUpdate(data) {
+        const invoices = data && Array.isArray(data.invoices) ? data.invoices : null;
+        if (!invoices || invoices.length === 0) return;
+        const store = window.TPOSInvoiceSnapshotStore;
+        if (!store) {
+            console.warn('[TPOS-RT] TPOSInvoiceSnapshotStore not ready');
+            return;
+        }
+        const affected = store.upsertBatch(invoices);
+        if (affected.length === 0) return;
+        store.refreshCellsFor(affected);
+        console.log('[TPOS-RT] Invoice snapshot batch:', invoices.length, '→ affected rows:', affected.length);
     }
 
     async function handleNewOrder(eventData) {

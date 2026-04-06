@@ -31,6 +31,7 @@ const DEFAULT_COLUMN_VISIBILITY = {
     'quantity': true,
     'created-date': false,
     'invoice-status': true,   // Phiếu bán hàng (StateCode + Messenger button)
+    'invoice-status-tpos': true,   // Phiếu bán hàng TPOS (realtime from extension)
     'status': true,
     'fulfillment': true       // Ra đơn (lịch sử tạo/hủy phiếu bán hàng)
 };
