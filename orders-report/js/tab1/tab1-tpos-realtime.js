@@ -14,7 +14,7 @@
     let reconnectAttempts = 0;
     const MAX_RECONNECT = 15;
     const recentlyProcessed = new Map(); // Code -> timestamp, deduplicate
-    const lastReceivedSTT = new Map(); // sessionId -> highest STT received via real-time
+    let lastReceivedSTT = 0; // Highest STT received via real-time
 
     // ===== WebSocket Connection =====
     function connect() {
@@ -102,18 +102,14 @@
         const nv = extractEmployeeName(eventData?.Message);
         showNewOrderToast(code, customerName, nv, order.SessionIndex);
 
-        // STT gap detection: check if we missed orders within the same campaign
+        // STT gap detection: if newSTT > lastSTT + 1, fetch missing orders
         const newSTT = order.SessionIndex || eventData?.Data?.SessionIndex;
-        const sessionId = eventData?.Data?.Session || eventData?.Session;
-        if (newSTT && sessionId) {
-            const prevSTT = lastReceivedSTT.get(sessionId) || 0;
-            if (prevSTT > 0 && newSTT > prevSTT + 1) {
-                const gap = newSTT - prevSTT - 1;
-                console.log(`[TPOS-RT] STT gap detected (session ${sessionId}): ${prevSTT} → ${newSTT} (${gap} missing)`);
-                fetchMissingFromBuffer(prevSTT + 1, newSTT - 1, sessionId);
-            }
-            lastReceivedSTT.set(sessionId, Math.max(prevSTT, newSTT));
+        if (newSTT && lastReceivedSTT > 0 && newSTT > lastReceivedSTT + 1) {
+            const gap = newSTT - lastReceivedSTT - 1;
+            console.log(`[TPOS-RT] STT gap: ${lastReceivedSTT} → ${newSTT} (${gap} missing)`);
+            fetchMissingFromBuffer(lastReceivedSTT + 1, newSTT - 1);
         }
+        if (newSTT) lastReceivedSTT = Math.max(lastReceivedSTT, newSTT);
     }
 
     async function handleOrderUpdate(eventData) {
@@ -418,8 +414,8 @@
     document.head.appendChild(style);
 
     // ===== STT Gap Detection: Fetch Missing Orders =====
-    // When we detect a gap in SessionIndex, query buffer for missing orders in same session
-    async function fetchMissingFromBuffer(fromSTT, toSTT, sessionId) {
+    // When STT jumps (e.g. 425 → 428), fetch 426, 427 from buffer
+    async function fetchMissingFromBuffer(fromSTT, toSTT) {
         try {
             const since = Date.now() - 3 * 60 * 60 * 1000;
             const url = `${RENDER_API_URL}/api/tpos/order-buffer?since=${since}`;
@@ -429,14 +425,11 @@
             const result = await response.json();
             if (!result.success || !result.data || result.data.length === 0) return;
 
-            // Filter buffer: same session + STT in missing range
+            // Filter buffer entries in the missing STT range
             const missingCodes = [];
             for (const entry of result.data) {
                 const code = entry.order_code;
                 if (!code) continue;
-                // Must match same session (campaign)
-                if (sessionId && entry.session_id && entry.session_id !== sessionId) continue;
-                // Must be in missing STT range
                 const stt = entry.session_index;
                 if (stt && (stt < fromSTT || stt > toSTT)) continue;
                 if (allData.find(o => o.Code === code)) continue;
@@ -445,7 +438,7 @@
 
             if (missingCodes.length === 0) return;
 
-            console.log(`[TPOS-RT] Fetching ${missingCodes.length} missing orders (session ${sessionId}, STT ${fromSTT}-${toSTT}):`, missingCodes);
+            console.log(`[TPOS-RT] Fetching ${missingCodes.length} missing orders (STT ${fromSTT}-${toSTT}):`, missingCodes);
 
             for (const code of missingCodes) {
                 if (allData.find(o => o.Code === code)) continue;
@@ -474,15 +467,10 @@
         console.log('[TPOS-RT] Initializing real-time order updates...');
         connect();
 
-        // Set initial lastReceivedSTT per session from current data
+        // Set initial lastReceivedSTT from current data
         if (allData.length > 0) {
-            for (const o of allData) {
-                if (o.Session && o.SessionIndex) {
-                    const prev = lastReceivedSTT.get(o.Session) || 0;
-                    if (o.SessionIndex > prev) lastReceivedSTT.set(o.Session, o.SessionIndex);
-                }
-            }
-            console.log('[TPOS-RT] Initial max STT per session:', Object.fromEntries(lastReceivedSTT));
+            lastReceivedSTT = Math.max(...allData.map(o => o.SessionIndex || 0));
+            console.log('[TPOS-RT] Initial max STT:', lastReceivedSTT);
         }
     }
 
@@ -500,10 +488,10 @@
             connected: ws?.readyState === 1,
             reconnectAttempts,
             recentlyProcessed: recentlyProcessed.size,
-            lastReceivedSTT: Object.fromEntries(lastReceivedSTT)
+            lastReceivedSTT
         }),
         toggle,
         reconnect: () => { reconnectAttempts = 0; connect(); },
-        checkGap: (fromSTT, toSTT, sessionId) => fetchMissingFromBuffer(fromSTT, toSTT, sessionId)
+        checkGap: (fromSTT, toSTT) => fetchMissingFromBuffer(fromSTT, toSTT)
     };
 })();
