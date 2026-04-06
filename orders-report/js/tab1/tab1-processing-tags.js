@@ -1914,6 +1914,7 @@
                 const diDon = subStateCounts['OKIE_CHO_DI_DON'] || 0;
                 const choHang = subStateCounts['CHO_HANG'] || 0;
                 const xuLy = catCounts[2] || 0;
+                const xa = catCounts[4] || 0;
 
                 summaryEl.innerHTML = `<div class="ptag-summary-stats">
                     <!-- Dòng 1: Công thức -->
@@ -1939,12 +1940,15 @@
                         </div>
                     </div>
 
-                    <!-- Dòng 3: XỬ LÝ + CHƯA GÁN -->
+                    <!-- Dòng 3: XỬ LÝ + XÃ + CHƯA GÁN -->
                     <div class="ptag-summary-row">
-                        <div class="ptag-stat-box ptag-stat-amber ${activeFilter === 'cat_2' ? 'active' : ''}" onclick="window._ptagSetFilter('cat_2')">
+                        <div class="ptag-stat-box ptag-stat-amber ptag-stat-w40 ${activeFilter === 'cat_2' ? 'active' : ''}" onclick="window._ptagSetFilter('cat_2')">
                             <span class="ptag-stat-num">${xuLy}</span> <span>XỬ LÝ</span>
                         </div>
-                        <div class="ptag-stat-box ptag-stat-gray ${activeFilter === '__no_tag__' ? 'active' : ''}" onclick="window._ptagSetFilter('__no_tag__')">
+                        <div class="ptag-stat-box ptag-stat-red ptag-stat-w20 ${activeFilter === 'cat_4' ? 'active' : ''}" onclick="window._ptagSetFilter('cat_4')">
+                            <span class="ptag-stat-num">${xa}</span> <span>XÃ</span>
+                        </div>
+                        <div class="ptag-stat-box ptag-stat-gray ptag-stat-w40 ${activeFilter === '__no_tag__' ? 'active' : ''}" onclick="window._ptagSetFilter('__no_tag__')">
                             <span class="ptag-stat-num">${untaggedCount}</span> <span>CHƯA GÁN</span>
                         </div>
                     </div>
