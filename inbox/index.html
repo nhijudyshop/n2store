@@ -675,5 +675,30 @@
 
         <!-- Debug Panel (remove in production) -->
         <script src="js/inbox-debug.js"></script>
+
+        <!-- Image Zoom Overlay -->
+        <div id="imageZoomOverlay" class="image-zoom-overlay" onclick="closeImageZoom()">
+            <div class="image-zoom-container" onclick="event.stopPropagation()">
+                <button class="image-zoom-close" onclick="closeImageZoom()" title="Đóng">&times;</button>
+                <img id="imageZoomImg" src="" alt="Zoomed Image">
+            </div>
+        </div>
+        <script>
+            function showImageZoom(url) {
+                const overlay = document.getElementById('imageZoomOverlay');
+                const img = document.getElementById('imageZoomImg');
+                img.src = url;
+                overlay.classList.add('show');
+                document.body.style.overflow = 'hidden';
+            }
+            function closeImageZoom() {
+                const overlay = document.getElementById('imageZoomOverlay');
+                overlay.classList.remove('show');
+                document.body.style.overflow = '';
+            }
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') closeImageZoom();
+            });
+        </script>
     </body>
 </html>

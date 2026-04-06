@@ -3383,3 +3383,57 @@ body.col-resizing .resize-handle {
     font-size: 12px;
     line-height: 1.4;
 }
+
+/* =====================================================
+   IMAGE ZOOM OVERLAY
+   ===================================================== */
+
+.image-zoom-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.85);
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+}
+
+.image-zoom-overlay.show {
+    display: flex;
+}
+
+.image-zoom-container {
+    position: relative;
+    max-width: 90vw;
+    max-height: 90vh;
+}
+
+.image-zoom-container img {
+    max-width: 90vw;
+    max-height: 85vh;
+    object-fit: contain;
+    border-radius: 8px;
+}
+
+.image-zoom-close {
+    position: absolute;
+    top: -12px;
+    right: -12px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255, 255, 255, 0.9);
+    color: #333;
+    font-size: 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+    transition: background 0.2s;
+}
+
+.image-zoom-close:hover {
+    background: #fff;
+}

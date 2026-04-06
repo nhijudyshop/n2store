@@ -1938,7 +1938,7 @@ class InboxChatController {
 
             // Image
             if (att.type === 'image' || att.type === 'photo' || att.mime_type?.startsWith('image/')) {
-                return `<div class="message-media"><img class="message-image" src="${url}" alt="Ảnh" onclick="window.open('${url}','_blank')" loading="lazy"></div>`;
+                return `<div class="message-media"><img class="message-image" src="${url}" alt="Ảnh" onclick="showImageZoom('${url.replace(/'/g, "\\'")}')" loading="lazy"></div>`;
             }
             // Sticker / GIF
             if (att.type === 'sticker' || att.sticker_id || att.type === 'animated_image_url') {
