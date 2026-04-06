@@ -8,6 +8,13 @@
 
 ## 2026-04-06
 
+### [orders] Sync v3 `_findOrCreateTPOSTag` — `$filter` query thay vì pagination cap ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-tag-sync.js` |
+| **Chi tiết** | Sau khi fix `ensureMergeTagExists` (commit `c551a4b9`), user merge thành công nhưng phát hiện **bug giống hệt** ở forward sync v3: `[TAG-SYNC-V3] Creating new TPOS tag "CHỜ ĐI ĐƠN (OKE)"...` → `POST /api/odata/Tag 400 ()`. Tag `CHỜ ĐI ĐƠN (OKE)` đã tồn tại trên TPOS (Id 99163) nhưng `_findOrCreateTPOSTag` không tìm thấy → POST → server reject. **Root cause**: `_findOrCreateTPOSTag` (cũ) chỉ có 3 step: (1) cache lookup, (2) reload qua `loadAvailableTags()` / `fetchAllTagsWithPagination()`, (3) POST create. Mặc dù step 2 có pagination (đã thấy log `Pagination complete: 1373/1373 tags fetched`), reload là **expensive** (gọi multiple HTTP request) → trong race condition + cache stale, có thể vẫn miss tag. Fallback sau 400 hiện tại phụ thuộc vào việc reload thành công lần 2 trong block recovery — không guarantee. **Fix**: Refactor `_findOrCreateTPOSTag` thành **4-step lookup** mirror pattern của `ensureMergeTagExists`: (1) **Local cache** (`window.availableTags`, dùng `_normalizeName()` case-insensitive). (2) **OData `$filter` query** qua helper mới `_queryTPOSTagByName(name)` — escape single quote `'` → `''`, build expr `Name eq '...'`, `encodeURIComponent`, `$top=5`, dùng `window.API_CONFIG.smartFetch` → cache trên cache, không phụ thuộc pagination. (3) **Full reload** `loadAvailableTags()` / `fetchAllTagsWithPagination()` (last resort trước khi tạo mới — preserve behavior cũ). (4) **POST create** với recovery: nếu trả `400` → re-query qua `_queryTPOSTagByName` 1 lần để recover (handle race condition). Mỗi success path sync vào `window.availableTags` + `cacheManager.set('tags', ...)`. **Behavior preservation**: Return signature giữ nguyên, error path return `null` như cũ (caller `_callAssignTag` handle). **Verification**: `node --check` syntax OK. Sau fix: scenario "tag CHỜ ĐI ĐƠN (OKE) ngoài top 1000 cache" → STEP 2 `$filter` tìm thấy ngay → return → sync flow tiếp tục, không POST nhầm, không 400 trong console. |
+| **Status** | ✅ Done |
+
 ### [orders] Fix `ensureMergeTagExists` — `$filter` query thay vì `$top=1000` ✅
 | | |
 |---|---|

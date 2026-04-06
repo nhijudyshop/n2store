@@ -151,19 +151,62 @@
     }
 
     /**
-     * Tìm TPOS tag trong window.availableTags theo tên. Nếu không có → reload → create.
+     * Query single TPOS tag bằng OData $filter=Name eq '...'.
+     * Targeted lookup — không bị giới hạn pagination ($top=1000).
+     * @returns {Promise<{Id, Name, Color}|null>}
+     */
+    async function _queryTPOSTagByName(name) {
+        try {
+            const headers = await window.tokenManager.getAuthHeader();
+            const escapedName = String(name).replace(/'/g, "''");
+            const filterExpr = `Name eq '${escapedName}'`;
+            const url = `${CREATE_TAG_URL}?$format=json&$filter=${encodeURIComponent(filterExpr)}&$top=5`;
+            const resp = await window.API_CONFIG.smartFetch(url, {
+                method: 'GET',
+                headers: { ...headers, accept: 'application/json' }
+            });
+            if (!resp.ok) return null;
+            const data = await resp.json();
+            const list = Array.isArray(data?.value) ? data.value : [];
+            if (list.length === 0) return null;
+            const upperName = _normalizeName(name);
+            return list.find(t => _normalizeName(t.Name) === upperName) || list[0];
+        } catch (e) {
+            console.warn(`${LOG} _queryTPOSTagByName error for "${name}":`, e.message);
+            return null;
+        }
+    }
+
+    /**
+     * Tìm TPOS tag trong window.availableTags theo tên.
+     * Lookup chain (tránh 400 "đã tồn tại" do pagination cap):
+     *   1. Local cache
+     *   2. OData $filter query (targeted, scale với DB lớn)
+     *   3. Full reload (loadAvailableTags / fetchAllTagsWithPagination)
+     *   4. POST create — nếu 400 thì re-query bằng $filter để recover
      * @returns {Promise<{Id, Name, Color}|null>}
      */
     async function _findOrCreateTPOSTag(name) {
         const tags = window.availableTags || [];
         const upperName = _normalizeName(name);
 
-        // 1. Tìm trong cache
+        // 1. Cache lookup
         let tag = tags.find(t => _normalizeName(t.Name) === upperName);
         if (tag) return tag;
 
-        // 2. Reload từ API
-        console.log(`${LOG} Tag "${name}" not in cache, reloading...`);
+        // 2. OData $filter query — targeted, không bị pagination
+        const filtered = await _queryTPOSTagByName(name);
+        if (filtered) {
+            // Sync vào cache
+            if (Array.isArray(window.availableTags) && !window.availableTags.find(t => t.Id === filtered.Id)) {
+                window.availableTags.push(filtered);
+                if (window.cacheManager) window.cacheManager.set('tags', window.availableTags, 'tags');
+            }
+            return filtered;
+        }
+
+        // 3. Full reload (last resort trước khi create)
+        console.log(`${LOG} Tag "${name}" not in cache or filter query, reloading all...`);
         try {
             if (typeof window.loadAvailableTags === 'function') {
                 await window.loadAvailableTags();
@@ -180,7 +223,7 @@
             console.warn(`${LOG} Reload tags failed:`, e.message);
         }
 
-        // 3. Create mới
+        // 4. Create mới
         console.log(`${LOG} Creating new TPOS tag "${name}"...`);
         try {
             const headers = await window.tokenManager.getAuthHeader();
@@ -195,14 +238,16 @@
                 body: JSON.stringify({ Name: name, Color: color })
             });
             if (!response.ok) {
-                // 400 = tag đã tồn tại race condition → reload 1 lần nữa
-                if (response.status === 400 && typeof window.fetchAllTagsWithPagination === 'function') {
-                    const headers2 = await window.tokenManager.getAuthHeader();
-                    const fresh = await window.fetchAllTagsWithPagination(headers2);
-                    window.availableTags = fresh;
-                    if (window.cacheManager) window.cacheManager.set('tags', fresh, 'tags');
-                    const retry = fresh.find(t => _normalizeName(t.Name) === upperName);
-                    if (retry) return retry;
+                // 400 = tag đã tồn tại race condition → re-query bằng $filter để recover
+                if (response.status === 400) {
+                    const recovered = await _queryTPOSTagByName(name);
+                    if (recovered) {
+                        if (Array.isArray(window.availableTags) && !window.availableTags.find(t => t.Id === recovered.Id)) {
+                            window.availableTags.push(recovered);
+                            if (window.cacheManager) window.cacheManager.set('tags', window.availableTags, 'tags');
+                        }
+                        return recovered;
+                    }
                 }
                 throw new Error(`HTTP ${response.status}`);
             }
