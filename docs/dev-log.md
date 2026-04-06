@@ -8,6 +8,13 @@
 
 ## 2026-04-06
 
+### [inbox] Conversation list — chữ đậm to hơn + unread pop với background indigo ✅
+| | |
+|---|---|
+| **Files** | `inbox/css/inbox.css` |
+| **Chi tiết** | User yêu cầu: (1) text trong danh sách conversation đậm/to hơn; (2) unread items có background nổi bật để phân biệt với read. **Fix**: 1) `.conv-name`: 15px/600 → 16px/700. 2) `.conv-preview`: 13px/normal → 15px/500 (line-height 1.45→1.5). 3) `.conv-time`: 12px/500 → 13px/600. 4) `.conv-page-name`: 11px → 13px/500. 5) `.conversation-item.unread`: đổi bg từ `--surface-container-lowest` (#ffffff — trùng col bg → không nổi) sang `#eef2ff` (soft indigo wash) + border-left primary 4px. Font weight cho unread: name 700→800, preview 500→700, time primary color 700. Hover unread: `#e0e7ff`. 6) `.conversation-item.active`: đổi bg từ `--primary-bg` sang `#dad7ff` (darker, saturated hơn để distinct với unread). Selector `.conversation-item.unread.active` đảm bảo active override unread khi trùng. Sort unread-first đã có sẵn từ commit trước (`277de493`). |
+| **Status** | ✅ Done |
+
 ### [inbox] Tìm kiếm hội thoại theo số điện thoại — normalize VN phone formats ✅
 | | |
 |---|---|

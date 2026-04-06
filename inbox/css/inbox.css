@@ -526,23 +526,36 @@ body.col-resizing .resize-handle {
     background: var(--surface-container-low);
 }
 
-.conversation-item.active {
-    background: var(--primary-bg);
+/* Unread — soft indigo wash with primary accent bar so it "pops" from read items */
+.conversation-item.unread {
+    background: #eef2ff;
     border-left-color: var(--primary);
 }
 
-.conversation-item.unread {
-    background: var(--surface-container-lowest);
+.conversation-item.unread:hover {
+    background: #e0e7ff;
 }
 
 .conversation-item.unread .conv-name {
-    font-weight: 700;
+    font-weight: 800;
     color: var(--text-primary);
 }
 
 .conversation-item.unread .conv-preview {
-    font-weight: 600;
+    font-weight: 700;
     color: var(--text-primary);
+}
+
+.conversation-item.unread .conv-time {
+    font-weight: 700;
+    color: var(--primary);
+}
+
+/* Active overrides unread — more saturated */
+.conversation-item.active,
+.conversation-item.unread.active {
+    background: #dad7ff;
+    border-left-color: var(--primary);
 }
 
 .conv-avatar {
@@ -603,8 +616,8 @@ body.col-resizing .resize-handle {
 }
 
 .conv-name {
-    font-weight: 600;
-    font-size: 0.9375rem;
+    font-weight: 700;
+    font-size: 1rem;
     color: var(--text-primary);
     white-space: nowrap;
     overflow: hidden;
@@ -613,20 +626,21 @@ body.col-resizing .resize-handle {
 }
 
 .conv-time {
-    font-size: 0.75rem;
+    font-size: 0.8125rem;
     color: var(--text-tertiary);
     white-space: nowrap;
     flex-shrink: 0;
-    font-weight: 500;
+    font-weight: 600;
 }
 
 .conv-preview {
-    font-size: 0.8125rem;
+    font-size: 0.9375rem;
     color: var(--text-secondary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    line-height: 1.45;
+    line-height: 1.5;
+    font-weight: 500;
 }
 
 .conv-footer {
@@ -2240,7 +2254,8 @@ body.col-resizing .resize-handle {
 }
 
 .conv-page-name {
-    font-size: 0.6875rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
     color: var(--text-tertiary);
     white-space: nowrap;
     overflow: hidden;
