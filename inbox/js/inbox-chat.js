@@ -1488,17 +1488,12 @@ class InboxChatController {
         this.elements.btnMarkUnread.style.display = '';
         this.updateLivestreamButton(conv);
         this.renderChatLabelBar(conv);
-        // Update active highlight + mark read without full re-render
+        // Update active highlight without marking as read
         this.elements.conversationList.querySelectorAll('.conversation-item.active').forEach(el => el.classList.remove('active'));
         const activeEl = this.elements.conversationList.querySelector(`[data-id="${convId}"]`);
         if (activeEl) {
-            activeEl.classList.remove('unread');
             activeEl.classList.add('active');
-            const badge = activeEl.querySelector('.conv-unread-badge');
-            if (badge) badge.remove();
         }
-        this.data.markAsRead(convId);
-        this.renderGroupStats();
 
         // Reset stats bar and post info while loading
         const statsBar = document.getElementById('customerStatsBar');
