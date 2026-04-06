@@ -768,11 +768,18 @@
     const PTAG_TO_TPOS_MAP = {
         // Subtags → TPOS tag name
         'subtag:GIO_TRONG': 'GIỎ TRỐNG',
+        'subtag:DA_GOP_KHONG_CHOT': 'ĐÃ GỘP KO CHỐT',
+        'subtag:NCC_HET_HANG': 'NCC HẾT HÀNG',
         // Built-in flags → TPOS tag name
         'flag:TRU_CONG_NO': 'TRỪ CÔNG NỢ',
         'flag:KHACH_BOOM': 'KHÁCH BOOM',
         'flag:THE_KHACH_LA': 'THẺ KHÁCH LẠ',
         'flag:DA_DI_DON_GAP': 'ĐÃ ĐI ĐƠN GẤP',
+        'flag:GIAM_GIA': 'GIẢM GIÁ',
+        'flag:CHUYEN_KHOAN': 'CHUYỂN KHOẢN',
+        'flag:QUA_LAY': 'QUA LẤY',
+        'flag:CHO_LIVE': 'CHỜ LIVE',
+        'flag:GIU_DON': 'GIỮ ĐƠN',
         // T-tags → TPOS tag name
         'ttag:T_MY': 'MY THÊM CHỜ VỀ',
     };
@@ -786,7 +793,14 @@
         // 1. Check static mapping
         if (PTAG_TO_TPOS_MAP[tagXLKey]) return PTAG_TO_TPOS_MAP[tagXLKey];
 
-        // 2. Custom flags → use label as TPOS tag name
+        // 2. T-tags → use definition name as TPOS tag name
+        if (tagXLKey.startsWith('ttag:')) {
+            const tagId = tagXLKey.replace('ttag:', '');
+            const def = window.ProcessingTagState?.getTTagDef(tagId);
+            if (def && def.name) return def.name;
+        }
+
+        // 3. Custom flags → use label as TPOS tag name
         if (tagXLKey.startsWith('custom:')) {
             const flagId = tagXLKey.replace('custom:', '');
             const label = window.ProcessingTagState?.getCustomFlagLabel(flagId);
@@ -982,6 +996,15 @@
         TPOS_TO_PTAG_MAP[tposName.toUpperCase()] = xlKey;
     }
 
+    // Aliases: multiple TPOS tag names → same TAG XL key (reverse-only)
+    const TPOS_ALIAS_MAP = {
+        'TRỪ THU VỀ': 'flag:TRU_CONG_NO',
+        'KHÁCH CK': 'flag:CHUYEN_KHOAN',
+    };
+    for (const [tposName, xlKey] of Object.entries(TPOS_ALIAS_MAP)) {
+        TPOS_TO_PTAG_MAP[tposName.toUpperCase()] = xlKey;
+    }
+
     /**
      * Called when TPOS tags change (from tab1-tags.js saveOrderTags/quickAssignTag)
      * Compares new TPOS tags against reverse mapping and syncs TAG XL accordingly
@@ -1081,6 +1104,62 @@
                     await window.toggleOrderFlag(orderCode, def.id, 'TPOS-SYNC');
                     changed = true;
                 }
+            }
+
+            // ── Pattern: T[number] [description] → Tag T Chờ Hàng ──
+            for (const tag of (newTags || [])) {
+                const tagName = (tag.Name || '').trim();
+                if (!/^T\d+\s+/i.test(tagName)) continue;
+                const nameUpper = tagName.toUpperCase();
+                if (TPOS_TO_PTAG_MAP[nameUpper]) continue; // already handled by static map
+
+                const defs = window.ProcessingTagState?.getTTagDefinitions() || [];
+                let matchDef = defs.find(d => (d.name || '').toUpperCase() === nameUpper);
+
+                if (!matchDef) {
+                    // Auto-create T-tag definition
+                    let nextNum = 1;
+                    for (const d of defs) {
+                        const m = (d.id || '').match(/^T(\d+)/);
+                        if (m) nextNum = Math.max(nextNum, parseInt(m[1]) + 1);
+                    }
+                    matchDef = { id: `T${nextNum}`, name: nameUpper, productCode: '', createdAt: Date.now() };
+                    defs.push(matchDef);
+                    window.ProcessingTagState?.setTTagDefinitions(defs);
+                    if (window.mergeConfigDefs) window.mergeConfigDefs('__ttag_config__', [matchDef]);
+                    console.log(`${SYNC_LOG} [TPOS→XL] Auto-created T-tag: ${matchDef.id} "${matchDef.name}"`);
+                }
+
+                if (!currentTTags.includes(matchDef.id)) {
+                    console.log(`${SYNC_LOG} [TPOS→XL] ADD ttag ${matchDef.id} "${matchDef.name}" for ${orderCode}`);
+                    await window.assignTTagToOrder(orderCode, matchDef.id, 'TPOS-SYNC');
+                    changed = true;
+                }
+            }
+
+            // T-tag removal: if TAG XL has T-number tag but TPOS doesn't
+            for (const ttagId of currentTTags) {
+                if (ttagId === 'T_MY') continue; // T_MY handled by static map
+                const def = window.ProcessingTagState?.getTTagDef(ttagId);
+                if (!def) continue;
+                const defNameUpper = (def.name || '').toUpperCase();
+                if (!/^T\d+\s+/.test(defNameUpper)) continue;
+                if (!tposNames.has(defNameUpper)) {
+                    console.log(`${SYNC_LOG} [TPOS→XL] REMOVE ttag ${ttagId} "${def.name}" for ${orderCode}`);
+                    await window.removeTTagFromOrder(orderCode, ttagId);
+                    changed = true;
+                }
+            }
+
+            // ── Pattern: OK/XỬ LÝ/XÃ ĐƠN [seller] → flag KHAC (add-only) ──
+            const SELLER_TAG_PATTERNS = [/^OK\s+/i, /^XỬ LÝ\s+/i, /^XÃ ĐƠN\s+/i];
+            const hasSellerTag = (newTags || []).some(t =>
+                SELLER_TAG_PATTERNS.some(re => re.test((t.Name || '').toUpperCase()))
+            );
+            if (hasSellerTag && !currentFlags.includes('KHAC')) {
+                console.log(`${SYNC_LOG} [TPOS→XL] ADD flag KHAC (seller pattern) for ${orderCode}`);
+                await window.toggleOrderFlag(orderCode, 'KHAC', 'TPOS-SYNC');
+                changed = true;
             }
 
             if (changed) {

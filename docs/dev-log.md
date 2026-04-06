@@ -8,6 +8,12 @@
 
 ## 2026-04-06
 
+### [orders] Mở rộng TPOS ↔ TAG XL auto sync — thêm mappings + pattern detection ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-tag-sync.js` |
+| **Chi tiết** | 1) Mở rộng `PTAG_TO_TPOS_MAP` +7 entries: GIẢM GIÁ, CHUYỂN KHOẢN, QUA LẤY, CHỜ LIVE, GIỮ ĐƠN, ĐÃ GỘP KO CHỐT, NCC HẾT HÀNG. 2) Thêm `TPOS_ALIAS_MAP` cho many-to-one: TRỪ THU VỀ → TRU_CONG_NO, KHÁCH CK → CHUYEN_KHOAN. 3) Forward sync T-tags: `_resolvePtagToTPOSName()` lookup T-tag def name cho mọi ttag (không chỉ T_MY). 4) **Pattern T-number**: TPOS tag `T\d+ xxx` → auto find/create T-tag definition + assign. Removal: xóa TPOS tag → remove T-tag tương ứng. 5) **Pattern seller**: OK/XỬ LÝ/XÃ ĐƠN [tên seller] → auto flag KHAC (add-only). |
+
 ### [render][orders] Server-side order buffer — chống mất đơn real-time ✅
 | | |
 |---|---|
