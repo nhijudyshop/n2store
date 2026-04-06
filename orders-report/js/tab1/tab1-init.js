@@ -221,23 +221,23 @@ window.addEventListener("DOMContentLoaded", async function () {
             const data = await resp.json();
             if (!data.success || !data.customers?.length) return;
 
-            // Transform server format → notifier format
-            const pending = data.customers.map(c => ({
-                psid: c.psid,
-                pageId: c.page_id,
-                inboxCount: c.type === 'INBOX' ? (c.message_count || 1) : 0,
-                commentCount: c.type === 'COMMENT' ? (c.message_count || 1) : 0,
-                snippet: c.last_message_snippet || '',
-                timestamp: c.last_message_time ? new Date(c.last_message_time).getTime() : Date.now(),
-            }));
+            // Transform server format → notifier format (INBOX only, skip COMMENT)
+            const pending = data.customers
+                .filter(c => c.type !== 'COMMENT')
+                .map(c => ({
+                    psid: c.psid,
+                    pageId: c.page_id,
+                    inboxCount: c.message_count || 1,
+                    snippet: c.last_message_snippet || '',
+                    timestamp: c.last_message_time ? new Date(c.last_message_time).getTime() : Date.now(),
+                }));
 
-            // Group by psid (server may have separate INBOX + COMMENT rows)
+            // Group by psid (server may have multiple INBOX rows per psid)
             const grouped = new Map();
             pending.forEach(p => {
                 const existing = grouped.get(p.psid);
                 if (existing) {
                     existing.inboxCount += p.inboxCount;
-                    existing.commentCount += p.commentCount;
                     if (p.timestamp > existing.timestamp) {
                         existing.snippet = p.snippet;
                         existing.timestamp = p.timestamp;

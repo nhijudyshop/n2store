@@ -549,7 +549,7 @@ class RealtimeClient {
                                     conversation.customers?.[0]?.fb_id ||
                                     conversation.from?.id;
 
-                if (customerPsid) {
+                if (customerPsid && conversation.type !== 'COMMENT') {
                     upsertPendingCustomer({
                         psid: customerPsid,
                         pageId: conversation.page_id,

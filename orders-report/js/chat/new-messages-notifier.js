@@ -82,13 +82,11 @@
                 const existing = pendingMap.get(key);
                 if (existing) {
                     existing.inboxCount += (pc.inboxCount || pc.unread_count || 0);
-                    existing.commentCount += (pc.commentCount || 0);
                 } else {
                     pendingMap.set(key, {
                         psid: key,
                         pageId: String(pc.pageId || pc.page_id || ''),
                         inboxCount: pc.inboxCount || pc.unread_count || 0,
-                        commentCount: pc.commentCount || 0,
                         snippet: pc.snippet || pc.lastMessage || '',
                         timestamp: pc.timestamp || pc.updated_at || null,
                     });
@@ -107,7 +105,7 @@
             if (!pending) {
                 // Remove highlights and badges if no longer pending
                 row.classList.remove('pending-customer-row');
-                row.querySelectorAll('.new-msg-badge, .new-cmt-badge').forEach(el => el.remove());
+                row.querySelectorAll('.new-msg-badge').forEach(el => el.remove());
                 return;
             }
 
@@ -117,9 +115,6 @@
 
             // Update messages column badge (create or update existing)
             _upsertBadge(row, 'td[data-column="messages"]', 'new-msg-badge', pending.inboxCount);
-
-            // Update comments column badge (create or update existing)
-            _upsertBadge(row, 'td[data-column="comments"]', 'new-cmt-badge', pending.commentCount);
         });
 
         console.log(`[NOTIFIER] reapply: ${pendingMap.size} pending, ${rows.length} rows, ${matched} matched`);
@@ -172,16 +167,13 @@
         );
 
         if (!existing) {
-            existing = { psid, pageId: event.page_id || event.pageId || '', inboxCount: 0, commentCount: 0 };
+            existing = { psid, pageId: event.page_id || event.pageId || '', inboxCount: 0 };
             _pendingCustomers.push(existing);
         }
 
         const type = event.type || event.conversation_type || 'INBOX';
-        if (type === 'COMMENT') {
-            existing.commentCount = (existing.commentCount || 0) + 1;
-        } else {
-            existing.inboxCount = (existing.inboxCount || 0) + 1;
-        }
+        if (type === 'COMMENT') return; // Skip comments — no badge tracking for comment column
+        existing.inboxCount = (existing.inboxCount || 0) + 1;
 
         existing.snippet = event.snippet || event.message || existing.snippet;
         existing.timestamp = Date.now();
@@ -222,7 +214,6 @@
             const existing = merged.get(key);
             if (existing) {
                 existing.inboxCount = Math.max(existing.inboxCount || 0, pc.inboxCount || 0);
-                existing.commentCount = Math.max(existing.commentCount || 0, pc.commentCount || 0);
                 if ((pc.timestamp || 0) > (existing.timestamp || 0)) {
                     existing.snippet = pc.snippet || existing.snippet;
                     existing.timestamp = pc.timestamp;
@@ -260,7 +251,7 @@
         document.querySelectorAll('.pending-customer-row').forEach(row => {
             row.classList.remove('pending-customer-row');
         });
-        document.querySelectorAll('.new-msg-badge, .new-cmt-badge').forEach(el => el.remove());
+        document.querySelectorAll('.new-msg-badge').forEach(el => el.remove());
     }
 
     // =====================================================
@@ -327,7 +318,7 @@
         .pending-customer-row:hover {
             background: linear-gradient(135deg, #fee2e2 0%, #fecdd3 100%) !important;
         }
-        .new-msg-badge, .new-cmt-badge {
+        .new-msg-badge {
             display: inline-flex;
             align-items: center;
             padding: 2px 6px;
@@ -336,13 +327,7 @@
             font-weight: 700;
             margin-right: 4px;
             animation: badgePulse 2s infinite;
-        }
-        .new-msg-badge {
             background: #ef4444;
-            color: #fff;
-        }
-        .new-cmt-badge {
-            background: #f59e0b;
             color: #fff;
         }
         @keyframes badgePulse {
