@@ -8,6 +8,13 @@
 
 ## 2026-04-06
 
+### [inbox][render] Đơn Inbox — Modal nhập lý do hủy + đổi retention 30→60 ngày ✅
+| | |
+|---|---|
+| **Files** | `don-inbox/index.html`, `don-inbox/js/tab-social-table.js`, `don-inbox/js/tab-social-history.js`, `render.com/routes/social-orders.js`, `.github/workflows/cleanup-cancelled-orders.yml` |
+| **Chi tiết** | User yêu cầu 2 thứ: (1) Bấm "Hủy đơn" → modal có textarea nhập lý do hủy, mặc định "HẾT HÀNG" → confirm → chuyển sang tab Đã hủy với lý do được lưu vào ghi chú. (2) Retention auto-cleanup đổi từ 30 → 60 ngày. **FE**: (1) `index.html` — thêm block `#confirmCancelReasonBlock` vào modal confirm (textarea rows=2, pre-filled "HẾT HÀNG", chỉ hiện khi action type = cancel/bulk_cancel). Đổi text info "30 ngày" → "60 ngày". (2) `tab-social-table.js` — `_showConfirmModal()` thêm option `reasonInput`, hiện textarea + focus+select khi mở. `confirmCancelOrder()` + `cancelSelectedOrders()` pass `reasonInput: true`. `confirmPendingAction()` đọc value từ `#confirmCancelReason` (fallback "HẾT HÀNG" nếu rỗng), pass vào `_doCancel(ids, reason)`. `_doCancel()` rewrite: prepend marker `[HỦY: <reason>]` vào `order.note`, preserve existing note (strip old HỦY marker nếu có), gọi `updateSocialOrder(id, {status:'cancelled', note: newNote})`. **Bonus fix**: Phát hiện bug cũ — `confirmPendingAction` case `bulk_cancel` gọi `_doBulkCancel` (function không tồn tại) → fallthrough vào `_doCancel` (đã handle array). (3) `tab-social-history.js` — `logCancel(order, reason)` accept reason param, append ` \| Lý do: <reason>` vào details. Đổi label `auto_cleanup` "30 ngày" → "60 ngày". **BE**: `social-orders.js` — `RETENTION_DAYS = 30` → `60`, comment và docstring cập nhật. **Workflow**: `cleanup-cancelled-orders.yml` comment + notice message 30 → 60. **Storage approach**: KHÔNG thêm column `cancel_reason` mới — prepend marker `[HỦY: HẾT HÀNG]` vào field `note` hiện có. Ưu điểm: không cần schema migration, hiển thị tự nhiên trong cột ghi chú của tab Đã hủy. Nhược: reason "contaminate" note — khắc phục bằng regex strip `/^\[HỦY:[^\]]*\]\s*/i` để khi hủy lại sẽ replace marker cũ thay vì nesting. |
+| **Status** | ✅ Done |
+
 ### [extension][orders][render] Realtime cột "Phiếu bán hàng TPOS" (extension push) ✅
 | | |
 |---|---|

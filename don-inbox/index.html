@@ -920,13 +920,25 @@
                     <p id="confirmDeleteMessage" style="text-align: center; margin: 0 0 12px;">
                         Bạn có chắc chắn?
                     </p>
+                    <div id="confirmCancelReasonBlock" style="display:none; margin: 12px 0 8px;">
+                        <label for="confirmCancelReason" style="display:block; font-size:13px; font-weight:600; color:#374151; margin-bottom:6px;">
+                            <i class="fas fa-sticky-note" style="color:#f59e0b;"></i>
+                            Lý do hủy (ghi chú)
+                        </label>
+                        <textarea
+                            id="confirmCancelReason"
+                            rows="2"
+                            style="width:100%; padding:8px 10px; border:1px solid #d1d5db; border-radius:6px; font-size:14px; font-family:inherit; resize:vertical; box-sizing:border-box;"
+                            placeholder="Nhập lý do hủy đơn..."
+                        >HẾT HÀNG</textarea>
+                    </div>
                     <div id="confirmDeleteWarning" style="display:none; background:#fef2f2; border:1px solid #fecaca; color:#991b1b; padding:10px 12px; border-radius:8px; font-size:13px;">
                         <i class="fas fa-exclamation-circle"></i>
                         <strong>Hành động không thể hoàn tác.</strong>
                     </div>
                     <div id="confirmDeleteInfo" style="display:none; background:#fffbeb; border:1px solid #fde68a; color:#92400e; padding:10px 12px; border-radius:8px; font-size:13px; margin-top:8px;">
                         <i class="fas fa-info-circle"></i>
-                        Đơn sẽ chuyển vào tab <strong>Đã hủy</strong> và tự động xóa vĩnh viễn sau <strong>30 ngày</strong>. Có thể khôi phục trong thời gian đó.
+                        Đơn sẽ chuyển vào tab <strong>Đã hủy</strong> và tự động xóa vĩnh viễn sau <strong>60 ngày</strong>. Có thể khôi phục trong thời gian đó.
                     </div>
                 </div>
                 <div class="modal-footer" style="justify-content: center">

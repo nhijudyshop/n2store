@@ -2,7 +2,7 @@
 name: Auto cleanup cancelled inbox orders
 
 # Mỗi ngày 02:00 Asia/Ho_Chi_Minh (UTC+7) = 19:00 UTC hôm trước
-# Gọi Render endpoint xoá vĩnh viễn các đơn status='cancelled' cũ hơn 30 ngày.
+# Gọi Render endpoint xoá vĩnh viễn các đơn status='cancelled' cũ hơn 60 ngày.
 on:
   schedule:
     - cron: '0 19 * * *'
@@ -41,4 +41,4 @@ jobs:
           fi
 
           DELETED=$(echo "$BODY" | python3 -c "import sys, json; print(json.load(sys.stdin).get('deletedCount', '?'))" 2>/dev/null || echo "?")
-          echo "::notice::Deleted $DELETED cancelled orders older than 30 days"
+          echo "::notice::Deleted $DELETED cancelled orders older than 60 days"

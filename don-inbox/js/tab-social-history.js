@@ -247,13 +247,14 @@ const InboxHistory = (() => {
         });
     }
 
-    function logCancel(order) {
+    function logCancel(order, reason) {
+        const reasonStr = reason ? ` | Lý do: ${reason}` : '';
         log('cancel', {
             orderId: order.id,
             orderStt: order.stt,
             customerName: order.customerName,
             phone: order.phone,
-            details: `Hủy đơn #${order.stt || '?'} - KH: ${order.customerName}, SĐT: ${order.phone}`,
+            details: `Hủy đơn #${order.stt || '?'} - KH: ${order.customerName}, SĐT: ${order.phone}${reasonStr}`,
             snapshot: _buildSnapshot(order)
         });
     }
@@ -326,7 +327,7 @@ const HISTORY_ACTION_CONFIG = {
     permanent_delete: { icon: 'fa-trash-alt',    color: '#ef4444', label: 'Xóa vĩnh viễn' },
     delete:           { icon: 'fa-trash-alt',    color: '#ef4444', label: 'Xóa đơn' },
     bulk_delete:      { icon: 'fa-trash',        color: '#dc2626', label: 'Xóa hàng loạt' },
-    auto_cleanup:     { icon: 'fa-broom',        color: '#6b7280', label: 'Tự động dọn 30 ngày' },
+    auto_cleanup:     { icon: 'fa-broom',        color: '#6b7280', label: 'Tự động dọn 60 ngày' },
     tag_change:       { icon: 'fa-tags',         color: '#f59e0b', label: 'Đổi tag' },
     bulk_tag:         { icon: 'fa-tags',         color: '#d97706', label: 'Gán tag hàng loạt' },
     status_change:    { icon: 'fa-exchange-alt', color: '#8b5cf6', label: 'Đổi trạng thái' }

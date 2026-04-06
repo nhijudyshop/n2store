@@ -304,7 +304,7 @@ router.post('/entries/batch-delete', async (req, res) => {
 
 /**
  * POST /api/social-orders/cleanup-cancelled
- * Permanently delete cancelled orders older than 30 days.
+ * Permanently delete cancelled orders older than 60 days.
  * Protected by X-Cleanup-Secret header (env CLEANUP_SECRET).
  * Called daily by GitHub Actions cron.
  */
@@ -323,7 +323,7 @@ router.post('/cleanup-cancelled', async (req, res) => {
         if (!pool) return res.status(500).json({ error: 'Database not available' });
         await ensureTables(pool);
 
-        const RETENTION_DAYS = 30;
+        const RETENTION_DAYS = 60;
         const cutoff = Date.now() - (RETENTION_DAYS * 24 * 60 * 60 * 1000);
 
         const result = await pool.query(

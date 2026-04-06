@@ -590,8 +590,9 @@ let pendingAction = null; // { type, ids, single }
 
 /**
  * Configure the confirm modal UI based on action type.
+ * Optional reasonInput=true shows a textarea pre-filled with "HẾT HÀNG".
  */
-function _showConfirmModal({ titleText, titleColor, titleIcon, message, warning, info, btnText, btnIcon, btnColor }) {
+function _showConfirmModal({ titleText, titleColor, titleIcon, message, warning, info, btnText, btnIcon, btnColor, reasonInput }) {
     const modal = document.getElementById('confirmDeleteModal');
     if (!modal) return;
 
@@ -603,6 +604,8 @@ function _showConfirmModal({ titleText, titleColor, titleIcon, message, warning,
     const btnEl = document.getElementById('confirmDeleteButton');
     const btnIconEl = document.getElementById('confirmDeleteButtonIcon');
     const btnTextEl = document.getElementById('confirmDeleteButtonText');
+    const reasonBlockEl = document.getElementById('confirmCancelReasonBlock');
+    const reasonInputEl = document.getElementById('confirmCancelReason');
 
     if (titleTextEl) titleTextEl.textContent = titleText;
     if (titleIconEl) {
@@ -615,6 +618,13 @@ function _showConfirmModal({ titleText, titleColor, titleIcon, message, warning,
     if (btnIconEl) btnIconEl.className = `fas ${btnIcon}`;
     if (btnTextEl) btnTextEl.textContent = btnText;
     if (btnEl) btnEl.style.background = btnColor;
+
+    if (reasonBlockEl) reasonBlockEl.style.display = reasonInput ? 'block' : 'none';
+    if (reasonInput && reasonInputEl) {
+        reasonInputEl.value = 'HẾT HÀNG';
+        // Focus + select after modal opens
+        setTimeout(() => { reasonInputEl.focus(); reasonInputEl.select(); }, 50);
+    }
 
     modal.classList.add('show');
 }
@@ -640,7 +650,8 @@ function confirmCancelOrder(orderId) {
         info: true,
         btnText: 'Hủy đơn',
         btnIcon: 'fa-ban',
-        btnColor: '#f59e0b'
+        btnColor: '#f59e0b',
+        reasonInput: true
     });
 }
 
@@ -686,16 +697,19 @@ async function restoreOrder(orderId) {
 function confirmPendingAction() {
     if (!pendingAction) { closeConfirmDeleteModal(); return; }
 
+    // Read cancel reason from textarea (only used for cancel / bulk_cancel)
+    let reason = '';
+    if (pendingAction.type === 'cancel' || pendingAction.type === 'bulk_cancel') {
+        const reasonEl = document.getElementById('confirmCancelReason');
+        reason = (reasonEl && reasonEl.value ? reasonEl.value.trim() : '') || 'HẾT HÀNG';
+    }
+
     switch (pendingAction.type) {
         case 'cancel':
-            _doCancel(pendingAction.ids);
+        case 'bulk_cancel':
+            _doCancel(pendingAction.ids, reason);
             break;
         case 'permanent_delete':
-            _doPermanentDelete(pendingAction.ids);
-            break;
-        case 'bulk_cancel':
-            _doBulkCancel(pendingAction.ids);
-            break;
         case 'bulk_permanent_delete':
             _doPermanentDelete(pendingAction.ids);
             break;
@@ -703,24 +717,44 @@ function confirmPendingAction() {
     closeConfirmDeleteModal();
 }
 
-function _doCancel(ids) {
+/**
+ * Soft-cancel orders. Prepends "[HỦY: <reason>]" to existing note so the
+ * reason is visible in the Đã hủy tab without adding a new DB column.
+ */
+function _doCancel(ids, reason) {
+    const cleanReason = (reason || 'HẾT HÀNG').trim();
+    const marker = `[HỦY: ${cleanReason}]`;
     let count = 0;
+
     ids.forEach((id) => {
         const order = SocialOrderState.orders.find((o) => o.id === id);
         if (!order) return;
+
+        // Build new note: prepend marker, preserve any existing note below
+        const existingNote = (order.note || '').trim();
+        // If existing note already starts with a [HỦY: ...] marker, replace it
+        const stripped = existingNote.replace(/^\[HỦY:[^\]]*\]\s*/i, '');
+        const newNote = stripped ? `${marker}\n${stripped}` : marker;
+
         order.status = 'cancelled';
+        order.note = newNote;
         order.updatedAt = Date.now();
+
         if (typeof updateSocialOrder === 'function') {
-            updateSocialOrder(id, { status: 'cancelled' }); // fire-and-forget
+            updateSocialOrder(id, { status: 'cancelled', note: newNote }); // fire-and-forget
         }
         if (window.InboxHistory && typeof InboxHistory.logCancel === 'function') {
-            InboxHistory.logCancel(order);
+            InboxHistory.logCancel(order, cleanReason);
         }
         count++;
     });
+
     saveSocialOrdersToStorage();
     SocialOrderState.selectedOrders.clear();
-    showNotification(count > 1 ? `Đã hủy ${count} đơn` : 'Đã hủy đơn', 'success');
+    showNotification(
+        count > 1 ? `Đã hủy ${count} đơn (${cleanReason})` : `Đã hủy đơn: ${cleanReason}`,
+        'success'
+    );
     performTableSearch();
     if (typeof updateSelectionUI === 'function') updateSelectionUI();
 }
@@ -767,7 +801,8 @@ function cancelSelectedOrders() {
         info: true,
         btnText: `Hủy ${count} đơn`,
         btnIcon: 'fa-ban',
-        btnColor: '#f59e0b'
+        btnColor: '#f59e0b',
+        reasonInput: true
     });
 }
 
