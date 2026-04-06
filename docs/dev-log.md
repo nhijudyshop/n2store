@@ -8,6 +8,13 @@
 
 ## 2026-04-06
 
+### [inbox] Search conv — chỉ trigger khi Enter hoặc idle 5s (bỏ search-mỗi-phím) ✅
+| | |
+|---|---|
+| **Files** | `inbox/js/inbox-chat.js`, `inbox/index.html` |
+| **Chi tiết** | User gõ SĐT 10 chữ số → gọi Pancake API search 10 lần liên tiếp (mỗi phím 1 request với debounce 100-300ms → vẫn trigger nhiều) → spam server và tốn quota. **Fix**: Tách 2 tầng rõ ràng: (1) **Local filter** vẫn chạy instant mỗi phím cho feedback nhanh (`renderConversationList()` dùng `getConversations({search})` local). (2) **Pancake API search** chỉ trigger khi: (a) user bấm **Enter** → `performSearch()` ngay lập tức, hoặc (b) sau **5 giây idle** không gõ thêm → auto trigger. Khi query thay đổi hoặc bị clear trước 5s → `clearTimeout()` hủy lịch. Thêm `e.preventDefault()` cho Enter. Placeholder đổi: `"Tìm tên, SĐT, nội dung (Enter để tìm)..."` để hướng dẫn user. |
+| **Status** | ✅ Done |
+
 ### [orders] Sync logic mới TPOS ↔ TAG XL v3 (hardcoded mapping) ✅
 | | |
 |---|---|

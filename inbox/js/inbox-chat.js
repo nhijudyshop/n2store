@@ -305,13 +305,16 @@ class InboxChatController {
     }
 
     bindEvents() {
-        // Search: instant local filter + debounced API search (like tpos-pancake)
+        // Search: only trigger on Enter key OR after 5s idle (no more search-on-every-keystroke).
+        // Local filter still runs instantly while typing for quick visual feedback.
         let searchTimeout = null;
+        const API_SEARCH_IDLE_MS = 5000;
+
         this.elements.searchInput.addEventListener('input', (e) => {
             const query = e.target.value.trim();
             this.searchQuery = query;
 
-            if (searchTimeout) clearTimeout(searchTimeout);
+            if (searchTimeout) { clearTimeout(searchTimeout); searchTimeout = null; }
 
             if (!query) {
                 this.isSearching = false;
@@ -320,24 +323,27 @@ class InboxChatController {
                 return;
             }
 
-            // Instant: local filter — if no local results, show "searching" immediately
+            // Instant local filter — quick visual feedback while typing
             this.searchResults = null;
-            const localHits = this.data.getConversations({ search: query, filter: 'all' });
-            if (localHits.length === 0) {
-                this.isSearching = true; // Show "Đang tìm kiếm..." instead of "Không tìm thấy"
-            }
+            this.isSearching = false;
             this.renderConversationList();
 
-            // Debounced API search: shorter delay for longer queries (phone numbers)
-            const delay = query.length >= 5 ? 100 : 300;
+            // Schedule API search after 5s of no typing
             searchTimeout = setTimeout(async () => {
-                await this.performSearch(query);
-            }, delay);
+                searchTimeout = null;
+                if (this.searchQuery === query) await this.performSearch(query);
+            }, API_SEARCH_IDLE_MS);
         });
 
-        // Clear search on Escape
+        // Enter = trigger API search immediately; Escape = clear
         this.elements.searchInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const query = this.elements.searchInput.value.trim();
+                if (searchTimeout) { clearTimeout(searchTimeout); searchTimeout = null; }
+                if (query) this.performSearch(query);
+            } else if (e.key === 'Escape') {
+                if (searchTimeout) { clearTimeout(searchTimeout); searchTimeout = null; }
                 this.elements.searchInput.value = '';
                 this.searchQuery = '';
                 this.isSearching = false;
