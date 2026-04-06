@@ -169,12 +169,6 @@
                 <i class="fas fa-tags"></i>
                 Xóa Tag Hàng Loạt
             </button>
-            <button class="btn-primary" id="tagSyncModalBtn" onclick="showTagSyncModal()"
-                style="background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%)"
-                title="Đồng bộ Tag TPOS sang Tag XL tự động">
-                <i class="fas fa-sync-alt"></i>
-                Đồng bộ Tag
-            </button>
             <button class="btn-stock-check" id="btnStockCheck" onclick="window.StockStatusEngine.init()"
                 title="Kiểm tra tồn kho từng đơn dựa trên dữ liệu TPOS">
                 <i class="fas fa-boxes-stacked"></i> Kiểm tra tồn kho
@@ -1180,9 +1174,6 @@
     <!-- 6b. Processing Tags: Tag xử lý chốt đơn -->
     <script src="js/tab1/tab1-processing-tags.js"></script>
 
-    <!-- 6b2. Tag Sync: Đồng bộ Tag TPOS → Tag XL -->
-    <script src="js/tab1/tab1-tag-sync.js"></script>
-
     <!-- 6c. Stock Status: Kiểm tra tồn kho tự động -->
     <script src="js/tab1/tab1-stock-status.js"></script>
 
@@ -1549,59 +1540,6 @@
             <div class="bulk-tag-modal-footer">
                 <button class="bulk-tag-btn-cancel" onclick="closeBulkTagDeleteHistoryModal()">
                     <i class="fas fa-times"></i> Đóng
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Tag Sync Modal: Đồng bộ Tag TPOS → Tag XL -->
-    <div class="tag-sync-modal" id="tagSyncModal">
-        <div class="tag-sync-modal-content">
-            <!-- Header -->
-            <div class="tag-sync-modal-header">
-                <div class="tag-sync-header-info">
-                    <h3><i class="fas fa-sync-alt"></i> Đồng bộ Tag TPOS → Tag XL</h3>
-                    <p>Chọn tag TPOS và Tag XL tương ứng để đồng bộ tự động</p>
-                </div>
-                <button class="tag-sync-modal-close" onclick="closeTagSyncModal()">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-
-            <!-- Table Header -->
-            <div class="tag-sync-table-header">
-                <div class="ts-cell ts-cell-index">#</div>
-                <div class="ts-cell ts-cell-tpos">Tag TPOS</div>
-                <div class="ts-cell ts-cell-arrow"></div>
-                <div class="ts-cell ts-cell-ptag">Tag XL</div>
-                <div class="ts-cell ts-cell-action"></div>
-            </div>
-
-            <!-- Body - Mapping Rows -->
-            <div class="tag-sync-modal-body">
-                <div id="tagSyncTableBody"></div>
-                <div class="tag-sync-add-row">
-                    <button class="ts-add-btn" onclick="window._tsAddRow()">
-                        <i class="fas fa-plus"></i> Thêm dòng
-                    </button>
-                </div>
-            </div>
-
-            <!-- Progress -->
-            <div class="tag-sync-progress" id="tagSyncProgress" style="display:none;">
-                <div class="tag-sync-progress-bar-bg">
-                    <div class="tag-sync-progress-bar" id="tagSyncProgressBar"></div>
-                </div>
-                <span class="tag-sync-progress-text" id="tagSyncProgressText">0 / 0</span>
-            </div>
-
-            <!-- Footer -->
-            <div class="tag-sync-modal-footer">
-                <button class="ts-btn-cancel" onclick="closeTagSyncModal()">
-                    <i class="fas fa-times"></i> Hủy
-                </button>
-                <button class="ts-btn-sync" id="tagSyncExecuteBtn" onclick="executeTagSync()">
-                    <i class="fas fa-sync-alt"></i> Đồng bộ
                 </button>
             </div>
         </div>

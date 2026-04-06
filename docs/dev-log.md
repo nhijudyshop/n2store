@@ -8,6 +8,13 @@
 
 ## 2026-04-06
 
+### [orders] Xóa toàn bộ mapping/sync logic TPOS ↔ TAG XL ✅
+| | |
+|---|---|
+| **Files** | Deleted: `orders-report/js/tab1/tab1-tag-sync.js`. Modified: `orders-report/js/tab1/{tab1-processing-tags.js, tab1-tags.js, tab1-tpos-realtime.js}`, `orders-report/tab1-orders.html`, `orders-report/css/tab1-orders.css`, `docs/flow-tag-xl-panel-chotdon.md` |
+| **Chi tiết** | User yêu cầu xóa sạch logic bidirectional sync giữa TPOS tag và TAG XL (processing tag) để làm lại từ đầu. Lý do: dữ liệu lệch giữa cột TAG và TAG XL (đơn "Huyền Nhi" ví dụ), TPOS realtime qua extension gây bug `[object Object]`, mapping hardcoded + alias + pattern + fallback đan xen khó bảo trì. **Đã xóa**: (1) File `tab1-tag-sync.js` (~1201 dòng) — toàn bộ `PTAG_TO_TPOS_MAP`, `TPOS_TO_PTAG_MAP`, `TPOS_ALIAS_MAP`, `_resolvePtagToTPOSName`, `_findOrCreateTPOSTag`, `syncPtagToTPOS`, `syncTPOSToPtag`, `executeTagSync`, guard flags `_isSyncingToTPOS`/`_isSyncingFromTPOS`, modal state + dropdown logic. (2) Trong `tab1-processing-tags.js`: 4 block sync `if (window.syncPtagToTPOS) {...}` trong `assignSubTag`, `toggleOrderFlag`, `assignTTagToOrder`, `removeTTagFromOrder`; function `onPtagOrderTagsChanged`; dòng `window.onPtagOrderTagsChanged = ...`. (3) Trong `tab1-tags.js`: 3 hook call `onPtagOrderTagsChanged` trong `quickAssignTag`, `quickRemoveTag`, và block lưu `_hookOrderId`/`_hookTags` trong save modal. (4) Trong `tab1-tpos-realtime.js`: hook call sau `updateOrderInTable` (giữ `normalizedTags` cho defensive coerce). (5) Trong `tab1-orders.html`: button `#tagSyncModalBtn` "Đồng bộ Tag", script tag `tab1-tag-sync.js`, toàn bộ modal `#tagSyncModal` (52 dòng). (6) Trong `css/tab1-orders.css`: section "TAG SYNC MODAL" (~418 dòng, 56 selectors `.tag-sync-modal*` + `.ts-*`). (7) Trong `docs/flow-tag-xl-panel-chotdon.md`: section 8.11, 10, 11 (11a+11b), xóa `tab1-tag-sync.js` khỏi File Map, xóa `syncPtagToTPOS`/`syncTPOSToPtag`/`onPtagOrderTagsChanged` khỏi Key Global Functions. Section 10 giờ là note ngắn "TAG XL ↔ TPOS — Độc Lập Hoàn Toàn". **Kết quả**: TAG TPOS và TAG XL hoàn toàn độc lập — gán/bỏ bên này không ảnh hưởng bên kia. Redesign sẽ được thảo luận/plan sau. Tổng: ~-2000 dòng code/markdown, 0 feature mới, pure cleanup. |
+| **Status** | ✅ Done |
+
 ### [inbox][render] Đơn Inbox — Modal nhập lý do hủy + đổi retention 30→60 ngày ✅
 | | |
 |---|---|

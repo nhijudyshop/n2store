@@ -196,9 +196,6 @@
             updateOrderInTable(orderId, { Tags: tagsJson });
             console.log('[TPOS-RT] Tags updated in table:', existingOrder.Code);
         }
-
-        // Hook: sync TPOS → TAG XL
-        if (window.onPtagOrderTagsChanged) window.onPtagOrderTagsChanged(orderId, normalizedTags);
     }
 
     /**

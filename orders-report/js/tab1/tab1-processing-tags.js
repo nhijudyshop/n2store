@@ -776,17 +776,6 @@
         _ptagRefreshRow(orderCode);
         renderPanelContent();
         await saveProcessingTagToAPI(orderCode, data);
-
-        // Sync TAG XL → TPOS: gán subtag có mapping
-        if (options.subTag && window.syncPtagToTPOS) {
-            window.syncPtagToTPOS(orderCode, 'add', `subtag:${options.subTag}`).catch(e =>
-                console.warn('[PTAG-TPOS] Sync failed:', e.message));
-            // Remove TPOS tag cũ nếu chuyển từ subtag khác
-            if (existingData?.subTag && existingData.subTag !== options.subTag) {
-                window.syncPtagToTPOS(orderCode, 'remove', `subtag:${existingData.subTag}`).catch(e =>
-                    console.warn('[PTAG-TPOS] Remove old subtag sync failed:', e.message));
-            }
-        }
     }
 
     async function autoDetectFlags(orderCode, phone) {
@@ -825,13 +814,6 @@
         _ptagRefreshRow(orderCode);
         renderPanelContent();
         await saveProcessingTagToAPI(orderCode, data);
-
-        // Sync TAG XL → TPOS
-        if (window.syncPtagToTPOS) {
-            const keyPrefix = flagKey.startsWith('CUSTOM_') ? 'custom' : 'flag';
-            window.syncPtagToTPOS(orderCode, isAdding ? 'add' : 'remove', `${keyPrefix}:${flagKey}`).catch(e =>
-                console.warn('[PTAG-TPOS] Flag sync failed:', e.message));
-        }
     }
 
     async function clearProcessingTag(orderCode) {
@@ -897,12 +879,6 @@
         _ptagRefreshRow(orderCode);
         renderPanelContent();
         await saveProcessingTagToAPI(orderCode, data);
-
-        // Sync TAG XL → TPOS
-        if (window.syncPtagToTPOS) {
-            window.syncPtagToTPOS(orderCode, 'add', `ttag:${tagId}`).catch(e =>
-                console.warn('[PTAG-TPOS] T-tag sync failed:', e.message));
-        }
     }
 
     async function removeTTagFromOrder(orderCode, tagId) {
@@ -919,12 +895,6 @@
         _ptagRefreshRow(orderCode);
         renderPanelContent();
         await saveProcessingTagToAPI(orderCode, data);
-
-        // Sync TAG XL → TPOS
-        if (window.syncPtagToTPOS) {
-            window.syncPtagToTPOS(orderCode, 'remove', `ttag:${tagId}`).catch(e =>
-                console.warn('[PTAG-TPOS] T-tag remove sync failed:', e.message));
-        }
     }
 
     // Transfer processing tags (flags + tTags) from source order to target order
@@ -992,15 +962,6 @@
             flagsAdded: newFlags,
             tTagsAdded: newTTags
         };
-    }
-
-    // TPOS → TAG XL reverse sync: when TPOS tags change, auto-sync to TAG XL
-    // Called from tab1-tags.js after saveOrderTags / quickAssignTag
-    function onPtagOrderTagsChanged(orderId, newTags) {
-        if (!orderId || !window.syncTPOSToPtag) return;
-        window.syncTPOSToPtag(orderId, newTags).catch(e =>
-            console.warn(`${PTAG_LOG} TPOS→XL sync failed:`, e.message)
-        );
     }
 
     // Auto transition: bill created → ĐÃ RA ĐƠN
@@ -4786,7 +4747,6 @@
     window.onPtagBillCreated = onPtagBillCreated;
     window.onPtagBillCancelled = onPtagBillCancelled;
     window.onPtagPackingSlipPrinted = onPtagPackingSlipPrinted;
-    window.onPtagOrderTagsChanged = onPtagOrderTagsChanged;
 
     // Filter (called from tab1-search.js)
     window.getActiveProcessingTagFilter = getActiveProcessingTagFilter;
