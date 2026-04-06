@@ -901,15 +901,129 @@ Dạ c xem okee để e đi đơn cho mình c nhé 😍
 
 ---
 
-## 10. TAG XL ↔ TPOS — Độc Lập Hoàn Toàn
+## 10. TAG XL ↔ TPOS — Độc Lập Hoàn Toàn (HISTORICAL)
 
-> **Tình trạng hiện tại (2026-04):** TAG XL (processing tag) và TPOS tag là **2 hệ thống độc lập**. Không có sync/mapping tự động giữa chúng.
+> **Lịch sử:** Phiên bản đầu có bidirectional auto-sync cũ bị xóa ngày 2026-04 để đơn giản hóa (commit `53816496`). Giai đoạn ngắn sau đó, TAG XL và TPOS chạy hoàn toàn độc lập.
 >
-> Phiên bản cũ có bidirectional auto-sync (`tab1-tag-sync.js` — `PTAG_TO_TPOS_MAP`, `TPOS_TO_PTAG_MAP`, `TPOS_ALIAS_MAP`, pattern T-number, fallback KHAC, modal "Đồng bộ Tag") đã bị **xóa hoàn toàn** để đơn giản hóa. Redesign sẽ được lên plan sau.
->
-> **Hành vi sau khi xóa:**
-> - Gán/bỏ flag/subtag/T-tag trong TAG XL → **chỉ** ảnh hưởng TAG XL, không gọi TPOS API.
-> - Gán/bỏ tag TPOS qua modal hoặc realtime từ extension → **chỉ** cập nhật cột TAG, không ảnh hưởng TAG XL.
+> **Từ 2026-04-06**: sync được redesign với kiến trúc hardcoded mapping — xem **Section 11** bên dưới.
+
+---
+
+## 11. Sync TPOS ↔ TAG XL v3 (2026-04-06, hardcoded mapping)
+
+File: `orders-report/js/tab1/tab1-tag-sync.js` (~560 dòng).
+
+Kiến trúc mới tối giản: **hardcoded mapping tables**, không có modal user-configurable, không tái hiện button "Đồng bộ Tag". Guard flags kép tránh loop vô hạn giữa forward/reverse sync.
+
+### 11.1. Mapping tables (hardcoded)
+
+**Categories** — 1 chiều XL → TPOS (không reverse):
+```js
+const CAT_TO_TPOS = {
+    0: 'ĐÃ RA ĐƠN',
+    1: 'CHỜ ĐI ĐƠN (OKE)',
+    2: 'MỤC XỬ LÝ',
+    3: 'KHÔNG CẦN CHỐT',
+    4: 'KHÁCH XÃ SAU CHỐT'
+};
+```
+
+**Subtags** — 1 chiều XL → TPOS + 3 bidirectional REMOVE:
+```js
+const SUBTAG_TO_TPOS = {
+    // Cat 2
+    CHUA_PHAN_HOI:     'ĐƠN CHƯA PHẢN HỒI',
+    CHUA_DUNG_SP:      'ĐƠN CHƯA ĐÚNG SP',
+    KHACH_MUON_XA:     'ĐƠN KHÁCH MUỐN XÃ',
+    BAN_HANG:          'BÁN HÀNG',
+    XU_LY_KHAC:        'KHÁC (GHI CHÚ)',
+    // Cat 3 (⚠ bidirectional REMOVE)
+    DA_GOP_KHONG_CHOT: 'ĐÃ GỘP KO CHỐT',
+    GIO_TRONG:         'GIỎ TRỐNG',
+    // Cat 4 (⚠ NCC_HET_HANG bidirectional REMOVE)
+    NCC_HET_HANG:      'NCC HẾT HÀNG',
+    KHACH_HUY_DON:     'KHÁCH HỦY NGUYÊN ĐƠN',
+    KHACH_KO_LIEN_LAC: 'KHÁCH KHÔNG LIÊN LẠC ĐƯỢC'
+};
+const BIDIRECTIONAL_REMOVE_SUBTAGS = new Set([
+    'GIO_TRONG', 'DA_GOP_KHONG_CHOT', 'NCC_HET_HANG'
+]);
+```
+
+**Flags** — bidirectional ADD + REMOVE (10 flag; `KHAC` không map — nội bộ XL only):
+```js
+const FLAG_TO_TPOS = {
+    TRU_CONG_NO:      'TRỪ CÔNG NỢ',
+    CHUYEN_KHOAN:     'CHUYỂN KHOẢN',
+    GIAM_GIA:         'GIẢM GIÁ',
+    CHO_LIVE:         'CHỜ LIVE',
+    GIU_DON:          'GIỮ ĐƠN',
+    QUA_LAY:          'QUA LẤY',
+    GOI_BAO_KHACH_HH: 'GỌI BÁO KHÁCH HH',
+    KHACH_BOOM:       'KHÁCH BOOM',
+    THE_KHACH_LA:     'THẺ KHÁCH LẠ',
+    DA_DI_DON_GAP:    'ĐÃ ĐI ĐƠN GẤP'
+};
+```
+
+**T-tags** — bidirectional:
+```js
+const TTAG_HARDCODED = { T_MY: 'MY THÊM CHỜ VỀ' };
+// Dynamic Tx: match def.name (uppercase), pattern /^T\d+\s+/, auto-create def nếu TPOS gửi tag mới
+```
+
+**Reverse aliases** — chỉ dùng TPOS → XL lookup:
+```js
+const TPOS_ALIASES = {
+    'TRỪ THU VỀ': 'flag:TRU_CONG_NO',
+    'KHÁCH CK':   'flag:CHUYEN_KHOAN',
+    'CK':         'flag:CHUYEN_KHOAN'
+};
+```
+
+### 11.2. Ma trận hành vi
+
+| Nguồn mutation | Tag type | XL → TPOS | TPOS → XL |
+|---|---|---|---|
+| User gán/bỏ Cat | category | ✅ ADD/REMOVE | — |
+| User gán/bỏ subtag | subtag thường | ✅ ADD/REMOVE | — |
+| User gán/bỏ subtag | GIO_TRONG / DA_GOP_KHONG_CHOT / NCC_HET_HANG | ✅ ADD/REMOVE | ✅ **Chỉ REMOVE** (giữ category) |
+| User toggle flag | 10 flag trong `FLAG_TO_TPOS` | ✅ ADD/REMOVE | ✅ ADD/REMOVE |
+| User gán/bỏ T-tag | T_MY | ✅ ADD/REMOVE | ✅ ADD/REMOVE |
+| User gán/bỏ T-tag | Tx bất kỳ | ✅ ADD/REMOVE (dùng def.name) | ✅ ADD/REMOVE (auto-create def nếu chưa có) |
+| TPOS thêm cat/subtag thường | any | — | **Không sync** |
+
+### 11.3. Guard flags
+
+`_syncingForward` + `_syncingReverse` — đặt true trước khi sync, reset ở `finally`. Mỗi hàm sync early-return nếu cờ đối diện đang bật, tránh vòng lặp vô hạn.
+
+- Forward sync → AssignTag → extension broadcast `tpos:tag-assigned` → `handleTPOSTagsChanged` early-return vì `_syncingForward=true`.
+- Reverse sync → `toggleOrderFlag` / `assignTTagToOrder` → forward hook trong `tab1-processing-tags.js` → `syncXLToTPOS` early-return vì `_syncingReverse=true`.
+
+### 11.4. Trigger points
+
+**Forward (XL → TPOS)** — 4 hook sau `saveProcessingTagToAPI` trong `tab1-processing-tags.js`:
+- `assignOrderCategory()` → `syncXLToTPOS(code, 'category')`
+- `toggleOrderFlag()` → `syncXLToTPOS(code, 'flag')`
+- `assignTTagToOrder()` → `syncXLToTPOS(code, 'ttag-add')`
+- `removeTTagFromOrder()` → `syncXLToTPOS(code, 'ttag-remove')`
+
+**Reverse (TPOS → XL)** — 4 hook:
+- `quickAssignTag()` (tab1-tags.js) — sau API success
+- `quickRemoveTag()` (tab1-tags.js) — sau API success
+- `saveOrderTags()` (tab1-tags.js, modal save) — sau emit Firebase
+- `handleTagAssigned()` (tab1-tpos-realtime.js) — sau `updateOrderInTable`
+
+### 11.5. Forward sync strategy — "preserve unmanaged + replace managed"
+
+TPOS AssignTag API là REPLACE (không phải delta), nên phải gửi full tag array. Để không xóa nhầm tag do user/extension thêm ngoài mapping:
+
+1. Lấy current TPOS tags từ `order.Tags` JSON
+2. Phân loại: tag managed (thuộc mapping) vs tag unmanaged (giữ nguyên)
+3. Build desired managed set từ XL state (`_buildDesiredManagedTagNames`)
+4. Final tag array = unmanaged tags + desired managed tags
+5. No-op nếu current set === final set
+6. Call `_findOrCreateTPOSTag` cho tag mới (tự create nếu chưa có + reload cache)
 
 ---
 

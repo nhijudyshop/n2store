@@ -650,6 +650,11 @@ async function quickAssignTag(orderId, orderCode, tagPrefix) {
 
         console.log('[QUICK-TAG] Tag assigned successfully:', tagName, 'to order:', orderCode);
 
+        // Reverse sync TPOS → XL (nếu module tag-sync đã load)
+        if (typeof window.handleTPOSTagsChanged === 'function') {
+            window.handleTPOSTagsChanged(orderId, orderTags);
+        }
+
         // Re-apply filters to hide order if it no longer matches the current tag filter
         const currentTagFilter = document.getElementById('tagFilter')?.value || 'all';
         if (currentTagFilter !== 'all') {
@@ -817,6 +822,11 @@ async function quickRemoveTag(orderId, orderCode, tagId) {
         }
 
         console.log('[QUICK-TAG] Tag removed successfully:', tagToRemove.Name, 'ID:', tagToRemove.Id, 'from order:', orderCode);
+
+        // Reverse sync TPOS → XL
+        if (typeof window.handleTPOSTagsChanged === 'function') {
+            window.handleTPOSTagsChanged(orderId, newOrderTags);
+        }
 
         // Re-apply filters to hide order if it no longer matches the current tag filter
         const currentTagFilter = document.getElementById('tagFilter')?.value || 'all';
@@ -1331,6 +1341,11 @@ async function saveOrderTags() {
 
         // 🔥 Emit TAG update to Firebase for realtime sync
         await emitTagUpdateToFirebase(currentEditingOrderId, currentOrderTags);
+
+        // Reverse sync TPOS → XL
+        if (typeof window.handleTPOSTagsChanged === 'function') {
+            window.handleTPOSTagsChanged(currentEditingOrderId, currentOrderTags);
+        }
 
         window.cacheManager.clear("orders");
         showLoading(false);

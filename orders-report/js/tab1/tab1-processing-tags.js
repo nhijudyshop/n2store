@@ -776,6 +776,11 @@
         _ptagRefreshRow(orderCode);
         renderPanelContent();
         await saveProcessingTagToAPI(orderCode, data);
+
+        // Forward sync XL → TPOS (nếu module tag-sync đã load)
+        if (typeof window.syncXLToTPOS === 'function') {
+            window.syncXLToTPOS(orderCode, 'category');
+        }
     }
 
     async function autoDetectFlags(orderCode, phone) {
@@ -814,6 +819,11 @@
         _ptagRefreshRow(orderCode);
         renderPanelContent();
         await saveProcessingTagToAPI(orderCode, data);
+
+        // Forward sync XL → TPOS
+        if (typeof window.syncXLToTPOS === 'function') {
+            window.syncXLToTPOS(orderCode, 'flag');
+        }
     }
 
     async function clearProcessingTag(orderCode) {
@@ -879,6 +889,11 @@
         _ptagRefreshRow(orderCode);
         renderPanelContent();
         await saveProcessingTagToAPI(orderCode, data);
+
+        // Forward sync XL → TPOS
+        if (typeof window.syncXLToTPOS === 'function') {
+            window.syncXLToTPOS(orderCode, 'ttag-add');
+        }
     }
 
     async function removeTTagFromOrder(orderCode, tagId) {
@@ -895,6 +910,11 @@
         _ptagRefreshRow(orderCode);
         renderPanelContent();
         await saveProcessingTagToAPI(orderCode, data);
+
+        // Forward sync XL → TPOS
+        if (typeof window.syncXLToTPOS === 'function') {
+            window.syncXLToTPOS(orderCode, 'ttag-remove');
+        }
     }
 
     // Transfer processing tags (flags + tTags) from source order to target order

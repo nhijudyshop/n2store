@@ -196,6 +196,11 @@
             updateOrderInTable(orderId, { Tags: tagsJson });
             console.log('[TPOS-RT] Tags updated in table:', existingOrder.Code);
         }
+
+        // Reverse sync TPOS → XL
+        if (typeof window.handleTPOSTagsChanged === 'function') {
+            window.handleTPOSTagsChanged(orderId, normalizedTags);
+        }
     }
 
     /**
