@@ -1074,11 +1074,21 @@
                         changed = true;
                     }
                 } else if (type === 'subtag') {
-                    // ⛔ KHÔNG đồng bộ Category subtags từ TPOS → TAG XL
-                    // Lý do: Category là phân loại quan trọng (đơn phải nằm trong 1 cat),
-                    // không nên auto-change từ TPOS. Vẫn sync TAG XL → TPOS bình thường.
-                    // Khi TPOS xóa tag GIỎ TRỐNG/ĐÃ GỘP KO CHỐT/NCC HẾT HÀNG → KHÔNG xóa subtag XL.
-                    // Static mapping vẫn được dùng để đánh dấu "known mapping" (skip KHAC fallback).
+                    // ✅ Đồng bộ ADD subtag từ TPOS → TAG XL (gán cat tương ứng)
+                    // ⛔ KHÔNG đồng bộ REMOVE: khi TPOS xóa GIỎ TRỐNG/ĐÃ GỘP KO CHỐT/NCC HẾT HÀNG
+                    //    → giữ nguyên subtag XL (category là phân loại cốt lõi, không tự động revert).
+                    if (hasTPOS && currentSubTag !== key) {
+                        // Tìm category cho subtag key này từ SUBTAG_OPTIONS local
+                        let cat = null;
+                        for (const [c, subs] of Object.entries(SUBTAG_OPTIONS)) {
+                            if (subs.some(s => s.key === key)) { cat = parseInt(c); break; }
+                        }
+                        if (cat != null) {
+                            console.log(`${SYNC_LOG} [TPOS→XL] ADD subtag ${key} (cat ${cat}) for ${orderCode}`);
+                            await window.assignOrderCategory(orderCode, cat, { subTag: key, source: 'TPOS-SYNC' });
+                            changed = true;
+                        }
+                    }
                 }
             }
 

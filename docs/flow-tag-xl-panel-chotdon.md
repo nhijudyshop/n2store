@@ -972,13 +972,13 @@ Dạ c xem okee để e đi đơn cho mình c nhé 😍
 
 > `PTAG_TO_TPOS_MAP` — Gán TAG XL → auto thêm TPOS tag. Bỏ TAG XL → auto xóa TPOS tag.
 >
-> **⚠ Quy tắc Category subtags**: Hướng `→ TPOS` đầy đủ 2 chiều (add/remove). Hướng `← TPOS` **KHÔNG sync** (chỉ TAG XL → TPOS, không ngược lại). Lý do: Category là phân loại cốt lõi, không nên auto-change từ TPOS.
+> **⚠ Quy tắc Category subtags**: Sync 2 chiều cho hành động **ADD**, nhưng **KHÔNG sync REMOVE** từ TPOS → TAG XL. Khi TPOS xóa tag GIỎ TRỐNG/ĐÃ GỘP KO CHỐT/NCC HẾT HÀNG → giữ nguyên subtag/category trên TAG XL (category là phân loại cốt lõi, không tự động revert).
 
 | # | TAG XL Key | Loại | TPOS Tag Name | Hướng |
 |---|-----------|------|---------------|-------|
-| 1 | `subtag:GIO_TRONG` | Cat 3 subtag | `GIỎ TRỐNG` | → TPOS only |
-| 2 | `subtag:DA_GOP_KHONG_CHOT` | Cat 3 subtag | `ĐÃ GỘP KO CHỐT` | → TPOS only |
-| 3 | `subtag:NCC_HET_HANG` | Cat 4 subtag | `NCC HẾT HÀNG` | → TPOS only |
+| 1 | `subtag:GIO_TRONG` | Cat 3 subtag | `GIỎ TRỐNG` | ↔ ADD 2 chiều, ⛔ TPOS REMOVE skip |
+| 2 | `subtag:DA_GOP_KHONG_CHOT` | Cat 3 subtag | `ĐÃ GỘP KO CHỐT` | ↔ ADD 2 chiều, ⛔ TPOS REMOVE skip |
+| 3 | `subtag:NCC_HET_HANG` | Cat 4 subtag | `NCC HẾT HÀNG` | ↔ ADD 2 chiều, ⛔ TPOS REMOVE skip |
 | 4 | `flag:TRU_CONG_NO` | Built-in flag | `TRỪ CÔNG NỢ` | ↔ 2 chiều |
 | 5 | `flag:KHACH_BOOM` | Built-in flag | `KHÁCH BOOM` | ↔ 2 chiều |
 | 6 | `flag:THE_KHACH_LA` | Built-in flag | `THẺ KHÁCH LẠ` | ↔ 2 chiều |
@@ -1036,7 +1036,7 @@ Dạ c xem okee để e đi đơn cho mình c nhé 😍
 
 | Loại | Lý do |
 |------|-------|
-| Category subtags (GIỎ TRỐNG, ĐÃ GỘP KO CHỐT, NCC HẾT HÀNG) | Category là phân loại cốt lõi — không auto-change từ TPOS. Vẫn sync XL → TPOS bình thường. Khi xóa TPOS tag → KHÔNG xóa subtag XL. |
+| **REMOVE Category subtags** (GIỎ TRỐNG, ĐÃ GỘP KO CHỐT, NCC HẾT HÀNG) từ TPOS → XL | Khi TPOS xóa tag → KHÔNG xóa subtag XL. (ADD vẫn sync 2 chiều bình thường.) |
 | Cat 0, Cat 1, Cat 2 subtags, Cat 4/KHACH_HUY_DON, Cat 4/KHACH_KO_LIEN_LAC | Không có TPOS tag tương ứng |
 
 ### Constant: `PTAG_TO_TPOS_MAP`
@@ -1144,9 +1144,9 @@ Build tự động từ `PTAG_TO_TPOS_MAP` (reverse keys ↔ values) + merge `TP
 
 | TPOS Tag Name | → TAG XL Key | Nguồn | Ghi chú |
 |---------------|-------------|-------|---------|
-| `GIỎ TRỐNG` | `subtag:GIO_TRONG` | PTAG_TO_TPOS_MAP | ⛔ Skip (category) |
-| `ĐÃ GỘP KO CHỐT` | `subtag:DA_GOP_KHONG_CHOT` | PTAG_TO_TPOS_MAP | ⛔ Skip (category) |
-| `NCC HẾT HÀNG` | `subtag:NCC_HET_HANG` | PTAG_TO_TPOS_MAP | ⛔ Skip (category) |
+| `GIỎ TRỐNG` | `subtag:GIO_TRONG` | PTAG_TO_TPOS_MAP | ✅ Add only (no remove) |
+| `ĐÃ GỘP KO CHỐT` | `subtag:DA_GOP_KHONG_CHOT` | PTAG_TO_TPOS_MAP | ✅ Add only (no remove) |
+| `NCC HẾT HÀNG` | `subtag:NCC_HET_HANG` | PTAG_TO_TPOS_MAP | ✅ Add only (no remove) |
 | `TRỪ CÔNG NỢ` | `flag:TRU_CONG_NO` | PTAG_TO_TPOS_MAP | ✅ Add/Remove |
 | `TRỪ THU VỀ` | `flag:TRU_CONG_NO` | TPOS_ALIAS_MAP | ✅ Add/Remove |
 | `KHÁCH BOOM` | `flag:KHACH_BOOM` | PTAG_TO_TPOS_MAP | ✅ Add/Remove |

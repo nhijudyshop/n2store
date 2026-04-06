@@ -8,6 +8,12 @@
 
 ## 2026-04-06
 
+### [orders] TAG XL ↔ TPOS sync — Category subtags ADD 2 chiều, REMOVE skip ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-tag-sync.js`, `docs/flow-tag-xl-panel-chotdon.md` |
+| **Chi tiết** | Revert một phần thay đổi trước: GIỎ TRỐNG / ĐÃ GỘP KO CHỐT / NCC HẾT HÀNG vẫn sync **ADD** 2 chiều (TPOS → XL gán cat tương ứng), chỉ skip **REMOVE** từ TPOS → XL (khi TPOS xóa tag, giữ nguyên subtag XL). Re-enable block `type === 'subtag'` với logic ADD only: tìm cat từ `SUBTAG_OPTIONS` local → `assignOrderCategory(orderCode, cat, {subTag: key, source: 'TPOS-SYNC'})`. Lý do giữ skip REMOVE: category là phân loại cốt lõi, không tự revert khi TPOS gỡ tag. |
+
 ### [orders] TAG XL ↔ TPOS sync — skip category subtags + fallback KHAC cho tag lạ ✅
 | | |
 |---|---|
