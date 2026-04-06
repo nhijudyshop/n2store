@@ -968,29 +968,82 @@ Dạ c xem okee để e đi đơn cho mình c nhé 😍
 
 ### File: `tab1-tag-sync.js` (phần cuối file)
 
-### Mapping Table
+### Mapping Table — Bidirectional (TAG XL ↔ TPOS)
 
-| TAG XL | Loại | TPOS Tag tương ứng |
-|--------|------|-------------------|
-| Cat 3 / `GIO_TRONG` | Subtag | `GIỎ TRỐNG` |
-| Flag `TRU_CONG_NO` | Built-in flag | `TRỪ CÔNG NỢ` |
-| Flag `KHACH_BOOM` | Built-in flag | `KHÁCH BOOM` |
-| Flag `THE_KHACH_LA` | Built-in flag | `THẺ KHÁCH LẠ` |
-| Flag `DA_DI_DON_GAP` | Built-in flag | `ĐÃ ĐI ĐƠN GẤP` |
-| T-tag `T_MY` | T-tag | `MY THÊM CHỜ VỀ` |
-| Custom flags | Custom | Dùng label làm tên TPOS tag |
-| Các category/subtag khác | — | Không sync |
+> `PTAG_TO_TPOS_MAP` — Gán TAG XL → auto thêm TPOS tag. Bỏ TAG XL → auto xóa TPOS tag.
+
+| # | TAG XL Key | Loại | TPOS Tag Name | Hướng |
+|---|-----------|------|---------------|-------|
+| 1 | `subtag:GIO_TRONG` | Cat 3 subtag | `GIỎ TRỐNG` | ↔ 2 chiều |
+| 2 | `subtag:DA_GOP_KHONG_CHOT` | Cat 3 subtag | `ĐÃ GỘP KO CHỐT` | ↔ 2 chiều |
+| 3 | `subtag:NCC_HET_HANG` | Cat 4 subtag | `NCC HẾT HÀNG` | ↔ 2 chiều |
+| 4 | `flag:TRU_CONG_NO` | Built-in flag | `TRỪ CÔNG NỢ` | ↔ 2 chiều |
+| 5 | `flag:KHACH_BOOM` | Built-in flag | `KHÁCH BOOM` | ↔ 2 chiều |
+| 6 | `flag:THE_KHACH_LA` | Built-in flag | `THẺ KHÁCH LẠ` | ↔ 2 chiều |
+| 7 | `flag:DA_DI_DON_GAP` | Built-in flag | `ĐÃ ĐI ĐƠN GẤP` | ↔ 2 chiều |
+| 8 | `flag:GIAM_GIA` | Built-in flag | `GIẢM GIÁ` | ↔ 2 chiều |
+| 9 | `flag:CHUYEN_KHOAN` | Built-in flag | `CHUYỂN KHOẢN` | ↔ 2 chiều |
+| 10 | `flag:QUA_LAY` | Built-in flag | `QUA LẤY` | ↔ 2 chiều |
+| 11 | `flag:CHO_LIVE` | Built-in flag | `CHỜ LIVE` | ↔ 2 chiều |
+| 12 | `flag:GIU_DON` | Built-in flag | `GIỮ ĐƠN` | ↔ 2 chiều |
+| 13 | `ttag:T_MY` | T-tag default | `MY THÊM CHỜ VỀ` | ↔ 2 chiều |
+| 14 | `ttag:T*` (mọi T-tag) | T-tag dynamic | Dùng T-tag def name | ↔ 2 chiều |
+| 15 | `custom:CUSTOM_*` | Custom flag | Dùng label làm tên | ↔ 2 chiều |
+
+### Alias Map — Reverse-only (TPOS → TAG XL)
+
+> `TPOS_ALIAS_MAP` — Nhiều TPOS tag names map vào cùng 1 TAG XL key. Chỉ hoạt động hướng TPOS → TAG XL.
+
+| # | TPOS Tag Name | → TAG XL Key | Ghi chú |
+|---|--------------|-------------|---------|
+| 1 | `TRỪ THU VỀ` | `flag:TRU_CONG_NO` | Alias cho TRỪ CÔNG NỢ |
+| 2 | `KHÁCH CK` | `flag:CHUYEN_KHOAN` | Alias cho CHUYỂN KHOẢN |
+
+### Pattern Map — Reverse-only (TPOS → TAG XL)
+
+> Pattern-based detection trong `syncTPOSToPtag()`. Không có mapping ngược (TAG XL → TPOS).
+
+| # | TPOS Tag Pattern | → TAG XL Action | Removal |
+|---|-----------------|-----------------|---------|
+| 1 | `T\d+ [mô tả]` (VD: T8 LÓT TULIP) | Auto find/create T-tag def → assign | ✅ Xóa TPOS tag → remove T-tag |
+| 2 | `OK [seller]` (VD: OK DUYÊN) | Add flag `KHAC` | ❌ Add-only |
+| 3 | `XỬ LÝ [seller]` (VD: XỬ LÝ HẠNH) | Add flag `KHAC` | ❌ Add-only |
+| 4 | `XÃ ĐƠN [seller]` (VD: XÃ ĐƠN BO) | Add flag `KHAC` | ❌ Add-only |
+
+### Không Sync (skip)
+
+| TPOS Tag | Lý do |
+|----------|-------|
+| `Gộp xxx yyy` | Tag merge tạm thời, không cần sync |
+| `K\d+ xxx` (VD: K8 CHECK IB) | Tag campaign-specific, quá nhiều |
+| `CỌC xxxK` | Deposit amounts, không có TAG XL tương ứng |
+| `Cat 0, Cat 1, Cat 2 subtags, Cat 4/KHACH_HUY_DON, Cat 4/KHACH_KO_LIEN_LAC` | Category/subtag không có TPOS tag tương ứng |
 
 ### Constant: `PTAG_TO_TPOS_MAP`
 
 ```javascript
 const PTAG_TO_TPOS_MAP = {
+    // Subtags
     'subtag:GIO_TRONG': 'GIỎ TRỐNG',
+    'subtag:DA_GOP_KHONG_CHOT': 'ĐÃ GỘP KO CHỐT',
+    'subtag:NCC_HET_HANG': 'NCC HẾT HÀNG',
+    // Built-in flags
     'flag:TRU_CONG_NO': 'TRỪ CÔNG NỢ',
     'flag:KHACH_BOOM': 'KHÁCH BOOM',
     'flag:THE_KHACH_LA': 'THẺ KHÁCH LẠ',
     'flag:DA_DI_DON_GAP': 'ĐÃ ĐI ĐƠN GẤP',
+    'flag:GIAM_GIA': 'GIẢM GIÁ',
+    'flag:CHUYEN_KHOAN': 'CHUYỂN KHOẢN',
+    'flag:QUA_LAY': 'QUA LẤY',
+    'flag:CHO_LIVE': 'CHỜ LIVE',
+    'flag:GIU_DON': 'GIỮ ĐƠN',
+    // T-tags
     'ttag:T_MY': 'MY THÊM CHỜ VỀ',
+};
+
+const TPOS_ALIAS_MAP = {
+    'TRỪ THU VỀ': 'flag:TRU_CONG_NO',
+    'KHÁCH CK': 'flag:CHUYEN_KHOAN',
 };
 ```
 
@@ -1067,17 +1120,30 @@ VD: Custom flag label "GIẢM GIÁ 50%" → TPOS tag name "GIẢM GIÁ 50%"
 
 #### Reverse Mapping: `TPOS_TO_PTAG_MAP`
 
-Build tự động từ `PTAG_TO_TPOS_MAP` (reverse keys ↔ values):
+Build tự động từ `PTAG_TO_TPOS_MAP` (reverse keys ↔ values) + merge `TPOS_ALIAS_MAP`:
 
-| TPOS Tag Name | → TAG XL Key |
-|---------------|-------------|
-| `GIỎ TRỐNG` | `subtag:GIO_TRONG` |
-| `TRỪ CÔNG NỢ` | `flag:TRU_CONG_NO` |
-| `KHÁCH BOOM` | `flag:KHACH_BOOM` |
-| `THẺ KHÁCH LẠ` | `flag:THE_KHACH_LA` |
-| `ĐÃ ĐI ĐƠN GẤP` | `flag:DA_DI_DON_GAP` |
-| `MY THÊM CHỜ VỀ` | `ttag:T_MY` |
-| Custom flag labels | Custom flag IDs |
+| TPOS Tag Name | → TAG XL Key | Nguồn |
+|---------------|-------------|-------|
+| `GIỎ TRỐNG` | `subtag:GIO_TRONG` | PTAG_TO_TPOS_MAP |
+| `ĐÃ GỘP KO CHỐT` | `subtag:DA_GOP_KHONG_CHOT` | PTAG_TO_TPOS_MAP |
+| `NCC HẾT HÀNG` | `subtag:NCC_HET_HANG` | PTAG_TO_TPOS_MAP |
+| `TRỪ CÔNG NỢ` | `flag:TRU_CONG_NO` | PTAG_TO_TPOS_MAP |
+| `TRỪ THU VỀ` | `flag:TRU_CONG_NO` | TPOS_ALIAS_MAP |
+| `KHÁCH BOOM` | `flag:KHACH_BOOM` | PTAG_TO_TPOS_MAP |
+| `THẺ KHÁCH LẠ` | `flag:THE_KHACH_LA` | PTAG_TO_TPOS_MAP |
+| `ĐÃ ĐI ĐƠN GẤP` | `flag:DA_DI_DON_GAP` | PTAG_TO_TPOS_MAP |
+| `GIẢM GIÁ` | `flag:GIAM_GIA` | PTAG_TO_TPOS_MAP |
+| `CHUYỂN KHOẢN` | `flag:CHUYEN_KHOAN` | PTAG_TO_TPOS_MAP |
+| `KHÁCH CK` | `flag:CHUYEN_KHOAN` | TPOS_ALIAS_MAP |
+| `QUA LẤY` | `flag:QUA_LAY` | PTAG_TO_TPOS_MAP |
+| `CHỜ LIVE` | `flag:CHO_LIVE` | PTAG_TO_TPOS_MAP |
+| `GIỮ ĐƠN` | `flag:GIU_DON` | PTAG_TO_TPOS_MAP |
+| `MY THÊM CHỜ VỀ` | `ttag:T_MY` | PTAG_TO_TPOS_MAP |
+| `T\d+ [mô tả]` (pattern) | `ttag:T*` (auto find/create) | Pattern detect |
+| `OK [seller]` (pattern) | `flag:KHAC` (add-only) | Pattern detect |
+| `XỬ LÝ [seller]` (pattern) | `flag:KHAC` (add-only) | Pattern detect |
+| `XÃ ĐƠN [seller]` (pattern) | `flag:KHAC` (add-only) | Pattern detect |
+| Custom flag labels | Custom flag IDs | Reverse lookup |
 
 #### Trigger Points
 

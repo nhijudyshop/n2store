@@ -8,6 +8,12 @@
 
 ## 2026-04-06
 
+### [docs] Cập nhật flow-tag-xl-panel-chotdon.md — ghi lại toàn bộ tag mappings ✅
+| | |
+|---|---|
+| **Files** | `docs/flow-tag-xl-panel-chotdon.md` |
+| **Chi tiết** | Section 11a: Thay 8-row mapping cũ bằng 4 bảng chi tiết: 1) Bidirectional Mapping (15 entries gồm 3 subtags + 9 flags + 2 ttag patterns + custom). 2) Alias Map (TRỪ THU VỀ, KHÁCH CK). 3) Pattern Map (T-number + 3 seller patterns). 4) "Không sync" table (Gộp, K-tags, CỌC). Cập nhật code constants `PTAG_TO_TPOS_MAP` + `TPOS_ALIAS_MAP`. Section 11b: Reverse mapping table 21 entries với cột Nguồn (PTAG_TO_TPOS_MAP / TPOS_ALIAS_MAP / Pattern detect / Reverse lookup). |
+
 ### [orders] Mở rộng TPOS ↔ TAG XL auto sync — thêm mappings + pattern detection ✅
 | | |
 |---|---|
