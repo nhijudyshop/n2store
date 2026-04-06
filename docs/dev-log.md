@@ -8,6 +8,12 @@
 
 ## 2026-04-06
 
+### [orders] TAG XL ↔ TPOS sync — skip category subtags + fallback KHAC cho tag lạ ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-tag-sync.js`, `docs/flow-tag-xl-panel-chotdon.md` |
+| **Chi tiết** | 1) **Skip Category subtags TPOS → XL**: Bỏ block xử lý `type === 'subtag'` trong `syncTPOSToPtag()`. Khi TPOS gắn/xóa GIỎ TRỐNG, ĐÃ GỘP KO CHỐT, NCC HẾT HÀNG → KHÔNG đổi category XL. Hướng XL → TPOS vẫn sync 2 chiều bình thường (mục đích: category là phân loại cốt lõi, không nên auto-change từ TPOS). 2) **Fallback KHAC cho tag lạ**: Thay thế seller pattern check (OK/XỬ LÝ/XÃ ĐƠN) bằng general fallback. Bất kỳ TPOS tag nào không match `TPOS_TO_PTAG_MAP` (kể cả subtags), không match T-number pattern, không trùng custom flag label → auto add flag KHAC (add-only). Cover: OK/XỬ LÝ/XÃ ĐƠN [seller], Gộp xxx, K\d+ xxx, CỌC xxxK, BÁN HÀNG NHA, XÃ KHÁCH LẠ, hoặc bất kỳ tag lạ. |
+
 ### [docs] Cập nhật flow-tag-xl-panel-chotdon.md — ghi lại toàn bộ tag mappings ✅
 | | |
 |---|---|

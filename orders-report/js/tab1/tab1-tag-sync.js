@@ -1074,17 +1074,11 @@
                         changed = true;
                     }
                 } else if (type === 'subtag') {
-                    if (hasTPOS && currentSubTag !== key) {
-                        // TPOS has it, but TAG XL doesn't have this subtag → need to assign category with subtag
-                        // Find which category this subtag belongs to
-                        const subtagDef = window.PTAG_SUBTAGS?.[key];
-                        if (subtagDef) {
-                            console.log(`${SYNC_LOG} [TPOS→XL] ADD subtag ${key} (cat ${subtagDef.category}) for ${orderCode}`);
-                            await window.assignOrderCategory(orderCode, { category: subtagDef.category, subTag: key });
-                            changed = true;
-                        }
-                    }
-                    // Note: removing subtag via TPOS is complex (which category to revert to?), skip for now
+                    // ⛔ KHÔNG đồng bộ Category subtags từ TPOS → TAG XL
+                    // Lý do: Category là phân loại quan trọng (đơn phải nằm trong 1 cat),
+                    // không nên auto-change từ TPOS. Vẫn sync TAG XL → TPOS bình thường.
+                    // Khi TPOS xóa tag GIỎ TRỐNG/ĐÃ GỘP KO CHỐT/NCC HẾT HÀNG → KHÔNG xóa subtag XL.
+                    // Static mapping vẫn được dùng để đánh dấu "known mapping" (skip KHAC fallback).
                 }
             }
 
@@ -1151,13 +1145,32 @@
                 }
             }
 
-            // ── Pattern: OK/XỬ LÝ/XÃ ĐƠN [seller] → flag KHAC (add-only) ──
-            const SELLER_TAG_PATTERNS = [/^OK\s+/i, /^XỬ LÝ\s+/i, /^XÃ ĐƠN\s+/i];
-            const hasSellerTag = (newTags || []).some(t =>
-                SELLER_TAG_PATTERNS.some(re => re.test((t.Name || '').toUpperCase()))
-            );
-            if (hasSellerTag && !currentFlags.includes('KHAC')) {
-                console.log(`${SYNC_LOG} [TPOS→XL] ADD flag KHAC (seller pattern) for ${orderCode}`);
+            // ── Fallback: Bất kỳ TPOS tag nào không match mapping nào → flag KHAC (add-only) ──
+            // Bao gồm: OK/XỬ LÝ/XÃ ĐƠN [seller], Gộp xxx yyy, K\d+ xxx, CỌC xxxK, hoặc bất kỳ tag lạ.
+            // Không auto-remove (nhiều TPOS tags có thể trigger KHAC, không biết khi nào nên gỡ).
+            let hasUnknownTag = false;
+            for (const tag of (newTags || [])) {
+                const name = (tag.Name || '').trim();
+                if (!name) continue;
+                const upper = name.toUpperCase();
+
+                // Skip nếu match static mapping (kể cả subtags — coi như "known but skipped")
+                if (TPOS_TO_PTAG_MAP[upper]) continue;
+
+                // Skip nếu match T-number pattern (đã handle ở trên)
+                if (/^T\d+\s+/i.test(name)) continue;
+
+                // Skip nếu match custom flag label
+                const isCustom = customDefs.some(d => (d.label || '').toUpperCase() === upper);
+                if (isCustom) continue;
+
+                // Otherwise → unknown → trigger KHAC
+                hasUnknownTag = true;
+                break;
+            }
+
+            if (hasUnknownTag && !currentFlags.includes('KHAC')) {
+                console.log(`${SYNC_LOG} [TPOS→XL] ADD flag KHAC (unknown/fallback) for ${orderCode}`);
                 await window.toggleOrderFlag(orderCode, 'KHAC', 'TPOS-SYNC');
                 changed = true;
             }
