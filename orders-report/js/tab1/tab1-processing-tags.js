@@ -986,7 +986,7 @@
 
     // Auto transition: bill created → ĐÃ RA ĐƠN
     // saleOnlineId = orderId từ TPOS, cần resolve sang orderCode
-    function onPtagBillCreated(saleOnlineId) {
+    async function onPtagBillCreated(saleOnlineId) {
         const orderCode = _ptagResolveCode(saleOnlineId) || saleOnlineId;
         let data = ProcessingTagState.getOrderData(orderCode) || ProcessingTagState.getOrderDataByIdFallback(saleOnlineId);
 
@@ -998,19 +998,22 @@
             data = { category: null, subTag: null, subState: null, flags: [], tTags: [], note: '', assignedAt: Date.now() };
         }
 
-        // Already in ĐÃ RA ĐƠN → skip
+        // Idempotency: already in ĐÃ RA ĐƠN → skip (tránh snapshot đè lên chính snapshot)
         if (data.category === PTAG_CATEGORIES.HOAN_TAT) return;
 
+        // Deep snapshot tất cả field cần restore khi hủy phiếu
         const snapshot = {
             category: data.category,
             subTag: data.subTag,
             subState: data.subState,
-            flags: [...(data.flags || [])],
-            tTags: [...(data.tTags || [])],
-            note: data.note
+            flags: Array.isArray(data.flags) ? data.flags.map(f => (typeof f === 'object' && f !== null ? { ...f } : f)) : [],
+            tTags: Array.isArray(data.tTags) ? [...data.tTags] : [],
+            note: data.note || '',
+            pickingSlipPrinted: !!data.pickingSlipPrinted,
+            snapshotAt: Date.now()
         };
 
-        // Keep flags + tTags, only change category
+        // Chuyển sang ĐÃ RA ĐƠN — giữ flags + tTags, chỉ reset subTag/subState
         data.category = PTAG_CATEGORIES.HOAN_TAT;
         data.subTag = null;
         data.subState = null;
@@ -1022,7 +1025,14 @@
         _ptagAddHistory(orderCode, 'AUTO_HOAN_TAT', '', 'Hệ thống');
         _ptagRefreshRow(orderCode);
         renderPanelContent();
-        saveProcessingTagToAPI(orderCode, data);
+
+        // Await save để đảm bảo snapshot đã persist trước khi sync
+        await saveProcessingTagToAPI(orderCode, data);
+
+        // Forward sync XL → TPOS (fire-and-forget; guard flag chống loop)
+        if (typeof window.syncXLToTPOS === 'function') {
+            window.syncXLToTPOS(orderCode, 'bill-created');
+        }
     }
 
     // Auto transition: packing slip printed → mark pickingSlipPrinted
@@ -1061,23 +1071,38 @@
 
     // Auto rollback: bill cancelled → restore previous position
     // saleOnlineId = orderId từ TPOS, cần resolve sang orderCode
-    function onPtagBillCancelled(saleOnlineId) {
+    async function onPtagBillCancelled(saleOnlineId) {
         const orderCode = _ptagResolveCode(saleOnlineId) || saleOnlineId;
         const data = ProcessingTagState.getOrderData(orderCode) || ProcessingTagState.getOrderDataByIdFallback(saleOnlineId);
-        if (!data?.previousPosition) return;
+        if (!data) return;
+
+        // Idempotency: không có snapshot → đã restore rồi hoặc chưa bao giờ auto-transition
+        if (!data.previousPosition) {
+            console.log(`${PTAG_LOG} onPtagBillCancelled(${orderCode}) — no previousPosition, skip`);
+            return;
+        }
+
+        // Idempotency: nếu user đã gán thủ công lại (category !== HOAN_TAT) thì KHÔNG restore
+        // (assignOrderCategory đã clear previousPosition, nhưng double-check cho race condition)
+        if (data.category !== PTAG_CATEGORIES.HOAN_TAT) {
+            console.log(`${PTAG_LOG} onPtagBillCancelled(${orderCode}) — category đã đổi (${data.category}), skip restore`);
+            return;
+        }
 
         const prev = data.previousPosition;
         const restored = {
             category: prev.category,
             subTag: prev.subTag,
             subState: prev.subState,
-            flags: prev.flags || [],
-            tTags: prev.tTags || [],
+            flags: Array.isArray(prev.flags) ? prev.flags.map(f => (typeof f === 'object' && f !== null ? { ...f } : f)) : [],
+            tTags: Array.isArray(prev.tTags) ? [...prev.tTags] : [],
             note: prev.note || '',
+            pickingSlipPrinted: !!prev.pickingSlipPrinted,
             assignedAt: Date.now(),
-            previousPosition: null,
-            history: data.history || []
+            history: Array.isArray(data.history) ? [...data.history] : []
         };
+        // XÓA HẲN field snapshot (không để null, không giữ key trong JSONB)
+        delete restored.previousPosition;
 
         // Migrate legacy category 5 in restored data
         if (restored.category === 5) {
@@ -1091,7 +1116,14 @@
         _ptagAddHistory(orderCode, 'AUTO_ROLLBACK', '', 'Hệ thống');
         _ptagRefreshRow(orderCode);
         renderPanelContent();
-        saveProcessingTagToAPI(orderCode, restored);
+
+        // Await save để snapshot đã xóa khỏi server trước khi sync
+        await saveProcessingTagToAPI(orderCode, restored);
+
+        // Forward sync XL → TPOS: restore tag theo state đã khôi phục
+        if (typeof window.syncXLToTPOS === 'function') {
+            window.syncXLToTPOS(orderCode, 'bill-cancelled');
+        }
     }
 
     // Helpers

@@ -8,6 +8,13 @@
 
 ## 2026-04-06
 
+### [orders] Robust snapshot/restore cho onPtagBillCreated + onPtagBillCancelled + hook sync v3 ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-processing-tags.js` |
+| **Chi tiết** | Làm kỹ lại logic auto-transition ĐÃ RA ĐƠN ↔ rollback khi hủy phiếu, và bổ sung hook sync v3 (XL→TPOS) vào cả 2 function. **Trước**: `onPtagBillCreated` snapshot `previousPosition` thiếu `pickingSlipPrinted` + timestamp, flags chỉ shallow spread; `onPtagBillCancelled` clear `previousPosition: null` (vẫn giữ key trong JSONB), không idempotency guard, không async. Cả 2 đều bypass `assignOrderCategory` → `syncXLToTPOS` không chạy → TPOS tag column không update khi bill tạo/hủy tự động. **Sau**: (1) `onPtagBillCreated` → `async`. Snapshot giờ gồm `{category, subTag, subState, flags, tTags, note, pickingSlipPrinted, snapshotAt}`, deep clone flag objects (`f => ({...f})`). `await saveProcessingTagToAPI()` rồi gọi `window.syncXLToTPOS(orderCode, 'bill-created')` fire-and-forget. (2) `onPtagBillCancelled` → `async`. Thêm 2 idempotency guard: skip nếu `!data.previousPosition` (đã restore), skip nếu `data.category !== HOAN_TAT` (user đã gán thủ công lại → tránh restore nhầm). Restore giờ có `pickingSlipPrinted` + deep clone flags + clone `history`. Dùng `delete restored.previousPosition` thay vì `: null` → field bị xóa hẳn khỏi JSONB (backend PUT full-replace). `await save` rồi gọi `syncXLToTPOS(orderCode, 'bill-cancelled')`. **Callers KHÔNG đổi**: 5 caller ở `tab1-fast-sale-workflow.js:461/1332`, `tab1-fast-sale-invoice-status.js:819`, `tab1-sale.js:1003/1172` đều fire-and-forget, zero-risk. **Guard interaction sync v3**: `_syncingForward` flip true trong sync → TPOS broadcast `tpos:tag-assigned` về sẽ thấy guard và early-return → không loop. |
+| **Status** | ✅ Done |
+
 ### [inbox] Search conv — chỉ trigger khi Enter hoặc idle 5s (bỏ search-mỗi-phím) ✅
 | | |
 |---|---|
