@@ -8,6 +8,13 @@
 
 ## 2026-04-06
 
+### [inbox] Tìm kiếm hội thoại theo số điện thoại — normalize VN phone formats ✅
+| | |
+|---|---|
+| **Files** | `inbox/js/inbox-data.js`, `inbox/js/inbox-chat.js`, `inbox/index.html` |
+| **Chi tiết** | User không tìm được conversation theo SĐT do formats khác nhau (`0984040726`, `+84 984 040 726`, `0984-040-726` — substring match fail). **Fix**: 1) Thêm helper `normalizePhone(str)` — strip non-digit chars + convert country code `84xxxxxxxxx` → `0xxxxxxxxx` (VN). 2) `isPhoneQuery(str)` — detect query phone-like (≥4 consecutive digits). 3) `getConversations()` filter: nếu query là phone, normalize cả 2 bên (`c.phone` split theo `,` → normalize từng item, `c._raw.recent_phone_numbers` → normalize từng số) rồi substring match. Text fields (name/lastMessage/pageName) vẫn dùng `removeDiacritics` như trước. 4) `performSearch()` (Pancake API): khi query là phone, gửi query đã normalized lên server để Pancake match tốt hơn. 5) Update placeholder search input: `"Tìm khách hàng..."` → `"Tìm theo tên, SĐT, nội dung..."`. |
+| **Status** | ✅ Done |
+
 ### [inbox] Fix sort — đẩy conversation unread (customer gửi cuối) lên top ✅
 | | |
 |---|---|

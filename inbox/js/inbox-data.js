@@ -14,6 +14,39 @@ function removeDiacritics(str) {
     return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
 }
 
+/**
+ * Normalize a phone number for matching.
+ * - Strip all non-digit characters (spaces, dashes, parens, plus sign)
+ * - Convert VN country code 84xxxxxxxxx → 0xxxxxxxxx
+ * Returns empty string if input has no digits.
+ *
+ * Examples:
+ *   "+84 984 040 726" → "0984040726"
+ *   "0984-040-726"    → "0984040726"
+ *   "84984040726"     → "0984040726"
+ *   "0984040726"      → "0984040726"
+ */
+function normalizePhone(str) {
+    if (!str) return '';
+    const digits = String(str).replace(/\D/g, '');
+    if (!digits) return '';
+    // VN country code: 84xxxxxxxxx (10-11 digits after 84) → 0xxxxxxxxx
+    if (digits.startsWith('84') && digits.length >= 10 && digits.length <= 12) {
+        return '0' + digits.slice(2);
+    }
+    return digits;
+}
+
+/**
+ * Detect if a search query looks like a phone number.
+ * Heuristic: 4+ consecutive digits (after stripping non-digits).
+ */
+function isPhoneQuery(query) {
+    if (!query) return false;
+    const digits = String(query).replace(/\D/g, '');
+    return digits.length >= 4;
+}
+
 // Default group labels for categorizing conversations
 const DEFAULT_GROUPS = [
     { id: 'new', name: 'Inbox Mới', color: '#3b82f6', count: 0, note: 'Các tin nhắn mới từ khách hàng chưa được xử lý, cần phản hồi sớm.' },
@@ -586,14 +619,28 @@ class InboxDataManager {
 
         if (search) {
             const q = removeDiacritics(search);
+            // If query looks like a phone number, also prepare normalized digits for phone matching
+            const phoneQ = isPhoneQuery(search) ? normalizePhone(search) : '';
+
             result = result.filter(c => {
+                // Text matching
                 if (removeDiacritics(c.name).includes(q)) return true;
                 if (removeDiacritics(c.lastMessage).includes(q)) return true;
-                if (c.phone && c.phone.includes(q)) return true;
                 if (removeDiacritics(c.pageName).includes(q)) return true;
-                // Also search in raw phone numbers (for phone search)
-                const rawPhones = c._raw?.recent_phone_numbers;
-                if (rawPhones && rawPhones.some(p => (p.phone_number || p.captured || '').includes(search))) return true;
+
+                // Phone matching: normalize both sides so "0984 040 726" / "+84984040726" all match
+                if (phoneQ) {
+                    if (c.phone) {
+                        // c.phone is "0984040726, 0123456789" — split & normalize each
+                        const phoneList = String(c.phone).split(',').map(p => normalizePhone(p)).filter(Boolean);
+                        if (phoneList.some(p => p.includes(phoneQ))) return true;
+                    }
+                    const rawPhones = c._raw?.recent_phone_numbers;
+                    if (rawPhones && rawPhones.some(p => {
+                        const n = normalizePhone(p.phone_number || p.captured || '');
+                        return n && n.includes(phoneQ);
+                    })) return true;
+                }
                 return false;
             });
         }

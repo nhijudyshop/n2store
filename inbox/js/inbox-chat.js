@@ -3473,7 +3473,15 @@ class InboxChatController {
                 return;
             }
 
-            const result = await pdm.searchConversations(query);
+            // If query looks like a phone, send normalized digits to Pancake API
+            // (e.g., "+84 984 040 726" → "0984040726") so the server can match better.
+            let apiQuery = query;
+            if (typeof isPhoneQuery === 'function' && isPhoneQuery(query)) {
+                const normalized = normalizePhone(query);
+                if (normalized) apiQuery = normalized;
+            }
+
+            const result = await pdm.searchConversations(apiQuery);
             if (this.searchQuery !== query) return; // Query changed while waiting
 
             if (result && result.conversations && result.conversations.length > 0) {
