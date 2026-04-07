@@ -1271,13 +1271,14 @@
             }
         }
 
-        // 2c. Auto-show "TAG TPOS NGOÀI MAPPING" badge khi đơn có unmanaged TPOS tags
-        // Chỉ thêm nếu chưa có flag KHAC explicit để tránh trùng badge.
+        // 2c. Render từng unmanaged TPOS tag thành badge riêng (không wrap)
+        // Không thêm nếu user đã có flag KHAC explicit.
         if (!hasKhacFlag && typeof window.getUnmanagedTPOSTagsFromOrder === 'function' && _orderForCell?.Tags) {
             const unmanaged = window.getUnmanagedTPOSTagsFromOrder(_orderForCell.Tags);
-            if (unmanaged.length > 0) {
-                const bgColor = _ptagGetFlagColor('KHAC');
-                flagBadges += `<span class="ptag-flag-badge ptag-badge-clickable" style="background:${bgColor};cursor:pointer;opacity:0.85;" onclick="window._ptagOpenCustomTagsPopover('${oc}', this); event.stopPropagation();" title="Có ${unmanaged.length} tag TPOS không thuộc mapping. Click để xem.">TAG TPOS NGOÀI MAPPING <span style="opacity:0.7;font-size:10px;">(${unmanaged.length})</span></span>`;
+            for (const t of unmanaged) {
+                const tagColor = t.Color || '#9ca3af';
+                const tagName = String(t.Name || '').toUpperCase();
+                flagBadges += `<span class="ptag-flag-badge" style="background:${tagColor};opacity:0.85;" title="Tag TPOS ngoài mapping">${tagName}</span>`;
             }
         }
 
