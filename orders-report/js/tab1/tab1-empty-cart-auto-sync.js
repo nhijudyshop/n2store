@@ -54,7 +54,10 @@
 
         try {
             const existing = state.getOrderData(orderCode);
-            const hasGT = existing?.subTag === 'GIO_TRONG';
+            // Stricter check: must have BOTH category=3 AND subTag=GIO_TRONG.
+            // Orphan state (subTag=GIO_TRONG but category=null) is treated as missing
+            // because renderProcessingTagCell checks category first.
+            const hasGT = existing?.category === 3 && existing?.subTag === 'GIO_TRONG';
             let nextData = null;
 
             if (totalQuantity === 0 && !hasGT) {
