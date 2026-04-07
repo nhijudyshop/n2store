@@ -8,6 +8,12 @@
 
 ## 2026-04-07
 
+### [orders] Fix Tag XL: tag `Tx ...` không còn bị gắn nhãn "Tag TPOS ngoài mapping" ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-tag-sync.js` |
+| **Chi tiết** | Discrepancy: `_isManagedTPOSTag()` (L168-176) coi tag matching `/^T\d+\s+/` là managed, nhưng `getUnmanagedTPOSTagsFromOrder()` (L655) chỉ check hardcoded mapping + alias pattern → tag dynamic như `T8 AN DÂY KIM TUYẾN ĐEN LỤA` lọt vào danh sách unmanaged và bị render với tooltip "Tag TPOS ngoài mapping" trong cột Tag XL. Fix: thêm 2 nhánh filter trong `getUnmanagedTPOSTagsFromOrder` — bỏ qua tag matching `/^T\d+\s+/i` và optional `dynamicTTagNames` set (param mới). Không đổi caller; verify bằng console snippet trên đơn STT 84 (Huỳnh Thành Đạt). |
+
 ### [render][shared] Pancake Account Pages cache — Render DB là source of truth ✅
 | | |
 |---|---|

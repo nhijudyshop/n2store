@@ -652,7 +652,7 @@
         if (!xlKey || !xlKey.startsWith('flag:')) return null;
         return xlKey.split(':')[1];
     };
-    window.getUnmanagedTPOSTagsFromOrder = function(orderTagsRaw) {
+    window.getUnmanagedTPOSTagsFromOrder = function(orderTagsRaw, dynamicTTagNames) {
         const set = _buildManagedNameSet();
         let arr = [];
         if (Array.isArray(orderTagsRaw)) arr = orderTagsRaw;
@@ -660,9 +660,12 @@
             try { const p = JSON.parse(orderTagsRaw); if (Array.isArray(p)) arr = p; } catch (e) {}
         }
         return arr.filter(t => {
-            const upper = _normalizeName(t?.Name || '');
-            if (set.has(upper)) return false;            // exact mapping
-            if (_matchTPOSAliasPattern(t?.Name)) return false; // pattern alias
+            const name = t?.Name || '';
+            const upper = _normalizeName(name);
+            if (set.has(upper)) return false;                          // hardcoded mapping
+            if (_matchTPOSAliasPattern(name)) return false;            // pattern alias
+            if (/^T\d+\s+/i.test(name)) return false;                  // dynamic Tx tag (đồng bộ _isManagedTPOSTag)
+            if (dynamicTTagNames && dynamicTTagNames.has(upper)) return false; // khớp XL T-tag def hiện có
             return true;
         });
     };
