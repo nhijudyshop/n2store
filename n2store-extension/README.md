@@ -11,7 +11,7 @@ N2Store Messenger là Chrome Extension cho phép:
 
 - **Gửi tin nhắn bypass 24h** qua Facebook Business Suite internal API
 - **Upload ảnh/video/file** lên Facebook từ URL
-- **Resolve Global ID** (thread_id/customerName → globalUserId) qua GraphQL (6 strategies)
+- **Resolve Global ID** (thread_id/customerName → globalUserId) qua GraphQL (6 strategies) + **shared Render DB cache** (cross-client, bypass 6 strategies cho mapping đã biết)
 - **Gửi comment & private reply** qua Facebook internal API
 - **Thông báo real-time** từ server (chuyển khoản, đơn hàng, tin nhắn mới)
 - **Badge counter** trên icon extension
@@ -433,12 +433,24 @@ chrome.declarativeNetRequest.updateDynamicRules({
 | customerName | `Tran Thi My Hang` | Strategies 3, 6 (fallback khi không có thread_id) |
 | globalUserId | `100001957832900` | `REPLY_INBOX_PHOTO.globalUserId` (BẮT BUỘC) |
 
-### Cache
+### Cache (3 layers)
 
-- `chrome.storage.local` (persist across restart)
-- TTL: 24h
-- Lần đầu resolve: ~5-40s tùy strategy
-- Lần sau: instant (từ cache)
+| Layer | Nơi lưu | Scope | TTL | Khi nào dùng |
+|-------|---------|-------|-----|--------------|
+| **L1: Web Render DB cache** ⭐ | PostgreSQL `fb_global_id_cache` (Render server) | **Cross-client, shared mọi máy** | Vĩnh viễn (refresh khi truy cập) | Web app query trước khi gọi extension. Nếu hit → pass `globalUserId` thẳng vào `REPLY_INBOX_PHOTO`, **bypass cả 6 strategies**. |
+| **L2: Extension in-memory** | `globalIdCache` Map trong service worker | Per browser, tạm thời | Until SW restart | Extension cache lookup gần đây |
+| **L3: chrome.storage.local** | Extension persistent storage | Per browser | 24h | Survive SW restart |
+
+**Auto-populate L1 (Render DB cache):**
+- Web app `orders-report/js/managers/global-id-harvester.js` hook vào `pdm.fetchConversations()` + `pdm.fetchMessages()` (cả `tab1-orders` và `inbox`).
+- Mỗi response Pancake có `customers[].global_id` hoặc `page_customer.global_id` → `PUT /api/fb-global-id` (fire-and-forget, dedupe per session).
+- Mỗi user khi mở conversation tự động "đóng góp" mapping cho cache shared. Sau một thời gian → mọi mapping phổ biến đều có sẵn → extension không phải resolve nữa.
+
+**Read L1 (web side):**
+- `orders-report/js/tab1/tab1-extension-bridge.js` query `GET /api/fb-global-id?pageId=X&psid=Y` trước khi gọi `sendViaExtension`.
+- Hit → set `convData._raw.page_customer.global_id` → extension nhận `globalUserId` đầy đủ → skip Strategy 1-6.
+
+**Lần đầu resolve (cache miss cả 3 layer):** ~5-40s tùy strategy → sau đó instant.
 
 ### Strategy 1: AdminAssigner (cần thread_id + doc_id)
 
@@ -525,8 +537,10 @@ obj.other_user_fbid                                   // Deep search
 
 ### 7.1 Thứ tự ưu tiên
 
-**N2Store Extension (6 strategies):**
+**N2Store Extension (6 strategies + cache layer):**
 ```
+0. Render DB cache lookup (web side, before calling extension) ⭐⭐
+   ↓ miss → gọi extension với threadId/customerName
 1. AdminAssigner (doc_id)         ← Nhanh nhưng doc_id hiếm khi có
 2. CommItemHeader (cquick+doc_id) ← Nhanh nhưng cần cquick_token + doc_id
 3. findThread ⭐                  ← CHÍNH: dùng MessengerThreadlistQuery (luôn có doc_id)
@@ -534,6 +548,8 @@ obj.other_user_fbid                                   // Deep search
 5. thread_info.php                ← Mercury endpoint, chậm
 6. getUserInboxByName             ← Chỉ khi có customerName
 ```
+
+> **Strategy 0 (Render DB cache)** không nằm trong extension — web side query trước rồi pass `globalUserId` qua `REPLY_INBOX_PHOTO.globalUserId`. Khi hit → extension không cần `GET_GLOBAL_ID_FOR_CONV` nữa. Xem section **Cache (3 layers)** ở trên.
 
 **Pancake Extension v0.5.43 (4 strategies, từ `Me` class trong background.js):**
 ```
@@ -710,7 +726,20 @@ chrome.storage.local.get(null, d => {
 });
 ```
 
-### 10.5 TPOS Tag Interception
+### 10.5 Web-side fallback patterns (bulk send vs modal chat)
+
+Hai code path bên web đều dùng extension để bypass, nhưng pattern enrich convData khác nhau — đã được đồng bộ (04/2026):
+
+| | Bulk send (`message-template-manager.js`) | Modal chat (`tab1-chat-messages.js`) |
+|-|-------------------------------------------|--------------------------------------|
+| Trigger extension | Mọi lỗi Pancake (mode N2Store đi thẳng) | Mọi lỗi Pancake *(trước: chỉ #10/2018278 + #551)* |
+| Lấy global_id | `pdm.fetchMessages()` → `conversation.thread_id` + `page_customer.global_id` + `customers[].global_id` fallback | Cùng pattern *(trước: chỉ `buildConvData()` 1 lần)* |
+| Retry | `buildConvData()` nếu fail vì "Global Facebook ID" | Cùng retry pattern |
+| convData fields | `_raw{thread_id, page_customer}`, `customers`, `_messagesData`, `from`, `type`, `updated_at` | Cùng schema |
+
+**Vì sao quan trọng:** Extension expect `convData._raw.page_customer.global_id` HOẶC `convData.customers[].global_id` để có sẵn `globalUserId`. Nếu không → fall back vào 6 strategies → có thể fail nếu thread_id null hoặc customer name không match. Pre-fetching messages tăng tỉ lệ thành công đáng kể.
+
+### 10.6 TPOS Tag Interception
 
 TPOS (tomato.tpos.vn) **không phát Socket.IO event** khi gán tag từ trang danh sách đơn hàng (`/app/saleOnline/order/list`). Chỉ có event khi tương tác trên trang chi tiết đơn (live page).
 
@@ -727,7 +756,7 @@ Khi XHR trả 2xx → gửi event `tpos:tag-assigned` qua 2 kênh:
 
 N2Store web app (`tab1-tpos-realtime.js`) nhận event qua WebSocket và cập nhật tags trong bảng đơn hàng mà không cần F5.
 
-### 10.6 SSE Reconnect
+### 10.7 SSE Reconnect
 
 - Auto-reconnect khi mất kết nối
 - Exponential backoff: 1s → 2s → 4s → 8s → ... → 60s max
@@ -804,6 +833,8 @@ Chrome → `chrome://extensions/` → N2Store Messenger → "Inspect views: serv
 ## 13. Roadmap
 
 ### Done
+- [x] Render DB shared global_id cache (cross-client) — populated bởi web-side `global-id-harvester.js`, query bởi `tab1-extension-bridge.js`
+- [x] Modal chat fallback extension cho mọi lỗi + enrich convData (04/2026)
 - [x] Facebook session manager (fb_dtsg)
 - [x] Inbox sender (REPLY_INBOX_PHOTO)
 - [x] Image uploader (UPLOAD_INBOX_PHOTO)
