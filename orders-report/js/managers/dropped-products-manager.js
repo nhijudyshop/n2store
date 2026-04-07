@@ -924,9 +924,41 @@
 
         _attachDroppedGlobalListeners();
 
-        const allProducts = filteredProducts || droppedProducts;
+        // Build toolbar skeleton ONCE — never re-render it (preserves input focus + IME)
+        if (!container.querySelector('.dropped-toolbar')) {
+            const pills = [
+                { id: 'all', label: 'ALL' },
+                { id: 'ao', label: 'Áo' },
+                { id: 'quan', label: 'Quần' },
+                { id: 'set', label: 'Set' },
+                { id: 'giay', label: 'GIÀY' },
+                { id: 'pk', label: 'PK' },
+            ];
+            container.innerHTML = `
+                <div class="dropped-toolbar">
+                    <div class="dropped-search-wrap">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="droppedGridSearchInput" class="dropped-search" placeholder="Tìm kiếm sản phẩm..." autocomplete="off">
+                    </div>
+                    <div class="dropped-pills">
+                        ${pills.map((p) => `<button type="button" class="dropped-pill ${_droppedCategoryFilter === p.id ? 'active' : ''}" data-cat="${p.id}">${p.label}</button>`).join('')}
+                    </div>
+                </div>
+                <div class="dropped-grid" id="droppedGridContainer"></div>
+            `;
+            const inp = document.getElementById('droppedGridSearchInput');
+            if (inp) inp.value = _droppedSearchText || '';
+            _wireDroppedToolbar();
+        }
 
-        // Apply search + category filter
+        await _renderDroppedGridOnly(filteredProducts);
+    }
+
+    async function _renderDroppedGridOnly(filteredProducts = null) {
+        const grid = document.getElementById('droppedGridContainer');
+        if (!grid) return;
+
+        const allProducts = filteredProducts || droppedProducts;
         const search = (_droppedSearchText || '').trim().toLowerCase();
         const products = allProducts.filter((p) => {
             const name = (p.ProductNameGet || p.ProductName || '').toLowerCase();
@@ -944,50 +976,25 @@
             if (!existingIds.has(id)) _droppedSelectedIds.delete(id);
         }
 
-        const pills = [
-            { id: 'all', label: 'ALL' },
-            { id: 'ao', label: 'Áo' },
-            { id: 'quan', label: 'Quần' },
-            { id: 'set', label: 'Set' },
-            { id: 'giay', label: 'GIÀY' },
-            { id: 'pk', label: 'PK' },
-        ];
-        const toolbarHTML = `
-            <div class="dropped-toolbar">
-                <div class="dropped-search-wrap">
-                    <i class="fas fa-search"></i>
-                    <input type="text" id="droppedGridSearchInput" class="dropped-search" placeholder="Tìm kiếm sản phẩm..." value="${(_droppedSearchText || '').replace(/"/g, '&quot;')}">
-                </div>
-                <div class="dropped-pills">
-                    ${pills.map((p) => `<button type="button" class="dropped-pill ${_droppedCategoryFilter === p.id ? 'active' : ''}" data-cat="${p.id}">${p.label}</button>`).join('')}
-                </div>
-            </div>
-        `;
-
         if (products.length === 0) {
-            container.innerHTML = toolbarHTML + `
-                <div class="chat-empty-products" style="text-align:center; padding:40px 20px; color:#94a3b8;">
+            grid.innerHTML = `
+                <div class="chat-empty-products" style="grid-column: 1 / -1; text-align:center; padding:40px 20px; color:#94a3b8;">
                     <i class="fas fa-box-open" style="font-size:40px; margin-bottom:12px; opacity:0.5;"></i>
                     <p style="font-size:14px; margin:0;">${allProducts.length === 0 ? 'Chưa có hàng rớt - xả' : 'Không có sản phẩm phù hợp'}</p>
                 </div>
             `;
-            _wireDroppedToolbar();
+            _wireDroppedGrid();
             _updateDroppedFabState();
             return;
         }
 
-        // Fetch holders (only used to mark held items)
         const productsWithHolders = await Promise.all(
             products.map(async (p) => {
                 const holders = await window.getProductHolders(p.ProductId);
-                return {
-                    ...p,
-                    _holders: holders,
-                };
+                return { ...p, _holders: holders };
             })
         );
 
-        // Build cell HTML for image grid
         const cellsHTML = productsWithHolders.map((p) => {
             const isOutOfStock = (p.Quantity || 0) === 0;
             const productNameEscaped = (p.ProductNameGet || p.ProductName || '').replace(/"/g, '&quot;');
@@ -1019,33 +1026,43 @@
             `;
         }).join('');
 
-        container.innerHTML = toolbarHTML + `<div class="dropped-grid" id="droppedGridContainer">${cellsHTML}</div>`;
-
-        _wireDroppedToolbar();
+        grid.innerHTML = cellsHTML;
         _wireDroppedGrid();
         _updateDroppedFabState();
     }
 
     function _wireDroppedToolbar() {
         const searchInput = document.getElementById('droppedGridSearchInput');
-        if (searchInput) {
+        if (searchInput && !searchInput._wired) {
+            searchInput._wired = true;
             let t = null;
+            let composing = false;
+            searchInput.addEventListener('compositionstart', () => { composing = true; });
+            searchInput.addEventListener('compositionend', (e) => {
+                composing = false;
+                _droppedSearchText = e.target.value;
+                clearTimeout(t);
+                _renderDroppedGridOnly();
+            });
             searchInput.addEventListener('input', (e) => {
+                if (composing) return; // Wait for IME composition to end
                 clearTimeout(t);
                 const v = e.target.value;
                 t = setTimeout(() => {
                     _droppedSearchText = v;
-                    renderDroppedProductsTable();
-                    // Refocus
-                    const i = document.getElementById('droppedGridSearchInput');
-                    if (i) { i.focus(); i.setSelectionRange(v.length, v.length); }
-                }, 150);
+                    _renderDroppedGridOnly();
+                }, 200);
             });
         }
         document.querySelectorAll('#chatTabDropped .dropped-pill').forEach((btn) => {
+            if (btn._wired) return;
+            btn._wired = true;
             btn.addEventListener('click', () => {
                 _droppedCategoryFilter = btn.dataset.cat;
-                renderDroppedProductsTable();
+                document.querySelectorAll('#chatTabDropped .dropped-pill').forEach((b) => {
+                    b.classList.toggle('active', b.dataset.cat === _droppedCategoryFilter);
+                });
+                _renderDroppedGridOnly();
             });
         });
         const sendBtn = document.getElementById('droppedFabSend');
