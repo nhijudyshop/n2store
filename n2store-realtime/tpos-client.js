@@ -12,6 +12,15 @@ const TAG_QUERY_URL = `${PROXY_BASE}/api/odata/Tag`;
 const GIO_TRONG_NAME = 'GIỎ TRỐNG';
 const GIO_TRONG_NAME_UPPER = GIO_TRONG_NAME.toUpperCase();
 
+// Parent category tag (Cat 3 — KHÔNG CẦN CHỐT). When server adds GIỎ TRỐNG,
+// it also adds this parent so the XL Cat 3 mapping stays consistent with TPOS.
+const KHONG_CAN_CHOT_NAME = 'KHÔNG CẦN CHỐT';
+const KHONG_CAN_CHOT_NAME_UPPER = KHONG_CAN_CHOT_NAME.toUpperCase();
+
+// Subtag DA_GOP_KHONG_CHOT also belongs to Cat 3 → if user has this on TPOS,
+// removing the parent would orphan it. Server checks for this name when removing.
+const DA_GOP_KHONG_CHOT_NAME_UPPER = 'ĐÃ GỘP KO CHỐT';
+
 // =====================================================
 // TOKEN MANAGER
 // =====================================================
@@ -91,34 +100,43 @@ async function _authedFetch(url, opts = {}, retried = false) {
 }
 
 // =====================================================
-// GIỎ TRỐNG TAG CACHE
+// TAG CACHE (GIỎ TRỐNG + KHÔNG CẦN CHỐT)
 // =====================================================
 
-let _gioTrongTag = null; // {Id, Name, Color}
+const _tagCache = new Map(); // upperName → {Id, Name, Color}
 
-async function getGioTrongTag() {
-    if (_gioTrongTag) return _gioTrongTag;
+async function _findTagByName(displayName) {
+    const upperName = displayName.toUpperCase();
+    if (_tagCache.has(upperName)) return _tagCache.get(upperName);
 
-    // Query by exact name via OData $filter (same pattern as client tag-sync)
-    const escapedName = GIO_TRONG_NAME.replace(/'/g, "''");
+    const escapedName = displayName.replace(/'/g, "''");
     const filter = encodeURIComponent(`Name eq '${escapedName}'`);
     const url = `${TAG_QUERY_URL}?$format=json&$filter=${filter}&$top=5`;
     const res = await _authedFetch(url, {
         headers: { 'Accept': 'application/json' }
     });
 
-    if (!res.ok) throw new Error(`Tag query failed: ${res.status}`);
+    if (!res.ok) throw new Error(`Tag query failed for "${displayName}": ${res.status}`);
     const data = await res.json();
     const list = Array.isArray(data?.value) ? data.value : [];
-    const found = list.find(t => String(t.Name || '').toUpperCase() === GIO_TRONG_NAME_UPPER) || list[0];
+    const found = list.find(t => String(t.Name || '').toUpperCase() === upperName) || list[0];
 
     if (!found) {
-        throw new Error(`Tag "${GIO_TRONG_NAME}" not found in TPOS — please create it manually first`);
+        throw new Error(`Tag "${displayName}" not found in TPOS — please create it manually first`);
     }
 
-    _gioTrongTag = { Id: found.Id, Name: found.Name, Color: found.Color || '#000000' };
-    console.log(`[TPOS] ✅ GIỎ TRỐNG tag cached: Id=${_gioTrongTag.Id}`);
-    return _gioTrongTag;
+    const tag = { Id: found.Id, Name: found.Name, Color: found.Color || '#000000' };
+    _tagCache.set(upperName, tag);
+    console.log(`[TPOS] ✅ Tag cached: ${tag.Name} Id=${tag.Id}`);
+    return tag;
+}
+
+async function getGioTrongTag() {
+    return _findTagByName(GIO_TRONG_NAME);
+}
+
+async function getKhongCanChotTag() {
+    return _findTagByName(KHONG_CAN_CHOT_NAME);
 }
 
 // =====================================================
@@ -153,6 +171,9 @@ async function assignTag(orderId, tagObjects) {
 module.exports = {
     getToken,
     getGioTrongTag,
+    getKhongCanChotTag,
     assignTag,
-    GIO_TRONG_NAME_UPPER
+    GIO_TRONG_NAME_UPPER,
+    KHONG_CAN_CHOT_NAME_UPPER,
+    DA_GOP_KHONG_CHOT_NAME_UPPER
 };

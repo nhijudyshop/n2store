@@ -1342,24 +1342,46 @@ app.post('/api/tpos/empty-cart-sync', async (req, res) => {
         try {
             // 1. Compute desired action FIRST (based on actual current TPOS state)
             const gioTrong = await tposClient.getGioTrongTag();
-            const gioTrongIdLower = String(gioTrong.Id);
-            const hasGioTrong = currentTags.some(t =>
-                String(t.Id) === gioTrongIdLower ||
-                String(t.Name || '').toUpperCase() === tposClient.GIO_TRONG_NAME_UPPER
-            );
+            const khongCanChot = await tposClient.getKhongCanChotTag();
+            const gioTrongIdStr = String(gioTrong.Id);
+            const kccIdStr = String(khongCanChot.Id);
+
+            const isGioTrong = (t) =>
+                String(t.Id) === gioTrongIdStr ||
+                String(t.Name || '').toUpperCase() === tposClient.GIO_TRONG_NAME_UPPER;
+            const isKhongCanChot = (t) =>
+                String(t.Id) === kccIdStr ||
+                String(t.Name || '').toUpperCase() === tposClient.KHONG_CAN_CHOT_NAME_UPPER;
+            const isDaGopKhongChot = (t) =>
+                String(t.Name || '').toUpperCase() === tposClient.DA_GOP_KHONG_CHOT_NAME_UPPER;
+
+            const hasGioTrong = currentTags.some(isGioTrong);
+            const hasKhongCanChot = currentTags.some(isKhongCanChot);
+            const hasDaGopKhongChot = currentTags.some(isDaGopKhongChot);
 
             let action = 'noop';
             let newTags = null;
 
-            if (totalQuantity === 0 && !hasGioTrong) {
-                action = 'added';
-                newTags = [...currentTags, { Id: gioTrong.Id, Name: gioTrong.Name, Color: gioTrong.Color }];
-            } else if (totalQuantity > 0 && hasGioTrong) {
-                action = 'removed';
-                newTags = currentTags.filter(t =>
-                    String(t.Id) !== gioTrongIdLower &&
-                    String(t.Name || '').toUpperCase() !== tposClient.GIO_TRONG_NAME_UPPER
-                );
+            if (totalQuantity === 0) {
+                // Need both tags. If either is missing → action = added.
+                if (!hasGioTrong || !hasKhongCanChot) {
+                    action = 'added';
+                    newTags = [...currentTags];
+                    if (!hasGioTrong) newTags.push({ Id: gioTrong.Id, Name: gioTrong.Name, Color: gioTrong.Color });
+                    if (!hasKhongCanChot) newTags.push({ Id: khongCanChot.Id, Name: khongCanChot.Name, Color: khongCanChot.Color });
+                }
+            } else if (totalQuantity > 0) {
+                // Remove GIO_TRONG. Also remove KHÔNG CẦN CHỐT parent UNLESS another
+                // Cat 3 subtag (DA_GOP_KHONG_CHOT) is still present.
+                const shouldRemoveKcc = hasKhongCanChot && !hasDaGopKhongChot;
+                if (hasGioTrong || shouldRemoveKcc) {
+                    action = 'removed';
+                    newTags = currentTags.filter(t => {
+                        if (isGioTrong(t)) return false;
+                        if (shouldRemoveKcc && isKhongCanChot(t)) return false;
+                        return true;
+                    });
+                }
             }
 
             // 2. Noop fast path — TPOS state already correct
@@ -1373,13 +1395,13 @@ app.post('/api/tpos/empty-cart-sync', async (req, res) => {
                         last_action = 'noop',
                         last_synced_at = NOW()
                 `, [orderId, orderCode || null, totalQuantity]);
-                return res.json({ success: true, action: 'noop', hasGioTrong, totalQuantity });
+                return res.json({ success: true, action: 'noop', hasGioTrong, hasKhongCanChot, totalQuantity });
             }
 
             // 3. Call TPOS only when needed
             if (newTags) {
                 await tposClient.assignTag(orderId, newTags);
-                console.log(`[EMPTY-CART] ${action} GIỎ TRỐNG → order ${orderCode || orderId} (SL=${totalQuantity})`);
+                console.log(`[EMPTY-CART] ${action} GIỎ TRỐNG+KCC → order ${orderCode || orderId} (SL=${totalQuantity})`);
             }
 
             // 4. Persist state (always — even noop, to enable dedupe next time)

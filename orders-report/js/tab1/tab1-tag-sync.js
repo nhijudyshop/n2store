@@ -95,11 +95,13 @@
     }
 
     // =====================================================
-    // GUARD FLAGS (tránh loop vô hạn)
+    // GUARD FLAGS (tránh loop vô hạn) — per orderCode
+    // Trước đây dùng boolean toàn cục, gây silent skip khi nhiều order
+    // sync song song (vd auto wallet detect 100 row cùng lúc → 99 bị skip).
     // =====================================================
 
-    let _syncingForward = false;
-    let _syncingReverse = false;
+    const _syncingForward = new Set(); // Set<orderCode>
+    const _syncingReverse = new Set(); // Set<orderCode>
 
     // =====================================================
     // HELPERS
@@ -340,13 +342,13 @@
      * @param {string} reason - 'category', 'flag', 'ttag-add', 'ttag-remove' (for logging)
      */
     async function syncXLToTPOS(orderCode, reason) {
-        if (_syncingReverse) {
-            console.log(`${LOG} [XL→TPOS] Skip — đang reverse sync`);
+        if (_syncingReverse.has(orderCode)) {
+            console.log(`${LOG} [XL→TPOS] Skip ${orderCode} — đang reverse sync`);
             return;
         }
-        if (_syncingForward) return;
+        if (_syncingForward.has(orderCode)) return;
 
-        _syncingForward = true;
+        _syncingForward.add(orderCode);
         try {
             const order = _findOrderByCode(orderCode);
             if (!order || !order.Id) {
@@ -416,7 +418,7 @@
         } catch (e) {
             console.error(`${LOG} [XL→TPOS] error:`, e.message || e);
         } finally {
-            _syncingForward = false;
+            _syncingForward.delete(orderCode);
         }
     }
 
@@ -452,19 +454,19 @@
      * @param {Array<{Id,Name,Color}>} newTPOSTags - Tag array mới
      */
     async function handleTPOSTagsChanged(orderId, newTPOSTags) {
-        if (_syncingForward) {
-            console.log(`${LOG} [TPOS→XL] Skip — đang forward sync`);
+        const orderCode = _resolveOrderCode(orderId);
+        if (!orderCode) {
+            console.warn(`${LOG} [TPOS→XL] Không resolve được orderCode cho ${orderId}`);
             return;
         }
-        if (_syncingReverse) return;
+        if (_syncingForward.has(orderCode)) {
+            console.log(`${LOG} [TPOS→XL] Skip ${orderCode} — đang forward sync`);
+            return;
+        }
+        if (_syncingReverse.has(orderCode)) return;
 
-        _syncingReverse = true;
+        _syncingReverse.add(orderCode);
         try {
-            const orderCode = _resolveOrderCode(orderId);
-            if (!orderCode) {
-                console.warn(`${LOG} [TPOS→XL] Không resolve được orderCode cho ${orderId}`);
-                return;
-            }
 
             // Đọc XL data mới nhất
             const data = window.ProcessingTagState?.getOrderData?.(orderCode) || null;
@@ -595,7 +597,7 @@
         } catch (e) {
             console.error(`${LOG} [TPOS→XL] error:`, e.message || e);
         } finally {
-            _syncingReverse = false;
+            _syncingReverse.delete(orderCode);
         }
     }
 
