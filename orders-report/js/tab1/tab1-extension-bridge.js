@@ -16,6 +16,67 @@ window.pancakeExtension = { connected: false, lastEvents: [] };
 // ===== globalUserId cache (same as inbox-chat.js _globalIdCache) =====
 window._globalIdCache = {};
 
+// ===== Server cache endpoint (cross-client globalUserId share) =====
+const FB_GLOBAL_ID_CACHE_URL = 'https://n2store-fallback.onrender.com/api/fb-global-id';
+
+/**
+ * Lookup cached globalUserId from server (shared across all machines).
+ * Returns globalUserId or null. Fast (~150ms).
+ */
+async function _lookupGlobalIdFromServer(pageId, psid, conversationId) {
+    try {
+        const params = new URLSearchParams({ pageId });
+        if (psid) params.set('psid', psid);
+        if (conversationId) params.set('conversationId', conversationId);
+        const r = await fetch(`${FB_GLOBAL_ID_CACHE_URL}?${params}`);
+        if (!r.ok) return null;
+        const data = await r.json();
+        if (data.found && data.globalUserId) {
+            console.log(`[EXT-SEND] ⚡ Server cache HIT: ${data.globalUserId} (resolved by ${data.resolvedBy}, useCount=${data.useCount})`);
+            return data.globalUserId;
+        }
+        return null;
+    } catch (e) {
+        console.warn('[EXT-SEND] Server cache lookup failed:', e.message);
+        return null;
+    }
+}
+
+/**
+ * Save resolved globalUserId to server cache for cross-client share.
+ */
+async function _saveGlobalIdToServer(pageId, psid, globalUserId, conversationId, customerName, threadId) {
+    try {
+        const username = (window.authManager?.getAuthState?.() || {}).username || 'unknown';
+        await fetch(FB_GLOBAL_ID_CACHE_URL, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                pageId, psid, globalUserId,
+                conversationId, customerName, threadId,
+                resolvedBy: username,
+            }),
+        });
+        console.log(`[EXT-SEND] 💾 Saved to server cache: ${psid} → ${globalUserId}`);
+    } catch (e) {
+        console.warn('[EXT-SEND] Save to server cache failed:', e.message);
+    }
+}
+
+/**
+ * Report send result to server (success/fail).
+ * Server auto-invalidates entry after 3 consecutive fails (stale globalUserId).
+ */
+async function _reportSendResult(pageId, psid, success) {
+    try {
+        await fetch(`${FB_GLOBAL_ID_CACHE_URL}/send-result`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ pageId, psid, success }),
+        });
+    } catch (e) {}
+}
+
 /**
  * Post message to extension via parent frame relay.
  * In inbox (top frame): window.postMessage() → contentscript directly
@@ -81,6 +142,11 @@ async function sendViaExtension(text, conv) {
         globalUserId = conv.customers[0].global_id || null;
     }
 
+    // Try 2d: Server cache (cross-client share)
+    if (!globalUserId && conv.pageId && (psid || cacheKey)) {
+        globalUserId = await _lookupGlobalIdFromServer(conv.pageId, psid, cacheKey);
+    }
+
     // Try 3: GET_GLOBAL_ID_FOR_CONV via extension
     // Now supports 5 strategies: threadId-based (1-3) + customerName-based (4-5)
     // IMPORTANT: Skip thread_id if it equals psid — PSID confuses thread-based strategies
@@ -139,8 +205,15 @@ async function sendViaExtension(text, conv) {
         throw new Error('Không tìm được Global Facebook ID. Khách hàng này chưa có global_id trong Pancake.');
     }
 
-    // Cache for next time
+    // Cache for next time (in-memory + server)
     window._globalIdCache[cacheKey] = globalUserId;
+    if (conv.pageId && psid) {
+        // Fire-and-forget — không block send flow
+        _saveGlobalIdToServer(
+            conv.pageId, psid, globalUserId,
+            cacheKey, custName, fbThreadId
+        );
+    }
 
     // ===== Send REPLY_INBOX_PHOTO (exact same payload as inbox-chat.js) =====
     const sendTaskId = Date.now();
@@ -149,6 +222,7 @@ async function sendViaExtension(text, conv) {
         const timeout = setTimeout(() => {
             window.removeEventListener('message', handler);
             console.error('[EXT-SEND] REPLY_INBOX_PHOTO timeout (60s)');
+            _reportSendResult(conv.pageId, psid, false);
             reject(new Error('Extension gửi tin nhắn timeout (60s)'));
         }, 60000);
 
@@ -158,12 +232,14 @@ async function sendViaExtension(text, conv) {
             if (d.type === 'REPLY_INBOX_PHOTO_SUCCESS' && d.taskId === sendTaskId) {
                 clearTimeout(timeout);
                 window.removeEventListener('message', handler);
+                _reportSendResult(conv.pageId, psid, true);
                 resolve(d);
             }
             if (d.type === 'REPLY_INBOX_PHOTO_FAILURE' && d.taskId === sendTaskId) {
                 clearTimeout(timeout);
                 window.removeEventListener('message', handler);
                 console.error('[EXT-SEND] FAILURE:', d);
+                _reportSendResult(conv.pageId, psid, false);
                 reject(new Error(d.error || 'Extension gửi tin nhắn thất bại'));
             }
         };

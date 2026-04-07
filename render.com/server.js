@@ -276,6 +276,11 @@ app.use('/api/quick-replies', quickRepliesRoutes);
 app.use('/api/campaigns', campaignsRoutes);
 app.use('/api/tpos/order-buffer', require('./routes/tpos-order-buffer'));
 
+// Facebook Global ID Cache — share resolved (psid → globalUserId) across all clients
+const fbGlobalIdCacheRoutes = require('./routes/fb-global-id-cache');
+fbGlobalIdCacheRoutes.init(chatDbPool);
+app.use('/api/fb-global-id', fbGlobalIdCacheRoutes);
+
 // Initialize SSE notifiers in realtime-db routes
 const { initializeNotifiers } = require('./routes/realtime-db');
 initializeNotifiers(
