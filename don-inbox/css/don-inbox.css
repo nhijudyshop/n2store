@@ -3,6 +3,15 @@
  * Extends tab1-orders.css with social-specific styles
  */
 
+/* Đơn Inbox: ẩn cột "Giá mua" (col 6) và "Ảnh Giá mua" (col 10) trong bảng sản phẩm
+   của modal tạo/sửa đơn — chỉ scoped trong don-inbox, không ảnh hưởng purchase-orders */
+#socialProductTableContainer thead th:nth-child(6),
+#socialProductTableContainer tbody tr > td:nth-child(6),
+#socialProductTableContainer thead th:nth-child(10),
+#socialProductTableContainer tbody tr > td:nth-child(10) {
+    display: none !important;
+}
+
 /* ===== HEADER SECTION ===== */
 .social-header {
     display: flex;

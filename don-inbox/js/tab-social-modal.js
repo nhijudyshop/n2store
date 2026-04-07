@@ -185,6 +185,51 @@ function _initSocialProductSection(existingProducts = []) {
 
     // 4. Render + bind
     window.purchaseOrderFormModal.refreshItemsTable();
+
+    // 5. Override Thành tiền/Tổng tiền dùng GIÁ BÁN (chỉ trong don-inbox)
+    _setupSellingPriceTotalsOverride();
+}
+
+// Override subtotal cell + #totalAmount để tính theo sellingPrice thay vì purchasePrice.
+// Chỉ áp dụng trong modal don-inbox, không đụng tới logic gốc của PurchaseOrderFormModal.
+let _sellingOverrideInstalled = false;
+function _setupSellingPriceTotalsOverride() {
+    const tbody = document.getElementById('itemsTableBody');
+    if (!tbody) return;
+
+    const fmt = (n) => (window.purchaseOrderFormModal?.formatNumber
+        ? window.purchaseOrderFormModal.formatNumber(n)
+        : Math.round(n).toLocaleString('vi-VN'));
+
+    const recalc = () => {
+        let total = 0;
+        tbody.querySelectorAll('tr[data-item-id]').forEach((row) => {
+            const sellingInput = row.querySelector('input[data-field="sellingPrice"]');
+            const qtyInput = row.querySelector('input[data-field="quantity"]');
+            if (!sellingInput || !qtyInput) return;
+            const selling = parseFloat(String(sellingInput.value).replace(/[,.]/g, '')) || 0;
+            const qty = parseInt(qtyInput.value) || 0;
+            const subtotal = selling * qty;
+            total += subtotal;
+            const subCell = row.querySelector('.subtotal-cell');
+            if (subCell) subCell.textContent = fmt(subtotal) + ' đ';
+        });
+        const totalEl = document.getElementById('totalAmount');
+        if (totalEl) totalEl.textContent = fmt(total) + ' đ';
+    };
+
+    // Recalc ngay sau khi shared module render xong
+    setTimeout(recalc, 0);
+
+    if (_sellingOverrideInstalled) return;
+    _sellingOverrideInstalled = true;
+
+    // Lắng nghe thay đổi input (chạy SAU handler gốc nhờ setTimeout 0)
+    tbody.addEventListener('input', () => setTimeout(recalc, 0));
+
+    // Theo dõi tbody re-render (thêm/xóa/refresh) để cập nhật lại
+    const observer = new MutationObserver(() => setTimeout(recalc, 0));
+    observer.observe(tbody, { childList: true });
 }
 
 function _collectSocialProducts() {
@@ -240,7 +285,11 @@ function saveOrder() {
         ? window.purchaseOrderFormModal.calculateTotals()
         : { totalQuantity: 0, totalAmount: 0 };
     const totalQuantity = totals.totalQuantity;
-    const totalAmount = totals.totalAmount;
+    // Đơn inbox: tổng tiền tính theo GIÁ BÁN (không phải giá mua như shared module)
+    const totalAmount = products.reduce(
+        (sum, p) => sum + (Number(p.sellingPrice) || 0) * (parseInt(p.quantity) || 1),
+        0
+    );
 
     // Generate post label from URL
     let postLabel = '';
