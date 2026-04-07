@@ -1228,7 +1228,12 @@
             const label = (typeof f === 'object' && f.name) ? f.name : (fl ? fl.label : ProcessingTagState.getCustomFlagLabel(fId));
             const bgColor = _ptagGetFlagColor(fId);
             const removeBtn = `<button class="ptag-badge-remove" onclick="window._ptagToggleFlag('${oc}', '${fId}'); event.stopPropagation();" title="Xóa flag">&times;</button>`;
-            flagBadges += `<span class="ptag-flag-badge ptag-badge-removable" style="background:${bgColor};">${label}${removeBtn}</span>`;
+            // KHÁC catch-all flag → click body opens custom-tag picker popover
+            if (fId === 'KHAC') {
+                flagBadges += `<span class="ptag-flag-badge ptag-badge-removable ptag-badge-clickable" style="background:${bgColor};cursor:pointer;" onclick="window._ptagOpenCustomTagsPopover('${oc}', this); event.stopPropagation();" title="Xem & gắn thêm tag tự tạo">${label}${removeBtn}</span>`;
+            } else {
+                flagBadges += `<span class="ptag-flag-badge ptag-badge-removable" style="background:${bgColor};">${label}${removeBtn}</span>`;
+            }
         });
 
         // 3. T-tag badges — each on its own line
@@ -5236,6 +5241,79 @@
 
     window._ptagOpenFlagColorPicker = _ptagOpenFlagColorPicker;
     window._ptagApplyFlagColor = _ptagApplyFlagColor;
+
+    // =====================================================
+    // CUSTOM TAGS POPOVER (click vào badge KHÁC)
+    // Hiển thị toàn bộ custom flags + cho phép gắn/gỡ trên đơn hiện tại
+    // =====================================================
+    function _ptagOpenCustomTagsPopover(orderCode, anchorEl) {
+        // Close any existing popover
+        document.querySelectorAll('.ptag-custom-tags-popover').forEach(el => el.remove());
+
+        const data = ProcessingTagState.getOrderData(orderCode);
+        const orderFlagIds = (data?.flags || []).map(f => _ptagFlagId(f));
+        const customDefs = ProcessingTagState.getCustomFlagDefs() || [];
+
+        const rect = anchorEl.getBoundingClientRect();
+        const top = rect.bottom + 4 + window.scrollY;
+        const left = rect.left + window.scrollX;
+
+        let html = `<div class="ptag-custom-tags-popover" style="position:absolute;top:${top}px;left:${left}px;z-index:10000;background:#fff;border:1px solid #d1d5db;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.15);min-width:280px;max-width:360px;max-height:400px;overflow-y:auto;padding:8px;">`;
+        html += `<div style="font-size:12px;font-weight:600;color:#6b7280;padding:4px 8px 8px;border-bottom:1px solid #e5e7eb;margin-bottom:6px;">DANH SÁCH TAG TỰ TẠO (${customDefs.length})</div>`;
+
+        if (customDefs.length === 0) {
+            html += `<div style="padding:12px;text-align:center;color:#9ca3af;font-size:13px;">Chưa có tag nào. Mở dropdown chọn trạng thái và gõ tên tag mới để tạo.</div>`;
+        } else {
+            // Sort: assigned-to-this-order first, then alphabetical
+            const sorted = [...customDefs].sort((a, b) => {
+                const aOn = orderFlagIds.includes(a.id) ? 0 : 1;
+                const bOn = orderFlagIds.includes(b.id) ? 0 : 1;
+                if (aOn !== bOn) return aOn - bOn;
+                return String(a.label || '').localeCompare(String(b.label || ''));
+            });
+
+            for (const cf of sorted) {
+                const isOn = orderFlagIds.includes(cf.id);
+                const color = _ptagGetFlagColor(cf.id);
+                const safeId = String(cf.id).replace(/'/g, "\\'");
+                html += `<div class="ptag-cf-item" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;${isOn ? 'background:rgba(59,130,246,0.08);' : ''}" onclick="window._ptagCfTogglePopover('${orderCode}', '${safeId}'); event.stopPropagation();">`;
+                html += `<span style="width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0;"></span>`;
+                html += `<span style="flex:1;font-size:13px;font-weight:${isOn ? '600' : '400'};color:${isOn ? '#1e40af' : '#374151'};">${(cf.label || '').toUpperCase()}</span>`;
+                if (isOn) html += `<i class="fas fa-check" style="color:#10b981;font-size:11px;"></i>`;
+                html += `</div>`;
+            }
+        }
+        html += `</div>`;
+
+        document.body.insertAdjacentHTML('beforeend', html);
+        setTimeout(() => {
+            document.addEventListener('click', function closer(e) {
+                if (!e.target.closest('.ptag-custom-tags-popover')) {
+                    document.querySelectorAll('.ptag-custom-tags-popover').forEach(el => el.remove());
+                    document.removeEventListener('click', closer);
+                }
+            });
+        }, 10);
+    }
+
+    // Toggle custom flag from popover, then re-render the popover in place
+    async function _ptagCfTogglePopover(orderCode, flagId) {
+        await toggleOrderFlag(orderCode, flagId, 'KHÁC popover');
+        // Re-open popover anchored to KHÁC badge of the same row to refresh state
+        const orderId = _ptagResolveId(orderCode);
+        const row = orderId ? document.querySelector(`tr[data-order-id="${orderId}"]`) : null;
+        const cell = row?.querySelector('td[data-column="processing-tag"]');
+        const khacBadge = cell?.querySelector('.ptag-badge-clickable');
+        if (khacBadge) {
+            _ptagOpenCustomTagsPopover(orderCode, khacBadge);
+        } else {
+            // Row no longer has KHAC flag → close popover
+            document.querySelectorAll('.ptag-custom-tags-popover').forEach(el => el.remove());
+        }
+    }
+
+    window._ptagOpenCustomTagsPopover = _ptagOpenCustomTagsPopover;
+    window._ptagCfTogglePopover = _ptagCfTogglePopover;
 
     // State (for debugging)
     window.ProcessingTagState = ProcessingTagState;
