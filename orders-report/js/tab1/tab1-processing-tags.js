@@ -1225,21 +1225,17 @@
 
         // 2. Flag badges (đặc điểm) — inline row
         let flagBadges = '';
-        let hasKhacFlag = false;
         (data.flags || []).forEach(f => {
             const fId = _ptagFlagId(f);
+            // Skip flag KHAC — không render trong cell. KHÁC giờ là meta-concept
+            // được render từ unmanaged TPOS tags ở section 2c phía dưới.
+            if (fId === 'KHAC') return;
             const fl = PTAG_FLAGS[fId];
             // Prefer canonical PTAG_FLAGS label (vd "CK") over stored name (vd "CỌC 100K")
             const label = fl ? fl.label : ((typeof f === 'object' && f.name) ? f.name : ProcessingTagState.getCustomFlagLabel(fId));
             const bgColor = _ptagGetFlagColor(fId);
             const removeBtn = `<button class="ptag-badge-remove" onclick="window._ptagToggleFlag('${oc}', '${fId}'); event.stopPropagation();" title="Xóa flag">&times;</button>`;
-            // KHÁC catch-all flag → click body opens custom-tag picker popover
-            if (fId === 'KHAC') {
-                hasKhacFlag = true;
-                flagBadges += `<span class="ptag-flag-badge ptag-badge-removable ptag-badge-clickable" style="background:${bgColor};cursor:pointer;" onclick="window._ptagOpenCustomTagsPopover('${oc}', this); event.stopPropagation();" title="Xem & gắn thêm tag tự tạo">${label}${removeBtn}</span>`;
-            } else {
-                flagBadges += `<span class="ptag-flag-badge ptag-badge-removable" style="background:${bgColor};">${label}${removeBtn}</span>`;
-            }
+            flagBadges += `<span class="ptag-flag-badge ptag-badge-removable" style="background:${bgColor};">${label}${removeBtn}</span>`;
         });
 
         // Lookup order 1 lần dùng cho cả 2b (virtual flags) và 2c (KHÁC badge)
@@ -1271,9 +1267,8 @@
             }
         }
 
-        // 2c. Render từng unmanaged TPOS tag thành badge riêng (không wrap)
-        // Không thêm nếu user đã có flag KHAC explicit.
-        if (!hasKhacFlag && typeof window.getUnmanagedTPOSTagsFromOrder === 'function' && _orderForCell?.Tags) {
+        // 2c. Render từng unmanaged TPOS tag thành badge riêng (luôn chạy)
+        if (typeof window.getUnmanagedTPOSTagsFromOrder === 'function' && _orderForCell?.Tags) {
             const unmanaged = window.getUnmanagedTPOSTagsFromOrder(_orderForCell.Tags);
             for (const t of unmanaged) {
                 const tagColor = t.Color || '#9ca3af';
