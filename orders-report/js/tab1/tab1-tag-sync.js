@@ -607,6 +607,20 @@
 
     window.syncXLToTPOS = syncXLToTPOS;
     window.handleTPOSTagsChanged = handleTPOSTagsChanged;
+    // Expose managed-name lookup so other modules (vd Tag XL cell render)
+    // có thể detect tag KHÁC = unmanaged TPOS tag.
+    window.isTPOSTagManaged = function(tagName) {
+        return _buildManagedNameSet().has(_normalizeName(tagName));
+    };
+    window.getUnmanagedTPOSTagsFromOrder = function(orderTagsRaw) {
+        const set = _buildManagedNameSet();
+        let arr = [];
+        if (Array.isArray(orderTagsRaw)) arr = orderTagsRaw;
+        else if (typeof orderTagsRaw === 'string' && orderTagsRaw) {
+            try { const p = JSON.parse(orderTagsRaw); if (Array.isArray(p)) arr = p; } catch (e) {}
+        }
+        return arr.filter(t => !set.has(_normalizeName(t?.Name || '')));
+    };
 
     console.log(`${LOG} module loaded (hardcoded mapping, v3)`);
 })();

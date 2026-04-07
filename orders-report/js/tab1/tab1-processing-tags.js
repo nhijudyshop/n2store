@@ -1221,6 +1221,7 @@
 
         // 2. Flag badges (đặc điểm) — inline row
         let flagBadges = '';
+        let hasKhacFlag = false;
         (data.flags || []).forEach(f => {
             const fId = _ptagFlagId(f);
             const fl = PTAG_FLAGS[fId];
@@ -1230,11 +1231,28 @@
             const removeBtn = `<button class="ptag-badge-remove" onclick="window._ptagToggleFlag('${oc}', '${fId}'); event.stopPropagation();" title="Xóa flag">&times;</button>`;
             // KHÁC catch-all flag → click body opens custom-tag picker popover
             if (fId === 'KHAC') {
+                hasKhacFlag = true;
                 flagBadges += `<span class="ptag-flag-badge ptag-badge-removable ptag-badge-clickable" style="background:${bgColor};cursor:pointer;" onclick="window._ptagOpenCustomTagsPopover('${oc}', this); event.stopPropagation();" title="Xem & gắn thêm tag tự tạo">${label}${removeBtn}</span>`;
             } else {
                 flagBadges += `<span class="ptag-flag-badge ptag-badge-removable" style="background:${bgColor};">${label}${removeBtn}</span>`;
             }
         });
+
+        // 2b. Auto-show KHÁC badge khi đơn có unmanaged TPOS tags (không thuộc mapping)
+        // Chỉ thêm nếu chưa có flag KHAC explicit để tránh trùng badge.
+        if (!hasKhacFlag && typeof window.getUnmanagedTPOSTagsFromOrder === 'function') {
+            const orderId = _ptagResolveId(orderCode);
+            const order = orderId && typeof window.getAllOrders === 'function'
+                ? window.getAllOrders().find(o => o.Id === orderId)
+                : null;
+            if (order && order.Tags) {
+                const unmanaged = window.getUnmanagedTPOSTagsFromOrder(order.Tags);
+                if (unmanaged.length > 0) {
+                    const bgColor = _ptagGetFlagColor('KHAC');
+                    flagBadges += `<span class="ptag-flag-badge ptag-badge-clickable" style="background:${bgColor};cursor:pointer;opacity:0.85;" onclick="window._ptagOpenCustomTagsPopover('${oc}', this); event.stopPropagation();" title="Có ${unmanaged.length} tag TPOS không thuộc mapping. Click để xem.">KHÁC <span style="opacity:0.7;font-size:10px;">(${unmanaged.length})</span></span>`;
+                }
+            }
+        }
 
         // 3. T-tag badges — each on its own line
         let ttagBadges = '';
@@ -5254,15 +5272,41 @@
         const orderFlagIds = (data?.flags || []).map(f => _ptagFlagId(f));
         const customDefs = ProcessingTagState.getCustomFlagDefs() || [];
 
+        // Lấy unmanaged TPOS tags của đơn này (tag không thuộc mapping)
+        let unmanagedTags = [];
+        const orderId = _ptagResolveId(orderCode);
+        const order = orderId && typeof window.getAllOrders === 'function'
+            ? window.getAllOrders().find(o => o.Id === orderId)
+            : null;
+        if (order && order.Tags && typeof window.getUnmanagedTPOSTagsFromOrder === 'function') {
+            unmanagedTags = window.getUnmanagedTPOSTagsFromOrder(order.Tags);
+        }
+
         const rect = anchorEl.getBoundingClientRect();
         const top = rect.bottom + 4 + window.scrollY;
         const left = rect.left + window.scrollX;
 
-        let html = `<div class="ptag-custom-tags-popover" style="position:absolute;top:${top}px;left:${left}px;z-index:10000;background:#fff;border:1px solid #d1d5db;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.15);min-width:280px;max-width:360px;max-height:400px;overflow-y:auto;padding:8px;">`;
-        html += `<div style="font-size:12px;font-weight:600;color:#6b7280;padding:4px 8px 8px;border-bottom:1px solid #e5e7eb;margin-bottom:6px;">DANH SÁCH TAG TỰ TẠO (${customDefs.length})</div>`;
+        let html = `<div class="ptag-custom-tags-popover" style="position:absolute;top:${top}px;left:${left}px;z-index:10000;background:#fff;border:1px solid #d1d5db;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.15);min-width:300px;max-width:380px;max-height:440px;overflow-y:auto;padding:8px;">`;
 
+        // Section 1: TPOS tags không thuộc mapping (đến từ TPOS thực tế)
+        html += `<div style="font-size:12px;font-weight:600;color:#6b7280;padding:4px 8px 6px;border-bottom:1px solid #e5e7eb;margin-bottom:6px;">TAG TPOS NGOÀI MAPPING (${unmanagedTags.length})</div>`;
+        if (unmanagedTags.length === 0) {
+            html += `<div style="padding:6px 12px;color:#9ca3af;font-size:12px;font-style:italic;">Không có</div>`;
+        } else {
+            for (const t of unmanagedTags) {
+                const tagColor = t.Color || '#9ca3af';
+                html += `<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;background:rgba(0,0,0,0.02);margin-bottom:2px;">`;
+                html += `<span style="width:10px;height:10px;border-radius:50%;background:${tagColor};flex-shrink:0;"></span>`;
+                html += `<span style="flex:1;font-size:13px;color:#374151;">${String(t.Name || '').toUpperCase()}</span>`;
+                html += `<span style="font-size:10px;color:#9ca3af;">TPOS</span>`;
+                html += `</div>`;
+            }
+        }
+
+        // Section 2: Custom flag defs (XL nội bộ)
+        html += `<div style="font-size:12px;font-weight:600;color:#6b7280;padding:10px 8px 6px;border-top:1px solid #e5e7eb;margin-top:8px;border-bottom:1px solid #e5e7eb;margin-bottom:6px;">TAG TỰ TẠO XL (${customDefs.length})</div>`;
         if (customDefs.length === 0) {
-            html += `<div style="padding:12px;text-align:center;color:#9ca3af;font-size:13px;">Chưa có tag nào. Mở dropdown chọn trạng thái và gõ tên tag mới để tạo.</div>`;
+            html += `<div style="padding:6px 12px;color:#9ca3af;font-size:12px;font-style:italic;">Chưa có. Mở dropdown chọn trạng thái và gõ tên tag mới để tạo.</div>`;
         } else {
             // Sort: assigned-to-this-order first, then alphabetical
             const sorted = [...customDefs].sort((a, b) => {
