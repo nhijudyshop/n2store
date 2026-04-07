@@ -585,12 +585,31 @@ async function _sendInbox(pdm, pageId, convId, text, pat, replyData) {
     const payload = { action: 'reply_inbox', message: text };
     if (replyData?.id) payload.replied_message_id = replyData.id;
 
+    console.group('[Chat-Msg][_sendInbox] START');
+    console.log('args:', { pageId, convId, textLen: text?.length, hasReply: !!replyData?.id });
+
     try {
         const result = await _sendApi(pdm, pageId, convId, payload, pat);
+        console.log('✅ Pancake API success');
+        console.groupEnd();
     } catch (err) {
+        console.warn('❌ Pancake API failed:', {
+            message: err.message,
+            eCode: err.fbError?.eCode,
+            eSubcode: err.fbError?.eSubcode,
+            is24HourError: err.fbError?.is24HourError,
+            isUserUnavailable: err.fbError?.isUserUnavailable,
+            fbError: err.fbError,
+        });
+
         // Fallback to extension for ANY error (was: only 24h / #551)
         // Mirrors bulk-send behavior — "bị lỗi gì cứ đưa vào extension"
-        if (!(window.pancakeExtension?.connected && window.sendViaExtension)) {
+        const extConnected = !!window.pancakeExtension?.connected;
+        const extAvail = !!window.sendViaExtension;
+        console.log('extension status:', { connected: extConnected, sendViaExtension: extAvail });
+        if (!(extConnected && extAvail)) {
+            console.error('🚫 No extension fallback available — throwing original error');
+            console.groupEnd();
             throw err;
         }
 
@@ -598,6 +617,7 @@ async function _sendInbox(pdm, pageId, convId, text, pat, replyData) {
             : err.fbError?.isUserUnavailable ? 'Khách không có mặt (#551)'
             : `Pancake lỗi (${err.fbError?.eCode || '?'})`;
         _showToast(`${reason} — đang gửi qua Extension...`, 'warning');
+        console.log('→ falling back to extension, reason:', reason);
 
         try {
             // Enrich convData same way as bulk send (message-template-manager.js:1038-1071):
@@ -605,16 +625,37 @@ async function _sendInbox(pdm, pageId, convId, text, pat, replyData) {
             // to scanning customers[] for any global_id we can find.
             const psid = window.currentChatPSID;
             let convFromCache = pdm?.inboxMapByPSID?.get(String(psid)) || window.currentConversationData || {};
+            console.log('convFromCache snapshot:', {
+                hasIt: !!convFromCache,
+                thread_id: convFromCache?.thread_id,
+                page_customer_global_id: convFromCache?.page_customer?.global_id,
+                customers_len: convFromCache?.customers?.length || 0,
+                customers_with_global_id: (convFromCache?.customers || []).filter(c => c.global_id).length,
+                from_id: convFromCache?.from?.id,
+                type: convFromCache?.type,
+            });
+
             const raw = { from_psid: psid };
             let msgCustomers = [];
             try {
+                console.log('→ pdm.fetchMessages(', pageId, ',', convId, ')');
                 const msgData = await pdm.fetchMessages(pageId, convId);
+                console.log('fetchMessages result:', {
+                    has_conversation: !!msgData?.conversation,
+                    conv_thread_id: msgData?.conversation?.thread_id,
+                    conv_page_customer_global_id: msgData?.conversation?.page_customer?.global_id,
+                    customers_len: msgData?.customers?.length || 0,
+                    customers_with_global_id: (msgData?.customers || []).filter(c => c.global_id).length,
+                    customers_sample: (msgData?.customers || []).slice(0, 2).map(c => ({ id: c.id, fb_id: c.fb_id, global_id: c.global_id, name: c.name })),
+                });
                 if (msgData?.conversation) {
                     if (msgData.conversation.thread_id) raw.thread_id = msgData.conversation.thread_id;
                     if (msgData.conversation.page_customer) raw.page_customer = msgData.conversation.page_customer;
                 }
                 if (msgData?.customers?.length) msgCustomers = msgData.customers;
-            } catch (_) { /* ignore */ }
+            } catch (fmErr) {
+                console.warn('fetchMessages threw:', fmErr.message);
+            }
 
             if (!raw.thread_id && convFromCache.thread_id) raw.thread_id = convFromCache.thread_id;
             if (!raw.page_customer?.global_id && convFromCache.page_customer?.global_id) {
@@ -638,27 +679,50 @@ async function _sendInbox(pdm, pageId, convId, text, pat, replyData) {
                 type: convFromCache.type || 'INBOX',
                 from: convFromCache.from || null,
             };
+            console.log('enrichedConv built:', {
+                psid, pageId, conversationId: convId,
+                raw_thread_id: raw.thread_id,
+                raw_page_customer_global_id: raw.page_customer?.global_id,
+                customers_len: customers.length,
+                customerName: enrichedConv.customerName,
+            });
 
             try {
+                console.log('→ window.sendViaExtension(text, enrichedConv) attempt 1');
                 await window.sendViaExtension(text, enrichedConv);
+                console.log('✅ Extension send success (attempt 1)');
                 _showToast('Đã gửi qua Extension', 'success');
+                console.groupEnd();
                 return;
             } catch (extErr) {
+                console.warn('❌ Extension attempt 1 failed:', extErr.message, extErr);
                 // Retry với buildConvData (bulk-send pattern)
                 if (extErr.message?.includes('Global Facebook ID') && window.buildConvData) {
                     try {
+                        console.log('→ Retry with window.buildConvData(', pageId, ',', psid, ')');
                         const fallbackConv = window.buildConvData(pageId, psid);
+                        console.log('fallbackConv:', {
+                            has_raw: !!fallbackConv?._raw,
+                            raw_thread_id: fallbackConv?._raw?.thread_id,
+                            raw_page_customer_global_id: fallbackConv?._raw?.page_customer?.global_id,
+                            customers_len: fallbackConv?.customers?.length || 0,
+                        });
                         await window.sendViaExtension(text, fallbackConv);
+                        console.log('✅ Extension send success (retry)');
                         _showToast('Đã gửi qua Extension', 'success');
+                        console.groupEnd();
                         return;
                     } catch (retryErr) {
-                        console.warn('[Chat-Msg] Extension retry failed:', retryErr.message);
+                        console.warn('❌ Extension retry failed:', retryErr.message, retryErr);
                     }
                 }
-                console.warn('[Chat-Msg] Extension fallback failed:', extErr.message);
+                console.error('🚫 Extension fallback gave up — throwing original Pancake error');
+                console.groupEnd();
                 throw err;
             }
         } catch (outerErr) {
+            console.error('🚫 _sendInbox outer catch:', outerErr.message);
+            console.groupEnd();
             throw outerErr === err ? err : outerErr;
         }
     }
