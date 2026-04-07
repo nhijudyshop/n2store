@@ -4999,6 +4999,8 @@
     // Helpers (exposed for external callers)
     window._ptagResolveCode = _ptagResolveCode;
     window._ptagResolveId = _ptagResolveId;
+    window._ptagRefreshRow = _ptagRefreshRow;
+    window.saveProcessingTagToAPI = saveProcessingTagToAPI;
     window.PTAG_SUBTAGS = PTAG_SUBTAGS;
 
     // Core functions

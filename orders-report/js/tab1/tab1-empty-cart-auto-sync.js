@@ -38,36 +38,66 @@
     }
 
     /**
-     * Sync XL (Tag XL panel) GIO_TRONG subtag based on actual SL.
-     * Independent of server action — runs on every push so stale state catches up.
-     * - SL=0 + XL.subTag !== 'GIO_TRONG' → assign
-     * - SL>0 + XL.subTag === 'GIO_TRONG' → clear
-     * - else noop
+     * Lightweight XL sync — bypass assignOrderCategory chain to avoid:
+     *   - Triggering syncXLToTPOS (TPOS already handled by server)
+     *   - Heavy auto-detect-flags + autoDetectFlags chain
+     * Directly mutate ProcessingTagState + save API + refresh row.
+     *
+     * Independent of server action — runs purely on actual SL.
+     * - SL=0 + XL.subTag !== 'GIO_TRONG' → set category=3, subTag='GIO_TRONG'
+     * - SL>0 + XL.subTag === 'GIO_TRONG' → clear category+subTag (preserve flags+tTags)
      */
     async function _syncXLGioTrong(orderCode, totalQuantity) {
         if (!orderCode) return;
         const state = window.ProcessingTagState;
-        if (!state || typeof state.getOrderData !== 'function') return;
-        if (!state._isLoaded) return; // Wait for XL data to load — avoid creating wrong state
+        if (!state || typeof state.getOrderData !== 'function' || typeof state.setOrderData !== 'function') return;
 
         try {
-            const data = state.getOrderData(orderCode);
-            const hasGT = data?.subTag === 'GIO_TRONG';
+            const existing = state.getOrderData(orderCode);
+            const hasGT = existing?.subTag === 'GIO_TRONG';
+            let nextData = null;
 
             if (totalQuantity === 0 && !hasGT) {
-                if (typeof window.assignOrderCategory === 'function') {
-                    await window.assignOrderCategory(orderCode, 3, {
-                        subTag: 'GIO_TRONG',
-                        source: 'AUTO-EMPTY-CART'
-                    });
-                    console.log(`${LOG} XL set GIO_TRONG → ${orderCode}`);
-                }
+                // SET GIO_TRONG (preserve flags + tTags)
+                nextData = {
+                    category: 3,
+                    subTag: 'GIO_TRONG',
+                    subState: null,
+                    flags: existing?.flags ? [...existing.flags] : [],
+                    tTags: existing?.tTags ? [...existing.tTags] : [],
+                    note: existing?.note || '',
+                    assignedAt: Date.now(),
+                    previousPosition: existing?.previousPosition || null
+                };
             } else if (totalQuantity > 0 && hasGT) {
-                if (typeof window.clearProcessingTag === 'function') {
-                    await window.clearProcessingTag(orderCode);
-                    console.log(`${LOG} XL clear GIO_TRONG → ${orderCode}`);
-                }
+                // CLEAR — keep flags + tTags, drop category/subTag/subState
+                nextData = {
+                    ...existing,
+                    category: null,
+                    subTag: null,
+                    subState: null,
+                    assignedAt: Date.now()
+                };
+            } else {
+                return; // noop
             }
+
+            // 1. Mutate local state
+            state.setOrderData(orderCode, nextData);
+
+            // 2. Refresh row UI (idempotent, fast)
+            if (typeof window._ptagRefreshRow === 'function') {
+                window._ptagRefreshRow(orderCode);
+            }
+
+            // 3. Persist to server (fire-and-forget; no await blocking batch)
+            if (typeof window.saveProcessingTagToAPI === 'function') {
+                window.saveProcessingTagToAPI(orderCode, nextData).catch(e => {
+                    console.warn(`${LOG} save XL ${orderCode} failed:`, e.message);
+                });
+            }
+
+            console.log(`${LOG} XL ${totalQuantity === 0 ? 'set' : 'clear'} GIO_TRONG → ${orderCode}`);
         } catch (e) {
             console.warn(`${LOG} XL sync failed for ${orderCode}:`, e.message);
         }
