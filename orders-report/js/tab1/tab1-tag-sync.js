@@ -640,6 +640,12 @@
         if (_matchTPOSAliasPattern(tagName)) return true;
         return false;
     };
+    // Trả về flag key (vd 'CHUYEN_KHOAN') nếu tag match pattern alias, null nếu không.
+    window.matchTPOSAliasFlag = function(tagName) {
+        const xlKey = _matchTPOSAliasPattern(tagName);
+        if (!xlKey || !xlKey.startsWith('flag:')) return null;
+        return xlKey.split(':')[1];
+    };
     window.getUnmanagedTPOSTagsFromOrder = function(orderTagsRaw) {
         const set = _buildManagedNameSet();
         let arr = [];

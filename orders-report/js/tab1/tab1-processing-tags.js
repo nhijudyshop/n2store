@@ -1225,8 +1225,8 @@
         (data.flags || []).forEach(f => {
             const fId = _ptagFlagId(f);
             const fl = PTAG_FLAGS[fId];
-            // Prefer stored name, fallback to lookup
-            const label = (typeof f === 'object' && f.name) ? f.name : (fl ? fl.label : ProcessingTagState.getCustomFlagLabel(fId));
+            // Prefer canonical PTAG_FLAGS label (vd "CK") over stored name (vd "CỌC 100K")
+            const label = fl ? fl.label : ((typeof f === 'object' && f.name) ? f.name : ProcessingTagState.getCustomFlagLabel(fId));
             const bgColor = _ptagGetFlagColor(fId);
             const removeBtn = `<button class="ptag-badge-remove" onclick="window._ptagToggleFlag('${oc}', '${fId}'); event.stopPropagation();" title="Xóa flag">&times;</button>`;
             // KHÁC catch-all flag → click body opens custom-tag picker popover
@@ -1238,19 +1238,42 @@
             }
         });
 
-        // 2b. Auto-show KHÁC badge khi đơn có unmanaged TPOS tags (không thuộc mapping)
+        // Lookup order 1 lần dùng cho cả 2b (virtual flags) và 2c (KHÁC badge)
+        const _orderIdForCell = _ptagResolveId(orderCode);
+        const _orderForCell = _orderIdForCell && typeof window.getAllOrders === 'function'
+            ? window.getAllOrders().find(o => o.Id === _orderIdForCell)
+            : null;
+        let _tposTagsForCell = [];
+        if (_orderForCell && _orderForCell.Tags) {
+            try { _tposTagsForCell = JSON.parse(_orderForCell.Tags || '[]'); } catch (e) {}
+        }
+
+        // 2b. Virtual flag badges từ TPOS pattern alias (vd CỌC 100K → CK)
+        // XL state có thể chưa có flag (đơn legacy chưa qua reverse sync), render visual.
+        // Badge không có nút × vì không phải state thật của XL.
+        if (_tposTagsForCell.length > 0 && typeof window.matchTPOSAliasFlag === 'function') {
+            const xlFlagIds = (data.flags || []).map(f => _ptagFlagId(f));
+            const virtualAdded = new Set();
+            for (const t of _tposTagsForCell) {
+                const flagKey = window.matchTPOSAliasFlag(t?.Name || '');
+                if (!flagKey) continue;
+                if (xlFlagIds.includes(flagKey)) continue;
+                if (virtualAdded.has(flagKey)) continue;
+                virtualAdded.add(flagKey);
+                const fl = PTAG_FLAGS[flagKey];
+                if (!fl) continue;
+                const bgColor = _ptagGetFlagColor(flagKey);
+                flagBadges += `<span class="ptag-flag-badge" style="background:${bgColor};opacity:0.85;" title="Auto từ TPOS tag (${t.Name})">${fl.label}</span>`;
+            }
+        }
+
+        // 2c. Auto-show KHÁC badge khi đơn có unmanaged TPOS tags (không thuộc mapping)
         // Chỉ thêm nếu chưa có flag KHAC explicit để tránh trùng badge.
-        if (!hasKhacFlag && typeof window.getUnmanagedTPOSTagsFromOrder === 'function') {
-            const orderId = _ptagResolveId(orderCode);
-            const order = orderId && typeof window.getAllOrders === 'function'
-                ? window.getAllOrders().find(o => o.Id === orderId)
-                : null;
-            if (order && order.Tags) {
-                const unmanaged = window.getUnmanagedTPOSTagsFromOrder(order.Tags);
-                if (unmanaged.length > 0) {
-                    const bgColor = _ptagGetFlagColor('KHAC');
-                    flagBadges += `<span class="ptag-flag-badge ptag-badge-clickable" style="background:${bgColor};cursor:pointer;opacity:0.85;" onclick="window._ptagOpenCustomTagsPopover('${oc}', this); event.stopPropagation();" title="Có ${unmanaged.length} tag TPOS không thuộc mapping. Click để xem.">KHÁC <span style="opacity:0.7;font-size:10px;">(${unmanaged.length})</span></span>`;
-                }
+        if (!hasKhacFlag && typeof window.getUnmanagedTPOSTagsFromOrder === 'function' && _orderForCell?.Tags) {
+            const unmanaged = window.getUnmanagedTPOSTagsFromOrder(_orderForCell.Tags);
+            if (unmanaged.length > 0) {
+                const bgColor = _ptagGetFlagColor('KHAC');
+                flagBadges += `<span class="ptag-flag-badge ptag-badge-clickable" style="background:${bgColor};cursor:pointer;opacity:0.85;" onclick="window._ptagOpenCustomTagsPopover('${oc}', this); event.stopPropagation();" title="Có ${unmanaged.length} tag TPOS không thuộc mapping. Click để xem.">KHÁC <span style="opacity:0.7;font-size:10px;">(${unmanaged.length})</span></span>`;
             }
         }
 
