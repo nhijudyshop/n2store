@@ -1045,6 +1045,17 @@ class InboxChatController {
         }
 
         if (conversations.length === 0) {
+            // While typing (no API search run yet) → prompt user to press Enter
+            // instead of showing a misleading "no results" message.
+            if (this.searchQuery && this.searchResults === null && !this.isSearching) {
+                this.elements.conversationList.innerHTML = `
+                    <div style="padding: 2rem; text-align: center; color: var(--text-tertiary);">
+                        <p style="font-size:0.9375rem;">Bấm <kbd style="padding:2px 8px;border-radius:6px;background:var(--surface-container-high);font-weight:600;color:var(--primary);">Enter</kbd> để tìm kiếm "<strong>${this.escapeHtml(this.searchQuery)}</strong>"</p>
+                        <p style="font-size:0.8125rem;margin-top:6px;opacity:0.7;">hoặc đợi 5 giây</p>
+                    </div>
+                `;
+                return;
+            }
             this.elements.conversationList.innerHTML = `
                 <div style="padding: 2rem; text-align: center; color: var(--text-tertiary);">
                     <p>Không tìm thấy kết quả${this.searchQuery ? ' cho "' + this.escapeHtml(this.searchQuery) + '"' : ''}</p>
