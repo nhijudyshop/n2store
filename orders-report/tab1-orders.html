@@ -1008,22 +1008,28 @@
                     </div>
 
                     <!-- Tab: Hàng rớt - xả -->
-                    <div class="chat-tab-content" id="chatTabDropped" style="display: none;">
-                        <!-- Dropped products - rendered by dropped-products-manager.js -->
+                    <div class="chat-tab-content dropped-tab-grid" id="chatTabDropped" style="display: none; position: relative;">
+                        <!-- Dropped products grid - rendered by dropped-products-manager.js -->
                         <div class="chat-products-scroll" id="chatDroppedProductsContainer">
                             <div class="chat-empty-products">
                                 <i class="fas fa-box-open"></i>
                                 <p>Chưa có hàng rớt - xả</p>
                             </div>
                         </div>
-                        <!-- Footer totals -->
-                        <div class="chat-order-footer">
-                            <div class="chat-order-footer-left">Tổng giá trị:</div>
-                            <div class="chat-order-footer-right chat-order-footer-danger" id="chatDroppedTotal">0đ</div>
+                        <!-- Floating action buttons -->
+                        <div class="dropped-floating-actions" id="droppedFloatingActions">
+                            <button type="button" class="dropped-fab fab-send" id="droppedFabSend" title="Gửi tên các sản phẩm đã chọn vào chat" disabled>
+                                <i class="fas fa-paper-plane"></i>
+                                <span>GỬI ĐƠN</span>
+                            </button>
+                            <button type="button" class="dropped-fab fab-delete" id="droppedFabDelete" title="Xóa các sản phẩm đã chọn" disabled>
+                                <i class="fas fa-trash"></i>
+                                <span>HỦY/XÓA</span>
+                            </button>
                         </div>
-                        <div class="chat-order-footer-info">
-                            <span id="droppedProductCount">0</span> sản phẩm rớt - xả
-                        </div>
+                        <!-- Hidden counter (kept for compatibility with updateDroppedCounts) -->
+                        <span id="droppedProductCount" style="display:none;">0</span>
+                        <span id="chatDroppedTotal" style="display:none;">0đ</span>
                     </div>
 
                     <!-- Tab: Lịch sử -->

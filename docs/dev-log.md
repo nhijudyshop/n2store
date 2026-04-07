@@ -8,6 +8,13 @@
 
 ## 2026-04-07
 
+### [orders] Tab "Hàng rớt - xã" — redesign sang image grid 5 cột + drag-select ✅
+| | |
+|---|---|
+| **Files** | `orders-report/tab1-orders.html`, `orders-report/js/managers/dropped-products-manager.js`, `orders-report/css/tab1-chat-modal.css` |
+| **Chi tiết** | Đổi UI tab "Hàng rớt - xã" trong chat modal Tab1 từ table (Ảnh/SP/SL/Giá/Thao tác) sang **image grid 5 cột chỉ ảnh**, hover phóng to scale 1.5. Bỏ dropdown campaign "T6 vèo vèo", thay bằng search bar (lọc theo tên/code) + 6 pills lọc nhanh ALL/Áo/Quần/Set/GIÀY/PK (detect category từ ProductName). **Selection**: click ảnh hoặc nhấn-giữ-rê chuột (drag-paint) qua nhiều ảnh — toggle theo trạng thái ô đầu tiên (add/remove mode). 2 nút floating bottom-right: **GỬI ĐƠN** (loop `moveDroppedToOrder` cho từng id chọn) và **HỦY/XÓA** (confirm 1 lần, loop `removeFromDroppedProducts` với flag skipConfirm mới). State module-level: `_droppedSearchText`, `_droppedCategoryFilter`, `_droppedSelectedIds`, `_droppedDragging`, `_droppedDragMode`. Thêm helpers `_detectDroppedCategory`, `_wireDroppedToolbar`, `_wireDroppedGrid`, `_updateDroppedFabState`, global `mouseup`/`mouseleave` reset drag. Item Quantity=0 → cell `.held` opacity 0.4 không chọn được. Right-click cell → `sendProductToChat`. Code legacy table+searchUI giữ trong block `/* LEGACY_REMOVED_START ... LEGACY_REMOVED_END */`. CSS thêm `.dropped-toolbar/.dropped-search/.dropped-pills/.dropped-grid/.dropped-cell[.selected/.held]/.dropped-floating-actions/.dropped-fab`. **Verification**: `node --check` OK. |
+| **Status** | ✅ Done |
+
 ### [issue-tracking] Filter loại — đổi dropdown thành tab pills (và filter thật sự) ✅
 | | |
 |---|---|
