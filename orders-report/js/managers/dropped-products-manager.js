@@ -1102,6 +1102,64 @@
             _updateDroppedFabState();
         });
 
+        // Hover preview - phóng to ảnh hết mức khi rê chuột vào ô
+        let _hoverCell = null;
+        grid.addEventListener('mouseover', (e) => {
+            const cell = e.target.closest('.dropped-cell');
+            if (!cell || cell === _hoverCell) return;
+            const img = cell.querySelector('img');
+            if (!img) { _hideHoverPreview(); _hoverCell = null; return; }
+            _hoverCell = cell;
+            _showHoverPreview(img.src, e.clientX, e.clientY);
+        });
+        grid.addEventListener('mousemove', (e) => {
+            if (!_hoverCell) return;
+            _positionHoverPreview(e.clientX, e.clientY);
+        });
+        grid.addEventListener('mouseout', (e) => {
+            const to = e.relatedTarget;
+            if (_hoverCell && (!to || !_hoverCell.contains(to))) {
+                _hoverCell = null;
+                _hideHoverPreview();
+            }
+        });
+    }
+
+    // ===== Hover preview singleton =====
+    let _hoverPreviewEl = null;
+    function _getHoverPreviewEl() {
+        if (_hoverPreviewEl) return _hoverPreviewEl;
+        const el = document.createElement('div');
+        el.id = 'droppedHoverPreview';
+        el.innerHTML = '<img alt="">';
+        document.body.appendChild(el);
+        _hoverPreviewEl = el;
+        return el;
+    }
+    function _showHoverPreview(src, x, y) {
+        const el = _getHoverPreviewEl();
+        const img = el.querySelector('img');
+        if (img.src !== src) img.src = src;
+        el.classList.add('show');
+        _positionHoverPreview(x, y);
+    }
+    function _hideHoverPreview() {
+        if (_hoverPreviewEl) _hoverPreviewEl.classList.remove('show');
+    }
+    function _positionHoverPreview(x, y) {
+        const el = _hoverPreviewEl;
+        if (!el) return;
+        const rect = el.getBoundingClientRect();
+        const pad = 16;
+        let left = x + 20;
+        let top = y + 20;
+        if (left + rect.width + pad > window.innerWidth)  left = x - rect.width - 20;
+        if (top + rect.height + pad > window.innerHeight) top = window.innerHeight - rect.height - pad;
+        if (left < pad) left = pad;
+        if (top < pad)  top = pad;
+        el.style.left = left + 'px';
+        el.style.top  = top  + 'px';
+
         // Right-click → send product name to chat
         grid.addEventListener('contextmenu', (e) => {
             const cell = e.target.closest('.dropped-cell');
