@@ -6,6 +6,17 @@
 
 ---
 
+## 2026-04-07
+
+### [inbox] Fix Hủy đơn — global `confirmCancelOrder` collision với tab1 ✅
+| | |
+|---|---|
+| **Files** | `don-inbox/js/tab-social-table.js` |
+| **Chi tiết** | Click ban icon ở row → toast "Vui lòng nhập lý do hủy đơn" nhưng không có modal/input. **Root cause**: `don-inbox/index.html` load `tab1-fast-sale-workflow.js` SAU `tab-social-table.js`, tab1 ghi đè `window.confirmCancelOrder` bằng version index-based đọc `#cancelReasonInput` từ modal không tồn tại trong flow row → reason rỗng → warning. **Fix**: Tạo alias namespaced `window.socialConfirmCancelOrder = confirmCancelOrder`, đổi onclick row button (line 155) sang gọi `socialConfirmCancelOrder('${order.id}')` để tránh collision hoàn toàn. Tab1 modal vẫn dùng global `confirmCancelOrder` của nó như cũ. |
+| **Status** | ✅ Done |
+
+---
+
 ## 2026-04-06
 
 ### [orders] Per-row history popover — show STT + tên + SĐT + mã đơn ✅

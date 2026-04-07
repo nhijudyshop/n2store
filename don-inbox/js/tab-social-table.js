@@ -152,7 +152,7 @@ function renderTableRow(order, index) {
                         <button class="btn-edit-icon" onclick="openEditOrderModal('${order.id}')" title="Sửa đơn">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <button class="tag-icon-btn-red" onclick="confirmCancelOrder('${order.id}')" title="Hủy đơn" style="color: #f59e0b;">
+                        <button class="tag-icon-btn-red" onclick="socialConfirmCancelOrder('${order.id}')" title="Hủy đơn" style="color: #f59e0b;">
                             <i class="fas fa-ban"></i>
                         </button>
                         <button class="btn-edit-icon" onclick="openRetailSaleFromSocial('${order.id}')" title="Tạo phiếu bán hàng lẻ" style="color: #10b981;">
@@ -1011,6 +1011,10 @@ window.toggleSelectAll = toggleSelectAll;
 window.copyPhone = copyPhone;
 window.closeConfirmDeleteModal = closeConfirmDeleteModal;
 window.confirmCancelOrder = confirmCancelOrder;
+// Namespaced alias — tab1-fast-sale-workflow.js also defines a global confirmCancelOrder
+// (index-based) and overrides ours when both scripts load on the same page (don-inbox).
+// Row buttons call socialConfirmCancelOrder to avoid the collision.
+window.socialConfirmCancelOrder = confirmCancelOrder;
 window.confirmPermanentDeleteOrder = confirmPermanentDeleteOrder;
 window.restoreOrder = restoreOrder;
 window.confirmPendingAction = confirmPendingAction;
