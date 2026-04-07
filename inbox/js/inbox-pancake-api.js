@@ -646,6 +646,7 @@ class InboxPancakeAPI {
                         if (convs.length > 0) {
                             this._lastConvId[pageId] = convs[convs.length - 1].id;
                         }
+                        try { window.GlobalIdHarvester?.fromConversations(pageId, convs); } catch (_) {}
                     }
                 } catch (e) {
                     const msg = e.message || e.code || String(e);
@@ -682,6 +683,7 @@ class InboxPancakeAPI {
             if (convs.length > 0) {
                 this._lastConvId[pageId] = convs[convs.length - 1].id;
             }
+            try { window.GlobalIdHarvester?.fromConversations(pageId, convs); } catch (_) {}
             return { conversations: convs, error: null };
         } catch (e) {
             return { conversations: [], error: { code: 0, message: e.message } };
@@ -789,6 +791,7 @@ class InboxPancakeAPI {
             if (currentCount === null) {
                 this._messagesCache.set(cacheKey, result);
             }
+            try { window.GlobalIdHarvester?.fromCustomers(pageId, result.customers, { conversationId, threadId: result.conversation?.thread_id }); } catch (_) {}
             return { ...result, fromCache: false };
         } catch (e) {
             console.error('[INBOX-API] fetchMessages error:', e);

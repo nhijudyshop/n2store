@@ -8,6 +8,13 @@
 
 ## 2026-04-07
 
+### [orders][inbox] Global ID Harvester — auto push global_id từ Pancake responses lên Render cache ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/managers/global-id-harvester.js` (mới), `orders-report/js/managers/pancake-data-manager.js`, `inbox/js/inbox-pancake-api.js`, `orders-report/tab1-orders.html`, `inbox/index.html`, `don-inbox/index.html` |
+| **Chi tiết** | Module mới `GlobalIdHarvester` extract `global_id` từ `customers[]` (và `page_customer.global_id`) trong response Pancake `fetchConversations`/`fetchMessages`, dedupe theo `pageId:psid` trong session, fire-and-forget `PUT https://n2store-fallback.onrender.com/api/fb-global-id`. Hook vào `pancake-data-manager.js` (`fetchConversations`, `fetchConversationsForPage`, `fetchMessages`) và `inbox-pancake-api.js` (cùng 3 hàm). Thêm `<script>` load harvester trước data-manager ở tab1-orders.html, inbox/index.html, don-inbox/index.html. Mỗi user mở conversation → mappings tự động được đẩy vào DB cache shared, bypass 6 strategies extension trong tương lai. Sanity check: bỏ qua khi `psid === globalId`. |
+| **Status** | ✅ Done |
+
 ### [chat] Paste ảnh vào modal chat khi focus ngoài input ✅
 | | |
 |---|---|

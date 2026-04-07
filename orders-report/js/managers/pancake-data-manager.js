@@ -224,6 +224,7 @@ class PancakeDataManager {
                     if (data.conversations) {
                         allConvs.push(...data.conversations);
                         const convs = data.conversations;
+                        try { window.GlobalIdHarvester?.fromConversations(pageId, convs); } catch (_) {}
                         if (convs.length > 0) {
                             this._lastConvId[pageId] = convs[convs.length - 1].id;
                         }
@@ -271,6 +272,7 @@ class PancakeDataManager {
             if (convs.length > 0) {
                 this._lastConvId[pageId] = convs[convs.length - 1].id;
             }
+            try { window.GlobalIdHarvester?.fromConversations(pageId, convs); } catch (_) {}
             // Update maps
             for (const conv of convs) {
                 const psid = conv.from?.id;
@@ -449,6 +451,7 @@ class PancakeDataManager {
             if (currentCount === null) {
                 this._messagesCache.set(cacheKey, result);
             }
+            try { window.GlobalIdHarvester?.fromCustomers(pageId, result.customers, { conversationId, threadId: result.conversation?.thread_id }); } catch (_) {}
             return { ...result, fromCache: false };
         } catch (e) {
             console.error('[PDM] fetchMessages error:', e);
