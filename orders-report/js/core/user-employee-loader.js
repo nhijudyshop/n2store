@@ -77,5 +77,7 @@ class UserEmployeeLoader {
     }
 }
 
-// Create global instance
-window.userEmployeeLoader = new UserEmployeeLoader();
+// Create global instance — singleton guard
+if (!window.userEmployeeLoader) {
+    window.userEmployeeLoader = new UserEmployeeLoader();
+}

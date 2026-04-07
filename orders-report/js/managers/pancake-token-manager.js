@@ -1356,5 +1356,7 @@ class PancakeTokenManager {
     }
 }
 
-// Create global instance
-window.pancakeTokenManager = new PancakeTokenManager();
+// Create global instance — singleton guard
+if (!window.pancakeTokenManager) {
+    window.pancakeTokenManager = new PancakeTokenManager();
+}

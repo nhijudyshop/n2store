@@ -8,6 +8,12 @@
 (function() {
     'use strict';
 
+    // Module guard — chống IIFE chạy 2 lần
+    if (window.__newMessagesNotifierLoaded) {
+        return;
+    }
+    window.__newMessagesNotifierLoaded = true;
+
     const LS_KEY = 'n2s_pending_customers';
 
     // Cached pending customers data (persisted to localStorage)

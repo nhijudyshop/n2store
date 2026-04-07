@@ -1332,8 +1332,10 @@ class DiscountStatsUI {
     }
 }
 
-// Create global instance
-window.discountStatsUI = new DiscountStatsUI();
+// Create global instance — singleton guard
+if (!window.discountStatsUI) {
+    window.discountStatsUI = new DiscountStatsUI();
+}
 
 // Export for module usage
 if (typeof module !== 'undefined' && module.exports) {

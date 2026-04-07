@@ -310,13 +310,19 @@ class UserStorageManager {
 // =====================================================
 
 // Wait for authManager to be ready
-if (typeof window !== 'undefined') {
+// Module guard: if instance already exists (vd script load 2x), skip toàn bộ block
+if (typeof window !== 'undefined' && !window.userStorageManager) {
     // Initialize immediately if authManager is ready
     if (window.authManager) {
         window.userStorageManager = new UserStorageManager();
     } else {
         // Wait for authManager to be ready
         const checkAuthManager = setInterval(() => {
+            if (window.userStorageManager) {
+                // Đã tồn tại (vd module reload song song) → cleanup ngay
+                clearInterval(checkAuthManager);
+                return;
+            }
             if (window.authManager) {
                 window.userStorageManager = new UserStorageManager();
                 clearInterval(checkAuthManager);

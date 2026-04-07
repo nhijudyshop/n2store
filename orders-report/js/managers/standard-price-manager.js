@@ -535,8 +535,10 @@ class StandardPriceManager {
     }
 }
 
-// Create global instance
-window.standardPriceManager = new StandardPriceManager();
+// Create global instance — singleton guard
+if (!window.standardPriceManager) {
+    window.standardPriceManager = new StandardPriceManager();
+}
 
 // Export for module usage
 if (typeof module !== 'undefined' && module.exports) {

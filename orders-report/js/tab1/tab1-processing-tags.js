@@ -7,6 +7,12 @@
 (function() {
     'use strict';
 
+    // Module guard — chống IIFE chạy 2 lần
+    if (window.__tab1ProcessingTagsV2Loaded) {
+        return;
+    }
+    window.__tab1ProcessingTagsV2Loaded = true;
+
     const PTAG_API_BASE = 'https://n2store-fallback.onrender.com/api/realtime/processing-tags';
     const PTAG_LOG = '[PTAG v2]';
 

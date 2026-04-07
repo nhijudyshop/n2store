@@ -331,6 +331,19 @@ class RealtimeManager {
 // GLOBAL INSTANCE
 // =====================================================
 
-window.realtimeManager = new RealtimeManager();
-window.PancakePhoenixSocket = PancakePhoenixSocket;
+// Singleton guard — chống double-init nếu script load 2 lần
+if (!window.realtimeManager) {
+    window.realtimeManager = new RealtimeManager();
+}
+if (!window.PancakePhoenixSocket) {
+    window.PancakePhoenixSocket = PancakePhoenixSocket;
+}
+
+// beforeunload cleanup — close WS sạch để server thấy disconnect ngay
+if (typeof window !== 'undefined' && !window.__realtimeBeforeUnloadHooked) {
+    window.__realtimeBeforeUnloadHooked = true;
+    window.addEventListener('beforeunload', () => {
+        try { window.realtimeManager?.disconnect?.(); } catch (e) {}
+    });
+}
 

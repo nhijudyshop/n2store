@@ -12,6 +12,12 @@
 (function() {
     'use strict';
 
+    // Module guard — chống IIFE chạy 2 lần
+    if (window.__tab1TagSyncV3Loaded) {
+        return;
+    }
+    window.__tab1TagSyncV3Loaded = true;
+
     const LOG = '[TAG-SYNC-V3]';
     const ASSIGN_TAG_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/TagSaleOnlineOrder/ODataService.AssignTag';
     const CREATE_TAG_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/Tag';

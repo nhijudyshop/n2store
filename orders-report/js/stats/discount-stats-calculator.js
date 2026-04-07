@@ -549,8 +549,10 @@ class DiscountStatsCalculator {
     }
 }
 
-// Create global instance
-window.discountStatsCalculator = new DiscountStatsCalculator();
+// Create global instance — singleton guard
+if (!window.discountStatsCalculator) {
+    window.discountStatsCalculator = new DiscountStatsCalculator();
+}
 
 // Export for module usage
 if (typeof module !== 'undefined' && module.exports) {

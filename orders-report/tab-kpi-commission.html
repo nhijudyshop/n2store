@@ -985,10 +985,12 @@
                 lucide.createIcons();
             }
         }
-        // Try immediately, then on DOMContentLoaded, then on load
-        initIcons();
-        document.addEventListener('DOMContentLoaded', initIcons);
-        window.addEventListener('load', initIcons);
+        // Init icons once: nếu DOM chưa load thì đợi DOMContentLoaded, ngược lại chạy ngay
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initIcons);
+        } else {
+            initIcons();
+        }
     </script>
 
     <!-- Firebase initialization -->

@@ -5,6 +5,13 @@
 // =====================================================
 
 (function () {
+    // Module guard — chống IIFE chạy 2 lần (vd recursive iframe load)
+    if (window.__tab1TposRealtimeLoaded) {
+        console.warn('[TPOS-RT] Module already loaded, skipping duplicate IIFE');
+        return;
+    }
+    window.__tab1TposRealtimeLoaded = true;
+
     const RENDER_WS_URL = 'wss://n2store-fallback.onrender.com';
     const RENDER_API_URL = 'https://n2store-fallback.onrender.com';
     const ODATA_BASE = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/SaleOnline_Order/ODataService.GetView';
@@ -509,6 +516,13 @@
     } else {
         setTimeout(init, 3000);
     }
+
+    // beforeunload cleanup — close WS sạch để server thấy disconnect ngay
+    window.addEventListener('beforeunload', () => {
+        try {
+            if (ws && ws.readyState === 1) ws.close();
+        } catch (e) {}
+    });
 
     // Expose for UI toggle + debugging
     window.tposRealtime = {

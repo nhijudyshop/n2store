@@ -762,10 +762,13 @@ class PancakeDataManager {
 // GLOBAL INSTANCE
 // =====================================================
 
-window.pancakeDataManager = new PancakeDataManager();
-window.PancakeApiConfig = PancakeApiConfig;
-window.PancakeRequestQueue = PancakeRequestQueue;
+// Singleton guard
+if (!window.pancakeDataManager) {
+    window.pancakeDataManager = new PancakeDataManager();
+}
+if (!window.PancakeApiConfig) window.PancakeApiConfig = PancakeApiConfig;
+if (!window.PancakeRequestQueue) window.PancakeRequestQueue = PancakeRequestQueue;
 
 // Backwards compatibility
-window.chatDataManager = window.pancakeDataManager;
+if (!window.chatDataManager) window.chatDataManager = window.pancakeDataManager;
 

@@ -530,8 +530,10 @@ class BillTokenManager {
     }
 }
 
-// Create global instance
-window.billTokenManager = new BillTokenManager();
+// Create global instance — singleton guard
+if (!window.billTokenManager) {
+    window.billTokenManager = new BillTokenManager();
+}
 
 // Initialize when DOM is ready
 if (document.readyState === 'loading') {

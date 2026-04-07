@@ -262,7 +262,9 @@
         }
     }
 
-    // Initialize and expose globally
-    window.firebaseImageCache = new FirebaseImageCache();
+    // Initialize and expose globally — singleton guard
+    if (!window.firebaseImageCache) {
+        window.firebaseImageCache = new FirebaseImageCache();
+    }
 
 })();

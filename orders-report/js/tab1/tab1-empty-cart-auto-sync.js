@@ -14,6 +14,12 @@
 (function() {
     'use strict';
 
+    // Module guard — chống IIFE chạy 2 lần (vd recursive iframe load)
+    if (window.__tab1EmptyCartAutoSyncLoaded) {
+        return;
+    }
+    window.__tab1EmptyCartAutoSyncLoaded = true;
+
     const LOG = '[EMPTY-CART-AUTO]';
     const SYNC_URL = 'https://n2store-realtime.onrender.com/api/tpos/empty-cart-sync';
     const DEBOUNCE_MS = 3000;
