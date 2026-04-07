@@ -639,9 +639,14 @@
             </div>
 
             <div id="reportOnlineTab" class="tab-content">
+                <!-- ⚠ CRITICAL: data-src instead of src to LAZY load.
+                     Self-embedding main.html caused recursive iframe loading,
+                     creating 2-3x duplicate instances of tab1 + WS connections
+                     + all init flows. Now loaded only when user clicks the tab. -->
                 <iframe
                     id="reportOnlineFrame"
-                    src="https://nhijudyshop.github.io/n2store/orders-report/main.html"
+                    data-src="https://nhijudyshop.github.io/n2store/orders-report/main.html"
+                    src="about:blank"
                 ></iframe>
             </div>
         </main>
@@ -798,6 +803,11 @@
                     document.getElementById('kpiCommissionTab').classList.add('active');
                 } else if (tabName === 'report-online') {
                     document.getElementById('reportOnlineTab').classList.add('active');
+                    // Lazy-load on first click — prevent recursive iframe load
+                    var rf = document.getElementById('reportOnlineFrame');
+                    if (rf && rf.dataset.src && rf.src === 'about:blank') {
+                        rf.src = rf.dataset.src;
+                    }
                 }
 
                 // Reinitialize icons after DOM change
