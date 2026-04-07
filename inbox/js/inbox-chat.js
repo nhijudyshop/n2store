@@ -996,13 +996,19 @@ class InboxChatController {
                 .filter(c => !localIds.has(c.id))
                 .map(c => this.data.mapConversation(c));
             conversations = [...localResults, ...apiMapped];
-            conversations.sort((a, b) => b.time - a.time);
         } else {
             conversations = this.data.getConversations({
                 search: this.searchQuery,
                 filter: effectiveFilter,
                 groupFilters: this.currentGroupFilters,
             });
+        }
+
+        // While searching: always sort by newest time first (override unread-first sort).
+        // User wants the most recent matches at the top regardless of read state.
+        if (this.searchQuery) {
+            const ts = (c) => (c.time instanceof Date ? c.time.getTime() : (typeof c.time === 'number' ? c.time : 0));
+            conversations.sort((a, b) => ts(b) - ts(a));
         }
 
         // Apply page filter (multi-select)
