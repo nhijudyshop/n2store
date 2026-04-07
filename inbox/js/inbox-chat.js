@@ -2282,26 +2282,89 @@ class InboxChatController {
     }
 
     /**
-     * Send to INBOX conversation with fallback chain:
-     * reply_inbox → private_replies (if 24h/551 and comment data available)
+     * Send to INBOX conversation with full fallback chain:
+     *  Tier 1: Pancake reply_inbox API (active account)
+     *  Tier 2: Multi-account retry — try ALL accounts that have access to this page
+     *  Tier 3: Send via Pancake Extension (bypass 24h)
      */
     async _sendInbox(url, text, conv, replyData) {
         const payload = { action: 'reply_inbox', message: text };
         if (replyData?.msgId) payload.replied_message_id = replyData.msgId;
 
-        try {
-            const result = await this._sendApi(url, payload);
-            console.log('[InboxChat] reply_inbox succeeded:', result);
-        } catch (err) {
-            // Fallback: send via Pancake Extension (bypass 24h)
-            if (window.pancakeExtension?.connected) {
-                console.log('[InboxChat] API failed, trying Pancake Extension...', err.message);
-                showToast('Đang gửi qua Pancake Extension...', 'warning');
-                await this._sendViaExtension(text, conv);
-                return;
+        let lastApiError = null;
+
+        // Tier 1 + 2: try all accounts with page access
+        const ptm = window.pancakeTokenManager;
+        if (ptm && conv.pageId && typeof ptm.getAccountsWithPageAccess === 'function') {
+            const accounts = ptm.getAccountsWithPageAccess(conv.pageId) || [];
+            // Sort: active account first
+            const activeId = ptm.activeAccountId;
+            accounts.sort((a, b) => {
+                if (a.accountId === activeId) return -1;
+                if (b.accountId === activeId) return 1;
+                return 0;
+            });
+
+            if (accounts.length > 0) {
+                for (let i = 0; i < accounts.length; i++) {
+                    const acc = accounts[i];
+                    try {
+                        // Generate page access token from this account's user token
+                        const pageToken = await ptm.generatePageAccessTokenWithToken(conv.pageId, acc.token);
+                        if (!pageToken) {
+                            console.warn(`[InboxChat] Account ${acc.name}: failed to get page token`);
+                            continue;
+                        }
+                        // Build URL with this token
+                        const accountUrl = url.replace(/access_token=[^&]*/, `access_token=${encodeURIComponent(pageToken)}`);
+                        const result = await this._sendApi(accountUrl, payload);
+                        console.log(`[InboxChat] reply_inbox SUCCESS via account ${i + 1}/${accounts.length}: ${acc.name}`, result);
+                        if (i > 0) {
+                            showToast(`Đã gửi qua account: ${acc.name}`, 'success');
+                        }
+                        return; // Success, done
+                    } catch (err) {
+                        lastApiError = err;
+                        const fb = window.parseFbError ? window.parseFbError(err.message) : null;
+                        // Skip multi-account retry if this is a permanent error type
+                        const isPermanent = fb?.is24HourError || fb?.isUserUnavailable;
+                        if (isPermanent) {
+                            console.log(`[InboxChat] Account ${acc.name} got permanent error (${err.message}), skipping other accounts`);
+                            break;
+                        }
+                        console.warn(`[InboxChat] Account ${i + 1}/${accounts.length} (${acc.name}) failed: ${err.message}`);
+                    }
+                }
+            } else {
+                // No accounts with page access — fall through to single-token send
+                try {
+                    const result = await this._sendApi(url, payload);
+                    console.log('[InboxChat] reply_inbox succeeded (no multi-account):', result);
+                    return;
+                } catch (err) {
+                    lastApiError = err;
+                }
             }
-            throw err;
+        } else {
+            // Multi-account method not available — single send
+            try {
+                const result = await this._sendApi(url, payload);
+                console.log('[InboxChat] reply_inbox succeeded:', result);
+                return;
+            } catch (err) {
+                lastApiError = err;
+            }
         }
+
+        // Tier 3: All accounts failed → fallback to extension
+        if (window.pancakeExtension?.connected) {
+            console.log('[InboxChat] All API attempts failed, trying Pancake Extension...', lastApiError?.message);
+            showToast('Đang gửi qua Pancake Extension...', 'warning');
+            await this._sendViaExtension(text, conv);
+            return;
+        }
+
+        throw lastApiError || new Error('All send methods failed');
     }
 
     /**

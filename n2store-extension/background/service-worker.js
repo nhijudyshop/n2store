@@ -10,7 +10,8 @@ import { handleUploadInboxPhoto } from './facebook/uploader.js';
 import { handleGetGlobalIdForConv, loadCacheFromStorage } from './facebook/global-id.js';
 import { handlePreinitializePages, handleGetBusinessContext, getAllSessions } from './facebook/session.js';
 import { handleSendComment, handleSendPrivateReply } from './facebook/commenter.js';
-import { startInterceptor, getInterceptedCount } from './facebook/doc-id-interceptor.js';
+import { startInterceptor, getInterceptedCount, periodicHealthCheck } from './facebook/doc-id-interceptor.js';
+import { processMessageQueue, enqueueMessage, getQueueStats } from './sync/message-queue.js';
 import { showNotification, setupNotificationClickHandlers } from './server/notifications.js';
 import { startSSE, stopSSE, restartSSE, getSSEStatus } from './server/sse-listener.js';
 import {
@@ -45,9 +46,18 @@ log.info(MODULE, `N2Store Extension v${VERSION} (build ${BUILD}) starting...`);
 // === KEEP-ALIVE ===
 
 chrome.alarms.create('keepAlive', { periodInMinutes: CONFIG.ALARM_INTERVAL_MIN });
-chrome.alarms.onAlarm.addListener((alarm) => {
+// Doc_id health check every 30 minutes — log warning when critical doc_ids missing
+chrome.alarms.create('docIdHealthCheck', { periodInMinutes: 30, delayInMinutes: 5 });
+// Process queued messages every 1 minute (offline retry)
+chrome.alarms.create('processMessageQueue', { periodInMinutes: 1, delayInMinutes: 1 });
+
+chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name === 'keepAlive') {
     log.debug(MODULE, 'Keep-alive alarm fired');
+  } else if (alarm.name === 'docIdHealthCheck') {
+    try { await periodicHealthCheck(); } catch (e) { log.warn(MODULE, 'docIdHealthCheck error:', e.message); }
+  } else if (alarm.name === 'processMessageQueue') {
+    try { await processMessageQueue(); } catch (e) { log.warn(MODULE, 'processMessageQueue error:', e.message); }
   }
 });
 
@@ -215,6 +225,50 @@ async function handleMessage(msg, tabId, port, asyncSendResponse) {
       });
       break;
     }
+
+    // === Queue + Rate limit status (for client UI) ===
+    case 'GET_MSG_QUEUE_STATUS':
+      try {
+        const stats = await getQueueStats();
+        sendResponse({ type: 'MSG_QUEUE_STATUS', stats });
+      } catch (e) {
+        sendResponse({ type: 'MSG_QUEUE_STATUS', error: e.message });
+      }
+      break;
+
+    case 'GET_RATE_LIMIT_STATUS': {
+      try {
+        const pageId = msg.pageId;
+        if (!pageId) {
+          sendResponse({ type: 'RATE_LIMIT_STATUS', error: 'pageId required' });
+          break;
+        }
+        const key = `fb_rate_limit_${pageId}`;
+        const result = await chrome.storage.local.get(key);
+        const cooldownEnd = result[key] || 0;
+        const remaining = Math.max(0, cooldownEnd - Date.now());
+        sendResponse({
+          type: 'RATE_LIMIT_STATUS',
+          pageId,
+          isLimited: remaining > 0,
+          cooldownEnd,
+          remainingMs: remaining,
+          remainingSec: Math.round(remaining / 1000),
+        });
+      } catch (e) {
+        sendResponse({ type: 'RATE_LIMIT_STATUS', error: e.message });
+      }
+      break;
+    }
+
+    case 'PROCESS_MSG_QUEUE_NOW':
+      try {
+        const result = await processMessageQueue();
+        sendResponse({ type: 'MSG_QUEUE_PROCESSED', ...result });
+      } catch (e) {
+        sendResponse({ type: 'MSG_QUEUE_PROCESSED', error: e.message });
+      }
+      break;
 
     // === Internal: Popup & Settings ===
     case 'GET_STATUS':
