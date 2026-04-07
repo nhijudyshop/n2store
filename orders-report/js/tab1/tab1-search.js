@@ -243,8 +243,8 @@ function _applyFiltersExceptProcessingTag() {
             const msgUnread = window.pancakeDataManager.getMessageUnreadInfoForOrder(order);
             const cmmUnread = window.pancakeDataManager.getCommentUnreadInfoForOrder(order);
 
-            const hasUnreadMessage = msgUnread.hasUnread;
-            const hasUnreadComment = cmmUnread.hasUnread;
+            const hasUnreadMessage = !!(msgUnread && msgUnread.hasUnread);
+            const hasUnreadComment = !!(cmmUnread && cmmUnread.hasUnread);
 
             if (conversationFilter === 'unread') {
                 return hasUnreadMessage || hasUnreadComment;

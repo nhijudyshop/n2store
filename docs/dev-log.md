@@ -8,6 +8,12 @@
 
 ## 2026-04-07
 
+### [orders] Conversation filter null-guard ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-search.js` |
+| **Chi tiết** | Phát hiện khi chạy verify-chotdon-panel.js harness: `_applyFiltersExceptProcessingTag` crash `TypeError: Cannot read properties of null (reading 'hasUnread')` khi đổi `conversationFilter` sang `unread`. `pancakeDataManager.getMessageUnreadInfoForOrder(order)` / `getCommentUnreadInfoForOrder(order)` có thể trả null cho một số order. Fix null-guard: `const hasUnreadMessage = !!(msgUnread && msgUnread.hasUnread);`. Harness sau fix: 6/6 PASS. |
+
 ### [orders] Chốt Đơn panel: realtime re-render khi TPOS/Firebase mutate data + robust open check ✅
 | | |
 |---|---|
