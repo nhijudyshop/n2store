@@ -184,30 +184,12 @@
     function renderTransaction(tx) {
         const cfg = WALLET_TYPE_CONFIG[tx.type] || DEFAULT_CONFIG;
         const amount = parseFloat(tx.amount) || 0;
-
-        // Cho ADJUSTMENT, dấu +/- xác định theo dấu thật của amount trong DB
-        // (backend lưu âm khi trừ ví, dương khi cộng ví — xem balance-history.js create-adjustment)
-        const isAdjust = tx.type === 'ADJUSTMENT';
-        const isCredit = isAdjust ? (amount >= 0) : cfg.isCredit;
-
-        const sign = isCredit ? '+' : '-';
-        const amountColor = isCredit ? '#16a34a' : '#dc2626';
-        const bgColor = isCredit ? 'rgba(22,163,74,0.08)' : 'rgba(220,38,38,0.08)';
-        const borderColor = isCredit ? 'rgba(22,163,74,0.2)' : 'rgba(220,38,38,0.2)';
-        const iconBg = isCredit ? '#dcfce7' : '#fee2e2';
-        const iconColor = isCredit ? '#16a34a' : '#dc2626';
-        const iconChar = isAdjust ? (isCredit ? '+' : '-') : cfg.iconChar;
-
-        // Label động cho ADJUSTMENT
-        let label = cfg.label;
-        if (isAdjust) {
-            const cp = tx.counterparty_phone;
-            if (isCredit) {
-                label = cp ? `Nhận Điều Chỉnh Từ SĐT ${cp}` : 'Nhận Điều Chỉnh Ví';
-            } else {
-                label = cp ? `Điều Chỉnh Chuyển Sang SĐT ${cp}` : 'Điều Chỉnh Trừ Ví';
-            }
-        }
+        const sign = cfg.isCredit ? '+' : '-';
+        const amountColor = cfg.isCredit ? '#16a34a' : '#dc2626';
+        const bgColor = cfg.isCredit ? 'rgba(22,163,74,0.08)' : 'rgba(220,38,38,0.08)';
+        const borderColor = cfg.isCredit ? 'rgba(22,163,74,0.2)' : 'rgba(220,38,38,0.2)';
+        const iconBg = cfg.isCredit ? '#dcfce7' : '#fee2e2';
+        const iconColor = cfg.isCredit ? '#16a34a' : '#dc2626';
 
         const date = tx.created_at
             ? new Date(tx.created_at).toLocaleDateString('vi-VN', {
@@ -219,24 +201,16 @@
         const note = tx.note || tx.source || '';
 
         let detailParts = [];
-        if (isAdjust) {
-            // Note chi tiết cho ADJUSTMENT: lý do + người điều chỉnh
-            if (tx.adjustment_reason) detailParts.push('Lý do: ' + escapeHtml(tx.adjustment_reason));
-            if (date) detailParts.push(date);
-        } else {
-            if (note) detailParts.push(escapeHtml(note));
-            if (date) detailParts.push(date);
-        }
+        if (note) detailParts.push(escapeHtml(note));
+        if (date) detailParts.push(date);
 
         let operatorHtml = '';
-        if (isAdjust && tx.adjusted_by) {
-            operatorHtml = ` - <span style="color:#ef4444;font-weight:700;">Điều chỉnh bởi ${escapeHtml(tx.adjusted_by)}</span>`;
-        } else if (createdBy) {
+        if (createdBy) {
             const isDeposit = tx.type === 'DEPOSIT';
             const isWithdraw = tx.type === 'WITHDRAW';
             const isRefund = tx.type === 'ORDER_CANCEL_REFUND';
-            const labelOp = isDeposit ? 'Duyệt bởi' : isWithdraw ? 'Tạo bởi' : isRefund ? 'Hoàn bởi' : 'Bởi';
-            operatorHtml = ` - <span style="color:#ef4444;font-weight:700;">${labelOp} ${escapeHtml(createdBy)}</span>`;
+            const label = isDeposit ? 'Duyệt bởi' : isWithdraw ? 'Tạo bởi' : isRefund ? 'Hoàn bởi' : 'Bởi';
+            operatorHtml = ` - <span style="color:#ef4444;font-weight:700;">${label} ${escapeHtml(createdBy)}</span>`;
         }
 
         // Balance before & after
@@ -251,9 +225,9 @@
             <div class="wdm-tx-item" style="background:${bgColor};border:1px solid ${borderColor};">
                 <div class="wdm-tx-header">
                     <div class="wdm-tx-icon" style="background:${iconBg};">
-                        <span style="font-size:20px;font-weight:900;color:${iconColor};line-height:1;">${iconChar}</span>
+                        <span style="font-size:20px;font-weight:900;color:${iconColor};line-height:1;">${cfg.iconChar}</span>
                     </div>
-                    <span class="wdm-tx-label" style="color:${amountColor};">${label}  ${sign}${formatCurrency(Math.abs(amount))}</span>
+                    <span class="wdm-tx-label" style="color:${amountColor};">${cfg.label}  ${sign}${formatCurrency(Math.abs(amount))}</span>
                 </div>
                 <div class="wdm-tx-detail">
                     <p class="wdm-tx-note">${detailParts.join(' - ')}${operatorHtml}</p>

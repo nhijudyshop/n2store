@@ -1169,23 +1169,7 @@ router.get('/approved-today', async (req, res) => {
                 bh.reviewed_by,
                 bh.reviewed_at,
                 c.name as customer_name,
-                wa.created_by as adjusted_by,
-                (wa.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as adjusted_at,
-                wa.adjustment_type as adjustment_kind,
-                wa.wrong_customer_phone,
-                wa.correct_customer_phone,
-                wa.adjustment_amount,
-                wa.reason as adjustment_reason,
-                (SELECT json_agg(json_build_object(
-                    'phone', wt.phone,
-                    'amount', wt.amount,
-                    'balance_before', wt.balance_before,
-                    'balance_after', wt.balance_after
-                 ) ORDER BY wt.amount)
-                 FROM wallet_transactions wt
-                 WHERE wt.reference_type = 'balance_history'
-                   AND wt.reference_id = bh.id::text
-                   AND wt.type = 'ADJUSTMENT') as adjustment_legs
+                wa.created_by as adjusted_by
             FROM balance_history bh
             LEFT JOIN customers c ON bh.customer_id = c.id
             LEFT JOIN wallet_adjustments wa ON wa.original_transaction_id = bh.id
@@ -1218,23 +1202,7 @@ router.get('/approved-today', async (req, res) => {
                         bh.reviewed_by,
                         bh.reviewed_at,
                         c.name as customer_name,
-                        wa.created_by as adjusted_by,
-                        (wa.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as adjusted_at,
-                        wa.adjustment_type as adjustment_kind,
-                        wa.wrong_customer_phone,
-                        wa.correct_customer_phone,
-                        wa.adjustment_amount,
-                        wa.reason as adjustment_reason,
-                        (SELECT json_agg(json_build_object(
-                            'phone', wt.phone,
-                            'amount', wt.amount,
-                            'balance_before', wt.balance_before,
-                            'balance_after', wt.balance_after
-                         ) ORDER BY wt.amount)
-                         FROM wallet_transactions wt
-                         WHERE wt.reference_type = 'balance_history'
-                           AND wt.reference_id = bh.id::text
-                           AND wt.type = 'ADJUSTMENT') as adjustment_legs
+                        wa.created_by as adjusted_by
                     FROM balance_history bh
                     LEFT JOIN customers c ON bh.customer_id = c.id
                     LEFT JOIN wallet_adjustments wa ON wa.original_transaction_id = bh.id
