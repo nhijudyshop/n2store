@@ -193,7 +193,9 @@ function mergeOrdersByPhone(orders) {
 // Expose to window for access from other modules (e.g., tab1-tags.js)
 window.performTableSearch = performTableSearch;
 
-function performTableSearch() {
+// Returns the dataset filtered by everything EXCEPT the ProcessingTag (Chốt Đơn) filter.
+// Used by both performTableSearch and _ptagComputeCounts so panel counts respect active filters.
+function _applyFiltersExceptProcessingTag() {
     // Apply search filter
     let tempData = searchQuery
         ? allData.filter((order) => matchesSearchQuery(order, searchQuery))
@@ -321,11 +323,23 @@ function performTableSearch() {
         tempData = tempData.filter(order => window.StockStatusEngine.passesStockFilter(String(order.Id)));
     }
 
+    return tempData;
+}
+window.getOrdersBeforeProcessingTagFilter = _applyFiltersExceptProcessingTag;
+
+function performTableSearch() {
+    let tempData = _applyFiltersExceptProcessingTag();
+
     // Apply Processing Tag filter (base filter OR flag checkboxes)
     // Use order.Code (orderCode) as primary key since ProcessingTagState is keyed by orderCode,
     // fallback to order.Id for backward compatibility with old data
     if (typeof window.hasActiveProcessingTagFilters === 'function' && window.hasActiveProcessingTagFilters()) {
         tempData = tempData.filter(order => window.orderPassesProcessingTagFilter(String(order.Code || order.Id)));
+    }
+
+    // Re-render Chốt Đơn panel counts để phản ánh các filter hiện tại (search/TAG/status/...)
+    if (typeof window._ptagRenderPanelIfOpen === 'function') {
+        window._ptagRenderPanelIfOpen();
     }
 
     filteredData = tempData;

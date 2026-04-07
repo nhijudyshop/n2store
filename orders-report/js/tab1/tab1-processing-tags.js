@@ -1928,9 +1928,14 @@
     }
 
     function _ptagComputeCounts() {
-        const allOrders = (typeof window.getEmployeeFilteredOrders === 'function')
-            ? window.getEmployeeFilteredOrders()
-            : ((typeof window.getAllOrders === 'function') ? window.getAllOrders() : []);
+        // Source = orders sau khi áp dụng tất cả filter (search/TAG/status/...) NHƯNG trước Chốt Đơn filter.
+        // Nhờ vậy badge trong panel = đúng số sẽ hiển thị nếu user click row đó.
+        // Fallback: getEmployeeFilteredOrders → getAllOrders.
+        const allOrders = (typeof window.getOrdersBeforeProcessingTagFilter === 'function')
+            ? window.getOrdersBeforeProcessingTagFilter()
+            : ((typeof window.getEmployeeFilteredOrders === 'function')
+                ? window.getEmployeeFilteredOrders()
+                : ((typeof window.getAllOrders === 'function') ? window.getAllOrders() : []));
         const taggedOrders = ProcessingTagState.getAllOrders();
         const totalOrders = allOrders.length;
 
@@ -2496,6 +2501,15 @@
         ProcessingTagState._panelOpen = !ProcessingTagState._panelOpen;
         panel.classList.toggle('open', ProcessingTagState._panelOpen);
     }
+
+    // Re-render panel khi panel đang mở. Được gọi từ performTableSearch để counts
+    // phản ánh các filter khác (search/TAG/status/...) đang active.
+    window._ptagRenderPanelIfOpen = function() {
+        const panel = document.getElementById('ptag-panel');
+        if (panel && panel.classList.contains('open')) {
+            renderPanelContent();
+        }
+    };
 
     function _ptagTogglePin() {
         ProcessingTagState._panelPinned = !ProcessingTagState._panelPinned;

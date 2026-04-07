@@ -8,6 +8,12 @@
 
 ## 2026-04-07
 
+### [orders] Chốt Đơn panel counts respect các filter đang active ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-search.js`, `orders-report/js/tab1/tab1-processing-tags.js` |
+| **Chi tiết** | Trước: badges trong panel Chốt Đơn (`326 XỬ LÝ`, `308 ĐƠN CHƯA PHẢN HỒI`, ...) tính từ `getEmployeeFilteredOrders()` → bỏ qua search box / TAG / status / Ra đơn → user gõ search rồi click row trong panel sẽ thấy số lệch (vd badge 308 nhưng bảng còn 3 row). Fix: (1) extract bước 1-8 trong `performTableSearch` thành `_applyFiltersExceptProcessingTag()` + expose `window.getOrdersBeforeProcessingTagFilter` (tab1-search.js:196). (2) `_ptagComputeCounts()` (tab1-processing-tags.js:1930) đổi nguồn data sang helper mới (fallback chain: getOrdersBeforeProcessingTagFilter → getEmployeeFilteredOrders → getAllOrders). (3) Expose `window._ptagRenderPanelIfOpen()` chỉ render khi panel mở. (4) `performTableSearch` gọi hook này cuối hàm → mỗi lần search/filter đổi, panel auto refresh counts. Verify: `node --check` 2 files OK. Test thực tế: gõ search → badge giảm theo, click row → số bằng badge. |
+
 ### [orders] Fix chat: ảnh lớn không gửi được (TypeError FileReader) ✅
 | | |
 |---|---|
