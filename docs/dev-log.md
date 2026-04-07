@@ -8,6 +8,13 @@
 
 ## 2026-04-07
 
+### [customer-hub] Áp fix hiển thị điều chỉnh ví sang Customer Profile + Wallet Panel ✅
+| | |
+|---|---|
+| **Files** | `customer-hub/js/modules/customer-profile.js`, `customer-hub/js/modules/wallet-panel.js` |
+| **Chi tiết** | Customer 360 cũng có 2 chỗ render `wallet_transactions` (Customer Profile activity feed + Wallet Panel manual/overview list), trước render mọi `ADJUSTMENT` cùng 1 dấu cố định nên dòng trừ hiện sai. Cùng cách fix với `tab1-wallet-modal.js`: dấu/màu/icon theo dấu thật của `tx.amount`, label động theo `counterparty_phone` ("Nhận Điều Chỉnh Từ SĐT X" / "Điều Chỉnh Chuyển Sang SĐT Y"), customer-profile thêm dòng "Lý do" + "Điều chỉnh bởi". Backend đã có sẵn các field mới (cùng endpoint `/v2/wallets/:phone/transactions` đã update commit trước) → giao dịch điều chỉnh **cũ** cũng tự hiển thị kiểu mới vì dữ liệu đã sẵn trong `wallet_adjustments`. |
+| **Status** | ✅ Done |
+
 ### [orders][render] Hiển thị rõ giao dịch điều chỉnh ví giữa 2 SĐT ✅
 | | |
 |---|---|
