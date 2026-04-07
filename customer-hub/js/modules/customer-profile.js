@@ -619,6 +619,14 @@ export class CustomerProfileModule {
                             const note = rawNote.replace(/\n?\[Ảnh GD: https?:\/\/[^\]]+\]/, '').trim();
                             let detailParts = [];
                             if (isAdjust) {
+                                const wp = tx.wrong_customer_phone || '';
+                                const cpPhone = tx.correct_customer_phone || '';
+                                const amtFmt = formatCurrency(Math.abs(amount));
+                                if (wp && cpPhone) {
+                                    detailParts.push(`Điều chỉnh ví sai SĐT: chuyển số dư từ SĐT ${wp} → SĐT ${cpPhone} (${sign}${amtFmt})`);
+                                } else if (wp) {
+                                    detailParts.push(`Điều chỉnh trừ ví SĐT ${wp} (${sign}${amtFmt})`);
+                                }
                                 if (tx.adjustment_reason) detailParts.push('Lý do: ' + tx.adjustment_reason);
                                 if (date) detailParts.push(date);
                             } else {

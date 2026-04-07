@@ -59,6 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!modalContainer || !modalContent) return;
 
         modalContainer.classList.remove('hidden');
+        modalContainer.style.display = ''; // Clear hard-hide fallback
         document.body.style.overflow = 'hidden'; // Prevent background scroll
 
         // Initialize or re-render customer profile
@@ -69,9 +70,11 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     window.closeCustomerModal = function() {
-        if (!modalContainer) return;
+        const el = modalContainer || document.getElementById('customer-profile-modal');
+        if (!el) return;
 
-        modalContainer.classList.add('hidden');
+        el.classList.add('hidden');
+        el.style.display = 'none'; // Hard-hide fallback in case `hidden` class is overridden
         document.body.style.overflow = ''; // Restore scroll
     };
 
