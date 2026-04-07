@@ -1207,9 +1207,15 @@
                     ? ' <i class="fas fa-print" style="font-size:10px;color:#10b981;margin-left:3px;"></i>' : '';
                 badges += `<span class="ptag-badge" style="border-color:${badgeColor};color:${badgeColor};background:${badgeColor}12;">${label}${printIcon}</span>`;
             } else {
+                // Cat 2/3/4: render parent category badge + subtag badge (separate)
+                const catShort = PTAG_CATEGORY_META[data.category]?.name || '';
+                if (catShort) {
+                    badges += `<span class="ptag-badge" style="border-color:${catColor.border};color:${catColor.text};background:${catColor.bg};">${catShort}</span>`;
+                }
                 const subTagDef = PTAG_SUBTAGS[data.subTag];
-                const label = subTagDef?.label || PTAG_CATEGORY_META[data.category]?.short || '';
-                badges += `<span class="ptag-badge" style="border-color:${catColor.border};color:${catColor.text};background:${catColor.bg};">${label}</span>`;
+                if (subTagDef?.label) {
+                    badges += `<span class="ptag-badge" style="border-color:${catColor.border};color:${catColor.text};background:${catColor.bg};margin-left:4px;">${subTagDef.label}</span>`;
+                }
             }
         }
 
