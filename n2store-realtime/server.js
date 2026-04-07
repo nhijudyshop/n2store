@@ -12,6 +12,7 @@ const cors = require('cors');
 const http = require('http');
 const WebSocket = require('ws');
 const { Pool } = require('pg');
+const tposClient = require('./tpos-client');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -161,6 +162,17 @@ async function ensureTablesExist() {
                 note TEXT,
                 sort_order INTEGER DEFAULT 0,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Create tpos_empty_cart_sync table (auto-tag GIỎ TRỐNG state)
+        await dbPool.query(`
+            CREATE TABLE IF NOT EXISTS tpos_empty_cart_sync (
+                order_id VARCHAR(50) PRIMARY KEY,
+                order_code VARCHAR(50),
+                last_sl INTEGER NOT NULL,
+                last_action VARCHAR(20),
+                last_synced_at TIMESTAMP DEFAULT NOW()
             )
         `);
 
@@ -1291,6 +1303,98 @@ app.put('/api/realtime/inbox-groups', async (req, res) => {
         }
     } catch (error) {
         console.error('[API] Error saving inbox groups:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// =====================================================
+// TPOS AUTO-TAG GIỎ TRỐNG (empty cart sync)
+// =====================================================
+// POST /api/tpos/empty-cart-sync
+// Body: { orderId, orderCode, totalQuantity, currentTags: [{Id,Name,Color},...] }
+// Logic:
+//   - SL === 0 + chưa có GIỎ TRỐNG → add tag, call AssignTag
+//   - SL  >  0 + đang có GIỎ TRỐNG → remove tag, call AssignTag
+//   - else → noop
+// Dedupe: skip nếu (orderId, last_sl) đã sync trong DB và last_sl == totalQuantity
+
+// In-flight lock per orderId to prevent concurrent syncs from racing
+const _ecInFlight = new Set();
+
+app.post('/api/tpos/empty-cart-sync', async (req, res) => {
+    if (!dbPool) return res.status(503).json({ error: 'Database not available' });
+
+    try {
+        const { orderId, orderCode, totalQuantity, currentTags } = req.body || {};
+
+        if (!orderId || typeof totalQuantity !== 'number' || !Array.isArray(currentTags)) {
+            return res.status(400).json({
+                error: 'Missing/invalid fields. Required: orderId, totalQuantity (number), currentTags (array)'
+            });
+        }
+
+        // Per-order in-flight guard (single server instance)
+        if (_ecInFlight.has(orderId)) {
+            return res.json({ success: true, action: 'skip-inflight' });
+        }
+        _ecInFlight.add(orderId);
+
+        try {
+            // 1. Dedupe via DB last_sl
+            const stateRes = await dbPool.query(
+                'SELECT last_sl FROM tpos_empty_cart_sync WHERE order_id = $1',
+                [orderId]
+            );
+            const lastSl = stateRes.rows[0]?.last_sl;
+            if (lastSl === totalQuantity) {
+                return res.json({ success: true, action: 'skip-dedupe', lastSl });
+            }
+
+            // 2. Compute desired action
+            const gioTrong = await tposClient.getGioTrongTag();
+            const gioTrongIdLower = String(gioTrong.Id);
+            const hasGioTrong = currentTags.some(t =>
+                String(t.Id) === gioTrongIdLower ||
+                String(t.Name || '').toUpperCase() === tposClient.GIO_TRONG_NAME_UPPER
+            );
+
+            let action = 'noop';
+            let newTags = null;
+
+            if (totalQuantity === 0 && !hasGioTrong) {
+                action = 'added';
+                newTags = [...currentTags, { Id: gioTrong.Id, Name: gioTrong.Name, Color: gioTrong.Color }];
+            } else if (totalQuantity > 0 && hasGioTrong) {
+                action = 'removed';
+                newTags = currentTags.filter(t =>
+                    String(t.Id) !== gioTrongIdLower &&
+                    String(t.Name || '').toUpperCase() !== tposClient.GIO_TRONG_NAME_UPPER
+                );
+            }
+
+            // 3. Call TPOS only when needed
+            if (newTags) {
+                await tposClient.assignTag(orderId, newTags);
+                console.log(`[EMPTY-CART] ${action} GIỎ TRỐNG → order ${orderCode || orderId} (SL=${totalQuantity})`);
+            }
+
+            // 4. Persist state (always — even noop, to enable dedupe next time)
+            await dbPool.query(`
+                INSERT INTO tpos_empty_cart_sync (order_id, order_code, last_sl, last_action, last_synced_at)
+                VALUES ($1, $2, $3, $4, NOW())
+                ON CONFLICT (order_id) DO UPDATE SET
+                    order_code = EXCLUDED.order_code,
+                    last_sl = EXCLUDED.last_sl,
+                    last_action = EXCLUDED.last_action,
+                    last_synced_at = NOW()
+            `, [orderId, orderCode || null, totalQuantity, action]);
+
+            res.json({ success: true, action, orderId, totalQuantity, newTags: newTags || undefined });
+        } finally {
+            _ecInFlight.delete(orderId);
+        }
+    } catch (error) {
+        console.error('[EMPTY-CART] Error:', error.message);
         res.status(500).json({ error: error.message });
     }
 });
