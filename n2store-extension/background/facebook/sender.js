@@ -140,62 +140,20 @@ export async function handleReplyInboxPhoto(data, sendResponse) {
 
       // Determine retry strategy
       const strategy = getRetryStrategy(errorInfo);
-
       if (strategy === 'restartInbox') {
-        // Exponential backoff: 3 retries with delays 1s → 2s → 4s
-        const RETRY_DELAYS = [1000, 2000, 4000];
-        let lastError = errorInfo;
-        let succeeded = false;
-
-        for (let attempt = 0; attempt < RETRY_DELAYS.length; attempt++) {
-          await new Promise(r => setTimeout(r, RETRY_DELAYS[attempt]));
-          log.info(MODULE, `Retry ${attempt + 1}/${RETRY_DELAYS.length} (after ${RETRY_DELAYS[attempt]}ms) — restarting session...`);
-
-          try {
-            session = await initPage(pageId);
-            params.fb_dtsg = session.token;
-            const retryRes = await fetch(CONFIG.FB_MESSAGING_SEND, {
-              method: 'POST',
-              headers: buildFbHeaders(referer, session.msgrRegion),
-              body: encodeFormData(params),
-              credentials: 'include',
-            });
-            const retryText = await retryRes.text();
-            result = parseFbRes(retryText);
-            const retryError = extractFbError(result);
-            if (!retryError) {
-              log.info(MODULE, `Retry ${attempt + 1} → SUCCESS`);
-              succeeded = true;
-              break;
-            }
-            lastError = retryError;
-            log.warn(MODULE, `Retry ${attempt + 1} → still error: ${retryError.message}`);
-
-            // If retry returns RATE_LIMITED, no point retrying further
-            const retryStrategy = getRetryStrategy(retryError);
-            if (retryStrategy === 'cannotRetry') {
-              log.warn(MODULE, `Retry ${attempt + 1} → cannotRetry strategy, aborting backoff`);
-              break;
-            }
-          } catch (retryFetchErr) {
-            log.warn(MODULE, `Retry ${attempt + 1} fetch error: ${retryFetchErr.message}`);
-            lastError = { message: retryFetchErr.message };
-          }
-        }
-
-        if (!succeeded) {
-          throw new Error(lastError?.message || 'All retries exhausted');
-        }
-      } else if (strategy === 'cannotRetry' && errorInfo?.subcode === FB_ERRORS.RATE_LIMITED.subcode) {
-        // RATE_LIMITED — set cooldown timestamp in chrome.storage so client can show UI hint
-        try {
-          const cooldownEnd = Date.now() + 5 * 60 * 1000; // 5 min cooldown
-          await chrome.storage.local.set({
-            [`fb_rate_limit_${pageId}`]: cooldownEnd,
-          });
-          log.warn(MODULE, `RATE_LIMITED on page ${pageId} — cooldown until ${new Date(cooldownEnd).toISOString()}`);
-        } catch (e) {}
-        throw new Error(`Rate limited. Hãy đợi 5 phút rồi thử lại. (${errorInfo.message})`);
+        log.info(MODULE, 'Retrying with session restart...');
+        session = await initPage(pageId);
+        params.fb_dtsg = session.token;
+        const retryRes = await fetch(CONFIG.FB_MESSAGING_SEND, {
+          method: 'POST',
+          headers: buildFbHeaders(referer, session.msgrRegion),
+          body: encodeFormData(params),
+          credentials: 'include',
+        });
+        const retryText = await retryRes.text();
+        result = parseFbRes(retryText);
+        const retryError = extractFbError(result);
+        if (retryError) throw new Error(retryError.message);
       } else {
         throw new Error(errorInfo.message);
       }
@@ -216,35 +174,10 @@ export async function handleReplyInboxPhoto(data, sendResponse) {
     });
   } catch (err) {
     log.error(MODULE, 'Send failed:', err.message);
-
-    // Enqueue for retry — but skip non-retriable cases:
-    //  - Permanent FB errors (USER_UNAVAILABLE, RATE_LIMITED already cooled down by sender)
-    //  - Validation errors (missing pageId/globalUserId)
-    //  - When called from queue itself (avoid loop) → check data._fromQueue flag
-    const errMsg = String(err.message || '');
-    const isRetriable = (
-      !data._fromQueue &&
-      !errMsg.includes('Rate limited') &&
-      !errMsg.includes('USER_UNAVAILABLE') &&
-      !errMsg.includes('1545041') &&
-      !errMsg.includes('pageId required') &&
-      !errMsg.includes('globalUserId required')
-    );
-    if (isRetriable) {
-      try {
-        const { enqueueMessage } = await import('../sync/message-queue.js');
-        await enqueueMessage({ ...data, _fromQueue: true }, errMsg);
-        log.info(MODULE, 'Message enqueued for background retry');
-      } catch (qe) {
-        log.warn(MODULE, 'enqueueMessage failed:', qe.message);
-      }
-    }
-
     sendResponse({
       type: 'REPLY_INBOX_PHOTO_FAILURE',
       taskId,
       error: err.message,
-      enqueued: isRetriable,
     });
   }
 }

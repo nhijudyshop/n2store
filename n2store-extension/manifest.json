@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "N2Store Messenger",
   "short_name": "N2Store",
-  "version": "1.0.4",
+  "version": "1.0.3",
   "description": "N2Store unified messaging & management extension",
   "icons": {
     "16": "images/icon-16.png",

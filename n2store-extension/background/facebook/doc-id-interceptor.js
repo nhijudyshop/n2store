@@ -131,63 +131,6 @@ export function getInterceptedCount() {
   return docIdMap.size;
 }
 
-/**
- * Health check: critical doc_ids needed for sending messages.
- * Returns { ok, missing[], age, count }.
- * Critical names dùng cho sender flow:
- *  - MessengerThreadlistWebGraphQLQuery (findThread strategy 2)
- *  - PagesManagerInboxAdminAssignerRootQuery (strategy 1)
- *  - BusinessCometInboxThreadDetailHeaderQuery (strategy 1)
- */
-const CRITICAL_DOC_IDS = [
-  'MessengerThreadlistWebGraphQLQuery',
-  'PagesManagerInboxAdminAssignerRootQuery',
-  'BusinessCometInboxThreadDetailHeaderQuery',
-];
-
-let _lastHealthCheckSavedAt = 0;
-
-export async function healthCheckDocIds() {
-  const missing = CRITICAL_DOC_IDS.filter(name => !docIdMap.has(name));
-  let age = null;
-  try {
-    const result = await chrome.storage.local.get(STORAGE_KEY);
-    const data = result[STORAGE_KEY];
-    if (data?.timestamp) age = Date.now() - data.timestamp;
-  } catch (e) {}
-
-  const ok = missing.length === 0 && (age === null || age < TTL);
-  return {
-    ok,
-    missing,
-    age,
-    ageMinutes: age !== null ? Math.round(age / 60000) : null,
-    count: docIdMap.size,
-    expired: age !== null && age >= TTL,
-  };
-}
-
-/**
- * Auto health check on interval — log warning if critical doc_ids missing.
- * Called by service-worker on alarm.
- */
-export async function periodicHealthCheck() {
-  const status = await healthCheckDocIds();
-  if (!status.ok) {
-    log.warn(MODULE, `Health check FAILED: missing=${status.missing.length}, age=${status.ageMinutes}min, count=${status.count}`);
-    if (status.missing.length > 0) {
-      log.warn(MODULE, `Missing critical doc_ids: ${status.missing.join(', ')}`);
-    }
-    // Persist last bad health to storage so popup can show warning
-    try {
-      await chrome.storage.local.set({ fb_doc_ids_health: status });
-    } catch (e) {}
-  } else {
-    log.debug(MODULE, `Health check OK: ${status.count} doc_ids cached`);
-  }
-  return status;
-}
-
 // === Persistence ===
 
 function debouncedSave() {
