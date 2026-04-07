@@ -784,6 +784,35 @@
     white-space: nowrap;
 }
 
+/* Status Filter Tabs (replaces Trạng thái dropdown) */
+.status-filter-tabs {
+    display: inline-flex;
+    gap: 4px;
+    background: #f3f4f6;
+    padding: 3px;
+    border-radius: 8px;
+}
+.status-filter-tabs .status-tab {
+    border: none;
+    background: transparent;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #6b7280;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    white-space: nowrap;
+}
+.status-filter-tabs .status-tab:hover {
+    color: #374151;
+}
+.status-filter-tabs .status-tab.active {
+    background: #fff;
+    color: #8b5cf6;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+}
+
 /* Filter Result */
 .filter-result {
     display: flex;

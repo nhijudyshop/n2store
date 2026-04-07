@@ -8,6 +8,13 @@
 
 ## 2026-04-07
 
+### [inbox] Trạng thái filter — chuyển dropdown thành tab pills ✅
+| | |
+|---|---|
+| **Files** | `don-inbox/index.html`, `don-inbox/css/don-inbox.css` |
+| **Chi tiết** | User không thấy "Đơn đã hủy" vì nó nằm trong dropdown Trạng thái. Chuyển `<select id="statusFilter">` thành 4 tab pills (Tất cả / Nháp / Đơn hàng / Đã hủy) trong `#statusFilterTabs`. Giữ hidden `<select id="statusFilter">` để tương thích với code hiện tại đọc `statusFilter.value` (performTableSearch, etc.). Click handler inline ở cuối body sync giá trị + active class + gọi `performTableSearch()`. CSS pill style: bg `#f3f4f6`, active = white + tím `#8b5cf6` + shadow nhẹ. |
+| **Status** | ✅ Done |
+
 ### [inbox] Fix Hủy đơn — global `confirmCancelOrder` collision với tab1 ✅
 | | |
 |---|---|

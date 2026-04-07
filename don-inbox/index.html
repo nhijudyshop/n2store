@@ -209,14 +209,16 @@
 
                         <!-- Row 2: Status, Source, Tag Filters + Result Count -->
                         <div class="filter-row">
-                            <!-- Status Filter -->
+                            <!-- Status Filter (tab pills + hidden select for compat) -->
                             <div class="filter-item">
                                 <label>Trạng thái:</label>
-                                <select
-                                    id="statusFilter"
-                                    onchange="performTableSearch()"
-                                    class="search-filter-select"
-                                >
+                                <div id="statusFilterTabs" class="status-filter-tabs" role="tablist">
+                                    <button type="button" class="status-tab" data-status="all">Tất cả</button>
+                                    <button type="button" class="status-tab active" data-status="draft">Nháp</button>
+                                    <button type="button" class="status-tab" data-status="order">Đơn hàng</button>
+                                    <button type="button" class="status-tab" data-status="cancelled">Đã hủy</button>
+                                </div>
+                                <select id="statusFilter" style="display:none;">
                                     <option value="all">Tất cả</option>
                                     <option value="draft" selected>Nháp</option>
                                     <option value="order">Đơn hàng</option>
@@ -2027,6 +2029,26 @@
 
         <!-- Social Invoice Adapter (bridges social orders with Tab 1 functions) -->
         <script src="js/tab-social-invoice.js"></script>
+
+        <!-- Status Filter Tabs: sync clicks → hidden #statusFilter + performTableSearch -->
+        <script>
+            (function () {
+                const tabs = document.getElementById('statusFilterTabs');
+                const sel = document.getElementById('statusFilter');
+                if (!tabs || !sel) return;
+                tabs.addEventListener('click', function (e) {
+                    const btn = e.target.closest('.status-tab');
+                    if (!btn) return;
+                    const status = btn.dataset.status;
+                    if (sel.value === status) return;
+                    sel.value = status;
+                    tabs.querySelectorAll('.status-tab').forEach((b) =>
+                        b.classList.toggle('active', b === btn)
+                    );
+                    if (typeof performTableSearch === 'function') performTableSearch();
+                });
+            })();
+        </script>
 
         <!-- Goong Places: attach autocomplete to address inputs -->
         <script>
