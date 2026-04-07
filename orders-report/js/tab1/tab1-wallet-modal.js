@@ -220,14 +220,7 @@
 
         let detailParts = [];
         if (isAdjust) {
-            const wp = tx.wrong_customer_phone || '';
-            const cpPhone = tx.correct_customer_phone || '';
-            const amtFmt = formatCurrency(Math.abs(amount));
-            if (wp && cpPhone) {
-                detailParts.push(escapeHtml(`Điều chỉnh ví sai SĐT: chuyển số dư từ SĐT ${wp} → SĐT ${cpPhone} (${sign}${amtFmt})`));
-            } else if (wp) {
-                detailParts.push(escapeHtml(`Điều chỉnh trừ ví SĐT ${wp} (${sign}${amtFmt})`));
-            }
+            // Note chi tiết cho ADJUSTMENT: lý do + người điều chỉnh
             if (tx.adjustment_reason) detailParts.push('Lý do: ' + escapeHtml(tx.adjustment_reason));
             if (date) detailParts.push(date);
         } else {
