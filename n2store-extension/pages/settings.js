@@ -2,6 +2,13 @@
 // N2Store Extension - Settings Page Logic
 
 document.addEventListener('DOMContentLoaded', async () => {
+  // Sync version from manifest
+  try {
+    const v = chrome.runtime.getManifest().version;
+    const el = document.getElementById('versionText');
+    if (el) el.textContent = `v${v}`;
+  } catch {}
+
   // Load current preferences
   await loadPreferences();
   await loadStatus();
