@@ -183,5 +183,34 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     });
+
+    // Fallback: Cmd/Ctrl+V anywhere inside chat modal → read clipboard via async API
+    // (paste event only fires when an editable element is focused)
+    document.addEventListener('keydown', async function(e) {
+        if (!((e.metaKey || e.ctrlKey) && (e.key === 'v' || e.key === 'V'))) return;
+        const chatModal = document.getElementById('chatModal');
+        if (!chatModal || chatModal.style.display === 'none') return;
+        // Skip if focus is on an editable element — native paste handler covers it
+        const ae = document.activeElement;
+        const tag = ae?.tagName;
+        if (tag === 'TEXTAREA' || tag === 'INPUT' || ae?.isContentEditable) return;
+        if (!navigator.clipboard?.read) return;
+        try {
+            const items = await navigator.clipboard.read();
+            for (const item of items) {
+                const imgType = item.types.find(t => t.startsWith('image/'));
+                if (imgType) {
+                    const blob = await item.getType(imgType);
+                    const file = new File([blob], 'pasted-image.png', { type: blob.type });
+                    window.addImageToPreview(file);
+                    // Focus input after paste so user can type caption
+                    document.getElementById('chatInput')?.focus();
+                    return;
+                }
+            }
+        } catch (err) {
+            console.warn('[Chat] Clipboard read failed:', err);
+        }
+    });
 });
 

@@ -8,6 +8,13 @@
 
 ## 2026-04-07
 
+### [chat] Paste ảnh vào modal chat khi focus ngoài input ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-chat-images.js` |
+| **Chi tiết** | Handler `paste` cũ chỉ fire khi `chatInput` đang focus → user click panel sản phẩm/message list rồi Cmd+V không bắt được. Thêm fallback keydown Cmd/Ctrl+V ở document: nếu modal mở và focus KHÔNG ở editable element, gọi `navigator.clipboard.read()` lấy image blob đẩy vào `addImageToPreview()` rồi auto-focus lại `chatInput`. |
+| **Status** | ✅ Done |
+
 ### [orders] Tab "Hàng rớt - xã" — redesign sang image grid 5 cột + drag-select ✅
 | | |
 |---|---|
