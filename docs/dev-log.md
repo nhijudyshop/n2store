@@ -8,6 +8,13 @@
 
 ## 2026-04-07
 
+### [extension] Popup — sync version từ manifest (fix hardcode v1.0.0) ✅
+| | |
+|---|---|
+| **Files** | `n2store-extension/popup/popup.js` |
+| **Chi tiết** | User báo popup hiển thị `v1.0.0` trong khi manifest đã là `1.0.3`. Root cause: `popup.html` hardcode `<span id="version">v1.0.0</span>`, không có code nào sync từ manifest. Fix: trong `DOMContentLoaded` của `popup.js` thêm `chrome.runtime.getManifest().version` → set `#version` textContent thành `v{version}` (try/catch defensive). Tự động sync mọi lần bump version sau này. |
+| **Status** | ✅ Done |
+
 ### [inbox] Trạng thái filter — chuyển dropdown thành tab pills ✅
 | | |
 |---|---|

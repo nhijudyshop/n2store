@@ -6,6 +6,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Extension always green
   document.getElementById('extStatus').classList.add('green');
 
+  // Sync version from manifest
+  try {
+    const v = chrome.runtime.getManifest().version;
+    const el = document.getElementById('version');
+    if (el) el.textContent = `v${v}`;
+  } catch {}
+
   // Load status from service worker
   await loadStatus();
   await updateTabCount();
