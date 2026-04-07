@@ -38,6 +38,43 @@
     }
 
     /**
+     * Sync XL (Tag XL panel) GIO_TRONG subtag based on server action.
+     * - action='added' → assignOrderCategory(code, 3, {subTag: 'GIO_TRONG'})
+     *                    (preserves existing flags + tTags via merge logic)
+     * - action='removed' → only clear if XL.subTag === 'GIO_TRONG'
+     */
+    async function _syncXLGioTrong(orderCode, action) {
+        if (!orderCode) return;
+        const state = window.ProcessingTagState;
+        if (!state || typeof state.getOrderData !== 'function') return;
+
+        try {
+            const data = state.getOrderData(orderCode);
+
+            if (action === 'added') {
+                // Skip if already set
+                if (data && data.category === 3 && data.subTag === 'GIO_TRONG') return;
+                if (typeof window.assignOrderCategory === 'function') {
+                    await window.assignOrderCategory(orderCode, 3, {
+                        subTag: 'GIO_TRONG',
+                        source: 'AUTO-EMPTY-CART'
+                    });
+                    console.log(`${LOG} XL set GIO_TRONG → ${orderCode}`);
+                }
+            } else if (action === 'removed') {
+                // Only clear if currently set to GIO_TRONG
+                if (!data || data.subTag !== 'GIO_TRONG') return;
+                if (typeof window.clearProcessingTag === 'function') {
+                    await window.clearProcessingTag(orderCode);
+                    console.log(`${LOG} XL clear GIO_TRONG → ${orderCode}`);
+                }
+            }
+        } catch (e) {
+            console.warn(`${LOG} XL sync failed for ${orderCode}:`, e.message);
+        }
+    }
+
+    /**
      * POST to server with order info. Server decides whether to call TPOS.
      */
     async function _pushSync(order) {
@@ -68,8 +105,8 @@
             // Update local Tags if server actually changed them
             if (data.action === 'added' || data.action === 'removed') {
                 console.log(`${LOG} ${data.action} GIỎ TRỐNG → ${order.Code} (SL=${sl})`);
-                if (data.newTags && typeof window.updateOrderInTable === 'function') {
-                    // Avoid re-triggering ourselves: just update Tags via OrderStore quietly
+                if (data.newTags) {
+                    // Avoid re-triggering ourselves: update Tags via OrderStore quietly
                     if (window.OrderStore?.isInitialized) {
                         window.OrderStore.update(order.Id, { Tags: JSON.stringify(data.newTags) });
                     }
@@ -78,6 +115,8 @@
                         window.updateRowTagsOnly(order.Id, JSON.stringify(data.newTags), order.Code);
                     }
                 }
+                // Also sync XL (Tag XL panel) — set/unset GIO_TRONG subtag
+                _syncXLGioTrong(order.Code, data.action);
             }
             return data;
         } catch (e) {
