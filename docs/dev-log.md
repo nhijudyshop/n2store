@@ -8,38 +8,6 @@
 
 ## 2026-04-07
 
-### [orders] Chốt Đơn panel counts respect các filter đang active ✅
-| | |
-|---|---|
-| **Files** | `orders-report/js/tab1/tab1-search.js`, `orders-report/js/tab1/tab1-processing-tags.js` |
-| **Chi tiết** | Trước: badges trong panel Chốt Đơn (`326 XỬ LÝ`, `308 ĐƠN CHƯA PHẢN HỒI`, ...) tính từ `getEmployeeFilteredOrders()` → bỏ qua search box / TAG / status / Ra đơn → user gõ search rồi click row trong panel sẽ thấy số lệch (vd badge 308 nhưng bảng còn 3 row). Fix: (1) extract bước 1-8 trong `performTableSearch` thành `_applyFiltersExceptProcessingTag()` + expose `window.getOrdersBeforeProcessingTagFilter` (tab1-search.js:196). (2) `_ptagComputeCounts()` (tab1-processing-tags.js:1930) đổi nguồn data sang helper mới (fallback chain: getOrdersBeforeProcessingTagFilter → getEmployeeFilteredOrders → getAllOrders). (3) Expose `window._ptagRenderPanelIfOpen()` chỉ render khi panel mở. (4) `performTableSearch` gọi hook này cuối hàm → mỗi lần search/filter đổi, panel auto refresh counts. Verify: `node --check` 2 files OK. Test thực tế: gõ search → badge giảm theo, click row → số bằng badge. |
-
-### [orders] Fix chat: ảnh lớn không gửi được (TypeError FileReader) ✅
-| | |
-|---|---|
-| **Files** | `orders-report/js/tab1/tab1-chat-images.js` |
-| **Chi tiết** | `addImageToPreview()` gọi `window.compressImage(file, maxSize)` rồi truyền thẳng kết quả vào `_addToPreview()`. Nhưng `compressImage` (image-compressor.js) resolve 1 object `{ blob, width, height, ... }` chứ không phải File → `reader.readAsDataURL(object)` ném `TypeError: parameter 1 is not of type 'Blob'`. Ảnh nhỏ (<500KB) đi nhánh else nên không bị. Fix: unwrap `result.blob` + thêm `.catch` fallback gửi file gốc nếu compress fail. Không đụng image-compressor.js vì shape đang dùng ở purchase-orders/soquy/nhanhang/user-management. |
-
-### [orders] Fix Tag XL: tag `Tx ...` không còn bị gắn nhãn "Tag TPOS ngoài mapping" ✅
-| | |
-|---|---|
-| **Files** | `orders-report/js/tab1/tab1-tag-sync.js` |
-| **Chi tiết** | Discrepancy: `_isManagedTPOSTag()` (L168-176) coi tag matching `/^T\d+\s+/` là managed, nhưng `getUnmanagedTPOSTagsFromOrder()` (L655) chỉ check hardcoded mapping + alias pattern → tag dynamic như `T8 AN DÂY KIM TUYẾN ĐEN LỤA` lọt vào danh sách unmanaged và bị render với tooltip "Tag TPOS ngoài mapping" trong cột Tag XL. Fix: thêm 2 nhánh filter trong `getUnmanagedTPOSTagsFromOrder` — bỏ qua tag matching `/^T\d+\s+/i` và optional `dynamicTTagNames` set (param mới). Không đổi caller; verify bằng console snippet trên đơn STT 84 (Huỳnh Thành Đạt). |
-
-### [render][shared] Pancake Account Pages cache — Render DB là source of truth ✅
-| | |
-|---|---|
-| **Files** | `render.com/routes/pancake-account-pages.js` (mới), `render.com/server.js`, `shared/js/pancake-settings.js` |
-| **Chi tiết** | Trước: mỗi lần mở modal "Quản lý Pancake Accounts" → loop qua mọi account → fetch `/pages?access_token=X` live → chậm + intermittent fail "Không thể kiểm tra" (không log chi tiết, không retry). **Backend**: route mới `/api/pancake-account-pages` với table PostgreSQL `pancake_account_pages_cache` (`account_id PK`, `pages JSONB`, `last_status`, `last_verified_at/by`, `error_detail`). Endpoints: `GET /` (trả tất cả accounts — single read), `GET /:id`, `PUT /:id` (chỉ overwrite pages khi `lastStatus='ok'` — fail tạm thời KHÔNG ghi đè cache tốt), `DELETE /:id`. Cache không TTL. **Frontend `pancake-settings.js`**: (1) `loadAccountPagesCache()` GET cache 1 lần, mirror vào `localStorage` (`pancake_account_pages_cache_v1`) cho offline fallback. (2) `refreshAccountsList()` đổi flow: render account list từ Firestore (token), rồi với mỗi account: nếu `cacheMap[id].lastStatus==='ok'` → render pages từ cache instant + skip live fetch hoàn toàn; chỉ live verify khi cache miss / status fail. (3) `fetchPagesForAccount()` rewrite: log chi tiết (httpStatus, errDetail, dataKeys), phân biệt 3 status (`ok`/`auth_failed`/`empty`/`network`), retry 1 lần với 800ms delay khi network error, push kết quả lên Render qua `pushAccountPagesCache()`. (4) UI: hiển thị badge `●` cho cached entries, button 🔄 manual re-verify gọi `window._reverifyPancakeAccount(id)`. (5) `deleteAccount` gửi DELETE cache. **Verification**: `node --check` 3 files OK. Mọi máy đọc 1 nguồn → chỉ máy nào verify thành công mới ghi cache → các máy khác không bao giờ thấy "Không thể kiểm tra" trừ khi chưa từng có máy nào verify thành công. |
-| **Status** | ✅ Done |
-
-### [customer-hub] Áp fix hiển thị điều chỉnh ví sang Customer Profile + Wallet Panel ✅
-| | |
-|---|---|
-| **Files** | `customer-hub/js/modules/customer-profile.js`, `customer-hub/js/modules/wallet-panel.js` |
-| **Chi tiết** | Customer 360 cũng có 2 chỗ render `wallet_transactions` (Customer Profile activity feed + Wallet Panel manual/overview list), trước render mọi `ADJUSTMENT` cùng 1 dấu cố định nên dòng trừ hiện sai. Cùng cách fix với `tab1-wallet-modal.js`: dấu/màu/icon theo dấu thật của `tx.amount`, label động theo `counterparty_phone` ("Nhận Điều Chỉnh Từ SĐT X" / "Điều Chỉnh Chuyển Sang SĐT Y"), customer-profile thêm dòng "Lý do" + "Điều chỉnh bởi". Backend đã có sẵn các field mới (cùng endpoint `/v2/wallets/:phone/transactions` đã update commit trước) → giao dịch điều chỉnh **cũ** cũng tự hiển thị kiểu mới vì dữ liệu đã sẵn trong `wallet_adjustments`. |
-| **Status** | ✅ Done |
-
 ### [orders][render] Hiển thị rõ giao dịch điều chỉnh ví giữa 2 SĐT ✅
 | | |
 |---|---|

@@ -306,19 +306,10 @@ export class WalletPanelModule {
     }
 
     _renderManualTxItem(tx) {
-        const txAmount = parseFloat(tx.amount) || 0;
-        const isAdjust = tx.type === 'ADJUSTMENT';
-        const isCredit = isAdjust ? (txAmount >= 0) : CREDIT_TYPES.includes(tx.type);
+        const isCredit = CREDIT_TYPES.includes(tx.type);
         const bgColor = isCredit ? '#f0fdf4' : '#fef2f2';
         const amountColor = isCredit ? '#16a34a' : '#dc2626';
         const sign = isCredit ? '+' : '-';
-        let txLabel = TYPE_LABELS[tx.type] || 'Giao dịch';
-        if (isAdjust) {
-            const cp = tx.counterparty_phone;
-            txLabel = isCredit
-                ? (cp ? `Nhận ĐC từ ${cp}` : 'Nhận điều chỉnh ví')
-                : (cp ? `ĐC chuyển sang ${cp}` : 'Điều chỉnh trừ ví');
-        }
 
         const date = tx.created_at
             ? new Date(tx.created_at).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
@@ -347,7 +338,7 @@ export class WalletPanelModule {
                     <span class="material-symbols-outlined" style="font-size: 16px; color: ${amountColor}; margin-top: 1px;">${icon}</span>
                     <div class="flex-1 min-w-0">
                         <div class="flex items-center justify-between">
-                            <span class="text-[11px] font-bold text-slate-800 dark:text-slate-200">${txLabel}</span>
+                            <span class="text-[11px] font-bold text-slate-800 dark:text-slate-200">${TYPE_LABELS[tx.type] || 'Giao dịch'}</span>
                             <span class="text-[11px] font-bold tabular-nums" style="color: ${amountColor};">${sign}${this._formatCurrency(Math.abs(tx.amount))}</span>
                         </div>
                         ${note ? this._renderNoteWithImage(note) : ''}
@@ -704,18 +695,9 @@ export class WalletPanelModule {
     }
 
     _renderTx(tx) {
-        const txAmount = parseFloat(tx.amount) || 0;
-        const isAdjust = tx.type === 'ADJUSTMENT';
-        const isCredit = isAdjust ? (txAmount >= 0) : CREDIT_TYPES.includes(tx.type);
+        const isCredit = CREDIT_TYPES.includes(tx.type);
         const bg = isCredit ? 'bg-green-50 dark:bg-green-900/20' : 'bg-red-50 dark:bg-red-900/20';
         const color = isCredit ? 'text-green-600' : 'text-red-600';
-        let txLabel = TYPE_LABELS[tx.type] || 'Giao dịch ví';
-        if (isAdjust) {
-            const cp = tx.counterparty_phone;
-            txLabel = isCredit
-                ? (cp ? `Nhận điều chỉnh từ ${cp}` : 'Nhận điều chỉnh ví')
-                : (cp ? `Điều chỉnh chuyển sang ${cp}` : 'Điều chỉnh trừ ví');
-        }
         const date = tx.created_at ? new Date(tx.created_at).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
         const expiry = (tx.type === 'VIRTUAL_CREDIT' && tx.expires_at)
             ? `<span class="text-orange-500 ml-1">• HSD: ${new Date(tx.expires_at).toLocaleDateString('vi-VN')}</span>` : '';
@@ -726,7 +708,7 @@ export class WalletPanelModule {
         return `
             <div class="flex items-center gap-3 p-3 rounded-lg ${bg}">
                 <div class="flex-1">
-                    <p class="font-medium text-slate-800 dark:text-slate-200">${txLabel}</p>
+                    <p class="font-medium text-slate-800 dark:text-slate-200">${TYPE_LABELS[tx.type] || 'Giao dịch ví'}</p>
                     <div class="text-xs text-slate-500">${this._renderNoteWithImage(tx.note || tx.source || '')}</div>
                     <p class="text-xs text-slate-400">${date}${expiry}${createdBy}</p>
                 </div>
