@@ -498,11 +498,17 @@ class InboxDataManager {
         const lastSentById = conv.last_sent_by?.id;
         const isCustomerLast = lastSentById && lastSentById !== conv.page_id;
 
+        const lastMessage = this._filterSystemMessage((conv.snippet || conv.last_message?.text || conv.last_message?.message || '').replace(/<[^>]*>/g, ''));
+
+        // Pre-compute search index — avoids re-running removeDiacritics() and
+        // normalizePhone() on every keystroke (huge speedup for large lists).
+        const searchPhones = phones.map(p => normalizePhone(p)).filter(Boolean);
+
         return {
             id: conv.id,
             name: customerName,
             avatar: conv.from?.avatar || null,
-            lastMessage: this._filterSystemMessage((conv.snippet || conv.last_message?.text || conv.last_message?.message || '').replace(/<[^>]*>/g, '')),
+            lastMessage,
             time: this.parseTimestamp(conv.updated_at || conv.last_message?.inserted_at) || new Date(),
             unread: conv.unread_count || 0,
             online: false,
@@ -518,6 +524,11 @@ class InboxDataManager {
             isCustomerLast, // true = customer sent last message (unanswered)
             messages: [], // Messages loaded on demand
             _raw: conv,   // Keep raw data for reference
+            // Pre-normalized search fields (lowercase, no diacritics)
+            _sName: removeDiacritics(customerName),
+            _sLastMsg: removeDiacritics(lastMessage),
+            _sPageName: removeDiacritics(pageName),
+            _sPhones: searchPhones, // array of digit-only normalized phones
         };
     }
 
@@ -618,28 +629,28 @@ class InboxDataManager {
         }
 
         if (search) {
+            // Normalize the query ONCE per call instead of once per item.
             const q = removeDiacritics(search);
-            // If query looks like a phone number, also prepare normalized digits for phone matching
             const phoneQ = isPhoneQuery(search) ? normalizePhone(search) : '';
 
             result = result.filter(c => {
-                // Text matching
-                if (removeDiacritics(c.name).includes(q)) return true;
-                if (removeDiacritics(c.lastMessage).includes(q)) return true;
-                if (removeDiacritics(c.pageName).includes(q)) return true;
+                // Use pre-normalized fields cached in mapConversation() — no per-item regex.
+                // Falls back to live normalization for legacy conv objects without cache.
+                const sName = c._sName ?? removeDiacritics(c.name);
+                if (sName.includes(q)) return true;
+                const sLastMsg = c._sLastMsg ?? removeDiacritics(c.lastMessage);
+                if (sLastMsg.includes(q)) return true;
+                const sPageName = c._sPageName ?? removeDiacritics(c.pageName);
+                if (sPageName.includes(q)) return true;
 
-                // Phone matching: normalize both sides so "0984 040 726" / "+84984040726" all match
+                // Phone matching with pre-normalized digit array
                 if (phoneQ) {
-                    if (c.phone) {
-                        // c.phone is "0984040726, 0123456789" — split & normalize each
-                        const phoneList = String(c.phone).split(',').map(p => normalizePhone(p)).filter(Boolean);
-                        if (phoneList.some(p => p.includes(phoneQ))) return true;
+                    const phones = c._sPhones;
+                    if (phones && phones.length) {
+                        for (let i = 0; i < phones.length; i++) {
+                            if (phones[i].includes(phoneQ)) return true;
+                        }
                     }
-                    const rawPhones = c._raw?.recent_phone_numbers;
-                    if (rawPhones && rawPhones.some(p => {
-                        const n = normalizePhone(p.phone_number || p.captured || '');
-                        return n && n.includes(phoneQ);
-                    })) return true;
                 }
                 return false;
             });

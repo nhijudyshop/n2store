@@ -305,9 +305,11 @@ class InboxChatController {
     }
 
     bindEvents() {
-        // Search: only trigger on Enter key OR after 5s idle (no more search-on-every-keystroke).
-        // Local filter still runs instantly while typing for quick visual feedback.
+        // Search: only trigger Pancake API on Enter or after 5s idle.
+        // Local filter runs on a short rAF debounce (coalesces bursty keystrokes
+        // into one render per frame — keeps typing buttery smooth on big lists).
         let searchTimeout = null;
+        let localRenderRaf = 0;
         const API_SEARCH_IDLE_MS = 5000;
 
         this.elements.searchInput.addEventListener('input', (e) => {
@@ -319,14 +321,20 @@ class InboxChatController {
             if (!query) {
                 this.isSearching = false;
                 this.searchResults = null;
+                if (localRenderRaf) { cancelAnimationFrame(localRenderRaf); localRenderRaf = 0; }
                 this.renderConversationList();
                 return;
             }
 
-            // Instant local filter — quick visual feedback while typing
+            // Coalesce repeated keystrokes into a single render per animation frame.
             this.searchResults = null;
             this.isSearching = false;
-            this.renderConversationList();
+            if (!localRenderRaf) {
+                localRenderRaf = requestAnimationFrame(() => {
+                    localRenderRaf = 0;
+                    this.renderConversationList();
+                });
+            }
 
             // Schedule API search after 5s of no typing
             searchTimeout = setTimeout(async () => {
