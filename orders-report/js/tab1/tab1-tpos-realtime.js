@@ -164,9 +164,18 @@
         const tags = data.tags;
         if (!orderId || !tags) return;
 
-        // Deduplicate
-        const dedupeKey = `tag_${orderId}`;
-        if (isRecentlyProcessed(dedupeKey)) return;
+        // Strong dedupe: orderId + tag content hash (defends against duplicate
+        // broadcasts from multiple WS connections, multiple extension instances,
+        // or server replays — see investigation 2026-04-07).
+        const tagsHash = (tags || [])
+            .map(t => `${t.Id || ''}:${String(t.Name || '').toUpperCase()}`)
+            .sort()
+            .join('|');
+        const dedupeKey = `tag_${orderId}_${tagsHash}`;
+        if (isRecentlyProcessed(dedupeKey)) {
+            // Silent skip — duplicate event with identical content
+            return;
+        }
         markProcessed(dedupeKey);
 
         // Find order in table by TPOS UUID
