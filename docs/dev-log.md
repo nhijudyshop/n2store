@@ -8,6 +8,13 @@
 
 ## 2026-04-07
 
+### [orders][render] Hiển thị rõ giao dịch điều chỉnh ví giữa 2 SĐT ✅
+| | |
+|---|---|
+| **Files** | `render.com/routes/v2/wallets.js`, `render.com/routes/v2/balance-history.js`, `orders-report/js/tab1/tab1-wallet-modal.js`, `balance-history/js/accountant.js` |
+| **Chi tiết** | Modal "Hoạt động ví" trước đây render mọi `ADJUSTMENT` thành `+` xanh do `WALLET_TYPE_CONFIG` cứng `isCredit:true`, label generic "Điều Chỉnh Số Dư", không nói SĐT đối ứng. Tooltip badge "Đã điều chỉnh" ở tab Kế toán chỉ ghi text cứng. **Chỉ sửa hiển thị, không động vào logic dòng tiền.** Backend: `wallets.js GET /:phone/transactions` JOIN `wallet_adjustments` để trả `counterparty_phone`/`adjustment_reason`/`adjusted_by`/`adjusted_at`; `balance-history.js` approved-list query mở rộng SELECT thêm field `adjustment_*` + subquery `adjustment_legs` (json_agg snapshot 2 leg `wallet_transactions`). FE: `tab1-wallet-modal.js renderTransaction()` chọn dấu/màu/icon theo dấu thật của `amount`, label động "Nhận Điều Chỉnh Từ SĐT X" / "Điều Chỉnh Chuyển Sang SĐT Y", hiện lý do + người điều chỉnh. `accountant.js` build tooltip nhiều dòng từ `adjustment_legs` (số dư trước/sau cả 2 ví). |
+| **Status** | ✅ Done |
+
 ### [chat] Modal chat — fallback Extension cho mọi lỗi + enrich convData (giống bulk send) ✅
 | | |
 |---|---|

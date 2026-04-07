@@ -1814,9 +1814,39 @@
                 : `<button class="acc-review-btn" data-id="${tx.id}" title="Kiểm tra giao dịch">✓</button>`;
 
             // Nút Điều chỉnh - disable nếu đã có adjustment
-            const adjustBtnHtml = hasAdjustment
-                ? `<span class="badge badge-secondary" title="Giao dịch đã được điều chỉnh">✓ Đã điều chỉnh</span>`
-                : `<button class="btn btn-sm btn-outline-warning acc-adjust-btn" data-id="${tx.id}" data-amount="${tx.amount}" data-phone="${tx.linked_customer_phone || ''}" data-name="${tx.customer_name || ''}" title="Điều chỉnh nếu phát hiện sai">⚠️ Điều chỉnh</button>`;
+            let adjustBtnHtml;
+            if (hasAdjustment) {
+                const fmt = (v) => new Intl.NumberFormat('vi-VN').format(parseFloat(v) || 0) + 'đ';
+                const legs = Array.isArray(tx.adjustment_legs) ? tx.adjustment_legs : [];
+                const debitLeg  = legs.find(l => parseFloat(l.amount) < 0);
+                const creditLeg = legs.find(l => parseFloat(l.amount) > 0);
+                const adjAmt = tx.adjustment_amount != null ? fmt(tx.adjustment_amount) : '';
+                const adjBy  = tx.adjusted_by || 'N/A';
+                const adjAt  = tx.adjusted_at ? formatDateTime(tx.adjusted_at) : '';
+                const reason = tx.adjustment_reason || '';
+                const wrongPhone = tx.wrong_customer_phone || tx.linked_customer_phone || '';
+                const correctPhone = tx.correct_customer_phone || '';
+
+                const tipLines = [];
+                if (adjAmt) tipLines.push(`⚠️ Điều chỉnh ${adjAmt}`);
+                if (reason) tipLines.push(`Lý do: ${reason}`);
+                tipLines.push(`Người điều chỉnh: ${adjBy}${adjAt ? ' (' + adjAt + ')' : ''}`);
+                tipLines.push('');
+                tipLines.push(`❌ Trừ ví SĐT ${wrongPhone}:`);
+                if (debitLeg) {
+                    tipLines.push(`   ${fmt(debitLeg.balance_before)} → ${fmt(debitLeg.balance_after)}`);
+                }
+                if (correctPhone) {
+                    tipLines.push(`✅ Cộng ví SĐT ${correctPhone}:`);
+                    if (creditLeg) {
+                        tipLines.push(`   ${fmt(creditLeg.balance_before)} → ${fmt(creditLeg.balance_after)}`);
+                    }
+                }
+                const tipText = tipLines.join('\n').replace(/"/g, '&quot;');
+                adjustBtnHtml = `<span class="badge badge-secondary" title="${tipText}">✓ Đã điều chỉnh</span>`;
+            } else {
+                adjustBtnHtml = `<button class="btn btn-sm btn-outline-warning acc-adjust-btn" data-id="${tx.id}" data-amount="${tx.amount}" data-phone="${tx.linked_customer_phone || ''}" data-name="${tx.customer_name || ''}" title="Điều chỉnh nếu phát hiện sai">⚠️ Điều chỉnh</button>`;
+            }
 
             return `
                 <tr class="${rowClass}">
