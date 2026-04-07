@@ -8,6 +8,13 @@
 
 ## 2026-04-07
 
+### [issue-tracking] Filter loại — đổi dropdown thành tab pills (và filter thật sự) ✅
+| | |
+|---|---|
+| **Files** | `issue-tracking/index.html`, `issue-tracking/css/style.css`, `issue-tracking/js/script.js` |
+| **Chi tiết** | Dropdown `#filter-type` ở filters-bar dashboard (Tất cả loại / Không Nhận Hàng / Thu về (Shipper) / Khách gửi / Sửa COD) chuyển thành dãy tab pill `#type-tabs` với `data-type`. Phát hiện thêm: dropdown cũ chưa từng được JS đọc → filter loại trước nay không hoạt động. Thêm CSS `.type-tabs/.type-tab-btn` (pill, active = primary). `initTabs()` gắn click handler: toggle active, giữ search term + active main tab rồi gọi `renderDashboard()`. `renderDashboard()` đọc `data-type` của tab active và filter `t.type` trước bước search. History tab vẫn dùng `#history-filter-type` riêng. |
+| **Status** | ✅ Done |
+
 ### [inbox] Fix "Partner is null" khi xác nhận sale từ Đơn Inbox ✅
 | | |
 |---|---|

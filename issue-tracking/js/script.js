@@ -190,6 +190,18 @@ function initTabs() {
             renderDashboard(btn.dataset.tab);
         });
     });
+
+    // Type filter tabs (replaces #filter-type select)
+    const typeTabBtns = document.querySelectorAll('#type-tabs .type-tab-btn');
+    typeTabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            typeTabBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            const activeTab = document.querySelector('.tab-btn.active')?.dataset.tab || 'pending-goods';
+            const term = (document.getElementById('search-ticket')?.value || '').toLowerCase().trim();
+            renderDashboard(activeTab, term);
+        });
+    });
 }
 
 function initModalHandlers() {
@@ -2027,6 +2039,13 @@ function renderDashboard(tabName, searchTerm = '') {
     } else {
         // "all" tab: exclude CANCELLED (they have their own tab)
         filtered = filtered.filter(t => t.status !== 'CANCELLED');
+    }
+
+    // Filter by Type (from type-tabs)
+    const activeTypeBtn = document.querySelector('#type-tabs .type-tab-btn.active');
+    const typeFilter = activeTypeBtn?.dataset.type || 'all';
+    if (typeFilter !== 'all') {
+        filtered = filtered.filter(t => t.type === typeFilter);
     }
 
     // Filter by Search
