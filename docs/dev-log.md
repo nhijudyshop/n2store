@@ -8,6 +8,12 @@
 
 ## 2026-04-07
 
+### [orders] Chốt Đơn panel: realtime re-render khi TPOS/Firebase mutate data + robust open check ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-processing-tags.js`, `orders-report/js/tab1/tab1-tpos-realtime.js`, `orders-report/js/tab1/tab1-firebase.js`, `orders-report/debug/verify-chotdon-panel.js` (new) |
+| **Chi tiết** | Mở rộng fix commit trước (`a4efdac9`). Debug session với user phát hiện panel vẫn stale counts trong 3 scenario realtime mà pipeline filter chạy OK nhưng không có ai trigger re-render panel: (1) TPOS `handleOrderUpdate` → `updateOrderInTable` mutate `allData` field-level, (2) TPOS `handleTagAssigned` → same, (3) Firebase `child_changed/child_added` → `updateTagCellOnly` mutate Tags. Cả 3 đều thiếu call `_ptagRenderPanelIfOpen`. Fix: add call vào cuối mỗi handler. Ngoài ra làm `_ptagRenderPanelIfOpen` robust hơn: dùng `ProcessingTagState._panelOpen` state làm primary check, `classList.contains('open')` làm fallback (tránh edge case CSS animation remove class tạm thời). **Verification harness**: tạo `orders-report/debug/verify-chotdon-panel.js` — paste vào Console (top frame), tự động find iframe tab1, snapshot filter state, chạy 6 test case (baseline, search, status, search+status, fulfillment, conversation), so sánh `panel TỔNG == getOrdersBeforeProcessingTagFilter().length`, restore state, báo PASS/FAIL ra `console.table`. Ghi chú: race condition trong `_ptagSetFilter` (render trước performTableSearch 50ms) không phải bug — counts panel độc lập với processing tag filter nên immediate render không làm flicker counts, chỉ update active highlight. Skip sửa chỗ đó. |
+
 ### [wallet-adjust] Hiển thị rõ điều chỉnh ví v2 — enrich Node-side, không JOIN cast ✅
 | | |
 |---|---|

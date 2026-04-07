@@ -324,6 +324,12 @@ function updateTagCellOnly(orderId, orderCode, tags) {
         </div>
     `;
 
+    // Re-render Chốt Đơn panel counts — Tags mutation affects TAG filter matching
+    // và "KHAC" (TPOS tag ngoài mapping) count. Without this, panel shows stale
+    // counts after Firebase realtime tag updates.
+    if (typeof window._ptagRenderPanelIfOpen === 'function') {
+        window._ptagRenderPanelIfOpen();
+    }
 }
 
 /**

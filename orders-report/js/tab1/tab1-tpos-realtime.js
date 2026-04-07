@@ -164,6 +164,11 @@
             updateOrderInTable(existingOrder.Id, updatedOrder);
             console.log('[TPOS-RT] Updated order in table:', code);
         }
+
+        // Re-render Chốt Đơn panel counts (order fields may affect category/flags).
+        if (typeof window._ptagRenderPanelIfOpen === 'function') {
+            window._ptagRenderPanelIfOpen();
+        }
     }
 
     async function handleTagAssigned(data) {
@@ -216,6 +221,12 @@
         // Reverse sync TPOS → XL
         if (typeof window.handleTPOSTagsChanged === 'function') {
             window.handleTPOSTagsChanged(orderId, normalizedTags);
+        }
+
+        // Re-render Chốt Đơn panel counts (TPOS tag mutation affects "KHAC" count
+        // và TAG filter matching).
+        if (typeof window._ptagRenderPanelIfOpen === 'function') {
+            window._ptagRenderPanelIfOpen();
         }
     }
 

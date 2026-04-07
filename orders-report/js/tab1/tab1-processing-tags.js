@@ -2503,10 +2503,15 @@
     }
 
     // Re-render panel khi panel đang mở. Được gọi từ performTableSearch để counts
-    // phản ánh các filter khác (search/TAG/status/...) đang active.
+    // phản ánh các filter khác (search/TAG/status/...) đang active, và từ realtime
+    // handlers (TPOS order update, Firebase tag update) khi allData mutate.
+    // Dùng _panelOpen state làm primary check, classList làm fallback cho edge case
+    // CSS animation / manual style.
     window._ptagRenderPanelIfOpen = function() {
         const panel = document.getElementById('ptag-panel');
-        if (panel && panel.classList.contains('open')) {
+        const isOpen = ProcessingTagState._panelOpen
+            || (panel && panel.classList.contains('open'));
+        if (isOpen && panel) {
             renderPanelContent();
         }
     };
