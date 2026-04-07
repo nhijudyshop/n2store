@@ -47,8 +47,10 @@
         KHACH_KO_LIEN_LAC: 'KHÁCH KHÔNG LIÊN LẠC ĐƯỢC'
     };
 
+    // GIO_TRONG bị loại khỏi bidirectional REMOVE — server n2store-realtime tự
+    // quản lý độc lập theo SL (xem tab1-empty-cart-auto-sync.js).
     const BIDIRECTIONAL_REMOVE_SUBTAGS = new Set([
-        'GIO_TRONG', 'DA_GOP_KHONG_CHOT', 'NCC_HET_HANG'
+        'DA_GOP_KHONG_CHOT', 'NCC_HET_HANG'
     ]);
 
     // Flag (XL flag id → TPOS tag name). Bidirectional ADD + REMOVE.
