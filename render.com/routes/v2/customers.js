@@ -345,32 +345,15 @@ router.get('/:id', async (req, res) => {
         `, [phone]);
 
         // Get recent wallet transactions (with balance_before/after for "Số dư sau" display)
-        // JOIN wallet_adjustments to expose counterparty phone, reason, who-adjusted for ADJUSTMENT rows
         const walletTxResult = await db.query(`
-            SELECT wt.id, wt.type, wt.amount,
-                wt.balance_before, wt.balance_after,
-                wt.virtual_balance_before, wt.virtual_balance_after,
-                wt.source, wt.reference_id, wt.note, wt.created_by,
-                (wt.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at,
-                wa.reason AS adjustment_reason,
-                wa.created_by AS adjusted_by,
-                (wa.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') AS adjusted_at,
-                wa.wrong_customer_phone,
-                wa.correct_customer_phone,
-                CASE
-                    WHEN wa.id IS NULL THEN NULL
-                    WHEN wt.phone = wa.wrong_customer_phone THEN wa.correct_customer_phone
-                    WHEN wt.phone = wa.correct_customer_phone THEN wa.wrong_customer_phone
-                    ELSE NULL
-                END AS counterparty_phone
-            FROM wallet_transactions wt
-            LEFT JOIN wallet_adjustments wa
-              ON wt.type = 'ADJUSTMENT'
-             AND wt.reference_type = 'balance_history'
-             AND wt.reference_id ~ '^[0-9]+$'
-             AND wa.original_transaction_id = wt.reference_id::int
-            WHERE wt.phone = $1
-            ORDER BY wt.created_at DESC
+            SELECT id, type, amount,
+                balance_before, balance_after,
+                virtual_balance_before, virtual_balance_after,
+                source, reference_id, note, created_by,
+                (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at
+            FROM wallet_transactions
+            WHERE phone = $1
+            ORDER BY created_at DESC
             LIMIT 20
         `, [phone]);
 
