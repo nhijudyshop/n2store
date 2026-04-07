@@ -341,6 +341,27 @@ export class WalletPanelModule {
         };
         const icon = typeIcons[tx.type] || 'swap_horiz';
 
+        // Build descriptive line for ADJUSTMENT
+        let adjustDescHtml = '';
+        if (isAdjust) {
+            const wp = tx.wrong_customer_phone || '';
+            const cpPhone = tx.counterparty_phone || tx.correct_customer_phone || '';
+            const amtFmt = this._formatCurrency(Math.abs(txAmount));
+            let descLine = '';
+            if (wp && tx.correct_customer_phone) {
+                descLine = `Điều chỉnh ví sai SĐT: chuyển từ ${wp} → ${tx.correct_customer_phone} (${sign}${amtFmt})`;
+            } else if (cpPhone) {
+                descLine = isCredit
+                    ? `Nhận điều chỉnh từ SĐT ${cpPhone} (${sign}${amtFmt})`
+                    : `Chuyển sang SĐT ${cpPhone} (${sign}${amtFmt})`;
+            }
+            const reasonLine = tx.adjustment_reason ? `Lý do: ${this._escapeHtml(tx.adjustment_reason)}` : '';
+            const lines = [descLine && this._escapeHtml(descLine), reasonLine].filter(Boolean);
+            if (lines.length) {
+                adjustDescHtml = `<p class="text-[10px] text-slate-600 dark:text-slate-300 mt-0.5 leading-snug">${lines.join('<br>')}</p>`;
+            }
+        }
+
         return `
             <div class="rounded-lg p-2" style="background: ${bgColor};" data-tx-type="${tx.type}" data-tx-date="${tx.created_at || ''}" data-tx-creator="${this._escapeHtml(creator)}" data-tx-note="${this._escapeHtml(note)}">
                 <div class="flex items-start gap-2">
@@ -350,7 +371,8 @@ export class WalletPanelModule {
                             <span class="text-[11px] font-bold text-slate-800 dark:text-slate-200">${txLabel}</span>
                             <span class="text-[11px] font-bold tabular-nums" style="color: ${amountColor};">${sign}${this._formatCurrency(Math.abs(tx.amount))}</span>
                         </div>
-                        ${note ? this._renderNoteWithImage(note) : ''}
+                        ${adjustDescHtml}
+                        ${(!isAdjust && note) ? this._renderNoteWithImage(note) : ''}
                         <div class="flex items-center gap-1 mt-0.5">
                             <span class="text-[9px] text-slate-400">${date}${expiry}</span>
                             ${creator ? `<span class="text-[9px] text-slate-400">·</span><span class="text-[9px] font-semibold" style="color: #ef4444;">${this._escapeHtml(creator)}</span>` : ''}
@@ -723,11 +745,31 @@ export class WalletPanelModule {
             : (tx.reference_id && tx.reference_id !== 'admin' && tx.reference_id.includes('@')) ? tx.reference_id : '';
         const createdBy = creator ? ` · <span class="font-medium" style="color:#ef4444">${this._escapeHtml(creator)}</span>` : '';
 
+        let descBlock = `<div class="text-xs text-slate-500">${this._renderNoteWithImage(tx.note || tx.source || '')}</div>`;
+        if (isAdjust) {
+            const wp = tx.wrong_customer_phone || '';
+            const amtFmt = this._formatCurrency(Math.abs(txAmount));
+            const sign = isCredit ? '+' : '-';
+            let descLine = '';
+            if (wp && tx.correct_customer_phone) {
+                descLine = `Điều chỉnh ví sai SĐT: chuyển từ ${wp} → ${tx.correct_customer_phone} (${sign}${amtFmt})`;
+            } else if (tx.counterparty_phone) {
+                descLine = isCredit
+                    ? `Nhận điều chỉnh từ SĐT ${tx.counterparty_phone} (${sign}${amtFmt})`
+                    : `Chuyển sang SĐT ${tx.counterparty_phone} (${sign}${amtFmt})`;
+            }
+            const reasonLine = tx.adjustment_reason ? `Lý do: ${this._escapeHtml(tx.adjustment_reason)}` : '';
+            const lines = [descLine && this._escapeHtml(descLine), reasonLine].filter(Boolean);
+            descBlock = lines.length
+                ? `<div class="text-xs text-slate-600 dark:text-slate-300 leading-snug">${lines.join('<br>')}</div>`
+                : '';
+        }
+
         return `
             <div class="flex items-center gap-3 p-3 rounded-lg ${bg}">
                 <div class="flex-1">
                     <p class="font-medium text-slate-800 dark:text-slate-200">${txLabel}</p>
-                    <div class="text-xs text-slate-500">${this._renderNoteWithImage(tx.note || tx.source || '')}</div>
+                    ${descBlock}
                     <p class="text-xs text-slate-400">${date}${expiry}${createdBy}</p>
                 </div>
                 <p class="font-bold ${color}">${isCredit ? '+' : '-'}${this._formatCurrency(Math.abs(tx.amount))}</p>

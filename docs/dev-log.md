@@ -21,6 +21,13 @@
 | **Chi tiết** | Trước: mỗi lần mở modal "Quản lý Pancake Accounts" → loop qua mọi account → fetch `/pages?access_token=X` live → chậm + intermittent fail "Không thể kiểm tra" (không log chi tiết, không retry). **Backend**: route mới `/api/pancake-account-pages` với table PostgreSQL `pancake_account_pages_cache` (`account_id PK`, `pages JSONB`, `last_status`, `last_verified_at/by`, `error_detail`). Endpoints: `GET /` (trả tất cả accounts — single read), `GET /:id`, `PUT /:id` (chỉ overwrite pages khi `lastStatus='ok'` — fail tạm thời KHÔNG ghi đè cache tốt), `DELETE /:id`. Cache không TTL. **Frontend `pancake-settings.js`**: (1) `loadAccountPagesCache()` GET cache 1 lần, mirror vào `localStorage` (`pancake_account_pages_cache_v1`) cho offline fallback. (2) `refreshAccountsList()` đổi flow: render account list từ Firestore (token), rồi với mỗi account: nếu `cacheMap[id].lastStatus==='ok'` → render pages từ cache instant + skip live fetch hoàn toàn; chỉ live verify khi cache miss / status fail. (3) `fetchPagesForAccount()` rewrite: log chi tiết (httpStatus, errDetail, dataKeys), phân biệt 3 status (`ok`/`auth_failed`/`empty`/`network`), retry 1 lần với 800ms delay khi network error, push kết quả lên Render qua `pushAccountPagesCache()`. (4) UI: hiển thị badge `●` cho cached entries, button 🔄 manual re-verify gọi `window._reverifyPancakeAccount(id)`. (5) `deleteAccount` gửi DELETE cache. **Verification**: `node --check` 3 files OK. Mọi máy đọc 1 nguồn → chỉ máy nào verify thành công mới ghi cache → các máy khác không bao giờ thấy "Không thể kiểm tra" trừ khi chưa từng có máy nào verify thành công. |
 | **Status** | ✅ Done |
 
+### [wallet-display] Ghi rõ nguyên nhân điều chỉnh ví: "chuyển từ SĐT X → SĐT Y" ✅
+| | |
+|---|---|
+| **Files** | `customer-hub/js/modules/customer-profile.js`, `customer-hub/js/modules/wallet-panel.js`, `orders-report/js/tab1/tab1-wallet-modal.js` |
+| **Chi tiết** | Bổ sung dòng mô tả tường minh cho mỗi giao dịch ADJUSTMENT: `Điều chỉnh ví sai SĐT: chuyển số dư từ SĐT <wrong> → SĐT <correct> (+/- X tiền)`, kèm dòng `Lý do: ...`. Áp ở cả 3 nơi render: customer-profile activity feed, wallet-panel `_renderManualTxItem` + `_renderTx`, tab1-wallet-modal. Dùng `wrong_customer_phone`/`correct_customer_phone` từ JOIN backend (đã trả từ commit `6d68252b`). Khi không có `correct_customer_phone` (debit_only) thì hiển thị fallback ngắn hơn. |
+| **Status** | ✅ Done |
+
 ### [customer-hub] Áp fix hiển thị điều chỉnh ví sang Customer Profile + Wallet Panel ✅
 | | |
 |---|---|
