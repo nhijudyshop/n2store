@@ -5261,18 +5261,15 @@
     window._ptagApplyFlagColor = _ptagApplyFlagColor;
 
     // =====================================================
-    // CUSTOM TAGS POPOVER (click vào badge KHÁC)
-    // Hiển thị toàn bộ custom flags + cho phép gắn/gỡ trên đơn hiện tại
+    // KHÁC POPOVER — chỉ hiển thị TPOS tag không thuộc mapping
+    // KHÁC bên XL = tag từ cột TAG (TPOS) không nằm trong logic mapping.
+    // Read-only: nguồn data là order.Tags từ TPOS.
     // =====================================================
     function _ptagOpenCustomTagsPopover(orderCode, anchorEl) {
         // Close any existing popover
         document.querySelectorAll('.ptag-custom-tags-popover').forEach(el => el.remove());
 
-        const data = ProcessingTagState.getOrderData(orderCode);
-        const orderFlagIds = (data?.flags || []).map(f => _ptagFlagId(f));
-        const customDefs = ProcessingTagState.getCustomFlagDefs() || [];
-
-        // Lấy unmanaged TPOS tags của đơn này (tag không thuộc mapping)
+        // Lấy unmanaged TPOS tags của đơn này
         let unmanagedTags = [];
         const orderId = _ptagResolveId(orderCode);
         const order = orderId && typeof window.getAllOrders === 'function'
@@ -5286,44 +5283,17 @@
         const top = rect.bottom + 4 + window.scrollY;
         const left = rect.left + window.scrollX;
 
-        let html = `<div class="ptag-custom-tags-popover" style="position:absolute;top:${top}px;left:${left}px;z-index:10000;background:#fff;border:1px solid #d1d5db;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.15);min-width:300px;max-width:380px;max-height:440px;overflow-y:auto;padding:8px;">`;
+        let html = `<div class="ptag-custom-tags-popover" style="position:absolute;top:${top}px;left:${left}px;z-index:10000;background:#fff;border:1px solid #d1d5db;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.15);min-width:280px;max-width:360px;max-height:400px;overflow-y:auto;padding:8px;">`;
+        html += `<div style="font-size:12px;font-weight:600;color:#6b7280;padding:4px 8px 8px;border-bottom:1px solid #e5e7eb;margin-bottom:6px;">TAG TPOS NGOÀI MAPPING (${unmanagedTags.length})</div>`;
 
-        // Section 1: TPOS tags không thuộc mapping (đến từ TPOS thực tế)
-        html += `<div style="font-size:12px;font-weight:600;color:#6b7280;padding:4px 8px 6px;border-bottom:1px solid #e5e7eb;margin-bottom:6px;">TAG TPOS NGOÀI MAPPING (${unmanagedTags.length})</div>`;
         if (unmanagedTags.length === 0) {
-            html += `<div style="padding:6px 12px;color:#9ca3af;font-size:12px;font-style:italic;">Không có</div>`;
+            html += `<div style="padding:12px;text-align:center;color:#9ca3af;font-size:13px;">Đơn này không có tag TPOS nào ngoài mapping.</div>`;
         } else {
             for (const t of unmanagedTags) {
                 const tagColor = t.Color || '#9ca3af';
-                html += `<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;background:rgba(0,0,0,0.02);margin-bottom:2px;">`;
+                html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;background:rgba(0,0,0,0.02);margin-bottom:2px;">`;
                 html += `<span style="width:10px;height:10px;border-radius:50%;background:${tagColor};flex-shrink:0;"></span>`;
                 html += `<span style="flex:1;font-size:13px;color:#374151;">${String(t.Name || '').toUpperCase()}</span>`;
-                html += `<span style="font-size:10px;color:#9ca3af;">TPOS</span>`;
-                html += `</div>`;
-            }
-        }
-
-        // Section 2: Custom flag defs (XL nội bộ)
-        html += `<div style="font-size:12px;font-weight:600;color:#6b7280;padding:10px 8px 6px;border-top:1px solid #e5e7eb;margin-top:8px;border-bottom:1px solid #e5e7eb;margin-bottom:6px;">TAG TỰ TẠO XL (${customDefs.length})</div>`;
-        if (customDefs.length === 0) {
-            html += `<div style="padding:6px 12px;color:#9ca3af;font-size:12px;font-style:italic;">Chưa có. Mở dropdown chọn trạng thái và gõ tên tag mới để tạo.</div>`;
-        } else {
-            // Sort: assigned-to-this-order first, then alphabetical
-            const sorted = [...customDefs].sort((a, b) => {
-                const aOn = orderFlagIds.includes(a.id) ? 0 : 1;
-                const bOn = orderFlagIds.includes(b.id) ? 0 : 1;
-                if (aOn !== bOn) return aOn - bOn;
-                return String(a.label || '').localeCompare(String(b.label || ''));
-            });
-
-            for (const cf of sorted) {
-                const isOn = orderFlagIds.includes(cf.id);
-                const color = _ptagGetFlagColor(cf.id);
-                const safeId = String(cf.id).replace(/'/g, "\\'");
-                html += `<div class="ptag-cf-item" style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;${isOn ? 'background:rgba(59,130,246,0.08);' : ''}" onclick="window._ptagCfTogglePopover('${orderCode}', '${safeId}'); event.stopPropagation();">`;
-                html += `<span style="width:10px;height:10px;border-radius:50%;background:${color};flex-shrink:0;"></span>`;
-                html += `<span style="flex:1;font-size:13px;font-weight:${isOn ? '600' : '400'};color:${isOn ? '#1e40af' : '#374151'};">${(cf.label || '').toUpperCase()}</span>`;
-                if (isOn) html += `<i class="fas fa-check" style="color:#10b981;font-size:11px;"></i>`;
                 html += `</div>`;
             }
         }
@@ -5340,24 +5310,7 @@
         }, 10);
     }
 
-    // Toggle custom flag from popover, then re-render the popover in place
-    async function _ptagCfTogglePopover(orderCode, flagId) {
-        await toggleOrderFlag(orderCode, flagId, 'KHÁC popover');
-        // Re-open popover anchored to KHÁC badge of the same row to refresh state
-        const orderId = _ptagResolveId(orderCode);
-        const row = orderId ? document.querySelector(`tr[data-order-id="${orderId}"]`) : null;
-        const cell = row?.querySelector('td[data-column="processing-tag"]');
-        const khacBadge = cell?.querySelector('.ptag-badge-clickable');
-        if (khacBadge) {
-            _ptagOpenCustomTagsPopover(orderCode, khacBadge);
-        } else {
-            // Row no longer has KHAC flag → close popover
-            document.querySelectorAll('.ptag-custom-tags-popover').forEach(el => el.remove());
-        }
-    }
-
     window._ptagOpenCustomTagsPopover = _ptagOpenCustomTagsPopover;
-    window._ptagCfTogglePopover = _ptagCfTogglePopover;
 
     // State (for debugging)
     window.ProcessingTagState = ProcessingTagState;
