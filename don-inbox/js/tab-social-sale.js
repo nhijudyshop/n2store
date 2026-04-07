@@ -253,6 +253,43 @@ async function openSaleModalInSocialTab(orderId) {
     };
 
     currentSaleOrderData = mappedOrder;
+    currentSalePartnerData = null;
+
+    // Lookup TPOS partner by phone so InsertListOrderModel doesn't fail with "Partner is null."
+    // tab1 flow populates currentSalePartnerData when user picks a partner; social flow has no picker.
+    try {
+        const phone = (order.phone || '').trim();
+        if (phone && typeof window.fetchTPOSCustomer === 'function') {
+            const result = await window.fetchTPOSCustomer(phone);
+            if (result && result.success && result.count > 0) {
+                const c = result.customers[0];
+                currentSalePartnerData = {
+                    Id: c.id,
+                    Name: c.name || order.customerName || '',
+                    DisplayName: c.name || order.customerName || '',
+                    Street: c.address || order.address || '',
+                    Phone: phone,
+                    StatusText: c.statusText || null,
+                    Customer: true,
+                    Type: 'contact',
+                    CompanyType: 'person',
+                };
+                mappedOrder.PartnerId = c.id;
+                console.log('[SOCIAL-SALE] TPOS partner found:', c.id, c.name);
+            } else {
+                console.warn('[SOCIAL-SALE] No TPOS partner for phone:', phone);
+                if (typeof showNotification === 'function') {
+                    showNotification('Không tìm thấy KH trên TPOS — vui lòng tạo KH trước khi xác nhận', 'warning');
+                }
+            }
+        } else if (!phone) {
+            if (typeof showNotification === 'function') {
+                showNotification('Đơn không có SĐT — không thể tra TPOS partner', 'warning');
+            }
+        }
+    } catch (e) {
+        console.error('[SOCIAL-SALE] TPOS partner lookup error:', e);
+    }
 
     // Reset form fields
     const discountEl = document.getElementById('saleDiscount');

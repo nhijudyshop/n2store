@@ -8,6 +8,13 @@
 
 ## 2026-04-07
 
+### [inbox] Fix "Partner is null" khi xác nhận sale từ Đơn Inbox ✅
+| | |
+|---|---|
+| **Files** | `don-inbox/js/tab-social-sale.js` |
+| **Chi tiết** | TPOS `InsertListOrderModel` reject với `Partner is null.` khi bấm Xác nhận và in (F9) trong modal sale từ Đơn Inbox. Root cause: `buildSaleOrderModelForInsertList()` (tab1-sale.js:1537) đọc `currentSalePartnerData` để build object Partner, nhưng flow social không bao giờ set biến này → Partner.Id=0, TPOS từ chối. Fix: trong `openSaleModalInSocialTab()` sau khi set `currentSaleOrderData`, gọi `window.fetchTPOSCustomer(phone)` (shared/js/tpos-customer-lookup.js, đã load sẵn trong index.html) → map customer trả về thành shape PascalCase (`Id`, `Name`, `DisplayName`, `Street`, `Phone`, `StatusText`, `Customer`, `Type`, `CompanyType`) gán vào `currentSalePartnerData` và đồng bộ `mappedOrder.PartnerId`. Không tìm thấy KH hoặc thiếu phone → notification cảnh báo. |
+| **Status** | ✅ Done |
+
 ### [extension] Popup — sync version từ manifest (fix hardcode v1.0.0) ✅
 | | |
 |---|---|
