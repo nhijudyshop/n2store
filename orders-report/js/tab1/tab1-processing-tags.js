@@ -1337,6 +1337,8 @@
         // Flags — ĐẶC ĐIỂM ĐƠN HÀNG
         tags.push({ type: 'cat-label', label: '🏷️ ĐẶC ĐIỂM ĐƠN HÀNG' });
         for (const [key, flag] of Object.entries(PTAG_FLAGS)) {
+            // Skip KHAC — meta-concept (TPOS unmanaged), không cho gán thủ công
+            if (key === 'KHAC') continue;
             tags.push({ type: 'tag', key: `flag:${key}`, label: `${flag.icon} ${flag.label}`, isFlag: true, flagKey: key, color: _ptagGetFlagColor(key), auto: flag.auto });
         }
         // Custom flags
