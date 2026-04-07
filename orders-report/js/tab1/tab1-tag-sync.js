@@ -81,6 +81,21 @@
         'CK':         'flag:CHUYEN_KHOAN'
     };
 
+    // Pattern aliases — match TPOS tag bằng regex thay vì exact name.
+    // Trả về XL key (vd "flag:CHUYEN_KHOAN") nếu match.
+    // KHÔNG đưa vào managed set: tag matching pattern vẫn được PRESERVE
+    // bởi forward sync (vd "CỌC 100K" giữ nguyên trên TPOS, không bị xoá).
+    function _matchTPOSAliasPattern(name) {
+        const upper = _normalizeName(name);
+        // Strip Vietnamese diacritics for permissive match
+        const stripped = upper.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/Đ/g, 'D');
+        // "CỌC 100K", "CỌC 200K", "CỌC 50K", "COC500K"... → flag CHUYEN_KHOAN
+        if (/^COC\s*\d+\s*K?$/.test(stripped)) {
+            return 'flag:CHUYEN_KHOAN';
+        }
+        return null;
+    }
+
     // Build managed TPOS name set (uppercase) — dùng cho forward sync để phân biệt
     // tag do XL quản lý và tag ngoài mapping (giữ nguyên).
     function _buildManagedNameSet() {
@@ -498,15 +513,25 @@
             }
 
             // (b) Aliases — nếu TPOS có alias tag và XL chưa có flag tương ứng → set flag
+            // Gồm 2 nguồn: (1) TPOS_ALIASES exact name, (2) pattern match (vd CỌC <n>K)
+            const matchedAliasFlags = new Set(); // flagKey set, dedupe ADD calls
             for (const [aliasName, xlKey] of Object.entries(TPOS_ALIASES)) {
                 if (!tposNamesUpper.has(_normalizeName(aliasName))) continue;
                 if (!xlKey.startsWith('flag:')) continue;
-                const flagKey = xlKey.split(':')[1];
-                // Re-read latest state (có thể đã thay đổi ở (a))
+                matchedAliasFlags.add(xlKey.split(':')[1]);
+            }
+            // Pattern alias: iterate TPOS tag names, check pattern matchers
+            for (const tag of (newTPOSTags || [])) {
+                const xlKey = _matchTPOSAliasPattern(tag?.Name || '');
+                if (xlKey && xlKey.startsWith('flag:')) {
+                    matchedAliasFlags.add(xlKey.split(':')[1]);
+                }
+            }
+            for (const flagKey of matchedAliasFlags) {
                 const latestData = window.ProcessingTagState?.getOrderData?.(orderCode);
                 const latestFlags = (latestData?.flags || []).map(f => f?.id || f);
                 if (!latestFlags.includes(flagKey)) {
-                    console.log(`${LOG} [TPOS→XL] ALIAS ADD flag ${flagKey} (alias=${aliasName}) → ${orderCode}`);
+                    console.log(`${LOG} [TPOS→XL] ALIAS ADD flag ${flagKey} → ${orderCode}`);
                     if (typeof window.toggleOrderFlag === 'function') {
                         await window.toggleOrderFlag(orderCode, flagKey, 'TPOS-SYNC-ALIAS');
                     }
@@ -610,7 +635,10 @@
     // Expose managed-name lookup so other modules (vd Tag XL cell render)
     // có thể detect tag KHÁC = unmanaged TPOS tag.
     window.isTPOSTagManaged = function(tagName) {
-        return _buildManagedNameSet().has(_normalizeName(tagName));
+        if (_buildManagedNameSet().has(_normalizeName(tagName))) return true;
+        // Pattern alias (vd CỌC 100K) cũng coi là managed về mặt logical
+        if (_matchTPOSAliasPattern(tagName)) return true;
+        return false;
     };
     window.getUnmanagedTPOSTagsFromOrder = function(orderTagsRaw) {
         const set = _buildManagedNameSet();
@@ -619,7 +647,12 @@
         else if (typeof orderTagsRaw === 'string' && orderTagsRaw) {
             try { const p = JSON.parse(orderTagsRaw); if (Array.isArray(p)) arr = p; } catch (e) {}
         }
-        return arr.filter(t => !set.has(_normalizeName(t?.Name || '')));
+        return arr.filter(t => {
+            const upper = _normalizeName(t?.Name || '');
+            if (set.has(upper)) return false;            // exact mapping
+            if (_matchTPOSAliasPattern(t?.Name)) return false; // pattern alias
+            return true;
+        });
     };
 
     console.log(`${LOG} module loaded (hardcoded mapping, v3)`);
