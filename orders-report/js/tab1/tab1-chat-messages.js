@@ -588,23 +588,79 @@ async function _sendInbox(pdm, pageId, convId, text, pat, replyData) {
     try {
         const result = await _sendApi(pdm, pageId, convId, payload, pat);
     } catch (err) {
-        // Fallback to extension for 24h errors (#10/2018278) AND user unavailable (#551)
-        const canFallback = (err.fbError?.is24HourError || err.fbError?.isUserUnavailable)
-            && window.pancakeExtension?.connected && window.sendViaExtension;
-        if (canFallback) {
-            const reason = err.fbError?.is24HourError ? 'Quá 24h' : 'Người này không có mặt (#551)';
-            _showToast(`${reason} — đang gửi qua Extension...`, 'warning');
+        // Fallback to extension for ANY error (was: only 24h / #551)
+        // Mirrors bulk-send behavior — "bị lỗi gì cứ đưa vào extension"
+        if (!(window.pancakeExtension?.connected && window.sendViaExtension)) {
+            throw err;
+        }
+
+        const reason = err.fbError?.is24HourError ? 'Quá 24h'
+            : err.fbError?.isUserUnavailable ? 'Khách không có mặt (#551)'
+            : `Pancake lỗi (${err.fbError?.eCode || '?'})`;
+        _showToast(`${reason} — đang gửi qua Extension...`, 'warning');
+
+        try {
+            // Enrich convData same way as bulk send (message-template-manager.js:1038-1071):
+            // pre-fetch messages to grab thread_id + page_customer.global_id, then fall back
+            // to scanning customers[] for any global_id we can find.
+            const psid = window.currentChatPSID;
+            let convFromCache = pdm?.inboxMapByPSID?.get(String(psid)) || window.currentConversationData || {};
+            const raw = { from_psid: psid };
+            let msgCustomers = [];
             try {
-                const conv = window.buildConvData(pageId, window.currentChatPSID);
-                await window.sendViaExtension(text, conv);
+                const msgData = await pdm.fetchMessages(pageId, convId);
+                if (msgData?.conversation) {
+                    if (msgData.conversation.thread_id) raw.thread_id = msgData.conversation.thread_id;
+                    if (msgData.conversation.page_customer) raw.page_customer = msgData.conversation.page_customer;
+                }
+                if (msgData?.customers?.length) msgCustomers = msgData.customers;
+            } catch (_) { /* ignore */ }
+
+            if (!raw.thread_id && convFromCache.thread_id) raw.thread_id = convFromCache.thread_id;
+            if (!raw.page_customer?.global_id && convFromCache.page_customer?.global_id) {
+                if (!raw.page_customer) raw.page_customer = {};
+                raw.page_customer.global_id = convFromCache.page_customer.global_id;
+            }
+            if (!raw.page_customer?.global_id && convFromCache.customers?.length) {
+                const custGlobal = convFromCache.customers.find(c => c.global_id)?.global_id;
+                if (custGlobal) {
+                    if (!raw.page_customer) raw.page_customer = {};
+                    raw.page_customer.global_id = custGlobal;
+                }
+            }
+
+            const customers = msgCustomers.length ? msgCustomers : (convFromCache.customers || []);
+            const enrichedConv = {
+                pageId, psid, conversationId: convId, _raw: raw,
+                customers, _messagesData: { customers },
+                updated_at: convFromCache.updated_at || null,
+                customerName: convFromCache.from?.name || '',
+                type: convFromCache.type || 'INBOX',
+                from: convFromCache.from || null,
+            };
+
+            try {
+                await window.sendViaExtension(text, enrichedConv);
                 _showToast('Đã gửi qua Extension', 'success');
                 return;
             } catch (extErr) {
+                // Retry với buildConvData (bulk-send pattern)
+                if (extErr.message?.includes('Global Facebook ID') && window.buildConvData) {
+                    try {
+                        const fallbackConv = window.buildConvData(pageId, psid);
+                        await window.sendViaExtension(text, fallbackConv);
+                        _showToast('Đã gửi qua Extension', 'success');
+                        return;
+                    } catch (retryErr) {
+                        console.warn('[Chat-Msg] Extension retry failed:', retryErr.message);
+                    }
+                }
                 console.warn('[Chat-Msg] Extension fallback failed:', extErr.message);
                 throw err;
             }
+        } catch (outerErr) {
+            throw outerErr === err ? err : outerErr;
         }
-        throw err;
     }
 }
 

@@ -8,6 +8,13 @@
 
 ## 2026-04-07
 
+### [chat] Modal chat — fallback Extension cho mọi lỗi + enrich convData (giống bulk send) ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-chat-messages.js` |
+| **Chi tiết** | Trước: `_sendInbox` chỉ fallback extension khi `is24HourError` hoặc `isUserUnavailable (#551)`, và build convData chỉ bằng `buildConvData()` 1 lần (cache rỗng → "Không tìm được Global Facebook ID"). Bulk send (message-template-manager) thì fallback mọi lỗi + tự `fetchMessages` lấy `thread_id`/`global_id` + retry với `buildConvData`. **Fix**: (1) Bỏ điều kiện `is24HourError/isUserUnavailable` — fallback extension cho **mọi** lỗi Pancake (chỉ cần extension connected). Toast hiển thị reason theo loại lỗi. (2) Trước khi gọi `sendViaExtension`, enrich convData giống bulk send: `pdm.fetchMessages(pageId, convId)` → lấy `conversation.thread_id` + `page_customer.global_id` + `customers[]`; fallback từ cache (`inboxMapByPSID`/`currentConversationData`); fallback global_id từ `customers[].global_id`. (3) Retry với `window.buildConvData()` nếu extension fail vì Global Facebook ID. Pattern copy từ `message-template-manager.js:1038-1136`. |
+| **Status** | ✅ Done |
+
 ### [orders][inbox] Global ID Harvester — auto push global_id từ Pancake responses lên Render cache ✅
 | | |
 |---|---|
