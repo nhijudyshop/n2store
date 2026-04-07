@@ -258,15 +258,28 @@ window.refreshAccountsList = async function() {
 
         listDiv.innerHTML = html;
 
-        // Async: fetch pages for each valid account to show which pages they have access to
+        // Pages list — flow:
+        // 1) Read cache (Render DB → localStorage fallback)
+        // 2) Render cached pages instantly for accounts with last_status === 'ok'
+        // 3) Live re-verify ONLY accounts: cache miss / status !== 'ok' / token-only
+        const cacheMap = await loadAccountPagesCache();
+
         for (const [accountId, account] of Object.entries(accounts)) {
+            const div = document.getElementById(`accountPages_${accountId}`);
             const isExpired = window.pancakeTokenManager.isTokenExpired(account.exp);
-            if (!isExpired && account.token) {
-                fetchPagesForAccount(accountId, account.token);
-            } else {
-                const div = document.getElementById(`accountPages_${accountId}`);
+            if (isExpired || !account.token) {
                 if (div) div.innerHTML = '<span style="color: #ef4444; font-size: 11px;">Token hết hạn</span>';
+                continue;
             }
+
+            const cached = cacheMap[accountId];
+            if (cached && cached.lastStatus === 'ok' && Array.isArray(cached.pages)) {
+                renderPagesIntoDiv(div, cached.pages, { fromCache: true });
+                continue; // ❗ skip live fetch — cache is source of truth
+            }
+
+            // Cache miss or last_status !== 'ok' → live verify
+            fetchPagesForAccount(accountId, account.token, account);
         }
 
     } catch (error) {
@@ -280,33 +293,133 @@ window.refreshAccountsList = async function() {
     }
 };
 
-// Fetch pages for a specific account to show access info
-async function fetchPagesForAccount(accountId, token) {
+// =====================================================
+// Pages cache (Render DB source of truth + localStorage fallback)
+// =====================================================
+const PAGES_CACHE_API = 'https://n2store-fallback.onrender.com/api/pancake-account-pages';
+const PAGES_CACHE_LS_KEY = 'pancake_account_pages_cache_v1';
+
+async function loadAccountPagesCache() {
+    // Try Render DB first
+    try {
+        const r = await fetch(PAGES_CACHE_API, { cache: 'no-store' });
+        if (r.ok) {
+            const data = await r.json();
+            const map = data.accounts || {};
+            // Mirror to localStorage for offline fallback
+            try { localStorage.setItem(PAGES_CACHE_LS_KEY, JSON.stringify({ ts: Date.now(), accounts: map })); } catch (_) {}
+            return map;
+        }
+        console.warn('[PANCAKE-SETTINGS] Pages cache GET non-OK:', r.status);
+    } catch (e) {
+        console.warn('[PANCAKE-SETTINGS] Pages cache GET failed (offline?):', e.message);
+    }
+    // Fallback to localStorage
+    try {
+        const raw = localStorage.getItem(PAGES_CACHE_LS_KEY);
+        if (raw) {
+            const parsed = JSON.parse(raw);
+            console.log('[PANCAKE-SETTINGS] Using localStorage pages cache fallback');
+            return parsed.accounts || {};
+        }
+    } catch (_) {}
+    return {};
+}
+
+function renderPagesIntoDiv(div, pages, opts = {}) {
+    if (!div) return;
+    if (!pages || pages.length === 0) {
+        div.innerHTML = '<span style="color: #f59e0b;">⚠️ 0 pages</span>';
+        return;
+    }
+    const pageNames = pages.map(p =>
+        `<span style="display: inline-block; padding: 1px 6px; background: #ede9fe; color: #6d28d9; border-radius: 3px; margin: 1px 2px; font-size: 10px;">${escapeHtml(p.name || p.id)}</span>`
+    ).join('');
+    const cacheBadge = opts.fromCache ? ' <span title="Từ cache Render" style="font-size:9px;color:#10b981;">●</span>' : '';
+    div.innerHTML = `<i class="fas fa-file-alt" style="color: #8b5cf6; font-size: 10px;"></i> <strong>${pages.length} pages</strong>${cacheBadge}: ${pageNames}`;
+    div.style.color = '#374151';
+}
+
+function escapeHtml(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+async function pushAccountPagesCache(accountId, payload) {
+    try {
+        await fetch(`${PAGES_CACHE_API}/${encodeURIComponent(accountId)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+    } catch (e) {
+        console.warn('[PANCAKE-SETTINGS] PUT pages cache failed:', e.message);
+    }
+}
+
+// Fetch pages for a specific account to show access info (LIVE — only when cache miss/fail)
+async function fetchPagesForAccount(accountId, token, accountMeta = null) {
     const div = document.getElementById(`accountPages_${accountId}`);
     if (!div) return;
 
-    try {
-        const url = window.API_CONFIG.buildUrl.pancake('pages', `access_token=${token}`);
-        const response = await fetch(url);
-        const data = await response.json();
+    const username = window.authManager?.getAuthState?.()?.username || 'unknown';
+    const meta = {
+        accountUid: accountMeta?.uid || null,
+        accountName: accountMeta?.name || null,
+        verifiedBy: username,
+    };
 
-        if (data.success && data.categorized?.activated) {
-            const pages = data.categorized.activated.filter(p => !p.id.startsWith('igo_'));
-            if (pages.length > 0) {
-                const pageNames = pages.map(p => `<span style="display: inline-block; padding: 1px 6px; background: #ede9fe; color: #6d28d9; border-radius: 3px; margin: 1px 2px; font-size: 10px;">${p.name}</span>`).join('');
-                div.innerHTML = `<i class="fas fa-file-alt" style="color: #8b5cf6; font-size: 10px;"></i> <strong>${pages.length} pages</strong>: ${pageNames}`;
-                div.style.color = '#374151';
-            } else {
-                div.innerHTML = '<span style="color: #f59e0b;">⚠️ 0 pages</span>';
+    // Try up to 2 times (1 retry on network error)
+    let lastErr = null;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+            const url = window.API_CONFIG.buildUrl.pancake('pages', `access_token=${token}`);
+            const response = await fetch(url);
+            const httpStatus = response.status;
+            let data = null;
+            try { data = await response.json(); } catch (parseErr) {
+                throw new Error(`JSON parse failed (HTTP ${httpStatus}): ${parseErr.message}`);
             }
-        } else {
-            div.innerHTML = '<span style="color: #f59e0b;">⚠️ Không thể kiểm tra</span>';
+
+            if (data && data.success && data.categorized?.activated) {
+                const pages = data.categorized.activated
+                    .filter(p => !p.id.startsWith('igo_'))
+                    .map(p => ({ id: p.id, name: p.name, type: p.type || null }));
+                renderPagesIntoDiv(div, pages, { fromCache: false });
+                // Push successful verify to cache
+                pushAccountPagesCache(accountId, { ...meta, pages, lastStatus: 'ok' });
+                return;
+            }
+
+            // 'success' but no pages OR success false → auth/empty (NOT a network error → no retry)
+            const errDetail = data?.error || data?.message || `success=${data?.success}`;
+            console.warn(`[PANCAKE-SETTINGS] fetchPages non-ok for ${accountId}:`, { httpStatus, errDetail, dataKeys: data ? Object.keys(data) : [] });
+            const status = data?.success === false ? 'auth_failed' : 'empty';
+            div.innerHTML = `<span style="color: #f59e0b;" title="${escapeHtml(errDetail)}">⚠️ Không thể kiểm tra (${status})</span> <a href="javascript:void(0)" onclick="window._reverifyPancakeAccount('${accountId}')" style="font-size:10px;color:#3b82f6;">🔄</a>`;
+            pushAccountPagesCache(accountId, { ...meta, pages: [], lastStatus: status, errorDetail: errDetail });
+            return;
+        } catch (err) {
+            lastErr = err;
+            console.warn(`[PANCAKE-SETTINGS] fetchPages attempt ${attempt}/2 network error for ${accountId}:`, err.message);
+            if (attempt < 2) {
+                await new Promise(r => setTimeout(r, 800));
+            }
         }
-    } catch (err) {
-        console.error(`[PANCAKE-SETTINGS] Error fetching pages for ${accountId}:`, err);
-        div.innerHTML = '<span style="color: #ef4444;">❌ Lỗi</span>';
     }
+
+    // Both attempts failed
+    console.error(`[PANCAKE-SETTINGS] fetchPages gave up for ${accountId}:`, lastErr?.message);
+    div.innerHTML = `<span style="color: #ef4444;" title="${escapeHtml(lastErr?.message || '')}">❌ Lỗi mạng</span> <a href="javascript:void(0)" onclick="window._reverifyPancakeAccount('${accountId}')" style="font-size:10px;color:#3b82f6;">🔄</a>`;
+    pushAccountPagesCache(accountId, { ...meta, pages: [], lastStatus: 'network', errorDetail: lastErr?.message || 'network error' });
 }
+
+// Manual re-verify trigger (called from inline 🔄 button)
+window._reverifyPancakeAccount = function(accountId) {
+    const account = window.pancakeTokenManager?.accounts?.[accountId];
+    if (!account || !account.token) return;
+    const div = document.getElementById(`accountPages_${accountId}`);
+    if (div) div.innerHTML = '<i class="fas fa-spinner fa-spin" style="font-size: 10px;"></i> Đang kiểm tra lại...';
+    fetchPagesForAccount(accountId, account.token, account);
+};
 
 // Helper function to check if user is admin
 function isUserAdmin() {
@@ -487,6 +600,11 @@ window.deleteAccount = async function(accountId) {
         if (!success) {
             throw new Error('Failed to delete account');
         }
+
+        // Remove from Render pages cache (fire-and-forget)
+        try {
+            fetch(`${PAGES_CACHE_API}/${encodeURIComponent(accountId)}`, { method: 'DELETE' }).catch(() => {});
+        } catch (_) {}
 
         if (window.notificationManager) {
             window.notificationManager.show('✅ Đã xóa tài khoản!', 'success');

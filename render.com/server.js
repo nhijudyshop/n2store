@@ -281,6 +281,11 @@ const fbGlobalIdCacheRoutes = require('./routes/fb-global-id-cache');
 fbGlobalIdCacheRoutes.init(chatDbPool);
 app.use('/api/fb-global-id', fbGlobalIdCacheRoutes);
 
+// Pancake Account Pages Cache — share account → pages list across all clients
+const pancakeAccountPagesRoutes = require('./routes/pancake-account-pages');
+pancakeAccountPagesRoutes.init(chatDbPool);
+app.use('/api/pancake-account-pages', pancakeAccountPagesRoutes);
+
 // Initialize SSE notifiers in realtime-db routes
 const { initializeNotifiers } = require('./routes/realtime-db');
 initializeNotifiers(
