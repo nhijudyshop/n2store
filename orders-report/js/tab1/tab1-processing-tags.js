@@ -60,7 +60,7 @@
         KHACH_BOOM:   { key: 'KHACH_BOOM',   label: 'KHÁCH BOOM',     auto: false, icon: '\u{1F4A5}' },
         THE_KHACH_LA: { key: 'THE_KHACH_LA', label: 'THẺ KHÁCH LẠ',   auto: false, icon: '\u{1FAAA}' },
         DA_DI_DON_GAP:{ key: 'DA_DI_DON_GAP',label: 'ĐÃ ĐI ĐƠN GẤP', auto: false, icon: '\u{26A1}' },
-        KHAC:         { key: 'KHAC',         label: 'KHÁC',        auto: false, icon: '\u{1F4CB}', hasNote: true }
+        KHAC:         { key: 'KHAC',         label: 'TAG TPOS NGOÀI MAPPING', auto: false, icon: '\u{1F4CB}', hasNote: true }
     };
 
     const PTAG_SUBTAGS = {
@@ -1271,13 +1271,13 @@
             }
         }
 
-        // 2c. Auto-show KHÁC badge khi đơn có unmanaged TPOS tags (không thuộc mapping)
+        // 2c. Auto-show "TAG TPOS NGOÀI MAPPING" badge khi đơn có unmanaged TPOS tags
         // Chỉ thêm nếu chưa có flag KHAC explicit để tránh trùng badge.
         if (!hasKhacFlag && typeof window.getUnmanagedTPOSTagsFromOrder === 'function' && _orderForCell?.Tags) {
             const unmanaged = window.getUnmanagedTPOSTagsFromOrder(_orderForCell.Tags);
             if (unmanaged.length > 0) {
                 const bgColor = _ptagGetFlagColor('KHAC');
-                flagBadges += `<span class="ptag-flag-badge ptag-badge-clickable" style="background:${bgColor};cursor:pointer;opacity:0.85;" onclick="window._ptagOpenCustomTagsPopover('${oc}', this); event.stopPropagation();" title="Có ${unmanaged.length} tag TPOS không thuộc mapping. Click để xem.">KHÁC <span style="opacity:0.7;font-size:10px;">(${unmanaged.length})</span></span>`;
+                flagBadges += `<span class="ptag-flag-badge ptag-badge-clickable" style="background:${bgColor};cursor:pointer;opacity:0.85;" onclick="window._ptagOpenCustomTagsPopover('${oc}', this); event.stopPropagation();" title="Có ${unmanaged.length} tag TPOS không thuộc mapping. Click để xem.">TAG TPOS NGOÀI MAPPING <span style="opacity:0.7;font-size:10px;">(${unmanaged.length})</span></span>`;
             }
         }
 
@@ -1973,18 +1973,27 @@
                     }
                 }
             }
-            let hasCustomFlag = false;
             (data.flags || []).forEach(f => {
                 const fId = _ptagFlagId(f);
+                // KHAC count được tính riêng phía dưới (không dựa trên XL flag nữa)
+                if (fId === 'KHAC') return;
                 flagCounts[fId] = (flagCounts[fId] || 0) + 1;
-                if (fId.startsWith('CUSTOM_')) hasCustomFlag = true;
             });
-            if (hasCustomFlag && !(data.flags || []).some(f => _ptagFlagId(f) === 'KHAC')) {
-                flagCounts['KHAC'] = (flagCounts['KHAC'] || 0) + 1;
-            }
             if (data.subTag) {
                 subTagCounts[data.subTag] = (subTagCounts[data.subTag] || 0) + 1;
             }
+        }
+
+        // KHAC = "TAG TPOS NGOÀI MAPPING" — đếm orders có TPOS tag không thuộc mapping.
+        // Iterate allOrders (không phụ thuộc XL state) vì TPOS tags là dữ liệu riêng.
+        if (typeof window.getUnmanagedTPOSTagsFromOrder === 'function') {
+            let khacCount = 0;
+            for (const o of allOrders) {
+                if (!o.Tags) continue;
+                const unmanaged = window.getUnmanagedTPOSTagsFromOrder(o.Tags);
+                if (unmanaged.length > 0) khacCount++;
+            }
+            flagCounts['KHAC'] = khacCount;
         }
 
         const untaggedCount = totalOrders - hasCategoryCount;
@@ -4376,18 +4385,37 @@
         // --- Evaluate flag filter independently ---
         let passesFlag = true; // default: no flag filter = pass
         if (hasFlagFilter) {
-            if (!data) {
-                passesFlag = false;
-            } else {
-                const orderFlags = data.flags || [];
-                const orderFlagIds = orderFlags.map(of => _ptagFlagId(of));
-                passesFlag = [...flagFilters].some(f => {
-                    if (orderFlagIds.includes(f)) return true;
-                    // KHAC filter also matches orders with any CUSTOM_xxx flag
-                    if (f === 'KHAC') return orderFlagIds.some(id => id.startsWith('CUSTOM_'));
-                    return false;
-                });
+            // KHAC = "TAG TPOS NGOÀI MAPPING" — match orders có TPOS tag không thuộc mapping.
+            // Phải resolve order TPOS để check (không dựa trên XL flag state).
+            const wantsKhac = flagFilters.has('KHAC');
+            const otherFlagFilters = [...flagFilters].filter(f => f !== 'KHAC');
+
+            let khacMatch = false;
+            if (wantsKhac && typeof window.getUnmanagedTPOSTagsFromOrder === 'function') {
+                // Resolve order code → TPOS order
+                const orderCode = typeof orderCodeOrId === 'string' && orderCodeOrId.length < 30
+                    ? orderCodeOrId
+                    : (typeof window._ptagResolveCode === 'function' ? window._ptagResolveCode(orderCodeOrId) : null);
+                const orderId = typeof window._ptagResolveId === 'function'
+                    ? window._ptagResolveId(orderCode)
+                    : null;
+                const order = orderId && typeof window.getAllOrders === 'function'
+                    ? window.getAllOrders().find(o => o.Id === orderId)
+                    : null;
+                if (order && order.Tags) {
+                    const unmanaged = window.getUnmanagedTPOSTagsFromOrder(order.Tags);
+                    if (unmanaged.length > 0) khacMatch = true;
+                }
             }
+
+            // Other flag filters check XL state
+            let otherMatch = false;
+            if (otherFlagFilters.length > 0 && data) {
+                const orderFlagIds = (data.flags || []).map(of => _ptagFlagId(of));
+                otherMatch = otherFlagFilters.some(f => orderFlagIds.includes(f));
+            }
+
+            passesFlag = khacMatch || otherMatch;
         }
 
         // --- Evaluate base filter independently ---
