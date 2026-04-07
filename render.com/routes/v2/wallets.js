@@ -404,7 +404,8 @@ router.get('/:customerId/transactions', async (req, res) => {
             LEFT JOIN wallet_adjustments wa
               ON wt.type = 'ADJUSTMENT'
              AND wt.reference_type = 'balance_history'
-             AND wa.original_transaction_id = NULLIF(wt.reference_id, '')::int
+             AND wt.reference_id ~ '^[0-9]+$'
+             AND wa.original_transaction_id = wt.reference_id::int
             WHERE wt.phone = $1`;
         const params = [phone];
 
