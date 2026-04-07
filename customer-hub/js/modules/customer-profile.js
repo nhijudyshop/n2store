@@ -585,12 +585,29 @@ export class CustomerProfileModule {
                         ${walletTransactions.slice(0, 15).map(tx => {
                             const cfg = walletTypeConfig[tx.type] || defaultConfig;
                             const amount = parseFloat(tx.amount) || 0;
-                            const sign = cfg.isCredit ? '+' : '-';
-                            const amountColor = cfg.isCredit ? '#16a34a' : '#dc2626';
-                            const bgColor = cfg.isCredit ? 'rgba(22,163,74,0.08)' : 'rgba(220,38,38,0.08)';
-                            const borderColor = cfg.isCredit ? 'rgba(22,163,74,0.2)' : 'rgba(220,38,38,0.2)';
-                            const iconBg = cfg.isCredit ? '#dcfce7' : '#fee2e2';
-                            const iconColor = cfg.isCredit ? '#16a34a' : '#dc2626';
+
+                            // ADJUSTMENT: dấu/màu theo dấu thật của amount (DB lưu âm khi trừ, dương khi cộng)
+                            const isAdjust = tx.type === 'ADJUSTMENT';
+                            const isCredit = isAdjust ? (amount >= 0) : cfg.isCredit;
+
+                            const sign = isCredit ? '+' : '-';
+                            const amountColor = isCredit ? '#16a34a' : '#dc2626';
+                            const bgColor = isCredit ? 'rgba(22,163,74,0.08)' : 'rgba(220,38,38,0.08)';
+                            const borderColor = isCredit ? 'rgba(22,163,74,0.2)' : 'rgba(220,38,38,0.2)';
+                            const iconBg = isCredit ? '#dcfce7' : '#fee2e2';
+                            const iconColor = isCredit ? '#16a34a' : '#dc2626';
+                            const iconChar = isAdjust ? (isCredit ? '+' : '-') : cfg.iconChar;
+
+                            // Label động cho ADJUSTMENT
+                            let txLabel = cfg.label;
+                            if (isAdjust) {
+                                const cp = tx.counterparty_phone;
+                                if (isCredit) {
+                                    txLabel = cp ? `Nhận Điều Chỉnh Từ SĐT ${cp}` : 'Nhận Điều Chỉnh Ví';
+                                } else {
+                                    txLabel = cp ? `Điều Chỉnh Chuyển Sang SĐT ${cp}` : 'Điều Chỉnh Trừ Ví';
+                                }
+                            }
 
                             const date = tx.created_at ? new Date(tx.created_at).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
                             const createdBy = (tx.created_by && tx.created_by !== 'system') ? tx.created_by
@@ -601,12 +618,27 @@ export class CustomerProfileModule {
                             const imgMatch = rawNote.match(/\[Ảnh GD: (https?:\/\/[^\]]+)\]/);
                             const note = rawNote.replace(/\n?\[Ảnh GD: https?:\/\/[^\]]+\]/, '').trim();
                             let detailParts = [];
-                            if (note) detailParts.push(note);
-                            if (date) detailParts.push(date);
+                            if (isAdjust) {
+                                const wp = tx.wrong_customer_phone || '';
+                                const cpPhone = tx.correct_customer_phone || '';
+                                const amtFmt = formatCurrency(Math.abs(amount));
+                                if (wp && cpPhone) {
+                                    detailParts.push(`Điều chỉnh ví sai SĐT: chuyển số dư từ SĐT ${wp} → SĐT ${cpPhone} (${sign}${amtFmt})`);
+                                } else if (wp) {
+                                    detailParts.push(`Điều chỉnh trừ ví SĐT ${wp} (${sign}${amtFmt})`);
+                                }
+                                if (tx.adjustment_reason) detailParts.push('Lý do: ' + tx.adjustment_reason);
+                                if (date) detailParts.push(date);
+                            } else {
+                                if (note) detailParts.push(note);
+                                if (date) detailParts.push(date);
+                            }
 
                             // Operator label - all in RED
                             let operatorHtml = '';
-                            if (createdBy) {
+                            if (isAdjust && tx.adjusted_by) {
+                                operatorHtml = ` - <span style="color: #ef4444; font-weight: 700;">Điều chỉnh bởi ${tx.adjusted_by}</span>`;
+                            } else if (createdBy) {
                                 const isDeposit = tx.type === 'DEPOSIT';
                                 const isRefund = tx.type === 'ORDER_CANCEL_REFUND';
                                 const isWithdraw = tx.type === 'WITHDRAW';
@@ -626,9 +658,9 @@ export class CustomerProfileModule {
                                 <div style="background: ${bgColor}; border: 1px solid ${borderColor}; border-radius: 10px; padding: 14px 16px;">
                                     <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
                                         <div style="width: 34px; height: 34px; border-radius: 50%; background: ${iconBg}; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                                            <span style="font-size: 20px; font-weight: 900; color: ${iconColor}; line-height: 1;">${cfg.iconChar}</span>
+                                            <span style="font-size: 20px; font-weight: 900; color: ${iconColor}; line-height: 1;">${iconChar}</span>
                                         </div>
-                                        <span style="font-size: 16px; font-weight: 800; color: ${amountColor};">${cfg.label}  ${sign}${formatCurrency(Math.abs(amount))}</span>
+                                        <span style="font-size: 16px; font-weight: 800; color: ${amountColor};">${txLabel}  ${sign}${formatCurrency(Math.abs(amount))}</span>
                                     </div>
                                     <div style="padding-left: 44px;">
                                         <p style="font-size: 13px; font-weight: 500; color: #475569; line-height: 1.6;">${detailParts.join(' - ')}${operatorHtml}</p>

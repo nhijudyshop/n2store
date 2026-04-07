@@ -346,16 +346,52 @@ router.get('/:id', async (req, res) => {
 
         // Get recent wallet transactions (with balance_before/after for "Số dư sau" display)
         const walletTxResult = await db.query(`
-            SELECT id, type, amount,
+            SELECT id, phone, type, amount,
                 balance_before, balance_after,
                 virtual_balance_before, virtual_balance_after,
-                source, reference_id, note, created_by,
+                source, reference_type, reference_id, note, created_by,
                 (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at
             FROM wallet_transactions
             WHERE phone = $1
             ORDER BY created_at DESC
             LIMIT 20
         `, [phone]);
+
+        // Enrich ADJUSTMENT rows with wallet_adjustments metadata (Node-side, no SQL cast).
+        // Wrapped in try/catch — if enrich fails, return raw rows instead of 500.
+        try {
+            const adjustRefIds = walletTxResult.rows
+                .filter(r => r.type === 'ADJUSTMENT'
+                          && r.reference_type === 'balance_history'
+                          && /^\d+$/.test(r.reference_id || ''))
+                .map(r => parseInt(r.reference_id, 10));
+
+            if (adjustRefIds.length > 0) {
+                const adjResult = await db.query(`
+                    SELECT original_transaction_id, wrong_customer_phone, correct_customer_phone,
+                           reason, created_by,
+                           (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at
+                    FROM wallet_adjustments
+                    WHERE original_transaction_id = ANY($1::int[])
+                `, [adjustRefIds]);
+                const adjMap = new Map(adjResult.rows.map(a => [a.original_transaction_id, a]));
+                for (const r of walletTxResult.rows) {
+                    if (r.type !== 'ADJUSTMENT') continue;
+                    const adj = adjMap.get(parseInt(r.reference_id, 10));
+                    if (!adj) continue;
+                    r.adjustment_reason = adj.reason;
+                    r.adjusted_by = adj.created_by;
+                    r.adjusted_at = adj.created_at;
+                    r.wrong_customer_phone = adj.wrong_customer_phone;
+                    r.correct_customer_phone = adj.correct_customer_phone;
+                    r.counterparty_phone =
+                        r.phone === adj.wrong_customer_phone ? adj.correct_customer_phone :
+                        r.phone === adj.correct_customer_phone ? adj.wrong_customer_phone : null;
+                }
+            }
+        } catch (enrichErr) {
+            console.error('[customers.js] Wallet adjustment enrich failed:', enrichErr.message);
+        }
 
         // Get notes
         const notesResult = await db.query(`

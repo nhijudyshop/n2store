@@ -184,12 +184,29 @@
     function renderTransaction(tx) {
         const cfg = WALLET_TYPE_CONFIG[tx.type] || DEFAULT_CONFIG;
         const amount = parseFloat(tx.amount) || 0;
-        const sign = cfg.isCredit ? '+' : '-';
-        const amountColor = cfg.isCredit ? '#16a34a' : '#dc2626';
-        const bgColor = cfg.isCredit ? 'rgba(22,163,74,0.08)' : 'rgba(220,38,38,0.08)';
-        const borderColor = cfg.isCredit ? 'rgba(22,163,74,0.2)' : 'rgba(220,38,38,0.2)';
-        const iconBg = cfg.isCredit ? '#dcfce7' : '#fee2e2';
-        const iconColor = cfg.isCredit ? '#16a34a' : '#dc2626';
+
+        // For ADJUSTMENT, sign/color follow the actual sign of amount (DB lưu âm khi trừ, dương khi cộng)
+        const isAdjust = tx.type === 'ADJUSTMENT';
+        const isCredit = isAdjust ? (amount >= 0) : cfg.isCredit;
+
+        const sign = isCredit ? '+' : '-';
+        const amountColor = isCredit ? '#16a34a' : '#dc2626';
+        const bgColor = isCredit ? 'rgba(22,163,74,0.08)' : 'rgba(220,38,38,0.08)';
+        const borderColor = isCredit ? 'rgba(22,163,74,0.2)' : 'rgba(220,38,38,0.2)';
+        const iconBg = isCredit ? '#dcfce7' : '#fee2e2';
+        const iconColor = isCredit ? '#16a34a' : '#dc2626';
+        const iconChar = isAdjust ? (isCredit ? '+' : '-') : cfg.iconChar;
+
+        // Dynamic label for ADJUSTMENT
+        let label = cfg.label;
+        if (isAdjust) {
+            const cp = tx.counterparty_phone;
+            if (isCredit) {
+                label = cp ? `Nhận Điều Chỉnh Từ SĐT ${cp}` : 'Nhận Điều Chỉnh Ví';
+            } else {
+                label = cp ? `Điều Chỉnh Chuyển Sang SĐT ${cp}` : 'Điều Chỉnh Trừ Ví';
+            }
+        }
 
         const date = tx.created_at
             ? new Date(tx.created_at).toLocaleDateString('vi-VN', {
@@ -201,16 +218,31 @@
         const note = tx.note || tx.source || '';
 
         let detailParts = [];
-        if (note) detailParts.push(escapeHtml(note));
-        if (date) detailParts.push(date);
+        if (isAdjust) {
+            const wp = tx.wrong_customer_phone || '';
+            const cpPhone = tx.correct_customer_phone || '';
+            const amtFmt = formatCurrency(Math.abs(amount));
+            if (wp && cpPhone) {
+                detailParts.push(escapeHtml(`Điều chỉnh ví sai SĐT: chuyển số dư từ SĐT ${wp} → SĐT ${cpPhone} (${sign}${amtFmt})`));
+            } else if (wp) {
+                detailParts.push(escapeHtml(`Điều chỉnh trừ ví SĐT ${wp} (${sign}${amtFmt})`));
+            }
+            if (tx.adjustment_reason) detailParts.push('Lý do: ' + escapeHtml(tx.adjustment_reason));
+            if (date) detailParts.push(date);
+        } else {
+            if (note) detailParts.push(escapeHtml(note));
+            if (date) detailParts.push(date);
+        }
 
         let operatorHtml = '';
-        if (createdBy) {
+        if (isAdjust && tx.adjusted_by) {
+            operatorHtml = ` - <span style="color:#ef4444;font-weight:700;">Điều chỉnh bởi ${escapeHtml(tx.adjusted_by)}</span>`;
+        } else if (createdBy) {
             const isDeposit = tx.type === 'DEPOSIT';
             const isWithdraw = tx.type === 'WITHDRAW';
             const isRefund = tx.type === 'ORDER_CANCEL_REFUND';
-            const label = isDeposit ? 'Duyệt bởi' : isWithdraw ? 'Tạo bởi' : isRefund ? 'Hoàn bởi' : 'Bởi';
-            operatorHtml = ` - <span style="color:#ef4444;font-weight:700;">${label} ${escapeHtml(createdBy)}</span>`;
+            const labelOp = isDeposit ? 'Duyệt bởi' : isWithdraw ? 'Tạo bởi' : isRefund ? 'Hoàn bởi' : 'Bởi';
+            operatorHtml = ` - <span style="color:#ef4444;font-weight:700;">${labelOp} ${escapeHtml(createdBy)}</span>`;
         }
 
         // Balance before & after
@@ -225,9 +257,9 @@
             <div class="wdm-tx-item" style="background:${bgColor};border:1px solid ${borderColor};">
                 <div class="wdm-tx-header">
                     <div class="wdm-tx-icon" style="background:${iconBg};">
-                        <span style="font-size:20px;font-weight:900;color:${iconColor};line-height:1;">${cfg.iconChar}</span>
+                        <span style="font-size:20px;font-weight:900;color:${iconColor};line-height:1;">${iconChar}</span>
                     </div>
-                    <span class="wdm-tx-label" style="color:${amountColor};">${cfg.label}  ${sign}${formatCurrency(Math.abs(amount))}</span>
+                    <span class="wdm-tx-label" style="color:${amountColor};">${label}  ${sign}${formatCurrency(Math.abs(amount))}</span>
                 </div>
                 <div class="wdm-tx-detail">
                     <p class="wdm-tx-note">${detailParts.join(' - ')}${operatorHtml}</p>

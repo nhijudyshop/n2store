@@ -408,6 +408,41 @@ router.get('/:customerId/transactions', async (req, res) => {
 
         const result = await db.query(query, params);
 
+        // Enrich ADJUSTMENT rows with wallet_adjustments metadata (Node-side, no SQL cast).
+        try {
+            const adjustRefIds = result.rows
+                .filter(r => r.type === 'ADJUSTMENT'
+                          && r.reference_type === 'balance_history'
+                          && /^\d+$/.test(r.reference_id || ''))
+                .map(r => parseInt(r.reference_id, 10));
+
+            if (adjustRefIds.length > 0) {
+                const adjResult = await db.query(`
+                    SELECT original_transaction_id, wrong_customer_phone, correct_customer_phone,
+                           reason, created_by,
+                           (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at
+                    FROM wallet_adjustments
+                    WHERE original_transaction_id = ANY($1::int[])
+                `, [adjustRefIds]);
+                const adjMap = new Map(adjResult.rows.map(a => [a.original_transaction_id, a]));
+                for (const r of result.rows) {
+                    if (r.type !== 'ADJUSTMENT') continue;
+                    const adj = adjMap.get(parseInt(r.reference_id, 10));
+                    if (!adj) continue;
+                    r.adjustment_reason = adj.reason;
+                    r.adjusted_by = adj.created_by;
+                    r.adjusted_at = adj.created_at;
+                    r.wrong_customer_phone = adj.wrong_customer_phone;
+                    r.correct_customer_phone = adj.correct_customer_phone;
+                    r.counterparty_phone =
+                        r.phone === adj.wrong_customer_phone ? adj.correct_customer_phone :
+                        r.phone === adj.correct_customer_phone ? adj.wrong_customer_phone : null;
+                }
+            }
+        } catch (enrichErr) {
+            console.error('[wallets.js] Wallet adjustment enrich failed:', enrichErr.message);
+        }
+
         res.json({
             success: true,
             data: result.rows,

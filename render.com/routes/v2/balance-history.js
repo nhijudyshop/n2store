@@ -1216,6 +1216,55 @@ router.get('/approved-today', async (req, res) => {
             }
         }
 
+        // Enrich with full wallet_adjustments metadata + 2-leg snapshots from wallet_transactions.
+        // Wrapped in try/catch — if enrich fails, return rows with only the existing JOIN data.
+        try {
+            const bhIds = result.rows.map(r => r.id).filter(Number.isInteger);
+            if (bhIds.length > 0) {
+                const waResult = await db.query(`
+                    SELECT original_transaction_id, adjustment_type, wrong_customer_phone,
+                           correct_customer_phone, adjustment_amount, reason, created_by,
+                           (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh') as created_at
+                    FROM wallet_adjustments
+                    WHERE original_transaction_id = ANY($1::int[])
+                `, [bhIds]);
+                const waMap = new Map(waResult.rows.map(w => [w.original_transaction_id, w]));
+
+                const bhIdsAsText = bhIds.map(String);
+                const legsResult = await db.query(`
+                    SELECT reference_id, phone, amount, balance_before, balance_after
+                    FROM wallet_transactions
+                    WHERE reference_type = 'balance_history'
+                      AND type = 'ADJUSTMENT'
+                      AND reference_id = ANY($1::text[])
+                `, [bhIdsAsText]);
+                const legsMap = new Map();
+                for (const l of legsResult.rows) {
+                    const key = parseInt(l.reference_id, 10);
+                    if (!Number.isInteger(key)) continue;
+                    if (!legsMap.has(key)) legsMap.set(key, []);
+                    legsMap.get(key).push(l);
+                }
+
+                for (const row of result.rows) {
+                    const wa = waMap.get(row.id);
+                    if (wa) {
+                        row.adjustment_kind = wa.adjustment_type;
+                        row.wrong_customer_phone = wa.wrong_customer_phone;
+                        row.correct_customer_phone = wa.correct_customer_phone;
+                        row.adjustment_amount = wa.adjustment_amount;
+                        row.adjustment_reason = wa.reason;
+                        row.adjusted_at = wa.created_at;
+                        // adjusted_by already populated by existing JOIN
+                    }
+                    const legs = legsMap.get(row.id);
+                    if (legs) row.adjustment_legs = legs;
+                }
+            }
+        } catch (enrichErr) {
+            console.error('[balance-history.js] Approved adjustment enrich failed:', enrichErr.message);
+        }
+
         res.json({
             success: true,
             data: result.rows,

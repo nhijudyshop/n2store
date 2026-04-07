@@ -8,6 +8,13 @@
 
 ## 2026-04-07
 
+### [wallet-adjust] Hiển thị rõ điều chỉnh ví v2 — enrich Node-side, không JOIN cast ✅
+| | |
+|---|---|
+| **Files** | `render.com/routes/v2/customers.js`, `render.com/routes/v2/wallets.js`, `render.com/routes/v2/balance-history.js`, `orders-report/js/tab1/tab1-wallet-modal.js`, `customer-hub/js/modules/customer-profile.js`, `customer-hub/js/modules/wallet-panel.js`, `balance-history/js/accountant.js` |
+| **Chi tiết** | Plan v1 (4 commit đã revert) dùng JOIN SQL với cast `wt.reference_id::int` → PG không short-circuit AND → 500 trên `/v2/customers/:id`. **Plan v2**: enrich ở Node, không cast SQL. Backend mỗi endpoint giữ SQL gốc, sau khi fetch lọc các row `type='ADJUSTMENT' AND reference_type='balance_history' AND /^\d+$/`, query phụ `wallet_adjustments WHERE original_transaction_id = ANY($1::int[])` (PG array cast chuẩn, không bao giờ crash), merge thêm `counterparty_phone`/`adjustment_reason`/`adjusted_by`/`adjusted_at`/`wrong_customer_phone`/`correct_customer_phone`. Tất cả enrich block bao bọc try/catch riêng — nếu lỗi vẫn trả row gốc, không 500. `balance-history.js` approved-list thêm query phụ thứ 2 lấy 2 leg `wallet_transactions` (balance_before/after) cho tooltip kế toán. **Frontend** (4 file): dấu/màu/icon theo `Math.sign(tx.amount)` cho ADJUSTMENT (override config cứng), label động "Nhận Điều Chỉnh Từ SĐT X" / "Điều Chỉnh Chuyển Sang SĐT Y", thêm dòng "Điều chỉnh ví sai SĐT: chuyển từ X → Y (+/- N)", "Lý do: ...", "Điều chỉnh bởi ...". Tooltip kế toán multi-line từ `adjustment_legs`. **Tuyệt đối không động vào logic dòng tiền** (`balance-history.js:1716-2030`). |
+| **Status** | ✅ Done |
+
 ### [chat] Modal chat — fallback Extension cho mọi lỗi + enrich convData (giống bulk send) ✅
 | | |
 |---|---|
