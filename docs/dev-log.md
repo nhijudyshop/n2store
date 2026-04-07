@@ -8,6 +8,12 @@
 
 ## 2026-04-07
 
+### [orders] Fix chat: ảnh lớn không gửi được (TypeError FileReader) ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-chat-images.js` |
+| **Chi tiết** | `addImageToPreview()` gọi `window.compressImage(file, maxSize)` rồi truyền thẳng kết quả vào `_addToPreview()`. Nhưng `compressImage` (image-compressor.js) resolve 1 object `{ blob, width, height, ... }` chứ không phải File → `reader.readAsDataURL(object)` ném `TypeError: parameter 1 is not of type 'Blob'`. Ảnh nhỏ (<500KB) đi nhánh else nên không bị. Fix: unwrap `result.blob` + thêm `.catch` fallback gửi file gốc nếu compress fail. Không đụng image-compressor.js vì shape đang dùng ở purchase-orders/soquy/nhanhang/user-management. |
+
 ### [orders] Fix Tag XL: tag `Tx ...` không còn bị gắn nhãn "Tag TPOS ngoài mapping" ✅
 | | |
 |---|---|

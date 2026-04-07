@@ -31,9 +31,12 @@ window.addImageToPreview = function(file) {
     // Compress if needed (max 500KB for Pancake)
     const maxSize = 500 * 1024;
     if (file.size > maxSize && window.compressImage) {
-        window.compressImage(file, maxSize).then(compressed => {
-            _addToPreview(compressed);
-        });
+        window.compressImage(file, maxSize)
+            .then(result => _addToPreview(result.blob))
+            .catch(err => {
+                console.warn('[Chat] Compress failed, sending original:', err);
+                _addToPreview(file);
+            });
     } else {
         _addToPreview(file);
     }
