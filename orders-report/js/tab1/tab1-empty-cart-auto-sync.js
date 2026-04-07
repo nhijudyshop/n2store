@@ -38,22 +38,23 @@
     }
 
     /**
-     * Sync XL (Tag XL panel) GIO_TRONG subtag based on server action.
-     * - action='added' → assignOrderCategory(code, 3, {subTag: 'GIO_TRONG'})
-     *                    (preserves existing flags + tTags via merge logic)
-     * - action='removed' → only clear if XL.subTag === 'GIO_TRONG'
+     * Sync XL (Tag XL panel) GIO_TRONG subtag based on actual SL.
+     * Independent of server action — runs on every push so stale state catches up.
+     * - SL=0 + XL.subTag !== 'GIO_TRONG' → assign
+     * - SL>0 + XL.subTag === 'GIO_TRONG' → clear
+     * - else noop
      */
-    async function _syncXLGioTrong(orderCode, action) {
+    async function _syncXLGioTrong(orderCode, totalQuantity) {
         if (!orderCode) return;
         const state = window.ProcessingTagState;
         if (!state || typeof state.getOrderData !== 'function') return;
+        if (!state._isLoaded) return; // Wait for XL data to load — avoid creating wrong state
 
         try {
             const data = state.getOrderData(orderCode);
+            const hasGT = data?.subTag === 'GIO_TRONG';
 
-            if (action === 'added') {
-                // Skip if already set
-                if (data && data.category === 3 && data.subTag === 'GIO_TRONG') return;
+            if (totalQuantity === 0 && !hasGT) {
                 if (typeof window.assignOrderCategory === 'function') {
                     await window.assignOrderCategory(orderCode, 3, {
                         subTag: 'GIO_TRONG',
@@ -61,9 +62,7 @@
                     });
                     console.log(`${LOG} XL set GIO_TRONG → ${orderCode}`);
                 }
-            } else if (action === 'removed') {
-                // Only clear if currently set to GIO_TRONG
-                if (!data || data.subTag !== 'GIO_TRONG') return;
+            } else if (totalQuantity > 0 && hasGT) {
                 if (typeof window.clearProcessingTag === 'function') {
                     await window.clearProcessingTag(orderCode);
                     console.log(`${LOG} XL clear GIO_TRONG → ${orderCode}`);
@@ -102,9 +101,9 @@
                 return null;
             }
             const data = await res.json();
-            // Update local Tags if server actually changed them
+            // Update local Tags if server actually changed them on TPOS
             if (data.action === 'added' || data.action === 'removed') {
-                console.log(`${LOG} ${data.action} GIỎ TRỐNG → ${order.Code} (SL=${sl})`);
+                console.log(`${LOG} ${data.action} GIỎ TRỐNG (TPOS) → ${order.Code} (SL=${sl})`);
                 if (data.newTags) {
                     // Avoid re-triggering ourselves: update Tags via OrderStore quietly
                     if (window.OrderStore?.isInitialized) {
@@ -115,9 +114,10 @@
                         window.updateRowTagsOnly(order.Id, JSON.stringify(data.newTags), order.Code);
                     }
                 }
-                // Also sync XL (Tag XL panel) — set/unset GIO_TRONG subtag
-                _syncXLGioTrong(order.Code, data.action);
             }
+            // ALWAYS sync XL based on actual SL (not gated on server action).
+            // Server may return 'noop' if TPOS already correct, but XL might still be stale.
+            _syncXLGioTrong(order.Code, sl);
             return data;
         } catch (e) {
             console.warn(`${LOG} Push failed for ${order.Code}:`, e.message);

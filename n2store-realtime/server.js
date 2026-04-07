@@ -1340,17 +1340,7 @@ app.post('/api/tpos/empty-cart-sync', async (req, res) => {
         _ecInFlight.add(orderId);
 
         try {
-            // 1. Dedupe via DB last_sl
-            const stateRes = await dbPool.query(
-                'SELECT last_sl FROM tpos_empty_cart_sync WHERE order_id = $1',
-                [orderId]
-            );
-            const lastSl = stateRes.rows[0]?.last_sl;
-            if (lastSl === totalQuantity) {
-                return res.json({ success: true, action: 'skip-dedupe', lastSl });
-            }
-
-            // 2. Compute desired action
+            // 1. Compute desired action FIRST (based on actual current TPOS state)
             const gioTrong = await tposClient.getGioTrongTag();
             const gioTrongIdLower = String(gioTrong.Id);
             const hasGioTrong = currentTags.some(t =>
@@ -1370,6 +1360,20 @@ app.post('/api/tpos/empty-cart-sync', async (req, res) => {
                     String(t.Id) !== gioTrongIdLower &&
                     String(t.Name || '').toUpperCase() !== tposClient.GIO_TRONG_NAME_UPPER
                 );
+            }
+
+            // 2. Noop fast path — TPOS state already correct
+            if (action === 'noop') {
+                // Still update last_sl for stats
+                await dbPool.query(`
+                    INSERT INTO tpos_empty_cart_sync (order_id, order_code, last_sl, last_action, last_synced_at)
+                    VALUES ($1, $2, $3, 'noop', NOW())
+                    ON CONFLICT (order_id) DO UPDATE SET
+                        last_sl = EXCLUDED.last_sl,
+                        last_action = 'noop',
+                        last_synced_at = NOW()
+                `, [orderId, orderCode || null, totalQuantity]);
+                return res.json({ success: true, action: 'noop', hasGioTrong, totalQuantity });
             }
 
             // 3. Call TPOS only when needed
