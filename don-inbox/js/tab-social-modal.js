@@ -270,13 +270,13 @@ function saveOrder() {
     if (!customerName) {
         showNotification('Vui lòng nhập tên khách hàng', 'error');
         document.getElementById('customerName').focus();
-        return;
+        return null;
     }
 
     if (!phone) {
         showNotification('Vui lòng nhập số điện thoại', 'error');
         document.getElementById('customerPhone').focus();
-        return;
+        return null;
     }
 
     // Calculate totals using borrowed state
@@ -307,6 +307,7 @@ function saveOrder() {
         postLabel = `${sourceLabel} ${dateStr}`;
     }
 
+    let savedOrderId = null;
     if (isEditMode && orderId) {
         // Update existing order
         const orderIndex = SocialOrderState.orders.findIndex((o) => o.id === orderId);
@@ -332,6 +333,7 @@ function saveOrder() {
             // Fire-and-forget: sync to Firestore
             updateSocialOrder(orderId, SocialOrderState.orders[orderIndex]);
             if (window.InboxHistory) InboxHistory.logUpdate(SocialOrderState.orders[orderIndex]);
+            savedOrderId = orderId;
             showNotification('Đã cập nhật đơn hàng', 'success');
 
             // Fire-and-forget: sync updated products to TPOS
@@ -374,6 +376,7 @@ function saveOrder() {
         // Fire-and-forget: sync to Firestore
         createSocialOrder(newOrder);
         if (window.InboxHistory) InboxHistory.logCreate(newOrder);
+        savedOrderId = newOrder.id;
         showNotification('Đã tạo đơn hàng mới', 'success');
 
         // Fire-and-forget: sync products to TPOS
@@ -385,15 +388,19 @@ function saveOrder() {
     // Close modal and refresh
     closeOrderModal();
     performTableSearch();
+    return savedOrderId;
+}
+
+// Lưu đơn xong tự động mở modal phiếu bán hàng lẻ
+function saveOrderAndOpenRetailSale() {
+    const id = saveOrder();
+    if (!id) return; // validation failed
+    // saveOrder đã đóng modal — mở sale modal ngay sau đó
+    openRetailSaleFromSocial(id);
 }
 
 // ===== CLOSE MODAL ON OUTSIDE CLICK =====
-document.addEventListener('click', function (e) {
-    const modalOverlay = document.getElementById('orderModalOverlay');
-    if (e.target === modalOverlay) {
-        closeOrderModal();
-    }
-});
+// Đã tắt theo yêu cầu: chỉ đóng khi bấm icon X (hoặc ESC).
 
 // ===== KEYBOARD SHORTCUTS =====
 document.addEventListener('keydown', function (e) {
