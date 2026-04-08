@@ -1416,6 +1416,7 @@ window.saveSelectedTagFilters = function(tagIds) {
     try {
         localStorage.setItem(SELECTED_TAGS_KEY, JSON.stringify(tagIds));
         console.log('[TAG-FILTER] Saved selected tags:', tagIds);
+        window.FilterPersistence?.scheduleSave();
     } catch (error) {
         console.error('[TAG-FILTER] Error saving selected tags:', error);
     }
@@ -1671,6 +1672,7 @@ window.saveExcludedTagFilters = function(tagIds) {
     try {
         localStorage.setItem(EXCLUDED_TAGS_FILTER_KEY, JSON.stringify(tagIds));
         console.log('[EXCLUDE-TAG-FILTER] Saved excluded tags:', tagIds);
+        window.FilterPersistence?.scheduleSave();
     } catch (error) {
         console.error('[EXCLUDE-TAG-FILTER] Error saving excluded tags:', error);
     }

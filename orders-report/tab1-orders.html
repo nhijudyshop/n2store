@@ -110,7 +110,7 @@
 
                 <!-- Date mode toggle -->
                 <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 15px; font-weight: 700; color: #4c1d95; white-space: nowrap; user-select: none;">
-                    <input type="checkbox" id="dateModeToggle" onchange="toggleDateMode(this.checked)" style="width: 18px; height: 18px; accent-color: #7c3aed; cursor: pointer;" />
+                    <input type="checkbox" id="dateModeToggle" onchange="toggleDateMode(this.checked); window.FilterPersistence?.scheduleSave();" style="width: 18px; height: 18px; accent-color: #7c3aed; cursor: pointer;" />
                     <i class="fas fa-calendar-day" style="font-size: 16px;"></i> Lọc theo ngày
                 </label>
 
@@ -378,7 +378,7 @@
                 <!-- Messages Filter -->
                 <div class="search-filter-dropdown" style="display: flex; align-items: center; gap: 6px;">
                     <label style="font-size: 12px; font-weight: 500; color: #6b7280;">Tin nhắn:</label>
-                    <select id="conversationFilter" onchange="performTableSearch()" class="search-filter-select">
+                    <select id="conversationFilter" onchange="performTableSearch(); window.FilterPersistence?.scheduleSave();" class="search-filter-select">
                         <option value="all" selected>Tất cả</option>
                         <option value="unread">Chưa đọc</option>
                         <option value="read">Đã đọc</option>
@@ -388,7 +388,7 @@
                 <!-- Status Filter -->
                 <div class="search-filter-dropdown" style="display: flex; align-items: center; gap: 6px;">
                     <label style="font-size: 12px; font-weight: 500; color: #6b7280;">Trạng thái:</label>
-                    <select id="statusFilter" onchange="performTableSearch()" class="search-filter-select">
+                    <select id="statusFilter" onchange="performTableSearch(); window.FilterPersistence?.scheduleSave();" class="search-filter-select">
                         <option value="all" selected>Tất cả</option>
                         <option value="Nháp">Nháp</option>
                         <option value="Đơn hàng">Đơn hàng</option>
@@ -398,7 +398,7 @@
                 <!-- Fulfillment (Ra đơn) Filter -->
                 <div class="search-filter-dropdown" style="display: flex; align-items: center; gap: 6px;">
                     <label style="font-size: 12px; font-weight: 500; color: #6b7280;">Ra đơn:</label>
-                    <select id="fulfillmentFilter" onchange="performTableSearch()" class="search-filter-select">
+                    <select id="fulfillmentFilter" onchange="performTableSearch(); window.FilterPersistence?.scheduleSave();" class="search-filter-select">
                         <option value="all" selected>Tất cả</option>
                         <option value="da_ra_don">Đã ra đơn</option>
                         <option value="cho_ra_don">Chờ ra đơn</option>
@@ -1166,6 +1166,9 @@
 
     <!-- 1. Core: Global state, formatTimeVN, cache (lines 1-278) -->
     <script src="js/tab1/tab1-core.js"></script>
+
+    <!-- 1b. Filter Persistence: per-account IndexedDB snapshot of all filters -->
+    <script src="js/tab1/tab1-filter-persistence.js"></script>
 
     <!-- 2. Firebase: Tag sync, KPI, filter prefs (lines 279-749) -->
     <script src="js/tab1/tab1-firebase.js"></script>

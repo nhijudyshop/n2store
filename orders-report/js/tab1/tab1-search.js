@@ -15,6 +15,7 @@ function handleTableSearch(query) {
             .getElementById("searchClearBtn")
             .classList.toggle("active", !!searchQuery);
         performTableSearch();
+        window.FilterPersistence?.scheduleSave();
         // Sync to sticky search
         if (typeof syncMainToStickySearch === 'function') {
             syncMainToStickySearch();

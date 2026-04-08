@@ -386,6 +386,7 @@
                 localStorage.setItem('ptag_active_filter_v1', String(ProcessingTagState._activeFilter));
             }
             localStorage.setItem('ptag_active_flag_filters_v1', JSON.stringify([...ProcessingTagState._activeFlagFilters]));
+            window.FilterPersistence?.scheduleSave();
         } catch (e) { /* ignore quota errors */ }
     }
 
@@ -2546,6 +2547,7 @@
     function _ptagTogglePin() {
         ProcessingTagState._panelPinned = !ProcessingTagState._panelPinned;
         localStorage.setItem('ptag_panel_pinned', JSON.stringify(ProcessingTagState._panelPinned));
+        window.FilterPersistence?.scheduleSave();
         const panel = document.getElementById('ptag-panel');
         if (panel) panel.classList.toggle('pinned', ProcessingTagState._panelPinned);
         const btn = document.getElementById('ptag-pin-btn');

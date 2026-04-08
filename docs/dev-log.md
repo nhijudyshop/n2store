@@ -8,6 +8,18 @@
 
 ## 2026-04-08
 
+### [orders] Filter tab1 persist vào IndexedDB, per-account ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-filter-persistence.js` (NEW), `orders-report/tab1-orders.html`, `orders-report/js/tab1/tab1-init.js`, `orders-report/js/tab1/tab1-search.js`, `orders-report/js/tab1/tab1-tags.js`, `orders-report/js/tab1/tab1-processing-tags.js` |
+| **Mục tiêu** | Hard reload (Cmd+Shift+R) phải restore lại toàn bộ filter tab1, scope theo tài khoản đang đăng nhập. |
+| **Filter cover** | (1) Search input — TTL 30 phút idle thì tự reset; (2) `conversationFilter`/`statusFilter`/`fulfillmentFilter` `<select>` (trước đây memory-only → mất khi reload); (3) TAG `orderTableSelectedTags`; (4) Excluded TAG `orderTableExcludedTags`; (5) Chốt Đơn / Tag XL = `ProcessingTagState._activeFilter` + `_activeFlagFilters`; (6) Chốt Đơn panel pinned; (7) "Lọc theo ngày" toggle (`dateModeToggle`). Date range start/end vẫn để campaign system quản lý qua PostgreSQL — không đụng để tránh phá campaign flow. |
+| **Kiến trúc** | Module mới `FilterPersistence` (IIFE expose `window.FilterPersistence`) wrap `window.indexedDBStorage`. Key IDB: `tab1_filters_v1__${userIdentifier}` với `userIdentifier` resolve từ `authManager.getAuthState()` (priority `userType` → `username` → `uid` → `'guest'`). Snapshot debounce save 400ms. Init `await` trong DOMContentLoaded của tab1-init.js trước khi wire search input listener. |
+| **Migration LS → IDB** | First run: nếu IDB trống cho user này, đọc các LS key cũ làm seed. **Per-account guard:** `tab1_filter_persist_migrated_at` global LS marker — chỉ user đầu tiên trên browser inherit LS, các account sau bắt đầu snapshot rỗng → isolation 100%. Sau 7 ngày tự xóa legacy LS keys + marker (giữ tuần đầu để rollback an toàn). |
+| **Search TTL** | Snapshot search có `savedAt`; load lại nếu `Date.now() - savedAt > 30 phút` → drop search query, giữ filter khác — tránh user reload lâu mà bị filter cũ gây nhầm. |
+| **Wire save** | `scheduleSave()` được gọi từ: `handleTableSearch()`, 3 select onchange (HTML inline), `saveSelectedTagFilters()`, `saveExcludedTagFilters()`, `_ptagPersistFilters()`, `_ptagTogglePin()`, `dateModeToggle` onchange. Không xóa logic LS hiện hữu — IDB là sync layer phụ. |
+| **Status** | ✅ Done |
+
 ### [orders] Auto-chọn ship theo địa chỉ: pass extraAddress + dedupe + notify ✅
 | | |
 |---|---|

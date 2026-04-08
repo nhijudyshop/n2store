@@ -334,9 +334,22 @@ window.addEventListener("DOMContentLoaded", async function () {
         });
     }
 
+    // 🔁 Restore tab1 filters from IndexedDB (per-account snapshot).
+    // Must run AFTER select options are in DOM but BEFORE the user can interact.
+    // Awaited so that the first table render uses the restored filter values.
+    if (window.FilterPersistence) {
+        try { await window.FilterPersistence.init(); }
+        catch (e) { console.warn('[FILTER-PERSIST] init failed:', e); }
+    }
+
     // Search functionality
     const searchInput = document.getElementById("tableSearchInput");
     const searchClearBtn = document.getElementById("searchClearBtn");
+
+    // If FilterPersistence restored a search query into searchQuery, sync UI now
+    if (typeof searchQuery === 'string' && searchQuery && searchInput && !searchInput.value) {
+        searchInput.value = searchQuery;
+    }
 
     searchInput.addEventListener("input", function (e) {
         handleTableSearch(e.target.value);
