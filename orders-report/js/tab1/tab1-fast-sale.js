@@ -424,7 +424,9 @@ async function showFastSaleModal() {
             if (
                 order.ShowState === 'Đã xác nhận' ||
                 order.ShowState === 'Đã thanh toán' ||
-                order.State === 'open'
+                order.State === 'open' ||
+                order.StatusText === 'Đơn hàng' ||
+                order.Status === 'Đơn hàng'
             ) {
                 const code = order.Reference || order.SaleOnlineIds?.[0] || order.Id;
                 confirmedOrderCodes.push(code);

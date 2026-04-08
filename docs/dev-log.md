@@ -8,6 +8,14 @@
 
 ## 2026-04-08
 
+### [orders] Chặn tạo PBH khi đơn ở trạng thái "Đơn hàng" (single + bulk) ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-sale.js`, `orders-report/js/tab1/tab1-fast-sale.js` |
+| **Why** | Trạng thái `StatusText === 'Đơn hàng'` nghĩa là SaleOnline đã được chuyển sang đơn — tạo PBH thêm sẽ gây trùng. |
+| **Changes** | Thêm điều kiện `StatusText === 'Đơn hàng' \|\| Status === 'Đơn hàng'` vào duplicate-guard ở `confirmAndPrintSale()` (single) và filter `fastSaleOrdersData` (bulk, line ~419). |
+| **Status** | ✅ |
+
 ### [chat] Follow-up hardening: bump seq trước reset, stale-guard catch + loadMoreMessages ✅
 | | |
 |---|---|

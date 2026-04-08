@@ -674,9 +674,16 @@ async function confirmAndPrintSale() {
         if (
             currentSaleOrderData.ShowState === 'Đã xác nhận' ||
             currentSaleOrderData.ShowState === 'Đã thanh toán' ||
-            currentSaleOrderData.State === 'open'
+            currentSaleOrderData.State === 'open' ||
+            currentSaleOrderData.StatusText === 'Đơn hàng' ||
+            currentSaleOrderData.Status === 'Đơn hàng'
         ) {
-            const msg = `Đơn này đã có phiếu "${currentSaleOrderData.ShowState || currentSaleOrderData.State}". Bỏ qua để tránh tạo trùng.`;
+            const label =
+                currentSaleOrderData.StatusText ||
+                currentSaleOrderData.Status ||
+                currentSaleOrderData.ShowState ||
+                currentSaleOrderData.State;
+            const msg = `Đơn này đang ở trạng thái "${label}", không thể tạo PBH (tránh tạo trùng).`;
             console.warn('[SALE-CONFIRM] ⚠️', msg);
             if (window.notificationManager) window.notificationManager.warning(msg, 4000);
             else alert(msg);
