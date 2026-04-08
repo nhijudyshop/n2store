@@ -4021,6 +4021,9 @@
                         <button class="bulk-tag-modal-close" onclick="window._ttagMgrCloseHistory()"><i class="fas fa-times"></i></button>
                     </div>
                 </div>
+                <div style="padding:10px 16px;border-bottom:1px solid #e5e7eb;background:#f9fafb;">
+                    <input type="text" id="ttagMgrHistorySttFilter" placeholder="Lọc theo STT (vd: 639)" style="width:100%;padding:8px 12px;font-size:13px;border:1.5px solid #c4b5fd;border-radius:6px;outline:none;" oninput="window._ttagMgrFilterHistory && window._ttagMgrFilterHistory(this.value)" />
+                </div>
                 <div class="bulk-tag-modal-body" id="ttagMgrHistoryBody">
                     <div class="bulk-tag-loading"><i class="fas fa-spinner fa-spin"></i><p>Đang tải lịch sử...</p></div>
                 </div>
@@ -4044,9 +4047,8 @@
             }
 
             const historyArray = Object.values(historyData).sort((a, b) => b.timestamp - a.timestamp);
-            body.innerHTML = `<div class="bulk-tag-history-list">
-                ${historyArray.map((entry, i) => _ttagMgrRenderHistoryItem(entry, i)).join('')}
-            </div>`;
+            window._ttagMgrHistoryCache = historyArray;
+            _ttagMgrRenderHistoryList(historyArray);
         } catch (error) {
             console.error(`${PTAG_LOG} Error loading T-Tag history:`, error);
             const body = document.getElementById('ttagMgrHistoryBody');
@@ -4101,7 +4103,48 @@
     function _ttagMgrCloseHistory() {
         const modal = document.getElementById('ttagMgrHistoryModal');
         if (modal) modal.remove();
+        window._ttagMgrHistoryCache = null;
     }
+
+    function _ttagMgrRenderHistoryList(historyArray) {
+        const body = document.getElementById('ttagMgrHistoryBody');
+        if (!body) return;
+        if (!historyArray || historyArray.length === 0) {
+            body.innerHTML = `<div class="bulk-tag-history-empty"><i class="fas fa-history"></i><p>Không có lịch sử phù hợp</p></div>`;
+            return;
+        }
+        body.innerHTML = `<div class="bulk-tag-history-list">
+            ${historyArray.map((entry, i) => _ttagMgrRenderHistoryItem(entry, i)).join('')}
+        </div>`;
+    }
+
+    function _ttagMgrFilterHistory(query) {
+        const all = window._ttagMgrHistoryCache || [];
+        const q = String(query || '').trim();
+        if (!q) { _ttagMgrRenderHistoryList(all); return; }
+        const matchStt = (stt) => String(stt) === q;
+        const filtered = [];
+        for (const entry of all) {
+            const successMatched = (entry.results?.success || [])
+                .map(r => ({ ...r, sttList: (r.sttList || []).filter(matchStt) }))
+                .filter(r => r.sttList.length > 0);
+            const failedMatched = (entry.results?.failed || [])
+                .map(r => ({ ...r, sttList: (r.sttList || []).filter(matchStt) }))
+                .filter(r => r.sttList.length > 0);
+            if (successMatched.length === 0 && failedMatched.length === 0) continue;
+            filtered.push({
+                ...entry,
+                results: { success: successMatched, failed: failedMatched },
+                summary: {
+                    ...(entry.summary || {}),
+                    totalSuccess: successMatched.reduce((s, r) => s + r.sttList.length, 0),
+                    totalFailed: failedMatched.reduce((s, r) => s + r.sttList.length, 0),
+                }
+            });
+        }
+        _ttagMgrRenderHistoryList(filtered);
+    }
+    window._ttagMgrFilterHistory = _ttagMgrFilterHistory;
 
     // ===== SETTINGS MODAL =====
 

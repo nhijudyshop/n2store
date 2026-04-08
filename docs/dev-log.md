@@ -8,6 +8,12 @@
 
 ## 2026-04-08
 
+### [orders] Lịch sử Tag T: thêm ô lọc theo STT ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-processing-tags.js` |
+| **Chi tiết** | Modal "Lịch Sử Tag T Chờ Hàng" giờ có input lọc STT. Cache `historyArray` vào `window._ttagMgrHistoryCache`, hàm `_ttagMgrFilterHistory(q)` lọc các entry chứa STT khớp (cả success/failed), giữ nguyên tag name, recompute summary counts. Tách `_ttagMgrRenderHistoryList()` để re-render. |
+
 ### [chat] Tooltip hàng rớt-xả: bỏ SĐT, thêm "Chiến dịch:" + fix 2 bug ✅
 | | |
 |---|---|
