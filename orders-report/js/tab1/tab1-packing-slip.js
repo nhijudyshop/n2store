@@ -317,6 +317,7 @@ function generatePackingSlipHTML(waitingIndices, notes = {}) {
         const productName = line.ProductName || line.ProductNameGet || line.Product?.Name || '';
         const khoDiChoSTT = window.KhoDiChoCache ? window.KhoDiChoCache.getSTT(line) : 0;
         const displayName = `${khoDiChoSTT} - ${productName}`;
+        const productNote = line.Note || '';
         const qty = line.ProductUOMQty || line.Quantity || 1;
         const price = line.PriceUnit || line.Price || 0;
         const isWaiting = waitingIndices.has(idx);
@@ -340,6 +341,7 @@ function generatePackingSlipHTML(waitingIndices, notes = {}) {
                 <td style="border:1px solid #000; padding:5px 4px; text-align:center;">${idx + 1}</td>
                 <td style="border:1px solid #000; padding:5px 4px; text-align:left; word-break:break-word; font-size:14px; font-weight:bold;">
                     ${displayName}
+                    ${productNote ? `<div style="font-size:14px; font-weight:bold; margin-top:2px;">${productNote}</div>` : ''}
                 </td>
                 <td style="border:1px solid #000; padding:5px 4px; text-align:center;">${qty}</td>
                 <td style="border:1px solid #000; padding:5px 4px; text-align:right; font-size:11px;">${priceShort}</td>
