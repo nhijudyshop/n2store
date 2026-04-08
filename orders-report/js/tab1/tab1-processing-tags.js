@@ -2018,17 +2018,9 @@
             }
         }
 
-        // KHAC = "TAG TPOS NGOÀI MAPPING" — đếm orders có TPOS tag không thuộc mapping.
-        // Iterate allOrders (không phụ thuộc XL state) vì TPOS tags là dữ liệu riêng.
-        if (typeof window.getUnmanagedTPOSTagsFromOrder === 'function') {
-            let khacCount = 0;
-            for (const o of allOrders) {
-                if (!o.Tags) continue;
-                const unmanaged = window.getUnmanagedTPOSTagsFromOrder(o.Tags);
-                if (unmanaged.length > 0) khacCount++;
-            }
-            flagCounts['KHAC'] = khacCount;
-        }
+        // KHAC: chỉ tính theo Tag XL state (không scan TPOS tags). Panel filter
+        // không còn dựa vào cột TAG TPOS — toàn bộ count/filter bám Tag XL.
+        flagCounts['KHAC'] = 0;
 
         const untaggedCount = totalOrders - hasCategoryCount;
 
@@ -4477,40 +4469,15 @@
         const data = ProcessingTagState.getOrderData(orderCodeOrId)
             || ProcessingTagState.getOrderDataByIdFallback(orderCodeOrId);
 
-        // --- Evaluate flag filter independently ---
+        // --- Evaluate flag filter independently (Tag XL only — không touch cột TAG TPOS) ---
         let passesFlag = true; // default: no flag filter = pass
         if (hasFlagFilter) {
-            // KHAC = "TAG TPOS NGOÀI MAPPING" — match orders có TPOS tag không thuộc mapping.
-            // Phải resolve order TPOS để check (không dựa trên XL flag state).
-            const wantsKhac = flagFilters.has('KHAC');
-            const otherFlagFilters = [...flagFilters].filter(f => f !== 'KHAC');
-
-            let khacMatch = false;
-            if (wantsKhac && typeof window.getUnmanagedTPOSTagsFromOrder === 'function') {
-                // Resolve order code → TPOS order
-                const orderCode = typeof orderCodeOrId === 'string' && orderCodeOrId.length < 30
-                    ? orderCodeOrId
-                    : (typeof window._ptagResolveCode === 'function' ? window._ptagResolveCode(orderCodeOrId) : null);
-                const orderId = typeof window._ptagResolveId === 'function'
-                    ? window._ptagResolveId(orderCode)
-                    : null;
-                const order = orderId && typeof window.getAllOrders === 'function'
-                    ? window.getAllOrders().find(o => o.Id === orderId)
-                    : null;
-                if (order && order.Tags) {
-                    const unmanaged = window.getUnmanagedTPOSTagsFromOrder(order.Tags);
-                    if (unmanaged.length > 0) khacMatch = true;
-                }
-            }
-
-            // Other flag filters check XL state
-            let otherMatch = false;
-            if (otherFlagFilters.length > 0 && data) {
+            if (data) {
                 const orderFlagIds = (data.flags || []).map(of => _ptagFlagId(of));
-                otherMatch = otherFlagFilters.some(f => orderFlagIds.includes(f));
+                passesFlag = [...flagFilters].some(f => orderFlagIds.includes(f));
+            } else {
+                passesFlag = false;
             }
-
-            passesFlag = khacMatch || otherMatch;
         }
 
         // --- Evaluate base filter independently ---

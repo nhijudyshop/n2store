@@ -8,6 +8,14 @@
 
 ## 2026-04-08
 
+### [orders] Panel Chốt Đơn — filter chỉ theo Tag XL, bỏ TAG TPOS ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-processing-tags.js` |
+| **Why** | Flag `KHAC` (TAG TPOS NGOÀI MAPPING) trong panel scan `order.Tags` (cột TAG TPOS) → vi phạm yêu cầu panel Chốt Đơn chỉ filter theo cột Tag XL. |
+| **Chi tiết** | `_ptagComputeCounts`: bỏ vòng lặp `getUnmanagedTPOSTagsFromOrder`, set `flagCounts['KHAC']=0`. `orderPassesProcessingTagFilter`: bỏ nhánh KHAC TPOS-resolution, flag filter giờ chỉ check `data.flags` (Tag XL state). |
+| **Status** | ✅ Done |
+
 ### [orders] Tag ĐÃ RA ĐƠN — đổi trigger từ "PBH tạo thành công" sang "Status='Đơn hàng'" ✅
 | | |
 |---|---|
