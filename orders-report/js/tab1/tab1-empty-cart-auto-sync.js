@@ -66,6 +66,11 @@
             const hasGT = existing?.category === 3 && existing?.subTag === 'GIO_TRONG';
             let nextData = null;
 
+            // Special rule: đơn đã "ĐÃ GỘP KHÔNG CHỐT" thì không gắn GIỎ TRỐNG
+            if (totalQuantity === 0 && existing?.category === 3 && existing?.subTag === 'DA_GOP_KHONG_CHOT') {
+                return;
+            }
+
             if (totalQuantity === 0 && !hasGT) {
                 // SET GIO_TRONG (preserve flags + tTags)
                 nextData = {
@@ -118,6 +123,17 @@
     async function _pushSync(order) {
         if (!order || !order.Id) return null;
         const sl = Number(order.TotalQuantity) || 0;
+
+        // Special rule: nếu đơn đã có "ĐÃ GỘP KHÔNG CHỐT" thì KHÔNG cần thêm "GIỎ TRỐNG"
+        // (đơn gốc đã được gộp sang đơn khác — không cần đánh dấu giỏ trống nữa)
+        if (sl === 0) {
+            const xl = window.ProcessingTagState?.getOrderData?.(order.Code);
+            if (xl?.category === 3 && xl?.subTag === 'DA_GOP_KHONG_CHOT') {
+                console.log(`${LOG} skip GIỎ TRỐNG for ${order.Code} (already DA_GOP_KHONG_CHOT)`);
+                return null;
+            }
+        }
+
         const currentTags = _parseTags(order.Tags).map(t => ({
             Id: t.Id,
             Name: t.Name,
