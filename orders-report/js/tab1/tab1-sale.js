@@ -1049,8 +1049,7 @@ async function confirmAndPrintSale() {
                     orderData.CarrierName = savedCarrierName;
                     window.InvoiceStatusStore.set(socialId, orderData, currentSaleOrderData);
                     console.log('[SALE-CONFIRM] Stored invoice for social order:', socialId);
-                    // Hook: Processing tag auto-transition to HOÀN TẤT
-                    if (window.onPtagBillCreated) window.onPtagBillCreated(socialId);
+                    // Tag ĐÃ RA ĐƠN nay được trigger qua order.Status='Đơn hàng' (xem onPtagOrderStatusChanged)
                 }
             }
 
@@ -1218,8 +1217,7 @@ async function confirmAndPrintSale() {
                     'Number:',
                     createResult.Number
                 );
-                // Hook: Processing tag auto-transition to HOÀN TẤT
-                if (window.onPtagBillCreated) window.onPtagBillCreated(socialOrderId);
+                // Tag ĐÃ RA ĐƠN nay được trigger qua order.Status='Đơn hàng' (xem onPtagOrderStatusChanged)
             }
 
             // Update social order status to 'order'

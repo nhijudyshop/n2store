@@ -8,6 +8,14 @@
 
 ## 2026-04-08
 
+### [orders] Tag ĐÃ RA ĐƠN — đổi trigger từ "PBH tạo thành công" sang "Status='Đơn hàng'" ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-processing-tags.js`, `tab1-table.js`, `tab1-fast-sale-invoice-status.js`, `tab1-sale.js`, `tab1-fast-sale-workflow.js` |
+| **Why** | Trước đây tag XL `ĐÃ RA ĐƠN` (category 0 = HOAN_TAT) được set khi PBH tạo thành công. Nay tag phải bám theo trạng thái đơn (`order.Status === 'Đơn hàng'`) để chính xác hơn — kể cả khi user đổi status thủ công. |
+| **Chi tiết** | Thêm `onPtagOrderStatusChanged(orderId, newStatus)` ở `tab1-processing-tags.js`: `'Đơn hàng'` → forward `onPtagBillCreated`; rời `'Đơn hàng'` mà category=HOAN_TAT → forward `onPtagBillCancelled` (rollback `previousPosition`). Thêm `backfillPtagFromOrderStatus()` chạy sau `loadProcessingTags()` để tag các đơn đã có Status='Đơn hàng' lúc load. Bỏ 3 trigger cũ `onPtagBillCreated` ở `tab1-sale.js` (×2) + `tab1-fast-sale-invoice-status.js`. Bỏ 2 trigger `onPtagBillCancelled` ở `tab1-fast-sale-workflow.js` (đã được thay bằng hook trong `updateOrderStatus`). Gắn hook mới ở `tab1-table.js#updateOrderStatus` (manual) và `tab1-fast-sale-invoice-status.js` (auto-update Nháp→Đơn hàng). |
+| **Status** | ✅ Done |
+
 ### [orders] RT TPOS → cập nhật cả cột "Phiếu bán hàng TPOS" và "Trạng thái" ✅
 | | |
 |---|---|

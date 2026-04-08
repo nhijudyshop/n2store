@@ -815,8 +815,7 @@
                             }
 
                             this.set(soId, order, originalOrder);
-                            // Auto-transition processing tag to HOÀN TẤT
-                            if (window.onPtagBillCreated) window.onPtagBillCreated(String(soId));
+                            // Tag ĐÃ RA ĐƠN nay được trigger qua order.Status='Đơn hàng'
                         });
                     }
                 });
@@ -2307,6 +2306,11 @@
                     // Also update the order reference
                     order.Status = 'order';
                     order.StatusText = 'Đơn hàng';
+
+                    // Hook: trigger tag ĐÃ RA ĐƠN theo Status mới
+                    if (typeof window.onPtagOrderStatusChanged === 'function') {
+                        window.onPtagOrderStatusChanged(saleOnlineId, 'Đơn hàng');
+                    }
 
                     // Update UI
                     const statusBadge = document.querySelector(

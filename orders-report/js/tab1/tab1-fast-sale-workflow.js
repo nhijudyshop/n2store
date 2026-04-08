@@ -457,8 +457,7 @@
             // Step 3: Delete from InvoiceStatusStore (localStorage + Firebase)
             if (window.InvoiceStatusStore?.delete) {
                 await window.InvoiceStatusStore.delete(saleOnlineId);
-                // Hook: Processing tag rollback to previous position
-                if (window.onPtagBillCancelled) window.onPtagBillCancelled(saleOnlineId);
+                // Rollback tag ĐÃ RA ĐƠN nay được xử lý qua updateOrderStatus → onPtagOrderStatusChanged
             }
 
             // Re-add "OK + định danh" tag using quickAssignTag (same as quick-tag-ok button)
@@ -1328,8 +1327,7 @@
             // Step 3: Delete from InvoiceStatusStore (localStorage + Firebase)
             if (window.InvoiceStatusStore?.delete) {
                 await window.InvoiceStatusStore.delete(saleOnlineId);
-                // Hook: Processing tag rollback to previous position
-                if (window.onPtagBillCancelled) window.onPtagBillCancelled(saleOnlineId);
+                // Rollback tag ĐÃ RA ĐƠN nay được xử lý qua updateOrderStatus → onPtagOrderStatusChanged
             }
 
             // Step 4: Add "OK + định danh" tag using quickAssignTag
