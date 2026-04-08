@@ -25,6 +25,10 @@
     const TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
     const COLD_START_URL = 'https://n2store-fallback.onrender.com/api/tpos/fastsale-snapshot';
     const COLD_START_LOOKBACK_MS = 24 * 60 * 60 * 1000; // last 24h of FSO updates
+    // Direct TPOS OData via Cloudflare worker proxy — bypasses Render server
+    // (used when Render is down or its DateUpdated bug returns 400).
+    const TPOS_ODATA_PROXY = 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/ODataService.GetView';
+    const FSO_SELECT = 'Id,Number,State,ShowState,StateCode,IsMergeCancel,PartnerDisplayName,AmountTotal,AmountPaid,Residual,DateInvoice,SaleOnlineIds';
 
     // Config copied from tab1-fast-sale-invoice-status.js (private IIFE there).
     // Keep in sync if colours/labels change.
@@ -102,10 +106,51 @@
                 this._byId.size,
                 'snapshots from cache'
             );
-            // Cold-start bulk fetch from Render server (replaces extension snapshot push).
-            // Fire-and-forget — UI renders from cache immediately, server data refreshes
-            // cells as soon as it arrives.
-            this._coldStartFromServer();
+            // Cold-start bulk fetch — call TPOS directly via worker proxy
+            // (Render server endpoint has been flaky; this path bypasses it).
+            this._coldStartFromTPOS();
+        },
+
+        async _coldStartFromTPOS() {
+            // Wait for tokenManager to be ready (it loads asynchronously after page init)
+            if (!window.tokenManager || typeof window.tokenManager.getAuthHeader !== 'function') {
+                setTimeout(() => this._coldStartFromTPOS(), 2000);
+                return;
+            }
+            try {
+                const sinceIso = new Date(Date.now() - COLD_START_LOOKBACK_MS).toISOString();
+                const filter = `DateInvoice gt ${sinceIso}`;
+                const url = `${TPOS_ODATA_PROXY}?$top=500` +
+                    `&$select=${encodeURIComponent(FSO_SELECT)}` +
+                    `&$filter=${encodeURIComponent(filter)}` +
+                    `&$orderby=Id desc`;
+                const headers = await window.tokenManager.getAuthHeader();
+                const resp = await fetch(url, {
+                    headers: { ...headers, accept: 'application/json' }
+                });
+                if (!resp.ok) {
+                    console.warn('[TPOS-INV-SNAP] Cold-start (worker) HTTP', resp.status);
+                    return;
+                }
+                const data = await resp.json();
+                const list = Array.isArray(data?.value) ? data.value : [];
+                if (list.length === 0) return;
+                const affected = this.upsertBatch(list);
+                console.log(
+                    '[TPOS-INV-SNAP] Cold-start (worker proxy):',
+                    list.length,
+                    'snapshots → affected rows:',
+                    affected.length
+                );
+                if (affected.length > 0) {
+                    this.refreshCellsFor(affected);
+                    if (typeof this.refreshStatusCellsFor === 'function') {
+                        this.refreshStatusCellsFor(affected);
+                    }
+                }
+            } catch (e) {
+                console.warn('[TPOS-INV-SNAP] Cold-start (worker) error:', e.message);
+            }
         },
 
         async _coldStartFromServer() {
@@ -291,20 +336,26 @@
          */
         async fetchFreshByIds(invoiceIds) {
             if (!Array.isArray(invoiceIds) || invoiceIds.length === 0) return [];
+            if (!window.tokenManager || typeof window.tokenManager.getAuthHeader !== 'function') return [];
             try {
-                const idsParam = invoiceIds.filter(Boolean).join(',');
-                if (!idsParam) return [];
-                const resp = await fetch(`${COLD_START_URL}?ids=${idsParam}`, {
-                    headers: { accept: 'application/json' }
+                const ids = invoiceIds.filter(Boolean).map(Number).filter(Number.isFinite);
+                if (ids.length === 0) return [];
+                const filter = ids.map(i => `Id eq ${i}`).join(' or ');
+                const url = `${TPOS_ODATA_PROXY}?$top=${ids.length}` +
+                    `&$select=${encodeURIComponent(FSO_SELECT)}` +
+                    `&$filter=${encodeURIComponent(filter)}`;
+                const headers = await window.tokenManager.getAuthHeader();
+                const resp = await fetch(url, {
+                    headers: { ...headers, accept: 'application/json' }
                 });
                 if (!resp.ok) {
                     console.warn('[TPOS-INV-SNAP] fetchFreshByIds HTTP', resp.status);
                     return [];
                 }
                 const data = await resp.json();
-                if (!data || !data.success || !Array.isArray(data.invoices)) return [];
-                if (data.invoices.length === 0) return [];
-                return this.upsertBatch(data.invoices);
+                const list = Array.isArray(data?.value) ? data.value : [];
+                if (list.length === 0) return [];
+                return this.upsertBatch(list);
             } catch (e) {
                 console.warn('[TPOS-INV-SNAP] fetchFreshByIds error:', e.message);
                 return [];

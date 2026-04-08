@@ -8,6 +8,14 @@
 
 ## 2026-04-08
 
+### [orders] Bypass Render — gọi TPOS FastSaleOrder trực tiếp qua worker proxy ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-tpos-invoice-snapshot.js` |
+| **Why** | Render Singapore outage + bug `DateUpdated` field → endpoint `/api/tpos/fastsale-snapshot` trả 400, store rỗng → cột "PBH TPOS" hiển thị Nháp dù TPOS thật là Đã xác nhận. Deploy fix server không lên được. |
+| **Changes** | Cold-start và `fetchFreshByIds` giờ gọi thẳng `chatomni-proxy.nhijudyshop.workers.dev/api/odata/FastSaleOrder/ODataService.GetView` với `$select=Id,Number,State,ShowState,StateCode,IsMergeCancel,...,SaleOnlineIds`, dùng `window.tokenManager.getAuthHeader()`. Bypass Render hoàn toàn cho 2 path này. |
+| **Status** | ✅ |
+
 ### [orders] Mark "đã in phiếu soạn" — force CHO_HANG khi bật ✅
 | | |
 |---|---|
