@@ -118,8 +118,8 @@
                 return;
             }
             try {
-                const sinceIso = new Date(Date.now() - COLD_START_LOOKBACK_MS).toISOString();
-                const filter = `DateInvoice gt ${sinceIso}`;
+                const sinceIso = new Date(Date.now() - COLD_START_LOOKBACK_MS).toISOString().replace('Z', '+00:00');
+                const filter = `(Type eq 'invoice' and DateInvoice ge ${sinceIso})`;
                 const url = `${TPOS_ODATA_PROXY}?$top=500` +
                     `&$select=${encodeURIComponent(FSO_SELECT)}` +
                     `&$filter=${encodeURIComponent(filter)}` +
@@ -340,7 +340,7 @@
             try {
                 const ids = invoiceIds.filter(Boolean).map(Number).filter(Number.isFinite);
                 if (ids.length === 0) return [];
-                const filter = ids.map(i => `Id eq ${i}`).join(' or ');
+                const filter = `Type eq 'invoice' and (${ids.map(i => `Id eq ${i}`).join(' or ')})`;
                 const url = `${TPOS_ODATA_PROXY}?$top=${ids.length}` +
                     `&$select=${encodeURIComponent(FSO_SELECT)}` +
                     `&$filter=${encodeURIComponent(filter)}`;
