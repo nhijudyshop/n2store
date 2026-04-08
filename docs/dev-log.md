@@ -8,6 +8,14 @@
 
 ## 2026-04-08
 
+### [orders] Bulk "In hàng loạt PBH" — auto mark CHỜ HÀNG 🖨 ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-fast-sale-invoice-status.js` |
+| **Why** | Nút "In hàng loạt PBH" in xong nhưng không gán mark "đã in phiếu soạn" cho Tag XL → user phải đánh thủ công. |
+| **Chi tiết** | Trong `bulkPrintSelectedBills` sau khi mở print popups, loop qua `tposOrders` + `fallbackOrders` gọi `window.onPtagPackingSlipPrinted(saleOnlineId)` cho từng đơn → set `pickingSlipPrinted=true`, force `subState='CHO_HANG'`, badge thành "CHỜ HÀNG 🖨". |
+| **Status** | ✅ Done |
+
 ### [orders] Bulk Xóa Tag — admin xóa luôn Tag XL ✅
 | | |
 |---|---|

@@ -1620,6 +1620,18 @@
                     4000
                 );
             }
+
+            // Mark "đã in phiếu soạn" cho mọi đơn vừa in (cả TPOS và fallback)
+            if (typeof window.onPtagPackingSlipPrinted === 'function') {
+                for (const { orderData } of tposOrders) {
+                    const soId = String(orderData?.Id || '');
+                    if (soId) window.onPtagPackingSlipPrinted(soId);
+                }
+                for (const order of fallbackOrders) {
+                    const soId = String(order?.Id || '');
+                    if (soId) window.onPtagPackingSlipPrinted(soId);
+                }
+            }
         } catch (e) {
             console.error('[BULK-PRINT-BILL]', e);
             window.notificationManager?.error(`Lỗi in hàng loạt: ${e.message}`, 5000);
