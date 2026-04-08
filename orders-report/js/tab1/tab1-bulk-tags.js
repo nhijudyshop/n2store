@@ -2418,7 +2418,7 @@ function showBulkRemoveTagForSelectedModal() {
     }
 
     const orderCount = window.selectedOrderIds.size;
-    const isAdmin = window.authManager?.isAdminTemplate?.() || false;
+    const isAdmin = (window.authManager?.isAdminTemplate?.() || localStorage.getItem('userType') === 'admin-authenticated');
     const scopeNote = isAdmin ? ' (admin: xóa cả TAG TPOS lẫn Tag XL)' : '';
     const confirmMessage = `Bạn muốn xóa tất cả tag của ${orderCount} đơn đang chọn?${scopeNote}`;
     if (!confirm(confirmMessage)) {
@@ -2520,7 +2520,8 @@ async function executeBulkRemoveAllTagsForSelected() {
                     }
 
                     // Admin: xóa luôn Tag XL state (force clear toàn bộ category/subTag/flags/tTags)
-                    if (window.authManager?.isAdminTemplate?.() && window.forceClearProcessingTag) {
+                    const _isAdmin = (window.authManager?.isAdminTemplate?.() || localStorage.getItem('userType') === 'admin-authenticated');
+                    if (_isAdmin && window.forceClearProcessingTag) {
                         const orderCode = String(order.Code || '');
                         if (orderCode) {
                             try {
