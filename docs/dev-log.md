@@ -8,14 +8,6 @@
 
 ## 2026-04-08
 
-### [orders] Bỏ backfill ĐÃ RA ĐƠN khi load (lag) ✅
-| | |
-|---|---|
-| **Files** | `orders-report/js/tab1/tab1-processing-tags.js` |
-| **Why** | Backfill scan toàn bộ orders sau `loadProcessingTags()` gây lag. |
-| **Chi tiết** | Bỏ `backfillPtagFromOrderStatus()` + lời gọi sau `_isLoaded=true`. Tag ĐÃ RA ĐƠN giờ chỉ trigger khi Status thực sự thay đổi (manual hoặc auto Nháp→Đơn hàng). |
-| **Status** | ✅ Done |
-
 ### [orders] Tag ĐÃ RA ĐƠN — đổi trigger từ "PBH tạo thành công" sang "Status='Đơn hàng'" ✅
 | | |
 |---|---|
