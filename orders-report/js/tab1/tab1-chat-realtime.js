@@ -24,6 +24,31 @@ window.handleNewMessage = function(payload) {
     // Skip if already in messages list
     if (window.allChatMessages.some(m => String(m.id) === String(msg.id))) return;
 
+    // Reconcile optimistic private-reply placeholder (id starts with "pr_")
+    // with the real server message: same sender (shop) + same text within 60s.
+    const incomingFromPage = String(msg.from?.id) === String(window.currentChatChannelId);
+    if (incomingFromPage) {
+        const incomingText = (msg.original_message || msg.message || '').trim();
+        const incomingTs = new Date(msg.inserted_at || msg.created_time || Date.now()).getTime();
+        const optIdx = window.allChatMessages.findIndex(m =>
+            typeof m.id === 'string' && m.id.startsWith('pr_') &&
+            m.sender === 'shop' &&
+            (m.text || '').trim() === incomingText &&
+            Math.abs(incomingTs - new Date(m.time || 0).getTime()) < 60000
+        );
+        if (optIdx >= 0) {
+            const old = window.allChatMessages[optIdx];
+            // Migrate PrivateReplyStore mark from optimistic id → real id
+            if (window.PrivateReplyStore?.has?.(old.id)) {
+                try {
+                    window.PrivateReplyStore.mark(msg.id, old.text, old.senderName);
+                    window.PrivateReplyStore.unmark?.(old.id);
+                } catch (_) {}
+            }
+            window.allChatMessages.splice(optIdx, 1);
+        }
+    }
+
     const isFromPage = String(msg.from?.id) === String(window.currentChatChannelId);
     const parsed = {
         id: msg.id,

@@ -8,6 +8,18 @@
 
 ## 2026-04-08
 
+### [chat] Hardening modal tin nhắn/bình luận: race + state-reset + dropdown sync + reconcile ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-chat-core.js`, `orders-report/js/tab1/tab1-chat-realtime.js` |
+| **Bug 2.2** | `switchConversationType` không reset reply/images → reply id của INBOX bị mang sang COMMENT, khiến `reply_comment` gửi với message_id sai. Fix: gọi `_resetTransientChatState()` trước khi find conv mới. |
+| **Bug 2.1** | `switchChatPage` tương tự — không reset `currentReplyMessage`, `pendingImages`, `currentChatCursor`, `allChatMessages`. Fix: dùng cùng helper. |
+| **Bug 3.1** | Multi-page fallback trong `_findAndLoadConversation` silently override `currentChatChannelId` mà KHÔNG sync `#chatPageSelect.value` → dropdown lệch state thật. Fix: set `sel.value = convPageId` khi drift. |
+| **Bug 1.1** | Switch page/type nhanh → fetch cũ resolve sau fetch mới và ghi đè state. Fix: thêm monotonic `window._chatLoadSeq`, mỗi entry point (`openChatModal`, `switchChatPage`, `switchConversationType`) bump `++seq` lấy `myToken`, truyền xuống `_findAndLoadConversation` + `_loadMessages`, check `loadToken !== _chatLoadSeq` ở mọi điểm trước-write-state. `closeChatModal` cũng bump seq để huỷ in-flight. |
+| **Bug 4.3** | Optimistic private-reply id `pr_<ts>` không bao giờ reconcile với id thật từ Pancake → duplicate hiển thị + PrivateReplyStore stale 7 ngày. Fix: trong `handleNewMessage` (realtime) và `_loadMessages` (sau fetch), match shop message theo (text + 60s window) để drop optimistic và migrate `PrivateReplyStore.mark` sang real id. |
+| **Helper mới** | `_resetTransientChatState()` (dùng chung), `window._chatLoadSeq` (monotonic). |
+| **Status** | ✅ Done |
+
 ### [orders] Filter tab1 persist vào IndexedDB, per-account ✅
 | | |
 |---|---|

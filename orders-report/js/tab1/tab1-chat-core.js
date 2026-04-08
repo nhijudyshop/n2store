@@ -177,8 +177,9 @@ window.openChatModal = async function(orderId, pageId, psid, conversationType) {
     _populatePageSelector();
 
     // Find conversation and load messages
+    const myToken = ++window._chatLoadSeq;
     try {
-        await _findAndLoadConversation(pageId, psid, conversationType);
+        await _findAndLoadConversation(pageId, psid, conversationType, myToken);
         // Auto-focus chat input so user can type immediately
         setTimeout(() => {
             const chatInputEl = document.getElementById('chatInput');
@@ -237,6 +238,10 @@ window.closeChatModal = function() {
     // Stop chat polling
     _stopChatPolling();
 
+    // Invalidate any in-flight loads
+    window._chatLoadSeq = (window._chatLoadSeq || 0) + 1;
+    clearTimeout(window._chatUpdateDebounce);
+
     // Cleanup state
     window.currentConversationId = null;
     window.currentConversationType = null;
@@ -262,9 +267,13 @@ window.closeCommentModal = window.closeChatModal;
 // CONVERSATION FINDING & LOADING
 // =====================================================
 
-async function _findAndLoadConversation(pageId, psid, type) {
+async function _findAndLoadConversation(pageId, psid, type, loadToken) {
     const pdm = window.pancakeDataManager;
     if (!pdm) throw new Error('pancakeDataManager not available');
+
+    // If caller didn't supply a token, allocate one so we still guard
+    if (loadToken == null) loadToken = ++window._chatLoadSeq;
+    const _isStale = () => loadToken !== window._chatLoadSeq;
 
     let conv = null;
 
@@ -318,6 +327,8 @@ async function _findAndLoadConversation(pageId, psid, type) {
         }
     }
 
+    if (_isStale()) return;
+
     if (!conv) {
         const messagesEl = document.getElementById('chatMessages');
         if (messagesEl) {
@@ -331,9 +342,14 @@ async function _findAndLoadConversation(pageId, psid, type) {
 
     // Use correct pageId from conversation (may differ from order's pageId)
     const convPageId = conv.page_id || pageId;
-    if (convPageId !== pageId) {
+    if (String(convPageId) !== String(pageId)) {
         window.currentChatChannelId = convPageId;
         window.currentSendPageId = convPageId;
+        // Sync dropdown so UI doesn't lie about which page we're chatting from
+        const sel = document.getElementById('chatPageSelect');
+        if (sel && sel.value !== String(convPageId)) {
+            sel.value = String(convPageId);
+        }
     }
 
     // Enrich thread_id if missing (needed for extension bypass / GET_GLOBAL_ID_FOR_CONV)
@@ -355,18 +371,21 @@ async function _findAndLoadConversation(pageId, psid, type) {
 
     // Load messages - customerId from customers array or from.id
     const customerId = conv.customers?.[0]?.id || conv.customerId || conv.customer?.id || conv.from?.id || null;
-    await _loadMessages(convPageId, conv.id, customerId);
+    await _loadMessages(convPageId, conv.id, customerId, loadToken);
 }
 
 /**
  * Load messages for a conversation
  */
-async function _loadMessages(pageId, conversationId, customerId) {
+async function _loadMessages(pageId, conversationId, customerId, loadToken) {
     const pdm = window.pancakeDataManager;
     if (!pdm) return;
+    if (loadToken == null) loadToken = window._chatLoadSeq;
+    const _isStale = () => loadToken !== window._chatLoadSeq;
 
     try {
         const result = await pdm.fetchMessages(pageId, conversationId, null, customerId);
+        if (_isStale()) return;
 
         // Store conversation data (for extension bypass - thread_id, global_id)
         if (result.conversation) {
@@ -432,6 +451,35 @@ async function _loadMessages(pageId, conversationId, customerId) {
                     window.PrivateReplyStore.mark(m.id, m.text, m.senderName);
                 }
             });
+        }
+
+        // Reconcile any optimistic private-reply placeholders (id "pr_*") that
+        // got pushed by _sendComment but never received a real id. If a real
+        // shop message with matching text exists in the new fetch, drop it.
+        const optimistic = (window.allChatMessages || []).filter(m =>
+            typeof m.id === 'string' && m.id.startsWith('pr_')
+        );
+        if (optimistic.length) {
+            const realTextsRecent = new Set(
+                messages.filter(m => m.sender === 'shop').map(m => (m.text || '').trim())
+            );
+            const survivors = optimistic.filter(o => !realTextsRecent.has((o.text || '').trim()));
+            if (survivors.length) {
+                // Append surviving optimistic at end so user still sees their pending sends
+                messages.push(...survivors);
+            }
+            // Migrate PrivateReplyStore marks for matched ones
+            optimistic
+                .filter(o => realTextsRecent.has((o.text || '').trim()))
+                .forEach(o => {
+                    const real = messages.find(m => m.sender === 'shop' && (m.text || '').trim() === (o.text || '').trim());
+                    if (real && window.PrivateReplyStore?.has?.(o.id)) {
+                        try {
+                            window.PrivateReplyStore.mark(real.id, o.text, o.senderName);
+                            window.PrivateReplyStore.unmark?.(o.id);
+                        } catch (_) {}
+                    }
+                });
         }
 
         window.allChatMessages = messages;
@@ -508,6 +556,27 @@ window.loadMoreMessages = async function() {
 };
 
 // =====================================================
+// SHARED: reset per-conversation transient state
+// (used when switching page, switching type, etc.)
+// =====================================================
+
+// Monotonic load token — guards against stale fetch resolving after a newer switch
+window._chatLoadSeq = 0;
+
+function _resetTransientChatState() {
+    window.currentConversationId = null;
+    window.currentConversationData = null;
+    window.allChatMessages = [];
+    window.currentChatCursor = null;
+    window.currentReplyMessage = null;
+    const preview = document.getElementById('replyPreview');
+    if (preview) preview.classList.remove('active');
+    if (typeof window.clearImagePreviews === 'function') {
+        try { window.clearImagePreviews(); } catch (_) {}
+    }
+}
+
+// =====================================================
 // CONVERSATION TYPE SWITCHING
 // =====================================================
 
@@ -516,6 +585,9 @@ window.switchConversationType = async function(type) {
     window.currentConversationType = type;
 
     _updateTypeToggle(type);
+    _resetTransientChatState();
+
+    const myToken = ++window._chatLoadSeq;
 
     // Re-find conversation with new type
     const messagesEl = document.getElementById('chatMessages');
@@ -527,9 +599,11 @@ window.switchConversationType = async function(type) {
         await _findAndLoadConversation(
             window.currentChatChannelId,
             window.currentChatPSID,
-            type
+            type,
+            myToken
         );
     } catch (e) {
+        if (myToken !== window._chatLoadSeq) return;
         if (messagesEl) {
             messagesEl.innerHTML = '<div class="chat-empty-state"><p>Không tìm thấy cuộc hội thoại.</p></div>';
         }
@@ -641,8 +715,9 @@ window.switchChatPage = async function(newPageId) {
 
     window.currentChatChannelId = newPageId;
     window.currentSendPageId = newPageId;
-    window.currentConversationId = null;
-    window.currentConversationData = null;
+    _resetTransientChatState();
+
+    const myToken = ++window._chatLoadSeq;
 
     const messagesEl = document.getElementById('chatMessages');
     if (messagesEl) {
@@ -650,8 +725,9 @@ window.switchChatPage = async function(newPageId) {
     }
 
     try {
-        await _findAndLoadConversation(newPageId, window.currentChatPSID, window.currentConversationType);
+        await _findAndLoadConversation(newPageId, window.currentChatPSID, window.currentConversationType, myToken);
     } catch (e) {
+        if (myToken !== window._chatLoadSeq) return;
         console.error('[Chat-Core] switchChatPage error:', e);
         if (messagesEl) {
             messagesEl.innerHTML = '<div class="chat-empty-state"><p>Không tìm thấy cuộc hội thoại trên trang này.</p></div>';
