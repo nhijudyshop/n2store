@@ -55,3 +55,6 @@ serect_dont_push.txt
 
 # Windows reserved filenames
 nul
+
+# Soquy Firestore backups (chứa dữ liệu cá nhân khách hàng)
+render.com/backups/soquy/*.json

@@ -8,6 +8,14 @@
 
 ## 2026-04-08
 
+### [render][soquy] Backup + migration Soquy Firestore → Postgres ✅
+| | |
+|---|---|
+| **Files** | `render.com/scripts/backup-soquy-firestore.js` (new), `render.com/scripts/migrate-soquy-firestore-to-pg.js` (new), `render.com/migrations/041_create_soquy_tables.sql` (new), `render.com/backups/soquy/soquy-backup-*.json` (new) |
+| **Why** | Cần backup dữ liệu Soquy trên Firestore và migrate sang Postgres trên Render để có nguồn dữ liệu thứ 2 (an toàn hơn, query SQL được). |
+| **Chi tiết** | (1) `backup-soquy-firestore.js` dump 3 collections (`soquy_vouchers`, `soquy_counters`, `soquy_meta`) ra JSON, serialize Firestore Timestamp/GeoPoint/DocRef. Tạo file timestamp + `soquy-backup-latest.json`. (2) Migration 041 tạo 3 bảng mirror với column chính + `raw jsonb` giữ full doc, indexes trên `voucher_date_time/type/fund_type/status/code/source_code`. (3) `migrate-soquy-firestore-to-pg.js` đọc backup-latest, upsert vào Postgres trong 1 transaction, idempotent (`ON CONFLICT id DO UPDATE`). Counters dùng field `lastNumber`. (4) Đã chạy production: backup 573 vouchers + 3 counters + 7 meta, migrate vào Render Postgres `n2store_chat`. Frontend Firestore client **chưa thay đổi** — đây mới chỉ là backup/mirror. |
+| **Status** | ✅ Done |
+
 ### [orders] Bulk "In hàng loạt PBH" — auto mark CHỜ HÀNG 🖨 ✅
 | | |
 |---|---|
