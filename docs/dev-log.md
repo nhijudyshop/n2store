@@ -8,6 +8,14 @@
 
 ## 2026-04-08
 
+### [orders] Filter subtag — bỏ orphan subTag không khớp category ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-processing-tags.js` |
+| **Why** | Filter `subtag_BAN_HANG` ra 21 đơn nhưng nhiều đơn cat=1 (CHỜ ĐI ĐƠN) còn sót `subTag='BAN_HANG'` từ lúc ở cat 2 → cell render cat 1 hiển thị "CHỜ HÀNG" (bỏ qua subTag) → user tưởng filter đang bám TAG TPOS. |
+| **Chi tiết** | `orderPassesProcessingTagFilter` + `_ptagComputeCounts` giờ require `data.category === PTAG_SUBTAGS[subKey].category` khi check subTag → loại bỏ orphan subTag từ category cũ. |
+| **Status** | ✅ Done |
+
 ### [orders] Panel Chốt Đơn — filter chỉ theo Tag XL, bỏ TAG TPOS ✅
 | | |
 |---|---|

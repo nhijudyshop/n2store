@@ -2014,7 +2014,11 @@
                 flagCounts[fId] = (flagCounts[fId] || 0) + 1;
             });
             if (data.subTag) {
-                subTagCounts[data.subTag] = (subTagCounts[data.subTag] || 0) + 1;
+                // Chỉ đếm khi category khớp subtag def (tránh orphan subTag từ cat cũ)
+                const _subDef = PTAG_SUBTAGS[data.subTag];
+                if (!_subDef || data.category === _subDef.category) {
+                    subTagCounts[data.subTag] = (subTagCounts[data.subTag] || 0) + 1;
+                }
             }
         }
 
@@ -4517,9 +4521,13 @@
             else if (filter.startsWith('flag_')) {
                 passesBase = (data.flags || []).some(f => _ptagFlagId(f) === filter.replace('flag_', ''));
             }
-            // Sub-tag filter (cat 2,3,4)
+            // Sub-tag filter (cat 2,3,4) — đồng thời check category khớp với subtag def
+            // (tránh orphan: data.subTag='BAN_HANG' còn sót khi cat đổi từ 2 → 1)
             else if (filter.startsWith('subtag_')) {
-                passesBase = data.subTag === filter.replace('subtag_', '');
+                const subTagKey = filter.replace('subtag_', '');
+                const subTagDef = PTAG_SUBTAGS[subTagKey];
+                passesBase = data.subTag === subTagKey
+                    && (!subTagDef || data.category === subTagDef.category);
             }
             // T-tag filter (from internal tTags, not TPOS)
             else if (filter.startsWith('ttag_')) {
