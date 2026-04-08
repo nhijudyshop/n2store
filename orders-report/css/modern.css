@@ -3,6 +3,10 @@
    ===================================================== */
 
 :root {
+    /* Typography — match inbox */
+    --font-headline: "Manrope", "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
     /* Colors */
     --primary: #6366f1;
     --primary-dark: #4f46e5;
@@ -82,17 +86,16 @@ html {
 }
 
 body {
-    font-family:
-        "Inter",
-        -apple-system,
-        BlinkMacSystemFont,
-        "Segoe UI",
-        sans-serif;
-    font-size: 0.875rem;
+    font-family: var(--font-body);
+    font-size: 0.9375rem; /* 15px — match inbox */
     line-height: 1.6;
     color: var(--text-primary);
     background: var(--gray-50);
     overflow-x: hidden;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-headline);
 }
 
 button {
