@@ -2000,6 +2000,18 @@ function updateActionButtons() {
     if (bulkRemoveTagBtn) {
         bulkRemoveTagBtn.style.display = checkedCount > 0 ? 'flex' : 'none';
     }
+
+    // Show "In hàng loạt PBH" button when at least one selected order has an invoice (PBH)
+    const bulkPrintBillBtn = document.getElementById('bulkPrintBillBtn');
+    if (bulkPrintBillBtn) {
+        let hasAnyInvoice = false;
+        if (checkedCount > 0 && window.InvoiceStatusStore) {
+            for (const id of selectedOrderIds) {
+                if (window.InvoiceStatusStore.get(id)) { hasAnyInvoice = true; break; }
+            }
+        }
+        bulkPrintBillBtn.style.display = hasAnyInvoice ? 'flex' : 'none';
+    }
 }
 
 // =====================================================

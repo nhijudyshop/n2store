@@ -8,6 +8,13 @@
 
 ## 2026-04-08
 
+### [orders] In hàng loạt phiếu bán hàng (bulk print PBH) ✅
+| | |
+|---|---|
+| **Files** | `orders-report/tab1-orders.html`, `orders-report/js/tab1/tab1-table.js`, `orders-report/js/tab1/tab1-fast-sale-invoice-status.js` |
+| **Chi tiết** | Thêm nút **"In hàng loạt PBH"** (tím, `fa-print`) vào toolbar `actionButtonsSection`, hiện khi có ≥1 đơn được tick **và** đơn đó đã có PBH (check qua `InvoiceStatusStore.get`). Handler `bulkPrintSelectedBills()` gom selection: đơn có `inv.Id` → push vào `tposOrders` rồi gọi `window.openCombinedTPOSPrintPopup(orders, headers)` (template TPOS chính thức 80mm); đơn không có TPOS Id → fallback `window.openCombinedPrintPopup(orders)` (custom HTML). Skip + warning các đơn chưa có PBH. **Reuse 100% logic in có sẵn** trong [bill-service.js](orders-report/js/utils/bill-service.js) — chỉ wire UI + selection filtering, ~80 dòng code. |
+| **Status** | ✅ Done |
+
 ### [orders] Lịch sử Tag T: thêm ô lọc theo STT ✅
 | | |
 |---|---|

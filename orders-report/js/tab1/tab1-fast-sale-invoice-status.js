@@ -1562,6 +1562,72 @@
     }
 
     /**
+     * Bulk print bills for all currently selected (checked) orders.
+     * Reuses window.openCombinedTPOSPrintPopup (official TPOS template) and falls
+     * back to window.openCombinedPrintPopup (custom HTML) for orders without a
+     * TPOS FastSaleOrder Id.
+     */
+    async function bulkPrintSelectedBills() {
+        const ids = Array.from(window.selectedOrderIds || []);
+        if (ids.length === 0) {
+            window.notificationManager?.warning('Chưa chọn đơn nào');
+            return;
+        }
+
+        const tposOrders = [];
+        const fallbackOrders = [];
+        let skipped = 0;
+
+        for (const saleOnlineId of ids) {
+            const inv = InvoiceStatusStore.get(saleOnlineId);
+            const order =
+                window.OrderStore?.get(saleOnlineId) ||
+                (window.displayedData || []).find(
+                    (o) => String(o.Id) === String(saleOnlineId)
+                );
+            if (!inv || !order) { skipped++; continue; }
+            if (inv.Id) {
+                tposOrders.push({ orderId: inv.Id, orderData: order });
+            } else {
+                fallbackOrders.push(order);
+            }
+        }
+
+        const total = tposOrders.length + fallbackOrders.length;
+        if (total === 0) {
+            window.notificationManager?.error('Không có đơn nào có phiếu bán hàng để in');
+            return;
+        }
+
+        window.notificationManager?.info(`🖨 Đang chuẩn bị in ${total} phiếu...`, 4000);
+
+        try {
+            if (tposOrders.length > 0) {
+                if (typeof window.openCombinedTPOSPrintPopup !== 'function') {
+                    throw new Error('openCombinedTPOSPrintPopup không khả dụng');
+                }
+                const headers = await getBillAuthHeader();
+                await window.openCombinedTPOSPrintPopup(tposOrders, headers);
+            }
+            if (fallbackOrders.length > 0) {
+                if (typeof window.openCombinedPrintPopup !== 'function') {
+                    throw new Error('openCombinedPrintPopup không khả dụng');
+                }
+                window.openCombinedPrintPopup(fallbackOrders);
+            }
+            if (skipped > 0) {
+                window.notificationManager?.warning(
+                    `Bỏ qua ${skipped} đơn chưa có PBH`,
+                    4000
+                );
+            }
+        } catch (e) {
+            console.error('[BULK-PRINT-BILL]', e);
+            window.notificationManager?.error(`Lỗi in hàng loạt: ${e.message}`, 5000);
+        }
+    }
+
+    /**
      * Perform actual bill send
      */
     async function performActualSend(
@@ -2506,6 +2572,7 @@
         window.confirmSendBillFromPreview = confirmSendBillFromPreview;
         window.printBillFromPreview = printBillFromPreview;
         window.printAndSendBillFromPreview = printAndSendBillFromPreview;
+        window.bulkPrintSelectedBills = bulkPrintSelectedBills;
         // Delete invoice function
         window.deleteInvoiceFromStore = deleteInvoiceFromStore;
         // Fulfillment (Ra đơn) functions
