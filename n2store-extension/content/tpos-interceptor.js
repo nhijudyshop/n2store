@@ -136,5 +136,5 @@
     return origSend.apply(this, arguments);
   };
 
-  console.log('[N2Store] TPOS interceptor active (v1.1.0 — tag-only, FSO via server)');
+  console.log('[N2Store] TPOS interceptor active (v1.0.4 — tag-only, FSO via server)');
 })();
