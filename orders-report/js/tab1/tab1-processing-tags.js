@@ -863,6 +863,29 @@
         }
     }
 
+    // Force clear: xóa SẠCH toàn bộ XL state (category + subTag + flags + tTags + pickingSlipPrinted).
+    // Khác với clearProcessingTag (chỉ clear category nếu còn flags/tTags). Dùng cho admin bulk Xóa Tag.
+    async function forceClearProcessingTag(orderCode) {
+        const data = ProcessingTagState.getOrderData(orderCode);
+        if (data) {
+            const removedValue = `${data.category}:${data.subTag || ''}`;
+            _ptagAddHistory(orderCode, 'REMOVE_CATEGORY', removedValue, 'admin-bulk-clear');
+        }
+        const history = ProcessingTagState.getHistory(orderCode);
+        ProcessingTagState.removeOrder(orderCode);
+        _ptagRefreshRow(orderCode);
+        if (history.length > 0) {
+            // Giữ history trên server, xóa data
+            const userName = window.authManager?.getAuthState()?.username || '';
+            await _ptagFetch(
+                `${PTAG_API_BASE}/by-code/${encodeURIComponent(orderCode)}`,
+                { method: 'PUT', body: JSON.stringify({ data: { history }, updatedBy: userName }) }
+            );
+        } else {
+            await clearProcessingTagAPI(orderCode);
+        }
+    }
+
     async function clearProcessingTag(orderCode) {
         const data = ProcessingTagState.getOrderData(orderCode);
         const removedValue = data ? `${data.category}:${data.subTag || ''}` : '';
@@ -5176,6 +5199,7 @@
     window.assignOrderCategory = assignOrderCategory;
     window.toggleOrderFlag = toggleOrderFlag;
     window.clearProcessingTag = clearProcessingTag;
+    window.forceClearProcessingTag = forceClearProcessingTag;
     window.transferProcessingTags = transferProcessingTags;
     window.renderProcessingTagCell = renderProcessingTagCell;
     window.renderPanelContent = renderPanelContent;

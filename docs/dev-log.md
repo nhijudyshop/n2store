@@ -8,6 +8,14 @@
 
 ## 2026-04-08
 
+### [orders] Bulk Xóa Tag — admin xóa luôn Tag XL ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-processing-tags.js`, `tab1-bulk-tags.js` |
+| **Why** | Nút bulk "Xóa Tag" trước đây chỉ xóa cột TAG TPOS. Admin cần xóa sạch cả Tag XL (category/subTag/flags/tTags). |
+| **Chi tiết** | Thêm `forceClearProcessingTag(orderCode)` ở processing-tags: xóa toàn bộ XL state (khác `clearProcessingTag` chỉ clear category nếu còn flags/tTags). Trong `executeBulkRemoveAllTagsForSelected` sau khi xóa TPOS thành công, nếu `authManager.isAdminTemplate()` → gọi `forceClearProcessingTag(order.Code)` cho từng đơn. Confirm dialog hiện note "(admin: xóa cả TAG TPOS lẫn Tag XL)". |
+| **Status** | ✅ Done |
+
 ### [orders] Bypass Render — gọi TPOS FastSaleOrder trực tiếp qua worker proxy ✅
 | | |
 |---|---|

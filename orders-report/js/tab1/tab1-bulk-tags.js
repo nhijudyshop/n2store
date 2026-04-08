@@ -2418,7 +2418,9 @@ function showBulkRemoveTagForSelectedModal() {
     }
 
     const orderCount = window.selectedOrderIds.size;
-    const confirmMessage = `Bạn muốn xóa tất cả tag của ${orderCount} đơn đang chọn?`;
+    const isAdmin = window.authManager?.isAdminTemplate?.() || false;
+    const scopeNote = isAdmin ? ' (admin: xóa cả TAG TPOS lẫn Tag XL)' : '';
+    const confirmMessage = `Bạn muốn xóa tất cả tag của ${orderCount} đơn đang chọn?${scopeNote}`;
     if (!confirm(confirmMessage)) {
         return;
     }
@@ -2515,6 +2517,18 @@ async function executeBulkRemoveAllTagsForSelected() {
                     // Emit to Firebase
                     if (typeof emitTagUpdateToFirebase === 'function') {
                         await emitTagUpdateToFirebase(orderId, []);
+                    }
+
+                    // Admin: xóa luôn Tag XL state (force clear toàn bộ category/subTag/flags/tTags)
+                    if (window.authManager?.isAdminTemplate?.() && window.forceClearProcessingTag) {
+                        const orderCode = String(order.Code || '');
+                        if (orderCode) {
+                            try {
+                                await window.forceClearProcessingTag(orderCode);
+                            } catch (e) {
+                                console.warn(`[BULK-REMOVE-TAG] forceClearProcessingTag failed for ${orderCode}:`, e);
+                            }
+                        }
                     }
 
                     // Collect history entry
