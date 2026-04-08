@@ -8,6 +8,13 @@
 
 ## 2026-04-08
 
+### [orders] Auto-chọn ship theo địa chỉ: pass extraAddress + dedupe + notify ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-fast-sale.js`, `orders-report/js/utils/sale-modal-common.js` |
+| **Chi tiết** | Fast Sale (tạo nhiều phiếu) trước đây gọi `smartSelectCarrierForRow(select, address, null)` — bỏ qua structured `ExtraAddress` từ Pancake/TPOS → kém chính xác khi địa chỉ text mơ hồ. **(2)** Truyền `saleOnlineOrder?.ExtraAddress \|\| order.Ship_Receiver?.ExtraAddress \|\| order.Partner?.ExtraAddress` vào auto-select (cả lúc mở modal lẫn lúc edit địa chỉ inline). **(1)** Refactor: `smartSelectDeliveryPartner(address, extraAddress, {select, silent})` trong sale-modal-common.js giờ nhận `select` + `silent` qua options và trả về `{matched, fallback, name}`; `smartSelectCarrierForRow` rút gọn thành thin wrapper (xoá ~30 dòng duplicate logic). **(3)** Thêm notification thống nhất: bulk dùng `silent:true` per-row + 1 toast tổng kết `"Tự động chọn ship: X/Y khớp · Z fallback"` sau khi xong loop; address-edit inline dùng `silent:false` (1 user action → 1 toast). |
+| **Status** | ✅ Done |
+
 ### [orders] In hàng loạt phiếu bán hàng (bulk print PBH) ✅
 | | |
 |---|---|

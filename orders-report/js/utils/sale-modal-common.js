@@ -427,23 +427,38 @@ window.getCachedDeliveryCarriers = getCachedDeliveryCarriers;
 // =====================================================
 // SMART DELIVERY PARTNER SELECTION
 // =====================================================
-function smartSelectDeliveryPartner(address, extraAddress = null) {
-    const select = document.getElementById('saleDeliveryPartner');
-    if (!select || select.options.length <= 1) return;
+/**
+ * Smart-select delivery partner based on address.
+ * Shared by both single-invoice (Sale Online) and bulk (Fast Sale) flows.
+ *
+ * @param {string} address - Free-text address
+ * @param {object|null} extraAddress - Structured ExtraAddress (City/District/Ward) when available
+ * @param {object} [options]
+ * @param {HTMLSelectElement} [options.select] - Target dropdown. Defaults to '#saleDeliveryPartner'.
+ * @param {boolean} [options.silent=false] - Suppress notifications (e.g. bulk loops show one summary)
+ * @returns {{matched:boolean, fallback?:boolean, name?:string, isProvince?:boolean}|null}
+ */
+function smartSelectDeliveryPartner(address, extraAddress = null, options = {}) {
+    const select = options.select || document.getElementById('saleDeliveryPartner');
+    const silent = options.silent === true;
+    if (!select || select.options.length <= 1) return null;
 
-    let districtInfo = extractDistrictFromAddress(address, extraAddress);
+    const districtInfo = extractDistrictFromAddress(address, extraAddress);
 
     if (!districtInfo) {
-        selectCarrierByName(select, 'SHIP TỈNH', true);
-        return;
+        selectCarrierByName(select, 'SHIP TỈNH', !silent);
+        return { matched: false, fallback: true };
     }
 
     if (districtInfo.isProvince) {
         selectCarrierByName(select, 'SHIP TỈNH', false);
-        if (window.notificationManager) {
-            window.notificationManager.success(`Tự động chọn: SHIP TỈNH (${districtInfo.cityName || 'tỉnh'})`, 2000);
+        if (!silent && window.notificationManager) {
+            window.notificationManager.success(
+                `Tự động chọn: SHIP TỈNH (${districtInfo.cityName || 'tỉnh'})`,
+                2000
+            );
         }
-        return;
+        return { matched: true, name: 'SHIP TỈNH', isProvince: true };
     }
 
     const matchedCarrier = findMatchingCarrier(select, districtInfo);
@@ -451,12 +466,14 @@ function smartSelectDeliveryPartner(address, extraAddress = null) {
     if (matchedCarrier) {
         select.value = matchedCarrier.id;
         select.dispatchEvent(new Event('change'));
-        if (window.notificationManager) {
+        if (!silent && window.notificationManager) {
             window.notificationManager.success(`Tự động chọn: ${matchedCarrier.name}`, 2000);
         }
-    } else {
-        selectCarrierByName(select, 'SHIP TỈNH', true);
+        return { matched: true, name: matchedCarrier.name };
     }
+
+    selectCarrierByName(select, 'SHIP TỈNH', !silent);
+    return { matched: false, fallback: true };
 }
 
 function extractDistrictFromAddress(address, extraAddress) {

@@ -813,6 +813,7 @@ async function renderFastSaleModalBody() {
     // Auto-select carriers for each order based on address
     // Skip rows where user has already selected a carrier (_userCarrierId)
     setTimeout(() => {
+        const _autoSelectStats = { matched: 0, fallback: 0, total: 0 };
         fastSaleOrdersData.forEach((order, index) => {
             const rowCarrierSelect = document.querySelector(`#fastSaleCarrier_${index}`);
             if (!rowCarrierSelect || rowCarrierSelect.options.length <= 1) return;
@@ -838,9 +839,37 @@ async function renderFastSaleModalBody() {
                 console.log(
                     `[FAST-SALE] Auto-selecting carrier for order ${index} with address: ${address}`
                 );
-                smartSelectCarrierForRow(rowCarrierSelect, address, null);
+                const _extraAddress =
+                    saleOnlineOrder?.ExtraAddress ||
+                    order.Ship_Receiver?.ExtraAddress ||
+                    order.Partner?.ExtraAddress ||
+                    null;
+                const _result = smartSelectCarrierForRow(
+                    rowCarrierSelect,
+                    address,
+                    _extraAddress
+                );
+                _autoSelectStats.total++;
+                if (_result?.matched) _autoSelectStats.matched++;
+                else _autoSelectStats.fallback++;
             }
         });
+
+        // Step 3: One aggregated notification (avoid spamming N toasts)
+        if (_autoSelectStats.total > 0 && window.notificationManager) {
+            const { matched, fallback, total } = _autoSelectStats;
+            if (fallback === 0) {
+                window.notificationManager.success(
+                    `Tự động chọn ship: ${matched}/${total} đơn khớp địa chỉ`,
+                    2500
+                );
+            } else {
+                window.notificationManager.info(
+                    `Tự động chọn ship: ${matched}/${total} khớp · ${fallback} dùng SHIP TỈNH (fallback)`,
+                    3500
+                );
+            }
+        }
     }, 100);
 }
 
@@ -1534,10 +1563,17 @@ async function saveAddressToServer(index, fastSaleOrderId, newAddress, saveBtn) 
         // Also update the local fastSaleOrdersData
         fastSaleOrdersData[index].ReceiverAddress = newAddress;
 
-        // Re-run carrier auto-select with new address
+        // Re-run carrier auto-select with new address (single user edit → non-silent)
         const carrierSelect = document.getElementById(`fastSaleCarrier_${index}`);
-        if (carrierSelect && typeof smartSelectCarrierForRow === 'function') {
-            smartSelectCarrierForRow(carrierSelect, newAddress, null);
+        if (carrierSelect && typeof window.smartSelectDeliveryPartner === 'function') {
+            const _extraAddress =
+                fastSaleOrder.Ship_Receiver?.ExtraAddress ||
+                fastSaleOrder.Partner?.ExtraAddress ||
+                null;
+            window.smartSelectDeliveryPartner(newAddress, _extraAddress, {
+                select: carrierSelect,
+                silent: false
+            });
         }
 
         window.notificationManager?.success('Đã lưu địa chỉ');
@@ -1697,41 +1733,14 @@ function updateFastSaleWalletInput(index, finalAmountTotal, shippingFee) {
  * @param {object} extraAddress - Optional ExtraAddress object
  */
 function smartSelectCarrierForRow(select, address, extraAddress = null) {
-    if (!select || select.options.length <= 1) {
-        return;
-    }
-
-    // Extract district info
-    const districtInfo = extractDistrictFromAddress(address, extraAddress);
-
-    if (!districtInfo) {
-        console.log('[FAST-SALE] Could not extract district, selecting default carrier');
-        selectCarrierByName(select, 'SHIP TỈNH', false);
-        return;
-    }
-
-    // If address is detected as province (not HCM/Hanoi), select SHIP TỈNH immediately
-    if (districtInfo.isProvince) {
-        console.log(
-            '[FAST-SALE] Address is in province:',
-            districtInfo.cityName,
-            '- selecting SHIP TỈNH'
-        );
-        selectCarrierByName(select, 'SHIP TỈNH', false);
-        return;
-    }
-
-    // Find matching carrier
-    const matchedCarrier = findMatchingCarrier(select, districtInfo);
-
-    if (matchedCarrier) {
-        console.log('[FAST-SALE] ✅ Auto-selected carrier:', matchedCarrier.name);
-        select.value = matchedCarrier.id;
-        select.dispatchEvent(new Event('change'));
-    } else {
-        console.log('[FAST-SALE] No matching carrier, selecting SHIP TỈNH');
-        selectCarrierByName(select, 'SHIP TỈNH', false);
-    }
+    // Thin wrapper around the shared smartSelectDeliveryPartner.
+    // Uses silent=true so the bulk loop can emit one aggregated notification
+    // instead of N toasts per row.
+    if (typeof window.smartSelectDeliveryPartner !== 'function') return null;
+    return window.smartSelectDeliveryPartner(address, extraAddress, {
+        select,
+        silent: true
+    });
 }
 
 /**
