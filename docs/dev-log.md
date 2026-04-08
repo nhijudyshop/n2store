@@ -8,6 +8,14 @@
 
 ## 2026-04-08
 
+### [orders] Chống tạo PBH trùng ở nút "Tạo phiếu bán hàng" (single mode) ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-sale.js` |
+| **Why** | Bulk "Tạo nhanh PBH (F9)" có 4 lớp phòng vệ duplicate (dedupe modal, skip đơn đã `Đã xác nhận`/`Đã thanh toán`, dedupe `models[]` trước submit, flag `isSavingFastSale`). Single "Tạo phiếu bán hàng" CHỈ có check `button.disabled` → đơn đã có PBH vẫn có thể submit lần 2 (mở lại modal sau timeout / race). |
+| **Changes** | `confirmAndPrintSale()`: (1) check `window.__isSavingSingleSale` flag in-flight; (2) guard `currentSaleOrderData.ShowState`/`State` đã `Đã xác nhận`/`Đã thanh toán`/`open` → bỏ qua + warning; (3) tra `window.InvoiceStatusStore.get(saleOnlineId)` (cùng logic bulk tab1-fast-sale.js:419); (4) `finally` reset flag. |
+| **Status** | ✅ Cần manual test. |
+
 ### [shared][all] Đồng bộ typography toàn dự án ✅
 | | |
 |---|---|
