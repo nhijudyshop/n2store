@@ -8,6 +8,14 @@
 
 ## 2026-04-08
 
+### [orders] Mark "đã in phiếu soạn" — force CHO_HANG khi bật ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-processing-tags.js` |
+| **Why** | Click nút 🖨 (cell) hoặc bulk Phiếu Soạn Hàng khi đơn ở Cat 1/OKIE_CHO_DI_DON: `pickingSlipPrinted=true` đúng nhưng subState giữ OKIE → badge hiển thị "OKIE..." không phải "CHỜ HÀNG 🖨". |
+| **Chi tiết** | `_ptagQuickAssign('print')` + `onPtagPackingSlipPrinted()`: khi bật mark, force `subState='CHO_HANG'` cho mọi đơn Cat 1 (không chỉ khi cat null/Cat 2). Khi tắt mark (chỉ nút cell), recompute subState từ tTags. Persistence khi xoá tTags rồi add lại đã sẵn (pickingSlipPrinted không reset). |
+| **Status** | ✅ Done |
+
 ### [orders] Filter subtag — bỏ orphan subTag không khớp category ✅
 | | |
 |---|---|

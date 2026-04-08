@@ -1093,9 +1093,11 @@
 
         data.pickingSlipPrinted = true;
 
-        // Auto gán Cat 1 / CHO_HANG khi: chưa có category hoặc đang ở Cat 2 (Xử Lý)
+        // Đảm bảo Cat 1 / CHO_HANG để badge hiển thị mark (kể cả khi đã ở Cat 1 / OKIE)
         if (data.category == null || data.category === PTAG_CATEGORIES.XU_LY) {
             data.category = PTAG_CATEGORIES.CHO_DI_DON;
+        }
+        if (data.category === PTAG_CATEGORIES.CHO_DI_DON) {
             data.subState = 'CHO_HANG';
             data.assignedAt = Date.now();
         }
@@ -1877,17 +1879,27 @@
         } else if (type === 'wait') {
             assignOrderCategory(orderCode, PTAG_CATEGORIES.XU_LY, { subTag: 'CHUA_PHAN_HOI' });
         } else if (type === 'print') {
-            // Toggle pickingSlipPrinted + auto Cat 1/CHO_HANG (giống dropdown toggle)
+            // Toggle pickingSlipPrinted + đảm bảo subState='CHO_HANG' để badge hiển thị mark
             let data = ProcessingTagState.getOrderData(orderCode);
             if (!data) {
                 data = { category: null, subTag: null, subState: null, flags: [], tTags: [], note: '', assignedAt: Date.now() };
             }
             data.pickingSlipPrinted = !data.pickingSlipPrinted;
             _ptagAddHistory(orderCode, data.pickingSlipPrinted ? 'SET_PHIEU_SOAN' : 'UNSET_PHIEU_SOAN', '', '');
-            if (data.pickingSlipPrinted && (data.category == null || data.category === PTAG_CATEGORIES.XU_LY)) {
-                data.category = PTAG_CATEGORIES.CHO_DI_DON;
-                data.subState = 'CHO_HANG';
+            if (data.pickingSlipPrinted) {
+                // Bật: ép Cat 1 / CHO_HANG (kể cả khi đang ở Cat 1 / OKIE) để badge hiển thị mark
+                if (data.category == null || data.category === PTAG_CATEGORIES.XU_LY) {
+                    data.category = PTAG_CATEGORIES.CHO_DI_DON;
+                }
+                if (data.category === PTAG_CATEGORIES.CHO_DI_DON) {
+                    data.subState = 'CHO_HANG';
+                }
                 data.assignedAt = Date.now();
+            } else {
+                // Tắt: recompute subState từ tTags
+                if (data.category === PTAG_CATEGORIES.CHO_DI_DON) {
+                    data.subState = (data.tTags || []).length > 0 ? 'CHO_HANG' : 'OKIE_CHO_DI_DON';
+                }
             }
             _ptagEnsureCode(orderCode, data);
             ProcessingTagState.setOrderData(orderCode, data);
