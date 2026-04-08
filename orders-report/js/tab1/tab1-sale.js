@@ -1196,6 +1196,19 @@ async function confirmAndPrintSale() {
         // Success notification
         window.notificationManager?.success(`Đã tạo đơn hàng ${orderNumber}`);
 
+        // Show result modal (same as bulk PBH flow) — 1 row in "Thành công"
+        if (typeof window.showFastSaleResultsModal === 'function') {
+            try {
+                window.showFastSaleResultsModal({
+                    DataErrorFast: [],
+                    OrdersError: [],
+                    OrdersSucessed: [createResult],
+                });
+            } catch (e) {
+                console.warn('[SALE-CONFIRM] showFastSaleResultsModal error:', e.message);
+            }
+        }
+
         // For social orders: update status + store invoice BEFORE closing modal
         // (closeSaleButtonModal override was unreliable, so handle directly here)
         if (currentSaleOrderData?._isSocialOrder && window._lastSocialSaleOrderId) {
