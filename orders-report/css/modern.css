@@ -85,10 +85,8 @@ html {
     -moz-osx-font-smoothing: grayscale;
 }
 
-body {
-    font-family: var(--font-body);
-    font-size: 1.25rem; /* 20px */
-    font-weight: 500; /* in đậm toàn bộ text */
+body {font-size: 1.25rem; /* 20px */
+/* in đậm toàn bộ text */
     line-height: 1.6;
     color: var(--text-primary);
     background: var(--gray-50);

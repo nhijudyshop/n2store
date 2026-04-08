@@ -652,6 +652,12 @@ async function confirmAndPrintSale() {
         return;
     }
 
+    // Module-level in-flight flag (chống race khi mở lại modal trong lúc API đang chạy)
+    if (window.__isSavingSingleSale) {
+        console.warn('[SALE-CONFIRM] ⚠️ Single-sale save already in flight, ignoring');
+        return;
+    }
+
     console.log('[SALE-CONFIRM] Starting confirm and print via InsertListOrderModel...');
 
     // Validate we have order data
@@ -661,6 +667,43 @@ async function confirmAndPrintSale() {
         }
         return;
     }
+
+    // Guard duplicate: nếu đơn này đã có PBH "Đã xác nhận"/"Đã thanh toán" thì không tạo lại
+    // (Same logic as bulk fast-sale modal — tab1-fast-sale.js:419)
+    try {
+        if (
+            currentSaleOrderData.ShowState === 'Đã xác nhận' ||
+            currentSaleOrderData.ShowState === 'Đã thanh toán' ||
+            currentSaleOrderData.State === 'open'
+        ) {
+            const msg = `Đơn này đã có phiếu "${currentSaleOrderData.ShowState || currentSaleOrderData.State}". Bỏ qua để tránh tạo trùng.`;
+            console.warn('[SALE-CONFIRM] ⚠️', msg);
+            if (window.notificationManager) window.notificationManager.warning(msg, 4000);
+            else alert(msg);
+            return;
+        }
+        const saleOnlineId =
+            currentSaleOrderData.SaleOnlineIds?.[0] || currentSaleOrderData.Id;
+        if (saleOnlineId && window.InvoiceStatusStore) {
+            const invoiceData = window.InvoiceStatusStore.get(saleOnlineId);
+            if (
+                invoiceData &&
+                (invoiceData.ShowState === 'Đã xác nhận' ||
+                    invoiceData.ShowState === 'Đã thanh toán' ||
+                    invoiceData.State === 'open')
+            ) {
+                const msg = `Đơn này đã có PBH "${invoiceData.ShowState || invoiceData.State}" trong store. Bỏ qua để tránh tạo trùng.`;
+                console.warn('[SALE-CONFIRM] ⚠️', msg);
+                if (window.notificationManager) window.notificationManager.warning(msg, 4000);
+                else alert(msg);
+                return;
+            }
+        }
+    } catch (guardErr) {
+        console.warn('[SALE-CONFIRM] Duplicate-guard check failed (non-blocking):', guardErr);
+    }
+
+    window.__isSavingSingleSale = true;
 
     // Show loading state - disable button immediately
     const originalText = confirmBtn?.textContent;
@@ -1186,6 +1229,7 @@ async function confirmAndPrintSale() {
         console.error('[SALE-CONFIRM] Error:', error);
         window.notificationManager?.error(error.message || 'Lỗi xác nhận đơn hàng');
     } finally {
+        window.__isSavingSingleSale = false;
         if (confirmBtn) {
             confirmBtn.disabled = false;
             confirmBtn.textContent = originalText || 'Xác nhận và in (F9)';

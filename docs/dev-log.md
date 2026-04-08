@@ -8,6 +8,17 @@
 
 ## 2026-04-08
 
+### [shared][all] Đồng bộ typography toàn dự án ✅
+| | |
+|---|---|
+| **Files** | `shared/css/typography.css` (mới), 52 HTML entry pages, ~20 CSS module files |
+| **Why** | Typography phân mảnh: 12/30 trang load Inter, 18/30 fallback system. Body size 13–20px, weight 400–500, font-family lẫn lộn. User chốt: toàn dự án Inter 20px weight 600. |
+| **typography.css** | Single source of truth, dùng `!important` cho `body { font-family/size/weight }`, headings dùng Manrope 700. Buttons/inputs `inherit`. |
+| **Inject** | Script `/tmp/inject_typography.py` chèn `<link>` Google Fonts (Inter+Manrope) + `shared/css/typography.css` vào 52 entry HTML pages, đường dẫn relative tự tính theo depth, marker `<!-- typography:shared -->` chống re-inject. |
+| **Cleanup** | Script `/tmp/clean_body_css.py` xóa `font-family/size/weight` trong rule `body{}` của 19 CSS module + 2 inline `<style>` (`tab-kpi-commission.html`, `order-management/index.html` — bỏ luôn `font-family: Segoe UI` cũ). Giữ `color/background/line-height/padding`. |
+| **Loại trừ** | `n2store-extension/`, `pancake-extension/`, `render.com/`, `cloudflare-worker/`, `backups/`, `docs/plans/*.html`. |
+| **Status** | ✅ Commit `9e588e01` (inject) + cleanup commit. Pushed. Cần verify visual ở các trang dùng Bootstrap/Tailwind (`customer-hub`, `tab3-product-assignment`) và `firebase-stats` dashboard. |
+
 ### [orders] Đồng bộ typography orders-report giống inbox ✅
 | | |
 |---|---|
