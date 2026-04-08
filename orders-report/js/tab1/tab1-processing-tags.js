@@ -449,9 +449,6 @@
             ProcessingTagState._isLoaded = true;
             console.log(`${PTAG_LOG} Loaded tags for ${orderCodes.length} orders`);
 
-            // Backfill: tag ĐÃ RA ĐƠN cho mọi đơn Status='Đơn hàng' chưa có category=0
-            try { backfillPtagFromOrderStatus(); } catch (e) { console.warn(`${PTAG_LOG} Backfill failed:`, e); }
-
             // Nếu user đang có filter active → re-apply qua performTableSearch để bảng phản
             // ánh đúng sau khi data mới load (tránh trường hợp row mới xuất hiện không bị filter).
             if (hasActiveProcessingTagFilters() && typeof window.performTableSearch === 'function') {
@@ -5198,7 +5195,6 @@
     window.onPtagBillCancelled = onPtagBillCancelled;
     window.onPtagPackingSlipPrinted = onPtagPackingSlipPrinted;
     window.onPtagOrderStatusChanged = onPtagOrderStatusChanged;
-    window.backfillPtagFromOrderStatus = backfillPtagFromOrderStatus;
 
     // Status-driven trigger: tag ĐÃ RA ĐƠN theo order.Status === 'Đơn hàng'
     // Thay thế cơ chế cũ (auto-tag khi tạo PBH thành công).
@@ -5220,26 +5216,6 @@
         }
     }
 
-    // Backfill: scan allOrders đã load, tag ĐÃ RA ĐƠN cho mọi đơn Status='Đơn hàng'
-    // chưa có category=0. Gọi sau loadProcessingTags().
-    function backfillPtagFromOrderStatus() {
-        if (!ProcessingTagState._isLoaded) return;
-        const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
-        if (!allOrders.length) return;
-        let count = 0;
-        for (const o of allOrders) {
-            const status = o.StatusText || o.Status;
-            if (status !== 'Đơn hàng') continue;
-            const orderCode = String(o.Code || '');
-            if (!orderCode) continue;
-            const data = ProcessingTagState.getOrderData(orderCode);
-            if (data && data.category === PTAG_CATEGORIES.HOAN_TAT) continue;
-            // Fire-and-forget — onPtagBillCreated tự idempotent
-            onPtagBillCreated(o.Id || orderCode);
-            count++;
-        }
-        if (count > 0) console.log(`${PTAG_LOG} Backfill ĐÃ RA ĐƠN: ${count} orders`);
-    }
 
     // Filter (called from tab1-search.js)
     window.getActiveProcessingTagFilter = getActiveProcessingTagFilter;
