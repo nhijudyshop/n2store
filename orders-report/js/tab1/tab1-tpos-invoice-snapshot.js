@@ -461,10 +461,27 @@
         );
     }
 
+    /**
+     * Render the "Trạng thái" cell HTML from a TPOS snapshot for the given
+     * order. Returns null if no snapshot exists → caller falls back to the
+     * Pancake-derived render.
+     */
+    function renderStatusCellFromTPOS(order) {
+        if (!order || !order.Id) return null;
+        const snap = TPOSInvoiceSnapshotStore.getBySaleOnlineId(order.Id);
+        const derived = deriveStatusFromTPOS(snap);
+        if (!derived) return null;
+        return `<span class="status-badge ${derived.cls}" style="cursor:pointer;" ` +
+            `onclick="openOrderStatusModal('${order.Id}', '${order.Status || ''}')" ` +
+            `data-order-id="${order.Id}" title="Cập nhật từ TPOS (FastSaleOrder)">` +
+            `${escapeHtml(derived.text)}</span>`;
+    }
+
     // Initialize cache on load
     TPOSInvoiceSnapshotStore.init();
 
     // Expose globally
     window.TPOSInvoiceSnapshotStore = TPOSInvoiceSnapshotStore;
     window.renderInvoiceStatusTposCell = renderInvoiceStatusTposCell;
+    window.renderStatusCellFromTPOS = renderStatusCellFromTPOS;
 })();
