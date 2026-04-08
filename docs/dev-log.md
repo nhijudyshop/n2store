@@ -8,6 +8,14 @@
 
 ## 2026-04-08
 
+### [orders] Đồng bộ typography orders-report giống inbox ✅
+| | |
+|---|---|
+| **Files** | `orders-report/main.html`, `orders-report/css/modern.css` |
+| **Why** | Trang orders-report dùng Inter 14px, không có headline font, khác hẳn inbox (Inter 15px + Manrope headline) → cảm giác lệch khi chuyển tab. |
+| **Changes** | main.html: thêm preconnect + link Google Fonts (Inter 400/500/600/700 + Manrope 600/700/800). modern.css: thêm `--font-body` / `--font-headline` trong `:root`, body dùng `var(--font-body)` + `font-size: 0.9375rem` (15px), thêm rule `h1–h6 { font-family: var(--font-headline) }`. |
+| **Status** | ✅ Commit `4eb7b20e`, pushed. |
+
 ### [render][orders][extension] Cột "Phiếu bán hàng TPOS" → nguồn từ WS server thay extension ✅
 | | |
 |---|---|
