@@ -197,24 +197,41 @@ function printPackingSlip() {
     // Build print HTML
     const html = generatePackingSlipHTML(waitingIndices, notes);
 
-    // Open print window
-    const printWindow = window.open('', '_blank', 'width=900,height=700,scrollbars=yes');
-    if (!printWindow) {
-        if (window.notificationManager) {
-            window.notificationManager.warning('Không thể mở cửa sổ in. Vui lòng cho phép popup.');
+    // Print via hidden iframe to avoid popup window hangups
+    const oldFrame = document.getElementById('packingSlipPrintFrame');
+    if (oldFrame) oldFrame.remove();
+
+    const iframe = document.createElement('iframe');
+    iframe.id = 'packingSlipPrintFrame';
+    iframe.style.cssText = 'position:fixed; right:0; bottom:0; width:0; height:0; border:0; visibility:hidden;';
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(html);
+    doc.close();
+
+    const triggerPrint = () => {
+        try {
+            iframe.contentWindow.focus();
+            iframe.contentWindow.print();
+        } catch (e) {
+            console.error('[PACKING-SLIP] Print error:', e);
         }
-        return;
-    }
-
-    printWindow.document.write(html);
-    printWindow.document.close();
-
-    printWindow.onload = function () {
-        setTimeout(() => {
-            printWindow.focus();
-            printWindow.print();
-        }, 500);
+        // Cleanup iframe after print dialog closes
+        const cleanup = () => {
+            setTimeout(() => iframe.remove(), 100);
+        };
+        if (iframe.contentWindow.matchMedia) {
+            const mql = iframe.contentWindow.matchMedia('print');
+            mql.addEventListener('change', (e) => { if (!e.matches) cleanup(); });
+        }
+        iframe.contentWindow.onafterprint = cleanup;
+        // Fallback cleanup
+        setTimeout(() => { if (document.getElementById('packingSlipPrintFrame')) iframe.remove(); }, 60000);
     };
+
+    iframe.onload = () => setTimeout(triggerPrint, 300);
 
     // Auto-tag "CHỜ HÀNG VỀ" after printing
     autoTagChoHangVe();
