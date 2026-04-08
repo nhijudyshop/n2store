@@ -8,6 +8,14 @@
 
 ## 2026-04-08
 
+### [orders] RT TPOS → cập nhật cả cột "Phiếu bán hàng TPOS" và "Trạng thái" ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-tpos-invoice-snapshot.js`, `orders-report/js/tab1/tab1-tpos-realtime.js`, `orders-report/css/tab1-orders.css` |
+| **Why** | Khi WS `tpos:invoice-list-updated` về, chỉ refresh cột "Phiếu bán hàng TPOS"; cột "Trạng thái" vẫn đứng im theo Pancake → user thấy không nhất quán. |
+| **Changes** | (1) `TPOSInvoiceSnapshotStore.fetchFreshByIds(ids)` — gọi `GET /api/tpos/fastsale-snapshot?ids=...` lấy snapshot fresh từ TPOS invoicelist OData. (2) `deriveStatusFromTPOS(snap)` — map ShowState/StateCode/IsMergeCancel → text+class (Đã hủy, Nháp, Đơn hàng, Đã đối soát, Đã thanh toán, Hoàn thành, Gộp/Hủy). (3) `refreshStatusCellsFor(soIds)` — re-render `td[data-column="status"]` UI-only, KHÔNG ghi `order.Status` về Pancake. (4) `handleInvoiceListUpdate` async: fetch fresh trước, fallback payload nếu fail, rồi gọi cả `refreshCellsFor` lẫn `refreshStatusCellsFor`. (5) CSS `.status-paid` + `.status-order.strong`. |
+| **Status** | ✅ |
+
 ### [orders] Chặn tạo PBH khi đơn ở trạng thái "Đơn hàng" (single + bulk) ✅
 | | |
 |---|---|

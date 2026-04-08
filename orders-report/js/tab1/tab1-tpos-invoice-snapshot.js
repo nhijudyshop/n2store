@@ -282,6 +282,68 @@
             }
         },
 
+        /**
+         * Fetch FRESH invoice snapshots from Render server (which proxies TPOS
+         * invoicelist OData). Used by RT handler to ensure cells reflect the
+         * authoritative state, not just whatever the WS payload happened to carry.
+         * @param {Array<number|string>} invoiceIds - FastSaleOrder.Id list
+         * @returns {Promise<Array<string>>} affected saleOnlineIds
+         */
+        async fetchFreshByIds(invoiceIds) {
+            if (!Array.isArray(invoiceIds) || invoiceIds.length === 0) return [];
+            try {
+                const idsParam = invoiceIds.filter(Boolean).join(',');
+                if (!idsParam) return [];
+                const resp = await fetch(`${COLD_START_URL}?ids=${idsParam}`, {
+                    headers: { accept: 'application/json' }
+                });
+                if (!resp.ok) {
+                    console.warn('[TPOS-INV-SNAP] fetchFreshByIds HTTP', resp.status);
+                    return [];
+                }
+                const data = await resp.json();
+                if (!data || !data.success || !Array.isArray(data.invoices)) return [];
+                if (data.invoices.length === 0) return [];
+                return this.upsertBatch(data.invoices);
+            } catch (e) {
+                console.warn('[TPOS-INV-SNAP] fetchFreshByIds error:', e.message);
+                return [];
+            }
+        },
+
+        /**
+         * Re-render the "status" (Trạng thái) cell for affected rows, deriving
+         * the displayed status from the latest TPOS snapshot. UI-only override —
+         * does NOT mutate order.Status or write back to Pancake.
+         */
+        refreshStatusCellsFor(saleOnlineIds) {
+            if (!Array.isArray(saleOnlineIds) || saleOnlineIds.length === 0) return;
+            let updated = 0;
+            for (const soId of saleOnlineIds) {
+                if (!soId) continue;
+                const row = document.querySelector(`tr[data-order-id="${soId}"]`);
+                if (!row) continue;
+                const cell = row.querySelector('td[data-column="status"]');
+                if (!cell) continue;
+                const snap = this.getBySaleOnlineId(soId);
+                const derived = deriveStatusFromTPOS(snap);
+                if (!derived) continue;
+                const order =
+                    (window.OrderStore && window.OrderStore.get && window.OrderStore.get(soId)) ||
+                    (window.displayedData || []).find((o) => String(o.Id) === String(soId)) ||
+                    { Id: soId, Status: '' };
+                cell.innerHTML =
+                    `<span class="status-badge ${derived.cls}" style="cursor:pointer;" ` +
+                    `onclick="openOrderStatusModal('${order.Id}', '${order.Status || ''}')" ` +
+                    `data-order-id="${order.Id}" title="Cập nhật từ TPOS RT">` +
+                    `${escapeHtml(derived.text)}</span>`;
+                updated++;
+            }
+            if (updated > 0) {
+                console.log('[TPOS-INV-SNAP] Refreshed', updated, 'status cells of', saleOnlineIds.length, 'candidates');
+            }
+        },
+
         stats() {
             return {
                 snapshots: this._byId.size,
@@ -290,6 +352,30 @@
             };
         },
     };
+
+    /**
+     * Map a TPOS invoice snapshot to a display status for the "Trạng thái"
+     * column. Returns null when there is no meaningful override → caller keeps
+     * the existing Pancake-derived cell.
+     */
+    function deriveStatusFromTPOS(snap) {
+        if (!snap) return null;
+        const ss = snap.ShowState || '';
+        const sc = snap.StateCode || '';
+        if (snap.IsMergeCancel) return { text: 'Gộp/Hủy', cls: 'status-cancel' };
+        if (/Hu[ỷy]\s*b[ỏo]/i.test(ss)) return { text: 'Đã hủy', cls: 'status-cancel' };
+        if (ss === 'Nháp') return { text: 'Nháp', cls: 'status-draft' };
+        if (ss === 'Hoàn thành' || ss === 'Đã thanh toán') {
+            return { text: ss, cls: 'status-paid' };
+        }
+        if (ss === 'Đã xác nhận') {
+            if (sc === 'CrossCheckComplete' || sc === 'CrossCheckSuccess') {
+                return { text: 'Đã đối soát', cls: 'status-order strong' };
+            }
+            return { text: 'Đơn hàng', cls: 'status-order' };
+        }
+        return null;
+    }
 
     /**
      * Render the cell HTML for the "Phiếu bán hàng TPOS" column.

@@ -379,6 +379,17 @@ color: #333;
     color: #991b1b;
 }
 
+.status-paid {
+    background: #10b981;
+    color: #ffffff;
+}
+
+.status-order.strong {
+    background: #059669;
+    color: #ffffff;
+    font-weight: 600;
+}
+
 .order-tag {
     display: inline-block;
     padding: 2px 6px;
