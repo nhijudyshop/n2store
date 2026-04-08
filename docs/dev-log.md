@@ -6,6 +6,26 @@
 
 ---
 
+## 2026-04-08
+
+### [orders] Fix Tag XL filter (Chốt Đơn) bị mất khi tương tác bảng + persist localStorage ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-processing-tags.js` |
+| **Bug** | User filter "ĐƠN CHƯA PHẢN HỒI" (116 rows) → tương tác bảng (click/edit) → filter biến mất, hiện lại 5364 rows. |
+| **Root cause** | `loadProcessingTags()` line 373 unconditionally `_activeFilter = null`, bị polling 15s (`_ptagStartPolling`) gọi → wipe user filter state. Filter chỉ lưu in-memory, không persist như TAG thường. |
+| **Fix** | (1) Bỏ `_activeFilter = null` trong `loadProcessingTags`. (2) Persist `_activeFilter` + `_activeFlagFilters` vào localStorage (`ptag_active_filter_v1`, `ptag_active_flag_filters_v1`); init từ localStorage trong State; helper `_ptagPersistFilters()` gọi trong `_ptagSetFilter` / `_ptagToggleFlagFilter` / `_ptagToggleGiuDonQuaLay`. (3) Sau load nếu `hasActiveProcessingTagFilters()` → call `performTableSearch()` để re-apply filter cho data mới. |
+| **Status** | ✅ Done |
+
+### [docs] Phân tích chi tiết PDF OnCallCX UCaaS v1.1 ✅
+| | |
+|---|---|
+| **Files** | `orders-report/oncallcx-ucaas-analysis.md` (new) |
+| **Chi tiết** | Đọc đầy đủ 75 trang PDF `orders-report/oncallcxucaasuserguidevieforcustomerv112 (2).pdf` (FPT Telecom OnCallCX UCaaS user guide v1.1, tiếng Việt) và xuất ra phân tích markdown có cấu trúc lại theo 10 mục: §1 PBX Portal/Login, §2 Departments + Extensions (kèm bảng Call Forwarding codes đầy đủ CFU/CFF/CFNR/CFB/CFO/Reset), §3 SIP provisioning (3 mode: Auto-MAC / URL .xml / Manual credentials) + Re-Provisioning, §4 Routing (Timetables/Holidays + ACD methods Linear/Cyclic/Parallel + IVR menu/rule + regex patterns), §5 Conference Rooms (`*72` + 2 phương án external access), §6 anConnect/anMeet, §7 CDR statistics, §8 MS Teams plugin + Desktop app, §9 Cheatsheet tổng hợp service codes (`*21` `*26` `*67` `*72` `*76` `*78` `*86` `*99` `*481`...), §10 10 pitfalls quan trọng (đáng chú ý: `Queue Size=0 AND Queue Timeout=0` → fallback never triggered; mất Encryption Password = mất hết tin nhắn anConnect; xoá extension giữ CDR nhưng mất voicemail; "User defined" ACD method PDF ghi rõ KHÔNG dùng). Plan file: `~/.claude/plans/wise-snacking-trinket.md`. |
+| **Status** | ✅ Done |
+
+---
+
 ## 2026-04-07
 
 ### [orders] Conversation filter null-guard ✅

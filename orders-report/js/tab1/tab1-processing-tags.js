@@ -216,8 +216,16 @@
         _idToCodeIndex: new Map(),     // orderId → orderCode mapping (lookup ngược)
         _panelOpen: false,
         _panelPinned: JSON.parse(localStorage.getItem('ptag_panel_pinned') || 'false'),
-        _activeFilter: null,
-        _activeFlagFilters: new Set(),
+        // Filter state — persisted to localStorage (key: ptag_active_filter_v1 / ptag_active_flag_filters_v1)
+        // để tránh bị mất khi loadProcessingTags() polling 15s, và sống qua reload trang.
+        _activeFilter: (function(){
+            try { const v = localStorage.getItem('ptag_active_filter_v1'); return v && v !== 'null' ? v : null; }
+            catch(e){ return null; }
+        })(),
+        _activeFlagFilters: (function(){
+            try { const a = JSON.parse(localStorage.getItem('ptag_active_flag_filters_v1') || '[]'); return new Set(Array.isArray(a) ? a : []); }
+            catch(e){ return new Set(); }
+        })(),
         _sseSource: null,
         _pollInterval: null,
         _tTagDefinitions: [],
@@ -369,8 +377,21 @@
         return response.json();
     }
 
+    // Persist filter state — gọi sau khi user thay đổi filter để giữ qua polling/reload.
+    function _ptagPersistFilters() {
+        try {
+            if (ProcessingTagState._activeFilter == null) {
+                localStorage.removeItem('ptag_active_filter_v1');
+            } else {
+                localStorage.setItem('ptag_active_filter_v1', String(ProcessingTagState._activeFilter));
+            }
+            localStorage.setItem('ptag_active_flag_filters_v1', JSON.stringify([...ProcessingTagState._activeFlagFilters]));
+        } catch (e) { /* ignore quota errors */ }
+    }
+
     async function loadProcessingTags() {
-        ProcessingTagState._activeFilter = null;
+        // KHÔNG reset _activeFilter / _activeFlagFilters ở đây — đó là user state,
+        // nếu reset thì mỗi 15s polling sẽ làm filter biến mất khi user đang tương tác bảng.
         ProcessingTagState._isLoaded = false;
         try {
             // 1. Load config (T-tag definitions, custom flags) từ endpoint riêng
@@ -426,6 +447,12 @@
             _ptagRefreshAllRows();
             ProcessingTagState._isLoaded = true;
             console.log(`${PTAG_LOG} Loaded tags for ${orderCodes.length} orders`);
+
+            // Nếu user đang có filter active → re-apply qua performTableSearch để bảng phản
+            // ánh đúng sau khi data mới load (tránh trường hợp row mới xuất hiện không bị filter).
+            if (hasActiveProcessingTagFilters() && typeof window.performTableSearch === 'function') {
+                window.performTableSearch();
+            }
 
             // Re-trigger auto-tag CK/Trừ Công Nợ cho wallet data đã load trước ProcessingTagState
             if (typeof window._applyWalletAutoTags === 'function' && window.walletDebtData && window.walletDebtData.size > 0) {
@@ -2545,6 +2572,7 @@
                 ProcessingTagState._activeFlagFilters.clear();
             }
         }
+        _ptagPersistFilters();
         renderPanelContent();
         // Debounce table re-render to avoid redundant work on rapid clicks
         clearTimeout(_ptagFilterTimer);
@@ -2586,6 +2614,7 @@
                 set.delete('KHAC');
             }
         }
+        _ptagPersistFilters();
         renderPanelContent();
         clearTimeout(_ptagFilterTimer);
         _ptagFilterTimer = setTimeout(() => {
@@ -2605,6 +2634,7 @@
             set.add('GIU_DON');
             set.add('QUA_LAY');
         }
+        _ptagPersistFilters();
         renderPanelContent();
         clearTimeout(_ptagFilterTimer);
         _ptagFilterTimer = setTimeout(() => {
