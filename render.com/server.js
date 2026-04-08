@@ -234,6 +234,7 @@ const v2Router = require('./routes/v2');  // Unified API v2
 const tposSavedRoutes = require('./routes/tpos-saved');
 const tposCredentialsRoutes = require('./routes/tpos-credentials');
 const { saveOrderToBuffer } = require('./routes/tpos-order-buffer');
+const tposTokenManager = require('./services/tpos-token-manager');
 
 // Mount routes
 app.use('/api/token', tokenRoutes);
@@ -790,6 +791,13 @@ class TposRealtimeClient {
                     saveOrderToBuffer(chatDbPool, data).catch(() => {});
                 }
 
+                // Enrich FastSaleOrder events → broadcast as tpos:invoice-list-updated
+                // (replaces extension-based push from tpos-interceptor.js)
+                if (eventType === 'FastSaleOrder') {
+                    const fsoId = data?.data?.Id || data?.Data?.Id || data?.Id;
+                    if (fsoId) scheduleFastSaleOrderEnrichment(fsoId);
+                }
+
             } catch (e) {
                 console.error('[TPOS-WS] Error parsing on-events payload:', e.message);
             }
@@ -1049,6 +1057,173 @@ app.get('/api/tpos-log/all', (req, res) => {
     res.json(tposEventLog.getAll());
 });
 // ============== END TPOS LOG ENDPOINTS ==============
+
+// ============== TPOS FASTSALEORDER ENRICHMENT ==============
+// Replaces the extension-based invoice snapshot push. The TPOS chatomni
+// hub already pushes FastSaleOrder events to TposRealtimeClient, but the
+// payload only contains {Id, State}. We fetch the full snapshot via TPOS
+// odata GetView and broadcast as `tpos:invoice-list-updated` so the existing
+// frontend handler (tab1-tpos-realtime.js) keeps working unchanged.
+
+const FSO_GETVIEW_URL = 'https://tomato.tpos.vn/odata/FastSaleOrder/ODataService.GetView';
+const FSO_SNAPSHOT_FIELDS = [
+    'Id', 'Number', 'State', 'ShowState', 'StateCode', 'IsMergeCancel',
+    'PartnerDisplayName', 'AmountTotal', 'AmountPaid', 'Residual',
+    'DateInvoice', 'DateUpdated', 'SaleOnlineIds'
+];
+
+function _toSnapshot(inv) {
+    if (!inv || inv.Id == null) return null;
+    return {
+        Id: inv.Id,
+        Number: inv.Number || '',
+        State: inv.State || '',
+        ShowState: inv.ShowState || '',
+        StateCode: inv.StateCode || 'None',
+        IsMergeCancel: inv.IsMergeCancel === true,
+        PartnerDisplayName: inv.PartnerDisplayName || '',
+        AmountTotal: inv.AmountTotal || 0,
+        AmountPaid: inv.AmountPaid || 0,
+        Residual: inv.Residual || 0,
+        DateInvoice: inv.DateInvoice || null,
+        DateUpdated: inv.DateUpdated || inv.LastUpdated || null,
+        SaleOnlineIds: Array.isArray(inv.SaleOnlineIds) ? inv.SaleOnlineIds
+            : (inv.SaleOnlineIds ? [inv.SaleOnlineIds] : [])
+    };
+}
+
+// Per-Id cache (5s) — burst protection during rapid TPOS events
+const _fsoSnapshotCache = new Map(); // Id -> { ts, snapshot }
+const FSO_CACHE_TTL = 5000;
+
+// Debounce queue: collect Ids in a 200ms window, then batch fetch
+let _fsoEnrichQueue = new Set();
+let _fsoEnrichTimer = null;
+
+function scheduleFastSaleOrderEnrichment(id) {
+    if (id == null) return;
+    const idStr = String(id);
+    const cached = _fsoSnapshotCache.get(idStr);
+    if (cached && Date.now() - cached.ts < FSO_CACHE_TTL) {
+        // Recent enough — re-broadcast cached and skip fetch
+        broadcastToClients({
+            type: 'tpos:invoice-list-updated',
+            invoices: [cached.snapshot],
+            source: 'server-enrich-cache'
+        });
+        return;
+    }
+    _fsoEnrichQueue.add(idStr);
+    if (_fsoEnrichTimer) return;
+    _fsoEnrichTimer = setTimeout(() => {
+        _fsoEnrichTimer = null;
+        const ids = Array.from(_fsoEnrichQueue);
+        _fsoEnrichQueue = new Set();
+        flushFastSaleOrderEnrichment(ids).catch(err => {
+            console.warn('[TPOS-ENRICH] flush error:', err.message);
+        });
+    }, 200);
+}
+
+async function fetchFastSaleOrdersByFilter(filterClause, top = 50) {
+    const headers = await tposTokenManager.getAuthHeader();
+    const params = new URLSearchParams();
+    params.set('$top', String(top));
+    params.set('$filter', filterClause);
+    params.set('$count', 'true');
+    params.set('$orderby', 'DateUpdated desc');
+    const url = `${FSO_GETVIEW_URL}?${params.toString()}`;
+    const resp = await fetch(url, {
+        headers: { ...headers, accept: 'application/json' }
+    });
+    if (!resp.ok) {
+        const text = await resp.text().catch(() => '');
+        throw new Error(`TPOS GetView ${resp.status}: ${text.slice(0, 200)}`);
+    }
+    const data = await resp.json();
+    const list = Array.isArray(data?.value) ? data.value : [];
+    return list.map(_toSnapshot).filter(Boolean);
+}
+
+async function flushFastSaleOrderEnrichment(ids) {
+    if (!ids || ids.length === 0) return;
+    // OData filter: Id eq 1 or Id eq 2 or ...
+    const filter = ids.map(i => `Id eq ${Number(i)}`).filter(f => !f.includes('NaN')).join(' or ');
+    if (!filter) return;
+    let snapshots;
+    try {
+        snapshots = await fetchFastSaleOrdersByFilter(filter, ids.length);
+    } catch (e) {
+        // Retry once on auth failure
+        if (/401|403/.test(e.message)) {
+            await tposTokenManager.refresh().catch(() => {});
+            snapshots = await fetchFastSaleOrdersByFilter(filter, ids.length);
+        } else {
+            throw e;
+        }
+    }
+    if (!snapshots || snapshots.length === 0) {
+        console.log('[TPOS-ENRICH] No snapshots returned for ids:', ids.join(','));
+        return;
+    }
+    const now = Date.now();
+    for (const snap of snapshots) {
+        _fsoSnapshotCache.set(String(snap.Id), { ts: now, snapshot: snap });
+    }
+    // Cleanup cache (>30s entries)
+    if (_fsoSnapshotCache.size > 500) {
+        for (const [k, v] of _fsoSnapshotCache) {
+            if (now - v.ts > 30000) _fsoSnapshotCache.delete(k);
+        }
+    }
+    broadcastToClients({
+        type: 'tpos:invoice-list-updated',
+        invoices: snapshots,
+        source: 'server-enrich'
+    });
+    console.log('[TPOS-ENRICH] Broadcast', snapshots.length, 'snapshot(s) for ids:', ids.join(','));
+}
+
+// REST endpoint for cold-start bulk load. Frontend calls this on tab init.
+// Query: ?since=<unix_ms>  (default: last 24h)  OR  ?ids=1,2,3
+// Returns { success, invoices: [...] }
+const _coldStartCache = { ts: 0, key: '', payload: null };
+const COLD_START_TTL = 30 * 1000;
+
+app.get('/api/tpos/fastsale-snapshot', async (req, res) => {
+    try {
+        const sinceMs = req.query.since ? Number(req.query.since) : (Date.now() - 24 * 3600 * 1000);
+        const idsParam = (req.query.ids || '').toString().trim();
+        const top = Math.min(Number(req.query.top) || 500, 1000);
+
+        const cacheKey = idsParam ? `ids:${idsParam}` : `since:${sinceMs}:top:${top}`;
+        const now = Date.now();
+        if (_coldStartCache.key === cacheKey && now - _coldStartCache.ts < COLD_START_TTL && _coldStartCache.payload) {
+            return res.json({ ..._coldStartCache.payload, cached: true });
+        }
+
+        let filter;
+        if (idsParam) {
+            const ids = idsParam.split(',').map(s => Number(s.trim())).filter(n => Number.isFinite(n));
+            if (ids.length === 0) return res.status(400).json({ success: false, error: 'ids must be numbers' });
+            filter = ids.map(i => `Id eq ${i}`).join(' or ');
+        } else {
+            const sinceIso = new Date(sinceMs).toISOString();
+            filter = `DateUpdated gt ${sinceIso}`;
+        }
+
+        const snapshots = await fetchFastSaleOrdersByFilter(filter, top);
+        const payload = { success: true, invoices: snapshots, count: snapshots.length };
+        _coldStartCache.key = cacheKey;
+        _coldStartCache.ts = now;
+        _coldStartCache.payload = payload;
+        res.json(payload);
+    } catch (e) {
+        console.error('[TPOS-ENRICH] cold-start error:', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+// ============== END TPOS FASTSALEORDER ENRICHMENT ==============
 
 // ============== TPOS EXTENSION EVENTS ==============
 // Receives events from N2Store Chrome Extension (e.g., tag assignments on TPOS)

@@ -23,6 +23,8 @@
 
     const LS_KEY = 'tposInvoiceSnapshot_v1';
     const TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+    const COLD_START_URL = 'https://n2store-fallback.onrender.com/api/tpos/fastsale-snapshot';
+    const COLD_START_LOOKBACK_MS = 24 * 60 * 60 * 1000; // last 24h of FSO updates
 
     // Config copied from tab1-fast-sale-invoice-status.js (private IIFE there).
     // Keep in sync if colours/labels change.
@@ -100,6 +102,40 @@
                 this._byId.size,
                 'snapshots from cache'
             );
+            // Cold-start bulk fetch from Render server (replaces extension snapshot push).
+            // Fire-and-forget — UI renders from cache immediately, server data refreshes
+            // cells as soon as it arrives.
+            this._coldStartFromServer();
+        },
+
+        async _coldStartFromServer() {
+            try {
+                const since = Date.now() - COLD_START_LOOKBACK_MS;
+                const resp = await fetch(`${COLD_START_URL}?since=${since}`, {
+                    headers: { accept: 'application/json' }
+                });
+                if (!resp.ok) {
+                    console.warn('[TPOS-INV-SNAP] Cold-start HTTP', resp.status);
+                    return;
+                }
+                const data = await resp.json();
+                if (!data || !data.success || !Array.isArray(data.invoices)) return;
+                if (data.invoices.length === 0) return;
+                const affected = this.upsertBatch(data.invoices);
+                console.log(
+                    '[TPOS-INV-SNAP] Cold-start: loaded',
+                    data.invoices.length,
+                    'snapshots from server',
+                    data.cached ? '(cached)' : '',
+                    '→ affected rows:',
+                    affected.length
+                );
+                if (affected.length > 0) {
+                    this.refreshCellsFor(affected);
+                }
+            } catch (e) {
+                console.warn('[TPOS-INV-SNAP] Cold-start error:', e.message);
+            }
         },
 
         _loadFromLocalStorage() {

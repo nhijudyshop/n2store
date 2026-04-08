@@ -8,6 +8,16 @@
 
 ## 2026-04-08
 
+### [render][orders][extension] Cột "Phiếu bán hàng TPOS" → nguồn từ WS server thay extension ✅
+| | |
+|---|---|
+| **Files** | `render.com/server.js`, `orders-report/js/tab1/tab1-tpos-invoice-snapshot.js`, `n2store-extension/content/tpos-interceptor.js` |
+| **Why** | Trước đây snapshot FastSaleOrder phải chờ user mở trang TPOS invoicelist để extension intercept XHR. Server `n2store-fallback` thực ra đã treo TPOS chatomni hub và nhận event `FastSaleOrder` realtime — chỉ thiếu enrichment Number/ShowState/StateCode/SaleOnlineIds. |
+| **Server** | `handleEvent()` thêm nhánh `eventType === 'FastSaleOrder'` → `scheduleFastSaleOrderEnrichment(Id)` (debounce 200ms, cache 5s). `flushFastSaleOrderEnrichment` gọi TPOS odata `GetView?$filter=Id eq ...` qua `tposTokenManager`, broadcast `tpos:invoice-list-updated` cùng schema cũ. Thêm REST `GET /api/tpos/fastsale-snapshot?since=<ms>|ids=...` (cache 30s) cho cold-start. |
+| **Frontend** | `TPOSInvoiceSnapshotStore.init()` gọi `_coldStartFromServer()` (fire-and-forget) load 24h gần nhất, upsert + refresh cell. Handler WS `handleInvoiceListUpdate` không đổi. |
+| **Extension** | Disable nhánh intercept `FSO_LIST_URL`/`FSO_BATCH_URL`. Tag-assigned interceptor giữ nguyên. Bump `v1.1.0`. |
+| **Status** | ✅ Code xong, syntax OK. Cần deploy Render rồi smoke test (`curl /api/tpos/fastsale-snapshot?since=...`, treo WS verify `source:'server-enrich'`). |
+
 ### [chat] Hardening modal tin nhắn/bình luận: race + state-reset + dropdown sync + reconcile ✅
 | | |
 |---|---|

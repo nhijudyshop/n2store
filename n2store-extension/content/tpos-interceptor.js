@@ -127,17 +127,14 @@
       }
     }
 
-    // Intercept FastSaleOrder invoice list (GetView) and batch (GetListOrderIds)
-    if (url.includes(FSO_LIST_URL) || url.includes(FSO_BATCH_URL)) {
-      this.addEventListener('load', function () {
-        if (this.status < 200 || this.status >= 300) return;
-        const data = parseResponse(this);
-        harvestInvoices(data);
-      });
-    }
+    // FastSaleOrder invoice list interception DISABLED — server now enriches
+    // FastSaleOrder events directly via TPOS odata GetView and broadcasts as
+    // tpos:invoice-list-updated. See render.com/server.js
+    // (scheduleFastSaleOrderEnrichment + /api/tpos/fastsale-snapshot).
+    // Keeping the constants and helpers above as dead code for context only.
 
     return origSend.apply(this, arguments);
   };
 
-  console.log('[N2Store] TPOS interceptor active (v1.0.1 — invoicelist)');
+  console.log('[N2Store] TPOS interceptor active (v1.1.0 — tag-only, FSO via server)');
 })();
