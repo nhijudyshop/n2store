@@ -762,7 +762,7 @@ class TposRealtimeClient {
                 // 2. chatomni.on-message: { Conversation: {...}, Message: {object}, EventName: "chatomni.on-message" }
                 const context = eventData.C || eventData.Context || (eventData.Conversation ? 'Conversation' : null);
                 const data = eventData.d || eventData.data || eventData;
-                const eventType = data.t || data.Type || data.EventName || eventData.EventName;
+                const eventType = data.t || data.Type || data.EventName || eventData.EventName || eventData.type || eventData.Type;
 
                 // Safe message extract (Message can be string or object)
                 const msgPreview = typeof data.Message === 'string' ? data.Message.substring(0, 80) :
@@ -1069,7 +1069,7 @@ const FSO_GETVIEW_URL = 'https://tomato.tpos.vn/odata/FastSaleOrder/ODataService
 const FSO_SNAPSHOT_FIELDS = [
     'Id', 'Number', 'State', 'ShowState', 'StateCode', 'IsMergeCancel',
     'PartnerDisplayName', 'AmountTotal', 'AmountPaid', 'Residual',
-    'DateInvoice', 'DateUpdated', 'SaleOnlineIds'
+    'DateInvoice', 'SaleOnlineIds'
 ];
 
 function _toSnapshot(inv) {
@@ -1086,7 +1086,6 @@ function _toSnapshot(inv) {
         AmountPaid: inv.AmountPaid || 0,
         Residual: inv.Residual || 0,
         DateInvoice: inv.DateInvoice || null,
-        DateUpdated: inv.DateUpdated || inv.LastUpdated || null,
         SaleOnlineIds: Array.isArray(inv.SaleOnlineIds) ? inv.SaleOnlineIds
             : (inv.SaleOnlineIds ? [inv.SaleOnlineIds] : [])
     };
@@ -1131,7 +1130,7 @@ async function fetchFastSaleOrdersByFilter(filterClause, top = 50) {
     params.set('$top', String(top));
     params.set('$filter', filterClause);
     params.set('$count', 'true');
-    params.set('$orderby', 'DateUpdated desc');
+    params.set('$orderby', 'Id desc');
     const url = `${FSO_GETVIEW_URL}?${params.toString()}`;
     const resp = await fetch(url, {
         headers: { ...headers, accept: 'application/json' }
@@ -1209,7 +1208,7 @@ app.get('/api/tpos/fastsale-snapshot', async (req, res) => {
             filter = ids.map(i => `Id eq ${i}`).join(' or ');
         } else {
             const sinceIso = new Date(sinceMs).toISOString();
-            filter = `DateUpdated gt ${sinceIso}`;
+            filter = `DateInvoice gt ${sinceIso}`;
         }
 
         const snapshots = await fetchFastSaleOrdersByFilter(filter, top);
