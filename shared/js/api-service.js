@@ -35,14 +35,32 @@ const ApiService = {
     async searchOrders(query) {
         if (!query) return [];
 
-        // Extract digits only
-        const cleanQuery = query.replace(/\D/g, '');
-        if (cleanQuery.length < 3) {
-            console.log('[API] Query too short, need at least 3 digits');
+        // Backward-compat: legacy callers pass a string → treat as phone
+        let mode, value;
+        if (typeof query === 'string') {
+            mode = 'phone';
+            value = query.replace(/\D/g, '');
+        } else {
+            mode = query.mode;
+            value = query.value;
+        }
+        if (!value) return [];
+
+        // Validate per mode
+        if (mode === 'phone' && value.length < 3) {
+            console.log('[API] Phone too short, need at least 3 digits');
+            return [];
+        }
+        if (mode === 'name' && value.length < 2) {
+            console.log('[API] Name too short, need at least 2 chars');
+            return [];
+        }
+        if (mode === 'code' && value.length < 1) {
+            console.log('[API] Code empty');
             return [];
         }
 
-        console.log(`[API] Searching orders for phone: ${cleanQuery}`);
+        console.log(`[API] Searching orders mode=${mode} value=${value}`);
 
         // Build date range (last 60 days)
         const now = new Date();
@@ -52,8 +70,16 @@ const ApiService = {
         const startDate = sixtyDaysAgo.toISOString().replace('Z', '+00:00');
         const endDate = now.toISOString().replace('Z', '+00:00');
 
-        // Build OData filter - matches the working TPOS request
-        const filter = `(Type eq 'invoice' and IsMergeCancel ne true and DateInvoice ge ${startDate} and DateInvoice le ${endDate} and contains(Phone,'${cleanQuery}'))`;
+        // Escape single quotes in OData literal
+        const safeValue = String(value).replace(/'/g, "''");
+
+        let fieldFilter;
+        if (mode === 'phone') fieldFilter = `contains(Phone,'${safeValue}')`;
+        else if (mode === 'name') fieldFilter = `contains(PartnerNameNoSign,'${safeValue}')`;
+        else if (mode === 'code') fieldFilter = `contains(Number,'${safeValue}')`;
+        else { console.warn('[API] Unknown search mode:', mode); return []; }
+
+        const filter = `(Type eq 'invoice' and IsMergeCancel ne true and DateInvoice ge ${startDate} and DateInvoice le ${endDate} and ${fieldFilter})`;
 
         const url = `${API_CONFIG.TPOS_ODATA}/FastSaleOrder/ODataService.GetView?$top=20&$orderby=DateInvoice desc&$filter=${encodeURIComponent(filter)}&$count=true`;
 

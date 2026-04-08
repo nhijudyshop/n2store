@@ -175,8 +175,12 @@
             <!-- Step 1: Search Order -->
             <div class="form-group search-section">
                 <label>Tìm đơn hàng gốc</label>
+                <div class="search-tabs" role="tablist">
+                    <button type="button" id="tab-search-customer" class="search-tab active" data-search-tab="customer" role="tab" aria-selected="true">SĐT / Tên</button>
+                    <button type="button" id="tab-search-code" class="search-tab" data-search-tab="code" role="tab" aria-selected="false">Mã đơn</button>
+                </div>
                 <div class="input-group">
-                    <input type="text" id="order-search-input" placeholder="Nhập SĐT hoặc Mã vận đơn">
+                    <input type="text" id="order-search-input" placeholder="Nhập SĐT hoặc Tên khách">
                     <button id="btn-search-order" class="btn btn-secondary">Tìm</button>
                 </div>
                 <div id="order-result" class="order-resultbox hidden">

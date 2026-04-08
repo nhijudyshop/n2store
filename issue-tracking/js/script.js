@@ -12,6 +12,7 @@ let currentCustomer = null; // NEW: Store current customer info
 let selectedOldOrder = null; // NEW: Store selected old order for RETURN_OLD_ORDER
 let isSubmitting = false; // Prevent double-click on submit
 let isProcessingAction = false; // Prevent double-click on confirm action
+let currentSearchTab = 'customer'; // 'customer' (SĐT/Tên) | 'code' (Mã đơn)
 
 // Settings Management
 const SETTINGS_KEY = 'issue_tracking_settings';
@@ -38,6 +39,8 @@ const elements = {
     btnCreate: document.getElementById('btn-create-ticket'),
     btnSearchOrder: document.getElementById('btn-search-order'),
     inpSearchOrder: document.getElementById('order-search-input'),
+    tabSearchCustomer: document.getElementById('tab-search-customer'),
+    tabSearchCode: document.getElementById('tab-search-code'),
     closeButtons: document.querySelectorAll('.close-modal, .close-modal-btn'),
     loadingOverlay: document.createElement('div'), // Creating loading overlay
 
@@ -262,6 +265,21 @@ function initModalHandlers() {
         if (e.key === 'Enter') handleSearchOrder();
     });
 
+    // Modal Search Tabs (SĐT/Tên vs Mã đơn)
+    const setSearchTab = (tab) => {
+        currentSearchTab = tab;
+        const isCustomer = tab === 'customer';
+        elements.tabSearchCustomer.classList.toggle('active', isCustomer);
+        elements.tabSearchCustomer.setAttribute('aria-selected', isCustomer);
+        elements.tabSearchCode.classList.toggle('active', !isCustomer);
+        elements.tabSearchCode.setAttribute('aria-selected', !isCustomer);
+        elements.inpSearchOrder.placeholder = isCustomer ? 'Nhập SĐT hoặc Tên khách' : 'Nhập Mã đơn';
+        elements.inpSearchOrder.value = '';
+        elements.inpSearchOrder.focus();
+    };
+    elements.tabSearchCustomer.addEventListener('click', () => setSearchTab('customer'));
+    elements.tabSearchCode.addEventListener('click', () => setSearchTab('code'));
+
     // Modal Submit Ticket
     document.getElementById('btn-submit-ticket').addEventListener('click', handleSubmitTicket);
 
@@ -313,17 +331,31 @@ function normalizePhone(phone) {
 
 async function handleSearchOrder() {
     const query = elements.inpSearchOrder.value.trim();
-    if (!query) return alert("Vui lòng nhập SĐT hoặc Mã đơn");
+    if (!query) return alert("Vui lòng nhập từ khóa tìm kiếm");
 
-    // Validate: need at least 3 digits
-    const cleanQuery = query.replace(/\D/g, '');
-    if (cleanQuery.length < 3) {
-        return alert("Vui lòng nhập ít nhất 3 chữ số");
+    // Determine search mode from active tab
+    let searchArg;
+    if (currentSearchTab === 'code') {
+        const cleanCode = query.replace(/\D/g, '');
+        if (cleanCode.length < 1) return alert("Vui lòng nhập Mã đơn hợp lệ");
+        searchArg = { mode: 'code', value: cleanCode };
+    } else {
+        // customer tab: phone if all digits, else name
+        const digits = query.replace(/\D/g, '');
+        const isPhone = digits.length === query.replace(/\s/g, '').length && digits.length >= 3;
+        if (isPhone) {
+            searchArg = { mode: 'phone', value: digits };
+        } else {
+            if (query.length < 2) return alert("Vui lòng nhập tên ít nhất 2 ký tự");
+            // Strip Vietnamese diacritics — TPOS field PartnerNameNoSign is unaccented
+            const noSign = query.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase().trim();
+            searchArg = { mode: 'name', value: noSign };
+        }
     }
 
     showLoading(true);
     try {
-        const result = await ApiService.searchOrders(query);
+        const result = await ApiService.searchOrders(searchArg);
         const orders = result.orders || result; // Support both new {orders, allCancelled} and legacy array format
 
         if (orders && orders.length > 0) {

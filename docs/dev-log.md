@@ -8,6 +8,13 @@
 
 ## 2026-04-08
 
+### [issue-tracking] Tách tìm kiếm Tạo Phiếu thành 2 tab: SĐT/Tên & Mã đơn ✅
+| | |
+|---|---|
+| **Files** | `issue-tracking/index.html`, `issue-tracking/css/style.css`, `issue-tracking/js/script.js`, `shared/js/api-service.js` |
+| **Chi tiết** | Modal "Tạo Phiếu Mới" trước chỉ search theo `Phone`. Thêm 2 tab: **SĐT/Tên** (auto detect: toàn chữ số → `contains(Phone,...)`, ngược lại strip dấu tiếng Việt → `contains(PartnerNameNoSign,...)`) và **Mã đơn** (`contains(Number,...)`). 1 input + 1 nút Tìm, placeholder đổi theo tab. `ApiService.searchOrders` refactor sang signature `{mode, value}` với `mode ∈ {phone\|name\|code}`, giữ backward-compat khi nhận string (legacy call ở `script.js:2649`). Escape `'` trong OData literal. Date range 60 ngày + `$top=20` giữ nguyên. |
+| **Status** | ✅ Done |
+
 ### [orders] Fix Tag XL filter (Chốt Đơn) bị mất khi tương tác bảng + persist localStorage ✅
 | | |
 |---|---|
