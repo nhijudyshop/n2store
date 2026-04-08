@@ -224,8 +224,13 @@
             // Remove from local
             orderData.Details.splice(heldIndex, 1);
 
-            // Remove from Firebase
-            await removeHeldFromFirebase(orderData.Id, productId);
+            // Remove from Render PostgreSQL (replaces Firebase as of 2026-04-05)
+            if (typeof window.removeHeldProduct === 'function') {
+                await window.removeHeldProduct(productId);
+            } else {
+                // Fallback to Firebase for older code paths
+                await removeHeldFromFirebase(orderData.Id, productId);
+            }
 
             // Re-render
             window.renderChatProductsTable();

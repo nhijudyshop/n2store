@@ -8,6 +8,15 @@
 
 ## 2026-04-08
 
+### [chat] Tooltip hàng rớt-xả: bỏ SĐT, thêm "Chiến dịch:" + fix 2 bug ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/managers/dropped-products-manager.js`, `orders-report/js/chat/chat-products-actions.js` |
+| **Tooltip** | Bỏ dòng SĐT (không lưu DB), đổi nhãn "Live:" → "Chiến dịch:" lấy fallback từ `currentChatOrderData.LiveCampaignName` / `campaignInfoFromTab1.activeCampaignName`. Revert propagate `removedFromCustomerPhone`. |
+| **Bug B** | `Uncaught ReferenceError: grid is not defined` spam mỗi mousemove. Nguyên nhân: handler `contextmenu` lồng nhầm trong `_positionHoverPreview` (sót pre-existing). Đã chuyển ra cuối `_wireDroppedGrid()` — vừa hết error vừa wire đúng right-click → gửi tên SP vào chat. |
+| **Bug A** | Xóa SP "đang giữ" không persist (F5 vẫn còn). `deleteHeldProduct` còn gọi `removeHeldFromFirebase` cũ — đã đổi sang `window.removeHeldProduct(productId)` (gọi `DELETE /api/realtime/held-products/{orderId}/{productId}/{userId}`), giữ fallback Firebase. |
+| **Status** | DONE |
+
 ### [issue-tracking] Tách tìm kiếm Tạo Phiếu thành 2 tab: SĐT/Tên & Mã đơn ✅
 | | |
 |---|---|

@@ -2549,11 +2549,56 @@ div.chat-product-image i {
     display: none;
 }
 #droppedHoverPreview.show { display: block; }
+#droppedHoverPreview .dpt-tooltip {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    max-width: 380px;
+    background: rgba(15, 23, 42, 0.92);
+    color: #fff;
+    padding: 14px 18px;
+    border-radius: 10px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.5);
+    font-size: 16px;
+    line-height: 1.5;
+    pointer-events: none;
+    backdrop-filter: blur(4px);
+}
+#droppedHoverPreview .dpt-tooltip .dpt-title {
+    font-size: 19px;
+    font-weight: 800;
+    margin-bottom: 6px;
+    color: #fde68a;
+}
+#droppedHoverPreview .dpt-tooltip .dpt-meta,
+#droppedHoverPreview .dpt-tooltip .dpt-line {
+    font-size: 15px;
+    margin-bottom: 4px;
+    color: #e2e8f0;
+}
+#droppedHoverPreview .dpt-tooltip .dpt-sep {
+    height: 1px;
+    background: rgba(255,255,255,.2);
+    margin: 8px 0;
+}
+#droppedHoverPreview .dpt-tooltip .dpt-kh {
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff;
+    margin-top: 3px;
+}
+#droppedHoverPreview .dpt-tooltip .dpt-kh b {
+    color: #fcd34d;
+    font-weight: 800;
+}
 #droppedHoverPreview img {
     display: block;
+    width: min(90vw, 90vh);
+    height: auto;
     max-width: 90vw;
     max-height: 90vh;
     border-radius: 6px;
+    image-rendering: -webkit-optimize-contrast;
 }
 .dropped-cell.selected {
     border-color: #4441c4;

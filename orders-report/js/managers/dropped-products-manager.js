@@ -1001,14 +1001,31 @@
             const codeEscaped = (p.ProductCode || '').replace(/'/g, "\\'");
             const isSelected = _droppedSelectedIds.has(p.ProductId);
 
-            let tooltipParts = [productNameEscaped];
-            if (p.ProductCode) tooltipParts.push(`Mã: ${p.ProductCode}`);
-            if (p.Quantity != null) tooltipParts.push(`SL: ${p.Quantity}`);
-            if (p.Price) tooltipParts.push(`${(p.Price).toLocaleString('vi-VN')}đ`);
-            if (p.campaignName) tooltipParts.push(`Live: ${p.campaignName}`);
-            if (p.removedBy) tooltipParts.push(`Xả bởi: ${p.removedBy}`);
-            if (isOutOfStock && p._holders && p._holders[0]) tooltipParts.push(`Đang giữ: ${p._holders[0].name}`);
-            const tooltipText = tooltipParts.join('&#10;');
+            // Build custom tooltip HTML (rich styled, shown on hover)
+            const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const ttRows = [];
+            ttRows.push(`<div class="dpt-title">${esc(p.ProductNameGet || p.ProductName || '')}</div>`);
+            const meta = [];
+            if (p.ProductCode) meta.push(`Mã: <b>${esc(p.ProductCode)}</b>`);
+            if (p.Quantity != null) meta.push(`SL: <b>${esc(p.Quantity)}</b>`);
+            if (p.Price) meta.push(`<b>${(p.Price).toLocaleString('vi-VN')}đ</b>`);
+            if (meta.length) ttRows.push(`<div class="dpt-meta">${meta.join(' • ')}</div>`);
+            const campaignNameForTip = p.campaignName
+                || window.currentChatOrderData?.LiveCampaignName
+                || (typeof campaignInfoFromTab1 !== 'undefined' && campaignInfoFromTab1?.activeCampaignName)
+                || '';
+            if (campaignNameForTip) ttRows.push(`<div class="dpt-line">Chiến dịch: <b>${esc(campaignNameForTip)}</b></div>`);
+            if (p.removedFromCustomer || p.removedFromOrderSTT || p.removedBy) {
+                ttRows.push('<div class="dpt-sep"></div>');
+                if (p.removedFromCustomer) ttRows.push(`<div class="dpt-kh">KH: <b>${esc(p.removedFromCustomer)}</b></div>`);
+                if (p.removedFromOrderSTT) ttRows.push(`<div class="dpt-kh">STT: <b>${esc(p.removedFromOrderSTT)}</b></div>`);
+                if (p.removedBy) ttRows.push(`<div class="dpt-kh">Xả bởi: <b>${esc(p.removedBy)}</b></div>`);
+            }
+            if (isOutOfStock && p._holders && p._holders[0]) {
+                ttRows.push(`<div class="dpt-line">Đang giữ: <b>${esc(p._holders[0].name)}</b></div>`);
+            }
+            const tooltipHTML = ttRows.join('');
+            const tooltipAttr = tooltipHTML.replace(/"/g, '&quot;');
 
             const imgInner = p.ImageUrl
                 ? `<img src="${p.ImageUrl}" alt="${productNameEscaped}" draggable="false">`
@@ -1019,7 +1036,7 @@
                      data-pid="${p.ProductId}"
                      data-name="${productNameEscaped}"
                      data-code="${codeEscaped}"
-                     title="${tooltipText}">
+                     data-tooltip="${tooltipAttr}">
                     ${imgInner}
                     <span class="dropped-cell-check"><i class="fas fa-check"></i></span>
                 </div>
@@ -1110,7 +1127,7 @@
             const img = cell.querySelector('img');
             if (!img) { _hideHoverPreview(); _hoverCell = null; return; }
             _hoverCell = cell;
-            _showHoverPreview(img.src, e.clientX, e.clientY);
+            _showHoverPreview(img.src, e.clientX, e.clientY, cell.dataset.tooltip || '');
         });
         grid.addEventListener('mousemove', (e) => {
             if (!_hoverCell) return;
@@ -1123,6 +1140,18 @@
                 _hideHoverPreview();
             }
         });
+
+        // Right-click → send product name to chat
+        grid.addEventListener('contextmenu', (e) => {
+            const cell = e.target.closest('.dropped-cell');
+            if (!cell) return;
+            e.preventDefault();
+            const pid = Number(cell.dataset.pid);
+            const name = cell.dataset.name;
+            if (typeof window.sendProductToChat === 'function') {
+                window.sendProductToChat(pid, name);
+            }
+        });
     }
 
     // ===== Hover preview singleton =====
@@ -1131,15 +1160,20 @@
         if (_hoverPreviewEl) return _hoverPreviewEl;
         const el = document.createElement('div');
         el.id = 'droppedHoverPreview';
-        el.innerHTML = '<img alt="">';
+        el.innerHTML = '<img alt=""><div class="dpt-tooltip"></div>';
         document.body.appendChild(el);
         _hoverPreviewEl = el;
         return el;
     }
-    function _showHoverPreview(src, x, y) {
+    function _showHoverPreview(src, x, y, tooltipHTML) {
         const el = _getHoverPreviewEl();
         const img = el.querySelector('img');
         if (img.src !== src) img.src = src;
+        const tt = el.querySelector('.dpt-tooltip');
+        if (tt) {
+            tt.innerHTML = tooltipHTML || '';
+            tt.style.display = tooltipHTML ? '' : 'none';
+        }
         el.classList.add('show');
         _positionHoverPreview(x, y);
     }
@@ -1159,18 +1193,6 @@
         if (top < pad)  top = pad;
         el.style.left = left + 'px';
         el.style.top  = top  + 'px';
-
-        // Right-click → send product name to chat
-        grid.addEventListener('contextmenu', (e) => {
-            const cell = e.target.closest('.dropped-cell');
-            if (!cell) return;
-            e.preventDefault();
-            const pid = Number(cell.dataset.pid);
-            const name = cell.dataset.name;
-            if (typeof window.sendProductToChat === 'function') {
-                window.sendProductToChat(pid, name);
-            }
-        });
     }
 
     // Legacy code removed below
