@@ -8,6 +8,15 @@
 
 ## 2026-04-08
 
+### [chat] Follow-up hardening: bump seq trước reset, stale-guard catch + loadMoreMessages ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-chat-core.js` |
+| **A** | `switchConversationType` / `switchChatPage` reset state TRƯỚC khi bump `_chatLoadSeq` → load cũ vẫn pass `_isStale()` trong khoảng giữa. Đảo thứ tự: bump trước, reset sau. |
+| **B** | `_loadMessages` catch block ghi error UI mà không check stale → fetch cũ throw sau khi user switch sẽ ghi đè UI conv mới. Thêm `if (_isStale()) return;` đầu catch. |
+| **C** | `loadMoreMessages` thiếu stale guard → user switch page giữa lúc đang scroll-paginate, messages cũ bị prepend vào conv mới. Snapshot `_chatLoadSeq + convId + pageId` đầu hàm, bail sau await nếu mismatch. |
+| **Status** | ✅ Done |
+
 ### [orders] Chống tạo PBH trùng ở nút "Tạo phiếu bán hàng" (single mode) ✅
 | | |
 |---|---|

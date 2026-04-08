@@ -490,6 +490,7 @@ async function _loadMessages(pageId, conversationId, customerId, loadToken) {
             window.renderChatMessages(messages);
         }
     } catch (e) {
+        if (_isStale()) return;
         console.error('[Chat-Core] loadMessages error:', e);
         const messagesEl = document.getElementById('chatMessages');
         if (messagesEl) {
@@ -505,15 +506,27 @@ window.loadMoreMessages = async function() {
     if (window.isLoadingMoreMessages || !window.currentConversationId || !window.currentChatCursor) return;
     window.isLoadingMoreMessages = true;
 
+    // Snapshot conv identity at start to detect switch during fetch
+    const startToken = window._chatLoadSeq;
+    const startConvId = window.currentConversationId;
+    const startPageId = window.currentChatChannelId;
+
     try {
         const pdm = window.pancakeDataManager;
         if (!pdm) return;
 
         const result = await pdm.fetchMessages(
-            window.currentChatChannelId,
-            window.currentConversationId,
+            startPageId,
+            startConvId,
             window.currentChatCursor
         );
+
+        // Bail if user switched conversation/page/type while we were fetching
+        if (startToken !== window._chatLoadSeq ||
+            startConvId !== window.currentConversationId ||
+            startPageId !== window.currentChatChannelId) {
+            return;
+        }
 
         const newMessages = (result.messages || []).map(msg => {
             const isFromPage = msg.from?.id === window.currentChatChannelId;
@@ -585,9 +598,8 @@ window.switchConversationType = async function(type) {
     window.currentConversationType = type;
 
     _updateTypeToggle(type);
-    _resetTransientChatState();
-
     const myToken = ++window._chatLoadSeq;
+    _resetTransientChatState();
 
     // Re-find conversation with new type
     const messagesEl = document.getElementById('chatMessages');
@@ -715,9 +727,8 @@ window.switchChatPage = async function(newPageId) {
 
     window.currentChatChannelId = newPageId;
     window.currentSendPageId = newPageId;
-    _resetTransientChatState();
-
     const myToken = ++window._chatLoadSeq;
+    _resetTransientChatState();
 
     const messagesEl = document.getElementById('chatMessages');
     if (messagesEl) {
