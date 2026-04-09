@@ -22,6 +22,24 @@ window.currentSendPageId = null;        // override send from page
 window.currentReplyType = 'private_replies'; // for COMMENT: 'reply_comment' | 'private_replies'
 window.isSendingMessage = false;
 
+// Open QR modal for current chat customer (called from chat header QR button)
+window.openQRFromChatHeader = function() {
+    const phone = (window.currentChatPhone || '').trim();
+    if (!phone) {
+        if (typeof window.showNotification === 'function') {
+            window.showNotification('Khách hàng chưa có SĐT', 'warning');
+        } else {
+            alert('Khách hàng chưa có SĐT');
+        }
+        return;
+    }
+    if (typeof window.showOrderQRModal === 'function') {
+        window.showOrderQRModal(phone);
+    } else {
+        alert('Chức năng QR chưa sẵn sàng');
+    }
+};
+
 /**
  * Get avatar URL for a customer — same 4-tier fallback as inbox-chat.js
  * Extracts direct avatar from currentConversationData, then falls back to proxy.

@@ -8,6 +8,13 @@
 
 ## 2026-04-09
 
+### [chat] Nút "QR" trong header modal tin nhắn ✅
+| | |
+|---|---|
+| **Files** | `orders-report/tab1-orders.html`, `orders-report/js/tab1/tab1-chat-core.js`, `orders-report/css/tab1-chat-modal.css` |
+| **What** | Thêm button QR vào `.chat-header-right` (bên trái cụm "Tin nhắn / Bình luận"). Click → `window.openQRFromChatHeader()` → đọc `currentChatPhone` rồi gọi `showOrderQRModal(phone)` (cùng flow với nút QR ở table). Empty phone → notify "Khách hàng chưa có SĐT". |
+| **Status** | Done |
+
 ### [facebook-services] Page picker + tab LIVE dùng TPOS livevideo API ✅
 | | |
 |---|---|
