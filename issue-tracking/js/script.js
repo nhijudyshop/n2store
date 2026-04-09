@@ -957,8 +957,7 @@ window.toggleAllProducts = function (selectAll, containerId = 'product-checklist
  * Mark all TPOS Partner records for a phone as "Bom hàng"
  * Step 1: Search Partner by phone (dùng Name= như TPOS UI), sort DateCreated desc
  * Step 2: UpdateStatus atomic cho TẤT CẢ partner trùng SĐT
- * Step 3: Ghi note vào field Email CHỈ trên partner mới nhất (partners[0])
- *         → khớp TPOS UI native, tránh đè Email thật ở record cũ
+ * Step 3: Ghi note vào field Email cho TẤT CẢ partner trùng SĐT (best-effort)
  */
 async function markPartnerAsBoom(phone, noteText) {
     if (!phone) throw new Error('Không có số điện thoại khách');
@@ -1008,20 +1007,19 @@ async function markPartnerAsBoom(phone, noteText) {
         console.log(`[BOOM] Successfully marked partner ${partner.Id} as "Bom hàng"`);
     }
 
-    // Step 3: Overwrite Email field với note CHỈ trên partner mới nhất
-    // (partners đã sort DateCreated desc → partners[0] là mới nhất)
-    // Khớp behavior TPOS UI: note chỉ ghi vào 1 record, tránh đè Email thật ở các record cũ
-    if (noteText && partners.length > 0) {
-        const latestPartner = partners[0];
-        try {
-            const partnerUrl = `${API_CONFIG.TPOS_ODATA}/Partner(${latestPartner.Id})`;
-            const getRes = await window.tokenManager.authenticatedFetch(partnerUrl, {
-                method: 'GET',
-                headers
-            });
-            if (!getRes.ok) {
-                console.warn(`[BOOM] GET partner ${latestPartner.Id} for note failed (HTTP ${getRes.status})`);
-            } else {
+    // Step 3: Overwrite Email field với note cho TẤT CẢ partner trùng SĐT (best-effort)
+    if (noteText) {
+        for (const partner of partners) {
+            try {
+                const partnerUrl = `${API_CONFIG.TPOS_ODATA}/Partner(${partner.Id})`;
+                const getRes = await window.tokenManager.authenticatedFetch(partnerUrl, {
+                    method: 'GET',
+                    headers
+                });
+                if (!getRes.ok) {
+                    console.warn(`[BOOM] GET partner ${partner.Id} for note failed (HTTP ${getRes.status})`);
+                    continue;
+                }
                 const partnerData = await getRes.json();
                 partnerData.Email = noteText;
                 const putRes = await window.tokenManager.authenticatedFetch(partnerUrl, {
@@ -1030,13 +1028,11 @@ async function markPartnerAsBoom(phone, noteText) {
                     body: JSON.stringify(partnerData)
                 });
                 if (!putRes.ok) {
-                    console.warn(`[BOOM] PUT note for partner ${latestPartner.Id} failed (HTTP ${putRes.status})`);
-                } else {
-                    console.log(`[BOOM] Note ghi vào partner mới nhất ${latestPartner.Id}`);
+                    console.warn(`[BOOM] PUT note for partner ${partner.Id} failed (HTTP ${putRes.status})`);
                 }
+            } catch (err) {
+                console.warn(`[BOOM] Update note for partner ${partner.Id} error:`, err);
             }
-        } catch (err) {
-            console.warn(`[BOOM] Update note for partner ${latestPartner.Id} error:`, err);
         }
     }
 
