@@ -1091,7 +1091,8 @@ class InboxChatController {
         const unreadBadge = isUnread ? `<span class="conv-unread-badge">${conv.unread > 9 ? '9+' : conv.unread}</span>` : '';
         const livestreamBadge = conv.isLivestream ? '<span class="conv-livestream-badge">LIVE</span>' : '';
         const pageNameHtml = conv.pageName ? `<span class="conv-page-name">${this.escapeHtml(conv.pageName)}</span>` : '';
-        const typeIcon = conv.type === 'COMMENT' ? 'message-square' : 'message-circle';
+        const typeIcon = conv.type === 'COMMENT' ? 'message-circle' : 'mail';
+        const phoneIconHtml = conv.phone ? `<span class="conv-phone-icon" title="${this.escapeHtml(conv.phone)}"><i data-lucide="phone"></i></span>` : '';
         const tagsHtml = this.getTagsHtml(conv);
         return `
             <div class="conversation-item ${isActive ? 'active' : ''} ${isUnread ? 'unread' : ''}"
@@ -1110,7 +1111,8 @@ class InboxChatController {
                             onclick="event.stopPropagation(); window.inboxChat.toggleReadUnread('${conv.id}')">
                             <i data-lucide="${isUnread ? 'mail-open' : 'mail'}"></i>
                         </button>
-                        <span class="conv-type-icon" title="${conv.type === 'COMMENT' ? 'Bình luận' : 'Tin nhắn'}">
+                        ${phoneIconHtml}
+                        <span class="conv-type-icon ${isUnread ? 'unread' : ''}" title="${conv.type === 'COMMENT' ? 'Bình luận' : 'Tin nhắn'}">
                             <i data-lucide="${typeIcon}"></i>
                         </span>
                     </div>

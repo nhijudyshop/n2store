@@ -517,9 +517,14 @@ body.col-resizing .resize-handle {
     padding: 14px var(--spacing-lg);
     cursor: pointer;
     transition: var(--transition-fast);
-    /* No 1px border between items — use whitespace */
+    /* Light separator between items for visual distinction */
+    border-bottom: 1px solid var(--border-light, #f0f0f0);
     position: relative;
     border-left: 4px solid transparent;
+}
+
+.conversation-item:last-child {
+    border-bottom: none;
 }
 
 .conversation-item:hover {
@@ -2511,10 +2516,28 @@ body.col-resizing .resize-handle {
     color: var(--text-tertiary);
 }
 
+.conv-type-icon.unread {
+    color: #ff6b1a;
+}
+
 .conv-type-icon i,
 .conv-type-icon svg {
-    width: 14px;
-    height: 14px;
+    width: 16px;
+    height: 16px;
+}
+
+.conv-phone-icon {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    color: #22c55e;
+    margin-right: 4px;
+}
+
+.conv-phone-icon i,
+.conv-phone-icon svg {
+    width: 16px;
+    height: 16px;
 }
 
 /* Read/Unread toggle button */
