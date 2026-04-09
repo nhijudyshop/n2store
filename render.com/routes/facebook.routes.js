@@ -12,13 +12,26 @@ const TPOS_BASE_URL = process.env.TPOS_BASE_URL || "https://tomato.tpos.vn";
 // Default fallback token (used if no Authorization header provided)
 const DEFAULT_TOKEN = process.env.FACEBOOK_TOKEN || "";
 
+// TPOS token manager — auto-fetch bearer token using server env creds
+let tposTokenManager = null;
+try { tposTokenManager = require('../services/tpos-token-manager'); } catch (_) {}
+
 /**
- * Get authorization token from request or use default
+ * Get authorization token from request, fallback to TPOS token manager (server creds),
+ * fallback to DEFAULT_TOKEN env var.
  */
-function getAuthToken(req) {
+async function getAuthToken(req) {
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
         return authHeader;
+    }
+    if (tposTokenManager) {
+        try {
+            const tk = await tposTokenManager.getToken();
+            if (tk) return `Bearer ${tk}`;
+        } catch (e) {
+            console.warn('[FB-ROUTES] tposTokenManager.getToken failed:', e.message);
+        }
     }
     return DEFAULT_TOKEN ? `Bearer ${DEFAULT_TOKEN}` : null;
 }
@@ -48,7 +61,7 @@ function getTposHeaders(token) {
  */
 router.get("/facebook/crm-teams", async (req, res) => {
     try {
-        const token = getAuthToken(req);
+        const token = await getAuthToken(req);
         if (!token) {
             return res.status(401).json({ success: false, error: "No authorization token" });
         }
@@ -89,7 +102,7 @@ router.get("/facebook/crm-teams", async (req, res) => {
  */
 router.get("/facebook/live-campaigns", async (req, res) => {
     try {
-        const token = getAuthToken(req);
+        const token = await getAuthToken(req);
         if (!token) {
             return res.status(401).json({ success: false, error: "No authorization token" });
         }
@@ -135,7 +148,7 @@ router.get("/facebook/live-campaigns", async (req, res) => {
  */
 router.get("/facebook/comments", async (req, res) => {
     try {
-        const token = getAuthToken(req);
+        const token = await getAuthToken(req);
         if (!token) {
             return res.status(401).json({ success: false, error: "No authorization token" });
         }
@@ -190,7 +203,7 @@ router.get("/facebook/comments", async (req, res) => {
  */
 router.get("/facebook/comments/stream", async (req, res) => {
     // EventSource doesn't support custom headers, so accept token from query param
-    let token = getAuthToken(req);
+    let token = await getAuthToken(req);
     if (!token && req.query.token) {
         token = `Bearer ${req.query.token}`;
     }
@@ -281,7 +294,7 @@ router.get("/facebook/comments/stream", async (req, res) => {
  */
 router.get("/facebook/comment-orders", async (req, res) => {
     try {
-        const token = getAuthToken(req);
+        const token = await getAuthToken(req);
         if (!token) {
             return res.status(401).json({ success: false, error: "No authorization token" });
         }
@@ -333,7 +346,7 @@ router.get("/facebook/comment-orders", async (req, res) => {
  */
 router.get("/facebook/livevideo", async (req, res) => {
     try {
-        const token = getAuthToken(req);
+        const token = await getAuthToken(req);
         if (!token) {
             return res.status(401).json({ success: false, error: "No authorization token" });
         }

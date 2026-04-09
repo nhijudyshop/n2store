@@ -687,9 +687,10 @@
         // Try enrich with names from TPOS crm-teams
         const nameMap = {};
         try {
-            const res = await fetch(`${RENDER_SERVER}/facebook/crm-teams`, {
-                headers: { 'Authorization': `Bearer ${getToken()}` }
-            });
+            const headers = {};
+            const tk = getToken();
+            if (tk) headers['Authorization'] = `Bearer ${tk}`;
+            const res = await fetch(`${RENDER_SERVER}/facebook/crm-teams`, { headers });
             if (res.ok) {
                 const data = await res.json();
                 const teams = data?.value || data?.data || [];
@@ -724,11 +725,11 @@
     // =====================================================
     async function fetchLiveVideos() {
         try {
+            // Server falls back to TPOS token manager (env creds) if no Authorization header
+            const headers = {};
             const token = getToken();
-            if (!token) throw new Error('Ch\u01b0a \u0111\u0103ng nh\u1eadp TPOS');
-            const res = await fetch(`${RENDER_SERVER}/facebook/livevideo?pageid=${currentPageId}&limit=30`, {
-                headers: { 'Authorization': `Bearer ${token}` }
-            });
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+            const res = await fetch(`${RENDER_SERVER}/facebook/livevideo?pageid=${currentPageId}&limit=30`, { headers });
             const result = await res.json();
             // Shape: { success, data: { '@odata.context':..., value:[...] } } or { data:[...] }
             const raw = result?.data?.value || result?.data?.data || result?.data || [];
