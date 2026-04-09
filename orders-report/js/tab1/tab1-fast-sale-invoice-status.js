@@ -1194,6 +1194,20 @@
                 InvoiceStatusStore.set(saleOnlineId, inv, orderShim);
                 // Re-render PBH cell cho row này
                 refreshInvoiceStatusCellForOrder(saleOnlineId);
+
+                // Trigger tag ĐÃ RA ĐƠN theo trạng thái đơn derived từ StateCode
+                // (set nếu = 'Đơn hàng', rollback nếu rời)
+                try {
+                    const derived = deriveOrderStatusFromStateCode(
+                        inv.StateCode || 'None',
+                        inv.IsMergeCancel === true
+                    );
+                    if (typeof window.onPtagOrderStatusChanged === 'function') {
+                        window.onPtagOrderStatusChanged(saleOnlineId, derived.text);
+                    }
+                } catch (e) {
+                    console.warn('[INVOICE-WS] onPtagOrderStatusChanged hook failed:', e.message);
+                }
             }
             console.log('[INVOICE-WS] Updated invoice for', orderCode, '→', inv.ShowState, inv.StateCode);
             return inv;

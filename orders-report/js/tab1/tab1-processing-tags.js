@@ -5274,16 +5274,32 @@
         }
     }
 
-    // Backfill: scan allOrders đã load, tag ĐÃ RA ĐƠN cho mọi đơn Status='Đơn hàng'
-    // chưa có category=0. Gọi sau loadProcessingTags().
+    // Backfill: scan allOrders đã load, tag ĐÃ RA ĐƠN cho mọi đơn có invoice
+    // (PBH) với trạng thái derived = 'Đơn hàng', chưa có category=0.
+    // Gọi sau loadProcessingTags().
+    //
+    // Nguồn trạng thái: InvoiceStatusStore (FastSaleOrder.StateCode) — KHÔNG
+    // dùng order.Status (SaleOnline_Order) nữa. Mapping derive ở
+    // tab1-fast-sale-invoice-status.js#deriveOrderStatusFromStateCode.
     function backfillPtagFromOrderStatus() {
         if (!ProcessingTagState._isLoaded) return;
         const allOrders = (typeof window.getAllOrders === 'function') ? window.getAllOrders() : [];
         if (!allOrders.length) return;
+        const store = window.InvoiceStatusStore;
+        if (!store || typeof store.get !== 'function') return;
         let count = 0;
         for (const o of allOrders) {
-            const status = o.StatusText || o.Status;
-            if (status !== 'Đơn hàng') continue;
+            const inv = store.get(o.Id);
+            if (!inv) continue; // không có PBH → bỏ qua
+            const stateCode = inv.StateCode || 'None';
+            const isMergeCancel = inv.IsMergeCancel === true;
+            // Inline mapping (đồng bộ với deriveOrderStatusFromStateCode)
+            if (isMergeCancel) continue;
+            const draftCodes = ['draft', 'NotEnoughInventory'];
+            const cancelCodes = ['cancel', 'IsMergeCancel'];
+            if (draftCodes.includes(stateCode)) continue;
+            if (cancelCodes.includes(stateCode)) continue;
+            // Còn lại = 'Đơn hàng' (CrossCheck*, None)
             const orderCode = String(o.Code || '');
             if (!orderCode) continue;
             const data = ProcessingTagState.getOrderData(orderCode);
@@ -5292,7 +5308,7 @@
             onPtagBillCreated(o.Id || orderCode);
             count++;
         }
-        if (count > 0) console.log(`${PTAG_LOG} Backfill ĐÃ RA ĐƠN: ${count} orders`);
+        if (count > 0) console.log(`${PTAG_LOG} Backfill ĐÃ RA ĐƠN (từ PBH): ${count} orders`);
     }
 
     // Filter (called from tab1-search.js)
