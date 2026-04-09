@@ -145,6 +145,7 @@ const MENU_CONFIG = [
         shortText: "Giao Hàng",
         pageIdentifier: "delivery-report",
         permissionRequired: "delivery-report",
+        publicAccess: true,
     },
     {
         href: "../order-management/index.html",

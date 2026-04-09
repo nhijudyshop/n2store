@@ -8,6 +8,13 @@
 
 ## 2026-04-09
 
+### [shared] Mở quyền truy cập trang Thống Kê Giao Hàng cho mọi tài khoản ✅
+| | |
+|---|---|
+| **Files** | `shared/js/navigation-modern.js` |
+| **Chi tiết** | Thêm `publicAccess: true` cho menu item `delivery-report` (giống pattern Inbox). Mọi user đều vào được trang mà không cần cấp permission riêng. |
+| **Status** | ✅ Done |
+
 ### [chat] Tối ưu modal: in-flight dedupe, per-conv debounce, LRU cache, reconcile helper ✅
 | | |
 |---|---|
