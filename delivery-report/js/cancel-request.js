@@ -71,6 +71,14 @@
     // =====================================================
     // RENDER LIST
     // =====================================================
+    function canApprove() {
+        const info = window.authManager?.getUserInfo?.();
+        if (!info) return false;
+        if (window.authManager?.isAdminTemplate?.()) return true;
+        const uname = (info.username || '').toLowerCase();
+        return uname === 'phuoc';
+    }
+
     function renderList() {
         const listEl = document.getElementById('drCancelList');
         if (!listEl) return;
@@ -81,12 +89,17 @@
         }
 
         const statusLabels = { pending: 'Chờ duyệt', approved: 'Đã duyệt', rejected: 'Từ chối' };
+        const approver = canApprove();
 
         let html = '';
         CancelState.requests.forEach(req => {
             const date = req.requestedAt ? new Date(req.requestedAt) : null;
             const dateStr = date
                 ? `${String(date.getDate()).padStart(2,'0')}/${String(date.getMonth()+1).padStart(2,'0')}/${date.getFullYear()} ${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}`
+                : '';
+
+            const approveBtn = (approver && (req.status || 'pending') === 'pending')
+                ? `<button class="dr-cancel-approve-btn" onclick="CancelRequest.approve('${esc(req.id)}')"><i class="fas fa-check"></i> Duyệt</button>`
                 : '';
 
             html += `<div class="dr-cancel-item">
@@ -100,11 +113,34 @@
                 <div class="dr-cancel-item-right">
                     <span style="font-weight:600;">${fmtMoney(req.amount || 0)}</span>
                     <span class="dr-cancel-status ${req.status || 'pending'}">${statusLabels[req.status] || 'Chờ duyệt'}</span>
+                    ${approveBtn}
                 </div>
             </div>`;
         });
 
         listEl.innerHTML = html;
+    }
+
+    // =====================================================
+    // APPROVE — chỉ admin/phuoc, confirm rồi xóa document
+    // =====================================================
+    async function approve(id) {
+        if (!canApprove()) { alert('Bạn không có quyền duyệt yêu cầu hủy.'); return; }
+        const req = CancelState.requests.find(r => r.id === id);
+        if (!req) return;
+
+        const ok = confirm(`Duyệt yêu cầu hủy đơn ${req.orderNumber} (${req.customerName || ''})?\nYêu cầu sẽ bị xóa khỏi danh sách.`);
+        if (!ok) return;
+
+        const col = getCancelCollection();
+        if (!col) { alert('Không thể kết nối Firestore.'); return; }
+
+        try {
+            await col.doc(id).delete();
+        } catch (e) {
+            console.error('[CANCEL-REQUEST] Approve error:', e);
+            alert('Lỗi khi duyệt: ' + e.message);
+        }
     }
 
     function updateBadge() {
@@ -309,6 +345,7 @@
         closeModal,
         filterOrders,
         toggleOrder,
-        submit
+        submit,
+        approve
     };
 })();

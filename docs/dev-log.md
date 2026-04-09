@@ -8,6 +8,13 @@
 
 ## 2026-04-09
 
+### [delivery] Admin/phuoc duyệt yêu cầu hủy → confirm xóa request ✅
+| | |
+|---|---|
+| **Files** | `delivery-report/js/cancel-request.js`, `delivery-report/css/delivery-report.css` |
+| **Chi tiết** | Thêm nút "Duyệt" cho mỗi cancel_request `pending`, chỉ hiện với user có `isAdminTemplate()` hoặc username `phuoc`. Click → confirm dialog → `col.doc(id).delete()`. Realtime listener tự cập nhật UI. |
+| **Status** | ✅ Done |
+
 ### [chat] Nút "QR" trong header modal tin nhắn ✅
 | | |
 |---|---|
