@@ -157,6 +157,8 @@ router.get('/:customerId', async (req, res) => {
         const queue = []; // [{amount, date, source, note, remaining}]
         for (const tx of txResult.rows) {
             if (tx.type === 'DEPOSIT') {
+                // Bỏ qua HOÀN (ORDER_CANCEL_REFUND) — chỉ track CK thật
+                if (tx.source === 'ORDER_CANCEL_REFUND') continue;
                 const amt = parseFloat(tx.amount);
                 queue.push({
                     amount: amt,

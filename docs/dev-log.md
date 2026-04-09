@@ -17,6 +17,13 @@
 | **Giữ nguyên** | `/api/invoice-status` + `InvoiceStatusStore` + cột "Phiếu bán hàng" gốc — không touch. Cột Trạng thái vẫn render từ `order.Status`. |
 | **Status** | ✅ |
 
+### [render] FIFO loại HOÀN khỏi queue — chỉ CK thật ✅
+| | |
+|---|---|
+| **Files** | `render.com/routes/v2/wallets.js` |
+| **Chi tiết** | Skip DEPOSIT có `source='ORDER_CANCEL_REFUND'` khỏi FIFO queue. Refund không tham gia làm nguồn cover withdraw, không xuất hiện trong `availableDeposits` kể cả khi còn dư. Withdraw chỉ consume từ CK BANK_TRANSFER thật. |
+| **Status** | ✅ Done |
+
 ### [render][orders][customer-hub] FIFO availableDeposits + nhãn HOÀN cho refund ✅
 | | |
 |---|---|
