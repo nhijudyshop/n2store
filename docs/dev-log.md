@@ -8,6 +8,13 @@
 
 ## 2026-04-09
 
+### [orders] StateCode `None` → badge "Hủy bỏ" ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-fast-sale-invoice-status.js` |
+| **Why** | User yêu cầu coi `None` như đơn đã hủy thay vì "Đơn hàng" |
+| **What** | `deriveOrderStatusFromStateCode()`: chuyển case `'None'` từ nhóm "Đơn hàng" sang nhóm "Hủy" (cùng `cancel`, `IsMergeCancel`) |
+
 ### [orders] Gộp 3 cột → 1 cột "Phiếu bán hàng" + WS-driven invoice fetch ✅
 | | |
 |---|---|

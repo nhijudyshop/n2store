@@ -1695,8 +1695,8 @@
      * Derive trạng thái đơn (Đơn hàng / Hủy / Nháp) từ StateCode.
      * Mapping theo plan:
      *   Nháp:    draft, NotEnoughInventory
-     *   Hủy:     cancel, IsMergeCancel
-     *   Đơn hàng: CrossCheckingError, CrossCheckComplete, CrossCheckSuccess, CrossChecking, None
+     *   Hủy:     cancel, IsMergeCancel, None
+     *   Đơn hàng: CrossCheckingError, CrossCheckComplete, CrossCheckSuccess, CrossChecking
      */
     function deriveOrderStatusFromStateCode(stateCode, isMergeCancel) {
         if (isMergeCancel) return { text: 'Hủy', cls: 'cancel' };
@@ -1706,12 +1706,12 @@
                 return { text: 'Nháp', cls: 'draft' };
             case 'cancel':
             case 'IsMergeCancel':
+            case 'None':
                 return { text: 'Hủy', cls: 'cancel' };
             case 'CrossCheckingError':
             case 'CrossCheckComplete':
             case 'CrossCheckSuccess':
             case 'CrossChecking':
-            case 'None':
             default:
                 return { text: 'Đơn hàng', cls: 'order' };
         }
