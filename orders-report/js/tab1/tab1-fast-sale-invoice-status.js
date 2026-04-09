@@ -1185,6 +1185,8 @@
             if (saleOnlineId) {
                 _rawInvoicesById.set(String(saleOnlineId), list);
                 _orderCodeById.set(String(saleOnlineId), String(orderCode));
+                // Cảnh báo: nếu có ≥2 phiếu "Đã xác nhận" cùng Reference → row đỏ
+                markRowMultiConfirmed(saleOnlineId, list);
                 // Ghi vào InvoiceStatusStore để renderInvoiceStatusCell đọc được
                 const orderShim = {
                     Id: saleOnlineId,
@@ -1216,6 +1218,23 @@
         } catch (e) {
             console.warn('[INVOICE-WS] fetchAndUpdateInvoiceForCode error:', e.message);
             return null;
+        }
+    }
+
+    /**
+     * Đánh dấu row đỏ trong main table nếu có ≥2 phiếu "Đã xác nhận"
+     * cùng Reference (= dấu hiệu trùng PBH).
+     */
+    function markRowMultiConfirmed(saleOnlineId, invoices) {
+        const row = document.querySelector(`tr[data-order-id="${saleOnlineId}"]`);
+        if (!row) return;
+        const confirmedCount = (invoices || []).filter(i => i && i.ShowState === 'Đã xác nhận').length;
+        if (confirmedCount >= 2) {
+            row.classList.add('row-multi-confirmed');
+            row.title = `⚠️ ${confirmedCount} phiếu "Đã xác nhận" cùng đơn — kiểm tra trùng`;
+        } else {
+            row.classList.remove('row-multi-confirmed');
+            if (row.title && row.title.startsWith('⚠️')) row.removeAttribute('title');
         }
     }
 
@@ -1335,9 +1354,11 @@
                 tab.dataset.idx = String(idx);
                 const dateShort = inv.DateInvoice ? new Date(inv.DateInvoice).toLocaleDateString('vi-VN') : '—';
                 tab.style.cssText = `padding:10px 16px;border:none;background:transparent;border-bottom:2px solid transparent;cursor:pointer;font-size:12px;font-weight:600;color:#64748b;white-space:nowrap;display:flex;align-items:center;gap:6px;`;
+                // "Đã xác nhận" → chấm xanh lá; các state khác giữ màu cấu hình
+                const dotColor = (inv.ShowState === 'Đã xác nhận') ? '#10b981' : ssCfg.color;
                 tab.innerHTML = `
                     <span>${esc(inv.Number || `#${idx + 1}`)}</span>
-                    <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${ssCfg.color};"></span>
+                    <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${dotColor};"></span>
                     <span style="font-weight:400;color:#94a3b8;">${dateShort}</span>
                 `;
                 tab.onclick = () => {

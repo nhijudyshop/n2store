@@ -6566,6 +6566,16 @@ td[data-column].hidden {
 .invoice-order-status-cancel { background:#fee2e2; color:#991b1b; text-decoration:line-through; }
 .invoice-order-status-order  { background:#d1fae5; color:#065f46; }
 
+/* Row cảnh báo: có ≥2 phiếu "Đã xác nhận" cùng đơn → trùng PBH */
+tr.row-multi-confirmed > td {
+    background: #fef2f2 !important;
+    border-top: 1px solid #fca5a5 !important;
+    border-bottom: 1px solid #fca5a5 !important;
+}
+tr.row-multi-confirmed:hover > td {
+    background: #fee2e2 !important;
+}
+
 /* Badge "Đã ra đơn" → click mở modal raw */
 .invoice-ra-don-badge {
     display: inline-block;
