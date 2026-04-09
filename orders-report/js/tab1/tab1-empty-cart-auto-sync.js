@@ -207,17 +207,33 @@
      * Batch sync all orders (called after fetchOrders).
      * Throttled to avoid bursting the server.
      */
+    // Match tag GIỎ TRỐNG đồng bộ với server logic (name uppercase exact match).
+    // Server cũng accept match qua Id nhưng client không biết Id → match qua name là đủ
+    // (mọi tag GIỎ TRỐNG trên TPOS đều có name "GIỎ TRỐNG").
+    const GIO_TRONG_NAME_UPPER = 'GIỎ TRỐNG';
+    function _hasGioTrongTag(order) {
+        return _parseTags(order?.Tags).some(t =>
+            String(t?.Name || '').trim().toUpperCase() === GIO_TRONG_NAME_UPPER
+        );
+    }
+
     async function batchEmptyCartSync(orders) {
         if (!Array.isArray(orders) || orders.length === 0) return;
 
-        // Pre-filter: chỉ gửi đơn thực sự cần đồng bộ.
+        // Local XL sync chạy cho TẤT CẢ đơn (rẻ, không HTTP) để giữ XL state
+        // luôn nhất quán với SL thực tế — independent với việc gọi server.
+        for (const o of orders) {
+            if (o?.Code) _syncXLGioTrong(o.Code, Number(o.TotalQuantity) || 0);
+        }
+
+        // Pre-filter POST: chỉ gửi đơn thực sự cần đồng bộ TPOS Tag.
         // - SL=0 mà chưa có tag GIỎ TRỐNG → cần ADD
         // - SL>0 mà đang có tag GIỎ TRỐNG → cần REMOVE
         // Còn lại là noop chắc chắn → skip để giảm ~95% requests.
         const needSync = orders.filter(o => {
             if (!o || !o.Id) return false;
             const sl = Number(o.TotalQuantity) || 0;
-            const hasGT = _parseTags(o.Tags).some(t => /giỏ\s*trống/i.test(t?.Name || ''));
+            const hasGT = _hasGioTrongTag(o);
             return (sl === 0 && !hasGT) || (sl > 0 && hasGT);
         });
 
