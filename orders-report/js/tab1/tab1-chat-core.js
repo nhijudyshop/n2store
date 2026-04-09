@@ -241,6 +241,11 @@ window.closeChatModal = function() {
     // Invalidate any in-flight loads
     window._chatLoadSeq = (window._chatLoadSeq || 0) + 1;
     clearTimeout(window._chatUpdateDebounce);
+    if (window._chatUpdateDebounceMap) {
+        window._chatUpdateDebounceMap.forEach(id => clearTimeout(id));
+        window._chatUpdateDebounceMap.clear();
+    }
+    if (window._chatFindInFlight) window._chatFindInFlight.clear();
 
     // Cleanup state
     window.currentConversationId = null;
@@ -268,12 +273,30 @@ window.closeCommentModal = window.closeChatModal;
 // =====================================================
 
 async function _findAndLoadConversation(pageId, psid, type, loadToken) {
+    // In-flight dedupe — coalesce identical concurrent requests
+    const dedupeKey = `${pageId}:${psid}:${type}`;
+    const inflight = window._chatFindInFlight.get(dedupeKey);
+    if (inflight && (Date.now() - inflight.ts) < 3000) {
+        return inflight.promise;
+    }
+    const promise = _doFindAndLoadConversation(pageId, psid, type, loadToken);
+    window._chatFindInFlight.set(dedupeKey, { promise, ts: Date.now() });
+    promise.finally(() => {
+        const cur = window._chatFindInFlight.get(dedupeKey);
+        if (cur && cur.promise === promise) window._chatFindInFlight.delete(dedupeKey);
+    });
+    return promise;
+}
+
+async function _doFindAndLoadConversation(pageId, psid, type, loadToken) {
     const pdm = window.pancakeDataManager;
     if (!pdm) throw new Error('pancakeDataManager not available');
 
     // If caller didn't supply a token, allocate one so we still guard
     if (loadToken == null) loadToken = ++window._chatLoadSeq;
     const _isStale = () => loadToken !== window._chatLoadSeq;
+    const _byUpdatedAtDesc = (a, b) =>
+        new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime();
 
     let conv = null;
 
@@ -283,12 +306,7 @@ async function _findAndLoadConversation(pageId, psid, type, loadToken) {
         const commentConvs = (result.conversations || []).filter(c => c.type === 'COMMENT');
 
         if (commentConvs.length > 0) {
-            // Sort by updated_at desc → pick most recent
-            commentConvs.sort((a, b) => {
-                const ta = new Date(a.updated_at || 0).getTime();
-                const tb = new Date(b.updated_at || 0).getTime();
-                return tb - ta;
-            });
+            commentConvs.sort(_byUpdatedAtDesc);
             conv = commentConvs[0];
         }
 
@@ -297,12 +315,7 @@ async function _findAndLoadConversation(pageId, psid, type, loadToken) {
             const mpResult = await pdm.fetchConversationsByCustomerIdMultiPage(psid);
             const mpConvs = (mpResult.conversations || []).filter(c => c.type === 'COMMENT');
             if (mpConvs.length > 0) {
-                mpConvs.sort((a, b) => {
-                    const ta = new Date(a.updated_at || 0).getTime();
-                    const tb = new Date(b.updated_at || 0).getTime();
-                    return tb - ta;
-                });
-                // Prefer same page, then most recent across all pages
+                mpConvs.sort(_byUpdatedAtDesc);
                 conv = mpConvs.find(c => String(c.page_id) === String(pageId)) || mpConvs[0];
             }
         }
@@ -406,16 +419,10 @@ async function _loadMessages(pageId, conversationId, customerId, loadToken) {
             };
 
             // Proactive global_id caching — cache immediately when available
-            if (!window._globalIdCache) window._globalIdCache = {};
             const cacheKey = conversationId || `${pageId}_${window.currentChatPSID}`;
-            if (!window._globalIdCache[cacheKey]) {
-                const gid = rc.page_customer?.global_id
-                    || (result.customers || []).find(c => c.global_id)?.global_id;
-                if (gid) {
-                    window._globalIdCache[cacheKey] = gid;
-                    console.log('[Chat-Core] Cached global_id:', gid, 'for', cacheKey);
-                }
-            }
+            const gid = rc.page_customer?.global_id
+                || (result.customers || []).find(c => c.global_id)?.global_id;
+            if (gid) _setGlobalIdCache(cacheKey, gid);
         }
 
         // Map messages
@@ -453,34 +460,12 @@ async function _loadMessages(pageId, conversationId, customerId, loadToken) {
             });
         }
 
-        // Reconcile any optimistic private-reply placeholders (id "pr_*") that
-        // got pushed by _sendComment but never received a real id. If a real
-        // shop message with matching text exists in the new fetch, drop it.
-        const optimistic = (window.allChatMessages || []).filter(m =>
-            typeof m.id === 'string' && m.id.startsWith('pr_')
-        );
-        if (optimistic.length) {
-            const realTextsRecent = new Set(
-                messages.filter(m => m.sender === 'shop').map(m => (m.text || '').trim())
-            );
-            const survivors = optimistic.filter(o => !realTextsRecent.has((o.text || '').trim()));
-            if (survivors.length) {
-                // Append surviving optimistic at end so user still sees their pending sends
-                messages.push(...survivors);
-            }
-            // Migrate PrivateReplyStore marks for matched ones
-            optimistic
-                .filter(o => realTextsRecent.has((o.text || '').trim()))
-                .forEach(o => {
-                    const real = messages.find(m => m.sender === 'shop' && (m.text || '').trim() === (o.text || '').trim());
-                    if (real && window.PrivateReplyStore?.has?.(o.id)) {
-                        try {
-                            window.PrivateReplyStore.mark(real.id, o.text, o.senderName);
-                            window.PrivateReplyStore.unmark?.(o.id);
-                        } catch (_) {}
-                    }
-                });
-        }
+        // Reconcile any optimistic private-reply placeholders ("pr_*") with
+        // real shop messages from server (text+60s match). Surviving optimistic
+        // are appended so user still sees their pending sends.
+        const survivors = window._reconcileOptimisticReplies(window.allChatMessages, messages)
+            .filter(m => typeof m.id === 'string' && m.id.startsWith('pr_'));
+        if (survivors.length) messages.push(...survivors);
 
         window.allChatMessages = messages;
         window.currentChatCursor = messages.length;
@@ -582,10 +567,60 @@ function _resetTransientChatState() {
     window.allChatMessages = [];
     window.currentChatCursor = null;
     window.currentReplyMessage = null;
+    window.isLoadingMoreMessages = false;
     const preview = document.getElementById('replyPreview');
     if (preview) preview.classList.remove('active');
     if (typeof window.clearImagePreviews === 'function') {
         try { window.clearImagePreviews(); } catch (_) {}
+    }
+}
+
+// Shared: reconcile optimistic private-reply placeholders ("pr_*") in `existing`
+// against `incoming` real shop messages by text+60s window. Mutates store marks.
+window._reconcileOptimisticReplies = function(existing, incoming) {
+    if (!existing?.length || !incoming?.length) return existing || [];
+    const realShopTexts = new Set(
+        incoming.filter(m => m.sender === 'shop').map(m => (m.text || '').trim())
+    );
+    const survivors = [];
+    for (const o of existing) {
+        if (typeof o.id !== 'string' || !o.id.startsWith('pr_')) {
+            survivors.push(o);
+            continue;
+        }
+        const txt = (o.text || '').trim();
+        if (!realShopTexts.has(txt)) {
+            survivors.push(o);
+            continue;
+        }
+        // Matched — migrate PrivateReplyStore mark to real id
+        const real = incoming.find(m => m.sender === 'shop' && (m.text || '').trim() === txt);
+        if (real && window.PrivateReplyStore?.has?.(o.id)) {
+            try {
+                window.PrivateReplyStore.mark(real.id, o.text, o.senderName);
+                window.PrivateReplyStore.unmark?.(o.id);
+            } catch (_) {}
+        }
+    }
+    return survivors;
+};
+
+// In-flight dedupe map for _findAndLoadConversation
+// key: `${pageId}:${psid}:${type}` → { promise, ts }
+window._chatFindInFlight = new Map();
+
+// Bounded LRU for global_id cache (avoid unbounded growth)
+const _GLOBAL_ID_CACHE_MAX = 200;
+function _setGlobalIdCache(key, value) {
+    if (!window._globalIdCache) window._globalIdCache = {};
+    const cache = window._globalIdCache;
+    if (cache[key]) return; // already set
+    cache[key] = value;
+    const keys = Object.keys(cache);
+    if (keys.length > _GLOBAL_ID_CACHE_MAX) {
+        // Drop oldest 20% (insertion order in JS objects is preserved for string keys)
+        const drop = Math.ceil(_GLOBAL_ID_CACHE_MAX * 0.2);
+        for (let i = 0; i < drop; i++) delete cache[keys[i]];
     }
 }
 

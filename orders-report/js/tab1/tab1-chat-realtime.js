@@ -24,29 +24,17 @@ window.handleNewMessage = function(payload) {
     // Skip if already in messages list
     if (window.allChatMessages.some(m => String(m.id) === String(msg.id))) return;
 
-    // Reconcile optimistic private-reply placeholder (id starts with "pr_")
-    // with the real server message: same sender (shop) + same text within 60s.
+    // Reconcile optimistic private-reply placeholders via shared helper.
+    // Build a single-incoming wrapper so the helper can match by text.
     const incomingFromPage = String(msg.from?.id) === String(window.currentChatChannelId);
-    if (incomingFromPage) {
+    if (incomingFromPage && window._reconcileOptimisticReplies) {
         const incomingText = (msg.original_message || msg.message || '').trim();
-        const incomingTs = new Date(msg.inserted_at || msg.created_time || Date.now()).getTime();
-        const optIdx = window.allChatMessages.findIndex(m =>
-            typeof m.id === 'string' && m.id.startsWith('pr_') &&
-            m.sender === 'shop' &&
-            (m.text || '').trim() === incomingText &&
-            Math.abs(incomingTs - new Date(m.time || 0).getTime()) < 60000
-        );
-        if (optIdx >= 0) {
-            const old = window.allChatMessages[optIdx];
-            // Migrate PrivateReplyStore mark from optimistic id → real id
-            if (window.PrivateReplyStore?.has?.(old.id)) {
-                try {
-                    window.PrivateReplyStore.mark(msg.id, old.text, old.senderName);
-                    window.PrivateReplyStore.unmark?.(old.id);
-                } catch (_) {}
-            }
-            window.allChatMessages.splice(optIdx, 1);
-        }
+        const incomingWrap = [{
+            id: msg.id,
+            sender: 'shop',
+            text: incomingText,
+        }];
+        window.allChatMessages = window._reconcileOptimisticReplies(window.allChatMessages, incomingWrap);
     }
 
     const isFromPage = String(msg.from?.id) === String(window.currentChatChannelId);
@@ -107,9 +95,13 @@ window.handleConversationUpdate = function(payload) {
         window.currentConversationData.updated_at = conv.updated_at;
     }
 
-    // Debounced fetch — multiple update events may fire rapidly
-    clearTimeout(window._chatUpdateDebounce);
-    window._chatUpdateDebounce = setTimeout(async () => {
+    // Per-conversation debounce — global timer would clobber updates
+    // for different convs that fire within 300ms of each other.
+    if (!window._chatUpdateDebounceMap) window._chatUpdateDebounceMap = new Map();
+    const debounceKey = String(window.currentConversationId);
+    clearTimeout(window._chatUpdateDebounceMap.get(debounceKey));
+    const timerId = setTimeout(async () => {
+        window._chatUpdateDebounceMap.delete(debounceKey);
         const pageId = window.currentChatChannelId;
         const currentConvId = window.currentConversationId;
         if (!pageId || !currentConvId || !window.pancakeDataManager) return;
@@ -128,5 +120,6 @@ window.handleConversationUpdate = function(payload) {
             }
         } catch (e) { /* silent */ }
     }, 300);
+    window._chatUpdateDebounceMap.set(debounceKey, timerId);
 };
 

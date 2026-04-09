@@ -8,6 +8,18 @@
 
 ## 2026-04-09
 
+### [chat] Tối ưu modal: in-flight dedupe, per-conv debounce, LRU cache, reconcile helper ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-chat-core.js`, `orders-report/js/tab1/tab1-chat-realtime.js` |
+| **#6** | `_resetTransientChatState()` thêm reset `isLoadingMoreMessages = false` — tránh kẹt cờ khi user switch giữa lúc paginate. |
+| **#5** | Tách `window._reconcileOptimisticReplies(existing, incoming)` shared helper. `_loadMessages` và `handleNewMessage` cùng dùng → loại ~25 dòng dup. |
+| **#2** | In-flight dedupe `_findAndLoadConversation`: wrap qua `_doFindAndLoadConversation`, cache promise theo key `${pageId}:${psid}:${type}` trong 3s. Double-click hoặc switch nhanh không tạo 2 fetch song song. |
+| **#9** | LRU bound cho `_globalIdCache` (max 200, drop oldest 20% khi vượt) qua `_setGlobalIdCache(key, value)`. Tránh memory leak chậm theo số customer. |
+| **#3** | `handleConversationUpdate` đổi từ 1 timer global (`_chatUpdateDebounce`) sang Map per convId (`_chatUpdateDebounceMap`). Nhiều conv update đồng loạt không clobber nhau. |
+| **Cleanup** | `closeChatModal` clear cả `_chatUpdateDebounceMap` lẫn `_chatFindInFlight`. Comparator `_byUpdatedAtDesc` dùng chung cho 2 sort COMMENT (gọn hơn). |
+| **Status** | ✅ Done |
+
 ### [orders][render] Giảm spam request `empty-cart-sync` (~95%) ✅
 | | |
 |---|---|
