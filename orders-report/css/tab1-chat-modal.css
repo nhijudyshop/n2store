@@ -2654,6 +2654,20 @@ div.chat-product-image i {
 }
 .dropped-fab i { font-size: 18px; }
 .dropped-fab.fab-send { background: #1e3a8a; }
+.dropped-fab.fab-send-name { background: #3b82f6; }
+.dropped-fab.fab-send-image { background: #8b5cf6; }
 .dropped-fab.fab-delete { background: #64748b; }
+.dropped-fab.fab-toggle { background: #1e3a8a; }
 .dropped-fab:not(:disabled):hover { transform: translateY(-2px); }
 .dropped-fab:disabled { opacity: 0.45; cursor: not-allowed; }
+/* Speed-dial collapse: hide action FABs when collapsed; toggle stays */
+.dropped-floating-actions.collapsed .dropped-fab:not(.fab-toggle) {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(20px) scale(0.8);
+    height: 0;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+.dropped-floating-actions:not(.collapsed) .fab-toggle i { transform: rotate(90deg); transition: transform .2s; }

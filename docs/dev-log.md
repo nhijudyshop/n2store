@@ -14,6 +14,12 @@
 | **Files** | `orders-report/js/tab1/tab1-processing-tags.js` |
 | **Chi tiết** | Nút ghim Tag T (`_ptagToggleTTagPin`) trước nằm trong section header "TAG T CHỜ HÀNG", nay chuyển lên panel header Chốt Đơn — kế nút "Ghim panel". Icon thumbtack màu xanh dương `#3b82f6`, xoay 45° khi chưa ghim. Bỏ nút cũ trong section. |
 
+### [chat] Hàng rớt xả: gom 4 FAB thành speed-dial ✅
+| | |
+|---|---|
+| **Files** | `orders-report/tab1-orders.html`, `orders-report/css/tab1-chat-modal.css`, `orders-report/js/managers/dropped-products-manager.js` |
+| **Chi tiết** | Thêm nút toggle (`#droppedFabToggle`, icon `fa-bars`) — mặc định container có class `collapsed` chỉ hiện toggle, click để xổ ra 4 FAB (+, GỬI TÊN, GỬI ẢNH, HỦY/XÓA). CSS dùng opacity + transform + height:0 cho hiệu ứng thu gọn. |
+
 ### [chat] Hàng rớt xả: đổi nút FAB grid ✅
 | | |
 |---|---|

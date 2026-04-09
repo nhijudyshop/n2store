@@ -1116,6 +1116,14 @@
                 _renderDroppedGridOnly();
             });
         });
+        const toggleBtn = document.getElementById('droppedFabToggle');
+        const fabContainer = document.getElementById('droppedFloatingActions');
+        if (toggleBtn && !toggleBtn._wired) {
+            toggleBtn._wired = true;
+            toggleBtn.addEventListener('click', () => {
+                if (fabContainer) fabContainer.classList.toggle('collapsed');
+            });
+        }
         const sendBtn = document.getElementById('droppedFabSend');
         const sendNameBtn = document.getElementById('droppedFabSendName');
         const sendImageBtn = document.getElementById('droppedFabSendImage');

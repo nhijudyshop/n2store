@@ -1024,8 +1024,11 @@
                                 <p>Chưa có hàng rớt - xả</p>
                             </div>
                         </div>
-                        <!-- Floating action buttons -->
-                        <div class="dropped-floating-actions" id="droppedFloatingActions">
+                        <!-- Floating action buttons (speed dial: collapsed by default, expand on toggle) -->
+                        <div class="dropped-floating-actions collapsed" id="droppedFloatingActions">
+                            <button type="button" class="dropped-fab fab-toggle" id="droppedFabToggle" title="Mở thao tác">
+                                <i class="fas fa-bars"></i>
+                            </button>
                             <button type="button" class="dropped-fab fab-send" id="droppedFabSend" title="Chuyển các sản phẩm đã chọn vào đơn" disabled>
                                 <i class="fas fa-plus"></i>
                                 <span>+</span>
