@@ -607,7 +607,43 @@ export class CustomerProfileModule {
                         <span class="text-xs font-bold text-slate-500 uppercase tracking-wide">Hoạt động ví</span>
                     </div>
                     <div style="display:flex; flex-direction:column; gap:4px;">
-                        ${walletTransactions.slice(0, 15).map(tx => {
+                        ${(() => {
+                            // Gộp các giao dịch COD payment cùng đơn (cùng phút) thành 1 dòng
+                            const out = [];
+                            const groupMap = new Map();
+                            for (const tx of walletTransactions) {
+                                const rn = tx.note || tx.source || '';
+                                const isCod = tx.type === 'WITHDRAW'
+                                    && (tx.source === 'SALE_ORDER' || /Thanh toán.*đơn hàng/i.test(rn));
+                                if (!isCod) { out.push(tx); continue; }
+                                const m = rn.match(/#?(NJD\/\d{4}\/\d+)/i)
+                                    || (tx.reference_id || '').match(/(NJD\/\d{4}\/\d+)/i);
+                                const orderCode = m ? m[1] : '';
+                                const minuteKey = tx.created_at ? String(tx.created_at).slice(0, 16) : '';
+                                const key = `${orderCode}|${minuteKey}`;
+                                if (!orderCode || !groupMap.has(key)) {
+                                    groupMap.set(key, out.length);
+                                    out.push({ ...tx, amount: parseFloat(tx.amount) || 0 });
+                                } else {
+                                    const ex = out[groupMap.get(key)];
+                                    ex.amount = (parseFloat(ex.amount) || 0) + (parseFloat(tx.amount) || 0);
+                                    const exAfter = (parseFloat(ex.balance_after) || 0) + (parseFloat(ex.virtual_balance_after) || 0);
+                                    const txAfter = (parseFloat(tx.balance_after) || 0) + (parseFloat(tx.virtual_balance_after) || 0);
+                                    if (txAfter < exAfter) {
+                                        ex.balance_after = tx.balance_after;
+                                        ex.virtual_balance_after = tx.virtual_balance_after;
+                                    }
+                                    const exBefore = (parseFloat(ex.balance_before) || 0) + (parseFloat(ex.virtual_balance_before) || 0);
+                                    const txBefore = (parseFloat(tx.balance_before) || 0) + (parseFloat(tx.virtual_balance_before) || 0);
+                                    if (txBefore > exBefore) {
+                                        ex.balance_before = tx.balance_before;
+                                        ex.virtual_balance_before = tx.virtual_balance_before;
+                                    }
+                                    if ((tx.note || '').length > (ex.note || '').length) ex.note = tx.note;
+                                }
+                            }
+                            return out;
+                        })().slice(0, 15).map(tx => {
                             let cfg = walletTypeConfig[tx.type] || defaultConfig;
                             let __suppressOperator = false;
                             // Override: DEPOSIT + ORDER_CANCEL_REFUND → label "HOÀN" (vẫn xanh, dấu +)
