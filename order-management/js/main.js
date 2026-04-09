@@ -126,19 +126,17 @@
 
                 selector.innerHTML = '<option value="">-- Chọn đợt live --</option>';
 
-                // Load campaigns from 'campaigns' collection (same source as Tab 1)
-                const campaignSnapshot = await firestore.collection('campaigns').get();
-                const campaigns = [];
-                campaignSnapshot.forEach(doc => {
-                    const data = doc.data();
-                    campaigns.push({
-                        id: doc.id,
-                        name: data.name || doc.id,
-                        createdAt: data.createdAt || '',
-                        customStartDate: data.customStartDate || '',
-                        customEndDate: data.customEndDate || ''
-                    });
-                });
+                // Load campaigns from PostgreSQL API (same source as Tab 1)
+                const list = (window.CampaignAPI && typeof window.CampaignAPI.loadAll === 'function')
+                    ? await window.CampaignAPI.loadAll()
+                    : [];
+                const campaigns = list.map(c => ({
+                    id: c.id,
+                    name: c.name || c.id,
+                    createdAt: c.createdAt || '',
+                    customStartDate: c.customStartDate || '',
+                    customEndDate: c.customEndDate || ''
+                }));
 
                 // Also load order counts from report_order_details for display
                 const orderCountMap = {};
