@@ -647,13 +647,17 @@
     // =====================================================
 
     const PANCAKE_PAGE_ID = '270136663390370'; // NhiJudy Store (default)
-    let cachedPancakePosts = [];      // pancake posts (video/post tabs)
-    let cachedLiveVideos = [];        // tpos live videos (live tab)
+    let cachedPancakePosts = [];      // pancake posts (current page)
+    let cachedLiveVideos = [];        // tpos live videos (current page)
+    const postsByPage = {};           // pageId → pancake posts (in-memory cache)
+    const liveByPage = {};            // pageId → live videos (in-memory cache)
     let filteredPancakePosts = [];
     let currentPostTab = 'live'; // 'live' | 'video' | 'post'
     let currentPageId = PANCAKE_PAGE_ID;
     let pancakePagesList = [];        // [{id, name}] from realtime_credentials + crm-teams
     let pancakeAccountCache = null;   // cached creds from /api/realtime/credentials/pancake
+    const PAGES_LS_KEY = 'fbsvc_pages_list_v1';
+    const PAGES_LS_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
 
     function postMatchesTab(post, tab) {
         if (tab === 'live') return post.type === 'livestream';
@@ -678,8 +682,39 @@
     // =====================================================
     // PAGE LIST (from Render DB + TPOS crm-teams for names)
     // =====================================================
+    function loadPagesFromLS() {
+        try {
+            const raw = localStorage.getItem(PAGES_LS_KEY);
+            if (!raw) return null;
+            const obj = JSON.parse(raw);
+            if (!obj || !obj.list || !obj.ts) return null;
+            if (Date.now() - obj.ts > PAGES_LS_TTL) return null;
+            return obj.list;
+        } catch (_) { return null; }
+    }
+    function savePagesToLS(list) {
+        try { localStorage.setItem(PAGES_LS_KEY, JSON.stringify({ ts: Date.now(), list })); } catch (_) {}
+    }
+
     async function loadPancakePagesList() {
         if (pancakePagesList.length > 0) return pancakePagesList;
+        // Try localStorage cache first (instant)
+        const ls = loadPagesFromLS();
+        if (ls && ls.length) {
+            pancakePagesList = ls;
+            // refresh in background, ignore errors
+            _fetchPancakePagesList().then(fresh => {
+                if (fresh && fresh.length && JSON.stringify(fresh) !== JSON.stringify(ls)) {
+                    pancakePagesList = fresh;
+                    renderPageSelect();
+                }
+            }).catch(() => {});
+            return pancakePagesList;
+        }
+        return _fetchPancakePagesList();
+    }
+
+    async function _fetchPancakePagesList() {
         const acc = pancakeAccountCache || await loadPancakeAccountFromRender();
         pancakeAccountCache = acc;
         const ids = (acc && Array.isArray(acc.pageIds)) ? acc.pageIds : [PANCAKE_PAGE_ID];
@@ -709,6 +744,7 @@
         }
 
         pancakePagesList = ids.map(id => ({ id: String(id), name: nameMap[String(id)] || `Page ${String(id).slice(-6)}` }));
+        savePagesToLS(pancakePagesList);
         return pancakePagesList;
     }
 
@@ -734,6 +770,7 @@
             // Shape: { success, data: { '@odata.context':..., value:[...] } } or { data:[...] }
             const raw = result?.data?.value || result?.data?.data || result?.data || [];
             cachedLiveVideos = (Array.isArray(raw) ? raw : []).map(normalizeLiveVideo);
+            liveByPage[currentPageId] = cachedLiveVideos;
             console.log('[FB-SVC] Loaded', cachedLiveVideos.length, 'live videos via TPOS');
             filterPancakePosts();
         } catch (e) {
@@ -764,15 +801,21 @@
         };
     }
 
-    async function openPostModal() {
+    function openPostModal() {
         const modal = document.getElementById('postModal');
         if (modal) modal.classList.add('show');
-        document.getElementById('postLoading').style.display = 'flex';
         document.getElementById('postList').innerHTML = '';
 
-        // Load page list once
+        // Page list: use whatever we have (LS cache) immediately, fetch in parallel
         if (pancakePagesList.length === 0) {
-            await loadPancakePagesList();
+            const ls = loadPagesFromLS();
+            if (ls && ls.length) {
+                pancakePagesList = ls;
+                renderPageSelect();
+            }
+            // Kick off fresh fetch in background (also handles first-ever load)
+            loadPancakePagesList().then(() => renderPageSelect()).catch(() => {});
+        } else {
             renderPageSelect();
         }
 
@@ -781,10 +824,21 @@
 
     function loadPostsForCurrentTab() {
         if (currentPostTab === 'live') {
+            // Use per-page cache if available
+            if (liveByPage[currentPageId]) {
+                cachedLiveVideos = liveByPage[currentPageId];
+                filterPancakePosts();
+                return;
+            }
             cachedLiveVideos = [];
             document.getElementById('postLoading').style.display = 'flex';
             fetchLiveVideos();
         } else {
+            if (postsByPage[currentPageId]) {
+                cachedPancakePosts = postsByPage[currentPageId];
+                filterPancakePosts();
+                return;
+            }
             if (cachedPancakePosts.length === 0) {
                 document.getElementById('postLoading').style.display = 'flex';
                 fetchPancakePosts();
@@ -825,6 +879,7 @@
                     const result = await res.json();
                     if (result.success && result.data) {
                         cachedPancakePosts = result.data;
+                        postsByPage[currentPageId] = cachedPancakePosts;
                         filteredPancakePosts = cachedPancakePosts;
                         filterPancakePosts();
                         console.log('[FB-SVC] Loaded', cachedPancakePosts.length, 'posts via Render DB account');
@@ -858,6 +913,7 @@
                     const result = await res.json();
                     if (result.success && result.data) {
                         cachedPancakePosts = result.data;
+                        postsByPage[currentPageId] = cachedPancakePosts;
                         filteredPancakePosts = cachedPancakePosts;
                         filterPancakePosts();
                         console.log('[FB-SVC] Loaded', cachedPancakePosts.length, 'posts via', account.name);
@@ -883,6 +939,7 @@
                 const result = await res.json();
                 if (result.success && result.posts) {
                     cachedPancakePosts = result.posts;
+                    postsByPage[currentPageId] = cachedPancakePosts;
                     filteredPancakePosts = cachedPancakePosts;
                     filterPancakePosts();
                     console.log('[FB-SVC] Loaded', cachedPancakePosts.length, 'posts via official API');
@@ -1112,8 +1169,8 @@
         // Page select change → reset caches and reload
         document.getElementById('postPageSelect')?.addEventListener('change', (e) => {
             currentPageId = e.target.value || PANCAKE_PAGE_ID;
-            cachedPancakePosts = [];
-            cachedLiveVideos = [];
+            cachedPancakePosts = postsByPage[currentPageId] || [];
+            cachedLiveVideos = liveByPage[currentPageId] || [];
             loadPostsForCurrentTab();
         });
         loadHistory();
