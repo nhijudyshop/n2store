@@ -35,6 +35,14 @@
 | **Chi tiết** | (1) **Fix A — Client pre-filter**: trong `batchEmptyCartSync` chỉ giữ đơn `(SL=0 && !hasGT)` hoặc `(SL>0 && hasGT)`, các đơn còn lại là noop chắc chắn → skip. Log dạng `Batch sync N/total (filtered)`. (2) **Fix B — CORS preflight cache**: thêm `maxAge: 86400` vào cors() middleware → browser cache OPTIONS 24h, cắt 50% requests. |
 | **Status** | ✅ Done |
 
+### [issue-tracking] markPartnerAsBoom — note chỉ ghi vào partner mới nhất ✅
+| | |
+|---|---|
+| **Files** | `issue-tracking/js/script.js` |
+| **Why** | Sniff TPOS UI native: khi mark Bom thủ công chỉ `PUT Partner({id})` cho 1 record (record user đang xem), không broadcast. Code mình đang ghi Email cho cả 3 partner trùng SĐT → đè Email thật ở các record cũ. |
+| **Chi tiết** | (1) Search param đổi `Phone=` → `Name=` cho khớp TPOS UI native (cùng kết quả). (2) Status "Bom hàng" vẫn quét **tất cả** partner trùng SĐT (giữ nghiệp vụ — 1 KH = nhiều record TPOS đều phải mark). (3) Note (`Email` field) chỉ ghi vào **partner mới nhất** (`partners[0]` sau sort `DateCreated desc`) — bỏ vòng for, dùng GET+PUT 1 lần duy nhất. |
+| **Status** | ✅ Done |
+
 ### [issue-tracking] Refactor markPartnerAsBoom → dùng UpdateStatus API ✅
 | | |
 |---|---|
