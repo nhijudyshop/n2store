@@ -144,46 +144,48 @@ router.get('/:customerId', async (req, res) => {
             ORDER BY vc.expires_at ASC
         `, [phone]);
 
-        // Get all deposit transactions (for payment note generation)
-        const depositsResult = await db.query(`
-            SELECT amount, created_at, source, note
+        // Get all real wallet transactions (DEPOSIT + WITHDRAW) in chronological order
+        // Skip VIRTUAL_* — they don't participate in FIFO consumption of real deposits
+        const txResult = await db.query(`
+            SELECT type, amount, created_at, source, note
             FROM wallet_transactions
-            WHERE phone = $1 AND type = 'DEPOSIT'
+            WHERE phone = $1 AND type IN ('DEPOSIT', 'WITHDRAW')
             ORDER BY created_at ASC
         `, [phone]);
 
-        // Get total withdrawn to compute available deposits via FIFO
-        const withdrawnResult = await db.query(`
-            SELECT COALESCE(SUM(ABS(amount)), 0) as total
-            FROM wallet_transactions
-            WHERE phone = $1 AND type = 'WITHDRAWAL'
-        `, [phone]);
-
-        const totalWithdrawn = parseFloat(withdrawnResult.rows[0]?.total) || 0;
-        let remainingWithdrawn = totalWithdrawn;
-        const availableDeposits = [];
-
-        for (const dep of depositsResult.rows) {
-            const depAmount = parseFloat(dep.amount);
-            if (remainingWithdrawn >= depAmount) {
-                remainingWithdrawn -= depAmount;
-            } else if (remainingWithdrawn > 0) {
-                availableDeposits.push({
-                    amount: depAmount - remainingWithdrawn,
-                    date: dep.created_at,
-                    source: dep.source || 'BANK_TRANSFER',
-                    note: dep.note || null
+        // FIFO simulation: walk oldest→newest, consume deposits with each withdraw
+        const queue = []; // [{amount, date, source, note, remaining}]
+        for (const tx of txResult.rows) {
+            if (tx.type === 'DEPOSIT') {
+                const amt = parseFloat(tx.amount);
+                queue.push({
+                    amount: amt,
+                    date: tx.created_at,
+                    source: tx.source || 'BANK_TRANSFER',
+                    note: tx.note || null,
+                    remaining: amt
                 });
-                remainingWithdrawn = 0;
-            } else {
-                availableDeposits.push({
-                    amount: depAmount,
-                    date: dep.created_at,
-                    source: dep.source || 'BANK_TRANSFER',
-                    note: dep.note || null
-                });
+            } else if (tx.type === 'WITHDRAW') {
+                let toConsume = Math.abs(parseFloat(tx.amount));
+                for (const d of queue) {
+                    if (toConsume <= 0) break;
+                    if (d.remaining <= 0) continue;
+                    const used = Math.min(d.remaining, toConsume);
+                    d.remaining -= used;
+                    toConsume -= used;
+                }
             }
         }
+
+        // Return only deposits with remaining balance, oldest→newest
+        const availableDeposits = queue
+            .filter(d => d.remaining > 0)
+            .map(d => ({
+                amount: d.remaining,
+                date: d.date,
+                source: d.source,
+                note: d.note
+            }));
 
         // Backward compat: keep lastDeposit fields from the last available deposit
         const lastDeposit = availableDeposits.length > 0 ? availableDeposits[availableDeposits.length - 1] : null;

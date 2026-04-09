@@ -1145,10 +1145,11 @@ function autoFillSaleNote() {
             const vcTotal = vcList.reduce((sum, vc) => sum + (parseFloat(vc.remaining_amount) || 0), 0);
             let remainingToCover = walletBalance - vcTotal;
 
-            // Lặp từ cuối (giao dịch gần nhất) → đầu, dừng khi đủ
-            const depositsReversed = [...currentSaleAvailableDeposits].reverse();
-            for (const dep of depositsReversed) {
+            // Iterate oldest→newest (backend đã sort ASC theo created_at)
+            // Skip ORDER_CANCEL_REFUND khỏi note (vẫn nằm trong balance, nhưng không hiện CK)
+            for (const dep of currentSaleAvailableDeposits) {
                 if (remainingToCover <= 0) break;
+                if (dep.source === 'ORDER_CANCEL_REFUND') continue;
 
                 const depAmount = parseFloat(dep.amount);
                 const usedAmount = Math.min(depAmount, remainingToCover);

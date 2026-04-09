@@ -8,6 +8,16 @@
 
 ## 2026-04-09
 
+### [render][orders][customer-hub] FIFO availableDeposits + nhãn HOÀN cho refund ✅
+| | |
+|---|---|
+| **Files** | `render.com/routes/v2/wallets.js`, `orders-report/js/utils/sale-modal-common.js`, `customer-hub/js/modules/customer-profile.js` |
+| **Bug** | `wallets.js` query `type='WITHDRAWAL'` (sai) → DB lưu `'WITHDRAW'` → `totalWithdrawn` luôn = 0 → `availableDeposits` trả về toàn bộ deposits, không trừ withdraw. Auto-fill note phiếu bán hàng hiển thị các CK đã consumed. |
+| **Backend** | Rewrite `availableDeposits`: query DEPOSIT+WITHDRAW chronological, simulate FIFO queue, trả về deposits còn dư (oldest→newest). Bỏ qua VIRTUAL_*. |
+| **Frontend orders** | `autoFillSaleNote()` iterate forward (oldest→newest), skip `source === 'ORDER_CANCEL_REFUND'` khỏi note "CK xxxK ACB dd/mm". |
+| **Customer-hub** | Override label "HOÀN" (giữ màu xanh, dấu +) cho `tx.type==='DEPOSIT' && tx.source==='ORDER_CANCEL_REFUND'`. Fix `isRefund` detection (trước check `tx.type==='ORDER_CANCEL_REFUND'` không bao giờ match). Operator label đổi "Duyệt bởi" → "Hoàn bởi" cho refund. |
+| **Status** | ✅ Done |
+
 ### [customer-hub] Fix nút X đóng modal Customer Profile không bấm được ✅
 | | |
 |---|---|
@@ -38,7 +48,6 @@
 |---|---|
 | **Files** | `orders-report/js/managers/dropped-products-manager.js` |
 | **Chi tiết** | Trong panel chat tab1 modal hàng rớt xả: nút "gửi đơn" (moveDroppedToOrder) đổi icon `fa-undo` → `fa-plus`. Nút paper-plane đổi thành text "Gửi tên". Thêm nút "Gửi ảnh" (màu tím #8b5cf6) gọi `sendImageToChat`, chỉ hiển thị khi có ImageUrl. |
-
 ### [shared] Mở quyền truy cập trang Thống Kê Giao Hàng cho mọi tài khoản ✅
 | | |
 |---|---|

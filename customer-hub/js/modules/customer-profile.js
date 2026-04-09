@@ -602,7 +602,11 @@ export class CustomerProfileModule {
                     </div>
                     <div class="space-y-3">
                         ${walletTransactions.slice(0, 15).map(tx => {
-                            const cfg = walletTypeConfig[tx.type] || defaultConfig;
+                            let cfg = walletTypeConfig[tx.type] || defaultConfig;
+                            // Override: DEPOSIT + ORDER_CANCEL_REFUND → label "HOÀN" (vẫn xanh, dấu +)
+                            if (tx.type === 'DEPOSIT' && tx.source === 'ORDER_CANCEL_REFUND') {
+                                cfg = { label: 'HOÀN', iconChar: '+', isCredit: true };
+                            }
                             const amount = parseFloat(tx.amount) || 0;
 
                             // ADJUSTMENT: dấu/màu theo dấu thật của amount (DB lưu âm khi trừ, dương khi cộng)
@@ -658,8 +662,8 @@ export class CustomerProfileModule {
                             if (isAdjust && tx.adjusted_by) {
                                 operatorHtml = ` - <span style="color: #ef4444; font-weight: 700;">Điều chỉnh bởi ${tx.adjusted_by}</span>`;
                             } else if (createdBy) {
-                                const isDeposit = tx.type === 'DEPOSIT';
-                                const isRefund = tx.type === 'ORDER_CANCEL_REFUND';
+                                const isRefund = tx.type === 'DEPOSIT' && tx.source === 'ORDER_CANCEL_REFUND';
+                                const isDeposit = tx.type === 'DEPOSIT' && !isRefund;
                                 const isWithdraw = tx.type === 'WITHDRAW';
                                 const label = isDeposit ? 'Duyệt bởi' : isWithdraw ? 'Tạo bởi' : isRefund ? 'Hoàn bởi' : 'Bởi';
                                 operatorHtml = ` - <span style="color: #ef4444; font-weight: 700;">${label} ${createdBy}</span>`;
