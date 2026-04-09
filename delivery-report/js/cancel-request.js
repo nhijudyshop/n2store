@@ -137,6 +137,10 @@
 
         try {
             await col.doc(id).delete();
+            // Xóa đơn khỏi delivery report (ẩn vĩnh viễn)
+            if (window.DeliveryReport?.hideOrder) {
+                window.DeliveryReport.hideOrder(req.orderNumber);
+            }
         } catch (e) {
             console.error('[CANCEL-REQUEST] Approve error:', e);
             alert('Lỗi khi duyệt: ' + e.message);
@@ -184,18 +188,29 @@
 
         const state = window.DeliveryReport?.getState?.();
         const allData = state?.allData || [];
+        const scanned = state?.scannedNumbers;
+
+        // Chỉ cho phép tạo yêu cầu hủy với đơn ĐÃ QUÉT
+        const scannedOnly = (scanned && scanned.size > 0)
+            ? allData.filter(i => scanned.has(i.Number))
+            : [];
+
+        if (scannedOnly.length === 0) {
+            listEl.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:20px;">Chưa có đơn nào được quét. Vui lòng quét đơn trong "Tra soát" trước.</div>';
+            return;
+        }
 
         const kw = (keyword || '').toLowerCase().trim();
         const filtered = kw
-            ? allData.filter(item =>
+            ? scannedOnly.filter(item =>
                 (item.Number || '').toLowerCase().includes(kw) ||
                 (item.PartnerDisplayName || '').toLowerCase().includes(kw) ||
                 (item.Phone || '').toLowerCase().includes(kw)
             )
-            : allData.slice(0, 100);
+            : scannedOnly.slice(0, 100);
 
         if (filtered.length === 0) {
-            listEl.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:20px;">Không tìm thấy đơn hàng</div>';
+            listEl.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:20px;">Không tìm thấy đơn hàng đã quét</div>';
             return;
         }
 

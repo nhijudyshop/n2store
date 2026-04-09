@@ -8,6 +8,13 @@
 
 ## 2026-04-09
 
+### [delivery] Approve = ẩn đơn vĩnh viễn + tạo yêu cầu chỉ chọn đơn đã quét ✅
+| | |
+|---|---|
+| **Files** | `delivery-report/js/delivery-report.js`, `delivery-report/js/cancel-request.js` |
+| **Chi tiết** | (1) Thêm `hiddenNumbers` Set + `hidden_numbers` doc Firestore. `fetchData` lọc bỏ hidden ngay sau khi nhận từ API. Expose `DeliveryReport.hideOrder(number)`. (2) `CancelRequest.approve` sau khi xóa request → gọi `hideOrder` để loại đơn khỏi UI/scanned, persist hidden. (3) Modal "Tạo yêu cầu" giờ chỉ list đơn nằm trong `scannedNumbers` — chưa quét thì hiện thông báo yêu cầu quét trước. |
+| **Status** | ✅ Done |
+
 ### [delivery] Admin/phuoc duyệt yêu cầu hủy → confirm xóa request ✅
 | | |
 |---|---|

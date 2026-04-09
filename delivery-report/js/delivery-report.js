@@ -22,6 +22,7 @@
         // Tra soát mode
         traSoatMode: false,
         scannedNumbers: new Set(),
+        hiddenNumbers: new Set(),
         activeTab: 'all', // 'city', 'province', 'shop', 'all'
         scanFilter: 'unscanned', // 'unscanned' | 'scanned'
         provinceGroups: {}, // { Number: 'tomato' | 'nap' }
@@ -81,7 +82,7 @@
             if (btn) btn.style.display = 'none';
         }
 
-        fetchData();
+        loadHiddenNumbers().finally(() => fetchData());
     }
 
     function setDefaultDates() {
@@ -232,7 +233,8 @@
             }
 
             const result = await response.json();
-            DeliveryReportState.allData = result.value || [];
+            const raw = result.value || [];
+            DeliveryReportState.allData = raw.filter(i => !DeliveryReportState.hiddenNumbers.has(i.Number));
 
             // Debug: check DeliveryNote field
             const withNote = DeliveryReportState.allData.filter(i => i.DeliveryNote);
@@ -1118,6 +1120,42 @@
         }
     }
 
+    async function loadHiddenNumbers() {
+        const db = getFirestoreDB();
+        if (!db) return;
+        try {
+            const doc = await db.collection('delivery_report').doc('hidden_numbers').get();
+            if (doc.exists) {
+                const numbers = doc.data().numbers || [];
+                DeliveryReportState.hiddenNumbers = new Set(numbers);
+            }
+        } catch (e) {
+            console.warn('[DELIVERY-REPORT] Failed to load hidden numbers:', e);
+        }
+    }
+
+    function saveHiddenNumbers() {
+        const db = getFirestoreDB();
+        if (!db) return;
+        db.collection('delivery_report').doc('hidden_numbers').set({
+            numbers: [...DeliveryReportState.hiddenNumbers],
+            lastUpdated: Date.now()
+        }).catch(e => console.warn('[DELIVERY-REPORT] Failed to save hidden numbers:', e));
+    }
+
+    function hideOrder(number) {
+        if (!number) return;
+        DeliveryReportState.hiddenNumbers.add(number);
+        DeliveryReportState.scannedNumbers.delete(number);
+        DeliveryReportState.allData = (DeliveryReportState.allData || []).filter(i => i.Number !== number);
+        saveHiddenNumbers();
+        saveScannedNumbers();
+        renderTable();
+        renderStats();
+        renderPagination();
+        if (DeliveryReportState.traSoatMode) updateScanCount();
+    }
+
     function saveScannedNumbers() {
         const db = getFirestoreDB();
         if (!db) return;
@@ -1723,6 +1761,7 @@
         unscanItem: unscanItem,
         unscanAllTab: unscanAllTab,
         unscanGroup: unscanGroup,
+        hideOrder: hideOrder,
         getState: () => DeliveryReportState
     };
 })();
