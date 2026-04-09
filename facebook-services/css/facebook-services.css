@@ -465,11 +465,28 @@ body {
     flex-direction: column;
 }
 
+.fb-post-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--border, rgba(255,255,255,0.08));
+}
+.fb-post-page-select {
+    background: var(--card-bg, rgba(255,255,255,0.04));
+    color: var(--text, #e2e8f0);
+    border: 1px solid var(--border, rgba(255,255,255,0.12));
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 12px;
+    max-width: 240px;
+    margin-bottom: 6px;
+    cursor: pointer;
+}
 .fb-post-tabs {
     display: flex;
     gap: 6px;
-    margin-bottom: 12px;
-    border-bottom: 1px solid var(--border, rgba(255,255,255,0.08));
 }
 .fb-post-tab {
     background: transparent;

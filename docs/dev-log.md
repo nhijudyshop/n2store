@@ -8,6 +8,12 @@
 
 ## 2026-04-09
 
+### [facebook-services] Page picker + tab LIVE dùng TPOS livevideo API ✅
+| | |
+|---|---|
+| **Files** | `facebook-services/index.html`, `facebook-services/css/facebook-services.css`, `facebook-services/js/facebook-services.js` |
+| **What** | (1) Modal có `<select>` chọn page; danh sách page lấy từ `realtime_credentials.pancake.page_ids` (Render DB), enrich tên qua TPOS `/facebook/crm-teams`. (2) Tab LIVE dùng TPOS `/facebook/livevideo?pageid=X` (vì Pancake API không trả livestream); normalize response → cùng schema render. (3) Đổi page → reset cả 2 cache, reload theo tab hiện tại. (4) `currentPageId` thay cho hằng `PANCAKE_PAGE_ID` ở mọi nơi gọi API. |
+
 ### [facebook-services] Modal chọn bài viết — 3 tab Live/Video/Bài viết, mặc định Live ✅
 | | |
 |---|---|
