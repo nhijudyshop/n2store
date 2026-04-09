@@ -8,6 +8,12 @@
 
 ## 2026-04-09
 
+### [facebook-services] Modal chọn bài viết — 3 tab Live/Video/Bài viết, mặc định Live ✅
+| | |
+|---|---|
+| **Files** | `facebook-services/index.html`, `facebook-services/css/facebook-services.css`, `facebook-services/js/facebook-services.js` |
+| **What** | Thêm tab strip trên modal. Filter posts theo `post.type`: live=`livestream`, video=`video`, post=khác. State `currentPostTab='live'`. `filterPancakePosts()` áp tab + search. Mặc định mở modal hiển thị tab Live. |
+
 ### [render][facebook-services] Load Pancake account từ Render DB ✅
 | | |
 |---|---|

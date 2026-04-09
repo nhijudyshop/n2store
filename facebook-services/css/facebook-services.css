@@ -465,6 +465,29 @@ body {
     flex-direction: column;
 }
 
+.fb-post-tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--border, rgba(255,255,255,0.08));
+}
+.fb-post-tab {
+    background: transparent;
+    color: var(--text-muted, #94a3b8);
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color .15s, border-color .15s;
+}
+.fb-post-tab:hover { color: var(--text, #e2e8f0); }
+.fb-post-tab.active {
+    color: var(--primary, #3b82f6);
+    border-bottom-color: var(--primary, #3b82f6);
+}
+
 .fb-post-filter {
     position: relative;
     margin-bottom: 12px;

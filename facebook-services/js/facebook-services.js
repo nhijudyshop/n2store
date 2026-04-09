@@ -649,6 +649,23 @@
     const PANCAKE_PAGE_ID = '270136663390370'; // NhiJudy Store
     let cachedPancakePosts = [];
     let filteredPancakePosts = [];
+    let currentPostTab = 'live'; // 'live' | 'video' | 'post'
+
+    function postMatchesTab(post, tab) {
+        if (tab === 'live') return post.type === 'livestream';
+        if (tab === 'video') return post.type === 'video';
+        // 'post' = mọi thứ không phải live/video
+        return post.type !== 'livestream' && post.type !== 'video';
+    }
+
+    function setPostTab(tab) {
+        currentPostTab = tab;
+        document.querySelectorAll('#postTabs .fb-post-tab').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.tab === tab);
+        });
+        filterPancakePosts();
+    }
+    window.setPostTab = setPostTab;
 
     function openPostModal() {
         const modal = document.getElementById('postModal');
@@ -659,7 +676,7 @@
         if (cachedPancakePosts.length === 0) {
             fetchPancakePosts();
         } else {
-            renderPancakePosts(cachedPancakePosts);
+            filterPancakePosts();
         }
     }
 
@@ -695,7 +712,7 @@
                     if (result.success && result.data) {
                         cachedPancakePosts = result.data;
                         filteredPancakePosts = cachedPancakePosts;
-                        renderPancakePosts(cachedPancakePosts);
+                        filterPancakePosts();
                         console.log('[FB-SVC] Loaded', cachedPancakePosts.length, 'posts via Render DB account');
                         return;
                     }
@@ -728,7 +745,7 @@
                     if (result.success && result.data) {
                         cachedPancakePosts = result.data;
                         filteredPancakePosts = cachedPancakePosts;
-                        renderPancakePosts(cachedPancakePosts);
+                        filterPancakePosts();
                         console.log('[FB-SVC] Loaded', cachedPancakePosts.length, 'posts via', account.name);
                         return;
                     }
@@ -753,7 +770,7 @@
                 if (result.success && result.posts) {
                     cachedPancakePosts = result.posts;
                     filteredPancakePosts = cachedPancakePosts;
-                    renderPancakePosts(cachedPancakePosts);
+                    filterPancakePosts();
                     console.log('[FB-SVC] Loaded', cachedPancakePosts.length, 'posts via official API');
                     return;
                 }
@@ -856,12 +873,10 @@
     }
 
     function filterPancakePosts() {
-        const term = document.getElementById('postFilterInput').value.toLowerCase().trim();
-        if (!term) {
-            filteredPancakePosts = cachedPancakePosts;
-        } else {
-            filteredPancakePosts = cachedPancakePosts.filter(p => (p.message || '').toLowerCase().includes(term));
-        }
+        const term = (document.getElementById('postFilterInput')?.value || '').toLowerCase().trim();
+        let list = cachedPancakePosts.filter(p => postMatchesTab(p, currentPostTab));
+        if (term) list = list.filter(p => (p.message || '').toLowerCase().includes(term));
+        filteredPancakePosts = list;
         renderPancakePosts(filteredPancakePosts);
     }
 
@@ -966,6 +981,12 @@
 
         setupTabs();
         setupEvents();
+
+        // Post tabs (Live / Video / Bài viết)
+        document.getElementById('postTabs')?.addEventListener('click', (e) => {
+            const btn = e.target.closest('.fb-post-tab');
+            if (btn) setPostTab(btn.dataset.tab);
+        });
         loadHistory();
         renderHistory();
 
