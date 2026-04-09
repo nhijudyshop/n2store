@@ -8,6 +8,12 @@
 
 ## 2026-04-09
 
+### [customer-hub] Compact UI cho "Hoạt động ví" — 1 dòng/giao dịch ✅
+| | |
+|---|---|
+| **Files** | `customer-hub/js/modules/customer-profile.js` |
+| **What** | Đổi card lớn → dòng compact: `±{amountK}  {note · date · operator}  → {balanceAfterK}`. Border-trái màu theo credit/debit. Tooltip giữ thông tin đầy đủ. Logic phân loại tx (cfg, sign, label, detailParts, operatorHtml) giữ nguyên. |
+
 ### [orders] Ẩn toàn bộ badge trạng thái đơn (Hủy bỏ / Đơn hàng / Nháp) khỏi cột Phiếu bán hàng ✅
 | | |
 |---|---|

@@ -593,6 +593,12 @@ export class CustomerProfileModule {
                 const num = parseFloat(val) || 0;
                 return new Intl.NumberFormat('vi-VN').format(num) + 'đ';
             };
+            const formatK = (val) => {
+                const num = Math.abs(parseFloat(val) || 0);
+                if (num === 0) return '0K';
+                const k = num / 1000;
+                return (Number.isInteger(k) ? k : k.toFixed(1).replace(/\.0$/, '')) + 'K';
+            };
 
             activitiesHtml = `
                 <div class="px-4 py-3 border-t border-border-light dark:border-border-dark">
@@ -600,7 +606,7 @@ export class CustomerProfileModule {
                         <span class="material-symbols-outlined text-indigo-500" style="font-size: 20px;">account_balance_wallet</span>
                         <span class="text-xs font-bold text-slate-500 uppercase tracking-wide">Hoạt động ví</span>
                     </div>
-                    <div class="space-y-3">
+                    <div style="display:flex; flex-direction:column; gap:4px;">
                         ${walletTransactions.slice(0, 15).map(tx => {
                             let cfg = walletTypeConfig[tx.type] || defaultConfig;
                             // Override: DEPOSIT + ORDER_CANCEL_REFUND → label "HOÀN" (vẫn xanh, dấu +)
@@ -677,19 +683,14 @@ export class CustomerProfileModule {
                             const vBalAfter = parseFloat(tx.virtual_balance_after) || 0;
                             const totalAfter = balAfter + vBalAfter;
 
+                            const detailLine = `${detailParts.join(' - ')}${operatorHtml}`;
+                            const tooltipText = `${txLabel} ${sign}${formatCurrency(Math.abs(amount))}\nThay đổi số dư: ${formatCurrency(totalBefore)} → ${formatCurrency(totalAfter)}`;
                             return `
-                                <div style="background: ${bgColor}; border: 1px solid ${borderColor}; border-radius: 10px; padding: 14px 16px;">
-                                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-                                        <div style="width: 34px; height: 34px; border-radius: 50%; background: ${iconBg}; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                                            <span style="font-size: 20px; font-weight: 900; color: ${iconColor}; line-height: 1;">${iconChar}</span>
-                                        </div>
-                                        <span style="font-size: 16px; font-weight: 800; color: ${amountColor};">${txLabel}  ${sign}${formatCurrency(Math.abs(amount))}</span>
-                                    </div>
-                                    <div style="padding-left: 44px;">
-                                        <p style="font-size: 13px; font-weight: 500; color: #475569; line-height: 1.6;">${detailParts.join(' - ')}${operatorHtml}</p>
-                                        ${imgMatch ? `<img src="${imgMatch[1]}" class="wallet-tx-thumb" style="width:40px;height:40px;object-fit:cover;border-radius:6px;border:1px solid #e2e8f0;margin-top:6px;cursor:pointer" alt="Ảnh GD">` : ''}
-                                        <p style="font-size: 14px; font-weight: 800; color: #1e293b; margin-top: 6px;">Thay đổi số dư: ${formatCurrency(totalBefore)} → ${formatCurrency(totalAfter)}</p>
-                                    </div>
+                                <div class="wallet-tx-line" title="${tooltipText.replace(/"/g, '&quot;')}" style="display:flex; align-items:center; gap:8px; padding:6px 10px; border-left:3px solid ${iconColor}; background:${bgColor}; border-radius:4px;">
+                                    <span style="font-size:15px; font-weight:800; color:${amountColor}; white-space:nowrap;">${sign}${formatK(amount)}</span>
+                                    <span style="flex:1; font-size:13px; color:#475569; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${detailLine}</span>
+                                    ${imgMatch ? `<img src="${imgMatch[1]}" class="wallet-tx-thumb" style="width:24px;height:24px;object-fit:cover;border-radius:4px;border:1px solid #e2e8f0;cursor:pointer;flex-shrink:0" alt="Ảnh GD">` : ''}
+                                    <span style="font-size:14px; font-weight:800; color:#1e293b; white-space:nowrap;">→ ${formatK(totalAfter)}</span>
                                 </div>
                             `;
                         }).join('')}
