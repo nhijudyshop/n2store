@@ -8,6 +8,15 @@
 
 ## 2026-04-09
 
+### [render][orders] Slim WS bridge — bỏ broadcast thừa + FastSaleOrder enrichment + cột PBH TPOS ✅
+| | |
+|---|---|
+| **Files** | `render.com/server.js`, `orders-report/js/tab1/tab1-tpos-realtime.js`, `orders-report/js/tab1/tab1-tpos-invoice-snapshot.js` (xoá), `orders-report/tab1-orders.html`, `orders-report/js/tab1/tab1-table.js`, `orders-report/js/managers/column-visibility-manager.js`, `orders-report/css/tab1-orders.css` |
+| **Why** | Server đang bắn 3 broadcast (tpos:event raw + tpos:parsed-event + tpos:order-update) cho mỗi event TPOS — 2 cái đầu client không xử lý, tốn băng thông. FastSaleOrder enrichment dùng SaleOnlineIds field rỗng nên không khả thi. Cột "Phiếu bán hàng TPOS" phụ thuộc cả 2 → bỏ luôn. |
+| **Changes** | (1) `handleEvent` chỉ còn forward `SaleOnline_Order` (drop chatomni.on-message, FastSaleOrder, Product, ProductInventory). Bỏ broadcast `tpos:event` và `tpos:parsed-event`. (2) Xoá toàn bộ block `TPOS FASTSALEORDER ENRICHMENT` (~165 dòng) gồm `_toSnapshot`, `scheduleFastSaleOrderEnrichment`, `flushFastSaleOrderEnrichment`, `fetchFastSaleOrdersByFilter`, endpoint `/api/tpos/fastsale-snapshot`. (3) Client: xoá `handleInvoiceListUpdate` + case trong handleMessage, xoá file `tab1-tpos-invoice-snapshot.js`, xoá `<th>` + `<td>` cột "Phiếu bán hàng TPOS" trong tab1-orders.html + tab1-table.js, xoá entry trong column-visibility-manager, xoá CSS `.invoice-status-tpos-cell`. |
+| **Giữ nguyên** | `/api/invoice-status` + `InvoiceStatusStore` + cột "Phiếu bán hàng" gốc — không touch. Cột Trạng thái vẫn render từ `order.Status`. |
+| **Status** | ✅ |
+
 ### [render][orders][customer-hub] FIFO availableDeposits + nhãn HOÀN cho refund ✅
 | | |
 |---|---|

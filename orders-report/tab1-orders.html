@@ -485,7 +485,6 @@
                             <th data-column="quantity">SL</th>
                             <th data-column="created-date">Ngày tạo</th>
                             <th data-column="invoice-status" style="min-width: 140px;">Phiếu bán hàng</th>
-                            <th data-column="invoice-status-tpos" style="min-width: 160px;">Phiếu bán hàng TPOS</th>
                             <th data-column="status">Trạng thái</th>
                             <th data-column="fulfillment" style="min-width: 100px;">Ra đơn</th>
                         </tr>
@@ -772,10 +771,6 @@
                     <label class="column-setting-item">
                         <input type="checkbox" data-column="invoice-status" checked />
                         <span>Phiếu bán hàng</span>
-                    </label>
-                    <label class="column-setting-item">
-                        <input type="checkbox" data-column="invoice-status-tpos" checked />
-                        <span>Phiếu bán hàng TPOS</span>
                     </label>
                     <label class="column-setting-item">
                         <input type="checkbox" data-column="status" checked />
@@ -1293,9 +1288,6 @@
 
     <!-- 17b. Fast Sale Invoice Status: StateCode column, manual bill send -->
     <script src="js/tab1/tab1-fast-sale-invoice-status.js"></script>
-
-    <!-- 17b2. TPOS Invoice Snapshot: realtime "Phiếu bán hàng TPOS" column (extension push) -->
-    <script src="js/tab1/tab1-tpos-invoice-snapshot.js"></script>
 
     <!-- Wallet Adjustment Store: tracks phone change wallet adjustments -->
     <script src="js/utils/wallet-adjustment-store.js"></script>

@@ -77,40 +77,7 @@
             handleOrderUpdate(data.data);
         } else if (data.type === 'tpos:tag-assigned') {
             handleTagAssigned(data);
-        } else if (data.type === 'tpos:invoice-list-updated') {
-            handleInvoiceListUpdate(data);
         }
-    }
-
-    async function handleInvoiceListUpdate(data) {
-        const invoices = data && Array.isArray(data.invoices) ? data.invoices : null;
-        if (!invoices || invoices.length === 0) return;
-        const store = window.TPOSInvoiceSnapshotStore;
-        if (!store) {
-            console.warn('[TPOS-RT] TPOSInvoiceSnapshotStore not ready');
-            return;
-        }
-
-        // Re-fetch FRESH from TPOS invoicelist API (via Render proxy) instead of
-        // trusting the WS payload — guarantees ShowState/StateCode reflect current
-        // TPOS state. Falls back to payload upsert on network failure.
-        let affected = [];
-        const ids = invoices.map(i => i && i.Id).filter(Boolean);
-        if (ids.length > 0 && typeof store.fetchFreshByIds === 'function') {
-            affected = await store.fetchFreshByIds(ids);
-        }
-        if (affected.length === 0) {
-            affected = store.upsertBatch(invoices);
-        }
-        if (affected.length === 0) return;
-
-        // Refresh cột "Phiếu bán hàng TPOS"
-        store.refreshCellsFor(affected);
-        // Refresh cột "Trạng thái" — derive từ TPOS state, không ghi Pancake
-        if (typeof store.refreshStatusCellsFor === 'function') {
-            store.refreshStatusCellsFor(affected);
-        }
-        console.log('[TPOS-RT] Invoice snapshot batch:', invoices.length, '→ fresh fetched, affected rows:', affected.length);
     }
 
     async function handleNewOrder(eventData) {
