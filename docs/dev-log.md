@@ -35,6 +35,14 @@
 | **Chi tiết** | (1) **Fix A — Client pre-filter**: trong `batchEmptyCartSync` chỉ giữ đơn `(SL=0 && !hasGT)` hoặc `(SL>0 && hasGT)`, các đơn còn lại là noop chắc chắn → skip. Log dạng `Batch sync N/total (filtered)`. (2) **Fix B — CORS preflight cache**: thêm `maxAge: 86400` vào cors() middleware → browser cache OPTIONS 24h, cắt 50% requests. |
 | **Status** | ✅ Done |
 
+### [orders] updatePartnerStatus — broadcast theo SĐT, update tất cả partner trùng ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-table.js` |
+| **Why** | Code cũ chỉ update đúng partnerId được click. Trong khi 1 KH thường có nhiều record TPOS trùng SĐT → mark Bom 1 record không chặn được các đơn sau đi qua record khác. Align với issue-tracking `markPartnerAsBoom`. |
+| **Chi tiết** | (1) Lookup `Telephone` từ `partnerId` trong `allData`. (2) Search `Partner/GetViewV2?Name={phone}` lấy tất cả partner trùng SĐT (top 50 desc). (3) POST `UpdateStatus` cho toàn bộ targetIds. (4) Nếu có note: GET+PUT ghi vào `Email` cho toàn bộ. (5) Local sync + UI badge update broadcast theo `targetIds` thay vì 1 partner. (6) Fallback: nếu không tìm được phone hoặc search fail → giữ behavior cũ (chỉ update partnerId). Notification show số record đã update. |
+| **Status** | ✅ Done |
+
 ### [issue-tracking] markPartnerAsBoom — note chỉ ghi vào partner mới nhất ✅
 | | |
 |---|---|

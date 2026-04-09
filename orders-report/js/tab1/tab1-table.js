@@ -1702,61 +1702,99 @@ async function updatePartnerStatus(partnerId, color, text, note) {
     closePartnerStatusModal();
 
     try {
-        // 1. Update status via UpdateStatus API
-        const url = `${API_CONFIG.WORKER_URL}/api/odata/Partner(${partnerId})/ODataService.UpdateStatus`;
         const headers = await window.tokenManager.getAuthHeader();
+        const baseHeaders = {
+            ...headers,
+            'accept': 'application/json, text/plain, */*',
+            'feature-version': '2',
+            'x-tpos-lang': 'vi'
+        };
+        const jsonHeaders = { ...baseHeaders, 'content-type': 'application/json;charset=UTF-8' };
 
-        const response = await API_CONFIG.smartFetch(url, {
-            method: 'POST',
-            headers: {
-                ...headers,
-                'content-type': 'application/json;charset=UTF-8',
-                'accept': 'application/json, text/plain, */*'
-            },
-            body: JSON.stringify({ status: `${color}_${text}` })
-        });
+        // Step 0: Tìm SĐT từ partnerId (lookup trong allData order rows)
+        let phone = null;
+        for (const order of allData) {
+            if (String(order.PartnerId) === String(partnerId) && order.Telephone) {
+                phone = order.Telephone;
+                break;
+            }
+        }
 
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-        // 2. If note provided, update Email field via GET + PUT
-        if (note) {
+        // Step 1: Search tất cả partner trùng SĐT (dùng Name= như TPOS UI)
+        // Nếu không có phone → fallback: chỉ update đúng partnerId được click
+        let targetIds = [partnerId];
+        if (phone) {
             try {
-                const partnerUrl = `${API_CONFIG.WORKER_URL}/api/odata/Partner(${partnerId})`;
-                const getRes = await API_CONFIG.smartFetch(partnerUrl, {
-                    method: 'GET',
-                    headers: { ...headers, 'accept': 'application/json, text/plain, */*', 'feature-version': '2', 'x-tpos-lang': 'vi' }
-                });
-                if (getRes.ok) {
+                const searchUrl = `${API_CONFIG.WORKER_URL}/api/odata/Partner/ODataService.GetViewV2?Type=Customer&Active=true&Name=${encodeURIComponent(phone)}&$top=50&$orderby=DateCreated+desc&$filter=Type+eq+'Customer'&$count=true`;
+                const searchRes = await API_CONFIG.smartFetch(searchUrl, { method: 'GET', headers: baseHeaders });
+                if (searchRes.ok) {
+                    const searchData = await searchRes.json();
+                    const partners = searchData.value || [];
+                    if (partners.length > 0) {
+                        targetIds = partners.map(p => p.Id);
+                        console.log(`[PARTNER] Tìm thấy ${targetIds.length} partner trùng SĐT ${phone}`);
+                    }
+                }
+            } catch (searchErr) {
+                console.warn('[PARTNER] Search by phone failed, fallback single partner:', searchErr);
+            }
+        }
+
+        // Step 2: UpdateStatus cho TẤT CẢ partner trùng SĐT
+        const statusBody = JSON.stringify({ status: `${color}_${text}` });
+        for (const id of targetIds) {
+            const url = `${API_CONFIG.WORKER_URL}/api/odata/Partner(${id})/ODataService.UpdateStatus`;
+            const res = await API_CONFIG.smartFetch(url, { method: 'POST', headers: jsonHeaders, body: statusBody });
+            if (!res.ok) {
+                if (String(id) === String(partnerId)) {
+                    throw new Error(`HTTP ${res.status} (partner ${id})`);
+                }
+                console.warn(`[PARTNER] UpdateStatus partner ${id} failed: HTTP ${res.status}`);
+            }
+        }
+
+        // Step 3: Nếu có note → ghi vào Email cho TẤT CẢ partner (best-effort)
+        if (note) {
+            for (const id of targetIds) {
+                try {
+                    const partnerUrl = `${API_CONFIG.WORKER_URL}/api/odata/Partner(${id})`;
+                    const getRes = await API_CONFIG.smartFetch(partnerUrl, { method: 'GET', headers: baseHeaders });
+                    if (!getRes.ok) {
+                        console.warn(`[PARTNER] GET ${id} for note failed: HTTP ${getRes.status}`);
+                        continue;
+                    }
                     const partnerData = await getRes.json();
                     partnerData.Email = note;
-                    await API_CONFIG.smartFetch(partnerUrl, {
-                        method: 'PUT',
-                        headers: { ...headers, 'content-type': 'application/json;charset=UTF-8', 'accept': 'application/json, text/plain, */*', 'feature-version': '2', 'x-tpos-lang': 'vi' },
-                        body: JSON.stringify(partnerData)
-                    });
+                    const putRes = await API_CONFIG.smartFetch(partnerUrl, { method: 'PUT', headers: jsonHeaders, body: JSON.stringify(partnerData) });
+                    if (!putRes.ok) {
+                        console.warn(`[PARTNER] PUT note ${id} failed: HTTP ${putRes.status}`);
+                    }
+                } catch (noteErr) {
+                    console.warn(`[PARTNER] Update note ${id} error:`, noteErr);
                 }
-            } catch (noteErr) {
-                console.error('[PARTNER] Update note failed:', noteErr);
             }
         }
 
         // Success
-        window.notificationManager.show('Cập nhật trạng thái thành công', 'success');
+        window.notificationManager.show(`Cập nhật trạng thái thành công (${targetIds.length} record)`, 'success');
 
-        // Update local data
+        // Update local data — sync tất cả order có PartnerId nằm trong targetIds
+        const targetIdSet = new Set(targetIds.map(String));
         allData.forEach(order => {
-            if (String(order.PartnerId) === String(partnerId)) {
+            if (targetIdSet.has(String(order.PartnerId))) {
                 order.PartnerStatus = text;
                 order.PartnerStatusText = text;
             }
         });
 
-        // Inline UI Update
-        const badges = document.querySelectorAll(`.partner-status[data-partner-id="${partnerId}"]`);
-        badges.forEach(badge => {
-            badge.style.backgroundColor = color;
-            badge.innerText = text;
-            badge.setAttribute('onclick', `openPartnerStatusModal('${partnerId}', '${text}')`);
+        // Inline UI Update — update tất cả badge của các partner liên quan
+        targetIds.forEach(id => {
+            const badges = document.querySelectorAll(`.partner-status[data-partner-id="${id}"]`);
+            badges.forEach(badge => {
+                badge.style.backgroundColor = color;
+                badge.innerText = text;
+                badge.setAttribute('onclick', `openPartnerStatusModal('${id}', '${text}')`);
+            });
         });
 
     } catch (error) {
