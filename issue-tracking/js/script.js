@@ -1022,6 +1022,9 @@ async function markPartnerAsBoom(phone, noteText) {
                 }
                 const partnerData = await getRes.json();
                 partnerData.Email = noteText;
+                partnerData.Zalo = noteText;
+                partnerData.Facebook = noteText;
+                partnerData.Website = noteText;
                 const putRes = await window.tokenManager.authenticatedFetch(partnerUrl, {
                     method: 'PUT',
                     headers,

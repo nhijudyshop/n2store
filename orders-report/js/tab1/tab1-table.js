@@ -1765,6 +1765,9 @@ async function updatePartnerStatus(partnerId, color, text, note) {
                     }
                     const partnerData = await getRes.json();
                     partnerData.Email = note;
+                    partnerData.Zalo = note;
+                    partnerData.Facebook = note;
+                    partnerData.Website = note;
                     const putRes = await API_CONFIG.smartFetch(partnerUrl, { method: 'PUT', headers: jsonHeaders, body: JSON.stringify(partnerData) });
                     if (!putRes.ok) {
                         console.warn(`[PARTNER] PUT note ${id} failed: HTTP ${putRes.status}`);
