@@ -22,22 +22,30 @@ window.currentSendPageId = null;        // override send from page
 window.currentReplyType = 'private_replies'; // for COMMENT: 'reply_comment' | 'private_replies'
 window.isSendingMessage = false;
 
-// Open QR modal for current chat customer (called from chat header QR button)
-window.openQRFromChatHeader = function() {
+// Send QR image directly to current chat (called from chat header "Gửi mã QR" button)
+window.sendQRFromChatHeader = async function() {
     const phone = (window.currentChatPhone || '').trim();
     if (!phone) {
-        if (typeof window.showNotification === 'function') {
-            window.showNotification('Khách hàng chưa có SĐT', 'warning');
-        } else {
-            alert('Khách hàng chưa có SĐT');
-        }
+        window.notificationManager?.warning?.('Khách hàng chưa có SĐT') || alert('Khách hàng chưa có SĐT');
         return;
     }
-    if (typeof window.showOrderQRModal === 'function') {
-        window.showOrderQRModal(phone);
-    } else {
+    if (typeof window.getOrCreateQRForPhone !== 'function' || typeof window.generateVietQRUrl !== 'function') {
         alert('Chức năng QR chưa sẵn sàng');
+        return;
     }
+    if (typeof window.sendImageToChat !== 'function') {
+        alert('Chức năng gửi ảnh chưa sẵn sàng');
+        return;
+    }
+    const normalizedPhone = (typeof window.normalizePhoneForQR === 'function')
+        ? window.normalizePhoneForQR(phone) : phone;
+    const uniqueCode = window.getOrCreateQRForPhone(normalizedPhone);
+    if (!uniqueCode) {
+        window.notificationManager?.error?.('Không thể tạo mã QR') || alert('Không thể tạo mã QR');
+        return;
+    }
+    const qrUrl = window.generateVietQRUrl(uniqueCode, 0);
+    await window.sendImageToChat(qrUrl, 'QR Chuyển khoản', 'qr-' + uniqueCode);
 };
 
 /**

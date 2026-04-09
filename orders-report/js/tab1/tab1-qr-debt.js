@@ -711,6 +711,8 @@ function updateChatDebtBadges(normalizedPhone) {
 // Make QR and Debt functions globally accessible
 window.copyQRCode = copyQRCode;
 window.getOrCreateQRForPhone = getOrCreateQRForPhone;
+window.generateVietQRUrl = generateVietQRUrl;
+window.normalizePhoneForQR = normalizePhoneForQR;
 window.renderQRColumn = renderQRColumn;
 window.syncQRFromBalanceHistory = syncQRFromBalanceHistory;
 window.showOrderQRModal = showOrderQRModal;

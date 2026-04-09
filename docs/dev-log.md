@@ -15,6 +15,13 @@
 | **Chi tiết** | Thêm nút "Duyệt" cho mỗi cancel_request `pending`, chỉ hiện với user có `isAdminTemplate()` hoặc username `phuoc`. Click → confirm dialog → `col.doc(id).delete()`. Realtime listener tự cập nhật UI. |
 | **Status** | ✅ Done |
 
+### [chat] Nút "Gửi QR" trong header modal — tự gửi ảnh QR vào chat ✅
+| | |
+|---|---|
+| **Files** | `orders-report/tab1-orders.html`, `orders-report/js/tab1/tab1-chat-core.js`, `orders-report/js/tab1/tab1-qr-debt.js` |
+| **What** | Đổi nút "QR" thành "Gửi QR". `sendQRFromChatHeader()` lấy `currentChatPhone` → `getOrCreateQRForPhone` → `generateVietQRUrl(code, 0)` → gọi `window.sendImageToChat(qrUrl, ...)` để upload và gửi ảnh QR thẳng vào chat (không hiển thị modal). Expose thêm `generateVietQRUrl` + `normalizePhoneForQR` lên window. |
+| **Status** | Done |
+
 ### [chat] Nút "QR" trong header modal tin nhắn ✅
 | | |
 |---|---|
