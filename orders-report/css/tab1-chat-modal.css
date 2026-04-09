@@ -2576,6 +2576,7 @@ div.chat-product-image i {
 /* Hover preview - phóng to ảnh sản phẩm hết mức */
 #droppedHoverPreview {
     position: fixed;
+    pointer-events: none;
     left: 0;
     top: 0;
     z-index: 10000;

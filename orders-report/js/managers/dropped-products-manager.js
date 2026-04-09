@@ -996,6 +996,8 @@
     async function _renderDroppedGridOnly(filteredProducts = null) {
         const grid = document.getElementById('droppedGridContainer');
         if (!grid) return;
+        // Ẩn hover preview cũ — tránh overlay kẹt lại sau khi grid re-render (block clicks)
+        _hideHoverPreview();
 
         const allProducts = filteredProducts || droppedProducts;
         const search = (_droppedSearchText || '').trim().toLowerCase();
