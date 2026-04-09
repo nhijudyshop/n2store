@@ -223,13 +223,17 @@ router.get('/:customerId', async (req, res) => {
             return `${String(dt.getDate()).padStart(2, '0')}/${String(dt.getMonth() + 1).padStart(2, '0')}`;
         };
         const walletNoteLines = [];
+        let running = 0;
         for (let i = 0; i < txs.length; i++) {
             if (skipIdx.has(i)) continue;
             const tx = txs[i];
+            const amt = parseFloat(tx.amount) || 0;
             if (tx.type === 'DEPOSIT') {
-                walletNoteLines.push(`CK ${fmtK(tx.amount)} ACB ${fmtDDMM(tx.created_at)}`);
+                running += Math.abs(amt);
+                walletNoteLines.push(`CK ${fmtK(tx.amount)} ACB ${fmtDDMM(tx.created_at)} → ${Math.round(running / 1000)}K`);
             } else if (tx.type === 'WITHDRAW') {
-                walletNoteLines.push(`TT ${fmtK(tx.amount)} ACB ${fmtDDMM(tx.created_at)}`);
+                running -= Math.abs(amt);
+                walletNoteLines.push(`TT ${fmtK(tx.amount)} ACB ${fmtDDMM(tx.created_at)} → ${Math.round(running / 1000)}K`);
             }
         }
         const balance = parseFloat(wallet.balance) || 0;
