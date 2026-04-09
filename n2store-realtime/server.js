@@ -306,7 +306,8 @@ app.use(cors({
     origin: '*',
     methods: ['GET', 'POST', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: false
+    credentials: false,
+    maxAge: 86400 // Cache CORS preflight 24h → cắt ~50% requests (OPTIONS)
 }));
 
 app.use(express.json());

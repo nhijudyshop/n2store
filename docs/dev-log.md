@@ -8,6 +8,14 @@
 
 ## 2026-04-09
 
+### [orders][render] Giảm spam request `empty-cart-sync` (~95%) ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-empty-cart-auto-sync.js`, `n2store-realtime/server.js` |
+| **Why** | Network panel thấy 1000+ requests `empty-cart-sync` mỗi lần fetchOrders. Nguyên nhân: `batchEmptyCartSync` gửi MỌI đơn không lọc → server trả >95% noop. CORS preflight không cache → nhân đôi traffic. |
+| **Chi tiết** | (1) **Fix A — Client pre-filter**: trong `batchEmptyCartSync` chỉ giữ đơn `(SL=0 && !hasGT)` hoặc `(SL>0 && hasGT)`, các đơn còn lại là noop chắc chắn → skip. Log dạng `Batch sync N/total (filtered)`. (2) **Fix B — CORS preflight cache**: thêm `maxAge: 86400` vào cors() middleware → browser cache OPTIONS 24h, cắt 50% requests. |
+| **Status** | ✅ Done |
+
 ### [issue-tracking] Refactor markPartnerAsBoom → dùng UpdateStatus API ✅
 | | |
 |---|---|

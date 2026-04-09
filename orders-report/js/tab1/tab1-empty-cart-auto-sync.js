@@ -209,13 +209,26 @@
      */
     async function batchEmptyCartSync(orders) {
         if (!Array.isArray(orders) || orders.length === 0) return;
-        console.log(`${LOG} Batch sync ${orders.length} orders…`);
+
+        // Pre-filter: chỉ gửi đơn thực sự cần đồng bộ.
+        // - SL=0 mà chưa có tag GIỎ TRỐNG → cần ADD
+        // - SL>0 mà đang có tag GIỎ TRỐNG → cần REMOVE
+        // Còn lại là noop chắc chắn → skip để giảm ~95% requests.
+        const needSync = orders.filter(o => {
+            if (!o || !o.Id) return false;
+            const sl = Number(o.TotalQuantity) || 0;
+            const hasGT = _parseTags(o.Tags).some(t => /giỏ\s*trống/i.test(t?.Name || ''));
+            return (sl === 0 && !hasGT) || (sl > 0 && hasGT);
+        });
+
+        console.log(`${LOG} Batch sync ${needSync.length}/${orders.length} orders (filtered)`);
+        if (needSync.length === 0) return;
 
         let i = 0;
         async function worker() {
-            while (i < orders.length) {
+            while (i < needSync.length) {
                 const idx = i++;
-                await _pushSync(orders[idx]);
+                await _pushSync(needSync[idx]);
                 await new Promise(r => setTimeout(r, BATCH_STAGGER_MS));
             }
         }
