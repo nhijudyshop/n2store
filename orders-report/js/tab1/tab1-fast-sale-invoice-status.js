@@ -1162,6 +1162,60 @@
     const _rawInvoicesById = new Map(); // saleOnlineId(String) -> Array<invoice> (all PBH cùng Reference)
     const _orderCodeById = new Map();   // saleOnlineId(String) -> orderCode (cache để refetch khi click)
 
+    // ===== Delivery Report Mapping (Firestore: delivery_report/province_groups) =====
+    // Map invoice.Number → 'tomato' | 'nap'. THÀNH PHỐ derive từ CarrierName.
+    const _deliveryGroups = { data: {}, loaded: false, listening: false };
+
+    function _initDeliveryGroupsListener() {
+        if (_deliveryGroups.listening) return;
+        const db = (typeof getFirestore === 'function') ? getFirestore() :
+            (typeof firebase !== 'undefined' && firebase.apps?.length ? firebase.firestore() : null);
+        if (!db) return;
+        try {
+            db.collection('delivery_report').doc('province_groups').onSnapshot(doc => {
+                if (!doc.exists) return;
+                _deliveryGroups.data = doc.data().groups || {};
+                _deliveryGroups.loaded = true;
+                console.log('[DELIVERY-MAP] Loaded', Object.keys(_deliveryGroups.data).length, 'province group entries');
+                // Re-render tất cả PBH cell hiện có để áp badge mới
+                document.querySelectorAll('tr[data-order-id]').forEach(row => {
+                    const soId = row.getAttribute('data-order-id');
+                    if (soId) refreshInvoiceStatusCellForOrder(soId);
+                });
+            });
+            _deliveryGroups.listening = true;
+        } catch (e) {
+            console.warn('[DELIVERY-MAP] Failed to attach listener:', e.message);
+        }
+    }
+
+    /**
+     * Mapping nhóm vận chuyển cho 1 invoice:
+     *   CarrierName bắt đầu "THÀNH PHỐ" → "THÀNH PHỐ"
+     *   Else → look up _deliveryGroups[invoice.Number]:
+     *     'tomato' → "TOMATO"
+     *     'nap'    → "NAP"
+     *     undefined → null (chưa phân nhóm)
+     * @returns {{label, color, bg, border} | null}
+     */
+    function getDeliveryGroupBadge(invoice) {
+        if (!invoice) return null;
+        const carrier = String(invoice.CarrierName || '').trim();
+        if (carrier.toUpperCase().startsWith('THÀNH PHỐ') || carrier.toUpperCase().startsWith('THANH PHO')) {
+            return { label: 'THÀNH PHỐ', color: '#1e40af', bg: '#dbeafe', border: '#93c5fd' };
+        }
+        const number = invoice.Number;
+        if (!number) return null;
+        const grp = _deliveryGroups.data[number];
+        if (grp === 'tomato') {
+            return { label: 'TOMATO', color: '#9a3412', bg: '#fed7aa', border: '#fb923c' };
+        }
+        if (grp === 'nap') {
+            return { label: 'NAP', color: '#5b21b6', bg: '#ede9fe', border: '#c4b5fd' };
+        }
+        return null;
+    }
+
     async function fetchAndUpdateInvoiceForCode(orderCode, saleOnlineId) {
         if (!orderCode) return null;
         if (!window.tokenManager?.getAuthHeader) return null;
@@ -1615,7 +1669,15 @@
         html += `</div>`;
 
         // Row 2: StateCode text (cross-check status like Chưa đối soát, Hoàn thành đối soát)
-        html += `<div style="font-size: 11px; color: ${stateCodeConfig.color}; ${stateCodeStyle}">${stateCodeConfig.label}</div>`;
+        // Khi "Hoàn thành đối soát" → thêm badge nhóm vận chuyển từ delivery_report
+        let deliveryBadgeHtml = '';
+        if (stateCode === 'CrossCheckComplete') {
+            const dg = getDeliveryGroupBadge(invoiceData);
+            if (dg) {
+                deliveryBadgeHtml = ` <span class="invoice-delivery-group-badge" style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:700;background:${dg.bg};color:${dg.color};border:1px solid ${dg.border};margin-left:4px;">${dg.label}</span>`;
+            }
+        }
+        html += `<div style="font-size: 11px; color: ${stateCodeConfig.color}; ${stateCodeStyle}">${stateCodeConfig.label}${deliveryBadgeHtml}</div>`;
 
         // Row 3: Trạng thái đơn (derive từ StateCode) + nút "Đã ra đơn"
         const orderStatus = deriveOrderStatusFromStateCode(stateCode, isMergeCancel);
@@ -2965,6 +3027,10 @@
 
         // Initialize store (async - loads from API)
         await InvoiceStatusStore.init();
+
+        // Setup Firestore listener cho delivery_report/province_groups
+        // (mapping invoice.Number → tomato/nap để hiển thị badge khi đối soát)
+        _initDeliveryGroupsListener();
 
         // Save original function
         if (
