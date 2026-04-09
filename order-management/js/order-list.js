@@ -1926,16 +1926,14 @@ async function loadCampaignsOL() {
 
         selector.innerHTML = '<option value="">-- Chọn đợt live --</option>';
 
-        const campaignSnapshot = await firestore.collection('campaigns').get();
-        const campaigns = [];
-        campaignSnapshot.forEach((doc) => {
-            const data = doc.data();
-            campaigns.push({
-                id: doc.id,
-                name: data.name || doc.id,
-                createdAt: data.createdAt || '',
-            });
-        });
+        const list = (window.CampaignAPI && typeof window.CampaignAPI.loadAll === 'function')
+            ? await window.CampaignAPI.loadAll()
+            : [];
+        const campaigns = list.map(c => ({
+            id: c.id,
+            name: c.name || c.id,
+            createdAt: c.createdAt || '',
+        }));
 
         // Load order counts
         const orderCountMap = {};
