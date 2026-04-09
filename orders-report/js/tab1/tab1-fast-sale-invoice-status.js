@@ -1232,43 +1232,171 @@
     }
 
     function _openRawModal(invoice) {
-        const escapeHtml = (s) => String(s == null ? '' : s)
+        const esc = (s) => String(s == null ? '' : s)
             .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        const fmtMoney = (n) => (Number(n) || 0).toLocaleString('vi-VN') + 'đ';
+        const fmtDate = (d) => {
+            if (!d) return '—';
+            try { return new Date(d).toLocaleString('vi-VN', { hour12: false }); }
+            catch (e) { return String(d); }
+        };
+        const ssCfg = getShowStateConfig(invoice.ShowState || '');
+        const scCfg = getStateCodeConfig(invoice.StateCode || 'None', invoice.IsMergeCancel);
+
+        // Parse OrderLines from Details (string JSON in some shapes) or array
+        let lines = [];
+        if (Array.isArray(invoice.Details)) lines = invoice.Details;
+        else if (Array.isArray(invoice.OrderLines)) lines = invoice.OrderLines;
+
         // Remove existing
         const existing = document.getElementById('invoiceRawModal');
         if (existing) existing.remove();
 
         const overlay = document.createElement('div');
         overlay.id = 'invoiceRawModal';
-        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.55);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
         overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
 
         const box = document.createElement('div');
-        box.style.cssText = 'background:#fff;border-radius:8px;max-width:900px;width:100%;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.3);';
+        box.style.cssText = 'background:#fff;border-radius:12px;max-width:980px;width:100%;max-height:92vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 25px 70px rgba(0,0,0,0.35);';
 
+        // ===== HEADER =====
         const header = document.createElement('div');
-        header.style.cssText = 'padding:14px 20px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;background:#f9fafb;';
+        header.style.cssText = 'padding:18px 24px;border-bottom:1px solid #e5e7eb;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;background:linear-gradient(135deg,#f8fafc 0%,#f1f5f9 100%);';
         header.innerHTML = `
-            <div>
-                <div style="font-weight:600;font-size:15px;color:#111827;">Chi tiết phiếu bán hàng</div>
-                <div style="font-size:12px;color:#6b7280;margin-top:2px;">${escapeHtml(invoice.Number || '—')} · ${escapeHtml(invoice.PartnerDisplayName || '—')} · ${escapeHtml(invoice.ShowState || '—')}</div>
+            <div style="flex:1;min-width:0;">
+                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                    <span style="font-size:18px;font-weight:700;color:#0f172a;">${esc(invoice.Number || '—')}</span>
+                    <span style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;background:${ssCfg.bgColor};color:${ssCfg.color};border:1px solid ${ssCfg.borderColor};${ssCfg.style || ''}">${esc(invoice.ShowState || '—')}</span>
+                    <span style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;background:#fff;color:${scCfg.color};border:1px solid ${scCfg.color}33;${scCfg.style || ''}">${esc(scCfg.label)}</span>
+                </div>
+                <div style="margin-top:6px;font-size:13px;color:#475569;">
+                    👤 <strong>${esc(invoice.PartnerDisplayName || '—')}</strong>
+                    <span style="margin:0 8px;color:#cbd5e1;">·</span>
+                    📞 ${esc(invoice.Phone || invoice.PartnerPhone || invoice.ReceiverPhone || '—')}
+                    <span style="margin:0 8px;color:#cbd5e1;">·</span>
+                    📅 ${fmtDate(invoice.DateInvoice)}
+                </div>
             </div>
-            <button type="button" style="background:#ef4444;color:#fff;border:none;border-radius:4px;padding:6px 12px;cursor:pointer;font-weight:500;">Đóng</button>
+            <button type="button" id="invoiceRawCloseBtn" style="background:#ef4444;color:#fff;border:none;border-radius:6px;padding:8px 16px;cursor:pointer;font-weight:600;font-size:13px;flex-shrink:0;">✕ Đóng</button>
         `;
-        header.querySelector('button').onclick = () => overlay.remove();
 
+        // ===== BODY =====
         const body = document.createElement('div');
-        body.style.cssText = 'padding:16px 20px;overflow:auto;flex:1;';
-        const pre = document.createElement('pre');
-        pre.style.cssText = 'margin:0;font-family:Menlo,Consolas,monospace;font-size:11px;line-height:1.5;color:#1f2937;white-space:pre-wrap;word-break:break-word;';
-        pre.textContent = JSON.stringify(invoice, null, 2);
-        body.appendChild(pre);
+        body.style.cssText = 'padding:20px 24px;overflow:auto;flex:1;background:#fafbfc;';
+
+        // Section 1: Tổng quan tài chính
+        body.innerHTML += `
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:18px;">
+                ${_invStatCard('Tổng tiền', fmtMoney(invoice.AmountTotal), '#0ea5e9')}
+                ${_invStatCard('Đã thanh toán', fmtMoney(invoice.AmountPaid || (invoice.AmountTotal - (invoice.Residual || 0))), '#10b981')}
+                ${_invStatCard('Còn nợ', fmtMoney(invoice.Residual), (invoice.Residual > 0 ? '#dc2626' : '#64748b'))}
+                ${_invStatCard('Phí ship', fmtMoney(invoice.DeliveryPrice), '#f59e0b')}
+            </div>
+        `;
+
+        // Section 2: Người nhận
+        const receiverName = invoice.ReceiverName || invoice.Ship_Receiver_Name || invoice.PartnerDisplayName || '';
+        const receiverPhone = invoice.ReceiverPhone || invoice.Ship_Receiver_Phone || '';
+        const receiverAddr = invoice.ReceiverAddress || invoice.Ship_Receiver_Street || invoice.Address || invoice.FullAddress || '';
+        body.innerHTML += `
+            <div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:14px 16px;margin-bottom:14px;">
+                <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">📦 Người nhận hàng</div>
+                <div style="font-size:14px;color:#0f172a;line-height:1.6;">
+                    <strong>${esc(receiverName)}</strong> · ${esc(receiverPhone)}<br>
+                    <span style="color:#475569;">${esc(receiverAddr)}</span>
+                </div>
+                ${invoice.CarrierName ? `<div style="margin-top:8px;padding-top:8px;border-top:1px dashed #e5e7eb;font-size:12px;color:#475569;">🚚 <strong>${esc(invoice.CarrierName)}</strong>${invoice.CashOnDelivery ? ` · COD: <strong style="color:#dc2626;">${fmtMoney(invoice.CashOnDelivery)}</strong>` : ''}</div>` : ''}
+            </div>
+        `;
+
+        // Section 3: Sản phẩm
+        if (lines.length > 0) {
+            const linesHtml = lines.map((l, i) => {
+                const name = l.ProductName || l.ProductNameGet || l.Name || '—';
+                const qty = l.ProductUOMQty || l.Quantity || l.ProductUOMQtyAvailable || 0;
+                const unit = l.PriceUnit || l.Price || 0;
+                const total = l.PriceTotal || l.PriceSubTotal || (qty * unit);
+                const note = l.Note || '';
+                return `
+                    <tr style="border-bottom:1px solid #f1f5f9;">
+                        <td style="padding:10px 8px;color:#64748b;font-size:12px;text-align:center;width:32px;">${i + 1}</td>
+                        <td style="padding:10px 8px;">
+                            <div style="font-size:13px;color:#0f172a;font-weight:500;">${esc(name)}</div>
+                            ${note ? `<div style="font-size:11px;color:#94a3b8;margin-top:2px;font-style:italic;">📝 ${esc(note)}</div>` : ''}
+                        </td>
+                        <td style="padding:10px 8px;text-align:center;font-size:13px;color:#475569;width:60px;">${qty}</td>
+                        <td style="padding:10px 8px;text-align:right;font-size:13px;color:#475569;width:120px;">${fmtMoney(unit)}</td>
+                        <td style="padding:10px 8px;text-align:right;font-size:13px;color:#0f172a;font-weight:600;width:120px;">${fmtMoney(total)}</td>
+                    </tr>`;
+            }).join('');
+            body.innerHTML += `
+                <div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;margin-bottom:14px;">
+                    <div style="padding:12px 16px;background:#f8fafc;border-bottom:1px solid #e5e7eb;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">🛒 Sản phẩm (${lines.length})</div>
+                    <table style="width:100%;border-collapse:collapse;">
+                        <thead>
+                            <tr style="background:#f8fafc;font-size:11px;color:#64748b;text-transform:uppercase;font-weight:600;">
+                                <th style="padding:8px;text-align:center;">#</th>
+                                <th style="padding:8px;text-align:left;">Tên sản phẩm</th>
+                                <th style="padding:8px;text-align:center;">SL</th>
+                                <th style="padding:8px;text-align:right;">Đơn giá</th>
+                                <th style="padding:8px;text-align:right;">Thành tiền</th>
+                            </tr>
+                        </thead>
+                        <tbody>${linesHtml}</tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        // Section 4: Ghi chú
+        if (invoice.Comment || invoice.DeliveryNote) {
+            body.innerHTML += `
+                <div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:14px 16px;margin-bottom:14px;">
+                    <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">📝 Ghi chú</div>
+                    ${invoice.Comment ? `<div style="font-size:13px;color:#0f172a;margin-bottom:6px;"><strong>Comment:</strong> ${esc(invoice.Comment)}</div>` : ''}
+                    ${invoice.DeliveryNote ? `<div style="font-size:12px;color:#64748b;line-height:1.5;white-space:pre-wrap;"><strong>Delivery note:</strong>\n${esc(invoice.DeliveryNote)}</div>` : ''}
+                </div>
+            `;
+        }
+
+        // Section 5: Meta
+        body.innerHTML += `
+            <div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:14px 16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;font-size:12px;color:#475569;">
+                <div><strong style="color:#0f172a;">ID:</strong> ${esc(invoice.Id || '—')}</div>
+                <div><strong style="color:#0f172a;">User:</strong> ${esc(invoice.UserName || '—')}</div>
+                <div><strong style="color:#0f172a;">Type:</strong> ${esc(invoice.Type || '—')}</div>
+                <div><strong style="color:#0f172a;">Warehouse:</strong> ${esc(invoice.WarehouseName || invoice.WarehouseId || '—')}</div>
+                <div><strong style="color:#0f172a;">DateCreated:</strong> ${fmtDate(invoice.DateCreated)}</div>
+                <div><strong style="color:#0f172a;">DateInvoice:</strong> ${fmtDate(invoice.DateInvoice)}</div>
+            </div>
+
+            <details style="margin-top:14px;background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:10px 14px;">
+                <summary style="cursor:pointer;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">⚙️ Raw JSON (debug)</summary>
+                <pre style="margin:10px 0 0;font-family:Menlo,Consolas,monospace;font-size:11px;line-height:1.5;color:#475569;white-space:pre-wrap;word-break:break-word;max-height:300px;overflow:auto;">${esc(JSON.stringify(invoice, null, 2))}</pre>
+            </details>
+        `;
 
         box.appendChild(header);
         box.appendChild(body);
         overlay.appendChild(box);
         document.body.appendChild(overlay);
+
+        document.getElementById('invoiceRawCloseBtn').onclick = () => overlay.remove();
+
+        // ESC to close
+        const onKey = (e) => { if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', onKey); } };
+        document.addEventListener('keydown', onKey);
+    }
+
+    function _invStatCard(label, value, color) {
+        return `
+            <div style="background:#fff;border:1px solid #e5e7eb;border-left:3px solid ${color};border-radius:8px;padding:10px 14px;">
+                <div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">${label}</div>
+                <div style="font-size:16px;font-weight:700;color:${color};">${value}</div>
+            </div>
+        `;
     }
 
     function renderInvoiceStatusCell(order) {
