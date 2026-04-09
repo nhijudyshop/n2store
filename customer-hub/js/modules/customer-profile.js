@@ -609,6 +609,7 @@ export class CustomerProfileModule {
                     <div style="display:flex; flex-direction:column; gap:4px;">
                         ${walletTransactions.slice(0, 15).map(tx => {
                             let cfg = walletTypeConfig[tx.type] || defaultConfig;
+                            let __suppressOperator = false;
                             // Override: DEPOSIT + ORDER_CANCEL_REFUND → label "HOÀN" (vẫn xanh, dấu +)
                             if (tx.type === 'DEPOSIT' && tx.source === 'ORDER_CANCEL_REFUND') {
                                 cfg = { label: 'HOÀN', iconChar: '+', isCredit: true };
@@ -659,15 +660,45 @@ export class CustomerProfileModule {
                                 if (tx.adjustment_reason) detailParts.push('Lý do: ' + tx.adjustment_reason);
                                 if (date) detailParts.push(date);
                             } else {
-                                if (note) detailParts.push(note);
-                                if (date) detailParts.push(date);
+                                // Tìm mã đơn NJD từ note (ưu tiên) hoặc reference_id
+                                const orderMatch = (rawNote.match(/#?(NJD\/\d{4}\/\d+)/i)
+                                    || (tx.reference_id || '').match(/(NJD\/\d{4}\/\d+)/i));
+                                const orderCode = orderMatch ? orderMatch[1] : (tx.reference_id || '');
+
+                                const isCodPayment = tx.type === 'WITHDRAW'
+                                    && (tx.source === 'SALE_ORDER' || /Thanh toán công nợ.*đơn hàng/i.test(rawNote));
+                                const isCancelRefund = tx.type === 'DEPOSIT' && tx.source === 'ORDER_CANCEL_REFUND';
+
+                                if (isCodPayment) {
+                                    // Giữ breakdown "(Hàng: … + Ship: … = …đ)" — chỉ thay phần đầu
+                                    const headRe = /^Thanh toán công nợ qua COD đơn hàng\s*#?[^\s(]+/i;
+                                    const rewritten = headRe.test(note)
+                                        ? note.replace(headRe, `Thanh Toán Đơn Hàng #${orderCode}`)
+                                        : `Thanh Toán Đơn Hàng #${orderCode}`;
+                                    detailParts.push(rewritten);
+                                    if (date) detailParts.push(date);
+                                    if (createdBy) {
+                                        detailParts.push(`<span style="color:#ef4444;font-weight:700;">Người Tạo ${createdBy}</span>`);
+                                    }
+                                    __suppressOperator = true;
+                                } else if (isCancelRefund) {
+                                    detailParts.push(`Hoàn Tiền Hủy Đơn Công Nợ #${orderCode}`);
+                                    if (date) detailParts.push(date);
+                                    if (createdBy) {
+                                        detailParts.push(`<span style="color:#ef4444;font-weight:700;">Người Hủy ${createdBy}</span>`);
+                                    }
+                                    __suppressOperator = true;
+                                } else {
+                                    if (note) detailParts.push(note);
+                                    if (date) detailParts.push(date);
+                                }
                             }
 
                             // Operator label - all in RED
                             let operatorHtml = '';
                             if (isAdjust && tx.adjusted_by) {
                                 operatorHtml = ` - <span style="color: #ef4444; font-weight: 700;">Điều chỉnh bởi ${tx.adjusted_by}</span>`;
-                            } else if (createdBy) {
+                            } else if (createdBy && !__suppressOperator) {
                                 const isRefund = tx.type === 'DEPOSIT' && tx.source === 'ORDER_CANCEL_REFUND';
                                 const isDeposit = tx.type === 'DEPOSIT' && !isRefund;
                                 const isWithdraw = tx.type === 'WITHDRAW';
