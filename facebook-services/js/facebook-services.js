@@ -794,6 +794,7 @@
             const [pageId, videoId] = id.split('_');
             permalink = `https://www.facebook.com/${pageId}/videos/${videoId}`;
         }
+        const isLiveNow = v.statusLive === 1 || v.statusLive === 'LIVE';
         return {
             id,
             type: 'livestream',
@@ -806,6 +807,7 @@
                 target: { url: permalink },
             },
             _isTposLive: true,
+            _isLiveNow: isLiveNow,
         };
     }
 
@@ -1003,8 +1005,10 @@
             const postUrl = post.attachments?.target?.url || `https://www.facebook.com/${post.id}`;
 
             let typeLabel = '';
-            if (post.type === 'livestream') typeLabel = '<span class="type-icon">LIVE</span>';
-            else if (post.type === 'video') typeLabel = '<span class="type-icon">VIDEO</span>';
+            if (post.type === 'livestream') {
+                if (post._isLiveNow) typeLabel = '<span class="type-icon type-live-now">\u{1F534} LIVE</span>';
+                else typeLabel = '<span class="type-icon">REPLAY</span>';
+            } else if (post.type === 'video') typeLabel = '<span class="type-icon">VIDEO</span>';
 
             let meta = '';
             if (post.comment_count > 0) meta += `<span>\u{1F4AC} ${post.comment_count}</span>`;

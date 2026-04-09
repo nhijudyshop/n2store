@@ -587,6 +587,17 @@ body {
     padding: 2px 6px;
     border-radius: 4px;
 }
+.fb-post-thumb .type-icon.type-live-now {
+    background: #ef4444;
+    color: white;
+    font-weight: 700;
+    box-shadow: 0 0 0 2px rgba(239,68,68,0.3);
+    animation: live-pulse 1.6s ease-in-out infinite;
+}
+@keyframes live-pulse {
+    0%, 100% { box-shadow: 0 0 0 2px rgba(239,68,68,0.3); }
+    50% { box-shadow: 0 0 0 4px rgba(239,68,68,0.15); }
+}
 .fb-post-thumb .no-img { color: var(--text-muted); width: 24px; height: 24px; }
 
 .fb-post-info {
