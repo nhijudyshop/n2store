@@ -883,6 +883,32 @@ app.post('/api/realtime/tpos/start', async (req, res) => {
     res.json({ success: true, message: 'TPOS Realtime client started on server (credentials saved for auto-reconnect)' });
 });
 
+// API to get saved Pancake credentials from DB (for frontends to load token)
+app.get('/api/realtime/credentials/pancake', async (req, res) => {
+    try {
+        const r = await chatDbPool.query(
+            `SELECT token, user_id, page_ids, cookie, is_active, updated_at
+             FROM realtime_credentials WHERE client_type = 'pancake' LIMIT 1`
+        );
+        if (r.rows.length === 0) return res.json({ found: false });
+        const row = r.rows[0];
+        let pageIds = [];
+        try { pageIds = row.page_ids ? JSON.parse(row.page_ids) : []; } catch (_) {}
+        res.json({
+            found: true,
+            token: row.token,
+            userId: row.user_id,
+            pageIds,
+            cookie: row.cookie || null,
+            isActive: row.is_active,
+            updatedAt: row.updated_at,
+        });
+    } catch (e) {
+        console.error('[CREDENTIALS] GET pancake error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // API to get Pancake client status
 app.get('/api/realtime/status', (req, res) => {
     res.json({

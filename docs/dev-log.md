@@ -8,6 +8,12 @@
 
 ## 2026-04-09
 
+### [render][facebook-services] Load Pancake account từ Render DB ✅
+| | |
+|---|---|
+| **Files** | `render.com/server.js`, `facebook-services/js/facebook-services.js` |
+| **What** | Thêm endpoint `GET /api/realtime/credentials/pancake` trả về `{token,userId,pageIds,...}` từ bảng `realtime_credentials`. `fetchPancakePosts()` thêm Strategy 0 — gọi endpoint này trước, nếu có token thì thử load posts qua CF Worker `pancake-direct`, fallback các strategy cũ nếu fail. |
+
 ### [customer-hub] Compact UI cho "Hoạt động ví" — 1 dòng/giao dịch ✅
 | | |
 |---|---|

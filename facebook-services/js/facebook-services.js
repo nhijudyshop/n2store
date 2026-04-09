@@ -668,8 +668,43 @@
         if (modal) modal.classList.remove('show');
     }
 
+    // Load pancake account (token + userId + pageIds) from Render DB
+    async function loadPancakeAccountFromRender() {
+        try {
+            const res = await fetch(`${RENDER_SERVER}/api/realtime/credentials/pancake`);
+            const data = await res.json();
+            if (data && data.found && data.token) {
+                console.log('[FB-SVC] Loaded Pancake account from Render DB, pages:', (data.pageIds || []).length);
+                return data;
+            }
+        } catch (e) {
+            console.warn('[FB-SVC] loadPancakeAccountFromRender error:', e.message);
+        }
+        return null;
+    }
+
     async function fetchPancakePosts() {
         try {
+            // Strategy 0: Try Render DB credential first
+            const renderAcc = await loadPancakeAccountFromRender();
+            if (renderAcc && renderAcc.token) {
+                const url = `${CF_WORKER}/api/pancake-direct/pages/posts?types=&current_count=0&page_id=${PANCAKE_PAGE_ID}&jwt=${encodeURIComponent(renderAcc.token)}&page_ids=${PANCAKE_PAGE_ID}&access_token=${encodeURIComponent(renderAcc.token)}`;
+                try {
+                    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                    const result = await res.json();
+                    if (result.success && result.data) {
+                        cachedPancakePosts = result.data;
+                        filteredPancakePosts = cachedPancakePosts;
+                        renderPancakePosts(cachedPancakePosts);
+                        console.log('[FB-SVC] Loaded', cachedPancakePosts.length, 'posts via Render DB account');
+                        return;
+                    }
+                    console.warn('[FB-SVC] Render DB account failed:', result.message);
+                } catch (e) {
+                    console.warn('[FB-SVC] Render DB account error:', e.message);
+                }
+            }
+
             if (!window.pancakeTokenManager) {
                 throw new Error('PancakeTokenManager ch\u01b0a kh\u1edfi t\u1ea1o');
             }
