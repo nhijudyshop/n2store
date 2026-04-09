@@ -231,6 +231,10 @@
         _tTagDefinitions: [],
         _customFlagDefs: [],
         _flagsSectionExpanded: false,
+        _tTagPinned: (function(){
+            try { return localStorage.getItem('ptag_ttag_pinned_v1') === '1'; }
+            catch(e){ return false; }
+        })(),
         _isLoaded: false,          // true khi data đã load xong từ API — guard cho auto-tag
         _historyStore: new Map(),  // Key = orderCode, Value = history[] — TÁCH RIÊNG, không bị removeOrder() xóa
 
@@ -2308,11 +2312,16 @@
         // --- Tag T section ---
         const tTagDefs = ProcessingTagState.getTTagDefinitions();
         const totalTTagOrders = Object.values(tTagCounts).reduce((s, c) => s + c, 0);
+        const tTagPinned = ProcessingTagState._tTagPinned === true;
+        let tTagSectionHtml = '';
         {
-            html += `<div class="ptag-panel-group ptag-ttag-section" data-search="tag t cho hang">
+            tTagSectionHtml += `<div class="ptag-panel-group ptag-ttag-section" data-search="tag t cho hang">
                 <div class="ptag-panel-cat-header-v2" style="border-left-color:${PTAG_TTAG_COLOR_BLUE};background:rgba(59,130,246,0.08);">
                     <span class="ptag-cat-name" style="color:${PTAG_TTAG_COLOR_BLUE};">\u{1F4E6} TAG T CHỜ HÀNG (${totalTTagOrders} đơn)</span>
                     <span class="ptag-cat-count">${tTagDefs.length}</span>
+                    <button class="ptag-panel-btn ptag-ttag-pin-btn ${tTagPinned ? 'pinned' : ''}" style="display:inline-flex;width:20px;height:20px;font-size:10px;margin-left:4px;background:${tTagPinned ? 'rgba(59,130,246,0.15)' : 'none'};border:1px solid ${tTagPinned ? PTAG_TTAG_COLOR_BLUE : '#d1d5db'};border-radius:4px;cursor:pointer;align-items:center;justify-content:center;" onclick="window._ptagToggleTTagPin(); event.stopPropagation();" title="${tTagPinned ? 'Bỏ ghim' : 'Ghim lên đầu'}">
+                        <i class="fas fa-thumbtack" style="font-size:9px;color:${tTagPinned ? PTAG_TTAG_COLOR_BLUE : '#6b7280'};${tTagPinned ? '' : 'transform:rotate(45deg);'}"></i>
+                    </button>
                     <button class="ptag-panel-btn" style="display:inline-flex;width:20px;height:20px;font-size:10px;margin-left:4px;background:none;border:1px solid #d1d5db;border-radius:4px;cursor:pointer;align-items:center;justify-content:center;" onclick="window._ptagOpenTTagManager(); event.stopPropagation();" title="Quản lý Tag T">
                         <i class="fas fa-cog" style="font-size:9px;color:#6b7280;"></i>
                     </button>
@@ -2327,7 +2336,7 @@
                 if (count === 0 && !isDefaultTag) continue;
                 const deleteBtn = isDefaultTag ? '' : `<button class="ptag-ttag-panel-delete-v2" onclick="window._ptagDeleteTTagDefAndOrders('${escapedFk.replace('ttag_', '')}'); event.stopPropagation();" title="Xóa tag và gỡ khỏi tất cả đơn">&times;</button>`;
                 const ttagColor = _ptagGetTTagColor(def.id);
-                html += `<div class="ptag-panel-card ${activeFilter === fk ? 'active' : ''}" onclick="window._ptagSetFilter('${escapedFk}')" data-search="${_ptagNormalize(def.name + ' ' + (def.productCode || ''))}">
+                tTagSectionHtml += `<div class="ptag-panel-card ${activeFilter === fk ? 'active' : ''}" onclick="window._ptagSetFilter('${escapedFk}')" data-search="${_ptagNormalize(def.name + ' ' + (def.productCode || ''))}">
                     <div class="ptag-panel-card-icon ptag-panel-card-icon--sm" style="background:${ttagColor};">
                         <span style="font-size:12px;">\u{1F3F7}\uFE0F</span>
                     </div>
@@ -2339,7 +2348,35 @@
                     ${deleteBtn}
                 </div>`;
             }
-            html += `</div>`;
+            tTagSectionHtml += `</div>`;
+        }
+
+        if (tTagPinned) {
+            // Insert Tag T section right after the mini-stats wrapper (top of scroll area).
+            // The mini-stats block is the first thing appended to `html`; find its matching close.
+            const openTag = '<div class="ptag-panel-mini-stats"';
+            const start = html.indexOf(openTag);
+            if (start !== -1) {
+                let idx = html.indexOf('>', start) + 1;
+                let depth = 1;
+                while (idx < html.length && depth > 0) {
+                    const nextOpen = html.indexOf('<div', idx);
+                    const nextClose = html.indexOf('</div>', idx);
+                    if (nextClose === -1) break;
+                    if (nextOpen !== -1 && nextOpen < nextClose) {
+                        depth++;
+                        idx = nextOpen + 4;
+                    } else {
+                        depth--;
+                        idx = nextClose + 6;
+                    }
+                }
+                html = html.slice(0, idx) + tTagSectionHtml + html.slice(idx);
+            } else {
+                html = tTagSectionHtml + html;
+            }
+        } else {
+            html += tTagSectionHtml;
         }
 
         body.innerHTML = html;
@@ -2617,6 +2654,12 @@
                 window.performTableSearch();
             }
         }, 50);
+    }
+
+    function _ptagToggleTTagPin() {
+        ProcessingTagState._tTagPinned = !ProcessingTagState._tTagPinned;
+        try { localStorage.setItem('ptag_ttag_pinned_v1', ProcessingTagState._tTagPinned ? '1' : '0'); } catch(e) {}
+        renderPanelContent();
     }
 
     function _ptagToggleFlagsSection() {
@@ -5356,6 +5399,7 @@
     window._ptagToggleFlagFilter = _ptagToggleFlagFilter;
     window._ptagToggleGiuDonQuaLay = _ptagToggleGiuDonQuaLay;
     window._ptagToggleFlagsSection = _ptagToggleFlagsSection;
+    window._ptagToggleTTagPin = _ptagToggleTTagPin;
     window._ptagDeleteCustomFlag = _ptagDeleteCustomFlag;
     window._ptagQuickAssign = _ptagQuickAssign;
     window._ptagOpenBulkModal = _ptagOpenBulkModal;
