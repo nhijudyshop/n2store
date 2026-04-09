@@ -6,6 +6,18 @@
 
 ---
 
+## 2026-04-09
+
+### [issue-tracking] Refactor markPartnerAsBoom → dùng UpdateStatus API ✅
+| | |
+|---|---|
+| **Files** | `issue-tracking/js/script.js` |
+| **Why** | Code cũ GET full Partner payload + mutate `StatusStyle`/`StatusText` + PUT + cần `_rollbackPartners` khi fail giữa chừng. Phức tạp, dễ race. orders-report đã dùng `ODataService.UpdateStatus` atomic — align về cùng pattern. |
+| **Chi tiết** | (1) Bỏ `_rollbackPartners` + vòng GET/mutate/PUT. (2) Step 2 mới: `POST Partner({Id})/ODataService.UpdateStatus` body `{"status":"#d1332e_Bom hàng"}` cho từng partner — TPOS tự set StatusStyle+StatusText server-side. (3) Step 3: ghi đè `Email = noteText` (GET+PUT) tách riêng, best-effort, lỗi chỉ `console.warn` không throw. (4) Vẫn quét tất cả partner trùng SĐT (top 50) — giữ nguyên nghiệp vụ cũ của issue-tracking. |
+| **Status** | ✅ Done |
+
+---
+
 ## 2026-04-08
 
 ### [render][soquy] Backup + migration Soquy Firestore → Postgres ✅

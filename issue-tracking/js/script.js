@@ -956,7 +956,8 @@ window.toggleAllProducts = function (selectAll, containerId = 'product-checklist
 /**
  * Mark all TPOS Partner records for a phone as "Bom hàng"
  * Step 1: Search Partner by phone → get all IDs
- * Step 2: For each ID, GET full partner data then PUT with updated status + note
+ * Step 2: For each ID, call ODataService.UpdateStatus (atomic, no full payload PUT)
+ * Step 3: If noteText provided, GET + PUT to overwrite Email field (best-effort)
  */
 async function markPartnerAsBoom(phone, noteText) {
     if (!phone) throw new Error('Không có số điện thoại khách');
@@ -990,70 +991,52 @@ async function markPartnerAsBoom(phone, noteText) {
 
     console.log(`[BOOM] Found ${partners.length} partner(s) for phone ${phone}`);
 
-    // Step 2: GET full data for each partner & save originals for rollback
-    const partnerEntries = []; // { id, url, originalData, updatedData }
+    // Step 2: Atomic UpdateStatus for each partner
+    // Format: "{color}_{text}" — TPOS parses & sets StatusStyle + StatusText server-side
+    const statusPayload = JSON.stringify({ status: '#d1332e_Bom hàng' });
     for (const partner of partners) {
-        const getUrl = `${API_CONFIG.TPOS_ODATA}/Partner(${partner.Id})`;
-        const getResponse = await window.tokenManager.authenticatedFetch(getUrl, {
-            method: 'GET',
-            headers
+        const updateUrl = `${API_CONFIG.TPOS_ODATA}/Partner(${partner.Id})/ODataService.UpdateStatus`;
+        const res = await window.tokenManager.authenticatedFetch(updateUrl, {
+            method: 'POST',
+            headers,
+            body: statusPayload
         });
-
-        if (!getResponse.ok) {
-            throw new Error(`Lấy thông tin khách ${partner.Id} thất bại (HTTP ${getResponse.status})`);
+        if (!res.ok) {
+            throw new Error(`Cập nhật trạng thái khách ${partner.Id} thất bại (HTTP ${res.status})`);
         }
-
-        const partnerData = await getResponse.json();
-
-        // Save original values for rollback
-        const originalData = JSON.parse(JSON.stringify(partnerData));
-
-        // Apply boom updates
-        partnerData.StatusStyle = '#d1332e';
-        partnerData.StatusText = 'Bom hàng';
-        if (noteText) {
-            partnerData.Email = noteText;
-        }
-
-        partnerEntries.push({ id: partner.Id, url: getUrl, originalData, updatedData: partnerData });
+        console.log(`[BOOM] Successfully marked partner ${partner.Id} as "Bom hàng"`);
     }
 
-    // Step 3: PUT updated data for each partner, track successes for rollback
-    const updatedIds = [];
-    for (const entry of partnerEntries) {
-        const putResponse = await window.tokenManager.authenticatedFetch(entry.url, {
-            method: 'PUT',
-            headers,
-            body: JSON.stringify(entry.updatedData)
-        });
-
-        if (!putResponse.ok) {
-            // Rollback all previously successful updates
-            console.error(`[BOOM] Failed to update partner ${entry.id}, rolling back ${updatedIds.length} partner(s)...`);
-            await _rollbackPartners(partnerEntries.filter(e => updatedIds.includes(e.id)), headers);
-            throw new Error(`Cập nhật khách ${entry.id} thất bại (HTTP ${putResponse.status})`);
+    // Step 3: Overwrite Email field with note (best-effort, non-blocking)
+    if (noteText) {
+        for (const partner of partners) {
+            try {
+                const partnerUrl = `${API_CONFIG.TPOS_ODATA}/Partner(${partner.Id})`;
+                const getRes = await window.tokenManager.authenticatedFetch(partnerUrl, {
+                    method: 'GET',
+                    headers
+                });
+                if (!getRes.ok) {
+                    console.warn(`[BOOM] GET partner ${partner.Id} for note failed (HTTP ${getRes.status})`);
+                    continue;
+                }
+                const partnerData = await getRes.json();
+                partnerData.Email = noteText;
+                const putRes = await window.tokenManager.authenticatedFetch(partnerUrl, {
+                    method: 'PUT',
+                    headers,
+                    body: JSON.stringify(partnerData)
+                });
+                if (!putRes.ok) {
+                    console.warn(`[BOOM] PUT note for partner ${partner.Id} failed (HTTP ${putRes.status})`);
+                }
+            } catch (err) {
+                console.warn(`[BOOM] Update note for partner ${partner.Id} error:`, err);
+            }
         }
-
-        updatedIds.push(entry.id);
-        console.log(`[BOOM] Successfully updated partner ${entry.id} as "Bom hàng"`);
     }
 
     console.log('[BOOM] All partner updates completed');
-}
-
-async function _rollbackPartners(entries, headers) {
-    for (const entry of entries) {
-        try {
-            await window.tokenManager.authenticatedFetch(entry.url, {
-                method: 'PUT',
-                headers,
-                body: JSON.stringify(entry.originalData)
-            });
-            console.log(`[BOOM] Rolled back partner ${entry.id}`);
-        } catch (err) {
-            console.error(`[BOOM] Failed to rollback partner ${entry.id}:`, err);
-        }
-    }
 }
 
 function checkExistingReturnTicket(orderId) {
