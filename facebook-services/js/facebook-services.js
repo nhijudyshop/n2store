@@ -781,18 +781,26 @@
     }
 
     function normalizeLiveVideo(v) {
-        const id = v.id || v.Id || v.video_id || v.VideoId || '';
-        const title = v.title || v.Title || v.name || v.Name || v.description || v.Description || 'Live video';
-        const thumb = v.picture || v.Picture || v.thumbnail_url || v.ThumbnailUrl || v.image || null;
-        const created = v.creation_time || v.CreationTime || v.broadcast_start_time || v.BroadcastStartTime || v.created_time || v.CreatedTime;
-        const permalink = v.permalink_url || v.PermalinkUrl || (id ? `https://www.facebook.com/${id}` : '#');
+        // TPOS facebook-graph livevideo shape:
+        // { objectId: "pageId_videoId", title, thumbnail:{url}, channelCreatedTime,
+        //   countComment, countShare, countReaction }
+        const id = v.objectId || v.id || '';
+        const title = v.title || v.name || v.description || 'Live video';
+        const thumb = v.thumbnail?.url || v.picture || v.thumbnail_url || null;
+        const created = v.channelCreatedTime || v.channelUpdatedTime || v.createdTime || v.creation_time;
+        // permalink: pageId_videoId → /{pageId}/videos/{videoId}
+        let permalink = `https://www.facebook.com/${id}`;
+        if (id.includes('_')) {
+            const [pageId, videoId] = id.split('_');
+            permalink = `https://www.facebook.com/${pageId}/videos/${videoId}`;
+        }
         return {
             id,
             type: 'livestream',
             message: title,
             inserted_at: created || new Date().toISOString(),
-            comment_count: v.comment_count || v.CommentCount || 0,
-            share_count: v.share_count || v.ShareCount || 0,
+            comment_count: v.countComment || v.comment_count || 0,
+            share_count: v.countShare || v.share_count || 0,
             attachments: {
                 data: thumb ? [{ url: thumb }] : [],
                 target: { url: permalink },
