@@ -8,6 +8,12 @@
 
 ## 2026-04-09
 
+### [orders] Ẩn badge "Hủy bỏ" khỏi cột Phiếu bán hàng ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-fast-sale-invoice-status.js` |
+| **What** | Render row 3: skip `<span invoice-order-status-badge>` khi `orderStatus.cls === 'cancel'`. Logic derive vẫn giữ cho các nơi khác. |
+
 ### [orders] StateCode `None` → badge "Hủy bỏ" ✅
 | | |
 |---|---|

@@ -1682,7 +1682,10 @@
         // Row 3: Trạng thái đơn (derive từ StateCode) + nút "Đã ra đơn"
         const orderStatus = deriveOrderStatusFromStateCode(stateCode, isMergeCancel);
         html += `<div style="display:flex; align-items:center; gap:4px; margin-top:2px; flex-wrap:wrap;">`;
-        html += `<span class="invoice-order-status-badge invoice-order-status-${orderStatus.cls}" title="Trạng thái đơn theo StateCode">${orderStatus.text}</span>`;
+        // Ẩn badge "Hủy bỏ" khỏi cột phiếu bán hàng (vẫn giữ logic derive cho nơi khác dùng)
+        if (orderStatus.cls !== 'cancel') {
+            html += `<span class="invoice-order-status-badge invoice-order-status-${orderStatus.cls}" title="Trạng thái đơn theo StateCode">${orderStatus.text}</span>`;
+        }
         // "Đã ra đơn" badge → click mở modal hiển thị toàn bộ response invoice
         html += `<span class="invoice-ra-don-badge" onclick="window.showInvoiceRawModal('${order.Id}'); event.stopPropagation();" title="Xem lịch sử phiếu bán hàng">Lịch sử</span>`;
         html += `</div>`;
