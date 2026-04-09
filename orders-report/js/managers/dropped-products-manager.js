@@ -862,11 +862,45 @@
 
     function _updateDroppedFabState() {
         const sendBtn = document.getElementById('droppedFabSend');
+        const sendNameBtn = document.getElementById('droppedFabSendName');
+        const sendImageBtn = document.getElementById('droppedFabSendImage');
         const delBtn = document.getElementById('droppedFabDelete');
         const has = _droppedSelectedIds.size > 0;
         if (sendBtn) sendBtn.disabled = !has;
+        if (sendNameBtn) sendNameBtn.disabled = !has;
+        if (sendImageBtn) sendImageBtn.disabled = !has;
         if (delBtn) delBtn.disabled = !has;
     }
+
+    window._handleDroppedSendNameSelected = async function () {
+        if (_droppedSelectedIds.size === 0) return;
+        const ids = Array.from(_droppedSelectedIds);
+        for (const pid of ids) {
+            const p = droppedProducts.find((x) => x.ProductId === pid);
+            if (!p) continue;
+            const name = p.ProductNameGet || p.ProductName || '';
+            try {
+                if (typeof window.sendProductToChat === 'function') {
+                    await window.sendProductToChat(pid, name);
+                }
+            } catch (e) { console.error(e); }
+        }
+    };
+
+    window._handleDroppedSendImageSelected = async function () {
+        if (_droppedSelectedIds.size === 0) return;
+        const ids = Array.from(_droppedSelectedIds);
+        for (const pid of ids) {
+            const p = droppedProducts.find((x) => x.ProductId === pid);
+            if (!p || !p.ImageUrl) continue;
+            const name = p.ProductNameGet || p.ProductName || '';
+            try {
+                if (typeof window.sendImageToChat === 'function') {
+                    await window.sendImageToChat(p.ImageUrl, name, pid, p.ProductCode || '');
+                }
+            } catch (e) { console.error(e); }
+        }
+    };
 
     function _attachDroppedGlobalListeners() {
         if (_droppedGridListenersAttached) return;
@@ -1083,10 +1117,20 @@
             });
         });
         const sendBtn = document.getElementById('droppedFabSend');
+        const sendNameBtn = document.getElementById('droppedFabSendName');
+        const sendImageBtn = document.getElementById('droppedFabSendImage');
         const delBtn = document.getElementById('droppedFabDelete');
         if (sendBtn && !sendBtn._wired) {
             sendBtn._wired = true;
             sendBtn.addEventListener('click', () => window._handleDroppedSendSelected());
+        }
+        if (sendNameBtn && !sendNameBtn._wired) {
+            sendNameBtn._wired = true;
+            sendNameBtn.addEventListener('click', () => window._handleDroppedSendNameSelected());
+        }
+        if (sendImageBtn && !sendImageBtn._wired) {
+            sendImageBtn._wired = true;
+            sendImageBtn.addEventListener('click', () => window._handleDroppedSendImageSelected());
         }
         if (delBtn && !delBtn._wired) {
             delBtn._wired = true;

@@ -14,7 +14,13 @@
 | **Files** | `orders-report/js/tab1/tab1-processing-tags.js` |
 | **Chi tiết** | Nút ghim Tag T (`_ptagToggleTTagPin`) trước nằm trong section header "TAG T CHỜ HÀNG", nay chuyển lên panel header Chốt Đơn — kế nút "Ghim panel". Icon thumbtack màu xanh dương `#3b82f6`, xoay 45° khi chưa ghim. Bỏ nút cũ trong section. |
 
-### [chat] Hàng rớt xả: đổi nút thao tác sản phẩm ✅
+### [chat] Hàng rớt xả: đổi nút FAB grid ✅
+| | |
+|---|---|
+| **Files** | `orders-report/tab1-orders.html`, `orders-report/js/managers/dropped-products-manager.js` |
+| **Chi tiết** | Tab "Hàng rớt - xả" (grid view) đổi nút FAB: nút "GỬI ĐƠN" → "+" (icon `fa-plus`, vẫn gọi `_handleDroppedSendSelected` chuyển vào đơn). Thêm nút "GỬI TÊN" (paper-plane) gọi `sendProductToChat` cho mỗi sản phẩm chọn. Thêm nút "GỬI ẢNH" (icon ảnh) gọi `sendImageToChat`. Cập nhật `_updateDroppedFabState` enable/disable cả 4 nút theo selection. |
+
+### [chat] Hàng rớt xả: đổi nút thao tác sản phẩm (table view) ✅
 | | |
 |---|---|
 | **Files** | `orders-report/js/managers/dropped-products-manager.js` |
