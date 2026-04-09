@@ -2427,11 +2427,49 @@ div.chat-product-image i {
 }
 
 /* ===== Dropped Products — Image Grid Redesign ===== */
-.dropped-tab-grid { position: relative; }
-.dropped-tab-grid #chatDroppedProductsContainer {
+.dropped-tab-grid {
+    position: relative;
+    flex-direction: column;
+}
+.dropped-tab-grid #chatDroppedProductsContainer,
+.dropped-tab-grid #warehouseProductsContainer {
     padding: 0;
     overflow-y: auto;
-    height: 100%;
+    flex: 1;
+    min-height: 0;
+}
+
+/* Sub-tabs (Hàng rớt xả / Kho Sản Phẩm) */
+.dropped-subtabs {
+    display: flex;
+    gap: 6px;
+    padding: 8px 12px 0;
+    background: #fff;
+    border-bottom: 1px solid #f1f5f9;
+    flex-shrink: 0;
+}
+.dropped-subtab-btn {
+    padding: 8px 18px;
+    border: none;
+    border-radius: 8px 8px 0 0;
+    background: #f1f5f9;
+    color: #64748b;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .15s;
+}
+.dropped-subtab-btn:hover { background: #e2e8f0; }
+.dropped-subtab-btn.active {
+    background: #1e3a8a;
+    color: #fff;
+}
+.dropped-subpanel {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
 }
 
 .dropped-toolbar {

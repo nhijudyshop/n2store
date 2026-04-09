@@ -16,6 +16,12 @@
 | **Backend** | Rewrite `availableDeposits`: query DEPOSIT+WITHDRAW chronological, simulate FIFO queue, trả về deposits còn dư (oldest→newest). Bỏ qua VIRTUAL_*. |
 | **Frontend orders** | `autoFillSaleNote()` iterate forward (oldest→newest), skip `source === 'ORDER_CANCEL_REFUND'` khỏi note "CK xxxK ACB dd/mm". |
 | **Customer-hub** | Override label "HOÀN" (giữ màu xanh, dấu +) cho `tx.type==='DEPOSIT' && tx.source==='ORDER_CANCEL_REFUND'`. Fix `isRefund` detection (trước check `tx.type==='ORDER_CANCEL_REFUND'` không bao giờ match). Operator label đổi "Duyệt bởi" → "Hoàn bởi" cho refund. |
+
+### [orders] Đổi tab "Hàng rớt - xã" → "Bán Hàng" với 2 sub-tab ✅
+| | |
+|---|---|
+| **Files** | `orders-report/tab1-orders.html`, `orders-report/css/tab1-chat-modal.css`, `orders-report/js/managers/dropped-products-manager.js` |
+| **Chi tiết** | Đổi label tab cha thành "Bán Hàng" (giữ data-tab="dropped" + badge cũ). Bọc nội dung trong 2 sub-panel: `#droppedSubPanelXasha` (giữ nguyên hàng rớt xả + FAB) và `#droppedSubPanelKho` (Kho Sản Phẩm — UI giống hệt, container/FAB id `warehouse*`). Thêm `.dropped-subtabs` CSS + `switchDroppedSubTab(bucket)`. JS thêm parallel state/render/wire cho warehouse (`warehouseProducts` in-memory, _detectDroppedCategory dùng chung, hover preview singleton dùng chung). Cart-drop flow KHÔNG đổi → vẫn chỉ vào Hàng rớt xả. Stub `addToWarehouseProducts/removeFromWarehouseProducts` để user tự hoàn thiện logic add sau. |
 | **Status** | ✅ Done |
 
 ### [customer-hub] Fix nút X đóng modal Customer Profile không bấm được ✅

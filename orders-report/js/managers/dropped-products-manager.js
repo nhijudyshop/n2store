@@ -63,6 +63,9 @@
 
     // Local state - PostgreSQL is the single source of truth
     let droppedProducts = [];
+    // Warehouse (Kho Sản Phẩm) — in-memory only for now. Cart-drop flow KHÔNG ghi vào đây.
+    // Logic add sản phẩm vào kho sẽ được hoàn thiện sau bởi user.
+    let warehouseProducts = [];
     let isInitialized = false;
     let sseSource = null; // SSE EventSource
     let isFirstLoad = true;
@@ -153,6 +156,8 @@
         try {
             // Render initial loading state
             renderDroppedProductsTable();
+            // Pre-wire warehouse sub-tab toolbar (empty grid until user adds logic)
+            renderWarehouseProductsTable();
             renderHistoryList();
             updateDroppedCounts();
 
@@ -1206,6 +1211,358 @@
         });
     }
 
+    // =====================================================
+    // WAREHOUSE (Kho Sản Phẩm) — parallel grid bucket
+    // UI/chức năng giống hàng rớt xả nhưng dùng container/FAB id riêng
+    // và mảng warehouseProducts (in-memory). Cart-drop flow KHÔNG ghi vào đây.
+    // =====================================================
+    let _warehouseSearchText = '';
+    let _warehouseCategoryFilter = 'all';
+    const _warehouseSelectedIds = new Set();
+    let _warehouseDragging = false;
+    let _warehouseDragMode = 'add';
+    let _warehouseGridListenersAttached = false;
+
+    function _updateWarehouseFabState() {
+        const sendBtn = document.getElementById('warehouseFabSend');
+        const sendNameBtn = document.getElementById('warehouseFabSendName');
+        const sendImageBtn = document.getElementById('warehouseFabSendImage');
+        const delBtn = document.getElementById('warehouseFabDelete');
+        const has = _warehouseSelectedIds.size > 0;
+        if (sendBtn) sendBtn.disabled = !has;
+        if (sendNameBtn) sendNameBtn.disabled = !has;
+        if (sendImageBtn) sendImageBtn.disabled = !has;
+        if (delBtn) delBtn.disabled = !has;
+    }
+
+    window._handleWarehouseSendNameSelected = async function () {
+        if (_warehouseSelectedIds.size === 0) return;
+        const ids = Array.from(_warehouseSelectedIds);
+        for (const pid of ids) {
+            const p = warehouseProducts.find((x) => x.ProductId === pid);
+            if (!p) continue;
+            const name = p.ProductNameGet || p.ProductName || '';
+            try {
+                if (typeof window.sendProductToChat === 'function') {
+                    await window.sendProductToChat(pid, name);
+                }
+            } catch (e) { console.error(e); }
+        }
+    };
+
+    window._handleWarehouseSendImageSelected = async function () {
+        if (_warehouseSelectedIds.size === 0) return;
+        const ids = Array.from(_warehouseSelectedIds);
+        for (const pid of ids) {
+            const p = warehouseProducts.find((x) => x.ProductId === pid);
+            if (!p || !p.ImageUrl) continue;
+            const name = p.ProductNameGet || p.ProductName || '';
+            try {
+                if (typeof window.sendImageToChat === 'function') {
+                    await window.sendImageToChat(p.ImageUrl, name, pid, p.ProductCode || '');
+                }
+            } catch (e) { console.error(e); }
+        }
+    };
+
+    window._handleWarehouseSendSelected = async function () {
+        // Stub: chuyển sản phẩm vào đơn — sẽ hoàn thiện khi có backend kho.
+        if (_warehouseSelectedIds.size === 0) return;
+        showError('Chức năng chuyển từ Kho vào đơn sẽ hoàn thiện sau.');
+    };
+
+    window._handleWarehouseDeleteSelected = async function () {
+        if (_warehouseSelectedIds.size === 0) return;
+        if (!confirm(`Xóa ${_warehouseSelectedIds.size} sản phẩm đã chọn khỏi kho?`)) return;
+        const ids = Array.from(_warehouseSelectedIds);
+        warehouseProducts = warehouseProducts.filter((p) => !ids.includes(p.ProductId));
+        _warehouseSelectedIds.clear();
+        renderWarehouseProductsTable();
+    };
+
+    function _attachWarehouseGlobalListeners() {
+        if (_warehouseGridListenersAttached) return;
+        _warehouseGridListenersAttached = true;
+        const stopDrag = () => { _warehouseDragging = false; };
+        document.addEventListener('mouseup', stopDrag);
+        document.addEventListener('mouseleave', stopDrag);
+    }
+
+    function _applyWarehouseSelectionToCell(cell, productId) {
+        if (_warehouseDragMode === 'add') {
+            _warehouseSelectedIds.add(productId);
+            cell.classList.add('selected');
+        } else {
+            _warehouseSelectedIds.delete(productId);
+            cell.classList.remove('selected');
+        }
+    }
+
+    async function renderWarehouseProductsTable() {
+        const container = document.getElementById('warehouseProductsContainer');
+        if (!container) return;
+
+        _attachWarehouseGlobalListeners();
+
+        if (!container.querySelector('.dropped-toolbar')) {
+            const pills = [
+                { id: 'all', label: 'ALL' },
+                { id: 'ao', label: 'Áo' },
+                { id: 'quan', label: 'Quần' },
+                { id: 'set', label: 'Set' },
+                { id: 'giay', label: 'GIÀY' },
+                { id: 'pk', label: 'PK' },
+            ];
+            container.innerHTML = `
+                <div class="dropped-toolbar">
+                    <div class="dropped-search-wrap">
+                        <i class="fas fa-search"></i>
+                        <input type="text" id="warehouseGridSearchInput" class="dropped-search" placeholder="Tìm kiếm sản phẩm..." autocomplete="off">
+                    </div>
+                    <div class="dropped-pills">
+                        ${pills.map((p) => `<button type="button" class="dropped-pill ${_warehouseCategoryFilter === p.id ? 'active' : ''}" data-cat="${p.id}">${p.label}</button>`).join('')}
+                    </div>
+                </div>
+                <div class="dropped-grid" id="warehouseGridContainer"></div>
+            `;
+            const inp = document.getElementById('warehouseGridSearchInput');
+            if (inp) inp.value = _warehouseSearchText || '';
+            _wireWarehouseToolbar();
+        }
+
+        await _renderWarehouseGridOnly();
+    }
+
+    async function _renderWarehouseGridOnly() {
+        const grid = document.getElementById('warehouseGridContainer');
+        if (!grid) return;
+
+        const allProducts = warehouseProducts;
+        const search = (_warehouseSearchText || '').trim().toLowerCase();
+        const products = allProducts.filter((p) => {
+            const name = (p.ProductNameGet || p.ProductName || '').toLowerCase();
+            const code = (p.ProductCode || '').toLowerCase();
+            if (search && !name.includes(search) && !code.includes(search)) return false;
+            if (_warehouseCategoryFilter !== 'all') {
+                if (_detectDroppedCategory(p.ProductNameGet || p.ProductName) !== _warehouseCategoryFilter) return false;
+            }
+            return true;
+        });
+
+        const existingIds = new Set(warehouseProducts.map((p) => p.ProductId));
+        for (const id of Array.from(_warehouseSelectedIds)) {
+            if (!existingIds.has(id)) _warehouseSelectedIds.delete(id);
+        }
+
+        if (products.length === 0) {
+            grid.innerHTML = `
+                <div class="chat-empty-products" style="grid-column: 1 / -1; text-align:center; padding:40px 20px; color:#94a3b8;">
+                    <i class="fas fa-box-open" style="font-size:40px; margin-bottom:12px; opacity:0.5;"></i>
+                    <p style="font-size:14px; margin:0;">${allProducts.length === 0 ? 'Chưa có sản phẩm trong kho' : 'Không có sản phẩm phù hợp'}</p>
+                </div>
+            `;
+            _wireWarehouseGrid();
+            _updateWarehouseFabState();
+            return;
+        }
+
+        const cellsHTML = products.map((p) => {
+            const productNameEscaped = (p.ProductNameGet || p.ProductName || '').replace(/"/g, '&quot;');
+            const codeEscaped = (p.ProductCode || '').replace(/'/g, "\\'");
+            const isSelected = _warehouseSelectedIds.has(p.ProductId);
+
+            const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const ttRows = [];
+            ttRows.push(`<div class="dpt-title">${esc(p.ProductNameGet || p.ProductName || '')}</div>`);
+            const meta = [];
+            if (p.ProductCode) meta.push(`Mã: <b>${esc(p.ProductCode)}</b>`);
+            if (p.Quantity != null) meta.push(`SL: <b>${esc(p.Quantity)}</b>`);
+            if (p.Price) meta.push(`<b>${(p.Price).toLocaleString('vi-VN')}đ</b>`);
+            if (meta.length) ttRows.push(`<div class="dpt-meta">${meta.join(' • ')}</div>`);
+            const tooltipHTML = ttRows.join('');
+            const tooltipAttr = tooltipHTML.replace(/"/g, '&quot;');
+
+            const imgInner = p.ImageUrl
+                ? `<img src="${p.ImageUrl}" alt="${productNameEscaped}" draggable="false">`
+                : `<div class="dropped-cell-noimg"><i class="fas fa-box"></i></div>`;
+
+            return `
+                <div class="dropped-cell${isSelected ? ' selected' : ''}"
+                     data-pid="${p.ProductId}"
+                     data-name="${productNameEscaped}"
+                     data-code="${codeEscaped}"
+                     data-tooltip="${tooltipAttr}">
+                    ${imgInner}
+                    <span class="dropped-cell-check"><i class="fas fa-check"></i></span>
+                </div>
+            `;
+        }).join('');
+
+        grid.innerHTML = cellsHTML;
+        _wireWarehouseGrid();
+        _updateWarehouseFabState();
+    }
+
+    function _wireWarehouseToolbar() {
+        const searchInput = document.getElementById('warehouseGridSearchInput');
+        if (searchInput && !searchInput._wired) {
+            searchInput._wired = true;
+            let t = null;
+            let composing = false;
+            searchInput.addEventListener('compositionstart', () => { composing = true; });
+            searchInput.addEventListener('compositionend', (e) => {
+                composing = false;
+                _warehouseSearchText = e.target.value;
+                clearTimeout(t);
+                _renderWarehouseGridOnly();
+            });
+            searchInput.addEventListener('input', (e) => {
+                if (composing) return;
+                clearTimeout(t);
+                const v = e.target.value;
+                t = setTimeout(() => {
+                    _warehouseSearchText = v;
+                    _renderWarehouseGridOnly();
+                }, 200);
+            });
+        }
+        document.querySelectorAll('#droppedSubPanelKho .dropped-pill').forEach((btn) => {
+            if (btn._wired) return;
+            btn._wired = true;
+            btn.addEventListener('click', () => {
+                _warehouseCategoryFilter = btn.dataset.cat;
+                document.querySelectorAll('#droppedSubPanelKho .dropped-pill').forEach((b) => {
+                    b.classList.toggle('active', b.dataset.cat === _warehouseCategoryFilter);
+                });
+                _renderWarehouseGridOnly();
+            });
+        });
+        const toggleBtn = document.getElementById('warehouseFabToggle');
+        const fabContainer = document.getElementById('warehouseFloatingActions');
+        if (toggleBtn && !toggleBtn._wired) {
+            toggleBtn._wired = true;
+            toggleBtn.addEventListener('click', () => {
+                if (fabContainer) fabContainer.classList.toggle('collapsed');
+            });
+        }
+        const sendBtn = document.getElementById('warehouseFabSend');
+        const sendNameBtn = document.getElementById('warehouseFabSendName');
+        const sendImageBtn = document.getElementById('warehouseFabSendImage');
+        const delBtn = document.getElementById('warehouseFabDelete');
+        if (sendBtn && !sendBtn._wired) {
+            sendBtn._wired = true;
+            sendBtn.addEventListener('click', () => window._handleWarehouseSendSelected());
+        }
+        if (sendNameBtn && !sendNameBtn._wired) {
+            sendNameBtn._wired = true;
+            sendNameBtn.addEventListener('click', () => window._handleWarehouseSendNameSelected());
+        }
+        if (sendImageBtn && !sendImageBtn._wired) {
+            sendImageBtn._wired = true;
+            sendImageBtn.addEventListener('click', () => window._handleWarehouseSendImageSelected());
+        }
+        if (delBtn && !delBtn._wired) {
+            delBtn._wired = true;
+            delBtn.addEventListener('click', () => window._handleWarehouseDeleteSelected());
+        }
+    }
+
+    function _wireWarehouseGrid() {
+        const grid = document.getElementById('warehouseGridContainer');
+        if (!grid || grid._wired) return;
+        grid._wired = true;
+
+        grid.addEventListener('mousedown', (e) => {
+            if (e.button !== 0) return;
+            const cell = e.target.closest('.dropped-cell');
+            if (!cell) return;
+            const pid = Number(cell.dataset.pid);
+            _warehouseDragging = true;
+            _warehouseDragMode = _warehouseSelectedIds.has(pid) ? 'remove' : 'add';
+            _applyWarehouseSelectionToCell(cell, pid);
+            _updateWarehouseFabState();
+            e.preventDefault();
+        });
+
+        grid.addEventListener('mouseover', (e) => {
+            if (!_warehouseDragging) return;
+            const cell = e.target.closest('.dropped-cell');
+            if (!cell) return;
+            const pid = Number(cell.dataset.pid);
+            _applyWarehouseSelectionToCell(cell, pid);
+            _updateWarehouseFabState();
+        });
+
+        // Hover preview - reuse the singleton from dropped grid
+        let _hoverCell = null;
+        grid.addEventListener('mouseover', (e) => {
+            const cell = e.target.closest('.dropped-cell');
+            if (!cell || cell === _hoverCell) return;
+            const img = cell.querySelector('img');
+            if (!img) { _hideHoverPreview(); _hoverCell = null; return; }
+            _hoverCell = cell;
+            _showHoverPreview(img.src, e.clientX, e.clientY, cell.dataset.tooltip || '');
+        });
+        grid.addEventListener('mousemove', (e) => {
+            if (!_hoverCell) return;
+            _positionHoverPreview(e.clientX, e.clientY);
+        });
+        grid.addEventListener('mouseout', (e) => {
+            const to = e.relatedTarget;
+            if (_hoverCell && (!to || !_hoverCell.contains(to))) {
+                _hoverCell = null;
+                _hideHoverPreview();
+            }
+        });
+
+        grid.addEventListener('contextmenu', (e) => {
+            const cell = e.target.closest('.dropped-cell');
+            if (!cell) return;
+            e.preventDefault();
+            const pid = Number(cell.dataset.pid);
+            const name = cell.dataset.name;
+            if (typeof window.sendProductToChat === 'function') {
+                window.sendProductToChat(pid, name);
+            }
+        });
+    }
+
+    // Public API for warehouse — user sẽ hoàn thiện logic add sau
+    window.getWarehouseProducts = function () { return warehouseProducts; };
+    window.addToWarehouseProducts = function (product, quantity = 1) {
+        if (!product || !product.ProductId) return;
+        const existing = warehouseProducts.find((p) => p.ProductId === product.ProductId);
+        if (existing) {
+            existing.Quantity = (existing.Quantity || 0) + quantity;
+        } else {
+            warehouseProducts.push({ ...product, Quantity: quantity });
+        }
+        renderWarehouseProductsTable();
+    };
+    window.removeFromWarehouseProducts = function (productId) {
+        warehouseProducts = warehouseProducts.filter((p) => p.ProductId !== productId);
+        renderWarehouseProductsTable();
+    };
+
+    // Sub-tab switcher (Hàng rớt xả / Kho Sản Phẩm)
+    window.switchDroppedSubTab = function (bucketKey) {
+        const xashaPanel = document.getElementById('droppedSubPanelXasha');
+        const khoPanel = document.getElementById('droppedSubPanelKho');
+        const buttons = document.querySelectorAll('.dropped-subtab-btn');
+        buttons.forEach((btn) => {
+            btn.classList.toggle('active', btn.dataset.bucket === bucketKey);
+        });
+        if (bucketKey === 'kho') {
+            if (xashaPanel) xashaPanel.style.display = 'none';
+            if (khoPanel) khoPanel.style.display = 'flex';
+            renderWarehouseProductsTable();
+        } else {
+            if (khoPanel) khoPanel.style.display = 'none';
+            if (xashaPanel) xashaPanel.style.display = 'flex';
+            renderDroppedProductsTable();
+        }
+    };
+
     // ===== Hover preview singleton =====
     let _hoverPreviewEl = null;
     function _getHoverPreviewEl() {
@@ -1571,7 +1928,14 @@
         if (activeContent) activeContent.style.display = 'flex';
 
         if (tabName === 'dropped') {
-            renderDroppedProductsTable();
+            // Render active sub-tab (default: xasha)
+            const activeSubBtn = document.querySelector('.dropped-subtab-btn.active');
+            const activeBucket = activeSubBtn ? activeSubBtn.dataset.bucket : 'xasha';
+            if (activeBucket === 'kho') {
+                renderWarehouseProductsTable();
+            } else {
+                renderDroppedProductsTable();
+            }
         } else if (tabName === 'history') {
             renderHistoryList();
         } else if (tabName === 'invoice_history') {

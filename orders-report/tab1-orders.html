@@ -970,7 +970,7 @@
                             Đơn hàng <span class="chat-tab-badge" id="chatOrdersCountBadge">0</span>
                         </button>
                         <button class="chat-tab-btn" data-tab="dropped" onclick="switchChatPanelTab('dropped')">
-                            Hàng rớt - xả <span class="chat-tab-badge chat-tab-badge-danger" id="chatDroppedCountBadge">0</span>
+                            Bán Hàng <span class="chat-tab-badge chat-tab-badge-danger" id="chatDroppedCountBadge">0</span>
                         </button>
                         <button class="chat-tab-btn" data-tab="history" onclick="switchChatPanelTab('history')">
                             Lịch sử
@@ -1015,37 +1015,76 @@
                         </div>
                     </div>
 
-                    <!-- Tab: Hàng rớt - xả -->
-                    <div class="chat-tab-content dropped-tab-grid" id="chatTabDropped" style="display: none; position: relative;">
-                        <!-- Dropped products grid - rendered by dropped-products-manager.js -->
-                        <div class="chat-products-scroll" id="chatDroppedProductsContainer">
-                            <div class="chat-empty-products">
-                                <i class="fas fa-box-open"></i>
-                                <p>Chưa có hàng rớt - xả</p>
+                    <!-- Tab: Bán Hàng (chứa 2 sub-tab: Hàng rớt xả + Kho Sản Phẩm) -->
+                    <div class="chat-tab-content dropped-tab-grid" id="chatTabDropped" style="display: none;">
+                        <!-- Sub-tab bar -->
+                        <div class="dropped-subtabs">
+                            <button type="button" class="dropped-subtab-btn active" data-bucket="xasha" onclick="switchDroppedSubTab('xasha')">Hàng rớt xả</button>
+                            <button type="button" class="dropped-subtab-btn" data-bucket="kho" onclick="switchDroppedSubTab('kho')">Kho Sản Phẩm</button>
+                        </div>
+
+                        <!-- Sub-panel: Hàng rớt xả -->
+                        <div class="dropped-subpanel" id="droppedSubPanelXasha">
+                            <div class="chat-products-scroll" id="chatDroppedProductsContainer">
+                                <div class="chat-empty-products">
+                                    <i class="fas fa-box-open"></i>
+                                    <p>Chưa có hàng rớt - xả</p>
+                                </div>
+                            </div>
+                            <div class="dropped-floating-actions collapsed" id="droppedFloatingActions">
+                                <button type="button" class="dropped-fab fab-toggle" id="droppedFabToggle" title="Mở thao tác">
+                                    <i class="fas fa-bars"></i>
+                                </button>
+                                <button type="button" class="dropped-fab fab-send" id="droppedFabSend" title="Chuyển các sản phẩm đã chọn vào đơn" disabled>
+                                    <i class="fas fa-plus"></i>
+                                    <span>+</span>
+                                </button>
+                                <button type="button" class="dropped-fab fab-send-name" id="droppedFabSendName" title="Gửi tên các sản phẩm đã chọn vào chat" disabled>
+                                    <i class="fas fa-paper-plane"></i>
+                                    <span>GỬI TÊN</span>
+                                </button>
+                                <button type="button" class="dropped-fab fab-send-image" id="droppedFabSendImage" title="Gửi ảnh các sản phẩm đã chọn vào chat" disabled>
+                                    <i class="fas fa-image"></i>
+                                    <span>GỬI ẢNH</span>
+                                </button>
+                                <button type="button" class="dropped-fab fab-delete" id="droppedFabDelete" title="Xóa các sản phẩm đã chọn" disabled>
+                                    <i class="fas fa-trash"></i>
+                                    <span>HỦY/XÓA</span>
+                                </button>
                             </div>
                         </div>
-                        <!-- Floating action buttons (speed dial: collapsed by default, expand on toggle) -->
-                        <div class="dropped-floating-actions collapsed" id="droppedFloatingActions">
-                            <button type="button" class="dropped-fab fab-toggle" id="droppedFabToggle" title="Mở thao tác">
-                                <i class="fas fa-bars"></i>
-                            </button>
-                            <button type="button" class="dropped-fab fab-send" id="droppedFabSend" title="Chuyển các sản phẩm đã chọn vào đơn" disabled>
-                                <i class="fas fa-plus"></i>
-                                <span>+</span>
-                            </button>
-                            <button type="button" class="dropped-fab fab-send-name" id="droppedFabSendName" title="Gửi tên các sản phẩm đã chọn vào chat" disabled>
-                                <i class="fas fa-paper-plane"></i>
-                                <span>GỬI TÊN</span>
-                            </button>
-                            <button type="button" class="dropped-fab fab-send-image" id="droppedFabSendImage" title="Gửi ảnh các sản phẩm đã chọn vào chat" disabled>
-                                <i class="fas fa-image"></i>
-                                <span>GỬI ẢNH</span>
-                            </button>
-                            <button type="button" class="dropped-fab fab-delete" id="droppedFabDelete" title="Xóa các sản phẩm đã chọn" disabled>
-                                <i class="fas fa-trash"></i>
-                                <span>HỦY/XÓA</span>
-                            </button>
+
+                        <!-- Sub-panel: Kho Sản Phẩm -->
+                        <div class="dropped-subpanel" id="droppedSubPanelKho" style="display:none;">
+                            <div class="chat-products-scroll" id="warehouseProductsContainer">
+                                <div class="chat-empty-products">
+                                    <i class="fas fa-box-open"></i>
+                                    <p>Chưa có sản phẩm trong kho</p>
+                                </div>
+                            </div>
+                            <div class="dropped-floating-actions collapsed" id="warehouseFloatingActions">
+                                <button type="button" class="dropped-fab fab-toggle" id="warehouseFabToggle" title="Mở thao tác">
+                                    <i class="fas fa-bars"></i>
+                                </button>
+                                <button type="button" class="dropped-fab fab-send" id="warehouseFabSend" title="Chuyển các sản phẩm đã chọn vào đơn" disabled>
+                                    <i class="fas fa-plus"></i>
+                                    <span>+</span>
+                                </button>
+                                <button type="button" class="dropped-fab fab-send-name" id="warehouseFabSendName" title="Gửi tên các sản phẩm đã chọn vào chat" disabled>
+                                    <i class="fas fa-paper-plane"></i>
+                                    <span>GỬI TÊN</span>
+                                </button>
+                                <button type="button" class="dropped-fab fab-send-image" id="warehouseFabSendImage" title="Gửi ảnh các sản phẩm đã chọn vào chat" disabled>
+                                    <i class="fas fa-image"></i>
+                                    <span>GỬI ẢNH</span>
+                                </button>
+                                <button type="button" class="dropped-fab fab-delete" id="warehouseFabDelete" title="Xóa các sản phẩm đã chọn" disabled>
+                                    <i class="fas fa-trash"></i>
+                                    <span>HỦY/XÓA</span>
+                                </button>
+                            </div>
                         </div>
+
                         <!-- Hidden counter (kept for compatibility with updateDroppedCounts) -->
                         <span id="droppedProductCount" style="display:none;">0</span>
                         <span id="chatDroppedTotal" style="display:none;">0đ</span>
