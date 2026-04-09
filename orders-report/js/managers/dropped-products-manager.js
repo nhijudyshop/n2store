@@ -1364,7 +1364,7 @@
                 <td style="text-align: right; width: 100px;">${(p.Price || 0).toLocaleString('vi-VN')}đ</td>
                 <td style="text-align: center; width: 140px;">
                     <button onclick="moveDroppedToOrder(${actualIndex})" class="chat-btn-product-action" title="${isOutOfStock ? 'Không thể chuyển (số lượng = 0)' : 'Chuyển về đơn hàng'}" style="margin-right: 4px; color: ${isOutOfStock ? '#cbd5e1' : '#10b981'}; ${isOutOfStock ? 'cursor: not-allowed; opacity: 0.5;' : ''}" ${isOutOfStock ? 'disabled' : ''}>
-                        <i class="fas fa-undo"></i>
+                        <i class="fas fa-plus"></i>
                     </button>
                     <button onclick="sendProductToChat(${p.ProductId}, '${(p.ProductNameGet || p.ProductName || '').replace(/'/g, "\\'")}')" class="chat-btn-product-action" style="
                         background: #3b82f6;
@@ -1376,9 +1376,18 @@
                         font-weight: 600;
                         cursor: pointer;
                         margin-right: 4px;
-                    " title="Gửi tên sản phẩm vào chat">
-                        <i class="fas fa-paper-plane"></i>
-                    </button>
+                    " title="Gửi tên sản phẩm vào chat">Gửi tên</button>
+                    ${p.ImageUrl ? `<button onclick="sendImageToChat('${p.ImageUrl}', '${productNameEscaped}', ${p.ProductId}, '${(p.ProductCode || '').replace(/'/g, "\\'")}')" class="chat-btn-product-action" style="
+                        background: #8b5cf6;
+                        color: white;
+                        border: none;
+                        padding: 4px 8px;
+                        border-radius: 4px;
+                        font-size: 11px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        margin-right: 4px;
+                    " title="Gửi ảnh sản phẩm vào chat">Gửi ảnh</button>` : ''}
                     <button onclick="removeFromDroppedProducts(${actualIndex})" class="chat-btn-product-action chat-btn-delete-item" title="Xóa vĩnh viễn">
                         <i class="fas fa-trash"></i>
                     </button>

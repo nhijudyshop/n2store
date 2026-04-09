@@ -8,6 +8,12 @@
 
 ## 2026-04-09
 
+### [chat] Hàng rớt xả: đổi nút thao tác sản phẩm ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/managers/dropped-products-manager.js` |
+| **Chi tiết** | Trong panel chat tab1 modal hàng rớt xả: nút "gửi đơn" (moveDroppedToOrder) đổi icon `fa-undo` → `fa-plus`. Nút paper-plane đổi thành text "Gửi tên". Thêm nút "Gửi ảnh" (màu tím #8b5cf6) gọi `sendImageToChat`, chỉ hiển thị khi có ImageUrl. |
+
 ### [shared] Mở quyền truy cập trang Thống Kê Giao Hàng cho mọi tài khoản ✅
 | | |
 |---|---|
