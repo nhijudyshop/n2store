@@ -8,6 +8,12 @@
 
 ## 2026-04-09
 
+### [orders] Chốt Đơn panel: dời nút Ghim Tag T lên header ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-processing-tags.js` |
+| **Chi tiết** | Nút ghim Tag T (`_ptagToggleTTagPin`) trước nằm trong section header "TAG T CHỜ HÀNG", nay chuyển lên panel header Chốt Đơn — kế nút "Ghim panel". Icon thumbtack màu xanh dương `#3b82f6`, xoay 45° khi chưa ghim. Bỏ nút cũ trong section. |
+
 ### [chat] Hàng rớt xả: đổi nút thao tác sản phẩm ✅
 | | |
 |---|---|

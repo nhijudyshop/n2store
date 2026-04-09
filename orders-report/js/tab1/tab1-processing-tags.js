@@ -1952,6 +1952,9 @@
                     <button class="ptag-panel-btn" id="ptag-pin-btn" title="Ghim panel" onclick="window._ptagTogglePin()">
                         <i class="fas fa-thumbtack"></i>
                     </button>
+                    <button class="ptag-panel-btn ${ProcessingTagState._tTagPinned ? 'pinned' : ''}" id="ptag-ttag-pin-header-btn" title="${ProcessingTagState._tTagPinned ? 'Bỏ ghim Tag T' : 'Ghim Tag T lên đầu'}" onclick="window._ptagToggleTTagPin()" style="color:#3b82f6;">
+                        <i class="fas fa-thumbtack" style="${ProcessingTagState._tTagPinned ? '' : 'transform:rotate(45deg);'}"></i>
+                    </button>
                     <button class="ptag-panel-btn" title="Quản lý Tag T" onclick="window._ptagOpenTTagManager()" style="color:#7c3aed;">
                         <i class="fas fa-tags"></i>
                     </button>
@@ -2319,9 +2322,6 @@
                 <div class="ptag-panel-cat-header-v2" style="border-left-color:${PTAG_TTAG_COLOR_BLUE};background:rgba(59,130,246,0.08);">
                     <span class="ptag-cat-name" style="color:${PTAG_TTAG_COLOR_BLUE};">\u{1F4E6} TAG T CHỜ HÀNG (${totalTTagOrders} đơn)</span>
                     <span class="ptag-cat-count">${tTagDefs.length}</span>
-                    <button class="ptag-panel-btn ptag-ttag-pin-btn ${tTagPinned ? 'pinned' : ''}" style="display:inline-flex;width:20px;height:20px;font-size:10px;margin-left:4px;background:${tTagPinned ? 'rgba(59,130,246,0.15)' : 'none'};border:1px solid ${tTagPinned ? PTAG_TTAG_COLOR_BLUE : '#d1d5db'};border-radius:4px;cursor:pointer;align-items:center;justify-content:center;" onclick="window._ptagToggleTTagPin(); event.stopPropagation();" title="${tTagPinned ? 'Bỏ ghim' : 'Ghim lên đầu'}">
-                        <i class="fas fa-thumbtack" style="font-size:9px;color:${tTagPinned ? PTAG_TTAG_COLOR_BLUE : '#6b7280'};${tTagPinned ? '' : 'transform:rotate(45deg);'}"></i>
-                    </button>
                     <button class="ptag-panel-btn" style="display:inline-flex;width:20px;height:20px;font-size:10px;margin-left:4px;background:none;border:1px solid #d1d5db;border-radius:4px;cursor:pointer;align-items:center;justify-content:center;" onclick="window._ptagOpenTTagManager(); event.stopPropagation();" title="Quản lý Tag T">
                         <i class="fas fa-cog" style="font-size:9px;color:#6b7280;"></i>
                     </button>
