@@ -45,7 +45,7 @@ export class CustomerProfileModule {
                             <span class="material-symbols-outlined text-lg">lock_reset</span>
                             Reset Password
                         </button>
-                        <button onclick="(window.closeCustomerModal && window.closeCustomerModal()); document.getElementById('customer-profile-modal')?.classList.add('hidden'); document.body.style.overflow='';" class="p-2 bg-red-50 dark:bg-red-900/20 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/40 hover:text-red-600 rounded-lg transition-colors" title="Đóng">
+                        <button id="modal-close-btn" type="button" class="p-2 bg-red-50 dark:bg-red-900/20 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/40 hover:text-red-600 rounded-lg transition-colors" title="Đóng">
                             <span class="material-symbols-outlined text-2xl">close</span>
                         </button>
                     </div>
@@ -94,6 +94,25 @@ export class CustomerProfileModule {
 
         this.loader = this.container.querySelector('#modal-loader');
         this.contentLoaded = this.container.querySelector('#modal-content-loaded');
+
+        // Bind close button (more reliable than inline onclick)
+        const closeBtn = this.container.querySelector('#modal-close-btn');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (typeof window.closeCustomerModal === 'function') {
+                    window.closeCustomerModal();
+                } else {
+                    const modal = document.getElementById('customer-profile-modal');
+                    if (modal) {
+                        modal.classList.add('hidden');
+                        modal.style.display = 'none';
+                    }
+                    document.body.style.overflow = '';
+                }
+            });
+        }
     }
 
     async render(phone) {

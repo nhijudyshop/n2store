@@ -8,6 +8,13 @@
 
 ## 2026-04-09
 
+### [customer-hub] Fix nút X đóng modal Customer Profile không bấm được ✅
+| | |
+|---|---|
+| **Files** | `customer-hub/js/modules/customer-profile.js` |
+| **Chi tiết** | Nút X ở header modal Customer Profile dùng inline `onclick` với optional chaining + nhiều câu lệnh, không kích hoạt. Thay bằng `id="modal-close-btn"` và bind `addEventListener('click', ...)` trong `initUI()`, fallback ẩn modal trực tiếp nếu `window.closeCustomerModal` chưa sẵn. |
+| **Status** | DONE |
+
 ### [orders] Chốt Đơn panel: dời nút Ghim Tag T lên header ✅
 | | |
 |---|---|
