@@ -1412,7 +1412,7 @@
 
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:18px;">
                 ${_invStatCard('Tổng tiền', fmtMoney(invoice.AmountTotal), '#0ea5e9')}
-                ${_invStatCard('Đã thanh toán', fmtMoney(invoice.AmountPaid || (invoice.AmountTotal - (invoice.Residual || 0))), '#10b981')}
+                ${_invStatCard('Đã thanh toán', fmtMoney(invoice.PaymentAmount), '#10b981')}
                 ${_invStatCard('Còn nợ', fmtMoney(invoice.Residual), (invoice.Residual > 0 ? '#dc2626' : '#64748b'))}
                 ${_invStatCard('Phí ship', fmtMoney(invoice.DeliveryPrice), '#f59e0b')}
             </div>
