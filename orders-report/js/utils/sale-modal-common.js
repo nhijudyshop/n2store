@@ -1066,6 +1066,11 @@ async function fetchDebtForSaleModal(phone) {
                 currentSaleVirtualCredits = result.data.virtualCredits || [];
             }
 
+            // Store pre-computed wallet note lines (CK / TT / CÒN NỢ) từ backend
+            window.currentSaleWalletNoteLines = Array.isArray(result.data.walletNoteLines)
+                ? result.data.walletNoteLines
+                : [];
+
             if (prepaidAmountField) {
                 prepaidAmountField.value = totalBalance > 0 ? totalBalance : 0;
                 prepaidAmountField.dataset.originalBalance = totalBalance.toString();
@@ -1140,33 +1145,10 @@ function autoFillSaleNote() {
             }
         }
 
-        // 1b. Available deposits - chỉ lấy đủ cover phần real balance (trừ VC đã có note riêng)
-        if (currentSaleAvailableDeposits && currentSaleAvailableDeposits.length > 0) {
-            const vcTotal = vcList.reduce((sum, vc) => sum + (parseFloat(vc.remaining_amount) || 0), 0);
-            let remainingToCover = walletBalance - vcTotal;
-
-            // Iterate oldest→newest (backend đã sort ASC theo created_at)
-            // Skip ORDER_CANCEL_REFUND khỏi note (vẫn nằm trong balance, nhưng không hiện CK)
-            for (const dep of currentSaleAvailableDeposits) {
-                if (remainingToCover <= 0) break;
-                if (dep.source === 'ORDER_CANCEL_REFUND') continue;
-
-                const depAmount = parseFloat(dep.amount);
-                const usedAmount = Math.min(depAmount, remainingToCover);
-                const amountStr = usedAmount >= 1000 ? `${Math.round(usedAmount / 1000)}K` : usedAmount;
-
-                if (dep.source === 'RETURN_GOODS') {
-                    noteParts.push(`TRỪ ${amountStr} TIỀN HÀNG KHÁCH GỬI Ở TỈNH LÊN`);
-                } else if (dep.source === 'MANUAL_ADJUSTMENT') {
-                    const stripImg = (n) => n ? n.replace(/\n?\[Ảnh GD: [^\]]+\]/, '').trim() : n;
-                    noteParts.push(stripImg(dep.note) || 'Kiểm tra lại ghi chú công nợ');
-                } else {
-                    const depositDate = new Date(dep.date);
-                    const dateStr = `${String(depositDate.getDate()).padStart(2, '0')}/${String(depositDate.getMonth() + 1).padStart(2, '0')}`;
-                    noteParts.push(`CK ${amountStr} ACB ${dateStr}`);
-                }
-                remainingToCover -= depAmount;
-            }
+        // 1b. Wallet note lines (CK / TT / CÒN NỢ) — pre-computed bởi backend
+        const walletLines = Array.isArray(window.currentSaleWalletNoteLines) ? window.currentSaleWalletNoteLines : [];
+        if (walletLines.length > 0) {
+            for (const line of walletLines) noteParts.push(line);
         } else if (vcList.length === 0) {
             // Fallback: single entry with wallet balance (no source info available)
             const today = new Date();

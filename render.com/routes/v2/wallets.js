@@ -147,7 +147,7 @@ router.get('/:customerId', async (req, res) => {
         // Get all real wallet transactions (DEPOSIT + WITHDRAW) in chronological order
         // Skip VIRTUAL_* — they don't participate in FIFO consumption of real deposits
         const txResult = await db.query(`
-            SELECT type, amount, created_at, source, note
+            SELECT type, amount, created_at, source, note, reference_id
             FROM wallet_transactions
             WHERE phone = $1 AND type IN ('DEPOSIT', 'WITHDRAW')
             ORDER BY created_at ASC
@@ -192,6 +192,51 @@ router.get('/:customerId', async (req, res) => {
         // Backward compat: keep lastDeposit fields from the last available deposit
         const lastDeposit = availableDeposits.length > 0 ? availableDeposits[availableDeposits.length - 1] : null;
 
+        // ===== walletNoteLines: pre-computed lines cho auto-fill ghi chú phiếu bán hàng =====
+        // Walk chronological, output mỗi tx 1 dòng (CK / TT), bỏ qua cặp WITHDRAW + REFUND cùng amount + cùng reference_id
+        const txs = txResult.rows;
+        const skipIdx = new Set();
+        for (let i = 0; i < txs.length; i++) {
+            const tx = txs[i];
+            if (tx.type !== 'DEPOSIT' || tx.source !== 'ORDER_CANCEL_REFUND') continue;
+            const refundAmt = Math.abs(parseFloat(tx.amount));
+            const refundRef = tx.reference_id;
+            if (!refundRef) { skipIdx.add(i); continue; }
+            // Tìm WITHDRAW trước đó cùng reference_id + cùng amount
+            for (let j = i - 1; j >= 0; j--) {
+                if (skipIdx.has(j)) continue;
+                const prev = txs[j];
+                if (prev.type !== 'WITHDRAW') continue;
+                if (prev.reference_id !== refundRef) continue;
+                if (Math.abs(parseFloat(prev.amount)) !== refundAmt) continue;
+                skipIdx.add(i);
+                skipIdx.add(j);
+                break;
+            }
+            // Refund không match cũng skip (HOÀN không bao giờ in dòng riêng)
+            if (!skipIdx.has(i)) skipIdx.add(i);
+        }
+
+        const fmtK = (v) => `${Math.round(Math.abs(parseFloat(v)) / 1000)}K`;
+        const fmtDDMM = (d) => {
+            const dt = new Date(d);
+            return `${String(dt.getDate()).padStart(2, '0')}/${String(dt.getMonth() + 1).padStart(2, '0')}`;
+        };
+        const walletNoteLines = [];
+        for (let i = 0; i < txs.length; i++) {
+            if (skipIdx.has(i)) continue;
+            const tx = txs[i];
+            if (tx.type === 'DEPOSIT') {
+                walletNoteLines.push(`CK ${fmtK(tx.amount)} ACB ${fmtDDMM(tx.created_at)}`);
+            } else if (tx.type === 'WITHDRAW') {
+                walletNoteLines.push(`TT ${fmtK(tx.amount)} ACB ${fmtDDMM(tx.created_at)}`);
+            }
+        }
+        const balance = parseFloat(wallet.balance) || 0;
+        if (balance > 0) {
+            walletNoteLines.push(`CÒN NỢ: ${Math.round(balance / 1000)}K`);
+        }
+
         res.json({
             success: true,
             data: {
@@ -199,6 +244,7 @@ router.get('/:customerId', async (req, res) => {
                 total: parseFloat(wallet.balance) + parseFloat(wallet.virtual_balance),
                 virtualCredits: creditsResult.rows,
                 availableDeposits,
+                walletNoteLines,
                 lastDepositAmount: lastDeposit ? lastDeposit.amount : null,
                 lastDepositDate: lastDeposit ? lastDeposit.date : null
             }

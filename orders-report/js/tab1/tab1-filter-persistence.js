@@ -133,8 +133,9 @@
         // 1) Search query (with TTL)
         try {
             const s = snap.search || {};
-            const stillFresh = s.savedAt && (Date.now() - s.savedAt) < SEARCH_TTL_MS;
-            if (stillFresh && s.query) {
+            // Search query is now persisted indefinitely across refreshes
+            // (TTL removed per user request — only cleared explicitly via the X button)
+            if (s.query) {
                 const input = document.getElementById('tableSearchInput');
                 if (input) input.value = s.query;
                 if (typeof window.searchQuery !== 'undefined') {
