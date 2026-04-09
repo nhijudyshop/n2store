@@ -1159,7 +1159,8 @@
     // và cập nhật InvoiceStatusStore + re-render PBH cell.
     // Lưu cả raw response vào _rawById để modal "Đã ra đơn" hiển thị.
     // =====================================================
-    const _rawInvoiceById = new Map(); // saleOnlineId(String) -> raw invoice object
+    const _rawInvoicesById = new Map(); // saleOnlineId(String) -> Array<invoice> (all PBH cùng Reference)
+    const _orderCodeById = new Map();   // saleOnlineId(String) -> orderCode (cache để refetch khi click)
 
     async function fetchAndUpdateInvoiceForCode(orderCode, saleOnlineId) {
         if (!orderCode) return null;
@@ -1182,7 +1183,8 @@
             const inv = list[0];
 
             if (saleOnlineId) {
-                _rawInvoiceById.set(String(saleOnlineId), inv);
+                _rawInvoicesById.set(String(saleOnlineId), list);
+                _orderCodeById.set(String(saleOnlineId), String(orderCode));
                 // Ghi vào InvoiceStatusStore để renderInvoiceStatusCell đọc được
                 const orderShim = {
                     Id: saleOnlineId,
@@ -1229,39 +1231,61 @@
     }
 
     /**
-     * Modal hiển thị toàn bộ raw response invoice (click vào "Đã ra đơn")
+     * Modal hiển thị TẤT CẢ phiếu bán hàng có Reference khớp với order code
+     * (click vào "Đã ra đơn"). Luôn fetch fresh từ TPOS để có data mới nhất.
      */
-    function showInvoiceRawModal(saleOnlineId) {
-        const inv = _rawInvoiceById.get(String(saleOnlineId));
-        if (!inv) {
-            // Fallback: lấy từ InvoiceStatusStore (nếu đã có)
-            const stored = InvoiceStatusStore.get(saleOnlineId);
-            if (!stored) {
-                window.notificationManager?.warning?.('Chưa có dữ liệu phiếu bán hàng cho đơn này');
+    async function showInvoiceRawModal(saleOnlineId) {
+        const sid = String(saleOnlineId);
+        // Resolve orderCode: từ cache, hoặc từ allData/OrderStore
+        let orderCode = _orderCodeById.get(sid);
+        if (!orderCode) {
+            const order = (window.OrderStore?.get && window.OrderStore.get(saleOnlineId)) ||
+                (window.allData || []).find(o => String(o.Id) === sid);
+            orderCode = order?.Code;
+        }
+        if (!orderCode) {
+            window.notificationManager?.warning?.('Không tìm thấy mã đơn hàng');
+            return;
+        }
+
+        // Mở modal với loading state
+        _openInvoiceListModal({ loading: true, orderCode });
+
+        // Fetch fresh
+        try {
+            if (!window.tokenManager?.getAuthHeader) {
+                _openInvoiceListModal({ error: 'tokenManager chưa sẵn sàng', orderCode });
                 return;
             }
-            return _openRawModal(stored);
+            const tposOData = window.API_CONFIG?.TPOS_ODATA || 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata';
+            const filter = `(Type eq 'invoice' and contains(Reference,'${orderCode}'))`;
+            const url = `${tposOData}/FastSaleOrder/ODataService.GetView` +
+                `?$top=20&$orderby=DateInvoice desc&$filter=${encodeURIComponent(filter)}&$count=true`;
+            const headers = await window.tokenManager.getAuthHeader();
+            const resp = await fetch(url, { headers: { ...headers, accept: 'application/json' } });
+            if (!resp.ok) {
+                _openInvoiceListModal({ error: `HTTP ${resp.status}`, orderCode });
+                return;
+            }
+            const data = await resp.json();
+            const list = Array.isArray(data?.value) ? data.value : [];
+            // Cache lại cho lần sau
+            _rawInvoicesById.set(sid, list);
+            _orderCodeById.set(sid, orderCode);
+            _openInvoiceListModal({ invoices: list, orderCode });
+        } catch (e) {
+            _openInvoiceListModal({ error: e.message, orderCode });
         }
-        _openRawModal(inv);
     }
 
-    function _openRawModal(invoice) {
+    /**
+     * Render modal với danh sách invoice (tabs theo invoice).
+     * State: { loading } | { error, orderCode } | { invoices, orderCode }
+     */
+    function _openInvoiceListModal(state) {
         const esc = (s) => String(s == null ? '' : s)
             .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-        const fmtMoney = (n) => (Number(n) || 0).toLocaleString('vi-VN') + 'đ';
-        const fmtDate = (d) => {
-            if (!d) return '—';
-            try { return new Date(d).toLocaleString('vi-VN', { hour12: false }); }
-            catch (e) { return String(d); }
-        };
-        const ssCfg = getShowStateConfig(invoice.ShowState || '');
-        const scCfg = getStateCodeConfig(invoice.StateCode || 'None', invoice.IsMergeCancel);
-
-        // Parse OrderLines from Details (string JSON in some shapes) or array
-        let lines = [];
-        if (Array.isArray(invoice.Details)) lines = invoice.Details;
-        else if (Array.isArray(invoice.OrderLines)) lines = invoice.OrderLines;
 
         // Remove existing
         const existing = document.getElementById('invoiceRawModal');
@@ -1277,31 +1301,115 @@
 
         // ===== HEADER =====
         const header = document.createElement('div');
-        header.style.cssText = 'padding:18px 24px;border-bottom:1px solid #e5e7eb;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;background:linear-gradient(135deg,#f8fafc 0%,#f1f5f9 100%);';
+        header.style.cssText = 'padding:16px 24px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;gap:16px;background:linear-gradient(135deg,#f8fafc 0%,#f1f5f9 100%);';
+        const count = state.invoices ? state.invoices.length : '';
         header.innerHTML = `
             <div style="flex:1;min-width:0;">
-                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-                    <span style="font-size:18px;font-weight:700;color:#0f172a;">${esc(invoice.Number || '—')}</span>
-                    <span style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;background:${ssCfg.bgColor};color:${ssCfg.color};border:1px solid ${ssCfg.borderColor};${ssCfg.style || ''}">${esc(invoice.ShowState || '—')}</span>
-                    <span style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;background:#fff;color:${scCfg.color};border:1px solid ${scCfg.color}33;${scCfg.style || ''}">${esc(scCfg.label)}</span>
-                </div>
-                <div style="margin-top:6px;font-size:13px;color:#475569;">
-                    👤 <strong>${esc(invoice.PartnerDisplayName || '—')}</strong>
-                    <span style="margin:0 8px;color:#cbd5e1;">·</span>
-                    📞 ${esc(invoice.Phone || invoice.PartnerPhone || invoice.ReceiverPhone || '—')}
-                    <span style="margin:0 8px;color:#cbd5e1;">·</span>
-                    📅 ${fmtDate(invoice.DateInvoice)}
-                </div>
+                <div style="font-size:16px;font-weight:700;color:#0f172a;">Phiếu bán hàng — Đơn ${esc(state.orderCode || '—')}</div>
+                <div style="font-size:12px;color:#64748b;margin-top:2px;">${count !== '' ? `${count} phiếu liên quan` : 'Đang tải...'}</div>
             </div>
             <button type="button" id="invoiceRawCloseBtn" style="background:#ef4444;color:#fff;border:none;border-radius:6px;padding:8px 16px;cursor:pointer;font-weight:600;font-size:13px;flex-shrink:0;">✕ Đóng</button>
         `;
 
         // ===== BODY =====
         const body = document.createElement('div');
-        body.style.cssText = 'padding:20px 24px;overflow:auto;flex:1;background:#fafbfc;';
+        body.style.cssText = 'padding:0;overflow:auto;flex:1;background:#fafbfc;';
 
-        // Section 1: Tổng quan tài chính
-        body.innerHTML += `
+        if (state.loading) {
+            body.innerHTML = `<div style="padding:60px 20px;text-align:center;color:#64748b;font-size:14px;">⏳ Đang tải danh sách phiếu...</div>`;
+        } else if (state.error) {
+            body.innerHTML = `<div style="padding:60px 20px;text-align:center;color:#dc2626;font-size:14px;">❌ Lỗi: ${esc(state.error)}</div>`;
+        } else if (!state.invoices || state.invoices.length === 0) {
+            body.innerHTML = `<div style="padding:60px 20px;text-align:center;color:#64748b;font-size:14px;">📭 Chưa có phiếu bán hàng nào cho đơn này</div>`;
+        } else {
+            // Tabs (1 tab/invoice) + content area
+            const tabsBar = document.createElement('div');
+            tabsBar.style.cssText = 'display:flex;gap:0;border-bottom:1px solid #e5e7eb;background:#fff;overflow-x:auto;flex-shrink:0;position:sticky;top:0;z-index:1;';
+            const content = document.createElement('div');
+            content.style.cssText = 'padding:20px 24px;';
+
+            state.invoices.forEach((inv, idx) => {
+                const ssCfg = getShowStateConfig(inv.ShowState || '');
+                const tab = document.createElement('button');
+                tab.type = 'button';
+                tab.dataset.idx = String(idx);
+                const dateShort = inv.DateInvoice ? new Date(inv.DateInvoice).toLocaleDateString('vi-VN') : '—';
+                tab.style.cssText = `padding:10px 16px;border:none;background:transparent;border-bottom:2px solid transparent;cursor:pointer;font-size:12px;font-weight:600;color:#64748b;white-space:nowrap;display:flex;align-items:center;gap:6px;`;
+                tab.innerHTML = `
+                    <span>${esc(inv.Number || `#${idx + 1}`)}</span>
+                    <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${ssCfg.color};"></span>
+                    <span style="font-weight:400;color:#94a3b8;">${dateShort}</span>
+                `;
+                tab.onclick = () => {
+                    tabsBar.querySelectorAll('button').forEach(b => {
+                        b.style.borderBottomColor = 'transparent';
+                        b.style.color = '#64748b';
+                        b.style.background = 'transparent';
+                    });
+                    tab.style.borderBottomColor = '#0ea5e9';
+                    tab.style.color = '#0f172a';
+                    tab.style.background = '#f0f9ff';
+                    content.innerHTML = '';
+                    content.appendChild(_renderInvoiceDetailBlock(inv));
+                };
+                tabsBar.appendChild(tab);
+            });
+
+            body.appendChild(tabsBar);
+            body.appendChild(content);
+            // Mở tab đầu tiên
+            tabsBar.querySelector('button')?.click();
+        }
+
+        box.appendChild(header);
+        box.appendChild(body);
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+
+        document.getElementById('invoiceRawCloseBtn').onclick = () => overlay.remove();
+
+        // ESC to close
+        const onKey = (e) => { if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', onKey); } };
+        document.addEventListener('keydown', onKey);
+    }
+
+    /**
+     * Render block chi tiết 1 invoice (tái sử dụng layout cũ).
+     */
+    function _renderInvoiceDetailBlock(invoice) {
+        const esc = (s) => String(s == null ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        const fmtMoney = (n) => (Number(n) || 0).toLocaleString('vi-VN') + 'đ';
+        const fmtDate = (d) => {
+            if (!d) return '—';
+            try { return new Date(d).toLocaleString('vi-VN', { hour12: false }); }
+            catch (e) { return String(d); }
+        };
+        const ssCfg = getShowStateConfig(invoice.ShowState || '');
+        const scCfg = getStateCodeConfig(invoice.StateCode || 'None', invoice.IsMergeCancel);
+
+        let lines = [];
+        if (Array.isArray(invoice.Details)) lines = invoice.Details;
+        else if (Array.isArray(invoice.OrderLines)) lines = invoice.OrderLines;
+
+        const wrap = document.createElement('div');
+
+        // Header info
+        let html = `
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+                <span style="font-size:18px;font-weight:700;color:#0f172a;">${esc(invoice.Number || '—')}</span>
+                <span style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:700;background:${ssCfg.bgColor};color:${ssCfg.color};border:1px solid ${ssCfg.borderColor};${ssCfg.style || ''}">${esc(invoice.ShowState || '—')}</span>
+                <span style="display:inline-block;padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600;background:#fff;color:${scCfg.color};border:1px solid ${scCfg.color}33;${scCfg.style || ''}">${esc(scCfg.label)}</span>
+            </div>
+            <div style="font-size:13px;color:#475569;margin-bottom:18px;">
+                👤 <strong>${esc(invoice.PartnerDisplayName || '—')}</strong>
+                <span style="margin:0 8px;color:#cbd5e1;">·</span>
+                📞 ${esc(invoice.Phone || invoice.PartnerPhone || invoice.ReceiverPhone || '—')}
+                <span style="margin:0 8px;color:#cbd5e1;">·</span>
+                📅 ${fmtDate(invoice.DateInvoice)}
+            </div>
+
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:18px;">
                 ${_invStatCard('Tổng tiền', fmtMoney(invoice.AmountTotal), '#0ea5e9')}
                 ${_invStatCard('Đã thanh toán', fmtMoney(invoice.AmountPaid || (invoice.AmountTotal - (invoice.Residual || 0))), '#10b981')}
@@ -1310,11 +1418,10 @@
             </div>
         `;
 
-        // Section 2: Người nhận
         const receiverName = invoice.ReceiverName || invoice.Ship_Receiver_Name || invoice.PartnerDisplayName || '';
         const receiverPhone = invoice.ReceiverPhone || invoice.Ship_Receiver_Phone || '';
         const receiverAddr = invoice.ReceiverAddress || invoice.Ship_Receiver_Street || invoice.Address || invoice.FullAddress || '';
-        body.innerHTML += `
+        html += `
             <div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:14px 16px;margin-bottom:14px;">
                 <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">📦 Người nhận hàng</div>
                 <div style="font-size:14px;color:#0f172a;line-height:1.6;">
@@ -1325,7 +1432,6 @@
             </div>
         `;
 
-        // Section 3: Sản phẩm
         if (lines.length > 0) {
             const linesHtml = lines.map((l, i) => {
                 const name = l.ProductName || l.ProductNameGet || l.Name || '—';
@@ -1345,7 +1451,7 @@
                         <td style="padding:10px 8px;text-align:right;font-size:13px;color:#0f172a;font-weight:600;width:120px;">${fmtMoney(total)}</td>
                     </tr>`;
             }).join('');
-            body.innerHTML += `
+            html += `
                 <div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;margin-bottom:14px;">
                     <div style="padding:12px 16px;background:#f8fafc;border-bottom:1px solid #e5e7eb;font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">🛒 Sản phẩm (${lines.length})</div>
                     <table style="width:100%;border-collapse:collapse;">
@@ -1364,9 +1470,8 @@
             `;
         }
 
-        // Section 4: Ghi chú
         if (invoice.Comment || invoice.DeliveryNote) {
-            body.innerHTML += `
+            html += `
                 <div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:14px 16px;margin-bottom:14px;">
                     <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">📝 Ghi chú</div>
                     ${invoice.Comment ? `<div style="font-size:13px;color:#0f172a;margin-bottom:6px;"><strong>Comment:</strong> ${esc(invoice.Comment)}</div>` : ''}
@@ -1375,8 +1480,7 @@
             `;
         }
 
-        // Section 5: Meta
-        body.innerHTML += `
+        html += `
             <div style="background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:14px 16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;font-size:12px;color:#475569;">
                 <div><strong style="color:#0f172a;">ID:</strong> ${esc(invoice.Id || '—')}</div>
                 <div><strong style="color:#0f172a;">User:</strong> ${esc(invoice.UserName || '—')}</div>
@@ -1392,16 +1496,8 @@
             </details>
         `;
 
-        box.appendChild(header);
-        box.appendChild(body);
-        overlay.appendChild(box);
-        document.body.appendChild(overlay);
-
-        document.getElementById('invoiceRawCloseBtn').onclick = () => overlay.remove();
-
-        // ESC to close
-        const onKey = (e) => { if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', onKey); } };
-        document.addEventListener('keydown', onKey);
+        wrap.innerHTML = html;
+        return wrap;
     }
 
     function _invStatCard(label, value, color) {
