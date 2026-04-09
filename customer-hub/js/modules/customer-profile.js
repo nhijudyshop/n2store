@@ -619,8 +619,8 @@ export class CustomerProfileModule {
                                 const m = rn.match(/#?(NJD\/\d{4}\/\d+)/i)
                                     || (tx.reference_id || '').match(/(NJD\/\d{4}\/\d+)/i);
                                 const orderCode = m ? m[1] : '';
-                                const minuteKey = tx.created_at ? String(tx.created_at).slice(0, 16) : '';
-                                const key = `${orderCode}|${minuteKey}`;
+                                // Gộp tất cả WITHDRAW cùng mã đơn (bất kể thời điểm) — 1 đơn = 1 dòng thanh toán
+                                const key = `${orderCode}`;
                                 if (!orderCode || !groupMap.has(key)) {
                                     groupMap.set(key, out.length);
                                     out.push({ ...tx, amount: parseFloat(tx.amount) || 0 });
