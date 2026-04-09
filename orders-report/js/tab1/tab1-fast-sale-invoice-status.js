@@ -1601,7 +1601,7 @@
         html += `<div style="display:flex; align-items:center; gap:4px; margin-top:2px; flex-wrap:wrap;">`;
         html += `<span class="invoice-order-status-badge invoice-order-status-${orderStatus.cls}" title="Trạng thái đơn theo StateCode">${orderStatus.text}</span>`;
         // "Đã ra đơn" badge → click mở modal hiển thị toàn bộ response invoice
-        html += `<span class="invoice-ra-don-badge" onclick="window.showInvoiceRawModal('${order.Id}'); event.stopPropagation();" title="Xem chi tiết phiếu bán hàng">Đã ra đơn</span>`;
+        html += `<span class="invoice-ra-don-badge" onclick="window.showInvoiceRawModal('${order.Id}'); event.stopPropagation();" title="Xem lịch sử phiếu bán hàng">Lịch sử</span>`;
         html += `</div>`;
 
         html += `</div>`;
