@@ -151,12 +151,35 @@ async function initInboxApp() {
 
     // Initialize data manager with Pancake API
     const dataManager = new InboxDataManager();
-    await dataManager.init();
 
-    // Initialize chat controller
+    // Stale-while-revalidate: nếu có cache localStorage, render UI ngay (<100ms)
+    // rồi chạy refresh từ Pancake API ở background.
+    const hasCache = dataManager.initFromCache();
+
+    // Initialize chat controller (render cache nếu có, hoặc loading state nếu chưa)
     const chatController = new InboxChatController(dataManager);
-    chatController.init();
-    window.inboxChat = chatController;
+    if (hasCache) {
+        console.log('[Inbox] ⚡ Hiển thị UI từ cache, refresh nền đang chạy...');
+        chatController.init();
+        window.inboxChat = chatController;
+
+        // Refresh từ Pancake ở background — không block UI
+        dataManager.init().then(() => {
+            console.log('[Inbox] ✅ Background refresh xong, re-render');
+            chatController.renderPageSelector();
+            chatController.renderConversationList();
+            chatController.renderGroupStats();
+            chatController.updatePageUnreadCounts();
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }).catch(err => {
+            console.error('[Inbox] Background refresh failed:', err);
+        });
+    } else {
+        // Không có cache → chờ network như cũ
+        await dataManager.init();
+        chatController.init();
+        window.inboxChat = chatController;
+    }
 
     // Initialize order controller
     const orderController = new InboxOrderController(dataManager);

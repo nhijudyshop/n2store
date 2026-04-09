@@ -8,6 +8,13 @@
 
 ## 2026-04-09
 
+### [inbox][worker] Tăng tốc load Inbox: parallel fetch + stale-while-revalidate cache + edge cache ✅
+| | |
+|---|---|
+| **Files** | `inbox/js/inbox-pancake-api.js`, `inbox/js/inbox-data.js`, `inbox/js/inbox-main.js`, `cloudflare-worker/modules/handlers/pancake-handler.js` |
+| **Chi tiết** | **Lớp 1:** `fetchConversations` + `fetchConversationsPerPage` đổi từ vòng `for...of` tuần tự sang `Promise.all` song song — N pages cùng fetch một lúc, giảm từ N×latency về ~1×. **Lớp 2:** Stale-while-revalidate cache localStorage (`inbox_conversations_cache_v1`, TTL 30 phút). Tách `InboxDataManager.initFromCache()` (sync) khỏi `init()` (network). `inbox-main.js` render UI từ cache ngay (<100ms), background refresh ngầm rồi re-render. **Lớp 3:** Cloudflare Worker `handlePancakeOfficialV2` thêm edge cache (Cache API, không cần KV) cho `pages/{id}/conversations` — TTL 60s, key gồm `page_access_token` để tự invalidate khi token đổi, không cache response chứa `error_code`, gắn header `X-Cache: HIT/MISS`. |
+| **Status** | ✅ Done |
+
 ### [delivery] Approve = ẩn đơn vĩnh viễn + tạo yêu cầu chỉ chọn đơn đã quét ✅
 | | |
 |---|---|

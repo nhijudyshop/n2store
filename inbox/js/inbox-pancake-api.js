@@ -606,12 +606,13 @@ class InboxPancakeAPI {
             const allConvs = [];
             const errors = [];
 
-            for (const pageId of ids) {
+            // PARALLEL fetch: all pages run simultaneously instead of sequentially.
+            // Each page handles its own token regen + retry independently.
+            const fetchOnePage = async (pageId) => {
                 let pat = this.tm.getPageAccessToken(pageId);
                 if (!pat) pat = await this.tm.generatePageAccessToken(pageId);
-                if (!pat) { console.warn(`[INBOX-API] Page ${pageId}: NO PAT`); errors.push({ pageId, code: 'NO_TOKEN' }); continue; }
+                if (!pat) { console.warn(`[INBOX-API] Page ${pageId}: NO PAT`); return { pageId, error: { code: 'NO_TOKEN' } }; }
 
-                let retried = false;
                 const fetchPage = async (token) => {
                     const url = InboxApiConfig.buildUrl.pancakeOfficialV2(
                         `pages/${pageId}/conversations`, token
@@ -628,10 +629,8 @@ class InboxPancakeAPI {
                     try {
                         data = await fetchPage(pat);
                     } catch (err) {
-                        // Token errors (105=renewed, 100=invalid) → regenerate and retry once
-                        if (!retried && (err.code === 105 || err.code === 100)) {
+                        if (err.code === 105 || err.code === 100) {
                             console.warn(`[INBOX-API] Page ${pageId}: token error ${err.code}, regenerating...`);
-                            retried = true;
                             pat = await this.tm.generatePageAccessToken(pageId);
                             if (!pat) throw { code: 'REGEN_FAILED' };
                             data = await fetchPage(pat);
@@ -639,19 +638,29 @@ class InboxPancakeAPI {
                             throw err;
                         }
                     }
-                    if (data.conversations) {
-                        console.log(`[INBOX-API] Page ${pageId}: ${data.conversations.length} conversations`);
-                        allConvs.push(...data.conversations);
-                        const convs = data.conversations;
-                        if (convs.length > 0) {
-                            this._lastConvId[pageId] = convs[convs.length - 1].id;
-                        }
-                        try { window.GlobalIdHarvester?.fromConversations(pageId, convs); } catch (_) {}
-                    }
+                    return { pageId, data };
                 } catch (e) {
                     const msg = e.message || e.code || String(e);
                     console.warn(`[INBOX-API] Page ${pageId}: ${msg}`);
-                    errors.push({ pageId, code: e.code, message: e.message });
+                    return { pageId, error: { code: e.code, message: e.message } };
+                }
+            };
+
+            const results = await Promise.all(ids.map(fetchOnePage));
+            for (const r of results) {
+                if (r.error) {
+                    errors.push({ pageId: r.pageId, ...r.error });
+                    continue;
+                }
+                const data = r.data;
+                if (data && data.conversations) {
+                    console.log(`[INBOX-API] Page ${r.pageId}: ${data.conversations.length} conversations`);
+                    allConvs.push(...data.conversations);
+                    const convs = data.conversations;
+                    if (convs.length > 0) {
+                        this._lastConvId[r.pageId] = convs[convs.length - 1].id;
+                    }
+                    try { window.GlobalIdHarvester?.fromConversations(r.pageId, convs); } catch (_) {}
                 }
             }
 

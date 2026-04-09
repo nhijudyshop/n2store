@@ -82,9 +82,28 @@ class InboxDataManager {
      * Token manager: orders-report (no Firestore timeout, loads accounts from Firebase)
      * Data manager: tpos-pancake (has built-in IG page filtering)
      */
-    async init() {
+    /**
+     * Sync init: load groups, local state, and conversations cache from localStorage.
+     * Trả về true nếu đã có cache (UI có thể render ngay).
+     * Phải gọi initNetwork() sau để refresh data từ Pancake.
+     */
+    initFromCache() {
         this.loadGroups();
         this.loadLocalState();
+        const usedCache = this._loadConversationsCache();
+        if (usedCache) {
+            this.recalculateGroupCounts();
+            this.buildMaps();
+            this.isInitialized = true;
+        }
+        return usedCache;
+    }
+
+    async init() {
+        // Nếu chưa load cache (back-compat khi gọi trực tiếp init())
+        if (!this.isInitialized) {
+            this.initFromCache();
+        }
 
         try {
             // Initialize Pancake token manager (orders-report version - no timeout)
@@ -95,8 +114,9 @@ class InboxDataManager {
             await window.inboxPancakeAPI.initialize();
             console.log('[InboxData] Pancake API initialized, pages:', window.inboxPancakeAPI.pageIds?.length);
 
-            // Load conversations
+            // Load conversations (refresh from network)
             await this.loadConversations(true);
+            this._saveConversationsCache();
 
             // Sync groups + labels from server (cross-device)
             await this.loadGroupsFromServer();
@@ -112,6 +132,44 @@ class InboxDataManager {
         } catch (error) {
             console.error('[InboxData] Pancake initialization error:', error);
             showToast('Lỗi kết nối Pancake: ' + error.message, 'error');
+        }
+    }
+
+    /**
+     * Load conversations cache from localStorage (stale-while-revalidate).
+     * Returns true if a usable cache was loaded.
+     * TTL: 30 phút (cache cũ vẫn hiển thị được, network sẽ refresh ngầm).
+     */
+    _loadConversationsCache() {
+        try {
+            const raw = localStorage.getItem('inbox_conversations_cache_v1');
+            if (!raw) return false;
+            const parsed = JSON.parse(raw);
+            if (!parsed || !Array.isArray(parsed.conversations)) return false;
+            const age = Date.now() - (parsed.ts || 0);
+            if (age > 30 * 60 * 1000) {
+                console.log('[InboxData] Cache expired, ignoring');
+                return false;
+            }
+            this.conversations = parsed.conversations;
+            console.log(`[InboxData] ⚡ Loaded ${this.conversations.length} conversations from cache (age=${Math.round(age/1000)}s)`);
+            return this.conversations.length > 0;
+        } catch (e) {
+            console.warn('[InboxData] Failed to load conversations cache:', e);
+            return false;
+        }
+    }
+
+    _saveConversationsCache() {
+        try {
+            // Cap at 500 conversations to keep localStorage healthy
+            const convs = this.conversations.slice(0, 500);
+            localStorage.setItem('inbox_conversations_cache_v1', JSON.stringify({
+                ts: Date.now(),
+                conversations: convs
+            }));
+        } catch (e) {
+            console.warn('[InboxData] Failed to save conversations cache:', e);
         }
     }
 
@@ -223,47 +281,43 @@ class InboxDataManager {
             return [];
         }
 
-        console.log(`[InboxData] 🔄 Fetching conversations per-page for ${pageIds.length} pages...`);
+        console.log(`[InboxData] 🔄 Fetching conversations per-page for ${pageIds.length} pages (parallel)...`);
         let allConversations = [];
         const workingPageIds = [];
 
-        for (const pageId of pageIds) {
+        const fetchOne = async (pageId) => {
             try {
-                // Use pancakeDirect route: sends JWT as cookie + page-specific Referer
-                // (generic /api/pancake/ route has no JWT cookie → error 102)
                 const baseUrl = InboxApiConfig.buildUrl.pancakeDirect(`pages/${pageId}/conversations`, pageId, token, token);
                 const extraParams = `&unread_first=true&mode=OR&tags="ALL"&except_tags=[]&cursor_mode=true&from_platform=web`;
                 const url = baseUrl + extraParams;
 
-                console.log(`[InboxData] Fetching page ${pageId} via pancake-direct...`);
-                const response = await fetch(url, {
-                    method: 'GET',
-                    headers: { 'Accept': 'application/json' }
-                });
-
+                const response = await fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } });
                 if (!response.ok) {
                     console.warn(`[InboxData] Page ${pageId}: HTTP ${response.status}`);
-                    continue;
+                    return null;
                 }
-
                 const data = await response.json();
-
                 if (data.success === false) {
                     console.warn(`[InboxData] Page ${pageId}: error ${data.error_code} - ${data.message}`);
-                    continue;
+                    return null;
                 }
-
-                workingPageIds.push(pageId);
                 const convs = data.conversations || [];
-                // Ensure page_id is set on every conversation (per-page API may omit it)
                 for (const c of convs) {
                     if (!c.page_id) c.page_id = pageId;
                 }
                 console.log(`[InboxData] ✅ Page ${pageId}: ${convs.length} conversations`);
-                allConversations = allConversations.concat(convs);
+                return { pageId, convs };
             } catch (e) {
                 console.warn(`[InboxData] Page ${pageId} failed:`, e.message);
+                return null;
             }
+        };
+
+        const results = await Promise.all(pageIds.map(fetchOne));
+        for (const r of results) {
+            if (!r) continue;
+            workingPageIds.push(r.pageId);
+            allConversations = allConversations.concat(r.convs);
         }
 
         // Cache working pages so search can skip expired ones immediately

@@ -142,6 +142,23 @@ export async function handlePancakeOfficialV2(request, url, pathname) {
 
     console.log('[PANCAKE-OFFICIAL-V2] Target URL:', targetUrl);
 
+    // Edge cache (Cache API) for conversations listing — TTL 60s.
+    // Key includes page_access_token in URL → tự động invalidate khi token đổi.
+    // Chỉ cache GET request cho endpoint pages/{id}/conversations.
+    const isConvList = request.method === 'GET' && /^pages\/[^/]+\/conversations$/.test(apiPath);
+    const cache = caches.default;
+    const cacheKey = new Request(`https://cache.pancake-proxy${url.pathname}${url.search}`, { method: 'GET' });
+    if (isConvList) {
+        const cached = await cache.match(cacheKey);
+        if (cached) {
+            console.log('[PANCAKE-OFFICIAL-V2] Cache HIT:', apiPath);
+            const headers = new Headers(cached.headers);
+            headers.set('X-Cache', 'HIT');
+            for (const [k, v] of Object.entries(CORS_HEADERS)) headers.set(k, v);
+            return new Response(cached.body, { status: cached.status, headers });
+        }
+    }
+
     // Build headers for pages.fm (same as v1)
     const headers = new Headers();
     headers.set('Accept', 'application/json, text/plain, */*');
@@ -171,6 +188,34 @@ export async function handlePancakeOfficialV2(request, url, pathname) {
         }, 3, 1000, 15000);
 
         console.log('[PANCAKE-OFFICIAL-V2] Response status:', response.status);
+
+        // Cache successful conversation list responses (60s edge TTL)
+        if (isConvList && response.ok) {
+            try {
+                const cloned = response.clone();
+                const buf = await cloned.arrayBuffer();
+                // Peek body để tránh cache response chứa error_code
+                let shouldCache = true;
+                try {
+                    const text = new TextDecoder().decode(buf);
+                    const json = JSON.parse(text);
+                    if (json && json.error_code) shouldCache = false;
+                } catch (_) {}
+                if (shouldCache) {
+                    const cacheHeaders = new Headers(response.headers);
+                    cacheHeaders.set('Cache-Control', 'public, max-age=60');
+                    cacheHeaders.set('X-Cache', 'MISS');
+                    const toCache = new Response(buf, { status: response.status, headers: cacheHeaders });
+                    // Async write to cache (non-blocking)
+                    cache.put(cacheKey, toCache.clone()).catch(e => console.warn('[PANCAKE-OFFICIAL-V2] cache.put failed:', e.message));
+                    const respHeaders = new Headers(cacheHeaders);
+                    for (const [k, v] of Object.entries(CORS_HEADERS)) respHeaders.set(k, v);
+                    return new Response(buf, { status: response.status, headers: respHeaders });
+                }
+            } catch (e) {
+                console.warn('[PANCAKE-OFFICIAL-V2] Cache wrap failed:', e.message);
+            }
+        }
 
         return proxyResponseWithCors(response);
 
