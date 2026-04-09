@@ -30,9 +30,7 @@ const DEFAULT_COLUMN_VISIBILITY = {
     'total': true,
     'quantity': true,
     'created-date': false,
-    'invoice-status': true,   // Phiếu bán hàng (StateCode + Messenger button)
-    'status': true,
-    'fulfillment': true       // Ra đơn (lịch sử tạo/hủy phiếu bán hàng)
+    'invoice-status': true   // Phiếu bán hàng (StateCode + Messenger + RA ĐƠN + trạng thái đơn)
 };
 
 // =====================================================

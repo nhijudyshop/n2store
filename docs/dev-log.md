@@ -8,6 +8,15 @@
 
 ## 2026-04-09
 
+### [orders] Gộp 3 cột → 1 cột "Phiếu bán hàng" + WS-driven invoice fetch ✅
+| | |
+|---|---|
+| **Files** | `tab1-fast-sale-invoice-status.js`, `tab1-tpos-realtime.js`, `tab1-table.js`, `tab1-orders.html`, `tab1-orders.css`, `column-visibility-manager.js` |
+| **Why** | Bỏ cột "Phiếu bán hàng TPOS"+"Trạng thái"+"Ra đơn", dồn vào cột "Phiếu bán hàng". WS `tpos:order-update` → fetch FastSaleOrder bằng `contains(Reference, code)` → cập nhật ShowState/StateCode + nút "Đã ra đơn" + badge "Trạng thái đơn hàng". |
+| **Changes** | (1) Xoá `<th>` + `<td>` status & fulfillment columns. (2) `fetchAndUpdateInvoiceForCode(code, soId)` + `_rawInvoiceById` Map: gọi worker proxy GetView với filter `Type eq 'invoice' and contains(Reference,'CODE')` → ghi InvoiceStatusStore + lưu raw → re-render cell. (3) `renderInvoiceStatusCell` thêm 2 row: badge "Trạng thái đơn" derive từ StateCode + nút "Đã ra đơn" mở modal raw. (4) `handleOrderUpdate`/`handleNewOrder` gọi fetch sau update row. (5) CSS `.invoice-order-status-badge` + `.invoice-ra-don-badge`. |
+| **Mapping StateCode** | draft/NotEnoughInventory→Nháp · cancel/IsMergeCancel→Hủy · CrossCheck*/None→Đơn hàng |
+| **Status** | ✅ |
+
 ### [render][orders] Slim WS bridge — bỏ broadcast thừa + FastSaleOrder enrichment + cột PBH TPOS ✅
 | | |
 |---|---|

@@ -1154,6 +1154,123 @@
      * @param {Object} order - SaleOnlineOrder object
      * @returns {string} HTML string
      */
+    // =====================================================
+    // WS-DRIVEN: Fetch FastSaleOrder by Reference (=SaleOnline_Order Code)
+    // và cập nhật InvoiceStatusStore + re-render PBH cell.
+    // Lưu cả raw response vào _rawById để modal "Đã ra đơn" hiển thị.
+    // =====================================================
+    const _rawInvoiceById = new Map(); // saleOnlineId(String) -> raw invoice object
+
+    async function fetchAndUpdateInvoiceForCode(orderCode, saleOnlineId) {
+        if (!orderCode) return null;
+        if (!window.tokenManager?.getAuthHeader) return null;
+        try {
+            const tposOData = window.API_CONFIG?.TPOS_ODATA || 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata';
+            const filter = `(Type eq 'invoice' and contains(Reference,'${orderCode}'))`;
+            const url = `${tposOData}/FastSaleOrder/ODataService.GetView` +
+                `?$top=20&$orderby=DateInvoice desc&$filter=${encodeURIComponent(filter)}&$count=true`;
+            const headers = await window.tokenManager.getAuthHeader();
+            const resp = await fetch(url, { headers: { ...headers, accept: 'application/json' } });
+            if (!resp.ok) {
+                console.warn('[INVOICE-WS] fetch HTTP', resp.status, 'for code', orderCode);
+                return null;
+            }
+            const data = await resp.json();
+            const list = Array.isArray(data?.value) ? data.value : [];
+            if (list.length === 0) return null;
+            // Latest invoice = first (đã orderby DateInvoice desc)
+            const inv = list[0];
+
+            if (saleOnlineId) {
+                _rawInvoiceById.set(String(saleOnlineId), inv);
+                // Ghi vào InvoiceStatusStore để renderInvoiceStatusCell đọc được
+                const orderShim = {
+                    Id: saleOnlineId,
+                    Code: orderCode,
+                    Name: inv.PartnerDisplayName || '',
+                    Telephone: inv.Phone || '',
+                    Address: inv.Address || ''
+                };
+                InvoiceStatusStore.set(saleOnlineId, inv, orderShim);
+                // Re-render PBH cell cho row này
+                refreshInvoiceStatusCellForOrder(saleOnlineId);
+            }
+            console.log('[INVOICE-WS] Updated invoice for', orderCode, '→', inv.ShowState, inv.StateCode);
+            return inv;
+        } catch (e) {
+            console.warn('[INVOICE-WS] fetchAndUpdateInvoiceForCode error:', e.message);
+            return null;
+        }
+    }
+
+    function refreshInvoiceStatusCellForOrder(saleOnlineId) {
+        const row = document.querySelector(`tr[data-order-id="${saleOnlineId}"]`);
+        if (!row) return;
+        const cell = row.querySelector('td[data-column="invoice-status"]');
+        if (!cell) return;
+        const order = (window.OrderStore?.get && window.OrderStore.get(saleOnlineId)) ||
+            (window.allData || []).find(o => String(o.Id) === String(saleOnlineId)) ||
+            { Id: saleOnlineId };
+        cell.innerHTML = renderInvoiceStatusCell(order);
+    }
+
+    /**
+     * Modal hiển thị toàn bộ raw response invoice (click vào "Đã ra đơn")
+     */
+    function showInvoiceRawModal(saleOnlineId) {
+        const inv = _rawInvoiceById.get(String(saleOnlineId));
+        if (!inv) {
+            // Fallback: lấy từ InvoiceStatusStore (nếu đã có)
+            const stored = InvoiceStatusStore.get(saleOnlineId);
+            if (!stored) {
+                window.notificationManager?.warning?.('Chưa có dữ liệu phiếu bán hàng cho đơn này');
+                return;
+            }
+            return _openRawModal(stored);
+        }
+        _openRawModal(inv);
+    }
+
+    function _openRawModal(invoice) {
+        const escapeHtml = (s) => String(s == null ? '' : s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        // Remove existing
+        const existing = document.getElementById('invoiceRawModal');
+        if (existing) existing.remove();
+
+        const overlay = document.createElement('div');
+        overlay.id = 'invoiceRawModal';
+        overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;';
+        overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+
+        const box = document.createElement('div');
+        box.style.cssText = 'background:#fff;border-radius:8px;max-width:900px;width:100%;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,0.3);';
+
+        const header = document.createElement('div');
+        header.style.cssText = 'padding:14px 20px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;background:#f9fafb;';
+        header.innerHTML = `
+            <div>
+                <div style="font-weight:600;font-size:15px;color:#111827;">Chi tiết phiếu bán hàng</div>
+                <div style="font-size:12px;color:#6b7280;margin-top:2px;">${escapeHtml(invoice.Number || '—')} · ${escapeHtml(invoice.PartnerDisplayName || '—')} · ${escapeHtml(invoice.ShowState || '—')}</div>
+            </div>
+            <button type="button" style="background:#ef4444;color:#fff;border:none;border-radius:4px;padding:6px 12px;cursor:pointer;font-weight:500;">Đóng</button>
+        `;
+        header.querySelector('button').onclick = () => overlay.remove();
+
+        const body = document.createElement('div');
+        body.style.cssText = 'padding:16px 20px;overflow:auto;flex:1;';
+        const pre = document.createElement('pre');
+        pre.style.cssText = 'margin:0;font-family:Menlo,Consolas,monospace;font-size:11px;line-height:1.5;color:#1f2937;white-space:pre-wrap;word-break:break-word;';
+        pre.textContent = JSON.stringify(invoice, null, 2);
+        body.appendChild(pre);
+
+        box.appendChild(header);
+        box.appendChild(body);
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+    }
+
     function renderInvoiceStatusCell(order) {
         if (!order || !order.Id) {
             return '<span style="color: #9ca3af;">−</span>';
@@ -1241,8 +1358,42 @@
         // Row 2: StateCode text (cross-check status like Chưa đối soát, Hoàn thành đối soát)
         html += `<div style="font-size: 11px; color: ${stateCodeConfig.color}; ${stateCodeStyle}">${stateCodeConfig.label}</div>`;
 
+        // Row 3: Trạng thái đơn (derive từ StateCode) + nút "Đã ra đơn"
+        const orderStatus = deriveOrderStatusFromStateCode(stateCode, isMergeCancel);
+        html += `<div style="display:flex; align-items:center; gap:4px; margin-top:2px; flex-wrap:wrap;">`;
+        html += `<span class="invoice-order-status-badge invoice-order-status-${orderStatus.cls}" title="Trạng thái đơn theo StateCode">${orderStatus.text}</span>`;
+        // "Đã ra đơn" badge → click mở modal hiển thị toàn bộ response invoice
+        html += `<span class="invoice-ra-don-badge" onclick="window.showInvoiceRawModal('${order.Id}'); event.stopPropagation();" title="Xem chi tiết phiếu bán hàng">Đã ra đơn</span>`;
+        html += `</div>`;
+
         html += `</div>`;
         return html;
+    }
+
+    /**
+     * Derive trạng thái đơn (Đơn hàng / Hủy / Nháp) từ StateCode.
+     * Mapping theo plan:
+     *   Nháp:    draft, NotEnoughInventory
+     *   Hủy:     cancel, IsMergeCancel
+     *   Đơn hàng: CrossCheckingError, CrossCheckComplete, CrossCheckSuccess, CrossChecking, None
+     */
+    function deriveOrderStatusFromStateCode(stateCode, isMergeCancel) {
+        if (isMergeCancel) return { text: 'Hủy', cls: 'cancel' };
+        switch (stateCode) {
+            case 'draft':
+            case 'NotEnoughInventory':
+                return { text: 'Nháp', cls: 'draft' };
+            case 'cancel':
+            case 'IsMergeCancel':
+                return { text: 'Hủy', cls: 'cancel' };
+            case 'CrossCheckingError':
+            case 'CrossCheckComplete':
+            case 'CrossCheckSuccess':
+            case 'CrossChecking':
+            case 'None':
+            default:
+                return { text: 'Đơn hàng', cls: 'order' };
+        }
     }
 
     // =====================================================
@@ -2582,6 +2733,9 @@
         window.extractSaleOnlineId = extractSaleOnlineId; // For FulfillmentData backward compat
         window.getStateCodeConfig = getStateCodeConfig;
         window.getShowStateConfig = getShowStateConfig;
+        // WS-driven invoice fetch + raw modal
+        window.fetchAndUpdateInvoiceForCode = fetchAndUpdateInvoiceForCode;
+        window.showInvoiceRawModal = showInvoiceRawModal;
         // Preview modal functions
         window.showBillPreviewModal = showBillPreviewModal;
         window.closeBillPreviewSendModal = closeBillPreviewSendModal;

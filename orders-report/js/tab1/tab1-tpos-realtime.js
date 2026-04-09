@@ -104,6 +104,11 @@
         // Add to table
         addOrderToTable(order);
 
+        // Fetch fresh PBH cho đơn mới
+        if (typeof window.fetchAndUpdateInvoiceForCode === 'function') {
+            window.fetchAndUpdateInvoiceForCode(code, order.Id);
+        }
+
         // Show notification
         const customerName = eventData?.Data?.Facebook_UserName || order.Name || '';
         const nv = extractEmployeeName(eventData?.Message);
@@ -147,6 +152,11 @@
         if (typeof updateOrderInTable === 'function') {
             updateOrderInTable(existingOrder.Id, updatedOrder);
             console.log('[TPOS-RT] Updated order in table:', code);
+        }
+
+        // Fetch fresh PBH (FastSaleOrder) cho đơn này → cập nhật cột Phiếu bán hàng
+        if (typeof window.fetchAndUpdateInvoiceForCode === 'function') {
+            window.fetchAndUpdateInvoiceForCode(code, updatedOrder.Id || existingOrder.Id);
         }
 
         // Re-render Chốt Đơn panel counts (order fields may affect category/flags).
