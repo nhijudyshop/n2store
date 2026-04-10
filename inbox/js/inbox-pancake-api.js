@@ -705,15 +705,14 @@ class InboxPancakeAPI {
             const ids = pageIds || this._searchablePageIds || this.pageIds;
             if (ids.length === 0) return [];
 
-            const allMore = [];
-
-            for (const pageId of ids) {
+            // Parallel fetch more for all pages with cursors
+            const fetchOnePage = async (pageId) => {
                 const cursor = this._lastConvId[pageId];
-                if (!cursor) continue;
+                if (!cursor) return [];
 
                 let pat = this.tm.getPageAccessToken(pageId);
                 if (!pat) pat = await this.tm.generatePageAccessToken(pageId);
-                if (!pat) continue;
+                if (!pat) return [];
 
                 const url = InboxApiConfig.buildUrl.pancakeOfficialV2(
                     `pages/${pageId}/conversations`, pat
@@ -721,16 +720,18 @@ class InboxPancakeAPI {
 
                 try {
                     const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
-                    if (!res.ok) continue;
+                    if (!res.ok) return [];
                     const data = await res.json();
                     if (data.conversations?.length > 0) {
-                        allMore.push(...data.conversations);
                         this._lastConvId[pageId] = data.conversations[data.conversations.length - 1].id;
+                        return data.conversations;
                     }
                 } catch (e) { console.error(`[INBOX-API] fetchMore page ${pageId}:`, e.message); }
-            }
+                return [];
+            };
 
-            return allMore;
+            const results = await Promise.all(ids.map(fetchOnePage));
+            return results.flat();
         } catch (e) {
             console.error('[INBOX-API] fetchMore error:', e);
             return [];

@@ -178,6 +178,10 @@ async function initInboxApp() {
         // Refresh từ Pancake ở background — không block UI
         dataManager.init().then(async () => {
             console.log('[Inbox] ✅ Background refresh xong, re-render');
+            // Reset hasMore vì cursors (_lastConvId) giờ đã có data từ network
+            chatController.hasMoreConversations = true;
+            chatController._consecutiveEmptyLoads = 0;
+            chatController._loadMoreCooldownUntil = 0;
             chatController.renderPageSelector();
             chatController.renderConversationList();
             chatController.renderGroupStats();
