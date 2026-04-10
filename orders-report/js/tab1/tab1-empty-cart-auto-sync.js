@@ -111,7 +111,10 @@
                 });
             }
 
-            console.log(`${LOG} XL ${totalQuantity === 0 ? 'set' : 'clear'} GIO_TRONG → ${orderCode}`);
+            // Only log per-row changes from individual updates (not batch)
+            if (_debounceTimers.size > 0) {
+                console.log(`${LOG} XL ${totalQuantity === 0 ? 'set' : 'clear'} GIO_TRONG → ${orderCode}`);
+            }
         } catch (e) {
             console.warn(`${LOG} XL sync failed for ${orderCode}:`, e.message);
         }
@@ -220,16 +223,41 @@
     async function batchEmptyCartSync(orders) {
         if (!Array.isArray(orders) || orders.length === 0) return;
 
-        // Local XL sync chạy cho TẤT CẢ đơn (rẻ, không HTTP) để giữ XL state
-        // luôn nhất quán với SL thực tế — independent với việc gọi server.
-        for (const o of orders) {
-            if (o?.Code) _syncXLGioTrong(o.Code, Number(o.TotalQuantity) || 0);
-        }
+        // Phase 1: Chunked XL sync — yield to main thread every CHUNK_SIZE orders
+        // to prevent UI freeze on 3000+ orders
+        const CHUNK_SIZE = 200;
+        const state = window.ProcessingTagState;
+        let xlChanged = 0;
+        let xlSkipped = 0;
 
-        // Pre-filter POST: chỉ gửi đơn thực sự cần đồng bộ TPOS Tag.
-        // - SL=0 mà chưa có tag GIỎ TRỐNG → cần ADD
-        // - SL>0 mà đang có tag GIỎ TRỐNG → cần REMOVE
-        // Còn lại là noop chắc chắn → skip để giảm ~95% requests.
+        function processXLChunk(startIdx) {
+            const end = Math.min(startIdx + CHUNK_SIZE, orders.length);
+            for (let i = startIdx; i < end; i++) {
+                const o = orders[i];
+                if (!o?.Code) continue;
+                const sl = Number(o.TotalQuantity) || 0;
+
+                // Fast-path: skip if XL state already matches SL
+                if (state && typeof state.getOrderData === 'function') {
+                    const existing = state.getOrderData(o.Code);
+                    const hasGT = existing?.category === 3 && existing?.subTag === 'GIO_TRONG';
+                    if (sl > 0 && !hasGT) { xlSkipped++; continue; }
+                    if (sl === 0 && hasGT) { xlSkipped++; continue; }
+                }
+
+                _syncXLGioTrong(o.Code, sl);
+                xlChanged++;
+            }
+            if (end < orders.length) {
+                setTimeout(() => processXLChunk(end), 0); // yield to main thread
+            } else {
+                console.log(`${LOG} XL sync done: ${xlChanged} changed, ${xlSkipped} skipped (${orders.length} total)`);
+            }
+        }
+        // Start chunked XL sync (non-blocking)
+        processXLChunk(0);
+
+        // Phase 2: Pre-filter POST — only orders that actually need TPOS Tag change
         const needSync = orders.filter(o => {
             if (!o || !o.Id) return false;
             const sl = Number(o.TotalQuantity) || 0;
@@ -237,9 +265,13 @@
             return (sl === 0 && !hasGT) || (sl > 0 && hasGT);
         });
 
-        console.log(`${LOG} Batch sync ${needSync.length}/${orders.length} orders (filtered)`);
-        if (needSync.length === 0) return;
+        if (needSync.length === 0) {
+            console.log(`${LOG} TPOS sync: 0/${orders.length} need change`);
+            return;
+        }
+        console.log(`${LOG} TPOS sync: ${needSync.length}/${orders.length} need change`);
 
+        // Phase 3: Staggered HTTP requests (reduced parallelism to avoid server overload)
         let i = 0;
         async function worker() {
             while (i < needSync.length) {
@@ -250,7 +282,7 @@
         }
         const workers = Array.from({ length: BATCH_MAX_PARALLEL }, () => worker());
         await Promise.all(workers);
-        console.log(`${LOG} Batch sync done.`);
+        console.log(`${LOG} TPOS sync done: ${needSync.length} orders synced`);
     }
 
     /**
