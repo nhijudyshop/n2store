@@ -279,10 +279,12 @@ function _applyFiltersExceptProcessingTag() {
         }
     }
 
-    // Apply TAG filter (Multi-select)
+    // Apply TAG filter (Multi-select) — OR logic: show orders with ANY selected tag
     const selectedTags = window.getSelectedTagFilters ? window.getSelectedTagFilters() : [];
 
     if (selectedTags.length > 0) {
+        // Use Set for O(1) lookup instead of Array.includes
+        const selectedTagSet = new Set(selectedTags);
         tempData = tempData.filter(order => {
             if (!order.Tags) return false;
 
@@ -290,9 +292,8 @@ function _applyFiltersExceptProcessingTag() {
                 const orderTags = JSON.parse(order.Tags);
                 if (!Array.isArray(orderTags) || orderTags.length === 0) return false;
 
-                // Check if the order has ALL of the selected tags (AND logic)
-                const orderTagIds = orderTags.map(tag => String(tag.Id));
-                return selectedTags.every(selectedId => orderTagIds.includes(selectedId));
+                // OR logic: show order if it has ANY of the selected tags
+                return orderTags.some(tag => selectedTagSet.has(String(tag.Id)));
             } catch (e) {
                 return false;
             }

@@ -17,7 +17,7 @@
 // =====================================================
 
 const _RENDER_URL = 'https://n2store-fallback.onrender.com';
-const _CLIENT_API_KEY = window.N2STORE_CLIENT_API_KEY || '8a284928648a1fcbeab174c2cf7bd7081fa2917a3b5f926a1af371c467716976';
+const _CLIENT_API_KEY = window.N2STORE_CLIENT_API_KEY || '';
 
 class PancakeTokenManager {
     constructor() {

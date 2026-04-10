@@ -206,28 +206,45 @@ async function executeMergeOrderProducts(mergedOrder) {
 
         // Add target order products first
         (targetOrderData.Details || []).forEach(detail => {
+            // Skip products without ProductId to avoid merging unrelated items under null key
             const key = detail.ProductId;
+            if (!key) {
+                console.warn(`[MERGE-API] Skipping product without ProductId: ${detail.ProductName || 'unknown'}`);
+                // Still include it with a unique key so it's not lost
+                productMap.set(`_noid_${productMap.size}`, { ...detail });
+                return;
+            }
             if (productMap.has(key)) {
-                // Same product exists, merge quantity
+                // Same product exists, merge quantity (with bounds check)
                 const existing = productMap.get(key);
-                existing.Quantity = (existing.Quantity || 0) + (detail.Quantity || 0);
+                const newQty = (existing.Quantity || 0) + (detail.Quantity || 0);
+                existing.Quantity = Math.min(newQty, 999999); // Prevent overflow
                 existing.Price = detail.Price; // Keep latest price
             } else {
                 productMap.set(key, { ...detail });
             }
         });
 
-        // Add source order products
+        // Add source order products — skip null sourceOrders from failed fetches
         sourceOrdersData.forEach((sourceOrder, index) => {
+            if (!sourceOrder) {
+                console.error(`[MERGE-API] Source order at index ${index} is null, skipping`);
+                return;
+            }
             const sourceProducts = sourceOrder.Details || [];
             console.log(`[MERGE-API] Source STT ${mergedOrder.SourceSTTs[index]}: ${sourceProducts.length} products`);
 
             sourceProducts.forEach(detail => {
                 const key = detail.ProductId;
+                if (!key) {
+                    productMap.set(`_noid_${productMap.size}`, { ...detail });
+                    return;
+                }
                 if (productMap.has(key)) {
-                    // Same product exists, merge quantity
+                    // Same product exists, merge quantity (with bounds check)
                     const existing = productMap.get(key);
-                    existing.Quantity = (existing.Quantity || 0) + (detail.Quantity || 0);
+                    const newQty = (existing.Quantity || 0) + (detail.Quantity || 0);
+                    existing.Quantity = Math.min(newQty, 999999);
                     console.log(`[MERGE-API] Merged duplicate ProductId ${key}: new qty = ${existing.Quantity}`);
                 } else {
                     productMap.set(key, { ...detail });
@@ -258,6 +275,10 @@ async function executeMergeOrderProducts(mergedOrder) {
             const sourceOrder = sourceOrdersData[i];
             const sourceSTT = mergedOrder.SourceSTTs[i];
 
+            if (!sourceOrder) {
+                console.warn(`[MERGE-API] Source order index ${i} is null, skipping clear`);
+                continue;
+            }
             await updateOrderWithFullPayload(sourceOrder, [], 0, 0);
             console.log(`[MERGE-API] ✅ Cleared products from source order STT ${sourceSTT}`);
         }

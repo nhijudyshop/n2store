@@ -543,21 +543,24 @@
 
             if (!targetKey) return false;
 
-            // Remove from local
-            this._data.delete(targetKey);
-            this._myKeys.delete(targetKey);
-            this._sentBills.delete(soId);
-
-            // Delete from API
+            // Delete from API FIRST, then remove locally (atomic: don't lose data if API fails)
             try {
                 const response = await fetch(`${API_BASE}/entries/${encodeURIComponent(targetKey)}`, {
                     method: 'DELETE',
                 });
-                if (response.ok) {
+                if (!response.ok) {
+                    console.error('[INVOICE-STATUS] API delete failed:', response.status);
+                    return false; // Don't remove locally if API delete failed
                 }
             } catch (e) {
                 console.error('[INVOICE-STATUS] API delete error:', e);
+                return false; // Don't remove locally on network error
             }
+
+            // API delete succeeded, now remove from local state
+            this._data.delete(targetKey);
+            this._myKeys.delete(targetKey);
+            this._sentBills.delete(soId);
 
             return true;
         },

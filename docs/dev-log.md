@@ -8,6 +8,13 @@
 
 ## 2026-04-10
 
+### [orders] Security + Bug fix audit — 17 issues fixed across 14 files
+| | |
+|---|---|
+| **Files** | `token-manager.js`, `pancake-token-manager.js`, `main.html`, `tab1-sale.js`, `tab1-tags.js`, `tab1-table.js`, `tab1-chat-messages.js`, `tab1-chat-core.js`, `tab1-merge.js`, `tab1-search.js`, `tab1-bulk-tags.js`, `tab1-fast-sale-invoice-status.js`, `tab1-qr-debt.js`, `tab1-encoding.js` |
+| **What** | **P0 Critical:** (1) Removed hardcoded TPOS credentials from browser JS → proxy-based auth, (2) Removed hardcoded API key fallbacks, (3) Added idempotency key for sale order creation to prevent duplicate invoices on 401 retry, (4) Validated postMessage origins in extension relay bridge (replaced `'*'` wildcards). **P1 High:** (5) Escaped HTML in tag names, error msgs, onclick attrs, image URLs to prevent XSS, (6) Fixed merge crash on null sourceOrder/ProductId with bounds checks, (7) Added negative discount validation, (8) Changed tag filter logic from AND→OR (UX fix). **P2 Medium:** (9) Chat Firebase listener cleanup on modal close (memory leak), (10) Added 30s safety timeout for isSavingSingleSale flag, (11) Bulk tag O(n²)→O(n) with Set, (12) Fixed false success count for already-tagged orders, (13) Token refresh promise-based mutex, (14) Invoice delete API-first atomicity, (15) Debt balance validation (finite, non-negative), (16) Empty OrderLines validation, (17) Improved encoding checksum to 8-char dual-hash. |
+| **Status** | ✅ Done |
+
 ### [shared] Cài đặt everything-claude-code vào project
 - **Files:** `.claude/agents/` (47), `.claude/skills/` (181), `.claude/commands/` (79), `.claude/rules/` (89 files), `.claude/scripts/` (128), `.claude/settings.json`
 - **Source:** https://github.com/affaan-m/everything-claude-code

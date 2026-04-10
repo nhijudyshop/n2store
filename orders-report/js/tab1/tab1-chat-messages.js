@@ -277,7 +277,9 @@ function _getAvatarContent(msg) {
         const imgUrl = window._getChatAvatarUrl
             ? window._getChatAvatarUrl(psid, pageId)
             : `https://graph.facebook.com/${psid}/picture?type=small`;
-        return `<img src="${imgUrl}" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.style.display='none';this.parentElement.textContent='${initial}'">`;
+        // Escape initial to prevent XSS in onerror handler
+        const safeInitial = initial.replace(/['"\\<>&]/g, '');
+        return `<img src="${imgUrl}" alt="" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" onerror="this.style.display='none';this.parentElement.textContent='${safeInitial}'">`;
     }
     return initial;
 }
@@ -314,7 +316,9 @@ function _renderAttachments(attachments) {
 
         // Image
         if (att.type === 'image' || att.type === 'photo' || att.mime_type?.startsWith('image/')) {
-            return `<div class="message-media"><img class="message-image" src="${url}" alt="Ảnh" onclick="window.showImageZoom ? showImageZoom('${url.replace(/'/g, "\\'")}') : window.open('${url}','_blank')" loading="lazy"></div>`;
+            // Use data attribute for URL to avoid XSS in onclick
+            const safeUrl = url.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+            return `<div class="message-media"><img class="message-image" src="${safeUrl}" alt="Ảnh" data-full-url="${safeUrl}" onclick="window.showImageZoom ? showImageZoom(this.dataset.fullUrl) : window.open(this.dataset.fullUrl,'_blank')" loading="lazy"></div>`;
         }
         // Sticker / GIF
         if (att.type === 'sticker' || att.sticker_id || att.type === 'animated_image_url') {

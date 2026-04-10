@@ -25,21 +25,35 @@ function base64UrlDecode(str) {
 }
 
 /**
- * Generate short checksum (6 characters)
+ * Generate short checksum (8 characters, improved collision resistance)
+ * Uses dual-hash (DJB2 + FNV-1a) for better distribution.
+ * NOTE: This is an integrity check, NOT cryptographic — sufficient for detecting
+ * accidental corruption and casual tampering, not for security-critical use.
  * @param {string} str - String to checksum
- * @returns {string} Checksum in base36 (6 chars)
+ * @returns {string} Checksum in base36 (8 chars)
  */
 function shortChecksum(str) {
-    let hash = 0;
+    // DJB2 hash
+    let h1 = 0;
     for (let i = 0; i < str.length; i++) {
-        hash = ((hash << 5) - hash) + str.charCodeAt(i);
-        hash = hash & hash; // Convert to 32bit integer
+        h1 = ((h1 << 5) - h1) + str.charCodeAt(i);
+        h1 = h1 & h1;
     }
-    return Math.abs(hash).toString(36).substring(0, 6);
+    // FNV-1a hash (different algorithm for diversity)
+    let h2 = 0x811c9dc5;
+    for (let i = 0; i < str.length; i++) {
+        h2 ^= str.charCodeAt(i);
+        h2 = Math.imul(h2, 0x01000193);
+    }
+    // Combine both hashes for 8-char output (~36^8 ≈ 2.8T possibilities)
+    return (Math.abs(h1).toString(36) + Math.abs(h2).toString(36)).substring(0, 8);
 }
 
 /**
- * XOR decryption with key
+ * XOR decryption with key.
+ * SECURITY NOTE: XOR with a short repeating key is NOT secure encryption.
+ * This provides only basic obfuscation to prevent casual reading of note data.
+ * Do NOT rely on this for protecting sensitive/financial information.
  * @param {string} encoded - Base64 encoded encrypted text
  * @param {string} key - Decryption key
  * @returns {string} Decrypted text

@@ -735,9 +735,10 @@ async function executeBulkTagModalAssignment() {
             const failedSTT = [];
             let failReason = null;
 
-            // Find orders matching STT
+            // Find orders matching STT — use Set for O(1) lookup
+            const sttSet = new Set(sttArray);
             const matchingOrders = displayedData.filter(order =>
-                sttArray.includes(order.SessionIndex)
+                sttSet.has(order.SessionIndex)
             );
 
             if (matchingOrders.length === 0) {
@@ -883,11 +884,11 @@ async function executeBulkTagModalAssignment() {
                         continue;
                     }
 
-                    // Check if tag already exists
+                    // Check if tag already exists — count as skipped, not success
                     const tagExists = currentTags.some(t => t.Id === tagInfo.Id);
                     if (tagExists) {
-                        console.log(`[BULK-TAG-MODAL] Tag already exists for order ${order.Code}`);
-                        successSTT.push(order.SessionIndex);
+                        console.log(`[BULK-TAG-MODAL] Tag already exists for order ${order.Code} (skipped)`);
+                        successSTT.push({ stt: order.SessionIndex, skipped: true });
                         continue;
                     }
 
@@ -1953,9 +1954,10 @@ async function executeBulkTagDeleteModalRemoval() {
             const failedSTT = [];
             let failReason = null;
 
-            // Find orders matching STT
+            // Find orders matching STT — use Set for O(1) lookup
+            const sttSet = new Set(sttArray);
             const matchingOrders = displayedData.filter(order =>
-                sttArray.includes(order.SessionIndex)
+                sttSet.has(order.SessionIndex)
             );
 
             if (matchingOrders.length === 0) {

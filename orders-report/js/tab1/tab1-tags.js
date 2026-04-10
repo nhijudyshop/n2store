@@ -1203,9 +1203,10 @@ function updateSelectedTagsDisplay() {
             (tag, index) => {
                 const isPendingDelete = index === pendingDeleteTagIndex;
                 const bgColor = isPendingDelete ? '#ef4444' : '#3b82f6'; // Red if pending delete, blue otherwise
+                const safeName = (tag.Name || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
                 return `
         <span class="selected-tag-pill ${isPendingDelete ? 'deletion-pending' : ''}" style="background-color: ${bgColor}" data-tag-index="${index}">
-            ${tag.Name}
+            ${safeName}
             <button class="selected-tag-remove" onclick="event.stopPropagation(); removeTag(${index})" title="Xóa tag">
                 ✕
             </button>

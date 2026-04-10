@@ -94,7 +94,8 @@ function calculateSaleOrderDiscount(order) {
             const priceUnit = line.PriceUnit || line.Price || 0;
             const qty = line.ProductUOMQty || line.Quantity || 1;
             const discountPerUnit = priceUnit - notePrice; // 180000 - 100000 = 80000
-            if (discountPerUnit > 0) {
+            // Only apply discount if note price is LESS than unit price (prevent negative discounts)
+            if (discountPerUnit > 0 && notePrice < priceUnit) {
                 const lineDiscount = discountPerUnit * qty; // 80000 * 2 = 160000
                 totalDiscount += lineDiscount;
                 discountedProducts.push({
@@ -210,21 +211,25 @@ function displaySaleProductResults(results) {
             const currentQty = productsInOrder.get(product.Id) || 0;
             const rowClass = isInOrder ? 'style="background-color: #f0fdf4;"' : '';
 
+            // Use data attribute + delegated event instead of inline onclick with unescaped Id
+            const safeName = (product.Name || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+            const safeCode = (product.Code || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+            const safeImg = (product.ImageUrl || '').replace(/"/g,'&quot;');
             return `
-            <tr ${rowClass} onclick="addProductToSaleFromSearch(${product.Id})" style="cursor: pointer;">
+            <tr ${rowClass} data-product-id="${parseInt(product.Id, 10) || 0}" onclick="addProductToSaleFromSearch(parseInt(this.dataset.productId, 10))" style="cursor: pointer;">
                 <td style="width: 40px; text-align: center;">
                     ${
                         product.ImageUrl
-                            ? `<img src="${product.ImageUrl}" style="width: 30px; height: 30px; object-fit: cover; border-radius: 4px;">`
-                            : `<div style="width: 30px; height: 30px; background: #f3f4f6; border-radius: 4px; display: flex; align-items: center; justify-content: center;"><i class="fas fa-image" style="color: #9ca3af; font-size: 12px;"></i></div>`
+                            ? `<img src="${safeImg}" style="width: 30px; height: 30px; object-fit: cover; border-radius: 4px;">`
+                            : `<div style="width: 30px; height: 30px; background: #f3f4f6; border-radius: 4px; display: flex; align-items; center; justify-content: center;"><i class="fas fa-image" style="color: #9ca3af; font-size: 12px;"></i></div>`
                     }
                 </td>
                 <td>
-                    <div style="font-weight: 500;">${product.Name}</div>
-                    <div style="font-size: 11px; color: #6b7280;">Mã: ${product.Code}</div>
+                    <div style="font-weight: 500;">${safeName}</div>
+                    <div style="font-size: 11px; color: #6b7280;">Mã: ${safeCode}</div>
                     ${isInOrder ? `<div style="font-size: 11px; color: #10b981;"><i class="fas fa-shopping-cart"></i> Đã có trong đơn (SL: ${currentQty})</div>` : ''}
                 </td>
-                <td style="width: 60px; text-align: center;">${product.UOMName || 'Cái'}</td>
+                <td style="width: 60px; text-align: center;">${(product.UOMName || 'Cái').replace(/</g,'&lt;')}</td>
                 <td style="width: 80px; text-align: right; font-weight: 600; color: #3b82f6;">
                     ${(product.Price || 0).toLocaleString('vi-VN')}
                 </td>
@@ -712,6 +717,18 @@ async function confirmAndPrintSale() {
 
     window.__isSavingSingleSale = true;
 
+    // Safety timeout: auto-reset flag after 30s to prevent permanent lockout
+    const saleTimeoutId = setTimeout(() => {
+        if (window.__isSavingSingleSale) {
+            console.warn('[SALE-CONFIRM] ⚠️ Safety timeout: resetting isSavingSingleSale after 30s');
+            window.__isSavingSingleSale = false;
+            if (confirmBtn) {
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = originalText || 'Xác nhận và in (F9)';
+            }
+        }
+    }, 30000);
+
     // Show loading state - disable button immediately
     const originalText = confirmBtn?.textContent;
     if (confirmBtn) {
@@ -756,6 +773,10 @@ async function confirmAndPrintSale() {
         }
         if (!model.Partner?.Street) {
             throw new Error('Vui lòng nhập địa chỉ người nhận');
+        }
+        // Validate order has at least one product
+        if (!model.OrderLines || model.OrderLines.length === 0) {
+            throw new Error('Đơn hàng không có sản phẩm. Vui lòng thêm sản phẩm trước khi xác nhận.');
         }
         // Validate all order lines have ProductId (TPOS API requires non-zero ProductId)
         const missingProductIds = (model.OrderLines || []).filter(
@@ -814,6 +835,8 @@ async function confirmAndPrintSale() {
         }
 
         // Build request body (same as fastSaleModal's "Lưu xác nhận")
+        // Idempotency key prevents duplicate invoice creation on retry/401
+        const idempotencyKey = `sale_${currentSaleOrderData.Id}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
         const requestBody = {
             is_approve: true,
             model: [model],
@@ -829,11 +852,12 @@ async function confirmAndPrintSale() {
             headers: {
                 ...headers,
                 'Content-Type': 'application/json',
+                'X-Idempotency-Key': idempotencyKey,
             },
             body: JSON.stringify(requestBody),
         });
 
-        // Retry on 401: force-refresh bill token and retry once
+        // Retry on 401: force-refresh bill token and retry once (same idempotency key)
         if (response.status === 401 && window.billTokenManager) {
             console.log('[SALE-CONFIRM] 401 received, force-refreshing bill token...');
             window.billTokenManager.token = null;
@@ -844,6 +868,7 @@ async function confirmAndPrintSale() {
                 headers: {
                     ...headers,
                     'Content-Type': 'application/json',
+                    'X-Idempotency-Key': idempotencyKey,
                 },
                 body: JSON.stringify(requestBody),
             });
@@ -1247,6 +1272,7 @@ async function confirmAndPrintSale() {
         console.error('[SALE-CONFIRM] Error:', error);
         window.notificationManager?.error(error.message || 'Lỗi xác nhận đơn hàng');
     } finally {
+        clearTimeout(saleTimeoutId);
         window.__isSavingSingleSale = false;
         if (confirmBtn) {
             confirmBtn.disabled = false;

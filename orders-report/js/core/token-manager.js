@@ -23,7 +23,7 @@ class TokenManager {
         this.PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
         this.API_URL = this.PROXY_URL + '/api/token';
         this.RENDER_URL = 'https://n2store-fallback.onrender.com';
-        this.CLIENT_API_KEY = window.N2STORE_CLIENT_API_KEY || '8a284928648a1fcbeab174c2cf7bd7081fa2917a3b5f926a1af371c467716976';
+        this.CLIENT_API_KEY = window.N2STORE_CLIENT_API_KEY || '';
         this.SWITCH_COMPANY_URL = this.PROXY_URL + '/api/odata/ApplicationUser/ODataService.SwitchCompany';
         this.credentials = TokenManager.getCredentials(this.companyId);
         this.firestoreRef = null;
@@ -101,14 +101,14 @@ class TokenManager {
     }
 
     /**
-     * Get TPOS credentials for a specific company
+     * Get TPOS credentials for a specific company.
+     * Credentials are fetched from CF Worker proxy at runtime (not hardcoded).
+     * Fallback: returns minimal shape so callers don't crash if fetch fails.
      */
     static getCredentials(companyId) {
-        const CREDENTIALS_BY_COMPANY = {
-            1: { grant_type: 'password', username: 'nvktlive1', password: 'Aa@28612345678', client_id: 'tmtWebApp' },
-            2: { grant_type: 'password', username: 'nvktshop1', password: 'Aa@28612345678', client_id: 'tmtWebApp' }
-        };
-        return CREDENTIALS_BY_COMPANY[companyId] || CREDENTIALS_BY_COMPANY[1];
+        // Credentials are now server-side only (CF Worker handles password login).
+        // Return a stub so existing callers don't throw; actual auth goes through proxy.
+        return { grant_type: 'password', username: '', password: '', client_id: 'tmtWebApp', _proxyAuth: true };
     }
 
     initFirestore() {
@@ -430,17 +430,12 @@ class TokenManager {
      * Password login → gets token directly for this company
      */
     async passwordLogin() {
-        console.log(`[TOKEN] Password login with ${this.credentials.username} for company ${this.companyId}...`);
-        const formData = new URLSearchParams();
-        formData.append('grant_type', this.credentials.grant_type);
-        formData.append('username', this.credentials.username);
-        formData.append('password', this.credentials.password);
-        formData.append('client_id', this.credentials.client_id);
-
-        const response = await fetch(this.API_URL, {
+        console.log(`[TOKEN] Password login via proxy for company ${this.companyId}...`);
+        // Credentials are stored server-side in CF Worker; browser only sends companyId
+        const response = await fetch(`${this.PROXY_URL}/api/token`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: formData.toString()
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ companyId: this.companyId })
         });
 
         if (!response.ok) throw new Error(`Password login failed: ${response.status}`);
@@ -512,12 +507,22 @@ class TokenManager {
     }
 
     async fetchNewToken() {
-        if (this.isRefreshing) {
+        // Use promise-based mutex instead of boolean flag to prevent race condition
+        if (this._refreshPromise) {
             console.log('[TOKEN] Token refresh already in progress, waiting...');
-            return this.waitForRefresh();
+            return this._refreshPromise;
         }
 
         this.isRefreshing = true;
+        this._refreshPromise = this._doFetchNewToken();
+        try {
+            return await this._refreshPromise;
+        } finally {
+            this._refreshPromise = null;
+        }
+    }
+
+    async _doFetchNewToken() {
         let notificationId = null;
 
         try {

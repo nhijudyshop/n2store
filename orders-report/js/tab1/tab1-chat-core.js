@@ -264,6 +264,16 @@ window.closeChatModal = function() {
     // Stop chat polling
     _stopChatPolling();
 
+    // Cleanup Firebase realtime listeners to prevent memory leaks
+    if (window._chatRealtimeUnsubscribe) {
+        try { window._chatRealtimeUnsubscribe(); } catch (e) { /* ignore */ }
+        window._chatRealtimeUnsubscribe = null;
+    }
+    if (window._chatPrivateReplyUnsubscribe) {
+        try { window._chatPrivateReplyUnsubscribe(); } catch (e) { /* ignore */ }
+        window._chatPrivateReplyUnsubscribe = null;
+    }
+
     // Invalidate any in-flight loads
     window._chatLoadSeq = (window._chatLoadSeq || 0) + 1;
     clearTimeout(window._chatUpdateDebounce);

@@ -680,6 +680,15 @@
             // Track extension connection at top frame level
             window._extensionConnected = false;
 
+            // Trusted origins for postMessage relay (self + GitHub Pages)
+            var _trustedOrigins = [
+                window.location.origin,
+                'https://nhijudyshop.github.io'
+            ];
+            function _isTrustedOrigin(origin) {
+                return !origin || _trustedOrigins.indexOf(origin) !== -1;
+            }
+
             // 1. EXTENSION → TOP FRAME → IFRAME (relay extension events down to iframe)
             window.addEventListener('message', function(e) {
                 if (e.source !== window) return;
@@ -712,10 +721,10 @@
                         window._extensionConnected = true;
                         console.log('[MAIN-EXT] Extension connected, relaying to iframe');
                     }
-                    // Forward to ordersFrame (tab1 iframe)
+                    // Forward to ordersFrame (tab1 iframe) — use specific origin
                     var ordersFrame = document.getElementById('ordersFrame');
                     if (ordersFrame && ordersFrame.contentWindow) {
-                        ordersFrame.contentWindow.postMessage(e.data, '*');
+                        ordersFrame.contentWindow.postMessage(e.data, window.location.origin);
                     }
                 }
             });
@@ -724,6 +733,8 @@
             window.addEventListener('message', function(e) {
                 // Only accept messages from our iframes (not from window itself)
                 if (e.source === window) return;
+                // Validate origin — only accept from trusted sources
+                if (!_isTrustedOrigin(e.origin)) return;
                 var type = e.data && e.data.type;
                 if (!type) return;
 
@@ -748,12 +759,12 @@
                         e.source.postMessage({
                             type: 'EXT_BRIDGE_PROBE_RESPONSE',
                             connected: window._extensionConnected
-                        }, '*');
+                        }, e.origin || window.location.origin);
                         return;
                     }
                     // Forward to extension (top frame window.postMessage → contentscript)
                     console.log('[MAIN-EXT] Relaying to extension:', type);
-                    window.postMessage(e.data, '*');
+                    window.postMessage(e.data, window.location.origin);
                 }
             });
 

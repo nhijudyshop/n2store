@@ -136,7 +136,11 @@ async function fetchDebtForPhone(phone) {
         const result = await response.json();
 
         if (result.success) {
-            const totalBalance = result.balance || 0;
+            // Validate balance is a finite non-negative number
+            const rawBalance = result.balance;
+            const totalBalance = (typeof rawBalance === 'number' && isFinite(rawBalance) && rawBalance >= 0)
+                ? rawBalance
+                : 0;
             saveDebtToCache(normalizedPhone, totalBalance);
             return totalBalance;
         }
