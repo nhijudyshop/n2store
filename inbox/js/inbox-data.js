@@ -75,6 +75,8 @@ class InboxDataManager {
         this.conversationMap = new Map();           // id -> conversation
         this.conversationByPsidMap = new Map();     // psid -> conversation
         this.conversationByCustomerIdMap = new Map(); // customerId -> conversation
+        // Customer index: normalizedName → Set<fb_id> (for name → customer ID search)
+        this.customerNameIndex = new Map();
     }
 
     /**
@@ -723,11 +725,38 @@ class InboxDataManager {
         this.conversationMap.clear();
         this.conversationByPsidMap.clear();
         this.conversationByCustomerIdMap.clear();
+        this.customerNameIndex.clear();
         for (const conv of this.conversations) {
             this.conversationMap.set(conv.id, conv);
             if (conv.psid) this.conversationByPsidMap.set(conv.psid, conv);
             if (conv.customerId) this.conversationByCustomerIdMap.set(conv.customerId, conv);
+            // Build name → fb_id index
+            const fbId = conv._raw?.customers?.[0]?.fb_id || conv._raw?.from_id || conv._raw?.from?.id;
+            if (fbId && conv._sName) {
+                if (!this.customerNameIndex.has(conv._sName)) {
+                    this.customerNameIndex.set(conv._sName, new Set());
+                }
+                this.customerNameIndex.get(conv._sName).add(fbId);
+            }
         }
+    }
+
+    /**
+     * Lookup fb_id by customer name (fuzzy: substring match on normalized name).
+     * Returns first matching fb_id or null.
+     */
+    lookupFbIdByName(query) {
+        if (!query) return null;
+        const normalized = removeDiacritics(query);
+        if (!normalized || normalized.length < 2) return null;
+        // Exact match first
+        const exact = this.customerNameIndex.get(normalized);
+        if (exact) return exact.values().next().value;
+        // Substring match
+        for (const [name, fbIds] of this.customerNameIndex) {
+            if (name.includes(normalized)) return fbIds.values().next().value;
+        }
+        return null;
     }
 
     getConversation(id) {

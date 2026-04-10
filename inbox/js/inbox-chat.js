@@ -3562,15 +3562,30 @@ class InboxChatController {
             }
 
             // Detect fb_id: 15+ digits only (fb_id thường 17-20 digits, SĐT chỉ 10-11)
-            const isFbId = /^\d{15,}$/.test(query.trim());
+            const trimmed = query.trim();
+            const isFbId = /^\d{15,}$/.test(trimmed);
             if (isFbId && pdm.searchByCustomerId) {
-                console.log(`[InboxChat] Detected fb_id, searching by customer ID: ${query.trim()}`);
-                const cusResult = await pdm.searchByCustomerId(query.trim());
+                console.log(`[InboxChat] Detected fb_id, searching by customer ID: ${trimmed}`);
+                const cusResult = await pdm.searchByCustomerId(trimmed);
                 if (this.searchQuery !== query) return;
                 this.searchResults = cusResult.conversations || [];
                 console.log(`[InboxChat] Customer search: ${this.searchResults.length} conversations`);
                 this.renderConversationList();
                 return;
+            }
+
+            // Local name index: tra cứu fb_id từ tên khách đã load → gọi customer search ngay
+            if (!isFbId && pdm.searchByCustomerId && this.data.lookupFbIdByName) {
+                const indexedFbId = this.data.lookupFbIdByName(trimmed);
+                if (indexedFbId) {
+                    console.log(`[InboxChat] Name index hit: "${trimmed}" → fb_id ${indexedFbId}`);
+                    const cusResult = await pdm.searchByCustomerId(indexedFbId);
+                    if (this.searchQuery !== query) return;
+                    this.searchResults = cusResult.conversations || [];
+                    console.log(`[InboxChat] Customer search via name: ${this.searchResults.length} conversations`);
+                    this.renderConversationList();
+                    // Don't return — still run normal search below to merge more results
+                }
             }
 
             // If query looks like a phone, send normalized digits to Pancake API
@@ -3609,12 +3624,21 @@ class InboxChatController {
                 console.log(`[InboxChat] Search returned 0 results for "${query}"`);
             }
 
-            this.searchResults = allConvs;
+            // Merge with any prior name-index results (already in this.searchResults)
+            if (this.searchResults && this.searchResults.length > 0 && allConvs.length > 0) {
+                const existingIds = new Set(this.searchResults.map(c => c.id));
+                const newFromSearch = allConvs.filter(c => !existingIds.has(c.id));
+                this.searchResults = [...this.searchResults, ...newFromSearch];
+            } else if (allConvs.length > 0) {
+                this.searchResults = allConvs;
+            }
+            // If nothing found at all, keep empty
+            if (!this.searchResults) this.searchResults = [];
             this.renderConversationList();
         } catch (error) {
             console.error('[InboxChat] Search error:', error);
             if (typeof showToast === 'function') showToast('Lỗi tìm kiếm: ' + error.message, 'error');
-            this.searchResults = [];
+            if (!this.searchResults || this.searchResults.length === 0) this.searchResults = [];
             this.renderConversationList();
         } finally {
             this.isSearching = false;
