@@ -1,0 +1,216 @@
+<!-- #Note: Đọc CLAUDE.md, MEMORY.md, docs/dev-log.md trước khi code. Cập nhật dev-log sau thay đổi. | Read these files before coding, update dev-log after changes. -->
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Facebook Ads Manager - N2Store</title>
+    <link rel="stylesheet" href="fb-ads.css">
+</head>
+<body>
+
+<!-- ==================== TOP BAR ==================== -->
+<div class="topbar">
+    <div class="topbar-left">
+        <a href="../" class="topbar-logo">
+            <svg viewBox="0 0 36 36" fill="currentColor"><path d="M20.181 35.87C29.094 34.791 36 27.202 36 18c0-9.941-8.059-18-18-18S0 8.059 0 18c0 4.991 2.014 9.505 5.281 12.775l.173.156-.494 4.955 4.833-1.964A17.88 17.88 0 0018 35.998c.741 0 1.473-.044 2.192-.128h-.011z"/><path fill="#fff" d="M15.094 23.412l-3.291-3.508-6.42 3.546 7.057-7.49 3.372 3.508 6.339-3.546z"/></svg>
+            Ads Manager
+        </a>
+        <select id="accountSelector" class="account-selector" onchange="FBAds.selectAccount(this.value)">
+            <option value="">Chọn tài khoản quảng cáo...</option>
+        </select>
+    </div>
+    <div class="topbar-right">
+        <div class="user-info" id="userInfo" style="display:none">
+            <span id="userName"></span>
+        </div>
+        <button class="btn btn-primary btn-sm" id="loginBtn" onclick="FBAds.login()">Đăng nhập Facebook</button>
+        <button class="btn btn-outline btn-sm" id="logoutBtn" style="display:none" onclick="FBAds.logout()">Đăng xuất</button>
+    </div>
+</div>
+
+<!-- ==================== LOGIN SCREEN ==================== -->
+<div id="loginScreen" class="login-screen">
+    <svg viewBox="0 0 36 36" fill="currentColor"><path d="M20.181 35.87C29.094 34.791 36 27.202 36 18c0-9.941-8.059-18-18-18S0 8.059 0 18c0 4.991 2.014 9.505 5.281 12.775l.173.156-.494 4.955 4.833-1.964A17.88 17.88 0 0018 35.998c.741 0 1.473-.044 2.192-.128h-.011z"/><path fill="#fff" d="M15.094 23.412l-3.291-3.508-6.42 3.546 7.057-7.49 3.372 3.508 6.339-3.546z"/></svg>
+    <h2>Facebook Ads Manager</h2>
+    <p>Đăng nhập bằng tài khoản Facebook để quản lý quảng cáo trực tiếp từ đây.</p>
+    <button class="btn btn-fb btn-lg" onclick="FBAds.login()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+        Đăng nhập với Facebook
+    </button>
+</div>
+
+<!-- ==================== MAIN APP (hidden until login) ==================== -->
+<div id="mainApp" style="display:none">
+
+    <!-- TABS -->
+    <div class="tabs">
+        <div class="tab active" data-tab="campaigns" onclick="FBAds.switchTab('campaigns')">
+            📊 Chiến dịch <span class="count" id="campaignCount">0</span>
+        </div>
+        <div class="tab" data-tab="adsets" onclick="FBAds.switchTab('adsets')">
+            📋 Nhóm QC <span class="count" id="adsetCount">0</span>
+        </div>
+        <div class="tab" data-tab="ads" onclick="FBAds.switchTab('ads')">
+            📢 Quảng cáo <span class="count" id="adCount">0</span>
+        </div>
+    </div>
+
+    <!-- TOOLBAR -->
+    <div class="toolbar">
+        <div class="toolbar-group">
+            <button class="btn btn-primary btn-sm" onclick="FBAds.showCreateModal()">+ Tạo</button>
+            <button class="btn btn-outline btn-sm" onclick="FBAds.refreshData()">↻ Làm mới</button>
+        </div>
+        <div class="toolbar-divider"></div>
+        <input type="text" class="search-box" placeholder="Tìm kiếm theo tên, ID..." id="searchBox" oninput="FBAds.filterTable()">
+        <div style="flex:1"></div>
+        <select id="datePreset" class="date-range-btn" onchange="FBAds.loadInsights()">
+            <option value="last_7d">7 ngày qua</option>
+            <option value="last_14d">14 ngày qua</option>
+            <option value="last_30d" selected>30 ngày qua</option>
+            <option value="this_month">Tháng này</option>
+            <option value="last_month">Tháng trước</option>
+            <option value="last_90d">90 ngày qua</option>
+        </select>
+    </div>
+
+    <!-- METRICS BAR -->
+    <div class="metrics-bar" id="metricsBar">
+        <div class="metric-card">
+            <div class="metric-label">Chi tiêu</div>
+            <div class="metric-value" id="metricSpend">--</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">Lượt hiển thị</div>
+            <div class="metric-value" id="metricImpressions">--</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">Lượt click</div>
+            <div class="metric-value" id="metricClicks">--</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">CTR</div>
+            <div class="metric-value" id="metricCTR">--</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">CPC</div>
+            <div class="metric-value" id="metricCPC">--</div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-label">Tiếp cận</div>
+            <div class="metric-value" id="metricReach">--</div>
+        </div>
+    </div>
+
+    <!-- TABLE -->
+    <div class="table-container">
+        <!-- Campaigns Table -->
+        <table class="data-table" id="campaignsTable">
+            <thead>
+                <tr>
+                    <th style="width:40px"><input type="checkbox" id="selectAll"></th>
+                    <th>Bật/Tắt</th>
+                    <th>Chiến dịch</th>
+                    <th>Phân phối</th>
+                    <th>Ngân sách</th>
+                    <th>Chi tiêu</th>
+                    <th>Kết quả</th>
+                    <th>CPR</th>
+                    <th>Lượt hiển thị</th>
+                    <th>Tiếp cận</th>
+                    <th>Hành động</th>
+                </tr>
+            </thead>
+            <tbody id="campaignsBody"></tbody>
+        </table>
+
+        <!-- AdSets Table -->
+        <table class="data-table" id="adsetsTable" style="display:none">
+            <thead>
+                <tr>
+                    <th style="width:40px"><input type="checkbox"></th>
+                    <th>Bật/Tắt</th>
+                    <th>Nhóm quảng cáo</th>
+                    <th>Phân phối</th>
+                    <th>Ngân sách</th>
+                    <th>Chi tiêu</th>
+                    <th>Kết quả</th>
+                    <th>Chiến dịch</th>
+                    <th>Hành động</th>
+                </tr>
+            </thead>
+            <tbody id="adsetsBody"></tbody>
+        </table>
+
+        <!-- Ads Table -->
+        <table class="data-table" id="adsTable" style="display:none">
+            <thead>
+                <tr>
+                    <th style="width:40px"><input type="checkbox"></th>
+                    <th>Bật/Tắt</th>
+                    <th>Quảng cáo</th>
+                    <th>Phân phối</th>
+                    <th>Chi tiêu</th>
+                    <th>Kết quả</th>
+                    <th>Nhóm QC</th>
+                    <th>Hành động</th>
+                </tr>
+            </thead>
+            <tbody id="adsBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ==================== CREATE CAMPAIGN MODAL ==================== -->
+<div class="modal-overlay" id="createCampaignModal">
+    <div class="modal">
+        <div class="modal-header">
+            <h3>Tạo chiến dịch mới</h3>
+            <button class="modal-close" onclick="FBAds.closeModal('createCampaignModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label>Tên chiến dịch</label>
+                <input type="text" id="campaignName" placeholder="VD: Sale T4 - Traffic">
+            </div>
+            <div class="form-group">
+                <label>Mục tiêu</label>
+                <select id="campaignObjective">
+                    <option value="OUTCOME_TRAFFIC">Traffic (Lượt truy cập)</option>
+                    <option value="OUTCOME_ENGAGEMENT">Engagement (Tương tác)</option>
+                    <option value="OUTCOME_LEADS">Leads (Khách hàng tiềm năng)</option>
+                    <option value="OUTCOME_SALES">Sales (Bán hàng)</option>
+                    <option value="OUTCOME_AWARENESS">Awareness (Nhận biết thương hiệu)</option>
+                    <option value="OUTCOME_APP_PROMOTION">App Promotion (Quảng bá ứng dụng)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Ngân sách hàng ngày (VND)</label>
+                <input type="number" id="campaignBudget" placeholder="VD: 100000" min="10000" step="10000">
+                <div class="form-hint">Tối thiểu 10,000 VND. Facebook sẽ quy đổi sang đơn vị nhỏ nhất.</div>
+            </div>
+            <div class="form-group">
+                <label>Trạng thái ban đầu</label>
+                <select id="campaignStatus">
+                    <option value="PAUSED">Tạm dừng (Khuyên dùng)</option>
+                    <option value="ACTIVE">Hoạt động ngay</option>
+                </select>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-outline" onclick="FBAds.closeModal('createCampaignModal')">Hủy</button>
+            <button class="btn btn-primary" onclick="FBAds.createCampaign()">Tạo chiến dịch</button>
+        </div>
+    </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- Facebook SDK -->
+<script async defer crossorigin="anonymous" src="https://connect.facebook.net/vi_VN/sdk.js"></script>
+
+<script src="fb-ads.js"></script>
+</body>
+</html>
