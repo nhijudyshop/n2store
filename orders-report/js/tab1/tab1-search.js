@@ -1482,11 +1482,8 @@ async function fetchOrders() {
             if (window.initProcessingTagPanel) window.initProcessingTagPanel();
         }
 
-        // Auto-sync GIỎ TRỐNG tag (server quyết theo SL)
-        if (typeof window.batchEmptyCartSync === 'function') {
-            // Fire-and-forget — server xử lý dedupe
-            window.batchEmptyCartSync(allData);
-        }
+        // GIỎ TRỐNG sync: chỉ chạy per-row khi user thao tác (updateOrderInTable hook).
+        // Không batch sync toàn bộ allData khi load → tránh lag + giảm server load.
 
         // NOTE: Removed cross-tab sync (sendDataToTab2, sendOrdersDataToOverview, sendOrdersDataToTab3)
         // Each tab now fetches its own data independently when user switches to it
