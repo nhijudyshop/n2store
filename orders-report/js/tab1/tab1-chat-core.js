@@ -849,15 +849,11 @@ function _renderPageSelectorItems() {
         item.addEventListener('click', (e) => {
             e.stopPropagation();
             const pageId = item.dataset.pageId;
-            console.log('[PageSelector] clicked pageId:', pageId, 'current:', window.currentChatChannelId);
             _closePageDropdown();
             if (pageId && String(pageId) !== String(window.currentChatChannelId)) {
-                console.log('[PageSelector] switching to page:', pageId);
                 _updatePageSelectorLabel(pageId);
                 _renderPageSelectorItems();
                 window.switchChatPage(pageId);
-            } else {
-                console.log('[PageSelector] same page, skipping');
             }
         });
     });
@@ -881,9 +877,20 @@ function _togglePageDropdown() {
     const dropdown = document.getElementById('chatPageSelectorDropdown');
     if (!container || !dropdown) return;
     const isOpen = dropdown.style.display !== 'none';
-    dropdown.style.display = isOpen ? 'none' : '';
+    if (isOpen) {
+        dropdown.style.display = 'none';
+    } else {
+        // Position fixed dropdown below the button
+        const btn = document.getElementById('chatPageSelectorBtn');
+        if (btn) {
+            const rect = btn.getBoundingClientRect();
+            dropdown.style.top = (rect.bottom + 4) + 'px';
+            dropdown.style.right = (window.innerWidth - rect.right) + 'px';
+            dropdown.style.left = '';
+        }
+        dropdown.style.display = '';
+    }
     container.classList.toggle('open', !isOpen);
-    console.log('[PageSelector] toggle dropdown:', isOpen ? 'close' : 'open', 'items:', dropdown.children.length);
 }
 
 function _closePageDropdown() {
@@ -940,11 +947,7 @@ window.repickConversation = async function() {
 };
 
 window.switchChatPage = async function(newPageId) {
-    console.log('[switchChatPage] called with:', newPageId, 'current:', window.currentChatChannelId);
-    if (!newPageId || String(newPageId) === String(window.currentChatChannelId)) {
-        console.log('[switchChatPage] guard: same page or empty, skipping');
-        return;
-    }
+    if (!newPageId || String(newPageId) === String(window.currentChatChannelId)) return;
 
     window.currentChatChannelId = newPageId;
     window.currentSendPageId = newPageId;

@@ -385,10 +385,9 @@
     transform: rotate(180deg);
 }
 
+/* Use position:fixed to escape overflow:hidden on parent chain */
 .chat-page-selector-dropdown {
-    position: absolute;
-    top: calc(100% + 4px);
-    right: 0;
+    position: fixed;
     min-width: 190px;
     max-height: 240px;
     overflow-y: auto;
@@ -396,7 +395,7 @@
     border: 1px solid var(--ap-outline-variant);
     border-radius: 10px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-    z-index: 200;
+    z-index: 10000;
 }
 
 .chat-page-selector-dropdown::-webkit-scrollbar { width: 4px; }
