@@ -464,15 +464,21 @@ router.get('/targeting/countries', async (req, res) => {
 // APP ROLES (Add/Remove Testers & Developers)
 // =====================================================
 
+// Helper: App access token (required for app roles management)
+function getAppToken() {
+    return `${FB_APP_ID}|${FB_APP_SECRET}`;
+}
+
 // GET /api/fb-ads/app/roles — List app roles
 router.get('/app/roles', async (req, res) => {
     try {
-        const data = await fbFetch(`/${FB_APP_ID}/roles`, {
-            params: { fields: 'user,role', limit: '100' }
-        });
+        const url = `${FB_GRAPH_URL}/${FB_APP_ID}/roles?access_token=${encodeURIComponent(getAppToken())}&fields=user,role&limit=100`;
+        const response = await fetch(url);
+        const data = await response.json();
+        if (data.error) return res.status(400).json({ success: false, error: data.error.message });
         res.json({ success: true, data: data.data || [] });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 
@@ -487,26 +493,34 @@ router.post('/app/roles', async (req, res) => {
             return res.status(400).json({ success: false, error: 'Invalid role. Use: administrators, developers, testers, insights users' });
         }
 
-        const data = await fbFetch(`/${FB_APP_ID}/roles`, {
+        const url = `${FB_GRAPH_URL}/${FB_APP_ID}/roles`;
+        const response = await fetch(url, {
             method: 'POST',
-            body: { user: user_id, role }
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user: user_id, role, access_token: getAppToken() })
         });
+        const data = await response.json();
+        if (data.error) return res.status(400).json({ success: false, error: data.error.message });
         res.json({ success: true, data });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 
 // DELETE /api/fb-ads/app/roles/:userId — Remove user from app
 router.delete('/app/roles/:userId', async (req, res) => {
     try {
-        const data = await fbFetch(`/${FB_APP_ID}/roles`, {
+        const url = `${FB_GRAPH_URL}/${FB_APP_ID}/roles`;
+        const response = await fetch(url, {
             method: 'DELETE',
-            body: { user: req.params.userId }
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user: req.params.userId, access_token: getAppToken() })
         });
+        const data = await response.json();
+        if (data.error) return res.status(400).json({ success: false, error: data.error.message });
         res.json({ success: true, data });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 
