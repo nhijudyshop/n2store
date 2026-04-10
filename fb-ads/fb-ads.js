@@ -80,7 +80,7 @@ const FBAds = (() => {
             } else {
                 toast('Đăng nhập bị hủy', 'error');
             }
-        }, { scope: 'ads_management,ads_read,read_insights,business_management' });
+        }, { scope: 'ads_management,ads_read,business_management' });
     }
 
     function onLoginSuccess(user) {
