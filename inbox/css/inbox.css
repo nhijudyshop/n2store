@@ -533,12 +533,12 @@ body.col-resizing .resize-handle {
 
 /* Unread — soft indigo wash with primary accent bar so it "pops" from read items */
 .conversation-item.unread {
-    background: #eef2ff;
-    border-left-color: var(--primary);
+    background: #dbeafe;
+    border-left: 3px solid var(--primary);
 }
 
 .conversation-item.unread:hover {
-    background: #e0e7ff;
+    background: #bfdbfe;
 }
 
 .conversation-item.unread .conv-name {
