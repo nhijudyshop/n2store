@@ -281,6 +281,93 @@ router.get('/recent', async (req, res) => {
 });
 
 // =====================================================
+// FB_ID ROUTES (Pancake/Facebook Customer ID)
+// =====================================================
+
+/**
+ * GET /api/v2/customers/by-fb-id/:fbId
+ * Lookup customer by Pancake fb_id (Facebook User ID)
+ */
+router.get('/by-fb-id/:fbId', async (req, res) => {
+    try {
+        const db = req.app.locals.chatDb;
+        const { fbId } = req.params;
+        if (!fbId) return res.status(400).json({ error: 'fbId required' });
+
+        const result = await db.query(
+            `SELECT c.*, COALESCE(w.balance, 0) as real_balance, COALESCE(w.virtual_balance, 0) as virtual_balance
+             FROM customers c LEFT JOIN customer_wallets w ON c.phone = w.phone
+             WHERE c.fb_id = $1`,
+            [fbId]
+        );
+
+        if (result.rows.length === 0) {
+            return res.json({ success: true, data: null });
+        }
+        res.json({ success: true, data: result.rows[0] });
+    } catch (error) {
+        handleError(res, error, 'Failed to lookup customer by fb_id');
+    }
+});
+
+/**
+ * POST /api/v2/customers/link-fb-ids
+ * Batch link fb_id to existing customers by phone match.
+ * Body: [{ fb_id, name, phone }]
+ * Logic: UPDATE customers SET fb_id = $1 WHERE phone = $2 AND fb_id IS NULL
+ * If no phone match and phone provided, create new customer.
+ */
+router.post('/link-fb-ids', async (req, res) => {
+    try {
+        const db = req.app.locals.chatDb;
+        const items = req.body;
+        if (!Array.isArray(items) || items.length === 0) {
+            return res.status(400).json({ error: 'Array of {fb_id, name, phone?} required' });
+        }
+
+        let linked = 0, created = 0, skipped = 0;
+
+        for (const item of items) {
+            const { fb_id, name, phone } = item;
+            if (!fb_id) { skipped++; continue; }
+
+            // Skip if fb_id already linked
+            const existing = await db.query('SELECT id FROM customers WHERE fb_id = $1', [fb_id]);
+            if (existing.rows.length > 0) { skipped++; continue; }
+
+            // Try linking by phone
+            if (phone) {
+                const norm = normalizePhone(phone);
+                if (norm) {
+                    const updated = await db.query(
+                        'UPDATE customers SET fb_id = $1 WHERE phone = $2 AND fb_id IS NULL RETURNING id',
+                        [fb_id, norm]
+                    );
+                    if (updated.rows.length > 0) { linked++; continue; }
+
+                    // Phone not in DB → create new customer
+                    await db.query(
+                        `INSERT INTO customers (phone, name, fb_id) VALUES ($1, $2, $3)
+                         ON CONFLICT (phone) DO UPDATE SET fb_id = EXCLUDED.fb_id WHERE customers.fb_id IS NULL`,
+                        [norm, name || 'Khách hàng', fb_id]
+                    );
+                    created++;
+                    continue;
+                }
+            }
+
+            // No phone → try matching by exact name (risky, skip if ambiguous)
+            skipped++;
+        }
+
+        console.log(`[CUSTOMERS] link-fb-ids: linked=${linked}, created=${created}, skipped=${skipped}`);
+        res.json({ success: true, linked, created, skipped });
+    } catch (error) {
+        handleError(res, error, 'Failed to link fb_ids');
+    }
+});
+
+// =====================================================
 // PARAMETERIZED ROUTES (/:id and sub-routes)
 // =====================================================
 

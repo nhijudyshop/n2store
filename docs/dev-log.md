@@ -34,6 +34,13 @@
 
 ## 2026-04-09
 
+### [render][inbox] Thêm fb_id vào bảng customers + auto-link từ Pancake ✅
+| | |
+|---|---|
+| **Files** | `render.com/migrations/027_add_fb_id_to_customers.sql`, `render.com/routes/v2/customers.js`, `inbox/js/inbox-data.js`, `inbox/js/inbox-chat.js` |
+| **Chi tiết** | **Migration 027:** Thêm cột `fb_id VARCHAR(50)` nullable, UNIQUE WHERE NOT NULL. **API:** `GET /api/v2/customers/by-fb-id/:fbId` lookup, `POST /api/v2/customers/link-fb-ids` batch link by phone match. **Auto-link:** `inbox-data.js` sau `loadConversations` gửi batch `{fb_id, name, phone}` lên Render DB (fire-and-forget). **Search fallback:** `performSearch` nếu local name index miss → query customer DB → nếu có fb_id → gọi `searchByCustomerId`. |
+| **Status** | ✅ Done |
+
 ### [inbox] Local customer name index — gõ tên tự động tìm theo customer ID ✅
 | | |
 |---|---|

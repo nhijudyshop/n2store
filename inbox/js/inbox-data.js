@@ -400,10 +400,51 @@ class InboxDataManager {
 
             this.recalculateGroupCounts();
             this.buildMaps();
+
+            // Auto-link fb_id → customer DB (fire-and-forget, không block UI)
+            this._linkFbIdsToCustomerDB(rawConversations);
+
             return this.conversations;
         } catch (error) {
             console.error('[InboxData] Error loading conversations:', error);
             return [];
+        }
+    }
+
+    /**
+     * Send batch of fb_id + name + phone to Render DB to link with customers table.
+     * Fire-and-forget: không await, không block UI.
+     */
+    _linkFbIdsToCustomerDB(rawConversations) {
+        try {
+            // Extract unique fb_id → { name, phone } from raw conversations
+            const seen = new Set();
+            const items = [];
+            for (const conv of rawConversations) {
+                const cust = conv.customers?.[0];
+                const fbId = cust?.fb_id || conv.from_id || conv.from?.id;
+                if (!fbId || seen.has(fbId)) continue;
+                seen.add(fbId);
+                // Get phone from recent_phone_numbers if available
+                const phone = conv.recent_phone_numbers?.[0] || null;
+                items.push({ fb_id: fbId, name: cust?.name || conv.from?.name || '', phone });
+            }
+            if (items.length === 0) return;
+
+            const workerUrl = InboxApiConfig?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+            fetch(`${workerUrl}/api/v2/customers/link-fb-ids`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(items),
+            }).then(r => r.json()).then(data => {
+                if (data.linked > 0 || data.created > 0) {
+                    console.log(`[InboxData] Linked ${data.linked} + created ${data.created} customer fb_ids`);
+                }
+            }).catch(e => {
+                console.warn('[InboxData] link-fb-ids failed:', e.message);
+            });
+        } catch (e) {
+            console.warn('[InboxData] _linkFbIdsToCustomerDB error:', e);
         }
     }
 

@@ -3576,9 +3576,32 @@ class InboxChatController {
 
             // Local name index: tra cứu fb_id từ tên khách đã load → gọi customer search ngay
             if (!isFbId && pdm.searchByCustomerId && this.data.lookupFbIdByName) {
-                const indexedFbId = this.data.lookupFbIdByName(trimmed);
+                let indexedFbId = this.data.lookupFbIdByName(trimmed);
+
+                // Nếu local index miss → try customer DB (has fb_id linked from previous sessions)
+                if (!indexedFbId) {
+                    try {
+                        const workerUrl = InboxApiConfig?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+                        const dbRes = await fetch(`${workerUrl}/api/v2/customers/search`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ query: trimmed, limit: 1 }),
+                        });
+                        if (dbRes.ok) {
+                            const dbData = await dbRes.json();
+                            const cust = dbData.data?.[0] || dbData.customers?.[0];
+                            if (cust?.fb_id) {
+                                indexedFbId = cust.fb_id;
+                                console.log(`[InboxChat] DB customer hit: "${trimmed}" → fb_id ${indexedFbId}`);
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('[InboxChat] Customer DB search failed:', e.message);
+                    }
+                }
+
                 if (indexedFbId) {
-                    console.log(`[InboxChat] Name index hit: "${trimmed}" → fb_id ${indexedFbId}`);
+                    console.log(`[InboxChat] Name → fb_id ${indexedFbId}, searching conversations...`);
                     const cusResult = await pdm.searchByCustomerId(indexedFbId);
                     if (this.searchQuery !== query) return;
                     this.searchResults = cusResult.conversations || [];
