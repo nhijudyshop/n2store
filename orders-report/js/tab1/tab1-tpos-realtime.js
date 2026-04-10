@@ -104,6 +104,9 @@
         // Add to table
         addOrderToTable(order);
 
+        // Auto-tag THẺ KHÁCH LẠ nếu khách không có SĐT
+        autoTagTheKhachLa(code, order);
+
         // Fetch fresh PBH cho đơn mới
         if (typeof window.fetchAndUpdateInvoiceForCode === 'function') {
             window.fetchAndUpdateInvoiceForCode(code, order.Id);
@@ -306,6 +309,36 @@
         }
     }
 
+    // ===== Auto-tag THẺ KHÁCH LẠ nếu khách không có SĐT =====
+    function autoTagTheKhachLa(orderCode, order) {
+        const phone = (order.Telephone || '').trim();
+        if (phone) return; // Có SĐT → skip
+
+        // Chờ ProcessingTagState load xong, retry tối đa 3 lần
+        let attempts = 0;
+        const tryTag = () => {
+            attempts++;
+            if (typeof window.toggleOrderFlag !== 'function' || !window.ProcessingTagState?._isLoaded) {
+                if (attempts < 3) {
+                    setTimeout(tryTag, 2000);
+                }
+                return;
+            }
+
+            // Kiểm tra đã có flag THE_KHACH_LA chưa (tránh duplicate)
+            const data = window.ProcessingTagState.getOrderData(orderCode);
+            const flags = data?.flags || [];
+            const alreadyHas = flags.some(f => (f.id || f) === 'THE_KHACH_LA');
+            if (alreadyHas) return;
+
+            console.log('[TPOS-RT] Auto-tag THẺ KHÁCH LẠ (no phone):', orderCode);
+            window.toggleOrderFlag(orderCode, 'THE_KHACH_LA', 'Tự Động (không SĐT)');
+        };
+
+        // Delay 1s để ProcessingTagState kịp xử lý đơn mới
+        setTimeout(tryTag, 1000);
+    }
+
     // ===== Add Order to Table =====
     function addOrderToTable(order) {
         if (typeof allData === 'undefined') return;
@@ -486,6 +519,7 @@
                 const order = await fetchOrderByCode(code);
                 if (order) {
                     addOrderToTable(order);
+                    autoTagTheKhachLa(code, order);
                     markProcessed(code);
                     console.log('[TPOS-RT] Gap fill: added order', code, 'STT:', order.SessionIndex);
                 }
