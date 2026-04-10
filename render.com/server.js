@@ -253,6 +253,9 @@ app.get('/api/auth/token/:provider', requireApiKey, async (req, res) => {
         const t = await authTokenStore.getToken(req.params.provider);
         res.json({ token: t.token, expires_at: t.expires_at, metadata: t.metadata });
     } catch (e) {
+        if (e.message && e.message.startsWith('pancake:not_found')) {
+            return res.status(404).json({ error: 'no_pancake_token', message: 'Browser must push token via /api/realtime/start first' });
+        }
         console.error('[AUTH-API] getToken error:', e.message);
         res.status(500).json({ error: e.message });
     }
@@ -895,6 +898,28 @@ app.post('/api/realtime/start', async (req, res) => {
 
     // Save credentials for auto-reconnect on server restart
     await saveRealtimeCredentials(chatDbPool, 'pancake', { token, userId, pageIds, cookie });
+
+    // Also cache in auth_token_cache so /api/auth/token/pancake can serve all clients
+    try {
+        let expiresAt = new Date(Date.now() + 7 * 24 * 3600 * 1000); // default 7 days
+        try {
+            const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8'));
+            if (payload.exp) expiresAt = new Date(payload.exp * 1000);
+        } catch (_) { /* use default */ }
+
+        await chatDbPool.query(`
+            INSERT INTO auth_token_cache (provider, token, refresh_token, expires_at, metadata, updated_at)
+            VALUES ('pancake', $1, NULL, $2, $3, NOW())
+            ON CONFLICT (provider) DO UPDATE SET
+                token = EXCLUDED.token,
+                expires_at = EXCLUDED.expires_at,
+                metadata = EXCLUDED.metadata,
+                updated_at = NOW()
+        `, [token, expiresAt, JSON.stringify({ userId, provider: 'pancake' })]);
+        console.log(`[AUTH-STORE] ✅ Pancake token cached in auth_token_cache (expires ${expiresAt.toISOString()})`);
+    } catch (e) {
+        console.warn('[AUTH-STORE] Failed to cache pancake token:', e.message);
+    }
 
     res.json({ success: true, message: 'Realtime client started on server (credentials saved for auto-reconnect)' });
 });

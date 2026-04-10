@@ -8,6 +8,15 @@
 
 ## 2026-04-10
 
+### [render][orders] Pancake token cache — Phase 2 ✅
+| | |
+|---|---|
+| **Files** | `render.com/services/auth-token-store.js`, `render.com/server.js`, `orders-report/js/managers/pancake-token-manager.js` |
+| **Why** | Pancake JWT cũng mất khi F5/cold-start. Cần shared cache để mọi tab/máy dùng được ngay mà không cần user login lại. |
+| **What** | 1/ `auth-token-store.js`: thêm pancake provider — read-only (không có OAuth2 password grant), `getToken('pancake')` trả về token hiện có hoặc throw `pancake:not_found`. 2/ `server.js /api/realtime/start`: sau khi save vào `realtime_credentials`, cũng upsert vào `auth_token_cache` (decode JWT exp → set `expires_at`). 3/ `GET /api/auth/token/pancake`: trả 404 nếu chưa có token. 4/ `pancake-token-manager.js`: thêm `tryRenderCache()` + Step 0 trong `getToken()` — chỉ gọi Render nếu memory+localStorage rỗng (tránh network overhead mỗi call). Hydrate memory+localStorage sau khi lấy từ Render. |
+| **Flow** | Browser login → `/api/realtime/start` → upsert `auth_token_cache[pancake]` → mọi tab mới gọi `GET /api/auth/token/pancake` → nếu còn hạn trả về → hydrate localStorage. Khi token hết hạn → 401/null → user re-login → push lại. |
+| **Status** | ✅ Done |
+
 ### [render][orders] TPOS token cache — PostgreSQL + Render API + CF fallback ✅
 | | |
 |---|---|

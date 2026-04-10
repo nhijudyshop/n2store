@@ -9,11 +9,15 @@
 // MIGRATION: Changed from Realtime Database to Firestore
 // =====================================================
 // Priority order for token retrieval:
+// 0. Render server cache (shared across machines, survives cold start)
 // 1. In-memory cache (fastest)
 // 2. localStorage (fast, no network)
 // 3. Firestore (network required, backup)
 // 4. Cookie (fallback)
 // =====================================================
+
+const _RENDER_URL = 'https://n2store-fallback.onrender.com';
+const _CLIENT_API_KEY = window.N2STORE_CLIENT_API_KEY || '8a284928648a1fcbeab174c2cf7bd7081fa2917a3b5f926a1af371c467716976';
 
 class PancakeTokenManager {
     constructor() {
@@ -839,7 +843,49 @@ class PancakeTokenManager {
      * Tự động lưu token mới vào localStorage và Firebase
      * @returns {Promise<string|null>}
      */
+    /**
+     * Step 0: Try fetching Pancake token from Render server cache.
+     * The server stores whatever the browser last pushed via /api/realtime/start.
+     * Returns token string if found and not expired, null otherwise.
+     */
+    async tryRenderCache() {
+        try {
+            const resp = await fetch(`${_RENDER_URL}/api/auth/token/pancake`, {
+                headers: { 'X-API-Key': _CLIENT_API_KEY },
+                signal: AbortSignal.timeout(5000),
+            });
+            if (!resp.ok) return null; // 404 = not pushed yet, 401 = wrong key
+            const data = await resp.json();
+            if (!data.token) return null;
+            // Validate expiry client-side
+            const payload = this.decodeToken(data.token);
+            if (!payload || this.isTokenExpired(payload.exp)) {
+                console.log('[PANCAKE-TOKEN] Render cache token expired, skipping');
+                return null;
+            }
+            console.log('[PANCAKE-TOKEN] ✅ Token from Render cache (exp:', new Date(payload.exp * 1000).toISOString(), ')');
+            // Hydrate memory + localStorage so next calls are instant
+            this.currentToken = data.token;
+            this.currentTokenExpiry = payload.exp;
+            this.saveTokenToLocalStorage(data.token, payload.exp);
+            return data.token;
+        } catch (e) {
+            console.log('[PANCAKE-TOKEN] Render cache unavailable:', e.message);
+            return null;
+        }
+    }
+
     async getToken() {
+        // Priority 0: Render server cache (shared across machines)
+        // Only check if memory + localStorage are empty (avoid extra network on every call)
+        if (!this.currentToken || this.isTokenExpired(this.currentTokenExpiry)) {
+            const localToken = this.getTokenFromLocalStorage();
+            if (!localToken) {
+                const renderToken = await this.tryRenderCache();
+                if (renderToken) return renderToken;
+            }
+        }
+
         // Priority 1: Check current token in memory
         if (this.currentToken && !this.isTokenExpired(this.currentTokenExpiry)) {
             return this.currentToken;

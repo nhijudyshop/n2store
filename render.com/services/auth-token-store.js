@@ -26,11 +26,21 @@ function createAuthTokenStore(pool) {
         if (row.rows.length > 0) {
             const t = row.rows[0];
             const msUntilExpire = new Date(t.expires_at).getTime() - Date.now();
+
+            // Pancake: browser-pushed JWT, no server refresh — always return what we have.
+            // Client decodes exp and decides if still usable; it will re-push when it re-logs in.
+            if (provider === 'pancake') {
+                return { token: t.token, refresh_token: null, expires_at: t.expires_at, metadata: t.metadata };
+            }
+
             if (msUntilExpire > REFRESH_BUFFER_MS) {
                 return { token: t.token, refresh_token: t.refresh_token, expires_at: t.expires_at, metadata: t.metadata };
             }
             // Token near expiry → try refresh
             console.log(`[AUTH-STORE] Token ${provider} expiring soon (${Math.round(msUntilExpire / 3600000)}h), refreshing...`);
+        } else if (provider === 'pancake') {
+            // No pancake token in DB yet — browser hasn't pushed one
+            throw new Error('pancake:not_found — browser must push token via /api/realtime/start first');
         }
         // No token or expired → refresh
         return await refreshAndStore(provider);
@@ -49,6 +59,10 @@ function createAuthTokenStore(pool) {
     }
 
     async function _doRefresh(provider) {
+        // Pancake JWT is browser-session based — no server-side refresh available.
+        // Token must be pushed by browser via /api/realtime/start.
+        if (provider === 'pancake') throw new Error(`pancake token must be pushed by browser — cannot auto-refresh`);
+
         const creds = _getCredentials(provider);
         if (!creds) throw new Error(`Unknown provider: ${provider}`);
 
