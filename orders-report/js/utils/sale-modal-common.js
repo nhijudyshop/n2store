@@ -874,10 +874,10 @@ function populateSaleOrderLinesFromAPI(orderLines) {
 // =====================================================
 // ITEM QUANTITY / REMOVE (with API sync)
 // =====================================================
+// Cập nhật số lượng LOCAL only — chỉ ảnh hưởng payload PBH, không PUT lên TPOS giỏ hàng
 async function updateSaleItemQuantityFromAPI(index, value) {
     if (!currentSaleOrderData || !currentSaleOrderData.orderLines) return;
 
-    const oldQty = currentSaleOrderData.orderLines[index].ProductUOMQty || currentSaleOrderData.orderLines[index].Quantity || 1;
     const newQty = parseInt(value) || 1;
 
     currentSaleOrderData.orderLines[index].ProductUOMQty = newQty;
@@ -892,23 +892,9 @@ async function updateSaleItemQuantityFromAPI(index, value) {
         totalAmount += itemQty * price;
     });
     updateSaleTotals(totalQuantity, totalAmount);
-
-    // Sync to API (updateSaleOrderWithAPI from tab1-sale.js)
-    if (typeof updateSaleOrderWithAPI === 'function') {
-        try {
-            await updateSaleOrderWithAPI();
-        } catch (apiError) {
-            console.error('[SALE-UPDATE-QTY] API update failed:', apiError);
-            currentSaleOrderData.orderLines[index].ProductUOMQty = oldQty;
-            currentSaleOrderData.orderLines[index].Quantity = oldQty;
-            populateSaleOrderLinesFromAPI(currentSaleOrderData.orderLines);
-            if (window.notificationManager) {
-                window.notificationManager.error('Không thể cập nhật số lượng. Vui lòng thử lại.');
-            }
-        }
-    }
 }
 
+// Xóa SP LOCAL only — chỉ bỏ khỏi payload PBH, giỏ hàng TPOS giữ nguyên
 async function removeSaleItemFromAPI(index) {
     if (!currentSaleOrderData || !currentSaleOrderData.orderLines) return;
 
@@ -916,34 +902,14 @@ async function removeSaleItemFromAPI(index) {
         currentSaleOrderData.orderLines[index].ProductName || 'sản phẩm này';
 
     const confirmed = window.notificationManager ?
-        await window.notificationManager.confirm(`Bạn có chắc muốn xóa ${productName}?`, 'Xóa sản phẩm') : true;
+        await window.notificationManager.confirm(`Bạn có chắc muốn xóa ${productName} khỏi phiếu bán hàng?`, 'Xóa sản phẩm') : true;
     if (!confirmed) return;
-
-    const removedItem = currentSaleOrderData.orderLines[index];
-    const removedIndex = index;
 
     currentSaleOrderData.orderLines.splice(index, 1);
     populateSaleOrderLinesFromAPI(currentSaleOrderData.orderLines);
 
-    // Sync to API
-    if (typeof updateSaleOrderWithAPI === 'function') {
-        try {
-            await updateSaleOrderWithAPI();
-            if (window.notificationManager) {
-                window.notificationManager.success(`Đã xóa ${productName}`);
-            }
-        } catch (apiError) {
-            console.error('[SALE-REMOVE-PRODUCT] API update failed:', apiError);
-            currentSaleOrderData.orderLines.splice(removedIndex, 0, removedItem);
-            populateSaleOrderLinesFromAPI(currentSaleOrderData.orderLines);
-            if (window.notificationManager) {
-                window.notificationManager.error('Không thể xóa sản phẩm. Vui lòng thử lại.');
-            }
-        }
-    } else {
-        if (window.notificationManager) {
-            window.notificationManager.success(`Đã xóa ${productName}`);
-        }
+    if (window.notificationManager) {
+        window.notificationManager.success(`Đã xóa ${productName} khỏi phiếu bán hàng`);
     }
 }
 
