@@ -857,7 +857,16 @@
                                 <option value="reply_comment">Trả lời công khai</option>
                                 <option value="private_replies">Nhắn riêng</option>
                             </select>
-                            <select id="chatPageSelect" style="display:none" onchange="window.switchChatPage(this.value)"></select>
+                            <div class="chat-page-selector" id="chatPageSelector" style="display:none">
+                                <button class="chat-page-selector-btn" id="chatPageSelectorBtn" type="button">
+                                    <span class="material-symbols-outlined" style="font-size:16px">storefront</span>
+                                    <span id="chatPageSelectorLabel">Page</span>
+                                    <span class="material-symbols-outlined chat-page-arrow" style="font-size:16px">expand_more</span>
+                                </button>
+                                <div class="chat-page-selector-dropdown" id="chatPageSelectorDropdown" style="display:none">
+                                    <!-- Rendered by JS -->
+                                </div>
+                            </div>
                             <button class="chat-panel-toggle-btn" id="chatPanelToggleBtn" onclick="window.toggleChatPanel()" title="Mở/đóng panel sản phẩm">
                                 <span class="material-symbols-outlined">dock_to_left</span>
                             </button>

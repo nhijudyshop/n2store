@@ -8,6 +8,21 @@
 
 ## 2026-04-10
 
+### [chat] Page selector popup — thay select thành danh sách đẹp giống inbox ✅
+| | |
+|---|---|
+| **Files** | `orders-report/tab1-orders.html`, `orders-report/css/tab1-chat-modal.css`, `orders-report/js/tab1/tab1-chat-core.js` |
+| **Why** | `<select>` HTML thô quá basic, user muốn popup giống trang inbox: avatar + tên page + checkmark page đang chọn. |
+| **HTML** | Thay `<select id="chatPageSelect">` bằng `<div class="chat-page-selector">` chứa button trigger + dropdown container. |
+| **CSS** | Xoá CSS `#chatPageSelect`, thêm `.chat-page-selector-*` classes: popup absolute right, border-radius 10px, shadow, thin scrollbar, active state `--ap-on-primary-container`, avatar 28px, checkmark icon visibility toggle. Arrow rotate 180° khi open. |
+| **JS** | Refactor `_populatePageSelector()` → render items HTML với avatar (img + onerror placeholder) + name + check icon. Thêm `_togglePageDropdown`, `_closePageDropdown`, `_updatePageSelectorActive`, `_renderPageSelectorItems`. Click-outside handler. Page drift sync đổi từ `chatPageSelect.value =` sang `_updatePageSelectorActive()`. Single-select (khác inbox multi-select). |
+| **Status** | ✅ Done |
+
+### [render][fb-ads] Facebook Ads Manager — MVP
+- **Files:** `fb-ads/index.html`, `fb-ads/fb-ads.css`, `fb-ads/fb-ads.js`, `render.com/routes/fb-ads.js`, `render.com/server.js`
+- **Chi tiết:** Build trang quản lý quảng cáo Facebook tích hợp Marketing API v21.0. Backend proxy giữ token server-side. Frontend có Facebook Login, auto-detect ad accounts, 3 tabs (Campaigns/Ad Sets/Ads), metrics bar, search, date range filter, create campaign modal, toggle status. Env vars FB_APP_ID + FB_APP_SECRET đã thêm vào Render.
+- **Status:** ✅ Done
+
 ### [worker][shared] Follow-up: CF Worker proxy auth + xóa sót API key
 - **Files:** `cloudflare-worker/modules/handlers/token-handler.js`, `shared/js/pancake-token-manager.js`
 - **Chi tiết:** (1) CF Worker `/api/token` giờ hỗ trợ 2 mode: **proxy auth** (JSON `{companyId}` → Worker inject credentials server-side) + **legacy passthrough** (form-urlencoded, backward compat). Credentials chỉ tồn tại trong Worker, không còn trong browser JS. (2) Xóa hardcoded API key cuối cùng trong `shared/js/pancake-token-manager.js`.

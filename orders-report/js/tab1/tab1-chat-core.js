@@ -263,6 +263,7 @@ window.closeChatModal = function() {
 
     // Stop chat polling
     _stopChatPolling();
+    _closePageDropdown();
 
     // Cleanup Firebase realtime listeners to prevent memory leaks
     if (window._chatRealtimeUnsubscribe) {
@@ -394,11 +395,8 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken) {
     if (String(convPageId) !== String(pageId)) {
         window.currentChatChannelId = convPageId;
         window.currentSendPageId = convPageId;
-        // Sync dropdown so UI doesn't lie about which page we're chatting from
-        const sel = document.getElementById('chatPageSelect');
-        if (sel && sel.value !== String(convPageId)) {
-            sel.value = String(convPageId);
-        }
+        // Sync popup so UI doesn't lie about which page we're chatting from
+        _updatePageSelectorActive(convPageId);
     }
 
     // Enrich thread_id if missing (needed for extension bypass / GET_GLOBAL_ID_FOR_CONV)
@@ -770,27 +768,115 @@ function _updateTypeToggle(type) {
 // =====================================================
 
 function _populatePageSelector() {
-    const select = document.getElementById('chatPageSelect');
-    if (!select) return;
+    const container = document.getElementById('chatPageSelector');
+    if (!container) return;
 
     const pdm = window.pancakeDataManager;
     if (!pdm || !pdm.pages || pdm.pages.length <= 1) {
-        select.style.display = 'none';
+        container.style.display = 'none';
         return;
     }
 
-    select.style.display = '';
-    select.innerHTML = '';
+    container.style.display = '';
 
-    for (const page of pdm.pages) {
-        const option = document.createElement('option');
-        option.value = page.id;
-        option.textContent = page.name || page.id;
-        if (String(page.id) === String(window.currentChatChannelId)) {
-            option.selected = true;
-        }
-        select.appendChild(option);
+    // Render dropdown items
+    _renderPageSelectorItems();
+
+    // Update label to current page
+    _updatePageSelectorLabel(window.currentChatChannelId);
+
+    // Bind toggle (only once)
+    const btn = document.getElementById('chatPageSelectorBtn');
+    if (btn && !btn._pageSelectorBound) {
+        btn._pageSelectorBound = true;
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            _togglePageDropdown();
+        });
+        // Click-outside to close
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.chat-page-selector')) {
+                _closePageDropdown();
+            }
+        });
     }
+}
+
+function _renderPageSelectorItems() {
+    const dropdown = document.getElementById('chatPageSelectorDropdown');
+    if (!dropdown) return;
+
+    const pdm = window.pancakeDataManager;
+    const pages = pdm?.pages || [];
+    const currentId = String(window.currentChatChannelId || '');
+
+    let html = '';
+    for (const page of pages) {
+        const pageId = String(page.id);
+        const name = page.name || page.id;
+        const isActive = pageId === currentId;
+        const initial = (name || 'P').charAt(0).toUpperCase();
+        const avatarHtml = page.avatar
+            ? `<img src="${page.avatar}" class="chat-page-item-avatar" alt="" onerror="this.outerHTML='<div class=\\'chat-page-item-avatar-ph\\'>${initial}</div>'">`
+            : `<div class="chat-page-item-avatar-ph">${initial}</div>`;
+
+        html += `<div class="chat-page-item${isActive ? ' active' : ''}" data-page-id="${pageId}">
+            ${avatarHtml}
+            <span class="chat-page-item-name">${_escapeHtml(name)}</span>
+            <span class="material-symbols-outlined chat-page-item-check">check</span>
+        </div>`;
+    }
+
+    dropdown.innerHTML = html;
+
+    // Bind clicks
+    dropdown.querySelectorAll('.chat-page-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const pageId = item.dataset.pageId;
+            _closePageDropdown();
+            if (pageId && pageId !== String(window.currentChatChannelId)) {
+                _updatePageSelectorLabel(pageId);
+                _renderPageSelectorItems();
+                window.switchChatPage(pageId);
+            }
+        });
+    });
+}
+
+function _updatePageSelectorLabel(pageId) {
+    const label = document.getElementById('chatPageSelectorLabel');
+    if (!label) return;
+    const pdm = window.pancakeDataManager;
+    const page = (pdm?.pages || []).find(p => String(p.id) === String(pageId));
+    label.textContent = page?.name || 'Page';
+}
+
+function _updatePageSelectorActive(pageId) {
+    _updatePageSelectorLabel(pageId);
+    _renderPageSelectorItems();
+}
+
+function _togglePageDropdown() {
+    const container = document.getElementById('chatPageSelector');
+    const dropdown = document.getElementById('chatPageSelectorDropdown');
+    if (!container || !dropdown) return;
+    const isOpen = dropdown.style.display !== 'none';
+    dropdown.style.display = isOpen ? 'none' : '';
+    container.classList.toggle('open', !isOpen);
+}
+
+function _closePageDropdown() {
+    const container = document.getElementById('chatPageSelector');
+    const dropdown = document.getElementById('chatPageSelectorDropdown');
+    if (dropdown) dropdown.style.display = 'none';
+    if (container) container.classList.remove('open');
+}
+
+function _escapeHtml(str) {
+    const el = document.createElement('span');
+    el.textContent = str;
+    return el.innerHTML;
 }
 
 window.switchChatPage = async function(newPageId) {
