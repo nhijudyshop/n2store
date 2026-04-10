@@ -1126,10 +1126,40 @@ const FBAds = (() => {
         const response = await fetch(url, fetchOptions);
         const data = await response.json();
         if (!data.success) {
+            // Auto-reconnect: if server lost token (restart), re-send FB token
+            if (data.error && data.error.includes('Not authenticated') && !options._retried && typeof FB !== 'undefined') {
+                console.log('[FB-ADS] Token lost, auto-reconnecting...');
+                const reauthed = await autoReconnect();
+                if (reauthed) {
+                    return api(endpoint, { ...options, _retried: true });
+                }
+            }
             console.error('[FB-ADS] API error:', endpoint, data);
             throw new Error(data.error || 'Unknown error');
         }
         return data;
+    }
+
+    async function autoReconnect() {
+        return new Promise(resolve => {
+            FB.getLoginStatus(function(response) {
+                if (response.status === 'connected' && response.authResponse) {
+                    const { accessToken, userID } = response.authResponse;
+                    FB.api('/me', { fields: 'name' }, async function(me) {
+                        try {
+                            await fetch(API_BASE + '/auth/token', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ accessToken, userID, name: me?.name || 'User' })
+                            }).then(r => r.json());
+                            console.log('[FB-ADS] Auto-reconnected successfully');
+                            toast('Đã tự động kết nối lại', 'info');
+                            resolve(true);
+                        } catch (e) { resolve(false); }
+                    });
+                } else { resolve(false); }
+            });
+        });
     }
 
     function fmtCurrency(v) {
