@@ -39,9 +39,23 @@ const FBAds = (() => {
     // =====================================================
     async function checkAuthStatus() {
         try {
-            const res = await api('/auth/status');
-            if (res.authenticated) onLoginSuccess(res.user);
-        } catch (e) { /* not authenticated */ }
+            const res = await fetch(API_BASE + '/auth/status').then(r => r.json());
+            if (res.success && res.authenticated) {
+                onLoginSuccess(res.user);
+                return;
+            }
+        } catch (e) { /* server error */ }
+
+        // Server not authenticated — try auto-reconnect via FB SDK
+        if (typeof FB !== 'undefined') {
+            const reconnected = await autoReconnect();
+            if (reconnected) {
+                const res = await fetch(API_BASE + '/auth/status').then(r => r.json());
+                if (res.success && res.authenticated) {
+                    onLoginSuccess(res.user);
+                }
+            }
+        }
     }
 
     function login() {
