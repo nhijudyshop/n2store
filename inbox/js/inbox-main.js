@@ -158,19 +158,31 @@ async function initInboxApp() {
 
     // Initialize chat controller (render cache nếu có, hoặc loading state nếu chưa)
     const chatController = new InboxChatController(dataManager);
+
+    // Helper: khởi tạo WebSocket + order controller sau khi network sẵn sàng
+    const initPostNetwork = async () => {
+        const socketConnected = await chatController.initializeWebSocket();
+        if (!socketConnected) {
+            console.log('[Inbox] WebSocket unavailable, using polling fallback');
+            chatController.startAutoRefresh();
+        }
+        chatController.updatePageUnreadCounts();
+        dataManager.fetchPendingFromServer();
+    };
+
     if (hasCache) {
         console.log('[Inbox] ⚡ Hiển thị UI từ cache, refresh nền đang chạy...');
         chatController.init();
         window.inboxChat = chatController;
 
         // Refresh từ Pancake ở background — không block UI
-        dataManager.init().then(() => {
+        dataManager.init().then(async () => {
             console.log('[Inbox] ✅ Background refresh xong, re-render');
             chatController.renderPageSelector();
             chatController.renderConversationList();
             chatController.renderGroupStats();
-            chatController.updatePageUnreadCounts();
             if (typeof lucide !== 'undefined') lucide.createIcons();
+            await initPostNetwork();
         }).catch(err => {
             console.error('[Inbox] Background refresh failed:', err);
         });
@@ -179,25 +191,13 @@ async function initInboxApp() {
         await dataManager.init();
         chatController.init();
         window.inboxChat = chatController;
+        await initPostNetwork();
     }
 
     // Initialize order controller
     const orderController = new InboxOrderController(dataManager);
     orderController.init();
     window.inboxOrders = orderController;
-
-    // Initialize WebSocket real-time (like tpos-pancake)
-    const socketConnected = await chatController.initializeWebSocket();
-    if (!socketConnected) {
-        console.log('[Inbox] WebSocket unavailable, using polling fallback');
-        chatController.startAutoRefresh();
-    }
-
-    // Update page unread counts
-    chatController.updatePageUnreadCounts();
-
-    // Fetch pending customers from Render DB (merge unread data)
-    dataManager.fetchPendingFromServer();
 
     // Listen for account changes from Pancake Settings modal
     window.addEventListener('pancakeAccountChanged', async () => {

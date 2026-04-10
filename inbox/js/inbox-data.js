@@ -78,11 +78,6 @@ class InboxDataManager {
     }
 
     /**
-     * Initialize Pancake managers and load data
-     * Token manager: orders-report (no Firestore timeout, loads accounts from Firebase)
-     * Data manager: tpos-pancake (has built-in IG page filtering)
-     */
-    /**
      * Sync init: load groups, local state, and conversations cache from localStorage.
      * Trả về true nếu đã có cache (UI có thể render ngay).
      * Phải gọi initNetwork() sau để refresh data từ Pancake.
