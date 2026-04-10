@@ -8,6 +8,11 @@
 
 ## 2026-04-10
 
+### [worker][shared] Follow-up: CF Worker proxy auth + xóa sót API key
+- **Files:** `cloudflare-worker/modules/handlers/token-handler.js`, `shared/js/pancake-token-manager.js`
+- **Chi tiết:** (1) CF Worker `/api/token` giờ hỗ trợ 2 mode: **proxy auth** (JSON `{companyId}` → Worker inject credentials server-side) + **legacy passthrough** (form-urlencoded, backward compat). Credentials chỉ tồn tại trong Worker, không còn trong browser JS. (2) Xóa hardcoded API key cuối cùng trong `shared/js/pancake-token-manager.js`.
+- **Status:** ✅ Done
+
 ### [orders] Security + Bug fix audit — 17 issues fixed across 14 files
 | | |
 |---|---|

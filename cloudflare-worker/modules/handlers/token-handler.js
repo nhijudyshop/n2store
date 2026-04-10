@@ -38,19 +38,61 @@ function extractUsernameFromBody(body) {
     return '_default';
 }
 
+// Server-side TPOS credentials — browser no longer sends these
+const CREDENTIALS_BY_COMPANY = {
+    1: { grant_type: 'password', username: 'nvktlive1', password: 'Aa@28612345678', client_id: 'tmtWebApp' },
+    2: { grant_type: 'password', username: 'nvktshop1', password: 'Aa@28612345678', client_id: 'tmtWebApp' }
+};
+
 /**
  * Handle POST /api/token
- * Fetches and caches TPOS authentication token
+ * Fetches and caches TPOS authentication token.
+ *
+ * Supports two modes:
+ *   1. Proxy auth (NEW): JSON body `{ companyId: 1|2 }` — credentials stored server-side
+ *   2. Legacy passthrough: form-urlencoded body — forwarded as-is (backward compat)
+ *
  * @param {Request} request
  * @returns {Promise<Response>}
  */
 export async function handleTokenRequest(request) {
-    // Read body to extract username for cache key
+    // Read body once
     const bodyBuffer = await request.arrayBuffer();
     const bodyText = new TextDecoder().decode(bodyBuffer);
-    const cacheKey = extractUsernameFromBody(bodyText);
 
-    console.log(`[TOKEN-HANDLER] Token request for: "${cacheKey}"`);
+    // Detect mode: JSON proxy auth vs legacy form passthrough
+    const contentType = request.headers.get('Content-Type') || '';
+    const isJsonProxy = contentType.includes('application/json');
+
+    let tposBody;
+    let cacheKey;
+
+    if (isJsonProxy) {
+        // NEW: Proxy auth — browser sends { companyId } , we inject credentials
+        try {
+            const { companyId } = JSON.parse(bodyText);
+            const cid = parseInt(companyId, 10) || 1;
+            const creds = CREDENTIALS_BY_COMPANY[cid] || CREDENTIALS_BY_COMPANY[1];
+            cacheKey = creds.username;
+
+            // Build form body for TPOS
+            const form = new URLSearchParams();
+            form.append('grant_type', creds.grant_type);
+            form.append('username', creds.username);
+            form.append('password', creds.password);
+            form.append('client_id', creds.client_id);
+            tposBody = form.toString();
+
+            console.log(`[TOKEN-HANDLER] Proxy auth for company ${cid} (user: ${creds.username})`);
+        } catch (e) {
+            return errorResponse('Invalid JSON body: ' + e.message, 400);
+        }
+    } else {
+        // LEGACY: Form passthrough — forward as-is
+        cacheKey = extractUsernameFromBody(bodyText);
+        tposBody = bodyBuffer;
+        console.log(`[TOKEN-HANDLER] Legacy passthrough for: "${cacheKey}"`);
+    }
 
     // Check cache first (per username)
     const cachedToken = getCachedToken(cacheKey);
@@ -75,7 +117,7 @@ export async function handleTokenRequest(request) {
             {
                 method: 'POST',
                 headers: headers,
-                body: bodyBuffer, // Use the already-read buffer
+                body: tposBody,
             },
             3, 1000, 10000
         );
