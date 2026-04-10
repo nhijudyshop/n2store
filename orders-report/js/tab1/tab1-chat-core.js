@@ -849,11 +849,15 @@ function _renderPageSelectorItems() {
         item.addEventListener('click', (e) => {
             e.stopPropagation();
             const pageId = item.dataset.pageId;
+            console.log('[PageSelector] clicked pageId:', pageId, 'current:', window.currentChatChannelId);
             _closePageDropdown();
-            if (pageId && pageId !== String(window.currentChatChannelId)) {
+            if (pageId && String(pageId) !== String(window.currentChatChannelId)) {
+                console.log('[PageSelector] switching to page:', pageId);
                 _updatePageSelectorLabel(pageId);
                 _renderPageSelectorItems();
                 window.switchChatPage(pageId);
+            } else {
+                console.log('[PageSelector] same page, skipping');
             }
         });
     });
@@ -879,6 +883,7 @@ function _togglePageDropdown() {
     const isOpen = dropdown.style.display !== 'none';
     dropdown.style.display = isOpen ? 'none' : '';
     container.classList.toggle('open', !isOpen);
+    console.log('[PageSelector] toggle dropdown:', isOpen ? 'close' : 'open', 'items:', dropdown.children.length);
 }
 
 function _closePageDropdown() {
@@ -935,7 +940,11 @@ window.repickConversation = async function() {
 };
 
 window.switchChatPage = async function(newPageId) {
-    if (!newPageId || String(newPageId) === String(window.currentChatChannelId)) return;
+    console.log('[switchChatPage] called with:', newPageId, 'current:', window.currentChatChannelId);
+    if (!newPageId || String(newPageId) === String(window.currentChatChannelId)) {
+        console.log('[switchChatPage] guard: same page or empty, skipping');
+        return;
+    }
 
     window.currentChatChannelId = newPageId;
     window.currentSendPageId = newPageId;
