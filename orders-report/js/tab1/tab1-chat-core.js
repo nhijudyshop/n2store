@@ -316,14 +316,14 @@ window.closeCommentModal = window.closeChatModal;
 // CONVERSATION FINDING & LOADING
 // =====================================================
 
-async function _findAndLoadConversation(pageId, psid, type, loadToken) {
+async function _findAndLoadConversation(pageId, psid, type, loadToken, opts) {
     // In-flight dedupe — coalesce identical concurrent requests
     const dedupeKey = `${pageId}:${psid}:${type}`;
     const inflight = window._chatFindInFlight.get(dedupeKey);
     if (inflight && (Date.now() - inflight.ts) < 3000) {
         return inflight.promise;
     }
-    const promise = _doFindAndLoadConversation(pageId, psid, type, loadToken);
+    const promise = _doFindAndLoadConversation(pageId, psid, type, loadToken, opts);
     window._chatFindInFlight.set(dedupeKey, { promise, ts: Date.now() });
     promise.finally(() => {
         const cur = window._chatFindInFlight.get(dedupeKey);
@@ -332,7 +332,8 @@ async function _findAndLoadConversation(pageId, psid, type, loadToken) {
     return promise;
 }
 
-async function _doFindAndLoadConversation(pageId, psid, type, loadToken) {
+async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
+    const allowDrift = opts?.allowDrift !== false; // default true
     const pdm = window.pancakeDataManager;
     if (!pdm) throw new Error('pancakeDataManager not available');
 
@@ -359,8 +360,8 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken) {
             conv = commentConvs[0];
         }
 
-        // Fallback: multi-page search
-        if (!conv) {
+        // Fallback: multi-page search (only when drift allowed)
+        if (!conv && allowDrift) {
             const mpResult = await pdm.fetchConversationsByCustomerIdMultiPage(psid);
             const mpConvs = (mpResult.conversations || []).filter(c => c.type === 'COMMENT');
             if (mpConvs.length > 0) {
@@ -370,16 +371,20 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken) {
         }
     } else {
         // INBOX: Use cached maps first, then API fallback
-        conv = pdm.inboxMapByPSID.get(String(psid)) || pdm.inboxMapByFBID.get(String(psid));
+        if (allowDrift) {
+            conv = pdm.inboxMapByPSID.get(String(psid)) || pdm.inboxMapByFBID.get(String(psid));
+        }
 
         if (!conv) {
             const result = await pdm.fetchConversationsByCustomerFbId(pageId, psid);
             const convs = result.conversations || [];
-            conv = convs.find(c => c.type === 'INBOX') || convs[0] || null;
+            // When drift not allowed, prefer same-page conv
+            conv = convs.find(c => c.type === 'INBOX' && String(c.page_id || c.channel_id) === String(pageId))
+                || (allowDrift ? (convs.find(c => c.type === 'INBOX') || convs[0] || null) : null);
         }
 
-        // Fallback: multi-page search
-        if (!conv) {
+        // Fallback: multi-page search (only when drift allowed)
+        if (!conv && allowDrift) {
             const result = await pdm.fetchConversationsByCustomerIdMultiPage(psid);
             const convs = result.conversations || [];
             conv = convs.find(c => c.type === type && String(c.page_id) === String(pageId))
@@ -394,7 +399,10 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken) {
     if (!conv) {
         const messagesEl = document.getElementById('chatMessages');
         if (messagesEl) {
-            messagesEl.innerHTML = '<div class="chat-empty-state"><p>Không tìm thấy cuộc hội thoại với khách hàng này.</p></div>';
+            const pageName = (pdm.pages || []).find(p => String(p.id) === String(pageId))?.name || pageId;
+            messagesEl.innerHTML = allowDrift
+                ? '<div class="chat-empty-state"><p>Không tìm thấy cuộc hội thoại với khách hàng này.</p></div>'
+                : `<div class="chat-empty-state"><p>Không tìm thấy cuộc hội thoại trên <b>${pageName}</b>.</p></div>`;
         }
         return;
     }
@@ -403,11 +411,15 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken) {
     window.currentConversationData = conv;
 
     // Save to per-page conv cache for quick re-switch
-    window._pageConvCache.set(cacheKey, conv);
+    // Only cache if conv actually belongs to the requested page
+    const convPageId = conv.page_id || pageId;
+    if (String(convPageId) === String(pageId)) {
+        window._pageConvCache.set(cacheKey, conv);
+    }
 
     // Use correct pageId from conversation (may differ from order's pageId)
-    const convPageId = conv.page_id || pageId;
-    if (String(convPageId) !== String(pageId)) {
+    // Only drift when allowed (initial open = yes, explicit switch = no)
+    if (allowDrift && String(convPageId) !== String(pageId)) {
         window.currentChatChannelId = convPageId;
         window.currentSendPageId = convPageId;
         // Sync popup so UI doesn't lie about which page we're chatting from
@@ -941,7 +953,7 @@ window.repickConversation = async function() {
     }
 
     try {
-        await _findAndLoadConversation(pageId, psid, type, myToken);
+        await _findAndLoadConversation(pageId, psid, type, myToken, { allowDrift: false });
     } catch (e) {
         if (myToken !== window._chatLoadSeq) return;
         if (messagesEl) {
@@ -964,7 +976,7 @@ window.switchChatPage = async function(newPageId) {
     }
 
     try {
-        await _findAndLoadConversation(newPageId, window.currentChatPSID, window.currentConversationType, myToken);
+        await _findAndLoadConversation(newPageId, window.currentChatPSID, window.currentConversationType, myToken, { allowDrift: false });
     } catch (e) {
         if (myToken !== window._chatLoadSeq) return;
         console.error('[Chat-Core] switchChatPage error:', e);
