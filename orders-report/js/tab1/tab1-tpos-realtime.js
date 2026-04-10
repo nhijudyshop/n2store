@@ -247,34 +247,51 @@
 
         console.log('[TPOS-RT] 📄 Invoice', action, ':', invoiceNumber, '-', message);
 
-        // Fetch invoice by Number to get Reference (= order code) → update PBH column
-        if (typeof window.fetchAndUpdateInvoiceByNumber === 'function') {
-            window.fetchAndUpdateInvoiceByNumber(invoiceNumber);
-        } else if (typeof window.fetchAndUpdateInvoiceForCode === 'function') {
-            // Fallback: extract order code from message if possible
-            // Message format: "nvkt đã tạo hóa đơn cho Huỳnh Thành Đạt"
-            // Can't extract order code from this, so search by invoice Number
-            try {
-                const tposOData = window.API_CONFIG?.TPOS_ODATA || 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata';
-                const headers = await window.tokenManager.getAuthHeader();
-                const filter = encodeURIComponent(`Type eq 'invoice' and Number eq '${invoiceNumber}'`);
-                const url = `${tposOData}/FastSaleOrder/ODataService.GetView?$top=1&$filter=${filter}&$select=Id,Number,Reference,ShowState,StateCode`;
-                const resp = await fetch(url, { headers: { ...headers, accept: 'application/json' } });
-                if (!resp.ok) return;
-                const result = await resp.json();
-                const inv = (result.value || [])[0];
-                if (!inv || !inv.Reference) return;
+        // Fetch invoice by Number (dùng đúng format TPOS OData: contains(Number, '...'))
+        // rồi lấy Reference → tìm order trong table → cập nhật cột PBH
+        try {
+            if (!window.tokenManager?.getAuthHeader) return;
+            const tposOData = window.API_CONFIG?.TPOS_ODATA || 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata';
+            const headers = await window.tokenManager.getAuthHeader();
+            const filter = `(Type eq 'invoice' and contains(Number,'${invoiceNumber}'))`;
+            const url = `${tposOData}/FastSaleOrder/ODataService.GetView` +
+                `?$top=20&$orderby=DateInvoice desc&$filter=${encodeURIComponent(filter)}&$count=true`;
+            const resp = await fetch(url, { headers: { ...headers, accept: 'application/json' } });
+            if (!resp.ok) return;
+            const result = await resp.json();
+            const list = Array.isArray(result?.value) ? result.value : [];
+            if (list.length === 0) return;
 
-                // Find the SaleOnline_Order in table by Reference (= order code)
-                const orderCode = inv.Reference;
-                const order = (typeof allData !== 'undefined') && allData.find(o => o.Code === orderCode);
-                if (order) {
-                    window.fetchAndUpdateInvoiceForCode(orderCode, order.Id);
-                    console.log('[TPOS-RT] 📄 Updated PBH for order', orderCode, 'from invoice', invoiceNumber);
+            const inv = list[0];
+            const orderCode = inv.Reference;
+            if (!orderCode) return;
+
+            // Find the SaleOnline_Order in table by Reference (= order code)
+            const order = (typeof allData !== 'undefined') && allData.find(o => o.Code === orderCode);
+            if (order) {
+                // Store full invoice data directly into InvoiceStatusStore
+                if (window.InvoiceStatusStore) {
+                    const orderShim = {
+                        Id: order.Id,
+                        Code: orderCode,
+                        Name: inv.PartnerDisplayName || '',
+                        Telephone: inv.Phone || '',
+                        Address: inv.Address || ''
+                    };
+                    window.InvoiceStatusStore.set(order.Id, inv, orderShim);
+                    // Re-render PBH cell
+                    if (typeof window.renderInvoiceStatusCell === 'function') {
+                        const row = document.querySelector(`tr[data-order-id="${order.Id}"]`);
+                        if (row) {
+                            const cell = row.querySelector('td[data-column="invoice-status"]');
+                            if (cell) cell.innerHTML = window.renderInvoiceStatusCell(order);
+                        }
+                    }
                 }
-            } catch (e) {
-                console.warn('[TPOS-RT] Invoice lookup failed:', e.message);
+                console.log('[TPOS-RT] 📄 Updated PBH for order', orderCode, 'from invoice', invoiceNumber, '→', inv.ShowState);
             }
+        } catch (e) {
+            console.warn('[TPOS-RT] Invoice lookup failed:', e.message);
         }
     }
 
