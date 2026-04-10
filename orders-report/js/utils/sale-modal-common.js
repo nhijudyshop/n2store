@@ -1111,10 +1111,13 @@ function autoFillSaleNote() {
             }
         }
 
-        // 1b. Wallet note lines (CK / TT / CÒN NỢ) — pre-computed bởi backend
+        // 1b. Wallet note lines (CK / TT) — pre-computed bởi backend
+        // Lọc bỏ dòng "CÒN NỢ" từ backend — sẽ tính lại dựa trên COD
         const walletLines = Array.isArray(window.currentSaleWalletNoteLines) ? window.currentSaleWalletNoteLines : [];
         if (walletLines.length > 0) {
-            for (const line of walletLines) noteParts.push(line);
+            for (const line of walletLines) {
+                if (!line.startsWith('CÒN NỢ')) noteParts.push(line);
+            }
         } else if (vcList.length === 0) {
             // Fallback: single entry with wallet balance (no source info available)
             const today = new Date();
@@ -1162,6 +1165,14 @@ function autoFillSaleNote() {
         if ((isThanhPho && finalTotal > 1500000) || (isTinh && finalTotal > 3000000)) {
             noteParts.push('FREESHIP');
         }
+    }
+
+    // 5. CÒN NỢ = wallet balance - COD (chỉ hiển thị nếu > 0)
+    const codValue = parseFloat(document.getElementById('saleCOD')?.value) || 0;
+    const remainingDebt = walletBalance - codValue;
+    if (remainingDebt > 0) {
+        const debtStr = remainingDebt >= 1000 ? `${Math.round(remainingDebt / 1000)}K` : remainingDebt;
+        noteParts.push(`CÒN NỢ: ${debtStr}`);
     }
 
     if (noteParts.length > 0) {
