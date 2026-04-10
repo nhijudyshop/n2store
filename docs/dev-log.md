@@ -8,6 +8,12 @@
 
 ## 2026-04-10
 
+### [shared] Cài đặt everything-claude-code vào project
+- **Files:** `.claude/agents/` (47), `.claude/skills/` (181), `.claude/commands/` (79), `.claude/rules/` (89 files), `.claude/scripts/` (128), `.claude/settings.json`
+- **Source:** https://github.com/affaan-m/everything-claude-code
+- **Chi tiết:** Copy toàn bộ agents/skills/commands/rules/scripts vào `.claude/` (project-level). Tạo `settings.json` với 32 hooks (PreToolUse x11, PostToolUse x11, Stop x6, SessionStart, SessionEnd, PreCompact, PostToolUseFailure). `CLAUDE_PLUGIN_ROOT` → `/Users/mac/Desktop/n2store/.claude`
+- **Status:** ✅ Done
+
 ### [render][orders] Pancake token cache — Phase 2 ✅
 | | |
 |---|---|
