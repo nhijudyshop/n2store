@@ -34,6 +34,13 @@
 
 ## 2026-04-09
 
+### [inbox] Local customer name index — gõ tên tự động tìm theo customer ID ✅
+| | |
+|---|---|
+| **Files** | `inbox/js/inbox-data.js`, `inbox/js/inbox-chat.js` |
+| **Chi tiết** | **customerNameIndex:** `Map<normalizedName, Set<fb_id>>` xây từ conversations đã load trong `buildMaps()`. **lookupFbIdByName(query):** exact match rồi substring match trên tên normalized (bỏ dấu). **performSearch():** trước khi gọi API, tra local index → nếu hit → gọi `searchByCustomerId(fb_id)` ngay → render kết quả tức thì → sau đó vẫn chạy normal search để merge thêm. |
+| **Status** | ✅ Done |
+
 ### [inbox] Search by Customer ID — tìm tất cả conversations của 1 khách hàng ✅
 | | |
 |---|---|
