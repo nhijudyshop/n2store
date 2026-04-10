@@ -1111,13 +1111,12 @@ function autoFillSaleNote() {
             }
         }
 
-        // 1b. Wallet note lines (CK / TT) — pre-computed bởi backend
-        // Lọc bỏ dòng "CÒN NỢ" từ backend — sẽ tính lại dựa trên COD
-        const walletLines = Array.isArray(window.currentSaleWalletNoteLines) ? window.currentSaleWalletNoteLines : [];
+        // 1b. Wallet note lines (CK / TT) — chỉ lấy dòng mới nhất
+        const walletLines = Array.isArray(window.currentSaleWalletNoteLines)
+            ? window.currentSaleWalletNoteLines.filter(l => !l.startsWith('CÒN NỢ'))
+            : [];
         if (walletLines.length > 0) {
-            for (const line of walletLines) {
-                if (!line.startsWith('CÒN NỢ')) noteParts.push(line);
-            }
+            noteParts.push(walletLines[walletLines.length - 1]);
         } else if (vcList.length === 0) {
             // Fallback: single entry with wallet balance (no source info available)
             const today = new Date();
