@@ -460,4 +460,222 @@ router.get('/targeting/countries', async (req, res) => {
     }
 });
 
+// =====================================================
+// APP ROLES (Add/Remove Testers & Developers)
+// =====================================================
+
+// GET /api/fb-ads/app/roles — List app roles
+router.get('/app/roles', async (req, res) => {
+    try {
+        const data = await fbFetch(`/${FB_APP_ID}/roles`, {
+            params: { fields: 'user,role', limit: '100' }
+        });
+        res.json({ success: true, data: data.data || [] });
+    } catch (error) {
+        res.status(error.status || 500).json({ success: false, error: error.message });
+    }
+});
+
+// POST /api/fb-ads/app/roles — Add user to app
+router.post('/app/roles', async (req, res) => {
+    try {
+        const { user_id, role } = req.body;
+        if (!user_id || !role) {
+            return res.status(400).json({ success: false, error: 'user_id and role required' });
+        }
+        if (!['administrators', 'developers', 'testers', 'insights users'].includes(role)) {
+            return res.status(400).json({ success: false, error: 'Invalid role. Use: administrators, developers, testers, insights users' });
+        }
+
+        const data = await fbFetch(`/${FB_APP_ID}/roles`, {
+            method: 'POST',
+            body: { user: user_id, role }
+        });
+        res.json({ success: true, data });
+    } catch (error) {
+        res.status(error.status || 500).json({ success: false, error: error.message });
+    }
+});
+
+// DELETE /api/fb-ads/app/roles/:userId — Remove user from app
+router.delete('/app/roles/:userId', async (req, res) => {
+    try {
+        const data = await fbFetch(`/${FB_APP_ID}/roles`, {
+            method: 'DELETE',
+            body: { user: req.params.userId }
+        });
+        res.json({ success: true, data });
+    } catch (error) {
+        res.status(error.status || 500).json({ success: false, error: error.message });
+    }
+});
+
+// =====================================================
+// PAGES (for Ad creation)
+// =====================================================
+
+// GET /api/fb-ads/pages — List user's Facebook Pages
+router.get('/pages', async (req, res) => {
+    try {
+        const data = await fbFetch('/me/accounts', {
+            params: {
+                fields: 'id,name,access_token,category,picture{url},fan_count,is_published',
+                limit: '100'
+            }
+        });
+        res.json({ success: true, data: data.data || [] });
+    } catch (error) {
+        res.status(error.status || 500).json({ success: false, error: error.message });
+    }
+});
+
+// =====================================================
+// CAMPAIGN UPDATE
+// =====================================================
+
+// POST /api/fb-ads/campaigns/:id/update — Update campaign fields
+router.post('/campaigns/:id/update', async (req, res) => {
+    try {
+        const allowed = ['name', 'daily_budget', 'lifetime_budget', 'status', 'objective', 'stop_time'];
+        const body = {};
+        for (const key of allowed) {
+            if (req.body[key] !== undefined) body[key] = req.body[key];
+        }
+        if (Object.keys(body).length === 0) {
+            return res.status(400).json({ success: false, error: 'No valid fields to update' });
+        }
+
+        const data = await fbFetch(`/${req.params.id}`, { method: 'POST', body });
+        res.json({ success: true, data });
+    } catch (error) {
+        res.status(error.status || 500).json({ success: false, error: error.message });
+    }
+});
+
+// =====================================================
+// ADSET UPDATE
+// =====================================================
+
+// POST /api/fb-ads/adsets/:id/update
+router.post('/adsets/:id/update', async (req, res) => {
+    try {
+        const allowed = ['name', 'daily_budget', 'lifetime_budget', 'status', 'targeting', 'optimization_goal', 'billing_event', 'bid_amount', 'start_time', 'end_time'];
+        const body = {};
+        for (const key of allowed) {
+            if (req.body[key] !== undefined) body[key] = req.body[key];
+        }
+
+        const data = await fbFetch(`/${req.params.id}`, { method: 'POST', body });
+        res.json({ success: true, data });
+    } catch (error) {
+        res.status(error.status || 500).json({ success: false, error: error.message });
+    }
+});
+
+// =====================================================
+// AD IMAGE UPLOAD
+// =====================================================
+
+// POST /api/fb-ads/adimages — Upload ad image (base64)
+router.post('/adimages', async (req, res) => {
+    try {
+        const { account_id, image_base64, filename } = req.body;
+        if (!account_id || !image_base64) {
+            return res.status(400).json({ success: false, error: 'account_id and image_base64 required' });
+        }
+
+        const actId = account_id.startsWith('act_') ? account_id : `act_${account_id}`;
+        const data = await fbFetch(`/${actId}/adimages`, {
+            method: 'POST',
+            body: {
+                filename: filename || 'ad_image.jpg',
+                bytes: image_base64
+            }
+        });
+        res.json({ success: true, data });
+    } catch (error) {
+        res.status(error.status || 500).json({ success: false, error: error.message });
+    }
+});
+
+// GET /api/fb-ads/adimages — List ad images
+router.get('/adimages', async (req, res) => {
+    try {
+        const { account_id } = req.query;
+        if (!account_id) {
+            return res.status(400).json({ success: false, error: 'account_id required' });
+        }
+
+        const actId = account_id.startsWith('act_') ? account_id : `act_${account_id}`;
+        const data = await fbFetch(`/${actId}/adimages`, {
+            params: { fields: 'id,hash,name,url,url_128,permalink_url,width,height,created_time', limit: req.query.limit || '50' }
+        });
+        res.json({ success: true, data: data.data || [] });
+    } catch (error) {
+        res.status(error.status || 500).json({ success: false, error: error.message });
+    }
+});
+
+// =====================================================
+// BULK ACTIONS
+// =====================================================
+
+// POST /api/fb-ads/bulk/status — Update multiple items status
+router.post('/bulk/status', async (req, res) => {
+    try {
+        const { ids, status } = req.body;
+        if (!ids || !Array.isArray(ids) || !status) {
+            return res.status(400).json({ success: false, error: 'ids (array) and status required' });
+        }
+
+        const results = await Promise.allSettled(
+            ids.map(id => fbFetch(`/${id}`, { method: 'POST', body: { status } }))
+        );
+
+        const succeeded = results.filter(r => r.status === 'fulfilled').length;
+        const failed = results.filter(r => r.status === 'rejected').length;
+
+        res.json({ success: true, data: { succeeded, failed, total: ids.length } });
+    } catch (error) {
+        res.status(error.status || 500).json({ success: false, error: error.message });
+    }
+});
+
+// POST /api/fb-ads/bulk/delete
+router.post('/bulk/delete', async (req, res) => {
+    try {
+        const { ids } = req.body;
+        if (!ids || !Array.isArray(ids)) {
+            return res.status(400).json({ success: false, error: 'ids (array) required' });
+        }
+
+        const results = await Promise.allSettled(
+            ids.map(id => fbFetch(`/${id}`, { method: 'DELETE' }))
+        );
+
+        const succeeded = results.filter(r => r.status === 'fulfilled').length;
+        const failed = results.filter(r => r.status === 'rejected').length;
+
+        res.json({ success: true, data: { succeeded, failed, total: ids.length } });
+    } catch (error) {
+        res.status(error.status || 500).json({ success: false, error: error.message });
+    }
+});
+
+// =====================================================
+// AD PREVIEW
+// =====================================================
+
+// GET /api/fb-ads/adpreview/:adId
+router.get('/adpreview/:adId', async (req, res) => {
+    try {
+        const data = await fbFetch(`/${req.params.adId}/previews`, {
+            params: { ad_format: req.query.format || 'DESKTOP_FEED_STANDARD' }
+        });
+        res.json({ success: true, data: data.data || [] });
+    } catch (error) {
+        res.status(error.status || 500).json({ success: false, error: error.message });
+    }
+});
+
 module.exports = router;
