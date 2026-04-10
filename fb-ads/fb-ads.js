@@ -46,14 +46,18 @@ const FBAds = (() => {
             }
         } catch (e) { /* server error */ }
 
-        // Server not authenticated — try auto-reconnect via FB SDK
+        // Server not authenticated — try auto-reconnect via FB SDK (may fail due to CORS)
         if (typeof FB !== 'undefined') {
-            const reconnected = await autoReconnect();
-            if (reconnected) {
-                const res = await fetch(API_BASE + '/auth/status').then(r => r.json());
-                if (res.success && res.authenticated) {
-                    onLoginSuccess(res.user);
+            try {
+                const reconnected = await autoReconnect();
+                if (reconnected) {
+                    const res = await fetch(API_BASE + '/auth/status').then(r => r.json());
+                    if (res.success && res.authenticated) {
+                        onLoginSuccess(res.user);
+                    }
                 }
+            } catch (e) {
+                console.log('[FB-ADS] Auto-reconnect failed (CORS or SDK not ready)');
             }
         }
     }
@@ -878,7 +882,15 @@ const FBAds = (() => {
             }
 
             if (d.spend_cap) document.getElementById('spendCapInput').value = d.spend_cap / 100;
-        } catch (err) { toast('Lỗi tải billing: ' + err.message, 'error'); }
+        } catch (err) {
+            // Account may be disabled — show error inline instead of toast spam
+            document.getElementById('billingAccStatus').textContent = 'Lỗi';
+            document.getElementById('billingTotalSpent').textContent = '--';
+            document.getElementById('billingBalance').textContent = '--';
+            document.getElementById('billingSpendCap').textContent = '--';
+            document.getElementById('billingCurrency').textContent = '--';
+            document.getElementById('billingFunding').textContent = err.message;
+        }
 
         // Load transactions
         loadTransactions();
@@ -1154,26 +1166,36 @@ const FBAds = (() => {
         return data;
     }
 
+    let _reconnecting = false;
     async function autoReconnect() {
-        return new Promise(resolve => {
-            FB.getLoginStatus(function(response) {
-                if (response.status === 'connected' && response.authResponse) {
-                    const { accessToken, userID } = response.authResponse;
-                    FB.api('/me', { fields: 'name' }, async function(me) {
-                        try {
-                            await fetch(API_BASE + '/auth/token', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ accessToken, userID, name: me?.name || 'User' })
-                            }).then(r => r.json());
-                            console.log('[FB-ADS] Auto-reconnected successfully');
-                            toast('Đã tự động kết nối lại', 'info');
-                            resolve(true);
-                        } catch (e) { resolve(false); }
-                    });
-                } else { resolve(false); }
+        if (_reconnecting) return false;
+        _reconnecting = true;
+        try {
+            return await new Promise(resolve => {
+                if (typeof FB === 'undefined') { resolve(false); return; }
+                try {
+                    FB.getLoginStatus(function(response) {
+                        if (response.status === 'connected' && response.authResponse) {
+                            const { accessToken, userID } = response.authResponse;
+                            FB.api('/me', { fields: 'name' }, async function(me) {
+                                try {
+                                    const res = await fetch(API_BASE + '/auth/token', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ accessToken, userID, name: me?.name || 'User' })
+                                    }).then(r => r.json());
+                                    if (res.success) {
+                                        console.log('[FB-ADS] Auto-reconnected successfully');
+                                        toast('Đã tự động kết nối lại', 'info');
+                                        resolve(true);
+                                    } else { resolve(false); }
+                                } catch (e) { resolve(false); }
+                            });
+                        } else { resolve(false); }
+                    }, true); // force=true to avoid cache
+                } catch (e) { resolve(false); }
             });
-        });
+        } finally { _reconnecting = false; }
     }
 
     function fmtCurrency(v) {
