@@ -1626,6 +1626,12 @@
             html += `<span style="background: #e0e7ff; color: #4338ca; font-size: 10px; padding: 1px 5px; border-radius: 3px; font-weight: 500;" title="Người tạo bill">${invoiceData.UserName}</span>`;
         }
 
+        // Invoice Number badge (e.g. NJD/2026/60576)
+        if (invoiceData.Number) {
+            const shortNum = invoiceData.Number.replace(/^NJD\//, '');
+            html += `<span style="background: #f0f9ff; color: #0369a1; font-size: 9px; padding: 1px 4px; border-radius: 3px; font-weight: 500; border: 1px solid #bae6fd; cursor: pointer;" onclick="navigator.clipboard.writeText('${invoiceData.Number.replace(/'/g, "\\'")}'); window.notificationManager?.success('Đã copy ${invoiceData.Number.replace(/'/g, "\\'")}', 1500); event.stopPropagation();" title="Click để copy mã phiếu">${shortNum}</span>`;
+        }
+
         // Messenger button or sent badge - show for confirmed/paid invoices
         const canSendBill = showState === 'Đã xác nhận' || showState === 'Đã thanh toán';
         if (billSent) {
