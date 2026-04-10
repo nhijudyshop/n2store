@@ -1224,7 +1224,7 @@
         if (!window.tokenManager?.getAuthHeader) return null;
         try {
             const tposOData = window.API_CONFIG?.TPOS_ODATA || 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata';
-            const filter = `(Type eq 'invoice' and contains(Reference,'${orderCode}'))`;
+            const filter = `(Type eq 'invoice' and Reference eq '${orderCode}')`;
             const url = `${tposOData}/FastSaleOrder/ODataService.GetView` +
                 `?$top=20&$orderby=DateInvoice desc&$filter=${encodeURIComponent(filter)}&$count=true`;
             const headers = await window.tokenManager.getAuthHeader();
@@ -1334,7 +1334,7 @@
                 return;
             }
             const tposOData = window.API_CONFIG?.TPOS_ODATA || 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata';
-            const filter = `(Type eq 'invoice' and contains(Reference,'${orderCode}'))`;
+            const filter = `(Type eq 'invoice' and Reference eq '${orderCode}')`;
             const url = `${tposOData}/FastSaleOrder/ODataService.GetView` +
                 `?$top=20&$orderby=DateInvoice desc&$filter=${encodeURIComponent(filter)}&$count=true`;
             const headers = await window.tokenManager.getAuthHeader();
