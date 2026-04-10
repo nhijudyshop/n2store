@@ -3816,14 +3816,17 @@ class InboxChatController {
             const data = JSON.parse(event.data);
             console.log('[InboxChat] WS event:', data.type || 'unknown', data);
 
-            // Phoenix events: update_conversation, new_message, etc.
+            // Phoenix events: update_conversation, new_message, seen, viewing, etc.
             if (data.type === 'pages:update_conversation' || data.type === 'update_conversation') {
                 this.handleConversationUpdate(data.payload);
             } else if (data.type === 'pages:new_message' || data.type === 'new_message') {
                 this.handleNewMessage(data.payload);
+            } else if (data.type === 'pages:seen_conversation' || data.type === 'seen_conversation') {
+                this.handleSeenConversation(data.payload);
             } else if (data.type === 'post_type_detected') {
                 this.handlePostTypeDetected(data);
             }
+            // viewing_conversation:append/remove — ignored (not critical)
         } catch (e) {
             console.warn('[InboxChat] WS parse error:', e, 'raw:', event.data?.substring?.(0, 200));
         }
@@ -3900,6 +3903,29 @@ class InboxChatController {
         if (this.activeConversationId === conversation.id && updatedConv) {
             console.log('[InboxChat] Active conversation updated, reloading messages...');
             this.loadMessages(updatedConv);
+        }
+    }
+
+    handleSeenConversation(payload) {
+        const conversation = payload?.conversation || payload;
+        if (!conversation?.id) return;
+
+        const conv = this.data.getConversation(conversation.id);
+        if (!conv) return;
+
+        const wasUnread = conv.unread > 0;
+        conv.unread = 0;
+        // Update _raw too so cache stays consistent
+        if (conv._raw) conv._raw.unread_count = 0;
+
+        if (wasUnread) {
+            if (!this._updateSingleConversationInList(conversation.id)) {
+                this._scheduleRender();
+            }
+            this.data.recalculateGroupCounts();
+            this.renderGroupStats();
+            this.updatePageUnreadCounts();
+            console.log(`[InboxChat] Seen: ${conv.name} (${conversation.id}) → unread=0`);
         }
     }
 
