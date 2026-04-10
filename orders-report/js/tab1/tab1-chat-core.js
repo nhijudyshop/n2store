@@ -880,13 +880,17 @@ function _togglePageDropdown() {
     if (isOpen) {
         dropdown.style.display = 'none';
     } else {
-        // Position fixed dropdown below the button
+        // Position fixed dropdown below the button, right-aligned but capped
         const btn = document.getElementById('chatPageSelectorBtn');
         if (btn) {
             const rect = btn.getBoundingClientRect();
+            const dropW = 190;
+            let left = rect.right - dropW;
+            if (left < 8) left = rect.left;
+            if (left < 8) left = 8;
             dropdown.style.top = (rect.bottom + 4) + 'px';
-            dropdown.style.right = (window.innerWidth - rect.right) + 'px';
-            dropdown.style.left = '';
+            dropdown.style.left = left + 'px';
+            dropdown.style.right = '';
         }
         dropdown.style.display = '';
     }
