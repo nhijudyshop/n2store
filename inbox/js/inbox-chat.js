@@ -3561,6 +3561,18 @@ class InboxChatController {
                 return;
             }
 
+            // Detect fb_id: 15+ digits only (fb_id thường 17-20 digits, SĐT chỉ 10-11)
+            const isFbId = /^\d{15,}$/.test(query.trim());
+            if (isFbId && pdm.searchByCustomerId) {
+                console.log(`[InboxChat] Detected fb_id, searching by customer ID: ${query.trim()}`);
+                const cusResult = await pdm.searchByCustomerId(query.trim());
+                if (this.searchQuery !== query) return;
+                this.searchResults = cusResult.conversations || [];
+                console.log(`[InboxChat] Customer search: ${this.searchResults.length} conversations`);
+                this.renderConversationList();
+                return;
+            }
+
             // If query looks like a phone, send normalized digits to Pancake API
             // (e.g., "+84 984 040 726" → "0984040726") so the server can match better.
             let apiQuery = query;
@@ -3572,14 +3584,32 @@ class InboxChatController {
             const result = await pdm.searchConversations(apiQuery);
             if (this.searchQuery !== query) return; // Query changed while waiting
 
+            let allConvs = [];
             if (result && result.conversations && result.conversations.length > 0) {
-                this.searchResults = result.conversations;
+                allConvs = [...result.conversations];
                 console.log(`[InboxChat] Search found ${result.conversations.length} results for "${query}"`);
+
+                // Chain: nếu có customerId → fetch thêm tất cả conversations của customer đó
+                const firstFbId = result.conversations[0]?.customers?.[0]?.fb_id
+                    || result.conversations[0]?.from_id
+                    || result.conversations[0]?.from?.id;
+                if (firstFbId && pdm.searchByCustomerId) {
+                    console.log(`[InboxChat] Chaining customer search for fb_id: ${firstFbId}`);
+                    const cusResult = await pdm.searchByCustomerId(firstFbId);
+                    if (this.searchQuery !== query) return;
+                    if (cusResult.conversations && cusResult.conversations.length > 0) {
+                        // Deduplicate: giữ search results gốc ưu tiên, thêm customer results mới
+                        const existingIds = new Set(allConvs.map(c => c.id));
+                        const newConvs = cusResult.conversations.filter(c => !existingIds.has(c.id));
+                        allConvs.push(...newConvs);
+                        console.log(`[InboxChat] Customer chain added ${newConvs.length} more (total: ${allConvs.length})`);
+                    }
+                }
             } else {
-                this.searchResults = [];
                 console.log(`[InboxChat] Search returned 0 results for "${query}"`);
             }
 
+            this.searchResults = allConvs;
             this.renderConversationList();
         } catch (error) {
             console.error('[InboxChat] Search error:', error);

@@ -34,6 +34,13 @@
 
 ## 2026-04-09
 
+### [inbox] Search by Customer ID — tìm tất cả conversations của 1 khách hàng ✅
+| | |
+|---|---|
+| **Files** | `inbox/js/inbox-pancake-api.js`, `inbox/js/inbox-chat.js` |
+| **Chi tiết** | **searchByCustomerId(fbId):** Gọi Pancake API `/conversations/customer/{fbId}` với pages params, trả về TẤT CẢ conversations (inbox + comment) của customer across all pages. **performSearch():** (1) Detect fb_id (15+ digits) → gọi trực tiếp searchByCustomerId, skip normal search. (2) Sau searchConversations thường, nếu có kết quả → lấy fb_id từ conversation đầu tiên → chain searchByCustomerId → merge + deduplicate. User search tên/SĐT → tự động tìm thêm tất cả conversations liên quan. |
+| **Status** | ✅ Done |
+
 ### [inbox][worker] Tăng tốc load Inbox: parallel fetch + stale-while-revalidate cache + edge cache ✅
 | | |
 |---|---|

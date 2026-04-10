@@ -905,6 +905,32 @@ class InboxPancakeAPI {
         }
     }
 
+    // --- Search by Customer ID (Pancake Direct API) ---
+    // GET /conversations/customer/{fbId}?pages[id1]=0&pages[id2]=0&access_token=...
+    // Returns ALL conversations (inbox + comment) for a customer across all pages.
+    async searchByCustomerId(fbId) {
+        try {
+            const token = await this.tm.getToken();
+            if (!token) return { conversations: [] };
+            const ids = this._searchablePageIds || this.pageIds;
+            if (ids.length === 0) return { conversations: [] };
+            const pagesParams = ids.map(id => `pages[${id}]=0`).join('&');
+            const url = InboxApiConfig.buildUrl.pancake(
+                `conversations/customer/${fbId}`,
+                `${pagesParams}&access_token=${token}`
+            );
+            const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+            if (!res.ok) return { conversations: [] };
+            const data = await res.json();
+            if (!data.success) return { conversations: [] };
+            console.log(`[INBOX-API] searchByCustomerId(${fbId}): ${(data.conversations || []).length} conversations`);
+            return { conversations: data.conversations || [] };
+        } catch (e) {
+            console.error('[INBOX-API] searchByCustomerId error:', e);
+            return { conversations: [] };
+        }
+    }
+
     // --- Mark Read/Unread (Public API v1 with page_access_token) ---
     async markAsRead(pageId, conversationId) {
         try {
