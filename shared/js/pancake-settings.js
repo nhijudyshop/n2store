@@ -340,8 +340,10 @@ function renderPagesIntoDiv(div, pages, opts = {}) {
     div.style.color = '#374151';
 }
 
-function escapeHtml(s) {
-    return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+if (!window.escapeHtml) {
+    window.escapeHtml = function(s) {
+        return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+    };
 }
 
 async function pushAccountPagesCache(accountId, payload) {
