@@ -606,7 +606,7 @@ class InboxDataManager {
             online: false,
             phone: phones.join(', '),
             labels: this.getLabelArray(conv.id),
-            isLivestream: this.livestreamConvIdSet.has(conv.id),
+            isLivestream: this.livestreamConvIdSet.has(conv.id) || (conv.type === 'COMMENT' && !!conv.post_id),
             type: conv.type, // 'INBOX' or 'COMMENT'
             pageId: conv.page_id,
             pageName: pageName,
