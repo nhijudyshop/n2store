@@ -8,6 +8,16 @@
 
 ## 2026-04-10
 
+### [render][fb-ads] Full feature set — billing, audiences, pixels, reports, rules, account
+- **Files:** `fb-ads/*`, `render.com/routes/fb-ads.js`
+- **Chi tiết:** Thêm 6 tabs mới: (1) Đối tượng — custom & lookalike audiences CRUD; (2) Pixel — list pixels, event stats; (3) Thanh toán — account status, spent, balance, spend cap control, funding source, transactions; (4) Báo cáo — daily/age+gender/placement reports + CSV export; (5) Quy tắc tự động — tạo rules (CPC/CPR triggers → pause/notify), enable/disable; (6) Tài khoản — full details, users, permissions, activity log, disable reason.
+- **Status:** ✅ Done
+
+### [render][fb-ads] Full Ads Manager — roles, creation, bulk actions
+- **Files:** `fb-ads/*`, `render.com/routes/fb-ads.js`
+- **Chi tiết:** (1) Backend: app roles CRUD, pages list, campaign/adset update, ad image upload base64, bulk status/delete, ad preview. (2) Frontend: Settings modal (quản lý users/testers, view Pages, token info), Edit campaign modal, Create Ad Set modal (targeting: country/age/gender/interests search), Create Ad modal (message/headline/image/CTA/page), Bulk actions (select all → activate/pause/delete), drill-down Campaign→AdSet→Ad.
+- **Status:** ✅ Done
+
 ### [chat] Per-page conv cache + nút chọn lại đoạn hội thoại ✅
 | | |
 |---|---|
