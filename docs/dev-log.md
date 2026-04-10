@@ -6,6 +6,17 @@
 
 ---
 
+## 2026-04-10
+
+### [render][orders] TPOS token cache — PostgreSQL + Render API + CF fallback ✅
+| | |
+|---|---|
+| **Files** | `render.com/services/auth-token-store.js` (new), `render.com/migrations/042_create_auth_token_cache.sql` (new), `render.com/server.js`, `orders-report/js/core/token-manager.js` |
+| **Why** | Mỗi tab browser mở mới phải re-login TPOS (~500-2000ms). Token hết hạn 15 ngày nhưng chỉ cache memory — mất khi F5. Không sync giữa máy. |
+| **Changes** | (1) Table `auth_token_cache` (provider PK, token, refresh_token, expires_at, metadata). (2) `auth-token-store.js`: getToken (DB lookup → refresh nếu cần), refreshAndStore (lock per provider), preSeed (tpos_1, tpos_2, tpos_server). (3) Endpoints `GET /api/auth/token/:provider` + `POST /invalidate` bảo vệ bằng `X-API-Key`. (4) Client `token-manager.js`: thêm `tryRenderCache()` trước refresh_token + passwordLogin. 3s timeout, fallback silent. `authenticatedFetch` 401 → invalidate Render cache + retry. (5) `CLIENT_API_KEY` env set on Render. |
+| **Flow** | Client → Render cache (30ms) → nếu fail → CF worker → TPOS login (500ms). Token sync qua DB: 1 máy refresh → tất cả máy khác GET cùng token. |
+| **Status** | ✅ |
+
 ## 2026-04-09
 
 ### [inbox][worker] Tăng tốc load Inbox: parallel fetch + stale-while-revalidate cache + edge cache ✅

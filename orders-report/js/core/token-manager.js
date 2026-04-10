@@ -22,6 +22,8 @@ class TokenManager {
         this.storageKey = 'bearer_token_data_' + this.companyId;
         this.PROXY_URL = 'https://chatomni-proxy.nhijudyshop.workers.dev';
         this.API_URL = this.PROXY_URL + '/api/token';
+        this.RENDER_URL = 'https://n2store-fallback.onrender.com';
+        this.CLIENT_API_KEY = window.N2STORE_CLIENT_API_KEY || '8a284928648a1fcbeab174c2cf7bd7081fa2917a3b5f926a1af371c467716976';
         this.SWITCH_COMPANY_URL = this.PROXY_URL + '/api/odata/ApplicationUser/ODataService.SwitchCompany';
         this.credentials = TokenManager.getCredentials(this.companyId);
         this.firestoreRef = null;
@@ -526,6 +528,16 @@ class TokenManager {
                 );
             }
 
+            // Step 0 (NEW): Try Render server cache (fastest, shared across machines)
+            const renderOk = await this.tryRenderCache();
+            if (renderOk && this.isTokenValid()) {
+                if (window.notificationManager && notificationId) {
+                    window.notificationManager.remove(notificationId);
+                }
+                console.log('[TOKEN] ⚡ Got token from Render cache');
+                return this.token;
+            }
+
             // Step 1: Try refresh_token first (faster, avoids password login)
             const storedRefresh = this.getStoredRefreshToken();
             if (storedRefresh) {
@@ -538,7 +550,7 @@ class TokenManager {
                 }
             }
 
-            // Step 2: Direct password login with per-company credentials
+            // Step 2: Direct password login via CF worker (fallback when Render down)
             await this.passwordLogin();
 
             if (window.notificationManager && notificationId) {
@@ -572,6 +584,43 @@ class TokenManager {
         throw new Error('Token refresh timeout');
     }
 
+    /**
+     * Try fetching cached token from Render server (fastest path).
+     * Server pre-seeds tokens on start + refreshes proactively.
+     * Falls through silently on failure (Render down → CF worker fallback).
+     */
+    async tryRenderCache() {
+        try {
+            const provider = `tpos_${this.companyId}`;
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 3000); // 3s timeout
+            const resp = await fetch(`${this.RENDER_URL}/api/auth/token/${provider}`, {
+                headers: { 'X-API-Key': this.CLIENT_API_KEY },
+                signal: controller.signal
+            });
+            clearTimeout(timer);
+            if (!resp.ok) return false;
+            const data = await resp.json();
+            if (!data.token) return false;
+            // Validate not expired
+            const msLeft = new Date(data.expires_at).getTime() - Date.now();
+            if (msLeft < 5 * 60 * 1000) return false; // < 5 min left → skip
+            // Save to memory + localStorage
+            this.token = data.token;
+            this.tokenExpiry = new Date(data.expires_at).getTime();
+            await this.saveToStorage({
+                access_token: data.token,
+                expires_in: Math.floor(msLeft / 1000),
+                '.expires': new Date(data.expires_at).toISOString()
+            });
+            return true;
+        } catch (e) {
+            // Render down or timeout → fall through silently
+            console.warn('[TOKEN] Render cache unavailable:', e.message);
+            return false;
+        }
+    }
+
     async getToken() {
         if (!this.isInitialized && this.initPromise) {
             console.log('[TOKEN] Waiting for initialization to complete...');
@@ -596,7 +645,11 @@ class TokenManager {
             });
 
             if (response.status === 401) {
-                console.log(`[TOKEN] 401 for company ${this.companyId}, invalidating and retrying...`);
+                console.log(`[TOKEN] 401 for company ${this.companyId}, invalidating Render cache + retrying...`);
+                // Invalidate Render cache so other machines don't use stale token
+                fetch(`${this.RENDER_URL}/api/auth/token/tpos_${this.companyId}/invalidate`, {
+                    method: 'POST', headers: { 'X-API-Key': this.CLIENT_API_KEY }
+                }).catch(() => {}); // fire-and-forget
                 this.invalidateAccessToken();
                 const newHeaders = await this.getAuthHeader();
                 return await fetch(url, {

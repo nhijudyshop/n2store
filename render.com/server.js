@@ -235,6 +235,37 @@ const tposSavedRoutes = require('./routes/tpos-saved');
 const tposCredentialsRoutes = require('./routes/tpos-credentials');
 const { saveOrderToBuffer } = require('./routes/tpos-order-buffer');
 const tposTokenManager = require('./services/tpos-token-manager');
+const { createAuthTokenStore } = require('./services/auth-token-store');
+const authTokenStore = createAuthTokenStore(chatDbPool);
+
+// ===== Auth Token Cache API (protected by CLIENT_API_KEY) =====
+function requireApiKey(req, res, next) {
+    const key = req.headers['x-api-key'];
+    const expected = process.env.CLIENT_API_KEY;
+    if (!expected || key !== expected) {
+        return res.status(401).json({ error: 'unauthorized' });
+    }
+    next();
+}
+
+app.get('/api/auth/token/:provider', requireApiKey, async (req, res) => {
+    try {
+        const t = await authTokenStore.getToken(req.params.provider);
+        res.json({ token: t.token, expires_at: t.expires_at, metadata: t.metadata });
+    } catch (e) {
+        console.error('[AUTH-API] getToken error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post('/api/auth/token/:provider/invalidate', requireApiKey, async (req, res) => {
+    try {
+        await authTokenStore.invalidate(req.params.provider);
+        res.json({ ok: true });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
 
 // Mount routes
 app.use('/api/token', tokenRoutes);
@@ -1236,6 +1267,9 @@ server.listen(PORT, () => {
     console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`⏰ Started at: ${new Date().toISOString()}`);
     console.log('='.repeat(50));
+
+    // Pre-seed auth token cache (fire-and-forget)
+    authTokenStore.preSeed().catch(e => console.warn('[AUTH-STORE] Pre-seed error:', e.message));
 
     // Auto-connect realtime clients after server starts (with delay to ensure DB is ready)
     setTimeout(() => {
