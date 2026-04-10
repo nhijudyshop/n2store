@@ -350,6 +350,27 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
     const cached = window._pageConvCache.get(cacheKey);
     if (cached) {
         conv = cached;
+    } else if (!allowDrift) {
+        // Explicit page switch: PSID is page-specific, so use multi-page
+        // endpoint (searches by fbId across all pages) then filter by target page.
+        const mpResult = await pdm.fetchConversationsByCustomerIdMultiPage(psid);
+        const mpConvs = (mpResult.conversations || []).filter(c =>
+            String(c.page_id) === String(pageId) && (!type || c.type === type)
+        );
+        if (mpConvs.length > 0) {
+            mpConvs.sort(_byUpdatedAtDesc);
+            conv = mpConvs[0];
+        }
+        // Also try without type filter (customer may only have COMMENT on this page)
+        if (!conv) {
+            const anyOnPage = (mpResult.conversations || []).filter(c =>
+                String(c.page_id) === String(pageId)
+            );
+            if (anyOnPage.length > 0) {
+                anyOnPage.sort(_byUpdatedAtDesc);
+                conv = anyOnPage[0];
+            }
+        }
     } else if (type === 'COMMENT') {
         // COMMENT: Always fetch fresh from API (cache may hold stale/deleted conversations)
         const result = await pdm.fetchConversationsByCustomerFbId(pageId, psid);
@@ -360,8 +381,8 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
             conv = commentConvs[0];
         }
 
-        // Fallback: multi-page search (only when drift allowed)
-        if (!conv && allowDrift) {
+        // Fallback: multi-page search
+        if (!conv) {
             const mpResult = await pdm.fetchConversationsByCustomerIdMultiPage(psid);
             const mpConvs = (mpResult.conversations || []).filter(c => c.type === 'COMMENT');
             if (mpConvs.length > 0) {
@@ -371,20 +392,16 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
         }
     } else {
         // INBOX: Use cached maps first, then API fallback
-        if (allowDrift) {
-            conv = pdm.inboxMapByPSID.get(String(psid)) || pdm.inboxMapByFBID.get(String(psid));
-        }
+        conv = pdm.inboxMapByPSID.get(String(psid)) || pdm.inboxMapByFBID.get(String(psid));
 
         if (!conv) {
             const result = await pdm.fetchConversationsByCustomerFbId(pageId, psid);
             const convs = result.conversations || [];
-            // When drift not allowed, prefer same-page conv
-            conv = convs.find(c => c.type === 'INBOX' && String(c.page_id || c.channel_id) === String(pageId))
-                || (allowDrift ? (convs.find(c => c.type === 'INBOX') || convs[0] || null) : null);
+            conv = convs.find(c => c.type === 'INBOX') || convs[0] || null;
         }
 
-        // Fallback: multi-page search (only when drift allowed)
-        if (!conv && allowDrift) {
+        // Fallback: multi-page search
+        if (!conv) {
             const result = await pdm.fetchConversationsByCustomerIdMultiPage(psid);
             const convs = result.conversations || [];
             conv = convs.find(c => c.type === type && String(c.page_id) === String(pageId))
