@@ -267,6 +267,15 @@ const MENU_CONFIG = [
         permissionRequired: "facebook-services",
     },
     {
+        href: "../fb-ads/index.html",
+        icon: "megaphone",
+        text: "Facebook Ads Manager",
+        shortText: "FB Ads",
+        pageIdentifier: "fb-ads",
+        adminOnly: true,
+        permissionRequired: "fb-ads",
+    },
+    {
         href: "../service-costs/index.html",
         icon: "wallet",
         text: "Chi Phí Dịch Vụ",
