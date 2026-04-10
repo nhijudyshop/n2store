@@ -817,10 +817,27 @@
                     }
                 } else if (tabName === 'overview') {
                     document.getElementById('overviewTab').classList.add('active');
+                    // Request fresh orders data from Tab1 for overview
+                    const ordersFrameForOverview = document.getElementById('ordersFrame');
+                    if (ordersFrameForOverview && ordersFrameForOverview.contentWindow) {
+                        ordersFrameForOverview.contentWindow.postMessage(
+                            { type: 'REQUEST_ORDERS_DATA_FROM_OVERVIEW' }, '*'
+                        );
+                    }
                 } else if (tabName === 'pending-delete') {
                     document.getElementById('pendingDeleteTab').classList.add('active');
+                    // Refresh deleted bills data
+                    const pendingDeleteFrame = document.getElementById('pendingDeleteFrame');
+                    if (pendingDeleteFrame && pendingDeleteFrame.contentWindow && pendingDeleteFrame.contentWindow.loadData) {
+                        pendingDeleteFrame.contentWindow.loadData();
+                    }
                 } else if (tabName === 'kpi-commission') {
                     document.getElementById('kpiCommissionTab').classList.add('active');
+                    // Refresh KPI data
+                    const kpiFrame = document.getElementById('kpiCommissionFrame');
+                    if (kpiFrame && kpiFrame.contentWindow && kpiFrame.contentWindow.KPICommission) {
+                        kpiFrame.contentWindow.KPICommission.init();
+                    }
                 } else if (tabName === 'report-online') {
                     document.getElementById('reportOnlineTab').classList.add('active');
                     // Lazy-load on first click — prevent recursive iframe load
