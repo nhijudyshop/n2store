@@ -790,20 +790,33 @@ class TposRealtimeClient {
                 const data = eventData.d || eventData.data || eventData;
                 const eventType = data.t || data.Type || data.EventName || eventData.EventName || eventData.type || eventData.Type;
 
-                // Only handle SaleOnline_Order — everything else is dropped
-                if (eventType !== 'SaleOnline_Order') return;
+                const eventAction = data.EventName || eventData.EventName || data.action || eventData.action;
+                const msgPreview = (data.Message || data.message || '').substring(0, 80);
 
-                const msgPreview = typeof data.Message === 'string' ? data.Message.substring(0, 80) : null;
-                const eventAction = data.EventName || eventData.EventName;
-                console.log('[TPOS-WS] 🔥 ORDER', eventAction?.toUpperCase() + ':', msgPreview);
+                // Handle SaleOnline_Order — order created/updated
+                if (eventType === 'SaleOnline_Order') {
+                    console.log('[TPOS-WS] 🔥 ORDER', (eventAction || '').toUpperCase() + ':', msgPreview);
+                    broadcastToClients({
+                        type: eventAction === 'updated' ? 'tpos:order-update' : 'tpos:new-order',
+                        data: data
+                    });
+                    // Save to buffer for catch-up polling (fire-and-forget)
+                    saveOrderToBuffer(chatDbPool, data).catch(() => {});
+                    return;
+                }
 
-                broadcastToClients({
-                    type: eventAction === 'updated' ? 'tpos:order-update' : 'tpos:new-order',
-                    data: data
-                });
+                // Handle FastSaleOrder — invoice created/updated → cập nhật cột Phiếu bán hàng
+                if (eventType === 'FastSaleOrder' && (eventAction === 'created' || eventAction === 'updated')) {
+                    console.log('[TPOS-WS] 📄 INVOICE', (eventAction || '').toUpperCase() + ':', msgPreview);
+                    broadcastToClients({
+                        type: 'tpos:invoice-update',
+                        action: eventAction,
+                        data: data
+                    });
+                    return;
+                }
 
-                // Save to buffer for catch-up polling (fire-and-forget)
-                saveOrderToBuffer(chatDbPool, data).catch(() => {});
+                // Everything else (Product, ProductInventory, etc.) is dropped
             } catch (e) {
                 console.error('[TPOS-WS] Error parsing on-events payload:', e.message);
             }

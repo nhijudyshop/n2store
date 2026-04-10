@@ -77,6 +77,8 @@
             handleOrderUpdate(data.data);
         } else if (data.type === 'tpos:tag-assigned') {
             handleTagAssigned(data);
+        } else if (data.type === 'tpos:invoice-update') {
+            handleInvoiceUpdate(data);
         }
     }
 
@@ -224,6 +226,55 @@
         // và TAG filter matching).
         if (typeof window._ptagRenderPanelIfOpen === 'function') {
             window._ptagRenderPanelIfOpen();
+        }
+    }
+
+    async function handleInvoiceUpdate(data) {
+        const eventData = data.data || {};
+        const action = data.action || eventData.action;
+        const invoiceNumber = eventData.data?.Order?.Code; // e.g. "NJD/2026/60576"
+        const message = eventData.message || '';
+
+        if (!invoiceNumber) {
+            console.log('[TPOS-RT] Invoice event without Order.Code, skipping');
+            return;
+        }
+
+        // Deduplicate
+        const dedupeKey = `inv_${invoiceNumber}_${action}`;
+        if (isRecentlyProcessed(dedupeKey)) return;
+        markProcessed(dedupeKey);
+
+        console.log('[TPOS-RT] 📄 Invoice', action, ':', invoiceNumber, '-', message);
+
+        // Fetch invoice by Number to get Reference (= order code) → update PBH column
+        if (typeof window.fetchAndUpdateInvoiceByNumber === 'function') {
+            window.fetchAndUpdateInvoiceByNumber(invoiceNumber);
+        } else if (typeof window.fetchAndUpdateInvoiceForCode === 'function') {
+            // Fallback: extract order code from message if possible
+            // Message format: "nvkt đã tạo hóa đơn cho Huỳnh Thành Đạt"
+            // Can't extract order code from this, so search by invoice Number
+            try {
+                const tposOData = window.API_CONFIG?.TPOS_ODATA || 'https://chatomni-proxy.nhijudyshop.workers.dev/api/odata';
+                const headers = await window.tokenManager.getAuthHeader();
+                const filter = encodeURIComponent(`Type eq 'invoice' and Number eq '${invoiceNumber}'`);
+                const url = `${tposOData}/FastSaleOrder/ODataService.GetView?$top=1&$filter=${filter}&$select=Id,Number,Reference,ShowState,StateCode`;
+                const resp = await fetch(url, { headers: { ...headers, accept: 'application/json' } });
+                if (!resp.ok) return;
+                const result = await resp.json();
+                const inv = (result.value || [])[0];
+                if (!inv || !inv.Reference) return;
+
+                // Find the SaleOnline_Order in table by Reference (= order code)
+                const orderCode = inv.Reference;
+                const order = (typeof allData !== 'undefined') && allData.find(o => o.Code === orderCode);
+                if (order) {
+                    window.fetchAndUpdateInvoiceForCode(orderCode, order.Id);
+                    console.log('[TPOS-RT] 📄 Updated PBH for order', orderCode, 'from invoice', invoiceNumber);
+                }
+            } catch (e) {
+                console.warn('[TPOS-RT] Invoice lookup failed:', e.message);
+            }
         }
     }
 
