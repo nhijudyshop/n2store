@@ -85,7 +85,8 @@ router.post('/auth/token', async (req, res) => {
         const data = await response.json();
 
         if (data.error) {
-            return res.status(400).json({ success: false, error: data.error.message });
+            console.error('[FB-ADS] Token exchange failed:', JSON.stringify(data.error));
+            return res.status(400).json({ success: false, error: data.error.message, fbError: data.error });
         }
 
         fbTokenStore = {

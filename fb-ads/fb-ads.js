@@ -3,9 +3,22 @@
 // FACEBOOK ADS MANAGER - Frontend
 // =====================================================
 
+// FB SDK init MUST be set before SDK script loads
+const FB_APP_ID = '1290728302927895';
+window.fbAsyncInit = function() {
+    FB.init({
+        appId: FB_APP_ID,
+        cookie: true,
+        xfbml: false,
+        version: 'v21.0'
+    });
+    console.log('[FB-ADS] Facebook SDK initialized');
+    // Trigger auth check after SDK ready
+    if (typeof FBAds !== 'undefined') FBAds.checkAuthAfterSDK();
+};
+
 const FBAds = (() => {
     // Config
-    const FB_APP_ID = '1290728302927895';
     const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
         ? 'http://localhost:3000/api/fb-ads'
         : 'https://n2store-fallback.onrender.com/api/fb-ads';
@@ -23,20 +36,11 @@ const FBAds = (() => {
     // INIT
     // =====================================================
     function init() {
-        initFacebookSDK();
         checkAuthStatus();
     }
 
-    function initFacebookSDK() {
-        window.fbAsyncInit = function() {
-            FB.init({
-                appId: FB_APP_ID,
-                cookie: true,
-                xfbml: false,
-                version: 'v21.0'
-            });
-            console.log('[FB-ADS] Facebook SDK initialized');
-        };
+    function checkAuthAfterSDK() {
+        checkAuthStatus();
     }
 
     // =====================================================
@@ -481,6 +485,7 @@ const FBAds = (() => {
         const data = await response.json();
 
         if (!data.success) {
+            console.error('[FB-ADS] API error:', endpoint, data);
             throw new Error(data.error || 'Unknown error');
         }
         return data;
@@ -580,6 +585,7 @@ const FBAds = (() => {
         deleteCampaign,
         toggleStatus,
         viewCampaignDetails,
-        loadInsights
+        loadInsights,
+        checkAuthAfterSDK
     };
 })();
