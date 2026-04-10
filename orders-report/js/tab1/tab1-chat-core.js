@@ -22,6 +22,11 @@ window.currentSendPageId = null;        // override send from page
 window.currentReplyType = 'private_replies'; // for COMMENT: 'reply_comment' | 'private_replies'
 window.isSendingMessage = false;
 
+// Per-page conversation cache: Map<`${psid}:${pageId}:${type}`, convObject>
+// Persists across page switches within the same modal session.
+// Cleared on modal close.
+window._pageConvCache = new Map();
+
 // Send QR image directly to current chat (called from chat header "Gửi mã QR" button)
 window.sendQRFromChatHeader = async function() {
     const phone = (window.currentChatPhone || '').trim();
@@ -201,6 +206,7 @@ window.openChatModal = async function(orderId, pageId, psid, conversationType) {
 
     // Populate page selector for multi-page search
     _populatePageSelector();
+    _updateRepickBtnVisibility();
 
     // Find conversation and load messages
     const myToken = ++window._chatLoadSeq;
@@ -283,6 +289,7 @@ window.closeChatModal = function() {
         window._chatUpdateDebounceMap.clear();
     }
     if (window._chatFindInFlight) window._chatFindInFlight.clear();
+    if (window._pageConvCache) window._pageConvCache.clear();
 
     // Cleanup state
     window.currentConversationId = null;
@@ -337,7 +344,12 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken) {
 
     let conv = null;
 
-    if (type === 'COMMENT') {
+    // Check per-page conv cache first (populated by previous switch)
+    const cacheKey = `${psid}:${pageId}:${type}`;
+    const cached = window._pageConvCache.get(cacheKey);
+    if (cached) {
+        conv = cached;
+    } else if (type === 'COMMENT') {
         // COMMENT: Always fetch fresh from API (cache may hold stale/deleted conversations)
         const result = await pdm.fetchConversationsByCustomerFbId(pageId, psid);
         const commentConvs = (result.conversations || []).filter(c => c.type === 'COMMENT');
@@ -389,6 +401,9 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken) {
 
     window.currentConversationId = conv.id;
     window.currentConversationData = conv;
+
+    // Save to per-page conv cache for quick re-switch
+    window._pageConvCache.set(cacheKey, conv);
 
     // Use correct pageId from conversation (may differ from order's pageId)
     const convPageId = conv.page_id || pageId;
@@ -878,6 +893,46 @@ function _escapeHtml(str) {
     el.textContent = str;
     return el.innerHTML;
 }
+
+// Show/hide re-pick button (visible when >1 page available)
+function _updateRepickBtnVisibility() {
+    const btn = document.getElementById('chatRepickConvBtn');
+    if (!btn) return;
+    const pdm = window.pancakeDataManager;
+    btn.style.display = (pdm?.pages?.length > 1) ? '' : 'none';
+}
+
+/**
+ * Re-pick conversation: clear cache for current page+psid+type,
+ * then re-fetch fresh from API.
+ */
+window.repickConversation = async function() {
+    const pageId = window.currentChatChannelId;
+    const psid = window.currentChatPSID;
+    const type = window.currentConversationType;
+    if (!pageId || !psid) return;
+
+    // Clear cache for this key so _doFindAndLoadConversation fetches fresh
+    const cacheKey = `${psid}:${pageId}:${type}`;
+    window._pageConvCache.delete(cacheKey);
+
+    const myToken = ++window._chatLoadSeq;
+    _resetTransientChatState();
+
+    const messagesEl = document.getElementById('chatMessages');
+    if (messagesEl) {
+        messagesEl.innerHTML = '<div class="chat-loading"><div class="loading-spinner"></div><p>Đang tìm đoạn hội thoại...</p></div>';
+    }
+
+    try {
+        await _findAndLoadConversation(pageId, psid, type, myToken);
+    } catch (e) {
+        if (myToken !== window._chatLoadSeq) return;
+        if (messagesEl) {
+            messagesEl.innerHTML = '<div class="chat-empty-state"><p>Không tìm thấy cuộc hội thoại.</p></div>';
+        }
+    }
+};
 
 window.switchChatPage = async function(newPageId) {
     if (!newPageId || String(newPageId) === String(window.currentChatChannelId)) return;

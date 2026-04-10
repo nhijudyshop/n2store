@@ -8,6 +8,14 @@
 
 ## 2026-04-10
 
+### [chat] Per-page conv cache + nút chọn lại đoạn hội thoại ✅
+| | |
+|---|---|
+| **Files** | `orders-report/tab1-orders.html`, `orders-report/css/tab1-chat-modal.css`, `orders-report/js/tab1/tab1-chat-core.js` |
+| **Conv cache** | `window._pageConvCache` Map keyed `${psid}:${pageId}:${type}`. Khi `_doFindAndLoadConversation` tìm thấy conv → save. Lần sau switch page quay lại → hit cache instant (skip API). Clear khi close modal. |
+| **Nút sync** | `#chatRepickConvBtn` (icon `sync`) hiện bên cạnh page selector. Click → xoá cache cho page hiện tại → `_findAndLoadConversation` fresh. User dùng khi muốn chọn đoạn hội thoại khác (vd: customer có nhiều threads). |
+| **Status** | ✅ Done |
+
 ### [chat] Page selector popup — thay select thành danh sách đẹp giống inbox ✅
 | | |
 |---|---|

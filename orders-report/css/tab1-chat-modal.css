@@ -464,6 +464,27 @@
     visibility: visible;
 }
 
+/* Re-pick conversation button */
+.chat-repick-conv-btn {
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--ap-outline-variant);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--ap-on-surface-variant);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+    flex-shrink: 0;
+}
+
+.chat-repick-conv-btn:hover {
+    border-color: var(--ap-primary);
+    color: var(--ap-primary);
+}
+
 /* Panel toggle button - icon only */
 .chat-panel-toggle-btn {
     width: 40px;
