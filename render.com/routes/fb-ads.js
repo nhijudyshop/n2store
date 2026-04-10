@@ -678,4 +678,391 @@ router.get('/adpreview/:adId', async (req, res) => {
     }
 });
 
+// =====================================================
+// BILLING & PAYMENT
+// =====================================================
+
+// GET /api/fb-ads/billing/payment-methods?account_id=xxx
+router.get('/billing/payment-methods', async (req, res) => {
+    try {
+        const actId = req.query.account_id?.startsWith('act_') ? req.query.account_id : `act_${req.query.account_id}`;
+        const data = await fbFetch(`/${actId}`, {
+            params: { fields: 'funding_source,funding_source_details,adtrust_dsl,min_campaign_group_spend_cap,spend_cap,amount_spent,balance,currency,timezone_name,disable_reason,account_status' }
+        });
+        res.json({ success: true, data });
+    } catch (error) {
+        res.status(error.status || 500).json({ success: false, error: error.message });
+    }
+});
+
+// GET /api/fb-ads/billing/transactions?account_id=xxx
+router.get('/billing/transactions', async (req, res) => {
+    try {
+        const actId = req.query.account_id?.startsWith('act_') ? req.query.account_id : `act_${req.query.account_id}`;
+        const data = await fbFetch(`/${actId}/transactions`, {
+            params: {
+                fields: 'id,time,account_id,fatura_id,charge_type,status,billing_amount,payment_option,reason',
+                limit: req.query.limit || '50'
+            }
+        });
+        res.json({ success: true, data: data.data || [] });
+    } catch (error) {
+        res.status(error.status || 500).json({ success: false, error: error.message });
+    }
+});
+
+// POST /api/fb-ads/billing/spend-cap — Update account spend cap
+router.post('/billing/spend-cap', async (req, res) => {
+    try {
+        const { account_id, spend_cap } = req.body;
+        const actId = account_id?.startsWith('act_') ? account_id : `act_${account_id}`;
+        const data = await fbFetch(`/${actId}`, {
+            method: 'POST',
+            body: { spend_cap: spend_cap.toString() }
+        });
+        res.json({ success: true, data });
+    } catch (error) {
+        res.status(error.status || 500).json({ success: false, error: error.message });
+    }
+});
+
+// =====================================================
+// ACCOUNT MANAGEMENT
+// =====================================================
+
+// GET /api/fb-ads/account/details?account_id=xxx
+router.get('/account/details', async (req, res) => {
+    try {
+        const actId = req.query.account_id?.startsWith('act_') ? req.query.account_id : `act_${req.query.account_id}`;
+        const data = await fbFetch(`/${actId}`, {
+            params: {
+                fields: 'id,name,account_id,account_status,age,currency,timezone_name,timezone_offset_hours_utc,business_name,business_street,business_city,business_state,business_country_code,business_zip,disable_reason,funding_source,spend_cap,amount_spent,balance,owner,min_campaign_group_spend_cap,created_time,end_advertiser,media_agency,partner,is_prepay_account,tax_id,tax_id_status,capabilities'
+            }
+        });
+        res.json({ success: true, data });
+    } catch (error) {
+        res.status(error.status || 500).json({ success: false, error: error.message });
+    }
+});
+
+// POST /api/fb-ads/account/update — Update account settings
+router.post('/account/update', async (req, res) => {
+    try {
+        const { account_id } = req.body;
+        const actId = account_id?.startsWith('act_') ? account_id : `act_${account_id}`;
+        const allowed = ['name', 'spend_cap', 'timezone_id', 'currency'];
+        const body = {};
+        for (const key of allowed) {
+            if (req.body[key] !== undefined) body[key] = req.body[key];
+        }
+        const data = await fbFetch(`/${actId}`, { method: 'POST', body });
+        res.json({ success: true, data });
+    } catch (error) {
+        res.status(error.status || 500).json({ success: false, error: error.message });
+    }
+});
+
+// GET /api/fb-ads/account/users?account_id=xxx — Users with access
+router.get('/account/users', async (req, res) => {
+    try {
+        const actId = req.query.account_id?.startsWith('act_') ? req.query.account_id : `act_${req.query.account_id}`;
+        const data = await fbFetch(`/${actId}/users`, {
+            params: { fields: 'id,name,permissions,role', limit: '100' }
+        });
+        res.json({ success: true, data: data.data || [] });
+    } catch (error) {
+        res.status(error.status || 500).json({ success: false, error: error.message });
+    }
+});
+
+// GET /api/fb-ads/account/activities?account_id=xxx — Activity log
+router.get('/account/activities', async (req, res) => {
+    try {
+        const actId = req.query.account_id?.startsWith('act_') ? req.query.account_id : `act_${req.query.account_id}`;
+        const data = await fbFetch(`/${actId}/activities`, {
+            params: {
+                fields: 'event_time,event_type,actor_id,actor_name,object_id,object_name,extra_data',
+                limit: req.query.limit || '50'
+            }
+        });
+        res.json({ success: true, data: data.data || [] });
+    } catch (error) {
+        res.status(error.status || 500).json({ success: false, error: error.message });
+    }
+});
+
+// =====================================================
+// AUDIENCES
+// =====================================================
+
+// GET /api/fb-ads/audiences?account_id=xxx
+router.get('/audiences', async (req, res) => {
+    try {
+        const actId = req.query.account_id?.startsWith('act_') ? req.query.account_id : `act_${req.query.account_id}`;
+        const data = await fbFetch(`/${actId}/customaudiences`, {
+            params: {
+                fields: 'id,name,description,subtype,approximate_count,time_created,time_updated,data_source,delivery_status,operation_status,permission_for_actions',
+                limit: req.query.limit || '50'
+            }
+        });
+        res.json({ success: true, data: data.data || [] });
+    } catch (error) {
+        res.status(error.status || 500).json({ success: false, error: error.message });
+    }
+});
+
+// POST /api/fb-ads/audiences — Create custom audience
+router.post('/audiences', async (req, res) => {
+    try {
+        const { account_id, name, description, subtype, customer_file_source, rule } = req.body;
+        if (!account_id || !name) {
+            return res.status(400).json({ success: false, error: 'account_id and name required' });
+        }
+        const actId = account_id.startsWith('act_') ? account_id : `act_${account_id}`;
+        const body = { name, subtype: subtype || 'CUSTOM' };
+        if (description) body.description = description;
+        if (customer_file_source) body.customer_file_source = customer_file_source;
+        if (rule) body.rule = rule;
+
+        const data = await fbFetch(`/${actId}/customaudiences`, { method: 'POST', body });
+        res.json({ success: true, data });
+    } catch (error) {
+        res.status(error.status || 500).json({ success: false, error: error.message });
+    }
+});
+
+// POST /api/fb-ads/audiences/lookalike — Create lookalike audience
+router.post('/audiences/lookalike', async (req, res) => {
+    try {
+        const { account_id, name, origin_audience_id, country, ratio } = req.body;
+        if (!account_id || !name || !origin_audience_id || !country) {
+            return res.status(400).json({ success: false, error: 'account_id, name, origin_audience_id, country required' });
+        }
+        const actId = account_id.startsWith('act_') ? account_id : `act_${account_id}`;
+        const data = await fbFetch(`/${actId}/customaudiences`, {
+            method: 'POST',
+            body: {
+                name,
+                subtype: 'LOOKALIKE',
+                origin_audience_id,
+                lookalike_spec: JSON.stringify({
+                    country,
+                    ratio: ratio || 0.01,
+                    type: 'similarity'
+                })
+            }
+        });
+        res.json({ success: true, data });
+    } catch (error) {
+        res.status(error.status || 500).json({ success: false, error: error.message });
+    }
+});
+
+// DELETE /api/fb-ads/audiences/:id
+router.delete('/audiences/:id', async (req, res) => {
+    try {
+        const data = await fbFetch(`/${req.params.id}`, { method: 'DELETE' });
+        res.json({ success: true, data });
+    } catch (error) {
+        res.status(error.status || 500).json({ success: false, error: error.message });
+    }
+});
+
+// =====================================================
+// SAVED AUDIENCES
+// =====================================================
+
+// GET /api/fb-ads/saved-audiences?account_id=xxx
+router.get('/saved-audiences', async (req, res) => {
+    try {
+        const actId = req.query.account_id?.startsWith('act_') ? req.query.account_id : `act_${req.query.account_id}`;
+        const data = await fbFetch(`/${actId}/saved_audiences`, {
+            params: {
+                fields: 'id,name,targeting,approximate_count,run_status,sentence_lines',
+                limit: req.query.limit || '50'
+            }
+        });
+        res.json({ success: true, data: data.data || [] });
+    } catch (error) {
+        res.status(error.status || 500).json({ success: false, error: error.message });
+    }
+});
+
+// =====================================================
+// PIXELS & EVENTS
+// =====================================================
+
+// GET /api/fb-ads/pixels?account_id=xxx
+router.get('/pixels', async (req, res) => {
+    try {
+        const actId = req.query.account_id?.startsWith('act_') ? req.query.account_id : `act_${req.query.account_id}`;
+        const data = await fbFetch(`/${actId}/adspixels`, {
+            params: {
+                fields: 'id,name,code,creation_time,last_fired_time,is_created_by_app,owner_business,data_use_setting',
+                limit: '50'
+            }
+        });
+        res.json({ success: true, data: data.data || [] });
+    } catch (error) {
+        res.status(error.status || 500).json({ success: false, error: error.message });
+    }
+});
+
+// GET /api/fb-ads/pixels/:pixelId/stats
+router.get('/pixels/:pixelId/stats', async (req, res) => {
+    try {
+        const data = await fbFetch(`/${req.params.pixelId}/stats`, {
+            params: {
+                aggregation: req.query.aggregation || 'event',
+                start_time: req.query.start_time || Math.floor(Date.now() / 1000) - 86400 * 7,
+                end_time: req.query.end_time || Math.floor(Date.now() / 1000)
+            }
+        });
+        res.json({ success: true, data: data.data || [] });
+    } catch (error) {
+        res.status(error.status || 500).json({ success: false, error: error.message });
+    }
+});
+
+// =====================================================
+// AUTOMATED RULES
+// =====================================================
+
+// GET /api/fb-ads/rules?account_id=xxx
+router.get('/rules', async (req, res) => {
+    try {
+        const actId = req.query.account_id?.startsWith('act_') ? req.query.account_id : `act_${req.query.account_id}`;
+        const data = await fbFetch(`/${actId}/adrules_library`, {
+            params: {
+                fields: 'id,name,status,evaluation_spec,execution_spec,schedule_spec,created_time,updated_time',
+                limit: '50'
+            }
+        });
+        res.json({ success: true, data: data.data || [] });
+    } catch (error) {
+        res.status(error.status || 500).json({ success: false, error: error.message });
+    }
+});
+
+// POST /api/fb-ads/rules — Create automated rule
+router.post('/rules', async (req, res) => {
+    try {
+        const { account_id, name, evaluation_spec, execution_spec, schedule_spec } = req.body;
+        if (!account_id || !name || !evaluation_spec || !execution_spec) {
+            return res.status(400).json({ success: false, error: 'account_id, name, evaluation_spec, execution_spec required' });
+        }
+        const actId = account_id.startsWith('act_') ? account_id : `act_${account_id}`;
+        const body = { name, evaluation_spec, execution_spec };
+        if (schedule_spec) body.schedule_spec = schedule_spec;
+
+        const data = await fbFetch(`/${actId}/adrules_library`, { method: 'POST', body });
+        res.json({ success: true, data });
+    } catch (error) {
+        res.status(error.status || 500).json({ success: false, error: error.message });
+    }
+});
+
+// POST /api/fb-ads/rules/:id/status
+router.post('/rules/:id/status', async (req, res) => {
+    try {
+        const { status } = req.body;
+        const data = await fbFetch(`/${req.params.id}`, { method: 'POST', body: { status } });
+        res.json({ success: true, data });
+    } catch (error) {
+        res.status(error.status || 500).json({ success: false, error: error.message });
+    }
+});
+
+// DELETE /api/fb-ads/rules/:id
+router.delete('/rules/:id', async (req, res) => {
+    try {
+        const data = await fbFetch(`/${req.params.id}`, { method: 'DELETE' });
+        res.json({ success: true, data });
+    } catch (error) {
+        res.status(error.status || 500).json({ success: false, error: error.message });
+    }
+});
+
+// =====================================================
+// REPORTS & EXPORT
+// =====================================================
+
+// GET /api/fb-ads/reports/daily?account_id=xxx&date_preset=last_30d
+router.get('/reports/daily', async (req, res) => {
+    try {
+        const actId = req.query.account_id?.startsWith('act_') ? req.query.account_id : `act_${req.query.account_id}`;
+        const data = await fbFetch(`/${actId}/insights`, {
+            params: {
+                fields: 'date_start,date_stop,impressions,clicks,spend,cpc,cpm,ctr,reach,frequency,actions,cost_per_action_type',
+                date_preset: req.query.date_preset || 'last_30d',
+                time_increment: '1',
+                level: 'account',
+                limit: '100'
+            }
+        });
+        res.json({ success: true, data: data.data || [] });
+    } catch (error) {
+        res.status(error.status || 500).json({ success: false, error: error.message });
+    }
+});
+
+// GET /api/fb-ads/reports/breakdown?account_id=xxx&breakdowns=age,gender
+router.get('/reports/breakdown', async (req, res) => {
+    try {
+        const actId = req.query.account_id?.startsWith('act_') ? req.query.account_id : `act_${req.query.account_id}`;
+        const data = await fbFetch(`/${actId}/insights`, {
+            params: {
+                fields: 'impressions,clicks,spend,cpc,ctr,reach,actions,cost_per_action_type',
+                date_preset: req.query.date_preset || 'last_30d',
+                breakdowns: req.query.breakdowns || 'age,gender',
+                level: req.query.level || 'account',
+                limit: '200'
+            }
+        });
+        res.json({ success: true, data: data.data || [] });
+    } catch (error) {
+        res.status(error.status || 500).json({ success: false, error: error.message });
+    }
+});
+
+// GET /api/fb-ads/reports/placement?account_id=xxx
+router.get('/reports/placement', async (req, res) => {
+    try {
+        const actId = req.query.account_id?.startsWith('act_') ? req.query.account_id : `act_${req.query.account_id}`;
+        const data = await fbFetch(`/${actId}/insights`, {
+            params: {
+                fields: 'impressions,clicks,spend,cpc,ctr,reach,actions',
+                date_preset: req.query.date_preset || 'last_30d',
+                breakdowns: 'publisher_platform,platform_position',
+                level: 'account',
+                limit: '200'
+            }
+        });
+        res.json({ success: true, data: data.data || [] });
+    } catch (error) {
+        res.status(error.status || 500).json({ success: false, error: error.message });
+    }
+});
+
+// =====================================================
+// REACH ESTIMATE
+// =====================================================
+
+// POST /api/fb-ads/reach-estimate
+router.post('/reach-estimate', async (req, res) => {
+    try {
+        const { account_id, targeting_spec } = req.body;
+        if (!account_id || !targeting_spec) {
+            return res.status(400).json({ success: false, error: 'account_id and targeting_spec required' });
+        }
+        const actId = account_id.startsWith('act_') ? account_id : `act_${account_id}`;
+        const data = await fbFetch(`/${actId}/reachestimate`, {
+            params: { targeting_spec: JSON.stringify(targeting_spec) }
+        });
+        res.json({ success: true, data });
+    } catch (error) {
+        res.status(error.status || 500).json({ success: false, error: error.message });
+    }
+});
+
 module.exports = router;

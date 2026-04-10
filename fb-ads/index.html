@@ -21,9 +21,7 @@
         </select>
     </div>
     <div class="topbar-right">
-        <div class="user-info" id="userInfo" style="display:none">
-            <span id="userName"></span>
-        </div>
+        <div class="user-info" id="userInfo" style="display:none"><span id="userName"></span></div>
         <button class="btn btn-outline btn-sm" id="settingsBtn" style="display:none" onclick="FBAds.openModal('settingsModal')">&#9881; Cài đặt</button>
         <button class="btn btn-primary btn-sm" id="loginBtn" onclick="FBAds.login()">Đăng nhập Facebook</button>
         <button class="btn btn-outline btn-sm" id="logoutBtn" style="display:none" onclick="FBAds.logout()">Đăng xuất</button>
@@ -44,27 +42,26 @@
 <!-- ==================== MAIN APP ==================== -->
 <div id="mainApp" style="display:none">
 
-    <!-- TABS -->
-    <div class="tabs">
-        <div class="tab active" data-tab="campaigns" onclick="FBAds.switchTab('campaigns')">
-            Chiến dịch <span class="count" id="campaignCount">0</span>
-        </div>
-        <div class="tab" data-tab="adsets" onclick="FBAds.switchTab('adsets')">
-            Nhóm QC <span class="count" id="adsetCount">0</span>
-        </div>
-        <div class="tab" data-tab="ads" onclick="FBAds.switchTab('ads')">
-            Quảng cáo <span class="count" id="adCount">0</span>
-        </div>
+    <!-- MAIN TABS (top level navigation) -->
+    <div class="tabs" id="mainTabs">
+        <div class="tab active" data-tab="campaigns" onclick="FBAds.switchTab('campaigns')">Chiến dịch <span class="count" id="campaignCount">0</span></div>
+        <div class="tab" data-tab="adsets" onclick="FBAds.switchTab('adsets')">Nhóm QC <span class="count" id="adsetCount">0</span></div>
+        <div class="tab" data-tab="ads" onclick="FBAds.switchTab('ads')">Quảng cáo <span class="count" id="adCount">0</span></div>
+        <div class="tab" data-tab="audiences" onclick="FBAds.switchTab('audiences')">Đối tượng</div>
+        <div class="tab" data-tab="pixels" onclick="FBAds.switchTab('pixels')">Pixel</div>
+        <div class="tab" data-tab="billing" onclick="FBAds.switchTab('billing')">Thanh toán</div>
+        <div class="tab" data-tab="reports" onclick="FBAds.switchTab('reports')">Báo cáo</div>
+        <div class="tab" data-tab="rules" onclick="FBAds.switchTab('rules')">Quy tắc tự động</div>
+        <div class="tab" data-tab="account" onclick="FBAds.switchTab('account')">Tài khoản</div>
     </div>
 
-    <!-- TOOLBAR -->
-    <div class="toolbar">
+    <!-- TOOLBAR (for ads tabs) -->
+    <div class="toolbar" id="adsToolbar">
         <div class="toolbar-group">
             <button class="btn btn-primary btn-sm" onclick="FBAds.showCreateModal()">+ Tạo</button>
             <button class="btn btn-outline btn-sm" onclick="FBAds.refreshData()">&#8635; Làm mới</button>
         </div>
         <div class="toolbar-divider"></div>
-        <!-- BULK ACTIONS -->
         <div class="toolbar-group" id="bulkActions" style="display:none">
             <span id="selectedCount" style="font-size:13px;color:var(--fb-primary);font-weight:600"></span>
             <button class="btn btn-success btn-sm" onclick="FBAds.bulkAction('ACTIVE')">&#9654; Bật</button>
@@ -94,324 +91,311 @@
         <div class="metric-card"><div class="metric-label">Tiếp cận</div><div class="metric-value" id="metricReach">--</div></div>
     </div>
 
-    <!-- TABLE -->
-    <div class="table-container">
-        <table class="data-table" id="campaignsTable">
-            <thead><tr>
-                <th style="width:40px"><input type="checkbox" id="selectAll" onchange="FBAds.toggleSelectAll(this)"></th>
-                <th>Bật/Tắt</th><th>Chiến dịch</th><th>Phân phối</th><th>Ngân sách</th>
-                <th>Chi tiêu</th><th>Kết quả</th><th>CPR</th><th>Lượt hiển thị</th><th>Tiếp cận</th><th>Hành động</th>
-            </tr></thead>
-            <tbody id="campaignsBody"></tbody>
-        </table>
-        <table class="data-table" id="adsetsTable" style="display:none">
-            <thead><tr>
-                <th style="width:40px"><input type="checkbox" onchange="FBAds.toggleSelectAll(this)"></th>
-                <th>Bật/Tắt</th><th>Nhóm quảng cáo</th><th>Phân phối</th><th>Ngân sách</th>
-                <th>Chi tiêu</th><th>Kết quả</th><th>Chiến dịch</th><th>Hành động</th>
-            </tr></thead>
-            <tbody id="adsetsBody"></tbody>
-        </table>
-        <table class="data-table" id="adsTable" style="display:none">
-            <thead><tr>
-                <th style="width:40px"><input type="checkbox" onchange="FBAds.toggleSelectAll(this)"></th>
-                <th>Bật/Tắt</th><th>Quảng cáo</th><th>Phân phối</th>
-                <th>Chi tiêu</th><th>Kết quả</th><th>Nhóm QC</th><th>Hành động</th>
-            </tr></thead>
-            <tbody id="adsBody"></tbody>
-        </table>
+    <!-- ADS TABLES -->
+    <div class="table-container" id="adsTablesContainer">
+        <table class="data-table" id="campaignsTable"><thead><tr>
+            <th style="width:40px"><input type="checkbox" id="selectAll" onchange="FBAds.toggleSelectAll(this)"></th>
+            <th>Bật/Tắt</th><th>Chiến dịch</th><th>Phân phối</th><th>Ngân sách</th>
+            <th>Chi tiêu</th><th>Kết quả</th><th>CPR</th><th>Lượt hiển thị</th><th>Tiếp cận</th><th>Hành động</th>
+        </tr></thead><tbody id="campaignsBody"></tbody></table>
+        <table class="data-table" id="adsetsTable" style="display:none"><thead><tr>
+            <th style="width:40px"><input type="checkbox" onchange="FBAds.toggleSelectAll(this)"></th>
+            <th>Bật/Tắt</th><th>Nhóm quảng cáo</th><th>Phân phối</th><th>Ngân sách</th>
+            <th>Chi tiêu</th><th>Kết quả</th><th>Chiến dịch</th><th>Hành động</th>
+        </tr></thead><tbody id="adsetsBody"></tbody></table>
+        <table class="data-table" id="adsTable" style="display:none"><thead><tr>
+            <th style="width:40px"><input type="checkbox" onchange="FBAds.toggleSelectAll(this)"></th>
+            <th>Bật/Tắt</th><th>Quảng cáo</th><th>Phân phối</th>
+            <th>Chi tiêu</th><th>Kết quả</th><th>Nhóm QC</th><th>Hành động</th>
+        </tr></thead><tbody id="adsBody"></tbody></table>
+    </div>
+
+    <!-- ==================== AUDIENCES PANEL ==================== -->
+    <div id="audiencesPanel" class="panel" style="display:none">
+        <div class="toolbar">
+            <button class="btn btn-primary btn-sm" onclick="FBAds.openModal('createAudienceModal')">+ Tạo đối tượng</button>
+            <button class="btn btn-outline btn-sm" onclick="FBAds.loadAudiences()">&#8635; Làm mới</button>
+        </div>
+        <div class="table-container"><table class="data-table"><thead><tr>
+            <th>Tên</th><th>Loại</th><th>Kích thước</th><th>Trạng thái</th><th>Ngày tạo</th><th>Hành động</th>
+        </tr></thead><tbody id="audiencesBody"></tbody></table></div>
+    </div>
+
+    <!-- ==================== PIXELS PANEL ==================== -->
+    <div id="pixelsPanel" class="panel" style="display:none">
+        <div class="toolbar">
+            <button class="btn btn-outline btn-sm" onclick="FBAds.loadPixels()">&#8635; Làm mới</button>
+        </div>
+        <div class="table-container"><table class="data-table"><thead><tr>
+            <th>Tên Pixel</th><th>ID</th><th>Lần bắn cuối</th><th>Ngày tạo</th><th>Hành động</th>
+        </tr></thead><tbody id="pixelsBody"></tbody></table></div>
+        <div id="pixelEventsContainer" style="padding:0 20px 20px"></div>
+    </div>
+
+    <!-- ==================== BILLING PANEL ==================== -->
+    <div id="billingPanel" class="panel" style="display:none">
+        <div class="toolbar">
+            <button class="btn btn-outline btn-sm" onclick="FBAds.loadBilling()">&#8635; Làm mới</button>
+        </div>
+        <!-- Billing overview cards -->
+        <div class="metrics-bar" id="billingCards">
+            <div class="metric-card"><div class="metric-label">Trạng thái TK</div><div class="metric-value" id="billingAccStatus">--</div></div>
+            <div class="metric-card"><div class="metric-label">Tổng chi tiêu</div><div class="metric-value" id="billingTotalSpent">--</div></div>
+            <div class="metric-card"><div class="metric-label">Số dư</div><div class="metric-value" id="billingBalance">--</div></div>
+            <div class="metric-card"><div class="metric-label">Giới hạn chi tiêu</div><div class="metric-value" id="billingSpendCap">--</div></div>
+            <div class="metric-card"><div class="metric-label">Nguồn tiền</div><div class="metric-value" id="billingFunding" style="font-size:14px">--</div></div>
+            <div class="metric-card"><div class="metric-label">Tiền tệ</div><div class="metric-value" id="billingCurrency">--</div></div>
+        </div>
+        <!-- Spend cap control -->
+        <div style="padding:0 20px 12px;display:flex;gap:8px;align-items:center">
+            <label style="font-weight:600;font-size:14px">Đặt giới hạn chi tiêu:</label>
+            <input type="number" id="spendCapInput" placeholder="VND" style="padding:7px 12px;border:1px solid var(--fb-border);border-radius:6px;width:200px;font-size:14px" min="0" step="100000">
+            <button class="btn btn-primary btn-sm" onclick="FBAds.updateSpendCap()">Cập nhật</button>
+            <span class="form-hint">Để trống hoặc 0 = không giới hạn</span>
+        </div>
+        <!-- Transactions -->
+        <div style="padding:0 20px"><h3 style="font-size:16px;margin-bottom:12px">Lịch sử giao dịch</h3></div>
+        <div class="table-container"><table class="data-table"><thead><tr>
+            <th>Thời gian</th><th>Loại</th><th>Số tiền</th><th>Trạng thái</th><th>Lý do</th>
+        </tr></thead><tbody id="transactionsBody"></tbody></table></div>
+    </div>
+
+    <!-- ==================== REPORTS PANEL ==================== -->
+    <div id="reportsPanel" class="panel" style="display:none">
+        <div class="toolbar">
+            <div class="toolbar-group">
+                <select id="reportType" class="date-range-btn" onchange="FBAds.loadReport()">
+                    <option value="daily">Theo ngày</option>
+                    <option value="age_gender">Theo tuổi + giới tính</option>
+                    <option value="placement">Theo vị trí</option>
+                </select>
+                <select id="reportDatePreset" class="date-range-btn" onchange="FBAds.loadReport()">
+                    <option value="last_7d">7 ngày</option>
+                    <option value="last_14d">14 ngày</option>
+                    <option value="last_30d" selected>30 ngày</option>
+                    <option value="last_90d">90 ngày</option>
+                </select>
+            </div>
+            <div style="flex:1"></div>
+            <button class="btn btn-outline btn-sm" onclick="FBAds.exportReport()">&#128190; Xuất CSV</button>
+        </div>
+        <div class="table-container"><table class="data-table" id="reportTable"><thead id="reportHead"></thead><tbody id="reportBody"></tbody></table></div>
+    </div>
+
+    <!-- ==================== RULES PANEL ==================== -->
+    <div id="rulesPanel" class="panel" style="display:none">
+        <div class="toolbar">
+            <button class="btn btn-primary btn-sm" onclick="FBAds.openModal('createRuleModal')">+ Tạo quy tắc</button>
+            <button class="btn btn-outline btn-sm" onclick="FBAds.loadRules()">&#8635; Làm mới</button>
+        </div>
+        <div class="table-container"><table class="data-table"><thead><tr>
+            <th>Bật/Tắt</th><th>Tên quy tắc</th><th>Ngày tạo</th><th>Hành động</th>
+        </tr></thead><tbody id="rulesBody"></tbody></table></div>
+    </div>
+
+    <!-- ==================== ACCOUNT PANEL ==================== -->
+    <div id="accountPanel" class="panel" style="display:none">
+        <div class="toolbar">
+            <button class="btn btn-outline btn-sm" onclick="FBAds.loadAccountDetails()">&#8635; Làm mới</button>
+        </div>
+        <!-- Account info -->
+        <div style="padding:0 20px 20px;display:grid;grid-template-columns:1fr 1fr;gap:16px" id="accountDetails">
+            <div class="metric-card"><div class="metric-label">Tên TK</div><div class="metric-value" id="accName" style="font-size:16px">--</div></div>
+            <div class="metric-card"><div class="metric-label">ID</div><div class="metric-value" id="accId" style="font-size:14px">--</div></div>
+            <div class="metric-card"><div class="metric-label">Trạng thái</div><div class="metric-value" id="accStatus">--</div></div>
+            <div class="metric-card"><div class="metric-label">Múi giờ</div><div class="metric-value" id="accTimezone" style="font-size:14px">--</div></div>
+            <div class="metric-card"><div class="metric-label">Doanh nghiệp</div><div class="metric-value" id="accBusiness" style="font-size:14px">--</div></div>
+            <div class="metric-card"><div class="metric-label">Ngày tạo</div><div class="metric-value" id="accCreated" style="font-size:14px">--</div></div>
+            <div class="metric-card"><div class="metric-label">Prepay</div><div class="metric-value" id="accPrepay">--</div></div>
+            <div class="metric-card"><div class="metric-label">Lý do vô hiệu</div><div class="metric-value" id="accDisableReason" style="font-size:14px">--</div></div>
+        </div>
+        <!-- Account users -->
+        <div style="padding:0 20px"><h3 style="font-size:16px;margin-bottom:12px">Người dùng có quyền truy cập</h3></div>
+        <div class="table-container"><table class="data-table"><thead><tr>
+            <th>Tên</th><th>ID</th><th>Vai trò</th><th>Quyền</th>
+        </tr></thead><tbody id="accUsersBody"></tbody></table></div>
+        <!-- Activity log -->
+        <div style="padding:16px 20px 0"><h3 style="font-size:16px;margin-bottom:12px">Nhật ký hoạt động (gần nhất)</h3></div>
+        <div class="table-container"><table class="data-table"><thead><tr>
+            <th>Thời gian</th><th>Sự kiện</th><th>Người thực hiện</th><th>Đối tượng</th>
+        </tr></thead><tbody id="accActivityBody"></tbody></table></div>
     </div>
 </div>
 
-<!-- ==================== CREATE CAMPAIGN MODAL ==================== -->
-<div class="modal-overlay" id="createCampaignModal">
-    <div class="modal">
-        <div class="modal-header">
-            <h3>Tạo chiến dịch mới</h3>
-            <button class="modal-close" onclick="FBAds.closeModal('createCampaignModal')">&times;</button>
-        </div>
-        <div class="modal-body">
-            <div class="form-group">
-                <label>Tên chiến dịch</label>
-                <input type="text" id="campaignName" placeholder="VD: Sale T4 - Traffic">
+<!-- ==================== MODALS (existing) ==================== -->
+<!-- Create Campaign -->
+<div class="modal-overlay" id="createCampaignModal"><div class="modal">
+    <div class="modal-header"><h3>Tạo chiến dịch mới</h3><button class="modal-close" onclick="FBAds.closeModal('createCampaignModal')">&times;</button></div>
+    <div class="modal-body">
+        <div class="form-group"><label>Tên chiến dịch</label><input type="text" id="campaignName" placeholder="VD: Sale T4 - Traffic"></div>
+        <div class="form-group"><label>Mục tiêu</label><select id="campaignObjective">
+            <option value="OUTCOME_TRAFFIC">Traffic</option><option value="OUTCOME_ENGAGEMENT">Engagement</option>
+            <option value="OUTCOME_LEADS">Leads</option><option value="OUTCOME_SALES">Sales</option>
+            <option value="OUTCOME_AWARENESS">Awareness</option><option value="OUTCOME_APP_PROMOTION">App Promotion</option>
+        </select></div>
+        <div class="form-group"><label>Ngân sách hàng ngày (VND)</label><input type="number" id="campaignBudget" placeholder="100000" min="10000" step="10000"></div>
+        <div class="form-group"><label>Trạng thái</label><select id="campaignStatus"><option value="PAUSED">Tạm dừng</option><option value="ACTIVE">Hoạt động</option></select></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-outline" onclick="FBAds.closeModal('createCampaignModal')">Hủy</button><button class="btn btn-primary" onclick="FBAds.createCampaign()">Tạo</button></div>
+</div></div>
+
+<!-- Edit Campaign -->
+<div class="modal-overlay" id="editCampaignModal"><div class="modal">
+    <div class="modal-header"><h3>Chỉnh sửa chiến dịch</h3><button class="modal-close" onclick="FBAds.closeModal('editCampaignModal')">&times;</button></div>
+    <div class="modal-body"><input type="hidden" id="editCampaignId">
+        <div class="form-group"><label>Tên</label><input type="text" id="editCampaignName"></div>
+        <div class="form-group"><label>Ngân sách/ngày (VND)</label><input type="number" id="editCampaignBudget" min="10000" step="10000"></div>
+        <div class="form-group"><label>Trạng thái</label><select id="editCampaignStatus"><option value="ACTIVE">Hoạt động</option><option value="PAUSED">Tạm dừng</option></select></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-outline" onclick="FBAds.closeModal('editCampaignModal')">Hủy</button><button class="btn btn-primary" onclick="FBAds.updateCampaign()">Lưu</button></div>
+</div></div>
+
+<!-- Create AdSet -->
+<div class="modal-overlay" id="createAdSetModal"><div class="modal" style="max-width:700px">
+    <div class="modal-header"><h3>Tạo nhóm quảng cáo</h3><button class="modal-close" onclick="FBAds.closeModal('createAdSetModal')">&times;</button></div>
+    <div class="modal-body">
+        <div class="form-group"><label>Chiến dịch</label><select id="adsetCampaignId"></select></div>
+        <div class="form-group"><label>Tên nhóm QC</label><input type="text" id="adsetName" placeholder="VN - Nữ 25-45"></div>
+        <div class="form-group"><label>Ngân sách/ngày (VND)</label><input type="number" id="adsetBudget" placeholder="100000" min="10000" step="10000"></div>
+        <div class="form-group"><label>Tối ưu</label><select id="adsetOptGoal">
+            <option value="LINK_CLICKS">Link clicks</option><option value="LANDING_PAGE_VIEWS">Landing page views</option>
+            <option value="IMPRESSIONS">Impressions</option><option value="REACH">Reach</option>
+            <option value="OFFSITE_CONVERSIONS">Conversions</option><option value="POST_ENGAGEMENT">Post engagement</option>
+            <option value="LEAD_GENERATION">Lead generation</option>
+        </select></div>
+        <fieldset style="border:1px solid var(--fb-border);border-radius:var(--radius);padding:16px;margin-bottom:16px">
+            <legend style="font-weight:600;font-size:14px;padding:0 8px">Targeting</legend>
+            <div class="form-group"><label>Quốc gia</label><input type="text" id="adsetCountries" value="VN"><div class="form-hint">VD: VN,US,TH</div></div>
+            <div style="display:flex;gap:12px">
+                <div class="form-group" style="flex:1"><label>Tuổi từ</label><input type="number" id="adsetAgeMin" value="18" min="13" max="65"></div>
+                <div class="form-group" style="flex:1"><label>Tuổi đến</label><input type="number" id="adsetAgeMax" value="65" min="13" max="65"></div>
             </div>
-            <div class="form-group">
-                <label>Mục tiêu</label>
-                <select id="campaignObjective">
-                    <option value="OUTCOME_TRAFFIC">Traffic (Lượt truy cập)</option>
-                    <option value="OUTCOME_ENGAGEMENT">Engagement (Tương tác)</option>
-                    <option value="OUTCOME_LEADS">Leads (Khách hàng tiềm năng)</option>
-                    <option value="OUTCOME_SALES">Sales (Bán hàng)</option>
-                    <option value="OUTCOME_AWARENESS">Awareness (Nhận biết)</option>
-                    <option value="OUTCOME_APP_PROMOTION">App Promotion</option>
-                </select>
+            <div class="form-group"><label>Giới tính</label><select id="adsetGender"><option value="0">Tất cả</option><option value="1">Nam</option><option value="2">Nữ</option></select></div>
+            <div class="form-group"><label>Sở thích</label>
+                <div style="display:flex;gap:8px"><input type="text" id="interestSearch" placeholder="Tìm sở thích..." style="flex:1"><button class="btn btn-outline btn-sm" onclick="FBAds.searchInterests()">Tìm</button></div>
+                <div id="interestResults" style="max-height:150px;overflow-y:auto;margin-top:8px"></div>
+                <div id="selectedInterests" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
             </div>
-            <div class="form-group">
-                <label>Ngân sách hàng ngày (VND)</label>
-                <input type="number" id="campaignBudget" placeholder="VD: 100000" min="10000" step="10000">
-                <div class="form-hint">Tối thiểu 10,000 VND</div>
-            </div>
-            <div class="form-group">
-                <label>Trạng thái</label>
-                <select id="campaignStatus">
-                    <option value="PAUSED">Tạm dừng (Khuyên dùng)</option>
-                    <option value="ACTIVE">Hoạt động ngay</option>
-                </select>
-            </div>
-        </div>
-        <div class="modal-footer">
-            <button class="btn btn-outline" onclick="FBAds.closeModal('createCampaignModal')">Hủy</button>
-            <button class="btn btn-primary" onclick="FBAds.createCampaign()">Tạo chiến dịch</button>
+        </fieldset>
+        <div class="form-group"><label>Trạng thái</label><select id="adsetStatus"><option value="PAUSED">Tạm dừng</option><option value="ACTIVE">Hoạt động</option></select></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-outline" onclick="FBAds.closeModal('createAdSetModal')">Hủy</button><button class="btn btn-primary" onclick="FBAds.createAdSet()">Tạo</button></div>
+</div></div>
+
+<!-- Create Ad -->
+<div class="modal-overlay" id="createAdModal"><div class="modal" style="max-width:700px">
+    <div class="modal-header"><h3>Tạo quảng cáo</h3><button class="modal-close" onclick="FBAds.closeModal('createAdModal')">&times;</button></div>
+    <div class="modal-body">
+        <div class="form-group"><label>Nhóm QC</label><select id="adAdSetId"></select></div>
+        <div class="form-group"><label>Tên</label><input type="text" id="adName" placeholder="Ad 1 - Hình SP A"></div>
+        <div class="form-group"><label>Facebook Page</label><select id="adPageId"></select></div>
+        <fieldset style="border:1px solid var(--fb-border);border-radius:var(--radius);padding:16px;margin-bottom:16px">
+            <legend style="font-weight:600;font-size:14px;padding:0 8px">Nội dung</legend>
+            <div class="form-group"><label>Message</label><textarea id="adMessage" rows="3" placeholder="Nội dung quảng cáo..."></textarea></div>
+            <div class="form-group"><label>Headline</label><input type="text" id="adHeadline" placeholder="Giảm giá 50%"></div>
+            <div class="form-group"><label>Mô tả</label><input type="text" id="adDescription" placeholder="Free ship từ 200k"></div>
+            <div class="form-group"><label>Link</label><input type="url" id="adLink" placeholder="https://..."></div>
+            <div class="form-group"><label>Hình</label><input type="file" id="adImageFile" accept="image/*" onchange="FBAds.previewAdImage(this)"><div id="adImagePreview" style="margin-top:8px"></div></div>
+            <div class="form-group"><label>CTA</label><select id="adCTA">
+                <option value="LEARN_MORE">Tìm hiểu thêm</option><option value="SHOP_NOW">Mua ngay</option><option value="SIGN_UP">Đăng ký</option>
+                <option value="CONTACT_US">Liên hệ</option><option value="SEND_MESSAGE">Nhắn tin</option><option value="ORDER_NOW">Đặt hàng</option>
+                <option value="NO_BUTTON">Không nút</option>
+            </select></div>
+        </fieldset>
+        <div class="form-group"><label>Trạng thái</label><select id="adStatus"><option value="PAUSED">Tạm dừng</option><option value="ACTIVE">Hoạt động</option></select></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-outline" onclick="FBAds.closeModal('createAdModal')">Hủy</button><button class="btn btn-primary" onclick="FBAds.createAd()">Tạo</button></div>
+</div></div>
+
+<!-- Create Audience -->
+<div class="modal-overlay" id="createAudienceModal"><div class="modal">
+    <div class="modal-header"><h3>Tạo đối tượng tùy chỉnh</h3><button class="modal-close" onclick="FBAds.closeModal('createAudienceModal')">&times;</button></div>
+    <div class="modal-body">
+        <div class="form-group"><label>Tên</label><input type="text" id="audienceName" placeholder="VD: Khách mua 30 ngày qua"></div>
+        <div class="form-group"><label>Mô tả</label><input type="text" id="audienceDesc" placeholder="Mô tả đối tượng"></div>
+        <div class="form-group"><label>Loại</label><select id="audienceSubtype">
+            <option value="CUSTOM">Custom Audience</option><option value="WEBSITE">Website Traffic</option>
+            <option value="ENGAGEMENT">Engagement</option><option value="LOOKALIKE">Lookalike</option>
+        </select></div>
+        <div id="lookalikeFields" style="display:none">
+            <div class="form-group"><label>Audience gốc (ID)</label><input type="text" id="lookalikeSourceId" placeholder="Audience ID gốc"></div>
+            <div class="form-group"><label>Quốc gia</label><input type="text" id="lookalikeCountry" value="VN"></div>
+            <div class="form-group"><label>Tỉ lệ (1-10%)</label><input type="number" id="lookalikeRatio" value="1" min="1" max="10" step="1"><div class="form-hint">1% = giống nhất, 10% = lớn nhất</div></div>
         </div>
     </div>
-</div>
+    <div class="modal-footer"><button class="btn btn-outline" onclick="FBAds.closeModal('createAudienceModal')">Hủy</button><button class="btn btn-primary" onclick="FBAds.createAudience()">Tạo</button></div>
+</div></div>
 
-<!-- ==================== EDIT CAMPAIGN MODAL ==================== -->
-<div class="modal-overlay" id="editCampaignModal">
-    <div class="modal">
-        <div class="modal-header">
-            <h3>Chỉnh sửa chiến dịch</h3>
-            <button class="modal-close" onclick="FBAds.closeModal('editCampaignModal')">&times;</button>
-        </div>
-        <div class="modal-body">
-            <input type="hidden" id="editCampaignId">
-            <div class="form-group">
-                <label>Tên chiến dịch</label>
-                <input type="text" id="editCampaignName">
-            </div>
-            <div class="form-group">
-                <label>Ngân sách hàng ngày (VND)</label>
-                <input type="number" id="editCampaignBudget" min="10000" step="10000">
-            </div>
-            <div class="form-group">
-                <label>Trạng thái</label>
-                <select id="editCampaignStatus">
-                    <option value="ACTIVE">Hoạt động</option>
-                    <option value="PAUSED">Tạm dừng</option>
+<!-- Create Rule -->
+<div class="modal-overlay" id="createRuleModal"><div class="modal" style="max-width:650px">
+    <div class="modal-header"><h3>Tạo quy tắc tự động</h3><button class="modal-close" onclick="FBAds.closeModal('createRuleModal')">&times;</button></div>
+    <div class="modal-body">
+        <div class="form-group"><label>Tên quy tắc</label><input type="text" id="ruleName" placeholder="VD: Tắt QC khi CPC > 10k"></div>
+        <div class="form-group"><label>Áp dụng cho</label><select id="ruleEntityType">
+            <option value="CAMPAIGN">Chiến dịch</option><option value="ADSET">Nhóm QC</option><option value="AD">Quảng cáo</option>
+        </select></div>
+        <fieldset style="border:1px solid var(--fb-border);border-radius:var(--radius);padding:16px;margin-bottom:16px">
+            <legend style="font-weight:600;font-size:14px;padding:0 8px">Điều kiện</legend>
+            <div style="display:flex;gap:8px;align-items:center">
+                <select id="ruleMetric" style="flex:1;padding:7px;border:1px solid var(--fb-border);border-radius:6px">
+                    <option value="cost_per_result">Chi phí/kết quả (CPR)</option>
+                    <option value="cpc">CPC</option><option value="cpm">CPM</option>
+                    <option value="spend">Chi tiêu</option><option value="impressions">Lượt hiển thị</option>
+                    <option value="ctr">CTR</option><option value="frequency">Tần suất</option>
                 </select>
-            </div>
-        </div>
-        <div class="modal-footer">
-            <button class="btn btn-outline" onclick="FBAds.closeModal('editCampaignModal')">Hủy</button>
-            <button class="btn btn-primary" onclick="FBAds.updateCampaign()">Lưu thay đổi</button>
-        </div>
-    </div>
-</div>
-
-<!-- ==================== CREATE ADSET MODAL ==================== -->
-<div class="modal-overlay" id="createAdSetModal">
-    <div class="modal" style="max-width:700px">
-        <div class="modal-header">
-            <h3>Tạo nhóm quảng cáo</h3>
-            <button class="modal-close" onclick="FBAds.closeModal('createAdSetModal')">&times;</button>
-        </div>
-        <div class="modal-body">
-            <div class="form-group">
-                <label>Chiến dịch</label>
-                <select id="adsetCampaignId"></select>
-            </div>
-            <div class="form-group">
-                <label>Tên nhóm QC</label>
-                <input type="text" id="adsetName" placeholder="VD: VN - Nữ 25-45 - Sở thích mua sắm">
-            </div>
-            <div class="form-group">
-                <label>Ngân sách hàng ngày (VND)</label>
-                <input type="number" id="adsetBudget" placeholder="100000" min="10000" step="10000">
-            </div>
-            <div class="form-group">
-                <label>Mục tiêu tối ưu</label>
-                <select id="adsetOptGoal">
-                    <option value="LINK_CLICKS">Link clicks</option>
-                    <option value="LANDING_PAGE_VIEWS">Landing page views</option>
-                    <option value="IMPRESSIONS">Impressions</option>
-                    <option value="REACH">Reach</option>
-                    <option value="OFFSITE_CONVERSIONS">Conversions</option>
-                    <option value="POST_ENGAGEMENT">Post engagement</option>
-                    <option value="LEAD_GENERATION">Lead generation</option>
+                <select id="ruleOperator" style="padding:7px;border:1px solid var(--fb-border);border-radius:6px">
+                    <option value="GREATER_THAN">></option><option value="LESS_THAN"><</option>
+                    <option value="IN_RANGE">Trong khoảng</option>
                 </select>
+                <input type="number" id="ruleValue" placeholder="Giá trị" style="width:120px;padding:7px;border:1px solid var(--fb-border);border-radius:6px">
             </div>
-            <fieldset style="border:1px solid var(--fb-border);border-radius:var(--radius);padding:16px;margin-bottom:16px">
-                <legend style="font-weight:600;font-size:14px;padding:0 8px">Targeting (Đối tượng)</legend>
-                <div class="form-group">
-                    <label>Quốc gia</label>
-                    <input type="text" id="adsetCountries" placeholder="VN" value="VN">
-                    <div class="form-hint">Mã quốc gia, phân cách bằng dấu phẩy (VD: VN,US,TH)</div>
-                </div>
-                <div style="display:flex;gap:12px">
-                    <div class="form-group" style="flex:1">
-                        <label>Tuổi từ</label>
-                        <input type="number" id="adsetAgeMin" value="18" min="13" max="65">
-                    </div>
-                    <div class="form-group" style="flex:1">
-                        <label>Tuổi đến</label>
-                        <input type="number" id="adsetAgeMax" value="65" min="13" max="65">
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>Giới tính</label>
-                    <select id="adsetGender">
-                        <option value="0">Tất cả</option>
-                        <option value="1">Nam</option>
-                        <option value="2">Nữ</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Sở thích (Interests)</label>
-                    <div style="display:flex;gap:8px">
-                        <input type="text" id="interestSearch" placeholder="Tìm sở thích..." style="flex:1">
-                        <button class="btn btn-outline btn-sm" onclick="FBAds.searchInterests()">Tìm</button>
-                    </div>
-                    <div id="interestResults" style="max-height:150px;overflow-y:auto;margin-top:8px"></div>
-                    <div id="selectedInterests" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
-                </div>
-            </fieldset>
-            <div class="form-group">
-                <label>Trạng thái</label>
-                <select id="adsetStatus">
-                    <option value="PAUSED">Tạm dừng</option>
-                    <option value="ACTIVE">Hoạt động</option>
-                </select>
-            </div>
-        </div>
-        <div class="modal-footer">
-            <button class="btn btn-outline" onclick="FBAds.closeModal('createAdSetModal')">Hủy</button>
-            <button class="btn btn-primary" onclick="FBAds.createAdSet()">Tạo nhóm QC</button>
-        </div>
+        </fieldset>
+        <div class="form-group"><label>Hành động khi thỏa</label><select id="ruleAction">
+            <option value="PAUSE">Tạm dừng</option><option value="UNPAUSE">Bật lại</option>
+            <option value="SEND_NOTIFICATION">Gửi thông báo</option>
+        </select></div>
+        <div class="form-group"><label>Lịch kiểm tra</label><select id="ruleSchedule">
+            <option value="SEMI_HOURLY">Mỗi 30 phút</option><option value="HOURLY">Mỗi giờ</option>
+            <option value="DAILY">Hàng ngày</option>
+        </select></div>
     </div>
-</div>
+    <div class="modal-footer"><button class="btn btn-outline" onclick="FBAds.closeModal('createRuleModal')">Hủy</button><button class="btn btn-primary" onclick="FBAds.createRule()">Tạo quy tắc</button></div>
+</div></div>
 
-<!-- ==================== CREATE AD MODAL ==================== -->
-<div class="modal-overlay" id="createAdModal">
-    <div class="modal" style="max-width:700px">
-        <div class="modal-header">
-            <h3>Tạo quảng cáo</h3>
-            <button class="modal-close" onclick="FBAds.closeModal('createAdModal')">&times;</button>
+<!-- Settings Modal -->
+<div class="modal-overlay" id="settingsModal"><div class="modal" style="max-width:650px">
+    <div class="modal-header"><h3>Cài đặt</h3><button class="modal-close" onclick="FBAds.closeModal('settingsModal')">&times;</button></div>
+    <div class="modal-body">
+        <div style="display:flex;gap:0;border-bottom:1px solid var(--fb-border);margin-bottom:16px">
+            <div class="settings-tab active" data-stab="roles" onclick="FBAds.switchSettingsTab('roles')" style="padding:10px 16px;cursor:pointer;font-weight:600;font-size:14px;border-bottom:2px solid var(--fb-primary);color:var(--fb-primary)">Người dùng</div>
+            <div class="settings-tab" data-stab="pages" onclick="FBAds.switchSettingsTab('pages')" style="padding:10px 16px;cursor:pointer;font-weight:600;font-size:14px;border-bottom:2px solid transparent;color:var(--fb-text-secondary)">Pages</div>
+            <div class="settings-tab" data-stab="info" onclick="FBAds.switchSettingsTab('info')" style="padding:10px 16px;cursor:pointer;font-weight:600;font-size:14px;border-bottom:2px solid transparent;color:var(--fb-text-secondary)">Thông tin</div>
         </div>
-        <div class="modal-body">
-            <div class="form-group">
-                <label>Nhóm QC</label>
-                <select id="adAdSetId"></select>
+        <div id="settingsRoles">
+            <p style="font-size:13px;color:var(--fb-text-secondary);margin-bottom:12px">Thêm người dùng (Development mode — chỉ admin/developer/tester dùng được)</p>
+            <div style="display:flex;gap:8px;margin-bottom:16px">
+                <input type="text" id="roleUserId" placeholder="Facebook User ID" style="flex:1;padding:8px 12px;border:1px solid var(--fb-border);border-radius:6px;font-size:14px">
+                <select id="roleType" style="padding:8px;border:1px solid var(--fb-border);border-radius:6px"><option value="testers">Tester</option><option value="developers">Developer</option></select>
+                <button class="btn btn-primary btn-sm" onclick="FBAds.addAppRole()">Thêm</button>
             </div>
-            <div class="form-group">
-                <label>Tên quảng cáo</label>
-                <input type="text" id="adName" placeholder="VD: Ad 1 - Hình sản phẩm A">
-            </div>
-            <div class="form-group">
-                <label>Facebook Page</label>
-                <select id="adPageId"></select>
-            </div>
-            <fieldset style="border:1px solid var(--fb-border);border-radius:var(--radius);padding:16px;margin-bottom:16px">
-                <legend style="font-weight:600;font-size:14px;padding:0 8px">Nội dung quảng cáo</legend>
-                <div class="form-group">
-                    <label>Nội dung bài viết (Message)</label>
-                    <textarea id="adMessage" rows="3" placeholder="Viết nội dung quảng cáo..."></textarea>
-                </div>
-                <div class="form-group">
-                    <label>Tiêu đề (Headline)</label>
-                    <input type="text" id="adHeadline" placeholder="VD: Giảm giá 50% hôm nay">
-                </div>
-                <div class="form-group">
-                    <label>Mô tả link</label>
-                    <input type="text" id="adDescription" placeholder="VD: Miễn phí vận chuyển đơn từ 200k">
-                </div>
-                <div class="form-group">
-                    <label>Link đích (URL)</label>
-                    <input type="url" id="adLink" placeholder="https://example.com/product">
-                </div>
-                <div class="form-group">
-                    <label>Hình ảnh</label>
-                    <input type="file" id="adImageFile" accept="image/*" onchange="FBAds.previewAdImage(this)">
-                    <div id="adImagePreview" style="margin-top:8px"></div>
-                </div>
-                <div class="form-group">
-                    <label>Call to Action</label>
-                    <select id="adCTA">
-                        <option value="LEARN_MORE">Tìm hiểu thêm</option>
-                        <option value="SHOP_NOW">Mua ngay</option>
-                        <option value="SIGN_UP">Đăng ký</option>
-                        <option value="CONTACT_US">Liên hệ</option>
-                        <option value="SEND_MESSAGE">Nhắn tin</option>
-                        <option value="GET_OFFER">Nhận ưu đãi</option>
-                        <option value="ORDER_NOW">Đặt hàng</option>
-                        <option value="BOOK_NOW">Đặt lịch</option>
-                        <option value="NO_BUTTON">Không có nút</option>
-                    </select>
-                </div>
-            </fieldset>
-            <div class="form-group">
-                <label>Trạng thái</label>
-                <select id="adStatus">
-                    <option value="PAUSED">Tạm dừng</option>
-                    <option value="ACTIVE">Hoạt động</option>
-                </select>
-            </div>
+            <div class="form-hint" style="margin-bottom:12px">Lấy User ID: <a href="https://findmyfbid.in/" target="_blank">findmyfbid.in</a></div>
+            <div id="rolesListContainer"></div>
         </div>
-        <div class="modal-footer">
-            <button class="btn btn-outline" onclick="FBAds.closeModal('createAdModal')">Hủy</button>
-            <button class="btn btn-primary" onclick="FBAds.createAd()">Tạo quảng cáo</button>
-        </div>
+        <div id="settingsPages" style="display:none"><div id="pagesListContainer"></div></div>
+        <div id="settingsInfo" style="display:none"><div style="display:grid;gap:12px">
+            <div><strong>App ID:</strong> <code id="infoAppId"></code></div>
+            <div><strong>User ID:</strong> <code id="infoUserId"></code></div>
+            <div><strong>Ad Account:</strong> <code id="infoAdAccount"></code></div>
+            <div><strong>Token hết hạn:</strong> <span id="infoTokenExpiry"></span></div>
+        </div></div>
     </div>
-</div>
-
-<!-- ==================== SETTINGS MODAL ==================== -->
-<div class="modal-overlay" id="settingsModal">
-    <div class="modal" style="max-width:650px">
-        <div class="modal-header">
-            <h3>Cài đặt</h3>
-            <button class="modal-close" onclick="FBAds.closeModal('settingsModal')">&times;</button>
-        </div>
-        <div class="modal-body">
-            <!-- Settings tabs -->
-            <div style="display:flex;gap:0;border-bottom:1px solid var(--fb-border);margin-bottom:16px">
-                <div class="settings-tab active" data-stab="roles" onclick="FBAds.switchSettingsTab('roles')" style="padding:10px 16px;cursor:pointer;font-weight:600;font-size:14px;border-bottom:2px solid var(--fb-primary);color:var(--fb-primary)">Quản lý người dùng</div>
-                <div class="settings-tab" data-stab="pages" onclick="FBAds.switchSettingsTab('pages')" style="padding:10px 16px;cursor:pointer;font-weight:600;font-size:14px;border-bottom:2px solid transparent;color:var(--fb-text-secondary)">Facebook Pages</div>
-                <div class="settings-tab" data-stab="info" onclick="FBAds.switchSettingsTab('info')" style="padding:10px 16px;cursor:pointer;font-weight:600;font-size:14px;border-bottom:2px solid transparent;color:var(--fb-text-secondary)">Thông tin</div>
-            </div>
-
-            <!-- ROLES TAB -->
-            <div id="settingsRoles">
-                <p style="font-size:13px;color:var(--fb-text-secondary);margin-bottom:12px">Thêm người dùng để họ có thể đăng nhập và sử dụng Ads Manager. App đang ở Development mode - chỉ admin/developer/tester mới dùng được.</p>
-                <div style="display:flex;gap:8px;margin-bottom:16px">
-                    <input type="text" id="roleUserId" placeholder="Facebook User ID" style="flex:1;padding:8px 12px;border:1px solid var(--fb-border);border-radius:6px;font-size:14px">
-                    <select id="roleType" style="padding:8px 12px;border:1px solid var(--fb-border);border-radius:6px;font-size:14px">
-                        <option value="testers">Tester</option>
-                        <option value="developers">Developer</option>
-                    </select>
-                    <button class="btn btn-primary btn-sm" onclick="FBAds.addAppRole()">Thêm</button>
-                </div>
-                <div class="form-hint" style="margin-bottom:12px">Để lấy User ID: vào <a href="https://findmyfbid.in/" target="_blank">findmyfbid.in</a> nhập profile URL</div>
-                <div id="rolesListContainer">
-                    <div class="loading-overlay"><div class="loading-spinner"></div></div>
-                </div>
-            </div>
-
-            <!-- PAGES TAB -->
-            <div id="settingsPages" style="display:none">
-                <p style="font-size:13px;color:var(--fb-text-secondary);margin-bottom:12px">Danh sách Facebook Pages bạn quản lý. Pages dùng để tạo quảng cáo.</p>
-                <div id="pagesListContainer">
-                    <div class="loading-overlay"><div class="loading-spinner"></div></div>
-                </div>
-            </div>
-
-            <!-- INFO TAB -->
-            <div id="settingsInfo" style="display:none">
-                <div style="display:grid;gap:12px">
-                    <div><strong>App ID:</strong> <code id="infoAppId"></code></div>
-                    <div><strong>User ID:</strong> <code id="infoUserId"></code></div>
-                    <div><strong>Ad Account:</strong> <code id="infoAdAccount"></code></div>
-                    <div><strong>Token hết hạn:</strong> <span id="infoTokenExpiry"></span></div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+</div></div>
 
 <!-- TOAST -->
 <div class="toast-container" id="toastContainer"></div>
 
 <!-- Facebook SDK -->
 <script async defer crossorigin="anonymous" src="https://connect.facebook.net/vi_VN/sdk.js"></script>
-
 <script src="fb-ads.js"></script>
 </body>
 </html>

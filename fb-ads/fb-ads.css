@@ -539,6 +539,25 @@ body {
     color: var(--fb-text-secondary);
 }
 
+/* ==================== PANELS ==================== */
+.panel { min-height: 200px; }
+
+/* Tabs scroll for many tabs */
+.tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.tabs::-webkit-scrollbar { height: 0; }
+
+/* Code style */
+code {
+    background: var(--fb-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-family: 'SF Mono', Monaco, monospace;
+}
+
+/* Account details grid */
+#accountDetails .metric-card { min-width: auto; }
+
 /* ==================== RESPONSIVE ==================== */
 @media (max-width: 768px) {
     .topbar { padding: 0 12px; }

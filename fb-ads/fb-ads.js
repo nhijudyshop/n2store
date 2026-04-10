@@ -282,15 +282,41 @@ const FBAds = (() => {
     // =====================================================
     // TAB SWITCHING
     // =====================================================
+    const adsTabs = ['campaigns', 'adsets', 'ads'];
+    const allPanels = ['audiences', 'pixels', 'billing', 'reports', 'rules', 'account'];
+
     function switchTab(tab) {
         currentTab = tab;
         selectedIds.clear();
         updateBulkUI();
-        document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
-        document.getElementById('campaignsTable').style.display = tab === 'campaigns' ? '' : 'none';
-        document.getElementById('adsetsTable').style.display = tab === 'adsets' ? '' : 'none';
-        document.getElementById('adsTable').style.display = tab === 'ads' ? '' : 'none';
-        renderCurrentTab();
+        document.querySelectorAll('#mainTabs .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+
+        // Show/hide ads toolbar, metrics, tables
+        const isAdsTab = adsTabs.includes(tab);
+        document.getElementById('adsToolbar').style.display = isAdsTab ? '' : 'none';
+        document.getElementById('metricsBar').style.display = isAdsTab ? '' : 'none';
+        document.getElementById('adsTablesContainer').style.display = isAdsTab ? '' : 'none';
+
+        if (isAdsTab) {
+            document.getElementById('campaignsTable').style.display = tab === 'campaigns' ? '' : 'none';
+            document.getElementById('adsetsTable').style.display = tab === 'adsets' ? '' : 'none';
+            document.getElementById('adsTable').style.display = tab === 'ads' ? '' : 'none';
+        }
+
+        // Show/hide other panels
+        allPanels.forEach(p => {
+            const el = document.getElementById(p + 'Panel');
+            if (el) el.style.display = p === tab ? '' : 'none';
+        });
+
+        // Render / load data for tab
+        if (isAdsTab) renderCurrentTab();
+        else if (tab === 'audiences') loadAudiences();
+        else if (tab === 'pixels') loadPixels();
+        else if (tab === 'billing') loadBilling();
+        else if (tab === 'reports') loadReport();
+        else if (tab === 'rules') loadRules();
+        else if (tab === 'account') loadAccountDetails();
     }
 
     function filterTable() { renderCurrentTab(); }
@@ -719,12 +745,370 @@ const FBAds = (() => {
     }
 
     // =====================================================
+    // AUDIENCES
+    // =====================================================
+    async function loadAudiences() {
+        if (!selectedAccountId) return;
+        const tbody = document.getElementById('audiencesBody');
+        tbody.innerHTML = '<tr><td colspan="6"><div class="loading-overlay"><div class="loading-spinner"></div> Đang tải...</div></td></tr>';
+        try {
+            const res = await api(`/audiences?account_id=${selectedAccountId}`);
+            const list = res.data || [];
+            if (!list.length) { tbody.innerHTML = emptyRow(6, 'Chưa có đối tượng'); return; }
+            tbody.innerHTML = list.map(a => `<tr>
+                <td style="font-weight:600">${esc(a.name)}</td>
+                <td><span class="status-badge status-active">${a.subtype || 'CUSTOM'}</span></td>
+                <td>${fmtNum(a.approximate_count)}</td>
+                <td>${a.delivery_status?.status || a.operation_status?.status || '--'}</td>
+                <td style="font-size:12px">${a.time_created ? new Date(a.time_created * 1000).toLocaleDateString('vi-VN') : '--'}</td>
+                <td><button class="btn btn-danger btn-sm" onclick="FBAds.deleteAudience('${a.id}')">&#128465;</button></td>
+            </tr>`).join('');
+        } catch (err) { tbody.innerHTML = errorRow(6, err.message); }
+    }
+
+    async function createAudience() {
+        const name = document.getElementById('audienceName').value.trim();
+        const desc = document.getElementById('audienceDesc').value.trim();
+        const subtype = document.getElementById('audienceSubtype').value;
+        if (!name) { toast('Nhập tên', 'error'); return; }
+
+        try {
+            if (subtype === 'LOOKALIKE') {
+                const sourceId = document.getElementById('lookalikeSourceId').value.trim();
+                const country = document.getElementById('lookalikeCountry').value.trim() || 'VN';
+                const ratio = (parseInt(document.getElementById('lookalikeRatio').value) || 1) / 100;
+                if (!sourceId) { toast('Nhập Audience ID gốc', 'error'); return; }
+                await api('/audiences/lookalike', {
+                    method: 'POST',
+                    body: { account_id: selectedAccountId, name, origin_audience_id: sourceId, country, ratio }
+                });
+            } else {
+                await api('/audiences', {
+                    method: 'POST',
+                    body: { account_id: selectedAccountId, name, description: desc, subtype }
+                });
+            }
+            toast('Tạo đối tượng thành công!', 'success');
+            closeModal('createAudienceModal');
+            loadAudiences();
+        } catch (err) { toast('Lỗi: ' + err.message, 'error'); }
+    }
+
+    async function deleteAudience(id) {
+        if (!confirm('Xóa đối tượng này?')) return;
+        try {
+            await api(`/audiences/${id}`, { method: 'DELETE' });
+            toast('Đã xóa', 'success');
+            loadAudiences();
+        } catch (err) { toast('Lỗi: ' + err.message, 'error'); }
+    }
+
+    // =====================================================
+    // PIXELS
+    // =====================================================
+    async function loadPixels() {
+        if (!selectedAccountId) return;
+        const tbody = document.getElementById('pixelsBody');
+        tbody.innerHTML = '<tr><td colspan="5"><div class="loading-overlay"><div class="loading-spinner"></div></div></td></tr>';
+        try {
+            const res = await api(`/pixels?account_id=${selectedAccountId}`);
+            const list = res.data || [];
+            if (!list.length) { tbody.innerHTML = emptyRow(5, 'Chưa có Pixel'); return; }
+            tbody.innerHTML = list.map(p => `<tr>
+                <td style="font-weight:600">${esc(p.name)}</td>
+                <td style="font-size:12px">${p.id}</td>
+                <td style="font-size:12px">${p.last_fired_time ? new Date(p.last_fired_time).toLocaleString('vi-VN') : 'Chưa bắn'}</td>
+                <td style="font-size:12px">${p.creation_time ? new Date(p.creation_time).toLocaleDateString('vi-VN') : '--'}</td>
+                <td><button class="btn btn-outline btn-sm" onclick="FBAds.viewPixelEvents('${p.id}')">Xem sự kiện</button></td>
+            </tr>`).join('');
+        } catch (err) { tbody.innerHTML = errorRow(5, err.message); }
+    }
+
+    async function viewPixelEvents(pixelId) {
+        const container = document.getElementById('pixelEventsContainer');
+        container.innerHTML = '<div class="loading-overlay"><div class="loading-spinner"></div> Đang tải sự kiện...</div>';
+        try {
+            const res = await api(`/pixels/${pixelId}/stats`);
+            const events = res.data || [];
+            if (!events.length) { container.innerHTML = '<p style="color:var(--fb-text-secondary)">Chưa có sự kiện nào trong 7 ngày qua</p>'; return; }
+            container.innerHTML = `<h4 style="margin-bottom:8px">Sự kiện Pixel (7 ngày)</h4>
+            <table class="data-table"><thead><tr><th>Sự kiện</th><th>Số lượng</th></tr></thead><tbody>
+                ${events.map(e => `<tr><td>${esc(e.event || e.aggregation)}</td><td>${fmtNum(e.count || e.value)}</td></tr>`).join('')}
+            </tbody></table>`;
+        } catch (err) { container.innerHTML = `<p style="color:red">${err.message}</p>`; }
+    }
+
+    // =====================================================
+    // BILLING
+    // =====================================================
+    async function loadBilling() {
+        if (!selectedAccountId) return;
+        try {
+            const res = await api(`/billing/payment-methods?account_id=${selectedAccountId}`);
+            const d = res.data || {};
+            const accStatusMap = { 1: 'Hoạt động', 2: 'Bị vô hiệu', 3: 'Chưa thanh toán', 7: 'Đang xét duyệt', 9: 'Trong thời gian ân hạn', 100: 'Đang chờ đóng', 101: 'Đã đóng' };
+
+            document.getElementById('billingAccStatus').textContent = accStatusMap[d.account_status] || d.account_status || '--';
+            document.getElementById('billingTotalSpent').textContent = fmtCurrency(d.amount_spent ? d.amount_spent / 100 : null);
+            document.getElementById('billingBalance').textContent = fmtCurrency(d.balance ? d.balance / 100 : null);
+            document.getElementById('billingSpendCap').textContent = d.spend_cap ? fmtCurrency(d.spend_cap / 100) : 'Không giới hạn';
+            document.getElementById('billingCurrency').textContent = d.currency || '--';
+
+            // Funding source
+            const fs = d.funding_source_details;
+            if (fs) {
+                const typeMap = { 1: 'Thẻ tín dụng', 2: 'PayPal', 4: 'Chuyển khoản', 12: 'Coupon' };
+                document.getElementById('billingFunding').textContent = `${typeMap[fs.type] || 'Loại ' + fs.type}${fs.display_string ? ' - ' + fs.display_string : ''}`;
+            } else {
+                document.getElementById('billingFunding').textContent = d.funding_source || 'Chưa thiết lập';
+            }
+
+            if (d.spend_cap) document.getElementById('spendCapInput').value = d.spend_cap / 100;
+        } catch (err) { toast('Lỗi tải billing: ' + err.message, 'error'); }
+
+        // Load transactions
+        loadTransactions();
+    }
+
+    async function loadTransactions() {
+        const tbody = document.getElementById('transactionsBody');
+        tbody.innerHTML = '<tr><td colspan="5"><div class="loading-overlay"><div class="loading-spinner"></div></div></td></tr>';
+        try {
+            const res = await api(`/billing/transactions?account_id=${selectedAccountId}`);
+            const list = res.data || [];
+            if (!list.length) { tbody.innerHTML = emptyRow(5, 'Chưa có giao dịch'); return; }
+            tbody.innerHTML = list.map(t => `<tr>
+                <td style="font-size:12px">${t.time ? new Date(t.time).toLocaleString('vi-VN') : '--'}</td>
+                <td>${esc(t.charge_type || '--')}</td>
+                <td style="font-weight:600">${t.billing_amount ? fmtCurrency(t.billing_amount / 100) : '--'}</td>
+                <td><span class="status-badge ${t.status === 'completed' ? 'status-active' : 'status-paused'}">${t.status || '--'}</span></td>
+                <td style="font-size:12px">${esc(t.reason || '--')}</td>
+            </tr>`).join('');
+        } catch (err) { tbody.innerHTML = errorRow(5, err.message); }
+    }
+
+    async function updateSpendCap() {
+        const val = document.getElementById('spendCapInput').value;
+        const cap = val ? parseInt(val) * 100 : 0; // Convert to smallest unit
+        try {
+            await api('/billing/spend-cap', {
+                method: 'POST',
+                body: { account_id: selectedAccountId, spend_cap: cap }
+            });
+            toast(cap ? `Giới hạn: ${fmtCurrency(val)}` : 'Đã xóa giới hạn chi tiêu', 'success');
+            loadBilling();
+        } catch (err) { toast('Lỗi: ' + err.message, 'error'); }
+    }
+
+    // =====================================================
+    // REPORTS
+    // =====================================================
+    let reportData = [];
+
+    async function loadReport() {
+        if (!selectedAccountId) return;
+        const type = document.getElementById('reportType').value;
+        const dp = document.getElementById('reportDatePreset').value;
+        const thead = document.getElementById('reportHead');
+        const tbody = document.getElementById('reportBody');
+        tbody.innerHTML = '<tr><td colspan="8"><div class="loading-overlay"><div class="loading-spinner"></div></div></td></tr>';
+
+        try {
+            let res;
+            if (type === 'daily') {
+                res = await api(`/reports/daily?account_id=${selectedAccountId}&date_preset=${dp}`);
+                thead.innerHTML = '<tr><th>Ngày</th><th>Chi tiêu</th><th>Hiển thị</th><th>Click</th><th>CTR</th><th>CPC</th><th>Tiếp cận</th><th>Tần suất</th></tr>';
+                reportData = res.data || [];
+                tbody.innerHTML = reportData.map(r => `<tr>
+                    <td>${r.date_start}</td><td>${fmtCurrency(r.spend)}</td><td>${fmtNum(r.impressions)}</td>
+                    <td>${fmtNum(r.clicks)}</td><td>${r.ctr ? parseFloat(r.ctr).toFixed(2) + '%' : '--'}</td>
+                    <td>${fmtCurrency(r.cpc)}</td><td>${fmtNum(r.reach)}</td><td>${r.frequency || '--'}</td>
+                </tr>`).join('') || emptyRow(8, 'Chưa có dữ liệu');
+            } else if (type === 'age_gender') {
+                res = await api(`/reports/breakdown?account_id=${selectedAccountId}&date_preset=${dp}&breakdowns=age,gender`);
+                thead.innerHTML = '<tr><th>Tuổi</th><th>Giới tính</th><th>Chi tiêu</th><th>Hiển thị</th><th>Click</th><th>CTR</th><th>CPC</th><th>Tiếp cận</th></tr>';
+                reportData = res.data || [];
+                tbody.innerHTML = reportData.map(r => `<tr>
+                    <td>${r.age || '--'}</td><td>${r.gender === '1' ? 'Nam' : r.gender === '2' ? 'Nữ' : r.gender || '--'}</td>
+                    <td>${fmtCurrency(r.spend)}</td><td>${fmtNum(r.impressions)}</td><td>${fmtNum(r.clicks)}</td>
+                    <td>${r.ctr ? parseFloat(r.ctr).toFixed(2) + '%' : '--'}</td><td>${fmtCurrency(r.cpc)}</td><td>${fmtNum(r.reach)}</td>
+                </tr>`).join('') || emptyRow(8, 'Chưa có dữ liệu');
+            } else if (type === 'placement') {
+                res = await api(`/reports/placement?account_id=${selectedAccountId}&date_preset=${dp}`);
+                thead.innerHTML = '<tr><th>Nền tảng</th><th>Vị trí</th><th>Chi tiêu</th><th>Hiển thị</th><th>Click</th><th>CTR</th><th>CPC</th><th>Tiếp cận</th></tr>';
+                reportData = res.data || [];
+                tbody.innerHTML = reportData.map(r => `<tr>
+                    <td>${esc(r.publisher_platform || '--')}</td><td>${esc(r.platform_position || '--')}</td>
+                    <td>${fmtCurrency(r.spend)}</td><td>${fmtNum(r.impressions)}</td><td>${fmtNum(r.clicks)}</td>
+                    <td>${r.ctr ? parseFloat(r.ctr).toFixed(2) + '%' : '--'}</td><td>${fmtCurrency(r.cpc)}</td><td>${fmtNum(r.reach)}</td>
+                </tr>`).join('') || emptyRow(8, 'Chưa có dữ liệu');
+            }
+        } catch (err) { tbody.innerHTML = errorRow(8, err.message); }
+    }
+
+    function exportReport() {
+        if (!reportData.length) { toast('Không có dữ liệu để xuất', 'error'); return; }
+        const headers = Object.keys(reportData[0]);
+        const csv = [headers.join(','), ...reportData.map(r => headers.map(h => `"${r[h] || ''}"`).join(','))].join('\n');
+        const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `fb-ads-report-${document.getElementById('reportType').value}-${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast('Đã xuất CSV', 'success');
+    }
+
+    // =====================================================
+    // AUTOMATED RULES
+    // =====================================================
+    async function loadRules() {
+        if (!selectedAccountId) return;
+        const tbody = document.getElementById('rulesBody');
+        tbody.innerHTML = '<tr><td colspan="4"><div class="loading-overlay"><div class="loading-spinner"></div></div></td></tr>';
+        try {
+            const res = await api(`/rules?account_id=${selectedAccountId}`);
+            const list = res.data || [];
+            if (!list.length) { tbody.innerHTML = emptyRow(4, 'Chưa có quy tắc'); return; }
+            tbody.innerHTML = list.map(r => {
+                const active = r.status === 'ENABLED';
+                return `<tr>
+                    <td><label class="toggle"><input type="checkbox" ${active ? 'checked' : ''} onchange="FBAds.toggleRule('${r.id}',this.checked)"><span class="toggle-slider"></span></label></td>
+                    <td><div style="font-weight:600">${esc(r.name)}</div><div style="font-size:12px;color:var(--fb-text-light)">${r.id}</div></td>
+                    <td style="font-size:12px">${r.created_time ? new Date(r.created_time).toLocaleDateString('vi-VN') : '--'}</td>
+                    <td><button class="btn btn-danger btn-sm" onclick="FBAds.deleteRule('${r.id}')">&#128465;</button></td>
+                </tr>`;
+            }).join('');
+        } catch (err) { tbody.innerHTML = errorRow(4, err.message); }
+    }
+
+    async function createRule() {
+        const name = document.getElementById('ruleName').value.trim();
+        const entityType = document.getElementById('ruleEntityType').value;
+        const metric = document.getElementById('ruleMetric').value;
+        const operator = document.getElementById('ruleOperator').value;
+        const value = document.getElementById('ruleValue').value;
+        const action = document.getElementById('ruleAction').value;
+        const schedule = document.getElementById('ruleSchedule').value;
+
+        if (!name || !value) { toast('Nhập tên và giá trị', 'error'); return; }
+
+        try {
+            await api('/rules', {
+                method: 'POST',
+                body: {
+                    account_id: selectedAccountId,
+                    name,
+                    evaluation_spec: {
+                        evaluation_type: 'TRIGGER',
+                        filters: [{
+                            field: metric,
+                            value: parseFloat(value),
+                            operator
+                        }, {
+                            field: 'entity_type',
+                            value: [entityType],
+                            operator: 'IN'
+                        }],
+                        trigger: { type: 'STATS_CHANGE', field: metric }
+                    },
+                    execution_spec: {
+                        execution_type: action === 'SEND_NOTIFICATION' ? 'NOTIFICATION' : action
+                    },
+                    schedule_spec: { schedule_type: schedule }
+                }
+            });
+            toast('Tạo quy tắc thành công!', 'success');
+            closeModal('createRuleModal');
+            loadRules();
+        } catch (err) { toast('Lỗi: ' + err.message, 'error'); }
+    }
+
+    async function toggleRule(id, enable) {
+        try {
+            await api(`/rules/${id}/status`, { method: 'POST', body: { status: enable ? 'ENABLED' : 'DISABLED' } });
+            toast(`Đã ${enable ? 'bật' : 'tắt'} quy tắc`, 'success');
+        } catch (err) { toast('Lỗi: ' + err.message, 'error'); loadRules(); }
+    }
+
+    async function deleteRule(id) {
+        if (!confirm('Xóa quy tắc này?')) return;
+        try {
+            await api(`/rules/${id}`, { method: 'DELETE' });
+            toast('Đã xóa', 'success');
+            loadRules();
+        } catch (err) { toast('Lỗi: ' + err.message, 'error'); }
+    }
+
+    // =====================================================
+    // ACCOUNT DETAILS
+    // =====================================================
+    async function loadAccountDetails() {
+        if (!selectedAccountId) return;
+        try {
+            const res = await api(`/account/details?account_id=${selectedAccountId}`);
+            const d = res.data || {};
+            const accStatusMap = { 1: 'Hoạt động', 2: 'Bị vô hiệu', 3: 'Chưa thanh toán', 7: 'Đang xét duyệt', 9: 'Ân hạn', 100: 'Chờ đóng', 101: 'Đã đóng' };
+            const disableReasonMap = { 0: 'Không', 1: 'ADS_INTEGRITY_POLICY', 2: 'ADS_IP_REVIEW', 3: 'RISK_PAYMENT', 4: 'GRAY_ACCOUNT_SHUT_DOWN', 5: 'ADS_AFC_REVIEW', 6: 'BUSINESS_INTEGRITY_RAR', 7: 'PERMANENT_CLOSE', 8: 'UNUSED_RESELLER_ACCOUNT', 9: 'UNUSED_ACCOUNT' };
+
+            document.getElementById('accName').textContent = d.name || '--';
+            document.getElementById('accId').textContent = d.account_id || d.id || '--';
+            document.getElementById('accStatus').textContent = accStatusMap[d.account_status] || d.account_status || '--';
+            document.getElementById('accTimezone').textContent = d.timezone_name || '--';
+            document.getElementById('accBusiness').textContent = d.business_name || '--';
+            document.getElementById('accCreated').textContent = d.created_time ? new Date(d.created_time).toLocaleDateString('vi-VN') : '--';
+            document.getElementById('accPrepay').textContent = d.is_prepay_account ? 'Có (Trả trước)' : 'Không (Trả sau)';
+            document.getElementById('accDisableReason').textContent = disableReasonMap[d.disable_reason] || d.disable_reason || 'Không';
+        } catch (err) { toast('Lỗi: ' + err.message, 'error'); }
+
+        loadAccountUsers();
+        loadAccountActivities();
+    }
+
+    async function loadAccountUsers() {
+        const tbody = document.getElementById('accUsersBody');
+        tbody.innerHTML = '<tr><td colspan="4"><div class="loading-overlay"><div class="loading-spinner"></div></div></td></tr>';
+        try {
+            const res = await api(`/account/users?account_id=${selectedAccountId}`);
+            const list = res.data || [];
+            if (!list.length) { tbody.innerHTML = emptyRow(4, 'Không có user'); return; }
+            tbody.innerHTML = list.map(u => `<tr>
+                <td style="font-weight:600">${esc(u.name || '--')}</td>
+                <td style="font-size:12px">${u.id}</td>
+                <td><span class="status-badge status-active">${u.role || '--'}</span></td>
+                <td style="font-size:12px">${(u.permissions || []).join(', ') || '--'}</td>
+            </tr>`).join('');
+        } catch (err) { tbody.innerHTML = errorRow(4, err.message); }
+    }
+
+    async function loadAccountActivities() {
+        const tbody = document.getElementById('accActivityBody');
+        tbody.innerHTML = '<tr><td colspan="4"><div class="loading-overlay"><div class="loading-spinner"></div></div></td></tr>';
+        try {
+            const res = await api(`/account/activities?account_id=${selectedAccountId}&limit=20`);
+            const list = res.data || [];
+            if (!list.length) { tbody.innerHTML = emptyRow(4, 'Chưa có hoạt động'); return; }
+            tbody.innerHTML = list.map(a => `<tr>
+                <td style="font-size:12px">${a.event_time ? new Date(a.event_time).toLocaleString('vi-VN') : '--'}</td>
+                <td>${esc(a.event_type || '--')}</td>
+                <td style="font-size:12px">${esc(a.actor_name || a.actor_id || '--')}</td>
+                <td style="font-size:12px">${esc(a.object_name || a.object_id || '--')}</td>
+            </tr>`).join('');
+        } catch (err) { tbody.innerHTML = errorRow(4, err.message); }
+    }
+
+    // =====================================================
     // MODAL HELPERS
     // =====================================================
     function openModal(id) {
         document.getElementById(id).classList.add('active');
-        if (id === 'settingsModal') {
-            switchSettingsTab('roles');
+        if (id === 'settingsModal') switchSettingsTab('roles');
+        if (id === 'createAudienceModal') {
+            // Toggle lookalike fields
+            document.getElementById('audienceSubtype').onchange = function() {
+                document.getElementById('lookalikeFields').style.display = this.value === 'LOOKALIKE' ? '' : 'none';
+            };
         }
     }
 
@@ -835,6 +1219,13 @@ const FBAds = (() => {
         onCheckbox, toggleSelectAll, bulkAction,
         addAppRole, removeRole, switchSettingsTab,
         checkAuthAfterSDK, loadInsights,
-        viewCampaignDetails: viewAdSets
+        viewCampaignDetails: viewAdSets,
+        // New features
+        loadAudiences, createAudience, deleteAudience,
+        loadPixels, viewPixelEvents,
+        loadBilling, updateSpendCap,
+        loadReport, exportReport,
+        loadRules, createRule, toggleRule, deleteRule,
+        loadAccountDetails
     };
 })();
