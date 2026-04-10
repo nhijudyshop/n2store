@@ -109,10 +109,8 @@
         // Auto-tag THẺ KHÁCH LẠ nếu khách không có SĐT
         autoTagTheKhachLa(code, order);
 
-        // Fetch fresh PBH cho đơn mới
-        if (typeof window.fetchAndUpdateInvoiceForCode === 'function') {
-            window.fetchAndUpdateInvoiceForCode(code, order.Id);
-        }
+        // PBH update: handled by handleInvoiceUpdate() via FastSaleOrder event (by Number)
+        // — không cần fetch bằng Reference ở đây nữa
 
         // Show notification
         const customerName = eventData?.Data?.Facebook_UserName || order.Name || '';
@@ -159,10 +157,8 @@
             console.log('[TPOS-RT] Updated order in table:', code);
         }
 
-        // Fetch fresh PBH (FastSaleOrder) cho đơn này → cập nhật cột Phiếu bán hàng
-        if (typeof window.fetchAndUpdateInvoiceForCode === 'function') {
-            window.fetchAndUpdateInvoiceForCode(code, updatedOrder.Id || existingOrder.Id);
-        }
+        // PBH update: handled by handleInvoiceUpdate() via FastSaleOrder event (by Number)
+        // — không cần fetch bằng Reference ở đây nữa
 
         // Re-render Chốt Đơn panel counts (order fields may affect category/flags).
         if (typeof window._ptagRenderPanelIfOpen === 'function') {
