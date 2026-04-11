@@ -1482,8 +1482,11 @@ async function fetchOrders() {
             if (window.initProcessingTagPanel) window.initProcessingTagPanel();
         }
 
-        // GIỎ TRỐNG sync: chỉ chạy per-row khi user thao tác (updateOrderInTable hook).
-        // Không batch sync toàn bộ allData khi load → tránh lag + giảm server load.
+        // GIỎ TRỐNG sync: chạy trên displayedData (đơn hiện trên màn hình) sau khi render.
+        // Chỉ sync đơn đang hiển thị → nhẹ hơn batch toàn bộ allData.
+        if (typeof window.batchEmptyCartSync === 'function' && displayedData.length > 0) {
+            setTimeout(() => window.batchEmptyCartSync(displayedData), 500);
+        }
 
         // NOTE: Removed cross-tab sync (sendDataToTab2, sendOrdersDataToOverview, sendOrdersDataToTab3)
         // Each tab now fetches its own data independently when user switches to it
