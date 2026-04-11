@@ -188,10 +188,11 @@
             renderHistoryList();
             updateDroppedCounts();
 
-            // Load initial data from PostgreSQL
-            await loadDroppedProductsFromAPI();
+            // Load initial data
+            await loadDroppedProductsFromAPI();  // Hàng rớt xả
+            loadWarehouseProductsFromAPI();       // Kho Sản Phẩm (async, no await)
 
-            // Setup SSE for real-time updates
+            // Setup SSE for real-time updates (both sources)
             setupSSE();
 
             isInitialized = true;
@@ -203,28 +204,54 @@
     };
 
     /**
-     * Load products from Kho Đi Chợ API
+     * Load dropped products (hàng rớt xả) from Render dropped_products API
      */
     async function loadDroppedProductsFromAPI() {
         try {
-            const response = await fetch(`${KHO_API}?limit=1000&sort_by=stt&sort_order=ASC`);
+            const response = await fetch(`${RENDER_API}/api/realtime/dropped-products`);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+            const data = await response.json();
+
+            droppedProducts = Object.entries(data).map(([id, item]) => ({
+                id,
+                ...item,
+                ProductId: parseInt(item.ProductId) || item.ProductId,
+            }));
+
+            isFirstLoad = false;
+            debouncedRenderAndUpdate();
+            console.log(`[DROPPED] Loaded ${droppedProducts.length} dropped products`);
+        } catch (error) {
+            console.error('[DROPPED] Error loading from API:', error);
+        }
+    }
+
+    /**
+     * Load warehouse products (Kho Sản Phẩm) from Kho Đi Chợ API
+     */
+    async function loadWarehouseProductsFromAPI() {
+        try {
+            const response = await fetch(`${KHO_API}?limit=1000&sort_by=stt&sort_order=ASC&has_inventory=true`);
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
             const result = await response.json();
             if (!result.success) throw new Error(result.error || 'Unknown error');
 
-            droppedProducts = (result.data || []).map(mapKhoProduct);
+            warehouseProducts = (result.data || []).map(mapKhoProduct);
 
-            isFirstLoad = false;
-            debouncedRenderAndUpdate();
-            console.log(`[KHO-DI-CHO] Loaded ${droppedProducts.length} products from warehouse`);
+            renderWarehouseProductsTable();
+            updateDroppedCounts();
+            console.log(`[KHO] Loaded ${warehouseProducts.length} warehouse products`);
         } catch (error) {
-            console.error('[KHO-DI-CHO] Error loading from API:', error);
+            console.error('[KHO] Error loading warehouse products:', error);
         }
     }
 
     /**
-     * Setup SSE for real-time updates from Kho Đi Chợ
+     * Setup SSE for real-time updates
+     * - dropped_products: hàng rớt xả (sub-tab 1)
+     * - kho_di_cho: kho sản phẩm (sub-tab 2)
      */
     function setupSSE() {
         if (sseSource) {
@@ -232,47 +259,85 @@
             sseSource = null;
         }
 
-        const sseUrl = `${RENDER_API}/api/realtime/sse?keys=${encodeURIComponent('kho_di_cho')}`;
+        const sseUrl = `${RENDER_API}/api/realtime/sse?keys=${encodeURIComponent('dropped_products,kho_di_cho')}`;
 
         try {
             sseSource = new EventSource(sseUrl);
 
-            // On any kho_di_cho change, reload full data (simple & reliable)
-            const handleKhoSSE = (e) => {
+            sseSource.addEventListener('update', (e) => {
                 try {
                     const payload = JSON.parse(e.data);
-                    const eventData = payload.data || payload;
-
-                    // Show notification for returned products
-                    if (!isFirstLoad && eventData.action === 'returned') {
-                        const msg = `Sản phẩm ${eventData.productCode} đã được trả lại kho`;
-                        if (window.notificationManager) {
-                            window.notificationManager.show(msg, 'info', 3000);
-                        }
+                    const key = payload.key || payload.matchedKey || '';
+                    if (key.startsWith('dropped_products')) {
+                        handleDroppedSSE(payload.data || payload);
+                    } else if (key.startsWith('kho_di_cho')) {
+                        loadWarehouseProductsFromAPI();
                     }
-
-                    // Reload all data to stay in sync
-                    loadDroppedProductsFromAPI();
                 } catch (err) {
-                    console.warn('[KHO-DI-CHO] SSE parse error:', err);
+                    console.warn('[SSE] Parse error:', err);
                 }
-            };
+            });
 
-            sseSource.addEventListener('update', handleKhoSSE);
-            sseSource.addEventListener('created', handleKhoSSE);
-            sseSource.addEventListener('deleted', handleKhoSSE);
+            sseSource.addEventListener('created', (e) => {
+                try {
+                    const payload = JSON.parse(e.data);
+                    const key = payload.key || '';
+                    if (key.startsWith('dropped_products')) {
+                        handleDroppedSSE(payload.data || payload);
+                    } else if (key.startsWith('kho_di_cho')) {
+                        loadWarehouseProductsFromAPI();
+                    }
+                } catch (err) {}
+            });
+
+            sseSource.addEventListener('deleted', (e) => {
+                try {
+                    const payload = JSON.parse(e.data);
+                    const key = payload.key || '';
+                    if (key.startsWith('dropped_products')) {
+                        handleDroppedDeleteSSE(payload.data || payload);
+                    } else if (key.startsWith('kho_di_cho')) {
+                        loadWarehouseProductsFromAPI();
+                    }
+                } catch (err) {}
+            });
 
             sseSource.addEventListener('connected', () => {
-                console.log('[KHO-DI-CHO] SSE connected');
+                console.log('[SSE] Connected for dropped_products + kho_di_cho');
             });
 
             sseSource.onerror = () => {
-                console.warn('[KHO-DI-CHO] SSE disconnected, will auto-reconnect');
+                console.warn('[SSE] Disconnected, will auto-reconnect');
             };
-
-            console.log('[KHO-DI-CHO] SSE connected for kho_di_cho');
         } catch (e) {
-            console.warn('[KHO-DI-CHO] SSE setup failed:', e);
+            console.warn('[SSE] Setup failed:', e);
+        }
+    }
+
+    function handleDroppedSSE(eventData) {
+        if (!eventData || !eventData.id) return;
+        const id = eventData.id;
+        const existingIndex = droppedProducts.findIndex((p) => p.id === id);
+
+        if (existingIndex > -1) {
+            droppedProducts[existingIndex] = { ...droppedProducts[existingIndex], ...eventData, id, ProductId: parseInt(eventData.ProductId) || droppedProducts[existingIndex].ProductId };
+        } else {
+            droppedProducts.push({ ...eventData, id, ProductId: parseInt(eventData.ProductId) || eventData.ProductId });
+            if (!isFirstLoad && eventData.reason === 'sale_removed') {
+                const msg = `🔔 ${eventData.removedBy || 'Sale'} vừa xả ${eventData.ProductNameGet || 'SP'} x${eventData.Quantity || 1} từ đơn STT ${eventData.removedFromOrderSTT || '?'}`;
+                if (window.notificationManager) window.notificationManager.show(msg, 'warning', 5000);
+            }
+        }
+        debouncedRenderAndUpdate();
+    }
+
+    function handleDroppedDeleteSSE(eventData) {
+        if (!eventData) return;
+        if (eventData.cleared) { droppedProducts = []; debouncedRenderAndUpdate(); return; }
+        if (eventData.id) {
+            const idx = droppedProducts.findIndex((p) => p.id === eventData.id);
+            if (idx > -1) droppedProducts.splice(idx, 1);
+            debouncedRenderAndUpdate();
         }
     }
 
@@ -426,8 +491,8 @@
     // =====================================================
 
     /**
-     * Add/return product to warehouse (Kho Đi Chợ)
-     * Used when returning products from orders back to warehouse
+     * Add product to dropped list (hàng rớt xả)
+     * Called when product is removed from an order
      */
     window.addToDroppedProducts = async function (
         product,
@@ -437,82 +502,67 @@
         metadata = null
     ) {
         try {
-            const productCode = product.ProductCode || product._khoProductCode || String(product.ProductId);
-            const orderId = metadata?.orderId || window.currentChatOrderData?.Id || null;
+            const existing = droppedProducts.find((p) => p.ProductId === product.ProductId);
 
-            // Get auth info
-            let userId = null;
-            let displayName = 'Unknown';
-            if (window.authManager) {
-                const auth = window.authManager.getAuthState();
-                if (auth) {
-                    userId = auth.id || auth.Id || auth.username || auth.userType;
-                    displayName = auth.displayName || auth.userType || 'Unknown';
+            if (existing && existing.id) {
+                const body = { change: quantity, reason };
+                if (metadata) {
+                    if (metadata.removedBy) body.removedBy = metadata.removedBy;
+                    if (metadata.removedFromOrderSTT) body.removedFromOrderSTT = metadata.removedFromOrderSTT;
+                    if (metadata.removedFromCustomer) body.removedFromCustomer = metadata.removedFromCustomer;
+                    body.removedAt = metadata.removedAt || Date.now();
                 }
-            }
 
-            // Use kho-di-cho return API (handles both existing + recreated products)
-            const resp = await fetch(`${KHO_API}/return`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    productCode,
-                    quantity: quantity || 1,
-                    orderId: orderId ? String(orderId) : null,
-                    userId,
-                    displayName,
-                }),
-            });
-
-            if (!resp.ok) {
-                // Fallback: if return API fails (no sale record), add via batch
-                const batchResp = await fetch(`${KHO_API}/batch`, {
-                    method: 'POST',
+                const resp = await fetch(`${RENDER_API}/api/realtime/dropped-products/${existing.id}/quantity`, {
+                    method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        items: [{
-                            product_code: productCode,
-                            product_name: product.ProductName || product.Name || productCode,
-                            variant: product.variant || null,
-                            quantity: quantity || 1,
-                            purchase_price: product.PurchasePrice || product.Price || 0,
-                            selling_price: product.Price || 0,
-                            image_url: product.ImageUrl || null,
-                            tpos_product_id: typeof product.ProductId === 'number' ? product.ProductId : null,
-                        }],
-                    }),
+                    body: JSON.stringify(body),
                 });
-                if (!batchResp.ok) throw new Error(`HTTP ${batchResp.status}`);
-            }
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            } else {
+                const newItem = {
+                    ProductId: product.ProductId,
+                    ProductName: product.ProductName,
+                    ProductNameGet: product.ProductNameGet,
+                    ProductCode: product.ProductCode,
+                    ImageUrl: product.ImageUrl,
+                    Price: product.Price,
+                    Quantity: quantity,
+                    UOMName: product.UOMName || 'Cái',
+                    reason: reason,
+                };
+                if (metadata) {
+                    if (metadata.removedBy) newItem.removedBy = metadata.removedBy;
+                    if (metadata.removedFromOrderSTT) newItem.removedFromOrderSTT = metadata.removedFromOrderSTT;
+                    if (metadata.removedFromCustomer) newItem.removedFromCustomer = metadata.removedFromCustomer;
+                    newItem.removedAt = metadata.removedAt || Date.now();
+                }
 
-            // SSE will update UI automatically
+                const id = 'dp_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 9);
+                const resp = await fetch(`${RENDER_API}/api/realtime/dropped-products/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(newItem),
+                });
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            }
         } catch (error) {
-            console.error('[KHO-DI-CHO] Error returning product to warehouse:', error);
-            showError('Lỗi khi trả sản phẩm về kho: ' + error.message);
+            console.error('[DROPPED] Error adding product:', error);
+            showError('Lỗi khi thêm sản phẩm: ' + error.message);
         }
     };
 
     /**
      * Get list of users currently holding a product across ALL orders
-     * Uses Kho Đi Chợ holders endpoint (queries held_products by product_code)
      */
     window.getProductHolders = async function (productId) {
         try {
-            // productId can be product_code (string) or tpos_product_id (number)
-            const productCode = typeof productId === 'string' ? productId : String(productId);
-            const resp = await fetch(`${KHO_API}/holders/${encodeURIComponent(productCode)}`);
-            if (!resp.ok) {
-                // Fallback to old API for backward compat
-                const resp2 = await fetch(`${RENDER_API}/api/realtime/held-products/by-product/${productId}`);
-                if (!resp2.ok) return [];
-                const data2 = await resp2.json();
-                return data2.holders || [];
-            }
-
+            const resp = await fetch(`${RENDER_API}/api/realtime/held-products/by-product/${productId}`);
+            if (!resp.ok) return [];
             const data = await resp.json();
             return data.holders || [];
         } catch (error) {
-            console.error('[KHO-DI-CHO] Error getting holders:', error);
+            console.error('[DROPPED] Error getting holders:', error);
             return [];
         }
     };
@@ -531,37 +581,35 @@
     }
 
     /**
-     * Clean up warehouse product if it has quantity=0 and no one is holding it
+     * Clean up dropped product if it has quantity=0 and no one is holding it
      */
     window.clearHeldByIfNotHeld = async function (productId) {
         try {
-            // productId can be product_code (string) or numeric
-            const productCode = typeof productId === 'string' ? productId : String(productId);
-            const holders = await window.getProductHolders(productCode);
+            const normalizedProductId = parseInt(productId);
+            if (isNaN(normalizedProductId)) return;
+
+            const holders = await window.getProductHolders(normalizedProductId);
             if (holders.length > 0) return;
 
-            const droppedProduct = droppedProducts.find((p) =>
-                p.ProductCode === productCode || String(p.ProductId) === productCode
-            );
+            const droppedProduct = droppedProducts.find((p) => p.ProductId === normalizedProductId);
             if (!droppedProduct) return;
             if ((droppedProduct.Quantity || 0) > 0) return;
 
-            // Product has quantity=0 and no holders -> delete from kho
-            await fetch(`${KHO_API}/${droppedProduct.id}`, { method: 'DELETE' });
+            await fetch(`${RENDER_API}/api/realtime/dropped-products/${droppedProduct.id}`, { method: 'DELETE' });
         } catch (error) {
-            console.error('[KHO-DI-CHO] Error during cleanup:', error);
+            console.error('[DROPPED] Error during cleanup:', error);
         }
     };
 
     /**
-     * Remove product from warehouse
+     * Remove product from dropped list
      */
     window.removeFromDroppedProducts = async function (index, skipConfirm = false) {
         const product = droppedProducts[index];
         if (!product || !product.id) return;
 
         if (!skipConfirm) {
-            const confirmMsg = `Bạn có chắc muốn xóa sản phẩm "${product.ProductNameGet || product.ProductName}" khỏi kho?`;
+            const confirmMsg = `Bạn có chắc muốn xóa sản phẩm "${product.ProductNameGet || product.ProductName}" khỏi hàng rớt?`;
             let confirmed = false;
             if (window.CustomPopup) {
                 confirmed = await window.CustomPopup.confirm(confirmMsg, 'Xác nhận xóa');
@@ -572,57 +620,54 @@
         }
 
         try {
-            const resp = await fetch(`${KHO_API}/${product.id}`, { method: 'DELETE' });
+            const resp = await fetch(`${RENDER_API}/api/realtime/dropped-products/${product.id}`, { method: 'DELETE' });
             if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-            showSuccess('Đã xóa khỏi kho');
+            showSuccess('Đã xóa khỏi hàng rớt');
         } catch (error) {
-            console.error('[KHO-DI-CHO] Error removing:', error);
+            console.error('[DROPPED] Error removing:', error);
             showError('Lỗi khi xóa: ' + error.message);
         }
     };
 
     /**
-     * Remove warehouse product by ProductId or ProductCode
+     * Remove dropped product by ProductId
      */
     window.removeDroppedProductByProductId = async function (productId) {
-        const product = droppedProducts.find(p =>
-            p.ProductCode === String(productId) || String(p.ProductId) === String(productId)
-        );
+        productId = Number(productId);
+        const product = droppedProducts.find(p => Number(p.ProductId) === productId);
         if (!product || !product.id) return;
 
         try {
-            await fetch(`${KHO_API}/${product.id}`, { method: 'DELETE' });
+            await fetch(`${RENDER_API}/api/realtime/dropped-products/${product.id}`, { method: 'DELETE' });
         } catch (error) {
-            console.error('[KHO-DI-CHO] Error removing by ProductId:', error);
+            console.error('[DROPPED] Error removing by ProductId:', error);
         }
     };
 
     /**
-     * Update warehouse product quantity
-     * Uses PATCH kho-di-cho API
+     * Update dropped product quantity
      */
     window.updateDroppedProductQuantity = async function (index, change, value = null) {
         const product = droppedProducts[index];
         if (!product || !product.id) return;
 
         try {
-            let newQty;
+            const body = {};
             if (value !== null) {
-                newQty = Math.max(0, parseInt(value, 10));
+                body.value = Math.max(1, parseInt(value, 10));
             } else {
-                newQty = Math.max(0, (product.WarehouseQty || product.Quantity || 0) + change);
+                body.change = change;
             }
 
-            const resp = await fetch(`${KHO_API}/${product.id}`, {
+            const resp = await fetch(`${RENDER_API}/api/realtime/dropped-products/${product.id}/quantity`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ quantity: newQty }),
+                body: JSON.stringify(body),
             });
 
             if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-            // SSE will update UI automatically
         } catch (error) {
-            console.error('[KHO-DI-CHO] Error updating quantity:', error);
+            console.error('[DROPPED] Error updating quantity:', error);
             showError('Lỗi khi cập nhật số lượng: ' + error.message);
         }
     };
@@ -630,6 +675,10 @@
     /**
      * Move warehouse product to order (hold)
      * Uses Kho Đi Chợ hold API for multi-user collaboration
+     */
+    /**
+     * Move dropped product to order (held)
+     * Syncs to Render held_products API for multi-user collaboration
      */
     window.moveDroppedToOrder = async function (index) {
         const product = droppedProducts[index];
@@ -660,94 +709,86 @@
         if (!confirmed) return;
 
         try {
-            const orderId = window.currentChatOrderData.Id;
-            const productCode = product.ProductCode;
-
-            // Get auth info
-            let userId = null;
-            let displayName = 'Unknown';
-            if (window.authManager) {
-                const auth = window.authManager.getAuthState();
-                if (auth) {
-                    userId = auth.id || auth.Id || auth.username || auth.userType;
-                    if (!userId && auth.displayName) {
-                        userId = auth.displayName.replace(/[.#$/\[\]]/g, '_');
-                    }
-                    displayName = auth.displayName || auth.userType || 'Unknown';
-                }
+            let fullProduct = null;
+            if (window.productSearchManager) {
+                try {
+                    fullProduct = await window.productSearchManager.getFullProductDetails(product.ProductId, true);
+                } catch (e) {}
             }
 
-            if (!userId) {
-                showError('Không xác định được user. Vui lòng đăng nhập lại.');
-                return;
-            }
-
-            // Check if product already held by this user for this order — increase qty
-            const existingHeld = window.currentChatOrderData.Details.find(
-                (p) => p.ProductCode === productCode && p.IsHeld
+            const existingHeldIndex = window.currentChatOrderData.Details.findIndex(
+                (p) => p.ProductId === product.ProductId && p.IsHeld
             );
-            const holdQty = existingHeld ? existingHeld.Quantity + 1 : 1;
 
-            // Call Kho Đi Chợ hold API (validates availability + creates held_products row)
-            const holdResp = await fetch(`${KHO_API}/hold`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    orderId: String(orderId),
-                    productCode,
-                    userId,
-                    displayName,
-                    quantity: holdQty,
-                    isDraft: false,
-                    campaignName: window.currentChatOrderData?.LiveCampaignName || '',
-                    stt: window.currentChatOrderData?.SessionIndex || '',
-                }),
-            });
-
-            if (!holdResp.ok) {
-                const err = await holdResp.json().catch(() => ({}));
-                showError(err.error || `Lỗi hold: HTTP ${holdResp.status}`);
-                return;
-            }
-
-            const holdResult = await holdResp.json();
-            const heldProduct = holdResult.held?.product || {};
-
-            // Update local Details array
-            if (existingHeld) {
-                existingHeld.Quantity = holdQty;
+            if (existingHeldIndex > -1) {
+                window.currentChatOrderData.Details[existingHeldIndex].Quantity += 1;
             } else {
                 window.currentChatOrderData.Details.push({
                     ProductId: product.ProductId,
                     ProductName: product.ProductName,
                     ProductNameGet: product.ProductNameGet,
-                    ProductCode: productCode,
-                    ImageUrl: product.ImageUrl,
-                    Price: heldProduct.sellingPrice || product.Price,
-                    PurchasePrice: heldProduct.purchasePrice || product.PurchasePrice || 0,
+                    ProductCode: fullProduct ? fullProduct.DefaultCode || fullProduct.Barcode : product.ProductCode,
+                    ImageUrl: fullProduct ? fullProduct.ImageUrl : product.ImageUrl,
+                    Price: product.Price,
                     Quantity: 1,
-                    UOMId: 1,
-                    UOMName: product.UOMName || 'Cái',
-                    Factor: 1,
-                    Priority: 0,
-                    OrderId: orderId,
-                    LiveCampaign_DetailId: null,
-                    ProductWeight: 0,
-                    Note: null,
-                    IsHeld: true,
-                    IsFromDropped: true,
-                    IsFromKho: true,
-                    _khoProductCode: productCode,
-                    _khoId: product._khoId,
-                    StockQty: 0,
-                    Name: product.ProductName,
-                    Code: productCode,
+                    UOMId: fullProduct ? fullProduct.UOM?.Id || 1 : 1,
+                    UOMName: fullProduct ? fullProduct.UOM?.Name || 'Cái' : product.UOMName,
+                    Factor: 1, Priority: 0,
+                    OrderId: window.currentChatOrderData.Id,
+                    LiveCampaign_DetailId: null, ProductWeight: 0, Note: null,
+                    IsHeld: true, IsFromDropped: true,
+                    StockQty: fullProduct ? fullProduct.QtyAvailable : 0,
+                    Name: product.ProductName, Code: product.ProductCode,
                 });
             }
 
-            // SSE will auto-update the grid (available_qty changed)
+            // Sync to Render held_products API
+            const orderId = window.currentChatOrderData.Id;
+            const productId = product.ProductId;
 
-            // Re-render orders table
+            if (window.authManager && orderId) {
+                const auth = window.authManager.getAuthState();
+                if (auth) {
+                    let userId = auth.id || auth.Id || auth.username || auth.userType;
+                    if (!userId && auth.displayName) userId = auth.displayName.replace(/[.#$/\[\]]/g, '_');
+
+                    if (userId) {
+                        const currentHeldProduct = window.currentChatOrderData.Details.find(
+                            (p) => p.ProductId === productId && p.IsHeld
+                        );
+                        const heldQuantity = currentHeldProduct ? currentHeldProduct.Quantity : 1;
+
+                        await fetch(`${RENDER_API}/api/realtime/held-products/${orderId}/${productId}/${userId}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                productId, displayName: auth.displayName || auth.userType || 'Unknown',
+                                quantity: heldQuantity, isDraft: false, timestamp: Date.now(),
+                                campaignName: window.currentChatOrderData?.LiveCampaignName || '',
+                                stt: window.currentChatOrderData?.SessionIndex || '',
+                                productName: product.ProductName || '',
+                                productNameGet: product.ProductNameGet || product.ProductName || '',
+                                productCode: product.ProductCode || '',
+                                imageUrl: product.ImageUrl || '',
+                                price: product.Price || 0,
+                                uomName: product.UOMName || 'Cái',
+                            }),
+                        });
+                    }
+                }
+            }
+
+            // Decrease quantity in dropped list via API
+            if (product.id) {
+                await fetch(`${RENDER_API}/api/realtime/dropped-products/${product.id}/quantity`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ change: -1 }),
+                });
+            }
+
+            await window.clearHeldByIfNotHeld(productId);
+
             if (typeof window.renderChatProductsTable === 'function') {
                 window.renderChatProductsTable();
             }
@@ -755,7 +796,7 @@
             switchChatPanelTab('orders');
             showSuccess('Đã chuyển 1 sản phẩm về đơn hàng');
         } catch (error) {
-            console.error('[KHO-DI-CHO] Error moving to order:', error);
+            console.error('[DROPPED] Error moving to order:', error);
             showError('Lỗi khi chuyển sản phẩm: ' + error.message);
         }
     };
@@ -1186,9 +1227,69 @@
     };
 
     window._handleWarehouseSendSelected = async function () {
-        // Stub: chuyển sản phẩm vào đơn — sẽ hoàn thiện khi có backend kho.
         if (_warehouseSelectedIds.size === 0) return;
-        showError('Chức năng chuyển từ Kho vào đơn sẽ hoàn thiện sau.');
+        if (!window.currentChatOrderData) {
+            showError('Vui lòng mở một đơn hàng trước');
+            return;
+        }
+
+        const ids = Array.from(_warehouseSelectedIds);
+        for (const pid of ids) {
+            const p = warehouseProducts.find((x) => x.ProductId === pid);
+            if (!p || (p.Quantity || 0) <= 0) continue;
+
+            // Use kho-di-cho hold API
+            try {
+                const auth = window.authManager?.getAuthState();
+                let userId = auth?.id || auth?.Id || auth?.username || auth?.userType;
+                if (!userId && auth?.displayName) userId = auth.displayName.replace(/[.#$/\[\]]/g, '_');
+                if (!userId) continue;
+
+                const orderId = window.currentChatOrderData.Id;
+                const productCode = p.ProductCode;
+
+                const holdResp = await fetch(`${KHO_API}/hold`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        orderId: String(orderId),
+                        productCode,
+                        userId,
+                        displayName: auth?.displayName || 'Unknown',
+                        quantity: 1,
+                        isDraft: false,
+                    }),
+                });
+
+                if (holdResp.ok) {
+                    // Add to local Details
+                    if (!window.currentChatOrderData.Details) window.currentChatOrderData.Details = [];
+                    const existingHeld = window.currentChatOrderData.Details.find(
+                        (d) => d.ProductCode === productCode && d.IsHeld
+                    );
+                    if (existingHeld) {
+                        existingHeld.Quantity += 1;
+                    } else {
+                        window.currentChatOrderData.Details.push({
+                            ProductId: pid, ProductName: p.ProductName,
+                            ProductNameGet: p.ProductNameGet, ProductCode: productCode,
+                            ImageUrl: p.ImageUrl, Price: p.Price,
+                            Quantity: 1, UOMId: 1, UOMName: p.UOMName || 'Cái',
+                            Factor: 1, Priority: 0, OrderId: orderId,
+                            IsHeld: true, IsFromDropped: false, IsFromKho: true,
+                            _khoProductCode: productCode,
+                            Name: p.ProductName, Code: productCode,
+                        });
+                    }
+                }
+            } catch (e) { console.error(e); }
+        }
+
+        _warehouseSelectedIds.clear();
+        if (typeof window.renderChatProductsTable === 'function') window.renderChatProductsTable();
+        switchChatPanelTab('orders');
+        showSuccess(`Đã chuyển ${ids.length} sản phẩm từ kho về đơn hàng`);
+        loadWarehouseProductsFromAPI(); // Refresh available qty
     };
 
     window._handleWarehouseDeleteSelected = async function () {
@@ -1872,21 +1973,21 @@
         let confirmed = false;
         if (window.CustomPopup) {
             confirmed = await window.CustomPopup.confirm(
-                'Bạn có chắc muốn xóa toàn bộ kho đi chợ?',
+                'Bạn có chắc muốn xóa toàn bộ danh sách hàng rớt?',
                 'Xác nhận xóa tất cả'
             );
         } else {
-            confirmed = confirm('Bạn có chắc muốn xóa toàn bộ kho đi chợ?');
+            confirmed = confirm('Bạn có chắc muốn xóa toàn bộ danh sách hàng rớt?');
         }
 
         if (!confirmed) return;
 
         try {
-            const resp = await fetch(KHO_API, { method: 'DELETE' });
+            const resp = await fetch(`${RENDER_API}/api/realtime/dropped-products/all`, { method: 'DELETE' });
             if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-            showSuccess('Đã xóa toàn bộ kho');
+            showSuccess('Đã xóa tất cả hàng rớt');
         } catch (error) {
-            console.error('[KHO-DI-CHO] Error clearing:', error);
+            console.error('[DROPPED] Error clearing:', error);
             showError('Lỗi khi xóa: ' + error.message);
         }
     };
