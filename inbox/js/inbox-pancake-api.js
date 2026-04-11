@@ -913,17 +913,35 @@ class InboxPancakeAPI {
         try {
             const token = await this.tm.getToken();
             if (!token) return { conversations: [] };
-            const ids = this._searchablePageIds || this.pageIds;
+            let ids = this._searchablePageIds || this.pageIds;
             if (ids.length === 0) return { conversations: [] };
-            const pagesParams = ids.map(id => `pages[${id}]=0`).join('&');
-            const url = InboxApiConfig.buildUrl.pancake(
-                `conversations/customer/${fbId}`,
-                `${pagesParams}&access_token=${token}`
-            );
-            const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
-            if (!res.ok) return { conversations: [] };
-            const data = await res.json();
-            if (!data.success) return { conversations: [] };
+
+            const doFetch = async (pageIds) => {
+                const pagesParams = pageIds.map(id => `pages[${id}]=0`).join('&');
+                const url = InboxApiConfig.buildUrl.pancake(
+                    `conversations/customer/${fbId}`,
+                    `${pagesParams}&access_token=${token}`
+                );
+                const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                if (!res.ok) return null;
+                return await res.json();
+            };
+
+            let data = await doFetch(ids);
+
+            // Error 122: page subscription expired → remove bad pages and retry
+            if (data && !data.success && data.error_code === 122 && data.errors) {
+                const badPageIds = new Set(data.errors.filter(e => e.error_code === 122).map(e => String(e.page_id)));
+                const goodIds = ids.filter(id => !badPageIds.has(String(id)));
+                if (goodIds.length > 0 && goodIds.length < ids.length) {
+                    console.warn(`[INBOX-API] searchByCustomerId: removing expired pages ${[...badPageIds].join(',')}, retrying with ${goodIds.length} pages`);
+                    // Cache good pages for future searches
+                    this._searchablePageIds = goodIds;
+                    data = await doFetch(goodIds);
+                }
+            }
+
+            if (!data || !data.success) return { conversations: [] };
             console.log(`[INBOX-API] searchByCustomerId(${fbId}): ${(data.conversations || []).length} conversations`);
             return { conversations: data.conversations || [] };
         } catch (e) {
