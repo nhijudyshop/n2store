@@ -120,6 +120,7 @@ window.openChatModal = async function(orderId, pageId, psid, conversationType) {
     window.currentReplyMessage = null;
     window.currentSendPageId = pageId;
     window.isSendingMessage = false;
+    if (!(window._pageConvCache instanceof Map)) window._pageConvCache = new Map();
 
     // Get customer name and phone from order row
     const orderRow = document.querySelector(`tr[data-order-id="${orderId}"]`);
@@ -356,10 +357,12 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
         const customerName = window.currentCustomerName;
         let foundConvs = [];
 
-        if (customerName && pdm.searchConversations) {
-            const searchResult = await pdm.searchConversations(customerName);
+        // Search by customer name on the target page (v2 public API)
+        if (customerName && pdm.searchConversationsOnPage) {
+            const searchResult = await pdm.searchConversationsOnPage(pageId, customerName);
+            // Filter exact name match (search returns fuzzy results)
             foundConvs = (searchResult.conversations || []).filter(c =>
-                String(c.page_id) === String(pageId)
+                c.from?.name === customerName
             );
         }
         // Fallback: try page-specific API with PSID (works if same psid)

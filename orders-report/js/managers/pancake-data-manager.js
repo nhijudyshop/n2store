@@ -290,6 +290,29 @@ class PancakeDataManager {
         }
     }
 
+    // --- Search Conversations on a specific page by customer name ---
+    // Uses Public API v2: GET /pages/{pageId}/conversations?search={name}
+    // Returns matching conversations on this page (up to 60)
+    async searchConversationsOnPage(pageId, query) {
+        try {
+            if (!query || !pageId) return { conversations: [] };
+            let pat = await this.getPageAccessToken(pageId);
+            if (!pat) return { conversations: [] };
+
+            const url = PancakeApiConfig.buildUrl.pancakeOfficialV2(
+                `pages/${pageId}/conversations`, pat
+            ) + `&search=${encodeURIComponent(query)}`;
+
+            const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+            if (!res.ok) return { conversations: [] };
+            const data = await res.json();
+            return { conversations: data.conversations || [] };
+        } catch (e) {
+            console.error('[PDM] searchConversationsOnPage error:', e);
+            return { conversations: [] };
+        }
+    }
+
     // --- Fetch Conversations by customer Facebook ID ---
     // Uses Pancake API: GET /api/v1/pages/{pageId}/customers/{fbId}/conversations
     // Returns ALL conversations (INBOX + COMMENT) for this customer on this page
