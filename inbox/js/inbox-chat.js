@@ -986,6 +986,10 @@ class InboxChatController {
     // ===== Conversation List =====
 
     renderConversationList() {
+        // Debounce: collapse rapid consecutive calls into 1 render (WS events, init, etc.)
+        if (this._renderDebounceTimer) return;
+        this._renderDebounceTimer = setTimeout(() => { this._renderDebounceTimer = null; }, 50);
+
         // Guard: prevent scroll-to-load-more during re-render
         this._isRerendering = true;
 
