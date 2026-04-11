@@ -2515,33 +2515,66 @@ div.chat-product-image i {
     }
 }
 
-/* ===== Reactions (emoji from attachments) ===== */
-.message-reactions {
-    display: inline-block;
-    font-size: 14px;
-    padding: 1px 6px;
-    background: rgba(0, 0, 0, 0.04);
-    border-radius: 10px;
-    margin-top: 4px;
-    cursor: default;
+/* ===== Bubble Wrap (for reaction float) ===== */
+.message-bubble-wrap {
+    position: relative;
+    display: inline-flex;
+    flex-direction: column;
+    max-width: 100%;
 }
 
-.message-row.outgoing .message-reactions {
-    background: rgba(68, 65, 196, 0.06);
+/* ===== Reactions float (right side of bubble) ===== */
+.message-reactions-float {
+    position: absolute;
+    bottom: -10px;
+    right: 8px;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    z-index: 1;
+}
+
+.message-row.outgoing .message-reactions-float {
+    right: auto;
+    left: 8px;
+}
+
+.message-reactions {
+    display: inline-flex;
+    align-items: center;
+    font-size: 13px;
+    padding: 2px 6px;
+    background: #fff;
+    border-radius: 12px;
+    cursor: default;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    line-height: 1.3;
+}
+
+/* ===== Highlight messages with reactions ===== */
+.message-row.has-reactions .message-bubble {
+    box-shadow: 0 1px 6px rgba(99, 102, 241, 0.15);
+}
+
+.message-row.has-reactions.incoming .message-bubble {
+    border-color: #c7d2fe;
+}
+
+.message-row.has-reactions.outgoing .message-bubble {
+    border-color: #a5b4fc;
+}
+
+/* Extra bottom margin for reaction float overflow */
+.message-row.has-reactions {
+    margin-bottom: 10px;
 }
 
 /* ===== Reaction Summary ===== */
 .message-reaction-summary {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
-    margin-top: 6px;
-    padding-top: 6px;
-    border-top: 1px solid rgba(0, 0, 0, 0.04);
-}
-
-.message-row.outgoing .message-reaction-summary {
-    border-top-color: rgba(68, 65, 196, 0.08);
+    gap: 3px;
 }
 
 .reaction-badge {
@@ -2550,14 +2583,17 @@ div.chat-product-image i {
     gap: 2px;
     font-size: 11px;
     padding: 2px 6px;
-    border-radius: 8px;
-    background: rgba(0, 0, 0, 0.03);
+    border-radius: 10px;
+    background: #fff;
     line-height: 1.4;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+    border: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .message-row.outgoing .reaction-badge {
-    background: rgba(68, 65, 196, 0.06);
+    background: #f5f3ff;
     color: #4338ca;
+    border-color: #e0e7ff;
 }
 
 /* ===== Status Indicators ===== */

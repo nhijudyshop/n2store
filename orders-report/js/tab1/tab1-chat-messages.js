@@ -220,6 +220,7 @@ window.renderChatMessages = function(messages) {
                 : '';
 
             // CSS classes
+            const hasReactions = reactionsHtml !== '';
             const classes = [
                 'message-row',
                 isOutgoing ? 'outgoing' : 'incoming',
@@ -227,6 +228,7 @@ window.renderChatMessages = function(messages) {
                 isPrivateReply ? 'is-private-reply' : '',
                 isRemoved ? 'is-removed' : '',
                 isHidden ? 'is-hidden' : '',
+                hasReactions ? 'has-reactions' : '',
             ].filter(Boolean).join(' ');
 
             // Actions (hover)
@@ -241,17 +243,19 @@ window.renderChatMessages = function(messages) {
                 ${dateSeparator}
                 <div class="${classes}" data-msg-id="${msg.id}">
                     ${avatarHtml}
-                    <div class="message-bubble">
-                        ${mediaHtml}
-                        ${textHtml}
-                        ${reactionsHtml}
-                        <div class="message-meta">
-                            ${typeIcon}
-                            ${statusIndicator}
-                            ${replyBadge}
-                            ${senderHtml}
-                            <span class="message-time">${_formatTime(msg.time)}</span>
+                    <div class="message-bubble-wrap">
+                        <div class="message-bubble">
+                            ${mediaHtml}
+                            ${textHtml}
+                            <div class="message-meta">
+                                ${typeIcon}
+                                ${statusIndicator}
+                                ${replyBadge}
+                                ${senderHtml}
+                                <span class="message-time">${_formatTime(msg.time)}</span>
+                            </div>
                         </div>
+                        ${reactionsHtml ? `<div class="message-reactions-float">${reactionsHtml}</div>` : ''}
                     </div>
                     ${actionsHtml}
                 </div>
