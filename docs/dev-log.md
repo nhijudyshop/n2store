@@ -8,6 +8,15 @@
 
 ## 2026-04-11
 
+### [render] Drop 4 unused PostgreSQL tables ✅
+| | |
+|---|---|
+| **Files** | `render.com/migrations/043_drop_unused_tables.sql` |
+| **Audit** | Kiểm tra toàn bộ 51 tables, grep references trong codebase. 47 tables active, 4 unused. |
+| **Dropped** | `soquy_vouchers` (573 rows, migration backup), `soquy_counters` (3 rows), `soquy_meta` (7 rows) — soquy vẫn dùng Firestore. `debt_adjustment_log` — chưa tồn tại (never migrated). |
+| **Firebase** | Audit 50+ collections/paths — tất cả active. Không có dead collections. |
+| **Status** | ✅ Done — đã chạy trên production DB |
+
 ### [chat] Harvest global_id từ extension bypass + fix bulk send ✅
 | | |
 |---|---|
