@@ -3604,19 +3604,11 @@ class InboxChatController {
                     }
                 }
 
-                if (indexedFbId) {
-                    console.log(`[InboxChat] Name → fb_id ${indexedFbId}, searching conversations...`);
-                    const cusResult = await pdm.searchByCustomerId(indexedFbId);
-                    if (this.searchQuery !== query) return;
-                    this.searchResults = cusResult.conversations || [];
-                    console.log(`[InboxChat] Customer search via name: ${this.searchResults.length} conversations`);
-                    this.renderConversationList();
-                    return; // Đã tìm được qua customer ID → không cần chạy search thường nữa
-                }
+                // indexedFbId sẽ được dùng dưới cùng searchConversations results
             }
 
-            // If query looks like a phone, send normalized digits to Pancake API
-            // (e.g., "+84 984 040 726" → "0984040726") so the server can match better.
+            // Search thường (conversations/search) — tìm theo tên cross-page
+            // Trả fb_id khác nhau trên mỗi page cho cùng 1 người.
             let apiQuery = query;
             if (typeof isPhoneQuery === 'function' && isPhoneQuery(query)) {
                 const normalized = normalizePhone(query);
@@ -3624,42 +3616,51 @@ class InboxChatController {
             }
 
             const result = await pdm.searchConversations(apiQuery);
-            if (this.searchQuery !== query) return; // Query changed while waiting
+            if (this.searchQuery !== query) return;
 
             let allConvs = [];
+
+            // Collect ALL fb_ids từ search results + local index
+            const allFbIds = new Set();
+            if (indexedFbId) allFbIds.add(indexedFbId);
+
             if (result && result.conversations && result.conversations.length > 0) {
                 allConvs = [...result.conversations];
                 console.log(`[InboxChat] Search found ${result.conversations.length} results for "${query}"`);
 
-                // Chain: nếu có customerId → fetch thêm tất cả conversations của customer đó
-                const firstFbId = result.conversations[0]?.customers?.[0]?.fb_id
-                    || result.conversations[0]?.from_id
-                    || result.conversations[0]?.from?.id;
-                if (firstFbId && pdm.searchByCustomerId) {
-                    console.log(`[InboxChat] Chaining customer search for fb_id: ${firstFbId}`);
-                    const cusResult = await pdm.searchByCustomerId(firstFbId);
-                    if (this.searchQuery !== query) return;
-                    if (cusResult.conversations && cusResult.conversations.length > 0) {
-                        // Deduplicate: giữ search results gốc ưu tiên, thêm customer results mới
-                        const existingIds = new Set(allConvs.map(c => c.id));
-                        const newConvs = cusResult.conversations.filter(c => !existingIds.has(c.id));
-                        allConvs.push(...newConvs);
-                        console.log(`[InboxChat] Customer chain added ${newConvs.length} more (total: ${allConvs.length})`);
+                // Lấy fb_id từ MỖI conversation (mỗi page có fb_id khác)
+                for (const conv of result.conversations) {
+                    const fid = conv.customers?.[0]?.fb_id || conv.from_id || conv.from?.id;
+                    if (fid) allFbIds.add(fid);
+                }
+            }
+
+            // Chain: dùng TẤT CẢ fb_ids → searchByCustomerId parallel cho mỗi fb_id
+            if (allFbIds.size > 0 && pdm.searchByCustomerId) {
+                console.log(`[InboxChat] Chaining customer search for ${allFbIds.size} fb_ids:`, [...allFbIds]);
+                const existingIds = new Set(allConvs.map(c => c.id));
+                const cusResults = await Promise.all(
+                    [...allFbIds].map(fid => pdm.searchByCustomerId(fid))
+                );
+                if (this.searchQuery !== query) return;
+                let added = 0;
+                for (const cusResult of cusResults) {
+                    if (cusResult?.conversations) {
+                        for (const conv of cusResult.conversations) {
+                            if (!existingIds.has(conv.id)) {
+                                existingIds.add(conv.id);
+                                allConvs.push(conv);
+                                added++;
+                            }
+                        }
                     }
                 }
+                console.log(`[InboxChat] Customer chain added ${added} more (total: ${allConvs.length})`);
             } else {
                 console.log(`[InboxChat] Search returned 0 results for "${query}"`);
             }
 
-            // Merge with any prior name-index results (already in this.searchResults)
-            if (this.searchResults && this.searchResults.length > 0 && allConvs.length > 0) {
-                const existingIds = new Set(this.searchResults.map(c => c.id));
-                const newFromSearch = allConvs.filter(c => !existingIds.has(c.id));
-                this.searchResults = [...this.searchResults, ...newFromSearch];
-            } else if (allConvs.length > 0) {
-                this.searchResults = allConvs;
-            }
-            // If nothing found at all, keep empty
+            this.searchResults = allConvs;
             if (!this.searchResults) this.searchResults = [];
             this.renderConversationList();
         } catch (error) {
