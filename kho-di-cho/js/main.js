@@ -181,13 +181,22 @@
     // SSE REAL-TIME
     // =====================================================
 
+    let sseReloadTimer = null;
+
     function setupSSE() {
         if (sseSource) { sseSource.close(); sseSource = null; }
 
         try {
             sseSource = new EventSource(SSE_URL);
-            sseSource.addEventListener('update', () => loadData());
-            sseSource.addEventListener('deleted', () => loadData());
+
+            // Debounce SSE reloads — wait 2s after last event to avoid flicker
+            const debouncedReload = () => {
+                if (sseReloadTimer) clearTimeout(sseReloadTimer);
+                sseReloadTimer = setTimeout(() => loadData(), 2000);
+            };
+
+            sseSource.addEventListener('update', debouncedReload);
+            sseSource.addEventListener('deleted', debouncedReload);
             sseSource.onerror = () => console.warn('[KHO] SSE disconnected, auto-reconnect');
         } catch (e) {
             console.warn('[KHO] SSE setup failed:', e);
@@ -479,8 +488,28 @@
         });
     }
 
-    // Inline quantity change
+    // Inline quantity change — optimistic UI update (no full re-render)
     async function changeQty(id, change) {
+        // Optimistic: update DOM immediately
+        const row = document.querySelector(`tr[data-id="${id}"]`);
+        if (row) {
+            const item = allData.find(d => d.id === id);
+            if (item) {
+                item.quantity = Math.max(0, (item.quantity || 0) + change);
+                const qtySpan = row.querySelector('.qty-inline span');
+                if (qtySpan) {
+                    qtySpan.textContent = item.quantity;
+                    qtySpan.className = item.quantity === 0 ? 'zero-qty' : '';
+                }
+                // Update total cell
+                const totalCell = row.querySelector('.col-total');
+                if (totalCell) {
+                    totalCell.textContent = formatCurrency(item.quantity * (parseFloat(item.purchase_price) || 0));
+                }
+                updateSummary();
+            }
+        }
+
         try {
             const res = await fetch(`${API_BASE}/change-qty`, {
                 method: 'POST',
@@ -488,9 +517,10 @@
                 body: JSON.stringify({ id, change }),
             });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            // SSE will reload
+            // SSE will sync data in background (debounced, no re-render flicker)
         } catch (err) {
             showToast('Lỗi: ' + err.message, 'error');
+            loadData(); // Revert on error
         }
     }
 
@@ -658,7 +688,11 @@
                 else showToast('Lỗi: ' + (json.error || ''), 'error');
             } catch (err) { showToast('Lỗi kết nối server', 'error'); }
         };
-        document.getElementById('okConfirm').onclick = () => { closeConfirmModal(); if (pendingConfirmAction) pendingConfirmAction(); };
+        document.getElementById('okConfirm').onclick = () => {
+            const action = pendingConfirmAction;
+            closeConfirmModal();
+            if (action) action();
+        };
     }
 
     function confirmClearAll() {
@@ -675,7 +709,11 @@
                 else showToast('Lỗi: ' + (json.error || ''), 'error');
             } catch (err) { showToast('Lỗi kết nối server', 'error'); }
         };
-        document.getElementById('okConfirm').onclick = () => { closeConfirmModal(); if (pendingConfirmAction) pendingConfirmAction(); };
+        document.getElementById('okConfirm').onclick = () => {
+            const action = pendingConfirmAction;
+            closeConfirmModal();
+            if (action) action();
+        };
     }
 
     function closeConfirmModal() { document.getElementById('confirmModal').style.display = 'none'; pendingConfirmAction = null; }
