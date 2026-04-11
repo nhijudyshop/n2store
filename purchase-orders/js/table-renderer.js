@@ -748,16 +748,13 @@ class PurchaseOrderTableRenderer {
             }
         });
 
-        // Select all checkbox
-        const selectAllCheckbox = this.container.querySelector('.select-all-checkbox');
-        if (selectAllCheckbox) {
-            selectAllCheckbox.addEventListener('change', (e) => {
-                this.handlers.onSelectAll?.(e.target.checked);
-            });
-        }
-
-        // Individual checkbox changes
+        // Checkbox changes (select-all + individual) — delegated to container
         this.container.addEventListener('change', (e) => {
+            if (e.target.classList.contains('select-all-checkbox')) {
+                this.handlers.onSelectAll?.(e.target.checked);
+                return;
+            }
+
             const checkbox = e.target.closest('.order-checkbox');
             if (!checkbox) return;
 
