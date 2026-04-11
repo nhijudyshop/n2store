@@ -39,10 +39,11 @@ const FBAds = (() => {
     // =====================================================
     async function checkAuthStatus() {
         try {
-            // Server checks memory first, then DB — no need for FB SDK here
             const res = await fetch(API_BASE + '/auth/status').then(r => r.json());
             if (res.success && res.authenticated) {
                 onLoginSuccess(res.user);
+            } else if (res.tokenInvalid) {
+                toast('Token đã hết hiệu lực (đổi mật khẩu hoặc FB reset). Vui lòng đăng nhập lại.', 'error');
             }
         } catch (e) { /* server error */ }
     }

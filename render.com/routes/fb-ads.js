@@ -136,6 +136,12 @@ async function fbFetch(endpoint, options = {}) {
     const data = await response.json();
 
     if (data.error) {
+        // Token invalidated by FB (password change, security reset, etc.)
+        if (data.error.code === 190 || (data.error.message && data.error.message.includes('validating access token'))) {
+            console.error(`[FB-ADS] Token invalid for ${fbTokenStore.name}: ${data.error.message}`);
+            // Mark token as expired so it won't be used again
+            fbTokenStore = { accessToken: null, expiresAt: null, userId: null, name: null };
+        }
         const err = new Error(data.error.message);
         err.fbError = data.error;
         err.status = response.status;
@@ -190,19 +196,50 @@ router.post('/auth/token', async (req, res) => {
     }
 });
 
-// GET /api/fb-ads/auth/status — Check if authenticated
+// GET /api/fb-ads/auth/status — Check if authenticated (validates token with FB)
 router.get('/auth/status', async (req, res) => {
     // If memory empty, try load from DB (e.g. after server restart)
     if (!fbTokenStore.accessToken) {
         await loadTokenFromDB(req);
     }
-    const isAuth = !!fbTokenStore.accessToken && Date.now() < (fbTokenStore.expiresAt || 0);
-    res.json({
-        success: true,
-        authenticated: isAuth,
-        user: isAuth ? { id: fbTokenStore.userId, name: fbTokenStore.name } : null,
-        expiresAt: fbTokenStore.expiresAt
-    });
+
+    if (fbTokenStore.accessToken && Date.now() < (fbTokenStore.expiresAt || 0)) {
+        // Validate token is still valid with FB (lightweight call)
+        try {
+            const checkUrl = `${FB_GRAPH_URL}/me?fields=id,name&access_token=${fbTokenStore.accessToken}`;
+            const checkRes = await fetch(checkUrl);
+            const checkData = await checkRes.json();
+            if (checkData.error) {
+                // Token invalidated — clear it
+                console.log(`[FB-ADS] Token invalid: ${checkData.error.message}`);
+                const invalidUserId = fbTokenStore.userId;
+                fbTokenStore = { accessToken: null, expiresAt: null, userId: null, name: null };
+                // Remove from DB
+                try {
+                    const db = req.app.locals.chatDb;
+                    if (db && invalidUserId) await db.query('DELETE FROM fb_ads_tokens WHERE user_id = $1', [invalidUserId]);
+                } catch (e) { /* ignore */ }
+                return res.json({ success: true, authenticated: false, user: null, tokenInvalid: true });
+            }
+            // Token valid
+            return res.json({
+                success: true,
+                authenticated: true,
+                user: { id: fbTokenStore.userId, name: checkData.name || fbTokenStore.name },
+                expiresAt: fbTokenStore.expiresAt
+            });
+        } catch (e) {
+            // Network error — assume still valid
+            return res.json({
+                success: true,
+                authenticated: true,
+                user: { id: fbTokenStore.userId, name: fbTokenStore.name },
+                expiresAt: fbTokenStore.expiresAt
+            });
+        }
+    }
+
+    res.json({ success: true, authenticated: false, user: null });
 });
 
 // POST /api/fb-ads/auth/logout — Logout (clear memory, keep DB for re-select)
