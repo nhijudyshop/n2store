@@ -439,19 +439,9 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
             // Auto-pick first INBOX (or first conv if no INBOX)
             conv = foundConvs.find(c => c.type === 'INBOX') || foundConvs[0];
 
-            // Cache for repick button
+            // Cache for repick button (sync icon)
             if (!window._pageConvPickerCache) window._pageConvPickerCache = new Map();
             window._pageConvPickerCache.set(pageId, { convs: foundConvs, loadToken });
-
-            // Show picker below messages after load (if >1 conv)
-            if (foundConvs.length > 1) {
-                // Defer: show picker after messages render
-                const otherConvs = foundConvs.filter(c => c.id !== conv.id);
-                setTimeout(() => {
-                    if (window._chatLoadSeq !== loadToken) return;
-                    _appendConvPickerBelow(otherConvs, pageId, loadToken);
-                }, 500);
-            }
         }
     } else if (type === 'COMMENT') {
         // COMMENT: Always fetch fresh from API (cache may hold stale/deleted conversations)
