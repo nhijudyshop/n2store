@@ -321,6 +321,7 @@ class InboxChatController {
             if (!query) {
                 this.isSearching = false;
                 this.searchResults = null;
+                this._lastSearchQuery = null;
                 if (localRenderRaf) { cancelAnimationFrame(localRenderRaf); localRenderRaf = 0; }
                 this.renderConversationList();
                 return;
@@ -3548,6 +3549,9 @@ class InboxChatController {
 
     async performSearch(query) {
         if (!query || query.length < 2) return;
+        // Skip if already searched this exact query and have results
+        if (this._lastSearchQuery === query && this.searchResults && this.searchResults.length > 0) return;
+        this._lastSearchQuery = query;
 
         this.isSearching = true;
         this.renderConversationList(); // Show loading state
@@ -3607,7 +3611,7 @@ class InboxChatController {
                     this.searchResults = cusResult.conversations || [];
                     console.log(`[InboxChat] Customer search via name: ${this.searchResults.length} conversations`);
                     this.renderConversationList();
-                    // Don't return — still run normal search below to merge more results
+                    return; // Đã tìm được qua customer ID → không cần chạy search thường nữa
                 }
             }
 
