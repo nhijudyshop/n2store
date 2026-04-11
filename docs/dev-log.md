@@ -8,6 +8,14 @@
 
 ## 2026-04-11
 
+### [kho] Kho Đi Chợ full CRUD rebuild ✅
+| | |
+|---|---|
+| **Files** | `kho-di-cho/js/main.js`, `kho-di-cho/index.html`, `kho-di-cho/css/kho-di-cho.css`, `render.com/routes/v2/kho-di-cho.js` |
+| **Backend** | API mới: `POST /bulk-delete`, `POST /bulk-update`, `POST /change-qty`. |
+| **Frontend** | Checkbox multi-select + bulk action bar. Inline qty +/- buttons. Edit modal: tên, biến thể, SL, giá bán, giá nhập, ảnh. Cột mới: checkbox, giá bán (tách riêng). |
+| **Status** | ✅ Done |
+
 ### [chat][render] Cross-page customer lookup via DB — chính xác 100% ✅
 | | |
 |---|---|

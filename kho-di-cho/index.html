@@ -126,6 +126,7 @@
             <table class="data-table" id="dataTable">
                 <thead>
                     <tr>
+                        <th class="col-check"><input type="checkbox" id="selectAll" title="Chọn tất cả"></th>
                         <th class="col-stt">STT</th>
                         <th class="col-img">Ảnh</th>
                         <th class="col-code">Mã SP</th>
@@ -133,7 +134,8 @@
                         <th class="col-variant">Biến thể</th>
                         <th class="col-qty">Kho ĐC</th>
                         <th class="col-tpos-qty">Tồn TPOS</th>
-                        <th class="col-price">Đơn giá</th>
+                        <th class="col-sell-price">Giá bán</th>
+                        <th class="col-price">Giá nhập</th>
                         <th class="col-total">Thành tiền</th>
                         <th class="col-actions">Thao tác</th>
                     </tr>
@@ -169,21 +171,34 @@
                 <button class="modal-close" id="closeEditModal"><i data-lucide="x"></i></button>
             </div>
             <div class="modal-body">
-                <div class="form-group">
-                    <label>Mã SP</label>
-                    <input type="text" id="editProductCode" readonly>
+                <img id="editImage" class="edit-product-img" style="display:none;" alt="">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Mã SP</label>
+                        <input type="text" id="editProductCode" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label>Biến thể</label>
+                        <input type="text" id="editVariant" placeholder="Ví dụ: Đen, M">
+                    </div>
                 </div>
                 <div class="form-group">
                     <label>Tên sản phẩm</label>
-                    <input type="text" id="editProductName" readonly>
+                    <input type="text" id="editProductName">
                 </div>
-                <div class="form-group">
-                    <label>Số lượng</label>
-                    <input type="number" id="editQuantity" min="0">
-                </div>
-                <div class="form-group">
-                    <label>Đơn giá</label>
-                    <input type="number" id="editPrice" min="0">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Số lượng kho</label>
+                        <input type="number" id="editQuantity" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Giá bán</label>
+                        <input type="number" id="editSellingPrice" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Giá nhập</label>
+                        <input type="number" id="editPurchasePrice" min="0">
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">

@@ -606,6 +606,112 @@ router.delete('/', async (req, res) => {
     }
 });
 
+/**
+ * POST /api/v2/kho-di-cho/bulk-delete
+ * Bulk delete products by IDs
+ */
+router.post('/bulk-delete', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    await ensureTable(db);
+
+    const { ids } = req.body;
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ success: false, error: 'ids array is required' });
+    }
+
+    try {
+        const result = await db.query(
+            `DELETE FROM kho_di_cho WHERE id = ANY($1) RETURNING id, product_code`,
+            [ids]
+        );
+        notifyKhoChange({ action: 'bulk_delete', count: result.rowCount }, 'deleted');
+        res.json({ success: true, deleted: result.rowCount });
+    } catch (error) {
+        handleError(res, error, 'Bulk delete failed');
+    }
+});
+
+/**
+ * POST /api/v2/kho-di-cho/bulk-update
+ * Bulk update fields for multiple products
+ * Body: { ids: [...], fields: { quantity, purchase_price, selling_price, active } }
+ */
+router.post('/bulk-update', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    await ensureTable(db);
+
+    const { ids, fields } = req.body;
+    if (!ids || !Array.isArray(ids) || ids.length === 0 || !fields) {
+        return res.status(400).json({ success: false, error: 'ids and fields are required' });
+    }
+
+    try {
+        const sets = [];
+        const params = [ids]; // $1 = ids array
+        let paramIndex = 2;
+
+        if (fields.quantity !== undefined) { sets.push(`quantity = $${paramIndex++}`); params.push(fields.quantity); }
+        if (fields.purchase_price !== undefined) { sets.push(`purchase_price = $${paramIndex++}`); params.push(fields.purchase_price); }
+        if (fields.selling_price !== undefined) { sets.push(`selling_price = $${paramIndex++}`); params.push(fields.selling_price); }
+        if (fields.active !== undefined) { sets.push(`active = $${paramIndex++}`); params.push(fields.active); }
+
+        if (sets.length === 0) {
+            return res.status(400).json({ success: false, error: 'No valid fields to update' });
+        }
+
+        sets.push('updated_at = NOW()');
+
+        const result = await db.query(
+            `UPDATE kho_di_cho SET ${sets.join(', ')} WHERE id = ANY($1) RETURNING id`,
+            params
+        );
+
+        notifyKhoChange({ action: 'bulk_update', count: result.rowCount, fields: Object.keys(fields) }, 'update');
+        res.json({ success: true, updated: result.rowCount });
+    } catch (error) {
+        handleError(res, error, 'Bulk update failed');
+    }
+});
+
+/**
+ * POST /api/v2/kho-di-cho/change-qty
+ * Change quantity for a product (with delta or absolute value)
+ * Body: { id, change: +/-N } or { id, value: N }
+ */
+router.post('/change-qty', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    await ensureTable(db);
+
+    const { id, change, value } = req.body;
+    if (!id) return res.status(400).json({ success: false, error: 'id is required' });
+
+    try {
+        let result;
+        if (value !== undefined) {
+            result = await db.query(
+                `UPDATE kho_di_cho SET quantity = GREATEST(0, $1), updated_at = NOW() WHERE id = $2 RETURNING *`,
+                [parseInt(value), id]
+            );
+        } else if (change !== undefined) {
+            result = await db.query(
+                `UPDATE kho_di_cho SET quantity = GREATEST(0, quantity + $1), updated_at = NOW() WHERE id = $2 RETURNING *`,
+                [parseInt(change), id]
+            );
+        } else {
+            return res.status(400).json({ success: false, error: 'change or value is required' });
+        }
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ success: false, error: 'Product not found' });
+        }
+
+        notifyKhoChange({ action: 'qty_change', product: result.rows[0] }, 'update');
+        res.json({ success: true, data: result.rows[0] });
+    } catch (error) {
+        handleError(res, error, 'Qty change failed');
+    }
+});
+
 // =====================================================
 // ROUTES — HELD PRODUCTS (multi-user)
 // Uses existing held_products table, product_id = product_code

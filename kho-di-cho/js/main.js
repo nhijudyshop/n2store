@@ -26,6 +26,7 @@
     let allData = [];
     let filteredData = [];
     let expandedParents = new Set();
+    let selectedIds = new Set();
     let searchTimeout = null;
     let sseSource = null;
 
@@ -72,6 +73,18 @@
             currentSearch = '';
             currentPage = 1;
             loadData();
+        });
+
+        // Select all checkbox
+        document.getElementById('selectAll').addEventListener('change', (e) => {
+            const checked = e.target.checked;
+            document.querySelectorAll('.row-check, .parent-check').forEach(cb => cb.checked = checked);
+            if (checked) {
+                allData.forEach(d => selectedIds.add(d.id));
+            } else {
+                selectedIds.clear();
+            }
+            updateBulkBar();
         });
 
         // Buttons
@@ -268,6 +281,7 @@
 
                 html += `
                     <tr class="parent-row" data-parent-code="${esc(group.parentCode)}">
+                        <td class="col-check"><input type="checkbox" class="parent-check" data-parent="${esc(group.parentCode)}"></td>
                         <td class="col-stt text-right">${firstChild.stt}</td>
                         <td class="col-img">${imgUrl ? `<img src="${esc(imgUrl)}" class="product-thumb" loading="lazy" onerror="this.style.display='none'">` : '<span class="no-img">—</span>'}</td>
                         <td class="col-code">
@@ -283,6 +297,7 @@
                         <td class="col-variant"></td>
                         <td class="col-qty text-right"><span class="qty-badge">${totalQty}</span></td>
                         <td class="col-tpos-qty text-right">${formatNum(group.children.reduce((s, c) => s + (parseFloat(c.tpos_qty_available) || 0), 0))}</td>
+                        <td class="col-sell-price text-right"></td>
                         <td class="col-price text-right"></td>
                         <td class="col-total text-right price">${formatCurrency(totalPrice)}</td>
                         <td class="col-actions"></td>
@@ -290,11 +305,10 @@
                 `;
 
                 group.children.forEach(child => {
-                    html += renderChildRow(child, group.parentCode, isExpanded);
+                    html += renderProductRow(child, group.parentCode, true, isExpanded);
                 });
             } else {
-                const item = group.item;
-                html += renderStandaloneRow(item);
+                html += renderProductRow(group.item, null, false, false);
             }
         });
 
@@ -303,40 +317,34 @@
         bindTableEvents();
     }
 
-    function renderChildRow(child, parentCode, isExpanded) {
-        const imgUrl = child.image_url;
-        return `
-            <tr class="child-row" data-parent-code="${esc(parentCode)}" style="display: ${isExpanded ? '' : 'none'};">
-                <td class="col-stt text-right">${child.stt}</td>
-                <td class="col-img">${imgUrl ? `<img src="${esc(imgUrl)}" class="product-thumb" loading="lazy" onerror="this.style.display='none'">` : ''}</td>
-                <td class="col-code"><span class="product-code">${esc(child.product_code)}</span></td>
-                <td class="col-name">${esc(child.product_name)}</td>
-                <td class="col-variant">${esc(child.variant || '')}</td>
-                <td class="col-qty text-right ${(child.quantity || 0) === 0 ? 'zero-qty' : ''}">${child.quantity || 0}</td>
-                <td class="col-tpos-qty text-right">${formatNum(parseFloat(child.tpos_qty_available) || 0)}</td>
-                <td class="col-price text-right price">${formatCurrency(parseFloat(child.purchase_price) || 0)}</td>
-                <td class="col-total text-right price">${formatCurrency((child.quantity || 0) * (parseFloat(child.purchase_price) || 0))}</td>
-                <td class="col-actions">
-                    <button class="action-btn edit" data-id="${child.id}" title="Sửa"><i data-lucide="pencil"></i></button>
-                    <button class="action-btn delete" data-id="${child.id}" data-name="${esc(child.product_code)}" title="Xóa"><i data-lucide="trash-2"></i></button>
-                </td>
-            </tr>
-        `;
-    }
-
-    function renderStandaloneRow(item) {
+    function renderProductRow(item, parentCode, isChild, isExpanded) {
         const imgUrl = item.image_url;
+        const qty = item.quantity || 0;
+        const checked = selectedIds.has(item.id) ? 'checked' : '';
+        const childClass = isChild ? `child-row" data-parent-code="${esc(parentCode)}" style="display: ${isExpanded ? '' : 'none'};` : '';
+        const codeHtml = isChild
+            ? `<span class="product-code">${esc(item.product_code)}</span>`
+            : `<strong>${esc(item.product_code)}</strong>`;
+
         return `
-            <tr>
+            <tr class="${childClass}" data-id="${item.id}">
+                <td class="col-check"><input type="checkbox" class="row-check" data-id="${item.id}" ${checked}></td>
                 <td class="col-stt text-right">${item.stt}</td>
                 <td class="col-img">${imgUrl ? `<img src="${esc(imgUrl)}" class="product-thumb" loading="lazy" onerror="this.style.display='none'">` : '<span class="no-img">—</span>'}</td>
-                <td class="col-code"><strong>${esc(item.product_code)}</strong></td>
-                <td class="col-name">${esc(item.product_name)}</td>
+                <td class="col-code">${codeHtml}</td>
+                <td class="col-name">${esc(item.name_get || item.product_name)}</td>
                 <td class="col-variant">${esc(item.variant || '')}</td>
-                <td class="col-qty text-right ${(item.quantity || 0) === 0 ? 'zero-qty' : ''}">${item.quantity || 0}</td>
+                <td class="col-qty text-right">
+                    <div class="qty-inline">
+                        <button class="qty-btn minus" data-id="${item.id}" title="-1">−</button>
+                        <span class="${qty === 0 ? 'zero-qty' : ''}">${qty}</span>
+                        <button class="qty-btn plus" data-id="${item.id}" title="+1">+</button>
+                    </div>
+                </td>
                 <td class="col-tpos-qty text-right">${formatNum(parseFloat(item.tpos_qty_available) || 0)}</td>
+                <td class="col-sell-price text-right price">${formatCurrency(parseFloat(item.selling_price) || 0)}</td>
                 <td class="col-price text-right price">${formatCurrency(parseFloat(item.purchase_price) || 0)}</td>
-                <td class="col-total text-right price">${formatCurrency((item.quantity || 0) * (parseFloat(item.purchase_price) || 0))}</td>
+                <td class="col-total text-right price">${formatCurrency(qty * (parseFloat(item.purchase_price) || 0))}</td>
                 <td class="col-actions">
                     <button class="action-btn edit" data-id="${item.id}" title="Sửa"><i data-lucide="pencil"></i></button>
                     <button class="action-btn delete" data-id="${item.id}" data-name="${esc(item.product_code)}" title="Xóa"><i data-lucide="trash-2"></i></button>
@@ -418,18 +426,122 @@
     }
 
     function bindTableEvents() {
+        // Parent row expand/collapse
         document.querySelectorAll('.parent-row').forEach(row => {
             row.addEventListener('click', (e) => {
-                if (e.target.closest('.action-btn')) return;
+                if (e.target.closest('.action-btn') || e.target.closest('.qty-btn') || e.target.closest('input')) return;
                 toggleParent(row.dataset.parentCode);
             });
         });
+
+        // Edit buttons
         document.querySelectorAll('.action-btn.edit').forEach(btn => {
             btn.addEventListener('click', (e) => { e.stopPropagation(); openEditModal(parseInt(btn.dataset.id)); });
         });
+
+        // Delete buttons
         document.querySelectorAll('.action-btn.delete').forEach(btn => {
             btn.addEventListener('click', (e) => { e.stopPropagation(); confirmDelete(parseInt(btn.dataset.id), btn.dataset.name); });
         });
+
+        // Inline qty +/- buttons
+        document.querySelectorAll('.qty-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const id = parseInt(btn.dataset.id);
+                const change = btn.classList.contains('plus') ? 1 : -1;
+                await changeQty(id, change);
+            });
+        });
+
+        // Row checkboxes
+        document.querySelectorAll('.row-check').forEach(cb => {
+            cb.addEventListener('change', () => {
+                const id = parseInt(cb.dataset.id);
+                if (cb.checked) selectedIds.add(id); else selectedIds.delete(id);
+                updateBulkBar();
+            });
+        });
+
+        // Parent checkboxes → toggle all children
+        document.querySelectorAll('.parent-check').forEach(cb => {
+            cb.addEventListener('change', () => {
+                const parentCode = cb.dataset.parent;
+                const children = allData.filter(d => d.parent_product_code === parentCode);
+                children.forEach(c => {
+                    if (cb.checked) selectedIds.add(c.id); else selectedIds.delete(c.id);
+                });
+                document.querySelectorAll(`.child-row[data-parent-code="${parentCode}"] .row-check`).forEach(rc => {
+                    rc.checked = cb.checked;
+                });
+                updateBulkBar();
+            });
+        });
+    }
+
+    // Inline quantity change
+    async function changeQty(id, change) {
+        try {
+            const res = await fetch(`${API_BASE}/change-qty`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, change }),
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            // SSE will reload
+        } catch (err) {
+            showToast('Lỗi: ' + err.message, 'error');
+        }
+    }
+
+    // Bulk action bar
+    function updateBulkBar() {
+        let bar = document.getElementById('bulkBar');
+        if (!bar) {
+            bar = document.createElement('div');
+            bar.id = 'bulkBar';
+            bar.className = 'bulk-bar';
+            bar.innerHTML = `
+                <span id="bulkCount">0</span> đã chọn
+                <button class="btn btn-danger btn-sm" id="bulkDelete">Xóa</button>
+                <button class="btn btn-secondary btn-sm" id="bulkDeselect">Bỏ chọn</button>
+            `;
+            document.querySelector('.table-container').prepend(bar);
+            document.getElementById('bulkDelete').addEventListener('click', bulkDelete);
+            document.getElementById('bulkDeselect').addEventListener('click', () => {
+                selectedIds.clear();
+                document.querySelectorAll('.row-check, .parent-check').forEach(cb => cb.checked = false);
+                updateBulkBar();
+            });
+        }
+
+        const count = selectedIds.size;
+        document.getElementById('bulkCount').textContent = count;
+        bar.style.display = count > 0 ? 'flex' : 'none';
+    }
+
+    async function bulkDelete() {
+        if (selectedIds.size === 0) return;
+        if (!confirm(`Xóa ${selectedIds.size} sản phẩm đã chọn?`)) return;
+
+        try {
+            const res = await fetch(`${API_BASE}/bulk-delete`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: Array.from(selectedIds) }),
+            });
+            const json = await res.json();
+            if (json.success) {
+                showToast(`Đã xóa ${json.deleted} sản phẩm`);
+                selectedIds.clear();
+                updateBulkBar();
+                loadData();
+            } else {
+                showToast('Lỗi: ' + (json.error || ''), 'error');
+            }
+        } catch (err) {
+            showToast('Lỗi: ' + err.message, 'error');
+        }
     }
 
     function toggleParent(parentCode) {
@@ -484,8 +596,22 @@
         editingId = id;
         document.getElementById('editProductCode').value = item.product_code;
         document.getElementById('editProductName').value = item.product_name;
+        document.getElementById('editVariant').value = item.variant || '';
         document.getElementById('editQuantity').value = item.quantity;
-        document.getElementById('editPrice').value = parseFloat(item.purchase_price) || 0;
+        document.getElementById('editPurchasePrice').value = parseFloat(item.purchase_price) || 0;
+        document.getElementById('editSellingPrice').value = parseFloat(item.selling_price) || 0;
+
+        // Show image if available
+        const imgEl = document.getElementById('editImage');
+        if (imgEl) {
+            if (item.image_url) {
+                imgEl.src = item.image_url;
+                imgEl.style.display = 'block';
+            } else {
+                imgEl.style.display = 'none';
+            }
+        }
+
         document.getElementById('editModal').style.display = 'flex';
     }
 
@@ -496,14 +622,20 @@
 
     async function saveEdit() {
         if (!editingId) return;
-        const quantity = parseInt(document.getElementById('editQuantity').value) || 0;
-        const purchase_price = parseFloat(document.getElementById('editPrice').value) || 0;
+
+        const body = {
+            quantity: parseInt(document.getElementById('editQuantity').value) || 0,
+            purchase_price: parseFloat(document.getElementById('editPurchasePrice').value) || 0,
+            selling_price: parseFloat(document.getElementById('editSellingPrice').value) || 0,
+            variant: document.getElementById('editVariant').value || null,
+            product_name: document.getElementById('editProductName').value,
+        };
 
         try {
             const res = await fetch(`${API_BASE}/${editingId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ quantity, purchase_price })
+                body: JSON.stringify(body)
             });
             const json = await res.json();
             if (json.success) { showToast('Đã cập nhật'); closeEditModal(); loadData(); }

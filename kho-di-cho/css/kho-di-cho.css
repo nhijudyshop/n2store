@@ -731,3 +731,92 @@
     padding: 0 4px;
     color: #94a3b8;
 }
+
+/* Checkbox column */
+.col-check {
+    width: 36px;
+    text-align: center;
+    padding: 4px !important;
+}
+
+.col-check input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: #6366f1;
+}
+
+/* Inline qty controls */
+.qty-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.qty-btn {
+    width: 22px;
+    height: 22px;
+    border: 1px solid #e2e8f0;
+    border-radius: 4px;
+    background: white;
+    color: #64748b;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    line-height: 1;
+    transition: all 0.15s;
+}
+
+.qty-btn:hover {
+    background: #f1f5f9;
+    border-color: #6366f1;
+    color: #6366f1;
+}
+
+.qty-btn.minus:hover {
+    border-color: #ef4444;
+    color: #ef4444;
+}
+
+/* Bulk action bar */
+.bulk-bar {
+    display: none;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 16px;
+    background: #eef2ff;
+    border: 1px solid #c7d2fe;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    font-size: 0.875rem;
+    color: #4338ca;
+    font-weight: 500;
+}
+
+/* Selling price column */
+.col-sell-price {
+    width: 90px;
+}
+
+/* Edit modal enhancements */
+.form-row {
+    display: flex;
+    gap: 12px;
+}
+
+.form-row .form-group {
+    flex: 1;
+}
+
+.edit-product-img {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    margin-bottom: 12px;
+}
