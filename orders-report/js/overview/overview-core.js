@@ -120,10 +120,7 @@ const PTAG_SUBSTATES_META = {
 const PTAG_SUBTAGS_META = {
     // Category 2
     CHUA_PHAN_HOI: { label: 'ĐƠN CHƯA PHẢN HỒI', category: 2, icon: '💬' },
-    CHUA_DUNG_SP: { label: 'ĐƠN CHƯA ĐÚNG SP', category: 2, icon: '📦' },
-    KHACH_MUON_XA: { label: 'ĐƠN KHÁCH MUỐN XÃ', category: 2, icon: '🙏' },
     BAN_HANG: { label: 'BÁN HÀNG', category: 2, icon: '🛒' },
-    XU_LY_KHAC: { label: 'KHÁC (GHI CHÚ)', category: 2, icon: '📋' },
     // Category 3
     DA_GOP_KHONG_CHOT: { label: 'ĐÃ GỘP KHÔNG CHỐT', category: 3, icon: '🔗' },
     GIO_TRONG: { label: 'GIỎ TRỐNG', category: 3, icon: '🛒' },

@@ -66,10 +66,7 @@
     const PTAG_SUBTAGS = {
         // Category 2 — MỤC XỬ LÝ
         CHUA_PHAN_HOI:  { key: 'CHUA_PHAN_HOI',  label: 'ĐƠN CHƯA PHẢN HỒI', category: 2 },
-        CHUA_DUNG_SP:   { key: 'CHUA_DUNG_SP',   label: 'ĐƠN CHƯA ĐÚNG SP',  category: 2 },
-        KHACH_MUON_XA:  { key: 'KHACH_MUON_XA',  label: 'ĐƠN KHÁCH MUỐN XÃ', category: 2 },
         BAN_HANG:       { key: 'BAN_HANG',        label: 'BÁN HÀNG',           category: 2 },
-        XU_LY_KHAC:     { key: 'XU_LY_KHAC',     label: 'KHÁC (GHI CHÚ)',     category: 2, hasNote: true },
         // Category 3 — KHÔNG CẦN CHỐT
         DA_GOP_KHONG_CHOT: { key: 'DA_GOP_KHONG_CHOT', label: 'ĐÃ GỘP KHÔNG CHỐT', category: 3 },
         GIO_TRONG:          { key: 'GIO_TRONG',         label: 'GIỎ TRỐNG',         category: 3 },
@@ -105,10 +102,7 @@
         flag_KHAC: 'Ghi chú tự do cho trường hợp đặc biệt.',
         // Sub-tags cat 2
         subtag_CHUA_PHAN_HOI: 'Khách chưa trả lời tin nhắn + chưa gọi được.',
-        subtag_CHUA_DUNG_SP: 'Thiếu, dư, sai sản phẩm cần kiểm tra lại.',
-        subtag_KHACH_MUON_XA: 'Khách muốn bỏ 1 hoặc vài món, đang năn nỉ.',
         subtag_BAN_HANG: 'Khách đang mua thêm, seller đang chào hàng.',
-        subtag_XU_LY_KHAC: 'Ghi chú — VD: xử lý bưu cục, khách yêu cầu thêm deal.',
         // Sub-tags cat 3
         subtag_DA_GOP_KHONG_CHOT: 'Đơn khách mua 2 page đã gộp vào 1 đơn khác.',
         subtag_GIO_TRONG: 'Đơn không có SP, đã xử lý trước đó.',
@@ -121,8 +115,8 @@
     };
 
     const PTAG_SUBTAG_ICONS = {
-        CHUA_PHAN_HOI: '💬', CHUA_DUNG_SP: '📦', KHACH_MUON_XA: '🙏',
-        NCC_HET_HANG: '🚫', BAN_HANG: '🛒', XU_LY_KHAC: '📋',
+        CHUA_PHAN_HOI: '💬', BAN_HANG: '🛒',
+        NCC_HET_HANG: '🚫',
         DA_GOP_KHONG_CHOT: '🔗', GIO_TRONG: '🛒',
         KHACH_HUY_DON: '❌', KHACH_KO_LIEN_LAC: '📵'
     };

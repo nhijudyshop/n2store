@@ -40,10 +40,7 @@
     const SUBTAG_TO_TPOS = {
         // Cat 2 — MỤC XỬ LÝ
         CHUA_PHAN_HOI:     'ĐƠN CHƯA PHẢN HỒI',
-        CHUA_DUNG_SP:      'ĐƠN CHƯA ĐÚNG SP',
-        KHACH_MUON_XA:     'ĐƠN KHÁCH MUỐN XÃ',
         BAN_HANG:          'BÁN HÀNG',
-        XU_LY_KHAC:        'KHÁC (GHI CHÚ)',
         // Cat 3 — KHÔNG CẦN CHỐT  (⚠ bidirectional REMOVE)
         DA_GOP_KHONG_CHOT: 'ĐÃ GỘP KO CHỐT',
         GIO_TRONG:         'GIỎ TRỐNG',
