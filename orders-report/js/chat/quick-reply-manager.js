@@ -724,7 +724,6 @@ class QuickReplyManager {
             input.value = '';
             input.style.height = 'auto';
             this.sendQuickReplyWithImage(reply);
-            this._autoAssignChuaPhanHoi();
             return;
         }
 
@@ -745,8 +744,10 @@ class QuickReplyManager {
             setTimeout(() => window.sendMessage(), 50);
         }
 
-        // Auto-assign "ĐƠN CHƯA PHẢN HỒI" tag after slash command send
-        this._autoAssignChuaPhanHoi();
+        // Auto-assign "ĐƠN CHƯA PHẢN HỒI" only for CHỐT ĐƠN template
+        if (reply.topic === 'CHỐT ĐƠN') {
+            this._autoAssignChuaPhanHoi();
+        }
     }
 
     /**
