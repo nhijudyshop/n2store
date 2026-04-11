@@ -930,41 +930,75 @@ class InboxPancakeAPI {
     // --- Search by Customer ID (Pancake Direct API) ---
     // GET /conversations/customer/{fbId}?pages[id1]=0&pages[id2]=0&access_token=...
     // Returns ALL conversations (inbox + comment) for a customer across all pages.
+    // Tries ALL valid accounts (not just active) to cover pages with different subscriptions.
     async searchByCustomerId(fbId) {
         try {
-            const token = await this.tm.getToken();
-            if (!token) return { conversations: [] };
-            let ids = this._searchablePageIds || this.pageIds;
-            if (ids.length === 0) return { conversations: [] };
+            const allIds = this._searchablePageIds || this.pageIds;
+            if (allIds.length === 0) return { conversations: [] };
 
-            const doFetch = async (pageIds) => {
+            const doFetch = async (accountToken, pageIds) => {
                 const pagesParams = pageIds.map(id => `pages[${id}]=0`).join('&');
                 const url = InboxApiConfig.buildUrl.pancake(
                     `conversations/customer/${fbId}`,
-                    `${pagesParams}&access_token=${token}`
+                    `${pagesParams}&access_token=${accountToken}`
                 );
                 const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
                 if (!res.ok) return null;
                 return await res.json();
             };
 
-            let data = await doFetch(ids);
+            // Collect all conversations across all accounts, deduplicate by conv id
+            const allConvs = new Map(); // id → conversation
+            const coveredPages = new Set(); // pages that returned successfully
+            const accounts = this.tm.getValidAccounts();
+            if (accounts.length === 0) {
+                // Fallback: try active token only
+                const token = await this.tm.getToken();
+                if (token) accounts.push({ accountId: 'active', token });
+            }
 
-            // Error 122: page subscription expired → remove bad pages and retry
-            if (data && !data.success && data.error_code === 122 && data.errors) {
-                const badPageIds = new Set(data.errors.filter(e => e.error_code === 122).map(e => String(e.page_id)));
-                const goodIds = ids.filter(id => !badPageIds.has(String(id)));
-                if (goodIds.length > 0 && goodIds.length < ids.length) {
-                    console.warn(`[INBOX-API] searchByCustomerId: removing expired pages ${[...badPageIds].join(',')}, retrying with ${goodIds.length} pages`);
-                    // Cache good pages for future searches
-                    this._searchablePageIds = goodIds;
-                    data = await doFetch(goodIds);
+            for (const acc of accounts) {
+                // Only query pages not yet covered by a previous account
+                const uncoveredIds = allIds.filter(id => !coveredPages.has(id));
+                if (uncoveredIds.length === 0) break; // All pages covered
+
+                const data = await doFetch(acc.token, uncoveredIds);
+                if (!data) continue;
+
+                if (data.success && data.conversations) {
+                    // Mark all queried pages as covered
+                    for (const id of uncoveredIds) coveredPages.add(id);
+                    for (const conv of data.conversations) {
+                        if (!allConvs.has(conv.id)) allConvs.set(conv.id, conv);
+                    }
+                    console.log(`[INBOX-API] searchByCustomerId account "${acc.name || acc.accountId}": ${data.conversations.length} convs`);
+                } else if (data.error_code === 122 && data.errors) {
+                    // Some pages expired for this account → mark bad pages, keep good ones
+                    const badIds = new Set(data.errors.filter(e => e.error_code === 122).map(e => String(e.page_id)));
+                    const goodIds = uncoveredIds.filter(id => !badIds.has(String(id)));
+
+                    if (goodIds.length > 0) {
+                        const retry = await doFetch(acc.token, goodIds);
+                        if (retry?.success && retry.conversations) {
+                            for (const id of goodIds) coveredPages.add(id);
+                            for (const conv of retry.conversations) {
+                                if (!allConvs.has(conv.id)) allConvs.set(conv.id, conv);
+                            }
+                            console.log(`[INBOX-API] searchByCustomerId account "${acc.name || acc.accountId}" retry: ${retry.conversations.length} convs (excluded ${badIds.size} expired pages)`);
+                        }
+                    }
+                    // Bad pages will be tried by next account
                 }
             }
 
-            if (!data || !data.success) return { conversations: [] };
-            console.log(`[INBOX-API] searchByCustomerId(${fbId}): ${(data.conversations || []).length} conversations`);
-            return { conversations: data.conversations || [] };
+            // Cache searchable pages if we discovered some are bad
+            if (coveredPages.size > 0 && coveredPages.size < allIds.length) {
+                this._searchablePageIds = allIds.filter(id => coveredPages.has(id));
+            }
+
+            const conversations = [...allConvs.values()];
+            console.log(`[INBOX-API] searchByCustomerId(${fbId}): ${conversations.length} total (${accounts.length} accounts, ${coveredPages.size}/${allIds.length} pages)`);
+            return { conversations };
         } catch (e) {
             console.error('[INBOX-API] searchByCustomerId error:', e);
             return { conversations: [] };
