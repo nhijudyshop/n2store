@@ -744,8 +744,8 @@ class QuickReplyManager {
             setTimeout(() => window.sendMessage(), 50);
         }
 
-        // Auto-assign "ĐƠN CHƯA PHẢN HỒI" only for CHỐT ĐƠN template
-        if (reply.topic === 'CHỐT ĐƠN') {
+        // Auto-assign "ĐƠN CHƯA PHẢN HỒI" only for CHỐT ĐƠN template (shortcut rỗng = "/")
+        if (!reply.shortcut) {
             this._autoAssignChuaPhanHoi();
         }
     }
@@ -755,12 +755,22 @@ class QuickReplyManager {
      */
     _autoAssignChuaPhanHoi() {
         const orderCode = window.currentChatOrderData?.Code;
-        if (!orderCode || !window.assignOrderCategory) return;
+        if (!orderCode) {
+            console.warn('[QUICK-REPLY] _autoAssignChuaPhanHoi: no orderCode, currentChatOrderData=', window.currentChatOrderData);
+            return;
+        }
+        if (!window.assignOrderCategory) {
+            console.warn('[QUICK-REPLY] _autoAssignChuaPhanHoi: assignOrderCategory not available');
+            return;
+        }
 
         const existing = window.ProcessingTagState?.getOrderData?.(String(orderCode));
-        // Only assign if no category set yet (undefined or null)
-        if (existing && existing.category != null) return;
+        if (existing && existing.category != null) {
+            console.log('[QUICK-REPLY] _autoAssignChuaPhanHoi: order', orderCode, 'already has category', existing.category, '— skipped');
+            return;
+        }
 
+        console.log('[QUICK-REPLY] _autoAssignChuaPhanHoi: assigning CHUA_PHAN_HOI to order', orderCode);
         window.assignOrderCategory(String(orderCode), 2, { subTag: 'CHUA_PHAN_HOI' });
     }
 
