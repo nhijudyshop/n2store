@@ -142,9 +142,12 @@ async function fbFetch(endpoint, options = {}) {
             // Mark token as expired so it won't be used again
             fbTokenStore = { accessToken: null, expiresAt: null, userId: null, name: null };
         }
-        const err = new Error(data.error.message);
+        // Include full error detail for debugging
+        const errMsg = data.error.error_user_msg || data.error.message;
+        const err = new Error(errMsg);
         err.fbError = data.error;
         err.status = response.status;
+        console.error(`[FB-ADS] API error: ${endpoint}`, JSON.stringify(data.error).substring(0, 500));
         throw err;
     }
 
@@ -313,7 +316,7 @@ router.get('/ad-accounts', async (req, res) => {
         });
         res.json({ success: true, data: data.data || [] });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -338,7 +341,7 @@ router.get('/campaigns', async (req, res) => {
         });
         res.json({ success: true, data: data.data || [], paging: data.paging });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -355,14 +358,14 @@ router.post('/campaigns', async (req, res) => {
             name,
             objective,
             status: status || 'PAUSED',
-            special_ad_categories: special_ad_categories || ['NONE']
+            special_ad_categories: special_ad_categories || []
         };
         if (daily_budget) body.daily_budget = daily_budget;
 
         const data = await fbFetch(`/${actId}/campaigns`, { method: 'POST', body });
         res.json({ success: true, data });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -380,7 +383,7 @@ router.post('/campaigns/:id/status', async (req, res) => {
         });
         res.json({ success: true, data });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -390,7 +393,7 @@ router.delete('/campaigns/:id', async (req, res) => {
         const data = await fbFetch(`/${req.params.id}`, { method: 'DELETE' });
         res.json({ success: true, data });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -421,7 +424,7 @@ router.get('/adsets', async (req, res) => {
         });
         res.json({ success: true, data: data.data || [], paging: data.paging });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -449,7 +452,7 @@ router.post('/adsets', async (req, res) => {
         const data = await fbFetch(`/${actId}/adsets`, { method: 'POST', body });
         res.json({ success: true, data });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -460,7 +463,7 @@ router.post('/adsets/:id/status', async (req, res) => {
         const data = await fbFetch(`/${req.params.id}`, { method: 'POST', body: { status } });
         res.json({ success: true, data });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -491,7 +494,7 @@ router.get('/ads', async (req, res) => {
         });
         res.json({ success: true, data: data.data || [], paging: data.paging });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -514,7 +517,7 @@ router.post('/ads', async (req, res) => {
         const data = await fbFetch(`/${actId}/ads`, { method: 'POST', body });
         res.json({ success: true, data });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -525,7 +528,7 @@ router.post('/ads/:id/status', async (req, res) => {
         const data = await fbFetch(`/${req.params.id}`, { method: 'POST', body: { status } });
         res.json({ success: true, data });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -566,7 +569,7 @@ router.get('/insights', async (req, res) => {
         const data = await fbFetch(endpoint, { params });
         res.json({ success: true, data: data.data || [], paging: data.paging });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -591,7 +594,7 @@ router.get('/adcreatives', async (req, res) => {
         });
         res.json({ success: true, data: data.data || [], paging: data.paging });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -616,7 +619,7 @@ router.get('/targeting/search', async (req, res) => {
         });
         res.json({ success: true, data: data.data || [] });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -628,7 +631,7 @@ router.get('/targeting/countries', async (req, res) => {
         });
         res.json({ success: true, data: data.data || [] });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -750,7 +753,7 @@ router.get('/pages', async (req, res) => {
         });
         res.json({ success: true, data: data.data || [] });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -773,7 +776,7 @@ router.post('/campaigns/:id/update', async (req, res) => {
         const data = await fbFetch(`/${req.params.id}`, { method: 'POST', body });
         res.json({ success: true, data });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -793,7 +796,7 @@ router.post('/adsets/:id/update', async (req, res) => {
         const data = await fbFetch(`/${req.params.id}`, { method: 'POST', body });
         res.json({ success: true, data });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -819,7 +822,7 @@ router.post('/adimages', async (req, res) => {
         });
         res.json({ success: true, data });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -837,7 +840,7 @@ router.get('/adimages', async (req, res) => {
         });
         res.json({ success: true, data: data.data || [] });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -862,7 +865,7 @@ router.post('/bulk/status', async (req, res) => {
 
         res.json({ success: true, data: { succeeded, failed, total: ids.length } });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -883,7 +886,7 @@ router.post('/bulk/delete', async (req, res) => {
 
         res.json({ success: true, data: { succeeded, failed, total: ids.length } });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -899,7 +902,7 @@ router.get('/adpreview/:adId', async (req, res) => {
         });
         res.json({ success: true, data: data.data || [] });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -912,11 +915,11 @@ router.get('/billing/payment-methods', async (req, res) => {
     try {
         const actId = req.query.account_id?.startsWith('act_') ? req.query.account_id : `act_${req.query.account_id}`;
         const data = await fbFetch(`/${actId}`, {
-            params: { fields: 'funding_source,funding_source_details,adtrust_dsl,min_campaign_group_spend_cap,spend_cap,amount_spent,balance,currency,timezone_name,disable_reason,account_status' }
+            params: { fields: 'funding_source,funding_source_details,spend_cap,amount_spent,balance,currency,timezone_name,disable_reason,account_status' }
         });
         res.json({ success: true, data });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -932,7 +935,7 @@ router.get('/billing/transactions', async (req, res) => {
         });
         res.json({ success: true, data: data.data || [] });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -947,7 +950,7 @@ router.post('/billing/spend-cap', async (req, res) => {
         });
         res.json({ success: true, data });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -961,12 +964,12 @@ router.get('/account/details', async (req, res) => {
         const actId = req.query.account_id?.startsWith('act_') ? req.query.account_id : `act_${req.query.account_id}`;
         const data = await fbFetch(`/${actId}`, {
             params: {
-                fields: 'id,name,account_id,account_status,age,currency,timezone_name,timezone_offset_hours_utc,business_name,business_street,business_city,business_state,business_country_code,business_zip,disable_reason,funding_source,spend_cap,amount_spent,balance,owner,min_campaign_group_spend_cap,created_time,end_advertiser,media_agency,partner,is_prepay_account,tax_id,tax_id_status,capabilities'
+                fields: 'id,name,account_id,account_status,currency,timezone_name,business_name,disable_reason,funding_source,spend_cap,amount_spent,balance,created_time,is_prepay_account'
             }
         });
         res.json({ success: true, data });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -983,7 +986,7 @@ router.post('/account/update', async (req, res) => {
         const data = await fbFetch(`/${actId}`, { method: 'POST', body });
         res.json({ success: true, data });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -996,7 +999,7 @@ router.get('/account/users', async (req, res) => {
         });
         res.json({ success: true, data: data.data || [] });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -1012,7 +1015,7 @@ router.get('/account/activities', async (req, res) => {
         });
         res.json({ success: true, data: data.data || [] });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -1032,7 +1035,7 @@ router.get('/audiences', async (req, res) => {
         });
         res.json({ success: true, data: data.data || [] });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -1052,7 +1055,7 @@ router.post('/audiences', async (req, res) => {
         const data = await fbFetch(`/${actId}/customaudiences`, { method: 'POST', body });
         res.json({ success: true, data });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -1079,7 +1082,7 @@ router.post('/audiences/lookalike', async (req, res) => {
         });
         res.json({ success: true, data });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -1089,7 +1092,7 @@ router.delete('/audiences/:id', async (req, res) => {
         const data = await fbFetch(`/${req.params.id}`, { method: 'DELETE' });
         res.json({ success: true, data });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -1109,7 +1112,7 @@ router.get('/saved-audiences', async (req, res) => {
         });
         res.json({ success: true, data: data.data || [] });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -1129,7 +1132,7 @@ router.get('/pixels', async (req, res) => {
         });
         res.json({ success: true, data: data.data || [] });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -1145,7 +1148,7 @@ router.get('/pixels/:pixelId/stats', async (req, res) => {
         });
         res.json({ success: true, data: data.data || [] });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -1165,7 +1168,7 @@ router.get('/rules', async (req, res) => {
         });
         res.json({ success: true, data: data.data || [] });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -1183,7 +1186,7 @@ router.post('/rules', async (req, res) => {
         const data = await fbFetch(`/${actId}/adrules_library`, { method: 'POST', body });
         res.json({ success: true, data });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -1194,7 +1197,7 @@ router.post('/rules/:id/status', async (req, res) => {
         const data = await fbFetch(`/${req.params.id}`, { method: 'POST', body: { status } });
         res.json({ success: true, data });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -1204,7 +1207,7 @@ router.delete('/rules/:id', async (req, res) => {
         const data = await fbFetch(`/${req.params.id}`, { method: 'DELETE' });
         res.json({ success: true, data });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -1227,7 +1230,7 @@ router.get('/reports/daily', async (req, res) => {
         });
         res.json({ success: true, data: data.data || [] });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -1246,7 +1249,7 @@ router.get('/reports/breakdown', async (req, res) => {
         });
         res.json({ success: true, data: data.data || [] });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -1265,7 +1268,7 @@ router.get('/reports/placement', async (req, res) => {
         });
         res.json({ success: true, data: data.data || [] });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 
@@ -1286,7 +1289,7 @@ router.post('/reach-estimate', async (req, res) => {
         });
         res.json({ success: true, data });
     } catch (error) {
-        res.status(error.status || 500).json({ success: false, error: error.message });
+        res.status(error.status || 500).json({ success: false, error: error.message, fbError: error.fbError || null });
     }
 });
 

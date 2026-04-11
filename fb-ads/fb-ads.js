@@ -31,13 +31,18 @@ const FBAds = (() => {
     // =====================================================
     // INIT
     // =====================================================
+    let _authChecked = false;
     function init() { checkAuthStatus(); loadSavedAccounts(); }
-    function checkAuthAfterSDK() { checkAuthStatus(); }
+    function checkAuthAfterSDK() {
+        // Avoid double-check — init() already called checkAuthStatus
+        if (!_authChecked) checkAuthStatus();
+    }
 
     // =====================================================
     // AUTH
     // =====================================================
     async function checkAuthStatus() {
+        _authChecked = true;
         try {
             const res = await fetch(API_BASE + '/auth/status').then(r => r.json());
             if (res.success && res.authenticated) {
@@ -326,8 +331,8 @@ const FBAds = (() => {
         tbody.innerHTML = list.map(c => {
             const ci = insights.byCampaign?.[c.id] || {};
             const active = c.effective_status === 'ACTIVE';
-            const budget = c.daily_budget ? fmtCurrency(c.daily_budget / 100) + '/ngày'
-                : c.lifetime_budget ? fmtCurrency(c.lifetime_budget / 100) + ' tổng' : '--';
+            const budget = c.daily_budget ? fmtCurrency(c.daily_budget) + '/ngày'
+                : c.lifetime_budget ? fmtCurrency(c.lifetime_budget) + ' tổng' : '--';
             const res = getResults(ci.actions);
 
             return `<tr class="${selectedIds.has(c.id) ? 'selected' : ''}">
@@ -359,8 +364,8 @@ const FBAds = (() => {
 
         tbody.innerHTML = list.map(a => {
             const active = a.effective_status === 'ACTIVE';
-            const budget = a.daily_budget ? fmtCurrency(a.daily_budget / 100) + '/ngày'
-                : a.lifetime_budget ? fmtCurrency(a.lifetime_budget / 100) + ' tổng' : '--';
+            const budget = a.daily_budget ? fmtCurrency(a.daily_budget) + '/ngày'
+                : a.lifetime_budget ? fmtCurrency(a.lifetime_budget) + ' tổng' : '--';
             const camp = campaigns.find(c => c.id === a.campaign_id);
 
             return `<tr class="${selectedIds.has(a.id) ? 'selected' : ''}">
@@ -543,7 +548,7 @@ const FBAds = (() => {
         if (!c) return;
         document.getElementById('editCampaignId').value = id;
         document.getElementById('editCampaignName').value = c.name;
-        document.getElementById('editCampaignBudget').value = c.daily_budget ? c.daily_budget / 100 : '';
+        document.getElementById('editCampaignBudget').value = c.daily_budget ? c.daily_budget : '';
         document.getElementById('editCampaignStatus').value = c.status;
         openModal('editCampaignModal');
     }
@@ -582,7 +587,7 @@ const FBAds = (() => {
         if (filtered.length) {
             document.getElementById('adsetsBody').innerHTML = filtered.map(a => {
                 const active = a.effective_status === 'ACTIVE';
-                const budget = a.daily_budget ? fmtCurrency(a.daily_budget / 100) + '/ngày' : '--';
+                const budget = a.daily_budget ? fmtCurrency(a.daily_budget) + '/ngày' : '--';
                 return `<tr>
                     <td><input type="checkbox" value="${a.id}" onchange="FBAds.onCheckbox(this)"></td>
                     <td><label class="toggle"><input type="checkbox" ${active ? 'checked' : ''} onchange="FBAds.toggleStatus('adsets','${a.id}',this.checked)"><span class="toggle-slider"></span></label></td>
@@ -974,9 +979,9 @@ const FBAds = (() => {
             const accStatusMap = { 1: 'Hoạt động', 2: 'Bị vô hiệu', 3: 'Chưa thanh toán', 7: 'Đang xét duyệt', 9: 'Trong thời gian ân hạn', 100: 'Đang chờ đóng', 101: 'Đã đóng' };
 
             document.getElementById('billingAccStatus').textContent = accStatusMap[d.account_status] || d.account_status || '--';
-            document.getElementById('billingTotalSpent').textContent = fmtCurrency(d.amount_spent ? d.amount_spent / 100 : null);
-            document.getElementById('billingBalance').textContent = fmtCurrency(d.balance ? d.balance / 100 : null);
-            document.getElementById('billingSpendCap').textContent = d.spend_cap ? fmtCurrency(d.spend_cap / 100) : 'Không giới hạn';
+            document.getElementById('billingTotalSpent').textContent = fmtCurrency(d.amount_spent);
+            document.getElementById('billingBalance').textContent = fmtCurrency(d.balance);
+            document.getElementById('billingSpendCap').textContent = d.spend_cap ? fmtCurrency(d.spend_cap) : 'Không giới hạn';
             document.getElementById('billingCurrency').textContent = d.currency || '--';
 
             // Funding source
@@ -988,7 +993,7 @@ const FBAds = (() => {
                 document.getElementById('billingFunding').textContent = d.funding_source || 'Chưa thiết lập';
             }
 
-            if (d.spend_cap) document.getElementById('spendCapInput').value = d.spend_cap / 100;
+            if (d.spend_cap) document.getElementById('spendCapInput').value = d.spend_cap;
         } catch (err) {
             // Account may be disabled — show error inline instead of toast spam
             document.getElementById('billingAccStatus').textContent = 'Lỗi';
@@ -1013,7 +1018,7 @@ const FBAds = (() => {
             tbody.innerHTML = list.map(t => `<tr>
                 <td style="font-size:12px">${t.time ? new Date(t.time).toLocaleString('vi-VN') : '--'}</td>
                 <td>${esc(t.charge_type || '--')}</td>
-                <td style="font-weight:600">${t.billing_amount ? fmtCurrency(t.billing_amount / 100) : '--'}</td>
+                <td style="font-weight:600">${t.billing_amount ? fmtCurrency(t.billing_amount) : '--'}</td>
                 <td><span class="status-badge ${t.status === 'completed' ? 'status-active' : 'status-paused'}">${t.status || '--'}</span></td>
                 <td style="font-size:12px">${esc(t.reason || '--')}</td>
             </tr>`).join('');
@@ -1022,7 +1027,7 @@ const FBAds = (() => {
 
     async function updateSpendCap() {
         const val = document.getElementById('spendCapInput').value;
-        const cap = val ? parseInt(val) * 100 : 0; // Convert to smallest unit
+        const cap = val ? parseInt(val) : 0;
         try {
             await api('/billing/spend-cap', {
                 method: 'POST',
@@ -1260,7 +1265,10 @@ const FBAds = (() => {
         const data = await response.json();
         if (!data.success) {
             console.error('[FB-ADS] API error:', endpoint, data);
-            throw new Error(data.error || 'Unknown error');
+            // Show detailed FB error if available
+            const fbDetail = data.fbError?.error_user_msg || data.fbError?.error_user_title || '';
+            const msg = fbDetail ? `${data.error}\n${fbDetail}` : (data.error || 'Unknown error');
+            throw new Error(msg);
         }
         return data;
     }
