@@ -711,7 +711,7 @@ class PancakeDataManager {
                 const goodIds = ids.filter(id => !badIds.has(String(id)));
                 console.warn(`[PDM] Search error 122: removing expired pages [${[...badIds]}], retrying with ${goodIds.length} pages`);
                 if (goodIds.length > 0) {
-                    this._searchablePageIds = goodIds;
+                    for (const bid of badIds) this._expiredPageIds.add(bid);
                     const retryForm = new FormData();
                     retryForm.append('page_ids', goodIds.join(','));
                     const retryRes = await fetch(url, { method: 'POST', body: retryForm });
