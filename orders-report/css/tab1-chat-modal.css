@@ -484,6 +484,89 @@
     color: var(--ap-primary);
 }
 
+/* Conversation picker list (shown when switching page with multiple convs) */
+.chat-conv-picker {
+    padding: 12px 20px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.chat-conv-picker-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ap-on-surface-variant);
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.chat-conv-picker-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px solid var(--ap-outline-variant);
+    border-radius: 10px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s;
+}
+
+.chat-conv-picker-item:hover {
+    background: var(--ap-surface-container-low);
+    border-color: var(--ap-primary);
+}
+
+.chat-conv-picker-item-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 16px;
+}
+
+.chat-conv-picker-item-icon.inbox {
+    background: #dbeafe;
+    color: #2563eb;
+}
+
+.chat-conv-picker-item-icon.comment {
+    background: #fef3c7;
+    color: #d97706;
+}
+
+.chat-conv-picker-item-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.chat-conv-picker-item-name {
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.chat-conv-picker-item-snippet {
+    font-size: 11px;
+    color: var(--ap-on-surface-variant);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 2px;
+}
+
+.chat-conv-picker-item-time {
+    font-size: 10px;
+    color: var(--ap-on-surface-variant);
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
 /* Panel toggle button - icon only */
 .chat-panel-toggle-btn {
     width: 40px;

@@ -352,35 +352,37 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
         conv = cached;
     } else if (!allowDrift) {
         // Explicit page switch: PSID is page-specific (different per page),
-        // so we can't use it to find conversations on another page.
-        // Strategy: search by customer NAME across all pages, then filter
-        // by target pageId. This is how the inbox finds cross-page convs.
+        // so we search by customer NAME across all pages, then filter by target.
         const customerName = window.currentCustomerName;
+        let foundConvs = [];
+
         if (customerName && pdm.searchConversations) {
             const searchResult = await pdm.searchConversations(customerName);
-            const allConvs = (searchResult.conversations || []).filter(c =>
+            foundConvs = (searchResult.conversations || []).filter(c =>
                 String(c.page_id) === String(pageId)
             );
-            // Prefer matching type, then any
-            const typed = allConvs.filter(c => c.type === type);
-            if (typed.length > 0) {
-                typed.sort(_byUpdatedAtDesc);
-                conv = typed[0];
-            } else if (allConvs.length > 0) {
-                allConvs.sort(_byUpdatedAtDesc);
-                conv = allConvs[0];
-            }
         }
         // Fallback: try page-specific API with PSID (works if same psid)
-        if (!conv) {
+        if (foundConvs.length === 0) {
             const result = await pdm.fetchConversationsByCustomerFbId(pageId, psid);
-            const convs = (result.conversations || []).filter(c =>
+            foundConvs = (result.conversations || []).filter(c =>
                 String(c.page_id) === String(pageId)
             );
-            if (convs.length > 0) {
-                const typed = convs.filter(c => c.type === type);
-                conv = typed.length > 0 ? typed.sort(_byUpdatedAtDesc)[0] : convs.sort(_byUpdatedAtDesc)[0];
-            }
+        }
+
+        if (_isStale()) return;
+
+        if (foundConvs.length === 0) {
+            // No conversations on this page
+            conv = null;
+        } else if (foundConvs.length === 1) {
+            // Exactly 1 → auto-load
+            conv = foundConvs[0];
+        } else {
+            // Multiple → show picker so user can choose
+            foundConvs.sort(_byUpdatedAtDesc);
+            _showConversationPicker(foundConvs, pageId, loadToken);
+            return;
         }
     } else if (type === 'COMMENT') {
         // COMMENT: Always fetch fresh from API (cache may hold stale/deleted conversations)
@@ -948,6 +950,93 @@ function _escapeHtml(str) {
     const el = document.createElement('span');
     el.textContent = str;
     return el.innerHTML;
+}
+
+// =====================================================
+// CONVERSATION PICKER (multiple convs on a page)
+// =====================================================
+
+function _showConversationPicker(convs, pageId, loadToken) {
+    const messagesEl = document.getElementById('chatMessages');
+    if (!messagesEl) return;
+
+    const pdm = window.pancakeDataManager;
+    const pageName = (pdm?.pages || []).find(p => String(p.id) === String(pageId))?.name || pageId;
+
+    let html = `<div class="chat-conv-picker">
+        <div class="chat-conv-picker-title">Chọn cuộc hội thoại trên ${_escapeHtml(pageName)}</div>`;
+
+    for (const conv of convs) {
+        const isInbox = conv.type === 'INBOX';
+        const icon = isInbox ? 'mail' : 'chat_bubble';
+        const typeClass = isInbox ? 'inbox' : 'comment';
+        const typeLabel = isInbox ? 'Tin nhắn' : 'Bình luận';
+        const snippet = _escapeHtml(conv.snippet || conv.last_message?.text || '');
+        const name = _escapeHtml(conv.from?.name || 'Khách hàng');
+        const time = conv.updated_at ? _formatPickerTime(conv.updated_at) : '';
+
+        html += `<div class="chat-conv-picker-item" data-conv-id="${conv.id}" data-page-id="${pageId}">
+            <div class="chat-conv-picker-item-icon ${typeClass}">
+                <span class="material-symbols-outlined">${icon}</span>
+            </div>
+            <div class="chat-conv-picker-item-info">
+                <div class="chat-conv-picker-item-name">${name} · ${typeLabel}</div>
+                <div class="chat-conv-picker-item-snippet">${snippet}</div>
+            </div>
+            <div class="chat-conv-picker-item-time">${time}</div>
+        </div>`;
+    }
+
+    html += '</div>';
+    messagesEl.innerHTML = html;
+
+    // Bind clicks
+    messagesEl.querySelectorAll('.chat-conv-picker-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const convId = item.dataset.convId;
+            const conv = convs.find(c => c.id === convId);
+            if (conv) _pickConversation(conv, pageId, loadToken);
+        });
+    });
+}
+
+async function _pickConversation(conv, pageId, loadToken) {
+    if (loadToken != null && loadToken !== window._chatLoadSeq) return;
+
+    window.currentConversationId = conv.id;
+    window.currentConversationData = conv;
+    window.currentConversationType = conv.type === 'COMMENT' ? 'COMMENT' : 'INBOX';
+
+    // Update type toggle
+    _updateTypeToggle(window.currentConversationType);
+
+    // Cache for re-switch
+    const cacheKey = `${window.currentChatPSID}:${pageId}:${conv.type}`;
+    window._pageConvCache.set(cacheKey, conv);
+
+    // Show loading
+    const messagesEl = document.getElementById('chatMessages');
+    if (messagesEl) {
+        messagesEl.innerHTML = '<div class="chat-loading"><div class="loading-spinner"></div><p>Đang tải...</p></div>';
+    }
+
+    // Load messages
+    const customerId = conv.customers?.[0]?.id || conv.from?.id || null;
+    await _loadMessages(pageId, conv.id, customerId, loadToken);
+}
+
+function _formatPickerTime(dateStr) {
+    try {
+        const d = new Date(dateStr);
+        const now = new Date();
+        const diffDays = Math.floor((now - d) / 86400000);
+        if (diffDays === 0) {
+            return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+        } else if (diffDays < 7) {
+            return ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'][d.getDay()];
+        }
+        return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+    } catch (_) { return ''; }
 }
 
 // Show/hide re-pick button (visible when >1 page available)
