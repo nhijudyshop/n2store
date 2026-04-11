@@ -581,6 +581,9 @@ async function _loadMessages(pageId, conversationId, customerId, loadToken) {
         if (window.renderChatMessages) {
             window.renderChatMessages(messages);
         }
+
+        // Fire-and-forget: sync customer data to Render DB
+        _syncPancakeCustomerToDB(result, pageId);
     } catch (e) {
         if (_isStale()) return;
         console.error('[Chat-Core] loadMessages error:', e);
@@ -972,6 +975,49 @@ function _escapeHtml(str) {
     const el = document.createElement('span');
     el.textContent = str;
     return el.innerHTML;
+}
+
+// =====================================================
+// SYNC CUSTOMER DATA TO RENDER DB (fire-and-forget)
+// Same as inbox-chat.js _syncPancakeCustomerToDB
+// =====================================================
+
+function _syncPancakeCustomerToDB(messagesResult, pageId) {
+    try {
+        const cust = messagesResult.customers?.[0];
+        if (!cust?.fb_id) return;
+
+        const phone = messagesResult.recent_phone_numbers?.[0]
+            || messagesResult.conv_phone_numbers?.[0]
+            || cust.recent_phone_numbers?.[0]?.phone_number
+            || null;
+
+        const body = {
+            page_id: pageId,
+            fb_id: cust.fb_id,
+            global_id: messagesResult.global_id || cust.global_id || null,
+            name: cust.name,
+            phone: typeof phone === 'string' ? phone : phone?.phone_number || null,
+            gender: cust.personal_info?.gender || null,
+            birthday: cust.personal_info?.birthday || null,
+            lives_in: cust.personal_info?.lives_in || null,
+            can_inbox: messagesResult.can_inbox,
+            pancake_id: cust.id || cust.customer_id || null,
+            notes: messagesResult.notes || null,
+            reports_by_phone: messagesResult.reports_by_phone || null,
+        };
+
+        const workerUrl = 'https://chatomni-proxy.nhijudyshop.workers.dev';
+        fetch(`${workerUrl}/api/v2/customers/sync-pancake`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body),
+        }).then(r => r.json()).then(data => {
+            if (data.success) {
+                console.log(`[Chat-Core] Synced customer "${cust.name}" to DB (${data.action})`);
+            }
+        }).catch(() => {});
+    } catch (_) {}
 }
 
 // =====================================================

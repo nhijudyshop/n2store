@@ -8,6 +8,21 @@
 
 ## 2026-04-11
 
+### [chat] Sync customer data to Render DB khi mở chat modal ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-chat-core.js` |
+| **Why** | Inbox page gọi `POST /api/v2/customers/sync-pancake` khi mở conversation — nhưng orders-report chat modal KHÔNG gọi → customer data (global_id, can_inbox, gender, birthday, notes, order stats) không được sync khi chat từ orders-report. |
+| **Fix** | Thêm `_syncPancakeCustomerToDB(result, pageId)` — fire-and-forget POST sau `_loadMessages` render. Replicate logic từ inbox-chat.js:3768. Match chain: `global_id → phone → fb_id`. Gửi: page_id, fb_id, global_id, name, phone, gender, birthday, lives_in, can_inbox, pancake_id, notes, reports_by_phone. |
+| **Status** | ✅ Done |
+
+### [chat] Realtime match tighten + pickConversation reset reply ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-chat-realtime.js`, `orders-report/js/tab1/tab1-chat-core.js` |
+| **Fix** | (1) `handleConversationUpdate` PSID match giờ cần kèm pageId match — tránh false positive cross-conv. (2) `_pickConversation` clear reply state + image previews trước khi load conv mới. |
+| **Status** | ✅ Done |
+
 ### [chat][shared] Pancake API compliance audit — 15+ fixes ✅
 | | |
 |---|---|
