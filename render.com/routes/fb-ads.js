@@ -20,59 +20,82 @@ let fbTokenStore = {
     name: null
 };
 
-// DB persistence helpers
-async function saveTokenToDB(req) {
+// DB persistence — multi-account token storage
+let _tableCreated = false;
+
+async function ensureTable(db) {
+    if (_tableCreated || !db) return;
     try {
-        const db = req.app.locals.chatDb;
-        if (!db) return;
         await db.query(`
             CREATE TABLE IF NOT EXISTS fb_ads_tokens (
-                id INTEGER PRIMARY KEY DEFAULT 1,
+                user_id TEXT PRIMARY KEY,
                 access_token TEXT NOT NULL,
                 expires_at BIGINT,
-                user_id TEXT,
                 name TEXT,
                 updated_at TIMESTAMP DEFAULT NOW()
             )
         `);
+        _tableCreated = true;
+    } catch (e) { /* ignore */ }
+}
+
+async function saveTokenToDB(req) {
+    try {
+        const db = req.app.locals.chatDb;
+        if (!db) return;
+        await ensureTable(db);
         await db.query(`
-            INSERT INTO fb_ads_tokens (id, access_token, expires_at, user_id, name, updated_at)
-            VALUES (1, $1, $2, $3, $4, NOW())
-            ON CONFLICT (id) DO UPDATE SET
+            INSERT INTO fb_ads_tokens (user_id, access_token, expires_at, name, updated_at)
+            VALUES ($1, $2, $3, $4, NOW())
+            ON CONFLICT (user_id) DO UPDATE SET
                 access_token = EXCLUDED.access_token,
                 expires_at = EXCLUDED.expires_at,
-                user_id = EXCLUDED.user_id,
                 name = EXCLUDED.name,
                 updated_at = NOW()
-        `, [fbTokenStore.accessToken, fbTokenStore.expiresAt, fbTokenStore.userId, fbTokenStore.name]);
-        console.log('[FB-ADS] Token saved to database');
+        `, [fbTokenStore.userId, fbTokenStore.accessToken, fbTokenStore.expiresAt, fbTokenStore.name]);
+        console.log(`[FB-ADS] Token saved to DB for ${fbTokenStore.name}`);
     } catch (e) {
         console.log('[FB-ADS] Could not save token to DB:', e.message);
     }
 }
 
-async function loadTokenFromDB(req) {
+async function loadTokenFromDB(req, userId) {
     try {
         const db = req.app.locals.chatDb;
         if (!db) return false;
-        const result = await db.query('SELECT * FROM fb_ads_tokens WHERE id = 1');
+        await ensureTable(db);
+
+        let result;
+        if (userId) {
+            // Load specific user
+            result = await db.query('SELECT * FROM fb_ads_tokens WHERE user_id = $1 AND expires_at > $2', [userId, Date.now()]);
+        } else {
+            // Load most recently updated valid token
+            result = await db.query('SELECT * FROM fb_ads_tokens WHERE expires_at > $1 ORDER BY updated_at DESC LIMIT 1', [Date.now()]);
+        }
+
         if (result.rows.length > 0) {
             const row = result.rows[0];
-            if (row.access_token && row.expires_at > Date.now()) {
-                fbTokenStore = {
-                    accessToken: row.access_token,
-                    expiresAt: parseInt(row.expires_at),
-                    userId: row.user_id,
-                    name: row.name
-                };
-                console.log(`[FB-ADS] Token loaded from DB for ${fbTokenStore.name}, expires ${new Date(fbTokenStore.expiresAt).toLocaleDateString()}`);
-                return true;
-            }
+            fbTokenStore = {
+                accessToken: row.access_token,
+                expiresAt: parseInt(row.expires_at),
+                userId: row.user_id,
+                name: row.name
+            };
+            console.log(`[FB-ADS] Token loaded from DB: ${fbTokenStore.name} (expires ${new Date(fbTokenStore.expiresAt).toLocaleDateString()})`);
+            return true;
         }
-    } catch (e) {
-        // Table may not exist yet
-    }
+    } catch (e) { /* table may not exist */ }
     return false;
+}
+
+async function getAllSavedAccounts(db) {
+    try {
+        if (!db) return [];
+        await ensureTable(db);
+        const result = await db.query('SELECT user_id, name, expires_at, updated_at FROM fb_ads_tokens WHERE expires_at > $1 ORDER BY updated_at DESC', [Date.now()]);
+        return result.rows;
+    } catch (e) { return []; }
 }
 
 // =====================================================
@@ -182,14 +205,63 @@ router.get('/auth/status', async (req, res) => {
     });
 });
 
-// POST /api/fb-ads/auth/logout
+// POST /api/fb-ads/auth/logout — Logout (clear memory, keep DB for re-select)
 router.post('/auth/logout', async (req, res) => {
     fbTokenStore = { accessToken: null, expiresAt: null, userId: null, name: null };
+    res.json({ success: true });
+});
+
+// GET /api/fb-ads/auth/saved-accounts — List all saved FB accounts
+router.get('/auth/saved-accounts', async (req, res) => {
     try {
         const db = req.app.locals.chatDb;
-        if (db) await db.query('DELETE FROM fb_ads_tokens WHERE id = 1');
-    } catch (e) { /* ignore */ }
-    res.json({ success: true });
+        const accounts = await getAllSavedAccounts(db);
+        res.json({
+            success: true,
+            data: accounts.map(a => ({
+                user_id: a.user_id,
+                name: a.name,
+                expires_at: parseInt(a.expires_at),
+                days_left: Math.max(0, Math.round((parseInt(a.expires_at) - Date.now()) / 86400000))
+            }))
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// POST /api/fb-ads/auth/switch — Switch to a saved account
+router.post('/auth/switch', async (req, res) => {
+    try {
+        const { user_id } = req.body;
+        if (!user_id) return res.status(400).json({ success: false, error: 'user_id required' });
+
+        const loaded = await loadTokenFromDB(req, user_id);
+        if (!loaded) return res.status(404).json({ success: false, error: 'Account not found or token expired' });
+
+        res.json({
+            success: true,
+            user: { id: fbTokenStore.userId, name: fbTokenStore.name },
+            expiresAt: fbTokenStore.expiresAt
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// DELETE /api/fb-ads/auth/saved-accounts/:userId — Remove saved account
+router.delete('/auth/saved-accounts/:userId', async (req, res) => {
+    try {
+        const db = req.app.locals.chatDb;
+        if (db) await db.query('DELETE FROM fb_ads_tokens WHERE user_id = $1', [req.params.userId]);
+        // If current user, clear memory too
+        if (fbTokenStore.userId === req.params.userId) {
+            fbTokenStore = { accessToken: null, expiresAt: null, userId: null, name: null };
+        }
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
 });
 
 // =====================================================

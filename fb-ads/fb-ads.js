@@ -31,7 +31,7 @@ const FBAds = (() => {
     // =====================================================
     // INIT
     // =====================================================
-    function init() { checkAuthStatus(); }
+    function init() { checkAuthStatus(); loadSavedAccounts(); }
     function checkAuthAfterSDK() { checkAuthStatus(); }
 
     // =====================================================
@@ -84,6 +84,52 @@ const FBAds = (() => {
                 });
             } else { toast('Đăng nhập bị hủy', 'error'); }
         }, { scope: 'ads_management,ads_read,business_management,pages_read_engagement,pages_manage_ads' });
+    }
+
+    // =====================================================
+    // SAVED ACCOUNTS
+    // =====================================================
+    async function loadSavedAccounts() {
+        try {
+            const res = await fetch(API_BASE + '/auth/saved-accounts').then(r => r.json());
+            if (!res.success || !res.data?.length) return;
+
+            const section = document.getElementById('savedAccountsSection');
+            const list = document.getElementById('savedAccountsList');
+            section.style.display = '';
+
+            list.innerHTML = res.data.map(a => `
+                <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--fb-surface);border:1px solid var(--fb-border);border-radius:var(--radius);cursor:pointer;transition:all 0.15s"
+                     onmouseover="this.style.borderColor='var(--fb-primary)'" onmouseout="this.style.borderColor='var(--fb-border)'"
+                     onclick="FBAds.switchAccount('${a.user_id}')">
+                    <div style="width:40px;height:40px;background:var(--fb-primary);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:16px">${(a.name || '?')[0].toUpperCase()}</div>
+                    <div style="flex:1">
+                        <div style="font-weight:600;font-size:14px">${a.name || a.user_id}</div>
+                        <div style="font-size:12px;color:var(--fb-text-light)">Token: còn ${a.days_left} ngày</div>
+                    </div>
+                    <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();FBAds.removeSavedAccount('${a.user_id}')" title="Xóa">&#128465;</button>
+                </div>
+            `).join('');
+        } catch (e) { /* no saved accounts */ }
+    }
+
+    async function switchAccount(userId) {
+        try {
+            const res = await api('/auth/switch', { method: 'POST', body: { user_id: userId } });
+            if (res.success) {
+                toast(`Đã chuyển sang ${res.user.name}`, 'success');
+                onLoginSuccess(res.user);
+            }
+        } catch (err) { toast('Lỗi: ' + err.message, 'error'); }
+    }
+
+    async function removeSavedAccount(userId) {
+        if (!confirm('Xóa tài khoản đã lưu này?')) return;
+        try {
+            await fetch(API_BASE + '/auth/saved-accounts/' + userId, { method: 'DELETE' });
+            toast('Đã xóa', 'success');
+            loadSavedAccounts();
+        } catch (e) { toast('Lỗi', 'error'); }
     }
 
     function onLoginSuccess(user) {
@@ -1286,6 +1332,8 @@ const FBAds = (() => {
         addAppRole, removeRole, switchSettingsTab,
         checkAuthAfterSDK, loadInsights,
         viewCampaignDetails: viewAdSets,
+        // Account switching
+        switchAccount, removeSavedAccount, loadSavedAccounts,
         // New features
         loadAudiences, createAudience, deleteAudience,
         loadPixels, viewPixelEvents,
