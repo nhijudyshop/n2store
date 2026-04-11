@@ -351,24 +351,35 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
     if (cached) {
         conv = cached;
     } else if (!allowDrift) {
-        // Explicit page switch: PSID is page-specific, so use multi-page
-        // endpoint (searches by fbId across all pages) then filter by target page.
-        const mpResult = await pdm.fetchConversationsByCustomerIdMultiPage(psid);
-        const mpConvs = (mpResult.conversations || []).filter(c =>
-            String(c.page_id) === String(pageId) && (!type || c.type === type)
-        );
-        if (mpConvs.length > 0) {
-            mpConvs.sort(_byUpdatedAtDesc);
-            conv = mpConvs[0];
-        }
-        // Also try without type filter (customer may only have COMMENT on this page)
-        if (!conv) {
-            const anyOnPage = (mpResult.conversations || []).filter(c =>
+        // Explicit page switch: PSID is page-specific (different per page),
+        // so we can't use it to find conversations on another page.
+        // Strategy: search by customer NAME across all pages, then filter
+        // by target pageId. This is how the inbox finds cross-page convs.
+        const customerName = window.currentCustomerName;
+        if (customerName && pdm.searchConversations) {
+            const searchResult = await pdm.searchConversations(customerName);
+            const allConvs = (searchResult.conversations || []).filter(c =>
                 String(c.page_id) === String(pageId)
             );
-            if (anyOnPage.length > 0) {
-                anyOnPage.sort(_byUpdatedAtDesc);
-                conv = anyOnPage[0];
+            // Prefer matching type, then any
+            const typed = allConvs.filter(c => c.type === type);
+            if (typed.length > 0) {
+                typed.sort(_byUpdatedAtDesc);
+                conv = typed[0];
+            } else if (allConvs.length > 0) {
+                allConvs.sort(_byUpdatedAtDesc);
+                conv = allConvs[0];
+            }
+        }
+        // Fallback: try page-specific API with PSID (works if same psid)
+        if (!conv) {
+            const result = await pdm.fetchConversationsByCustomerFbId(pageId, psid);
+            const convs = (result.conversations || []).filter(c =>
+                String(c.page_id) === String(pageId)
+            );
+            if (convs.length > 0) {
+                const typed = convs.filter(c => c.type === type);
+                conv = typed.length > 0 ? typed.sort(_byUpdatedAtDesc)[0] : convs.sort(_byUpdatedAtDesc)[0];
             }
         }
     } else if (type === 'COMMENT') {
