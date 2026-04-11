@@ -354,10 +354,31 @@ const tposProductSync = new TPOSProductSync(
 if (khoDiChoRouter.initializeSyncService) {
     khoDiChoRouter.initializeSyncService(tposProductSync);
 }
-// Start incremental sync cron (every 30 minutes)
-setTimeout(() => {
+// Socket listener initialized after creation below
+// Start incremental sync cron (every 30 minutes) + TPOS Socket.IO listener
+const TPOSSocketListener = require('./services/tpos-socket-listener');
+const tposSocketListener = new TPOSSocketListener(
+    tposTokenManager,
+    tposProductSync,
+    realtimeSseRoutes.notifyClients
+);
+
+if (khoDiChoRouter.initializeSocketListener) {
+    khoDiChoRouter.initializeSocketListener(tposSocketListener);
+}
+
+setTimeout(async () => {
+    // Start cron as fallback (in case socket disconnects)
     tposProductSync.startCron(30 * 60 * 1000);
     console.log('[STARTUP] TPOS product sync cron started (30 min interval)');
+
+    // Connect to TPOS Socket.IO for real-time product updates
+    try {
+        await tposSocketListener.connect();
+        console.log('[STARTUP] TPOS Socket.IO listener started');
+    } catch (err) {
+        console.error('[STARTUP] TPOS Socket.IO connection failed (will retry):', err.message);
+    }
 }, 10000); // delay 10s after server start
 
 // Cloudflare Worker Backup Routes (fb-avatar, pancake-avatar, proxy, pancake-direct, pancake-official, facebook-send, rest)

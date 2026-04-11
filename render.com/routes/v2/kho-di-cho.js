@@ -1048,6 +1048,7 @@ router.get('/sales', async (req, res) => {
 // =====================================================
 
 let syncService = null;
+let socketListener = null;
 
 /**
  * Initialize sync service (called from server.js)
@@ -1055,6 +1056,11 @@ let syncService = null;
 function initializeSyncService(service) {
     syncService = service;
     console.log('[KhoDiCho] Sync service initialized');
+}
+
+function initializeSocketListener(listener) {
+    socketListener = listener;
+    console.log('[KhoDiCho] Socket listener initialized');
 }
 
 /**
@@ -1105,7 +1111,8 @@ router.get('/sync/status', async (req, res) => {
 
     try {
         const status = await syncService.getStatus();
-        res.json({ success: true, ...status });
+        const socketStats = socketListener ? socketListener.getStats() : null;
+        res.json({ success: true, ...status, socket: socketStats });
     } catch (error) {
         handleError(res, error, 'Get sync status failed');
     }
@@ -1135,5 +1142,6 @@ router.get('/sync/log', async (req, res) => {
 
 router.initializeNotifiers = initializeNotifiers;
 router.initializeSyncService = initializeSyncService;
+router.initializeSocketListener = initializeSocketListener;
 
 module.exports = router;

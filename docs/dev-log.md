@@ -8,6 +8,18 @@
 
 ## 2026-04-11
 
+### [render] TPOS Socket.IO real-time listener ✅
+| | |
+|---|---|
+| **Files** | `render.com/services/tpos-socket-listener.js` (MỚI), `render.com/routes/v2/kho-di-cho.js`, `render.com/server.js`, `render.com/package.json`, `kho-di-cho/js/main.js` |
+| **Socket.IO** | Connect tới `rt-2.tpos.app/chatomni` (WebSocket, auth token). Nhận event `on-events` chứa tất cả TPOS messages. |
+| **Product events** | ProductTemplate: created/deleted/deletedIds/set_active/updatefromfile/import_file/clearcache. Product: inventory_updated/update_price_file/deleted. ProductInventory: update. |
+| **Sync trigger** | Debounce 3s. Specific templates → sync từng template. Bulk events (import_file, clearcache) → incremental sync. >10 templates → incremental sync. |
+| **Reconnect** | Auth expired → refresh token + reconnect. Exponential backoff (1s→2s→4s...→30s). Max 50 attempts → wait 5 phút → reset. |
+| **Status** | `GET /sync/status` trả thêm `socket: { connected, eventsReceived, productEvents, syncsTriggered }`. Frontend hiện RT indicator. |
+| **Cron vẫn giữ** | 30 phút incremental sync làm fallback khi socket disconnect. |
+| **Status** | ✅ Done |
+
 ### [render][orders] TPOS Product Sync + Kho Đi Chợ v3 ✅
 | | |
 |---|---|

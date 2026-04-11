@@ -196,11 +196,13 @@
                 const last = json.lastSync;
                 const ago = timeSince(new Date(last.finished_at || last.started_at));
                 const stats = last.stats || {};
-                el.innerHTML = `
+                const socketOk = json.socket?.connected;
+            el.innerHTML = `
                     <span class="sync-dot ${last.status === 'success' ? 'green' : 'red'}"></span>
                     Sync ${ago} trước
                     ${stats.inserted > 0 || stats.updated > 0 ? `(+${stats.inserted || 0} mới, ${stats.updated || 0} cập nhật)` : ''}
                     — ${json.products?.total || 0} SP (${json.products?.with_inventory || 0} có hàng)
+                    ${socketOk ? '<span class="sync-dot green" title="TPOS Socket connected"></span> RT' : '<span class="sync-dot grey" title="TPOS Socket disconnected"></span> RT'}
                 `;
             } else {
                 el.innerHTML = '<span class="sync-dot grey"></span> Chưa sync';
