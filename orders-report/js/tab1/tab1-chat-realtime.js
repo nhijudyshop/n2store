@@ -83,10 +83,14 @@ window.handleConversationUpdate = function(payload) {
     const convId = payload.conversation_id || conv?.id || payload.id;
     const fromPsid = String(conv?.from?.id || conv?.from_psid || '');
 
-    // Match current open chat by convId OR by customer psid
+    // Match current open chat by convId, or by PSID + pageId (PSID alone is
+    // insufficient because the same PSID could appear in events from different
+    // conversations on the same page, e.g. INBOX vs COMMENT).
+    const eventPageId = String(conv?.page_id || payload.page_id || '');
     const isCurrentConv = (
         (window.currentConversationId && convId && String(convId) === String(window.currentConversationId)) ||
-        (window.currentChatPSID && fromPsid && String(fromPsid) === String(window.currentChatPSID))
+        (window.currentChatPSID && fromPsid && String(fromPsid) === String(window.currentChatPSID)
+            && eventPageId && eventPageId === String(window.currentChatChannelId))
     );
 
     if (!isCurrentConv) return;

@@ -1025,6 +1025,14 @@ function _showConversationPicker(convs, pageId, loadToken) {
 async function _pickConversation(conv, pageId, loadToken) {
     if (loadToken != null && loadToken !== window._chatLoadSeq) return;
 
+    // Clear reply/image state from previous conversation
+    window.currentReplyMessage = null;
+    const preview = document.getElementById('replyPreview');
+    if (preview) preview.classList.remove('active');
+    if (typeof window.clearImagePreviews === 'function') {
+        try { window.clearImagePreviews(); } catch (_) {}
+    }
+
     window.currentConversationId = conv.id;
     window.currentConversationData = conv;
     window.currentConversationType = conv.type === 'COMMENT' ? 'COMMENT' : 'INBOX';
