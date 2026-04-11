@@ -6,6 +6,18 @@
 
 ---
 
+## 2026-04-11
+
+### [chat] Cross-page conversation lookup + picker + bug fixes ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-chat-core.js`, `orders-report/js/managers/pancake-data-manager.js`, `orders-report/css/tab1-chat-modal.css`, `orders-report/tab1-orders.html` |
+| **Root cause** | PSID là page-specific → cùng customer có PSID khác trên page khác. `searchConversations()` (POST) trả `success:false`. |
+| **Fix** | Thêm `pdm.searchConversationsOnPage(pageId, name)` dùng GET v2 public API `?search=` (xác nhận hoạt động qua console debug). Khi switch page (`allowDrift=false`): search bằng customer name → filter exact match → 0 conv=empty state, 1 conv=auto-load, 2+ convs=conversation picker. |
+| **Picker UI** | `.chat-conv-picker-*` classes: danh sách cards với icon (📧 inbox / 💬 comment), tên, snippet, thời gian. Click → `_pickConversation()` load messages. |
+| **Bugs fixed** | (1) dropdown `position:fixed` thoát overflow:hidden chain; (2) dropdown position left-aligned tránh off-screen; (3) page drift disabled khi explicit switch; (4) `_pageConvCache` guard init; (5) `_pickConversation` sync page selector label. |
+| **Status** | ✅ Done |
+
 ## 2026-04-10
 
 ### [render][fb-ads] Full feature set — billing, audiences, pixels, reports, rules, account

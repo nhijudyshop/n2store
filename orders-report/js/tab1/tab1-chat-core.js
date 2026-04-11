@@ -919,8 +919,14 @@ function _updatePageSelectorActive(pageId) {
 
 function _togglePageDropdown() {
     const container = document.getElementById('chatPageSelector');
-    const dropdown = document.getElementById('chatPageSelectorDropdown');
+    let dropdown = document.getElementById('chatPageSelectorDropdown');
     if (!container || !dropdown) return;
+
+    // Move dropdown to document.body to escape backdrop-filter stacking context
+    if (dropdown.parentElement !== document.body) {
+        document.body.appendChild(dropdown);
+    }
+
     const isOpen = dropdown.style.display !== 'none';
     if (isOpen) {
         dropdown.style.display = 'none';
@@ -1009,9 +1015,12 @@ async function _pickConversation(conv, pageId, loadToken) {
     window.currentConversationId = conv.id;
     window.currentConversationData = conv;
     window.currentConversationType = conv.type === 'COMMENT' ? 'COMMENT' : 'INBOX';
+    window.currentChatChannelId = pageId;
+    window.currentSendPageId = pageId;
 
-    // Update type toggle
+    // Update type toggle + page selector label
     _updateTypeToggle(window.currentConversationType);
+    _updatePageSelectorActive(pageId);
 
     // Cache for re-switch
     const cacheKey = `${window.currentChatPSID}:${pageId}:${conv.type}`;
