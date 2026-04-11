@@ -321,8 +321,8 @@
 /* ===== KANBAN CARDS - ROW LAYOUT (1 dòng ngang) ===== */
 .kanban-card {
     display: flex;
-    align-items: center;
-    gap: 6px;
+    flex-direction: column;
+    gap: 0;
     background: #ffffff;
     border-radius: 6px;
     padding: 6px 8px;
@@ -330,6 +330,13 @@
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
     border: 1px solid #f1f5f9;
     transition: all 0.15s;
+}
+
+.kanban-card .card-main-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
 }
 
 .kanban-card:hover {
@@ -727,6 +734,88 @@
 .kanban-board .kanban-loading i {
     animation: spin 1s linear infinite;
     margin-right: 10px;
+}
+
+/* ===== DETAIL ROW - Transaction metadata & fraud indicators ===== */
+.kanban-card .card-detail-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 0 0 61px; /* align with content (55px time + 6px gap) */
+    flex-wrap: wrap;
+}
+
+.kanban-card .detail-gateway {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: #e0e7ff;
+    color: #3730a3;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.kanban-card .detail-ref {
+    font-size: 10px;
+    font-family: monospace;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: #f1f5f9;
+    color: #475569;
+}
+
+.kanban-card .detail-account {
+    font-size: 10px;
+    font-family: monospace;
+    padding: 1px 5px;
+    border-radius: 3px;
+    background: #f8fafc;
+    color: #64748b;
+}
+
+/* Fraud risk badges */
+.kanban-card .fraud-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 3px;
+}
+
+.kanban-card .fraud-badge i,
+.kanban-card .fraud-badge svg {
+    width: 10px;
+    height: 10px;
+}
+
+.kanban-card .fraud-intl {
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fde68a;
+}
+
+.kanban-card .fraud-small {
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+}
+
+.kanban-card .fraud-fx {
+    background: #e0f2fe;
+    color: #0c4a6e;
+    border: 1px solid #bae6fd;
+}
+
+/* Card with fraud risks gets subtle left border highlight */
+.kanban-card:has(.fraud-badge) {
+    border-left: 3px solid #f59e0b;
+}
+
+.kanban-card:has(.fraud-small) {
+    border-left: 3px solid #ef4444;
 }
 
 /* ===== RESPONSIVE ===== */

@@ -110,6 +110,81 @@ const LiveModeModule = (function() {
         return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
     }
 
+    // ===== FRAUD DETECTION HELPERS =====
+    const INTL_REMITTANCE_KEYWORDS = [
+        'zepz', 'worldremit', 'wise', 'remitly', 'western union', 'moneygram',
+        'xoom', 'ria', 'sendwave', 'transferwise', 'payoneer', 'vnpayment',
+        'zepzvnpayment', 'wupayment', 'mgpayment', 'orlafin', 'thunes',
+        'tranglo', 'terrapay', 'nium', 'instarem'
+    ];
+
+    function detectFraudRisks(tx) {
+        const risks = [];
+        const content = (tx.content || '').toLowerCase();
+        const amount = tx.transfer_amount || 0;
+
+        // 1. International remittance source
+        if (INTL_REMITTANCE_KEYWORDS.some(kw => content.includes(kw))) {
+            risks.push({ type: 'intl', label: 'Quốc tế', icon: 'globe' });
+        }
+
+        // 2. Small amount (< 200k VND) - common test transfer before scam
+        if (amount > 0 && amount < 200000 && tx.transfer_type === 'in') {
+            risks.push({ type: 'small', label: 'Số nhỏ', icon: 'alert-triangle' });
+        }
+
+        // 3. Round USD-converted amounts (hints at foreign currency origin)
+        const commonRates = [25000, 25500, 26000, 26500];
+        for (const rate of commonRates) {
+            const usd = amount / rate;
+            if (usd > 0.5 && Math.abs(usd - Math.round(usd * 100) / 100) < 0.01) {
+                const estimatedUSD = (amount / rate).toFixed(2);
+                risks.push({ type: 'fx', label: `~${estimatedUSD} USD`, icon: 'dollar-sign' });
+                break;
+            }
+        }
+
+        return risks;
+    }
+
+    function renderFraudBadges(risks) {
+        if (risks.length === 0) return '';
+        return risks.map(r => {
+            const cls = `fraud-badge fraud-${r.type}`;
+            return `<span class="${cls}" title="${escapeHtml(r.label)}"><i data-lucide="${r.icon}"></i>${escapeHtml(r.label)}</span>`;
+        }).join('');
+    }
+
+    function renderDetailRow(tx) {
+        const parts = [];
+
+        // Gateway badge
+        if (tx.gateway) {
+            parts.push(`<span class="detail-gateway">${escapeHtml(tx.gateway)}</span>`);
+        }
+
+        // Reference code
+        if (tx.reference_code) {
+            parts.push(`<span class="detail-ref" title="Mã tham chiếu">#${escapeHtml(tx.reference_code)}</span>`);
+        }
+
+        // Account number (last 4 digits)
+        if (tx.account_number) {
+            const acc = tx.account_number;
+            const masked = acc.length > 4 ? '•••' + acc.slice(-4) : acc;
+            parts.push(`<span class="detail-account" title="${escapeHtml(acc)}">${escapeHtml(masked)}</span>`);
+        }
+
+        // Fraud risk badges
+        const risks = detectFraudRisks(tx);
+        if (risks.length > 0) {
+            parts.push(renderFraudBadges(risks));
+        }
+
+        if (parts.length === 0) return '';
+        return `<div class="card-detail-row">${parts.join('')}</div>`;
+    }
+
     // ===== BUTTON LOADING STATE =====
     function setButtonLoading(button, isLoading) {
         if (!button) return;
@@ -301,30 +376,36 @@ const LiveModeModule = (function() {
 
                 return `
                     <div class="kanban-card manual has-dropdown" data-id="${tx.id}" data-pending-id="${tx.pending_match_id || ''}">
-                        <span class="card-time">${formatTime(tx.transaction_date)}</span>
-                        <span class="card-amount ${isPositive ? '' : 'negative'}">${formatCurrency(amount)}</span>
-                        <span class="card-content" data-tooltip="${escapeHtml(fullContent)}"><span class="content-text">${escapedContent}</span></span>
-                        <input type="text" class="card-note-input" id="note-${tx.id}" placeholder="Ghi chú..." maxlength="100">
-                        <select class="customer-dropdown" data-id="${tx.id}">
-                            <option value="">-- Chọn KH --</option>
-                            ${options}
-                        </select>
-                        <button class="btn-assign" data-id="${tx.id}" disabled>Gán</button>
+                        <div class="card-main-row">
+                            <span class="card-time">${formatTime(tx.transaction_date)}</span>
+                            <span class="card-amount ${isPositive ? '' : 'negative'}">${formatCurrency(amount)}</span>
+                            <span class="card-content" data-tooltip="${escapeHtml(fullContent)}"><span class="content-text">${escapedContent}</span></span>
+                            <input type="text" class="card-note-input" id="note-${tx.id}" placeholder="Ghi chú..." maxlength="100">
+                            <select class="customer-dropdown" data-id="${tx.id}">
+                                <option value="">-- Chọn KH --</option>
+                                ${options}
+                            </select>
+                            <button class="btn-assign" data-id="${tx.id}" disabled>Gán</button>
+                        </div>
+                        ${renderDetailRow(tx)}
                     </div>
                 `;
             } else {
                 // Row with phone input + TPOS suggest - stacked vertically
                 return `
                     <div class="kanban-card manual" data-id="${tx.id}">
-                        <span class="card-time">${formatTime(tx.transaction_date)}</span>
-                        <span class="card-amount ${isPositive ? '' : 'negative'}">${formatCurrency(amount)}</span>
-                        <span class="card-content" data-tooltip="${escapeHtml(fullContent)}"><span class="content-text">${escapedContent}</span></span>
-                        <input type="text" class="card-note-input" id="note-${tx.id}" placeholder="Ghi chú..." maxlength="100">
-                        <div class="card-phone-input-group">
-                            <span class="tpos-suggest empty" id="tpos-${tx.id}">Nhập SĐT...</span>
-                            <input type="text" class="phone-input" id="phone-${tx.id}" placeholder="SĐT" data-id="${tx.id}" maxlength="11">
+                        <div class="card-main-row">
+                            <span class="card-time">${formatTime(tx.transaction_date)}</span>
+                            <span class="card-amount ${isPositive ? '' : 'negative'}">${formatCurrency(amount)}</span>
+                            <span class="card-content" data-tooltip="${escapeHtml(fullContent)}"><span class="content-text">${escapedContent}</span></span>
+                            <input type="text" class="card-note-input" id="note-${tx.id}" placeholder="Ghi chú..." maxlength="100">
+                            <div class="card-phone-input-group">
+                                <span class="tpos-suggest empty" id="tpos-${tx.id}">Nhập SĐT...</span>
+                                <input type="text" class="phone-input" id="phone-${tx.id}" placeholder="SĐT" data-id="${tx.id}" maxlength="11">
+                            </div>
+                            <button class="btn-assign" id="btn-${tx.id}" data-id="${tx.id}" disabled>Gán</button>
                         </div>
-                        <button class="btn-assign" id="btn-${tx.id}" data-id="${tx.id}" disabled>Gán</button>
+                        ${renderDetailRow(tx)}
                     </div>
                 `;
             }
@@ -350,15 +431,18 @@ const LiveModeModule = (function() {
 
             return `
                 <div class="kanban-card auto" data-id="${tx.id}">
-                    <span class="card-time">${formatTime(tx.transaction_date)}</span>
-                    <span class="card-amount ${isPositive ? '' : 'negative'}">${formatCurrency(amount)}</span>
-                    <span class="card-content" data-tooltip="${escapeHtml(fullContent)}"><span class="content-text">${escapedContent}</span></span>
-                    <div class="card-customer-info">
-                        <span class="card-customer">${escapeHtml(tx.customer_name || 'Không tên')}</span>
-                        <span class="card-phone">${escapeHtml(tx.customer_phone || '')}</span>
+                    <div class="card-main-row">
+                        <span class="card-time">${formatTime(tx.transaction_date)}</span>
+                        <span class="card-amount ${isPositive ? '' : 'negative'}">${formatCurrency(amount)}</span>
+                        <span class="card-content" data-tooltip="${escapeHtml(fullContent)}"><span class="content-text">${escapedContent}</span></span>
+                        <div class="card-customer-info">
+                            <span class="card-customer">${escapeHtml(tx.customer_name || 'Không tên')}</span>
+                            <span class="card-phone">${escapeHtml(tx.customer_phone || '')}</span>
+                        </div>
+                        <input type="text" class="card-note-input" id="note-${tx.id}" placeholder="Ghi chú..." maxlength="100">
+                        <button class="btn-confirm" data-id="${tx.id}">Xác nhận</button>
                     </div>
-                    <input type="text" class="card-note-input" id="note-${tx.id}" placeholder="Ghi chú..." maxlength="100">
-                    <button class="btn-confirm" data-id="${tx.id}">Xác nhận</button>
+                    ${renderDetailRow(tx)}
                 </div>
             `;
         }).join('');
@@ -392,15 +476,18 @@ const LiveModeModule = (function() {
 
             return `
                 <div class="kanban-card confirmed" data-id="${tx.id}">
-                    <span class="card-time">${formatTime(tx.transaction_date)}</span>
-                    <span class="card-amount ${isPositive ? '' : 'negative'}">${formatCurrency(amount)}</span>
-                    <span class="card-content" data-tooltip="${escapeHtml(fullContent)}"><span class="content-text">${escapedContent}</span></span>
-                    <div class="card-customer-info">
-                        <span class="card-customer">${escapeHtml(tx.customer_name || 'Không tên')}</span>
-                        <span class="card-phone">${escapeHtml(tx.customer_phone || '')}</span>
+                    <div class="card-main-row">
+                        <span class="card-time">${formatTime(tx.transaction_date)}</span>
+                        <span class="card-amount ${isPositive ? '' : 'negative'}">${formatCurrency(amount)}</span>
+                        <span class="card-content" data-tooltip="${escapeHtml(fullContent)}"><span class="content-text">${escapedContent}</span></span>
+                        <div class="card-customer-info">
+                            <span class="card-customer">${escapeHtml(tx.customer_name || 'Không tên')}</span>
+                            <span class="card-phone">${escapeHtml(tx.customer_phone || '')}</span>
+                        </div>
+                        <span class="card-method ${methodClass}">${methodLabel}</span>
+                        ${canEdit ? `<button class="btn-edit" data-id="${tx.id}">Sửa</button>` : ''}
                     </div>
-                    <span class="card-method ${methodClass}">${methodLabel}</span>
-                    ${canEdit ? `<button class="btn-edit" data-id="${tx.id}">Sửa</button>` : ''}
+                    ${renderDetailRow(tx)}
                 </div>
             `;
         }).join('');
