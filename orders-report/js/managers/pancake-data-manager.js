@@ -703,13 +703,24 @@ class PancakeDataManager {
 
             const res = await fetch(url, { method: 'POST', body: formData });
             if (!res.ok) return { conversations: [] };
-            const data = await res.json();
-            // Error 122 = subscription expired for a page
-            if (data.error_code === 122) {
-                console.warn('[PDM] Search hit error 122 (subscription expired)');
-                // Still return any partial results
+            let data = await res.json();
+
+            // Error 122 = subscription expired → find bad pages and retry without them
+            if (data.error_code === 122 && data.errors && ids.length > 1) {
+                const badIds = new Set((data.errors || []).filter(e => e.error_code === 122).map(e => String(e.page_id)));
+                const goodIds = ids.filter(id => !badIds.has(String(id)));
+                console.warn(`[PDM] Search error 122: removing expired pages [${[...badIds]}], retrying with ${goodIds.length} pages`);
+                if (goodIds.length > 0) {
+                    this._searchablePageIds = goodIds;
+                    const retryForm = new FormData();
+                    retryForm.append('page_ids', goodIds.join(','));
+                    const retryRes = await fetch(url, { method: 'POST', body: retryForm });
+                    if (retryRes.ok) {
+                        data = await retryRes.json();
+                    }
+                }
             }
-            if (data.error_code && data.error_code !== 122) return { conversations: [] };
+            if (data.error_code && !data.conversations?.length) return { conversations: [] };
             return { conversations: data.conversations || [] };
         } catch (e) {
             console.error('[PDM] search error:', e);
