@@ -446,10 +446,13 @@ class QuickReplyManager {
         if (reply.imageUrl || reply.contentId) {
             this.closeModal();
             this.sendQuickReplyWithImage(reply);
+            if (!reply.shortcut) this._autoAssignChuaPhanHoi();
             return;
         }
 
         this.insertToInput(reply.message);
+        // Auto-assign tag for CHỐT ĐƠN (shortcut rỗng) from modal
+        if (!reply.shortcut) this._autoAssignChuaPhanHoi();
     }
 
     insertToInput(message) {
@@ -715,6 +718,7 @@ class QuickReplyManager {
     }
 
     applyAutocompleteSuggestion(reply) {
+        console.log('[QUICK-REPLY] applyAutocompleteSuggestion:', { shortcut: reply.shortcut, topic: reply.topic, hasImage: !!reply.imageUrl, hasContentId: !!reply.contentId });
         const input = document.getElementById('chatInput');
         if (!input) return;
 
@@ -724,6 +728,7 @@ class QuickReplyManager {
             input.value = '';
             input.style.height = 'auto';
             this.sendQuickReplyWithImage(reply);
+            if (!reply.shortcut) this._autoAssignChuaPhanHoi();
             return;
         }
 
