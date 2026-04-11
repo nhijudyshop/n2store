@@ -39,27 +39,12 @@ const FBAds = (() => {
     // =====================================================
     async function checkAuthStatus() {
         try {
+            // Server checks memory first, then DB — no need for FB SDK here
             const res = await fetch(API_BASE + '/auth/status').then(r => r.json());
             if (res.success && res.authenticated) {
                 onLoginSuccess(res.user);
-                return;
             }
         } catch (e) { /* server error */ }
-
-        // Server not authenticated — try auto-reconnect via FB SDK (may fail due to CORS)
-        if (typeof FB !== 'undefined') {
-            try {
-                const reconnected = await autoReconnect();
-                if (reconnected) {
-                    const res = await fetch(API_BASE + '/auth/status').then(r => r.json());
-                    if (res.success && res.authenticated) {
-                        onLoginSuccess(res.user);
-                    }
-                }
-            } catch (e) {
-                console.log('[FB-ADS] Auto-reconnect failed (CORS or SDK not ready)');
-            }
-        }
     }
 
     function login() {
