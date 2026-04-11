@@ -357,11 +357,11 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
         const customerName = window.currentCustomerName;
         let foundConvs = [];
 
-        // Search by customer name (v1 POST — chính xác, cross-page) then filter by target page
-        if (customerName && pdm.searchConversations) {
-            const searchResult = await pdm.searchConversations(customerName);
+        // Search by customer name on target page (v2 public API — confirmed working)
+        if (customerName && pdm.searchConversationsOnPage) {
+            const searchResult = await pdm.searchConversationsOnPage(pageId, customerName);
             foundConvs = (searchResult.conversations || []).filter(c =>
-                String(c.page_id) === String(pageId) && c.from?.name === customerName
+                c.from?.name === customerName
             );
         }
         // Fallback: try page-specific API with PSID (works if same psid on this page)
@@ -381,8 +381,13 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
             // Exactly 1 → auto-load
             conv = foundConvs[0];
         } else {
-            // Multiple → show picker so user can choose
-            foundConvs.sort(_byUpdatedAtDesc);
+            // Multiple → sort by last_customer_interactive_at (actual message time)
+            // then by updated_at as fallback
+            foundConvs.sort((a, b) => {
+                const ta = new Date(a.last_customer_interactive_at || a.updated_at || 0).getTime();
+                const tb = new Date(b.last_customer_interactive_at || b.updated_at || 0).getTime();
+                return tb - ta;
+            });
             _showConversationPicker(foundConvs, pageId, loadToken);
             return;
         }
@@ -1040,7 +1045,8 @@ function _showConversationPicker(convs, pageId, loadToken) {
         const typeLabel = isInbox ? 'Tin nhắn' : 'Bình luận';
         const snippet = _escapeHtml(conv.snippet || conv.last_message?.text || '');
         const name = _escapeHtml(conv.from?.name || 'Khách hàng');
-        const time = conv.updated_at ? _formatPickerTime(conv.updated_at) : '';
+        // Prefer last_customer_interactive_at (actual message time) over updated_at
+        const time = _formatPickerTime(conv.last_customer_interactive_at || conv.updated_at || '');
 
         html += `<div class="chat-conv-picker-item" data-conv-id="${conv.id}" data-page-id="${pageId}">
             <div class="chat-conv-picker-item-icon ${typeClass}">
