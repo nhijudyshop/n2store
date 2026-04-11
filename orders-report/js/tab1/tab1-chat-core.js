@@ -357,15 +357,14 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
         const customerName = window.currentCustomerName;
         let foundConvs = [];
 
-        // Search by customer name on the target page (v2 public API)
-        if (customerName && pdm.searchConversationsOnPage) {
-            const searchResult = await pdm.searchConversationsOnPage(pageId, customerName);
-            // Filter exact name match (search returns fuzzy results)
+        // Search by customer name (v1 POST — chính xác, cross-page) then filter by target page
+        if (customerName && pdm.searchConversations) {
+            const searchResult = await pdm.searchConversations(customerName);
             foundConvs = (searchResult.conversations || []).filter(c =>
-                c.from?.name === customerName
+                String(c.page_id) === String(pageId) && c.from?.name === customerName
             );
         }
-        // Fallback: try page-specific API with PSID (works if same psid)
+        // Fallback: try page-specific API with PSID (works if same psid on this page)
         if (foundConvs.length === 0) {
             const result = await pdm.fetchConversationsByCustomerFbId(pageId, psid);
             foundConvs = (result.conversations || []).filter(c =>
