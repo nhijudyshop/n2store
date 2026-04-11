@@ -408,7 +408,11 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
         }
     } else {
         // INBOX: Use cached maps first, then API fallback
-        conv = pdm.inboxMapByPSID.get(String(psid)) || pdm.inboxMapByFBID.get(String(psid));
+        // Guard: cache may hold cross-page conv (PSID = fb_id is page-scoped)
+        const cachedConv = pdm.inboxMapByPSID.get(String(psid)) || pdm.inboxMapByFBID.get(String(psid));
+        if (cachedConv && String(cachedConv.page_id) === String(pageId)) {
+            conv = cachedConv;
+        }
 
         if (!conv) {
             const result = await pdm.fetchConversationsByCustomerFbId(pageId, psid);
@@ -512,11 +516,19 @@ async function _loadMessages(pageId, conversationId, customerId, loadToken) {
                 activities: result.activities || [],
             };
 
-            // Proactive global_id caching — cache immediately when available
-            const cacheKey = conversationId || `${pageId}_${window.currentChatPSID}`;
-            const gid = rc.page_customer?.global_id
+            // Proactive global_id caching — use rich data from messages response
+            const gid = result.global_id
+                || rc.page_customer?.global_id
                 || (result.customers || []).find(c => c.global_id)?.global_id;
-            if (gid) _setGlobalIdCache(cacheKey, gid);
+            if (gid) {
+                const cacheKey = conversationId || `${pageId}_${window.currentChatPSID}`;
+                _setGlobalIdCache(cacheKey, gid);
+                // Store on conv data for extension bypass reuse (avoids re-fetch)
+                window.currentConversationData._globalId = gid;
+            }
+
+            // Store can_inbox flag
+            window.currentConversationData._canInbox = result.can_inbox ?? true;
         }
 
         // Map messages
@@ -562,7 +574,8 @@ async function _loadMessages(pageId, conversationId, customerId, loadToken) {
         if (survivors.length) messages.push(...survivors);
 
         window.allChatMessages = messages;
-        window.currentChatCursor = messages.length;
+        // Use API pagination value if available, fallback to array length
+        window.currentChatCursor = result.current_count || messages.length;
 
         // Render
         if (window.renderChatMessages) {

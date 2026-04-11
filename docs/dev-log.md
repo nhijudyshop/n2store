@@ -8,6 +8,16 @@
 
 ## 2026-04-11
 
+### [chat][shared] Pancake API compliance audit — 15+ fixes ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/managers/pancake-data-manager.js`, `orders-report/js/tab1/tab1-chat-core.js`, `orders-report/js/tab1/tab1-chat-messages.js` |
+| **Phase 1 — PDM** | (1) Thêm `Referer: pancake.vn/multi_pages` header cho 4 methods v1 API (`fetchConversationsByCustomerFbId`, `fetchConversationsByCustomerIdMultiPage`, `fetchPages`). (2) Error 122 handling: `_expiredPageIds` Set + `_searchablePageIds` getter lọc expired pages khỏi multi-page queries. (3) `fetchPages` retry on error 105/100. (4) Remove `customer_id` param từ v1 public API `fetchMessages` (không cần). (5) Store `global_id` + `can_inbox` từ messages response. (6) `searchConversations` dùng `_searchablePageIds` + handle error 122 partial results. |
+| **Phase 2 — Sending** | Fix `postId` extraction cho COMMENT: ưu tiên `conv.post_id` (direct field) trước `_raw.post_id` và `_messagesData.post.id`. |
+| **Phase 3 — Cache** | INBOX cache guard: `inboxMapByPSID` lookup thêm check `conv.page_id === pageId` tránh trả cross-page conv (vì PSID = fb_id là page-scoped). |
+| **Phase 4 — Pagination** | Cursor dùng `result.current_count` (API value) thay vì `messages.length`. Store `_globalId` + `_canInbox` trên conv data để extension bypass reuse (tránh re-fetch). |
+| **Status** | ✅ Done |
+
 ### [inbox] Customer Info Card + search giữ page filter ✅
 | | |
 |---|---|

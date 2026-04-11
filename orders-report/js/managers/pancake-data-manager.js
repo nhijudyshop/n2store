@@ -113,6 +113,8 @@ class PancakeDataManager {
         this.MSG_CACHE_DURATION = 2 * 60 * 1000;
         this._messagesCache = new Map();
         this._lastPageFetch = null;
+        // Pages with expired subscription (error 122) — skip in multi-page queries
+        this._expiredPageIds = new Set();
 
         // Conversation maps (used by tab1-encoding.js, tab1-search.js)
         this.inboxMapByPSID = new Map();
@@ -120,6 +122,16 @@ class PancakeDataManager {
         this.commentMapByPSID = new Map();
         this.commentMapByFBID = new Map();
         this.conversationsByOrderId = new Map();
+    }
+
+    // v1 API Referer header (required by some endpoints)
+    get _v1Headers() {
+        return { 'Accept': 'application/json', 'Referer': 'https://pancake.vn/multi_pages' };
+    }
+
+    // Searchable page IDs (excludes expired subscriptions + Instagram)
+    get _searchablePageIds() {
+        return this.pageIds.filter(id => !this._expiredPageIds.has(id) && !id.startsWith('igo_'));
     }
 
     // --- Token Manager shortcut ---
@@ -153,10 +165,21 @@ class PancakeDataManager {
             if (!token) throw new Error('No token');
 
             const url = PancakeApiConfig.buildUrl.pancake('pages', `access_token=${token}`);
-            const res = await fetch(url, { headers: { 'Content-Type': 'application/json' } });
+            const res = await fetch(url, { headers: this._v1Headers });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-            const data = await res.json();
+            let data = await res.json();
+
+            // Token error → retry with fresh token
+            if (data.error_code === 105 || data.error_code === 100) {
+                const newToken = await this.tm?.getToken?.(true);
+                if (newToken) {
+                    const url2 = PancakeApiConfig.buildUrl.pancake('pages', `access_token=${newToken}`);
+                    const res2 = await fetch(url2, { headers: this._v1Headers });
+                    if (res2.ok) data = await res2.json();
+                }
+            }
+
             if (data.success && data.categorized?.activated) {
                 this.pages = data.categorized.activated.filter(p => !p.id.startsWith('igo_'));
                 this.pageIds = this.pages.map(p => p.id);
@@ -313,9 +336,9 @@ class PancakeDataManager {
         }
     }
 
-    // --- Fetch Conversations by customer Facebook ID ---
-    // Uses Pancake API: GET /api/v1/pages/{pageId}/customers/{fbId}/conversations
-    // Returns ALL conversations (INBOX + COMMENT) for this customer on this page
+    // --- Fetch Conversations by customer fb_id (page-scoped) ---
+    // Uses Pancake API v1: GET /api/v1/pages/{pageId}/customers/{fbId}/conversations
+    // NOTE: fbId here is page-scoped (= PSID for INBOX). Different on each page.
     async fetchConversationsByCustomerFbId(pageId, fbId) {
         try {
             if (!fbId) return { conversations: [] };
@@ -326,7 +349,7 @@ class PancakeDataManager {
                 `pages/${pageId}/customers/${fbId}/conversations`,
                 `access_token=${token}`
             );
-            const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+            const res = await fetch(url, { headers: this._v1Headers });
             if (!res.ok) return { conversations: [] };
             const data = await res.json();
             const convs = data.conversations || [];
@@ -360,15 +383,23 @@ class PancakeDataManager {
 
             if (this.pageIds.length === 0) await this.fetchPages();
 
-            // Build pages params: pages[pageId1]=0&pages[pageId2]=0
-            const pagesParams = this.pageIds.map(id => `pages[${id}]=0`).join('&');
+            // Build pages params excluding expired subscriptions
+            const ids = this._searchablePageIds;
+            if (ids.length === 0) return { conversations: [] };
+            const pagesParams = ids.map(id => `pages[${id}]=0`).join('&');
             const url = PancakeApiConfig.buildUrl.pancake(
                 `conversations/customer/${fbId}`,
                 `${pagesParams}&access_token=${token}`
             );
-            const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+            const res = await fetch(url, { headers: this._v1Headers });
             if (!res.ok) return { conversations: [] };
             const data = await res.json();
+
+            // Error 122 = subscription expired for a page
+            if (data.error_code === 122) {
+                console.warn('[PDM] Subscription expired in multi-page search, page excluded');
+                return { conversations: [] };
+            }
             const convs = data.conversations || [];
 
             // Update maps
@@ -433,7 +464,7 @@ class PancakeDataManager {
             const doFetch = async (token) => {
                 const endpoint = `pages/${pageId}/conversations/${conversationId}/messages`;
                 let url = PancakeApiConfig.buildUrl.pancakeOfficial(endpoint, token);
-                if (customerId) url += `&customer_id=${customerId}`;
+                // Note: Public API v1 does NOT need customer_id (only v1 internal does)
                 if (currentCount !== null) url += `&current_count=${currentCount}`;
                 const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -456,11 +487,14 @@ class PancakeDataManager {
                 if (pat) data = await doFetch(pat);
             }
 
+            const customers = data.customers || data.conv_customers || [];
             const result = {
                 messages: data.messages || [],
                 conversation: data.conversation || null,
-                customers: data.customers || data.conv_customers || [],
-                customerId: (data.customers || data.conv_customers || [])[0]?.id || null,
+                customers,
+                customerId: customers[0]?.id || null,
+                global_id: data.global_id || customers.find(c => c.global_id)?.global_id || null,
+                can_inbox: data.can_inbox ?? true,
                 post: data.post || null,
                 activities: data.activities || [],
                 reports_by_phone: data.reports_by_phone || {},
@@ -658,7 +692,7 @@ class PancakeDataManager {
             const token = await this.tm?.getToken();
             if (!token) return { conversations: [] };
 
-            const ids = this.pageIds.filter(id => !id.startsWith('igo_'));
+            const ids = this._searchablePageIds;
             if (ids.length === 0) return { conversations: [] };
 
             const encoded = encodeURIComponent(query);
@@ -670,7 +704,12 @@ class PancakeDataManager {
             const res = await fetch(url, { method: 'POST', body: formData });
             if (!res.ok) return { conversations: [] };
             const data = await res.json();
-            if (data.error_code || !data.success) return { conversations: [] };
+            // Error 122 = subscription expired for a page
+            if (data.error_code === 122) {
+                console.warn('[PDM] Search hit error 122 (subscription expired)');
+                // Still return any partial results
+            }
+            if (data.error_code && data.error_code !== 122) return { conversations: [] };
             return { conversations: data.conversations || [] };
         } catch (e) {
             console.error('[PDM] search error:', e);

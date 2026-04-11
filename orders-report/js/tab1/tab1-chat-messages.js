@@ -738,7 +738,8 @@ async function _sendInbox(pdm, pageId, convId, text, pat, replyData) {
 async function _sendComment(pdm, pageId, convId, text, pat, replyData) {
     const conv = window.currentConversationData || {};
     const raw = conv._raw || {};
-    const postId = raw.post_id || conv._messagesData?.post?.id || '';
+    // post_id: prefer direct conv field, then _raw, then messages post response
+    const postId = conv.post_id || raw.post_id || conv._messagesData?.post?.id || '';
     const fromId = window.currentChatPSID || raw.from?.id || '';
     const messageId = replyData?.id || convId;
     const type = window.currentReplyType || 'reply_comment';
