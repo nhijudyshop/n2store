@@ -293,14 +293,13 @@ window.closeChatModal = function() {
     if (window._pageConvCache) window._pageConvCache.clear();
     if (window._pageConvPickerCache) window._pageConvPickerCache.clear();
 
-    // Cleanup state
+    // Cleanup state — don't reset isSendingMessage (send continues in background)
     window.currentConversationId = null;
     window.currentConversationType = null;
     window.currentConversationData = null;
     window.allChatMessages = [];
     window.currentChatCursor = null;
     window.currentReplyMessage = null;
-    window.isSendingMessage = false;
 
     // Clear image previews
     if (window.clearImagePreviews) window.clearImagePreviews();

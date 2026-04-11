@@ -423,6 +423,14 @@ window.sendMessage = async function() {
     const replyData = window.currentReplyMessage;
     window.cancelReply();
 
+    // Snapshot all state needed for send — survives modal close
+    const pageId = window.currentSendPageId || window.currentChatChannelId;
+    const convId = window.currentConversationId;
+    const convType = window.currentConversationType;
+    const psid = window.currentChatPSID;
+    const convData = window.currentConversationData;
+    const replyType = window.currentReplyType;
+
     // Optimistic UI update
     if (text) {
         window.allChatMessages.push({
@@ -433,11 +441,8 @@ window.sendMessage = async function() {
             senderName: '',
             attachments: [],
         });
-        window.renderChatMessages(window.allChatMessages);
+        if (window.renderChatMessages) window.renderChatMessages(window.allChatMessages);
     }
-
-    const pageId = window.currentSendPageId || window.currentChatChannelId;
-    const convId = window.currentConversationId;
 
     try {
         const pdm = window.pancakeDataManager;
@@ -511,15 +516,13 @@ window.sendMessage = async function() {
             }
         }
 
-        // Mark as replied: clear pending_customers from both Render DBs + browser badge
-        const psid = window.currentChatPSID;
+        // Mark as replied (works even if modal closed — fire-and-forget)
         if (psid) {
             window.newMessagesNotifier?.clearPendingForCustomer(psid);
             if (typeof _markRepliedOnServer === 'function') _markRepliedOnServer(psid, pageId);
         }
 
-        // Reload messages to get server-confirmed versions
-        // Extension sends go directly to Facebook → Pancake needs longer to sync
+        // Reload messages only if modal still open on same conversation
         const reloadDelay = imagesSentViaExtension ? 5000 : 2000;
         setTimeout(async () => {
             if (window.currentConversationId === convId) {
@@ -568,6 +571,7 @@ window.sendMessage = async function() {
 
     } catch (error) {
         console.error('[Chat-Msg] Send error:', error);
+        // Show toast regardless of modal state (notification-style)
         const fb = error.fbError;
         if (fb?.is24HourError) {
             _showToast('Đã quá 24h. Khách cần nhắn tin trước mới gửi lại được.', 'error');
@@ -578,7 +582,8 @@ window.sendMessage = async function() {
         }
     } finally {
         window.isSendingMessage = false;
-        if (sendBtn) sendBtn.disabled = false;
+        const btn = document.querySelector('.send-btn');
+        if (btn) btn.disabled = false;
     }
 };
 
