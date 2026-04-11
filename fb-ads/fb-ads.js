@@ -42,10 +42,41 @@ const FBAds = (() => {
             const res = await fetch(API_BASE + '/auth/status').then(r => r.json());
             if (res.success && res.authenticated) {
                 onLoginSuccess(res.user);
-            } else if (res.tokenInvalid) {
-                toast('Token đã hết hiệu lực (đổi mật khẩu hoặc FB reset). Vui lòng đăng nhập lại.', 'error');
+            } else if (res.needsRefresh && res.user) {
+                // Token expired but we know the user — auto-refresh silently
+                console.log('[FB-ADS] Token needs refresh, attempting silent re-login...');
+                toast('Đang cập nhật token...', 'info');
+                await silentTokenRefresh();
             }
         } catch (e) { /* server error */ }
+    }
+
+    async function silentTokenRefresh() {
+        if (typeof FB === 'undefined') {
+            toast('Cần đăng nhập lại Facebook', 'error');
+            return;
+        }
+        // Try FB.login silently — if user already authorized app, no popup needed
+        FB.login(function(response) {
+            if (response.authResponse) {
+                const { accessToken, userID } = response.authResponse;
+                FB.api('/me', { fields: 'name' }, async function(me) {
+                    try {
+                        const res = await fetch(API_BASE + '/auth/token', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ accessToken, userID, name: me?.name || 'User' })
+                        }).then(r => r.json());
+                        if (res.success) {
+                            toast('Token đã được cập nhật!', 'success');
+                            onLoginSuccess(res.user);
+                        }
+                    } catch (e) { toast('Lỗi refresh token', 'error'); }
+                });
+            } else {
+                toast('Cần đăng nhập lại Facebook', 'error');
+            }
+        }, { scope: 'ads_management,ads_read,business_management,pages_read_engagement,pages_manage_ads', auth_type: 'reauthorize' });
     }
 
     function login() {

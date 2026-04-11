@@ -204,24 +204,21 @@ router.get('/auth/status', async (req, res) => {
     }
 
     if (fbTokenStore.accessToken && Date.now() < (fbTokenStore.expiresAt || 0)) {
-        // Validate token is still valid with FB (lightweight call)
+        // Quick validate token with FB
         try {
             const checkUrl = `${FB_GRAPH_URL}/me?fields=id,name&access_token=${fbTokenStore.accessToken}`;
             const checkRes = await fetch(checkUrl);
             const checkData = await checkRes.json();
             if (checkData.error) {
-                // Token invalidated — clear it
-                console.log(`[FB-ADS] Token invalid: ${checkData.error.message}`);
-                const invalidUserId = fbTokenStore.userId;
-                fbTokenStore = { accessToken: null, expiresAt: null, userId: null, name: null };
-                // Remove from DB
-                try {
-                    const db = req.app.locals.chatDb;
-                    if (db && invalidUserId) await db.query('DELETE FROM fb_ads_tokens WHERE user_id = $1', [invalidUserId]);
-                } catch (e) { /* ignore */ }
-                return res.json({ success: true, authenticated: false, user: null, tokenInvalid: true });
+                // Token invalidated — don't delete, tell frontend to auto-refresh
+                console.log(`[FB-ADS] Token needs refresh for ${fbTokenStore.name}: ${checkData.error.message}`);
+                return res.json({
+                    success: true,
+                    authenticated: false,
+                    user: { id: fbTokenStore.userId, name: fbTokenStore.name },
+                    needsRefresh: true
+                });
             }
-            // Token valid
             return res.json({
                 success: true,
                 authenticated: true,
