@@ -478,12 +478,16 @@ Redirect 301 tới URL ảnh avatar. Cần follow redirect.
 
 ## Lưu ý quan trọng
 
-### 1. Customer fb_id khác nhau trên mỗi page
-- "Huỳnh Thành Đạt" trên Store = `25717004554573583`
-- "Huỳnh Thành Đạt" trên House = `24948162744877764`
-- "Huỳnh Thành Đạt" trên Ơi = `26140045085657251`
-- → **Không thể dùng fb_id để link cross-page**
-- → Dùng `conversations/search` bằng tên để tìm cross-page
+### 1. Customer IDs — fb_id vs global_id
+- `fb_id` là **Page-Scoped** — khác nhau trên mỗi page:
+  - "Huỳnh Thành Đạt" trên Store = `25717004554573583`
+  - "Huỳnh Thành Đạt" trên House = `24948162744877764`
+  - "Huỳnh Thành Đạt" trên Ơi = `26140045085657251`
+- `global_id` là **Facebook Real Global ID** — **giống nhau cross-page**: `100001957832900`
+- `global_id` lấy từ messages response (`messages_response.global_id` hoặc `customers[0].global_id`)
+- → Dùng `global_id` để link khách hàng cross-page trong Render DB
+- → Dùng `conversations/search` bằng tên để tìm conversations cross-page (1 request, all pages)
+- → **Không dùng** `fb_id` để link cross-page
 
 ### 2. Error codes
 | Code | Ý nghĩa | Xử lý |
@@ -522,13 +526,28 @@ Một số endpoint (settings, conversations, messages) cần `Referer` header:
 ## Mapping sang Render DB
 
 ### Bảng `customers` — link với Pancake
+Auto-sync khi mở conversation qua `POST /api/v2/customers/sync-pancake`. Match: `global_id → phone → fb_id`.
+
 | Render DB | Pancake Source | Lưu ý |
 |-----------|---------------|-------|
-| `fb_id` | `conversation.customers[0].fb_id` | Khác nhau per page! |
-| `name` | `conversation.customers[0].name` | |
-| `phone` | `conversation.recent_phone_numbers[0].phone_number` | |
+| `fb_id` | `customers[0].fb_id` | Page-scoped, khác nhau per page |
+| `global_id` | `messages.global_id` | **Cross-page Real ID** — dùng để link |
+| `name` | `customers[0].name` | |
+| `phone` | `conv_phone_numbers[0]` hoặc `recent_phone_numbers[0].phone_number` | |
+| `pancake_id` | `customers[0].id` (UUID) | Pancake internal ID |
+| `gender` | `customers[0].personal_info.gender` | |
+| `birthday` | `customers[0].personal_info.birthday` | |
+| `lives_in` | `customers[0].personal_info.lives_in` | |
+| `can_inbox` | `messages.can_inbox` | Có thể gửi tin nhắn FB |
+| `order_success_count` | `reports_by_phone[phone].order_success` | |
+| `order_fail_count` | `reports_by_phone[phone].order_fail` | |
+| `pancake_notes` | `messages.notes[]` | JSONB array ghi chú nhân viên |
+| `pancake_data` | JSONB | `{ ad_clicks, page_fb_ids: { pageId: fbId } }` |
+| `pancake_synced_at` | auto | Lần sync cuối |
 
 ### Bảng `pancake_accounts` — JWT accounts
+Auto-sync khi inbox load accounts qua `POST /api/pancake-accounts/sync`.
+
 | Render DB | Pancake Source |
 |-----------|---------------|
 | `account_id` | JWT payload `uid` |
@@ -537,12 +556,60 @@ Một số endpoint (settings, conversations, messages) cần `Referer` header:
 | `name` | JWT payload `name` |
 | `fb_id` | JWT payload `fb_id` |
 | `fb_name` | JWT payload `fb_name` |
-| `pages` | Response từ `/pages` API |
+| `pages` | JSONB từ `/pages` API — `[{id, name}]` |
+| `is_active` | boolean |
+| `last_used_at` | auto |
 
 ### Bảng `fb_global_id_cache` — PSID → Global ID
+Cache cho extension gửi tin nhắn. Auto-invalidate sau 3 lần send fail.
+
 | Render DB | Pancake Source |
 |-----------|---------------|
 | `page_id` | `conversation.page_id` |
 | `psid` | `conversation.from_psid` |
 | `global_user_id` | `messages_response.global_id` hoặc `page_customer.global_id` |
 | `customer_name` | `conversation.customers[0].name` |
+| `send_success_count` | Tracking từ extension |
+| `send_fail_count` | Auto-delete khi ≥ 3 |
+
+---
+
+## N2Store Inbox — Search Flow
+
+### Khi user gõ tên/SĐT (Enter hoặc sau 5s idle):
+1. `searchConversations(query)` → `POST /conversations/search` với tất cả page_ids
+2. API trả conversations cross-page (mỗi page có fb_id khác cho cùng 1 người)
+3. Nếu page filter đang bật → chỉ hiện conversations thuộc page đã chọn
+4. Error 122 → retry page-by-page, loại pages hết hạn
+
+### Khi user paste fb_id (15+ digits):
+1. Detect fb_id → `searchByCustomerId(fbId)` → tất cả accounts parallel
+2. Mỗi account query pages nó có quyền (từ `accountPageAccessMap`)
+3. Error 122 per account → retry loại page lỗi
+4. Merge + deduplicate qua `Map(id → conv)`
+
+### Auto-sync customer data:
+1. User click conversation → `loadMessages()` → Pancake trả full customer detail
+2. `_syncPancakeCustomerToDB()` → `POST /api/v2/customers/sync-pancake` (fire-and-forget)
+3. Match existing customer: `global_id → phone → fb_id` → upsert
+
+---
+
+## N2Store Inbox — UI Components
+
+### Customer Info Card (panel phải, tab Phân Nhóm)
+Hiện khi click conversation, data từ messages response:
+- SĐT (click copy)
+- FB ID, Global ID (monospace, click copy)
+- Giới tính, sinh nhật, nơi sống
+- Đơn hàng: `N OK` `N hoàn` `N%` (badges màu, cảnh báo >30%)
+- Bình luận count
+- Can inbox / Banned warning
+- Ad clicks count
+- Page name
+
+### Customer Stats Bar (trên chat messages)
+Compact bar: phone badge + comment/success/fail/warning badges.
+
+### Post Info Banner (dưới stats bar)
+Livestream/post thumbnail + title + link Facebook. Detect: `post.type === 'livestream'` || `live_video_status`.
