@@ -1004,6 +1004,55 @@ class InboxPancakeAPI {
 
             await Promise.all(tasks);
 
+            // Phase 2: per-page customer search
+            // Cùng 1 người có fb_id khác nhau trên mỗi page.
+            // Chỉ query pages chưa trả kết quả từ Phase 1, dùng 1 account per page.
+            const coveredPageIds = new Set();
+            for (const conv of allConvs.values()) {
+                if (conv.page_id) coveredPageIds.add(String(conv.page_id));
+            }
+            const uncoveredPageIds = allIds.filter(id => !coveredPageIds.has(String(id)));
+
+            if (uncoveredPageIds.length > 0) {
+                const knownFbIds = new Set([fbId]);
+                for (const conv of allConvs.values()) {
+                    const cFbId = conv.customers?.[0]?.fb_id || conv.from_id;
+                    if (cFbId) knownFbIds.add(cFbId);
+                }
+
+                // 1 account per page (first account that has access), × each fb_id
+                const perPageTasks = [];
+                for (const pageId of uncoveredPageIds) {
+                    const acc = accounts.find(a => {
+                        const m = this.tm.accountPageAccessMap[a.accountId];
+                        return !m || m.size === 0 || m.has(pageId);
+                    }) || accounts[0];
+                    if (!acc) continue;
+
+                    for (const custFbId of knownFbIds) {
+                        perPageTasks.push((async () => {
+                            try {
+                                const url = InboxApiConfig.buildUrl.pancake(
+                                    `pages/${pageId}/customers/${custFbId}/conversations`,
+                                    `access_token=${acc.token}`
+                                );
+                                const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                                if (!res.ok) return;
+                                const data = await res.json();
+                                if (data?.success && data.conversations) {
+                                    let added = 0;
+                                    for (const conv of data.conversations) {
+                                        if (!allConvs.has(conv.id)) { allConvs.set(conv.id, conv); added++; }
+                                    }
+                                    if (added > 0) console.log(`[INBOX-API] per-page search page=${pageId} cust=${custFbId}: +${added} new convs`);
+                                }
+                            } catch (_) {}
+                        })());
+                    }
+                }
+                if (perPageTasks.length > 0) await Promise.all(perPageTasks);
+            }
+
             const conversations = [...allConvs.values()];
             console.log(`[INBOX-API] searchByCustomerId(${fbId}): ${conversations.length} total from ${accounts.length} accounts`);
             return { conversations };
