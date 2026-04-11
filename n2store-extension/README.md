@@ -441,10 +441,12 @@ chrome.declarativeNetRequest.updateDynamicRules({
 | **L2: Extension in-memory** | `globalIdCache` Map trong service worker | Per browser, tạm thời | Until SW restart | Extension cache lookup gần đây |
 | **L3: chrome.storage.local** | Extension persistent storage | Per browser | 24h | Survive SW restart |
 
-**Auto-populate L1 (Render DB cache):**
-- Web app `orders-report/js/managers/global-id-harvester.js` hook vào `pdm.fetchConversations()` + `pdm.fetchMessages()` (cả `tab1-orders` và `inbox`).
-- Mỗi response Pancake có `customers[].global_id` hoặc `page_customer.global_id` → `PUT /api/fb-global-id` (fire-and-forget, dedupe per session).
-- Mỗi user khi mở conversation tự động "đóng góp" mapping cho cache shared. Sau một thời gian → mọi mapping phổ biến đều có sẵn → extension không phải resolve nữa.
+**Auto-populate L1 (Render DB cache) — 3 triggers:**
+1. **`fetchMessages`** (mở conversation): `global-id-harvester.js` extract `customers[].global_id` → `PUT /api/fb-global-id` (fire-and-forget, dedupe per session).
+2. **Extension bypass send** (gửi tin fail → extension resolve global_id): `tab1-extension-bridge.js` gọi `_saveGlobalIdToServer()` + `GlobalIdHarvester.fromCustomers()` khi `sendViaExtension` hoặc `sendViaExtensionWithAttachments` resolve thành công.
+3. **Customer sync** (mở chat modal): `tab1-chat-core.js` gọi `POST /api/v2/customers/sync-pancake` sau `_loadMessages` — sync toàn bộ customer data (global_id, phone, name, can_inbox, notes, order stats) vào Render DB.
+
+> **Không harvest từ conversation list** (`fetchConversations`/`fetchConversationsForPage`) — tránh spam 100+ PUT requests mỗi lần load (đã remove 04/2026).
 
 **Read L1 (web side):**
 - `orders-report/js/tab1/tab1-extension-bridge.js` query `GET /api/fb-global-id?pageId=X&psid=Y` trước khi gọi `sendViaExtension`.
@@ -565,7 +567,9 @@ obj.other_user_fbid                                   // Deep search
 
 > **Lưu ý quan trọng:** Pancake Extension KHÔNG có Strategy 4-5 của N2Store (ConversationPage scraping, thread_info.php). Khi Strategy 1-3 fail VÀ Strategy 4 không match được (vì threadId null) → `GET_GLOBAL_ID_FOR_CONV_FAILURE`.
 >
-> **Fix (04/2026):** `tab1-chat-core.js` enriches `thread_id` từ Pancake conversation list API (background fetch). API trả `thread_id` nhưng cache `inboxMapByPSID` và messages API thì không. Xem commit `a1fe2611`.
+> **Fix (04/2026):** `tab1-chat-core.js` enriches `thread_id` từ Pancake conversation list API (background fetch). API trả `thread_id` nhưng cache `inboxMapByPSID` và messages API thì không.
+>
+> **Update (04/2026):** Thêm `_syncPancakeCustomerToDB` trong `_loadMessages` — sync customer data (global_id, can_inbox, phone, notes) vào Render DB mỗi khi mở conversation từ orders-report. Extension bypass giờ harvest global_id qua `GlobalIdHarvester` khi resolve thành công (cả text lẫn image send). PSID cross-page guard thêm vào `inboxMapByPSID` lookup + bulk send.
 
 ### 7.2 Bài học quan trọng từ debug (04/2026)
 
@@ -679,14 +683,22 @@ Trường `isBusiness` trong REPLY_INBOX_PHOTO **PHẢI là `false`**. Đây là
 - Cần user **đã đăng nhập Facebook** trên cùng Chrome profile
 - 3 phương pháp extract: DTSGInitialData regex → hidden input → async_get_token
 
-### 10.3 Service Worker Lifecycle
+### 10.3 PSID là page-scoped — cross-page lookup
+
+- Cùng 1 customer có **fb_id (PSID) khác nhau** trên mỗi Facebook page
+- Ví dụ: "Huỳnh Thành Đạt" → Store=`25717004554573583`, House=`24948162744877764`, Ơi=`26140045085657251`
+- **Không thể dùng PSID để tìm cross-page.** Chỉ `searchConversationsOnPage(pageId, customerName)` (v2 public API) hoặc `POST /conversations/search` (v1) mới tìm được
+- `inboxMapByPSID` lookup phải kèm guard `conv.page_id === pageId` (đã fix 04/2026)
+- Khi switch page trong chat modal: dùng name search → conversation picker (nếu >1 match)
+
+### 10.4 Service Worker Lifecycle
 
 - Service Worker tắt sau **30s idle** → contentscript gửi `WAKE_UP` mỗi 10s
 - chrome.alarms gửi keepAlive mỗi 30s (backup)
 - Offscreen.js gửi keepAlive mỗi 20s
 - Dùng ES Modules (`type: "module"` trong manifest)
 
-### 10.4 Global ID Resolution — Troubleshooting
+### 10.5 Global ID Resolution — Troubleshooting
 
 **Triệu chứng:** `GET_GLOBAL_ID_FOR_CONV_FAILURE: "Could not resolve globalUserId"`
 
