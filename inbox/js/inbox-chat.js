@@ -1020,8 +1020,8 @@ class InboxChatController {
             conversations.sort((a, b) => ts(b) - ts(a));
         }
 
-        // Apply page filter (multi-select) — skip during search to show all results
-        if (this.selectedPageIds.size > 0 && !this.searchQuery) {
+        // Apply page filter (multi-select)
+        if (this.selectedPageIds.size > 0) {
             conversations = conversations.filter(c => this.selectedPageIds.has(c.pageId));
         }
 
@@ -1583,7 +1583,9 @@ class InboxChatController {
             activeEl.classList.add('active');
         }
 
-        // Reset stats bar and post info while loading
+        // Reset customer info, stats bar, post info while loading
+        const customerInfoCard = document.getElementById('customerInfoCard');
+        if (customerInfoCard) customerInfoCard.style.display = 'none';
         const statsBar = document.getElementById('customerStatsBar');
         if (statsBar) statsBar.style.display = 'none';
         const postBanner = document.getElementById('postInfoBanner');
@@ -1781,7 +1783,8 @@ class InboxChatController {
 
             this.renderMessages(conv);
 
-            // Render customer stats bar and post info
+            // Render customer info card, stats bar, post info
+            this.renderCustomerInfoCard(conv);
             this.renderCustomerStatsBar(conv);
             this.renderPostInfo(conv);
             this.renderActivities(conv);
@@ -2976,6 +2979,153 @@ class InboxChatController {
             };
             document.addEventListener('click', closeHandler);
         }, 0);
+    }
+
+    // ===== Customer Info Card (full Pancake customer detail) =====
+
+    renderCustomerInfoCard(conv) {
+        const card = document.getElementById('customerInfoCard');
+        if (!card) return;
+
+        const data = conv._messagesData;
+        if (!data) { card.style.display = 'none'; return; }
+
+        const cust = data.customers?.[0];
+        if (!cust) { card.style.display = 'none'; return; }
+
+        const phone = conv.phone || data.conv_phone_numbers?.[0] || '';
+        const globalId = data.global_id || cust.global_id || '';
+        const gender = cust.personal_info?.gender || data.gender || '';
+        const birthday = cust.personal_info?.birthday || data.birthday || '';
+        const livesIn = cust.personal_info?.lives_in || data.lives_in || '';
+        const canInbox = data.can_inbox !== false;
+        const isBanned = data.is_banned || false;
+        const commentCount = data.comment_count || 0;
+
+        // Order stats
+        let successOrders = 0, failOrders = 0;
+        if (phone && data.reports_by_phone) {
+            const phoneKey = Object.keys(data.reports_by_phone).find(k =>
+                k.includes(phone.replace(/^0/, '')) || k === phone
+            );
+            if (phoneKey) {
+                const report = data.reports_by_phone[phoneKey];
+                successOrders = report.order_success || 0;
+                failOrders = report.order_fail || 0;
+            }
+        }
+        const totalOrders = successOrders + failOrders;
+        const returnRate = totalOrders > 0 ? Math.round((failOrders / totalOrders) * 100) : 0;
+
+        // Ad clicks
+        const adClicks = cust.ad_clicks || [];
+
+        // Build rows
+        const rows = [];
+
+        // Phone
+        if (phone) {
+            rows.push(`<div class="ci-row">
+                <span class="ci-label"><i data-lucide="phone" class="ci-icon"></i>SĐT</span>
+                <span class="ci-value ci-copyable" onclick="navigator.clipboard.writeText('${this.escapeHtml(phone)}');showToast('Đã copy','success')" title="Click copy">${this.escapeHtml(phone)}</span>
+            </div>`);
+        }
+
+        // FB ID
+        rows.push(`<div class="ci-row">
+            <span class="ci-label"><i data-lucide="fingerprint" class="ci-icon"></i>FB ID</span>
+            <span class="ci-value ci-copyable ci-mono" onclick="navigator.clipboard.writeText('${cust.fb_id}');showToast('Đã copy','success')" title="Click copy">${cust.fb_id}</span>
+        </div>`);
+
+        // Global ID
+        if (globalId) {
+            rows.push(`<div class="ci-row">
+                <span class="ci-label"><i data-lucide="globe" class="ci-icon"></i>Global ID</span>
+                <span class="ci-value ci-copyable ci-mono" onclick="navigator.clipboard.writeText('${globalId}');showToast('Đã copy','success')" title="Click copy">${globalId}</span>
+            </div>`);
+        }
+
+        // Gender
+        if (gender) {
+            rows.push(`<div class="ci-row">
+                <span class="ci-label"><i data-lucide="user" class="ci-icon"></i>Giới tính</span>
+                <span class="ci-value">${this.escapeHtml(gender)}</span>
+            </div>`);
+        }
+
+        // Birthday
+        if (birthday) {
+            rows.push(`<div class="ci-row">
+                <span class="ci-label"><i data-lucide="cake" class="ci-icon"></i>Sinh nhật</span>
+                <span class="ci-value">${this.escapeHtml(birthday)}</span>
+            </div>`);
+        }
+
+        // Lives in
+        if (livesIn) {
+            rows.push(`<div class="ci-row">
+                <span class="ci-label"><i data-lucide="map-pin" class="ci-icon"></i>Nơi sống</span>
+                <span class="ci-value">${this.escapeHtml(livesIn)}</span>
+            </div>`);
+        }
+
+        // Order stats
+        rows.push(`<div class="ci-row">
+            <span class="ci-label"><i data-lucide="package" class="ci-icon"></i>Đơn hàng</span>
+            <span class="ci-value">
+                <span class="ci-stat ci-stat-success">${successOrders} OK</span>
+                <span class="ci-stat ci-stat-fail">${failOrders} hoàn</span>
+                ${returnRate > 30 ? `<span class="ci-stat ci-stat-warn">${returnRate}%</span>` : ''}
+            </span>
+        </div>`);
+
+        // Comments
+        rows.push(`<div class="ci-row">
+            <span class="ci-label"><i data-lucide="message-square" class="ci-icon"></i>Bình luận</span>
+            <span class="ci-value">${commentCount}</span>
+        </div>`);
+
+        // Can inbox
+        if (!canInbox) {
+            rows.push(`<div class="ci-row ci-row-warn">
+                <span class="ci-label"><i data-lucide="message-circle-off" class="ci-icon"></i>Inbox</span>
+                <span class="ci-value ci-text-danger">Không thể gửi tin nhắn</span>
+            </div>`);
+        }
+
+        // Banned
+        if (isBanned) {
+            rows.push(`<div class="ci-row ci-row-warn">
+                <span class="ci-label"><i data-lucide="ban" class="ci-icon"></i>Trạng thái</span>
+                <span class="ci-value ci-text-danger">Đã bị chặn</span>
+            </div>`);
+        }
+
+        // Ad clicks
+        if (adClicks.length > 0) {
+            rows.push(`<div class="ci-row">
+                <span class="ci-label"><i data-lucide="megaphone" class="ci-icon"></i>Quảng cáo</span>
+                <span class="ci-value">${adClicks.length} click</span>
+            </div>`);
+        }
+
+        // Page
+        if (conv.pageName) {
+            rows.push(`<div class="ci-row">
+                <span class="ci-label"><i data-lucide="store" class="ci-icon"></i>Page</span>
+                <span class="ci-value">${this.escapeHtml(conv.pageName)}</span>
+            </div>`);
+        }
+
+        card.innerHTML = `
+            <div class="ci-header">
+                <div class="ci-name">${this.escapeHtml(cust.name || conv.name)}</div>
+                <div class="ci-type">${conv.type === 'COMMENT' ? 'Bình luận' : 'Tin nhắn'}${conv.isLivestream ? ' · Livestream' : ''}</div>
+            </div>
+            <div class="ci-body">${rows.join('')}</div>
+        `;
+        card.style.display = '';
+        this._debouncedCreateIcons();
     }
 
     // ===== Customer Stats Bar (reference: tpos-pancake renderCustomerStatsBar) =====
