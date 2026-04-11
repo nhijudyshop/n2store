@@ -643,9 +643,26 @@ Endpoint riêng `/pages/<id>/orders` cần full browser session (cookie auth).
   - "Huỳnh Thành Đạt" trên Ơi = `26140045085657251`
 - `global_id` là **Facebook Real Global ID** — **giống nhau cross-page**: `100001957832900`
 - `global_id` lấy từ messages response (`messages_response.global_id` hoặc `customers[0].global_id`)
-- → Dùng `global_id` để link khách hàng cross-page trong Render DB
-- → Dùng `conversations/search` bằng tên để tìm conversations cross-page (1 request, all pages)
 - → **Không dùng** `fb_id` để link cross-page
+
+**Cross-page customer lookup (04/2026):**
+```
+Strategy 0: DB Lookup Chain (chính xác 100%)
+  ① fb_global_id_cache: (source_page, source_psid) → global_user_id
+  ② customers table: phone → global_id (backup nếu ① miss)
+  ③ fb_global_id_cache reverse: (global_user_id, target_page) → target_psid
+  ④ Pancake API: /pages/{target}/customers/{target_psid}/conversations
+
+Fallback: POST /conversations/search bằng tên (strip diacritics, exact match)
+Last resort: /pages/{target}/customers/{source_psid}/conversations (chỉ work nếu cùng PSID)
+```
+
+**Render DB endpoints cho cross-page:**
+| Endpoint | Input | Output |
+|---|---|---|
+| `GET /api/fb-global-id?pageId=X&psid=Y` | source page + psid | `global_user_id` |
+| `GET /api/fb-global-id/by-global?globalUserId=X&pageId=Y` | global_id + target page | `psid` trên target page |
+| `GET /api/v2/customers/by-phone/:phone` | SĐT | `global_id`, `pancake_data.page_fb_ids` |
 
 ### 2. Error codes
 | Code | Ý nghĩa | Xử lý |
@@ -684,7 +701,23 @@ Một số endpoint (settings, conversations, messages) cần `Referer` header:
 ## Mapping sang Render DB
 
 ### Bảng `customers` — link với Pancake
-Auto-sync khi mở conversation qua `POST /api/v2/customers/sync-pancake`. Match: `global_id → phone → fb_id`.
+Auto-sync khi mở conversation qua `POST /api/v2/customers/sync-pancake` (cả inbox page lẫn orders-report chat modal). Match: `global_id → phone → fb_id`.
+
+### Bảng `fb_global_id_cache` — cross-page ID mapping
+Auto-populate từ: (1) `fetchMessages` response — `customers[].global_id`, (2) extension bypass khi resolve `global_id` thành công, (3) `_syncPancakeCustomerToDB`.
+
+| Column | Type | Ý nghĩa |
+|---|---|---|
+| `page_id` | VARCHAR | Facebook Page ID |
+| `psid` | VARCHAR | Page-Scoped ID (= fb_id trên page đó) |
+| `global_user_id` | VARCHAR | Facebook Global ID (cross-page) |
+| `customer_name` | VARCHAR | Tên khách |
+| `thread_id` | VARCHAR | Facebook thread ID |
+| `use_count` | INTEGER | Số lần lookup |
+| `send_success_count` | INTEGER | Gửi tin thành công |
+| `send_fail_count` | INTEGER | 3 fail liên tiếp → auto-delete |
+
+`pancake_data.page_fb_ids` trong `customers` table cũng lưu mapping `{ pageId: fbId }` — populated bởi sync-pancake.
 
 | Render DB | Pancake Source | Lưu ý |
 |-----------|---------------|-------|
