@@ -2096,13 +2096,8 @@ class PurchaseOrderController {
      */
     handleSelectAll(selected) {
         if (selected) {
-            // Select all current orders
-            const orders = this.dataManager.getCurrentPageOrders();
-            orders.forEach(order => {
-                if (!this.dataManager.selectedIds.has(order.id)) {
-                    this.dataManager.toggleSelection(order.id);
-                }
-            });
+            // Select ALL orders in current tab (not just current page)
+            this.dataManager.selectAll();
         } else {
             // Deselect all
             this.dataManager.clearSelection();
