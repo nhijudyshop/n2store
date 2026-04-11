@@ -378,19 +378,34 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
         if (foundConvs.length === 0) {
             conv = null;
         } else {
-            // Auto-pick: prefer INBOX with most recent message, then any conv
-            // Sort by last_customer_interactive_at (actual message time), fallback updated_at
-            const _byMsgTime = (a, b) => {
+            // Sort: INBOX first, then COMMENT. Within each group, newest message first.
+            const _byTypeAndTime = (a, b) => {
+                // INBOX before COMMENT
+                if (a.type === 'INBOX' && b.type !== 'INBOX') return -1;
+                if (a.type !== 'INBOX' && b.type === 'INBOX') return 1;
+                // Within same type: newest first
                 const ta = new Date(a.last_customer_interactive_at || a.updated_at || 0).getTime();
                 const tb = new Date(b.last_customer_interactive_at || b.updated_at || 0).getTime();
                 return tb - ta;
             };
-            const inboxConvs = foundConvs.filter(c => c.type === 'INBOX').sort(_byMsgTime);
-            conv = inboxConvs[0] || foundConvs.sort(_byMsgTime)[0];
+            foundConvs.sort(_byTypeAndTime);
 
-            // Cache all found convs for repick button
+            // Auto-pick first INBOX (or first conv if no INBOX)
+            conv = foundConvs.find(c => c.type === 'INBOX') || foundConvs[0];
+
+            // Cache for repick button
             if (!window._pageConvPickerCache) window._pageConvPickerCache = new Map();
             window._pageConvPickerCache.set(pageId, { convs: foundConvs, loadToken });
+
+            // Show picker below messages after load (if >1 conv)
+            if (foundConvs.length > 1) {
+                // Defer: show picker after messages render
+                const otherConvs = foundConvs.filter(c => c.id !== conv.id);
+                setTimeout(() => {
+                    if (window._chatLoadSeq !== loadToken) return;
+                    _appendConvPickerBelow(otherConvs, pageId, loadToken);
+                }, 500);
+            }
         }
     } else if (type === 'COMMENT') {
         // COMMENT: Always fetch fresh from API (cache may hold stale/deleted conversations)
@@ -1028,6 +1043,59 @@ function _syncPancakeCustomerToDB(messagesResult, pageId) {
 // =====================================================
 // CONVERSATION PICKER (multiple convs on a page)
 // =====================================================
+
+/**
+ * Append a compact conv picker BELOW existing messages (for page switch).
+ * Shows other conversations the customer has on this page.
+ */
+function _appendConvPickerBelow(convs, pageId, loadToken) {
+    if (!convs?.length) return;
+    const messagesEl = document.getElementById('chatMessages');
+    if (!messagesEl) return;
+
+    const pdm = window.pancakeDataManager;
+    const pageName = (pdm?.pages || []).find(p => String(p.id) === String(pageId))?.name || pageId;
+
+    let html = `<div class="chat-conv-picker" style="border-top:1px solid var(--ap-outline-variant);margin-top:12px;padding-top:12px;">
+        <div class="chat-conv-picker-title">Đoạn hội thoại khác trên ${_escapeHtml(pageName)}</div>`;
+
+    for (const conv of convs) {
+        const isInbox = conv.type === 'INBOX';
+        const icon = isInbox ? 'mail' : 'chat_bubble';
+        const typeClass = isInbox ? 'inbox' : 'comment';
+        const typeLabel = isInbox ? 'Tin nhắn' : 'Bình luận';
+        const snippet = _escapeHtml(conv.snippet || '');
+        const name = _escapeHtml(conv.from?.name || 'Khách hàng');
+        const time = _formatPickerTime(conv.last_customer_interactive_at || conv.updated_at || '');
+
+        html += `<div class="chat-conv-picker-item" data-conv-id="${conv.id}" data-page-id="${pageId}">
+            <div class="chat-conv-picker-item-icon ${typeClass}">
+                <span class="material-symbols-outlined">${icon}</span>
+            </div>
+            <div class="chat-conv-picker-item-info">
+                <div class="chat-conv-picker-item-name">${name} · ${typeLabel}</div>
+                <div class="chat-conv-picker-item-snippet">${snippet}</div>
+            </div>
+            <div class="chat-conv-picker-item-time">${time}</div>
+        </div>`;
+    }
+
+    html += '</div>';
+
+    const pickerDiv = document.createElement('div');
+    pickerDiv.innerHTML = html;
+    messagesEl.appendChild(pickerDiv);
+
+    // Bind clicks
+    pickerDiv.querySelectorAll('.chat-conv-picker-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const convId = item.dataset.convId;
+            const allConvs = window._pageConvPickerCache?.get(pageId)?.convs || convs;
+            const conv = allConvs.find(c => c.id === convId) || convs.find(c => c.id === convId);
+            if (conv) _pickConversation(conv, pageId, loadToken);
+        });
+    });
+}
 
 function _showConversationPicker(convs, pageId, loadToken) {
     const messagesEl = document.getElementById('chatMessages');
