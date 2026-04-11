@@ -182,6 +182,7 @@
     // =====================================================
 
     let sseReloadTimer = null;
+    let sseMuteUntil = 0; // Timestamp — ignore SSE events until this time
 
     function setupSSE() {
         if (sseSource) { sseSource.close(); sseSource = null; }
@@ -189,14 +190,24 @@
         try {
             sseSource = new EventSource(SSE_URL);
 
-            // Debounce SSE reloads — wait 2s after last event to avoid flicker
-            const debouncedReload = () => {
+            const handleSSE = (e) => {
+                // Skip SSE events caused by our own actions (muted)
+                if (Date.now() < sseMuteUntil) return;
+
+                // Only reload for events from OTHER users (sync_complete, batch, etc.)
+                // Skip qty_change and single update events — we already updated DOM optimistically
+                try {
+                    const payload = JSON.parse(e.data);
+                    const action = payload?.data?.action;
+                    if (action === 'qty_change' || action === 'update') return;
+                } catch (_) {}
+
                 if (sseReloadTimer) clearTimeout(sseReloadTimer);
                 sseReloadTimer = setTimeout(() => loadData(), 2000);
             };
 
-            sseSource.addEventListener('update', debouncedReload);
-            sseSource.addEventListener('deleted', debouncedReload);
+            sseSource.addEventListener('update', handleSSE);
+            sseSource.addEventListener('deleted', handleSSE);
             sseSource.onerror = () => console.warn('[KHO] SSE disconnected, auto-reconnect');
         } catch (e) {
             console.warn('[KHO] SSE setup failed:', e);
@@ -490,6 +501,9 @@
 
     // Inline quantity change — optimistic UI update (no full re-render)
     async function changeQty(id, change) {
+        // Mute SSE for 3s — our own action, don't re-render
+        sseMuteUntil = Date.now() + 3000;
+
         // Optimistic: update DOM immediately
         const row = document.querySelector(`tr[data-id="${id}"]`);
         if (row) {
@@ -501,7 +515,6 @@
                     qtySpan.textContent = item.quantity;
                     qtySpan.className = item.quantity === 0 ? 'zero-qty' : '';
                 }
-                // Update total cell
                 const totalCell = row.querySelector('.col-total');
                 if (totalCell) {
                     totalCell.textContent = formatCurrency(item.quantity * (parseFloat(item.purchase_price) || 0));
@@ -517,9 +530,9 @@
                 body: JSON.stringify({ id, change }),
             });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            // SSE will sync data in background (debounced, no re-render flicker)
         } catch (err) {
             showToast('Lỗi: ' + err.message, 'error');
+            sseMuteUntil = 0;
             loadData(); // Revert on error
         }
     }
