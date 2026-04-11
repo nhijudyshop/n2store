@@ -971,15 +971,22 @@ class InboxPancakeAPI {
                 if (token) accounts.push({ accountId: 'active', token });
             }
 
-            // Query ALL accounts in parallel — each may return different conversations
+            // Each account queries only its known pages (from accountPageAccessMap).
+            // If map not populated yet, query all pages for that account.
             const tasks = accounts.map(async (acc) => {
-                let data = await doFetch(acc.token, allIds);
+                const knownPages = this.tm.accountPageAccessMap[acc.accountId];
+                const accPageIds = knownPages?.size > 0
+                    ? allIds.filter(id => knownPages.has(id))
+                    : allIds; // Map not populated → query all
+                if (accPageIds.length === 0) return;
+
+                let data = await doFetch(acc.token, accPageIds);
                 if (!data) return;
 
-                // Error 122: retry excluding expired pages for this account
+                // Error 122: retry excluding expired pages
                 if (!data.success && data.error_code === 122 && data.errors) {
                     const badIds = new Set(data.errors.filter(e => e.error_code === 122).map(e => String(e.page_id)));
-                    const goodIds = allIds.filter(id => !badIds.has(String(id)));
+                    const goodIds = accPageIds.filter(id => !badIds.has(String(id)));
                     if (goodIds.length > 0) {
                         data = await doFetch(acc.token, goodIds);
                     } else {
@@ -991,7 +998,7 @@ class InboxPancakeAPI {
                     for (const conv of data.conversations) {
                         if (!allConvs.has(conv.id)) allConvs.set(conv.id, conv);
                     }
-                    console.log(`[INBOX-API] searchByCustomerId account "${acc.name || acc.accountId}": ${data.conversations.length} convs`);
+                    console.log(`[INBOX-API] searchByCustomerId account "${acc.name || acc.accountId}": ${data.conversations.length} convs (${accPageIds.length} pages)`);
                 }
             });
 

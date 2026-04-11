@@ -1020,8 +1020,8 @@ class InboxChatController {
             conversations.sort((a, b) => ts(b) - ts(a));
         }
 
-        // Apply page filter (multi-select)
-        if (this.selectedPageIds.size > 0) {
+        // Apply page filter (multi-select) — skip during search to show all results
+        if (this.selectedPageIds.size > 0 && !this.searchQuery) {
             conversations = conversations.filter(c => this.selectedPageIds.has(c.pageId));
         }
 
