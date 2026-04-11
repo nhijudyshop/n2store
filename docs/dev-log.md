@@ -8,6 +8,13 @@
 
 ## 2026-04-11
 
+### [inbox] Customer Info Card + search giữ page filter ✅
+| | |
+|---|---|
+| **Files** | `inbox/index.html`, `inbox/js/inbox-chat.js`, `inbox/css/inbox.css` |
+| **Chi tiết** | **Customer Info Card:** Panel phải hiện đầy đủ thông tin khách khi click conversation: SĐT, FB ID, Global ID (cross-page), giới tính, sinh nhật, nơi sống, đơn hàng (OK/hoàn/%), bình luận, can_inbox, banned, ad clicks, page. Tất cả ID copyable. Card ở trên notes section trong tab Phân Nhóm. **Search filter:** Revert bypass page filter — filter Store thì search chỉ hiện Store. |
+| **Status** | ✅ Done |
+
 ### [chat] Cross-page conversation lookup + picker + bug fixes ✅
 | | |
 |---|---|
