@@ -357,14 +357,31 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
         const customerName = window.currentCustomerName;
         let foundConvs = [];
 
-        // Search by customer name on target page (v2 public API — confirmed working)
+        // Name match helper — normalize diacritics for comparison
+        const _nameMatch = (convName, target) => {
+            if (!convName || !target) return false;
+            if (convName === target) return true;
+            // Case-insensitive + trim
+            const a = convName.trim().toLowerCase();
+            const b = target.trim().toLowerCase();
+            return a === b || a.includes(b) || b.includes(a);
+        };
+
+        // Strategy 1: v2 public API search (needs PAT)
         if (customerName && pdm.searchConversationsOnPage) {
             const searchResult = await pdm.searchConversationsOnPage(pageId, customerName);
             foundConvs = (searchResult.conversations || []).filter(c =>
-                c.from?.name === customerName
+                _nameMatch(c.from?.name, customerName)
             );
         }
-        // Fallback: try page-specific API with PSID (works if same psid on this page)
+        // Strategy 2: v1 POST search cross-page (needs JWT, more reliable)
+        if (foundConvs.length === 0 && customerName && pdm.searchConversations) {
+            const searchResult = await pdm.searchConversations(customerName);
+            foundConvs = (searchResult.conversations || []).filter(c =>
+                String(c.page_id) === String(pageId) && _nameMatch(c.from?.name, customerName)
+            );
+        }
+        // Strategy 3: page-specific API with PSID (works if same psid on this page)
         if (foundConvs.length === 0) {
             const result = await pdm.fetchConversationsByCustomerFbId(pageId, psid);
             foundConvs = (result.conversations || []).filter(c =>
