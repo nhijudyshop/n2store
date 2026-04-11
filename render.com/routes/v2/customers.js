@@ -367,6 +367,136 @@ router.post('/link-fb-ids', async (req, res) => {
     }
 });
 
+/**
+ * GET /api/v2/customers/by-global-id/:globalId
+ * Lookup customer by Facebook Global ID (cross-page)
+ */
+router.get('/by-global-id/:globalId', async (req, res) => {
+    try {
+        const db = req.app.locals.chatDb;
+        const result = await db.query(
+            `SELECT c.*, COALESCE(w.balance, 0) as real_balance, COALESCE(w.virtual_balance, 0) as virtual_balance
+             FROM customers c LEFT JOIN customer_wallets w ON c.phone = w.phone
+             WHERE c.global_id = $1`,
+            [req.params.globalId]
+        );
+        res.json({ success: true, data: result.rows[0] || null });
+    } catch (error) {
+        handleError(res, error, 'Failed to lookup customer by global_id');
+    }
+});
+
+/**
+ * POST /api/v2/customers/sync-pancake
+ * Sync customer data from Pancake messages response.
+ * Body: { page_id, fb_id, global_id?, name, phone?, gender?, birthday?, lives_in?,
+ *         can_inbox?, pancake_id?, notes?, reports_by_phone?, ad_clicks? }
+ * Match: global_id → phone → fb_id → create new
+ */
+router.post('/sync-pancake', async (req, res) => {
+    try {
+        const db = req.app.locals.chatDb;
+        const {
+            page_id, fb_id, global_id, name, phone,
+            gender, birthday, lives_in, can_inbox,
+            pancake_id, notes, reports_by_phone, ad_clicks
+        } = req.body;
+
+        if (!fb_id && !phone) {
+            return res.status(400).json({ error: 'fb_id or phone required' });
+        }
+
+        // Build pancake_data JSONB
+        const pancakeData = {};
+        if (ad_clicks) pancakeData.ad_clicks = ad_clicks;
+        if (page_id && fb_id) {
+            pancakeData.page_fb_ids = pancakeData.page_fb_ids || {};
+            pancakeData.page_fb_ids[page_id] = fb_id;
+        }
+
+        // Parse order stats from reports_by_phone
+        let orderSuccess = 0, orderFail = 0;
+        if (reports_by_phone && typeof reports_by_phone === 'object') {
+            for (const report of Object.values(reports_by_phone)) {
+                orderSuccess += report.order_success || 0;
+                orderFail += report.order_fail || 0;
+            }
+        }
+
+        const norm = phone ? normalizePhone(phone) : null;
+
+        // Try to find existing customer: global_id → phone → fb_id
+        let existingId = null;
+        if (global_id) {
+            const r = await db.query('SELECT id FROM customers WHERE global_id = $1', [global_id]);
+            if (r.rows.length > 0) existingId = r.rows[0].id;
+        }
+        if (!existingId && norm) {
+            const r = await db.query('SELECT id FROM customers WHERE phone = $1', [norm]);
+            if (r.rows.length > 0) existingId = r.rows[0].id;
+        }
+        if (!existingId && fb_id) {
+            const r = await db.query('SELECT id FROM customers WHERE fb_id = $1', [fb_id]);
+            if (r.rows.length > 0) existingId = r.rows[0].id;
+        }
+
+        let result;
+        if (existingId) {
+            // Update existing
+            result = await db.query(`
+                UPDATE customers SET
+                    global_id = COALESCE($1, global_id),
+                    fb_id = COALESCE($2, fb_id),
+                    name = COALESCE($3, name),
+                    gender = COALESCE($4, gender),
+                    birthday = COALESCE($5, birthday),
+                    lives_in = COALESCE($6, lives_in),
+                    can_inbox = COALESCE($7, can_inbox),
+                    pancake_id = COALESCE($8, pancake_id),
+                    pancake_notes = CASE WHEN $9::jsonb IS NOT NULL THEN $9::jsonb ELSE pancake_notes END,
+                    order_success_count = GREATEST(order_success_count, $10),
+                    order_fail_count = GREATEST(order_fail_count, $11),
+                    pancake_data = pancake_data || $12::jsonb,
+                    pancake_synced_at = NOW()
+                WHERE id = $13
+                RETURNING *
+            `, [
+                global_id || null, fb_id || null, name || null,
+                gender || null, birthday || null, lives_in || null,
+                can_inbox !== undefined ? can_inbox : null,
+                pancake_id || null,
+                notes ? JSON.stringify(notes) : null,
+                orderSuccess, orderFail,
+                JSON.stringify(pancakeData),
+                existingId
+            ]);
+            res.json({ success: true, action: 'updated', data: result.rows[0] });
+        } else {
+            // Create new
+            result = await db.query(`
+                INSERT INTO customers (phone, name, fb_id, global_id, gender, birthday, lives_in,
+                    can_inbox, pancake_id, pancake_notes, order_success_count, order_fail_count,
+                    pancake_data, pancake_synced_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW())
+                RETURNING *
+            `, [
+                norm || `pancake_${fb_id}`,
+                name || 'Khách hàng',
+                fb_id || null, global_id || null,
+                gender || null, birthday || null, lives_in || null,
+                can_inbox !== undefined ? can_inbox : true,
+                pancake_id || null,
+                JSON.stringify(notes || []),
+                orderSuccess, orderFail,
+                JSON.stringify(pancakeData)
+            ]);
+            res.json({ success: true, action: 'created', data: result.rows[0] });
+        }
+    } catch (error) {
+        handleError(res, error, 'Failed to sync pancake customer');
+    }
+});
+
 // =====================================================
 // PARAMETERIZED ROUTES (/:id and sub-routes)
 // =====================================================

@@ -1645,6 +1645,9 @@ class InboxChatController {
                 notes: result.notes || [],
             };
 
+            // Sync customer data to Render DB (fire-and-forget)
+            this._syncPancakeCustomerToDB(result, conv);
+
             // Merge conversation data from messages response into _raw
             // Messages endpoint returns more fields (thread_id, thread_key, page_customer.global_id)
             // that may be missing from the conversations LIST endpoint
@@ -3606,6 +3609,49 @@ class InboxChatController {
         } finally {
             this.isSearching = false;
         }
+    }
+
+    /**
+     * Sync customer data from Pancake messages response to Render DB.
+     * Fire-and-forget — không block UI.
+     */
+    _syncPancakeCustomerToDB(messagesResult, conv) {
+        try {
+            const cust = messagesResult.customers?.[0];
+            if (!cust?.fb_id) return;
+
+            const phone = messagesResult.recent_phone_numbers?.[0]
+                || messagesResult.conv_phone_numbers?.[0]
+                || cust.recent_phone_numbers?.[0]?.phone_number
+                || null;
+
+            const body = {
+                page_id: conv.pageId,
+                fb_id: cust.fb_id,
+                global_id: messagesResult.global_id || cust.global_id || null,
+                name: cust.name,
+                phone: typeof phone === 'string' ? phone : phone?.phone_number || null,
+                gender: cust.personal_info?.gender || messagesResult.gender || null,
+                birthday: cust.personal_info?.birthday || messagesResult.birthday || null,
+                lives_in: cust.personal_info?.lives_in || messagesResult.lives_in || null,
+                can_inbox: messagesResult.can_inbox,
+                pancake_id: cust.id || cust.customer_id || null,
+                notes: messagesResult.notes || null,
+                reports_by_phone: messagesResult.reports_by_phone || null,
+                ad_clicks: cust.ad_clicks || null,
+            };
+
+            const workerUrl = InboxApiConfig?.WORKER_URL || 'https://chatomni-proxy.nhijudyshop.workers.dev';
+            fetch(`${workerUrl}/api/v2/customers/sync-pancake`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            }).then(r => r.json()).then(data => {
+                if (data.success) {
+                    console.log(`[InboxChat] Synced customer "${cust.name}" to DB (${data.action}, global_id=${body.global_id})`);
+                }
+            }).catch(() => {});
+        } catch (_) {}
     }
 
     // ===== WebSocket Real-Time (Server Mode Proxy via Render) =====

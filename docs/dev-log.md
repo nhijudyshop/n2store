@@ -20,6 +20,13 @@
 
 ## 2026-04-10
 
+### [render][inbox] Lưu đầy đủ customer Pancake vào Render DB (global_id, notes, orders) ✅
+| | |
+|---|---|
+| **Files** | `render.com/migrations/029_add_pancake_customer_fields.sql`, `render.com/routes/v2/customers.js`, `inbox/js/inbox-chat.js` |
+| **Chi tiết** | **Migration 029:** Thêm `global_id` (Facebook Real Global ID, cross-page), `pancake_id`, `gender`, `birthday`, `lives_in`, `pancake_data` (JSONB), `pancake_notes`, `order_success/fail_count`, `can_inbox`, `pancake_synced_at`. **API:** `GET /by-global-id/:id`, `POST /sync-pancake` upsert (match global_id → phone → fb_id). **Auto-sync:** mỗi khi mở conversation → `_syncPancakeCustomerToDB` gửi customer data lên DB. |
+| **Status** | ✅ Done |
+
 ### [render][fb-ads] Full feature set — billing, audiences, pixels, reports, rules, account
 - **Files:** `fb-ads/*`, `render.com/routes/fb-ads.js`
 - **Chi tiết:** Thêm 6 tabs mới: (1) Đối tượng — custom & lookalike audiences CRUD; (2) Pixel — list pixels, event stats; (3) Thanh toán — account status, spent, balance, spend cap control, funding source, transactions; (4) Báo cáo — daily/age+gender/placement reports + CSV export; (5) Quy tắc tự động — tạo rules (CPC/CPR triggers → pause/notify), enable/disable; (6) Tài khoản — full details, users, permissions, activity log, disable reason.
