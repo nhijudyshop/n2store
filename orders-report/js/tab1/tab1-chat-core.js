@@ -291,6 +291,7 @@ window.closeChatModal = function() {
     }
     if (window._chatFindInFlight) window._chatFindInFlight.clear();
     if (window._pageConvCache) window._pageConvCache.clear();
+    if (window._pageConvPickerCache) window._pageConvPickerCache.clear();
 
     // Cleanup state
     window.currentConversationId = null;
@@ -375,21 +376,21 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
         if (_isStale()) return;
 
         if (foundConvs.length === 0) {
-            // No conversations on this page
             conv = null;
-        } else if (foundConvs.length === 1) {
-            // Exactly 1 → auto-load
-            conv = foundConvs[0];
         } else {
-            // Multiple → sort by last_customer_interactive_at (actual message time)
-            // then by updated_at as fallback
-            foundConvs.sort((a, b) => {
+            // Auto-pick: prefer INBOX with most recent message, then any conv
+            // Sort by last_customer_interactive_at (actual message time), fallback updated_at
+            const _byMsgTime = (a, b) => {
                 const ta = new Date(a.last_customer_interactive_at || a.updated_at || 0).getTime();
                 const tb = new Date(b.last_customer_interactive_at || b.updated_at || 0).getTime();
                 return tb - ta;
-            });
-            _showConversationPicker(foundConvs, pageId, loadToken);
-            return;
+            };
+            const inboxConvs = foundConvs.filter(c => c.type === 'INBOX').sort(_byMsgTime);
+            conv = inboxConvs[0] || foundConvs.sort(_byMsgTime)[0];
+
+            // Cache all found convs for repick button
+            if (!window._pageConvPickerCache) window._pageConvPickerCache = new Map();
+            window._pageConvPickerCache.set(pageId, { convs: foundConvs, loadToken });
         }
     } else if (type === 'COMMENT') {
         // COMMENT: Always fetch fresh from API (cache may hold stale/deleted conversations)
@@ -1138,12 +1139,20 @@ function _updateRepickBtnVisibility() {
 window.repickConversation = async function() {
     const pageId = window.currentChatChannelId;
     const psid = window.currentChatPSID;
-    const type = window.currentConversationType;
     if (!pageId || !psid) return;
 
-    // Clear cache for this key so _doFindAndLoadConversation fetches fresh
-    const cacheKey = `${psid}:${pageId}:${type}`;
-    window._pageConvCache.delete(cacheKey);
+    // Try cached conv list first (from last page switch)
+    const cached = window._pageConvPickerCache?.get(pageId);
+    if (cached?.convs?.length > 1) {
+        const myToken = ++window._chatLoadSeq;
+        _resetTransientChatState();
+        _showConversationPicker(cached.convs, pageId, myToken);
+        return;
+    }
+
+    // No cache → re-fetch
+    const cacheKey = `${psid}:${pageId}:${window.currentConversationType}`;
+    if (window._pageConvCache instanceof Map) window._pageConvCache.delete(cacheKey);
 
     const myToken = ++window._chatLoadSeq;
     _resetTransientChatState();
@@ -1154,7 +1163,32 @@ window.repickConversation = async function() {
     }
 
     try {
-        await _findAndLoadConversation(pageId, psid, type, myToken, { allowDrift: false });
+        // Force picker mode: search all convs and show picker
+        const pdm = window.pancakeDataManager;
+        const customerName = window.currentCustomerName;
+        let foundConvs = [];
+        if (customerName && pdm?.searchConversationsOnPage) {
+            const r = await pdm.searchConversationsOnPage(pageId, customerName);
+            foundConvs = (r.conversations || []).filter(c => c.from?.name === customerName);
+        }
+        if (foundConvs.length === 0) {
+            const r = await pdm.fetchConversationsByCustomerFbId(pageId, psid);
+            foundConvs = (r.conversations || []).filter(c => String(c.page_id) === String(pageId));
+        }
+        if (myToken !== window._chatLoadSeq) return;
+
+        if (foundConvs.length <= 1) {
+            // 0 or 1 → just load it
+            await _findAndLoadConversation(pageId, psid, window.currentConversationType, myToken, { allowDrift: false });
+        } else {
+            foundConvs.sort((a, b) => {
+                const ta = new Date(a.last_customer_interactive_at || a.updated_at || 0).getTime();
+                const tb = new Date(b.last_customer_interactive_at || b.updated_at || 0).getTime();
+                return tb - ta;
+            });
+            window._pageConvPickerCache?.set(pageId, { convs: foundConvs, loadToken: myToken });
+            _showConversationPicker(foundConvs, pageId, myToken);
+        }
     } catch (e) {
         if (myToken !== window._chatLoadSeq) return;
         if (messagesEl) {
