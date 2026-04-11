@@ -6,7 +6,7 @@
 // FB SDK init MUST run before SDK script loads
 const FB_APP_ID = '1290728302927895';
 window.fbAsyncInit = function() {
-    FB.init({ appId: FB_APP_ID, cookie: true, xfbml: false, version: 'v21.0' });
+    FB.init({ appId: FB_APP_ID, cookie: false, xfbml: false, version: 'v21.0' });
     console.log('[FB-ADS] Facebook SDK initialized');
     if (typeof FBAds !== 'undefined') FBAds.checkAuthAfterSDK();
 };
@@ -1227,50 +1227,10 @@ const FBAds = (() => {
         const response = await fetch(url, fetchOptions);
         const data = await response.json();
         if (!data.success) {
-            // Auto-reconnect: if server lost token (restart), re-send FB token
-            if (data.error && data.error.includes('Not authenticated') && !options._retried && typeof FB !== 'undefined') {
-                console.log('[FB-ADS] Token lost, auto-reconnecting...');
-                const reauthed = await autoReconnect();
-                if (reauthed) {
-                    return api(endpoint, { ...options, _retried: true });
-                }
-            }
             console.error('[FB-ADS] API error:', endpoint, data);
             throw new Error(data.error || 'Unknown error');
         }
         return data;
-    }
-
-    let _reconnecting = false;
-    async function autoReconnect() {
-        if (_reconnecting) return false;
-        _reconnecting = true;
-        try {
-            return await new Promise(resolve => {
-                if (typeof FB === 'undefined') { resolve(false); return; }
-                try {
-                    FB.getLoginStatus(function(response) {
-                        if (response.status === 'connected' && response.authResponse) {
-                            const { accessToken, userID } = response.authResponse;
-                            FB.api('/me', { fields: 'name' }, async function(me) {
-                                try {
-                                    const res = await fetch(API_BASE + '/auth/token', {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ accessToken, userID, name: me?.name || 'User' })
-                                    }).then(r => r.json());
-                                    if (res.success) {
-                                        console.log('[FB-ADS] Auto-reconnected successfully');
-                                        toast('Đã tự động kết nối lại', 'info');
-                                        resolve(true);
-                                    } else { resolve(false); }
-                                } catch (e) { resolve(false); }
-                            });
-                        } else { resolve(false); }
-                    }, true); // force=true to avoid cache
-                } catch (e) { resolve(false); }
-            });
-        } finally { _reconnecting = false; }
     }
 
     function fmtCurrency(v) {
