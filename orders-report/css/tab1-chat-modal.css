@@ -2559,10 +2559,29 @@ div.chat-product-image i {
 
 .message-row.has-reactions.incoming .message-bubble {
     border-color: #c7d2fe;
+    border-left: 3px solid #818cf8;
 }
 
 .message-row.has-reactions.outgoing .message-bubble {
     border-color: #a5b4fc;
+    border-right: 3px solid #818cf8;
+}
+
+/* Reaction mark dot */
+.message-row.has-reactions .message-bubble::after {
+    content: '💬';
+    position: absolute;
+    top: -6px;
+    font-size: 10px;
+    line-height: 1;
+}
+
+.message-row.has-reactions.incoming .message-bubble::after {
+    right: -4px;
+}
+
+.message-row.has-reactions.outgoing .message-bubble::after {
+    left: -4px;
 }
 
 /* Extra bottom margin for reaction float overflow */
