@@ -425,12 +425,12 @@
         </div>
         <div id="settingsRoles">
             <p style="font-size:13px;color:var(--fb-text-secondary);margin-bottom:12px">Thêm người dùng (Development mode — chỉ admin/developer/tester dùng được)</p>
-            <div style="display:flex;gap:8px;margin-bottom:16px">
-                <input type="text" id="roleUserId" placeholder="Facebook User ID" style="flex:1;padding:8px 12px;border:1px solid var(--fb-border);border-radius:6px;font-size:14px">
+            <div style="display:flex;gap:8px;margin-bottom:8px">
+                <input type="text" id="roleUserId" placeholder="User ID hoặc link Facebook profile" style="flex:1;padding:8px 12px;border:1px solid var(--fb-border);border-radius:6px;font-size:14px">
                 <select id="roleType" style="padding:8px;border:1px solid var(--fb-border);border-radius:6px"><option value="testers">Tester</option><option value="developers">Developer</option></select>
                 <button class="btn btn-primary btn-sm" onclick="FBAds.addAppRole()">Thêm</button>
             </div>
-            <div class="form-hint" style="margin-bottom:12px">Lấy User ID: <a href="https://findmyfbid.in/" target="_blank">findmyfbid.in</a></div>
+            <div class="form-hint" style="margin-bottom:12px">Nhập User ID (số) hoặc dán link profile (facebook.com/username) — tự tìm ID</div>
             <div id="rolesListContainer"></div>
         </div>
         <div id="settingsPages" style="display:none"><div id="pagesListContainer"></div></div>

@@ -623,7 +623,7 @@ router.get('/app/roles', async (req, res) => {
 // POST /api/fb-ads/app/roles — Add user to app
 router.post('/app/roles', async (req, res) => {
     try {
-        const { user_id, role } = req.body;
+        let { user_id, role } = req.body;
         if (!user_id || !role) {
             return res.status(400).json({ success: false, error: 'user_id and role required' });
         }
@@ -631,29 +631,68 @@ router.post('/app/roles', async (req, res) => {
             return res.status(400).json({ success: false, error: 'Invalid role. Use: administrators, developers, testers, insights users' });
         }
 
+        // Auto-resolve Facebook profile URL to user ID
+        if (user_id.includes('facebook.com') || user_id.includes('fb.com') || (isNaN(user_id) && !user_id.match(/^\d+$/))) {
+            const resolvedId = await resolveFbProfileToId(user_id);
+            if (!resolvedId) {
+                return res.status(400).json({ success: false, error: 'Không tìm được User ID từ link/username. Thử dùng findmyfbid.in' });
+            }
+            user_id = resolvedId;
+        }
+
+        // FB Graph API requires form-urlencoded for roles
+        const params = new URLSearchParams();
+        params.append('user', user_id);
+        params.append('role', role);
+        params.append('access_token', getAppToken());
+
         const url = `${FB_GRAPH_URL}/${FB_APP_ID}/roles`;
         const response = await fetch(url, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user: user_id, role, access_token: getAppToken() })
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: params.toString()
         });
         const data = await response.json();
         if (data.error) return res.status(400).json({ success: false, error: data.error.message });
-        res.json({ success: true, data });
+        res.json({ success: true, data, resolved_user_id: user_id });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
+// Helper: resolve FB profile URL/username to numeric user ID
+async function resolveFbProfileToId(input) {
+    try {
+        // Extract username from URL
+        let username = input.trim();
+        username = username.replace(/\/$/, ''); // trailing slash
+        if (username.includes('facebook.com') || username.includes('fb.com')) {
+            const parts = username.split('/');
+            username = parts[parts.length - 1];
+            // Remove query params
+            username = username.split('?')[0];
+        }
+        if (!username) return null;
+
+        // Try Graph API lookup with app token
+        const url = `${FB_GRAPH_URL}/${encodeURIComponent(username)}?fields=id,name&access_token=${encodeURIComponent(getAppToken())}`;
+        const response = await fetch(url);
+        const data = await response.json();
+        if (data.id) {
+            console.log(`[FB-ADS] Resolved "${input}" → ${data.id} (${data.name})`);
+            return data.id;
+        }
+    } catch (e) {
+        console.log('[FB-ADS] Could not resolve FB profile:', e.message);
+    }
+    return null;
+}
+
 // DELETE /api/fb-ads/app/roles/:userId — Remove user from app
 router.delete('/app/roles/:userId', async (req, res) => {
     try {
-        const url = `${FB_GRAPH_URL}/${FB_APP_ID}/roles`;
-        const response = await fetch(url, {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user: req.params.userId, access_token: getAppToken() })
-        });
+        const url = `${FB_GRAPH_URL}/${FB_APP_ID}/roles?user=${req.params.userId}&access_token=${encodeURIComponent(getAppToken())}`;
+        const response = await fetch(url, { method: 'DELETE' });
         const data = await response.json();
         if (data.error) return res.status(400).json({ success: false, error: data.error.message });
         res.json({ success: true, data });
