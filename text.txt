@@ -1,0 +1,122 @@
+fetch("https://pancake.vn/api/v1/pages/270136663390370/customers/25717004554573583/conversations?access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiS-G7uSBUaHXhuq10IE5KRCIsImV4cCI6MTc4MjYzNzUzMiwiYXBwbGljYXRpb24iOjEsInVpZCI6ImM0MmVmOTFkLTFhMWQtNDNhYS1iOGFmLThhYzAxNGQ4M2Q2YyIsInNlc3Npb25faWQiOiI4NDk3NDRlMi0wOGZkLTQ1ZGUtYjg1MS03OWM4ODg4NzBkZjgiLCJpYXQiOjE3NzQ4NjE1MzIsImZiX2lkIjoiMTMwNzU5MDg2NjUwNTIyIiwibG9naW5fc2Vzc2lvbiI6bnVsbCwiZmJfbmFtZSI6Ikvhu7kgVGh14bqtdCBOSkQifQ.uEbXqCekFCT9nRIAp3DaBZk_DMs2OAqzo8AzXNPTzxY", {
+  "headers": {
+    "accept": "application/json, text/plain, */*",
+    "sec-ch-ua": "\"Chromium\";v=\"146\", \"Not-A.Brand\";v=\"24\", \"Google Chrome\";v=\"146\"",
+    "sec-ch-ua-mobile": "?0",
+    "sec-ch-ua-platform": "\"macOS\"",
+    "Referer": "https://pancake.vn/NhiJudyStore"
+  },
+  "body": null,
+  "method": "GET"
+});
+
+response:
+{
+    "conversations": [
+        {
+            "assignee_group_id": null,
+            "assignee_ids": [],
+            "customers": [
+                {
+                    "fb_id": "25717004554573583",
+                    "id": "a4396516-b395-478c-8d2a-83985356cb63",
+                    "name": "Huỳnh Thành Đạt"
+                }
+            ],
+            "from": {
+                "email": "25717004554573583@facebook.com",
+                "id": "25717004554573583",
+                "name": "Huỳnh Thành Đạt"
+            },
+            "from_id": "25717004554573583",
+            "from_psid": "25717004554573583",
+            "has_phone": true,
+            "id": "270136663390370_25717004554573583",
+            "is_combined": false,
+            "is_removed": false,
+            "last_customer_interactive_at": "2026-01-24T03:31:59",
+            "last_sent_by": {
+                "admin_name": "Kỹ Thuật NJD",
+                "id": "270136663390370",
+                "name": "NhiJudy Store",
+                "uid": "c42ef91d-1a1d-43aa-b8af-8ac014d83d6c"
+            },
+            "message_count": 45,
+            "page_id": "270136663390370",
+            "recent_phone_numbers": [
+                {
+                    "captured": "0908123456",
+                    "length": 10,
+                    "m_id": "m_cHfeyIQ3hI42RRIsXE-VX1rpJ6Rn2DGGjMArlfAF2ZEXKxwkh799gH1ZtmATcZAfbnwqM6Khs9mX3j_z8f6UbQ",
+                    "offset": 0,
+                    "phone_number": "0908123456",
+                    "status": 2
+                }
+            ],
+            "recent_seen_users": [
+                {
+                    "fb_id": "130759086650522",
+                    "fb_name": "Kỹ Thuật NJD",
+                    "seen_at": "2026-01-24T03:33:02.232341"
+                }
+            ],
+            "seen": true,
+            "snippet": "Dạ hàng của mình đã được lên bill , cám ơn chị yêu đã ủng hộ ...",
+            "tags": [
+                59
+            ],
+            "thread_id": "32546288751686299",
+            "thread_key": "t_32546288751686299",
+            "type": "INBOX",
+            "unread_count": 0,
+            "updated_at": "2026-01-29T02:21:58.088000",
+            "viewing": null
+        },
+        {
+            "assignee_group_id": null,
+            "assignee_ids": [],
+            "customers": [
+                {
+                    "fb_id": "25717004554573583",
+                    "id": "a4396516-b395-478c-8d2a-83985356cb63",
+                    "name": "Huỳnh Thành Đạt"
+                }
+            ],
+            "from": {
+                "id": "25717004554573583",
+                "name": "Huỳnh Thành Đạt"
+            },
+            "from_id": "25717004554573583",
+            "from_psid": null,
+            "has_phone": false,
+            "id": "1573633073980967_890142437017229",
+            "is_combined": false,
+            "is_removed": false,
+            "last_customer_interactive_at": null,
+            "last_sent_by": {
+                "id": "25717004554573583",
+                "name": "Huỳnh Thành Đạt"
+            },
+            "message_count": 1,
+            "page_id": "270136663390370",
+            "recent_phone_numbers": [],
+            "recent_seen_users": [
+                {
+                    "fb_id": "130759086650522",
+                    "fb_name": "Kỹ Thuật NJD",
+                    "seen_at": "2025-12-03T09:23:04.603214"
+                }
+            ],
+            "seen": true,
+            "snippet": "5678",
+            "tags": [],
+            "thread_id": null,
+            "thread_key": null,
+            "type": "COMMENT",
+            "unread_count": 0,
+            "updated_at": "2025-12-03T09:22:50.000000",
+            "viewing": null
+        }
+    ],
+    "success": true
+}
