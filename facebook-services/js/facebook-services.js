@@ -110,10 +110,12 @@
     function renderServiceSelect(services) {
         const sel = document.getElementById('serviceSelect');
         sel.innerHTML = '<option value="">-- Ch\u1ecdn d\u1ecbch v\u1ee5 --</option>';
-        for (const s of services) {
+        const sorted = [...services].sort((a, b) => parseFloat(a.rate) - parseFloat(b.rate));
+        for (const s of sorted) {
             const opt = document.createElement('option');
             opt.value = s.service;
-            opt.textContent = `#${s.service} ${s.name} ($${s.rate}/1K)`;
+            const vndRate = Math.round(parseFloat(s.rate) * USD_TO_VND);
+            opt.textContent = `#${s.service} ${s.name} (${vndRate.toLocaleString()}đ/1K)`;
             sel.appendChild(opt);
         }
     }
@@ -130,7 +132,7 @@
                 <div class="service-item-category">${(s.category || 'Other').trim()}</div>
                 <div class="service-item-name">#${s.service} ${s.name}</div>
                 <div class="service-item-meta">
-                    <span>$${s.rate}/1K</span>
+                    <span>${Math.round(parseFloat(s.rate) * USD_TO_VND).toLocaleString()}đ/1K</span>
                     <span>Min: ${s.min}</span>
                     <span>Max: ${Number(s.max).toLocaleString()}</span>
                     ${s.refill ? '<span>Refill</span>' : ''}
@@ -179,7 +181,8 @@
         }
 
         infoCard.style.display = 'block';
-        document.getElementById('serviceRate').textContent = `$${selectedService.rate} / 1000`;
+        const rateVND = Math.round(parseFloat(selectedService.rate) * USD_TO_VND);
+        document.getElementById('serviceRate').textContent = `${rateVND.toLocaleString()}đ / 1000`;
         document.getElementById('serviceMin').textContent = selectedService.min;
         document.getElementById('serviceMax').textContent = Number(selectedService.max).toLocaleString();
 
@@ -208,8 +211,8 @@
         const total = (qty / 1000) * rate;
         const totalVND = Math.round(total * USD_TO_VND);
 
-        document.getElementById('totalPrice').textContent = `$${total.toFixed(4)}`;
-        document.getElementById('totalPriceVND').textContent = `(${totalVND.toLocaleString()} \u0111)`;
+        document.getElementById('totalPrice').textContent = `${totalVND.toLocaleString()}đ`;
+        document.getElementById('totalPriceVND').textContent = `(~$${total.toFixed(4)})`;
     }
 
     function updateSubmitButton() {
@@ -310,7 +313,7 @@
                 <td title="${o.service_name}">#${o.service_id}</td>
                 <td class="link-cell"><a href="${o.link}" target="_blank">${truncate(o.link, 30)}</a></td>
                 <td>${Number(o.quantity).toLocaleString()}</td>
-                <td>$${o.total}</td>
+                <td>${Math.round(parseFloat(o.total) * USD_TO_VND).toLocaleString()}đ</td>
                 <td><span class="status-badge ${statusClass}">${o.status}</span></td>
                 <td>${dateStr}</td>
                 <td>
@@ -424,7 +427,7 @@
         if (balData && balData.balance !== undefined) {
             currentBalance = Number(balData.balance);
             const vnd = Math.round(currentBalance * USD_TO_VND);
-            el.textContent = `$${currentBalance.toFixed(2)} (~${vnd.toLocaleString()}\u0111)`;
+            el.textContent = `${vnd.toLocaleString()}đ (~$${currentBalance.toFixed(2)})`;
             updateWalletBalance();
         } else {
             el.textContent = 'L\u1ed7i';
@@ -438,8 +441,8 @@
     function updateWalletBalance() {
         if (currentBalance === null) return;
         const vnd = Math.round(currentBalance * USD_TO_VND);
-        document.getElementById('walletBalanceUSD').textContent = `$${currentBalance.toFixed(2)}`;
-        document.getElementById('walletBalanceVND').textContent = `~${vnd.toLocaleString()} VND`;
+        document.getElementById('walletBalanceUSD').textContent = `${vnd.toLocaleString()}đ`;
+        document.getElementById('walletBalanceVND').textContent = `~$${currentBalance.toFixed(2)}`;
     }
 
     function updateSpendingStats() {
@@ -449,7 +452,8 @@
         const pending = orderHistory.filter(o => o.status === 'Pending' || o.status === 'Processing' || o.status === 'In progress').length;
 
         document.getElementById('statTotalOrders').textContent = total;
-        document.getElementById('statTotalSpent').textContent = `$${spent.toFixed(2)}`;
+        const spentVND = Math.round(spent * USD_TO_VND);
+        document.getElementById('statTotalSpent').textContent = `${spentVND.toLocaleString()}đ`;
         document.getElementById('statCompleted').textContent = completed;
         document.getElementById('statPending').textContent = pending;
     }

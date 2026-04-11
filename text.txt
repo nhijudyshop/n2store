@@ -1,122 +1,87 @@
-fetch("https://pancake.vn/api/v1/pages/270136663390370/customers/25717004554573583/conversations?access_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJuYW1lIjoiS-G7uSBUaHXhuq10IE5KRCIsImV4cCI6MTc4MjYzNzUzMiwiYXBwbGljYXRpb24iOjEsInVpZCI6ImM0MmVmOTFkLTFhMWQtNDNhYS1iOGFmLThhYzAxNGQ4M2Q2YyIsInNlc3Npb25faWQiOiI4NDk3NDRlMi0wOGZkLTQ1ZGUtYjg1MS03OWM4ODg4NzBkZjgiLCJpYXQiOjE3NzQ4NjE1MzIsImZiX2lkIjoiMTMwNzU5MDg2NjUwNTIyIiwibG9naW5fc2Vzc2lvbiI6bnVsbCwiZmJfbmFtZSI6Ikvhu7kgVGh14bqtdCBOSkQifQ.uEbXqCekFCT9nRIAp3DaBZk_DMs2OAqzo8AzXNPTzxY", {
-  "headers": {
-    "accept": "application/json, text/plain, */*",
-    "sec-ch-ua": "\"Chromium\";v=\"146\", \"Not-A.Brand\";v=\"24\", \"Google Chrome\";v=\"146\"",
-    "sec-ch-ua-mobile": "?0",
-    "sec-ch-ua-platform": "\"macOS\"",
-    "Referer": "https://pancake.vn/NhiJudyStore"
-  },
-  "body": null,
-  "method": "GET"
-});
+// Debug page switch search:
+const pdm = window.pancakeDataManager;
+const name = 'Huỳnh Thành Đạt';
+const storeId = '270136663390370';
+console.log('PDM available:', !!pdm);
+console.log('currentChatPSID:', window.currentChatPSID);
+console.log('currentChatChannelId:', window.currentChatChannelId);
 
-response:
-{
-    "conversations": [
-        {
-            "assignee_group_id": null,
-            "assignee_ids": [],
-            "customers": [
-                {
-                    "fb_id": "25717004554573583",
-                    "id": "a4396516-b395-478c-8d2a-83985356cb63",
-                    "name": "Huỳnh Thành Đạt"
-                }
-            ],
-            "from": {
-                "email": "25717004554573583@facebook.com",
-                "id": "25717004554573583",
-                "name": "Huỳnh Thành Đạt"
-            },
-            "from_id": "25717004554573583",
-            "from_psid": "25717004554573583",
-            "has_phone": true,
-            "id": "270136663390370_25717004554573583",
-            "is_combined": false,
-            "is_removed": false,
-            "last_customer_interactive_at": "2026-01-24T03:31:59",
-            "last_sent_by": {
-                "admin_name": "Kỹ Thuật NJD",
-                "id": "270136663390370",
-                "name": "NhiJudy Store",
-                "uid": "c42ef91d-1a1d-43aa-b8af-8ac014d83d6c"
-            },
-            "message_count": 45,
-            "page_id": "270136663390370",
-            "recent_phone_numbers": [
-                {
-                    "captured": "0908123456",
-                    "length": 10,
-                    "m_id": "m_cHfeyIQ3hI42RRIsXE-VX1rpJ6Rn2DGGjMArlfAF2ZEXKxwkh799gH1ZtmATcZAfbnwqM6Khs9mX3j_z8f6UbQ",
-                    "offset": 0,
-                    "phone_number": "0908123456",
-                    "status": 2
-                }
-            ],
-            "recent_seen_users": [
-                {
-                    "fb_id": "130759086650522",
-                    "fb_name": "Kỹ Thuật NJD",
-                    "seen_at": "2026-01-24T03:33:02.232341"
-                }
-            ],
-            "seen": true,
-            "snippet": "Dạ hàng của mình đã được lên bill , cám ơn chị yêu đã ủng hộ ...",
-            "tags": [
-                59
-            ],
-            "thread_id": "32546288751686299",
-            "thread_key": "t_32546288751686299",
-            "type": "INBOX",
-            "unread_count": 0,
-            "updated_at": "2026-01-29T02:21:58.088000",
-            "viewing": null
-        },
-        {
-            "assignee_group_id": null,
-            "assignee_ids": [],
-            "customers": [
-                {
-                    "fb_id": "25717004554573583",
-                    "id": "a4396516-b395-478c-8d2a-83985356cb63",
-                    "name": "Huỳnh Thành Đạt"
-                }
-            ],
-            "from": {
-                "id": "25717004554573583",
-                "name": "Huỳnh Thành Đạt"
-            },
-            "from_id": "25717004554573583",
-            "from_psid": null,
-            "has_phone": false,
-            "id": "1573633073980967_890142437017229",
-            "is_combined": false,
-            "is_removed": false,
-            "last_customer_interactive_at": null,
-            "last_sent_by": {
-                "id": "25717004554573583",
-                "name": "Huỳnh Thành Đạt"
-            },
-            "message_count": 1,
-            "page_id": "270136663390370",
-            "recent_phone_numbers": [],
-            "recent_seen_users": [
-                {
-                    "fb_id": "130759086650522",
-                    "fb_name": "Kỹ Thuật NJD",
-                    "seen_at": "2025-12-03T09:23:04.603214"
-                }
-            ],
-            "seen": true,
-            "snippet": "5678",
-            "tags": [],
-            "thread_id": null,
-            "thread_key": null,
-            "type": "COMMENT",
-            "unread_count": 0,
-            "updated_at": "2025-12-03T09:22:50.000000",
-            "viewing": null
+// Test search on Store
+if (pdm?.searchConversationsOnPage) {
+    pdm.searchConversationsOnPage(storeId, name).then(r => {
+        console.log('Search result:', r.conversations?.length, 'convs');
+        if (r.conversations?.length > 0) {
+            r.conversations.forEach(c => console.log('  conv:', c.id, 'name:', c.from?.name, 'type:', c.type));
         }
-    ],
-    "success": true
+        // Check exact name match
+        const exact = r.conversations?.filter(c => c.from?.name === name);
+        console.log('Exact name match:', exact?.length);
+    });
 }
+
+VM26888:5 PDM available: true
+VM26888:6 currentChatPSID: 24948162744877764
+VM26888:7 currentChatChannelId: 270136663390370
+Promise {<pending>}
+VM26888:12 Search result: 60 convs
+VM26888:14   conv: 1425556575541010_973280698379346 name: Vợ Muichiro type: COMMENT
+VM26888:14   conv: 1425556575541010_1890057138375807 name: Bảo Trinh type: COMMENT
+VM26888:14   conv: 270136663390370_5642211315789783 name: Jessica Le type: INBOX
+VM26888:14   conv: 1425556575541010_1663952515028004 name: An Binh type: COMMENT
+VM26888:14   conv: 270136663390370_5796533477037265 name: Tuyen Thanh Pham Thi type: INBOX
+VM26888:14   conv: 1425556575541010_1968584033752153 name: Thảo Ngọc type: COMMENT
+VM26888:14   conv: 1425556575541010_2225111521570402 name: Đoan Trinh type: COMMENT
+VM26888:14   conv: 1425556575541010_951298114368816 name: Thoa Truong type: COMMENT
+VM26888:14   conv: 270136663390370_3395650263830556 name: Phuong Vo type: INBOX
+VM26888:14   conv: 1425556575541010_1940510556831661 name: Nguyễn Thuỷ Tiên type: COMMENT
+VM26888:14   conv: 1404105531747451_1210899570909663 name: Huệ Nhi type: COMMENT
+VM26888:14   conv: 270136663390370_2199858400080545 name: Khiếm Hương Thảo KG type: INBOX
+VM26888:14   conv: 1396937149130956_893674063669674 name: Mộng Tiền type: COMMENT
+VM26888:14   conv: 1425556575541010_973957644969895 name: Ngoc Diep type: COMMENT
+VM26888:14   conv: 270136663390370_25455948890689750 name: Uyen Cao type: INBOX
+VM26888:14   conv: 270136663390370_25256220950738962 name: Mộng Tiền type: INBOX
+VM26888:14   conv: 1425556575541010_924449046886908 name: Bùi Thị Yến Nhi type: COMMENT
+VM26888:14   conv: 270136663390370_32169891585959577 name: Hương Nguyễn type: INBOX
+VM26888:14   conv: 1425556575541010_988620196936569 name: Nguyễn Thị Ngọc Trâm type: COMMENT
+VM26888:14   conv: 1425556575541010_3777810149180786 name: Xuân Hồng type: COMMENT
+VM26888:14   conv: 1425556575541010_940444395241887 name: Noãn Trần type: COMMENT
+VM26888:14   conv: 1425556575541010_1294193702664591 name: Alice Kim type: COMMENT
+VM26888:14   conv: 1425556575541010_2002310797836217 name: Nguyễn Phương type: COMMENT
+VM26888:14   conv: 1425556575541010_2080737492852983 name: Lynh Cam Vo type: COMMENT
+VM26888:14   conv: 1425556575541010_1432634781973808 name: Maika Vuong type: COMMENT
+VM26888:14   conv: 1425556575541010_939117222345698 name: Đặng Oanh type: COMMENT
+VM26888:14   conv: 1425556575541010_805962248873810 name: Châu Hồng Như type: COMMENT
+VM26888:14   conv: 1401640821993922_1051556838047125 name: Nguyễn Phương type: COMMENT
+VM26888:14   conv: 1404105531747451_926619543710220 name: Ly Ni type: COMMENT
+VM26888:14   conv: 1425556575541010_1643574826918988 name: NhiJudy Store type: COMMENT
+VM26888:14   conv: 1425556575541010_1281013063584625 name: NhiJudy Store type: COMMENT
+VM26888:14   conv: 1425556575541010_796813063148107 name: NhiJudy Store type: COMMENT
+VM26888:14   conv: 1425556575541010_4405376413047463 name: NhiJudy Store type: COMMENT
+VM26888:14   conv: 1425556575541010_2546913592390951 name: NhiJudy Store type: COMMENT
+VM26888:14   conv: 1404105531747451_1000013302440898 name: Van Nguyen type: COMMENT
+VM26888:14   conv: 270136663390370_2490825360994810 name: Trần Thanh Trúc type: INBOX
+VM26888:14   conv: 270136663390370_26442356515425908 name: Tu Cam type: INBOX
+VM26888:14   conv: 1404105531747451_1703460721066573 name: Tu Cam type: COMMENT
+VM26888:14   conv: 270136663390370_4693547170711276 name: Trinh Nguyen type: INBOX
+VM26888:14   conv: 270136663390370_25412917988300811 name: Van Tra type: INBOX
+VM26888:14   conv: 270136663390370_6461581600618248 name: Taxi Ben type: INBOX
+VM26888:14   conv: 1404105531747451_2709968882716774 name: Taxi Ben type: COMMENT
+VM26888:14   conv: 270136663390370_9356619934446510 name: Nguyet Anh type: INBOX
+VM26888:14   conv: 1401640821993922_2734815983552214 name: Nguyet Anh type: COMMENT
+VM26888:14   conv: 270136663390370_6252115678231543 name: Bạch Cúc type: INBOX
+VM26888:14   conv: 270136663390370_8353516651355085 name: Lê Giang type: INBOX
+VM26888:14   conv: 270136663390370_5465521293487659 name: Bảo An type: INBOX
+VM26888:14   conv: 270136663390370_26468827596050871 name: Tam Nguyenthi type: INBOX
+VM26888:14   conv: 270136663390370_6591711747528660 name: Phương Nguyên type: INBOX
+VM26888:14   conv: 270136663390370_2576822255661394 name: Bòn Bon Socola type: INBOX
+VM26888:14   conv: 270136663390370_26610783145279378 name: Dung Lê type: INBOX
+VM26888:14   conv: 270136663390370_1945971275512642 name: Pham Thanh type: INBOX
+VM26888:14   conv: 270136663390370_2061452707305149 name: Đỗ Tuyết Nhung type: INBOX
+VM26888:14   conv: 270136663390370_5573827982709302 name: Hue Anh type: INBOX
+VM26888:14   conv: 270136663390370_24957700380592437 name: Gioi Smile type: INBOX
+VM26888:14   conv: 270136663390370_9528054233956029 name: Quyên Trương type: INBOX
+VM26888:14   conv: 270136663390370_6059513367507516 name: Nguyễn Thuý type: INBOX
+VM26888:14   conv: 270136663390370_26188425957445889 name: Thư Thư Nguyễn type: INBOX
+VM26888:14   conv: 1404105531747451_1676388240442122 name: Thư Thư Nguyễn type: COMMENT
+VM26888:14   conv: 270136663390370_3247855725232912 name: Mỹ Em Trương type: INBOX
+VM26888:18 Exact name match: 0
