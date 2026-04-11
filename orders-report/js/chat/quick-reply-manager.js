@@ -724,6 +724,7 @@ class QuickReplyManager {
             input.value = '';
             input.style.height = 'auto';
             this.sendQuickReplyWithImage(reply);
+            this._autoAssignChuaPhanHoi();
             return;
         }
 
@@ -743,6 +744,23 @@ class QuickReplyManager {
         if (window.sendMessage) {
             setTimeout(() => window.sendMessage(), 50);
         }
+
+        // Auto-assign "ĐƠN CHƯA PHẢN HỒI" tag after slash command send
+        this._autoAssignChuaPhanHoi();
+    }
+
+    /**
+     * Auto-assign category 2 / CHUA_PHAN_HOI if order has no tag yet
+     */
+    _autoAssignChuaPhanHoi() {
+        const orderCode = window.currentChatOrderData?.Code;
+        if (!orderCode || !window.assignOrderCategory) return;
+
+        const existing = window.ProcessingTagState?.getOrderData?.(String(orderCode));
+        // Only assign if no category set yet (undefined or null)
+        if (existing && existing.category != null) return;
+
+        window.assignOrderCategory(String(orderCode), 2, { subTag: 'CHUA_PHAN_HOI' });
     }
 
     /**
