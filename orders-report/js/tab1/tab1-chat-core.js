@@ -357,14 +357,12 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
         const customerName = window.currentCustomerName;
         let foundConvs = [];
 
-        // Name match helper — normalize diacritics for comparison
+        // Name match — strip diacritics then exact compare
+        const _strip = s => s?.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim() || '';
         const _nameMatch = (convName, target) => {
             if (!convName || !target) return false;
             if (convName === target) return true;
-            // Case-insensitive + trim
-            const a = convName.trim().toLowerCase();
-            const b = target.trim().toLowerCase();
-            return a === b || a.includes(b) || b.includes(a);
+            return _strip(convName) === _strip(target);
         };
 
         // Strategy 1: v2 public API search (needs PAT)
