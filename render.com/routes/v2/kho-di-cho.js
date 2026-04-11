@@ -7,14 +7,30 @@
  * Market warehouse management - tracks products purchased
  * from suppliers via TPOS purchase orders.
  *
+ * Also serves as the product pool for "Bán Hàng" tab in orders-report.
+ * Supports held products (multi-user), confirm-to-order (TPOS),
+ * and undo (return from order back to warehouse).
+ *
  * Routes:
- *   GET    /              - List all products (search, paginated)
- *   POST   /batch         - Batch upsert products (from purchase-orders)
- *   PATCH  /:id           - Update product (qty, price)
- *   DELETE /:id           - Delete single product
- *   DELETE /              - Clear all products (reset warehouse)
+ *   GET    /                      - List all products (with available_qty, holders)
+ *   POST   /batch                 - Batch upsert products (from purchase-orders)
+ *   POST   /subtract              - Subtract quantities after doi-soat
+ *   PATCH  /:id                   - Update product (qty, price)
+ *   DELETE /:id                   - Delete single product
+ *   DELETE /                      - Clear all products (reset warehouse)
+ *
+ *   --- Held Products (multi-user) ---
+ *   POST   /hold                  - Hold a product for an order
+ *   DELETE /hold/:orderId/:productCode/:userId - Release hold
+ *   GET    /holders/:productCode  - Get all holders of a product
+ *
+ *   --- Sales (confirm to TPOS order) ---
+ *   POST   /confirm-sale          - Confirm held → subtract from warehouse
+ *   POST   /return                - Return product from order back to warehouse
+ *   GET    /sales                 - Get sales history (for undo lookup)
  *
  * Created: 2026-03-30
+ * Updated: 2026-04-11 — Add held, confirm-sale, return, SSE
  * =====================================================
  */
 
@@ -22,7 +38,26 @@ const express = require('express');
 const router = express.Router();
 
 // =====================================================
-// TABLE INITIALIZATION
+// SSE NOTIFICATION
+// =====================================================
+
+let notifyClients, notifyClientsWildcard;
+
+/**
+ * Initialize SSE notifiers (called from server.js or v2/index.js)
+ */
+function initializeNotifiers(notify, notifyWildcard) {
+    notifyClients = notify;
+    notifyClientsWildcard = notifyWildcard;
+    console.log('[KhoDiCho] SSE notifiers initialized');
+}
+
+function notifyKhoChange(data, eventType = 'update') {
+    if (notifyClients) notifyClients('kho_di_cho', data, eventType);
+}
+
+// =====================================================
+// TABLE INITIALIZATION & MIGRATION
 // =====================================================
 
 let tableInitialized = false;
@@ -30,6 +65,7 @@ let tableInitialized = false;
 async function ensureTable(db) {
     if (tableInitialized) return;
     try {
+        // Main warehouse table
         await db.query(`
             CREATE TABLE IF NOT EXISTS kho_di_cho (
                 id SERIAL PRIMARY KEY,
@@ -41,6 +77,9 @@ async function ensureTable(db) {
                 quantity INTEGER NOT NULL DEFAULT 0,
                 purchase_price NUMERIC(15,2) NOT NULL DEFAULT 0,
                 source_po_ids TEXT[] DEFAULT '{}',
+                image_url TEXT,
+                tpos_product_id INTEGER,
+                selling_price NUMERIC(15,2) DEFAULT 0,
                 created_at TIMESTAMPTZ DEFAULT NOW(),
                 updated_at TIMESTAMPTZ DEFAULT NOW()
             );
@@ -48,7 +87,51 @@ async function ensureTable(db) {
             CREATE INDEX IF NOT EXISTS idx_kho_di_cho_parent_code ON kho_di_cho(parent_product_code);
             CREATE INDEX IF NOT EXISTS idx_kho_di_cho_stt ON kho_di_cho(stt);
         `);
+
+        // Migration: add new columns if they don't exist
+        await db.query(`
+            DO $$
+            BEGIN
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='kho_di_cho' AND column_name='image_url') THEN
+                    ALTER TABLE kho_di_cho ADD COLUMN image_url TEXT;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='kho_di_cho' AND column_name='tpos_product_id') THEN
+                    ALTER TABLE kho_di_cho ADD COLUMN tpos_product_id INTEGER;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='kho_di_cho' AND column_name='selling_price') THEN
+                    ALTER TABLE kho_di_cho ADD COLUMN selling_price NUMERIC(15,2) DEFAULT 0;
+                END IF;
+            END $$;
+        `);
+
+        // Sales history table — for undo (return to warehouse)
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS kho_di_cho_sales (
+                id SERIAL PRIMARY KEY,
+                product_code VARCHAR(100) NOT NULL,
+                parent_product_code VARCHAR(100),
+                product_name TEXT,
+                variant VARCHAR(100),
+                purchase_price NUMERIC(15,2),
+                selling_price NUMERIC(15,2),
+                image_url TEXT,
+                tpos_product_id INTEGER,
+                quantity INTEGER NOT NULL DEFAULT 1,
+                order_id VARCHAR(255),
+                order_stt VARCHAR(50),
+                sold_by_user_id VARCHAR(255),
+                sold_by_name VARCHAR(255),
+                sold_at TIMESTAMPTZ DEFAULT NOW(),
+                returned_at TIMESTAMPTZ,
+                status VARCHAR(20) DEFAULT 'sold'
+            );
+            CREATE INDEX IF NOT EXISTS idx_kdc_sales_product_code ON kho_di_cho_sales(product_code);
+            CREATE INDEX IF NOT EXISTS idx_kdc_sales_order_id ON kho_di_cho_sales(order_id);
+            CREATE INDEX IF NOT EXISTS idx_kdc_sales_status ON kho_di_cho_sales(status);
+        `);
+
         tableInitialized = true;
+        console.log('[KhoDiCho] Tables initialized');
     } catch (err) {
         console.error('[KhoDiCho] Table init error:', err.message);
     }
@@ -63,13 +146,46 @@ function handleError(res, error, message = 'Internal server error') {
     res.status(500).json({ success: false, error: message, details: error.message });
 }
 
+/**
+ * Get total held quantity for a product_code across all orders/users
+ */
+async function getHeldQuantity(db, productCode) {
+    const result = await db.query(
+        `SELECT COALESCE(SUM((data->>'quantity')::int), 0) as total_held
+         FROM held_products
+         WHERE product_id = $1 AND (data->>'quantity')::int > 0`,
+        [String(productCode)]
+    );
+    return parseInt(result.rows[0].total_held) || 0;
+}
+
+/**
+ * Get holders for a product_code
+ */
+async function getHolders(db, productCode) {
+    const result = await db.query(
+        `SELECT order_id, user_id, data, is_draft
+         FROM held_products
+         WHERE product_id = $1 AND (data->>'quantity')::int > 0`,
+        [String(productCode)]
+    );
+    return result.rows.map(row => ({
+        orderId: row.order_id,
+        userId: row.user_id,
+        displayName: row.data?.displayName || row.user_id,
+        quantity: parseInt(row.data?.quantity) || 0,
+        isDraft: row.is_draft,
+    }));
+}
+
 // =====================================================
-// ROUTES
+// ROUTES — WAREHOUSE CRUD
 // =====================================================
 
 /**
  * GET /api/v2/kho-di-cho
  * List products with search, filter, pagination
+ * Enhanced: includes available_qty (quantity - held) and holders info
  */
 router.get('/', async (req, res) => {
     const db = req.app.locals.chatDb;
@@ -80,32 +196,49 @@ router.get('/', async (req, res) => {
         limit = 200,
         search,
         sort_by = 'stt',
-        sort_order = 'ASC'
+        sort_order = 'ASC',
+        include_holders = 'false'
     } = req.query;
 
     try {
-        let query = `SELECT * FROM kho_di_cho WHERE 1=1`;
+        // Main query with held quantity subquery
+        let query = `
+            SELECT k.*,
+                   COALESCE(h.total_held, 0) as held_qty,
+                   k.quantity - COALESCE(h.total_held, 0) as available_qty
+            FROM kho_di_cho k
+            LEFT JOIN (
+                SELECT product_id, SUM((data->>'quantity')::int) as total_held
+                FROM held_products
+                WHERE (data->>'quantity')::int > 0
+                GROUP BY product_id
+            ) h ON h.product_id = k.product_code
+            WHERE 1=1
+        `;
         const params = [];
         let paramIndex = 1;
 
         if (search) {
             query += ` AND (
-                product_name ILIKE $${paramIndex}
-                OR product_code ILIKE $${paramIndex}
-                OR parent_product_code ILIKE $${paramIndex}
-                OR variant ILIKE $${paramIndex}
+                k.product_name ILIKE $${paramIndex}
+                OR k.product_code ILIKE $${paramIndex}
+                OR k.parent_product_code ILIKE $${paramIndex}
+                OR k.variant ILIKE $${paramIndex}
             )`;
             params.push(`%${search}%`);
             paramIndex++;
         }
 
+        // Only show products with quantity > 0
+        query += ` AND k.quantity > 0`;
+
         // Count total
-        const countQuery = query.replace('SELECT *', 'SELECT COUNT(*)');
+        const countQuery = query.replace(/SELECT k\.\*,[\s\S]*?WHERE/, 'SELECT COUNT(*) FROM kho_di_cho k LEFT JOIN (SELECT product_id, SUM((data->>\'quantity\')::int) as total_held FROM held_products WHERE (data->>\'quantity\')::int > 0 GROUP BY product_id) h ON h.product_id = k.product_code WHERE');
         const countResult = await db.query(countQuery, params);
         const total = parseInt(countResult.rows[0].count);
 
         // Sort
-        const allowedSorts = ['stt', 'product_code', 'product_name', 'quantity', 'purchase_price', 'created_at', 'updated_at'];
+        const allowedSorts = ['stt', 'product_code', 'product_name', 'quantity', 'purchase_price', 'selling_price', 'created_at', 'updated_at', 'available_qty'];
         const sortField = allowedSorts.includes(sort_by) ? sort_by : 'stt';
         const order = sort_order.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
         query += ` ORDER BY ${sortField} ${order}`;
@@ -117,9 +250,21 @@ router.get('/', async (req, res) => {
 
         const result = await db.query(query, params);
 
+        // Optionally include holders detail
+        let data = result.rows;
+        if (include_holders === 'true') {
+            for (const row of data) {
+                if (parseInt(row.held_qty) > 0) {
+                    row.holders = await getHolders(db, row.product_code);
+                } else {
+                    row.holders = [];
+                }
+            }
+        }
+
         res.json({
             success: true,
-            data: result.rows,
+            data,
             pagination: {
                 page: parseInt(page),
                 limit: parseInt(limit),
@@ -155,7 +300,11 @@ router.post('/batch', async (req, res) => {
         const results = { inserted: 0, updated: 0, errors: [] };
 
         for (const item of items) {
-            const { product_code, parent_product_code, product_name, variant, quantity, purchase_price, source_po_id } = item;
+            const {
+                product_code, parent_product_code, product_name, variant,
+                quantity, purchase_price, source_po_id,
+                image_url, tpos_product_id, selling_price
+            } = item;
 
             if (!product_code || !product_name) {
                 results.errors.push(`Missing product_code or product_name for item: ${JSON.stringify(item)}`);
@@ -180,9 +329,12 @@ router.post('/batch', async (req, res) => {
                 await client.query(
                     `UPDATE kho_di_cho
                      SET quantity = $1, source_po_ids = $2, updated_at = NOW(),
-                         purchase_price = CASE WHEN $3::numeric > 0 THEN $3::numeric ELSE purchase_price END
-                     WHERE id = $4`,
-                    [newQty, poIds, purchase_price || 0, row.id]
+                         purchase_price = CASE WHEN $3::numeric > 0 THEN $3::numeric ELSE purchase_price END,
+                         image_url = COALESCE($4, image_url),
+                         tpos_product_id = COALESCE($5, tpos_product_id),
+                         selling_price = CASE WHEN $6::numeric > 0 THEN $6::numeric ELSE selling_price END
+                     WHERE id = $7`,
+                    [newQty, poIds, purchase_price || 0, image_url || null, tpos_product_id || null, selling_price || 0, row.id]
                 );
                 results.updated++;
             } else {
@@ -191,15 +343,20 @@ router.post('/batch', async (req, res) => {
                 const nextStt = maxSttResult.rows[0].max_stt + 1;
 
                 await client.query(
-                    `INSERT INTO kho_di_cho (stt, product_code, parent_product_code, product_name, variant, quantity, purchase_price, source_po_ids)
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-                    [nextStt, product_code, parent_product_code || null, product_name, variant || null, quantity || 1, purchase_price || 0, source_po_id ? [source_po_id] : []]
+                    `INSERT INTO kho_di_cho (stt, product_code, parent_product_code, product_name, variant, quantity, purchase_price, source_po_ids, image_url, tpos_product_id, selling_price)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+                    [nextStt, product_code, parent_product_code || null, product_name, variant || null,
+                     quantity || 1, purchase_price || 0, source_po_id ? [source_po_id] : [],
+                     image_url || null, tpos_product_id || null, selling_price || 0]
                 );
                 results.inserted++;
             }
         }
 
         await client.query('COMMIT');
+
+        // Notify SSE
+        notifyKhoChange({ action: 'batch', ...results }, 'update');
 
         res.json({
             success: true,
@@ -217,8 +374,6 @@ router.post('/batch', async (req, res) => {
 /**
  * POST /api/v2/kho-di-cho/subtract
  * Subtract quantities after doi-soat success
- * - Match by product_code (case-insensitive, diacritics-removed)
- * - Subtract quantity, delete row if reaches 0
  */
 router.post('/subtract', async (req, res) => {
     const db = req.app.locals.chatDb;
@@ -243,7 +398,6 @@ router.post('/subtract', async (req, res) => {
             const code = product_code.toUpperCase().trim();
             const subQty = quantity || 1;
 
-            // Find by product_code (case-insensitive)
             const existing = await client.query(
                 'SELECT id, quantity FROM kho_di_cho WHERE UPPER(product_code) = $1',
                 [code]
@@ -271,6 +425,8 @@ router.post('/subtract', async (req, res) => {
 
         await client.query('COMMIT');
 
+        notifyKhoChange({ action: 'subtract', ...results }, 'update');
+
         res.json({
             success: true,
             message: `Trừ kho: ${results.subtracted} cập nhật, ${results.removed} xóa, ${results.not_found} không tìm thấy`,
@@ -293,29 +449,20 @@ router.patch('/:id', async (req, res) => {
     await ensureTable(db);
 
     const { id } = req.params;
-    const { quantity, purchase_price, product_name, variant } = req.body;
+    const { quantity, purchase_price, product_name, variant, image_url, tpos_product_id, selling_price } = req.body;
 
     try {
         const fields = [];
         const params = [];
         let paramIndex = 1;
 
-        if (quantity !== undefined) {
-            fields.push(`quantity = $${paramIndex++}`);
-            params.push(quantity);
-        }
-        if (purchase_price !== undefined) {
-            fields.push(`purchase_price = $${paramIndex++}`);
-            params.push(purchase_price);
-        }
-        if (product_name !== undefined) {
-            fields.push(`product_name = $${paramIndex++}`);
-            params.push(product_name);
-        }
-        if (variant !== undefined) {
-            fields.push(`variant = $${paramIndex++}`);
-            params.push(variant);
-        }
+        if (quantity !== undefined) { fields.push(`quantity = $${paramIndex++}`); params.push(quantity); }
+        if (purchase_price !== undefined) { fields.push(`purchase_price = $${paramIndex++}`); params.push(purchase_price); }
+        if (product_name !== undefined) { fields.push(`product_name = $${paramIndex++}`); params.push(product_name); }
+        if (variant !== undefined) { fields.push(`variant = $${paramIndex++}`); params.push(variant); }
+        if (image_url !== undefined) { fields.push(`image_url = $${paramIndex++}`); params.push(image_url); }
+        if (tpos_product_id !== undefined) { fields.push(`tpos_product_id = $${paramIndex++}`); params.push(tpos_product_id); }
+        if (selling_price !== undefined) { fields.push(`selling_price = $${paramIndex++}`); params.push(selling_price); }
 
         if (fields.length === 0) {
             return res.status(400).json({ success: false, error: 'No fields to update' });
@@ -331,6 +478,8 @@ router.patch('/:id', async (req, res) => {
         if (result.rows.length === 0) {
             return res.status(404).json({ success: false, error: 'Product not found' });
         }
+
+        notifyKhoChange({ action: 'update', product: result.rows[0] }, 'update');
 
         res.json({ success: true, data: result.rows[0] });
     } catch (error) {
@@ -355,6 +504,8 @@ router.delete('/:id', async (req, res) => {
             return res.status(404).json({ success: false, error: 'Product not found' });
         }
 
+        notifyKhoChange({ action: 'delete', id, product_code: result.rows[0].product_code }, 'deleted');
+
         res.json({ success: true, message: 'Product deleted' });
     } catch (error) {
         handleError(res, error, 'Delete failed');
@@ -371,10 +522,454 @@ router.delete('/', async (req, res) => {
 
     try {
         const result = await db.query('DELETE FROM kho_di_cho');
+        notifyKhoChange({ action: 'clear', count: result.rowCount }, 'deleted');
         res.json({ success: true, message: `Cleared ${result.rowCount} products` });
     } catch (error) {
         handleError(res, error, 'Clear failed');
     }
 });
+
+// =====================================================
+// ROUTES — HELD PRODUCTS (multi-user)
+// Uses existing held_products table, product_id = product_code
+// =====================================================
+
+/**
+ * POST /api/v2/kho-di-cho/hold
+ * Hold a product from warehouse for a specific order
+ *
+ * Body: {
+ *   orderId, productCode, userId, displayName,
+ *   quantity (default 1),
+ *   isDraft (default false),
+ *   ... extra data fields
+ * }
+ *
+ * Side effects:
+ * - Creates/updates held_products row
+ * - SSE notify kho_di_cho (available_qty changed)
+ * - SSE notify held_products/{orderId}
+ */
+router.post('/hold', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    await ensureTable(db);
+
+    const {
+        orderId, productCode, userId, displayName,
+        quantity = 1, isDraft = false,
+        ...extraData
+    } = req.body;
+
+    if (!orderId || !productCode || !userId) {
+        return res.status(400).json({ success: false, error: 'orderId, productCode, userId are required' });
+    }
+
+    try {
+        // Check warehouse product exists and has available qty
+        const product = await db.query('SELECT * FROM kho_di_cho WHERE product_code = $1', [productCode]);
+        if (product.rows.length === 0) {
+            return res.status(404).json({ success: false, error: 'Product not found in warehouse' });
+        }
+
+        const warehouseProduct = product.rows[0];
+        const currentHeld = await getHeldQuantity(db, productCode);
+        const availableQty = warehouseProduct.quantity - currentHeld;
+
+        if (availableQty < quantity) {
+            return res.status(409).json({
+                success: false,
+                error: `Không đủ hàng. Còn ${availableQty}, yêu cầu ${quantity}`,
+                available: availableQty
+            });
+        }
+
+        // Upsert held_products
+        const heldData = {
+            productCode,
+            productName: warehouseProduct.product_name,
+            variant: warehouseProduct.variant,
+            imageUrl: warehouseProduct.image_url,
+            purchasePrice: parseFloat(warehouseProduct.purchase_price) || 0,
+            sellingPrice: parseFloat(warehouseProduct.selling_price) || 0,
+            parentProductCode: warehouseProduct.parent_product_code,
+            tposProductId: warehouseProduct.tpos_product_id,
+            khoId: warehouseProduct.id,
+            displayName: displayName || userId,
+            quantity,
+            timestamp: Date.now(),
+            source: 'kho_di_cho',
+            ...extraData
+        };
+
+        await db.query(`
+            INSERT INTO held_products (order_id, product_id, user_id, data, is_draft, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            ON CONFLICT (order_id, product_id, user_id) DO UPDATE SET
+                data = $4,
+                is_draft = $5,
+                updated_at = CURRENT_TIMESTAMP
+        `, [orderId, productCode, userId, JSON.stringify(heldData), isDraft]);
+
+        // Notify SSE — warehouse changed
+        notifyKhoChange({
+            action: 'held',
+            productCode,
+            availableQty: availableQty - quantity,
+            heldBy: displayName || userId
+        }, 'update');
+
+        // Notify SSE — held_products for this order
+        if (notifyClientsWildcard) {
+            notifyClientsWildcard(`held_products/${orderId}`, {
+                productId: productCode,
+                userId,
+                data: { ...heldData, isDraft }
+            }, 'update');
+        }
+
+        res.json({
+            success: true,
+            held: {
+                orderId,
+                productCode,
+                userId,
+                quantity,
+                availableQty: availableQty - quantity,
+                warehouseQty: warehouseProduct.quantity,
+                product: heldData
+            }
+        });
+    } catch (error) {
+        handleError(res, error, 'Hold failed');
+    }
+});
+
+/**
+ * DELETE /api/v2/kho-di-cho/hold/:orderId/:productCode/:userId
+ * Release a held product (return to available pool)
+ */
+router.delete('/hold/:orderId/:productCode/:userId', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    await ensureTable(db);
+
+    const { orderId, productCode, userId } = req.params;
+
+    try {
+        const result = await db.query(
+            'DELETE FROM held_products WHERE order_id = $1 AND product_id = $2 AND user_id = $3 RETURNING *',
+            [orderId, productCode, userId]
+        );
+
+        // Notify SSE
+        notifyKhoChange({ action: 'released', productCode }, 'update');
+        if (notifyClientsWildcard) {
+            notifyClientsWildcard(`held_products/${orderId}`, {
+                productId: productCode, userId, deleted: true
+            }, 'deleted');
+        }
+
+        res.json({
+            success: true,
+            deleted: result.rowCount > 0,
+            orderId, productCode, userId
+        });
+    } catch (error) {
+        handleError(res, error, 'Release hold failed');
+    }
+});
+
+/**
+ * GET /api/v2/kho-di-cho/holders/:productCode
+ * Get all holders of a specific product
+ */
+router.get('/holders/:productCode', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    await ensureTable(db);
+
+    const { productCode } = req.params;
+
+    try {
+        const holders = await getHolders(db, productCode);
+        const totalHeld = holders.reduce((sum, h) => sum + h.quantity, 0);
+
+        // Get warehouse quantity
+        const product = await db.query('SELECT quantity FROM kho_di_cho WHERE product_code = $1', [productCode]);
+        const warehouseQty = product.rows.length > 0 ? product.rows[0].quantity : 0;
+
+        res.json({
+            success: true,
+            productCode,
+            warehouseQty,
+            totalHeld,
+            availableQty: warehouseQty - totalHeld,
+            holders
+        });
+    } catch (error) {
+        handleError(res, error, 'Get holders failed');
+    }
+});
+
+// =====================================================
+// ROUTES — SALES (confirm to order / undo)
+// =====================================================
+
+/**
+ * POST /api/v2/kho-di-cho/confirm-sale
+ * Confirm held product → subtract from warehouse, log to sales history
+ *
+ * Body: {
+ *   orderId, orderStt, productCode, userId, displayName,
+ *   quantity (default: held qty)
+ * }
+ *
+ * Flow:
+ * 1. Find held_products row
+ * 2. Subtract quantity from kho_di_cho
+ * 3. Log to kho_di_cho_sales
+ * 4. Delete from held_products
+ * 5. SSE notify
+ */
+router.post('/confirm-sale', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    await ensureTable(db);
+
+    const { orderId, orderStt, productCode, userId, displayName, quantity } = req.body;
+
+    if (!orderId || !productCode || !userId) {
+        return res.status(400).json({ success: false, error: 'orderId, productCode, userId are required' });
+    }
+
+    const client = await db.connect();
+    try {
+        await client.query('BEGIN');
+
+        // 1. Get held product data
+        const heldResult = await client.query(
+            'SELECT data FROM held_products WHERE order_id = $1 AND product_id = $2 AND user_id = $3',
+            [orderId, productCode, userId]
+        );
+
+        const heldQty = heldResult.rows.length > 0
+            ? parseInt(heldResult.rows[0].data?.quantity) || 1
+            : (quantity || 1);
+        const confirmQty = quantity || heldQty;
+
+        // 2. Get warehouse product
+        const productResult = await client.query(
+            'SELECT * FROM kho_di_cho WHERE product_code = $1',
+            [productCode]
+        );
+
+        if (productResult.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ success: false, error: 'Product not found in warehouse' });
+        }
+
+        const warehouseProduct = productResult.rows[0];
+        const newQty = warehouseProduct.quantity - confirmQty;
+
+        // 3. Subtract from warehouse (or delete if reaches 0)
+        if (newQty <= 0) {
+            await client.query('DELETE FROM kho_di_cho WHERE id = $1', [warehouseProduct.id]);
+        } else {
+            await client.query(
+                'UPDATE kho_di_cho SET quantity = $1, updated_at = NOW() WHERE id = $2',
+                [newQty, warehouseProduct.id]
+            );
+        }
+
+        // 4. Log to sales history
+        await client.query(
+            `INSERT INTO kho_di_cho_sales
+             (product_code, parent_product_code, product_name, variant, purchase_price, selling_price,
+              image_url, tpos_product_id, quantity, order_id, order_stt, sold_by_user_id, sold_by_name, status)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 'sold')`,
+            [
+                productCode, warehouseProduct.parent_product_code, warehouseProduct.product_name,
+                warehouseProduct.variant, warehouseProduct.purchase_price, warehouseProduct.selling_price,
+                warehouseProduct.image_url, warehouseProduct.tpos_product_id,
+                confirmQty, orderId, orderStt || null,
+                userId, displayName || userId
+            ]
+        );
+
+        // 5. Delete from held_products
+        await client.query(
+            'DELETE FROM held_products WHERE order_id = $1 AND product_id = $2 AND user_id = $3',
+            [orderId, productCode, userId]
+        );
+
+        await client.query('COMMIT');
+
+        // SSE notify
+        notifyKhoChange({
+            action: 'sold',
+            productCode,
+            quantity: confirmQty,
+            orderId,
+            remainingQty: Math.max(0, newQty)
+        }, 'update');
+
+        if (notifyClientsWildcard) {
+            notifyClientsWildcard(`held_products/${orderId}`, {
+                productId: productCode, userId, deleted: true, confirmed: true
+            }, 'deleted');
+        }
+
+        res.json({
+            success: true,
+            message: `Confirmed ${confirmQty}x ${warehouseProduct.product_name} → order ${orderId}`,
+            sale: {
+                productCode,
+                quantity: confirmQty,
+                orderId,
+                remainingWarehouseQty: Math.max(0, newQty)
+            }
+        });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        handleError(res, error, 'Confirm sale failed');
+    } finally {
+        client.release();
+    }
+});
+
+/**
+ * POST /api/v2/kho-di-cho/return
+ * Return product from order back to warehouse (undo sale)
+ *
+ * Body: {
+ *   productCode, quantity, orderId (optional — to find exact sale record),
+ *   userId, displayName
+ * }
+ */
+router.post('/return', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    await ensureTable(db);
+
+    const { productCode, quantity = 1, orderId, userId, displayName } = req.body;
+
+    if (!productCode) {
+        return res.status(400).json({ success: false, error: 'productCode is required' });
+    }
+
+    const client = await db.connect();
+    try {
+        await client.query('BEGIN');
+
+        // 1. Find the sale record (most recent unreturned)
+        let saleQuery = `SELECT * FROM kho_di_cho_sales
+                         WHERE product_code = $1 AND status = 'sold'`;
+        const saleParams = [productCode];
+        if (orderId) {
+            saleQuery += ` AND order_id = $2`;
+            saleParams.push(orderId);
+        }
+        saleQuery += ` ORDER BY sold_at DESC LIMIT 1`;
+
+        const saleResult = await client.query(saleQuery, saleParams);
+
+        // 2. Mark sale as returned
+        if (saleResult.rows.length > 0) {
+            const sale = saleResult.rows[0];
+            await client.query(
+                `UPDATE kho_di_cho_sales SET status = 'returned', returned_at = NOW() WHERE id = $1`,
+                [sale.id]
+            );
+        }
+
+        // 3. Add back to warehouse
+        const existing = await client.query(
+            'SELECT id, quantity FROM kho_di_cho WHERE product_code = $1',
+            [productCode]
+        );
+
+        if (existing.rows.length > 0) {
+            // Product still exists — increase quantity
+            await client.query(
+                'UPDATE kho_di_cho SET quantity = quantity + $1, updated_at = NOW() WHERE id = $2',
+                [quantity, existing.rows[0].id]
+            );
+        } else if (saleResult.rows.length > 0) {
+            // Product was deleted (qty reached 0) — recreate from sale record
+            const sale = saleResult.rows[0];
+            const maxSttResult = await client.query('SELECT COALESCE(MAX(stt), 0) as max_stt FROM kho_di_cho');
+            const nextStt = maxSttResult.rows[0].max_stt + 1;
+
+            await client.query(
+                `INSERT INTO kho_di_cho (stt, product_code, parent_product_code, product_name, variant,
+                 quantity, purchase_price, selling_price, image_url, tpos_product_id, source_po_ids)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, '{}')`,
+                [nextStt, sale.product_code, sale.parent_product_code, sale.product_name,
+                 sale.variant, quantity, sale.purchase_price || 0, sale.selling_price || 0,
+                 sale.image_url, sale.tpos_product_id]
+            );
+        } else {
+            await client.query('ROLLBACK');
+            return res.status(404).json({
+                success: false,
+                error: 'No sale record or warehouse product found for this product_code'
+            });
+        }
+
+        await client.query('COMMIT');
+
+        // SSE notify
+        notifyKhoChange({
+            action: 'returned',
+            productCode,
+            quantity,
+            orderId
+        }, 'update');
+
+        res.json({
+            success: true,
+            message: `Returned ${quantity}x ${productCode} to warehouse`,
+            returned: { productCode, quantity, orderId }
+        });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        handleError(res, error, 'Return failed');
+    } finally {
+        client.release();
+    }
+});
+
+/**
+ * GET /api/v2/kho-di-cho/sales
+ * Get sales history (for undo lookup)
+ * Query: ?orderId=xxx or ?productCode=xxx or ?status=sold
+ */
+router.get('/sales', async (req, res) => {
+    const db = req.app.locals.chatDb;
+    await ensureTable(db);
+
+    const { orderId, productCode, status = 'sold', limit = 100 } = req.query;
+
+    try {
+        let query = 'SELECT * FROM kho_di_cho_sales WHERE 1=1';
+        const params = [];
+        let paramIndex = 1;
+
+        if (orderId) { query += ` AND order_id = $${paramIndex++}`; params.push(orderId); }
+        if (productCode) { query += ` AND product_code = $${paramIndex++}`; params.push(productCode); }
+        if (status) { query += ` AND status = $${paramIndex++}`; params.push(status); }
+
+        query += ` ORDER BY sold_at DESC LIMIT $${paramIndex}`;
+        params.push(parseInt(limit));
+
+        const result = await db.query(query, params);
+
+        res.json({ success: true, data: result.rows });
+    } catch (error) {
+        handleError(res, error, 'Get sales failed');
+    }
+});
+
+// =====================================================
+// EXPORTS
+// =====================================================
+
+router.initializeNotifiers = initializeNotifiers;
 
 module.exports = router;

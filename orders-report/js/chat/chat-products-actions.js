@@ -123,18 +123,16 @@
                 throw new Error('updateOrderWithFullPayload not available');
             }
 
-            // Remove from Firebase held_products
-            await removeHeldFromFirebase(orderData.Id, productId);
-
-            // Remove from dropped products list if it came from there
-            // Check both IsFromDropped flag and actual presence in dropped list
-            if (typeof window.removeDroppedProductByProductId === 'function') {
-                const droppedProducts = typeof window.getDroppedProducts === 'function' ? window.getDroppedProducts() : [];
-                const inDropped = droppedProducts.some(p => Number(p.ProductId) === productId);
-                if (heldProduct.IsFromDropped || inDropped) {
-                    await window.removeDroppedProductByProductId(productId);
+            // Confirm sale on Kho Đi Chợ (subtract from warehouse + log to sales history)
+            if (heldProduct.IsFromKho || heldProduct.IsFromDropped || heldProduct._khoProductCode) {
+                const productCode = heldProduct._khoProductCode || heldProduct.ProductCode || heldProduct.Code || '';
+                if (productCode) {
+                    await confirmKhoSale(orderData.Id, productCode, quantity, orderData.SessionIndex);
                 }
             }
+
+            // Remove from Render held_products (replaces Firebase)
+            await removeHeldFromRender(orderData.Id, productId, heldProduct._khoProductCode || heldProduct.ProductCode);
 
             // Invalidate cache
             if (typeof window.invalidateOrderDetailsCache === 'function') {
@@ -214,23 +212,21 @@
         if (!confirmed) return;
 
         try {
-            // If from dropped → return to dropped products
-            if (heldProduct.IsFromDropped) {
-                if (typeof window.addToDroppedProducts === 'function') {
-                    await window.addToDroppedProducts(heldProduct, heldProduct.Quantity, 'returned_from_held');
-                }
+            // Release kho-di-cho hold (returns available_qty) + return to warehouse
+            const productCode = heldProduct._khoProductCode || heldProduct.ProductCode || heldProduct.Code || '';
+            if (heldProduct.IsFromKho || heldProduct.IsFromDropped) {
+                // Product came from kho — just release the hold (available_qty auto-restores)
+                // No need to call addToDroppedProducts since kho tracks available_qty from held_products
+            } else if (typeof window.addToDroppedProducts === 'function') {
+                // Product came from elsewhere — return to kho via batch
+                await window.addToDroppedProducts(heldProduct, heldProduct.Quantity, 'returned_from_held');
             }
 
             // Remove from local
             orderData.Details.splice(heldIndex, 1);
 
-            // Remove from Render PostgreSQL (replaces Firebase as of 2026-04-05)
-            if (typeof window.removeHeldProduct === 'function') {
-                await window.removeHeldProduct(productId);
-            } else {
-                // Fallback to Firebase for older code paths
-                await removeHeldFromFirebase(orderData.Id, productId);
-            }
+            // Remove from Render held_products
+            await removeHeldFromRender(orderData.Id, productId, productCode);
 
             // Re-render
             window.renderChatProductsTable();
@@ -281,13 +277,11 @@
     };
 
     /**
-     * Sync held quantity to Firebase
+     * Sync held quantity to Render API
      */
     async function syncHeldQuantityToFirebase(orderId, productId, quantity) {
-        if (!window.firebase || !window.authManager) return;
-
         try {
-            const auth = window.authManager.getAuthState();
+            const auth = window.authManager?.getAuthState();
             if (!auth) return;
 
             let userId = auth.id || auth.Id || auth.username || auth.userType;
@@ -296,13 +290,14 @@
             }
             if (!userId) return;
 
-            const ref = window.firebase.database().ref(`held_products/${orderId}/${productId}/${userId}`);
-            await ref.update({
-                quantity: quantity,
-                timestamp: window.firebase.database.ServerValue.TIMESTAMP
+            const RENDER_API = 'https://n2store-fallback.onrender.com';
+            await fetch(`${RENDER_API}/api/realtime/held-products/${orderId}/${productId}/${userId}/quantity`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ quantity }),
             });
         } catch (e) {
-            console.error('[ChatProducts-Actions] Firebase sync error:', e);
+            console.error('[ChatProducts-Actions] Held quantity sync error:', e);
         }
     }
 
@@ -340,7 +335,7 @@
 
             // Confirm
             const msg = currentQty <= 1
-                ? `Giảm "${productName}" về 0 sẽ chuyển sang hàng rớt xả. Tiếp tục?`
+                ? `Giảm "${productName}" về 0 sẽ trả lại kho. Tiếp tục?`
                 : `Giảm số lượng "${productName}" từ ${currentQty} xuống ${currentQty - 1}?`;
 
             let confirmed = false;
@@ -383,7 +378,8 @@
                         removedBy: userName,
                         removedFromOrderSTT: orderSTT,
                         removedFromCustomer: customerName,
-                        removedAt: Date.now()
+                        removedAt: Date.now(),
+                        orderId: orderData.Id,
                     });
                 }
             } else {
@@ -434,7 +430,7 @@
             // Update main table row
             updateMainTableRow(orderData.Id, totalAmount, totalQuantity);
 
-            showSuccess(freshQty <= 1 ? 'Đã chuyển sản phẩm sang hàng rớt xả' : 'Đã giảm số lượng');
+            showSuccess(freshQty <= 1 ? 'Đã trả sản phẩm lại kho' : 'Đã giảm số lượng');
 
         } catch (error) {
             console.error('[ChatProducts-Actions] Decrease error:', error);
@@ -525,14 +521,16 @@
         }
     }
 
-    /**
-     * Remove held product from Firebase
-     */
-    async function removeHeldFromFirebase(orderId, productId) {
-        if (!window.firebase || !window.authManager) return;
+    const RENDER_API = 'https://n2store-fallback.onrender.com';
+    const KHO_API = `${RENDER_API}/api/v2/kho-di-cho`;
 
+    /**
+     * Remove held product from Render API
+     * Tries kho-di-cho hold endpoint first, falls back to realtime held-products
+     */
+    async function removeHeldFromRender(orderId, productId, productCode) {
         try {
-            const auth = window.authManager.getAuthState();
+            const auth = window.authManager?.getAuthState();
             if (!auth) return;
 
             let userId = auth.id || auth.Id || auth.username || auth.userType;
@@ -541,10 +539,52 @@
             }
             if (!userId) return;
 
-            const ref = window.firebase.database().ref(`held_products/${orderId}/${productId}/${userId}`);
-            await ref.remove();
+            // Try kho-di-cho hold endpoint (product_code based)
+            if (productCode) {
+                await fetch(`${KHO_API}/hold/${orderId}/${encodeURIComponent(productCode)}/${userId}`, {
+                    method: 'DELETE',
+                }).catch(() => {});
+            }
+
+            // Also try realtime held-products (product_id based, backward compat)
+            await fetch(`${RENDER_API}/api/realtime/held-products/${orderId}/${productId}/${userId}`, {
+                method: 'DELETE',
+            }).catch(() => {});
         } catch (e) {
-            console.error('[ChatProducts-Actions] Firebase remove error:', e);
+            console.error('[ChatProducts-Actions] Render remove held error:', e);
+        }
+    }
+
+    /**
+     * Legacy alias — still called from some code paths
+     */
+    async function removeHeldFromFirebase(orderId, productId) {
+        await removeHeldFromRender(orderId, productId, null);
+    }
+
+    /**
+     * Confirm sale on Kho Đi Chợ — subtract from warehouse + log to sales history
+     */
+    async function confirmKhoSale(orderId, productCode, quantity, orderStt) {
+        try {
+            const auth = window.authManager?.getAuthState();
+            const userId = auth?.id || auth?.Id || auth?.username || auth?.userType || 'unknown';
+            const displayName = auth?.displayName || auth?.userType || 'Unknown';
+
+            await fetch(`${KHO_API}/confirm-sale`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    orderId: String(orderId),
+                    orderStt: orderStt || '',
+                    productCode,
+                    userId,
+                    displayName,
+                    quantity: quantity || 1,
+                }),
+            });
+        } catch (e) {
+            console.error('[ChatProducts-Actions] Kho confirm-sale error:', e);
         }
     }
 

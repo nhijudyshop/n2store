@@ -150,7 +150,6 @@
             if (!resp.ok) return;
 
             const orderProducts = await resp.json();
-            const droppedProducts = typeof window.getDroppedProducts === 'function' ? window.getDroppedProducts() : [];
 
             for (const productId in orderProducts) {
                 const productHolders = orderProducts[productId];
@@ -160,43 +159,21 @@
                     // Only cleanup temporary holds (isDraft === false)
                     if (holderData.isDraft === true) continue;
 
-                    const heldQuantity = parseInt(holderData.quantity) || 1;
-
-                    // Return quantity back to dropped products via API
-                    const droppedProduct = droppedProducts.find(p => String(p.ProductId) === String(productId));
-                    if (droppedProduct && droppedProduct.id) {
-                        await fetch(`${RENDER_API}/api/realtime/dropped-products/${droppedProduct.id}/quantity`, {
-                            method: 'PATCH',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ change: heldQuantity }),
-                        }).catch(() => {});
-                    } else if (holderData.productName) {
-                        // Product from search - add new entry to dropped
-                        const id = 'dp_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 9);
-                        await fetch(`${RENDER_API}/api/realtime/dropped-products/${id}`, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                ProductId: parseInt(productId),
-                                ProductName: holderData.productName,
-                                ProductNameGet: holderData.productNameGet || holderData.productName,
-                                ProductCode: holderData.productCode || '',
-                                ImageUrl: holderData.imageUrl || '',
-                                Price: holderData.price || 0,
-                                Quantity: heldQuantity,
-                                UOMName: holderData.uomName || 'Cái',
-                                reason: 'returned_from_held',
-                            }),
-                        }).catch(() => {});
-                    }
-
                     // Remove this user's hold via API
+                    // For kho-di-cho sourced products, releasing the hold auto-restores available_qty
+                    // (available_qty = quantity - SUM(held), so deleting held row restores it)
                     await fetch(
                         `${RENDER_API}/api/realtime/held-products/${orderId}/${productId}/${userId}`,
                         { method: 'DELETE' }
                     );
 
-                    // Clear heldBy from dropped products if no one else is holding
+                    // Also try kho-di-cho hold endpoint (productId here is product_code for kho products)
+                    const KHO_API = `${RENDER_API}/api/v2/kho-di-cho`;
+                    await fetch(
+                        `${KHO_API}/hold/${orderId}/${encodeURIComponent(productId)}/${userId}`,
+                        { method: 'DELETE' }
+                    ).catch(() => {});
+
                     if (typeof window.clearHeldByIfNotHeld === 'function') {
                         await window.clearHeldByIfNotHeld(productId);
                     }
@@ -496,21 +473,17 @@
 
                     if (holderData.isDraft === true) continue;
 
-                    const heldQuantity = parseInt(holderData.quantity) || 1;
-
-                    // Return quantity to dropped products
-                    const droppedProduct = droppedProducts.find(p => String(p.ProductId) === String(productId));
-                    if (droppedProduct && droppedProduct.id) {
-                        await fetch(`${RENDER_API}/api/realtime/dropped-products/${droppedProduct.id}/quantity`, {
-                            method: 'PATCH',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ change: heldQuantity }),
-                        }).catch(() => {});
-                    }
-
                     // Remove held product
+                    // For kho-di-cho products, releasing hold auto-restores available_qty
                     await fetch(
                         `${RENDER_API}/api/realtime/held-products/${orderId}/${productId}/${userId}`,
+                        { method: 'DELETE' }
+                    ).catch(() => {});
+
+                    // Also try kho-di-cho hold release
+                    const KHO_API = `${RENDER_API}/api/v2/kho-di-cho`;
+                    await fetch(
+                        `${KHO_API}/hold/${orderId}/${encodeURIComponent(productId)}/${userId}`,
                         { method: 'DELETE' }
                     ).catch(() => {});
                 }

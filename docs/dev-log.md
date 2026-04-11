@@ -8,6 +8,17 @@
 
 ## 2026-04-11
 
+### [orders][render] Chuyển Tab Đơn Hàng & Bán Hàng sang Kho Đi Chợ ✅
+| | |
+|---|---|
+| **Files** | `render.com/routes/v2/kho-di-cho.js`, `render.com/server.js`, `orders-report/js/managers/dropped-products-manager.js`, `orders-report/js/managers/held-products-manager.js`, `orders-report/js/chat/chat-products-actions.js` |
+| **Backend** | Thêm columns `image_url`, `tpos_product_id`, `selling_price` vào `kho_di_cho` table. Tạo `kho_di_cho_sales` table (lưu lịch sử bán để undo). API mới: `POST /hold`, `DELETE /hold/:o/:p/:u`, `GET /holders/:code`, `POST /confirm-sale`, `POST /return`, `GET /sales`. SSE broadcast trên key `kho_di_cho`. GET `/` enhanced: trả `available_qty` = quantity - SUM(held). |
+| **Tab Bán Hàng** | Data source: `kho_di_cho` API thay dropped_products. SSE key: `kho_di_cho`. `mapKhoProduct()` mapping kho fields → UI format. `moveDroppedToOrder()` gọi `/hold` API (validate available qty). CRUD operations redirect sang kho API. |
+| **Tab Đơn Hàng** | `confirmHeldProduct()`: gọi `/confirm-sale` (trừ kho + log sales history) trước khi PUT TPOS. `deleteHeldProduct()`: release hold (available_qty auto-restore). `syncHeldQuantityToFirebase()` → Render API. `removeHeldFromFirebase()` → `removeHeldFromRender()`. |
+| **Undo flow** | `POST /return`: trả SP lại kho từ sales history. Nếu SP đã bị xóa (qty=0) → recreate từ sales record. `addToDroppedProducts()` gọi return API, fallback batch. |
+| **Cleanup** | `cleanupHeldProducts()` + `cleanupAllUserHeldProducts()`: release kho hold thay vì return to dropped (available_qty auto-restore khi xóa held_products row). |
+| **Status** | ✅ Done |
+
 ### [render] Drop 4 unused PostgreSQL tables ✅
 | | |
 |---|---|

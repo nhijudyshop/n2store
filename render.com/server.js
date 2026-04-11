@@ -335,6 +335,15 @@ initializeNotifiers(
     realtimeSseRoutes.notifyClientsWildcard
 );
 
+// Initialize SSE notifiers in kho-di-cho routes
+const khoDiChoRouter = require('./routes/v2/kho-di-cho');
+if (khoDiChoRouter.initializeNotifiers) {
+    khoDiChoRouter.initializeNotifiers(
+        realtimeSseRoutes.notifyClients,
+        realtimeSseRoutes.notifyClientsWildcard
+    );
+}
+
 // Cloudflare Worker Backup Routes (fb-avatar, pancake-avatar, proxy, pancake-direct, pancake-official, facebook-send, rest)
 app.use('/api', cloudflareBackupRoutes);
 
