@@ -114,8 +114,49 @@ const FBAds = (() => {
             await fetch(API_BASE + '/auth/saved-accounts/' + userId, { method: 'DELETE' });
             toast('Đã xóa', 'success');
             loadSavedAccounts();
+            refreshAccountDropdown();
         } catch (e) { toast('Lỗi', 'error'); }
     }
+
+    // Account dropdown in topbar
+    function toggleAccountMenu() {
+        const dd = document.getElementById('accountDropdown');
+        dd.style.display = dd.style.display === 'none' ? '' : 'none';
+    }
+
+    async function refreshAccountDropdown() {
+        try {
+            const res = await fetch(API_BASE + '/auth/saved-accounts').then(r => r.json());
+            const list = document.getElementById('accountDropdownList');
+            if (!res.success || !res.data?.length) {
+                list.innerHTML = '<div style="padding:12px 14px;color:var(--fb-text-light);font-size:13px">Chưa có tài khoản nào</div>';
+                return;
+            }
+            const currentUser = document.getElementById('userName').textContent;
+            list.innerHTML = res.data.map(a => {
+                const isCurrent = a.name === currentUser;
+                return `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;transition:background 0.1s;${isCurrent ? 'background:#e7f3ff;' : ''}"
+                    onmouseover="this.style.background='${isCurrent ? '#d4e8ff' : '#f8f9fa'}'" onmouseout="this.style.background='${isCurrent ? '#e7f3ff' : ''}'"
+                    onclick="FBAds.switchAccount('${a.user_id}');FBAds.toggleAccountMenu()">
+                    <div style="width:32px;height:32px;background:${isCurrent ? 'var(--fb-primary)' : '#65676b'};border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px">${(a.name || '?')[0].toUpperCase()}</div>
+                    <div style="flex:1;min-width:0">
+                        <div style="font-weight:${isCurrent ? '700' : '500'};font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(a.name || a.user_id)}${isCurrent ? ' &#10003;' : ''}</div>
+                        <div style="font-size:11px;color:var(--fb-text-light)">Còn ${a.days_left} ngày</div>
+                    </div>
+                    <button class="btn btn-outline btn-sm" style="padding:2px 6px;font-size:11px" onclick="event.stopPropagation();FBAds.removeSavedAccount('${a.user_id}');FBAds.toggleAccountMenu()">&#10005;</button>
+                </div>`;
+            }).join('');
+        } catch (e) { /* ignore */ }
+    }
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        const switcher = document.getElementById('accountSwitcher');
+        const dd = document.getElementById('accountDropdown');
+        if (switcher && dd && !switcher.contains(e.target)) {
+            dd.style.display = 'none';
+        }
+    });
 
     function onLoginSuccess(user) {
         document.getElementById('loginScreen').style.display = 'none';
@@ -125,8 +166,10 @@ const FBAds = (() => {
         document.getElementById('settingsBtn').style.display = '';
         document.getElementById('userInfo').style.display = 'flex';
         document.getElementById('userName').textContent = user.name;
+        document.getElementById('currentAccountAvatar').textContent = (user.name || '?')[0].toUpperCase();
         loadAdAccounts();
         loadPages();
+        refreshAccountDropdown();
     }
 
     async function logout() {
@@ -137,6 +180,7 @@ const FBAds = (() => {
         document.getElementById('logoutBtn').style.display = 'none';
         document.getElementById('settingsBtn').style.display = 'none';
         document.getElementById('userInfo').style.display = 'none';
+        document.getElementById('accountDropdown').style.display = 'none';
         selectedAccountId = null;
         toast('Đã đăng xuất', 'info');
     }
@@ -1319,6 +1363,7 @@ const FBAds = (() => {
         viewCampaignDetails: viewAdSets,
         // Account switching
         switchAccount, removeSavedAccount, loadSavedAccounts,
+        toggleAccountMenu, refreshAccountDropdown,
         // New features
         loadAudiences, createAudience, deleteAudience,
         loadPixels, viewPixelEvents,
