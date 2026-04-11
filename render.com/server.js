@@ -344,6 +344,22 @@ if (khoDiChoRouter.initializeNotifiers) {
     );
 }
 
+// Initialize TPOS Product Sync Service + Cron
+const TPOSProductSync = require('./services/sync-tpos-products');
+const tposProductSync = new TPOSProductSync(
+    chatDbPool,
+    tposTokenManager,
+    realtimeSseRoutes.notifyClients
+);
+if (khoDiChoRouter.initializeSyncService) {
+    khoDiChoRouter.initializeSyncService(tposProductSync);
+}
+// Start incremental sync cron (every 30 minutes)
+setTimeout(() => {
+    tposProductSync.startCron(30 * 60 * 1000);
+    console.log('[STARTUP] TPOS product sync cron started (30 min interval)');
+}, 10000); // delay 10s after server start
+
 // Cloudflare Worker Backup Routes (fb-avatar, pancake-avatar, proxy, pancake-direct, pancake-official, facebook-send, rest)
 app.use('/api', cloudflareBackupRoutes);
 

@@ -8,6 +8,18 @@
 
 ## 2026-04-11
 
+### [render][orders] TPOS Product Sync + Kho Đi Chợ v3 ✅
+| | |
+|---|---|
+| **Files** | `render.com/services/sync-tpos-products.js` (MỚI), `render.com/routes/v2/kho-di-cho.js`, `render.com/server.js`, `kho-di-cho/js/main.js`, `kho-di-cho/index.html`, `kho-di-cho/css/kho-di-cho.css` |
+| **Sync Worker** | `TPOSProductSync` class: full sync (fetch ALL templates paginated + variants per template) + incremental sync (200 recent). Hash-based change detection (skip unchanged). Rate limit 200ms/req. Transaction per batch. Sync log table `tpos_sync_log`. |
+| **Schema v3** | Thêm columns: `tpos_template_id`, `name_get`, `category`, `barcode`, `uom_name`, `standard_price`, `tpos_qty_available`, `active`, `data_hash`, `last_synced_at`. Migration safe (DO $$ IF NOT EXISTS). |
+| **Cron** | Incremental sync mỗi 30 phút (auto-start on server boot, 10s delay). Stale detection (>10min → auto-reset). Lock mechanism (1 sync at a time). |
+| **API mới** | `POST /sync` (trigger manual), `GET /sync/status`, `GET /sync/log`. GET `/` enhanced: filter `category`, `active`, `has_inventory`. Fixed brittle count query. |
+| **Frontend rebuild** | Server-side pagination, product images, category filter, inventory filter, TPOS qty column, sync status bar + Sync TPOS button, SSE real-time. |
+| **Error handling** | TPOS timeout → 3x retry backoff. TPOS down → skip cycle, log error. Duplicate sync → lock. Partial fail → per-template catch. Auth expired → auto-refresh token. |
+| **Status** | ✅ Done |
+
 ### [orders][render] Chuyển Tab Đơn Hàng & Bán Hàng sang Kho Đi Chợ ✅
 | | |
 |---|---|

@@ -88,7 +88,7 @@ async function ensureTable(db) {
             CREATE INDEX IF NOT EXISTS idx_kho_di_cho_stt ON kho_di_cho(stt);
         `);
 
-        // Migration: add new columns if they don't exist
+        // Migration: add columns incrementally (safe to run multiple times)
         await db.query(`
             DO $$
             BEGIN
@@ -101,7 +101,53 @@ async function ensureTable(db) {
                 IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='kho_di_cho' AND column_name='selling_price') THEN
                     ALTER TABLE kho_di_cho ADD COLUMN selling_price NUMERIC(15,2) DEFAULT 0;
                 END IF;
+                -- v3 columns: TPOS product sync
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='kho_di_cho' AND column_name='tpos_template_id') THEN
+                    ALTER TABLE kho_di_cho ADD COLUMN tpos_template_id INTEGER;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='kho_di_cho' AND column_name='name_get') THEN
+                    ALTER TABLE kho_di_cho ADD COLUMN name_get TEXT;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='kho_di_cho' AND column_name='category') THEN
+                    ALTER TABLE kho_di_cho ADD COLUMN category VARCHAR(255);
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='kho_di_cho' AND column_name='barcode') THEN
+                    ALTER TABLE kho_di_cho ADD COLUMN barcode VARCHAR(100);
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='kho_di_cho' AND column_name='uom_name') THEN
+                    ALTER TABLE kho_di_cho ADD COLUMN uom_name VARCHAR(50) DEFAULT 'Cái';
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='kho_di_cho' AND column_name='standard_price') THEN
+                    ALTER TABLE kho_di_cho ADD COLUMN standard_price NUMERIC(15,2) DEFAULT 0;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='kho_di_cho' AND column_name='tpos_qty_available') THEN
+                    ALTER TABLE kho_di_cho ADD COLUMN tpos_qty_available NUMERIC(10,2) DEFAULT 0;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='kho_di_cho' AND column_name='active') THEN
+                    ALTER TABLE kho_di_cho ADD COLUMN active BOOLEAN DEFAULT true;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='kho_di_cho' AND column_name='data_hash') THEN
+                    ALTER TABLE kho_di_cho ADD COLUMN data_hash VARCHAR(64);
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='kho_di_cho' AND column_name='last_synced_at') THEN
+                    ALTER TABLE kho_di_cho ADD COLUMN last_synced_at TIMESTAMPTZ;
+                END IF;
             END $$;
+        `);
+
+        // Sync log table — tracks TPOS sync runs
+        await db.query(`
+            CREATE TABLE IF NOT EXISTS tpos_sync_log (
+                id SERIAL PRIMARY KEY,
+                sync_type VARCHAR(50) NOT NULL,
+                started_at TIMESTAMPTZ DEFAULT NOW(),
+                finished_at TIMESTAMPTZ,
+                status VARCHAR(20) DEFAULT 'running',
+                stats JSONB,
+                error_message TEXT,
+                resume_page INTEGER DEFAULT 0
+            );
+            CREATE INDEX IF NOT EXISTS idx_sync_log_status ON tpos_sync_log(status);
         `);
 
         // Sales history table — for undo (return to warehouse)
@@ -197,58 +243,89 @@ router.get('/', async (req, res) => {
         search,
         sort_by = 'stt',
         sort_order = 'ASC',
-        include_holders = 'false'
+        include_holders = 'false',
+        category,
+        active,
+        has_inventory,
     } = req.query;
 
     try {
-        // Main query with held quantity subquery
-        let query = `
-            SELECT k.*,
-                   COALESCE(h.total_held, 0) as held_qty,
-                   k.quantity - COALESCE(h.total_held, 0) as available_qty
-            FROM kho_di_cho k
-            LEFT JOIN (
-                SELECT product_id, SUM((data->>'quantity')::int) as total_held
-                FROM held_products
-                WHERE (data->>'quantity')::int > 0
-                GROUP BY product_id
-            ) h ON h.product_id = k.product_code
-            WHERE 1=1
-        `;
+        // Build WHERE conditions separately (reusable for count)
+        const conditions = [];
         const params = [];
         let paramIndex = 1;
 
         if (search) {
-            query += ` AND (
+            conditions.push(`(
                 k.product_name ILIKE $${paramIndex}
                 OR k.product_code ILIKE $${paramIndex}
                 OR k.parent_product_code ILIKE $${paramIndex}
                 OR k.variant ILIKE $${paramIndex}
-            )`;
+                OR k.name_get ILIKE $${paramIndex}
+                OR k.barcode ILIKE $${paramIndex}
+            )`);
             params.push(`%${search}%`);
             paramIndex++;
         }
 
-        // Only show products with quantity > 0
-        query += ` AND k.quantity > 0`;
+        if (category) {
+            conditions.push(`k.category ILIKE $${paramIndex}`);
+            params.push(`%${category}%`);
+            paramIndex++;
+        }
+
+        // Filter by active status (default: show all)
+        if (active === 'true') {
+            conditions.push(`k.active = true`);
+        } else if (active === 'false') {
+            conditions.push(`k.active = false`);
+        }
+
+        // Filter by inventory (has_inventory=true → quantity > 0)
+        if (has_inventory === 'true') {
+            conditions.push(`k.quantity > 0`);
+        } else if (has_inventory === 'false') {
+            conditions.push(`k.quantity = 0`);
+        }
+
+        const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
+
+        // Join for held qty
+        const joinClause = `LEFT JOIN (
+            SELECT product_id, SUM((data->>'quantity')::int) as total_held
+            FROM held_products
+            WHERE (data->>'quantity')::int > 0
+            GROUP BY product_id
+        ) h ON h.product_id = k.product_code`;
 
         // Count total
-        const countQuery = query.replace(/SELECT k\.\*,[\s\S]*?WHERE/, 'SELECT COUNT(*) FROM kho_di_cho k LEFT JOIN (SELECT product_id, SUM((data->>\'quantity\')::int) as total_held FROM held_products WHERE (data->>\'quantity\')::int > 0 GROUP BY product_id) h ON h.product_id = k.product_code WHERE');
-        const countResult = await db.query(countQuery, params);
+        const countResult = await db.query(
+            `SELECT COUNT(*) FROM kho_di_cho k ${joinClause} ${whereClause}`,
+            params
+        );
         const total = parseInt(countResult.rows[0].count);
 
         // Sort
-        const allowedSorts = ['stt', 'product_code', 'product_name', 'quantity', 'purchase_price', 'selling_price', 'created_at', 'updated_at', 'available_qty'];
+        const allowedSorts = ['stt', 'product_code', 'product_name', 'quantity', 'purchase_price', 'selling_price', 'created_at', 'updated_at', 'available_qty', 'category', 'tpos_qty_available'];
         const sortField = allowedSorts.includes(sort_by) ? sort_by : 'stt';
         const order = sort_order.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
-        query += ` ORDER BY ${sortField} ${order}`;
 
         // Pagination
         const offset = (parseInt(page) - 1) * parseInt(limit);
-        query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-        params.push(parseInt(limit), offset);
+        const paginationParams = [...params, parseInt(limit), offset];
 
-        const result = await db.query(query, params);
+        const query = `
+            SELECT k.*,
+                   COALESCE(h.total_held, 0) as held_qty,
+                   k.quantity - COALESCE(h.total_held, 0) as available_qty
+            FROM kho_di_cho k
+            ${joinClause}
+            ${whereClause}
+            ORDER BY ${sortField} ${order}
+            LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
+        `;
+
+        const result = await db.query(query, paginationParams);
 
         // Optionally include holders detail
         let data = result.rows;
@@ -967,9 +1044,96 @@ router.get('/sales', async (req, res) => {
 });
 
 // =====================================================
+// ROUTES — TPOS SYNC
+// =====================================================
+
+let syncService = null;
+
+/**
+ * Initialize sync service (called from server.js)
+ */
+function initializeSyncService(service) {
+    syncService = service;
+    console.log('[KhoDiCho] Sync service initialized');
+}
+
+/**
+ * POST /api/v2/kho-di-cho/sync
+ * Trigger manual sync (full or incremental)
+ * Query: ?type=full (default: incremental)
+ */
+router.post('/sync', async (req, res) => {
+    if (!syncService) {
+        return res.status(503).json({ success: false, error: 'Sync service not initialized' });
+    }
+
+    const syncType = req.query.type || req.body.type || 'incremental';
+
+    try {
+        // Run async — don't block the response
+        const resultPromise = syncType === 'full'
+            ? syncService.fullSync()
+            : syncService.incrementalSync();
+
+        // Return immediately with "started" status
+        res.json({
+            success: true,
+            message: `${syncType} sync started`,
+            syncType,
+        });
+
+        // Log result when done
+        resultPromise.then(stats => {
+            console.log(`[KhoDiCho] ${syncType} sync completed:`, JSON.stringify(stats));
+        }).catch(err => {
+            console.error(`[KhoDiCho] ${syncType} sync error:`, err.message);
+        });
+
+    } catch (error) {
+        handleError(res, error, 'Sync trigger failed');
+    }
+});
+
+/**
+ * GET /api/v2/kho-di-cho/sync/status
+ * Get current sync status
+ */
+router.get('/sync/status', async (req, res) => {
+    if (!syncService) {
+        return res.status(503).json({ success: false, error: 'Sync service not initialized' });
+    }
+
+    try {
+        const status = await syncService.getStatus();
+        res.json({ success: true, ...status });
+    } catch (error) {
+        handleError(res, error, 'Get sync status failed');
+    }
+});
+
+/**
+ * GET /api/v2/kho-di-cho/sync/log
+ * Get sync history
+ */
+router.get('/sync/log', async (req, res) => {
+    if (!syncService) {
+        return res.status(503).json({ success: false, error: 'Sync service not initialized' });
+    }
+
+    try {
+        const limit = parseInt(req.query.limit) || 20;
+        const log = await syncService.getLog(limit);
+        res.json({ success: true, data: log });
+    } catch (error) {
+        handleError(res, error, 'Get sync log failed');
+    }
+});
+
+// =====================================================
 // EXPORTS
 // =====================================================
 
 router.initializeNotifiers = initializeNotifiers;
+router.initializeSyncService = initializeSyncService;
 
 module.exports = router;

@@ -76,14 +76,30 @@
             </div>
         </div>
 
+        <!-- Sync Status Bar -->
+        <div class="sync-bar">
+            <div id="syncStatus" class="sync-status"><span class="sync-dot grey"></span> Đang kiểm tra...</div>
+            <button id="btnSync" class="btn btn-primary btn-sm">Sync TPOS</button>
+        </div>
+
         <!-- Controls -->
         <div class="controls-bar">
             <div class="search-box">
                 <i data-lucide="search" class="search-icon"></i>
-                <input type="text" id="searchInput" placeholder="Tìm kiếm theo tên, mã SP, biến thể..." autocomplete="off">
+                <input type="text" id="searchInput" placeholder="Tìm kiếm theo tên, mã SP, biến thể, barcode..." autocomplete="off">
                 <button id="clearSearch" class="btn-clear" title="Xóa tìm kiếm" style="display:none;">
                     <i data-lucide="x"></i>
                 </button>
+            </div>
+            <div class="controls-filters">
+                <select id="inventoryFilter" class="filter-select">
+                    <option value="all">Tất cả SP</option>
+                    <option value="has">Có hàng trong kho</option>
+                    <option value="none">Chưa có hàng</option>
+                </select>
+                <select id="categoryFilter" class="filter-select">
+                    <option value="">Tất cả danh mục</option>
+                </select>
             </div>
             <div class="controls-right">
                 <button id="btnRefresh" class="btn btn-secondary" title="Tải lại">
@@ -111,10 +127,12 @@
                 <thead>
                     <tr>
                         <th class="col-stt">STT</th>
+                        <th class="col-img">Ảnh</th>
                         <th class="col-code">Mã SP</th>
                         <th class="col-name">Tên sản phẩm</th>
                         <th class="col-variant">Biến thể</th>
-                        <th class="col-qty">Số lượng</th>
+                        <th class="col-qty">Kho ĐC</th>
+                        <th class="col-tpos-qty">Tồn TPOS</th>
                         <th class="col-price">Đơn giá</th>
                         <th class="col-total">Thành tiền</th>
                         <th class="col-actions">Thao tác</th>
@@ -137,6 +155,9 @@
                 <div class="spinner"></div>
                 <p>Đang tải dữ liệu...</p>
             </div>
+
+            <!-- Pagination -->
+            <div id="pagination" class="pagination"></div>
         </div>
     </main>
 

@@ -595,4 +595,139 @@
     .col-total {
         display: none;
     }
+
+    .col-img, .col-tpos-qty { display: none; }
+}
+
+/* =====================================================
+   NEW: Sync bar, filters, pagination, images
+   ===================================================== */
+
+.sync-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 24px;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    font-size: 0.8125rem;
+}
+
+.sync-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #64748b;
+}
+
+.sync-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+.sync-dot.green { background: #22c55e; }
+.sync-dot.red { background: #ef4444; }
+.sync-dot.grey { background: #94a3b8; }
+
+.btn-sm {
+    padding: 4px 12px;
+    font-size: 0.75rem;
+}
+
+.controls-filters {
+    display: flex;
+    gap: 8px;
+}
+
+.filter-select {
+    padding: 6px 12px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 0.8125rem;
+    background: white;
+    color: #334155;
+    cursor: pointer;
+}
+
+.filter-select:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+}
+
+/* Product thumbnail */
+.col-img {
+    width: 48px;
+    padding: 4px !important;
+    text-align: center;
+}
+
+.product-thumb {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+}
+
+.no-img {
+    color: #cbd5e1;
+    font-size: 0.75rem;
+}
+
+/* TPOS qty column */
+.col-tpos-qty {
+    width: 80px;
+    color: #94a3b8;
+    font-size: 0.8125rem;
+}
+
+/* Zero qty styling */
+.zero-qty {
+    color: #cbd5e1;
+}
+
+/* Pagination */
+.pagination {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    padding: 16px 0;
+}
+
+.page-btn {
+    min-width: 36px;
+    height: 36px;
+    padding: 0 8px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: white;
+    color: #334155;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.page-btn:hover:not(:disabled):not(.active) {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+}
+
+.page-btn.active {
+    background: #6366f1;
+    color: white;
+    border-color: #6366f1;
+}
+
+.page-btn:disabled {
+    opacity: 0.4;
+    cursor: default;
+}
+
+.page-dots {
+    display: flex;
+    align-items: center;
+    padding: 0 4px;
+    color: #94a3b8;
 }
