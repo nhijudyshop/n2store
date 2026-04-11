@@ -352,34 +352,66 @@ async function _doFindAndLoadConversation(pageId, psid, type, loadToken, opts) {
     if (cached) {
         conv = cached;
     } else if (!allowDrift) {
-        // Explicit page switch: PSID is page-specific (different per page),
-        // so we search by customer NAME across all pages, then filter by target.
+        // Explicit page switch: PSID is page-specific (different per page).
+        // Use DB lookup chain to find exact customer fb_id on target page.
         const customerName = window.currentCustomerName;
+        const customerPhone = window.currentChatPhone;
         let foundConvs = [];
+        let targetFbId = null;
 
-        // Name match — strip diacritics then exact compare
-        const _strip = s => s?.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim() || '';
-        const _nameMatch = (convName, target) => {
-            if (!convName || !target) return false;
-            if (convName === target) return true;
-            return _strip(convName) === _strip(target);
-        };
+        // Strategy 0: DB lookup — phone → global_id → fb_id on target page
+        // Chain: customers table (phone→global_id) + fb_global_id_cache (global_id→psid per page)
+        if (customerPhone || psid) {
+            try {
+                const renderUrl = 'https://n2store-fallback.onrender.com';
+                // Step A: get global_id from fb_global_id_cache (source page psid)
+                const cacheRes = await fetch(`${renderUrl}/api/fb-global-id?pageId=${window.currentChatChannelId || pageId}&psid=${psid}`);
+                const cacheData = await cacheRes.json();
+                let globalId = cacheData?.found ? cacheData.globalUserId : null;
 
-        // Strategy 1: v2 public API search (needs PAT)
-        if (customerName && pdm.searchConversationsOnPage) {
-            const searchResult = await pdm.searchConversationsOnPage(pageId, customerName);
-            foundConvs = (searchResult.conversations || []).filter(c =>
-                _nameMatch(c.from?.name, customerName)
+                // Step B: if no global_id from cache, try customers table by phone
+                if (!globalId && customerPhone) {
+                    const custRes = await fetch(`${renderUrl}/api/v2/customers/by-phone/${encodeURIComponent(customerPhone)}`);
+                    const custData = await custRes.json();
+                    globalId = custData?.global_id || null;
+                    // Also check page_fb_ids for direct mapping
+                    const pageFbIds = custData?.pancake_data?.page_fb_ids;
+                    if (pageFbIds?.[pageId]) targetFbId = pageFbIds[pageId];
+                }
+
+                // Step C: use global_id to find fb_id on target page
+                if (!targetFbId && globalId) {
+                    const targetRes = await fetch(`${renderUrl}/api/fb-global-id/by-global?globalUserId=${globalId}&pageId=${pageId}`);
+                    const targetData = await targetRes.json();
+                    if (targetData?.found) targetFbId = targetData.psid;
+                }
+            } catch (e) {
+                console.warn('[Chat-Core] DB lookup failed:', e.message);
+            }
+        }
+
+        // If DB found exact fb_id → fetch conversations directly (precise, no name ambiguity)
+        if (targetFbId) {
+            const result = await pdm.fetchConversationsByCustomerFbId(pageId, targetFbId);
+            foundConvs = (result.conversations || []).filter(c =>
+                String(c.page_id) === String(pageId)
             );
         }
-        // Strategy 2: v1 POST search cross-page (needs JWT, more reliable)
-        if (foundConvs.length === 0 && customerName && pdm.searchConversations) {
-            const searchResult = await pdm.searchConversations(customerName);
-            foundConvs = (searchResult.conversations || []).filter(c =>
-                String(c.page_id) === String(pageId) && _nameMatch(c.from?.name, customerName)
-            );
+
+        // Fallback: name search (v1 POST — cross-page, confirmed working)
+        if (foundConvs.length === 0 && customerName) {
+            const _strip = s => s?.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim() || '';
+            const _nameMatch = (a, b) => a && b && (a === b || _strip(a) === _strip(b));
+
+            if (pdm.searchConversations) {
+                const searchResult = await pdm.searchConversations(customerName);
+                foundConvs = (searchResult.conversations || []).filter(c =>
+                    String(c.page_id) === String(pageId) && _nameMatch(c.from?.name, customerName)
+                );
+            }
         }
-        // Strategy 3: page-specific API with PSID (works if same psid on this page)
+
+        // Last fallback: page-specific API with original PSID
         if (foundConvs.length === 0) {
             const result = await pdm.fetchConversationsByCustomerFbId(pageId, psid);
             foundConvs = (result.conversations || []).filter(c =>

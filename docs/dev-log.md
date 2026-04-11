@@ -8,6 +8,17 @@
 
 ## 2026-04-11
 
+### [chat][render] Cross-page customer lookup via DB — chính xác 100% ✅
+| | |
+|---|---|
+| **Files** | `orders-report/js/tab1/tab1-chat-core.js`, `render.com/routes/fb-global-id-cache.js`, `render.com/routes/v2/customers.js` |
+| **Why** | Tìm customer cross-page bằng tên có nhiều kết quả trùng (vd: 3 customer "Diệu Diệu" khác nhau trên NhiJudy Store). Cần chính xác. |
+| **Strategy 0 (DB)** | `phone → customers table (global_id)` → `global_id + target_page → fb_global_id_cache (psid)` → `fetchConversationsByCustomerFbId(targetPage, psid)` → chính xác 1 customer. |
+| **New endpoints** | `GET /api/fb-global-id/by-global?globalUserId=X&pageId=Y` — reverse lookup psid by global_id per page. `GET /api/v2/customers/by-phone/:phone` — lookup global_id + pancake_data. |
+| **Fallback** | Nếu DB miss → v1 POST search by name (strip diacritics, exact match) → last resort PSID fallback. |
+| **Auto-pick** | INBOX mới nhất (sort `last_customer_interactive_at`), COMMENT xuống dưới. Picker hiện bên dưới messages. |
+| **Status** | ✅ Done |
+
 ### [render] TPOS Socket.IO real-time listener ✅
 | | |
 |---|---|

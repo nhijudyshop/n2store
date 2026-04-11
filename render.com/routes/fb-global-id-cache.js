@@ -102,6 +102,37 @@ router.get('/', async (req, res) => {
 });
 
 // =====================================================
+// GET /api/fb-global-id/by-global?globalUserId=X&pageId=Y
+// Reverse lookup: find psid (fb_id) on a specific page given global_user_id
+// =====================================================
+router.get('/by-global', async (req, res) => {
+    if (!dbPool) return res.status(503).json({ error: 'DB not available' });
+
+    const { globalUserId, pageId } = req.query;
+    if (!globalUserId || !pageId) {
+        return res.status(400).json({ error: 'globalUserId + pageId required' });
+    }
+
+    try {
+        const r = await dbPool.query(
+            'SELECT psid, customer_name FROM fb_global_id_cache WHERE global_user_id = $1 AND page_id = $2',
+            [globalUserId, pageId]
+        );
+        if (r.rows.length === 0) {
+            return res.json({ found: false });
+        }
+        return res.json({
+            found: true,
+            psid: r.rows[0].psid,
+            customerName: r.rows[0].customer_name,
+        });
+    } catch (e) {
+        console.error('[FB-GLOBAL-ID] by-global error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+// =====================================================
 // PUT /api/fb-global-id
 // Body: { pageId, psid, globalUserId, conversationId?, customerName?, threadId?, resolvedBy? }
 // Idempotent upsert.

@@ -285,6 +285,37 @@ router.get('/recent', async (req, res) => {
 // =====================================================
 
 /**
+ * GET /api/v2/customers/by-phone/:phone
+ * Lookup customer by phone number. Returns global_id + pancake_data for cross-page mapping.
+ */
+router.get('/by-phone/:phone', async (req, res) => {
+    try {
+        const db = req.app.locals.chatDb;
+        const phone = (req.params.phone || '').replace(/\D/g, '');
+        if (!phone) return res.status(400).json({ error: 'phone required' });
+
+        const result = await db.query(
+            `SELECT id, phone, name, global_id, fb_id, pancake_data FROM customers WHERE phone = $1`,
+            [phone]
+        );
+
+        if (result.rows.length === 0) {
+            return res.json({ success: true, data: null });
+        }
+        const c = result.rows[0];
+        res.json({
+            success: true,
+            global_id: c.global_id,
+            fb_id: c.fb_id,
+            pancake_data: c.pancake_data,
+            name: c.name,
+        });
+    } catch (error) {
+        handleError(res, error, 'Failed to lookup customer by phone');
+    }
+});
+
+/**
  * GET /api/v2/customers/by-fb-id/:fbId
  * Lookup customer by Pancake fb_id (Facebook User ID)
  */
