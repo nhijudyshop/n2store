@@ -605,7 +605,6 @@ class TposRealtimeClient {
 
         // Last activity tracking
         this.lastPingTime = null;
-        this.lastPongTime = null;
 
         // TPOS specific data
         this.token = null;
@@ -714,19 +713,17 @@ class TposRealtimeClient {
     handleMessage(data) {
         // Socket.IO protocol messages
         if (data === '2') {
-            // Ping from server, respond with pong immediately
+            // Ping from TPOS server, respond with pong immediately
             if (this.ws && this.ws.readyState === WebSocket.OPEN) {
                 this.ws.send('3');
             }
-            this.lastPongTime = Date.now();
-            // console.log('[TPOS-WS] 🏓 Received ping, sent pong'); // Uncomment for verbose logging
+            this.lastPingTime = Date.now();
             return;
         }
 
         if (data === '3') {
-            // Pong response from server (for our ping)
-            this.lastPongTime = Date.now();
-            // console.log('[TPOS-WS] 🏓 Received pong from server'); // Uncomment for verbose logging
+            // Pong response (not expected since we don't send pings, but handle gracefully)
+            this.lastPingTime = Date.now();
             return;
         }
 
@@ -842,29 +839,25 @@ class TposRealtimeClient {
     startHeartbeat() {
         this.stopHeartbeat();
 
-        // Use interval slightly less than server's pingInterval to ensure we respond in time
-        // Server sends ping every pingInterval, expects pong within pingTimeout
-        // We send our own ping at 80% of pingInterval to stay ahead
-        const heartbeatMs = Math.floor(this.pingInterval * 0.8);
+        // Engine.IO protocol: SERVER sends ping ('2'), CLIENT responds pong ('3').
+        // We must NOT send '2' to the server — that causes TPOS to close the connection.
+        // Instead, monitor that we receive pings from TPOS at the expected interval.
+        // If no ping received within (pingInterval + pingTimeout), connection is dead.
+        const checkMs = this.pingInterval + this.pingTimeout;
 
-        console.log(`[TPOS-WS] ❤️ Starting heartbeat every ${heartbeatMs}ms`);
+        console.log(`[TPOS-WS] ❤️ Starting heartbeat monitor (expect ping every ${this.pingInterval}ms, timeout ${checkMs}ms)`);
 
         this.heartbeatInterval = setInterval(() => {
             if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-                // Check if we received pong recently
-                const timeSinceLastPong = Date.now() - (this.lastPongTime || 0);
-                if (this.lastPongTime && timeSinceLastPong > this.pingTimeout) {
-                    console.error(`[TPOS-WS] ⚠️ No pong received for ${timeSinceLastPong}ms (timeout: ${this.pingTimeout}ms)`);
+                const timeSinceLastPing = Date.now() - (this.lastPingTime || Date.now());
+                if (this.lastPingTime && timeSinceLastPing > checkMs) {
+                    console.error(`[TPOS-WS] ⚠️ No ping from TPOS for ${timeSinceLastPing}ms (timeout: ${checkMs}ms)`);
                     console.log('[TPOS-WS] Connection appears dead, forcing reconnect...');
                     this.ws.close();
                     return;
                 }
-
-                this.ws.send('2'); // Ping
-                this.lastPingTime = Date.now();
-                // console.log('[TPOS-WS] 💓 Ping sent'); // Uncomment for verbose logging
             }
-        }, heartbeatMs);
+        }, checkMs);
     }
 
     stopHeartbeat() {
@@ -894,8 +887,7 @@ class TposRealtimeClient {
             reconnectAttempts: this.reconnectAttempts,
             pingInterval: this.pingInterval,
             pingTimeout: this.pingTimeout,
-            lastPingTime: this.lastPingTime,
-            lastPongTime: this.lastPongTime
+            lastPingFromTPOS: this.lastPingTime
         };
     }
 }
