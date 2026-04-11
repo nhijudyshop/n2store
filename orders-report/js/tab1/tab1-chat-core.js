@@ -1006,8 +1006,8 @@ function _syncPancakeCustomerToDB(messagesResult, pageId) {
             reports_by_phone: messagesResult.reports_by_phone || null,
         };
 
-        const workerUrl = 'https://chatomni-proxy.nhijudyshop.workers.dev';
-        fetch(`${workerUrl}/api/v2/customers/sync-pancake`, {
+        const renderUrl = 'https://n2store-fallback.onrender.com';
+        fetch(`${renderUrl}/api/v2/customers/sync-pancake`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(body),

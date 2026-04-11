@@ -247,7 +247,6 @@ class PancakeDataManager {
                     if (data.conversations) {
                         allConvs.push(...data.conversations);
                         const convs = data.conversations;
-                        try { window.GlobalIdHarvester?.fromConversations(pageId, convs); } catch (_) {}
                         if (convs.length > 0) {
                             this._lastConvId[pageId] = convs[convs.length - 1].id;
                         }
@@ -295,7 +294,6 @@ class PancakeDataManager {
             if (convs.length > 0) {
                 this._lastConvId[pageId] = convs[convs.length - 1].id;
             }
-            try { window.GlobalIdHarvester?.fromConversations(pageId, convs); } catch (_) {}
             // Update maps
             for (const conv of convs) {
                 const psid = conv.from?.id;
