@@ -318,6 +318,11 @@ const fbGlobalIdCacheRoutes = require('./routes/fb-global-id-cache');
 fbGlobalIdCacheRoutes.init(chatDbPool);
 app.use('/api/fb-global-id', fbGlobalIdCacheRoutes);
 
+// Pancake Accounts — store JWT accounts in PostgreSQL
+const pancakeAccountsRoutes = require('./routes/pancake-accounts');
+pancakeAccountsRoutes.init(chatDbPool);
+app.use('/api/pancake-accounts', pancakeAccountsRoutes);
+
 // Pancake Account Pages Cache — share account → pages list across all clients
 const pancakeAccountPagesRoutes = require('./routes/pancake-account-pages');
 pancakeAccountPagesRoutes.init(chatDbPool);

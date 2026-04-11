@@ -63,6 +63,7 @@ export const ROUTES = {
     REALTIME: { pattern: '/api/realtime/*' },
     CHAT: { pattern: '/api/chat/*' },
     CUSTOMERS: { pattern: '/api/customers/*' },
+    PANCAKE_ACCOUNTS: { pattern: '/api/pancake-accounts/*' },
 
     // Invoice Status (PostgreSQL - replaces Firestore)
     INVOICE_STATUS: { pattern: '/api/invoice-status/*' },
@@ -139,6 +140,7 @@ export function matchRoute(pathname) {
     if (pathname.startsWith('/api/realtime/')) return 'REALTIME';
     if (pathname.startsWith('/api/chat/')) return 'CHAT';
     if (pathname.startsWith('/api/customers/') || pathname === '/api/customers') return 'CUSTOMERS';
+    if (pathname.startsWith('/api/pancake-accounts/') || pathname === '/api/pancake-accounts') return 'PANCAKE_ACCOUNTS';
 
     // Customer 360 v2 routes (match FIRST before v1)
     if (pathname.startsWith('/api/v2/customers/') || pathname === '/api/v2/customers') return 'CUSTOMERS_V2';

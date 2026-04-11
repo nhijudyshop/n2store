@@ -160,6 +160,8 @@ export default {
                     return handleChatProxy(request, url, pathname);
                 case 'CUSTOMERS':
                     return handleCustomersProxy(request, url, pathname);
+                case 'PANCAKE_ACCOUNTS':
+                    return handleCustomer360Proxy(request, url, pathname);
 
                 // Customer 360 v2 (unified API)
                 case 'CUSTOMERS_V2':

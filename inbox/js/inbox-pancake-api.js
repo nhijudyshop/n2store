@@ -457,9 +457,30 @@ class InboxTokenManager {
             try {
                 localStorage.setItem(this.LS_KEYS.ALL_ACCOUNTS, JSON.stringify(this.accounts));
             } catch (e) {}
+
+            // Sync accounts to Render DB (fire-and-forget)
+            this._syncAccountsToRenderDB();
         } catch (e) {
             console.error('[INBOX-TOKEN] Load accounts error:', e);
         }
+    }
+
+    _syncAccountsToRenderDB() {
+        try {
+            if (!this.accounts || Object.keys(this.accounts).length === 0) return;
+            const workerUrl = typeof InboxApiConfig !== 'undefined'
+                ? InboxApiConfig.WORKER_URL
+                : 'https://chatomni-proxy.nhijudyshop.workers.dev';
+            fetch(`${workerUrl}/api/pancake-accounts/sync`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ accounts: this.accounts }),
+            }).then(r => r.json()).then(data => {
+                if (data.upserted > 0) console.log(`[INBOX-TOKEN] Synced ${data.upserted} accounts to Render DB`);
+            }).catch(e => {
+                console.warn('[INBOX-TOKEN] Render DB sync failed:', e.message);
+            });
+        } catch (e) {}
     }
 
     async _getFirestoreToken() {
