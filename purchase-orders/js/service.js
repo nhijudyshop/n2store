@@ -463,7 +463,7 @@ class PurchaseOrderService {
 
             allOrdersSnapshot.docs.forEach(doc => {
                 const data = doc.data();
-                if (data.status !== 'CANCELLED') {
+                if (data.status !== 'CANCELLED' && data.status !== 'DELETED') {
                     totalOrders++;
                     totalValue += data.finalAmount || 0;
 
@@ -476,7 +476,7 @@ class PurchaseOrderService {
 
             todayOrdersSnapshot.docs.forEach(doc => {
                 const data = doc.data();
-                if (data.status !== 'CANCELLED') {
+                if (data.status !== 'CANCELLED' && data.status !== 'DELETED') {
                     todayOrders++;
                     todayValue += data.finalAmount || 0;
                 }
@@ -690,13 +690,14 @@ class PurchaseOrderService {
     // ========================================
 
     /**
-     * Delete order
+     * Soft delete order — moves to trash (status = DELETED)
      * @param {string} orderId - Document ID
      * @returns {Promise<void>}
      */
     async deleteOrder(orderId) {
         await this.initialize();
 
+        const config = window.PurchaseOrderConfig;
         const validation = window.PurchaseOrderValidation;
 
         try {
@@ -715,13 +716,149 @@ class PurchaseOrderService {
                 throw new validation.ServiceException('DELETE_FORBIDDEN', deleteCheck.error);
             }
 
-            await docRef.delete();
+            const userSnapshot = this.getUserSnapshot();
 
-            console.log('[PurchaseOrderService] Order deleted:', orderId);
+            // Soft delete: set status to DELETED, save previous status for restore
+            await docRef.update({
+                status: config.OrderStatus.DELETED,
+                deletedAt: firebase.firestore.Timestamp.now(),
+                previousStatus: currentData.status,
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                lastModifiedBy: userSnapshot,
+                statusHistory: firebase.firestore.FieldValue.arrayUnion({
+                    from: currentData.status,
+                    to: config.OrderStatus.DELETED,
+                    changedAt: firebase.firestore.Timestamp.now(),
+                    changedBy: userSnapshot
+                })
+            });
+
+            console.log('[PurchaseOrderService] Order soft-deleted:', orderId);
         } catch (error) {
             if (error instanceof validation.ServiceException) throw error;
             console.error('[PurchaseOrderService] Delete failed:', error);
             throw new validation.ServiceException('DELETE_FAILED', 'Không thể xóa đơn hàng. Vui lòng thử lại.');
+        }
+    }
+
+    /**
+     * Restore order from trash — reverts to previous status
+     * @param {string} orderId - Document ID
+     * @returns {Promise<void>}
+     */
+    async restoreOrder(orderId) {
+        await this.initialize();
+
+        const config = window.PurchaseOrderConfig;
+        const validation = window.PurchaseOrderValidation;
+
+        try {
+            const docRef = this.db.collection(this.COLLECTION).doc(orderId);
+            const docSnap = await docRef.get();
+
+            if (!docSnap.exists) {
+                throw new validation.ServiceException('NOT_FOUND', 'Đơn hàng không tồn tại.');
+            }
+
+            const currentData = docSnap.data();
+
+            if (currentData.status !== config.OrderStatus.DELETED) {
+                throw new validation.ServiceException('RESTORE_FORBIDDEN', 'Đơn hàng không nằm trong thùng rác.');
+            }
+
+            const restoreStatus = currentData.previousStatus || config.OrderStatus.DRAFT;
+            const userSnapshot = this.getUserSnapshot();
+
+            await docRef.update({
+                status: restoreStatus,
+                deletedAt: firebase.firestore.FieldValue.delete(),
+                previousStatus: firebase.firestore.FieldValue.delete(),
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                lastModifiedBy: userSnapshot,
+                statusHistory: firebase.firestore.FieldValue.arrayUnion({
+                    from: config.OrderStatus.DELETED,
+                    to: restoreStatus,
+                    changedAt: firebase.firestore.Timestamp.now(),
+                    changedBy: userSnapshot,
+                    reason: 'Khôi phục từ thùng rác'
+                })
+            });
+
+            console.log('[PurchaseOrderService] Order restored:', orderId, '->', restoreStatus);
+        } catch (error) {
+            if (error instanceof validation.ServiceException) throw error;
+            console.error('[PurchaseOrderService] Restore failed:', error);
+            throw new validation.ServiceException('RESTORE_FAILED', 'Không thể khôi phục đơn hàng. Vui lòng thử lại.');
+        }
+    }
+
+    /**
+     * Permanently delete order from Firestore
+     * @param {string} orderId - Document ID
+     * @returns {Promise<void>}
+     */
+    async permanentDeleteOrder(orderId) {
+        await this.initialize();
+
+        const config = window.PurchaseOrderConfig;
+        const validation = window.PurchaseOrderValidation;
+
+        try {
+            const docRef = this.db.collection(this.COLLECTION).doc(orderId);
+            const docSnap = await docRef.get();
+
+            if (!docSnap.exists) {
+                throw new validation.ServiceException('NOT_FOUND', 'Đơn hàng không tồn tại.');
+            }
+
+            const currentData = docSnap.data();
+
+            if (currentData.status !== config.OrderStatus.DELETED) {
+                throw new validation.ServiceException('DELETE_FORBIDDEN', 'Chỉ có thể xóa vĩnh viễn đơn hàng trong thùng rác.');
+            }
+
+            await docRef.delete();
+
+            console.log('[PurchaseOrderService] Order permanently deleted:', orderId);
+        } catch (error) {
+            if (error instanceof validation.ServiceException) throw error;
+            console.error('[PurchaseOrderService] Permanent delete failed:', error);
+            throw new validation.ServiceException('DELETE_FAILED', 'Không thể xóa vĩnh viễn đơn hàng. Vui lòng thử lại.');
+        }
+    }
+
+    /**
+     * Auto-cleanup: permanently delete orders in trash older than retention period
+     * @returns {Promise<number>} Number of orders deleted
+     */
+    async cleanupTrash() {
+        await this.initialize();
+
+        const config = window.PurchaseOrderConfig;
+
+        try {
+            const cutoffDate = new Date();
+            cutoffDate.setDate(cutoffDate.getDate() - config.TRASH_RETENTION_DAYS);
+            const cutoffTimestamp = firebase.firestore.Timestamp.fromDate(cutoffDate);
+
+            const snapshot = await this.db.collection(this.COLLECTION)
+                .where('status', '==', config.OrderStatus.DELETED)
+                .where('deletedAt', '<=', cutoffTimestamp)
+                .get();
+
+            if (snapshot.empty) return 0;
+
+            let deletedCount = 0;
+            for (const doc of snapshot.docs) {
+                await doc.ref.delete();
+                deletedCount++;
+            }
+
+            console.log(`[PurchaseOrderService] Trash cleanup: permanently deleted ${deletedCount} orders`);
+            return deletedCount;
+        } catch (error) {
+            console.error('[PurchaseOrderService] Trash cleanup failed:', error);
+            return 0;
         }
     }
 

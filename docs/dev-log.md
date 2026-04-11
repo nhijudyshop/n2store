@@ -8,6 +8,13 @@
 
 ## 2026-04-11
 
+### [orders] Purchase Orders — Thùng rác (Trash tab) ✅
+| | |
+|---|---|
+| **Files** | `purchase-orders/js/config.js`, `service.js`, `data-manager.js`, `main.js`, `table-renderer.js`, `ui-components.js`, `css/tabs.css` |
+| **Feature** | Thêm tab Thùng rác. Xóa đơn hàng → soft delete (status=DELETED, lưu previousStatus + deletedAt). Tab thùng rác hiển thị đơn đã xóa với nút Khôi phục + Xóa vĩnh viễn. Auto-cleanup đơn quá 7 ngày khi mở tab. Hỗ trợ bulk restore/permanent delete. |
+| **Status** | ✅ Done |
+
 ### [kho] Kho Đi Chợ full CRUD rebuild ✅
 | | |
 |---|---|

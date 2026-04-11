@@ -149,6 +149,27 @@
     margin-left: auto;
 }
 
+/* Trash tab */
+.tab-btn--trash {
+    margin-left: auto;
+    opacity: 0.7;
+}
+
+.tab-btn--trash:hover,
+.tab-btn--trash.active {
+    opacity: 1;
+}
+
+.tab-badge--trash {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.tab-btn--trash.active .tab-badge--trash {
+    background: #fecaca;
+    color: #991b1b;
+}
+
 /* Mobile responsive */
 @media (max-width: 768px) {
     .tabs-nav {

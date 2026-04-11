@@ -620,6 +620,192 @@ class PurchaseOrderTableRenderer {
     }
 
     // ========================================
+    // TRASH TABLE RENDER
+    // ========================================
+
+    /**
+     * Render trash table with restore/permanent-delete actions
+     * @param {Array} orders - Deleted orders
+     * @param {Set} selectedIds - Selected order IDs
+     */
+    renderTrash(orders, selectedIds = new Set()) {
+        if (!this.container) return;
+
+        if (!orders || orders.length === 0) {
+            this.renderTrashEmpty();
+            return;
+        }
+
+        const config = window.PurchaseOrderConfig;
+        const selectedCount = selectedIds.size;
+
+        const bulkToolbar = selectedCount > 0 ? `
+            <div class="bulk-action-toolbar">
+                <div class="bulk-action-toolbar__info">
+                    <span class="bulk-action-toolbar__count">${selectedCount}</span>
+                    <span>đơn hàng đã chọn</span>
+                </div>
+                <div class="bulk-action-toolbar__actions">
+                    <button class="btn btn-outline btn-sm" data-trash-bulk="restore">
+                        <i data-lucide="rotate-ccw"></i>
+                        <span>Khôi phục ${selectedCount} đơn</span>
+                    </button>
+                    <button class="btn btn-outline btn-sm btn-danger" data-trash-bulk="permanent-delete">
+                        <i data-lucide="trash-2"></i>
+                        <span>Xóa vĩnh viễn ${selectedCount} đơn</span>
+                    </button>
+                    <button class="btn btn-ghost btn-sm" data-bulk-action="clear">
+                        <i data-lucide="x"></i>
+                        <span>Bỏ chọn</span>
+                    </button>
+                </div>
+            </div>
+        ` : '';
+
+        const allSelected = orders.length > 0 && orders.every(o => selectedIds.has(o.id));
+
+        const tableHTML = `
+            ${bulkToolbar}
+            <div class="table-wrapper">
+                <table class="po-table po-table--trash">
+                    <thead>
+                        <tr>
+                            <th class="col-date">Ngày xóa</th>
+                            <th class="col-supplier">Nhà cung cấp</th>
+                            <th class="col-code">Mã đơn</th>
+                            <th class="col-status">Trạng thái cũ</th>
+                            <th class="col-invoice">Giá trị</th>
+                            <th class="col-qty">SP</th>
+                            <th class="col-notes">Tự xóa sau</th>
+                            <th class="col-actions">
+                                <div class="col-actions__header">
+                                    <span>Thao tác</span>
+                                    <label class="checkbox-wrapper checkbox-wrapper--header" title="Chọn tất cả">
+                                        <input type="checkbox" class="select-all-checkbox" ${allSelected ? 'checked' : ''}>
+                                        <span class="checkmark"></span>
+                                    </label>
+                                </div>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${orders.map(order => this.renderTrashRow(order, selectedIds)).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+        this.container.innerHTML = tableHTML;
+
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+
+        this.bindEvents();
+    }
+
+    /**
+     * Render a single trash row
+     * @param {Object} order
+     * @param {Set} selectedIds
+     * @returns {string} HTML
+     */
+    renderTrashRow(order, selectedIds) {
+        const config = window.PurchaseOrderConfig;
+        const isSelected = selectedIds.has(order.id);
+        const previousStatus = order.previousStatus || 'DRAFT';
+        const previousLabel = config.STATUS_LABELS[previousStatus] || previousStatus;
+        const previousColors = config.STATUS_COLORS[previousStatus] || config.STATUS_COLORS[config.OrderStatus.DRAFT];
+
+        // Calculate days remaining before auto-delete
+        const deletedAt = order.deletedAt?.toDate ? order.deletedAt.toDate() : (order.deletedAt ? new Date(order.deletedAt) : new Date());
+        const expiryDate = new Date(deletedAt.getTime() + config.TRASH_RETENTION_DAYS * 24 * 60 * 60 * 1000);
+        const now = new Date();
+        const daysRemaining = Math.max(0, Math.ceil((expiryDate - now) / (24 * 60 * 60 * 1000)));
+
+        const itemCount = (order.items || []).length;
+        const totalQty = (order.items || []).reduce((sum, i) => sum + (i.quantity || 0), 0);
+
+        return `
+            <tr class="order-row order-row--first ${isSelected ? 'selected' : ''}" data-order-id="${order.id}">
+                <td class="col-date">
+                    <div class="cell-date">
+                        <i data-lucide="clock" class="cell-icon" style="color:#dc2626;"></i>
+                        <div class="date-info">
+                            <div class="date-main">${this.formatDateFull(deletedAt)}</div>
+                            <div class="date-time">${this.formatTimeOnly(deletedAt)}</div>
+                        </div>
+                    </div>
+                </td>
+                <td class="col-supplier">
+                    <div class="cell-supplier">
+                        <div class="supplier-name">${order.supplier?.name || 'Chưa cập nhật'}</div>
+                    </div>
+                </td>
+                <td class="col-code">
+                    <span class="product-code">${order.orderNumber || '-'}</span>
+                </td>
+                <td class="col-status">
+                    <span class="status-badge" style="background:${previousColors.bg};color:${previousColors.text};border:1px solid ${previousColors.border};">
+                        ${previousLabel}
+                    </span>
+                </td>
+                <td class="col-invoice">
+                    <span>${config.formatVND(order.finalAmount || 0)}</span>
+                </td>
+                <td class="col-qty">
+                    <span>${itemCount} SP (${totalQty})</span>
+                </td>
+                <td class="col-notes">
+                    <span style="color:${daysRemaining <= 1 ? '#dc2626' : '#d97706'}; font-weight:600;">
+                        ${daysRemaining} ngày
+                    </span>
+                </td>
+                <td class="col-actions">
+                    <div class="action-buttons">
+                        <button class="btn-icon btn-sm" title="Khôi phục"
+                                data-trash-action="restore" data-order-id="${order.id}">
+                            <i data-lucide="rotate-ccw" class="text-green"></i>
+                        </button>
+                        <button class="btn-icon btn-sm btn-danger" title="Xóa vĩnh viễn"
+                                data-trash-action="permanent-delete" data-order-id="${order.id}">
+                            <i data-lucide="trash-2"></i>
+                        </button>
+                        <label class="checkbox-wrapper" title="Chọn đơn hàng">
+                            <input type="checkbox" class="order-checkbox"
+                                   data-order-id="${order.id}" ${isSelected ? 'checked' : ''}>
+                            <span class="checkmark"></span>
+                        </label>
+                    </div>
+                </td>
+            </tr>
+        `;
+    }
+
+    /**
+     * Render trash empty state
+     */
+    renderTrashEmpty() {
+        if (!this.container) return;
+
+        this.container.innerHTML = `
+            <div class="table-empty">
+                <div class="table-empty__icon">
+                    <i data-lucide="trash-2"></i>
+                </div>
+                <div class="table-empty__title">Thùng rác trống</div>
+                <div class="table-empty__description">
+                    Không có đơn hàng nào trong thùng rác
+                </div>
+            </div>
+        `;
+
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+    }
+
+    // ========================================
     // EMPTY & LOADING STATES
     // ========================================
 

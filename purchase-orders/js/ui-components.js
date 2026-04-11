@@ -142,14 +142,16 @@ class PurchaseOrderUIComponents {
             const count = counts[tab.status] || 0;
             const isActive = activeTab === tab.status;
             const badgeHtml = tab.isSpecial ? '' : `<span class="tab-badge">${count}</span>`;
+            // Trash tab: show count only if > 0
+            const trashBadge = tab.isTrash && count > 0 ? `<span class="tab-badge tab-badge--trash">${count}</span>` : '';
 
             return `
-                <button class="tab-btn ${isActive ? 'active' : ''}"
+                <button class="tab-btn ${isActive ? 'active' : ''} ${tab.isTrash ? 'tab-btn--trash' : ''}"
                         data-tab="${tab.id}"
                         data-status="${tab.status}">
                     <i data-lucide="${tab.icon}"></i>
                     <span>${tab.label}</span>
-                    ${badgeHtml}
+                    ${tab.isTrash ? trashBadge : badgeHtml}
                 </button>
             `;
         }).join('');

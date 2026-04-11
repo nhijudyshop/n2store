@@ -212,6 +212,10 @@ class PurchaseOrderController {
         this.unsubscribers.push(
             this.dataManager.on('ordersChange', (orders) => {
                 if (this.currentTab === 'HISTORY' || this.currentTab === 'NOTES') return;
+                if (this.currentTab === this.config.OrderStatus.DELETED) {
+                    this.renderTrashTable(orders);
+                    return;
+                }
                 this.renderTable(orders);
             })
         );
@@ -320,6 +324,10 @@ class PurchaseOrderController {
             if (window.PurchaseOrderNotes) {
                 window.PurchaseOrderNotes.init();
             }
+        } else if (this.currentTab === this.config.OrderStatus.DELETED) {
+            // Trash tab: cleanup expired items, then load
+            await this.dataManager.cleanupTrash();
+            await this.dataManager.loadOrders(this.currentTab, true);
         } else {
             // Firestore tabs: load orders + filter bar
             await this.dataManager.loadOrders(this.currentTab, true);
@@ -423,9 +431,21 @@ class PurchaseOrderController {
         if (this.dataManager.error) return;
 
         if (!orders || orders.length === 0) {
-            this.ui.renderEmptyState(this.elements.tableContainer, () => {
-                this.handleCreateOrder();
-            });
+            if (this.currentTab === this.config.OrderStatus.DELETED) {
+                // Trash empty state — no create button
+                this.elements.tableContainer.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state__icon"><i data-lucide="trash-2"></i></div>
+                        <div class="empty-state__title">Thùng rác trống</div>
+                        <div class="empty-state__description">Không có đơn hàng nào trong thùng rác</div>
+                    </div>
+                `;
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            } else {
+                this.ui.renderEmptyState(this.elements.tableContainer, () => {
+                    this.handleCreateOrder();
+                });
+            }
             // Clear pagination
             if (this.elements.paginationContainer) {
                 this.elements.paginationContainer.innerHTML = '';
@@ -449,7 +469,12 @@ class PurchaseOrderController {
      */
     renderTableForCurrentPage() {
         const pageOrders = this.dataManager.getCurrentPageOrders();
-        this.tableRenderer.render(pageOrders, this.dataManager.selectedIds);
+        if (this.currentTab === this.config.OrderStatus.DELETED) {
+            this.tableRenderer.renderTrash(pageOrders, this.dataManager.selectedIds);
+            this.bindTrashActions();
+        } else {
+            this.tableRenderer.render(pageOrders, this.dataManager.selectedIds);
+        }
     }
 
     /**
@@ -543,6 +568,19 @@ class PurchaseOrderController {
             this.dataManager.clearSelection();
             if (window.PurchaseOrderNotes) {
                 window.PurchaseOrderNotes.init();
+            }
+            return;
+        }
+
+        if (status === this.config.OrderStatus.DELETED) {
+            // Trash tab: auto-cleanup expired items first, then load
+            this.dataManager.clearSelection();
+            this.dataManager.cleanupTrash().then(() => {
+                this.dataManager.loadOrders(status, true);
+            });
+            // Hide filter bar for trash tab
+            if (this.elements.filterContainer) {
+                this.elements.filterContainer.innerHTML = '';
             }
             return;
         }
@@ -2066,7 +2104,7 @@ class PurchaseOrderController {
 
         const confirmed = await this.ui.showConfirmDialog({
             title: 'Xóa đơn hàng',
-            message: `Bạn có chắc muốn xóa đơn hàng ${order.orderNumber}? Hành động này không thể hoàn tác.`,
+            message: `Bạn có chắc muốn xóa đơn hàng ${order.orderNumber}? Đơn sẽ vào thùng rác và tự xóa vĩnh viễn sau 7 ngày.`,
             confirmText: 'Xóa',
             type: 'danger'
         });
@@ -2075,7 +2113,7 @@ class PurchaseOrderController {
 
         try {
             await this.dataManager.deleteOrder(orderId);
-            this.ui.showToast('Xóa đơn hàng thành công!', 'success');
+            this.ui.showToast('Đã chuyển đơn hàng vào thùng rác', 'success');
         } catch (error) {
             this.ui.showToast(error.userMessage || 'Không thể xóa đơn hàng', 'error');
         }
@@ -2151,7 +2189,7 @@ class PurchaseOrderController {
 
         const confirmed = await this.ui.showConfirmDialog({
             title: 'Xóa nhiều đơn hàng',
-            message: `Bạn có chắc muốn xóa ${selectedIds.length} đơn hàng? Hành động này không thể hoàn tác.`,
+            message: `Bạn có chắc muốn xóa ${selectedIds.length} đơn hàng? Đơn sẽ vào thùng rác và tự xóa vĩnh viễn sau 7 ngày.`,
             confirmText: `Xóa ${selectedIds.length} đơn`,
             type: 'danger'
         });
@@ -2175,13 +2213,175 @@ class PurchaseOrderController {
             this.dataManager.clearSelection();
 
             if (skippedCount > 0) {
-                this.ui.showToast(`Đã xóa ${deletedCount} đơn, bỏ qua ${skippedCount} đơn không thể xóa`, 'warning');
+                this.ui.showToast(`Đã chuyển ${deletedCount} đơn vào thùng rác, bỏ qua ${skippedCount} đơn không thể xóa`, 'warning');
             } else {
-                this.ui.showToast(`Đã xóa ${deletedCount} đơn hàng`, 'success');
+                this.ui.showToast(`Đã chuyển ${deletedCount} đơn hàng vào thùng rác`, 'success');
             }
         } catch (error) {
             console.error('Bulk delete failed:', error);
             this.ui.showToast('Không thể xóa đơn hàng', 'error');
+        }
+    }
+
+    // ========================================
+    // TRASH TAB HANDLERS
+    // ========================================
+
+    /**
+     * Render trash table with restore/permanent-delete actions
+     * @param {Array} orders
+     */
+    renderTrashTable(orders) {
+        if (this.dataManager.error) return;
+
+        if (!orders || orders.length === 0) {
+            this.elements.tableContainer.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-state__icon"><i data-lucide="trash-2"></i></div>
+                    <div class="empty-state__title">Thùng rác trống</div>
+                    <div class="empty-state__description">Không có đơn hàng nào trong thùng rác</div>
+                </div>
+            `;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            if (this.elements.paginationContainer) {
+                this.elements.paginationContainer.innerHTML = '';
+            }
+            return;
+        }
+
+        this.tableRenderer.renderTrash(orders, this.dataManager.selectedIds);
+
+        // Bind trash-specific action handlers
+        this.bindTrashActions();
+
+        // Render pagination
+        this.renderPagination({
+            currentPage: this.dataManager.currentPage,
+            totalItems: orders.length,
+            pageSize: this.config.PAGINATION_CONFIG.pageSize
+        });
+    }
+
+    /**
+     * Bind trash action event handlers
+     */
+    bindTrashActions() {
+        if (!this.elements.tableContainer) return;
+
+        // Restore button
+        this.elements.tableContainer.addEventListener('click', async (e) => {
+            const restoreBtn = e.target.closest('[data-trash-action="restore"]');
+            if (restoreBtn) {
+                const orderId = restoreBtn.dataset.orderId;
+                await this.handleRestoreOrder(orderId);
+                return;
+            }
+
+            const permanentDeleteBtn = e.target.closest('[data-trash-action="permanent-delete"]');
+            if (permanentDeleteBtn) {
+                const orderId = permanentDeleteBtn.dataset.orderId;
+                await this.handlePermanentDeleteOrder(orderId);
+                return;
+            }
+
+            const bulkRestoreBtn = e.target.closest('[data-trash-bulk="restore"]');
+            if (bulkRestoreBtn) {
+                await this.handleBulkRestore();
+                return;
+            }
+
+            const bulkPermanentDeleteBtn = e.target.closest('[data-trash-bulk="permanent-delete"]');
+            if (bulkPermanentDeleteBtn) {
+                await this.handleBulkPermanentDelete();
+                return;
+            }
+        });
+    }
+
+    /**
+     * Handle restore order from trash
+     * @param {string} orderId
+     */
+    async handleRestoreOrder(orderId) {
+        try {
+            await this.dataManager.restoreOrder(orderId);
+            this.ui.showToast('Đã khôi phục đơn hàng', 'success');
+        } catch (error) {
+            this.ui.showToast(error.userMessage || 'Không thể khôi phục đơn hàng', 'error');
+        }
+    }
+
+    /**
+     * Handle permanent delete order
+     * @param {string} orderId
+     */
+    async handlePermanentDeleteOrder(orderId) {
+        const order = await this.dataManager.getOrder(orderId);
+        const orderNumber = order?.orderNumber || orderId;
+
+        const confirmed = await this.ui.showConfirmDialog({
+            title: 'Xóa vĩnh viễn',
+            message: `Bạn có chắc muốn xóa vĩnh viễn đơn hàng ${orderNumber}? Hành động này không thể hoàn tác.`,
+            confirmText: 'Xóa vĩnh viễn',
+            type: 'danger'
+        });
+
+        if (!confirmed) return;
+
+        try {
+            await this.dataManager.permanentDeleteOrder(orderId);
+            this.ui.showToast('Đã xóa vĩnh viễn đơn hàng', 'success');
+        } catch (error) {
+            this.ui.showToast(error.userMessage || 'Không thể xóa vĩnh viễn đơn hàng', 'error');
+        }
+    }
+
+    /**
+     * Handle bulk restore from trash
+     */
+    async handleBulkRestore() {
+        const selectedIds = Array.from(this.dataManager.selectedIds);
+        if (selectedIds.length === 0) return;
+
+        try {
+            let restoredCount = 0;
+            for (const orderId of selectedIds) {
+                await this.dataManager.restoreOrder(orderId);
+                restoredCount++;
+            }
+            this.dataManager.clearSelection();
+            this.ui.showToast(`Đã khôi phục ${restoredCount} đơn hàng`, 'success');
+        } catch (error) {
+            this.ui.showToast(error.userMessage || 'Không thể khôi phục đơn hàng', 'error');
+        }
+    }
+
+    /**
+     * Handle bulk permanent delete
+     */
+    async handleBulkPermanentDelete() {
+        const selectedIds = Array.from(this.dataManager.selectedIds);
+        if (selectedIds.length === 0) return;
+
+        const confirmed = await this.ui.showConfirmDialog({
+            title: 'Xóa vĩnh viễn nhiều đơn',
+            message: `Bạn có chắc muốn xóa vĩnh viễn ${selectedIds.length} đơn hàng? Hành động này không thể hoàn tác.`,
+            confirmText: `Xóa vĩnh viễn ${selectedIds.length} đơn`,
+            type: 'danger'
+        });
+
+        if (!confirmed) return;
+
+        try {
+            let deletedCount = 0;
+            for (const orderId of selectedIds) {
+                await this.dataManager.permanentDeleteOrder(orderId);
+                deletedCount++;
+            }
+            this.dataManager.clearSelection();
+            this.ui.showToast(`Đã xóa vĩnh viễn ${deletedCount} đơn hàng`, 'success');
+        } catch (error) {
+            this.ui.showToast(error.userMessage || 'Không thể xóa vĩnh viễn đơn hàng', 'error');
         }
     }
 

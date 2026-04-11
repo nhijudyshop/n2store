@@ -450,6 +450,72 @@ class PurchaseOrderDataManager {
     }
 
     /**
+     * Restore order from trash
+     * @param {string} orderId
+     * @returns {Promise<void>}
+     */
+    async restoreOrder(orderId) {
+        const service = window.purchaseOrderService;
+
+        try {
+            this.setLoading(true);
+            await service.restoreOrder(orderId);
+
+            // Remove from local state
+            this.orders = this.orders.filter(o => o.id !== orderId);
+            this.emit('ordersChange', this.orders);
+
+            // Refresh counts
+            await this.loadStatusCounts();
+            await this.loadStats();
+
+            this.emit('orderRestored', orderId);
+        } catch (error) {
+            this.setError(error);
+            throw error;
+        } finally {
+            this.setLoading(false);
+        }
+    }
+
+    /**
+     * Permanently delete order
+     * @param {string} orderId
+     * @returns {Promise<void>}
+     */
+    async permanentDeleteOrder(orderId) {
+        const service = window.purchaseOrderService;
+
+        try {
+            this.setLoading(true);
+            await service.permanentDeleteOrder(orderId);
+
+            // Remove from local state
+            this.orders = this.orders.filter(o => o.id !== orderId);
+            this.emit('ordersChange', this.orders);
+
+            // Refresh counts
+            await this.loadStatusCounts();
+
+            this.emit('orderPermanentDeleted', orderId);
+        } catch (error) {
+            this.setError(error);
+            throw error;
+        } finally {
+            this.setLoading(false);
+        }
+    }
+
+    /**
+     * Auto-cleanup expired trash items
+     * @returns {Promise<number>}
+     */
+    async cleanupTrash() {
+        const service = window.purchaseOrderService;
+        return service.cleanupTrash();
+    }
+
+    /**
      * Copy order
      * @param {string} sourceOrderId
      * @returns {Promise<string>} New order ID

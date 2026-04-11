@@ -20,7 +20,8 @@ const OrderStatus = {
     AWAITING_DELIVERY: 'AWAITING_DELIVERY',
     RECEIVED: 'RECEIVED',
     COMPLETED: 'COMPLETED',
-    CANCELLED: 'CANCELLED'
+    CANCELLED: 'CANCELLED',
+    DELETED: 'DELETED'
 };
 
 // ========================================
@@ -32,7 +33,8 @@ const STATUS_LABELS = {
     [OrderStatus.AWAITING_DELIVERY]: 'Chờ hàng',
     [OrderStatus.RECEIVED]: 'Đã nhận',
     [OrderStatus.COMPLETED]: 'Hoàn thành',
-    [OrderStatus.CANCELLED]: 'Đã hủy'
+    [OrderStatus.CANCELLED]: 'Đã hủy',
+    [OrderStatus.DELETED]: 'Đã xóa'
 };
 
 // ========================================
@@ -44,7 +46,8 @@ const STATUS_COLORS = {
     [OrderStatus.AWAITING_DELIVERY]: { bg: '#fef3c7', text: '#d97706', border: '#fde68a' },
     [OrderStatus.RECEIVED]: { bg: '#d1fae5', text: '#059669', border: '#a7f3d0' },
     [OrderStatus.COMPLETED]: { bg: '#d1fae5', text: '#059669', border: '#a7f3d0' },
-    [OrderStatus.CANCELLED]: { bg: '#fee2e2', text: '#dc2626', border: '#fecaca' }
+    [OrderStatus.CANCELLED]: { bg: '#fee2e2', text: '#dc2626', border: '#fecaca' },
+    [OrderStatus.DELETED]: { bg: '#fef2f2', text: '#991b1b', border: '#fecaca' }
 };
 
 // ========================================
@@ -56,7 +59,8 @@ const ALLOWED_TRANSITIONS = {
     [OrderStatus.AWAITING_DELIVERY]: [OrderStatus.RECEIVED, OrderStatus.CANCELLED],
     [OrderStatus.RECEIVED]: [OrderStatus.COMPLETED],
     [OrderStatus.COMPLETED]: [], // Final state - no transitions
-    [OrderStatus.CANCELLED]: []  // Final state - no transitions
+    [OrderStatus.CANCELLED]: [],  // Final state - no transitions
+    [OrderStatus.DELETED]: []     // Restore handled separately, not via status transition
 };
 
 // ========================================
@@ -67,7 +71,8 @@ const TAB_CONFIG = [
     { id: 'awaiting-purchase', label: 'Chờ mua', status: OrderStatus.AWAITING_PURCHASE, icon: 'shopping-cart' },
     { id: 'awaiting-delivery', label: 'Chờ hàng', status: OrderStatus.AWAITING_DELIVERY, icon: 'truck' },
     { id: 'history', label: 'Lịch sử', status: 'HISTORY', icon: 'history', isSpecial: true },
-    { id: 'notes', label: 'Hàng bán dùm', status: 'NOTES', icon: 'sticky-note', isSpecial: true }
+    { id: 'notes', label: 'Hàng bán dùm', status: 'NOTES', icon: 'sticky-note', isSpecial: true },
+    { id: 'trash', label: 'Thùng rác', status: OrderStatus.DELETED, icon: 'trash-2', isTrash: true }
 ];
 
 // ========================================
@@ -150,6 +155,11 @@ function canEditOrder(status) {
 function canDeleteOrder(status) {
     return status === OrderStatus.DRAFT || status === OrderStatus.AWAITING_PURCHASE || status === OrderStatus.AWAITING_DELIVERY || status === OrderStatus.CANCELLED;
 }
+
+/**
+ * Trash retention period in days
+ */
+const TRASH_RETENTION_DAYS = 7;
 
 /**
  * Generate unique ID
@@ -360,6 +370,7 @@ window.PurchaseOrderConfig = {
     PAGINATION_CONFIG,
     COLLECTION_NAME,
     TposSyncStatus,
+    TRASH_RETENTION_DAYS,
 
     // Helper Functions
     canTransition,
